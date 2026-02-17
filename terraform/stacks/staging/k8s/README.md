@@ -24,7 +24,9 @@ This stack provisions a k3s Kubernetes cluster on Hetzner Cloud for the staging 
 |--------|-------------|
 | `scripts/init.sh` | Initialize Terraform |
 | `scripts/plan.sh` | Preview infrastructure changes |
-| `scripts/apply.sh` | Apply infrastructure changes |
+| `scripts/apply01.sh` | Step 1: Apply Terraform infrastructure changes |
+| `scripts/apply02.sh` | Step 2: Fetch kubeconfig, wait for node readiness, and deploy manifests |
+| `scripts/apply.sh` | Compatibility wrapper for `scripts/apply01.sh` |
 | `scripts/destroy.sh` | Destroy infrastructure |
 | `scripts/kubeconfig.sh` | Fetch kubeconfig from server |
 | `scripts/setup-ecr-secret.sh` | Create ECR pull secret for container registry |
@@ -37,21 +39,20 @@ This stack provisions a k3s Kubernetes cluster on Hetzner Cloud for the staging 
 # 1. Initialize Terraform
 ./scripts/init.sh
 
-# 2. Create the cluster
-./scripts/apply.sh
+# 2. Create the cluster infrastructure
+./scripts/apply01.sh
 
-# 3. Get kubeconfig
+# 3. Bootstrap cluster access and deploy manifests
+./scripts/apply02.sh
+
+# Optional: keep using explicit manual steps if preferred
 ./scripts/kubeconfig.sh
-export KUBECONFIG=$PWD/kubeconfig.yaml
+export KUBECONFIG=$HOME/.kube/config-staging-k8s
 
-# 4. Create namespace and secrets
-kubectl apply -f manifests/namespace.yaml
-kubectl apply -f manifests/secrets.yaml
-
-# 5. Setup ECR pull secret (for container images)
+# 4. Setup ECR pull secret (for container images)
 ./scripts/setup-ecr-secret.sh
 
-# 6. Deploy all manifests
+# 5. Deploy all manifests
 ./scripts/deploy.sh
 ```
 

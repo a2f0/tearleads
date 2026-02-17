@@ -6,8 +6,23 @@ STACK_DIR="$(dirname "$SCRIPT_DIR")"
 
 # Get outputs from Terraform
 SERVER_IP=$(terraform -chdir="$STACK_DIR" output -raw server_ip)
-SERVER_USERNAME=$(terraform -chdir="$STACK_DIR" output -raw server_username)
 K8S_HOSTNAME=$(terraform -chdir="$STACK_DIR" output -raw k8s_hostname)
+
+if SERVER_USERNAME=$(terraform -chdir="$STACK_DIR" output -raw server_username 2>/dev/null); then
+  :
+elif SERVER_USERNAME=$(terraform -chdir="$STACK_DIR" output -raw SERVER_USERNAME 2>/dev/null); then
+  :
+else
+  SSH_COMMAND=$(terraform -chdir="$STACK_DIR" output -raw ssh_command 2>/dev/null || true)
+  SERVER_USERNAME="${SSH_COMMAND#ssh }"
+  SERVER_USERNAME="${SERVER_USERNAME%@*}"
+fi
+
+if [[ -z "$SERVER_USERNAME" ]]; then
+  echo "ERROR: Could not determine server username from Terraform outputs."
+  echo "Expected one of: server_username, SERVER_USERNAME, or ssh_command."
+  exit 1
+fi
 
 KUBECONFIG_FILE="${1:-$HOME/.kube/config-staging-k8s}"
 
