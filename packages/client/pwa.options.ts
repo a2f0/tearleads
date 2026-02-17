@@ -13,7 +13,7 @@ export const pwaOptions: Partial<VitePWAOptions> = {
     scope: '/',
     icons: [
       {
-        src: '/icon.svg',
+        src: '/favicon.svg',
         sizes: 'any',
         type: 'image/svg+xml',
       },
