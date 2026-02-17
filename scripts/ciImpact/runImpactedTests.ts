@@ -288,6 +288,10 @@ function shouldRunCiImpactScriptTests(
   );
 }
 
+function shouldRunFullCoverageSet(fullRun: boolean): boolean {
+  return fullRun && process.env['CI'] === 'true';
+}
+
 function runCiImpactScriptTests(): void {
   const result = spawnSync(
     'node',
@@ -403,13 +407,14 @@ function main(): void {
     impact.changedFiles,
     fullRun
   );
+  const runFullCoverageSet = shouldRunFullCoverageSet(fullRun);
 
   const affectedSet = new Set(impact.affectedPackages);
 
   let targets: string[] = [];
   if (impact.materialFiles.length === 0) {
     targets = [];
-  } else if (fullRun) {
+  } else if (runFullCoverageSet) {
     targets = [...coveragePackages];
   } else {
     targets = coveragePackages.filter(
@@ -469,9 +474,15 @@ function main(): void {
   }
 
   if (fullRun) {
-    console.log(
-      'ci-impact: running full coverage package set due to high-risk file changes.'
-    );
+    if (runFullCoverageSet) {
+      console.log(
+        'ci-impact: running full coverage package set due to high-risk file changes.'
+      );
+    } else {
+      console.log(
+        'ci-impact: high-risk changes detected; running impacted coverage locally (full coverage is CI-only).'
+      );
+    }
   } else {
     console.log('ci-impact: running impacted coverage packages only.');
   }
