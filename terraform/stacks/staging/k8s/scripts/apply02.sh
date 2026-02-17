@@ -60,6 +60,9 @@ kubectl wait --for=condition=Ready nodes --all --timeout="$K8S_READY_TIMEOUT"
 
 check_ecr_repositories
 
+echo "Ensuring namespace exists..."
+kubectl apply -f "$STACK_DIR/manifests/namespace.yaml"
+
 echo "Refreshing ECR pull secret..."
 "$SCRIPT_DIR/setup-ecr-secret.sh"
 
