@@ -38,7 +38,7 @@ module "server" {
   EOF
 
   create_firewall = true
-  allowed_ssh_ips = var.allowed_ssh_ips
+  allowed_ssh_ips = ["0.0.0.0/0", "::/0"]
 
   firewall_rules = [
     {
