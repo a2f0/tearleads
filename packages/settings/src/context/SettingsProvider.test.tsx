@@ -111,7 +111,7 @@ describe('SettingsProvider', () => {
         </SettingsProvider>
       );
 
-      expect(screen.getByTestId('theme')).toHaveTextContent('monochrome');
+      expect(screen.getByTestId('theme')).toHaveTextContent('light');
       expect(screen.getByTestId('language')).toHaveTextContent('en');
     });
 
@@ -338,7 +338,7 @@ describe('SettingsProvider', () => {
       });
 
       // Should still use defaults
-      expect(screen.getByTestId('theme')).toHaveTextContent('monochrome');
+      expect(screen.getByTestId('theme')).toHaveTextContent('light');
 
       consoleSpy.mockRestore();
     });
