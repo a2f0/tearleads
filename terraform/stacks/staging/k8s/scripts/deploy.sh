@@ -22,10 +22,6 @@ if [[ -z "$STAGING_DOMAIN" ]]; then
   STAGING_DOMAIN="${K8S_HOSTNAME#k8s.}"
 fi
 
-if [[ "$STAGING_DOMAIN" == k8s.* ]]; then
-  STAGING_DOMAIN="${STAGING_DOMAIN#k8s.}"
-fi
-
 if [[ -z "$STAGING_DOMAIN" ]]; then
   echo "ERROR: Could not determine staging domain."
   echo "Set TF_VAR_staging_domain or ensure terraform output k8s_hostname is available."

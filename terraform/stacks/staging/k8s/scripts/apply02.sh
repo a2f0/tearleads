@@ -8,7 +8,7 @@ KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config-staging-k8s}"
 K8S_READY_TIMEOUT="${K8S_READY_TIMEOUT:-300s}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-}"
-CERT_MANAGER_MANIFEST_URL="${CERT_MANAGER_MANIFEST_URL:-https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml}"
+CERT_MANAGER_MANIFEST_URL="${CERT_MANAGER_MANIFEST_URL:-https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml}"
 ECR_REPOSITORIES=(
   "tearleads-staging/api"
   "tearleads-staging/client"
