@@ -47,6 +47,15 @@
             {% elif nginx_ci_site == 'client' %}
             root {{ client_root }};
             index index.html;
+            default_type application/octet-stream;
+            types {
+              application/javascript js mjs;
+              application/wasm wasm;
+              text/css css;
+              text/html html;
+              application/json json;
+              image/svg+xml svg;
+            }
 
             location /v1/ {
               proxy_pass http://127.0.0.1:5001/v1/;
@@ -56,8 +65,16 @@
               proxy_set_header X-Forwarded-Proto $scheme;
             }
 
+            location = /sqlite {
+              try_files /index.html =404;
+            }
+
             location /sqlite/ {
               alias {{ sqlite_assets_root }}/;
+              try_files $uri =404;
+            }
+
+            location /assets/ {
               try_files $uri =404;
             }
 
