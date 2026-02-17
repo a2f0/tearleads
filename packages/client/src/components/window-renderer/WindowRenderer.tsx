@@ -7,7 +7,6 @@ import {
 } from '@tearleads/admin';
 import { AnalyticsWindow } from '@tearleads/analytics';
 import { BackupWindow } from '@tearleads/backups';
-import { ConsoleWindow } from '@tearleads/console';
 import { KeychainWindow } from '@tearleads/keychain';
 import { NotificationCenter } from '@tearleads/notifications';
 import { SyncWindow } from '@tearleads/sync';
@@ -22,6 +21,7 @@ import { CacheStorageWindow } from '@/components/cache-storage-window';
 import { CalendarWindow } from '@/components/calendar-window';
 import { CameraWindow } from '@/components/camera-window';
 import { ClassicWindow } from '@/components/classic-window';
+import { ConsoleWindow } from '@/components/console-window';
 import { ContactsWindow } from '@/components/contacts-window';
 import { DebugWindow } from '@/components/debug-window';
 import { DocumentsWindow } from '@/components/documents-window';
