@@ -10,4 +10,7 @@ export {
   MIN_VEHICLE_YEAR,
   normalizeVehicleProfile
 } from './lib/vehicleProfile.js';
-export type { VehicleRecord, VehicleRepository } from './lib/vehicleRepository.js';
+export type {
+  VehicleRecord,
+  VehicleRepository
+} from './lib/vehicleRepository.js';

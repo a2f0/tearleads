@@ -49,13 +49,13 @@ describe('SettingsPage', () => {
       />
     );
 
-    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Settings' })
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Back to Home' })).toBeVisible();
     expect(screen.getByTestId('theme-selector-container')).toBeInTheDocument();
     expect(screen.getByTestId('feature-flags-panel')).toBeInTheDocument();
-    expect(
-      screen.getByTestId('open-source-licenses-link')
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('open-source-licenses-link')).toBeInTheDocument();
     expect(screen.getByTestId('app-version')).toHaveTextContent('v1.2.3');
   });
 

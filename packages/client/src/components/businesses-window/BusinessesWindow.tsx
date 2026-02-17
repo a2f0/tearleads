@@ -1,6 +1,6 @@
 import {
-  BusinessesManager,
-  BusinessesWindow as BaseBusinessesWindow
+  BusinessesWindow as BaseBusinessesWindow,
+  BusinessesManager
 } from '@tearleads/businesses';
 import type { WindowDimensions } from '@tearleads/window-manager';
 import { ClientBusinessesProvider } from '@/contexts/ClientBusinessesProvider';
