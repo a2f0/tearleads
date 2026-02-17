@@ -5,7 +5,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "./scripts/agents/setVscodeTitle.sh"
+						"command": "./scripts/agents/setVscodeTitle.ts"
 					}
 				]
 			}

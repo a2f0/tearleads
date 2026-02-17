@@ -1,0 +1,224 @@
+#!/usr/bin/env -S pnpm exec tsx
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+process.chdir(path.resolve(scriptDir, '..'));
+
+const requiredEnvVars = [
+  'APPLE_ID',
+  'TEAM_ID',
+  'ITC_TEAM_ID',
+  'GITHUB_REPO',
+  'APP_STORE_CONNECT_ISSUER_ID',
+  'APP_STORE_CONNECT_KEY_ID',
+  'MATCH_GIT_URL',
+  'MATCH_PASSWORD',
+  'MATCH_GIT_BASIC_AUTHORIZATION',
+  'ANDROID_KEYSTORE_STORE_PASS',
+  'ANDROID_KEYSTORE_KEY_PASS',
+  'ANTHROPIC_API_KEY',
+  'TF_VAR_staging_domain',
+  'TF_VAR_server_username',
+  'VITE_API_URL'
+] as const;
+
+const managedSecretNames = [
+  'APPLE_ID',
+  'TEAM_ID',
+  'ITC_TEAM_ID',
+  'APP_STORE_CONNECT_KEY_ID',
+  'APP_STORE_CONNECT_ISSUER_ID',
+  'APP_STORE_CONNECT_API_KEY',
+  'MATCH_GIT_URL',
+  'MATCH_PASSWORD',
+  'MATCH_GIT_BASIC_AUTHORIZATION',
+  'ANDROID_KEYSTORE_BASE64',
+  'ANDROID_KEYSTORE_STORE_PASS',
+  'ANDROID_KEYSTORE_KEY_PASS',
+  'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON',
+  'ANTHROPIC_API_KEY',
+  'DEPLOY_SSH_KEY',
+  'DEPLOY_DOMAIN',
+  'DEPLOY_USER',
+  'VITE_API_URL'
+] as const;
+
+interface SecretListItem {
+  name?: string;
+}
+
+function getRequiredEnv(name: (typeof requiredEnvVars)[number]): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Error: ${name} is not set.`);
+  }
+  return value;
+}
+
+function requireFile(filePath: string, errorMessage: string): void {
+  if (!existsSync(filePath)) {
+    throw new Error(errorMessage);
+  }
+}
+
+function runGh(args: string[]): string {
+  return execFileSync('gh', args, {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe']
+  }).trim();
+}
+
+function setSecret(
+  repo: string,
+  secretName: string,
+  secretValue: string
+): void {
+  execFileSync(
+    'gh',
+    ['secret', 'set', secretName, '-R', repo, '--body', secretValue],
+    {
+      stdio: ['ignore', 'inherit', 'inherit']
+    }
+  );
+}
+
+function listCurrentSecretNames(repo: string): string[] {
+  const raw = runGh(['secret', 'list', '-R', repo, '--json', 'name']);
+  const parsed = JSON.parse(raw) as unknown;
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+
+  const secretNames: string[] = [];
+  for (const item of parsed) {
+    if (typeof item !== 'object' || item === null) {
+      continue;
+    }
+
+    const entry = item as SecretListItem;
+    if (typeof entry.name === 'string') {
+      secretNames.push(entry.name);
+    }
+  }
+
+  return secretNames;
+}
+
+function parseArgs(argv: string[]): { deleteExtra: boolean } {
+  let deleteExtra = false;
+
+  for (let index = 2; index < argv.length; index += 1) {
+    const token = argv[index];
+    if (token === '--delete') {
+      deleteExtra = true;
+      continue;
+    }
+
+    throw new Error(`Unknown option: ${token}`);
+  }
+
+  return { deleteExtra };
+}
+
+function main(): void {
+  const { deleteExtra } = parseArgs(process.argv);
+
+  const env = Object.fromEntries(
+    requiredEnvVars.map((name) => [name, getRequiredEnv(name)])
+  ) as Record<(typeof requiredEnvVars)[number], string>;
+
+  const p8File = `.secrets/AuthKey_${env.APP_STORE_CONNECT_KEY_ID}.p8`;
+  const keystoreFile = '.secrets/tearleads-release.keystore';
+  const googlePlayJsonFile = '.secrets/google-play-service-account.json';
+  const deployKeyFile = '.secrets/deploy.key';
+
+  requireFile(p8File, `Error: .p8 file not found at ${p8File}`);
+  requireFile(
+    keystoreFile,
+    `Error: Android keystore not found at ${keystoreFile}`
+  );
+  requireFile(
+    googlePlayJsonFile,
+    `Error: Google Play service account JSON not found at ${googlePlayJsonFile}`
+  );
+  requireFile(
+    deployKeyFile,
+    `Error: Deploy SSH key not found at ${deployKeyFile}`
+  );
+
+  const appStoreConnectApiKey = readFileSync(p8File).toString('base64');
+  const deploySshKey = readFileSync(deployKeyFile, 'utf8');
+  const androidKeystoreBase64 = readFileSync(keystoreFile).toString('base64');
+  const googlePlayServiceAccountJsonBase64 =
+    readFileSync(googlePlayJsonFile).toString('base64');
+
+  const secrets: Array<{ name: string; value: string }> = [
+    { name: 'APPLE_ID', value: env.APPLE_ID },
+    { name: 'TEAM_ID', value: env.TEAM_ID },
+    { name: 'ITC_TEAM_ID', value: env.ITC_TEAM_ID },
+    { name: 'APP_STORE_CONNECT_KEY_ID', value: env.APP_STORE_CONNECT_KEY_ID },
+    {
+      name: 'APP_STORE_CONNECT_ISSUER_ID',
+      value: env.APP_STORE_CONNECT_ISSUER_ID
+    },
+    { name: 'APP_STORE_CONNECT_API_KEY', value: appStoreConnectApiKey },
+    { name: 'MATCH_GIT_URL', value: env.MATCH_GIT_URL },
+    { name: 'MATCH_PASSWORD', value: env.MATCH_PASSWORD },
+    {
+      name: 'MATCH_GIT_BASIC_AUTHORIZATION',
+      value: env.MATCH_GIT_BASIC_AUTHORIZATION
+    },
+    { name: 'ANDROID_KEYSTORE_BASE64', value: androidKeystoreBase64 },
+    {
+      name: 'ANDROID_KEYSTORE_STORE_PASS',
+      value: env.ANDROID_KEYSTORE_STORE_PASS
+    },
+    { name: 'ANDROID_KEYSTORE_KEY_PASS', value: env.ANDROID_KEYSTORE_KEY_PASS },
+    {
+      name: 'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON',
+      value: googlePlayServiceAccountJsonBase64
+    },
+    { name: 'ANTHROPIC_API_KEY', value: env.ANTHROPIC_API_KEY },
+    { name: 'DEPLOY_SSH_KEY', value: deploySshKey },
+    { name: 'DEPLOY_DOMAIN', value: env.TF_VAR_staging_domain },
+    { name: 'DEPLOY_USER', value: env.TF_VAR_server_username },
+    { name: 'VITE_API_URL', value: env.VITE_API_URL }
+  ];
+
+  for (const secret of secrets) {
+    setSecret(env.GITHUB_REPO, secret.name, secret.value);
+  }
+
+  process.stdout.write('\nAll secrets have been set successfully!\n');
+
+  if (!deleteExtra) {
+    return;
+  }
+
+  process.stdout.write('\nChecking for extra secrets to delete...\n');
+  const currentSecretNames = listCurrentSecretNames(env.GITHUB_REPO);
+  const managedSet = new Set<string>(managedSecretNames);
+
+  for (const name of currentSecretNames) {
+    if (managedSet.has(name)) {
+      continue;
+    }
+    process.stdout.write(`Deleting extra secret: ${name}\n`);
+    execFileSync('gh', ['secret', 'delete', name, '-R', env.GITHUB_REPO], {
+      stdio: ['ignore', 'inherit', 'inherit']
+    });
+  }
+
+  process.stdout.write('Extra secrets cleanup complete.\n');
+}
+
+try {
+  main();
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  process.stderr.write(`Error: ${message}\n`);
+  process.exit(1);
+}

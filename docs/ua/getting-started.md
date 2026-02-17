@@ -26,7 +26,7 @@ pnpm dev
 5. Встановіть роль **App Manager**.
 6. Завантажте файл `.p8` та помістіть його в `.secrets/`
 7. Експортуйте `APP_STORE_CONNECT_KEY_ID` та `APP_STORE_CONNECT_ISSUER_ID`.
-8. Використовуйте [scripts/setGithubVars.sh](../scripts/setGithubVars.sh) для розгортання в GitHub.
+8. Використовуйте [scripts/setGithubVars.ts](../scripts/setGithubVars.ts) для розгортання в GitHub.
 
 ## Персональний Токен Доступу GitHub
 
@@ -38,4 +38,4 @@ pnpm dev
   a. Доступ на читання метаданих
   b. Доступ на читання та запис коду
 4. Закодуйте токен за допомогою `echo -n "<ім'я користувача github>:<персональний токен доступу>" | base64 | pbcopy` та встановіть його в `MATCH_GIT_BASIC_AUTHORIZATION`
-5. Використовуйте [scripts/setGithubVars.sh](../scripts/setGithubVars.sh) для налаштування в GitHub (для GitHub Actions).
+5. Використовуйте [scripts/setGithubVars.ts](../scripts/setGithubVars.ts) для налаштування в GitHub (для GitHub Actions).

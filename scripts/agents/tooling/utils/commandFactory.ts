@@ -40,39 +40,39 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     safetyClass: 'safe_write_local',
     retrySafe: true,
     isInline: false,
-    scriptPath: (_repo, agents) => path.join(agents, 'setVscodeTitle.sh')
+    scriptPath: (_repo, agents) => path.join(agents, 'setVscodeTitle.ts')
   },
   solicitCodexReview: {
     safetyClass: 'safe_read',
     retrySafe: true,
     isInline: false,
-    scriptPath: (repo) => path.join(repo, 'scripts', 'solicitCodexReview.sh')
+    scriptPath: (repo) => path.join(repo, 'scripts', 'solicitCodexReview.ts')
   },
   solicitClaudeCodeReview: {
     safetyClass: 'safe_read',
     retrySafe: true,
     isInline: false,
     scriptPath: (repo) =>
-      path.join(repo, 'scripts', 'solicitClaudeCodeReview.sh')
+      path.join(repo, 'scripts', 'solicitClaudeCodeReview.ts')
   },
   addLabel: {
     safetyClass: 'safe_write_remote',
     retrySafe: true,
     isInline: false,
-    scriptPath: (_repo, agents) => path.join(agents, 'addLabel.sh')
+    scriptPath: (_repo, agents) => path.join(agents, 'addLabel.ts')
   },
   approveSkippedChecks: {
     safetyClass: 'safe_write_remote',
     retrySafe: true,
     isInline: false,
-    scriptPath: (repo) => path.join(repo, 'scripts', 'approveSkippedChecks.sh')
+    scriptPath: (repo) => path.join(repo, 'scripts', 'approveSkippedChecks.ts')
   },
   tagPrWithTuxedoInstance: {
     safetyClass: 'safe_write_remote',
     retrySafe: true,
     isInline: false,
     scriptPath: (_repo, agents) =>
-      path.join(agents, 'tagPrWithTuxedoInstance.sh')
+      path.join(agents, 'tagPrWithTuxedoInstance.ts')
   },
   getPrInfo: { safetyClass: 'safe_read', retrySafe: true, isInline: true },
   getReviewThreads: {

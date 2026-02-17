@@ -54,6 +54,6 @@ bundle exec pod install
 cd "$REPO_ROOT"
 
 # Reset title to '<workspace> - <branch>'
-"$SCRIPT_DIR/setVscodeTitle.sh"
+"$SCRIPT_DIR/setVscodeTitle.ts"
 
 echo "Ready for next task."
