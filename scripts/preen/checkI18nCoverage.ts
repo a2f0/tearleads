@@ -198,16 +198,15 @@ const findHardcodedStrings = async (
       !SKIP_ATTRIBUTES.has(attrName) && USER_FACING_ATTRIBUTES.has(attrName);
     if (isUserFacing && isLikelyTranslatableText(attrValue)) {
       const { line, column } = getLineAndColumn(content, matchIndex);
-      const entry: HardcodedString = {
+      results.push({
         file: relativePath,
         line,
         column,
         type: 'attribute',
         value: attrValue,
+        attributeName: attrName,
         context: getContextLine(content, matchIndex)
-      };
-      entry.attributeName = attrName;
-      results.push(entry);
+      });
     }
 
     match = attributeRegex.exec(content);

@@ -252,16 +252,15 @@ const buildMatcherFromLiteral = (
     const sourcePattern = literal.slice(1, lastSlash);
     const flags = literal.slice(lastSlash + 1);
     const classification = classifyRegexSourcePattern(sourcePattern);
-    const matcher: MswHandlerMatcher = {
+    return {
       method,
-      sourcePattern: sourcePattern,
+      sourcePattern,
       regex: new RegExp(sourcePattern, flags),
-      confidence: classification.confidence
+      confidence: classification.confidence,
+      ...(classification.reason === undefined
+        ? {}
+        : { confidenceReason: classification.reason })
     };
-    if (classification.reason !== undefined) {
-      matcher.confidenceReason = classification.reason;
-    }
-    return matcher;
   }
 
   if (
@@ -298,16 +297,15 @@ const loadMswMatchers = async (): Promise<MswHandlerMatcher[]> => {
     const method = toMethod(methodValue);
     const sourcePattern = `^(?:/v1)?${pathPattern}$`;
     const classification = classifyOptionalV1PathPattern(pathPattern);
-    const matcher: MswHandlerMatcher = {
+    results.push({
       method,
       sourcePattern,
       regex: new RegExp(sourcePattern),
-      confidence: classification.confidence
-    };
-    if (classification.reason !== undefined) {
-      matcher.confidenceReason = classification.reason;
-    }
-    results.push(matcher);
+      confidence: classification.confidence,
+      ...(classification.reason === undefined
+        ? {}
+        : { confidenceReason: classification.reason })
+    });
 
     optionalV1Match = optionalV1Regex.exec(content);
   }

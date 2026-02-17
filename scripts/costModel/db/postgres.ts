@@ -95,13 +95,7 @@ export async function query(
     // Ensure read-only for the entire session on this client
     await client.query('SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY');
     const result = await client.query(sql, params);
-    const rows: Record<string, unknown>[] = [];
-    for (const row of result.rows) {
-      if (isRecord(row)) {
-        rows.push(row);
-      }
-    }
-    return rows;
+    return result.rows.filter(isRecord);
   } finally {
     client.release();
   }

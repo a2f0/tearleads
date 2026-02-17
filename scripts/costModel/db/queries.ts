@@ -104,12 +104,7 @@ export async function getOrganizationBilling(): Promise<
     entitlementStatus: asString(row.entitlementStatus),
     activeProductId: asNullableString(row.activeProductId),
     periodEndsAt: asNullableDate(row.periodEndsAt),
-    willRenew:
-      typeof row.willRenew === 'boolean'
-        ? row.willRenew
-        : row.willRenew === null
-          ? null
-          : null,
+    willRenew: typeof row.willRenew === 'boolean' ? row.willRenew : null,
     createdAt: asDate(row.createdAt, new Date(0))
   }));
 }
