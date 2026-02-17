@@ -107,7 +107,7 @@ JSON with:
 - selective `biome check` on changed files
 - conditional `lint:scripts`, `lint:md`, `lint:rubocop`, `lint:ansible` by file scope
 - selective per-package TypeScript checks
-- selective script TypeScript checks (`scripts/tsconfig*.json`) when script TS changes
+- baseline script TypeScript check (`scripts/tsconfig*.json`) on non-full-run pre-push paths
 - selective per-package builds
 - full legacy quality pipeline on high-risk config/workflow changes
 

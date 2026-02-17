@@ -20,7 +20,7 @@ function stderrText(result: ReturnType<typeof spawnSync>): string {
   return typeof result.stderr === 'string' ? result.stderr : '';
 }
 
-test('runImpactedQuality dry-run flags script TypeScript changes for typecheck', () => {
+test('runImpactedQuality dry-run reports baseline scripts typecheck guard', () => {
   const result = runImpactedQuality([
     '--files',
     'scripts/checkPort.ts',
@@ -29,19 +29,32 @@ test('runImpactedQuality dry-run flags script TypeScript changes for typecheck',
   assert.equal(result.status, 0, stderrText(result));
   assert.match(
     stdoutText(result),
-    /ci-impact: script TypeScript changes detected\./
+    /ci-impact: running scripts TypeScript check \(baseline pre-push guard\)\./
   );
 });
 
-test('runImpactedQuality dry-run does not flag script typecheck for package-only changes', () => {
+test('runImpactedQuality dry-run runs baseline scripts typecheck for package-only changes', () => {
   const result = runImpactedQuality([
     '--files',
     'packages/shared/src/index.ts',
     '--dry-run'
   ]);
   assert.equal(result.status, 0, stderrText(result));
-  assert.doesNotMatch(
+  assert.match(
     stdoutText(result),
-    /ci-impact: script TypeScript changes detected\./
+    /ci-impact: running scripts TypeScript check \(baseline pre-push guard\)\./
+  );
+});
+
+test('runImpactedQuality dry-run enters full quality mode for scripts tsconfig changes', () => {
+  const result = runImpactedQuality([
+    '--files',
+    'scripts/tsconfig.json',
+    '--dry-run'
+  ]);
+  assert.equal(result.status, 0, stderrText(result));
+  assert.match(
+    stdoutText(result),
+    /ci-impact: high-risk changes detected, running full quality pipeline\./
   );
 });

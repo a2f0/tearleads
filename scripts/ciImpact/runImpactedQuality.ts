@@ -275,12 +275,6 @@ function shouldRunAnsibleLint(changedFiles: string[]): boolean {
   );
 }
 
-function shouldRunScriptsTypecheck(changedFiles: string[]): boolean {
-  return changedFiles.some(
-    (f) => f.startsWith('scripts/') && f.endsWith('.ts') && !f.endsWith('.d.ts')
-  );
-}
-
 function ensureCommandAvailable(cmd: string, help: string): void {
   const result = spawnSync('sh', ['-c', `command -v ${cmd} >/dev/null 2>&1`], {
     stdio: 'ignore'
@@ -348,7 +342,7 @@ function main(): void {
   const runMdLint = shouldRunLintMd(impact.changedFiles);
   const runRubo = shouldRunRubocop(impact.changedFiles);
   const runAnsLint = shouldRunAnsibleLint(impact.changedFiles);
-  const runScriptsTypecheck = shouldRunScriptsTypecheck(impact.changedFiles);
+  const runScriptsTypecheck = true;
 
   const buildTargets = impactedPackages.filter((pkgName) => {
     const pkg = workspaceByName.get(pkgName);
@@ -373,9 +367,9 @@ function main(): void {
   if (biomeTargets.length > 0) {
     console.log(`ci-impact: biome targets => ${biomeTargets.join(', ')}`);
   }
-  if (runScriptsTypecheck) {
-    console.log('ci-impact: script TypeScript changes detected.');
-  }
+  console.log(
+    'ci-impact: running scripts TypeScript check (baseline pre-push guard).'
+  );
 
   if (args.dryRun) {
     return;
