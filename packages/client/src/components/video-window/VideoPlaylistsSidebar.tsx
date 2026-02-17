@@ -4,7 +4,7 @@ import {
   useSidebarRefetch
 } from '@tearleads/window-manager';
 import { List, Loader2, Plus, Video } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVideoPlaylists } from '@/hooks/useVideoPlaylists';
 import { filterFilesByAccept } from '@/lib/fileFilter';
 import { getMediaDragIds } from '@/lib/mediaDragData';
@@ -54,6 +54,7 @@ export function VideoPlaylistsSidebar({
   const [playlistCounts, setPlaylistCounts] = useState<Record<string, number>>(
     {}
   );
+  const playlistCountsRef = useRef<Record<string, number>>({});
 
   const updatePlaylistCounts = useCallback(
     async (playlistIds: string[]) => {
@@ -66,13 +67,17 @@ export function VideoPlaylistsSidebar({
             return { id, count: idsInPlaylist.length };
           })
         );
-        setPlaylistCounts((prev) => {
-          const next = { ...prev };
-          for (const { id, count } of counts) {
+        const next = { ...playlistCountsRef.current };
+        let hasChanges = false;
+        for (const { id, count } of counts) {
+          if (next[id] !== count) {
             next[id] = count;
+            hasChanges = true;
           }
-          return next;
-        });
+        }
+        if (!hasChanges) return;
+        playlistCountsRef.current = next;
+        setPlaylistCounts(next);
       } catch (error) {
         const message =
           error instanceof Error ? error.message : String(error ?? '');
@@ -190,19 +195,16 @@ export function VideoPlaylistsSidebar({
   useEffect(() => {
     if (playlists.length === 0) return;
     const idsNeedingLookup: string[] = [];
-
-    setPlaylistCounts((prev) => {
-      const next = { ...prev };
-      for (const playlist of playlists) {
-        if (typeof playlist.trackCount === 'number') {
-          next[playlist.id] = playlist.trackCount;
-        } else {
-          idsNeedingLookup.push(playlist.id);
-        }
+    const baselineCounts: Record<string, number> = {};
+    for (const playlist of playlists) {
+      if (typeof playlist.trackCount === 'number') {
+        baselineCounts[playlist.id] = playlist.trackCount;
+      } else {
+        idsNeedingLookup.push(playlist.id);
       }
-      return next;
-    });
-
+    }
+    playlistCountsRef.current = baselineCounts;
+    setPlaylistCounts(baselineCounts);
     if (idsNeedingLookup.length > 0) {
       void updatePlaylistCounts(idsNeedingLookup);
     }

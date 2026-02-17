@@ -35,79 +35,122 @@ export const createViteAliases = (
   // Base aliases - explicit package paths for HMR
   const baseAliases: AliasMap = {
     '@': path.resolve(dirname, './src'),
-  '@client': path.resolve(dirname, './src'),
-  '@admin': path.resolve(dirname, '../admin/src'),
-  // UI package - styles, theme, and assets
-  '@tearleads/ui/styles.css': path.resolve(dirname, '../ui/src/styles/index.css'),
-  '@tearleads/ui/theme.css': path.resolve(dirname, '../ui/src/styles/theme.css'),
-  '@tearleads/ui/logo.svg': path.resolve(dirname, '../ui/src/images/logo.svg'),
-  '@tearleads/ui': path.resolve(dirname, '../ui/src/index.ts'),
-  '@tearleads/vehicles/package.json': path.resolve(dirname, '../vehicles/package.json'),
-  '@tearleads/vehicles': path.resolve(dirname, '../vehicles/src/index.ts'),
-  // API openapi spec
-  '@tearleads/api/dist/openapi.json': path.resolve(dirname, '../api/dist/openapi.json'),
-  // Workspace packages aliased to source for HMR
-  '@tearleads/admin/package.json': path.resolve(dirname, '../admin/package.json'),
-  '@tearleads/admin': path.resolve(dirname, '../admin/src/index.ts'),
-  '@tearleads/audio/package.json': path.resolve(dirname, '../audio/package.json'),
-  '@tearleads/audio': path.resolve(dirname, '../audio/src/index.ts'),
-  '@tearleads/backups/package.json': path.resolve(
-    dirname,
-    '../backups/package.json'
-  ),
-  '@tearleads/backups': path.resolve(dirname, '../backups/src/index.ts'),
-  '@tearleads/businesses/package.json': path.resolve(
-    dirname,
-    '../businesses/package.json'
-  ),
-  '@tearleads/businesses': path.resolve(dirname, '../businesses/src/index.ts'),
-  '@tearleads/calendar/package.json': path.resolve(dirname, '../calendar/package.json'),
-  '@tearleads/calendar': path.resolve(dirname, '../calendar/src/index.ts'),
-  '@tearleads/camera/package.json': path.resolve(dirname, '../camera/package.json'),
-  '@tearleads/camera': path.resolve(dirname, '../camera/src/index.ts'),
-  '@tearleads/classic/package.json': path.resolve(dirname, '../classic/package.json'),
-  '@tearleads/classic': path.resolve(dirname, '../classic/src/index.ts'),
-  '@tearleads/compliance/package.json': path.resolve(
-    dirname,
-    '../compliance/package.json'
-  ),
-  '@tearleads/compliance': path.resolve(dirname, '../compliance/src/index.ts'),
-  '@tearleads/contacts/package.json': path.resolve(dirname, '../contacts/package.json'),
-  '@tearleads/contacts': path.resolve(dirname, '../contacts/src/index.ts'),
-  '@tearleads/email/package.json': path.resolve(dirname, '../email/package.json'),
-  '@tearleads/email': path.resolve(dirname, '../email/src/index.ts'),
-  '@tearleads/health/package.json': path.resolve(dirname, '../health/package.json'),
-  '@tearleads/health': path.resolve(dirname, '../health/src/index.ts'),
-  '@tearleads/help/package.json': path.resolve(dirname, '../help/package.json'),
-  '@tearleads/help': path.resolve(dirname, '../help/src/index.ts'),
-  '@tearleads/keychain/package.json': path.resolve(
-    dirname,
-    '../keychain/package.json'
-  ),
-  '@tearleads/keychain': path.resolve(dirname, '../keychain/src/index.ts'),
-  '@tearleads/wallet/package.json': path.resolve(dirname, '../wallet/package.json'),
-  '@tearleads/wallet': path.resolve(dirname, '../wallet/src/index.ts'),
-  '@tearleads/mls-chat/package.json': path.resolve(dirname, '../mls-chat/package.json'),
-  '@tearleads/mls-chat': path.resolve(dirname, '../mls-chat/src/index.ts'),
-  '@tearleads/msw/package.json': path.resolve(dirname, '../msw/package.json'),
-  '@tearleads/msw/node': path.resolve(dirname, '../msw/src/node.ts'),
-  '@tearleads/msw': path.resolve(dirname, '../msw/src/index.ts'),
-  '@tearleads/notes/package.json': path.resolve(dirname, '../notes/package.json'),
-  '@tearleads/notes': path.resolve(dirname, '../notes/src/index.ts'),
-  '@tearleads/notifications/package.json': path.resolve(dirname, '../notifications/package.json'),
-  '@tearleads/notifications/stores': path.resolve(dirname, '../notifications/src/stores/index.ts'),
-  '@tearleads/notifications': path.resolve(dirname, '../notifications/src/index.ts'),
-  '@tearleads/search/package.json': path.resolve(dirname, '../search/package.json'),
-  '@tearleads/search': path.resolve(dirname, '../search/src/index.ts'),
-  '@tearleads/settings/package.json': path.resolve(dirname, '../settings/package.json'),
-  '@tearleads/settings': path.resolve(dirname, '../settings/src/index.ts'),
-  '@tearleads/sync/package.json': path.resolve(dirname, '../sync/package.json'),
-  '@tearleads/sync': path.resolve(dirname, '../sync/src/index.ts'),
-  '@tearleads/terminal/package.json': path.resolve(dirname, '../terminal/package.json'),
-  '@tearleads/terminal': path.resolve(dirname, '../terminal/src/index.ts'),
-  '@tearleads/vfs-explorer/package.json': path.resolve(dirname, '../vfs-explorer/package.json'),
-  '@tearleads/vfs-explorer': path.resolve(dirname, '../vfs-explorer/src/index.ts'),
-  '@tearleads/window-manager': path.resolve(dirname, '../window-manager/src/index.ts'),
+    '@client': path.resolve(dirname, './src'),
+    '@admin': path.resolve(dirname, '../admin/src'),
+    '@docs': path.resolve(dirname, '../../docs'),
+    // UI package - styles, theme, and assets
+    '@tearleads/ui/styles.css': path.resolve(
+      dirname,
+      '../ui/src/styles/index.css'
+    ),
+    '@tearleads/ui/theme.css': path.resolve(dirname, '../ui/src/styles/theme.css'),
+    '@tearleads/ui/logo.svg': path.resolve(dirname, '../ui/src/images/logo.svg'),
+    '@tearleads/ui': path.resolve(dirname, '../ui/src/index.ts'),
+    '@tearleads/vehicles/package.json': path.resolve(
+      dirname,
+      '../vehicles/package.json'
+    ),
+    '@tearleads/vehicles': path.resolve(dirname, '../vehicles/src/index.ts'),
+    // API openapi spec
+    '@tearleads/api/dist/openapi.json': path.resolve(
+      dirname,
+      '../api/dist/openapi.json'
+    ),
+    // Workspace packages aliased to source for HMR
+    '@tearleads/admin/package.json': path.resolve(dirname, '../admin/package.json'),
+    '@tearleads/admin': path.resolve(dirname, '../admin/src/index.ts'),
+    '@tearleads/audio/package.json': path.resolve(dirname, '../audio/package.json'),
+    '@tearleads/audio': path.resolve(dirname, '../audio/src/index.ts'),
+    '@tearleads/backups/package.json': path.resolve(
+      dirname,
+      '../backups/package.json'
+    ),
+    '@tearleads/backups': path.resolve(dirname, '../backups/src/index.ts'),
+    '@tearleads/businesses/package.json': path.resolve(
+      dirname,
+      '../businesses/package.json'
+    ),
+    '@tearleads/businesses': path.resolve(dirname, '../businesses/src/index.ts'),
+    '@tearleads/calendar/package.json': path.resolve(
+      dirname,
+      '../calendar/package.json'
+    ),
+    '@tearleads/calendar': path.resolve(dirname, '../calendar/src/index.ts'),
+    '@tearleads/camera/package.json': path.resolve(dirname, '../camera/package.json'),
+    '@tearleads/camera': path.resolve(dirname, '../camera/src/index.ts'),
+    '@tearleads/classic/package.json': path.resolve(dirname, '../classic/package.json'),
+    '@tearleads/classic': path.resolve(dirname, '../classic/src/index.ts'),
+    '@tearleads/compliance/package.json': path.resolve(
+      dirname,
+      '../compliance/package.json'
+    ),
+    '@tearleads/compliance': path.resolve(dirname, '../compliance/src/index.ts'),
+    '@tearleads/contacts/package.json': path.resolve(
+      dirname,
+      '../contacts/package.json'
+    ),
+    '@tearleads/contacts': path.resolve(dirname, '../contacts/src/index.ts'),
+    '@tearleads/email/package.json': path.resolve(dirname, '../email/package.json'),
+    '@tearleads/email': path.resolve(dirname, '../email/src/index.ts'),
+    '@tearleads/health/package.json': path.resolve(dirname, '../health/package.json'),
+    '@tearleads/health': path.resolve(dirname, '../health/src/index.ts'),
+    '@tearleads/help/package.json': path.resolve(dirname, '../help/package.json'),
+    '@tearleads/help': path.resolve(dirname, '../help/src/index.ts'),
+    '@tearleads/keychain/package.json': path.resolve(
+      dirname,
+      '../keychain/package.json'
+    ),
+    '@tearleads/keychain': path.resolve(dirname, '../keychain/src/index.ts'),
+    '@tearleads/wallet/package.json': path.resolve(dirname, '../wallet/package.json'),
+    '@tearleads/wallet': path.resolve(dirname, '../wallet/src/index.ts'),
+    '@tearleads/mls-chat/package.json': path.resolve(
+      dirname,
+      '../mls-chat/package.json'
+    ),
+    '@tearleads/mls-chat': path.resolve(dirname, '../mls-chat/src/index.ts'),
+    '@tearleads/msw/package.json': path.resolve(dirname, '../msw/package.json'),
+    '@tearleads/msw/node': path.resolve(dirname, '../msw/src/node.ts'),
+    '@tearleads/msw': path.resolve(dirname, '../msw/src/index.ts'),
+    '@tearleads/notes/package.json': path.resolve(dirname, '../notes/package.json'),
+    '@tearleads/notes': path.resolve(dirname, '../notes/src/index.ts'),
+    '@tearleads/notifications/package.json': path.resolve(
+      dirname,
+      '../notifications/package.json'
+    ),
+    '@tearleads/notifications/stores': path.resolve(
+      dirname,
+      '../notifications/src/stores/index.ts'
+    ),
+    '@tearleads/notifications': path.resolve(dirname, '../notifications/src/index.ts'),
+    '@tearleads/search/package.json': path.resolve(
+      dirname,
+      '../search/package.json'
+    ),
+    '@tearleads/search': path.resolve(dirname, '../search/src/index.ts'),
+    '@tearleads/settings/package.json': path.resolve(
+      dirname,
+      '../settings/package.json'
+    ),
+    '@tearleads/settings': path.resolve(dirname, '../settings/src/index.ts'),
+    '@tearleads/sync/package.json': path.resolve(dirname, '../sync/package.json'),
+    '@tearleads/sync': path.resolve(dirname, '../sync/src/index.ts'),
+    '@tearleads/terminal/package.json': path.resolve(
+      dirname,
+      '../terminal/package.json'
+    ),
+    '@tearleads/terminal': path.resolve(dirname, '../terminal/src/index.ts'),
+    '@tearleads/vfs-explorer/package.json': path.resolve(
+      dirname,
+      '../vfs-explorer/package.json'
+    ),
+    '@tearleads/vfs-explorer': path.resolve(
+      dirname,
+      '../vfs-explorer/src/index.ts'
+    ),
+    '@tearleads/window-manager': path.resolve(
+      dirname,
+      '../window-manager/src/index.ts'
+    ),
     '@tearleads/console/package.json': path.resolve(
       dirname,
       '../console/package.json'

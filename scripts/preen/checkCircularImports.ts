@@ -305,7 +305,6 @@ function runPackageCycleCheck(repoRoot: string): void {
   }
 
   const knownCycleKeys = new Set<string>([
-    '@tearleads/client -> @tearleads/console',
     '@tearleads/client -> @tearleads/keychain',
     '@tearleads/client -> @tearleads/notifications',
     '@tearleads/client -> @tearleads/sync',

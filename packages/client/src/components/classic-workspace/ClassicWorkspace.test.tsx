@@ -153,7 +153,7 @@ describe('ClassicWorkspace', () => {
       expect(mockLoadClassicStateFromDatabase).toHaveBeenCalledTimes(1);
     });
 
-    expect(screen.getByTestId('classic-app-tag-sort')).toHaveTextContent(
+    expect(await screen.findByTestId('classic-app-tag-sort')).toHaveTextContent(
       'unset'
     );
     expect(screen.getByTestId('classic-app-entry-sort')).toHaveTextContent(
@@ -180,7 +180,7 @@ describe('ClassicWorkspace', () => {
       expect(mockLoadClassicStateFromDatabase).toHaveBeenCalledTimes(1);
     });
 
-    expect(screen.getByTestId('classic-app-tag-sort')).toHaveTextContent(
+    expect(await screen.findByTestId('classic-app-tag-sort')).toHaveTextContent(
       'user-defined'
     );
     expect(screen.getByTestId('classic-app-entry-sort')).toHaveTextContent(
