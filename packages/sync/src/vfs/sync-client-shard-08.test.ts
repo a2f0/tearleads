@@ -314,5 +314,4 @@ describe('VfsBackgroundSyncClient', () => {
       expect(item.changeId).not.toBe(seedCursor.changeId);
     }
   });
-
 });
