@@ -9,6 +9,7 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text)}"
 ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+DOCKER_BUILD_PLATFORM="${DOCKER_BUILD_PLATFORM:-linux/amd64}"
 
 usage() {
   echo "Usage: $0 <environment> [options]"
@@ -21,6 +22,7 @@ usage() {
   echo "  --api-only      Only build the API container"
   echo "  --client-only   Only build the client container"
   echo "  --website-only  Only build the website container"
+  echo "  --no-website    Skip building the website container"
   echo "  --no-push       Build only, don't push to ECR"
   echo "  --tag TAG       Use specific tag (default: latest)"
   echo ""
@@ -67,6 +69,10 @@ while [[ $# -gt 0 ]]; do
       BUILD_CLIENT=false
       shift
       ;;
+    --no-website)
+      BUILD_WEBSITE=false
+      shift
+      ;;
     --no-push)
       PUSH=false
       shift
@@ -95,6 +101,7 @@ echo "Build API: $BUILD_API"
 echo "Build Client: $BUILD_CLIENT"
 echo "Build Website: $BUILD_WEBSITE"
 echo "Push to ECR: $PUSH"
+echo "Docker Platform: $DOCKER_BUILD_PLATFORM"
 echo ""
 
 # Login to ECR
@@ -111,6 +118,7 @@ cd "$REPO_ROOT"
 if [[ "$BUILD_API" == "true" ]]; then
   echo "=== Building API container ==="
   docker build \
+    --platform "$DOCKER_BUILD_PLATFORM" \
     -f packages/api/Dockerfile \
     -t "${ECR_REGISTRY}/${API_REPO}:${TAG}" \
     .
@@ -136,6 +144,7 @@ if [[ "$BUILD_CLIENT" == "true" ]]; then
 
   echo "=== Building Client container ==="
   docker build \
+    --platform "$DOCKER_BUILD_PLATFORM" \
     -f packages/client/Dockerfile \
     --build-arg VITE_API_URL="$VITE_API_URL" \
     -t "${ECR_REGISTRY}/${CLIENT_REPO}:${TAG}" \
@@ -152,6 +161,7 @@ fi
 if [[ "$BUILD_WEBSITE" == "true" ]]; then
   echo "=== Building Website container ==="
   docker build \
+    --platform "$DOCKER_BUILD_PLATFORM" \
     -f packages/website/Dockerfile \
     -t "${ECR_REGISTRY}/${WEBSITE_REPO}:${TAG}" \
     .
