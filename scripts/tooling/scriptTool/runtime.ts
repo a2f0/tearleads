@@ -1,7 +1,12 @@
 import { existsSync } from 'node:fs';
 import { runWithTimeout } from '../lib/cliShared.ts';
 import { ACTION_CONFIG } from './actionConfig.ts';
-import type { ActionName, GlobalOptions, ScriptArgs, ScriptInvocation } from './types.ts';
+import type {
+  ActionName,
+  GlobalOptions,
+  ScriptArgs,
+  ScriptInvocation
+} from './types.ts';
 
 export function buildScriptInvocation(
   action: ActionName,

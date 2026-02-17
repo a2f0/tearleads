@@ -8,12 +8,20 @@
  * Usage: tsx scripts/tooling/scriptTool.ts <action> [options]
  */
 import { Command, InvalidArgumentError, program } from 'commander';
-import { extractKeyLines, getRepoRoot, parsePositiveInt } from './lib/cliShared.ts';
+import {
+  extractKeyLines,
+  getRepoRoot,
+  parsePositiveInt
+} from './lib/cliShared.ts';
 import { ACTION_CONFIG } from './scriptTool/actionConfig.ts';
 import { runGenerateDocs } from './scriptTool/docs.ts';
 import { runPreflight } from './scriptTool/preflight.ts';
 import { buildScriptInvocation, runScript } from './scriptTool/runtime.ts';
-import type { ActionName, GlobalOptions, JsonOutput } from './scriptTool/types.ts';
+import type {
+  ActionName,
+  GlobalOptions,
+  JsonOutput
+} from './scriptTool/types.ts';
 import { quoteArg } from './scriptTool/utils.ts';
 
 function createActionCommand(actionName: ActionName): Command {

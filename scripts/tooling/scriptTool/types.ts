@@ -1,4 +1,7 @@
-export type SafetyClass = 'safe_read' | 'safe_write_local' | 'safe_write_remote';
+export type SafetyClass =
+  | 'safe_read'
+  | 'safe_write_local'
+  | 'safe_write_remote';
 
 export type ActionName =
   | 'analyzeBundle'

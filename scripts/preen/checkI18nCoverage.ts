@@ -19,6 +19,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
+  type HardcodedString,
+  type I18nCoverageResult,
+  type LanguageCoverage,
   MIN_TEXT_LENGTH,
   PACKAGES_DIR,
   ROOT_DIR,
@@ -26,10 +29,7 @@ import {
   SKIP_PATTERNS,
   SKIP_TEXT_PATTERNS,
   TRANSLATIONS_DIR,
-  USER_FACING_ATTRIBUTES,
-  type HardcodedString,
-  type I18nCoverageResult,
-  type LanguageCoverage
+  USER_FACING_ATTRIBUTES
 } from './checkI18nCoverage/config.ts';
 import {
   formatTextReport,

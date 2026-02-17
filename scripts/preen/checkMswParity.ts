@@ -5,16 +5,16 @@ import {
   API_INDEX_FILE,
   API_ROUTE_REGEX,
   API_ROUTES_DIR,
+  type ApiRoute,
+  type HttpMethod,
   LITERAL_PATH_SEGMENT_REGEX,
+  type LowConfidenceRoute,
   MSW_HANDLERS_FILE,
   MSW_LITERAL_REGEX,
   MSW_WITH_OPTIONAL_V1_REGEX,
-  ROOT_DIR,
-  type ApiRoute,
-  type HttpMethod,
-  type LowConfidenceRoute,
   type MswHandlerMatcher,
-  type ParityResult
+  type ParityResult,
+  ROOT_DIR
 } from './checkMswParity/types.ts';
 
 const splitPathPatternSegments = (pathPattern: string): string[] => {

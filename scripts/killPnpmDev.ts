@@ -72,7 +72,11 @@ const parseProcessList = (output: string): ProcessInfo[] => {
     const pidText = match[1];
     const ppidText = match[2];
     const command = match[3];
-    if (pidText === undefined || ppidText === undefined || command === undefined) {
+    if (
+      pidText === undefined ||
+      ppidText === undefined ||
+      command === undefined
+    ) {
       continue;
     }
 
