@@ -45,8 +45,10 @@ COPY --from=builder /app/packages/website/dist /usr/share/nginx/html
 # Copy nginx config
 RUN echo 'server { \
     listen 80; \
+    server_name _; \
     root /usr/share/nginx/html; \
     index index.html; \
+    port_in_redirect on; \
     location / { \
         try_files $uri $uri/ =404; \
     } \
