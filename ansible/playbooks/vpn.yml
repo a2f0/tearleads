@@ -53,24 +53,19 @@
         group: root
         mode: "0700"
 
-    - name: Generate WireGuard server private key
-      ansible.builtin.command:
-        cmd: wg genkey
+    - name: Generate WireGuard server keys if missing
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          wg genkey | tee /etc/wireguard/server_private.key | wg pubkey > /etc/wireguard/server_public.key
+          chmod 600 /etc/wireguard/server_private.key
+          chmod 600 /etc/wireguard/server_public.key
+        executable: /bin/bash
+      args:
         creates: /etc/wireguard/server_private.key
-      register: wg_private_key_gen
-      changed_when: wg_private_key_gen.rc == 0
-
-    - name: Persist WireGuard server private key
-      ansible.builtin.copy:
-        dest: /etc/wireguard/server_private.key
-        content: "{{ wg_private_key_gen.stdout }}\n"
-        owner: root
-        group: root
-        mode: "0600"
-      when: wg_private_key_gen is changed
       no_log: true
 
-    - name: Generate WireGuard server public key
+    - name: Ensure WireGuard server public key exists
       ansible.builtin.shell:
         cmd: |
           set -euo pipefail
@@ -99,8 +94,8 @@
           Address = {{ wireguard_cidr }}
           ListenPort = {{ wireguard_port }}
           PrivateKey = {{ wg_private_key.stdout }}
-          PostUp = iptables -A FORWARD -i {{ wireguard_interface }} -j ACCEPT; iptables -t nat -A POSTROUTING -o {{ wireguard_uplink_interface }} -j MASQUERADE
-          PostDown = iptables -D FORWARD -i {{ wireguard_interface }} -j ACCEPT; iptables -t nat -D POSTROUTING -o {{ wireguard_uplink_interface }} -j MASQUERADE
+          PostUp = iptables -A FORWARD -i {{ wireguard_interface }} -j ACCEPT;iptables -t nat -A POSTROUTING -o {{ wireguard_uplink_interface }} -j MASQUERADE
+          PostDown = iptables -D FORWARD -i {{ wireguard_interface }} -j ACCEPT;iptables -t nat -D POSTROUTING -o {{ wireguard_uplink_interface }} -j MASQUERADE
         owner: root
         group: root
         mode: "0600"

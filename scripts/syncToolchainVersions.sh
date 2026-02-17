@@ -256,7 +256,7 @@ sync_ansible() {
 
   ANSIBLE_FILES_UPDATED=0
 
-  for YML_FILE in "$TUXEDO_YML"; do
+  for YML_FILE in $TUXEDO_YML; do
     if [ ! -f "$YML_FILE" ]; then
       log "Toolchain sync (ansible): skipped $YML_FILE (file not found)."
       continue
