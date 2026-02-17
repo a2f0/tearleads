@@ -12,6 +12,7 @@
     "paths": {
       "@client/*": ["./src/*"],
       "@/*": ["./src/*"],
+      "@docs/*": ["../../docs/*"],
       "@admin/*": ["../admin/src/*"],
       "@tearleads/admin/package.json": ["../admin/package.json"],
       "@tearleads/admin": ["../admin/src/index.ts"],

@@ -96,8 +96,8 @@ export function ConsoleWindow({
 
   const handleSplit = useCallback(
     (direction: 'horizontal' | 'vertical') => {
-      if (splitDirection !== 'none') {
-        // Already split, close the split
+      if (splitDirection === direction) {
+        // Toggle off when clicking the active split direction.
         if (splitTabId) {
           setTabs((prev) => prev.filter((t) => t.id !== splitTabId));
         }
@@ -106,13 +106,17 @@ export function ConsoleWindow({
         setFocusTarget('main');
         return;
       }
-      const newTab: TerminalTab = {
-        id: generateTabId(),
-        name: `Terminal ${tabs.length + 1}`
-      };
-      setTabs((prev) => [...prev, newTab]);
+
+      if (splitDirection === 'none') {
+        const newTab: TerminalTab = {
+          id: generateTabId(),
+          name: `Terminal ${tabs.length + 1}`
+        };
+        setTabs((prev) => [...prev, newTab]);
+        setSplitTabId(newTab.id);
+      }
+
       setSplitDirection(direction);
-      setSplitTabId(newTab.id);
       setFocusTarget('split');
     },
     [splitDirection, splitTabId, tabs.length]

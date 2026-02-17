@@ -425,9 +425,9 @@ describe('ConsoleWindow', () => {
     await user.click(screen.getByTestId('split-horizontal-button'));
     expect(screen.getAllByTestId('terminal')).toHaveLength(2);
 
-    // Click vertical - should remove horizontal split first
+    // Click vertical - should switch direction without closing the split
     await user.click(screen.getByTestId('split-vertical-button'));
-    expect(screen.getAllByTestId('terminal')).toHaveLength(1);
+    expect(screen.getAllByTestId('terminal')).toHaveLength(2);
   });
 
   it('opens Console documentation from Help and returns to terminal', async () => {
