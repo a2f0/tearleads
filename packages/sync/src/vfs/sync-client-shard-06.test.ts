@@ -280,5 +280,4 @@ describe('VfsBackgroundSyncClient', () => {
     ).toBeGreaterThan(0);
     expect(cycleTwoClient.snapshot().lastReconciledWriteIds.desktop).toBe(17);
   });
-
 });
