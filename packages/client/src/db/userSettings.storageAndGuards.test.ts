@@ -247,7 +247,9 @@ describe('user-settings guards and local storage', () => {
 
     it('returns desktopIconBackground value from localStorage', () => {
       localStorageData['desktopIconBackground'] = 'transparent';
-      expect(getSettingFromStorage('desktopIconBackground')).toBe('transparent');
+      expect(getSettingFromStorage('desktopIconBackground')).toBe(
+        'transparent'
+      );
     });
 
     it('returns windowOpacity value from localStorage', () => {
