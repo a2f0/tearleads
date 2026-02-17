@@ -1,1 +1,1 @@
-export { WalletWindow } from './WalletWindow';
+export { WalletWindow } from '../../../../wallet/src/components/wallet-window';

@@ -1,3 +1,1 @@
-export { Wallet } from './Wallet';
-export { WalletDetail } from './WalletDetail';
-export { WalletNewItem } from './WalletNewItem';
+export { Wallet, WalletDetail, WalletNewItem } from '../../../../wallet/src/pages/wallet';

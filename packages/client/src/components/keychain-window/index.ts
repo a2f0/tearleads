@@ -1,1 +1,1 @@
-export { KeychainWindow } from './KeychainWindow';
+export { KeychainWindow } from '../../../../keychain/src/components/keychain-window';

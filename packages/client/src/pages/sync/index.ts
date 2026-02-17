@@ -1,1 +1,1 @@
-export { Sync } from './Sync';
+export { Sync } from '../../../../sync/src/pages/sync';
