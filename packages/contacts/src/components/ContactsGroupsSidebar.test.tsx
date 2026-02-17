@@ -55,7 +55,7 @@ describe('ContactsGroupsSidebar', () => {
       </TestContactsProvider>
     );
 
-    expect(screen.getByText('All Contacts')).toBeInTheDocument();
+    expect(screen.getByText('allContacts')).toBeInTheDocument();
     expect(screen.getByText('Family')).toBeInTheDocument();
 
     await user.click(screen.getByText('Family'));
@@ -107,9 +107,9 @@ describe('ContactsGroupsSidebar', () => {
       </TestContactsProvider>
     );
 
-    await user.click(screen.getByTitle('New Group'));
-    await user.type(screen.getByPlaceholderText('Group name'), 'Friends');
-    await user.click(screen.getByRole('button', { name: 'Create' }));
+    await user.click(screen.getByTitle('newGroup'));
+    await user.type(screen.getByPlaceholderText('groupName'), 'Friends');
+    await user.click(screen.getByRole('button', { name: 'create' }));
 
     await waitFor(() => {
       expect(createGroup).toHaveBeenCalledWith('Friends');
@@ -159,13 +159,11 @@ describe('ContactsGroupsSidebar', () => {
       chainable['from'] = () => chainable;
       chainable['innerJoin'] = () => chainable;
       chainable['where'] = () => chainable;
-      // First call: updateGroupCounts uses groupBy
       chainable['groupBy'] = () =>
         Promise.resolve([
           { groupId: 'group-1', count: 2 },
           { groupId: 'group-2', count: 3 }
         ]);
-      // Second call: sendEmail uses orderBy
       chainable['orderBy'] = () =>
         Promise.resolve([
           { email: 'family@example.com' },
@@ -198,7 +196,7 @@ describe('ContactsGroupsSidebar', () => {
     if (!groupButton) return;
 
     fireEvent.contextMenu(groupButton);
-    await user.click(screen.getByText('Send email'));
+    await user.click(screen.getByText('sendEmail'));
 
     expect(openEmailComposer).toHaveBeenCalledWith([
       'family@example.com',
@@ -228,9 +226,9 @@ describe('ContactsGroupsSidebar', () => {
 
     fireEvent.contextMenu(groupButton);
 
-    expect(screen.getByText('Send email')).toBeInTheDocument();
-    expect(screen.getByText('Rename')).toBeInTheDocument();
-    expect(screen.getByText('Delete')).toBeInTheDocument();
+    expect(screen.getByText('sendEmail')).toBeInTheDocument();
+    expect(screen.getByText('rename')).toBeInTheDocument();
+    expect(screen.getByText('delete')).toBeInTheDocument();
   });
 
   it('handles empty group with no emails gracefully', async () => {
@@ -245,7 +243,6 @@ describe('ContactsGroupsSidebar', () => {
       chainable['where'] = () => chainable;
       chainable['groupBy'] = () =>
         Promise.resolve([{ groupId: 'group-1', count: 0 }]);
-      // Return empty array for group with no contacts that have primary emails
       chainable['orderBy'] = () => Promise.resolve([]);
       return chainable;
     });
@@ -273,7 +270,7 @@ describe('ContactsGroupsSidebar', () => {
     if (!groupButton) return;
 
     fireEvent.contextMenu(groupButton);
-    await user.click(screen.getByText('Send email'));
+    await user.click(screen.getByText('sendEmail'));
 
     // openEmailComposer should not be called with empty recipients
     expect(openEmailComposer).not.toHaveBeenCalled();
@@ -319,12 +316,12 @@ describe('ContactsGroupsSidebar', () => {
     if (!groupButton) return;
 
     fireEvent.contextMenu(groupButton);
-    expect(screen.getByText('Send email')).toBeInTheDocument();
+    expect(screen.getByText('sendEmail')).toBeInTheDocument();
 
-    await user.click(screen.getByText('Send email'));
+    await user.click(screen.getByText('sendEmail'));
 
     await waitFor(() => {
-      expect(screen.queryByText('Send email')).not.toBeInTheDocument();
+      expect(screen.queryByText('sendEmail')).not.toBeInTheDocument();
     });
   });
 
@@ -369,7 +366,7 @@ describe('ContactsGroupsSidebar', () => {
     if (!groupButton) return;
 
     fireEvent.contextMenu(groupButton);
-    await user.click(screen.getByText('Send email'));
+    await user.click(screen.getByText('sendEmail'));
 
     await waitFor(() => {
       expect(consoleSpy).toHaveBeenCalledWith(
@@ -383,7 +380,7 @@ describe('ContactsGroupsSidebar', () => {
 
     // Context menu should still close
     await waitFor(() => {
-      expect(screen.queryByText('Send email')).not.toBeInTheDocument();
+      expect(screen.queryByText('sendEmail')).not.toBeInTheDocument();
     });
 
     consoleSpy.mockRestore();
@@ -431,7 +428,7 @@ describe('ContactsGroupsSidebar', () => {
     if (!groupButton) return;
 
     fireEvent.contextMenu(groupButton);
-    await user.click(screen.getByText('Send email'));
+    await user.click(screen.getByText('sendEmail'));
 
     await waitFor(() => {
       expect(windowOpenSpy).toHaveBeenCalledWith(
@@ -456,7 +453,6 @@ describe('ContactsGroupsSidebar', () => {
       chainable['where'] = () => chainable;
       chainable['groupBy'] = () =>
         Promise.resolve([{ groupId: 'group-1', count: 3 }]);
-      // Return duplicate emails
       chainable['orderBy'] = () =>
         Promise.resolve([
           { email: 'same@example.com' },
@@ -490,7 +486,7 @@ describe('ContactsGroupsSidebar', () => {
     if (!groupButton) return;
 
     fireEvent.contextMenu(groupButton);
-    await user.click(screen.getByText('Send email'));
+    await user.click(screen.getByText('sendEmail'));
 
     // Should deduplicate - only unique emails
     expect(openEmailComposer).toHaveBeenCalledWith([
