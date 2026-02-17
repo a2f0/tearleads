@@ -358,5 +358,4 @@ describe('VfsBackgroundSyncClient', () => {
       compareVfsSyncCursorOrder(resumedCursor, seedReplayCursor)
     ).toBeGreaterThan(0);
   });
-
 });
