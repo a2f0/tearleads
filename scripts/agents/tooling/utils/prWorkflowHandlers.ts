@@ -139,6 +139,13 @@ function collapseBlankLines(text: string): string {
     .trimEnd();
 }
 
+function requireDefined<T>(value: T | undefined, name: string): T {
+  if (value === undefined) {
+    throw new Error(`Missing required option: ${name}`);
+  }
+  return value;
+}
+
 export function handleSanitizePrBody(
   options: GlobalOptions,
   repo: string,
@@ -204,11 +211,8 @@ export function handleUpdatePrBody(
   }
 
   const bodyText =
-    typeof options.body === 'string'
-      ? options.body
-      : options.bodyFile
-        ? readFileSync(options.bodyFile, 'utf8')
-        : '';
+    options.body ??
+    readFileSync(requireDefined(options.bodyFile, '--body-file'), 'utf8');
 
   runGh(['pr', 'edit', String(options.number), '--body', bodyText, '-R', repo]);
 
