@@ -123,6 +123,9 @@ and emits:
 - CI-critical workflow changes trigger the full integration matrix.
 - Deployment-only workflow changes run `build` but do not force full integration.
 - If diff base is unavailable, fallback diff is `HEAD~1...HEAD`.
+- After rebasing onto `main`, run `pnpm exec tsc -b` at least once before merge if
+  TypeScript project scope changed on `main` (for example broad `tsconfig` include updates).
+  Impacted checks reason from changed files and may not surface new baseline type errors introduced upstream.
 
 ## Maintenance
 
