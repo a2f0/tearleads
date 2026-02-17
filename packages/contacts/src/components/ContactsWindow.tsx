@@ -1,9 +1,9 @@
 import {
   FloatingWindow,
+  useWindowRefresh,
   WindowControlBar,
   WindowControlButton,
   WindowControlGroup,
-  useWindowRefresh,
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { ArrowLeft, Plus, RefreshCw, Upload } from 'lucide-react';
@@ -108,9 +108,12 @@ export function ContactsWindow({
     setCurrentView('list');
   }, []);
 
-  const handleImportComplete = useCallback((_result: ImportResult) => {
-    triggerRefresh();
-  }, [triggerRefresh]);
+  const handleImportComplete = useCallback(
+    (_result: ImportResult) => {
+      triggerRefresh();
+    },
+    [triggerRefresh]
+  );
 
   const handleCreated = useCallback((contactId: string) => {
     setSelectedContactId(contactId);

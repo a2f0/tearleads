@@ -1,9 +1,9 @@
 import {
   FloatingWindow,
+  useWindowRefresh,
   WindowControlBar,
   WindowControlButton,
   WindowControlGroup,
-  useWindowRefresh,
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
