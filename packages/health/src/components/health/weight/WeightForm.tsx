@@ -1,8 +1,8 @@
 import type { CreateWeightReadingInput, WeightUnit } from '@tearleads/health';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
 
 interface WeightFormProps {
   onSubmit: (input: CreateWeightReadingInput) => Promise<void>;
