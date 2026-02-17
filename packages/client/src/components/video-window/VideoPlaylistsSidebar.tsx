@@ -189,7 +189,23 @@ export function VideoPlaylistsSidebar({
 
   useEffect(() => {
     if (playlists.length === 0) return;
-    void updatePlaylistCounts(playlists.map((p) => p.id));
+    const idsNeedingLookup: string[] = [];
+
+    setPlaylistCounts((prev) => {
+      const next = { ...prev };
+      for (const playlist of playlists) {
+        if (typeof playlist.trackCount === 'number') {
+          next[playlist.id] = playlist.trackCount;
+        } else {
+          idsNeedingLookup.push(playlist.id);
+        }
+      }
+      return next;
+    });
+
+    if (idsNeedingLookup.length > 0) {
+      void updatePlaylistCounts(idsNeedingLookup);
+    }
   }, [playlists, updatePlaylistCounts]);
 
   const { resizeHandleProps } = useResizableSidebar({
