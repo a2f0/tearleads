@@ -1,7 +1,7 @@
 import { cn, useTheme } from '@tearleads/ui';
 import { FileText, ShieldCheck } from 'lucide-react';
 import { type AnchorHTMLAttributes, type ReactNode, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { MarkdownWithToc } from '@/components/markdown-viewer/MarkdownWithToc';
 import { BackLink } from '@/components/ui/back-link';
 import {
@@ -142,10 +142,9 @@ export function ComplianceDocPage() {
               const isActive = activeDocument?.docPath === document.docPath;
 
               return (
-                <button
+                <Link
                   key={document.routePath}
-                  type="button"
-                  onClick={() => navigate(document.routePath)}
+                  to={document.routePath}
                   className={cn(
                     'flex w-full items-start gap-2 rounded px-2 py-1 text-left text-sm hover:bg-accent hover:text-accent-foreground',
                     isActive && 'bg-accent text-accent-foreground'
@@ -153,7 +152,7 @@ export function ComplianceDocPage() {
                 >
                   <FileText className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>{document.title}</span>
-                </button>
+                </Link>
               );
             })}
           </div>

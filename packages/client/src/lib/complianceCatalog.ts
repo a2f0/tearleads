@@ -153,7 +153,7 @@ function createFrameworkDocumentKey(
 function getDocumentTitle(docPath: string): string {
   const fileName = getDocFileName(docPath);
   const withoutExtension = fileName.replace(/\.md$/i, '');
-  const withoutNumberPrefix = withoutExtension.replace(/^\d{2}-/, '');
+  const withoutNumberPrefix = withoutExtension.replace(/^\d+-/, '');
   const normalizedTitle = withoutNumberPrefix.toLowerCase();
 
   return normalizedTitle
