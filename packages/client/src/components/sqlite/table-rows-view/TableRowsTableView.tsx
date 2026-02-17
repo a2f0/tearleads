@@ -170,7 +170,7 @@ export function TableRowsTableView({
                   key={getRowKey(row, virtualItem.index)}
                   data-index={virtualItem.index}
                   ref={measureElement}
-                  className="absolute top-0 left-0 grid w-full border-b hover:bg-muted/25 [border-color:var(--soft-border)]"
+                  className="absolute top-0 left-0 grid w-full border-b [border-color:var(--soft-border)] hover:bg-muted/25"
                   style={{
                     gridTemplateColumns: visibleColumns
                       .map((col) =>

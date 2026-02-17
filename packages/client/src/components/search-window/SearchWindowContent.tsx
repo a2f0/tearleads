@@ -1,7 +1,5 @@
 import { WindowStatusBar } from '@tearleads/window-manager';
-import {
-  Search,
-} from 'lucide-react';
+import { Search } from 'lucide-react';
 import type { FormEvent, KeyboardEvent, MouseEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,7 +12,10 @@ import { type FileOpenTarget, resolveFileOpenTarget } from '@/lib/vfsOpen';
 import type { SearchableEntityType, SearchResult } from '@/search';
 import { useSearch } from '@/search';
 import { getSearchableAppById } from '@/search/appCatalog';
-import { getSearchableHelpDocById, HELP_DOC_ID_PREFIX } from '@/search/helpCatalog';
+import {
+  getSearchableHelpDocById,
+  HELP_DOC_ID_PREFIX
+} from '@/search/helpCatalog';
 import type { SearchViewMode } from './SearchWindowMenuBar';
 import { SearchWindowResults } from './SearchWindowResults';
 

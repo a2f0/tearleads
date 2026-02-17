@@ -1,4 +1,7 @@
-import { WindowSidebarHeader, WindowSidebarItem } from '@tearleads/window-manager';
+import {
+  WindowSidebarHeader,
+  WindowSidebarItem
+} from '@tearleads/window-manager';
 import { Plus } from 'lucide-react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import { CALENDAR_CREATE_EVENT } from '../events';

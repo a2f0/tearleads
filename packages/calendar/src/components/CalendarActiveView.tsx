@@ -1,10 +1,13 @@
 import type { MouseEvent as ReactMouseEvent } from 'react';
+import type {
+  TimeRangeSelection,
+  TimeSlot
+} from '../hooks/useTimeRangeSelection';
+import type { PositionedEvent } from '../utils/eventPositioning';
 import { CalendarDayView } from './CalendarDayView';
 import { CalendarMonthView } from './CalendarMonthView';
 import { CalendarWeekView } from './CalendarWeekView';
 import { CalendarYearView } from './CalendarYearView';
-import type { TimeRangeSelection, TimeSlot } from '../hooks/useTimeRangeSelection';
-import type { PositionedEvent } from '../utils/eventPositioning';
 
 interface CalendarActiveViewProps {
   viewMode: 'Day' | 'Week' | 'Month' | 'Year';

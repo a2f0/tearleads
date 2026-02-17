@@ -66,7 +66,9 @@ export function useTableRowsViewport({
   });
 
   const virtualItems = virtualizer.getVirtualItems();
-  const visibleRowItems = virtualItems.filter((item) => item.index < rows.length);
+  const visibleRowItems = virtualItems.filter(
+    (item) => item.index < rows.length
+  );
   const firstVisible =
     visibleRowItems.length > 0 ? (visibleRowItems[0]?.index ?? null) : null;
   const lastVisible =
@@ -135,6 +137,10 @@ export function useTableRowsViewport({
   const [hasScrolled, setHasScrolled] = useState(false);
 
   useEffect(() => {
+    if (!tableName) {
+      setHasScrolled(false);
+      return;
+    }
     setHasScrolled(false);
   }, [tableName]);
 

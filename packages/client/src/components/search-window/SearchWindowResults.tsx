@@ -2,6 +2,7 @@ import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow
 } from '@tearleads/window-manager';
+import type { TFunction } from 'i18next';
 import {
   AppWindow,
   BookText,
@@ -14,7 +15,6 @@ import {
   Search,
   StickyNote
 } from 'lucide-react';
-import type { TFunction } from 'i18next';
 import type { ComponentType, MouseEvent, RefObject } from 'react';
 import type { SearchableEntityType, SearchResult } from '@/search';
 import type { SearchViewMode } from './SearchWindowMenuBar';
@@ -143,7 +143,11 @@ export function SearchWindowResults({
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
         <Search className="h-12 w-12" />
-        <p>{query.trim() ? t('noResultsFoundFor', { query }) : t('noResultsFound')}</p>
+        <p>
+          {query.trim()
+            ? t('noResultsFoundFor', { query })
+            : t('noResultsFound')}
+        </p>
       </div>
     );
   }
@@ -151,7 +155,7 @@ export function SearchWindowResults({
   return (
     <div
       ref={resultsContainerRef}
-      className="divide-y [--tw-divide-opacity:1] divide-[var(--soft-border)]"
+      className="divide-y divide-[var(--soft-border)] [--tw-divide-opacity:1]"
     >
       <div className="px-3 py-2 text-muted-foreground text-xs">
         {totalCount === results.length
@@ -168,8 +172,12 @@ export function SearchWindowResults({
           <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
             <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
               <tr>
-                <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>{t('title')}</th>
-                <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>{t('type')}</th>
+                <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                  {t('title')}
+                </th>
+                <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                  {t('type')}
+                </th>
                 <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                   {t('preview')}
                 </th>
@@ -190,7 +198,9 @@ export function SearchWindowResults({
                   </td>
                   <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
                     {t(
-                      ENTITY_TYPE_LABEL_KEYS[result.entityType] as keyof typeof t
+                      ENTITY_TYPE_LABEL_KEYS[
+                        result.entityType
+                      ] as keyof typeof t
                     )}
                   </td>
                   <td
@@ -228,7 +238,9 @@ export function SearchWindowResults({
                   </span>
                   <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-muted-foreground text-xs">
                     {t(
-                      ENTITY_TYPE_LABEL_KEYS[result.entityType] as keyof typeof t
+                      ENTITY_TYPE_LABEL_KEYS[
+                        result.entityType
+                      ] as keyof typeof t
                     )}
                   </span>
                 </div>

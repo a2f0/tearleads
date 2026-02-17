@@ -102,7 +102,10 @@ export function DatabaseTestControls({
         {testData && (
           <div className="flex justify-between gap-2">
             <span className="shrink-0 text-muted-foreground">Test Data</span>
-            <span data-testid="db-test-data" className="min-w-0 truncate text-xs">
+            <span
+              data-testid="db-test-data"
+              className="min-w-0 truncate text-xs"
+            >
               {testData}
             </span>
           </div>

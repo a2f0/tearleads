@@ -414,7 +414,9 @@ export function DatabaseTest() {
         onToggleShowChangePassword={() =>
           setShowChangePassword((prev) => !prev)
         }
-        onPersistUnlockChange={(event) => setPersistUnlock(event.target.checked)}
+        onPersistUnlockChange={(event) =>
+          setPersistUnlock(event.target.checked)
+        }
         onPersistSessionChange={handlePersistSessionChange}
         onSubmit={handleSubmit}
         onSetup={handleSetup}

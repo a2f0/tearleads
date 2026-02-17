@@ -78,19 +78,31 @@ export function useCalendarDerivedState({
 
     for (let i = monthLeadingDays; i > 0; i -= 1) {
       cells.push({
-        date: new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1 - i),
+        date: new Date(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth(),
+          1 - i
+        ),
         inMonth: false
       });
     }
     for (let day = 1; day <= monthEnd.getDate(); day += 1) {
       cells.push({
-        date: new Date(selectedDate.getFullYear(), selectedDate.getMonth(), day),
+        date: new Date(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth(),
+          day
+        ),
         inMonth: true
       });
     }
     for (let i = 1; i <= monthTrailingDays; i += 1) {
       cells.push({
-        date: new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, i),
+        date: new Date(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth() + 1,
+          i
+        ),
         inMonth: false
       });
     }

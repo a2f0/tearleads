@@ -1,8 +1,8 @@
 import {
   DesktopFloatingWindow as FloatingWindow,
   WindowControlBar,
-  WindowMenuBar,
-  type WindowDimensions
+  type WindowDimensions,
+  WindowMenuBar
 } from '@tearleads/window-manager';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';

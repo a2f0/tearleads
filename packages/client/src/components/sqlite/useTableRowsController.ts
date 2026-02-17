@@ -5,11 +5,11 @@ import type {
 } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  type ColumnInfo,
   exportTableAsCsv,
   getNumberField,
   getStringField,
-  parseColumnInfo,
-  type ColumnInfo
+  parseColumnInfo
 } from '@/components/sqlite/exportTableCsv';
 import { getDatabaseAdapter } from '@/db';
 import type {
@@ -49,7 +49,10 @@ export function useTableRowsController({
   const parentRef = useRef<HTMLDivElement>(null);
   const [documentView, setDocumentView] = useState(isMobileViewport);
   const userToggledViewRef = useRef(false);
-  const [sort, setSort] = useState<SortState>({ column: null, direction: null });
+  const [sort, setSort] = useState<SortState>({
+    column: null,
+    direction: null
+  });
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(
     new Set(['id'])
   );
@@ -122,7 +125,9 @@ export function useTableRowsController({
 
         const validColumns = currentColumns.map((c) => c.name);
         const sortColumn =
-          sort.column && validColumns.includes(sort.column) ? sort.column : null;
+          sort.column && validColumns.includes(sort.column)
+            ? sort.column
+            : null;
 
         const offset = reset ? 0 : offsetRef.current;
         let query = `SELECT * FROM "${tableName}"`;
@@ -135,7 +140,10 @@ export function useTableRowsController({
         const [rowsResult, countResult] = await Promise.all([
           adapter.execute(query, []),
           reset
-            ? adapter.execute(`SELECT COUNT(*) as count FROM "${tableName}"`, [])
+            ? adapter.execute(
+                `SELECT COUNT(*) as count FROM "${tableName}"`,
+                []
+              )
             : Promise.resolve(null)
         ]);
 
@@ -167,7 +175,9 @@ export function useTableRowsController({
 
         const currentTotal = totalCountRef.current;
         setHasMore(
-          currentTotal !== null ? newOffset < currentTotal : newRows.length === PAGE_SIZE
+          currentTotal !== null
+            ? newOffset < currentTotal
+            : newRows.length === PAGE_SIZE
         );
       } catch (err) {
         console.error('Failed to fetch table data:', err);
@@ -327,7 +337,9 @@ export function useTableRowsController({
       if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
         event.preventDefault();
         const delta =
-          event.key === 'ArrowRight' ? KEYBOARD_RESIZE_STEP : -KEYBOARD_RESIZE_STEP;
+          event.key === 'ArrowRight'
+            ? KEYBOARD_RESIZE_STEP
+            : -KEYBOARD_RESIZE_STEP;
         setColumnWidths((prev) => {
           const currentWidth = prev[column] || 150;
           return {
@@ -418,7 +430,6 @@ export function useTableRowsController({
     }
   }, [columns.length, isUnlocked, loading, sort]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: loading intentionally omitted to prevent re-fetch loops
   useEffect(() => {
     if (!isUnlocked || loading || !tableName) return;
 
