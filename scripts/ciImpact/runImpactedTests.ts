@@ -267,8 +267,14 @@ function readPackageJson(filePath: string): PackageJsonShape {
 
   const nameRaw = Reflect.get(parsed, 'name');
   const name = typeof nameRaw === 'string' ? nameRaw : undefined;
-
-  return { name, scripts };
+  const result: PackageJsonShape = {};
+  if (typeof name === 'string') {
+    result.name = name;
+  }
+  if (scripts !== undefined) {
+    result.scripts = scripts;
+  }
+  return result;
 }
 
 function listCoveragePackages(): string[] {
