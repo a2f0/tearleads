@@ -4,12 +4,11 @@ import {
 } from './sync-client.js';
 import {
   buildAclAddSyncItem,
-  createCallCountedPullResolver,
-  createCallCountedReconcileResolver,
-  createDeterministicRandom,
+  buildMixedRecoveryExpectedSignatures,
+  createCallCountedPullResolverFromPages,
+  createCallCountedReconcileResolverFromWriteIds,
   createGuardrailViolationCollector,
-  createSeededIsoTimestampFactory,
-  pickTwoDistinct,
+  createSeededMixedRecoveryInputBundle,
   readForwardContainerSignatures,
   readSeedContainerCursorOrThrow,
   toStageCodeReplicaSignatures
@@ -31,12 +30,14 @@ export interface PendingCheckpointPaginationResult {
 export async function runPendingCheckpointPaginationScenario(
   seed: number
 ): Promise<PendingCheckpointPaginationResult> {
-  const random = createDeterministicRandom(seed);
-  const parentCandidates = ['root', 'archive', 'workspace'] as const;
-  const [parentRecovered, parentLocal] = pickTwoDistinct(
-    parentCandidates,
-    random
-  );
+  const {
+    parentOne: parentRecovered,
+    parentTwo: parentLocal,
+    at
+  } = createSeededMixedRecoveryInputBundle({
+    seed,
+    baseIso: '2026-02-14T12:32:00.000Z'
+  });
 
   const itemSeed = `item-seed-pending-${seed}`;
   const itemPhantom = `item-phantom-pending-${seed}`;
@@ -46,61 +47,21 @@ export async function runPendingCheckpointPaginationScenario(
   const localAclOpId = `local-acl-op-${seed}`;
   const localLinkOpId = `local-link-op-${seed}`;
 
-  const at = createSeededIsoTimestampFactory({
-    baseIso: '2026-02-14T12:32:00.000Z',
-    seed
-  });
-
-  const scriptedReconcileState = createCallCountedReconcileResolver({
-    resolve: ({ reconcileInput, callCount }) => {
-      if (callCount === 1) {
-        return {
-          cursor: { ...reconcileInput.cursor },
-          lastReconciledWriteIds: {
-            ...reconcileInput.lastReconciledWriteIds,
-            mobile: 5
-          }
-        };
-      }
-
-      if (callCount === 2) {
-        return {
-          cursor: { ...reconcileInput.cursor },
-          lastReconciledWriteIds: {
-            ...reconcileInput.lastReconciledWriteIds,
-            mobile: 4
-          }
-        };
-      }
-
-      if (callCount === 3) {
-        return {
-          cursor: { ...reconcileInput.cursor },
-          lastReconciledWriteIds: {
-            ...reconcileInput.lastReconciledWriteIds,
-            mobile: 6
-          }
-        };
-      }
-
-      if (callCount === 4) {
-        return {
-          cursor: { ...reconcileInput.cursor },
-          lastReconciledWriteIds: {
-            ...reconcileInput.lastReconciledWriteIds,
-            mobile: 7
-          }
-        };
-      }
-
-      return {
-        cursor: { ...reconcileInput.cursor },
-        lastReconciledWriteIds: {
-          ...reconcileInput.lastReconciledWriteIds,
-          mobile: 8
-        }
-      };
+  const scriptedReconcileState = createCallCountedReconcileResolverFromWriteIds(
+    {
+      writeIds: [5, 4, 6, 7, 8]
     }
+  );
+
+  const expectedSignatures = buildMixedRecoveryExpectedSignatures({
+    firstParentId: parentRecovered,
+    firstChangeId: `good-link-pending-${seed}-1`,
+    middleContainerId: localAclItem,
+    middleChangeId: localAclOpId,
+    secondParentId: parentLocal,
+    secondChangeId: localLinkOpId,
+    phantomContainerId: itemPhantom,
+    phantomChangeId: `pull-fail-pending-${seed}-1`
   });
 
   const pushedOpIds: string[] = [];
@@ -108,118 +69,103 @@ export async function runPendingCheckpointPaginationScenario(
   const guardrailCollector = createGuardrailViolationCollector();
   const guardrailViolations = guardrailCollector.violations;
 
-  const scriptedPullOperations = createCallCountedPullResolver({
-    resolve: ({ callCount }) => {
-      if (callCount === 1) {
-        return {
-          items: [
-            buildAclAddSyncItem({
-              opId: `seed-pending-${seed}-1`,
-              occurredAt: at(0),
-              itemId: itemSeed
-            })
-          ],
-          hasMore: false,
-          nextCursor: {
-            changedAt: at(0),
-            changeId: `seed-pending-${seed}-1`
-          },
-          lastReconciledWriteIds: {
-            desktop: 5
+  const scriptedPullOperations = createCallCountedPullResolverFromPages({
+    pages: [
+      {
+        items: [
+          buildAclAddSyncItem({
+            opId: `seed-pending-${seed}-1`,
+            occurredAt: at(0),
+            itemId: itemSeed
+          })
+        ],
+        hasMore: false,
+        nextCursor: {
+          changedAt: at(0),
+          changeId: `seed-pending-${seed}-1`
+        },
+        lastReconciledWriteIds: {
+          desktop: 5
+        }
+      },
+      {
+        items: [
+          buildAclAddSyncItem({
+            opId: `pull-fail-pending-${seed}-1`,
+            occurredAt: at(1),
+            itemId: itemPhantom
+          })
+        ],
+        hasMore: false,
+        nextCursor: {
+          changedAt: at(1),
+          changeId: `pull-fail-pending-${seed}-1`
+        },
+        lastReconciledWriteIds: {
+          desktop: 4,
+          mobile: 5
+        }
+      },
+      {
+        items: [
+          {
+            opId: `good-link-pending-${seed}-1`,
+            itemId: itemRecovered,
+            opType: 'link_add',
+            principalType: null,
+            principalId: null,
+            accessLevel: null,
+            parentId: parentRecovered,
+            childId: itemRecovered,
+            actorId: null,
+            sourceTable: 'test',
+            sourceId: `good-link-pending-${seed}-1`,
+            occurredAt: at(2)
           }
-        };
-      }
-
-      if (callCount === 2) {
-        return {
-          items: [
-            buildAclAddSyncItem({
-              opId: `pull-fail-pending-${seed}-1`,
-              occurredAt: at(1),
-              itemId: itemPhantom
-            })
-          ],
-          hasMore: false,
-          nextCursor: {
-            changedAt: at(1),
-            changeId: `pull-fail-pending-${seed}-1`
-          },
-          lastReconciledWriteIds: {
-            desktop: 4,
-            mobile: 5
+        ],
+        hasMore: false,
+        nextCursor: {
+          changedAt: at(2),
+          changeId: `good-link-pending-${seed}-1`
+        },
+        lastReconciledWriteIds: {
+          desktop: 6,
+          mobile: 5
+        }
+      },
+      {
+        items: [],
+        hasMore: false,
+        nextCursor: null,
+        lastReconciledWriteIds: {
+          desktop: 6,
+          mobile: 5
+        }
+      },
+      {
+        items: [
+          {
+            ...buildAclAddSyncItem({
+              opId: localAclOpId,
+              occurredAt: at(3),
+              itemId: localAclItem
+            }),
+            principalType: 'group',
+            principalId: `group-pending-${seed}`,
+            accessLevel: 'write'
           }
-        };
-      }
-
-      if (callCount === 3) {
-        return {
-          items: [
-            {
-              opId: `good-link-pending-${seed}-1`,
-              itemId: itemRecovered,
-              opType: 'link_add',
-              principalType: null,
-              principalId: null,
-              accessLevel: null,
-              parentId: parentRecovered,
-              childId: itemRecovered,
-              actorId: null,
-              sourceTable: 'test',
-              sourceId: `good-link-pending-${seed}-1`,
-              occurredAt: at(2)
-            }
-          ],
-          hasMore: false,
-          nextCursor: {
-            changedAt: at(2),
-            changeId: `good-link-pending-${seed}-1`
-          },
-          lastReconciledWriteIds: {
-            desktop: 6,
-            mobile: 5
-          }
-        };
-      }
-
-      if (callCount === 4) {
-        return {
-          items: [],
-          hasMore: false,
-          nextCursor: null,
-          lastReconciledWriteIds: {
-            desktop: 6,
-            mobile: 5
-          }
-        };
-      }
-
-      if (callCount === 5) {
-        return {
-          items: [
-            {
-              ...buildAclAddSyncItem({
-                opId: localAclOpId,
-                occurredAt: at(3),
-                itemId: localAclItem
-              }),
-              principalType: 'group',
-              principalId: `group-pending-${seed}`,
-              accessLevel: 'write'
-            }
-          ],
-          hasMore: false,
-          nextCursor: {
-            changedAt: at(3),
-            changeId: localAclOpId
-          },
-          lastReconciledWriteIds: {
-            desktop: 7,
-            mobile: 6
-          }
-        };
-      }
-
-      return {
+        ],
+        hasMore: false,
+        nextCursor: {
+          changedAt: at(3),
+          changeId: localAclOpId
+        },
+        lastReconciledWriteIds: {
+          desktop: 7,
+          mobile: 6
+        }
+      },
+      {
         items: [
           {
             opId: localLinkOpId,
@@ -245,8 +191,8 @@ export async function runPendingCheckpointPaginationScenario(
           desktop: 8,
           mobile: 7
         }
-      };
-    }
+      }
+    ]
   });
 
   const transport: VfsCrdtSyncTransport = {
@@ -335,14 +281,9 @@ export async function runPendingCheckpointPaginationScenario(
   return {
     expectedPushedOpIds: [localAclOpId, localLinkOpId],
     expectedPushedWriteIds: [7, 8],
-    expectedPageSignatures: [
-      `${parentRecovered}|good-link-pending-${seed}-1`,
-      `${localAclItem}|${localAclOpId}`,
-      `${parentLocal}|${localLinkOpId}`
-    ],
+    expectedPageSignatures: expectedSignatures.expectedPageSignatures,
     expectedGuardrailSignatures: [
-      'pull:lastWriteIdRegression:desktop',
-      'reconcile:lastWriteIdRegression:mobile'
+      ...expectedSignatures.expectedGuardrailSignatures
     ],
     pushedOpIds,
     pushedWriteIds,

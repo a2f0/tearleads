@@ -100,6 +100,52 @@ type PullOperationsOutput = Awaited<
   ReturnType<VfsCrdtSyncTransport['pullOperations']>
 >;
 
+type MixedRecoveryParentCandidate = 'root' | 'archive' | 'workspace';
+type MixedRecoveryPrincipalType = 'group' | 'organization';
+type MixedRecoveryAccessLevel = 'read' | 'write' | 'admin';
+
+export interface SeededMixedRecoveryInputBundle {
+  parentOne: MixedRecoveryParentCandidate;
+  parentTwo: MixedRecoveryParentCandidate;
+  principalType: MixedRecoveryPrincipalType;
+  accessLevel: MixedRecoveryAccessLevel;
+  at: (offsetSeconds: number) => string;
+}
+
+export function createSeededMixedRecoveryInputBundle(input: {
+  seed: number;
+  baseIso: string;
+  seedStrideMs?: number;
+  parentCandidates?: readonly MixedRecoveryParentCandidate[];
+  principalTypes?: readonly MixedRecoveryPrincipalType[];
+  accessLevels?: readonly MixedRecoveryAccessLevel[];
+}): SeededMixedRecoveryInputBundle {
+  const random = createDeterministicRandom(input.seed);
+  const parentCandidates =
+    input.parentCandidates ?? (['root', 'archive', 'workspace'] as const);
+  const principalTypes =
+    input.principalTypes ?? (['group', 'organization'] as const);
+  const accessLevels =
+    input.accessLevels ?? (['read', 'write', 'admin'] as const);
+
+  const [parentOne, parentTwo] = pickTwoDistinct(parentCandidates, random);
+  const principalType = pickOne(principalTypes, random);
+  const accessLevel = pickOne(accessLevels, random);
+  const at = createSeededIsoTimestampFactory({
+    baseIso: input.baseIso,
+    seed: input.seed,
+    seedStrideMs: input.seedStrideMs
+  });
+
+  return {
+    parentOne,
+    parentTwo,
+    principalType,
+    accessLevel,
+    at
+  };
+}
+
 export function createCallCountedReconcileResolver(input: {
   resolve: (input: {
     reconcileInput: ReconcileStateInput;
@@ -116,6 +162,45 @@ export function createCallCountedReconcileResolver(input: {
   };
 }
 
+function clonePullOperationsOutput(
+  output: PullOperationsOutput
+): PullOperationsOutput {
+  return {
+    items: output.items.map((item) => ({ ...item })),
+    hasMore: output.hasMore,
+    nextCursor: output.nextCursor ? { ...output.nextCursor } : null,
+    lastReconciledWriteIds: { ...output.lastReconciledWriteIds }
+  };
+}
+
+export function createCallCountedReconcileResolverFromWriteIds(input: {
+  writeIds: readonly number[];
+  replicaId?: string;
+}): (reconcileInput: ReconcileStateInput) => Promise<ReconcileStateOutput> {
+  if (input.writeIds.length === 0) {
+    throw new Error('writeIds must include at least one value');
+  }
+
+  const replicaId = input.replicaId ?? 'mobile';
+  return createCallCountedReconcileResolver({
+    resolve: ({ reconcileInput, callCount }) => {
+      const writeId =
+        input.writeIds[Math.min(callCount - 1, input.writeIds.length - 1)];
+      if (writeId === undefined) {
+        throw new Error('missing reconcile write-id script entry');
+      }
+
+      return {
+        cursor: { ...reconcileInput.cursor },
+        lastReconciledWriteIds: {
+          ...reconcileInput.lastReconciledWriteIds,
+          [replicaId]: writeId
+        }
+      };
+    }
+  });
+}
+
 export function createCallCountedPullResolver(input: {
   resolve: (input: {
     pullInput: PullOperationsInput;
@@ -129,6 +214,55 @@ export function createCallCountedPullResolver(input: {
       pullInput,
       callCount
     });
+  };
+}
+
+export function createCallCountedPullResolverFromPages(input: {
+  pages: readonly PullOperationsOutput[];
+}): (pullInput: PullOperationsInput) => Promise<PullOperationsOutput> {
+  if (input.pages.length === 0) {
+    throw new Error('pages must include at least one scripted pull response');
+  }
+
+  return createCallCountedPullResolver({
+    resolve: ({ callCount }) => {
+      const page = input.pages[Math.min(callCount - 1, input.pages.length - 1)];
+      if (!page) {
+        throw new Error('missing scripted pull response for call count');
+      }
+
+      return clonePullOperationsOutput(page);
+    }
+  });
+}
+
+export const MIXED_RECOVERY_GUARDRAIL_SIGNATURES = [
+  'pull:lastWriteIdRegression:desktop',
+  'reconcile:lastWriteIdRegression:mobile'
+] as const;
+
+export function buildMixedRecoveryExpectedSignatures(input: {
+  firstParentId: string;
+  firstChangeId: string;
+  middleContainerId: string;
+  middleChangeId: string;
+  secondParentId: string;
+  secondChangeId: string;
+  phantomContainerId: string;
+  phantomChangeId: string;
+}): {
+  expectedPageSignatures: string[];
+  expectedGuardrailSignatures: readonly string[];
+  excludedPhantomSignature: string;
+} {
+  return {
+    expectedPageSignatures: [
+      `${input.firstParentId}|${input.firstChangeId}`,
+      `${input.middleContainerId}|${input.middleChangeId}`,
+      `${input.secondParentId}|${input.secondChangeId}`
+    ],
+    expectedGuardrailSignatures: MIXED_RECOVERY_GUARDRAIL_SIGNATURES,
+    excludedPhantomSignature: `${input.phantomContainerId}|${input.phantomChangeId}`
   };
 }
 
