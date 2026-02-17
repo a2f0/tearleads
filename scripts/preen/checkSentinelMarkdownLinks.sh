@@ -21,16 +21,18 @@ collect_control_maps() {
       git diff --name-only --diff-filter=AM --cached | rg '^compliance/.+/technical-controls/.+control-map\.md$' || true
       ;;
     --from-upstream)
+      local base_branch=""
       if upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null); then
-        git diff --name-only --diff-filter=AM "$upstream..HEAD" | rg '^compliance/.+/technical-controls/.+control-map\.md$' || true
+        base_branch="$upstream"
       elif git rev-parse --verify origin/main >/dev/null 2>&1; then
-        git diff --name-only --diff-filter=AM "origin/main..HEAD" | rg '^compliance/.+/technical-controls/.+control-map\.md$' || true
+        base_branch="origin/main"
       elif git rev-parse --verify main >/dev/null 2>&1; then
-        git diff --name-only --diff-filter=AM "main..HEAD" | rg '^compliance/.+/technical-controls/.+control-map\.md$' || true
+        base_branch="main"
       else
         echo "Error: cannot determine base branch for comparison" >&2
         exit 1
       fi
+      git diff --name-only --diff-filter=AM "$base_branch..HEAD" | rg '^compliance/.+/technical-controls/.+control-map\.md$' || true
       ;;
     *)
       usage
@@ -38,7 +40,10 @@ collect_control_maps() {
   esac
 }
 
-mapfile -t files < <(collect_control_maps)
+files=()
+while IFS= read -r file; do
+  files+=("$file")
+done < <(collect_control_maps)
 
 if [ "${#files[@]}" -eq 0 ]; then
   exit 0
