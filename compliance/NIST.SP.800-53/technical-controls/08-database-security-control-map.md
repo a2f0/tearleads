@@ -6,10 +6,10 @@ This map ties database security policy controls to concrete implementation and e
 
 | Sentinel | Description | NIST Controls | Implementation Evidence |
 | --- | --- | --- | --- |
-| `TL-DB-001` | RDS encryption at rest enabled | SC-28 | `terraform/modules/aws-rds-postgres/main.tf` |
-| `TL-DB-002` | Automated RDS backups enabled | CP-9 | `terraform/modules/aws-rds-postgres/main.tf` |
-| `TL-DB-003` | RDS deletion protection enabled | CP-9, SC-28 | `terraform/modules/aws-rds-postgres/main.tf` |
-| `TL-NET-005` | RDS network isolation via security group | SC-7 | `terraform/modules/aws-rds-postgres/main.tf` |
+| `TL-DB-001` | RDS encryption at rest enabled | SC-28 | [`terraform/modules/aws-rds-postgres/main.tf`](../../../terraform/modules/aws-rds-postgres/main.tf) |
+| `TL-DB-002` | Automated RDS backups enabled | CP-9 | [`terraform/modules/aws-rds-postgres/main.tf`](../../../terraform/modules/aws-rds-postgres/main.tf) |
+| `TL-DB-003` | RDS deletion protection enabled | CP-9, SC-28 | [`terraform/modules/aws-rds-postgres/main.tf`](../../../terraform/modules/aws-rds-postgres/main.tf) |
+| `TL-NET-005` | RDS network isolation via security group | SC-7 | [`terraform/modules/aws-rds-postgres/main.tf`](../../../terraform/modules/aws-rds-postgres/main.tf) |
 
 ## NIST Control Family Mapping
 

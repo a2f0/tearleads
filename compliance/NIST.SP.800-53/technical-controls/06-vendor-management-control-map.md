@@ -6,16 +6,16 @@ This map ties vendor management policy controls to NIST SP 800-53 requirements a
 
 | Sentinel | Description | NIST Controls | Implementation Evidence |
 | --- | --- | --- | --- |
-| `TL-VENDOR-001` | External services inventory | SA-9, PM-30 | `compliance/vendor-registry.md` |
-| `TL-VENDOR-002` | Hetzner Cloud controls | SA-9, SC-7 | `terraform/modules/hetzner-server/main.tf`, `terraform/stacks/staging/k8s/main.tf` |
-| `TL-VENDOR-003` | Azure TEE controls | SA-9, SC-28, SI-7 | `terraform/modules/azure-tee/main.tf` |
-| `TL-VENDOR-004` | Let's Encrypt controls | SC-8, SC-13 | `terraform/stacks/staging/k8s/main.tf` |
-| `TL-VENDOR-005` | GitHub controls | SA-9, CM-3 | `.github/workflows/` |
-| `TL-VENDOR-006` | RevenueCat controls | SA-9, SC-8 | `packages/api/src/lib/revenuecat.ts` |
-| `TL-VENDOR-007` | OpenRouter controls | SA-9, SC-8 | `packages/api/src/routes/chat/post-completions.ts` |
-| `TL-VENDOR-008` | Anthropic controls | SA-9 | `CLAUDE.md` |
-| `TL-VENDOR-009` | OpenAI controls | SA-9 | `AGENTS.md` |
-| `TL-VENDOR-010` | Google controls | SA-9 | `.gemini/INSTRUCTIONS.md` |
+| `TL-VENDOR-001` | External services inventory | SA-9, PM-30 | [`compliance/vendor-registry.md`](../../vendor-registry.md) |
+| `TL-VENDOR-002` | Hetzner Cloud controls | SA-9, SC-7 | [`terraform/modules/hetzner-server/main.tf`](../../../terraform/modules/hetzner-server/main.tf), [`terraform/stacks/staging/k8s/main.tf`](../../../terraform/stacks/staging/k8s/main.tf) |
+| `TL-VENDOR-003` | Azure TEE controls | SA-9, SC-28, SI-7 | [`terraform/modules/azure-tee/main.tf`](../../../terraform/modules/azure-tee/main.tf) |
+| `TL-VENDOR-004` | Let's Encrypt controls | SC-8, SC-13 | [`terraform/stacks/staging/k8s/main.tf`](../../../terraform/stacks/staging/k8s/main.tf) |
+| `TL-VENDOR-005` | GitHub controls | SA-9, CM-3 | [`.github/workflows/`](../../../.github/workflows) |
+| `TL-VENDOR-006` | RevenueCat controls | SA-9, SC-8 | [`packages/api/src/lib/revenuecat.ts`](../../../packages/api/src/lib/revenuecat.ts) |
+| `TL-VENDOR-007` | OpenRouter controls | SA-9, SC-8 | [`packages/api/src/routes/chat/postCompletions.ts`](../../../packages/api/src/routes/chat/postCompletions.ts) |
+| `TL-VENDOR-008` | Anthropic controls | SA-9 | [`CLAUDE.md`](../../../CLAUDE.md) |
+| `TL-VENDOR-009` | OpenAI controls | SA-9 | [`AGENTS.md`](../../../AGENTS.md) |
+| `TL-VENDOR-010` | Google controls | SA-9 | [`.gemini/INSTRUCTIONS.md`](../../../.gemini/INSTRUCTIONS.md) |
 | `TL-VENDOR-011` | Supply chain risk assessment | SR-3, SR-5, RA-3 | Risk assessment records |
 | `TL-VENDOR-012` | Acquisition controls | SA-4, SA-12 | Acquisition documentation |
 | `TL-VENDOR-013` | Continuous monitoring | CA-7, SA-9(2) | Monitoring logs |
@@ -70,15 +70,15 @@ This map ties vendor management policy controls to NIST SP 800-53 requirements a
 | File | Vendor | Controls |
 | --- | --- | --- |
 | `packages/api/src/lib/revenuecat.ts` | RevenueCat | Webhook integrity |
-| `packages/api/src/routes/chat/post-completions.ts` | OpenRouter | API security |
+| `packages/api/src/routes/chat/postCompletions.ts` | OpenRouter | API security |
 | `.github/workflows/` | GitHub | CI/CD security |
 
 ### Development Tool Vendors (SA-9)
 
 | File | Vendor | Purpose |
 | --- | --- | --- |
-| `CLAUDE.md` | Anthropic | Agent configuration |
-| `AGENTS.md` | OpenAI | Agent configuration |
+| [`CLAUDE.md`](../../../CLAUDE.md) | Anthropic | Agent configuration |
+| [`AGENTS.md`](../../../AGENTS.md) | OpenAI | Agent configuration |
 | `.gemini/INSTRUCTIONS.md` | Google | Review configuration |
 
 ## Evidence Collection

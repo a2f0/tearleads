@@ -27,6 +27,7 @@ run_step() {
 
 run_step "checkNodeVersion" ./scripts/checkNodeVersion.sh
 run_step "checkFileLimits" ./scripts/preen/checkFileLimits.sh --from-upstream
+run_step "checkSentinelMarkdownLinks" ./scripts/preen/checkSentinelMarkdownLinks.sh --all
 run_step "checkBinaryFiles" ./scripts/checkBinaryFiles.sh --from-upstream
 run_step "checkJs" ./scripts/preen/checkJs.sh --from-upstream
 run_step "checkPreenEcosystem" ./scripts/checkPreenEcosystem.sh --strict

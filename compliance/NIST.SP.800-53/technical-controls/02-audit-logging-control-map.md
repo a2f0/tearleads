@@ -6,10 +6,10 @@ This map ties audit logging policy controls to concrete implementation and test 
 
 | Sentinel | NIST Control | Description | Implementation Evidence | Test Evidence |
 | --- | --- | --- | --- | --- |
-| `TL-NAUDT-001` | AU-2, AU-3, AU-12 | Nginx access logging with AU-3 compliant fields (type, when, where, source, outcome, identity) | `terraform/stacks/staging/k8s/main.tf` (nginx tasks) | Manual verification: `nginx -T \| grep audit_combined` |
-| `TL-NAUDT-002` | AU-4, AU-11 | Journald 90-day persistent retention with storage limits | `terraform/stacks/staging/k8s/main.tf` (journald tasks) | Manual verification: `cat /etc/systemd/journald.conf.d/compliance.conf` |
-| `TL-NAUDT-003` | AU-4, AU-9 | Nginx log rotation with 90-day retention and compression | `terraform/stacks/staging/k8s/main.tf` (logrotate tasks) | Manual verification: `cat /etc/logrotate.d/nginx` |
-| `TL-NAUDT-004` | AU-9, AU-11 | Monthly log archive with 6-year retention for compliance | `terraform/stacks/staging/k8s/main.tf` (archive tasks) | Manual verification: `systemctl status audit-log-archive.timer` |
+| `TL-NAUDT-001` | AU-2, AU-3, AU-12 | Nginx access logging with AU-3 compliant fields (type, when, where, source, outcome, identity) | [`terraform/stacks/staging/k8s/main.tf`](../../../terraform/stacks/staging/k8s/main.tf) (nginx tasks) | Manual verification: `nginx -T \| grep audit_combined` |
+| `TL-NAUDT-002` | AU-4, AU-11 | Journald 90-day persistent retention with storage limits | [`terraform/stacks/staging/k8s/main.tf`](../../../terraform/stacks/staging/k8s/main.tf) (journald tasks) | Manual verification: `cat /etc/systemd/journald.conf.d/compliance.conf` |
+| `TL-NAUDT-003` | AU-4, AU-9 | Nginx log rotation with 90-day retention and compression | [`terraform/stacks/staging/k8s/main.tf`](../../../terraform/stacks/staging/k8s/main.tf) (logrotate tasks) | Manual verification: `cat /etc/logrotate.d/nginx` |
+| `TL-NAUDT-004` | AU-9, AU-11 | Monthly log archive with 6-year retention for compliance | [`terraform/stacks/staging/k8s/main.tf`](../../../terraform/stacks/staging/k8s/main.tf) (archive tasks) | Manual verification: `systemctl status audit-log-archive.timer` |
 
 ## NIST SP 800-53 Control Coverage
 

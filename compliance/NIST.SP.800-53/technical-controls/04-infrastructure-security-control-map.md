@@ -6,14 +6,14 @@ This map ties infrastructure security policy controls to concrete implementation
 
 | Sentinel | NIST Controls | Description | Implementation Evidence | Test Evidence |
 | --- | --- | --- | --- | --- |
-| `TL-NINFRA-004` | AC-17, IA-2, IA-5 | SSH hardening with key-only authentication | `ansible/playbooks/k8s.yml` | `ssh user@host 'grep -E "^(PermitRootLogin\|PasswordAuthentication\|PubkeyAuthentication\|MaxAuthTries)" /etc/ssh/sshd_config'` |
-| `TL-NNET-003` | SC-7 | UFW host firewall with default-deny incoming | `terraform/stacks/staging/k8s/main.tf` (UFW tasks) | `ssh user@host 'sudo ufw status verbose'` |
-| `TL-NNET-004` | SC-7 | Hetzner Cloud firewall with explicit port rules | `terraform/modules/hetzner-server/main.tf` (hcloud_firewall) | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "hcloud_firewall")'` |
-| `TL-NET-006` | SC-7 | Cloudflare Tunnel isolation for inbound traffic | `terraform/modules/cloudflare-tunnel/main.tf` | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "cloudflare_tunnel")'` |
-| `TL-NKERN-001` | SC-5, SI-16 | Kernel sysctl hardening (ASLR, rp_filter, syncookies) | `terraform/stacks/staging/k8s/main.tf` | `ssh user@host 'sysctl kernel.randomize_va_space net.ipv4.tcp_syncookies'` |
-| `TL-NAUTH-001` | AC-7 | Fail2ban SSH jail with progressive bans | `terraform/stacks/staging/k8s/main.tf` | `ssh user@host 'sudo fail2ban-client status sshd'` |
-| `TL-NSVC-001` | SC-7, AC-6 | API service systemd sandboxing | `terraform/stacks/staging/k8s/main.tf` | `ssh user@host 'systemctl show tearleads-api --property=NoNewPrivileges,ProtectSystem'` |
-| `TL-NSVC-002` | SC-7, AC-6 | SMTP service systemd sandboxing with CAP_NET_BIND | `terraform/stacks/staging/k8s/main.tf` | `ssh user@host 'systemctl show tearleads-smtp-listener --property=AmbientCapabilities'` |
+| `TL-NINFRA-004` | AC-17, IA-2, IA-5 | SSH hardening with key-only authentication | [`ansible/playbooks/k8s.yml`](../../../ansible/playbooks/k8s.yml) | `ssh user@host 'grep -E "^(PermitRootLogin\|PasswordAuthentication\|PubkeyAuthentication\|MaxAuthTries)" /etc/ssh/sshd_config'` |
+| `TL-NNET-003` | SC-7 | UFW host firewall with default-deny incoming | [`terraform/stacks/staging/k8s/main.tf`](../../../terraform/stacks/staging/k8s/main.tf) (UFW tasks) | `ssh user@host 'sudo ufw status verbose'` |
+| `TL-NNET-004` | SC-7 | Hetzner Cloud firewall with explicit port rules | [`terraform/modules/hetzner-server/main.tf`](../../../terraform/modules/hetzner-server/main.tf) (hcloud_firewall) | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "hcloud_firewall")'` |
+| `TL-NET-006` | SC-7 | Cloudflare Tunnel isolation for inbound traffic | [`terraform/modules/cloudflare-tunnel/main.tf`](../../../terraform/modules/cloudflare-tunnel/main.tf) | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "cloudflare_tunnel")'` |
+| `TL-NKERN-001` | SC-5, SI-16 | Kernel sysctl hardening (ASLR, rp_filter, syncookies) | [`terraform/stacks/staging/k8s/main.tf`](../../../terraform/stacks/staging/k8s/main.tf) | `ssh user@host 'sysctl kernel.randomize_va_space net.ipv4.tcp_syncookies'` |
+| `TL-NAUTH-001` | AC-7 | Fail2ban SSH jail with progressive bans | [`terraform/stacks/staging/k8s/main.tf`](../../../terraform/stacks/staging/k8s/main.tf) | `ssh user@host 'sudo fail2ban-client status sshd'` |
+| `TL-NSVC-001` | SC-7, AC-6 | API service systemd sandboxing | [`terraform/stacks/staging/k8s/main.tf`](../../../terraform/stacks/staging/k8s/main.tf) | `ssh user@host 'systemctl show tearleads-api --property=NoNewPrivileges,ProtectSystem'` |
+| `TL-NSVC-002` | SC-7, AC-6 | SMTP service systemd sandboxing with CAP_NET_BIND | [`terraform/stacks/staging/k8s/main.tf`](../../../terraform/stacks/staging/k8s/main.tf) | `ssh user@host 'systemctl show tearleads-smtp-listener --property=AmbientCapabilities'` |
 | `TL-NCRYPTO-005` | SC-12 | Key Vault purge protection and soft-delete | `terraform/stacks/*/tee/versions.tf` | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "azurerm_key_vault") \| .values.purge_protection_enabled'` |
 
 ## NIST Control Family Mapping

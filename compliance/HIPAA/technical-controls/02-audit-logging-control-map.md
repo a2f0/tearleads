@@ -6,10 +6,10 @@ This map ties audit logging policy controls to concrete implementation and test 
 
 | Sentinel | HIPAA Citation | Description | Implementation Evidence | Test Evidence |
 | --- | --- | --- | --- | --- |
-| `TL-HAUDT-001` | 164.312(b), 164.308(a)(1)(ii)(D) | Nginx access logging with audit-grade fields for ePHI system activity | `terraform/stacks/staging/k8s/main.tf` (nginx tasks) | Manual verification: `nginx -T \| grep audit_combined` |
-| `TL-HAUDT-002` | 164.312(b), 164.308(a)(1)(ii)(D) | Journald 90-day persistent retention for activity review | `terraform/stacks/staging/k8s/main.tf` (journald tasks) | Manual verification: `cat /etc/systemd/journald.conf.d/compliance.conf` |
-| `TL-HAUDT-003` | 164.312(b) | Nginx log rotation with 90-day retention and compression | `terraform/stacks/staging/k8s/main.tf` (logrotate tasks) | Manual verification: `cat /etc/logrotate.d/nginx` |
-| `TL-HAUDT-004` | 164.316(b) | Monthly log archive with 6-year retention for documentation compliance | `terraform/stacks/staging/k8s/main.tf` (archive tasks) | Manual verification: `systemctl status audit-log-archive.timer` |
+| `TL-HAUDT-001` | 164.312(b), 164.308(a)(1)(ii)(D) | Nginx access logging with audit-grade fields for ePHI system activity | [`terraform/stacks/staging/k8s/main.tf`](../../../terraform/stacks/staging/k8s/main.tf) (nginx tasks) | Manual verification: `nginx -T \| grep audit_combined` |
+| `TL-HAUDT-002` | 164.312(b), 164.308(a)(1)(ii)(D) | Journald 90-day persistent retention for activity review | [`terraform/stacks/staging/k8s/main.tf`](../../../terraform/stacks/staging/k8s/main.tf) (journald tasks) | Manual verification: `cat /etc/systemd/journald.conf.d/compliance.conf` |
+| `TL-HAUDT-003` | 164.312(b) | Nginx log rotation with 90-day retention and compression | [`terraform/stacks/staging/k8s/main.tf`](../../../terraform/stacks/staging/k8s/main.tf) (logrotate tasks) | Manual verification: `cat /etc/logrotate.d/nginx` |
+| `TL-HAUDT-004` | 164.316(b) | Monthly log archive with 6-year retention for documentation compliance | [`terraform/stacks/staging/k8s/main.tf`](../../../terraform/stacks/staging/k8s/main.tf) (archive tasks) | Manual verification: `systemctl status audit-log-archive.timer` |
 
 ## HIPAA Security Rule Control Coverage
 
