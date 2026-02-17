@@ -1,9 +1,12 @@
+import { bumpLocalWriteIdFromReconcileState } from './sync-client-pending-operations.js';
 import {
   normalizePersistedContainerClocks,
   normalizePersistedPendingOperation,
   normalizePersistedReconcileState,
   normalizePersistedReplaySnapshot
 } from './sync-client-persistence-normalizers.js';
+import { buildQueuedLocalOperation } from './sync-client-queue-local-operation.js';
+import { pullUntilSettledLoop, runFlushLoop } from './sync-client-sync-loop.js';
 import type {
   QueueVfsCrdtLocalOperationInput,
   VfsBackgroundSyncClientFlushResult,
@@ -15,20 +18,11 @@ import type {
   VfsSyncGuardrailViolation
 } from './sync-client-utils.js';
 import {
-  assertNonRegressingLastWriteIds,
   cloneCursor,
-  isAccessLevel,
-  isPrincipalType,
-  lastItemCursor,
-  MAX_STALE_PUSH_RECOVERY_ATTEMPTS,
-  normalizeCursor,
-  normalizeOccurredAt,
   normalizeRequiredString,
   parsePositiveSafeInteger,
   parsePullLimit,
-  VfsCrdtSyncPushRejectedError,
-  validateClientId,
-  validatePushResponse
+  validateClientId
 } from './sync-client-utils.js';
 import {
   InMemoryVfsContainerClockStore,
@@ -36,10 +30,7 @@ import {
 } from './sync-container-clocks.js';
 import type { VfsCrdtOperation } from './sync-crdt.js';
 import { InMemoryVfsCrdtFeedReplayStore } from './sync-crdt-feed-replay.js';
-import {
-  InMemoryVfsCrdtClientStateStore,
-  parseVfsCrdtLastReconciledWriteIds
-} from './sync-crdt-reconcile.js';
+import { InMemoryVfsCrdtClientStateStore } from './sync-crdt-reconcile.js';
 import type { VfsSyncCursor } from './sync-cursor.js';
 import { compareVfsSyncCursorOrder } from './sync-reconcile.js';
 
@@ -101,78 +92,16 @@ export class VfsBackgroundSyncClient {
   queueLocalOperation(
     input: QueueVfsCrdtLocalOperationInput
   ): VfsCrdtOperation {
-    const normalizedItemId = normalizeRequiredString(input.itemId);
-    if (!normalizedItemId) {
-      throw new Error('itemId is required');
-    }
-
-    const writeId = this.nextLocalWriteId;
-
-    const normalizedOccurredAt = normalizeOccurredAt(input.occurredAt);
-    const occurredAt = normalizedOccurredAt ?? this.now().toISOString();
-    const parsedOccurredAt = normalizeOccurredAt(occurredAt);
-    if (!parsedOccurredAt) {
-      throw new Error('occurredAt is invalid');
-    }
-
-    const candidateOpId = input.opId ?? `${this.clientId}-${writeId}`;
-    const normalizedOpId = normalizeRequiredString(candidateOpId);
-    if (!normalizedOpId) {
-      throw new Error('opId is required');
-    }
-    if (this.pendingOpIds.has(normalizedOpId)) {
-      throw new Error(`opId ${normalizedOpId} is already queued`);
-    }
-
-    const operation: VfsCrdtOperation = {
-      opId: normalizedOpId,
-      opType: input.opType,
-      itemId: normalizedItemId,
-      replicaId: this.clientId,
-      writeId,
-      occurredAt: parsedOccurredAt
-    };
-
-    if (input.opType === 'acl_add' || input.opType === 'acl_remove') {
-      const principalType = input.principalType;
-      const principalId = normalizeRequiredString(input.principalId);
-
-      if (!isPrincipalType(principalType) || !principalId) {
-        throw new Error(
-          'principalType and principalId are required for acl operations'
-        );
-      }
-
-      operation.principalType = principalType;
-      operation.principalId = principalId;
-      if (input.opType === 'acl_add') {
-        const accessLevel = input.accessLevel;
-        if (!isAccessLevel(accessLevel)) {
-          throw new Error('accessLevel is required for acl_add');
-        }
-
-        operation.accessLevel = accessLevel;
-      }
-    }
-
-    if (input.opType === 'link_add' || input.opType === 'link_remove') {
-      const parentId = normalizeRequiredString(input.parentId);
-      const childId = normalizeRequiredString(input.childId);
-      if (!parentId || !childId) {
-        throw new Error(
-          'parentId and childId are required for link operations'
-        );
-      }
-      if (childId !== normalizedItemId) {
-        throw new Error('link childId must match itemId');
-      }
-
-      operation.parentId = parentId;
-      operation.childId = childId;
-    }
+    const operation = buildQueuedLocalOperation({
+      input,
+      clientId: this.clientId,
+      nextLocalWriteId: this.nextLocalWriteId,
+      pendingOpIds: this.pendingOpIds,
+      now: this.now
+    });
 
     this.pendingOperations.push(operation);
-    this.pendingOpIds.add(normalizedOpId);
+    this.pendingOpIds.add(operation.opId);
     this.nextLocalWriteId += 1;
     return { ...operation };
   }
@@ -389,7 +318,14 @@ export class VfsBackgroundSyncClient {
         persistedNextLocalWriteId,
         maxPendingWriteId + 1
       );
-      this.bumpLocalWriteIdFromReconcileState();
+      this.nextLocalWriteId = bumpLocalWriteIdFromReconcileState({
+        reconcileState: this.reconcileStateStore.get(
+          this.userId,
+          this.clientId
+        ),
+        clientId: this.clientId,
+        nextLocalWriteId: this.nextLocalWriteId
+      });
     } catch (error) {
       this.emitGuardrailViolation({
         code: 'hydrateGuardrailViolation',
@@ -505,492 +441,44 @@ export class VfsBackgroundSyncClient {
   }
 
   private async runFlush(): Promise<VfsBackgroundSyncClientFlushResult> {
-    let pushedOperations = 0;
-    let staleRecoveryAttempts = 0;
-
-    while (this.pendingOperations.length > 0) {
-      this.ensurePendingOccurredAtAfterCursor();
-      const currentBatch = this.pendingOperations.slice();
-      const pushResponse = await this.transport.pushOperations({
-        userId: this.userId,
-        clientId: this.clientId,
-        operations: currentBatch
-      });
-
-      const pushResults = validatePushResponse(currentBatch, pushResponse);
-      const rejectedResults = pushResults.filter(
-        (result) =>
-          result.status === 'staleWriteId' || result.status === 'invalidOp'
-      );
-
-      for (const result of pushResults) {
-        if (
-          result.status === 'applied' ||
-          result.status === 'alreadyApplied' ||
-          result.status === 'outdatedOp'
-        ) {
-          if (this.removePendingOperationById(result.opId)) {
-            pushedOperations += 1;
-          }
-        }
-      }
-
-      const invalidResults = rejectedResults.filter(
-        (result) => result.status === 'invalidOp'
-      );
-      if (invalidResults.length > 0) {
-        throw new VfsCrdtSyncPushRejectedError(invalidResults);
-      }
-
-      const staleResults = rejectedResults.filter(
-        (result) => result.status === 'staleWriteId'
-      );
-      if (staleResults.length > 0) {
-        /**
-         * Guardrail: stale write IDs are only recoverable by first pulling and
-         * synchronizing with server clock state, then rebasing queued writes.
-         * A hard retry cap protects against infinite push loops when the server
-         * cannot supply a forward-moving reconcile state.
-         */
-        staleRecoveryAttempts += 1;
-        if (staleRecoveryAttempts > MAX_STALE_PUSH_RECOVERY_ATTEMPTS) {
-          this.emitGuardrailViolation({
-            code: 'staleWriteRecoveryExhausted',
-            stage: 'flush',
-            message:
-              'stale write-id recovery exceeded max retry attempts without forward progress',
-            details: {
-              attempts: staleRecoveryAttempts,
-              maxAttempts: MAX_STALE_PUSH_RECOVERY_ATTEMPTS,
-              staleResults: staleResults.length
-            }
-          });
-          throw new VfsCrdtSyncPushRejectedError(staleResults);
-        }
-
-        await this.pullUntilSettled();
-        this.rebasePendingOperations(this.nextWriteIdFromReconcileState());
-        continue;
-      }
-
-      staleRecoveryAttempts = 0;
-    }
-
-    const syncResult = await this.pullUntilSettled();
-    return {
-      pushedOperations,
-      pulledOperations: syncResult.pulledOperations,
-      pullPages: syncResult.pullPages
-    };
-  }
-
-  private currentCursor(): VfsSyncCursor | null {
-    const reconcileState = this.reconcileStateStore.get(
-      this.userId,
-      this.clientId
-    );
-    if (reconcileState) {
-      return cloneCursor(reconcileState.cursor);
-    }
-
-    const replayCursor = this.replayStore.snapshot().cursor;
-    return replayCursor ? cloneCursor(replayCursor) : null;
-  }
-
-  private bumpLocalWriteIdFromReconcileState(): void {
-    const reconcileState = this.reconcileStateStore.get(
-      this.userId,
-      this.clientId
-    );
-    if (!reconcileState) {
-      return;
-    }
-
-    const replicatedWriteId =
-      reconcileState.lastReconciledWriteIds[this.clientId];
-    if (typeof replicatedWriteId !== 'number') {
-      return;
-    }
-
-    if (replicatedWriteId + 1 > this.nextLocalWriteId) {
-      this.nextLocalWriteId = replicatedWriteId + 1;
-    }
-  }
-
-  private nextWriteIdFromReconcileState(): number {
-    const reconcileState = this.reconcileStateStore.get(
-      this.userId,
-      this.clientId
-    );
-    if (!reconcileState) {
-      return this.nextLocalWriteId;
-    }
-
-    const replicatedWriteId =
-      reconcileState.lastReconciledWriteIds[this.clientId];
-    if (
-      typeof replicatedWriteId !== 'number' ||
-      !Number.isFinite(replicatedWriteId) ||
-      !Number.isInteger(replicatedWriteId) ||
-      replicatedWriteId < 0
-    ) {
-      return this.nextLocalWriteId;
-    }
-
-    return Math.max(this.nextLocalWriteId, replicatedWriteId + 1);
-  }
-
-  private rebasePendingOperations(nextWriteId: number): void {
-    let writeId = Math.max(1, nextWriteId);
-    const cursor = this.currentCursor();
-    const cursorMs = cursor ? Date.parse(cursor.changedAt) : Number.NaN;
-    let minOccurredAtMs = Number.isFinite(cursorMs)
-      ? cursorMs
-      : Number.NEGATIVE_INFINITY;
-
-    /**
-     * Guardrail: rebased queued operations must remain strictly ordered by both:
-     * 1) replica writeId (monotonic per-client), and
-     * 2) occurredAt (strictly after the reconciled cursor boundary)
-     *
-     * Without this, a recovered stale write can be accepted by push but then
-     * skipped on pull because its timestamp falls at/before the local cursor.
-     */
-    for (const operation of this.pendingOperations) {
-      operation.writeId = writeId;
-      writeId += 1;
-
-      const parsedOccurredAtMs = Date.parse(operation.occurredAt);
-      let rebasedOccurredAtMs = Number.isFinite(parsedOccurredAtMs)
-        ? parsedOccurredAtMs
-        : minOccurredAtMs;
-      if (
-        !Number.isFinite(rebasedOccurredAtMs) ||
-        rebasedOccurredAtMs <= minOccurredAtMs
-      ) {
-        rebasedOccurredAtMs = Number.isFinite(minOccurredAtMs)
-          ? minOccurredAtMs + 1
-          : Date.now();
-      }
-
-      operation.occurredAt = new Date(rebasedOccurredAtMs).toISOString();
-      minOccurredAtMs = rebasedOccurredAtMs;
-    }
-
-    if (writeId > this.nextLocalWriteId) {
-      this.nextLocalWriteId = writeId;
-    }
-  }
-
-  private ensurePendingOccurredAtAfterCursor(): void {
-    const cursor = this.currentCursor();
-    if (!cursor) {
-      return;
-    }
-
-    const parsedCursorMs = Date.parse(cursor.changedAt);
-    if (!Number.isFinite(parsedCursorMs)) {
-      return;
-    }
-
-    let minOccurredAtMs = parsedCursorMs;
-    /**
-     * Guardrail: queued writes must not be pushed with occurredAt timestamps at
-     * or behind the reconciled cursor boundary. Otherwise a delayed push can be
-     * inserted into canonical feed order before the cursor and become invisible
-     * to subsequent pull windows on other replicas.
-     */
-    for (const operation of this.pendingOperations) {
-      const parsedOccurredAtMs = Date.parse(operation.occurredAt);
-      let normalizedOccurredAtMs = Number.isFinite(parsedOccurredAtMs)
-        ? parsedOccurredAtMs
-        : minOccurredAtMs;
-      if (normalizedOccurredAtMs <= minOccurredAtMs) {
-        normalizedOccurredAtMs = minOccurredAtMs + 1;
-      }
-
-      operation.occurredAt = new Date(normalizedOccurredAtMs).toISOString();
-      minOccurredAtMs = normalizedOccurredAtMs;
-    }
-  }
-
-  private removePendingOperationById(opId: string): boolean {
-    const index = this.pendingOperations.findIndex(
-      (operation) => operation.opId === opId
-    );
-    if (index < 0) {
-      return false;
-    }
-
-    this.pendingOperations.splice(index, 1);
-    this.pendingOpIds.delete(opId);
-    return true;
-  }
-
-  private async reconcileWithTransportIfSupported(): Promise<void> {
-    if (!this.transport.reconcileState) {
-      return;
-    }
-
-    const localState = this.reconcileStateStore.get(this.userId, this.clientId);
-    if (!localState) {
-      return;
-    }
-
-    const normalizedLocalCursor = normalizeCursor(
-      localState.cursor,
-      'local reconcile cursor'
-    );
-    const localWriteIds = parseVfsCrdtLastReconciledWriteIds(
-      localState.lastReconciledWriteIds
-    );
-    if (!localWriteIds.ok) {
-      throw new Error(localWriteIds.error);
-    }
-
-    const response = await this.transport.reconcileState({
+    return runFlushLoop({
       userId: this.userId,
       clientId: this.clientId,
-      cursor: cloneCursor(normalizedLocalCursor),
-      lastReconciledWriteIds: { ...localWriteIds.value }
-    });
-
-    /**
-     * Guardrail: remote reconcile acknowledgements must be valid and must never
-     * move backwards. If this fails, the client aborts immediately to prevent
-     * future writes from being emitted with stale cursor or replica-clock state.
-     */
-    const normalizedResponseCursor = normalizeCursor(
-      response.cursor,
-      'reconcile cursor'
-    );
-    const responseWriteIds = parseVfsCrdtLastReconciledWriteIds(
-      response.lastReconciledWriteIds
-    );
-    if (!responseWriteIds.ok) {
-      throw new Error(responseWriteIds.error);
-    }
-
-    if (
-      compareVfsSyncCursorOrder(
-        normalizedResponseCursor,
-        normalizedLocalCursor
-      ) < 0
-    ) {
-      this.emitGuardrailViolation({
-        code: 'reconcileCursorRegression',
-        stage: 'reconcile',
-        message: 'reconcile acknowledgement regressed sync cursor',
-        details: {
-          previousChangedAt: normalizedLocalCursor.changedAt,
-          previousChangeId: normalizedLocalCursor.changeId,
-          incomingChangedAt: normalizedResponseCursor.changedAt,
-          incomingChangeId: normalizedResponseCursor.changeId
-        }
-      });
-      throw new Error('transport reconcile regressed sync cursor');
-    }
-
-    const observedWriteIds = new Map<string, number>(
-      Object.entries(localWriteIds.value)
-    );
-    assertNonRegressingLastWriteIds(
-      observedWriteIds,
-      responseWriteIds.value,
-      ({ replicaId, previousWriteId, incomingWriteId }) => {
-        this.emitGuardrailViolation({
-          code: 'lastWriteIdRegression',
-          stage: 'reconcile',
-          message: 'reconcile acknowledgement regressed replica write-id state',
-          details: {
-            replicaId,
-            previousWriteId,
-            incomingWriteId
-          }
-        });
+      pullLimit: this.pullLimit,
+      transport: this.transport,
+      pendingOperations: this.pendingOperations,
+      pendingOpIds: this.pendingOpIds,
+      replayStore: this.replayStore,
+      reconcileStateStore: this.reconcileStateStore,
+      containerClockStore: this.containerClockStore,
+      readNextLocalWriteId: () => this.nextLocalWriteId,
+      writeNextLocalWriteId: (value) => {
+        this.nextLocalWriteId = value;
+      },
+      emitGuardrailViolation: (violation) => {
+        this.emitGuardrailViolation(violation);
       }
-    );
-
-    this.reconcileStateStore.reconcile(
-      this.userId,
-      this.clientId,
-      normalizedResponseCursor,
-      responseWriteIds.value
-    );
-    this.bumpLocalWriteIdFromReconcileState();
+    });
   }
 
   private async pullUntilSettled(): Promise<VfsBackgroundSyncClientSyncResult> {
-    let pulledOperations = 0;
-    let pullPages = 0;
-    const localReconcileState = this.reconcileStateStore.get(
-      this.userId,
-      this.clientId
-    );
-    /**
-     * Guardrail: pull responses must remain monotonic not only within a single
-     * paginated sync loop but also relative to the durable local reconcile
-     * baseline established by prior successful cycles (including restarts).
-     */
-    const observedLastWriteIds = new Map<string, number>(
-      Object.entries(localReconcileState?.lastReconciledWriteIds ?? {})
-    );
-    const observedPullOpIds = new Set<string>();
-
-    while (true) {
-      const cursorBeforePull = this.currentCursor();
-      const response = await this.transport.pullOperations({
-        userId: this.userId,
-        clientId: this.clientId,
-        cursor: cursorBeforePull,
-        limit: this.pullLimit
-      });
-      pullPages += 1;
-
-      const parsedWriteIds = parseVfsCrdtLastReconciledWriteIds(
-        response.lastReconciledWriteIds
-      );
-      if (!parsedWriteIds.ok) {
-        throw new Error(parsedWriteIds.error);
+    return pullUntilSettledLoop({
+      userId: this.userId,
+      clientId: this.clientId,
+      pullLimit: this.pullLimit,
+      transport: this.transport,
+      pendingOperations: this.pendingOperations,
+      pendingOpIds: this.pendingOpIds,
+      replayStore: this.replayStore,
+      reconcileStateStore: this.reconcileStateStore,
+      containerClockStore: this.containerClockStore,
+      readNextLocalWriteId: () => this.nextLocalWriteId,
+      writeNextLocalWriteId: (value) => {
+        this.nextLocalWriteId = value;
+      },
+      emitGuardrailViolation: (violation) => {
+        this.emitGuardrailViolation(violation);
       }
-      assertNonRegressingLastWriteIds(
-        observedLastWriteIds,
-        parsedWriteIds.value,
-        ({ replicaId, previousWriteId, incomingWriteId }) => {
-          this.emitGuardrailViolation({
-            code: 'lastWriteIdRegression',
-            stage: 'pull',
-            message: 'pull response regressed replica write-id state',
-            details: {
-              replicaId,
-              previousWriteId,
-              incomingWriteId
-            }
-          });
-        }
-      );
-
-      if (response.hasMore && response.items.length === 0) {
-        this.emitGuardrailViolation({
-          code: 'pullPageInvariantViolation',
-          stage: 'pull',
-          message: 'pull response hasMore=true with an empty page',
-          details: {
-            hasMore: true,
-            itemsLength: 0
-          }
-        });
-        throw new Error(
-          'transport returned hasMore=true with an empty pull page'
-        );
-      }
-
-      let pageCursor: VfsSyncCursor | null = null;
-      if (response.items.length > 0) {
-        /**
-         * Guardrail: a single pull cycle must never replay an opId across page
-         * boundaries. Replay indicates a broken cursor contract and can cause
-         * non-deterministic reapplication or stalled pagination.
-         */
-        for (const item of response.items) {
-          const opId = normalizeRequiredString(item.opId);
-          if (!opId) {
-            throw new Error('transport returned item with missing opId');
-          }
-
-          if (observedPullOpIds.has(opId)) {
-            this.emitGuardrailViolation({
-              code: 'pullDuplicateOpReplay',
-              stage: 'pull',
-              message:
-                'pull response replayed an opId within one pull-until-settled cycle',
-              details: {
-                opId
-              }
-            });
-            throw new Error(
-              `transport replayed opId ${opId} during pull pagination`
-            );
-          }
-
-          observedPullOpIds.add(opId);
-        }
-
-        this.replayStore.applyPage(response.items);
-        this.containerClockStore.applyFeedItems(response.items);
-        pulledOperations += response.items.length;
-
-        pageCursor = lastItemCursor(response.items);
-        if (!pageCursor) {
-          throw new Error('pull page had items but missing terminal cursor');
-        }
-
-        if (
-          response.nextCursor &&
-          compareVfsSyncCursorOrder(response.nextCursor, pageCursor) !== 0
-        ) {
-          this.emitGuardrailViolation({
-            code: 'pullPageInvariantViolation',
-            stage: 'pull',
-            message: 'pull response nextCursor does not match page tail cursor',
-            details: {
-              nextCursorChangedAt: response.nextCursor.changedAt,
-              nextCursorChangeId: response.nextCursor.changeId,
-              pageCursorChangedAt: pageCursor.changedAt,
-              pageCursorChangeId: pageCursor.changeId
-            }
-          });
-          throw new Error(
-            'transport returned nextCursor that does not match pull page tail'
-          );
-        }
-      } else if (response.nextCursor) {
-        pageCursor = cloneCursor(response.nextCursor);
-      } else if (cursorBeforePull) {
-        pageCursor = cloneCursor(cursorBeforePull);
-      }
-
-      if (
-        cursorBeforePull &&
-        pageCursor &&
-        compareVfsSyncCursorOrder(pageCursor, cursorBeforePull) < 0
-      ) {
-        this.emitGuardrailViolation({
-          code: 'pullCursorRegression',
-          stage: 'pull',
-          message: 'pull response regressed local sync cursor',
-          details: {
-            previousChangedAt: cursorBeforePull.changedAt,
-            previousChangeId: cursorBeforePull.changeId,
-            incomingChangedAt: pageCursor.changedAt,
-            incomingChangeId: pageCursor.changeId
-          }
-        });
-        throw new Error('transport returned regressing sync cursor');
-      }
-
-      if (pageCursor) {
-        this.reconcileStateStore.reconcile(
-          this.userId,
-          this.clientId,
-          pageCursor,
-          parsedWriteIds.value
-        );
-        this.bumpLocalWriteIdFromReconcileState();
-      }
-
-      if (!response.hasMore) {
-        /**
-         * Guardrail: when supported, finalize each pull cycle by explicitly
-         * reconciling cursor + replica clocks with the server-side state table.
-         * This keeps device-local state and durable server checkpoints aligned.
-         */
-        await this.reconcileWithTransportIfSupported();
-        return {
-          pulledOperations,
-          pullPages
-        };
-      }
-    }
+    });
   }
 }
