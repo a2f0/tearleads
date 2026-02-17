@@ -30,7 +30,7 @@ run_step "checkFileLimits" ./scripts/preen/checkFileLimits.sh --from-upstream
 run_step "checkBinaryFiles" ./scripts/checkBinaryFiles.sh --from-upstream
 run_step "checkJs" ./scripts/preen/checkJs.sh --from-upstream
 run_step "checkPreenEcosystem" ./scripts/checkPreenEcosystem.sh --strict
-run_step "checkCircularImports" ./scripts/preen/checkCircularImports.sh
+run_step "checkCircularImports" ./scripts/preen/checkCircularImports.ts
 run_step "checkTerraform" ./scripts/checkTerraform.sh
 run_step "runImpactedQuality" pnpm exec tsx scripts/ciImpact/runImpactedQuality.ts --base origin/main --head HEAD
 # Run impacted package coverage tests with conservative full-run fallback.

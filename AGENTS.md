@@ -160,7 +160,7 @@ Files must stay below 500 lines and 20,000 bytes. When the guardrail trips, spli
 
 - Do not introduce circular import cycles between modules.
 - Circular imports cause runtime errors, undefined values, and bundler warnings.
-- Guardrails run in `pre-push` and CI via `scripts/preen/checkCircularImports.sh`.
+- Guardrails run in `pre-push` and CI via `scripts/preen/checkCircularImports.ts`.
 - To fix cycles: extract shared types/constants to a separate module, or restructure module boundaries.
 
 ## Node Version Management Policy

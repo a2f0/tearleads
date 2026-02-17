@@ -230,7 +230,7 @@ jobs:
           pnpm exec tsx scripts/ciImpact/runImpactedTests.ts --base "$BASE_SHA" --head "$HEAD_SHA" --scripts-only
 
       - name: Check for circular imports
-        run: ./scripts/preen/checkCircularImports.sh
+        run: ./scripts/preen/checkCircularImports.ts
 
       - name: Cache SQLite WASM
         uses: actions/cache@v4
