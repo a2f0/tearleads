@@ -134,61 +134,42 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: ./scripts/downloadSqliteWasm.sh
 
-      - name: Generate self-signed certificate
+      - name: Start PostgreSQL container
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
-          sudo mkdir -p /etc/ssl/private
-          sudo openssl req -x509 -nodes -days 1 \
-            -newkey rsa:2048 \
-            -keyout /etc/ssl/private/localhost.key \
-            -out /etc/ssl/certs/localhost.crt \
-            -subj "/CN=localhost" \
-            -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
-          sudo chmod 644 /etc/ssl/certs/localhost.crt
-          sudo chmod 600 /etc/ssl/private/localhost.key
-          # Copy cert to workspace for Electron to access
-          mkdir -p $GITHUB_WORKSPACE/.github/ci
-          cp /etc/ssl/certs/localhost.crt $GITHUB_WORKSPACE/.github/ci/localhost.crt
+          docker network create ci-e2e || true
+          docker rm -f ci-postgres >/dev/null 2>&1 || true
+          docker run -d \
+            --name ci-postgres \
+            --network ci-e2e \
+            -e POSTGRES_USER=tearleads \
+            -e POSTGRES_PASSWORD=tearleads_password \
+            -e POSTGRES_DB=tearleads \
+            -p 5432:5432 \
+            postgres:16
+          timeout 60 bash -c 'until docker exec ci-postgres pg_isready -U tearleads -d tearleads; do sleep 2; done'
 
-      - name: Cache Ansible collections
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        uses: actions/cache@v4
-        with:
-          path: ~/.ansible/collections
-          key: ansible-collections-${{ hashFiles('ansible/requirements.yml') }}
-
-      - name: Install and configure PostgreSQL
+      - name: Build API image (k8s Dockerfile)
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
-          sudo apt-get update && sudo apt-get install -y ansible
-          ansible-galaxy collection install -r ansible/requirements.yml
-          POSTGRES_USER=tearleads \
-            POSTGRES_PASSWORD=tearleads_password \
-            POSTGRES_DATABASE=tearleads \
-            ansible-playbook -i ansible/inventories/ci.yml ansible/playbooks/ci-postgres.yml
+          docker build -f packages/api/Dockerfile -t tearleads-api-ci:latest .
 
-      - name: Install and configure NGINX for API proxy
+      - name: Start API container
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
-          sudo apt-get install -y nginx
-          ansible-playbook -i ansible/inventories/ci.yml ansible/playbooks/ci-nginx.yml -e nginx_ci_site=api
-
-      - name: Start API server
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: |
-          pnpm --filter @tearleads/api dev &
-          echo "Waiting for API server to be ready..."
-          timeout 30 bash -c 'until curl -f http://localhost:5001/v1/ping; do sleep 1; done'
-        env:
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: '5432'
-          POSTGRES_USER: tearleads
-          POSTGRES_PASSWORD: tearleads_password
-          POSTGRES_DATABASE: tearleads
-
-      - name: Verify NGINX is proxying API
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: curl -k https://localhost:8443/v1/ping
+          docker rm -f ci-api >/dev/null 2>&1 || true
+          docker run -d \
+            --name ci-api \
+            --network ci-e2e \
+            -e POSTGRES_HOST=ci-postgres \
+            -e POSTGRES_PORT=5432 \
+            -e POSTGRES_USER=tearleads \
+            -e POSTGRES_PASSWORD=tearleads_password \
+            -e POSTGRES_DATABASE=tearleads \
+            -e NODE_ENV=production \
+            -p 5001:5001 \
+            tearleads-api-ci:latest
+          timeout 60 bash -c 'until curl -fsS http://localhost:5001/v1/ping >/dev/null; do sleep 2; done'
 
       - name: Build API (for OpenAPI spec)
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
@@ -253,13 +234,11 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/client electron:build
         env:
-          VITE_API_URL: https://localhost:8443/v1
+          VITE_API_URL: http://localhost:5001/v1
 
       - name: Run Electron tests
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: xvfb-run --auto-servernum -- pnpm --filter @tearleads/client electron:test
-        env:
-          NODE_EXTRA_CA_CERTS: ${{ github.workspace }}/.github/ci/localhost.crt
 
       - name: Build CLI for backup validation
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
