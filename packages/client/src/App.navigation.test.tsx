@@ -107,6 +107,25 @@ vi.mock('@tearleads/settings', () => ({
   IconDepthToggle: () => null,
   LanguageSelector: () => null,
   PatternSelector: () => null,
+  SettingsPage: ({
+    backLink,
+    featureFlagsSection,
+    licensesLink,
+    version
+  }: {
+    backLink?: React.ReactNode;
+    featureFlagsSection?: React.ReactNode;
+    licensesLink?: React.ReactNode;
+    version?: string | null;
+  }) => (
+    <div>
+      {backLink}
+      <div>Theme</div>
+      {featureFlagsSection}
+      {licensesLink}
+      <div>{version}</div>
+    </div>
+  ),
   SettingsSection: ({ children }: { children: React.ReactNode }) => children,
   ThemeSelector: () => <div>Theme</div>,
   TooltipsToggle: () => null,
