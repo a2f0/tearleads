@@ -1,3 +1,4 @@
+import { cn } from '@tearleads/window-manager';
 import type { ButtonHTMLAttributes } from 'react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -18,7 +19,11 @@ export function Button({
 
   return (
     <button
-      className={`inline-flex h-9 items-center justify-center rounded-md px-4 py-2 font-medium text-sm transition-colors disabled:pointer-events-none disabled:opacity-50 ${variantClasses} ${className ?? ''}`}
+      className={cn(
+        'inline-flex h-9 items-center justify-center rounded-md px-4 py-2 font-medium text-sm transition-colors disabled:pointer-events-none disabled:opacity-50',
+        variantClasses,
+        className
+      )}
       {...props}
     />
   );
