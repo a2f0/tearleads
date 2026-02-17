@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/msw",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Shared MSW handlers for Tearleads tests",
   "type": "module",
   "main": "dist/index.js",
