@@ -1,76 +1,42 @@
-import { ThemeProvider } from '@tearleads/ui';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import packageJson from '../../package.json';
 import { Settings } from './Settings';
 
-// Mock @tearleads/settings with stub components that have test IDs
+// Mock @tearleads/settings with a thin page component
 vi.mock('@tearleads/settings', () => ({
-  useSettings: () => ({
-    getSetting: vi.fn((key: string) => {
-      switch (key) {
-        case 'desktopIconDepth':
-          return 'debossed';
-        case 'desktopIconBackground':
-          return 'colored';
-        case 'desktopPattern':
-          return 'isometric';
-        case 'font':
-          return 'system';
-        case 'language':
-          return 'en';
-        case 'theme':
-          return 'monochrome';
-        case 'tooltips':
-          return 'enabled';
-        case 'borderRadius':
-          return 'rounded';
-        case 'windowOpacity':
-          return 'translucent';
-        default:
-          return 'enabled';
-      }
-    }),
-    setSetting: vi.fn()
-  }),
-  BorderRadiusToggle: () => (
-    <div data-testid="border-radius-toggle-container">BorderRadiusToggle</div>
-  ),
-  FontSelector: () => (
-    <div data-testid="font-selector-container">FontSelector</div>
-  ),
-  IconBackgroundToggle: () => (
-    <div data-testid="icon-background-toggle-container">
-      IconBackgroundToggle
+  SettingsPage: ({
+    backLink,
+    featureFlagsSection,
+    licensesLink,
+    version
+  }: {
+    backLink?: ReactNode;
+    featureFlagsSection?: ReactNode;
+    licensesLink?: ReactNode;
+    version?: string | null;
+  }) => (
+    <div>
+      {backLink}
+      <h1>Settings</h1>
+      <div data-testid="theme-selector-container">
+        <button type="button" data-testid="theme-option-light">
+          Light
+        </button>
+      </div>
+      <div data-testid="language-selector-container" />
+      <div data-testid="tooltips-toggle-container" />
+      <div data-testid="border-radius-toggle-container" />
+      <div data-testid="icon-depth-toggle-container" />
+      <div data-testid="icon-background-toggle-container" />
+      <div data-testid="pattern-selector-container" />
+      {featureFlagsSection}
+      {licensesLink}
+      <div data-testid="app-version">v{version ?? 'unknown'}</div>
     </div>
-  ),
-  IconDepthToggle: () => (
-    <div data-testid="icon-depth-toggle-container">IconDepthToggle</div>
-  ),
-  LanguageSelector: () => (
-    <div data-testid="language-selector-container">LanguageSelector</div>
-  ),
-  PatternSelector: () => (
-    <div data-testid="pattern-selector-container">PatternSelector</div>
-  ),
-  SettingsSection: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ThemeSelector: () => (
-    <div data-testid="theme-selector-container">
-      <button type="button" data-testid="theme-option-light">
-        Light
-      </button>
-      ThemeSelector
-    </div>
-  ),
-  TooltipsToggle: () => (
-    <div data-testid="tooltips-toggle-container">TooltipsToggle</div>
-  ),
-  WindowOpacityToggle: () => (
-    <div data-testid="window-opacity-toggle-container">WindowOpacityToggle</div>
   )
 }));
 
@@ -81,9 +47,7 @@ vi.mock('@/hooks/useAppVersion', () => ({
 function renderSettings(showBackLink = true) {
   return render(
     <MemoryRouter>
-      <ThemeProvider>
-        <Settings showBackLink={showBackLink} />
-      </ThemeProvider>
+      <Settings showBackLink={showBackLink} />
     </MemoryRouter>
   );
 }

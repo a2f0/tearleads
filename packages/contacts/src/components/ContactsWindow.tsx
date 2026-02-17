@@ -1,5 +1,6 @@
 import {
   FloatingWindow,
+  useWindowRefresh,
   WindowControlBar,
   WindowControlButton,
   WindowControlGroup,
@@ -58,7 +59,7 @@ export function ContactsWindow({
   );
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [refreshToken, setRefreshToken] = useState(0);
+  const { refreshToken, triggerRefresh } = useWindowRefresh();
   const [sidebarWidth, setSidebarWidth] = useState(200);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(
     openContactRequest?.groupId ?? ALL_CONTACTS_ID
@@ -107,9 +108,12 @@ export function ContactsWindow({
     setCurrentView('list');
   }, []);
 
-  const handleImportComplete = useCallback((_result: ImportResult) => {
-    setRefreshToken((value) => value + 1);
-  }, []);
+  const handleImportComplete = useCallback(
+    (_result: ImportResult) => {
+      triggerRefresh();
+    },
+    [triggerRefresh]
+  );
 
   const handleCreated = useCallback((contactId: string) => {
     setSelectedContactId(contactId);
@@ -117,23 +121,23 @@ export function ContactsWindow({
   }, []);
 
   const handleGroupChanged = useCallback(() => {
-    setRefreshToken((value) => value + 1);
-  }, []);
+    triggerRefresh();
+  }, [triggerRefresh]);
 
   const handleDropToGroup = useCallback(
     async (groupId: string, contactIds: string[]) => {
       const db = getDatabase();
       const insertedCount = await linkContactsToGroup(db, groupId, contactIds);
       if (insertedCount > 0) {
-        setRefreshToken((value) => value + 1);
+        triggerRefresh();
       }
     },
-    [getDatabase]
+    [getDatabase, triggerRefresh]
   );
 
   const handleRefresh = useCallback(() => {
-    setRefreshToken((value) => value + 1);
-  }, []);
+    triggerRefresh();
+  }, [triggerRefresh]);
 
   const resolvedGroupId =
     selectedGroupId && selectedGroupId !== ALL_CONTACTS_ID

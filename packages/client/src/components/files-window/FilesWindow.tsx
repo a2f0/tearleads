@@ -1,5 +1,6 @@
 import {
   DesktopFloatingWindow as FloatingWindow,
+  useWindowRefresh,
   WindowControlBar,
   WindowControlButton,
   WindowControlGroup,
@@ -45,7 +46,7 @@ export function FilesWindow({
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [listStatusText, setListStatusText] = useState('Loading files...');
-  const [refreshToken, setRefreshToken] = useState(0);
+  const { refreshToken, triggerRefresh } = useWindowRefresh();
   const [uploadInProgress, setUploadInProgress] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<FilesWindowContentRef>(null);
@@ -57,8 +58,8 @@ export function FilesWindow({
 
   const handleRefresh = useCallback(() => {
     if (uploadInProgress) return;
-    setRefreshToken((value) => value + 1);
-  }, [uploadInProgress]);
+    triggerRefresh();
+  }, [triggerRefresh, uploadInProgress]);
 
   const handleUploadFiles = useCallback((files: File[]) => {
     contentRef.current?.uploadFiles(files);
@@ -91,8 +92,8 @@ export function FilesWindow({
 
   const handleDeleted = useCallback(() => {
     setSelectedFileId(null);
-    setRefreshToken((value) => value + 1);
-  }, []);
+    triggerRefresh();
+  }, [triggerRefresh]);
 
   const statusText = selectedFileId
     ? 'Viewing file details'

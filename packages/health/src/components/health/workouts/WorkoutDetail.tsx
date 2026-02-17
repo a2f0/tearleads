@@ -1,7 +1,7 @@
 import type { CreateWorkoutEntryInput } from '@tearleads/health';
 import { Loader2 } from 'lucide-react';
 import { useCallback } from 'react';
-import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { InlineUnlock } from '../../sqlite/InlineUnlock';
 import { useWorkoutData } from './useWorkoutData';
 import { WorkoutForm } from './WorkoutForm';
 import { WorkoutTable } from './WorkoutTable';

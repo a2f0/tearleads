@@ -1,7 +1,7 @@
 import type { CreateWeightReadingInput } from '@tearleads/health';
 import { Loader2 } from 'lucide-react';
 import { useCallback } from 'react';
-import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { InlineUnlock } from '../../sqlite/InlineUnlock';
 import { useWeightData } from './useWeightData';
 import { WeightForm } from './WeightForm';
 import { WeightTable } from './WeightTable';

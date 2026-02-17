@@ -1,9 +1,9 @@
+import { useCallback, useEffect, useState } from 'react';
 import type {
   CreateWeightReadingInput,
   WeightReading
-} from '@tearleads/health';
-import { useCallback, useEffect, useState } from 'react';
-import { useDatabaseContext } from '@/db/hooks';
+} from '../../../lib/healthTracker';
+import { useHealthRuntime } from '../../../runtime';
 import { useHealthTracker } from '../useHealthTracker';
 
 interface UseWeightDataProps {
@@ -23,7 +23,7 @@ interface UseWeightDataResult {
 export function useWeightData({
   refreshToken = 0
 }: UseWeightDataProps = {}): UseWeightDataResult {
-  const { isUnlocked } = useDatabaseContext();
+  const { isUnlocked } = useHealthRuntime();
   const tracker = useHealthTracker();
 
   const [readings, setReadings] = useState<WeightReading[]>([]);

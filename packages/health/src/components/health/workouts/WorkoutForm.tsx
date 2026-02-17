@@ -6,8 +6,8 @@ import type {
 import { Loader2 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
 import { useExerciseTranslation } from '../exercises/useExerciseTranslation';
 import { selectClassName } from '../selectClassName';
 

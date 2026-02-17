@@ -6,8 +6,8 @@ import {
   Ruler,
   Scale
 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { BackLink } from '@/components/ui/back-link';
 import {
   BloodPressureDetail,
   ExerciseDetail,
@@ -25,6 +25,7 @@ export type HealthDrilldownRoute =
 
 interface HealthProps {
   showBackLink?: boolean;
+  backLink?: ReactNode;
   refreshToken?: number;
   activeRoute?: HealthDrilldownRoute | undefined;
   onRouteChange?: (route: HealthDrilldownRoute | undefined) => void;
@@ -103,6 +104,7 @@ export const HEALTH_DRILLDOWN_CARDS = HEALTH_CARDS;
 
 export function Health({
   showBackLink = true,
+  backLink,
   refreshToken = 0,
   activeRoute: controlledRoute,
   onRouteChange
@@ -117,7 +119,11 @@ export function Health({
     <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
       {showBackLink && (
         <div className="flex flex-col gap-2 pb-4">
-          <BackLink defaultTo="/" defaultLabel="Back to Home" />
+          {backLink ?? (
+            <Link className="text-sm underline-offset-2 hover:underline" to="/">
+              Back to Home
+            </Link>
+          )}
           <h1 className="font-bold text-xl tracking-tight sm:text-2xl">
             Health
           </h1>

@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import React, { type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContactsWindow } from './ContactsWindow';
 
@@ -26,6 +26,13 @@ vi.mock('@tearleads/window-manager', () => ({
   WindowControlGroup: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
   ),
+  useWindowRefresh: () => {
+    const [refreshToken, setRefreshToken] = React.useState(0);
+    const triggerRefresh = () => {
+      setRefreshToken((value) => value + 1);
+    };
+    return { refreshToken, triggerRefresh };
+  },
   WindowControlButton: ({
     children,
     onClick,

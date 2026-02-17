@@ -1,9 +1,9 @@
+import { useCallback, useEffect, useState } from 'react';
 import type {
   BloodPressureReading,
   CreateBloodPressureReadingInput
-} from '@tearleads/health';
-import { useCallback, useEffect, useState } from 'react';
-import { useDatabaseContext } from '@/db/hooks';
+} from '../../../lib/healthTracker';
+import { useHealthRuntime } from '../../../runtime';
 import { useHealthTracker } from '../useHealthTracker';
 
 interface UseBloodPressureDataProps {
@@ -25,7 +25,7 @@ interface UseBloodPressureDataResult {
 export function useBloodPressureData({
   refreshToken = 0
 }: UseBloodPressureDataProps = {}): UseBloodPressureDataResult {
-  const { isUnlocked } = useDatabaseContext();
+  const { isUnlocked } = useHealthRuntime();
   const tracker = useHealthTracker();
 
   const [readings, setReadings] = useState<BloodPressureReading[]>([]);

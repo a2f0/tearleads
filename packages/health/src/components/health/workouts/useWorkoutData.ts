@@ -1,10 +1,10 @@
+import { useCallback, useEffect, useState } from 'react';
 import type {
   CreateWorkoutEntryInput,
   Exercise,
   WorkoutEntry
-} from '@tearleads/health';
-import { useCallback, useEffect, useState } from 'react';
-import { useDatabaseContext } from '@/db/hooks';
+} from '../../../lib/healthTracker';
+import { useHealthRuntime } from '../../../runtime';
 import { useHealthTracker } from '../useHealthTracker';
 
 interface UseWorkoutDataProps {
@@ -25,7 +25,7 @@ interface UseWorkoutDataResult {
 export function useWorkoutData({
   refreshToken = 0
 }: UseWorkoutDataProps = {}): UseWorkoutDataResult {
-  const { isUnlocked } = useDatabaseContext();
+  const { isUnlocked } = useHealthRuntime();
   const tracker = useHealthTracker();
 
   const [entries, setEntries] = useState<WorkoutEntry[]>([]);

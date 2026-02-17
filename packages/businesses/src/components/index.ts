@@ -1,3 +1,4 @@
+export { BusinessesManager } from './BusinessesManager.js';
 export {
   BusinessesWindow,
   type BusinessesWindowProps

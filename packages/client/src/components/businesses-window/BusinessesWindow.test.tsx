@@ -41,10 +41,6 @@ vi.mock('@tearleads/window-manager', async (importOriginal) => {
   };
 });
 
-vi.mock('@/components/businesses', () => ({
-  BusinessesManager: () => <div data-testid="businesses-manager" />
-}));
-
 describe('BusinessesWindow', () => {
   const defaultProps = {
     id: 'businesses-window',
@@ -59,7 +55,7 @@ describe('BusinessesWindow', () => {
 
     expect(screen.getByTestId('floating-window')).toBeInTheDocument();
     expect(screen.getByTestId('window-title')).toHaveTextContent('Businesses');
-    expect(screen.getByTestId('businesses-manager')).toBeInTheDocument();
+    expect(screen.getByText('No businesses yet')).toBeInTheDocument();
     expect(screen.getByTestId('floating-window')).not.toHaveAttribute(
       'data-initial-dimensions'
     );

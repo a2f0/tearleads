@@ -34,6 +34,7 @@ export {
 } from './hooks/index.js';
 // Utilities
 export { cn } from './lib/utils.js';
+export { SettingsPage, type SettingsPageProps } from './pages/index.js';
 // Types
 export type {
   BorderRadiusValue,
