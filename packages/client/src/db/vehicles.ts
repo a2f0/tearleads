@@ -1,19 +1,10 @@
 import { isRecord, toFiniteNumber } from '@tearleads/shared';
 import {
   normalizeVehicleProfile,
-  type VehicleProfileInput
+  type VehicleProfileInput,
+  type VehicleRecord
 } from '@tearleads/vehicles';
 import { getDatabaseAdapter, isDatabaseInitialized } from './index';
-
-export interface VehicleRecord {
-  id: string;
-  make: string;
-  model: string;
-  year: number | null;
-  color: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 interface RawVehicleRow {
   id: string;

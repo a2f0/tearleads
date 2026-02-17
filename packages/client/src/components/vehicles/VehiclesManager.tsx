@@ -1,4 +1,8 @@
-import { normalizeVehicleProfile } from '@tearleads/vehicles';
+import {
+  normalizeVehicleProfile,
+  type VehicleRecord,
+  type VehicleRepository
+} from '@tearleads/vehicles';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow
@@ -8,13 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  createVehicle,
-  deleteVehicle,
-  listVehicles,
-  updateVehicle,
-  type VehicleRecord
-} from '@/db/vehicles';
+import { dbVehiclesRepository } from './vehiclesRepository';
 
 interface VehicleFormErrors {
   make?: string;
@@ -23,7 +21,13 @@ interface VehicleFormErrors {
   color?: string;
 }
 
-export function VehiclesManager() {
+interface VehiclesManagerProps {
+  repository?: VehicleRepository;
+}
+
+export function VehiclesManager({
+  repository = dbVehiclesRepository
+}: VehiclesManagerProps = {}) {
   const { t } = useTranslation('vehicles');
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,10 +46,10 @@ export function VehiclesManager() {
 
   const refreshVehicles = useCallback(async () => {
     setIsLoading(true);
-    const nextVehicles = await listVehicles();
+    const nextVehicles = await repository.listVehicles();
     setVehicles(nextVehicles);
     setIsLoading(false);
-  }, []);
+  }, [repository]);
 
   useEffect(() => {
     void refreshVehicles();
@@ -130,8 +134,8 @@ export function VehiclesManager() {
 
       const savedVehicle =
         selectedVehicleId === null
-          ? await createVehicle(normalized.value)
-          : await updateVehicle(selectedVehicleId, normalized.value);
+          ? await repository.createVehicle(normalized.value)
+          : await repository.updateVehicle(selectedVehicleId, normalized.value);
 
       setIsSaving(false);
 
@@ -148,6 +152,7 @@ export function VehiclesManager() {
       make,
       model,
       refreshVehicles,
+      repository,
       selectedVehicleId,
       setFormFromVehicle,
       t,
@@ -157,13 +162,13 @@ export function VehiclesManager() {
 
   const handleDelete = useCallback(
     async (id: string) => {
-      await deleteVehicle(id);
+      await repository.deleteVehicle(id);
       if (selectedVehicleId === id) {
         resetForm();
       }
       await refreshVehicles();
     },
-    [refreshVehicles, resetForm, selectedVehicleId]
+    [refreshVehicles, repository, resetForm, selectedVehicleId]
   );
 
   return (
