@@ -55,7 +55,7 @@ export function CalendarDayView({
     // biome-ignore lint/a11y/noStaticElementInteractions: container with child interactive elements
     // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard navigation handled by child hour slots
     <div
-      className="h-full overflow-auto rounded-xl border bg-card p-4"
+      className="h-full overflow-auto rounded-xl border bg-card p-4 [border-color:var(--soft-border)]"
       data-testid="calendar-day-view"
       onContextMenu={(event) => {
         if (timeSelection) {

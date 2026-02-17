@@ -136,7 +136,7 @@ export function Health({
       {showBackLink && (
         <div className="mb-3 flex flex-wrap gap-2">
           <Link
-            className="rounded-md border px-2 py-1 text-xs"
+            className="rounded-md border px-2 py-1 text-xs [border-color:var(--soft-border)]"
             to={HEALTH_OVERVIEW_ROUTE}
           >
             Overview
@@ -144,7 +144,7 @@ export function Health({
           {HEALTH_DRILLDOWN_CARDS.map((card) => (
             <Link
               key={card.route}
-              className="rounded-md border px-2 py-1 text-xs"
+              className="rounded-md border px-2 py-1 text-xs [border-color:var(--soft-border)]"
               data-testid={`health-nav-${card.route}`}
               to={`${HEALTH_ROUTE_PREFIX}${card.route}`}
             >
@@ -178,7 +178,10 @@ export function Health({
           {HEALTH_CARDS.map((card) => {
             const Icon = card.icon;
             return (
-              <div key={card.route} className="rounded-lg border p-4">
+              <div
+                key={card.route}
+                className="rounded-lg border p-4 [border-color:var(--soft-border)]"
+              >
                 <div className="flex items-center gap-2 text-muted-foreground text-sm">
                   <Icon className="h-4 w-4" />
                   {card.title}
@@ -186,7 +189,7 @@ export function Health({
                 <p className="mt-2 text-sm">{card.description}</p>
                 {showBackLink ? (
                   <Link
-                    className="mt-3 inline-flex rounded-md border px-2 py-1 text-xs"
+                    className="mt-3 inline-flex rounded-md border px-2 py-1 text-xs [border-color:var(--soft-border)]"
                     data-testid={`health-card-link-${card.route}`}
                     to={`${HEALTH_ROUTE_PREFIX}${card.route}`}
                   >
@@ -195,7 +198,7 @@ export function Health({
                 ) : (
                   <button
                     type="button"
-                    className="mt-3 inline-flex rounded-md border px-2 py-1 text-xs"
+                    className="mt-3 inline-flex rounded-md border px-2 py-1 text-xs [border-color:var(--soft-border)]"
                     data-testid={`health-card-link-${card.route}`}
                     onClick={() => onRouteChange?.(card.route)}
                   >
