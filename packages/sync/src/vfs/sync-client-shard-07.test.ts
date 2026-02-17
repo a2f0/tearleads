@@ -317,5 +317,4 @@ describe('VfsBackgroundSyncClient', () => {
     await flushPromise;
     expect(client.snapshot().pendingOperations).toBe(0);
   });
-
 });
