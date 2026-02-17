@@ -26,6 +26,7 @@
           runuser -u postgres -- psql -c "CREATE ROLE \"{{ postgres_user }}\" LOGIN PASSWORD '{{ postgres_password }}';"
       args:
         executable: /bin/bash
+      changed_when: false
 
     - name: Ensure CI database exists
       ansible.builtin.shell: |
@@ -34,3 +35,4 @@
           runuser -u postgres -- psql -c "CREATE DATABASE \"{{ postgres_database }}\" OWNER \"{{ postgres_user }}\";"
       args:
         executable: /bin/bash
+      changed_when: false
