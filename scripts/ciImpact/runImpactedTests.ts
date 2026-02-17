@@ -9,6 +9,7 @@ interface CliArgs {
   files?: string;
   dryRun: boolean;
   scriptsOnly: boolean;
+  printTargetsJson: boolean;
 }
 
 interface CiImpactJobs {
@@ -69,7 +70,11 @@ const CI_IMPACT_SCRIPT_TEST_FILES: ReadonlyArray<string> = [
 ];
 
 function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { dryRun: false, scriptsOnly: false };
+  const args: CliArgs = {
+    dryRun: false,
+    scriptsOnly: false,
+    printTargetsJson: false
+  };
   for (let i = 2; i < argv.length; i += 1) {
     const token = argv[i];
     if (token === undefined) {
@@ -81,6 +86,10 @@ function parseArgs(argv: string[]): CliArgs {
     }
     if (token === '--scripts-only') {
       args.scriptsOnly = true;
+      continue;
+    }
+    if (token === '--print-targets-json') {
+      args.printTargetsJson = true;
       continue;
     }
     if (!token.startsWith('--')) {
@@ -313,6 +322,36 @@ function main(): void {
     fullRun
   );
 
+  const affectedSet = new Set(impact.affectedPackages);
+
+  let targets: string[] = [];
+  if (impact.materialFiles.length === 0) {
+    targets = [];
+  } else if (fullRun) {
+    targets = [...coveragePackages];
+  } else {
+    targets = coveragePackages.filter((pkg) => affectedSet.has(pkg));
+  }
+
+  targets = uniqueSorted(targets);
+
+  if (args.printTargetsJson) {
+    process.stdout.write(
+      JSON.stringify(
+        {
+          targets,
+          fullRun,
+          runScriptTests,
+          hasMaterialChanges: impact.materialFiles.length > 0
+        },
+        null,
+        2
+      )
+    );
+    process.stdout.write('\n');
+    return;
+  }
+
   if (impact.materialFiles.length === 0) {
     console.log('ci-impact: no material changes, skipping impacted tests.');
     return;
@@ -335,17 +374,6 @@ function main(): void {
   if (args.scriptsOnly) {
     return;
   }
-
-  const affectedSet = new Set(impact.affectedPackages);
-
-  let targets: string[] = [];
-  if (fullRun) {
-    targets = [...coveragePackages];
-  } else {
-    targets = coveragePackages.filter((pkg) => affectedSet.has(pkg));
-  }
-
-  targets = uniqueSorted(targets);
 
   if (targets.length === 0) {
     console.log(

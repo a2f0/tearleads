@@ -80,3 +80,25 @@ test('runImpactedTests dry-run includes cli coverage when cli changes', () => {
   assert.equal(result.status, 0, stderrText(result));
   assert.match(stdoutText(result), /ci-impact: targets => .*@tearleads\/cli/);
 });
+
+test('runImpactedTests emits target JSON for automation consumers', () => {
+  const result = runImpactedTests([
+    '--files',
+    'packages/cli/src/db/adapter.ts',
+    '--dry-run',
+    '--print-targets-json'
+  ]);
+  assert.equal(result.status, 0, stderrText(result));
+
+  const stdout = stdoutText(result);
+  const parsed = JSON.parse(stdout);
+  if (typeof parsed !== 'object' || parsed === null) {
+    assert.fail('Expected JSON object output');
+  }
+
+  assert.equal(Array.isArray(Reflect.get(parsed, 'targets')), true);
+  assert.equal(Reflect.get(parsed, 'hasMaterialChanges'), true);
+  assert.equal(Reflect.get(parsed, 'fullRun'), false);
+  assert.equal(Reflect.get(parsed, 'runScriptTests'), false);
+  assert.deepEqual(Reflect.get(parsed, 'targets'), ['@tearleads/cli']);
+});
