@@ -206,7 +206,9 @@ export function handleUpdatePrBody(
   const bodyText =
     typeof options.body === 'string'
       ? options.body
-      : readFileSync(options.bodyFile ?? '', 'utf8');
+      : options.bodyFile
+        ? readFileSync(options.bodyFile, 'utf8')
+        : '';
 
   runGh(['pr', 'edit', String(options.number), '--body', bodyText, '-R', repo]);
 
