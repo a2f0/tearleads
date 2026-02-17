@@ -56,11 +56,13 @@ const FULL_RUN_PREFIXES: ReadonlyArray<string> = [
   '.github/workflows/ios-maestro-release.yml'
 ];
 const CI_IMPACT_SCRIPT_TEST_PREFIXES: ReadonlyArray<string> = [
-  'scripts/ciImpact/'
+  'scripts/ciImpact/',
+  'scripts/agents/tooling/'
 ];
 const CI_IMPACT_SCRIPT_TEST_FILES: ReadonlyArray<string> = [
   'scripts/ciImpact/ciImpact.test.ts',
-  'scripts/ciImpact/requiredWorkflows.test.ts'
+  'scripts/ciImpact/requiredWorkflows.test.ts',
+  'scripts/agents/tooling/agentTool.test.ts'
 ];
 
 function parseArgs(argv: string[]): CliArgs {

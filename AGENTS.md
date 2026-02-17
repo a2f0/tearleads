@@ -23,14 +23,13 @@ When in doubt, use search tools (`grep`, `glob`) or read the relevant files dire
 To get the correct repo for `gh` commands:
 
 ```bash
-# Get the repo in owner/name format
-gh repo view --json nameWithOwner -q .nameWithOwner
+./scripts/agents/tooling/agentTool.ts getRepo
 ```
 
 Always use `--repo` or `-R` flag with `gh` commands when the repo might be ambiguous:
 
 ```bash
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+REPO=$(./scripts/agents/tooling/agentTool.ts getRepo)
 gh issue list -R "$REPO"
 gh pr view 123 -R "$REPO"
 ```
@@ -47,13 +46,14 @@ gh pr view 123 -R "$REPO"
 When the user explicitly requests an issue:
 
 1. **Check for existing issue**: Search for a related open issue first
-2. **Create an issue if none exists**: Run the issue-template action, then pipe it into `gh issue create`. After merge, `$enter-merge-queue` adds the "needs-qa" label.
+2. **Create an issue if none exists**: Use `agentTool.ts createIssue` (it checks for an existing open issue first unless `--force` is set). After merge, `$enter-merge-queue` adds the "needs-qa" label.
 3. **Do NOT auto-close issues**: Never use `Closes #`, `Fixes #`, or `Resolves #` in PR descriptions. Issues are marked "needs-qa" after merge for verification before manual closure.
 
 ```bash
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-./scripts/agents/tooling/agentTool.ts issueTemplate --type user-requested | \
-  gh issue create --repo "$REPO" --title "feat: <brief description>" --body-file -
+./scripts/agents/tooling/agentTool.ts createIssue \
+  --type user-requested \
+  --title "feat: <brief description>" \
+  --search "<keywords for dedupe>"
 ```
 
 ### Deferred Fix Issues
@@ -67,9 +67,11 @@ When review feedback cannot be addressed in the current PR and must be deferred:
 The `$enter-merge-queue` and `$address-gemini-feedback` skills handle deferred fix issue creation automatically. The `$preen-deferred-fixes` skill finds issues with the `deferred-fix` label to implement.
 
 ```bash
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-./scripts/agents/tooling/agentTool.ts issueTemplate --type deferred-fix | \
-  gh issue create --repo "$REPO" --title "chore: deferred fix from PR #<number>" --label "deferred-fix" --body-file -
+./scripts/agents/tooling/agentTool.ts createIssue \
+  --type deferred-fix \
+  --title "chore: deferred fix from PR #<number>" \
+  --source-pr <number> \
+  --review-thread-url "<thread-url>"
 ```
 
 ### Issue Guidelines

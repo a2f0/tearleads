@@ -77,5 +77,6 @@ I noticed that this route doesn't seem to have any authentication...
 
 ## Automation
 
-- Use `./scripts/agents/tooling/agentTool.ts issueTemplate --type user-requested` (or `--type deferred-fix`) to print the standard issue body and pipe it into `gh issue create`.
+- Use `./scripts/agents/tooling/agentTool.ts createIssue --type user-requested --title "feat: <desc>" --search "<keywords>"` for user-requested issues.
+- Use `./scripts/agents/tooling/agentTool.ts createIssue --type deferred-fix --title "chore: deferred fix from PR #<n>" --source-pr <n> --review-thread-url "<thread-url>"` for deferred fixes.
 - Run `./scripts/agents/tooling/agentTool.ts runPreen --mode audit --dry-run` to preview the discovery output that feeds this guidance and the related review-instructions skill.

@@ -30,6 +30,7 @@ Run `--help` for full action and option list:
 
 ### GitHub API Actions
 
+- `getRepo` - Print current repo as `owner/name`
 - `getPrInfo` - Get PR info (state, merge status, etc.)
 - `getReviewThreads` - Fetch review threads via GraphQL
 - `replyToComment` - Reply in-thread with custom body
@@ -44,6 +45,8 @@ Run `--help` for full action and option list:
 - `listHighPriorityPrs` - List open high-priority PRs
 - `triggerGeminiReview` - Post /gemini review and poll for response
 - `findDeferredWork` - Find deferred work comments
+- `issueTemplate` - Print standard issue body template
+- `createIssue` - Create user-requested/deferred-fix issues with dedupe checks
 
 ## Skill Coverage
 
@@ -67,5 +70,8 @@ Automation skills call most `agentTool.ts` actions directly. Two wrappers are in
 ./scripts/agents/tooling/agentTool.ts solicitCodexReview --dry-run --json
 ./scripts/agents/tooling/agentTool.ts replyToGemini --number 1618 --comment-id 2801563279 --commit d9948cca79f7f13c940edcade20b5665b1bf0762
 ./scripts/agents/tooling/agentTool.ts triggerGeminiReview --number 1651 --poll-timeout 120 --json
+./scripts/agents/tooling/agentTool.ts getRepo
+./scripts/agents/tooling/agentTool.ts createIssue --type user-requested --title "feat: add x" --search "add x"
+./scripts/agents/tooling/agentTool.ts createIssue --type deferred-fix --title "chore: deferred fix from PR #123" --source-pr 123 --review-thread-url "https://github.com/org/repo/pull/123#discussion_r1"
 ./scripts/agents/tooling/agentTool.ts refresh
 ```

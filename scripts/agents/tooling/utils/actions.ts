@@ -9,6 +9,45 @@ import {
   handleTriggerGeminiReview
 } from './inlineHandlers.ts';
 
+function buildIssueTemplate(
+  templateType: 'user-requested' | 'deferred-fix',
+  options: GlobalOptions
+): string {
+  if (templateType === 'user-requested') {
+    return `## Summary
+<one paragraph describing the user goal and outcome in your own words>
+
+## Context
+<why this matters, impacted area, or constraints mentioned by the user>
+
+## Requirements
+- [ ] <clear, testable requirement 1>
+- [ ] <clear, testable requirement 2>
+
+## Implementation Notes
+<initial approach, dependencies, or questions to resolve>`;
+  }
+
+  const sourcePr = options.sourcePr ? `#${options.sourcePr}` : '#<pr-number>';
+  const reviewThread = options.reviewThreadUrl ?? '<url to thread>';
+  return `## Summary
+<brief description of what was deferred>
+
+## Source
+- PR: ${sourcePr}
+- Review thread: ${reviewThread}
+
+## Deferred Items
+- [ ] <item 1 from review feedback>
+- [ ] <item 2 from review feedback>`;
+}
+
+function parseFirstJsonObject<T>(rawOutput: string): T | null {
+  const trimmed = rawOutput.trim();
+  if (!trimmed || trimmed === 'null') return null;
+  return JSON.parse(trimmed) as T;
+}
+
 export function runInlineAction(
   action: ActionName,
   options: GlobalOptions,
@@ -22,6 +61,10 @@ export function runInlineAction(
     });
 
   switch (action) {
+    case 'getRepo': {
+      return repo;
+    }
+
     case 'getPrInfo': {
       const fields =
         options.fields ??
@@ -245,32 +288,84 @@ export function runInlineAction(
     case 'issueTemplate': {
       const templateType = requireDefined(options.type, '--type');
       if (templateType === 'user-requested') {
-        return `## Summary
-<one paragraph describing the user goal and outcome in your own words>
-
-## Context
-<why this matters, impacted area, or constraints mentioned by the user>
-
-## Requirements
-- [ ] <clear, testable requirement 1>
-- [ ] <clear, testable requirement 2>
-
-## Implementation Notes
-<initial approach, dependencies, or questions to resolve>`;
+        return buildIssueTemplate(templateType, options);
       }
       if (templateType === 'deferred-fix') {
-        return `## Summary
-<brief description of what was deferred>
-
-## Source
-- PR: #<pr-number>
-- Review thread: <url to thread>
-
-## Deferred Items
-- [ ] <item 1 from review feedback>
-- [ ] <item 2 from review feedback>`;
+        return buildIssueTemplate(templateType, options);
       }
       throw new Error(`Unknown issue template type: ${templateType}`);
+    }
+
+    case 'createIssue': {
+      const templateType = requireDefined(options.type, '--type');
+      if (templateType !== 'user-requested' && templateType !== 'deferred-fix') {
+        throw new Error(`Unknown issue template type: ${templateType}`);
+      }
+
+      if (templateType === 'deferred-fix' && options.sourcePr === undefined) {
+        throw new Error('Deferred-fix issues require --source-pr');
+      }
+
+      const title = requireDefined(options.title, '--title');
+
+      if (!options.force) {
+        const defaultQuery =
+          templateType === 'deferred-fix' && options.sourcePr !== undefined
+            ? `is:open label:deferred-fix "PR #${options.sourcePr}"`
+            : `is:open in:title "${title}"`;
+        const existingIssue = parseFirstJsonObject<{
+          number: number;
+          title: string;
+          url: string;
+        }>(
+          runGh([
+            'issue',
+            'list',
+            '--state',
+            'open',
+            '--search',
+            options.search ?? defaultQuery,
+            '--json',
+            'number,title,url',
+            '-R',
+            repo,
+            '--jq',
+            '.[0] // null'
+          ])
+        );
+
+        if (existingIssue) {
+          return JSON.stringify(
+            {
+              status: 'existing',
+              issue: existingIssue,
+              dedupe_query: options.search ?? defaultQuery
+            },
+            null,
+            2
+          );
+        }
+      }
+
+      const body = buildIssueTemplate(templateType, options);
+      const args = ['issue', 'create', '--title', title, '--body', body, '-R', repo];
+      if (templateType === 'deferred-fix') {
+        args.push('--label', 'deferred-fix');
+      }
+      if (options.label) {
+        args.push('--label', options.label);
+      }
+
+      const issueUrl = runGh(args).trim();
+      return JSON.stringify(
+        {
+          status: 'created',
+          issue_url: issueUrl,
+          template_type: templateType
+        },
+        null,
+        2
+      );
     }
 
     default:
