@@ -1,5 +1,5 @@
-import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Loader2 } from 'lucide-react';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 
 interface WalletItemLoadingStatesProps {
   isLoading: boolean;

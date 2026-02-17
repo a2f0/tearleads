@@ -1,3 +1,6 @@
+import { Calendar, Key, Loader2, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,9 +14,6 @@ import {
   getInstances,
   type InstanceMetadata
 } from '@/db/instanceRegistry';
-import { Calendar, Key, Loader2, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
 import { DeleteKeychainInstanceDialog } from './DeleteKeychainInstanceDialog';
 import { DeleteSessionKeysDialog } from './DeleteSessionKeysDialog';
 import { KeyStatusIndicator } from './KeyStatusIndicator';

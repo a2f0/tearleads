@@ -1,7 +1,7 @@
-import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { WindowMenuBar } from '@tearleads/window-manager';
 import { useTranslation } from 'react-i18next';
+import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 
 interface SyncWindowMenuBarProps {
   onClose: () => void;

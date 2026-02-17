@@ -1,3 +1,5 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
+import { Plus, RefreshCw } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -5,8 +7,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
-import { WindowMenuBar } from '@tearleads/window-manager';
-import { Plus, RefreshCw } from 'lucide-react';
 
 interface WalletWindowMenuBarProps {
   onCreateItem: () => void;

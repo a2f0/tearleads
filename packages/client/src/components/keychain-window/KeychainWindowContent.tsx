@@ -1,10 +1,4 @@
 import {
-  deleteSessionKeysForInstance,
-  getKeyStatusForInstance
-} from '@/db/crypto/keyManager';
-import { getInstances } from '@/db/instanceRegistry';
-import { useTypedTranslation } from '@/i18n';
-import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
 } from '@tearleads/window-manager';
@@ -16,6 +10,12 @@ import {
   useImperativeHandle,
   useState
 } from 'react';
+import {
+  deleteSessionKeysForInstance,
+  getKeyStatusForInstance
+} from '@/db/crypto/keyManager';
+import { getInstances } from '@/db/instanceRegistry';
+import { useTypedTranslation } from '@/i18n';
 import { DeleteSessionKeysDialog } from '../../pages/keychain/DeleteSessionKeysDialog';
 import {
   type InstanceKeyInfo,

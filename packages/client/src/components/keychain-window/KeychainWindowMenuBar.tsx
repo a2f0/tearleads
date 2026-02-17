@@ -1,3 +1,5 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
+import { RefreshCw } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -5,8 +7,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
-import { WindowMenuBar } from '@tearleads/window-manager';
-import { RefreshCw } from 'lucide-react';
 
 interface KeychainWindowMenuBarProps {
   onRefresh: () => void;
@@ -33,11 +33,7 @@ export function KeychainWindowMenuBar({
         <WindowOptionsMenuItem />
       </DropdownMenu>
       <DropdownMenu trigger="Help">
-        <AboutMenuItem
-          appName="Keychain"
-          version="0.0.1"
-          closeLabel="Close"
-        />
+        <AboutMenuItem appName="Keychain" version="0.0.1" closeLabel="Close" />
       </DropdownMenu>
     </WindowMenuBar>
   );

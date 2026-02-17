@@ -1,5 +1,5 @@
-import { Button } from '@/components/ui/button';
 import { Plus, Save, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   getWalletItemTypeLabel,
   type WalletItemType

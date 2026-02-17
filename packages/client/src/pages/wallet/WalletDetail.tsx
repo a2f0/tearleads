@@ -1,6 +1,6 @@
-import { BackLink } from '@/components/ui/back-link';
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { BackLink } from '@/components/ui/back-link';
 import { WalletItemDetail } from '../../components/wallet/WalletItemDetail';
 import type { SaveWalletItemResult } from '../../lib/walletData';
 import { isWalletItemType } from '../../lib/walletTypes';

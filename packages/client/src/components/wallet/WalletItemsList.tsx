@@ -1,9 +1,9 @@
+import { CreditCard, Loader2, Plus } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { useDatabaseContext } from '@/db/hooks';
-import { CreditCard, Loader2, Plus } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
 import {
   getWalletItemTypeLabel,
   listWalletItems,

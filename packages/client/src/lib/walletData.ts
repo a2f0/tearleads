@@ -1,12 +1,7 @@
-import { getDatabase, getDatabaseAdapter } from '@/db';
-import {
-  files,
-  vfsRegistry,
-  walletItemMedia,
-  walletItems
-} from '@/db/schema';
-import { readStoredAuth } from '@/lib/authStorage';
 import { and, desc, eq, like, or } from 'drizzle-orm';
+import { getDatabase, getDatabaseAdapter } from '@/db';
+import { files, vfsRegistry, walletItemMedia, walletItems } from '@/db/schema';
+import { readStoredAuth } from '@/lib/authStorage';
 import { normalizeWalletCountryCode } from './walletCountryLookup';
 import { buildWalletMetadata, parseWalletMetadata } from './walletMetadata';
 import {

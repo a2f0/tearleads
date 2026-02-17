@@ -1,3 +1,5 @@
+import { ArrowLeft, Calendar, Key, Loader2, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   deleteSessionKeysForInstance,
@@ -10,8 +12,6 @@ import {
   getInstance,
   type InstanceMetadata
 } from '@/db/instanceRegistry';
-import { ArrowLeft, Calendar, Key, Loader2, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
 import { DeleteKeychainInstanceDialog } from '../../pages/keychain/DeleteKeychainInstanceDialog';
 import { DeleteSessionKeysDialog } from '../../pages/keychain/DeleteSessionKeysDialog';
 import { KeyStatusIndicator } from '../../pages/keychain/KeyStatusIndicator';

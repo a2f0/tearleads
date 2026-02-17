@@ -1,3 +1,5 @@
+import { FileImage, FileText, Loader2, Search, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getKeyManager } from '@/db/crypto';
@@ -7,8 +9,6 @@ import {
   initializeFileStorage,
   isFileStorageInitialized
 } from '@/storage/opfs';
-import { FileImage, FileText, Loader2, Search, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { WalletMediaFileOption } from '../../lib/walletData';
 
 interface WalletMediaPreview extends WalletMediaFileOption {

@@ -1,3 +1,10 @@
+import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem,
+  WindowStatusBar
+} from '@tearleads/window-manager';
+import { Info, Key, Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import {
@@ -7,13 +14,6 @@ import {
 import { getInstances } from '@/db/instanceRegistry';
 import { useTypedTranslation } from '@/i18n';
 import { useNavigateWithFrom } from '@/lib/navigation';
-import {
-  DesktopContextMenu as ContextMenu,
-  DesktopContextMenuItem as ContextMenuItem,
-  WindowStatusBar
-} from '@tearleads/window-manager';
-import { Info, Key, Loader2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
 import { DeleteSessionKeysDialog } from './DeleteSessionKeysDialog';
 import { type InstanceKeyInfo, InstanceKeyRow } from './InstanceKeyRow';
 
