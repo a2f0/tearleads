@@ -35,7 +35,7 @@ export function TableRowsDocumentView({
   loadingMore
 }: TableRowsDocumentViewProps) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col rounded-lg border">
+    <div className="flex min-h-0 flex-1 flex-col rounded-lg border [border-color:var(--soft-border)]">
       <div
         ref={parentRef}
         className="min-h-0 flex-1 overflow-auto p-2"
@@ -95,7 +95,7 @@ export function TableRowsDocumentView({
                     transform: `translateY(${virtualItem.start}px)`
                   }}
                 >
-                  <pre className="overflow-x-auto rounded-lg border bg-muted/30 p-4 font-mono text-sm">
+                  <pre className="overflow-x-auto rounded-lg border bg-muted/30 p-4 font-mono text-sm [border-color:var(--soft-border)]">
                     {JSON.stringify(row, null, 2)}
                   </pre>
                 </div>

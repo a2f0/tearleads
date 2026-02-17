@@ -392,3 +392,11 @@
   color: var(--foreground) !important;
   border-color: var(--border) !important;
 }
+
+/* Globally soften borders across themes */
+:root,
+.dark,
+.tokyo-night,
+.monochrome {
+  --border: var(--soft-border);
+}

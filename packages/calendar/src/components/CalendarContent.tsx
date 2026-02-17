@@ -2,7 +2,6 @@ import {
   WindowContextMenu,
   WindowContextMenuItem
 } from '@tearleads/window-manager';
-import { clsx } from 'clsx';
 import {
   type MouseEvent as ReactMouseEvent,
   useCallback,
@@ -20,34 +19,19 @@ import {
   useTimeRangeSelection
 } from '../hooks/useTimeRangeSelection';
 import type { CalendarEventItem } from '../types';
-import { getPositionedEventsForDay } from '../utils/eventPositioning';
-import { CalendarDayView } from './CalendarDayView';
-import { CalendarMonthView } from './CalendarMonthView';
-import { CalendarWeekView } from './CalendarWeekView';
-import { CalendarYearView } from './CalendarYearView';
+import { CalendarActiveView } from './CalendarActiveView';
+import { CalendarSidebar } from './CalendarSidebar';
+import { CalendarViewControls } from './CalendarViewControls';
 import {
   type CreateCalendarEventInput,
   NewCalendarEventModal
 } from './NewCalendarEventModal';
+import { useCalendarDerivedState } from './useCalendarDerivedState';
 
 const defaultCalendarName = 'Personal';
 const defaultCalendars = [defaultCalendarName];
 const viewModes = ['Day', 'Week', 'Month', 'Year'] as const;
 type CalendarViewMode = (typeof viewModes)[number];
-const yearMonthNames = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December'
-];
 
 interface CalendarContentProps {
   events?: CalendarEventItem[] | undefined;
@@ -174,112 +158,6 @@ export function CalendarContent({
     };
   }, [handleCreateItemRequest]);
 
-  const dayLabel = useMemo(
-    () =>
-      selectedDate.toLocaleDateString(calendarLocale, {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric'
-      }),
-    [selectedDate]
-  );
-
-  const monthLabel = useMemo(
-    () =>
-      selectedDate.toLocaleDateString(calendarLocale, {
-        month: 'long',
-        year: 'numeric'
-      }),
-    [selectedDate]
-  );
-
-  const weekDates = useMemo(() => {
-    const weekStart = new Date(selectedDate);
-    weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
-    return Array.from({ length: 7 }, (_, index) => {
-      const date = new Date(weekStart);
-      date.setDate(weekStart.getDate() + index);
-      return date;
-    });
-  }, [selectedDate]);
-
-  const monthCells = useMemo(() => {
-    const monthStart = new Date(
-      selectedDate.getFullYear(),
-      selectedDate.getMonth(),
-      1
-    );
-    const monthEnd = new Date(
-      selectedDate.getFullYear(),
-      selectedDate.getMonth() + 1,
-      0
-    );
-    const monthLeadingDays = monthStart.getDay();
-    const monthTrailingDays = 6 - monthEnd.getDay();
-    const cells: Array<{ date: Date; inMonth: boolean }> = [];
-
-    for (let i = monthLeadingDays; i > 0; i -= 1) {
-      cells.push({
-        date: new Date(
-          selectedDate.getFullYear(),
-          selectedDate.getMonth(),
-          1 - i
-        ),
-        inMonth: false
-      });
-    }
-    for (let day = 1; day <= monthEnd.getDate(); day += 1) {
-      cells.push({
-        date: new Date(
-          selectedDate.getFullYear(),
-          selectedDate.getMonth(),
-          day
-        ),
-        inMonth: true
-      });
-    }
-    for (let i = 1; i <= monthTrailingDays; i += 1) {
-      cells.push({
-        date: new Date(
-          selectedDate.getFullYear(),
-          selectedDate.getMonth() + 1,
-          i
-        ),
-        inMonth: false
-      });
-    }
-
-    return cells;
-  }, [selectedDate]);
-
-  const yearData = useMemo(() => {
-    const currentYear = selectedDate.getFullYear();
-
-    return yearMonthNames.map((monthName, monthIndex) => {
-      const start = new Date(currentYear, monthIndex, 1);
-      const end = new Date(currentYear, monthIndex + 1, 0);
-      const leading = start.getDay();
-      const cells: Array<{ day: number; inMonth: boolean; key: string }> = [];
-
-      for (let i = leading; i > 0; i -= 1) {
-        cells.push({ day: 0, inMonth: false, key: `leading-${i}` });
-      }
-      for (let day = 1; day <= end.getDate(); day += 1) {
-        cells.push({ day, inMonth: true, key: `day-${day}` });
-      }
-      let trailing = 0;
-      while (cells.length % 7 !== 0) {
-        trailing += 1;
-        cells.push({ day: 0, inMonth: false, key: `trailing-${trailing}` });
-      }
-
-      return { monthName, cells };
-    });
-  }, [selectedDate]);
-
-  const currentYear = selectedDate.getFullYear();
-
   const isSameDay = useCallback(
     (date: Date, other: Date) =>
       date.getFullYear() === other.getFullYear() &&
@@ -294,15 +172,21 @@ export function CalendarContent({
     []
   );
 
-  const calendarEvents = useMemo(
-    () => events.filter((event) => event.calendarName === activeCalendar),
-    [activeCalendar, events]
-  );
-
-  const positionedDayEvents = useMemo(
-    () => getPositionedEventsForDay(calendarEvents, selectedDate),
-    [calendarEvents, selectedDate]
-  );
+  const {
+    dayLabel,
+    monthLabel,
+    weekDates,
+    monthCells,
+    yearData,
+    currentYear,
+    positionedDayEvents,
+    eventCountByDay
+  } = useCalendarDerivedState({
+    selectedDate,
+    events,
+    activeCalendar,
+    getDateKey
+  });
 
   const {
     selection: timeSelection,
@@ -357,16 +241,6 @@ export function CalendarContent({
     setSelectionContextMenu(null);
     clearTimeSelection();
   }, [selectionContextMenu, selectedDate, clearTimeSelection]);
-
-  const eventCountByDay = useMemo(() => {
-    const countMap = new Map<string, number>();
-    for (const event of calendarEvents) {
-      const key = getDateKey(event.startAt);
-      const previousCount = countMap.get(key) ?? 0;
-      countMap.set(key, previousCount + 1);
-    }
-    return countMap;
-  }, [calendarEvents, getDateKey]);
 
   const handleViewContextMenuRequest = useCallback(
     (event: ReactMouseEvent<HTMLElement>, date: Date) => {
@@ -447,61 +321,6 @@ export function CalendarContent({
     []
   );
 
-  const renderActiveView = () => {
-    switch (viewMode) {
-      case 'Day':
-        return (
-          <CalendarDayView
-            dayLabel={dayLabel}
-            selectedDate={selectedDate}
-            positionedDayEvents={positionedDayEvents}
-            timeSelection={timeSelection}
-            isSelecting={isSelecting}
-            onSlotMouseDown={handleSlotMouseDown}
-            onSlotMouseEnter={handleSlotMouseEnter}
-            onSlotClick={handleSlotClick}
-            onSelectionContextMenu={handleSelectionContextMenu}
-            onViewContextMenuRequest={handleViewContextMenuRequest}
-            onClearSelection={clearTimeSelection}
-          />
-        );
-      case 'Week':
-        return (
-          <CalendarWeekView
-            weekDates={weekDates}
-            selectedDate={selectedDate}
-            eventCountByDay={eventCountByDay}
-            getDateKey={getDateKey}
-            isSameDay={isSameDay}
-            onContextMenuRequest={handleViewContextMenuRequest}
-          />
-        );
-      case 'Month':
-        return (
-          <CalendarMonthView
-            monthLabel={monthLabel}
-            monthCells={monthCells}
-            selectedDate={selectedDate}
-            eventCountByDay={eventCountByDay}
-            getDateKey={getDateKey}
-            isSameDay={isSameDay}
-            onDateSelect={handleDateSelect}
-            onContextMenuRequest={handleViewContextMenuRequest}
-          />
-        );
-      case 'Year':
-        return (
-          <CalendarYearView
-            currentYear={currentYear}
-            selectedDate={selectedDate}
-            yearData={yearData}
-            onDateSelect={handleDateSelect}
-            onContextMenuRequest={handleViewContextMenuRequest}
-          />
-        );
-    }
-  };
-
   const handlePeriodNavigation = useCallback(
     (direction: -1 | 1) => {
       setSelectedDate((previousDate) => {
@@ -531,96 +350,51 @@ export function CalendarContent({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <aside className="flex w-64 shrink-0 flex-col border-r bg-muted/20 p-3">
-          <p className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-            My Calendars
-          </p>
-          <div className="space-y-1 overflow-y-auto">
-            {calendars.map((name) => {
-              const isActive = name === activeCalendar;
-              return (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => setActiveCalendar(name)}
-                  onContextMenu={(event) =>
-                    handleCalendarContextMenuRequest(event, name)
-                  }
-                  className={clsx(
-                    'w-full rounded-md px-2 py-1 text-left text-sm transition-colors',
-                    isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'hover:bg-accent hover:text-accent-foreground'
-                  )}
-                >
-                  {name}
-                </button>
-              );
-            })}
-          </div>
-          <button
-            type="button"
-            className="mt-2 flex-1"
-            data-testid="calendar-sidebar-empty-space"
-            onContextMenu={(event) => {
-              event.preventDefault();
-              onSidebarContextMenuRequest?.({
-                x: event.clientX,
-                y: event.clientY
-              });
-            }}
-            aria-label="Calendar sidebar empty space"
-          />
-        </aside>
+        <CalendarSidebar
+          calendars={calendars}
+          activeCalendar={activeCalendar}
+          onSelectCalendar={setActiveCalendar}
+          onCalendarContextMenu={handleCalendarContextMenuRequest}
+          onEmptySpaceContextMenu={(position) => {
+            onSidebarContextMenuRequest?.(position);
+          }}
+        />
 
         <section className="flex min-h-0 flex-1 flex-col p-4">
           <div className="mb-3 flex items-center justify-between">
             <p className="font-medium text-base">{activeCalendar}</p>
-            <div className="flex items-center gap-2">
-              <div
-                className="inline-flex items-center rounded-full border bg-muted/30 p-1"
-                role="tablist"
-                aria-label="Calendar view mode"
-              >
-                {viewModes.map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    role="tab"
-                    aria-selected={viewMode === mode}
-                    onClick={() => setViewMode(mode)}
-                    className={clsx(
-                      'rounded-full px-3 py-1 font-medium text-xs transition-colors',
-                      viewMode === mode
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    {mode}
-                  </button>
-                ))}
-              </div>
-              <div className="inline-flex items-center rounded-full border bg-muted/30 p-1">
-                <button
-                  type="button"
-                  aria-label="Go to previous period"
-                  onClick={() => handlePeriodNavigation(-1)}
-                  className="rounded-full px-2 py-1 font-medium text-muted-foreground/60 text-xs transition-colors hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  {'<'}
-                </button>
-                <button
-                  type="button"
-                  aria-label="Go to next period"
-                  onClick={() => handlePeriodNavigation(1)}
-                  className="rounded-full px-2 py-1 font-medium text-muted-foreground/60 text-xs transition-colors hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  {'>'}
-                </button>
-              </div>
-            </div>
+            <CalendarViewControls
+              viewModes={viewModes}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              onPeriodNavigation={handlePeriodNavigation}
+            />
           </div>
-          <div className="min-h-0 flex-1">{renderActiveView()}</div>
+          <div className="min-h-0 flex-1">
+            <CalendarActiveView
+              viewMode={viewMode}
+              dayLabel={dayLabel}
+              selectedDate={selectedDate}
+              positionedDayEvents={positionedDayEvents}
+              timeSelection={timeSelection}
+              isSelecting={isSelecting}
+              onSlotMouseDown={handleSlotMouseDown}
+              onSlotMouseEnter={handleSlotMouseEnter}
+              onSlotClick={handleSlotClick}
+              onSelectionContextMenu={handleSelectionContextMenu}
+              onViewContextMenuRequest={handleViewContextMenuRequest}
+              onClearSelection={clearTimeSelection}
+              weekDates={weekDates}
+              eventCountByDay={eventCountByDay}
+              getDateKey={getDateKey}
+              isSameDay={isSameDay}
+              monthLabel={monthLabel}
+              monthCells={monthCells}
+              onDateSelect={handleDateSelect}
+              currentYear={currentYear}
+              yearData={yearData}
+            />
+          </div>
         </section>
       </div>
       <NewCalendarEventModal
