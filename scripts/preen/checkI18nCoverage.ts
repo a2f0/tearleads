@@ -198,7 +198,7 @@ const findHardcodedStrings = async (
       !SKIP_ATTRIBUTES.has(attrName) && USER_FACING_ATTRIBUTES.has(attrName);
     if (isUserFacing && isLikelyTranslatableText(attrValue)) {
       const { line, column } = getLineAndColumn(content, matchIndex);
-      results.push({
+      const entry: HardcodedString = {
         file: relativePath,
         line,
         column,
@@ -206,7 +206,8 @@ const findHardcodedStrings = async (
         value: attrValue,
         attributeName: attrName,
         context: getContextLine(content, matchIndex)
-      });
+      };
+      results.push(entry);
     }
 
     match = attributeRegex.exec(content);
