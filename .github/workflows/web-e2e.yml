@@ -267,6 +267,7 @@ jobs:
         run: pnpm --filter @tearleads/client test:e2e --shard=${{ matrix.shard }}/1
         env:
           BASE_URL: http://localhost:8080
+          PW_EXTERNAL_SERVER: 'true'
           PW_FULLY_PARALLEL: 'true'
 
       - name: Upload Playwright report

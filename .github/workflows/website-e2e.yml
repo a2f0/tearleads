@@ -156,6 +156,7 @@ jobs:
         run: pnpm --filter @tearleads/website test:e2e
         env:
           BASE_URL: http://localhost:8082
+          PW_EXTERNAL_SERVER: 'true'
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
