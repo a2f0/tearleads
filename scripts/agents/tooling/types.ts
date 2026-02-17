@@ -4,6 +4,7 @@ export type SafetyClass =
   | 'safe_write_remote';
 
 export type ActionName =
+  | 'getRepo'
   | 'refresh'
   | 'syncToolchainVersions'
   | 'setVscodeTitle'
@@ -28,6 +29,7 @@ export type ActionName =
   | 'findDeferredWork'
   | 'runPreen'
   | 'issueTemplate'
+  | 'createIssue'
   | 'generatePrSummary';
 
 export interface GlobalOptions {
@@ -58,6 +60,10 @@ export interface GlobalOptions {
   dryRun?: boolean;
   json?: boolean;
   pr?: number;
+  search?: string;
+  sourcePr?: number;
+  reviewThreadUrl?: string;
+  force?: boolean;
 }
 
 export interface ActionConfig {

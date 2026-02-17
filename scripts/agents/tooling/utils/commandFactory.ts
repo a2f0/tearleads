@@ -19,6 +19,11 @@ const SCRIPT_DIR = path.dirname(new URL(import.meta.url).pathname);
 const AGENTS_DIR = path.dirname(path.dirname(SCRIPT_DIR));
 
 export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
+  getRepo: {
+    safetyClass: 'safe_read',
+    retrySafe: true,
+    isInline: true
+  },
   refresh: {
     safetyClass: 'safe_write_local',
     retrySafe: false,
@@ -139,6 +144,11 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
   },
   issueTemplate: {
     safetyClass: 'safe_read',
+    retrySafe: true,
+    isInline: true
+  },
+  createIssue: {
+    safetyClass: 'safe_write_remote',
     retrySafe: true,
     isInline: true
   },
@@ -300,6 +310,41 @@ export function createActionCommand(actionName: ActionName): Command {
         }
         return v as GlobalOptions['type'];
       });
+      break;
+    case 'createIssue':
+      cmd
+        .requiredOption('--type <type>', 'Issue type', (v) => {
+          const allowed = ['user-requested', 'deferred-fix'];
+          if (!allowed.includes(v)) {
+            throw new InvalidArgumentError(
+              `--type must be one of ${allowed.join(', ')}`
+            );
+          }
+          return v as GlobalOptions['type'];
+        })
+        .requiredOption('--title <text>', 'Issue title')
+        .option('--search <query>', 'Search query used to dedupe open issues')
+        .option('--source-pr <n>', 'Source PR number for deferred fixes', (v) =>
+          parsePositiveInt(v, '--source-pr')
+        )
+        .option(
+          '--review-thread-url <url>',
+          'Review thread URL for deferred fixes'
+        )
+        .option('--label <name>', 'Additional label to apply')
+        .option(
+          '--force',
+          'Skip duplicate-issue detection and always create a new issue'
+        )
+        .hook('preAction', (thisCommand) => {
+          const opts = thisCommand.opts();
+          if (opts.type === 'deferred-fix' && opts.sourcePr === undefined) {
+            console.error(
+              'error: createIssue --type deferred-fix requires --source-pr'
+            );
+            process.exit(1);
+          }
+        });
       break;
     case 'generatePrSummary':
       cmd
