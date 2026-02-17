@@ -152,3 +152,6 @@ in client-managed storage.
 - This is an evolving design document, not a finalized spec.
 - Parent/child type constraints are currently expected at application layer.
 - Key rotation and recovery flows are planned but not finalized.
+- Sync guardrail and restart/recovery suites are intentionally sharded across
+  focused `sync-client-*.test.ts` files to keep invariants reviewable and avoid
+  oversized test modules.

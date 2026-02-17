@@ -14,7 +14,7 @@ import {
 import { compareVfsSyncCursorOrder } from './sync-reconcile.js';
 
 describe('VfsBackgroundSyncClient', () => {
-  it('keeps listChangedContainers strictly forward after recovery cycles and excludes failed-cycle phantom containers', async () => {
+  it('keeps mixed acl/link container windows strictly forward after alternating failure recoveries', async () => {
     const scriptedReconcileState = createCallCountedReconcileResolver({
       resolve: ({ reconcileInput: input, callCount }) => {
         if (callCount === 1) {
@@ -64,15 +64,15 @@ describe('VfsBackgroundSyncClient', () => {
           return {
             items: [
               buildAclAddSyncItem({
-                opId: 'seed-1',
-                occurredAt: '2026-02-14T12:27:00.000Z',
-                itemId: 'item-seed-forward'
+                opId: 'seed-mixed-1',
+                occurredAt: '2026-02-14T12:28:00.000Z',
+                itemId: 'item-seed-mixed'
               })
             ],
             hasMore: false,
             nextCursor: {
-              changedAt: '2026-02-14T12:27:00.000Z',
-              changeId: 'seed-1'
+              changedAt: '2026-02-14T12:28:00.000Z',
+              changeId: 'seed-mixed-1'
             },
             lastReconciledWriteIds: {
               desktop: 5
@@ -84,15 +84,15 @@ describe('VfsBackgroundSyncClient', () => {
           return {
             items: [
               buildAclAddSyncItem({
-                opId: 'pull-fail-1',
-                occurredAt: '2026-02-14T12:27:01.000Z',
-                itemId: 'item-fail-phantom'
+                opId: 'pull-fail-mixed-1',
+                occurredAt: '2026-02-14T12:28:01.000Z',
+                itemId: 'item-fail-phantom-mixed'
               })
             ],
             hasMore: false,
             nextCursor: {
-              changedAt: '2026-02-14T12:27:01.000Z',
-              changeId: 'pull-fail-1'
+              changedAt: '2026-02-14T12:28:01.000Z',
+              changeId: 'pull-fail-mixed-1'
             },
             lastReconciledWriteIds: {
               desktop: 4,
@@ -104,16 +104,25 @@ describe('VfsBackgroundSyncClient', () => {
         if (callCount === 3) {
           return {
             items: [
-              buildAclAddSyncItem({
-                opId: 'good-1',
-                occurredAt: '2026-02-14T12:27:02.000Z',
-                itemId: 'item-good-1'
-              })
+              {
+                opId: 'good-link-1',
+                itemId: 'item-good-link',
+                opType: 'link_add',
+                principalType: null,
+                principalId: null,
+                accessLevel: null,
+                parentId: 'root',
+                childId: 'item-good-link',
+                actorId: null,
+                sourceTable: 'test',
+                sourceId: 'good-link-1',
+                occurredAt: '2026-02-14T12:28:02.000Z'
+              }
             ],
             hasMore: false,
             nextCursor: {
-              changedAt: '2026-02-14T12:27:02.000Z',
-              changeId: 'good-1'
+              changedAt: '2026-02-14T12:28:02.000Z',
+              changeId: 'good-link-1'
             },
             lastReconciledWriteIds: {
               desktop: 6,
@@ -137,15 +146,15 @@ describe('VfsBackgroundSyncClient', () => {
         return {
           items: [
             buildAclAddSyncItem({
-              opId: 'good-2',
-              occurredAt: '2026-02-14T12:27:03.000Z',
-              itemId: 'item-good-2'
+              opId: 'good-acl-2',
+              occurredAt: '2026-02-14T12:28:03.000Z',
+              itemId: 'item-good-acl'
             })
           ],
           hasMore: false,
           nextCursor: {
-            changedAt: '2026-02-14T12:27:03.000Z',
-            changeId: 'good-2'
+            changedAt: '2026-02-14T12:28:03.000Z',
+            changeId: 'good-acl-2'
           },
           lastReconciledWriteIds: {
             desktop: 7,
@@ -187,7 +196,7 @@ describe('VfsBackgroundSyncClient', () => {
     const seedCursor = readSeedContainerCursorOrThrow({
       client: resumedClient,
       pageLimit: 10,
-      errorMessage: 'expected seed cursor before forward-window assertions'
+      errorMessage: 'expected seed cursor before mixed forward-window checks'
     });
 
     await expect(resumedClient.sync()).rejects.toThrowError(
@@ -203,9 +212,9 @@ describe('VfsBackgroundSyncClient', () => {
     const forwardContainerIds = forwardPage.items.map(
       (item) => item.containerId
     );
-    expect(forwardContainerIds).toContain('item-good-1');
-    expect(forwardContainerIds).toContain('item-good-2');
-    expect(forwardContainerIds).not.toContain('item-fail-phantom');
+    expect(forwardContainerIds).toContain('root');
+    expect(forwardContainerIds).toContain('item-good-acl');
+    expect(forwardContainerIds).not.toContain('item-fail-phantom-mixed');
     for (const item of forwardPage.items) {
       expect(
         compareVfsSyncCursorOrder(
@@ -217,6 +226,23 @@ describe('VfsBackgroundSyncClient', () => {
         )
       ).toBeGreaterThan(0);
     }
+
+    expect(resumedClient.snapshot().links).toContainEqual(
+      expect.objectContaining({
+        parentId: 'root',
+        childId: 'item-good-link'
+      })
+    );
+    expect(resumedClient.snapshot().acl).toContainEqual(
+      expect.objectContaining({
+        itemId: 'item-good-acl'
+      })
+    );
+    expect(resumedClient.snapshot().acl).not.toContainEqual(
+      expect.objectContaining({
+        itemId: 'item-fail-phantom-mixed'
+      })
+    );
 
     expectLastWriteIdRegressionViolation({
       violations: guardrailViolations,
