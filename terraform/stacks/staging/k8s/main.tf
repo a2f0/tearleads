@@ -108,20 +108,16 @@ data "cloudflare_zone" "main" {
   name = var.staging_domain
 }
 
-resource "cloudflare_record" "k8s_api_a" {
-  zone_id = data.cloudflare_zone.main.id
-  name    = "k8s-api.${var.staging_domain}"
-  type    = "A"
-  content = module.server.ipv4_address
-  proxied = false
-  ttl     = 1
-}
+resource "cloudflare_record" "k8s_api" {
+  for_each = {
+    A    = module.server.ipv4_address
+    AAAA = module.server.ipv6_address
+  }
 
-resource "cloudflare_record" "k8s_api_aaaa" {
   zone_id = data.cloudflare_zone.main.id
   name    = "k8s-api.${var.staging_domain}"
-  type    = "AAAA"
-  content = module.server.ipv6_address
+  type    = each.key
+  content = each.value
   proxied = false
   ttl     = 1
 }
