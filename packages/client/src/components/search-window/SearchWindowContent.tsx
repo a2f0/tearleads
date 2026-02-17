@@ -48,10 +48,12 @@ const FILTER_OPTION_KEYS: {
 
 interface SearchWindowContentProps {
   viewMode?: SearchViewMode;
+  autoFocusOnMount?: boolean;
 }
 
 export function SearchWindowContent({
-  viewMode = 'list'
+  viewMode = 'list',
+  autoFocusOnMount = true
 }: SearchWindowContentProps) {
   const { t } = useTranslation('search');
   const navigate = useNavigate();
@@ -123,8 +125,11 @@ export function SearchWindowContent({
   // Keep keyboard flow in search input when opening or changing view mode.
   // biome-ignore lint/correctness/useExhaustiveDependencies: refocus input when the view mode prop changes.
   useEffect(() => {
+    if (!autoFocusOnMount) {
+      return;
+    }
     inputRef.current?.focus();
-  }, [viewMode]);
+  }, [autoFocusOnMount, viewMode]);
 
   // Search function
   const performSearch = useCallback(
