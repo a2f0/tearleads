@@ -68,7 +68,7 @@ export function TimeRangePicker({
         type="time"
         value={startTime}
         onChange={(e) => onStartTimeChange(e.target.value)}
-        className="flex-1 rounded-md border bg-background px-3 py-2 text-base"
+        className="min-w-0 flex-1 rounded-md border bg-background px-3 py-2 text-base"
         aria-label="Event start time"
         disabled={disabled}
         data-testid="time-range-start"
@@ -78,7 +78,7 @@ export function TimeRangePicker({
         type="time"
         value={endTime}
         onChange={(e) => onEndTimeChange(e.target.value)}
-        className="flex-1 rounded-md border bg-background px-3 py-2 text-base"
+        className="min-w-0 flex-1 rounded-md border bg-background px-3 py-2 text-base"
         aria-label="Event end time"
         disabled={disabled}
         data-testid="time-range-end"

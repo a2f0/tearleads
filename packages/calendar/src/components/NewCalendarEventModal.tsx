@@ -160,15 +160,18 @@ export function NewCalendarEventModal({
           />
 
           <div className="space-y-3">
-            <label className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <input
                 type="checkbox"
                 checked={repeatEnabled}
                 onChange={(e) => setRepeatEnabled(e.target.checked)}
                 className="h-4 w-4 accent-primary"
+                aria-labelledby="repeat-label"
               />
-              <span className="font-medium text-sm">Repeat</span>
-            </label>
+              <span id="repeat-label" className="font-medium text-sm">
+                Repeat
+              </span>
+            </div>
 
             {repeatEnabled && (
               <div className="rounded-md border bg-muted/20 p-3">
