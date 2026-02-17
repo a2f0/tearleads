@@ -42,10 +42,29 @@ function buildIssueTemplate(
 - [ ] <item 2 from review feedback>`;
 }
 
-function parseFirstJsonObject<T>(rawOutput: string): T | null {
+function parseFirstJsonObject(rawOutput: string): unknown {
   const trimmed = rawOutput.trim();
   if (!trimmed || trimmed === 'null') return null;
-  return JSON.parse(trimmed) as T;
+  return JSON.parse(trimmed);
+}
+
+interface ExistingIssueCandidate {
+  number: number;
+  title: string;
+  url: string;
+}
+
+function parseExistingIssueCandidate(
+  value: unknown
+): ExistingIssueCandidate | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const number = Reflect.get(value, 'number');
+  const title = Reflect.get(value, 'title');
+  const url = Reflect.get(value, 'url');
+  if (typeof number !== 'number') return null;
+  if (typeof title !== 'string') return null;
+  if (typeof url !== 'string') return null;
+  return { number, title, url };
 }
 
 export function runInlineAction(
@@ -305,10 +324,6 @@ export function runInlineAction(
         throw new Error(`Unknown issue template type: ${templateType}`);
       }
 
-      if (templateType === 'deferred-fix' && options.sourcePr === undefined) {
-        throw new Error('Deferred-fix issues require --source-pr');
-      }
-
       const title = requireDefined(options.title, '--title');
 
       if (!options.force) {
@@ -316,25 +331,23 @@ export function runInlineAction(
           templateType === 'deferred-fix' && options.sourcePr !== undefined
             ? `is:open label:deferred-fix "PR #${options.sourcePr}"`
             : `is:open in:title "${title}"`;
-        const existingIssue = parseFirstJsonObject<{
-          number: number;
-          title: string;
-          url: string;
-        }>(
-          runGh([
-            'issue',
-            'list',
-            '--state',
-            'open',
-            '--search',
-            options.search ?? defaultQuery,
-            '--json',
-            'number,title,url',
-            '-R',
-            repo,
-            '--jq',
-            '.[0] // null'
-          ])
+        const existingIssue = parseExistingIssueCandidate(
+          parseFirstJsonObject(
+            runGh([
+              'issue',
+              'list',
+              '--state',
+              'open',
+              '--search',
+              options.search ?? defaultQuery,
+              '--json',
+              'number,title,url',
+              '-R',
+              repo,
+              '--jq',
+              '.[0] // null'
+            ])
+          )
         );
 
         if (existingIssue) {
@@ -361,11 +374,15 @@ export function runInlineAction(
         '-R',
         repo
       ];
+      const labels = new Set<string>();
       if (templateType === 'deferred-fix') {
-        args.push('--label', 'deferred-fix');
+        labels.add('deferred-fix');
       }
       if (options.label) {
-        args.push('--label', options.label);
+        labels.add(options.label);
+      }
+      for (const label of labels) {
+        args.push('--label', label);
       }
 
       const issueUrl = runGh(args).trim();

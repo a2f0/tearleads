@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 
 const TOOL_PATH = 'scripts/agents/tooling/agentTool.ts';
 
@@ -52,6 +52,20 @@ function readStdout(result: ReturnType<typeof spawnSync>): string {
   return stdout;
 }
 
+function createTempBin(t: TestContext): {
+  fakeBinDir: string;
+  logPath: string;
+} {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agenttool-test-'));
+  t.after(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+  const fakeBinDir = path.join(tempDir, 'bin');
+  fs.mkdirSync(fakeBinDir);
+  const logPath = createFakeGhScript(fakeBinDir);
+  return { fakeBinDir, logPath };
+}
+
 test('createIssue deferred-fix requires --source-pr', () => {
   const result = runAgentTool([
     'createIssue',
@@ -69,11 +83,8 @@ test('createIssue deferred-fix requires --source-pr', () => {
   );
 });
 
-test('createIssue returns existing issue when dedupe finds a match', () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agenttool-test-'));
-  const fakeBinDir = path.join(tempDir, 'bin');
-  fs.mkdirSync(fakeBinDir);
-  const logPath = createFakeGhScript(fakeBinDir);
+test('createIssue returns existing issue when dedupe finds a match', (t) => {
+  const { fakeBinDir, logPath } = createTempBin(t);
 
   const pathEnv = process.env['PATH'] ?? '';
   const result = runAgentTool(
@@ -100,11 +111,8 @@ test('createIssue returns existing issue when dedupe finds a match', () => {
   assert.doesNotMatch(log, /^issue create/m);
 });
 
-test('createIssue creates new issue when --force is set', () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agenttool-test-'));
-  const fakeBinDir = path.join(tempDir, 'bin');
-  fs.mkdirSync(fakeBinDir);
-  const logPath = createFakeGhScript(fakeBinDir);
+test('createIssue creates new issue when --force is set', (t) => {
+  const { fakeBinDir, logPath } = createTempBin(t);
 
   const pathEnv = process.env['PATH'] ?? '';
   const result = runAgentTool(
