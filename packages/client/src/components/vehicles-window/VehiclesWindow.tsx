@@ -1,4 +1,5 @@
 import {
+  useWindowRefresh,
   WindowControlBar,
   WindowControlButton,
   WindowControlGroup,
@@ -48,11 +49,11 @@ export function VehiclesWindow({
     null
   );
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [refreshToken, setRefreshToken] = useState(0);
+  const { refreshToken, triggerRefresh } = useWindowRefresh();
 
   const handleRefresh = useCallback(() => {
-    setRefreshToken((value) => value + 1);
-  }, []);
+    triggerRefresh();
+  }, [triggerRefresh]);
 
   const handleSelectVehicle = useCallback((vehicleId: string) => {
     setSelectedVehicleId(vehicleId);
@@ -68,17 +69,20 @@ export function VehiclesWindow({
     setCurrentView('list');
   }, []);
 
-  const handleVehicleCreated = useCallback((vehicleId: string) => {
-    setSelectedVehicleId(vehicleId);
-    setCurrentView('detail');
-    setRefreshToken((value) => value + 1);
-  }, []);
+  const handleVehicleCreated = useCallback(
+    (vehicleId: string) => {
+      setSelectedVehicleId(vehicleId);
+      setCurrentView('detail');
+      triggerRefresh();
+    },
+    [triggerRefresh]
+  );
 
   const handleVehicleDeleted = useCallback(() => {
     setSelectedVehicleId(null);
     setCurrentView('list');
-    setRefreshToken((value) => value + 1);
-  }, []);
+    triggerRefresh();
+  }, [triggerRefresh]);
 
   const statusText =
     currentView === 'detail'

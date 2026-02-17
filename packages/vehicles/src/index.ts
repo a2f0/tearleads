@@ -14,3 +14,4 @@ export type {
   VehicleRecord,
   VehicleRepository
 } from './lib/vehicleRepository.js';
+export { VehiclesPage, type VehiclesPageProps } from './pages/index.js';
