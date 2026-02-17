@@ -8,6 +8,7 @@ KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config-staging-k8s}"
 K8S_READY_TIMEOUT="${K8S_READY_TIMEOUT:-300s}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-}"
+CERT_MANAGER_MANIFEST_URL="${CERT_MANAGER_MANIFEST_URL:-https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml}"
 ECR_REPOSITORIES=(
   "tearleads-staging/api"
   "tearleads-staging/client"
@@ -52,6 +53,21 @@ check_ecr_repositories() {
   fi
 }
 
+ensure_cert_manager_installed() {
+  if kubectl get crd clusterissuers.cert-manager.io >/dev/null 2>&1; then
+    echo "cert-manager CRDs already present."
+    return
+  fi
+
+  echo "Installing cert-manager from $CERT_MANAGER_MANIFEST_URL..."
+  kubectl apply -f "$CERT_MANAGER_MANIFEST_URL"
+
+  echo "Waiting for cert-manager deployments to become ready..."
+  kubectl rollout status deployment/cert-manager -n cert-manager --timeout=300s
+  kubectl rollout status deployment/cert-manager-cainjector -n cert-manager --timeout=300s
+  kubectl rollout status deployment/cert-manager-webhook -n cert-manager --timeout=300s
+}
+
 "$SCRIPT_DIR/kubeconfig.sh" "$KUBECONFIG_FILE"
 export KUBECONFIG="$KUBECONFIG_FILE"
 
@@ -65,6 +81,8 @@ kubectl apply -f "$STACK_DIR/manifests/namespace.yaml"
 
 echo "Refreshing ECR pull secret..."
 "$SCRIPT_DIR/setup-ecr-secret.sh"
+
+ensure_cert_manager_installed
 
 echo "Deploying Kubernetes manifests..."
 "$SCRIPT_DIR/deploy.sh"
