@@ -14,6 +14,8 @@ interface LabelEntry {
   name?: string;
 }
 
+class UsageError extends Error {}
+
 function usage(): string {
   return `Usage: addLabel.ts --type pr|issue --number <n> --label <name>
 
@@ -35,26 +37,26 @@ function parseArgs(argv: string[]): CliArgs {
     }
     if (token === '--type') {
       const value = argv[index + 1];
-      if (!value) throw new Error('Error: --type requires a value.');
+      if (!value) throw new UsageError('Error: --type requires a value.');
       args.type = value;
       index += 1;
       continue;
     }
     if (token === '--number') {
       const value = argv[index + 1];
-      if (!value) throw new Error('Error: --number requires a value.');
+      if (!value) throw new UsageError('Error: --number requires a value.');
       args.number = value;
       index += 1;
       continue;
     }
     if (token === '--label') {
       const value = argv[index + 1];
-      if (!value) throw new Error('Error: --label requires a value.');
+      if (!value) throw new UsageError('Error: --label requires a value.');
       args.label = value;
       index += 1;
       continue;
     }
-    throw new Error(`Error: Unknown option '${token}'.`);
+    throw new UsageError(`Error: Unknown option '${token}'.`);
   }
 
   return args;
@@ -103,7 +105,7 @@ function validateType(value: string | undefined): TargetType {
 
 function validateNumber(value: string | undefined): string {
   if (!value) {
-    throw new Error('Error: --number is required.');
+    throw new UsageError('Error: --number is required.');
   }
   if (!/^[1-9]\d*$/.test(value)) {
     throw new Error('Error: --number must be a positive integer.');
@@ -126,7 +128,7 @@ function main(): void {
   }
 
   if (!args.type) {
-    throw new Error('Error: --type is required.');
+    throw new UsageError('Error: --type is required.');
   }
 
   const type = validateType(args.type);
@@ -190,12 +192,7 @@ try {
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   process.stderr.write(`${message}\n`);
-  if (
-    message.startsWith('Error: Unknown option') ||
-    message === 'Error: --type is required.' ||
-    message === 'Error: --number is required.' ||
-    message === 'Error: --label is required.'
-  ) {
+  if (error instanceof UsageError) {
     process.stderr.write(`${usage()}\n`);
   }
   process.exit(1);

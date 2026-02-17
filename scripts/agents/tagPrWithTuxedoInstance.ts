@@ -11,6 +11,8 @@ interface Label {
   name?: string;
 }
 
+class UsageError extends Error {}
+
 function usage(): string {
   return `Usage: tagPrWithTuxedoInstance.ts [--pr <number>]
 
@@ -34,13 +36,13 @@ function parseArgs(argv: string[]): CliArgs {
     if (token === '--pr') {
       const value = argv[index + 1];
       if (value === undefined || value.length === 0) {
-        throw new Error('Error: --pr requires a value.');
+        throw new UsageError('Error: --pr requires a value.');
       }
       args.prNumber = value;
       index += 1;
       continue;
     }
-    throw new Error(`Error: Unknown option '${token}'.`);
+    throw new UsageError(`Error: Unknown option '${token}'.`);
   }
 
   return args;
@@ -238,7 +240,7 @@ try {
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   process.stderr.write(`${message}\n`);
-  if (message.startsWith('Error: Unknown option')) {
+  if (error instanceof UsageError) {
     process.stderr.write(`${usage()}\n`);
   }
   process.exit(1);

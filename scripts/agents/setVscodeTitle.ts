@@ -80,8 +80,13 @@ function main(): void {
       } else {
         throw new Error('settings.json must be a JSON object');
       }
-    } catch {
-      throw new Error(`Error: Failed to parse ${settingsFile} as JSON.`);
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        throw new Error(
+          `Error: Failed to parse ${settingsFile} as JSON: ${error.message}`
+        );
+      }
+      throw error;
     }
   }
 

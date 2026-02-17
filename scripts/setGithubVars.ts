@@ -215,4 +215,10 @@ function main(): void {
   process.stdout.write('Extra secrets cleanup complete.\n');
 }
 
-main();
+try {
+  main();
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  process.stderr.write(`Error: ${message}\n`);
+  process.exit(1);
+}

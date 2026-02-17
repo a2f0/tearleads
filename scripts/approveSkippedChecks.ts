@@ -12,6 +12,16 @@ interface CheckRun {
   conclusion: string | null;
 }
 
+interface CheckRunApiItem {
+  name?: unknown;
+  status?: unknown;
+  conclusion?: unknown;
+}
+
+interface CheckRunsApiResponse {
+  check_runs?: unknown;
+}
+
 const requiredChecks = [
   'build',
   'Web E2E Tests (Release)',
@@ -65,24 +75,25 @@ function tryRun(command: string, args: string[]): string | null {
 
 function parseCheckRuns(raw: string): CheckRun[] {
   const parsed = JSON.parse(raw) as unknown;
-  if (typeof parsed !== 'object' || parsed === null) {
+  if (!parsed || typeof parsed !== 'object') {
     return [];
   }
 
-  const checkRunsRaw = Reflect.get(parsed, 'check_runs');
-  if (!Array.isArray(checkRunsRaw)) {
+  const response = parsed as CheckRunsApiResponse;
+  if (!Array.isArray(response.check_runs)) {
     return [];
   }
 
   const checkRuns: CheckRun[] = [];
-  for (const item of checkRunsRaw) {
-    if (typeof item !== 'object' || item === null) {
+  for (const item of response.check_runs) {
+    if (!item || typeof item !== 'object') {
       continue;
     }
 
-    const nameRaw = Reflect.get(item, 'name');
-    const statusRaw = Reflect.get(item, 'status');
-    const conclusionRaw = Reflect.get(item, 'conclusion');
+    const current = item as CheckRunApiItem;
+    const nameRaw = current.name;
+    const statusRaw = current.status;
+    const conclusionRaw = current.conclusion;
 
     if (typeof nameRaw !== 'string' || typeof statusRaw !== 'string') {
       continue;
