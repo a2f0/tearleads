@@ -1,5 +1,6 @@
 import {
   Activity,
+  ArrowLeft,
   Dumbbell,
   HeartPulse,
   type LucideIcon,
@@ -7,7 +8,7 @@ import {
   Scale
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
-import { BackLink } from '@/components/ui/back-link';
+import { isRecord } from '@tearleads/shared';
 import {
   BloodPressureDetail,
   ExerciseDetail,
@@ -35,6 +36,32 @@ interface HealthCard {
   description: string;
   icon: LucideIcon;
   route: HealthDrilldownRoute;
+}
+
+function HealthBackLink({
+  defaultTo,
+  defaultLabel
+}: {
+  defaultTo: string;
+  defaultLabel: string;
+}) {
+  const location = useLocation();
+  const state = location.state;
+  const from = isRecord(state) ? state['from'] : undefined;
+  const fromLabel = isRecord(state) ? state['fromLabel'] : undefined;
+  const to = typeof from === 'string' ? from : defaultTo;
+  const label = typeof fromLabel === 'string' ? fromLabel : defaultLabel;
+
+  return (
+    <Link
+      to={to}
+      className="inline-flex items-center text-muted-foreground hover:text-foreground"
+      data-testid="back-link"
+    >
+      <ArrowLeft className="mr-2 h-4 w-4" />
+      {label}
+    </Link>
+  );
 }
 
 const HEALTH_OVERVIEW_ROUTE = '/health';
@@ -117,7 +144,7 @@ export function Health({
     <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
       {showBackLink && (
         <div className="flex flex-col gap-2 pb-4">
-          <BackLink defaultTo="/" defaultLabel="Back to Home" />
+          <HealthBackLink defaultTo="/" defaultLabel="Back to Home" />
           <h1 className="font-bold text-xl tracking-tight sm:text-2xl">
             Health
           </h1>

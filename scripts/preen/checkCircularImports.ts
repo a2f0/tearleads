@@ -305,6 +305,7 @@ function runPackageCycleCheck(repoRoot: string): void {
     '@tearleads/client -> @tearleads/console',
     '@tearleads/client -> @tearleads/console -> @tearleads/help',
     '@tearleads/client -> @tearleads/db-test-utils',
+    '@tearleads/client -> @tearleads/health',
     '@tearleads/client -> @tearleads/keychain',
     '@tearleads/client -> @tearleads/notifications',
     '@tearleads/client -> @tearleads/sync',
