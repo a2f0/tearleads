@@ -62,7 +62,7 @@ This document maintains a centralized inventory of all third-party vendors with 
 - **Infrastructure Files**:
   - `terraform/modules/hetzner-server/` - VM provisioning
   - `terraform/modules/hetzner-dns/` - DNS configuration
-  - `ansible/playbooks/main.yml` - Server configuration
+  - `terraform/stacks/staging/k8s/main.tf` - Server configuration
 - **Compliance Certifications**: ISO 27001, SOC 2 Type II, GDPR compliant
 - **Security Controls**: SSH key-only authentication, firewall rules, encrypted storage
 - **Contract Terms**: Standard Terms of Service
@@ -97,7 +97,7 @@ This document maintains a centralized inventory of all third-party vendors with 
 - **Data Processed**: Domain names (public), public keys (public)
 - **Data Residency**: N/A (certificates are public)
 - **Infrastructure Files**:
-  - `ansible/playbooks/main.yml` - Certbot configuration
+  - `terraform/stacks/staging/k8s/main.tf` - Certbot configuration
 - **Compliance Certifications**: WebTrust for CAs
 - **Security Controls**: ACME protocol, domain validation
 - **Contract Terms**: Subscriber Agreement

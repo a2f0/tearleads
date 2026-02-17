@@ -63,6 +63,19 @@
         key: "{{ item }}"
       loop: "{{ github_ssh_host_keys }}"
 
+    - name: Enforce SSH daemon hardening defaults
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^{{ item.key }}\\s+"
+        line: "{{ item.key }} {{ item.value }}"
+        validate: "sshd -t -f %s"
+      loop:
+        - { key: "PermitRootLogin", value: "no" }
+        - { key: "PasswordAuthentication", value: "no" }
+        - { key: "PubkeyAuthentication", value: "yes" }
+        - { key: "MaxAuthTries", value: "3" }
+      notify: Restart sshd
+
     - name: Create tearleads directory
       ansible.builtin.file:
         path: "{{ tearleads_dir }}"
@@ -278,3 +291,8 @@
         name: buildkit
         state: restarted
         daemon_reload: true
+
+    - name: Restart sshd
+      ansible.builtin.systemd:
+        name: ssh
+        state: restarted

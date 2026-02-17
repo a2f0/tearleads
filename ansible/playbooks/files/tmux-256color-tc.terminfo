@@ -1,8 +1,0 @@
-# tmux-256color with truecolor (Tc) support
-# This extends the standard tmux-256color with 24-bit RGB color capabilities
-# Required for Claude Code and other modern terminal apps in screen/tmux
-tmux-256color|tmux with 256 colors and truecolor,
-    use=tmux-256color,
-    Tc,
-    setrgbf=\E[38;2;%p1%d;%p2%d;%p3%dm,
-    setrgbb=\E[48;2;%p1%d;%p2%d;%p3%dm,

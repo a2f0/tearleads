@@ -1,12 +1,12 @@
 #!/bin/sh
-# Dynamic inventory script for the staging dev server from its Terraform output
+# Backward-compatible alias inventory for staging k8s host from Terraform output.
 set -e
 
-cd "$(dirname "$0")/../../terraform/stacks/staging/dev-server"
+cd "$(dirname "$0")/../../terraform/stacks/staging/k8s"
 
 # Capture stderr to detect actual errors vs missing outputs
 TF_STDERR=$(mktemp)
-HOSTNAME=$(terraform output -raw hostname 2>"$TF_STDERR") || true
+HOSTNAME=$(terraform output -raw k8s_hostname 2>"$TF_STDERR") || true
 USERNAME=$(terraform output -raw server_username 2>>"$TF_STDERR") || true
 
 # Check for real errors (not just "output not found")
