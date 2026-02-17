@@ -1,6 +1,7 @@
 import { useMultiFileUpload } from '@tearleads/audio';
 import {
   DesktopFloatingWindow as FloatingWindow,
+  useWindowRefresh,
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -46,7 +47,7 @@ export function PhotosWindow({
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [showDeleted, setShowDeleted] = useState(false);
-  const [refreshToken, setRefreshToken] = useState(0);
+  const { refreshToken, triggerRefresh } = useWindowRefresh();
   const [showDropzone, setShowDropzone] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(200);
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(
@@ -84,10 +85,10 @@ export function PhotosWindow({
       }
 
       if (results.length > 0) {
-        setRefreshToken((value) => value + 1);
+        triggerRefresh();
       }
     },
-    [uploadMany, selectedAlbumId, addPhotoToAlbum]
+    [uploadMany, selectedAlbumId, addPhotoToAlbum, triggerRefresh]
   );
 
   // Main content area drop zone
@@ -104,12 +105,12 @@ export function PhotosWindow({
         await Promise.all(
           photoIds.map((photoId) => addPhotoToAlbum(albumId, photoId))
         );
-        setRefreshToken((value) => value + 1);
+        triggerRefresh();
         return;
       }
       await handleUploadFilesToAlbum(files, albumId);
     },
-    [addPhotoToAlbum, handleUploadFilesToAlbum]
+    [addPhotoToAlbum, handleUploadFilesToAlbum, triggerRefresh]
   );
 
   const handleUpload = useCallback(() => {
@@ -117,8 +118,8 @@ export function PhotosWindow({
   }, []);
 
   const handleRefresh = useCallback(() => {
-    setRefreshToken((value) => value + 1);
-  }, []);
+    triggerRefresh();
+  }, [triggerRefresh]);
 
   // Wrapper for existing upload patterns (no album override)
   const handleUploadFiles = useCallback(
@@ -149,8 +150,8 @@ export function PhotosWindow({
 
   const handleDeleted = useCallback(() => {
     setSelectedPhotoId(null);
-    setRefreshToken((value) => value + 1);
-  }, []);
+    triggerRefresh();
+  }, [triggerRefresh]);
 
   const handleOpenAIChat = useCallback(() => {
     openWindow('ai');

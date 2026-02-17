@@ -1,6 +1,7 @@
 import { useMultiFileUpload } from '@tearleads/audio';
 import {
   DesktopFloatingWindow as FloatingWindow,
+  useWindowRefresh,
   WindowControlBar,
   WindowControlButton,
   WindowControlGroup,
@@ -51,7 +52,7 @@ export function DocumentsWindow({
   );
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [showDeleted, setShowDeleted] = useState(false);
-  const [refreshToken, setRefreshToken] = useState(0);
+  const { refreshToken, triggerRefresh } = useWindowRefresh();
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [showDropzone, setShowDropzone] = useState(false);
   const { uploadFile } = useFileUpload();
@@ -64,8 +65,8 @@ export function DocumentsWindow({
   }, []);
 
   const handleRefresh = useCallback(() => {
-    setRefreshToken((value) => value + 1);
-  }, []);
+    triggerRefresh();
+  }, [triggerRefresh]);
 
   const handleUploadFiles = useCallback(
     async (files: File[]) => {
@@ -76,7 +77,7 @@ export function DocumentsWindow({
       }
 
       if (results.length > 0) {
-        setRefreshToken((value) => value + 1);
+        triggerRefresh();
       }
       if (errors.length > 0) {
         const errorMessages = errors.map(
@@ -85,7 +86,7 @@ export function DocumentsWindow({
         setUploadError(errorMessages.join('\n'));
       }
     },
-    [uploadMany]
+    [triggerRefresh, uploadMany]
   );
 
   // Main content area drop zone

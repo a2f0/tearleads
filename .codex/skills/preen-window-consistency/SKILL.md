@@ -108,6 +108,10 @@ Prioritize opportunities that meet at least two signals:
 
 - Sidebar uses manual refreshToken useEffect instead of `useSidebarRefetch`
 - Window uses manual refreshToken state instead of `useWindowRefresh`
+  - Migration recipe: replace `const [refreshToken, setRefreshToken] = useState(0)` with `const { refreshToken, triggerRefresh } = useWindowRefresh()` and replace every token increment with `triggerRefresh()`.
+  - Keep passing `refreshToken` through existing props to data/list components; do not switch to remount-by-key unless already required.
+  - Add `triggerRefresh` to callback dependency arrays; do not add stable React state setter functions.
+  - If tests mock `@tearleads/window-manager`, ensure they spread the real module exports so `useWindowRefresh` remains available.
 - Component uses combined refresh tokens instead of `useCombinedRefresh`
 - Component has custom drag-over tracking instead of `useSidebarDragOver`
 - Component has custom resize handling instead of `useResizableSidebar`
