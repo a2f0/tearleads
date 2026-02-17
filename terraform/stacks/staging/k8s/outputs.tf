@@ -20,12 +20,12 @@ output "k8s_hostname" {
 
 output "ssh_command" {
   description = "SSH command to connect to the server"
-  value       = "ssh ${var.server_username}@${module.server.ipv4_address}"
+  value       = "ssh ${var.server_username}@k8s.${var.staging_domain}"
 }
 
 output "kubeconfig_command" {
   description = "Command to fetch kubeconfig"
-  value       = "scp ${var.server_username}@${module.server.ipv4_address}:.kube/config ~/.kube/config-staging-k8s"
+  value       = "scp ${var.server_username}@k8s.${var.staging_domain}:.kube/config ~/.kube/config-staging-k8s"
 }
 
 output "SERVER_USERNAME" {
