@@ -6,6 +6,15 @@
   vars:
     ansible_python_interpreter: /usr/bin/python3
     nodejs_major_version: 24
+    linux_security_baseline_manage_ufw: true
+    linux_security_baseline_ufw_allow_rules:
+      - { port: "22", proto: "tcp" }
+    linux_security_baseline_ssh_settings:
+      - { key: "PermitRootLogin", value: "no" }
+      - { key: "PasswordAuthentication", value: "no" }
+      - { key: "PubkeyAuthentication", value: "yes" }
+      - { key: "MaxAuthTries", value: "3" }
+      - { key: "KbdInteractiveAuthentication", value: "no" }
     tuxedo_github_deploy_key_name: tuxedoGithubDeployKey
     tuxedo_github_deploy_key_path: "{{ playbook_dir }}/../../.secrets/tuxedoGithubDeployKey"
     # GPG signing key for git commits
@@ -28,6 +37,9 @@
     # yamllint enable rule:line-length
 
   tasks:
+    - name: Apply shared Linux security baseline
+      ansible.builtin.import_tasks: tasks/linuxSecurityBaseline.yml
+
     - name: Ensure SSH directory exists for deploy key
       ansible.builtin.file:
         path: "/home/{{ ansible_user }}/.ssh"
@@ -226,40 +238,6 @@
           TUXEDO_SCRIPT_PATH="/home/{{ ansible_user }}/tuxedo/tuxedo-shared/tuxedo/tuxedoKill.sh"
           export TUXEDO_SCRIPT_PATH
           exec "$TUXEDO_SCRIPT_PATH" "$@"
-
-    - name: Disable root SSH login
-      ansible.builtin.lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: '^#?PermitRootLogin'
-        line: 'PermitRootLogin no'
-        validate: 'sshd -t -f %s'
-      notify: Restart sshd
-
-    - name: Install UFW
-      ansible.builtin.apt:
-        name: ufw
-        state: present
-        update_cache: true
-
-    - name: Set UFW default deny incoming
-      community.general.ufw:
-        direction: incoming
-        policy: deny
-
-    - name: Set UFW default allow outgoing
-      community.general.ufw:
-        direction: outgoing
-        policy: allow
-
-    - name: Allow SSH through UFW
-      community.general.ufw:
-        rule: allow
-        port: "22"
-        proto: tcp
-
-    - name: Enable UFW
-      community.general.ufw:
-        state: enabled
 
     - name: Deploy upgradeAndRestart script
       ansible.builtin.template:
@@ -464,66 +442,8 @@
         global: true
         state: present
 
-    - name: Add CLI aliases to bashrc
-      ansible.builtin.blockinfile:
-        path: "/home/{{ ansible_user }}/.bashrc"
-        create: true
-        mode: "0644"
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        marker: "# {mark} ANSIBLE MANAGED - CLI aliases"
-        block: |
-          alias frc='claude --dangerously-skip-permissions'
-          alias frco='codex --sandbox danger-full-access --ask-for-approval never'
-          alias unlockagent='echo "test" | gpg --sign --default-key {{ gpg_key_id_result.stdout }} > /dev/null 2>&1'
-
-    - name: Add tuxedo environment to bashrc
-      ansible.builtin.blockinfile:
-        path: "/home/{{ ansible_user }}/.bashrc"
-        create: true
-        mode: "0644"
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        marker: "# {mark} ANSIBLE MANAGED - tuxedo environment"
-        block: |
-          export TUXEDO_BASE_DIR="$HOME/tuxedo"
-
-          # Terminal color settings for Claude Code (truecolor + dark terminal signal)
-          export COLORTERM=truecolor
-          export COLORFGBG="15;0"
-
-          # GPG signing requires TTY for passphrase prompts
-          if [[ -t 0 ]]; then
-            export GPG_TTY=$(tty)
-          fi
-
-          if [ -n "$TUXEDO_WORKSPACE" ]; then
-            export PATH="$TUXEDO_WORKSPACE/scripts:$TUXEDO_WORKSPACE/scripts/agents:$PATH"
-            # Only cd into workspace for screen sessions, to avoid changing dir in every new terminal
-            if [ -n "$STY" ]; then
-              [ -d "$TUXEDO_WORKSPACE" ] && cd "$TUXEDO_WORKSPACE"
-            fi
-          fi
-
-    - name: Ensure Claude Code config directory exists
-      ansible.builtin.file:
-        path: "/home/{{ ansible_user }}/.claude"
-        state: directory
-        mode: "0700"
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-
-    - name: Configure Claude Code dark theme
-      ansible.builtin.copy:
-        dest: "/home/{{ ansible_user }}/.claude.json"
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: "0600"
-        force: false
-        content: |
-          {
-            "theme": "dark"
-          }
+    - name: Configure tuxedo CLI shell environment
+      ansible.builtin.import_tasks: tasks/tuxedoCliEnvironment.yml
 
   handlers:
     - name: Restart sshd
