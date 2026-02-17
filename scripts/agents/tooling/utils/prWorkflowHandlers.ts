@@ -71,7 +71,9 @@ export function handleCreateDeferredFixIssue(
 
   const deferredItems = parseDeferredItems(options.deferredItemsJson);
   if (deferredItems.length === 0) {
-    throw new Error('createDeferredFixIssue requires at least one deferred item');
+    throw new Error(
+      'createDeferredFixIssue requires at least one deferred item'
+    );
   }
 
   const checklist = deferredItems
@@ -156,7 +158,9 @@ export function handleSanitizePrBody(
   const issueNumbers = Array.from(
     new Set(issueMatches.map((match) => Number(match[1])))
   );
-  const cleanedBody = collapseBlankLines(currentBody.replace(AUTO_CLOSE_PATTERN, ''));
+  const cleanedBody = collapseBlankLines(
+    currentBody.replace(AUTO_CLOSE_PATTERN, '')
+  );
   const changed = cleanedBody !== currentBody;
 
   if (changed) {
@@ -203,18 +207,10 @@ export function handleUpdatePrBody(
   }
 
   const bodyText = hasBody
-    ? options.body ?? ''
+    ? (options.body ?? '')
     : readFileSync(options.bodyFile ?? '', 'utf8');
 
-  runGh([
-    'pr',
-    'edit',
-    String(options.number),
-    '--body',
-    bodyText,
-    '-R',
-    repo
-  ]);
+  runGh(['pr', 'edit', String(options.number), '--body', bodyText, '-R', repo]);
 
   return JSON.stringify(
     {
