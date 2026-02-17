@@ -1,4 +1,4 @@
-import { CircleHelp } from 'lucide-react';
+import { ArrowLeft, CircleHelp } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HelpLinksGrid } from '@/components/help-links/HelpLinksGrid';
@@ -40,6 +40,7 @@ export function Help() {
             onClick={() => setView('topLevel')}
             className="inline-flex items-center text-muted-foreground hover:text-foreground"
           >
+            <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Help
           </button>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">

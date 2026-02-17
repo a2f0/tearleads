@@ -43,7 +43,7 @@ import tuxedoDocumentationUa from '../../../../../docs/ua/tuxedo.md?raw';
 
 const HELP_DOC_MARKDOWN: Record<
   HelpDocId,
-  Record<SupportedLanguage, string>
+  Partial<Record<SupportedLanguage, string>> & { en: string }
 > = {
   cli: {
     en: cliDocumentationEn,
@@ -58,16 +58,10 @@ const HELP_DOC_MARKDOWN: Record<
     pt: cliReferenceDocumentationPt
   },
   consoleReference: {
-    en: consoleReferenceDocumentationEn,
-    es: consoleReferenceDocumentationEn,
-    ua: consoleReferenceDocumentationEn,
-    pt: consoleReferenceDocumentationEn
+    en: consoleReferenceDocumentationEn
   },
   ci: {
-    en: ciDocumentationEn,
-    es: ciDocumentationEn,
-    ua: ciDocumentationEn,
-    pt: ciDocumentationEn
+    en: ciDocumentationEn
   },
   chromeExtension: {
     en: chromeExtensionDocumentationEn,
@@ -88,22 +82,13 @@ const HELP_DOC_MARKDOWN: Record<
     pt: tuxedoDocumentationPt
   },
   privacyPolicy: {
-    en: privacyPolicyEn,
-    es: privacyPolicyEn,
-    ua: privacyPolicyEn,
-    pt: privacyPolicyEn
+    en: privacyPolicyEn
   },
   termsOfService: {
-    en: termsOfServiceEn,
-    es: termsOfServiceEn,
-    ua: termsOfServiceEn,
-    pt: termsOfServiceEn
+    en: termsOfServiceEn
   },
   vfs: {
-    en: vfsDocumentationEn,
-    es: vfsDocumentationEn,
-    ua: vfsDocumentationEn,
-    pt: vfsDocumentationEn
+    en: vfsDocumentationEn
   }
 };
 
@@ -137,10 +122,14 @@ const HELP_DOC_ICONS: Record<HelpDocId, LucideIcon> = {
 };
 
 function resolveLanguage(language: string | undefined): SupportedLanguage {
-  if (language === 'es') return 'es';
-  if (language === 'ua') return 'ua';
-  if (language === 'pt') return 'pt';
-  return 'en';
+  switch (language) {
+    case 'es':
+    case 'ua':
+    case 'pt':
+      return language;
+    default:
+      return 'en';
+  }
 }
 
 interface HelpDocumentationProps {
@@ -152,7 +141,8 @@ export function HelpDocumentation({ docId }: HelpDocumentationProps) {
   const { resolvedTheme } = useTheme();
   const markdownColorMode = resolvedTheme === 'light' ? 'light' : 'dark';
   const language = resolveLanguage(i18n.resolvedLanguage ?? i18n.language);
-  const documentation = HELP_DOC_MARKDOWN[docId][language];
+  const documentation =
+    HELP_DOC_MARKDOWN[docId][language] ?? HELP_DOC_MARKDOWN[docId].en;
   const title = `${getHelpDocLabel(docId)} Documentation`;
   const description = HELP_DOC_DESCRIPTIONS[docId];
   const Icon = HELP_DOC_ICONS[docId];
