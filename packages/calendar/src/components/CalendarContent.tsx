@@ -260,7 +260,7 @@ export function CalendarContent({
   }, []);
 
   const handleCalendarContextMenuRequest = useCallback(
-    (event: ReactMouseEvent<HTMLButtonElement>, name: string) => {
+    (event: ReactMouseEvent<HTMLElement>, name: string) => {
       event.preventDefault();
       event.stopPropagation();
       setCalendarContextMenu({
