@@ -54,7 +54,7 @@ function toLastReconciledWriteIds(
    * - keep only positive integers
    * - sort keys to keep payload stable for downstream snapshot comparisons
    */
-  const sortedEntries: Array<[string, number]> = [];
+  const entries: Array<[string, number]> = [];
   for (const row of rows) {
     const replicaId = normalizeReplicaId(row.replica_id);
     const writeId = parseWriteId(row.max_write_id);
@@ -62,17 +62,11 @@ function toLastReconciledWriteIds(
       continue;
     }
 
-    sortedEntries.push([replicaId, writeId]);
+    entries.push([replicaId, writeId]);
   }
 
-  sortedEntries.sort((left, right) => left[0].localeCompare(right[0]));
-
-  const result: Record<string, number> = {};
-  for (const [replicaId, writeId] of sortedEntries) {
-    result[replicaId] = writeId;
-  }
-
-  return result;
+  entries.sort((left, right) => left[0].localeCompare(right[0]));
+  return Object.fromEntries(entries);
 }
 
 /**
