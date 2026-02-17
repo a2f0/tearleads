@@ -93,4 +93,11 @@ describe('TimeRangePicker', () => {
     expect(screen.getByLabelText('Event start time')).toBeInTheDocument();
     expect(screen.getByLabelText('Event end time')).toBeInTheDocument();
   });
+
+  it('uses stable width classes on time inputs', () => {
+    render(<TimeRangePicker {...defaultProps} />);
+
+    expect(screen.getByTestId('time-range-start')).toHaveClass('min-w-0');
+    expect(screen.getByTestId('time-range-end')).toHaveClass('min-w-0');
+  });
 });
