@@ -1,1 +1,4 @@
-export { Keychain, KeychainDetail } from '../../../../keychain/src/pages/keychain';
+export {
+  Keychain,
+  KeychainDetail
+} from '../../../../keychain/src/pages/keychain';
