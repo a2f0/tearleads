@@ -8,7 +8,7 @@ import type {
   VfsNoteLikeRow,
   VfsRegistryLikeRow,
   VfsTagLikeRow
-} from './types';
+} from '../lib/types';
 
 // Classic uses a dedicated folder as the parent for all tags.
 export const CLASSIC_ROOT_ID = '11111111-1111-1111-1111-111111111111';
