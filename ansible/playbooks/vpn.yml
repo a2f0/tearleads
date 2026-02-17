@@ -19,6 +19,10 @@
     wireguard_port: 51820
     wireguard_cidr: 10.200.0.1/24
     wireguard_clients_cidr: 10.200.0.0/24
+    wireguard_client_subnet_prefix: 10.200.0
+    wireguard_dns_servers: "1.1.1.1, 8.8.8.8"
+    wireguard_endpoint_discovery_url: http://169.254.169.254/hetzner/v1/metadata/public-ipv4
+    wireguard_config_path: "/etc/wireguard/{{ wireguard_interface }}.conf"
     wireguard_uplink_interface: "{{ ansible_default_ipv4.interface }}"
 
   tasks:
@@ -59,7 +63,7 @@
           set -euo pipefail
           wg genkey | tee /etc/wireguard/server_private.key | wg pubkey > /etc/wireguard/server_public.key
           chmod 600 /etc/wireguard/server_private.key
-          chmod 600 /etc/wireguard/server_public.key
+          chmod 644 /etc/wireguard/server_public.key
         executable: /bin/bash
       args:
         creates: /etc/wireguard/server_private.key
@@ -70,6 +74,7 @@
         cmd: |
           set -euo pipefail
           wg pubkey < /etc/wireguard/server_private.key > /etc/wireguard/server_public.key
+          chmod 644 /etc/wireguard/server_public.key
         executable: /bin/bash
       args:
         creates: /etc/wireguard/server_public.key
@@ -83,12 +88,12 @@
 
     - name: Check if WireGuard interface config exists
       ansible.builtin.stat:
-        path: "/etc/wireguard/{{ wireguard_interface }}.conf"
+        path: "{{ wireguard_config_path }}"
       register: wg_interface_conf
 
     - name: Create WireGuard interface config if missing
       ansible.builtin.copy:
-        dest: "/etc/wireguard/{{ wireguard_interface }}.conf"
+        dest: "{{ wireguard_config_path }}"
         content: |
           [Interface]
           Address = {{ wireguard_cidr }}
@@ -112,61 +117,12 @@
         mode: "0750"
 
     - name: Install helper script for adding WireGuard clients
-      ansible.builtin.copy:
+      ansible.builtin.template:
+        src: templates/wg-add-client.sh.j2
         dest: /usr/local/bin/wg-add-client
         owner: root
         group: root
         mode: "0750"
-        content: |
-          #!/usr/bin/env bash
-          set -euo pipefail
-
-          CLIENT_NAME="${1:-}"
-          if [ -z "$CLIENT_NAME" ]; then
-            echo "Usage: wg-add-client <client-name>"
-            exit 1
-          fi
-
-          CLIENT_DIR="/etc/wireguard/clients/$CLIENT_NAME"
-          mkdir -p "$CLIENT_DIR"
-
-          wg genkey | tee "$CLIENT_DIR/private.key" | wg pubkey > "$CLIENT_DIR/public.key"
-          chmod 600 "$CLIENT_DIR/private.key"
-
-          LAST_IP=$(grep -oP 'AllowedIPs = 10\\.200\\.0\\.\\K[0-9]+' /etc/wireguard/{{ wireguard_interface }}.conf | sort -n | tail -1 || true)
-          if [ -n "$LAST_IP" ]; then
-            NEXT_IP=$((LAST_IP + 1))
-          else
-            NEXT_IP=2
-          fi
-
-          cat >> /etc/wireguard/{{ wireguard_interface }}.conf <<EOF
-
-          [Peer]
-          # $CLIENT_NAME
-          PublicKey = $(cat "$CLIENT_DIR/public.key")
-          AllowedIPs = 10.200.0.$NEXT_IP/32
-          EOF
-
-          SERVER_PUBLIC=$(cat /etc/wireguard/server_public.key)
-          SERVER_IP=$(curl -fsSL http://169.254.169.254/hetzner/v1/metadata/public-ipv4)
-
-          cat > "$CLIENT_DIR/$CLIENT_NAME.conf" <<EOF
-          [Interface]
-          PrivateKey = $(cat "$CLIENT_DIR/private.key")
-          Address = 10.200.0.$NEXT_IP/24
-          DNS = 1.1.1.1, 8.8.8.8
-
-          [Peer]
-          PublicKey = $SERVER_PUBLIC
-          Endpoint = $SERVER_IP:{{ wireguard_port }}
-          AllowedIPs = 0.0.0.0/0, ::/0
-          PersistentKeepalive = 25
-          EOF
-
-          wg syncconf {{ wireguard_interface }} <(wg-quick strip {{ wireguard_interface }})
-          echo "Client config: $CLIENT_DIR/$CLIENT_NAME.conf"
-          qrencode -t ansiutf8 < "$CLIENT_DIR/$CLIENT_NAME.conf"
 
     - name: Enable and start WireGuard service
       ansible.builtin.systemd:
