@@ -34,7 +34,7 @@ export function CalendarMonthView({
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu surface
     <div
-      className="h-full overflow-auto rounded-xl border bg-card p-4"
+      className="h-full overflow-auto rounded-xl border bg-card p-4 [border-color:var(--soft-border)]"
       data-testid="calendar-month-view"
       onContextMenu={(event) => onContextMenuRequest(event, selectedDate)}
     >
@@ -76,8 +76,8 @@ export function CalendarMonthView({
               className={clsx(
                 'flex aspect-square items-start justify-end rounded-md border px-1 py-1 text-sm',
                 inMonth
-                  ? 'border-border bg-background'
-                  : 'border-border bg-muted/20 text-muted-foreground',
+                  ? 'bg-background [border-color:var(--soft-border)]'
+                  : 'bg-muted/20 text-muted-foreground [border-color:var(--soft-border)]',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
               )}
             >

@@ -51,7 +51,7 @@ export function DayViewHourSlot({
 
   return (
     <div
-      className="flex items-stretch border-border border-b"
+      className="flex items-stretch border-b [border-color:var(--soft-border)]"
       data-testid={`hour-slot-${hour}`}
     >
       <span className="flex w-14 shrink-0 items-center font-medium text-muted-foreground text-sm">
@@ -72,7 +72,8 @@ export function DayViewHourSlot({
                 isWorkHour ? 'bg-accent/35' : 'bg-muted/40',
                 isSelected && 'bg-primary/25',
                 isSelecting && isSelected && 'bg-primary/35',
-                quarter < 3 && 'border-border border-b border-dashed',
+                quarter < 3 &&
+                  'border-b border-dashed [border-color:var(--soft-border)]',
                 'hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:ring-inset'
               )}
               onMouseDown={(e) => handleQuarterMouseDown(quarter, e)}

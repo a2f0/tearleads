@@ -2,7 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ThemeProvider } from './themeProvider';
-import { useTheme } from './useTheme';
+import { ThemeProviderTestConsumer } from './themeProviderTestConsumer';
 
 // Store for localStorage mock
 let localStorageData: Record<string, string> = {};
@@ -10,31 +10,6 @@ let localStorageData: Record<string, string> = {};
 // Mock matchMedia
 let mockMatchMediaMatches = false;
 const mockMatchMediaListeners: ((e: MediaQueryListEvent) => void)[] = [];
-
-function TestConsumer() {
-  const { theme, setTheme, resolvedTheme } = useTheme();
-  return (
-    <div>
-      <span data-testid="theme">{theme}</span>
-      <span data-testid="resolved-theme">{resolvedTheme}</span>
-      <button type="button" onClick={() => setTheme('light')}>
-        Set Light
-      </button>
-      <button type="button" onClick={() => setTheme('dark')}>
-        Set Dark
-      </button>
-      <button type="button" onClick={() => setTheme('tokyo-night')}>
-        Set Tokyo Night
-      </button>
-      <button type="button" onClick={() => setTheme('monochrome')}>
-        Set Monochrome
-      </button>
-      <button type="button" onClick={() => setTheme('system')}>
-        Set System
-      </button>
-    </div>
-  );
-}
 
 describe('ThemeProvider', () => {
   beforeEach(() => {
@@ -97,17 +72,17 @@ describe('ThemeProvider', () => {
     it('uses default theme when no stored value', () => {
       render(
         <ThemeProvider>
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
-      expect(screen.getByTestId('theme')).toHaveTextContent('monochrome');
+      expect(screen.getByTestId('theme')).toHaveTextContent('light');
     });
 
     it('uses custom default theme', () => {
       render(
         <ThemeProvider defaultTheme="dark">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -119,7 +94,7 @@ describe('ThemeProvider', () => {
 
       render(
         <ThemeProvider>
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -131,7 +106,7 @@ describe('ThemeProvider', () => {
 
       render(
         <ThemeProvider>
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -143,7 +118,7 @@ describe('ThemeProvider', () => {
 
       render(
         <ThemeProvider>
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -155,7 +130,7 @@ describe('ThemeProvider', () => {
 
       render(
         <ThemeProvider storageKey="custom-theme">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -167,7 +142,7 @@ describe('ThemeProvider', () => {
 
       render(
         <ThemeProvider defaultTheme="light">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -179,7 +154,7 @@ describe('ThemeProvider', () => {
     it('resolves to light when theme is light', () => {
       render(
         <ThemeProvider defaultTheme="light">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -189,7 +164,7 @@ describe('ThemeProvider', () => {
     it('resolves to dark when theme is dark', () => {
       render(
         <ThemeProvider defaultTheme="dark">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -199,7 +174,7 @@ describe('ThemeProvider', () => {
     it('resolves to tokyo-night when theme is tokyo-night', () => {
       render(
         <ThemeProvider defaultTheme="tokyo-night">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -211,7 +186,7 @@ describe('ThemeProvider', () => {
     it('resolves to monochrome when theme is monochrome', () => {
       render(
         <ThemeProvider defaultTheme="monochrome">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -225,7 +200,7 @@ describe('ThemeProvider', () => {
 
       render(
         <ThemeProvider defaultTheme="system">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -237,7 +212,7 @@ describe('ThemeProvider', () => {
 
       render(
         <ThemeProvider defaultTheme="system">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -251,7 +226,7 @@ describe('ThemeProvider', () => {
 
       render(
         <ThemeProvider defaultTheme="light">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -265,7 +240,7 @@ describe('ThemeProvider', () => {
 
       render(
         <ThemeProvider>
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -279,7 +254,7 @@ describe('ThemeProvider', () => {
 
       render(
         <ThemeProvider storageKey="my-theme">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -293,7 +268,7 @@ describe('ThemeProvider', () => {
     it('adds light class to document when resolved to light', () => {
       render(
         <ThemeProvider defaultTheme="light">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -304,7 +279,7 @@ describe('ThemeProvider', () => {
     it('adds dark class to document when resolved to dark', () => {
       render(
         <ThemeProvider defaultTheme="dark">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -315,7 +290,7 @@ describe('ThemeProvider', () => {
     it('adds tokyo-night class to document when resolved to tokyo-night', () => {
       render(
         <ThemeProvider defaultTheme="tokyo-night">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -329,7 +304,7 @@ describe('ThemeProvider', () => {
     it('adds monochrome class to document when resolved to monochrome', () => {
       render(
         <ThemeProvider defaultTheme="monochrome">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -348,7 +323,7 @@ describe('ThemeProvider', () => {
 
       render(
         <ThemeProvider defaultTheme="light">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -367,7 +342,7 @@ describe('ThemeProvider', () => {
 
       render(
         <ThemeProvider defaultTheme="system">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -400,7 +375,7 @@ describe('ThemeProvider', () => {
     it('updates theme when settings-synced event is dispatched', async () => {
       render(
         <ThemeProvider defaultTheme="light">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -420,7 +395,7 @@ describe('ThemeProvider', () => {
     it('updates to tokyo-night theme from settings-synced event', async () => {
       render(
         <ThemeProvider defaultTheme="light">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -438,7 +413,7 @@ describe('ThemeProvider', () => {
     it('updates to monochrome theme from settings-synced event', async () => {
       render(
         <ThemeProvider defaultTheme="light">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -456,7 +431,7 @@ describe('ThemeProvider', () => {
     it('ignores invalid theme in settings-synced event', async () => {
       render(
         <ThemeProvider defaultTheme="light">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -475,7 +450,7 @@ describe('ThemeProvider', () => {
     it('ignores settings-synced event without theme', async () => {
       render(
         <ThemeProvider defaultTheme="dark">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
@@ -494,7 +469,7 @@ describe('ThemeProvider', () => {
     it('updates DOM class when theme changes via settings-synced', async () => {
       render(
         <ThemeProvider defaultTheme="light">
-          <TestConsumer />
+          <ThemeProviderTestConsumer />
         </ThemeProvider>
       );
 
