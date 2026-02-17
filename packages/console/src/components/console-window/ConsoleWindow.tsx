@@ -1,5 +1,4 @@
 import { ClientTerminal } from '@client/components/terminal';
-import { HelpDocumentation } from '@tearleads/help';
 import { cn } from '@tearleads/ui';
 import {
   DesktopFloatingWindow as FloatingWindow,
@@ -10,6 +9,7 @@ import {
 } from '@tearleads/window-manager';
 import { ArrowLeft, Columns2, Plus, Rows2, X } from 'lucide-react';
 import { useCallback, useState } from 'react';
+import { ConsoleDocumentation } from './ConsoleDocumentation';
 import { ConsoleWindowMenuBar } from './ConsoleWindowMenuBar';
 
 interface ConsoleWindowProps {
@@ -202,7 +202,7 @@ export function ConsoleWindow({
               >
                 Back to Console
               </button>
-              <HelpDocumentation docId="consoleReference" />
+              <ConsoleDocumentation />
             </div>
           </div>
         ) : (
