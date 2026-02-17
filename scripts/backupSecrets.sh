@@ -25,9 +25,25 @@ SOURCE_NAME="$(basename "$SOURCE_ABS")"
 OUTPUT_ABS="$(cd "$OUTPUT_DIR" && pwd -P)"
 ARCHIVE_PATH="$OUTPUT_ABS/$ARCHIVE_NAME"
 
+if [[ "$SOURCE_ABS" == "/" ]]; then
+  echo "backupSecrets: source directory cannot be the root directory" >&2
+  exit 1
+fi
+
+ZIP_ARGS=(-r)
+if [[ -n "${BACKUP_PASSWORD:-}" ]]; then
+  ZIP_ARGS+=(-P "$BACKUP_PASSWORD")
+elif [[ -t 0 && -t 1 ]]; then
+  ZIP_ARGS+=(-e)
+else
+  echo "backupSecrets: encryption password required in non-interactive mode." >&2
+  echo "Set BACKUP_PASSWORD or run interactively to enter a password prompt." >&2
+  exit 1
+fi
+
 (
   cd "$SOURCE_PARENT"
-  zip -r "$ARCHIVE_PATH" "$SOURCE_NAME" >/dev/null
+  zip "${ZIP_ARGS[@]}" "$ARCHIVE_PATH" "$SOURCE_NAME" >/dev/null
 )
 
 echo "Created backup: $ARCHIVE_PATH"
