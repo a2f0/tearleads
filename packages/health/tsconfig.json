@@ -12,8 +12,6 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["../client/src/*"],
-      "@client/*": ["../client/src/*"],
       "@health/*": ["./src/*"]
     },
     "composite": true,

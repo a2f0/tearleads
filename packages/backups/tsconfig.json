@@ -12,8 +12,6 @@
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["../client/src/*"],
-      "@client/*": ["../client/src/*"],
       "@backups/*": ["./src/*"]
     },
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
