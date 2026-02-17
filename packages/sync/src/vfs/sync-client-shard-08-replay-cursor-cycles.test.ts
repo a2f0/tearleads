@@ -10,7 +10,7 @@ import {
 } from './sync-client-test-support.js';
 
 describe('VfsBackgroundSyncClient', () => {
-  it('reuses replay cursor across restart without boundary replay in mixed acl+link pull stream', async () => {
+  it('keeps replay cursor monotonic across sequential post-restart sync cycles', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
     const desktopTransport = new InMemoryVfsCrdtSyncTransport(server, {
       pushDelayMs: 3,
@@ -36,18 +36,11 @@ describe('VfsBackgroundSyncClient', () => {
 
     mobile.queueLocalOperation({
       opType: 'acl_add',
-      itemId: 'item-replay-a',
+      itemId: 'item-cycle-a',
       principalType: 'group',
       principalId: 'group-1',
       accessLevel: 'read',
-      occurredAt: '2026-02-14T14:31:00.000Z'
-    });
-    mobile.queueLocalOperation({
-      opType: 'link_add',
-      itemId: 'item-replay-a',
-      parentId: 'root',
-      childId: 'item-replay-a',
-      occurredAt: '2026-02-14T14:31:01.000Z'
+      occurredAt: '2026-02-14T14:33:00.000Z'
     });
     await mobile.flush();
     await desktop.sync();
@@ -55,7 +48,7 @@ describe('VfsBackgroundSyncClient', () => {
     const persistedDesktopState = desktop.exportState();
     const seedReplayCursor = readReplaySnapshotCursorOrThrow({
       state: persistedDesktopState,
-      errorMessage: 'expected mixed pre-restart replay seed cursor'
+      errorMessage: 'expected replay seed cursor before restart cycles'
     });
 
     const observedPulls: ObservedPullPage[] = [];
@@ -76,50 +69,33 @@ describe('VfsBackgroundSyncClient', () => {
     expect(observedPulls[0]?.requestCursor).toEqual(seedReplayCursor);
     expect(observedPulls[0]?.items).toEqual([]);
 
-    const pullsBeforeNewWrites = observedPulls.length;
+    const cycleOneStart = observedPulls.length;
 
     mobile.queueLocalOperation({
+      opType: 'link_add',
+      itemId: 'item-cycle-a',
+      parentId: 'root',
+      childId: 'item-cycle-a',
+      occurredAt: '2026-02-14T14:33:01.000Z'
+    });
+    mobile.queueLocalOperation({
       opType: 'acl_add',
-      itemId: 'item-replay-b',
+      itemId: 'item-cycle-b',
       principalType: 'organization',
       principalId: 'org-1',
       accessLevel: 'write',
-      occurredAt: '2026-02-14T14:31:02.000Z'
-    });
-    mobile.queueLocalOperation({
-      opType: 'link_remove',
-      itemId: 'item-replay-a',
-      parentId: 'root',
-      childId: 'item-replay-a',
-      occurredAt: '2026-02-14T14:31:03.000Z'
+      occurredAt: '2026-02-14T14:33:02.000Z'
     });
     await mobile.flush();
     await resumedDesktop.sync();
 
-    const forwardPulls = observedPulls.slice(pullsBeforeNewWrites);
-    expect(forwardPulls.length).toBeGreaterThan(0);
-    expect(forwardPulls[0]?.requestCursor).toEqual(seedReplayCursor);
+    const cycleOnePulls = observedPulls.slice(cycleOneStart);
+    expect(cycleOnePulls.length).toBeGreaterThanOrEqual(2);
+    expect(cycleOnePulls[0]?.requestCursor).toEqual(seedReplayCursor);
+    expect(cycleOnePulls[cycleOnePulls.length - 1]?.hasMore).toBe(false);
 
-    const forwardItems = forwardPulls.flatMap((page) => page.items);
-    expect(forwardItems).toContainEqual(
-      expect.objectContaining({
-        opId: 'mobile-3',
-        opType: 'acl_add',
-        itemId: 'item-replay-b'
-      })
-    );
-    expect(forwardItems).toContainEqual(
-      expect.objectContaining({
-        opId: 'mobile-4',
-        opType: 'link_remove',
-        itemId: 'item-replay-a'
-      })
-    );
-    expect(forwardItems.map((item) => item.opId)).not.toContain(
-      seedReplayCursor.changeId
-    );
-
-    for (const item of forwardItems) {
+    const cycleOneItems = cycleOnePulls.flatMap((page) => page.items);
+    for (const item of cycleOneItems) {
       expect(
         compareVfsSyncCursorOrder(
           {
@@ -127,6 +103,58 @@ describe('VfsBackgroundSyncClient', () => {
             changeId: item.opId
           },
           seedReplayCursor
+        )
+      ).toBeGreaterThan(0);
+    }
+
+    const cycleOneTerminalCursor =
+      cycleOnePulls[cycleOnePulls.length - 1]?.nextCursor;
+    expect(cycleOneTerminalCursor).not.toBeNull();
+    if (!cycleOneTerminalCursor) {
+      throw new Error('expected cycle one terminal cursor');
+    }
+
+    const cycleTwoStart = observedPulls.length;
+
+    mobile.queueLocalOperation({
+      opType: 'link_remove',
+      itemId: 'item-cycle-a',
+      parentId: 'root',
+      childId: 'item-cycle-a',
+      occurredAt: '2026-02-14T14:33:03.000Z'
+    });
+    mobile.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-cycle-c',
+      principalType: 'group',
+      principalId: 'group-2',
+      accessLevel: 'admin',
+      occurredAt: '2026-02-14T14:33:04.000Z'
+    });
+    await mobile.flush();
+    await resumedDesktop.sync();
+
+    const cycleTwoPulls = observedPulls.slice(cycleTwoStart);
+    expect(cycleTwoPulls.length).toBeGreaterThanOrEqual(2);
+    expect(cycleTwoPulls[0]?.requestCursor).toEqual(cycleOneTerminalCursor);
+    expect(cycleTwoPulls[cycleTwoPulls.length - 1]?.hasMore).toBe(false);
+
+    const cycleTwoItems = cycleTwoPulls.flatMap((page) => page.items);
+    expect(cycleTwoItems.map((item) => item.opId)).not.toContain(
+      cycleOneTerminalCursor.changeId
+    );
+    expect(cycleTwoItems.map((item) => item.opId)).not.toContain(
+      seedReplayCursor.changeId
+    );
+
+    for (const item of cycleTwoItems) {
+      expect(
+        compareVfsSyncCursorOrder(
+          {
+            changedAt: item.occurredAt,
+            changeId: item.opId
+          },
+          cycleOneTerminalCursor
         )
       ).toBeGreaterThan(0);
     }
