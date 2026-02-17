@@ -101,6 +101,7 @@ JSON with:
 
 - `node --import tsx --test scripts/ciImpact/ciImpact.test.ts scripts/ciImpact/requiredWorkflows.test.ts` for impacted/high-risk ciImpact changes
 - `pnpm --filter <pkg> test:coverage`
+- high-risk config/workflow changes no longer force global coverage fanout; coverage stays impacted-only
 
 `runImpactedQuality.ts` runs:
 
