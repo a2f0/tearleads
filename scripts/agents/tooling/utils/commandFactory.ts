@@ -156,7 +156,15 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     safetyClass: 'safe_read',
     retrySafe: true,
     isInline: true
-  }
+  },
+  verifyBranchPush: { safetyClass: 'safe_read', retrySafe: true, isInline: true },
+  sanitizePrBody: { safetyClass: 'safe_write_remote', retrySafe: true, isInline: true },
+  createDeferredFixIssue: {
+    safetyClass: 'safe_write_remote',
+    retrySafe: true,
+    isInline: true
+  },
+  updatePrBody: { safetyClass: 'safe_write_remote', retrySafe: true, isInline: true }
 };
 
 export const ACTION_NAMES = Object.keys(ACTION_CONFIG) as ActionName[];
@@ -352,6 +360,42 @@ export function createActionCommand(actionName: ActionName): Command {
           parsePositiveInt(v, '--number')
         )
         .option('--branch <name>', 'Branch name (defaults to current branch)');
+      break;
+    case 'verifyBranchPush':
+      cmd.option('--branch <name>', 'Branch name (defaults to current branch)');
+      break;
+    case 'sanitizePrBody':
+      cmd.requiredOption('--number <n>', 'PR number', (v) => parsePositiveInt(v, '--number'));
+      break;
+    case 'createDeferredFixIssue':
+      cmd
+        .requiredOption('--number <n>', 'Source PR number', (v) =>
+          parsePositiveInt(v, '--number')
+        )
+        .requiredOption('--pr-url <url>', 'Source PR URL')
+        .requiredOption(
+          '--deferred-items-json <json>',
+          'Deferred item list as JSON array'
+        );
+      break;
+    case 'updatePrBody':
+      cmd
+        .requiredOption('--number <n>', 'PR number', (v) => parsePositiveInt(v, '--number'))
+        .option('--body <text>', 'PR body content')
+        .option('--body-file <path>', 'Read PR body content from file')
+        .hook('preAction', (thisCommand) => {
+          const opts = thisCommand.opts();
+          if (!opts.body && !opts.bodyFile) {
+            console.error('error: updatePrBody requires --body or --body-file');
+            process.exit(1);
+          }
+          if (opts.body && opts.bodyFile) {
+            console.error(
+              'error: updatePrBody accepts either --body or --body-file'
+            );
+            process.exit(1);
+          }
+        });
       break;
     case 'findPrForBranch':
       cmd

@@ -84,8 +84,8 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    **Issue tracking (if applicable)**: If a PR has an associated issue, it gets marked `needs-qa` after merge. Issues are NOT created automatically - only when the user explicitly requests one. Do NOT create separate "QA: ..." issues.
 
    1. **Check for auto-close language**: Scan the PR body for patterns like `Closes #`, `Fixes #`, `Resolves #` (case-insensitive). If found:
-      - Extract the issue number(s) from the pattern
-      - Remove ALL auto-close language from the PR body using `gh pr edit --body`
+      - Run `./scripts/agents/tooling/agentTool.ts sanitizePrBody --number "$PR_NUMBER"`
+      - Read `issue_numbers` from the JSON response
       - Store the first extracted issue number as `associated_issue_number`
 
    2. **Find associated issue**: If no issue number was extracted from the PR body:
@@ -305,9 +305,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
       - If code changes were made, push and **verify push completed before replying**:
 
         ```bash
-        BRANCH=$(git branch --show-current)
-        git fetch origin "$BRANCH"
-        [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/$BRANCH)" ] || echo "NOT PUSHED"
+        ./scripts/agents/tooling/agentTool.ts verifyBranchPush
         ```
 
         **Do NOT run `/follow-up-with-gemini` until push is verified.** Replying with "Fixed in commit X" when X is not visible on remote creates confusion.
@@ -405,21 +403,11 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    1. Create a tracking issue with the `deferred-fix` label:
 
       ```bash
-      REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-      cat <<EOF | gh issue create --title "chore: deferred fixes from PR #$PR_NUMBER" --label "deferred-fix" --body-file - -R "$REPO"
-      ## Summary
-      Review feedback deferred from PR #$PR_NUMBER to a follow-up PR.
-
-      ## Source
-      - PR: #$PR_NUMBER
-      - URL: $PR_URL
-
-      ## Deferred Items
-      $(for item_json in "${deferred_items[@]}"; do echo "$item_json" | jq -r '"- [ ] \(.body) - `\(.path):\(.line)` ([thread](\(.html_url)))"'; done)
-
-      ## Notes
-      These items were explicitly marked for deferral during review. Address each item and check it off, then close this issue.
-      EOF
+      DEFERRED_ITEMS_JSON=$(printf '%s\n' "${deferred_items[@]}" | jq -s '.')
+      ./scripts/agents/tooling/agentTool.ts createDeferredFixIssue \
+        --number "$PR_NUMBER" \
+        --pr-url "$PR_URL" \
+        --deferred-items-json "$DEFERRED_ITEMS_JSON"
       ```
 
    2. Store the new issue number as `deferred_fix_issue_number`
@@ -516,7 +504,7 @@ pnpm lint
 
 ## Keeping PR Description Updated
 
-As you iterate, update the PR body with `gh pr edit --body`. Always remove auto-close language (`Closes/Fixes/Resolves #...`) and track the issue separately - all issues are marked `needs-qa` after merge. Always preserve the Claude-style format:
+As you iterate, update the PR body with `./scripts/agents/tooling/agentTool.ts updatePrBody --number "$PR_NUMBER" --body-file <path>`. Always remove auto-close language (`Closes/Fixes/Resolves #...`) and track the issue separately - all issues are marked `needs-qa` after merge. Always preserve the Claude-style format:
 
 ```text
 ## Summary

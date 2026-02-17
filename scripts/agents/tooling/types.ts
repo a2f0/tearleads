@@ -30,7 +30,11 @@ export type ActionName =
   | 'runPreen'
   | 'issueTemplate'
   | 'createIssue'
-  | 'generatePrSummary';
+  | 'generatePrSummary'
+  | 'verifyBranchPush'
+  | 'sanitizePrBody'
+  | 'createDeferredFixIssue'
+  | 'updatePrBody';
 
 export interface GlobalOptions {
   apply?: boolean;
@@ -64,6 +68,9 @@ export interface GlobalOptions {
   sourcePr?: number;
   reviewThreadUrl?: string;
   force?: boolean;
+  deferredItemsJson?: string;
+  prUrl?: string;
+  bodyFile?: string;
 }
 
 export interface ActionConfig {

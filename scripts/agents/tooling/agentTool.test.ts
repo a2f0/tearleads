@@ -66,6 +66,15 @@ function createTempBin(t: TestContext): {
   return { fakeBinDir, logPath };
 }
 
+function createCustomScript(
+  dir: string,
+  name: string,
+  content: string,
+  mode = 0o755
+): void {
+  fs.writeFileSync(path.join(dir, name), content, { mode });
+}
+
 test('createIssue deferred-fix requires --source-pr', () => {
   const result = runAgentTool([
     'createIssue',
@@ -136,4 +145,224 @@ test('createIssue creates new issue when --force is set', (t) => {
   assert.match(log, /^repo view/m);
   assert.match(log, /^issue create/m);
   assert.doesNotMatch(log, /^issue list/m);
+});
+
+test('verifyBranchPush reports synced branch heads', (t) => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agenttool-sync-'));
+  t.after(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  const fakeBinDir = path.join(tempDir, 'bin');
+  fs.mkdirSync(fakeBinDir);
+  const pathEnv = process.env['PATH'] ?? '';
+
+  createCustomScript(
+    fakeBinDir,
+    'gh',
+    `#!/bin/sh
+if [ "$1" = "repo" ] && [ "$2" = "view" ]; then
+  echo "a2f0/tearleads"
+  exit 0
+fi
+echo "unexpected gh invocation: $@" >&2
+exit 1
+`
+  );
+
+  createCustomScript(
+    fakeBinDir,
+    'git',
+    `#!/bin/sh
+if [ "$1" = "branch" ] && [ "$2" = "--show-current" ]; then
+  echo "feature/test"
+  exit 0
+fi
+if [ "$1" = "rev-parse" ] && [ "$2" = "--show-toplevel" ]; then
+  pwd
+  exit 0
+fi
+if [ "$1" = "fetch" ] && [ "$2" = "origin" ]; then
+  exit 0
+fi
+if [ "$1" = "rev-parse" ] && [ "$2" = "HEAD" ]; then
+  echo "abc1234"
+  exit 0
+fi
+if [ "$1" = "rev-parse" ] && [ "$2" = "origin/feature/test" ]; then
+  echo "abc1234"
+  exit 0
+fi
+echo "unexpected git invocation: $@" >&2
+exit 1
+`
+  );
+
+  const result = runAgentTool(['verifyBranchPush'], {
+    PATH: `${fakeBinDir}:${pathEnv}`
+  });
+
+  assert.equal(result.status, 0);
+  const parsed = JSON.parse(readStdout(result));
+  assert.equal(parsed.status, 'synced');
+  assert.equal(parsed.synced, true);
+  assert.equal(parsed.branch, 'feature/test');
+});
+
+test('sanitizePrBody strips auto-close directives and updates PR', (t) => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agenttool-body-'));
+  t.after(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  const fakeBinDir = path.join(tempDir, 'bin');
+  fs.mkdirSync(fakeBinDir);
+  const ghLogPath = path.join(tempDir, 'gh.log');
+  const pathEnv = process.env['PATH'] ?? '';
+
+  createCustomScript(
+    fakeBinDir,
+    'gh',
+    `#!/bin/sh
+echo "$@" >> "${ghLogPath}"
+if [ "$1" = "repo" ] && [ "$2" = "view" ]; then
+  echo "a2f0/tearleads"
+  exit 0
+fi
+if [ "$1" = "pr" ] && [ "$2" = "view" ]; then
+  echo "## Summary
+- Change here
+
+Fixes #123
+Resolves #456"
+  exit 0
+fi
+if [ "$1" = "pr" ] && [ "$2" = "edit" ]; then
+  exit 0
+fi
+echo "unexpected gh invocation: $@" >&2
+exit 1
+`
+  );
+
+  const result = runAgentTool(['sanitizePrBody', '--number', '99'], {
+    PATH: `${fakeBinDir}:${pathEnv}`
+  });
+
+  assert.equal(result.status, 0);
+  const parsed = JSON.parse(readStdout(result));
+  assert.equal(parsed.status, 'updated');
+  assert.deepEqual(parsed.issue_numbers, [123, 456]);
+  assert.doesNotMatch(parsed.body, /Fixes|Resolves/i);
+
+  const ghLog = fs.readFileSync(ghLogPath, 'utf8');
+  assert.match(ghLog, /^pr view 99/m);
+  assert.match(ghLog, /^pr edit 99/m);
+});
+
+test('createDeferredFixIssue creates issue from deferred items JSON', (t) => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agenttool-def-'));
+  t.after(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  const fakeBinDir = path.join(tempDir, 'bin');
+  fs.mkdirSync(fakeBinDir);
+  const ghLogPath = path.join(tempDir, 'gh.log');
+  const pathEnv = process.env['PATH'] ?? '';
+
+  createCustomScript(
+    fakeBinDir,
+    'gh',
+    `#!/bin/sh
+echo "$@" >> "${ghLogPath}"
+if [ "$1" = "repo" ] && [ "$2" = "view" ]; then
+  echo "a2f0/tearleads"
+  exit 0
+fi
+if [ "$1" = "issue" ] && [ "$2" = "create" ]; then
+  echo "https://example.com/issues/987"
+  exit 0
+fi
+echo "unexpected gh invocation: $@" >&2
+exit 1
+`
+  );
+
+  const deferredItems = JSON.stringify([
+    {
+      body: 'Address race condition',
+      path: 'src/queue.ts',
+      line: 88,
+      html_url: 'https://github.com/example/repo/pull/1#discussion_r1'
+    }
+  ]);
+
+  const result = runAgentTool(
+    [
+      'createDeferredFixIssue',
+      '--number',
+      '77',
+      '--pr-url',
+      'https://github.com/example/repo/pull/77',
+      '--deferred-items-json',
+      deferredItems
+    ],
+    { PATH: `${fakeBinDir}:${pathEnv}` }
+  );
+
+  assert.equal(result.status, 0);
+  const parsed = JSON.parse(readStdout(result));
+  assert.equal(parsed.status, 'created');
+  assert.equal(parsed.source_pr, 77);
+  assert.equal(parsed.deferred_item_count, 1);
+  assert.equal(parsed.issue_url, 'https://example.com/issues/987');
+
+  const ghLog = fs.readFileSync(ghLogPath, 'utf8');
+  assert.match(ghLog, /^issue create/m);
+  assert.match(ghLog, /deferred-fix/);
+});
+
+test('updatePrBody updates PR body from file', (t) => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agenttool-prbody-'));
+  t.after(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  const fakeBinDir = path.join(tempDir, 'bin');
+  fs.mkdirSync(fakeBinDir);
+  const ghLogPath = path.join(tempDir, 'gh.log');
+  const bodyFile = path.join(tempDir, 'body.md');
+  const pathEnv = process.env['PATH'] ?? '';
+  fs.writeFileSync(bodyFile, '## Summary\n- Updated by test\n');
+
+  createCustomScript(
+    fakeBinDir,
+    'gh',
+    `#!/bin/sh
+echo "$@" >> "${ghLogPath}"
+if [ "$1" = "repo" ] && [ "$2" = "view" ]; then
+  echo "a2f0/tearleads"
+  exit 0
+fi
+if [ "$1" = "pr" ] && [ "$2" = "edit" ]; then
+  exit 0
+fi
+echo "unexpected gh invocation: $@" >&2
+exit 1
+`
+  );
+
+  const result = runAgentTool(
+    ['updatePrBody', '--number', '44', '--body-file', bodyFile],
+    { PATH: `${fakeBinDir}:${pathEnv}` }
+  );
+
+  assert.equal(result.status, 0);
+  const parsed = JSON.parse(readStdout(result));
+  assert.equal(parsed.status, 'updated');
+  assert.equal(parsed.pr, 44);
+
+  const ghLog = fs.readFileSync(ghLogPath, 'utf8');
+  assert.match(ghLog, /^pr edit 44/m);
 });

@@ -9,6 +9,12 @@ import {
   handleGetReviewThreads,
   handleTriggerGeminiReview
 } from './inlineHandlers.ts';
+import {
+  handleCreateDeferredFixIssue,
+  handleSanitizePrBody,
+  handleUpdatePrBody,
+  handleVerifyBranchPush
+} from './prWorkflowHandlers.ts';
 
 function buildIssueTemplate(
   templateType: 'user-requested' | 'deferred-fix',
@@ -293,6 +299,22 @@ export function runInlineAction(
 
     case 'generatePrSummary': {
       return handleGeneratePrSummary(options, repo, runGh);
+    }
+
+    case 'verifyBranchPush': {
+      return handleVerifyBranchPush(options);
+    }
+
+    case 'sanitizePrBody': {
+      return handleSanitizePrBody(options, repo, runGh);
+    }
+
+    case 'createDeferredFixIssue': {
+      return handleCreateDeferredFixIssue(options, repo, runGh);
+    }
+
+    case 'updatePrBody': {
+      return handleUpdatePrBody(options, repo, runGh);
     }
 
     case 'findDeferredWork': {
