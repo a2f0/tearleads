@@ -1,5 +1,7 @@
 #!/usr/bin/env -S pnpm exec tsx
 import { execSync, spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 
 interface CliArgs {
   base?: string;
@@ -24,14 +26,15 @@ interface CiImpactOutput {
 const DEFAULT_BASE = 'origin/main';
 const DEFAULT_HEAD = 'HEAD';
 
-const COVERAGE_PACKAGES: ReadonlyArray<string> = [
-  '@tearleads/shared',
-  '@tearleads/ui',
-  '@tearleads/api',
-  '@tearleads/client',
-  '@tearleads/chrome-extension',
-  '@tearleads/website'
-];
+interface PackageJsonShape {
+  name?: string;
+  scripts?: Record<string, string>;
+}
+
+interface WorkspacePackage {
+  name: string;
+  hasCoverageScript: boolean;
+}
 
 const FULL_RUN_FILE_NAMES: ReadonlyArray<string> = [
   'pnpm-lock.yaml',
@@ -234,9 +237,75 @@ function runCoverageForPackage(pkg: string): void {
   }
 }
 
+function readPackageJson(filePath: string): PackageJsonShape {
+  const raw = fs.readFileSync(filePath, 'utf8');
+  const parsed = JSON.parse(raw);
+  if (typeof parsed !== 'object' || parsed === null) {
+    return {};
+  }
+
+  const scriptsRaw = Reflect.get(parsed, 'scripts');
+  let scripts: Record<string, string> | undefined;
+  if (typeof scriptsRaw === 'object' && scriptsRaw !== null) {
+    const nextScripts: Record<string, string> = {};
+    for (const [key, value] of Object.entries(scriptsRaw)) {
+      if (typeof value === 'string') {
+        nextScripts[key] = value;
+      }
+    }
+    scripts = nextScripts;
+  }
+
+  const nameRaw = Reflect.get(parsed, 'name');
+  const name = typeof nameRaw === 'string' ? nameRaw : undefined;
+
+  return { name, scripts };
+}
+
+function listCoveragePackages(): string[] {
+  const packagesDir = 'packages';
+  if (!fs.existsSync(packagesDir)) {
+    return [];
+  }
+
+  const entries = fs.readdirSync(packagesDir, { withFileTypes: true });
+  const workspacePackages: WorkspacePackage[] = [];
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+
+    const packageJsonPath = path.join(packagesDir, entry.name, 'package.json');
+    if (!fs.existsSync(packageJsonPath)) {
+      continue;
+    }
+
+    const pkg = readPackageJson(packageJsonPath);
+    if (typeof pkg.name !== 'string') {
+      continue;
+    }
+
+    const hasCoverageScript =
+      typeof pkg.scripts?.['test:coverage'] === 'string';
+
+    workspacePackages.push({
+      name: pkg.name,
+      hasCoverageScript
+    });
+  }
+
+  return uniqueSorted(
+    workspacePackages
+      .filter((pkg) => pkg.hasCoverageScript)
+      .map((pkg) => pkg.name)
+  );
+}
+
 function main(): void {
   const args = parseArgs(process.argv);
   const impact = runCiImpact(args);
+  const coveragePackages = listCoveragePackages();
 
   const fullRun = requiresFullCoverageRun(impact.changedFiles);
   const runScriptTests = shouldRunCiImpactScriptTests(
@@ -271,9 +340,9 @@ function main(): void {
 
   let targets: string[] = [];
   if (fullRun) {
-    targets = [...COVERAGE_PACKAGES];
+    targets = [...coveragePackages];
   } else {
-    targets = COVERAGE_PACKAGES.filter((pkg) => affectedSet.has(pkg));
+    targets = coveragePackages.filter((pkg) => affectedSet.has(pkg));
   }
 
   targets = uniqueSorted(targets);
