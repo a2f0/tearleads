@@ -4,6 +4,7 @@ set -eu
 TEST_DIR=$(cd -- "$(dirname -- "$0")" && pwd -P)
 REPO_ROOT=$(cd -- "$TEST_DIR/../.." && pwd -P)
 TOOL_SCRIPT="$REPO_ROOT/scripts/agents/tooling/agentTool.ts"
+export NODE_PATH="${NODE_PATH:-}"
 
 # Run the TypeScript tool via pnpm exec tsx
 run_tool() {

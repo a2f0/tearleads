@@ -57,6 +57,7 @@ const usersWithOrders = await db
 - **Binary files** - Use SVG or external URLs
 - **JavaScript files** - TypeScript only (.ts, .tsx)
 - **Circular imports** - Extract shared code to break cycles
+- **File size** - Stay under 500 lines / 20,000 bytes; push shared types into `scripts/agents/tooling/types.ts`, helpers/actions into `scripts/agents/tooling/utils/`, and delegate CLI wiring to `scripts/agents/tooling/utils/commandFactory.ts` so entry points stay lean.
 
 ## Review Response Guidelines
 
@@ -73,3 +74,8 @@ I noticed that this route doesn't seem to have any authentication...
 ---
 
 *This document is maintained by the preen-review-instructions skill. Run /preen-review-instructions to audit for gaps.*
+
+## Automation
+
+- Use `./scripts/agents/tooling/agentTool.ts issueTemplate --type user-requested` (or `--type deferred-fix`) to print the standard issue body and pipe it into `gh issue create`.
+- Run `./scripts/agents/tooling/agentTool.ts runPreen --mode audit --dry-run` to preview the discovery output that feeds this guidance and the related review-instructions skill.

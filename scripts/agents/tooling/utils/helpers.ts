@@ -1,0 +1,34 @@
+import { execFileSync } from 'node:child_process';
+
+export function isShaLike(value: string): boolean {
+  if (!/^[0-9a-fA-F]+$/.test(value)) return false;
+  return value.length >= 7 && value.length <= 40;
+}
+
+export function requireDefined<T>(value: T | undefined, name: string): T {
+  if (value === undefined) {
+    throw new Error(`Missing required option: ${name}`);
+  }
+  return value;
+}
+
+export function getRepo(): string {
+  try {
+    return execFileSync(
+      'gh',
+      ['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner'],
+      {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore']
+      }
+    ).trim();
+  } catch {
+    throw new Error('Could not determine repository. Is gh CLI authenticated?');
+  }
+}
+
+export function sleepMs(milliseconds: number): void {
+  const waitBuffer = new SharedArrayBuffer(4);
+  const waitArray = new Int32Array(waitBuffer);
+  Atomics.wait(waitArray, 0, 0, milliseconds);
+}
