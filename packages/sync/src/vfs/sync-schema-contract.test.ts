@@ -212,8 +212,7 @@ describe('sync schema contract', () => {
         expectedLegacyReadTables: []
       },
       {
-        relativePath:
-          '../api/src/routes/vfs-shares/deleteOrgSharesShareId.ts',
+        relativePath: '../api/src/routes/vfs-shares/deleteOrgSharesShareId.ts',
         expectedLegacyReadTables: []
       },
       {

@@ -180,98 +180,93 @@ export async function querySharedByMe(
   // For now, targetName is just the targetId (resolving to actual name would
   // require additional lookups depending on shareType - user/group/org).
   // This can be enhanced later.
-  try {
-    const fallbackNow = new Date();
-    const rows = await db
-      .select({
-        id: vfsRegistry.id,
-        objectType: vfsRegistry.objectType,
-        name: sql<string>`${nameExpr} as "name"`,
-        createdAt: vfsRegistry.createdAt,
-        shareId: sql<string>`${canonicalShareIdExpr} as "shareId"`,
-        targetId: vfsAclEntries.principalId,
-        targetName: sql<string>`${vfsAclEntries.principalId} as "targetName"`,
-        shareType: vfsAclEntries.principalType,
-        permissionLevel: sql<string>`${permissionLevelExpr} as "permissionLevel"`,
-        sharedAt: sql<Date>`${vfsAclEntries.createdAt} as "sharedAt"`,
-        expiresAt: vfsAclEntries.expiresAt
-      })
-      .from(vfsAclEntries)
-      .innerJoin(vfsRegistry, eq(vfsAclEntries.itemId, vfsRegistry.id))
-      .leftJoin(
-        files,
-        and(
-          eq(vfsRegistry.id, files.id),
-          inArray(vfsRegistry.objectType, ['file', 'photo', 'audio', 'video'])
-        )
+  const fallbackNow = new Date();
+  const rows = await db
+    .select({
+      id: vfsRegistry.id,
+      objectType: vfsRegistry.objectType,
+      name: sql<string>`${nameExpr} as "name"`,
+      createdAt: vfsRegistry.createdAt,
+      shareId: sql<string>`${canonicalShareIdExpr} as "shareId"`,
+      targetId: vfsAclEntries.principalId,
+      targetName: sql<string>`${vfsAclEntries.principalId} as "targetName"`,
+      shareType: vfsAclEntries.principalType,
+      permissionLevel: sql<string>`${permissionLevelExpr} as "permissionLevel"`,
+      sharedAt: sql<Date>`${vfsAclEntries.createdAt} as "sharedAt"`,
+      expiresAt: vfsAclEntries.expiresAt
+    })
+    .from(vfsAclEntries)
+    .innerJoin(vfsRegistry, eq(vfsAclEntries.itemId, vfsRegistry.id))
+    .leftJoin(
+      files,
+      and(
+        eq(vfsRegistry.id, files.id),
+        inArray(vfsRegistry.objectType, ['file', 'photo', 'audio', 'video'])
       )
-      .leftJoin(
-        contacts,
-        and(
-          eq(vfsRegistry.id, contacts.id),
-          eq(vfsRegistry.objectType, 'contact')
-        )
+    )
+    .leftJoin(
+      contacts,
+      and(
+        eq(vfsRegistry.id, contacts.id),
+        eq(vfsRegistry.objectType, 'contact')
       )
-      .leftJoin(
-        notes,
-        and(eq(vfsRegistry.id, notes.id), eq(vfsRegistry.objectType, 'note'))
+    )
+    .leftJoin(
+      notes,
+      and(eq(vfsRegistry.id, notes.id), eq(vfsRegistry.objectType, 'note'))
+    )
+    .leftJoin(
+      playlists,
+      and(
+        eq(vfsRegistry.id, playlists.id),
+        eq(vfsRegistry.objectType, 'playlist')
       )
-      .leftJoin(
-        playlists,
-        and(
-          eq(vfsRegistry.id, playlists.id),
-          eq(vfsRegistry.objectType, 'playlist')
-        )
+    )
+    .leftJoin(
+      albums,
+      and(eq(vfsRegistry.id, albums.id), eq(vfsRegistry.objectType, 'album'))
+    )
+    .leftJoin(
+      contactGroups,
+      and(
+        eq(vfsRegistry.id, contactGroups.id),
+        eq(vfsRegistry.objectType, 'contactGroup')
       )
-      .leftJoin(
-        albums,
-        and(eq(vfsRegistry.id, albums.id), eq(vfsRegistry.objectType, 'album'))
+    )
+    .leftJoin(
+      emailFolders,
+      and(
+        eq(vfsRegistry.id, emailFolders.id),
+        eq(vfsRegistry.objectType, 'emailFolder')
       )
-      .leftJoin(
-        contactGroups,
-        and(
-          eq(vfsRegistry.id, contactGroups.id),
-          eq(vfsRegistry.objectType, 'contactGroup')
-        )
+    )
+    .leftJoin(
+      tags,
+      and(eq(vfsRegistry.id, tags.id), eq(vfsRegistry.objectType, 'tag'))
+    )
+    .leftJoin(
+      emails,
+      and(eq(vfsRegistry.id, emails.id), eq(vfsRegistry.objectType, 'email'))
+    )
+    .where(
+      and(
+        eq(vfsAclEntries.grantedBy, currentUserId),
+        isNull(vfsAclEntries.revokedAt),
+        sql`${vfsAclEntries.id} LIKE ${SHARE_ACL_ID_LIKE}`
       )
-      .leftJoin(
-        emailFolders,
-        and(
-          eq(vfsRegistry.id, emailFolders.id),
-          eq(vfsRegistry.objectType, 'emailFolder')
-        )
-      )
-      .leftJoin(
-        tags,
-        and(eq(vfsRegistry.id, tags.id), eq(vfsRegistry.objectType, 'tag'))
-      )
-      .leftJoin(
-        emails,
-        and(eq(vfsRegistry.id, emails.id), eq(vfsRegistry.objectType, 'email'))
-      )
-      .where(
-        and(
-          eq(vfsAclEntries.grantedBy, currentUserId),
-          isNull(vfsAclEntries.revokedAt),
-          sql`${vfsAclEntries.id} LIKE ${SHARE_ACL_ID_LIKE}`
-        )
-      )
-      .orderBy(...orderExprs);
-    const normalizedRows: VfsSharedByMeQueryRow[] = rows.map((row) => ({
-      ...row,
-      createdAt: toDateOrFallback(row.createdAt, fallbackNow),
-      sharedAt: toDateOrFallback(row.sharedAt, fallbackNow),
-      expiresAt: toDateOrNull(row.expiresAt)
-    }));
+    )
+    .orderBy(...orderExprs);
+  const normalizedRows: VfsSharedByMeQueryRow[] = rows.map((row) => ({
+    ...row,
+    createdAt: toDateOrFallback(row.createdAt, fallbackNow),
+    sharedAt: toDateOrFallback(row.sharedAt, fallbackNow),
+    expiresAt: toDateOrNull(row.expiresAt)
+  }));
 
-    if (!normalizedRows.every(isVfsSharedByMeQueryRow)) {
-      throw new Error('Database returned invalid rows for SharedByMe query');
-    }
-
-    return normalizedRows;
-  } catch (error) {
-    throw error;
+  if (!normalizedRows.every(isVfsSharedByMeQueryRow)) {
+    throw new Error('Database returned invalid rows for SharedByMe query');
   }
+  return normalizedRows;
 }
 
 /**

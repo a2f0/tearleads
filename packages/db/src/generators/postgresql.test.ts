@@ -320,14 +320,20 @@ describe('generatePostgresSchema', () => {
             references: { table: 'nodes', column: 'id' }
           }
         },
-        indexes: [{ name: 'nodes_workspace_unique', columns: ['workspaceId'], unique: true }]
+        indexes: [
+          {
+            name: 'nodes_workspace_unique',
+            columns: ['workspaceId'],
+            unique: true
+          }
+        ]
       }
     ];
 
     const result = generatePostgresSchema(tables);
     expect(result).toContain('type AnyPgColumn');
     expect(result).toContain(
-      "primaryKey({ columns: [table.id, table.workspaceId] })"
+      'primaryKey({ columns: [table.id, table.workspaceId] })'
     );
     expect(result).toContain(
       "uniqueIndex('nodes_workspace_unique').on(table.workspaceId)"
@@ -372,7 +378,7 @@ describe('generatePostgresSchema', () => {
 
     const result = generatePostgresSchema(tables);
     expect(result).toContain(
-      "primaryKey({ columns: [table.userId, table.teamId] })"
+      'primaryKey({ columns: [table.userId, table.teamId] })'
     );
     expect(result).not.toContain("index('");
     expect(result).not.toContain("uniqueIndex('");
