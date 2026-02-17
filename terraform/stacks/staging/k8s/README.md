@@ -8,13 +8,16 @@ This stack provisions a k3s Kubernetes cluster on Hetzner Cloud for the staging 
 |----------|-------------|
 | Hetzner Server | Single-node k3s cluster |
 | Hetzner Firewall | Ports 22, 80, 443, 6443 |
-| Hetzner DNS | `k8s.{staging_domain}`, `*.k8s.{staging_domain}` |
+| Cloudflare DNS | `k8s.{staging_domain}`, `app.k8s.{staging_domain}`, `api.k8s.{staging_domain}` |
+| Cloudflare Tunnel | Secure ingress routing through `cloudflared` |
 
 ## Prerequisites
 
 - Hetzner Cloud API token (`TF_VAR_hcloud_token`)
 - SSH key registered in Hetzner (`TF_VAR_ssh_key_name`)
 - Staging domain configured (`TF_VAR_staging_domain`)
+- Cloudflare API token (`TF_VAR_cloudflare_api_token`)
+- Cloudflare account ID (`TF_VAR_cloudflare_account_id`)
 
 > For backwards compatibility with scripts (like the Ansible playbook) that still reference `TF_VAR_STAGING_DOMAIN`, setting the uppercase alias to the same value is still supported. The canonical names are the lowercase `TF_VAR_*` variants listed above.
 
@@ -62,6 +65,7 @@ This stack provisions a k3s Kubernetes cluster on Hetzner Cloud for the staging 
 | `api.yaml` | API server deployment |
 | `client.yaml` | Web client deployment |
 | `website.yaml` | Marketing website deployment |
+| `cloudflared.yaml` | Cloudflare Tunnel connector deployment |
 | `ingress.yaml` | Nginx ingress routes |
 | `cert-manager-issuer.yaml` | Let's Encrypt certificate issuer |
 
