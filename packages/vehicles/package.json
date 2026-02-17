@@ -15,6 +15,10 @@
   "files": [
     "dist"
   ],
+  "peerDependencies": {
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
@@ -22,7 +26,11 @@
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "devDependencies": {
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
     "@vitest/coverage-v8": "4.0.18",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "typescript": "5.9.3",
     "vitest": "4.0.18",
     "vitest-fail-on-console": "0.10.1"
