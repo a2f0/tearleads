@@ -1,14 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type {
-  VfsCrdtSyncTransport
-} from './sync-client-test-support.js';
+import type { VfsCrdtSyncTransport } from './sync-client-test-support.js';
 import {
   buildAclAddSyncItem,
   createGuardrailViolationCollector,
-  createPhasePullRecordingTransportFactory,
-  filterObservedPullsByPhase,
-  InMemoryVfsCrdtSyncTransport,
-  readReplaySnapshotCursorOrThrow,
   VfsBackgroundSyncClient
 } from './sync-client-test-support.js';
 
@@ -256,5 +250,4 @@ describe('VfsBackgroundSyncClient', () => {
       })
     );
   });
-
 });
