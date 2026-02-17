@@ -249,5 +249,4 @@ describe('VfsBackgroundSyncClient', () => {
     });
     expect(client.exportState()).toEqual(pristineState);
   });
-
 });
