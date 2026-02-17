@@ -3,6 +3,7 @@ import {
   WindowControlBar,
   WindowControlButton,
   WindowControlGroup,
+  useWindowRefresh,
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
@@ -36,14 +37,14 @@ export function HealthWindow({
   zIndex,
   initialDimensions
 }: HealthWindowProps) {
-  const [refreshToken, setRefreshToken] = useState(0);
+  const { refreshToken, triggerRefresh } = useWindowRefresh();
   const [activeRoute, setActiveRoute] = useState<
     HealthDrilldownRoute | undefined
   >(undefined);
 
   const handleRefresh = useCallback(() => {
-    setRefreshToken((value) => value + 1);
-  }, []);
+    triggerRefresh();
+  }, [triggerRefresh]);
 
   const handleRouteChange = useCallback(
     (route: HealthDrilldownRoute | undefined) => {

@@ -1,9 +1,10 @@
 import {
+  useSidebarDragOver,
   useResizableSidebar,
   useSidebarRefetch
 } from '@tearleads/window-manager';
 import { List, Loader2, Plus, Video } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useVideoPlaylists } from '@/hooks/useVideoPlaylists';
 import { filterFilesByAccept } from '@/lib/fileFilter';
 import { getMediaDragIds } from '@/lib/mediaDragData';
@@ -91,11 +92,12 @@ export function VideoPlaylistsSidebar({
     [getTrackIdsInPlaylist]
   );
 
-  // Track which playlist is being dragged over for visual feedback
-  const [dragOverPlaylistId, setDragOverPlaylistId] = useState<string | null>(
-    null
-  );
-  const dragCounterRef = useRef<Record<string, number>>({});
+  const {
+    dragOverId: dragOverPlaylistId,
+    handleDragEnter,
+    handleDragLeave,
+    clearDragState
+  } = useSidebarDragOver();
   const platform = detectPlatform();
   const isNativePlatform = platform === 'ios' || platform === 'android';
 
@@ -113,14 +115,9 @@ export function VideoPlaylistsSidebar({
       if (!onDropToPlaylist || isNativePlatform) return;
       e.preventDefault();
       e.stopPropagation();
-
-      dragCounterRef.current[playlistId] =
-        (dragCounterRef.current[playlistId] ?? 0) + 1;
-      if (dragCounterRef.current[playlistId] === 1) {
-        setDragOverPlaylistId(playlistId);
-      }
+      handleDragEnter(playlistId);
     },
-    [onDropToPlaylist, isNativePlatform]
+    [handleDragEnter, onDropToPlaylist, isNativePlatform]
   );
 
   const handlePlaylistDragLeave = useCallback(
@@ -128,14 +125,9 @@ export function VideoPlaylistsSidebar({
       if (!onDropToPlaylist || isNativePlatform) return;
       e.preventDefault();
       e.stopPropagation();
-
-      dragCounterRef.current[playlistId] =
-        (dragCounterRef.current[playlistId] ?? 0) - 1;
-      if (dragCounterRef.current[playlistId] === 0) {
-        setDragOverPlaylistId(null);
-      }
+      handleDragLeave(playlistId);
     },
-    [onDropToPlaylist, isNativePlatform]
+    [handleDragLeave, onDropToPlaylist, isNativePlatform]
   );
 
   const handlePlaylistDrop = useCallback(
@@ -144,9 +136,7 @@ export function VideoPlaylistsSidebar({
       e.preventDefault();
       e.stopPropagation();
 
-      // Reset drag state
-      dragCounterRef.current[playlistId] = 0;
-      setDragOverPlaylistId(null);
+      clearDragState(playlistId);
 
       const videoIds = getMediaDragIds(e.dataTransfer, 'video');
       const files = Array.from(e.dataTransfer.files);
@@ -170,6 +160,7 @@ export function VideoPlaylistsSidebar({
     },
     [
       onDropToPlaylist,
+      clearDragState,
       isNativePlatform,
       onPlaylistChanged,
       refetch,

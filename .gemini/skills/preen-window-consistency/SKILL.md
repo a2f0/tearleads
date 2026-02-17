@@ -76,6 +76,23 @@ echo "=== Potential Misplaced Actions ==="
 rg -n --glob '*Window*.tsx' '<Button.*onClick.*(ArrowLeft|Plus|RefreshCw|Trash2)' packages | rg -v 'WindowControl|test\.tsx' | head -20
 ```
 
+### Dependency and Export Wiring Checks
+
+When adopting `@tearleads/window-manager` abstractions in a package, verify package metadata and exports are aligned:
+
+```bash
+# Find packages importing window-manager in source
+echo "=== Packages importing @tearleads/window-manager ==="
+rg -l "from '@tearleads/window-manager'" packages/*/src --glob '*.{ts,tsx}' \
+  | awk -F/ '{print $2}' | sort -u
+
+# Find package.json files that already declare window-manager as a peer dependency
+echo "=== Packages declaring window-manager peerDependency ==="
+rg -l '"@tearleads/window-manager"' packages/*/package.json | awk -F/ '{print $2}' | sort -u
+
+# Manual diff target: importers should generally also declare peerDependency
+```
+
 ## Candidate Signals
 
 Prioritize opportunities that meet at least two signals:
@@ -95,6 +112,7 @@ Prioritize opportunities that meet at least two signals:
 - Component has custom drag-over tracking instead of `useSidebarDragOver`
 - Component has custom resize handling instead of `useResizableSidebar`
 - Cross-window navigation uses `navigate()` instead of `openWindow()`/`requestWindowOpen()`
+- Package imports window-manager abstractions but does not expose dependency wiring in `peerDependencies`
 
 ### Consolidate duplicated code
 

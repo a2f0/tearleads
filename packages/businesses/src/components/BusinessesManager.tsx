@@ -1,4 +1,3 @@
-import { normalizeBusinessIdentifiers } from '@tearleads/businesses';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow
@@ -10,9 +9,9 @@ import {
   CircleAlert,
   CircleCheckBig
 } from 'lucide-react';
+import type { ComponentPropsWithoutRef, FormEvent } from 'react';
 import { useCallback, useMemo, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { normalizeBusinessIdentifiers } from '../lib/businessIdentifiers.js';
 
 interface BusinessRecord {
   id: string;
@@ -31,6 +30,28 @@ type SortColumn = 'name' | 'dunsNumber' | 'ein' | 'status';
 type SortDirection = 'asc' | 'desc';
 
 const EMPTY_VALUE_LABEL = 'N/A';
+
+interface BusinessesButtonProps extends ComponentPropsWithoutRef<'button'> {}
+
+function BusinessesButton({ className, ...props }: BusinessesButtonProps) {
+  return (
+    <button
+      className={`inline-flex h-9 items-center justify-center rounded-md border px-4 py-2 font-medium text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 ${className ?? ''}`}
+      {...props}
+    />
+  );
+}
+
+interface BusinessesInputProps extends ComponentPropsWithoutRef<'input'> {}
+
+function BusinessesInput({ className, ...props }: BusinessesInputProps) {
+  return (
+    <input
+      className={`flex h-9 w-full rounded-md border bg-background px-3 py-1 text-base ring-offset-background file:border-0 file:bg-transparent file:font-medium file:text-sm file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm ${className ?? ''}`}
+      {...props}
+    />
+  );
+}
 
 function createBusinessId(): string {
   return crypto.randomUUID();
@@ -90,7 +111,7 @@ export function BusinessesManager() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   const handleSubmit = useCallback(
-    (event: React.FormEvent<HTMLFormElement>) => {
+    (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
 
       const trimmedName = name.trim();
@@ -210,7 +231,7 @@ export function BusinessesManager() {
             >
               Business Name
             </label>
-            <Input
+            <BusinessesInput
               id="business-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
@@ -228,7 +249,7 @@ export function BusinessesManager() {
             >
               DUNS Number
             </label>
-            <Input
+            <BusinessesInput
               id="business-duns"
               value={dunsNumber}
               onChange={(event) => setDunsNumber(event.target.value)}
@@ -246,7 +267,7 @@ export function BusinessesManager() {
             >
               EIN
             </label>
-            <Input
+            <BusinessesInput
               id="business-ein"
               value={ein}
               onChange={(event) => setEin(event.target.value)}
@@ -259,7 +280,7 @@ export function BusinessesManager() {
           </div>
         </div>
         <div className="flex justify-end">
-          <Button type="submit">Save Business</Button>
+          <BusinessesButton type="submit">Save Business</BusinessesButton>
         </div>
       </form>
 

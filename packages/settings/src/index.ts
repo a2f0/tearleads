@@ -20,6 +20,7 @@ export {
   TooltipsToggle,
   WindowOpacityToggle
 } from './components/index.js';
+export { SettingsPage, type SettingsPageProps } from './pages/index.js';
 export {
   SettingsProvider,
   type SettingsProviderProps,

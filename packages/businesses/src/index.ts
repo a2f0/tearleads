@@ -1,5 +1,7 @@
 export type { BusinessesWindowProps } from './components/index.js';
-export { BusinessesWindow } from './components/index.js';
+export { BusinessesManager, BusinessesWindow } from './components/index.js';
+export type { BusinessesPageProps } from './pages/index.js';
+export { BusinessesPage } from './pages/index.js';
 export type {
   AboutMenuItemProps,
   BusinessesProviderProps,

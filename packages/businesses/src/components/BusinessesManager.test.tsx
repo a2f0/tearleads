@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import { BusinessesManager } from './BusinessesManager';
+import { BusinessesManager } from './BusinessesManager.js';
 
 describe('BusinessesManager', () => {
   it('renders an empty state initially', () => {
