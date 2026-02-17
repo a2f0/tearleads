@@ -40,17 +40,48 @@ FROM nginx:alpine
 # Copy built static files
 COPY --from=builder /app/packages/client/dist /usr/share/nginx/html
 
-# Copy nginx config for SPA routing
+# Ensure static files are world-readable for nginx worker user.
+RUN find /usr/share/nginx/html -type d -exec chmod 755 {} \; && \
+    find /usr/share/nginx/html -type f -exec chmod 644 {} \;
+
+# Copy nginx config for SPA routing and sqlite wasm/static handling.
 RUN echo 'server { \
     listen 80; \
     root /usr/share/nginx/html; \
     index index.html; \
-    location / { \
-        try_files $uri $uri/ /index.html; \
+    default_type application/octet-stream; \
+    types { \
+        application/javascript js mjs; \
+        application/wasm wasm; \
+        text/css css; \
+        text/html html; \
+        application/json json; \
+        image/svg+xml svg; \
     } \
-    location /assets/ { \
+    location = /sw.js { \
+        try_files $uri =404; \
+        add_header Cache-Control "no-cache, no-store, must-revalidate"; \
+    } \
+    location ~* ^/(manifest\\.webmanifest|registerSW\\.js)$ { \
+        try_files $uri =404; \
+        add_header Cache-Control "no-cache"; \
+    } \
+    location = /sqlite { \
+        try_files /index.html =404; \
+        add_header Cache-Control "no-cache"; \
+    } \
+    location ~* ^/sqlite/.*\\.(wasm|js)$ { \
+        try_files $uri =404; \
+        add_header Cache-Control "public, immutable"; \
+    } \
+    location ^~ /assets/ { \
+        try_files $uri =404; \
         expires 1y; \
         add_header Cache-Control "public, immutable"; \
+    } \
+    location / { \
+        try_files $uri $uri/ /index.html; \
+        add_header Cache-Control "no-cache"; \
     } \
 }' > /etc/nginx/conf.d/default.conf
 
