@@ -6,10 +6,10 @@ This map ties database security policy controls to concrete implementation and t
 
 | Sentinel | Description | Implementation Evidence | Test Evidence |
 | --- | --- | --- | --- |
-| `TL-DB-001` | RDS encryption at rest enabled using AWS managed keys | `terraform/modules/aws-rds-postgres/main.tf` | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "aws_db_instance") \| .values.storage_encrypted'` |
-| `TL-DB-002` | Automated RDS backups with 7-day retention period | `terraform/modules/aws-rds-postgres/main.tf` | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "aws_db_instance") \| .values.backup_retention_period'` |
-| `TL-DB-003` | RDS deletion protection enabled | `terraform/modules/aws-rds-postgres/main.tf` | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "aws_db_instance") \| .values.deletion_protection'` |
-| `TL-NET-005` | RDS network isolation via security group | `terraform/modules/aws-rds-postgres/main.tf` | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "aws_security_group") \| .values.ingress'` |
+| `TL-DB-001` | RDS encryption at rest enabled using AWS managed keys | [`terraform/modules/aws-rds-postgres/main.tf`](../../../terraform/modules/aws-rds-postgres/main.tf) | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "aws_db_instance") \| .values.storage_encrypted'` |
+| `TL-DB-002` | Automated RDS backups with 7-day retention period | [`terraform/modules/aws-rds-postgres/main.tf`](../../../terraform/modules/aws-rds-postgres/main.tf) | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "aws_db_instance") \| .values.backup_retention_period'` |
+| `TL-DB-003` | RDS deletion protection enabled | [`terraform/modules/aws-rds-postgres/main.tf`](../../../terraform/modules/aws-rds-postgres/main.tf) | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "aws_db_instance") \| .values.deletion_protection'` |
+| `TL-NET-005` | RDS network isolation via security group | [`terraform/modules/aws-rds-postgres/main.tf`](../../../terraform/modules/aws-rds-postgres/main.tf) | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "aws_security_group") \| .values.ingress'` |
 
 ## Control Details
 

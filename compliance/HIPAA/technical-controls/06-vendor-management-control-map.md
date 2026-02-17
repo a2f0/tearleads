@@ -6,16 +6,16 @@ This map ties vendor management policy controls to HIPAA Security Rule requireme
 
 | Sentinel | Description | HIPAA Standard | Implementation Evidence |
 | --- | --- | --- | --- |
-| `TL-VENDOR-001` | Business Associate inventory | 164.308(b)(1) | `compliance/vendor-registry.md` |
-| `TL-VENDOR-002` | Hetzner Cloud controls | 164.312(a)(1), 164.312(e)(1) | `terraform/modules/hetzner-server/main.tf`, `terraform/stacks/staging/k8s/main.tf` |
-| `TL-VENDOR-003` | Azure TEE controls | 164.312(a)(2)(iv), 164.312(e)(2)(ii) | `terraform/modules/azure-tee/main.tf` |
-| `TL-VENDOR-004` | Let's Encrypt controls | 164.312(e)(1) | `terraform/stacks/staging/k8s/main.tf` |
-| `TL-VENDOR-005` | GitHub controls | 164.312(a)(1), 164.308(a)(4) | `.github/workflows/` |
-| `TL-VENDOR-006` | RevenueCat controls | 164.312(e)(1), 164.312(c)(1) | `packages/api/src/lib/revenuecat.ts` |
-| `TL-VENDOR-007` | OpenRouter controls | 164.312(e)(1) | `packages/api/src/routes/chat/post-completions.ts` |
-| `TL-VENDOR-008` | Anthropic controls | 164.308(b)(1) | `CLAUDE.md` |
-| `TL-VENDOR-009` | OpenAI controls | 164.308(b)(1) | `AGENTS.md` |
-| `TL-VENDOR-010` | Google controls | 164.308(b)(1) | `.gemini/INSTRUCTIONS.md` |
+| `TL-VENDOR-001` | Business Associate inventory | 164.308(b)(1) | [`compliance/vendor-registry.md`](../../vendor-registry.md) |
+| `TL-VENDOR-002` | Hetzner Cloud controls | 164.312(a)(1), 164.312(e)(1) | [`terraform/modules/hetzner-server/main.tf`](../../../terraform/modules/hetzner-server/main.tf), [`terraform/stacks/staging/k8s/main.tf`](../../../terraform/stacks/staging/k8s/main.tf) |
+| `TL-VENDOR-003` | Azure TEE controls | 164.312(a)(2)(iv), 164.312(e)(2)(ii) | [`terraform/modules/azure-tee/main.tf`](../../../terraform/modules/azure-tee/main.tf) |
+| `TL-VENDOR-004` | Let's Encrypt controls | 164.312(e)(1) | [`terraform/stacks/staging/k8s/main.tf`](../../../terraform/stacks/staging/k8s/main.tf) |
+| `TL-VENDOR-005` | GitHub controls | 164.312(a)(1), 164.308(a)(4) | [`.github/workflows/`](../../../.github/workflows) |
+| `TL-VENDOR-006` | RevenueCat controls | 164.312(e)(1), 164.312(c)(1) | [`packages/api/src/lib/revenuecat.ts`](../../../packages/api/src/lib/revenuecat.ts) |
+| `TL-VENDOR-007` | OpenRouter controls | 164.312(e)(1) | [`packages/api/src/routes/chat/postCompletions.ts`](../../../packages/api/src/routes/chat/postCompletions.ts) |
+| `TL-VENDOR-008` | Anthropic controls | 164.308(b)(1) | [`CLAUDE.md`](../../../CLAUDE.md) |
+| `TL-VENDOR-009` | OpenAI controls | 164.308(b)(1) | [`AGENTS.md`](../../../AGENTS.md) |
+| `TL-VENDOR-010` | Google controls | 164.308(b)(1) | [`.gemini/INSTRUCTIONS.md`](../../../.gemini/INSTRUCTIONS.md) |
 | `TL-VENDOR-011` | PHI access risk assessment | 164.308(a)(1)(ii)(A) | Risk assessment records |
 | `TL-VENDOR-012` | BAA requirements | 164.308(b)(3), 164.314(a) | BAA archive |
 | `TL-VENDOR-013` | BA monitoring | 164.308(a)(8) | Monitoring logs |
@@ -79,7 +79,7 @@ This map ties vendor management policy controls to HIPAA Security Rule requireme
 | --- | --- | --- |
 | `terraform/stacks/staging/k8s/main.tf` | Let's Encrypt | TLS certificates |
 | `packages/api/src/lib/revenuecat.ts` | RevenueCat | HTTPS webhook |
-| `packages/api/src/routes/chat/post-completions.ts` | OpenRouter | HTTPS API |
+| `packages/api/src/routes/chat/postCompletions.ts` | OpenRouter | HTTPS API |
 
 ## Evidence Collection
 

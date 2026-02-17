@@ -6,10 +6,10 @@ This map ties database security policy controls to HIPAA Security Rule requireme
 
 | Sentinel | Description | HIPAA Standard | Implementation Evidence |
 | --- | --- | --- | --- |
-| `TL-DB-001` | RDS encryption at rest enabled | 164.312(a)(2)(iv) | `terraform/modules/aws-rds-postgres/main.tf` |
-| `TL-DB-002` | Automated RDS backups enabled | 164.308(a)(7)(ii)(A) | `terraform/modules/aws-rds-postgres/main.tf` |
-| `TL-DB-003` | RDS deletion protection enabled | 164.308(a)(7)(ii)(A) | `terraform/modules/aws-rds-postgres/main.tf` |
-| `TL-NET-005` | RDS network isolation via security group | 164.312(e)(1) | `terraform/modules/aws-rds-postgres/main.tf` |
+| `TL-DB-001` | RDS encryption at rest enabled | 164.312(a)(2)(iv) | [`terraform/modules/aws-rds-postgres/main.tf`](../../../terraform/modules/aws-rds-postgres/main.tf) |
+| `TL-DB-002` | Automated RDS backups enabled | 164.308(a)(7)(ii)(A) | [`terraform/modules/aws-rds-postgres/main.tf`](../../../terraform/modules/aws-rds-postgres/main.tf) |
+| `TL-DB-003` | RDS deletion protection enabled | 164.308(a)(7)(ii)(A) | [`terraform/modules/aws-rds-postgres/main.tf`](../../../terraform/modules/aws-rds-postgres/main.tf) |
+| `TL-NET-005` | RDS network isolation via security group | 164.312(e)(1) | [`terraform/modules/aws-rds-postgres/main.tf`](../../../terraform/modules/aws-rds-postgres/main.tf) |
 
 ## HIPAA Standard Mapping
 

@@ -8,10 +8,10 @@ This map ties end-to-end encryption policy controls to concrete implementation a
 
 | Sentinel | HIPAA Standard | Status | Description | Implementation Evidence | Test Evidence |
 | --- | --- | --- | --- | --- | --- |
-| `TL-HE2E-001` | 164.312(a)(2)(iv), 164.312(e)(2)(ii) | Planned | MLS group encryption with ChaCha20-Poly1305 | `packages/mls-chat/src/lib/mls.ts` | `pnpm --filter @tearleads/mls-chat test -- --grep "encrypt"` |
-| `TL-HE2E-002` | 164.312(d), 164.312(c)(2) | Planned | Ed25519 credential and key package management | `packages/mls-chat/src/lib/mls.ts` (generateCredential, generateKeyPackage) | `pnpm --filter @tearleads/mls-chat test -- --grep "credential"` |
-| `TL-HE2E-003` | 164.312(e)(1) | Planned | Epoch-based key evolution for forward secrecy | `packages/mls-chat/src/lib/mls.ts` (processCommit, epoch tracking) | `pnpm --filter @tearleads/mls-chat test -- --grep "epoch"` |
-| `TL-HE2E-004` | 164.312(a)(2)(iv) | Implemented | IndexedDB local storage for private keys | `packages/mls-chat/src/lib/storage.ts` | `pnpm --filter @tearleads/mls-chat test -- --grep "storage"` |
+| `TL-HE2E-001` | 164.312(a)(2)(iv), 164.312(e)(2)(ii) | Planned | MLS group encryption with ChaCha20-Poly1305 | [`packages/mls-chat/src/lib/mls.ts`](../../../packages/mls-chat/src/lib/mls.ts) | `pnpm --filter @tearleads/mls-chat test -- --grep "encrypt"` |
+| `TL-HE2E-002` | 164.312(d), 164.312(c)(2) | Planned | Ed25519 credential and key package management | [`packages/mls-chat/src/lib/mls.ts`](../../../packages/mls-chat/src/lib/mls.ts) (generateCredential, generateKeyPackage) | `pnpm --filter @tearleads/mls-chat test -- --grep "credential"` |
+| `TL-HE2E-003` | 164.312(e)(1) | Planned | Epoch-based key evolution for forward secrecy | [`packages/mls-chat/src/lib/mls.ts`](../../../packages/mls-chat/src/lib/mls.ts) (processCommit, epoch tracking) | `pnpm --filter @tearleads/mls-chat test -- --grep "epoch"` |
+| `TL-HE2E-004` | 164.312(a)(2)(iv) | Implemented | IndexedDB local storage for private keys | [`packages/mls-chat/src/lib/storage.ts`](../../../packages/mls-chat/src/lib/storage.ts) | `pnpm --filter @tearleads/mls-chat test -- --grep "storage"` |
 
 ## HIPAA Security Rule Mapping
 

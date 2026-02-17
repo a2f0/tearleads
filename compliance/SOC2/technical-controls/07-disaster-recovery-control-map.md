@@ -6,13 +6,13 @@ This map ties disaster recovery and container deployment controls to concrete im
 
 | Sentinel | Description | Implementation Evidence | Test Evidence |
 | --- | --- | --- | --- |
-| `TL-CR-001` | ECR container registries with AES-256 encryption | `terraform/modules/aws-ci-artifacts/main.tf` | `aws ecr describe-repositories --query 'repositories[*].{name:repositoryName,encryption:encryptionConfiguration}'` |
-| `TL-CR-002` | ECR scan-on-push for vulnerability detection | `terraform/modules/aws-ci-artifacts/main.tf` | `aws ecr describe-repositories --query 'repositories[*].imageScanningConfiguration'` |
+| `TL-CR-001` | ECR container registries with AES-256 encryption | [`terraform/modules/aws-ci-artifacts/main.tf`](../../../terraform/modules/aws-ci-artifacts/main.tf) | `aws ecr describe-repositories --query 'repositories[*].{name:repositoryName,encryption:encryptionConfiguration}'` |
+| `TL-CR-002` | ECR scan-on-push for vulnerability detection | [`terraform/modules/aws-ci-artifacts/main.tf`](../../../terraform/modules/aws-ci-artifacts/main.tf) | `aws ecr describe-repositories --query 'repositories[*].imageScanningConfiguration'` |
 | `TL-CR-003` | K8s registry authentication with rotating ECR tokens | `terraform/stacks/*/k8s/scripts/setup-ecr-secret.sh` | `kubectl get secret ecr-registry -n tearleads -o jsonpath='{.type}'` |
-| `TL-CR-004` | ECR lifecycle policies for image retention | `terraform/modules/aws-ci-artifacts/main.tf` | `for repo in api client website; do aws ecr get-lifecycle-policy --repository-name "tearleads-<env>/$repo"; done` |
+| `TL-CR-004` | ECR lifecycle policies for image retention | [`terraform/modules/aws-ci-artifacts/main.tf`](../../../terraform/modules/aws-ci-artifacts/main.tf) | `for repo in api client website; do aws ecr get-lifecycle-policy --repository-name "tearleads-<env>/$repo"; done` |
 | `TL-DR-001` | Per-stack S3 backend with unique state keys | `terraform/stacks/*/versions.tf` | `grep -r 'key.*=' terraform/stacks/*/versions.tf` |
-| `TL-DR-002` | DynamoDB state locking for concurrent access | `terraform/bootstrap/main.tf` | `aws dynamodb describe-table --table-name tearleads-terraform-locks` |
-| `TL-DR-003` | Documented container build/push/deploy workflow | `terraform/docs/container-deployments.md` | `./scripts/buildContainers.sh staging --no-push` |
+| `TL-DR-002` | DynamoDB state locking for concurrent access | [`terraform/bootstrap/main.tf`](../../../terraform/bootstrap/main.tf) | `aws dynamodb describe-table --table-name tearleads-terraform-locks` |
+| `TL-DR-003` | Documented container build/push/deploy workflow | [`terraform/docs/container-deployments.md`](../../../terraform/docs/container-deployments.md) | `./scripts/buildContainers.sh staging --no-push` |
 
 ## Control Details
 

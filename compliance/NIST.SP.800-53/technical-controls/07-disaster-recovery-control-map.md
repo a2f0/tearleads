@@ -6,13 +6,13 @@ This map ties disaster recovery and container deployment controls to concrete im
 
 | Sentinel | Description | NIST Controls | Implementation Evidence |
 | --- | --- | --- | --- |
-| `TL-CR-001` | ECR container registries with AES-256 encryption | SC-28, SC-13 | `terraform/modules/aws-ci-artifacts/main.tf` |
-| `TL-CR-002` | ECR scan-on-push for vulnerability detection | RA-5, SI-3 | `terraform/modules/aws-ci-artifacts/main.tf` |
+| `TL-CR-001` | ECR container registries with AES-256 encryption | SC-28, SC-13 | [`terraform/modules/aws-ci-artifacts/main.tf`](../../../terraform/modules/aws-ci-artifacts/main.tf) |
+| `TL-CR-002` | ECR scan-on-push for vulnerability detection | RA-5, SI-3 | [`terraform/modules/aws-ci-artifacts/main.tf`](../../../terraform/modules/aws-ci-artifacts/main.tf) |
 | `TL-CR-003` | K8s registry authentication with rotating ECR tokens | IA-5, AC-2 | `terraform/stacks/*/k8s/scripts/setup-ecr-secret.sh` |
-| `TL-CR-004` | ECR lifecycle policies for image retention | MP-6 | `terraform/modules/aws-ci-artifacts/main.tf` |
+| `TL-CR-004` | ECR lifecycle policies for image retention | MP-6 | [`terraform/modules/aws-ci-artifacts/main.tf`](../../../terraform/modules/aws-ci-artifacts/main.tf) |
 | `TL-DR-001` | Per-stack S3 backend with unique state keys | CP-9 | `terraform/stacks/*/versions.tf` |
-| `TL-DR-002` | DynamoDB state locking for concurrent access | CP-9 | `terraform/bootstrap/main.tf` |
-| `TL-DR-003` | Documented container build/push/deploy workflow | CP-10, IR-4 | `terraform/docs/container-deployments.md` |
+| `TL-DR-002` | DynamoDB state locking for concurrent access | CP-9 | [`terraform/bootstrap/main.tf`](../../../terraform/bootstrap/main.tf) |
+| `TL-DR-003` | Documented container build/push/deploy workflow | CP-10, IR-4 | [`terraform/docs/container-deployments.md`](../../../terraform/docs/container-deployments.md) |
 
 ## NIST Control Family Mapping
 

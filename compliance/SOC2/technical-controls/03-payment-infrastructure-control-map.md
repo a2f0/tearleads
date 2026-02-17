@@ -6,12 +6,12 @@ This map ties payment infrastructure policy controls to concrete implementation 
 
 | Sentinel | Description | Implementation Evidence | Test Evidence |
 | --- | --- | --- | --- |
-| `TL-PAY-001` | HMAC-SHA256 webhook signature verification with timing-safe comparison | `packages/api/src/lib/revenuecat.ts` (verifySignature, normalizeSignature, timingSafeEqual), `packages/api/src/routes/revenuecat/post-webhooks.ts` | `packages/api/src/lib/revenuecat.test.ts`, `packages/api/src/routes/revenuecat.test.ts` |
-| `TL-PAY-002` | Replay attack prevention via event age and future skew validation | `packages/api/src/lib/revenuecat.ts` (isEventInReplayWindow, REVENUECAT_WEBHOOK_MAX_AGE_SECONDS, REVENUECAT_WEBHOOK_MAX_FUTURE_SKEW_SECONDS) | `packages/api/src/lib/revenuecat.test.ts`, `packages/api/src/routes/revenuecat.test.ts` |
-| `TL-PAY-003` | Idempotent event processing via unique event_id constraint | `packages/db/src/schema/definition.ts` (revenuecatWebhookEvents table, eventId unique constraint), `packages/api/src/routes/revenuecat/post-webhooks.ts` | `packages/api/src/routes/revenuecat.test.ts` |
-| `TL-PAY-004` | Full webhook payload storage with timestamps for audit trail | `packages/db/src/schema/definition.ts` (revenuecatWebhookEvents table: payload JSONB, receivedAt, processedAt, processingError) | `packages/api/src/routes/revenuecat.test.ts` |
-| `TL-PAY-005` | Organization membership verification for billing data access | `packages/api/src/routes/billing/get-organizations-organizationId.ts` | `packages/api/src/routes/billing.test.ts` |
-| `TL-PAY-006` | Entitlement state tracking with event attribution | `packages/db/src/schema/definition.ts` (organizationBillingAccounts table: entitlementStatus, lastWebhookEventId, lastWebhookAt), `packages/api/src/routes/revenuecat/post-webhooks.ts` | `packages/api/src/routes/revenuecat.test.ts` |
+| `TL-PAY-001` | HMAC-SHA256 webhook signature verification with timing-safe comparison | [`packages/api/src/lib/revenuecat.ts`](../../../packages/api/src/lib/revenuecat.ts) (verifySignature, normalizeSignature, timingSafeEqual), [`packages/api/src/routes/revenuecat/postWebhooks.ts`](../../../packages/api/src/routes/revenuecat/postWebhooks.ts) | [`packages/api/src/lib/revenuecat.test.ts`](../../../packages/api/src/lib/revenuecat.test.ts), [`packages/api/src/routes/revenuecat.test.ts`](../../../packages/api/src/routes/revenuecat.test.ts) |
+| `TL-PAY-002` | Replay attack prevention via event age and future skew validation | [`packages/api/src/lib/revenuecat.ts`](../../../packages/api/src/lib/revenuecat.ts) (isEventInReplayWindow, REVENUECAT_WEBHOOK_MAX_AGE_SECONDS, REVENUECAT_WEBHOOK_MAX_FUTURE_SKEW_SECONDS) | [`packages/api/src/lib/revenuecat.test.ts`](../../../packages/api/src/lib/revenuecat.test.ts), [`packages/api/src/routes/revenuecat.test.ts`](../../../packages/api/src/routes/revenuecat.test.ts) |
+| `TL-PAY-003` | Idempotent event processing via unique event_id constraint | [`packages/db/src/schema/definition.ts`](../../../packages/db/src/schema/definition.ts) (revenuecatWebhookEvents table, eventId unique constraint), [`packages/api/src/routes/revenuecat/postWebhooks.ts`](../../../packages/api/src/routes/revenuecat/postWebhooks.ts) | [`packages/api/src/routes/revenuecat.test.ts`](../../../packages/api/src/routes/revenuecat.test.ts) |
+| `TL-PAY-004` | Full webhook payload storage with timestamps for audit trail | [`packages/db/src/schema/definition.ts`](../../../packages/db/src/schema/definition.ts) (revenuecatWebhookEvents table: payload JSONB, receivedAt, processedAt, processingError) | [`packages/api/src/routes/revenuecat.test.ts`](../../../packages/api/src/routes/revenuecat.test.ts) |
+| `TL-PAY-005` | Organization membership verification for billing data access | [`packages/api/src/routes/billing/getOrganizationsOrganizationId.ts`](../../../packages/api/src/routes/billing/getOrganizationsOrganizationId.ts) | [`packages/api/src/routes/billing.test.ts`](../../../packages/api/src/routes/billing.test.ts) |
+| `TL-PAY-006` | Entitlement state tracking with event attribution | [`packages/db/src/schema/definition.ts`](../../../packages/db/src/schema/definition.ts) (organizationBillingAccounts table: entitlementStatus, lastWebhookEventId, lastWebhookAt), [`packages/api/src/routes/revenuecat/postWebhooks.ts`](../../../packages/api/src/routes/revenuecat/postWebhooks.ts) | [`packages/api/src/routes/revenuecat.test.ts`](../../../packages/api/src/routes/revenuecat.test.ts) |
 
 ## Implementation Files
 
@@ -28,8 +28,8 @@ This map ties payment infrastructure policy controls to concrete implementation 
 | File | Purpose |
 | --- | --- |
 | `packages/api/src/routes/revenuecat.ts` | Router configuration for webhook endpoint |
-| `packages/api/src/routes/revenuecat/post-webhooks.ts` | Webhook handler: signature verification, idempotency, state update |
-| `packages/api/src/routes/billing/get-organizations-organizationId.ts` | Billing status endpoint with authorization |
+| `packages/api/src/routes/revenuecat/postWebhooks.ts` | Webhook handler: signature verification, idempotency, state update |
+| `packages/api/src/routes/billing/getOrganizationsOrganizationId.ts` | Billing status endpoint with authorization |
 
 ### Database Schema
 
