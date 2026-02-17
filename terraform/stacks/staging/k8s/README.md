@@ -26,6 +26,7 @@ This stack provisions a k3s Kubernetes cluster on Hetzner Cloud for the staging 
 | `scripts/plan.sh` | Preview infrastructure changes |
 | `scripts/apply01.sh` | Step 1: Apply Terraform infrastructure changes |
 | `scripts/apply02.sh` | Step 2: Fetch kubeconfig, wait for node readiness, and deploy manifests |
+| `scripts/apply03.sh` | Step 3: Build/push staging images and roll deployments |
 | `scripts/apply.sh` | Compatibility wrapper for `scripts/apply01.sh` |
 | `scripts/destroy.sh` | Destroy infrastructure |
 | `scripts/kubeconfig.sh` | Fetch kubeconfig from server |
@@ -45,15 +46,8 @@ This stack provisions a k3s Kubernetes cluster on Hetzner Cloud for the staging 
 # 3. Bootstrap cluster access and deploy manifests
 ./scripts/apply02.sh
 
-# Optional: keep using explicit manual steps if preferred
-./scripts/kubeconfig.sh
-export KUBECONFIG=$HOME/.kube/config-staging-k8s
-
-# 4. Setup ECR pull secret (for container images)
-./scripts/setup-ecr-secret.sh
-
-# 5. Deploy all manifests
-./scripts/deploy.sh
+# 4. Build/push images and rollout app deployments
+./scripts/apply03.sh
 ```
 
 ## Manifests
