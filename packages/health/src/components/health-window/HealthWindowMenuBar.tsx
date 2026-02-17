@@ -1,11 +1,6 @@
 import { WindowMenuBar } from '@tearleads/window-manager';
 import { Home, RefreshCw } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator
-} from '@/components/ui/dropdown-menu';
-import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
+import { useState } from 'react';
 import {
   HEALTH_DRILLDOWN_CARDS,
   type HealthDrilldownRoute
@@ -24,44 +19,136 @@ export function HealthWindowMenuBar({
   onRefresh,
   onClose
 }: HealthWindowMenuBarProps) {
+  const [openMenu, setOpenMenu] = useState<'file' | 'go' | 'view' | null>(
+    null
+  );
+
+  const toggleMenu = (menu: 'file' | 'go' | 'view') => {
+    setOpenMenu((current) => (current === menu ? null : menu));
+  };
+
+  const closeMenus = () => {
+    setOpenMenu(null);
+  };
+
   return (
     <WindowMenuBar>
-      <DropdownMenu trigger="File">
-        <DropdownMenuItem
-          icon={<RefreshCw className="h-3 w-3" />}
-          onClick={onRefresh}
+      <div className="relative">
+        <button
+          type="button"
+          className="rounded px-2 py-1 text-sm hover:bg-accent"
+          onClick={() => toggleMenu('file')}
         >
-          Refresh
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
-      </DropdownMenu>
-      <DropdownMenu trigger="Go">
-        <DropdownMenuItem
-          icon={<Home className="h-3 w-3" />}
-          onClick={() => onRouteChange(undefined)}
-          checked={activeRoute === undefined}
-        >
-          Overview
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        {HEALTH_DRILLDOWN_CARDS.map((card) => {
-          const Icon = card.icon;
-          return (
-            <DropdownMenuItem
-              key={card.route}
-              icon={<Icon className="h-3 w-3" />}
-              onClick={() => onRouteChange(card.route)}
-              checked={activeRoute === card.route}
+          File
+        </button>
+        {openMenu === 'file' ? (
+          <div
+            role="menu"
+            className="absolute left-0 z-50 mt-1 min-w-36 rounded border bg-popover p-1 shadow-md"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-accent"
+              onClick={() => {
+                onRefresh();
+                closeMenus();
+              }}
             >
-              {card.title}
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenu>
-      <DropdownMenu trigger="View">
-        <WindowOptionsMenuItem />
-      </DropdownMenu>
+              <RefreshCw className="h-3 w-3" />
+              Refresh
+            </button>
+            <div className="my-1 border-t" />
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full items-center rounded px-2 py-1 text-left text-sm hover:bg-accent"
+              onClick={() => {
+                onClose();
+                closeMenus();
+              }}
+            >
+              Close
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="relative">
+        <button
+          type="button"
+          className="rounded px-2 py-1 text-sm hover:bg-accent"
+          onClick={() => toggleMenu('go')}
+        >
+          Go
+        </button>
+        {openMenu === 'go' ? (
+          <div
+            role="menu"
+            className="absolute left-0 z-50 mt-1 min-w-44 rounded border bg-popover p-1 shadow-md"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-accent"
+              onClick={() => {
+                onRouteChange(undefined);
+                closeMenus();
+              }}
+            >
+              <Home className="h-3 w-3" />
+              Overview
+            </button>
+            <div className="my-1 border-t" />
+            {HEALTH_DRILLDOWN_CARDS.map((card) => {
+              const Icon = card.icon;
+              return (
+                <button
+                  key={card.route}
+                  type="button"
+                  role="menuitem"
+                  className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-accent"
+                  onClick={() => {
+                    onRouteChange(card.route);
+                    closeMenus();
+                  }}
+                >
+                  <Icon className="h-3 w-3" />
+                  {card.title}
+                  {activeRoute === card.route ? (
+                    <span className="ml-auto text-xs">✓</span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="relative">
+        <button
+          type="button"
+          className="rounded px-2 py-1 text-sm hover:bg-accent"
+          onClick={() => toggleMenu('view')}
+        >
+          View
+        </button>
+        {openMenu === 'view' ? (
+          <div
+            role="menu"
+            className="absolute left-0 z-50 mt-1 min-w-36 rounded border bg-popover p-1 shadow-md"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full items-center rounded px-2 py-1 text-left text-sm hover:bg-accent"
+              onClick={closeMenus}
+            >
+              Options
+            </button>
+          </div>
+        ) : null}
+      </div>
     </WindowMenuBar>
   );
 }
