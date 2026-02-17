@@ -1,14 +1,15 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "types": ["node"],
-    "composite": true,
+    "allowImportingTsExtensions": true,
+    "noPropertyAccessFromIndexSignature": false,
     "noEmit": true,
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },
-  "include": ["./ciImpact/**/*.ts"],
-  "exclude": ["node_modules", "./ciImpact/**/*.test.ts"]
+  "include": ["./**/*.ts"],
+  "exclude": ["node_modules", "./**/*.test.ts"]
 }

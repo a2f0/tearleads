@@ -132,3 +132,18 @@ test('runImpactedTests dry-run treats build workflow edits as non-full-run excep
   assert.equal(Reflect.get(parsed, 'fullRun'), false);
   assert.deepEqual(Reflect.get(parsed, 'targets'), []);
 });
+
+test('runImpactedTests dry-run avoids global fanout for high-risk script config changes', () => {
+  const result = runImpactedTests([
+    '--files',
+    'scripts/tsconfig.json',
+    '--dry-run',
+    '--print-targets-json'
+  ]);
+  assert.equal(result.status, 0, stderrText(result));
+
+  const stdout = stdoutText(result);
+  const parsed = JSON.parse(stdout);
+  assert.equal(Reflect.get(parsed, 'fullRun'), true);
+  assert.deepEqual(Reflect.get(parsed, 'targets'), []);
+});

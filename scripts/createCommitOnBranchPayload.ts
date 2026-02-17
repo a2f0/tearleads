@@ -57,6 +57,9 @@ function parseArgs(argv: string[]): CliArgs {
 
   for (let index = 2; index < argv.length; index += 1) {
     const rawKey = argv[index];
+    if (rawKey === undefined) {
+      continue;
+    }
     const mappedKey = keyMap[rawKey];
     if (!mappedKey) {
       continue;
@@ -68,7 +71,26 @@ function parseArgs(argv: string[]): CliArgs {
       process.exit(1);
     }
 
-    args[mappedKey] = value;
+    switch (mappedKey) {
+      case 'repo':
+        args.repo = value;
+        break;
+      case 'branch':
+        args.branch = value;
+        break;
+      case 'expectedHeadOid':
+        args.expectedHeadOid = value;
+        break;
+      case 'headline':
+        args.headline = value;
+        break;
+      case 'body':
+        args.body = value;
+        break;
+      case 'output':
+        args.output = value;
+        break;
+    }
     index += 1;
   }
 

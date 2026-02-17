@@ -98,7 +98,11 @@ function collectTsFiles(dir: string): string[] {
 }
 
 function normalizeCycle(cycleNodes: string[]): string {
-  const minNode = [...cycleNodes].sort()[0];
+  const sortedNodes = [...cycleNodes].sort();
+  const minNode = sortedNodes[0];
+  if (minNode === undefined) {
+    return cycleNodes.join(' -> ');
+  }
   const minIndex = cycleNodes.indexOf(minNode);
   return cycleNodes
     .slice(minIndex)

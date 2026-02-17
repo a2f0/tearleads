@@ -19,6 +19,10 @@ export interface PostgresConfig {
   database: string;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 /**
  * Check if required environment variables are set
  */
@@ -82,16 +86,16 @@ export function getPool(): Pool {
 /**
  * Execute a read-only query
  */
-export async function query<T extends Record<string, unknown>>(
+export async function query(
   sql: string,
   params?: unknown[]
-): Promise<T[]> {
+): Promise<Record<string, unknown>[]> {
   const client = await getPool().connect();
   try {
     // Ensure read-only for the entire session on this client
     await client.query('SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY');
     const result = await client.query(sql, params);
-    return result.rows as T[];
+    return result.rows.filter(isRecord);
   } finally {
     client.release();
   }
@@ -112,7 +116,7 @@ export async function closePool(): Promise<void> {
  */
 export async function testConnection(): Promise<boolean> {
   try {
-    const result = await query<{ now: Date }>('SELECT NOW() as now');
+    const result = await query('SELECT NOW() as now');
     return result.length > 0;
   } catch (error) {
     console.error('Database connection test failed:', error);

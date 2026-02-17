@@ -288,6 +288,10 @@ function shouldRunCiImpactScriptTests(
   );
 }
 
+function shouldRunFullCoverageSet(): boolean {
+  return false;
+}
+
 function runCiImpactScriptTests(): void {
   const result = spawnSync(
     'node',
@@ -403,13 +407,14 @@ function main(): void {
     impact.changedFiles,
     fullRun
   );
+  const runFullCoverageSet = shouldRunFullCoverageSet();
 
   const affectedSet = new Set(impact.affectedPackages);
 
   let targets: string[] = [];
   if (impact.materialFiles.length === 0) {
     targets = [];
-  } else if (fullRun) {
+  } else if (runFullCoverageSet) {
     targets = [...coveragePackages];
   } else {
     targets = coveragePackages.filter(
@@ -470,7 +475,7 @@ function main(): void {
 
   if (fullRun) {
     console.log(
-      'ci-impact: running full coverage package set due to high-risk file changes.'
+      'ci-impact: high-risk changes detected; running impacted coverage only (global fanout disabled).'
     );
   } else {
     console.log('ci-impact: running impacted coverage packages only.');

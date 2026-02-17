@@ -47,7 +47,10 @@ function parseArgs(argv: string[]): { help: boolean; titleOverride?: string } {
     titleOverride = token;
   }
 
-  return { help, titleOverride };
+  return {
+    help,
+    ...(titleOverride === undefined ? {} : { titleOverride })
+  };
 }
 
 function main(): void {

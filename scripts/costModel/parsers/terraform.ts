@@ -67,7 +67,12 @@ export function parseTerraformFile(filePath: string): TerraformResource[] {
 
     let match: RegExpExecArray | null = pattern.exec(content);
     while (match !== null) {
-      const [, name, block] = match;
+      const name = match[1];
+      const block = match[2];
+      if (name === undefined || block === undefined) {
+        match = pattern.exec(content);
+        continue;
+      }
       const attributes: Record<string, unknown> = {};
 
       // Extract relevant attributes based on resource type

@@ -69,9 +69,19 @@ const parseProcessList = (output: string): ProcessInfo[] => {
     if (!match) {
       continue;
     }
-    const pid = Number.parseInt(match[1], 10);
-    const ppid = Number.parseInt(match[2], 10);
+    const pidText = match[1];
+    const ppidText = match[2];
     const command = match[3];
+    if (
+      pidText === undefined ||
+      ppidText === undefined ||
+      command === undefined
+    ) {
+      continue;
+    }
+
+    const pid = Number.parseInt(pidText, 10);
+    const ppid = Number.parseInt(ppidText, 10);
 
     if (Number.isNaN(pid) || Number.isNaN(ppid)) {
       continue;
@@ -134,7 +144,7 @@ const isPortFree = (port: number): boolean => {
 };
 
 const main = async (): Promise<void> => {
-  if (process.env.TEARLEADS_SKIP_DEV_KILL === '1') {
+  if (process.env['TEARLEADS_SKIP_DEV_KILL'] === '1') {
     return;
   }
 

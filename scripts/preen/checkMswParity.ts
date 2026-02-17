@@ -1,61 +1,21 @@
 #!/usr/bin/env -S pnpm exec tsx
 import fs from 'node:fs/promises';
 import path from 'node:path';
-
-type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-
-interface ApiRoute {
-  method: HttpMethod;
-  path: string;
-  source: string;
-}
-
-interface MswHandlerMatcher {
-  method: HttpMethod;
-  sourcePattern: string;
-  regex: RegExp;
-  confidence: 'high' | 'low';
-  confidenceReason?: string;
-}
-
-interface LowConfidenceRoute {
-  route: ApiRoute;
-  matcherPatterns: string[];
-  reasons: string[];
-}
-
-interface ParityResult {
-  apiRoutes: ApiRoute[];
-  mswMatchers: MswHandlerMatcher[];
-  matchedRoutes: ApiRoute[];
-  missingRoutes: ApiRoute[];
-  lowConfidenceRoutes: LowConfidenceRoute[];
-}
-
-const API_ROUTE_REGEX =
-  /\b(?:routeRouter|authRouter|adminContextRouter)\.(get|post|put|patch|delete)\(\s*'([^']+)'/g;
-const MSW_WITH_OPTIONAL_V1_REGEX =
-  /http\.(get|post|put|patch|delete)\(\s*withOptionalV1Prefix\('([^']+)'\)/g;
-const MSW_LITERAL_REGEX =
-  /http\.(get|post|put|patch|delete)\(\s*(\/[^/]*\/[^,]+|`[^`]+`|'[^']+'|"[^"]+")/g;
-
-const ROOT_DIR = process.cwd();
-const API_ROUTES_DIR = path.join(ROOT_DIR, 'packages', 'api', 'src', 'routes');
-const API_INDEX_FILE = path.join(
-  ROOT_DIR,
-  'packages',
-  'api',
-  'src',
-  'index.ts'
-);
-const MSW_HANDLERS_FILE = path.join(
-  ROOT_DIR,
-  'packages',
-  'msw',
-  'src',
-  'handlers.ts'
-);
-const LITERAL_PATH_SEGMENT_REGEX = /^[A-Za-z0-9._~-]+$/;
+import {
+  API_INDEX_FILE,
+  API_ROUTE_REGEX,
+  API_ROUTES_DIR,
+  type ApiRoute,
+  type HttpMethod,
+  LITERAL_PATH_SEGMENT_REGEX,
+  type LowConfidenceRoute,
+  MSW_HANDLERS_FILE,
+  MSW_LITERAL_REGEX,
+  MSW_WITH_OPTIONAL_V1_REGEX,
+  type MswHandlerMatcher,
+  type ParityResult,
+  ROOT_DIR
+} from './checkMswParity/types.ts';
 
 const splitPathPatternSegments = (pathPattern: string): string[] => {
   const segments: string[] = [];
@@ -170,7 +130,7 @@ const listFilesRecursive = async (directory: string): Promise<string[]> => {
         return [absolutePath];
       }
 
-      return [] as string[];
+      return [];
     })
   );
 
@@ -197,8 +157,13 @@ const loadApiRoutes = async (): Promise<ApiRoute[]> => {
     let match: RegExpExecArray | null = regex.exec(content);
 
     while (match) {
-      const method = toMethod(match[1]);
+      const methodValue = match[1];
       const routePath = match[2];
+      if (methodValue === undefined || routePath === undefined) {
+        match = regex.exec(content);
+        continue;
+      }
+      const method = toMethod(methodValue);
       routes.push({
         method,
         path: withPrefix(prefix, routePath),
@@ -289,10 +254,12 @@ const buildMatcherFromLiteral = (
     const classification = classifyRegexSourcePattern(sourcePattern);
     return {
       method,
-      sourcePattern: sourcePattern,
+      sourcePattern,
       regex: new RegExp(sourcePattern, flags),
       confidence: classification.confidence,
-      confidenceReason: classification.reason
+      ...(classification.reason === undefined
+        ? {}
+        : { confidenceReason: classification.reason })
     };
   }
 
@@ -321,8 +288,13 @@ const loadMswMatchers = async (): Promise<MswHandlerMatcher[]> => {
   const optionalV1Regex = new RegExp(MSW_WITH_OPTIONAL_V1_REGEX);
   let optionalV1Match: RegExpExecArray | null = optionalV1Regex.exec(content);
   while (optionalV1Match) {
-    const method = toMethod(optionalV1Match[1]);
+    const methodValue = optionalV1Match[1];
     const pathPattern = optionalV1Match[2];
+    if (methodValue === undefined || pathPattern === undefined) {
+      optionalV1Match = optionalV1Regex.exec(content);
+      continue;
+    }
+    const method = toMethod(methodValue);
     const sourcePattern = `^(?:/v1)?${pathPattern}$`;
     const classification = classifyOptionalV1PathPattern(pathPattern);
     results.push({
@@ -330,7 +302,9 @@ const loadMswMatchers = async (): Promise<MswHandlerMatcher[]> => {
       sourcePattern,
       regex: new RegExp(sourcePattern),
       confidence: classification.confidence,
-      confidenceReason: classification.reason
+      ...(classification.reason === undefined
+        ? {}
+        : { confidenceReason: classification.reason })
     });
 
     optionalV1Match = optionalV1Regex.exec(content);
@@ -340,7 +314,14 @@ const loadMswMatchers = async (): Promise<MswHandlerMatcher[]> => {
     const literalRegex = new RegExp(MSW_LITERAL_REGEX);
     let literalMatch: RegExpExecArray | null = literalRegex.exec(content);
     while (literalMatch) {
-      const matcher = buildMatcherFromLiteral(literalMatch[1], literalMatch[2]);
+      const methodValue = literalMatch[1];
+      const literal = literalMatch[2];
+      if (methodValue === undefined || literal === undefined) {
+        literalMatch = literalRegex.exec(content);
+        continue;
+      }
+
+      const matcher = buildMatcherFromLiteral(methodValue, literal);
       if (matcher) {
         results.push(matcher);
       }
