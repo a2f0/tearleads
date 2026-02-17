@@ -1,1 +1,2 @@
-export { Keychain, KeychainDetail } from '@tearleads/keychain';
+export { Keychain } from './Keychain';
+export { KeychainDetail } from './KeychainDetail';

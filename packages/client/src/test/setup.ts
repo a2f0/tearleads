@@ -91,6 +91,102 @@ vi.mock('@/components/console-window', () => ({
     )
 }));
 
+vi.mock('@/components/keychain-window', () => ({
+  KeychainWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) =>
+    createElement(
+      'div',
+      {
+        role: 'dialog',
+        'data-testid': `keychain-window-${id}`,
+        'data-zindex': zIndex,
+        onClick: onFocus
+      },
+      createElement(
+        'button',
+        {
+          type: 'button',
+          onClick: onClose,
+          'data-testid': `close-${id}`
+        },
+        'Close'
+      ),
+      createElement(
+        'button',
+        {
+          type: 'button',
+          onClick: () => onMinimize({ x: 0, y: 0, width: 600, height: 500 }),
+          'data-testid': `minimize-${id}`
+        },
+        'Minimize'
+      )
+    )
+}));
+
+vi.mock('@/components/sync-window', () => ({
+  SyncWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) =>
+    createElement(
+      'div',
+      {
+        role: 'dialog',
+        'data-testid': `sync-window-${id}`,
+        'data-zindex': zIndex,
+        onClick: onFocus
+      },
+      createElement(
+        'button',
+        {
+          type: 'button',
+          onClick: onClose,
+          'data-testid': `close-${id}`
+        },
+        'Close'
+      ),
+      createElement(
+        'button',
+        {
+          type: 'button',
+          onClick: () => onMinimize({ x: 0, y: 0, width: 400, height: 450 }),
+          'data-testid': `minimize-${id}`
+        },
+        'Minimize'
+      )
+    )
+}));
+
 // Mock @ionic/core gestures to avoid DOM issues in jsdom
 vi.mock('@ionic/core', () => ({
   createGesture: vi.fn(() => ({
