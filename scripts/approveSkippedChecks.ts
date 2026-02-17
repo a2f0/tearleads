@@ -99,7 +99,14 @@ function parseCheckRuns(raw: string): CheckRun[] {
 }
 
 function getRepo(): string {
-  return run('gh', ['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner']);
+  return run('gh', [
+    'repo',
+    'view',
+    '--json',
+    'nameWithOwner',
+    '-q',
+    '.nameWithOwner'
+  ]);
 }
 
 function getPrNumber(maybePrNumber: string | undefined): string {
@@ -107,7 +114,14 @@ function getPrNumber(maybePrNumber: string | undefined): string {
     return maybePrNumber;
   }
 
-  const currentPr = tryRun('gh', ['pr', 'view', '--json', 'number', '-q', '.number']);
+  const currentPr = tryRun('gh', [
+    'pr',
+    'view',
+    '--json',
+    'number',
+    '-q',
+    '.number'
+  ]);
   if (!currentPr || currentPr.length === 0) {
     throw new Error('Could not determine PR number. Use --pr <number>');
   }
@@ -115,7 +129,17 @@ function getPrNumber(maybePrNumber: string | undefined): string {
 }
 
 function getHeadSha(repo: string, prNumber: string): string {
-  return run('gh', ['pr', 'view', prNumber, '--json', 'headRefOid', '-q', '.headRefOid', '-R', repo]);
+  return run('gh', [
+    'pr',
+    'view',
+    prNumber,
+    '--json',
+    'headRefOid',
+    '-q',
+    '.headRefOid',
+    '-R',
+    repo
+  ]);
 }
 
 function createCheckRun(params: {
@@ -125,7 +149,9 @@ function createCheckRun(params: {
   dryRun: boolean;
 }): void {
   if (params.dryRun) {
-    process.stdout.write(`  [DRY-RUN] Would create check run: ${params.checkName}\n`);
+    process.stdout.write(
+      `  [DRY-RUN] Would create check run: ${params.checkName}\n`
+    );
     return;
   }
 
@@ -173,7 +199,10 @@ function main(): void {
   process.stdout.write(`PR: #${prNumber}\n`);
   process.stdout.write(`Head SHA: ${headSha}\n\n`);
 
-  const checkRunsOutput = run('gh', ['api', `repos/${repo}/commits/${headSha}/check-runs`]);
+  const checkRunsOutput = run('gh', [
+    'api',
+    `repos/${repo}/commits/${headSha}/check-runs`
+  ]);
   const checkRuns = parseCheckRuns(checkRunsOutput);
 
   process.stdout.write('Checking required checks...\n');
@@ -196,7 +225,9 @@ function main(): void {
     }
 
     if (status.status === 'completed' && status.conclusion === 'skipped') {
-      process.stdout.write(`  ${checkName}: SKIPPED -> creating passing check\n`);
+      process.stdout.write(
+        `  ${checkName}: SKIPPED -> creating passing check\n`
+      );
       createCheckRun({
         repo,
         headSha,
