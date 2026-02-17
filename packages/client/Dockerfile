@@ -16,9 +16,6 @@ COPY packages packages
 # Install dependencies (skip postinstall - source not copied yet)
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
-# Copy docs directory (used by help system)
-COPY docs docs
-
 # Copy scripts needed for setup
 COPY scripts/downloadSqliteWasm.sh scripts/
 
@@ -30,6 +27,7 @@ RUN pnpm --filter @tearleads/client^... --if-present build
 
 # Build client (VITE_API_URL must be set at build time)
 # Use tsconfig.docker.json to exclude test files from type checking
+COPY docs docs
 ARG VITE_API_URL
 ENV VITE_API_URL=${VITE_API_URL}
 RUN cd packages/client && pnpm tsc -p tsconfig.docker.json && DOTENV_CONFIG_QUIET=true pnpm vite build

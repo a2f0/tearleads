@@ -32,13 +32,14 @@ fi
 if [[ -z "$LETSENCRYPT_EMAIL" ]]; then
   LETSENCRYPT_EMAIL="admin@$STAGING_DOMAIN"
 fi
+ESCAPED_LETSENCRYPT_EMAIL="$(printf '%s' "$LETSENCRYPT_EMAIL" | sed -e 's/[&|\\]/\\&/g')"
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 RENDERED_INGRESS="$TMP_DIR/ingress.yaml"
 RENDERED_ISSUER="$TMP_DIR/cert-manager-issuer.yaml"
 sed "s/DOMAIN_PLACEHOLDER/$STAGING_DOMAIN/g" "$MANIFESTS_DIR/ingress.yaml" > "$RENDERED_INGRESS"
-sed "s|REPLACE_WITH_YOUR_EMAIL|$LETSENCRYPT_EMAIL|g" "$MANIFESTS_DIR/cert-manager-issuer.yaml" > "$RENDERED_ISSUER"
+sed "s|REPLACE_WITH_YOUR_EMAIL|$ESCAPED_LETSENCRYPT_EMAIL|g" "$MANIFESTS_DIR/cert-manager-issuer.yaml" > "$RENDERED_ISSUER"
 
 echo "Deploying manifests from $MANIFESTS_DIR..."
 
