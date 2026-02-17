@@ -178,14 +178,14 @@ describe('user-settings', () => {
 
   describe('constants', () => {
     it('has correct default values', () => {
-      expect(SETTING_DEFAULTS.theme).toBe('monochrome');
+      expect(SETTING_DEFAULTS.theme).toBe('light');
       expect(SETTING_DEFAULTS.language).toBe('en');
       expect(SETTING_DEFAULTS.tooltips).toBe('enabled');
       expect(SETTING_DEFAULTS.font).toBe('system');
       expect(SETTING_DEFAULTS.desktopPattern).toBe('isometric');
       expect(SETTING_DEFAULTS.desktopIconDepth).toBe('debossed');
       expect(SETTING_DEFAULTS.desktopIconBackground).toBe('colored');
-      expect(SETTING_DEFAULTS.windowOpacity).toBe('translucent');
+      expect(SETTING_DEFAULTS.windowOpacity).toBe('opaque');
       expect(SETTING_DEFAULTS.borderRadius).toBe('rounded');
     });
 

@@ -16,7 +16,8 @@
   --destructive: hsl(0 84% 60%);
   --destructive-foreground: hsl(0 0% 98%);
   --border: hsl(0 0% 90%);
-  --input: hsl(0 0% 90%);
+  --soft-border: hsl(0 0% 93%);
+  --input: hsl(0 0% 93%);
   --ring: hsl(221 83% 53%);
   --radius: 0.5rem;
 
@@ -71,7 +72,8 @@
   --destructive: hsl(0 63% 31%);
   --destructive-foreground: hsl(0 0% 98%);
   --border: hsl(0 0% 15%);
-  --input: hsl(0 0% 15%);
+  --soft-border: hsl(0 0% 13%);
+  --input: hsl(0 0% 13%);
   --ring: hsl(224 76% 48%);
 
   /* Status colors */
@@ -123,7 +125,8 @@
   --destructive: hsl(10 70% 60%);
   --destructive-foreground: hsl(230 20% 14%);
   --border: hsl(228 20% 22%);
-  --input: hsl(228 20% 22%);
+  --soft-border: hsl(228 16% 18%);
+  --input: hsl(228 16% 18%);
   --ring: hsl(220 89% 72%);
 
   /* Status colors */
@@ -175,7 +178,8 @@
   --destructive: hsl(0 0% 40%);
   --destructive-foreground: hsl(0 0% 95%);
   --border: hsl(0 0% 25%);
-  --input: hsl(0 0% 25%);
+  --soft-border: hsl(0 0% 18%);
+  --input: hsl(0 0% 18%);
   --ring: hsl(0 0% 70%);
 
   /* Status colors - all grayscale */
@@ -261,6 +265,10 @@
   --color-terminal-command: var(--terminal-command);
   --color-terminal-output: var(--terminal-output);
 
+  /* Make default borders soft; use border-border explicitly where stronger borders are needed. */
+  --default-border-color: var(--soft-border);
+  --default-ring-color: var(--ring);
+
   /* Scrollbar colors */
   --color-scrollbar-track: var(--scrollbar-track);
   --color-scrollbar-thumb: var(--scrollbar-thumb);
@@ -274,7 +282,7 @@
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: var(--soft-border);
   }
   body {
     @apply bg-background text-foreground;

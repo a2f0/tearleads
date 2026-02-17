@@ -77,7 +77,7 @@ export function CalendarMonthView({
                 'flex aspect-square items-start justify-end rounded-md border px-1 py-1 text-sm',
                 inMonth
                   ? 'border-border bg-background'
-                  : 'border-border/60 bg-muted/20 text-muted-foreground',
+                  : 'border-border bg-muted/20 text-muted-foreground',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
               )}
             >

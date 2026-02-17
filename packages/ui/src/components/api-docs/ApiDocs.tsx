@@ -48,7 +48,7 @@ export function ApiDocs({
         ) : (
           <header className="space-y-4">
             <div className="flex flex-wrap items-center gap-3">
-              <p className="rounded-full border border-border/80 bg-background/80 px-3 py-1 font-semibold text-muted-foreground text-xs uppercase tracking-[0.3em]">
+              <p className="rounded-full border border-border bg-background/80 px-3 py-1 font-semibold text-muted-foreground text-xs uppercase tracking-[0.3em]">
                 API Docs
               </p>
               <span className="rounded-full border border-info/30 bg-info/10 px-3 py-1 font-semibold text-info text-xs">
@@ -101,7 +101,7 @@ export function ApiDocs({
                     ) : null}
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 font-semibold text-muted-foreground text-xs">
+                    <span className="rounded-full border border-border bg-muted/40 px-3 py-1 font-semibold text-muted-foreground text-xs">
                       {tagGroup.operations.length} endpoints
                     </span>
                     <ChevronDown className="mt-1 h-4 w-4 text-muted-foreground transition group-open:rotate-180" />

@@ -2,9 +2,9 @@
 
 @layer base, app, themes;
 
-@import "@tearleads/ui/styles.css" layer(base);
+@import "../../ui/src/styles/index.css" layer(base);
 @import "../generated/app-theme.css" layer(app);
-@import "@tearleads/ui/theme.css" layer(themes);
+@import "../../ui/src/styles/theme.css" layer(themes);
 
 @source "../../admin/src";
 @source "../../calendar/src";

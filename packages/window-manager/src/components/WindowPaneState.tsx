@@ -35,7 +35,7 @@ export function WindowPaneState({
   return (
     <div
       className={cn(
-        'rounded-lg border border-border/70',
+        'rounded-lg border [border-color:var(--soft-border)]',
         TONE_CLASSNAMES[tone],
         LAYOUT_CLASSNAMES[layout],
         className

@@ -1,6 +1,7 @@
 import {
   DesktopFloatingWindow as FloatingWindow,
   WindowControlBar,
+  WindowMenuBar,
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { useState } from 'react';
@@ -74,7 +75,7 @@ export function NotificationCenter({
     >
       <div className="flex h-full flex-col">
         {/* Menu bar */}
-        <div className="flex shrink-0 border-b bg-muted/30 px-1">
+        <WindowMenuBar>
           <DropdownMenu trigger={tMenu('file')}>
             <DropdownMenuItem onClick={onClose}>
               {tCommon('close')}
@@ -86,11 +87,11 @@ export function NotificationCenter({
               closeLabel={tCommon('close')}
             />
           </DropdownMenu>
-        </div>
+        </WindowMenuBar>
         <WindowControlBar>{null}</WindowControlBar>
 
         {/* Tab navigation */}
-        <div className="flex items-center gap-1 border-b px-3 py-2">
+        <div className="flex items-center gap-1 border-b px-3 py-2 [border-color:var(--soft-border)]">
           {tabs.map((tab) => (
             <button
               key={tab.id}

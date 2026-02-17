@@ -217,7 +217,7 @@ export function DropdownMenu({
               onKeyDown={handleMenuKeyDown}
               data-no-window-focus="true"
               style={menuStyle}
-              className="dropdown-menu z-[10000] min-w-32 whitespace-nowrap border bg-background py-1 shadow-md outline-none"
+              className="dropdown-menu z-[10000] min-w-32 whitespace-nowrap border bg-background py-1 shadow-sm outline-none [border-color:var(--soft-border)]"
               data-align={align}
             >
               {Children.map(children, (child) => {

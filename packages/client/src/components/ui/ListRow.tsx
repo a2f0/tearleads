@@ -9,7 +9,7 @@ const ListRow = forwardRef<
     data-slot="list-row"
     ref={ref}
     className={cn(
-      'flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-lg border bg-muted/50 p-3',
+      'flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-lg border border-border bg-muted/50 p-3',
       className
     )}
     {...props}

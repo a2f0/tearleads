@@ -66,14 +66,14 @@ export interface SettingValueMap {
 
 // Default values for each setting
 export const SETTING_DEFAULTS: { [K in UserSettingKey]: SettingValueMap[K] } = {
-  theme: 'monochrome',
+  theme: 'light',
   language: 'en',
   tooltips: 'enabled',
   font: 'system',
   desktopPattern: 'isometric',
   desktopIconDepth: 'debossed',
   desktopIconBackground: 'colored',
-  windowOpacity: 'translucent',
+  windowOpacity: 'opaque',
   borderRadius: 'rounded'
 };
 

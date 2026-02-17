@@ -17,9 +17,9 @@ describe('WindowTableRow', () => {
     const row = container.querySelector('tr');
     expect(row).toHaveClass(
       'cursor-pointer',
-      'border-border/50',
       'border-b',
-      'hover:bg-accent/50'
+      'hover:bg-accent/50',
+      '[border-color:var(--soft-border)]'
     );
   });
 
