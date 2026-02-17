@@ -71,6 +71,21 @@ test('runImpactedTests dry-run includes contacts coverage when contacts changes'
   );
 });
 
+test('runImpactedTests dry-run skips coverage for test-only package changes', () => {
+  const result = runImpactedTests([
+    '--files',
+    'packages/contacts/src/components/ContactsGroupsSidebar.test.tsx',
+    '--dry-run',
+    '--print-targets-json'
+  ]);
+  assert.equal(result.status, 0, stderrText(result));
+
+  const stdout = stdoutText(result);
+  const parsed = JSON.parse(stdout);
+  assert.deepEqual(Reflect.get(parsed, 'targets'), []);
+  assert.equal(Reflect.get(parsed, 'fullRun'), false);
+});
+
 test('runImpactedTests dry-run includes cli coverage when cli changes', () => {
   const result = runImpactedTests([
     '--files',
@@ -101,4 +116,19 @@ test('runImpactedTests emits target JSON for automation consumers', () => {
   assert.equal(Reflect.get(parsed, 'fullRun'), false);
   assert.equal(Reflect.get(parsed, 'runScriptTests'), false);
   assert.deepEqual(Reflect.get(parsed, 'targets'), ['@tearleads/cli']);
+});
+
+test('runImpactedTests dry-run treats build workflow edits as non-full-run exception', () => {
+  const result = runImpactedTests([
+    '--files',
+    '.github/workflows/build.yml',
+    '--dry-run',
+    '--print-targets-json'
+  ]);
+  assert.equal(result.status, 0, stderrText(result));
+
+  const stdout = stdoutText(result);
+  const parsed = JSON.parse(stdout);
+  assert.equal(Reflect.get(parsed, 'fullRun'), false);
+  assert.deepEqual(Reflect.get(parsed, 'targets'), []);
 });

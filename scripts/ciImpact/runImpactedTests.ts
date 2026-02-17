@@ -48,7 +48,6 @@ const FULL_RUN_FILE_NAMES: ReadonlyArray<string> = [
 ];
 const FULL_RUN_PREFIXES: ReadonlyArray<string> = [
   '.github/actions/',
-  'scripts/ciImpact/',
   '.github/workflows/build.yml',
   '.github/workflows/ci-gate.yml',
   '.github/workflows/integration-deploy.yml',
@@ -58,6 +57,9 @@ const FULL_RUN_PREFIXES: ReadonlyArray<string> = [
   '.github/workflows/android.yml',
   '.github/workflows/android-maestro-release.yml',
   '.github/workflows/ios-maestro-release.yml'
+];
+const FULL_RUN_EXACT_EXCEPTIONS: ReadonlyArray<string> = [
+  '.github/workflows/build.yml'
 ];
 const CI_IMPACT_SCRIPT_TEST_PREFIXES: ReadonlyArray<string> = [
   'scripts/ciImpact/',
@@ -184,6 +186,9 @@ function runCiImpact(args: CliArgs): CiImpactOutput {
 
 function requiresFullCoverageRun(changedFiles: string[]): boolean {
   for (const file of changedFiles) {
+    if (FULL_RUN_EXACT_EXCEPTIONS.includes(file)) {
+      continue;
+    }
     if (FULL_RUN_FILE_NAMES.includes(file)) {
       return true;
     }
@@ -198,6 +203,38 @@ function requiresFullCoverageRun(changedFiles: string[]): boolean {
 
 function uniqueSorted(values: string[]): string[] {
   return [...new Set(values)].sort();
+}
+
+function isTestOnlyPath(filePath: string): boolean {
+  return (
+    /(^|\/)__tests__(\/|$)/.test(filePath) ||
+    /(^|\/)test(\/|$)/.test(filePath) ||
+    /(^|\/)tests(\/|$)/.test(filePath) ||
+    /\.(test|spec)\.[cm]?[jt]sx?$/.test(filePath)
+  );
+}
+
+function packageDirPrefix(pkg: string): string | null {
+  const parts = pkg.split('/');
+  const packageName = parts[1];
+  if (packageName === undefined || packageName.length === 0) {
+    return null;
+  }
+  return `packages/${packageName}/`;
+}
+
+function hasNonTestPackageChange(pkg: string, changedFiles: string[]): boolean {
+  const prefix = packageDirPrefix(pkg);
+  if (prefix === null) {
+    return false;
+  }
+
+  const packageFiles = changedFiles.filter((file) => file.startsWith(prefix));
+  if (packageFiles.length === 0) {
+    return false;
+  }
+
+  return packageFiles.some((file) => !isTestOnlyPath(file));
 }
 
 function shouldRunCiImpactScriptTests(
@@ -336,7 +373,9 @@ function main(): void {
   } else if (fullRun) {
     targets = [...coveragePackages];
   } else {
-    targets = coveragePackages.filter((pkg) => affectedSet.has(pkg));
+    targets = coveragePackages.filter(
+      (pkg) => affectedSet.has(pkg) && hasNonTestPackageChange(pkg, impact.changedFiles)
+    );
   }
 
   targets = uniqueSorted(targets);
