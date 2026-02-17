@@ -176,7 +176,13 @@ fi
 echo "=== Build complete ==="
 if [[ "$PUSH" == "true" ]]; then
   echo "Images pushed to ECR:"
-  [[ "$BUILD_API" == "true" ]] && echo "  - ${ECR_REGISTRY}/${API_REPO}:${TAG}"
-  [[ "$BUILD_CLIENT" == "true" ]] && echo "  - ${ECR_REGISTRY}/${CLIENT_REPO}:${TAG}"
-  [[ "$BUILD_WEBSITE" == "true" ]] && echo "  - ${ECR_REGISTRY}/${WEBSITE_REPO}:${TAG}"
+  if [[ "$BUILD_API" == "true" ]]; then
+    echo "  - ${ECR_REGISTRY}/${API_REPO}:${TAG}"
+  fi
+  if [[ "$BUILD_CLIENT" == "true" ]]; then
+    echo "  - ${ECR_REGISTRY}/${CLIENT_REPO}:${TAG}"
+  fi
+  if [[ "$BUILD_WEBSITE" == "true" ]]; then
+    echo "  - ${ECR_REGISTRY}/${WEBSITE_REPO}:${TAG}"
+  fi
 fi
