@@ -3,9 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { HelpDocumentation } from './HelpDocumentation';
 
 vi.mock('@tearleads/ui', async () => {
-  const actual = await vi.importActual<typeof import('@tearleads/ui')>(
-    '@tearleads/ui'
-  );
+  const actual =
+    await vi.importActual<typeof import('@tearleads/ui')>('@tearleads/ui');
   return {
     ...actual,
     useTheme: () => ({ resolvedTheme: 'light' })

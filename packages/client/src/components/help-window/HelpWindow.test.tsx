@@ -6,7 +6,8 @@ import { HelpWindow } from './HelpWindow';
 const mockUseWindowOpenRequest = vi.fn();
 
 vi.mock('@/contexts/WindowManagerContext', () => ({
-  useWindowOpenRequest: (...args: unknown[]) => mockUseWindowOpenRequest(...args)
+  useWindowOpenRequest: (...args: unknown[]) =>
+    mockUseWindowOpenRequest(...args)
 }));
 
 vi.mock('@tearleads/api/dist/openapi.json', () => ({
@@ -18,9 +19,8 @@ vi.mock('@tearleads/api/dist/openapi.json', () => ({
 }));
 
 vi.mock('@tearleads/ui', async () => {
-  const actual = await vi.importActual<typeof import('@tearleads/ui')>(
-    '@tearleads/ui'
-  );
+  const actual =
+    await vi.importActual<typeof import('@tearleads/ui')>('@tearleads/ui');
   return {
     ...actual,
     ApiDocs: ({ spec }: { spec: { info: { title: string } } }) => (
