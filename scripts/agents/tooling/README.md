@@ -47,6 +47,10 @@ Run `--help` for full action and option list:
 - `findDeferredWork` - Find deferred work comments
 - `issueTemplate` - Print standard issue body template
 - `createIssue` - Create user-requested/deferred-fix issues with dedupe checks
+- `verifyBranchPush` - Verify local HEAD is pushed to `origin/<branch>`
+- `sanitizePrBody` - Remove auto-close directives and return extracted issue numbers
+- `createDeferredFixIssue` - Create deferred-fix issue from structured review items
+- `updatePrBody` - Update PR body from inline text or a file
 
 ## Skill Coverage
 
@@ -73,5 +77,9 @@ Automation skills call most `agentTool.ts` actions directly. Two wrappers are in
 ./scripts/agents/tooling/agentTool.ts getRepo
 ./scripts/agents/tooling/agentTool.ts createIssue --type user-requested --title "feat: add x" --search "add x"
 ./scripts/agents/tooling/agentTool.ts createIssue --type deferred-fix --title "chore: deferred fix from PR #123" --source-pr 123 --review-thread-url "https://github.com/org/repo/pull/123#discussion_r1"
+./scripts/agents/tooling/agentTool.ts verifyBranchPush --branch my-feature-branch
+./scripts/agents/tooling/agentTool.ts sanitizePrBody --number 123
+./scripts/agents/tooling/agentTool.ts createDeferredFixIssue --number 123 --pr-url "https://github.com/org/repo/pull/123" --deferred-items-json '[{"body":"Handle edge case","path":"src/x.ts","line":42,"html_url":"https://github.com/org/repo/pull/123#discussion_r1"}]'
+./scripts/agents/tooling/agentTool.ts updatePrBody --number 123 --body-file /tmp/pr-body.md
 ./scripts/agents/tooling/agentTool.ts refresh
 ```
