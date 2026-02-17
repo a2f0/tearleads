@@ -13,27 +13,29 @@ fi
 mode="$1"
 
 collect_control_maps() {
-  if [ "$mode" = "--all" ]; then
-    rg --files compliance | rg 'technical-controls/.+control-map\.md$'
-    return
-  fi
-
-  if [ "$mode" = "--staged" ]; then
-    git diff --name-only --diff-filter=AM --cached
-  elif [ "$mode" = "--from-upstream" ]; then
-    if upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null); then
-      git diff --name-only --diff-filter=AM "$upstream..HEAD"
-    elif git rev-parse --verify origin/main >/dev/null 2>&1; then
-      git diff --name-only --diff-filter=AM "origin/main..HEAD"
-    elif git rev-parse --verify main >/dev/null 2>&1; then
-      git diff --name-only --diff-filter=AM "main..HEAD"
-    else
-      echo "Error: cannot determine base branch for comparison" >&2
-      exit 1
-    fi
-  else
-    usage
-  fi | rg '^compliance/.+/technical-controls/.+control-map\.md$' || true
+  case "$mode" in
+    --all)
+      rg --files compliance | rg 'technical-controls/.+control-map\.md$'
+      ;;
+    --staged)
+      git diff --name-only --diff-filter=AM --cached | rg '^compliance/.+/technical-controls/.+control-map\.md$' || true
+      ;;
+    --from-upstream)
+      if upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null); then
+        git diff --name-only --diff-filter=AM "$upstream..HEAD" | rg '^compliance/.+/technical-controls/.+control-map\.md$' || true
+      elif git rev-parse --verify origin/main >/dev/null 2>&1; then
+        git diff --name-only --diff-filter=AM "origin/main..HEAD" | rg '^compliance/.+/technical-controls/.+control-map\.md$' || true
+      elif git rev-parse --verify main >/dev/null 2>&1; then
+        git diff --name-only --diff-filter=AM "main..HEAD" | rg '^compliance/.+/technical-controls/.+control-map\.md$' || true
+      else
+        echo "Error: cannot determine base branch for comparison" >&2
+        exit 1
+      fi
+      ;;
+    *)
+      usage
+      ;;
+  esac
 }
 
 mapfile -t files < <(collect_control_maps)
