@@ -34,7 +34,7 @@ const SHARE_ACL_ID_SQLITE_SUBSTR_START = SHARE_ACL_ID_PREFIX.length + 1;
 
 function isMissingSqliteTableError(
   error: unknown,
-  tableName: 'vfs_shares' | 'users'
+  tableName: 'users'
 ): boolean {
   const noSuchTableText = `no such table: ${tableName}`;
   const visited = new Set<unknown>();
@@ -67,6 +67,26 @@ function isMissingSqliteTableError(
   }
 
   return false;
+}
+
+function toDateOrNull(value: unknown): Date | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (value instanceof Date) {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'string') {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function toDateOrFallback(value: unknown, fallback: Date): Date {
+  return toDateOrNull(value) ?? fallback;
 }
 
 function shareIdExpr(): SQL<string> {
@@ -161,6 +181,7 @@ export async function querySharedByMe(
   // require additional lookups depending on shareType - user/group/org).
   // This can be enhanced later.
   try {
+    const fallbackNow = new Date();
     const rows = await db
       .select({
         id: vfsRegistry.id,
@@ -236,20 +257,19 @@ export async function querySharedByMe(
         )
       )
       .orderBy(...orderExprs);
+    const normalizedRows: VfsSharedByMeQueryRow[] = rows.map((row) => ({
+      ...row,
+      createdAt: toDateOrFallback(row.createdAt, fallbackNow),
+      sharedAt: toDateOrFallback(row.sharedAt, fallbackNow),
+      expiresAt: toDateOrNull(row.expiresAt)
+    }));
 
-    if (!rows.every(isVfsSharedByMeQueryRow)) {
+    if (!normalizedRows.every(isVfsSharedByMeQueryRow)) {
       throw new Error('Database returned invalid rows for SharedByMe query');
     }
 
-    return rows;
+    return normalizedRows;
   } catch (error) {
-    if (isMissingSqliteTableError(error, 'vfs_shares')) {
-      console.error(
-        'VFS share query skipped: missing required table "vfs_shares". Run latest client migrations.',
-        error
-      );
-      return [];
-    }
     throw error;
   }
 }
@@ -270,6 +290,7 @@ export async function querySharedWithMe(
   const permissionLevelExpr = sharePermissionLevelExpr();
 
   try {
+    const fallbackNow = new Date();
     const rows = await db
       .select({
         id: vfsRegistry.id,
@@ -347,19 +368,22 @@ export async function querySharedWithMe(
         )
       )
       .orderBy(...orderExprs);
+    const normalizedRows: VfsSharedWithMeQueryRow[] = rows.map((row) => ({
+      ...row,
+      createdAt: toDateOrFallback(row.createdAt, fallbackNow),
+      sharedAt: toDateOrFallback(row.sharedAt, fallbackNow),
+      expiresAt: toDateOrNull(row.expiresAt)
+    }));
 
-    if (!rows.every(isVfsSharedWithMeQueryRow)) {
+    if (!normalizedRows.every(isVfsSharedWithMeQueryRow)) {
       throw new Error('Database returned invalid rows for SharedWithMe query');
     }
 
-    return rows;
+    return normalizedRows;
   } catch (error) {
-    if (
-      isMissingSqliteTableError(error, 'vfs_shares') ||
-      isMissingSqliteTableError(error, 'users')
-    ) {
+    if (isMissingSqliteTableError(error, 'users')) {
       console.error(
-        'VFS share query skipped: missing required table ("vfs_shares" or "users"). Run latest client migrations.',
+        'VFS share query skipped: missing required table "users". Run latest client migrations.',
         error
       );
       return [];

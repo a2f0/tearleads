@@ -166,13 +166,13 @@ describe('sync schema contract', () => {
   it('keeps share routes off retired legacy share/access/folder tables', () => {
     const syncPackageRoot = process.cwd();
     const shareRouteSources = [
-      '../api/src/routes/vfs-shares/get-items-itemId-shares.ts',
-      '../api/src/routes/vfs-shares/post-items-itemId-shares.ts',
-      '../api/src/routes/vfs-shares/patch-shares-shareId.ts',
-      '../api/src/routes/vfs-shares/delete-shares-shareId.ts',
-      '../api/src/routes/vfs-shares/post-items-itemId-org-shares.ts',
-      '../api/src/routes/vfs-shares/delete-org-shares-shareId.ts',
-      '../api/src/routes/vfs-shares/get-share-targets-search.ts'
+      '../api/src/routes/vfs-shares/getItemsItemIdShares.ts',
+      '../api/src/routes/vfs-shares/postItemsItemIdShares.ts',
+      '../api/src/routes/vfs-shares/patchSharesShareId.ts',
+      '../api/src/routes/vfs-shares/deleteSharesShareId.ts',
+      '../api/src/routes/vfs-shares/postItemsItemIdOrgShares.ts',
+      '../api/src/routes/vfs-shares/deleteOrgSharesShareId.ts',
+      '../api/src/routes/vfs-shares/getShareTargetsSearch.ts'
     ].map((relativePath) =>
       readFileSync(resolve(syncPackageRoot, relativePath), 'utf8')
     );
@@ -200,25 +200,24 @@ describe('sync schema contract', () => {
     const syncPackageRoot = process.cwd();
     const shareReadRouteFiles = [
       {
-        relativePath: '../api/src/routes/vfs-shares/get-items-itemId-shares.ts',
+        relativePath: '../api/src/routes/vfs-shares/getItemsItemIdShares.ts',
         expectedLegacyReadTables: []
       },
       {
-        relativePath: '../api/src/routes/vfs-shares/patch-shares-shareId.ts',
+        relativePath: '../api/src/routes/vfs-shares/patchSharesShareId.ts',
         expectedLegacyReadTables: []
       },
       {
-        relativePath: '../api/src/routes/vfs-shares/delete-shares-shareId.ts',
-        expectedLegacyReadTables: []
-      },
-      {
-        relativePath:
-          '../api/src/routes/vfs-shares/delete-org-shares-shareId.ts',
+        relativePath: '../api/src/routes/vfs-shares/deleteSharesShareId.ts',
         expectedLegacyReadTables: []
       },
       {
         relativePath:
-          '../api/src/routes/vfs-shares/get-share-targets-search.ts',
+          '../api/src/routes/vfs-shares/deleteOrgSharesShareId.ts',
+        expectedLegacyReadTables: []
+      },
+      {
+        relativePath: '../api/src/routes/vfs-shares/getShareTargetsSearch.ts',
         expectedLegacyReadTables: []
       }
     ];
@@ -248,10 +247,16 @@ describe('sync schema contract', () => {
 
   it('remains compatible with generated Postgres schema and excludes retired transitional VFS tables', () => {
     const syncPackageRoot = process.cwd();
-    const generatedSchemaSource = readFileSync(
-      resolve(syncPackageRoot, '../db/src/generated/postgresql/schema.ts'),
-      'utf8'
-    );
+    const generatedSchemaSource = [
+      '../db/src/generated/postgresql/schema.ts',
+      '../db/src/generated/postgresql/schema-content.ts',
+      '../db/src/generated/postgresql/schema-foundation.ts',
+      '../db/src/generated/postgresql/schema-runtime.ts'
+    ]
+      .map((relativePath) =>
+        readFileSync(resolve(syncPackageRoot, relativePath), 'utf8')
+      )
+      .join('\n');
     const generatedTables = extractPostgresTableNamesFromDrizzleSchema(
       generatedSchemaSource
     );
@@ -270,10 +275,16 @@ describe('sync schema contract', () => {
 
   it('remains compatible with generated SQLite schema and excludes retired transitional VFS tables', () => {
     const syncPackageRoot = process.cwd();
-    const generatedSchemaSource = readFileSync(
-      resolve(syncPackageRoot, '../db/src/generated/sqlite/schema.ts'),
-      'utf8'
-    );
+    const generatedSchemaSource = [
+      '../db/src/generated/sqlite/schema.ts',
+      '../db/src/generated/sqlite/schema-content.ts',
+      '../db/src/generated/sqlite/schema-foundation.ts',
+      '../db/src/generated/sqlite/schema-runtime.ts'
+    ]
+      .map((relativePath) =>
+        readFileSync(resolve(syncPackageRoot, relativePath), 'utf8')
+      )
+      .join('\n');
     const generatedTables = extractSqliteTableNamesFromDrizzleSchema(
       generatedSchemaSource
     );

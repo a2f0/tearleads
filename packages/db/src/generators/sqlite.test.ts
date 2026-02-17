@@ -288,4 +288,80 @@ describe('generateSqliteSchema', () => {
     expect(result).toContain("index('name_idx').on(table.name),");
     expect(result).toContain("index('category_idx').on(table.category)");
   });
+
+  it('handles composite primary keys, unique indexes, and self references', () => {
+    const tables: TableDefinition[] = [
+      {
+        name: 'nodes',
+        propertyName: 'nodes',
+        columns: {
+          id: { type: 'text', sqlName: 'id', primaryKey: true },
+          workspaceId: {
+            type: 'text',
+            sqlName: 'workspace_id',
+            primaryKey: true
+          },
+          parentId: {
+            type: 'text',
+            sqlName: 'parent_id',
+            references: { table: 'nodes', column: 'id' }
+          }
+        },
+        indexes: [{ name: 'nodes_workspace_unique', columns: ['workspaceId'], unique: true }]
+      }
+    ];
+
+    const result = generateSqliteSchema(tables);
+    expect(result).toContain('type AnySQLiteColumn');
+    expect(result).toContain(
+      "primaryKey({ columns: [table.id, table.workspaceId] })"
+    );
+    expect(result).toContain(
+      "uniqueIndex('nodes_workspace_unique').on(table.workspaceId)"
+    );
+    expect(result).toContain(
+      "parentId: text('parent_id').references((): AnySQLiteColumn => nodes.id)"
+    );
+  });
+
+  it('throws for unknown table references', () => {
+    const tables: TableDefinition[] = [
+      {
+        name: 'child',
+        propertyName: 'child',
+        columns: {
+          id: { type: 'text', sqlName: 'id', primaryKey: true },
+          parentId: {
+            type: 'text',
+            sqlName: 'parent_id',
+            references: { table: 'missing_table', column: 'id' }
+          }
+        }
+      }
+    ];
+
+    expect(() => generateSqliteSchema(tables)).toThrow(
+      /Unknown table reference: missing_table/
+    );
+  });
+
+  it('supports composite primary keys without secondary indexes', () => {
+    const tables: TableDefinition[] = [
+      {
+        name: 'memberships',
+        propertyName: 'memberships',
+        columns: {
+          userId: { type: 'text', sqlName: 'user_id', primaryKey: true },
+          teamId: { type: 'text', sqlName: 'team_id', primaryKey: true }
+        }
+      }
+    ];
+
+    const result = generateSqliteSchema(tables);
+    expect(result).toContain(
+      "primaryKey({ columns: [table.userId, table.teamId] })"
+    );
+    expect(result).not.toContain("index('");
+    expect(result).not.toContain("uniqueIndex('");
+  });
 });

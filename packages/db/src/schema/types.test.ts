@@ -120,6 +120,14 @@ describe('isColumnDefinition', () => {
       isColumnDefinition({
         type: 'text',
         sqlName: 'user_id',
+        references: null
+      })
+    ).toBe(false);
+
+    expect(
+      isColumnDefinition({
+        type: 'text',
+        sqlName: 'user_id',
         references: {
           table: '',
           column: 'id'
