@@ -1,0 +1,178 @@
+export const enPart2 = {
+  settings: {
+    font: 'Font',
+    fontDescription: 'Choose your preferred font style',
+    fontSystem: 'System',
+    fontMonospace: 'Monospace',
+    iconDepth: 'Icon depth',
+    iconDepthDescription: 'Choose whether icons look raised or inset',
+    iconDepthEmbossed: 'Embossed',
+    iconDepthDebossed: 'Debossed',
+    iconBackground: 'Icon backgrounds',
+    iconBackgroundDescription:
+      'Choose whether icon tiles are colored or transparent',
+    iconBackgroundColored: 'Colored',
+    iconBackgroundTransparent: 'Transparent',
+    tooltips: 'Tooltips',
+    tooltipsDescription: 'Show helpful hints when hovering over elements',
+    tooltipsEnabled: 'Enabled',
+    tooltipsDisabled: 'Disabled',
+    windowOpacity: 'Window opacity',
+    windowOpacityDescription:
+      'Choose whether floating windows are translucent or fully opaque',
+    windowOpacityTranslucent: 'Translucent',
+    windowOpacityOpaque: 'Opaque',
+    borderRadius: 'Border radius',
+    borderRadiusDescription:
+      'Choose whether UI and windows use rounded corners or right angles',
+    borderRadiusRounded: 'Rounded',
+    borderRadiusSquare: 'Square'
+  },
+
+  classic: {
+    // TagSidebar
+    tagsSidebar: 'Tags Sidebar',
+    tagListContextMenu: 'Tag list, press Shift+F10 for context menu',
+    virtualTags: 'Virtual Tags',
+    deletedTags: 'Deleted Tags',
+    tagList: 'Tag List',
+    searchTags: 'Search tags',
+    dragTag: 'Drag tag',
+    save: 'Save',
+    cancel: 'Cancel',
+    saveTagName: 'Save tag name',
+    cancelEditing: 'Cancel editing',
+    restore: 'Restore',
+    restoreTag: 'Restore tag',
+    edit: 'Edit',
+    editTag: 'Edit tag',
+    moveUp: 'Move Up',
+    moveUpTag: 'Move tag',
+    moveDown: 'Move Down',
+    moveDownTag: 'Move tag',
+    delete: 'Delete',
+    deleteTag: 'Delete tag',
+    // NotesPane
+    notesPane: 'Notes Pane',
+    entryListContextMenu: 'Entry list, press Shift+F10 for context menu',
+    noteList: 'Note List',
+    searchEntries: 'Search entries',
+    dragEntry: 'Drag entry',
+    editEntryTitle: 'Edit entry title',
+    editEntryBody: 'Edit entry body',
+    saveEntry: 'Save entry',
+    editNote: 'Edit note',
+    moveUpNote: 'Move note',
+    moveDownNote: 'Move note',
+    // ClassicMenuBar
+    sortTags: 'Sort tags',
+    sortEntries: 'Sort entries',
+    tags: 'Tags',
+    entries: 'Entries',
+    // ClassicContextMenu
+    closeContextMenu: 'Close context menu',
+    // ClassicWindowMenuBar
+    file: 'File',
+    newEntry: 'New Entry',
+    close: 'Close',
+    undo: 'Undo',
+    redo: 'Redo',
+    newTag: 'New Tag',
+    sortBy: 'Sort by',
+    view: 'View',
+    help: 'Help',
+    classic: 'Classic'
+  },
+
+  contacts: {
+    // Window titles
+    contacts: 'Contacts',
+    newContact: 'New Contact',
+    // Form labels and placeholders
+    firstNameRequired: 'First name *',
+    lastName: 'Last name',
+    birthdayPlaceholder: 'Birthday (YYYY-MM-DD)',
+    emailAddresses: 'Email Addresses',
+    phoneNumbers: 'Phone Numbers',
+    email: 'Email',
+    phone: 'Phone',
+    label: 'Label',
+    add: 'Add',
+    primary: 'Primary',
+    // Detail view
+    details: 'Details',
+    created: 'Created',
+    updated: 'Updated',
+    // Loading states
+    loadingDatabase: 'Loading database...',
+    loadingContact: 'Loading contact...',
+    loadingContacts: 'Loading contacts...',
+    // Empty states
+    noContactsYet: 'No contacts yet',
+    createFirstContact: 'Create your first contact',
+    noContactInfo: 'No contact info',
+    // Search
+    searchContacts: 'Search contacts...',
+    // Groups sidebar
+    groups: 'Groups',
+    newGroup: 'New Group',
+    allContacts: 'All Contacts',
+    sendEmail: 'Send email',
+    rename: 'Rename',
+    // Group dialogs
+    groupName: 'Group name',
+    cancel: 'Cancel',
+    create: 'Create',
+    creating: 'Creating...',
+    save: 'Save',
+    saving: 'Saving...',
+    deleteGroup: 'Delete Group',
+    deleteGroupConfirm:
+      'Delete "{{name}}"? Contacts will be kept, but removed from this group.',
+    deleting: 'Deleting...',
+    renameGroup: 'Rename Group',
+    // Import
+    importCsv: 'Import CSV',
+    done: 'Done',
+    parsingCsv: 'Parsing CSV...',
+    csvColumns: 'CSV Columns',
+    dragColumnHint: 'Drag columns to map them to contact fields',
+    contactFields: 'Contact Fields',
+    dragColumnHere: 'Drag a column here',
+    previewFirstRows: 'Preview (first 3 rows)',
+    totalRows: '{{count}} total rows',
+    importing: 'Importing... {{progress}}%',
+    importContacts: 'Import {{count}} Contacts',
+    importedContacts: 'Imported {{imported}} contact{{plural}}{{skippedText}}',
+    skipped: ', skipped {{count}}',
+    andMore: '...and {{count}} more',
+    chooseFileHint: 'Choose File > Import CSV to select a file.',
+    // Menu bar
+    file: 'File',
+    new: 'New',
+    close: 'Close',
+    view: 'View',
+    list: 'List',
+    table: 'Table',
+    help: 'Help',
+    // Unlock descriptions
+    thisContact: 'this contact',
+    createContact: 'create a contact',
+    // Table headers
+    name: 'Name',
+    // Import column headers
+    value: 'Value',
+    // Contact detail page
+    backToContacts: 'Back to Contacts',
+    contactNotFound: 'Contact not found',
+    firstNameIsRequired: 'First name is required',
+    emailCannotBeEmpty: 'Email address cannot be empty',
+    phoneCannotBeEmpty: 'Phone number cannot be empty',
+    export: 'Export',
+    edit: 'Edit',
+    addEmail: 'Add Email',
+    addPhone: 'Add Phone',
+    emailAddress: 'Email address',
+    phoneNumber: 'Phone number'
+  }
+} as const;
