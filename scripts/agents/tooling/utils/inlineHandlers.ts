@@ -258,6 +258,66 @@ export function handleTriggerGeminiReview(
   });
 }
 
+const DEFAULT_GEMINI_QUOTA_MESSAGE =
+  'You have reached your daily quota limit. Please wait up to 24 hours and I will start processing your requests again!';
+
+export function handleCheckGeminiQuota(
+  options: GlobalOptions,
+  repo: string,
+  runGh: RunGh
+): string {
+  if (options.number === undefined) {
+    throw new Error('checkGeminiQuota requires --number');
+  }
+
+  const quotaMessage = options.quotaMessage ?? DEFAULT_GEMINI_QUOTA_MESSAGE;
+  const prNumber = String(options.number);
+
+  const responseBodies = [
+    runGh([
+      'pr',
+      'view',
+      prNumber,
+      '--json',
+      'reviews',
+      '-R',
+      repo,
+      '--jq',
+      '.reviews[].body // ""'
+    ]),
+    runGh([
+      'api',
+      `repos/${repo}/pulls/${prNumber}/comments`,
+      '--jq',
+      '.[].body // ""'
+    ]),
+    runGh([
+      'api',
+      `repos/${repo}/issues/${prNumber}/comments`,
+      '--jq',
+      '.[].body // ""'
+    ])
+  ];
+
+  const messages = responseBodies
+    .flatMap((surface) => surface.split('\n'))
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  const matches = messages.filter((line) => line.includes(quotaMessage));
+
+  return JSON.stringify(
+    {
+      status: 'success',
+      pr: options.number,
+      quota_exhausted: matches.length > 0,
+      match_count: matches.length
+    },
+    null,
+    2
+  );
+}
+
 export function handleGeneratePrSummary(
   options: GlobalOptions,
   repo: string,

@@ -12,7 +12,7 @@ Commit staged changes, push the branch, create a PR if needed, and handle initia
 Determine the repository for all `gh` commands:
 
 ```bash
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+REPO=$(./scripts/agents/tooling/agentTool.ts getRepo)
 ```
 
 Always pass `-R "$REPO"` to `gh` commands.
@@ -109,13 +109,10 @@ Track these state flags during execution:
    - Check all Gemini response surfaces for the quota message:
 
    ```bash
-   QUOTA_MSG="You have reached your daily quota limit. Please wait up to 24 hours and I will start processing your requests again!"
-   {
-     gh pr view "$PR_NUMBER" -R "$REPO" --json reviews --jq '.reviews[].body' 2>/dev/null;
-     gh api "/repos/$REPO/pulls/$PR_NUMBER/comments" --jq '.[].body' 2>/dev/null;
-     gh api "/repos/$REPO/issues/$PR_NUMBER/comments" --jq '.[].body' 2>/dev/null;
-   } | grep -F "$QUOTA_MSG"
+   ./scripts/agents/tooling/agentTool.ts checkGeminiQuota --number "$PR_NUMBER"
    ```
+
+   Treat `quota_exhausted: true` in the JSON response as quota exhaustion.
 
    - If found:
      - Set `gemini_quota_exhausted=true`.
