@@ -11,7 +11,9 @@
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@api-client/*": ["./src/*"]
+      "@api-client/*": ["./src/*"],
+      "@tearleads/shared/package.json": ["../shared/package.json"],
+      "@tearleads/shared": ["../shared/src/index.ts"]
     },
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },

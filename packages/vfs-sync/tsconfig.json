@@ -17,6 +17,8 @@
       "@tearleads/api-client/package.json": ["../api-client/package.json"],
       "@tearleads/api-client": ["../api-client/src/index.ts"],
       "@tearleads/api-client/authStorage": ["../api-client/src/authStorage.ts"],
+      "@tearleads/shared/package.json": ["../shared/package.json"],
+      "@tearleads/shared": ["../shared/src/index.ts"],
       "@sync/*": ["./src/*"]
     },
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
