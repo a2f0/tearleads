@@ -147,7 +147,13 @@ check_registry_generation() {
   local gendoc_output
   gendoc_output="$(mktemp)"
 
-  if [ ! -d .claude/commands ] && [ -d .claude/skills ]; then
+  if [ ! -d .claude/skills ]; then
+    rm -f "$gendoc_output"
+    return
+  fi
+
+  # Skip generator parity until generatePreenDocs is migrated to skills-only output.
+  if ! rg -q '\.claude/skills/preen/SKILL\.md' scripts/preen/generatePreenDocs.sh; then
     rm -f "$gendoc_output"
     return
   fi
