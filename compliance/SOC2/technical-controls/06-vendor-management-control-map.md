@@ -13,7 +13,7 @@ This map ties vendor management policy controls to concrete implementation and e
 | `TL-VENDOR-005` | GitHub vendor controls | [`.github/workflows/`](../../../.github/workflows), repository settings | GitHub audit log |
 | `TL-VENDOR-006` | RevenueCat vendor controls | [`packages/api/src/lib/revenuecat.ts`](../../../packages/api/src/lib/revenuecat.ts), [`packages/api/src/routes/revenuecat/`](../../../packages/api/src/routes/revenuecat) | Webhook test suite |
 | `TL-VENDOR-007` | OpenRouter vendor controls | [`packages/api/src/routes/chat/postCompletions.ts`](../../../packages/api/src/routes/chat/postCompletions.ts) | API usage logs |
-| `TL-VENDOR-008` | Anthropic vendor controls | [`CLAUDE.md`](../../../CLAUDE.md), [`.claude/commands/`](../../../.claude/commands) | Development session logs |
+| `TL-VENDOR-008` | Anthropic vendor controls | [`CLAUDE.md`](../../../CLAUDE.md), [`.claude/skills/`](../../../.claude/skills) | Development session logs |
 | `TL-VENDOR-009` | OpenAI vendor controls | [`AGENTS.md`](../../../AGENTS.md), [`.codex/skills/`](../../../.codex/skills) | Development session logs |
 | `TL-VENDOR-010` | Google Gemini vendor controls | [`.gemini/INSTRUCTIONS.md`](../../../.gemini/INSTRUCTIONS.md) | PR review comments |
 | `TL-VENDOR-011` | Vendor risk assessment | [`compliance/vendor-registry.md`](../../vendor-registry.md) (Risk Assessment Summary) | Risk assessment records |
@@ -69,7 +69,7 @@ This map ties vendor management policy controls to concrete implementation and e
 | File | Vendor | Description |
 | --- | --- | --- |
 | [`CLAUDE.md`](../../../CLAUDE.md) | Anthropic | Claude Code agent instructions |
-| `.claude/commands/` | Anthropic | Custom Claude Code skills |
+| `.claude/skills/` | Anthropic | Custom Claude Code skills |
 | [`AGENTS.md`](../../../AGENTS.md) | OpenAI | Codex agent instructions |
 | `.codex/skills/` | OpenAI | Custom Codex skills |
 | `.gemini/INSTRUCTIONS.md` | Google | Gemini Code Assist review instructions |

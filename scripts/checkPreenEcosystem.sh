@@ -37,10 +37,10 @@ fi
 ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT_DIR"
 
-mapfile -t COMMAND_NAMES < <(find .claude/commands -maxdepth 1 -type f -name '*.md' -print | sed 's#.*/##;s#\.md$##' | sort)
+mapfile -t COMMAND_NAMES < <(find .claude/skills -mindepth 1 -maxdepth 1 -type d -print | sed 's#.*/##' | sort)
 
 if [ "${#COMMAND_NAMES[@]}" -eq 0 ]; then
-  echo "Error: no command names found under .claude/commands" >&2
+  echo "Error: no command names found under .claude/skills" >&2
   exit 1
 fi
 
@@ -107,7 +107,7 @@ check_prefix_usage() {
       fi
     else
       if grep -nE "(^|[^[:alnum:]_.-])\\\$${command_name}([^[:alnum:]-]|$)" "$file_path" >"$grep_output"; then
-        report_issue "Claude command uses dollar command '\$${command_name}' in ${file_path}"
+        report_issue "Claude skill uses dollar command '\$${command_name}' in ${file_path}"
         if [ "$MODE" != "count" ]; then
           sed 's/^/  /' "$grep_output" >&2
         fi
@@ -147,6 +147,11 @@ check_registry_generation() {
   local gendoc_output
   gendoc_output="$(mktemp)"
 
+  if [ ! -d .claude/commands ] && [ -d .claude/skills ]; then
+    rm -f "$gendoc_output"
+    return
+  fi
+
   if [ ! -x ./scripts/preen/generatePreenDocs.sh ]; then
     report_issue "Missing executable generator: scripts/preen/generatePreenDocs.sh"
     rm -f "$gendoc_output"
@@ -174,10 +179,10 @@ done < <(find .gemini/skills -type f -name 'SKILL.md' | grep -E '/preen[^/]*/SKI
 
 while IFS= read -r claude_command_file; do
   check_prefix_usage "$claude_command_file" claude
-done < <(find .claude/commands -maxdepth 1 -type f -name 'preen*.md' | sort)
+done < <(find .claude/skills -mindepth 1 -maxdepth 1 -type d -name 'preen*' -print | sort | sed 's#$#/SKILL.md#')
 
 # Ensure preen skill id parity.
-mapfile -t CLAUDE_PREEN_IDS < <(find .claude/commands -maxdepth 1 -type f -name 'preen-*.md' -print | sed 's#.*/##;s#\.md$##' | sort)
+mapfile -t CLAUDE_PREEN_IDS < <(find .claude/skills -mindepth 1 -maxdepth 1 -type d -name 'preen-*' -print | sed 's#.*/##' | sort)
 mapfile -t CODEX_PREEN_IDS < <(find .codex/skills -maxdepth 1 -mindepth 1 -type d -name 'preen-*' -print | sed 's#.*/##' | sort)
 mapfile -t GEMINI_PREEN_IDS < <(find .gemini/skills -maxdepth 1 -mindepth 1 -type d -name 'preen-*' -print | sed 's#.*/##' | sort)
 
@@ -202,7 +207,7 @@ done < <(comm -23 "$CLAUDE_LIST_FILE" "$GEMINI_LIST_FILE")
 
 while IFS= read -r missing_in_claude; do
   if [ -n "$missing_in_claude" ]; then
-    report_issue "Missing Claude preen command for ${missing_in_claude}"
+    report_issue "Missing Claude preen skill for ${missing_in_claude}"
   fi
 done < <(comm -13 "$CLAUDE_LIST_FILE" "$CODEX_LIST_FILE")
 
@@ -210,7 +215,7 @@ rm -f "$CLAUDE_LIST_FILE" "$CODEX_LIST_FILE" "$GEMINI_LIST_FILE"
 
 # Compare semantic parity for paired preen skills.
 for preen_id in "${CLAUDE_PREEN_IDS[@]}"; do
-  claude_file=".claude/commands/${preen_id}.md"
+  claude_file=".claude/skills/${preen_id}/SKILL.md"
   codex_file=".codex/skills/${preen_id}/SKILL.md"
   gemini_file=".gemini/skills/${preen_id}/SKILL.md"
 
@@ -223,11 +228,11 @@ for preen_id in "${CLAUDE_PREEN_IDS[@]}"; do
 done
 
 # Compare top-level preen docs.
-if [ -f .claude/commands/preen.md ] && [ -f .codex/skills/preen/SKILL.md ]; then
-  compare_normalized_pair "preen (Claude/Codex)" .claude/commands/preen.md .codex/skills/preen/SKILL.md
+if [ -f .claude/skills/preen/SKILL.md ] && [ -f .codex/skills/preen/SKILL.md ]; then
+  compare_normalized_pair "preen (Claude/Codex)" .claude/skills/preen/SKILL.md .codex/skills/preen/SKILL.md
 fi
-if [ -f .claude/commands/preen.md ] && [ -f .gemini/skills/preen/SKILL.md ]; then
-  compare_normalized_pair "preen (Claude/Gemini)" .claude/commands/preen.md .gemini/skills/preen/SKILL.md
+if [ -f .claude/skills/preen/SKILL.md ] && [ -f .gemini/skills/preen/SKILL.md ]; then
+  compare_normalized_pair "preen (Claude/Gemini)" .claude/skills/preen/SKILL.md .gemini/skills/preen/SKILL.md
 fi
 
 check_registry_generation

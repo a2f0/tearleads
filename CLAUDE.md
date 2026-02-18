@@ -199,7 +199,7 @@ git push --force-with-lease      # WRONG - wastes tokens
 
 ## Managing Claude Code Skills
 
-The `.claude/commands/` folder contains reusable skills (slash commands). Each workspace uses its own `.claude` folder from the repo.
+The `.claude/skills/` folder contains reusable skills (slash commands). Each workspace uses its own `.claude` folder from the repo.
 
 ## Tuxedo Instance Tagging
 
@@ -246,7 +246,7 @@ Replying before pushing creates confusion - reviewers see "Fixed in commit abc12
 
 ### Adding, modifying, or deleting a skill
 
-Skills are version-controlled like any other file. Create, edit, or delete files in `.claude/commands/` and commit as normal.
+Skills are version-controlled like any other file. Create, edit, or delete files in `.claude/skills/` and commit as normal.
 
 ## Script Naming
 
@@ -262,7 +262,7 @@ Skills are version-controlled like any other file. Create, edit, or delete files
 - **Type definitions (.d.ts)**: camelCase (e.g., `capacitorSqlite.d.ts`)
 - **API routes**: camelCase (e.g., `postLogin.ts`, `getSessions.ts`)
 - **Index/barrel files**: Keep as `index.ts`
-- **Skills** (`.claude/commands/`, `.codex/skills/`): Keep kebab-case (e.g., `commit-and-push.md`)
+- **Skills** (`.claude/skills/`, `.codex/skills/`): Keep kebab-case skill IDs (e.g., `commit-and-push`)
 
 ### Do NOT Use
 

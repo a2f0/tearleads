@@ -37,9 +37,21 @@ fi
 ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT_DIR"
 
-if [ ! -d .codex/skills ] || [ ! -d .gemini/skills ] || [ ! -d .opencode/skills ] || [ ! -d .claude/commands ]; then
-  echo "Error: missing one or more required skill directories (.codex, .gemini, .opencode, .claude)" >&2
+if [ ! -d .codex/skills ] || [ ! -d .gemini/skills ] || [ ! -d .claude/skills ]; then
+  echo "Error: missing one or more required skill directories (.codex, .gemini, .claude)" >&2
   exit 1
+fi
+HAS_OPENCODE=0
+if [ -d .opencode/skills ]; then
+  HAS_OPENCODE=1
+fi
+if [ "$HAS_OPENCODE" -ne 1 ]; then
+  if [ "$MODE" = "count" ]; then
+    echo "0"
+  else
+    echo "[skill-parity] Skipping: .opencode/skills not present" >&2
+  fi
+  exit 0
 fi
 
 ISSUES=0
@@ -73,7 +85,7 @@ normalize_file() {
       sed -E "s#/${command_name}([^[:alnum:]-]|$)#<cmd:${command_name}>\\1#g; s#\\\$${command_name}([^[:alnum:]-]|$)#<cmd:${command_name}>\\1#g" "$output_file" > "$output_file.tmp"
       mv "$output_file.tmp" "$output_file"
     fi
-  done < <(find .claude/commands -maxdepth 1 -type f -name '*.md' -print | sed 's#.*/##;s#\.md$##' | sort)
+  done < <(find .claude/skills -mindepth 1 -maxdepth 1 -type d -print | sed 's#.*/##' | sort)
 
   sed -E 's/[[:space:]]+$//' "$output_file" > "$output_file.tmp"
   mv "$output_file.tmp" "$output_file"
@@ -135,6 +147,9 @@ collect_gemini_ids() {
 }
 
 collect_opencode_ids() {
+  if [ "$HAS_OPENCODE" -ne 1 ]; then
+    return
+  fi
   find .opencode/skills -type f -name 'SKILL.md' -print | while read -r skill_file; do
     local dir
     dir="$(dirname "$skill_file")"
@@ -143,7 +158,7 @@ collect_opencode_ids() {
 }
 
 collect_claude_ids() {
-  find .claude/commands -maxdepth 1 -type f -name '*.md' -print | sed 's#.*/##;s#\.md$##' | sort -u
+  find .claude/skills -mindepth 1 -maxdepth 1 -type d -print | sed 's#.*/##' | sort -u
 }
 
 CODEX_LIST_FILE="$(mktemp)"
@@ -166,7 +181,11 @@ while IFS= read -r missing_in_opencode; do
   if [ -n "$missing_in_opencode" ]; then
     report_issue "Missing OpenCode skill for ${missing_in_opencode}"
   fi
-done < <(comm -23 "$CODEX_LIST_FILE" "$OPENCODE_LIST_FILE")
+done < <(
+  if [ "$HAS_OPENCODE" -eq 1 ]; then
+    comm -23 "$CODEX_LIST_FILE" "$OPENCODE_LIST_FILE"
+  fi
+)
 
 while IFS= read -r missing_in_codex; do
   if [ -n "$missing_in_codex" ]; then
@@ -178,11 +197,15 @@ while IFS= read -r missing_in_codex; do
   if [ -n "$missing_in_codex" ]; then
     report_issue "Missing Codex skill for ${missing_in_codex}"
   fi
-done < <(comm -13 "$CODEX_LIST_FILE" "$OPENCODE_LIST_FILE")
+done < <(
+  if [ "$HAS_OPENCODE" -eq 1 ]; then
+    comm -13 "$CODEX_LIST_FILE" "$OPENCODE_LIST_FILE"
+  fi
+)
 
 while IFS= read -r missing_in_claude; do
   if [ -n "$missing_in_claude" ]; then
-    report_issue "Missing Claude command for ${missing_in_claude}"
+    report_issue "Missing Claude skill for ${missing_in_claude}"
   fi
 done < <(comm -23 "$CODEX_LIST_FILE" "$CLAUDE_LIST_FILE")
 
@@ -202,11 +225,11 @@ while IFS= read -r codex_skill; do
     if [ -f ".gemini/skills/${codex_skill}/SKILL.md" ]; then
       compare_normalized_pair "${codex_skill} (Codex/Gemini)" "$local_codex_file" ".gemini/skills/${codex_skill}/SKILL.md"
     fi
-    if [ -f ".opencode/skills/${codex_skill}/SKILL.md" ]; then
+    if [ "$HAS_OPENCODE" -eq 1 ] && [ -f ".opencode/skills/${codex_skill}/SKILL.md" ]; then
       compare_normalized_pair "${codex_skill} (Codex/OpenCode)" "$local_codex_file" ".opencode/skills/${codex_skill}/SKILL.md"
     fi
-    if [ -f ".claude/commands/${codex_skill}.md" ]; then
-      compare_normalized_pair "${codex_skill} (Codex/Claude)" "$local_codex_file" ".claude/commands/${codex_skill}.md"
+    if [ -f ".claude/skills/${codex_skill}/SKILL.md" ]; then
+      compare_normalized_pair "${codex_skill} (Codex/Claude)" "$local_codex_file" ".claude/skills/${codex_skill}/SKILL.md"
     fi
   fi
 done < <(collect_codex_ids)
