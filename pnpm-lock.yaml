@@ -1566,6 +1566,9 @@ importers:
 
   packages/help:
     dependencies:
+      '@tearleads/api':
+        specifier: workspace:*
+        version: link:../api
       '@tearleads/backups':
         specifier: workspace:*
         version: link:../backups
