@@ -1,6 +1,6 @@
 # @tearleads/vfs-explorer
 
-VFS Explorer components for Tearleads.
+Virtual file system explorer UI, hooks, and provider wiring for Tearleads.
 
 ## Installation
 
@@ -16,6 +16,13 @@ import {
   type VfsItem
 } from '@tearleads/vfs-explorer';
 ```
+
+## Main Exports
+
+- UI: `VfsExplorer`, `VfsWindow`, `VfsTreePanel`, `VfsDetailsPanel`, `VfsWindowMenuBar`
+- Provider/context: `VfsExplorerProvider`, `useVfsExplorerContext`, `useVfsExplorerUI`
+- Data hooks: `useVfsFolders`, `useVfsFolderContents`, `useCreateVfsFolder`, `useRenameVfsFolder`, `useDeleteVfsFolder`, `useMoveVfsItem`, `useCopyVfsItem`
+- IDs/constants: `VFS_ROOT_ID`, `ALL_ITEMS_FOLDER_ID`, `UNFILED_FOLDER_ID`, `TRASH_FOLDER_ID`, `SHARED_BY_ME_FOLDER_ID`, `SHARED_WITH_ME_FOLDER_ID`
 
 ## Development
 
