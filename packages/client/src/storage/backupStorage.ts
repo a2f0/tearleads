@@ -4,6 +4,10 @@
  */
 
 import { assertPlainArrayBuffer } from '@tearleads/shared';
+import {
+  type OpfsDirectoryEntryHandle,
+  getDirectoryEntries
+} from './opfsDirectoryEntries';
 
 const BACKUP_DIRECTORY = 'tearleads-backups';
 
@@ -11,12 +15,6 @@ export interface StoredBackup {
   name: string;
   size: number;
   lastModified: number;
-}
-
-interface FileSystemDirectoryEntriesHandle extends FileSystemDirectoryHandle {
-  entries(): AsyncIterableIterator<
-    [string, FileSystemDirectoryHandle | FileSystemFileHandle]
-  >;
 }
 
 function hasOpfsSupport(): boolean {
@@ -28,27 +26,9 @@ function hasOpfsSupport(): boolean {
 }
 
 function isFileHandle(
-  handle: FileSystemDirectoryHandle | FileSystemFileHandle
+  handle: OpfsDirectoryEntryHandle
 ): handle is FileSystemFileHandle {
   return handle.kind === 'file';
-}
-
-function hasDirectoryEntries(
-  directory: FileSystemDirectoryHandle
-): directory is FileSystemDirectoryEntriesHandle {
-  return 'entries' in directory;
-}
-
-function getDirectoryEntries(
-  directory: FileSystemDirectoryHandle
-): AsyncIterableIterator<
-  [string, FileSystemDirectoryHandle | FileSystemFileHandle]
-> {
-  if (!hasDirectoryEntries(directory)) {
-    throw new Error('OPFS entries() is not supported in this environment');
-  }
-
-  return directory.entries();
 }
 
 async function getBackupDirectory(): Promise<FileSystemDirectoryHandle> {

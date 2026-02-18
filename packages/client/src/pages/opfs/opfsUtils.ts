@@ -1,28 +1,5 @@
 import type { FileSystemEntry } from './types';
-
-interface FileSystemDirectoryEntriesHandle extends FileSystemDirectoryHandle {
-  entries(): AsyncIterableIterator<
-    [string, FileSystemDirectoryHandle | FileSystemFileHandle]
-  >;
-}
-
-function hasDirectoryEntries(
-  directory: FileSystemDirectoryHandle
-): directory is FileSystemDirectoryEntriesHandle {
-  return 'entries' in directory;
-}
-
-function getDirectoryEntries(
-  directory: FileSystemDirectoryHandle
-): AsyncIterableIterator<
-  [string, FileSystemDirectoryHandle | FileSystemFileHandle]
-> {
-  if (!hasDirectoryEntries(directory)) {
-    throw new Error('OPFS entries() is not supported in this environment');
-  }
-
-  return directory.entries();
-}
+import { getDirectoryEntries } from '../../storage/opfsDirectoryEntries';
 
 export function calculateTotalSize(entries: FileSystemEntry[]): number {
   return entries.reduce((total, entry) => {
