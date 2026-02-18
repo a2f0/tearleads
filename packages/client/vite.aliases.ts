@@ -136,8 +136,6 @@ export const createViteAliases = (
       '../search/package.json'
     ),
     '@tearleads/search': path.resolve(dirname, '../search/src/index.ts'),
-    '@tearleads/shared/package.json': path.resolve(dirname, '../shared/package.json'),
-    '@tearleads/shared': path.resolve(dirname, '../shared/src/index.ts'),
     '@tearleads/settings/package.json': path.resolve(
       dirname,
       '../settings/package.json'
