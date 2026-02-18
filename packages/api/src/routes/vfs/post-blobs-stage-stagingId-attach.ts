@@ -136,6 +136,13 @@ export const postBlobsStageStagingIdAttachHandler = async (
     }
 
     const expiresAtMs = Date.parse(toIsoFromDateOrString(stagedRow.expires_at));
+    if (!Number.isFinite(expiresAtMs)) {
+      await client.query('ROLLBACK');
+      inTransaction = false;
+      res.status(500).json({ error: 'Failed to attach staged blob' });
+      return;
+    }
+
     if (expiresAtMs <= Date.now()) {
       await client.query('ROLLBACK');
       inTransaction = false;
