@@ -75,13 +75,15 @@ import {
   defaultVfsSharesResponse,
   defaultVfsSyncReconcileResponse,
   defaultVfsSyncResponse,
-  getAdminUsers,
   nowIsoString,
   ok,
-  resetMockApiState,
-  setAdminUsers,
   withOptionalV1Prefix
 } from './handlerData.js';
+import {
+  getAdminUsers,
+  resetMockApiState,
+  setAdminUsers
+} from './handlerState.js';
 export { resetMockApiState };
 export const handlers = [
   http.get(withOptionalV1Prefix('/ping'), () =>
