@@ -22,6 +22,12 @@ import type {
 } from '@tearleads/shared';
 import { request } from '../apiCore';
 
+type UpdateMlsGroupResponse = CreateMlsGroupResponse;
+
+interface AckMlsWelcomeResponse {
+  acknowledged: boolean;
+}
+
 export const mlsRoutes = {
   listGroups: () =>
     request<MlsGroupsResponse>('/mls/groups', {
@@ -41,7 +47,7 @@ export const mlsRoutes = {
       eventName: 'api_post_mls_group'
     }),
   updateGroup: (groupId: string, data: UpdateMlsGroupRequest) =>
-    request<CreateMlsGroupResponse>(
+    request<UpdateMlsGroupResponse>(
       `/mls/groups/${encodeURIComponent(groupId)}`,
       {
         fetchOptions: {
@@ -168,7 +174,7 @@ export const mlsRoutes = {
       eventName: 'api_get_mls_welcome_messages'
     }),
   acknowledgeWelcome: (id: string, data: AckMlsWelcomeRequest) =>
-    request<{ acknowledged: boolean }>(
+    request<AckMlsWelcomeResponse>(
       `/mls/welcome-messages/${encodeURIComponent(id)}/ack`,
       {
         fetchOptions: {

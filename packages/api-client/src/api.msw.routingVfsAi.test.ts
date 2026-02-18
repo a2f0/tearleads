@@ -55,7 +55,7 @@ describe('api with msw', () => {
     resetApiEventLogger();
   });
 
-  it('routes vfs, ai, and mls requests through msw', async () => {
+  it('routes vfs requests through msw', async () => {
     const api = await loadApi();
 
     await api.vfs.getMyKeys();
@@ -86,6 +86,30 @@ describe('api with msw', () => {
     });
     await api.vfs.deleteOrgShare('org share 1');
     await api.vfs.searchShareTargets('test query', 'user');
+
+    expect(wasApiRequestMade('GET', '/vfs/keys/me')).toBe(true);
+    expect(wasApiRequestMade('POST', '/vfs/keys')).toBe(true);
+    expect(wasApiRequestMade('POST', '/vfs/register')).toBe(true);
+    expect(wasApiRequestMade('GET', '/vfs/items/item%201/shares')).toBe(true);
+    expect(wasApiRequestMade('POST', '/vfs/items/item%201/shares')).toBe(true);
+    expect(wasApiRequestMade('PATCH', '/vfs/shares/share%201')).toBe(true);
+    expect(wasApiRequestMade('DELETE', '/vfs/shares/share%201')).toBe(true);
+    expect(wasApiRequestMade('POST', '/vfs/items/item%201/org-shares')).toBe(
+      true
+    );
+    expect(wasApiRequestMade('DELETE', '/vfs/org-shares/org%20share%201')).toBe(
+      true
+    );
+    expect(wasApiRequestMade('GET', '/vfs/share-targets/search')).toBe(true);
+
+    expectSingleRequestQuery('GET', '/vfs/share-targets/search', {
+      q: 'test query',
+      type: 'user'
+    });
+  });
+
+  it('routes ai requests through msw', async () => {
+    const api = await loadApi();
 
     await api.ai.createConversation({
       encryptedTitle: 'encrypted-title',
@@ -121,6 +145,35 @@ describe('api with msw', () => {
       startDate: '2024-01-01',
       endDate: '2024-01-31'
     });
+
+    expect(wasApiRequestMade('POST', '/ai/conversations')).toBe(true);
+    expect(wasApiRequestMade('GET', '/ai/conversations')).toBe(true);
+    expect(wasApiRequestMade('GET', '/ai/conversations/conversation%201')).toBe(
+      true
+    );
+    expect(
+      wasApiRequestMade('PATCH', '/ai/conversations/conversation%201')
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('DELETE', '/ai/conversations/conversation%201')
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', '/ai/conversations/conversation%201/messages')
+    ).toBe(true);
+    expect(wasApiRequestMade('POST', '/ai/usage')).toBe(true);
+    expect(wasApiRequestMade('GET', '/ai/usage')).toBe(true);
+    expect(wasApiRequestMade('GET', '/ai/usage/summary')).toBe(true);
+
+    expectSingleRequestQuery('GET', '/ai/usage', {
+      startDate: '2024-01-01',
+      endDate: '2024-01-31',
+      cursor: 'cursor-1',
+      limit: '10'
+    });
+  });
+
+  it('routes mls requests through msw', async () => {
+    const api = await loadApi();
 
     await api.mls.listGroups();
     await api.mls.getGroup('group 1');
@@ -170,39 +223,6 @@ describe('api with msw', () => {
     await api.mls.leaveGroup('group 1');
     await api.mls.deleteKeyPackage('key package 1');
 
-    expect(wasApiRequestMade('GET', '/vfs/keys/me')).toBe(true);
-    expect(wasApiRequestMade('POST', '/vfs/keys')).toBe(true);
-    expect(wasApiRequestMade('POST', '/vfs/register')).toBe(true);
-    expect(wasApiRequestMade('GET', '/vfs/items/item%201/shares')).toBe(true);
-    expect(wasApiRequestMade('POST', '/vfs/items/item%201/shares')).toBe(true);
-    expect(wasApiRequestMade('PATCH', '/vfs/shares/share%201')).toBe(true);
-    expect(wasApiRequestMade('DELETE', '/vfs/shares/share%201')).toBe(true);
-    expect(wasApiRequestMade('POST', '/vfs/items/item%201/org-shares')).toBe(
-      true
-    );
-    expect(wasApiRequestMade('DELETE', '/vfs/org-shares/org%20share%201')).toBe(
-      true
-    );
-    expect(wasApiRequestMade('GET', '/vfs/share-targets/search')).toBe(true);
-
-    expect(wasApiRequestMade('POST', '/ai/conversations')).toBe(true);
-    expect(wasApiRequestMade('GET', '/ai/conversations')).toBe(true);
-    expect(wasApiRequestMade('GET', '/ai/conversations/conversation%201')).toBe(
-      true
-    );
-    expect(
-      wasApiRequestMade('PATCH', '/ai/conversations/conversation%201')
-    ).toBe(true);
-    expect(
-      wasApiRequestMade('DELETE', '/ai/conversations/conversation%201')
-    ).toBe(true);
-    expect(
-      wasApiRequestMade('POST', '/ai/conversations/conversation%201/messages')
-    ).toBe(true);
-    expect(wasApiRequestMade('POST', '/ai/usage')).toBe(true);
-    expect(wasApiRequestMade('GET', '/ai/usage')).toBe(true);
-    expect(wasApiRequestMade('GET', '/ai/usage/summary')).toBe(true);
-
     expect(wasApiRequestMade('GET', '/mls/groups')).toBe(true);
     expect(wasApiRequestMade('GET', '/mls/groups/group%201')).toBe(true);
     expect(wasApiRequestMade('POST', '/mls/groups')).toBe(true);
@@ -236,16 +256,6 @@ describe('api with msw', () => {
       wasApiRequestMade('DELETE', '/mls/key-packages/key%20package%201')
     ).toBe(true);
 
-    expectSingleRequestQuery('GET', '/vfs/share-targets/search', {
-      q: 'test query',
-      type: 'user'
-    });
-    expectSingleRequestQuery('GET', '/ai/usage', {
-      startDate: '2024-01-01',
-      endDate: '2024-01-31',
-      cursor: 'cursor-1',
-      limit: '10'
-    });
     expectSingleRequestQuery('GET', '/mls/groups/group%201/messages', {
       cursor: '10',
       limit: '25'
