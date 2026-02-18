@@ -14,6 +14,142 @@ const { 'data-testid': testId } = Astro.props;
   </div>
 </section>
 
+<script>
+  const rootElement = document.documentElement;
+  const contentRoot = document.querySelector('.doc-content');
+  const MERMAID_SCRIPT_ID = 'mermaid-esm-script';
+  const MERMAID_SRC = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+
+  const loadMermaid = async () => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    if (window['mermaid']) {
+      return window['mermaid'];
+    }
+
+    await new Promise((resolve, reject) => {
+      const existingScript = document.getElementById(MERMAID_SCRIPT_ID);
+      if (existingScript) {
+        existingScript.addEventListener('load', resolve, { once: true });
+        existingScript.addEventListener('error', reject, { once: true });
+        return;
+      }
+
+      const scriptElement = document.createElement('script');
+      scriptElement.id = MERMAID_SCRIPT_ID;
+      scriptElement.src = MERMAID_SRC;
+      scriptElement.async = true;
+      scriptElement.addEventListener('load', resolve, { once: true });
+      scriptElement.addEventListener('error', reject, { once: true });
+      document.head.appendChild(scriptElement);
+    });
+
+    return window['mermaid'] ?? null;
+  };
+
+  const getMermaidTheme = () => rootElement.classList.contains('dark') ? 'dark' : 'default';
+
+  const initializeMermaid = (mermaid) => {
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: getMermaidTheme(),
+    });
+  };
+
+  const syncMermaidContainers = () => {
+    if (!contentRoot) {
+      return;
+    }
+    const codeBlocks = contentRoot.querySelectorAll('pre > code.language-mermaid');
+
+    for (const codeBlock of codeBlocks) {
+      const preElement = codeBlock.parentElement;
+      if (!(preElement instanceof HTMLElement)) {
+        continue;
+      }
+
+      const source = codeBlock.textContent?.trim() ?? '';
+      if (source.length === 0) {
+        continue;
+      }
+
+      let container = preElement.nextElementSibling;
+      if (!(container instanceof HTMLElement) || !container.classList.contains('mermaid-client')) {
+        container = document.createElement('div');
+        container.className = 'mermaid mermaid-client my-4';
+        preElement.insertAdjacentElement('afterend', container);
+      }
+
+      container.dataset.source = source;
+      container.textContent = source;
+      preElement.style.display = 'none';
+    }
+  };
+
+  const rerenderMermaid = async () => {
+    if (!contentRoot) {
+      return;
+    }
+    const containers = contentRoot.querySelectorAll('.mermaid-client');
+    if (containers.length === 0) {
+      return;
+    }
+
+    const mermaid = await loadMermaid();
+    if (!mermaid) {
+      return;
+    }
+
+    initializeMermaid(mermaid);
+
+    for (const container of containers) {
+      if (!(container instanceof HTMLElement)) {
+        continue;
+      }
+      container.removeAttribute('data-processed');
+      container.textContent = container.dataset.source ?? '';
+    }
+
+    await mermaid.run({
+      nodes: Array.from(containers),
+      suppressErrors: false,
+    });
+  };
+
+  const setupThemeObserver = () => {
+    const observer = new MutationObserver(async (mutations) => {
+      const classChanged = mutations.some((mutation) => mutation.attributeName === 'class');
+      if (!classChanged) {
+        return;
+      }
+      try {
+        await rerenderMermaid();
+      } catch (error) {
+        console.error('Failed to re-render Mermaid diagrams on theme change:', error);
+      }
+    });
+
+    observer.observe(rootElement, { attributes: true, attributeFilter: ['class'] });
+  };
+
+  const bootstrapMermaid = async () => {
+    if (!contentRoot) {
+      return;
+    }
+    syncMermaidContainers();
+    try {
+      await rerenderMermaid();
+    } catch (error) {
+      console.error('Failed to render Mermaid diagrams on initial load:', error);
+    }
+    setupThemeObserver();
+  };
+
+  void bootstrapMermaid();
+</script>
+
 <style>
   .doc-content :global(h1),
   .doc-content :global(h2),

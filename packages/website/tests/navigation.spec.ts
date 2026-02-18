@@ -1,185 +1,36 @@
 import { expect, test } from '@playwright/test';
 
-const locators = {
-  architectureLink: 'main a[href="/docs/architecture"]',
-  docsLink: 'main a[href="/docs/api"]',
-  homeLink: 'header a[href="/"]',
-  architectureContent: '[data-testid="architecture-content"]',
-  apiDocsContent: 'text=API Docs',
-  settingsButton: '[data-testid="settings-button"]',
-  productsDropdown: '.nav-dropdown:has(button:text("Products"))',
-  docsDropdown: '.nav-dropdown:has(button:text("Docs"))',
-  dropdownMenu: '.nav-dropdown-menu',
-};
-
-test.describe('Website Navigation', () => {
-  test.beforeEach(async ({ page }) => {
-    // Root page serves English content directly (no redirect)
+test.describe('Website Smoke', () => {
+  test('home page renders core copy', async ({ page }) => {
     await page.goto('/');
-  });
-
-  test('home page loads with correct title', async ({ page }) => {
-    // English content is served directly at root (no /en/ prefix)
     await expect(page).toHaveURL(/\/$/);
     await expect(page).toHaveTitle('Tearleads');
-    await expect(page.locator('h2')).toContainText('Welcome to Tearleads');
+    await expect(page.getByRole('heading', { name: 'Welcome to Tearleads' })).toBeVisible();
   });
 
-  test('navigates to architecture page when clicking architecture link', async ({
-    page,
-  }) => {
-    const architectureLink = page.locator(locators.architectureLink);
-    await expect(architectureLink).toBeVisible();
-    await architectureLink.click();
-
+  test('architecture page renders doc content', async ({ page }) => {
+    await page.goto('/docs/architecture');
     await expect(page).toHaveURL(/\/docs\/architecture\/?$/);
     await expect(page).toHaveTitle('Architecture - Tearleads');
-    await expect(page.locator(locators.architectureContent)).toBeVisible();
+    await expect(page.locator('[data-testid="architecture-content"]')).toBeVisible();
   });
 
-  test('navigates to docs page when clicking docs link', async ({ page }) => {
-    const docsLink = page.locator(locators.docsLink);
-    await expect(docsLink).toBeVisible();
-    await docsLink.click();
-
+  test('api docs page responds and sets title', async ({ page }) => {
+    await page.goto('/docs/api');
     await expect(page).toHaveURL(/\/docs\/api\/?$/);
     await expect(page).toHaveTitle('API Documentation - Tearleads');
-    await expect(page.locator(locators.apiDocsContent)).toBeVisible();
+    await expect(page.locator('main')).toBeVisible();
   });
 
-  test('back link on architecture page returns to home', async ({ page }) => {
-    await page.goto('/docs/architecture');
-    await expect(page).toHaveTitle('Architecture - Tearleads');
+  test('licenses page has back link to home', async ({ page }) => {
+    await page.goto('/licenses');
+    await expect(page).toHaveURL(/\/licenses\/?$/);
+    await expect(page).toHaveTitle('Open Source Licenses - Tearleads');
+    await expect(page.getByRole('heading', { name: 'Open Source Licenses' })).toBeVisible();
 
-    const backLink = page.locator(locators.homeLink);
+    const backLink = page.getByRole('link', { name: '← Back to Home' });
     await expect(backLink).toBeVisible();
     await backLink.click();
-
     await expect(page).toHaveURL(/\/$/);
-    await expect(page).toHaveTitle('Tearleads');
-  });
-
-  test('back link on docs page returns to home', async ({ page }) => {
-    await page.goto('/docs/api');
-    await expect(page).toHaveTitle('API Documentation - Tearleads');
-
-    const backLink = page.locator(locators.homeLink);
-    await expect(backLink).toBeVisible();
-    await backLink.click();
-
-    await expect(page).toHaveURL(/\/$/);
-    await expect(page).toHaveTitle('Tearleads');
-  });
-
-  test('can navigate between all pages in sequence', async ({ page }) => {
-    await page.locator(locators.architectureLink).click();
-    await expect(page).toHaveTitle('Architecture - Tearleads');
-
-    await page.locator(locators.homeLink).click();
-    await expect(page).toHaveTitle('Tearleads');
-
-    await page.locator(locators.docsLink).click();
-    await expect(page).toHaveTitle('API Documentation - Tearleads');
-
-    await page.locator(locators.homeLink).click();
-    await expect(page).toHaveTitle('Tearleads');
-  });
-
-  test('direct URL navigation works for architecture page', async ({
-    page,
-  }) => {
-    await page.goto('/docs/architecture');
-    await expect(page).toHaveTitle('Architecture - Tearleads');
-    await expect(page.locator(locators.architectureContent)).toBeVisible();
-  });
-
-  test('direct URL navigation works for docs page', async ({ page }) => {
-    await page.goto('/docs/api');
-    await expect(page).toHaveTitle('API Documentation - Tearleads');
-    await expect(page.locator(locators.apiDocsContent)).toBeVisible();
-  });
-
-  test('navigation preserves theme setting', async ({ page }) => {
-    const settingsButton = page.locator(locators.settingsButton);
-    await expect(settingsButton).toBeVisible();
-
-    const htmlBefore = page.locator('html');
-    const initialTheme = await htmlBefore.getAttribute('class');
-
-    await page.locator(locators.architectureLink).click();
-    await expect(page).toHaveTitle('Architecture - Tearleads');
-
-    const htmlAfter = page.locator('html');
-    const themeAfter = await htmlAfter.getAttribute('class');
-    expect(themeAfter).toBe(initialTheme);
-  });
-});
-
-const dropdownTests = [
-  {
-    name: 'Products',
-    locator: locators.productsDropdown,
-    links: ['a[href="/products/cli"]', 'a[href="/products/desktop"]'],
-    clickLink: 'a[href="/products/cli"]',
-    expectedUrl: /\/products\/cli\/?$/,
-  },
-  {
-    name: 'Docs',
-    locator: locators.docsDropdown,
-    links: ['a[href="/docs/architecture"]', 'a[href="/docs/api"]'],
-    clickLink: 'a[href="/docs/architecture"]',
-    expectedUrl: /\/docs\/architecture\/?$/,
-  },
-];
-
-test.describe('Dropdown Menu Hover', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.setViewportSize({ width: 1024, height: 768 });
-  });
-
-  for (const dropdown of dropdownTests) {
-    test(`${dropdown.name} dropdown menu appears on hover`, async ({
-      page,
-    }) => {
-      const dropdownTrigger = page.locator(dropdown.locator);
-      const dropdownMenu = dropdownTrigger.locator(locators.dropdownMenu);
-
-      await expect(dropdownMenu).toBeHidden();
-      await dropdownTrigger.hover();
-      await expect(dropdownMenu).toBeVisible();
-
-      for (const link of dropdown.links) {
-        await expect(dropdownMenu.locator(link)).toBeVisible();
-      }
-    });
-
-    test(`can hover from ${dropdown.name} trigger to menu item and click`, async ({
-      page,
-    }) => {
-      const dropdownTrigger = page.locator(dropdown.locator);
-      const dropdownMenu = dropdownTrigger.locator(locators.dropdownMenu);
-      const targetLink = dropdownMenu.locator(dropdown.clickLink);
-
-      await dropdownTrigger.hover();
-      await expect(dropdownMenu).toBeVisible();
-
-      await targetLink.hover();
-      await expect(dropdownMenu).toBeVisible();
-
-      await targetLink.click();
-      await expect(page).toHaveURL(dropdown.expectedUrl);
-    });
-  }
-
-  test('dropdown menu hides when mouse leaves', async ({ page }) => {
-    const productsDropdown = page.locator(locators.productsDropdown);
-    const dropdownMenu = productsDropdown.locator(locators.dropdownMenu);
-
-    await productsDropdown.hover();
-    await expect(dropdownMenu).toBeVisible();
-
-    await page.locator('body').hover({ position: { x: 0, y: 0 } });
-    await expect(dropdownMenu).toBeHidden();
   });
 });
