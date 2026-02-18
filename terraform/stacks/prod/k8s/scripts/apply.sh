@@ -2,12 +2,17 @@
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-STACK_DIR="$(dirname "$SCRIPT_DIR")"
-REPO_ROOT="$(git rev-parse --show-toplevel)"
 
-# shellcheck source=../../../../scripts/common.sh
-source "$REPO_ROOT/terraform/scripts/common.sh"
+echo "Step 1/3: Applying Terraform infrastructure..."
+"$SCRIPT_DIR/apply01.sh" "$@"
 
-setup_ssh_host_keys
+echo ""
+echo "Step 2/3: Running baseline bootstrap and deploying manifests..."
+"$SCRIPT_DIR/apply02.sh"
 
-terraform -chdir="$STACK_DIR" apply "$@"
+echo ""
+echo "Step 3/3: Building images and rolling deployments..."
+"$SCRIPT_DIR/apply03.sh"
+
+echo ""
+echo "All steps complete."
