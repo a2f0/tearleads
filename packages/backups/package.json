@@ -30,6 +30,7 @@
     "react-router-dom": "7.13.0"
   },
   "dependencies": {
+    "@uiw/react-md-editor": "4.0.11",
     "lucide-react": "0.564.0"
   },
   "devDependencies": {
