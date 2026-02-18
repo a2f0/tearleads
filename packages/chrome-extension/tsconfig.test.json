@@ -2,7 +2,11 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "composite": true,
-    "noEmit": true,
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "./dist-tests",
     "tsBuildInfoFile": "./dist-tests/.tsbuildinfo"
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],

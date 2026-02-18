@@ -52,17 +52,12 @@
     { "path": "./packages/mls-chat" },
     { "path": "./packages/smtp-listener" },
     { "path": "./packages/smtp-listener/tsconfig.test.json" },
-    { "path": "./packages/chrome-extension" },
     { "path": "./packages/chrome-extension/tsconfig.test.json" },
     { "path": "./packages/tee-api" },
     { "path": "./packages/tee-api/tsconfig.test.json" },
     { "path": "./packages/tee-client" },
     { "path": "./packages/tee-client/tsconfig.test.json" },
-    { "path": "./packages/client" },
-    { "path": "./packages/client/tsconfig.test.json" },
-    { "path": "./packages/website" },
-    { "path": "./scripts/tsconfig.json" },
-    { "path": "./scripts/tsconfig.test.json" }
+    { "path": "./packages/client/tsconfig.test.json" }
   ],
   "files": []
 }
