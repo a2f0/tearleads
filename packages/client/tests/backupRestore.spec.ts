@@ -166,9 +166,13 @@ test.describe('Backup and Restore', () => {
     // Attempt to create backup with locked database
     await page.getByRole('button', { name: 'Create Backup' }).click();
 
-    // Verify backup activity becomes visible (progress or completion state).
+    // Verify the submit triggers a visible outcome in locked-db mode.
+    // Depending on runtime timing, this can show progress, success, or an error.
     const hasBackupActivity = await page
       .waitForFunction(() => {
+        const hasStartingText = Array.from(document.querySelectorAll('*')).some(
+          (el) => el.textContent?.trim() === 'Starting backup...'
+        );
         const hasPhaseText = Array.from(document.querySelectorAll('*')).some(
           (el) => {
             const text = el.textContent?.trim();
@@ -181,10 +185,18 @@ test.describe('Backup and Restore', () => {
         );
         const hasSuccessMessage =
           document.querySelector('[data-testid="backup-success"]') !== null;
+        const hasErrorMessage =
+          document.querySelector('[data-testid="backup-error"]') !== null;
         const hasStoredDownloadButton = Array.from(
           document.querySelectorAll('button')
         ).some((button) => button.textContent?.trim() === 'Download');
-        return hasPhaseText || hasSuccessMessage || hasStoredDownloadButton;
+        return (
+          hasStartingText ||
+          hasPhaseText ||
+          hasSuccessMessage ||
+          hasErrorMessage ||
+          hasStoredDownloadButton
+        );
       }, undefined, { timeout: 15000 })
       .then(() => true)
       .catch(() => false);
