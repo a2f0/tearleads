@@ -362,9 +362,15 @@ importers:
 
   packages/api-client:
     dependencies:
+      '@tearleads/local-write-orchestrator':
+        specifier: workspace:*
+        version: link:../local-write-orchestrator
       '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
+      '@tearleads/vfs-sync':
+        specifier: workspace:*
+        version: link:../vfs-sync
     devDependencies:
       '@tearleads/msw':
         specifier: workspace:*

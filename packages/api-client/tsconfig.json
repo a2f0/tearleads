@@ -12,8 +12,17 @@
     "baseUrl": ".",
     "paths": {
       "@api-client/*": ["./src/*"],
+      "@tearleads/local-write-orchestrator/package.json": [
+        "../local-write-orchestrator/package.json"
+      ],
+      "@tearleads/local-write-orchestrator": [
+        "../local-write-orchestrator/src/index.ts"
+      ],
       "@tearleads/shared/package.json": ["../shared/package.json"],
-      "@tearleads/shared": ["../shared/src/index.ts"]
+      "@tearleads/shared": ["../shared/src/index.ts"],
+      "@tearleads/vfs-sync/package.json": ["../vfs-sync/package.json"],
+      "@tearleads/vfs-sync": ["../vfs-sync/src/index.ts"],
+      "@tearleads/vfs-sync/vfs": ["../vfs-sync/src/vfs/index.ts"]
     },
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },
