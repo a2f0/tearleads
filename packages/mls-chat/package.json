@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/mls-chat",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "MLS (RFC 9420) end-to-end encrypted chat for Tearleads",
   "type": "module",
   "main": "dist/index.js",
