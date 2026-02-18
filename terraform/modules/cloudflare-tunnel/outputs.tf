@@ -21,5 +21,5 @@ output "tunnel_cname" {
 
 output "zone_id" {
   description = "Cloudflare zone ID"
-  value       = data.cloudflare_zone.main.id
+  value       = var.lookup_zone_by_name ? data.cloudflare_zone.main[0].id : var.zone_id
 }
