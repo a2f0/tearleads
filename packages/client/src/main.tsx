@@ -1,4 +1,3 @@
-import { setApiEventLogger } from '@tearleads/api-client';
 import { configureBackupsRuntime } from '@tearleads/backups';
 import { ThemeProvider } from '@tearleads/ui';
 import React, { Suspense } from 'react';
@@ -21,7 +20,6 @@ import { ErrorBoundary, errorBoundaryRef } from './components/ui/ErrorBoundary';
 import { WindowRenderer } from './components/window-renderer';
 import { AuthProvider } from './contexts/AuthContext';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
-import { logApiEvent } from './db/analytics';
 import { ClientSettingsProvider, DatabaseProvider } from './db/hooks';
 import { i18n } from './i18n';
 import { installConsoleErrorCapture } from './lib/consoleErrorCapture';
@@ -65,7 +63,6 @@ window.addEventListener('error', (event: ErrorEvent) => {
 
 installConsoleErrorCapture();
 configureBackupsRuntime(clientBackupsRuntime);
-setApiEventLogger(logApiEvent);
 
 const rootElement = document.getElementById('root');
 if (rootElement) {

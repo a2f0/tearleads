@@ -58,7 +58,6 @@
     "@tanstack/react-table": "8.21.3",
     "@tanstack/react-virtual": "3.13.18",
     "@tearleads/ai": "workspace:*",
-    "@tearleads/api-client": "workspace:*",
     "@tearleads/analytics": "workspace:*",
     "@tearleads/audio": "workspace:*",
     "@tearleads/businesses": "workspace:*",
