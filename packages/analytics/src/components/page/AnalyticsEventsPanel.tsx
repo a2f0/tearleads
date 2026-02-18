@@ -2,12 +2,12 @@ import type { VirtualItem } from '@tanstack/react-virtual';
 import { VirtualListStatus } from '@tearleads/ui';
 import { CheckCircle, Clock, Loader2, XCircle } from 'lucide-react';
 import type { RefObject } from 'react';
-import { DurationChart } from '@/components/duration-chart';
 import {
   type AnalyticsEvent,
   getEventDisplayName,
   type SortColumn
 } from '@/db/analytics';
+import { AnalyticsDurationChart } from './AnalyticsDurationChart';
 import { SortIcon, type SortState } from './SortIcon';
 import type { TimeFilter } from './types';
 
@@ -59,7 +59,7 @@ export function AnalyticsEventsPanel({
       className="flex min-h-0 flex-1 flex-col overflow-auto"
     >
       <div className="sticky top-0 z-10 bg-background pb-2">
-        <DurationChart
+        <AnalyticsDurationChart
           events={visibleEvents}
           selectedEventTypes={selectedEventTypes}
           timeFilter={timeFilter}
