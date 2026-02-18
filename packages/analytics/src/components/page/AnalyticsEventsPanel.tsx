@@ -2,12 +2,9 @@ import type { VirtualItem } from '@tanstack/react-virtual';
 import { VirtualListStatus } from '@tearleads/ui';
 import { CheckCircle, Clock, Loader2, XCircle } from 'lucide-react';
 import type { RefObject } from 'react';
-import {
-  type AnalyticsEvent,
-  getEventDisplayName,
-  type SortColumn
-} from '@/db/analytics';
+import type { AnalyticsEvent, SortColumn } from '@/db/analytics';
 import { AnalyticsDurationChart } from './AnalyticsDurationChart';
+import { getEventDisplayName } from './eventDisplayName';
 import { SortIcon, type SortState } from './SortIcon';
 import type { TimeFilter } from './types';
 
