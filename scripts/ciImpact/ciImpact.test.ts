@@ -170,7 +170,14 @@ test('ciImpact fallback diff path works when base ref is invalid', () => {
   ]);
   assert.equal(output.base, 'not-a-real-ref');
   assert.equal(output.head, 'HEAD');
-  assert.ok(Array.isArray(output.changedFiles));
+  assert.deepEqual(output.changedFiles, ['.github/workflows/build.yml']);
+  assert.ok(
+    output.warnings.some((warning) =>
+      warning.includes(
+        'Unable to diff not-a-real-ref...HEAD; forcing conservative full-run sentinel.'
+      )
+    )
+  );
 });
 
 test('ciImpact returns empty change set when base/head are identical', () => {

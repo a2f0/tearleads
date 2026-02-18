@@ -62,9 +62,13 @@ interface OutputPayload {
   warnings: string[];
 }
 
+interface DetectChangedFilesResult {
+  changedFiles: string[];
+  warnings: string[];
+}
+
 const ROOT = process.cwd();
 const CONFIG_PATH = path.join(ROOT, 'scripts/ciImpact/job-groups.json');
-const FALLBACK_DIFF = 'HEAD~1...HEAD';
 const SAFETY_FULL_RUN_SENTINEL = '.github/workflows/build.yml';
 
 function parseArgs(argv: string[]): CliArgs {
@@ -321,26 +325,22 @@ function detectChangedFiles(
   base: string,
   head: string,
   filesArg?: string
-): string[] {
+): DetectChangedFilesResult {
   if (filesArg !== undefined) {
-    return splitCsv(filesArg);
+    return { changedFiles: splitCsv(filesArg), warnings: [] };
   }
 
-  const candidateRanges = [
-    `${base}...${head}`,
-    `${head}^...${head}`,
-    FALLBACK_DIFF
-  ];
-  for (const range of candidateRanges) {
-    try {
-      return diffFiles(range);
-    } catch {
-      // Keep trying additional fallback ranges.
-    }
+  const primaryRange = `${base}...${head}`;
+  try {
+    return { changedFiles: diffFiles(primaryRange), warnings: [] };
+  } catch {
+    return {
+      changedFiles: [SAFETY_FULL_RUN_SENTINEL],
+      warnings: [
+        `Unable to diff ${primaryRange}; forcing conservative full-run sentinel.`
+      ]
+    };
   }
-
-  // Safety valve: if diff resolution fails entirely, force a conservative full-run path.
-  return [SAFETY_FULL_RUN_SENTINEL];
 }
 
 function startsWithOneOf(file: string, prefixes: string[]): boolean {
@@ -408,7 +408,8 @@ function main(): void {
   const config = readConfig(CONFIG_PATH);
   const { byName, byDir } = listWorkspacePackages();
   const reverseGraph = buildReverseGraph(byName);
-  const changedFiles = detectChangedFiles(base, head, args.files);
+  const diffResult = detectChangedFiles(base, head, args.files);
+  const changedFiles = diffResult.changedFiles;
 
   const changedPackages = new Set<string>();
   for (const file of changedFiles) {
@@ -427,7 +428,7 @@ function main(): void {
     config
   });
 
-  const warnings: string[] = [];
+  const warnings: string[] = [...diffResult.warnings];
   if (changedFiles.length > 0 && materialFiles.length === 0) {
     warnings.push(
       'All file changes are ignored by trigger policy (docs/config-only).'

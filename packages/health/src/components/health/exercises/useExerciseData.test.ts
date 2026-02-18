@@ -13,12 +13,17 @@ let mockTracker: {
   addExercise: typeof addExerciseMock;
 } | null = null;
 
-vi.mock('@/db/hooks', () => ({
-  useDatabaseContext: () => ({ isUnlocked: mockIsUnlocked })
-}));
-
 vi.mock('../useHealthTracker', () => ({
   useHealthTracker: () => mockTracker
+}));
+
+vi.mock('../../../runtime', () => ({
+  useHealthRuntime: () => ({
+    isUnlocked: mockIsUnlocked,
+    createTracker: () => {
+      throw new Error('createTracker should not be used in this test');
+    }
+  })
 }));
 
 function createExercise(id: string, name: string, parentId?: string): Exercise {
