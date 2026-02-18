@@ -18,10 +18,10 @@ This document describes the CI architecture and how agents should interact with 
 │  (workflow_run trigger after successful build on main)           │
 └─────────────────────────────────────────────────────────────────┘
                       │
-                      ▼ (creates PR)
+                      ▼ (direct commit replay to main)
 ┌─────────────────────────────────────────────────────────────────┐
-│                  Bump PR (ci/main-version-bump)                  │
-│  CI runs → merge → deploy workflows trigger                      │
+│         Version bump commits on main (serialized retries)        │
+│       deploy workflows trigger from main without bump PRs         │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -31,7 +31,7 @@ This document describes the CI architecture and how agents should interact with 
 |----------|---------|---------|
 | `build.yml` | push/PR | Lint, typecheck, build, unit tests |
 | `ci-gate.yml` | PR events | Waits for required workflows based on impact analysis |
-| `main-version-bump.yml` | workflow_run (after build on main) | Creates bump PR for version increments |
+| `main-version-bump.yml` | workflow_run (after build on main) | Replays pending bump commits directly to main |
 | `web-e2e.yml` | workflow_dispatch, PR | Playwright browser tests |
 | `electron-e2e.yml` | workflow_dispatch, PR | Electron desktop tests |
 | `android-maestro-release.yml` | workflow_dispatch, PR | Android Maestro tests |
@@ -96,7 +96,7 @@ Central config: `scripts/ciImpact/job-groups.json`
 
 ## Version Bump Workflow
 
-The `main-version-bump.yml` workflow automatically creates version bump PRs after successful builds on main.
+The `main-version-bump.yml` workflow automatically replays version bumps directly to `main` after successful builds.
 
 ### Flow
 
@@ -104,25 +104,15 @@ The `main-version-bump.yml` workflow automatically creates version bump PRs afte
 2. **Skip conditions**:
    - Source commit is already a bump commit (`chore(release): bump versions`)
    - Source commit was already processed (tracked via `source-sha:` in commit messages)
-   - No package changes in the source commit
 3. **Bump process**:
-   - Checkout main
-   - Fetch bump branch if exists, extract pending source SHAs
-   - Order pending sources by main branch commit order
+   - Checkout main and fetch source commit
+   - Build pending source SHA list from first-parent main history up to the triggering SHA
+   - Exclude already-processed sources using `source-sha:` trailers on main
    - For each source SHA, run `bumpVersion.sh` on changed packages
    - Commit each bump with `source-sha:` and `source-run-id:` trailers
-4. **PR management**:
-   - Close existing bump PR (force-pushes don't trigger CI)
-   - Create fresh PR (triggers `pull_request.opened` event)
-   - Enable auto-merge
-
-### Why Close/Recreate PR?
-
-GitHub Actions force-pushes don't trigger `pull_request.synchronize` events (anti-loop protection). To ensure CI runs on updated bump branches, the workflow:
-
-1. Closes the existing PR
-2. Creates a new PR with the same content
-3. The `opened` event triggers CI normally
+4. **Push strategy**:
+   - Push bump commits directly to `main` with `--force-with-lease` retries
+   - Authenticate with merge-signing GitHub App token when configured
 
 ### Commit Message Format
 
@@ -140,10 +130,10 @@ The bump workflow is **fire-and-forget** for agents:
 - Agents merge PRs normally to main
 - Build workflow runs automatically
 - On success, bump workflow triggers
-- Bump PR is created with auto-merge enabled
+- Bump commits are replayed directly to `main`
 - No agent intervention required
 
-If a bump PR is stuck, agents can manually trigger the workflow:
+If bumping appears stalled, agents can manually trigger the workflow:
 
 ```bash
 gh workflow run main-version-bump.yml --ref main
