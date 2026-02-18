@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 const NotificationCenterTrigger = lazy(() =>
-  import('@tearleads/notifications').then((m) => ({
+  import('@/components/notification-center').then((m) => ({
     default: m.NotificationCenterTrigger
   }))
 );

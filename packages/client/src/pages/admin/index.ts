@@ -14,4 +14,4 @@ export {
   UsersAdmin,
   UsersAdminDetail,
   UsersAdminPage
-} from '@tearleads/admin';
+} from '../../../../admin/src/clientEntry';
