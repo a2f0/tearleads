@@ -4,8 +4,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { getDatabase, getDatabaseAdapter, runLocalWrite } from '@/db';
+import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
+import { runLocalWrite } from '@/db/localWrite';
 import {
   contactEmails,
   contactPhones,

@@ -1,6 +1,6 @@
 import { type Database, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
 import { and, eq, inArray } from 'drizzle-orm';
-import { runLocalWrite } from '@/db';
+import { runLocalWrite } from '@/db/localWrite';
 
 export async function linkAudioToPlaylist(
   db: Database,

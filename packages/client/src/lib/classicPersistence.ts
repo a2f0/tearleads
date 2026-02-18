@@ -7,7 +7,8 @@ import {
   type VfsLinkLikeRow
 } from '@tearleads/classic';
 import { and, eq, inArray, or, sql } from 'drizzle-orm';
-import { getDatabase, runLocalWrite } from '@/db';
+import { getDatabase } from '@/db';
+import { runLocalWrite } from '@/db/localWrite';
 import { notes, tags, vfsLinks, vfsRegistry } from '@/db/schema';
 
 export const CLASSIC_TAG_PARENT_ID = '__vfs_root__';

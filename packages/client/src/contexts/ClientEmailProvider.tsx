@@ -21,7 +21,7 @@ import {
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
-import { getDatabase, runLocalWrite } from '@/db';
+import { getDatabase } from '@/db';
 import {
   deleteEmailDraftFromDb,
   getEmailDraftFromDb,
@@ -29,6 +29,7 @@ import {
   saveEmailDraftToDb
 } from '@/db/emailDrafts';
 import { useDatabaseContext } from '@/db/hooks';
+import { runLocalWrite } from '@/db/localWrite';
 import {
   contactEmails,
   contacts,

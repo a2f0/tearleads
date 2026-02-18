@@ -1,10 +1,6 @@
 import { useCallback, useState } from 'react';
-import {
-  getCurrentInstanceId,
-  getDatabase,
-  getDatabaseAdapter,
-  runLocalWrite
-} from '@/db';
+import { getCurrentInstanceId, getDatabase, getDatabaseAdapter } from '@/db';
+import { runLocalWrite } from '@/db/localWrite';
 import { contactEmails, contactPhones, contacts } from '@/db/schema';
 import {
   createContactDocument,
