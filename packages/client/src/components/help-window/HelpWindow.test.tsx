@@ -74,10 +74,7 @@ function renderHelpWindow() {
 describe('HelpWindow', () => {
   beforeEach(() => {
     mockFetch = vi.fn(() => new Promise(() => {}));
-    vi.stubGlobal(
-      'fetch',
-      mockFetch
-    );
+    vi.stubGlobal('fetch', mockFetch);
   });
 
   afterEach(() => {
