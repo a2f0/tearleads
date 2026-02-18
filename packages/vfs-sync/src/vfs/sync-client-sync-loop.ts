@@ -285,7 +285,6 @@ export async function pullUntilSettledLoop(
           'transport returned nextCursor that does not match pull page tail'
         );
       }
-
     } else if (response.nextCursor) {
       pageCursor = cloneCursor(response.nextCursor);
     } else if (cursorBeforePull) {
