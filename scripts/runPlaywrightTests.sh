@@ -45,8 +45,22 @@ cleanup() {
   if command -v lsof >/dev/null 2>&1; then
     PIDS=$(lsof -ti:"$PW_TEST_PORT" 2>/dev/null || true)
     if [ -n "$PIDS" ]; then
-      echo "[cleanup] Killing orphaned processes on port $PW_TEST_PORT: $PIDS"
-      echo "$PIDS" | xargs kill -9 2>/dev/null || true
+      echo "[cleanup] Stopping orphaned processes on port $PW_TEST_PORT: $PIDS"
+      for pid in $PIDS; do
+        if [ -n "${VITE_PID:-}" ] && [ "$pid" = "$VITE_PID" ]; then
+          continue
+        fi
+        kill -TERM "$pid" 2>/dev/null || true
+      done
+      sleep 1
+      for pid in $PIDS; do
+        if [ -n "${VITE_PID:-}" ] && [ "$pid" = "$VITE_PID" ]; then
+          continue
+        fi
+        if kill -0 "$pid" 2>/dev/null; then
+          kill -KILL "$pid" 2>/dev/null || true
+        fi
+      done
     fi
   fi
 }
@@ -58,7 +72,7 @@ echo "==> Running Playwright tests..."
 START_TIME=$(date +%s)
 PW_JSON_OUTPUT=$(mktemp "${TMPDIR:-/tmp}/playwright-results.XXXXXX")
 # Start Vite directly so the script owns the server lifecycle.
-VITE_API_URL=http://localhost:5001/v1 DOTENV_CONFIG_QUIET=true pnpm exec vite --port "$PW_TEST_PORT" &
+VITE_API_URL=http://localhost:5001/v1 DOTENV_CONFIG_QUIET=true ./node_modules/.bin/vite --port "$PW_TEST_PORT" &
 VITE_PID=$!
 
 MAX_WAIT=60
