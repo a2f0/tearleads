@@ -21,6 +21,7 @@ resource "hcloud_network_subnet" "vpn" {
   ip_range     = var.vpn_subnet_cidr
 }
 
+# COMPLIANCE_SENTINEL: TL-NET-004 | control=infrastructure-firewall
 # Firewall - only WireGuard UDP port and SSH
 resource "hcloud_firewall" "vpn" {
   name = "vpn-prod-firewall"
@@ -54,6 +55,8 @@ resource "hcloud_firewall" "vpn" {
   }
 }
 
+# COMPLIANCE_SENTINEL: TL-INFRA-001 | control=ssh-key-authentication
+# COMPLIANCE_SENTINEL: TL-INFRA-002 | control=server-hardening
 # VPN Server
 resource "hcloud_server" "vpn" {
   name        = "vpn-prod"
