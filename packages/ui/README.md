@@ -10,9 +10,6 @@ This package is part of the Tearleads monorepo and is not published independentl
 
 ```typescript
 import { Dialog, ThemeSwitcher, Tooltip } from '@tearleads/ui';
-```
-
-```typescript
 import { ThemeProvider } from '@tearleads/ui';
 import '@tearleads/ui/styles.css';
 import '@tearleads/ui/theme.css';
