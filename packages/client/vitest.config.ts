@@ -98,8 +98,6 @@ export default defineConfig({
         'src/sse/index.ts',
         'src/video/index.ts',
         'src/components/admin-groups/index.ts',
-        'src/components/admin-postgres/index.ts',
-        'src/components/admin-postgres-window/index.ts',
         'src/components/chat-window/index.ts',
         'src/contexts/ClientContactsProvider.tsx',
         // ClientEmailProvider has database folder operations that require integration testing
@@ -151,8 +149,6 @@ export default defineConfig({
         // rendering different UI based on view (topLevel vs developer). The callbacks
         // for the inactive view cannot be exercised in tests.
         'src/pages/help/Help.tsx',
-        // App-builder stub module for disabled packages - no behavior to test
-        'src/lib/disabledPackageStub.ts',
         // App config runtime module - thin wrapper over virtual module
         'src/lib/appConfig.ts'
       ],
@@ -183,4 +179,3 @@ export default defineConfig({
     }
   }
 });
-
