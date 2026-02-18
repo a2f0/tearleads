@@ -57,7 +57,6 @@
     "@radix-ui/react-slot": "1.2.4",
     "@tanstack/react-table": "8.21.3",
     "@tanstack/react-virtual": "3.13.18",
-    "@tearleads/admin": "workspace:*",
     "@tearleads/ai": "workspace:*",
     "@tearleads/analytics": "workspace:*",
     "@tearleads/audio": "workspace:*",

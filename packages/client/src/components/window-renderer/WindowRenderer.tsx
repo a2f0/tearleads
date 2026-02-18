@@ -1,17 +1,16 @@
+import { AnalyticsWindow } from '@tearleads/analytics';
+import { BackupWindow } from '@tearleads/backups';
+import type { WindowDimensions } from '@tearleads/window-manager';
+import type { ComponentType } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
+import { AdminUsersWindow } from '@/components/admin-users-window';
 import {
   AdminGroupsWindow,
   AdminOrganizationsWindow,
   AdminPostgresWindow,
   AdminRedisWindow,
   AdminWindow
-} from '@tearleads/admin';
-import { AnalyticsWindow } from '@tearleads/analytics';
-import { BackupWindow } from '@tearleads/backups';
-import { NotificationCenter } from '@tearleads/notifications';
-import type { WindowDimensions } from '@tearleads/window-manager';
-import type { ComponentType } from 'react';
-import { memo, useCallback, useMemo, useRef } from 'react';
-import { AdminUsersWindow } from '@/components/admin-users-window';
+} from '@/components/admin-windows';
 import { AIWindow } from '@/components/ai-window';
 import { AudioWindow } from '@/components/audio-window';
 import { BusinessesWindow } from '@/components/businesses-window';
@@ -32,6 +31,7 @@ import { LocalStorageWindow } from '@/components/local-storage-window';
 import { MlsChatWindow } from '@/components/mls-chat-window';
 import { ModelsWindow } from '@/components/models-window';
 import { NotesWindow } from '@/components/notes-window';
+import { NotificationCenter } from '@/components/notification-center';
 import { OpfsWindow } from '@/components/opfs-window';
 import { PhotosWindow } from '@/components/photos-window';
 import { SearchWindow } from '@/components/search-window';

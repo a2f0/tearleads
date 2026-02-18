@@ -3,17 +3,7 @@
  * Supports multi-instance with instance switching.
  */
 
-import { notificationStore } from '@tearleads/notifications/stores';
-import type { ReactNode } from 'react';
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   clearSessionActive,
   markSessionActive,
@@ -22,8 +12,6 @@ import {
 import { emitInstanceChange } from '@/hooks/useInstanceChange';
 import { toError } from '@/lib/errors';
 import { deleteFileStorageForInstance } from '@/storage/opfs';
-import { logStore } from '@/stores/logStore';
-import { validateAndPruneOrphanedInstances } from '../crypto/keyManager';
 import type { Database } from '../index';
 import {
   changePassword,
@@ -44,73 +32,15 @@ import {
   createInstance as createRegistryInstance,
   deleteInstanceFromRegistry,
   getInstances,
-  initializeRegistry,
   setActiveInstanceId,
   touchInstance
 } from '../instanceRegistry';
-
-interface DatabaseContextValue {
-  /** The database instance (null if not unlocked) */
-  db: Database | null;
-  /** Whether the database is currently loading/initializing */
-  isLoading: boolean;
-  /** Error if database initialization failed */
-  error: Error | null;
-  /** Whether a database has been set up (has encryption key) */
-  isSetUp: boolean;
-  /** Whether the database is currently unlocked */
-  isUnlocked: boolean;
-  /** Whether there's a persisted session available (web only) */
-  hasPersistedSession: boolean;
-
-  // Multi-instance fields
-  /** Current instance ID */
-  currentInstanceId: string | null;
-  /** Current instance name */
-  currentInstanceName: string | null;
-  /** List of all instances */
-  instances: InstanceMetadata[];
-
-  /** Set up a new database with a password */
-  setup: (password: string) => Promise<boolean>;
-  /** Unlock an existing database with a password */
-  unlock: (password: string, persistSession?: boolean) => Promise<boolean>;
-  /** Restore the database from a persisted session (web only) */
-  restoreSession: () => Promise<boolean>;
-  /** Persist the current session for restoration on reload (web only) */
-  persistSession: () => Promise<boolean>;
-  /** Clear any persisted session data without locking */
-  clearPersistedSession: () => Promise<void>;
-  /** Lock the database (close and clear key) */
-  lock: (clearSession?: boolean) => Promise<void>;
-  /** Change the database password */
-  changePassword: (
-    oldPassword: string,
-    newPassword: string
-  ) => Promise<boolean>;
-  /** Reset the current database (wipe everything) */
-  reset: () => Promise<void>;
-  /** Export the database to a byte array */
-  exportDatabase: () => Promise<Uint8Array>;
-  /** Import a database from a byte array */
-  importDatabase: (data: Uint8Array) => Promise<void>;
-
-  // Multi-instance methods
-  /** Create a new instance and switch to it */
-  createInstance: () => Promise<string>;
-  /** Switch to a different instance */
-  switchInstance: (instanceId: string) => Promise<boolean>;
-  /** Delete an instance */
-  deleteInstance: (instanceId: string) => Promise<void>;
-  /** Refresh the instances list */
-  refreshInstances: () => Promise<void>;
-}
-
-const DatabaseContext = createContext<DatabaseContextValue | null>(null);
-
-interface DatabaseProviderProps {
-  children: ReactNode;
-}
+import { DatabaseContext } from './useDatabaseContext';
+import { initializeAndRestoreDatabaseState } from './useDatabaseInitialization';
+import type {
+  DatabaseContextValue,
+  DatabaseProviderProps
+} from './useDatabaseTypes';
 
 /**
  * Provider component for database access.
@@ -138,104 +68,20 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
   // Initialize registry and check for active instance on mount
   useEffect(() => {
     async function initializeAndRestore() {
-      // Check if there was an active session before page load
       const hadActiveSession = wasSessionActive();
-
-      try {
-        // Initialize the instance registry (creates default instance if needed)
-        let activeInstance = await initializeRegistry();
-
-        // Load all instances and validate for orphans
-        let allInstances = await getInstances();
-
-        // Prune orphaned Keystore and registry entries
-        // This handles cases where Android Keystore entries survive app uninstall
-        const cleanupResult = await validateAndPruneOrphanedInstances(
-          allInstances.map((i) => i.id),
-          deleteInstanceFromRegistry
-        );
-
-        if (cleanupResult.cleaned) {
-          // Log warnings about cleaned up orphans
-          if (cleanupResult.orphanedKeystoreEntries.length > 0) {
-            logStore.warn(
-              `Pruned ${cleanupResult.orphanedKeystoreEntries.length} orphaned Keystore entries`,
-              `Instance IDs: ${cleanupResult.orphanedKeystoreEntries.join(', ')}`
-            );
-          }
-          if (cleanupResult.orphanedRegistryEntries.length > 0) {
-            logStore.warn(
-              `Pruned ${cleanupResult.orphanedRegistryEntries.length} orphaned registry entries`,
-              `Instance IDs: ${cleanupResult.orphanedRegistryEntries.join(', ')}`
-            );
-          }
-
-          // Reload instances after cleanup
-          allInstances = await getInstances();
-
-          // Re-initialize registry if the active instance was cleaned up
-          if (allInstances.length === 0) {
-            activeInstance = await initializeRegistry();
-            allInstances = await getInstances();
-          } else {
-            // Check if active instance still exists
-            const activeStillExists = allInstances.some(
-              (i) => i.id === activeInstance.id
-            );
-            if (!activeStillExists && allInstances[0]) {
-              // Use first available instance as active
-              activeInstance = allInstances[0];
-              await setActiveInstanceId(activeInstance.id);
-            }
-          }
-        }
-
-        setInstances(allInstances);
-
-        // Set current instance
-        setCurrentInstanceId(activeInstance.id);
-        setCurrentInstanceName(activeInstance.name);
-        emitInstanceChange(activeInstance.id);
-
-        // Check setup status and persisted session for active instance
-        const [setup, persisted] = await Promise.all([
-          isDatabaseSetUp(activeInstance.id),
-          hasPersistedSession(activeInstance.id)
-        ]);
-        setIsSetUp(setup);
-        setHasPersisted(persisted);
-
-        // Auto-restore session if available
-        if (persisted) {
-          const database = await restoreDatabaseSession(activeInstance.id);
-          if (database) {
-            setDb(database);
-            markSessionActive();
-            await touchInstance(activeInstance.id);
-          } else {
-            // Session restore failed, clear the invalid session
-            setHasPersisted(false);
-            showUnexpectedReloadNotification();
-          }
-        } else if (setup) {
-          showUnexpectedReloadNotification();
-        }
-
-        // Helper to show notification for unexpected reloads (DRY)
-        function showUnexpectedReloadNotification() {
-          if (hadActiveSession && !hasShownRecoveryNotification.current) {
-            hasShownRecoveryNotification.current = true;
-            notificationStore.warning(
-              'Unexpected Reload',
-              'App reloaded unexpectedly. Please unlock your database to continue.'
-            );
-          }
-        }
-      } catch (err) {
-        setError(toError(err));
-      } finally {
-        setIsLoading(false);
-      }
+      await initializeAndRestoreDatabaseState({
+        hadActiveSession,
+        hasShownRecoveryNotification,
+        setCurrentInstanceId,
+        setCurrentInstanceName,
+        setDb,
+        setError,
+        setHasPersisted,
+        setInstances,
+        setIsLoading,
+        setIsSetUp,
+        markSessionActive
+      });
     }
 
     initializeAndRestore();
@@ -645,38 +491,8 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
   );
 }
 
-/**
- * Hook to access the database context.
- */
-export function useDatabaseContext(): DatabaseContextValue {
-  const context = useContext(DatabaseContext);
-  if (!context) {
-    throw new Error(
-      'useDatabaseContext must be used within a DatabaseProvider'
-    );
-  }
-  return context;
-}
-
-/**
- * Hook to access the database instance.
- * Throws if the database is not unlocked.
- */
-export function useDatabase(): Database {
-  const { db, isUnlocked } = useDatabaseContext();
-  if (!isUnlocked || !db) {
-    throw new Error(
-      'Database is not unlocked. Use useDatabaseContext for conditional access.'
-    );
-  }
-  return db;
-}
-
-/**
- * Hook to access the database if it's unlocked.
- * Returns null if the database is not unlocked.
- */
-export function useDatabaseOptional(): Database | null {
-  const { db } = useDatabaseContext();
-  return db;
-}
+export {
+  useDatabase,
+  useDatabaseContext,
+  useDatabaseOptional
+} from './useDatabaseContext';

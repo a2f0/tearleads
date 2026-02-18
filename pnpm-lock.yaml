@@ -871,9 +871,6 @@ importers:
       '@tanstack/react-virtual':
         specifier: 3.13.18
         version: 3.13.18(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@tearleads/admin':
-        specifier: workspace:*
-        version: link:../admin
       '@tearleads/ai':
         specifier: workspace:*
         version: link:../ai

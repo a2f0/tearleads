@@ -146,6 +146,30 @@ vi.mock('@/components/sync-window', () => ({
   SyncWindow: createMockWindow('sync', { width: 400, height: 450 })
 }));
 
+vi.mock('@/components/admin-windows', () => ({
+  AdminWindow: createMockWindow('admin', { width: 700, height: 600 }),
+  AdminRedisWindow: createMockWindow('admin-redis', {
+    width: 700,
+    height: 600
+  }),
+  AdminPostgresWindow: createMockWindow('admin-postgres', {
+    width: 700,
+    height: 600
+  }),
+  AdminGroupsWindow: createMockWindow('admin-groups', {
+    width: 700,
+    height: 600
+  }),
+  AdminUsersWindow: createMockWindow('admin-users', {
+    width: 700,
+    height: 600
+  }),
+  AdminOrganizationsWindow: createMockWindow('admin-organizations', {
+    width: 840,
+    height: 620
+  })
+}));
+
 // Mock @ionic/core gestures to avoid DOM issues in jsdom
 vi.mock('@ionic/core', () => ({
   createGesture: vi.fn(() => ({
