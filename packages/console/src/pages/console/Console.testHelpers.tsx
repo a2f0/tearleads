@@ -1,5 +1,5 @@
-import { AccountSwitcher } from '@client/components/AccountSwitcher';
 import { render } from '@testing-library/react';
+import { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import { setConsoleTerminalDependencies } from '../../lib/terminalDependencies';
@@ -32,10 +32,6 @@ export const mockContext = {
   switchInstance: mockSwitchInstance
 };
 
-vi.mock('@client/db/hooks', () => ({
-  useDatabaseContext: () => mockContext
-}));
-
 export const mockSaveFile = vi.fn();
 export const mockGetErrorMessage = vi.fn((error: unknown) =>
   error instanceof Error ? error.message : String(error)
@@ -45,11 +41,33 @@ export const mockReadFileAsUint8Array = vi.fn(() =>
   Promise.resolve(new Uint8Array([1, 2, 3]))
 );
 
-vi.mock('@client/lib/fileUtils', () => ({
-  generateBackupFilename: () => mockGenerateBackupFilename(),
-  readFileAsUint8Array: (file: File) => mockReadFileAsUint8Array(file),
-  saveFile: (...args: unknown[]) => mockSaveFile(...args)
-}));
+function TestAccountSwitcher() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div>
+      <button
+        type="button"
+        data-testid="account-switcher-button"
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        Account Switcher
+      </button>
+      {open && (
+        <div data-testid="account-switcher-menu">
+          {mockContext.instances.map((instance) => (
+            <div
+              key={instance.id}
+              data-testid={`instance-unlocked-${instance.id}`}
+            >
+              {instance.name}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function renderConsole() {
   return render(
@@ -63,7 +81,7 @@ export function renderConsoleWithAccountSwitcher() {
   return render(
     <MemoryRouter>
       <div>
-        <AccountSwitcher />
+        <TestAccountSwitcher />
         <Console />
       </div>
     </MemoryRouter>

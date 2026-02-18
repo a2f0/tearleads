@@ -11,29 +11,11 @@ const mockGetKeyStatusForInstance =
 const mockDeleteSessionKeysForInstance =
   vi.fn<(instanceId: string) => Promise<void>>();
 const mockKeyManagerReset = vi.fn<() => Promise<void>>();
-const mockGetKeyManagerForInstance = vi.fn((_instanceId: string) => ({
-  reset: mockKeyManagerReset
-}));
-
-vi.mock('@client/db/crypto/keyManager', () => ({
-  getKeyStatusForInstance: (instanceId: string) =>
-    mockGetKeyStatusForInstance(instanceId),
-  deleteSessionKeysForInstance: (instanceId: string) =>
-    mockDeleteSessionKeysForInstance(instanceId),
-  getKeyManagerForInstance: (instanceId: string) =>
-    mockGetKeyManagerForInstance(instanceId)
-}));
 
 const mockGetInstance =
   vi.fn<(instanceId: string) => Promise<InstanceMetadata | null>>();
 const mockDeleteInstanceFromRegistry =
   vi.fn<(instanceId: string) => Promise<void>>();
-
-vi.mock('@client/db/instanceRegistry', () => ({
-  getInstance: (instanceId: string) => mockGetInstance(instanceId),
-  deleteInstanceFromRegistry: (instanceId: string) =>
-    mockDeleteInstanceFromRegistry(instanceId)
-}));
 
 vi.mock('../../pages/keychain/DeleteSessionKeysDialog', () => ({
   DeleteSessionKeysDialog: ({
@@ -122,9 +104,8 @@ describe('KeychainWindowDetail', () => {
         mockGetKeyStatusForInstance(instanceId),
       deleteSessionKeysForInstance: (instanceId) =>
         mockDeleteSessionKeysForInstance(instanceId),
-      resetInstanceKeys: async (instanceId) => {
-        const manager = mockGetKeyManagerForInstance(instanceId);
-        await manager.reset();
+      resetInstanceKeys: async () => {
+        await mockKeyManagerReset();
       }
     });
   });
