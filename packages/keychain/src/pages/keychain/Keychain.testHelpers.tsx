@@ -1,6 +1,4 @@
-import { i18n } from '@client/i18n';
 import { render } from '@testing-library/react';
-import { I18nextProvider } from 'react-i18next';
 import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import { setKeychainDependencies } from '../../lib/keychainDependencies';
@@ -13,24 +11,11 @@ export const mockDeleteSessionKeysForInstance =
   vi.fn<(instanceId: string) => Promise<void>>();
 export const mockGetInstances = vi.fn<() => Promise<InstanceMetadata[]>>();
 
-vi.mock('@client/db/crypto/keyManager', () => ({
-  getKeyStatusForInstance: (instanceId: string) =>
-    mockGetKeyStatusForInstance(instanceId),
-  deleteSessionKeysForInstance: (instanceId: string) =>
-    mockDeleteSessionKeysForInstance(instanceId)
-}));
-
-vi.mock('@client/db/instanceRegistry', () => ({
-  getInstances: () => mockGetInstances()
-}));
-
 export function renderKeychain() {
   return render(
-    <I18nextProvider i18n={i18n}>
-      <MemoryRouter>
-        <Keychain />
-      </MemoryRouter>
-    </I18nextProvider>
+    <MemoryRouter>
+      <Keychain />
+    </MemoryRouter>
   );
 }
 

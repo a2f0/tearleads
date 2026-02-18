@@ -5,15 +5,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setConsoleTerminalDependencies } from '../../lib/terminalDependencies';
 import { ConsoleWindow } from './ConsoleWindow';
 
-// Mock database hooks
-vi.mock('@client/db/hooks', () => ({
-  useDatabaseContext: () => ({
-    isUnlocked: true,
-    isLoading: false,
-    currentInstanceId: 'test-instance'
-  })
-}));
-
 // Mock FloatingWindow
 vi.mock('@tearleads/window-manager', async (importOriginal) => {
   const actual =

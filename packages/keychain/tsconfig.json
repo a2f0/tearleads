@@ -12,8 +12,7 @@
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["../client/src/*"],
-      "@client/*": ["../client/src/*"],
+      "@/*": ["./src/*"],
       "@keychain/*": ["./src/*"]
     },
     "tsBuildInfoFile": "./dist/.tsbuildinfo"

@@ -22,28 +22,10 @@ const mockGetKeyStatusForInstance =
 const mockDeleteSessionKeysForInstance =
   vi.fn<(instanceId: string) => Promise<void>>();
 const mockKeyManagerReset = vi.fn<() => Promise<void>>();
-const mockGetKeyManagerForInstance = vi.fn((_instanceId: string) => ({
-  reset: mockKeyManagerReset
-}));
-
-vi.mock('@client/db/crypto/keyManager', () => ({
-  getKeyStatusForInstance: (instanceId: string) =>
-    mockGetKeyStatusForInstance(instanceId),
-  deleteSessionKeysForInstance: (instanceId: string) =>
-    mockDeleteSessionKeysForInstance(instanceId),
-  getKeyManagerForInstance: (instanceId: string) =>
-    mockGetKeyManagerForInstance(instanceId)
-}));
 
 const mockGetInstances = vi.fn<() => Promise<InstanceMetadata[]>>();
 const mockDeleteInstanceFromRegistry =
   vi.fn<(instanceId: string) => Promise<void>>();
-
-vi.mock('@client/db/instanceRegistry', () => ({
-  getInstances: () => mockGetInstances(),
-  deleteInstanceFromRegistry: (instanceId: string) =>
-    mockDeleteInstanceFromRegistry(instanceId)
-}));
 
 function renderKeychainDetail(instanceId: string) {
   return render(
@@ -93,9 +75,8 @@ describe('KeychainDetail', () => {
         mockGetKeyStatusForInstance(instanceId),
       deleteSessionKeysForInstance: (instanceId) =>
         mockDeleteSessionKeysForInstance(instanceId),
-      resetInstanceKeys: async (instanceId) => {
-        const manager = mockGetKeyManagerForInstance(instanceId);
-        await manager.reset();
+      resetInstanceKeys: async () => {
+        await mockKeyManagerReset();
       }
     });
   });
@@ -332,7 +313,6 @@ describe('KeychainDetail', () => {
       await user.click(screen.getByTestId('confirm-dialog-confirm'));
 
       await waitFor(() => {
-        expect(mockGetKeyManagerForInstance).toHaveBeenCalledWith('test-id');
         expect(mockKeyManagerReset).toHaveBeenCalled();
         expect(mockDeleteInstanceFromRegistry).toHaveBeenCalledWith('test-id');
         expect(mockNavigate).toHaveBeenCalledWith('/keychain');

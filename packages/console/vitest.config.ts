@@ -32,9 +32,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      // '@' is required to resolve @/ imports from within client code during tests
-      '@': fileURLToPath(new URL('../client/src', import.meta.url)),
-      '@client': fileURLToPath(new URL('../client/src', import.meta.url)),
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
       '@console': fileURLToPath(new URL('./src', import.meta.url)),
       '@tearleads/window-manager': fileURLToPath(
         new URL('../window-manager/src/index.ts', import.meta.url)

@@ -38,8 +38,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('../client/src', import.meta.url)),
-      '@client': fileURLToPath(new URL('../client/src', import.meta.url)),
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
       '@sync': fileURLToPath(new URL('./src', import.meta.url))
     }
   }

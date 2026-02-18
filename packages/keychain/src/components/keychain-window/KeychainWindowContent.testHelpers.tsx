@@ -5,20 +5,6 @@ export const mockGetInstances = vi.fn();
 export const mockGetKeyStatusForInstance = vi.fn();
 export const mockDeleteSessionKeysForInstance = vi.fn();
 
-vi.mock('@client/db/instanceRegistry', () => ({
-  getInstances: () => mockGetInstances()
-}));
-
-vi.mock('@client/db/crypto/keyManager', () => ({
-  getKeyStatusForInstance: (id: string) => mockGetKeyStatusForInstance(id),
-  deleteSessionKeysForInstance: (id: string) =>
-    mockDeleteSessionKeysForInstance(id)
-}));
-
-vi.mock('@client/i18n', () => ({
-  useTypedTranslation: () => ({ t: (key: string) => key })
-}));
-
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key })
 }));
