@@ -56,5 +56,5 @@ output "tunnel_token" {
 
 output "cloudflare_zone_nameservers" {
   description = "Cloudflare authoritative nameservers for the staging zone"
-  value       = cloudflare_zone.staging.name_servers
+  value       = data.cloudflare_zone.staging.name_servers
 }

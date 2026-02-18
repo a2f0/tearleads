@@ -1,12 +1,14 @@
 #!/bin/bash
 set -eu
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-STACK_DIR="$(dirname "$SCRIPT_DIR")"
-REPO_ROOT="$(git rev-parse --show-toplevel)"
 
-# shellcheck source=../../../../scripts/common.sh
-source "$REPO_ROOT/terraform/scripts/common.sh"
+echo "Step 1/2: Applying Terraform infrastructure..."
+"$SCRIPT_DIR/apply01.sh" "$@"
 
-setup_ssh_host_keys
+echo ""
+echo "Step 2/2: Running WireGuard baseline bootstrap..."
+"$SCRIPT_DIR/apply02.sh"
 
-terraform -chdir="$STACK_DIR" apply "$@"
+echo ""
+echo "All steps complete."

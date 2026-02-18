@@ -5,14 +5,14 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 STACK_DIR="$(dirname "$SCRIPT_DIR")"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
-KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config-staging-k8s}"
+KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config-prod-k8s}"
 K8S_READY_TIMEOUT="${K8S_READY_TIMEOUT:-300s}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-}"
 ECR_REPOSITORIES=(
-  "tearleads-staging/api"
-  "tearleads-staging/client"
-  "tearleads-staging/website"
+  "tearleads-prod/api"
+  "tearleads-prod/client"
+  "tearleads-prod/website"
 )
 
 require_aws_cli_and_credentials() {
@@ -56,31 +56,9 @@ check_ecr_repositories() {
   if [[ ${#missing_repos[@]} -gt 0 ]]; then
     echo "ERROR: Missing ECR repositories:"
     printf '  - %s\n' "${missing_repos[@]}"
-    echo "Deploy staging ci-artifacts first: ../../ci-artifacts/scripts/apply.sh"
+    echo "Deploy prod ci-artifacts first: ../../ci-artifacts/scripts/apply.sh"
     exit 1
   fi
-}
-
-ensure_cloudflare_tunnel_secret() {
-  local tunnel_token=""
-
-  if tunnel_token=$(terraform -chdir="$STACK_DIR" output -raw tunnel_token 2>/dev/null); then
-    :
-  else
-    echo "Cloudflare tunnel output not available; skipping cloudflared secret setup."
-    return
-  fi
-
-  if [[ -z "$tunnel_token" || "$tunnel_token" == "null" ]]; then
-    echo "Cloudflare tunnel token is empty; skipping cloudflared secret setup."
-    return
-  fi
-
-  echo "Applying cloudflared tunnel token secret..."
-  kubectl -n tearleads create secret generic cloudflared-tunnel-token \
-    --from-literal=TUNNEL_TOKEN="$tunnel_token" \
-    --dry-run=client \
-    -o yaml | kubectl apply -f -
 }
 
 "$SCRIPT_DIR/kubeconfig.sh" "$KUBECONFIG_FILE"
@@ -90,13 +68,13 @@ echo "Waiting for Kubernetes node readiness (timeout: $K8S_READY_TIMEOUT)..."
 kubectl wait --for=condition=Ready nodes --all --timeout="$K8S_READY_TIMEOUT"
 
 if ! command -v ansible-playbook >/dev/null 2>&1; then
-  echo "ERROR: ansible-playbook is required for staging k8s baseline setup."
+  echo "ERROR: ansible-playbook is required for prod k8s baseline setup."
   echo "Install dependencies via ./ansible/scripts/setup.sh and re-run."
   exit 1
 fi
 
 echo "Running Ansible baseline bootstrap..."
-"$REPO_ROOT/ansible/scripts/run-k8s.sh"
+"$REPO_ROOT/ansible/scripts/run-k8s-prod.sh"
 
 check_ecr_repositories
 
@@ -106,15 +84,8 @@ kubectl apply -f "$STACK_DIR/manifests/namespace.yaml"
 echo "Refreshing ECR pull secret..."
 "$SCRIPT_DIR/setup-ecr-secret.sh"
 
-ensure_cloudflare_tunnel_secret
-
 echo "Deploying Kubernetes manifests..."
 "$SCRIPT_DIR/deploy.sh"
-
-if kubectl get deployment cloudflared -n tearleads >/dev/null 2>&1; then
-  echo "Waiting for cloudflared rollout..."
-  kubectl rollout status deployment/cloudflared -n tearleads --timeout=300s
-fi
 
 echo ""
 echo "Step 2 complete. Cluster bootstrap and manifests are applied."

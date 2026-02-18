@@ -20,6 +20,8 @@
     wireguard_cidr: 10.200.0.1/24
     wireguard_clients_cidr: 10.200.0.0/24
     wireguard_client_subnet_prefix: 10.200.0
+    wireguard_private_network_cidr: 10.100.0.0/16
+    wireguard_client_allowed_ips: "{{ wireguard_private_network_cidr }}, {{ wireguard_clients_cidr }}"
     wireguard_dns_servers: "1.1.1.1, 8.8.8.8"
     wireguard_endpoint_discovery_url: http://169.254.169.254/hetzner/v1/metadata/public-ipv4
     wireguard_config_path: "/etc/wireguard/{{ wireguard_interface }}.conf"
