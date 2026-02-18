@@ -105,8 +105,16 @@ export async function getRequiredChecksStatusWithOctokit(
       branch: baseRef
     });
     requiredContexts = protection.data.required_status_checks?.contexts ?? [];
-  } catch {
-    requiredSource = 'unavailable';
+  } catch (error: unknown) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      Reflect.get(error, 'status') === 404
+    ) {
+      requiredSource = 'unavailable';
+    } else {
+      throw error;
+    }
   }
 
   const latestByName = new Map<string, CheckSummary>();
