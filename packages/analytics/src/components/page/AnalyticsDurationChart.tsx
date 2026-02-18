@@ -178,13 +178,23 @@ export function AnalyticsDurationChart({
                 width={45}
               />
               <Tooltip
-                formatter={(value: number, _name, item) => [
-                  formatDuration(value),
-                  getEventDisplayName(String(item.payload.eventName))
-                ]}
-                labelFormatter={(value: number) =>
-                  new Date(value).toLocaleString()
-                }
+                formatter={(value, _name, item) => {
+                  const numericValue =
+                    typeof value === 'number' ? value : Number(value ?? 0);
+                  const eventName = item?.payload?.eventName;
+                  const displayEventName =
+                    typeof eventName === 'string'
+                      ? getEventDisplayName(eventName)
+                      : 'Event';
+                  return [formatDuration(numericValue), displayEventName];
+                }}
+                labelFormatter={(label) => {
+                  const numericLabel =
+                    typeof label === 'number' ? label : Number(label);
+                  return Number.isFinite(numericLabel)
+                    ? new Date(numericLabel).toLocaleString()
+                    : '';
+                }}
               />
               {Array.from(dataByEventType.entries()).map(
                 ([eventType, data]) => (
