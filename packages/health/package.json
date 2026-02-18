@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/health",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Health tracking primitives for Tearleads",
   "type": "module",
   "main": "src/index.ts",
