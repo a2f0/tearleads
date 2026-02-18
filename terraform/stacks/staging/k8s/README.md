@@ -95,6 +95,9 @@ With `USE_KUSTOMIZE=true`, core resources are applied via:
 
 - `manifests/kustomize/overlays/staging`
 
+`manifests/secrets.yaml` is still applied directly by `scripts/deploy.sh`
+(outside kustomize) to avoid placeholder expansion pitfalls.
+
 Ingress and cert issuer are still rendered from templates at runtime.
 
 ## Architecture

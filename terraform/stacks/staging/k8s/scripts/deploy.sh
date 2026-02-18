@@ -51,6 +51,9 @@ if [[ "$USE_KUSTOMIZE" == "true" ]]; then
     exit 1
   fi
 
+  echo "Applying secrets manifest directly (outside kustomize)."
+  kubectl apply -f "$MANIFESTS_DIR/secrets.yaml"
+
   echo "Applying core resources via kustomize overlay: $KUSTOMIZE_OVERLAY"
   kubectl apply -k "$KUSTOMIZE_OVERLAY"
 else
