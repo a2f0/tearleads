@@ -126,3 +126,52 @@ test('getGitContext returns branch and head sha', () => {
   assert.ok(parsed.branch.length > 0);
   assert.match(parsed.head_sha, /^[0-9a-f]{40}$/);
 });
+
+test('runTerraformStackScript requires --yes unless dry-run', () => {
+  const result = runAgentTool([
+    'runTerraformStackScript',
+    '--stack',
+    'staging/k8s',
+    '--script',
+    'apply01'
+  ]);
+
+  assert.equal(result.status, 1);
+  const combinedOutput = `${result.stdout}\n${result.stderr}`;
+  assert.match(
+    combinedOutput,
+    /runTerraformStackScript requires --yes unless --dry-run is set/
+  );
+});
+
+test('runAnsibleBootstrap requires --yes unless dry-run', () => {
+  const result = runAgentTool([
+    'runAnsibleBootstrap',
+    '--target',
+    'staging-k8s'
+  ]);
+
+  assert.equal(result.status, 1);
+  const combinedOutput = `${result.stdout}\n${result.stderr}`;
+  assert.match(
+    combinedOutput,
+    /runAnsibleBootstrap requires --yes unless --dry-run is set/
+  );
+});
+
+test('runTerraformStackScript dry-run succeeds without --yes', () => {
+  const result = runAgentTool([
+    'runTerraformStackScript',
+    '--stack',
+    'staging/k8s',
+    '--script',
+    'apply01',
+    '--dry-run'
+  ]);
+
+  assert.equal(result.status, 0);
+  assert.match(
+    readStdout(result),
+    /dry-run: would run inline action runTerraformStackScript/
+  );
+});

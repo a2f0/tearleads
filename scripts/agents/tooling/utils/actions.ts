@@ -4,6 +4,10 @@ import { runWithTimeout } from '../../../tooling/lib/cliShared.ts';
 import type { ActionConfig, ActionName, GlobalOptions } from '../types.ts';
 import { createGitHubClientContext } from './githubClient.ts';
 import { getGitContext, requireDefined } from './helpers.ts';
+import {
+  resolveAnsibleBootstrapScriptPath,
+  resolveTerraformScriptPath
+} from './infraActions.ts';
 import { buildIssueTemplate } from './issueHelpers.ts';
 import {
   createIssueWithOctokit,
@@ -54,10 +58,9 @@ export async function runInlineAction(
   action: ActionName,
   options: GlobalOptions,
   repo: string,
-  timeoutMs: number
+  timeoutMs: number,
+  repoRoot: string
 ): Promise<string> {
-  void timeoutMs;
-
   switch (action) {
     case 'getRepo': {
       return repo;
@@ -359,6 +362,35 @@ export async function runInlineAction(
         createPrOptions.body = resolvedBody;
       }
       return createPrWithOctokit(context, createPrOptions);
+    }
+
+    case 'runTerraformStackScript': {
+      const stack = requireDefined(options.stack, '--stack');
+      const script = requireDefined(options.script, '--script');
+      const scriptPath = resolveTerraformScriptPath(repoRoot, stack, script);
+      const result = runWithTimeout(scriptPath, [], timeoutMs, repoRoot);
+      const output = result.stdout + result.stderr;
+      if (result.exitCode !== 0) {
+        throw new Error(
+          output ||
+            `runTerraformStackScript failed with exit code ${result.exitCode}`
+        );
+      }
+      return output;
+    }
+
+    case 'runAnsibleBootstrap': {
+      const target = requireDefined(options.target, '--target');
+      const scriptPath = resolveAnsibleBootstrapScriptPath(repoRoot, target);
+      const result = runWithTimeout(scriptPath, [], timeoutMs, repoRoot);
+      const output = result.stdout + result.stderr;
+      if (result.exitCode !== 0) {
+        throw new Error(
+          output ||
+            `runAnsibleBootstrap failed with exit code ${result.exitCode}`
+        );
+      }
+      return output;
     }
 
     default:

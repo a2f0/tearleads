@@ -27,6 +27,8 @@ Run `--help` for full action and option list:
 - `addLabel` - Add label to PR/issue
 - `approveSkippedChecks` - Create passing check runs for skipped CI
 - `tagPrWithTuxedoInstance` - Tag PR with workspace instance label
+- `runTerraformStackScript` - Run allowlisted Terraform stack scripts (`staging/prod k8s`, `prod vpn`)
+- `runAnsibleBootstrap` - Run allowlisted Ansible bootstrap scripts (`staging-k8s`, `prod-k8s`, `prod-vpn`)
 
 ### GitHub API Actions
 
@@ -110,4 +112,6 @@ Most GitHub operations are handled via Octokit. `gh` remains a fallback for auth
 ./scripts/agents/tooling/agentTool.ts createDeferredFixIssue --number 123 --pr-url "https://github.com/org/repo/pull/123" --deferred-items-json '[{"body":"Handle edge case","path":"src/x.ts","line":42,"html_url":"https://github.com/org/repo/pull/123#discussion_r1"}]'
 ./scripts/agents/tooling/agentTool.ts updatePrBody --number 123 --body-file /tmp/pr-body.md
 ./scripts/agents/tooling/agentTool.ts refresh
+./scripts/agents/tooling/agentTool.ts runTerraformStackScript --stack staging/k8s --script apply01 --yes
+./scripts/agents/tooling/agentTool.ts runAnsibleBootstrap --target staging-k8s --yes
 ```
