@@ -218,7 +218,9 @@ export async function getPrInfoWithOctokit(
   }
 
   const payload = normalizePrData(pull);
-  const requestedFields = (fields ?? '').split(',').map((value) => value.trim());
+  const requestedFields = (fields ?? '')
+    .split(',')
+    .map((value) => value.trim());
 
   if (requestedFields.includes('files')) {
     const files: Array<{ path: string }> = [];

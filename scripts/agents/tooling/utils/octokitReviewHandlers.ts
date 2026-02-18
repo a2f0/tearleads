@@ -9,8 +9,7 @@ function extractBodyValues(values: Array<{ body?: string | null }>): string[] {
     .filter((value) => value.length > 0);
 }
 
-const DEFERRED_WORK_PATTERN =
-  /defer|follow[- ]?up|future PR|later|TODO|FIXME/i;
+const DEFERRED_WORK_PATTERN = /defer|follow[- ]?up|future PR|later|TODO|FIXME/i;
 
 interface DeferredWorkItem {
   id: number;
@@ -26,13 +25,15 @@ export async function replyToReviewCommentWithOctokit(
   commentId: number,
   body: string
 ): Promise<string> {
-  const response = await context.octokit.rest.pulls.createReplyForReviewComment({
-    owner: context.owner,
-    repo: context.repo,
-    pull_number: prNumber,
-    comment_id: commentId,
-    body
-  });
+  const response = await context.octokit.rest.pulls.createReplyForReviewComment(
+    {
+      owner: context.owner,
+      repo: context.repo,
+      pull_number: prNumber,
+      comment_id: commentId,
+      body
+    }
+  );
 
   return JSON.stringify(
     {

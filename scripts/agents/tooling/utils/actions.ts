@@ -4,9 +4,7 @@ import { runWithTimeout } from '../../../tooling/lib/cliShared.ts';
 import type { ActionConfig, ActionName, GlobalOptions } from '../types.ts';
 import { createGitHubClientContext } from './githubClient.ts';
 import { requireDefined } from './helpers.ts';
-import {
-  buildIssueTemplate
-} from './issueHelpers.ts';
+import { buildIssueTemplate } from './issueHelpers.ts';
 import {
   createIssueWithOctokit,
   findExistingIssueWithOctokit,
@@ -14,37 +12,35 @@ import {
   listDeferredFixIssuesWithOctokit
 } from './octokitIssueHandlers.ts';
 import {
-  checkGeminiQuotaWithOctokit,
-  findDeferredWorkWithOctokit,
-  replyToReviewCommentWithOctokit,
-  resolveThreadWithOctokit
-} from './octokitReviewHandlers.ts';
-import {
   createDeferredFixIssueWithOctokit,
   sanitizePrBodyWithOctokit,
   updatePrBodyWithOctokit
 } from './octokitPrBodyHandlers.ts';
+import {
+  getPrInfoWithOctokit,
+  getReviewThreadsWithOctokit,
+  triggerGeminiReviewWithOctokit
+} from './octokitPrInfoHandlers.ts';
 import {
   enableAutoMergeWithOctokit,
   findPrForBranchWithOctokit,
   generatePrSummaryWithOctokit,
   listHighPriorityPrsWithOctokit
 } from './octokitPrOpsHandlers.ts';
-import {
-  getPrInfoWithOctokit,
-  getReviewThreadsWithOctokit,
-  triggerGeminiReviewWithOctokit
-} from './octokitPrInfoHandlers.ts';
 import { checkMainVersionBumpSetupWithOctokit } from './octokitRepoHandlers.ts';
+import {
+  checkGeminiQuotaWithOctokit,
+  findDeferredWorkWithOctokit,
+  replyToReviewCommentWithOctokit,
+  resolveThreadWithOctokit
+} from './octokitReviewHandlers.ts';
 import {
   cancelWorkflowWithOctokit,
   downloadArtifactWithOctokit,
   getCiStatusWithOctokit,
   rerunWorkflowWithOctokit
 } from './octokitWorkflowHandlers.ts';
-import {
-  handleVerifyBranchPush
-} from './prWorkflowHandlers.ts';
+import { handleVerifyBranchPush } from './prWorkflowHandlers.ts';
 
 export async function runInlineAction(
   action: ActionName,

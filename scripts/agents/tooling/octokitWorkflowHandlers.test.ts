@@ -15,10 +15,10 @@ function toUrlString(input: Parameters<typeof fetch>[0]): string {
 }
 
 function createContext(
-  responder: (request: {
-    url: string;
-    method: string;
-  }) => { status: number; body: unknown }
+  responder: (request: { url: string; method: string }) => {
+    status: number;
+    body: unknown;
+  }
 ): GitHubClientContext {
   const mockFetch: typeof fetch = async (input, init) => {
     const url = toUrlString(input);
@@ -43,7 +43,10 @@ function createContext(
 test('getCiStatusWithOctokit returns run status by run id', async () => {
   const context = createContext(({ url }) => {
     if (url.endsWith('/repos/a2f0/tearleads/actions/runs/123')) {
-      return { status: 200, body: { status: 'completed', conclusion: 'success' } };
+      return {
+        status: 200,
+        body: { status: 'completed', conclusion: 'success' }
+      };
     }
     if (url.includes('/repos/a2f0/tearleads/actions/runs/123/jobs')) {
       return {
@@ -65,14 +68,15 @@ test('getCiStatusWithOctokit returns run status by run id', async () => {
 
 test('getCiStatusWithOctokit returns run status by commit', async () => {
   const context = createContext(({ url }) => {
-    if (url.includes('/repos/a2f0/tearleads/actions/runs?') && url.includes('head_sha=abc123')) {
+    if (
+      url.includes('/repos/a2f0/tearleads/actions/runs?') &&
+      url.includes('head_sha=abc123')
+    ) {
       return {
         status: 200,
         body: {
           total_count: 1,
-          workflow_runs: [
-            { id: 456, status: 'in_progress', conclusion: null }
-          ]
+          workflow_runs: [{ id: 456, status: 'in_progress', conclusion: null }]
         }
       };
     }

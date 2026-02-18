@@ -2,9 +2,22 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Octokit } from '@octokit/rest';
 import type { GitHubClientContext } from './utils/githubClient.ts';
-import { createDeferredFixIssueWithOctokit, sanitizePrBodyWithOctokit, updatePrBodyWithOctokit } from './utils/octokitPrBodyHandlers.ts';
-import { getPrInfoWithOctokit, getReviewThreadsWithOctokit, triggerGeminiReviewWithOctokit } from './utils/octokitPrInfoHandlers.ts';
-import { enableAutoMergeWithOctokit, findPrForBranchWithOctokit, generatePrSummaryWithOctokit, listHighPriorityPrsWithOctokit } from './utils/octokitPrOpsHandlers.ts';
+import {
+  createDeferredFixIssueWithOctokit,
+  sanitizePrBodyWithOctokit,
+  updatePrBodyWithOctokit
+} from './utils/octokitPrBodyHandlers.ts';
+import {
+  getPrInfoWithOctokit,
+  getReviewThreadsWithOctokit,
+  triggerGeminiReviewWithOctokit
+} from './utils/octokitPrInfoHandlers.ts';
+import {
+  enableAutoMergeWithOctokit,
+  findPrForBranchWithOctokit,
+  generatePrSummaryWithOctokit,
+  listHighPriorityPrsWithOctokit
+} from './utils/octokitPrOpsHandlers.ts';
 import { checkMainVersionBumpSetupWithOctokit } from './utils/octokitRepoHandlers.ts';
 
 function toUrlString(input: Parameters<typeof fetch>[0]): string {
@@ -14,11 +27,10 @@ function toUrlString(input: Parameters<typeof fetch>[0]): string {
 }
 
 function createContext(
-  responder: (request: {
-    url: string;
-    method: string;
+  responder: (request: { url: string; method: string; body: unknown }) => {
+    status: number;
     body: unknown;
-  }) => { status: number; body: unknown }
+  }
 ): GitHubClientContext {
   const mockFetch: typeof fetch = async (input, init) => {
     const url = toUrlString(input);
@@ -164,7 +176,14 @@ test('getReviewThreadsWithOctokit filters unresolved threads', async () => {
                       line: 2,
                       comments: {
                         pageInfo: { hasNextPage: false },
-                        nodes: [{ id: 'C1', databaseId: 10, author: { login: 'x' }, body: 'b' }]
+                        nodes: [
+                          {
+                            id: 'C1',
+                            databaseId: 10,
+                            author: { login: 'x' },
+                            body: 'b'
+                          }
+                        ]
                       }
                     }
                   ]
@@ -201,7 +220,9 @@ test('triggerGeminiReviewWithOctokit can timeout immediately', async () => {
   const parsed = JSON.parse(output);
   assert.equal(parsed.status, 'review_requested');
   assert.ok(
-    requests.some((url) => url.includes('/repos/a2f0/tearleads/issues/42/comments'))
+    requests.some((url) =>
+      url.includes('/repos/a2f0/tearleads/issues/42/comments')
+    )
   );
 });
 
@@ -211,7 +232,12 @@ test('enableAutoMergeWithOctokit sends graphql mutation', async () => {
       return { status: 200, body: { node_id: 'PR_node_77' } };
     }
     if (url.endsWith('/graphql')) {
-      return { status: 200, body: { data: { enablePullRequestAutoMerge: { pullRequest: { number: 77 } } } } };
+      return {
+        status: 200,
+        body: {
+          data: { enablePullRequestAutoMerge: { pullRequest: { number: 77 } } }
+        }
+      };
     }
     return { status: 404, body: { message: 'not found' } };
   });
@@ -227,8 +253,20 @@ test('findPrForBranchWithOctokit can find merged PR', async () => {
       return {
         status: 200,
         body: [
-          { number: 12, title: 'Closed', state: 'closed', merged_at: null, html_url: 'x' },
-          { number: 13, title: 'Merged', state: 'closed', merged_at: '2026-02-18T00:00:00Z', html_url: 'y' }
+          {
+            number: 12,
+            title: 'Closed',
+            state: 'closed',
+            merged_at: null,
+            html_url: 'x'
+          },
+          {
+            number: 13,
+            title: 'Merged',
+            state: 'closed',
+            merged_at: '2026-02-18T00:00:00Z',
+            html_url: 'y'
+          }
         ]
       };
     }
@@ -329,7 +367,10 @@ test('sanitizePrBodyWithOctokit removes auto-close directives', async () => {
 test('createDeferredFixIssueWithOctokit creates issue', async () => {
   const context = createContext(({ url, method }) => {
     if (url.endsWith('/repos/a2f0/tearleads/issues') && method === 'POST') {
-      return { status: 201, body: { html_url: 'https://example.com/issues/999' } };
+      return {
+        status: 201,
+        body: { html_url: 'https://example.com/issues/999' }
+      };
     }
     return { status: 404, body: { message: 'not found' } };
   });

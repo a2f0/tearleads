@@ -1,10 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import {
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync
-} from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { GitHubClientContext } from './githubClient.ts';
@@ -150,13 +145,14 @@ export async function downloadArtifactWithOctokit(
   destination: string
 ): Promise<string> {
   const numericRunId = toRunId(runId);
-  const artifacts =
-    await context.octokit.rest.actions.listWorkflowRunArtifacts({
+  const artifacts = await context.octokit.rest.actions.listWorkflowRunArtifacts(
+    {
       owner: context.owner,
       repo: context.repo,
       run_id: numericRunId,
       per_page: 100
-    });
+    }
+  );
   const targetArtifact = artifacts.data.artifacts.find(
     (artifact) => artifact.name === artifactName
   );
