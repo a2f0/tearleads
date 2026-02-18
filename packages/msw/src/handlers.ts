@@ -1,25 +1,17 @@
 import type {
   AddAiMessageResponse,
-  AdminAccessContextResponse,
   AdminUserResponse,
   AdminUsersResponse,
   AdminUserUpdateResponse,
-  AiConversation,
   AiConversationDetailResponse,
   AiConversationResponse,
   AiConversationsListResponse,
-  AiMessage,
-  AiUsage,
   AiUsageListResponse,
-  AiUsageSummary,
   AiUsageSummaryResponse,
-  AuthResponse,
   CreateAiConversationResponse,
-  Group,
   GroupDetailResponse,
   GroupMembersResponse,
   GroupsListResponse,
-  Organization,
   OrganizationBillingAccountResponse,
   OrganizationGroupsResponse,
   OrganizationResponse,
@@ -32,13 +24,14 @@ import type {
   PostgresTablesResponse,
   RecordAiUsageResponse,
   RedisKeysResponse,
-  RedisKeyValueResponse,
-  SessionsResponse,
   ShareTargetSearchResponse,
-  VfsOrgShare,
+  VfsCrdtPushResponse,
+  VfsCrdtReconcileResponse,
+  VfsCrdtSyncResponse,
   VfsRegisterResponse,
-  VfsShare,
   VfsSharesResponse,
+  VfsSyncReconcileResponse,
+  VfsSyncResponse,
   VfsUserKeysResponse
 } from '@tearleads/shared';
 import {
@@ -48,341 +41,54 @@ import {
   validateChatMessages
 } from '@tearleads/shared';
 import { HttpResponse, http } from 'msw';
-
-const ok = <T extends object>(body: T) => HttpResponse.json(body);
-
-const withOptionalV1Prefix = (pathPattern: string): RegExp =>
-  new RegExp(`(?:/v1)?${pathPattern}$`);
-
-const nowIsoString = (): string => '2024-01-01T12:00:00.000Z';
-
-const defaultKeys: RedisKeysResponse['keys'] = Array.from(
-  { length: 25 },
-  (_, index) => ({
-    key: `key:${index + 1}`,
-    type: 'string',
-    ttl: -1
-  })
-);
-
-const defaultKeyValue = (key: string): RedisKeyValueResponse => ({
-  key,
-  type: 'string',
-  ttl: -1,
-  value: ''
-});
-
-const defaultPostgresInfo: PostgresAdminInfoResponse = {
-  status: 'ok',
-  info: {
-    host: 'localhost',
-    port: 5432,
-    database: 'tearleads',
-    user: 'tearleads'
-  },
-  serverVersion: 'PostgreSQL 15.1'
-};
-
-const defaultPostgresTables: PostgresTablesResponse = {
-  tables: [
-    {
-      schema: 'public',
-      name: 'users',
-      rowCount: 12,
-      totalBytes: 2048,
-      tableBytes: 1024,
-      indexBytes: 1024
-    }
-  ]
-};
-
-const defaultPostgresColumns: PostgresColumnsResponse = {
-  columns: [
-    {
-      name: 'id',
-      type: 'text',
-      nullable: false,
-      defaultValue: null,
-      ordinalPosition: 1
-    }
-  ]
-};
-
-const defaultPostgresRows: PostgresRowsResponse = {
-  rows: [{ id: 'row-1' }],
-  totalCount: 1,
-  limit: 50,
-  offset: 0
-};
-
-const defaultAuthResponse: AuthResponse = {
-  accessToken: 'test-access-token',
-  refreshToken: 'test-refresh-token',
-  tokenType: 'Bearer',
-  expiresIn: 3600,
-  refreshExpiresIn: 604800,
-  user: {
-    id: 'user-1',
-    email: 'user@example.com'
-  }
-};
-
-const defaultSessionsResponse: SessionsResponse = {
-  sessions: [
-    {
-      id: 'session-1',
-      createdAt: nowIsoString(),
-      lastActiveAt: nowIsoString(),
-      ipAddress: '127.0.0.1',
-      isCurrent: true,
-      isAdmin: false
-    }
-  ]
-};
-
-const defaultAdminContext: AdminAccessContextResponse = {
-  isRootAdmin: true,
-  organizations: [{ id: 'org-1', name: 'Acme Org' }],
-  defaultOrganizationId: 'org-1'
-};
-
-const defaultGroup: Group = {
-  id: 'group-1',
-  organizationId: 'org-1',
-  name: 'Core Team',
-  description: null,
-  createdAt: nowIsoString(),
-  updatedAt: nowIsoString()
-};
-
-const defaultGroupsList: GroupsListResponse = {
-  groups: [
-    {
-      ...defaultGroup,
-      memberCount: 2
-    }
-  ]
-};
-
-const defaultGroupMembers: GroupMembersResponse = {
-  members: [
-    {
-      userId: 'user-1',
-      email: 'user@example.com',
-      joinedAt: nowIsoString()
-    }
-  ]
-};
-
-const defaultGroupDetail: GroupDetailResponse = {
-  group: defaultGroup,
-  members: defaultGroupMembers.members
-};
-
-const defaultOrganization: Organization = {
-  id: 'org-1',
-  name: 'Acme Org',
-  description: null,
-  createdAt: nowIsoString(),
-  updatedAt: nowIsoString()
-};
-
-const defaultOrganizationsList: OrganizationsListResponse = {
-  organizations: [defaultOrganization]
-};
-
-const defaultOrganizationResponse: OrganizationResponse = {
-  organization: defaultOrganization
-};
-
-const defaultOrganizationUsers: OrganizationUsersResponse = {
-  users: [
-    {
-      id: 'user-1',
-      email: 'user@example.com',
-      joinedAt: nowIsoString()
-    }
-  ]
-};
-
-const defaultOrganizationGroups: OrganizationGroupsResponse = {
-  groups: [
-    {
-      id: defaultGroup.id,
-      name: defaultGroup.name,
-      description: defaultGroup.description,
-      memberCount: 2
-    }
-  ]
-};
-
-const defaultVfsKeys: VfsUserKeysResponse = {
-  publicEncryptionKey: 'pub-enc-key',
-  publicSigningKey: 'pub-sign-key',
-  encryptedPrivateKeys: 'encrypted-private-keys',
-  argon2Salt: 'argon2-salt'
-};
-
-const defaultVfsShare: VfsShare = {
-  id: 'share-1',
-  itemId: 'item-1',
-  shareType: 'user',
-  targetId: 'user-2',
-  targetName: 'User Two',
-  permissionLevel: 'view',
-  createdBy: 'user-1',
-  createdByEmail: 'user@example.com',
-  createdAt: nowIsoString(),
-  expiresAt: null
-};
-
-const defaultVfsOrgShare: VfsOrgShare = {
-  id: 'org-share-1',
-  sourceOrgId: 'org-1',
-  sourceOrgName: 'Acme Org',
-  targetOrgId: 'org-2',
-  targetOrgName: 'Partner Org',
-  itemId: 'item-1',
-  permissionLevel: 'view',
-  createdBy: 'user-1',
-  createdByEmail: 'user@example.com',
-  createdAt: nowIsoString(),
-  expiresAt: null
-};
-
-const defaultVfsSharesResponse: VfsSharesResponse = {
-  shares: [defaultVfsShare],
-  orgShares: [defaultVfsOrgShare]
-};
-
-const defaultShareTargetSearchResponse: ShareTargetSearchResponse = {
-  results: [
-    {
-      id: 'user-2',
-      type: 'user',
-      name: 'User Two',
-      description: 'Teammate'
-    }
-  ]
-};
-
-const defaultAiConversation: AiConversation = {
-  id: 'conversation-1',
-  userId: 'user-1',
-  organizationId: null,
-  encryptedTitle: 'encrypted-title',
-  encryptedSessionKey: 'encrypted-session-key',
-  modelId: DEFAULT_OPENROUTER_MODEL_ID,
-  messageCount: 1,
-  createdAt: nowIsoString(),
-  updatedAt: nowIsoString()
-};
-
-const defaultAiMessage: AiMessage = {
-  id: 'message-1',
-  conversationId: defaultAiConversation.id,
-  role: 'assistant',
-  encryptedContent: 'encrypted-content',
-  modelId: DEFAULT_OPENROUTER_MODEL_ID,
-  sequenceNumber: 1,
-  createdAt: nowIsoString()
-};
-
-const defaultAiUsageSummary: AiUsageSummary = {
-  totalPromptTokens: 120,
-  totalCompletionTokens: 80,
-  totalTokens: 200,
-  requestCount: 3,
-  periodStart: '2024-01-01T00:00:00.000Z',
-  periodEnd: '2024-01-31T23:59:59.999Z'
-};
-
-const defaultAiUsage: AiUsage = {
-  id: 'usage-1',
-  conversationId: defaultAiConversation.id,
-  messageId: defaultAiMessage.id,
-  userId: 'user-1',
-  organizationId: null,
-  modelId: DEFAULT_OPENROUTER_MODEL_ID,
-  promptTokens: 120,
-  completionTokens: 80,
-  totalTokens: 200,
-  openrouterRequestId: null,
-  createdAt: nowIsoString()
-};
-
-const defaultBillingAccountResponse: OrganizationBillingAccountResponse = {
-  billingAccount: {
-    organizationId: 'org-1',
-    revenueCatAppUserId: 'rc-user-1',
-    entitlementStatus: 'active',
-    activeProductId: 'tearleads_pro',
-    periodEndsAt: nowIsoString(),
-    willRenew: true,
-    lastWebhookEventId: null,
-    lastWebhookAt: null,
-    createdAt: nowIsoString(),
-    updatedAt: nowIsoString()
-  }
-};
-
-const initialAdminUsers: AdminUsersResponse['users'] = [
-  {
-    id: 'user-1',
-    email: 'admin@example.com',
-    emailConfirmed: true,
-    admin: true,
-    disabled: false,
-    disabledAt: null,
-    disabledBy: null,
-    markedForDeletionAt: null,
-    markedForDeletionBy: null,
-    organizationIds: ['org-1'],
-    createdAt: '2024-01-01T12:00:00.000Z',
-    lastActiveAt: '2024-01-10T18:30:00.000Z',
-    accounting: {
-      totalPromptTokens: 120,
-      totalCompletionTokens: 80,
-      totalTokens: 200,
-      requestCount: 3,
-      lastUsedAt: '2024-01-09T12:00:00.000Z'
-    }
-  },
-  {
-    id: 'user-2',
-    email: 'user@example.com',
-    emailConfirmed: false,
-    admin: false,
-    disabled: false,
-    disabledAt: null,
-    disabledBy: null,
-    markedForDeletionAt: null,
-    markedForDeletionBy: null,
-    organizationIds: [],
-    createdAt: '2024-02-14T08:15:00.000Z',
-    lastActiveAt: null,
-    accounting: {
-      totalPromptTokens: 0,
-      totalCompletionTokens: 0,
-      totalTokens: 0,
-      requestCount: 0,
-      lastUsedAt: null
-    }
-  }
-];
-
-let adminUsers: AdminUsersResponse['users'] =
-  structuredClone(initialAdminUsers);
-
-export const resetMockApiState = (): void => {
-  adminUsers = structuredClone(initialAdminUsers);
-};
-
+import {
+  defaultAdminContext,
+  defaultAiConversation,
+  defaultAiMessage,
+  defaultAiUsage,
+  defaultAiUsageSummary,
+  defaultAuthResponse,
+  defaultBillingAccountResponse,
+  defaultGroup,
+  defaultGroupDetail,
+  defaultGroupMembers,
+  defaultGroupsList,
+  defaultKeys,
+  defaultKeyValue,
+  defaultOrganization,
+  defaultOrganizationGroups,
+  defaultOrganizationResponse,
+  defaultOrganizationsList,
+  defaultOrganizationUsers,
+  defaultPostgresColumns,
+  defaultPostgresInfo,
+  defaultPostgresRows,
+  defaultPostgresTables,
+  defaultSessionsResponse,
+  defaultShareTargetSearchResponse,
+  defaultVfsCrdtPushResponse,
+  defaultVfsCrdtReconcileResponse,
+  defaultVfsCrdtSyncResponse,
+  defaultVfsKeys,
+  defaultVfsOrgShare,
+  defaultVfsShare,
+  defaultVfsSharesResponse,
+  defaultVfsSyncReconcileResponse,
+  defaultVfsSyncResponse,
+  nowIsoString,
+  ok,
+  withOptionalV1Prefix
+} from './handlerData.js';
+import {
+  getAdminUsers,
+  resetMockApiState,
+  setAdminUsers
+} from './handlerState.js';
+export { resetMockApiState };
 export const handlers = [
   http.get(withOptionalV1Prefix('/ping'), () =>
     ok<PingData>({ version: 'test', dbVersion: '0' })
   ),
-
   http.post(withOptionalV1Prefix('/auth/login'), () => ok(defaultAuthResponse)),
   http.post(withOptionalV1Prefix('/auth/register'), () =>
     ok(defaultAuthResponse)
@@ -399,7 +105,6 @@ export const handlers = [
   http.delete(withOptionalV1Prefix('/auth/sessions/[^/]+'), () =>
     ok({ deleted: true })
   ),
-
   http.get(withOptionalV1Prefix('/admin/context'), () =>
     ok(defaultAdminContext)
   ),
@@ -417,7 +122,6 @@ export const handlers = [
     withOptionalV1Prefix('/admin/postgres/tables/[^/]+/[^/]+/rows'),
     () => ok<PostgresRowsResponse>(defaultPostgresRows)
   ),
-
   http.get(withOptionalV1Prefix('/admin/redis/dbsize'), () =>
     ok({ count: defaultKeys.length })
   ),
@@ -429,7 +133,6 @@ export const handlers = [
     const end = start + limit;
     const pageKeys = defaultKeys.slice(start, end);
     const nextCursor = end < defaultKeys.length ? String(end) : '0';
-
     return ok<RedisKeysResponse>({
       keys: pageKeys,
       cursor: nextCursor,
@@ -444,19 +147,16 @@ export const handlers = [
   http.delete(withOptionalV1Prefix('/admin/redis/keys/[^/]+'), () =>
     ok({ deleted: true })
   ),
-
   http.get(withOptionalV1Prefix('/admin/users'), () =>
-    ok<AdminUsersResponse>({ users: adminUsers })
+    ok<AdminUsersResponse>({ users: getAdminUsers() })
   ),
   http.get(withOptionalV1Prefix('/admin/users/[^/]+'), ({ request }) => {
     const url = new URL(request.url);
     const id = decodeURIComponent(url.pathname.split('/').pop() ?? '');
-    const user = adminUsers.find((adminUser) => adminUser.id === id);
-
+    const user = getAdminUsers().find((adminUser) => adminUser.id === id);
     if (!user) {
       return HttpResponse.json({ error: 'User not found' }, { status: 404 });
     }
-
     const response: AdminUserResponse = { user };
     return ok(response);
   }),
@@ -466,11 +166,10 @@ export const handlers = [
       const url = new URL(request.url);
       const id = decodeURIComponent(url.pathname.split('/').pop() ?? '');
       const body = await request.json().catch(() => null);
-      const existingUser = adminUsers.find((user) => user.id === id);
+      const existingUser = getAdminUsers().find((user) => user.id === id);
       if (!existingUser) {
         return HttpResponse.json({ error: 'User not found' }, { status: 404 });
       }
-
       const email =
         isRecord(body) && typeof body['email'] === 'string'
           ? body['email']
@@ -483,23 +182,19 @@ export const handlers = [
         isRecord(body) && typeof body['admin'] === 'boolean'
           ? body['admin']
           : existingUser.admin;
-
       const updatedUser = {
         ...existingUser,
         email,
         emailConfirmed,
         admin
       };
-
-      adminUsers = adminUsers.map((user) =>
-        user.id === id ? updatedUser : user
+      setAdminUsers(
+        getAdminUsers().map((user) => (user.id === id ? updatedUser : user))
       );
-
       const response: AdminUserUpdateResponse = { user: updatedUser };
       return ok(response);
     }
   ),
-
   http.get(withOptionalV1Prefix('/admin/groups'), () =>
     ok<GroupsListResponse>(defaultGroupsList)
   ),
@@ -524,7 +219,6 @@ export const handlers = [
   http.delete(withOptionalV1Prefix('/admin/groups/[^/]+'), () =>
     ok({ deleted: true })
   ),
-
   http.get(withOptionalV1Prefix('/admin/organizations'), () =>
     ok<OrganizationsListResponse>(defaultOrganizationsList)
   ),
@@ -546,21 +240,17 @@ export const handlers = [
   http.delete(withOptionalV1Prefix('/admin/organizations/[^/]+'), () =>
     ok({ deleted: true })
   ),
-
   http.get(withOptionalV1Prefix('/billing/organizations/[^/]+'), () =>
     ok<OrganizationBillingAccountResponse>(defaultBillingAccountResponse)
   ),
-
   http.post(withOptionalV1Prefix('/chat/completions'), async ({ request }) => {
     const body = await request.json().catch(() => null);
     const messages = isRecord(body) ? body['messages'] : null;
     const model = isRecord(body) ? body['model'] : undefined;
     const messageResult = validateChatMessages(messages);
-
     if (!messageResult.ok) {
       return HttpResponse.json({ error: messageResult.error }, { status: 400 });
     }
-
     if (
       model !== undefined &&
       (typeof model !== 'string' || !isOpenRouterModelId(model))
@@ -570,7 +260,6 @@ export const handlers = [
         { status: 400 }
       );
     }
-
     return ok({
       id: 'chatcmpl-test',
       model: DEFAULT_OPENROUTER_MODEL_ID,
@@ -584,7 +273,6 @@ export const handlers = [
       ]
     });
   }),
-
   http.get(withOptionalV1Prefix('/emails/drafts'), () => ok({ drafts: [] })),
   http.get(withOptionalV1Prefix('/emails/drafts/[^/]+'), () =>
     ok({ draft: null })
@@ -601,7 +289,6 @@ export const handlers = [
   http.delete(withOptionalV1Prefix('/emails/[^/]+'), () =>
     ok({ deleted: true })
   ),
-
   http.get(withOptionalV1Prefix('/ai/conversations'), () => {
     const response: AiConversationsListResponse = {
       conversations: [defaultAiConversation],
@@ -662,7 +349,6 @@ export const handlers = [
     };
     return ok(response);
   }),
-
   http.get(withOptionalV1Prefix('/vfs/keys/me'), () =>
     ok<VfsUserKeysResponse>(defaultVfsKeys)
   ),
@@ -674,6 +360,48 @@ export const handlers = [
     };
     return ok(response);
   }),
+  http.get(withOptionalV1Prefix('/vfs/vfs-sync'), () =>
+    ok<VfsSyncResponse>(defaultVfsSyncResponse)
+  ),
+  http.post(withOptionalV1Prefix('/vfs/vfs-sync/reconcile'), () =>
+    ok<VfsSyncReconcileResponse>(defaultVfsSyncReconcileResponse)
+  ),
+  http.get(withOptionalV1Prefix('/vfs/crdt/vfs-sync'), () =>
+    ok<VfsCrdtSyncResponse>(defaultVfsCrdtSyncResponse)
+  ),
+  http.post(withOptionalV1Prefix('/vfs/crdt/push'), () =>
+    ok<VfsCrdtPushResponse>(defaultVfsCrdtPushResponse)
+  ),
+  http.post(withOptionalV1Prefix('/vfs/crdt/reconcile'), () =>
+    ok<VfsCrdtReconcileResponse>(defaultVfsCrdtReconcileResponse)
+  ),
+  http.post(withOptionalV1Prefix('/vfs/blobs/stage'), () =>
+    ok({
+      stagingId: 'staging-1',
+      blobId: 'blob-1',
+      status: 'staged',
+      stagedAt: nowIsoString(),
+      expiresAt: '2024-01-02T12:00:00.000Z'
+    })
+  ),
+  http.post(withOptionalV1Prefix('/vfs/blobs/stage/[^/]+/attach'), () =>
+    ok({
+      stagingId: 'staging-1',
+      blobId: 'blob-1',
+      itemId: 'item-1',
+      relationKind: 'content',
+      status: 'attached',
+      attachedAt: nowIsoString()
+    })
+  ),
+  http.post(withOptionalV1Prefix('/vfs/blobs/stage/[^/]+/abandon'), () =>
+    ok({
+      stagingId: 'staging-1',
+      blobId: 'blob-1',
+      status: 'abandoned',
+      abandonedAt: nowIsoString()
+    })
+  ),
   http.get(withOptionalV1Prefix('/vfs/items/[^/]+/shares'), () =>
     ok<VfsSharesResponse>(defaultVfsSharesResponse)
   ),
@@ -695,7 +423,6 @@ export const handlers = [
   http.get(withOptionalV1Prefix('/vfs/share-targets/search'), () =>
     ok<ShareTargetSearchResponse>(defaultShareTargetSearchResponse)
   ),
-
   http.get(
     withOptionalV1Prefix('/sse'),
     () =>
@@ -705,7 +432,6 @@ export const handlers = [
         }
       })
   ),
-
   http.get(withOptionalV1Prefix('/mls/groups'), () => ok({ ok: true })),
   http.get(withOptionalV1Prefix('/mls/groups/[^/]+/members'), () =>
     ok({ ok: true })
@@ -750,7 +476,6 @@ export const handlers = [
   http.delete(withOptionalV1Prefix('/mls/key-packages/[^/]+'), () =>
     ok({ ok: true })
   ),
-
   http.post(withOptionalV1Prefix('/revenuecat/webhooks'), () =>
     ok({ received: true })
   )

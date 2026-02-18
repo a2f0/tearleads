@@ -173,7 +173,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
     }
 
     const url = new URL(requestUrl);
-    expect(url.pathname).toBe('/v1/vfs/crdt/sync');
+    expect(url.pathname).toBe('/v1/vfs/crdt/vfs-sync');
     expect(url.searchParams.get('limit')).toBe('25');
     expect(url.searchParams.get('cursor')).toBe(encodeVfsSyncCursor(cursor));
   });
