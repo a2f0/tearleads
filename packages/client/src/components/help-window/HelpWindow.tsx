@@ -72,17 +72,19 @@ export function HelpWindow({
 
   useEffect(() => {
     let cancelled = false;
-    import('@tearleads/api/dist/openapi.json')
-      .then((module) => {
-        if (cancelled) {
+    void (async () => {
+      try {
+        const response = await fetch('/v1/openapi.json');
+        if (!response.ok || cancelled) {
           return;
         }
 
-        if (isOpenApiDocument(module.default)) {
-          setOpenapiSpec(module.default);
+        const spec: unknown = await response.json();
+        if (isOpenApiDocument(spec)) {
+          setOpenapiSpec(spec);
         }
-      })
-      .catch(() => {});
+      } catch {}
+    })();
 
     return () => {
       cancelled = true;

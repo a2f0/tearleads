@@ -1,21 +1,14 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HelpWindow } from './HelpWindow';
 
 const mockUseWindowOpenRequest = vi.fn();
+let mockFetch: ReturnType<typeof vi.fn>;
 
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowOpenRequest: (...args: unknown[]) =>
     mockUseWindowOpenRequest(...args)
-}));
-
-vi.mock('@tearleads/api/dist/openapi.json', () => ({
-  default: {
-    openapi: '3.0.0',
-    info: { title: 'Client Docs' },
-    paths: {}
-  }
 }));
 
 vi.mock('@tearleads/ui', async () => {
@@ -79,6 +72,18 @@ function renderHelpWindow() {
 }
 
 describe('HelpWindow', () => {
+  beforeEach(() => {
+    mockFetch = vi.fn(() => new Promise(() => {}));
+    vi.stubGlobal(
+      'fetch',
+      mockFetch
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('renders index view by default', () => {
     mockUseWindowOpenRequest.mockReturnValue(undefined);
     renderHelpWindow();
@@ -89,11 +94,19 @@ describe('HelpWindow', () => {
   it('navigates to API docs and back', async () => {
     const user = userEvent.setup();
     mockUseWindowOpenRequest.mockReturnValue(undefined);
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        openapi: '3.0.0',
+        info: { title: 'Client Docs' },
+        paths: {}
+      })
+    });
     renderHelpWindow();
 
     await user.click(screen.getByText('API Docs'));
     expect(screen.getByTestId('window-title')).toHaveTextContent('API Docs');
-    expect(screen.getByTestId('api-docs')).toBeInTheDocument();
+    expect(await screen.findByTestId('api-docs')).toBeInTheDocument();
 
     await user.click(screen.getByTestId('help-window-control-back'));
     expect(screen.getByTestId('window-title')).toHaveTextContent('Help');
