@@ -23,7 +23,7 @@ function toWord(token: string): string {
   if (token.length === 0) {
     return token;
   }
-  return token[0].toUpperCase() + token.slice(1);
+  return token.charAt(0).toUpperCase() + token.slice(1);
 }
 
 export function getEventDisplayName(eventName: string): string {
