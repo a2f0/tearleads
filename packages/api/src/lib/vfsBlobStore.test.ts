@@ -100,6 +100,50 @@ describe('vfsBlobStore', () => {
     );
   });
 
+  it('reads blob data via transformToByteArray when available', async () => {
+    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    mockSend.mockResolvedValueOnce({
+      Body: {
+        transformToByteArray: async () => Uint8Array.from([104, 105])
+      },
+      ContentType: 'text/plain'
+    });
+
+    const { readVfsBlobData } = await import('./vfsBlobStore.js');
+    const result = await readVfsBlobData({ blobId: 'blob-1' });
+
+    expect(Buffer.from(result.data).toString('utf8')).toBe('hi');
+    expect(result.contentType).toBe('text/plain');
+  });
+
+  it('returns empty payload when body is missing', async () => {
+    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    mockSend.mockResolvedValueOnce({
+      Body: null,
+      ContentType: 'application/octet-stream'
+    });
+
+    const { readVfsBlobData } = await import('./vfsBlobStore.js');
+    const result = await readVfsBlobData({ blobId: 'blob-1' });
+
+    expect(result.data).toEqual(new Uint8Array(0));
+    expect(result.contentType).toBe('application/octet-stream');
+  });
+
+  it('returns empty payload when body is non-iterable', async () => {
+    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    mockSend.mockResolvedValueOnce({
+      Body: {},
+      ContentType: null
+    });
+
+    const { readVfsBlobData } = await import('./vfsBlobStore.js');
+    const result = await readVfsBlobData({ blobId: 'blob-1' });
+
+    expect(result.data).toEqual(new Uint8Array(0));
+    expect(result.contentType).toBeNull();
+  });
+
   it('deletes blob data from configured bucket', async () => {
     vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
     mockSend.mockResolvedValueOnce({});
