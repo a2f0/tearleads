@@ -14,6 +14,9 @@ type Cycle = {
   cycleNodes: string[];
 };
 
+const SHARED_PACKAGE = '@tearleads/shared';
+const UI_PACKAGE = '@tearleads/ui';
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -110,6 +113,28 @@ function normalizeCycle(cycleNodes: string[]): string {
     .join(' -> ');
 }
 
+function getSharedUiSuggestions(cycleNodes: string[]): string[] {
+  const hasUi = cycleNodes.includes(UI_PACKAGE);
+  const hasShared = cycleNodes.includes(SHARED_PACKAGE);
+  const suggestions = [
+    `Move non-visual shared code (types, validators, protocol helpers, pure utilities) into ${SHARED_PACKAGE}.`
+  ];
+
+  if (hasUi || !hasShared) {
+    suggestions.push(
+      `Move reusable UI code (React components, UI hooks/providers, styles) into ${UI_PACKAGE}.`
+    );
+  }
+
+  if (hasUi) {
+    suggestions.push(
+      `Avoid routing non-UI helpers through ${UI_PACKAGE}; import those helpers from ${SHARED_PACKAGE} instead.`
+    );
+  }
+
+  return suggestions;
+}
+
 function parseImportSpecifiers(source: string): string[] {
   const specifiers: string[] = [];
   const importRegexes = [
@@ -146,6 +171,9 @@ function runMadgeCheck(): void {
   const output = madgeResult.stdout ?? '';
   if (output.includes('Circular')) {
     console.error('Error: circular imports detected in the codebase.');
+    console.error(
+      `Hint: break shared dependencies by moving non-UI modules to ${SHARED_PACKAGE} and reusable UI modules to ${UI_PACKAGE}.`
+    );
     console.error('');
 
     const circularIndex = output.indexOf('Circular');
@@ -358,6 +386,9 @@ function runPackageCycleCheck(repoRoot: string): void {
 
   if (unexpectedCycles.length > 0) {
     console.error('Error: package-level circular dependencies detected.');
+    console.error(
+      `Hint: if two packages need the same module, extract non-UI code to ${SHARED_PACKAGE} or reusable UI code to ${UI_PACKAGE}.`
+    );
 
     for (const { cycleKey, cycleNodes } of unexpectedCycles) {
       const cyclePath = cycleNodes.concat(cycleNodes[0] ?? '');
@@ -371,6 +402,11 @@ function runPackageCycleCheck(repoRoot: string): void {
         const edgeKey = `${from} -> ${to}`;
         const reason = edgeReasons.get(edgeKey) ?? 'dependency edge detected';
         console.error(`  - ${edgeKey}: ${reason}`);
+      }
+
+      const suggestions = getSharedUiSuggestions(cycleNodes);
+      for (const suggestion of suggestions) {
+        console.error(`  Suggestion: ${suggestion}`);
       }
     }
 
