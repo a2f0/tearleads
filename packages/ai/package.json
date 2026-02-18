@@ -28,13 +28,17 @@
     "react-dom": "19.2.4"
   },
   "dependencies": {
-    "lucide-react": "0.564.0"
+    "@tearleads/shared": "workspace:*",
+    "clsx": "2.1.1",
+    "lucide-react": "0.564.0",
+    "tailwind-merge": "3.4.1"
   },
   "devDependencies": {
     "@assistant-ui/react": "0.12.10",
     "@tearleads/window-manager": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.1",
     "@types/node": "25.2.3",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
