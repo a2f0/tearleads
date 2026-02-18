@@ -7,13 +7,13 @@ export {
   type ConnectionIndicatorProps,
   type ConnectionState
 } from './components/connectionIndicator.js';
+export { Dialog, type DialogProps } from './components/dialog.js';
 export {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
   useDropdownMenuContext
 } from './components/dropdown-menu/index.js';
-export { Dialog, type DialogProps } from './components/dialog.js';
 export { Footer, type FooterProps } from './components/footer.js';
 export {
   GridSquare,
@@ -21,6 +21,7 @@ export {
   IconSquare,
   type IconSquareProps
 } from './components/grid-square/index.js';
+export { Input, type InputProps, inputVariants } from './components/input.js';
 export {
   ThemePreview,
   type ThemePreviewProps
@@ -30,7 +31,6 @@ export {
   ThemeSwitcher,
   type ThemeSwitcherProps
 } from './components/themeSwitcher.js';
-export { Input, inputVariants, type InputProps } from './components/input.js';
 export {
   Tooltip,
   TooltipContent,

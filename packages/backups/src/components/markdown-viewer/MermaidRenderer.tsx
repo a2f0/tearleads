@@ -63,7 +63,9 @@ export function MermaidRenderer({ code, theme }: MermaidRendererProps) {
   if (!svg) {
     return (
       <div className="flex items-center justify-center rounded-md border bg-muted/50 p-4">
-        <span className="text-muted-foreground text-sm">Loading diagram...</span>
+        <span className="text-muted-foreground text-sm">
+          Loading diagram...
+        </span>
       </div>
     );
   }

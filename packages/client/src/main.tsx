@@ -1,5 +1,5 @@
-import { ThemeProvider } from '@tearleads/ui';
 import { configureBackupsRuntime } from '@tearleads/backups';
+import { ThemeProvider } from '@tearleads/ui';
 import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';

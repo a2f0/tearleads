@@ -5,6 +5,6 @@ export { BackupWindowMenuBar } from './components/backup-window/BackupWindowMenu
 export { RestoreBackupForm } from './components/backup-window/RestoreBackupForm';
 export { Backups, type BackupsProps } from './pages/backups/Backups';
 export {
-  configureBackupsRuntime,
-  type BackupsRuntime
+  type BackupsRuntime,
+  configureBackupsRuntime
 } from './runtime/backupsRuntime';

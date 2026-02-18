@@ -182,7 +182,7 @@ export function useBackupManager(): UseBackupManagerResult {
   const includeBlobs = state.includeBlobs;
 
   const updateEstimate = useCallback(async () => {
-      try {
+    try {
       const estimate = await runtime.estimateBackupSize(includeBlobs);
       if (!isMountedRef.current) return;
       mergeState({

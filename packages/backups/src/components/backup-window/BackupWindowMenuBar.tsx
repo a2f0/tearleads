@@ -1,5 +1,5 @@
-import { WindowMenuBar } from '@tearleads/window-manager';
 import { DropdownMenu, DropdownMenuItem } from '@tearleads/ui';
+import { WindowMenuBar } from '@tearleads/window-manager';
 
 interface BackupWindowMenuBarProps {
   onClose: () => void;

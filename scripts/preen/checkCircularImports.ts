@@ -329,7 +329,11 @@ function runPackageCycleCheck(repoRoot: string): void {
 
         // Legacy alias path used by non-client packages to import from client.
         if (specifier === '@client' || specifier.startsWith('@client/')) {
-          addEdge(fromPackage, CLIENT_PACKAGE, `${relativeFile} imports '${specifier}'`);
+          addEdge(
+            fromPackage,
+            CLIENT_PACKAGE,
+            `${relativeFile} imports '${specifier}'`
+          );
           continue;
         }
 
@@ -351,13 +355,15 @@ function runPackageCycleCheck(repoRoot: string): void {
 
   const directClientDependents = [...packageDeps.entries()]
     .filter(
-      ([packageName, deps]) => packageName !== CLIENT_PACKAGE && deps.has(CLIENT_PACKAGE)
+      ([packageName, deps]) =>
+        packageName !== CLIENT_PACKAGE && deps.has(CLIENT_PACKAGE)
     )
     .map(([packageName]) => packageName)
     .sort();
 
   if (directClientDependents.length > 0) {
-    const strictNoClientImports = process.env.PREEN_ENFORCE_NO_CLIENT_IMPORTS === '1';
+    const strictNoClientImports =
+      process.env.PREEN_ENFORCE_NO_CLIENT_IMPORTS === '1';
     const log = strictNoClientImports ? console.error : console.warn;
 
     log(

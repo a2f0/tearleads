@@ -1,8 +1,4 @@
-import {
-  BackLink,
-  DropdownMenu,
-  DropdownMenuItem
-} from '@tearleads/ui';
+import { BackLink, DropdownMenu, DropdownMenuItem } from '@tearleads/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BackupDocumentation } from '../../components/backup-window/BackupDocumentation';

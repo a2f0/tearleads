@@ -1,8 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { RestoreBackupForm } from './RestoreBackupForm';
 import { configureBackupsRuntime } from '../../runtime/backupsRuntime';
+import { RestoreBackupForm } from './RestoreBackupForm';
 
 const mockGetBackupInfo = vi.fn();
 const mockRestoreBackup = vi.fn();

@@ -1,9 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { BackupManagerView } from './BackupManagerView';
 import { configureBackupsRuntime } from '../../runtime/backupsRuntime';
+import { BackupManagerView } from './BackupManagerView';
 
 const {
   mockListStoredBackups,
@@ -12,7 +11,6 @@ const {
   mockDeleteBackupFromStorage,
   mockSaveFile,
   mockCreateBackup,
-  mockSaveBackupToStorage,
   mockEstimateBackupSize
 } = vi.hoisted(() => ({
   mockListStoredBackups: vi.fn().mockResolvedValue([
@@ -32,7 +30,6 @@ const {
     filename: 'test-backup.tbu',
     destination: 'storage'
   }),
-  mockSaveBackupToStorage: vi.fn().mockResolvedValue(undefined),
   mockEstimateBackupSize: vi.fn().mockResolvedValue({
     blobCount: 5,
     blobTotalSize: 1024 * 1024
@@ -68,7 +65,8 @@ describe('BackupManagerView', () => {
       }
     ]);
     configureBackupsRuntime({
-      estimateBackupSize: (includeBlobs) => mockEstimateBackupSize(includeBlobs),
+      estimateBackupSize: (includeBlobs) =>
+        mockEstimateBackupSize(includeBlobs),
       createBackup: (input) => mockCreateBackup(input),
       getBackupInfo: vi.fn(),
       restoreBackup: vi.fn(),
