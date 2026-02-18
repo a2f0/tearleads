@@ -96,7 +96,7 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
       query.set('cursor', encodeVfsSyncCursor(input.cursor));
     }
 
-    const body = await this.requestJson('/vfs/crdt/sync', undefined, query);
+    const body = await this.requestJson('/vfs/crdt/vfs-sync', undefined, query);
     const parsed = parseApiPullResponse(body);
 
     let nextCursor: VfsSyncCursor | null = null;

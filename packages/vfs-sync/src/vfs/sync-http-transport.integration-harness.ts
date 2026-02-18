@@ -276,7 +276,7 @@ export function createServerBackedFetch(
     }
 
     if (
-      url.pathname === '/v1/vfs/crdt/sync' &&
+      url.pathname === '/v1/vfs/crdt/vfs-sync' &&
       (init?.method ?? 'GET') === 'GET'
     ) {
       if (typeof delays.pullDelayMs === 'number') {
