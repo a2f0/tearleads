@@ -29,7 +29,8 @@
   },
   "dependencies": {
     "@tanstack/react-virtual": "3.13.18",
-    "lucide-react": "0.564.0"
+    "lucide-react": "0.564.0",
+    "recharts": "3.7.0"
   },
   "devDependencies": {
     "@tearleads/ui": "workspace:*",
