@@ -64,7 +64,7 @@ is_excluded() {
 
   # Exclude skill directories
   case "$path" in
-    .claude/commands/*|.codex/skills/*) return 0 ;;
+    .claude/skills/*|.codex/skills/*) return 0 ;;
   esac
 
   # Exclude standard environment type files

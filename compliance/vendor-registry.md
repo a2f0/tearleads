@@ -173,7 +173,7 @@ This document maintains a centralized inventory of all third-party vendors with 
 - **Usage Context**: Development team tooling (not production data path)
 - **Configuration Files**:
   - `CLAUDE.md` - Agent instructions
-  - `.claude/commands/` - Custom skills
+  - `.claude/skills/` - Custom skills
 - **Compliance Certifications**: SOC 2 Type II
 - **Security Controls**: Conversation isolation, no training on customer data
 - **Contract Terms**: Anthropic Terms of Service

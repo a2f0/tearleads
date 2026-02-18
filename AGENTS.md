@@ -274,7 +274,7 @@ Skills are version-controlled like any other file. Create, edit, or delete files
 - **Type definitions (.d.ts)**: camelCase (e.g., `capacitorSqlite.d.ts`)
 - **API routes**: camelCase (e.g., `postLogin.ts`, `getSessions.ts`)
 - **Index/barrel files**: Keep as `index.ts`
-- **Skills** (`.claude/commands/`, `.codex/skills/`): Keep kebab-case (e.g., `commit-and-push.md`)
+- **Skills** (`.claude/skills/`, `.codex/skills/`): Keep kebab-case skill IDs (e.g., `commit-and-push`)
 
 ### Do NOT Use
 
