@@ -229,6 +229,7 @@ export async function pullUntilSettledLoop(
       );
     }
 
+    const pullItemsApplied = response.items.length > 0;
     let pageCursor: VfsSyncCursor | null = null;
     if (response.items.length > 0) {
       /**
@@ -259,10 +260,6 @@ export async function pullUntilSettledLoop(
 
         observedPullOpIds.add(opId);
       }
-
-      dependencies.replayStore.applyPage(response.items);
-      dependencies.containerClockStore.applyFeedItems(response.items);
-      pulledOperations += response.items.length;
 
       pageCursor = lastItemCursor(response.items);
       if (!pageCursor) {
@@ -311,6 +308,12 @@ export async function pullUntilSettledLoop(
         }
       });
       throw new Error('transport returned regressing sync cursor');
+    }
+
+    if (pullItemsApplied) {
+      dependencies.replayStore.applyPage(response.items);
+      dependencies.containerClockStore.applyFeedItems(response.items);
+      pulledOperations += response.items.length;
     }
 
     if (pageCursor) {

@@ -130,14 +130,41 @@ describe('VfsBackgroundSyncClient', () => {
       })
     };
     const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport);
+    const preFailureState = client.exportState();
 
     await expect(client.sync()).rejects.toThrowError(
       /nextCursor that does not match pull page tail/
     );
+    expect(client.exportState()).toEqual(preFailureState);
+  });
+
+  it('fails closed when transport returns hasMore=true with an empty page', async () => {
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({
+        results: []
+      }),
+      pullOperations: async () => ({
+        items: [],
+        hasMore: true,
+        nextCursor: null,
+        lastReconciledWriteIds: {}
+      })
+    };
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport);
+    const preFailureState = client.exportState();
+
+    await expect(client.sync()).rejects.toThrowError(
+      /hasMore=true with an empty pull page/
+    );
+    expect(client.exportState()).toEqual(preFailureState);
   });
 
   it('fails closed when pull pagination replays a duplicate opId in one sync cycle', async () => {
+    let client: VfsBackgroundSyncClient | null = null;
     let pullCount = 0;
+    let stateBeforeSecondPull: ReturnType<
+      VfsBackgroundSyncClient['exportState']
+    > | null = null;
     const guardrailViolations: Array<{
       code: string;
       stage: string;
@@ -169,6 +196,7 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
 
+        stateBeforeSecondPull = client?.exportState() ?? null;
         return {
           items: [
             buildAclAddSyncItem({
@@ -188,7 +216,7 @@ describe('VfsBackgroundSyncClient', () => {
         };
       }
     };
-    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport, {
+    client = new VfsBackgroundSyncClient('user-1', 'desktop', transport, {
       pullLimit: 1,
       onGuardrailViolation: (violation) => {
         guardrailViolations.push({
@@ -209,9 +237,70 @@ describe('VfsBackgroundSyncClient', () => {
       message:
         'pull response replayed an opId within one pull-until-settled cycle'
     });
-    expect(client.snapshot().cursor).toEqual({
-      changedAt: '2026-02-14T12:03:00.000Z',
-      changeId: 'desktop-dup-op'
+    expect(stateBeforeSecondPull).not.toBeNull();
+    expect(client.exportState()).toEqual(stateBeforeSecondPull);
+  });
+
+  it('fails closed when a later pull page regresses the local cursor', async () => {
+    let client: VfsBackgroundSyncClient | null = null;
+    let pullCount = 0;
+    let stateBeforeSecondPull: ReturnType<
+      VfsBackgroundSyncClient['exportState']
+    > | null = null;
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({
+        results: []
+      }),
+      pullOperations: async () => {
+        pullCount += 1;
+        if (pullCount === 1) {
+          return {
+            items: [
+              buildAclAddSyncItem({
+                opId: 'desktop-forward-2',
+                occurredAt: '2026-02-14T12:05:00.000Z',
+                itemId: 'item-forward'
+              })
+            ],
+            hasMore: true,
+            nextCursor: {
+              changedAt: '2026-02-14T12:05:00.000Z',
+              changeId: 'desktop-forward-2'
+            },
+            lastReconciledWriteIds: {
+              desktop: 2
+            }
+          };
+        }
+
+        stateBeforeSecondPull = client?.exportState() ?? null;
+        return {
+          items: [
+            buildAclAddSyncItem({
+              opId: 'desktop-regress-1',
+              occurredAt: '2026-02-14T12:04:59.000Z',
+              itemId: 'item-regress'
+            })
+          ],
+          hasMore: false,
+          nextCursor: {
+            changedAt: '2026-02-14T12:04:59.000Z',
+            changeId: 'desktop-regress-1'
+          },
+          lastReconciledWriteIds: {
+            desktop: 2
+          }
+        };
+      }
+    };
+    client = new VfsBackgroundSyncClient('user-1', 'desktop', transport, {
+      pullLimit: 1
     });
+
+    await expect(client.sync()).rejects.toThrowError(
+      /transport returned regressing sync cursor/
+    );
+    expect(stateBeforeSecondPull).not.toBeNull();
+    expect(client.exportState()).toEqual(stateBeforeSecondPull);
   });
 });
