@@ -12,7 +12,7 @@ This document maps infrastructure compliance sentinels to their implementations 
 | `TL-INFRA-004` | SSH Hardening | `ansible/playbooks/k8s.yml`, `ansible/playbooks/vpn.yml` | SSH hardening defaults (root disabled, key-only auth, auth attempt limits) |
 | `TL-NET-001` | Network Security Group | `terraform/modules/azure-tee/main.tf` | NSG with default deny and explicit allow rules |
 | `TL-NET-002` | SSH Access Restriction | `terraform/modules/azure-tee/main.tf` | SSH limited to `allowed_ssh_cidr` variable |
-| `TL-NET-003` | Host Firewall | `terraform/stacks/staging/k8s/main.tf`, `ansible/playbooks/vpn.yml` | UFW firewall with default deny incoming |
+| `TL-NET-003` | Host Firewall | `ansible/playbooks/vpn.yml` | UFW firewall with default deny incoming |
 | `TL-NET-004` | Infrastructure Firewall | `terraform/modules/hetzner-server/main.tf`, `terraform/stacks/prod/vpn/main.tf` | Hetzner Cloud firewall with explicit port rules |
 | `TL-NET-005` | DB Network Isolation | `terraform/modules/aws-rds-postgres/main.tf` | RDS security group restricting access to allowed CIDRs |
 | `TL-NET-006` | Cloudflare Tunnel Isolation | `terraform/modules/cloudflare-tunnel/main.tf` | Inbound traffic routed via secure tunnel without public port exposure |
