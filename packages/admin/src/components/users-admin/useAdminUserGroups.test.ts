@@ -1,10 +1,10 @@
-import { api } from '@tearleads/api-client';
 import type { GroupWithMemberCount } from '@tearleads/shared';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { api } from '@/lib/api';
 import { useAdminUserGroups } from './useAdminUserGroups';
 
-vi.mock('@tearleads/api-client', () => ({
+vi.mock('@/lib/api', () => ({
   api: {
     admin: {
       groups: {

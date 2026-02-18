@@ -7,7 +7,7 @@ import { GroupsList } from './GroupsList';
 const mockList = vi.fn();
 const mockDelete = vi.fn();
 
-vi.mock('@tearleads/api-client', () => ({
+vi.mock('@/lib/api', () => ({
   api: {
     admin: {
       getContext: vi.fn().mockResolvedValue({

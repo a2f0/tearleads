@@ -19,7 +19,7 @@ import {
 
 const { mockGetColumns, mockGetRows } = createMockApi();
 
-vi.mock('@tearleads/api-client', () => ({
+vi.mock('@/lib/api', () => ({
   api: {
     admin: {
       getContext: vi.fn().mockResolvedValue({

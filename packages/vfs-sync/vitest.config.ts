@@ -40,12 +40,6 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('../client/src', import.meta.url)),
       '@client': fileURLToPath(new URL('../client/src', import.meta.url)),
-      '@tearleads/api-client/authStorage': fileURLToPath(
-        new URL('../api-client/src/authStorage.ts', import.meta.url)
-      ),
-      '@tearleads/api-client': fileURLToPath(
-        new URL('../api-client/src/index.ts', import.meta.url)
-      ),
       '@sync': fileURLToPath(new URL('./src', import.meta.url))
     }
   }

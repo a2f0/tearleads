@@ -33,7 +33,6 @@
     "react-router-dom": "7.13.0"
   },
   "dependencies": {
-    "@tearleads/api-client": "workspace:*",
     "@tearleads/shared": "workspace:*",
     "lucide-react": "0.564.0"
   },

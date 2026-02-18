@@ -6,7 +6,7 @@ import { PostgresAdmin } from './PostgresAdmin';
 const mockGetInfo = vi.fn();
 const mockGetTables = vi.fn();
 
-vi.mock('@tearleads/api-client', () => ({
+vi.mock('@/lib/api', () => ({
   api: {
     admin: {
       getContext: vi.fn().mockResolvedValue({

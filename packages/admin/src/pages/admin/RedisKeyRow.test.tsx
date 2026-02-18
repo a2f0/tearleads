@@ -5,7 +5,7 @@ import { RedisKeyRow } from './RedisKeyRow';
 
 const mockGetValue = vi.fn();
 
-vi.mock('@tearleads/api-client', () => ({
+vi.mock('@/lib/api', () => ({
   api: {
     admin: {
       getContext: vi.fn().mockResolvedValue({

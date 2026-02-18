@@ -10,7 +10,7 @@ const mockGetKeys =
 const mockDeleteKey = vi.fn<(key: string) => Promise<{ deleted: boolean }>>();
 const mockGetDbSize = vi.fn<() => Promise<{ count: number }>>();
 
-vi.mock('@tearleads/api-client', () => ({
+vi.mock('@/lib/api', () => ({
   api: {
     admin: {
       getContext: vi.fn().mockResolvedValue({

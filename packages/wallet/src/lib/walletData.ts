@@ -5,7 +5,7 @@ import {
   walletItemMedia,
   walletItems
 } from '@client/db/schema';
-import { readStoredAuth } from '@tearleads/api-client/authStorage';
+import { readStoredAuth } from '@client/lib/authStorage';
 import { and, desc, eq, like, or } from 'drizzle-orm';
 import { normalizeWalletCountryCode } from './walletCountryLookup';
 import { buildWalletMetadata, parseWalletMetadata } from './walletMetadata';

@@ -1,9 +1,9 @@
-import { api } from '@tearleads/api-client';
 import type { PostgresAdminInfoResponse } from '@tearleads/shared';
 import { Loader2, PlugZap } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { useTypedTranslation } from '@/i18n';
+import { api } from '@/lib/api';
 
 const FALLBACK_VALUE = 'Unknown';
 

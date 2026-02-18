@@ -1,6 +1,5 @@
 import { OrganizationScopeSelector } from '@admin/components/admin-scope';
 import { useAdminScope } from '@admin/hooks/useAdminScope';
-import { api } from '@tearleads/api-client';
 import type { AdminUser } from '@tearleads/shared';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
@@ -12,6 +11,7 @@ import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { useTypedTranslation } from '@/i18n';
+import { api } from '@/lib/api';
 import { formatNumber, formatTimestamp } from '@/lib/utils';
 
 interface UsersAdminProps {
