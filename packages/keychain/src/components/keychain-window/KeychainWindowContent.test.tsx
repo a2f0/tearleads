@@ -8,6 +8,9 @@ import {
 import { createRef } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { mockConsoleError } from '../../test/consoleMocks';
+import './KeychainWindowContent.testHelpers';
+import type { KeychainWindowContentRef } from './KeychainWindowContent';
+import { KeychainWindowContent } from './KeychainWindowContent';
 import {
   capturedMenuOnClose,
   capturedOnDelete,
@@ -16,8 +19,6 @@ import {
   mockGetKeyStatusForInstance,
   resetKeychainWindowContentTestState
 } from './KeychainWindowContent.testHelpers';
-import type { KeychainWindowContentRef } from './KeychainWindowContent';
-import { KeychainWindowContent } from './KeychainWindowContent';
 
 describe('KeychainWindowContent', () => {
   beforeEach(() => {
@@ -419,5 +420,4 @@ describe('KeychainWindowContent', () => {
 
     expect(mockDeleteSessionKeysForInstance).toHaveBeenCalledWith('instance-1');
   });
-
 });

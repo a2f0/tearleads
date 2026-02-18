@@ -7,6 +7,8 @@ import {
 } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { mockConsoleError } from '../../test/consoleMocks';
+import './KeychainWindowContent.testHelpers';
+import { KeychainWindowContent } from './KeychainWindowContent';
 import {
   capturedOnDelete,
   mockDeleteSessionKeysForInstance,
@@ -14,7 +16,6 @@ import {
   mockGetKeyStatusForInstance,
   resetKeychainWindowContentTestState
 } from './KeychainWindowContent.testHelpers';
-import { KeychainWindowContent } from './KeychainWindowContent';
 
 describe('KeychainWindowContent delete errors', () => {
   beforeEach(() => {
@@ -37,7 +38,9 @@ describe('KeychainWindowContent delete errors', () => {
 
   it('shows error when delete fails', async () => {
     const consoleSpy = mockConsoleError();
-    mockDeleteSessionKeysForInstance.mockRejectedValue(new Error('Delete failed'));
+    mockDeleteSessionKeysForInstance.mockRejectedValue(
+      new Error('Delete failed')
+    );
 
     render(<KeychainWindowContent />);
 

@@ -13,11 +13,9 @@ vi.mock('@tearleads/window-manager', async (importOriginal) => {
   return {
     ...actual,
     useWindowManager: () => ({ openWindow: mockOpenWindow }),
-    DesktopContextMenu: ({
-      children
-    }: {
-      children: ReactNode;
-    }) => <div>{children}</div>,
+    DesktopContextMenu: ({ children }: { children: ReactNode }) => (
+      <div>{children}</div>
+    ),
     DesktopContextMenuItem: ({
       children,
       onClick

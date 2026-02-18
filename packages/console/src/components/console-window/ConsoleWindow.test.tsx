@@ -46,28 +46,28 @@ vi.mock('@tearleads/terminal', async (importOriginal) => {
   return {
     ...actual,
     Terminal: ({
-    className,
-    autoFocus
-  }: {
-    className?: string;
-    autoFocus?: boolean;
-  }) => {
-    const inputRef = useRef<HTMLInputElement>(null);
-    useEffect(() => {
-      if (autoFocus) {
-        inputRef.current?.focus();
-      }
-    }, [autoFocus]);
-    return (
-      <div data-testid="terminal" className={className}>
-        <input
-          ref={inputRef}
-          data-testid="terminal-input"
-          data-autofocus={autoFocus ? 'true' : 'false'}
-        />
-      </div>
-    );
-  }
+      className,
+      autoFocus
+    }: {
+      className?: string;
+      autoFocus?: boolean;
+    }) => {
+      const inputRef = useRef<HTMLInputElement>(null);
+      useEffect(() => {
+        if (autoFocus) {
+          inputRef.current?.focus();
+        }
+      }, [autoFocus]);
+      return (
+        <div data-testid="terminal" className={className}>
+          <input
+            ref={inputRef}
+            data-testid="terminal-input"
+            data-autofocus={autoFocus ? 'true' : 'false'}
+          />
+        </div>
+      );
+    }
   };
 });
 

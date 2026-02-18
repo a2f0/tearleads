@@ -1,5 +1,5 @@
-import { setKeychainDependencies } from '../../lib/keychainDependencies';
 import { vi } from 'vitest';
+import { setKeychainDependencies } from '../../lib/keychainDependencies';
 
 export const mockGetInstances = vi.fn();
 export const mockGetKeyStatusForInstance = vi.fn();
@@ -128,8 +128,9 @@ export function resetKeychainWindowContentTestState(): void {
     getInstance: async (instanceId) => {
       const instances = await mockGetInstances();
       return (
-        instances.find((instance: { id: string }) => instance.id === instanceId) ??
-        null
+        instances.find(
+          (instance: { id: string }) => instance.id === instanceId
+        ) ?? null
       );
     },
     deleteInstanceFromRegistry: async () => {},

@@ -3,8 +3,8 @@ import { render } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
-import type { InstanceMetadata, KeyStatus } from '../../lib/types';
 import { setKeychainDependencies } from '../../lib/keychainDependencies';
+import type { InstanceMetadata, KeyStatus } from '../../lib/types';
 import { Keychain } from './Keychain';
 
 export const mockGetKeyStatusForInstance =

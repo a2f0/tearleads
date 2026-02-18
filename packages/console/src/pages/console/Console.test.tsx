@@ -5,10 +5,9 @@ import {
   mockContext,
   mockExportDatabase,
   mockLock,
-    mockRestoreSession,
+  mockRestoreSession,
   mockSaveFile,
   mockSetup,
-  mockSwitchInstance,
   mockUnlock,
   renderConsole,
   resetConsoleTestState
@@ -392,6 +391,4 @@ describe('Console', () => {
       expect(screen.getByText('Passwords do not match.')).toBeInTheDocument();
     });
   });
-
-
 });

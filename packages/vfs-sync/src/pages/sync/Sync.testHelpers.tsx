@@ -3,11 +3,11 @@ import { type FormEvent, useEffect, useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import {
-  setSyncAuthDependencies,
   type AuthState,
   type AuthUser,
   type LoginFormProps,
-  type RegisterFormProps
+  type RegisterFormProps,
+  setSyncAuthDependencies
 } from '../../lib/authDependencies';
 import { Sync } from './Sync';
 
@@ -25,17 +25,19 @@ interface AuthStoreState {
   tokenExpiresMs: number | null;
 }
 
-export const mockLogin = vi.fn<
-  (email: string, password: string) => Promise<LoginResult>
->();
+export const mockLogin =
+  vi.fn<(email: string, password: string) => Promise<LoginResult>>();
 export const mockLogout = vi.fn<() => Promise<void>>();
-export const mockPingGet = vi.fn<() => Promise<{ emailDomain?: string | null }>>();
+export const mockPingGet =
+  vi.fn<() => Promise<{ emailDomain?: string | null }>>();
 
 let authState: AuthStoreState;
 const authListeners = new Set<() => void>();
 
 function notifyAuthListeners(): void {
-  authListeners.forEach((listener) => listener());
+  authListeners.forEach((listener) => {
+    listener();
+  });
 }
 
 function setAuthState(next: AuthStoreState): void {
@@ -114,7 +116,9 @@ function useMockAuth(): AuthState {
     user: authState.user,
     isLoading: authState.isLoading,
     tokenExpiresAt:
-      authState.tokenExpiresMs !== null ? new Date(authState.tokenExpiresMs) : null,
+      authState.tokenExpiresMs !== null
+        ? new Date(authState.tokenExpiresMs)
+        : null,
     getTokenTimeRemaining: () => {
       if (authState.tokenExpiresMs === null) {
         return null;
@@ -205,7 +209,9 @@ function SessionList() {
   return <div>Session List</div>;
 }
 
-export function setupSyncDependencies(initialAuthMode?: 'login' | 'register'): void {
+export function setupSyncDependencies(
+  initialAuthMode?: 'login' | 'register'
+): void {
   authListeners.clear();
   authState = readInitialAuthState();
 
