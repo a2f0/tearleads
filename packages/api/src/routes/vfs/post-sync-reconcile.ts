@@ -2,7 +2,7 @@ import type { VfsSyncReconcileResponse } from '@tearleads/shared';
 import {
   encodeVfsSyncCursor,
   parseVfsSyncReconcilePayload
-} from '@tearleads/sync/vfs';
+} from '@tearleads/vfs-sync/vfs';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 
@@ -26,7 +26,7 @@ function toIsoString(value: Date | string): string | null {
 
 /**
  * @openapi
- * /vfs/sync/reconcile:
+ * /vfs/vfs-sync/reconcile:
  *   post:
  *     summary: Reconcile per-client sync cursor
  *     description: Acknowledges the latest applied sync cursor for a given client and stores it monotonically.
@@ -140,5 +140,5 @@ export const postSyncReconcileHandler = async (req: Request, res: Response) => {
 };
 
 export function registerPostSyncReconcileRoute(routeRouter: RouterType): void {
-  routeRouter.post('/sync/reconcile', postSyncReconcileHandler);
+  routeRouter.post('/vfs-sync/reconcile', postSyncReconcileHandler);
 }

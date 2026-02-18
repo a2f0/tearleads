@@ -4,7 +4,7 @@ import {
   parseVfsCrdtLastReconciledWriteIds,
   type VfsCrdtLastReconciledWriteIds,
   type VfsSyncCursor
-} from '@tearleads/sync/vfs';
+} from '@tearleads/vfs-sync/vfs';
 import { normalizeRequiredString } from './blob-shared.js';
 
 export interface ParsedBlobAttachConsistency {

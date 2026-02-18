@@ -1,5 +1,5 @@
 {
-  "name": "@tearleads/sync",
+  "name": "@tearleads/vfs-sync",
   "version": "0.0.1",
   "description": "Sync pages and window for Tearleads",
   "type": "module",
@@ -20,7 +20,7 @@
     "src"
   ],
   "scripts": {
-    "build": "echo \"@tearleads/sync is source-consumed via Vite aliases\"",
+    "build": "echo \"@tearleads/vfs-sync is source-consumed via Vite aliases\"",
     "clean": "rm -rf dist",
     "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"

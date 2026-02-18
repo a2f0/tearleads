@@ -11,7 +11,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY packages/api/package.json packages/api/
 COPY packages/shared/package.json packages/shared/
 COPY packages/db/package.json packages/db/
-COPY packages/sync/package.json packages/sync/
+COPY packages/vfs-sync/package.json packages/vfs-sync/
 
 # Install dependencies (skip postinstall - source not copied yet)
 RUN pnpm install --frozen-lockfile --ignore-scripts
@@ -20,7 +20,7 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY packages/api packages/api
 COPY packages/shared packages/shared
 COPY packages/db packages/db
-COPY packages/sync packages/sync
+COPY packages/vfs-sync packages/vfs-sync
 
 # Build shared packages first, then API bundle
 RUN pnpm --filter @tearleads/shared build && \

@@ -3,7 +3,7 @@ import {
   encodeVfsSyncCursor,
   parseVfsCrdtLastReconciledWriteIds,
   parseVfsCrdtReconcilePayload
-} from '@tearleads/sync/vfs';
+} from '@tearleads/vfs-sync/vfs';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 

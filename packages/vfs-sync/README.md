@@ -1,4 +1,4 @@
-# @tearleads/sync
+# @tearleads/vfs-sync
 
 Sync pages and window for Tearleads.
 
@@ -14,8 +14,8 @@ This package is source-consumed via Vite aliases and does not require a separate
 
 ```bash
 # Test
-pnpm --filter @tearleads/sync test
+pnpm --filter @tearleads/vfs-sync test
 
 # Test with coverage
-pnpm --filter @tearleads/sync test:coverage
+pnpm --filter @tearleads/vfs-sync test:coverage
 ```

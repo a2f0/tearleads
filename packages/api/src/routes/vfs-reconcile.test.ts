@@ -1,4 +1,4 @@
-import { decodeVfsSyncCursor, encodeVfsSyncCursor } from '@tearleads/sync/vfs';
+import { decodeVfsSyncCursor, encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
@@ -47,7 +47,7 @@ describe('VFS sync reconcile route', () => {
   });
 
   it('returns 401 when not authenticated', async () => {
-    const response = await request(app).post('/v1/vfs/sync/reconcile').send({});
+    const response = await request(app).post('/v1/vfs/vfs-sync/reconcile').send({});
 
     expect(response.status).toBe(401);
     expect(response.body).toEqual({ error: 'Unauthorized' });
@@ -57,7 +57,7 @@ describe('VFS sync reconcile route', () => {
     const authHeader = await createAuthHeader();
 
     const response = await request(app)
-      .post('/v1/vfs/sync/reconcile')
+      .post('/v1/vfs/vfs-sync/reconcile')
       .set('Authorization', authHeader)
       .send({ clientId: 'desktop' });
 
@@ -71,7 +71,7 @@ describe('VFS sync reconcile route', () => {
     const authHeader = await createAuthHeader();
 
     const response = await request(app)
-      .post('/v1/vfs/sync/reconcile')
+      .post('/v1/vfs/vfs-sync/reconcile')
       .set('Authorization', authHeader)
       .send({
         clientId: 'desktop',
@@ -90,7 +90,7 @@ describe('VFS sync reconcile route', () => {
     });
 
     const response = await request(app)
-      .post('/v1/vfs/sync/reconcile')
+      .post('/v1/vfs/vfs-sync/reconcile')
       .set('Authorization', authHeader)
       .send({
         clientId: 'desktop:sync',
@@ -120,7 +120,7 @@ describe('VFS sync reconcile route', () => {
     });
 
     const response = await request(app)
-      .post('/v1/vfs/sync/reconcile')
+      .post('/v1/vfs/vfs-sync/reconcile')
       .set('Authorization', authHeader)
       .send({
         clientId: 'desktop',
@@ -152,7 +152,7 @@ describe('VFS sync reconcile route', () => {
     });
 
     const response = await request(app)
-      .post('/v1/vfs/sync/reconcile')
+      .post('/v1/vfs/vfs-sync/reconcile')
       .set('Authorization', authHeader)
       .send({
         clientId: 'desktop',
@@ -179,7 +179,7 @@ describe('VFS sync reconcile route', () => {
     });
 
     const response = await request(app)
-      .post('/v1/vfs/sync/reconcile')
+      .post('/v1/vfs/vfs-sync/reconcile')
       .set('Authorization', authHeader)
       .send({
         clientId: 'desktop',
@@ -209,7 +209,7 @@ describe('VFS sync reconcile route', () => {
     });
 
     const response = await request(app)
-      .post('/v1/vfs/sync/reconcile')
+      .post('/v1/vfs/vfs-sync/reconcile')
       .set('Authorization', authHeader)
       .send({
         clientId: 'desktop',
@@ -232,7 +232,7 @@ describe('VFS sync reconcile route', () => {
     mockQuery.mockRejectedValueOnce(new Error('db failed'));
 
     const response = await request(app)
-      .post('/v1/vfs/sync/reconcile')
+      .post('/v1/vfs/vfs-sync/reconcile')
       .set('Authorization', authHeader)
       .send({
         clientId: 'desktop',

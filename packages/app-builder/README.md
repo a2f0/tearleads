@@ -196,7 +196,7 @@ Each feature maps to one or more workspace packages that will be included in the
 | `health` | `@tearleads/health` | Health tracking |
 | `mls-chat` | `@tearleads/mls-chat` | Encrypted messaging |
 | `notes` | `@tearleads/notes` | Note taking |
-| `sync` | `@tearleads/sync` | Cloud sync |
+| `sync` | `@tearleads/vfs-sync` | Cloud sync |
 | `terminal` | `@tearleads/terminal` | Terminal/console |
 | `vehicles` | `@tearleads/vehicles` | Vehicle management |
 | `wallet` | `@tearleads/wallet` | Digital wallet |

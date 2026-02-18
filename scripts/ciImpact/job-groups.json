@@ -40,7 +40,7 @@
     "@tearleads/mls-chat",
     "@tearleads/notes",
     "@tearleads/search",
-    "@tearleads/sync",
+    "@tearleads/vfs-sync",
     "@tearleads/terminal",
     "@tearleads/vfs-explorer"
   ],

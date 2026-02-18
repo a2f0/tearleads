@@ -4,7 +4,7 @@ import {
   mapVfsCrdtSyncRows,
   parseVfsCrdtSyncQuery,
   type VfsCrdtSyncDbRow
-} from '@tearleads/sync/vfs';
+} from '@tearleads/vfs-sync/vfs';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 
@@ -71,7 +71,7 @@ function toLastReconciledWriteIds(
 
 /**
  * @openapi
- * /vfs/crdt/sync:
+ * /vfs/crdt/vfs-sync:
  *   get:
  *     summary: Incremental VFS CRDT operation feed
  *     description: Returns cursor-paginated CRDT operations visible to the authenticated user.
@@ -174,5 +174,5 @@ export const getCrdtSyncHandler = async (req: Request, res: Response) => {
 };
 
 export function registerGetCrdtSyncRoute(routeRouter: RouterType): void {
-  routeRouter.get('/crdt/sync', getCrdtSyncHandler);
+  routeRouter.get('/crdt/vfs-sync', getCrdtSyncHandler);
 }

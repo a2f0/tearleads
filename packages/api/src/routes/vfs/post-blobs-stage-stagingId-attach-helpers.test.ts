@@ -1,4 +1,4 @@
-import { encodeVfsSyncCursor } from '@tearleads/sync/vfs';
+import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import { describe, expect, it } from 'vitest';
 import {
   dominatesLastWriteIds,

@@ -3,13 +3,13 @@ import {
   mapVfsSyncRows,
   parseVfsSyncQuery,
   type VfsSyncDbRow
-} from '@tearleads/sync/vfs';
+} from '@tearleads/vfs-sync/vfs';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 
 /**
  * @openapi
- * /vfs/sync:
+ * /vfs/vfs-sync:
  *   get:
  *     summary: Incremental VFS sync feed with ACL filtering
  *     description: Returns a cursor-paginated stream of VFS changes visible to the authenticated user.
@@ -82,5 +82,5 @@ export const getSyncHandler = async (req: Request, res: Response) => {
 };
 
 export function registerGetSyncRoute(routeRouter: RouterType): void {
-  routeRouter.get('/sync', getSyncHandler);
+  routeRouter.get('/vfs-sync', getSyncHandler);
 }

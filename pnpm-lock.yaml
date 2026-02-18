@@ -274,9 +274,9 @@ importers:
       '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
-      '@tearleads/sync':
+      '@tearleads/vfs-sync':
         specifier: workspace:*
-        version: link:../sync
+        version: link:../vfs-sync
       commander:
         specifier: 14.0.3
         version: 14.0.3
@@ -2136,7 +2136,7 @@ importers:
         specifier: 0.10.1
         version: 0.10.1(@vitest/utils@4.0.18)(vite@7.3.1(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))(vitest@4.0.18(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.30.2)(msw@2.12.10(@types/node@25.2.3)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
 
-  packages/sync:
+  packages/vfs-sync:
     dependencies:
       '@tearleads/shared':
         specifier: workspace:*

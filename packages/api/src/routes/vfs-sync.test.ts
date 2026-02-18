@@ -1,4 +1,4 @@
-import { decodeVfsSyncCursor } from '@tearleads/sync/vfs';
+import { decodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
@@ -47,7 +47,7 @@ describe('VFS sync route', () => {
   });
 
   it('returns 401 when not authenticated', async () => {
-    const response = await request(app).get('/v1/vfs/sync');
+    const response = await request(app).get('/v1/vfs/vfs-sync');
 
     expect(response.status).toBe(401);
     expect(response.body).toEqual({ error: 'Unauthorized' });
@@ -57,7 +57,7 @@ describe('VFS sync route', () => {
     const authHeader = await createAuthHeader();
 
     const response = await request(app)
-      .get('/v1/vfs/sync?limit=0')
+      .get('/v1/vfs/vfs-sync?limit=0')
       .set('Authorization', authHeader);
 
     expect(response.status).toBe(400);
@@ -68,7 +68,7 @@ describe('VFS sync route', () => {
     const authHeader = await createAuthHeader();
 
     const response = await request(app)
-      .get('/v1/vfs/sync?cursor=totally-invalid')
+      .get('/v1/vfs/vfs-sync?cursor=totally-invalid')
       .set('Authorization', authHeader);
 
     expect(response.status).toBe(400);
@@ -103,7 +103,7 @@ describe('VFS sync route', () => {
     });
 
     const response = await request(app)
-      .get('/v1/vfs/sync?limit=1&rootId=root-123')
+      .get('/v1/vfs/vfs-sync?limit=1&rootId=root-123')
       .set('Authorization', authHeader);
 
     expect(response.status).toBe(200);
@@ -163,7 +163,7 @@ describe('VFS sync route', () => {
     });
 
     const response = await request(app)
-      .get('/v1/vfs/sync?limit=10')
+      .get('/v1/vfs/vfs-sync?limit=10')
       .set('Authorization', authHeader);
 
     expect(response.status).toBe(500);
@@ -177,7 +177,7 @@ describe('VFS sync route', () => {
     mockQuery.mockRejectedValueOnce(new Error('Database failure'));
 
     const response = await request(app)
-      .get('/v1/vfs/sync')
+      .get('/v1/vfs/vfs-sync')
       .set('Authorization', authHeader);
 
     expect(response.status).toBe(500);
