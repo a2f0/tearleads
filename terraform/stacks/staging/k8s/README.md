@@ -30,7 +30,7 @@ This stack provisions a k3s Kubernetes cluster on Hetzner Cloud for the staging 
 | `scripts/apply01.sh` | Step 1: Apply Terraform infrastructure changes |
 | `scripts/apply02.sh` | Step 2: Fetch kubeconfig, run Ansible baseline bootstrap, and deploy manifests |
 | `scripts/apply03.sh` | Step 3: Build/push staging images and roll deployments |
-| `scripts/apply.sh` | Compatibility wrapper for `scripts/apply01.sh` |
+| `scripts/apply.sh` | Run steps 1-3 in sequence (`apply01` → `apply02` → `apply03`) |
 | `scripts/destroy.sh` | Destroy infrastructure |
 | `scripts/kubeconfig.sh` | Fetch kubeconfig from server |
 | `scripts/setup-ecr-secret.sh` | Create ECR pull secret for container registry |
