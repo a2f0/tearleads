@@ -227,22 +227,37 @@ export class VfsBlobNetworkFlusher {
   private async runFlush(): Promise<VfsBlobNetworkFlusherFlushResult> {
     let processedOperations = 0;
 
-    while (this.pendingOperations.length > 0) {
-      const operation = this.pendingOperations[0];
-      if (!operation) {
-        break;
-      }
+    try {
+      while (processedOperations < this.pendingOperations.length) {
+        const operation = this.pendingOperations[processedOperations];
+        if (!operation) {
+          break;
+        }
 
-      await this.executeOperation(operation);
-      this.pendingOperations.shift();
-      processedOperations += 1;
-      await this.persistState();
+        await this.executeOperation(operation);
+        processedOperations += 1;
+        await this.persistPendingFromOffset(processedOperations);
+      }
+    } finally {
+      if (processedOperations > 0) {
+        this.pendingOperations.splice(0, processedOperations);
+      }
     }
 
     return {
       processedOperations,
       pendingOperations: this.pendingOperations.length
     };
+  }
+
+  private async persistPendingFromOffset(offset: number): Promise<void> {
+    if (!this.saveState) {
+      return;
+    }
+
+    await this.saveState({
+      pendingOperations: cloneOperations(this.pendingOperations.slice(offset))
+    });
   }
 
   private async executeOperation(

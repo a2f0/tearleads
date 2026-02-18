@@ -205,8 +205,10 @@ export class VfsWriteOrchestrator {
 
   async flushAll(): Promise<VfsWriteOrchestratorFlushResult> {
     try {
-      const crdtResult = await this.crdt.flush();
-      const blobResult = await this.blob.flush();
+      const [crdtResult, blobResult] = await Promise.all([
+        this.crdt.flush(),
+        this.blob.flush()
+      ]);
       return {
         crdt: crdtResult,
         blob: blobResult

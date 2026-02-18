@@ -1,11 +1,11 @@
 import type { VfsCrdtLastReconciledWriteIds } from '@tearleads/vfs-sync/vfs';
-import { tryRefreshToken } from './apiCore';
-import { getAuthHeaderValue } from './authStorage';
 import type {
   VfsBlobAttachConsistency,
   VfsBlobNetworkOperation,
   VfsBlobRelationKind
 } from './vfsBlobNetworkFlusherTypes';
+
+export { fetchWithAuthRefresh } from './vfsAuthFetch';
 
 const VALID_BLOB_RELATION_KINDS: VfsBlobRelationKind[] = [
   'file',
@@ -33,49 +33,6 @@ export function normalizeApiPrefix(apiPrefix: string): string {
   return withLeadingSlash.endsWith('/')
     ? withLeadingSlash.slice(0, -1)
     : withLeadingSlash;
-}
-
-function withAuthorizationHeader(
-  headersInit: HeadersInit | undefined
-): Headers {
-  const headers = new Headers(headersInit);
-  if (headers.has('Authorization')) {
-    return headers;
-  }
-
-  const authHeaderValue = getAuthHeaderValue();
-  if (authHeaderValue !== null) {
-    headers.set('Authorization', authHeaderValue);
-  }
-
-  return headers;
-}
-
-export async function fetchWithAuthRefresh(
-  fetchImpl: typeof fetch,
-  input: RequestInfo | URL,
-  init: RequestInit = {}
-): Promise<Response> {
-  const firstAttemptInit: RequestInit = {
-    ...init,
-    headers: withAuthorizationHeader(init.headers)
-  };
-  let response = await fetchImpl(input, firstAttemptInit);
-  if (response.status !== 401) {
-    return response;
-  }
-
-  const refreshed = await tryRefreshToken();
-  if (!refreshed) {
-    return response;
-  }
-
-  const retryInit: RequestInit = {
-    ...init,
-    headers: withAuthorizationHeader(init.headers)
-  };
-  response = await fetchImpl(input, retryInit);
-  return response;
 }
 
 export function parseErrorMessage(body: unknown, fallback: string): string {

@@ -12,50 +12,7 @@ import {
   type VfsHttpCrdtSyncTransportOptions,
   type VfsSyncCursor
 } from '@tearleads/vfs-sync/vfs';
-import { tryRefreshToken } from './apiCore';
-import { getAuthHeaderValue } from './authStorage';
-
-function withAuthorizationHeader(
-  headersInit: HeadersInit | undefined
-): Headers {
-  const headers = new Headers(headersInit);
-  if (headers.has('Authorization')) {
-    return headers;
-  }
-
-  const authHeaderValue = getAuthHeaderValue();
-  if (authHeaderValue !== null) {
-    headers.set('Authorization', authHeaderValue);
-  }
-
-  return headers;
-}
-
-async function fetchWithAuthRefresh(
-  input: RequestInfo | URL,
-  init: RequestInit = {}
-): Promise<Response> {
-  const firstAttemptInit: RequestInit = {
-    ...init,
-    headers: withAuthorizationHeader(init.headers)
-  };
-  let response = await fetch(input, firstAttemptInit);
-  if (response.status !== 401) {
-    return response;
-  }
-
-  const refreshed = await tryRefreshToken();
-  if (!refreshed) {
-    return response;
-  }
-
-  const retryInit: RequestInit = {
-    ...init,
-    headers: withAuthorizationHeader(init.headers)
-  };
-  response = await fetch(input, retryInit);
-  return response;
-}
+import { fetchWithAuthRefresh } from './vfsAuthFetch';
 
 export interface VfsApiCrdtTransportOptions
   extends Omit<VfsHttpCrdtSyncTransportOptions, 'fetchImpl' | 'getAuthToken'> {}
@@ -65,7 +22,7 @@ export function createVfsApiCrdtTransport(
 ): VfsCrdtSyncTransport {
   return new VfsHttpCrdtSyncTransport({
     ...options,
-    fetchImpl: fetchWithAuthRefresh
+    fetchImpl: (input, init) => fetchWithAuthRefresh(fetch, input, init)
   });
 }
 
