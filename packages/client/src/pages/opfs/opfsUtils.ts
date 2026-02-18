@@ -1,5 +1,5 @@
-import type { FileSystemEntry } from './types';
 import { getDirectoryEntries } from '../../storage/opfsDirectoryEntries';
+import type { FileSystemEntry } from './types';
 
 export function calculateTotalSize(entries: FileSystemEntry[]): number {
   return entries.reduce((total, entry) => {

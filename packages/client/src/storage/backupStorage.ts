@@ -5,8 +5,8 @@
 
 import { assertPlainArrayBuffer } from '@tearleads/shared';
 import {
-  type OpfsDirectoryEntryHandle,
-  getDirectoryEntries
+  getDirectoryEntries,
+  type OpfsDirectoryEntryHandle
 } from './opfsDirectoryEntries';
 
 const BACKUP_DIRECTORY = 'tearleads-backups';
