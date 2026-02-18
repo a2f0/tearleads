@@ -25,6 +25,11 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     retrySafe: true,
     isInline: true
   },
+  checkMainVersionBumpSetup: {
+    safetyClass: 'safe_read',
+    retrySafe: true,
+    isInline: true
+  },
   refresh: {
     safetyClass: 'safe_write_local',
     retrySafe: false,
@@ -219,6 +224,12 @@ export function createActionCommand(actionName: ActionName): Command {
         break;
       case 'setVscodeTitle':
         cmd.option('--title <value>', 'Title to set');
+        break;
+      case 'checkMainVersionBumpSetup':
+        cmd.option(
+          '--key-file <path>',
+          'Path to merge-signing app private key PEM file'
+        );
         break;
       case 'addLabel':
         cmd

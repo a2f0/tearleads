@@ -5,6 +5,7 @@ import { runWithTimeout } from '../../../tooling/lib/cliShared.ts';
 import type { ActionConfig, ActionName, GlobalOptions } from '../types.ts';
 import { requireDefined } from './helpers.ts';
 import {
+  handleCheckMainVersionBumpSetup,
   handleGeneratePrSummary,
   handleGetReviewThreads,
   handleTriggerGeminiReview
@@ -89,6 +90,10 @@ export function runInlineAction(
   switch (action) {
     case 'getRepo': {
       return repo;
+    }
+
+    case 'checkMainVersionBumpSetup': {
+      return handleCheckMainVersionBumpSetup(options, repo, runGh);
     }
 
     case 'getPrInfo': {

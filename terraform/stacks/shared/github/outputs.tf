@@ -25,27 +25,27 @@ output "merge_signing_app_installation_enabled" {
 
 output "merge_signing_app_installation_id" {
   description = "Configured merge-signing app installation ID"
-  value = coalesce(
+  value = try(coalesce(
     var.merge_signing_app_installation_id,
     var.tearleads_version_bumper_installation_id,
     var.tearleads_version_bumper_installatio_id
-  )
+  ), null)
 }
 
 output "merge_signing_app_slug" {
   description = "Configured merge-signing app slug"
-  value = coalesce(
+  value = try(coalesce(
     var.merge_signing_app_slug,
     var.tearleads_version_bumper_app_slug
-  )
+  ), null)
 }
 
 output "merge_signing_app_id" {
   description = "Configured merge-signing app ID"
-  value = coalesce(
+  value = try(coalesce(
     var.merge_signing_app_id,
     var.tearleads_version_bumper_app_id
-  )
+  ), null)
 }
 
 output "merge_signing_app_node_id" {

@@ -34,21 +34,21 @@ moved {
 }
 
 locals {
-  effective_merge_signing_app_id = coalesce(
+  effective_merge_signing_app_id = try(coalesce(
     var.merge_signing_app_id,
     var.tearleads_version_bumper_app_id
-  )
+  ), null)
 
-  effective_merge_signing_app_installation_id = coalesce(
+  effective_merge_signing_app_installation_id = try(coalesce(
     var.merge_signing_app_installation_id,
     var.tearleads_version_bumper_installation_id,
     var.tearleads_version_bumper_installatio_id
-  )
+  ), null)
 
-  effective_merge_signing_app_slug = coalesce(
+  effective_merge_signing_app_slug = try(coalesce(
     var.merge_signing_app_slug,
     var.tearleads_version_bumper_app_slug
-  )
+  ), null)
 }
 
 # Branch protection for main

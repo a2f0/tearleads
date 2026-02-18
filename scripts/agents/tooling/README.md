@@ -31,6 +31,7 @@ Run `--help` for full action and option list:
 ### GitHub API Actions
 
 - `getRepo` - Print current repo as `owner/name`
+- `checkMainVersionBumpSetup` - Validate required env vars, key file, and repo secrets for main version bump app auth
 - `getPrInfo` - Get PR info (state, merge status, etc.)
 - `getReviewThreads` - Fetch review threads via GraphQL
 - `replyToComment` - Reply in-thread with custom body

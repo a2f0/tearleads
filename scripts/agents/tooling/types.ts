@@ -5,6 +5,7 @@ export type SafetyClass =
 
 export type ActionName =
   | 'getRepo'
+  | 'checkMainVersionBumpSetup'
   | 'refresh'
   | 'syncToolchainVersions'
   | 'setVscodeTitle'
@@ -37,6 +38,7 @@ export type ActionName =
   | 'updatePrBody';
 
 export interface GlobalOptions {
+  keyFile?: string;
   apply?: boolean;
   check?: boolean;
   skipNode?: boolean;
