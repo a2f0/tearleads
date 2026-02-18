@@ -17,14 +17,14 @@ import {
   updatePrBodyWithOctokit
 } from './octokitPrBodyHandlers.ts';
 import {
+  getPrChecksWithOctokit,
+  getRequiredChecksStatusWithOctokit
+} from './octokitPrChecksHandlers.ts';
+import {
   getPrInfoWithOctokit,
   getReviewThreadsWithOctokit,
   triggerGeminiReviewWithOctokit
 } from './octokitPrInfoHandlers.ts';
-import {
-  getPrChecksWithOctokit,
-  getRequiredChecksStatusWithOctokit
-} from './octokitPrChecksHandlers.ts';
 import {
   createPrWithOctokit,
   enableAutoMergeWithOctokit,

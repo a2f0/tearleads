@@ -2,14 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createContext } from './testOctokitContext.ts';
 import {
+  getPrChecksWithOctokit,
+  getRequiredChecksStatusWithOctokit
+} from './utils/octokitPrChecksHandlers.ts';
+import {
   getPrInfoWithOctokit,
   getReviewThreadsWithOctokit,
   triggerGeminiReviewWithOctokit
 } from './utils/octokitPrInfoHandlers.ts';
-import {
-  getPrChecksWithOctokit,
-  getRequiredChecksStatusWithOctokit
-} from './utils/octokitPrChecksHandlers.ts';
 import {
   enableAutoMergeWithOctokit,
   findPrForBranchWithOctokit,
