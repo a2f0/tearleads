@@ -6,14 +6,14 @@ This document maps infrastructure compliance sentinels to their implementations 
 
 | Sentinel | Control | Location | Description |
 | --- | --- | --- | --- |
-| `TL-INFRA-001` | SSH Key Authentication | `terraform/modules/hetzner-server/main.tf` | SSH key-only authentication via Hetzner SSH key reference |
-| `TL-INFRA-002` | Server Hardening | `terraform/modules/hetzner-server/main.tf` | Cloud-init hardening: root disabled, non-root user, SSH key-only |
+| `TL-INFRA-001` | SSH Key Authentication | `terraform/modules/hetzner-server/main.tf`, `terraform/stacks/prod/vpn/main.tf` | SSH key-only authentication via Hetzner SSH key reference |
+| `TL-INFRA-002` | Server Hardening | `terraform/modules/hetzner-server/main.tf`, `terraform/stacks/prod/vpn/main.tf` | Cloud-init hardening: root disabled, non-root user, SSH key-only |
 | `TL-INFRA-003` | Managed Identity | `terraform/modules/azure-tee/main.tf` | User-assigned managed identity for credential-less Azure auth |
-| `TL-INFRA-004` | SSH Hardening | `ansible/playbooks/k8s.yml` | SSH hardening defaults (root disabled, key-only auth, auth attempt limits) |
+| `TL-INFRA-004` | SSH Hardening | `ansible/playbooks/k8s.yml`, `ansible/playbooks/vpn.yml` | SSH hardening defaults (root disabled, key-only auth, auth attempt limits) |
 | `TL-NET-001` | Network Security Group | `terraform/modules/azure-tee/main.tf` | NSG with default deny and explicit allow rules |
 | `TL-NET-002` | SSH Access Restriction | `terraform/modules/azure-tee/main.tf` | SSH limited to `allowed_ssh_cidr` variable |
-| `TL-NET-003` | Host Firewall | `terraform/stacks/staging/k8s/main.tf` | UFW firewall with default deny incoming |
-| `TL-NET-004` | Infrastructure Firewall | `terraform/modules/hetzner-server/main.tf` | Hetzner Cloud firewall with explicit port rules |
+| `TL-NET-003` | Host Firewall | `ansible/playbooks/vpn.yml` | UFW firewall with default deny incoming |
+| `TL-NET-004` | Infrastructure Firewall | `terraform/modules/hetzner-server/main.tf`, `terraform/stacks/prod/vpn/main.tf` | Hetzner Cloud firewall with explicit port rules |
 | `TL-NET-005` | DB Network Isolation | `terraform/modules/aws-rds-postgres/main.tf` | RDS security group restricting access to allowed CIDRs |
 | `TL-NET-006` | Cloudflare Tunnel Isolation | `terraform/modules/cloudflare-tunnel/main.tf` | Inbound traffic routed via secure tunnel without public port exposure |
 | `TL-CRYPTO-001` | Key Vault RBAC | `terraform/modules/azure-tee/main.tf` | Azure Key Vault with RBAC, purge protection, Premium SKU |

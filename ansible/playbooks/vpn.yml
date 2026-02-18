@@ -1,4 +1,6 @@
 ---
+# COMPLIANCE_SENTINEL: TL-INFRA-004 | control=ssh-hardening
+# COMPLIANCE_SENTINEL: TL-NET-003 | control=host-firewall
 - name: Configure WireGuard VPN server
   hosts: all
   become: true

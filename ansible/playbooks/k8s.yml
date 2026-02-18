@@ -1,4 +1,5 @@
 ---
+# COMPLIANCE_SENTINEL: TL-INFRA-004 | control=ssh-hardening
 - name: Bootstrap k8s cluster with ingress and cert-manager
   hosts: all
   become: true
