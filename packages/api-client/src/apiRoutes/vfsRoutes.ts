@@ -44,8 +44,8 @@ export const vfsRoutes = {
         eventName: 'api_get_vfs_shares'
       }
     ),
-  createShare: (data: CreateVfsShareRequest) =>
-    request<{ share: VfsShare }>(
+  createShare: async (data: CreateVfsShareRequest): Promise<VfsShare> => {
+    const response = await request<{ share: VfsShare }>(
       `/vfs/items/${encodeURIComponent(data.itemId)}/shares`,
       {
         fetchOptions: {
@@ -60,16 +60,26 @@ export const vfsRoutes = {
         },
         eventName: 'api_post_vfs_share'
       }
-    ).then((r) => r.share),
-  updateShare: (shareId: string, data: UpdateVfsShareRequest) =>
-    request<{ share: VfsShare }>(`/vfs/shares/${encodeURIComponent(shareId)}`, {
-      fetchOptions: {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      },
-      eventName: 'api_patch_vfs_share'
-    }).then((r) => r.share),
+    );
+    return response.share;
+  },
+  updateShare: async (
+    shareId: string,
+    data: UpdateVfsShareRequest
+  ): Promise<VfsShare> => {
+    const response = await request<{ share: VfsShare }>(
+      `/vfs/shares/${encodeURIComponent(shareId)}`,
+      {
+        fetchOptions: {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        },
+        eventName: 'api_patch_vfs_share'
+      }
+    );
+    return response.share;
+  },
   deleteShare: (shareId: string) =>
     request<{ deleted: boolean }>(
       `/vfs/shares/${encodeURIComponent(shareId)}`,
@@ -78,8 +88,8 @@ export const vfsRoutes = {
         eventName: 'api_delete_vfs_share'
       }
     ),
-  createOrgShare: (data: CreateOrgShareRequest) =>
-    request<{ orgShare: VfsOrgShare }>(
+  createOrgShare: async (data: CreateOrgShareRequest): Promise<VfsOrgShare> => {
+    const response = await request<{ orgShare: VfsOrgShare }>(
       `/vfs/items/${encodeURIComponent(data.itemId)}/org-shares`,
       {
         fetchOptions: {
@@ -94,7 +104,9 @@ export const vfsRoutes = {
         },
         eventName: 'api_post_vfs_org_share'
       }
-    ).then((r) => r.orgShare),
+    );
+    return response.orgShare;
+  },
   deleteOrgShare: (shareId: string) =>
     request<{ deleted: boolean }>(
       `/vfs/org-shares/${encodeURIComponent(shareId)}`,

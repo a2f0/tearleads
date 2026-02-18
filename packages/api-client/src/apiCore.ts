@@ -10,6 +10,7 @@ import {
   updateStoredTokens,
   waitForRefreshCompletion
 } from './authStorage';
+import { isJwtExpired } from './jwt';
 
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 
@@ -145,7 +146,6 @@ export async function tryRefreshToken(): Promise<boolean> {
       setSessionExpiredError();
       clearStoredAuth();
     } else {
-      const { isJwtExpired } = await import('./jwt');
       if (result.attemptedByThisTab && isJwtExpired(finalToken)) {
         setSessionExpiredError();
         clearStoredAuth();
