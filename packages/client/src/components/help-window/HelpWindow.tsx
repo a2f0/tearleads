@@ -1,4 +1,3 @@
-import openapiSpec from '@tearleads/api/dist/openapi.json';
 import { ApiDocs } from '@tearleads/ui';
 import {
   DesktopFloatingWindow as FloatingWindow,
@@ -8,6 +7,7 @@ import {
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { ArrowLeft, CircleHelp } from 'lucide-react';
+import type { OpenAPIV3 } from 'openapi-types';
 import { useEffect, useMemo, useState } from 'react';
 import { HelpDocumentation } from '@/components/help-links/HelpDocumentation';
 import { HelpLinksGrid } from '@/components/help-links/HelpLinksGrid';
@@ -23,6 +23,20 @@ import {
 import { HelpWindowMenuBar } from './HelpWindowMenuBar';
 
 type HelpView = 'index' | 'developer' | 'legal' | 'api' | HelpDocId;
+
+function isOpenApiDocument(value: unknown): value is OpenAPIV3.Document {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  return (
+    typeof Reflect.get(value, 'openapi') === 'string' &&
+    typeof Reflect.get(value, 'info') === 'object' &&
+    Reflect.get(value, 'info') !== null &&
+    typeof Reflect.get(value, 'paths') === 'object' &&
+    Reflect.get(value, 'paths') !== null
+  );
+}
 
 function getHelpWindowTitle(view: HelpView): string {
   switch (view) {
@@ -61,7 +75,31 @@ export function HelpWindow({
   initialDimensions
 }: HelpWindowProps) {
   const [view, setView] = useState<HelpView>('index');
+  const [openapiSpec, setOpenapiSpec] = useState<OpenAPIV3.Document | null>(
+    null
+  );
   const openRequest = useWindowOpenRequest('help');
+
+  useEffect(() => {
+    let cancelled = false;
+    const modulePath = '@tearleads/api/dist/openapi.json';
+
+    import(modulePath)
+      .then((module) => {
+        if (!cancelled && isOpenApiDocument(module.default)) {
+          setOpenapiSpec(module.default);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setOpenapiSpec(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!openRequest?.requestId || !openRequest.helpDocId) return;
@@ -143,7 +181,13 @@ export function HelpWindow({
             </div>
           ) : view === 'api' ? (
             <div className="h-full overflow-auto">
-              <ApiDocs spec={openapiSpec} />
+              {openapiSpec ? (
+                <ApiDocs spec={openapiSpec} />
+              ) : (
+                <div className="text-muted-foreground text-sm">
+                  Loading API docs...
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex h-full min-h-0 flex-col overflow-hidden">
