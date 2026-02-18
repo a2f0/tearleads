@@ -8,4 +8,4 @@ export {
   type NotificationLevel,
   NotificationsTab,
   notificationStore
-} from '../../../../notifications/src/clientEntry';
+} from '../../../../notifications/src/index';
