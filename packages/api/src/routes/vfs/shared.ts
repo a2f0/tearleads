@@ -7,6 +7,7 @@ import { isRecord } from '@tearleads/shared';
 
 const VALID_OBJECT_TYPES: VfsObjectType[] = [
   'file',
+  'blob',
   'photo',
   'audio',
   'video',

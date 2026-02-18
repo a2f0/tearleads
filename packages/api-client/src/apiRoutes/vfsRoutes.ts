@@ -12,7 +12,12 @@ import type {
   VfsShareType,
   VfsUserKeysResponse
 } from '@tearleads/shared';
-import { request } from '../apiCore';
+import { request, requestResponse } from '../apiCore';
+
+export interface VfsBlobResponse {
+  data: Uint8Array;
+  contentType: string | null;
+}
 
 export const vfsRoutes = {
   getMyKeys: () =>
@@ -122,5 +127,26 @@ export const vfsRoutes = {
       `/vfs/share-targets/search?${params.toString()}`,
       { eventName: 'api_get_vfs_share_targets' }
     );
-  }
+  },
+  getBlob: async (blobId: string): Promise<VfsBlobResponse> => {
+    const response = await requestResponse(
+      `/vfs/blobs/${encodeURIComponent(blobId)}`,
+      {
+        eventName: 'api_get_vfs_blob'
+      }
+    );
+    const data = new Uint8Array(await response.arrayBuffer());
+    return {
+      data,
+      contentType: response.headers.get('content-type')
+    };
+  },
+  deleteBlob: (blobId: string) =>
+    request<{ deleted: boolean; blobId: string }>(
+      `/vfs/blobs/${encodeURIComponent(blobId)}`,
+      {
+        fetchOptions: { method: 'DELETE' },
+        eventName: 'api_delete_vfs_blob'
+      }
+    )
 };

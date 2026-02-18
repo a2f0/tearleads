@@ -16,6 +16,7 @@ export interface VfsKeySetupRequest {
 export type VfsObjectType =
   // Entities
   | 'file'
+  | 'blob'
   | 'photo'
   | 'audio'
   | 'video'

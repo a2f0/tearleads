@@ -74,7 +74,9 @@ describe('blob-shared', () => {
       ).toEqual({
         stagingId: 'stage-1',
         blobId: 'blob-1',
-        expiresAt: '2099-02-14T11:00:00.000Z'
+        expiresAt: '2099-02-14T11:00:00.000Z',
+        dataBase64: null,
+        contentType: null
       });
     });
 
@@ -87,8 +89,45 @@ describe('blob-shared', () => {
       expect(parsed).not.toBeNull();
       expect(parsed?.blobId).toBe('blob-1');
       expect(parsed?.expiresAt).toBe('2099-02-14T11:00:00.000Z');
+      expect(parsed?.dataBase64).toBeNull();
+      expect(parsed?.contentType).toBeNull();
       expect(typeof parsed?.stagingId).toBe('string');
       expect(parsed?.stagingId.length).toBeGreaterThan(0);
+    });
+
+    it('accepts optional inbound blob payload fields', () => {
+      expect(
+        parseBlobStageBody({
+          stagingId: 'stage-1',
+          blobId: 'blob-1',
+          expiresAt: '2099-02-14T11:00:00.000Z',
+          dataBase64: 'SGVsbG8=',
+          contentType: 'text/plain'
+        })
+      ).toEqual({
+        stagingId: 'stage-1',
+        blobId: 'blob-1',
+        expiresAt: '2099-02-14T11:00:00.000Z',
+        dataBase64: 'SGVsbG8=',
+        contentType: 'text/plain'
+      });
+    });
+
+    it('rejects non-string optional inbound blob payload fields', () => {
+      expect(
+        parseBlobStageBody({
+          blobId: 'blob-1',
+          expiresAt: '2099-02-14T11:00:00.000Z',
+          dataBase64: 42
+        })
+      ).toBeNull();
+      expect(
+        parseBlobStageBody({
+          blobId: 'blob-1',
+          expiresAt: '2099-02-14T11:00:00.000Z',
+          contentType: false
+        })
+      ).toBeNull();
     });
   });
 
