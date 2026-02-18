@@ -408,7 +408,9 @@ describe('VFS routes (blobs stage)', () => {
         .send(payload);
 
       expect(firstAttempt.status).toBe(500);
-      expect(firstAttempt.body).toEqual({ error: 'Failed to persist blob data' });
+      expect(firstAttempt.body).toEqual({
+        error: 'Failed to persist blob data'
+      });
       expect(secondAttempt.status).toBe(201);
       expect(secondAttempt.body).toEqual({
         stagingId: 'stage-retry-1',

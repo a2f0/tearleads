@@ -308,9 +308,8 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       { pullLimit: 1 }
     );
     failedResumeClient.hydrateState(persisted);
-    const preFailureExportState = captureExportedSyncClientState(
-      failedResumeClient
-    );
+    const preFailureExportState =
+      captureExportedSyncClientState(failedResumeClient);
 
     await expect(failedResumeClient.sync()).rejects.toThrowError(
       /hasMore=true with an empty pull page/
