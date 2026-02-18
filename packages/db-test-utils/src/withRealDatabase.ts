@@ -127,7 +127,7 @@ export async function createTestDatabase(
  * @example
  * ```ts
  * import { withRealDatabase, seedFolder } from '@tearleads/db-test-utils';
- * import { migrations } from '/db/migrations';
+ * import { migrations } from '@tearleads/db/migrations';
  * import { vfsLinks } from '@tearleads/db/sqlite';
  *
  * it('creates link when copying', async () => {

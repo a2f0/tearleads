@@ -3,7 +3,7 @@ export function createCsv(rows: Record<string, unknown>[]): string {
     return '';
   }
 
-  const headers = Object.keys(rows[0] ?? {});
+  const headers = [...new Set(rows.flatMap((row) => Object.keys(row)))];
   const escapeCell = (value: unknown): string => {
     const text = value == null ? '' : String(value);
     const escaped = text.replaceAll('"', '""');

@@ -60,8 +60,9 @@ async function request<T>(
       if (body.error) {
         message = body.error;
       }
-    } catch {
-      // ignore json parse failures
+    } catch (e) {
+      // ignore json parse failures, but log for debugging
+      console.warn('Failed to parse API error response as JSON:', e);
     }
     throw new Error(message);
   }
