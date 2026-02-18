@@ -159,6 +159,63 @@ describe('VfsBackgroundSyncClient', () => {
     expect(client.exportState()).toEqual(preFailureState);
   });
 
+  it('recovers after transient empty-page invariant failure without leaking partial state', async () => {
+    let pullCount = 0;
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({
+        results: []
+      }),
+      pullOperations: async () => {
+        pullCount += 1;
+        if (pullCount === 1) {
+          return {
+            items: [],
+            hasMore: true,
+            nextCursor: null,
+            lastReconciledWriteIds: {}
+          };
+        }
+
+        return {
+          items: [
+            buildAclAddSyncItem({
+              opId: 'desktop-recovery-1',
+              occurredAt: '2026-02-14T12:06:00.000Z',
+              itemId: 'item-recovery'
+            })
+          ],
+          hasMore: false,
+          nextCursor: {
+            changedAt: '2026-02-14T12:06:00.000Z',
+            changeId: 'desktop-recovery-1'
+          },
+          lastReconciledWriteIds: {
+            desktop: 1
+          }
+        };
+      }
+    };
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport, {
+      pullLimit: 1
+    });
+    const preFailureState = client.exportState();
+
+    await expect(client.sync()).rejects.toThrowError(
+      /hasMore=true with an empty pull page/
+    );
+    expect(client.exportState()).toEqual(preFailureState);
+
+    const recoveryResult = await client.sync();
+    expect(recoveryResult).toEqual({
+      pulledOperations: 1,
+      pullPages: 1
+    });
+    expect(client.snapshot().cursor).toEqual({
+      changedAt: '2026-02-14T12:06:00.000Z',
+      changeId: 'desktop-recovery-1'
+    });
+  });
+
   it('fails closed when pull pagination replays a duplicate opId in one sync cycle', async () => {
     let client: VfsBackgroundSyncClient | null = null;
     let pullCount = 0;
