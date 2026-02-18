@@ -43,6 +43,7 @@ export type VfsBlobCommitStatus =
   | 'invalid'
   | 'conflict'
   | 'forbidden'
+  | 'unavailable'
   | 'expired';
 
 export interface VfsBlobCommitResult {
@@ -198,7 +199,18 @@ export class InMemoryVfsBlobCommitStore {
      * visible in the backing object store. This boundary enables S3-compatible
      * backends without weakening commit isolation semantics.
      */
-    if (!this.objectStore.hasBlob(existingRecord.blobId)) {
+    let hasBlob = false;
+    try {
+      hasBlob = this.objectStore.hasBlob(existingRecord.blobId);
+    } catch {
+      return {
+        stagingId,
+        status: 'unavailable',
+        record: cloneRecord(existingRecord)
+      };
+    }
+
+    if (!hasBlob) {
       return {
         stagingId,
         status: 'notFound',
