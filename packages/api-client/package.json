@@ -26,7 +26,9 @@
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "dependencies": {
-    "@tearleads/shared": "workspace:*"
+    "@tearleads/local-write-orchestrator": "workspace:*",
+    "@tearleads/shared": "workspace:*",
+    "@tearleads/vfs-sync": "workspace:*"
   },
   "devDependencies": {
     "@tearleads/msw": "workspace:*"

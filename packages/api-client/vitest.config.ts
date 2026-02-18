@@ -30,8 +30,17 @@ export default defineConfig({
   resolve: {
     alias: {
       '@api-client': fileURLToPath(new URL('./src', import.meta.url)),
+      '@tearleads/local-write-orchestrator': fileURLToPath(
+        new URL('../local-write-orchestrator/src/index.ts', import.meta.url)
+      ),
       '@tearleads/msw/node': fileURLToPath(new URL('../msw/src/node.ts', import.meta.url)),
       '@tearleads/msw': fileURLToPath(new URL('../msw/src/index.ts', import.meta.url)),
+      '@tearleads/vfs-sync/vfs': fileURLToPath(
+        new URL('../vfs-sync/src/vfs/index.ts', import.meta.url)
+      ),
+      '@tearleads/vfs-sync': fileURLToPath(
+        new URL('../vfs-sync/src/index.ts', import.meta.url)
+      ),
       '@tearleads/msw/package.json': fileURLToPath(
         new URL('../msw/package.json', import.meta.url)
       )

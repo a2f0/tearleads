@@ -1,0 +1,251 @@
+import type {
+  VfsBackgroundSyncClientPersistedState,
+  VfsCrdtOperation,
+  VfsCrdtSyncTransport
+} from '@tearleads/vfs-sync/vfs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+function getAuthorizationHeader(init: RequestInit | undefined): string | null {
+  if (!init || !init.headers) {
+    return null;
+  }
+
+  return new Headers(init.headers).get('Authorization');
+}
+
+describe('vfsNetworkFlusher', () => {
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    global.fetch = vi.fn();
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    global.fetch = originalFetch;
+  });
+
+  it('retries CRDT push with refreshed auth token on 401', async () => {
+    localStorage.setItem('auth_token', 'stale-access-token');
+    localStorage.setItem('auth_refresh_token', 'refresh-token');
+
+    let pushAttempt = 0;
+    vi.mocked(global.fetch).mockImplementation(
+      async (input: RequestInfo | URL): Promise<Response> => {
+        const url = input.toString();
+        if (url.endsWith('/auth/refresh')) {
+          return new Response(
+            JSON.stringify({
+              accessToken: 'fresh-access-token',
+              refreshToken: 'fresh-refresh-token',
+              tokenType: 'Bearer',
+              expiresIn: 3600,
+              refreshExpiresIn: 604800,
+              user: { id: 'user-1', email: 'user@example.com' }
+            }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            }
+          );
+        }
+
+        if (url.endsWith('/v1/vfs/crdt/push')) {
+          pushAttempt += 1;
+          if (pushAttempt === 1) {
+            return new Response(null, { status: 401 });
+          }
+
+          return new Response(
+            JSON.stringify({
+              clientId: 'desktop',
+              results: [{ opId: 'op-1', status: 'applied' }]
+            }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            }
+          );
+        }
+
+        throw new Error(`Unexpected request URL: ${url}`);
+      }
+    );
+
+    const { createVfsApiCrdtTransport } = await import('./vfsNetworkFlusher');
+    const transport = createVfsApiCrdtTransport({
+      baseUrl: 'http://localhost',
+      apiPrefix: '/v1'
+    });
+
+    await expect(
+      transport.pushOperations({
+        userId: 'user-1',
+        clientId: 'desktop',
+        operations: [
+          {
+            opId: 'op-1',
+            opType: 'link_add',
+            itemId: 'child-1',
+            replicaId: 'desktop',
+            writeId: 1,
+            occurredAt: '2026-02-18T00:00:00.000Z',
+            parentId: 'parent-1',
+            childId: 'child-1'
+          }
+        ]
+      })
+    ).resolves.toEqual({
+      results: [{ opId: 'op-1', status: 'applied' }]
+    });
+
+    const pushCalls = vi
+      .mocked(global.fetch)
+      .mock.calls.filter(([input]) =>
+        input.toString().endsWith('/v1/vfs/crdt/push')
+      );
+    expect(pushCalls).toHaveLength(2);
+
+    const firstPushCall = pushCalls[0];
+    if (!firstPushCall) {
+      throw new Error('expected first push call');
+    }
+    const secondPushCall = pushCalls[1];
+    if (!secondPushCall) {
+      throw new Error('expected second push call');
+    }
+
+    expect(getAuthorizationHeader(firstPushCall[1])).toBe(
+      'Bearer stale-access-token'
+    );
+    expect(getAuthorizationHeader(secondPushCall[1])).toBe(
+      'Bearer fresh-access-token'
+    );
+  });
+
+  it('flushes queued operations and persists client state', async () => {
+    const pushOperations = vi.fn(
+      async ({
+        operations
+      }: {
+        userId: string;
+        clientId: string;
+        operations: VfsCrdtOperation[];
+      }) => ({
+        results: operations.map(
+          (operation): { opId: string; status: 'applied' } => {
+            return {
+              opId: operation.opId,
+              status: 'applied'
+            };
+          }
+        )
+      })
+    );
+    const pullOperations = vi.fn(async () => ({
+      items: [],
+      hasMore: false,
+      nextCursor: null,
+      lastReconciledWriteIds: {}
+    }));
+    const reconcileState = vi.fn(async () => ({
+      cursor: {
+        changedAt: '2026-02-18T00:00:00.000Z',
+        changeId: 'op-1'
+      },
+      lastReconciledWriteIds: { desktop: 1 }
+    }));
+
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations,
+      pullOperations,
+      reconcileState
+    };
+
+    const savedStates: VfsBackgroundSyncClientPersistedState[] = [];
+    const saveState = vi.fn(
+      async (state: VfsBackgroundSyncClientPersistedState) => {
+        savedStates.push(state);
+      }
+    );
+
+    const { VfsApiNetworkFlusher } = await import('./vfsNetworkFlusher');
+    const flusher = new VfsApiNetworkFlusher('user-1', 'desktop', {
+      transport,
+      saveState
+    });
+
+    await flusher.queueLocalOperationAndPersist({
+      opType: 'link_add',
+      itemId: 'child-1',
+      parentId: 'parent-1',
+      childId: 'child-1'
+    });
+    expect(savedStates).toHaveLength(1);
+    const queuedState = savedStates[0];
+    if (!queuedState) {
+      throw new Error('missing queued state');
+    }
+    expect(queuedState.pendingOperations).toHaveLength(1);
+
+    const flushResult = await flusher.flush();
+    expect(flushResult.pushedOperations).toBe(1);
+    expect(pushOperations).toHaveBeenCalledTimes(1);
+
+    const latestState = savedStates[savedStates.length - 1];
+    if (!latestState) {
+      throw new Error('missing latest persisted state');
+    }
+    expect(latestState.pendingOperations).toHaveLength(0);
+  });
+
+  it('hydrates queued state from persistence callback', async () => {
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async ({ operations }) => ({
+        results: operations.map(
+          (operation): { opId: string; status: 'applied' } => {
+            return {
+              opId: operation.opId,
+              status: 'applied'
+            };
+          }
+        )
+      }),
+      pullOperations: async () => ({
+        items: [],
+        hasMore: false,
+        nextCursor: null,
+        lastReconciledWriteIds: {}
+      }),
+      reconcileState: async ({ cursor, lastReconciledWriteIds }) => ({
+        cursor,
+        lastReconciledWriteIds
+      })
+    };
+
+    const { VfsApiNetworkFlusher } = await import('./vfsNetworkFlusher');
+    const sourceFlusher = new VfsApiNetworkFlusher('user-1', 'desktop', {
+      transport
+    });
+    sourceFlusher.queueLocalOperation({
+      opType: 'link_add',
+      itemId: 'child-1',
+      parentId: 'parent-1',
+      childId: 'child-1'
+    });
+    const persistedState = sourceFlusher.exportState();
+
+    const loadState = vi.fn(async () => persistedState);
+    const targetFlusher = new VfsApiNetworkFlusher('user-1', 'desktop', {
+      transport,
+      loadState
+    });
+
+    await expect(targetFlusher.hydrateFromPersistence()).resolves.toBe(true);
+    expect(targetFlusher.queuedOperations()).toHaveLength(1);
+  });
+});
