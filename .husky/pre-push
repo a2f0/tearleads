@@ -32,6 +32,7 @@ run_step "checkBinaryFiles" ./scripts/checkBinaryFiles.sh --from-upstream
 run_step "checkJs" ./scripts/preen/checkJs.sh --from-upstream
 run_step "checkPreenEcosystem" ./scripts/checkPreenEcosystem.sh --strict
 run_step "checkCircularImports" ./scripts/preen/checkCircularImports.ts
+run_step "checkGitHubActions" ./scripts/checkGithubActions.sh --from-upstream
 run_step "checkTerraform" ./scripts/checkTerraform.sh
 run_step "typecheckSolutionBuild" pnpm exec tsc -b
 run_step "enforceTypeScriptIncrementalBuilds" pnpm enforceTypeScriptIncrementalBuilds
