@@ -120,7 +120,7 @@ export const vfsRoutes = {
     const response = await requestResponse(
       `/vfs/blobs/${encodeURIComponent(blobId)}`,
       {
-        eventName: 'api_get_vfs_shares'
+        eventName: 'api_get_vfs_blob'
       }
     );
     const data = new Uint8Array(await response.arrayBuffer());
@@ -134,7 +134,7 @@ export const vfsRoutes = {
       `/vfs/blobs/${encodeURIComponent(blobId)}`,
       {
         fetchOptions: { method: 'DELETE' },
-        eventName: 'api_delete_vfs_share'
+        eventName: 'api_delete_vfs_blob'
       }
     )
 };

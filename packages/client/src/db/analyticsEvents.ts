@@ -55,9 +55,11 @@ export type AnalyticsEventSlug =
   | 'api_post_vfs_keys'
   | 'api_post_vfs_register'
   | 'api_get_vfs_shares'
+  | 'api_get_vfs_blob'
   | 'api_post_vfs_share'
   | 'api_patch_vfs_share'
   | 'api_delete_vfs_share'
+  | 'api_delete_vfs_blob'
   | 'api_post_vfs_org_share'
   | 'api_delete_vfs_org_share'
   | 'api_get_vfs_share_targets'
@@ -127,9 +129,11 @@ export const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
   api_post_vfs_keys: 'API Setup VFS Keys',
   api_post_vfs_register: 'API Register VFS Item',
   api_get_vfs_shares: 'API Get VFS Shares',
+  api_get_vfs_blob: 'API Get VFS Blob',
   api_post_vfs_share: 'API Create VFS Share',
   api_patch_vfs_share: 'API Update VFS Share',
   api_delete_vfs_share: 'API Delete VFS Share',
+  api_delete_vfs_blob: 'API Delete VFS Blob',
   api_post_vfs_org_share: 'API Create VFS Org Share',
   api_delete_vfs_org_share: 'API Delete VFS Org Share',
   api_get_vfs_share_targets: 'API Search VFS Share Targets',
@@ -300,6 +304,9 @@ export interface ApiPostVfsRegisterDetail {
 export interface ApiGetVfsSharesDetail {
   shareCount?: number;
 }
+export interface ApiGetVfsBlobDetail {
+  blobId?: string;
+}
 export interface ApiPostVfsShareDetail {
   shareType?: string;
 }
@@ -307,6 +314,9 @@ export interface ApiPatchVfsShareDetail {
   shareId?: string;
 }
 export interface ApiDeleteVfsShareDetail {
+  deleted?: boolean;
+}
+export interface ApiDeleteVfsBlobDetail {
   deleted?: boolean;
 }
 export interface ApiPostVfsOrgShareDetail {
@@ -413,9 +423,11 @@ export interface EventDetailMap {
   api_post_vfs_keys: ApiPostVfsKeysDetail;
   api_post_vfs_register: ApiPostVfsRegisterDetail;
   api_get_vfs_shares: ApiGetVfsSharesDetail;
+  api_get_vfs_blob: ApiGetVfsBlobDetail;
   api_post_vfs_share: ApiPostVfsShareDetail;
   api_patch_vfs_share: ApiPatchVfsShareDetail;
   api_delete_vfs_share: ApiDeleteVfsShareDetail;
+  api_delete_vfs_blob: ApiDeleteVfsBlobDetail;
   api_post_vfs_org_share: ApiPostVfsOrgShareDetail;
   api_delete_vfs_org_share: ApiDeleteVfsOrgShareDetail;
   api_get_vfs_share_targets: ApiGetVfsShareTargetsDetail;

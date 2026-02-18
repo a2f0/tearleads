@@ -181,8 +181,24 @@ export async function readVfsBlobData(params: {
   );
 
   const body = result.Body;
+  if (!body) {
+    return {
+      data: new Uint8Array(0),
+      contentType: result.ContentType ?? null
+    };
+  }
+
+  const bodyWithTransform = body as {
+    transformToByteArray?: () => Promise<Uint8Array>;
+  };
+  if (typeof bodyWithTransform.transformToByteArray === 'function') {
+    return {
+      data: await bodyWithTransform.transformToByteArray(),
+      contentType: result.ContentType ?? null
+    };
+  }
+
   if (
-    !body ||
     typeof (body as { [Symbol.asyncIterator]?: unknown })[
       Symbol.asyncIterator
     ] !== 'function'

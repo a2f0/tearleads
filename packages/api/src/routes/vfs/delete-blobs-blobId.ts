@@ -82,8 +82,6 @@ export const deleteBlobsBlobIdHandler = async (req: Request, res: Response) => {
       return;
     }
 
-    await deleteVfsBlobData({ blobId });
-
     const deleted = await client.query(
       `
       DELETE FROM vfs_registry
@@ -95,6 +93,8 @@ export const deleteBlobsBlobIdHandler = async (req: Request, res: Response) => {
     if ((deleted.rowCount ?? 0) < 1) {
       throw new Error('Failed to delete blob registry row');
     }
+
+    await deleteVfsBlobData({ blobId });
 
     await client.query('COMMIT');
     inTransaction = false;
