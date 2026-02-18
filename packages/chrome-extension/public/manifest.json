@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tearleads",
-  "version": "0.0.160",
+  "version": "0.0.161",
   "description": "Tearleads Chrome Extension",
   "permissions": [
     "storage",
