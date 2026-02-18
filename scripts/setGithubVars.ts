@@ -76,28 +76,15 @@ function runGh(args: string[]): string {
   }).trim();
 }
 
-function setSecret(
+function setGithubValue(
+  type: 'secret' | 'variable',
   repo: string,
-  secretName: string,
-  secretValue: string
+  name: string,
+  value: string
 ): void {
   execFileSync(
     'gh',
-    ['secret', 'set', secretName, '-R', repo, '--body', secretValue],
-    {
-      stdio: ['ignore', 'inherit', 'inherit']
-    }
-  );
-}
-
-function setVariable(
-  repo: string,
-  variableName: string,
-  variableValue: string
-): void {
-  execFileSync(
-    'gh',
-    ['variable', 'set', variableName, '-R', repo, '--body', variableValue],
+    [type, 'set', name, '-R', repo, '--body', value],
     {
       stdio: ['ignore', 'inherit', 'inherit']
     }
@@ -208,7 +195,7 @@ function main(): void {
   ];
 
   for (const secret of secrets) {
-    setSecret(env.GITHUB_REPO, secret.name, secret.value);
+    setGithubValue('secret', env.GITHUB_REPO, secret.name, secret.value);
   }
 
   for (const variableName of optionalGithubVars) {
@@ -216,7 +203,7 @@ function main(): void {
     if (!value) {
       continue;
     }
-    setVariable(env.GITHUB_REPO, variableName, value);
+    setGithubValue('variable', env.GITHUB_REPO, variableName, value);
   }
 
   process.stdout.write(

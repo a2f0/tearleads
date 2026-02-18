@@ -1,7 +1,11 @@
-data "aws_caller_identity" "current" {}
+data "terraform_remote_state" "shared_github" {
+  backend = "s3"
 
-locals {
-  github_actions_oidc_provider_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
+  config = {
+    bucket = "tearleads-terraform-state"
+    key    = "shared/github/terraform.tfstate"
+    region = "us-east-1"
+  }
 }
 
 module "ci_artifacts" {
@@ -34,7 +38,7 @@ module "ci_artifacts" {
   github_actions_repository        = var.github_actions_repository
   github_actions_role_name         = "tearleads-staging-github-actions-ecr-push"
   github_actions_branches          = ["main"]
-  github_actions_oidc_provider_arn = local.github_actions_oidc_provider_arn
+  github_actions_oidc_provider_arn = data.terraform_remote_state.shared_github.outputs.github_actions_oidc_provider_arn
 
   tags = {
     Project = "tearleads"

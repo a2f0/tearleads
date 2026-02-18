@@ -23,7 +23,8 @@ COPY scripts/downloadSqliteWasm.sh scripts/
 RUN scripts/downloadSqliteWasm.sh
 
 # Generate app config/theme assets required by client CSS imports.
-RUN cd packages/app-builder && pnpm exec tsx src/cli.ts generate --app tearleads
+ARG APP_NAME=tearleads
+RUN cd packages/app-builder && pnpm exec tsx src/cli.ts generate --app "${APP_NAME}"
 
 # Build all client dependencies with build scripts.
 RUN pnpm --filter @tearleads/client^... --if-present build
