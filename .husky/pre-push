@@ -34,7 +34,7 @@ run_step "checkPreenEcosystem" ./scripts/checkPreenEcosystem.sh --strict
 run_step "checkCircularImports" ./scripts/preen/checkCircularImports.ts
 run_step "checkTerraform" ./scripts/checkTerraform.sh
 run_step "typecheckSolutionBuild" pnpm exec tsc -b
-run_step "typecheckWeb" pnpm typecheckWeb
+run_step "enforceTypeScriptIncrementalBuilds" pnpm enforceTypeScriptIncrementalBuilds
 run_step "runImpactedQuality" pnpm exec tsx scripts/ciImpact/runImpactedQuality.ts --base origin/main --head HEAD
 # Run impacted package coverage tests with conservative full-run fallback.
 run_step "runImpactedTests" pnpm exec tsx scripts/ciImpact/runImpactedTests.ts --base origin/main --head HEAD

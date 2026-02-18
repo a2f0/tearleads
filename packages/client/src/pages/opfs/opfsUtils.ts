@@ -1,3 +1,4 @@
+import { getDirectoryEntries } from '../../storage/opfsDirectoryEntries';
 import type { FileSystemEntry } from './types';
 
 export function calculateTotalSize(entries: FileSystemEntry[]): number {
@@ -29,7 +30,7 @@ export async function readDirectory(
 ): Promise<FileSystemEntry[]> {
   const entries: FileSystemEntry[] = [];
 
-  for await (const [name, childHandle] of handle.entries()) {
+  for await (const [name, childHandle] of getDirectoryEntries(handle)) {
     if (childHandle.kind === 'file') {
       const file = await childHandle.getFile();
       entries.push({
