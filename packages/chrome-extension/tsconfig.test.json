@@ -4,7 +4,6 @@
     "composite": true,
     "noEmit": false,
     "emitDeclarationOnly": true,
-    "declaration": true,
     "declarationMap": true,
     "outDir": "./dist-tests",
     "tsBuildInfoFile": "./dist-tests/.tsbuildinfo"

@@ -26,7 +26,7 @@
     "dev:client": "FORCE_COLOR=0 VITE_API_URL=http://localhost:5001/v1 pnpm buildPreDev && FORCE_COLOR=0 pnpm --filter @tearleads/client dev",
     "devWebsite": "FORCE_COLOR=0 pnpm --filter @tearleads/api buildOpenapi && FORCE_COLOR=0 pnpm --filter @tearleads/website dev",
     "build": "pnpm -r build",
-    "typecheckWeb": "pnpm exec tsc --noEmit -p packages/client/tsconfig.json && pnpm exec tsc --noEmit -p packages/chrome-extension/tsconfig.json && pnpm exec tsc --noEmit -p packages/website/tsconfig.json && pnpm exec tsc --noEmit -p scripts/tsconfig.json",
+    "typecheckWeb": "concurrently --kill-others-on-fail --success all \"pnpm exec tsc --noEmit -p packages/client/tsconfig.json\" \"pnpm exec tsc --noEmit -p packages/chrome-extension/tsconfig.json\" \"pnpm exec tsc --noEmit -p packages/website/tsconfig.json\" \"pnpm exec tsc --noEmit -p scripts/tsconfig.json\" \"pnpm exec tsc --noEmit -p scripts/tsconfig.test.json\"",
     "test": "pnpm -r test && pnpm test:tuxedo",
     "test:tuxedo": "sh ./tuxedo/tests/run.sh",
     "test:coverage": "sh ./tuxedo/tests/coverage.sh",
