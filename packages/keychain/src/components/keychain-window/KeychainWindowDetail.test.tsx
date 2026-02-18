@@ -1,8 +1,8 @@
-import type { KeyStatus } from '@client/db/crypto/keyManager';
-import type { InstanceMetadata } from '@client/db/instanceRegistry';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { setKeychainDependencies } from '../../lib/keychainDependencies';
+import type { InstanceMetadata, KeyStatus } from '../../lib/types';
 import { mockConsoleError } from '../../test/consoleMocks';
 import { KeychainWindowDetail } from './KeychainWindowDetail';
 
@@ -113,6 +113,20 @@ describe('KeychainWindowDetail', () => {
     mockDeleteSessionKeysForInstance.mockResolvedValue(undefined);
     mockKeyManagerReset.mockResolvedValue(undefined);
     mockDeleteInstanceFromRegistry.mockResolvedValue(undefined);
+    setKeychainDependencies({
+      getInstances: async () => [],
+      getInstance: (instanceId) => mockGetInstance(instanceId),
+      deleteInstanceFromRegistry: (instanceId) =>
+        mockDeleteInstanceFromRegistry(instanceId),
+      getKeyStatusForInstance: (instanceId) =>
+        mockGetKeyStatusForInstance(instanceId),
+      deleteSessionKeysForInstance: (instanceId) =>
+        mockDeleteSessionKeysForInstance(instanceId),
+      resetInstanceKeys: async (instanceId) => {
+        const manager = mockGetKeyManagerForInstance(instanceId);
+        await manager.reset();
+      }
+    });
   });
 
   it('shows loading state initially', async () => {

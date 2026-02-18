@@ -1,44 +1,19 @@
-import { AuthProvider } from '@client/contexts/AuthContext';
 import { createTestJwtExpiresIn } from '@client/test/jwtTestUtils';
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Sync } from './Sync';
-
-const mockLogin = vi.fn();
-const mockLogout = vi.fn();
-const mockPingGet = vi.fn();
-const mockTryRefreshToken = vi.fn().mockResolvedValue(false);
-
-vi.mock('@client/lib/api', () => ({
-  api: {
-    auth: {
-      login: (...args: unknown[]) => mockLogin(...args),
-      logout: () => mockLogout()
-    },
-    ping: {
-      get: () => mockPingGet()
-    }
-  },
-  tryRefreshToken: () => mockTryRefreshToken()
-}));
-
-function renderSync(showBackLink = true) {
-  return render(
-    <MemoryRouter>
-      <AuthProvider>
-        <Sync showBackLink={showBackLink} />
-      </AuthProvider>
-    </MemoryRouter>
-  );
-}
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+  mockLogin,
+  mockPingGet,
+  renderSync,
+  resetSyncTestState,
+  setupSyncDependencies,
+  type LoginResult
+} from './Sync.testHelpers';
 
 describe('Sync', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    localStorage.clear();
-    mockPingGet.mockResolvedValue({ version: '0.0.1', dbVersion: '0.0.1' });
+    resetSyncTestState();
   });
 
   afterEach(() => {
@@ -78,13 +53,6 @@ describe('Sync', () => {
   });
 
   it('handles successful login', async () => {
-    mockLogin.mockResolvedValueOnce({
-      accessToken: 'test-token',
-      tokenType: 'Bearer',
-      expiresIn: 3600,
-      user: { id: '123', email: 'test@example.com' }
-    });
-
     const user = userEvent.setup();
     renderSync();
 
@@ -195,6 +163,7 @@ describe('Sync', () => {
       'auth_user',
       JSON.stringify({ id: '123', email: 'saved@example.com' })
     );
+    setupSyncDependencies();
 
     renderSync();
 
@@ -207,12 +176,12 @@ describe('Sync', () => {
   });
 
   it('handles logout', async () => {
-    mockLogout.mockResolvedValueOnce({ loggedOut: true });
     localStorage.setItem('auth_token', 'saved-token');
     localStorage.setItem(
       'auth_user',
       JSON.stringify({ id: '123', email: 'saved@example.com' })
     );
+    setupSyncDependencies();
 
     const user = userEvent.setup();
     renderSync();
@@ -229,10 +198,10 @@ describe('Sync', () => {
   });
 
   it('shows submitting state during login', async () => {
-    let resolveLogin: (value: unknown) => void = () => {};
-    mockLogin.mockImplementation(
+    let resolveLogin: ((result: LoginResult) => void) | null = null;
+    mockLogin.mockImplementationOnce(
       () =>
-        new Promise((resolve) => {
+        new Promise<LoginResult>((resolve) => {
           resolveLogin = resolve;
         })
     );
@@ -254,8 +223,8 @@ describe('Sync', () => {
       ).toBeInTheDocument();
     });
 
-    // Resolve the promise
-    resolveLogin({
+    expect(resolveLogin).not.toBeNull();
+    resolveLogin?.({
       accessToken: 'test-token',
       tokenType: 'Bearer',
       expiresIn: 3600,
@@ -273,6 +242,7 @@ describe('Sync', () => {
       'auth_user',
       JSON.stringify({ id: '123', email: 'saved@example.com' })
     );
+    setupSyncDependencies();
 
     renderSync(false);
 
@@ -284,12 +254,13 @@ describe('Sync', () => {
   });
 
   it('displays token expiration time in hours and minutes', async () => {
-    const token = createTestJwtExpiresIn(7200); // 2 hours
+    const token = createTestJwtExpiresIn(7200);
     localStorage.setItem('auth_token', token);
     localStorage.setItem(
       'auth_user',
       JSON.stringify({ id: '123', email: 'saved@example.com' })
     );
+    setupSyncDependencies();
 
     renderSync();
 
@@ -301,12 +272,13 @@ describe('Sync', () => {
   });
 
   it('displays token expiration time in minutes only', async () => {
-    const token = createTestJwtExpiresIn(1800); // 30 minutes
+    const token = createTestJwtExpiresIn(1800);
     localStorage.setItem('auth_token', token);
     localStorage.setItem(
       'auth_user',
       JSON.stringify({ id: '123', email: 'saved@example.com' })
     );
+    setupSyncDependencies();
 
     renderSync();
 
@@ -318,12 +290,13 @@ describe('Sync', () => {
   });
 
   it('displays token expiration time in seconds for short times', async () => {
-    const token = createTestJwtExpiresIn(45); // 45 seconds
+    const token = createTestJwtExpiresIn(45);
     localStorage.setItem('auth_token', token);
     localStorage.setItem(
       'auth_user',
       JSON.stringify({ id: '123', email: 'saved@example.com' })
     );
+    setupSyncDependencies();
 
     renderSync();
 
@@ -335,12 +308,13 @@ describe('Sync', () => {
   });
 
   it('displays hours without minutes when exactly on the hour', async () => {
-    const token = createTestJwtExpiresIn(3600); // 1 hour exactly
+    const token = createTestJwtExpiresIn(3600);
     localStorage.setItem('auth_token', token);
     localStorage.setItem(
       'auth_user',
       JSON.stringify({ id: '123', email: 'saved@example.com' })
     );
+    setupSyncDependencies();
 
     renderSync();
 
@@ -352,12 +326,13 @@ describe('Sync', () => {
   });
 
   it('displays expired state when token has expired', async () => {
-    const token = createTestJwtExpiresIn(-60); // expired 1 minute ago
+    const token = createTestJwtExpiresIn(-60);
     localStorage.setItem('auth_token', token);
     localStorage.setItem(
       'auth_user',
       JSON.stringify({ id: '123', email: 'saved@example.com' })
     );
+    setupSyncDependencies();
 
     renderSync();
 
@@ -369,16 +344,13 @@ describe('Sync', () => {
   });
 
   it('displays email address when emailDomain is configured', async () => {
-    mockPingGet.mockResolvedValue({
-      version: '0.0.1',
-      dbVersion: '0.0.1',
-      emailDomain: 'email.example.com'
-    });
+    mockPingGet.mockResolvedValueOnce({ emailDomain: 'email.example.com' });
     localStorage.setItem('auth_token', 'saved-token');
     localStorage.setItem(
       'auth_user',
       JSON.stringify({ id: 'user123', email: 'saved@example.com' })
     );
+    setupSyncDependencies();
 
     renderSync();
 
@@ -390,15 +362,13 @@ describe('Sync', () => {
   });
 
   it('does not display email address when emailDomain is not configured', async () => {
-    mockPingGet.mockResolvedValue({
-      version: '0.0.1',
-      dbVersion: '0.0.1'
-    });
+    mockPingGet.mockResolvedValueOnce({});
     localStorage.setItem('auth_token', 'saved-token');
     localStorage.setItem(
       'auth_user',
       JSON.stringify({ id: 'user123', email: 'saved@example.com' })
     );
+    setupSyncDependencies();
 
     renderSync();
 
@@ -425,14 +395,15 @@ describe('Sync', () => {
   });
 
   it('switches from register mode back to login mode', async () => {
+    setupSyncDependencies('register');
+
     const user = userEvent.setup();
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Create one' })).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Sign in' })).toBeVisible();
     });
 
-    await user.click(screen.getByRole('button', { name: 'Create one' }));
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
     expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument();

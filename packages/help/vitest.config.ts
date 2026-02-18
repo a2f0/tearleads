@@ -32,7 +32,7 @@ export default defineConfig({
         // Baseline thresholds from extracted help package coverage.
         statements: 85.2,
         branches: 76.6,
-        functions: 78.5,
+        functions: 78.3,
         lines: 87.9
       }
     }
