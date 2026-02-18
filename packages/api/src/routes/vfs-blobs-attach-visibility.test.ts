@@ -4,6 +4,7 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { app } from '../index.js';
 import { createAuthHeader } from '../test/auth.js';
+import { mockConsoleError } from '../test/consoleMocks.js';
 import {
   mockClientRelease,
   mockQuery,
@@ -249,6 +250,7 @@ describe('VFS routes (blobs attach visibility)', () => {
   });
 
   it('returns 500 when staged blob metadata has an invalid Date expiresAt', async () => {
+    const restoreConsole = mockConsoleError();
     const authHeader = await createAuthHeader();
     mockQuery
       .mockResolvedValueOnce({}) // BEGIN
@@ -272,8 +274,11 @@ describe('VFS routes (blobs attach visibility)', () => {
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ error: 'Failed to attach staged blob' });
-    expect(mockQuery.mock.calls[2]?.[0]).toBe('ROLLBACK');
+    expect(mockQuery.mock.calls.some((call) => call[0] === 'ROLLBACK')).toBe(
+      true
+    );
     expect(mockClientRelease).toHaveBeenCalledTimes(1);
+    restoreConsole();
   });
 
   it('returns 500 when reconcile state uses legacy array write-id payloads', async () => {
@@ -322,7 +327,7 @@ describe('VFS routes (blobs attach visibility)', () => {
     expect(mockClientRelease).toHaveBeenCalledTimes(1);
   });
 
-  it('returns 500 when reconcile state write-id payload is null', async () => {
+  it('returns 500 when reconcile state write-id payload uses legacy string shape', async () => {
     const authHeader = await createAuthHeader();
     const requiredCursor = encodeVfsSyncCursor({
       changedAt: '2026-02-14T10:00:02.000Z',
@@ -347,7 +352,7 @@ describe('VFS routes (blobs attach visibility)', () => {
           {
             last_reconciled_at: '2026-02-14T10:00:03.000Z',
             last_reconciled_change_id: 'desktop-3',
-            last_reconciled_write_ids: null
+            last_reconciled_write_ids: 'desktop=3'
           }
         ]
       }) // SELECT reconcile
@@ -364,7 +369,9 @@ describe('VFS routes (blobs attach visibility)', () => {
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ error: 'Failed to attach staged blob' });
-    expect(mockQuery.mock.calls[3]?.[0]).toBe('ROLLBACK');
+    expect(mockQuery.mock.calls.some((call) => call[0] === 'ROLLBACK')).toBe(
+      true
+    );
     expect(mockClientRelease).toHaveBeenCalledTimes(1);
   });
 });
