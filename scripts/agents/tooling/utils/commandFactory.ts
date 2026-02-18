@@ -10,6 +10,7 @@ import type { ActionName, GlobalOptions, JsonOutput } from '../types.ts';
 import { ACTION_CONFIG, AGENTS_DIR_PATH } from './actionConfig.ts';
 import { runDelegatedAction, runInlineAction } from './actions.ts';
 import { getRepo, isShaLike } from './helpers.ts';
+import { applyInfraCommandOptions } from './infraCommandOptions.ts';
 import { applyIssueCommandOptions } from './issueCommandOptions.ts';
 import { applyPrWorkflowCommandOptions } from './prWorkflowCommandOptions.ts';
 
@@ -28,6 +29,7 @@ export function createActionCommand(actionName: ActionName): Command {
     .option('--json', 'Emit structured JSON summary');
 
   if (
+    applyInfraCommandOptions(actionName, cmd) ||
     applyPrWorkflowCommandOptions(actionName, cmd) ||
     applyIssueCommandOptions(actionName, cmd)
   ) {
@@ -233,8 +235,18 @@ export function createActionCommand(actionName: ActionName): Command {
           output = `dry-run: would run ${scriptPath} from ${repoRoot}`;
         }
       } else if (config.isInline) {
-        const repo = getRepo();
-        output = await runInlineAction(actionName, opts, repo, timeoutMs);
+        const repo =
+          actionName === 'runTerraformStackScript' ||
+          actionName === 'runAnsibleBootstrap'
+            ? ''
+            : getRepo();
+        output = await runInlineAction(
+          actionName,
+          opts,
+          repo,
+          timeoutMs,
+          repoRoot
+        );
       } else {
         const result = runDelegatedAction(
           actionName,

@@ -36,6 +36,8 @@ export type ActionName =
   | 'listDeferredFixIssues'
   | 'getIssue'
   | 'runPreen'
+  | 'runTerraformStackScript'
+  | 'runAnsibleBootstrap'
   | 'issueTemplate'
   | 'createIssue'
   | 'createPr'
@@ -86,6 +88,10 @@ export interface GlobalOptions {
   bodyFile?: string;
   quotaMessage?: string;
   limit?: number;
+  stack?: string;
+  script?: string;
+  target?: string;
+  yes?: boolean;
 }
 
 export interface ActionConfig {
