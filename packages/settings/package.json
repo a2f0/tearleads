@@ -23,7 +23,6 @@
   },
   "peerDependencies": {
     "@tearleads/ui": "workspace:*",
-    "@tearleads/window-manager": "workspace:*",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-i18next": "16.5.4"
@@ -32,12 +31,10 @@
     "@radix-ui/react-slot": "1.2.4",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
-    "lucide-react": "0.564.0",
     "tailwind-merge": "3.4.1"
   },
   "devDependencies": {
     "@tearleads/ui": "workspace:*",
-    "@tearleads/window-manager": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
     "@testing-library/user-event": "14.6.1",
