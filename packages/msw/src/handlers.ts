@@ -53,8 +53,8 @@ import {
   defaultGroupDetail,
   defaultGroupMembers,
   defaultGroupsList,
-  defaultKeyValue,
   defaultKeys,
+  defaultKeyValue,
   defaultOrganization,
   defaultOrganizationGroups,
   defaultOrganizationResponse,
@@ -382,27 +382,23 @@ export const handlers = [
       expiresAt: '2024-01-02T12:00:00.000Z'
     })
   ),
-  http.post(
-    withOptionalV1Prefix('/vfs/blobs/stage/[^/]+/attach'),
-    () =>
-      ok({
-        stagingId: 'staging-1',
-        blobId: 'blob-1',
-        itemId: 'item-1',
-        relationKind: 'content',
-        status: 'attached',
-        attachedAt: nowIsoString()
-      })
+  http.post(withOptionalV1Prefix('/vfs/blobs/stage/[^/]+/attach'), () =>
+    ok({
+      stagingId: 'staging-1',
+      blobId: 'blob-1',
+      itemId: 'item-1',
+      relationKind: 'content',
+      status: 'attached',
+      attachedAt: nowIsoString()
+    })
   ),
-  http.post(
-    withOptionalV1Prefix('/vfs/blobs/stage/[^/]+/abandon'),
-    () =>
-      ok({
-        stagingId: 'staging-1',
-        blobId: 'blob-1',
-        status: 'abandoned',
-        abandonedAt: nowIsoString()
-      })
+  http.post(withOptionalV1Prefix('/vfs/blobs/stage/[^/]+/abandon'), () =>
+    ok({
+      stagingId: 'staging-1',
+      blobId: 'blob-1',
+      status: 'abandoned',
+      abandonedAt: nowIsoString()
+    })
   ),
   http.get(withOptionalV1Prefix('/vfs/items/[^/]+/shares'), () =>
     ok<VfsSharesResponse>(defaultVfsSharesResponse)
