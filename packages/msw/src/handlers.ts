@@ -18,12 +18,12 @@ import type {
   OrganizationsListResponse,
   OrganizationUsersResponse,
   PingData,
+  PostgresAdminInfoResponse,
   PostgresColumnsResponse,
   PostgresRowsResponse,
   PostgresTablesResponse,
   RecordAiUsageResponse,
   RedisKeysResponse,
-  RedisKeyValueResponse,
   ShareTargetSearchResponse,
   VfsCrdtPushResponse,
   VfsCrdtReconcileResponse,
@@ -81,7 +81,7 @@ import {
   resetMockApiState,
   setAdminUsers,
   withOptionalV1Prefix
-} from './handlerData';
+} from './handlerData.js';
 export { resetMockApiState };
 export const handlers = [
   http.get(withOptionalV1Prefix('/ping'), () =>
