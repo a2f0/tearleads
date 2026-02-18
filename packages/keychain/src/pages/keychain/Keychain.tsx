@@ -1,25 +1,22 @@
 import { BackLink } from '@tearleads/ui';
 import { RefreshButton } from '@tearleads/ui';
 import {
-  deleteSessionKeysForInstance,
-  getKeyStatusForInstance
-} from '@client/db/crypto/keyManager';
-import { getInstances } from '@client/db/instanceRegistry';
-import { useTypedTranslation } from '@client/i18n';
-import { useNavigateWithFrom } from '@client/lib/navigation';
-import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem,
   WindowStatusBar
 } from '@tearleads/window-manager';
 import { Info, Key, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { getKeychainDependencies } from '../../lib/keychainDependencies';
+import { useNavigateWithFrom } from '../../lib/navigation';
 import { DeleteSessionKeysDialog } from './DeleteSessionKeysDialog';
 import { type InstanceKeyInfo, InstanceKeyRow } from './InstanceKeyRow';
 
 export function Keychain() {
+  const dependencies = getKeychainDependencies();
   const navigateWithFrom = useNavigateWithFrom();
-  const { t } = useTypedTranslation('contextMenu');
+  const { t } = useTranslation('contextMenu');
   const [instanceKeyInfos, setInstanceKeyInfos] = useState<InstanceKeyInfo[]>(
     []
   );
@@ -35,15 +32,22 @@ export function Keychain() {
     useState<InstanceKeyInfo | null>(null);
 
   const fetchKeychainData = useCallback(async () => {
+    if (!dependencies) {
+      setInstanceKeyInfos([]);
+      setError('Keychain is not configured.');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      const instances = await getInstances();
+      const instances = await dependencies.getInstances();
 
       const keyInfoPromises = instances.map(async (instance) => ({
         instance,
-        keyStatus: await getKeyStatusForInstance(instance.id)
+        keyStatus: await dependencies.getKeyStatusForInstance(instance.id)
       }));
 
       const infos = await Promise.all(keyInfoPromises);
@@ -57,7 +61,7 @@ export function Keychain() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dependencies]);
 
   useEffect(() => {
     fetchKeychainData();
@@ -74,7 +78,12 @@ export function Keychain() {
     if (!deleteSessionKeysInstance) return;
 
     try {
-      await deleteSessionKeysForInstance(deleteSessionKeysInstance.instance.id);
+      if (!dependencies) {
+        throw new Error('Keychain is not configured.');
+      }
+      await dependencies.deleteSessionKeysForInstance(
+        deleteSessionKeysInstance.instance.id
+      );
       await fetchKeychainData();
     } catch (err) {
       console.error('Failed to delete session keys:', err);

@@ -1,8 +1,8 @@
 import { Copy, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
-import { type LogEntry, logStore } from '@/stores/logStore';
+import { cn } from '@tearleads/ui';
+import { type LogEntry, logStore } from '../stores/logStore';
 
 const LEVEL_COLORS: Record<string, string> = {
   error: 'text-destructive',

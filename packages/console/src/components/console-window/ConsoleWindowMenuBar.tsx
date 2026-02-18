@@ -1,9 +1,9 @@
 import {
   DropdownMenu,
   DropdownMenuItem,
-  DropdownMenuSeparator
+  DropdownMenuSeparator,
+  WindowOptionsMenuItem
 } from '@tearleads/ui';
-import { WindowOptionsMenuItem } from '@client/components/window-menu/WindowOptionsMenuItem';
 import { WindowMenuBar } from '@tearleads/window-manager';
 import { Columns2, Rows2 } from 'lucide-react';
 

@@ -1,7 +1,10 @@
 import { WindowControlBar, WindowMenuBar } from '@tearleads/window-manager';
 import type { ReactNode } from 'react';
-import { DropdownMenu, DropdownMenuItem } from '@tearleads/ui';
-import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  WindowOptionsMenuItem
+} from '@tearleads/ui';
 import { useTypedTranslation } from '@/i18n';
 
 interface AdminWindowMenuBarProps {

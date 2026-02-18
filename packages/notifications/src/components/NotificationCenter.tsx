@@ -6,9 +6,7 @@ import {
 } from '@tearleads/window-manager';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DropdownMenu, DropdownMenuItem } from '@tearleads/ui';
-import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
-import { cn } from '@/lib/utils';
+import { AboutMenuItem, cn, DropdownMenu, DropdownMenuItem } from '@tearleads/ui';
 import { AnalyticsTab } from './AnalyticsTab';
 import {
   DEFAULT_HEIGHT,

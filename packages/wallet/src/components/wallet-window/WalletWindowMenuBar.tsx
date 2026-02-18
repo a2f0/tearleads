@@ -1,10 +1,10 @@
 import {
+  AboutMenuItem,
   DropdownMenu,
   DropdownMenuItem,
-  DropdownMenuSeparator
+  DropdownMenuSeparator,
+  WindowOptionsMenuItem
 } from '@tearleads/ui';
-import { AboutMenuItem } from '@client/components/window-menu/AboutMenuItem';
-import { WindowOptionsMenuItem } from '@client/components/window-menu/WindowOptionsMenuItem';
 import { WindowMenuBar } from '@tearleads/window-manager';
 import { Plus, RefreshCw } from 'lucide-react';
 

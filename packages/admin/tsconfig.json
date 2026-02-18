@@ -12,7 +12,7 @@
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["../client/src/*"],
+      "@/*": ["./src/*"],
       "@client/*": ["../client/src/*"],
       "@admin/*": ["./src/*"],
       "@tearleads/compliance": ["../compliance/src/index.ts"],

@@ -1,15 +1,9 @@
 import { Button } from '@tearleads/ui';
 import { Input } from '@tearleads/ui';
-import { getKeyManager } from '@client/db/crypto';
-import { useDatabaseContext } from '@client/db/hooks';
-import {
-  getFileStorageForInstance,
-  initializeFileStorage,
-  isFileStorageInitialized
-} from '@client/storage/opfs';
 import { FileImage, FileText, Loader2, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { WalletMediaFileOption } from '../../lib/walletData';
+import { getWalletUiDependencies } from '../../lib/walletUiDependencies';
 
 interface WalletMediaPreview extends WalletMediaFileOption {
   objectUrl: string | null;
@@ -40,7 +34,10 @@ export function WalletMediaPickerModal({
   onOpenChange,
   onSelectFile
 }: WalletMediaPickerModalProps) {
-  const { isUnlocked, currentInstanceId } = useDatabaseContext();
+  const dependencies = getWalletUiDependencies();
+  const databaseContext = dependencies?.useDatabaseContext();
+  const isUnlocked = databaseContext?.isUnlocked ?? false;
+  const currentInstanceId = databaseContext?.currentInstanceId ?? null;
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,37 +79,16 @@ export function WalletMediaPickerModal({
       setError(null);
 
       try {
-        const keyManager = getKeyManager();
-        const encryptionKey = keyManager.getCurrentKey();
-        if (!encryptionKey) {
-          throw new Error('Database not unlocked');
+        if (!dependencies) {
+          throw new Error('Wallet is not configured.');
         }
-        if (!currentInstanceId) {
-          throw new Error('No active instance');
-        }
-
-        if (!isFileStorageInitialized(currentInstanceId)) {
-          await initializeFileStorage(encryptionKey, currentInstanceId);
-        }
-
-        const storage = getFileStorageForInstance(currentInstanceId);
         const loadedPreviews = await Promise.all(
           files.map(async (file) => {
-            const previewPath =
-              file.thumbnailPath ??
-              (file.mimeType.startsWith('image/') ? file.storagePath : null);
-
-            if (!previewPath) {
-              return { ...file, objectUrl: null };
-            }
-
             try {
-              const data = await storage.retrieve(previewPath);
-              const plainBuffer = new Uint8Array(data).buffer;
-              const blob = new Blob([plainBuffer], {
-                type: file.thumbnailPath ? 'image/jpeg' : file.mimeType
-              });
-              const objectUrl = URL.createObjectURL(blob);
+              const objectUrl = await dependencies.loadWalletMediaPreview(
+                file,
+                currentInstanceId
+              );
               return { ...file, objectUrl };
             } catch {
               return { ...file, objectUrl: null };
@@ -145,7 +121,7 @@ export function WalletMediaPickerModal({
     return () => {
       cancelled = true;
     };
-  }, [currentInstanceId, files, isUnlocked, open, replacePreviews]);
+  }, [currentInstanceId, dependencies, files, isUnlocked, open, replacePreviews]);
 
   const filteredPreviews = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();

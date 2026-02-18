@@ -11,3 +11,7 @@ export {
   type NotificationLevel,
   notificationStore
 } from './stores';
+export {
+  type AnalyticsDependencies,
+  setAnalyticsDependencies
+} from './lib/analyticsDependencies';

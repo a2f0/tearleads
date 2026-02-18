@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { BackLink } from '@tearleads/ui';
 import { ConfirmDialog } from '@tearleads/ui';
 import { RefreshButton } from '@tearleads/ui';
-import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
+import { VirtualListStatus } from '@tearleads/ui';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';

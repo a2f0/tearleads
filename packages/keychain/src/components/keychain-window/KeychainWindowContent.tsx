@@ -1,10 +1,4 @@
 import {
-  deleteSessionKeysForInstance,
-  getKeyStatusForInstance
-} from '@client/db/crypto/keyManager';
-import { getInstances } from '@client/db/instanceRegistry';
-import { useTypedTranslation } from '@client/i18n';
-import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
 } from '@tearleads/window-manager';
@@ -16,6 +10,8 @@ import {
   useImperativeHandle,
   useState
 } from 'react';
+import { useTranslation } from 'react-i18next';
+import { getKeychainDependencies } from '../../lib/keychainDependencies';
 import { DeleteSessionKeysDialog } from '../../pages/keychain/DeleteSessionKeysDialog';
 import {
   type InstanceKeyInfo,
@@ -34,7 +30,8 @@ export const KeychainWindowContent = forwardRef<
   KeychainWindowContentRef,
   KeychainWindowContentProps
 >(function KeychainWindowContent({ onSelectInstance }, ref) {
-  const { t } = useTypedTranslation('contextMenu');
+  const dependencies = getKeychainDependencies();
+  const { t } = useTranslation('contextMenu');
   const [instanceKeyInfos, setInstanceKeyInfos] = useState<InstanceKeyInfo[]>(
     []
   );
@@ -50,15 +47,22 @@ export const KeychainWindowContent = forwardRef<
     useState<InstanceKeyInfo | null>(null);
 
   const fetchKeychainData = useCallback(async () => {
+    if (!dependencies) {
+      setInstanceKeyInfos([]);
+      setError('Keychain is not configured.');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      const instances = await getInstances();
+      const instances = await dependencies.getInstances();
 
       const keyInfoPromises = instances.map(async (instance) => ({
         instance,
-        keyStatus: await getKeyStatusForInstance(instance.id)
+        keyStatus: await dependencies.getKeyStatusForInstance(instance.id)
       }));
 
       const infos = await Promise.all(keyInfoPromises);
@@ -71,7 +75,7 @@ export const KeychainWindowContent = forwardRef<
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dependencies]);
 
   useEffect(() => {
     fetchKeychainData();
@@ -97,10 +101,15 @@ export const KeychainWindowContent = forwardRef<
     const { id: instanceId } = deleteSessionKeysInstance.instance;
 
     try {
-      await deleteSessionKeysForInstance(instanceId);
+      if (!dependencies) {
+        throw new Error('Keychain is not configured.');
+      }
+      await dependencies.deleteSessionKeysForInstance(instanceId);
 
       // Update just the modified instance instead of a full refetch
-      const newKeyStatus = await getKeyStatusForInstance(instanceId);
+      const newKeyStatus = await dependencies.getKeyStatusForInstance(
+        instanceId
+      );
       setInstanceKeyInfos((prevInfos) =>
         prevInfos.map((info) =>
           info.instance.id === instanceId

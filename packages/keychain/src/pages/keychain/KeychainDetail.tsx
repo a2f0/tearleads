@@ -1,19 +1,10 @@
 import { BackLink } from '@tearleads/ui';
 import { Button } from '@tearleads/ui';
-import {
-  deleteSessionKeysForInstance,
-  getKeyManagerForInstance,
-  getKeyStatusForInstance,
-  type KeyStatus
-} from '@client/db/crypto/keyManager';
-import {
-  deleteInstanceFromRegistry,
-  getInstances,
-  type InstanceMetadata
-} from '@client/db/instanceRegistry';
 import { Calendar, Key, Loader2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { getKeychainDependencies } from '../../lib/keychainDependencies';
+import type { InstanceMetadata, KeyStatus } from '../../lib/types';
 import { DeleteKeychainInstanceDialog } from './DeleteKeychainInstanceDialog';
 import { DeleteSessionKeysDialog } from './DeleteSessionKeysDialog';
 import { KeyStatusIndicator } from './KeyStatusIndicator';
@@ -28,6 +19,7 @@ interface InstanceKeyInfo {
 }
 
 export function KeychainDetail() {
+  const dependencies = getKeychainDependencies();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [instanceInfo, setInstanceInfo] = useState<InstanceKeyInfo | null>(
@@ -40,12 +32,17 @@ export function KeychainDetail() {
 
   const fetchInstanceInfo = useCallback(async () => {
     if (!id) return;
+    if (!dependencies) {
+      setError('Keychain is not configured.');
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
-      const instances = await getInstances();
+      const instances = await dependencies.getInstances();
       const instance = instances.find((i) => i.id === id);
 
       if (!instance) {
@@ -53,7 +50,7 @@ export function KeychainDetail() {
         return;
       }
 
-      const keyStatus = await getKeyStatusForInstance(id);
+      const keyStatus = await dependencies.getKeyStatusForInstance(id);
       setInstanceInfo({ instance, keyStatus });
     } catch (err) {
       console.error('Failed to fetch instance info:', err);
@@ -61,7 +58,7 @@ export function KeychainDetail() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [dependencies, id]);
 
   useEffect(() => {
     fetchInstanceInfo();
@@ -71,28 +68,33 @@ export function KeychainDetail() {
     if (!instanceInfo) return;
 
     try {
-      await deleteSessionKeysForInstance(instanceInfo.instance.id);
+      if (!dependencies) {
+        throw new Error('Keychain is not configured.');
+      }
+      await dependencies.deleteSessionKeysForInstance(instanceInfo.instance.id);
       await fetchInstanceInfo();
     } catch (err) {
       console.error('Failed to delete session keys:', err);
       setError(err instanceof Error ? err.message : String(err));
       throw err;
     }
-  }, [instanceInfo, fetchInstanceInfo]);
+  }, [dependencies, instanceInfo, fetchInstanceInfo]);
 
   const handleDeleteInstance = useCallback(async () => {
     if (!instanceInfo) return;
 
     try {
-      const keyManager = getKeyManagerForInstance(instanceInfo.instance.id);
-      await keyManager.reset();
-      await deleteInstanceFromRegistry(instanceInfo.instance.id);
+      if (!dependencies) {
+        throw new Error('Keychain is not configured.');
+      }
+      await dependencies.resetInstanceKeys(instanceInfo.instance.id);
+      await dependencies.deleteInstanceFromRegistry(instanceInfo.instance.id);
       navigate('/keychain');
     } catch (err) {
       console.error('Failed to delete instance:', err);
       setError(err instanceof Error ? err.message : String(err));
     }
-  }, [instanceInfo, navigate]);
+  }, [dependencies, instanceInfo, navigate]);
 
   const hasSessionKeys =
     instanceInfo?.keyStatus.wrappingKey || instanceInfo?.keyStatus.wrappedKey;

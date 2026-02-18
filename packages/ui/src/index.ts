@@ -2,6 +2,11 @@
 export { ApiDocs } from './components/api-docs/ApiDocs.js';
 export { BackLink, type BackLinkProps } from './components/back-link/index.js';
 export { ConfirmDialog, type ConfirmDialogProps } from './components/confirm-dialog/index.js';
+export {
+  AboutMenuItem,
+  type AboutMenuItemProps,
+  WindowOptionsMenuItem
+} from './components/window-menu/index.js';
 export { Button, buttonVariants } from './components/button.js';
 export {
   ConnectionIndicator,
@@ -25,6 +30,11 @@ export {
 } from './components/grid-square/index.js';
 export { Input, type InputProps, inputVariants } from './components/input.js';
 export { Textarea, type TextareaProps } from './components/textarea.js';
+export {
+  VirtualListStatus,
+  getVirtualListStatusText,
+  type VirtualListStatusProps
+} from './components/virtualListStatus.js';
 export {
   ThemePreview,
   type ThemePreviewProps

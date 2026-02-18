@@ -1,4 +1,3 @@
-import { useDatabaseContext } from '@client/db/hooks';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getWalletCountryOptionByCode } from '../../lib/walletCountryLookup';
 import {
@@ -9,6 +8,7 @@ import {
   type WalletMediaFileOption,
   type WalletMediaSide
 } from '../../lib/walletData';
+import { getWalletUiDependencies } from '../../lib/walletUiDependencies';
 import { getWalletSubtypeDefinition } from '../../lib/walletSubtypes';
 import { useWalletItemActions } from './useWalletItemActions';
 import { WalletItemAlerts } from './WalletItemAlerts';
@@ -41,7 +41,10 @@ export function WalletItemDetail({
   onDeleted,
   onCreateItem
 }: WalletItemDetailProps) {
-  const { isLoading, isUnlocked } = useDatabaseContext();
+  const dependencies = getWalletUiDependencies();
+  const databaseContext = dependencies?.useDatabaseContext();
+  const isLoading = databaseContext?.isLoading ?? false;
+  const isUnlocked = databaseContext?.isUnlocked ?? false;
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [form, setForm] = useState<WalletItemFormState>(EMPTY_FORM_STATE);
   const [mediaFiles, setMediaFiles] = useState<WalletMediaFileOption[]>([]);

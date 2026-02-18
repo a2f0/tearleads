@@ -3,9 +3,9 @@ import { Download } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuItem,
-  DropdownMenuSeparator
-} from '@/components/ui/dropdown-menu';
-import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
+  DropdownMenuSeparator,
+  WindowOptionsMenuItem
+} from '@tearleads/ui';
 
 interface AnalyticsWindowMenuBarProps {
   onClose: () => void;

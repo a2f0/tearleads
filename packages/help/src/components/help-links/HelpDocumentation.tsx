@@ -1,4 +1,5 @@
 import { useTheme } from '@tearleads/ui';
+import { useTranslation } from 'react-i18next';
 import {
   Cog,
   Download,
@@ -13,8 +14,6 @@ import {
 } from 'lucide-react';
 import { MarkdownWithToc } from '@tearleads/backups';
 import { getHelpDocLabel, type HelpDocId } from '@help/constants/help';
-import type { SupportedLanguage } from '@/i18n';
-import { useTypedTranslation } from '@/i18n';
 import backupRestoreDocumentationEn from '../../../../../docs/en/backup-restore.md?raw';
 import chromeExtensionDocumentationEn from '../../../../../docs/en/chrome-extension.md?raw';
 import ciDocumentationEn from '../../../../../docs/en/ci.md?raw';
@@ -40,6 +39,8 @@ import chromeExtensionDocumentationUa from '../../../../../docs/ua/chrome-extens
 import cliReferenceDocumentationUa from '../../../../../docs/ua/cli-reference.md?raw';
 import cliDocumentationUa from '../../../../../docs/ua/getting-started.md?raw';
 import tuxedoDocumentationUa from '../../../../../docs/ua/tuxedo.md?raw';
+
+type SupportedLanguage = 'en' | 'es' | 'ua' | 'pt';
 
 const HELP_DOC_MARKDOWN: Record<
   HelpDocId,
@@ -148,7 +149,7 @@ interface HelpDocumentationProps {
 }
 
 export function HelpDocumentation({ docId }: HelpDocumentationProps) {
-  const { i18n } = useTypedTranslation('common');
+  const { i18n } = useTranslation('common');
   const { resolvedTheme } = useTheme();
   const markdownColorMode = resolvedTheme === 'light' ? 'light' : 'dark';
   const language = resolveLanguage(i18n.resolvedLanguage ?? i18n.language);

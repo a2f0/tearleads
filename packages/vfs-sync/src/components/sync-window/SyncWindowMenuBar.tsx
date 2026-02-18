@@ -1,8 +1,8 @@
 import {
   DropdownMenu,
-  DropdownMenuItem
+  DropdownMenuItem,
+  WindowOptionsMenuItem
 } from '@tearleads/ui';
-import { WindowOptionsMenuItem } from '@client/components/window-menu/WindowOptionsMenuItem';
 import { WindowMenuBar } from '@tearleads/window-manager';
 import { useTranslation } from 'react-i18next';
 

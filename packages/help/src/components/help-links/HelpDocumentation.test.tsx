@@ -12,8 +12,8 @@ vi.mock('@tearleads/backups', () => ({
   )
 }));
 
-vi.mock('@/i18n', () => ({
-  useTypedTranslation: () => ({
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
     i18n: { resolvedLanguage: 'en', language: 'en' }
   })
 }));

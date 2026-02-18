@@ -2,10 +2,10 @@ import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
 } from '@tearleads/window-manager';
+import { useWindowManager } from '@tearleads/window-manager';
 import { Activity, Bell, CheckCheck, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { notificationStore } from '../stores/notificationStore';
 import { NotificationBadge } from './NotificationBadge';
 

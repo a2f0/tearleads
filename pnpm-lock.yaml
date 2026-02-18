@@ -2233,6 +2233,9 @@ importers:
       '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
+      '@tearleads/window-manager':
+        specifier: workspace:*
+        version: link:../window-manager
       '@testing-library/jest-dom':
         specifier: 6.9.1
         version: 6.9.1
