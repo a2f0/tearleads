@@ -1,8 +1,8 @@
+import { Button } from '@tearleads/ui';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow
 } from '@tearleads/window-manager';
-import { Button } from '@tearleads/ui';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import {
   type EventStats,
