@@ -159,4 +159,79 @@ describe('vfsBlobStore', () => {
     );
     expect(mockSend).toHaveBeenCalledTimes(1);
   });
+
+  it('uses the same derived storage key across write/read/delete operations', async () => {
+    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    vi.stubEnv('VFS_BLOB_S3_KEY_PREFIX', 'tenant-a/');
+    mockSend
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({
+        Body: {
+          transformToByteArray: async () => Uint8Array.from([1, 2, 3])
+        },
+        ContentType: 'application/octet-stream'
+      })
+      .mockResolvedValueOnce({});
+
+    const { persistVfsBlobData, readVfsBlobData, deleteVfsBlobData } =
+      await import('./vfsBlobStore.js');
+
+    await persistVfsBlobData({
+      blobId: 'blob-1',
+      data: Uint8Array.from([1, 2, 3])
+    });
+    await readVfsBlobData({ blobId: 'blob-1' });
+    await deleteVfsBlobData({ blobId: 'blob-1' });
+
+    expect(mockPutObjectCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        Bucket: 'blob-bucket',
+        Key: 'tenant-a/blob-1'
+      })
+    );
+    expect(mockGetObjectCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        Bucket: 'blob-bucket',
+        Key: 'tenant-a/blob-1'
+      })
+    );
+    expect(mockDeleteObjectCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        Bucket: 'blob-bucket',
+        Key: 'tenant-a/blob-1'
+      })
+    );
+  });
+
+  it('keeps write retry deterministic under transient storage failures', async () => {
+    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    mockSend.mockRejectedValueOnce(new Error('transient s3 outage'));
+
+    const { persistVfsBlobData } = await import('./vfsBlobStore.js');
+    await expect(
+      persistVfsBlobData({
+        blobId: 'blob-retry',
+        data: Uint8Array.from([7, 8, 9])
+      })
+    ).rejects.toThrow('transient s3 outage');
+
+    mockSend.mockResolvedValueOnce({});
+    const retryResult = await persistVfsBlobData({
+      blobId: 'blob-retry',
+      data: Uint8Array.from([7, 8, 9])
+    });
+
+    expect(retryResult).toEqual({
+      bucket: 'blob-bucket',
+      storageKey: 'blob-retry'
+    });
+    expect(mockPutObjectCommand.mock.calls[0]?.[0]).toMatchObject({
+      Bucket: 'blob-bucket',
+      Key: 'blob-retry'
+    });
+    expect(mockPutObjectCommand.mock.calls[1]?.[0]).toMatchObject({
+      Bucket: 'blob-bucket',
+      Key: 'blob-retry'
+    });
+  });
 });
