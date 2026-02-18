@@ -1,1 +1,1 @@
-export { WalletWindow } from '@tearleads/wallet';
+export { WalletWindow } from '../../../../wallet/src/clientEntry';

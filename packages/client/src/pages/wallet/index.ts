@@ -1,1 +1,5 @@
-export { Wallet, WalletDetail, WalletNewItem } from '@tearleads/wallet';
+export {
+  Wallet,
+  WalletDetail,
+  WalletNewItem
+} from '../../../../wallet/src/clientEntry';
