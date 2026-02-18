@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/wallet",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Wallet pages and window for Tearleads",
   "type": "module",
   "main": "src/index.ts",
