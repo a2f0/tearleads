@@ -89,7 +89,7 @@ export const vfsRoutes = {
       }
     ),
   createOrgShare: async (data: CreateOrgShareRequest): Promise<VfsOrgShare> => {
-    const response = await request<{ orgShare: VfsOrgShare }>(
+    const { orgShare } = await request<{ orgShare: VfsOrgShare }>(
       `/vfs/items/${encodeURIComponent(data.itemId)}/org-shares`,
       {
         fetchOptions: {
@@ -105,7 +105,7 @@ export const vfsRoutes = {
         eventName: 'api_post_vfs_org_share'
       }
     );
-    return response.orgShare;
+    return orgShare;
   },
   deleteOrgShare: (shareId: string) =>
     request<{ deleted: boolean }>(
