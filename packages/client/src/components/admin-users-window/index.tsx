@@ -1,6 +1,6 @@
-import { AdminUsersWindow as AdminUsersWindowBase } from '@tearleads/admin';
 import type { WindowDimensions } from '@tearleads/window-manager';
 import { useMemo } from 'react';
+import { AdminUsersWindow as AdminUsersWindowBase } from '@/components/admin-windows';
 import { InlineLogin } from '@/components/auth/InlineLogin';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { useAuth } from '@/contexts/AuthContext';

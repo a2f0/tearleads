@@ -22,7 +22,7 @@ vi.mock('@/components/duration-chart/DurationChart', () => ({
   DurationChart: () => null
 }));
 
-vi.mock('@tearleads/notifications', () => ({
+vi.mock('@/components/notification-center', () => ({
   AnalyticsTab: () => null,
   NotificationCenter: () => null,
   NotificationCenterTrigger: () => null,
@@ -54,7 +54,7 @@ vi.mock('@/components/ui/bottom-sheet/BottomSheet', () => ({
   ANIMATION_DURATION_MS: 120
 }));
 
-vi.mock('@tearleads/admin', () => ({
+vi.mock('@/pages/admin', () => ({
   Admin: () => null,
   PostgresAdmin: () => null,
   UsersAdmin: () => null,
@@ -96,9 +96,9 @@ vi.mock('@/pages/opfs/Opfs', () => ({
   Opfs: () => null
 }));
 
-import * as notificationCenter from '@tearleads/notifications';
 import * as columnMapper from '@/components/contacts/column-mapper/index';
 import * as durationChart from '@/components/duration-chart/index';
+import * as notificationCenter from '@/components/notification-center';
 import * as pdf from '@/components/pdf/index';
 import * as settings from '@/components/settings/index';
 import * as backLink from '@/components/ui/back-link/index';

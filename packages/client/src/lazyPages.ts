@@ -1,38 +1,38 @@
 import { lazy } from 'react';
 
 export const Admin = lazy(() =>
-  import('@tearleads/admin').then((m) => ({ default: m.Admin }))
+  import('./pages/admin').then((m) => ({ default: m.Admin }))
 );
 export const AdminLauncher = lazy(() =>
-  import('@tearleads/admin').then((m) => ({ default: m.AdminLauncher }))
+  import('./pages/admin').then((m) => ({ default: m.AdminLauncher }))
 );
 export const AiRequestsAdminPage = lazy(() =>
-  import('@tearleads/admin').then((m) => ({ default: m.AiRequestsAdminPage }))
+  import('./pages/admin').then((m) => ({ default: m.AiRequestsAdminPage }))
 );
 export const PostgresAdmin = lazy(() =>
-  import('@tearleads/admin').then((m) => ({ default: m.PostgresAdmin }))
+  import('./pages/admin').then((m) => ({ default: m.PostgresAdmin }))
 );
 export const GroupsAdminPage = lazy(() =>
-  import('@tearleads/admin').then((m) => ({ default: m.GroupsAdminPage }))
+  import('./pages/admin').then((m) => ({ default: m.GroupsAdminPage }))
 );
 export const GroupDetailPageRoute = lazy(() =>
-  import('@tearleads/admin').then((m) => ({ default: m.GroupDetailPageRoute }))
+  import('./pages/admin').then((m) => ({ default: m.GroupDetailPageRoute }))
 );
 export const OrganizationsAdminPage = lazy(() =>
-  import('@tearleads/admin').then((m) => ({
+  import('./pages/admin').then((m) => ({
     default: m.OrganizationsAdminPage
   }))
 );
 export const OrganizationDetailPageRoute = lazy(() =>
-  import('@tearleads/admin').then((m) => ({
+  import('./pages/admin').then((m) => ({
     default: m.OrganizationDetailPageRoute
   }))
 );
 export const UsersAdminPage = lazy(() =>
-  import('@tearleads/admin').then((m) => ({ default: m.UsersAdminPage }))
+  import('./pages/admin').then((m) => ({ default: m.UsersAdminPage }))
 );
 export const UsersAdminDetail = lazy(() =>
-  import('@tearleads/admin').then((m) => ({ default: m.UsersAdminDetail }))
+  import('./pages/admin').then((m) => ({ default: m.UsersAdminDetail }))
 );
 export const Analytics = lazy(() =>
   import('./pages/analytics').then((m) => ({ default: m.Analytics }))

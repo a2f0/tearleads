@@ -8,7 +8,7 @@ function page(name: string) {
   };
 }
 
-vi.mock('@tearleads/admin', () => ({
+vi.mock('./pages/admin', () => ({
   Admin: page('Admin'),
   AdminLauncher: page('AdminLauncher'),
   AiRequestsAdminPage: page('AiRequestsAdminPage'),
