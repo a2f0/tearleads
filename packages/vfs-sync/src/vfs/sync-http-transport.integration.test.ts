@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { InMemoryVfsCrdtSyncServer, VfsBackgroundSyncClient } from './index.js';
+import {
+  captureExportedSyncClientState,
+  expectExportedSyncClientStateUnchanged
+} from './sync-client-test-support-observers.js';
 import { createServerBackedFetch } from './sync-http-transport.integration-harness.js';
 import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
 
@@ -235,5 +239,108 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
     expect(observerAfterSecondSync.lastReconciledWriteIds).toEqual(
       serverSnapshot.lastReconciledWriteIds
     );
+  });
+
+  it('resumes from hydrated pending queue after fail-closed sync and converges on retry', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    await server.pushOperations({
+      operations: [
+        {
+          opId: 'remote-1',
+          opType: 'acl_add',
+          itemId: 'item-hydrate',
+          replicaId: 'remote',
+          writeId: 1,
+          occurredAt: '2026-02-16T00:00:00.000Z',
+          principalType: 'group',
+          principalId: 'group-1',
+          accessLevel: 'read'
+        }
+      ]
+    });
+
+    const healthyFetch = createServerBackedFetch(server, { delays: {} });
+    const seedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new VfsHttpCrdtSyncTransport({
+        baseUrl: 'https://sync.local',
+        fetchImpl: healthyFetch
+      }),
+      { pullLimit: 1 }
+    );
+
+    await seedClient.sync();
+    seedClient.queueLocalOperation({
+      opType: 'link_add',
+      itemId: 'item-hydrate',
+      parentId: 'root',
+      childId: 'item-hydrate',
+      occurredAt: '2026-02-16T00:00:01.000Z'
+    });
+    seedClient.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-hydrate',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'write',
+      occurredAt: '2026-02-16T00:00:02.000Z'
+    });
+
+    const persisted = seedClient.exportState();
+
+    const malformedPullFetch = createServerBackedFetch(server, {
+      delays: {},
+      mutatePullPayload: (payload) => ({
+        ...payload,
+        items: [],
+        hasMore: true,
+        nextCursor: null
+      })
+    });
+    const failedResumeClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new VfsHttpCrdtSyncTransport({
+        baseUrl: 'https://sync.local',
+        fetchImpl: malformedPullFetch
+      }),
+      { pullLimit: 1 }
+    );
+    failedResumeClient.hydrateState(persisted);
+    const preFailureExportState =
+      captureExportedSyncClientState(failedResumeClient);
+
+    await expect(failedResumeClient.sync()).rejects.toThrowError(
+      /hasMore=true with an empty pull page/
+    );
+    expectExportedSyncClientStateUnchanged({
+      client: failedResumeClient,
+      before: preFailureExportState
+    });
+
+    const resumedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new VfsHttpCrdtSyncTransport({
+        baseUrl: 'https://sync.local',
+        fetchImpl: healthyFetch
+      }),
+      { pullLimit: 1 }
+    );
+    resumedClient.hydrateState(persisted);
+
+    await resumedClient.flush();
+    await resumedClient.sync();
+
+    const serverSnapshot = server.snapshot();
+    const resumedSnapshot = resumedClient.snapshot();
+    expect(resumedSnapshot.pendingOperations).toBe(0);
+    expect(resumedSnapshot.acl).toEqual(serverSnapshot.acl);
+    expect(resumedSnapshot.links).toEqual(serverSnapshot.links);
+    expect(resumedSnapshot.lastReconciledWriteIds).toEqual(
+      serverSnapshot.lastReconciledWriteIds
+    );
+    expect(resumedSnapshot.cursor).not.toBeNull();
   });
 });

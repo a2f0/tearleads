@@ -357,5 +357,78 @@ describe('VFS routes (blobs stage)', () => {
       expect(mockQuery).not.toHaveBeenCalled();
       restoreConsole();
     });
+
+    it('allows retrying the same inbound blob payload after transient storage failures', async () => {
+      const restoreConsole = mockConsoleError();
+      const authHeader = await createAuthHeader();
+      const stagedAt = new Date('2026-02-14T10:00:00.000Z');
+      const expiresAt = new Date('2026-02-14T11:00:00.000Z');
+      const payload = {
+        stagingId: 'stage-retry-1',
+        blobId: 'blob-retry-1',
+        expiresAt: '2099-02-14T11:00:00.000Z',
+        dataBase64: Buffer.from('retryable blob').toString('base64'),
+        contentType: 'text/plain'
+      };
+
+      mockPersistVfsBlobData
+        .mockRejectedValueOnce(new Error('transient storage outage'))
+        .mockResolvedValueOnce({
+          bucket: 'test-bucket',
+          storageKey: 'blob-retry-1'
+        });
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob
+        .mockResolvedValueOnce({
+          rows: [{ object_type: 'blob' }]
+        }) // SELECT blob registry row
+        .mockResolvedValueOnce({}) // INSERT staging registry row
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'stage-retry-1',
+              blob_id: 'blob-retry-1',
+              status: 'staged',
+              staged_at: stagedAt,
+              expires_at: expiresAt
+            }
+          ]
+        }) // INSERT staging link row
+        .mockResolvedValueOnce({}); // COMMIT
+
+      const firstAttempt = await request(app)
+        .post('/v1/vfs/blobs/stage')
+        .set('Authorization', authHeader)
+        .send(payload);
+
+      const secondAttempt = await request(app)
+        .post('/v1/vfs/blobs/stage')
+        .set('Authorization', authHeader)
+        .send(payload);
+
+      expect(firstAttempt.status).toBe(500);
+      expect(firstAttempt.body).toEqual({
+        error: 'Failed to persist blob data'
+      });
+      expect(secondAttempt.status).toBe(201);
+      expect(secondAttempt.body).toEqual({
+        stagingId: 'stage-retry-1',
+        blobId: 'blob-retry-1',
+        status: 'staged',
+        stagedAt: '2026-02-14T10:00:00.000Z',
+        expiresAt: '2026-02-14T11:00:00.000Z'
+      });
+      expect(mockPersistVfsBlobData).toHaveBeenCalledTimes(2);
+      expect(mockPersistVfsBlobData.mock.calls[0]?.[0]).toMatchObject({
+        blobId: 'blob-retry-1',
+        contentType: 'text/plain'
+      });
+      expect(mockPersistVfsBlobData.mock.calls[1]?.[0]).toMatchObject({
+        blobId: 'blob-retry-1',
+        contentType: 'text/plain'
+      });
+      restoreConsole();
+    });
   });
 });
