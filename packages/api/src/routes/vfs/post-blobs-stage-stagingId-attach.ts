@@ -114,7 +114,16 @@ export const postBlobsStageStagingIdAttachHandler = async (
       return;
     }
 
-    if (stagedRow.staged_by !== claims.sub) {
+    const stagedBlobId = normalizeRequiredString(stagedRow.blob_id);
+    const stagedBy = normalizeRequiredString(stagedRow.staged_by);
+    if (!stagedBlobId || !stagedBy) {
+      await client.query('ROLLBACK');
+      inTransaction = false;
+      res.status(500).json({ error: 'Failed to attach staged blob' });
+      return;
+    }
+
+    if (stagedBy !== claims.sub) {
       await client.query('ROLLBACK');
       inTransaction = false;
       res.status(403).json({ error: 'Forbidden' });
@@ -175,9 +184,25 @@ export const postBlobsStageStagingIdAttachHandler = async (
         return;
       }
 
+      const reconcileChangedAt = toIsoFromDateOrString(
+        reconcileStateRow.last_reconciled_at
+      );
+      const reconcileChangeId = normalizeRequiredString(
+        reconcileStateRow.last_reconciled_change_id
+      );
+      if (
+        !Number.isFinite(Date.parse(reconcileChangedAt)) ||
+        !reconcileChangeId
+      ) {
+        await client.query('ROLLBACK');
+        inTransaction = false;
+        res.status(500).json({ error: 'Failed to attach staged blob' });
+        return;
+      }
+
       const currentCursor: VfsSyncCursor = {
-        changedAt: toIsoFromDateOrString(reconcileStateRow.last_reconciled_at),
-        changeId: reconcileStateRow.last_reconciled_change_id
+        changedAt: reconcileChangedAt,
+        changeId: reconcileChangeId
       };
 
       const parsedCurrentLastWriteIds = parseVfsCrdtLastReconciledWriteIds(
@@ -271,7 +296,7 @@ export const postBlobsStageStagingIdAttachHandler = async (
       )
       ON CONFLICT (id) DO NOTHING
       `,
-      [updatedRow.blob_id, claims.sub]
+      [stagedBlobId, claims.sub]
     );
 
     const blobRegistryResult = await client.query<BlobRegistryRow>(
@@ -281,7 +306,7 @@ export const postBlobsStageStagingIdAttachHandler = async (
       WHERE id = $1::text
       LIMIT 1
       `,
-      [updatedRow.blob_id]
+      [stagedBlobId]
     );
     const blobRegistryRow = blobRegistryResult.rows[0];
     if (!blobRegistryRow || blobRegistryRow.object_type !== 'blob') {
@@ -319,7 +344,7 @@ export const postBlobsStageStagingIdAttachHandler = async (
       [
         randomUUID(),
         parsedBody.itemId,
-        updatedRow.blob_id,
+        stagedBlobId,
         toBlobLinkSessionKey(parsedBody.relationKind),
         JSON.stringify({
           relationKind: parsedBody.relationKind,
@@ -344,7 +369,7 @@ export const postBlobsStageStagingIdAttachHandler = async (
           AND child_id = $2::text
         LIMIT 1
         `,
-        [parsedBody.itemId, updatedRow.blob_id]
+        [parsedBody.itemId, stagedBlobId]
       );
 
       const existingRow = existingRef.rows[0];
@@ -384,7 +409,7 @@ export const postBlobsStageStagingIdAttachHandler = async (
     res.status(200).json({
       attached: true,
       stagingId,
-      blobId: updatedRow.blob_id,
+      blobId: stagedBlobId,
       itemId: parsedBody.itemId,
       relationKind: parsedBody.relationKind,
       refId,
