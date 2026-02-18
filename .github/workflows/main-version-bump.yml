@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 concurrency:
   group: main-version-bump
@@ -25,6 +24,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Prepare source diff
         id: prepare
@@ -46,85 +46,95 @@ jobs:
             exit 0
           fi
 
-          PARENT_SHA=$(git rev-list --parents -n 1 "$SOURCE_SHA" | awk '{print $2}')
-          if [ -z "$PARENT_SHA" ]; then
-            echo "skip_reason=missing_parent" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+      - name: Create merge-signing app token
+        id: app-token
+        if: steps.prepare.outputs.skip_reason == '' && secrets.MERGE_SIGNING_APP_ID != '' && secrets.MERGE_SIGNING_APP_PRIVATE_KEY != ''
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.MERGE_SIGNING_APP_ID }}
+          private-key: ${{ secrets.MERGE_SIGNING_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
 
-          CHANGED_FILES_PATH="$RUNNER_TEMP/changed-files.txt"
-          git diff --name-only "$PARENT_SHA" "$SOURCE_SHA" > "$CHANGED_FILES_PATH"
-
-          if ! grep -Eq '^packages/' "$CHANGED_FILES_PATH"; then
-            echo "skip_reason=no_package_changes" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-      - name: Bump versions via PR branch with retries
+      - name: Bump versions directly on main with retries
         if: steps.prepare.outputs.skip_reason == ''
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+          HAS_APP_TOKEN: ${{ steps.app-token.outputs.token != '' && 'true' || 'false' }}
           SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
           SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
           REPO: ${{ github.repository }}
-          BUMP_BRANCH: ci/main-version-bump
         run: |
           set -eu
 
           ATTEMPTS=5
           UPDATED=false
-          PR_URL=""
+          APPLIED_COMMITS=0
+          EXPECTED_MAIN_SHA=""
 
           for attempt in $(seq 1 "$ATTEMPTS"); do
             echo "Attempt $attempt/$ATTEMPTS" | tee -a "$GITHUB_STEP_SUMMARY"
 
-            git fetch --no-tags origin main "$BUMP_BRANCH" || true
+            git fetch --no-tags origin main "$SOURCE_SHA" || true
+            EXPECTED_MAIN_SHA=$(git rev-parse origin/main)
+            git checkout -B ci/main-version-bump-work "$EXPECTED_MAIN_SHA"
+            git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
 
+            PROCESSED_SOURCES="$RUNNER_TEMP/processed-sources.txt"
+            git log --format=%B origin/main | sed -n 's/^source-sha: //p' | awk 'NF' > "$PROCESSED_SOURCES"
+            REV_RANGE="$SOURCE_SHA"
+            LATEST_PROCESSED_SOURCE=$(git log --first-parent --format=%B origin/main | sed -n 's/^source-sha: //p' | head -n1 || true)
+            if [ -n "$LATEST_PROCESSED_SOURCE" ] && git merge-base --is-ancestor "$LATEST_PROCESSED_SOURCE" "$SOURCE_SHA"; then
+              REV_RANGE="${LATEST_PROCESSED_SOURCE}..${SOURCE_SHA}"
+            fi
             PENDING_SOURCES="$RUNNER_TEMP/pending-sources.txt"
             : > "$PENDING_SOURCES"
 
-            if git show-ref --verify --quiet "refs/remotes/origin/$BUMP_BRANCH"; then
-              git log --reverse --format=%B "origin/main..origin/$BUMP_BRANCH" \
-                | sed -n 's/^source-sha: //p' >> "$PENDING_SOURCES"
-            fi
+            git rev-list --first-parent --reverse "$REV_RANGE" | while IFS= read -r candidate_sha; do
+              [ -n "$candidate_sha" ] || continue
 
-            if ! grep -Fxq "$SOURCE_SHA" "$PENDING_SOURCES"; then
-              echo "$SOURCE_SHA" >> "$PENDING_SOURCES"
-            fi
+              if grep -Fxq "$candidate_sha" "$PROCESSED_SOURCES"; then
+                continue
+              fi
 
-            awk 'NF && !seen[$0]++' "$PENDING_SOURCES" > "$RUNNER_TEMP/pending-sources-unique.txt"
-            mv "$RUNNER_TEMP/pending-sources-unique.txt" "$PENDING_SOURCES"
+              CANDIDATE_MESSAGE=$(git show -s --format=%B "$candidate_sha")
+              if echo "$CANDIDATE_MESSAGE" | grep -Eq '^chore\(release\): bump versions'; then
+                continue
+              fi
 
-            ORDERED_PENDING="$RUNNER_TEMP/pending-sources-ordered.txt"
-            : > "$ORDERED_PENDING"
+              CANDIDATE_PARENT_SHA=$(git rev-list --parents -n 1 "$candidate_sha" | awk '{print $2}')
+              if [ -z "$CANDIDATE_PARENT_SHA" ]; then
+                continue
+              fi
 
-            git rev-list --first-parent --reverse origin/main | while IFS= read -r main_sha; do
-              if grep -Fxq "$main_sha" "$PENDING_SOURCES"; then
-                echo "$main_sha" >> "$ORDERED_PENDING"
+              CURRENT_CHANGED_FILES="$RUNNER_TEMP/changed-$candidate_sha.txt"
+              git diff --name-only "$CANDIDATE_PARENT_SHA" "$candidate_sha" > "$CURRENT_CHANGED_FILES"
+
+              if grep -Eq '^packages/' "$CURRENT_CHANGED_FILES"; then
+                echo "$candidate_sha" >> "$PENDING_SOURCES"
               fi
             done
-
-            while IFS= read -r pending_source_sha; do
-              [ -n "$pending_source_sha" ] || continue
-              if ! grep -Fxq "$pending_source_sha" "$ORDERED_PENDING"; then
-                echo "$pending_source_sha" >> "$ORDERED_PENDING"
-              fi
-            done < "$PENDING_SOURCES"
-
-            mv "$ORDERED_PENDING" "$PENDING_SOURCES"
 
             if [ ! -s "$PENDING_SOURCES" ]; then
               {
                 echo "## Main Version Bump"
                 echo "No pending source commits to process."
                 echo "Source commit: $SOURCE_SHA"
+                if [ "$HAS_APP_TOKEN" = "false" ]; then
+                  echo "Authentication: GITHUB_TOKEN fallback"
+                else
+                  echo "Authentication: merge-signing GitHub App token"
+                fi
               } >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
 
-            git checkout -B "$BUMP_BRANCH" origin/main
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            if [ "$HAS_APP_TOKEN" = "true" ]; then
+              git config user.name "merge-signing[bot]"
+              git config user.email "merge-signing[bot]@users.noreply.github.com"
+            else
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            fi
 
             APPLIED_COMMITS=0
             while IFS= read -r pending_source_sha; do
@@ -175,56 +185,25 @@ jobs:
             done < "$PENDING_SOURCES"
 
             if [ "$APPLIED_COMMITS" -eq 0 ]; then
-              PR_NUMBER=$(gh pr list -R "$REPO" --state open --base main --head "$BUMP_BRANCH" --json number --jq '.[0].number')
-              if [ -n "$PR_NUMBER" ]; then
-                gh pr close -R "$REPO" "$PR_NUMBER" \
-                  --comment "Closing automated bump PR because replayed source commits no longer require version updates." \
-                  --delete-branch || true
-              fi
-
               {
                 echo "## Main Version Bump"
                 echo "No version changes were required for source $SOURCE_SHA."
-                if [ -n "$PR_NUMBER" ]; then
-                  echo "Closed stale bump PR: https://github.com/$REPO/pull/$PR_NUMBER"
-                fi
               } >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
 
-            if git push --force-with-lease --set-upstream origin "$BUMP_BRANCH"; then
+            if git push --force-with-lease=refs/heads/main:"$EXPECTED_MAIN_SHA" origin HEAD:main; then
               UPDATED=true
-
-              PR_BODY=$(printf '%s\n\n%s\n%s\n\n%s' \
-                "Automated version bump PR for successful main builds." \
-                "Latest source commit: $SOURCE_SHA" \
-                "Latest source run: $SOURCE_RUN_ID" \
-                "This branch is rebuilt from origin/main and replays pending source-sha bumps.")
-
-              # Close existing PR to ensure fresh CI triggers on new PR
-              # Force-pushes from Actions don't trigger pull_request.synchronize
-              EXISTING_PR=$(gh pr list -R "$REPO" --state open --base main --head "$BUMP_BRANCH" --json number --jq '.[0].number')
-              if [ -n "$EXISTING_PR" ]; then
-                gh pr close -R "$REPO" "$EXISTING_PR" --comment "Recreating PR to trigger CI after branch update." || true
-              fi
-
-              # Create fresh PR (triggers pull_request.opened event)
-              PR_URL=$(gh pr create -R "$REPO" \
-                --base main \
-                --head "$BUMP_BRANCH" \
-                --title "chore(release): bump versions" \
-                --body "$PR_BODY")
-              PR_NUMBER=$(echo "$PR_URL" | awk -F/ '{print $NF}')
-
-              gh pr merge -R "$REPO" "$PR_NUMBER" --merge --auto || true
-
               {
                 echo "## Main Version Bump"
-                echo "Updated bump PR on attempt $attempt/$ATTEMPTS."
+                echo "Updated main directly on attempt $attempt/$ATTEMPTS."
                 echo "Source commit: $SOURCE_SHA"
                 echo "Applied bump commits: $APPLIED_COMMITS"
-                if [ -n "$PR_URL" ]; then
-                  echo "PR: $PR_URL"
+                echo "Expected main before push: $EXPECTED_MAIN_SHA"
+                if [ "$HAS_APP_TOKEN" = "false" ]; then
+                  echo "Authentication: GITHUB_TOKEN fallback"
+                else
+                  echo "Authentication: merge-signing GitHub App token"
                 fi
               } >> "$GITHUB_STEP_SUMMARY"
               break
@@ -236,8 +215,9 @@ jobs:
           if [ "$UPDATED" != "true" ]; then
             {
               echo "## Main Version Bump"
-              echo "Failed to update bump PR branch after $ATTEMPTS attempts."
+              echo "Failed to update main directly after $ATTEMPTS attempts."
               echo "Source commit: $SOURCE_SHA"
+              echo "Last expected main SHA: $EXPECTED_MAIN_SHA"
             } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi

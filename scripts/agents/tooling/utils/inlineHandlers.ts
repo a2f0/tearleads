@@ -1,9 +1,100 @@
 import { execSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 
 import type { GlobalOptions } from '../types.ts';
 import { sleepMs } from './helpers.ts';
 
 type RunGh = (args: string[]) => string;
+
+interface SetupCheck {
+  name: string;
+  ok: boolean;
+  details?: string;
+}
+
+export function handleCheckMainVersionBumpSetup(
+  options: GlobalOptions,
+  repo: string,
+  runGh: RunGh
+): string {
+  const repoRoot = execSync('git rev-parse --show-toplevel', {
+    encoding: 'utf8'
+  }).trim();
+
+  const requiredEnvNames = [
+    'TF_VAR_merge_signing_app_id',
+    'TF_VAR_merge_signing_app_installation_id'
+  ] as const;
+
+  const envChecks: SetupCheck[] = requiredEnvNames.map((envName) => {
+    const value = process.env[envName]?.trim();
+    const check: SetupCheck = {
+      name: `env:${envName}`,
+      ok: Boolean(value)
+    };
+    if (!value) {
+      check.details = `${envName} is not set`;
+    }
+    return check;
+  });
+
+  const requestedKeyFile = options.keyFile?.trim();
+  const keyFile =
+    requestedKeyFile && requestedKeyFile.length > 0
+      ? requestedKeyFile
+      : '.secrets/tearleads-version-bumper.private-key.pem';
+  const keyFilePath = path.isAbsolute(keyFile)
+    ? keyFile
+    : path.join(repoRoot, keyFile);
+  const keyFileExists = fs.existsSync(keyFilePath);
+  const keyFileCheck: SetupCheck = {
+    name: 'file:merge-signing-private-key',
+    ok: keyFileExists
+  };
+  if (!keyFileExists) {
+    keyFileCheck.details = `Missing file at ${keyFilePath}`;
+  }
+
+  const secretNames = new Set<string>();
+  const secretListOutput = runGh(['secret', 'list', '-R', repo]);
+  for (const line of secretListOutput.split('\n')) {
+    const [name] = line.split('\t');
+    if (name) {
+      secretNames.add(name.trim());
+    }
+  }
+
+  const secretChecks: SetupCheck[] = [
+    'MERGE_SIGNING_APP_ID',
+    'MERGE_SIGNING_APP_PRIVATE_KEY'
+  ].map((secretName) => {
+    const hasSecret = secretNames.has(secretName);
+    const check: SetupCheck = {
+      name: `secret:${secretName}`,
+      ok: hasSecret
+    };
+    if (!hasSecret) {
+      check.details = `${secretName} not found in repo secrets`;
+    }
+    return check;
+  });
+
+  const checks = [...envChecks, keyFileCheck, ...secretChecks];
+  const failures = checks.filter((check) => !check.ok);
+
+  return JSON.stringify(
+    {
+      status: failures.length === 0 ? 'ready' : 'missing_requirements',
+      repo,
+      key_file: keyFilePath,
+      checks,
+      missing: failures.map((failure) => failure.details ?? failure.name)
+    },
+    null,
+    2
+  );
+}
 
 export function handleGetReviewThreads(
   options: GlobalOptions,
