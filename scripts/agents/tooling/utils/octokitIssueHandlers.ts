@@ -27,11 +27,69 @@ function isPullRequestItem(item: ListForRepoItem): boolean {
 type OctokitIssue =
   RestEndpointMethodTypes['issues']['get']['response']['data'];
 type OctokitIssueLabel = OctokitIssue['labels'][number];
+type SearchIssueItem =
+  RestEndpointMethodTypes['search']['issuesAndPullRequests']['response']['data']['items'][number];
 
 function isIssueLabelObject(
   label: OctokitIssueLabel
 ): label is Exclude<OctokitIssueLabel, string> {
   return typeof label !== 'string';
+}
+
+function isIssueSearchItem(item: SearchIssueItem): boolean {
+  return !Object.hasOwn(item, 'pull_request');
+}
+
+export interface CreateIssueInput {
+  title: string;
+  body: string;
+  labels: string[];
+}
+
+export interface ExistingIssueMatch {
+  number: number;
+  title: string;
+  url: string;
+}
+
+export async function findExistingIssueWithOctokit(
+  context: GitHubClientContext,
+  query: string
+): Promise<ExistingIssueMatch | null> {
+  const response = await context.octokit.rest.search.issuesAndPullRequests({
+    q: `repo:${context.owner}/${context.repo} is:issue ${query}`,
+    per_page: 10
+  });
+
+  const issue = response.data.items.find(isIssueSearchItem);
+  if (!issue) {
+    return null;
+  }
+
+  return {
+    number: issue.number,
+    title: issue.title,
+    url: issue.html_url
+  };
+}
+
+export async function createIssueWithOctokit(
+  context: GitHubClientContext,
+  input: CreateIssueInput
+): Promise<string> {
+  const request: Parameters<typeof context.octokit.rest.issues.create>[0] = {
+    owner: context.owner,
+    repo: context.repo,
+    title: input.title,
+    body: input.body
+  };
+  if (input.labels.length > 0) {
+    request.labels = input.labels;
+  }
+
+  const response = await context.octokit.rest.issues.create(request);
+
+  return response.data.html_url;
 }
 
 export async function listDeferredFixIssuesWithOctokit(

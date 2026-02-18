@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 
 export function isShaLike(value: string): boolean {
   if (!/^[0-9a-fA-F]+$/.test(value)) return false;
@@ -13,6 +13,20 @@ export function requireDefined<T>(value: T | undefined, name: string): T {
 }
 
 export function getRepo(): string {
+  try {
+    const remoteUrl = execSync('git remote get-url origin', {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+
+    const sshMatch = remoteUrl.match(/[:/]([^/:]+\/[^/]+?)(?:\.git)?$/);
+    if (sshMatch?.[1]) {
+      return sshMatch[1];
+    }
+  } catch {
+    // Fall through to gh fallback for environments without an origin remote.
+  }
+
   try {
     return execFileSync(
       'gh',
