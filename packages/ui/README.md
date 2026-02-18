@@ -21,6 +21,7 @@ import '@tearleads/ui/theme.css';
 ## Package Boundaries
 
 Keep `@tearleads/ui` focused on reusable UI code:
+
 - React components
 - UI-focused hooks/providers
 - design-system styles and assets

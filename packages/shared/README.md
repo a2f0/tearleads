@@ -3,6 +3,7 @@
 Shared TypeScript modules for non-UI cross-package reuse.
 
 Use this package for code that should be consumed by multiple packages without pulling in React/UI dependencies:
+
 - domain types and contracts
 - validation/type guards
 - protocol helpers and serialization logic
