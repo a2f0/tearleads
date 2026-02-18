@@ -1,2 +1,7 @@
-export { api } from './apiClient';
-export { API_BASE_URL, tryRefreshToken } from './apiCore';
+export {
+  api,
+  API_BASE_URL,
+  tryRefreshToken,
+  setApiEventLogger,
+  resetApiEventLogger
+} from '@tearleads/api-client';

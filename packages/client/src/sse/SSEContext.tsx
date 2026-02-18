@@ -14,7 +14,7 @@ import {
   useState
 } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { API_BASE_URL, tryRefreshToken } from '@/lib/api';
+import { API_BASE_URL, tryRefreshToken } from '@tearleads/api-client';
 import { isJwtExpired } from '@/lib/jwt';
 
 interface SSEContextValue {

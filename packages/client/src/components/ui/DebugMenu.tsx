@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/RefreshButton';
-import { API_BASE_URL, api } from '@/lib/api';
+import { API_BASE_URL, api } from '@tearleads/api-client';
 
 export function DebugMenu() {
   const { t } = useTranslation('debug');

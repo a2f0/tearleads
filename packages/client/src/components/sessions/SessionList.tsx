@@ -2,7 +2,7 @@ import type { Session } from '@tearleads/shared';
 import { Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { api } from '@/lib/api';
+import { api } from '@tearleads/api-client';
 
 function formatRelativeTime(isoString: string): string {
   const date = new Date(isoString);

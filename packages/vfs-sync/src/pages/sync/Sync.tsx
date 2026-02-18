@@ -3,7 +3,7 @@ import { SessionList } from '@client/components/sessions';
 import { BackLink } from '@client/components/ui/back-link';
 import { Button } from '@client/components/ui/button';
 import { useAuth } from '@client/contexts/AuthContext';
-import { api } from '@client/lib/api';
+import { api } from '@tearleads/api-client';
 import { LogOut, Mail } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';

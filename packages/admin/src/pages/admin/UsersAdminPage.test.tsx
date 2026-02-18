@@ -11,7 +11,7 @@ const mockGetContext = vi.fn().mockResolvedValue({
 });
 const mockNavigate = vi.fn();
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@tearleads/api-client', () => ({
   api: {
     admin: {
       getContext: () => mockGetContext(),

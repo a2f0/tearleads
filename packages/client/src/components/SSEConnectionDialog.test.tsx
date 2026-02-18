@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { SSEConnectionDialog } from './SSEConnectionDialog';
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@tearleads/api-client', () => ({
   API_BASE_URL: 'https://api.example.com'
 }));
 

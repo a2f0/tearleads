@@ -5,7 +5,7 @@ import { CreateGroupDialog } from './CreateGroupDialog';
 
 const mockCreate = vi.fn();
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@tearleads/api-client', () => ({
   api: {
     admin: {
       getContext: vi.fn().mockResolvedValue({

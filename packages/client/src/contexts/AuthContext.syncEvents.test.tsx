@@ -6,14 +6,14 @@ import {
   AUTH_USER_KEY,
   clearStoredAuth,
   setSessionExpiredError
-} from '@/lib/authStorage';
+} from '@tearleads/api-client/authStorage';
 import { AuthProvider, useAuth } from './AuthContext';
 
 const mockLogin = vi.fn();
 const mockLogout = vi.fn();
 const mockTryRefreshToken = vi.fn().mockResolvedValue(false);
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@tearleads/api-client', () => ({
   api: {
     auth: {
       login: (...args: unknown[]) => mockLogin(...args),

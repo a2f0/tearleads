@@ -13,7 +13,7 @@ const mockAddMember = vi.fn();
 const mockRemoveMember = vi.fn();
 const mockNavigate = vi.fn();
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@tearleads/api-client', () => ({
   api: {
     admin: {
       getContext: vi.fn().mockResolvedValue({

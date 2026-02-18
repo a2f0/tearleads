@@ -10,7 +10,7 @@ import type {
   DecryptedAiMessage
 } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api } from '@/lib/api';
+import { api } from '@tearleads/api-client';
 import {
   createConversationEncryption,
   decryptConversation,

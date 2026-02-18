@@ -4,7 +4,7 @@ import {
   AUTH_TOKEN_KEY,
   AUTH_USER_KEY,
   clearStoredAuth
-} from '@/lib/authStorage';
+} from '@tearleads/api-client/authStorage';
 import { AuthProvider, useAuth } from './AuthContext';
 
 const mockLogin = vi.fn();
@@ -23,7 +23,7 @@ function createJwt(expiresAtSeconds: number): string {
   return `${header}.${payload}.`;
 }
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@tearleads/api-client', () => ({
   api: {
     auth: {
       login: (...args: unknown[]) => mockLogin(...args),

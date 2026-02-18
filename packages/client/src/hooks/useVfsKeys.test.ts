@@ -55,7 +55,7 @@ vi.mock('@/db/crypto/keyManager', () => ({
 }));
 
 // Mock API
-vi.mock('@/lib/api', () => ({
+vi.mock('@tearleads/api-client', () => ({
   api: {
     vfs: {
       getMyKeys: vi.fn(),
@@ -65,7 +65,7 @@ vi.mock('@/lib/api', () => ({
 }));
 
 import { getKeyManager } from '@/db/crypto/keyManager';
-import { api } from '@/lib/api';
+import { api } from '@tearleads/api-client';
 
 describe('useVfsKeys', () => {
   const mockKeyManager = {

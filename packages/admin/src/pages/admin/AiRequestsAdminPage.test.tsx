@@ -6,7 +6,7 @@ import { AiRequestsAdminPage } from './AiRequestsAdminPage';
 
 const mockGetUsage = vi.fn();
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@tearleads/api-client', () => ({
   api: {
     ai: {
       getUsage: (options?: {

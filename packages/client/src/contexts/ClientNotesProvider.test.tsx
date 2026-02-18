@@ -97,7 +97,7 @@ vi.mock('@/i18n', () => ({
   useTypedTranslation: () => ({ t: (key: string) => key })
 }));
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@tearleads/api-client', () => ({
   api: {
     vfs: {
       register: vi.fn()
@@ -105,7 +105,7 @@ vi.mock('@/lib/api', () => ({
   }
 }));
 
-vi.mock('@/lib/authStorage', () => ({
+vi.mock('@tearleads/api-client/authStorage', () => ({
   isLoggedIn: () => true,
   readStoredAuth: () => ({ user: { id: 'test-user' } })
 }));

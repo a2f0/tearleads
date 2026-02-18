@@ -1,6 +1,6 @@
 import type { GroupWithMemberCount } from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
-import { api } from '@/lib/api';
+import { api } from '@tearleads/api-client';
 
 export function useAdminUserGroups(userId: string | null) {
   const [groups, setGroups] = useState<GroupWithMemberCount[]>([]);

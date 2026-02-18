@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useTypedTranslation } from '@/i18n';
-import { api } from '@/lib/api';
+import { api } from '@tearleads/api-client';
 
 const EMPTY_ORGANIZATIONS: AdminScopeOrganization[] = [];
 

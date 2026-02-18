@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from '@/lib/authStorage';
+import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from '@tearleads/api-client/authStorage';
 import { AuthProvider, useAuth } from './AuthContext';
 
 const mockLogin = vi.fn();
@@ -20,7 +20,7 @@ function createJwt(expiresAtSeconds: number): string {
   return `${header}.${payload}.`;
 }
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@tearleads/api-client', () => ({
   api: {
     auth: {
       login: (...args: unknown[]) => mockLogin(...args),

@@ -14,6 +14,9 @@
     "paths": {
       "@/*": ["../client/src/*"],
       "@client/*": ["../client/src/*"],
+      "@tearleads/api-client/package.json": ["../api-client/package.json"],
+      "@tearleads/api-client": ["../api-client/src/index.ts"],
+      "@tearleads/api-client/authStorage": ["../api-client/src/authStorage.ts"],
       "@wallet/*": ["./src/*"]
     },
     "tsBuildInfoFile": "./dist/.tsbuildinfo"

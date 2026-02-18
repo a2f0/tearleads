@@ -56,6 +56,15 @@ export const createViteAliases = (
       dirname,
       '../api/dist/openapi.json'
     ),
+    '@tearleads/api-client/package.json': path.resolve(
+      dirname,
+      '../api-client/package.json'
+    ),
+    '@tearleads/api-client/authStorage': path.resolve(
+      dirname,
+      '../api-client/src/authStorage.ts'
+    ),
+    '@tearleads/api-client': path.resolve(dirname, '../api-client/src/index.ts'),
     // Workspace packages aliased to source for HMR
     '@tearleads/admin/package.json': path.resolve(dirname, '../admin/package.json'),
     '@tearleads/admin': path.resolve(dirname, '../admin/src/index.ts'),
@@ -127,6 +136,8 @@ export const createViteAliases = (
       '../search/package.json'
     ),
     '@tearleads/search': path.resolve(dirname, '../search/src/index.ts'),
+    '@tearleads/shared/package.json': path.resolve(dirname, '../shared/package.json'),
+    '@tearleads/shared': path.resolve(dirname, '../shared/src/index.ts'),
     '@tearleads/settings/package.json': path.resolve(
       dirname,
       '../settings/package.json'

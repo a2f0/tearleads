@@ -11,7 +11,7 @@ const mockLogout = vi.fn();
 const mockPingGet = vi.fn();
 const mockTryRefreshToken = vi.fn().mockResolvedValue(false);
 
-vi.mock('@client/lib/api', () => ({
+vi.mock('@tearleads/api-client', () => ({
   api: {
     auth: {
       login: (...args: unknown[]) => mockLogin(...args),

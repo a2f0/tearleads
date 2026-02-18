@@ -7,7 +7,7 @@ import { GroupsAdminPage } from './GroupsAdminPage';
 const mockNavigate = vi.fn();
 const mockGetContext = vi.fn();
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@tearleads/api-client', () => ({
   api: {
     admin: {
       getContext: () => mockGetContext()
@@ -15,7 +15,7 @@ vi.mock('@/lib/api', () => ({
   }
 }));
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@tearleads/api-client', () => ({
   api: {
     admin: {
       getContext: vi.fn().mockResolvedValue({

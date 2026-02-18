@@ -26,7 +26,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useTypedTranslation } from '@/i18n';
-import { api } from '@/lib/api';
+import { api } from '@tearleads/api-client';
 import { formatDate } from '@/lib/utils';
 
 interface OrganizationFormData {

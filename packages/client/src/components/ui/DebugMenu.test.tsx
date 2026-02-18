@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DebugMenu } from './DebugMenu';
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@tearleads/api-client', () => ({
   api: {
     ping: {
       get: vi.fn()
@@ -12,7 +12,7 @@ vi.mock('@/lib/api', () => ({
   API_BASE_URL: 'https://api.example.com/v1'
 }));
 
-import { api } from '@/lib/api';
+import { api } from '@tearleads/api-client';
 
 const mockPingData = {
   version: '0.0.2',

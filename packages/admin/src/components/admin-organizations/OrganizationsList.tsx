@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useTypedTranslation } from '@/i18n';
-import { api } from '@/lib/api';
+import { api } from '@tearleads/api-client';
 
 interface OrganizationsListProps {
   onCreateClick?: (() => void) | undefined;

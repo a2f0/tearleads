@@ -1,6 +1,4 @@
 import type { AuthResponse } from '@tearleads/shared';
-import type { AnalyticsEventSlug } from '@/db/analytics';
-import { logApiEvent } from '@/db/analytics';
 import {
   clearStoredAuth,
   getAuthHeaderValue,
@@ -10,7 +8,8 @@ import {
   tryAcquireRefreshLock,
   updateStoredTokens,
   waitForRefreshCompletion
-} from '@/lib/authStorage';
+} from './authStorage';
+import { logApiEvent, type ApiEventSlug } from './apiLogger';
 
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 
@@ -155,9 +154,6 @@ export async function tryRefreshToken(): Promise<boolean> {
   }
   return result.refreshed;
 }
-
-// API event slugs - subset of AnalyticsEventSlug for API calls
-type ApiEventSlug = Extract<AnalyticsEventSlug, `api_${string}`>;
 
 interface RequestParams {
   fetchOptions?: RequestInit;

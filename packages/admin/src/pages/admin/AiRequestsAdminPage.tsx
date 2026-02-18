@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { useTypedTranslation } from '@/i18n';
-import { api } from '@/lib/api';
+import { api } from '@tearleads/api-client';
 import { formatNumber, formatTimestamp } from '@/lib/utils';
 
 const PAGE_SIZE = 100;

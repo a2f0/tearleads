@@ -9,7 +9,7 @@ import { ContactNew } from './ContactNew';
 const mockIsLoggedIn = vi.fn();
 const mockReadStoredAuth = vi.fn();
 const mockGetFeatureFlagValue = vi.fn();
-vi.mock('@/lib/authStorage', () => ({
+vi.mock('@tearleads/api-client/authStorage', () => ({
   isLoggedIn: () => mockIsLoggedIn(),
   readStoredAuth: () => mockReadStoredAuth()
 }));

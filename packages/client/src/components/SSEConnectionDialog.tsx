@@ -2,7 +2,7 @@ import type { SSEConnectionState } from '@tearleads/shared';
 import { X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useDialogAccessibility } from '@/hooks/useDialogAccessibility';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL } from '@tearleads/api-client';
 import { cn } from '@/lib/utils';
 
 interface SSEConnectionDialogProps {

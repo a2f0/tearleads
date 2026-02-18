@@ -10,18 +10,14 @@ import {
   AUTH_REFRESH_TOKEN_KEY,
   AUTH_TOKEN_KEY,
   AUTH_USER_KEY
-} from '@/lib/authStorage';
+} from './authStorage';
 
 const loadAuthStorage = async () => {
-  const module = await import('@/lib/authStorage');
+  const module = await import('./authStorage');
   return module;
 };
 
-// Mock analytics to capture logged event names
 const mockLogApiEvent = vi.fn();
-vi.mock('@/db/analytics', () => ({
-  logApiEvent: (...args: unknown[]) => mockLogApiEvent(...args)
-}));
 
 const loadApi = async () => {
   const module = await import('./api');
@@ -57,16 +53,22 @@ const expectSingleRequestQuery = (
 };
 
 describe('api with msw', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
     mockLogApiEvent.mockResolvedValue(undefined);
+    const { setApiEventLogger } = await import('./apiLogger');
+    setApiEventLogger(
+      (...args: Parameters<typeof mockLogApiEvent>) => mockLogApiEvent(...args)
+    );
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.unstubAllEnvs();
+    const { resetApiEventLogger } = await import('./apiLogger');
+    resetApiEventLogger();
   });
 
   describe('401 retry handling', () => {

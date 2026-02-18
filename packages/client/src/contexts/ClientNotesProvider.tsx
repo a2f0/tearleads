@@ -33,8 +33,8 @@ import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/useVfsKeys';
 import { useTypedTranslation } from '@/i18n';
-import { api } from '@/lib/api';
-import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
+import { api } from '@tearleads/api-client';
+import { isLoggedIn, readStoredAuth } from '@tearleads/api-client/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
 import { useNavigateWithFrom } from '@/lib/navigation';
 

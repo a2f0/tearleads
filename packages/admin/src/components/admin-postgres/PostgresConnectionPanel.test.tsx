@@ -4,7 +4,7 @@ import { PostgresConnectionPanel } from './PostgresConnectionPanel';
 
 const mockGetInfo = vi.fn();
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@tearleads/api-client', () => ({
   api: {
     admin: {
       getContext: vi.fn().mockResolvedValue({

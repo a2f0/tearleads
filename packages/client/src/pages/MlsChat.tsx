@@ -16,7 +16,7 @@ import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDatabaseContext } from '@/db/hooks';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL } from '@tearleads/api-client';
 
 // Map our UI components to what MlsChat expects
 const MlsChatButton: MlsChatUIComponents['Button'] = ({

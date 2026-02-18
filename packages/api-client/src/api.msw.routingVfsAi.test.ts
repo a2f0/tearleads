@@ -1,11 +1,7 @@
 import { getRecordedApiRequests, wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Mock analytics to capture logged event names
 const mockLogApiEvent = vi.fn();
-vi.mock('@/db/analytics', () => ({
-  logApiEvent: (...args: unknown[]) => mockLogApiEvent(...args)
-}));
 
 const loadApi = async () => {
   const module = await import('./api');
@@ -41,16 +37,22 @@ const expectSingleRequestQuery = (
 };
 
 describe('api with msw', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
     mockLogApiEvent.mockResolvedValue(undefined);
+    const { setApiEventLogger } = await import('./apiLogger');
+    setApiEventLogger(
+      (...args: Parameters<typeof mockLogApiEvent>) => mockLogApiEvent(...args)
+    );
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.unstubAllEnvs();
+    const { resetApiEventLogger } = await import('./apiLogger');
+    resetApiEventLogger();
   });
 
   it('routes vfs and ai requests through msw', async () => {

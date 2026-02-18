@@ -8,7 +8,7 @@ const mockList = vi.fn();
 const mockUseAdminScope = vi.fn();
 const mockSetSelectedOrganizationId = vi.fn();
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@tearleads/api-client', () => ({
   api: {
     admin: {
       getContext: vi.fn().mockResolvedValue({

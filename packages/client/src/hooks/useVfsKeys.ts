@@ -26,7 +26,7 @@ import {
   wrapKeyForRecipient
 } from '@tearleads/shared';
 import { getKeyManager } from '@/db/crypto/keyManager';
-import { api } from '@/lib/api';
+import { api } from '@tearleads/api-client';
 
 // In-memory cache for the decrypted VFS keypair
 let cachedKeyPair: VfsKeyPair | null = null;
