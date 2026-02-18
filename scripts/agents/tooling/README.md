@@ -31,8 +31,12 @@ Run `--help` for full action and option list:
 ### GitHub API Actions
 
 - `getRepo` - Print current repo as `owner/name`
+- `getGitContext` - Print current git branch and HEAD SHA
+- `getDefaultBranch` - Fetch repository default branch
 - `checkMainVersionBumpSetup` - Validate required env vars, key file, and repo secrets for main version bump app auth
 - `getPrInfo` - Get PR info (state, merge status, etc.)
+- `getPrChecks` - List PR check runs/status contexts for current head SHA
+- `getRequiredChecksStatus` - Compare branch-protection required checks against current PR head SHA
 - `getReviewThreads` - Fetch review threads via GraphQL
 - `replyToComment` - Reply in-thread with custom body
 - `replyToGemini` - Reply in-thread with commit-hash message
@@ -51,6 +55,7 @@ Run `--help` for full action and option list:
 - `getIssue` - Fetch issue details by number
 - `issueTemplate` - Print standard issue body template
 - `createIssue` - Create user-requested/deferred-fix issues with dedupe checks
+- `createPr` - Create (or return existing) pull request
 - `verifyBranchPush` - Verify local HEAD is pushed to `origin/<branch>`
 - `sanitizePrBody` - Remove auto-close directives and return extracted issue numbers
 - `createDeferredFixIssue` - Create deferred-fix issue from structured review items
@@ -82,7 +87,7 @@ Precedence:
 2. `GH_TOKEN`
 3. `gh auth token`
 
-Existing `gh`-backed actions continue to use `gh` authentication directly.
+Most GitHub operations are handled via Octokit. `gh` remains a fallback for auth token lookup in environments without explicit token env vars.
 
 ## Examples
 
@@ -93,7 +98,12 @@ Existing `gh`-backed actions continue to use `gh` authentication directly.
 ./scripts/agents/tooling/agentTool.ts replyToGemini --number 1618 --comment-id 2801563279 --commit d9948cca79f7f13c940edcade20b5665b1bf0762
 ./scripts/agents/tooling/agentTool.ts triggerGeminiReview --number 1651 --poll-timeout 120 --json
 ./scripts/agents/tooling/agentTool.ts getRepo
+./scripts/agents/tooling/agentTool.ts getGitContext
+./scripts/agents/tooling/agentTool.ts getDefaultBranch
+./scripts/agents/tooling/agentTool.ts getPrChecks --number 123
+./scripts/agents/tooling/agentTool.ts getRequiredChecksStatus --number 123
 ./scripts/agents/tooling/agentTool.ts createIssue --type user-requested --title "feat: add x" --search "add x"
+./scripts/agents/tooling/agentTool.ts createPr --title "feat: x" --base main --head my-branch --body-file /tmp/pr-body.md
 ./scripts/agents/tooling/agentTool.ts createIssue --type deferred-fix --title "chore: deferred fix from PR #123" --source-pr 123 --review-thread-url "https://github.com/org/repo/pull/123#discussion_r1"
 ./scripts/agents/tooling/agentTool.ts verifyBranchPush --branch my-feature-branch
 ./scripts/agents/tooling/agentTool.ts sanitizePrBody --number 123

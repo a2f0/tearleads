@@ -14,7 +14,11 @@ export type ActionName =
   | 'addLabel'
   | 'approveSkippedChecks'
   | 'tagPrWithTuxedoInstance'
+  | 'getGitContext'
+  | 'getDefaultBranch'
   | 'getPrInfo'
+  | 'getPrChecks'
+  | 'getRequiredChecksStatus'
   | 'getReviewThreads'
   | 'replyToComment'
   | 'replyToGemini'
@@ -34,6 +38,7 @@ export type ActionName =
   | 'runPreen'
   | 'issueTemplate'
   | 'createIssue'
+  | 'createPr'
   | 'generatePrSummary'
   | 'verifyBranchPush'
   | 'sanitizePrBody'
@@ -48,6 +53,8 @@ export interface GlobalOptions {
   skipAndroid?: boolean;
   maxAndroidJump?: number;
   title?: string;
+  base?: string;
+  head?: string;
   type?: 'pr' | 'issue' | 'user-requested' | 'deferred-fix';
   number?: number;
   label?: string;
@@ -67,6 +74,7 @@ export interface GlobalOptions {
   timeoutSeconds?: number;
   repoRoot?: string;
   dryRun?: boolean;
+  draft?: boolean;
   json?: boolean;
   pr?: number;
   search?: string;

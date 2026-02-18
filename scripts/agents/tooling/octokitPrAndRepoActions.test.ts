@@ -1,12 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Octokit } from '@octokit/rest';
-import type { GitHubClientContext } from './utils/githubClient.ts';
+import { createContext } from './testOctokitContext.ts';
 import {
-  createDeferredFixIssueWithOctokit,
-  sanitizePrBodyWithOctokit,
-  updatePrBodyWithOctokit
-} from './utils/octokitPrBodyHandlers.ts';
+  getPrChecksWithOctokit,
+  getRequiredChecksStatusWithOctokit
+} from './utils/octokitPrChecksHandlers.ts';
 import {
   getPrInfoWithOctokit,
   getReviewThreadsWithOctokit,
@@ -18,46 +16,10 @@ import {
   generatePrSummaryWithOctokit,
   listHighPriorityPrsWithOctokit
 } from './utils/octokitPrOpsHandlers.ts';
-import { checkMainVersionBumpSetupWithOctokit } from './utils/octokitRepoHandlers.ts';
-
-function toUrlString(input: Parameters<typeof fetch>[0]): string {
-  if (typeof input === 'string') return input;
-  if (input instanceof URL) return input.toString();
-  return input.url;
-}
-
-function createContext(
-  responder: (request: { url: string; method: string; body: unknown }) => {
-    status: number;
-    body: unknown;
-  }
-): GitHubClientContext {
-  const mockFetch: typeof fetch = async (input, init) => {
-    const url = toUrlString(input);
-    const method = init?.method ?? 'GET';
-    const rawBody =
-      typeof init?.body === 'string'
-        ? init.body
-        : init?.body instanceof Uint8Array
-          ? new TextDecoder().decode(init.body)
-          : '';
-    const parsedBody = rawBody ? (JSON.parse(rawBody) as unknown) : null;
-    const { status, body } = responder({ url, method, body: parsedBody });
-    return new Response(JSON.stringify(body), {
-      status,
-      headers: { 'content-type': 'application/json' }
-    });
-  };
-
-  return {
-    octokit: new Octokit({
-      auth: 'test-token',
-      request: { fetch: mockFetch }
-    }),
-    owner: 'a2f0',
-    repo: 'tearleads'
-  };
-}
+import {
+  checkMainVersionBumpSetupWithOctokit,
+  getDefaultBranchWithOctokit
+} from './utils/octokitRepoHandlers.ts';
 
 test('checkMainVersionBumpSetupWithOctokit reports missing requirements', async () => {
   const context = createContext(({ url }) => {
@@ -83,6 +45,19 @@ test('checkMainVersionBumpSetupWithOctokit reports missing requirements', async 
     JSON.stringify(parsed.missing),
     /MERGE_SIGNING_APP_PRIVATE_KEY not found/
   );
+});
+
+test('getDefaultBranchWithOctokit returns default branch', async () => {
+  const context = createContext(({ url }) => {
+    if (url.endsWith('/repos/a2f0/tearleads')) {
+      return { status: 200, body: { default_branch: 'main' } };
+    }
+    return { status: 404, body: { message: 'not found' } };
+  });
+
+  const output = await getDefaultBranchWithOctokit(context);
+  const parsed = JSON.parse(output);
+  assert.equal(parsed.default_branch, 'main');
 });
 
 test('getPrInfoWithOctokit returns normalized selected fields', async () => {
@@ -145,6 +120,111 @@ test('getPrInfoWithOctokit returns normalized selected fields', async () => {
   assert.equal(parsed.mergeStateStatus, 'CLEAN');
   assert.equal(parsed.comments.length, 1);
   assert.equal(parsed.files[0].path, 'src/a.ts');
+});
+
+test('getPrChecksWithOctokit returns check runs and status contexts', async () => {
+  const context = createContext(({ url }) => {
+    if (url.endsWith('/repos/a2f0/tearleads/pulls/55')) {
+      return {
+        status: 200,
+        body: {
+          head: { sha: 'abc123' }
+        }
+      };
+    }
+    if (url.includes('/repos/a2f0/tearleads/commits/abc123/check-runs')) {
+      return {
+        status: 200,
+        body: {
+          total_count: 1,
+          check_runs: [
+            {
+              name: 'build',
+              status: 'completed',
+              conclusion: 'success',
+              details_url: 'https://example.com/check/1'
+            }
+          ]
+        }
+      };
+    }
+    if (url.includes('/repos/a2f0/tearleads/commits/abc123/status')) {
+      return {
+        status: 200,
+        body: {
+          state: 'success',
+          statuses: [
+            {
+              context: 'legacy-status',
+              state: 'success',
+              target_url: 'https://example.com/status/1'
+            }
+          ]
+        }
+      };
+    }
+    return { status: 404, body: { message: 'not found' } };
+  });
+
+  const output = await getPrChecksWithOctokit(context, 55);
+  const parsed = JSON.parse(output);
+  assert.equal(parsed.total, 2);
+  assert.equal(parsed.checks[0].name, 'build');
+});
+
+test('getRequiredChecksStatusWithOctokit evaluates required contexts', async () => {
+  const context = createContext(({ url }) => {
+    if (url.endsWith('/repos/a2f0/tearleads/pulls/55')) {
+      return {
+        status: 200,
+        body: {
+          head: { sha: 'abc123' },
+          base: { ref: 'main' }
+        }
+      };
+    }
+    if (url.includes('/repos/a2f0/tearleads/commits/abc123/check-runs')) {
+      return {
+        status: 200,
+        body: {
+          total_count: 1,
+          check_runs: [
+            {
+              name: 'build',
+              status: 'completed',
+              conclusion: 'success',
+              details_url: 'https://example.com/check/1'
+            }
+          ]
+        }
+      };
+    }
+    if (url.includes('/repos/a2f0/tearleads/commits/abc123/status')) {
+      return {
+        status: 200,
+        body: {
+          state: 'success',
+          statuses: []
+        }
+      };
+    }
+    if (url.endsWith('/repos/a2f0/tearleads/branches/main/protection')) {
+      return {
+        status: 200,
+        body: {
+          required_status_checks: {
+            contexts: ['build']
+          }
+        }
+      };
+    }
+    return { status: 404, body: { message: 'not found' } };
+  });
+
+  const output = await getRequiredChecksStatusWithOctokit(context, 55);
+  const parsed = JSON.parse(output);
+  assert.equal(parsed.required_check_count, 1);
+  assert.equal(parsed.all_passed, true);
 });
 
 test('getReviewThreadsWithOctokit filters unresolved threads', async () => {
@@ -336,81 +416,4 @@ test('generatePrSummaryWithOctokit formats summary', async () => {
   const output = await generatePrSummaryWithOctokit(context, { number: 21 });
   assert.match(output, /PR #21: PR title/);
   assert.match(output, /Files changed \(2\)/);
-});
-
-test('sanitizePrBodyWithOctokit removes auto-close directives', async () => {
-  let updatedBody = '';
-  const context = createContext(({ url, method, body }) => {
-    if (url.endsWith('/repos/a2f0/tearleads/pulls/33') && method === 'GET') {
-      return {
-        status: 200,
-        body: { body: 'Hello\n\nFixes #12\nResolves #34' }
-      };
-    }
-    if (url.endsWith('/repos/a2f0/tearleads/pulls/33') && method === 'PATCH') {
-      updatedBody =
-        typeof body === 'object' && body !== null
-          ? String(Reflect.get(body, 'body') ?? '')
-          : '';
-      return { status: 200, body: {} };
-    }
-    return { status: 404, body: { message: 'not found' } };
-  });
-
-  const output = await sanitizePrBodyWithOctokit(context, 33);
-  const parsed = JSON.parse(output);
-  assert.equal(parsed.status, 'updated');
-  assert.deepEqual(parsed.issue_numbers, [12, 34]);
-  assert.doesNotMatch(updatedBody, /Fixes|Resolves/i);
-});
-
-test('createDeferredFixIssueWithOctokit creates issue', async () => {
-  const context = createContext(({ url, method }) => {
-    if (url.endsWith('/repos/a2f0/tearleads/issues') && method === 'POST') {
-      return {
-        status: 201,
-        body: { html_url: 'https://example.com/issues/999' }
-      };
-    }
-    return { status: 404, body: { message: 'not found' } };
-  });
-
-  const output = await createDeferredFixIssueWithOctokit(context, {
-    number: 7,
-    prUrl: 'https://example.com/pull/7',
-    deferredItemsJson: JSON.stringify([
-      {
-        body: 'follow up',
-        path: 'src/a.ts',
-        line: 11,
-        html_url: 'https://example.com/thread/1'
-      }
-    ])
-  });
-  const parsed = JSON.parse(output);
-  assert.equal(parsed.status, 'created');
-  assert.equal(parsed.deferred_item_count, 1);
-});
-
-test('updatePrBodyWithOctokit updates using direct body', async () => {
-  let bodyLength = 0;
-  const context = createContext(({ url, method, body }) => {
-    if (url.endsWith('/repos/a2f0/tearleads/pulls/44') && method === 'PATCH') {
-      const nextBody =
-        typeof body === 'object' && body !== null
-          ? String(Reflect.get(body, 'body') ?? '')
-          : '';
-      bodyLength = nextBody.length;
-      return { status: 200, body: {} };
-    }
-    return { status: 404, body: { message: 'not found' } };
-  });
-
-  const output = await updatePrBodyWithOctokit(context, {
-    number: 44,
-    body: '## Summary\n- updated'
-  });
-  const parsed = JSON.parse(output);
-  assert.equal(parsed.status, 'updated');
-  assert.equal(bodyLength, parsed.body_length);
 });

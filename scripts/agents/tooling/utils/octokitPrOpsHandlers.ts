@@ -213,3 +213,86 @@ export async function generatePrSummaryWithOctokit(
 
   return summaryLines.join('\n');
 }
+
+export async function createPrWithOctokit(
+  context: GitHubClientContext,
+  options: GlobalOptions
+): Promise<string> {
+  const title = options.title;
+  const base = options.base;
+  const head = options.head;
+
+  if (!title) {
+    throw new Error('createPr requires --title');
+  }
+  if (!base) {
+    throw new Error('createPr requires --base');
+  }
+  if (!head) {
+    throw new Error('createPr requires --head');
+  }
+
+  const request: Parameters<typeof context.octokit.rest.pulls.create>[0] = {
+    owner: context.owner,
+    repo: context.repo,
+    title,
+    base,
+    head,
+    draft: options.draft ?? false
+  };
+  if (options.body !== undefined) {
+    request.body = options.body;
+  }
+
+  try {
+    const response = await context.octokit.rest.pulls.create(request);
+    return JSON.stringify(
+      {
+        status: 'created',
+        number: response.data.number,
+        url: response.data.html_url,
+        state: response.data.state.toUpperCase()
+      },
+      null,
+      2
+    );
+  } catch (error: unknown) {
+    const errorStatus =
+      typeof error === 'object' && error !== null
+        ? Reflect.get(error, 'status')
+        : undefined;
+    const errorMessage =
+      typeof error === 'object' && error !== null
+        ? String(Reflect.get(error, 'message') ?? '')
+        : '';
+
+    if (
+      errorStatus === 422 &&
+      errorMessage.includes('A pull request already exists')
+    ) {
+      const existing = await context.octokit.rest.pulls.list({
+        owner: context.owner,
+        repo: context.repo,
+        state: 'open',
+        head: `${context.owner}:${head}`,
+        base,
+        per_page: 1
+      });
+      const pull = existing.data[0];
+      if (pull) {
+        return JSON.stringify(
+          {
+            status: 'existing',
+            number: pull.number,
+            url: pull.html_url,
+            state: pull.state.toUpperCase()
+          },
+          null,
+          2
+        );
+      }
+    }
+
+    throw error;
+  }
+}

@@ -268,7 +268,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    **Step 1**: Get the workflow run status for the current commit:
 
    ```bash
-   COMMIT=$(git rev-parse HEAD)
+   COMMIT=$(./scripts/agents/tooling/agentTool.ts getGitContext | jq -r '.head_sha')
    ./scripts/agents/tooling/agentTool.ts getCiStatus --commit "$COMMIT"
    ```
 
@@ -473,12 +473,14 @@ pnpm lint
 
   ```bash
   # CORRECT
-  gh pr view "$PR_NUMBER" --json state,mergeStateStatus -R "$REPO"
-  ./scripts/agents/tooling/agentTool.ts getCiStatus --commit "$(git rev-parse HEAD)"
+  ./scripts/agents/tooling/agentTool.ts getPrInfo --fields state,mergeStateStatus
+  COMMIT=$(./scripts/agents/tooling/agentTool.ts getGitContext | jq -r '.head_sha')
+  ./scripts/agents/tooling/agentTool.ts getCiStatus --commit "$COMMIT"
+  ./scripts/agents/tooling/agentTool.ts getRequiredChecksStatus --number "$PR_NUMBER"
 
   # WRONG - fetches unnecessary data
-  gh pr view
-  gh pr view --json state,mergeStateStatus,title,body,author,labels,...
+  ./scripts/agents/tooling/agentTool.ts getPrInfo --fields number,title,headRefName,baseRefName,url,state,labels,files,body
+  ./scripts/agents/tooling/agentTool.ts getPrChecks --number "$PR_NUMBER"
   ```
 
 - **Don't echo status unnecessarily**: The user sees your tool calls. Don't add "Checking CI status..." messages.

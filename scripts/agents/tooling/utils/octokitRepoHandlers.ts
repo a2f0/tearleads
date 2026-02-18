@@ -106,3 +106,20 @@ export async function checkMainVersionBumpSetupWithOctokit(
     2
   );
 }
+
+export async function getDefaultBranchWithOctokit(
+  context: GitHubClientContext
+): Promise<string> {
+  const response = await context.octokit.rest.repos.get({
+    owner: context.owner,
+    repo: context.repo
+  });
+
+  return JSON.stringify(
+    {
+      default_branch: response.data.default_branch
+    },
+    null,
+    2
+  );
+}

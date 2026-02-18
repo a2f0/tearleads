@@ -12,7 +12,7 @@ Rebase the current branch onto the latest main branch, resolving conflicts by pr
 Determine the repository for all `gh` commands:
 
 ```bash
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+REPO=$(./scripts/agents/tooling/agentTool.ts getRepo)
 ```
 
 Always pass `-R "$REPO"` to `gh` commands.

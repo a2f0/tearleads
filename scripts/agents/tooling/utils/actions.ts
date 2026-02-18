@@ -1,9 +1,9 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { runWithTimeout } from '../../../tooling/lib/cliShared.ts';
 import type { ActionConfig, ActionName, GlobalOptions } from '../types.ts';
 import { createGitHubClientContext } from './githubClient.ts';
-import { requireDefined } from './helpers.ts';
+import { getGitContext, requireDefined } from './helpers.ts';
 import { buildIssueTemplate } from './issueHelpers.ts';
 import {
   createIssueWithOctokit,
@@ -17,17 +17,25 @@ import {
   updatePrBodyWithOctokit
 } from './octokitPrBodyHandlers.ts';
 import {
+  getPrChecksWithOctokit,
+  getRequiredChecksStatusWithOctokit
+} from './octokitPrChecksHandlers.ts';
+import {
   getPrInfoWithOctokit,
   getReviewThreadsWithOctokit,
   triggerGeminiReviewWithOctokit
 } from './octokitPrInfoHandlers.ts';
 import {
+  createPrWithOctokit,
   enableAutoMergeWithOctokit,
   findPrForBranchWithOctokit,
   generatePrSummaryWithOctokit,
   listHighPriorityPrsWithOctokit
 } from './octokitPrOpsHandlers.ts';
-import { checkMainVersionBumpSetupWithOctokit } from './octokitRepoHandlers.ts';
+import {
+  checkMainVersionBumpSetupWithOctokit,
+  getDefaultBranchWithOctokit
+} from './octokitRepoHandlers.ts';
 import {
   checkGeminiQuotaWithOctokit,
   findDeferredWorkWithOctokit,
@@ -55,6 +63,15 @@ export async function runInlineAction(
       return repo;
     }
 
+    case 'getGitContext': {
+      return getGitContext();
+    }
+
+    case 'getDefaultBranch': {
+      const context = createGitHubClientContext(repo);
+      return getDefaultBranchWithOctokit(context);
+    }
+
     case 'checkMainVersionBumpSetup': {
       const context = createGitHubClientContext(repo);
       return checkMainVersionBumpSetupWithOctokit(context, options);
@@ -63,6 +80,22 @@ export async function runInlineAction(
     case 'getPrInfo': {
       const context = createGitHubClientContext(repo);
       return getPrInfoWithOctokit(context, options.fields);
+    }
+
+    case 'getPrChecks': {
+      if (options.number === undefined) {
+        throw new Error('getPrChecks requires --number');
+      }
+      const context = createGitHubClientContext(repo);
+      return getPrChecksWithOctokit(context, options.number);
+    }
+
+    case 'getRequiredChecksStatus': {
+      if (options.number === undefined) {
+        throw new Error('getRequiredChecksStatus requires --number');
+      }
+      const context = createGitHubClientContext(repo);
+      return getRequiredChecksStatusWithOctokit(context, options.number);
     }
 
     case 'getReviewThreads': {
@@ -310,6 +343,22 @@ export async function runInlineAction(
         null,
         2
       );
+    }
+
+    case 'createPr': {
+      const context = createGitHubClientContext(repo);
+      const bodyFromFile =
+        options.bodyFile !== undefined
+          ? readFileSync(options.bodyFile, 'utf8')
+          : undefined;
+      const createPrOptions: GlobalOptions = {
+        ...options
+      };
+      const resolvedBody = options.body ?? bodyFromFile;
+      if (resolvedBody !== undefined) {
+        createPrOptions.body = resolvedBody;
+      }
+      return createPrWithOctokit(context, createPrOptions);
     }
 
     default:
