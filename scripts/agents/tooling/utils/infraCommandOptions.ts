@@ -1,4 +1,4 @@
-import { Command, InvalidArgumentError } from 'commander';
+import { type Command, InvalidArgumentError } from 'commander';
 import type { ActionName } from '../types.ts';
 import {
   isAnsibleBootstrapTarget,
