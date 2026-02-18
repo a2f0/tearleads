@@ -112,3 +112,30 @@ setup_ssh_host_keys() {
   export TF_VAR_ssh_host_private_key=$(cat "$key_file")
   export TF_VAR_ssh_host_public_key=$(cat "$key_file.pub")
 }
+
+# Wait until SSH is reachable on a host, with retries and surfaced failure output.
+wait_for_ssh_ready() {
+  local ssh_target="$1"
+  local ssh_retries="${2:-30}"
+  local ssh_retry_delay_seconds="${3:-10}"
+  local ssh_connect_timeout_seconds="${4:-10}"
+
+  local attempt=1
+  local ssh_output=""
+  while (( attempt <= ssh_retries )); do
+    ssh_output=""
+    if ssh_output="$(ssh -o BatchMode=yes -o ConnectTimeout="$ssh_connect_timeout_seconds" "$ssh_target" true 2>&1)"; then
+      return 0
+    fi
+
+    echo "SSH not ready yet (attempt $attempt/$ssh_retries). Retrying in ${ssh_retry_delay_seconds}s..."
+    if [[ -n "$ssh_output" ]]; then
+      echo "$ssh_output"
+    fi
+    sleep "$ssh_retry_delay_seconds"
+    ((attempt++))
+  done
+
+  echo "ERROR: Unable to connect to $ssh_target over SSH after $ssh_retries attempts."
+  return 1
+}

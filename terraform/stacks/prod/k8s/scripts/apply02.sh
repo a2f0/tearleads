@@ -37,10 +37,18 @@ check_ecr_repositories() {
 
   echo "Checking required ECR repositories in account $AWS_ACCOUNT_ID (region: $AWS_REGION)..."
 
+  local all_repos=""
+  if ! all_repos="$(aws ecr describe-repositories --region "$AWS_REGION" --query 'repositories[].repositoryName' --output text 2>/dev/null)"; then
+    all_repos=""
+  fi
+
+  local all_repos_lines=""
+  all_repos_lines="$(printf '%s\n' "$all_repos" | tr '\t' '\n')"
+
   local missing_repos=()
   local repo
   for repo in "${ECR_REPOSITORIES[@]}"; do
-    if ! aws ecr describe-repositories --region "$AWS_REGION" --repository-names "$repo" >/dev/null 2>&1; then
+    if ! grep -Fxq "$repo" <<< "$all_repos_lines"; then
       missing_repos+=("$repo")
     fi
   done
