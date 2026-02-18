@@ -163,6 +163,20 @@ describe('clientBackupsRuntime', () => {
     expect(result.destination).toBe('download');
   });
 
+  it('falls back to download when storage save fails', async () => {
+    getCurrentInstanceIdMock.mockReturnValue('instance-1');
+    saveBackupToStorageMock.mockRejectedValue(new Error('save failed'));
+
+    const result = await clientBackupsRuntime.createBackup({
+      password: 'pw',
+      includeBlobs: false
+    });
+
+    expect(saveBackupToStorageMock).toHaveBeenCalledTimes(1);
+    expect(saveFileMock).toHaveBeenCalledTimes(1);
+    expect(result.destination).toBe('download');
+  });
+
   it('passes progress handler through restoreBackup', async () => {
     const onProgress = vi.fn();
 
