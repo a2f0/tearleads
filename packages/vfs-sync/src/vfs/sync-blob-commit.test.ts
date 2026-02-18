@@ -4,7 +4,10 @@ import {
   InMemoryVfsBlobCommitStore,
   type VfsBlobCommitResult
 } from './sync-blob-commit.js';
-import { InMemoryVfsBlobObjectStore } from './sync-blob-object-store.js';
+import {
+  InMemoryVfsBlobObjectStore,
+  type VfsBlobObjectStore
+} from './sync-blob-object-store.js';
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -369,5 +372,56 @@ describe('InMemoryVfsBlobCommitStore', () => {
     });
     expect(attached.status).toBe('applied');
     expect(store.get('stage-9')?.attachedItemId).toBe('email-9');
+  });
+
+  it('fails closed when object-store availability checks are transiently unavailable', () => {
+    let availabilityChecks = 0;
+    const transientObjectStore: VfsBlobObjectStore = {
+      hasBlob: () => {
+        availabilityChecks += 1;
+        if (availabilityChecks === 1) {
+          throw new Error('temporary object-store outage');
+        }
+
+        return true;
+      }
+    };
+    const store = new InMemoryVfsBlobCommitStore(transientObjectStore);
+
+    store.stage({
+      stagingId: 'stage-10',
+      blobId: 'blob-10',
+      stagedBy: 'user-10',
+      stagedAt: '2026-02-14T16:00:00.000Z',
+      expiresAt: '2026-02-14T16:30:00.000Z'
+    });
+
+    const unavailableAttach = store.attach({
+      stagingId: 'stage-10',
+      attachedBy: 'user-10',
+      itemId: 'email-10',
+      attachedAt: '2026-02-14T16:05:00.000Z'
+    });
+    expect(unavailableAttach.status).toBe('unavailable');
+    expect(store.get('stage-10')?.status).toBe('staged');
+    expect(store.get('stage-10')?.attachedItemId).toBeNull();
+
+    const retryAttach = store.attach({
+      stagingId: 'stage-10',
+      attachedBy: 'user-10',
+      itemId: 'email-10',
+      attachedAt: '2026-02-14T16:05:01.000Z'
+    });
+    expect(retryAttach.status).toBe('applied');
+    expect(store.get('stage-10')).toEqual({
+      stagingId: 'stage-10',
+      blobId: 'blob-10',
+      stagedBy: 'user-10',
+      status: 'attached',
+      stagedAt: '2026-02-14T16:00:00.000Z',
+      expiresAt: '2026-02-14T16:30:00.000Z',
+      attachedAt: '2026-02-14T16:05:01.000Z',
+      attachedItemId: 'email-10'
+    });
   });
 });
