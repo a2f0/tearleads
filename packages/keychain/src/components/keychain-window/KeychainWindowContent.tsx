@@ -107,9 +107,8 @@ export const KeychainWindowContent = forwardRef<
       await dependencies.deleteSessionKeysForInstance(instanceId);
 
       // Update just the modified instance instead of a full refetch
-      const newKeyStatus = await dependencies.getKeyStatusForInstance(
-        instanceId
-      );
+      const newKeyStatus =
+        await dependencies.getKeyStatusForInstance(instanceId);
       setInstanceKeyInfos((prevInfos) =>
         prevInfos.map((info) =>
           info.instance.id === instanceId

@@ -1,4 +1,7 @@
-import type { DatabaseOperations, TerminalUtilities } from '@tearleads/terminal';
+import type {
+  DatabaseOperations,
+  TerminalUtilities
+} from '@tearleads/terminal';
 
 export interface ConsoleTerminalDependencies {
   useDatabaseContext: () => DatabaseOperations;

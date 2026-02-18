@@ -1,5 +1,4 @@
-import { BackLink } from '@tearleads/ui';
-import { Button } from '@tearleads/ui';
+import { BackLink, Button } from '@tearleads/ui';
 import { LogOut, Mail } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -93,10 +92,14 @@ export function Sync({ showBackLink = true }: SyncProps) {
     return (
       <div className="space-y-6">
         <div className="space-y-2">
-          {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
+          {showBackLink && (
+            <BackLink defaultTo="/" defaultLabel="Back to Home" />
+          )}
           <h1 className="font-bold text-2xl tracking-tight">{t('sync')}</h1>
         </div>
-        <div className="text-muted-foreground text-sm">Sync is not configured.</div>
+        <div className="text-muted-foreground text-sm">
+          Sync is not configured.
+        </div>
       </div>
     );
   }

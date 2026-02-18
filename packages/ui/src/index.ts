@@ -1,13 +1,11 @@
 // Components
 export { ApiDocs } from './components/api-docs/ApiDocs.js';
 export { BackLink, type BackLinkProps } from './components/back-link/index.js';
-export { ConfirmDialog, type ConfirmDialogProps } from './components/confirm-dialog/index.js';
-export {
-  AboutMenuItem,
-  type AboutMenuItemProps,
-  WindowOptionsMenuItem
-} from './components/window-menu/index.js';
 export { Button, buttonVariants } from './components/button.js';
+export {
+  ConfirmDialog,
+  type ConfirmDialogProps
+} from './components/confirm-dialog/index.js';
 export {
   ConnectionIndicator,
   type ConnectionIndicatorProps,
@@ -21,7 +19,6 @@ export {
   useDropdownMenuContext
 } from './components/dropdown-menu/index.js';
 export { Footer, type FooterProps } from './components/footer.js';
-export { RefreshButton } from './components/refreshButton.js';
 export {
   GridSquare,
   type GridSquareProps,
@@ -29,12 +26,8 @@ export {
   type IconSquareProps
 } from './components/grid-square/index.js';
 export { Input, type InputProps, inputVariants } from './components/input.js';
+export { RefreshButton } from './components/refreshButton.js';
 export { Textarea, type TextareaProps } from './components/textarea.js';
-export {
-  VirtualListStatus,
-  getVirtualListStatusText,
-  type VirtualListStatusProps
-} from './components/virtualListStatus.js';
 export {
   ThemePreview,
   type ThemePreviewProps
@@ -51,6 +44,16 @@ export {
   TooltipProvider,
   TooltipTrigger
 } from './components/tooltip.js';
+export {
+  getVirtualListStatusText,
+  VirtualListStatus,
+  type VirtualListStatusProps
+} from './components/virtualListStatus.js';
+export {
+  AboutMenuItem,
+  type AboutMenuItemProps,
+  WindowOptionsMenuItem
+} from './components/window-menu/index.js';
 
 // Context
 export {

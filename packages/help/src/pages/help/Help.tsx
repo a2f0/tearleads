@@ -1,8 +1,8 @@
+import { getHelpDocRouteSegment } from '@help/constants/help';
+import { BackLink } from '@tearleads/ui';
 import { CircleHelp } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BackLink } from '@tearleads/ui';
-import { getHelpDocRouteSegment } from '@help/constants/help';
 import { HelpLinksGrid } from '../../components/help-links/HelpLinksGrid';
 
 export function Help() {

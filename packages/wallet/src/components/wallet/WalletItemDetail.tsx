@@ -8,8 +8,8 @@ import {
   type WalletMediaFileOption,
   type WalletMediaSide
 } from '../../lib/walletData';
-import { getWalletUiDependencies } from '../../lib/walletUiDependencies';
 import { getWalletSubtypeDefinition } from '../../lib/walletSubtypes';
+import { getWalletUiDependencies } from '../../lib/walletUiDependencies';
 import { useWalletItemActions } from './useWalletItemActions';
 import { WalletItemAlerts } from './WalletItemAlerts';
 import { WalletItemFormFields } from './WalletItemFormFields';

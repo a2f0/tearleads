@@ -1,3 +1,11 @@
+import { getHelpDocLabel, type HelpDocId } from '@help/constants/help';
+import {
+  DOCS_WINDOW_MAX_HEIGHT_PERCENT,
+  DOCS_WINDOW_MAX_WIDTH_PERCENT,
+  DOCS_WINDOW_MIN_HEIGHT,
+  DOCS_WINDOW_MIN_WIDTH,
+  getDocsWindowDefaults
+} from '@help/lib/docsWindowSizing';
 import openapiSpec from '@tearleads/api/dist/openapi.json';
 import { ApiDocs } from '@tearleads/ui';
 import {
@@ -9,14 +17,6 @@ import {
 } from '@tearleads/window-manager';
 import { ArrowLeft, CircleHelp } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { getHelpDocLabel, type HelpDocId } from '@help/constants/help';
-import {
-  DOCS_WINDOW_MAX_HEIGHT_PERCENT,
-  DOCS_WINDOW_MAX_WIDTH_PERCENT,
-  DOCS_WINDOW_MIN_HEIGHT,
-  DOCS_WINDOW_MIN_WIDTH,
-  getDocsWindowDefaults
-} from '@help/lib/docsWindowSizing';
 import { HelpDocumentation } from '../help-links/HelpDocumentation';
 import { HelpLinksGrid } from '../help-links/HelpLinksGrid';
 import { HelpWindowMenuBar } from './HelpWindowMenuBar';

@@ -54,7 +54,10 @@ export function WindowOptionsDialog({
           >
             Cancel
           </Button>
-          <Button onClick={() => onOpenChange(false)} data-testid="window-options-ok">
+          <Button
+            onClick={() => onOpenChange(false)}
+            data-testid="window-options-ok"
+          >
             OK
           </Button>
         </div>

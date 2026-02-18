@@ -1,5 +1,6 @@
+import { getHelpDocLabel, type HelpDocId } from '@help/constants/help';
+import { MarkdownWithToc } from '@tearleads/backups';
 import { useTheme } from '@tearleads/ui';
-import { useTranslation } from 'react-i18next';
 import {
   Cog,
   Download,
@@ -12,8 +13,7 @@ import {
   Terminal,
   TerminalSquare
 } from 'lucide-react';
-import { MarkdownWithToc } from '@tearleads/backups';
-import { getHelpDocLabel, type HelpDocId } from '@help/constants/help';
+import { useTranslation } from 'react-i18next';
 import backupRestoreDocumentationEn from '../../../../../docs/en/backup-restore.md?raw';
 import chromeExtensionDocumentationEn from '../../../../../docs/en/chrome-extension.md?raw';
 import ciDocumentationEn from '../../../../../docs/en/ci.md?raw';

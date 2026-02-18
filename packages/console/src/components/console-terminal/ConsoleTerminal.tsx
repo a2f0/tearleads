@@ -1,10 +1,37 @@
-import { Terminal } from '@tearleads/terminal';
+import {
+  type DatabaseOperations,
+  Terminal,
+  type TerminalUtilities
+} from '@tearleads/terminal';
 import { cn } from '@tearleads/ui';
 import { getConsoleTerminalDependencies } from '../../lib/terminalDependencies';
 
 interface ConsoleTerminalProps {
   className?: string;
   autoFocus?: boolean;
+}
+
+interface ConfiguredConsoleTerminalProps extends ConsoleTerminalProps {
+  useDatabaseContext: () => DatabaseOperations;
+  utilities: TerminalUtilities;
+}
+
+function ConfiguredConsoleTerminal({
+  className,
+  autoFocus = true,
+  useDatabaseContext,
+  utilities
+}: ConfiguredConsoleTerminalProps) {
+  const db = useDatabaseContext();
+
+  return (
+    <Terminal
+      db={db}
+      utilities={utilities}
+      autoFocus={autoFocus}
+      {...(className ? { className } : {})}
+    />
+  );
 }
 
 export function ConsoleTerminal({
@@ -27,14 +54,12 @@ export function ConsoleTerminal({
     );
   }
 
-  const db = dependencies.useDatabaseContext();
-
   return (
-    <Terminal
-      db={db}
-      utilities={dependencies.utilities}
+    <ConfiguredConsoleTerminal
+      className={className}
       autoFocus={autoFocus}
-      {...(className ? { className } : {})}
+      useDatabaseContext={dependencies.useDatabaseContext}
+      utilities={dependencies.utilities}
     />
   );
 }

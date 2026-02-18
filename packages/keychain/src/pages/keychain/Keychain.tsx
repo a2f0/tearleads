@@ -1,5 +1,4 @@
-import { BackLink } from '@tearleads/ui';
-import { RefreshButton } from '@tearleads/ui';
+import { BackLink, RefreshButton } from '@tearleads/ui';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem,

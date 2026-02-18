@@ -1,5 +1,4 @@
-import { Button } from '@tearleads/ui';
-import { Input } from '@tearleads/ui';
+import { Button, Input } from '@tearleads/ui';
 import { FileImage, FileText, Loader2, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { WalletMediaFileOption } from '../../lib/walletData';
@@ -121,7 +120,14 @@ export function WalletMediaPickerModal({
     return () => {
       cancelled = true;
     };
-  }, [currentInstanceId, dependencies, files, isUnlocked, open, replacePreviews]);
+  }, [
+    currentInstanceId,
+    dependencies,
+    files,
+    isUnlocked,
+    open,
+    replacePreviews
+  ]);
 
   const filteredPreviews = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();

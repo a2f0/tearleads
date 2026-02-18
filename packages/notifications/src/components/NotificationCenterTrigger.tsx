@@ -1,8 +1,8 @@
 import {
   DesktopContextMenu as ContextMenu,
-  DesktopContextMenuItem as ContextMenuItem
+  DesktopContextMenuItem as ContextMenuItem,
+  useWindowManager
 } from '@tearleads/window-manager';
-import { useWindowManager } from '@tearleads/window-manager';
 import { Activity, Bell, CheckCheck, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';

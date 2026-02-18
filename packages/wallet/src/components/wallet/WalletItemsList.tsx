@@ -1,14 +1,13 @@
-import { Button } from '@tearleads/ui';
-import { RefreshButton } from '@tearleads/ui';
+import { Button, RefreshButton } from '@tearleads/ui';
 import { CreditCard, Loader2, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { getWalletUiDependencies } from '../../lib/walletUiDependencies';
 import {
   getWalletItemTypeLabel,
   listWalletItems,
   type WalletItemSummary
 } from '../../lib/walletData';
 import { getWalletSubtypeLabel } from '../../lib/walletSubtypes';
+import { getWalletUiDependencies } from '../../lib/walletUiDependencies';
 
 interface WalletItemsListProps {
   onOpenItem: (itemId: string) => void;

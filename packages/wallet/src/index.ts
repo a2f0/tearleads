@@ -1,10 +1,10 @@
 export { WalletWindow } from './components/wallet-window';
-export { Wallet, WalletDetail, WalletNewItem } from './pages/wallet';
 export {
-  type WalletDataDependencies,
-  setWalletDataDependencies
+  setWalletDataDependencies,
+  type WalletDataDependencies
 } from './lib/walletData';
 export {
-  type WalletUiDependencies,
-  setWalletUiDependencies
+  setWalletUiDependencies,
+  type WalletUiDependencies
 } from './lib/walletUiDependencies';
+export { Wallet, WalletDetail, WalletNewItem } from './pages/wallet';

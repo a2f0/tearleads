@@ -2,9 +2,9 @@ import { RefreshCw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  getAnalyticsDependencies,
   type AnalyticsEvent,
-  type EventStats
+  type EventStats,
+  getAnalyticsDependencies
 } from '../lib/analyticsDependencies';
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -30,17 +30,9 @@ export function AnalyticsTab() {
     }
   };
 
-  if (!dependencies) {
-    return (
-      <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
-        Analytics unavailable
-      </div>
-    );
-  }
-
   // biome-ignore lint/correctness/useExhaustiveDependencies: refreshTrigger intentionally triggers re-fetch
   useEffect(() => {
-    if (!isUnlocked) return;
+    if (!dependencies || !isUnlocked) return;
 
     let isCancelled = false;
 
@@ -69,7 +61,7 @@ export function AnalyticsTab() {
         if (!isCancelled) {
           dependencies.logError(
             'Failed to fetch HUD analytics',
-            err instanceof Error ? err.stack ?? err.message : String(err)
+            err instanceof Error ? (err.stack ?? err.message) : String(err)
           );
         }
       } finally {
@@ -84,6 +76,14 @@ export function AnalyticsTab() {
       fetchingRef.current = false;
     };
   }, [dependencies, isUnlocked, refreshTrigger]);
+
+  if (!dependencies) {
+    return (
+      <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
+        Analytics unavailable
+      </div>
+    );
+  }
 
   if (!isUnlocked) {
     return (
@@ -125,11 +125,12 @@ export function AnalyticsTab() {
               key={stat.eventName}
               className="flex items-center justify-between text-xs"
             >
-                <span className="truncate font-medium">
+              <span className="truncate font-medium">
                 {dependencies.getEventDisplayName(stat.eventName)}
               </span>
               <span className="text-muted-foreground">
-                {stat.count}x / {dependencies.formatDuration(stat.avgDurationMs)} avg
+                {stat.count}x /{' '}
+                {dependencies.formatDuration(stat.avgDurationMs)} avg
               </span>
             </div>
           ))}

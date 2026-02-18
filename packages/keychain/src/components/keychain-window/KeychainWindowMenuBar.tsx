@@ -1,3 +1,4 @@
+import keychainPackageJson from '@tearleads/keychain/package.json';
 import {
   AboutMenuItem,
   DropdownMenu,
@@ -5,7 +6,6 @@ import {
   DropdownMenuSeparator,
   WindowOptionsMenuItem
 } from '@tearleads/ui';
-import keychainPackageJson from '@tearleads/keychain/package.json';
 import { WindowMenuBar } from '@tearleads/window-manager';
 import { RefreshCw } from 'lucide-react';
 

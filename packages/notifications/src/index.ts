@@ -7,11 +7,11 @@ export {
   NotificationsTab
 } from './components';
 export {
+  type AnalyticsDependencies,
+  setAnalyticsDependencies
+} from './lib/analyticsDependencies';
+export {
   type Notification,
   type NotificationLevel,
   notificationStore
 } from './stores';
-export {
-  type AnalyticsDependencies,
-  setAnalyticsDependencies
-} from './lib/analyticsDependencies';
