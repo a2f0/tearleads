@@ -3,7 +3,7 @@ import { initReactI18next } from 'react-i18next';
 import { adminTestEn } from './translations/adminTestEn';
 
 if (!i18n.isInitialized) {
-  void i18n.use(initReactI18next).init({
+  const initialization = i18n.use(initReactI18next).init({
     lng: 'en',
     fallbackLng: 'en',
     resources: {
@@ -17,6 +17,10 @@ if (!i18n.isInitialized) {
     react: {
       useSuspense: false
     }
+  });
+
+  initialization.catch((error: unknown) => {
+    console.error('Failed to initialize admin test i18n', error);
   });
 }
 

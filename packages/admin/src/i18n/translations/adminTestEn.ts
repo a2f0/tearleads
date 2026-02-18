@@ -1,4 +1,9 @@
 // Generated from packages/client/src/i18n/translations/en.ts (subset for admin tests).
+// Regeneration process:
+// 1. Open packages/client/src/i18n/translations/en.ts.
+// 2. Copy the `common`, `contextMenu`, and `admin` namespaces into this file.
+// 3. Keep only keys required by admin tests and then run:
+//    pnpm --filter @tearleads/admin test
 export const adminTestEn = {
   common: {
     language: 'Language',
