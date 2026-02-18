@@ -46,3 +46,19 @@ export function sleepMs(milliseconds: number): void {
   const waitArray = new Int32Array(waitBuffer);
   Atomics.wait(waitArray, 0, 0, milliseconds);
 }
+
+export function getGitContext(): string {
+  const branch = execSync('git branch --show-current', {
+    encoding: 'utf8'
+  }).trim();
+  const headSha = execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
+
+  return JSON.stringify(
+    {
+      branch,
+      head_sha: headSha
+    },
+    null,
+    2
+  );
+}

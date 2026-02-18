@@ -115,3 +115,14 @@ exit 1
   assert.equal(parsed.synced, true);
   assert.equal(parsed.branch, 'feature/test');
 });
+
+test('getGitContext returns branch and head sha', () => {
+  const result = runAgentTool(['getGitContext']);
+
+  assert.equal(result.status, 0);
+  const parsed = JSON.parse(readStdout(result));
+  assert.equal(typeof parsed.branch, 'string');
+  assert.equal(typeof parsed.head_sha, 'string');
+  assert.ok(parsed.branch.length > 0);
+  assert.match(parsed.head_sha, /^[0-9a-f]{40}$/);
+});

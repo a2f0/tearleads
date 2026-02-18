@@ -49,15 +49,13 @@ Track these state flags during execution:
    - Before proceeding to PR creation or Gemini follow-up, verify the push actually completed:
 
    ```bash
-   BRANCH=$(git branch --show-current)
-   git fetch origin "$BRANCH"
-   [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/$BRANCH)" ] || echo "NOT PUSHED"
+   ./scripts/agents/tooling/agentTool.ts verifyBranchPush
    ```
 
    - **Do NOT proceed to step 6 or 7 until verification passes.** Replying to Gemini with "Fixed in commit X" when X is not visible on remote creates confusion.
 
 6. Open PR:
-   - If no PR exists, create one with `gh pr create`.
+   - If no PR exists, create one with `agentTool.ts createPr`.
    - Do not include auto-close keywords (`Closes`, `Fixes`, `Resolves`).
    - Use the Claude-style PR body format and include the evaluated agent id.
    - Avoid shell interpolation bugs in PR bodies: always build body content with a **single-quoted heredoc** and pass it via `--body-file` (or `--body "$(cat ...)"` only when no backticks/$/[] are present).
@@ -86,7 +84,13 @@ Track these state flags during execution:
    Agent: __AGENT_ID__
    EOF
    sed -i'' -e "s/__AGENT_ID__/${AGENT_ID}/g" "$PR_BODY_FILE"
-   gh pr create ... --body-file "$PR_BODY_FILE"
+   GIT_CTX=$(./scripts/agents/tooling/agentTool.ts getGitContext)
+   HEAD_BRANCH=$(echo "$GIT_CTX" | jq -r '.branch')
+   ./scripts/agents/tooling/agentTool.ts createPr \
+     --title "<title>" \
+     --base main \
+     --head "$HEAD_BRANCH" \
+     --body-file "$PR_BODY_FILE"
    rm -f "$PR_BODY_FILE"
    ```
 
