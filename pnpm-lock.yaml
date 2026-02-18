@@ -2012,9 +2012,6 @@ importers:
       '@radix-ui/react-slot':
         specifier: 1.2.4
         version: 1.2.4(@types/react@19.2.14)(react@19.2.4)
-      '@tearleads/window-manager':
-        specifier: workspace:*
-        version: link:../window-manager
       class-variance-authority:
         specifier: 0.7.1
         version: 0.7.1
