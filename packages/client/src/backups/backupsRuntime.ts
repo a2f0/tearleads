@@ -19,10 +19,10 @@ import {
   saveBackupToStorage
 } from '@/storage/backupStorage';
 import {
+  type FileStorage,
   getFileStorageForInstance,
   initializeFileStorage,
-  isFileStorageInitialized,
-  type FileStorage
+  isFileStorageInitialized
 } from '@/storage/opfs';
 
 function formatBackupFilename(date: Date): string {
@@ -61,7 +61,11 @@ export const clientBackupsRuntime: BackupsRuntime = {
     const adapter = getDatabaseAdapter();
     const fileStorage = await getOrInitFileStorage(instanceId);
 
-    const estimate = await estimateBackupSize(adapter, fileStorage, includeBlobs);
+    const estimate = await estimateBackupSize(
+      adapter,
+      fileStorage,
+      includeBlobs
+    );
     return {
       blobCount: estimate.blobCount,
       blobTotalSize: estimate.blobTotalSize
