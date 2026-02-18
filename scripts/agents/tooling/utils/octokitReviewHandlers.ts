@@ -15,36 +15,59 @@ export async function checkGeminiQuotaWithOctokit(
   quotaMessage: string | undefined
 ): Promise<string> {
   const targetMessage = quotaMessage ?? DEFAULT_GEMINI_QUOTA_MESSAGE;
+  let matchCount = 0;
 
-  const [reviews, pullComments, issueComments] = await Promise.all([
-    context.octokit.paginate(context.octokit.rest.pulls.listReviews, {
+  const hasQuotaMessage = (messages: string[]): boolean =>
+    messages.some((body) => body.includes(targetMessage));
+
+  for await (const page of context.octokit.paginate.iterator(
+    context.octokit.rest.pulls.listReviews,
+    {
       owner: context.owner,
       repo: context.repo,
       pull_number: prNumber,
       per_page: 100
-    }),
-    context.octokit.paginate(context.octokit.rest.pulls.listReviewComments, {
-      owner: context.owner,
-      repo: context.repo,
-      pull_number: prNumber,
-      per_page: 100
-    }),
-    context.octokit.paginate(context.octokit.rest.issues.listComments, {
-      owner: context.owner,
-      repo: context.repo,
-      issue_number: prNumber,
-      per_page: 100
-    })
-  ]);
+    }
+  )) {
+    if (hasQuotaMessage(extractBodyValues(page.data))) {
+      matchCount = 1;
+      break;
+    }
+  }
 
-  const allMessages = [
-    ...extractBodyValues(reviews),
-    ...extractBodyValues(pullComments),
-    ...extractBodyValues(issueComments)
-  ];
-  const matchCount = allMessages.filter((body) =>
-    body.includes(targetMessage)
-  ).length;
+  if (matchCount === 0) {
+    for await (const page of context.octokit.paginate.iterator(
+      context.octokit.rest.pulls.listReviewComments,
+      {
+        owner: context.owner,
+        repo: context.repo,
+        pull_number: prNumber,
+        per_page: 100
+      }
+    )) {
+      if (hasQuotaMessage(extractBodyValues(page.data))) {
+        matchCount = 1;
+        break;
+      }
+    }
+  }
+
+  if (matchCount === 0) {
+    for await (const page of context.octokit.paginate.iterator(
+      context.octokit.rest.issues.listComments,
+      {
+        owner: context.owner,
+        repo: context.repo,
+        issue_number: prNumber,
+        per_page: 100
+      }
+    )) {
+      if (hasQuotaMessage(extractBodyValues(page.data))) {
+        matchCount = 1;
+        break;
+      }
+    }
+  }
 
   return JSON.stringify(
     {

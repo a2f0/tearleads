@@ -46,6 +46,15 @@ test('listDeferredFixIssuesWithOctokit returns normalized issue list', async () 
         status: 200,
         body: [
           {
+            number: 11,
+            title: 'PR masquerading in issues API',
+            html_url: 'https://example.com/pull/11',
+            state: 'open',
+            pull_request: {
+              url: 'https://api.github.com/repos/a2f0/tearleads/pulls/11'
+            }
+          },
+          {
             number: 12,
             title: 'chore: deferred fixes from PR #123',
             html_url: 'https://example.com/issues/12',

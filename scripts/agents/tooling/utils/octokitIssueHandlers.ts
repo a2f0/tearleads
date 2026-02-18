@@ -2,6 +2,8 @@ import type { RestEndpointMethodTypes } from '@octokit/rest';
 import type { GitHubClientContext } from './githubClient.ts';
 
 type IssueState = 'open' | 'closed' | 'all';
+type ListForRepoItem =
+  RestEndpointMethodTypes['issues']['listForRepo']['response']['data'][number];
 
 function resolveIssueState(
   state: 'open' | 'merged' | 'closed' | 'all' | undefined
@@ -18,9 +20,8 @@ function resolveIssueLimit(limit: number | undefined): number {
   return limit;
 }
 
-function perPageForRemaining(remaining: number): number {
-  if (remaining < 100) return remaining;
-  return 100;
+function isPullRequestItem(item: ListForRepoItem): boolean {
+  return Object.hasOwn(item, 'pull_request');
 }
 
 type OctokitIssue =
@@ -51,13 +52,14 @@ export async function listDeferredFixIssuesWithOctokit(
       repo: context.repo,
       labels: 'deferred-fix',
       state: targetState,
-      per_page: perPageForRemaining(remaining),
+      per_page: 100,
       page
     });
 
     if (response.data.length === 0) break;
-    collected.push(...response.data);
-    if (response.data.length < perPageForRemaining(remaining)) break;
+    const issuesOnly = response.data.filter((item) => !isPullRequestItem(item));
+    collected.push(...issuesOnly);
+    if (response.data.length < 100 || remaining <= 0) break;
     page += 1;
   }
 
