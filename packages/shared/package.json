@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/shared",
-  "version": "0.0.24",
+  "version": "0.0.25",
   "description": "Shared TypeScript utilities and types for Tearleads",
   "type": "module",
   "main": "dist/index.js",
