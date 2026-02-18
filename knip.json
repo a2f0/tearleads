@@ -1,0 +1,27 @@
+{
+  "$schema": "./node_modules/knip/schema.json",
+  "include": [
+    "files",
+    "dependencies",
+    "devDependencies",
+    "unlisted",
+    "unresolved",
+    "binaries"
+  ],
+  "ignore": [
+    "**/dist/**",
+    "**/coverage/**",
+    "**/node_modules/**",
+    "packages/client/android/**",
+    "packages/client/ios/**"
+  ],
+  "ignoreFiles": [
+    "packages/**/src/generated/**",
+    "scripts/dist/**",
+    "scripts/dist-tests/**"
+  ],
+  "ignoreBinaries": ["ansible-lint", "shellcheck", "playwright"],
+  "ignoreIssues": {
+    "packages/analytics/src/components/page/Analytics.test.tsx": ["unresolved"]
+  }
+}

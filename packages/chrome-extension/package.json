@@ -11,9 +11,7 @@
     "test:watch": "cross-env DOTENV_CONFIG_QUIET=true vitest",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
-  "dependencies": {
-    "@tearleads/shared": "workspace:*"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/chrome": "0.1.36",
     "@types/node": "25.2.3",

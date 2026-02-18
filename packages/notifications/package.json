@@ -36,7 +36,6 @@
     "lucide-react": "0.564.0"
   },
   "devDependencies": {
-    "@tearleads/ui": "workspace:*",
     "@tearleads/window-manager": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
