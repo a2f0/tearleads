@@ -11,8 +11,8 @@ android {
         applicationId "com.tearleads.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1320
-        versionName "1.0.1320"
+        versionCode 1321
+        versionName "1.0.1321"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
