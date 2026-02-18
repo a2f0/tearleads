@@ -162,7 +162,7 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
   if (!isSetUp) {
     return (
       <div
-        className="rounded-lg border p-8 text-center"
+        className="rounded-lg border bg-background p-8 text-center [border-color:var(--soft-border)]"
         data-testid="inline-unlock"
       >
         <Database className="mx-auto h-12 w-12 text-muted-foreground/50" />
@@ -183,7 +183,7 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
 
   return (
     <div
-      className="rounded-lg border p-8 text-center"
+      className="rounded-lg border bg-background p-8 text-center [border-color:var(--soft-border)]"
       data-testid="inline-unlock"
     >
       <Database className="mx-auto h-12 w-12 text-muted-foreground/50" />
@@ -212,7 +212,7 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
             data-testid="inline-unlock-password"
             autoComplete="current-password"
             disabled={isLoading}
-            className="w-full rounded-md border bg-background px-3 py-2 pr-10 text-base"
+            className="w-full rounded-md border bg-background px-3 py-2 pr-10 text-base [border-color:var(--soft-border)]"
           />
           <button
             type="button"

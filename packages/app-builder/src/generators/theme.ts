@@ -13,8 +13,8 @@ export function generateAppThemeCss(config: AppConfig): string {
 
 :root {
   --primary: ${theme.primaryColor};
-  --background: ${theme.backgroundColor};
   --accent: ${theme.accentColor};
+  --app-brand-background: ${theme.backgroundColor};
 
   /* Derived variables */
   --ring: ${theme.primaryColor};

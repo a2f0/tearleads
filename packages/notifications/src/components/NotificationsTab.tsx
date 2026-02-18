@@ -66,7 +66,7 @@ function NotificationItem({
     // biome-ignore lint/a11y/noStaticElementInteractions: Click handler marks as read, keyboard users can use dismiss button
     <div
       className={cn(
-        'w-full cursor-pointer rounded border border-l-4 bg-muted/30 px-2 py-1.5 text-left',
+        'w-full cursor-pointer rounded border border-l-4 bg-muted/30 px-2 py-1.5 text-left [border-color:var(--soft-border)]',
         LEVEL_BORDER_COLORS[notification.level],
         !notification.read && 'bg-muted/50'
       )}

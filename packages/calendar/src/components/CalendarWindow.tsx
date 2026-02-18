@@ -177,7 +177,7 @@ export function CalendarWindow({
         />
         <WindowControlBar>{null}</WindowControlBar>
         {isDatabaseLoading ? (
-          <div className="flex flex-1 items-center justify-center rounded-lg border p-8 text-center text-muted-foreground">
+          <div className="flex flex-1 items-center justify-center rounded-lg border p-8 text-center text-muted-foreground [border-color:var(--soft-border)]">
             Loading database...
           </div>
         ) : !isUnlocked ? (

@@ -1,7 +1,8 @@
 import {
   useResizableSidebar,
   useSidebarRefetch,
-  WindowContextMenu
+  WindowContextMenu,
+  WindowSidebarHeader
 } from '@tearleads/window-manager';
 import {
   ChevronDown,
@@ -278,14 +279,15 @@ export function VfsTreePanel({
 
   return (
     <div
-      className="relative flex shrink-0 flex-col border-r bg-muted/20"
+      className="relative flex shrink-0 flex-col border-r bg-muted/20 [border-color:var(--soft-border)]"
       style={{ width }}
     >
-      <div className="flex items-center border-b px-3 py-2">
-        <span className="font-medium text-muted-foreground text-xs">
-          Folders
-        </span>
-      </div>
+      <WindowSidebarHeader
+        title="Folders"
+        actionLabel="New Folder"
+        onAction={() => setShowNewRootFolderDialog(true)}
+        actionIcon={<FolderPlus className="h-4 w-4" />}
+      />
       {/* biome-ignore lint/a11y/noStaticElementInteractions: Context menu on empty space */}
       <div
         className="flex-1 overflow-y-auto p-1"

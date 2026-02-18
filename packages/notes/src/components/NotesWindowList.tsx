@@ -290,7 +290,7 @@ export function NotesWindowList({
               loadedCount={filteredNotes.length}
               itemLabel="note"
             />
-            <div className="flex-1 rounded-lg border">
+            <div className="flex-1 rounded-lg border [border-color:var(--soft-border)]">
               <div
                 ref={parentRef}
                 role="application"

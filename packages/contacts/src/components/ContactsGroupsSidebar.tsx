@@ -251,7 +251,7 @@ export function ContactsGroupsSidebar({
 
   return (
     <div
-      className="relative flex shrink-0 flex-col border-r bg-muted/20"
+      className="relative flex shrink-0 flex-col border-r bg-muted/20 [border-color:var(--soft-border)]"
       style={{ width }}
       data-testid="contacts-groups-sidebar"
     >

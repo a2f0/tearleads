@@ -76,7 +76,9 @@ async function createFolder(page: Page, folderName: string) {
   await page.mouse.click(box.x + 50, box.y + 100, { button: 'right' });
 
   // Click "New Folder"
-  const newFolderButton = page.getByRole('button', { name: 'New Folder' });
+  const newFolderButton = page
+    .locator('div.fixed.inset-0')
+    .getByRole('button', { name: 'New Folder' });
   await expect(newFolderButton).toBeVisible({ timeout: 5000 });
   await newFolderButton.click();
 

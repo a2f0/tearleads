@@ -18,7 +18,7 @@ export const WindowTableRow = forwardRef<
     <tr
       ref={ref}
       className={cn(
-        'cursor-pointer border-border/50 border-b hover:bg-accent/50',
+        'cursor-pointer border-b [border-color:var(--soft-border)] hover:bg-accent/50',
         isSelected && 'bg-accent/50',
         isDimmed && 'opacity-60',
         className

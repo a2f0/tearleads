@@ -1,5 +1,5 @@
 /**
- * Unit tests for user-settings module.
+ * Unit tests for user-settings guards, constants, and localStorage helpers.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -24,9 +24,7 @@ Object.defineProperty(window, 'localStorage', {
   writable: true
 });
 
-// Import after mocks
 import {
-  dispatchSettingsSyncedEvent,
   getSettingFromStorage,
   isBorderRadiusValue,
   isDesktopIconBackgroundValue,
@@ -40,9 +38,9 @@ import {
   SETTING_DEFAULTS,
   SETTING_STORAGE_KEYS,
   setSettingInStorage
-} from './userSettings.js';
+} from './userSettings';
 
-describe('user-settings', () => {
+describe('user-settings guards and local storage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorageData = {};
@@ -393,66 +391,13 @@ describe('user-settings', () => {
         }
       );
 
-      // Should not throw
       expect(() => setSettingInStorage('theme', 'dark')).not.toThrow();
 
-      // Restore the mock
       (localStorage.setItem as ReturnType<typeof vi.fn>).mockImplementation(
         (key: string, value: string) => {
           localStorageData[key] = value;
         }
       );
-    });
-  });
-
-  describe('dispatchSettingsSyncedEvent', () => {
-    it('dispatches custom event with settings', () => {
-      const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
-
-      dispatchSettingsSyncedEvent({ theme: 'dark', language: 'es' });
-
-      expect(dispatchSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'settings-synced',
-          detail: {
-            settings: { theme: 'dark', language: 'es' }
-          }
-        })
-      );
-
-      dispatchSpy.mockRestore();
-    });
-
-    it('dispatches event with partial settings', () => {
-      const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
-
-      dispatchSettingsSyncedEvent({ theme: 'light' });
-
-      expect(dispatchSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          detail: {
-            settings: { theme: 'light' }
-          }
-        })
-      );
-
-      dispatchSpy.mockRestore();
-    });
-
-    it('dispatches event with empty settings', () => {
-      const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
-
-      dispatchSettingsSyncedEvent({});
-
-      expect(dispatchSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          detail: {
-            settings: {}
-          }
-        })
-      );
-
-      dispatchSpy.mockRestore();
     });
   });
 });

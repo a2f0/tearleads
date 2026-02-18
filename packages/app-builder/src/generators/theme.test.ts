@@ -26,8 +26,8 @@ describe('generateAppThemeCss', () => {
   it('should generate correct CSS variables', () => {
     const css = generateAppThemeCss(mockConfig);
     expect(css).toContain('--primary: #FF0000;');
-    expect(css).toContain('--background: #00FF00;');
     expect(css).toContain('--accent: #0000FF;');
+    expect(css).toContain('--app-brand-background: #00FF00;');
     expect(css).toContain('--ring: #FF0000;');
   });
 

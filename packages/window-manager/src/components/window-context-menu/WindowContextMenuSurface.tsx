@@ -21,7 +21,7 @@ export const WindowContextMenuSurface = forwardRef<
     <div
       ref={ref}
       className={cn(
-        'fixed min-w-[160px] rounded-md border border-border/70 bg-popover p-1 shadow-md',
+        'fixed min-w-[160px] rounded-md border border-border bg-popover p-1 shadow-md',
         menuClassName
       )}
       style={{

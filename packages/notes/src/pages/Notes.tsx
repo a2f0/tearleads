@@ -221,7 +221,7 @@ export function Notes() {
       </div>
 
       {isLoading && (
-        <div className="rounded-lg border p-8 text-center text-muted-foreground">
+        <div className="rounded-lg border p-8 text-center text-muted-foreground [border-color:var(--soft-border)]">
           Loading database...
         </div>
       )}
@@ -237,7 +237,7 @@ export function Notes() {
       {isUnlocked &&
         !error &&
         (loading && !hasFetched ? (
-          <div className="flex items-center justify-center gap-2 rounded-lg border p-8 text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 rounded-lg border p-8 text-muted-foreground [border-color:var(--soft-border)]">
             <Loader2 className="h-5 w-5 animate-spin" />
             Loading notes...
           </div>
@@ -264,7 +264,7 @@ export function Notes() {
               loadedCount={filteredNotes.length}
               itemLabel="note"
             />
-            <div className="flex-1 rounded-lg border">
+            <div className="flex-1 rounded-lg border [border-color:var(--soft-border)]">
               <div ref={parentRef} className="h-full overflow-auto">
                 <div
                   className="relative w-full"

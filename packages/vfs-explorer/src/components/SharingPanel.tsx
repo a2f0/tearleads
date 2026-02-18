@@ -157,7 +157,7 @@ export function SharingPanel({
 
   return (
     <div
-      className="relative flex shrink-0 flex-col border-l bg-background"
+      className="relative flex shrink-0 flex-col border-l bg-background [border-color:var(--soft-border)]"
       style={{ width }}
     >
       {/* Resize handle */}
@@ -167,7 +167,7 @@ export function SharingPanel({
       />
 
       {/* Header */}
-      <div className="flex items-center justify-between border-b px-3 py-2">
+      <div className="flex items-center justify-between border-b px-3 py-2 [border-color:var(--soft-border)]">
         <span className="font-medium text-sm">Sharing</span>
         <Button variant="ghost" size="icon" onClick={onClose}>
           <X className="h-4 w-4" />
@@ -175,13 +175,13 @@ export function SharingPanel({
       </div>
 
       {/* Item name */}
-      <div className="border-b px-3 py-2">
+      <div className="border-b px-3 py-2 [border-color:var(--soft-border)]">
         <p className="truncate text-muted-foreground text-xs">Sharing</p>
         <p className="truncate font-medium text-sm">{item.name}</p>
       </div>
 
       {/* Add share form */}
-      <div className="space-y-3 border-b p-3">
+      <div className="space-y-3 border-b p-3 [border-color:var(--soft-border)]">
         <div className="font-medium text-muted-foreground text-xs">
           Add Share
         </div>

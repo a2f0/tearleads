@@ -1,4 +1,5 @@
-:root {
+@supports (color: oklch(50% 0.1 120)) {
+  :root {
   /* Classic Refined Light: off-white with muted navy accents */
 
   /* --- Light Theme Palette --- */
@@ -10,6 +11,7 @@
   --light-surface: oklch(95% 0.01 250);
   --light-surface-hover: oklch(93% 0.015 250);
   --light-border: oklch(90% 0.012 250);
+  --light-soft-border: oklch(93% 0.008 250);
   --light-primary: oklch(42% 0.08 255);
   --light-success: oklch(52% 0.12 155);
   --light-warning: oklch(68% 0.12 75);
@@ -33,8 +35,9 @@
   --accent-foreground: var(--light-fg-secondary);
   --destructive: var(--light-destructive);
   --destructive-foreground: var(--light-bg);
-  --border: var(--light-border);
-  --input: var(--light-border);
+  --border: var(--light-soft-border);
+  --soft-border: var(--light-soft-border);
+  --input: var(--light-soft-border);
   --ring: var(--light-primary);
   --radius: 0.5rem;
 
@@ -62,9 +65,9 @@
   --scrollbar-thumb-hover: var(--light-primary);
   --scrollbar-width: 10px;
   --scrollbar-radius: 5px;
-}
+  }
 
-.dark {
+  .dark {
   /* Classic Refined Dark: deep slate with soft cyan accents */
 
   /* --- Dark Theme Palette --- */
@@ -75,6 +78,7 @@
   --dark-surface: oklch(24% 0.015 240);
   --dark-surface-hover: oklch(28% 0.02 240);
   --dark-border: oklch(28% 0.015 240);
+  --dark-soft-border: oklch(21% 0.012 240);
   --dark-primary: oklch(72% 0.1 205);
   --dark-success: oklch(68% 0.12 160);
   --dark-warning: oklch(75% 0.12 80);
@@ -98,8 +102,9 @@
   --accent-foreground: var(--dark-fg);
   --destructive: var(--dark-destructive);
   --destructive-foreground: var(--dark-fg);
-  --border: var(--dark-border);
-  --input: var(--dark-border);
+  --border: var(--dark-soft-border);
+  --soft-border: var(--dark-soft-border);
+  --input: var(--dark-soft-border);
   --ring: var(--dark-primary);
 
   /* Status colors */
@@ -124,9 +129,9 @@
   --scrollbar-track: oklch(20% 0.015 240);
   --scrollbar-thumb: oklch(40% 0.015 240);
   --scrollbar-thumb-hover: var(--dark-primary);
-}
+  }
 
-.tokyo-night {
+  .tokyo-night {
   --background: oklch(22.4% 0.025 264.05);
   --foreground: oklch(83.5% 0.045 267.5);
   --card: oklch(22.4% 0.025 264.05);
@@ -143,8 +148,9 @@
   --accent-foreground: oklch(18.5% 0.02 262);
   --destructive: oklch(65% 0.2 15);
   --destructive-foreground: oklch(18.5% 0.02 262);
-  --border: oklch(30% 0.025 262);
-  --input: oklch(30% 0.025 262);
+  --border: oklch(25% 0.02 264);
+  --soft-border: oklch(25% 0.02 264);
+  --input: oklch(25% 0.02 264);
   --ring: oklch(70.5% 0.14 250.5);
 
   /* Status colors */
@@ -169,9 +175,9 @@
   --scrollbar-track: oklch(26% 0.025 264);
   --scrollbar-thumb: oklch(40% 0.03 264);
   --scrollbar-thumb-hover: var(--primary);
-}
+  }
 
-.monochrome {
+  .monochrome {
   --background: oklch(18% 0 0);
   --foreground: oklch(88% 0 0);
   --card: oklch(22% 0 0);
@@ -188,8 +194,9 @@
   --accent-foreground: oklch(88% 0 0);
   --destructive: oklch(45% 0 0);
   --destructive-foreground: oklch(95% 0 0);
-  --border: oklch(32% 0 0);
-  --input: oklch(32% 0 0);
+  --border: oklch(24% 0 0);
+  --soft-border: oklch(24% 0 0);
+  --input: oklch(24% 0 0);
   --ring: oklch(70% 0 0);
 
   /* Status colors - all grayscale */
@@ -214,6 +221,7 @@
   --scrollbar-track: oklch(22% 0 0);
   --scrollbar-thumb: oklch(45% 0 0);
   --scrollbar-thumb-hover: oklch(65% 0 0);
+  }
 }
 
 /* Monochrome theme: grayscale all images and PDF previews */
@@ -383,4 +391,12 @@
 .wmde-markdown h6 {
   color: var(--foreground) !important;
   border-color: var(--border) !important;
+}
+
+/* Globally soften borders across themes */
+:root,
+.dark,
+.tokyo-night,
+.monochrome {
+  --border: var(--soft-border);
 }

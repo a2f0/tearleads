@@ -14,7 +14,7 @@ export function BusinessesPage({ backLink, children }: BusinessesPageProps) {
           Businesses
         </h1>
       </div>
-      <div className="min-h-0 flex-1 overflow-hidden rounded-lg border p-3">
+      <div className="min-h-0 flex-1 overflow-hidden rounded-lg border p-3 [border-color:var(--soft-border)]">
         {children}
       </div>
     </div>

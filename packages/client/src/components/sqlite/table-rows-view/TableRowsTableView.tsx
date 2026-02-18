@@ -62,9 +62,9 @@ export function TableRowsTableView({
   loadingMore
 }: TableRowsTableViewProps) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border [border-color:var(--soft-border)]">
       <div
-        className="grid border-b bg-muted/50"
+        className="grid border-b bg-muted/50 [border-color:var(--soft-border)]"
         style={{
           gridTemplateColumns: visibleColumns
             .map((col) =>
@@ -146,7 +146,7 @@ export function TableRowsTableView({
                 return (
                   <div
                     key="loader"
-                    className="absolute top-0 left-0 flex w-full items-center justify-center border-b p-4 text-muted-foreground"
+                    className="absolute top-0 left-0 flex w-full items-center justify-center border-b p-4 text-muted-foreground [border-color:var(--soft-border)]"
                     style={{
                       height: `${virtualItem.size}px`,
                       transform: `translateY(${virtualItem.start}px)`
@@ -170,7 +170,7 @@ export function TableRowsTableView({
                   key={getRowKey(row, virtualItem.index)}
                   data-index={virtualItem.index}
                   ref={measureElement}
-                  className="absolute top-0 left-0 grid w-full border-b hover:bg-muted/25"
+                  className="absolute top-0 left-0 grid w-full border-b [border-color:var(--soft-border)] hover:bg-muted/25"
                   style={{
                     gridTemplateColumns: visibleColumns
                       .map((col) =>

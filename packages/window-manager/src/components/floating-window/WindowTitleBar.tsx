@@ -108,7 +108,7 @@ export function WindowTitleBar({
       {/* biome-ignore lint/a11y/noStaticElementInteractions: Title bar for mouse/touch drag only */}
       <div
         className={cn(
-          'flex h-7 shrink-0 items-center justify-between border-border/70 border-b bg-muted/50 px-2',
+          'flex h-7 shrink-0 items-center justify-between border-b bg-muted/50 px-2 [border-color:var(--soft-border)]',
           isDesktop &&
             !isMaximized &&
             !isEditingTitle &&

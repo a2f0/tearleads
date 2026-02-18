@@ -38,7 +38,7 @@ export interface ThemeProviderProps {
 
 export function ThemeProvider({
   children,
-  defaultTheme = 'monochrome',
+  defaultTheme = 'light',
   storageKey = STORAGE_KEY
 }: ThemeProviderProps) {
   // Use consistent initial values for SSR/hydration matching

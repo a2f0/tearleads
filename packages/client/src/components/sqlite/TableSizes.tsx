@@ -189,7 +189,10 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
   const totalSizeParts = formatBytesParts(totalSize);
 
   return (
-    <div className="space-y-3 rounded-lg border p-4" data-testid="table-sizes">
+    <div
+      className="space-y-3 rounded-lg border p-4 [border-color:var(--soft-border)]"
+      data-testid="table-sizes"
+    >
       <div className="flex items-center justify-between">
         <h2 className="font-medium">Table summary</h2>
         <RefreshButton
@@ -204,7 +207,7 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
 
       {!error && (
         <div className="space-y-2 text-sm">
-          <div className="flex items-center justify-between border-b pb-2">
+          <div className="flex items-center justify-between border-b pb-2 [border-color:var(--soft-border)]">
             <div className="flex items-center gap-2">
               <HardDrive className="h-4 w-4 text-muted-foreground" />
               <span className="font-medium">Total Database</span>
@@ -232,7 +235,7 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
                 </div>
               )}
               <div className="space-y-1">
-                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,7.5rem)_minmax(0,5.5rem)] items-center gap-3 border-b pb-1 font-medium text-muted-foreground text-xs">
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,7.5rem)_minmax(0,5.5rem)] items-center gap-3 border-b pb-1 font-medium text-muted-foreground text-xs [border-color:var(--soft-border)]">
                   <span>Table</span>
                   <span className="text-right">Size</span>
                   <span className="text-right">Rows</span>

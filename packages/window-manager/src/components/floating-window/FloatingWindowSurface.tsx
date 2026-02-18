@@ -62,7 +62,7 @@ export function FloatingWindowSurface({
     <div
       ref={windowRef}
       className={cn(
-        'floating-window fixed flex flex-col overflow-hidden border border-border/70 shadow-lg',
+        'floating-window fixed flex flex-col overflow-hidden border shadow-lg [border-color:var(--soft-border)]',
         isOpaqueWindows
           ? 'bg-background'
           : 'bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80',

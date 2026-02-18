@@ -38,7 +38,7 @@ function BusinessesButton({ className, ...props }: BusinessesButtonProps) {
   return (
     <button
       className={cn(
-        'inline-flex h-9 items-center justify-center rounded-md border px-4 py-2 font-medium text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
+        'inline-flex h-9 items-center justify-center rounded-md border px-4 py-2 font-medium text-sm transition-colors [border-color:var(--soft-border)] hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
         className
       )}
       {...props}
@@ -52,7 +52,7 @@ function BusinessesInput({ className, ...props }: BusinessesInputProps) {
   return (
     <input
       className={cn(
-        'flex h-9 w-full rounded-md border bg-background px-3 py-1 text-base ring-offset-background file:border-0 file:bg-transparent file:font-medium file:text-foreground file:text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
+        'flex h-9 w-full rounded-md border bg-background px-3 py-1 text-base ring-offset-background [border-color:var(--soft-border)] file:border-0 file:bg-transparent file:font-medium file:text-foreground file:text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
         className
       )}
       {...props}
@@ -193,6 +193,7 @@ export function BusinessesManager() {
             const rightStatus = Number(hasValidIdentifier(right));
             return leftStatus - rightStatus;
           }
+          /* v8 ignore next -- defensive fallback for unexpected runtime values */
           default:
             return 0;
         }
@@ -226,7 +227,7 @@ export function BusinessesManager() {
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
       <form
-        className="space-y-3 rounded-md border p-3"
+        className="space-y-3 rounded-md border p-3 [border-color:var(--soft-border)]"
         onSubmit={handleSubmit}
         aria-label="Add business form"
       >
@@ -291,7 +292,7 @@ export function BusinessesManager() {
         </div>
       </form>
 
-      <section className="min-h-0 flex-1 overflow-hidden rounded-md border">
+      <section className="min-h-0 flex-1 overflow-hidden rounded-md border [border-color:var(--soft-border)]">
         {businesses.length === 0 ? (
           <div className="flex h-full min-h-40 flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
             <Building2 className="h-5 w-5" />

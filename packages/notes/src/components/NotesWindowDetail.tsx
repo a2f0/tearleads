@@ -180,7 +180,7 @@ export function NotesWindowDetail({
   return (
     <div className="flex h-full flex-col space-y-3 p-3">
       {isLoading && (
-        <div className="rounded-lg border p-4 text-center text-muted-foreground text-xs">
+        <div className="rounded-lg border p-4 text-center text-muted-foreground text-xs [border-color:var(--soft-border)]">
           Loading database...
         </div>
       )}
@@ -194,7 +194,7 @@ export function NotesWindowDetail({
       )}
 
       {isUnlocked && loading && (
-        <div className="flex items-center justify-center gap-2 rounded-lg border p-4 text-muted-foreground text-xs">
+        <div className="flex items-center justify-center gap-2 rounded-lg border p-4 text-muted-foreground text-xs [border-color:var(--soft-border)]">
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading note...
         </div>
@@ -225,7 +225,7 @@ export function NotesWindowDetail({
             />
           </div>
 
-          <div className="rounded-lg border text-xs">
+          <div className="rounded-lg border text-xs [border-color:var(--soft-border)]">
             <div className="flex items-center gap-2 px-3 py-2 text-muted-foreground">
               <Calendar className="h-3 w-3" />
               <span>Updated {formatDate(note.updatedAt)}</span>

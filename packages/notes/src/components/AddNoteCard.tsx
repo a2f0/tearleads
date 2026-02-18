@@ -13,7 +13,7 @@ export function AddNoteCard({ onClick, size = 'large' }: AddNoteCardProps) {
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-full items-center justify-center gap-4 rounded-lg border-2 border-dashed text-muted-foreground transition-colors hover:border-primary hover:text-foreground',
+        'flex w-full items-center justify-center gap-4 rounded-lg border-2 border-dashed text-muted-foreground transition-colors [border-color:var(--soft-border)] hover:border-primary hover:text-foreground',
         isLarge ? 'p-8' : 'p-4'
       )}
       data-testid="add-note-card"

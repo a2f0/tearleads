@@ -34,7 +34,7 @@ export function CalendarYearView({
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu surface
     <div
-      className="h-full overflow-auto rounded-xl border bg-card p-4"
+      className="h-full overflow-auto rounded-xl border bg-card p-4 [border-color:var(--soft-border)]"
       data-testid="calendar-year-view"
       onContextMenu={(event) => onContextMenuRequest(event, selectedDate)}
     >
@@ -43,7 +43,10 @@ export function CalendarYearView({
       </p>
       <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
         {yearData.map(({ monthName, cells }, monthIndex) => (
-          <div key={monthName} className="rounded-md border bg-background p-2">
+          <div
+            key={monthName}
+            className="rounded-md border bg-background p-2 [border-color:var(--soft-border)]"
+          >
             <button
               type="button"
               onClick={() => {
