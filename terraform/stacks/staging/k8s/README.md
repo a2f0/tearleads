@@ -77,6 +77,29 @@ The zone uses `prevent_destroy`, so `terraform destroy` will not remove it.
 | `ingress.yaml` | Nginx ingress routes |
 | `cert-manager-issuer.yaml` | Let's Encrypt certificate issuer |
 
+### Kustomize Scaffold
+
+A kustomize scaffold exists at:
+
+- `manifests/kustomize/base`
+- `manifests/kustomize/overlays/staging`
+
+Default deploy behavior is unchanged. `scripts/deploy.sh` still applies raw
+manifests directly unless you opt in with:
+
+```bash
+USE_KUSTOMIZE=true ./scripts/deploy.sh
+```
+
+With `USE_KUSTOMIZE=true`, core resources are applied via:
+
+- `manifests/kustomize/overlays/staging`
+
+`manifests/secrets.yaml` is still applied directly by `scripts/deploy.sh`
+(outside kustomize) to avoid placeholder expansion pitfalls.
+
+Ingress and cert issuer are still rendered from templates at runtime.
+
 ## Architecture
 
 ```text

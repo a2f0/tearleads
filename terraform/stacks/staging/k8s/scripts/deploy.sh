@@ -4,6 +4,8 @@ set -eu
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 STACK_DIR="$(dirname "$SCRIPT_DIR")"
 MANIFESTS_DIR="$STACK_DIR/manifests"
+KUSTOMIZE_OVERLAY="$MANIFESTS_DIR/kustomize/overlays/staging"
+USE_KUSTOMIZE="${USE_KUSTOMIZE:-false}"
 STAGING_DOMAIN="${TF_VAR_staging_domain:-}"
 K8S_HOSTNAME=""
 LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-}"
@@ -43,16 +45,31 @@ sed "s|REPLACE_WITH_YOUR_EMAIL|$ESCAPED_LETSENCRYPT_EMAIL|g" "$MANIFESTS_DIR/cer
 
 echo "Deploying manifests from $MANIFESTS_DIR..."
 
-# Apply manifests in order
-kubectl apply -f "$MANIFESTS_DIR/namespace.yaml"
-kubectl apply -f "$MANIFESTS_DIR/secrets.yaml"
-kubectl apply -f "$MANIFESTS_DIR/configmap.yaml"
-kubectl apply -f "$MANIFESTS_DIR/postgres.yaml"
-kubectl apply -f "$MANIFESTS_DIR/redis.yaml"
-kubectl apply -f "$MANIFESTS_DIR/api.yaml"
-kubectl apply -f "$MANIFESTS_DIR/client.yaml"
-kubectl apply -f "$MANIFESTS_DIR/website.yaml"
-kubectl apply -f "$MANIFESTS_DIR/cloudflared.yaml"
+if [[ "$USE_KUSTOMIZE" == "true" ]]; then
+  if [[ ! -d "$KUSTOMIZE_OVERLAY" ]]; then
+    echo "ERROR: Kustomize overlay not found at $KUSTOMIZE_OVERLAY"
+    exit 1
+  fi
+
+  echo "Applying secrets manifest directly (outside kustomize)."
+  kubectl apply -f "$MANIFESTS_DIR/secrets.yaml"
+
+  echo "Applying core resources via kustomize overlay: $KUSTOMIZE_OVERLAY"
+  kubectl apply -k "$KUSTOMIZE_OVERLAY"
+else
+  # Apply manifests in order
+  kubectl apply -f "$MANIFESTS_DIR/namespace.yaml"
+  kubectl apply -f "$MANIFESTS_DIR/secrets.yaml"
+  kubectl apply -f "$MANIFESTS_DIR/configmap.yaml"
+  kubectl apply -f "$MANIFESTS_DIR/postgres.yaml"
+  kubectl apply -f "$MANIFESTS_DIR/redis.yaml"
+  kubectl apply -f "$MANIFESTS_DIR/api.yaml"
+  kubectl apply -f "$MANIFESTS_DIR/client.yaml"
+  kubectl apply -f "$MANIFESTS_DIR/website.yaml"
+  kubectl apply -f "$MANIFESTS_DIR/cloudflared.yaml"
+fi
+
+# Ingress and issuer remain rendered templates.
 kubectl apply -f "$RENDERED_INGRESS"
 kubectl apply -f "$RENDERED_ISSUER"
 

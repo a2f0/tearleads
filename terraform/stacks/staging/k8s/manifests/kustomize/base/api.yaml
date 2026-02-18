@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: tearleads
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      imagePullSecrets:
+        - name: ecr-registry
+      containers:
+        - name: api
+          image: 956489103522.dkr.ecr.us-east-1.amazonaws.com/tearleads-staging/api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5001
+          envFrom:
+            - configMapRef:
+                name: tearleads-config
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: JWT_SECRET
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: POSTGRES_PASSWORD
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /v1/ping
+              port: 5001
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /v1/ping
+              port: 5001
+            initialDelaySeconds: 30
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: tearleads
+spec:
+  selector:
+    app: api
+  ports:
+    - port: 5001
+      targetPort: 5001
