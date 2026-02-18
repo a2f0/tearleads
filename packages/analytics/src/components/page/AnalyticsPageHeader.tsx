@@ -1,7 +1,7 @@
 import { Trash2 } from 'lucide-react';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
-import { RefreshButton } from '@/components/ui/RefreshButton';
+import { RefreshButton } from '@tearleads/ui';
 
 interface AnalyticsPageHeaderProps {
   showBackLink: boolean;

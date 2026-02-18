@@ -1,7 +1,7 @@
 import { IconSquare } from '@tearleads/ui';
 import { BookText, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { BackLink } from '@/components/ui/back-link';
+import { BackLink } from '@tearleads/ui';
 import { getComplianceFrameworks } from '../../lib/complianceCatalog';
 
 export function Compliance() {

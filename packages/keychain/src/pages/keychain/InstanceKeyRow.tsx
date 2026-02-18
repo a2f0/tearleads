@@ -1,4 +1,4 @@
-import { Button } from '@client/components/ui/button';
+import { Button } from '@tearleads/ui';
 import type { KeyStatus } from '@client/db/crypto/keyManager';
 import type { InstanceMetadata } from '@client/db/instanceRegistry';
 import { ChevronDown, ChevronRight, Key, Trash2 } from 'lucide-react';

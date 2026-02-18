@@ -3,7 +3,7 @@ import { OrganizationScopeSelector } from '@admin/components/admin-scope';
 import { useAdminScope } from '@admin/hooks/useAdminScope';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
-import { BackLink } from '@/components/ui/back-link';
+import { BackLink } from '@tearleads/ui';
 import { Button } from '@/components/ui/button';
 
 interface GroupsAdminProps {

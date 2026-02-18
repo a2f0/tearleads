@@ -55,7 +55,7 @@ vi.mock('@tearleads/ui', () => ({
   useTheme: () => ({ resolvedTheme: 'dark' })
 }));
 
-vi.mock('@/components/markdown-viewer/MarkdownWithToc', () => ({
+vi.mock('@tearleads/backups', () => ({
   MarkdownWithToc: ({ source }: { source: string }) => (
     <div data-testid="markdown-content">{source}</div>
   )

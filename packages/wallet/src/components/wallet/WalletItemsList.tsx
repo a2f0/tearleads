@@ -1,6 +1,6 @@
 import { InlineUnlock } from '@client/components/sqlite/InlineUnlock';
-import { Button } from '@client/components/ui/button';
-import { RefreshButton } from '@client/components/ui/RefreshButton';
+import { Button } from '@tearleads/ui';
+import { RefreshButton } from '@tearleads/ui';
 import { useDatabaseContext } from '@client/db/hooks';
 import { CreditCard, Loader2, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';

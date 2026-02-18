@@ -1,5 +1,5 @@
-import { BackLink } from '@client/components/ui/back-link';
-import { RefreshButton } from '@client/components/ui/RefreshButton';
+import { BackLink } from '@tearleads/ui';
+import { RefreshButton } from '@tearleads/ui';
 import {
   deleteSessionKeysForInstance,
   getKeyStatusForInstance

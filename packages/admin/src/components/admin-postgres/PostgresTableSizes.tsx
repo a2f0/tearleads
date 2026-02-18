@@ -6,7 +6,7 @@ import {
 import { HardDrive } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshButton } from '@/components/ui/RefreshButton';
+import { RefreshButton } from '@tearleads/ui';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 

@@ -6,9 +6,9 @@ import {
 } from '@tearleads/window-manager';
 import { Database, Loader2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BackLink } from '@/components/ui/back-link';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { RefreshButton } from '@/components/ui/RefreshButton';
+import { BackLink } from '@tearleads/ui';
+import { ConfirmDialog } from '@tearleads/ui';
+import { RefreshButton } from '@tearleads/ui';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';

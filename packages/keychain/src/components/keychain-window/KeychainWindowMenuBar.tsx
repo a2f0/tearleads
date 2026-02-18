@@ -2,7 +2,7 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator
-} from '@client/components/ui/dropdown-menu';
+} from '@tearleads/ui';
 import { AboutMenuItem } from '@client/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@client/components/window-menu/WindowOptionsMenuItem';
 import keychainPackageJson from '@tearleads/keychain/package.json';

@@ -9,7 +9,7 @@ import { Building2, Copy, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { ConfirmDialog } from '@tearleads/ui';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 

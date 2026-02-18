@@ -1,4 +1,4 @@
-import { Button } from '@client/components/ui/button';
+import { Button } from '@tearleads/ui';
 import {
   deleteSessionKeysForInstance,
   getKeyManagerForInstance,

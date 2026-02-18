@@ -1,5 +1,5 @@
-import { BackLink } from '@client/components/ui/back-link';
-import { Button } from '@client/components/ui/button';
+import { BackLink } from '@tearleads/ui';
+import { Button } from '@tearleads/ui';
 import {
   deleteSessionKeysForInstance,
   getKeyManagerForInstance,

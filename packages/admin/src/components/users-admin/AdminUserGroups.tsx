@@ -2,7 +2,7 @@ import type { AdminUser, GroupWithMemberCount } from '@tearleads/shared';
 import { Loader2, UserMinus, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { ConfirmDialog } from '@tearleads/ui';
 import { useTypedTranslation } from '@/i18n';
 import { useAdminUserGroups } from './useAdminUserGroups';
 

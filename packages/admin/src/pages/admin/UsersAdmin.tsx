@@ -7,9 +7,9 @@ import {
 } from '@tearleads/window-manager';
 import { Check, Loader2, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { BackLink } from '@/components/ui/back-link';
+import { BackLink } from '@tearleads/ui';
 import { Button } from '@/components/ui/button';
-import { RefreshButton } from '@/components/ui/RefreshButton';
+import { RefreshButton } from '@tearleads/ui';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { formatNumber, formatTimestamp } from '@/lib/utils';

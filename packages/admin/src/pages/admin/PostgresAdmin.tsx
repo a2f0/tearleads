@@ -1,7 +1,7 @@
 import { PostgresConnectionPanel } from '@admin/components/admin-postgres/PostgresConnectionPanel';
 import { PostgresTableSizes } from '@admin/components/admin-postgres/PostgresTableSizes';
 import { MemoryRouter, useInRouterContext } from 'react-router-dom';
-import { BackLink } from '@/components/ui/back-link';
+import { BackLink } from '@tearleads/ui';
 import { useTypedTranslation } from '@/i18n';
 
 interface PostgresAdminProps {

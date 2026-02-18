@@ -1,4 +1,4 @@
-import { Button } from '@client/components/ui/button';
+import { Button } from '@tearleads/ui';
 import { Search } from 'lucide-react';
 import { useMemo } from 'react';
 import type {

@@ -1,4 +1,4 @@
-import { BackLink } from '@client/components/ui/back-link';
+import { BackLink } from '@tearleads/ui';
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { WalletItemDetail } from '../../components/wallet/WalletItemDetail';

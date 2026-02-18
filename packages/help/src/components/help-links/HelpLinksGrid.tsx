@@ -10,7 +10,7 @@ import {
   Shirt,
   TerminalSquare
 } from 'lucide-react';
-import type { HelpDocId } from '@/constants/help';
+import type { HelpDocId } from '@help/constants/help';
 
 interface HelpLinksGridProps {
   view: 'topLevel' | 'developer' | 'legal';

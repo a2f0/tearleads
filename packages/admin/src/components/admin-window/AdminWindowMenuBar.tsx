@@ -1,6 +1,6 @@
 import { WindowControlBar, WindowMenuBar } from '@tearleads/window-manager';
 import type { ReactNode } from 'react';
-import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuItem } from '@tearleads/ui';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { useTypedTranslation } from '@/i18n';
 

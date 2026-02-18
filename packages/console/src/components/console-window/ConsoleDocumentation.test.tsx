@@ -11,7 +11,7 @@ vi.mock('@tearleads/ui', async () => {
   };
 });
 
-vi.mock('@client/components/markdown-viewer/MarkdownWithToc', () => ({
+vi.mock('@tearleads/backups', () => ({
   MarkdownWithToc: ({ source }: { source: string }) => (
     <div data-testid="markdown-content">{source.slice(0, 24)}</div>
   )

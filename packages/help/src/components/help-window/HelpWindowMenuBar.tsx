@@ -1,5 +1,5 @@
 import { WindowMenuBar } from '@tearleads/window-manager';
-import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuItem } from '@tearleads/ui';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 
 interface HelpWindowMenuBarProps {

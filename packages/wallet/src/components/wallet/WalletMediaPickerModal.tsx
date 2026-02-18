@@ -1,5 +1,5 @@
-import { Button } from '@client/components/ui/button';
-import { Input } from '@client/components/ui/input';
+import { Button } from '@tearleads/ui';
+import { Input } from '@tearleads/ui';
 import { getKeyManager } from '@client/db/crypto';
 import { useDatabaseContext } from '@client/db/hooks';
 import {

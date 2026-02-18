@@ -11,8 +11,8 @@ import {
   Terminal,
   TerminalSquare
 } from 'lucide-react';
-import { MarkdownWithToc } from '@/components/markdown-viewer/MarkdownWithToc';
-import { getHelpDocLabel, type HelpDocId } from '@/constants/help';
+import { MarkdownWithToc } from '@tearleads/backups';
+import { getHelpDocLabel, type HelpDocId } from '@help/constants/help';
 import type { SupportedLanguage } from '@/i18n';
 import { useTypedTranslation } from '@/i18n';
 import backupRestoreDocumentationEn from '../../../../../docs/en/backup-restore.md?raw';

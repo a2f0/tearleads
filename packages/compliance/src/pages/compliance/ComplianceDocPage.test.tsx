@@ -13,7 +13,7 @@ vi.mock('@tearleads/ui', async () => {
   };
 });
 
-vi.mock('@/components/markdown-viewer/MarkdownWithToc', () => ({
+vi.mock('@tearleads/backups', () => ({
   MarkdownWithToc: ({
     source,
     linkComponent

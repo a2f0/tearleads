@@ -12,7 +12,7 @@ import {
   useCallback,
   useMemo
 } from 'react';
-import { MarkdownWithToc } from '@/components/markdown-viewer/MarkdownWithToc';
+import { MarkdownWithToc } from '@tearleads/backups';
 
 interface ComplianceDocViewProps {
   frameworkId: string;
