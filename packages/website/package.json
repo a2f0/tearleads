@@ -16,6 +16,7 @@
     "@astrojs/react": "4.4.2",
     "@beoe/rehype-mermaid": "0.4.2",
     "@tearleads/api": "workspace:*",
+    "@tearleads/shared": "workspace:*",
     "@tearleads/ui": "workspace:*",
     "astro": "5.17.2",
     "lucide-react": "0.564.0",

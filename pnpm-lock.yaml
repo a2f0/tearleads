@@ -1200,16 +1200,16 @@ importers:
 
   packages/console:
     dependencies:
-      lucide-react:
-        specifier: 0.564.0
-        version: 0.564.0(react@19.2.4)
-    devDependencies:
       '@tearleads/help':
         specifier: workspace:*
         version: link:../help
       '@tearleads/terminal':
         specifier: workspace:*
         version: link:../terminal
+      lucide-react:
+        specifier: 0.564.0
+        version: 0.564.0(react@19.2.4)
+    devDependencies:
       '@tearleads/ui':
         specifier: workspace:*
         version: link:../ui
@@ -2581,6 +2581,9 @@ importers:
       '@tearleads/api':
         specifier: workspace:*
         version: link:../api
+      '@tearleads/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@tearleads/ui':
         specifier: workspace:*
         version: link:../ui
