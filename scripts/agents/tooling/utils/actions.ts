@@ -368,7 +368,8 @@ export async function runInlineAction(
       const stack = requireDefined(options.stack, '--stack');
       const script = requireDefined(options.script, '--script');
       const scriptPath = resolveTerraformScriptPath(repoRoot, stack, script);
-      const result = runWithTimeout(scriptPath, [], timeoutMs, repoRoot);
+      const args = options.yes ? ['-auto-approve'] : [];
+      const result = runWithTimeout(scriptPath, args, timeoutMs, repoRoot);
       const output = result.stdout + result.stderr;
       if (result.exitCode !== 0) {
         throw new Error(

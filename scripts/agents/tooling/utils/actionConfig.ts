@@ -165,12 +165,12 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     scriptPath: (repo) => path.join(repo, 'scripts', 'preen', 'runPreen.sh')
   },
   runTerraformStackScript: {
-    safetyClass: 'safe_write_local',
+    safetyClass: 'safe_write_remote',
     retrySafe: false,
     isInline: true
   },
   runAnsibleBootstrap: {
-    safetyClass: 'safe_write_local',
+    safetyClass: 'safe_write_remote',
     retrySafe: false,
     isInline: true
   },
