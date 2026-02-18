@@ -1,4 +1,4 @@
-import { getEventDisplayName, type AnalyticsEvent } from '@/db/analytics';
+import { type AnalyticsEvent, getEventDisplayName } from '@/db/analytics';
 import type { TimeFilter } from './types';
 
 interface AnalyticsDurationChartProps {
@@ -28,12 +28,11 @@ export function AnalyticsDurationChart({
   );
   const totalSeconds = Math.round(totalDurationMs / 1000);
 
-  const topEvents = filteredEvents
-    .reduce<Map<string, number>>((acc, event) => {
-      const current = acc.get(event.eventName) ?? 0;
-      acc.set(event.eventName, current + event.durationMs);
-      return acc;
-    }, new Map());
+  const topEvents = filteredEvents.reduce<Map<string, number>>((acc, event) => {
+    const current = acc.get(event.eventName) ?? 0;
+    acc.set(event.eventName, current + event.durationMs);
+    return acc;
+  }, new Map());
 
   const topEventRows = Array.from(topEvents.entries())
     .sort((a, b) => b[1] - a[1])

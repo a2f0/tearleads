@@ -14,9 +14,9 @@ import {
   type StatsSortColumn
 } from '@/db/analytics';
 import { useDatabaseContext } from '@/db/hooks';
-import { AnalyticsInlineUnlock } from './AnalyticsInlineUnlock';
 import { AnalyticsEventsPanel } from './AnalyticsEventsPanel';
 import { AnalyticsFiltersSummaryPanel } from './AnalyticsFiltersSummaryPanel';
+import { AnalyticsInlineUnlock } from './AnalyticsInlineUnlock';
 import { AnalyticsPageHeader } from './AnalyticsPageHeader';
 import type { SortState } from './SortIcon';
 import type { SummarySortState, TimeFilter } from './types';
