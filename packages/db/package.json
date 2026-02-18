@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/db",
-  "version": "0.0.31",
+  "version": "0.0.32",
   "description": "Shared database schema definitions for Tearleads",
   "type": "module",
   "main": "dist/index.js",
