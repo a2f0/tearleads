@@ -374,5 +374,4 @@ describe('VFS routes (blobs attach visibility)', () => {
     );
     expect(mockClientRelease).toHaveBeenCalledTimes(1);
   });
-
 });
