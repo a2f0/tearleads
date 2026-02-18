@@ -920,6 +920,9 @@ importers:
       '@tearleads/help':
         specifier: workspace:*
         version: link:../help
+      '@tearleads/local-write-orchestrator':
+        specifier: workspace:*
+        version: link:../local-write-orchestrator
       '@tearleads/mls-chat':
         specifier: workspace:*
         version: link:../mls-chat
