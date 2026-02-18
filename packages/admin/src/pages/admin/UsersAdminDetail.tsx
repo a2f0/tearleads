@@ -1,9 +1,9 @@
 import type { AdminUser, AdminUserUpdatePayload } from '@tearleads/shared';
+import { BackLink } from '@tearleads/ui';
 import { Check, Copy, Loader2, Save } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { BackLink } from '@tearleads/ui';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useTypedTranslation } from '@/i18n';

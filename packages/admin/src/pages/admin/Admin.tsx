@@ -1,15 +1,17 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { RedisKeyInfo } from '@tearleads/shared';
 import {
+  BackLink,
+  ConfirmDialog,
+  RefreshButton,
+  VirtualListStatus
+} from '@tearleads/ui';
+import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
 } from '@tearleads/window-manager';
 import { Database, Loader2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BackLink } from '@tearleads/ui';
-import { ConfirmDialog } from '@tearleads/ui';
-import { RefreshButton } from '@tearleads/ui';
-import { VirtualListStatus } from '@tearleads/ui';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';

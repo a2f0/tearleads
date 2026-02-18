@@ -1,4 +1,5 @@
 import type { PostgresTableInfo } from '@tearleads/shared';
+import { RefreshButton } from '@tearleads/ui';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow
@@ -6,7 +7,6 @@ import {
 import { HardDrive } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshButton } from '@tearleads/ui';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 

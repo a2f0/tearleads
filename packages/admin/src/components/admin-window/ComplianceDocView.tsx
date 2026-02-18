@@ -1,3 +1,4 @@
+import { MarkdownWithToc } from '@tearleads/backups';
 import {
   getComplianceDocument,
   getFrameworkDocuments,
@@ -12,7 +13,6 @@ import {
   useCallback,
   useMemo
 } from 'react';
-import { MarkdownWithToc } from '@tearleads/backups';
 
 interface ComplianceDocViewProps {
   frameworkId: string;

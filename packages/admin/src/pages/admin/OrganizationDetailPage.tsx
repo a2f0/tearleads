@@ -4,6 +4,7 @@ import type {
   OrganizationUser,
   UpdateOrganizationRequest
 } from '@tearleads/shared';
+import { BackLink, ConfirmDialog } from '@tearleads/ui';
 import {
   Building2,
   Calendar,
@@ -20,9 +21,7 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { BackLink } from '@tearleads/ui';
 import { Button } from '@/components/ui/button';
-import { ConfirmDialog } from '@tearleads/ui';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useTypedTranslation } from '@/i18n';
