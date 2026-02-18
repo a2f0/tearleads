@@ -46,9 +46,24 @@ jobs:
             exit 0
           fi
 
+      - name: Check merge-signing app credentials
+        id: app-credentials
+        if: steps.prepare.outputs.skip_reason == ''
+        env:
+          MERGE_SIGNING_APP_ID: ${{ secrets.MERGE_SIGNING_APP_ID }}
+          MERGE_SIGNING_APP_PRIVATE_KEY: ${{ secrets.MERGE_SIGNING_APP_PRIVATE_KEY }}
+        run: |
+          set -eu
+
+          if [ -n "$MERGE_SIGNING_APP_ID" ] && [ -n "$MERGE_SIGNING_APP_PRIVATE_KEY" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create merge-signing app token
         id: app-token
-        if: steps.prepare.outputs.skip_reason == '' && secrets.MERGE_SIGNING_APP_ID != '' && secrets.MERGE_SIGNING_APP_PRIVATE_KEY != ''
+        if: steps.prepare.outputs.skip_reason == '' && steps.app-credentials.outputs.available == 'true'
         uses: actions/create-github-app-token@v1
         with:
           app-id: ${{ secrets.MERGE_SIGNING_APP_ID }}
