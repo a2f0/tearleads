@@ -27,7 +27,10 @@ export type ActionName =
   | 'findPrForBranch'
   | 'listHighPriorityPrs'
   | 'triggerGeminiReview'
+  | 'checkGeminiQuota'
   | 'findDeferredWork'
+  | 'listDeferredFixIssues'
+  | 'getIssue'
   | 'runPreen'
   | 'issueTemplate'
   | 'createIssue'
@@ -58,7 +61,7 @@ export interface GlobalOptions {
   artifact?: string;
   dest?: string;
   branch?: string;
-  state?: 'open' | 'merged';
+  state?: 'open' | 'merged' | 'closed' | 'all';
   mode?: 'full' | 'single' | 'security' | 'audit';
   pollTimeout?: number;
   timeoutSeconds?: number;
@@ -73,6 +76,8 @@ export interface GlobalOptions {
   deferredItemsJson?: string;
   prUrl?: string;
   bodyFile?: string;
+  quotaMessage?: string;
+  limit?: number;
 }
 
 export interface ActionConfig {

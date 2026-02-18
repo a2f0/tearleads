@@ -14,6 +14,7 @@ import type {
 } from '../types.ts';
 import { runDelegatedAction, runInlineAction } from './actions.ts';
 import { getRepo, isShaLike } from './helpers.ts';
+import { applyIssueCommandOptions } from './issueCommandOptions.ts';
 import { applyPrWorkflowCommandOptions } from './prWorkflowCommandOptions.ts';
 
 const SCRIPT_DIR = path.dirname(new URL(import.meta.url).pathname);
@@ -137,7 +138,22 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     retrySafe: true,
     isInline: true
   },
+  checkGeminiQuota: {
+    safetyClass: 'safe_read',
+    retrySafe: true,
+    isInline: true
+  },
   findDeferredWork: {
+    safetyClass: 'safe_read',
+    retrySafe: true,
+    isInline: true
+  },
+  listDeferredFixIssues: {
+    safetyClass: 'safe_read',
+    retrySafe: true,
+    isInline: true
+  },
+  getIssue: {
     safetyClass: 'safe_read',
     retrySafe: true,
     isInline: true
@@ -199,7 +215,10 @@ export function createActionCommand(actionName: ActionName): Command {
     .option('--dry-run', 'Validate and report without executing')
     .option('--json', 'Emit structured JSON summary');
 
-  if (applyPrWorkflowCommandOptions(actionName, cmd)) {
+  if (
+    applyPrWorkflowCommandOptions(actionName, cmd) ||
+    applyIssueCommandOptions(actionName, cmd)
+  ) {
     // Action-specific options were applied in helper.
   } else {
     switch (actionName) {
@@ -334,54 +353,6 @@ export function createActionCommand(actionName: ActionName): Command {
           }
           return v as GlobalOptions['mode'];
         });
-        break;
-      case 'issueTemplate':
-        cmd.requiredOption('--type <type>', 'Template type', (v) => {
-          const allowed = ['user-requested', 'deferred-fix'];
-          if (!allowed.includes(v)) {
-            throw new InvalidArgumentError(
-              `--type must be one of ${allowed.join(', ')}`
-            );
-          }
-          return v as GlobalOptions['type'];
-        });
-        break;
-      case 'createIssue':
-        cmd
-          .requiredOption('--type <type>', 'Issue type', (v) => {
-            const allowed = ['user-requested', 'deferred-fix'];
-            if (!allowed.includes(v)) {
-              throw new InvalidArgumentError(
-                `--type must be one of ${allowed.join(', ')}`
-              );
-            }
-            return v as GlobalOptions['type'];
-          })
-          .requiredOption('--title <text>', 'Issue title')
-          .option('--search <query>', 'Search query used to dedupe open issues')
-          .option(
-            '--source-pr <n>',
-            'Source PR number for deferred fixes',
-            (v) => parsePositiveInt(v, '--source-pr')
-          )
-          .option(
-            '--review-thread-url <url>',
-            'Review thread URL for deferred fixes'
-          )
-          .option('--label <name>', 'Additional label to apply')
-          .option(
-            '--force',
-            'Skip duplicate-issue detection and always create a new issue'
-          )
-          .hook('preAction', (thisCommand) => {
-            const opts = thisCommand.opts();
-            if (opts.type === 'deferred-fix' && opts.sourcePr === undefined) {
-              console.error(
-                'error: createIssue --type deferred-fix requires --source-pr'
-              );
-              process.exit(1);
-            }
-          });
         break;
       case 'generatePrSummary':
         cmd

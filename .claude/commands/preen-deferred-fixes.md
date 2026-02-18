@@ -12,14 +12,13 @@ Deferred fixes are tracked via GitHub issues with the `deferred-fix` label. Thes
 1. **Find deferred fix issues**:
 
    ```bash
-   REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-   gh issue list -R "$REPO" --label "deferred-fix" --state open --json number,title,url
+   ./scripts/agents/tooling/agentTool.ts listDeferredFixIssues --state open
    ```
 
    If a specific issue number is provided, start from that:
 
    ```bash
-   gh issue view <issue-number> --json title,body,url
+   ./scripts/agents/tooling/agentTool.ts getIssue --number <issue-number>
    ```
 
 2. **Identify deferred commitments** from the issue body:

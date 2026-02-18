@@ -5,6 +5,12 @@ import { runWithTimeout } from '../../../tooling/lib/cliShared.ts';
 import type { ActionConfig, ActionName, GlobalOptions } from '../types.ts';
 import { requireDefined } from './helpers.ts';
 import {
+  buildIssueTemplate,
+  parseExistingIssueCandidate,
+  parseFirstJsonObject
+} from './issueHelpers.ts';
+import {
+  handleCheckGeminiQuota,
   handleCheckMainVersionBumpSetup,
   handleGeneratePrSummary,
   handleGetReviewThreads,
@@ -16,64 +22,6 @@ import {
   handleUpdatePrBody,
   handleVerifyBranchPush
 } from './prWorkflowHandlers.ts';
-
-function buildIssueTemplate(
-  templateType: 'user-requested' | 'deferred-fix',
-  options: GlobalOptions
-): string {
-  if (templateType === 'user-requested') {
-    return `## Summary
-<one paragraph describing the user goal and outcome in your own words>
-
-## Context
-<why this matters, impacted area, or constraints mentioned by the user>
-
-## Requirements
-- [ ] <clear, testable requirement 1>
-- [ ] <clear, testable requirement 2>
-
-## Implementation Notes
-<initial approach, dependencies, or questions to resolve>`;
-  }
-
-  const sourcePr = options.sourcePr ? `#${options.sourcePr}` : '#<pr-number>';
-  const reviewThread = options.reviewThreadUrl ?? '<url to thread>';
-  return `## Summary
-<brief description of what was deferred>
-
-## Source
-- PR: ${sourcePr}
-- Review thread: ${reviewThread}
-
-## Deferred Items
-- [ ] <item 1 from review feedback>
-- [ ] <item 2 from review feedback>`;
-}
-
-function parseFirstJsonObject(rawOutput: string): unknown {
-  const trimmed = rawOutput.trim();
-  if (!trimmed || trimmed === 'null') return null;
-  return JSON.parse(trimmed);
-}
-
-interface ExistingIssueCandidate {
-  number: number;
-  title: string;
-  url: string;
-}
-
-function parseExistingIssueCandidate(
-  value: unknown
-): ExistingIssueCandidate | null {
-  if (typeof value !== 'object' || value === null) return null;
-  const number = Reflect.get(value, 'number');
-  const title = Reflect.get(value, 'title');
-  const url = Reflect.get(value, 'url');
-  if (typeof number !== 'number') return null;
-  if (typeof title !== 'string') return null;
-  if (typeof url !== 'string') return null;
-  return { number, title, url };
-}
 
 export function runInlineAction(
   action: ActionName,
@@ -302,6 +250,10 @@ export function runInlineAction(
       return handleTriggerGeminiReview(options, repo, runGh);
     }
 
+    case 'checkGeminiQuota': {
+      return handleCheckGeminiQuota(options, repo, runGh);
+    }
+
     case 'generatePrSummary': {
       return handleGeneratePrSummary(options, repo, runGh);
     }
@@ -329,6 +281,35 @@ export function runInlineAction(
         '--paginate',
         '--jq',
         '.[] | select(.body | test("defer|follow[- ]?up|future PR|later|TODO|FIXME"; "i")) | {id: .id, path: .path, line: .line, body: .body, html_url: .html_url}'
+      ]);
+    }
+
+    case 'listDeferredFixIssues': {
+      return runGh([
+        'issue',
+        'list',
+        '--label',
+        'deferred-fix',
+        '--state',
+        options.state ?? 'open',
+        '--limit',
+        String(options.limit ?? 30),
+        '--json',
+        'number,title,url,state',
+        '-R',
+        repo
+      ]);
+    }
+
+    case 'getIssue': {
+      return runGh([
+        'issue',
+        'view',
+        String(options.number),
+        '--json',
+        'number,title,body,url,state,labels',
+        '-R',
+        repo
       ]);
     }
 
