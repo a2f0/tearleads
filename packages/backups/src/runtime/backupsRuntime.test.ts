@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  type BackupsRuntime,
   configureBackupsRuntime,
-  getBackupsRuntime,
-  type BackupsRuntime
+  getBackupsRuntime
 } from './backupsRuntime';
 
 function createRuntimeMock(): BackupsRuntime {

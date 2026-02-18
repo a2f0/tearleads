@@ -7,14 +7,20 @@ import { DropdownMenuItem } from './DropdownMenuItem';
 describe('DropdownMenuItem', () => {
   it('renders children and optional icon/check state', () => {
     render(
-      <DropdownMenuItem onClick={vi.fn()} icon={<Check data-testid="icon" />} checked>
+      <DropdownMenuItem
+        onClick={vi.fn()}
+        icon={<Check data-testid="icon" />}
+        checked
+      >
         Item
       </DropdownMenuItem>
     );
 
     expect(screen.getByRole('menuitem', { name: 'Item' })).toBeInTheDocument();
     expect(screen.getByTestId('icon')).toBeInTheDocument();
-    expect(screen.getByRole('menuitem').querySelector('svg')).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitem').querySelector('svg')
+    ).toBeInTheDocument();
   });
 
   it('handles click and keyboard activation when enabled', async () => {

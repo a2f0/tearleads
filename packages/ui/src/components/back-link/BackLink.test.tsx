@@ -13,7 +13,7 @@ function renderBackLink(
   props: { defaultTo: string; defaultLabel: string }
 ) {
   return render(
-    <MemoryRouter initialEntries={[{ pathname, state }]}> 
+    <MemoryRouter initialEntries={[{ pathname, state }]}>
       <Routes>
         <Route
           path="*"

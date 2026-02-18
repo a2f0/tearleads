@@ -128,7 +128,13 @@ describe('DropdownMenu', () => {
     const onClick = vi.fn();
 
     render(
-      <DropdownMenu trigger={<button onClick={onClick}>Tools</button>}>
+      <DropdownMenu
+        trigger={
+          <button type="button" onClick={onClick}>
+            Tools
+          </button>
+        }
+      >
         <DropdownMenuItem onClick={vi.fn()}>Action</DropdownMenuItem>
       </DropdownMenu>
     );
@@ -175,7 +181,9 @@ describe('DropdownMenu', () => {
     await user.click(screen.getByRole('button', { name: 'Context' }));
     expect(screen.getByTestId('static-child')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Close From Context' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Close From Context' })
+    );
 
     expect(closeViaContext).toHaveBeenCalledTimes(1);
     expect(readContainerViaContext).toHaveBeenCalledTimes(1);

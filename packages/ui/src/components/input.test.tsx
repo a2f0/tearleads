@@ -36,7 +36,11 @@ describe('Input', () => {
   it('applies size and custom class names', () => {
     render(<Input data-testid="input" size="lg" className="custom-class" />);
 
-    expect(screen.getByTestId('input')).toHaveClass('h-11', 'px-4', 'custom-class');
+    expect(screen.getByTestId('input')).toHaveClass(
+      'h-11',
+      'px-4',
+      'custom-class'
+    );
   });
 
   it('exports inputVariants helper', () => {

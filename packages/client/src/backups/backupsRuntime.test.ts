@@ -101,7 +101,10 @@ describe('clientBackupsRuntime', () => {
     getDatabaseAdapterMock.mockReturnValue('adapter');
     getActiveInstanceMock.mockResolvedValue({ name: 'Primary' });
     createBackupMock.mockResolvedValue(new Uint8Array([1, 2, 3]));
-    estimateBackupSizeMock.mockResolvedValue({ blobCount: 2, blobTotalSize: 42 });
+    estimateBackupSizeMock.mockResolvedValue({
+      blobCount: 2,
+      blobTotalSize: 42
+    });
     getKeyManagerMock.mockReturnValue({ getCurrentKey: () => null });
     isFileStorageInitializedMock.mockReturnValue(false);
     isBackupStorageSupportedMock.mockReturnValue(true);
