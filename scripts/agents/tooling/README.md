@@ -77,6 +77,7 @@ the environment. If those env vars are unset, `agentTool` falls back to the
 logged-in GitHub CLI token via `gh auth token`.
 
 Precedence:
+
 1. `GITHUB_TOKEN`
 2. `GH_TOKEN`
 3. `gh auth token`
