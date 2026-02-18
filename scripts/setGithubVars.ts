@@ -90,7 +90,11 @@ function setSecret(
   );
 }
 
-function setVariable(repo: string, variableName: string, variableValue: string): void {
+function setVariable(
+  repo: string,
+  variableName: string,
+  variableValue: string
+): void {
   execFileSync(
     'gh',
     ['variable', 'set', variableName, '-R', repo, '--body', variableValue],
@@ -215,7 +219,9 @@ function main(): void {
     setVariable(env.GITHUB_REPO, variableName, value);
   }
 
-  process.stdout.write('\nAll managed secrets and optional variables have been set successfully!\n');
+  process.stdout.write(
+    '\nAll managed secrets and optional variables have been set successfully!\n'
+  );
 
   if (!deleteExtra) {
     return;
