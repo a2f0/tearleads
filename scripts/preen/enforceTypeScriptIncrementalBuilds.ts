@@ -20,7 +20,8 @@ type TsConfig = {
   compilerOptions?: JsonObject;
 };
 
-const normalizePath = (value: string): string => value.split(path.sep).join('/');
+const normalizePath = (value: string): string =>
+  value.split(path.sep).join('/');
 
 const resolveProjectPath = (baseDir: string, refPath: string): string => {
   const absolute = path.resolve(baseDir, refPath);
@@ -50,15 +51,22 @@ const collectReferencedProjects = async (
   const references = config.references ?? [];
 
   for (const reference of references) {
-    const childPath = resolveProjectPath(path.dirname(resolvedEntry), reference.path);
+    const childPath = resolveProjectPath(
+      path.dirname(resolvedEntry),
+      reference.path
+    );
     await collectReferencedProjects(childPath, visited);
   }
 
   return visited;
 };
 
-const validateCompilerOptions = async (projectPath: string): Promise<string[]> => {
-  const config = (await readJsonFile(path.join(ROOT_DIR, projectPath))) as TsConfig;
+const validateCompilerOptions = async (
+  projectPath: string
+): Promise<string[]> => {
+  const config = (await readJsonFile(
+    path.join(ROOT_DIR, projectPath)
+  )) as TsConfig;
   const compilerOptions = config.compilerOptions ?? {};
   const failures: string[] = [];
 
@@ -85,7 +93,9 @@ const main = async (): Promise<void> => {
 
   const referencedProjects = await collectReferencedProjects(ROOT_TSCONFIG);
   const referencedRelative = new Set(
-    [...referencedProjects].map((absolutePath) => normalizePath(path.relative(ROOT_DIR, absolutePath)))
+    [...referencedProjects].map((absolutePath) =>
+      normalizePath(path.relative(ROOT_DIR, absolutePath))
+    )
   );
 
   for (const requiredProject of REQUIRED_PROJECTS) {
