@@ -22,8 +22,9 @@
     "scripts/dist/**",
     "scripts/dist-tests/**"
   ],
-  "ignoreBinaries": ["ansible-lint", "shellcheck", "playwright"],
-  "ignoreIssues": {
-    "packages/analytics/src/components/page/Analytics.test.tsx": ["unresolved"]
-  }
+  "ignoreUnresolved": [
+    "^@/components/sqlite/exportTableCsv$",
+    "^@/db/analytics$"
+  ],
+  "ignoreBinaries": ["ansible-lint", "shellcheck", "playwright"]
 }
