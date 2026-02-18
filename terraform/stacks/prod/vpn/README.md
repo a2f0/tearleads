@@ -91,4 +91,3 @@ infrastructure through the VPN.
 ```bash
 ./scripts/destroy.sh
 ```
-
