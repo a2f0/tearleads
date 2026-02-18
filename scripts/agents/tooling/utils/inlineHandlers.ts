@@ -29,11 +29,14 @@ export function handleCheckMainVersionBumpSetup(
 
   const envChecks: SetupCheck[] = requiredEnvNames.map((envName) => {
     const value = process.env[envName]?.trim();
-    return {
+    const check: SetupCheck = {
       name: `env:${envName}`,
-      ok: Boolean(value),
-      details: value ? undefined : `${envName} is not set`
+      ok: Boolean(value)
     };
+    if (!value) {
+      check.details = `${envName} is not set`;
+    }
+    return check;
   });
 
   const keyFile = options.keyFile?.trim().length
@@ -42,13 +45,14 @@ export function handleCheckMainVersionBumpSetup(
   const keyFilePath = path.isAbsolute(keyFile)
     ? keyFile
     : path.join(repoRoot, keyFile);
+  const keyFileExists = fs.existsSync(keyFilePath);
   const keyFileCheck: SetupCheck = {
     name: 'file:merge-signing-private-key',
-    ok: fs.existsSync(keyFilePath),
-    details: fs.existsSync(keyFilePath)
-      ? undefined
-      : `Missing file at ${keyFilePath}`
+    ok: keyFileExists
   };
+  if (!keyFileExists) {
+    keyFileCheck.details = `Missing file at ${keyFilePath}`;
+  }
 
   const secretNames = new Set<string>();
   const secretListOutput = runGh(['secret', 'list', '-R', repo]);
@@ -62,13 +66,17 @@ export function handleCheckMainVersionBumpSetup(
   const secretChecks: SetupCheck[] = [
     'MERGE_SIGNING_APP_ID',
     'MERGE_SIGNING_APP_PRIVATE_KEY'
-  ].map((secretName) => ({
-    name: `secret:${secretName}`,
-    ok: secretNames.has(secretName),
-    details: secretNames.has(secretName)
-      ? undefined
-      : `${secretName} not found in repo secrets`
-  }));
+  ].map((secretName) => {
+    const hasSecret = secretNames.has(secretName);
+    const check: SetupCheck = {
+      name: `secret:${secretName}`,
+      ok: hasSecret
+    };
+    if (!hasSecret) {
+      check.details = `${secretName} not found in repo secrets`;
+    }
+    return check;
+  });
 
   const checks = [...envChecks, keyFileCheck, ...secretChecks];
   const failures = checks.filter((check) => !check.ok);
