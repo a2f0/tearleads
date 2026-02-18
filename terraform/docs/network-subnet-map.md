@@ -11,7 +11,7 @@ This map documents the private IPv4 ranges currently defined in Terraform stack 
 | staging | `stacks/staging/tee` | `10.42.0.0/16` | `10.42.1.0/24` | Azure Confidential VM (TEE) network | `terraform/stacks/staging/tee/variables.tf` |
 | prod | `stacks/prod/tee` | `10.43.0.0/16` | `10.43.1.0/24` | Azure Confidential VM (TEE) network | `terraform/stacks/prod/tee/variables.tf` |
 | prod | `stacks/prod/vpn` | `10.100.0.0/16` | `10.100.1.0/24` | Hetzner private network for VPN server | `terraform/stacks/prod/vpn/variables.tf` |
-| prod | `stacks/prod/vpn` | n/a | `10.200.0.0/24` | WireGuard client address pool | `terraform/stacks/prod/vpn/variables.tf` |
+| prod | `stacks/prod/vpn` | `10.200.0.0/24` | n/a | WireGuard client address pool | `terraform/stacks/prod/vpn/variables.tf` |
 
 ## Visual map
 

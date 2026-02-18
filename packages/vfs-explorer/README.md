@@ -21,8 +21,8 @@ import {
 
 - UI: `VfsExplorer`, `VfsWindow`, `VfsTreePanel`, `VfsDetailsPanel`, `VfsWindowMenuBar`
 - Provider/context: `VfsExplorerProvider`, `useVfsExplorerContext`, `useVfsExplorerUI`
-- Data hooks: `useVfsFolders`, `useVfsFolderContents`, `useCreateVfsFolder`, `useRenameVfsFolder`, `useDeleteVfsFolder`, `useMoveVfsItem`
-- IDs/constants: `VFS_ROOT_ID`, `ALL_ITEMS_FOLDER_ID`, `UNFILED_FOLDER_ID`, `TRASH_FOLDER_ID`
+- Data hooks: `useVfsFolders`, `useVfsFolderContents`, `useCreateVfsFolder`, `useRenameVfsFolder`, `useDeleteVfsFolder`, `useMoveVfsItem`, `useCopyVfsItem`
+- IDs/constants: `VFS_ROOT_ID`, `ALL_ITEMS_FOLDER_ID`, `UNFILED_FOLDER_ID`, `TRASH_FOLDER_ID`, `SHARED_BY_ME_FOLDER_ID`, `SHARED_WITH_ME_FOLDER_ID`
 
 ## Development
 
