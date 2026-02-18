@@ -2,6 +2,7 @@ import type { VfsCrdtSyncItem } from '@tearleads/shared';
 import { expect } from 'vitest';
 import type {
   VfsBackgroundSyncClient,
+  VfsBackgroundSyncClientPersistedState,
   VfsCrdtSyncTransport
 } from './sync-client.js';
 import { compareVfsSyncCursorOrder } from './sync-reconcile.js';
@@ -10,6 +11,19 @@ export interface ContainerClockCursor {
   containerId: string;
   changedAt: string;
   changeId: string;
+}
+
+export function captureExportedSyncClientState(
+  client: VfsBackgroundSyncClient
+): VfsBackgroundSyncClientPersistedState {
+  return client.exportState();
+}
+
+export function expectExportedSyncClientStateUnchanged(input: {
+  client: VfsBackgroundSyncClient;
+  before: VfsBackgroundSyncClientPersistedState;
+}): void {
+  expect(input.client.exportState()).toEqual(input.before);
 }
 
 export function toContainerClockCursorMap(
