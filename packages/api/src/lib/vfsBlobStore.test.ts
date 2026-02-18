@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockSend = vi.fn();
-const mockPutObjectCommand = vi.fn(function MockPutObjectCommand(input: unknown) {
+const mockPutObjectCommand = vi.fn(function MockPutObjectCommand(
+  input: unknown
+) {
   return { input };
 });
-const mockGetObjectCommand = vi.fn(function MockGetObjectCommand(input: unknown) {
+const mockGetObjectCommand = vi.fn(function MockGetObjectCommand(
+  input: unknown
+) {
   return { input };
 });
 const mockDeleteObjectCommand = vi.fn(function MockDeleteObjectCommand(

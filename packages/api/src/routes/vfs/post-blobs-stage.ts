@@ -1,7 +1,7 @@
 import type { Request, Response, Router as RouterType } from 'express';
 import type { PoolClient } from 'pg';
-import { persistVfsBlobData } from '../../lib/vfsBlobStore.js';
 import { getPostgresPool } from '../../lib/postgres.js';
+import { persistVfsBlobData } from '../../lib/vfsBlobStore.js';
 import { isPostgresErrorWithCode, parseBlobStageBody } from './blob-shared.js';
 
 interface BlobRegistryTypeRow {
@@ -27,7 +27,10 @@ function parseBase64Data(dataBase64: string): Buffer | null {
     return null;
   }
 
-  if (decoded.toString('base64').replace(/=+$/u, '') !== normalized.replace(/=+$/u, '')) {
+  if (
+    decoded.toString('base64').replace(/=+$/u, '') !==
+    normalized.replace(/=+$/u, '')
+  ) {
     return null;
   }
 

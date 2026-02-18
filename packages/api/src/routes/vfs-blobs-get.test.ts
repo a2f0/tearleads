@@ -4,7 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
 import { createAuthHeader } from '../test/auth.js';
 import { mockConsoleError } from '../test/consoleMocks.js';
-import { mockQuery, setupVfsTestEnv, teardownVfsTestEnv } from './vfs-test-support.js';
+import {
+  mockQuery,
+  setupVfsTestEnv,
+  teardownVfsTestEnv
+} from './vfs-test-support.js';
 
 const mockReadVfsBlobData = vi.fn();
 vi.mock('../lib/vfsBlobStore.js', () => ({
@@ -112,4 +116,3 @@ describe('VFS routes (blobs get)', () => {
     });
   });
 });
-

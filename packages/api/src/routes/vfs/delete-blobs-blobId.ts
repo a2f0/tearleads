@@ -1,7 +1,7 @@
 import type { Request, Response, Router as RouterType } from 'express';
 import type { PoolClient } from 'pg';
-import { deleteVfsBlobData } from '../../lib/vfsBlobStore.js';
 import { getPostgresPool } from '../../lib/postgres.js';
+import { deleteVfsBlobData } from '../../lib/vfsBlobStore.js';
 import { normalizeRequiredString } from './blob-shared.js';
 
 interface BlobRegistryRow {
@@ -121,4 +121,3 @@ async function rollbackQuietly(client: PoolClient): Promise<void> {
 export function registerDeleteBlobsBlobIdRoute(routeRouter: RouterType): void {
   routeRouter.delete('/blobs/:blobId', deleteBlobsBlobIdHandler);
 }
-

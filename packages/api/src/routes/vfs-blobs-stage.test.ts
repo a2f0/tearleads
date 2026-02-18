@@ -331,7 +331,9 @@ describe('VFS routes (blobs stage)', () => {
         });
 
       expect(response.status).toBe(400);
-      expect(response.body).toEqual({ error: 'dataBase64 must be valid base64' });
+      expect(response.body).toEqual({
+        error: 'dataBase64 must be valid base64'
+      });
       expect(mockPersistVfsBlobData).not.toHaveBeenCalled();
       expect(mockQuery).not.toHaveBeenCalled();
     });

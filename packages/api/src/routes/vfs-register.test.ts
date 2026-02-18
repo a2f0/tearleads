@@ -96,7 +96,14 @@ describe('VFS routes (register)', () => {
     });
 
     it('accepts all valid object types', async () => {
-      const objectTypes = ['file', 'blob', 'folder', 'contact', 'note', 'photo'];
+      const objectTypes = [
+        'file',
+        'blob',
+        'folder',
+        'contact',
+        'note',
+        'photo'
+      ];
       const createdAt = new Date();
 
       for (const objectType of objectTypes) {

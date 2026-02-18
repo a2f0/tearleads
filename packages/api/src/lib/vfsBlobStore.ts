@@ -22,7 +22,9 @@ let runtimeKey: string | null = null;
 function normalizeRequiredEnv(name: string): string {
   const value = process.env[name];
   if (!value || value.trim().length === 0) {
-    throw new Error(`Missing required blob storage environment variable: ${name}`);
+    throw new Error(
+      `Missing required blob storage environment variable: ${name}`
+    );
   }
   return value.trim();
 }
@@ -179,7 +181,12 @@ export async function readVfsBlobData(params: {
   );
 
   const body = result.Body;
-  if (!body || typeof (body as { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator] !== 'function') {
+  if (
+    !body ||
+    typeof (body as { [Symbol.asyncIterator]?: unknown })[
+      Symbol.asyncIterator
+    ] !== 'function'
+  ) {
     return {
       data: new Uint8Array(0),
       contentType: result.ContentType ?? null
@@ -205,7 +212,9 @@ export async function readVfsBlobData(params: {
   };
 }
 
-export async function deleteVfsBlobData(params: { blobId: string }): Promise<void> {
+export async function deleteVfsBlobData(params: {
+  blobId: string;
+}): Promise<void> {
   const { client, config } = getRuntime();
   const storageKey = toStorageKey(params.blobId, config.keyPrefix);
 

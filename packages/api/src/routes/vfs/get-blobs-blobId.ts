@@ -1,7 +1,10 @@
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
-import { isPostgresErrorWithCode, normalizeRequiredString } from './blob-shared.js';
 import { readVfsBlobData } from '../../lib/vfsBlobStore.js';
+import {
+  isPostgresErrorWithCode,
+  normalizeRequiredString
+} from './blob-shared.js';
 
 interface BlobRegistryRow {
   object_type: string;
@@ -51,7 +54,10 @@ export const getBlobsBlobIdHandler = async (req: Request, res: Response) => {
     }
 
     const blobData = await readVfsBlobData({ blobId });
-    res.setHeader('Content-Type', blobData.contentType ?? 'application/octet-stream');
+    res.setHeader(
+      'Content-Type',
+      blobData.contentType ?? 'application/octet-stream'
+    );
     res.status(200).send(Buffer.from(blobData.data));
   } catch (error) {
     if (isPostgresErrorWithCode(error, '23503')) {
@@ -67,4 +73,3 @@ export const getBlobsBlobIdHandler = async (req: Request, res: Response) => {
 export function registerGetBlobsBlobIdRoute(routeRouter: RouterType): void {
   routeRouter.get('/blobs/:blobId', getBlobsBlobIdHandler);
 }
-

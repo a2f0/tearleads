@@ -154,4 +154,3 @@ describe('VFS routes (blobs delete)', () => {
     });
   });
 });
-
