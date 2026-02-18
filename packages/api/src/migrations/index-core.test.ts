@@ -4,7 +4,7 @@ import { getCurrentVersion, runMigrations } from './index.js';
 import { createMockPool, migrations } from './index-test-support.js';
 import type { Migration } from './types.js';
 
-describe('migrations (core through v022)', () => {
+describe('migrations (core through v021)', () => {
   describe('getCurrentVersion', () => {
     it('returns 0 when table does not exist', async () => {
       const pool = createMockPool(new Map());
@@ -98,14 +98,14 @@ describe('migrations (core through v022)', () => {
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 45 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 21 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       // No new migrations should be applied
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(45);
+      expect(result.currentVersion).toBe(21);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -114,15 +114,15 @@ describe('migrations (core through v022)', () => {
       vi.mocked(pool.query).mockImplementation((sql: string) => {
         pool.queries.push(sql);
 
-        if (sql.includes('MAX(version)')) {
-          versionCallCount++;
-          if (versionCallCount === 1) {
-            return Promise.resolve({
-              rows: [{ version: 1 }],
-              rowCount: 1
-            });
-          }
-          return Promise.resolve({ rows: [{ version: 45 }], rowCount: 1 });
+          if (sql.includes('MAX(version)')) {
+            versionCallCount++;
+            if (versionCallCount === 1) {
+              return Promise.resolve({
+                rows: [{ version: 1 }],
+                rowCount: 1
+              });
+            }
+          return Promise.resolve({ rows: [{ version: 21 }], rowCount: 1 });
         }
 
         return Promise.resolve({ rows: [], rowCount: 0 });
@@ -131,11 +131,9 @@ describe('migrations (core through v022)', () => {
       const result = await runMigrations(pool);
 
       expect(result.applied).toEqual([
-        2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
-        22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
-        40, 41, 42, 43, 44, 45
+        2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21
       ]);
-      expect(result.currentVersion).toBe(45);
+      expect(result.currentVersion).toBe(21);
     });
   });
 
@@ -378,7 +376,7 @@ describe('migrations (core through v022)', () => {
   });
 
   describe('v021 migration', () => {
-    it('creates per-client sync cursor state table', async () => {
+    it('creates canonical VFS sync/crdt state and cleanup drops', async () => {
       const pool = createMockPool(new Map());
 
       const v021 = migrations.find((m: Migration) => m.version === 21);
@@ -392,113 +390,24 @@ describe('migrations (core through v022)', () => {
       expect(queries).toContain(
         'CREATE TABLE IF NOT EXISTS "vfs_sync_client_state"'
       );
-      expect(queries).toContain(
-        'CREATE INDEX IF NOT EXISTS "vfs_sync_client_state_user_idx"'
-      );
-    });
-  });
-
-  describe('v022 migration', () => {
-    it('creates blob tables and CRDT sync triggers', async () => {
-      const pool = createMockPool(new Map());
-
-      const v022 = migrations.find((m: Migration) => m.version === 22);
-      if (!v022) {
-        throw new Error('v022 migration not found');
-      }
-
-      await v022.up(pool);
-
-      const queries = pool.queries.join('\n');
-      expect(queries).toContain(
-        'CREATE TABLE IF NOT EXISTS "vfs_blob_objects"'
-      );
-      expect(queries).toContain(
-        'CREATE TABLE IF NOT EXISTS "vfs_blob_staging"'
-      );
-      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_blob_refs"');
       expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_crdt_ops"');
       expect(queries).toContain(
-        'CREATE OR REPLACE FUNCTION "vfs_emit_sync_change"'
+        'CREATE OR REPLACE FUNCTION "vfs_merge_reconciled_write_ids"'
       );
-      expect(queries).toContain(
-        'CREATE OR REPLACE FUNCTION "vfs_links_emit_sync_crdt_trigger"'
-      );
-      expect(queries).toContain(
-        'CREATE TRIGGER "vfs_shares_emit_sync_crdt_trigger"'
-      );
-      expect(queries).toContain(
-        'CREATE TRIGGER "org_shares_emit_sync_crdt_trigger"'
-      );
+      expect(queries).toContain('CREATE OR REPLACE FUNCTION "vfs_emit_sync_change"');
       expect(queries).toContain(
         'CREATE TRIGGER "vfs_links_emit_sync_crdt_trigger"'
       );
-    });
-
-    it('uses transactional and idempotent trigger guardrails', async () => {
-      const pool = createMockPool(new Map());
-
-      const v022 = migrations.find((m: Migration) => m.version === 22);
-      if (!v022) {
-        throw new Error('v022 migration not found');
-      }
-
-      await v022.up(pool);
-
-      expect(pool.queries[0]).toBe('BEGIN');
-      expect(pool.queries.at(-1)).toBe('COMMIT');
-
-      const queries = pool.queries.join('\n');
       expect(queries).toContain(
-        'DROP TRIGGER IF EXISTS "vfs_registry_emit_sync_trigger"'
+        'CREATE INDEX IF NOT EXISTS "vfs_sync_client_state_user_idx"'
       );
-      expect(queries).toContain(
-        'DROP TRIGGER IF EXISTS "vfs_shares_emit_sync_crdt_trigger"'
-      );
-      expect(queries).toContain(
-        'DROP TRIGGER IF EXISTS "org_shares_emit_sync_crdt_trigger"'
-      );
-      expect(queries).toContain(
-        'DROP TRIGGER IF EXISTS "vfs_links_emit_sync_crdt_trigger"'
-      );
-      expect(queries).toContain(
-        `AFTER INSERT OR UPDATE OR DELETE ON "vfs_shares"`
-      );
-      expect(queries).toContain(
-        `AFTER INSERT OR UPDATE OR DELETE ON "org_shares"`
-      );
-      expect(queries).toContain(`AFTER INSERT OR DELETE ON "vfs_links"`);
-      expect(queries).toContain(`'acl_add'`);
-      expect(queries).toContain(`'acl_remove'`);
-      expect(queries).toContain(`'link_add'`);
-      expect(queries).toContain(`'link_remove'`);
-      expect(queries).toContain('PERFORM "vfs_emit_sync_change"');
-      expect(queries).toContain('INSERT INTO "vfs_crdt_ops"');
-    });
-
-    it('rolls back the transaction when setup fails mid-migration', async () => {
-      const pool = {
-        queries: [] as string[],
-        query: vi.fn().mockImplementation((sql: string) => {
-          (pool as { queries: string[] }).queries.push(sql);
-
-          if (sql.includes('CREATE TABLE IF NOT EXISTS "vfs_blob_refs"')) {
-            throw new Error('forced migration failure');
-          }
-
-          return Promise.resolve({ rows: [], rowCount: 0 });
-        })
-      } as unknown as Pool & { queries: string[] };
-
-      const v022 = migrations.find((m: Migration) => m.version === 22);
-      if (!v022) {
-        throw new Error('v022 migration not found');
-      }
-
-      await expect(v022.up(pool)).rejects.toThrow('forced migration failure');
-      expect(pool.queries[0]).toBe('BEGIN');
-      expect(pool.queries).toContain('ROLLBACK');
-      expect(pool.queries).not.toContain('COMMIT');
+      expect(queries).toContain('DROP TABLE IF EXISTS "vfs_blob_refs"');
+      expect(queries).toContain('DROP TABLE IF EXISTS "vfs_blob_staging"');
+      expect(queries).toContain('DROP TABLE IF EXISTS "vfs_blob_objects"');
+      expect(queries).toContain('DROP TABLE IF EXISTS "vfs_access"');
+      expect(queries).toContain('DROP TABLE IF EXISTS "vfs_folders"');
+      expect(queries).toContain('DROP TABLE IF EXISTS "vfs_shares"');
+      expect(queries).toContain('DROP TABLE IF EXISTS "org_shares"');
     });
   });
 });

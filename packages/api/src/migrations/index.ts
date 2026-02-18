@@ -21,30 +21,6 @@ import { v018 } from './v018.js';
 import { v019 } from './v019.js';
 import { v020 } from './v020.js';
 import { v021 } from './v021.js';
-import { v022 } from './v022.js';
-import { v023 } from './v023.js';
-import { v024 } from './v024.js';
-import { v025 } from './v025.js';
-import { v026 } from './v026.js';
-import { v027 } from './v027.js';
-import { v028 } from './v028.js';
-import { v029 } from './v029.js';
-import { v030 } from './v030.js';
-import { v031 } from './v031.js';
-import { v032 } from './v032.js';
-import { v033 } from './v033.js';
-import { v034 } from './v034.js';
-import { v035 } from './v035.js';
-import { v036 } from './v036.js';
-import { v037 } from './v037.js';
-import { v038 } from './v038.js';
-import { v039 } from './v039.js';
-import { v040 } from './v040.js';
-import { v041 } from './v041.js';
-import { v042 } from './v042.js';
-import { v043 } from './v043.js';
-import { v044 } from './v044.js';
-import { v045 } from './v045.js';
 
 export type { Migration, MigrationFn } from './types.js';
 
@@ -73,31 +49,7 @@ export const migrations: Migration[] = [
   v018,
   v019,
   v020,
-  v021,
-  v022,
-  v023,
-  v024,
-  v025,
-  v026,
-  v027,
-  v028,
-  v029,
-  v030,
-  v031,
-  v032,
-  v033,
-  v034,
-  v035,
-  v036,
-  v037,
-  v038,
-  v039,
-  v040,
-  v041,
-  v042,
-  v043,
-  v044,
-  v045
+  v021
 ];
 
 /**
