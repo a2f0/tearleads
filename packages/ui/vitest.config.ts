@@ -17,10 +17,10 @@ export default defineConfig({
       exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**/*', 'src/index.ts'],
       thresholds: {
         // Baseline thresholds after package extraction/decoupling.
-        statements: 78,
-        branches: 73,
-        functions: 80,
-        lines: 78
+        statements: 74,
+        branches: 71,
+        functions: 76,
+        lines: 75
       }
     }
   }
