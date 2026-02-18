@@ -7,6 +7,7 @@ This Terraform stack manages the core Helm charts and applications running on th
 - **Ingress Controller:** NGINX Ingress Controller
 - **Certificate Management:** cert-manager (Let's Encrypt)
 - **Secrets Management:** HashiCorp Vault
+- **Logging:** Grafana k8s-monitoring (Alloy -> Loki)
 
 ## Prerequisites
 
@@ -37,6 +38,22 @@ This Terraform stack manages the core Helm charts and applications running on th
     ```bash
     terraform apply
     ```
+
+## Logging Configuration
+
+Logging is configured via Terraform variables for Grafana Cloud Loki:
+
+- `TF_VAR_loki_url` (base URL or full push endpoint)
+- `TF_VAR_loki_username` (Loki tenant/user ID)
+- `TF_VAR_loki_api_token` (Grafana Cloud access policy token)
+
+Example:
+
+```bash
+export TF_VAR_loki_username="1487632"
+export TF_VAR_loki_api_token="<token>"
+export TF_VAR_loki_url="https://logs-prod-042.grafana.net"
+```
 
 ## Secrets
 
