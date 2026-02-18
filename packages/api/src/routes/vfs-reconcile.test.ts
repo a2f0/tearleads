@@ -1,4 +1,7 @@
-import { decodeVfsSyncCursor, encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
+import {
+  decodeVfsSyncCursor,
+  encodeVfsSyncCursor
+} from '@tearleads/vfs-sync/vfs';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
@@ -47,7 +50,9 @@ describe('VFS sync reconcile route', () => {
   });
 
   it('returns 401 when not authenticated', async () => {
-    const response = await request(app).post('/v1/vfs/vfs-sync/reconcile').send({});
+    const response = await request(app)
+      .post('/v1/vfs/vfs-sync/reconcile')
+      .send({});
 
     expect(response.status).toBe(401);
     expect(response.body).toEqual({ error: 'Unauthorized' });
