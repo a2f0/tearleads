@@ -3,7 +3,7 @@ import { forwardRef } from 'react';
 
 export interface DropdownMenuItemProps {
   children: React.ReactNode;
-  onClick: () => void;
+  onClick?: () => void;
   icon?: React.ReactNode;
   checked?: boolean;
   disabled?: boolean;
@@ -25,13 +25,13 @@ export const DropdownMenuItem = forwardRef<
   ref
 ) {
   const handleClick = () => {
-    if (!disabled) {
+    if (!disabled && onClick) {
       onClick();
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.key === 'Enter' || e.key === ' ') && !disabled) {
+    if ((e.key === 'Enter' || e.key === ' ') && !disabled && onClick) {
       e.preventDefault();
       onClick();
     }

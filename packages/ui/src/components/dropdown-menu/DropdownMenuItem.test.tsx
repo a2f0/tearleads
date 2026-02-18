@@ -54,4 +54,10 @@ describe('DropdownMenuItem', () => {
     expect(item).toBeDisabled();
     expect(onClick).not.toHaveBeenCalled();
   });
+
+  it('renders disabled item without onClick handler', () => {
+    render(<DropdownMenuItem disabled>Disabled</DropdownMenuItem>);
+
+    expect(screen.getByRole('menuitem', { name: 'Disabled' })).toBeDisabled();
+  });
 });

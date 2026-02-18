@@ -12,6 +12,7 @@ import {
   useState
 } from 'react';
 import { createPortal } from 'react-dom';
+import { DROPDOWN_MENU_Z_INDEX } from '../../constants/zIndex';
 
 interface DropdownMenuProps {
   trigger: React.ReactNode;
@@ -215,12 +216,12 @@ export function DropdownMenu({
               tabIndex={-1}
               onKeyDown={handleMenuKeyDown}
               data-no-window-focus="true"
-              style={menuStyle}
-              className="dropdown-menu z-[10000] min-w-32 whitespace-nowrap border bg-background py-1 shadow-sm outline-none [border-color:var(--soft-border)]"
+              style={{ ...menuStyle, zIndex: DROPDOWN_MENU_Z_INDEX }}
+              className="dropdown-menu min-w-32 whitespace-nowrap border bg-background py-1 shadow-sm outline-none [border-color:var(--soft-border)]"
               data-align={align}
             >
               {Children.map(children, (child) => {
-                if (isValidElement<ChildProps>(child) && child.props.onClick) {
+                if (isValidElement<ChildProps>(child)) {
                   return cloneElement(child, {
                     onClick: () => {
                       child.props.onClick?.();
