@@ -67,6 +67,9 @@ importers:
 
   packages/admin:
     dependencies:
+      '@tearleads/backups':
+        specifier: workspace:*
+        version: link:../backups
       '@tearleads/compliance':
         specifier: workspace:*
         version: link:../compliance
@@ -1124,6 +1127,9 @@ importers:
 
   packages/compliance:
     dependencies:
+      '@tearleads/backups':
+        specifier: workspace:*
+        version: link:../backups
       lucide-react:
         specifier: 0.564.0
         version: 0.564.0(react@19.2.4)
@@ -1182,6 +1188,9 @@ importers:
 
   packages/console:
     dependencies:
+      '@tearleads/backups':
+        specifier: workspace:*
+        version: link:../backups
       '@tearleads/help':
         specifier: workspace:*
         version: link:../help
@@ -1548,6 +1557,9 @@ importers:
 
   packages/help:
     dependencies:
+      '@tearleads/backups':
+        specifier: workspace:*
+        version: link:../backups
       lucide-react:
         specifier: 0.564.0
         version: 0.564.0(react@19.2.4)
@@ -2402,6 +2414,9 @@ importers:
       '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
+      '@tearleads/ui':
+        specifier: workspace:*
+        version: link:../ui
       lucide-react:
         specifier: 0.564.0
         version: 0.564.0(react@19.2.4)
@@ -2466,6 +2481,9 @@ importers:
 
   packages/wallet:
     dependencies:
+      '@tearleads/ui':
+        specifier: workspace:*
+        version: link:../ui
       lucide-react:
         specifier: 0.564.0
         version: 0.564.0(react@19.2.4)
