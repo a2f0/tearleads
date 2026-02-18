@@ -55,14 +55,16 @@ async function request<T>(
 
   if (!response.ok) {
     let message = `API error: ${response.status}`;
-    try {
-      const body = (await response.json()) as { error?: string };
-      if (body.error) {
-        message = body.error;
+    const contentType = response.headers.get('content-type')?.toLowerCase();
+    if (contentType?.includes('application/json')) {
+      try {
+        const body = (await response.json()) as { error?: string };
+        if (body.error) {
+          message = body.error;
+        }
+      } catch {
+        // ignore JSON parse failures
       }
-    } catch (e) {
-      // ignore json parse failures, but log for debugging
-      console.warn('Failed to parse API error response as JSON:', e);
     }
     throw new Error(message);
   }
