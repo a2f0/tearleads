@@ -48,7 +48,10 @@ export function AnalyticsInlineUnlock({
   return (
     <div data-testid="inline-unlock">
       <p>Database is locked. Enter your password to view {description}.</p>
-      <form onSubmit={handleSubmit} className="mt-3 flex max-w-xs flex-col gap-2">
+      <form
+        onSubmit={handleSubmit}
+        className="mt-3 flex max-w-xs flex-col gap-2"
+      >
         <Input
           type="password"
           value={password}
