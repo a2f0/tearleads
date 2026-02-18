@@ -367,16 +367,19 @@ describe('App', () => {
     it('opens search window on desktop when Open Search is clicked', async () => {
       const user = userEvent.setup();
       mockUseSSEContext.mockReturnValue(null);
-      vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
-        matches: false,
-        media: query,
-        onchange: null,
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        dispatchEvent: vi.fn()
-      }) as MediaQueryList);
+      vi.spyOn(window, 'matchMedia').mockImplementation(
+        (query: string) =>
+          ({
+            matches: false,
+            media: query,
+            onchange: null,
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            dispatchEvent: vi.fn()
+          }) as MediaQueryList
+      );
 
       renderApp();
 
