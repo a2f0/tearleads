@@ -892,6 +892,9 @@ importers:
       '@tearleads/audio':
         specifier: workspace:*
         version: link:../audio
+      '@tearleads/backups':
+        specifier: workspace:*
+        version: link:../backups
       '@tearleads/businesses':
         specifier: workspace:*
         version: link:../businesses
@@ -1070,9 +1073,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@types/wicg-file-system-access':
-        specifier: 2023.10.7
-        version: 2023.10.7
       '@vitejs/plugin-react':
         specifier: 5.1.4
         version: 5.1.4(vite@7.3.1(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
@@ -1097,6 +1097,9 @@ importers:
       electron-vite:
         specifier: 5.0.0
         version: 5.0.0(vite@7.3.1(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
+      jiti:
+        specifier: 2.6.1
+        version: 2.6.1
       jsdom:
         specifier: 28.1.0
         version: 28.1.0(@noble/hashes@2.0.1)
@@ -6036,9 +6039,6 @@ packages:
 
   '@types/verror@1.10.11':
     resolution: {integrity: sha512-RlDm9K7+o5stv0Co8i8ZRGxDbrTxhJtgjqjFyVh/tXQyl/rYtTKlnTvZ88oSTeYREWurwx20Js4kTuKCsFkUtg==}
-
-  '@types/wicg-file-system-access@2023.10.7':
-    resolution: {integrity: sha512-g49ijasEJvCd7ifmAY2D0wdEtt1xRjBbA33PJTiv8mKBr7DoMsPeISoJ8oQOTopSRi+FBWPpPW5ouDj2QPKtGA==}
 
   '@types/yauzl@2.10.3':
     resolution: {integrity: sha512-oJoftv0LSuaDZE3Le4DbKX+KS9G36NzOeSap90UIK0yMA/NhKJhqlSGtNDORNRaIbQfzjXDrQa0ytJ6mNRGz/Q==}
@@ -15272,8 +15272,6 @@ snapshots:
 
   '@types/verror@1.10.11':
     optional: true
-
-  '@types/wicg-file-system-access@2023.10.7': {}
 
   '@types/yauzl@2.10.3':
     dependencies:
