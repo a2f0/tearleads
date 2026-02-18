@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/contacts",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Contacts management components for Tearleads",
   "type": "module",
   "main": "dist/index.js",
