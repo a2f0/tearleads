@@ -5,6 +5,7 @@ import { InlineLogin } from '@/components/auth/InlineLogin';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDatabaseContext } from '@/db/hooks';
+import { AdminUsersWindow as AdminUsersWindowBase } from '@/external/admin';
 
 interface AdminUsersWindowProps {
   id: string;
