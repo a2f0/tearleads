@@ -4,6 +4,8 @@
     "files",
     "dependencies",
     "devDependencies",
+    "exports",
+    "types",
     "unlisted",
     "unresolved",
     "binaries"
