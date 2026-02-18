@@ -55,7 +55,7 @@ describe('api with msw', () => {
     resetApiEventLogger();
   });
 
-  it('routes vfs and ai requests through msw', async () => {
+  it('routes vfs, ai, and mls requests through msw', async () => {
     const api = await loadApi();
 
     await api.vfs.getMyKeys();
@@ -122,6 +122,54 @@ describe('api with msw', () => {
       endDate: '2024-01-31'
     });
 
+    await api.mls.listGroups();
+    await api.mls.getGroup('group 1');
+    await api.mls.createGroup({
+      name: 'MLS Group',
+      groupIdMls: 'group-id-mls',
+      cipherSuite: 3
+    });
+    await api.mls.updateGroup('group 1', { name: 'MLS Group Updated' });
+    await api.mls.getGroupMembers('group 1');
+    await api.mls.addGroupMember('group 1', {
+      userId: 'user-2',
+      commit: 'commit-bytes',
+      welcome: 'welcome-bytes',
+      keyPackageRef: 'key-package-ref',
+      newEpoch: 2
+    });
+    await api.mls.getGroupMessages('group 1', { cursor: '10', limit: 25 });
+    await api.mls.sendGroupMessage('group 1', {
+      ciphertext: 'ciphertext',
+      epoch: 2,
+      messageType: 'application'
+    });
+    await api.mls.getGroupState('group 1');
+    await api.mls.uploadGroupState('group 1', {
+      epoch: 2,
+      encryptedState: 'encrypted-state',
+      stateHash: 'state-hash'
+    });
+    await api.mls.getMyKeyPackages();
+    await api.mls.getUserKeyPackages('user 2');
+    await api.mls.uploadKeyPackages({
+      keyPackages: [
+        {
+          keyPackageData: 'key-package-data',
+          keyPackageRef: 'key-package-ref',
+          cipherSuite: 3
+        }
+      ]
+    });
+    await api.mls.getWelcomeMessages();
+    await api.mls.acknowledgeWelcome('welcome 1', { groupId: 'group-1' });
+    await api.mls.removeGroupMember('group 1', 'user 2', {
+      commit: 'remove-commit',
+      newEpoch: 3
+    });
+    await api.mls.leaveGroup('group 1');
+    await api.mls.deleteKeyPackage('key package 1');
+
     expect(wasApiRequestMade('GET', '/vfs/keys/me')).toBe(true);
     expect(wasApiRequestMade('POST', '/vfs/keys')).toBe(true);
     expect(wasApiRequestMade('POST', '/vfs/register')).toBe(true);
@@ -155,6 +203,39 @@ describe('api with msw', () => {
     expect(wasApiRequestMade('GET', '/ai/usage')).toBe(true);
     expect(wasApiRequestMade('GET', '/ai/usage/summary')).toBe(true);
 
+    expect(wasApiRequestMade('GET', '/mls/groups')).toBe(true);
+    expect(wasApiRequestMade('GET', '/mls/groups/group%201')).toBe(true);
+    expect(wasApiRequestMade('POST', '/mls/groups')).toBe(true);
+    expect(wasApiRequestMade('PATCH', '/mls/groups/group%201')).toBe(true);
+    expect(wasApiRequestMade('GET', '/mls/groups/group%201/members')).toBe(
+      true
+    );
+    expect(wasApiRequestMade('POST', '/mls/groups/group%201/members')).toBe(
+      true
+    );
+    expect(wasApiRequestMade('GET', '/mls/groups/group%201/messages')).toBe(
+      true
+    );
+    expect(wasApiRequestMade('POST', '/mls/groups/group%201/messages')).toBe(
+      true
+    );
+    expect(wasApiRequestMade('GET', '/mls/groups/group%201/state')).toBe(true);
+    expect(wasApiRequestMade('POST', '/mls/groups/group%201/state')).toBe(true);
+    expect(wasApiRequestMade('GET', '/mls/key-packages/me')).toBe(true);
+    expect(wasApiRequestMade('GET', '/mls/key-packages/user%202')).toBe(true);
+    expect(wasApiRequestMade('POST', '/mls/key-packages')).toBe(true);
+    expect(wasApiRequestMade('GET', '/mls/welcome-messages')).toBe(true);
+    expect(
+      wasApiRequestMade('POST', '/mls/welcome-messages/welcome%201/ack')
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('DELETE', '/mls/groups/group%201/members/user%202')
+    ).toBe(true);
+    expect(wasApiRequestMade('DELETE', '/mls/groups/group%201')).toBe(true);
+    expect(
+      wasApiRequestMade('DELETE', '/mls/key-packages/key%20package%201')
+    ).toBe(true);
+
     expectSingleRequestQuery('GET', '/vfs/share-targets/search', {
       q: 'test query',
       type: 'user'
@@ -164,6 +245,10 @@ describe('api with msw', () => {
       endDate: '2024-01-31',
       cursor: 'cursor-1',
       limit: '10'
+    });
+    expectSingleRequestQuery('GET', '/mls/groups/group%201/messages', {
+      cursor: '10',
+      limit: '25'
     });
   });
 

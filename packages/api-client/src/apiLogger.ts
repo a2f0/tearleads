@@ -50,7 +50,25 @@ const API_EVENT_SLUGS = [
   'api_post_ai_message',
   'api_post_ai_usage',
   'api_get_ai_usage',
-  'api_get_ai_usage_summary'
+  'api_get_ai_usage_summary',
+  'api_get_mls_groups',
+  'api_get_mls_group',
+  'api_post_mls_group',
+  'api_patch_mls_group',
+  'api_delete_mls_group',
+  'api_get_mls_group_members',
+  'api_post_mls_group_member',
+  'api_delete_mls_group_member',
+  'api_get_mls_group_messages',
+  'api_post_mls_group_message',
+  'api_get_mls_group_state',
+  'api_post_mls_group_state',
+  'api_get_mls_key_packages_me',
+  'api_get_mls_key_packages_user',
+  'api_post_mls_key_packages',
+  'api_delete_mls_key_package',
+  'api_get_mls_welcome_messages',
+  'api_post_mls_welcome_ack'
 ] as const;
 
 export type ApiEventSlug = (typeof API_EVENT_SLUGS)[number];
