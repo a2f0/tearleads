@@ -28,3 +28,8 @@ output "ecr_repository_urls" {
   description = "ECR repository URLs for container images"
   value       = module.ci_artifacts.ecr_repository_urls
 }
+
+output "github_actions_role_arn" {
+  description = "GitHub Actions OIDC role ARN for staging ECR push"
+  value       = module.ci_artifacts.github_actions_role_arn
+}

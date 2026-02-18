@@ -37,6 +37,42 @@ variable "ci_user_name" {
   type        = string
 }
 
+variable "enable_ci_user" {
+  description = "Create legacy IAM user + access key for CI"
+  type        = bool
+  default     = true
+}
+
+variable "create_github_actions_role" {
+  description = "Create a GitHub Actions OIDC role for CI"
+  type        = bool
+  default     = false
+}
+
+variable "github_actions_repository" {
+  description = "GitHub repository in owner/repo format allowed to assume the role"
+  type        = string
+  default     = null
+}
+
+variable "github_actions_branches" {
+  description = "Branches allowed to assume the GitHub Actions role"
+  type        = list(string)
+  default     = ["main"]
+}
+
+variable "github_actions_oidc_provider_arn" {
+  description = "Existing GitHub OIDC provider ARN. If null, module creates one."
+  type        = string
+  default     = null
+}
+
+variable "github_actions_role_name" {
+  description = "Optional custom role name for GitHub Actions OIDC role"
+  type        = string
+  default     = null
+}
+
 variable "tags" {
   description = "Additional tags for resources"
   type        = map(string)

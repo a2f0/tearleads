@@ -62,6 +62,15 @@ jobs:
     uses: ./.github/workflows/deploy-web.yml
     secrets: inherit
 
+  publish-staging-containers:
+    name: Publish Staging Containers
+    needs: [web-e2e, website-e2e, electron-e2e]
+    uses: ./.github/workflows/publish-staging-containers.yml
+    permissions:
+      contents: read
+      id-token: write
+    secrets: inherit
+
   deploy-android:
     name: Deploy Android
     needs: [android, android-maestro]

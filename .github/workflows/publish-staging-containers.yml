@@ -1,0 +1,42 @@
+name: Publish Staging Containers
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Build and Push Staging Images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      AWS_REGION: us-east-1
+      DOCKER_BUILD_PLATFORM: linux/amd64
+      TF_VAR_staging_domain: ${{ secrets.DEPLOY_DOMAIN }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Validate OIDC role configuration
+        run: |
+          if [ -z "${{ vars.AWS_STAGING_ECR_ROLE_ARN }}" ]; then
+            echo "::error::Repository variable AWS_STAGING_ECR_ROLE_ARN is not set."
+            exit 1
+          fi
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_STAGING_ECR_ROLE_ARN }}
+          role-session-name: github-actions-staging-ecr
+
+      - name: Build and push staging images
+        run: ./scripts/buildContainers.sh staging

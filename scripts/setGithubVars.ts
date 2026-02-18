@@ -46,6 +46,11 @@ const managedSecretNames = [
   'VITE_API_URL'
 ] as const;
 
+const optionalGithubVars = [
+  'AWS_STAGING_ECR_ROLE_ARN',
+  'AWS_PROD_ECR_ROLE_ARN'
+] as const;
+
 interface SecretListItem {
   name?: string;
 }
@@ -79,6 +84,16 @@ function setSecret(
   execFileSync(
     'gh',
     ['secret', 'set', secretName, '-R', repo, '--body', secretValue],
+    {
+      stdio: ['ignore', 'inherit', 'inherit']
+    }
+  );
+}
+
+function setVariable(repo: string, variableName: string, variableValue: string): void {
+  execFileSync(
+    'gh',
+    ['variable', 'set', variableName, '-R', repo, '--body', variableValue],
     {
       stdio: ['ignore', 'inherit', 'inherit']
     }
@@ -192,7 +207,15 @@ function main(): void {
     setSecret(env.GITHUB_REPO, secret.name, secret.value);
   }
 
-  process.stdout.write('\nAll secrets have been set successfully!\n');
+  for (const variableName of optionalGithubVars) {
+    const value = process.env[variableName];
+    if (!value) {
+      continue;
+    }
+    setVariable(env.GITHUB_REPO, variableName, value);
+  }
+
+  process.stdout.write('\nAll managed secrets and optional variables have been set successfully!\n');
 
   if (!deleteExtra) {
     return;
