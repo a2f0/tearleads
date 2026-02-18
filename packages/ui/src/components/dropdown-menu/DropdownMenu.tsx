@@ -12,7 +12,7 @@ import {
   useState
 } from 'react';
 import { createPortal } from 'react-dom';
-import { DROPDOWN_MENU_Z_INDEX } from '../../constants/zIndex';
+import { DROPDOWN_MENU_Z_INDEX } from '../../constants/zIndex.js';
 
 interface DropdownMenuProps {
   trigger: React.ReactNode;
