@@ -1,4 +1,5 @@
 import { ThemeProvider } from '@tearleads/ui';
+import { configureBackupsRuntime } from '@tearleads/backups';
 import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
@@ -6,6 +7,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AppRoutes } from './AppRoutes';
 import { AudioProvider } from './audio';
+import { clientBackupsRuntime } from './backups/backupsRuntime';
 import { AppTooltipProvider } from './components/AppTooltipProvider';
 import { AndroidMediaSessionBridge } from './components/audio/AndroidMediaSessionBridge';
 import { GlobalSettingsEffects } from './components/GlobalSettingsEffects';
@@ -60,6 +62,7 @@ window.addEventListener('error', (event: ErrorEvent) => {
 });
 
 installConsoleErrorCapture();
+configureBackupsRuntime(clientBackupsRuntime);
 
 const rootElement = document.getElementById('root');
 if (rootElement) {

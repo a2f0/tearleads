@@ -26,9 +26,9 @@ vi.mock('../../components/backup-window/BackupDocumentation', () => ({
   )
 }));
 
-vi.mock('@client/i18n', () => ({
-  useTypedTranslation: (namespace: string) => ({
-    t: (key: string) => `${namespace}:${key}`
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key
   })
 }));
 

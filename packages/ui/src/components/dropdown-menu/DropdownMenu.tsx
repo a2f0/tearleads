@@ -1,0 +1,241 @@
+import {
+  Children,
+  cloneElement,
+  createContext,
+  isValidElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
+import { createPortal } from 'react-dom';
+
+interface DropdownMenuProps {
+  trigger: React.ReactNode;
+  children: React.ReactNode;
+  align?: 'left' | 'right';
+}
+
+interface TriggerElementProps {
+  onClick?: (e: React.MouseEvent) => void;
+  'aria-haspopup'?: string;
+  'aria-expanded'?: boolean;
+}
+
+interface ChildProps {
+  onClick?: () => void;
+  preventClose?: boolean;
+}
+
+interface DropdownMenuContextValue {
+  close: () => void;
+  getContainerElement: () => HTMLElement | null;
+}
+
+const HIDDEN_MENU_STYLE: React.CSSProperties = {
+  position: 'fixed',
+  top: -9999,
+  left: -9999,
+  visibility: 'hidden'
+};
+
+const DropdownMenuContext = createContext<DropdownMenuContextValue | null>(
+  null
+);
+
+export function useDropdownMenuContext(): DropdownMenuContextValue | null {
+  return useContext(DropdownMenuContext);
+}
+
+export function DropdownMenu({
+  trigger,
+  children,
+  align = 'left'
+}: DropdownMenuProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+  const [menuStyle, setMenuStyle] =
+    useState<React.CSSProperties>(HIDDEN_MENU_STYLE);
+
+  const close = useCallback(() => {
+    setIsOpen(false);
+    setFocusedIndex(-1);
+  }, []);
+
+  const toggle = useCallback(() => {
+    setIsOpen((prev) => {
+      const nextIsOpen = !prev;
+      if (nextIsOpen) {
+        setMenuStyle(HIDDEN_MENU_STYLE);
+      }
+      return nextIsOpen;
+    });
+    setFocusedIndex(-1);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(target) &&
+        (!menuRef.current || !menuRef.current.contains(target))
+      ) {
+        close();
+      }
+    };
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        close();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen, close]);
+
+  const updatePosition = useCallback(() => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const style: React.CSSProperties = {
+      position: 'fixed',
+      top: rect.bottom + 2,
+      visibility: 'visible'
+    };
+    if (align === 'right') {
+      style.right = window.innerWidth - rect.right;
+    } else {
+      style.left = rect.left;
+    }
+    setMenuStyle(style);
+  }, [align]);
+
+  useLayoutEffect(() => {
+    if (!isOpen || !containerRef.current) {
+      return;
+    }
+    updatePosition();
+  }, [isOpen, updatePosition]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    window.addEventListener('resize', updatePosition);
+    document.addEventListener('scroll', updatePosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      document.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [isOpen, updatePosition]);
+
+  useLayoutEffect(() => {
+    if (isOpen && menuRef.current) {
+      menuRef.current.focus();
+    }
+  }, [isOpen]);
+
+  const handleMenuKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const items = menuRef.current?.querySelectorAll<HTMLButtonElement>(
+      '[role="menuitem"]:not([disabled])'
+    );
+    if (!items || items.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const nextIndex = focusedIndex < items.length - 1 ? focusedIndex + 1 : 0;
+      setFocusedIndex(nextIndex);
+      items[nextIndex]?.focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prevIndex = focusedIndex > 0 ? focusedIndex - 1 : items.length - 1;
+      setFocusedIndex(prevIndex);
+      items[prevIndex]?.focus();
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setFocusedIndex(0);
+      items[0]?.focus();
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setFocusedIndex(items.length - 1);
+      items[items.length - 1]?.focus();
+    }
+  };
+
+  const getContainerElement = useCallback(() => containerRef.current, []);
+
+  const contextValue = useMemo<DropdownMenuContextValue>(
+    () => ({ close, getContainerElement }),
+    [close, getContainerElement]
+  );
+
+  return (
+    <DropdownMenuContext.Provider value={contextValue}>
+      <div ref={containerRef} className="relative" data-no-window-focus="true">
+        {isValidElement<TriggerElementProps>(trigger) ? (
+          cloneElement(trigger, {
+            onClick: (e: React.MouseEvent) => {
+              toggle();
+              trigger.props.onClick?.(e);
+            },
+            'aria-haspopup': 'menu',
+            'aria-expanded': isOpen
+          })
+        ) : (
+          <button
+            type="button"
+            onClick={toggle}
+            className="px-2 py-0.5 text-xs hover:bg-accent"
+            aria-haspopup="menu"
+            aria-expanded={isOpen}
+          >
+            {trigger}
+          </button>
+        )}
+        {isOpen &&
+          createPortal(
+            <div
+              ref={menuRef}
+              role="menu"
+              tabIndex={-1}
+              onKeyDown={handleMenuKeyDown}
+              data-no-window-focus="true"
+              style={menuStyle}
+              className="dropdown-menu z-[10000] min-w-32 whitespace-nowrap border bg-background py-1 shadow-sm outline-none [border-color:var(--soft-border)]"
+              data-align={align}
+            >
+              {Children.map(children, (child) => {
+                if (isValidElement<ChildProps>(child) && child.props.onClick) {
+                  return cloneElement(child, {
+                    onClick: () => {
+                      child.props.onClick?.();
+                      if (!child.props.preventClose) {
+                        close();
+                      }
+                    }
+                  });
+                }
+                return child;
+              })}
+            </div>,
+            document.body
+          )}
+      </div>
+    </DropdownMenuContext.Provider>
+  );
+}

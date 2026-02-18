@@ -1,10 +1,18 @@
 // Components
 export { ApiDocs } from './components/api-docs/ApiDocs.js';
+export { BackLink, type BackLinkProps } from './components/back-link/index.js';
+export { Button, buttonVariants } from './components/button.js';
 export {
   ConnectionIndicator,
   type ConnectionIndicatorProps,
   type ConnectionState
 } from './components/connectionIndicator.js';
+export {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  useDropdownMenuContext
+} from './components/dropdown-menu/index.js';
 export { Dialog, type DialogProps } from './components/dialog.js';
 export { Footer, type FooterProps } from './components/footer.js';
 export {
@@ -22,6 +30,7 @@ export {
   ThemeSwitcher,
   type ThemeSwitcherProps
 } from './components/themeSwitcher.js';
+export { Input, inputVariants, type InputProps } from './components/input.js';
 export {
   Tooltip,
   TooltipContent,

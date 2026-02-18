@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BackupManagerView } from './BackupManagerView';
+import { configureBackupsRuntime } from '../../runtime/backupsRuntime';
 
 const {
   mockListStoredBackups,
@@ -11,7 +12,8 @@ const {
   mockDeleteBackupFromStorage,
   mockSaveFile,
   mockCreateBackup,
-  mockSaveBackupToStorage
+  mockSaveBackupToStorage,
+  mockEstimateBackupSize
 } = vi.hoisted(() => ({
   mockListStoredBackups: vi.fn().mockResolvedValue([
     {
@@ -26,51 +28,15 @@ const {
     .mockResolvedValue(new Uint8Array([1, 2, 3])),
   mockDeleteBackupFromStorage: vi.fn().mockResolvedValue(undefined),
   mockSaveFile: vi.fn().mockResolvedValue(undefined),
-  mockCreateBackup: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
-  mockSaveBackupToStorage: vi.fn().mockResolvedValue(undefined)
-}));
-
-// Mock database and storage dependencies
-vi.mock('@client/db', () => ({
-  getCurrentInstanceId: () => 'test-instance',
-  getDatabaseAdapter: () => ({})
-}));
-
-vi.mock('@client/db/backup', () => ({
-  createBackup: mockCreateBackup,
-  estimateBackupSize: vi.fn().mockResolvedValue({
+  mockCreateBackup: vi.fn().mockResolvedValue({
+    filename: 'test-backup.tbu',
+    destination: 'storage'
+  }),
+  mockSaveBackupToStorage: vi.fn().mockResolvedValue(undefined),
+  mockEstimateBackupSize: vi.fn().mockResolvedValue({
     blobCount: 5,
     blobTotalSize: 1024 * 1024
   })
-}));
-
-vi.mock('@client/db/crypto', () => ({
-  getKeyManager: () => ({
-    getCurrentKey: () => new Uint8Array(32)
-  })
-}));
-
-vi.mock('@client/db/instanceRegistry', () => ({
-  getActiveInstance: vi.fn().mockResolvedValue({ name: 'Test Instance' })
-}));
-
-vi.mock('@client/lib/fileUtils', () => ({
-  saveFile: mockSaveFile
-}));
-
-vi.mock('@client/storage/backupStorage', () => ({
-  isBackupStorageSupported: () => true,
-  listStoredBackups: mockListStoredBackups,
-  getBackupStorageUsed: mockGetBackupStorageUsed,
-  saveBackupToStorage: mockSaveBackupToStorage,
-  readBackupFromStorage: mockReadBackupFromStorage,
-  deleteBackupFromStorage: mockDeleteBackupFromStorage
-}));
-
-vi.mock('@client/storage/opfs', () => ({
-  isFileStorageInitialized: () => true,
-  getFileStorageForInstance: () => ({}),
-  initializeFileStorage: vi.fn()
 }));
 
 vi.mock('./RestoreBackupForm', () => ({
@@ -101,6 +67,20 @@ describe('BackupManagerView', () => {
         lastModified: Date.now()
       }
     ]);
+    configureBackupsRuntime({
+      estimateBackupSize: (includeBlobs) => mockEstimateBackupSize(includeBlobs),
+      createBackup: (input) => mockCreateBackup(input),
+      getBackupInfo: vi.fn(),
+      restoreBackup: vi.fn(),
+      refreshInstances: vi.fn(),
+      isBackupStorageSupported: () => true,
+      listStoredBackups: () => mockListStoredBackups(),
+      getBackupStorageUsed: () => mockGetBackupStorageUsed(),
+      readBackupFromStorage: (filename) => mockReadBackupFromStorage(filename),
+      deleteBackupFromStorage: (filename) =>
+        mockDeleteBackupFromStorage(filename),
+      saveFile: (data, filename) => mockSaveFile(data, filename)
+    });
   });
 
   it('shows Create Backup section', async () => {

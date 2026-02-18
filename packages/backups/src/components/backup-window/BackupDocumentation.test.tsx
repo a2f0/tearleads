@@ -25,7 +25,7 @@ describe('BackupDocumentation', () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId('markdown-toc-sidebar')).toBeInTheDocument();
     expect(screen.getByTestId('markdown-content-scroll')).toBeInTheDocument();
-    expect(screen.getByTestId('markdown')).toBeInTheDocument();
+    expect(screen.getAllByTestId('markdown').length).toBeGreaterThan(0);
   });
 
   it('calls onBack when back button is clicked', async () => {

@@ -39,9 +39,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('../client/src', import.meta.url)),
-      '@client': fileURLToPath(new URL('../client/src', import.meta.url)),
       '@backups': fileURLToPath(new URL('./src', import.meta.url)),
+      '@tearleads/ui': fileURLToPath(new URL('../ui/src/index.ts', import.meta.url)),
       '@tearleads/window-manager': fileURLToPath(
         new URL('../window-manager/src/index.ts', import.meta.url)
       )
