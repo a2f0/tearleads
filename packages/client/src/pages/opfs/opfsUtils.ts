@@ -1,5 +1,29 @@
 import type { FileSystemEntry } from './types';
 
+interface FileSystemDirectoryEntriesHandle extends FileSystemDirectoryHandle {
+  entries(): AsyncIterableIterator<
+    [string, FileSystemDirectoryHandle | FileSystemFileHandle]
+  >;
+}
+
+function hasDirectoryEntries(
+  directory: FileSystemDirectoryHandle
+): directory is FileSystemDirectoryEntriesHandle {
+  return 'entries' in directory;
+}
+
+function getDirectoryEntries(
+  directory: FileSystemDirectoryHandle
+): AsyncIterableIterator<
+  [string, FileSystemDirectoryHandle | FileSystemFileHandle]
+> {
+  if (!hasDirectoryEntries(directory)) {
+    throw new Error('OPFS entries() is not supported in this environment');
+  }
+
+  return directory.entries();
+}
+
 export function calculateTotalSize(entries: FileSystemEntry[]): number {
   return entries.reduce((total, entry) => {
     if (entry.kind === 'file' && entry.size !== undefined) {
@@ -29,7 +53,7 @@ export async function readDirectory(
 ): Promise<FileSystemEntry[]> {
   const entries: FileSystemEntry[] = [];
 
-  for await (const [name, childHandle] of handle.entries()) {
+  for await (const [name, childHandle] of getDirectoryEntries(handle)) {
     if (childHandle.kind === 'file') {
       const file = await childHandle.getFile();
       entries.push({

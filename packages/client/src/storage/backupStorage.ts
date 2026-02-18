@@ -13,6 +13,12 @@ export interface StoredBackup {
   lastModified: number;
 }
 
+interface FileSystemDirectoryEntriesHandle extends FileSystemDirectoryHandle {
+  entries(): AsyncIterableIterator<
+    [string, FileSystemDirectoryHandle | FileSystemFileHandle]
+  >;
+}
+
 function hasOpfsSupport(): boolean {
   return (
     typeof navigator !== 'undefined' &&
@@ -27,14 +33,21 @@ function isFileHandle(
   return handle.kind === 'file';
 }
 
+function hasDirectoryEntries(
+  directory: FileSystemDirectoryHandle
+): directory is FileSystemDirectoryEntriesHandle {
+  return 'entries' in directory;
+}
+
 function getDirectoryEntries(
   directory: FileSystemDirectoryHandle
 ): AsyncIterableIterator<
   [string, FileSystemDirectoryHandle | FileSystemFileHandle]
 > {
-  if (!('entries' in directory)) {
+  if (!hasDirectoryEntries(directory)) {
     throw new Error('OPFS entries() is not supported in this environment');
   }
+
   return directory.entries();
 }
 
