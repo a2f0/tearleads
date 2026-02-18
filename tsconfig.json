@@ -50,6 +50,8 @@
     { "path": "./packages/msw" },
     { "path": "./packages/msw/tsconfig.test.json" },
     { "path": "./packages/mls-chat" },
+    { "path": "./packages/local-write-orchestrator" },
+    { "path": "./packages/local-write-orchestrator/tsconfig.test.json" },
     { "path": "./packages/smtp-listener" },
     { "path": "./packages/smtp-listener/tsconfig.test.json" },
     { "path": "./packages/chrome-extension" },

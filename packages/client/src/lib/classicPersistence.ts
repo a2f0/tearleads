@@ -7,7 +7,7 @@ import {
   type VfsLinkLikeRow
 } from '@tearleads/classic';
 import { and, eq, inArray, or, sql } from 'drizzle-orm';
-import { getDatabase } from '@/db';
+import { getDatabase, runLocalWrite } from '@/db';
 import { notes, tags, vfsLinks, vfsRegistry } from '@/db/schema';
 
 export const CLASSIC_TAG_PARENT_ID = '__vfs_root__';
@@ -107,10 +107,12 @@ export async function persistClassicOrderToDatabase(
     sql` `
   )} ELSE ${vfsLinks.position} END`;
 
-  await db
-    .update(vfsLinks)
-    .set({ position: positionCaseExpression })
-    .where(or(...targetedUpdates.map(({ condition }) => condition)));
+  await runLocalWrite(async () => {
+    await db
+      .update(vfsLinks)
+      .set({ position: positionCaseExpression })
+      .where(or(...targetedUpdates.map(({ condition }) => condition)));
+  });
 
   const updateLookup = new Map(
     updates.map((update) => [
@@ -157,31 +159,33 @@ export async function createClassicTag(
   const now = new Date();
   const nextPosition = await getNextChildPosition(CLASSIC_TAG_PARENT_ID);
 
-  await db.transaction(async (tx) => {
-    await tx.insert(vfsRegistry).values({
-      id: tagId,
-      objectType: 'tag',
-      ownerId: null,
-      createdAt: now
-    });
+  await runLocalWrite(async () =>
+    db.transaction(async (tx) => {
+      await tx.insert(vfsRegistry).values({
+        id: tagId,
+        objectType: 'tag',
+        ownerId: null,
+        createdAt: now
+      });
 
-    await tx.insert(tags).values({
-      id: tagId,
-      encryptedName: name,
-      deleted: false,
-      color: null,
-      icon: null
-    });
+      await tx.insert(tags).values({
+        id: tagId,
+        encryptedName: name,
+        deleted: false,
+        color: null,
+        icon: null
+      });
 
-    await tx.insert(vfsLinks).values({
-      id: linkId,
-      parentId: CLASSIC_TAG_PARENT_ID,
-      childId: tagId,
-      wrappedSessionKey: '',
-      position: nextPosition,
-      createdAt: now
-    });
-  });
+      await tx.insert(vfsLinks).values({
+        id: linkId,
+        parentId: CLASSIC_TAG_PARENT_ID,
+        childId: tagId,
+        wrappedSessionKey: '',
+        position: nextPosition,
+        createdAt: now
+      });
+    })
+  );
 
   return tagId;
 }
@@ -195,37 +199,39 @@ export async function createClassicNote(
   const db = getDatabase();
   const now = new Date();
 
-  await db.transaction(async (tx) => {
-    await tx.insert(vfsRegistry).values({
-      id: noteId,
-      objectType: 'note',
-      ownerId: null,
-      createdAt: now
-    });
-
-    await tx.insert(notes).values({
-      id: noteId,
-      title,
-      content,
-      createdAt: now,
-      updatedAt: now,
-      deleted: false
-    });
-
-    // Only link to tag if one is provided (otherwise create untagged note)
-    if (tagId) {
-      const linkId = crypto.randomUUID();
-      const nextPosition = await getNextChildPosition(tagId);
-      await tx.insert(vfsLinks).values({
-        id: linkId,
-        parentId: tagId,
-        childId: noteId,
-        wrappedSessionKey: '',
-        position: nextPosition,
+  await runLocalWrite(async () =>
+    db.transaction(async (tx) => {
+      await tx.insert(vfsRegistry).values({
+        id: noteId,
+        objectType: 'note',
+        ownerId: null,
         createdAt: now
       });
-    }
-  });
+
+      await tx.insert(notes).values({
+        id: noteId,
+        title,
+        content,
+        createdAt: now,
+        updatedAt: now,
+        deleted: false
+      });
+
+      // Only link to tag if one is provided (otherwise create untagged note)
+      if (tagId) {
+        const linkId = crypto.randomUUID();
+        const nextPosition = await getNextChildPosition(tagId);
+        await tx.insert(vfsLinks).values({
+          id: linkId,
+          parentId: tagId,
+          childId: noteId,
+          wrappedSessionKey: '',
+          position: nextPosition,
+          createdAt: now
+        });
+      }
+    })
+  );
 
   return noteId;
 }
@@ -250,13 +256,15 @@ export async function linkNoteToTag(
   const now = new Date();
   const nextPosition = await getNextChildPosition(tagId);
 
-  await db.insert(vfsLinks).values({
-    id: linkId,
-    parentId: tagId,
-    childId: noteId,
-    wrappedSessionKey: '',
-    position: nextPosition,
-    createdAt: now
+  await runLocalWrite(async () => {
+    await db.insert(vfsLinks).values({
+      id: linkId,
+      parentId: tagId,
+      childId: noteId,
+      wrappedSessionKey: '',
+      position: nextPosition,
+      createdAt: now
+    });
   });
 
   return linkId;
@@ -265,13 +273,17 @@ export async function linkNoteToTag(
 export async function deleteClassicTag(tagId: string): Promise<void> {
   const db = getDatabase();
 
-  await db.update(tags).set({ deleted: true }).where(eq(tags.id, tagId));
+  await runLocalWrite(async () => {
+    await db.update(tags).set({ deleted: true }).where(eq(tags.id, tagId));
+  });
 }
 
 export async function restoreClassicTag(tagId: string): Promise<void> {
   const db = getDatabase();
 
-  await db.update(tags).set({ deleted: false }).where(eq(tags.id, tagId));
+  await runLocalWrite(async () => {
+    await db.update(tags).set({ deleted: false }).where(eq(tags.id, tagId));
+  });
 }
 
 export async function renameClassicTag(
@@ -280,10 +292,12 @@ export async function renameClassicTag(
 ): Promise<void> {
   const db = getDatabase();
 
-  await db
-    .update(tags)
-    .set({ encryptedName: newName })
-    .where(eq(tags.id, tagId));
+  await runLocalWrite(async () => {
+    await db
+      .update(tags)
+      .set({ encryptedName: newName })
+      .where(eq(tags.id, tagId));
+  });
 }
 
 export async function updateClassicNote(
@@ -293,8 +307,10 @@ export async function updateClassicNote(
 ): Promise<void> {
   const db = getDatabase();
 
-  await db
-    .update(notes)
-    .set({ title, content, updatedAt: new Date() })
-    .where(eq(notes.id, noteId));
+  await runLocalWrite(async () => {
+    await db
+      .update(notes)
+      .set({ title, content, updatedAt: new Date() })
+      .where(eq(notes.id, noteId));
+  });
 }

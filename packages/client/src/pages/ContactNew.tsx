@@ -1,21 +1,10 @@
-import {
-  ArrowLeft,
-  Cake,
-  Loader2,
-  Mail,
-  Phone,
-  Plus,
-  Save,
-  Trash2,
-  User,
-  X
-} from 'lucide-react';
+import { ArrowLeft, Cake, Loader2, Save, User, X } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { getDatabase, getDatabaseAdapter } from '@/db';
+import { getDatabase, getDatabaseAdapter, runLocalWrite } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import {
   contactEmails,
@@ -27,26 +16,13 @@ import { generateSessionKey, wrapSessionKey } from '@/hooks/useVfsKeys';
 import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
-
-interface ContactFormData {
-  firstName: string;
-  lastName: string;
-  birthday: string;
-}
-
-interface EmailFormData {
-  id: string;
-  email: string;
-  label: string;
-  isPrimary: boolean;
-}
-
-interface PhoneFormData {
-  id: string;
-  phoneNumber: string;
-  label: string;
-  isPrimary: boolean;
-}
+import { EmailAddressesSection } from '@/pages/contact-new/EmailAddressesSection';
+import { PhoneNumbersSection } from '@/pages/contact-new/PhoneNumbersSection';
+import type {
+  ContactFormData,
+  EmailFormData,
+  PhoneFormData
+} from '@/pages/contact-new/types';
 
 export function ContactNew() {
   const navigate = useNavigate();
@@ -172,86 +148,86 @@ export function ContactNew() {
     const contactId = crypto.randomUUID();
 
     try {
-      const adapter = getDatabaseAdapter();
-      await adapter.beginTransaction();
+      let encryptedSessionKey: string | null = null;
+      await runLocalWrite(async () => {
+        const adapter = getDatabaseAdapter();
+        await adapter.beginTransaction();
+        try {
+          const db = getDatabase();
+          const now = new Date();
+          const auth = readStoredAuth();
 
-      try {
-        const db = getDatabase();
-        const now = new Date();
-
-        await db.insert(contacts).values({
-          id: contactId,
-          firstName: formData.firstName.trim(),
-          lastName: formData.lastName.trim() || null,
-          birthday: formData.birthday.trim() || null,
-          createdAt: now,
-          updatedAt: now,
-          deleted: false
-        });
-
-        for (const email of emailsForm) {
-          await db.insert(contactEmails).values({
-            id: email.id,
-            contactId,
-            email: email.email.trim(),
-            label: email.label.trim() || null,
-            isPrimary: email.isPrimary
+          await db.insert(contacts).values({
+            id: contactId,
+            firstName: formData.firstName.trim(),
+            lastName: formData.lastName.trim() || null,
+            birthday: formData.birthday.trim() || null,
+            createdAt: now,
+            updatedAt: now,
+            deleted: false
           });
-        }
 
-        for (const phone of phonesForm) {
-          await db.insert(contactPhones).values({
-            id: phone.id,
-            contactId,
-            phoneNumber: phone.phoneNumber.trim(),
-            label: phone.label.trim() || null,
-            isPrimary: phone.isPrimary
-          });
-        }
-
-        const auth = readStoredAuth();
-        let encryptedSessionKey: string | null = null;
-        if (isLoggedIn()) {
-          try {
-            const sessionKey = generateSessionKey();
-            encryptedSessionKey = await wrapSessionKey(sessionKey);
-          } catch (err) {
-            console.warn('Failed to wrap contact session key:', err);
-          }
-        }
-
-        // Register in local VFS regardless of auth state (device-first)
-        await db.insert(vfsRegistry).values({
-          id: contactId,
-          objectType: 'contact',
-          ownerId: auth.user?.id ?? null,
-          encryptedSessionKey,
-          createdAt: now
-        });
-
-        await adapter.commitTransaction();
-
-        if (
-          isLoggedIn() &&
-          getFeatureFlagValue('vfsServerRegistration') &&
-          encryptedSessionKey
-        ) {
-          try {
-            await api.vfs.register({
-              id: contactId,
-              objectType: 'contact',
-              encryptedSessionKey
+          for (const email of emailsForm) {
+            await db.insert(contactEmails).values({
+              id: email.id,
+              contactId,
+              email: email.email.trim(),
+              label: email.label.trim() || null,
+              isPrimary: email.isPrimary
             });
-          } catch (err) {
-            console.warn('Failed to register contact on server:', err);
           }
-        }
 
-        navigate(`/contacts/${contactId}`);
-      } catch (err) {
-        await adapter.rollbackTransaction();
-        throw err;
+          for (const phone of phonesForm) {
+            await db.insert(contactPhones).values({
+              id: phone.id,
+              contactId,
+              phoneNumber: phone.phoneNumber.trim(),
+              label: phone.label.trim() || null,
+              isPrimary: phone.isPrimary
+            });
+          }
+
+          if (isLoggedIn()) {
+            try {
+              const sessionKey = generateSessionKey();
+              encryptedSessionKey = await wrapSessionKey(sessionKey);
+            } catch (err) {
+              console.warn('Failed to wrap contact session key:', err);
+            }
+          }
+
+          await db.insert(vfsRegistry).values({
+            id: contactId,
+            objectType: 'contact',
+            ownerId: auth.user?.id ?? null,
+            encryptedSessionKey,
+            createdAt: now
+          });
+
+          await adapter.commitTransaction();
+        } catch (err) {
+          await adapter.rollbackTransaction();
+          throw err;
+        }
+      });
+
+      if (
+        isLoggedIn() &&
+        getFeatureFlagValue('vfsServerRegistration') &&
+        encryptedSessionKey
+      ) {
+        try {
+          await api.vfs.register({
+            id: contactId,
+            objectType: 'contact',
+            encryptedSessionKey
+          });
+        } catch (err) {
+          console.warn('Failed to register contact on server:', err);
+        }
       }
+
+      navigate(`/contacts/${contactId}`);
     } catch (err) {
       console.error('Failed to create contact:', err);
       setError(err instanceof Error ? err.message : String(err));
@@ -290,9 +266,7 @@ export function ContactNew() {
 
       {isUnlocked && (
         <div className="space-y-6">
-          {/* Contact Header */}
           <div className="rounded-lg border p-4">
-            {/* Title row with avatar */}
             <div className="mb-4 flex items-center gap-3">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-muted">
                 <User className="h-6 w-6 text-muted-foreground" />
@@ -300,7 +274,6 @@ export function ContactNew() {
               <h1 className="font-bold text-xl tracking-tight">New Contact</h1>
             </div>
 
-            {/* Form fields */}
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -360,7 +333,6 @@ export function ContactNew() {
               </div>
             </div>
 
-            {/* Action buttons */}
             <div className="mt-6 flex flex-col-reverse gap-2 border-t pt-4 sm:flex-row sm:justify-end">
               <Button
                 variant="outline"
@@ -388,151 +360,21 @@ export function ContactNew() {
             </div>
           </div>
 
-          {/* Email Addresses */}
-          <div className="rounded-lg border">
-            <div className="border-b px-4 py-3">
-              <h2 className="font-semibold">Email Addresses</h2>
-            </div>
-            <div className="divide-y">
-              {emailsForm.map((email) => (
-                <div key={email.id} className="space-y-3 px-4 py-3">
-                  {/* Email input row */}
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <Input
-                      type="email"
-                      value={email.email}
-                      onChange={(e) =>
-                        handleEmailChange(email.id, 'email', e.target.value)
-                      }
-                      placeholder="Email address"
-                      className="min-w-0 flex-1"
-                      data-testid={`new-email-${email.id}`}
-                    />
-                  </div>
-                  {/* Label and options row */}
-                  <div className="flex flex-wrap items-center gap-2 pl-6">
-                    <Input
-                      type="text"
-                      value={email.label}
-                      onChange={(e) =>
-                        handleEmailChange(email.id, 'label', e.target.value)
-                      }
-                      placeholder="Label (e.g., Work)"
-                      className="w-full sm:w-32"
-                      data-testid={`new-email-label-${email.id}`}
-                    />
-                    <label className="flex shrink-0 items-center gap-1.5 text-sm">
-                      <input
-                        type="radio"
-                        name="primaryEmail"
-                        checked={email.isPrimary}
-                        onChange={() => handleEmailPrimaryChange(email.id)}
-                        className="h-4 w-4"
-                      />
-                      Primary
-                    </label>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteEmail(email.id)}
-                      className="ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      data-testid={`delete-email-${email.id}`}
-                    >
-                      <Trash2 className="mr-1 h-4 w-4" />
-                      Remove
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="border-t px-4 py-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleAddEmail}
-                data-testid="add-email-button"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Email
-              </Button>
-            </div>
-          </div>
+          <EmailAddressesSection
+            emailsForm={emailsForm}
+            onEmailChange={handleEmailChange}
+            onEmailPrimaryChange={handleEmailPrimaryChange}
+            onDeleteEmail={handleDeleteEmail}
+            onAddEmail={handleAddEmail}
+          />
 
-          {/* Phone Numbers */}
-          <div className="rounded-lg border">
-            <div className="border-b px-4 py-3">
-              <h2 className="font-semibold">Phone Numbers</h2>
-            </div>
-            <div className="divide-y">
-              {phonesForm.map((phone) => (
-                <div key={phone.id} className="space-y-3 px-4 py-3">
-                  {/* Phone input row */}
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <Input
-                      type="tel"
-                      value={phone.phoneNumber}
-                      onChange={(e) =>
-                        handlePhoneChange(
-                          phone.id,
-                          'phoneNumber',
-                          e.target.value
-                        )
-                      }
-                      placeholder="Phone number"
-                      className="min-w-0 flex-1"
-                      data-testid={`new-phone-${phone.id}`}
-                    />
-                  </div>
-                  {/* Label and options row */}
-                  <div className="flex flex-wrap items-center gap-2 pl-6">
-                    <Input
-                      type="text"
-                      value={phone.label}
-                      onChange={(e) =>
-                        handlePhoneChange(phone.id, 'label', e.target.value)
-                      }
-                      placeholder="Label (e.g., Mobile)"
-                      className="w-full sm:w-32"
-                      data-testid={`new-phone-label-${phone.id}`}
-                    />
-                    <label className="flex shrink-0 items-center gap-1.5 text-sm">
-                      <input
-                        type="radio"
-                        name="primaryPhone"
-                        checked={phone.isPrimary}
-                        onChange={() => handlePhonePrimaryChange(phone.id)}
-                        className="h-4 w-4"
-                      />
-                      Primary
-                    </label>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeletePhone(phone.id)}
-                      className="ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      data-testid={`delete-phone-${phone.id}`}
-                    >
-                      <Trash2 className="mr-1 h-4 w-4" />
-                      Remove
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="border-t px-4 py-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleAddPhone}
-                data-testid="add-phone-button"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Phone
-              </Button>
-            </div>
-          </div>
+          <PhoneNumbersSection
+            phonesForm={phonesForm}
+            onPhoneChange={handlePhoneChange}
+            onPhonePrimaryChange={handlePhonePrimaryChange}
+            onDeletePhone={handleDeletePhone}
+            onAddPhone={handleAddPhone}
+          />
         </div>
       )}
     </div>

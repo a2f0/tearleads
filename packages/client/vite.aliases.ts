@@ -96,6 +96,14 @@ export const createViteAliases = (
     '@tearleads/health': path.resolve(dirname, '../health/src/index.ts'),
     '@tearleads/help/package.json': path.resolve(dirname, '../help/package.json'),
     '@tearleads/help': path.resolve(dirname, '../help/src/index.ts'),
+    '@tearleads/local-write-orchestrator/package.json': path.resolve(
+      dirname,
+      '../local-write-orchestrator/package.json'
+    ),
+    '@tearleads/local-write-orchestrator': path.resolve(
+      dirname,
+      '../local-write-orchestrator/src/index.ts'
+    ),
     '@tearleads/keychain/package.json': path.resolve(
       dirname,
       '../keychain/package.json'

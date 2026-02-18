@@ -24,6 +24,8 @@ import {
 
 export type { Database };
 export { getDatabase, getDatabaseAdapter, isDatabaseInitialized };
+export { drainLocalWrites, runLocalWrite } from './localWrite';
+export type { LocalDatabaseWriteOptions } from './localWrite';
 
 let platformInfoCache: PlatformInfo | null = null;
 let currentInstanceId: string | null = null;

@@ -8,6 +8,7 @@
 import { inArray } from 'drizzle-orm';
 import type { Database } from './index';
 import { userSettings } from './schema';
+import { runLocalWrite } from './localWrite';
 
 // Re-export everything from @tearleads/settings
 export {
@@ -114,15 +115,17 @@ export async function saveSettingToDb<K extends UserSettingKey>(
   value: SettingValueMap[K]
 ): Promise<void> {
   const now = new Date();
-  await db
-    .insert(userSettings)
-    .values({
-      key,
-      value,
-      updatedAt: now
-    })
-    .onConflictDoUpdate({
-      target: userSettings.key,
-      set: { value, updatedAt: now }
-    });
+  await runLocalWrite(async () => {
+    await db
+      .insert(userSettings)
+      .values({
+        key,
+        value,
+        updatedAt: now
+      })
+      .onConflictDoUpdate({
+        target: userSettings.key,
+        set: { value, updatedAt: now }
+      });
+  });
 }
