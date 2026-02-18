@@ -325,7 +325,6 @@ jobs:
           path: packages
 
       - name: Cache SQLite WASM
-        if: matrix.package == 'client'
         uses: actions/cache@v4
         with:
           path: |
@@ -335,7 +334,6 @@ jobs:
           key: sqlite-wasm-${{ hashFiles('scripts/downloadSqliteWasm.sh') }}
 
       - name: Download SQLite WASM
-        if: matrix.package == 'client'
         run: ./scripts/downloadSqliteWasm.sh
 
       - name: Generate app configs
