@@ -37,6 +37,7 @@
     "lint:rubocop": "pnpm --filter @tearleads/client lint:rubocop",
     "lint:ansible": "ansible-lint ansible/ terraform/stacks/staging/tee/ansible/ terraform/stacks/prod/tee/ansible/",
     "lint:md": "markdownlint-cli2 '**/*.md'",
+    "lint:actions": "./scripts/checkGithubActions.sh",
     "lint:knip": "knip --config knip.json --use-tsconfig-files",
     "lint:knip:fix": "knip -n --config knip.json --use-tsconfig-files --fix --fix-type dependencies --format",
     "lintPreen": "./scripts/checkPreenEcosystem.sh --strict",

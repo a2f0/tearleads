@@ -15,7 +15,6 @@ jobs:
     timeout-minutes: 20
     env:
       AWS_REGION: us-east-1
-      KUBECONFIG_FILE: ${{ runner.temp }}/staging-kubeconfig
       STAGING_KUBECONFIG_B64: ${{ secrets.STAGING_KUBECONFIG_B64 }}
       STAGING_KUBECONFIG_PATH: ${{ vars.STAGING_KUBECONFIG_PATH }}
 
@@ -45,6 +44,7 @@ jobs:
       - name: Configure kubeconfig
         run: |
           set -eu
+          KUBECONFIG_FILE="${RUNNER_TEMP}/staging-kubeconfig"
           if [ -n "$STAGING_KUBECONFIG_B64" ]; then
             echo "$STAGING_KUBECONFIG_B64" | base64 --decode > "$KUBECONFIG_FILE"
             chmod 600 "$KUBECONFIG_FILE"
