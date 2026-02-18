@@ -151,7 +151,7 @@ resource "hcloud_server" "vpn" {
         [Peer]
         PublicKey = $SERVER_PUBLIC
         Endpoint = $SERVER_IP:${var.wireguard_port}
-        AllowedIPs = 0.0.0.0/0, ::/0
+        AllowedIPs = ${var.vpn_network_cidr}, ${var.wireguard_client_cidr}
         PersistentKeepalive = 25
         CLIENT
         # Reload WireGuard
