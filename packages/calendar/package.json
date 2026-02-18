@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/calendar",
-  "version": "0.0.19",
+  "version": "0.0.20",
   "description": "Calendar components for Tearleads",
   "type": "module",
   "main": "dist/index.js",
