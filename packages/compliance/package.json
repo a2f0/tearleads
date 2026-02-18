@@ -28,6 +28,7 @@
     "react-router-dom": "7.13.0"
   },
   "dependencies": {
+    "@tearleads/backups": "workspace:*",
     "lucide-react": "0.564.0"
   },
   "devDependencies": {

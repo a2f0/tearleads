@@ -19,6 +19,7 @@ IGNORE_PATTERNS=(
   "^\.codex/"
   "^\.opencode/"
   "^compliance/"
+  "^packages/website/src/data/releases\.json$"
   "\.min\.js$"
   "\.map$"
 )

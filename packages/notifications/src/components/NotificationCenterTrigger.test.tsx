@@ -1,16 +1,34 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { notificationStore } from '../stores/notificationStore';
 import { NotificationCenterTrigger } from './NotificationCenterTrigger';
 
 const mockOpenWindow = vi.fn();
 
-vi.mock('@/contexts/WindowManagerContext', () => ({
-  useWindowManager: () => ({
-    openWindow: mockOpenWindow
-  })
-}));
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/window-manager')>();
+  return {
+    ...actual,
+    useWindowManager: () => ({ openWindow: mockOpenWindow }),
+    DesktopContextMenu: ({ children }: { children: ReactNode }) => (
+      <div>{children}</div>
+    ),
+    DesktopContextMenuItem: ({
+      children,
+      onClick
+    }: {
+      children: ReactNode;
+      onClick: () => void;
+    }) => (
+      <button type="button" onClick={onClick}>
+        {children}
+      </button>
+    )
+  };
+});
 
 describe('NotificationCenterTrigger', () => {
   afterEach(() => {

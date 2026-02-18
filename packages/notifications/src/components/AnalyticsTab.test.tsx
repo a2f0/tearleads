@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { logStore } from '@/stores/logStore';
+import { setAnalyticsDependencies } from '../lib/analyticsDependencies';
 import { AnalyticsTab } from './AnalyticsTab';
 
 const mockEvents = [
@@ -26,44 +27,11 @@ const mockStats = [
   }
 ];
 
-vi.mock('@/db/hooks', () => ({
-  useDatabaseContext: vi.fn()
-}));
-
-vi.mock('@/db', () => ({
-  getDatabase: vi.fn(() => ({}))
-}));
-
-vi.mock('@/db/analytics', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/db/analytics')>();
-  return {
-    ...actual,
-    getEvents: vi.fn(),
-    getEventStats: vi.fn(),
-    getDistinctEventTypes: vi.fn()
-  };
-});
-
-vi.mock('@/components/duration-chart', () => ({
-  DurationChart: () => <div data-testid="duration-chart">Duration Chart</div>,
-  LazyDurationChart: () => (
-    <div data-testid="duration-chart">Duration Chart</div>
-  )
-}));
-
-import {
-  getDistinctEventTypes,
-  getEventStats,
-  getEvents
-} from '@/db/analytics';
-import { useDatabaseContext } from '@/db/hooks';
-
-const mockUseDatabaseContext = useDatabaseContext as ReturnType<typeof vi.fn>;
-const mockGetEvents = getEvents as ReturnType<typeof vi.fn>;
-const mockGetEventStats = getEventStats as ReturnType<typeof vi.fn>;
-const mockGetDistinctEventTypes = getDistinctEventTypes as ReturnType<
-  typeof vi.fn
->;
+const mockUseDatabaseContext = vi.fn(() => ({ isUnlocked: true }));
+const mockGetDatabase = vi.fn(() => ({}));
+const mockGetEvents = vi.fn();
+const mockGetEventStats = vi.fn();
+const mockGetDistinctEventTypes = vi.fn();
 
 function createDeferred<T>() {
   let resolve: ((value: T) => void) | undefined;
@@ -85,6 +53,24 @@ async function flushPromises(): Promise<void> {
 describe('AnalyticsTab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setAnalyticsDependencies({
+      useDatabaseContext: () => mockUseDatabaseContext(),
+      getDatabase: () => mockGetDatabase(),
+      getEvents: (db, options) => mockGetEvents(db, options),
+      getEventStats: (db, options) => mockGetEventStats(db, options),
+      getDistinctEventTypes: (db) => mockGetDistinctEventTypes(db),
+      getEventDisplayName: (eventName) =>
+        eventName === 'db_setup'
+          ? 'Database Setup'
+          : eventName
+              .replaceAll('_', ' ')
+              .replace(/\b\w/g, (char) => char.toUpperCase()),
+      formatDuration: (durationMs) => `${durationMs}ms`,
+      logError: (message, details) => logStore.error(message, details),
+      DurationChart: () => (
+        <div data-testid="duration-chart">Duration Chart</div>
+      )
+    });
   });
 
   it('shows database locked message when not unlocked', async () => {
@@ -318,6 +304,7 @@ describe('AnalyticsTab', () => {
     unmount();
 
     eventsDeferred.reject(new Error('late failure'));
+    await eventsDeferred.promise.catch(() => undefined);
 
     await flushPromises();
 

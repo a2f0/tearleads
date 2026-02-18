@@ -1,12 +1,8 @@
-import { LoginForm, RegisterForm } from '@client/components/auth';
-import { SessionList } from '@client/components/sessions';
-import { BackLink } from '@client/components/ui/back-link';
-import { Button } from '@client/components/ui/button';
-import { useAuth } from '@client/contexts/AuthContext';
-import { api } from '@client/lib/api';
+import { BackLink, Button } from '@tearleads/ui';
 import { LogOut, Mail } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getSyncAuthDependencies } from '../../lib/authDependencies';
 
 type AuthMode = 'login' | 'register';
 
@@ -33,17 +29,22 @@ interface SyncProps {
 
 export function Sync({ showBackLink = true }: SyncProps) {
   const { t } = useTranslation('sync');
-  const {
-    isAuthenticated,
-    user,
-    isLoading,
-    logout,
-    tokenExpiresAt,
-    getTokenTimeRemaining
-  } = useAuth();
+  const dependencies = getSyncAuthDependencies();
+  const LoginForm = dependencies?.LoginForm;
+  const RegisterForm = dependencies?.RegisterForm;
+  const SessionList = dependencies?.SessionList;
+  const auth = dependencies?.useAuth();
+  const isAuthenticated = auth?.isAuthenticated ?? false;
+  const user = auth?.user ?? null;
+  const isLoading = auth?.isLoading ?? false;
+  const logout = auth?.logout;
+  const tokenExpiresAt = auth?.tokenExpiresAt ?? null;
+  const getTokenTimeRemaining = auth?.getTokenTimeRemaining;
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
   const [emailDomain, setEmailDomain] = useState<string | null>(null);
-  const [authMode, setAuthMode] = useState<AuthMode>('login');
+  const [authMode, setAuthMode] = useState<AuthMode>(
+    dependencies?.initialAuthMode ?? 'login'
+  );
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -52,7 +53,7 @@ export function Sync({ showBackLink = true }: SyncProps) {
     }
 
     const updateTimeRemaining = () => {
-      const remaining = getTokenTimeRemaining();
+      const remaining = getTokenTimeRemaining?.() ?? null;
       if (remaining !== null && remaining > 0) {
         setTimeRemaining(formatTimeRemaining(remaining));
       } else {
@@ -67,19 +68,41 @@ export function Sync({ showBackLink = true }: SyncProps) {
 
   // Fetch email domain on mount (for registration form hint)
   useEffect(() => {
-    api.ping
-      .get()
+    if (!dependencies) {
+      return;
+    }
+
+    dependencies
+      .ping()
       .then((data) => {
         setEmailDomain(data.emailDomain ?? null);
       })
       .catch(() => {
         setEmailDomain(null);
       });
-  }, []);
+  }, [dependencies]);
 
   const handleLogout = useCallback(async () => {
-    await logout();
+    if (logout) {
+      await logout();
+    }
   }, [logout]);
+
+  if (!dependencies || !LoginForm || !RegisterForm || !SessionList) {
+    return (
+      <div className="space-y-6">
+        <div className="space-y-2">
+          {showBackLink && (
+            <BackLink defaultTo="/" defaultLabel="Back to Home" />
+          )}
+          <h1 className="font-bold text-2xl tracking-tight">{t('sync')}</h1>
+        </div>
+        <div className="text-muted-foreground text-sm">
+          Sync is not configured.
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

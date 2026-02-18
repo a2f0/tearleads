@@ -1,4 +1,3 @@
-import { ClientTerminal } from '@client/components/terminal';
 import { cn } from '@tearleads/ui';
 import {
   DesktopFloatingWindow as FloatingWindow,
@@ -9,6 +8,7 @@ import {
 } from '@tearleads/window-manager';
 import { ArrowLeft, Columns2, Plus, Rows2, X } from 'lucide-react';
 import { useCallback, useState } from 'react';
+import { ConsoleTerminal } from '../console-terminal';
 import { ConsoleDocumentation } from './ConsoleDocumentation';
 import { ConsoleWindowMenuBar } from './ConsoleWindowMenuBar';
 
@@ -266,7 +266,7 @@ export function ConsoleWindow({
                       tab.id === activeTabId ? 'block' : 'hidden'
                     )}
                   >
-                    <ClientTerminal
+                    <ConsoleTerminal
                       className="h-full rounded-none border-0"
                       autoFocus={
                         focusTarget === 'main' && tab.id === activeTabId
@@ -289,7 +289,7 @@ export function ConsoleWindow({
                     className="min-h-0 min-w-0 flex-1 overflow-hidden"
                     data-testid="console-split-pane"
                   >
-                    <ClientTerminal
+                    <ConsoleTerminal
                       className="h-full rounded-none border-0"
                       autoFocus={focusTarget === 'split'}
                     />

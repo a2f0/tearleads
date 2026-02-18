@@ -25,6 +25,7 @@
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "peerDependencies": {
+    "@tearleads/window-manager": "workspace:*",
     "@tearleads/shared": "workspace:*",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -41,6 +42,7 @@
   },
   "devDependencies": {
     "@tearleads/shared": "workspace:*",
+    "@tearleads/window-manager": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
     "@testing-library/user-event": "14.6.1",

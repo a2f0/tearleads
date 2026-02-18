@@ -1,25 +1,20 @@
 import { RefreshCw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LazyDurationChart } from '@/components/duration-chart';
-import { formatDuration } from '@/components/duration-chart/formatters';
-import { getDatabase } from '@/db';
 import {
   type AnalyticsEvent,
   type EventStats,
-  getDistinctEventTypes,
-  getEventDisplayName,
-  getEventStats,
-  getEvents
-} from '@/db/analytics';
-import { useDatabaseContext } from '@/db/hooks';
-import { logStore } from '@/stores/logStore';
+  getAnalyticsDependencies
+} from '../lib/analyticsDependencies';
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
 export function AnalyticsTab() {
   const { t } = useTranslation('common');
-  const { isUnlocked } = useDatabaseContext();
+  const dependencies = getAnalyticsDependencies();
+  const { isUnlocked } = dependencies?.useDatabaseContext() ?? {
+    isUnlocked: false
+  };
   const [events, setEvents] = useState<AnalyticsEvent[]>([]);
   const [stats, setStats] = useState<EventStats[]>([]);
   const [selectedEventTypes, setSelectedEventTypes] = useState<Set<string>>(
@@ -37,7 +32,7 @@ export function AnalyticsTab() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: refreshTrigger intentionally triggers re-fetch
   useEffect(() => {
-    if (!isUnlocked) return;
+    if (!dependencies || !isUnlocked) return;
 
     let isCancelled = false;
 
@@ -48,13 +43,13 @@ export function AnalyticsTab() {
       setLoading(true);
 
       try {
-        const db = getDatabase();
+        const db = dependencies.getDatabase();
         const startTime = new Date(Date.now() - ONE_HOUR_MS);
 
         const [eventsData, statsData, typesData] = await Promise.all([
-          getEvents(db, { startTime, limit: 50 }),
-          getEventStats(db, { startTime }),
-          getDistinctEventTypes(db)
+          dependencies.getEvents(db, { startTime, limit: 50 }),
+          dependencies.getEventStats(db, { startTime }),
+          dependencies.getDistinctEventTypes(db)
         ]);
 
         if (!isCancelled) {
@@ -64,9 +59,9 @@ export function AnalyticsTab() {
         }
       } catch (err) {
         if (!isCancelled) {
-          logStore.error(
+          dependencies.logError(
             'Failed to fetch HUD analytics',
-            err instanceof Error ? err.stack : String(err)
+            err instanceof Error ? (err.stack ?? err.message) : String(err)
           );
         }
       } finally {
@@ -80,7 +75,15 @@ export function AnalyticsTab() {
       isCancelled = true;
       fetchingRef.current = false;
     };
-  }, [isUnlocked, refreshTrigger]);
+  }, [dependencies, isUnlocked, refreshTrigger]);
+
+  if (!dependencies) {
+    return (
+      <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
+        Analytics unavailable
+      </div>
+    );
+  }
 
   if (!isUnlocked) {
     return (
@@ -123,10 +126,11 @@ export function AnalyticsTab() {
               className="flex items-center justify-between text-xs"
             >
               <span className="truncate font-medium">
-                {getEventDisplayName(stat.eventName)}
+                {dependencies.getEventDisplayName(stat.eventName)}
               </span>
               <span className="text-muted-foreground">
-                {stat.count}x / {formatDuration(stat.avgDurationMs)} avg
+                {stat.count}x /{' '}
+                {dependencies.formatDuration(stat.avgDurationMs)} avg
               </span>
             </div>
           ))}
@@ -140,7 +144,7 @@ export function AnalyticsTab() {
 
       {events.length > 0 ? (
         <div className="h-32">
-          <LazyDurationChart
+          <dependencies.DurationChart
             events={events}
             selectedEventTypes={selectedEventTypes}
             timeFilter="hour"

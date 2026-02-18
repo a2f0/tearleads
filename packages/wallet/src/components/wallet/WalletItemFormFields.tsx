@@ -1,5 +1,4 @@
-import { Input } from '@client/components/ui/input';
-import { Textarea } from '@client/components/ui/textarea';
+import { Input, Textarea } from '@tearleads/ui';
 import { useMemo } from 'react';
 import {
   getWalletCountryOptionByCode,

@@ -1,9 +1,8 @@
-import { cn, useTheme } from '@tearleads/ui';
+import { MarkdownWithToc } from '@tearleads/backups';
+import { BackLink, cn, useTheme } from '@tearleads/ui';
 import { FileText, ShieldCheck } from 'lucide-react';
 import { type AnchorHTMLAttributes, type ReactNode, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { MarkdownWithToc } from '@/components/markdown-viewer/MarkdownWithToc';
-import { BackLink } from '@/components/ui/back-link';
 import {
   getComplianceDocument,
   getFrameworkDocuments,

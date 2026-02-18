@@ -1,11 +1,11 @@
-import { WindowMenuBar } from '@tearleads/window-manager';
-import { Download } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuItem,
-  DropdownMenuSeparator
-} from '@/components/ui/dropdown-menu';
-import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
+  DropdownMenuSeparator,
+  WindowOptionsMenuItem
+} from '@tearleads/ui';
+import { WindowMenuBar } from '@tearleads/window-manager';
+import { Download } from 'lucide-react';
 
 interface AnalyticsWindowMenuBarProps {
   onClose: () => void;

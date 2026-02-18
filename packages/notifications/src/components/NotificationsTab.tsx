@@ -1,3 +1,4 @@
+import { cn } from '@tearleads/ui';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
@@ -5,7 +6,6 @@ import {
 import { CheckCheck, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
 import {
   type Notification,
   type NotificationLevel,

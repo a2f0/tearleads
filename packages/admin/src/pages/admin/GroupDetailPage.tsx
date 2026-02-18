@@ -1,11 +1,10 @@
 import type { Group, GroupMember, UpdateGroupRequest } from '@tearleads/shared';
+import { BackLink, ConfirmDialog } from '@tearleads/ui';
 import { Loader2, Save, Trash2, UserMinus, UserPlus } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useTypedTranslation } from '@/i18n';

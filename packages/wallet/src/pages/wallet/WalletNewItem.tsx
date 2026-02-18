@@ -1,6 +1,6 @@
-import { BackLink } from '@client/components/ui/back-link';
-import { useNavigateWithFrom } from '@client/lib/navigation';
+import { BackLink } from '@tearleads/ui';
 import { WalletItemTypePicker } from '../../components/wallet/WalletItemTypePicker';
+import { useNavigateWithFrom } from '../../lib/navigation';
 
 export function WalletNewItem() {
   const navigateWithFrom = useNavigateWithFrom();

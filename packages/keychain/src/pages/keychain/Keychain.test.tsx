@@ -1,71 +1,20 @@
-import type { KeyStatus } from '@client/db/crypto/keyManager';
-import type { InstanceMetadata } from '@client/db/instanceRegistry';
-import { i18n } from '@client/i18n';
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { I18nextProvider } from 'react-i18next';
-import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-
+import { beforeEach, describe, expect, it } from 'vitest';
 import { mockConsoleError } from '../../test/consoleMocks';
-import { Keychain } from './Keychain';
-
-// Mock key-manager functions
-const mockGetKeyStatusForInstance =
-  vi.fn<(instanceId: string) => Promise<KeyStatus>>();
-const mockDeleteSessionKeysForInstance =
-  vi.fn<(instanceId: string) => Promise<void>>();
-
-vi.mock('@client/db/crypto/keyManager', () => ({
-  getKeyStatusForInstance: (instanceId: string) =>
-    mockGetKeyStatusForInstance(instanceId),
-  deleteSessionKeysForInstance: (instanceId: string) =>
-    mockDeleteSessionKeysForInstance(instanceId)
-}));
-
-// Mock instance-registry functions
-const mockGetInstances = vi.fn<() => Promise<InstanceMetadata[]>>();
-
-vi.mock('@client/db/instanceRegistry', () => ({
-  getInstances: () => mockGetInstances()
-}));
-
-function renderKeychain() {
-  return render(
-    <I18nextProvider i18n={i18n}>
-      <MemoryRouter>
-        <Keychain />
-      </MemoryRouter>
-    </I18nextProvider>
-  );
-}
-
-function createInstance(
-  id: string,
-  name: string,
-  createdAt = Date.now(),
-  lastAccessedAt = Date.now()
-): InstanceMetadata {
-  return { id, name, createdAt, lastAccessedAt };
-}
-
-function createKeyStatus(
-  salt = false,
-  keyCheckValue = false,
-  wrappingKey = false,
-  wrappedKey = false
-): KeyStatus {
-  return { salt, keyCheckValue, wrappingKey, wrappedKey };
-}
+import {
+  createInstance,
+  createKeyStatus,
+  mockDeleteSessionKeysForInstance,
+  mockGetInstances,
+  mockGetKeyStatusForInstance,
+  renderKeychain,
+  resetKeychainPageTestState
+} from './Keychain.testHelpers';
 
 describe('Keychain', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-
-    // Default: empty instances
-    mockGetInstances.mockResolvedValue([]);
-    mockGetKeyStatusForInstance.mockResolvedValue(createKeyStatus());
-    mockDeleteSessionKeysForInstance.mockResolvedValue(undefined);
+    resetKeychainPageTestState();
   });
 
   describe('page rendering', () => {
@@ -517,65 +466,6 @@ describe('Keychain', () => {
       expect(
         screen.getByText('Loading keychain contents...')
       ).toBeInTheDocument();
-    });
-  });
-
-  describe('context menu', () => {
-    beforeEach(() => {
-      mockGetInstances.mockResolvedValue([
-        createInstance('test-id', 'Test Instance')
-      ]);
-      mockGetKeyStatusForInstance.mockResolvedValue(
-        createKeyStatus(true, true, false, false)
-      );
-    });
-
-    it('shows context menu on right-click', async () => {
-      const user = userEvent.setup();
-      renderKeychain();
-
-      await waitFor(() => {
-        expect(screen.getByText('Test Instance')).toBeInTheDocument();
-      });
-
-      const row = screen
-        .getByText('Test Instance')
-        .closest('div[class*="border-b"]');
-      expect(row).toBeInTheDocument();
-
-      if (row) {
-        await user.pointer({ target: row, keys: '[MouseRight]' });
-      }
-
-      await waitFor(() => {
-        expect(screen.getByText('View Details')).toBeInTheDocument();
-      });
-    });
-
-    it('closes context menu on escape', async () => {
-      const user = userEvent.setup();
-      renderKeychain();
-
-      await waitFor(() => {
-        expect(screen.getByText('Test Instance')).toBeInTheDocument();
-      });
-
-      const row = screen
-        .getByText('Test Instance')
-        .closest('div[class*="border-b"]');
-      if (row) {
-        await user.pointer({ target: row, keys: '[MouseRight]' });
-      }
-
-      await waitFor(() => {
-        expect(screen.getByText('View Details')).toBeInTheDocument();
-      });
-
-      await user.keyboard('{Escape}');
-
-      await waitFor(() => {
-        expect(screen.queryByText('View Details')).not.toBeInTheDocument();
-      });
     });
   });
 });

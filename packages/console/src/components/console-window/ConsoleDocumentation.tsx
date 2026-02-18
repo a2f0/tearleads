@@ -1,4 +1,4 @@
-import { MarkdownWithToc } from '@client/components/markdown-viewer/MarkdownWithToc';
+import { MarkdownWithToc } from '@tearleads/backups';
 import { useTheme } from '@tearleads/ui';
 import { TerminalSquare } from 'lucide-react';
 import consoleReferenceDocumentationEn from '../../../../../docs/en/console-reference.md?raw';

@@ -1,15 +1,14 @@
 import { OrganizationScopeSelector } from '@admin/components/admin-scope';
 import { useAdminScope } from '@admin/hooks/useAdminScope';
 import type { AdminUser } from '@tearleads/shared';
+import { BackLink, RefreshButton } from '@tearleads/ui';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow
 } from '@tearleads/window-manager';
 import { Check, Loader2, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
-import { RefreshButton } from '@/components/ui/RefreshButton';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { formatNumber, formatTimestamp } from '@/lib/utils';

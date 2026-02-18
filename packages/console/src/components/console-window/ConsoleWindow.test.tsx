@@ -1,7 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect, useRef } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { setConsoleTerminalDependencies } from '../../lib/terminalDependencies';
 import { ConsoleWindow } from './ConsoleWindow';
 
 // Mock database hooks
@@ -40,31 +41,35 @@ vi.mock('@tearleads/window-manager', async (importOriginal) => {
 });
 
 // Mock Terminal component
-vi.mock('@client/components/terminal', () => ({
-  ClientTerminal: ({
-    className,
-    autoFocus
-  }: {
-    className?: string;
-    autoFocus?: boolean;
-  }) => {
-    const inputRef = useRef<HTMLInputElement>(null);
-    useEffect(() => {
-      if (autoFocus) {
-        inputRef.current?.focus();
-      }
-    }, [autoFocus]);
-    return (
-      <div data-testid="terminal" className={className}>
-        <input
-          ref={inputRef}
-          data-testid="terminal-input"
-          data-autofocus={autoFocus ? 'true' : 'false'}
-        />
-      </div>
-    );
-  }
-}));
+vi.mock('@tearleads/terminal', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tearleads/terminal')>();
+  return {
+    ...actual,
+    Terminal: ({
+      className,
+      autoFocus
+    }: {
+      className?: string;
+      autoFocus?: boolean;
+    }) => {
+      const inputRef = useRef<HTMLInputElement>(null);
+      useEffect(() => {
+        if (autoFocus) {
+          inputRef.current?.focus();
+        }
+      }, [autoFocus]);
+      return (
+        <div data-testid="terminal" className={className}>
+          <input
+            ref={inputRef}
+            data-testid="terminal-input"
+            data-autofocus={autoFocus ? 'true' : 'false'}
+          />
+        </div>
+      );
+    }
+  };
+});
 
 vi.mock('./ConsoleDocumentation', () => ({
   ConsoleDocumentation: () => (
@@ -127,6 +132,34 @@ describe('ConsoleWindow', () => {
     onFocus: vi.fn(),
     zIndex: 100
   };
+
+  beforeEach(() => {
+    setConsoleTerminalDependencies({
+      useDatabaseContext: () => ({
+        isLoading: false,
+        isSetUp: true,
+        isUnlocked: true,
+        hasPersistedSession: false,
+        currentInstanceId: 'test-instance',
+        currentInstanceName: 'Test',
+        instances: [{ id: 'test-instance', name: 'Test' }],
+        setup: async () => true,
+        unlock: async () => true,
+        restoreSession: async () => true,
+        lock: async () => {},
+        exportDatabase: async () => new Uint8Array([1]),
+        importDatabase: async () => {},
+        changePassword: async () => true
+      }),
+      utilities: {
+        getErrorMessage: (error) =>
+          error instanceof Error ? error.message : String(error),
+        generateBackupFilename: () => 'test.db',
+        readFileAsUint8Array: async () => new Uint8Array([1, 2, 3]),
+        saveFile: async () => {}
+      }
+    });
+  });
 
   it('renders in FloatingWindow', () => {
     render(<ConsoleWindow {...defaultProps} />);

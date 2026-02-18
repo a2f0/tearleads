@@ -1,3 +1,4 @@
+import type { HelpDocId } from '@help/constants/help';
 import { IconSquare } from '@tearleads/ui';
 import {
   CodeXml,
@@ -10,7 +11,6 @@ import {
   Shirt,
   TerminalSquare
 } from 'lucide-react';
-import type { HelpDocId } from '@/constants/help';
 
 interface HelpLinksGridProps {
   view: 'topLevel' | 'developer' | 'legal';

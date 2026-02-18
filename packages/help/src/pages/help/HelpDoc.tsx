@@ -1,10 +1,10 @@
-import { CircleHelp } from 'lucide-react';
-import { useParams } from 'react-router-dom';
-import { BackLink } from '@/components/ui/back-link';
 import {
   getHelpDocIdFromRouteSegment,
   getHelpDocLabel
-} from '@/constants/help';
+} from '@help/constants/help';
+import { BackLink } from '@tearleads/ui';
+import { CircleHelp } from 'lucide-react';
+import { useParams } from 'react-router-dom';
 import { HelpDocumentation } from '../../components/help-links/HelpDocumentation';
 
 export function HelpDocPage() {

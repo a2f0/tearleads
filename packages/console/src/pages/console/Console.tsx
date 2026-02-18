@@ -1,6 +1,6 @@
-import { ClientTerminal } from '@client/components/terminal';
-import { BackLink } from '@client/components/ui/back-link';
+import { BackLink } from '@tearleads/ui';
 import { Terminal as TerminalIcon } from 'lucide-react';
+import { ConsoleTerminal } from '../../components/console-terminal';
 
 export function Console() {
   return (
@@ -16,7 +16,7 @@ export function Console() {
         Run database commands with a command-line interface. Type "help" for
         available commands.
       </p>
-      <ClientTerminal />
+      <ConsoleTerminal />
     </div>
   );
 }

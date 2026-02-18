@@ -1,7 +1,4 @@
-import { InlineUnlock } from '@client/components/sqlite/InlineUnlock';
-import { Button } from '@client/components/ui/button';
-import { RefreshButton } from '@client/components/ui/RefreshButton';
-import { useDatabaseContext } from '@client/db/hooks';
+import { Button, RefreshButton } from '@tearleads/ui';
 import { CreditCard, Loader2, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -10,6 +7,7 @@ import {
   type WalletItemSummary
 } from '../../lib/walletData';
 import { getWalletSubtypeLabel } from '../../lib/walletSubtypes';
+import { getWalletUiDependencies } from '../../lib/walletUiDependencies';
 
 interface WalletItemsListProps {
   onOpenItem: (itemId: string) => void;
@@ -29,7 +27,11 @@ export function WalletItemsList({
   onCreateItem,
   refreshSignal = 0
 }: WalletItemsListProps) {
-  const { isLoading, isUnlocked } = useDatabaseContext();
+  const dependencies = getWalletUiDependencies();
+  const databaseContext = dependencies?.useDatabaseContext();
+  const isLoading = databaseContext?.isLoading ?? false;
+  const isUnlocked = databaseContext?.isUnlocked ?? false;
+  const InlineUnlock = dependencies?.InlineUnlock;
   const [items, setItems] = useState<WalletItemSummary[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +75,13 @@ export function WalletItemsList({
   }
 
   if (!isUnlocked) {
+    if (!InlineUnlock) {
+      return (
+        <div className="rounded-lg border p-6 text-center text-muted-foreground">
+          Wallet is not configured.
+        </div>
+      );
+    }
     return <InlineUnlock description="this wallet" />;
   }
 

@@ -1,4 +1,4 @@
-import { clearPreserveWindowState } from '@client/lib/windowStatePreference';
+import { clearPreserveWindowState } from '@tearleads/window-manager';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,10 +6,6 @@ import { KeychainWindowMenuBar } from './KeychainWindowMenuBar';
 
 vi.mock('@tearleads/keychain/package.json', () => ({
   default: { version: '7.8.9' }
-}));
-
-vi.mock('@/hooks/useAppVersion', () => ({
-  useAppVersion: () => '0.0.0'
 }));
 
 describe('KeychainWindowMenuBar', () => {

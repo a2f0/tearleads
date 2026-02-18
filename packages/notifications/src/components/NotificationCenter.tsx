@@ -1,4 +1,10 @@
 import {
+  AboutMenuItem,
+  cn,
+  DropdownMenu,
+  DropdownMenuItem
+} from '@tearleads/ui';
+import {
   DesktopFloatingWindow as FloatingWindow,
   WindowControlBar,
   type WindowDimensions,
@@ -6,9 +12,6 @@ import {
 } from '@tearleads/window-manager';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
-import { cn } from '@/lib/utils';
 import { AnalyticsTab } from './AnalyticsTab';
 import {
   DEFAULT_HEIGHT,

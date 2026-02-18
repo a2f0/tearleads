@@ -1,4 +1,5 @@
 import type { GroupWithMemberCount } from '@tearleads/shared';
+import { ConfirmDialog } from '@tearleads/ui';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem,
@@ -8,7 +9,6 @@ import {
 import { Loader2, Plus, Trash2, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 

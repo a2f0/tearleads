@@ -1,8 +1,8 @@
 import type { VirtualItem } from '@tanstack/react-virtual';
+import { VirtualListStatus } from '@tearleads/ui';
 import { CheckCircle, Clock, Loader2, XCircle } from 'lucide-react';
 import type { RefObject } from 'react';
 import { DurationChart } from '@/components/duration-chart';
-import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import {
   type AnalyticsEvent,
   getEventDisplayName,

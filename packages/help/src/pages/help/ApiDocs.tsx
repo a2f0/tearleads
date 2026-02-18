@@ -1,7 +1,6 @@
 import openapiSpec from '@tearleads/api/dist/openapi.json';
-import { ApiDocs } from '@tearleads/ui';
+import { ApiDocs, BackLink } from '@tearleads/ui';
 import { FileText } from 'lucide-react';
-import { BackLink } from '@/components/ui/back-link';
 
 export function ApiDocsPage() {
   return (

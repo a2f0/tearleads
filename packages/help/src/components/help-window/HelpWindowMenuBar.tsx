@@ -1,6 +1,9 @@
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  WindowOptionsMenuItem
+} from '@tearleads/ui';
 import { WindowMenuBar } from '@tearleads/window-manager';
-import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 
 interface HelpWindowMenuBarProps {
   onClose: () => void;

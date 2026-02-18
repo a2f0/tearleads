@@ -1,4 +1,4 @@
-import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
+import { VirtualListStatus } from '@tearleads/ui';
 
 interface StickyVirtualListStatusProps {
   firstVisible: number | null;

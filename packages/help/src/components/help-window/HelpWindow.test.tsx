@@ -26,16 +26,26 @@ vi.mock('@tearleads/api/dist/openapi.json', () => ({
   }
 }));
 
-vi.mock('@tearleads/ui', () => ({
-  ApiDocs: ({ spec }: { spec: { info: { title: string } } }) => (
-    <div data-testid="api-docs">{spec.info.title}</div>
-  ),
-  IconSquare: ({ label, onClick }: { label: string; onClick?: () => void }) => (
-    <button type="button" onClick={onClick} data-testid="icon-square">
-      {label}
-    </button>
-  )
-}));
+vi.mock('@tearleads/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tearleads/ui')>();
+  return {
+    ...actual,
+    ApiDocs: ({ spec }: { spec: { info: { title: string } } }) => (
+      <div data-testid="api-docs">{spec.info.title}</div>
+    ),
+    IconSquare: ({
+      label,
+      onClick
+    }: {
+      label: string;
+      onClick?: () => void;
+    }) => (
+      <button type="button" onClick={onClick} data-testid="icon-square">
+        {label}
+      </button>
+    )
+  };
+});
 
 vi.mock('@tearleads/window-manager', async (importOriginal) => {
   const actual =

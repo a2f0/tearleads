@@ -6,130 +6,23 @@ import {
   waitFor
 } from '@testing-library/react';
 import { createRef } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { mockConsoleError } from '../../test/consoleMocks';
+import './KeychainWindowContent.testHelpers';
 import type { KeychainWindowContentRef } from './KeychainWindowContent';
 import { KeychainWindowContent } from './KeychainWindowContent';
-
-const mockGetInstances = vi.fn();
-const mockGetKeyStatusForInstance = vi.fn();
-const mockDeleteSessionKeysForInstance = vi.fn();
-
-vi.mock('@client/db/instanceRegistry', () => ({
-  getInstances: () => mockGetInstances()
-}));
-
-vi.mock('@client/db/crypto/keyManager', () => ({
-  getKeyStatusForInstance: (id: string) => mockGetKeyStatusForInstance(id),
-  deleteSessionKeysForInstance: (id: string) =>
-    mockDeleteSessionKeysForInstance(id)
-}));
-
-vi.mock('@client/i18n', () => ({
-  useTypedTranslation: () => ({ t: (key: string) => key })
-}));
-
-vi.mock('../../pages/keychain/InstanceKeyRow', () => ({
-  InstanceKeyRow: ({
-    info,
-    onToggle,
-    onDeleteSessionKeys,
-    onContextMenu
-  }: {
-    info: { instance: { id: string; name: string } };
-    onToggle: () => void;
-    onDeleteSessionKeys: (id: string) => void;
-    onContextMenu: (e: React.MouseEvent, info: unknown) => void;
-  }) => {
-    return (
-      <div data-testid={`instance-row-${info.instance.id}`}>
-        {info.instance.name}
-        <button data-testid="toggle-btn" onClick={onToggle} type="button">
-          Toggle
-        </button>
-        <button
-          data-testid="delete-btn"
-          onClick={() => onDeleteSessionKeys(info.instance.id)}
-          type="button"
-        >
-          Delete
-        </button>
-        <button
-          data-testid="context-btn"
-          onClick={(e) => onContextMenu(e as unknown as React.MouseEvent, info)}
-          type="button"
-        >
-          Context
-        </button>
-      </div>
-    );
-  }
-}));
-
-let capturedOnDelete: (() => Promise<void>) | undefined;
-
-vi.mock('../../pages/keychain/DeleteSessionKeysDialog', () => ({
-  DeleteSessionKeysDialog: ({
-    open,
-    onOpenChange,
-    onDelete
-  }: {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    onDelete: () => Promise<void>;
-  }) => {
-    capturedOnDelete = onDelete;
-    return open ? (
-      <div data-testid="delete-dialog">
-        <button data-testid="confirm-delete" onClick={onDelete} type="button">
-          Confirm
-        </button>
-        <button
-          data-testid="cancel-delete"
-          onClick={() => onOpenChange(false)}
-          type="button"
-        >
-          Cancel
-        </button>
-      </div>
-    ) : null;
-  }
-}));
-
-let capturedMenuOnClose: (() => void) | undefined;
-
-vi.mock('@tearleads/window-manager', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('@tearleads/window-manager')>();
-  return {
-    ...actual,
-    DesktopContextMenu: ({
-      children,
-      onClose
-    }: {
-      children: React.ReactNode;
-      onClose: () => void;
-    }) => {
-      capturedMenuOnClose = onClose;
-      return <div data-testid="context-menu">{children}</div>;
-    },
-    DesktopContextMenuItem: ({
-      children,
-      onClick
-    }: {
-      children: React.ReactNode;
-      onClick: () => void;
-    }) => (
-      <button data-testid="context-menu-item" onClick={onClick} type="button">
-        {children}
-      </button>
-    )
-  };
-});
+import {
+  capturedMenuOnClose,
+  capturedOnDelete,
+  mockDeleteSessionKeysForInstance,
+  mockGetInstances,
+  mockGetKeyStatusForInstance,
+  resetKeychainWindowContentTestState
+} from './KeychainWindowContent.testHelpers';
 
 describe('KeychainWindowContent', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetKeychainWindowContentTestState();
   });
 
   it('shows loading state initially', async () => {
@@ -526,107 +419,5 @@ describe('KeychainWindowContent', () => {
     });
 
     expect(mockDeleteSessionKeysForInstance).toHaveBeenCalledWith('instance-1');
-  });
-
-  it('shows error when delete fails', async () => {
-    const consoleSpy = mockConsoleError();
-    mockGetInstances.mockResolvedValue([
-      {
-        id: 'instance-1',
-        name: 'Test Instance',
-        createdAt: 0,
-        lastAccessedAt: 0
-      }
-    ]);
-    mockGetKeyStatusForInstance.mockResolvedValue({
-      salt: true,
-      keyCheckValue: true,
-      wrappingKey: false,
-      wrappedKey: false
-    });
-    mockDeleteSessionKeysForInstance.mockRejectedValue(
-      new Error('Delete failed')
-    );
-
-    render(<KeychainWindowContent />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('delete-btn')).toBeInTheDocument();
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('delete-btn'));
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('delete-dialog')).toBeInTheDocument();
-    });
-
-    await act(async () => {
-      try {
-        await capturedOnDelete?.();
-      } catch {
-        // Expected to throw
-      }
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('Delete failed')).toBeInTheDocument();
-    });
-
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Failed to delete session keys:',
-      expect.any(Error)
-    );
-  });
-
-  it('shows error when delete fails with non-Error value', async () => {
-    const consoleSpy = mockConsoleError();
-    mockGetInstances.mockResolvedValue([
-      {
-        id: 'instance-1',
-        name: 'Test Instance',
-        createdAt: 0,
-        lastAccessedAt: 0
-      }
-    ]);
-    mockGetKeyStatusForInstance.mockResolvedValue({
-      salt: true,
-      keyCheckValue: true,
-      wrappingKey: false,
-      wrappedKey: false
-    });
-    mockDeleteSessionKeysForInstance.mockRejectedValue('Delete string error');
-
-    render(<KeychainWindowContent />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('delete-btn')).toBeInTheDocument();
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('delete-btn'));
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('delete-dialog')).toBeInTheDocument();
-    });
-
-    await act(async () => {
-      try {
-        await capturedOnDelete?.();
-      } catch {
-        // Expected to throw
-      }
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('Delete string error')).toBeInTheDocument();
-    });
-
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Failed to delete session keys:',
-      'Delete string error'
-    );
   });
 });

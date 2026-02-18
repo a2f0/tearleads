@@ -1,7 +1,7 @@
 import { AdminOptionsGrid } from '@admin/components/admin';
+import { BackLink } from '@tearleads/ui';
 import { Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { BackLink } from '@/components/ui/back-link';
 import { useTypedTranslation } from '@/i18n';
 
 export function AdminLauncher() {

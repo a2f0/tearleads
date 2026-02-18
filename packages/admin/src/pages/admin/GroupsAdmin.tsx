@@ -1,9 +1,9 @@
 import { CreateGroupDialog, GroupsList } from '@admin/components/admin-groups';
 import { OrganizationScopeSelector } from '@admin/components/admin-scope';
 import { useAdminScope } from '@admin/hooks/useAdminScope';
+import { BackLink } from '@tearleads/ui';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
-import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 
 interface GroupsAdminProps {
