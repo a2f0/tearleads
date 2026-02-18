@@ -44,9 +44,7 @@ describe('vfsBlobNetworkFlusherHelpers', () => {
     expect(isBlobRelationKind('file')).toBe(true);
     expect(isBlobRelationKind('invalid-kind')).toBe(false);
 
-    expect(isValidLastReconciledWriteIds({ desktop: 1, mobile: 0 })).toBe(
-      true
-    );
+    expect(isValidLastReconciledWriteIds({ desktop: 1, mobile: 0 })).toBe(true);
     expect(isValidLastReconciledWriteIds([])).toBe(false);
     expect(isValidLastReconciledWriteIds({ '': 1 })).toBe(false);
     expect(isValidLastReconciledWriteIds({ desktop: -1 })).toBe(false);

@@ -231,12 +231,12 @@ describe('vfsBlobNetworkFlusher', () => {
     expect(() =>
       flusher.queueStage({ blobId: 'blob-1', expiresAt: 'invalid' })
     ).toThrow(/expiresAt must be a valid ISO timestamp/);
-    expect(() => flusher.queueAttach({ stagingId: '', itemId: 'item-1' })).toThrow(
-      /stagingId is required/
-    );
-    expect(() => flusher.queueAttach({ stagingId: 'stage-1', itemId: '' })).toThrow(
-      /itemId is required/
-    );
+    expect(() =>
+      flusher.queueAttach({ stagingId: '', itemId: 'item-1' })
+    ).toThrow(/stagingId is required/);
+    expect(() =>
+      flusher.queueAttach({ stagingId: 'stage-1', itemId: '' })
+    ).toThrow(/itemId is required/);
     expect(() => flusher.queueAbandon({ stagingId: '' })).toThrow(
       /stagingId is required/
     );

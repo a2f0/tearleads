@@ -269,10 +269,12 @@ describe('vfsWriteOrchestrator', () => {
       nextCursor: null,
       lastReconciledWriteIds: {}
     }));
-    const reconcileState = vi.fn(async ({ cursor, lastReconciledWriteIds }) => ({
-      cursor,
-      lastReconciledWriteIds
-    }));
+    const reconcileState = vi.fn(
+      async ({ cursor, lastReconciledWriteIds }) => ({
+        cursor,
+        lastReconciledWriteIds
+      })
+    );
 
     const { VfsWriteOrchestrator } = await import('./vfsWriteOrchestrator');
     const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
