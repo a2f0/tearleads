@@ -191,4 +191,17 @@ describe('DropdownMenu', () => {
       expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     });
   });
+
+  it('renders non-element children in the menu', async () => {
+    const user = userEvent.setup();
+    render(
+      <DropdownMenu trigger="Raw">
+        {'Plain Text Child'}
+        <DropdownMenuItem onClick={vi.fn()}>Action</DropdownMenuItem>
+      </DropdownMenu>
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Raw' }));
+    expect(screen.getByText('Plain Text Child')).toBeInTheDocument();
+  });
 });
