@@ -202,29 +202,38 @@ If pods fail with `ImagePullBackOff`:
 
 ## CI/CD Integration
 
-The CI pipeline uses the same IAM user for both S3 artifacts and ECR:
+Use GitHub OIDC role assumption for ECR publishing instead of long-lived AWS keys.
 
-- **Access Key ID**: Output from `terraform output ci_access_key_id`
-- **Secret Access Key**: Output from `terraform output ci_secret_access_key`
+### Terraform-managed role outputs
 
-Add these to GitHub Secrets:
+From `terraform/stacks/staging/ci-artifacts`:
 
-- `AWS_ACCESS_KEY_ID_STAGING` / `AWS_ACCESS_KEY_ID_PROD`
-- `AWS_SECRET_ACCESS_KEY_STAGING` / `AWS_SECRET_ACCESS_KEY_PROD`
+- `github_actions_role_arn` (staging ECR push role)
 
-Example GitHub Actions workflow:
+From `terraform/stacks/prod/ci-artifacts`:
+
+- `github_actions_role_arn` (prod ECR push role)
+
+Set repository variables in GitHub:
+
+- `AWS_STAGING_ECR_ROLE_ARN`
+- `AWS_PROD_ECR_ROLE_ARN` (when prod publish workflow is added)
+
+Example GitHub Actions snippet:
 
 ```yaml
-- name: Configure AWS credentials
+permissions:
+  contents: read
+  id-token: write
+
+- name: Configure AWS credentials (OIDC)
   uses: aws-actions/configure-aws-credentials@v4
   with:
-    aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_STAGING }}
-    aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_STAGING }}
+    role-to-assume: ${{ vars.AWS_STAGING_ECR_ROLE_ARN }}
     aws-region: us-east-1
-
-- name: Login to ECR
-  uses: aws-actions/amazon-ecr-login@v2
 
 - name: Build and push
   run: ./scripts/buildContainers.sh staging --tag ${{ github.sha }}
 ```
+
+Legacy IAM user outputs (`ci_access_key_id`, `ci_secret_access_key`) remain available for migration fallback.

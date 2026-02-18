@@ -53,3 +53,8 @@ output "tunnel_token" {
   value       = module.tunnel.tunnel_token
   sensitive   = true
 }
+
+output "cloudflare_zone_nameservers" {
+  description = "Cloudflare authoritative nameservers for the staging zone"
+  value       = cloudflare_zone.staging.name_servers
+}

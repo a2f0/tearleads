@@ -94,7 +94,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "artifacts" {
 
 # IAM user for CI
 resource "aws_iam_user" "ci" {
-  name = var.ci_user_name
+  count = var.enable_ci_user ? 1 : 0
+  name  = var.ci_user_name
 
   tags = merge(var.tags, {
     Environment = var.environment
@@ -104,8 +105,9 @@ resource "aws_iam_user" "ci" {
 
 # IAM policy for bucket access
 resource "aws_iam_user_policy" "ci_artifacts" {
-  name = "${var.ci_user_name}-artifacts-policy"
-  user = aws_iam_user.ci.name
+  count = var.enable_ci_user ? 1 : 0
+  name  = "${var.ci_user_name}-artifacts-policy"
+  user  = aws_iam_user.ci[0].name
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -136,7 +138,8 @@ resource "aws_iam_user_policy" "ci_artifacts" {
 
 # IAM access key for CI
 resource "aws_iam_access_key" "ci" {
-  user = aws_iam_user.ci.name
+  count = var.enable_ci_user ? 1 : 0
+  user  = aws_iam_user.ci[0].name
 }
 
 # COMPLIANCE_SENTINEL: TL-CR-001 | control=container-registry
@@ -188,9 +191,110 @@ resource "aws_ecr_lifecycle_policy" "repos" {
 
 # IAM policy for ECR access
 resource "aws_iam_user_policy" "ci_ecr" {
-  count = length(var.ecr_repositories) > 0 ? 1 : 0
+  count = var.enable_ci_user && length(var.ecr_repositories) > 0 ? 1 : 0
   name  = "${var.ci_user_name}-ecr-policy"
-  user  = aws_iam_user.ci.name
+  user  = aws_iam_user.ci[0].name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "ECRGetAuthToken"
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "ECRRepositoryAccess"
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:BatchGetImage",
+          "ecr:CompleteLayerUpload",
+          "ecr:DescribeImages",
+          "ecr:DescribeRepositories",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:InitiateLayerUpload",
+          "ecr:ListImages",
+          "ecr:PutImage",
+          "ecr:UploadLayerPart"
+        ]
+        Resource = [for repo in var.ecr_repositories : aws_ecr_repository.repos[repo].arn]
+      }
+    ]
+  })
+}
+
+locals {
+  github_actions_role_name = var.github_actions_role_name != null ? var.github_actions_role_name : "${var.environment}-github-actions-ecr-push"
+  github_actions_subs = [
+    for branch in var.github_actions_branches : "repo:${var.github_actions_repository}:ref:refs/heads/${branch}"
+  ]
+}
+
+data "tls_certificate" "github_actions" {
+  url = "https://token.actions.githubusercontent.com"
+}
+
+resource "aws_iam_openid_connect_provider" "github_actions" {
+  count = var.create_github_actions_role && var.github_actions_oidc_provider_arn == null ? 1 : 0
+
+  url = "https://token.actions.githubusercontent.com"
+  client_id_list = [
+    "sts.amazonaws.com"
+  ]
+  thumbprint_list = data.tls_certificate.github_actions.certificates[*].sha1_fingerprint
+
+  tags = merge(var.tags, {
+    Environment = var.environment
+    Purpose     = "github-actions-oidc"
+  })
+}
+
+resource "aws_iam_role" "github_actions" {
+  count = var.create_github_actions_role ? 1 : 0
+  name  = local.github_actions_role_name
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = var.github_actions_oidc_provider_arn != null ? var.github_actions_oidc_provider_arn : aws_iam_openid_connect_provider.github_actions[0].arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+          }
+          StringLike = {
+            "token.actions.githubusercontent.com:sub" = local.github_actions_subs
+          }
+        }
+      }
+    ]
+  })
+
+  lifecycle {
+    precondition {
+      condition     = var.github_actions_repository != null
+      error_message = "github_actions_repository must be set when create_github_actions_role is enabled."
+    }
+  }
+
+  tags = merge(var.tags, {
+    Environment = var.environment
+    Purpose     = "github-actions-ci"
+  })
+}
+
+resource "aws_iam_role_policy" "github_actions_ecr" {
+  count = var.create_github_actions_role && length(var.ecr_repositories) > 0 ? 1 : 0
+  name  = "${local.github_actions_role_name}-ecr-policy"
+  role  = aws_iam_role.github_actions[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"

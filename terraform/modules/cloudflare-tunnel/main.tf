@@ -1,6 +1,11 @@
 # Look up the zone
 data "cloudflare_zone" "main" {
-  name = var.zone_name
+  count = var.lookup_zone_by_name ? 1 : 0
+  name  = var.zone_name
+}
+
+locals {
+  zone_id = var.lookup_zone_by_name ? data.cloudflare_zone.main[0].id : var.zone_id
 }
 
 # Generate a secret for the tunnel
@@ -44,7 +49,7 @@ resource "cloudflare_record" "tunnel" {
     for rule in var.ingress_rules : rule.hostname => rule
   } : {}
 
-  zone_id = data.cloudflare_zone.main.id
+  zone_id = local.zone_id
   name    = each.value.hostname
   type    = "CNAME"
   content = "${cloudflare_tunnel.main.id}.cfargotunnel.com"

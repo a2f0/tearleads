@@ -6,6 +6,19 @@ variable "account_id" {
 variable "zone_name" {
   description = "Cloudflare zone name (e.g., tearleads.com)"
   type        = string
+  default     = null
+}
+
+variable "zone_id" {
+  description = "Optional Cloudflare zone ID. When set, skips zone lookup by name."
+  type        = string
+  default     = null
+}
+
+variable "lookup_zone_by_name" {
+  description = "When true, look up zone_id from zone_name. When false, use zone_id directly."
+  type        = bool
+  default     = true
 }
 
 variable "tunnel_name" {

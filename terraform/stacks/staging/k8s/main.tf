@@ -79,13 +79,25 @@ module "server" {
   }
 }
 
+resource "cloudflare_zone" "staging" {
+  account_id = var.cloudflare_account_id
+  zone       = var.staging_domain
+  type       = "full"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
 # Cloudflare Tunnel - routes staging traffic through Cloudflare
 module "tunnel" {
   source = "../../../modules/cloudflare-tunnel"
 
-  account_id  = var.cloudflare_account_id
-  zone_name   = var.staging_domain
-  tunnel_name = "k8s-staging"
+  account_id          = var.cloudflare_account_id
+  zone_id             = cloudflare_zone.staging.id
+  zone_name           = var.staging_domain
+  lookup_zone_by_name = false
+  tunnel_name         = "k8s-staging"
 
   ingress_rules = [
     {
@@ -103,18 +115,13 @@ module "tunnel" {
   ]
 }
 
-# Keep k8s API endpoint directly resolvable for kubeconfig/6443.
-data "cloudflare_zone" "main" {
-  name = var.staging_domain
-}
-
 resource "cloudflare_record" "k8s_api" {
   for_each = {
     A    = module.server.ipv4_address
     AAAA = module.server.ipv6_address
   }
 
-  zone_id = data.cloudflare_zone.main.id
+  zone_id = cloudflare_zone.staging.id
   name    = "k8s-api.${var.staging_domain}"
   type    = each.key
   content = each.value

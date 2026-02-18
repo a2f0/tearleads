@@ -46,6 +46,11 @@ const managedSecretNames = [
   'VITE_API_URL'
 ] as const;
 
+const optionalGithubVars = [
+  'AWS_STAGING_ECR_ROLE_ARN',
+  'AWS_PROD_ECR_ROLE_ARN'
+] as const;
+
 interface SecretListItem {
   name?: string;
 }
@@ -71,18 +76,15 @@ function runGh(args: string[]): string {
   }).trim();
 }
 
-function setSecret(
+function setGithubValue(
+  type: 'secret' | 'variable',
   repo: string,
-  secretName: string,
-  secretValue: string
+  name: string,
+  value: string
 ): void {
-  execFileSync(
-    'gh',
-    ['secret', 'set', secretName, '-R', repo, '--body', secretValue],
-    {
-      stdio: ['ignore', 'inherit', 'inherit']
-    }
-  );
+  execFileSync('gh', [type, 'set', name, '-R', repo, '--body', value], {
+    stdio: ['ignore', 'inherit', 'inherit']
+  });
 }
 
 function listCurrentSecretNames(repo: string): string[] {
@@ -189,10 +191,20 @@ function main(): void {
   ];
 
   for (const secret of secrets) {
-    setSecret(env.GITHUB_REPO, secret.name, secret.value);
+    setGithubValue('secret', env.GITHUB_REPO, secret.name, secret.value);
   }
 
-  process.stdout.write('\nAll secrets have been set successfully!\n');
+  for (const variableName of optionalGithubVars) {
+    const value = process.env[variableName];
+    if (!value) {
+      continue;
+    }
+    setGithubValue('variable', env.GITHUB_REPO, variableName, value);
+  }
+
+  process.stdout.write(
+    '\nAll managed secrets and optional variables have been set successfully!\n'
+  );
 
   if (!deleteExtra) {
     return;

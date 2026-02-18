@@ -88,6 +88,12 @@ jobs:
       - name: Generate web image assets
         run: ./packages/client/scripts/buildWebImageAssets.sh
 
+      - name: Generate app configs
+        run: |
+          npm install -g tsx
+          cd packages/app-builder
+          tsx src/cli.ts generate --app tearleads
+
       - name: Build packages
         run: pnpm build
         env:

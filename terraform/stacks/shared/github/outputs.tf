@@ -62,3 +62,8 @@ output "merge_signing_bypass_enabled" {
   description = "Whether merge-signing app bypass is enabled in repository ruleset mode"
   value       = var.enable_merge_signing_bypass
 }
+
+output "github_actions_oidc_provider_arn" {
+  description = "Shared GitHub Actions OIDC provider ARN"
+  value       = aws_iam_openid_connect_provider.github_actions.arn
+}

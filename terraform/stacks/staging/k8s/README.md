@@ -53,6 +53,14 @@ This stack provisions a k3s Kubernetes cluster on Hetzner Cloud for the staging 
 ./scripts/apply03.sh
 ```
 
+### Cloudflare Zone
+
+This stack manages `staging_domain` as a Cloudflare zone resource and outputs
+`cloudflare_zone_nameservers`. Update registrar NS delegation to those values
+after the first apply.
+
+The zone uses `prevent_destroy`, so `terraform destroy` will not remove it.
+
 ## Manifests
 
 | Manifest | Description |

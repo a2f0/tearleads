@@ -51,6 +51,10 @@ locals {
   ), null)
 }
 
+data "tls_certificate" "github_actions" {
+  url = "https://token.actions.githubusercontent.com"
+}
+
 # Branch protection for main
 resource "github_branch_protection" "main" {
   count = var.use_repository_ruleset_for_main ? 0 : 1
@@ -196,4 +200,20 @@ resource "github_app_installation_repository" "merge_signing" {
 
   installation_id = local.effective_merge_signing_app_installation_id
   repository      = github_repository.main.name
+}
+
+# Shared account-global GitHub Actions OIDC provider.
+resource "aws_iam_openid_connect_provider" "github_actions" {
+  url = "https://token.actions.githubusercontent.com"
+  client_id_list = [
+    "sts.amazonaws.com"
+  ]
+  thumbprint_list = data.tls_certificate.github_actions.certificates[*].sha1_fingerprint
+
+  tags = {
+    Environment = "shared"
+    Project     = "tearleads"
+    Purpose     = "github-actions-oidc"
+    Stack       = "github"
+  }
 }
