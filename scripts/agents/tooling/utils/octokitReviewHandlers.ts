@@ -88,7 +88,7 @@ export async function findDeferredWorkWithOctokit(
       matches.push({
         id: comment.id,
         path: comment.path,
-        line: comment.line,
+        line: comment.line ?? null,
         body,
         html_url: comment.html_url
       });

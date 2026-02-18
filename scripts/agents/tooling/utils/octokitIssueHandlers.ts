@@ -77,13 +77,17 @@ export async function createIssueWithOctokit(
   context: GitHubClientContext,
   input: CreateIssueInput
 ): Promise<string> {
-  const response = await context.octokit.rest.issues.create({
+  const request: Parameters<typeof context.octokit.rest.issues.create>[0] = {
     owner: context.owner,
     repo: context.repo,
     title: input.title,
-    body: input.body,
-    labels: input.labels.length > 0 ? input.labels : undefined
-  });
+    body: input.body
+  };
+  if (input.labels.length > 0) {
+    request.labels = input.labels;
+  }
+
+  const response = await context.octokit.rest.issues.create(request);
 
   return response.data.html_url;
 }
