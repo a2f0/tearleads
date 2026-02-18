@@ -9,7 +9,7 @@ Use this runbook to diagnose:
 
 ## 1) Sync-State Divergence
 
-### Symptoms
+### Divergence Symptoms
 
 - Client repeatedly fails sync with deterministic guardrail errors
 - Client state no longer converges after retries
@@ -30,7 +30,7 @@ Use this runbook to diagnose:
 - `flush:staleWriteRecoveryExhausted`
   - Example error: `stale write-id recovery exceeded max retry attempts without forward progress`
 
-### Triage Steps
+### Divergence Triage Steps
 
 1. Capture `client.exportState()` before retrying.
 2. Retry once and capture `client.exportState()` again.
@@ -40,12 +40,12 @@ Use this runbook to diagnose:
 
 ## 2) Staged-Blob Visibility Failures
 
-### Symptoms
+### Visibility Failure Symptoms
 
 - Attach returns `409 Client reconcile state is behind required visibility`
 - Attach returns deterministic `500 Failed to attach staged blob` on malformed metadata/state
 
-### Triage Steps
+### Visibility Failure Triage Steps
 
 1. Validate staged row status is still `blob-stage:staged` and not expired.
 2. Validate attach payload includes coherent checkpoint tuple:
