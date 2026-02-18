@@ -11,7 +11,7 @@ export async function runLocalWrite<T>(
   operation: () => Promise<T>,
   options?: LocalDatabaseWriteOptions
 ): Promise<T> {
-  return localWriteOrchestrator.enqueue(async () => operation(), options);
+  return localWriteOrchestrator.enqueue(() => operation(), options);
 }
 
 export async function drainLocalWrites(scope?: string): Promise<void> {
