@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/help",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Help pages and window for Tearleads",
   "type": "module",
   "main": "src/index.ts",

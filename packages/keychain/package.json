@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/keychain",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Keychain pages and window for Tearleads",
   "type": "module",
   "main": "src/index.ts",
