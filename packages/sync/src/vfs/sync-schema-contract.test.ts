@@ -215,7 +215,9 @@ describe('sync schema contract', () => {
         'utf8'
       );
       const routeSql = extractSqlLiteralsFromSource(source);
-      expect(extractShareReadReferences(routeSql)).toEqual(file.expectedReadTables);
+      expect(extractShareReadReferences(routeSql)).toEqual(
+        file.expectedReadTables
+      );
     }
   });
 
@@ -224,7 +226,9 @@ describe('sync schema contract', () => {
       SELECT * FROM vfs_shadow_table;
     `;
 
-    expect(extractSqlTableReferences(unexpectedSql)).toEqual(['vfs_shadow_table']);
+    expect(extractSqlTableReferences(unexpectedSql)).toEqual([
+      'vfs_shadow_table'
+    ]);
     expect(isSqlReferenceSubsetOfFlattenedContract(unexpectedSql)).toBe(false);
   });
 
