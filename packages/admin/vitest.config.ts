@@ -42,7 +42,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
-      '@client': fileURLToPath(new URL('../client/src', import.meta.url)),
       '@admin': fileURLToPath(new URL('./src', import.meta.url)),
       '@tearleads/compliance': fileURLToPath(
         new URL('../compliance/src/index.ts', import.meta.url)
