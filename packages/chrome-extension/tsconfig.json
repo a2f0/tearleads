@@ -4,7 +4,9 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "moduleResolution": "bundler",
     "types": ["chrome", "node"],
-    "noEmit": true
+    "noEmit": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/.cache/tsc/tsconfig.tsbuildinfo"
   },
   "include": ["src/**/*", "vitest.config.ts", "vite.config.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
