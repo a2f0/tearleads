@@ -1,8 +1,8 @@
-# VFS Sync Schema Contract (Flattening Draft)
+# VFS Sync Schema Contract
 
 This document captures the sync-critical table dependencies that are currently
-required by the VFS sync protocol. The goal is to make schema flattening
-explicit and testable while avoiding accidental coupling to transitional tables.
+required by the VFS sync protocol. The goal is to make canonical schema
+dependencies explicit and testable.
 
 ## Scope
 
@@ -39,27 +39,15 @@ The current flattened target contract is:
 Any SQL references outside this set are treated as out-of-contract and should
 fail the schema-contract guardrail tests.
 
-In addition, sync-critical SQL is asserted to avoid explicit references to
-transitional candidates via `findTransitionalTableReferences(...)`.
-
-## Transitional VFS Table Candidates
-
 From the generated Postgres schema
-(`packages/db/src/generated/postgresql/schema.ts`), the flattening inventory
-reports no transitional VFS runtime tables outside the sync-critical contract.
+(`packages/db/src/generated/postgresql/schema.ts`), the inventory reports no
+missing tables from the sync-critical contract.
 
-The API migration plan is now greenfield-first: a single canonical migration
-(`v021`) creates sync/CRDT state and removes legacy VFS tables in one pass for
-clean-state deployments.
+The API migration plan is greenfield-first: a single canonical migration
+(`v021`) creates sync/CRDT state in one pass for clean-state deployments.
 
-Explorer folder metadata paths are canonical-only:
-
-1. Folder reads resolve from `vfs_registry.encrypted_name` only.
-2. Folder writes target `vfs_registry` only.
-3. Runtime code must not read/write `vfs_folders`.
-
-`vfs_folders` remains only as historical migration/test scaffolding and must not
-be a runtime dependency.
+Explorer folder metadata paths are canonical-only and resolve through
+`vfs_registry`.
 
 ## Domain Mapping
 
@@ -91,5 +79,5 @@ be a runtime dependency.
 If a new query references a table outside the target set, tests fail until the
 schema contract is intentionally updated.
 
-Legacy reverse-compat rollout runbooks were removed with the one-shot
-greenfield migration strategy.
+Legacy reverse-compat rollout runbooks were removed with the one-shot greenfield
+migration strategy.

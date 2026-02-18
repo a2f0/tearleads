@@ -114,14 +114,14 @@ describe('migrations (core through v021)', () => {
       vi.mocked(pool.query).mockImplementation((sql: string) => {
         pool.queries.push(sql);
 
-          if (sql.includes('MAX(version)')) {
-            versionCallCount++;
-            if (versionCallCount === 1) {
-              return Promise.resolve({
-                rows: [{ version: 1 }],
-                rowCount: 1
-              });
-            }
+        if (sql.includes('MAX(version)')) {
+          versionCallCount++;
+          if (versionCallCount === 1) {
+            return Promise.resolve({
+              rows: [{ version: 1 }],
+              rowCount: 1
+            });
+          }
           return Promise.resolve({ rows: [{ version: 21 }], rowCount: 1 });
         }
 
@@ -394,7 +394,9 @@ describe('migrations (core through v021)', () => {
       expect(queries).toContain(
         'CREATE OR REPLACE FUNCTION "vfs_merge_reconciled_write_ids"'
       );
-      expect(queries).toContain('CREATE OR REPLACE FUNCTION "vfs_emit_sync_change"');
+      expect(queries).toContain(
+        'CREATE OR REPLACE FUNCTION "vfs_emit_sync_change"'
+      );
       expect(queries).toContain(
         'CREATE TRIGGER "vfs_links_emit_sync_crdt_trigger"'
       );

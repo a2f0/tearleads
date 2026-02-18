@@ -148,11 +148,9 @@ export {
   deriveVfsFlatteningInventory,
   extractPostgresTableNamesFromDrizzleSchema,
   extractSqlTableReferences,
-  findTransitionalTableReferences,
   isSqlReferenceSubsetOfFlattenedContract,
   VFS_SYNC_FLATTENED_TARGET_TABLES,
   VFS_SYNC_SCHEMA_DEPENDENCIES,
-  VFS_TRANSITIONAL_TABLE_CANDIDATES,
   type VfsFlatteningInventory,
   type VfsSyncSchemaDependency,
   type VfsSyncSchemaDomain

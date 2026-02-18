@@ -27,7 +27,6 @@ import {
   organizationsTable,
   playlistsTable,
   postgresRuntimeTables,
-  retiredRuntimeVfsTableNames,
   revenuecatWebhookEventsTable,
   secretsTable,
   sqliteRuntimeTables,
@@ -209,7 +208,7 @@ describe('vfsCrdtOpsTable', () => {
 });
 
 describe('vfsRegistryTable', () => {
-  it('includes canonical folder metadata columns for flattening', () => {
+  it('includes canonical folder metadata columns', () => {
     expect(vfsRegistryTable.columns['encryptedName']).toBeDefined();
     expect(vfsRegistryTable.columns['icon']).toBeDefined();
     expect(vfsRegistryTable.columns['viewMode']).toBeDefined();
@@ -279,31 +278,12 @@ describe('allTables', () => {
 });
 
 describe('runtime table inventories', () => {
-  it('keeps sqlite runtime tables free of retired legacy VFS tables', () => {
-    const sqliteTableNames = new Set(
-      sqliteRuntimeTables.map((table) => table.name)
-    );
-    for (const retiredTableName of retiredRuntimeVfsTableNames) {
-      expect(sqliteTableNames.has(retiredTableName)).toBe(false);
-    }
-
-    const removedRuntimeCount = allTables.filter((table) =>
-      retiredRuntimeVfsTableNames.includes(
-        table.name as (typeof retiredRuntimeVfsTableNames)[number]
-      )
-    ).length;
-    expect(sqliteRuntimeTables).toHaveLength(
-      allTables.length - removedRuntimeCount
-    );
+  it('keeps sqlite runtime tables aligned with canonical table inventory', () => {
+    expect(sqliteRuntimeTables).toEqual(allTables);
   });
 
-  it('keeps postgres runtime tables free of retired legacy VFS tables', () => {
-    const postgresTableNames = new Set(
-      postgresRuntimeTables.map((table) => table.name)
-    );
-    for (const retiredTableName of retiredRuntimeVfsTableNames) {
-      expect(postgresTableNames.has(retiredTableName)).toBe(false);
-    }
+  it('keeps postgres runtime tables aligned with canonical table inventory', () => {
+    expect(postgresRuntimeTables).toEqual(allTables);
   });
 
   it('keeps sqlite and postgres runtime inventories aligned', () => {

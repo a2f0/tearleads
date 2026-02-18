@@ -24,21 +24,5 @@ export const allTables: TableDefinition[] = [
   ...runtimeAiTables
 ];
 
-export const retiredRuntimeVfsTableNames = [
-  'vfs_folders',
-  'vfs_shares',
-  'org_shares',
-  'vfs_access'
-] as const;
-
-const retiredRuntimeVfsTableNameSet = new Set<string>(
-  retiredRuntimeVfsTableNames
-);
-
-export const postgresRuntimeTables: TableDefinition[] = allTables.filter(
-  (table) => !retiredRuntimeVfsTableNameSet.has(table.name)
-);
-
-export const sqliteRuntimeTables: TableDefinition[] = allTables.filter(
-  (table) => !retiredRuntimeVfsTableNameSet.has(table.name)
-);
+export const postgresRuntimeTables: TableDefinition[] = allTables;
+export const sqliteRuntimeTables: TableDefinition[] = allTables;

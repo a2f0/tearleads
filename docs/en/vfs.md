@@ -32,9 +32,6 @@ Folder metadata is canonical on `vfs_registry` for `object_type = 'folder'`.
 Runtime read/write paths use `vfs_registry.encrypted_name` and related metadata
 columns (`icon`, `view_mode`, `default_sort`, `sort_direction`).
 
-`vfs_folders` is a retired runtime table kept only for historical
-migration/test scaffolding.
-
 ### `vfs_links`
 
 Parent-child relationships between registry items.
@@ -63,9 +60,6 @@ Canonical access grants for users, groups, and organizations.
 - principal-scoped grants (`user`, `group`, `organization`)
 - permission/access levels
 - lifecycle metadata (`revoked_at`, provenance, timestamps)
-
-`vfs_access` is retired from runtime schema and remains only in migration
-history guardrails.
 
 ## Registry Pattern
 

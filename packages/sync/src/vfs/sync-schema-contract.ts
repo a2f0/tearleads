@@ -15,14 +15,9 @@ export interface VfsFlatteningInventory {
   vfsGeneratedTables: string[];
   syncCriticalTablesPresent: string[];
   missingContractTables: string[];
-  transitionalVfsTables: string[];
 }
 
-/**
- * Authoritative inventory of sync-critical table dependencies while we migrate
- * toward a flattened schema. Query-layer tests assert that SQL references stay
- * within this contract so accidental coupling to transitional tables is caught.
- */
+/** Authoritative inventory of sync-critical table dependencies. */
 export const VFS_SYNC_SCHEMA_DEPENDENCIES: VfsSyncSchemaDependency[] = [
   {
     tableName: 'user_groups',
@@ -102,14 +97,6 @@ export const VFS_SYNC_FLATTENED_TARGET_TABLES = Array.from(
     VFS_SYNC_SCHEMA_DEPENDENCIES.map((dependency) => dependency.tableName)
   )
 ).sort((left, right) => left.localeCompare(right));
-
-export const VFS_TRANSITIONAL_TABLE_CANDIDATES = [
-  // Keep retired legacy names here to fail closed if SQL references regress.
-  'vfs_access',
-  'vfs_folders',
-  'vfs_shares',
-  'org_shares'
-];
 
 function extractCteNames(sql: string): Set<string> {
   const cteNames = new Set<string>();
@@ -229,22 +216,11 @@ export function deriveVfsFlatteningInventory(
   const missingContractTables = VFS_SYNC_FLATTENED_TARGET_TABLES.filter(
     (tableName) => !generatedTableSet.has(tableName)
   );
-  const transitionalVfsTables = vfsGeneratedTables.filter(
-    (tableName) => !VFS_SYNC_FLATTENED_TARGET_TABLES.includes(tableName)
-  );
 
   return {
     allGeneratedTables,
     vfsGeneratedTables,
     syncCriticalTablesPresent,
-    missingContractTables,
-    transitionalVfsTables
+    missingContractTables
   };
-}
-
-export function findTransitionalTableReferences(sql: string): string[] {
-  const references = extractSqlTableReferences(sql);
-  return references.filter((tableName) =>
-    VFS_TRANSITIONAL_TABLE_CANDIDATES.includes(tableName)
-  );
 }

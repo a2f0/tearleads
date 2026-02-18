@@ -5,8 +5,8 @@ import type { Migration } from './types.js';
  * v021: Greenfield VFS canonical schema cutover.
  *
  * This one-shot migration is designed for clean-state environments where
- * legacy VFS data backfills are unnecessary. It installs only canonical
- * runtime state needed by current API routes and drops legacy VFS tables.
+ * data backfills are unnecessary. It installs only canonical runtime state
+ * needed by current API routes and removes non-canonical VFS tables.
  */
 export const v021: Migration = {
   version: 21,
@@ -235,7 +235,6 @@ export const v021: Migration = {
         FOR EACH ROW EXECUTE FUNCTION "vfs_links_emit_sync_crdt_trigger"();
       `);
 
-      // Legacy VFS compatibility tables are intentionally retired in greenfield mode.
       await pool.query('DROP TABLE IF EXISTS "vfs_blob_refs"');
       await pool.query('DROP TABLE IF EXISTS "vfs_blob_staging"');
       await pool.query('DROP TABLE IF EXISTS "vfs_blob_objects"');
@@ -243,13 +242,27 @@ export const v021: Migration = {
       await pool.query('DROP TABLE IF EXISTS "vfs_folders"');
       await pool.query('DROP TABLE IF EXISTS "vfs_shares"');
       await pool.query('DROP TABLE IF EXISTS "org_shares"');
-      await pool.query('DROP TABLE IF EXISTS "vfs_share_retirement_checkpoints"');
-      await pool.query('DROP TABLE IF EXISTS "vfs_share_retirement_drop_plans"');
-      await pool.query('DROP TABLE IF EXISTS "vfs_share_retirement_drop_candidates"');
-      await pool.query('DROP TABLE IF EXISTS "vfs_share_retirement_execution_readiness"');
-      await pool.query('DROP TABLE IF EXISTS "vfs_share_retirement_drop_authorizations"');
-      await pool.query('DROP TABLE IF EXISTS "vfs_share_retirement_drop_execution_candidates"');
-      await pool.query('DROP TABLE IF EXISTS "vfs_share_retirement_drop_execution_audit"');
+      await pool.query(
+        'DROP TABLE IF EXISTS "vfs_share_retirement_checkpoints"'
+      );
+      await pool.query(
+        'DROP TABLE IF EXISTS "vfs_share_retirement_drop_plans"'
+      );
+      await pool.query(
+        'DROP TABLE IF EXISTS "vfs_share_retirement_drop_candidates"'
+      );
+      await pool.query(
+        'DROP TABLE IF EXISTS "vfs_share_retirement_execution_readiness"'
+      );
+      await pool.query(
+        'DROP TABLE IF EXISTS "vfs_share_retirement_drop_authorizations"'
+      );
+      await pool.query(
+        'DROP TABLE IF EXISTS "vfs_share_retirement_drop_execution_candidates"'
+      );
+      await pool.query(
+        'DROP TABLE IF EXISTS "vfs_share_retirement_drop_execution_audit"'
+      );
 
       await pool.query('COMMIT');
     } catch (error) {

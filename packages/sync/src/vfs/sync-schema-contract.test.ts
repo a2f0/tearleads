@@ -8,7 +8,6 @@ import {
   extractPostgresTableNamesFromDrizzleSchema,
   extractSqliteTableNamesFromDrizzleSchema,
   extractSqlTableReferences,
-  findTransitionalTableReferences,
   isSqlReferenceSubsetOfFlattenedContract,
   VFS_SYNC_FLATTENED_TARGET_TABLES
 } from './sync-schema-contract.js';
@@ -29,7 +28,7 @@ function extractSqlLiteralsFromSource(source: string): string[] {
   return sqlLiterals;
 }
 
-function extractLegacyShareReadReferences(sqlLiterals: string[]): string[] {
+function extractShareReadReferences(sqlLiterals: string[]): string[] {
   return Array.from(
     new Set(
       sqlLiterals
@@ -76,8 +75,6 @@ describe('sync schema contract', () => {
 
     expect(isSqlReferenceSubsetOfFlattenedContract(syncQuery.text)).toBe(true);
     expect(isSqlReferenceSubsetOfFlattenedContract(crdtQuery.text)).toBe(true);
-    expect(findTransitionalTableReferences(syncQuery.text)).toEqual([]);
-    expect(findTransitionalTableReferences(crdtQuery.text)).toEqual([]);
   });
 
   it('covers API CRDT route SQL references used for push/pull/reconcile', () => {
@@ -114,12 +111,9 @@ describe('sync schema contract', () => {
         VFS_SYNC_FLATTENED_TARGET_TABLES.includes(tableName)
       )
     ).toBe(true);
-    expect(
-      routeSql.flatMap((sql) => findTransitionalTableReferences(sql))
-    ).toEqual([]);
   });
 
-  it('keeps blob stage/attach routes off transitional blob tables', () => {
+  it('keeps blob stage/attach routes off blob staging tables', () => {
     const syncPackageRoot = process.cwd();
     const postBlobStageSource = readFileSync(
       resolve(syncPackageRoot, '../api/src/routes/vfs/post-blobs-stage.ts'),
@@ -158,12 +152,9 @@ describe('sync schema contract', () => {
     );
     expect(routeReferences).not.toContain('vfs_blob_refs');
     expect(routeReferences).not.toContain('vfs_blob_staging');
-    expect(
-      routeSql.flatMap((sql) => findTransitionalTableReferences(sql))
-    ).toEqual([]);
   });
 
-  it('keeps share routes off retired legacy share/access/folder tables', () => {
+  it('keeps share routes on canonical ACL tables only', () => {
     const syncPackageRoot = process.cwd();
     const shareRouteSources = [
       '../api/src/routes/vfs-shares/getItemsItemIdShares.ts',
@@ -184,9 +175,6 @@ describe('sync schema contract', () => {
       new Set(routeSql.flatMap((sql) => extractSqlTableReferences(sql)))
     ).sort((left, right) => left.localeCompare(right));
 
-    /**
-     * Guardrail: share routes must remain canonical-ACL-only after retirement.
-     */
     expect(routeReferences).toEqual(
       expect.arrayContaining(['vfs_acl_entries'])
     );
@@ -196,28 +184,28 @@ describe('sync schema contract', () => {
     expect(routeReferences).not.toContain('vfs_folders');
   });
 
-  it('keeps legacy share-table read-surface inventory empty after cutover', () => {
+  it('keeps share-table read surface inventory empty', () => {
     const syncPackageRoot = process.cwd();
     const shareReadRouteFiles = [
       {
         relativePath: '../api/src/routes/vfs-shares/getItemsItemIdShares.ts',
-        expectedLegacyReadTables: []
+        expectedReadTables: []
       },
       {
         relativePath: '../api/src/routes/vfs-shares/patchSharesShareId.ts',
-        expectedLegacyReadTables: []
+        expectedReadTables: []
       },
       {
         relativePath: '../api/src/routes/vfs-shares/deleteSharesShareId.ts',
-        expectedLegacyReadTables: []
+        expectedReadTables: []
       },
       {
         relativePath: '../api/src/routes/vfs-shares/deleteOrgSharesShareId.ts',
-        expectedLegacyReadTables: []
+        expectedReadTables: []
       },
       {
         relativePath: '../api/src/routes/vfs-shares/getShareTargetsSearch.ts',
-        expectedLegacyReadTables: []
+        expectedReadTables: []
       }
     ];
 
@@ -227,24 +215,20 @@ describe('sync schema contract', () => {
         'utf8'
       );
       const routeSql = extractSqlLiteralsFromSource(source);
-      expect(extractLegacyShareReadReferences(routeSql)).toEqual(
-        file.expectedLegacyReadTables
-      );
+      expect(extractShareReadReferences(routeSql)).toEqual(file.expectedReadTables);
     }
   });
 
   it('detects SQL references that fall outside the flattened contract', () => {
     const unexpectedSql = `
-      SELECT * FROM legacy_vfs_shadow_table;
+      SELECT * FROM vfs_shadow_table;
     `;
 
-    expect(extractSqlTableReferences(unexpectedSql)).toEqual([
-      'legacy_vfs_shadow_table'
-    ]);
+    expect(extractSqlTableReferences(unexpectedSql)).toEqual(['vfs_shadow_table']);
     expect(isSqlReferenceSubsetOfFlattenedContract(unexpectedSql)).toBe(false);
   });
 
-  it('remains compatible with generated Postgres schema and excludes retired transitional VFS tables', () => {
+  it('remains compatible with generated Postgres schema', () => {
     const syncPackageRoot = process.cwd();
     const generatedSchemaSource = [
       '../db/src/generated/postgresql/schema.ts',
@@ -262,17 +246,9 @@ describe('sync schema contract', () => {
     const inventory = deriveVfsFlatteningInventory(generatedTables);
 
     expect(inventory.missingContractTables).toEqual([]);
-    expect(inventory.transitionalVfsTables).toEqual([]);
-    expect(inventory.transitionalVfsTables).not.toContain('vfs_shares');
-    expect(inventory.transitionalVfsTables).not.toContain('org_shares');
-    expect(inventory.transitionalVfsTables).not.toContain('vfs_access');
-    expect(inventory.transitionalVfsTables).not.toContain('vfs_folders');
-    expect(inventory.transitionalVfsTables).not.toContain('vfs_blob_objects');
-    expect(inventory.transitionalVfsTables).not.toContain('vfs_blob_refs');
-    expect(inventory.transitionalVfsTables).not.toContain('vfs_blob_staging');
   });
 
-  it('remains compatible with generated SQLite schema and excludes retired transitional VFS tables', () => {
+  it('remains compatible with generated SQLite schema', () => {
     const syncPackageRoot = process.cwd();
     const generatedSchemaSource = [
       '../db/src/generated/sqlite/schema.ts',
@@ -290,13 +266,5 @@ describe('sync schema contract', () => {
     const inventory = deriveVfsFlatteningInventory(generatedTables);
 
     expect(inventory.missingContractTables).toEqual([]);
-    expect(inventory.transitionalVfsTables).toEqual([]);
-    expect(inventory.transitionalVfsTables).not.toContain('vfs_shares');
-    expect(inventory.transitionalVfsTables).not.toContain('org_shares');
-    expect(inventory.transitionalVfsTables).not.toContain('vfs_access');
-    expect(inventory.transitionalVfsTables).not.toContain('vfs_folders');
-    expect(inventory.transitionalVfsTables).not.toContain('vfs_blob_objects');
-    expect(inventory.transitionalVfsTables).not.toContain('vfs_blob_refs');
-    expect(inventory.transitionalVfsTables).not.toContain('vfs_blob_staging');
   });
 });
