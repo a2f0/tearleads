@@ -25,6 +25,12 @@ interface ChartPoint {
   timestamp: number;
 }
 
+interface ScatterDotProps {
+  cx?: number;
+  cy?: number;
+  fill?: string;
+}
+
 const CHART_COLORS = [
   '#2563eb',
   '#16a34a',
@@ -33,6 +39,10 @@ const CHART_COLORS = [
   '#0891b2',
   '#7c3aed'
 ];
+
+function ScatterDot({ cx = 0, cy = 0, fill = '#808080' }: ScatterDotProps) {
+  return <circle cx={cx} cy={cy} r={4} fill={fill} />;
+}
 
 function useContainerReady(): [(node: HTMLDivElement | null) => void, boolean] {
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
@@ -203,6 +213,7 @@ export function AnalyticsDurationChart({
                     name={getEventDisplayName(eventType)}
                     data={data}
                     fill={colorMap.get(eventType) ?? '#808080'}
+                    shape={<ScatterDot />}
                   />
                 )
               )}
