@@ -2229,6 +2229,9 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: 1.2.8
         version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tearleads/window-manager':
+        specifier: workspace:*
+        version: link:../window-manager
       class-variance-authority:
         specifier: 0.7.1
         version: 0.7.1
@@ -2248,9 +2251,6 @@ importers:
       '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
-      '@tearleads/window-manager':
-        specifier: workspace:*
-        version: link:../window-manager
       '@testing-library/jest-dom':
         specifier: 6.9.1
         version: 6.9.1
@@ -2484,6 +2484,9 @@ importers:
       '@tearleads/ui':
         specifier: workspace:*
         version: link:../ui
+      drizzle-orm:
+        specifier: 0.45.1
+        version: 0.45.1(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(pg@8.18.0)(sql.js@1.14.0)
       lucide-react:
         specifier: 0.564.0
         version: 0.564.0(react@19.2.4)
@@ -2515,9 +2518,6 @@ importers:
       '@vitest/coverage-v8':
         specifier: 4.0.18
         version: 4.0.18(vitest@4.0.18(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.30.2)(msw@2.12.10(@types/node@25.2.3)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      drizzle-orm:
-        specifier: 0.45.1
-        version: 0.45.1(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(pg@8.18.0)(sql.js@1.14.0)
       jsdom:
         specifier: 28.1.0
         version: 28.1.0(@noble/hashes@2.0.1)
