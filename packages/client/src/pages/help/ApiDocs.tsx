@@ -25,9 +25,7 @@ export function ApiDocsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    const modulePath = '@tearleads/api/dist/openapi.json';
-
-    import(modulePath)
+    import('@tearleads/api/dist/openapi.json')
       .then((module) => {
         if (!cancelled && isOpenApiDocument(module.default)) {
           setOpenapiSpec(module.default);
