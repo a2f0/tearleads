@@ -399,7 +399,7 @@ export function createActionCommand(actionName: ActionName): Command {
         }
       } else if (config.isInline) {
         const repo = getRepo();
-        output = runInlineAction(actionName, opts, repo, timeoutMs);
+        output = await runInlineAction(actionName, opts, repo, timeoutMs);
       } else {
         const result = runDelegatedAction(
           actionName,
