@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
 import { renderHook } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import {
   DatabaseContext,
@@ -41,7 +41,9 @@ const createContextValue = (
 function createWrapper(value: DatabaseContextValue) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
-      <DatabaseContext.Provider value={value}>{children}</DatabaseContext.Provider>
+      <DatabaseContext.Provider value={value}>
+        {children}
+      </DatabaseContext.Provider>
     );
   };
 }
