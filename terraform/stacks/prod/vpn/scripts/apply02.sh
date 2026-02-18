@@ -14,11 +14,15 @@ SERVER_USERNAME="$(terraform -chdir="$STACK_DIR" output -raw server_username)"
 
 attempt=1
 while (( attempt <= SSH_RETRIES )); do
-  if ssh -o BatchMode=yes -o ConnectTimeout="$SSH_CONNECT_TIMEOUT_SECONDS" "$SERVER_USERNAME@$SERVER_IP" true >/dev/null 2>&1; then
+  ssh_output=""
+  if ssh_output="$(ssh -o BatchMode=yes -o ConnectTimeout="$SSH_CONNECT_TIMEOUT_SECONDS" "$SERVER_USERNAME@$SERVER_IP" true 2>&1)"; then
     break
   fi
 
   echo "SSH not ready yet (attempt $attempt/$SSH_RETRIES). Retrying in ${SSH_RETRY_DELAY_SECONDS}s..."
+  if [[ -n "$ssh_output" ]]; then
+    echo "$ssh_output"
+  fi
   sleep "$SSH_RETRY_DELAY_SECONDS"
   ((attempt++))
 done
