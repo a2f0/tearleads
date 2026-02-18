@@ -84,7 +84,7 @@ export function RestoreBackupForm({
       }
 
       setManifest(info.manifest);
-      setSuggestedName(info.suggestedName);
+      setSuggestedName(info.suggestedName ?? null);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to validate backup'

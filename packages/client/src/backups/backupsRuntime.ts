@@ -88,7 +88,7 @@ export const clientBackupsRuntime: BackupsRuntime = {
       password,
       includeBlobs: includeBlobs && fileStorage !== null,
       instanceName,
-      onProgress
+      ...(onProgress ? { onProgress } : {})
     });
 
     const filename = formatBackupFilename(new Date());
@@ -103,7 +103,15 @@ export const clientBackupsRuntime: BackupsRuntime = {
   },
 
   getBackupInfo,
-  restoreBackup,
+
+  async restoreBackup(input) {
+    return restoreBackup({
+      backupData: input.backupData,
+      backupPassword: input.backupPassword,
+      newInstancePassword: input.newInstancePassword,
+      ...(input.onProgress ? { onProgress: input.onProgress } : {})
+    });
+  },
 
   async refreshInstances() {
     const activeInstanceId = await getActiveInstanceId();
