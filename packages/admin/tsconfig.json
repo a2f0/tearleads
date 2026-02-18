@@ -13,7 +13,6 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@client/*": ["../client/src/*"],
       "@admin/*": ["./src/*"],
       "@tearleads/compliance": ["../compliance/src/index.ts"],
       "@tearleads/compliance/package.json": ["../compliance/package.json"]

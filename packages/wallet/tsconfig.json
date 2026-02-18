@@ -12,8 +12,7 @@
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["../client/src/*"],
-      "@client/*": ["../client/src/*"],
+      "@/*": ["./src/*"],
       "@wallet/*": ["./src/*"]
     },
     "tsBuildInfoFile": "./dist/.tsbuildinfo"

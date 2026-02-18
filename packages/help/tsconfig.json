@@ -13,8 +13,7 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["../client/src/*"],
-      "@client/*": ["../client/src/*"],
+      "@/*": ["./src/*"],
       "@help/*": ["./src/*"],
       "@tearleads/api/dist/openapi.json": ["../api/dist/openapi.json"]
     },
