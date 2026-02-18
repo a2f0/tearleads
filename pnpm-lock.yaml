@@ -381,6 +381,9 @@ importers:
       '@tearleads/msw':
         specifier: workspace:*
         version: link:../msw
+      jsdom:
+        specifier: 28.1.0
+        version: 28.1.0(@noble/hashes@2.0.1)
 
   packages/app-builder:
     dependencies:

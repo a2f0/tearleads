@@ -31,6 +31,7 @@
     "@tearleads/vfs-sync": "workspace:*"
   },
   "devDependencies": {
-    "@tearleads/msw": "workspace:*"
+    "@tearleads/msw": "workspace:*",
+    "jsdom": "28.1.0"
   }
 }
