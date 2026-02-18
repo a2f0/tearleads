@@ -15,16 +15,17 @@ resource "random_id" "tunnel_secret" {
 
 # COMPLIANCE_SENTINEL: TL-NET-006 | control=cloudflare-tunnel-isolation
 # Create the tunnel
-resource "cloudflare_tunnel" "main" {
+resource "cloudflare_zero_trust_tunnel_cloudflared" "main" {
   account_id = var.account_id
   name       = var.tunnel_name
   secret     = random_id.tunnel_secret.b64_std
+  config_src = "cloudflare"
 }
 
 # Configure tunnel ingress rules
-resource "cloudflare_tunnel_config" "main" {
+resource "cloudflare_zero_trust_tunnel_cloudflared_config" "main" {
   account_id = var.account_id
-  tunnel_id  = cloudflare_tunnel.main.id
+  tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.main.id
 
   config {
     dynamic "ingress_rule" {
@@ -52,7 +53,7 @@ resource "cloudflare_record" "tunnel" {
   zone_id = local.zone_id
   name    = each.value.hostname
   type    = "CNAME"
-  content = "${cloudflare_tunnel.main.id}.cfargotunnel.com"
+  content = "${cloudflare_zero_trust_tunnel_cloudflared.main.id}.cfargotunnel.com"
   proxied = true
   ttl     = 1 # Auto TTL when proxied
 }

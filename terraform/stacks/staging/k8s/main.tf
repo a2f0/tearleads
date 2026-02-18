@@ -79,14 +79,9 @@ module "server" {
   }
 }
 
-resource "cloudflare_zone" "staging" {
+data "cloudflare_zone" "staging" {
   account_id = var.cloudflare_account_id
-  zone       = var.staging_domain
-  type       = "full"
-
-  lifecycle {
-    prevent_destroy = true
-  }
+  name       = var.staging_domain
 }
 
 # Cloudflare Tunnel - routes staging traffic through Cloudflare
@@ -94,7 +89,7 @@ module "tunnel" {
   source = "../../../modules/cloudflare-tunnel"
 
   account_id          = var.cloudflare_account_id
-  zone_id             = cloudflare_zone.staging.id
+  zone_id             = data.cloudflare_zone.staging.id
   zone_name           = var.staging_domain
   lookup_zone_by_name = false
   tunnel_name         = "k8s-staging"
@@ -121,7 +116,7 @@ resource "cloudflare_record" "k8s_api" {
     AAAA = module.server.ipv6_address
   }
 
-  zone_id = cloudflare_zone.staging.id
+  zone_id = data.cloudflare_zone.staging.id
   name    = "k8s-api.${var.staging_domain}"
   type    = each.key
   content = each.value
