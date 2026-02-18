@@ -220,4 +220,55 @@ describe('vfsBlobNetworkFlusher', () => {
     await expect(target.hydrateFromPersistence()).resolves.toBe(true);
     expect(target.queuedOperations()).toHaveLength(1);
   });
+
+  it('validates queue inputs and hydration payloads', async () => {
+    const { VfsBlobNetworkFlusher } = await import('./vfsBlobNetworkFlusher');
+    const flusher = new VfsBlobNetworkFlusher();
+
+    expect(() =>
+      flusher.queueStage({ blobId: '', expiresAt: '2026-02-18T01:00:00.000Z' })
+    ).toThrow(/blobId is required/);
+    expect(() =>
+      flusher.queueStage({ blobId: 'blob-1', expiresAt: 'invalid' })
+    ).toThrow(/expiresAt must be a valid ISO timestamp/);
+    expect(() => flusher.queueAttach({ stagingId: '', itemId: 'item-1' })).toThrow(
+      /stagingId is required/
+    );
+    expect(() => flusher.queueAttach({ stagingId: 'stage-1', itemId: '' })).toThrow(
+      /itemId is required/
+    );
+    expect(() => flusher.queueAbandon({ stagingId: '' })).toThrow(
+      /stagingId is required/
+    );
+
+    const invalidOperationState = JSON.parse('{"pendingOperations":[{}]}');
+    expect(() => flusher.hydrateState(invalidOperationState)).toThrow(
+      /operation\.operationId is required/
+    );
+  });
+
+  it('handles non-json responses and invalid queue operation kinds', async () => {
+    vi.mocked(global.fetch).mockResolvedValue(
+      new Response('not-json', { status: 200 })
+    );
+    const { VfsBlobNetworkFlusher } = await import('./vfsBlobNetworkFlusher');
+    const flusher = new VfsBlobNetworkFlusher({
+      baseUrl: 'http://localhost'
+    });
+    flusher.queueStage({
+      stagingId: 'stage-1',
+      blobId: 'blob-1',
+      expiresAt: '2026-02-18T01:00:00.000Z'
+    });
+
+    await expect(flusher.flush()).rejects.toThrow(
+      /transport returned non-JSON response/
+    );
+    const unknownKindState = JSON.parse(
+      '{"pendingOperations":[{"operationId":"op-1","kind":"unknown","payload":{}}]}'
+    );
+    expect(() => flusher.hydrateState(unknownKindState)).toThrow(
+      /operation\.kind is invalid/
+    );
+  });
 });

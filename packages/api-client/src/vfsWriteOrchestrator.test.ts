@@ -260,4 +260,52 @@ describe('vfsWriteOrchestrator', () => {
     expect(lastState.crdt?.pendingOperations).toHaveLength(0);
     expect(lastState.blob?.pendingOperations).toHaveLength(0);
   });
+
+  it('supports blob queue wrappers and CRDT sync wrapper', async () => {
+    const pushOperations = vi.fn(async () => ({ results: [] }));
+    const pullOperations = vi.fn(async () => ({
+      items: [],
+      hasMore: false,
+      nextCursor: null,
+      lastReconciledWriteIds: {}
+    }));
+    const reconcileState = vi.fn(async ({ cursor, lastReconciledWriteIds }) => ({
+      cursor,
+      lastReconciledWriteIds
+    }));
+
+    const { VfsWriteOrchestrator } = await import('./vfsWriteOrchestrator');
+    const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
+      crdt: {
+        transport: {
+          pushOperations,
+          pullOperations,
+          reconcileState
+        }
+      }
+    });
+
+    expect(orchestrator.queueBlobAttach).toBeDefined();
+    expect(orchestrator.queueBlobAbandon).toBeDefined();
+    orchestrator.queueBlobStage({
+      stagingId: 'stage-1',
+      blobId: 'blob-1',
+      expiresAt: '2026-02-18T01:00:00.000Z'
+    });
+    orchestrator.queueBlobAttach({
+      stagingId: 'stage-1',
+      itemId: 'item-1',
+      relationKind: 'file'
+    });
+    orchestrator.queueBlobAbandon({
+      stagingId: 'stage-1'
+    });
+
+    expect(orchestrator.queuedBlobOperations()).toHaveLength(3);
+    await expect(orchestrator.syncCrdt()).resolves.toEqual({
+      pulledOperations: 0,
+      pullPages: 1
+    });
+    expect(pullOperations).toHaveBeenCalledTimes(1);
+  });
 });
