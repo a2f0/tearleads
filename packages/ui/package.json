@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/ui",
-  "version": "0.0.98",
+  "version": "0.0.99",
   "description": "Shared UI components and design system for Tearleads",
   "type": "module",
   "main": "dist/index.js",
