@@ -282,7 +282,7 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
   exit 1
 fi
 
-DEFAULT_BRANCH="$(./scripts/agents/tooling/agentTool.ts getDefaultBranch 2>/dev/null | jq -r '.default_branch // empty' || true)"
+DEFAULT_BRANCH="$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>/dev/null || true)"
 if [ -z "$DEFAULT_BRANCH" ]; then
   DEFAULT_BRANCH="$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || true)"
 fi
@@ -318,7 +318,7 @@ run_discovery() {
         | head -20
       ;;
     preen-deferred-fixes)
-      REPO=$(./scripts/agents/tooling/agentTool.ts getRepo 2>/dev/null);
+      REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null);
       gh issue list -R "$REPO"
         --label 'deferred'
         --state open
@@ -458,7 +458,7 @@ metric_count() {
       find . -name '*.tsx' -not -path '*/node_modules/*' -not -path '*/.next/*' -not -path '*/dist/*' -exec wc -l {} \; 2>/dev/null | awk '$1 > 300' | wc -l
       ;;
     preen-deferred-fixes)
-      REPO=$(./scripts/agents/tooling/agentTool.ts getRepo 2>/dev/null); gh issue list -R "$REPO" --label 'deferred' --state open --json number --jq 'length' 2>/dev/null || echo 0
+      REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null); gh issue list -R "$REPO" --label 'deferred' --state open --json number --jq 'length' 2>/dev/null || echo 0
       ;;
     preen-optimize-test-execution)
       pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD 2>/dev/null | jq '.warnings | length' 2>/dev/null || echo 0
@@ -686,11 +686,9 @@ git push -u origin "$BRANCH" >/dev/null
 ### 9. Open PR and Enter Merge Queue
 
 ```bash
-REPO=$(./scripts/agents/tooling/agentTool.ts getRepo)
-GIT_CTX=$(./scripts/agents/tooling/agentTool.ts getGitContext)
-HEAD_BRANCH=$(echo "$GIT_CTX" | jq -r '.branch')
-PR_BODY_FILE=$(mktemp)
-cat <<'PR_BODY' > "$PR_BODY_FILE"
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+
+PR_URL=$(gh pr create --repo "$REPO" --title "refactor(preen): stateful single-pass improvements" --body "$(cat <<'PR_BODY'
 ## Summary
 - Ran stateful preen pass in `<mode>` mode
 - Landed focused quality improvements with measurable delta
@@ -725,13 +723,7 @@ cat <<'PR_BODY' > "$PR_BODY_FILE"
 - [x] Impacted coverage checks pass
 - [x] Additional full checks run when needed
 PR_BODY
-CREATE_PR_RESULT=$(./scripts/agents/tooling/agentTool.ts createPr \
-  --title "refactor(preen): stateful single-pass improvements" \
-  --base "$DEFAULT_BRANCH" \
-  --head "$HEAD_BRANCH" \
-  --body-file "$PR_BODY_FILE")
-PR_URL=$(echo "$CREATE_PR_RESULT" | jq -r '.url')
-rm -f "$PR_BODY_FILE"
+)")
 
 PR_NUMBER=$(echo "$PR_URL" | rg -o '[0-9]+$' || true)
 $enter-merge-queue
