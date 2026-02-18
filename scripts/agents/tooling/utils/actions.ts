@@ -5,17 +5,17 @@ import { runWithTimeout } from '../../../tooling/lib/cliShared.ts';
 import type { ActionConfig, ActionName, GlobalOptions } from '../types.ts';
 import { requireDefined } from './helpers.ts';
 import {
-  buildIssueTemplate,
-  parseExistingIssueCandidate,
-  parseFirstJsonObject
-} from './issueHelpers.ts';
-import {
   handleCheckGeminiQuota,
   handleCheckMainVersionBumpSetup,
   handleGeneratePrSummary,
   handleGetReviewThreads,
   handleTriggerGeminiReview
 } from './inlineHandlers.ts';
+import {
+  buildIssueTemplate,
+  parseExistingIssueCandidate,
+  parseFirstJsonObject
+} from './issueHelpers.ts';
 import {
   handleCreateDeferredFixIssue,
   handleSanitizePrBody,
