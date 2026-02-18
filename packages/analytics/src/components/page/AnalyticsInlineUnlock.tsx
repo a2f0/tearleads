@@ -1,4 +1,4 @@
-import { Button } from '@tearleads/ui';
+import { Button, Input } from '@tearleads/ui';
 import { type FormEvent, useCallback, useState } from 'react';
 import { useDatabaseContext } from '@/db/hooks';
 
@@ -48,8 +48,8 @@ export function AnalyticsInlineUnlock({
   return (
     <div data-testid="inline-unlock">
       <p>Database is locked. Enter your password to view {description}.</p>
-      <form onSubmit={handleSubmit}>
-        <input
+      <form onSubmit={handleSubmit} className="mt-3 flex max-w-xs flex-col gap-2">
+        <Input
           type="password"
           value={password}
           onChange={(event) => {
@@ -57,6 +57,7 @@ export function AnalyticsInlineUnlock({
             setError(null);
           }}
           data-testid="inline-unlock-password"
+          className="text-base"
         />
         <Button
           type="submit"
