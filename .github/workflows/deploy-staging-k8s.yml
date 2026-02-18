@@ -1,0 +1,81 @@
+name: Deploy Staging K8s
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Rollout Staging Deployments
+    runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 20
+    env:
+      AWS_REGION: us-east-1
+      KUBECONFIG_FILE: ${{ runner.temp }}/staging-kubeconfig
+      STAGING_KUBECONFIG_B64: ${{ secrets.STAGING_KUBECONFIG_B64 }}
+      STAGING_KUBECONFIG_PATH: ${{ vars.STAGING_KUBECONFIG_PATH }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Validate OIDC role configuration
+        run: |
+          if [ -z "${{ vars.AWS_STAGING_ECR_ROLE_ARN }}" ]; then
+            echo "::error::Repository variable AWS_STAGING_ECR_ROLE_ARN is not set."
+            exit 1
+          fi
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_STAGING_ECR_ROLE_ARN }}
+          role-session-name: github-actions-staging-k8s-deploy
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubeconfig
+        run: |
+          set -eu
+          if [ -n "$STAGING_KUBECONFIG_B64" ]; then
+            echo "$STAGING_KUBECONFIG_B64" | base64 --decode > "$KUBECONFIG_FILE"
+            chmod 600 "$KUBECONFIG_FILE"
+            echo "KUBECONFIG=$KUBECONFIG_FILE" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          if [ -n "$STAGING_KUBECONFIG_PATH" ] && [ -f "$STAGING_KUBECONFIG_PATH" ]; then
+            echo "KUBECONFIG=$STAGING_KUBECONFIG_PATH" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          DEFAULT_KUBECONFIG="$HOME/.kube/config-staging-k8s"
+          if [ -f "$DEFAULT_KUBECONFIG" ]; then
+            echo "KUBECONFIG=$DEFAULT_KUBECONFIG" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          echo "::error::No staging kubeconfig found. Set secret STAGING_KUBECONFIG_B64 or vars.STAGING_KUBECONFIG_PATH."
+          exit 1
+
+      - name: Verify cluster connectivity
+        run: kubectl get nodes
+
+      - name: Refresh ECR pull secret
+        run: ./terraform/stacks/staging/k8s/scripts/setup-ecr-secret.sh
+
+      - name: Rollout staging deployments
+        run: |
+          set -eu
+          kubectl rollout restart deployment/api deployment/client deployment/website -n tearleads
+          kubectl rollout status deployment/api -n tearleads --timeout=300s
+          kubectl rollout status deployment/client -n tearleads --timeout=300s
+          kubectl rollout status deployment/website -n tearleads --timeout=300s

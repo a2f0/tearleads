@@ -71,6 +71,15 @@ jobs:
       id-token: write
     secrets: inherit
 
+  deploy-staging-k8s:
+    name: Deploy Staging K8s
+    needs: [publish-staging-containers]
+    uses: ./.github/workflows/deploy-staging-k8s.yml
+    permissions:
+      contents: read
+      id-token: write
+    secrets: inherit
+
   deploy-android:
     name: Deploy Android
     needs: [android, android-maestro]
