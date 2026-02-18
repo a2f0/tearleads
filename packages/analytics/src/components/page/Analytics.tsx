@@ -425,7 +425,7 @@ export function Analytics({
       />
 
       {isLoading && (
-        <div className="rounded-lg border p-8 text-center text-muted-foreground">
+        <div className="rounded-lg border p-8 text-center text-muted-foreground [border-color:var(--soft-border)]">
           Loading database...
         </div>
       )}

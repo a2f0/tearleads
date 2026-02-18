@@ -132,7 +132,7 @@ export function AnalyticsFiltersSummaryPanel({
       {filteredStats.length > 0 && (
         <div className="space-y-2">
           <h2 className="font-semibold text-base sm:text-lg">Summary</h2>
-          <div className="overflow-x-auto rounded-lg border">
+          <div className="overflow-x-auto rounded-lg border [border-color:var(--soft-border)]">
             <table className={`${WINDOW_TABLE_TYPOGRAPHY.table} sm:text-sm`}>
               <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
                 <tr>

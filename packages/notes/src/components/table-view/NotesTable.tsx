@@ -30,7 +30,7 @@ export function NotesTable({
   return (
     <div
       role="application"
-      className="flex-1 overflow-auto rounded-lg border"
+      className="flex-1 overflow-auto rounded-lg border [border-color:var(--soft-border)]"
       onContextMenu={onBlankSpaceContextMenu}
     >
       <table className={WINDOW_TABLE_TYPOGRAPHY.table}>

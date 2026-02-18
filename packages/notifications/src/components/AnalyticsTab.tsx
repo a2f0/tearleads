@@ -147,7 +147,7 @@ export function AnalyticsTab() {
           />
         </div>
       ) : (
-        <div className="flex h-32 items-center justify-center rounded border text-muted-foreground text-xs">
+        <div className="flex h-32 items-center justify-center rounded border text-muted-foreground text-xs [border-color:var(--soft-border)]">
           {t('noEventsInLastHour')}
         </div>
       )}

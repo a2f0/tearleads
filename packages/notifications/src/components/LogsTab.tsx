@@ -95,7 +95,7 @@ export function LogsTab() {
         {logs.map((log) => (
           <div
             key={log.id}
-            className="rounded border bg-muted/30 px-2 py-1 font-mono text-xs"
+            className="rounded border bg-muted/30 px-2 py-1 font-mono text-xs [border-color:var(--soft-border)]"
           >
             <div
               className={cn(

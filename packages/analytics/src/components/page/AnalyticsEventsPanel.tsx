@@ -76,7 +76,7 @@ export function AnalyticsEventsPanel({
           {events.length > 0 && (
             <div
               data-testid="analytics-header"
-              className="grid grid-cols-[1fr_80px_80px] gap-2 rounded-t-lg border-x border-t bg-muted/50 px-2 py-2 font-medium text-xs sm:grid-cols-[1fr_100px_100px_160px] sm:gap-4 sm:px-4 sm:py-3 sm:text-sm"
+              className="grid grid-cols-[1fr_80px_80px] gap-2 rounded-t-lg border-x border-t bg-muted/50 px-2 py-2 font-medium text-xs [border-color:var(--soft-border)] sm:grid-cols-[1fr_100px_100px_160px] sm:gap-4 sm:px-4 sm:py-3 sm:text-sm"
             >
               <button
                 type="button"
@@ -121,16 +121,16 @@ export function AnalyticsEventsPanel({
       </div>
 
       {loading && events.length === 0 ? (
-        <div className="rounded-lg border p-8 text-center text-muted-foreground">
+        <div className="rounded-lg border p-8 text-center text-muted-foreground [border-color:var(--soft-border)]">
           Loading events...
         </div>
       ) : events.length === 0 ? (
-        <div className="rounded-lg border p-8 text-center text-muted-foreground">
+        <div className="rounded-lg border p-8 text-center text-muted-foreground [border-color:var(--soft-border)]">
           No events recorded yet. Events will appear here after database
           operations.
         </div>
       ) : (
-        <div className="rounded-b-lg border-x border-b">
+        <div className="rounded-b-lg border-x border-b [border-color:var(--soft-border)]">
           <div
             className="relative w-full"
             style={{ height: `${totalVirtualSize}px` }}
@@ -142,7 +142,7 @@ export function AnalyticsEventsPanel({
                 return (
                   <div
                     key="loader"
-                    className="absolute top-0 left-0 flex w-full items-center justify-center border-b p-4 text-muted-foreground text-xs sm:text-sm"
+                    className="absolute top-0 left-0 flex w-full items-center justify-center border-b p-4 text-muted-foreground text-xs [border-color:var(--soft-border)] sm:text-sm"
                     style={{
                       height: `${virtualItem.size}px`,
                       transform: `translateY(${virtualItem.start}px)`
@@ -167,7 +167,7 @@ export function AnalyticsEventsPanel({
                   data-index={virtualItem.index}
                   data-testid="analytics-row"
                   ref={measureElement}
-                  className="absolute top-0 left-0 w-full border-b text-xs last:border-0 sm:text-sm"
+                  className="absolute top-0 left-0 w-full border-b text-xs [border-color:var(--soft-border)] last:border-0 sm:text-sm"
                   style={{ transform: `translateY(${virtualItem.start}px)` }}
                 >
                   <div className="grid grid-cols-[1fr_80px_80px] gap-2 px-2 py-2 sm:grid-cols-[1fr_100px_100px_160px] sm:gap-4 sm:px-4 sm:py-3">
