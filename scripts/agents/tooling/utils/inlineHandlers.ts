@@ -39,9 +39,11 @@ export function handleCheckMainVersionBumpSetup(
     return check;
   });
 
-  const keyFile = options.keyFile?.trim().length
-    ? options.keyFile
-    : '.secrets/tearleads-version-bumper.private-key.pem';
+  const requestedKeyFile = options.keyFile?.trim();
+  const keyFile =
+    requestedKeyFile && requestedKeyFile.length > 0
+      ? requestedKeyFile
+      : '.secrets/tearleads-version-bumper.private-key.pem';
   const keyFilePath = path.isAbsolute(keyFile)
     ? keyFile
     : path.join(repoRoot, keyFile);
