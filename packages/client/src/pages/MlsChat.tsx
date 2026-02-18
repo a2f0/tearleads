@@ -3,19 +3,20 @@
  * Provides the MlsChatProvider with app-specific dependencies and UI components.
  */
 
-import { API_BASE_URL } from '@tearleads/api-client';
 import {
   MlsChat as MlsChatComponent,
   MlsChatProvider,
   type MlsChatUIComponents
 } from '@tearleads/mls-chat';
 import { type FC, useCallback } from 'react';
+
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDatabaseContext } from '@/db/hooks';
+import { API_BASE_URL } from '@/lib/api';
 
 // Map our UI components to what MlsChat expects
 const MlsChatButton: MlsChatUIComponents['Button'] = ({

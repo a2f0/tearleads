@@ -1,4 +1,3 @@
-import { API_BASE_URL, tryRefreshToken } from '@tearleads/api-client';
 import {
   isRecord,
   type SSEConnectionState,
@@ -15,6 +14,7 @@ import {
   useState
 } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { API_BASE_URL, tryRefreshToken } from '@/lib/api';
 import { isJwtExpired } from '@/lib/jwt';
 
 interface SSEContextValue {

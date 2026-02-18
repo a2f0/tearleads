@@ -1,19 +1,19 @@
+import { act, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AUTH_TOKEN_KEY,
   AUTH_USER_KEY,
   clearStoredAuth,
   setSessionExpiredError
-} from '@tearleads/api-client/authStorage';
-import { act, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+} from '@/lib/authStorage';
 import { AuthProvider, useAuth } from './AuthContext';
 
 const mockLogin = vi.fn();
 const mockLogout = vi.fn();
 const mockTryRefreshToken = vi.fn().mockResolvedValue(false);
 
-vi.mock('@tearleads/api-client', () => ({
+vi.mock('@/lib/api', () => ({
   api: {
     auth: {
       login: (...args: unknown[]) => mockLogin(...args),

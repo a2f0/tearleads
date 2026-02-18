@@ -6,7 +6,7 @@ import { SessionList } from './SessionList';
 const mockGetSessions = vi.fn();
 const mockDeleteSession = vi.fn();
 
-vi.mock('@tearleads/api-client', () => ({
+vi.mock('@/lib/api', () => ({
   api: {
     auth: {
       getSessions: () => mockGetSessions(),

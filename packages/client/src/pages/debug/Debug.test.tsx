@@ -9,7 +9,7 @@ import { Debug } from './Debug';
 
 // Mock the api module
 const mockPingGet = vi.fn();
-vi.mock('@tearleads/api-client', () => ({
+vi.mock('@/lib/api', () => ({
   API_BASE_URL: 'http://localhost:3000',
   api: {
     ping: {

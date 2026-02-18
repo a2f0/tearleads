@@ -1,4 +1,3 @@
-import { API_BASE_URL } from '@tearleads/api-client';
 import {
   AddMemberDialog,
   MlsChatProvider,
@@ -24,6 +23,7 @@ import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTypedTranslation } from '@/i18n';
+import { API_BASE_URL } from '@/lib/api';
 import { MlsChatContent } from './MlsChatContent';
 import { MlsChatGroupsSidebar } from './MlsChatGroupsSidebar';
 import { MlsChatWindowMenuBar } from './MlsChatWindowMenuBar';

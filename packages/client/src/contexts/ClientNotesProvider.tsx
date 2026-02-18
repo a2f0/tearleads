@@ -2,9 +2,6 @@
  * Client-side NotesProvider wrapper that supplies all dependencies
  * to the @tearleads/notes package components.
  */
-
-import { api } from '@tearleads/api-client';
-import { isLoggedIn, readStoredAuth } from '@tearleads/api-client/authStorage';
 import {
   type NavigateToNote,
   NotesProvider,
@@ -36,6 +33,8 @@ import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/useVfsKeys';
 import { useTypedTranslation } from '@/i18n';
+import { api } from '@/lib/api';
+import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
 import { useNavigateWithFrom } from '@/lib/navigation';
 

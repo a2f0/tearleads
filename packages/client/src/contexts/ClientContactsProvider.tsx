@@ -2,9 +2,6 @@
  * Client-side ContactsProvider wrapper that supplies all dependencies
  * to the @tearleads/contacts package components.
  */
-
-import { api } from '@tearleads/api-client';
-import { isLoggedIn, readStoredAuth } from '@tearleads/api-client/authStorage';
 import {
   ContactsProvider,
   type ContactsUIComponents,
@@ -39,6 +36,8 @@ import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/useVfsKeys';
 import { useTypedTranslation } from '@/i18n';
+import { api } from '@/lib/api';
+import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
 import { saveFile as saveFileUtil } from '@/lib/fileUtils';
 import { useNavigateWithFrom } from '@/lib/navigation';

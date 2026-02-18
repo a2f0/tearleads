@@ -1,4 +1,3 @@
-import { API_BASE_URL, api } from '@tearleads/api-client';
 import type { PingData } from '@tearleads/shared';
 import { Check, Copy } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -8,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { useAppVersion } from '@/hooks/useAppVersion';
+import { API_BASE_URL, api } from '@/lib/api';
 import { detectPlatform } from '@/lib/utils';
 import { InfoRow } from './InfoRow';
 

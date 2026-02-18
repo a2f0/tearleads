@@ -1,10 +1,10 @@
-import { API_BASE_URL, api } from '@tearleads/api-client';
 import type { PingData } from '@tearleads/shared';
 import { Bug, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/RefreshButton';
+import { API_BASE_URL, api } from '@/lib/api';
 
 export function DebugMenu() {
   const { t } = useTranslation('debug');

@@ -135,7 +135,7 @@ vi.mock('@tearleads/settings', () => ({
 setupScreensaverMock();
 
 // Mock API
-vi.mock('@tearleads/api-client', () => ({
+vi.mock('@/lib/api', () => ({
   api: {
     health: { get: vi.fn() },
     ping: { get: vi.fn() }

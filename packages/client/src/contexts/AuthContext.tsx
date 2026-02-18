@@ -1,4 +1,14 @@
-import { api, tryRefreshToken } from '@tearleads/api-client';
+import type { AuthUser } from '@tearleads/shared';
+import type { ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState
+} from 'react';
+import { api, tryRefreshToken } from '@/lib/api';
 import {
   AUTH_REFRESH_TOKEN_KEY,
   AUTH_TOKEN_KEY,
@@ -10,17 +20,7 @@ import {
   onAuthChange,
   readStoredAuth,
   storeAuth
-} from '@tearleads/api-client/authStorage';
-import type { AuthUser } from '@tearleads/shared';
-import type { ReactNode } from 'react';
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState
-} from 'react';
+} from '@/lib/authStorage';
 import { getJwtExpiration, getJwtTimeRemaining } from '@/lib/jwt';
 
 const REFRESH_THRESHOLD_MS = 60 * 1000; // Refresh if expiring within 60 seconds
