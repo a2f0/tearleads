@@ -14,4 +14,4 @@ export {
   UsersAdmin,
   UsersAdminDetail,
   UsersAdminPage
-} from '../../../../admin/src/clientEntry';
+} from '../../../../admin/src/pages/admin';

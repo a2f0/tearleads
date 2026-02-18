@@ -2,4 +2,4 @@ export {
   type Notification,
   type NotificationLevel,
   notificationStore
-} from '../../../notifications/src/clientEntry';
+} from '../../../notifications/src/stores';

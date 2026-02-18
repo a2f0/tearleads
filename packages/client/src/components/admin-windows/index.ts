@@ -5,4 +5,4 @@ export {
   AdminRedisWindow,
   AdminUsersWindow,
   AdminWindow
-} from '../../../../admin/src/clientEntry';
+} from '../../../../admin/src/index';
