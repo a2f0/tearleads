@@ -1,5 +1,6 @@
 import { type Database, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
 import { and, eq, inArray } from 'drizzle-orm';
+import { runLocalWrite } from '@/db/localWrite';
 
 export async function linkAudioToPlaylist(
   db: Database,
@@ -68,8 +69,10 @@ export async function linkAudioToPlaylist(
   };
 
   if (typeof db.transaction === 'function') {
-    return db.transaction(async (tx) => run(tx));
+    return runLocalWrite(async () => db.transaction(async (tx) => run(tx)), {
+      scope: 'vfs-links'
+    });
   }
 
-  return run(db);
+  return runLocalWrite(async () => run(db), { scope: 'vfs-links' });
 }

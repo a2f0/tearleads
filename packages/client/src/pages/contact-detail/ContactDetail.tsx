@@ -7,6 +7,7 @@ import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
+import { runLocalWrite } from '@/db/localWrite';
 import { contactEmails, contactPhones, contacts } from '@/db/schema';
 import { useContactsExport } from '@/hooks/useContactsExport';
 import { ContactDetailHeader } from './ContactDetailHeader';
@@ -278,122 +279,123 @@ export function ContactDetail() {
     setError(null);
 
     try {
-      const adapter = getDatabaseAdapter();
-      await adapter.beginTransaction();
+      await runLocalWrite(async () => {
+        const adapter = getDatabaseAdapter();
+        await adapter.beginTransaction();
+        try {
+          const db = getDatabase();
+          const now = new Date();
 
-      try {
-        const db = getDatabase();
-        const now = new Date();
-
-        // 1. Update contact basic info
-        await db
-          .update(contacts)
-          .set({
-            firstName: formData.firstName.trim(),
-            lastName: formData.lastName.trim() || null,
-            birthday: formData.birthday.trim() || null,
-            updatedAt: now
-          })
-          .where(eq(contacts.id, id));
-
-        // 2. Process emails
-        const emailsToDelete = emailsForm.filter(
-          (e) => e.isDeleted && !e.isNew
-        );
-        const emailsToInsert = emailsForm.filter(
-          (e) => e.isNew && !e.isDeleted
-        );
-        const emailsToUpdate = emailsForm.filter(
-          (e) => !e.isNew && !e.isDeleted
-        );
-
-        if (emailsToDelete.length > 0) {
-          await db.delete(contactEmails).where(
-            inArray(
-              contactEmails.id,
-              emailsToDelete.map((e) => e.id)
-            )
-          );
-        }
-
-        if (emailsToInsert.length > 0) {
-          await db.insert(contactEmails).values(
-            emailsToInsert.map((email) => ({
-              id: email.id,
-              contactId: id,
-              email: email.email.trim(),
-              label: email.label.trim() || null,
-              isPrimary: email.isPrimary
-            }))
-          );
-        }
-
-        for (const email of emailsToUpdate) {
+          // 1. Update contact basic info
           await db
-            .update(contactEmails)
+            .update(contacts)
             .set({
-              email: email.email.trim(),
-              label: email.label.trim() || null,
-              isPrimary: email.isPrimary
+              firstName: formData.firstName.trim(),
+              lastName: formData.lastName.trim() || null,
+              birthday: formData.birthday.trim() || null,
+              updatedAt: now
             })
-            .where(eq(contactEmails.id, email.id));
-        }
+            .where(eq(contacts.id, id));
 
-        // 3. Process phones
-        const phonesToDelete = phonesForm.filter(
-          (p) => p.isDeleted && !p.isNew
-        );
-        const phonesToInsert = phonesForm.filter(
-          (p) => p.isNew && !p.isDeleted
-        );
-        const phonesToUpdate = phonesForm.filter(
-          (p) => !p.isNew && !p.isDeleted
-        );
-
-        if (phonesToDelete.length > 0) {
-          await db.delete(contactPhones).where(
-            inArray(
-              contactPhones.id,
-              phonesToDelete.map((p) => p.id)
-            )
+          // 2. Process emails
+          const emailsToDelete = emailsForm.filter(
+            (e) => e.isDeleted && !e.isNew
           );
-        }
-
-        if (phonesToInsert.length > 0) {
-          await db.insert(contactPhones).values(
-            phonesToInsert.map((phone) => ({
-              id: phone.id,
-              contactId: id,
-              phoneNumber: phone.phoneNumber.trim(),
-              label: phone.label.trim() || null,
-              isPrimary: phone.isPrimary
-            }))
+          const emailsToInsert = emailsForm.filter(
+            (e) => e.isNew && !e.isDeleted
           );
+          const emailsToUpdate = emailsForm.filter(
+            (e) => !e.isNew && !e.isDeleted
+          );
+
+          if (emailsToDelete.length > 0) {
+            await db.delete(contactEmails).where(
+              inArray(
+                contactEmails.id,
+                emailsToDelete.map((e) => e.id)
+              )
+            );
+          }
+
+          if (emailsToInsert.length > 0) {
+            await db.insert(contactEmails).values(
+              emailsToInsert.map((email) => ({
+                id: email.id,
+                contactId: id,
+                email: email.email.trim(),
+                label: email.label.trim() || null,
+                isPrimary: email.isPrimary
+              }))
+            );
+          }
+
+          for (const email of emailsToUpdate) {
+            await db
+              .update(contactEmails)
+              .set({
+                email: email.email.trim(),
+                label: email.label.trim() || null,
+                isPrimary: email.isPrimary
+              })
+              .where(eq(contactEmails.id, email.id));
+          }
+
+          // 3. Process phones
+          const phonesToDelete = phonesForm.filter(
+            (p) => p.isDeleted && !p.isNew
+          );
+          const phonesToInsert = phonesForm.filter(
+            (p) => p.isNew && !p.isDeleted
+          );
+          const phonesToUpdate = phonesForm.filter(
+            (p) => !p.isNew && !p.isDeleted
+          );
+
+          if (phonesToDelete.length > 0) {
+            await db.delete(contactPhones).where(
+              inArray(
+                contactPhones.id,
+                phonesToDelete.map((p) => p.id)
+              )
+            );
+          }
+
+          if (phonesToInsert.length > 0) {
+            await db.insert(contactPhones).values(
+              phonesToInsert.map((phone) => ({
+                id: phone.id,
+                contactId: id,
+                phoneNumber: phone.phoneNumber.trim(),
+                label: phone.label.trim() || null,
+                isPrimary: phone.isPrimary
+              }))
+            );
+          }
+
+          for (const phone of phonesToUpdate) {
+            await db
+              .update(contactPhones)
+              .set({
+                phoneNumber: phone.phoneNumber.trim(),
+                label: phone.label.trim() || null,
+                isPrimary: phone.isPrimary
+              })
+              .where(eq(contactPhones.id, phone.id));
+          }
+
+          await adapter.commitTransaction();
+        } catch (err) {
+          await adapter.rollbackTransaction();
+          throw err;
         }
+      });
 
-        for (const phone of phonesToUpdate) {
-          await db
-            .update(contactPhones)
-            .set({
-              phoneNumber: phone.phoneNumber.trim(),
-              label: phone.label.trim() || null,
-              isPrimary: phone.isPrimary
-            })
-            .where(eq(contactPhones.id, phone.id));
-        }
-
-        await adapter.commitTransaction();
-
-        // Refresh data and exit edit mode
-        await fetchContact();
-        setIsEditing(false);
-        setFormData(null);
-        setEmailsForm([]);
-        setPhonesForm([]);
-      } catch (err) {
-        await adapter.rollbackTransaction();
-        throw err;
-      }
+      // Refresh data and exit edit mode
+      await fetchContact();
+      setIsEditing(false);
+      setFormData(null);
+      setEmailsForm([]);
+      setPhonesForm([]);
     } catch (err) {
       console.error('Failed to save contact:', err);
       setError(err instanceof Error ? err.message : String(err));

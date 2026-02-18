@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { getCurrentInstanceId, getDatabase, getDatabaseAdapter } from '@/db';
+import { runLocalWrite } from '@/db/localWrite';
 import { contactEmails, contactPhones, contacts } from '@/db/schema';
 import {
   createContactDocument,
@@ -162,148 +163,159 @@ export function useContactsImport() {
         result.errors.push('First Name column must be mapped');
         return result;
       }
+      const firstNameIndex = mapping.firstName;
 
       setImporting(true);
       setProgress(0);
 
-      const adapter = getDatabaseAdapter();
       const importedDocs: SearchableDocument[] = [];
       const db = getDatabase();
 
       let processedCount = 0;
       try {
-        await adapter.beginTransaction();
-        for (const row of data.rows) {
-          const firstName = row[mapping.firstName]?.trim() ?? '';
-
-          if (!firstName) {
-            result.skipped++;
-            processedCount++;
-            setProgress(Math.round((processedCount / data.rows.length) * 100));
-            continue;
-          }
-
-          const lastName =
-            mapping.lastName !== null
-              ? row[mapping.lastName]?.trim() || null
-              : null;
-          const birthday =
-            mapping.birthday !== null
-              ? row[mapping.birthday]?.trim() || null
-              : null;
-
-          // Extract grouped values (emails/phones) with labels
-          const extractGroupedValues = (
-            groups: ReadonlyArray<{
-              valueKey: keyof ColumnMapping;
-              labelKey: keyof ColumnMapping;
-            }>
-          ) => {
-            const results: { value: string; label: string | null }[] = [];
-            for (const group of groups) {
-              const valueIndex = mapping[group.valueKey];
-              if (valueIndex !== null) {
-                const value = row[valueIndex]?.trim();
-                if (value) {
-                  const labelIndex = mapping[group.labelKey];
-                  const label =
-                    labelIndex !== null
-                      ? row[labelIndex]?.trim() || null
-                      : null;
-                  results.push({ value, label });
-                }
-              }
-            }
-            return results;
-          };
-
-          const emailGroups: ReadonlyArray<{
-            valueKey: keyof ColumnMapping;
-            labelKey: keyof ColumnMapping;
-          }> = [
-            { valueKey: 'email1Value', labelKey: 'email1Label' },
-            { valueKey: 'email2Value', labelKey: 'email2Label' }
-          ];
-          const emails = extractGroupedValues(emailGroups);
-
-          const phoneGroups: ReadonlyArray<{
-            valueKey: keyof ColumnMapping;
-            labelKey: keyof ColumnMapping;
-          }> = [
-            { valueKey: 'phone1Value', labelKey: 'phone1Label' },
-            { valueKey: 'phone2Value', labelKey: 'phone2Label' },
-            { valueKey: 'phone3Value', labelKey: 'phone3Label' }
-          ];
-          const phones = extractGroupedValues(phoneGroups);
-
+        await runLocalWrite(async () => {
+          const adapter = getDatabaseAdapter();
+          await adapter.beginTransaction();
           try {
-            const contactId = crypto.randomUUID();
-            const now = new Date();
+            for (const row of data.rows) {
+              const firstName = row[firstNameIndex]?.trim() ?? '';
 
-            // Insert contact
-            await db.insert(contacts).values({
-              id: contactId,
-              firstName,
-              lastName,
-              birthday,
-              createdAt: now,
-              updatedAt: now
-            });
+              if (!firstName) {
+                result.skipped++;
+                processedCount++;
+                setProgress(
+                  Math.round((processedCount / data.rows.length) * 100)
+                );
+                continue;
+              }
 
-            // Batch insert emails for better performance
-            if (emails.length > 0) {
-              await db.insert(contactEmails).values(
-                emails.map((email, i) => ({
-                  id: crypto.randomUUID(),
-                  contactId,
-                  email: email.value,
-                  label: email.label,
-                  isPrimary: i === 0
-                }))
+              const lastName =
+                mapping.lastName !== null
+                  ? row[mapping.lastName]?.trim() || null
+                  : null;
+              const birthday =
+                mapping.birthday !== null
+                  ? row[mapping.birthday]?.trim() || null
+                  : null;
+
+              // Extract grouped values (emails/phones) with labels
+              const extractGroupedValues = (
+                groups: ReadonlyArray<{
+                  valueKey: keyof ColumnMapping;
+                  labelKey: keyof ColumnMapping;
+                }>
+              ) => {
+                const results: { value: string; label: string | null }[] = [];
+                for (const group of groups) {
+                  const valueIndex = mapping[group.valueKey];
+                  if (valueIndex !== null) {
+                    const value = row[valueIndex]?.trim();
+                    if (value) {
+                      const labelIndex = mapping[group.labelKey];
+                      const label =
+                        labelIndex !== null
+                          ? row[labelIndex]?.trim() || null
+                          : null;
+                      results.push({ value, label });
+                    }
+                  }
+                }
+                return results;
+              };
+
+              const emailGroups: ReadonlyArray<{
+                valueKey: keyof ColumnMapping;
+                labelKey: keyof ColumnMapping;
+              }> = [
+                { valueKey: 'email1Value', labelKey: 'email1Label' },
+                { valueKey: 'email2Value', labelKey: 'email2Label' }
+              ];
+              const emails = extractGroupedValues(emailGroups);
+
+              const phoneGroups: ReadonlyArray<{
+                valueKey: keyof ColumnMapping;
+                labelKey: keyof ColumnMapping;
+              }> = [
+                { valueKey: 'phone1Value', labelKey: 'phone1Label' },
+                { valueKey: 'phone2Value', labelKey: 'phone2Label' },
+                { valueKey: 'phone3Value', labelKey: 'phone3Label' }
+              ];
+              const phones = extractGroupedValues(phoneGroups);
+
+              try {
+                const contactId = crypto.randomUUID();
+                const now = new Date();
+
+                // Insert contact
+                await db.insert(contacts).values({
+                  id: contactId,
+                  firstName,
+                  lastName,
+                  birthday,
+                  createdAt: now,
+                  updatedAt: now
+                });
+
+                // Batch insert emails for better performance
+                if (emails.length > 0) {
+                  await db.insert(contactEmails).values(
+                    emails.map((email, i) => ({
+                      id: crypto.randomUUID(),
+                      contactId,
+                      email: email.value,
+                      label: email.label,
+                      isPrimary: i === 0
+                    }))
+                  );
+                }
+
+                // Batch insert phones for better performance
+                if (phones.length > 0) {
+                  await db.insert(contactPhones).values(
+                    phones.map((phone, i) => ({
+                      id: crypto.randomUUID(),
+                      contactId,
+                      phoneNumber: phone.value,
+                      label: phone.label,
+                      isPrimary: i === 0
+                    }))
+                  );
+                }
+
+                importedDocs.push(
+                  createContactDocument(
+                    contactId,
+                    firstName,
+                    lastName,
+                    emails.length > 0
+                      ? emails.map((email) => email.value).join(' ')
+                      : null,
+                    phones.length > 0
+                      ? phones.map((phone) => phone.value).join(' ')
+                      : null,
+                    now.getTime(),
+                    now.getTime()
+                  )
+                );
+                result.imported++;
+              } catch (err) {
+                throw new Error(
+                  `Failed to import ${firstName}: ${err instanceof Error ? err.message : 'Unknown error'}`
+                );
+              }
+
+              processedCount++;
+              setProgress(
+                Math.round((processedCount / data.rows.length) * 100)
               );
             }
-
-            // Batch insert phones for better performance
-            if (phones.length > 0) {
-              await db.insert(contactPhones).values(
-                phones.map((phone, i) => ({
-                  id: crypto.randomUUID(),
-                  contactId,
-                  phoneNumber: phone.value,
-                  label: phone.label,
-                  isPrimary: i === 0
-                }))
-              );
-            }
-
-            importedDocs.push(
-              createContactDocument(
-                contactId,
-                firstName,
-                lastName,
-                emails.length > 0
-                  ? emails.map((email) => email.value).join(' ')
-                  : null,
-                phones.length > 0
-                  ? phones.map((phone) => phone.value).join(' ')
-                  : null,
-                now.getTime(),
-                now.getTime()
-              )
-            );
-            result.imported++;
+            await adapter.commitTransaction();
           } catch (err) {
-            throw new Error(
-              `Failed to import ${firstName}: ${err instanceof Error ? err.message : 'Unknown error'}`
-            );
+            await adapter.rollbackTransaction();
+            throw err;
           }
-
-          processedCount++;
-          setProgress(Math.round((processedCount / data.rows.length) * 100));
-        }
-        await adapter.commitTransaction();
+        });
       } catch (err) {
-        await adapter.rollbackTransaction();
         result.imported = 0;
         result.skipped = data.rows.length;
         result.errors.push(

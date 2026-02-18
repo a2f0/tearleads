@@ -29,6 +29,7 @@ import {
   saveEmailDraftToDb
 } from '@/db/emailDrafts';
 import { useDatabaseContext } from '@/db/hooks';
+import { runLocalWrite } from '@/db/localWrite';
 import {
   contactEmails,
   contacts,
@@ -95,35 +96,37 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
       const now = new Date();
 
       // Use transaction for atomicity
-      await db.transaction(async (tx) => {
-        // Create VFS registry entry
-        await tx.insert(vfsRegistry).values({
-          id: folderId,
-          objectType: 'emailFolder',
-          ownerId: null,
-          createdAt: now
-        });
-
-        // Create email folder entry
-        await tx.insert(emailFolders).values({
-          id: folderId,
-          encryptedName: name,
-          folderType: 'custom',
-          unreadCount: 0
-        });
-
-        // If parentId provided, create link
-        if (parentId) {
-          const linkId = crypto.randomUUID();
-          await tx.insert(vfsLinks).values({
-            id: linkId,
-            parentId,
-            childId: folderId,
-            wrappedSessionKey: '',
+      await runLocalWrite(async () =>
+        db.transaction(async (tx) => {
+          // Create VFS registry entry
+          await tx.insert(vfsRegistry).values({
+            id: folderId,
+            objectType: 'emailFolder',
+            ownerId: null,
             createdAt: now
           });
-        }
-      });
+
+          // Create email folder entry
+          await tx.insert(emailFolders).values({
+            id: folderId,
+            encryptedName: name,
+            folderType: 'custom',
+            unreadCount: 0
+          });
+
+          // If parentId provided, create link
+          if (parentId) {
+            const linkId = crypto.randomUUID();
+            await tx.insert(vfsLinks).values({
+              id: linkId,
+              parentId,
+              childId: folderId,
+              wrappedSessionKey: '',
+              createdAt: now
+            });
+          }
+        })
+      );
 
       return {
         id: folderId,
@@ -139,10 +142,12 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
   const renameFolder = useCallback(
     async (id: string, newName: string): Promise<void> => {
       const db = getDatabase();
-      await db
-        .update(emailFolders)
-        .set({ encryptedName: newName })
-        .where(eq(emailFolders.id, id));
+      await runLocalWrite(async () => {
+        await db
+          .update(emailFolders)
+          .set({ encryptedName: newName })
+          .where(eq(emailFolders.id, id));
+      });
     },
     []
   );
@@ -151,19 +156,21 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
     const db = getDatabase();
 
     // Use transaction for atomicity
-    await db.transaction(async (tx) => {
-      // Delete any child links (emails in this folder)
-      await tx.delete(vfsLinks).where(eq(vfsLinks.parentId, id));
+    await runLocalWrite(async () =>
+      db.transaction(async (tx) => {
+        // Delete any child links (emails in this folder)
+        await tx.delete(vfsLinks).where(eq(vfsLinks.parentId, id));
 
-      // Delete the folder's parent link (if nested)
-      await tx.delete(vfsLinks).where(eq(vfsLinks.childId, id));
+        // Delete the folder's parent link (if nested)
+        await tx.delete(vfsLinks).where(eq(vfsLinks.childId, id));
 
-      // Delete email folder entry
-      await tx.delete(emailFolders).where(eq(emailFolders.id, id));
+        // Delete email folder entry
+        await tx.delete(emailFolders).where(eq(emailFolders.id, id));
 
-      // Delete VFS registry entry
-      await tx.delete(vfsRegistry).where(eq(vfsRegistry.id, id));
-    });
+        // Delete VFS registry entry
+        await tx.delete(vfsRegistry).where(eq(vfsRegistry.id, id));
+      })
+    );
   }, []);
 
   const moveFolder = useCallback(
@@ -171,22 +178,24 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
       const db = getDatabase();
 
       // Use transaction for atomicity
-      await db.transaction(async (tx) => {
-        // Delete existing parent link
-        await tx.delete(vfsLinks).where(eq(vfsLinks.childId, id));
+      await runLocalWrite(async () =>
+        db.transaction(async (tx) => {
+          // Delete existing parent link
+          await tx.delete(vfsLinks).where(eq(vfsLinks.childId, id));
 
-        // If new parent provided, create new link
-        if (newParentId) {
-          const linkId = crypto.randomUUID();
-          await tx.insert(vfsLinks).values({
-            id: linkId,
-            parentId: newParentId,
-            childId: id,
-            wrappedSessionKey: '',
-            createdAt: new Date()
-          });
-        }
-      });
+          // If new parent provided, create new link
+          if (newParentId) {
+            const linkId = crypto.randomUUID();
+            await tx.insert(vfsLinks).values({
+              id: linkId,
+              parentId: newParentId,
+              childId: id,
+              wrappedSessionKey: '',
+              createdAt: new Date()
+            });
+          }
+        })
+      );
     },
     []
   );
@@ -208,23 +217,25 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
           SYSTEM_FOLDER_NAMES[folderType as keyof typeof SYSTEM_FOLDER_NAMES];
 
         // Use transaction for atomicity
-        await db.transaction(async (tx) => {
-          // Create VFS registry entry
-          await tx.insert(vfsRegistry).values({
-            id: folderId,
-            objectType: 'emailFolder',
-            ownerId: null,
-            createdAt: now
-          });
+        await runLocalWrite(async () =>
+          db.transaction(async (tx) => {
+            // Create VFS registry entry
+            await tx.insert(vfsRegistry).values({
+              id: folderId,
+              objectType: 'emailFolder',
+              ownerId: null,
+              createdAt: now
+            });
 
-          // Create email folder entry
-          await tx.insert(emailFolders).values({
-            id: folderId,
-            encryptedName: folderName,
-            folderType,
-            unreadCount: 0
-          });
-        });
+            // Create email folder entry
+            await tx.insert(emailFolders).values({
+              id: folderId,
+              encryptedName: folderName,
+              folderType,
+              unreadCount: 0
+            });
+          })
+        );
       }
     }
   }, []);
@@ -316,7 +327,10 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
     async (input) => {
       const db = getDatabase();
       const draftsFolder = await getFolderByType('drafts');
-      return saveEmailDraftToDb(db, input, draftsFolder?.id);
+      return runLocalWrite(
+        async () => saveEmailDraftToDb(db, input, draftsFolder?.id),
+        { scope: 'email-drafts' }
+      );
     },
     [getFolderByType]
   );
@@ -336,7 +350,9 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
   const deleteDraft = useCallback<EmailDraftOperations['deleteDraft']>(
     async (id) => {
       const db = getDatabase();
-      return deleteEmailDraftFromDb(db, id);
+      return runLocalWrite(async () => deleteEmailDraftFromDb(db, id), {
+        scope: 'email-drafts'
+      });
     },
     []
   );

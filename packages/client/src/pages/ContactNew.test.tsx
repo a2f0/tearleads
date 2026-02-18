@@ -51,7 +51,8 @@ vi.mock('@/db', () => ({
     beginTransaction: vi.fn().mockResolvedValue(undefined),
     commitTransaction: vi.fn().mockResolvedValue(undefined),
     rollbackTransaction: vi.fn().mockResolvedValue(undefined)
-  })
+  }),
+  runLocalWrite: async (operation: () => Promise<unknown>) => operation()
 }));
 
 function createMockInsertChain() {
