@@ -1,4 +1,3 @@
-import { execFileSync, execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { runWithTimeout } from '../../../tooling/lib/cliShared.ts';
@@ -6,25 +5,44 @@ import type { ActionConfig, ActionName, GlobalOptions } from '../types.ts';
 import { createGitHubClientContext } from './githubClient.ts';
 import { requireDefined } from './helpers.ts';
 import {
-  handleCheckMainVersionBumpSetup,
-  handleGeneratePrSummary,
-  handleGetReviewThreads,
-  handleTriggerGeminiReview
-} from './inlineHandlers.ts';
-import {
-  buildIssueTemplate,
-  parseExistingIssueCandidate,
-  parseFirstJsonObject
+  buildIssueTemplate
 } from './issueHelpers.ts';
 import {
+  createIssueWithOctokit,
+  findExistingIssueWithOctokit,
   getIssueWithOctokit,
   listDeferredFixIssuesWithOctokit
 } from './octokitIssueHandlers.ts';
-import { checkGeminiQuotaWithOctokit } from './octokitReviewHandlers.ts';
 import {
-  handleCreateDeferredFixIssue,
-  handleSanitizePrBody,
-  handleUpdatePrBody,
+  checkGeminiQuotaWithOctokit,
+  findDeferredWorkWithOctokit,
+  replyToReviewCommentWithOctokit,
+  resolveThreadWithOctokit
+} from './octokitReviewHandlers.ts';
+import {
+  createDeferredFixIssueWithOctokit,
+  sanitizePrBodyWithOctokit,
+  updatePrBodyWithOctokit
+} from './octokitPrBodyHandlers.ts';
+import {
+  enableAutoMergeWithOctokit,
+  findPrForBranchWithOctokit,
+  generatePrSummaryWithOctokit,
+  listHighPriorityPrsWithOctokit
+} from './octokitPrOpsHandlers.ts';
+import {
+  getPrInfoWithOctokit,
+  getReviewThreadsWithOctokit,
+  triggerGeminiReviewWithOctokit
+} from './octokitPrInfoHandlers.ts';
+import { checkMainVersionBumpSetupWithOctokit } from './octokitRepoHandlers.ts';
+import {
+  cancelWorkflowWithOctokit,
+  downloadArtifactWithOctokit,
+  getCiStatusWithOctokit,
+  rerunWorkflowWithOctokit
+} from './octokitWorkflowHandlers.ts';
+import {
   handleVerifyBranchPush
 } from './prWorkflowHandlers.ts';
 
@@ -34,11 +52,7 @@ export async function runInlineAction(
   repo: string,
   timeoutMs: number
 ): Promise<string> {
-  const runGh = (args: string[]): string =>
-    execFileSync('gh', args, {
-      encoding: 'utf8',
-      timeout: timeoutMs
-    });
+  void timeoutMs;
 
   switch (action) {
     case 'getRepo': {
@@ -46,213 +60,126 @@ export async function runInlineAction(
     }
 
     case 'checkMainVersionBumpSetup': {
-      return handleCheckMainVersionBumpSetup(options, repo, runGh);
+      const context = createGitHubClientContext(repo);
+      return checkMainVersionBumpSetupWithOctokit(context, options);
     }
 
     case 'getPrInfo': {
-      const fields =
-        options.fields ??
-        'number,state,mergeStateStatus,headRefName,baseRefName,url';
-      const branch = execSync('git branch --show-current', {
-        encoding: 'utf8'
-      }).trim();
-      return runGh(['pr', 'view', branch, '--json', fields, '-R', repo]);
+      const context = createGitHubClientContext(repo);
+      return getPrInfoWithOctokit(context, options.fields);
     }
 
     case 'getReviewThreads': {
-      return handleGetReviewThreads(options, repo, runGh);
+      if (options.number === undefined) {
+        throw new Error('getReviewThreads requires --number');
+      }
+      const context = createGitHubClientContext(repo);
+      return getReviewThreadsWithOctokit(
+        context,
+        options.number,
+        options.unresolvedOnly ?? false
+      );
     }
 
     case 'replyToComment': {
-      return runGh([
-        'api',
-        '-X',
-        'POST',
-        `repos/${repo}/pulls/${options.number}/comments/${options.commentId}/replies`,
-        '-f',
-        `body=${options.body}`
-      ]);
+      if (options.number === undefined) {
+        throw new Error('replyToComment requires --number');
+      }
+      const commentId = Number(options.commentId);
+      if (!Number.isInteger(commentId) || commentId < 1) {
+        throw new Error('replyToComment requires numeric --comment-id');
+      }
+      const context = createGitHubClientContext(repo);
+      return replyToReviewCommentWithOctokit(
+        context,
+        options.number,
+        commentId,
+        requireDefined(options.body, '--body')
+      );
     }
 
     case 'replyToGemini': {
+      if (options.number === undefined) {
+        throw new Error('replyToGemini requires --number');
+      }
+      const commentId = Number(options.commentId);
+      if (!Number.isInteger(commentId) || commentId < 1) {
+        throw new Error('replyToGemini requires numeric --comment-id');
+      }
       const body = `@gemini-code-assist Fixed in commit ${options.commit}. Please confirm this addresses the issue.`;
-      return runGh([
-        'api',
-        '-X',
-        'POST',
-        `repos/${repo}/pulls/${options.number}/comments/${options.commentId}/replies`,
-        '-f',
-        `body=${body}`
-      ]);
+      const context = createGitHubClientContext(repo);
+      return replyToReviewCommentWithOctokit(
+        context,
+        options.number,
+        commentId,
+        body
+      );
     }
 
     case 'resolveThread': {
-      const mutation = `
-        mutation($threadId: ID!) {
-          resolveReviewThread(input: {threadId: $threadId}) {
-            thread { isResolved }
-          }
-        }
-      `;
-      return runGh([
-        'api',
-        'graphql',
-        '-f',
-        `query=${mutation}`,
-        '-f',
-        `threadId=${options.threadId}`
-      ]);
+      const context = createGitHubClientContext(repo);
+      return resolveThreadWithOctokit(
+        context,
+        requireDefined(options.threadId, '--thread-id')
+      );
     }
 
     case 'getCiStatus': {
-      if (options.runId) {
-        return runGh([
-          'run',
-          'view',
-          options.runId,
-          '--json',
-          'status,conclusion,jobs',
-          '--jq',
-          '{status, conclusion, jobs: [.jobs[] | {name, status, conclusion}]}',
-          '-R',
-          repo
-        ]);
-      }
-      const runIdOutput = runGh([
-        'run',
-        'list',
-        '--commit',
-        requireDefined(options.commit, '--commit'),
-        '--limit',
-        '1',
-        '--json',
-        'databaseId',
-        '--jq',
-        '.[0].databaseId',
-        '-R',
-        repo
-      ]).trim();
-
-      if (!runIdOutput || runIdOutput === 'null') {
-        throw new Error('No workflow run found for commit');
-      }
-
-      return runGh([
-        'run',
-        'view',
-        runIdOutput,
-        '--json',
-        'status,conclusion,jobs,databaseId',
-        '--jq',
-        '{run_id: .databaseId, status, conclusion, jobs: [.jobs[] | {name, status, conclusion}]}',
-        '-R',
-        repo
-      ]);
+      const context = createGitHubClientContext(repo);
+      return getCiStatusWithOctokit(context, options.runId, options.commit);
     }
 
     case 'cancelWorkflow': {
       const runId = requireDefined(options.runId, '--run-id');
-      runGh(['run', 'cancel', runId, '-R', repo]);
-      return JSON.stringify({ status: 'cancelled', run_id: runId });
+      const context = createGitHubClientContext(repo);
+      return cancelWorkflowWithOctokit(context, runId);
     }
 
     case 'rerunWorkflow': {
       const runId = requireDefined(options.runId, '--run-id');
-      runGh(['run', 'rerun', runId, '-R', repo]);
-      return JSON.stringify({
-        status: 'rerun_triggered',
-        run_id: runId
-      });
+      const context = createGitHubClientContext(repo);
+      return rerunWorkflowWithOctokit(context, runId);
     }
 
     case 'downloadArtifact': {
       const runId = requireDefined(options.runId, '--run-id');
       const artifact = requireDefined(options.artifact, '--artifact');
       const dest = requireDefined(options.dest, '--dest');
-      runGh(['run', 'download', runId, '-n', artifact, '-D', dest, '-R', repo]);
-      return JSON.stringify({
-        status: 'downloaded',
-        run_id: runId,
-        artifact,
-        dest
-      });
+      const context = createGitHubClientContext(repo);
+      return downloadArtifactWithOctokit(context, runId, artifact, dest);
     }
 
     case 'enableAutoMerge': {
-      runGh([
-        'pr',
-        'merge',
-        String(options.number),
-        '--auto',
-        '--merge',
-        '-R',
-        repo
-      ]);
-      return JSON.stringify({
-        status: 'auto_merge_enabled',
-        pr: options.number
-      });
+      const number = requireDefined(options.number, '--number');
+      const context = createGitHubClientContext(repo);
+      return enableAutoMergeWithOctokit(context, number);
     }
 
     case 'findPrForBranch': {
       const state = options.state ?? 'open';
-      return runGh([
-        'pr',
-        'list',
-        '--head',
+      const context = createGitHubClientContext(repo);
+      return findPrForBranchWithOctokit(
+        context,
         requireDefined(options.branch, '--branch'),
-        '--state',
-        state,
-        '--json',
-        'number,title,state,url',
-        '-R',
-        repo,
-        '--jq',
-        '.[0] // {"error": "No PR found"}'
-      ]);
+        state
+      );
     }
 
     case 'listHighPriorityPrs': {
-      const prsOutput = runGh([
-        'pr',
-        'list',
-        '--label',
-        'high-priority',
-        '--state',
-        'open',
-        '--search',
-        '-is:draft',
-        '--json',
-        'number',
-        '-R',
-        repo,
-        '--jq',
-        '.[].number'
-      ]).trim();
-
-      if (!prsOutput) return '[]';
-
-      const prNumbers = prsOutput.split('\n').filter(Boolean);
-      const results: string[] = [];
-
-      for (const prNum of prNumbers) {
-        const prData = runGh([
-          'pr',
-          'view',
-          prNum,
-          '--json',
-          'number,title,mergeStateStatus',
-          '-R',
-          repo
-        ]).trim();
-        results.push(prData);
-      }
-
-      return `[${results.join(',')}]`;
+      const context = createGitHubClientContext(repo);
+      return listHighPriorityPrsWithOctokit(context);
     }
 
     case 'triggerGeminiReview': {
-      return handleTriggerGeminiReview(options, repo, runGh);
+      if (options.number === undefined) {
+        throw new Error('triggerGeminiReview requires --number');
+      }
+      const context = createGitHubClientContext(repo);
+      return triggerGeminiReviewWithOctokit(
+        context,
+        options.number,
+        options.pollTimeout ?? 300
+      );
     }
 
     case 'checkGeminiQuota': {
@@ -268,7 +195,8 @@ export async function runInlineAction(
     }
 
     case 'generatePrSummary': {
-      return handleGeneratePrSummary(options, repo, runGh);
+      const context = createGitHubClientContext(repo);
+      return generatePrSummaryWithOctokit(context, options);
     }
 
     case 'verifyBranchPush': {
@@ -276,25 +204,29 @@ export async function runInlineAction(
     }
 
     case 'sanitizePrBody': {
-      return handleSanitizePrBody(options, repo, runGh);
+      if (options.number === undefined) {
+        throw new Error('sanitizePrBody requires --number');
+      }
+      const context = createGitHubClientContext(repo);
+      return sanitizePrBodyWithOctokit(context, options.number);
     }
 
     case 'createDeferredFixIssue': {
-      return handleCreateDeferredFixIssue(options, repo, runGh);
+      const context = createGitHubClientContext(repo);
+      return createDeferredFixIssueWithOctokit(context, options);
     }
 
     case 'updatePrBody': {
-      return handleUpdatePrBody(options, repo, runGh);
+      const context = createGitHubClientContext(repo);
+      return updatePrBodyWithOctokit(context, options);
     }
 
     case 'findDeferredWork': {
-      return runGh([
-        'api',
-        `repos/${repo}/pulls/${options.number}/comments`,
-        '--paginate',
-        '--jq',
-        '.[] | select(.body | test("defer|follow[- ]?up|future PR|later|TODO|FIXME"; "i")) | {id: .id, path: .path, line: .line, body: .body, html_url: .html_url}'
-      ]);
+      if (options.number === undefined) {
+        throw new Error('findDeferredWork requires --number');
+      }
+      const context = createGitHubClientContext(repo);
+      return findDeferredWorkWithOctokit(context, options.number);
     }
 
     case 'listDeferredFixIssues': {
@@ -335,29 +267,16 @@ export async function runInlineAction(
       }
 
       const title = requireDefined(options.title, '--title');
+      const context = createGitHubClientContext(repo);
 
       if (!options.force) {
         const defaultQuery =
           templateType === 'deferred-fix' && options.sourcePr !== undefined
             ? `is:open label:deferred-fix "PR #${options.sourcePr}"`
             : `is:open in:title "${title}"`;
-        const existingIssue = parseExistingIssueCandidate(
-          parseFirstJsonObject(
-            runGh([
-              'issue',
-              'list',
-              '--state',
-              'open',
-              '--search',
-              options.search ?? defaultQuery,
-              '--json',
-              'number,title,url',
-              '-R',
-              repo,
-              '--jq',
-              '.[0] // null'
-            ])
-          )
+        const existingIssue = await findExistingIssueWithOctokit(
+          context,
+          options.search ?? defaultQuery
         );
 
         if (existingIssue) {
@@ -374,16 +293,6 @@ export async function runInlineAction(
       }
 
       const body = buildIssueTemplate(templateType, options);
-      const args = [
-        'issue',
-        'create',
-        '--title',
-        title,
-        '--body',
-        body,
-        '-R',
-        repo
-      ];
       const labels = new Set<string>();
       if (templateType === 'deferred-fix') {
         labels.add('deferred-fix');
@@ -391,11 +300,11 @@ export async function runInlineAction(
       if (options.label) {
         labels.add(options.label);
       }
-      for (const label of labels) {
-        args.push('--label', label);
-      }
-
-      const issueUrl = runGh(args).trim();
+      const issueUrl = await createIssueWithOctokit(context, {
+        title,
+        body,
+        labels: [...labels]
+      });
       return JSON.stringify(
         {
           status: 'created',
