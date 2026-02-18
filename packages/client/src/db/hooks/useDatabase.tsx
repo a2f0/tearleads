@@ -9,6 +9,7 @@ import {
   markSessionActive,
   wasSessionActive
 } from '@/hooks/useAppLifecycle';
+import { emitInstanceChange } from '@/hooks/useInstanceChange';
 import { toError } from '@/lib/errors';
 import { deleteFileStorageForInstance } from '@/storage/opfs';
 import type { Database } from '../index';
@@ -489,3 +490,9 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
     </DatabaseContext.Provider>
   );
 }
+
+export {
+  useDatabase,
+  useDatabaseContext,
+  useDatabaseOptional
+} from './useDatabaseContext';
