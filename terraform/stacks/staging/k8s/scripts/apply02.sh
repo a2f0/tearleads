@@ -3,13 +3,12 @@ set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 STACK_DIR="$(dirname "$SCRIPT_DIR")"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config-staging-k8s}"
 K8S_READY_TIMEOUT="${K8S_READY_TIMEOUT:-300s}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-}"
-CERT_MANAGER_MANIFEST_URL="${CERT_MANAGER_MANIFEST_URL:-https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml}"
-INGRESS_NGINX_MANIFEST_URL="${INGRESS_NGINX_MANIFEST_URL:-https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.12.1/deploy/static/provider/cloud/deploy.yaml}"
 ECR_REPOSITORIES=(
   "tearleads-staging/api"
   "tearleads-staging/client"
@@ -54,38 +53,6 @@ check_ecr_repositories() {
   fi
 }
 
-ensure_cert_manager_installed() {
-  if kubectl get crd clusterissuers.cert-manager.io >/dev/null 2>&1; then
-    echo "cert-manager CRDs already present."
-    return
-  fi
-
-  echo "Installing cert-manager from $CERT_MANAGER_MANIFEST_URL..."
-  kubectl apply -f "$CERT_MANAGER_MANIFEST_URL"
-
-  echo "Waiting for cert-manager deployments to become ready..."
-  kubectl rollout status deployment/cert-manager -n cert-manager --timeout=300s
-  kubectl rollout status deployment/cert-manager-cainjector -n cert-manager --timeout=300s
-  kubectl rollout status deployment/cert-manager-webhook -n cert-manager --timeout=300s
-}
-
-ensure_ingress_nginx_installed() {
-  if kubectl get deployment ingress-nginx-controller -n ingress-nginx >/dev/null 2>&1; then
-    echo "ingress-nginx already installed."
-  else
-    echo "Installing ingress-nginx from $INGRESS_NGINX_MANIFEST_URL..."
-    kubectl apply -f "$INGRESS_NGINX_MANIFEST_URL"
-  fi
-
-  echo "Waiting for ingress-nginx controller to become ready..."
-  kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx --timeout=300s
-
-  # Required for cert-manager HTTP-01 solver ingress paths using pathType=Exact.
-  kubectl patch configmap ingress-nginx-controller -n ingress-nginx \
-    --type merge \
-    -p '{"data":{"strict-validate-path-type":"false"}}'
-}
-
 ensure_cloudflare_tunnel_secret() {
   local tunnel_token=""
 
@@ -114,6 +81,15 @@ export KUBECONFIG="$KUBECONFIG_FILE"
 echo "Waiting for Kubernetes node readiness (timeout: $K8S_READY_TIMEOUT)..."
 kubectl wait --for=condition=Ready nodes --all --timeout="$K8S_READY_TIMEOUT"
 
+if ! command -v ansible-playbook >/dev/null 2>&1; then
+  echo "ERROR: ansible-playbook is required for staging k8s baseline setup."
+  echo "Install dependencies via ./ansible/scripts/setup.sh and re-run."
+  exit 1
+fi
+
+echo "Running Ansible baseline bootstrap..."
+"$REPO_ROOT/ansible/scripts/run-k8s.sh"
+
 check_ecr_repositories
 
 echo "Ensuring namespace exists..."
@@ -122,8 +98,6 @@ kubectl apply -f "$STACK_DIR/manifests/namespace.yaml"
 echo "Refreshing ECR pull secret..."
 "$SCRIPT_DIR/setup-ecr-secret.sh"
 
-ensure_cert_manager_installed
-ensure_ingress_nginx_installed
 ensure_cloudflare_tunnel_secret
 
 echo "Deploying Kubernetes manifests..."
