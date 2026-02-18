@@ -124,7 +124,11 @@ const { 'data-testid': testId } = Astro.props;
       if (!classChanged) {
         return;
       }
-      await rerenderMermaid();
+      try {
+        await rerenderMermaid();
+      } catch (error) {
+        console.error('Failed to re-render Mermaid diagrams on theme change:', error);
+      }
     });
 
     observer.observe(rootElement, { attributes: true, attributeFilter: ['class'] });
@@ -135,7 +139,11 @@ const { 'data-testid': testId } = Astro.props;
       return;
     }
     syncMermaidContainers();
-    await rerenderMermaid();
+    try {
+      await rerenderMermaid();
+    } catch (error) {
+      console.error('Failed to render Mermaid diagrams on initial load:', error);
+    }
     setupThemeObserver();
   };
 
