@@ -32,7 +32,6 @@
     "react-router-dom": "7.13.0"
   },
   "dependencies": {
-    "@tearleads/window-manager": "workspace:*",
     "@radix-ui/react-slot": "1.2.4",
     "@radix-ui/react-tooltip": "1.2.8",
     "class-variance-authority": "0.7.1",

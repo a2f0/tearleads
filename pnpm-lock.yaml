@@ -2214,9 +2214,6 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: 1.2.8
         version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@tearleads/window-manager':
-        specifier: workspace:*
-        version: link:../window-manager
       class-variance-authority:
         specifier: 0.7.1
         version: 0.7.1
@@ -2236,6 +2233,9 @@ importers:
       '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
+      '@tearleads/window-manager':
+        specifier: workspace:*
+        version: link:../window-manager
       '@testing-library/jest-dom':
         specifier: 6.9.1
         version: 6.9.1
