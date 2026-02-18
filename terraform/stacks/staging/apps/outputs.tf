@@ -1,34 +1,24 @@
-output "server_ip" {
-  description = "IPv4 address of the Vault server"
-  value       = module.server.ipv4_address
+output "ingress_nginx_namespace" {
+  description = "Namespace for ingress-nginx"
+  value       = helm_release.ingress_nginx.namespace
 }
 
-output "server_ipv6" {
-  description = "IPv6 address of the Vault server"
-  value       = module.server.ipv6_address
+output "cert_manager_namespace" {
+  description = "Namespace for cert-manager"
+  value       = helm_release.cert_manager.namespace
 }
 
-output "server_status" {
-  description = "Status of the server"
-  value       = module.server.status
+output "vault_namespace" {
+  description = "Namespace for vault"
+  value       = helm_release.vault.namespace
 }
 
-output "vault_hostname" {
-  description = "Vault server hostname"
-  value       = "vault.${var.staging_domain}"
+output "grafana_k8s_monitoring_namespace" {
+  description = "Namespace for Grafana k8s-monitoring components"
+  value       = helm_release.grafana_k8s_monitoring.namespace
 }
 
-output "vault_url" {
-  description = "Vault API URL"
-  value       = "https://vault.${var.staging_domain}:8200"
-}
-
-output "ssh_command" {
-  description = "SSH command to connect to the server"
-  value       = "ssh ${var.server_username}@${module.server.ipv4_address}"
-}
-
-output "server_username" {
-  description = "Username for SSH access"
-  value       = var.server_username
+output "loki_push_url" {
+  description = "Loki push URL used by Grafana k8s-monitoring"
+  value       = local.loki_push_url
 }
