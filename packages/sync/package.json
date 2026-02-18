@@ -1,14 +1,18 @@
 {
   "name": "@tearleads/sync",
   "version": "0.0.1",
-  "description": "Sync pages and window for Tearleads",
+  "description": "Compatibility shim for @tearleads/vfs-sync",
   "type": "module",
   "main": "src/index.ts",
-  "types": "src/index.ts",
+  "types": "src/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
+      "types": "./src/index.d.ts",
       "import": "./src/index.ts"
+    },
+    "./vfs": {
+      "types": "./src/vfs.d.ts",
+      "import": "./src/vfs.ts"
     },
     "./package.json": "./package.json"
   },
@@ -16,40 +20,9 @@
     "src"
   ],
   "scripts": {
-    "build": "echo \"@tearleads/sync is source-consumed via Vite aliases\"",
-    "clean": "rm -rf dist",
-    "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
-    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
-  },
-  "peerDependencies": {
-    "@tearleads/window-manager": "workspace:*",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "react-i18next": "16.5.4",
-    "react-router-dom": "7.13.0"
+    "build": "echo \"@tearleads/sync compatibility shim\""
   },
   "dependencies": {
-    "lucide-react": "0.564.0"
-  },
-  "devDependencies": {
-    "@tearleads/window-manager": "workspace:*",
-    "@testing-library/jest-dom": "6.9.1",
-    "@testing-library/react": "16.3.2",
-    "@testing-library/user-event": "14.6.1",
-    "@types/node": "25.2.3",
-    "@types/react": "19.2.14",
-    "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "5.1.4",
-    "@vitest/coverage-v8": "4.0.18",
-    "cross-env": "10.1.0",
-    "i18next": "25.8.8",
-    "jsdom": "28.1.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "react-i18next": "16.5.4",
-    "react-router-dom": "7.13.0",
-    "typescript": "5.9.3",
-    "vitest": "4.0.18",
-    "vitest-fail-on-console": "0.10.1"
+    "@tearleads/vfs-sync": "workspace:*"
   }
 }

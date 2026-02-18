@@ -6,7 +6,7 @@
  */
 
 import type { Database } from '@tearleads/db/sqlite';
-import { vfsFolders, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
+import { vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
 
 /**
  * The VFS root folder ID.
@@ -63,15 +63,8 @@ export async function ensureVfsRoot(db: Database): Promise<void> {
       id: VFS_ROOT_ID,
       objectType: 'folder',
       ownerId: null,
+      encryptedName: 'VFS Root',
       createdAt: now
-    })
-    .onConflictDoNothing();
-
-  await db
-    .insert(vfsFolders)
-    .values({
-      id: VFS_ROOT_ID,
-      encryptedName: 'VFS Root'
     })
     .onConflictDoNothing();
 }
@@ -79,7 +72,7 @@ export async function ensureVfsRoot(db: Database): Promise<void> {
 /**
  * Seeds a VFS folder in the database.
  *
- * Creates entries in vfsRegistry, vfsFolders, and vfsLinks (linking to parent).
+ * Creates entries in vfsRegistry and vfsLinks (linking to parent).
  * Automatically ensures the VFS root exists.
  *
  * @returns The folder ID
@@ -112,15 +105,10 @@ export async function seedFolder(
     id,
     objectType: 'folder',
     ownerId,
-    createdAt: now
-  });
-
-  // Create folder entry
-  await db.insert(vfsFolders).values({
-    id,
     encryptedName: name,
     icon,
-    viewMode
+    viewMode,
+    createdAt: now
   });
 
   // Create link to parent

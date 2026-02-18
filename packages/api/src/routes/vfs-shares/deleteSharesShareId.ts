@@ -1,5 +1,6 @@
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
+import { loadShareAuthorizationContext } from './shared.js';
 
 /**
  * @openapi
@@ -39,25 +40,25 @@ export const deleteSharesShareidHandler = async (
     const { shareId } = req.params;
     const pool = await getPostgresPool();
 
-    const authCheckResult = await pool.query<{ owner_id: string | null }>(
-      `SELECT r.owner_id
-         FROM vfs_shares s
-         JOIN vfs_registry r ON r.id = s.item_id
-         WHERE s.id = $1`,
-      [shareId]
-    );
-    if (!authCheckResult.rows[0]) {
+    const authContext = await loadShareAuthorizationContext(pool, shareId);
+    if (!authContext) {
       res.status(404).json({ error: 'Share not found' });
       return;
     }
-    if (authCheckResult.rows[0].owner_id !== claims.sub) {
+    if (authContext.ownerId !== claims.sub) {
       res.status(403).json({ error: 'Not authorized to delete this share' });
       return;
     }
 
-    const result = await pool.query('DELETE FROM vfs_shares WHERE id = $1', [
-      shareId
-    ]);
+    const revokedAt = new Date();
+    const result = await pool.query(
+      `UPDATE vfs_acl_entries
+         SET revoked_at = $2,
+             updated_at = $2
+         WHERE id = $1
+           AND revoked_at IS NULL`,
+      [authContext.aclId, revokedAt]
+    );
 
     res.json({ deleted: result.rowCount !== null && result.rowCount > 0 });
   } catch (error) {

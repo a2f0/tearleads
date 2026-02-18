@@ -2,8 +2,8 @@
  * Hook for renaming VFS folders.
  */
 
-import { vfsFolders } from '@tearleads/db/sqlite';
-import { eq } from 'drizzle-orm';
+import { vfsRegistry } from '@tearleads/db/sqlite';
+import { and, eq } from 'drizzle-orm';
 import { useCallback, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 
@@ -34,10 +34,18 @@ export function useRenameVfsFolder(): UseRenameVfsFolderResult {
       try {
         const db = getDatabase();
 
-        await db
-          .update(vfsFolders)
-          .set({ encryptedName: trimmedName })
-          .where(eq(vfsFolders.id, folderId));
+        await db.transaction(async (tx) => {
+          // Guardrail: folder metadata is canonical on vfs_registry.
+          await tx
+            .update(vfsRegistry)
+            .set({ encryptedName: trimmedName })
+            .where(
+              and(
+                eq(vfsRegistry.id, folderId),
+                eq(vfsRegistry.objectType, 'folder')
+              )
+            );
+        });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         setError(message);

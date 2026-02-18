@@ -14,9 +14,9 @@ import {
   notes,
   playlists,
   tags,
-  vfsFolders
+  vfsRegistry
 } from '@tearleads/db/sqlite';
-import { inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { VfsRegistryRow } from './vfsTypes';
 
 /**
@@ -48,11 +48,24 @@ export async function fetchItemNames(
 
   // Folders
   if (byType['folder']?.length) {
+    // Guardrail: folder display names come from canonical vfs_registry metadata.
+    // Legacy vfs_folders values must not be read in lookup paths.
     nameLookups.push(
       db
-        .select({ id: vfsFolders.id, name: vfsFolders.encryptedName })
-        .from(vfsFolders)
-        .where(inArray(vfsFolders.id, byType['folder']))
+        .select({
+          id: vfsRegistry.id,
+          name: sql<string>`COALESCE(
+            NULLIF(${vfsRegistry.encryptedName}, ''),
+            'Unnamed Folder'
+          ) as "name"`
+        })
+        .from(vfsRegistry)
+        .where(
+          and(
+            eq(vfsRegistry.objectType, 'folder'),
+            inArray(vfsRegistry.id, byType['folder'])
+          )
+        )
         .then((rows) => {
           for (const row of rows) {
             nameMap.set(row.id, row.name || 'Unnamed Folder');

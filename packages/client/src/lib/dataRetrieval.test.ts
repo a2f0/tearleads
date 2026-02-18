@@ -1,7 +1,7 @@
+import { type Database, schema } from '@tearleads/db/sqlite';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { KeyManager } from '@/db/crypto/keyManager';
-import * as schema from '@/db/schema';
 import type { FileStorage } from '@/storage/opfs';
 import { retrieveFileData } from './dataRetrieval';
 
@@ -29,7 +29,7 @@ import {
   isFileStorageInitialized
 } from '@/storage/opfs';
 
-const createMockDatabase = () =>
+const createMockDatabase = (): Database =>
   drizzle(async () => ({ rows: [] }), { schema });
 
 const createFileStorage = (

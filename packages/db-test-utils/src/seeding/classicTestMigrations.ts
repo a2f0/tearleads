@@ -18,17 +18,12 @@ export const classicTestMigrations = [
           encrypted_session_key TEXT,
           public_hierarchical_key TEXT,
           encrypted_private_hierarchical_key TEXT,
-          created_at INTEGER NOT NULL
-        )
-      `);
-      await adapter.execute(`
-        CREATE TABLE IF NOT EXISTS vfs_folders (
-          id TEXT PRIMARY KEY REFERENCES vfs_registry(id) ON DELETE CASCADE,
           encrypted_name TEXT,
           icon TEXT,
           view_mode TEXT,
           default_sort TEXT,
-          sort_direction TEXT
+          sort_direction TEXT,
+          created_at INTEGER NOT NULL
         )
       `);
       await adapter.execute(`

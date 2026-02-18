@@ -51,6 +51,18 @@ describe('useEnsureVfsRoot', () => {
   it('creates root when it does not exist', async () => {
     // Root does not exist
     mockDb.limit.mockResolvedValueOnce([]);
+    const insertedValues: Array<Record<string, unknown>> = [];
+    mockDb.transaction.mockImplementationOnce(async (callback) => {
+      await callback({
+        insert: vi.fn(() => ({
+          values: vi.fn(async (value) => {
+            if (typeof value === 'object' && value !== null) {
+              insertedValues.push(value as Record<string, unknown>);
+            }
+          })
+        }))
+      });
+    });
 
     const wrapper = createWrapper({
       databaseState: createMockDatabaseState(),
@@ -66,6 +78,8 @@ describe('useEnsureVfsRoot', () => {
     expect(result.current.error).toBeNull();
     // Should have created the root
     expect(mockDb.transaction).toHaveBeenCalled();
+    expect(insertedValues[0]?.['encryptedName']).toBe('VFS Root');
+    expect(insertedValues).toHaveLength(1);
   });
 
   it('handles errors during root creation', async () => {

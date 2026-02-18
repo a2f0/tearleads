@@ -18,6 +18,9 @@ type FooterProps = {
 const mockUseSSEContext = vi.fn();
 const mockUseAppVersion = vi.fn();
 const mockOpenWindow = vi.fn();
+const mockLock = vi.fn();
+let mockIsUnlocked = false;
+let mockKeyboardHeight = 0;
 
 vi.mock('@tearleads/ui', () => ({
   Footer: ({
@@ -135,8 +138,8 @@ vi.mock('./components/ui/desktop-background', () => ({
 
 vi.mock('./db/hooks', () => ({
   useDatabaseContext: () => ({
-    isUnlocked: false,
-    lock: vi.fn()
+    isUnlocked: mockIsUnlocked,
+    lock: mockLock
   })
 }));
 
@@ -153,6 +156,10 @@ vi.mock('./hooks/useAppVersion', () => ({
   useAppVersion: () => mockUseAppVersion()
 }));
 
+vi.mock('./hooks/useKeyboardHeight', () => ({
+  useKeyboardHeight: () => mockKeyboardHeight
+}));
+
 vi.mock('./sse', () => ({
   useSSEContext: () => mockUseSSEContext()
 }));
@@ -163,6 +170,7 @@ function renderApp() {
       <Routes>
         <Route path="/" element={<App />}>
           <Route index element={<div data-testid="outlet" />} />
+          <Route path="search" element={<div data-testid="search-page" />} />
         </Route>
       </Routes>
     </MemoryRouter>
@@ -173,6 +181,9 @@ describe('App', () => {
   beforeEach(() => {
     mockUseAppVersion.mockReturnValue('1.2.3');
     mockOpenWindow.mockReset();
+    mockLock.mockReset();
+    mockIsUnlocked = false;
+    mockKeyboardHeight = 0;
   });
 
   it('hides the connection indicator without SSE', () => {
@@ -251,6 +262,17 @@ describe('App', () => {
     expect(footer).toContainElement(taskbar);
   });
 
+  it('adds keyboard offset padding when keyboard height is present', () => {
+    mockUseSSEContext.mockReturnValue(null);
+    mockKeyboardHeight = 100;
+
+    renderApp();
+
+    expect(screen.getByTestId('outlet').parentElement).toHaveStyle({
+      paddingBottom: '164px'
+    });
+  });
+
   it('renders the connection indicator outside the footer', () => {
     mockUseSSEContext.mockReturnValue({ connectionState: 'connected' });
 
@@ -314,6 +336,71 @@ describe('App', () => {
 
       expect(screen.getByText('Open Search')).toBeInTheDocument();
       expect(screen.queryByText('Lock Instance')).not.toBeInTheDocument();
+    });
+
+    it('navigates to search on mobile when Open Search is clicked', async () => {
+      const user = userEvent.setup();
+      mockUseSSEContext.mockReturnValue(null);
+      vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => {
+        const isMobileQuery = query === '(max-width: 1023px)';
+        return {
+          matches: isMobileQuery,
+          media: query,
+          onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn()
+        } as MediaQueryList;
+      });
+
+      renderApp();
+
+      fireEvent.contextMenu(screen.getByTestId('start-button'));
+      await user.click(screen.getByText('Open Search'));
+
+      expect(screen.getByTestId('search-page')).toBeInTheDocument();
+      expect(mockOpenWindow).not.toHaveBeenCalled();
+    });
+
+    it('opens search window on desktop when Open Search is clicked', async () => {
+      const user = userEvent.setup();
+      mockUseSSEContext.mockReturnValue(null);
+      vi.spyOn(window, 'matchMedia').mockImplementation(
+        (query: string) =>
+          ({
+            matches: false,
+            media: query,
+            onchange: null,
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            dispatchEvent: vi.fn()
+          }) as MediaQueryList
+      );
+
+      renderApp();
+
+      fireEvent.contextMenu(screen.getByTestId('start-button'));
+      await user.click(screen.getByText('Open Search'));
+
+      expect(mockOpenWindow).toHaveBeenCalledWith('search');
+      expect(screen.queryByText('Open Search')).not.toBeInTheDocument();
+    });
+
+    it('locks instance when lock action is clicked and database is unlocked', async () => {
+      const user = userEvent.setup();
+      mockUseSSEContext.mockReturnValue(null);
+      mockIsUnlocked = true;
+
+      renderApp();
+
+      fireEvent.contextMenu(screen.getByTestId('start-button'));
+      await user.click(screen.getByText('Lock Instance'));
+
+      expect(mockLock).toHaveBeenCalledWith(true);
     });
   });
 

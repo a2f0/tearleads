@@ -34,8 +34,9 @@ export default defineConfig({
   forbidOnly: isCI,
   retries: 0,
   maxFailures: 1, // Bail on first failure
-  // Safety timeout to force exit if workers hang (10 minutes)
-  globalTimeout: 10 * 60 * 1000,
+  // Safety timeout to force exit if workers hang.
+  // CI runs the full web shard and can exceed 10 minutes on busy runners.
+  globalTimeout: 14 * 60 * 1000,
   reporter: isCI
     ? [['list'], ['html', { open: 'never' }]]
     : [['html', { open: 'never' }]],

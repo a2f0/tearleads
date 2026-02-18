@@ -29,7 +29,6 @@ export {
   notes,
   organizationBillingAccounts,
   organizations,
-  orgShares,
   playlists,
   revenuecatWebhookEvents,
   schema,
@@ -43,11 +42,8 @@ export {
   userSettings,
   users,
   vehicles,
-  vfsAccess,
-  vfsFolders,
   vfsLinks,
   vfsRegistry,
-  vfsShares,
   walletItemMedia,
   walletItems
 } from '@tearleads/db/sqlite';

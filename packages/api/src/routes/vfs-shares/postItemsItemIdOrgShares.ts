@@ -1,8 +1,16 @@
 import { randomUUID } from 'node:crypto';
-import type { VfsOrgShare, VfsPermissionLevel } from '@tearleads/shared';
+import type { VfsOrgShare } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
-import { parseCreateOrgSharePayload } from './shared.js';
+import {
+  buildOrgShareAclId,
+  extractOrgShareIdFromAclId,
+  extractSourceOrgIdFromOrgShareAclId,
+  mapAclAccessLevelToSharePermissionLevel,
+  mapSharePermissionLevelToAclAccessLevel,
+  parseCreateOrgSharePayload,
+  type VfsAclAccessLevel
+} from './shared.js';
 
 /**
  * @openapi
@@ -119,29 +127,58 @@ export const postItemsItemidOrgSharesHandler = async (
     }
     const targetOrgName = targetOrgResult.rows[0].name;
 
-    const id = randomUUID();
+    const shareId = randomUUID();
     const now = new Date();
     const expiresAt = payload.expiresAt ? new Date(payload.expiresAt) : null;
 
     const result = await pool.query<{
-      id: string;
-      source_org_id: string;
-      target_org_id: string;
+      acl_id: string;
       item_id: string;
-      permission_level: VfsPermissionLevel;
-      created_by: string;
+      target_org_id: string;
+      access_level: VfsAclAccessLevel;
+      created_by: string | null;
       created_at: Date;
       expires_at: Date | null;
     }>(
-      `INSERT INTO org_shares (id, source_org_id, target_org_id, item_id, permission_level, created_by, created_at, expires_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         RETURNING id, source_org_id, target_org_id, item_id, permission_level, created_by, created_at, expires_at`,
+      `INSERT INTO vfs_acl_entries (
+          id,
+          item_id,
+          principal_type,
+          principal_id,
+          access_level,
+          wrapped_session_key,
+          wrapped_hierarchical_key,
+          granted_by,
+          created_at,
+          updated_at,
+          expires_at,
+          revoked_at
+        )
+        VALUES ($1, $2, $3, $4, $5, NULL, NULL, $6, $7, $7, $8, NULL)
+        ON CONFLICT (item_id, principal_type, principal_id)
+        DO UPDATE SET
+          id = EXCLUDED.id,
+          access_level = EXCLUDED.access_level,
+          granted_by = EXCLUDED.granted_by,
+          created_at = EXCLUDED.created_at,
+          updated_at = EXCLUDED.updated_at,
+          expires_at = EXCLUDED.expires_at,
+          revoked_at = NULL
+        WHERE vfs_acl_entries.revoked_at IS NOT NULL
+        RETURNING
+          id AS acl_id,
+          item_id,
+          principal_id AS target_org_id,
+          access_level,
+          granted_by AS created_by,
+          created_at,
+          expires_at`,
       [
-        id,
-        payload.sourceOrgId,
-        payload.targetOrgId,
+        buildOrgShareAclId(payload.sourceOrgId, shareId),
         payload.itemId,
-        payload.permissionLevel,
+        'organization',
+        payload.targetOrgId,
+        mapSharePermissionLevelToAclAccessLevel(payload.permissionLevel),
         claims.sub,
         now,
         expiresAt
@@ -150,24 +187,27 @@ export const postItemsItemidOrgSharesHandler = async (
 
     const row = result.rows[0];
     if (!row) {
-      res.status(500).json({ error: 'Failed to create org share' });
+      res.status(409).json({ error: 'Org share already exists' });
       return;
     }
 
+    const creatorId = row.created_by ?? claims.sub;
     const creatorResult = await pool.query<{ email: string }>(
       'SELECT email FROM users WHERE id = $1',
-      [claims.sub]
+      [creatorId]
     );
 
     const orgShare: VfsOrgShare = {
-      id: row.id,
-      sourceOrgId: row.source_org_id,
+      id: extractOrgShareIdFromAclId(row.acl_id),
+      sourceOrgId: extractSourceOrgIdFromOrgShareAclId(row.acl_id),
       sourceOrgName,
       targetOrgId: row.target_org_id,
       targetOrgName,
       itemId: row.item_id,
-      permissionLevel: row.permission_level,
-      createdBy: row.created_by,
+      permissionLevel: mapAclAccessLevelToSharePermissionLevel(
+        row.access_level
+      ),
+      createdBy: creatorId,
       createdByEmail: creatorResult.rows[0]?.email ?? 'Unknown',
       createdAt: row.created_at.toISOString(),
       expiresAt: row.expires_at ? row.expires_at.toISOString() : null

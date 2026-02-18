@@ -1,11 +1,6 @@
 #!/usr/bin/env -S pnpm exec tsx
 /**
  * Script Tool CLI - TypeScript wrapper for utility scripts in scripts/
- *
- * Provides a safe tool-calling interface with timeouts, validation,
- * and structured JSON output.
- *
- * Usage: tsx scripts/tooling/scriptTool.ts <action> [options]
  */
 import { Command, InvalidArgumentError, program } from 'commander';
 import {
@@ -278,9 +273,6 @@ function createActionCommand(actionName: ActionName): Command {
 
   return cmd;
 }
-
-// ============================================================================
-
 program
   .name('scriptTool.ts')
   .description(

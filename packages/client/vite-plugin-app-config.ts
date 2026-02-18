@@ -74,7 +74,7 @@ const FEATURE_TO_PACKAGES: Record<string, string[]> = {
   health: ['@tearleads/health'],
   'mls-chat': ['@tearleads/mls-chat'],
   notes: ['@tearleads/notes'],
-  sync: ['@tearleads/sync'],
+  sync: ['@tearleads/vfs-sync'],
   terminal: ['@tearleads/terminal'],
   vehicles: ['@tearleads/vehicles'],
   wallet: ['@tearleads/wallet']

@@ -36,8 +36,25 @@ export function useDeleteVfsFolder(): UseDeleteVfsFolderResult {
       try {
         const db = getDatabase();
 
-        // Delete from vfs_registry - cascades will handle vfs_folders and vfs_links
-        await db.delete(vfsRegistry).where(eq(vfsRegistry.id, folderId));
+        await db.transaction(async (tx) => {
+          const candidateRows = await tx
+            .select({ objectType: vfsRegistry.objectType })
+            .from(vfsRegistry)
+            .where(eq(vfsRegistry.id, folderId))
+            .limit(1);
+          const candidate = candidateRows[0];
+          if (!candidate) {
+            throw new Error('Folder not found');
+          }
+
+          // Guardrail: folder-delete path must never remove non-folder objects.
+          if (candidate.objectType !== 'folder') {
+            throw new Error('Refusing to delete non-folder VFS item');
+          }
+
+          // Delete from vfs_registry; cascades remove links and associated objects.
+          await tx.delete(vfsRegistry).where(eq(vfsRegistry.id, folderId));
+        });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         setError(message);

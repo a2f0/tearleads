@@ -1,9 +1,37 @@
-import openapiSpec from '@tearleads/api/dist/openapi.json';
 import { ApiDocs } from '@tearleads/ui';
 import { FileText } from 'lucide-react';
+import type { OpenAPIV3 } from 'openapi-types';
+import { useEffect, useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';
 
+function isOpenApiDocument(value: unknown): value is OpenAPIV3.Document {
+  return typeof value === 'object' && value !== null && 'openapi' in value;
+}
+
 export function ApiDocsPage() {
+  const [openapiSpec, setOpenapiSpec] = useState<OpenAPIV3.Document | null>(
+    null
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    import('@tearleads/api/dist/openapi.json')
+      .then((module) => {
+        if (cancelled) {
+          return;
+        }
+
+        if (isOpenApiDocument(module.default)) {
+          setOpenapiSpec(module.default);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
@@ -14,7 +42,11 @@ export function ApiDocsPage() {
         </div>
       </div>
 
-      <ApiDocs spec={openapiSpec} />
+      {openapiSpec ? (
+        <ApiDocs spec={openapiSpec} />
+      ) : (
+        <div className="text-muted-foreground text-sm">Loading API docs...</div>
+      )}
     </div>
   );
 }

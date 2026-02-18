@@ -14,7 +14,6 @@ import {
   notes,
   playlists,
   tags,
-  vfsFolders,
   vfsLinks,
   vfsRegistry
 } from '@tearleads/db/sqlite';
@@ -27,10 +26,13 @@ import type { VfsSortState } from './vfsTypes';
  * COALESCE expression that resolves display names from type-specific tables.
  * Each LEFT JOINed table contributes its name column; only the matching
  * table's column will be non-NULL for a given registry row.
+ *
+ * Guardrail: folder names must resolve from `vfs_registry.encrypted_name` only.
+ * Do not reintroduce `vfs_folders` fallback reads in explorer query paths.
  */
 function nameCoalesce(): SQL<string> {
   return sql<string>`COALESCE(
-    NULLIF(${vfsFolders.encryptedName}, ''),
+    NULLIF(${vfsRegistry.encryptedName}, ''),
     CASE WHEN ${vfsRegistry.objectType} = 'folder' THEN 'Unnamed Folder' END,
     NULLIF(${files.name}, ''),
     CASE WHEN ${contacts.id} IS NOT NULL THEN
@@ -131,13 +133,6 @@ export async function queryFolderContents(
     .from(vfsLinks)
     .innerJoin(vfsRegistry, eq(vfsLinks.childId, vfsRegistry.id))
     .leftJoin(
-      vfsFolders,
-      and(
-        eq(vfsRegistry.id, vfsFolders.id),
-        eq(vfsRegistry.objectType, 'folder')
-      )
-    )
-    .leftJoin(
       files,
       and(
         eq(vfsRegistry.id, files.id),
@@ -215,13 +210,6 @@ export async function queryUnfiledItems(
     .from(vfsRegistry)
     .leftJoin(vfsLinks, eq(vfsRegistry.id, vfsLinks.childId))
     .leftJoin(
-      vfsFolders,
-      and(
-        eq(vfsRegistry.id, vfsFolders.id),
-        eq(vfsRegistry.objectType, 'folder')
-      )
-    )
-    .leftJoin(
       files,
       and(
         eq(vfsRegistry.id, files.id),
@@ -297,13 +285,6 @@ export async function queryAllItems(
       createdAt: vfsRegistry.createdAt
     })
     .from(vfsRegistry)
-    .leftJoin(
-      vfsFolders,
-      and(
-        eq(vfsRegistry.id, vfsFolders.id),
-        eq(vfsRegistry.objectType, 'folder')
-      )
-    )
     .leftJoin(
       files,
       and(

@@ -12,7 +12,7 @@ vi.mock('@tearleads/api/dist/openapi.json', () => ({
 }));
 
 describe('ApiDocsPage', () => {
-  it('renders API docs heading and spec title', () => {
+  it('renders API docs heading and spec title', async () => {
     render(
       <MemoryRouter>
         <ApiDocsPage />
@@ -22,6 +22,6 @@ describe('ApiDocsPage', () => {
     expect(
       screen.getByRole('heading', { name: 'API Docs' })
     ).toBeInTheDocument();
-    expect(screen.getByText('Client Docs')).toBeInTheDocument();
+    expect(await screen.findByText('Client Docs')).toBeInTheDocument();
   });
 });

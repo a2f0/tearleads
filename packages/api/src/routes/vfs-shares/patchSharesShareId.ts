@@ -1,11 +1,14 @@
-import type {
-  VfsPermissionLevel,
-  VfsShare,
-  VfsShareType
-} from '@tearleads/shared';
+import type { VfsShare, VfsShareType } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
-import { parseUpdateSharePayload } from './shared.js';
+import {
+  extractShareIdFromAclId,
+  loadShareAuthorizationContext,
+  mapAclAccessLevelToSharePermissionLevel,
+  mapSharePermissionLevelToAclAccessLevel,
+  parseUpdateSharePayload,
+  type VfsAclAccessLevel
+} from './shared.js';
 
 /**
  * @openapi
@@ -76,18 +79,12 @@ export const patchSharesShareidHandler = async (
     const { shareId } = req.params;
     const pool = await getPostgresPool();
 
-    const authCheckResult = await pool.query<{ owner_id: string | null }>(
-      `SELECT r.owner_id
-         FROM vfs_shares s
-         JOIN vfs_registry r ON r.id = s.item_id
-         WHERE s.id = $1`,
-      [shareId]
-    );
-    if (!authCheckResult.rows[0]) {
+    const authContext = await loadShareAuthorizationContext(pool, shareId);
+    if (!authContext) {
       res.status(404).json({ error: 'Share not found' });
       return;
     }
-    if (authCheckResult.rows[0].owner_id !== claims.sub) {
+    if (authContext.ownerId !== claims.sub) {
       res.status(403).json({ error: 'Not authorized to update this share' });
       return;
     }
@@ -97,8 +94,10 @@ export const patchSharesShareidHandler = async (
     let paramIndex = 1;
 
     if (payload.permissionLevel !== undefined) {
-      updates.push(`permission_level = $${paramIndex++}`);
-      values.push(payload.permissionLevel);
+      updates.push(`access_level = $${paramIndex++}`);
+      values.push(
+        mapSharePermissionLevelToAclAccessLevel(payload.permissionLevel)
+      );
     }
 
     if (payload.expiresAt !== undefined) {
@@ -106,22 +105,34 @@ export const patchSharesShareidHandler = async (
       values.push(payload.expiresAt ? new Date(payload.expiresAt) : null);
     }
 
-    values.push(shareId);
+    const now = new Date();
+    updates.push(`updated_at = $${paramIndex++}`);
+    values.push(now);
+    values.push(authContext.aclId);
 
     const result = await pool.query<{
-      id: string;
+      acl_id: string;
       item_id: string;
       share_type: VfsShareType;
       target_id: string;
-      permission_level: VfsPermissionLevel;
-      created_by: string;
+      access_level: VfsAclAccessLevel;
+      created_by: string | null;
       created_at: Date;
       expires_at: Date | null;
     }>(
-      `UPDATE vfs_shares
+      `UPDATE vfs_acl_entries
          SET ${updates.join(', ')}
          WHERE id = $${paramIndex}
-         RETURNING id, item_id, share_type, target_id, permission_level, created_by, created_at, expires_at`,
+           AND revoked_at IS NULL
+         RETURNING
+           id AS acl_id,
+           item_id,
+           principal_type AS share_type,
+           principal_id AS target_id,
+           access_level,
+           granted_by AS created_by,
+           created_at,
+           expires_at`,
       values
     );
 
@@ -152,20 +163,28 @@ export const patchSharesShareidHandler = async (
       targetName = r.rows[0]?.name ?? 'Unknown';
     }
 
-    const creatorResult = await pool.query<{ email: string }>(
-      'SELECT email FROM users WHERE id = $1',
-      [row.created_by]
-    );
+    const creatorId = row.created_by ?? 'unknown';
+    const creatorEmail =
+      row.created_by === null
+        ? 'Unknown'
+        : ((
+            await pool.query<{ email: string }>(
+              'SELECT email FROM users WHERE id = $1',
+              [row.created_by]
+            )
+          ).rows[0]?.email ?? 'Unknown');
 
     const share: VfsShare = {
-      id: row.id,
+      id: extractShareIdFromAclId(row.acl_id),
       itemId: row.item_id,
       shareType: row.share_type,
       targetId: row.target_id,
       targetName,
-      permissionLevel: row.permission_level,
-      createdBy: row.created_by,
-      createdByEmail: creatorResult.rows[0]?.email ?? 'Unknown',
+      permissionLevel: mapAclAccessLevelToSharePermissionLevel(
+        row.access_level
+      ),
+      createdBy: creatorId,
+      createdByEmail: creatorEmail,
       createdAt: row.created_at.toISOString(),
       expiresAt: row.expires_at ? row.expires_at.toISOString() : null
     };

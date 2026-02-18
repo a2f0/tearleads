@@ -2,7 +2,7 @@
  * Hook for creating VFS folders.
  */
 
-import { vfsFolders, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
+import { vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
 import { useCallback, useState } from 'react';
 import { VFS_ROOT_ID } from '../constants';
 import { useVfsExplorerContext } from '../context';
@@ -32,7 +32,8 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
       name: string,
       parentId?: string | null
     ): Promise<CreateFolderResult> => {
-      if (!name.trim()) {
+      const trimmedName = name.trim();
+      if (!trimmedName) {
         throw new Error('Folder name is required');
       }
 
@@ -72,15 +73,9 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
                 objectType: 'folder',
                 ownerId: null,
                 encryptedSessionKey: null,
+                // Guardrail: canonical folder metadata lives on vfs_registry.
+                encryptedName: 'VFS Root',
                 createdAt: now
-              })
-              .onConflictDoNothing();
-
-            await tx
-              .insert(vfsFolders)
-              .values({
-                id: VFS_ROOT_ID,
-                encryptedName: 'VFS Root'
               })
               .onConflictDoNothing();
           }
@@ -91,13 +86,9 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
             objectType: 'folder',
             ownerId: authData.user?.id ?? null,
             encryptedSessionKey,
+            // Guardrail: folder metadata is canonical on vfs_registry.
+            encryptedName: trimmedName,
             createdAt: now
-          });
-
-          // Insert into local vfs_folders
-          await tx.insert(vfsFolders).values({
-            id,
-            encryptedName: name.trim()
           });
 
           // Create link to parent folder (or VFS root if no parent specified)
@@ -127,7 +118,7 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
           }
         }
 
-        return { id, name: name.trim() };
+        return { id, name: trimmedName };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         setError(message);

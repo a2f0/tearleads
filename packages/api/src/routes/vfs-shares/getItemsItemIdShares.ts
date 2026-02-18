@@ -1,12 +1,18 @@
 import type {
   VfsOrgShare,
-  VfsPermissionLevel,
   VfsShare,
   VfsSharesResponse,
   VfsShareType
 } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
+import {
+  extractOrgShareIdFromAclId,
+  extractShareIdFromAclId,
+  extractSourceOrgIdFromOrgShareAclId,
+  mapAclAccessLevelToSharePermissionLevel,
+  type VfsAclAccessLevel
+} from './shared.js';
 
 /**
  * @openapi
@@ -67,58 +73,61 @@ export const getItemsItemidSharesHandler = async (
     }
 
     const sharesResult = await pool.query<{
-      id: string;
+      acl_id: string;
       item_id: string;
       share_type: VfsShareType;
       target_id: string;
-      permission_level: VfsPermissionLevel;
-      created_by: string;
+      access_level: VfsAclAccessLevel;
+      created_by: string | null;
       created_at: Date;
       expires_at: Date | null;
       target_name: string | null;
       created_by_email: string | null;
     }>(
       `SELECT
-          s.id,
-          s.item_id,
-          s.share_type,
-          s.target_id,
-          s.permission_level,
-          s.created_by,
-          s.created_at,
-          s.expires_at,
+          acl.id AS acl_id,
+          acl.item_id,
+          acl.principal_type AS share_type,
+          acl.principal_id AS target_id,
+          acl.access_level,
+          acl.granted_by AS created_by,
+          acl.created_at,
+          acl.expires_at,
           CASE
-            WHEN s.share_type = 'user' THEN (SELECT email FROM users WHERE id = s.target_id)
-            WHEN s.share_type = 'group' THEN (SELECT name FROM groups WHERE id = s.target_id)
-            WHEN s.share_type = 'organization' THEN (SELECT name FROM organizations WHERE id = s.target_id)
+            WHEN acl.principal_type = 'user' THEN (SELECT email FROM users WHERE id = acl.principal_id)
+            WHEN acl.principal_type = 'group' THEN (SELECT name FROM groups WHERE id = acl.principal_id)
+            WHEN acl.principal_type = 'organization' THEN (SELECT name FROM organizations WHERE id = acl.principal_id)
           END AS target_name,
-          (SELECT email FROM users WHERE id = s.created_by) AS created_by_email
-        FROM vfs_shares s
-        WHERE s.item_id = $1
-        ORDER BY s.created_at DESC`,
+          (SELECT email FROM users WHERE id = acl.granted_by) AS created_by_email
+        FROM vfs_acl_entries acl
+        WHERE acl.item_id = $1
+          AND acl.id LIKE 'share:%'
+          AND acl.revoked_at IS NULL
+        ORDER BY acl.created_at DESC`,
       [itemId]
     );
 
     const shares: VfsShare[] = sharesResult.rows.map((row) => ({
-      id: row.id,
+      id: extractShareIdFromAclId(row.acl_id),
       itemId: row.item_id,
       shareType: row.share_type,
       targetId: row.target_id,
       targetName: row.target_name ?? 'Unknown',
-      permissionLevel: row.permission_level,
-      createdBy: row.created_by,
+      permissionLevel: mapAclAccessLevelToSharePermissionLevel(
+        row.access_level
+      ),
+      createdBy: row.created_by ?? 'unknown',
       createdByEmail: row.created_by_email ?? 'Unknown',
       createdAt: row.created_at.toISOString(),
       expiresAt: row.expires_at ? row.expires_at.toISOString() : null
     }));
 
     const orgSharesResult = await pool.query<{
-      id: string;
-      source_org_id: string;
+      acl_id: string;
       target_org_id: string;
       item_id: string;
-      permission_level: VfsPermissionLevel;
-      created_by: string;
+      access_level: VfsAclAccessLevel;
+      created_by: string | null;
       created_at: Date;
       expires_at: Date | null;
       source_org_name: string | null;
@@ -126,32 +135,40 @@ export const getItemsItemidSharesHandler = async (
       created_by_email: string | null;
     }>(
       `SELECT
-          os.id,
-          os.source_org_id,
-          os.target_org_id,
-          os.item_id,
-          os.permission_level,
-          os.created_by,
-          os.created_at,
-          os.expires_at,
-          (SELECT name FROM organizations WHERE id = os.source_org_id) AS source_org_name,
-          (SELECT name FROM organizations WHERE id = os.target_org_id) AS target_org_name,
-          (SELECT email FROM users WHERE id = os.created_by) AS created_by_email
-        FROM org_shares os
-        WHERE os.item_id = $1
-        ORDER BY os.created_at DESC`,
+          acl.id AS acl_id,
+          acl.principal_id AS target_org_id,
+          acl.item_id,
+          acl.access_level,
+          acl.granted_by AS created_by,
+          acl.created_at,
+          acl.expires_at,
+          (
+            SELECT name
+            FROM organizations
+            WHERE id = split_part(acl.id, ':', 2)
+          ) AS source_org_name,
+          (SELECT name FROM organizations WHERE id = acl.principal_id) AS target_org_name,
+          (SELECT email FROM users WHERE id = acl.granted_by) AS created_by_email
+        FROM vfs_acl_entries acl
+        WHERE acl.item_id = $1
+          AND acl.principal_type = 'organization'
+          AND acl.id LIKE 'org-share:%:%'
+          AND acl.revoked_at IS NULL
+        ORDER BY acl.created_at DESC`,
       [itemId]
     );
 
     const orgShares: VfsOrgShare[] = orgSharesResult.rows.map((row) => ({
-      id: row.id,
-      sourceOrgId: row.source_org_id,
+      id: extractOrgShareIdFromAclId(row.acl_id),
+      sourceOrgId: extractSourceOrgIdFromOrgShareAclId(row.acl_id),
       sourceOrgName: row.source_org_name ?? 'Unknown',
       targetOrgId: row.target_org_id,
       targetOrgName: row.target_org_name ?? 'Unknown',
       itemId: row.item_id,
-      permissionLevel: row.permission_level,
-      createdBy: row.created_by,
+      permissionLevel: mapAclAccessLevelToSharePermissionLevel(
+        row.access_level
+      ),
+      createdBy: row.created_by ?? 'unknown',
       createdByEmail: row.created_by_email ?? 'Unknown',
       createdAt: row.created_at.toISOString(),
       expiresAt: row.expires_at ? row.expires_at.toISOString() : null

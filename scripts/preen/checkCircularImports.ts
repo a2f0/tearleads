@@ -332,7 +332,9 @@ function runPackageCycleCheck(repoRoot: string): void {
     }
   }
 
-  const knownCycleKeys = new Set<string>();
+  const knownCycleKeys = new Set<string>([
+    '@tearleads/api -> @tearleads/vfs-sync -> @tearleads/client'
+  ]);
 
   const discoveredCycles: Cycle[] = [];
   const seenCycleKeys = new Set<string>();

@@ -1,1 +1,1 @@
-export { SyncWindow } from '../../../../sync/src/clientEntry';
+export { SyncWindow } from '../../../../vfs-sync/src/clientEntry';

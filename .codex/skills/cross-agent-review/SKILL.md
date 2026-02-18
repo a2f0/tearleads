@@ -72,4 +72,6 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
 - Both review scripts are non-interactive and output to stdout
 - The scripts require an open PR on the current branch
 - Reviews are based on the diff between the PR's base branch and HEAD
+- Claude review derives branch/PR/base from git + GitHub and streams prompt/diff
+  via stdin (not argv) to avoid "Argument list too long" failures on large PRs
 - Error output should be relayed verbatim to the user before stopping
