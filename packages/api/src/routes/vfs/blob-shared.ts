@@ -49,6 +49,8 @@ export function parseBlobStageBody(body: unknown): {
   stagingId: string;
   blobId: string;
   expiresAt: string;
+  dataBase64: string | null;
+  contentType: string | null;
 } | null {
   if (!isRecord(body)) {
     return null;
@@ -60,12 +62,24 @@ export function parseBlobStageBody(body: unknown): {
     return null;
   }
 
+  const dataBase64 = normalizeOptionalString(body['dataBase64']);
+  if (body['dataBase64'] !== undefined && dataBase64 === null) {
+    return null;
+  }
+
+  const contentType = normalizeOptionalString(body['contentType']);
+  if (body['contentType'] !== undefined && contentType === null) {
+    return null;
+  }
+
   const stagingId = normalizeOptionalString(body['stagingId']) ?? randomUUID();
 
   return {
     stagingId,
     blobId,
-    expiresAt
+    expiresAt,
+    dataBase64,
+    contentType
   };
 }
 

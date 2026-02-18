@@ -25,7 +25,7 @@ import { parseRegisterPayload } from './shared.js';
  *                 description: Unique identifier for the VFS item
  *               objectType:
  *                 type: string
- *                 enum: [file, folder, contact, note, photo]
+ *                 enum: [file, blob, folder, contact, note, photo]
  *               encryptedSessionKey:
  *                 type: string
  *                 description: Session key encrypted with user's public key

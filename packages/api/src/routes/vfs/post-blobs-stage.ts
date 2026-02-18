@@ -1,5 +1,6 @@
 import type { Request, Response, Router as RouterType } from 'express';
 import type { PoolClient } from 'pg';
+import { persistVfsBlobData } from '../../lib/vfsBlobStore.js';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { isPostgresErrorWithCode, parseBlobStageBody } from './blob-shared.js';
 
@@ -13,6 +14,24 @@ interface BlobStageRow {
   status: string;
   staged_at: Date | string;
   expires_at: Date | string;
+}
+
+function parseBase64Data(dataBase64: string): Buffer | null {
+  const normalized = dataBase64.replace(/\s+/g, '');
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  const decoded = Buffer.from(normalized, 'base64');
+  if (decoded.length === 0) {
+    return null;
+  }
+
+  if (decoded.toString('base64').replace(/=+$/u, '') !== normalized.replace(/=+$/u, '')) {
+    return null;
+  }
+
+  return decoded;
 }
 
 export const postBlobsStageHandler = async (req: Request, res: Response) => {
@@ -33,6 +52,31 @@ export const postBlobsStageHandler = async (req: Request, res: Response) => {
     return;
   }
 
+  let decodedBlobData: Buffer | null = null;
+  if (parsedBody.dataBase64) {
+    decodedBlobData = parseBase64Data(parsedBody.dataBase64);
+    if (!decodedBlobData) {
+      res.status(400).json({ error: 'dataBase64 must be valid base64' });
+      return;
+    }
+  }
+
+  if (decodedBlobData) {
+    try {
+      await persistVfsBlobData({
+        blobId: parsedBody.blobId,
+        data: decodedBlobData,
+        ...(parsedBody.contentType
+          ? { contentType: parsedBody.contentType }
+          : {})
+      });
+    } catch (error) {
+      console.error('Failed to persist blob data for VFS stage:', error);
+      res.status(500).json({ error: 'Failed to persist blob data' });
+      return;
+    }
+  }
+
   try {
     const pool = await getPostgresPool();
     const client = await pool.connect();
@@ -41,6 +85,26 @@ export const postBlobsStageHandler = async (req: Request, res: Response) => {
     try {
       await client.query('BEGIN');
       inTransaction = true;
+
+      if (decodedBlobData) {
+        await client.query(
+          `
+          INSERT INTO vfs_registry (
+            id,
+            object_type,
+            owner_id,
+            created_at
+          ) VALUES (
+            $1::text,
+            'blob',
+            $2::text,
+            NOW()
+          )
+          ON CONFLICT (id) DO NOTHING
+          `,
+          [parsedBody.blobId, claims.sub]
+        );
+      }
 
       const blobRegistryResult = await client.query<BlobRegistryTypeRow>(
         `

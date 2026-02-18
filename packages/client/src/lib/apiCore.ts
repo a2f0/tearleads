@@ -185,6 +185,24 @@ export async function request<T>(
   endpoint: string,
   params: RequestParams
 ): Promise<T> {
+  const response = await requestResponse(endpoint, params);
+
+  if (response.status === 204 || response.status === 205) {
+    return undefined as T;
+  }
+
+  const text = await response.text();
+  if (!text) {
+    return undefined as T;
+  }
+
+  return JSON.parse(text) as T;
+}
+
+export async function requestResponse(
+  endpoint: string,
+  params: RequestParams
+): Promise<Response> {
   const { fetchOptions, eventName, skipTokenRefresh } = params;
 
   if (!API_BASE_URL) {
@@ -236,20 +254,8 @@ export async function request<T>(
       );
     }
 
-    if (response.status === 204 || response.status === 205) {
-      success = true;
-      return undefined as T;
-    }
-
-    const text = await response.text();
-    if (!text) {
-      success = true;
-      return undefined as T;
-    }
-
-    const data = JSON.parse(text) as T;
     success = true;
-    return data;
+    return response;
   } finally {
     const durationMs = performance.now() - startTime;
     void logApiEvent(eventName, durationMs, success);

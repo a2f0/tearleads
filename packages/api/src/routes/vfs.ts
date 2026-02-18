@@ -5,6 +5,8 @@
  */
 
 import { Router, type Router as RouterType } from 'express';
+import { registerDeleteBlobsBlobIdRoute } from './vfs/delete-blobs-blobId.js';
+import { registerGetBlobsBlobIdRoute } from './vfs/get-blobs-blobId.js';
 import { registerGetCrdtSyncRoute } from './vfs/get-crdt-sync.js';
 import { registerGetSyncRoute } from './vfs/get-sync.js';
 import { registerGetKeysMeRoute } from './vfs/getKeysMe.js';
@@ -24,6 +26,8 @@ registerGetSyncRoute(vfsRouter);
 registerPostBlobsStageRoute(vfsRouter);
 registerPostBlobsStageStagingIdAttachRoute(vfsRouter);
 registerPostBlobsStageStagingIdAbandonRoute(vfsRouter);
+registerGetBlobsBlobIdRoute(vfsRouter);
+registerDeleteBlobsBlobIdRoute(vfsRouter);
 registerPostCrdtPushRoute(vfsRouter);
 registerPostCrdtReconcileRoute(vfsRouter);
 registerPostKeysRoute(vfsRouter);
