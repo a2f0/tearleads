@@ -42,7 +42,11 @@ else
 fi
 
 mapfile -t workflow_files < <(
-  git diff --name-only --diff-filter=AM "$base_ref..HEAD" -- '.github/workflows/*.yml' '.github/workflows/*.yaml'
+  git diff --name-only --diff-filter=AM "$base_ref..HEAD" -- \
+    '.github/workflows/*.yml' \
+    '.github/workflows/*.yaml' \
+    '.github/actions/**/action.yml' \
+    '.github/actions/**/action.yaml'
 )
 
 if [ "${#workflow_files[@]}" -eq 0 ]; then
