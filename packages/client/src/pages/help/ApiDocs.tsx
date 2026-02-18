@@ -5,17 +5,7 @@ import { useEffect, useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';
 
 function isOpenApiDocument(value: unknown): value is OpenAPIV3.Document {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-
-  return (
-    typeof Reflect.get(value, 'openapi') === 'string' &&
-    typeof Reflect.get(value, 'info') === 'object' &&
-    Reflect.get(value, 'info') !== null &&
-    typeof Reflect.get(value, 'paths') === 'object' &&
-    Reflect.get(value, 'paths') !== null
-  );
+  return typeof value === 'object' && value !== null && 'openapi' in value;
 }
 
 export function ApiDocsPage() {
@@ -27,15 +17,15 @@ export function ApiDocsPage() {
     let cancelled = false;
     import('@tearleads/api/dist/openapi.json')
       .then((module) => {
-        if (!cancelled && isOpenApiDocument(module.default)) {
+        if (cancelled) {
+          return;
+        }
+
+        if (isOpenApiDocument(module.default)) {
           setOpenapiSpec(module.default);
         }
       })
-      .catch(() => {
-        if (!cancelled) {
-          setOpenapiSpec(null);
-        }
-      });
+      .catch(() => {});
 
     return () => {
       cancelled = true;

@@ -25,17 +25,7 @@ import { HelpWindowMenuBar } from './HelpWindowMenuBar';
 type HelpView = 'index' | 'developer' | 'legal' | 'api' | HelpDocId;
 
 function isOpenApiDocument(value: unknown): value is OpenAPIV3.Document {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-
-  return (
-    typeof Reflect.get(value, 'openapi') === 'string' &&
-    typeof Reflect.get(value, 'info') === 'object' &&
-    Reflect.get(value, 'info') !== null &&
-    typeof Reflect.get(value, 'paths') === 'object' &&
-    Reflect.get(value, 'paths') !== null
-  );
+  return typeof value === 'object' && value !== null && 'openapi' in value;
 }
 
 function getHelpWindowTitle(view: HelpView): string {
@@ -84,15 +74,15 @@ export function HelpWindow({
     let cancelled = false;
     import('@tearleads/api/dist/openapi.json')
       .then((module) => {
-        if (!cancelled && isOpenApiDocument(module.default)) {
+        if (cancelled) {
+          return;
+        }
+
+        if (isOpenApiDocument(module.default)) {
           setOpenapiSpec(module.default);
         }
       })
-      .catch(() => {
-        if (!cancelled) {
-          setOpenapiSpec(null);
-        }
-      });
+      .catch(() => {});
 
     return () => {
       cancelled = true;
