@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/email",
-  "version": "0.0.73",
+  "version": "0.0.74",
   "description": "Email components for Tearleads",
   "type": "module",
   "main": "dist/index.js",
