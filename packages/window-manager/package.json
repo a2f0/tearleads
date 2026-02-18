@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/window-manager",
-  "version": "0.0.21",
+  "version": "0.0.22",
   "description": "Floating window manager and components for desktop-like web applications",
   "type": "module",
   "main": "dist/index.js",
