@@ -1,6 +1,5 @@
+import { DropdownMenu, DropdownMenuItem } from '@tearleads/ui';
 import { WindowMenuBar } from '@tearleads/window-manager';
-import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 
 interface BackupWindowMenuBarProps {
   onClose: () => void;
@@ -17,7 +16,9 @@ export function BackupWindowMenuBar({
         <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
       </DropdownMenu>
       <DropdownMenu trigger="View">
-        <WindowOptionsMenuItem />
+        <DropdownMenuItem onClick={() => undefined} disabled>
+          Options
+        </DropdownMenuItem>
       </DropdownMenu>
       <DropdownMenu trigger="Help">
         <DropdownMenuItem onClick={onOpenDocumentation}>

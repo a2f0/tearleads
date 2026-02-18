@@ -1,13 +1,10 @@
-import { Button } from '@client/components/ui/button';
-import { Input } from '@client/components/ui/input';
+import { Button, Input } from '@tearleads/ui';
+import { useCallback, useEffect, useState } from 'react';
 import {
   type BackupManifest,
   type BackupProgressEvent,
-  getBackupInfo,
-  restoreBackup
-} from '@client/db/backup';
-import { useDatabaseContext } from '@client/db/hooks/useDatabase';
-import { useCallback, useEffect, useState } from 'react';
+  getBackupsRuntime
+} from '../../runtime/backupsRuntime';
 
 interface BackupProgress {
   phase: string;
@@ -45,7 +42,7 @@ export function RestoreBackupForm({
   backupData,
   onClear
 }: RestoreBackupFormProps) {
-  const { refreshInstances } = useDatabaseContext();
+  const runtime = getBackupsRuntime();
   const [backupPassword, setBackupPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
@@ -77,7 +74,7 @@ export function RestoreBackupForm({
     setIsValidating(true);
 
     try {
-      const info = await getBackupInfo(backupData, backupPassword);
+      const info = await runtime.getBackupInfo(backupData, backupPassword);
 
       if (!info) {
         setError('Invalid backup file or incorrect password');
@@ -87,7 +84,7 @@ export function RestoreBackupForm({
       }
 
       setManifest(info.manifest);
-      setSuggestedName(info.suggestedName);
+      setSuggestedName(info.suggestedName ?? null);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to validate backup'
@@ -129,14 +126,14 @@ export function RestoreBackupForm({
     setProgress({ phase: 'Starting', percent: 0 });
 
     try {
-      const result = await restoreBackup({
+      const result = await runtime.restoreBackup({
         backupData,
         backupPassword,
         newInstancePassword: newPassword,
         onProgress: handleProgressUpdate
       });
 
-      await refreshInstances();
+      await runtime.refreshInstances();
 
       setProgress({ phase: 'Complete', percent: 100 });
       setSuccess(

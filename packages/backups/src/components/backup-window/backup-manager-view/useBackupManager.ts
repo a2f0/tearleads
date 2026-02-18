@@ -1,27 +1,10 @@
-import { getCurrentInstanceId, getDatabaseAdapter } from '@client/db';
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import {
   type BackupProgressEvent,
-  createBackup,
-  estimateBackupSize as estimateSize
-} from '@client/db/backup';
-import { getActiveInstance } from '@client/db/instanceRegistry';
-import { saveFile } from '@client/lib/fileUtils';
-import {
-  deleteBackupFromStorage,
-  getBackupStorageUsed,
-  isBackupStorageSupported,
-  listStoredBackups,
-  readBackupFromStorage,
-  saveBackupToStorage
-} from '@client/storage/backupStorage';
-import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
-
+  getBackupsRuntime
+} from '../../../runtime/backupsRuntime';
 import type { BackupListItem, BackupProgress } from './utils';
-import {
-  formatBackupFilename,
-  formatBytes,
-  getOrInitFileStorage
-} from './utils';
+import { formatBytes } from './utils';
 
 const SUCCESS_MESSAGE_DISPLAY_DURATION = 2000;
 
@@ -124,6 +107,7 @@ export interface UseBackupManagerResult {
 }
 
 export function useBackupManager(): UseBackupManagerResult {
+  const runtime = getBackupsRuntime();
   const [state, dispatch] = useReducer(reducer, initialState);
   const stateRef = useRef(state);
   const isMountedRef = useRef(true);
@@ -149,7 +133,10 @@ export function useBackupManager(): UseBackupManagerResult {
     };
   }, []);
 
-  const isStorageSupported = useMemo(() => isBackupStorageSupported(), []);
+  const isStorageSupported = useMemo(
+    () => runtime.isBackupStorageSupported(),
+    [runtime]
+  );
 
   const setPassword = useCallback(
     (value: string) => mergeState({ password: value }),
@@ -171,8 +158,8 @@ export function useBackupManager(): UseBackupManagerResult {
 
     mergeState({ isLoadingBackups: true, storedError: null });
     try {
-      const items = await listStoredBackups();
-      const used = await getBackupStorageUsed();
+      const items = await runtime.listStoredBackups();
+      const used = await runtime.getBackupStorageUsed();
       if (!isMountedRef.current) return;
       mergeState({ backups: items, storageUsed: used });
     } catch (err) {
@@ -186,7 +173,7 @@ export function useBackupManager(): UseBackupManagerResult {
         mergeState({ isLoadingBackups: false });
       }
     }
-  }, [isStorageSupported, mergeState]);
+  }, [isStorageSupported, mergeState, runtime]);
 
   useEffect(() => {
     void loadBackups();
@@ -196,13 +183,7 @@ export function useBackupManager(): UseBackupManagerResult {
 
   const updateEstimate = useCallback(async () => {
     try {
-      const instanceId = getCurrentInstanceId();
-      if (!instanceId) return;
-
-      const adapter = getDatabaseAdapter();
-      const fileStorage = await getOrInitFileStorage(instanceId);
-
-      const estimate = await estimateSize(adapter, fileStorage, includeBlobs);
+      const estimate = await runtime.estimateBackupSize(includeBlobs);
       if (!isMountedRef.current) return;
       mergeState({
         estimatedSize: {
@@ -213,7 +194,7 @@ export function useBackupManager(): UseBackupManagerResult {
     } catch {
       // Ignore estimate errors
     }
-  }, [includeBlobs, mergeState]);
+  }, [includeBlobs, mergeState, runtime]);
 
   useEffect(() => {
     void updateEstimate();
@@ -265,38 +246,22 @@ export function useBackupManager(): UseBackupManagerResult {
     mergeState({ isCreating: true, createProgress: null });
 
     try {
-      const instanceId = getCurrentInstanceId();
-      if (!instanceId) {
-        throw new Error('No active database instance');
-      }
-
-      const adapter = getDatabaseAdapter();
-      const fileStorage = await getOrInitFileStorage(instanceId);
-
-      const instance = await getActiveInstance();
-      const instanceName = instance?.name ?? 'Unknown';
-
-      const backupData = await createBackup(adapter, fileStorage, {
+      const result = await runtime.createBackup({
         password,
-        includeBlobs: includeBlobs && fileStorage !== null,
-        instanceName,
+        includeBlobs,
         onProgress: handleProgressUpdate
       });
 
-      const filename = formatBackupFilename(new Date());
-
-      if (isStorageSupported) {
-        await saveBackupToStorage(backupData, filename);
+      if (result.destination === 'storage') {
         if (!isMountedRef.current) return;
         mergeState({
-          createSuccess: `Backup saved as "${filename}".`
+          createSuccess: `Backup saved as "${result.filename}".`
         });
         await loadBackupsRef.current();
       } else {
-        await saveFile(backupData, filename);
         if (!isMountedRef.current) return;
         mergeState({
-          createSuccess: `Backup downloaded as "${filename}".`
+          createSuccess: `Backup downloaded as "${result.filename}".`
         });
       }
 
@@ -323,13 +288,13 @@ export function useBackupManager(): UseBackupManagerResult {
         mergeState({ isCreating: false });
       }
     }
-  }, [handleProgressUpdate, isStorageSupported, mergeState]);
+  }, [handleProgressUpdate, mergeState, runtime]);
 
   const handleRestoreStored = useCallback(
     async (backup: BackupListItem) => {
       mergeState({ storedError: null });
       try {
-        const data = await readBackupFromStorage(backup.name);
+        const data = await runtime.readBackupFromStorage(backup.name);
         if (!isMountedRef.current) return;
         mergeState({
           selectedBackup: backup,
@@ -345,14 +310,14 @@ export function useBackupManager(): UseBackupManagerResult {
         });
       }
     },
-    [mergeState]
+    [mergeState, runtime]
   );
 
   const handleDelete = useCallback(
     async (backup: BackupListItem) => {
       mergeState({ storedError: null });
       try {
-        await deleteBackupFromStorage(backup.name);
+        await runtime.deleteBackupFromStorage(backup.name);
         const selectedBackup = stateRef.current.selectedBackup;
         if (selectedBackup?.name === backup.name) {
           mergeState({
@@ -369,15 +334,15 @@ export function useBackupManager(): UseBackupManagerResult {
         });
       }
     },
-    [mergeState]
+    [mergeState, runtime]
   );
 
   const handleDownload = useCallback(
     async (backup: BackupListItem) => {
       mergeState({ storedError: null });
       try {
-        const data = await readBackupFromStorage(backup.name);
-        await saveFile(data, backup.name);
+        const data = await runtime.readBackupFromStorage(backup.name);
+        await runtime.saveFile(data, backup.name);
       } catch (err) {
         if (!isMountedRef.current) return;
         mergeState({
@@ -386,7 +351,7 @@ export function useBackupManager(): UseBackupManagerResult {
         });
       }
     },
-    [mergeState]
+    [mergeState, runtime]
   );
 
   const handleFileSelect = useCallback(

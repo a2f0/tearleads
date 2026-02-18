@@ -1,11 +1,19 @@
 // Components
 export { ApiDocs } from './components/api-docs/ApiDocs.js';
+export { BackLink, type BackLinkProps } from './components/back-link/index.js';
+export { Button, buttonVariants } from './components/button.js';
 export {
   ConnectionIndicator,
   type ConnectionIndicatorProps,
   type ConnectionState
 } from './components/connectionIndicator.js';
 export { Dialog, type DialogProps } from './components/dialog.js';
+export {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  useDropdownMenuContext
+} from './components/dropdown-menu/index.js';
 export { Footer, type FooterProps } from './components/footer.js';
 export {
   GridSquare,
@@ -13,6 +21,7 @@ export {
   IconSquare,
   type IconSquareProps
 } from './components/grid-square/index.js';
+export { Input, type InputProps, inputVariants } from './components/input.js';
 export {
   ThemePreview,
   type ThemePreviewProps

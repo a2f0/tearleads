@@ -16,6 +16,8 @@ type Cycle = {
 
 const SHARED_PACKAGE = '@tearleads/shared';
 const UI_PACKAGE = '@tearleads/ui';
+const WINDOW_MANAGER_PACKAGE = '@tearleads/window-manager';
+const CLIENT_PACKAGE = '@tearleads/client';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -133,6 +135,15 @@ function getSharedUiSuggestions(cycleNodes: string[]): string[] {
   }
 
   return suggestions;
+}
+
+function getNoClientImportSuggestions(): string[] {
+  return [
+    `Move non-UI shared logic (types, validators, protocols, pure utils) into ${SHARED_PACKAGE}.`,
+    `Move reusable UI components/hooks/providers into ${UI_PACKAGE}.`,
+    `Move windowing primitives and window state helpers into ${WINDOW_MANAGER_PACKAGE}.`,
+    `Keep ${CLIENT_PACKAGE} as an app entrypoint/composition package; other packages should not import from it.`
+  ];
 }
 
 function parseImportSpecifiers(source: string): string[] {
@@ -316,6 +327,16 @@ function runPackageCycleCheck(repoRoot: string): void {
           continue;
         }
 
+        // Legacy alias path used by non-client packages to import from client.
+        if (specifier === '@client' || specifier.startsWith('@client/')) {
+          addEdge(
+            fromPackage,
+            CLIENT_PACKAGE,
+            `${relativeFile} imports '${specifier}'`
+          );
+          continue;
+        }
+
         for (const aliasMapping of aliasMappings) {
           if (!matchesAlias(specifier, aliasMapping.alias)) {
             continue;
@@ -332,9 +353,47 @@ function runPackageCycleCheck(repoRoot: string): void {
     }
   }
 
-  const knownCycleKeys = new Set<string>([
-    '@tearleads/api -> @tearleads/vfs-sync -> @tearleads/client'
-  ]);
+  const directClientDependents = [...packageDeps.entries()]
+    .filter(
+      ([packageName, deps]) =>
+        packageName !== CLIENT_PACKAGE && deps.has(CLIENT_PACKAGE)
+    )
+    .map(([packageName]) => packageName)
+    .sort();
+
+  if (directClientDependents.length > 0) {
+    const strictNoClientImports =
+      process.env.PREEN_ENFORCE_NO_CLIENT_IMPORTS === '1';
+    const log = strictNoClientImports ? console.error : console.warn;
+
+    log(
+      `${strictNoClientImports ? 'Error' : 'Warning'}: package imports from ${CLIENT_PACKAGE} detected.`
+    );
+    log(
+      `Guidance: migrate shared modules out of ${CLIENT_PACKAGE} into ${SHARED_PACKAGE}, ${UI_PACKAGE}, or ${WINDOW_MANAGER_PACKAGE}.`
+    );
+
+    for (const dependentPackage of directClientDependents) {
+      const edgeKey = `${dependentPackage} -> ${CLIENT_PACKAGE}`;
+      const reason = edgeReasons.get(edgeKey) ?? 'dependency edge detected';
+      log(`  - ${edgeKey}: ${reason}`);
+    }
+
+    const suggestions = getNoClientImportSuggestions();
+    for (const suggestion of suggestions) {
+      log(`  Suggestion: ${suggestion}`);
+    }
+
+    if (!strictNoClientImports) {
+      log(
+        '  Note: set PREEN_ENFORCE_NO_CLIENT_IMPORTS=1 to enforce this as a hard failure.'
+      );
+    } else {
+      process.exit(1);
+    }
+  }
+
+  const knownCycleKeys = new Set<string>();
 
   const discoveredCycles: Cycle[] = [];
   const seenCycleKeys = new Set<string>();

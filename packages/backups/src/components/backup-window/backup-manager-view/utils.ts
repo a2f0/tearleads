@@ -1,11 +1,3 @@
-import { getKeyManager } from '@client/db/crypto';
-import {
-  type FileStorage,
-  getFileStorageForInstance,
-  initializeFileStorage,
-  isFileStorageInitialized
-} from '@client/storage/opfs';
-
 export interface BackupProgress {
   phase: string;
   percent: number;
@@ -45,16 +37,4 @@ export function formatDate(timestamp: number): string {
     hour: '2-digit',
     minute: '2-digit'
   });
-}
-
-export async function getOrInitFileStorage(
-  instanceId: string
-): Promise<FileStorage | null> {
-  if (isFileStorageInitialized(instanceId)) {
-    return getFileStorageForInstance(instanceId);
-  }
-  const keyManager = getKeyManager();
-  const encryptionKey = keyManager.getCurrentKey();
-  if (!encryptionKey) return null;
-  return initializeFileStorage(encryptionKey, instanceId);
 }

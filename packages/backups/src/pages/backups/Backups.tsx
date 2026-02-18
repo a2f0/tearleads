@@ -1,10 +1,6 @@
-import { BackLink } from '@client/components/ui/back-link';
-import {
-  DropdownMenu,
-  DropdownMenuItem
-} from '@client/components/ui/dropdown-menu';
-import { useTypedTranslation } from '@client/i18n';
+import { BackLink, DropdownMenu, DropdownMenuItem } from '@tearleads/ui';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BackupDocumentation } from '../../components/backup-window/BackupDocumentation';
 import { BackupManagerView } from '../../components/backup-window/BackupManagerView';
 
@@ -13,7 +9,7 @@ export interface BackupsProps {
 }
 
 export function Backups({ showBackLink = true }: BackupsProps) {
-  const { t: tMenu } = useTypedTranslation('menu');
+  const { t } = useTranslation();
   const [showDocumentation, setShowDocumentation] = useState(false);
 
   return (
@@ -24,7 +20,7 @@ export function Backups({ showBackLink = true }: BackupsProps) {
             <BackLink defaultTo="/" defaultLabel="Back to Home" />
           )}
           <h1 className="font-bold text-2xl tracking-tight">
-            {tMenu('backups')}
+            {t('menu:backups')}
           </h1>
         </div>
         <DropdownMenu trigger="Help" align="right">

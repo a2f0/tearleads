@@ -1,15 +1,25 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiDocsPage } from './ApiDocs';
 
-vi.mock('@tearleads/api/dist/openapi.json', () => ({
-  default: {
-    openapi: '3.0.0',
-    info: { title: 'Client Docs' },
-    paths: {}
-  }
-}));
+beforeEach(() => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        openapi: '3.0.0',
+        info: { title: 'Client Docs' },
+        paths: {}
+      })
+    }))
+  );
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('ApiDocsPage', () => {
   it('renders API docs heading and spec title', async () => {

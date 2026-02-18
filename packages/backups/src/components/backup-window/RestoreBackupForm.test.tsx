@@ -1,22 +1,11 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
+import { configureBackupsRuntime } from '../../runtime/backupsRuntime';
 import { RestoreBackupForm } from './RestoreBackupForm';
 
 const mockGetBackupInfo = vi.fn();
 const mockRestoreBackup = vi.fn();
 const mockRefreshInstances = vi.fn();
-
-vi.mock('@client/db/backup', () => ({
-  getBackupInfo: (...args: unknown[]) => mockGetBackupInfo(...args),
-  restoreBackup: (...args: unknown[]) => mockRestoreBackup(...args)
-}));
-
-vi.mock('@client/db/hooks/useDatabase', () => ({
-  useDatabaseContext: () => ({
-    refreshInstances: () => mockRefreshInstances()
-  })
-}));
 
 afterEach(() => {
   vi.useRealTimers();
@@ -29,6 +18,19 @@ describe('RestoreBackupForm', () => {
     mockGetBackupInfo.mockReset();
     mockRestoreBackup.mockReset();
     mockRefreshInstances.mockReset();
+    configureBackupsRuntime({
+      estimateBackupSize: vi.fn(),
+      createBackup: vi.fn(),
+      getBackupInfo: (...args) => mockGetBackupInfo(...args),
+      restoreBackup: (...args) => mockRestoreBackup(...args),
+      refreshInstances: () => Promise.resolve(mockRefreshInstances()),
+      isBackupStorageSupported: () => true,
+      listStoredBackups: vi.fn(),
+      getBackupStorageUsed: vi.fn(),
+      readBackupFromStorage: vi.fn(),
+      deleteBackupFromStorage: vi.fn(),
+      saveFile: vi.fn()
+    });
   });
 
   it('validates a backup and shows manifest details', async () => {

@@ -1,4 +1,4 @@
-import { Button } from '@client/components/ui/button';
+import { Button } from '@tearleads/ui';
 import { type ChangeEvent, useCallback, useRef } from 'react';
 
 import { RestoreBackupForm } from '../RestoreBackupForm';
