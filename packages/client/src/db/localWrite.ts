@@ -1,6 +1,6 @@
 import {
-  LocalWriteOrchestrator,
-  type LocalWriteOptions
+  type LocalWriteOptions,
+  LocalWriteOrchestrator
 } from '@tearleads/local-write-orchestrator';
 
 const localWriteOrchestrator = new LocalWriteOrchestrator();

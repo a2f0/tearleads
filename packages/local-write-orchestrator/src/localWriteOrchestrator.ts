@@ -93,7 +93,8 @@ export class LocalWriteOrchestrator {
   ): Promise<T> {
     const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
     const retryDelayMs = options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
-    const detectConflict = options.detectConflict ?? ((ctx) => isDefaultSqliteConflict(ctx.error));
+    const detectConflict =
+      options.detectConflict ?? ((ctx) => isDefaultSqliteConflict(ctx.error));
 
     for (let attempt = 0; ; attempt += 1) {
       try {

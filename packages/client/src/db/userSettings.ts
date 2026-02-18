@@ -7,8 +7,8 @@
 
 import { inArray } from 'drizzle-orm';
 import type { Database } from './index';
-import { userSettings } from './schema';
 import { runLocalWrite } from './localWrite';
+import { userSettings } from './schema';
 
 // Re-export everything from @tearleads/settings
 export {
