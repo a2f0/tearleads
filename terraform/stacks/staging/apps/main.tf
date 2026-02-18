@@ -126,12 +126,12 @@ resource "helm_release" "grafana_k8s_monitoring" {
 
   set {
     name  = "cluster.name"
-    value = "tearleads-staging"
+    value = var.cluster_name
   }
 
   set {
     name  = "destinations[0].name"
-    value = "grafana-cloud-logs"
+    value = var.loki_destination_name
   }
 
   set {

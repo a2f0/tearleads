@@ -50,9 +50,9 @@ Logging is configured via Terraform variables for Grafana Cloud Loki:
 Example:
 
 ```bash
-export TF_VAR_loki_username="1487632"
+export TF_VAR_loki_username="<LOKI_TENANT_ID>"
 export TF_VAR_loki_api_token="<token>"
-export TF_VAR_loki_url="https://logs-prod-042.grafana.net"
+export TF_VAR_loki_url="https://<LOKI_URL_ENDPOINT>"
 ```
 
 ## Secrets

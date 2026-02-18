@@ -26,3 +26,15 @@ variable "loki_api_token" {
   type        = string
   sensitive   = true
 }
+
+variable "cluster_name" {
+  description = "Logical cluster name used by monitoring components"
+  type        = string
+  default     = "tearleads-staging"
+}
+
+variable "loki_destination_name" {
+  description = "Destination name used in Grafana k8s-monitoring values"
+  type        = string
+  default     = "grafana-cloud-logs"
+}
