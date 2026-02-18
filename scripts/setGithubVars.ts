@@ -82,13 +82,9 @@ function setGithubValue(
   name: string,
   value: string
 ): void {
-  execFileSync(
-    'gh',
-    [type, 'set', name, '-R', repo, '--body', value],
-    {
-      stdio: ['ignore', 'inherit', 'inherit']
-    }
-  );
+  execFileSync('gh', [type, 'set', name, '-R', repo, '--body', value], {
+    stdio: ['ignore', 'inherit', 'inherit']
+  });
 }
 
 function listCurrentSecretNames(repo: string): string[] {
