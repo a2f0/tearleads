@@ -25,3 +25,7 @@ The API routes that call this adapter are:
 - Metadata/object-key alignment uses `toStorageKey(blobId, keyPrefix)` for write/read/delete.
 - Storage failures fail closed at route boundaries and do not silently downgrade behavior.
 - Retry safety is caller-driven: repeating the same request reuses the same `blobId`-derived key.
+
+## Operations
+
+- For sync divergence and staged-blob visibility diagnosis, see `docs/en/vfs-sync-runbook.md`.
