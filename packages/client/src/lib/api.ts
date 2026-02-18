@@ -1,7 +1,7 @@
 export {
-  api,
   API_BASE_URL,
-  tryRefreshToken,
+  api,
+  resetApiEventLogger,
   setApiEventLogger,
-  resetApiEventLogger
+  tryRefreshToken
 } from '@tearleads/api-client';

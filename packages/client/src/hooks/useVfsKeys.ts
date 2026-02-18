@@ -9,6 +9,7 @@
  * - Wraps session keys for file registration
  */
 
+import { api } from '@tearleads/api-client';
 import {
   combineEncapsulation,
   combinePublicKey,
@@ -26,7 +27,6 @@ import {
   wrapKeyForRecipient
 } from '@tearleads/shared';
 import { getKeyManager } from '@/db/crypto/keyManager';
-import { api } from '@tearleads/api-client';
 
 // In-memory cache for the decrypted VFS keypair
 let cachedKeyPair: VfsKeyPair | null = null;

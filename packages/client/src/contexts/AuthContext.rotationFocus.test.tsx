@@ -1,10 +1,10 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AUTH_TOKEN_KEY,
   AUTH_USER_KEY,
   clearStoredAuth
 } from '@tearleads/api-client/authStorage';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider, useAuth } from './AuthContext';
 
 const mockLogin = vi.fn();

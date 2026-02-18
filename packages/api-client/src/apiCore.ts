@@ -1,4 +1,5 @@
 import type { AuthResponse } from '@tearleads/shared';
+import { type ApiEventSlug, logApiEvent } from './apiLogger';
 import {
   clearStoredAuth,
   getAuthHeaderValue,
@@ -9,7 +10,6 @@ import {
   updateStoredTokens,
   waitForRefreshCompletion
 } from './authStorage';
-import { logApiEvent, type ApiEventSlug } from './apiLogger';
 
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 

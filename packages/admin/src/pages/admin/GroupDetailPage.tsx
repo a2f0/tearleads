@@ -1,3 +1,4 @@
+import { api } from '@tearleads/api-client';
 import type { Group, GroupMember, UpdateGroupRequest } from '@tearleads/shared';
 import { Loader2, Save, Trash2, UserMinus, UserPlus } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -9,7 +10,6 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useTypedTranslation } from '@/i18n';
-import { api } from '@tearleads/api-client';
 
 interface GroupDetailPageProps {
   groupId?: string;

@@ -1,3 +1,4 @@
+import { api } from '@tearleads/api-client';
 import type { AiUsage } from '@tearleads/shared';
 import { Loader2 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -8,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { useTypedTranslation } from '@/i18n';
-import { api } from '@tearleads/api-client';
 import { formatNumber, formatTimestamp } from '@/lib/utils';
 
 const PAGE_SIZE = 100;

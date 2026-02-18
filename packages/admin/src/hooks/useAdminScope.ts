@@ -1,6 +1,6 @@
+import { api } from '@tearleads/api-client';
 import type { AdminAccessContextResponse } from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
-import { api } from '@tearleads/api-client';
 
 type UseAdminScopeResult = {
   context: AdminAccessContextResponse | null;

@@ -1,3 +1,4 @@
+import { api } from '@tearleads/api-client';
 import type { GroupWithMemberCount } from '@tearleads/shared';
 import {
   DesktopContextMenu as ContextMenu,
@@ -10,7 +11,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useTypedTranslation } from '@/i18n';
-import { api } from '@tearleads/api-client';
 
 interface GroupsListProps {
   onCreateClick?: (() => void) | undefined;

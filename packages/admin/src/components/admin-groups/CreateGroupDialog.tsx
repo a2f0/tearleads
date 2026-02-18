@@ -1,3 +1,4 @@
+import { api } from '@tearleads/api-client';
 import type { AdminScopeOrganization } from '@tearleads/shared';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -5,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useTypedTranslation } from '@/i18n';
-import { api } from '@tearleads/api-client';
 
 const EMPTY_ORGANIZATIONS: AdminScopeOrganization[] = [];
 

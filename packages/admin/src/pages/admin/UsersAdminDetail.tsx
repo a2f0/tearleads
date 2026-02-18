@@ -1,3 +1,4 @@
+import { api } from '@tearleads/api-client';
 import type { AdminUser, AdminUserUpdatePayload } from '@tearleads/shared';
 import { Check, Copy, Loader2, Save } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -7,7 +8,6 @@ import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useTypedTranslation } from '@/i18n';
-import { api } from '@tearleads/api-client';
 import { cn } from '@/lib/utils';
 import { AdminUserAiUsage } from '../../components/users-admin/AdminUserAiUsage';
 import { AdminUserGroups } from '../../components/users-admin/AdminUserGroups';

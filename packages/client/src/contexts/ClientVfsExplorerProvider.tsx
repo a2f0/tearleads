@@ -3,6 +3,8 @@
  * to the @tearleads/vfs-explorer package components.
  */
 
+import { api } from '@tearleads/api-client';
+import { isLoggedIn, readStoredAuth } from '@tearleads/api-client/authStorage';
 import {
   VfsExplorerProvider,
   type VfsExplorerUIComponents
@@ -27,8 +29,6 @@ import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMen
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/useVfsKeys';
-import { api } from '@tearleads/api-client';
-import { isLoggedIn, readStoredAuth } from '@tearleads/api-client/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
 
 export function VfsExplorerAboutMenuItem() {

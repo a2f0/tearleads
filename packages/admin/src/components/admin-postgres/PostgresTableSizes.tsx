@@ -1,3 +1,4 @@
+import { api } from '@tearleads/api-client';
 import type { PostgresTableInfo } from '@tearleads/shared';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
@@ -8,7 +9,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { useTypedTranslation } from '@/i18n';
-import { api } from '@tearleads/api-client';
 
 const ROW_COUNT_FORMATTER = new Intl.NumberFormat('en-US');
 

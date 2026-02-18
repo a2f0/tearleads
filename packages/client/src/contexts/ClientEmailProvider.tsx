@@ -1,3 +1,5 @@
+import { API_BASE_URL } from '@tearleads/api-client';
+import { getAuthHeaderValue } from '@tearleads/api-client/authStorage';
 import {
   type EmailContactOperations,
   type EmailDraftOperations,
@@ -36,8 +38,6 @@ import {
   vfsLinks,
   vfsRegistry
 } from '@/db/schema';
-import { API_BASE_URL } from '@tearleads/api-client';
-import { getAuthHeaderValue } from '@tearleads/api-client/authStorage';
 
 export function EmailAboutMenuItem() {
   return <AboutMenuItem appName="Email" version={emailPackageJson.version} />;

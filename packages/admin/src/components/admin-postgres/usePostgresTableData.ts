@@ -1,6 +1,6 @@
+import { api } from '@tearleads/api-client';
 import type { PostgresColumnInfo } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api } from '@tearleads/api-client';
 
 const PAGE_SIZE = 50;
 

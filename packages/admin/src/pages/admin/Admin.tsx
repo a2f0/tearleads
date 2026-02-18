@@ -1,4 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { api } from '@tearleads/api-client';
 import type { RedisKeyInfo } from '@tearleads/shared';
 import {
   DesktopContextMenu as ContextMenu,
@@ -11,7 +12,6 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { useTypedTranslation } from '@/i18n';
-import { api } from '@tearleads/api-client';
 import { cn } from '@/lib/utils';
 import { RedisKeyRow } from './RedisKeyRow';
 

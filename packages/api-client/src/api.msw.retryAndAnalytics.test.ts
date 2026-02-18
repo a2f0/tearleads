@@ -60,8 +60,8 @@ describe('api with msw', () => {
     localStorage.clear();
     mockLogApiEvent.mockResolvedValue(undefined);
     const { setApiEventLogger } = await import('./apiLogger');
-    setApiEventLogger(
-      (...args: Parameters<typeof mockLogApiEvent>) => mockLogApiEvent(...args)
+    setApiEventLogger((...args: Parameters<typeof mockLogApiEvent>) =>
+      mockLogApiEvent(...args)
     );
   });
 

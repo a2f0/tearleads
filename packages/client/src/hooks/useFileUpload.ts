@@ -2,6 +2,8 @@
  * Hook for uploading files to OPFS with encryption.
  */
 
+import { api } from '@tearleads/api-client';
+import { isLoggedIn, readStoredAuth } from '@tearleads/api-client/authStorage';
 import { and, eq } from 'drizzle-orm';
 import { fileTypeFromBuffer } from 'file-type';
 import { useCallback } from 'react';
@@ -9,8 +11,6 @@ import { getDatabase } from '@/db';
 import { logEvent } from '@/db/analytics';
 import { getCurrentInstanceId, getKeyManager } from '@/db/crypto';
 import { files, vfsRegistry } from '@/db/schema';
-import { api } from '@tearleads/api-client';
-import { isLoggedIn, readStoredAuth } from '@tearleads/api-client/authStorage';
 import { UnsupportedFileTypeError } from '@/lib/errors';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
 import { computeContentHash, readFileAsUint8Array } from '@/lib/fileUtils';

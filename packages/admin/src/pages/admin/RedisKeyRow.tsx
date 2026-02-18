@@ -1,3 +1,4 @@
+import { api } from '@tearleads/api-client';
 import type { RedisKeyInfo, RedisKeyValueResponse } from '@tearleads/shared';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
@@ -6,7 +7,6 @@ import {
 import { ChevronDown, ChevronRight, Database, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTypedTranslation } from '@/i18n';
-import { api } from '@tearleads/api-client';
 import { cn } from '@/lib/utils';
 
 interface RedisKeyRowProps {
