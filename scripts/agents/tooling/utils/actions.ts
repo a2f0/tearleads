@@ -3,9 +3,9 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { runWithTimeout } from '../../../tooling/lib/cliShared.ts';
 import type { ActionConfig, ActionName, GlobalOptions } from '../types.ts';
+import { createGitHubClientContext } from './githubClient.ts';
 import { requireDefined } from './helpers.ts';
 import {
-  handleCheckGeminiQuota,
   handleCheckMainVersionBumpSetup,
   handleGeneratePrSummary,
   handleGetReviewThreads,
@@ -17,18 +17,23 @@ import {
   parseFirstJsonObject
 } from './issueHelpers.ts';
 import {
+  getIssueWithOctokit,
+  listDeferredFixIssuesWithOctokit
+} from './octokitIssueHandlers.ts';
+import { checkGeminiQuotaWithOctokit } from './octokitReviewHandlers.ts';
+import {
   handleCreateDeferredFixIssue,
   handleSanitizePrBody,
   handleUpdatePrBody,
   handleVerifyBranchPush
 } from './prWorkflowHandlers.ts';
 
-export function runInlineAction(
+export async function runInlineAction(
   action: ActionName,
   options: GlobalOptions,
   repo: string,
   timeoutMs: number
-): string {
+): Promise<string> {
   const runGh = (args: string[]): string =>
     execFileSync('gh', args, {
       encoding: 'utf8',
@@ -251,7 +256,15 @@ export function runInlineAction(
     }
 
     case 'checkGeminiQuota': {
-      return handleCheckGeminiQuota(options, repo, runGh);
+      if (options.number === undefined) {
+        throw new Error('checkGeminiQuota requires --number');
+      }
+      const context = createGitHubClientContext(repo);
+      return checkGeminiQuotaWithOctokit(
+        context,
+        options.number,
+        options.quotaMessage
+      );
     }
 
     case 'generatePrSummary': {
@@ -285,32 +298,20 @@ export function runInlineAction(
     }
 
     case 'listDeferredFixIssues': {
-      return runGh([
-        'issue',
-        'list',
-        '--label',
-        'deferred-fix',
-        '--state',
-        options.state ?? 'open',
-        '--limit',
-        String(options.limit ?? 30),
-        '--json',
-        'number,title,url,state',
-        '-R',
-        repo
-      ]);
+      const context = createGitHubClientContext(repo);
+      return listDeferredFixIssuesWithOctokit(
+        context,
+        options.state,
+        options.limit
+      );
     }
 
     case 'getIssue': {
-      return runGh([
-        'issue',
-        'view',
-        String(options.number),
-        '--json',
-        'number,title,body,url,state,labels',
-        '-R',
-        repo
-      ]);
+      if (options.number === undefined) {
+        throw new Error('getIssue requires --number');
+      }
+      const context = createGitHubClientContext(repo);
+      return getIssueWithOctokit(context, options.number);
     }
 
     case 'issueTemplate': {
