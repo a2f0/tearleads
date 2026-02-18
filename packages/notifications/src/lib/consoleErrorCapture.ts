@@ -83,6 +83,10 @@ export function installConsoleErrorCapture(): () => void {
 
   installed = true;
   for (const method of CAPTURED_METHODS) {
+    if (typeof console[method] !== 'function') {
+      continue;
+    }
+
     originalConsoleMethods[method] = console[method].bind(console);
     console[method] = (...args: unknown[]) => {
       const config = CAPTURE_CONFIG[method];
