@@ -187,4 +187,139 @@ describe('secureOrchestratorFacade integration', () => {
       )
     ).toBe(true);
   });
+
+  it('maps encrypted CRDT ops and flushes them through CRDT push', async () => {
+    const requests: Array<{ url: string; body: unknown }> = [];
+    vi.mocked(global.fetch).mockImplementation(
+      async (
+        input: RequestInfo | URL,
+        init?: RequestInit
+      ): Promise<Response> => {
+        const url = input.toString();
+        if (typeof init?.body === 'string') {
+          requests.push({ url, body: JSON.parse(init.body) });
+        }
+
+        if (url.endsWith('/v1/vfs/crdt/push')) {
+          return new Response(
+            JSON.stringify({
+              clientId: 'desktop',
+              results: [{ opId: 'desktop-1', status: 'applied' }]
+            }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            }
+          );
+        }
+        if (url.includes('/v1/vfs/crdt/vfs-sync')) {
+          return new Response(
+            JSON.stringify({
+              items: [],
+              hasMore: false,
+              nextCursor: null,
+              lastReconciledWriteIds: {}
+            }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            }
+          );
+        }
+        if (url.endsWith('/v1/vfs/crdt/reconcile')) {
+          return new Response(
+            JSON.stringify({
+              clientId: 'desktop',
+              cursor: '2026-02-19T00:00:00.000Z|desktop-1',
+              lastReconciledWriteIds: { desktop: 1 }
+            }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            }
+          );
+        }
+
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    );
+
+    const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');
+    const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
+      crdt: {
+        transportOptions: {
+          baseUrl: 'http://localhost',
+          apiPrefix: '/v1'
+        }
+      },
+      blob: {
+        baseUrl: 'http://localhost',
+        apiPrefix: '/v1'
+      }
+    });
+
+    const facade = createVfsSecureOrchestratorFacade(
+      orchestrator,
+      {
+        uploadEncryptedBlob: vi.fn(),
+        encryptCrdtOp: vi.fn(async () => ({
+          encryptedOp: 'ciphertext-op-1',
+          opNonce: 'nonce-1',
+          opAad: 'aad-1',
+          keyEpoch: 9,
+          opSignature: 'sig-1'
+        }))
+      },
+      {
+        mapEncryptedCrdtOpToLocalOperation: ({ input, encrypted }) => ({
+          opType: 'link_add',
+          itemId: encrypted.encryptedOp,
+          parentId: `enc-parent:${encrypted.keyEpoch}`,
+          childId: encrypted.encryptedOp
+        })
+      }
+    );
+
+    await facade.queueEncryptedCrdtOpAndPersist({
+      itemId: 'item-9',
+      opType: 'link_add',
+      opPayload: { payload: 'plaintext-op' }
+    });
+
+    expect(orchestrator.queuedCrdtOperations()).toHaveLength(1);
+
+    await expect(orchestrator.flushAll()).resolves.toEqual({
+      crdt: {
+        pushedOperations: 1,
+        pulledOperations: 0,
+        pullPages: 1
+      },
+      blob: {
+        processedOperations: 0,
+        pendingOperations: 0
+      }
+    });
+
+    const pushRequest = requests.find((request) => {
+      return request.url.endsWith('/v1/vfs/crdt/push');
+    });
+    expect(pushRequest).toBeDefined();
+
+    expect(pushRequest?.body).toEqual(
+      expect.objectContaining({
+        clientId: 'desktop',
+        operations: [
+          expect.objectContaining({
+            opType: 'link_add',
+            itemId: 'ciphertext-op-1',
+            parentId: 'enc-parent:9',
+            childId: 'ciphertext-op-1'
+          })
+        ]
+      })
+    );
+  });
 });
