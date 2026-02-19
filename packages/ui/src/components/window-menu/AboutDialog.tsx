@@ -1,7 +1,7 @@
 import { Button } from '../button.js';
 import { Dialog } from '../dialog.js';
 
-export interface AboutDialogProps {
+interface AboutDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   version: string;

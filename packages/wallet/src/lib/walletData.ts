@@ -77,7 +77,7 @@ export function setWalletDataDependencies(next: WalletDataDependencies): void {
   dependencies = next;
 }
 
-export function getWalletDataDependencies(): WalletDataDependencies | null {
+function getWalletDataDependencies(): WalletDataDependencies | null {
   return dependencies;
 }
 

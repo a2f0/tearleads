@@ -52,13 +52,13 @@ export type ApiTagGroup = {
   operations: ApiOperation[];
 };
 
-export type ApiDocsData = {
+type ApiDocsData = {
   tagGroups: ApiTagGroup[];
   totalOperations: number;
   baseUrl?: string;
 };
 
-export type ApiDocsDataOptions = {
+type ApiDocsDataOptions = {
   fallbackTag: string;
   tagOrder?: string[];
 };

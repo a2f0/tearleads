@@ -1,7 +1,7 @@
 import { Button } from '../button.js';
 import { Dialog } from '../dialog.js';
 
-export interface WindowOptionsDialogProps {
+interface WindowOptionsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   preserveWindowState: boolean;

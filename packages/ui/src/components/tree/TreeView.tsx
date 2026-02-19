@@ -149,5 +149,3 @@ function TreeNode<T>({
     </div>
   );
 }
-
-export { TreeNode };

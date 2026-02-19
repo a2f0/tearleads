@@ -15,7 +15,7 @@ export { Input, type InputProps, inputVariants } from './input.js';
 export { RefreshButton } from './refreshButton.js';
 export { Textarea, type TextareaProps } from './textarea.js';
 export { ThemeSwitcher, type ThemeSwitcherProps } from './themeSwitcher.js';
-export { TreeNode, TreeView, type TreeViewProps } from './tree/index.js';
+export { TreeView, type TreeViewProps } from './tree/index.js';
 export {
   getVirtualListStatusText,
   VirtualListStatus,
