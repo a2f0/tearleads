@@ -131,7 +131,7 @@ require("lazy").setup({
           },
         },
         async_directory_scan = "always",
-        scan_mode = "deep",
+        scan_mode = "shallow",
         use_libuv_file_watcher = false,
         find_by_full_path_words = false,
         group_empty_dirs = true,
