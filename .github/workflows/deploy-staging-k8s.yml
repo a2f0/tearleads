@@ -72,6 +72,23 @@ jobs:
       - name: Refresh ECR pull secret
         run: ./terraform/stacks/staging/k8s/scripts/setup-ecr-secret.sh
 
+      - name: Pin deployments to published image tag
+        run: |
+          set -eu
+          AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+          ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          IMAGE_TAG="${GITHUB_SHA}"
+
+          kubectl set image deployment/api \
+            api="${ECR_REGISTRY}/tearleads-staging/api:${IMAGE_TAG}" \
+            -n tearleads
+          kubectl set image deployment/client \
+            client="${ECR_REGISTRY}/tearleads-staging/client:${IMAGE_TAG}" \
+            -n tearleads
+          kubectl set image deployment/website \
+            website="${ECR_REGISTRY}/tearleads-staging/website:${IMAGE_TAG}" \
+            -n tearleads
+
       - name: Rollout staging deployments
         run: |
           set -eu
