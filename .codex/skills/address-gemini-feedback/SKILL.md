@@ -34,7 +34,9 @@ Parse the comments to check for Gemini's quota message. If the response contains
 - Fall back to Claude Code review:
 
   ```bash
-  ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
+  if ! ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview; then
+    ./scripts/agents/tooling/agentTool.ts solicitCodexReview
+  fi
   ```
 
 - Skip the remaining steps (no Gemini feedback to address)

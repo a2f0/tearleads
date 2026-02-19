@@ -254,7 +254,9 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    - If `used_fallback_agent_review` is still `false`, run one cross-agent fallback review:
 
    ```bash
-   ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
+   if ! ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview; then
+     ./scripts/agents/tooling/agentTool.ts solicitCodexReview
+   fi
    ```
 
    - Set `used_fallback_agent_review = true`
@@ -501,7 +503,7 @@ pnpm lint
 - If stuck (same job fails 3 times after 2 fix attempts), ask user for help
 - Gemini confirmation detection: positive phrases ("looks good", "lgtm", etc.) WITHOUT negative qualifiers ("but", "however", "still")
 - Only resolve threads after explicit Gemini confirmation
-- If Gemini hits daily quota, run one Claude Code fallback review and treat it as sufficient for the review step
+- If Gemini hits daily quota, run one fallback review with Claude first, then Codex if Claude is out of credits
 - **Roll-up PRs**: PRs targeting a non-main branch wait for their base PR to merge first. Once merged, GitHub auto-retargets to main and the roll-up continues normally.
 
 ## Keeping PR Description Updated

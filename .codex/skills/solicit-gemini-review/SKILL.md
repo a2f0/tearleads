@@ -42,7 +42,9 @@ Request a fresh review from Gemini Code Assist on the current PR.
    - Fall back to Claude Code review:
 
      ```bash
-     ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
+     if ! ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview; then
+       ./scripts/agents/tooling/agentTool.ts solicitCodexReview
+     fi
      ```
 
    - Report that Gemini quota was exhausted and Claude Code was used instead

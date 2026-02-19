@@ -50,7 +50,9 @@ If at any point Gemini responds with quota exhaustion ("You have reached your da
 - Fall back to Claude Code review:
 
   ```bash
-  ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
+  if ! ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview; then
+    ./scripts/agents/tooling/agentTool.ts solicitCodexReview
+  fi
   ```
 
 - Skip waiting for Gemini's response

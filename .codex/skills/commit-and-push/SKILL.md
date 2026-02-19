@@ -123,8 +123,11 @@ Track these state flags during execution:
      - If `used_fallback_agent_review=false`, run one fallback cross-agent review (Claude Code):
 
      ```bash
+     # Prefer the cross-agent-review fallback path:
      # Equivalent skill invocation: /cross-agent-review claude
-     ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
+     if ! ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview; then
+       ./scripts/agents/tooling/agentTool.ts solicitCodexReview
+     fi
      ```
 
      - Set `used_fallback_agent_review=true`.
