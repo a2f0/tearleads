@@ -3,9 +3,11 @@ import {
   cloneOperations,
   createOperationId,
   normalizeApiPrefix,
+  normalizeAttachConsistency,
   normalizeBaseUrl,
   normalizeIsoTimestamp,
-  normalizeRequiredString
+  normalizeRequiredString,
+  normalizeStageEncryptionMetadata
 } from './vfsBlobNetworkFlusherHelpers';
 import type {
   LoadStateCallback,
@@ -143,7 +145,7 @@ export class VfsBlobNetworkFlusher {
         stagingId,
         blobId,
         expiresAt,
-        encryption: input.encryption
+        encryption: normalizeStageEncryptionMetadata(input.encryption)
       }
     };
 
@@ -178,7 +180,7 @@ export class VfsBlobNetworkFlusher {
         stagingId,
         itemId,
         relationKind: input.relationKind ?? 'file',
-        consistency: input.consistency
+        consistency: normalizeAttachConsistency(input.consistency)
       }
     };
 
@@ -282,7 +284,7 @@ export class VfsBlobNetworkFlusher {
       !manifestHash ||
       !manifestSignature ||
       !Number.isInteger(input.keyEpoch) ||
-      input.keyEpoch < 0 ||
+      input.keyEpoch <= 0 ||
       !Number.isInteger(input.chunkCount) ||
       input.chunkCount < 0 ||
       !Number.isInteger(input.totalPlaintextBytes) ||
