@@ -63,6 +63,7 @@ CATEGORIES=(
   "preen-docs-internationalization"
   "preen-window-consistency"
   "preen-file-limits"
+  "preen-knip"
 )
 
 SECURITY_CATEGORIES=(
@@ -275,6 +276,9 @@ run_discovery() {
     preen-file-limits)
       ./scripts/preen/checkFileLimits.sh --all 2>&1 | head -40
       ;;
+    preen-knip)
+      pnpm exec knip --config knip.json --use-tsconfig-files --reporter compact | head -80 || true
+      ;;
   esac
 }
 
@@ -370,6 +374,20 @@ metric_count() {
       ;;
     preen-file-limits)
       ./scripts/preen/checkFileLimits.sh --all 2>&1 | grep '^  - ' | wc -l
+      ;;
+    preen-knip)
+      KNIP_JSON=$(mktemp)
+      pnpm exec knip --config knip.json --use-tsconfig-files --reporter json > "$KNIP_JSON" 2>/dev/null || true
+      jq '[
+        .issues[]? |
+        (.dependencies // []),
+        (.devDependencies // []),
+        (.unlisted // []),
+        (.unresolved // []),
+        (.exports // []),
+        (.types // [])
+      ] | flatten | length' "$KNIP_JSON" 2>/dev/null
+      rm -f "$KNIP_JSON"
       ;;
     *)
       echo 0
