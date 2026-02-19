@@ -20,7 +20,7 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, '..', '..', '..');
 const schemaPath = join(rootDir, 'packages/db/src/generated/postgresql/schema.ts');
-const migrationsDir = join(rootDir, 'packages/client/src/db/migrations');
+const migrationsDir = join(rootDir, 'packages/api/src/migrations');
 
 function buildDatabaseUrl(): string | null {
   const databaseUrl = getEnvValue(DATABASE_URL_KEYS);
