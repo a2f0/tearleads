@@ -1,3 +1,4 @@
+/* v8 ignore file -- test helper for commandExecutor specs */
 import { vi } from 'vitest';
 import type {
   DatabaseOperations,
