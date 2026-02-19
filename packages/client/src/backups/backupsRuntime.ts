@@ -25,6 +25,29 @@ import {
   isFileStorageInitialized
 } from '@/storage/opfs';
 
+const BACKUP_STORAGE_SAVE_TIMEOUT_MS = 15000;
+
+async function saveBackupToStorageWithTimeout(
+  data: Uint8Array,
+  filename: string
+): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    await Promise.race([
+      saveBackupToStorage(data, filename),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error('Timed out while saving backup to storage'));
+        }, BACKUP_STORAGE_SAVE_TIMEOUT_MS);
+      })
+    ]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
 function formatBackupFilename(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -94,8 +117,12 @@ export const clientBackupsRuntime: BackupsRuntime = {
     const filename = formatBackupFilename(new Date());
 
     if (isBackupStorageSupported()) {
-      await saveBackupToStorage(backupData, filename);
-      return { filename, destination: 'storage' as const };
+      try {
+        await saveBackupToStorageWithTimeout(backupData, filename);
+        return { filename, destination: 'storage' as const };
+      } catch {
+        // Fall back to file download when OPFS storage hangs or fails.
+      }
     }
 
     await saveFile(backupData, filename);
