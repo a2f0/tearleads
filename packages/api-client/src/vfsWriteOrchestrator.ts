@@ -15,8 +15,12 @@ import {
   type VfsBlobAbandonRequest,
   type VfsBlobAttachQueueOperation,
   type VfsBlobAttachRequest,
+  type VfsBlobChunkQueueOperation,
+  type VfsBlobChunkUploadRequest,
+  type VfsBlobCommitQueueOperation,
   VfsBlobNetworkFlusher,
   type VfsBlobNetworkFlusherFlushResult,
+  type VfsBlobManifestCommitRequest,
   type VfsBlobNetworkFlusherOptions,
   type VfsBlobNetworkFlusherPersistedState,
   type VfsBlobNetworkOperation,
@@ -213,6 +217,32 @@ export class VfsWriteOrchestrator {
     input: VfsBlobAbandonRequest
   ): Promise<VfsBlobAbandonQueueOperation> {
     const operation = this.blob.queueAbandon(input);
+    await this.persistState();
+    return operation;
+  }
+
+  queueBlobChunk(input: VfsBlobChunkUploadRequest): VfsBlobChunkQueueOperation {
+    return this.blob.queueChunk(input);
+  }
+
+  async queueBlobChunkAndPersist(
+    input: VfsBlobChunkUploadRequest
+  ): Promise<VfsBlobChunkQueueOperation> {
+    const operation = this.blob.queueChunk(input);
+    await this.persistState();
+    return operation;
+  }
+
+  queueBlobManifestCommit(
+    input: VfsBlobManifestCommitRequest
+  ): VfsBlobCommitQueueOperation {
+    return this.blob.queueManifestCommit(input);
+  }
+
+  async queueBlobManifestCommitAndPersist(
+    input: VfsBlobManifestCommitRequest
+  ): Promise<VfsBlobCommitQueueOperation> {
+    const operation = this.blob.queueManifestCommit(input);
     await this.persistState();
     return operation;
   }

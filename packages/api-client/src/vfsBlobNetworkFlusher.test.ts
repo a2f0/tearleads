@@ -204,6 +204,80 @@ describe('vfsBlobNetworkFlusher', () => {
     expect(saveState).toHaveBeenCalled();
   });
 
+  it('flushes queued chunk upload and manifest commit operations', async () => {
+    const requestBodies: Array<{ url: string; body: unknown }> = [];
+    vi.mocked(global.fetch).mockImplementation(
+      async (
+        input: RequestInfo | URL,
+        init?: RequestInit
+      ): Promise<Response> => {
+        const url = input.toString();
+        if (typeof init?.body === 'string') {
+          requestBodies.push({ url, body: JSON.parse(init.body) });
+        }
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    );
+
+    const { VfsBlobNetworkFlusher } = await import('./vfsBlobNetworkFlusher');
+    const flusher = new VfsBlobNetworkFlusher({
+      baseUrl: 'http://localhost',
+      apiPrefix: '/v1'
+    });
+    flusher.queueChunk({
+      stagingId: 'stage-1',
+      uploadId: 'upload-1',
+      chunkIndex: 0,
+      isFinal: false,
+      nonce: 'nonce-1',
+      aadHash: 'aad-hash-1',
+      ciphertextBase64: 'Y2lwaGVydGV4dA==',
+      plaintextLength: 1024,
+      ciphertextLength: 1088
+    });
+    flusher.queueManifestCommit({
+      stagingId: 'stage-1',
+      uploadId: 'upload-1',
+      keyEpoch: 3,
+      manifestHash: 'manifest-hash-1',
+      manifestSignature: 'manifest-signature-1',
+      chunkCount: 1,
+      totalPlaintextBytes: 1024,
+      totalCiphertextBytes: 1088
+    });
+
+    await expect(flusher.flush()).resolves.toEqual({
+      processedOperations: 2,
+      pendingOperations: 0
+    });
+
+    const chunkCall = requestBodies.find((entry) =>
+      entry.url.endsWith('/v1/vfs/blobs/stage/stage-1/chunks')
+    );
+    const commitCall = requestBodies.find((entry) =>
+      entry.url.endsWith('/v1/vfs/blobs/stage/stage-1/commit')
+    );
+    expect(chunkCall?.body).toEqual(
+      expect.objectContaining({
+        uploadId: 'upload-1',
+        chunkIndex: 0,
+        isFinal: false,
+        nonce: 'nonce-1'
+      })
+    );
+    expect(commitCall?.body).toEqual(
+      expect.objectContaining({
+        uploadId: 'upload-1',
+        keyEpoch: 3,
+        manifestHash: 'manifest-hash-1',
+        chunkCount: 1
+      })
+    );
+  });
+
   it('hydrates queued operations from persistence callback', async () => {
     const { VfsBlobNetworkFlusher } = await import('./vfsBlobNetworkFlusher');
     const source = new VfsBlobNetworkFlusher();
@@ -334,6 +408,43 @@ describe('vfsBlobNetworkFlusher', () => {
     expect(() => flusher.queueAbandon({ stagingId: '' })).toThrow(
       /stagingId is required/
     );
+    expect(() =>
+      flusher.queueChunk({
+        stagingId: 'stage-1',
+        uploadId: '',
+        chunkIndex: -1,
+        isFinal: false,
+        nonce: '',
+        aadHash: '',
+        ciphertextBase64: '',
+        plaintextLength: -1,
+        ciphertextLength: -1
+      })
+    ).toThrow(/chunk payload is invalid/);
+    expect(() =>
+      flusher.queueManifestCommit({
+        stagingId: 'stage-1',
+        uploadId: '',
+        keyEpoch: -1,
+        manifestHash: '',
+        manifestSignature: '',
+        chunkCount: -1,
+        totalPlaintextBytes: -1,
+        totalCiphertextBytes: -1
+      })
+    ).toThrow(/manifest commit payload is invalid/);
+    expect(() =>
+      flusher.queueManifestCommit({
+        stagingId: 'stage-1',
+        uploadId: 'upload-1',
+        keyEpoch: 1,
+        manifestHash: 'manifest-hash',
+        manifestSignature: 'manifest-signature',
+        chunkCount: 0,
+        totalPlaintextBytes: 1,
+        totalCiphertextBytes: 1
+      })
+    ).toThrow(/manifest commit payload is invalid/);
 
     const invalidOperationState = JSON.parse('{"pendingOperations":[{}]}');
     expect(() => flusher.hydrateState(invalidOperationState)).toThrow(

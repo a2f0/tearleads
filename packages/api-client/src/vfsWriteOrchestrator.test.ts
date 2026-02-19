@@ -289,6 +289,8 @@ describe('vfsWriteOrchestrator', () => {
 
     expect(orchestrator.queueBlobAttach).toBeDefined();
     expect(orchestrator.queueBlobAbandon).toBeDefined();
+    expect(orchestrator.queueBlobChunk).toBeDefined();
+    expect(orchestrator.queueBlobManifestCommit).toBeDefined();
     orchestrator.queueBlobStage({
       stagingId: 'stage-1',
       blobId: 'blob-1',
@@ -302,8 +304,29 @@ describe('vfsWriteOrchestrator', () => {
     orchestrator.queueBlobAbandon({
       stagingId: 'stage-1'
     });
+    orchestrator.queueBlobChunk({
+      stagingId: 'stage-1',
+      uploadId: 'upload-1',
+      chunkIndex: 0,
+      isFinal: false,
+      nonce: 'nonce-1',
+      aadHash: 'aad-1',
+      ciphertextBase64: 'YQ==',
+      plaintextLength: 1,
+      ciphertextLength: 2
+    });
+    orchestrator.queueBlobManifestCommit({
+      stagingId: 'stage-1',
+      uploadId: 'upload-1',
+      keyEpoch: 1,
+      manifestHash: 'manifest-hash',
+      manifestSignature: 'manifest-signature',
+      chunkCount: 1,
+      totalPlaintextBytes: 1,
+      totalCiphertextBytes: 2
+    });
 
-    expect(orchestrator.queuedBlobOperations()).toHaveLength(3);
+    expect(orchestrator.queuedBlobOperations()).toHaveLength(5);
     await expect(orchestrator.syncCrdt()).resolves.toEqual({
       pulledOperations: 0,
       pullPages: 1

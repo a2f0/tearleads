@@ -135,6 +135,39 @@ export function cloneOperation(
     };
   }
 
+  if (operation.kind === 'chunk') {
+    return {
+      ...operation,
+      payload: {
+        stagingId: operation.payload.stagingId,
+        uploadId: operation.payload.uploadId,
+        chunkIndex: operation.payload.chunkIndex,
+        isFinal: operation.payload.isFinal,
+        nonce: operation.payload.nonce,
+        aadHash: operation.payload.aadHash,
+        ciphertextBase64: operation.payload.ciphertextBase64,
+        plaintextLength: operation.payload.plaintextLength,
+        ciphertextLength: operation.payload.ciphertextLength
+      }
+    };
+  }
+
+  if (operation.kind === 'commit') {
+    return {
+      ...operation,
+      payload: {
+        stagingId: operation.payload.stagingId,
+        uploadId: operation.payload.uploadId,
+        keyEpoch: operation.payload.keyEpoch,
+        manifestHash: operation.payload.manifestHash,
+        manifestSignature: operation.payload.manifestSignature,
+        chunkCount: operation.payload.chunkCount,
+        totalPlaintextBytes: operation.payload.totalPlaintextBytes,
+        totalCiphertextBytes: operation.payload.totalCiphertextBytes
+      }
+    };
+  }
+
   return {
     ...operation,
     payload: {
