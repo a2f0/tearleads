@@ -6,6 +6,7 @@ It does not manage group memberships.
 ## What this stack manages
 
 - Creates/updates/deletes groups via `googleworkspace_group`
+- Applies strict defaults via `googleworkspace_group_settings`
 - Does not create `googleworkspace_group_member` resources
 
 ## Required environment variables
@@ -47,6 +48,21 @@ googleworkspace_groups = {
   }
 }
 ```
+
+Strict defaults applied to each managed group:
+
+- `who_can_join = "INVITED_CAN_JOIN"`
+- `who_can_discover_group = "ALL_MEMBERS_CAN_DISCOVER"`
+- `who_can_view_group = "ALL_MEMBERS_CAN_VIEW"`
+- `who_can_view_membership = "ALL_MEMBERS_CAN_VIEW"`
+- `who_can_post_message = "ALL_MEMBERS_CAN_POST"`
+- `who_can_contact_owner = "ALL_MEMBERS_CAN_CONTACT"`
+- `who_can_leave_group = "ALL_MEMBERS_CAN_LEAVE"`
+- `allow_external_members = false`
+- `allow_web_posting = false`
+- `include_in_global_address_list = false`
+
+Optional per-group overrides can be set with `googleworkspace_group_settings_overrides`.
 
 ## Usage
 

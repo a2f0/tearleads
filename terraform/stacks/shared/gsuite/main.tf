@@ -7,6 +7,29 @@ provider "googleworkspace" {
   oauth_scopes            = var.googleworkspace_oauth_scopes
 }
 
+locals {
+  strict_group_settings_defaults = {
+    allow_external_members         = false
+    allow_web_posting              = false
+    include_in_global_address_list = false
+    who_can_join                   = "INVITED_CAN_JOIN"
+    who_can_discover_group         = "ALL_MEMBERS_CAN_DISCOVER"
+    who_can_view_group             = "ALL_MEMBERS_CAN_VIEW"
+    who_can_view_membership        = "ALL_MEMBERS_CAN_VIEW"
+    who_can_post_message           = "ALL_MEMBERS_CAN_POST"
+    who_can_contact_owner          = "ALL_MEMBERS_CAN_CONTACT"
+    who_can_leave_group            = "ALL_MEMBERS_CAN_LEAVE"
+  }
+
+  effective_group_settings = {
+    for email, group in var.googleworkspace_groups :
+    email => merge(
+      local.strict_group_settings_defaults,
+      try(var.googleworkspace_group_settings_overrides[email], tomap({}))
+    )
+  }
+}
+
 resource "googleworkspace_group" "groups" {
   for_each = var.googleworkspace_groups
 
@@ -14,4 +37,21 @@ resource "googleworkspace_group" "groups" {
   name        = each.value.name
   description = try(each.value.description, null)
   aliases     = each.value.aliases
+}
+
+resource "googleworkspace_group_settings" "groups" {
+  for_each = local.effective_group_settings
+
+  email = googleworkspace_group.groups[each.key].email
+
+  allow_external_members         = each.value.allow_external_members
+  allow_web_posting              = each.value.allow_web_posting
+  include_in_global_address_list = each.value.include_in_global_address_list
+  who_can_join                   = each.value.who_can_join
+  who_can_discover_group         = each.value.who_can_discover_group
+  who_can_view_group             = each.value.who_can_view_group
+  who_can_view_membership        = each.value.who_can_view_membership
+  who_can_post_message           = each.value.who_can_post_message
+  who_can_contact_owner          = each.value.who_can_contact_owner
+  who_can_leave_group            = each.value.who_can_leave_group
 }
