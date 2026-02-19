@@ -1,9 +1,11 @@
-export const DOCS_WINDOW_DEFAULT_WIDTH = 960;
-export const DOCS_WINDOW_DEFAULT_HEIGHT = 720;
-export const DOCS_WINDOW_GUTTER = 120;
-export const DOCS_WINDOW_VERTICAL_GUTTER = 180;
+const DOCS_WINDOW_DEFAULT_WIDTH = 960;
+const DOCS_WINDOW_DEFAULT_HEIGHT = 720;
+const DOCS_WINDOW_GUTTER = 120;
+const DOCS_WINDOW_VERTICAL_GUTTER = 180;
 export const DOCS_WINDOW_MIN_WIDTH = 360;
 export const DOCS_WINDOW_MIN_HEIGHT = 320;
+export const DOCS_WINDOW_MAX_WIDTH_PERCENT = 0.9;
+export const DOCS_WINDOW_MAX_HEIGHT_PERCENT = 0.85;
 
 export function getDocsWindowDefaults(
   viewportWidth?: number,

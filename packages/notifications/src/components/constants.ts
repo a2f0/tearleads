@@ -4,5 +4,3 @@ export const MIN_WIDTH = 480;
 export const MIN_HEIGHT = 300;
 export const MAX_WIDTH_PERCENT = 0.8;
 export const MAX_HEIGHT_PERCENT = 0.8;
-export const DESKTOP_BREAKPOINT = 768;
-export const DEFAULT_ASPECT_RATIO = 16 / 10;
