@@ -219,6 +219,15 @@ export class InMemoryVfsBlobCommitStore {
     }
 
     const expiresAtMs = Date.parse(existingRecord.expiresAt);
+    const stagedAtMs = Date.parse(existingRecord.stagedAt);
+    if (attachedAt.ms < stagedAtMs) {
+      return {
+        stagingId,
+        status: 'invalid',
+        record: cloneRecord(existingRecord)
+      };
+    }
+
     if (attachedAt.ms >= expiresAtMs) {
       return {
         stagingId,

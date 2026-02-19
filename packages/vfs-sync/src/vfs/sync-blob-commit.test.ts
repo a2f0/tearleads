@@ -201,6 +201,40 @@ describe('InMemoryVfsBlobCommitStore', () => {
     expect(store.get('stage-4')?.status).toBe('abandoned');
   });
 
+  it('rejects attach timestamps that precede stagedAt', () => {
+    const objectStore = new InMemoryVfsBlobObjectStore();
+    objectStore.registerBlob('blob-9');
+    const store = new InMemoryVfsBlobCommitStore(objectStore);
+
+    store.stage({
+      stagingId: 'stage-9',
+      blobId: 'blob-9',
+      stagedBy: 'user-9',
+      stagedAt: '2026-02-14T15:00:00.000Z',
+      expiresAt: '2026-02-14T15:30:00.000Z'
+    });
+
+    const attachBeforeStage = store.attach({
+      stagingId: 'stage-9',
+      attachedBy: 'user-9',
+      itemId: 'item-9',
+      attachedAt: '2026-02-14T14:59:59.000Z'
+    });
+
+    expect(attachBeforeStage.status).toBe('invalid');
+    expect(attachBeforeStage.record?.status).toBe('staged');
+    expect(store.get('stage-9')).toEqual({
+      stagingId: 'stage-9',
+      blobId: 'blob-9',
+      stagedBy: 'user-9',
+      status: 'staged',
+      stagedAt: '2026-02-14T15:00:00.000Z',
+      expiresAt: '2026-02-14T15:30:00.000Z',
+      attachedAt: null,
+      attachedItemId: null
+    });
+  });
+
   it('rejects invalid and unauthorized transitions', () => {
     const objectStore = new InMemoryVfsBlobObjectStore();
     objectStore.registerBlob('blob-6');
