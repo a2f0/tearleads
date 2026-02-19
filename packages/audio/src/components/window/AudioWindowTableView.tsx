@@ -4,8 +4,6 @@ import {
   WindowTableRow
 } from '@tearleads/window-manager';
 import {
-  ChevronDown,
-  ChevronUp,
   Info,
   Loader2,
   Music,
@@ -14,85 +12,21 @@ import {
   RotateCcw,
   Trash2
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAudio } from '../../context/AudioContext';
 import {
   type AudioWithUrl,
   useAudioUIContext
 } from '../../context/AudioUIContext';
 import { setMediaDragData } from '../../lib/mediaDragData';
-import { ALL_AUDIO_ID } from './AudioPlaylistsSidebar';
-
-type SortColumn = 'name' | 'size' | 'mimeType' | 'uploadDate';
-type SortDirection = 'asc' | 'desc';
-
-interface AudioWindowTableViewProps {
-  onSelectTrack?: (trackId: string) => void;
-  refreshToken?: number;
-  selectedPlaylistId?: string | null;
-  /** Currently selected album ID for filtering */
-  selectedAlbumId?: string | null;
-  /** Callback when album selection changes */
-  onAlbumSelect?: (albumId: string | null) => void;
-  showDeleted?: boolean;
-}
-
-interface SortHeaderProps {
-  column: SortColumn;
-  label: string;
-  currentColumn: SortColumn;
-  direction: SortDirection;
-  onClick: (column: SortColumn) => void;
-}
-
-function SortHeader({
-  column,
-  label,
-  currentColumn,
-  direction,
-  onClick
-}: SortHeaderProps) {
-  const isActive = column === currentColumn;
-
-  return (
-    <button
-      type="button"
-      className="flex items-center gap-1 text-left font-medium hover:text-foreground"
-      onClick={() => onClick(column)}
-    >
-      {label}
-      {isActive && (
-        <span className="shrink-0">
-          {direction === 'asc' ? (
-            <ChevronUp className="h-3 w-3" />
-          ) : (
-            <ChevronDown className="h-3 w-3" />
-          )}
-        </span>
-      )}
-    </button>
-  );
-}
-
-function getAudioTypeDisplay(mimeType: string): string {
-  const typeMap: Record<string, string> = {
-    'audio/mpeg': 'MP3',
-    'audio/wav': 'WAV',
-    'audio/ogg': 'OGG',
-    'audio/flac': 'FLAC',
-    'audio/aac': 'AAC',
-    'audio/mp4': 'M4A',
-    'audio/x-m4a': 'M4A',
-    'audio/webm': 'WebM'
-  };
-
-  if (typeMap[mimeType]) {
-    return typeMap[mimeType];
-  }
-
-  const subtype = mimeType.split('/')[1];
-  return subtype?.toUpperCase() ?? 'Audio';
-}
+import {
+  type AudioWindowTableViewProps,
+  type ContextMenuState,
+  getAudioTypeDisplay,
+  SortHeader,
+  useAudioTableData,
+  useAudioTableSort
+} from './audio-table';
 
 export function AudioWindowTableView({
   onSelectTrack,
@@ -109,8 +43,6 @@ export function AudioWindowTableView({
     databaseState,
     ui,
     t,
-    fetchAudioFilesWithUrls,
-    getTrackIdsInPlaylist,
     softDeleteAudio,
     restoreAudio,
     formatFileSize,
@@ -118,176 +50,39 @@ export function AudioWindowTableView({
     logError,
     detectPlatform
   } = useAudioUIContext();
-  const { isUnlocked, isLoading, currentInstanceId } = databaseState;
+  const { isUnlocked, isLoading } = databaseState;
   const { RefreshButton, InlineUnlock, Input, AudioPlayer } = ui;
 
   const { currentTrack, isPlaying, play, pause, resume } = useAudio();
-  const currentTrackRef = useRef(currentTrack);
-  const [tracks, setTracks] = useState<AudioWithUrl[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [hasFetched, setHasFetched] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortColumn, setSortColumn] = useState<SortColumn>('uploadDate');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const [contextMenu, setContextMenu] = useState<{
-    track: AudioWithUrl;
-    x: number;
-    y: number;
-  } | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
-  const filteredAndSortedTracks = useMemo(() => {
-    const filtered = tracks.filter((track) => {
-      const searchLower = searchQuery.toLowerCase();
-      return track.name.toLowerCase().includes(searchLower);
-    });
+  const {
+    tracks,
+    setTracks,
+    loading,
+    error,
+    setError,
+    hasFetched,
+    fetchTracks,
+    currentTrackRef
+  } = useAudioTableData({ selectedPlaylistId, showDeleted, refreshToken });
 
-    return [...filtered].sort((a, b) => {
-      let comparison = 0;
-      switch (sortColumn) {
-        case 'name':
-          comparison = a.name.localeCompare(b.name);
-          break;
-        case 'size':
-          comparison = a.size - b.size;
-          break;
-        case 'mimeType':
-          comparison = a.mimeType.localeCompare(b.mimeType);
-          break;
-        case 'uploadDate':
-          comparison = a.uploadDate.getTime() - b.uploadDate.getTime();
-          break;
-      }
-      return sortDirection === 'asc' ? comparison : -comparison;
-    });
-  }, [tracks, searchQuery, sortColumn, sortDirection]);
+  const {
+    sortColumn,
+    sortDirection,
+    filteredAndSortedTracks,
+    handleSortChange
+  } = useAudioTableSort(tracks, searchQuery);
 
   const isDesktopPlatform = useMemo(() => {
     const platform = detectPlatform();
     return platform === 'web' || platform === 'electron';
   }, [detectPlatform]);
 
-  const fetchTracks = useCallback(async () => {
-    if (!isUnlocked) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      let trackIds: string[] | null = null;
-      if (selectedPlaylistId && selectedPlaylistId !== ALL_AUDIO_ID) {
-        trackIds = await getTrackIdsInPlaylist(selectedPlaylistId);
-        if (trackIds.length === 0) {
-          setTracks([]);
-          setHasFetched(true);
-          setLoading(false);
-          return;
-        }
-      }
-
-      const tracksWithUrls = await fetchAudioFilesWithUrls(
-        trackIds ?? undefined,
-        showDeleted
-      );
-      setTracks(tracksWithUrls);
-      setHasFetched(true);
-    } catch (err) {
-      logError('Failed to fetch tracks', String(err));
-      setError(err instanceof Error ? err.message : String(err));
-      setHasFetched(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    fetchAudioFilesWithUrls,
-    getTrackIdsInPlaylist,
-    isUnlocked,
-    logError,
-    selectedPlaylistId,
-    showDeleted
-  ]);
-
-  const fetchedForFilterRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    const filterKey = selectedPlaylistId ?? ALL_AUDIO_ID;
-    const fetchKey = `${currentInstanceId ?? 'none'}:${filterKey}:${showDeleted ? 'all' : 'active'}`;
-
-    const needsFetch =
-      isUnlocked &&
-      !loading &&
-      (!hasFetched || fetchedForFilterRef.current !== fetchKey);
-
-    if (needsFetch) {
-      if (
-        fetchedForFilterRef.current !== fetchKey &&
-        fetchedForFilterRef.current !== null
-      ) {
-        for (const track of tracks) {
-          if (track.id !== currentTrackRef.current?.id) {
-            URL.revokeObjectURL(track.objectUrl);
-          }
-          if (track.thumbnailUrl) {
-            URL.revokeObjectURL(track.thumbnailUrl);
-          }
-        }
-        setTracks([]);
-        setError(null);
-        setHasFetched(false);
-      }
-
-      fetchedForFilterRef.current = fetchKey;
-
-      const timeoutId = setTimeout(() => {
-        fetchTracks();
-      }, 0);
-
-      return () => clearTimeout(timeoutId);
-    }
-    return undefined;
-  }, [
-    currentInstanceId,
-    fetchTracks,
-    hasFetched,
-    isUnlocked,
-    loading,
-    selectedPlaylistId,
-    showDeleted,
-    tracks
-  ]);
-
-  useEffect(() => {
-    if (!isUnlocked || refreshToken === 0 || !hasFetched) return;
-    fetchTracks();
-  }, [fetchTracks, hasFetched, isUnlocked, refreshToken]);
-
   useEffect(() => {
     currentTrackRef.current = currentTrack;
-  }, [currentTrack]);
-
-  useEffect(() => {
-    return () => {
-      for (const t of tracks) {
-        if (t.id !== currentTrackRef.current?.id) {
-          URL.revokeObjectURL(t.objectUrl);
-        }
-        if (t.thumbnailUrl) {
-          URL.revokeObjectURL(t.thumbnailUrl);
-        }
-      }
-    };
-  }, [tracks]);
-
-  const handleSortChange = useCallback((column: SortColumn) => {
-    setSortColumn((prevColumn) => {
-      if (prevColumn === column) {
-        setSortDirection((prevDir) => (prevDir === 'asc' ? 'desc' : 'asc'));
-        return prevColumn;
-      }
-      setSortDirection('asc');
-      return column;
-    });
-  }, []);
+  }, [currentTrack, currentTrackRef]);
 
   const handlePlayPause = useCallback(
     (track: AudioWithUrl) => {
@@ -355,7 +150,7 @@ export function AudioWindowTableView({
         setError(err instanceof Error ? err.message : String(err));
       }
     },
-    [softDeleteAudio, logError]
+    [softDeleteAudio, logError, setTracks, setError]
   );
 
   const handleRestore = useCallback(
@@ -376,7 +171,7 @@ export function AudioWindowTableView({
         setError(err instanceof Error ? err.message : String(err));
       }
     },
-    [logError, restoreAudio]
+    [logError, restoreAudio, setTracks, setError]
   );
 
   return (

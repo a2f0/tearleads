@@ -1,0 +1,96 @@
+/**
+ * SQLite WASM module initialization for Node.js.
+ */
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type { SQLite3InitModule, SQLite3Module } from './types';
+import { patchFetchForFileUrls, restoreFetch } from './utils';
+
+declare global {
+  var sqlite3InitModuleState:
+    | { wasmFilename: string; debugModule: () => void }
+    | undefined;
+}
+
+// Module-level state for caching the initialized SQLite module
+let sqlite3: SQLite3Module | null = null;
+
+/**
+ * Get the path to the WASM files directory.
+ */
+function getWasmDir(): string {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  return path.resolve(__dirname, '../../../workers/sqlite-wasm');
+}
+
+/**
+ * Initialize the SQLite WASM module for Node.js.
+ * This only needs to run once per process.
+ */
+export async function initializeSqliteWasm(): Promise<SQLite3Module> {
+  if (sqlite3) {
+    return sqlite3;
+  }
+
+  const wasmDir = getWasmDir();
+  // IMPORTANT: DO NOT change .js back to .mjs - see issue #670
+  // Android WebView requires .js for proper MIME type handling.
+  // See: https://github.com/apache/cordova-android/issues/1142
+  const modulePath = path.join(wasmDir, 'sqlite3.js');
+  const wasmPath = path.join(wasmDir, 'sqlite3.wasm');
+
+  // Verify the files exist
+  if (!fs.existsSync(modulePath)) {
+    throw new Error(
+      `SQLite WASM module not found at ${modulePath}. ` +
+        'Run ./scripts/downloadSqliteWasm.sh to download it.'
+    );
+  }
+  if (!fs.existsSync(wasmPath)) {
+    throw new Error(
+      `SQLite WASM binary not found at ${wasmPath}. ` +
+        'Run ./scripts/downloadSqliteWasm.sh to download it.'
+    );
+  }
+
+  // Patch fetch to handle file:// URLs before importing the module
+  // The sqlite3 module uses fetch internally to load the .wasm file
+  patchFetchForFileUrls();
+
+  try {
+    // Set up globalThis.sqlite3InitModuleState BEFORE importing the module
+    // The module reads this during import to configure instantiateWasm
+    globalThis.sqlite3InitModuleState = {
+      wasmFilename: 'sqlite3.wasm',
+      debugModule: () => {}
+    };
+
+    // Import the WASM module
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const wasmModule = await import(/* @vite-ignore */ modulePath);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    const initModule: SQLite3InitModule | undefined = wasmModule.default;
+
+    if (!initModule) {
+      throw new Error('Failed to load sqlite3InitModule from module');
+    }
+
+    // Initialize with Node.js-compatible settings
+    sqlite3 = await initModule({
+      print: console.log,
+      printErr: console.error
+    });
+
+    if (!sqlite3 || !sqlite3.oo1 || !sqlite3.capi) {
+      throw new Error('SQLite module loaded but missing expected properties');
+    }
+
+    return sqlite3;
+  } finally {
+    // Restore original fetch
+    restoreFetch();
+  }
+}

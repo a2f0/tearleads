@@ -4,7 +4,6 @@ import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
 } from '@tearleads/window-manager';
-import { and, asc, eq, like, or, type SQL } from 'drizzle-orm';
 import {
   Download,
   Info,
@@ -18,7 +17,7 @@ import {
   User,
   X
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ColumnMapper } from '@/components/contacts/column-mapper';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -28,66 +27,62 @@ import { Input } from '@/components/ui/input';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { ClientContactsProvider } from '@/contexts/ClientContactsProvider';
-import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
-import {
-  contactEmails,
-  contactPhones,
-  contacts as contactsTable,
-  vfsLinks
-} from '@/db/schema';
-import { useContactsExport } from '@/hooks/useContactsExport';
-import {
-  type ColumnMapping,
-  type ParsedCSV,
-  useContactsImport
-} from '@/hooks/useContactsImport';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useTypedTranslation } from '@/i18n';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { AddContactCard } from './AddContactCard';
-
-interface ContactInfo {
-  id: string;
-  firstName: string;
-  lastName: string | null;
-  birthday: string | null;
-  primaryEmail: string | null;
-  primaryPhone: string | null;
-  createdAt: Date;
-}
-
-const ROW_HEIGHT_ESTIMATE = 72;
+import { ROW_HEIGHT_ESTIMATE } from './types';
+import { useContactsContextMenu } from './useContactsContextMenu';
+import { useContactsData } from './useContactsData';
+import { useContactsImportUI } from './useContactsImportUI';
 
 export function Contacts() {
   const navigate = useNavigate();
   const { groupId: routeGroupId } = useParams<{ groupId?: string }>();
   const navigateWithFrom = useNavigateWithFrom();
-  const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
+  const { isUnlocked, isLoading } = useDatabaseContext();
   const { t } = useTypedTranslation('contextMenu');
-  const [contacts, setContacts] = useState<ContactInfo[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [hasFetched, setHasFetched] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sidebarWidth, setSidebarWidth] = useState(220);
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(
-    routeGroupId ?? ALL_CONTACTS_ID
-  );
-  const [importResult, setImportResult] = useState<{
-    imported: number;
-    skipped: number;
-    errors: string[];
-  } | null>(null);
-  const [contextMenu, setContextMenu] = useState<{
-    contact: ContactInfo;
-    x: number;
-    y: number;
-  } | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const parentRef = useRef<HTMLDivElement>(null);
+
+  // Data fetching and search
+  const {
+    contacts,
+    loading,
+    error,
+    setError,
+    hasFetched,
+    setHasFetched,
+    searchQuery,
+    setSearchQuery,
+    debouncedSearch,
+    selectedGroupId,
+    fetchContacts,
+    searchInputRef
+  } = useContactsData(routeGroupId, false);
+
+  // CSV import UI
+  const {
+    parsedData,
+    importResult,
+    importing,
+    progress,
+    handleFilesSelected,
+    handleImport,
+    handleCancelMapping
+  } = useContactsImportUI(isUnlocked, setError, () => fetchContacts());
+
+  // Context menu
+  const {
+    contextMenu,
+    handleContextMenu,
+    handleGetInfo,
+    handleEdit,
+    handleDelete,
+    handleCloseContextMenu,
+    handleExportContact
+  } = useContactsContextMenu(debouncedSearch, fetchContacts, setError);
 
   const virtualizer = useVirtualizer({
     count: contacts.length,
@@ -98,286 +93,6 @@ export function Contacts() {
 
   const virtualItems = virtualizer.getVirtualItems();
   const { firstVisible, lastVisible } = useVirtualVisibleRange(virtualItems);
-
-  // Debounce search query
-  useEffect(() => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-    debounceRef.current = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
-    }, 300);
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-    };
-  }, [searchQuery]);
-
-  useEffect(() => {
-    const newGroupId = routeGroupId ?? ALL_CONTACTS_ID;
-    if (selectedGroupId !== newGroupId) {
-      setSelectedGroupId(newGroupId);
-      setContacts([]);
-      setHasFetched(false);
-    }
-  }, [routeGroupId, selectedGroupId]);
-
-  // CSV parsing and mapping state
-  const [parsedData, setParsedData] = useState<ParsedCSV | null>(null);
-
-  const { parseFile, importContacts, importing, progress } =
-    useContactsImport();
-
-  const { exportContact } = useContactsExport();
-
-  // Focus search input when database is unlocked
-  useEffect(() => {
-    if (isUnlocked && !parsedData) {
-      searchInputRef.current?.focus();
-    }
-  }, [isUnlocked, parsedData]);
-
-  const fetchContacts = useCallback(
-    async (search?: string) => {
-      if (!isUnlocked) return;
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        const db = getDatabase();
-
-        // Build query with optional search
-        const searchTerm = search?.trim();
-        const searchPattern = searchTerm ? `%${searchTerm}%` : null;
-        const groupFilterId =
-          selectedGroupId && selectedGroupId !== ALL_CONTACTS_ID
-            ? selectedGroupId
-            : null;
-
-        // Query contacts with LEFT JOINs for primary email/phone
-        let baseQuery = db
-          .select({
-            id: contactsTable.id,
-            firstName: contactsTable.firstName,
-            lastName: contactsTable.lastName,
-            birthday: contactsTable.birthday,
-            createdAt: contactsTable.createdAt,
-            primaryEmail: contactEmails.email,
-            primaryPhone: contactPhones.phoneNumber
-          })
-          .from(contactsTable)
-          .leftJoin(
-            contactEmails,
-            and(
-              eq(contactEmails.contactId, contactsTable.id),
-              eq(contactEmails.isPrimary, true)
-            )
-          )
-          .leftJoin(
-            contactPhones,
-            and(
-              eq(contactPhones.contactId, contactsTable.id),
-              eq(contactPhones.isPrimary, true)
-            )
-          );
-
-        if (groupFilterId) {
-          baseQuery = baseQuery.innerJoin(
-            vfsLinks,
-            and(
-              eq(vfsLinks.childId, contactsTable.id),
-              eq(vfsLinks.parentId, groupFilterId)
-            )
-          );
-        }
-
-        // Build where conditions
-        const baseCondition = eq(contactsTable.deleted, false);
-        let whereCondition: SQL | undefined;
-
-        if (searchPattern) {
-          // Search across name, email, and phone (SQLite LIKE is case-insensitive by default)
-          const searchCondition = or(
-            like(contactsTable.firstName, searchPattern),
-            like(contactsTable.lastName, searchPattern),
-            like(contactEmails.email, searchPattern),
-            like(contactPhones.phoneNumber, searchPattern)
-          );
-          whereCondition = and(baseCondition, searchCondition);
-        } else {
-          whereCondition = baseCondition;
-        }
-
-        const result = await baseQuery
-          .where(whereCondition)
-          .orderBy(asc(contactsTable.firstName));
-
-        const contactList = result.map((row) => ({
-          id: row.id,
-          firstName: row.firstName,
-          lastName: row.lastName,
-          birthday: row.birthday,
-          primaryEmail: row.primaryEmail,
-          primaryPhone: row.primaryPhone,
-          createdAt: row.createdAt
-        }));
-
-        setContacts(contactList);
-        setHasFetched(true);
-      } catch (err) {
-        console.error('Failed to fetch contacts:', err);
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [isUnlocked, selectedGroupId]
-  );
-
-  // Track the instance ID for which we've fetched contacts
-  // Using a ref avoids React's state batching issues
-  const fetchedForInstanceRef = useRef<string | null>(null);
-
-  // Fetch contacts on initial load, when search query changes, or when instance changes
-  useEffect(() => {
-    if (!isUnlocked) return;
-
-    // Check if we need to reset for instance change
-    if (
-      fetchedForInstanceRef.current !== currentInstanceId &&
-      fetchedForInstanceRef.current !== null
-    ) {
-      // Instance changed - clear contacts and reset state
-      setContacts([]);
-      setHasFetched(false);
-      setError(null);
-      setSearchQuery('');
-      setDebouncedSearch('');
-    }
-
-    // Update ref before fetching
-    fetchedForInstanceRef.current = currentInstanceId;
-
-    // Defer fetch to next tick to ensure database singleton is updated
-    const timeoutId = setTimeout(() => {
-      fetchContacts(debouncedSearch);
-    }, 0);
-
-    return () => clearTimeout(timeoutId);
-  }, [isUnlocked, debouncedSearch, currentInstanceId, fetchContacts]);
-
-  const handleFilesSelected = useCallback(
-    async (files: File[]) => {
-      if (!isUnlocked || files.length === 0) return;
-
-      setError(null);
-      setImportResult(null);
-
-      const file = files[0];
-      if (!file) return;
-
-      try {
-        const data = await parseFile(file);
-        if (data.headers.length === 0) {
-          setError('CSV file is empty or has no headers');
-          return;
-        }
-        setParsedData(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to parse CSV');
-      }
-    },
-    [isUnlocked, parseFile]
-  );
-
-  const handleImport = useCallback(
-    async (mapping: ColumnMapping) => {
-      if (!parsedData) return;
-
-      const result = await importContacts(parsedData, mapping);
-
-      setImportResult({
-        imported: result.imported,
-        skipped: result.skipped,
-        errors: result.errors
-      });
-
-      setParsedData(null);
-
-      // Refresh contacts list
-      await fetchContacts();
-    },
-    [parsedData, importContacts, fetchContacts]
-  );
-
-  const handleCancelMapping = useCallback(() => {
-    setParsedData(null);
-  }, []);
-
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent, contact: ContactInfo) => {
-      e.preventDefault();
-      setContextMenu({ contact, x: e.clientX, y: e.clientY });
-    },
-    []
-  );
-
-  const handleGetInfo = useCallback(() => {
-    if (contextMenu) {
-      navigateWithFrom(`/contacts/${contextMenu.contact.id}`, {
-        fromLabel: 'Back to Contacts'
-      });
-      setContextMenu(null);
-    }
-  }, [contextMenu, navigateWithFrom]);
-
-  const handleEdit = useCallback(() => {
-    if (contextMenu) {
-      navigateWithFrom(`/contacts/${contextMenu.contact.id}`, {
-        fromLabel: 'Back to Contacts',
-        state: { autoEdit: true }
-      });
-      setContextMenu(null);
-    }
-  }, [contextMenu, navigateWithFrom]);
-
-  const handleDelete = useCallback(async () => {
-    if (!contextMenu) return;
-
-    try {
-      const db = getDatabase();
-      await db
-        .update(contactsTable)
-        .set({ deleted: true, updatedAt: new Date() })
-        .where(eq(contactsTable.id, contextMenu.contact.id));
-
-      await fetchContacts(debouncedSearch);
-    } catch (err) {
-      console.error('Failed to delete contact:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setContextMenu(null);
-    }
-  }, [contextMenu, fetchContacts, debouncedSearch]);
-
-  const handleCloseContextMenu = useCallback(() => {
-    setContextMenu(null);
-  }, []);
-
-  const handleExportContact = useCallback(async () => {
-    if (!contextMenu) return;
-
-    try {
-      await exportContact(contextMenu.contact.id);
-    } catch (err) {
-      console.error('Failed to export contact:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setContextMenu(null);
-    }
-  }, [contextMenu, exportContact]);
 
   const handleGroupSelect = useCallback(
     (groupId: string | null) => {
@@ -400,7 +115,7 @@ export function Contacts() {
 
   const handleGroupChanged = useCallback(() => {
     setHasFetched(false);
-  }, []);
+  }, [setHasFetched]);
 
   return (
     <ClientContactsProvider>

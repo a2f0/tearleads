@@ -9,7 +9,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isRecord } from '@tearleads/shared';
 import { locateWasmDir } from '../locateWasm.js';
 import type {
   DatabaseAdapter,
@@ -18,6 +17,24 @@ import type {
   QueryResult
 } from './types.js';
 import { convertRowsToArrays } from './utils.js';
+import {
+  getStringField,
+  isJsonBackupData,
+  isNameSqlEntry,
+  type JsonBackupData,
+  keyToHex,
+  parseJsonBackupData,
+  type SQLite3InitModule,
+  type SQLite3Module,
+  type SQLiteDatabase,
+  type WasmNodeAdapterOptions
+} from './wasmNodeTypes.js';
+
+// Re-export types for backwards compatibility
+export type {
+  JsonBackupData,
+  WasmNodeAdapterOptions
+} from './wasmNodeTypes.js';
 
 declare global {
   var sqlite3InitModuleState:
@@ -60,130 +77,6 @@ function restoreFetch(): void {
   if (originalFetch) {
     globalThis.fetch = originalFetch;
   }
-}
-
-/**
- * SQLite WASM Database instance type.
- */
-interface SQLiteDatabase {
-  exec(options: {
-    sql: string;
-    bind?: unknown[];
-    rowMode?: 'object' | 'array';
-    callback?: (row: Record<string, unknown>) => boolean | undefined;
-    returnValue?: 'resultRows';
-  }): unknown[][];
-  exec(sql: string): void;
-  changes(): number;
-  close(): void;
-  pointer: number;
-}
-
-/**
- * SQLite WASM OO1 API (Object-Oriented API Level 1).
- */
-interface SQLiteOO1 {
-  DB: new (options: {
-    filename: string;
-    flags: string;
-    hexkey?: string;
-  }) => SQLiteDatabase;
-}
-
-/**
- * SQLite WASM C API bindings.
- */
-interface SQLiteCAPI {
-  sqlite3_libversion(): string;
-  sqlite3_js_db_export(db: SQLiteDatabase): Uint8Array;
-  sqlite3_deserialize(
-    dbPointer: number,
-    schema: string,
-    data: Uint8Array,
-    dataSize: number,
-    bufferSize: number,
-    flags: number
-  ): number;
-}
-
-/**
- * SQLite WASM module instance.
- */
-interface SQLite3Module {
-  oo1: SQLiteOO1;
-  capi: SQLiteCAPI;
-}
-
-/**
- * SQLite WASM initialization function type.
- */
-type SQLite3InitModule = (options: {
-  print: typeof console.log;
-  printErr: typeof console.error;
-  locateFile?: (path: string) => string;
-  wasmBinary?: ArrayBuffer;
-}) => Promise<SQLite3Module>;
-
-function getStringField(
-  record: Record<string, unknown>,
-  key: string
-): string | null {
-  const value = record[key];
-  return typeof value === 'string' ? value : null;
-}
-
-function isNameSqlEntry(
-  value: unknown
-): value is { name: string; sql: string } {
-  return (
-    isRecord(value) &&
-    typeof value['name'] === 'string' &&
-    typeof value['sql'] === 'string'
-  );
-}
-
-function isJsonBackupData(value: unknown): value is JsonBackupData {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  if (typeof value['version'] !== 'number') {
-    return false;
-  }
-
-  if (
-    !Array.isArray(value['tables']) ||
-    !value['tables'].every(isNameSqlEntry) ||
-    !Array.isArray(value['indexes']) ||
-    !value['indexes'].every(isNameSqlEntry)
-  ) {
-    return false;
-  }
-
-  if (!isRecord(value['data'])) {
-    return false;
-  }
-
-  for (const tableRows of Object.values(value['data'])) {
-    if (!Array.isArray(tableRows)) {
-      return false;
-    }
-    for (const row of tableRows) {
-      if (!isRecord(row)) {
-        return false;
-      }
-    }
-  }
-
-  return true;
-}
-
-function parseJsonBackupData(jsonData: string): JsonBackupData {
-  const parsed = JSON.parse(jsonData);
-  if (!isJsonBackupData(parsed)) {
-    throw new Error('Invalid backup data format');
-  }
-  return parsed;
 }
 
 let sqlite3: SQLite3Module | null = null;
@@ -263,39 +156,6 @@ async function initializeSqliteWasm(wasmDir?: string): Promise<SQLite3Module> {
     restoreFetch();
   }
 }
-
-/**
- * Convert a Uint8Array encryption key to a hex string for SQLite.
- */
-function keyToHex(key: Uint8Array): string {
-  return Array.from(key)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-export interface WasmNodeAdapterOptions {
-  /**
-   * Skip encryption (for testing without encryption overhead). Default: false.
-   */
-  skipEncryption?: boolean;
-
-  /**
-   * Path to the directory containing SQLite WASM files.
-   * If not specified, the adapter will search for them in the monorepo.
-   */
-  wasmDir?: string;
-}
-
-/**
- * JSON backup format for WASM SQLite databases.
- * Used by exportDatabaseAsJson/importDatabaseFromJson.
- */
-export type JsonBackupData = {
-  version: number;
-  tables: { name: string; sql: string }[];
-  indexes: { name: string; sql: string }[];
-  data: Record<string, Record<string, unknown>[]>;
-};
 
 export class WasmNodeAdapter implements DatabaseAdapter {
   private db: SQLiteDatabase | null = null;

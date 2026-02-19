@@ -9,78 +9,35 @@ import type {
   AnalyticsEventSlug,
   EventDetailMap
 } from './analyticsEvents';
+import {
+  type AnalyticsEvent,
+  type DatabaseInsert,
+  type EventStats,
+  type GetEventCountOptions,
+  type GetEventStatsOptions,
+  type GetEventsOptions,
+  type RawAnalyticsRow,
+  type RawStatsRow,
+  SORT_COLUMN_MAP,
+  STATS_SORT_COLUMN_MAP
+} from './analyticsTypes';
 import { analyticsEvents } from './schema';
 import { getDatabaseAdapter, isDatabaseInitialized } from './state';
 
-export type DatabaseInsert = Pick<Database, 'insert'>;
-export interface AnalyticsEvent {
-  id: string;
-  eventName: string;
-  durationMs: number;
-  success: boolean;
-  timestamp: Date;
-  detail: AnalyticsEventDetail | null;
-}
-
-export type SortColumn = 'eventName' | 'durationMs' | 'success' | 'timestamp';
-export type SortDirection = 'asc' | 'desc';
-
-export type StatsSortColumn =
-  | 'eventName'
-  | 'count'
-  | 'avgDurationMs'
-  | 'minDurationMs'
-  | 'maxDurationMs'
-  | 'successRate';
-
-export interface GetEventsOptions {
-  eventName?: string | undefined;
-  startTime?: Date | undefined;
-  endTime?: Date | undefined;
-  limit?: number | undefined;
-  offset?: number | undefined;
-  sortColumn?: SortColumn | undefined;
-  sortDirection?: SortDirection | undefined;
-}
-
-/**
- * Maps sort column names to SQL column names.
- */
-const SORT_COLUMN_MAP: Record<SortColumn, string> = {
-  eventName: 'event_name',
-  durationMs: 'duration_ms',
-  success: 'success',
-  timestamp: 'timestamp'
-};
-
-/**
- * Maps stats sort column names to SQL expressions for ORDER BY.
- */
-const STATS_SORT_COLUMN_MAP: Record<StatsSortColumn, string> = {
-  eventName: 'event_name',
-  count: 'count(*)',
-  avgDurationMs: 'sum(duration_ms) * 1.0 / count(*)',
-  minDurationMs: 'min(duration_ms)',
-  maxDurationMs: 'max(duration_ms)',
-  successRate: 'sum(case when success then 1 else 0 end) * 100.0 / count(*)'
-};
-
-export interface EventStats {
-  eventName: string;
-  count: number;
-  avgDurationMs: number;
-  minDurationMs: number;
-  maxDurationMs: number;
-  successRate: number;
-}
-
-export interface GetEventStatsOptions {
-  eventName?: string | undefined;
-  startTime?: Date | undefined;
-  endTime?: Date | undefined;
-  sortColumn?: StatsSortColumn | undefined;
-  sortDirection?: SortDirection | undefined;
-}
+// Re-export types for backwards compatibility
+export type {
+  AnalyticsEvent,
+  DatabaseInsert,
+  EventStats,
+  GetEventCountOptions,
+  GetEventStatsOptions,
+  GetEventsOptions,
+  RawAnalyticsRow,
+  RawStatsRow,
+  SortColumn,
+  SortDirection,
+  StatsSortColumn
+} from './analyticsTypes';
 
 /**
  * Generate a UUID for event IDs.
@@ -141,19 +98,6 @@ export async function measureOperation<
       console.warn(`Failed to log analytics event: ${eventName}`);
     }
   }
-}
-
-/**
- * Raw row type from SQLite query result.
- * Uses camelCase property names via explicit SQL aliases.
- */
-interface RawAnalyticsRow {
-  id: string;
-  eventName: string;
-  durationMs: number;
-  success: number; // SQLite stores as 0/1
-  timestamp: number; // milliseconds since epoch
-  detail: string | null;
 }
 
 /**
@@ -281,18 +225,6 @@ export async function getEvents(
     timestamp: new Date(row.timestamp),
     detail: parseDetail(row.detail)
   }));
-}
-
-/**
- * Raw stats row type from SQLite query result.
- */
-interface RawStatsRow {
-  eventName: string;
-  count: number;
-  totalDuration: number;
-  minDuration: number;
-  maxDuration: number;
-  successCount: number;
 }
 
 function normalizeStatsRow(value: unknown): RawStatsRow | null {
@@ -441,11 +373,6 @@ export async function logApiEvent<T extends AnalyticsEventSlug>(
     // Don't let logging errors affect API calls, but log for debugging
     console.warn(`Failed to log API event '${eventName}':`, error);
   }
-}
-
-export interface GetEventCountOptions {
-  startTime?: Date | undefined;
-  endTime?: Date | undefined;
 }
 
 /**

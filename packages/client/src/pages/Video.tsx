@@ -1,7 +1,6 @@
-import { assertPlainArrayBuffer } from '@tearleads/shared';
-import { and, desc, eq, inArray, like } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { Film, Loader2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
@@ -16,60 +15,20 @@ import {
 import { VideoTableView } from '@/components/video-window/VideoTableView';
 import { ClientVideoProvider } from '@/contexts/ClientVideoProvider';
 import { getDatabase } from '@/db';
-import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
-import { files, vfsLinks } from '@/db/schema';
-import { useFileUpload } from '@/hooks/useFileUpload';
-import { useNavigateWithFrom } from '@/lib/navigation';
+import { vfsLinks } from '@/db/schema';
 import { detectPlatform } from '@/lib/utils';
-import {
-  createRetrieveLogger,
-  getFileStorage,
-  initializeFileStorage,
-  isFileStorageInitialized
-} from '@/storage/opfs';
+import type { VideoPageProps } from './video-components/types';
+import { useVideoActions } from './video-components/useVideoActions';
+import { useVideoData } from './video-components/useVideoData';
+import { useVideoUpload } from './video-components/useVideoUpload';
 
-const VIDEO_MIME_TYPES = [
-  'video/mp4',
-  'video/webm',
-  'video/ogg',
-  'video/quicktime',
-  'video/x-msvideo',
-  'video/x-matroska',
-  'video/mpeg',
-  'video/3gpp',
-  'video/3gpp2'
-];
-
-export interface VideoInfo {
-  id: string;
-  name: string;
-  size: number;
-  mimeType: string;
-  uploadDate: Date;
-  storagePath: string;
-  thumbnailPath: string | null;
-}
-
-export interface VideoWithThumbnail extends VideoInfo {
-  thumbnailUrl: string | null;
-}
-
-type ViewMode = 'list' | 'table';
-
-export interface VideoOpenOptions {
-  autoPlay?: boolean | undefined;
-}
-
-interface VideoPageProps {
-  onOpenVideo?:
-    | ((videoId: string, options?: VideoOpenOptions) => void)
-    | undefined;
-  hideBackLink?: boolean | undefined;
-  viewMode?: ViewMode | undefined;
-  playlistId?: string | null | undefined;
-  onUpload?: (() => void) | undefined;
-}
+// Re-export types for backwards compatibility
+export type {
+  VideoInfo,
+  VideoOpenOptions,
+  VideoWithThumbnail
+} from './video-components/types';
 
 export function VideoPage({
   onOpenVideo,
@@ -78,15 +37,7 @@ export function VideoPage({
   playlistId = null,
   onUpload
 }: VideoPageProps) {
-  const navigateWithFrom = useNavigateWithFrom();
-  const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
-  const [videos, setVideos] = useState<VideoWithThumbnail[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [hasFetched, setHasFetched] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const { uploadFile } = useFileUpload();
+  const { isUnlocked, isLoading } = useDatabaseContext();
   const parentRef = useRef<HTMLDivElement>(null);
   const tableParentRef = useRef<HTMLDivElement>(null);
 
@@ -95,263 +46,24 @@ export function VideoPage({
     return platform === 'web' || platform === 'electron';
   }, []);
 
-  const fetchVideos = useCallback(async () => {
-    if (!isUnlocked) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const db = getDatabase();
-
-      // If a playlist is selected, get the video IDs in that playlist
-      let videoIdsInPlaylist: string[] | null = null;
-      if (playlistId) {
-        const links = await db
-          .select({ childId: vfsLinks.childId })
-          .from(vfsLinks)
-          .where(eq(vfsLinks.parentId, playlistId));
-        videoIdsInPlaylist = links.map((link) => link.childId);
-
-        // If playlist is empty, return early
-        if (videoIdsInPlaylist.length === 0) {
-          setVideos([]);
-          setHasFetched(true);
-          setLoading(false);
-          return;
-        }
-      }
-
-      const baseConditions = and(
-        like(files.mimeType, 'video/%'),
-        eq(files.deleted, false)
-      );
-      const whereClause = videoIdsInPlaylist
-        ? and(baseConditions, inArray(files.id, videoIdsInPlaylist))
-        : baseConditions;
-
-      const result = await db
-        .select({
-          id: files.id,
-          name: files.name,
-          size: files.size,
-          mimeType: files.mimeType,
-          uploadDate: files.uploadDate,
-          storagePath: files.storagePath,
-          thumbnailPath: files.thumbnailPath
-        })
-        .from(files)
-        .where(whereClause)
-        .orderBy(desc(files.uploadDate));
-
-      const videoList: VideoInfo[] = result.map((row) => ({
-        id: row.id,
-        name: row.name,
-        size: row.size,
-        mimeType: row.mimeType,
-        uploadDate: row.uploadDate,
-        storagePath: row.storagePath,
-        thumbnailPath: row.thumbnailPath
-      }));
-
-      // Load video data and create object URLs
-      const keyManager = getKeyManager();
-      const encryptionKey = keyManager.getCurrentKey();
-      if (!encryptionKey) throw new Error('Database not unlocked');
-      if (!currentInstanceId) throw new Error('No active instance');
-
-      if (!isFileStorageInitialized()) {
-        await initializeFileStorage(encryptionKey, currentInstanceId);
-      }
-
-      const storage = getFileStorage();
-      const logger = createRetrieveLogger(db);
-      // Only load thumbnails, not full video data - video content is loaded on demand in VideoDetail
-      const videosWithThumbnails = await Promise.all(
-        videoList.map(async (video) => {
-          let thumbnailUrl: string | null = null;
-          if (video.thumbnailPath) {
-            try {
-              const thumbData = await storage.measureRetrieve(
-                video.thumbnailPath,
-                logger
-              );
-              assertPlainArrayBuffer(thumbData);
-              const thumbBlob = new Blob([thumbData], {
-                type: 'image/jpeg'
-              });
-              thumbnailUrl = URL.createObjectURL(thumbBlob);
-            } catch (err) {
-              console.warn(`Failed to load thumbnail for ${video.name}:`, err);
-            }
-          }
-          return { ...video, thumbnailUrl };
-        })
-      );
-
-      setVideos(videosWithThumbnails);
-      setHasFetched(true);
-    } catch (err) {
-      console.error('Failed to fetch videos:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [isUnlocked, currentInstanceId, playlistId]);
-
-  // Track the instance ID for which we've fetched videos
-  const fetchedForInstanceRef = useRef<string | null>(null);
-  const fetchedForPlaylistRef = useRef<string | null | undefined>(undefined);
-
-  const handleFilesSelected = useCallback(
-    async (selectedFiles: File[]) => {
-      if (selectedFiles.length === 0) return;
-
-      setError(null);
-      setUploading(true);
-      setUploadProgress(0);
-
-      try {
-        for (const file of selectedFiles) {
-          // Validate that the file type is one of the supported video MIME types
-          if (!VIDEO_MIME_TYPES.includes(file.type)) {
-            throw new Error(
-              `"${file.name}" has an unsupported video format. Supported formats: MP4, WebM, OGG, MOV, AVI, MKV, MPEG, 3GP.`
-            );
-          }
-
-          await uploadFile(file, setUploadProgress);
-        }
-
-        // Refresh videos after successful upload
-        setHasFetched(false);
-      } catch (err) {
-        console.error('Failed to upload file:', err);
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setUploading(false);
-        setUploadProgress(0);
-      }
-    },
-    [uploadFile]
-  );
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: videos intentionally excluded to prevent re-fetch loops
-  useEffect(() => {
-    // Check if we need to fetch for this instance or playlist
-    const instanceChanged = fetchedForInstanceRef.current !== currentInstanceId;
-    const playlistChanged = fetchedForPlaylistRef.current !== playlistId;
-    const needsFetch =
-      isUnlocked &&
-      !loading &&
-      (!hasFetched || instanceChanged || playlistChanged);
-
-    if (needsFetch) {
-      // If instance or playlist changed, cleanup old thumbnail URLs first
-      if (
-        (instanceChanged || playlistChanged) &&
-        fetchedForInstanceRef.current !== null
-      ) {
-        for (const video of videos) {
-          if (video.thumbnailUrl) {
-            URL.revokeObjectURL(video.thumbnailUrl);
-          }
-        }
-        setVideos([]);
-        setError(null);
-      }
-
-      // Update refs before fetching to prevent re-entry
-      fetchedForInstanceRef.current = currentInstanceId;
-      fetchedForPlaylistRef.current = playlistId;
-
-      // Defer fetch to next tick to ensure database singleton is updated
-      const timeoutId = setTimeout(() => {
-        fetchVideos();
-      }, 0);
-
-      return () => clearTimeout(timeoutId);
-    }
-    return undefined;
-  }, [
-    isUnlocked,
+  const {
+    videos,
+    setVideos,
     loading,
+    error,
+    setError,
     hasFetched,
-    currentInstanceId,
-    playlistId,
+    setHasFetched,
     fetchVideos
-  ]);
+  } = useVideoData(playlistId);
 
-  // Cleanup thumbnail URLs on unmount
-  useEffect(() => {
-    return () => {
-      for (const v of videos) {
-        if (v.thumbnailUrl) {
-          URL.revokeObjectURL(v.thumbnailUrl);
-        }
-      }
-    };
-  }, [videos]);
-
-  const handleNavigateToDetail = useCallback(
-    (videoId: string, options?: VideoOpenOptions) => {
-      if (onOpenVideo) {
-        onOpenVideo(videoId, options);
-        return;
-      }
-      const navigationOptions: {
-        fromLabel: string;
-        state?: Record<string, unknown>;
-      } = { fromLabel: 'Back to Videos' };
-      if (options?.autoPlay) {
-        navigationOptions.state = { autoPlay: true };
-      }
-      navigateWithFrom(`/videos/${videoId}`, navigationOptions);
-    },
-    [navigateWithFrom, onOpenVideo]
+  const { uploading, uploadProgress, handleFilesSelected } = useVideoUpload(
+    setError,
+    setHasFetched
   );
 
-  const handlePlay = useCallback(
-    (video: VideoWithThumbnail) => {
-      handleNavigateToDetail(video.id, { autoPlay: true });
-    },
-    [handleNavigateToDetail]
-  );
-
-  const handleGetInfo = useCallback(
-    (video: VideoWithThumbnail) => {
-      handleNavigateToDetail(video.id);
-    },
-    [handleNavigateToDetail]
-  );
-
-  const handleDelete = useCallback(
-    async (videoToDelete: VideoWithThumbnail) => {
-      try {
-        const db = getDatabase();
-
-        // Soft delete
-        await db
-          .update(files)
-          .set({ deleted: true })
-          .where(eq(files.id, videoToDelete.id));
-
-        // Remove from list and revoke thumbnail URL
-        setVideos((prev) => {
-          const remaining = prev.filter((v) => v.id !== videoToDelete.id);
-          // Revoke the deleted video's thumbnail URL
-          if (videoToDelete.thumbnailUrl) {
-            URL.revokeObjectURL(videoToDelete.thumbnailUrl);
-          }
-          return remaining;
-        });
-      } catch (err) {
-        console.error('Failed to delete video:', err);
-        setError(err instanceof Error ? err.message : String(err));
-      }
-    },
-    []
-  );
+  const { handleNavigateToDetail, handlePlay, handleGetInfo, handleDelete } =
+    useVideoActions(setVideos, setError, onOpenVideo);
 
   return (
     <div className="flex h-full flex-col space-y-6">

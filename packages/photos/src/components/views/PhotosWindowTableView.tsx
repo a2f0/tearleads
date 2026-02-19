@@ -15,26 +15,16 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type PhotoWithUrl, usePhotosUIContext } from '../../context';
+import {
+  getPhotoTypeDisplay,
+  type PhotosWindowTableViewProps,
+  type SortColumn,
+  type SortDirection,
+  type SortHeaderProps
+} from './photosTableHelpers';
 
-type SortColumn = 'name' | 'size' | 'mimeType' | 'uploadDate';
-type SortDirection = 'asc' | 'desc';
-
-export interface PhotosWindowTableViewProps {
-  onSelectPhoto?: (photoId: string) => void;
-  refreshToken: number;
-  selectedAlbumId?: string | null;
-  onOpenAIChat?: () => void;
-  showDeleted?: boolean;
-  onUpload?: () => void;
-}
-
-interface SortHeaderProps {
-  column: SortColumn;
-  label: string;
-  currentColumn: SortColumn;
-  direction: SortDirection;
-  onClick: (column: SortColumn) => void;
-}
+// Re-export props type for backwards compatibility
+export type { PhotosWindowTableViewProps } from './photosTableHelpers';
 
 function SortHeader({
   column,
@@ -63,27 +53,6 @@ function SortHeader({
       )}
     </button>
   );
-}
-
-function getPhotoTypeDisplay(mimeType: string): string {
-  const typeMap: Record<string, string> = {
-    'image/jpeg': 'JPEG',
-    'image/png': 'PNG',
-    'image/gif': 'GIF',
-    'image/webp': 'WebP',
-    'image/heic': 'HEIC',
-    'image/heif': 'HEIF'
-  };
-
-  if (typeMap[mimeType]) {
-    return typeMap[mimeType];
-  }
-
-  const [, subtype] = mimeType.split('/');
-  if (subtype) {
-    return subtype.toUpperCase();
-  }
-  return 'Image';
 }
 
 export function PhotosWindowTableView({
