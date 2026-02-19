@@ -41,10 +41,4 @@ const createMockApi = () => {
   return { mockGetColumns, mockGetRows };
 };
 
-export {
-  buildColumnsResponse,
-  buildRowsResponse,
-  createMockApi,
-  defaultColumns,
-  defaultRowsResponse
-};
+export { buildColumnsResponse, buildRowsResponse, createMockApi };

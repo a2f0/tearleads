@@ -6,7 +6,7 @@ export const ROW_HEIGHT_ESTIMATE = 40;
 /**
  * Mobile breakpoint in pixels.
  */
-export const MOBILE_BREAKPOINT = 640;
+const MOBILE_BREAKPOINT = 640;
 
 /**
  * Checks if the current viewport is mobile-sized.

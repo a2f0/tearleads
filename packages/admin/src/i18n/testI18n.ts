@@ -23,5 +23,3 @@ if (!i18n.isInitialized) {
     console.error('Failed to initialize admin test i18n', error);
   });
 }
-
-export { i18n };
