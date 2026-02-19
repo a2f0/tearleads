@@ -19,7 +19,7 @@ appId: com.tearleads.app
     when:
       notVisible: "Files"
     commands:
-      - terminateApp
+      - stopApp
       - launchApp:
           clearState: false
       - extendedWaitUntil:
