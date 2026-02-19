@@ -10,6 +10,11 @@ if [ "$#" -ne 1 ]; then
   usage
 fi
 
+if ! command -v rg >/dev/null 2>&1; then
+  echo "Error: ripgrep (rg) is not installed. Please install it." >&2
+  exit 1
+fi
+
 mode="$1"
 
 collect_files() {
@@ -69,11 +74,9 @@ for path in "${files[@]}"; do
 
   case "$path" in
     *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs)
-      if rg -n "$import_pattern" "$path" >/dev/null; then
-        while IFS= read -r line; do
-          violations+=("$path:$line")
-        done < <(rg -n "$import_pattern" "$path")
-      fi
+      while IFS= read -r line; do
+        violations+=("$path:$line")
+      done < <(rg -n "$import_pattern" "$path" || true)
       ;;
   esac
 done
