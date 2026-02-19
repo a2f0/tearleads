@@ -904,9 +904,6 @@ importers:
       '@tearleads/classic':
         specifier: workspace:*
         version: link:../classic
-      '@tearleads/compliance':
-        specifier: workspace:*
-        version: link:../compliance
       '@tearleads/contacts':
         specifier: workspace:*
         version: link:../contacts
