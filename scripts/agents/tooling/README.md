@@ -55,6 +55,7 @@ Run `--help` for full action and option list:
 - `findDeferredWork` - Find deferred work comments
 - `listDeferredFixIssues` - List deferred-fix issues
 - `getIssue` - Fetch issue details by number
+- `runPreen` - Run stateful preen discovery (`aggressive` default, supports `--passive`)
 - `issueTemplate` - Print standard issue body template
 - `createIssue` - Create user-requested/deferred-fix issues with dedupe checks
 - `createPr` - Create (or return existing) pull request

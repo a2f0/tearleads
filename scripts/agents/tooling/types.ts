@@ -71,7 +71,8 @@ export interface GlobalOptions {
   dest?: string;
   branch?: string;
   state?: 'open' | 'merged' | 'closed' | 'all';
-  mode?: 'full' | 'single' | 'security' | 'audit';
+  mode?: 'aggressive' | 'full' | 'single' | 'security' | 'audit';
+  passive?: boolean;
   pollTimeout?: number;
   timeoutSeconds?: number;
   repoRoot?: string;

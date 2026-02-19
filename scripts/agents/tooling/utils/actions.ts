@@ -446,6 +446,9 @@ export function runDelegatedAction(
     if (options.mode) {
       args.push('--mode', options.mode);
     }
+    if (options.passive) {
+      args.push('--passive');
+    }
     if (options.dryRun) {
       args.push('--dry-run');
     }
