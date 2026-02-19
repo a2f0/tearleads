@@ -29,14 +29,18 @@ describe('locateWasmDir', () => {
 
   it('finds WASM directory from current package', () => {
     const wasmDir = locateWasmDir();
-    expect(wasmDir.replace(/\\/g, '/')).toMatch(/(sqlite-wasm|sqlite)$/);
+    expect(wasmDir.replace(/\\/g, '/')).toMatch(
+      /(sqlite-wasm|public\/sqlite)$/
+    );
     expect(wasmFilesExist(wasmDir)).toBe(true);
   });
 
   it('finds WASM directory from explicit start directory', () => {
     const startDir = path.resolve(__dirname, '../..');
     const wasmDir = locateWasmDir(startDir);
-    expect(wasmDir.replace(/\\/g, '/')).toMatch(/(sqlite-wasm|sqlite)$/);
+    expect(wasmDir.replace(/\\/g, '/')).toMatch(
+      /(sqlite-wasm|public\/sqlite)$/
+    );
   });
 
   it('throws when WASM files cannot be found', () => {
