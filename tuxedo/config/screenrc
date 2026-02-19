@@ -17,20 +17,18 @@ setenv COLORFGBG "15;0"
 #     export PATH="$TUXEDO_WORKSPACE/scripts:$TUXEDO_WORKSPACE/scripts/agents:$PATH"
 #   fi
 
-# Scrollback buffer - reduced to prevent memory issues with many workspaces
-defscrollback 5000
+# Scrollback buffer
+defscrollback 10000
 
-# Disable alternate screen mode.
-# This keeps full-screen app output visible to tmux/screen scrollback,
-# which restores expected selection and scroll behavior in tuxedo panes.
-# Trade-off: more scrollback retention can increase memory usage over time.
-# termcapinfo * ti@:te@
+# Disable alternate screen mode so scrollback works with mouse wheel
+# This keeps output visible in scrollback buffer
+termcapinfo xterm* ti@:te@
 
-# Disable screen's own visual bell and other UI that might interfere
+# Disable screen's own visual bell
 vbell off
 
-# Make screen not grab mouse events - let tmux handle them
-mousetrack off
+# Enable mouse tracking for region focus
+mousetrack on
 altscreen on
 
 # Region navigation (Shift+Left/Right passed through from tmux)
