@@ -51,6 +51,23 @@ variable "googleworkspace_groups" {
   default = {}
 }
 
+variable "googleworkspace_group_settings_overrides" {
+  description = "Optional per-group settings overrides keyed by group email"
+  type = map(object({
+    allow_external_members         = optional(bool)
+    allow_web_posting              = optional(bool)
+    include_in_global_address_list = optional(bool)
+    who_can_join                   = optional(string)
+    who_can_discover_group         = optional(string)
+    who_can_view_group             = optional(string)
+    who_can_view_membership        = optional(string)
+    who_can_post_message           = optional(string)
+    who_can_contact_owner          = optional(string)
+    who_can_leave_group            = optional(string)
+  }))
+  default = {}
+}
+
 check "impersonation_requires_service_account" {
   assert {
     condition = (
