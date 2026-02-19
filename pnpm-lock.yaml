@@ -925,6 +925,9 @@ importers:
       '@tearleads/notes':
         specifier: workspace:*
         version: link:../notes
+      '@tearleads/photos':
+        specifier: workspace:*
+        version: link:../photos
       '@tearleads/search':
         specifier: workspace:*
         version: link:../search
