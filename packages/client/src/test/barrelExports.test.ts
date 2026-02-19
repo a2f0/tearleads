@@ -106,7 +106,6 @@ import * as bottomSheet from '@/components/ui/bottom-sheet/index';
 import * as card from '@/components/ui/card/index';
 import * as contextMenu from '@/components/ui/context-menu/index';
 import * as editableTitle from '@/components/ui/editable-title/index';
-import * as gridSquare from '@/components/ui/grid-square/index';
 import * as schema from '@/db/schema/index';
 import * as i18n from '@/i18n/index';
 import * as translations from '@/i18n/translations';
@@ -161,8 +160,6 @@ describe('barrel exports', () => {
     expect(contextMenu.ContextMenuItem).toBeDefined();
 
     expect(editableTitle.EditableTitle).toBeDefined();
-
-    expect(gridSquare.GridSquare).toBeDefined();
 
     expect(pagesAdmin.Admin).toBeDefined();
     expect(pagesAdmin.PostgresAdmin).toBeDefined();

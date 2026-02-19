@@ -56,7 +56,6 @@ export default defineConfig({
         // Native secure storage requires Capacitor native biometric APIs
         'src/db/crypto/nativeSecureStorage.ts',
         // Barrel files that only re-export from other modules
-        // (footer.tsx re-exports Footer from @tearleads/ui package)
         'src/audio/index.ts',
         'src/components/contacts/column-mapper/index.ts',
         'src/components/sessions/index.ts',
@@ -80,8 +79,6 @@ export default defineConfig({
         'src/db/crypto/index.ts',
         'src/db/hooks/index.ts',
         'src/db/schema/index.ts',
-        'src/components/ui/footer.tsx',
-        'src/components/ui/grid-square/index.ts',
         'src/i18n/index.ts',
         'src/pages/admin/index.ts',
         'src/pages/analytics/index.ts',
