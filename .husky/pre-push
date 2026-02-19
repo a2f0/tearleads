@@ -30,6 +30,7 @@ run_step "checkFileLimits" ./scripts/preen/checkFileLimits.sh --from-upstream
 run_step "checkSentinelMarkdownLinks" ./scripts/preen/checkSentinelMarkdownLinks.sh --all
 run_step "checkBinaryFiles" ./scripts/checkBinaryFiles.sh --from-upstream
 run_step "checkJs" ./scripts/preen/checkJs.sh --from-upstream
+run_step "checkClientBoundary" ./scripts/preen/checkClientBoundary.sh --from-upstream
 run_step "checkPreenEcosystem" ./scripts/checkPreenEcosystem.sh --strict
 run_step "checkCircularImports" ./scripts/preen/checkCircularImports.ts
 run_step "checkGitHubActions" ./scripts/checkGithubActions.sh --from-upstream

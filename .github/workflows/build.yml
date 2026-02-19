@@ -196,6 +196,9 @@ jobs:
       - name: Check for plain JavaScript files
         run: ./scripts/preen/checkJs.sh --from-upstream
 
+      - name: Check client package boundary
+        run: ./scripts/preen/checkClientBoundary.sh --from-upstream
+
       - name: Check preen ecosystem parity
         run: ./scripts/checkPreenEcosystem.sh --strict
 

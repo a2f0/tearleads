@@ -20,14 +20,21 @@ elif [ ! -x "scripts/preen/checkJs.sh" ]; then
   errors+=("scripts/preen/checkJs.sh is not executable")
 fi
 
-# Check 3: Pre-commit hook exists and calls binary check
+# Check 3: Client boundary check script exists
+if [ ! -f "scripts/preen/checkClientBoundary.sh" ]; then
+  errors+=("Missing scripts/preen/checkClientBoundary.sh")
+elif [ ! -x "scripts/preen/checkClientBoundary.sh" ]; then
+  errors+=("scripts/preen/checkClientBoundary.sh is not executable")
+fi
+
+# Check 4: Pre-commit hook exists and calls binary check
 if [ ! -f ".husky/pre-commit" ]; then
   errors+=("Missing .husky/pre-commit hook")
 elif ! grep -q "checkBinaryFiles.sh --staged" ".husky/pre-commit"; then
   errors+=(".husky/pre-commit does not call checkBinaryFiles.sh --staged")
 fi
 
-# Check 4: Pre-push hook calls binary and JS checks
+# Check 5: Pre-push hook calls binary, JS, and client boundary checks
 if [ ! -f ".husky/pre-push" ]; then
   errors+=("Missing .husky/pre-push hook")
 else
@@ -37,9 +44,12 @@ else
   if ! grep -q "scripts/preen/checkJs.sh --from-upstream" ".husky/pre-push"; then
     errors+=(".husky/pre-push does not call scripts/preen/checkJs.sh --from-upstream")
   fi
+  if ! grep -q "scripts/preen/checkClientBoundary.sh --from-upstream" ".husky/pre-push"; then
+    errors+=(".husky/pre-push does not call scripts/preen/checkClientBoundary.sh --from-upstream")
+  fi
 fi
 
-# Check 5: CI workflow includes binary and JS checks
+# Check 6: CI workflow includes binary, JS, and client boundary checks
 if [ ! -f ".github/workflows/build.yml" ]; then
   errors+=("Missing .github/workflows/build.yml")
 else
@@ -49,9 +59,12 @@ else
   if ! grep -q "scripts/preen/checkJs.sh" ".github/workflows/build.yml"; then
     errors+=(".github/workflows/build.yml does not include plain JavaScript file check")
   fi
+  if ! grep -q "scripts/preen/checkClientBoundary.sh" ".github/workflows/build.yml"; then
+    errors+=(".github/workflows/build.yml does not include client boundary check")
+  fi
 fi
 
-# Check 6: Agent instructions include binary/JS policy
+# Check 7: Agent instructions include binary/JS policy
 for file in CLAUDE.md AGENTS.md; do
   if [ -f "$file" ]; then
     if ! grep -q "Binary Files Policy" "$file"; then
