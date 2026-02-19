@@ -2,7 +2,7 @@
  * Shared utility functions for database adapters.
  *
  * These are used by WasmNodeAdapter for Drizzle sqlite-proxy integration.
- * Extracted from packages/client/src/db/adapters/utils.ts.
+ * They are maintained locally to keep db-test-utils independent.
  */
 
 /**

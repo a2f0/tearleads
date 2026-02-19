@@ -1,6 +1,6 @@
-// Generated from packages/client/src/i18n/translations/en.ts (subset for admin tests).
+// Generated from the app translation source (subset for admin tests).
 // Regeneration process:
-// 1. Open packages/client/src/i18n/translations/en.ts.
+// 1. Open the canonical English translation source file.
 // 2. Copy the `common`, `contextMenu`, and `admin` namespaces into this file.
 // 3. Keep only keys required by admin tests and then run:
 //    pnpm --filter @tearleads/admin test

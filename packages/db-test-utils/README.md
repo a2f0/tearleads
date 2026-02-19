@@ -33,3 +33,8 @@ pnpm --filter @tearleads/db-test-utils test
 # Test with coverage
 pnpm --filter @tearleads/db-test-utils test:coverage
 ```
+
+## SQLite WASM Discovery
+
+`locateWasmDir` supports an explicit override via `TEARLEADS_SQLITE_WASM_DIR`.
+When unset, it falls back to workspace path discovery for known sqlite-wasm locations.

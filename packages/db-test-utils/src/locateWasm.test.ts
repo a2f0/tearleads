@@ -1,8 +1,32 @@
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { locateWasmDir, wasmFilesExist } from './locateWasm.js';
 
+const WASM_ENV_VAR = 'TEARLEADS_SQLITE_WASM_DIR';
+
+afterEach(() => {
+  delete process.env[WASM_ENV_VAR];
+});
+
 describe('locateWasmDir', () => {
+  it('prefers explicit env var path when valid', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'wasm-dir-'));
+    const sqliteDir = path.join(tempRoot, 'sqlite-wasm');
+    fs.mkdirSync(sqliteDir);
+    fs.writeFileSync(path.join(sqliteDir, 'sqlite3.js'), '');
+    fs.writeFileSync(path.join(sqliteDir, 'sqlite3.wasm'), '');
+
+    process.env[WASM_ENV_VAR] = sqliteDir;
+    const wasmDir = locateWasmDir('/tmp');
+
+    expect(wasmDir).toBe(sqliteDir);
+    expect(wasmFilesExist(wasmDir)).toBe(true);
+
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  });
+
   it('finds WASM directory from current package', () => {
     const wasmDir = locateWasmDir();
     expect(wasmDir.replace(/\\/g, '/')).toMatch(/sqlite-wasm$/);
