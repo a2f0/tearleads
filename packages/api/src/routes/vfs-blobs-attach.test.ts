@@ -454,6 +454,5 @@ describe('VFS routes (blobs attach)', () => {
       expect(mockQuery.mock.calls[3]?.[0]).toBe('ROLLBACK');
       expect(mockClientRelease).toHaveBeenCalledTimes(1);
     });
-
   });
 });
