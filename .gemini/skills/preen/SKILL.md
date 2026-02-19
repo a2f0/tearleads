@@ -56,6 +56,7 @@ If checks fail, STOP and sync before running preen:
 | `preen-docs-internationalization` | Translate and sync documentation across all supported languages |
 | `preen-window-consistency` | Normalize window components and standardize refresh patterns into window-manager |
 | `preen-file-limits` | Break down large files exceeding project size limits (500 lines or 20,000 bytes) |
+| `preen-knip` | Reduce knip findings by removing unused dependencies, exports, and files in coherent slices |
 
 ## Run Modes
 
@@ -97,6 +98,7 @@ CATEGORIES=(
   "preen-docs-internationalization"
   "preen-window-consistency"
   "preen-file-limits"
+  "preen-knip"
 )
 
 SECURITY_CATEGORIES=(
@@ -446,6 +448,9 @@ run_discovery() {
     preen-file-limits)
       ./scripts/preen/checkFileLimits.sh --all 2>&1 | head -40
       ;;
+    preen-knip)
+      pnpm exec knip --config knip.json --use-tsconfig-files --reporter compact | head -80 || true
+      ;;
   esac
 }
 
@@ -536,6 +541,20 @@ metric_count() {
       ;;
     preen-file-limits)
       ./scripts/preen/checkFileLimits.sh --all 2>&1 | grep "^  - " | wc -l
+      ;;
+    preen-knip)
+      KNIP_JSON=$(mktemp)
+      pnpm exec knip --config knip.json --use-tsconfig-files --reporter json > "$KNIP_JSON" 2>/dev/null || true
+      jq '[
+        .issues[]? |
+        (.dependencies // []),
+        (.devDependencies // []),
+        (.unlisted // []),
+        (.unresolved // []),
+        (.exports // []),
+        (.types // [])
+      ] | flatten | length' "$KNIP_JSON" 2>/dev/null
+      rm -f "$KNIP_JSON"
       ;;
     *)
       echo 0
@@ -662,6 +681,7 @@ Before opening a PR, record measurable improvement. Example metrics:
 - Missing or orphaned doc translations
 - Non-standardized window patterns (manual refresh, drag, resize)
 - Files exceeding size limits (500 lines or 20,000 bytes)
+- Knip finding count (dependencies + devDependencies + unlisted + unresolved + exports + types)
 
 Quality gate for the selected category:
 
@@ -712,6 +732,7 @@ PR_URL=$(gh pr create --repo "$REPO" --title "refactor(preen): stateful single-p
 - [ ] Documentation internationalization coverage
 - [ ] Window component consistency and refresh patterns
 - [ ] Large files exceeding project limits
+- [ ] Knip unused dependency/export cleanup
 
 ## Quality Delta
 - [x] Baseline metric captured for selected category
@@ -750,14 +771,6 @@ jq -nc \
   --arg branch "$BRANCH" \
   --arg pr "${PR_NUMBER:-}" \
   '{timestamp:$timestamp,mode:$mode,active_categories:$active,selected_category:$selected,selected_candidate:$candidate,baseline_count:$baseline,after_count:$after,delta:$delta,outcome:$outcome,branch:$branch,pr:$pr}' >> "$RUNS_FILE"
-```
-
-### 11. Refresh Workspace (Required)
-
-After PR merge is confirmed, always run refresh so the next task starts from a clean, current main workspace:
-
-```bash
-/refresh
 ```
 
 ## No-Changes and Audit Cases
@@ -879,7 +892,6 @@ Always regenerate from registry after structural changes:
 - In `security` mode, do not land more than one security fix total
 - In `audit` mode, do not make edits
 - Do not change runtime behavior unless fixing a bug
-- Do not introduce reverse-compatibility shims, compatibility re-export layers, or legacy alias packages; prefer direct imports and delete temporary compatibility code.
 - Do not introduce new `any`, unsafe casts, or `@ts-ignore`
 - Do not create empty PRs
 - Keep each fix focused and independently verifiable
