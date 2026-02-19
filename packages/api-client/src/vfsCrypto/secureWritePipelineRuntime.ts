@@ -1,5 +1,4 @@
 import type { VfsCryptoEngine } from './engine';
-import type { VfsWrappedKey } from './types';
 import type {
   EncryptCrdtOpInput,
   EncryptCrdtOpResult,
@@ -9,6 +8,7 @@ import type {
   UploadEncryptedBlobResult,
   VfsSecureWritePipeline
 } from './secureWritePipeline';
+import type { VfsWrappedKey } from './types';
 
 const DEFAULT_CHUNK_SIZE_BYTES = 4 * 1024 * 1024;
 const CRDT_BLOB_PREFIX = 'crdt-op';
@@ -18,7 +18,10 @@ export interface VfsSecureWritePipelineRuntimeOptions {
   chunkSizeBytes?: number;
   resolveKeyEpoch?: (itemId: string) => Promise<number> | number;
   listWrappedFileKeys?:
-    | ((input: { itemId: string; keyEpoch: number }) => Promise<VfsWrappedKey[]>)
+    | ((input: {
+        itemId: string;
+        keyEpoch: number;
+      }) => Promise<VfsWrappedKey[]>)
     | ((input: { itemId: string; keyEpoch: number }) => VfsWrappedKey[]);
   createUploadId?: () => string;
 }
@@ -118,8 +121,9 @@ class DefaultVfsSecureWritePipeline implements VfsSecureWritePipeline {
       chunkHashes,
       wrappedFileKeys
     };
-    const manifestSignature =
-      await this.engine.signManifest(manifestWithoutSignature);
+    const manifestSignature = await this.engine.signManifest(
+      manifestWithoutSignature
+    );
 
     return {
       manifest: {
