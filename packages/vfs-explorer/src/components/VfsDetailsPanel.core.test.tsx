@@ -2,7 +2,6 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DatabaseState } from '../context';
 
-// Mock the context
 const mockDatabaseState: DatabaseState = {
   isUnlocked: true,
   isLoading: false,
@@ -40,7 +39,6 @@ vi.mock('../context', () => ({
   })
 }));
 
-// Mock the hooks
 vi.mock('../hooks', () => ({
   useVfsFolderContents: vi.fn(),
   useVfsUnfiledItems: vi.fn(() => ({
@@ -80,17 +78,7 @@ vi.mock('../hooks', () => ({
   }))
 }));
 
-import {
-  ALL_ITEMS_FOLDER_ID,
-  TRASH_FOLDER_ID,
-  UNFILED_FOLDER_ID
-} from '../constants';
-import {
-  useVfsAllItems,
-  useVfsFolderContents,
-  useVfsTrashItems,
-  useVfsUnfiledItems
-} from '../hooks';
+import { useVfsFolderContents, useVfsUnfiledItems } from '../hooks';
 import { VfsDetailsPanel } from './VfsDetailsPanel';
 
 const mockItems = [
@@ -131,10 +119,9 @@ const mockItems = [
   }
 ];
 
-describe('VfsDetailsPanel', () => {
+describe('VfsDetailsPanel core behavior', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Reset database state to unlocked by default
     mockDatabaseState.isUnlocked = true;
     mockDatabaseState.isLoading = false;
     mockDatabaseState.currentInstanceId = 'test-instance';
@@ -290,109 +277,6 @@ describe('VfsDetailsPanel', () => {
     expect(onItemSelectionChange).toHaveBeenCalledWith(['2', '3'], '3');
   });
 
-  describe('unfiled items', () => {
-    it('shows unfiled items empty state', () => {
-      vi.mocked(useVfsUnfiledItems).mockReturnValue({
-        items: [],
-        loading: false,
-        error: null,
-        hasFetched: true,
-        refetch: vi.fn()
-      });
-      render(<VfsDetailsPanel folderId={UNFILED_FOLDER_ID} />);
-      expect(screen.getByText('No unfiled items')).toBeInTheDocument();
-      expect(
-        screen.getByText('Uploaded files will appear here until organized')
-      ).toBeInTheDocument();
-    });
-
-    it('shows loading state for unfiled items', () => {
-      vi.mocked(useVfsUnfiledItems).mockReturnValue({
-        items: [],
-        loading: true,
-        error: null,
-        hasFetched: false,
-        refetch: vi.fn()
-      });
-      render(<VfsDetailsPanel folderId={UNFILED_FOLDER_ID} />);
-      expect(screen.queryByText('No unfiled items')).not.toBeInTheDocument();
-    });
-
-    it('shows error state for unfiled items', () => {
-      vi.mocked(useVfsUnfiledItems).mockReturnValue({
-        items: [],
-        loading: false,
-        error: 'Failed to load unfiled items',
-        hasFetched: true,
-        refetch: vi.fn()
-      });
-      render(<VfsDetailsPanel folderId={UNFILED_FOLDER_ID} />);
-      expect(
-        screen.getByText('Failed to load unfiled items')
-      ).toBeInTheDocument();
-    });
-
-    it('shows unfiled items in list', () => {
-      vi.mocked(useVfsUnfiledItems).mockReturnValue({
-        items: [
-          {
-            id: 'unfiled-1',
-            objectType: 'file',
-            name: 'unfiled-document.pdf',
-            createdAt: new Date('2024-01-10')
-          }
-        ],
-        loading: false,
-        error: null,
-        hasFetched: true,
-        refetch: vi.fn()
-      });
-      render(<VfsDetailsPanel folderId={UNFILED_FOLDER_ID} />);
-      expect(screen.getByText('unfiled-document.pdf')).toBeInTheDocument();
-      expect(screen.getByText('1 item')).toBeInTheDocument();
-    });
-
-    it('calls refetch when refreshToken changes', () => {
-      const mockRefetch = vi.fn();
-      vi.mocked(useVfsUnfiledItems).mockReturnValue({
-        items: [],
-        loading: false,
-        error: null,
-        hasFetched: true,
-        refetch: mockRefetch
-      });
-
-      const { rerender } = render(
-        <VfsDetailsPanel folderId={UNFILED_FOLDER_ID} refreshToken={0} />
-      );
-
-      expect(mockRefetch).not.toHaveBeenCalled();
-
-      rerender(
-        <VfsDetailsPanel folderId={UNFILED_FOLDER_ID} refreshToken={1} />
-      );
-
-      expect(mockRefetch).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe('trash items', () => {
-    it('shows trash empty state', () => {
-      vi.mocked(useVfsTrashItems).mockReturnValue({
-        items: [],
-        loading: false,
-        error: null,
-        hasFetched: true,
-        refetch: vi.fn()
-      });
-      render(<VfsDetailsPanel folderId={TRASH_FOLDER_ID} />);
-      expect(screen.getByText('Trash is empty')).toBeInTheDocument();
-      expect(
-        screen.getByText('Items marked for deletion will appear here')
-      ).toBeInTheDocument();
-    });
-  });
-
   it('calls folder contents refetch when refreshToken changes', () => {
     const mockRefetch = vi.fn();
     vi.mocked(useVfsFolderContents).mockReturnValue({
@@ -412,91 +296,5 @@ describe('VfsDetailsPanel', () => {
     rerender(<VfsDetailsPanel folderId="folder-1" refreshToken={1} />);
 
     expect(mockRefetch).toHaveBeenCalledTimes(1);
-  });
-
-  describe('all items', () => {
-    it('shows all items empty state', () => {
-      vi.mocked(useVfsAllItems).mockReturnValue({
-        items: [],
-        loading: false,
-        error: null,
-        hasFetched: true,
-        refetch: vi.fn()
-      });
-      render(<VfsDetailsPanel folderId={ALL_ITEMS_FOLDER_ID} />);
-      expect(screen.getByText('No items in registry')).toBeInTheDocument();
-      expect(
-        screen.getByText('Upload files to get started')
-      ).toBeInTheDocument();
-    });
-
-    it('shows loading state for all items', () => {
-      vi.mocked(useVfsAllItems).mockReturnValue({
-        items: [],
-        loading: true,
-        error: null,
-        hasFetched: false,
-        refetch: vi.fn()
-      });
-      render(<VfsDetailsPanel folderId={ALL_ITEMS_FOLDER_ID} />);
-      expect(
-        screen.queryByText('No items in registry')
-      ).not.toBeInTheDocument();
-    });
-
-    it('shows error state for all items', () => {
-      vi.mocked(useVfsAllItems).mockReturnValue({
-        items: [],
-        loading: false,
-        error: 'Failed to load all items',
-        hasFetched: true,
-        refetch: vi.fn()
-      });
-      render(<VfsDetailsPanel folderId={ALL_ITEMS_FOLDER_ID} />);
-      expect(screen.getByText('Failed to load all items')).toBeInTheDocument();
-    });
-
-    it('shows all items in list', () => {
-      vi.mocked(useVfsAllItems).mockReturnValue({
-        items: [
-          {
-            id: 'item-1',
-            objectType: 'file',
-            name: 'all-document.pdf',
-            createdAt: new Date('2024-01-10')
-          }
-        ],
-        loading: false,
-        error: null,
-        hasFetched: true,
-        refetch: vi.fn()
-      });
-      render(<VfsDetailsPanel folderId={ALL_ITEMS_FOLDER_ID} />);
-      expect(screen.getByText('all-document.pdf')).toBeInTheDocument();
-      expect(screen.getByText('1 item')).toBeInTheDocument();
-    });
-
-    it('calls refetch when refreshToken changes', () => {
-      const mockRefetch = vi.fn();
-      vi.mocked(useVfsAllItems).mockReturnValue({
-        items: [],
-        loading: false,
-        error: null,
-        hasFetched: true,
-        refetch: mockRefetch
-      });
-
-      const { rerender } = render(
-        <VfsDetailsPanel folderId={ALL_ITEMS_FOLDER_ID} refreshToken={0} />
-      );
-
-      expect(mockRefetch).not.toHaveBeenCalled();
-
-      rerender(
-        <VfsDetailsPanel folderId={ALL_ITEMS_FOLDER_ID} refreshToken={1} />
-      );
-
-      expect(mockRefetch).toHaveBeenCalledTimes(1);
-    });
   });
 });
