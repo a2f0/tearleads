@@ -919,9 +919,6 @@ importers:
       '@tearleads/health':
         specifier: workspace:*
         version: link:../health
-      '@tearleads/help':
-        specifier: workspace:*
-        version: link:../help
       '@tearleads/local-write-orchestrator':
         specifier: workspace:*
         version: link:../local-write-orchestrator
