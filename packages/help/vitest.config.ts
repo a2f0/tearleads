@@ -2,12 +2,12 @@ import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 import { dirname, resolve } from 'node:path';
-import { createAppConfigPlugin } from '../client/vite-plugin-app-config';
+import { createAppConfigPlugin } from '../app-builder/src/vite/createAppConfigPlugin';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Initialize app config plugin for virtual module support in tests
-const { plugin: appConfigPlugin } = createAppConfigPlugin(resolve(__dirname, '../client'));
+const { plugin: appConfigPlugin } = createAppConfigPlugin(__dirname);
 
 export default defineConfig({
   plugins: [appConfigPlugin, react()],
