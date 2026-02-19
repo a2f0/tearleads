@@ -117,4 +117,113 @@ describe('VfsBackgroundSyncClient guardrail telemetry signatures', () => {
       'flush:staleWriteRecoveryExhausted'
     ]);
   });
+
+  it('emits deterministic pull duplicate-replay guardrail signatures', async () => {
+    let pullCalls = 0;
+    const guardrailCollector = createGuardrailViolationCollector();
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({ results: [] }),
+      pullOperations: async () => {
+        pullCalls += 1;
+        if (pullCalls === 1) {
+          return {
+            items: [
+              buildAclAddSyncItem({
+                opId: 'desktop-dup',
+                occurredAt: '2026-02-16T02:10:00.000Z'
+              })
+            ],
+            hasMore: true,
+            nextCursor: {
+              changedAt: '2026-02-16T02:10:00.000Z',
+              changeId: 'desktop-dup'
+            },
+            lastReconciledWriteIds: {
+              desktop: 1
+            }
+          };
+        }
+
+        return {
+          items: [
+            buildAclAddSyncItem({
+              opId: 'desktop-dup',
+              occurredAt: '2026-02-16T02:10:01.000Z'
+            })
+          ],
+          hasMore: false,
+          nextCursor: {
+            changedAt: '2026-02-16T02:10:01.000Z',
+            changeId: 'desktop-dup'
+          },
+          lastReconciledWriteIds: {
+            desktop: 2
+          }
+        };
+      }
+    };
+
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport, {
+      onGuardrailViolation: guardrailCollector.onGuardrailViolation
+    });
+
+    await expect(client.sync()).rejects.toThrowError(
+      /transport replayed opId desktop-dup during pull pagination/
+    );
+    expect(toStageCodeSignatures(guardrailCollector.violations)).toEqual([
+      'pull:pullDuplicateOpReplay'
+    ]);
+  });
+
+  it('emits deterministic pull cursor-regression guardrail signatures', async () => {
+    let pullCalls = 0;
+    const guardrailCollector = createGuardrailViolationCollector();
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({ results: [] }),
+      pullOperations: async () => {
+        pullCalls += 1;
+        if (pullCalls === 1) {
+          return {
+            items: [
+              buildAclAddSyncItem({
+                opId: 'desktop-1',
+                occurredAt: '2026-02-16T02:11:00.000Z'
+              })
+            ],
+            hasMore: true,
+            nextCursor: {
+              changedAt: '2026-02-16T02:11:00.000Z',
+              changeId: 'desktop-1'
+            },
+            lastReconciledWriteIds: {
+              desktop: 1
+            }
+          };
+        }
+
+        return {
+          items: [],
+          hasMore: false,
+          nextCursor: {
+            changedAt: '2026-02-16T02:10:59.000Z',
+            changeId: 'desktop-stale'
+          },
+          lastReconciledWriteIds: {
+            desktop: 1
+          }
+        };
+      }
+    };
+
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport, {
+      onGuardrailViolation: guardrailCollector.onGuardrailViolation
+    });
+
+    await expect(client.sync()).rejects.toThrowError(
+      /transport returned regressing sync cursor/
+    );
+    expect(toStageCodeSignatures(guardrailCollector.violations)).toEqual([
+      'pull:pullCursorRegression'
+    ]);
+  });
 });
