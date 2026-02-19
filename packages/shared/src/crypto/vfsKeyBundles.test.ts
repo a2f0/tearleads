@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { generateKeyPair, serializeKeyPair, splitPublicKey } from './asymmetric.js';
+import {
+  generateKeyPair,
+  serializeKeyPair,
+  splitPublicKey
+} from './asymmetric.js';
 import {
   buildVfsPublicEncryptionKey,
   decryptVfsPrivateKeysWithPassword,

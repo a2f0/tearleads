@@ -1,3 +1,4 @@
+import type { VfsKeySetupRequest } from '@tearleads/shared';
 import {
   buildVfsPublicEncryptionKey,
   decryptVfsPrivateKeysWithPassword,
@@ -7,7 +8,6 @@ import {
   serializeKeyPair,
   type VfsKeyPair
 } from '@tearleads/shared';
-import type { VfsKeySetupRequest } from '@tearleads/shared';
 
 function assertNonEmptyPassword(password: string): void {
   if (password.trim().length === 0) {

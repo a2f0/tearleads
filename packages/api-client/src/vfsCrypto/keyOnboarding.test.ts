@@ -18,7 +18,9 @@ describe('vfs key onboarding', () => {
       splitPublic
     );
 
-    expect(combinePublicKey(splitPublic)).toBe(bundle.setupPayload.publicEncryptionKey);
+    expect(combinePublicKey(splitPublic)).toBe(
+      bundle.setupPayload.publicEncryptionKey
+    );
     expect(decrypted.x25519PublicKey).toEqual(bundle.keyPair.x25519PublicKey);
     expect(decrypted.mlKemPublicKey).toEqual(bundle.keyPair.mlKemPublicKey);
     expect(decrypted.x25519PrivateKey).toEqual(bundle.keyPair.x25519PrivateKey);

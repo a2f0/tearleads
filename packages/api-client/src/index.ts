@@ -1,5 +1,5 @@
 export * from './api';
-export type * from './vfsCrypto';
 export * from './vfsBlobNetworkFlusher';
+export type * from './vfsCrypto';
 export * from './vfsNetworkFlusher';
 export * from './vfsWriteOrchestrator';

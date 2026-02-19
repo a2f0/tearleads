@@ -1,8 +1,8 @@
 import {
   combinePublicKey,
   deserializeKeyPair,
-  serializeKeyPair,
   type SerializedKeyPair,
+  serializeKeyPair,
   type VfsKeyPair
 } from './asymmetric.js';
 import {

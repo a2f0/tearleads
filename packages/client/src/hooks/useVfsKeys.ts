@@ -64,7 +64,10 @@ async function encryptPrivateKeys(
     throw new Error('Database is not unlocked');
   }
 
-  const bundle = await encryptVfsPrivateKeysWithRawKey(serializedKeyPair, dbKey);
+  const bundle = await encryptVfsPrivateKeysWithRawKey(
+    serializedKeyPair,
+    dbKey
+  );
   return {
     encryptedBlob: bundle.encryptedPrivateKeys,
     argon2Salt: bundle.argon2Salt

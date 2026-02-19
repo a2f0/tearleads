@@ -1,4 +1,7 @@
-import type { VfsKeySetupRequest, VfsUserKeysResponse } from '@tearleads/shared';
+import type {
+  VfsKeySetupRequest,
+  VfsUserKeysResponse
+} from '@tearleads/shared';
 import { splitPublicKey } from '@tearleads/shared';
 import {
   createVfsOnboardingKeyBundle,

@@ -22,7 +22,9 @@ export interface EncryptCrdtOpResult {
 }
 
 export interface VfsSecureWritePipeline {
-  uploadEncryptedBlob(input: UploadEncryptedBlobInput): Promise<EncryptedManifest>;
+  uploadEncryptedBlob(
+    input: UploadEncryptedBlobInput
+  ): Promise<EncryptedManifest>;
   encryptCrdtOp(input: EncryptCrdtOpInput): Promise<EncryptCrdtOpResult>;
 }
 

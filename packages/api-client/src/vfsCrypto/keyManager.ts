@@ -1,10 +1,4 @@
-import type {
-  Base64,
-  Epoch,
-  ItemId,
-  UserId,
-  VfsWrappedKey
-} from './types';
+import type { Base64, Epoch, ItemId, UserId, VfsWrappedKey } from './types';
 
 export interface VfsKeySetupPayload {
   publicEncryptionKey: Base64;

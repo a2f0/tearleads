@@ -1,9 +1,9 @@
 import {
   combineEncapsulation,
   deserializePublicKey,
-  wrapKeyForRecipient,
   type VfsObjectType,
-  type VfsRegisterResponse
+  type VfsRegisterResponse,
+  wrapKeyForRecipient
 } from '@tearleads/shared';
 import { api } from '../apiClient';
 import {
