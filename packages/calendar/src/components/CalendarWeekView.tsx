@@ -2,7 +2,7 @@ import { clsx } from 'clsx';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import { calendarLocale } from '../constants';
 
-export interface CalendarWeekViewProps {
+interface CalendarWeekViewProps {
   weekDates: Date[];
   selectedDate: Date;
   eventCountByDay: Map<string, number>;
