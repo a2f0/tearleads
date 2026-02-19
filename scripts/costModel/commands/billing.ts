@@ -42,14 +42,12 @@ export async function runBillingSummary(): Promise<void> {
   const aiUsage = await queries.getAiUsageSummary(startOfMonth, endOfMonth);
 
   if (aiUsage.length > 0) {
-    const totalTokens = aiUsage.reduce(
-      (sum, u) => sum + Number(u.totalTokens),
-      0
-    );
-    const totalRequests = aiUsage.reduce(
-      (sum, u) => sum + Number(u.requestCount),
-      0
-    );
+    let totalTokens = 0;
+    let totalRequests = 0;
+    for (const usage of aiUsage) {
+      totalTokens += Number(usage.totalTokens);
+      totalRequests += Number(usage.requestCount);
+    }
     console.log(
       `\nAI Usage (${now.toLocaleString('default', { month: 'long' })}):`
     );

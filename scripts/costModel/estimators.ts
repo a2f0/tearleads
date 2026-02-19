@@ -40,6 +40,13 @@ function toDiskSizeGb(value: unknown): number {
   return DEFAULTS.azure.disk_size_gb;
 }
 
+function getValueOrDefault(
+  rawValue: string | undefined,
+  defaultValue: string
+): string {
+  return rawValue?.startsWith('var.') ? defaultValue : rawValue || defaultValue;
+}
+
 /**
  * Calculate cost for a single resource
  */
@@ -62,18 +69,13 @@ function calculateResourceCost(
     const rawServerType = toStringValue(attributes.server_type);
     const rawLocation = toStringValue(attributes.location);
 
-    sku = rawServerType?.startsWith('var.')
-      ? DEFAULTS.hetzner.server_type
-      : rawServerType || DEFAULTS.hetzner.server_type;
-
-    location = rawLocation?.startsWith('var.')
-      ? DEFAULTS.hetzner.server_location
-      : rawLocation || DEFAULTS.hetzner.server_location;
+    sku = getValueOrDefault(rawServerType, DEFAULTS.hetzner.server_type);
+    location = getValueOrDefault(rawLocation, DEFAULTS.hetzner.server_location);
 
     const computeCost = getHetznerServerCost(sku, location);
     if (computeCost !== null) {
       breakdown.compute = computeCost;
-      monthlyCostUsd = computeCost;
+      monthlyCostUsd += computeCost;
     }
   } else if (resourceType === 'azurerm_linux_virtual_machine') {
     provider = 'azure';
@@ -83,13 +85,8 @@ function calculateResourceCost(
     const rawLocation = toStringValue(attributes.location);
     const diskSizeGb = toDiskSizeGb(attributes.disk_size_gb);
 
-    sku = rawSize?.startsWith('var.')
-      ? DEFAULTS.azure.vm_size
-      : rawSize || DEFAULTS.azure.vm_size;
-
-    location = rawLocation?.startsWith('var.')
-      ? DEFAULTS.azure.azure_location
-      : rawLocation || DEFAULTS.azure.azure_location;
+    sku = getValueOrDefault(rawSize, DEFAULTS.azure.vm_size);
+    location = getValueOrDefault(rawLocation, DEFAULTS.azure.azure_location);
 
     const computeCost = getAzureVmCost(sku, location);
     if (computeCost !== null) {
