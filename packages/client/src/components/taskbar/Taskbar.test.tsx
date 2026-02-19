@@ -103,7 +103,7 @@ describe('Taskbar', () => {
     const secondButton = screen.getAllByTestId(/taskbar-button/)[1];
     if (secondButton) await user.click(secondButton);
 
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('notes-2');
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('notes-2', undefined);
   });
 
   it('calls restoreWindow when minimized window button is clicked', async () => {

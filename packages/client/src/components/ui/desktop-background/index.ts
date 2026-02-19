@@ -1,1 +1,0 @@
-export { DesktopBackground } from './DesktopBackground';

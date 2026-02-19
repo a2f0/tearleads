@@ -1,4 +1,9 @@
 export {
+  DesktopBackground,
+  type DesktopBackgroundPattern,
+  type DesktopBackgroundProps
+} from './DesktopBackground.js';
+export {
   DESKTOP_CONTEXT_MENU_OVERLAY_Z_INDEX,
   DESKTOP_CONTEXT_MENU_Z_INDEX,
   DesktopContextMenu,
@@ -14,6 +19,27 @@ export {
   DesktopFloatingWindow,
   type DesktopFloatingWindowProps
 } from './DesktopFloatingWindow.js';
+export {
+  DesktopStartBar,
+  type DesktopStartBarProps
+} from './DesktopStartBar.js';
+export {
+  DesktopStartButton,
+  type DesktopStartButtonProps
+} from './DesktopStartButton.js';
+export {
+  DesktopSystemTray,
+  type DesktopSystemTrayProps
+} from './DesktopSystemTray.js';
+export {
+  DesktopTaskbar,
+  type DesktopTaskbarProps,
+  type DesktopTaskbarWindow
+} from './DesktopTaskbar.js';
+export {
+  DesktopTaskbarButton,
+  type DesktopTaskbarButtonProps
+} from './DesktopTaskbarButton.js';
 export {
   FloatingWindow,
   type FloatingWindowProps,
