@@ -1,6 +1,6 @@
 import { Button, Input } from '@tearleads/ui';
 import { type FormEvent, useCallback, useState } from 'react';
-import { useDatabaseContext } from '@/db/hooks';
+import { useDatabaseContext } from './analyticsRuntime';
 
 interface AnalyticsInlineUnlockProps {
   description?: string;

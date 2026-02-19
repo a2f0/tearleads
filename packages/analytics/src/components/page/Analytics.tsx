@@ -1,19 +1,19 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { exportTableAsCsv } from '@/components/sqlite/exportTableCsv';
-import { getDatabase } from '@/db';
-import {
-  clearEvents,
-  getDistinctEventTypes,
-  getEventCount,
-  getEventStats,
-  getEvents
-} from '@/db/analytics';
-import { useDatabaseContext } from '@/db/hooks';
 import { AnalyticsEventsPanel } from './AnalyticsEventsPanel';
 import { AnalyticsFiltersSummaryPanel } from './AnalyticsFiltersSummaryPanel';
 import { AnalyticsInlineUnlock } from './AnalyticsInlineUnlock';
 import { AnalyticsPageHeader } from './AnalyticsPageHeader';
+import {
+  clearEvents,
+  exportTableAsCsv,
+  getDatabase,
+  getDistinctEventTypes,
+  getEventCount,
+  getEventStats,
+  getEvents,
+  useDatabaseContext
+} from './analyticsRuntime';
 import type {
   AnalyticsEvent,
   EventStats,
