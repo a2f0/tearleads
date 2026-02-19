@@ -244,4 +244,125 @@ describe('secureWritePipelineRuntime', () => {
     expect(result.encryptedOp.length).toBeGreaterThan(0);
     expect(result.opSignature.length).toBeGreaterThan(0);
   });
+
+  it('throws error for invalid chunkSizeBytes', () => {
+    expect(() =>
+      createVfsSecureWritePipeline({
+        engine: {
+          encryptChunk: vi.fn(),
+          decryptChunk: vi.fn(),
+          signManifest: vi.fn(),
+          verifyManifest: vi.fn()
+        },
+        chunkSizeBytes: 0
+      })
+    ).toThrow('chunkSizeBytes must be a positive integer');
+
+    expect(() =>
+      createVfsSecureWritePipeline({
+        engine: {
+          encryptChunk: vi.fn(),
+          decryptChunk: vi.fn(),
+          signManifest: vi.fn(),
+          verifyManifest: vi.fn()
+        },
+        chunkSizeBytes: -1
+      })
+    ).toThrow('chunkSizeBytes must be a positive integer');
+
+    expect(() =>
+      createVfsSecureWritePipeline({
+        engine: {
+          encryptChunk: vi.fn(),
+          decryptChunk: vi.fn(),
+          signManifest: vi.fn(),
+          verifyManifest: vi.fn()
+        },
+        chunkSizeBytes: 1.5
+      })
+    ).toThrow('chunkSizeBytes must be a positive integer');
+  });
+
+  it('throws error for invalid keyEpoch from resolver', async () => {
+    const pipeline = createVfsSecureWritePipeline({
+      engine: {
+        encryptChunk: vi.fn(),
+        decryptChunk: vi.fn(),
+        signManifest: vi.fn(),
+        verifyManifest: vi.fn()
+      },
+      resolveKeyEpoch: () => 0
+    });
+
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.close();
+      }
+    });
+
+    await expect(
+      pipeline.uploadEncryptedBlob({
+        itemId: 'item-1',
+        blobId: 'blob-1',
+        stream
+      })
+    ).rejects.toThrow('keyEpoch must be a positive integer');
+  });
+
+  it('generates unique uploadId when createUploadId not provided', async () => {
+    const encryptChunk = vi.fn(
+      async ({
+        chunkIndex,
+        isFinal,
+        plaintext
+      }: {
+        chunkIndex: number;
+        isFinal: boolean;
+        plaintext: Uint8Array;
+      }) => ({
+        chunkIndex,
+        isFinal,
+        nonce: 'nonce',
+        aadHash: 'aad',
+        ciphertext: plaintext,
+        plaintextLength: plaintext.length,
+        ciphertextLength: plaintext.length
+      })
+    );
+
+    const pipeline = createVfsSecureWritePipeline({
+      engine: {
+        encryptChunk,
+        decryptChunk: vi.fn(),
+        signManifest: vi.fn(async () => 'sig'),
+        verifyManifest: vi.fn()
+      }
+    });
+
+    const stream1 = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.close();
+      }
+    });
+    const stream2 = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.close();
+      }
+    });
+
+    const result1 = await pipeline.uploadEncryptedBlob({
+      itemId: 'item-1',
+      blobId: 'blob-1',
+      stream: stream1
+    });
+    const result2 = await pipeline.uploadEncryptedBlob({
+      itemId: 'item-2',
+      blobId: 'blob-2',
+      stream: stream2
+    });
+
+    expect(result1.uploadId).toBeTruthy();
+    expect(result2.uploadId).toBeTruthy();
+    expect(result1.uploadId).not.toBe(result2.uploadId);
+  });
 });
