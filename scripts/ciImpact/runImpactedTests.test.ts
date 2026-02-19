@@ -71,6 +71,19 @@ test('runImpactedTests skips impacted tests for ignored health vitest config edi
   );
 });
 
+test('runImpactedTests ignores exact-ignored files when computing targets', () => {
+  const result = runImpactedTests([
+    '--files',
+    'packages/health/vitest.config.ts',
+    '--dry-run',
+    '--print-targets-json'
+  ]);
+  assert.equal(result.status, 0, stderrText(result));
+  const parsed = JSON.parse(stdoutText(result));
+  assert.deepEqual(Reflect.get(parsed, 'targets'), []);
+  assert.equal(Reflect.get(parsed, 'hasMaterialChanges'), false);
+});
+
 test('runImpactedTests dry-run includes contacts coverage when contacts changes', () => {
   const result = runImpactedTests([
     '--files',
