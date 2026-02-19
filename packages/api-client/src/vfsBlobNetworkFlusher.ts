@@ -9,8 +9,8 @@ import {
   normalizeAttachConsistency,
   normalizeBaseUrl,
   normalizeIsoTimestamp,
-  normalizeStageEncryptionMetadata,
   normalizeRequiredString,
+  normalizeStageEncryptionMetadata,
   parseErrorMessage
 } from './vfsBlobNetworkFlusherHelpers';
 import type {

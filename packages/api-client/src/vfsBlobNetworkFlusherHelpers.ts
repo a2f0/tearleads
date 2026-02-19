@@ -1,9 +1,9 @@
 import type { VfsCrdtLastReconciledWriteIds } from '@tearleads/vfs-sync/vfs';
 import type {
   VfsBlobAttachConsistency,
-  VfsBlobStageEncryptionMetadata,
   VfsBlobNetworkOperation,
-  VfsBlobRelationKind
+  VfsBlobRelationKind,
+  VfsBlobStageEncryptionMetadata
 } from './vfsBlobNetworkFlusherTypes';
 
 export { fetchWithAuthRefresh } from './vfsAuthFetch';
