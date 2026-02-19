@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { continueCommand, executeCommand } from './commandExecutor';
-import { parseCommand } from './commandParser';
 import { createCommandExecutorTestContext } from './commandExecutor.testSupport';
+import { parseCommand } from './commandParser';
 import type { PendingCommand } from './types';
 
 describe('command-executor password flow', () => {
@@ -113,7 +113,10 @@ describe('command-executor password flow', () => {
         context.utilities
       );
 
-      expect(context.db.changePassword).toHaveBeenCalledWith('oldpass', 'newpass');
+      expect(context.db.changePassword).toHaveBeenCalledWith(
+        'oldpass',
+        'newpass'
+      );
       expect(context.terminal.appendLine).toHaveBeenCalledWith(
         'Password changed successfully.',
         'success'

@@ -1,9 +1,9 @@
-import type { PendingCommand, ParsedCommand } from './types';
 import type {
   DatabaseOperations,
   TerminalControl,
   TerminalUtilities
 } from './commandExecutorTypes';
+import type { ParsedCommand, PendingCommand } from './types';
 
 export async function startSetup(
   db: DatabaseOperations,

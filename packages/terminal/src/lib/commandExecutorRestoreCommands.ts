@@ -1,10 +1,10 @@
-import type { PendingCommand, ParsedCommand } from './types';
 import type {
   DatabaseOperations,
   FilePicker,
   TerminalControl,
   TerminalUtilities
 } from './commandExecutorTypes';
+import type { ParsedCommand, PendingCommand } from './types';
 
 export async function startRestore(
   command: ParsedCommand,

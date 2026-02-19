@@ -51,7 +51,9 @@ export function createCommandExecutorTestContext(): CommandExecutorTestContext {
     getErrorMessage: (error) =>
       error instanceof Error ? error.message : String(error),
     generateBackupFilename: vi.fn(() => 'tearleads-backup.db'),
-    readFileAsUint8Array: vi.fn(() => Promise.resolve(new Uint8Array([1, 2, 3]))),
+    readFileAsUint8Array: vi.fn(() =>
+      Promise.resolve(new Uint8Array([1, 2, 3]))
+    ),
     saveFile: vi.fn(() => Promise.resolve())
   };
 

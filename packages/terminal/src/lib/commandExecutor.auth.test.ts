@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { continueCommand, executeCommand } from './commandExecutor';
-import { parseCommand } from './commandParser';
 import { createCommandExecutorTestContext } from './commandExecutor.testSupport';
+import { parseCommand } from './commandParser';
 import type { PendingCommand } from './types';
 
 describe('command-executor setup/unlock/lock flows', () => {

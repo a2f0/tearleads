@@ -3,7 +3,6 @@
  * Orchestrates command flows using DatabaseContext operations.
  */
 
-import type { ParsedCommand, PendingCommand } from './types';
 import {
   continuePassword,
   continueSetup,
@@ -30,6 +29,7 @@ import type {
   TerminalControl,
   TerminalUtilities
 } from './commandExecutorTypes';
+import type { ParsedCommand, PendingCommand } from './types';
 
 export type {
   DatabaseOperations,

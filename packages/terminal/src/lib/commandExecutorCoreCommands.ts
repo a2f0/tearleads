@@ -1,10 +1,10 @@
-import type { ParsedCommand } from './types';
-import { COMMAND_HELP, VALID_COMMANDS } from './types';
 import type {
   DatabaseOperations,
   TerminalControl,
   TerminalUtilities
 } from './commandExecutorTypes';
+import type { ParsedCommand } from './types';
+import { COMMAND_HELP, VALID_COMMANDS } from './types';
 
 export function executeHelp(
   command: ParsedCommand,

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { executeCommand } from './commandExecutor';
-import { parseCommand } from './commandParser';
 import { createCommandExecutorTestContext } from './commandExecutor.testSupport';
+import { parseCommand } from './commandParser';
 
 describe('command-executor backup and restore', () => {
   const setupContext = () => createCommandExecutorTestContext();
