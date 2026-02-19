@@ -76,6 +76,12 @@ done
 ZIP_ARGS=(-r)
 if [[ -n "$PASSWORD" ]]; then
   ZIP_ARGS+=(-P "$PASSWORD")
+elif [[ -t 0 && -t 1 ]]; then
+  ZIP_ARGS+=(-e)
+else
+  echo "backupSharedData: encryption password required in non-interactive mode." >&2
+  echo "Use --password <password> or run interactively to enter a password prompt." >&2
+  exit 1
 fi
 
 zip "${ZIP_ARGS[@]}" "$ARCHIVE_PATH" "${SOURCE_DIRS[@]}" >/dev/null
