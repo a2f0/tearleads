@@ -11,16 +11,7 @@ source "$REPO_ROOT/terraform/scripts/common.sh"
 BACKEND_CONFIG="$(get_backend_config)"
 
 validate_aws_env
-
-if [[ -z "${TF_VAR_tailscale_tailnet_id:-}" ]]; then
-  echo "ERROR: TF_VAR_tailscale_tailnet_id is required" >&2
-  exit 1
-fi
-
-if [[ -z "${TF_VAR_tailscale_api_token:-}" ]]; then
-  echo "ERROR: TF_VAR_tailscale_api_token is required" >&2
-  exit 1
-fi
+validate_tailscale_env
 
 terraform -chdir="$STACK_DIR" init \
   -backend-config="$BACKEND_CONFIG" \

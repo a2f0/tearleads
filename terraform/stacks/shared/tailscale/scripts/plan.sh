@@ -3,15 +3,11 @@ set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 STACK_DIR="$(dirname "$SCRIPT_DIR")"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 
-if [[ -z "${TF_VAR_tailscale_tailnet_id:-}" ]]; then
-  echo "ERROR: TF_VAR_tailscale_tailnet_id is required" >&2
-  exit 1
-fi
+# shellcheck source=../../../../scripts/common.sh
+source "$REPO_ROOT/terraform/scripts/common.sh"
 
-if [[ -z "${TF_VAR_tailscale_api_token:-}" ]]; then
-  echo "ERROR: TF_VAR_tailscale_api_token is required" >&2
-  exit 1
-fi
+validate_tailscale_env
 
 terraform -chdir="$STACK_DIR" plan "$@"

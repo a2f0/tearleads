@@ -1,6 +1,6 @@
 output "vpn_access_principal" {
   description = "Policy group principal used in ACL policy for VPN access"
-  value       = "group:${var.vpn_access_group_name}"
+  value       = local.vpn_access_group_principal
 }
 
 output "vpn_gateway_tag" {

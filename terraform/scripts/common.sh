@@ -99,6 +99,20 @@ validate_cloudflare_env() {
   fi
 }
 
+# Validate required environment variables for Tailscale stacks
+validate_tailscale_env() {
+  local missing=()
+
+  [[ -z "${TF_VAR_tailscale_tailnet_id:-}" ]] && missing+=("TF_VAR_tailscale_tailnet_id")
+  [[ -z "${TF_VAR_tailscale_api_token:-}" ]] && missing+=("TF_VAR_tailscale_api_token")
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "ERROR: Missing required environment variables:" >&2
+    printf '  - %s\n' "${missing[@]}" >&2
+    return 1
+  fi
+}
+
 # Setup SSH host keys for persistent identity
 setup_ssh_host_keys() {
   local secrets_dir="$(get_repo_root)/.secrets"

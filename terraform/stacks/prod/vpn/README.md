@@ -1,6 +1,6 @@
 # Production VPN Stack
 
-This stack provisions and bootstraps the production WireGuard VPN server on
+This stack provisions the production WireGuard VPN server infrastructure on
 Hetzner.
 
 ## Infrastructure
@@ -22,9 +22,6 @@ Hetzner.
   - `TF_VAR_ssh_key_name`
 - Server username:
   - `TF_VAR_server_username`
-- Ansible dependencies installed:
-  - `./ansible/scripts/setup.sh`
-
 ## Scripts
 
 | Script | Description |
@@ -32,7 +29,7 @@ Hetzner.
 | `scripts/init.sh` | Initialize Terraform |
 | `scripts/plan.sh` | Preview infrastructure changes |
 | `scripts/apply01.sh` | Step 1: Apply Terraform infrastructure changes |
-| `scripts/apply02.sh` | Step 2: Wait for SSH readiness and run Ansible WireGuard bootstrap |
+| `scripts/apply02.sh` | Step 2: No-op placeholder (Ansible VPN bootstrap removed) |
 | `scripts/apply.sh` | Run steps 1-2 in sequence (`apply01` -> `apply02`) |
 | `scripts/destroy.sh` | Destroy infrastructure |
 
@@ -45,7 +42,7 @@ Hetzner.
 # 2. Provision infrastructure
 ./scripts/apply01.sh
 
-# 3. Bootstrap WireGuard with Ansible
+# 3. Optional finalize step (currently no-op)
 ./scripts/apply02.sh
 ```
 
@@ -55,36 +52,9 @@ Or run both steps with:
 ./scripts/apply.sh
 ```
 
-## Create VPN Client Config
+## VPN Configuration
 
-Get SSH helper output from Terraform:
-
-```bash
-terraform output -raw ssh_command
-```
-
-Create a new client profile on the server:
-
-```bash
-ssh <user>@<server-ip> "sudo wg-add-client <client-name>"
-```
-
-Retrieve the generated client config:
-
-```bash
-ssh <user>@<server-ip> "sudo cat /etc/wireguard/clients/<client-name>/<client-name>.conf" > <client-name>.conf
-chmod 600 <client-name>.conf
-```
-
-## Split Tunnel Defaults
-
-Generated client configs are split-tunnel by default. Client `AllowedIPs` includes:
-
-- `10.100.0.0/16` (Tearleads private network)
-- `10.200.0.0/24` (WireGuard client network)
-
-This keeps normal internet traffic local and only routes Tearleads private
-infrastructure through the VPN.
+Server provisioning is managed here; client/key bootstrap automation is no longer managed via Ansible in this repository.
 
 ## Teardown
 
