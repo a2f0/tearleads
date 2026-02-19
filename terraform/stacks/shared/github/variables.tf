@@ -33,20 +33,19 @@ variable "merge_signing_app_slug" {
 variable "use_repository_ruleset_for_main" {
   description = "Whether to manage main branch protections via github_repository_ruleset instead of github_branch_protection"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "enable_merge_signing_bypass" {
   description = "Whether to grant merge-signing app bypass access in the main branch repository ruleset"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "merge_signing_app_id" {
   description = "GitHub App ID used as Integration actor_id for repository ruleset bypass"
   type        = number
-  default     = null
-  nullable    = true
+  default     = 2889195
 }
 
 variable "tearleads_version_bumper_app_id" {
