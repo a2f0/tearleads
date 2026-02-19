@@ -87,6 +87,17 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
     [isDesktopMode, windowManagerActions]
   );
 
+  const handleSyncLinkClick = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>) => {
+      if (!isDesktopMode) {
+        return;
+      }
+      event.preventDefault();
+      windowManagerActions.openWindow('sync');
+    },
+    [isDesktopMode, windowManagerActions]
+  );
+
   const getBiometricLabel = useCallback(() => {
     switch (biometryType) {
       case 'faceId':
@@ -291,6 +302,17 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
           </p>
         )}
       </form>
+
+      <p className="mt-4 text-center text-muted-foreground text-sm">
+        Already have an account?{' '}
+        <Link
+          to="/sync"
+          onClick={handleSyncLinkClick}
+          className="font-medium text-primary hover:underline"
+        >
+          Sign in
+        </Link>
+      </p>
     </div>
   );
 }

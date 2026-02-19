@@ -14,6 +14,7 @@ function renderWithRoutes() {
       <Routes>
         <Route path="/" element={<InlineUnlock />} />
         <Route path="/sqlite" element={<div data-testid="sqlite-page" />} />
+        <Route path="/sync" element={<div data-testid="sync-page" />} />
       </Routes>
     </MemoryRouter>
   );
@@ -191,6 +192,34 @@ describe('InlineUnlock', () => {
       renderWithRouter(<InlineUnlock />);
 
       expect(screen.getByTestId('inline-unlock-button')).toBeInTheDocument();
+    });
+
+    it('renders sign in link', () => {
+      renderWithRouter(<InlineUnlock />);
+
+      expect(
+        screen.getByText('Already have an account?', { exact: false })
+      ).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Sign in' })).toBeInTheDocument();
+    });
+
+    it('opens Sync floating window in desktop mode', async () => {
+      const user = userEvent.setup();
+      renderWithRoutes();
+
+      await user.click(screen.getByRole('link', { name: 'Sign in' }));
+      expect(mockOpenWindow).toHaveBeenCalledWith('sync');
+      expect(screen.queryByTestId('sync-page')).not.toBeInTheDocument();
+    });
+
+    it('navigates to /sync on mobile screens', async () => {
+      const user = userEvent.setup();
+      mockUseIsMobile.mockReturnValue(true);
+      renderWithRoutes();
+
+      await user.click(screen.getByRole('link', { name: 'Sign in' }));
+      expect(mockOpenWindow).not.toHaveBeenCalled();
+      expect(await screen.findByTestId('sync-page')).toBeInTheDocument();
     });
 
     it('shows persist session checkbox on web platform', () => {
