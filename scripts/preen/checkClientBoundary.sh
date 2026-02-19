@@ -73,7 +73,7 @@ for path in "${files[@]}"; do
   esac
 
   if [[ "$path" =~ ^packages/[^/]+/package\.json$ ]]; then
-    if [ "$path" != "packages/client/package.json" ] && search_with_line_numbers '"@tearleads/client"[[:space:]]*:' "$path" >/dev/null; then
+    if [ "$path" != "packages/client/package.json" ] && [ -n "$(search_with_line_numbers '"@tearleads/client"[[:space:]]*:' "$path")" ]; then
       violations+=("$path: package dependency on @tearleads/client is not allowed")
     fi
     continue
