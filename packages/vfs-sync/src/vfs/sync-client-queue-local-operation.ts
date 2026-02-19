@@ -52,43 +52,57 @@ export function buildQueuedLocalOperation({
     occurredAt: parsedOccurredAt
   };
 
+  const hasEncryptedPayload = input.encryptedPayload !== undefined;
+
   if (input.opType === 'acl_add' || input.opType === 'acl_remove') {
     const principalType = input.principalType;
     const principalId = normalizeRequiredString(input.principalId);
 
-    if (!isPrincipalType(principalType) || !principalId) {
-      throw new Error(
-        'principalType and principalId are required for acl operations'
-      );
+    if (!hasEncryptedPayload) {
+      if (!isPrincipalType(principalType) || !principalId) {
+        throw new Error(
+          'principalType and principalId are required for acl operations'
+        );
+      }
     }
 
-    operation.principalType = principalType;
-    operation.principalId = principalId;
+    if (isPrincipalType(principalType)) {
+      operation.principalType = principalType;
+    }
+    if (principalId) {
+      operation.principalId = principalId;
+    }
     if (input.opType === 'acl_add') {
       const accessLevel = input.accessLevel;
-      if (!isAccessLevel(accessLevel)) {
+      if (!hasEncryptedPayload && !isAccessLevel(accessLevel)) {
         throw new Error('accessLevel is required for acl_add');
       }
 
-      operation.accessLevel = accessLevel;
+      if (isAccessLevel(accessLevel)) {
+        operation.accessLevel = accessLevel;
+      }
     }
   }
 
   if (input.opType === 'link_add' || input.opType === 'link_remove') {
     const parentId = normalizeRequiredString(input.parentId);
     const childId = normalizeRequiredString(input.childId);
-    if (!parentId || !childId) {
+    if (!hasEncryptedPayload && (!parentId || !childId)) {
       throw new Error('parentId and childId are required for link operations');
     }
-    if (childId !== normalizedItemId) {
+    if (childId && childId !== normalizedItemId) {
       throw new Error('link childId must match itemId');
     }
 
-    operation.parentId = parentId;
-    operation.childId = childId;
+    if (parentId) {
+      operation.parentId = parentId;
+    }
+    if (childId) {
+      operation.childId = childId;
+    }
   }
 
-  if (input.encryptedPayload !== undefined) {
+  if (hasEncryptedPayload) {
     const encryptedPayload = normalizeRequiredString(input.encryptedPayload);
     if (!encryptedPayload) {
       throw new Error('encryptedPayload must be a non-empty string');
