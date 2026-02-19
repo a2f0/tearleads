@@ -159,6 +159,13 @@ Files must stay below 500 lines and 20,000 bytes. When the guardrail trips, spli
 - Do not install or upgrade Node with Homebrew in agent workflows.
 - Scripts that manage Node versions must fail fast when `nvm` is unavailable, then run `nvm install && nvm use` against repo `.nvmrc`.
 
+## Greenfield Compatibility Policy
+
+- This repository is in greenfield design mode and not in production.
+- Do not add reverse-compatibility layers, compatibility re-export packages, or legacy alias modules.
+- When touching an area that contains compatibility shims, prefer removing/collapsing the shim and importing the canonical module directly.
+- If a compatibility layer blocks a safe change, remove it and update imports/tests in the same PR.
+
 ## PR Guidelines
 
 - Do NOT add "Generated with Claude Code" footers to PR descriptions

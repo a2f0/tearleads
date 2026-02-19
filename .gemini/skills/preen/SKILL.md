@@ -752,6 +752,14 @@ jq -nc \
   '{timestamp:$timestamp,mode:$mode,active_categories:$active,selected_category:$selected,selected_candidate:$candidate,baseline_count:$baseline,after_count:$after,delta:$delta,outcome:$outcome,branch:$branch,pr:$pr}' >> "$RUNS_FILE"
 ```
 
+### 11. Refresh Workspace (Required)
+
+After PR merge is confirmed, always run refresh so the next task starts from a clean, current main workspace:
+
+```bash
+/refresh
+```
+
 ## No-Changes and Audit Cases
 
 If no high-value candidate is found, or `audit` mode is used:
@@ -871,6 +879,7 @@ Always regenerate from registry after structural changes:
 - In `security` mode, do not land more than one security fix total
 - In `audit` mode, do not make edits
 - Do not change runtime behavior unless fixing a bug
+- Do not introduce reverse-compatibility shims, compatibility re-export layers, or legacy alias packages; prefer direct imports and delete temporary compatibility code.
 - Do not introduce new `any`, unsafe casts, or `@ts-ignore`
 - Do not create empty PRs
 - Keep each fix focused and independently verifiable
