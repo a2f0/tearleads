@@ -274,7 +274,7 @@ describe('secureOrchestratorFacade integration', () => {
         }))
       },
       {
-        mapEncryptedCrdtOpToLocalOperation: ({ input, encrypted }) => ({
+        mapEncryptedCrdtOpToLocalOperation: ({ encrypted }) => ({
           opType: 'link_add',
           itemId: encrypted.encryptedOp,
           parentId: `enc-parent:${encrypted.keyEpoch}`,

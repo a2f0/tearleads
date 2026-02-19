@@ -5,4 +5,5 @@ export * from './onboardingClient';
 export * from './registrationClient';
 export * from './secureOrchestratorFacade';
 export type * from './secureWritePipeline';
+export * from './secureWritePipelineRuntime';
 export type * from './types';
