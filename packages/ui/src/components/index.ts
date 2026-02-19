@@ -7,6 +7,7 @@ export {
 export {
   DropdownMenu,
   DropdownMenuItem,
+  type DropdownMenuItemProps,
   DropdownMenuSeparator,
   useDropdownMenuContext
 } from './dropdown-menu/index.js';
