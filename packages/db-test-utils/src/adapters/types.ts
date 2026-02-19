@@ -1,8 +1,8 @@
 /**
  * Database adapter interface and types for test utilities.
  *
- * These are extracted from packages/client/src/db/adapters/types.ts
- * to avoid circular dependencies.
+ * These types were extracted from app runtime adapters and are kept local here
+ * to avoid cross-package coupling in tests.
  */
 
 export interface DatabaseConfig {

@@ -114,7 +114,7 @@ Schema-contract utilities and tests assert sync-critical SQL/table dependencies 
 
 - Runtime sync feed execution in API uses Postgres.
 - SQLite references in this package are for schema-contract compatibility checks, not runtime sync query execution.
-- Client local persistence (SQLite adapters/worker/native bindings) lives in `packages/client/src/db`, not this package.
+- App local persistence adapters/workers are outside this package and consumed by higher-level runtime packages.
 
 ## Minimal Consumer Example
 

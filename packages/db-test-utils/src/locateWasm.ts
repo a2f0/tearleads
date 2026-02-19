@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+const WASM_ENV_VAR = 'TEARLEADS_SQLITE_WASM_DIR';
 const WASM_SUBPATH_CANDIDATES = [
   'packages/db-test-utils/sqlite-wasm',
   'packages/client/src/workers/sqlite-wasm'
@@ -23,6 +24,11 @@ const REQUIRED_FILES = ['sqlite3.js', 'sqlite3.wasm'];
  * @throws Error if WASM files cannot be found
  */
 export function locateWasmDir(startDir?: string): string {
+  const explicitWasmDir = process.env[WASM_ENV_VAR];
+  if (explicitWasmDir && wasmFilesExist(explicitWasmDir)) {
+    return explicitWasmDir;
+  }
+
   const searchStart = startDir ?? path.dirname(fileURLToPath(import.meta.url));
 
   let currentDir = searchStart;
@@ -48,6 +54,7 @@ export function locateWasmDir(startDir?: string): string {
 
   throw new Error(
     `SQLite WASM files not found. Searched from ${searchStart} up to filesystem root.\n` +
+      `Also checked ${WASM_ENV_VAR} when set.\n` +
       `Expected one of:\n- ${WASM_SUBPATH_CANDIDATES.join('\n- ')}\n` +
       `Run ./scripts/downloadSqliteWasm.sh to download the WASM files.`
   );
