@@ -12,6 +12,19 @@ appId: com.tearleads.app
 - extendedWaitUntil:
     visible: "Files"
     timeout: 120000
+    optional: true
+
+# CI can intermittently stall after first launch; retry once with a warm relaunch.
+- runFlow:
+    when:
+      notVisible: "Files"
+    commands:
+      - terminateApp
+      - launchApp:
+          clearState: false
+      - extendedWaitUntil:
+          visible: "Files"
+          timeout: 120000
 
 # Navigate to Sync page using Maestro native swipe and tap
 # IMPORTANT: JavaScript navigation (window.location.href, Link.click()) does NOT work
