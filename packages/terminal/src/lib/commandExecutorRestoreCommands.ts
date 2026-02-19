@@ -4,7 +4,7 @@ import type {
   TerminalControl,
   TerminalUtilities
 } from './commandExecutorTypes';
-import type { ParsedCommand, PendingCommand } from './types';
+import type { ParsedCommand, PendingRestoreCommand } from './types';
 
 export async function startRestore(
   command: ParsedCommand,
@@ -44,6 +44,7 @@ export async function startRestore(
   );
 
   const data = await utilities.readFileAsUint8Array(file);
+  // Process in chunks to avoid "Maximum call stack size exceeded" for large files.
   const CHUNK_SIZE = 8192;
   let binaryString = '';
   for (let i = 0; i < data.length; i += CHUNK_SIZE) {
@@ -64,7 +65,7 @@ export async function startRestore(
 }
 
 export async function continueRestore(
-  pending: PendingCommand,
+  pending: PendingRestoreCommand,
   input: string,
   db: DatabaseOperations,
   terminal: TerminalControl,

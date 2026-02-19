@@ -3,7 +3,12 @@ import type {
   TerminalControl,
   TerminalUtilities
 } from './commandExecutorTypes';
-import type { ParsedCommand, PendingCommand } from './types';
+import type {
+  ParsedCommand,
+  PendingPasswordCommand,
+  PendingSetupCommand,
+  PendingUnlockCommand
+} from './types';
 
 export async function startSetup(
   db: DatabaseOperations,
@@ -19,7 +24,7 @@ export async function startSetup(
 }
 
 export async function continueSetup(
-  pending: PendingCommand,
+  pending: PendingSetupCommand,
   input: string,
   db: DatabaseOperations,
   terminal: TerminalControl,
@@ -89,13 +94,13 @@ export async function startUnlock(
   terminal.setPendingCommand({
     name: 'unlock',
     step: 'password',
-    data: { persist: String(persist) }
+    data: { persist: persist ? 'true' : 'false' }
   });
   terminal.setPasswordMode('Password: ');
 }
 
 export async function continueUnlock(
-  pending: PendingCommand,
+  pending: PendingUnlockCommand,
   input: string,
   db: DatabaseOperations,
   terminal: TerminalControl,
@@ -150,7 +155,7 @@ export async function startPassword(
 }
 
 export async function continuePassword(
-  pending: PendingCommand,
+  pending: PendingPasswordCommand,
   input: string,
   db: DatabaseOperations,
   terminal: TerminalControl,
