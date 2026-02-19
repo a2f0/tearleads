@@ -93,7 +93,7 @@ platform :ios do
     )
   end
 
-  desc 'Build for TestFlight (sync certs, build release)'
+  desc 'Build for TestFlight (sync App Store certs, build release)'
   lane :build_for_testflight do
     UI.user_error!('Please set TEAM_ID environment variable') unless ENV['TEAM_ID']
     UI.user_error!('Please set MATCH_GIT_URL environment variable') unless ENV['MATCH_GIT_URL']
@@ -102,7 +102,7 @@ platform :ios do
     setup_ci_environment
     ensure_app_store_connect_api
 
-    sync_certs
+    sync_testflight_certs
     build_release
   end
 
@@ -124,6 +124,11 @@ platform :ios do
   desc 'Sync certificates and provisioning profiles'
   lane :sync_certs do
     match(type: 'development')
+    match(type: 'appstore')
+  end
+
+  desc 'Sync App Store certificates and provisioning profiles for TestFlight'
+  lane :sync_testflight_certs do
     match(type: 'appstore')
   end
 
