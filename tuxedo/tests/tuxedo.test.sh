@@ -69,7 +69,7 @@ tuxedo_init "/tmp/tux"
 assert_eq "10" "$NUM_WORKSPACES"
 
 BASE_PATH="/base"
-assert_eq "/tmp/ws/scripts:/tmp/ws/scripts/agents:/base" "$(workspace_path /tmp/ws)"
+assert_eq "/tmp/ws/scripts:/tmp/ws/scripts/agents:/tmp/tux/scripts:/base" "$(workspace_path /tmp/ws)"
 assert_eq "/base" "$(workspace_path "")"
 
 assert_eq "short title" "$(tuxedo_truncate_title "short title" 25)"

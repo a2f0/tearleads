@@ -219,7 +219,7 @@ sync_all_titles() {
 workspace_path() {
     workspace="$1"
     [ -z "$workspace" ] && { echo "$BASE_PATH"; return; }
-    echo "$workspace/scripts:$workspace/scripts/agents:$BASE_PATH"
+    echo "$workspace/scripts:$workspace/scripts/agents:$SCRIPT_DIR/scripts:$BASE_PATH"
 }
 
 tuxedo_start_pr_dashboards() {
