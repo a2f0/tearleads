@@ -9,12 +9,12 @@ import {
   indexEntity,
   removeFromIndex
 } from './integration';
+import type { SearchableDocument } from './types';
 
+const getSearchStoreForInstanceMock = vi.hoisted(() => vi.fn());
 vi.mock('./SearchStore', () => ({
-  getSearchStoreForInstance: vi.fn()
+  getSearchStoreForInstance: getSearchStoreForInstanceMock
 }));
-
-import { getSearchStoreForInstance } from './SearchStore';
 
 describe('indexDocument', () => {
   const mockUpsert = vi.fn();
@@ -26,7 +26,7 @@ describe('indexDocument', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getSearchStoreForInstance).mockReturnValue(mockStore as never);
+    getSearchStoreForInstanceMock.mockReturnValue(mockStore);
   });
 
   it('should no-op when instanceId is null', async () => {
@@ -38,7 +38,7 @@ describe('indexDocument', () => {
       updatedAt: 1000
     });
 
-    expect(getSearchStoreForInstance).not.toHaveBeenCalled();
+    expect(getSearchStoreForInstanceMock).not.toHaveBeenCalled();
   });
 
   it('should no-op when store is not initialized', async () => {
@@ -57,9 +57,9 @@ describe('indexDocument', () => {
 
   it('should upsert document when store is initialized', async () => {
     mockGetState.mockReturnValue({ isInitialized: true });
-    const doc = {
+    const doc: SearchableDocument = {
       id: 'doc-1',
-      entityType: 'contact' as const,
+      entityType: 'contact',
       title: 'Test',
       createdAt: 1000,
       updatedAt: 1000
@@ -81,19 +81,19 @@ describe('indexDocuments', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getSearchStoreForInstance).mockReturnValue(mockStore as never);
+    getSearchStoreForInstanceMock.mockReturnValue(mockStore);
   });
 
   it('should no-op when instanceId is null', async () => {
     await indexDocuments(null, []);
 
-    expect(getSearchStoreForInstance).not.toHaveBeenCalled();
+    expect(getSearchStoreForInstanceMock).not.toHaveBeenCalled();
   });
 
   it('should no-op when docs array is empty', async () => {
     await indexDocuments('instance-1', []);
 
-    expect(getSearchStoreForInstance).not.toHaveBeenCalled();
+    expect(getSearchStoreForInstanceMock).not.toHaveBeenCalled();
   });
 
   it('should no-op when store is not initialized', async () => {
@@ -114,17 +114,17 @@ describe('indexDocuments', () => {
 
   it('should upsert batch when store is initialized', async () => {
     mockGetState.mockReturnValue({ isInitialized: true });
-    const docs = [
+    const docs: SearchableDocument[] = [
       {
         id: 'doc-1',
-        entityType: 'contact' as const,
+        entityType: 'contact',
         title: 'Test 1',
         createdAt: 1,
         updatedAt: 1
       },
       {
         id: 'doc-2',
-        entityType: 'note' as const,
+        entityType: 'note',
         title: 'Test 2',
         createdAt: 2,
         updatedAt: 2
@@ -147,13 +147,13 @@ describe('removeFromIndex', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getSearchStoreForInstance).mockReturnValue(mockStore as never);
+    getSearchStoreForInstanceMock.mockReturnValue(mockStore);
   });
 
   it('should no-op when instanceId is null', async () => {
     await removeFromIndex(null, 'doc-1');
 
-    expect(getSearchStoreForInstance).not.toHaveBeenCalled();
+    expect(getSearchStoreForInstanceMock).not.toHaveBeenCalled();
   });
 
   it('should no-op when store is not initialized', async () => {
@@ -183,7 +183,7 @@ describe('indexEntity', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getSearchStoreForInstance).mockReturnValue(mockStore as never);
+    getSearchStoreForInstanceMock.mockReturnValue(mockStore);
   });
 
   it('should index a contact entity', async () => {
