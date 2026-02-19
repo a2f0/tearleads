@@ -13,15 +13,12 @@ Hetzner.
 
 ## Prerequisites
 
-- AWS credentials for Terraform state backend:
-  - `AWS_ACCESS_KEY_ID`
-  - `AWS_SECRET_ACCESS_KEY`
-- Hetzner token:
-  - `TF_VAR_hcloud_token`
-- Hetzner SSH key name:
-  - `TF_VAR_ssh_key_name`
-- Server username:
-  - `TF_VAR_server_username`
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `TF_VAR_hcloud_token`
+- `TF_VAR_ssh_key_name`
+- `TF_VAR_server_username`
+
 ## Scripts
 
 | Script | Description |
