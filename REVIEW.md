@@ -13,6 +13,18 @@ This document provides review guidelines for AI agents (Gemini, Claude Code, Cod
 | Security   | All routes, auth code         | Boundary violations, injection  | [Security](./docs/agent-instructions/reviews/security-compliance.md) |
 | i18n       | `packages/*/src/i18n/`       | Missing keys, hardcoded strings | [i18n](./docs/agent-instructions/reviews/i18n.md)             |
 
+## TypeScript Standards
+
+- Reject new `any`, unsafe `as` assertions, and `@ts-ignore`/`@ts-expect-error` usage in production code.
+- Ensure exposed APIs prefer explicit types over inferred `unknown` at module boundaries.
+- Apply the detailed checklist in [`docs/agent-instructions/reviews/typescript.md`](./docs/agent-instructions/reviews/typescript.md).
+
+## React Standards
+
+- Keep one component per file and colocate tests with component files.
+- Flag oversized component files and extract focused subcomponents to preserve readability and testability.
+- Apply the detailed checklist in [`docs/agent-instructions/reviews/react.md`](./docs/agent-instructions/reviews/react.md).
+
 ## Database Performance
 
 ### N+1 Query Detection
