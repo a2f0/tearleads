@@ -10,11 +10,6 @@ if [ "$#" -ne 1 ]; then
   usage
 fi
 
-if ! command -v rg >/dev/null 2>&1; then
-  echo "Error: ripgrep (rg) is not installed. Please install it." >&2
-  exit 1
-fi
-
 mode="$1"
 
 collect_files() {
@@ -54,6 +49,18 @@ violations=()
 
 import_pattern="(import[[:space:]]*\\(|require[[:space:]]*\\(|from[[:space:]]+)[[:space:]]*['\"][^'\"]*(@tearleads/client|packages/client/)"
 
+search_with_line_numbers() {
+  local pattern="$1"
+  local file="$2"
+
+  if command -v rg >/dev/null 2>&1; then
+    rg -n "$pattern" "$file" || true
+    return
+  fi
+
+  grep -En "$pattern" "$file" || true
+}
+
 for path in "${files[@]}"; do
   if [ ! -f "$path" ]; then
     continue
@@ -66,7 +73,7 @@ for path in "${files[@]}"; do
   esac
 
   if [[ "$path" =~ ^packages/[^/]+/package\.json$ ]]; then
-    if [ "$path" != "packages/client/package.json" ] && rg -n '"@tearleads/client"[[:space:]]*:' "$path" >/dev/null; then
+    if [ "$path" != "packages/client/package.json" ] && search_with_line_numbers '"@tearleads/client"[[:space:]]*:' "$path" >/dev/null; then
       violations+=("$path: package dependency on @tearleads/client is not allowed")
     fi
     continue
@@ -76,7 +83,7 @@ for path in "${files[@]}"; do
     *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs)
       while IFS= read -r line; do
         violations+=("$path:$line")
-      done < <(rg -n "$import_pattern" "$path" || true)
+      done < <(search_with_line_numbers "$import_pattern" "$path")
       ;;
   esac
 done
