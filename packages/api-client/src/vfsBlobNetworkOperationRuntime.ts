@@ -2,8 +2,8 @@ import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import {
   fetchWithAuthRefresh,
   isBlobRelationKind,
-  normalizeAttachConsistency,
   normalizeApiPrefix,
+  normalizeAttachConsistency,
   normalizeBaseUrl,
   normalizeIsoTimestamp,
   normalizeRequiredString,

@@ -7,11 +7,6 @@ import {
   normalizeIsoTimestamp,
   normalizeRequiredString
 } from './vfsBlobNetworkFlusherHelpers';
-import {
-  executeBlobNetworkOperation,
-  isManifestCommitSizeShapeValid,
-  normalizeBlobNetworkOperation
-} from './vfsBlobNetworkOperationRuntime';
 import type {
   LoadStateCallback,
   PersistStateCallback,
@@ -30,6 +25,11 @@ import type {
   VfsBlobStageQueueOperation,
   VfsBlobStageRequest
 } from './vfsBlobNetworkFlusherTypes';
+import {
+  executeBlobNetworkOperation,
+  isManifestCommitSizeShapeValid,
+  normalizeBlobNetworkOperation
+} from './vfsBlobNetworkOperationRuntime';
 
 export type {
   VfsBlobAbandonQueueOperation,
