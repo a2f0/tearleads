@@ -382,15 +382,18 @@ export const postBlobsStageStagingIdAttachHandler = async (
         parseBlobLinkRelationKindFromSessionKey(
           existingRow.wrapped_session_key
         );
+      if (!existingRelationKind) {
+        await client.query('ROLLBACK');
+        inTransaction = false;
+        res.status(500).json({ error: 'Failed to attach staged blob' });
+        return;
+      }
       /**
        * Guardrail: blob link identity is currently `(item_id, blob_id)` in
        * vfs_links. If a conflicting relation kind already exists for the same
        * pair, fail closed so sync projections stay deterministic.
        */
-      if (
-        existingRelationKind &&
-        existingRelationKind !== parsedBody.relationKind
-      ) {
+      if (existingRelationKind !== parsedBody.relationKind) {
         await client.query('ROLLBACK');
         inTransaction = false;
         res.status(409).json({
