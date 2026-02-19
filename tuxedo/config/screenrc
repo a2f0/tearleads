@@ -27,9 +27,11 @@ termcapinfo xterm* ti@:te@
 # Disable screen's own visual bell
 vbell off
 
-# Enable mouse tracking for region focus
+# Enable mouse tracking for region focus and selection
 mousetrack on
 altscreen on
+# Enable mouse selection in copy mode
+defmousetrack on
 
 # Region navigation (Shift+Left/Right passed through from tmux)
 bindkey "^[[1;2D" focus prev
