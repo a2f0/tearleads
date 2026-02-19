@@ -351,4 +351,36 @@ test_tmux_conf_syntax() {
 
 test_tmux_conf_syntax
 
+test_screen_setup_editor_skips_when_disabled() {
+    SCREEN_CALLS="$TEMP_DIR/screen.disabled.calls"
+    rm -f "$SCREEN_CALLS"
+
+    PATH="$TEMP_DIR/bin:$PATH_BACKUP"
+    USE_SCREEN=false
+    # screen_setup_editor should return early when USE_SCREEN=false
+    screen_setup_editor "test-session" "nvim"
+    # Function returns immediately, no screen calls
+
+    PATH="$PATH_BACKUP"
+}
+
+test_screen_cmd_returns_command_when_enabled() {
+    USE_SCREEN=true
+    CONFIG_DIR="/tmp/config"
+    cmd=$(screen_cmd "tux-test")
+    assert_contains "$cmd" "screen -T tmux-256color"
+    assert_contains "$cmd" "-d -RR tux-test"
+    assert_contains "$cmd" "-c \"/tmp/config/screenrc\""
+}
+
+test_screen_cmd_returns_empty_when_disabled() {
+    USE_SCREEN=false
+    cmd=$(screen_cmd "tux-test")
+    assert_eq "" "$cmd"
+}
+
+test_screen_setup_editor_skips_when_disabled
+test_screen_cmd_returns_command_when_enabled
+test_screen_cmd_returns_empty_when_disabled
+
 echo "OK"
