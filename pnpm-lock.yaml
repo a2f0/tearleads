@@ -931,9 +931,6 @@ importers:
       '@tearleads/notes':
         specifier: workspace:*
         version: link:../notes
-      '@tearleads/notifications':
-        specifier: workspace:*
-        version: link:../notifications
       '@tearleads/photos':
         specifier: workspace:*
         version: link:../photos

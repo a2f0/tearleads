@@ -71,7 +71,6 @@
     "@tearleads/local-write-orchestrator": "workspace:*",
     "@tearleads/mls-chat": "workspace:*",
     "@tearleads/notes": "workspace:*",
-    "@tearleads/notifications": "workspace:*",
     "@tearleads/photos": "workspace:*",
     "@tearleads/search": "workspace:*",
     "@tearleads/settings": "workspace:*",
