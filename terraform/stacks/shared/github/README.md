@@ -13,9 +13,9 @@ Important: this stack does not create the GitHub App registration or private key
 - `enable_merge_signing_app_installation` (default: `false`)
 - `merge_signing_app_installation_id` (required when enabled)
 - `merge_signing_app_slug` (optional metadata lookup)
-- `use_repository_ruleset_for_main` (default: `false`)
-- `enable_merge_signing_bypass` (default: `false`, ruleset mode only)
-- `merge_signing_app_id` (required for bypass)
+- `use_repository_ruleset_for_main` (default: `true`)
+- `enable_merge_signing_bypass` (default: `true`, ruleset mode only)
+- `merge_signing_app_id` (default: `2889195` - tearleads-version-bumper)
 
 Compatibility aliases are also supported:
 
@@ -24,15 +24,12 @@ Compatibility aliases are also supported:
 - `tearleads_version_bumper_app_slug`
 - `tearleads_version_bumper_installatio_id` (deprecated typo alias)
 
-Example `terraform.tfvars`:
+Example `terraform.tfvars` (override defaults as needed):
 
 ```hcl
 enable_merge_signing_app_installation = true
-merge_signing_app_installation_id     = 12345678
-merge_signing_app_slug                = "your-app-slug"
-use_repository_ruleset_for_main       = true
-enable_merge_signing_bypass           = true
-merge_signing_app_id                  = 987654
+merge_signing_app_installation_id     = 110805914
+merge_signing_app_slug                = "tearleads-version-bumper"
 ```
 
 ### Safe rollout
