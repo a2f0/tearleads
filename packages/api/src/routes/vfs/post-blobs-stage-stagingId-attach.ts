@@ -406,6 +406,14 @@ export const postBlobsStageStagingIdAttachHandler = async (
       attachedAt = existingRow.created_at;
     }
 
+    const responseAttachedAtIso = toIsoFromDateOrString(attachedAt);
+    if (!Number.isFinite(Date.parse(responseAttachedAtIso))) {
+      await client.query('ROLLBACK');
+      inTransaction = false;
+      res.status(500).json({ error: 'Failed to attach staged blob' });
+      return;
+    }
+
     await client.query('COMMIT');
     inTransaction = false;
 
@@ -416,7 +424,7 @@ export const postBlobsStageStagingIdAttachHandler = async (
       itemId: parsedBody.itemId,
       relationKind: parsedBody.relationKind,
       refId,
-      attachedAt: toIsoFromDateOrString(attachedAt)
+      attachedAt: responseAttachedAtIso
     });
   } catch (error) {
     if (inTransaction) {
