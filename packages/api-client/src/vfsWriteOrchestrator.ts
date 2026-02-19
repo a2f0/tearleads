@@ -28,6 +28,12 @@ import {
   type VfsBlobStageRequest
 } from './vfsBlobNetworkFlusher';
 import {
+  createVfsSecureOrchestratorFacadeWithRuntime,
+  type VfsSecureOrchestratorFacadeOptions
+} from './vfsCrypto/secureOrchestratorFacade';
+import type { VfsSecureOrchestratorFacade } from './vfsCrypto/secureWritePipeline';
+import type { VfsSecureWritePipelineRuntimeOptions } from './vfsCrypto/secureWritePipelineRuntime';
+import {
   VfsApiNetworkFlusher,
   type VfsApiNetworkFlusherOptions
 } from './vfsNetworkFlusher';
@@ -249,6 +255,17 @@ export class VfsWriteOrchestrator {
 
   queuedBlobOperations(): VfsBlobNetworkOperation[] {
     return this.blob.queuedOperations();
+  }
+
+  createSecureOrchestratorFacadeWithRuntime(
+    runtimeOptions: VfsSecureWritePipelineRuntimeOptions,
+    options: VfsSecureOrchestratorFacadeOptions = {}
+  ): VfsSecureOrchestratorFacade {
+    return createVfsSecureOrchestratorFacadeWithRuntime(
+      this,
+      runtimeOptions,
+      options
+    );
   }
 
   async syncCrdt(): Promise<VfsBackgroundSyncClientSyncResult> {
