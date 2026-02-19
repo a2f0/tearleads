@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/settings",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "Settings components for Tearleads",
   "type": "module",
   "main": "dist/index.js",
