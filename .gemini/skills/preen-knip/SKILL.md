@@ -16,7 +16,7 @@ Run this skill when maintaining code quality or during slack time, especially wh
 Capture a baseline of current findings:
 
 ```bash
-pnpm exec knip --config knip.json --use-tsconfig-files --reporter compact | head -120 || true
+pnpm exec knip --config knip.json --use-tsconfig-files --reporter compact || true
 ```
 
 For machine-readable scoring/counting:
