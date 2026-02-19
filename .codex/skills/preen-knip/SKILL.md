@@ -41,10 +41,13 @@ rm -f "$KNIP_JSON"
 Choose one coherent slice per run. Prefer macro slices over micro edits:
 
 1. One package/domain group at a time (for example `packages/ui` + `packages/wallet`)
-2. Low behavior risk changes first:
-- remove clearly unused exports or dead files
-- remove clearly unused dependencies after usage verification
-3. Avoid mixed concerns (do not combine unrelated refactors)
+
+1. Low behavior risk changes first:
+
+   - remove clearly unused exports or dead files
+   - remove clearly unused dependencies after usage verification
+
+1. Avoid mixed concerns (do not combine unrelated refactors)
 
 ## Change Rules
 
