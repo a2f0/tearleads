@@ -9,7 +9,19 @@ type OnDataHandler = (
   callback: (err?: Error) => void
 ) => void;
 
-const doubles = vi.hoisted(() => ({
+interface SmtpTestDoubles {
+  mockStorageStore: ReturnType<typeof vi.fn>;
+  mockStorageClose: ReturnType<typeof vi.fn>;
+  mockServerListen: ReturnType<typeof vi.fn>;
+  mockServerClose: ReturnType<typeof vi.fn>;
+  mockServerOn: ReturnType<typeof vi.fn>;
+  capturedOnDataRef: { current: OnDataHandler | null };
+  mockServerAddress: ReturnType<
+    typeof vi.fn<() => { port: number } | string | null>
+  >;
+}
+
+const doubles: SmtpTestDoubles = vi.hoisted(() => ({
   mockStorageStore: vi.fn(),
   mockStorageClose: vi.fn(),
   mockServerListen: vi.fn(),
@@ -43,7 +55,7 @@ vi.mock('smtp-server', () => ({
   }
 }));
 
-export const getSmtpTestDoubles = () => doubles;
+export const getSmtpTestDoubles = (): SmtpTestDoubles => doubles;
 
 export const resetSmtpTestDoubles = (): void => {
   vi.clearAllMocks();
