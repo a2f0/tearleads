@@ -4,6 +4,16 @@ import type { EncryptedManifest } from './types';
 
 describe('createVfsSecureOrchestratorFacade', () => {
   it('uploads encrypted blob and queues stage+attach operations', async () => {
+    const queueCrdtLocalOperationAndPersist = vi.fn(async () => ({
+      opId: 'desktop:1',
+      opType: 'link_add' as const,
+      itemId: 'item-1',
+      replicaId: 'desktop',
+      writeId: 1,
+      occurredAt: '2026-02-19T12:00:00.000Z',
+      parentId: 'parent-1',
+      childId: 'child-1'
+    }));
     const queueBlobStageAndPersist = vi.fn(async () => ({
       operationId: 'op-stage-1',
       kind: 'stage' as const,
@@ -91,6 +101,7 @@ describe('createVfsSecureOrchestratorFacade', () => {
     }));
     const facade = createVfsSecureOrchestratorFacade(
       {
+        queueCrdtLocalOperationAndPersist,
         queueBlobStageAndPersist,
         queueBlobChunkAndPersist,
         queueBlobManifestCommitAndPersist,
@@ -184,6 +195,7 @@ describe('createVfsSecureOrchestratorFacade', () => {
   it('throws for encrypted CRDT ops until schema support exists', async () => {
     const facade = createVfsSecureOrchestratorFacade(
       {
+        queueCrdtLocalOperationAndPersist: vi.fn(),
         queueBlobStageAndPersist: vi.fn(),
         queueBlobChunkAndPersist: vi.fn(),
         queueBlobManifestCommitAndPersist: vi.fn(),
@@ -209,6 +221,7 @@ describe('createVfsSecureOrchestratorFacade', () => {
   it('fails closed when chunks do not match manifest chunkCount', async () => {
     const facade = createVfsSecureOrchestratorFacade(
       {
+        queueCrdtLocalOperationAndPersist: vi.fn(),
         queueBlobStageAndPersist: vi.fn(),
         queueBlobChunkAndPersist: vi.fn(),
         queueBlobManifestCommitAndPersist: vi.fn(),
@@ -259,6 +272,7 @@ describe('createVfsSecureOrchestratorFacade', () => {
   it('fails closed when chunk metadata finality is invalid', async () => {
     const facade = createVfsSecureOrchestratorFacade(
       {
+        queueCrdtLocalOperationAndPersist: vi.fn(),
         queueBlobStageAndPersist: vi.fn(),
         queueBlobChunkAndPersist: vi.fn(),
         queueBlobManifestCommitAndPersist: vi.fn(),
@@ -316,6 +330,7 @@ describe('createVfsSecureOrchestratorFacade', () => {
   it('fails closed when chunk sizes do not match manifest totals', async () => {
     const facade = createVfsSecureOrchestratorFacade(
       {
+        queueCrdtLocalOperationAndPersist: vi.fn(),
         queueBlobStageAndPersist: vi.fn(),
         queueBlobChunkAndPersist: vi.fn(),
         queueBlobManifestCommitAndPersist: vi.fn(),
@@ -370,5 +385,65 @@ describe('createVfsSecureOrchestratorFacade', () => {
     ).rejects.toThrow(
       'Encrypted upload chunk sizes do not match manifest totals'
     );
+  });
+
+  it('queues encrypted CRDT operations when mapper is provided', async () => {
+    const queueCrdtLocalOperationAndPersist = vi.fn(async () => ({
+      opId: 'desktop:1',
+      opType: 'link_add' as const,
+      itemId: 'item-1',
+      replicaId: 'desktop',
+      writeId: 1,
+      occurredAt: '2026-02-19T12:00:00.000Z',
+      parentId: 'enc-parent:4',
+      childId: 'ciphertext-1'
+    }));
+    const encryptCrdtOp = vi.fn(async () => ({
+      encryptedOp: 'ciphertext-1',
+      opNonce: 'nonce-1',
+      opAad: 'aad-1',
+      keyEpoch: 4,
+      opSignature: 'sig-1'
+    }));
+
+    const facade = createVfsSecureOrchestratorFacade(
+      {
+        queueCrdtLocalOperationAndPersist,
+        queueBlobStageAndPersist: vi.fn(),
+        queueBlobChunkAndPersist: vi.fn(),
+        queueBlobManifestCommitAndPersist: vi.fn(),
+        queueBlobAttachAndPersist: vi.fn()
+      },
+      {
+        uploadEncryptedBlob: vi.fn(),
+        encryptCrdtOp
+      },
+      {
+        mapEncryptedCrdtOpToLocalOperation: ({ input, encrypted }) => ({
+          opType: 'link_add',
+          itemId: input.itemId,
+          parentId: `enc-parent:${encrypted.keyEpoch}`,
+          childId: encrypted.encryptedOp
+        })
+      }
+    );
+
+    await facade.queueEncryptedCrdtOpAndPersist({
+      itemId: 'item-1',
+      opType: 'set_data',
+      opPayload: { value: 'ciphertext' }
+    });
+
+    expect(encryptCrdtOp).toHaveBeenCalledWith({
+      itemId: 'item-1',
+      opType: 'set_data',
+      opPayload: { value: 'ciphertext' }
+    });
+    expect(queueCrdtLocalOperationAndPersist).toHaveBeenCalledWith({
+      opType: 'link_add',
+      itemId: 'item-1',
+      parentId: 'enc-parent:4',
+      childId: 'ciphertext-1'
+    });
   });
 });

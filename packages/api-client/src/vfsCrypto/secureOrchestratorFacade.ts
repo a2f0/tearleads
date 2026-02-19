@@ -1,3 +1,4 @@
+import type { QueueVfsCrdtLocalOperationInput } from '@tearleads/vfs-sync/vfs';
 import type {
   VfsBlobRelationKind,
   VfsBlobStageRequest
@@ -13,11 +14,20 @@ import type {
 
 export interface VfsSecureOrchestratorFacadeOptions {
   relationKind?: VfsBlobRelationKind;
+  mapEncryptedCrdtOpToLocalOperation?: (
+    input: MapEncryptedCrdtOpToLocalOperationInput
+  ) => QueueVfsCrdtLocalOperationInput;
+}
+
+export interface MapEncryptedCrdtOpToLocalOperationInput {
+  input: QueueEncryptedCrdtOpAndPersistInput;
+  encrypted: Awaited<ReturnType<VfsSecureWritePipeline['encryptCrdtOp']>>;
 }
 
 export function createVfsSecureOrchestratorFacade(
   writeOrchestrator: Pick<
     VfsWriteOrchestrator,
+    | 'queueCrdtLocalOperationAndPersist'
     | 'queueBlobStageAndPersist'
     | 'queueBlobChunkAndPersist'
     | 'queueBlobManifestCommitAndPersist'
@@ -37,10 +47,16 @@ class DefaultVfsSecureOrchestratorFacade
   implements VfsSecureOrchestratorFacade
 {
   private readonly relationKind: VfsBlobRelationKind;
+  private readonly mapEncryptedCrdtOpToLocalOperation:
+    | ((
+        input: MapEncryptedCrdtOpToLocalOperationInput
+      ) => QueueVfsCrdtLocalOperationInput)
+    | null;
 
   constructor(
     private readonly writeOrchestrator: Pick<
       VfsWriteOrchestrator,
+      | 'queueCrdtLocalOperationAndPersist'
       | 'queueBlobStageAndPersist'
       | 'queueBlobChunkAndPersist'
       | 'queueBlobManifestCommitAndPersist'
@@ -50,13 +66,30 @@ class DefaultVfsSecureOrchestratorFacade
     options: VfsSecureOrchestratorFacadeOptions
   ) {
     this.relationKind = options.relationKind ?? 'file';
+    this.mapEncryptedCrdtOpToLocalOperation =
+      options.mapEncryptedCrdtOpToLocalOperation ?? null;
   }
 
   async queueEncryptedCrdtOpAndPersist(
-    _input: QueueEncryptedCrdtOpAndPersistInput
+    input: QueueEncryptedCrdtOpAndPersistInput
   ): Promise<void> {
-    throw new Error(
-      'Encrypted CRDT ops are not yet supported by the current VFS CRDT operation schema'
+    const encrypted = await this.secureWritePipeline.encryptCrdtOp({
+      itemId: input.itemId,
+      opType: input.opType,
+      opPayload: input.opPayload
+    });
+    if (!this.mapEncryptedCrdtOpToLocalOperation) {
+      throw new Error(
+        'Encrypted CRDT ops are not yet supported by the current VFS CRDT operation schema'
+      );
+    }
+
+    const localOperation = this.mapEncryptedCrdtOpToLocalOperation({
+      input,
+      encrypted
+    });
+    await this.writeOrchestrator.queueCrdtLocalOperationAndPersist(
+      localOperation
     );
   }
 
