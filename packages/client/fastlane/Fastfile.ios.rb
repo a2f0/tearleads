@@ -129,7 +129,20 @@ platform :ios do
 
   desc 'Sync App Store certificates and provisioning profiles for TestFlight'
   lane :sync_testflight_certs do
-    match(type: 'appstore')
+    readonly = ENV.fetch('MATCH_READONLY', ENV['CI'] ? 'true' : 'false') == 'true'
+    allow_profile_creation = ENV.fetch('MATCH_ALLOW_PROFILE_CREATION', 'false') == 'true'
+
+    begin
+      match(type: 'appstore', readonly: readonly)
+    rescue StandardError => e
+      profile_missing = e.message.include?('No matching provisioning profiles found')
+      should_retry_with_write_access = readonly && allow_profile_creation && profile_missing
+
+      raise unless should_retry_with_write_access
+
+      UI.important("No App Store profile found for #{APP_ID}. Retrying match with readonly=false to create it.")
+      match(type: 'appstore', readonly: false)
+    end
   end
 
   desc 'Sync macOS Developer ID certificates for desktop app'
