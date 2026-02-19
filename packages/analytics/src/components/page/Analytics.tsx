@@ -3,21 +3,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { exportTableAsCsv } from '@/components/sqlite/exportTableCsv';
 import { getDatabase } from '@/db';
 import {
-  type AnalyticsEvent,
   clearEvents,
-  type EventStats,
   getDistinctEventTypes,
   getEventCount,
   getEventStats,
-  getEvents,
-  type SortColumn,
-  type StatsSortColumn
+  getEvents
 } from '@/db/analytics';
 import { useDatabaseContext } from '@/db/hooks';
 import { AnalyticsEventsPanel } from './AnalyticsEventsPanel';
 import { AnalyticsFiltersSummaryPanel } from './AnalyticsFiltersSummaryPanel';
 import { AnalyticsInlineUnlock } from './AnalyticsInlineUnlock';
 import { AnalyticsPageHeader } from './AnalyticsPageHeader';
+import type {
+  AnalyticsEvent,
+  EventStats,
+  SortColumn,
+  StatsSortColumn
+} from './analyticsTypes';
 import type { SortState } from './SortIcon';
 import type { SummarySortState, TimeFilter } from './types';
 

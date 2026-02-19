@@ -4,7 +4,7 @@ import {
   WindowTableRow
 } from '@tearleads/window-manager';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
-import type { EventStats, StatsSortColumn } from '@/db/analytics';
+import type { EventStats, StatsSortColumn } from './analyticsTypes';
 import { getEventDisplayName } from './eventDisplayName';
 import type { SummarySortState, TimeFilter } from './types';
 
