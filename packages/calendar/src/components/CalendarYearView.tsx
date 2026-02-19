@@ -13,7 +13,7 @@ interface YearMonth {
   cells: YearCell[];
 }
 
-export interface CalendarYearViewProps {
+interface CalendarYearViewProps {
   currentYear: number;
   selectedDate: Date;
   yearData: YearMonth[];

@@ -12,7 +12,7 @@ const dayViewHours = Array.from({ length: 24 }, (_, hour) => hour);
 const workHourStart = 9;
 const workHourEnd = 17;
 
-export interface CalendarDayViewProps {
+interface CalendarDayViewProps {
   dayLabel: string;
   selectedDate: Date;
   positionedDayEvents: PositionedEvent[];

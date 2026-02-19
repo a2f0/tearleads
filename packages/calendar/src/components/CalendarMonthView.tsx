@@ -7,7 +7,7 @@ interface MonthCell {
   inMonth: boolean;
 }
 
-export interface CalendarMonthViewProps {
+interface CalendarMonthViewProps {
   monthLabel: string;
   monthCells: MonthCell[];
   selectedDate: Date;
