@@ -95,6 +95,7 @@ case "$MODE" in
     ;;
   single)
     ACTIVE_CATEGORIES=("${CATEGORIES[$CURSOR]}")
+    MIN_FIXES=1
     NEXT_CURSOR=$(( (CURSOR + 1) % ${#CATEGORIES[@]} ))
     MAX_FIXES=1
     ;;
@@ -130,12 +131,7 @@ if [ -n "${PREEN_MAX_FIXES:-}" ]; then
   MAX_FIXES="$PREEN_MAX_FIXES"
 fi
 
-if [ -z "$MIN_FIXES" ]; then
-  MIN_FIXES=1
-fi
-
-printf 'mode=%s active=%s max_fixes=%s\n' "$MODE" "${ACTIVE_CATEGORIES[*]}" "$MAX_FIXES"
-printf 'fix_targets=min:%s max:%s\n' "$MIN_FIXES" "$MAX_FIXES"
+printf 'mode=%s active=%s min_fixes=%s max_fixes=%s\n' "$MODE" "${ACTIVE_CATEGORIES[*]}" "$MIN_FIXES" "$MAX_FIXES"
 if [ "$PASSIVE" = true ]; then
   echo "passive=true (workspace mutations disabled)"
 fi
