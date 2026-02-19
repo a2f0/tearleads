@@ -32,7 +32,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src/test/clientCompat', import.meta.url)),
-      '@client': fileURLToPath(new URL('./src/test/clientCompat', import.meta.url)),
       '@health': fileURLToPath(new URL('./src', import.meta.url))
     }
   }
