@@ -32,3 +32,14 @@ vbell off
 # Make screen not grab mouse events - let tmux handle them
 mousetrack off
 altscreen on
+
+# Region navigation (Shift+Left/Right passed through from tmux)
+bindkey "^[[1;2D" focus prev
+bindkey "^[[1;2C" focus
+
+# Quick split with new shell: Ctrl-a \ (vertical), Ctrl-a - (horizontal)
+bind \\ eval "split -v" "focus" "screen"
+bind - eval "split" "focus" "screen"
+
+# Close current region: Ctrl-a x
+bind x remove

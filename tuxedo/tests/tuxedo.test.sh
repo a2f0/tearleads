@@ -115,22 +115,6 @@ assert_eq "false" "$USE_SCREEN"
 TUXEDO_FORCE_SCREEN=1 tuxedo_set_screen_flag
 assert_eq "true" "$USE_SCREEN"
 
-UPDATE_LOG="$TEMP_DIR/update.log"
-(
-    update_from_main() {
-        echo "$1" >> "$UPDATE_LOG"
-    }
-    BASE_DIR="$TEMP_DIR/base"
-    WORKSPACE_PREFIX="tearleads"
-    WORKSPACE_START=2
-    MAIN_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-main"
-    NUM_WORKSPACES=3
-    update_all_workspaces
-)
-assert_contains "$(cat "$UPDATE_LOG")" "$TEMP_DIR/base/tearleads-main"
-assert_contains "$(cat "$UPDATE_LOG")" "$TEMP_DIR/base/tearleads2"
-assert_contains "$(cat "$UPDATE_LOG")" "$TEMP_DIR/base/tearleads3"
-
 # sync_all_titles sets @workspace options for automatic-rename-format
 # Verify the function exists and handles missing tmux session gracefully
 sync_all_titles
@@ -167,8 +151,6 @@ ensure_symlinks "$WORKSPACE_DIR"
 
 [ -L "$WORKSPACE_DIR/packages/api/.env" ] || fail "expected packages/api/.env symlink"
 assert_eq "../../../tearleads-shared/packages/api/.env" "$(readlink "$WORKSPACE_DIR/packages/api/.env")"
-
-update_from_main "$BASE_DIR/not-a-repo"
 
 # sync_vscode_title sets @workspace option for a window (enables dynamic titles)
 # Verify the function exists and handles missing tmux session gracefully

@@ -160,45 +160,26 @@ screen_cmd() {
     fi
 }
 
-# Update a workspace from main if it's on main branch with no uncommitted changes
-update_from_main() {
-    workspace="$1"
+# Set up editor split in a screen session (called after all windows created)
+screen_setup_editor() {
+    screen_name="$1"
+    editor_cmd="$2"
+    [ "$USE_SCREEN" = true ] || return 0
 
-    # Skip if workspace doesn't exist or isn't a git repo
-    [ -d "$workspace/.git" ] || return 0
-
-    # Get current branch
-    current_branch=$(git -C "$workspace" rev-parse --abbrev-ref HEAD 2>/dev/null)
-    [ "$current_branch" = "main" ] || return 0
-
-    # Check for uncommitted changes (staged or unstaged)
-    if ! git -C "$workspace" diff --quiet 2>/dev/null || ! git -C "$workspace" diff --cached --quiet 2>/dev/null; then
-        return 0  # Has uncommitted changes, skip
-    fi
-
-    # Check for untracked files (optional - skip if any exist)
-    # if [ -n "$(git -C "$workspace" ls-files --others --exclude-standard 2>/dev/null)" ]; then
-    #     return 0
-    # fi
-
-    # Fetch and fast-forward pull from main (no merge commits)
-    echo "Updating $(basename "$workspace") from main..."
-    git -C "$workspace" fetch origin main --quiet 2>/dev/null || true
-    if ! git -C "$workspace" pull --ff-only origin main --quiet 2>/dev/null; then
-        echo "Warning: Failed to fast-forward $(basename "$workspace"). May have diverged." >&2
-    fi
-}
-
-# Update all workspaces that are on main with no uncommitted changes (parallel)
-update_all_workspaces() {
-    echo "Checking workspaces for updates..."
-    update_from_main "$MAIN_DIR" &
-    i=$WORKSPACE_START
-    while [ "$i" -le "$NUM_WORKSPACES" ]; do
-        update_from_main "$BASE_DIR/${WORKSPACE_PREFIX}${i}" &
-        i=$((i + 1))
+    # Wait for session to exist (poll up to 5 seconds)
+    tries=0
+    while [ $tries -lt 50 ]; do
+        if screen -ls 2>/dev/null | grep -qF ".$screen_name	"; then
+            # Found it - split and run editor
+            screen -S "$screen_name" -X eval "split -v" "focus" "screen"
+            sleep 0.2
+            screen -S "$screen_name" -X stuff "$editor_cmd
+"
+            return 0
+        fi
+        sleep 0.1
+        tries=$((tries + 1))
     done
-    wait  # Wait for all background updates to complete
 }
 
 tuxedo_truncate_title() {
@@ -305,18 +286,22 @@ tuxedo_attach_or_create() {
     tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$DASHBOARD_DIR" -n "$OPEN_PRS_WINDOW_NAME" -e "PATH=$dashboard_path" -e "TUXEDO_WORKSPACE=$DASHBOARD_DIR"
     tmux new-window -t "$SESSION_NAME:" -c "$DASHBOARD_DIR" -n "$CLOSED_PRS_WINDOW_NAME" -e "PATH=$dashboard_path" -e "TUXEDO_WORKSPACE=$DASHBOARD_DIR"
 
+    # Collect screen session names for editor setup later
+    screen_sessions_for_editor=""
+
     # Add shared workspace as third window (source of truth).
-    # Terminal pane runs in a persistent screen session.
+    # Terminal pane runs in a persistent screen session with editor in right region.
     shared_window_name="${WORKSPACE_PREFIX}-shared"
     screen_shared=$(screen_cmd tux-shared)
     shared_path=$(workspace_path "$SHARED_DIR")
     if [ -n "$screen_shared" ]; then
         tmux new-window -t "$SESSION_NAME:" -c "$SHARED_DIR" -n "$shared_window_name" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR" "$screen_shared"
+        screen_sessions_for_editor="$screen_sessions_for_editor tux-shared"
     else
         tmux new-window -t "$SESSION_NAME:" -c "$SHARED_DIR" -n "$shared_window_name" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR"
+        tmux split-window -h -t "$SESSION_NAME:$shared_window_name" -c "$SHARED_DIR" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR" "$EDITOR"
     fi
     set_window_title_options "$SHARED_DIR" "$shared_window_name"
-    tmux split-window -h -t "$SESSION_NAME:$shared_window_name" -c "$SHARED_DIR" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR" "$EDITOR"
 
     # Add main workspace as second window
     # Note: Use "$SESSION_NAME:" (with colon) to explicitly target the session,
@@ -326,11 +311,12 @@ tuxedo_attach_or_create() {
     screen_main=$(screen_cmd tux-main)
     if [ -n "$screen_main" ]; then
         tmux new-window -t "$SESSION_NAME:" -c "$MAIN_DIR" -n "$main_window_name" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR" "$screen_main"
+        screen_sessions_for_editor="$screen_sessions_for_editor tux-main"
     else
         tmux new-window -t "$SESSION_NAME:" -c "$MAIN_DIR" -n "$main_window_name" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR"
+        tmux split-window -h -t "$SESSION_NAME:$main_window_name" -c "$MAIN_DIR" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR" "$EDITOR"
     fi
     set_window_title_options "$MAIN_DIR" "$main_window_name"
-    tmux split-window -h -t "$SESSION_NAME:$main_window_name" -c "$MAIN_DIR" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR" "$EDITOR"
 
     i=$WORKSPACE_START
     while [ "$i" -le "$NUM_WORKSPACES" ]; do
@@ -342,13 +328,23 @@ tuxedo_attach_or_create() {
         screen_i=$(screen_cmd "$screen_name")
         if [ -n "$screen_i" ]; then
             tmux new-window -t "$SESSION_NAME:" -c "$workspace_dir" -n "$window_name" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir" "$screen_i"
+            screen_sessions_for_editor="$screen_sessions_for_editor $screen_name"
         else
             tmux new-window -t "$SESSION_NAME:" -c "$workspace_dir" -n "$window_name" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir"
+            tmux split-window -h -t "$SESSION_NAME:$window_name" -c "$workspace_dir" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir" "$EDITOR"
         fi
         set_window_title_options "$workspace_dir" "$window_name"
-        tmux split-window -h -t "$SESSION_NAME:$window_name" -c "$workspace_dir" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir" "$EDITOR"
         i=$((i + 1))
     done
+
+    # Set up editor splits in all screen sessions (in background, after windows created)
+    if [ -n "$screen_sessions_for_editor" ]; then
+        (
+            for sname in $screen_sessions_for_editor; do
+                screen_setup_editor "$sname" "$EDITOR"
+            done
+        ) &
+    fi
 
     tuxedo_start_pr_dashboards
 
@@ -367,11 +363,7 @@ tuxedo_main() {
 
     tuxedo_set_screen_flag
 
-    # Update workspaces that are on main with no uncommitted changes FIRST
-    # This ensures .gitignore changes are pulled before symlinks are created
-    update_all_workspaces
-
-    # Enforce symlinks for all workspaces after updating from main
+    # Enforce symlinks for all workspaces
     tuxedo_prepare_shared_dirs
 
     tuxedo_attach_or_create
