@@ -34,7 +34,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('../client/src', import.meta.url)),
+      '@': fileURLToPath(new URL('./src/test/clientCompat', import.meta.url)),
       '@analytics': fileURLToPath(new URL('./src', import.meta.url)),
       '@tearleads/ui': fileURLToPath(new URL('../ui/src/index.ts', import.meta.url)),
       '@tearleads/api/dist/openapi.json': fileURLToPath(
