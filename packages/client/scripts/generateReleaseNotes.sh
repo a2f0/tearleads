@@ -231,6 +231,10 @@ extract_error() {
     printf '%s' "$1" | jq -r '.error.message // .error.type // empty'
 }
 
+normalize_notes() {
+    sed 's/\r$//' | sed 's/^- /• /' | sed '/^[[:space:]]*$/d'
+}
+
 is_valid_notes() {
     notes="$1"
     # Must start with bullet
@@ -272,7 +276,7 @@ EOF
         return 1
     fi
 
-    RELEASE_NOTES=$(printf '%s\n' "$OPENCODE_RESPONSE" | sed 's/\r$//' | sed 's/^- /• /' | sed '/^[[:space:]]*$/d')
+    RELEASE_NOTES=$(printf '%s\n' "$OPENCODE_RESPONSE" | normalize_notes)
     is_valid_notes "$RELEASE_NOTES"
 }
 
@@ -289,7 +293,7 @@ try_openrouter() {
         return 1
     fi
 
-    RELEASE_NOTES=$(printf '%s\n' "$RELEASE_NOTES" | sed 's/\r$//' | sed 's/^- /• /' | sed '/^[[:space:]]*$/d')
+    RELEASE_NOTES=$(printf '%s\n' "$RELEASE_NOTES" | normalize_notes)
     is_valid_notes "$RELEASE_NOTES"
 }
 
@@ -331,6 +335,7 @@ try_anthropic() {
         return 1
     fi
 
+    RELEASE_NOTES=$(printf '%s\n' "$RELEASE_NOTES" | normalize_notes)
     is_valid_notes "$RELEASE_NOTES"
 }
 
@@ -344,10 +349,6 @@ elif try_anthropic; then
     echo "Generated release notes with Anthropic" >&2
 else
     echo "Falling back to deterministic release notes" >&2
-    RELEASE_NOTES=$(build_deterministic_notes)
-fi
-
-if ! is_valid_notes "$RELEASE_NOTES"; then
     RELEASE_NOTES=$(build_deterministic_notes)
 fi
 
