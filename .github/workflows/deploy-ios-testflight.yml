@@ -44,7 +44,10 @@ jobs:
 
           LATEST_MAIN_SHA="$HEAD_SHA"
           STALE_HEAD=false
-          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+          # Stale-head protection is only relevant for direct workflow_run triggers.
+          # For workflow_call (used by Integration & Deploy), concurrency already
+          # controls superseded runs and this check can incorrectly suppress deploys.
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
             git fetch --no-tags origin main
             LATEST_MAIN_SHA=$(git rev-parse origin/main)
             if [ "$HEAD_SHA" != "$LATEST_MAIN_SHA" ]; then
