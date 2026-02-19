@@ -1,16 +1,13 @@
-import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import {
   cloneOperation,
   cloneOperations,
   createOperationId,
-  fetchWithAuthRefresh,
-  isBlobRelationKind,
   normalizeApiPrefix,
   normalizeAttachConsistency,
   normalizeBaseUrl,
   normalizeIsoTimestamp,
   normalizeRequiredString,
-  parseErrorMessage
+  normalizeStageEncryptionMetadata
 } from './vfsBlobNetworkFlusherHelpers';
 import type {
   LoadStateCallback,
@@ -19,6 +16,10 @@ import type {
   VfsBlobAbandonRequest,
   VfsBlobAttachQueueOperation,
   VfsBlobAttachRequest,
+  VfsBlobChunkQueueOperation,
+  VfsBlobChunkUploadRequest,
+  VfsBlobCommitQueueOperation,
+  VfsBlobManifestCommitRequest,
   VfsBlobNetworkFlusherFlushResult,
   VfsBlobNetworkFlusherOptions,
   VfsBlobNetworkFlusherPersistedState,
@@ -26,6 +27,11 @@ import type {
   VfsBlobStageQueueOperation,
   VfsBlobStageRequest
 } from './vfsBlobNetworkFlusherTypes';
+import {
+  executeBlobNetworkOperation,
+  isManifestCommitSizeShapeValid,
+  normalizeBlobNetworkOperation
+} from './vfsBlobNetworkOperationRuntime';
 
 export type {
   VfsBlobAbandonQueueOperation,
@@ -35,6 +41,10 @@ export type {
   VfsBlobAttachQueueOperation,
   VfsBlobAttachRequest,
   VfsBlobAttachResponse,
+  VfsBlobChunkQueueOperation,
+  VfsBlobChunkUploadRequest,
+  VfsBlobCommitQueueOperation,
+  VfsBlobManifestCommitRequest,
   VfsBlobNetworkFlusherFlushResult,
   VfsBlobNetworkFlusherOptions,
   VfsBlobNetworkFlusherPersistedState,
@@ -85,7 +95,7 @@ export class VfsBlobNetworkFlusher {
 
     const normalized: VfsBlobNetworkOperation[] = [];
     for (const operation of state.pendingOperations) {
-      normalized.push(this.normalizeQueueOperation(operation));
+      normalized.push(normalizeBlobNetworkOperation(operation));
     }
 
     this.pendingOperations.length = 0;
@@ -134,11 +144,14 @@ export class VfsBlobNetworkFlusher {
       payload: {
         stagingId,
         blobId,
-        expiresAt
+        expiresAt,
+        encryption: normalizeStageEncryptionMetadata(input.encryption)
       }
     };
-    this.pendingOperations.push(operation);
-    return cloneOperation(operation);
+
+    const normalized = normalizeBlobNetworkOperation(operation);
+    this.pendingOperations.push(normalized);
+    return cloneOperation(normalized);
   }
 
   async queueStageAndPersist(
@@ -160,24 +173,20 @@ export class VfsBlobNetworkFlusher {
       throw new Error('itemId is required');
     }
 
-    const relationKind = input.relationKind ?? 'file';
-    if (!isBlobRelationKind(relationKind)) {
-      throw new Error('relationKind is invalid');
-    }
-
-    const consistency = normalizeAttachConsistency(input.consistency);
     const operation: VfsBlobAttachQueueOperation = {
       operationId: createOperationId(),
       kind: 'attach',
       payload: {
         stagingId,
         itemId,
-        relationKind,
-        consistency
+        relationKind: input.relationKind ?? 'file',
+        consistency: normalizeAttachConsistency(input.consistency)
       }
     };
-    this.pendingOperations.push(operation);
-    return cloneOperation(operation);
+
+    const normalized = normalizeBlobNetworkOperation(operation);
+    this.pendingOperations.push(normalized);
+    return cloneOperation(normalized);
   }
 
   async queueAttachAndPersist(
@@ -211,6 +220,118 @@ export class VfsBlobNetworkFlusher {
     return operation;
   }
 
+  queueChunk(input: VfsBlobChunkUploadRequest): VfsBlobChunkQueueOperation {
+    const stagingId = normalizeRequiredString(input.stagingId);
+    const uploadId = normalizeRequiredString(input.uploadId);
+    const nonce = normalizeRequiredString(input.nonce);
+    const aadHash = normalizeRequiredString(input.aadHash);
+    const ciphertextBase64 = normalizeRequiredString(input.ciphertextBase64);
+    if (
+      !stagingId ||
+      !uploadId ||
+      !nonce ||
+      !aadHash ||
+      !ciphertextBase64 ||
+      !Number.isInteger(input.chunkIndex) ||
+      input.chunkIndex < 0 ||
+      !Number.isInteger(input.plaintextLength) ||
+      input.plaintextLength < 0 ||
+      !Number.isInteger(input.ciphertextLength) ||
+      input.ciphertextLength < 0
+    ) {
+      throw new Error('chunk payload is invalid');
+    }
+
+    const operation: VfsBlobChunkQueueOperation = {
+      operationId: createOperationId(),
+      kind: 'chunk',
+      payload: {
+        stagingId,
+        uploadId,
+        chunkIndex: input.chunkIndex,
+        isFinal: input.isFinal,
+        nonce,
+        aadHash,
+        ciphertextBase64,
+        plaintextLength: input.plaintextLength,
+        ciphertextLength: input.ciphertextLength
+      }
+    };
+
+    const normalized = normalizeBlobNetworkOperation(operation);
+    this.pendingOperations.push(normalized);
+    return cloneOperation(normalized);
+  }
+
+  async queueChunkAndPersist(
+    input: VfsBlobChunkUploadRequest
+  ): Promise<VfsBlobChunkQueueOperation> {
+    const operation = this.queueChunk(input);
+    await this.persistState();
+    return operation;
+  }
+
+  queueManifestCommit(
+    input: VfsBlobManifestCommitRequest
+  ): VfsBlobCommitQueueOperation {
+    const stagingId = normalizeRequiredString(input.stagingId);
+    const uploadId = normalizeRequiredString(input.uploadId);
+    const manifestHash = normalizeRequiredString(input.manifestHash);
+    const manifestSignature = normalizeRequiredString(input.manifestSignature);
+    if (
+      !stagingId ||
+      !uploadId ||
+      !manifestHash ||
+      !manifestSignature ||
+      !Number.isInteger(input.keyEpoch) ||
+      input.keyEpoch <= 0 ||
+      !Number.isInteger(input.chunkCount) ||
+      input.chunkCount < 0 ||
+      !Number.isInteger(input.totalPlaintextBytes) ||
+      input.totalPlaintextBytes < 0 ||
+      !Number.isInteger(input.totalCiphertextBytes) ||
+      input.totalCiphertextBytes < 0
+    ) {
+      throw new Error('manifest commit payload is invalid');
+    }
+    if (
+      !isManifestCommitSizeShapeValid(
+        input.chunkCount,
+        input.totalPlaintextBytes,
+        input.totalCiphertextBytes
+      )
+    ) {
+      throw new Error('manifest commit payload is invalid');
+    }
+
+    const operation: VfsBlobCommitQueueOperation = {
+      operationId: createOperationId(),
+      kind: 'commit',
+      payload: {
+        stagingId,
+        uploadId,
+        keyEpoch: input.keyEpoch,
+        manifestHash,
+        manifestSignature,
+        chunkCount: input.chunkCount,
+        totalPlaintextBytes: input.totalPlaintextBytes,
+        totalCiphertextBytes: input.totalCiphertextBytes
+      }
+    };
+
+    const normalized = normalizeBlobNetworkOperation(operation);
+    this.pendingOperations.push(normalized);
+    return cloneOperation(normalized);
+  }
+
+  async queueManifestCommitAndPersist(
+    input: VfsBlobManifestCommitRequest
+  ): Promise<VfsBlobCommitQueueOperation> {
+    const operation = this.queueManifestCommit(input);
+    await this.persistState();
+    return operation;
+  }
+
   async flush(): Promise<VfsBlobNetworkFlusherFlushResult> {
     if (this.flushPromise) {
       return this.flushPromise;
@@ -234,7 +355,15 @@ export class VfsBlobNetworkFlusher {
           break;
         }
 
-        await this.executeOperation(operation);
+        await executeBlobNetworkOperation(
+          {
+            baseUrl: this.baseUrl,
+            apiPrefix: this.apiPrefix,
+            headers: this.headers,
+            fetchImpl: this.fetchImpl
+          },
+          operation
+        );
         processedOperations += 1;
         await this.persistPendingFromOffset(processedOperations);
       }
@@ -258,158 +387,5 @@ export class VfsBlobNetworkFlusher {
     await this.saveState({
       pendingOperations: cloneOperations(this.pendingOperations.slice(offset))
     });
-  }
-
-  private async executeOperation(
-    operation: VfsBlobNetworkOperation
-  ): Promise<void> {
-    if (operation.kind === 'stage') {
-      await this.requestJson('/vfs/blobs/stage', {
-        stagingId: operation.payload.stagingId,
-        blobId: operation.payload.blobId,
-        expiresAt: operation.payload.expiresAt
-      });
-      return;
-    }
-
-    if (operation.kind === 'attach') {
-      const body: Record<string, unknown> = {
-        itemId: operation.payload.itemId,
-        relationKind: operation.payload.relationKind
-      };
-      if (operation.payload.consistency) {
-        body['clientId'] = operation.payload.consistency.clientId;
-        body['requiredCursor'] = encodeVfsSyncCursor(
-          operation.payload.consistency.requiredCursor
-        );
-        body['requiredLastReconciledWriteIds'] = {
-          ...operation.payload.consistency.requiredLastReconciledWriteIds
-        };
-      }
-
-      await this.requestJson(
-        `/vfs/blobs/stage/${encodeURIComponent(operation.payload.stagingId)}/attach`,
-        body
-      );
-      return;
-    }
-
-    await this.requestJson(
-      `/vfs/blobs/stage/${encodeURIComponent(operation.payload.stagingId)}/abandon`,
-      {}
-    );
-  }
-
-  private async requestJson(path: string, body: unknown): Promise<unknown> {
-    const url = this.buildUrl(path);
-    const headers = new Headers();
-    headers.set('Accept', 'application/json');
-    headers.set('Content-Type', 'application/json');
-    for (const [header, value] of Object.entries(this.headers)) {
-      headers.set(header, value);
-    }
-
-    const response = await fetchWithAuthRefresh(this.fetchImpl, url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body)
-    });
-    const rawBody = await response.text();
-    const parsedBody = this.parseBody(rawBody);
-
-    if (!response.ok) {
-      throw new Error(
-        parseErrorMessage(parsedBody, `API error: ${response.status}`)
-      );
-    }
-
-    return parsedBody;
-  }
-
-  private parseBody(rawBody: string): unknown {
-    if (rawBody.length === 0) {
-      return null;
-    }
-
-    try {
-      return JSON.parse(rawBody);
-    } catch {
-      throw new Error('transport returned non-JSON response');
-    }
-  }
-
-  private buildUrl(path: string): string {
-    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-    const pathname = `${this.apiPrefix}${normalizedPath}`;
-    return this.baseUrl.length > 0 ? `${this.baseUrl}${pathname}` : pathname;
-  }
-
-  private normalizeQueueOperation(
-    operation: VfsBlobNetworkOperation
-  ): VfsBlobNetworkOperation {
-    if (!operation || typeof operation !== 'object') {
-      throw new Error('operation is invalid');
-    }
-
-    const operationId = normalizeRequiredString(operation.operationId);
-    if (!operationId) {
-      throw new Error('operation.operationId is required');
-    }
-
-    if (operation.kind === 'stage') {
-      const stagingId = normalizeRequiredString(operation.payload.stagingId);
-      const blobId = normalizeRequiredString(operation.payload.blobId);
-      const expiresAt = normalizeIsoTimestamp(operation.payload.expiresAt);
-      if (!stagingId || !blobId || !expiresAt) {
-        throw new Error('stage operation payload is invalid');
-      }
-
-      return {
-        operationId,
-        kind: 'stage',
-        payload: {
-          stagingId,
-          blobId,
-          expiresAt
-        }
-      };
-    }
-
-    if (operation.kind === 'abandon') {
-      const stagingId = normalizeRequiredString(operation.payload.stagingId);
-      if (!stagingId) {
-        throw new Error('abandon operation payload is invalid');
-      }
-
-      return {
-        operationId,
-        kind: 'abandon',
-        payload: {
-          stagingId
-        }
-      };
-    }
-
-    if (operation.kind === 'attach') {
-      const stagingId = normalizeRequiredString(operation.payload.stagingId);
-      const itemId = normalizeRequiredString(operation.payload.itemId);
-      const relationKind = operation.payload.relationKind;
-      if (!stagingId || !itemId || !isBlobRelationKind(relationKind)) {
-        throw new Error('attach operation payload is invalid');
-      }
-
-      return {
-        operationId,
-        kind: 'attach',
-        payload: {
-          stagingId,
-          itemId,
-          relationKind,
-          consistency: normalizeAttachConsistency(operation.payload.consistency)
-        }
-      };
-    }
-
-    throw new Error('operation.kind is invalid');
   }
 }

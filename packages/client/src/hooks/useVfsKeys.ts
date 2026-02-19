@@ -10,18 +10,17 @@
  */
 
 import {
+  buildVfsPublicEncryptionKey,
   combineEncapsulation,
-  combinePublicKey,
-  decrypt,
+  decryptVfsPrivateKeysWithRawKey,
   deserializePublicKey,
-  encrypt,
+  encryptVfsPrivateKeysWithRawKey,
   generateKeyPair,
-  generateSalt,
-  importKey,
   type SerializedKeyPair,
   serializeKeyPair,
   splitPublicKey,
   type VfsKeyPair,
+  type VfsObjectType,
   type VfsPublicKey,
   wrapKeyForRecipient
 } from '@tearleads/shared';
@@ -53,18 +52,6 @@ function fromBase64(base64: string): Uint8Array {
 }
 
 /**
- * Convert a Uint8Array to base64 string.
- */
-function toBase64(data: Uint8Array): string {
-  let binary = '';
-  const chunkSize = 0x8000;
-  for (let i = 0; i < data.length; i += chunkSize) {
-    binary += String.fromCharCode(...data.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
-}
-
-/**
  * Encrypt the private keys with the local database encryption key.
  * Returns base64-encoded encrypted blob.
  */
@@ -78,24 +65,13 @@ async function encryptPrivateKeys(
     throw new Error('Database is not unlocked');
   }
 
-  // Combine private keys into a single JSON string
-  const privateKeysJson = JSON.stringify({
-    x25519PrivateKey: serializedKeyPair.x25519PrivateKey,
-    mlKemPrivateKey: serializedKeyPair.mlKemPrivateKey
-  });
-
-  const plaintext = new TextEncoder().encode(privateKeysJson);
-  const cryptoKey = await importKey(dbKey);
-  const encrypted = await encrypt(plaintext, cryptoKey);
-
-  // Generate a salt for the key derivation metadata
-  // (In this case we're using the existing DB key, but we store a salt
-  // to indicate which key derivation was used - for future key rotation)
-  const salt = generateSalt();
-
+  const bundle = await encryptVfsPrivateKeysWithRawKey(
+    serializedKeyPair,
+    dbKey
+  );
   return {
-    encryptedBlob: toBase64(encrypted),
-    argon2Salt: toBase64(salt)
+    encryptedBlob: bundle.encryptedPrivateKeys,
+    argon2Salt: bundle.argon2Salt
   };
 }
 
@@ -113,24 +89,7 @@ async function decryptPrivateKeys(encryptedBlob: string): Promise<{
     throw new Error('Database is not unlocked');
   }
 
-  const ciphertext = fromBase64(encryptedBlob);
-  const cryptoKey = await importKey(dbKey);
-  const plaintext = await decrypt(ciphertext, cryptoKey);
-  const decoded = new TextDecoder().decode(plaintext);
-
-  const parsed = JSON.parse(decoded) as {
-    x25519PrivateKey?: string;
-    mlKemPrivateKey?: string;
-  };
-
-  if (!parsed.x25519PrivateKey || !parsed.mlKemPrivateKey) {
-    throw new Error('Invalid decrypted private key payload');
-  }
-
-  return {
-    x25519PrivateKey: parsed.x25519PrivateKey,
-    mlKemPrivateKey: parsed.mlKemPrivateKey
-  };
+  return decryptVfsPrivateKeysWithRawKey(encryptedBlob, dbKey);
 }
 
 /**
@@ -145,10 +104,7 @@ async function generateAndStoreKeys(): Promise<VfsKeyPair> {
   const { encryptedBlob, argon2Salt } = await encryptPrivateKeys(serialized);
 
   // Combine public keys for server storage
-  const publicEncryptionKey = combinePublicKey({
-    x25519PublicKey: serialized.x25519PublicKey,
-    mlKemPublicKey: serialized.mlKemPublicKey
-  });
+  const publicEncryptionKey = buildVfsPublicEncryptionKey(keyPair);
 
   // Store on server
   await api.vfs.setupKeys({
@@ -300,6 +256,42 @@ export async function wrapSessionKey(sessionKey: Uint8Array): Promise<string> {
   const publicKey = await ensureVfsKeys();
   const encapsulation = wrapKeyForRecipient(sessionKey, publicKey);
   return combineEncapsulation(encapsulation);
+}
+
+export interface RegisterVfsItemWithCurrentKeysInput {
+  id: string;
+  objectType: VfsObjectType;
+  registerOnServer?: boolean;
+  sessionKey?: Uint8Array;
+}
+
+export interface RegisterVfsItemWithCurrentKeysResult {
+  sessionKey: Uint8Array;
+  encryptedSessionKey: string;
+}
+
+/**
+ * Ensure keys are available, wrap a session key, and optionally register the
+ * item on the server in one call.
+ */
+export async function registerVfsItemWithCurrentKeys(
+  input: RegisterVfsItemWithCurrentKeysInput
+): Promise<RegisterVfsItemWithCurrentKeysResult> {
+  const sessionKey = input.sessionKey ?? generateSessionKey();
+  const encryptedSessionKey = await wrapSessionKey(sessionKey);
+
+  if (input.registerOnServer ?? true) {
+    await api.vfs.register({
+      id: input.id,
+      objectType: input.objectType,
+      encryptedSessionKey
+    });
+  }
+
+  return {
+    sessionKey,
+    encryptedSessionKey
+  };
 }
 
 /**

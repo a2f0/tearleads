@@ -108,6 +108,27 @@ describe('api with msw', () => {
     });
   });
 
+  it('registers an item through onboarding helper using vfs routes', async () => {
+    const { registerVfsItemWithApiOnboarding } = await import(
+      './vfsCrypto/registrationClient'
+    );
+
+    const sessionKey = new Uint8Array(32);
+    sessionKey.fill(7);
+    const result = await registerVfsItemWithApiOnboarding({
+      password: 'test-password',
+      id: 'item-onboard-1',
+      objectType: 'file',
+      sessionKey
+    });
+
+    expect(result.sessionKey).toEqual(sessionKey);
+    expect(result.registerResponse.id).toBe('item-1');
+    expect(wasApiRequestMade('GET', '/vfs/keys/me')).toBe(true);
+    expect(wasApiRequestMade('POST', '/vfs/keys')).toBe(false);
+    expect(wasApiRequestMade('POST', '/vfs/register')).toBe(true);
+  });
+
   it('routes ai requests through msw', async () => {
     const api = await loadApi();
 

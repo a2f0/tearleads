@@ -5,6 +5,7 @@
 import { assertPlainArrayBuffer, isRecord } from './typeGuards.js';
 
 export * from './crypto/asymmetric.js';
+export * from './crypto/vfsKeyBundles.js';
 // Crypto utilities
 export * from './crypto/webCrypto.js';
 

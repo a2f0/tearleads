@@ -52,40 +52,88 @@ export function buildQueuedLocalOperation({
     occurredAt: parsedOccurredAt
   };
 
+  const hasEncryptedPayload = input.encryptedPayload !== undefined;
+
   if (input.opType === 'acl_add' || input.opType === 'acl_remove') {
     const principalType = input.principalType;
     const principalId = normalizeRequiredString(input.principalId);
 
-    if (!isPrincipalType(principalType) || !principalId) {
-      throw new Error(
-        'principalType and principalId are required for acl operations'
-      );
+    if (!hasEncryptedPayload) {
+      if (!isPrincipalType(principalType) || !principalId) {
+        throw new Error(
+          'principalType and principalId are required for acl operations'
+        );
+      }
     }
 
-    operation.principalType = principalType;
-    operation.principalId = principalId;
+    if (isPrincipalType(principalType)) {
+      operation.principalType = principalType;
+    }
+    if (principalId) {
+      operation.principalId = principalId;
+    }
     if (input.opType === 'acl_add') {
       const accessLevel = input.accessLevel;
-      if (!isAccessLevel(accessLevel)) {
+      if (!hasEncryptedPayload && !isAccessLevel(accessLevel)) {
         throw new Error('accessLevel is required for acl_add');
       }
 
-      operation.accessLevel = accessLevel;
+      if (isAccessLevel(accessLevel)) {
+        operation.accessLevel = accessLevel;
+      }
     }
   }
 
   if (input.opType === 'link_add' || input.opType === 'link_remove') {
     const parentId = normalizeRequiredString(input.parentId);
     const childId = normalizeRequiredString(input.childId);
-    if (!parentId || !childId) {
+    if (!hasEncryptedPayload && (!parentId || !childId)) {
       throw new Error('parentId and childId are required for link operations');
     }
-    if (childId !== normalizedItemId) {
+    if (childId && childId !== normalizedItemId) {
       throw new Error('link childId must match itemId');
     }
 
-    operation.parentId = parentId;
-    operation.childId = childId;
+    if (parentId) {
+      operation.parentId = parentId;
+    }
+    if (childId) {
+      operation.childId = childId;
+    }
+  }
+
+  if (hasEncryptedPayload) {
+    const encryptedPayload = normalizeRequiredString(input.encryptedPayload);
+    if (!encryptedPayload) {
+      throw new Error('encryptedPayload must be a non-empty string');
+    }
+    operation.encryptedPayload = encryptedPayload;
+
+    if (input.keyEpoch === undefined || input.keyEpoch < 1) {
+      throw new Error('keyEpoch is required when encryptedPayload is provided');
+    }
+    operation.keyEpoch = input.keyEpoch;
+
+    if (input.encryptionNonce !== undefined) {
+      const encryptionNonce = normalizeRequiredString(input.encryptionNonce);
+      if (encryptionNonce) {
+        operation.encryptionNonce = encryptionNonce;
+      }
+    }
+    if (input.encryptionAad !== undefined) {
+      const encryptionAad = normalizeRequiredString(input.encryptionAad);
+      if (encryptionAad) {
+        operation.encryptionAad = encryptionAad;
+      }
+    }
+    if (input.encryptionSignature !== undefined) {
+      const encryptionSignature = normalizeRequiredString(
+        input.encryptionSignature
+      );
+      if (encryptionSignature) {
+        operation.encryptionSignature = encryptionSignature;
+      }
+    }
   }
 
   return operation;

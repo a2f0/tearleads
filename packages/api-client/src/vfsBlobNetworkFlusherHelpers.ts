@@ -2,7 +2,8 @@ import type { VfsCrdtLastReconciledWriteIds } from '@tearleads/vfs-sync/vfs';
 import type {
   VfsBlobAttachConsistency,
   VfsBlobNetworkOperation,
-  VfsBlobRelationKind
+  VfsBlobRelationKind,
+  VfsBlobStageEncryptionMetadata
 } from './vfsBlobNetworkFlusherTypes';
 
 export { fetchWithAuthRefresh } from './vfsAuthFetch';
@@ -117,7 +118,10 @@ export function cloneOperation(
       payload: {
         stagingId: operation.payload.stagingId,
         blobId: operation.payload.blobId,
-        expiresAt: operation.payload.expiresAt
+        expiresAt: operation.payload.expiresAt,
+        encryption: operation.payload.encryption
+          ? cloneStageEncryptionMetadata(operation.payload.encryption)
+          : undefined
       }
     };
   }
@@ -127,6 +131,39 @@ export function cloneOperation(
       ...operation,
       payload: {
         stagingId: operation.payload.stagingId
+      }
+    };
+  }
+
+  if (operation.kind === 'chunk') {
+    return {
+      ...operation,
+      payload: {
+        stagingId: operation.payload.stagingId,
+        uploadId: operation.payload.uploadId,
+        chunkIndex: operation.payload.chunkIndex,
+        isFinal: operation.payload.isFinal,
+        nonce: operation.payload.nonce,
+        aadHash: operation.payload.aadHash,
+        ciphertextBase64: operation.payload.ciphertextBase64,
+        plaintextLength: operation.payload.plaintextLength,
+        ciphertextLength: operation.payload.ciphertextLength
+      }
+    };
+  }
+
+  if (operation.kind === 'commit') {
+    return {
+      ...operation,
+      payload: {
+        stagingId: operation.payload.stagingId,
+        uploadId: operation.payload.uploadId,
+        keyEpoch: operation.payload.keyEpoch,
+        manifestHash: operation.payload.manifestHash,
+        manifestSignature: operation.payload.manifestSignature,
+        chunkCount: operation.payload.chunkCount,
+        totalPlaintextBytes: operation.payload.totalPlaintextBytes,
+        totalCiphertextBytes: operation.payload.totalCiphertextBytes
       }
     };
   }
@@ -205,4 +242,126 @@ export function normalizeAttachConsistency(
       ...consistency.requiredLastReconciledWriteIds
     }
   };
+}
+
+export function normalizeStageEncryptionMetadata(
+  metadata: unknown
+): VfsBlobStageEncryptionMetadata | undefined {
+  if (metadata === undefined) {
+    return undefined;
+  }
+  if (!isRecord(metadata)) {
+    throw new Error('stage encryption metadata is invalid');
+  }
+
+  const algorithm = normalizeRequiredString(metadata['algorithm']);
+  const manifestHash = normalizeRequiredString(metadata['manifestHash']);
+  const keyEpoch = normalizeNonNegativeInteger(metadata['keyEpoch']);
+  const chunkCount = normalizePositiveInteger(metadata['chunkCount']);
+  const chunkSizeBytes = normalizePositiveInteger(metadata['chunkSizeBytes']);
+  const plaintextSizeBytes = normalizeNonNegativeInteger(
+    metadata['plaintextSizeBytes']
+  );
+  const ciphertextSizeBytes = normalizeNonNegativeInteger(
+    metadata['ciphertextSizeBytes']
+  );
+
+  if (
+    !algorithm ||
+    keyEpoch === null ||
+    !manifestHash ||
+    chunkCount === null ||
+    chunkSizeBytes === null ||
+    plaintextSizeBytes === null ||
+    ciphertextSizeBytes === null
+  ) {
+    throw new Error('stage encryption metadata is invalid');
+  }
+
+  const checkpointValue = metadata['checkpoint'];
+  const checkpoint = normalizeStageUploadCheckpoint(checkpointValue);
+  return {
+    algorithm,
+    keyEpoch,
+    manifestHash,
+    chunkCount,
+    chunkSizeBytes,
+    plaintextSizeBytes,
+    ciphertextSizeBytes,
+    checkpoint
+  };
+}
+
+function normalizeStageUploadCheckpoint(
+  checkpoint: unknown
+): VfsBlobStageEncryptionMetadata['checkpoint'] {
+  if (checkpoint === undefined) {
+    return undefined;
+  }
+  if (!isRecord(checkpoint)) {
+    throw new Error('stage encryption metadata is invalid');
+  }
+
+  const uploadId = normalizeRequiredString(checkpoint['uploadId']);
+  const nextChunkIndex = normalizeNonNegativeInteger(
+    checkpoint['nextChunkIndex']
+  );
+  if (!uploadId || nextChunkIndex === null) {
+    throw new Error('stage encryption metadata is invalid');
+  }
+
+  return {
+    uploadId,
+    nextChunkIndex
+  };
+}
+
+function cloneStageEncryptionMetadata(
+  metadata: VfsBlobStageEncryptionMetadata
+): VfsBlobStageEncryptionMetadata {
+  return {
+    algorithm: metadata.algorithm,
+    keyEpoch: metadata.keyEpoch,
+    manifestHash: metadata.manifestHash,
+    chunkCount: metadata.chunkCount,
+    chunkSizeBytes: metadata.chunkSizeBytes,
+    plaintextSizeBytes: metadata.plaintextSizeBytes,
+    ciphertextSizeBytes: metadata.ciphertextSizeBytes,
+    checkpoint: metadata.checkpoint
+      ? {
+          uploadId: metadata.checkpoint.uploadId,
+          nextChunkIndex: metadata.checkpoint.nextChunkIndex
+        }
+      : undefined
+  };
+}
+
+function normalizePositiveInteger(value: unknown): number | null {
+  if (
+    typeof value !== 'number' ||
+    !Number.isInteger(value) ||
+    !Number.isFinite(value) ||
+    value <= 0
+  ) {
+    return null;
+  }
+
+  return value;
+}
+
+function normalizeNonNegativeInteger(value: unknown): number | null {
+  if (
+    typeof value !== 'number' ||
+    !Number.isInteger(value) ||
+    !Number.isFinite(value) ||
+    value < 0
+  ) {
+    return null;
+  }
+
+  return value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

@@ -7,6 +7,7 @@ import {
   generateSessionKey,
   getVfsPublicKey,
   hasVfsKeys,
+  registerVfsItemWithCurrentKeys,
   wrapSessionKey
 } from './useVfsKeys';
 
@@ -16,13 +17,22 @@ vi.mock('@tearleads/shared', () => ({
     (enc: { x25519: Uint8Array; mlKem: Uint8Array }) =>
       `combined:${enc.x25519.length}:${enc.mlKem.length}`
   ),
+  buildVfsPublicEncryptionKey: vi.fn(() => 'combined-public-key'),
   combinePublicKey: vi.fn(() => 'combined-public-key'),
+  decryptVfsPrivateKeysWithRawKey: vi.fn(async () => ({
+    x25519PrivateKey: 'dGVzdA==',
+    mlKemPrivateKey: 'dGVzdA=='
+  })),
   deserializePublicKey: vi.fn(
     (_serialized: { x25519: string; mlKem: string }) => ({
       x25519PublicKey: new Uint8Array(32),
       mlKemPublicKey: new Uint8Array(800)
     })
   ),
+  encryptVfsPrivateKeysWithRawKey: vi.fn(async () => ({
+    encryptedPrivateKeys: 'ZW5jcnlwdGVk',
+    argon2Salt: 'c2FsdA=='
+  })),
   decrypt: vi.fn(async () => new Uint8Array([1, 2, 3, 4])),
   encrypt: vi.fn(async () => new Uint8Array([1, 2, 3, 4])),
   generateKeyPair: vi.fn(() => ({
@@ -59,7 +69,8 @@ vi.mock('@/lib/api', () => ({
   api: {
     vfs: {
       getMyKeys: vi.fn(),
-      setupKeys: vi.fn()
+      setupKeys: vi.fn(),
+      register: vi.fn()
     }
   }
 }));
@@ -248,6 +259,45 @@ describe('useVfsKeys', () => {
       const wrapped = await wrapSessionKey(sessionKey);
 
       expect(wrapped).toMatch(/^combined:/);
+    });
+  });
+
+  describe('registerVfsItemWithCurrentKeys', () => {
+    it('wraps and registers by default', async () => {
+      vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('404'));
+      vi.mocked(api.vfs.setupKeys).mockResolvedValueOnce({ created: true });
+      vi.mocked(api.vfs.register).mockResolvedValueOnce({
+        id: 'item-1',
+        createdAt: '2026-02-19T00:00:00.000Z'
+      });
+
+      const result = await registerVfsItemWithCurrentKeys({
+        id: 'item-1',
+        objectType: 'file'
+      });
+
+      expect(result.encryptedSessionKey).toMatch(/^combined:/);
+      expect(api.vfs.register).toHaveBeenCalledWith({
+        id: 'item-1',
+        objectType: 'file',
+        encryptedSessionKey: result.encryptedSessionKey
+      });
+    });
+
+    it('skips server registration when registerOnServer is false', async () => {
+      vi.mocked(api.vfs.getMyKeys).mockResolvedValueOnce({
+        publicEncryptionKey: 'server-key',
+        publicSigningKey: 'sign'
+      });
+
+      const result = await registerVfsItemWithCurrentKeys({
+        id: 'item-2',
+        objectType: 'file',
+        registerOnServer: false
+      });
+
+      expect(result.encryptedSessionKey).toMatch(/^combined:/);
+      expect(api.vfs.register).not.toHaveBeenCalled();
     });
   });
 

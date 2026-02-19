@@ -13,6 +13,7 @@ export interface VfsBlobStageRequest {
   stagingId?: string;
   blobId: string;
   expiresAt: string;
+  encryption?: VfsBlobStageEncryptionMetadata;
 }
 
 export interface VfsBlobStageResponse {
@@ -56,6 +57,29 @@ export interface VfsBlobAbandonResponse {
   status: 'abandoned';
 }
 
+export interface VfsBlobChunkUploadRequest {
+  stagingId: string;
+  uploadId: string;
+  chunkIndex: number;
+  isFinal: boolean;
+  nonce: string;
+  aadHash: string;
+  ciphertextBase64: string;
+  plaintextLength: number;
+  ciphertextLength: number;
+}
+
+export interface VfsBlobManifestCommitRequest {
+  stagingId: string;
+  uploadId: string;
+  keyEpoch: number;
+  manifestHash: string;
+  manifestSignature: string;
+  chunkCount: number;
+  totalPlaintextBytes: number;
+  totalCiphertextBytes: number;
+}
+
 export interface VfsBlobStageQueueOperation {
   operationId: string;
   kind: 'stage';
@@ -63,7 +87,24 @@ export interface VfsBlobStageQueueOperation {
     stagingId: string;
     blobId: string;
     expiresAt: string;
+    encryption?: VfsBlobStageEncryptionMetadata;
   };
+}
+
+export interface VfsBlobStageUploadCheckpoint {
+  uploadId: string;
+  nextChunkIndex: number;
+}
+
+export interface VfsBlobStageEncryptionMetadata {
+  algorithm: string;
+  keyEpoch: number;
+  manifestHash: string;
+  chunkCount: number;
+  chunkSizeBytes: number;
+  plaintextSizeBytes: number;
+  ciphertextSizeBytes: number;
+  checkpoint?: VfsBlobStageUploadCheckpoint;
 }
 
 export interface VfsBlobAttachQueueOperation {
@@ -85,10 +126,43 @@ export interface VfsBlobAbandonQueueOperation {
   };
 }
 
+export interface VfsBlobChunkQueueOperation {
+  operationId: string;
+  kind: 'chunk';
+  payload: {
+    stagingId: string;
+    uploadId: string;
+    chunkIndex: number;
+    isFinal: boolean;
+    nonce: string;
+    aadHash: string;
+    ciphertextBase64: string;
+    plaintextLength: number;
+    ciphertextLength: number;
+  };
+}
+
+export interface VfsBlobCommitQueueOperation {
+  operationId: string;
+  kind: 'commit';
+  payload: {
+    stagingId: string;
+    uploadId: string;
+    keyEpoch: number;
+    manifestHash: string;
+    manifestSignature: string;
+    chunkCount: number;
+    totalPlaintextBytes: number;
+    totalCiphertextBytes: number;
+  };
+}
+
 export type VfsBlobNetworkOperation =
   | VfsBlobStageQueueOperation
   | VfsBlobAttachQueueOperation
-  | VfsBlobAbandonQueueOperation;
+  | VfsBlobAbandonQueueOperation
+  | VfsBlobChunkQueueOperation
+  | VfsBlobCommitQueueOperation;
 
 export interface VfsBlobNetworkFlusherPersistedState {
   pendingOperations: VfsBlobNetworkOperation[];

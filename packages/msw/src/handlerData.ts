@@ -33,7 +33,13 @@ import type {
   VfsSyncResponse,
   VfsUserKeysResponse
 } from '@tearleads/shared';
-import { DEFAULT_OPENROUTER_MODEL_ID } from '@tearleads/shared';
+import {
+  combinePublicKey,
+  DEFAULT_OPENROUTER_MODEL_ID,
+  extractPublicKey,
+  generateKeyPair,
+  serializePublicKey
+} from '@tearleads/shared';
 import { HttpResponse } from 'msw';
 
 const ok = <T extends object>(body: T) => HttpResponse.json(body);
@@ -203,8 +209,12 @@ const defaultOrganizationGroups: OrganizationGroupsResponse = {
   ]
 };
 
+const defaultVfsKeysPublic = combinePublicKey(
+  serializePublicKey(extractPublicKey(generateKeyPair()))
+);
+
 const defaultVfsKeys: VfsUserKeysResponse = {
-  publicEncryptionKey: 'pub-enc-key',
+  publicEncryptionKey: defaultVfsKeysPublic,
   publicSigningKey: 'pub-sign-key',
   encryptedPrivateKeys: 'encrypted-private-keys',
   argon2Salt: 'argon2-salt'
