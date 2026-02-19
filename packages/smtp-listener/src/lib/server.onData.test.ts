@@ -1,72 +1,16 @@
-import { EventEmitter } from 'node:events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-type OnDataHandler = (
-  stream: {
-    on: (event: string, handler: (...args: unknown[]) => void) => void;
-  },
-  session: { envelope: { mailFrom: unknown; rcptTo: unknown[] } },
-  callback: (err?: Error) => void
-) => void;
-
-const {
-  mockStorageStore,
-  mockStorageClose,
-  mockServerListen,
-  mockServerClose,
-  mockServerOn,
-  capturedOnDataRef,
-  mockServerAddress
-} = vi.hoisted(() => ({
-  mockStorageStore: vi.fn(),
-  mockStorageClose: vi.fn(),
-  mockServerListen: vi.fn(),
-  mockServerClose: vi.fn(),
-  mockServerOn: vi.fn(),
-  capturedOnDataRef: { current: null as OnDataHandler | null },
-  mockServerAddress: vi.fn<() => { port: number } | string | null>(() => ({
-    port: 2525
-  }))
-}));
-
-vi.mock('./storage.js', () => ({
-  createStorage: vi.fn(() =>
-    Promise.resolve({
-      store: mockStorageStore,
-      close: mockStorageClose
-    })
-  )
-}));
-
-vi.mock('smtp-server', () => ({
-  SMTPServer: class {
-    server = { address: mockServerAddress };
-    listen = mockServerListen;
-    close = mockServerClose;
-    on = mockServerOn;
-
-    constructor(options: { onData: OnDataHandler }) {
-      capturedOnDataRef.current = options.onData;
-    }
-  }
-}));
-
+import {
+  createMockStream,
+  getSmtpTestDoubles,
+  resetSmtpTestDoubles
+} from '../test/serverTestDoubles.js';
 import { createSmtpListener } from './server.js';
+
+const smtpTestDoubles = getSmtpTestDoubles();
 
 describe('server onData', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    mockServerAddress.mockReturnValue({ port: 2525 });
-    mockServerListen.mockImplementation(
-      (_port: number, _host: string | undefined, callback: () => void) => {
-        callback();
-      }
-    );
-    mockServerClose.mockImplementation((callback: () => void) => {
-      callback();
-    });
-    mockStorageStore.mockResolvedValue(undefined);
-    mockStorageClose.mockResolvedValue(undefined);
+    resetSmtpTestDoubles();
   });
 
   afterEach(() => {
@@ -78,7 +22,7 @@ describe('server onData', () => {
     await createSmtpListener({ port: 2525, onEmail });
 
     const mockCallback = vi.fn();
-    const stream = new EventEmitter();
+    const stream = createMockStream();
     const session = {
       envelope: {
         mailFrom: { address: 'sender@test.com' },
@@ -86,14 +30,14 @@ describe('server onData', () => {
       }
     };
 
-    capturedOnDataRef.current?.(stream, session, mockCallback);
+    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
     stream.emit('end');
 
     await vi.waitFor(() => {
       expect(mockCallback).toHaveBeenCalledWith();
     });
 
-    expect(mockStorageStore).not.toHaveBeenCalled();
+    expect(smtpTestDoubles.mockStorageStore).not.toHaveBeenCalled();
     expect(onEmail).toHaveBeenCalled();
   });
 
@@ -102,7 +46,7 @@ describe('server onData', () => {
     await listener.start();
 
     const mockCallback = vi.fn();
-    const stream = new EventEmitter();
+    const stream = createMockStream();
     const session = {
       envelope: {
         mailFrom: { address: 'sender@test.com' },
@@ -110,7 +54,7 @@ describe('server onData', () => {
       }
     };
 
-    capturedOnDataRef.current?.(stream, session, mockCallback);
+    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
     stream.emit('data', Buffer.from('Subject: Test\r\n\r\nBody'));
     stream.emit('end');
 
@@ -118,9 +62,10 @@ describe('server onData', () => {
       expect(mockCallback).toHaveBeenCalledWith();
     });
 
-    expect(mockStorageStore).toHaveBeenCalledWith(expect.any(Object), [
-      'user-1'
-    ]);
+    expect(smtpTestDoubles.mockStorageStore).toHaveBeenCalledWith(
+      expect.any(Object),
+      ['user-1']
+    );
   });
 
   it('calls onEmail callback when provided', async () => {
@@ -129,7 +74,7 @@ describe('server onData', () => {
     await listener.start();
 
     const mockCallback = vi.fn();
-    const stream = new EventEmitter();
+    const stream = createMockStream();
     const session = {
       envelope: {
         mailFrom: { address: 'sender@test.com', args: {} },
@@ -137,7 +82,7 @@ describe('server onData', () => {
       }
     };
 
-    capturedOnDataRef.current?.(stream, session, mockCallback);
+    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
     stream.emit('data', Buffer.from('Test'));
     stream.emit('end');
 
@@ -161,7 +106,7 @@ describe('server onData', () => {
     await listener.start();
 
     const mockCallback = vi.fn();
-    const stream = new EventEmitter();
+    const stream = createMockStream();
     const session = {
       envelope: {
         mailFrom: { address: 'sender@test.com' },
@@ -172,13 +117,14 @@ describe('server onData', () => {
       }
     };
 
-    capturedOnDataRef.current?.(stream, session, mockCallback);
+    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
     stream.emit('end');
 
     await vi.waitFor(() => {
-      expect(mockStorageStore).toHaveBeenCalledWith(expect.any(Object), [
-        'user-1'
-      ]);
+      expect(smtpTestDoubles.mockStorageStore).toHaveBeenCalledWith(
+        expect.any(Object),
+        ['user-1']
+      );
     });
   });
 
@@ -190,7 +136,7 @@ describe('server onData', () => {
     await listener.start();
 
     const mockCallback = vi.fn();
-    const stream = new EventEmitter();
+    const stream = createMockStream();
     const session = {
       envelope: {
         mailFrom: { address: 'sender@test.com' },
@@ -198,13 +144,14 @@ describe('server onData', () => {
       }
     };
 
-    capturedOnDataRef.current?.(stream, session, mockCallback);
+    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
     stream.emit('end');
 
     await vi.waitFor(() => {
-      expect(mockStorageStore).toHaveBeenCalledWith(expect.any(Object), [
-        'user-1'
-      ]);
+      expect(smtpTestDoubles.mockStorageStore).toHaveBeenCalledWith(
+        expect.any(Object),
+        ['user-1']
+      );
     });
   });
 
@@ -213,7 +160,7 @@ describe('server onData', () => {
     await listener.start();
 
     const mockCallback = vi.fn();
-    const stream = new EventEmitter();
+    const stream = createMockStream();
     const session = {
       envelope: {
         mailFrom: { address: 'sender@test.com' },
@@ -225,13 +172,14 @@ describe('server onData', () => {
       }
     };
 
-    capturedOnDataRef.current?.(stream, session, mockCallback);
+    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
     stream.emit('end');
 
     await vi.waitFor(() => {
-      expect(mockStorageStore).toHaveBeenCalledWith(expect.any(Object), [
-        'user-1'
-      ]);
+      expect(smtpTestDoubles.mockStorageStore).toHaveBeenCalledWith(
+        expect.any(Object),
+        ['user-1']
+      );
     });
   });
 
@@ -240,7 +188,7 @@ describe('server onData', () => {
     await listener.start();
 
     const mockCallback = vi.fn();
-    const stream = new EventEmitter();
+    const stream = createMockStream();
     const session = {
       envelope: {
         mailFrom: undefined,
@@ -248,11 +196,11 @@ describe('server onData', () => {
       }
     };
 
-    capturedOnDataRef.current?.(stream, session, mockCallback);
+    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
     stream.emit('end');
 
     await vi.waitFor(() => {
-      expect(mockStorageStore).toHaveBeenCalledWith(
+      expect(smtpTestDoubles.mockStorageStore).toHaveBeenCalledWith(
         expect.objectContaining({
           envelope: {
             mailFrom: false,
@@ -269,7 +217,7 @@ describe('server onData', () => {
     await listener.start();
 
     const mockCallback = vi.fn();
-    const stream = new EventEmitter();
+    const stream = createMockStream();
     const session = {
       envelope: {
         mailFrom: { address: 'sender@test.com' },
@@ -277,7 +225,7 @@ describe('server onData', () => {
       }
     };
 
-    capturedOnDataRef.current?.(stream, session, mockCallback);
+    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
     const streamError = new Error('Stream error');
     stream.emit('error', streamError);
 
@@ -285,13 +233,15 @@ describe('server onData', () => {
   });
 
   it('handles storage errors', async () => {
-    mockStorageStore.mockRejectedValue(new Error('Storage error'));
+    smtpTestDoubles.mockStorageStore.mockRejectedValue(
+      new Error('Storage error')
+    );
 
     const listener = await createSmtpListener({ port: 2525 });
     await listener.start();
 
     const mockCallback = vi.fn();
-    const stream = new EventEmitter();
+    const stream = createMockStream();
     const session = {
       envelope: {
         mailFrom: { address: 'sender@test.com' },
@@ -299,7 +249,7 @@ describe('server onData', () => {
       }
     };
 
-    capturedOnDataRef.current?.(stream, session, mockCallback);
+    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
     stream.emit('end');
 
     await vi.waitFor(() => {
@@ -308,13 +258,13 @@ describe('server onData', () => {
   });
 
   it('handles non-Error rejections', async () => {
-    mockStorageStore.mockRejectedValue('String error');
+    smtpTestDoubles.mockStorageStore.mockRejectedValue('String error');
 
     const listener = await createSmtpListener({ port: 2525 });
     await listener.start();
 
     const mockCallback = vi.fn();
-    const stream = new EventEmitter();
+    const stream = createMockStream();
     const session = {
       envelope: {
         mailFrom: { address: 'sender@test.com' },
@@ -322,7 +272,7 @@ describe('server onData', () => {
       }
     };
 
-    capturedOnDataRef.current?.(stream, session, mockCallback);
+    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
     stream.emit('end');
 
     await vi.waitFor(() => {

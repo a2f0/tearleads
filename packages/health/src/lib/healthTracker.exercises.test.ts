@@ -1,36 +1,14 @@
 import { healthExercises } from '@tearleads/db/sqlite';
-import type { TestDatabaseContext } from '@tearleads/db-test-utils';
-import { withRealDatabase } from '@tearleads/db-test-utils';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { healthTestMigrations } from '../test/healthTestMigrations.js';
+import {
+  createDeterministicId,
+  requireValue,
+  withHealthDatabase
+} from '../test/healthTrackerTestUtils.js';
 
 import { DEFAULT_EXERCISE_IDS, DEFAULT_EXERCISES } from './defaultExercises.js';
 import { createHealthTracker } from './healthTracker.js';
-
-const createDeterministicId = (): ((prefix: string) => string) => {
-  let sequence = 1;
-  return (prefix: string): string => {
-    const id = `${prefix}_${String(sequence).padStart(4, '0')}`;
-    sequence += 1;
-    return id;
-  };
-};
-
-const requireValue = <T>(value: T | undefined): T => {
-  if (value === undefined) {
-    throw new Error('Expected value to be defined in test');
-  }
-
-  return value;
-};
-
-const withHealthDatabase = async <T>(
-  callback: (context: TestDatabaseContext) => Promise<T>
-): Promise<T> =>
-  withRealDatabase(callback, {
-    migrations: healthTestMigrations
-  });
 
 describe('createHealthTracker exercises', () => {
   let warnSpy: ReturnType<typeof vi.spyOn>;
