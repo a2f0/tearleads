@@ -39,6 +39,7 @@ function createMockWindowComponent(config: MockWindowConfig) {
       initialDimensions,
       zIndex
     } = props;
+    const minimizeDimensions = config.minimizeDimensions;
 
     return (
       <div
@@ -54,10 +55,10 @@ function createMockWindowComponent(config: MockWindowConfig) {
         <button type="button" onClick={onClose} data-testid={`close-${id}`}>
           Close
         </button>
-        {config.minimizeDimensions && onMinimize ? (
+        {minimizeDimensions && onMinimize ? (
           <button
             type="button"
-            onClick={() => onMinimize(config.minimizeDimensions!)}
+            onClick={() => onMinimize(minimizeDimensions)}
             data-testid={`minimize-${id}`}
           >
             Minimize

@@ -2,21 +2,21 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  mockCloseWindow,
-  mockFocusWindow,
-  mockMinimizeWindow,
-  setMockWindows,
-  renderWindowRenderer,
-  resetWindowRendererMocks,
-  mockWindows
-} from './windowRendererTestHarness';
-import {
   hasFocusTestId,
   hasMinimizeCase,
   type WindowClickCase,
   type WindowMinimizeCase,
   windowCases
 } from './windowRendererTestCases';
+import {
+  mockCloseWindow,
+  mockFocusWindow,
+  mockMinimizeWindow,
+  mockWindows,
+  renderWindowRenderer,
+  resetWindowRendererMocks,
+  setMockWindows
+} from './windowRendererTestHarness';
 
 function renderSingleWindow(type: string, id: string) {
   setMockWindows([{ id, type, zIndex: 100 }]);
