@@ -1,1 +1,1 @@
-export { TreeView, type TreeViewProps } from './TreeView.js';
+export { TreeView } from './TreeView.js';
