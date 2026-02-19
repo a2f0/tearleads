@@ -11,6 +11,10 @@ import type {
   VfsSecureOrchestratorFacade,
   VfsSecureWritePipeline
 } from './secureWritePipeline';
+import {
+  createVfsSecureWritePipeline,
+  type VfsSecureWritePipelineRuntimeOptions
+} from './secureWritePipelineRuntime';
 
 export interface VfsSecureOrchestratorFacadeOptions {
   relationKind?: VfsBlobRelationKind;
@@ -24,19 +28,34 @@ export interface MapEncryptedCrdtOpToLocalOperationInput {
   encrypted: Awaited<ReturnType<VfsSecureWritePipeline['encryptCrdtOp']>>;
 }
 
+type SecureOrchestratorFacadeWriteOrchestrator = Pick<
+  VfsWriteOrchestrator,
+  | 'queueCrdtLocalOperationAndPersist'
+  | 'queueBlobStageAndPersist'
+  | 'queueBlobChunkAndPersist'
+  | 'queueBlobManifestCommitAndPersist'
+  | 'queueBlobAttachAndPersist'
+>;
+
 export function createVfsSecureOrchestratorFacade(
-  writeOrchestrator: Pick<
-    VfsWriteOrchestrator,
-    | 'queueCrdtLocalOperationAndPersist'
-    | 'queueBlobStageAndPersist'
-    | 'queueBlobChunkAndPersist'
-    | 'queueBlobManifestCommitAndPersist'
-    | 'queueBlobAttachAndPersist'
-  >,
+  writeOrchestrator: SecureOrchestratorFacadeWriteOrchestrator,
   secureWritePipeline: VfsSecureWritePipeline,
   options: VfsSecureOrchestratorFacadeOptions = {}
 ): VfsSecureOrchestratorFacade {
   return new DefaultVfsSecureOrchestratorFacade(
+    writeOrchestrator,
+    secureWritePipeline,
+    options
+  );
+}
+
+export function createVfsSecureOrchestratorFacadeWithRuntime(
+  writeOrchestrator: SecureOrchestratorFacadeWriteOrchestrator,
+  runtimeOptions: VfsSecureWritePipelineRuntimeOptions,
+  options: VfsSecureOrchestratorFacadeOptions = {}
+): VfsSecureOrchestratorFacade {
+  const secureWritePipeline = createVfsSecureWritePipeline(runtimeOptions);
+  return createVfsSecureOrchestratorFacade(
     writeOrchestrator,
     secureWritePipeline,
     options
@@ -54,14 +73,7 @@ class DefaultVfsSecureOrchestratorFacade
     | null;
 
   constructor(
-    private readonly writeOrchestrator: Pick<
-      VfsWriteOrchestrator,
-      | 'queueCrdtLocalOperationAndPersist'
-      | 'queueBlobStageAndPersist'
-      | 'queueBlobChunkAndPersist'
-      | 'queueBlobManifestCommitAndPersist'
-      | 'queueBlobAttachAndPersist'
-    >,
+    private readonly writeOrchestrator: SecureOrchestratorFacadeWriteOrchestrator,
     private readonly secureWritePipeline: VfsSecureWritePipeline,
     options: VfsSecureOrchestratorFacadeOptions
   ) {
