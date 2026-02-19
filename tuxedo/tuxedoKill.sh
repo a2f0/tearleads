@@ -1,8 +1,8 @@
 #!/bin/sh
-# tuxedoKill - fully terminate tuxedo.sh (neovim, screen, and tmux sessions)
+# tuxedoKill - fully terminate tuxedo.sh (neovim, inner tmux, and outer tmux sessions)
 #
 # Usage:
-#   tuxedoKill.sh           # Kill neovim, screen sessions, and tmux session
+#   tuxedoKill.sh           # Kill neovim, inner tmux sessions, and outer tmux session
 #   tuxedoKill.sh -h        # Show help
 
 set -eu
@@ -14,18 +14,13 @@ esac
 SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
 SESSION_NAME="tuxedo"
+INNER_TMUX_SOCKET="tuxedo-inner"
 
 # Check for pgrep/pkill availability (used to kill neovim sessions)
 if command -v pgrep >/dev/null 2>&1 && command -v pkill >/dev/null 2>&1; then
     HAS_PGREP=true
 else
     HAS_PGREP=false
-fi
-
-if command -v screen >/dev/null 2>&1; then
-    HAS_SCREEN=true
-else
-    HAS_SCREEN=false
 fi
 
 if command -v tmux >/dev/null 2>&1; then
@@ -40,8 +35,8 @@ for arg in "$@"; do
         -h|--help)
             echo "Usage: tuxedoKill.sh [OPTIONS]"
             echo ""
-            echo "Fully terminate tuxedo.sh - kills neovim editors, screen sessions,"
-            echo "and the tmux session."
+            echo "Fully terminate tuxedo.sh - kills neovim editors, inner tmux sessions,"
+            echo "and the outer tmux session."
             echo ""
             echo "Options:"
             echo "  -h, --help   Show this help message"
@@ -70,46 +65,21 @@ else
     echo "Install with: brew install proctools (macOS) or apt install procps (Linux)"
 fi
 
-if [ "$HAS_SCREEN" = "true" ]; then
-    # Clean up dead screen sessions first
-    screen -wipe >/dev/null 2>&1 || true
+# Kill inner tmux sessions (separate socket)
+if [ "$HAS_TMUX" = "true" ]; then
+    inner_sessions=$(tmux -L "$INNER_TMUX_SOCKET" list-sessions -F '#{session_name}' 2>/dev/null || true)
 
-    # Determine screen socket directory (check SCREENDIR, common locations, then fallback)
-    if [ -n "${SCREENDIR:-}" ] && [ -d "$SCREENDIR" ]; then
-        SCREEN_SOCKET_DIR="$SCREENDIR"
-    elif [ -d "/run/screen/S-$USER" ]; then
-        SCREEN_SOCKET_DIR="/run/screen/S-$USER"
-    elif [ -d "/var/run/screen/S-$USER" ]; then
-        SCREEN_SOCKET_DIR="/var/run/screen/S-$USER"
-    else
-        SCREEN_SOCKET_DIR="$HOME/.screen"
-    fi
-
-    # Find and kill screen sessions
-    screen_sessions=$(screen -ls 2>/dev/null | awk '/tux-/ {print $1}')
-
-    if [ -n "$screen_sessions" ]; then
+    if [ -n "$inner_sessions" ]; then
         killed=0
-        removed=0
-        for session in $screen_sessions; do
-            # Try graceful quit first (works for live sessions)
-            if screen -X -S "$session" quit >/dev/null 2>&1; then
+        for session in $inner_sessions; do
+            if tmux -L "$INNER_TMUX_SOCKET" kill-session -t "$session" 2>/dev/null; then
                 killed=$((killed + 1))
-            else
-                # For dead sessions, remove the socket file directly
-                socket_file="$SCREEN_SOCKET_DIR/$session"
-                if [ -e "$socket_file" ]; then
-                    rm -f "$socket_file" && removed=$((removed + 1))
-                fi
             fi
         done
-        [ "$killed" -gt 0 ] && echo "Killed $killed screen session(s)"
-        [ "$removed" -gt 0 ] && echo "Removed $removed dead screen session(s)"
+        [ "$killed" -gt 0 ] && echo "Killed $killed inner tmux session(s)"
     else
-        echo "No tux-* screen sessions found"
+        echo "No inner tmux sessions found"
     fi
-else
-    echo "Note: GNU screen not found. Screen sessions not cleaned up."
 fi
 
 if [ "$HAS_TMUX" = "true" ]; then

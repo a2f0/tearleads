@@ -61,6 +61,7 @@ vim.opt.wildmenu = true
 vim.opt.number = true
 vim.opt.wrap = true
 vim.opt.mouse = "a"
+vim.opt.clipboard = "unnamedplus"
 
 vim.cmd([[ let g:neo_tree_remove_legacy_commands = 1 ]])
 
@@ -116,6 +117,9 @@ require("lazy").setup({
       "MunifTanjim/nui.nvim",
     },
     opts = {
+      window = {
+        width = 40,
+      },
       filesystem = {
         bind_to_root = false,
         window = {
@@ -126,24 +130,20 @@ require("lazy").setup({
             },
           },
         },
+        async_directory_scan = "always",
+        scan_mode = "basic",
         use_libuv_file_watcher = true,
+        find_by_full_path_words = false,
+        group_empty_dirs = true,
+        follow_current_file = { enabled = true },
+        hijack_netrw_behavior = "disabled",
         respect_gitignore = true,
         filtered_items = {
-          visible = true,
+          visible = false,
           hide_dotfiles = false,
           hide_gitignored = true,
-          hide_hidden = true,
-          never_show = {
-            ".git",
-            "node_modules",
-            "dist",
-            "build",
-            ".next",
-            ".nuxt",
-            ".cache",
-            ".tmp",
-            ".opencode",
-          },
+          hide_hidden = false,
+          never_show = { ".git" },
         },
       },
       git_status = {
@@ -156,7 +156,13 @@ require("lazy").setup({
   {
     "nvim-telescope/telescope.nvim",
     tag = "0.1.8",
-    dependencies = { "nvim-lua/plenary.nvim" },
+    dependencies = {
+      "nvim-lua/plenary.nvim",
+      {
+        "nvim-telescope/telescope-fzf-native.nvim",
+        build = "make",
+      },
+    },
   },
   {
     "sindrets/diffview.nvim",
@@ -170,23 +176,51 @@ vim.cmd('colorscheme tokyonight-night')
 -- ripgrep is required for live_grep and grep_string
 -- brew install ripgrep (macOS) or apt install ripgrep (Linux)
 -- fd is faster for file finding: brew install fd (macOS)
-require('telescope').setup{
+local telescope = require('telescope')
+telescope.setup{
   defaults = {
-    file_ignore_patterns = {
-      "node_modules", ".git", "dist", "build", ".next", ".nuxt",
-      "package%-lock.json", "yarn.lock", "pnpm%-lock.yaml",
-      ".cache", ".tmp", ".env", ".venv", "venv", "__pycache__"
-    },
+    file_ignore_patterns = { "%.git/" },
     initial_mode = "insert",
     vimgrep_arguments = {
       "rg", "--color=never", "--no-heading", "--with-filename",
       "--line-number", "--column", "--smart-case", "--hidden",
-      "--glob=!.git", "--glob=!node_modules", "--glob=!dist", "--glob=!build",
-      "--glob=!.next", "--glob=!.nuxt", "--glob=!.cache", "--glob=!.tmp",
-      "--glob=!.env", "--glob=!.venv", "--glob=!venv", "--glob=!__pycache__"
+      "--glob=!.git",
     },
-  }
+    path_display = { "truncate" },
+    sorting_strategy = "ascending",
+    layout_config = {
+      prompt_position = "top",
+    },
+  },
+  pickers = {
+    find_files = {
+      find_command = {
+        "fd", "--type", "f", "--hidden", "--strip-cwd-prefix",
+        "--exclude", ".git",
+      },
+    },
+  },
+  extensions = {
+    fzf = {
+      fuzzy = true,
+      override_generic_sorter = true,
+      override_file_sorter = true,
+      case_mode = "smart_case",
+    },
+  },
 }
+
+-- Load fzf-native extension for faster fuzzy finding
+telescope.load_extension('fzf')
+
+-- Telescope keybindings
+local builtin = require('telescope.builtin')
+vim.keymap.set('n', '<leader>ff', builtin.find_files, { desc = 'Find files' })
+vim.keymap.set('n', '<leader>fg', builtin.live_grep, { desc = 'Live grep' })
+vim.keymap.set('n', '<leader>fb', builtin.buffers, { desc = 'Find buffers' })
+vim.keymap.set('n', '<leader>fh', builtin.help_tags, { desc = 'Help tags' })
+vim.keymap.set('n', '<leader>fr', builtin.oldfiles, { desc = 'Recent files' })
+vim.keymap.set('n', '<leader>fs', builtin.grep_string, { desc = 'Grep word under cursor' })
 
 vim.keymap.set('n', '<leader>gd', function()
   require('diffview').toggle()
