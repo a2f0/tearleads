@@ -58,6 +58,19 @@ test('runImpactedTests skips impacted tests when all changes are non-material', 
   );
 });
 
+test('runImpactedTests skips impacted tests for ignored health vitest config edits', () => {
+  const result = runImpactedTests([
+    '--files',
+    'packages/health/vitest.config.ts',
+    '--dry-run'
+  ]);
+  assert.equal(result.status, 0, stderrText(result));
+  assert.match(
+    stdoutText(result),
+    /ci-impact: no material changes, skipping impacted tests\./
+  );
+});
+
 test('runImpactedTests dry-run includes contacts coverage when contacts changes', () => {
   const result = runImpactedTests([
     '--files',

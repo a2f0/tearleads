@@ -6,7 +6,8 @@
     ".vscode/"
   ],
   "ignoredExact": [
-    "LICENSE"
+    "LICENSE",
+    "packages/health/vitest.config.ts"
   ],
   "ignoredSuffixes": [
     ".md"
