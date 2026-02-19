@@ -2,7 +2,7 @@
  * Check if a file matches an accept string.
  * Supports wildcards (e.g., "image/*") and comma-separated lists.
  */
-export function fileMatchesAccept(file: File, accept: string): boolean {
+function fileMatchesAccept(file: File, accept: string): boolean {
   if (!accept || accept.trim() === '') {
     return true;
   }

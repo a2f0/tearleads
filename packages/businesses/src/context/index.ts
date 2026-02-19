@@ -1,6 +1,5 @@
 export {
   type AboutMenuItemProps,
-  BusinessesContext,
   BusinessesProvider,
   type BusinessesProviderProps,
   type BusinessesUIComponents,
