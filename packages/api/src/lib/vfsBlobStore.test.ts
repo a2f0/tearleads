@@ -318,9 +318,9 @@ describe('vfsBlobStore', () => {
     mockSend.mockRejectedValueOnce(new Error('transient s3 read outage'));
 
     const { readVfsBlobData } = await import('./vfsBlobStore.js');
-    await expect(readVfsBlobData({ blobId: 'blob-retry-read' })).rejects.toThrow(
-      'transient s3 read outage'
-    );
+    await expect(
+      readVfsBlobData({ blobId: 'blob-retry-read' })
+    ).rejects.toThrow('transient s3 read outage');
 
     mockSend.mockResolvedValueOnce({
       Body: {
