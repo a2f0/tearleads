@@ -310,4 +310,65 @@ describe('vfsWriteOrchestrator', () => {
     });
     expect(pullOperations).toHaveBeenCalledTimes(1);
   });
+
+  it('routes secure queue wrappers through secure write pipeline', async () => {
+    const prepareCrdtLocalOperation = vi.fn(async () => ({
+      opType: 'set_data',
+      itemId: 'item-1',
+      key: 'content',
+      value: 'ciphertext:abc'
+    }));
+    const prepareBlobStage = vi.fn(async () => ({
+      stagingId: 'stage-enc',
+      blobId: 'blob-enc',
+      expiresAt: '2026-02-18T01:00:00.000Z',
+      encryption: {
+        algorithm: 'aes-256-gcm',
+        keyEpoch: 1,
+        manifestHash: 'sha256:manifest',
+        chunkCount: 1,
+        chunkSizeBytes: 4_194_304,
+        plaintextSizeBytes: 32,
+        ciphertextSizeBytes: 64
+      }
+    }));
+
+    const { VfsWriteOrchestrator } = await import('./vfsWriteOrchestrator');
+    const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
+      secureWritePipeline: {
+        prepareCrdtLocalOperation,
+        prepareBlobStage
+      }
+    });
+
+    await orchestrator.queueCrdtLocalOperationSecureAndPersist({
+      opType: 'set_data',
+      itemId: 'item-1',
+      key: 'content',
+      value: 'plain'
+    });
+    await orchestrator.queueBlobStageSecureAndPersist({
+      stagingId: 'stage-plain',
+      blobId: 'blob-plain',
+      expiresAt: '2026-02-18T01:00:00.000Z'
+    });
+
+    expect(prepareCrdtLocalOperation).toHaveBeenCalledTimes(1);
+    expect(prepareBlobStage).toHaveBeenCalledTimes(1);
+    expect(orchestrator.queuedCrdtOperations()).toHaveLength(1);
+    expect(orchestrator.queuedBlobOperations()).toHaveLength(1);
+    expect(orchestrator.queuedBlobOperations()[0]).toEqual(
+      expect.objectContaining({
+        kind: 'stage',
+        payload: expect.objectContaining({
+          stagingId: 'stage-enc',
+          blobId: 'blob-enc',
+          encryption: expect.objectContaining({
+            algorithm: 'aes-256-gcm',
+            keyEpoch: 1
+          })
+        })
+      })
+    );
+  });
 });

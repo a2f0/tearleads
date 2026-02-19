@@ -13,6 +13,7 @@ export interface VfsBlobStageRequest {
   stagingId?: string;
   blobId: string;
   expiresAt: string;
+  encryption?: VfsBlobStageEncryptionMetadata;
 }
 
 export interface VfsBlobStageResponse {
@@ -63,7 +64,24 @@ export interface VfsBlobStageQueueOperation {
     stagingId: string;
     blobId: string;
     expiresAt: string;
+    encryption?: VfsBlobStageEncryptionMetadata;
   };
+}
+
+export interface VfsBlobStageUploadCheckpoint {
+  uploadId: string;
+  nextChunkIndex: number;
+}
+
+export interface VfsBlobStageEncryptionMetadata {
+  algorithm: string;
+  keyEpoch: number;
+  manifestHash: string;
+  chunkCount: number;
+  chunkSizeBytes: number;
+  plaintextSizeBytes: number;
+  ciphertextSizeBytes: number;
+  checkpoint?: VfsBlobStageUploadCheckpoint;
 }
 
 export interface VfsBlobAttachQueueOperation {

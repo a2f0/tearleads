@@ -27,6 +27,10 @@ import {
   VfsApiNetworkFlusher,
   type VfsApiNetworkFlusherOptions
 } from './vfsNetworkFlusher';
+import {
+  PassthroughVfsSecureWritePipeline,
+  type VfsSecureWritePipeline
+} from './vfsSecureWritePipeline';
 
 export interface VfsWriteOrchestratorPersistedState {
   crdt: VfsBackgroundSyncClientPersistedState | null;
@@ -60,6 +64,7 @@ export interface VfsWriteOrchestratorOptions {
   localWriteQueue?: LocalWriteQueue;
   loadStateWriteOptions?: LocalWriteOptions;
   saveStateWriteOptions?: LocalWriteOptions;
+  secureWritePipeline?: VfsSecureWritePipeline;
 }
 
 export interface VfsWriteOrchestratorFlushResult {
@@ -75,6 +80,7 @@ export class VfsWriteOrchestrator {
   private readonly localWriteQueue: LocalWriteQueue;
   private readonly loadStateWriteOptions: LocalWriteOptions | undefined;
   private readonly saveStateWriteOptions: LocalWriteOptions | undefined;
+  private readonly secureWritePipeline: VfsSecureWritePipeline;
 
   constructor(
     userId: string,
@@ -89,6 +95,8 @@ export class VfsWriteOrchestrator {
       options.localWriteQueue ?? new LocalWriteOrchestrator();
     this.loadStateWriteOptions = options.loadStateWriteOptions;
     this.saveStateWriteOptions = options.saveStateWriteOptions;
+    this.secureWritePipeline =
+      options.secureWritePipeline ?? new PassthroughVfsSecureWritePipeline();
   }
 
   exportState(): VfsWriteOrchestratorPersistedState {
@@ -153,6 +161,14 @@ export class VfsWriteOrchestrator {
     return operation;
   }
 
+  async queueCrdtLocalOperationSecureAndPersist(
+    input: QueueVfsCrdtLocalOperationInput
+  ): Promise<VfsCrdtOperation> {
+    const preparedInput =
+      await this.secureWritePipeline.prepareCrdtLocalOperation(input);
+    return this.queueCrdtLocalOperationAndPersist(preparedInput);
+  }
+
   queuedCrdtOperations(): VfsCrdtOperation[] {
     return this.crdt.queuedOperations();
   }
@@ -167,6 +183,14 @@ export class VfsWriteOrchestrator {
     const operation = this.blob.queueStage(input);
     await this.persistState();
     return operation;
+  }
+
+  async queueBlobStageSecureAndPersist(
+    input: VfsBlobStageRequest
+  ): Promise<VfsBlobStageQueueOperation> {
+    const preparedInput =
+      await this.secureWritePipeline.prepareBlobStage(input);
+    return this.queueBlobStageAndPersist(preparedInput);
   }
 
   queueBlobAttach(input: VfsBlobAttachRequest): VfsBlobAttachQueueOperation {

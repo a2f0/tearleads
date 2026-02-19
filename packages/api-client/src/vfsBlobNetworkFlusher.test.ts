@@ -221,6 +221,85 @@ describe('vfsBlobNetworkFlusher', () => {
     expect(target.queuedOperations()).toHaveLength(1);
   });
 
+  it('persists and forwards stage encryption metadata', async () => {
+    const requestBodies: unknown[] = [];
+    vi.mocked(global.fetch).mockImplementation(
+      async (
+        _input: RequestInfo | URL,
+        init?: RequestInit
+      ): Promise<Response> => {
+        if (typeof init?.body === 'string') {
+          requestBodies.push(JSON.parse(init.body));
+        }
+
+        return new Response(
+          JSON.stringify({
+            stagingId: 'stage-1',
+            blobId: 'blob-1',
+            status: 'staged',
+            stagedAt: '2026-02-18T00:00:00.000Z',
+            expiresAt: '2026-02-18T01:00:00.000Z'
+          }),
+          {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
+    );
+
+    const { VfsBlobNetworkFlusher } = await import('./vfsBlobNetworkFlusher');
+    const source = new VfsBlobNetworkFlusher({
+      baseUrl: 'http://localhost',
+      apiPrefix: '/v1'
+    });
+    source.queueStage({
+      stagingId: 'stage-1',
+      blobId: 'blob-1',
+      expiresAt: '2026-02-18T01:00:00.000Z',
+      encryption: {
+        algorithm: 'aes-256-gcm',
+        keyEpoch: 3,
+        manifestHash: 'sha256:manifest',
+        chunkCount: 8,
+        chunkSizeBytes: 4 * 1024 * 1024,
+        plaintextSizeBytes: 33_554_432,
+        ciphertextSizeBytes: 33_560_576,
+        checkpoint: {
+          uploadId: 'upload-1',
+          nextChunkIndex: 5
+        }
+      }
+    });
+
+    const hydrated = new VfsBlobNetworkFlusher({
+      baseUrl: 'http://localhost',
+      apiPrefix: '/v1'
+    });
+    hydrated.hydrateState(source.exportState());
+    await expect(hydrated.flush()).resolves.toEqual({
+      processedOperations: 1,
+      pendingOperations: 0
+    });
+
+    const stageBody = requestBodies[0];
+    expect(stageBody).toEqual(
+      expect.objectContaining({
+        encryption: expect.objectContaining({
+          algorithm: 'aes-256-gcm',
+          keyEpoch: 3,
+          manifestHash: 'sha256:manifest',
+          chunkCount: 8,
+          chunkSizeBytes: 4 * 1024 * 1024,
+          checkpoint: expect.objectContaining({
+            uploadId: 'upload-1',
+            nextChunkIndex: 5
+          })
+        })
+      })
+    );
+  });
+
   it('validates queue inputs and hydration payloads', async () => {
     const { VfsBlobNetworkFlusher } = await import('./vfsBlobNetworkFlusher');
     const flusher = new VfsBlobNetworkFlusher();
@@ -231,6 +310,21 @@ describe('vfsBlobNetworkFlusher', () => {
     expect(() =>
       flusher.queueStage({ blobId: 'blob-1', expiresAt: 'invalid' })
     ).toThrow(/expiresAt must be a valid ISO timestamp/);
+    expect(() =>
+      flusher.queueStage({
+        blobId: 'blob-1',
+        expiresAt: '2026-02-18T01:00:00.000Z',
+        encryption: {
+          algorithm: '',
+          keyEpoch: -1,
+          manifestHash: '',
+          chunkCount: 0,
+          chunkSizeBytes: 0,
+          plaintextSizeBytes: -1,
+          ciphertextSizeBytes: -1
+        }
+      })
+    ).toThrow(/stage encryption metadata is invalid/);
     expect(() =>
       flusher.queueAttach({ stagingId: '', itemId: 'item-1' })
     ).toThrow(/stagingId is required/);

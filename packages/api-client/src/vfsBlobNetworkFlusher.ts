@@ -9,6 +9,7 @@ import {
   normalizeAttachConsistency,
   normalizeBaseUrl,
   normalizeIsoTimestamp,
+  normalizeStageEncryptionMetadata,
   normalizeRequiredString,
   parseErrorMessage
 } from './vfsBlobNetworkFlusherHelpers';
@@ -134,7 +135,8 @@ export class VfsBlobNetworkFlusher {
       payload: {
         stagingId,
         blobId,
-        expiresAt
+        expiresAt,
+        encryption: normalizeStageEncryptionMetadata(input.encryption)
       }
     };
     this.pendingOperations.push(operation);
@@ -267,7 +269,8 @@ export class VfsBlobNetworkFlusher {
       await this.requestJson('/vfs/blobs/stage', {
         stagingId: operation.payload.stagingId,
         blobId: operation.payload.blobId,
-        expiresAt: operation.payload.expiresAt
+        expiresAt: operation.payload.expiresAt,
+        encryption: operation.payload.encryption
       });
       return;
     }
@@ -370,7 +373,10 @@ export class VfsBlobNetworkFlusher {
         payload: {
           stagingId,
           blobId,
-          expiresAt
+          expiresAt,
+          encryption: normalizeStageEncryptionMetadata(
+            operation.payload.encryption
+          )
         }
       };
     }
