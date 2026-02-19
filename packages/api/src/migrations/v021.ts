@@ -92,9 +92,9 @@ export const v021: Migration = {
                 )
               )
               FROM (
-                SELECT key FROM jsonb_object_keys(COALESCE(base, '{}'::jsonb))
+                SELECT jsonb_object_keys(COALESCE(base, '{}'::jsonb)) AS key
                 UNION
-                SELECT key FROM jsonb_object_keys(COALESCE(incoming, '{}'::jsonb))
+                SELECT jsonb_object_keys(COALESCE(incoming, '{}'::jsonb)) AS key
               ) AS keys
             ),
             '{}'::jsonb
