@@ -37,12 +37,36 @@ export interface OutputLine {
 /** Terminal input mode */
 export type InputMode = 'command' | 'password' | 'confirm';
 
-/** State for a pending multi-step command */
-export interface PendingCommand {
-  name: CommandName;
-  step: string;
-  data: Record<string, string>;
+export interface PendingSetupCommand {
+  name: 'setup';
+  step: 'password' | 'confirm';
+  data: { password?: string };
 }
+
+export interface PendingUnlockCommand {
+  name: 'unlock';
+  step: 'password';
+  data: { persist: 'true' | 'false' };
+}
+
+export interface PendingPasswordCommand {
+  name: 'password';
+  step: 'current' | 'new' | 'confirm';
+  data: { current?: string; new?: string };
+}
+
+export interface PendingRestoreCommand {
+  name: 'restore';
+  step: 'confirm';
+  data: { fileName: string; fileData: string };
+}
+
+/** State for a pending multi-step command */
+export type PendingCommand =
+  | PendingSetupCommand
+  | PendingUnlockCommand
+  | PendingPasswordCommand
+  | PendingRestoreCommand;
 
 /** Terminal state */
 export interface TerminalState {
