@@ -1,5 +1,5 @@
 import './vfs-test-support.js';
-import { encodeVfsSyncCursor } from '@tearleads/sync/vfs';
+import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { app } from '../index.js';
