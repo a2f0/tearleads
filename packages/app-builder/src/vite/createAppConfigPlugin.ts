@@ -12,7 +12,6 @@
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import type { Plugin } from 'vite';
 
 const VIRTUAL_MODULE_ID = 'virtual:app-config';
 const RESOLVED_VIRTUAL_MODULE_ID = '\0' + VIRTUAL_MODULE_ID;
@@ -50,6 +49,13 @@ interface AppConfig {
     posthogToken?: string;
   };
   translations?: Record<string, string>;
+}
+
+interface AppConfigVitePlugin {
+  name: string;
+  resolveId?: (id: string) => string | { id: string; syntheticNamedExports: boolean } | undefined;
+  load?: (id: string) => string | undefined;
+  configResolved?: () => void;
 }
 
 /**
@@ -115,7 +121,7 @@ export interface AppConfigPluginOptions {
 }
 
 export interface AppConfigPluginResult {
-  plugin: Plugin;
+  plugin: AppConfigVitePlugin;
   config: AppConfig;
   disabledPackages: string[];
 }
@@ -149,7 +155,7 @@ export function createAppConfigPlugin(
   // Stub module ID prefix for disabled packages
   const STUB_PREFIX = '\0disabled-package:';
 
-  const plugin: Plugin = {
+  const plugin: AppConfigVitePlugin = {
     name: 'app-config',
 
     resolveId(id) {
