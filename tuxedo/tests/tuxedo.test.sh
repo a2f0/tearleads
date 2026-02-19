@@ -357,4 +357,16 @@ test_tmux_attach_existing_session
 test_tuxedo_kill_success
 test_tuxedo_kill_no_sessions
 
+test_tmux_conf_syntax() {
+    TMUX_CONF_REAL="$REPO_ROOT/tuxedo/config/tmux.conf"
+    [ -f "$TMUX_CONF_REAL" ] || fail "tmux.conf not found at $TMUX_CONF_REAL"
+    TEST_SOCKET="tuxedo-test-$$"
+    tmux -f "$TMUX_CONF_REAL" -L "$TEST_SOCKET" start-server 2>"$TEMP_DIR/tmux-syntax.err" || {
+        fail "tmux.conf has syntax errors: $(cat "$TEMP_DIR/tmux-syntax.err")"
+    }
+    tmux -L "$TEST_SOCKET" kill-server 2>/dev/null || true
+}
+
+test_tmux_conf_syntax
+
 echo "OK"
