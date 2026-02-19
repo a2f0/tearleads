@@ -35,6 +35,12 @@ export default defineConfig({
       ),
       '@tearleads/msw/node': fileURLToPath(new URL('../msw/src/node.ts', import.meta.url)),
       '@tearleads/msw': fileURLToPath(new URL('../msw/src/index.ts', import.meta.url)),
+      '@tearleads/shared': fileURLToPath(
+        new URL('../shared/src/index.ts', import.meta.url)
+      ),
+      '@tearleads/shared/package.json': fileURLToPath(
+        new URL('../shared/package.json', import.meta.url)
+      ),
       '@tearleads/vfs-sync/vfs': fileURLToPath(
         new URL('../vfs-sync/src/vfs/index.ts', import.meta.url)
       ),

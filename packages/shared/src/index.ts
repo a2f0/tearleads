@@ -7,6 +7,7 @@ import { assertPlainArrayBuffer, isRecord } from './typeGuards.js';
 export * from './crypto/asymmetric.js';
 // Crypto utilities
 export * from './crypto/webCrypto.js';
+export * from './crypto/vfsKeyBundles.js';
 
 // Note: Redis client is exported separately via '@tearleads/shared/redis'
 // to avoid bundling Node.js-only code into browser bundles
