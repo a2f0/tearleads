@@ -21,10 +21,26 @@ export interface EncryptCrdtOpResult {
   opSignature: Base64;
 }
 
+export interface UploadEncryptedBlobChunk {
+  chunkIndex: number;
+  isFinal: boolean;
+  nonce: Base64;
+  aadHash: Base64;
+  ciphertextBase64: Base64;
+  plaintextLength: number;
+  ciphertextLength: number;
+}
+
+export interface UploadEncryptedBlobResult {
+  manifest: EncryptedManifest;
+  uploadId?: string;
+  chunks?: UploadEncryptedBlobChunk[];
+}
+
 export interface VfsSecureWritePipeline {
   uploadEncryptedBlob(
     input: UploadEncryptedBlobInput
-  ): Promise<EncryptedManifest>;
+  ): Promise<UploadEncryptedBlobResult>;
   encryptCrdtOp(input: EncryptCrdtOpInput): Promise<EncryptCrdtOpResult>;
 }
 

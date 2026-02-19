@@ -22,6 +22,21 @@ describe('createVfsSecureOrchestratorFacade', () => {
         relationKind: 'photo' as const
       }
     }));
+    const queueBlobChunkAndPersist = vi.fn(async () => ({
+      operationId: 'op-chunk-1',
+      kind: 'chunk' as const,
+      payload: {
+        stagingId: 'stage-1',
+        uploadId: 'upload-1',
+        chunkIndex: 0,
+        isFinal: false,
+        nonce: 'nonce-1',
+        aadHash: 'aad-hash-1',
+        ciphertextBase64: 'Y2lwaGVydGV4dC0x',
+        plaintextLength: 512,
+        ciphertextLength: 576
+      }
+    }));
     const queueBlobManifestCommitAndPersist = vi.fn(async () => ({
       operationId: 'op-commit-1',
       kind: 'commit' as const,
@@ -50,10 +65,34 @@ describe('createVfsSecureOrchestratorFacade', () => {
       manifestSignature: 'manifest-signature-1'
     };
 
-    const uploadEncryptedBlob = vi.fn(async () => manifest);
+    const uploadEncryptedBlob = vi.fn(async () => ({
+      manifest,
+      uploadId: 'upload-1',
+      chunks: [
+        {
+          chunkIndex: 0,
+          isFinal: false,
+          nonce: 'nonce-1',
+          aadHash: 'aad-hash-1',
+          ciphertextBase64: 'Y2lwaGVydGV4dC0x',
+          plaintextLength: 512,
+          ciphertextLength: 576
+        },
+        {
+          chunkIndex: 1,
+          isFinal: true,
+          nonce: 'nonce-2',
+          aadHash: 'aad-hash-2',
+          ciphertextBase64: 'Y2lwaGVydGV4dC0y',
+          plaintextLength: 512,
+          ciphertextLength: 576
+        }
+      ]
+    }));
     const facade = createVfsSecureOrchestratorFacade(
       {
         queueBlobStageAndPersist,
+        queueBlobChunkAndPersist,
         queueBlobManifestCommitAndPersist,
         queueBlobAttachAndPersist
       },
@@ -81,6 +120,29 @@ describe('createVfsSecureOrchestratorFacade', () => {
       contentType: 'image/png',
       stream
     });
+    expect(queueBlobChunkAndPersist).toHaveBeenCalledTimes(2);
+    expect(queueBlobChunkAndPersist).toHaveBeenNthCalledWith(1, {
+      stagingId: 'stage-1',
+      uploadId: 'upload-1',
+      chunkIndex: 0,
+      isFinal: false,
+      nonce: 'nonce-1',
+      aadHash: 'aad-hash-1',
+      ciphertextBase64: 'Y2lwaGVydGV4dC0x',
+      plaintextLength: 512,
+      ciphertextLength: 576
+    });
+    expect(queueBlobChunkAndPersist).toHaveBeenNthCalledWith(2, {
+      stagingId: 'stage-1',
+      uploadId: 'upload-1',
+      chunkIndex: 1,
+      isFinal: true,
+      nonce: 'nonce-2',
+      aadHash: 'aad-hash-2',
+      ciphertextBase64: 'Y2lwaGVydGV4dC0y',
+      plaintextLength: 512,
+      ciphertextLength: 576
+    });
     expect(queueBlobStageAndPersist).toHaveBeenCalledWith({
       blobId: 'blob-1',
       expiresAt: '2026-02-19T12:00:00.000Z',
@@ -105,7 +167,7 @@ describe('createVfsSecureOrchestratorFacade', () => {
     });
     expect(queueBlobManifestCommitAndPersist).toHaveBeenCalledWith({
       stagingId: 'stage-1',
-      uploadId: 'blob-1',
+      uploadId: 'upload-1',
       keyEpoch: 4,
       manifestHash: 'manifest-signature-1',
       manifestSignature: 'manifest-signature-1',
@@ -123,6 +185,7 @@ describe('createVfsSecureOrchestratorFacade', () => {
     const facade = createVfsSecureOrchestratorFacade(
       {
         queueBlobStageAndPersist: vi.fn(),
+        queueBlobChunkAndPersist: vi.fn(),
         queueBlobManifestCommitAndPersist: vi.fn(),
         queueBlobAttachAndPersist: vi.fn()
       },

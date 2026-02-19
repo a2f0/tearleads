@@ -19,6 +19,7 @@ export function createVfsSecureOrchestratorFacade(
   writeOrchestrator: Pick<
     VfsWriteOrchestrator,
     | 'queueBlobStageAndPersist'
+    | 'queueBlobChunkAndPersist'
     | 'queueBlobManifestCommitAndPersist'
     | 'queueBlobAttachAndPersist'
   >,
@@ -41,6 +42,7 @@ class DefaultVfsSecureOrchestratorFacade
     private readonly writeOrchestrator: Pick<
       VfsWriteOrchestrator,
       | 'queueBlobStageAndPersist'
+      | 'queueBlobChunkAndPersist'
       | 'queueBlobManifestCommitAndPersist'
       | 'queueBlobAttachAndPersist'
     >,
@@ -61,12 +63,13 @@ class DefaultVfsSecureOrchestratorFacade
   async stageAttachEncryptedBlobAndPersist(
     input: StageAttachEncryptedBlobAndPersistInput
   ): Promise<StageAttachEncryptedBlobAndPersistResult> {
-    const manifest = await this.secureWritePipeline.uploadEncryptedBlob({
+    const uploadResult = await this.secureWritePipeline.uploadEncryptedBlob({
       itemId: input.itemId,
       blobId: input.blobId,
       contentType: input.contentType,
       stream: input.stream
     });
+    const { manifest } = uploadResult;
 
     const stageRequest: VfsBlobStageRequest = {
       blobId: input.blobId,
@@ -92,10 +95,25 @@ class DefaultVfsSecureOrchestratorFacade
     const stageOperation =
       await this.writeOrchestrator.queueBlobStageAndPersist(stageRequest);
     const stagingId = stageOperation.payload.stagingId;
+    const uploadId = uploadResult.uploadId ?? manifest.blobId;
+
+    for (const chunk of uploadResult.chunks ?? []) {
+      await this.writeOrchestrator.queueBlobChunkAndPersist({
+        stagingId,
+        uploadId,
+        chunkIndex: chunk.chunkIndex,
+        isFinal: chunk.isFinal,
+        nonce: chunk.nonce,
+        aadHash: chunk.aadHash,
+        ciphertextBase64: chunk.ciphertextBase64,
+        plaintextLength: chunk.plaintextLength,
+        ciphertextLength: chunk.ciphertextLength
+      });
+    }
 
     await this.writeOrchestrator.queueBlobManifestCommitAndPersist({
       stagingId,
-      uploadId: manifest.blobId,
+      uploadId,
       keyEpoch: manifest.keyEpoch,
       manifestHash: manifest.manifestSignature,
       manifestSignature: manifest.manifestSignature,
