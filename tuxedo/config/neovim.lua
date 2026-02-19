@@ -61,6 +61,7 @@ vim.opt.wildmenu = true
 vim.opt.number = true
 vim.opt.wrap = true
 vim.opt.mouse = "a"
+vim.opt.clipboard = "unnamedplus"
 
 vim.cmd([[ let g:neo_tree_remove_legacy_commands = 1 ]])
 
@@ -116,6 +117,9 @@ require("lazy").setup({
       "MunifTanjim/nui.nvim",
     },
     opts = {
+      window = {
+        width = 40,
+      },
       filesystem = {
         bind_to_root = false,
         window = {
