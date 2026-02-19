@@ -75,14 +75,15 @@ assert_eq "/base" "$(workspace_path "")"
 assert_eq "short title" "$(tuxedo_truncate_title "short title" 25)"
 assert_eq "a very long title th..." "$(tuxedo_truncate_title "a very long title that must be truncated" 23)"
 
-USE_SCREEN=true
+USE_INNER_TMUX=true
 CONFIG_DIR="/tmp/config"
-cmd=$(screen_cmd tux-1)
-assert_contains "$cmd" "screen -T tmux-256color"
-assert_contains "$cmd" "-c \"$CONFIG_DIR/screenrc\""
+cmd=$(inner_tmux_cmd tux-1)
+assert_contains "$cmd" "tmux -L tuxedo-inner"
+assert_contains "$cmd" "-f \"$CONFIG_DIR/tmux-inner.conf\""
+assert_contains "$cmd" "new-session -A -s tux-1"
 
-USE_SCREEN=false
-assert_eq "" "$(screen_cmd tux-1)"
+USE_INNER_TMUX=false
+assert_eq "" "$(inner_tmux_cmd tux-1)"
 
 TEMP_DIR=$(mktemp -d)
 cleanup() {
@@ -92,28 +93,17 @@ trap cleanup EXIT
 
 PATH_BACKUP="$PATH"
 
-test_screen_flag_detects_screen() {
-    mkdir -p "$TEMP_DIR/bin"
-    cat <<'EOF' > "$TEMP_DIR/bin/screen"
-#!/bin/sh
-exit 0
-EOF
-    chmod +x "$TEMP_DIR/bin/screen"
-    PATH="$TEMP_DIR/bin:$PATH_BACKUP"
-    USE_SCREEN=false
-    unset TUXEDO_FORCE_SCREEN
-    unset TUXEDO_FORCE_NO_SCREEN
-    tuxedo_set_screen_flag
-    assert_eq "true" "$USE_SCREEN"
-    PATH="$PATH_BACKUP"
+test_inner_tmux_flag_defaults_to_true() {
+    USE_INNER_TMUX=false
+    unset TUXEDO_FORCE_NO_INNER_TMUX
+    tuxedo_set_inner_tmux_flag
+    assert_eq "true" "$USE_INNER_TMUX"
 }
 
-test_screen_flag_detects_screen
+test_inner_tmux_flag_defaults_to_true
 
-TUXEDO_FORCE_NO_SCREEN=1 tuxedo_set_screen_flag
-assert_eq "false" "$USE_SCREEN"
-TUXEDO_FORCE_SCREEN=1 tuxedo_set_screen_flag
-assert_eq "true" "$USE_SCREEN"
+TUXEDO_FORCE_NO_INNER_TMUX=1 tuxedo_set_inner_tmux_flag
+assert_eq "false" "$USE_INNER_TMUX"
 
 # sync_all_titles sets @workspace options for automatic-rename-format
 # Verify the function exists and handles missing tmux session gracefully
@@ -280,28 +270,25 @@ EOF
 #!/bin/sh
 exit 0
 EOF
-    cat <<'EOF' > "$TEMP_DIR/bin/screen"
-#!/bin/sh
-case "$1" in
-    -wipe) exit 0 ;;
-    -ls) echo "1234.tux-1 (Detached)"; exit 0 ;;
-    -X) exit 0 ;;
-    *) exit 0 ;;
-esac
-EOF
     cat <<'EOF' > "$TEMP_DIR/bin/tmux"
 #!/bin/sh
 if [ "$1" = "has-session" ]; then
     exit 0
 fi
+if [ "$1" = "-L" ] && [ "$2" = "tuxedo-inner" ]; then
+    if [ "$3" = "list-sessions" ]; then
+        echo "tux-main: 1 windows"
+        exit 0
+    fi
+    exit 0
+fi
 exit 0
 EOF
-    chmod +x "$TEMP_DIR/bin/pgrep" "$TEMP_DIR/bin/pkill" "$TEMP_DIR/bin/screen" "$TEMP_DIR/bin/tmux"
+    chmod +x "$TEMP_DIR/bin/pgrep" "$TEMP_DIR/bin/pkill" "$TEMP_DIR/bin/tmux"
 
     PATH="$TEMP_DIR/bin:$PATH_BACKUP"
     "$REPO_ROOT/tuxedo/tuxedoKill.sh" > "$KILL_OUT"
     assert_contains "$(cat "$KILL_OUT")" "Killed 1 neovim session(s)"
-    assert_contains "$(cat "$KILL_OUT")" "Killed 1 screen session(s)"
     assert_contains "$(cat "$KILL_OUT")" "Killed tmux session: tuxedo"
 
     PATH="$PATH_BACKUP"
@@ -309,27 +296,23 @@ EOF
 
 test_tuxedo_kill_no_sessions() {
     KILL_OUT="$TEMP_DIR/kill.out"
-    cat <<'EOF' > "$TEMP_DIR/bin/screen"
-#!/bin/sh
-case "$1" in
-    -wipe) exit 0 ;;
-    -ls) exit 0 ;;
-    -X) exit 1 ;;
-    *) exit 0 ;;
-esac
-EOF
     cat <<'EOF' > "$TEMP_DIR/bin/tmux"
 #!/bin/sh
 if [ "$1" = "has-session" ]; then
     exit 1
 fi
+if [ "$1" = "-L" ] && [ "$2" = "tuxedo-inner" ]; then
+    if [ "$3" = "list-sessions" ]; then
+        exit 1
+    fi
+    exit 1
+fi
 exit 0
 EOF
-    chmod +x "$TEMP_DIR/bin/screen" "$TEMP_DIR/bin/tmux"
+    chmod +x "$TEMP_DIR/bin/tmux"
 
     PATH="$TEMP_DIR/bin:$PATH_BACKUP"
     "$REPO_ROOT/tuxedo/tuxedoKill.sh" > "$KILL_OUT"
-    assert_contains "$(cat "$KILL_OUT")" "No tux-* screen sessions found"
     assert_contains "$(cat "$KILL_OUT")" "No tmux session 'tuxedo' found"
 
     PATH="$PATH_BACKUP"
@@ -351,36 +334,33 @@ test_tmux_conf_syntax() {
 
 test_tmux_conf_syntax
 
-test_screen_setup_editor_skips_when_disabled() {
-    SCREEN_CALLS="$TEMP_DIR/screen.disabled.calls"
-    rm -f "$SCREEN_CALLS"
-
+test_inner_tmux_setup_editor_skips_when_disabled() {
     PATH="$TEMP_DIR/bin:$PATH_BACKUP"
-    USE_SCREEN=false
-    # screen_setup_editor should return early when USE_SCREEN=false
-    screen_setup_editor "test-session" "nvim"
-    # Function returns immediately, no screen calls
+    USE_INNER_TMUX=false
+    # inner_tmux_setup_editor should return early when USE_INNER_TMUX=false
+    inner_tmux_setup_editor "test-session" "nvim"
+    # Function returns immediately, no tmux calls
 
     PATH="$PATH_BACKUP"
 }
 
-test_screen_cmd_returns_command_when_enabled() {
-    USE_SCREEN=true
+test_inner_tmux_cmd_returns_command_when_enabled() {
+    USE_INNER_TMUX=true
     CONFIG_DIR="/tmp/config"
-    cmd=$(screen_cmd "tux-test")
-    assert_contains "$cmd" "screen -T tmux-256color"
-    assert_contains "$cmd" "-d -RR tux-test"
-    assert_contains "$cmd" "-c \"/tmp/config/screenrc\""
+    cmd=$(inner_tmux_cmd "tux-test")
+    assert_contains "$cmd" "tmux -L tuxedo-inner"
+    assert_contains "$cmd" "-f \"/tmp/config/tmux-inner.conf\""
+    assert_contains "$cmd" "new-session -A -s tux-test"
 }
 
-test_screen_cmd_returns_empty_when_disabled() {
-    USE_SCREEN=false
-    cmd=$(screen_cmd "tux-test")
+test_inner_tmux_cmd_returns_empty_when_disabled() {
+    USE_INNER_TMUX=false
+    cmd=$(inner_tmux_cmd "tux-test")
     assert_eq "" "$cmd"
 }
 
-test_screen_setup_editor_skips_when_disabled
-test_screen_cmd_returns_command_when_enabled
-test_screen_cmd_returns_empty_when_disabled
+test_inner_tmux_setup_editor_skips_when_disabled
+test_inner_tmux_cmd_returns_command_when_enabled
+test_inner_tmux_cmd_returns_empty_when_disabled
 
 echo "OK"

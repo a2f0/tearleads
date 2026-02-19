@@ -123,58 +123,44 @@ ensure_symlinks() {
     done
 }
 
-tuxedo_set_screen_flag() {
-    if [ "${TUXEDO_FORCE_SCREEN:-}" = "1" ]; then
-        USE_SCREEN=true
+tuxedo_set_inner_tmux_flag() {
+    if [ "${TUXEDO_FORCE_NO_INNER_TMUX:-}" = "1" ]; then
+        USE_INNER_TMUX=false
         return 0
     fi
 
-    if [ "${TUXEDO_FORCE_NO_SCREEN:-}" = "1" ]; then
-        USE_SCREEN=false
-        return 0
-    fi
-
-    # Check if screen is available for session persistence
-    if command -v screen >/dev/null 2>&1; then
-        USE_SCREEN=true
-    else
-        USE_SCREEN=false
-        echo "Note: GNU screen not found. Sessions won't persist across tmux restarts."
-        echo "Install with: brew install screen"
-    fi
+    # Inner tmux is always available since we're already running tmux
+    USE_INNER_TMUX=true
 }
 
-# Get or create a screen session for a workspace
-# Returns the command to run in a tmux pane
-# Note: TUXEDO_WORKSPACE is passed via tmux -e flag, not via command prefix
-screen_cmd() {
-    screen_name="$1"
-    if [ "$USE_SCREEN" = true ]; then
-        # -d -RR: detach from elsewhere if attached, reattach or create new
-        # -c $CONFIG_DIR/screenrc: use our config for scrollback and mouse support
-        # -T tmux-256color: enable true color support for proper terminal colors
-        echo "screen -T tmux-256color -d -RR $screen_name -c \"$CONFIG_DIR/screenrc\""
+# Inner tmux socket name for nested sessions
+INNER_TMUX_SOCKET="tuxedo-inner"
+
+# Get command to start/attach inner tmux session for a workspace
+# Returns the command to run in an outer tmux pane
+inner_tmux_cmd() {
+    session_name="$1"
+    if [ "$USE_INNER_TMUX" = true ]; then
+        # Attach to existing session or create new one
+        echo "tmux -L $INNER_TMUX_SOCKET -f \"$CONFIG_DIR/tmux-inner.conf\" new-session -A -s $session_name"
     else
-        # Fallback: tmux will start default shell (TUXEDO_WORKSPACE comes from tmux -e)
+        # Fallback: outer tmux will start default shell
         echo ""
     fi
 }
 
-# Set up editor split in a screen session (called after all windows created)
-screen_setup_editor() {
-    screen_name="$1"
+# Set up editor split in an inner tmux session (called after all windows created)
+inner_tmux_setup_editor() {
+    session_name="$1"
     editor_cmd="$2"
-    [ "$USE_SCREEN" = true ] || return 0
+    [ "$USE_INNER_TMUX" = true ] || return 0
 
     # Wait for session to exist (poll up to 5 seconds)
     tries=0
     while [ $tries -lt 50 ]; do
-        if screen -ls 2>/dev/null | grep -qF ".$screen_name	"; then
+        if tmux -L "$INNER_TMUX_SOCKET" has-session -t "$session_name" 2>/dev/null; then
             # Found it - split and run editor
-            screen -S "$screen_name" -X eval "split -v" "focus" "screen"
-            sleep 0.2
-            screen -S "$screen_name" -X stuff "$editor_cmd
-"
+            tmux -L "$INNER_TMUX_SOCKET" split-window -h -t "$session_name" -c "#{pane_current_path}" "$editor_cmd"
             return 0
         fi
         sleep 0.1
@@ -286,17 +272,17 @@ tuxedo_attach_or_create() {
     tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$DASHBOARD_DIR" -n "$OPEN_PRS_WINDOW_NAME" -e "PATH=$dashboard_path" -e "TUXEDO_WORKSPACE=$DASHBOARD_DIR"
     tmux new-window -t "$SESSION_NAME:" -c "$DASHBOARD_DIR" -n "$CLOSED_PRS_WINDOW_NAME" -e "PATH=$dashboard_path" -e "TUXEDO_WORKSPACE=$DASHBOARD_DIR"
 
-    # Collect screen session names for editor setup later
-    screen_sessions_for_editor=""
+    # Collect inner tmux session names for editor setup later
+    inner_sessions_for_editor=""
 
     # Add shared workspace as third window (source of truth).
-    # Terminal pane runs in a persistent screen session with editor in right region.
+    # Runs inner tmux session with editor in right pane.
     shared_window_name="${WORKSPACE_PREFIX}-shared"
-    screen_shared=$(screen_cmd tux-shared)
+    inner_shared=$(inner_tmux_cmd tux-shared)
     shared_path=$(workspace_path "$SHARED_DIR")
-    if [ -n "$screen_shared" ]; then
-        tmux new-window -t "$SESSION_NAME:" -c "$SHARED_DIR" -n "$shared_window_name" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR" "$screen_shared"
-        screen_sessions_for_editor="$screen_sessions_for_editor tux-shared"
+    if [ -n "$inner_shared" ]; then
+        tmux new-window -t "$SESSION_NAME:" -c "$SHARED_DIR" -n "$shared_window_name" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR" -e "TUXEDO_INNER_CONF=$CONFIG_DIR/tmux-inner.conf" "$inner_shared"
+        inner_sessions_for_editor="$inner_sessions_for_editor tux-shared"
     else
         tmux new-window -t "$SESSION_NAME:" -c "$SHARED_DIR" -n "$shared_window_name" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR"
         tmux split-window -h -t "$SESSION_NAME:$shared_window_name" -c "$SHARED_DIR" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR" "$EDITOR"
@@ -308,10 +294,10 @@ tuxedo_attach_or_create() {
     # avoiding tmux confusion when window names share a prefix with the session name
     main_window_name="${WORKSPACE_PREFIX}-main"
     main_path=$(workspace_path "$MAIN_DIR")
-    screen_main=$(screen_cmd tux-main)
-    if [ -n "$screen_main" ]; then
-        tmux new-window -t "$SESSION_NAME:" -c "$MAIN_DIR" -n "$main_window_name" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR" "$screen_main"
-        screen_sessions_for_editor="$screen_sessions_for_editor tux-main"
+    inner_main=$(inner_tmux_cmd tux-main)
+    if [ -n "$inner_main" ]; then
+        tmux new-window -t "$SESSION_NAME:" -c "$MAIN_DIR" -n "$main_window_name" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR" -e "TUXEDO_INNER_CONF=$CONFIG_DIR/tmux-inner.conf" "$inner_main"
+        inner_sessions_for_editor="$inner_sessions_for_editor tux-main"
     else
         tmux new-window -t "$SESSION_NAME:" -c "$MAIN_DIR" -n "$main_window_name" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR"
         tmux split-window -h -t "$SESSION_NAME:$main_window_name" -c "$MAIN_DIR" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR" "$EDITOR"
@@ -323,12 +309,12 @@ tuxedo_attach_or_create() {
         workspace_dir="$BASE_DIR/${WORKSPACE_PREFIX}${i}"
         window_name="${WORKSPACE_PREFIX}${i}"
         ws_path=$(workspace_path "$workspace_dir")
-        # Zero-pad screen session names to avoid prefix collisions (tux-2 vs tux-20)
-        screen_name=$(printf "tux-%02d" "$i")
-        screen_i=$(screen_cmd "$screen_name")
-        if [ -n "$screen_i" ]; then
-            tmux new-window -t "$SESSION_NAME:" -c "$workspace_dir" -n "$window_name" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir" "$screen_i"
-            screen_sessions_for_editor="$screen_sessions_for_editor $screen_name"
+        # Zero-pad session names to avoid prefix collisions (tux-2 vs tux-20)
+        inner_name=$(printf "tux-%02d" "$i")
+        inner_i=$(inner_tmux_cmd "$inner_name")
+        if [ -n "$inner_i" ]; then
+            tmux new-window -t "$SESSION_NAME:" -c "$workspace_dir" -n "$window_name" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir" -e "TUXEDO_INNER_CONF=$CONFIG_DIR/tmux-inner.conf" "$inner_i"
+            inner_sessions_for_editor="$inner_sessions_for_editor $inner_name"
         else
             tmux new-window -t "$SESSION_NAME:" -c "$workspace_dir" -n "$window_name" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir"
             tmux split-window -h -t "$SESSION_NAME:$window_name" -c "$workspace_dir" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir" "$EDITOR"
@@ -337,11 +323,11 @@ tuxedo_attach_or_create() {
         i=$((i + 1))
     done
 
-    # Set up editor splits in all screen sessions (in background, after windows created)
-    if [ -n "$screen_sessions_for_editor" ]; then
+    # Set up editor splits in all inner tmux sessions (in background, after windows created)
+    if [ -n "$inner_sessions_for_editor" ]; then
         (
-            for sname in $screen_sessions_for_editor; do
-                screen_setup_editor "$sname" "$EDITOR"
+            for sname in $inner_sessions_for_editor; do
+                inner_tmux_setup_editor "$sname" "$EDITOR"
             done
         ) &
     fi
@@ -361,7 +347,7 @@ tuxedo_main() {
         return 0 2>/dev/null || exit 0
     fi
 
-    tuxedo_set_screen_flag
+    tuxedo_set_inner_tmux_flag
 
     # Enforce symlinks for all workspaces
     tuxedo_prepare_shared_dirs
