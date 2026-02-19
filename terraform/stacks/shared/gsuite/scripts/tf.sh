@@ -3,6 +3,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 STACK_DIR="$(dirname "$SCRIPT_DIR")"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# shellcheck source=./auth.sh
+source "$SCRIPT_DIR/auth.sh"
 
 print_usage() {
   cat <<'EOF'
@@ -28,6 +32,8 @@ main() {
       return 0
       ;;
   esac
+
+  hydrate_googleworkspace_auth "$REPO_ROOT"
 
   case "$command" in
     init|plan|apply)

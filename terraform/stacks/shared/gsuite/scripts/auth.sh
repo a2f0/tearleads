@@ -1,5 +1,16 @@
 #!/bin/bash
 
+ensure_googleworkspace_auth() {
+  if [[ -z "${TF_VAR_googleworkspace_access_token:-}" && -z "${TF_VAR_googleworkspace_credentials:-}" && -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]]; then
+    if ! command -v gcloud >/dev/null 2>&1; then
+      echo "ERROR: gcloud CLI is required" >&2
+      exit 1
+    fi
+    TF_VAR_googleworkspace_access_token="$(gcloud auth print-access-token)"
+    export TF_VAR_googleworkspace_access_token
+  fi
+}
+
 hydrate_googleworkspace_auth() {
   local repo_root="$1"
   local secrets_dir="$repo_root/.secrets"
@@ -21,12 +32,17 @@ hydrate_googleworkspace_auth() {
   fi
 
   if [[ -n "${TF_VAR_googleworkspace_credentials:-}" && -z "${TF_VAR_googleworkspace_service_account:-}" ]]; then
+    if ! command -v jq >/dev/null 2>&1; then
+      echo "ERROR: jq is required. Please install it." >&2
+      exit 1
+    fi
+
     local service_account
-    service_account="$(printf '%s\n' "$TF_VAR_googleworkspace_credentials" \
-      | sed -n 's/.*"client_email"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
-      | head -1)"
+    service_account="$(printf '%s\n' "$TF_VAR_googleworkspace_credentials" | jq -r '.client_email // ""')"
     if [[ -n "$service_account" ]]; then
       export TF_VAR_googleworkspace_service_account="$service_account"
     fi
   fi
+
+  ensure_googleworkspace_auth
 }
