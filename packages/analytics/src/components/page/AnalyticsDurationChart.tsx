@@ -8,7 +8,7 @@ import {
   XAxis,
   YAxis
 } from 'recharts';
-import type { AnalyticsEvent } from '@/db/analytics';
+import type { AnalyticsEvent } from './analyticsTypes';
 import { getEventDisplayName } from './eventDisplayName';
 import type { TimeFilter } from './types';
 

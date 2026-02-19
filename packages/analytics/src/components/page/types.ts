@@ -1,4 +1,4 @@
-import type { SortDirection, StatsSortColumn } from '@/db/analytics';
+import type { SortDirection, StatsSortColumn } from './analyticsTypes';
 
 export type TimeFilter = 'hour' | 'day' | 'week' | 'all';
 

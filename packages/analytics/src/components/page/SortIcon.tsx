@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
-import type { SortColumn } from '@/db/analytics';
+import type { SortColumn } from './analyticsTypes';
 
 export interface SortState {
   column: SortColumn | null;
