@@ -312,4 +312,63 @@ describe('createVfsSecureOrchestratorFacade', () => {
       })
     ).rejects.toThrow('Encrypted upload chunk finality metadata is invalid');
   });
+
+  it('fails closed when chunk sizes do not match manifest totals', async () => {
+    const facade = createVfsSecureOrchestratorFacade(
+      {
+        queueBlobStageAndPersist: vi.fn(),
+        queueBlobChunkAndPersist: vi.fn(),
+        queueBlobManifestCommitAndPersist: vi.fn(),
+        queueBlobAttachAndPersist: vi.fn()
+      },
+      {
+        uploadEncryptedBlob: vi.fn(async () => ({
+          manifest: {
+            itemId: 'item-1',
+            blobId: 'blob-1',
+            keyEpoch: 1,
+            totalPlaintextBytes: 2048,
+            totalCiphertextBytes: 2176,
+            chunkCount: 2,
+            chunkHashes: ['hash-1', 'hash-2'],
+            wrappedFileKeys: [],
+            manifestSignature: 'manifest-signature-1'
+          },
+          uploadId: 'upload-1',
+          chunks: [
+            {
+              chunkIndex: 0,
+              isFinal: false,
+              nonce: 'nonce-1',
+              aadHash: 'aad-hash-1',
+              ciphertextBase64: 'YQ==',
+              plaintextLength: 512,
+              ciphertextLength: 544
+            },
+            {
+              chunkIndex: 1,
+              isFinal: true,
+              nonce: 'nonce-2',
+              aadHash: 'aad-hash-2',
+              ciphertextBase64: 'Yg==',
+              plaintextLength: 512,
+              ciphertextLength: 544
+            }
+          ]
+        })),
+        encryptCrdtOp: vi.fn()
+      }
+    );
+
+    await expect(
+      facade.stageAttachEncryptedBlobAndPersist({
+        itemId: 'item-1',
+        blobId: 'blob-1',
+        stream: new ReadableStream<Uint8Array>(),
+        expiresAt: '2026-02-19T12:00:00.000Z'
+      })
+    ).rejects.toThrow(
+      'Encrypted upload chunk sizes do not match manifest totals'
+    );
+  });
 });
