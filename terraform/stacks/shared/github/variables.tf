@@ -45,7 +45,7 @@ variable "enable_merge_signing_bypass" {
 variable "merge_signing_app_id" {
   description = "GitHub App ID used as Integration actor_id for repository ruleset bypass"
   type        = number
-  default     = 2889195
+  default     = 2889195 # tearleads-version-bumper GitHub App
 }
 
 variable "tearleads_version_bumper_app_id" {
