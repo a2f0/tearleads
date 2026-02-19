@@ -134,6 +134,18 @@ export const windowCases: WindowCase[] = [
     }
   },
   {
+    label: 'videos',
+    type: 'videos',
+    id: 'videos-1',
+    windowTestId: 'video-window-videos-1',
+    closeTestId: 'close-videos-1',
+    focusTestId: 'video-window-videos-1',
+    minimize: {
+      testId: 'minimize-videos-1',
+      dimensions: { x: 0, y: 0, width: 650, height: 500 }
+    }
+  },
+  {
     label: 'photos',
     type: 'photos',
     id: 'photos-1',
