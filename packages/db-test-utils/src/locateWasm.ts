@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 const WASM_ENV_VAR = 'TEARLEADS_SQLITE_WASM_DIR';
 const WASM_SUBPATH_CANDIDATES = [
   'packages/db-test-utils/sqlite-wasm',
-  'packages/client/src/workers/sqlite-wasm'
+  'packages/client/public/sqlite'
 ];
 const REQUIRED_FILES = ['sqlite3.js', 'sqlite3.wasm'];
 
