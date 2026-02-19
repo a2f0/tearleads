@@ -4,18 +4,20 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE' >&2
-Usage: ./scripts/preen/runPreen.sh [--mode full|single|security|audit] [--dry-run]
+Usage: ./scripts/preen/runPreen.sh [--mode aggressive|full|single|security|audit] [--passive] [--dry-run]
 
 Options:
-  --mode    Preen mode (default: $PREEN_MODE or full)
+  --mode    Preen mode (default: $PREEN_MODE or aggressive)
+  --passive Run discovery/analysis without mutating the workspace (for lambda/read-only environments)
   --dry-run Print the steps without mutating the workspace
   --help    Display this help message
 USAGE
   exit 1
 }
 
-MODE="${PREEN_MODE:-full}"
+MODE="${PREEN_MODE:-aggressive}"
 DRY_RUN=false
+PASSIVE=false
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -27,6 +29,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --dry-run)
       DRY_RUN=true
+      shift
+      ;;
+    --passive)
+      PASSIVE=true
       shift
       ;;
     --help)
@@ -78,25 +84,37 @@ CURSOR=$(cat "$CURSOR_FILE")
 ACTIVE_CATEGORIES=()
 NEXT_CURSOR="$CURSOR"
 MAX_FIXES=
+MIN_FIXES=
 
 case "$MODE" in
+  aggressive)
+    ACTIVE_CATEGORIES=("${CATEGORIES[@]}")
+    MIN_FIXES=4
+    MAX_FIXES=5
+    NEXT_CURSOR="$CURSOR"
+    ;;
   single)
     ACTIVE_CATEGORIES=("${CATEGORIES[$CURSOR]}")
+    MIN_FIXES=1
     NEXT_CURSOR=$(( (CURSOR + 1) % ${#CATEGORIES[@]} ))
     MAX_FIXES=1
     ;;
   full)
+    # Backward-compatible alias for aggressive mode.
     ACTIVE_CATEGORIES=("${CATEGORIES[@]}")
-    MAX_FIXES=${#CATEGORIES[@]}
+    MIN_FIXES=4
+    MAX_FIXES=5
     NEXT_CURSOR="$CURSOR"
     ;;
   security)
     ACTIVE_CATEGORIES=("${SECURITY_CATEGORIES[@]}")
+    MIN_FIXES=1
     MAX_FIXES=1
     NEXT_CURSOR="$CURSOR"
     ;;
   audit)
     ACTIVE_CATEGORIES=("${CATEGORIES[$CURSOR]}")
+    MIN_FIXES=0
     MAX_FIXES=0
     NEXT_CURSOR=$(( (CURSOR + 1) % ${#CATEGORIES[@]} ))
     ;;
@@ -106,13 +124,21 @@ case "$MODE" in
     ;;
 esac
 
-printf 'mode=%s active=%s max_fixes=%s\n' "$MODE" "${ACTIVE_CATEGORIES[*]}" "$MAX_FIXES"
+if [ -n "${PREEN_MIN_FIXES:-}" ]; then
+  MIN_FIXES="$PREEN_MIN_FIXES"
+fi
+if [ -n "${PREEN_MAX_FIXES:-}" ]; then
+  MAX_FIXES="$PREEN_MAX_FIXES"
+fi
+
+printf 'mode=%s active=%s min_fixes=%s max_fixes=%s\n' "$MODE" "${ACTIVE_CATEGORIES[*]}" "$MIN_FIXES" "$MAX_FIXES"
+if [ "$PASSIVE" = true ]; then
+  echo "passive=true (workspace mutations disabled)"
+fi
 
 analyze_history() {
   STALE_CATEGORIES=""
   UNDER_SERVED=""
-  EFFECTIVENESS=""
-  AVG_DELTA=""
 
   [ ! -f "$RUNS_FILE" ] && return
   [ "$(wc -l < "$RUNS_FILE" 2>/dev/null)" -lt 5 ] && return
@@ -131,47 +157,6 @@ analyze_history() {
     ($all_cats - ([.[].selected_category] | unique)) | .[]'
     "$RUNS_FILE" 2>/dev/null | tr -d '"' | tr '\n' ' ')
 
-  EFFECTIVENESS=$(jq -s '
-    group_by(.selected_category) |
-    map({
-      cat: .[0].selected_category,
-      total: length,
-      success: ([.[] | select(.outcome == "changed")] | length),
-      rate: (([.[] | select(.outcome == "changed")] | length) / length * 100 | floor)
-    }) |
-    sort_by(-.rate)'
-    "$RUNS_FILE" 2>/dev/null)
-
-  AVG_DELTA=$(jq -s '
-    [.[] | select(.outcome == "changed")] |
-    group_by(.selected_category) |
-    map({
-      cat: .[0].selected_category,
-      avg_delta: ([.[].delta | tonumber] | add / length | floor)
-    }) |
-    sort_by(.avg_delta)'
-    "$RUNS_FILE" 2>/dev/null)
-}
-
-compute_category_boost() {
-  local cat="$1"
-  local boost=0
-
-  if [ -n "$UNDER_SERVED" ] && echo "$UNDER_SERVED" | grep -q -w "$cat"; then
-    boost=$((boost + 2))
-  fi
-
-  local recent
-  recent=$(jq -s --arg c "$cat" '[.[-5:][].selected_category] | map(select(. == $c)) | length' "$RUNS_FILE" 2>/dev/null || echo 0)
-  if [ "$recent" -eq 0 ]; then
-    boost=$((boost + 1))
-  fi
-
-  if [ -n "$STALE_CATEGORIES" ] && echo "$STALE_CATEGORIES" | grep -q -w "$cat"; then
-    boost=$((boost - 1))
-  fi
-
-  printf '%s' "$boost"
 }
 
 run_discovery() {
@@ -454,13 +439,21 @@ determine_default_branch() {
   printf '%s' "$default_branch"
 }
 
-ensure_clean_worktree
+if [ "$PASSIVE" = true ] || [ "$DRY_RUN" = true ]; then
+  echo "Passive/dry-run mode: skipping clean-worktree check"
+else
+  ensure_clean_worktree
+fi
 
 DEFAULT_BRANCH=$(determine_default_branch)
-echo "Checking out $DEFAULT_BRANCH" 
-git fetch origin "$DEFAULT_BRANCH"
-git checkout "$DEFAULT_BRANCH"
-git pull --ff-only origin "$DEFAULT_BRANCH"
+if [ "$PASSIVE" = true ] || [ "$DRY_RUN" = true ]; then
+  echo "Passive/dry-run mode: skipping checkout/sync for $DEFAULT_BRANCH"
+else
+  echo "Checking out $DEFAULT_BRANCH"
+  git fetch origin "$DEFAULT_BRANCH"
+  git checkout "$DEFAULT_BRANCH"
+  git pull --ff-only origin "$DEFAULT_BRANCH"
+fi
 
 analyze_history
 print_health_report
@@ -470,18 +463,19 @@ for category in "${ACTIVE_CATEGORIES[@]}"; do
   run_discovery "$category"
 done
 
-cat <<'INSTRUCTIONS'
-### Next Steps
-1. Select the highest-value candidate (score = severity*3 + blast_radius*2 + confidence*2 - effort).
-2. Capture baseline: find the selected category in the `metric_count` function and run that command manually.
-3. Only create a branch and make changes when you're ready to sign off. Use PREEN_MODE full/single/security/audit semantics.
-4. After editing, rerun `runPreen.sh` (or `./scripts/agents/tooling/agentTool.ts runPreen`) and verify coverage/impact, then commit with `refactor(preen): stateful single-pass improvements`.
-5. Push, open PR, and tag with `./scripts/agents/tooling/agentTool.ts tagPrWithTuxedoInstance`.
-6. Record the run in `.git/preen/runs.jsonl` as described in the script comments.
-INSTRUCTIONS
+echo "### Next Steps"
+echo "1. Select the highest-value candidate (score = severity*3 + blast_radius*2 + confidence*2 - effort)."
+echo "2. Capture baseline: find the selected category in the \`metric_count\` function and run that command manually."
+echo "3. Land ${MIN_FIXES}-${MAX_FIXES} fixes for this run (or fail the run if you cannot meet the minimum with high-confidence, behavior-safe changes)."
+echo "4. Only create a branch and make changes when you're ready to sign off. Use PREEN_MODE aggressive/full/single/security/audit semantics."
+echo "5. After editing, rerun \`runPreen.sh\` (or \`./scripts/agents/tooling/agentTool.ts runPreen\`) and verify coverage/impact, then commit with \`refactor(preen): stateful single-pass improvements\`."
+echo "6. Push, open PR, and tag with \`./scripts/agents/tooling/agentTool.ts tagPrWithTuxedoInstance\`."
+echo "7. Record the run in \`.git/preen/runs.jsonl\` as described in the script comments."
 
 if [ "$DRY_RUN" = true ]; then
   echo "Dry-run complete. No changes were made."
+elif [ "$PASSIVE" = true ]; then
+  echo "Passive run complete. No workspace changes were made."
 else
   echo "Preen discovery complete. Follow the next steps above."
 fi

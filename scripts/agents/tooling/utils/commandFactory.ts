@@ -165,7 +165,7 @@ export function createActionCommand(actionName: ActionName): Command {
         break;
       case 'runPreen':
         cmd.option('--mode <mode>', 'Preen mode', (v) => {
-          const allowed = ['full', 'single', 'security', 'audit'];
+          const allowed = ['aggressive', 'full', 'single', 'security', 'audit'];
           if (!allowed.includes(v)) {
             throw new InvalidArgumentError(
               `--mode must be one of ${allowed.join(', ')}`
@@ -173,6 +173,10 @@ export function createActionCommand(actionName: ActionName): Command {
           }
           return v as GlobalOptions['mode'];
         });
+        cmd.option(
+          '--passive',
+          'Run discovery/analysis without mutating workspace state'
+        );
         break;
       case 'generatePrSummary':
         cmd
