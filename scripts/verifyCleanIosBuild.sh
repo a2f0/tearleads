@@ -27,9 +27,9 @@ sed -i '' '/<key>CFBundleVersion<\/key>/{n;s/<string>[0-9]*<\/string>/<string>$(
 
 # Reset expected version-file mutations from applyCiVersionFromSha/build stamping.
 git -C "$PROJECT_ROOT" checkout -- \
-  "${ANDROID_BUILD_GRADLE#$PROJECT_ROOT/}" \
-  "${PROJECT_FILE#$PROJECT_ROOT/}" \
-  "${CLIENT_PACKAGE_JSON#$PROJECT_ROOT/}"
+  "${ANDROID_BUILD_GRADLE#"$PROJECT_ROOT"/}" \
+  "${PROJECT_FILE#"$PROJECT_ROOT"/}" \
+  "${CLIENT_PACKAGE_JSON#"$PROJECT_ROOT"/}"
 
 # Verify workspace is clean after cleanup
 if [ -n "$(git -C "$PROJECT_ROOT" status --porcelain)" ]; then
