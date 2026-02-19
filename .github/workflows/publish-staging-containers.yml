@@ -39,4 +39,4 @@ jobs:
           role-session-name: github-actions-staging-ecr
 
       - name: Build and push staging images
-        run: ./scripts/buildContainers.sh staging
+        run: ./scripts/buildContainers.sh staging --tag "${GITHUB_SHA}"
