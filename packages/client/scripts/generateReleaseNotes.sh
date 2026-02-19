@@ -1,17 +1,23 @@
 #!/bin/sh
 set -e
 
-# Generates user-friendly release notes using Anthropic's API
+# Generates user-friendly release notes from recent PRs
+# Provider order: OpenCode -> OpenRouter -> Anthropic -> deterministic fallback
 # Based on git commits since the last version bump
 # Usage: generateReleaseNotes.sh <platform>
 #   platform: "ios" or "android"
-# Requires ANTHROPIC_API_KEY environment variable
+# Optional environment variables:
+# - OPENROUTER_API_KEY (for OpenRouter provider)
+# - OPENROUTER_MODEL (OpenRouter model override)
+# - ANTHROPIC_API_KEY (for Anthropic provider)
+# - ANTHROPIC_MODEL / FALLBACK_MODEL (Anthropic model overrides)
 
 PLATFORM="$1"
 # Use Claude 3 Haiku as primary (most cost-effective)
 # Claude 3.5 Haiku requires tier 2+ API access
 ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-claude-3-haiku-20240307}"
 FALLBACK_MODEL="${FALLBACK_MODEL:-claude-3-5-sonnet-latest}"
+OPENROUTER_MODEL="${OPENROUTER_MODEL:-meta-llama/llama-3.1-8b-instruct:free}"
 
 if [ -z "$PLATFORM" ]; then
     echo "Usage: generateReleaseNotes.sh <platform>" >&2
@@ -42,11 +48,6 @@ case "$PLATFORM" in
         exit 1
         ;;
 esac
-
-if [ -z "$ANTHROPIC_API_KEY" ]; then
-    echo "Error: ANTHROPIC_API_KEY environment variable is required" >&2
-    exit 1
-fi
 
 if ! command -v curl >/dev/null 2>&1; then
     echo "Error: curl is required but not found" >&2
@@ -150,6 +151,32 @@ if [ -z "$COMMITS" ]; then
     exit 1
 fi
 
+has_command() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+extract_candidate_changes() {
+    printf '%s\n' "$COMMITS" | while IFS= read -r line; do
+        case "$line" in
+            "## PR #"*": "*) printf '%s\n' "${line#*: }" ;;
+            "- "*) printf '%s\n' "${line#- }" ;;
+        esac
+    done | sed '/^[[:space:]]*$/d' | sed '/^No user-visible changes found in PRs\.$/d' | head -3
+}
+
+build_deterministic_notes() {
+    changes=$(extract_candidate_changes || true)
+    if [ -z "$changes" ]; then
+        printf '• No user-visible changes\n'
+        return 0
+    fi
+
+    printf '%s\n' "$changes" | while IFS= read -r change; do
+        short_change=$(printf '%s' "$change" | cut -c1-140)
+        printf '• %s\n' "$short_change"
+    done
+}
+
 call_anthropic_api() {
     model="$1"
     max_tokens="$2"
@@ -170,12 +197,42 @@ call_anthropic_api() {
         -d @-
 }
 
+call_openrouter_api() {
+    max_tokens="$1"
+    printf '%s' "$COMMITS" | jq -Rs --arg model "$OPENROUTER_MODEL" --arg max_tokens "$max_tokens" '
+{
+    model: $model,
+    max_tokens: ($max_tokens | tonumber),
+    temperature: 0,
+    messages: [{
+        role: "system",
+        content: "You generate mobile app release notes. Use only facts explicitly present in provided PR text. Never infer."
+    }, {
+        role: "user",
+        content: ("Generate release notes for a mobile app. 2-3 bullet points using • character. Plain text only, no markdown.\n\nRULES:\n- Under 500 characters total\n- Start directly with • bullet lines\n- Focus on user-visible changes only\n- If nothing user-visible, output exactly: • No user-visible changes\n\nPull Requests:\n" + .)
+    }]
+}' | curl -s https://openrouter.ai/api/v1/chat/completions \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $OPENROUTER_API_KEY" \
+        -H "HTTP-Referer: https://github.com/a2f0/tearleads" \
+        -H "X-Title: Tearleads Release Notes" \
+        -d @-
+}
+
 extract_notes() {
     printf '%s' "$1" | jq -r '.content[0].text // empty'
 }
 
+extract_openrouter_notes() {
+    printf '%s' "$1" | jq -r '.choices[0].message.content // empty'
+}
+
 extract_error() {
     printf '%s' "$1" | jq -r '.error.message // .error.type // empty'
+}
+
+normalize_notes() {
+    sed 's/\r$//' | sed 's/^- /• /' | sed '/^[[:space:]]*$/d'
 }
 
 is_valid_notes() {
@@ -194,37 +251,125 @@ is_valid_notes() {
     return 0
 }
 
-# Try primary model
-echo "Trying model: $ANTHROPIC_MODEL" >&2
-RESPONSE=$(call_anthropic_api "$ANTHROPIC_MODEL" 180)
-RELEASE_NOTES=$(extract_notes "$RESPONSE")
-
-# If primary fails, try fallback model
-if [ -z "$RELEASE_NOTES" ]; then
-    ERROR=$(extract_error "$RESPONSE")
-    printf "Primary model failed: %s\n" "$ERROR" >&2
-    printf "Full response: %s\n" "$RESPONSE" >&2
-    printf "Trying fallback model: %s\n" "$FALLBACK_MODEL" >&2
-
-    RESPONSE=$(call_anthropic_api "$FALLBACK_MODEL" 220)
-    RELEASE_NOTES=$(extract_notes "$RESPONSE")
-fi
-
-# If output format is invalid, retry with stricter prompt and shorter output
-if [ -n "$RELEASE_NOTES" ] && ! is_valid_notes "$RELEASE_NOTES"; then
-    printf "Invalid release notes format; retrying with stricter limits\n" >&2
-    RESPONSE=$(call_anthropic_api "$FALLBACK_MODEL" 120)
-    RELEASE_NOTES=$(extract_notes "$RESPONSE")
-fi
-
-if [ -z "$RELEASE_NOTES" ]; then
-    ERROR=$(extract_error "$RESPONSE")
-    if [ -n "$ERROR" ]; then
-        printf "Error from Anthropic API: %s\n" "$ERROR" >&2
-    else
-        echo "Error: No release notes returned from API" >&2
+try_opencode() {
+    if ! has_command opencode; then
+        return 1
     fi
-    printf "Full response: %s\n" "$RESPONSE" >&2
+
+    UI_PROMPT=$(cat <<EOF
+Generate mobile app release notes from this PR context.
+Output only 1-3 bullet points.
+Rules:
+- Each line must start with "• "
+- Plain text only, no markdown heading
+- Under 500 characters total
+- Focus only on user-visible changes
+- If nothing user-visible: "• No user-visible changes"
+
+PR context:
+$COMMITS
+EOF
+)
+
+    OPENCODE_RESPONSE=$(printf '%s' "$UI_PROMPT" | opencode run 2>/dev/null || true)
+    if [ -z "$OPENCODE_RESPONSE" ]; then
+        return 1
+    fi
+
+    RELEASE_NOTES=$(printf '%s\n' "$OPENCODE_RESPONSE" | normalize_notes)
+    is_valid_notes "$RELEASE_NOTES"
+}
+
+try_openrouter() {
+    if [ -z "${OPENROUTER_API_KEY:-}" ]; then
+        return 1
+    fi
+
+    RESPONSE=$(call_openrouter_api 180)
+    RELEASE_NOTES=$(extract_openrouter_notes "$RESPONSE")
+    if [ -z "$RELEASE_NOTES" ]; then
+        ERROR=$(extract_error "$RESPONSE")
+        [ -n "$ERROR" ] && printf "OpenRouter failed: %s\n" "$ERROR" >&2
+        return 1
+    fi
+
+    RELEASE_NOTES=$(printf '%s\n' "$RELEASE_NOTES" | normalize_notes)
+    is_valid_notes "$RELEASE_NOTES"
+}
+
+try_anthropic() {
+    if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+        return 1
+    fi
+
+    echo "Trying model: $ANTHROPIC_MODEL" >&2
+    RESPONSE=$(call_anthropic_api "$ANTHROPIC_MODEL" 180)
+    RELEASE_NOTES=$(extract_notes "$RESPONSE")
+
+    # If primary fails, try fallback model
+    if [ -z "$RELEASE_NOTES" ]; then
+        ERROR=$(extract_error "$RESPONSE")
+        printf "Primary model failed: %s\n" "$ERROR" >&2
+        printf "Full response: %s\n" "$RESPONSE" >&2
+        printf "Trying fallback model: %s\n" "$FALLBACK_MODEL" >&2
+
+        RESPONSE=$(call_anthropic_api "$FALLBACK_MODEL" 220)
+        RELEASE_NOTES=$(extract_notes "$RESPONSE")
+    fi
+
+    # If output format is invalid, retry with stricter prompt and shorter output
+    if [ -n "$RELEASE_NOTES" ] && ! is_valid_notes "$RELEASE_NOTES"; then
+        printf "Invalid release notes format; retrying with stricter limits\n" >&2
+        RESPONSE=$(call_anthropic_api "$FALLBACK_MODEL" 120)
+        RELEASE_NOTES=$(extract_notes "$RESPONSE")
+    fi
+
+    if [ -z "$RELEASE_NOTES" ]; then
+        ERROR=$(extract_error "$RESPONSE")
+        if [ -n "$ERROR" ]; then
+            printf "Error from Anthropic API: %s\n" "$ERROR" >&2
+        else
+            echo "Error: No release notes returned from Anthropic API" >&2
+        fi
+        printf "Full response: %s\n" "$RESPONSE" >&2
+        return 1
+    fi
+
+    RELEASE_NOTES=$(printf '%s\n' "$RELEASE_NOTES" | normalize_notes)
+    is_valid_notes "$RELEASE_NOTES"
+}
+
+RELEASE_NOTES=""
+
+if try_opencode; then
+    echo "Generated release notes with OpenCode" >&2
+elif try_openrouter; then
+    echo "Generated release notes with OpenRouter" >&2
+elif try_anthropic; then
+    echo "Generated release notes with Anthropic" >&2
+else
+    echo "Falling back to deterministic release notes" >&2
+    RELEASE_NOTES=$(build_deterministic_notes)
+fi
+
+if [ -z "$RELEASE_NOTES" ]; then
+    echo "Error: Failed to generate release notes" >&2
+    exit 1
+fi
+
+if [ "$(printf '%s' "$RELEASE_NOTES" | wc -c | tr -d ' ')" -ge 500 ]; then
+    RELEASE_NOTES=$(printf '%s\n' "$RELEASE_NOTES" | head -2)
+    if ! is_valid_notes "$RELEASE_NOTES"; then
+        RELEASE_NOTES='• No user-visible changes'
+    fi
+fi
+
+if [ -z "$RELEASE_NOTES" ]; then
+    if [ -n "$ERROR" ]; then
+        printf "Error: %s\n" "$ERROR" >&2
+    else
+        echo "Error: No release notes generated" >&2
+    fi
     exit 1
 fi
 

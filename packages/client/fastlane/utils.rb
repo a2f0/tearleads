@@ -1,7 +1,6 @@
 RELEASE_NOTES_SCRIPT = File.expand_path('../scripts/generateReleaseNotes.sh', __dir__).freeze
 
 def generate_release_notes(platform)
-  UI.user_error!('ANTHROPIC_API_KEY environment variable is required') unless ENV['ANTHROPIC_API_KEY']
   UI.user_error!("Invalid platform: #{platform}. Must be 'ios' or 'android'") unless %w[ios android].include?(platform)
 
   UI.message('Generating release notes with AI...')
