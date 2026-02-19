@@ -14,15 +14,14 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 
 const VIRTUAL_MODULE_ID = 'virtual:app-config';
-const RESOLVED_VIRTUAL_MODULE_ID = '\0' + VIRTUAL_MODULE_ID;
+const RESOLVED_VIRTUAL_MODULE_ID = `\0${VIRTUAL_MODULE_ID}`;
 
 // Inline jiti types to avoid adding a dev dependency
-interface Jiti {
-  (id: string): unknown;
-}
-interface JitiFactory {
-  (parentUrl: string, options?: { interopDefault?: boolean }): Jiti;
-}
+type Jiti = (id: string) => unknown;
+type JitiFactory = (
+  parentUrl: string,
+  options?: { interopDefault?: boolean }
+) => Jiti;
 
 /**
  * Minimal AppConfig type for the plugin.
@@ -53,7 +52,9 @@ interface AppConfig {
 
 interface AppConfigVitePlugin {
   name: string;
-  resolveId?: (id: string) => string | { id: string; syntheticNamedExports: boolean } | undefined;
+  resolveId?: (
+    id: string
+  ) => string | { id: string; syntheticNamedExports: boolean } | undefined;
   load?: (id: string) => string | undefined;
   configResolved?: () => void;
 }
@@ -96,7 +97,10 @@ function getDisabledPackagesFromFeatures(enabledFeatures: string[]): string[] {
  * Load app config synchronously at build time using jiti.
  */
 function loadAppConfig(appId: string, dirname: string): AppConfig {
-  const configPath = path.resolve(dirname, `../app-builder/apps/${appId}/config.ts`);
+  const configPath = path.resolve(
+    dirname,
+    `../app-builder/apps/${appId}/config.ts`
+  );
 
   if (!existsSync(configPath)) {
     throw new Error(
@@ -137,8 +141,11 @@ export function createAppConfigPlugin(
 ): AppConfigPluginResult {
   const appId = process.env['APP'] || 'tearleads';
   const config = loadAppConfig(appId, dirname);
-  const enableTreeShaking = options.enableTreeShaking ?? process.env['NODE_ENV'] === 'production';
-  const disabledPackages = enableTreeShaking ? getDisabledPackagesFromFeatures(config.features) : [];
+  const enableTreeShaking =
+    options.enableTreeShaking ?? process.env['NODE_ENV'] === 'production';
+  const disabledPackages = enableTreeShaking
+    ? getDisabledPackagesFromFeatures(config.features)
+    : [];
 
   // Runtime config to expose via virtual module
   const runtimeConfig = {
@@ -164,7 +171,7 @@ export function createAppConfigPlugin(
       }
       // Check if this is a disabled package import
       const pkgName = disabledPackages.find(
-        (pkg) => id === pkg || id.startsWith(pkg + '/')
+        (pkg) => id === pkg || id.startsWith(`${pkg}/`)
       );
       if (pkgName) {
         // Return a virtual module ID with syntheticNamedExports
@@ -208,7 +215,9 @@ export function createAppConfigPlugin(
       const featureCount = config.features.length;
       const disabledCount = disabledPackages.length;
       console.log(`\n  App: ${config.displayName} (${appId})`);
-      console.log(`  Features: ${featureCount} enabled, ${disabledCount} disabled`);
+      console.log(
+        `  Features: ${featureCount} enabled, ${disabledCount} disabled`
+      );
       if (disabledPackages.length > 0) {
         console.log(`  Tree-shaking: ${disabledPackages.join(', ')}\n`);
       }
