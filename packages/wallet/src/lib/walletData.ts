@@ -77,10 +77,6 @@ export function setWalletDataDependencies(next: WalletDataDependencies): void {
   dependencies = next;
 }
 
-function getWalletDataDependencies(): WalletDataDependencies | null {
-  return dependencies;
-}
-
 export function toDateInputValue(value: Date | null): string {
   if (!value) {
     return '';
