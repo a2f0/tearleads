@@ -20,6 +20,7 @@ import {
   serializeKeyPair,
   splitPublicKey,
   type VfsKeyPair,
+  type VfsObjectType,
   type VfsPublicKey,
   wrapKeyForRecipient
 } from '@tearleads/shared';
@@ -255,6 +256,42 @@ export async function wrapSessionKey(sessionKey: Uint8Array): Promise<string> {
   const publicKey = await ensureVfsKeys();
   const encapsulation = wrapKeyForRecipient(sessionKey, publicKey);
   return combineEncapsulation(encapsulation);
+}
+
+export interface RegisterVfsItemWithCurrentKeysInput {
+  id: string;
+  objectType: VfsObjectType;
+  registerOnServer?: boolean;
+  sessionKey?: Uint8Array;
+}
+
+export interface RegisterVfsItemWithCurrentKeysResult {
+  sessionKey: Uint8Array;
+  encryptedSessionKey: string;
+}
+
+/**
+ * Ensure keys are available, wrap a session key, and optionally register the
+ * item on the server in one call.
+ */
+export async function registerVfsItemWithCurrentKeys(
+  input: RegisterVfsItemWithCurrentKeysInput
+): Promise<RegisterVfsItemWithCurrentKeysResult> {
+  const sessionKey = input.sessionKey ?? generateSessionKey();
+  const encryptedSessionKey = await wrapSessionKey(sessionKey);
+
+  if (input.registerOnServer ?? true) {
+    await api.vfs.register({
+      id: input.id,
+      objectType: input.objectType,
+      encryptedSessionKey
+    });
+  }
+
+  return {
+    sessionKey,
+    encryptedSessionKey
+  };
 }
 
 /**

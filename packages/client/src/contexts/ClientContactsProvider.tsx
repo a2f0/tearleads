@@ -34,9 +34,8 @@ import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMen
 import { zIndex } from '@/constants/zIndex';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
-import { generateSessionKey, wrapSessionKey } from '@/hooks/useVfsKeys';
+import { registerVfsItemWithCurrentKeys } from '@/hooks/useVfsKeys';
 import { useTypedTranslation } from '@/i18n';
-import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
 import { saveFile as saveFileUtil } from '@/lib/fileUtils';
@@ -99,12 +98,16 @@ async function registerInVfs(
     const db = getDatabase();
     const auth = readStoredAuth();
 
-    // Generate and wrap session key if logged in
+    // Ensure VFS keys exist, wrap key, and optionally register with server.
     let encryptedSessionKey: string | null = null;
     if (isLoggedIn()) {
       try {
-        const sessionKey = generateSessionKey();
-        encryptedSessionKey = await wrapSessionKey(sessionKey);
+        const result = await registerVfsItemWithCurrentKeys({
+          id: contactId,
+          objectType: 'contact',
+          registerOnServer: getFeatureFlagValue('vfsServerRegistration')
+        });
+        encryptedSessionKey = result.encryptedSessionKey;
       } catch (err) {
         console.warn('Failed to wrap contact session key:', err);
       }
@@ -118,23 +121,6 @@ async function registerInVfs(
       encryptedSessionKey,
       createdAt
     });
-
-    // Server-side VFS registration if enabled
-    if (
-      isLoggedIn() &&
-      getFeatureFlagValue('vfsServerRegistration') &&
-      encryptedSessionKey
-    ) {
-      try {
-        await api.vfs.register({
-          id: contactId,
-          objectType: 'contact',
-          encryptedSessionKey
-        });
-      } catch (err) {
-        console.warn('Failed to register contact on server:', err);
-      }
-    }
 
     return { success: true };
   } catch (err) {
