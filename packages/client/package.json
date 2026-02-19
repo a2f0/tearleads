@@ -67,7 +67,6 @@
     "@tearleads/db": "workspace:*",
     "@tearleads/email": "workspace:*",
     "@tearleads/health": "workspace:*",
-    "@tearleads/help": "workspace:*",
     "@tearleads/local-write-orchestrator": "workspace:*",
     "@tearleads/mls-chat": "workspace:*",
     "@tearleads/notes": "workspace:*",
