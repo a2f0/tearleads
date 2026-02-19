@@ -82,7 +82,7 @@ describe('AnalyticsDurationChart', () => {
     expect(screen.getByText('Duration Over Time')).toBeInTheDocument();
     expect(screen.getByTestId('duration-chart')).toBeInTheDocument();
     expect(screen.getByText(/Database Setup/)).toBeInTheDocument();
-    expect(screen.getByText(/db_query/)).toBeInTheDocument();
+    expect(screen.getByText(/Database Query/)).toBeInTheDocument();
   });
 
   it('renders empty state when no selected events match', () => {
