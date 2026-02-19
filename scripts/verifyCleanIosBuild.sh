@@ -1,8 +1,5 @@
 #!/bin/sh
-# Cleans up iOS build artifacts that fastlane/Xcode modifies during builds:
-# - Removes DEVELOPMENT_TEAM entries from project.pbxproj
-# - Restores CFBundleVersion placeholder in Info.plist
-# Then verifies the git workspace is clean (no uncommitted changes).
+# Cleans up expected build-time mutations and verifies the git workspace is clean.
 set -e
 SCRIPT_PATH=$0
 case $SCRIPT_PATH in
@@ -17,9 +14,6 @@ PROJECT_FILE="$PROJECT_ROOT/packages/client/ios/App/App.xcodeproj/project.pbxpro
 INFO_PLIST="$PROJECT_ROOT/packages/client/ios/App/App/Info.plist"
 ANDROID_BUILD_GRADLE="$PROJECT_ROOT/packages/client/android/app/build.gradle"
 CLIENT_PACKAGE_JSON="$PROJECT_ROOT/packages/client/package.json"
-
-# Clear DEVELOPMENT_TEAM from project file (added by fastlane during build)
-sed -i '' '/DEVELOPMENT_TEAM = /d' "$PROJECT_FILE"
 
 # Restore CFBundleVersion variable in Info.plist (may be replaced with actual number during build)
 # shellcheck disable=SC2016 # $(CURRENT_PROJECT_VERSION) is an Xcode variable, not a shell variable
