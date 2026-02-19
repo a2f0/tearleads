@@ -6,7 +6,7 @@ import { AnalyticsInlineUnlock } from './AnalyticsInlineUnlock';
 
 const mockUseDatabaseContext = vi.fn();
 
-vi.mock('@/db/hooks', () => ({
+vi.mock('./analyticsRuntime', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
