@@ -206,5 +206,46 @@ export function normalizePersistedPendingOperation(input: {
     normalized.childId = childId;
   }
 
+  if (operation.encryptedPayload !== undefined) {
+    const encryptedPayload = normalizeRequiredString(
+      operation.encryptedPayload
+    );
+    if (!encryptedPayload) {
+      throw new Error(
+        `state.pendingOperations[${index}] has invalid encryptedPayload`
+      );
+    }
+    normalized.encryptedPayload = encryptedPayload;
+
+    const keyEpoch = parsePositiveSafeInteger(
+      operation.keyEpoch,
+      `state.pendingOperations[${index}].keyEpoch`
+    );
+    normalized.keyEpoch = keyEpoch;
+
+    if (operation.encryptionNonce !== undefined) {
+      const encryptionNonce = normalizeRequiredString(
+        operation.encryptionNonce
+      );
+      if (encryptionNonce) {
+        normalized.encryptionNonce = encryptionNonce;
+      }
+    }
+    if (operation.encryptionAad !== undefined) {
+      const encryptionAad = normalizeRequiredString(operation.encryptionAad);
+      if (encryptionAad) {
+        normalized.encryptionAad = encryptionAad;
+      }
+    }
+    if (operation.encryptionSignature !== undefined) {
+      const encryptionSignature = normalizeRequiredString(
+        operation.encryptionSignature
+      );
+      if (encryptionSignature) {
+        normalized.encryptionSignature = encryptionSignature;
+      }
+    }
+  }
+
   return normalized;
 }

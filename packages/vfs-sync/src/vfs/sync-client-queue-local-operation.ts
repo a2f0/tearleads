@@ -88,5 +88,39 @@ export function buildQueuedLocalOperation({
     operation.childId = childId;
   }
 
+  if (input.encryptedPayload !== undefined) {
+    const encryptedPayload = normalizeRequiredString(input.encryptedPayload);
+    if (!encryptedPayload) {
+      throw new Error('encryptedPayload must be a non-empty string');
+    }
+    operation.encryptedPayload = encryptedPayload;
+
+    if (input.keyEpoch === undefined || input.keyEpoch < 1) {
+      throw new Error('keyEpoch is required when encryptedPayload is provided');
+    }
+    operation.keyEpoch = input.keyEpoch;
+
+    if (input.encryptionNonce !== undefined) {
+      const encryptionNonce = normalizeRequiredString(input.encryptionNonce);
+      if (encryptionNonce) {
+        operation.encryptionNonce = encryptionNonce;
+      }
+    }
+    if (input.encryptionAad !== undefined) {
+      const encryptionAad = normalizeRequiredString(input.encryptionAad);
+      if (encryptionAad) {
+        operation.encryptionAad = encryptionAad;
+      }
+    }
+    if (input.encryptionSignature !== undefined) {
+      const encryptionSignature = normalizeRequiredString(
+        input.encryptionSignature
+      );
+      if (encryptionSignature) {
+        operation.encryptionSignature = encryptionSignature;
+      }
+    }
+  }
+
   return operation;
 }

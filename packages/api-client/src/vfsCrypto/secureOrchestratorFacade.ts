@@ -90,16 +90,11 @@ class DefaultVfsSecureOrchestratorFacade
       opType: input.opType,
       opPayload: input.opPayload
     });
-    if (!this.mapEncryptedCrdtOpToLocalOperation) {
-      throw new Error(
-        'Encrypted CRDT ops are not yet supported by the current VFS CRDT operation schema'
-      );
-    }
 
-    const localOperation = this.mapEncryptedCrdtOpToLocalOperation({
-      input,
-      encrypted
-    });
+    const localOperation = this.mapEncryptedCrdtOpToLocalOperation
+      ? this.mapEncryptedCrdtOpToLocalOperation({ input, encrypted })
+      : defaultMapEncryptedCrdtOpToLocalOperation({ input, encrypted });
+
     await this.writeOrchestrator.queueCrdtLocalOperationAndPersist(
       localOperation
     );
@@ -239,4 +234,19 @@ function validateUploadChunkIntegrity(
       'Encrypted upload chunk sizes do not match manifest totals'
     );
   }
+}
+
+function defaultMapEncryptedCrdtOpToLocalOperation(
+  input: MapEncryptedCrdtOpToLocalOperationInput
+): QueueVfsCrdtLocalOperationInput {
+  const { input: originalInput, encrypted } = input;
+  return {
+    opType: originalInput.opType,
+    itemId: originalInput.itemId,
+    encryptedPayload: encrypted.encryptedOp,
+    keyEpoch: encrypted.keyEpoch,
+    encryptionNonce: encrypted.opNonce,
+    encryptionAad: encrypted.opAad,
+    encryptionSignature: encrypted.opSignature
+  };
 }

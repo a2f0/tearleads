@@ -1,3 +1,4 @@
+import type { VfsCrdtOpType } from '@tearleads/vfs-sync/vfs';
 import type { Base64, EncryptedManifest, ItemId } from './types';
 
 export interface UploadEncryptedBlobInput {
@@ -9,7 +10,7 @@ export interface UploadEncryptedBlobInput {
 
 export interface EncryptCrdtOpInput {
   itemId: ItemId;
-  opType: string;
+  opType: VfsCrdtOpType;
   opPayload: unknown;
 }
 
@@ -46,7 +47,7 @@ export interface VfsSecureWritePipeline {
 
 export interface QueueEncryptedCrdtOpAndPersistInput {
   itemId: ItemId;
-  opType: string;
+  opType: VfsCrdtOpType;
   opPayload: unknown;
 }
 

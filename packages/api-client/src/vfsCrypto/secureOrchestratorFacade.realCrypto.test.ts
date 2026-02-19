@@ -275,7 +275,7 @@ describe('secureOrchestratorFacade with real crypto', () => {
 
     const result = await pipeline.encryptCrdtOp({
       itemId: 'item-5',
-      opType: 'set_data',
+      opType: 'link_add',
       opPayload: { key: 'sensitive', value: 'data' }
     });
 

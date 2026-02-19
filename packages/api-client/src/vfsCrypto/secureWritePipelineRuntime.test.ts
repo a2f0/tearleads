@@ -220,14 +220,14 @@ describe('secureWritePipelineRuntime', () => {
 
     const result = await pipeline.encryptCrdtOp({
       itemId: 'item-5',
-      opType: 'set_data',
-      opPayload: { value: 'hello' }
+      opType: 'link_add',
+      opPayload: { parentId: 'parent-1', childId: 'item-5' }
     });
 
     expect(encryptChunk).toHaveBeenCalledWith(
       expect.objectContaining({
         itemId: 'item-5',
-        blobId: 'crdt-op:set_data',
+        blobId: 'crdt-op:link_add',
         chunkIndex: 0,
         isFinal: true,
         keyEpoch: 21,
