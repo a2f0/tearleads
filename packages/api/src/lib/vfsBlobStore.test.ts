@@ -77,6 +77,58 @@ describe('vfsBlobStore', () => {
     ).rejects.toThrow('VFS_BLOB_S3_BUCKET');
   });
 
+  it('throws when blob store provider is unsupported', async () => {
+    vi.stubEnv('VFS_BLOB_STORE_PROVIDER', 'filesystem');
+    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+
+    const { persistVfsBlobData } = await import('./vfsBlobStore.js');
+    await expect(
+      persistVfsBlobData({
+        blobId: 'blob-1',
+        data: Uint8Array.from([1])
+      })
+    ).rejects.toThrow('Unsupported VFS_BLOB_STORE_PROVIDER');
+  });
+
+  it('defaults to path-style addressing when endpoint is configured', async () => {
+    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    vi.stubEnv('VFS_BLOB_S3_ENDPOINT', 'http://localhost:9000');
+    mockSend.mockResolvedValueOnce({});
+
+    const { persistVfsBlobData } = await import('./vfsBlobStore.js');
+    await persistVfsBlobData({
+      blobId: 'blob-1',
+      data: Uint8Array.from([1])
+    });
+
+    expect(mockS3ClientConstructor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: 'http://localhost:9000',
+        forcePathStyle: true
+      })
+    );
+  });
+
+  it('honors explicit force-path-style override when endpoint is configured', async () => {
+    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    vi.stubEnv('VFS_BLOB_S3_ENDPOINT', 'http://localhost:9000');
+    vi.stubEnv('VFS_BLOB_S3_FORCE_PATH_STYLE', 'false');
+    mockSend.mockResolvedValueOnce({});
+
+    const { persistVfsBlobData } = await import('./vfsBlobStore.js');
+    await persistVfsBlobData({
+      blobId: 'blob-1',
+      data: Uint8Array.from([1])
+    });
+
+    expect(mockS3ClientConstructor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: 'http://localhost:9000',
+        forcePathStyle: false
+      })
+    );
+  });
+
   it('reads blob data from configured bucket', async () => {
     vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
     mockSend.mockResolvedValueOnce({
@@ -232,6 +284,82 @@ describe('vfsBlobStore', () => {
     expect(mockPutObjectCommand.mock.calls[1]?.[0]).toMatchObject({
       Bucket: 'blob-bucket',
       Key: 'blob-retry'
+    });
+  });
+
+  it('rebuilds runtime when S3 configuration changes between calls', async () => {
+    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    vi.stubEnv('VFS_BLOB_S3_KEY_PREFIX', 'tenant-a');
+    mockSend.mockResolvedValue({});
+
+    const { persistVfsBlobData } = await import('./vfsBlobStore.js');
+    await persistVfsBlobData({
+      blobId: 'blob-1',
+      data: Uint8Array.from([1])
+    });
+
+    vi.stubEnv('VFS_BLOB_S3_KEY_PREFIX', 'tenant-b');
+    await persistVfsBlobData({
+      blobId: 'blob-1',
+      data: Uint8Array.from([1])
+    });
+
+    expect(mockS3ClientConstructor).toHaveBeenCalledTimes(2);
+    expect(mockPutObjectCommand.mock.calls[0]?.[0]).toMatchObject({
+      Key: 'tenant-a/blob-1'
+    });
+    expect(mockPutObjectCommand.mock.calls[1]?.[0]).toMatchObject({
+      Key: 'tenant-b/blob-1'
+    });
+  });
+
+  it('keeps read retry deterministic under transient storage failures', async () => {
+    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    mockSend.mockRejectedValueOnce(new Error('transient s3 read outage'));
+
+    const { readVfsBlobData } = await import('./vfsBlobStore.js');
+    await expect(readVfsBlobData({ blobId: 'blob-retry-read' })).rejects.toThrow(
+      'transient s3 read outage'
+    );
+
+    mockSend.mockResolvedValueOnce({
+      Body: {
+        transformToByteArray: async () => Uint8Array.from([114, 101, 97, 100])
+      },
+      ContentType: 'text/plain'
+    });
+    const retryResult = await readVfsBlobData({ blobId: 'blob-retry-read' });
+
+    expect(Buffer.from(retryResult.data).toString('utf8')).toBe('read');
+    expect(mockGetObjectCommand.mock.calls[0]?.[0]).toMatchObject({
+      Bucket: 'blob-bucket',
+      Key: 'blob-retry-read'
+    });
+    expect(mockGetObjectCommand.mock.calls[1]?.[0]).toMatchObject({
+      Bucket: 'blob-bucket',
+      Key: 'blob-retry-read'
+    });
+  });
+
+  it('keeps delete retry deterministic under transient storage failures', async () => {
+    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    mockSend.mockRejectedValueOnce(new Error('transient s3 delete outage'));
+
+    const { deleteVfsBlobData } = await import('./vfsBlobStore.js');
+    await expect(
+      deleteVfsBlobData({ blobId: 'blob-retry-delete' })
+    ).rejects.toThrow('transient s3 delete outage');
+
+    mockSend.mockResolvedValueOnce({});
+    await deleteVfsBlobData({ blobId: 'blob-retry-delete' });
+
+    expect(mockDeleteObjectCommand.mock.calls[0]?.[0]).toMatchObject({
+      Bucket: 'blob-bucket',
+      Key: 'blob-retry-delete'
+    });
+    expect(mockDeleteObjectCommand.mock.calls[1]?.[0]).toMatchObject({
+      Bucket: 'blob-bucket',
+      Key: 'blob-retry-delete'
     });
   });
 });
