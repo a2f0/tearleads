@@ -21,6 +21,7 @@ export interface DecryptChunkInput {
   blobId: string;
   chunk: EncryptedChunk;
   keyEpoch: Epoch;
+  contentType?: string;
 }
 
 export type UnsignedEncryptedManifest = Omit<
