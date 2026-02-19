@@ -161,7 +161,12 @@ describe('useFileUpload file type and environment', () => {
 
   it.each([
     { ext: 'png', mime: 'image/png', name: 'image.png', data: 'fake-png-data' },
-    { ext: 'jpg', mime: 'image/jpeg', name: 'photo.jpg', data: 'fake-jpeg-data' },
+    {
+      ext: 'jpg',
+      mime: 'image/jpeg',
+      name: 'photo.jpg',
+      data: 'fake-jpeg-data'
+    },
     {
       ext: 'pdf',
       mime: 'application/pdf',

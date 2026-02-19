@@ -213,7 +213,9 @@ describe('useFileUpload progress and thumbnails', () => {
       mime: 'image/png'
     });
     vi.mocked(isThumbnailSupported).mockReturnValue(true);
-    vi.mocked(generateThumbnail).mockRejectedValue(new Error('Thumbnail failed'));
+    vi.mocked(generateThumbnail).mockRejectedValue(
+      new Error('Thumbnail failed')
+    );
 
     const { result } = renderHook(() => useFileUpload());
     const file = new File(['test'], 'test.png', { type: 'image/png' });
@@ -257,7 +259,9 @@ describe('useFileUpload progress and thumbnails', () => {
       mime: 'image/png'
     });
     vi.mocked(isThumbnailSupported).mockReturnValue(true);
-    vi.mocked(generateThumbnail).mockRejectedValue(new Error('Thumbnail failed'));
+    vi.mocked(generateThumbnail).mockRejectedValue(
+      new Error('Thumbnail failed')
+    );
 
     const { result } = renderHook(() => useFileUpload());
     const file = new File(['test'], 'test.png', { type: 'image/png' });
