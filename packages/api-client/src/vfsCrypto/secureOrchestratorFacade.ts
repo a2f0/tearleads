@@ -70,6 +70,9 @@ class DefaultVfsSecureOrchestratorFacade
       stream: input.stream
     });
     const { manifest } = uploadResult;
+    const uploadId = uploadResult.uploadId ?? manifest.blobId;
+    const chunks = uploadResult.chunks ?? [];
+    validateUploadChunkIntegrity(chunks, manifest);
 
     const stageRequest: VfsBlobStageRequest = {
       blobId: input.blobId,
@@ -86,7 +89,7 @@ class DefaultVfsSecureOrchestratorFacade
         plaintextSizeBytes: manifest.totalPlaintextBytes,
         ciphertextSizeBytes: manifest.totalCiphertextBytes,
         checkpoint: {
-          uploadId: manifest.blobId,
+          uploadId,
           nextChunkIndex: manifest.chunkCount
         }
       }
@@ -95,9 +98,8 @@ class DefaultVfsSecureOrchestratorFacade
     const stageOperation =
       await this.writeOrchestrator.queueBlobStageAndPersist(stageRequest);
     const stagingId = stageOperation.payload.stagingId;
-    const uploadId = uploadResult.uploadId ?? manifest.blobId;
 
-    for (const chunk of uploadResult.chunks ?? []) {
+    for (const chunk of chunks) {
       await this.writeOrchestrator.queueBlobChunkAndPersist({
         stagingId,
         uploadId,
@@ -145,4 +147,51 @@ function estimateChunkSizeBytes(
 
   const estimated = Math.ceil(totalPlaintextBytes / chunkCount);
   return Math.max(1, estimated);
+}
+
+function validateUploadChunkIntegrity(
+  chunks: NonNullable<
+    Awaited<ReturnType<VfsSecureWritePipeline['uploadEncryptedBlob']>>['chunks']
+  >,
+  manifest: Awaited<
+    ReturnType<VfsSecureWritePipeline['uploadEncryptedBlob']>
+  >['manifest']
+): void {
+  if (chunks.length === 0) {
+    return;
+  }
+
+  if (chunks.length !== manifest.chunkCount) {
+    throw new Error('Encrypted upload chunks do not match manifest chunkCount');
+  }
+
+  const sortedChunks = [...chunks].sort((left, right) => {
+    return left.chunkIndex - right.chunkIndex;
+  });
+  for (const [index, chunk] of sortedChunks.entries()) {
+    if (chunk.chunkIndex !== index) {
+      throw new Error(
+        'Encrypted upload chunks must be contiguous from index 0'
+      );
+    }
+    const shouldBeFinal = index === sortedChunks.length - 1;
+    if (chunk.isFinal !== shouldBeFinal) {
+      throw new Error('Encrypted upload chunk finality metadata is invalid');
+    }
+  }
+
+  const totalPlaintextBytes = sortedChunks.reduce((total, chunk) => {
+    return total + chunk.plaintextLength;
+  }, 0);
+  const totalCiphertextBytes = sortedChunks.reduce((total, chunk) => {
+    return total + chunk.ciphertextLength;
+  }, 0);
+  if (
+    totalPlaintextBytes !== manifest.totalPlaintextBytes ||
+    totalCiphertextBytes !== manifest.totalCiphertextBytes
+  ) {
+    throw new Error(
+      'Encrypted upload chunk sizes do not match manifest totals'
+    );
+  }
 }
