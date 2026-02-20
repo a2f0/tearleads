@@ -55,3 +55,14 @@ variable "wireguard_client_cidr" {
   type        = string
   default     = "10.200.0.0/24"
 }
+
+variable "ssh_host_private_key" {
+  description = "SSH host private key for the server"
+  type        = string
+  sensitive   = true
+}
+
+variable "ssh_host_public_key" {
+  description = "SSH host public key for the server"
+  type        = string
+}

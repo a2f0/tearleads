@@ -12,8 +12,7 @@ BACKEND_CONFIG=$(get_backend_config)
 
 validate_aws_env
 validate_hetzner_env
-validate_production_domain_env
-validate_cloudflare_env
+validate_tailscale_auth_key_env
 
 terraform -chdir="$STACK_DIR" init \
   -backend-config="$BACKEND_CONFIG" \

@@ -20,12 +20,17 @@ output "k8s_hostname" {
 
 output "ssh_command" {
   description = "SSH command to connect to the server"
-  value       = "ssh ${var.server_username}@${module.server.ipv4_address}"
+  value       = "ssh k8s-ssh.${var.production_domain}"
+}
+
+output "ssh_hostname" {
+  description = "SSH hostname for direct server access"
+  value       = "k8s-ssh.${var.production_domain}"
 }
 
 output "kubeconfig_command" {
   description = "Command to fetch kubeconfig"
-  value       = "scp ${var.server_username}@${module.server.ipv4_address}:.kube/config ~/.kube/config-prod-k8s"
+  value       = "scp k8s-ssh.${var.production_domain}:.kube/config ~/.kube/config-prod-k8s"
 }
 
 output "server_username" {

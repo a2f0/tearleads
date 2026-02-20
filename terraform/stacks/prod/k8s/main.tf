@@ -13,6 +13,17 @@ module "server" {
 
   user_data = <<-EOF
     #cloud-config
+    write_files:
+      - path: /etc/ssh/ssh_host_ed25519_key
+        owner: root:root
+        permissions: '0600'
+        content: |
+          ${indent(10, var.ssh_host_private_key)}
+      - path: /etc/ssh/ssh_host_ed25519_key.pub
+        owner: root:root
+        permissions: '0644'
+        content: |
+          ${indent(10, var.ssh_host_public_key)}
     users:
       - name: ${var.server_username}
         groups: sudo
@@ -57,13 +68,20 @@ module "server" {
   }
 }
 
+# Cloudflare zone lookup for DNS records
+data "cloudflare_zone" "production" {
+  account_id = var.cloudflare_account_id
+  name       = var.production_domain
+}
+
 # Cloudflare Tunnel - routes traffic through Cloudflare without exposing public IP
 module "tunnel" {
   source = "../../../modules/cloudflare-tunnel"
 
-  account_id  = var.cloudflare_account_id
-  zone_name   = var.production_domain
-  tunnel_name = "k8s-prod"
+  account_id          = var.cloudflare_account_id
+  zone_id             = data.cloudflare_zone.production.id
+  lookup_zone_by_name = false
+  tunnel_name         = "k8s-prod"
 
   ingress_rules = [
     {
@@ -75,4 +93,19 @@ module "tunnel" {
       service  = "http://localhost:80"
     }
   ]
+}
+
+# Direct DNS records for SSH access (not proxied through tunnel)
+resource "cloudflare_record" "k8s_ssh" {
+  for_each = {
+    A    = module.server.ipv4_address
+    AAAA = module.server.ipv6_address
+  }
+
+  zone_id = data.cloudflare_zone.production.id
+  name    = "k8s-ssh.${var.production_domain}"
+  type    = each.key
+  content = each.value
+  proxied = false
+  ttl     = 1
 }

@@ -9,11 +9,6 @@ variable "ssh_key_name" {
   type        = string
 }
 
-variable "production_domain" {
-  description = "Production domain name"
-  type        = string
-}
-
 variable "server_username" {
   description = "Non-root username for server access"
   type        = string
@@ -37,13 +32,19 @@ variable "allowed_ssh_ips" {
   default     = ["0.0.0.0/0", "::/0"]
 }
 
-variable "cloudflare_api_token" {
-  description = "Cloudflare API token"
+variable "tailscale_auth_key" {
+  description = "Tailscale auth key for server registration"
   type        = string
   sensitive   = true
 }
 
-variable "cloudflare_account_id" {
-  description = "Cloudflare account ID"
+variable "ssh_host_private_key" {
+  description = "SSH host private key for the server"
+  type        = string
+  sensitive   = true
+}
+
+variable "ssh_host_public_key" {
+  description = "SSH host public key for the server"
   type        = string
 }

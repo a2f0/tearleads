@@ -113,6 +113,19 @@ validate_tailscale_env() {
   fi
 }
 
+# Validate Tailscale auth key for server registration
+validate_tailscale_auth_key_env() {
+  local missing=()
+
+  [[ -z "${TF_VAR_tailscale_auth_key:-}" ]] && missing+=("TF_VAR_tailscale_auth_key")
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "ERROR: Missing required environment variables:" >&2
+    printf '  - %s\n' "${missing[@]}" >&2
+    return 1
+  fi
+}
+
 # Setup SSH host keys for persistent identity
 setup_ssh_host_keys() {
   local secrets_dir="$(get_repo_root)/.secrets"

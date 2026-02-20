@@ -1,0 +1,144 @@
+---
+- name: Configure developer workstation SSH for staging and production
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    staging_domain: "{{ lookup('env', 'TF_VAR_staging_domain') }}"
+    production_domain: "{{ lookup('env', 'TF_VAR_production_domain') }}"
+    deploy_user: "{{ lookup('env', 'TF_VAR_server_username') | default('deploy', true) }}"
+    repo_root: "{{ playbook_dir }}/../.."
+    ssh_host_public_key_file: "{{ repo_root }}/.secrets/persistent_ssh_host_ed25519_key.pub"
+    user_home: "{{ lookup('env', 'HOME') }}"
+    ssh_dir: "{{ user_home }}/.ssh"
+    known_hosts_file: "{{ ssh_dir }}/known_hosts"
+    ssh_config_file: "{{ ssh_dir }}/config"
+
+  tasks:
+    - name: Validate required environment variables
+      ansible.builtin.assert:
+        that:
+          - staging_domain | length > 0
+          - production_domain | length > 0
+        fail_msg: >-
+          Required environment variables not set.
+          Please export TF_VAR_staging_domain and TF_VAR_production_domain.
+
+    - name: Read persistent SSH host public key
+      ansible.builtin.slurp:
+        src: "{{ ssh_host_public_key_file }}"
+      register: ssh_host_public_key_content
+
+    - name: Parse SSH public key components
+      ansible.builtin.set_fact:
+        ssh_key_type: "{{ (ssh_host_public_key_content.content | b64decode).split()[0] }}"
+        ssh_key_data: "{{ (ssh_host_public_key_content.content | b64decode).split()[1] }}"
+
+    - name: Ensure .ssh directory exists
+      ansible.builtin.file:
+        path: "{{ ssh_dir }}"
+        state: directory
+        mode: "0700"
+
+    - name: Ensure known_hosts file exists
+      ansible.builtin.file:
+        path: "{{ known_hosts_file }}"
+        state: touch
+        mode: "0644"
+        modification_time: preserve
+        access_time: preserve
+
+    - name: Remove old known_hosts entries for staging domain
+      ansible.builtin.lineinfile:
+        path: "{{ known_hosts_file }}"
+        regexp: "^\\*?\\.?{{ staging_domain | regex_escape }}\\s+"
+        state: absent
+
+    - name: Remove old known_hosts entries for production domain
+      ansible.builtin.lineinfile:
+        path: "{{ known_hosts_file }}"
+        regexp: "^\\*?\\.?{{ production_domain | regex_escape }}\\s+"
+        state: absent
+
+    - name: Add known_hosts entries for staging domain
+      ansible.builtin.lineinfile:
+        path: "{{ known_hosts_file }}"
+        line: "{{ item }} {{ ssh_key_type }} {{ ssh_key_data }}"
+        state: present
+      loop:
+        - "*.{{ staging_domain }}"
+        - "{{ staging_domain }}"
+
+    - name: Add known_hosts entries for production domain
+      ansible.builtin.lineinfile:
+        path: "{{ known_hosts_file }}"
+        line: "{{ item }} {{ ssh_key_type }} {{ ssh_key_data }}"
+        state: present
+      loop:
+        - "*.{{ production_domain }}"
+        - "{{ production_domain }}"
+
+    - name: Ensure ssh config file exists
+      ansible.builtin.file:
+        path: "{{ ssh_config_file }}"
+        state: touch
+        mode: "0600"
+        modification_time: preserve
+        access_time: preserve
+
+    - name: Read current SSH config
+      ansible.builtin.slurp:
+        src: "{{ ssh_config_file }}"
+      register: ssh_config_content
+
+    - name: Check if staging domain Host block exists
+      ansible.builtin.set_fact:
+        staging_host_exists: "{{ ('Host *.' + staging_domain) in (ssh_config_content.content | b64decode) }}"
+
+    - name: Check if production domain Host block exists
+      ansible.builtin.set_fact:
+        production_host_exists: "{{ ('Host *.' + production_domain) in (ssh_config_content.content | b64decode) }}"
+
+    - name: Add SSH config block for staging domain
+      ansible.builtin.blockinfile:
+        path: "{{ ssh_config_file }}"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - {{ staging_domain }}"
+        block: |
+          Host *.{{ staging_domain }}
+              User {{ deploy_user }}
+              StrictHostKeyChecking yes
+              IdentitiesOnly yes
+        state: present
+      when: not staging_host_exists
+
+    - name: Add SSH config block for production domain
+      ansible.builtin.blockinfile:
+        path: "{{ ssh_config_file }}"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - {{ production_domain }}"
+        block: |
+          Host *.{{ production_domain }}
+              User {{ deploy_user }}
+              StrictHostKeyChecking yes
+              IdentitiesOnly yes
+        state: present
+      when: not production_host_exists
+
+    - name: Display configuration summary
+      ansible.builtin.debug:
+        msg: |
+          SSH configuration updated:
+
+          Known hosts entries added:
+            - *.{{ staging_domain }}
+            - {{ staging_domain }}
+            - *.{{ production_domain }}
+            - {{ production_domain }}
+
+          SSH config blocks added for:
+            - *.{{ staging_domain }} (User: {{ deploy_user }})
+            - *.{{ production_domain }} (User: {{ deploy_user }})
+
+          Files modified:
+            - {{ known_hosts_file }}
+            - {{ ssh_config_file }}

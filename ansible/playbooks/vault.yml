@@ -1,0 +1,147 @@
+---
+# COMPLIANCE_SENTINEL: TL-INFRA-004 | control=ssh-hardening
+- name: Bootstrap HashiCorp Vault server with Tailscale
+  hosts: all
+  become: true
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    linux_security_baseline_manage_ufw: true
+    linux_security_baseline_ufw_allow_rules:
+      - { port: "22", proto: "tcp" }
+    linux_security_baseline_ssh_settings:
+      - { key: "PermitRootLogin", value: "no" }
+      - { key: "PasswordAuthentication", value: "no" }
+      - { key: "PubkeyAuthentication", value: "yes" }
+      - { key: "MaxAuthTries", value: "3" }
+      - { key: "KbdInteractiveAuthentication", value: "no" }
+
+  tasks:
+    - name: Apply shared Linux security baseline
+      ansible.builtin.import_tasks: tasks/linuxSecurityBaseline.yml
+
+    - name: Wait for cloud-init to complete
+      ansible.builtin.command:
+        cmd: cloud-init status --wait
+      register: cloud_init_status
+      changed_when: false
+      failed_when: cloud_init_status.rc != 0
+
+    - name: Ensure Tailscale is running
+      ansible.builtin.command:
+        cmd: tailscale status
+      register: tailscale_status
+      changed_when: false
+      failed_when: tailscale_status.rc != 0
+
+    - name: Display Tailscale status
+      ansible.builtin.debug:
+        var: tailscale_status.stdout_lines
+
+    - name: Ensure Vault is installed
+      ansible.builtin.command:
+        cmd: vault version
+      register: vault_version
+      changed_when: false
+      failed_when: vault_version.rc != 0
+
+    - name: Display Vault version
+      ansible.builtin.debug:
+        var: vault_version.stdout
+
+    - name: Create Vault configuration directory
+      ansible.builtin.file:
+        path: /etc/vault.d
+        state: directory
+        owner: vault
+        group: vault
+        mode: "0755"
+
+    - name: Configure Vault server
+      ansible.builtin.copy:
+        dest: /etc/vault.d/vault.hcl
+        owner: vault
+        group: vault
+        mode: "0640"
+        content: |
+          # Vault configuration for production (Tailscale access)
+          ui = true
+
+          # Listener for Tailscale connections
+          # Binds to all interfaces but firewall blocks public access
+          listener "tcp" {
+            address       = "0.0.0.0:8200"
+            tls_disable   = true
+          }
+
+          # Integrated Raft storage
+          storage "raft" {
+            path    = "/opt/vault/data"
+            node_id = "vault-prod-1"
+          }
+
+          # API address for cluster communication
+          api_addr = "http://vault-prod:8200"
+          cluster_addr = "http://vault-prod:8201"
+
+          # Disable mlock for containerized/VM environments
+          disable_mlock = true
+
+          # Telemetry
+          telemetry {
+            disable_hostname = true
+          }
+      notify: Restart vault
+
+    - name: Create Vault data directory
+      ansible.builtin.file:
+        path: /opt/vault/data
+        state: directory
+        owner: vault
+        group: vault
+        mode: "0700"
+
+    - name: Enable and start Vault
+      ansible.builtin.systemd:
+        name: vault
+        enabled: true
+        state: started
+
+    - name: Wait for Vault to be reachable
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8200/v1/sys/health
+        method: GET
+        status_code: [200, 429, 472, 473, 501, 503]
+      register: vault_health
+      until: vault_health.status in [200, 429, 472, 473, 501, 503]
+      retries: 30
+      delay: 5
+
+    - name: Display Vault status
+      ansible.builtin.debug:
+        msg: >-
+          Vault is {{ 'initialized' if vault_health.json.initialized | default(false) else 'NOT initialized' }}
+          and {{ 'unsealed' if not vault_health.json.sealed | default(true) else 'SEALED' }}.
+          Health check returned status {{ vault_health.status }}.
+
+    - name: Show next steps for uninitialized Vault
+      ansible.builtin.debug:
+        msg: |
+          Vault is not yet initialized. To initialize:
+            1. SSH to the server: ssh vault-prod
+            2. Run: export VAULT_ADDR='http://127.0.0.1:8200'
+            3. Run: vault operator init
+            4. Save the unseal keys and root token securely
+            5. Run: vault operator unseal (3 times with different keys)
+      when: not (vault_health.json.initialized | default(false))
+
+  handlers:
+    - name: Restart sshd
+      ansible.builtin.systemd:
+        name: ssh
+        state: restarted
+
+    - name: Restart vault
+      ansible.builtin.systemd:
+        name: vault
+        state: restarted
