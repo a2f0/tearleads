@@ -13,6 +13,11 @@ module "server" {
 
   user_data = <<-EOF
     #cloud-config
+    # Prevent cloud-init from regenerating ed25519 key (we provide our own)
+    # Allow RSA/ECDSA generation since SSH needs them
+    ssh_deletekeys: false
+    ssh_genkeytypes: ['rsa', 'ecdsa']
+
     write_files:
       - path: /etc/ssh/ssh_host_ed25519_key
         owner: root:root
@@ -35,6 +40,8 @@ module "server" {
     disable_root: true
 
     runcmd:
+      # Restart SSH to use the persistent host keys written above
+      - systemctl restart ssh
       - curl -sfL https://get.k3s.io -o /tmp/install-k3s.sh
       - chmod +x /tmp/install-k3s.sh
       - INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.staging_domain} --tls-san k8s-api.${var.staging_domain}" /tmp/install-k3s.sh

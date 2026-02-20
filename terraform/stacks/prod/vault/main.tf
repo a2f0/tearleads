@@ -13,6 +13,11 @@ module "server" {
 
   user_data = <<-EOF
     #cloud-config
+    # Prevent cloud-init from regenerating ed25519 key (we provide our own)
+    # Allow RSA/ECDSA generation since SSH needs them
+    ssh_deletekeys: false
+    ssh_genkeytypes: ['rsa', 'ecdsa']
+
     write_files:
       - path: /etc/ssh/ssh_host_ed25519_key
         owner: root:root
@@ -40,6 +45,8 @@ module "server" {
       - curl
 
     runcmd:
+      # Restart SSH to use the persistent host keys written above
+      - systemctl restart ssh
       # Install Tailscale
       - curl -fsSL https://tailscale.com/install.sh | sh
       - tailscale up --authkey=${var.tailscale_auth_key} --hostname=vault-prod
