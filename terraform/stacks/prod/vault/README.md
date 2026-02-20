@@ -49,7 +49,9 @@ This creates unseal keys at `.secrets/vault-keys.json`.
 |--------|---------|
 | `scripts/init.sh` | Initialize Terraform |
 | `scripts/plan.sh` | Plan infrastructure changes |
-| `scripts/apply.sh` | Apply infrastructure changes |
+| `scripts/apply.sh` | Full provisioning (runs apply01 + apply02) |
+| `scripts/apply01.sh` | Step 1: Terraform apply (infrastructure) |
+| `scripts/apply02.sh` | Step 2: Ansible (Vault configuration) |
 | `scripts/destroy.sh` | Destroy infrastructure |
 | `scripts/setup-vault.sh` | Initialize and unseal Vault |
 | `scripts/backup.sh` | Create Raft snapshot backup |

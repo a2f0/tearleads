@@ -1,12 +1,16 @@
 #!/bin/bash
+# Full Vault provisioning: Terraform + Ansible
 set -eu
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-STACK_DIR="$(dirname "$SCRIPT_DIR")"
-REPO_ROOT="$(git rev-parse --show-toplevel)"
 
-# shellcheck source=../../../../scripts/common.sh
-source "$REPO_ROOT/terraform/scripts/common.sh"
+echo "Step 1/2: Applying Terraform infrastructure..."
+"$SCRIPT_DIR/apply01.sh" "$@"
 
-setup_ssh_host_keys
+echo ""
+echo "Step 2/2: Configuring Vault with Ansible..."
+"$SCRIPT_DIR/apply02.sh"
 
-terraform -chdir="$STACK_DIR" apply "$@"
+echo ""
+echo "All steps complete."
+echo "If this is a new server, run: ./scripts/setup-vault.sh"
