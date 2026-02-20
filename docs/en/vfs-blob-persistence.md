@@ -50,7 +50,7 @@ This distinction preserves the fail-closed guarantee: if metadata says the blob 
 
 ### Orphaned Metadata (blob in DB, missing in S3)
 
-- Occurs when: S3 object deleted out-of-band, or write succeeded but never completed
+- Occurs when: S3 object deleted out-of-band, or registry entry created but S3 upload failed
 - Behavior: Read/delete returns 500 (not 404)
 - Resolution: Manual cleanup of orphaned registry entries
 

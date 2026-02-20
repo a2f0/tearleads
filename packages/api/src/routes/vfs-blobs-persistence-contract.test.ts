@@ -33,18 +33,23 @@ vi.mock('../lib/vfsBlobStore.js', () => ({
 }));
 
 /**
+ * S3-style error interface matching AWS SDK error structure
+ */
+interface S3Error extends Error {
+  name: string;
+  $metadata?: { httpStatusCode: number };
+  Code?: string;
+}
+
+/**
  * Helper to create S3-style errors with AWS SDK error structure
  */
 function createS3Error(
   code: string,
   message: string,
   statusCode?: number
-): Error {
-  const error = new Error(message) as Error & {
-    name: string;
-    $metadata?: { httpStatusCode: number };
-    Code?: string;
-  };
+): S3Error {
+  const error = new Error(message) as S3Error;
   error.name = code;
   error.Code = code;
   if (statusCode) {
@@ -59,15 +64,16 @@ describe('VFS blob persistence contract tests', () => {
     mockReadVfsBlobData.mockReset();
     mockDeleteVfsBlobData.mockReset();
     mockPersistVfsBlobData.mockReset();
+    mockConsoleError();
   });
 
   afterEach(() => {
     teardownVfsTestEnv();
+    vi.restoreAllMocks();
   });
 
   describe('object-key mismatch: orphaned metadata scenarios', () => {
     it('returns 500 when blob exists in registry but S3 returns NoSuchKey', async () => {
-      const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();
 
       // Registry says blob exists
@@ -90,11 +96,9 @@ describe('VFS blob persistence contract tests', () => {
       expect(mockReadVfsBlobData).toHaveBeenCalledWith({
         blobId: 'blob-orphaned-metadata'
       });
-      restoreConsole();
     });
 
     it('surfaces S3 AccessDenied as 500 error on read', async () => {
-      const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();
 
       mockQuery.mockResolvedValueOnce({
@@ -110,11 +114,9 @@ describe('VFS blob persistence contract tests', () => {
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to read blob data' });
-      restoreConsole();
     });
 
     it('surfaces S3 NoSuchKey as 500 error on delete when registry exists', async () => {
-      const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();
 
       mockQuery
@@ -138,13 +140,11 @@ describe('VFS blob persistence contract tests', () => {
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to delete blob data' });
       expect(mockClientRelease).toHaveBeenCalledTimes(1);
-      restoreConsole();
     });
   });
 
   describe('S3-specific error handling', () => {
     it('handles S3 ServiceUnavailable error on write', async () => {
-      const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();
 
       mockPersistVfsBlobData.mockRejectedValueOnce(
@@ -166,11 +166,9 @@ describe('VFS blob persistence contract tests', () => {
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to persist blob data' });
-      restoreConsole();
     });
 
     it('handles S3 SlowDown (throttling) error on write', async () => {
-      const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();
 
       mockPersistVfsBlobData.mockRejectedValueOnce(
@@ -188,11 +186,9 @@ describe('VFS blob persistence contract tests', () => {
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to persist blob data' });
-      restoreConsole();
     });
 
     it('handles S3 InternalError on read', async () => {
-      const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();
 
       mockQuery.mockResolvedValueOnce({
@@ -208,11 +204,9 @@ describe('VFS blob persistence contract tests', () => {
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to read blob data' });
-      restoreConsole();
     });
 
     it('handles S3 InternalError on delete', async () => {
-      const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();
 
       mockQuery
@@ -233,13 +227,11 @@ describe('VFS blob persistence contract tests', () => {
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to delete blob data' });
-      restoreConsole();
     });
   });
 
   describe('transient storage unavailability with retry-safe behavior', () => {
     it('allows retry after S3 ServiceUnavailable on write', async () => {
-      const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();
       const stagedAt = new Date('2026-02-20T10:00:00.000Z');
       const expiresAt = new Date('2026-02-20T11:00:00.000Z');
@@ -309,11 +301,9 @@ describe('VFS blob persistence contract tests', () => {
       expect(mockPersistVfsBlobData.mock.calls[1]?.[0]).toMatchObject({
         blobId: 'blob-retry-s3'
       });
-      restoreConsole();
     });
 
     it('allows retry after S3 SlowDown on read', async () => {
-      const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();
 
       // First attempt - registry exists, S3 throttled
@@ -353,7 +343,6 @@ describe('VFS blob persistence contract tests', () => {
       expect(mockReadVfsBlobData.mock.calls[1]?.[0]).toEqual({
         blobId: 'blob-throttled-read'
       });
-      restoreConsole();
     });
   });
 
