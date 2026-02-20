@@ -361,6 +361,17 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    ./scripts/agents/tooling/agentTool.ts rerunWorkflow --run-id "$RUN_ID"
    ```
 
+   #### When CI Gate is stale after successful reruns
+
+   If required workflows have already succeeded on the current head SHA but `CI Gate` is still failed/stale, rerun the `CI Gate` workflow run directly:
+
+   ```bash
+   ./scripts/agents/tooling/agentTool.ts getPrChecks --number "$PR_NUMBER"
+   ./scripts/agents/tooling/agentTool.ts rerunWorkflow --run-id "<ci-gate-run-id>"
+   ```
+
+   Use this as a tactical fallback; workflow trigger wiring remains the primary fix.
+
    ### 4f. Enable auto-merge and wait
 
    **Version bump note**: Do not perform PR-branch version bumps here; CI on `main` owns release version increments.
