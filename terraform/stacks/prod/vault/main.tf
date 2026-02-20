@@ -1,6 +1,62 @@
+locals {
+  tailscale_hostname = "vault-prod"
+}
+
+# Read Tailscale stack outputs for tagged auth key
+data "terraform_remote_state" "tailscale" {
+  backend = "s3"
+  config = {
+    bucket = "tearleads-terraform-state"
+    key    = "shared/tailscale/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
 # Lookup SSH key for cloud-init user_data
 data "hcloud_ssh_key" "main" {
   name = var.ssh_key_name
+}
+
+# Cleanup Tailscale device registration on destroy
+# This prevents stale entries like vault-prod-1, vault-prod-2, etc.
+resource "null_resource" "tailscale_cleanup" {
+  triggers = {
+    hostname  = local.tailscale_hostname
+    api_token = var.tailscale_api_token
+  }
+
+  provisioner "local-exec" {
+    when = destroy
+    environment = {
+      TAILSCALE_API_TOKEN = self.triggers.api_token
+      TAILSCALE_HOSTNAME  = self.triggers.hostname
+    }
+    command = <<-EOF
+      echo "Cleaning up Tailscale devices matching '$TAILSCALE_HOSTNAME'..."
+
+      # List all devices and find ones matching our hostname pattern
+      DEVICES=$(curl -s -H "Authorization: Bearer $TAILSCALE_API_TOKEN" \
+        "https://api.tailscale.com/api/v2/tailnet/-/devices" | \
+        jq -r ".devices[] | select(.hostname | startswith(\"$TAILSCALE_HOSTNAME\")) | \"\(.id) \(.hostname)\"")
+
+      if [ -z "$DEVICES" ]; then
+        echo "No matching devices found."
+        exit 0
+      fi
+
+      echo "Found devices:"
+      echo "$DEVICES"
+
+      # Delete each matching device
+      echo "$DEVICES" | while read -r ID NAME; do
+        echo "Deleting device: $NAME ($ID)"
+        curl -s -X DELETE -H "Authorization: Bearer $TAILSCALE_API_TOKEN" \
+          "https://api.tailscale.com/api/v2/device/$ID"
+      done
+
+      echo "Tailscale cleanup complete."
+    EOF
+  }
 }
 
 module "server" {
@@ -11,6 +67,8 @@ module "server" {
   server_type  = var.server_type
   location     = var.server_location
 
+  # Cloud-init handles base setup only (SSH, Tailscale, Vault install)
+  # Vault configuration is managed by Ansible: ansible/playbooks/vault.yml
   user_data = <<-EOF
     #cloud-config
     # Prevent cloud-init from regenerating ed25519 key (we provide our own)
@@ -22,13 +80,13 @@ module "server" {
       - path: /etc/ssh/ssh_host_ed25519_key
         owner: root:root
         permissions: '0600'
-        content: |
-          ${indent(10, var.ssh_host_private_key)}
+        encoding: b64
+        content: ${base64encode("${chomp(var.ssh_host_private_key)}\n")}
       - path: /etc/ssh/ssh_host_ed25519_key.pub
         owner: root:root
         permissions: '0644'
-        content: |
-          ${indent(10, var.ssh_host_public_key)}
+        encoding: b64
+        content: ${base64encode("${chomp(var.ssh_host_public_key)}\n")}
     users:
       - name: ${var.server_username}
         groups: sudo
@@ -49,18 +107,15 @@ module "server" {
       - systemctl restart ssh
       # Install Tailscale
       - curl -fsSL https://tailscale.com/install.sh | sh
-      - tailscale up --authkey=${var.tailscale_auth_key} --hostname=vault-prod
+      - tailscale up --authkey=${data.terraform_remote_state.tailscale.outputs.prod_vault_auth_key} --hostname=vault-prod
       # Install HashiCorp GPG key and repo
       - curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
       - echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" > /etc/apt/sources.list.d/hashicorp.list
       - apt-get update
       - apt-get install -y vault
-      # Create vault data directory
+      # Create vault data directory (Ansible configures Vault itself)
       - mkdir -p /opt/vault/data
       - chown -R vault:vault /opt/vault
-      # Enable and start vault
-      - systemctl enable vault
-      - systemctl start vault
   EOF
 
   create_firewall = true

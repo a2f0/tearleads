@@ -12,7 +12,12 @@ BACKEND_CONFIG=$(get_backend_config)
 
 validate_aws_env
 validate_hetzner_env
-validate_tailscale_auth_key_env
+
+# Validate Tailscale API token for device cleanup on destroy
+if [[ -z "${TF_VAR_tailscale_api_token:-}" ]]; then
+  echo "ERROR: Missing TF_VAR_tailscale_api_token (required for Tailscale device cleanup)" >&2
+  exit 1
+fi
 
 terraform -chdir="$STACK_DIR" init \
   -backend-config="$BACKEND_CONFIG" \

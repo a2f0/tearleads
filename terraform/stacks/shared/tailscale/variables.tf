@@ -15,32 +15,32 @@ variable "tailscale_base_url" {
   default     = "https://api.tailscale.com"
 }
 
-variable "vpn_access_group_name" {
-  description = "Tailscale ACL group name (without the group: prefix)"
-  type        = string
-  default     = "vpn-access"
-}
-
-variable "vpn_gateway_tag" {
-  description = "Tailscale tag for VPN gateway devices"
-  type        = string
-  default     = "tag:vpn-gateway"
-}
-
-variable "vpn_access_member_emails" {
-  description = "User emails included in the policy-defined Tailscale VPN access group"
+variable "staging_access_member_emails" {
+  description = "User emails with access to staging resources"
   type        = list(string)
   default     = []
 }
 
-variable "create_vpn_gateway_auth_key" {
-  description = "Whether to create a reusable tagged auth key for VPN gateway bootstrapping"
-  type        = bool
-  default     = false
+variable "prod_access_member_emails" {
+  description = "User emails with access to production resources"
+  type        = list(string)
+  default     = []
 }
 
-variable "vpn_gateway_auth_key_expiry_seconds" {
-  description = "Auth key expiry in seconds"
+variable "create_staging_vault_auth_key" {
+  description = "Whether to create a reusable tagged auth key for staging Vault"
+  type        = bool
+  default     = true
+}
+
+variable "create_prod_vault_auth_key" {
+  description = "Whether to create a reusable tagged auth key for production Vault"
+  type        = bool
+  default     = true
+}
+
+variable "auth_key_expiry_seconds" {
+  description = "Auth key expiry in seconds (default 90 days)"
   type        = number
   default     = 7776000
 }
