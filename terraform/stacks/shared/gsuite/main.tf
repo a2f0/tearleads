@@ -55,3 +55,42 @@ resource "googleworkspace_group_settings" "groups" {
   who_can_contact_owner          = each.value.who_can_contact_owner
   who_can_leave_group            = each.value.who_can_leave_group
 }
+
+# =============================================================================
+# Alerts Distribution Group
+# Locked-down group for receiving system alerts (AWS billing, monitoring, etc.)
+# =============================================================================
+
+resource "googleworkspace_group" "alerts" {
+  count = var.alerts_group_enabled ? 1 : 0
+
+  email       = "alerts@${var.googleworkspace_domain}"
+  name        = "System Alerts"
+  description = "Receives automated alerts from AWS, monitoring systems, and infrastructure"
+}
+
+resource "googleworkspace_group_settings" "alerts" {
+  count = var.alerts_group_enabled ? 1 : 0
+
+  email = googleworkspace_group.alerts[0].email
+
+  # Allow external services (AWS SNS, etc.) to send to this group
+  allow_external_members = false
+  who_can_post_message   = "ANYONE_CAN_POST"
+
+  # Lock down membership - invite only, no self-service
+  who_can_join        = "INVITED_CAN_JOIN"
+  who_can_leave_group = "NONE_CAN_LEAVE"
+
+  # Hide from discovery - members only (most restrictive available)
+  include_in_global_address_list = false
+  who_can_discover_group         = "ALL_MEMBERS_CAN_DISCOVER"
+  who_can_view_group             = "ALL_MEMBERS_CAN_VIEW"
+  who_can_view_membership        = "ALL_MEMBERS_CAN_VIEW"
+  who_can_contact_owner          = "ALL_MEMBERS_CAN_CONTACT"
+
+  # No web posting - email only
+  allow_web_posting = false
+}
+
+# Group members managed via Google Workspace Admin UI
