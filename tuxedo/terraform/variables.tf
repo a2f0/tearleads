@@ -49,3 +49,14 @@ variable "server_username" {
   description = "Non-root username for server access"
   type        = string
 }
+
+variable "ssh_host_private_key" {
+  description = "Persistent SSH host ed25519 private key for stable server identity"
+  type        = string
+  sensitive   = true
+}
+
+variable "ssh_host_public_key" {
+  description = "Persistent SSH host ed25519 public key for known_hosts"
+  type        = string
+}
