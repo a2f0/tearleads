@@ -11,7 +11,7 @@ import { ArrowLeft, RefreshCw, Upload } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DropZoneOverlay } from '@/components/ui/drop-zone-overlay';
 import { useWindowOpenRequest } from '@/contexts/WindowManagerContext';
-import { useDropZone } from '@/hooks/useDropZone';
+import { useDropZone } from '@/hooks/dnd';
 import type { FilesWindowContentRef } from './FilesWindowContent';
 import { FilesWindowContent } from './FilesWindowContent';
 import { FilesWindowDetail } from './FilesWindowDetail';

@@ -26,6 +26,7 @@ const NotificationCenterTrigger = lazy(() =>
   }))
 );
 
+import { useKeyboardHeight } from '@/hooks/ui';
 import { AccountSwitcher } from './components/AccountSwitcher';
 import { MiniPlayer } from './components/audio/MiniPlayer';
 import { RuntimeLanguagePicker } from './components/language-picker';
@@ -39,7 +40,6 @@ import { DesktopBackground } from './components/ui/desktop-background';
 import { FOOTER_HEIGHT } from './constants/layout';
 import { useWindowManagerActions } from './contexts/WindowManagerContext';
 import { useDatabaseContext } from './db/hooks';
-import { useKeyboardHeight } from './hooks/useKeyboardHeight';
 import { useSSEContext } from './sse';
 
 /** Extra padding to add when keyboard is open (matches pb-16 = 4rem = 64px) */

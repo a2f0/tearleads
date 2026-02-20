@@ -10,8 +10,8 @@ import {
   useWindowOpenRequest
 } from '@/contexts/WindowManagerContext';
 import { useDatabaseContext } from '@/db/hooks';
-import { useDropZone } from '@/hooks/useDropZone';
-import { useFileUpload } from '@/hooks/useFileUpload';
+import { useDropZone } from '@/hooks/dnd';
+import { useFileUpload } from '@/hooks/vfs';
 import {
   ALL_PHOTOS_ID,
   PhotosWindowContentArea

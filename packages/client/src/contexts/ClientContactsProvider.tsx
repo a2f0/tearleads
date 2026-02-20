@@ -34,7 +34,7 @@ import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMen
 import { zIndex } from '@/constants/zIndex';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
-import { registerVfsItemWithCurrentKeys } from '@/hooks/useVfsKeys';
+import { registerVfsItemWithCurrentKeys } from '@/hooks/vfs';
 import { useTypedTranslation } from '@/i18n';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';

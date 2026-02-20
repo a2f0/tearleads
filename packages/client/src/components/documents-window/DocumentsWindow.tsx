@@ -16,8 +16,8 @@ import {
   useWindowManagerActions,
   useWindowOpenRequest
 } from '@/contexts/WindowManagerContext';
-import { useDropZone } from '@/hooks/useDropZone';
-import { useFileUpload } from '@/hooks/useFileUpload';
+import { useDropZone } from '@/hooks/dnd';
+import { useFileUpload } from '@/hooks/vfs';
 import { DocumentDetail } from '@/pages/DocumentDetail';
 import { Documents } from '@/pages/Documents';
 import type { ViewMode } from './DocumentsWindowMenuBar';

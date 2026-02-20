@@ -13,7 +13,7 @@ import {
   contacts,
   vfsRegistry
 } from '@/db/schema';
-import { generateSessionKey, wrapSessionKey } from '@/hooks/useVfsKeys';
+import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
 import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';

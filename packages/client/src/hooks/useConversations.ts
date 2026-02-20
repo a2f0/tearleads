@@ -10,6 +10,7 @@ import type {
   DecryptedAiMessage
 } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ensureVfsKeyPair } from '@/hooks/vfs';
 import { api } from '@/lib/api';
 import {
   createConversationEncryption,
@@ -20,7 +21,6 @@ import {
   generateTitleFromMessage,
   unwrapConversationSessionKey
 } from '@/lib/conversationCrypto';
-import { ensureVfsKeyPair } from './useVfsKeys';
 
 export interface ConversationWithKey {
   conversation: DecryptedAiConversation;

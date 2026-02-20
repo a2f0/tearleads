@@ -7,7 +7,7 @@ import {
   type ColumnMapping,
   type ParsedCSV,
   useContactsImport
-} from '@/hooks/useContactsImport';
+} from '@/hooks/contacts';
 
 interface ImportResult {
   imported: number;

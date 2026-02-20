@@ -1,4 +1,4 @@
-import type { ColumnMapping } from '@/hooks/useContactsImport';
+import type { ColumnMapping } from '@/hooks/contacts';
 import { DropZoneSmall } from './DropZoneSmall';
 import type { FieldGroup } from './types';
 

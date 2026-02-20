@@ -10,7 +10,7 @@ import { useAudioContext } from '@/audio';
 import { Button } from '@/components/ui/button';
 import { FOOTER_HEIGHT } from '@/constants/layout';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
-import { useDraggable } from '@/hooks/useDraggable';
+import { useDraggable } from '@/hooks/dnd';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
 const MINI_PLAYER_WIDTH = 224; // w-56

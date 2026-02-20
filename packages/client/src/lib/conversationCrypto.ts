@@ -18,11 +18,7 @@ import {
   splitEncapsulation,
   unwrapKeyWithKeyPair
 } from '@tearleads/shared';
-import {
-  ensureVfsKeys,
-  generateSessionKey,
-  wrapSessionKey
-} from '@/hooks/useVfsKeys';
+import { ensureVfsKeys, generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
 
 /**
  * Convert a base64 string to Uint8Array.

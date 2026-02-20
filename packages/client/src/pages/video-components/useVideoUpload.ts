@@ -3,7 +3,7 @@
  */
 
 import { useCallback, useState } from 'react';
-import { useFileUpload } from '@/hooks/useFileUpload';
+import { useFileUpload } from '@/hooks/vfs';
 import { VIDEO_MIME_TYPES } from './types';
 
 interface UseVideoUploadResult {
