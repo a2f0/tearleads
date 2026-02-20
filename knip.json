@@ -31,12 +31,11 @@
     ".": {
       "entry": [
         "scripts/*.ts",
-        "scripts/agents/*.ts",
-        "scripts/agents/tooling/agentTool.ts",
-        "scripts/ciImpact/*.ts",
+        "scripts/agents/**/*.ts",
+        "scripts/ciImpact/**/*.ts",
         "scripts/costModel/index.ts",
-        "scripts/lib/*.ts",
-        "scripts/preen/*.ts",
+        "scripts/lib/**/*.ts",
+        "scripts/preen/**/*.ts",
         "scripts/tooling/scriptTool.ts"
       ]
     }
