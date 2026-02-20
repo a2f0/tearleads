@@ -51,6 +51,11 @@ vi.mock('./useVfsKeys', () => ({
   wrapSessionKey: vi.fn()
 }));
 
+vi.mock('@/contexts/VfsOrchestratorContext', () => ({
+  useVfsOrchestratorInstance: vi.fn(() => null),
+  useVfsSecureFacade: vi.fn(() => null)
+}));
+
 import { fileTypeFromBuffer } from 'file-type';
 import { getDatabase } from '@/db';
 import { logEvent } from '@/db/analytics';

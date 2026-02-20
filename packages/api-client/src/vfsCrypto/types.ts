@@ -19,7 +19,7 @@ export interface VfsChunkAad {
   isFinal: boolean;
   logicalLength: number;
   keyEpoch: Epoch;
-  contentType?: string;
+  contentType?: string | undefined;
 }
 
 export interface EncryptedChunk {
@@ -36,7 +36,7 @@ export interface EncryptedManifest {
   itemId: ItemId;
   blobId: string;
   keyEpoch: Epoch;
-  contentType?: string;
+  contentType?: string | undefined;
   totalPlaintextBytes: number;
   totalCiphertextBytes: number;
   chunkCount: number;

@@ -1,9 +1,14 @@
 import type { VfsCrdtLastReconciledWriteIds } from '@tearleads/vfs-sync/vfs';
 import type {
+  VfsBlobAbandonQueueOperation,
   VfsBlobAttachConsistency,
+  VfsBlobAttachQueueOperation,
+  VfsBlobChunkQueueOperation,
+  VfsBlobCommitQueueOperation,
   VfsBlobNetworkOperation,
   VfsBlobRelationKind,
-  VfsBlobStageEncryptionMetadata
+  VfsBlobStageEncryptionMetadata,
+  VfsBlobStageQueueOperation
 } from './vfsBlobNetworkFlusherTypes';
 
 export { fetchWithAuthRefresh } from './vfsAuthFetch';
@@ -109,6 +114,24 @@ export function isBlobRelationKind(
   );
 }
 
+export function cloneOperation(
+  operation: VfsBlobStageQueueOperation
+): VfsBlobStageQueueOperation;
+export function cloneOperation(
+  operation: VfsBlobAttachQueueOperation
+): VfsBlobAttachQueueOperation;
+export function cloneOperation(
+  operation: VfsBlobAbandonQueueOperation
+): VfsBlobAbandonQueueOperation;
+export function cloneOperation(
+  operation: VfsBlobChunkQueueOperation
+): VfsBlobChunkQueueOperation;
+export function cloneOperation(
+  operation: VfsBlobCommitQueueOperation
+): VfsBlobCommitQueueOperation;
+export function cloneOperation(
+  operation: VfsBlobNetworkOperation
+): VfsBlobNetworkOperation;
 export function cloneOperation(
   operation: VfsBlobNetworkOperation
 ): VfsBlobNetworkOperation {

@@ -19,6 +19,7 @@ import {
 import { ErrorBoundary, errorBoundaryRef } from './components/ui/ErrorBoundary';
 import { WindowRenderer } from './components/window-renderer';
 import { AuthProvider } from './contexts/AuthContext';
+import { VfsOrchestratorProvider } from './contexts/VfsOrchestratorContext';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
 import { ClientSettingsProvider, DatabaseProvider } from './db/hooks';
 import { i18n } from './i18n';
@@ -83,22 +84,24 @@ if (rootElement) {
                         <AndroidMediaSessionBridge />
                         <VideoProvider>
                           <AuthProvider>
-                            <SSEProvider>
-                              <WindowManagerProvider>
-                                <BrowserRouter>
-                                  <Suspense
-                                    fallback={
-                                      <div className="p-8 text-center text-muted-foreground">
-                                        Loading...
-                                      </div>
-                                    }
-                                  >
-                                    <AppRoutes />
-                                  </Suspense>
-                                  <WindowRenderer />
-                                </BrowserRouter>
-                              </WindowManagerProvider>
-                            </SSEProvider>
+                            <VfsOrchestratorProvider>
+                              <SSEProvider>
+                                <WindowManagerProvider>
+                                  <BrowserRouter>
+                                    <Suspense
+                                      fallback={
+                                        <div className="p-8 text-center text-muted-foreground">
+                                          Loading...
+                                        </div>
+                                      }
+                                    >
+                                      <AppRoutes />
+                                    </Suspense>
+                                    <WindowRenderer />
+                                  </BrowserRouter>
+                                </WindowManagerProvider>
+                              </SSEProvider>
+                            </VfsOrchestratorProvider>
                           </AuthProvider>
                         </VideoProvider>
                       </AudioProvider>

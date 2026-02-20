@@ -10,7 +10,14 @@ import {
   normalizeStageEncryptionMetadata,
   parseErrorMessage
 } from './vfsBlobNetworkFlusherHelpers';
-import type { VfsBlobNetworkOperation } from './vfsBlobNetworkFlusherTypes';
+import type {
+  VfsBlobAbandonQueueOperation,
+  VfsBlobAttachQueueOperation,
+  VfsBlobChunkQueueOperation,
+  VfsBlobCommitQueueOperation,
+  VfsBlobNetworkOperation,
+  VfsBlobStageQueueOperation
+} from './vfsBlobNetworkFlusherTypes';
 
 export interface ExecuteBlobOperationContext {
   apiPrefix: string;
@@ -98,6 +105,24 @@ export async function executeBlobNetworkOperation(
   );
 }
 
+export function normalizeBlobNetworkOperation(
+  operation: VfsBlobStageQueueOperation
+): VfsBlobStageQueueOperation;
+export function normalizeBlobNetworkOperation(
+  operation: VfsBlobAttachQueueOperation
+): VfsBlobAttachQueueOperation;
+export function normalizeBlobNetworkOperation(
+  operation: VfsBlobAbandonQueueOperation
+): VfsBlobAbandonQueueOperation;
+export function normalizeBlobNetworkOperation(
+  operation: VfsBlobChunkQueueOperation
+): VfsBlobChunkQueueOperation;
+export function normalizeBlobNetworkOperation(
+  operation: VfsBlobCommitQueueOperation
+): VfsBlobCommitQueueOperation;
+export function normalizeBlobNetworkOperation(
+  operation: VfsBlobNetworkOperation
+): VfsBlobNetworkOperation;
 export function normalizeBlobNetworkOperation(
   operation: VfsBlobNetworkOperation
 ): VfsBlobNetworkOperation {

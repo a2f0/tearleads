@@ -20,6 +20,14 @@ const TAG_LENGTH = 128;
 const HMAC_ALGORITHM = 'SHA-256';
 const MANIFEST_SIGN_INFO = 'tearleads-vfs-manifest-v1';
 
+/**
+ * Ensures Uint8Array is typed with ArrayBuffer (not ArrayBufferLike).
+ * WebCrypto APIs require BufferSource which expects ArrayBuffer, not SharedArrayBuffer.
+ */
+function asBufferSource(data: Uint8Array): Uint8Array<ArrayBuffer> {
+  return data as Uint8Array<ArrayBuffer>;
+}
+
 export interface ItemKeyResolver {
   getItemKey(input: {
     itemId: ItemId;
@@ -178,7 +186,7 @@ function buildManifestSignPayload(manifest: UnsignedEncryptedManifest): string {
 async function importAesGcmKey(keyBytes: Uint8Array): Promise<CryptoKey> {
   return crypto.subtle.importKey(
     'raw',
-    keyBytes,
+    asBufferSource(keyBytes),
     { name: ALGORITHM, length: KEY_LENGTH },
     false,
     ['encrypt', 'decrypt']
@@ -191,7 +199,7 @@ async function deriveManifestSigningKey(
   const infoBytes = new TextEncoder().encode(MANIFEST_SIGN_INFO);
   const hkdfKey = await crypto.subtle.importKey(
     'raw',
-    sessionKey,
+    asBufferSource(sessionKey),
     'HKDF',
     false,
     ['deriveBits']
@@ -230,12 +238,12 @@ async function encryptAesGcm(
   const ciphertext = await crypto.subtle.encrypt(
     {
       name: ALGORITHM,
-      iv: nonce,
-      additionalData: aad,
+      iv: asBufferSource(nonce),
+      additionalData: asBufferSource(aad),
       tagLength: TAG_LENGTH
     },
     key,
-    plaintext
+    asBufferSource(plaintext)
   );
   return new Uint8Array(ciphertext);
 }
@@ -249,12 +257,12 @@ async function decryptAesGcm(
   const plaintext = await crypto.subtle.decrypt(
     {
       name: ALGORITHM,
-      iv: nonce,
-      additionalData: aad,
+      iv: asBufferSource(nonce),
+      additionalData: asBufferSource(aad),
       tagLength: TAG_LENGTH
     },
     key,
-    ciphertext
+    asBufferSource(ciphertext)
   );
   return new Uint8Array(plaintext);
 }
@@ -263,7 +271,7 @@ async function signHmac(
   data: Uint8Array,
   key: CryptoKey
 ): Promise<ArrayBuffer> {
-  return crypto.subtle.sign('HMAC', key, data);
+  return crypto.subtle.sign('HMAC', key, asBufferSource(data));
 }
 
 async function verifyHmac(
@@ -271,11 +279,16 @@ async function verifyHmac(
   signature: Uint8Array,
   key: CryptoKey
 ): Promise<boolean> {
-  return crypto.subtle.verify('HMAC', key, signature, data);
+  return crypto.subtle.verify(
+    'HMAC',
+    key,
+    asBufferSource(signature),
+    asBufferSource(data)
+  );
 }
 
 async function hashSha256Base64(data: Uint8Array): Promise<Base64> {
-  const digest = await crypto.subtle.digest('SHA-256', data);
+  const digest = await crypto.subtle.digest('SHA-256', asBufferSource(data));
   return toBase64(new Uint8Array(digest));
 }
 

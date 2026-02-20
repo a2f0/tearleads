@@ -65,7 +65,9 @@ export function createVfsSecurePipelineBundle(
   ): VfsSecureOrchestratorFacade => {
     const runtimeOptions: VfsSecureWritePipelineRuntimeOptions = {
       engine,
-      chunkSizeBytes: options.chunkSizeBytes,
+      ...(options.chunkSizeBytes !== undefined && {
+        chunkSizeBytes: options.chunkSizeBytes
+      }),
       resolveKeyEpoch: async (itemId) => {
         const epoch = await options.itemKeyStore.getLatestKeyEpoch(itemId);
         if (epoch === null) {

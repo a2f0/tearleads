@@ -1,4 +1,4 @@
-export type FeatureFlagKey = 'vfsServerRegistration';
+export type FeatureFlagKey = 'vfsServerRegistration' | 'vfsSecureUpload';
 
 export interface FeatureFlagDefinition {
   label: string;
@@ -6,7 +6,10 @@ export interface FeatureFlagDefinition {
   defaultValue: boolean;
 }
 
-export const FEATURE_FLAG_KEYS: FeatureFlagKey[] = ['vfsServerRegistration'];
+export const FEATURE_FLAG_KEYS: FeatureFlagKey[] = [
+  'vfsServerRegistration',
+  'vfsSecureUpload'
+];
 
 // Re-export app feature utilities for convenience
 export { getAppFeatures, isAppFeatureEnabled } from './appConfig.js';
@@ -15,6 +18,12 @@ export const FEATURE_FLAGS: Record<FeatureFlagKey, FeatureFlagDefinition> = {
   vfsServerRegistration: {
     label: 'VFS server registration',
     description: 'Send VFS registrations to the server after local writes.',
+    defaultValue: false
+  },
+  vfsSecureUpload: {
+    label: 'VFS secure upload',
+    description:
+      'Use end-to-end encrypted upload pipeline for file storage on server.',
     defaultValue: false
   }
 };

@@ -59,10 +59,16 @@ export class VfsApiNetworkFlusher {
       options.transport ??
         createVfsApiCrdtTransport(options.transportOptions ?? {}),
       {
-        pullLimit: options.pullLimit,
-        now: options.now,
-        onBackgroundError: options.onBackgroundError,
-        onGuardrailViolation: options.onGuardrailViolation
+        ...(options.pullLimit !== undefined && {
+          pullLimit: options.pullLimit
+        }),
+        ...(options.now !== undefined && { now: options.now }),
+        ...(options.onBackgroundError !== undefined && {
+          onBackgroundError: options.onBackgroundError
+        }),
+        ...(options.onGuardrailViolation !== undefined && {
+          onGuardrailViolation: options.onGuardrailViolation
+        })
       }
     );
     this.saveState = options.saveState ?? null;

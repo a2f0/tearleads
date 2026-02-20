@@ -87,7 +87,7 @@ export interface VfsBlobStageQueueOperation {
     stagingId: string;
     blobId: string;
     expiresAt: string;
-    encryption?: VfsBlobStageEncryptionMetadata;
+    encryption?: VfsBlobStageEncryptionMetadata | undefined;
   };
 }
 
@@ -104,7 +104,7 @@ export interface VfsBlobStageEncryptionMetadata {
   chunkSizeBytes: number;
   plaintextSizeBytes: number;
   ciphertextSizeBytes: number;
-  checkpoint?: VfsBlobStageUploadCheckpoint;
+  checkpoint?: VfsBlobStageUploadCheckpoint | undefined;
 }
 
 export interface VfsBlobAttachQueueOperation {
@@ -114,7 +114,7 @@ export interface VfsBlobAttachQueueOperation {
     stagingId: string;
     itemId: string;
     relationKind: VfsBlobRelationKind;
-    consistency?: VfsBlobAttachConsistency;
+    consistency?: VfsBlobAttachConsistency | undefined;
   };
 }
 
