@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=24.13.0 <25"
+    "node": ">=24.13.1 <25"
   },
   "scripts": {
     "postinstall": "pnpm buildPreDev",
@@ -54,17 +54,17 @@
   "license": "UNLICENSED",
   "description": "Monorepo for Tearleads application",
   "devDependencies": {
-    "@biomejs/biome": "2.4.0",
+    "@biomejs/biome": "2.4.3",
     "@octokit/rest": "22.0.1",
     "@tsconfig/strictest": "2.0.8",
-    "@types/node": "25.2.3",
+    "@types/node": "25.3.0",
     "@types/pg": "8.16.0",
     "@vitest/coverage-v8": "4.0.18",
     "commander": "14.0.3",
     "concurrently": "9.2.1",
     "cross-env": "10.1.0",
     "husky": "9.1.7",
-    "knip": "5.83.1",
+    "knip": "5.84.1",
     "madge": "8.0.0",
     "markdownlint-cli2": "0.21.0",
     "pg": "8.18.0",

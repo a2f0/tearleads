@@ -27,7 +27,7 @@
     "react-dom": "19.2.4"
   },
   "dependencies": {
-    "lucide-react": "0.564.0"
+    "lucide-react": "0.575.0"
   },
   "devDependencies": {
     "@tearleads/window-manager": "workspace:*",

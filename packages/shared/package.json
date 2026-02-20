@@ -39,7 +39,7 @@
     "@noble/curves": "2.0.1",
     "@noble/hashes": "2.0.1",
     "@noble/post-quantum": "0.5.4",
-    "redis": "5.10.0"
+    "redis": "5.11.0"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "4.0.18",
