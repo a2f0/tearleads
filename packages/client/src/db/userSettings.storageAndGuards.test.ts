@@ -38,7 +38,7 @@ import {
   SETTING_DEFAULTS,
   SETTING_STORAGE_KEYS,
   setSettingInStorage
-} from './userSettings';
+} from '@tearleads/settings';
 
 describe('user-settings guards and local storage', () => {
   beforeEach(() => {

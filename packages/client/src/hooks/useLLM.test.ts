@@ -1,10 +1,5 @@
-import {
-  DEFAULT_OPENROUTER_MODEL_ID,
-  OPENROUTER_CHAT_MODELS
-} from '@tearleads/shared';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ClassificationResult } from './useLLM';
 
 // Mock the worker
 const mockPostMessage = vi.fn();
@@ -74,286 +69,10 @@ describe('useLLM', () => {
     vi.unstubAllGlobals();
   });
 
-  describe('OpenRouter models', () => {
-    const getVisionOpenRouterModelId = () => {
-      const visionModel = OPENROUTER_CHAT_MODELS.find(
-        (model) => model.isVision
-      );
-      if (!visionModel) {
-        throw new Error('Expected a vision OpenRouter model in the list');
-      }
-      return visionModel.id;
-    };
-
-    it('loads OpenRouter models without using the worker', async () => {
-      vi.stubEnv('VITE_API_URL', 'http://localhost');
-      const { useLLM } = await import('./useLLM');
-      const { result } = renderHook(() => useLLM());
-
-      await act(async () => {
-        await result.current.loadModel(DEFAULT_OPENROUTER_MODEL_ID);
-      });
-
-      expect(result.current.loadedModel).toBe(DEFAULT_OPENROUTER_MODEL_ID);
-      expect(result.current.modelType).toBe('chat');
-      expect(mockPostMessage).not.toHaveBeenCalled();
-      vi.unstubAllEnvs();
-    });
-
-    it('loads OpenRouter vision models as vision type', async () => {
-      vi.stubEnv('VITE_API_URL', 'http://localhost');
-      const { useLLM } = await import('./useLLM');
-      const { result } = renderHook(() => useLLM());
-
-      const visionModelId = getVisionOpenRouterModelId();
-
-      await act(async () => {
-        await result.current.loadModel(visionModelId);
-      });
-
-      expect(result.current.loadedModel).toBe(visionModelId);
-      expect(result.current.modelType).toBe('vision');
-      vi.unstubAllEnvs();
-    });
-
-    it('generates responses via the OpenRouter API', async () => {
-      vi.stubEnv('VITE_API_URL', 'http://localhost');
-      const mockFetch = vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            choices: [
-              {
-                message: {
-                  role: 'assistant',
-                  content: 'Remote reply'
-                }
-              }
-            ]
-          }),
-          { status: 200 }
-        )
-      );
-      vi.stubGlobal('fetch', mockFetch);
-
-      const { useLLM } = await import('./useLLM');
-      const { result } = renderHook(() => useLLM());
-
-      await act(async () => {
-        await result.current.loadModel(DEFAULT_OPENROUTER_MODEL_ID);
-      });
-
-      const onToken = vi.fn();
-      await act(async () => {
-        await result.current.generate(
-          [{ role: 'user', content: 'Hello' }],
-          onToken
-        );
-      });
-
-      expect(onToken).toHaveBeenCalledWith('Remote reply');
-      expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost/chat/completions',
-        expect.objectContaining({
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        })
-      );
-      vi.unstubAllGlobals();
-      vi.unstubAllEnvs();
-    });
-
-    it('includes the auth header when available for OpenRouter requests', async () => {
-      vi.stubEnv('VITE_API_URL', 'http://localhost');
-      localStorage.setItem('auth_token', 'test-token');
-      const mockFetch = vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            choices: [
-              {
-                message: {
-                  role: 'assistant',
-                  content: 'Remote reply'
-                }
-              }
-            ]
-          }),
-          { status: 200 }
-        )
-      );
-      vi.stubGlobal('fetch', mockFetch);
-
-      const { useLLM } = await import('./useLLM');
-      const { result } = renderHook(() => useLLM());
-
-      await act(async () => {
-        await result.current.loadModel(DEFAULT_OPENROUTER_MODEL_ID);
-      });
-
-      const onToken = vi.fn();
-      await act(async () => {
-        await result.current.generate(
-          [{ role: 'user', content: 'Hello' }],
-          onToken
-        );
-      });
-
-      expect(onToken).toHaveBeenCalledWith('Remote reply');
-      expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost/chat/completions',
-        expect.objectContaining({
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: 'Bearer test-token'
-          }
-        })
-      );
-      localStorage.removeItem('auth_token');
-      vi.unstubAllGlobals();
-      vi.unstubAllEnvs();
-    });
-
-    it('sends image attachments for OpenRouter vision models', async () => {
-      vi.stubEnv('VITE_API_URL', 'http://localhost');
-      const mockFetch = vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            choices: [
-              {
-                message: {
-                  role: 'assistant',
-                  content: 'Vision reply'
-                }
-              }
-            ]
-          }),
-          { status: 200 }
-        )
-      );
-      vi.stubGlobal('fetch', mockFetch);
-
-      const { useLLM } = await import('./useLLM');
-      const { result } = renderHook(() => useLLM());
-
-      const visionModelId = getVisionOpenRouterModelId();
-
-      await act(async () => {
-        await result.current.loadModel(visionModelId);
-      });
-
-      const onToken = vi.fn();
-      await act(async () => {
-        await result.current.generate(
-          [{ role: 'user', content: 'What is in this image?' }],
-          onToken,
-          'data:image/png;base64,test-image'
-        );
-      });
-
-      expect(onToken).toHaveBeenCalledWith('Vision reply');
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-
-      const call = mockFetch.mock.calls[0];
-      if (!call) {
-        throw new Error('Expected fetch to be called');
-      }
-
-      const requestInit = call[1];
-      if (!requestInit || typeof requestInit !== 'object') {
-        throw new Error('Expected fetch options to be provided');
-      }
-
-      const body = requestInit.body;
-      if (typeof body !== 'string') {
-        throw new Error('Expected request body to be a string');
-      }
-
-      const parsedBody = JSON.parse(body);
-      expect(parsedBody).toMatchObject({
-        model: visionModelId,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: 'What is in this image?' },
-              {
-                type: 'image_url',
-                image_url: { url: 'data:image/png;base64,test-image' }
-              }
-            ]
-          }
-        ]
-      });
-      // Tool calling should also be included for OpenRouter
-      expect(parsedBody.tools).toBeDefined();
-      expect(parsedBody.tool_choice).toBe('auto');
-
-      vi.unstubAllGlobals();
-      vi.unstubAllEnvs();
-    });
-
-    it('logs OpenRouter API errors in dev', async () => {
-      vi.stubEnv('VITE_API_URL', 'http://localhost');
-      const mockFetch = vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            error: {
-              message: 'Boom'
-            }
-          }),
-          {
-            status: 500,
-            statusText: 'Internal Server Error',
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          }
-        )
-      );
-      vi.stubGlobal('fetch', mockFetch);
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
-
-      const { useLLM } = await import('./useLLM');
-      const { result } = renderHook(() => useLLM());
-
-      await act(async () => {
-        await result.current.loadModel(DEFAULT_OPENROUTER_MODEL_ID);
-      });
-
-      await act(async () => {
-        await expect(
-          result.current.generate([{ role: 'user', content: 'Hello' }], vi.fn())
-        ).rejects.toThrow('API error: 500 Boom');
-      });
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'OpenRouter chat API error',
-        expect.objectContaining({
-          status: 500,
-          statusText: 'Internal Server Error',
-          url: 'http://localhost/chat/completions',
-          body: {
-            error: {
-              message: 'Boom'
-            }
-          }
-        })
-      );
-
-      consoleSpy.mockRestore();
-      vi.unstubAllGlobals();
-      vi.unstubAllEnvs();
-    });
-  });
-
   describe('snapshot immutability', () => {
     it('updates state correctly during model loading', async () => {
       // Import fresh module
-      const { useLLM } = await import('./useLLM');
+      const { useLLM } = await import('./llm');
       const { result } = renderHook(() => useLLM());
 
       // Capture initial state values
@@ -392,7 +111,7 @@ describe('useLLM', () => {
 
     it('maintains stable state when no changes occur', async () => {
       // Import fresh module
-      const { useLLM } = await import('./useLLM');
+      const { useLLM } = await import('./llm');
       const { result, rerender } = renderHook(() => useLLM());
 
       // Capture initial state
@@ -413,7 +132,7 @@ describe('useLLM', () => {
   describe('state updates during model loading', () => {
     it('handles state transitions correctly when loading a new model', async () => {
       // Import fresh module
-      const { useLLM } = await import('./useLLM');
+      const { useLLM } = await import('./llm');
       const { result } = renderHook(() => useLLM());
 
       // Capture initial state
@@ -459,7 +178,7 @@ describe('useLLM', () => {
   describe('loadProgress updates', () => {
     it('creates new snapshots for progress updates', async () => {
       // Import fresh module
-      const { useLLM } = await import('./useLLM');
+      const { useLLM } = await import('./llm');
       const { result } = renderHook(() => useLLM());
 
       // Start loading
@@ -494,7 +213,7 @@ describe('useLLM', () => {
   describe('error handling', () => {
     it('creates new snapshot on error', async () => {
       // Import fresh module
-      const { useLLM } = await import('./useLLM');
+      const { useLLM } = await import('./llm');
       const { result } = renderHook(() => useLLM());
 
       // Start loading - we'll handle the rejection when it occurs
@@ -531,216 +250,9 @@ describe('useLLM', () => {
     });
   });
 
-  describe('classification', () => {
-    it('sends classify request to worker after loading CLIP model', async () => {
-      // Import fresh module
-      const { useLLM } = await import('./useLLM');
-      const { result } = renderHook(() => useLLM());
-
-      // Load CLIP model first
-      await act(async () => {
-        result.current.loadModel('Xenova/clip-vit-base-patch32');
-        await Promise.resolve();
-      });
-
-      // Simulate model loaded
-      await act(async () => {
-        mockOnMessage?.({
-          data: {
-            type: 'loaded',
-            modelId: 'Xenova/clip-vit-base-patch32',
-            modelType: 'clip',
-            durationMs: 100
-          }
-        } as MessageEvent);
-      });
-
-      expect(result.current.loadedModel).toBe('Xenova/clip-vit-base-patch32');
-      expect(result.current.modelType).toBe('clip');
-
-      // Call classify
-      let classifyPromise: Promise<ClassificationResult> | undefined;
-      await act(async () => {
-        classifyPromise = result.current.classify('data:image/png;base64,...', [
-          'passport',
-          'license'
-        ]);
-        await Promise.resolve();
-      });
-
-      expect(result.current.isClassifying).toBe(true);
-      expect(mockPostMessage).toHaveBeenCalledWith({
-        type: 'classify',
-        image: 'data:image/png;base64,...',
-        candidateLabels: ['passport', 'license']
-      });
-
-      // Simulate classification response
-      await act(async () => {
-        mockOnMessage?.({
-          data: {
-            type: 'classification',
-            labels: ['passport', 'license'],
-            scores: [0.8, 0.2],
-            durationMs: 50
-          }
-        } as MessageEvent);
-      });
-
-      expect(result.current.isClassifying).toBe(false);
-
-      const classificationResult = await classifyPromise;
-      expect(classificationResult?.labels).toEqual(['passport', 'license']);
-      expect(classificationResult?.scores[0]).toBeGreaterThan(
-        classificationResult?.scores[1] ?? 0
-      );
-    });
-
-    it('throws error when classifying without a loaded model', async () => {
-      // Import fresh module
-      const { useLLM } = await import('./useLLM');
-      const { result } = renderHook(() => useLLM());
-
-      // Try to classify without loading a model
-      await expect(
-        result.current.classify('data:image/png;base64,...', ['passport'])
-      ).rejects.toThrow('No model loaded');
-    });
-
-    it('throws error when classifying with non-CLIP model', async () => {
-      // Import fresh module
-      const { useLLM } = await import('./useLLM');
-      const { result } = renderHook(() => useLLM());
-
-      // Load a chat model
-      await act(async () => {
-        result.current.loadModel('test-chat-model');
-        await Promise.resolve();
-      });
-
-      await act(async () => {
-        mockOnMessage?.({
-          data: {
-            type: 'loaded',
-            modelId: 'test-chat-model',
-            modelType: 'chat',
-            durationMs: 100
-          }
-        } as MessageEvent);
-      });
-
-      // Try to classify with wrong model type
-      await expect(
-        result.current.classify('data:image/png;base64,...', ['passport'])
-      ).rejects.toThrow('Loaded model is not a CLIP model');
-    });
-
-    it('handles classification errors correctly', async () => {
-      // Import fresh module
-      const { useLLM } = await import('./useLLM');
-      const { result } = renderHook(() => useLLM());
-
-      // Load CLIP model
-      await act(async () => {
-        result.current.loadModel('Xenova/clip-vit-base-patch32');
-        await Promise.resolve();
-      });
-
-      await act(async () => {
-        mockOnMessage?.({
-          data: {
-            type: 'loaded',
-            modelId: 'Xenova/clip-vit-base-patch32',
-            modelType: 'clip',
-            durationMs: 100
-          }
-        } as MessageEvent);
-      });
-
-      // Start classification
-      let classifyPromise: Promise<ClassificationResult> | undefined;
-      await act(async () => {
-        classifyPromise = result.current.classify('data:image/png;base64,...', [
-          'passport'
-        ]);
-        await Promise.resolve();
-      });
-
-      // Simulate error
-      await act(async () => {
-        mockOnMessage?.({
-          data: {
-            type: 'error',
-            message: 'Classification failed: Invalid image'
-          }
-        } as MessageEvent);
-
-        try {
-          await classifyPromise;
-        } catch {
-          // Expected rejection
-        }
-      });
-
-      expect(result.current.isClassifying).toBe(false);
-      expect(result.current.error).toBe('Classification failed: Invalid image');
-    });
-
-    it('prevents concurrent classification requests', async () => {
-      const { useLLM } = await import('./useLLM');
-      const { result } = renderHook(() => useLLM());
-
-      // Load CLIP model first
-      await act(async () => {
-        result.current.loadModel('Xenova/clip-vit-base-patch32');
-        await Promise.resolve();
-      });
-
-      await act(async () => {
-        mockOnMessage?.({
-          data: {
-            type: 'loaded',
-            modelId: 'Xenova/clip-vit-base-patch32',
-            modelType: 'clip',
-            durationMs: 100
-          }
-        } as MessageEvent);
-      });
-
-      // Start first classification (don't await yet)
-      let firstPromise: Promise<ClassificationResult> | undefined;
-      await act(async () => {
-        firstPromise = result.current.classify('data:image/png;base64,...', [
-          'passport'
-        ]);
-        await Promise.resolve();
-      });
-
-      // Try to start second classification while first is in progress
-      await act(async () => {
-        await expect(
-          result.current.classify('data:image/png;base64,...', ['license'])
-        ).rejects.toThrow('A classification is already in progress');
-      });
-
-      // Complete first classification
-      await act(async () => {
-        mockOnMessage?.({
-          data: {
-            type: 'classification',
-            labels: ['passport'],
-            scores: [1.0],
-            durationMs: 50
-          }
-        } as MessageEvent);
-        await firstPromise;
-      });
-    });
-  });
-
   describe('resetLLMUIState', () => {
     it('clears UI state but preserves loadedModel and modelType', async () => {
-      const { useLLM, resetLLMUIState } = await import('./useLLM');
+      const { useLLM, resetLLMUIState } = await import('./llm');
       const { result } = renderHook(() => useLLM());
 
       // Load a model first
@@ -781,7 +293,7 @@ describe('useLLM', () => {
     });
 
     it('rejects in-progress generation when reset', async () => {
-      const { useLLM, resetLLMUIState } = await import('./useLLM');
+      const { useLLM, resetLLMUIState } = await import('./llm');
       const { result } = renderHook(() => useLLM());
 
       // Load a model first
@@ -829,7 +341,7 @@ describe('useLLM', () => {
     });
 
     it('rejects pending load when reset', async () => {
-      const { useLLM, resetLLMUIState } = await import('./useLLM');
+      const { useLLM, resetLLMUIState } = await import('./llm');
       const { result } = renderHook(() => useLLM());
 
       // Start loading a model

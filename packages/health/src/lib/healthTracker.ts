@@ -31,7 +31,6 @@ import {
   toIsoTimestamp
 } from './healthTrackerUtils.js';
 
-// Re-export types for backwards compatibility
 export type {
   BloodPressureReading,
   CreateBloodPressureReadingInput,

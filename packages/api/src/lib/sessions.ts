@@ -1,9 +1,9 @@
 import { isRecord } from '@tearleads/shared';
+import { getRedisClient } from '@tearleads/shared/redis';
 import {
   getAccessTokenTtlSeconds,
   getRefreshTokenTtlSeconds
 } from './authConfig.js';
-import { getRedisClient } from './redis.js';
 
 export type SessionData = {
   userId: string;

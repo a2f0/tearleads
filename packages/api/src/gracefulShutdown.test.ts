@@ -2,7 +2,7 @@ import type { Server } from 'node:http';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock dependencies before importing
-vi.mock('./lib/redis.js', () => ({
+vi.mock('@tearleads/shared/redis', () => ({
   closeRedisClient: vi.fn().mockResolvedValue(undefined)
 }));
 
@@ -24,7 +24,7 @@ vi.mock('./routes/sse.js', async () => {
 
 // Import after mocking
 const { gracefulShutdown, resetShutdownState } = await import('./index.js');
-const { closeRedisClient } = await import('./lib/redis.js');
+const { closeRedisClient } = await import('@tearleads/shared/redis');
 const { closeRedisSubscriberClient } = await import('./lib/redisPubSub.js');
 const { closePostgresPool } = await import('./lib/postgres.js');
 const { closeAllSSEConnections } = await import('./routes/sse.js');

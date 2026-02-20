@@ -1,6 +1,6 @@
 import type { RedisKeyValueResponse } from '@tearleads/shared';
+import { getRedisClient } from '@tearleads/shared/redis';
 import type { Request, Response, Router as RouterType } from 'express';
-import { getRedisClient } from '../../../lib/redis.js';
 
 /**
  * @openapi

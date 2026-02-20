@@ -37,7 +37,6 @@ import {
   positionsAreEqual
 } from './homeIconUtils';
 
-// Re-export for backwards compatibility
 export { PATH_TO_WINDOW_TYPE } from './home-components/constants';
 
 export function Home() {

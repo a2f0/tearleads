@@ -24,7 +24,6 @@ import {
 import { analyticsEvents } from './schema';
 import { getDatabaseAdapter, isDatabaseInitialized } from './state';
 
-// Re-export types for backwards compatibility
 export type {
   AnalyticsEvent,
   DatabaseInsert,

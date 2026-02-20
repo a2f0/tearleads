@@ -31,7 +31,7 @@ const mockRedisClient = {
   expire: vi.fn(() => Promise.resolve(1))
 };
 
-vi.mock('../lib/redis.js', () => ({
+vi.mock('@tearleads/shared/redis', () => ({
   getRedisClient: () => Promise.resolve(mockRedisClient)
 }));
 

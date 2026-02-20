@@ -1,9 +1,8 @@
 import appConfig from 'virtual:app-config';
+import type { SettingsSyncedDetail } from '@tearleads/settings';
 import i18n from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import { initReactI18next } from 'react-i18next';
-
-import type { SettingsSyncedDetail } from '../db/userSettings';
 import { en } from './translations/en';
 
 export const supportedLanguages = ['en', 'es', 'ua', 'pt'] as const;

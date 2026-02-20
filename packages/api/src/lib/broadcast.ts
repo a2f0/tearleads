@@ -1,5 +1,5 @@
 import type { BroadcastMessage } from '@tearleads/shared';
-import { getRedisClient } from './redis.js';
+import { getRedisClient } from '@tearleads/shared/redis';
 
 export type { BroadcastMessage };
 

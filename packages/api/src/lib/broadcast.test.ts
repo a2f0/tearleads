@@ -1,6 +1,6 @@
+import type { RedisClient } from '@tearleads/shared/redis';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BroadcastMessage } from './broadcast.js';
-import type { RedisClient } from './redis.js';
 
 // Type guard for test mocks
 function isRedisClient(obj: unknown): obj is RedisClient {
@@ -15,7 +15,7 @@ function createMockClient(): RedisClient {
   return mock;
 }
 
-vi.mock('./redis.js', () => ({
+vi.mock('@tearleads/shared/redis', () => ({
   getRedisClient: vi.fn(() => Promise.resolve(createMockClient()))
 }));
 

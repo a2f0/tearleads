@@ -1,5 +1,5 @@
-export type { ClassicAppProps } from './components/ClassicApp';
 export { ClassicApp } from './components/ClassicApp';
+export type { ClassicAppProps } from './components/classicAppState';
 export {
   CREATE_CLASSIC_NOTE_ARIA_LABEL,
   CREATE_CLASSIC_TAG_ARIA_LABEL,

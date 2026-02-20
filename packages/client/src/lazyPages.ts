@@ -165,7 +165,7 @@ export const PhotoDetail = lazy(() =>
   import('./pages/PhotoDetail').then((m) => ({ default: m.PhotoDetail }))
 );
 export const Photos = lazy(() =>
-  import('./pages/Photos').then((m) => ({ default: m.PhotosPage }))
+  import('./pages/photos-components').then((m) => ({ default: m.PhotosPage }))
 );
 export const Search = lazy(() =>
   import('./pages/search').then((m) => ({ default: m.Search }))

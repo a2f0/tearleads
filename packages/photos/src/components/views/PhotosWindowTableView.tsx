@@ -23,7 +23,6 @@ import {
   type SortHeaderProps
 } from './photosTableHelpers';
 
-// Re-export props type for backwards compatibility
 export type { PhotosWindowTableViewProps } from './photosTableHelpers';
 
 function SortHeader({

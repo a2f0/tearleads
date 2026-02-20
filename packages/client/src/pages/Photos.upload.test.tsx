@@ -8,7 +8,7 @@ import type { ComponentProps } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/consoleMocks';
-import { Photos } from './Photos';
+import { Photos } from './photos-components';
 
 // Mocks must be defined in each test file (hoisted)
 vi.mock('@/components/photos-window/PhotosAlbumsSidebar', () => ({

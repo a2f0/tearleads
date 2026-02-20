@@ -5,9 +5,6 @@ import { type ClassicAppProps, useClassicAppState } from './classicAppState';
 import { NotesPane } from './NotesPane';
 import { TagSidebar } from './TagSidebar';
 
-// Re-export props type for backwards compatibility
-export type { ClassicAppProps } from './classicAppState';
-
 export function ClassicApp({
   initialState,
   autoFocusSearch,

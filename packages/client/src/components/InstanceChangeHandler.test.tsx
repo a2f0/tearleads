@@ -9,7 +9,7 @@ import { InstanceChangeHandler } from './InstanceChangeHandler';
 const mockResetLLMUIState = vi.fn();
 const mockClearAttachedImage = vi.fn();
 
-vi.mock('@/hooks/useLLM', () => ({
+vi.mock('@/hooks/llm', () => ({
   resetLLMUIState: () => mockResetLLMUIState()
 }));
 

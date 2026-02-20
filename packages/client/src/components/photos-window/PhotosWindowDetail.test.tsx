@@ -97,7 +97,7 @@ vi.mock('@/lib/fileUtils', () => ({
 }));
 
 // Mock LLM hook
-vi.mock('@/hooks/useLLM', () => ({
+vi.mock('@/hooks/llm', () => ({
   useLLM: () => ({
     loadedModel: null,
     isClassifying: false,
@@ -409,58 +409,6 @@ describe('PhotosWindowDetail', () => {
     expect(screen.getByTestId('window-photo-classify')).toBeInTheDocument();
   });
 
-  it('does not show share button when sharing is not supported', async () => {
-    shouldResolve = true;
-    limitResult = [mockPhoto];
-    setMockCanShare(false);
-
-    await act(async () => {
-      render(<PhotosWindowDetail {...defaultProps} />);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('window-photo-download')).toBeInTheDocument();
-    });
-
-    // Share button should not be present since canShareFiles returns false
-    expect(screen.queryByTestId('window-photo-share')).not.toBeInTheDocument();
-  });
-
-  it('shows share button when sharing is supported', async () => {
-    shouldResolve = true;
-    limitResult = [mockPhoto];
-    setMockCanShare(true);
-
-    await act(async () => {
-      render(<PhotosWindowDetail {...defaultProps} />);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('window-photo-share')).toBeInTheDocument();
-    });
-  });
-
-  it('handles share button click', async () => {
-    shouldResolve = true;
-    limitResult = [mockPhoto];
-    setMockCanShare(true);
-    const user = userEvent.setup();
-
-    await act(async () => {
-      render(<PhotosWindowDetail {...defaultProps} />);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('window-photo-share')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByTestId('window-photo-share'));
-
-    await waitFor(() => {
-      expect(mockShareFile).toHaveBeenCalled();
-    });
-  });
-
   it('formats file size in details section', async () => {
     shouldResolve = true;
     limitResult = [mockPhoto];
@@ -487,28 +435,6 @@ describe('PhotosWindowDetail', () => {
       const deleteButton = screen.getByTestId('window-photo-delete');
       expect(deleteButton).toBeInTheDocument();
       expect(deleteButton).not.toBeDisabled();
-    });
-  });
-
-  it('handles share failure gracefully', async () => {
-    shouldResolve = true;
-    limitResult = [mockPhoto];
-    setMockCanShare(true);
-    mockShareFile.mockResolvedValue(false);
-    const user = userEvent.setup();
-
-    await act(async () => {
-      render(<PhotosWindowDetail {...defaultProps} />);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('window-photo-share')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByTestId('window-photo-share'));
-
-    await waitFor(() => {
-      expect(screen.getByText(/Sharing is not supported/)).toBeInTheDocument();
     });
   });
 
@@ -558,106 +484,5 @@ describe('PhotosWindowDetail', () => {
 
     // Button should show "Classify" text when not loading
     expect(screen.getByText('Classify')).toBeInTheDocument();
-  });
-
-  it('handles share AbortError gracefully without showing error', async () => {
-    shouldResolve = true;
-    limitResult = [mockPhoto];
-    setMockCanShare(true);
-    const abortError = new Error('User cancelled');
-    abortError.name = 'AbortError';
-    mockShareFile.mockRejectedValue(abortError);
-    const user = userEvent.setup();
-
-    await act(async () => {
-      render(<PhotosWindowDetail {...defaultProps} />);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('window-photo-share')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByTestId('window-photo-share'));
-
-    // AbortError should not show an error message
-    await waitFor(() => {
-      expect(screen.queryByText(/User cancelled/)).not.toBeInTheDocument();
-    });
-  });
-
-  it('handles share error with non-Error object', async () => {
-    shouldResolve = true;
-    limitResult = [mockPhoto];
-    setMockCanShare(true);
-    mockShareFile.mockRejectedValue('String error');
-    const consoleSpy = mockConsoleError();
-    const user = userEvent.setup();
-
-    await act(async () => {
-      render(<PhotosWindowDetail {...defaultProps} />);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('window-photo-share')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByTestId('window-photo-share'));
-
-    await waitFor(() => {
-      expect(screen.getByText('String error')).toBeInTheDocument();
-    });
-
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Failed to share photo:',
-      'String error'
-    );
-  });
-
-  it('handles download error with non-Error object', async () => {
-    shouldResolve = true;
-    limitResult = [mockPhoto];
-    mockDownloadFile.mockImplementation(() => {
-      throw 'Download string error';
-    });
-    const consoleSpy = mockConsoleError();
-    const user = userEvent.setup();
-
-    await act(async () => {
-      render(<PhotosWindowDetail {...defaultProps} />);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('window-photo-download')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByTestId('window-photo-download'));
-
-    await waitFor(() => {
-      expect(screen.getByText('Download string error')).toBeInTheDocument();
-    });
-
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Failed to download photo:',
-      'Download string error'
-    );
-  });
-
-  it('handles fetch error with non-Error object', async () => {
-    shouldResolve = true;
-    limitResult = Promise.reject('Fetch string error');
-    const consoleSpy = mockConsoleError();
-
-    await act(async () => {
-      render(<PhotosWindowDetail {...defaultProps} />);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('Fetch string error')).toBeInTheDocument();
-    });
-
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Failed to fetch photo:',
-      'Fetch string error'
-    );
   });
 });

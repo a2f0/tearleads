@@ -1,13 +1,13 @@
 import type { Server } from 'node:http';
 import dbPackageJson from '@tearleads/db/package.json' with { type: 'json' };
 import type { PingData } from '@tearleads/shared';
+import { closeRedisClient } from '@tearleads/shared/redis';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express, { type Express, type Request, type Response } from 'express';
 import morgan from 'morgan';
 import packageJson from '../package.json' with { type: 'json' };
 import { closePostgresPool } from './lib/postgres.js';
-import { closeRedisClient } from './lib/redis.js';
 import { closeRedisSubscriberClient } from './lib/redisPubSub.js';
 import { adminAccessMiddleware } from './middleware/adminAccess.js';
 import { adminSessionMiddleware } from './middleware/adminSession.js';

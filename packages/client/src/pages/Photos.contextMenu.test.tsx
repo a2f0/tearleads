@@ -87,7 +87,7 @@ vi.mock('@/lib/chatAttachments', () => ({
     mockUint8ArrayToDataUrl(data, mimeType)
 }));
 
-import { Photos } from './Photos';
+import { Photos } from './photos-components';
 
 const mockPhotos = [
   {
