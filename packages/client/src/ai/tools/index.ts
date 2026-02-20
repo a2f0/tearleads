@@ -3,19 +3,16 @@
  */
 
 export {
-  executeTool,
   executeTools,
   isToolCallingEnabled,
   toolDefinitions
 } from './registry';
 
 export {
-  executeSearchTool,
   formatSearchResultsForDisplay,
   type SearchToolArgs,
   type SearchToolResult,
-  type SearchToolResultItem,
-  searchToolDefinition
+  type SearchToolResultItem
 } from './searchTool';
 export type {
   ToolCall,
