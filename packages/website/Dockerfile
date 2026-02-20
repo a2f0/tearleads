@@ -36,10 +36,15 @@ RUN pnpm --filter @tearleads/shared build && \
     pnpm --filter @tearleads/api buildOpenapi && \
     pnpm --filter @tearleads/website build
 
+# Ensure static files are world-readable for nginx worker user (set in builder
+# stage to avoid extra layer in production image).
+RUN find /app/packages/website/dist -type d -exec chmod 755 {} + && \
+    find /app/packages/website/dist -type f -exec chmod 644 {} +
+
 # Production stage - nginx
 FROM nginx:alpine
 
-# Copy built static files
+# Copy built static files (permissions already set in builder stage)
 COPY --from=builder /app/packages/website/dist /usr/share/nginx/html
 
 # Copy nginx config
