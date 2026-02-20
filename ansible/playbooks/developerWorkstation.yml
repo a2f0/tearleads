@@ -79,6 +79,12 @@
         - "*.{{ production_domain }}"
         - "{{ production_domain }}"
 
+    - name: Remove old known_hosts entries for vault-prod
+      ansible.builtin.lineinfile:
+        path: "{{ known_hosts_file }}"
+        regexp: "^vault-prod\\s+"
+        state: absent
+
     - name: Ensure ssh config file exists
       ansible.builtin.file:
         path: "{{ ssh_config_file }}"
@@ -124,6 +130,22 @@
         state: present
       when: not production_host_exists
 
+    - name: Check if vault-prod Host block exists
+      ansible.builtin.set_fact:
+        vault_prod_host_exists: "{{ 'Host vault-prod' in (ssh_config_content.content | b64decode) }}"
+
+    - name: Add SSH config block for vault-prod
+      ansible.builtin.blockinfile:
+        path: "{{ ssh_config_file }}"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - vault-prod"
+        block: |
+          Host vault-prod
+              User {{ deploy_user }}
+              StrictHostKeyChecking accept-new
+              IdentitiesOnly yes
+        state: present
+      when: not vault_prod_host_exists
+
     - name: Display configuration summary
       ansible.builtin.debug:
         msg: |
@@ -138,6 +160,7 @@
           SSH config blocks added for:
             - *.{{ staging_domain }} (User: {{ deploy_user }})
             - *.{{ production_domain }} (User: {{ deploy_user }})
+            - vault-prod (User: {{ deploy_user }}, StrictHostKeyChecking: accept-new)
 
           Files modified:
             - {{ known_hosts_file }}
