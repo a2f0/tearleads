@@ -159,7 +159,7 @@ vi.mock('./DocumentsWindowMenuBar', () => ({
 }));
 
 const mockUploadFile = vi.fn();
-vi.mock('@/hooks/useFileUpload', () => ({
+vi.mock('@/hooks/vfs', () => ({
   useFileUpload: () => ({ uploadFile: mockUploadFile })
 }));
 

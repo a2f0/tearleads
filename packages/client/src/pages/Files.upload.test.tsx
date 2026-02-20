@@ -1,40 +1,155 @@
-/**
- * Files page upload tests (progress, badges, dropzone, flow).
- */
-
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createMockQueryChain,
   createMockUpdateChain,
-  mockGetCurrentKey,
-  mockIsFileStorageInitialized,
-  mockRetrieve,
-  mockRetrieveFileData,
-  mockSelect,
-  mockUpdate,
-  mockUploadFile,
-  mockUseDatabaseContext,
   renderFiles,
   renderFilesRaw,
-  resetObjectUrlCounter,
   TEST_ENCRYPTION_KEY,
   TEST_FILE_WITH_THUMBNAIL,
   TEST_FILE_WITHOUT_THUMBNAIL,
   TEST_THUMBNAIL_DATA
-} from './Files.testUtils';
+} from './Files.testSetup';
 
-describe('Files upload', () => {
+// ============================================
+// Define mocks before vi.mock calls (vi.mock is hoisted)
+// ============================================
+
+const {
+  mockUseDatabaseContext,
+  mockSelect,
+  mockUpdate,
+  mockGetCurrentKey,
+  mockRetrieve,
+  mockIsFileStorageInitialized,
+  mockInitializeFileStorage,
+  mockUploadFile
+} = vi.hoisted(() => ({
+  mockUseDatabaseContext: vi.fn(),
+  mockSelect: vi.fn(),
+  mockUpdate: vi.fn(),
+  mockGetCurrentKey: vi.fn(),
+  mockRetrieve: vi.fn(),
+  mockIsFileStorageInitialized: vi.fn(),
+  mockInitializeFileStorage: vi.fn(),
+  mockUploadFile: vi.fn()
+}));
+
+// ============================================
+// vi.mock calls - these are hoisted to the top
+// ============================================
+
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: vi.fn(
+    (options: { count: number } & Record<string, unknown>) => {
+      const getScrollElement = options['getScrollElement'];
+      if (typeof getScrollElement === 'function') {
+        getScrollElement();
+      }
+      const estimateSize = options['estimateSize'];
+      if (typeof estimateSize === 'function') {
+        estimateSize();
+      }
+      const { count } = options;
+      return {
+        getVirtualItems: Object.assign(
+          () =>
+            Array.from({ length: count }, (_, i) => ({
+              index: i,
+              start: i * 56,
+              end: (i + 1) * 56,
+              size: 56,
+              key: i,
+              lane: 0
+            })),
+          { updateDeps: vi.fn() }
+        ),
+        getTotalSize: () => count * 56,
+        measureElement: vi.fn()
+      };
+    }
+  )
+}));
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => vi.fn()
+  };
+});
+
+vi.mock('@/db/hooks', () => ({
+  useDatabaseContext: () => mockUseDatabaseContext()
+}));
+
+vi.mock('@/db', () => ({
+  getDatabase: () => ({
+    select: mockSelect,
+    update: mockUpdate
+  })
+}));
+
+vi.mock('@/db/crypto', () => ({
+  getKeyManager: () => ({
+    getCurrentKey: mockGetCurrentKey
+  })
+}));
+
+vi.mock('@/storage/opfs', () => ({
+  getFileStorage: () => ({
+    retrieve: mockRetrieve,
+    measureRetrieve: mockRetrieve,
+    store: vi.fn()
+  }),
+  isFileStorageInitialized: () => mockIsFileStorageInitialized(),
+  initializeFileStorage: (key: Uint8Array, instanceId: string) =>
+    mockInitializeFileStorage(key, instanceId),
+  createRetrieveLogger: () => vi.fn()
+}));
+
+vi.mock('@/lib/fileUtils', () => ({
+  downloadFile: vi.fn(),
+  computeContentHash: vi.fn().mockResolvedValue('mock-hash'),
+  readFileAsUint8Array: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3]))
+}));
+
+vi.mock('@/hooks/vfs', () => ({
+  useFileUpload: () => ({
+    uploadFile: mockUploadFile
+  })
+}));
+
+vi.mock('@/audio', () => ({
+  useAudio: () => ({
+    currentTrack: null,
+    isPlaying: false,
+    play: vi.fn(),
+    pause: vi.fn(),
+    resume: vi.fn()
+  })
+}));
+
+vi.mock('@/lib/dataRetrieval', () => ({
+  retrieveFileData: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3, 4]))
+}));
+
+vi.mock('@/hooks/app', () => ({
+  useOnInstanceChange: vi.fn()
+}));
+
+// ============================================
+// Tests
+// ============================================
+
+describe('Files - Upload', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    resetObjectUrlCounter();
 
-    // Mock URL methods
-    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:test');
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:test-url');
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
 
-    // Default mocks for unlocked database
     mockUseDatabaseContext.mockReturnValue({
       isUnlocked: true,
       isLoading: false,
@@ -43,7 +158,6 @@ describe('Files upload', () => {
     mockGetCurrentKey.mockReturnValue(TEST_ENCRYPTION_KEY);
     mockIsFileStorageInitialized.mockReturnValue(true);
     mockRetrieve.mockResolvedValue(TEST_THUMBNAIL_DATA);
-    mockRetrieveFileData.mockResolvedValue(new Uint8Array([1, 2, 3, 4]));
     mockUploadFile.mockReset();
     mockUploadFile.mockResolvedValue({ id: 'new-id', isDuplicate: false });
     mockSelect.mockReturnValue(
@@ -57,14 +171,12 @@ describe('Files upload', () => {
 
   describe('upload success badge', () => {
     it('does not show success badge initially', async () => {
-      // Success badge should not be present initially for existing files
       await renderFiles();
 
       await waitFor(() => {
         expect(screen.getByText('photo.jpg')).toBeInTheDocument();
       });
 
-      // Initially, no success badge should be present
       expect(
         screen.queryByTestId('upload-success-badge')
       ).not.toBeInTheDocument();
@@ -78,7 +190,6 @@ describe('Files upload', () => {
       const dropzones = screen.getAllByTestId('dropzone');
       expect(dropzones[0]).toBeInTheDocument();
 
-      // Verify dropzone has the expected structure
       expect(screen.getByText(/Drag and drop files here/i)).toBeInTheDocument();
     });
 
@@ -101,8 +212,6 @@ describe('Files upload', () => {
 
   describe('recently uploaded badge', () => {
     it('does not show success badge for existing files', async () => {
-      // Success badge only appears for newly uploaded files tracked in recentlyUploadedIds
-      // Existing files in the database don't have this badge
       mockSelect.mockReturnValue(
         createMockQueryChain([TEST_FILE_WITH_THUMBNAIL])
       );
@@ -113,7 +222,6 @@ describe('Files upload', () => {
         expect(screen.getByText('photo.jpg')).toBeInTheDocument();
       });
 
-      // Existing files don't have the success badge
       expect(
         screen.queryByTestId('upload-success-badge')
       ).not.toBeInTheDocument();
@@ -134,7 +242,6 @@ describe('Files upload', () => {
 
       renderFilesRaw();
 
-      // Dropzone should not be present when locked
       expect(screen.queryByTestId('dropzone')).not.toBeInTheDocument();
     });
 

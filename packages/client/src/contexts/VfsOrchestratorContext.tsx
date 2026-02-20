@@ -23,7 +23,7 @@ import {
 import { createItemKeyStore } from '@/db/vfsItemKeys';
 import { createRecipientPublicKeyResolver } from '@/db/vfsRecipientKeyResolver';
 import { createUserKeyProvider } from '@/db/vfsUserKeyProvider';
-import { ensureVfsKeys } from '@/hooks/useVfsKeys';
+import { ensureVfsKeys } from '@/hooks/vfs';
 import { useAuth } from './AuthContext';
 
 export interface VfsOrchestratorContextValue {

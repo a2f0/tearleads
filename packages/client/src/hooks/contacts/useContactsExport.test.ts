@@ -4,7 +4,7 @@ import { useContactsExport } from './useContactsExport';
 
 // Mock the file-utils module
 const mockSaveFile = vi.fn().mockResolvedValue(undefined);
-vi.mock('../lib/fileUtils', () => ({
+vi.mock('@/lib/fileUtils', () => ({
   saveFile: (data: Uint8Array, filename: string) => mockSaveFile(data, filename)
 }));
 

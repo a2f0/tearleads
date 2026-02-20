@@ -5,7 +5,7 @@ import {
 } from '@tearleads/window-manager';
 import { List, Loader2, Plus, Video } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useVideoPlaylists } from '@/hooks/useVideoPlaylists';
+import { useVideoPlaylists } from '@/hooks/media';
 import { filterFilesByAccept } from '@/lib/fileFilter';
 import { getMediaDragIds } from '@/lib/mediaDragData';
 import { cn, detectPlatform } from '@/lib/utils';

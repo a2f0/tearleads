@@ -1,4 +1,4 @@
-import type { ColumnMapping } from '@/hooks/useContactsImport';
+import type { ColumnMapping } from '@/hooks/contacts';
 import type { FieldGroup, TargetField } from './types';
 
 // Google Contacts CSV header mappings

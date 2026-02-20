@@ -1,6 +1,6 @@
 import { App } from '@capacitor/app';
 import { useEffect, useState } from 'react';
-import { detectPlatform } from '../lib/utils';
+import { detectPlatform } from '@/lib/utils';
 
 export function useAppVersion(): string | undefined {
   const [version, setVersion] = useState<string | undefined>(undefined);

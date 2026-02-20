@@ -20,7 +20,7 @@ vi.mock('@/lib/featureFlags', () => ({
 
 const mockGenerateSessionKey = vi.fn();
 const mockWrapSessionKey = vi.fn();
-vi.mock('@/hooks/useVfsKeys', () => ({
+vi.mock('@/hooks/vfs', () => ({
   generateSessionKey: () => mockGenerateSessionKey(),
   wrapSessionKey: (key: Uint8Array) => mockWrapSessionKey(key)
 }));

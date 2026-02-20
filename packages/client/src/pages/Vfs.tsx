@@ -5,7 +5,7 @@ import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { ClientVfsExplorerProvider } from '@/contexts/ClientVfsExplorerProvider';
 import { useDatabaseContext } from '@/db/hooks';
-import { useVfsUploader } from '@/hooks/useVfsUploader';
+import { useVfsUploader } from '@/hooks/vfs';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import {
   type FileOpenTarget,

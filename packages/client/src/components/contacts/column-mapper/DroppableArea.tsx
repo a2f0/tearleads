@@ -1,6 +1,6 @@
 import { useDroppable } from '@dnd-kit/core';
 import { X } from 'lucide-react';
-import type { ColumnMapping } from '@/hooks/useContactsImport';
+import type { ColumnMapping } from '@/hooks/contacts';
 
 interface DroppableAreaProps {
   fieldKey: keyof ColumnMapping;

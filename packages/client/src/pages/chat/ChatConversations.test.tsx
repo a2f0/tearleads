@@ -29,7 +29,7 @@ vi.mock('@/hooks/llm', () => ({
 }));
 
 // Mock useConversations hook
-vi.mock('@/hooks/useConversations', () => ({
+vi.mock('@/hooks/ai/useConversations', () => ({
   useConversations: vi.fn(() => ({
     conversations: [],
     loading: false,
@@ -222,7 +222,7 @@ describe('conversation handlers', () => {
     });
     mockGetCurrentKey.mockReturnValue(new Uint8Array([1, 2, 3, 4]));
 
-    const { useConversations } = await import('@/hooks/useConversations');
+    const { useConversations } = await import('@/hooks/ai/useConversations');
     vi.mocked(useConversations).mockReturnValue({
       conversations: [
         {

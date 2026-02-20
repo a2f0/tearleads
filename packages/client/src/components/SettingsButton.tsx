@@ -1,7 +1,7 @@
 import { Settings } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
-import { useIsMobile } from '@/hooks/useIsMobile';
+import { useIsMobile } from '@/hooks/device';
 import { SettingsSheet } from './settings/SettingsSheet';
 
 export function SettingsButton() {

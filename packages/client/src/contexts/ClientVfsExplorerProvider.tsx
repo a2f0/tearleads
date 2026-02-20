@@ -26,7 +26,7 @@ import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
-import { generateSessionKey, wrapSessionKey } from '@/hooks/useVfsKeys';
+import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
 import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';

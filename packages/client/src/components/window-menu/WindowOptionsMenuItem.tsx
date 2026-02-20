@@ -3,7 +3,7 @@ import {
   DropdownMenuItem,
   useDropdownMenuContext
 } from '@/components/ui/dropdown-menu';
-import { usePreserveWindowState } from '@/hooks/usePreserveWindowState';
+import { usePreserveWindowState } from '@/hooks/window';
 import { WindowOptionsDialog } from './WindowOptionsDialog';
 
 export function WindowOptionsMenuItem() {

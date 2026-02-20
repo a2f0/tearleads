@@ -1,10 +1,7 @@
 import { getErrorCode } from '@tearleads/shared';
 import { Upload } from 'lucide-react';
 import { useCallback, useId, useRef, useState } from 'react';
-import {
-  type FilePickerSource,
-  useNativeFilePicker
-} from '@/hooks/useNativeFilePicker';
+import { type FilePickerSource, useNativeFilePicker } from '@/hooks/dnd';
 import { cn, detectPlatform } from '@/lib/utils';
 
 import { Button } from './button';

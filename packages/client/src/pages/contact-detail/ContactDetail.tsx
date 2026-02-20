@@ -9,7 +9,7 @@ import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { runLocalWrite } from '@/db/localWrite';
 import { contactEmails, contactPhones, contacts } from '@/db/schema';
-import { useContactsExport } from '@/hooks/useContactsExport';
+import { useContactsExport } from '@/hooks/contacts';
 import { ContactDetailHeader } from './ContactDetailHeader';
 import { ContactDetailsSection } from './ContactDetailsSection';
 import { ContactEmailsSection } from './ContactEmailsSection';

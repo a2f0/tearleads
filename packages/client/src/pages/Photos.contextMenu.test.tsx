@@ -1,16 +1,77 @@
-/**
- * Photos context menu tests.
- */
-
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  mockCanShareFiles,
+  mockDb,
+  mockDownloadFile,
+  mockInitializeFileStorage,
+  mockIsFileStorageInitialized,
+  mockNavigate,
+  mockSet,
+  mockSetAttachedImage,
+  mockShareFile,
+  mockStorage,
+  mockUint8ArrayToDataUrl,
+  mockUpdate,
+  mockUpdateWhere,
+  mockUploadFile,
+  mockUseDatabaseContext,
+  renderPhotos,
+  setupPhotosTestMocks
+} from './Photos.testSetup';
+import { Photos } from './photos-components';
 
-// Mocks must be defined in each test file (hoisted)
+// ============================================================
+// vi.mock() calls - must be inline in each test file
+// ============================================================
+
 vi.mock('@/components/photos-window/PhotosAlbumsSidebar', () => ({
   ALL_PHOTOS_ID: '__all__',
-  PhotosAlbumsSidebar: vi.fn(() => <div data-testid="photos-albums-sidebar" />)
+  PhotosAlbumsSidebar: vi.fn(
+    ({
+      selectedAlbumId,
+      onAlbumSelect,
+      onAlbumChanged,
+      onDropToAlbum,
+      onWidthChange,
+      width
+    }) => (
+      <div data-testid="photos-albums-sidebar">
+        <span data-testid="selected-album">{selectedAlbumId}</span>
+        <span data-testid="sidebar-width">{width}</span>
+        <button
+          type="button"
+          data-testid="select-album-1"
+          onClick={() => onAlbumSelect('album-1')}
+        >
+          Select Album 1
+        </button>
+        <button
+          type="button"
+          data-testid="trigger-album-changed"
+          onClick={() => onAlbumChanged?.()}
+        >
+          Trigger Album Changed
+        </button>
+        <button
+          type="button"
+          data-testid="change-width"
+          onClick={() => onWidthChange?.(300)}
+        >
+          Change Width
+        </button>
+        <button
+          type="button"
+          data-testid="drop-to-album"
+          onClick={() => onDropToAlbum?.('album-1', [], ['photo-1', 'photo-2'])}
+        >
+          Drop To Album
+        </button>
+      </div>
+    )
+  )
 }));
 
 vi.mock('@tanstack/react-virtual', () => ({
@@ -27,122 +88,62 @@ vi.mock('@tanstack/react-virtual', () => ({
   }))
 }));
 
-const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
-  return { ...actual, useNavigate: () => mockNavigate };
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate
+  };
 });
 
-const mockUseDatabaseContext = vi.fn();
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
-const mockUpdate = vi.fn();
-const mockSet = vi.fn();
-const mockUpdateWhere = vi.fn();
-const mockDb = {
-  select: vi.fn().mockReturnThis(),
-  from: vi.fn().mockReturnThis(),
-  where: vi.fn().mockReturnThis(),
-  orderBy: vi.fn(),
-  update: mockUpdate
-};
-mockUpdate.mockReturnValue({ set: mockSet });
-mockSet.mockReturnValue({ where: mockUpdateWhere });
+vi.mock('@/db', () => ({
+  getDatabase: vi.fn(() => mockDb)
+}));
 
-vi.mock('@/db', () => ({ getDatabase: vi.fn(() => mockDb) }));
 vi.mock('@/db/crypto', () => ({
   getKeyManager: vi.fn(() => ({
     getCurrentKey: vi.fn(() => new Uint8Array(32))
   }))
 }));
 
-const mockStorage = { retrieve: vi.fn() };
 vi.mock('@/storage/opfs', () => ({
-  isFileStorageInitialized: () => true,
-  initializeFileStorage: vi.fn(),
+  isFileStorageInitialized: () => mockIsFileStorageInitialized(),
+  initializeFileStorage: (...args: unknown[]) =>
+    mockInitializeFileStorage(...args),
   getFileStorage: vi.fn(() => mockStorage),
   createRetrieveLogger: () => vi.fn()
 }));
 
-vi.mock('@/hooks/useFileUpload', () => ({
-  useFileUpload: () => ({ uploadFile: vi.fn() })
+vi.mock('@/hooks/vfs', () => ({
+  useFileUpload: () => ({ uploadFile: mockUploadFile })
 }));
 
 vi.mock('@/lib/fileUtils', () => ({
-  canShareFiles: () => false,
-  downloadFile: vi.fn(),
-  shareFile: vi.fn()
+  canShareFiles: () => mockCanShareFiles(),
+  downloadFile: (...args: unknown[]) => mockDownloadFile(...args),
+  shareFile: (...args: unknown[]) => mockShareFile(...args)
 }));
 
-const mockSetAttachedImage = vi.fn();
 vi.mock('@/lib/llmRuntime', () => ({
   setAttachedImage: (image: string | null) => mockSetAttachedImage(image)
 }));
 
-const mockUint8ArrayToDataUrl = vi.fn();
 vi.mock('@/lib/chatAttachments', () => ({
   uint8ArrayToDataUrl: (data: Uint8Array, mimeType: string) =>
     mockUint8ArrayToDataUrl(data, mimeType)
 }));
 
-import { Photos } from './photos-components';
-
-const mockPhotos = [
-  {
-    id: 'photo-1',
-    name: 'test-image.jpg',
-    size: 1024,
-    mimeType: 'image/jpeg',
-    uploadDate: new Date('2025-01-01'),
-    storagePath: '/photos/test-image.jpg'
-  },
-  {
-    id: 'photo-2',
-    name: 'another-image.png',
-    size: 2048,
-    mimeType: 'image/png',
-    uploadDate: new Date('2025-01-02'),
-    storagePath: '/photos/another-image.png'
-  }
-];
-
-async function renderPhotos() {
-  const result = render(
-    <MemoryRouter>
-      <Photos />
-    </MemoryRouter>
-  );
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  return result;
-}
-
-function setupDefaultMocks() {
-  mockUseDatabaseContext.mockReturnValue({
-    isUnlocked: true,
-    isLoading: false,
-    currentInstanceId: 'test-instance'
-  });
-  mockDb.orderBy.mockResolvedValue(mockPhotos);
-  mockStorage.retrieve.mockResolvedValue(new Uint8Array([1, 2, 3]));
-  mockSetAttachedImage.mockReset();
-  mockUint8ArrayToDataUrl.mockResolvedValue(
-    'data:image/jpeg;base64,test-image'
-  );
-  global.URL.createObjectURL = vi.fn(() => 'blob:test-url');
-  global.URL.revokeObjectURL = vi.fn();
-  mockUpdate.mockReturnValue({ set: mockSet });
-  mockSet.mockReturnValue({ where: mockUpdateWhere });
-  mockUpdateWhere.mockResolvedValue(undefined);
-}
+// ============================================================
+// Tests
+// ============================================================
 
 describe('Photos context menu', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    setupDefaultMocks();
+    setupPhotosTestMocks();
   });
 
   it('shows context menu on right-click', async () => {
@@ -229,6 +230,7 @@ describe('Photos context menu', () => {
       expect(screen.getByText('Get info')).toBeInTheDocument();
     });
 
+    // Click the backdrop
     await user.click(
       screen.getByRole('button', { name: /close context menu/i })
     );
@@ -392,10 +394,12 @@ describe('Photos context menu', () => {
       expect(screen.getByText('Delete')).toBeInTheDocument();
     });
 
+    // Clear to track refetch
     mockDb.orderBy.mockClear();
 
     await user.click(screen.getByText('Delete'));
 
+    // Flush the setTimeout for instance-aware fetching
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });

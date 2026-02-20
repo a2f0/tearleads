@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm';
 import { useCallback, useState } from 'react';
 import { getDatabase } from '@/db';
 import { contacts as contactsTable } from '@/db/schema';
-import { useContactsExport } from '@/hooks/useContactsExport';
+import { useContactsExport } from '@/hooks/contacts';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import type { ContactInfo } from './types';
 

@@ -1,4 +1,4 @@
-import type { ColumnMapping, ParsedCSV } from '@/hooks/useContactsImport';
+import type { ColumnMapping, ParsedCSV } from '@/hooks/contacts';
 
 export type { ColumnMapping, ParsedCSV };
 

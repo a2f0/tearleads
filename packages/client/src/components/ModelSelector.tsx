@@ -1,7 +1,7 @@
 import { isOpenRouterModelId } from '@tearleads/shared';
 import { Bot, ChevronDown, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLLM } from '@/hooks/llm';
+import { useLLM } from '@/hooks/ai';
 import { CHAT_MODELS } from '@/lib/models';
 import { ModelOption } from './ModelOption';
 

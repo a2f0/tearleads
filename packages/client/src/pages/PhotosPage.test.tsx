@@ -1,14 +1,28 @@
-/**
- * PhotosPage (wrapper with sidebar) tests.
- */
-
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PhotosPage } from './photos-components';
+import {
+  mockCanShareFiles,
+  mockDb,
+  mockDownloadFile,
+  mockInitializeFileStorage,
+  mockInsert,
+  mockInsertValues,
+  mockIsFileStorageInitialized,
+  mockNavigate,
+  mockSetAttachedImage,
+  mockShareFile,
+  mockStorage,
+  mockUint8ArrayToDataUrl,
+  mockUploadFile,
+  mockUseDatabaseContext,
+  renderPhotosPage
+} from './Photos.testSetup';
 
-// Mocks must be defined in each test file (hoisted)
+// ============================================================
+// vi.mock() calls - must be inline in each test file
+// ============================================================
+
 vi.mock('@/components/photos-window/PhotosAlbumsSidebar', () => ({
   ALL_PHOTOS_ID: '__all__',
   PhotosAlbumsSidebar: vi.fn(
@@ -70,78 +84,58 @@ vi.mock('@tanstack/react-virtual', () => ({
   }))
 }));
 
-const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
-  return { ...actual, useNavigate: () => mockNavigate };
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate
+  };
 });
 
-const mockUseDatabaseContext = vi.fn();
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
-const mockInsert = vi.fn();
-const mockInsertValues = vi.fn();
-const mockDb = {
-  select: vi.fn().mockReturnThis(),
-  from: vi.fn().mockReturnThis(),
-  where: vi.fn().mockReturnThis(),
-  orderBy: vi.fn(),
-  update: vi.fn(),
-  insert: mockInsert
-};
-// Make mockDb thenable so it returns [] when awaited (for existing links query)
-Object.defineProperty(mockDb, 'then', {
-  value: (resolve: (value: unknown[]) => void) => resolve([]),
-  enumerable: false
-});
-mockInsert.mockReturnValue({ values: mockInsertValues });
-mockInsertValues.mockResolvedValue(undefined);
+vi.mock('@/db', () => ({
+  getDatabase: vi.fn(() => mockDb)
+}));
 
-vi.mock('@/db', () => ({ getDatabase: vi.fn(() => mockDb) }));
 vi.mock('@/db/crypto', () => ({
   getKeyManager: vi.fn(() => ({
     getCurrentKey: vi.fn(() => new Uint8Array(32))
   }))
 }));
 
-const mockStorage = { retrieve: vi.fn() };
 vi.mock('@/storage/opfs', () => ({
-  isFileStorageInitialized: () => true,
-  initializeFileStorage: vi.fn(),
+  isFileStorageInitialized: () => mockIsFileStorageInitialized(),
+  initializeFileStorage: (...args: unknown[]) =>
+    mockInitializeFileStorage(...args),
   getFileStorage: vi.fn(() => mockStorage),
   createRetrieveLogger: () => vi.fn()
 }));
 
-vi.mock('@/hooks/useFileUpload', () => ({
-  useFileUpload: () => ({ uploadFile: vi.fn() })
+vi.mock('@/hooks/vfs', () => ({
+  useFileUpload: () => ({ uploadFile: mockUploadFile })
 }));
 
 vi.mock('@/lib/fileUtils', () => ({
-  canShareFiles: () => false,
-  downloadFile: vi.fn(),
-  shareFile: vi.fn()
+  canShareFiles: () => mockCanShareFiles(),
+  downloadFile: (...args: unknown[]) => mockDownloadFile(...args),
+  shareFile: (...args: unknown[]) => mockShareFile(...args)
 }));
 
 vi.mock('@/lib/llmRuntime', () => ({
-  setAttachedImage: vi.fn()
+  setAttachedImage: (image: string | null) => mockSetAttachedImage(image)
 }));
 
 vi.mock('@/lib/chatAttachments', () => ({
-  uint8ArrayToDataUrl: vi.fn()
+  uint8ArrayToDataUrl: (data: Uint8Array, mimeType: string) =>
+    mockUint8ArrayToDataUrl(data, mimeType)
 }));
 
-function renderPhotosPage(route = '/photos') {
-  return render(
-    <MemoryRouter initialEntries={[route]}>
-      <Routes>
-        <Route path="/photos" element={<PhotosPage />} />
-        <Route path="/photos/albums/:albumId" element={<PhotosPage />} />
-      </Routes>
-    </MemoryRouter>
-  );
-}
+// ============================================================
+// Tests
+// ============================================================
 
 describe('PhotosPage (wrapper with sidebar)', () => {
   beforeEach(() => {

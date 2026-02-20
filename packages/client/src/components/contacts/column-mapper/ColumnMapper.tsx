@@ -11,7 +11,7 @@ import {
 } from '@tearleads/window-manager';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import type { ColumnMapping, ParsedCSV } from '@/hooks/useContactsImport';
+import type { ColumnMapping, ParsedCSV } from '@/hooks/contacts';
 import { ColumnChip } from './ColumnChip';
 import {
   ALL_PREVIEW_FIELDS,

@@ -18,7 +18,7 @@ import {
   VirtualListStatus
 } from '@/components/ui/VirtualListStatus';
 import { useDatabaseContext } from '@/db/hooks';
-import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
+import { useVirtualVisibleRange } from '@/hooks/device';
 import { formatFileSize } from '@/lib/utils';
 import {
   BlankSpaceContextMenu,

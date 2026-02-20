@@ -8,7 +8,7 @@ import {
   type WindowOpenRequestPayloads,
   type WindowType
 } from '@/contexts/WindowManagerContext';
-import { useFileUpload } from '@/hooks/useFileUpload';
+import { useFileUpload } from '@/hooks/vfs';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/fileUtils';
 import { setAttachedImage } from '@/lib/llmRuntime';
 import { logStore } from '@/stores/logStore';

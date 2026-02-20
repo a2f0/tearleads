@@ -17,7 +17,7 @@ vi.mock('@/db/crypto', () => ({
     mockGetKeyManagerForInstance(instanceId)
 }));
 
-vi.mock('@/hooks/useInstanceChange', () => ({
+vi.mock('@/hooks/app', () => ({
   useOnInstanceChange: (
     callback: (next: string | null, prev: string | null) => void
   ) => mockUseOnInstanceChange(callback)

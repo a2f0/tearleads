@@ -1,15 +1,12 @@
 import { act, render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  emitInstanceChange,
-  resetInstanceChangeState
-} from '@/hooks/useInstanceChange';
+import { emitInstanceChange, resetInstanceChangeState } from '@/hooks/app';
 import { InstanceChangeHandler } from './InstanceChangeHandler';
 
 const mockResetLLMUIState = vi.fn();
 const mockClearAttachedImage = vi.fn();
 
-vi.mock('@/hooks/llm', () => ({
+vi.mock('@/hooks/ai', () => ({
   resetLLMUIState: () => mockResetLLMUIState()
 }));
 

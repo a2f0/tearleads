@@ -152,11 +152,11 @@ vi.mock('./contexts/WindowManagerContext', () => ({
   })
 }));
 
-vi.mock('./hooks/useAppVersion', () => ({
+vi.mock('./hooks/app', () => ({
   useAppVersion: () => mockUseAppVersion()
 }));
 
-vi.mock('./hooks/useKeyboardHeight', () => ({
+vi.mock('./hooks/ui', () => ({
   useKeyboardHeight: () => mockKeyboardHeight
 }));
 

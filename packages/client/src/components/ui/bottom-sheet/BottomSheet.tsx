@@ -8,10 +8,7 @@ import {
   useRef,
   useState
 } from 'react';
-import {
-  type SnapPoint,
-  useBottomSheetGesture
-} from '@/hooks/useBottomSheetGesture';
+import { type SnapPoint, useBottomSheetGesture } from '@/hooks/ui';
 import { cn } from '@/lib/utils';
 
 export const ANIMATION_DURATION_MS = 300;

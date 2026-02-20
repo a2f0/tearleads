@@ -15,7 +15,7 @@ vi.mock('@/db', () => ({
   getDatabaseAdapter: () => mockGetDatabaseAdapter()
 }));
 
-vi.mock('@/hooks/useInstanceChange', () => ({
+vi.mock('@/hooks/app', () => ({
   useOnInstanceChange: (callback: () => void) => {
     capturedInstanceChangeCallback = callback;
   }

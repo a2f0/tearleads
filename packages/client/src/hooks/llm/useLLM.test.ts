@@ -32,7 +32,7 @@ vi.mock('@/db', () => ({
 }));
 
 // Mock useAppLifecycle
-vi.mock('./useAppLifecycle', () => ({
+vi.mock('../app', () => ({
   saveLastLoadedModel: vi.fn(),
   getLastLoadedModel: vi.fn().mockReturnValue(null),
   clearLastLoadedModel: vi.fn()
@@ -59,7 +59,7 @@ describe('useLLM', () => {
         requestAdapter: vi.fn().mockResolvedValue({})
       }
     });
-    const { getLastLoadedModel } = await import('./useAppLifecycle');
+    const { getLastLoadedModel } = await import('../app');
     vi.mocked(getLastLoadedModel).mockReturnValue(null);
   });
 
@@ -72,7 +72,7 @@ describe('useLLM', () => {
   describe('snapshot immutability', () => {
     it('updates state correctly during model loading', async () => {
       // Import fresh module
-      const { useLLM } = await import('./llm');
+      const { useLLM } = await import('./useLLM');
       const { result } = renderHook(() => useLLM());
 
       // Capture initial state values
@@ -111,7 +111,7 @@ describe('useLLM', () => {
 
     it('maintains stable state when no changes occur', async () => {
       // Import fresh module
-      const { useLLM } = await import('./llm');
+      const { useLLM } = await import('./useLLM');
       const { result, rerender } = renderHook(() => useLLM());
 
       // Capture initial state
@@ -132,7 +132,7 @@ describe('useLLM', () => {
   describe('state updates during model loading', () => {
     it('handles state transitions correctly when loading a new model', async () => {
       // Import fresh module
-      const { useLLM } = await import('./llm');
+      const { useLLM } = await import('./useLLM');
       const { result } = renderHook(() => useLLM());
 
       // Capture initial state
@@ -178,7 +178,7 @@ describe('useLLM', () => {
   describe('loadProgress updates', () => {
     it('creates new snapshots for progress updates', async () => {
       // Import fresh module
-      const { useLLM } = await import('./llm');
+      const { useLLM } = await import('./useLLM');
       const { result } = renderHook(() => useLLM());
 
       // Start loading
@@ -213,7 +213,7 @@ describe('useLLM', () => {
   describe('error handling', () => {
     it('creates new snapshot on error', async () => {
       // Import fresh module
-      const { useLLM } = await import('./llm');
+      const { useLLM } = await import('./useLLM');
       const { result } = renderHook(() => useLLM());
 
       // Start loading - we'll handle the rejection when it occurs
@@ -250,9 +250,106 @@ describe('useLLM', () => {
     });
   });
 
+  describe('worker edge cases', () => {
+    it('clamps progress when total is zero', async () => {
+      const { useLLM } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      await act(async () => {
+        result.current.loadModel('test-model');
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        mockOnMessage?.(
+          new MessageEvent('message', {
+            data: {
+              type: 'progress',
+              file: 'model.bin',
+              progress: 5,
+              total: 0
+            }
+          })
+        );
+      });
+
+      expect(result.current.loadProgress).toEqual({
+        text: 'Downloading model.bin...',
+        progress: 1
+      });
+    });
+
+    it('clears loaded model state on unloaded message', async () => {
+      const { clearLastLoadedModel } = await import('../app');
+      const { useLLM } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      await act(async () => {
+        result.current.loadModel('test-model');
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        mockOnMessage?.(
+          new MessageEvent('message', {
+            data: {
+              type: 'loaded',
+              modelId: 'test-model',
+              modelType: 'chat',
+              durationMs: 100
+            }
+          })
+        );
+      });
+
+      expect(result.current.loadedModel).toBe('test-model');
+
+      await act(async () => {
+        mockOnMessage?.(
+          new MessageEvent('message', {
+            data: { type: 'unloaded' }
+          })
+        );
+      });
+
+      expect(result.current.loadedModel).toBeNull();
+      expect(result.current.modelType).toBeNull();
+      expect(vi.mocked(clearLastLoadedModel)).toHaveBeenCalledWith(
+        'test-instance-id'
+      );
+    });
+
+    it('surfaces worker crashes and rejects pending load', async () => {
+      const { toast } = await import('sonner');
+      const { getWorker } = await import('./store');
+      const { useLLM } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      let loadPromise: Promise<void> | undefined;
+      await act(async () => {
+        loadPromise = result.current.loadModel('test-model');
+        await Promise.resolve();
+      });
+
+      const worker = getWorker();
+      await act(async () => {
+        worker.onerror?.(new ErrorEvent('error', { message: 'kaboom' }));
+        try {
+          await loadPromise;
+        } catch {
+          // Expected rejection from worker crash.
+        }
+      });
+
+      expect(result.current.error).toBe('Worker error: kaboom');
+      expect(vi.mocked(toast.error)).toHaveBeenCalled();
+      await expect(loadPromise).rejects.toThrow('Worker error: kaboom');
+    });
+  });
+
   describe('resetLLMUIState', () => {
     it('clears UI state but preserves loadedModel and modelType', async () => {
-      const { useLLM, resetLLMUIState } = await import('./llm');
+      const { useLLM, resetLLMUIState } = await import('./useLLM');
       const { result } = renderHook(() => useLLM());
 
       // Load a model first
@@ -293,7 +390,7 @@ describe('useLLM', () => {
     });
 
     it('rejects in-progress generation when reset', async () => {
-      const { useLLM, resetLLMUIState } = await import('./llm');
+      const { useLLM, resetLLMUIState } = await import('./useLLM');
       const { result } = renderHook(() => useLLM());
 
       // Load a model first
@@ -341,7 +438,7 @@ describe('useLLM', () => {
     });
 
     it('rejects pending load when reset', async () => {
-      const { useLLM, resetLLMUIState } = await import('./llm');
+      const { useLLM, resetLLMUIState } = await import('./useLLM');
       const { result } = renderHook(() => useLLM());
 
       // Start loading a model

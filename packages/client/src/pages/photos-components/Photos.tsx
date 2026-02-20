@@ -28,7 +28,7 @@ import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
-import { useFileUpload } from '@/hooks/useFileUpload';
+import { useFileUpload } from '@/hooks/vfs';
 import { useTypedTranslation } from '@/i18n';
 import { uint8ArrayToDataUrl } from '@/lib/chatAttachments';
 import { setAttachedImage } from '@/lib/llmRuntime';

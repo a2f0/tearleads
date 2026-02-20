@@ -3,7 +3,7 @@ import { ChevronRight, Scale } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { FeatureFlags } from '@/components/settings/FeatureFlags';
 import { BackLink } from '@/components/ui/back-link';
-import { useAppVersion } from '@/hooks/useAppVersion';
+import { useAppVersion } from '@/hooks/app';
 
 interface SettingsProps {
   showBackLink?: boolean;

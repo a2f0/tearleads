@@ -30,7 +30,7 @@ import {
 import { getDatabase } from '@/db';
 import { getKeyManagerForInstance } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks/useDatabase';
-import { useOnInstanceChange } from '@/hooks/useInstanceChange';
+import { useOnInstanceChange } from '@/hooks/app';
 import { createSearchableAppDocuments } from './appCatalog';
 import { createSearchableHelpDocuments } from './helpCatalog';
 

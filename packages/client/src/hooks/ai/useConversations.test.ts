@@ -52,7 +52,7 @@ vi.mock('@/lib/conversationCrypto', () => ({
 }));
 
 // Mock VFS keys
-vi.mock('./useVfsKeys', () => ({
+vi.mock('@/hooks/vfs', () => ({
   ensureVfsKeyPair: vi.fn().mockResolvedValue({
     x25519PublicKey: new Uint8Array(32),
     x25519PrivateKey: new Uint8Array(32),

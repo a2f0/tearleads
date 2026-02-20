@@ -7,7 +7,7 @@ import { Dropzone } from '@/components/ui/dropzone';
 import { ListRow } from '@/components/ui/ListRow';
 import { UploadProgress } from '@/components/ui/UploadProgress';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
-import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
+import { useVirtualVisibleRange } from '@/hooks/device';
 import { useTypedTranslation } from '@/i18n';
 import { uint8ArrayToDataUrl } from '@/lib/chatAttachments';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/fileUtils';

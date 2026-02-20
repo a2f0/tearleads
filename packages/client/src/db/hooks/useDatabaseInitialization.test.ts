@@ -15,7 +15,7 @@ const mockInitializeRegistry = vi.fn();
 const mockSetActiveInstanceId = vi.fn();
 const mockTouchInstance = vi.fn();
 
-vi.mock('@/hooks/useInstanceChange', () => ({
+vi.mock('@/hooks/app', () => ({
   emitInstanceChange: (...args: unknown[]) => mockEmitInstanceChange(...args)
 }));
 

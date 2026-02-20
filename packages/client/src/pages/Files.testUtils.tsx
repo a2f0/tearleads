@@ -103,7 +103,7 @@ vi.mock('@/lib/fileUtils', () => ({
 
 // Mock useFileUpload hook
 export const mockUploadFile = vi.fn();
-vi.mock('@/hooks/useFileUpload', () => ({
+vi.mock('@/hooks/vfs', () => ({
   useFileUpload: () => ({
     uploadFile: mockUploadFile
   })
@@ -134,7 +134,7 @@ vi.mock('@/lib/dataRetrieval', () => ({
 
 // Mock useOnInstanceChange to capture callback for testing
 export let instanceChangeCallback: (() => void) | null = null;
-vi.mock('@/hooks/useInstanceChange', () => ({
+vi.mock('@/hooks/app/useInstanceChange', () => ({
   useOnInstanceChange: (callback: () => void) => {
     instanceChangeCallback = callback;
   }

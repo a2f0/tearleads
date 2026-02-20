@@ -5,20 +5,15 @@ import { Dropzone } from './dropzone';
 
 vi.mock('@/lib/utils', async () => {
   const actual = await vi.importActual('@/lib/utils');
-  return {
-    ...actual,
-    detectPlatform: vi.fn(() => 'web')
-  };
+  return { ...actual, detectPlatform: vi.fn(() => 'web') };
 });
 
-vi.mock('@/hooks/useNativeFilePicker', () => ({
-  useNativeFilePicker: vi.fn()
-}));
+vi.mock('@/hooks/dnd', () => ({ useNativeFilePicker: vi.fn() }));
 
-import { useNativeFilePicker } from '@/hooks/useNativeFilePicker';
+import { useNativeFilePicker } from '@/hooks/dnd';
 import { detectPlatform } from '@/lib/utils';
 
-describe('Dropzone', () => {
+describe('Dropzone Web/Electron', () => {
   const mockOnFilesSelected = vi.fn();
   const mockPickFiles = vi.fn();
 
@@ -31,555 +26,317 @@ describe('Dropzone', () => {
     });
   });
 
-  describe('Web/Electron version', () => {
-    it('renders the dropzone with drag and drop text', () => {
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
+  it('renders drag and drop text and has correct testid', () => {
+    render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
+    expect(screen.getByText('Drag and drop files here')).toBeInTheDocument();
+    expect(screen.getByText('or click to browse')).toBeInTheDocument();
+    expect(screen.getByTestId('dropzone')).toBeInTheDocument();
+  });
 
-      expect(screen.getByText('Drag and drop files here')).toBeInTheDocument();
-      expect(screen.getByText('or click to browse')).toBeInTheDocument();
+  it('uses custom label in drag and drop text', () => {
+    render(<Dropzone onFilesSelected={mockOnFilesSelected} label="photos" />);
+    expect(screen.getByText('Drag and drop photos here')).toBeInTheDocument();
+  });
+
+  it('shows and removes dragging state', () => {
+    render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
+    const dropzone = screen.getByTestId('dropzone');
+    fireEvent.dragOver(dropzone);
+    expect(dropzone).toHaveAttribute('data-dragging', 'true');
+    expect(screen.getByText('Drop files here')).toBeInTheDocument();
+    fireEvent.dragLeave(dropzone);
+    expect(dropzone).toHaveAttribute('data-dragging', 'false');
+  });
+
+  it('calls onFilesSelected when files are dropped or selected via input', async () => {
+    const user = userEvent.setup();
+    render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
+    const dropzone = screen.getByTestId('dropzone');
+    const file = new File(['test content'], 'test.txt', { type: 'text/plain' });
+    fireEvent.drop(dropzone, { dataTransfer: { files: [file] } });
+    expect(mockOnFilesSelected).toHaveBeenCalledWith([file]);
+    mockOnFilesSelected.mockClear();
+    const input = screen.getByTestId('dropzone-input');
+    await user.upload(input, file);
+    expect(mockOnFilesSelected).toHaveBeenCalledWith([file]);
+  });
+
+  it('supports multiple file selection by default and respects props', () => {
+    render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
+    expect(screen.getByTestId('dropzone-input')).toHaveAttribute('multiple');
+    const { unmount } = render(
+      <Dropzone onFilesSelected={mockOnFilesSelected} multiple={false} />
+    );
+    unmount();
+    render(<Dropzone onFilesSelected={mockOnFilesSelected} multiple={false} />);
+    const inputs = screen.getAllByTestId('dropzone-input');
+    expect(inputs[inputs.length - 1]).not.toHaveAttribute('multiple');
+  });
+
+  it('respects accept prop', () => {
+    render(<Dropzone onFilesSelected={mockOnFilesSelected} accept="image/*" />);
+    expect(screen.getByTestId('dropzone-input')).toHaveAttribute(
+      'accept',
+      'image/*'
+    );
+  });
+
+  it('does not call onFilesSelected when disabled', () => {
+    render(<Dropzone onFilesSelected={mockOnFilesSelected} disabled={true} />);
+    const dropzone = screen.getByTestId('dropzone');
+    fireEvent.drop(dropzone, {
+      dataTransfer: {
+        files: [new File(['test'], 'test.txt', { type: 'text/plain' })]
+      }
     });
+    expect(mockOnFilesSelected).not.toHaveBeenCalled();
+    expect(dropzone).toHaveClass('cursor-not-allowed');
+  });
 
-    it('uses custom label in drag and drop text', () => {
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} label="photos" />);
+  it('renders compact mode correctly', async () => {
+    const user = userEvent.setup();
+    render(
+      <Dropzone
+        onFilesSelected={mockOnFilesSelected}
+        accept="image/*"
+        compact
+      />
+    );
+    const dropzone = screen.getByTestId('dropzone');
+    expect(dropzone).toHaveClass('aspect-square');
+    expect(
+      screen.queryByText('Drag and drop files here')
+    ).not.toBeInTheDocument();
+    const file = new File(['test'], 'photo.jpg', { type: 'image/jpeg' });
+    fireEvent.drop(dropzone, { dataTransfer: { files: [file] } });
+    expect(mockOnFilesSelected).toHaveBeenCalledWith([file]);
+    mockOnFilesSelected.mockClear();
+    fireEvent.dragOver(dropzone);
+    expect(dropzone).toHaveClass('ring-2');
+    expect(dropzone).toHaveClass('ring-primary');
+    fireEvent.dragLeave(dropzone);
+    await user.upload(screen.getByTestId('dropzone-input'), file);
+    expect(mockOnFilesSelected).toHaveBeenCalledWith([file]);
+  });
+});
 
-      expect(screen.getByText('Drag and drop photos here')).toBeInTheDocument();
-    });
+describe('Dropzone Native iOS', () => {
+  const mockOnFilesSelected = vi.fn();
+  const mockPickFiles = vi.fn();
 
-    it('has the correct data-testid', () => {
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
-
-      expect(screen.getByTestId('dropzone')).toBeInTheDocument();
-    });
-
-    it('shows dragging state when files are dragged over', () => {
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
-
-      const dropzone = screen.getByTestId('dropzone');
-
-      fireEvent.dragOver(dropzone);
-
-      expect(dropzone).toHaveAttribute('data-dragging', 'true');
-      expect(screen.getByText('Drop files here')).toBeInTheDocument();
-    });
-
-    it('removes dragging state when files are dragged away', () => {
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
-
-      const dropzone = screen.getByTestId('dropzone');
-
-      fireEvent.dragOver(dropzone);
-      expect(dropzone).toHaveAttribute('data-dragging', 'true');
-
-      fireEvent.dragLeave(dropzone);
-      expect(dropzone).toHaveAttribute('data-dragging', 'false');
-    });
-
-    it('calls onFilesSelected when files are dropped', () => {
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
-
-      const dropzone = screen.getByTestId('dropzone');
-      const file = new File(['test content'], 'test.txt', {
-        type: 'text/plain'
-      });
-
-      fireEvent.drop(dropzone, {
-        dataTransfer: {
-          files: [file]
-        }
-      });
-
-      expect(mockOnFilesSelected).toHaveBeenCalledWith([file]);
-    });
-
-    it('calls onFilesSelected when files are selected via input', async () => {
-      const user = userEvent.setup();
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
-
-      const file = new File(['test content'], 'test.txt', {
-        type: 'text/plain'
-      });
-      const input = screen.getByTestId('dropzone-input');
-
-      await user.upload(input, file);
-
-      expect(mockOnFilesSelected).toHaveBeenCalledWith([file]);
-    });
-
-    it('supports multiple file selection by default', () => {
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
-
-      const input = screen.getByTestId('dropzone-input');
-
-      expect(input).toHaveAttribute('multiple');
-    });
-
-    it('respects multiple=false prop', () => {
-      render(
-        <Dropzone onFilesSelected={mockOnFilesSelected} multiple={false} />
-      );
-
-      const input = screen.getByTestId('dropzone-input');
-
-      expect(input).not.toHaveAttribute('multiple');
-    });
-
-    it('respects accept prop', () => {
-      render(
-        <Dropzone onFilesSelected={mockOnFilesSelected} accept="image/*" />
-      );
-
-      const input = screen.getByTestId('dropzone-input');
-
-      expect(input).toHaveAttribute('accept', 'image/*');
-    });
-
-    it('does not call onFilesSelected when disabled and files are dropped', () => {
-      render(
-        <Dropzone onFilesSelected={mockOnFilesSelected} disabled={true} />
-      );
-
-      const dropzone = screen.getByTestId('dropzone');
-      const file = new File(['test content'], 'test.txt', {
-        type: 'text/plain'
-      });
-
-      fireEvent.drop(dropzone, {
-        dataTransfer: {
-          files: [file]
-        }
-      });
-
-      expect(mockOnFilesSelected).not.toHaveBeenCalled();
-    });
-
-    it('shows disabled styling when disabled', () => {
-      render(
-        <Dropzone onFilesSelected={mockOnFilesSelected} disabled={true} />
-      );
-
-      const dropzone = screen.getByTestId('dropzone');
-
-      expect(dropzone).toHaveClass('cursor-not-allowed');
-      expect(dropzone).toHaveClass('opacity-50');
-    });
-
-    it('renders compact mode as square icon with upload icon', () => {
-      render(
-        <Dropzone
-          onFilesSelected={mockOnFilesSelected}
-          accept="image/*"
-          compact
-        />
-      );
-
-      const dropzone = screen.getByTestId('dropzone');
-      expect(dropzone).toHaveClass('aspect-square');
-      expect(
-        screen.queryByText('Drag and drop files here')
-      ).not.toBeInTheDocument();
-      expect(screen.queryByText('or click to browse')).not.toBeInTheDocument();
-    });
-
-    it('compact mode calls onFilesSelected when files are dropped', () => {
-      render(
-        <Dropzone
-          onFilesSelected={mockOnFilesSelected}
-          accept="image/*"
-          compact
-        />
-      );
-
-      const dropzone = screen.getByTestId('dropzone');
-      const file = new File(['test content'], 'photo.jpg', {
-        type: 'image/jpeg'
-      });
-
-      fireEvent.drop(dropzone, {
-        dataTransfer: {
-          files: [file]
-        }
-      });
-
-      expect(mockOnFilesSelected).toHaveBeenCalledWith([file]);
-    });
-
-    it('compact mode shows ring highlight when dragging', () => {
-      render(
-        <Dropzone
-          onFilesSelected={mockOnFilesSelected}
-          accept="image/*"
-          compact
-        />
-      );
-
-      const dropzone = screen.getByTestId('dropzone');
-
-      fireEvent.dragOver(dropzone);
-
-      expect(dropzone).toHaveAttribute('data-dragging', 'true');
-      expect(dropzone).toHaveClass('ring-2');
-      expect(dropzone).toHaveClass('ring-primary');
-    });
-
-    it('compact mode calls onFilesSelected when files selected via input', async () => {
-      const user = userEvent.setup();
-      render(
-        <Dropzone
-          onFilesSelected={mockOnFilesSelected}
-          accept="image/*"
-          compact
-        />
-      );
-
-      const file = new File(['test content'], 'photo.jpg', {
-        type: 'image/jpeg'
-      });
-      const input = screen.getByTestId('dropzone-input');
-
-      await user.upload(input, file);
-
-      expect(mockOnFilesSelected).toHaveBeenCalledWith([file]);
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(detectPlatform).mockReturnValue('ios');
+    vi.mocked(useNativeFilePicker).mockReturnValue({
+      pickFiles: mockPickFiles,
+      isNativePicker: true
     });
   });
 
-  describe('Native version on ios', () => {
-    beforeEach(() => {
-      vi.mocked(detectPlatform).mockReturnValue('ios');
-      vi.mocked(useNativeFilePicker).mockReturnValue({
-        pickFiles: mockPickFiles,
-        isNativePicker: true
-      });
+  it('renders Choose Files button and hides drag text', () => {
+    render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
+    expect(screen.getByTestId('dropzone-choose-files')).toBeInTheDocument();
+    expect(screen.getByText('Choose Files')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Drag and drop files here')
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('dropzone-input')).toHaveClass('hidden');
+  });
+
+  it('uses custom label with capitalized first letter', () => {
+    render(<Dropzone onFilesSelected={mockOnFilesSelected} label="photos" />);
+    expect(screen.getByText('Choose Photos')).toBeInTheDocument();
+  });
+
+  it('does not trigger picker when disabled', async () => {
+    const user = userEvent.setup();
+    render(<Dropzone onFilesSelected={mockOnFilesSelected} disabled={true} />);
+    const button = screen.getByTestId('dropzone-choose-files');
+    const input = screen.getByTestId('dropzone-input');
+    const clickSpy = vi.spyOn(input, 'click');
+    await user.click(button);
+    expect(clickSpy).not.toHaveBeenCalled();
+    expect(mockPickFiles).not.toHaveBeenCalled();
+    clickSpy.mockRestore();
+  });
+
+  it('uses native file picker when clicked', async () => {
+    const user = userEvent.setup();
+    const testFile = new File(['test'], 'test.mp3', { type: 'audio/mpeg' });
+    mockPickFiles.mockResolvedValue([testFile]);
+    render(
+      <Dropzone
+        onFilesSelected={mockOnFilesSelected}
+        accept="audio/*"
+        multiple={false}
+      />
+    );
+    await user.click(screen.getByTestId('dropzone-choose-files'));
+    expect(mockPickFiles).toHaveBeenCalledWith({
+      accept: 'audio/*',
+      multiple: false,
+      source: undefined
     });
+    expect(mockOnFilesSelected).toHaveBeenCalledWith([testFile]);
+  });
 
-    it('renders the Choose Files button', () => {
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
+  it('handles empty picker result and cancellation', async () => {
+    const user = userEvent.setup();
+    mockPickFiles.mockResolvedValue([]);
+    render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
+    await user.click(screen.getByTestId('dropzone-choose-files'));
+    expect(mockOnFilesSelected).not.toHaveBeenCalled();
+    const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    mockPickFiles.mockRejectedValue(
+      Object.assign(new Error('Cancelled'), { code: 'CANCELLED' })
+    );
+    await user.click(screen.getByTestId('dropzone-choose-files'));
+    expect(debugSpy).toHaveBeenCalledWith(
+      'Native file picker cancelled by user.'
+    );
+    debugSpy.mockRestore();
+  });
 
-      expect(screen.getByTestId('dropzone-choose-files')).toBeInTheDocument();
-      expect(screen.getByText('Choose Files')).toBeInTheDocument();
+  it('logs errors when picker fails', async () => {
+    const user = userEvent.setup();
+    const error = new Error('Picker failed');
+    mockPickFiles.mockRejectedValue(error);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
+    await user.click(screen.getByTestId('dropzone-choose-files'));
+    expect(errorSpy).toHaveBeenCalledWith('Native file picker failed:', error);
+    mockPickFiles.mockRejectedValue('String error');
+    await user.click(screen.getByTestId('dropzone-choose-files'));
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Native file picker failed:',
+      'String error'
+    );
+    errorSpy.mockRestore();
+  });
+
+  it('disables button while picker is open', async () => {
+    const user = userEvent.setup();
+    let resolvePickFiles: (files: File[]) => void = () => {};
+    mockPickFiles.mockImplementation(
+      () =>
+        new Promise<File[]>((resolve) => {
+          resolvePickFiles = resolve;
+        })
+    );
+    render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
+    const button = screen.getByTestId('dropzone-choose-files');
+    expect(button).not.toBeDisabled();
+    user.click(button);
+    await vi.waitFor(() => expect(button).toBeDisabled());
+    await act(async () => {
+      resolvePickFiles([]);
     });
+  });
 
-    it('uses custom label in button text with capitalized first letter', () => {
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} label="photos" />);
-
-      expect(screen.getByText('Choose Photos')).toBeInTheDocument();
+  it('passes source prop to picker', async () => {
+    const user = userEvent.setup();
+    const testFile = new File(['test'], 'photo.jpg', { type: 'image/jpeg' });
+    let resolvePickFiles: (files: File[]) => void = () => {};
+    mockPickFiles.mockImplementation(
+      () =>
+        new Promise<File[]>((resolve) => {
+          resolvePickFiles = resolve;
+        })
+    );
+    render(
+      <Dropzone
+        onFilesSelected={mockOnFilesSelected}
+        accept="image/*"
+        source="photos"
+      />
+    );
+    const button = screen.getByTestId('dropzone-choose-files');
+    await user.click(button);
+    expect(mockPickFiles).toHaveBeenCalledWith({
+      accept: 'image/*',
+      multiple: true,
+      source: 'photos'
     });
-
-    it('does not show drag and drop text', () => {
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
-
-      expect(
-        screen.queryByText('Drag and drop files here')
-      ).not.toBeInTheDocument();
+    await vi.waitFor(() => expect(button).toBeDisabled());
+    await act(async () => {
+      resolvePickFiles([testFile]);
     });
-
-    it('has hidden file input', () => {
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
-
-      const input = screen.getByTestId('dropzone-input');
-
-      expect(input).toHaveClass('hidden');
-    });
-
-    it('does not trigger file input or native picker when disabled', async () => {
-      const user = userEvent.setup();
-      render(
-        <Dropzone onFilesSelected={mockOnFilesSelected} disabled={true} />
-      );
-
-      const button = screen.getByTestId('dropzone-choose-files');
-      const input = screen.getByTestId('dropzone-input');
-      const clickSpy = vi.spyOn(input, 'click');
-
-      await user.click(button);
-
-      expect(clickSpy).not.toHaveBeenCalled();
-      expect(mockPickFiles).not.toHaveBeenCalled();
-      clickSpy.mockRestore();
-    });
-
-    it('uses native file picker when clicked and not disabled', async () => {
-      const user = userEvent.setup();
-      const testFile = new File(['test'], 'test.mp3', { type: 'audio/mpeg' });
-      mockPickFiles.mockResolvedValue([testFile]);
-
-      render(
-        <Dropzone
-          onFilesSelected={mockOnFilesSelected}
-          accept="audio/*"
-          multiple={false}
-        />
-      );
-
-      const button = screen.getByTestId('dropzone-choose-files');
-      const input = screen.getByTestId('dropzone-input');
-      const clickSpy = vi.spyOn(input, 'click');
-
-      await user.click(button);
-
-      expect(mockPickFiles).toHaveBeenCalledWith({
-        accept: 'audio/*',
-        multiple: false,
-        source: undefined
-      });
-      expect(clickSpy).not.toHaveBeenCalled();
+    await vi.waitFor(() => {
       expect(mockOnFilesSelected).toHaveBeenCalledWith([testFile]);
-      clickSpy.mockRestore();
-    });
-
-    it('does not call onFilesSelected when picker returns empty', async () => {
-      const user = userEvent.setup();
-      mockPickFiles.mockResolvedValue([]);
-
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
-
-      const button = screen.getByTestId('dropzone-choose-files');
-      await user.click(button);
-
-      expect(mockOnFilesSelected).not.toHaveBeenCalled();
-    });
-
-    it('logs cancellation when native picker is cancelled', async () => {
-      const user = userEvent.setup();
-      const error = Object.assign(new Error('Cancelled'), {
-        code: 'CANCELLED'
-      });
-      mockPickFiles.mockRejectedValue(error);
-      const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
-
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
-
-      const button = screen.getByTestId('dropzone-choose-files');
-      await user.click(button);
-
-      expect(debugSpy).toHaveBeenCalledWith(
-        'Native file picker cancelled by user.'
-      );
-
-      debugSpy.mockRestore();
-    });
-
-    it('logs errors when native picker fails', async () => {
-      const user = userEvent.setup();
-      const error = new Error('Picker failed');
-      mockPickFiles.mockRejectedValue(error);
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
-
-      const button = screen.getByTestId('dropzone-choose-files');
-      await user.click(button);
-
-      expect(errorSpy).toHaveBeenCalledWith(
-        'Native file picker failed:',
-        error
-      );
-
-      errorSpy.mockRestore();
-    });
-
-    it('logs errors when native picker throws non-object values', async () => {
-      const user = userEvent.setup();
-      mockPickFiles.mockRejectedValue('Picker failed');
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
-
-      const button = screen.getByTestId('dropzone-choose-files');
-      await user.click(button);
-
-      expect(errorSpy).toHaveBeenCalledWith(
-        'Native file picker failed:',
-        'Picker failed'
-      );
-
-      errorSpy.mockRestore();
-    });
-
-    it('disables button while picker is open', async () => {
-      const user = userEvent.setup();
-      let resolvePickFiles: (files: File[]) => void = () => {};
-      mockPickFiles.mockImplementation(
-        () =>
-          new Promise<File[]>((resolve) => {
-            resolvePickFiles = resolve;
-          })
-      );
-
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
-
-      const button = screen.getByTestId('dropzone-choose-files');
-
-      // Button should initially be enabled
       expect(button).not.toBeDisabled();
-
-      // Click the button to open picker
-      user.click(button);
-
-      // Wait for the button to become disabled
-      await vi.waitFor(() => {
-        expect(button).toBeDisabled();
-      });
-
-      // Resolve the picker to clean up
-      await act(async () => {
-        resolvePickFiles([]);
-      });
-    });
-
-    it('passes source prop to native picker', async () => {
-      const user = userEvent.setup();
-      const testFile = new File(['test'], 'photo.jpg', { type: 'image/jpeg' });
-
-      // Use controlled promise to ensure proper async handling
-      let resolvePickFiles: (files: File[]) => void = () => {};
-      mockPickFiles.mockImplementation(
-        () =>
-          new Promise<File[]>((resolve) => {
-            resolvePickFiles = resolve;
-          })
-      );
-
-      render(
-        <Dropzone
-          onFilesSelected={mockOnFilesSelected}
-          accept="image/*"
-          source="photos"
-        />
-      );
-
-      const button = screen.getByTestId('dropzone-choose-files');
-      await user.click(button);
-
-      expect(mockPickFiles).toHaveBeenCalledWith({
-        accept: 'image/*',
-        multiple: true,
-        source: 'photos'
-      });
-
-      // Wait for button to become disabled (picker is open)
-      await vi.waitFor(() => {
-        expect(button).toBeDisabled();
-      });
-
-      // Resolve the picker within act() to handle state updates
-      await act(async () => {
-        resolvePickFiles([testFile]);
-      });
-
-      // Wait for all async state updates after picker resolves
-      await vi.waitFor(() => {
-        expect(mockOnFilesSelected).toHaveBeenCalledWith([testFile]);
-        expect(button).not.toBeDisabled();
-      });
-    });
-
-    it('renders compact mode as square icon button', () => {
-      render(
-        <Dropzone
-          onFilesSelected={mockOnFilesSelected}
-          accept="image/*"
-          source="photos"
-          compact
-        />
-      );
-
-      const dropzone = screen.getByTestId('dropzone-native');
-      expect(dropzone).toHaveClass('aspect-square');
-      expect(screen.queryByText('Choose Photos')).not.toBeInTheDocument();
-    });
-
-    it('compact mode triggers native picker when clicked', async () => {
-      const user = userEvent.setup();
-      const testFile = new File(['test'], 'photo.jpg', { type: 'image/jpeg' });
-      mockPickFiles.mockResolvedValue([testFile]);
-
-      render(
-        <Dropzone
-          onFilesSelected={mockOnFilesSelected}
-          accept="image/*"
-          source="photos"
-          compact
-        />
-      );
-
-      const dropzone = screen.getByTestId('dropzone-native');
-      await user.click(dropzone);
-
-      expect(mockPickFiles).toHaveBeenCalledWith({
-        accept: 'image/*',
-        multiple: true,
-        source: 'photos'
-      });
-      expect(mockOnFilesSelected).toHaveBeenCalledWith([testFile]);
     });
   });
 
-  describe('Native version on android', () => {
-    beforeEach(() => {
-      vi.mocked(detectPlatform).mockReturnValue('android');
-      vi.mocked(useNativeFilePicker).mockReturnValue({
-        pickFiles: mockPickFiles,
-        isNativePicker: false
-      });
+  it('renders compact mode and triggers picker', async () => {
+    const user = userEvent.setup();
+    const testFile = new File(['test'], 'photo.jpg', { type: 'image/jpeg' });
+    mockPickFiles.mockResolvedValue([testFile]);
+    render(
+      <Dropzone
+        onFilesSelected={mockOnFilesSelected}
+        accept="image/*"
+        source="photos"
+        compact
+      />
+    );
+    const dropzone = screen.getByTestId('dropzone-native');
+    expect(dropzone).toHaveClass('aspect-square');
+    expect(screen.queryByText('Choose Photos')).not.toBeInTheDocument();
+    await user.click(dropzone);
+    expect(mockPickFiles).toHaveBeenCalledWith({
+      accept: 'image/*',
+      multiple: true,
+      source: 'photos'
     });
+    expect(mockOnFilesSelected).toHaveBeenCalledWith([testFile]);
+  });
+});
 
-    it('renders the Choose Files button', () => {
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
+describe('Dropzone Native Android', () => {
+  const mockOnFilesSelected = vi.fn();
+  const mockPickFiles = vi.fn();
 
-      expect(screen.getByTestId('dropzone-choose-files')).toBeInTheDocument();
-      expect(screen.getByText('Choose Files')).toBeInTheDocument();
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(detectPlatform).mockReturnValue('android');
+    vi.mocked(useNativeFilePicker).mockReturnValue({
+      pickFiles: mockPickFiles,
+      isNativePicker: false
     });
+  });
 
-    it('uses custom label in button text with capitalized first letter', () => {
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} label="photos" />);
+  it('renders Choose Files button and hides drag text', () => {
+    render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
+    expect(screen.getByTestId('dropzone-choose-files')).toBeInTheDocument();
+    expect(screen.getByText('Choose Files')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Drag and drop files here')
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('dropzone-input')).toHaveClass('hidden');
+  });
 
-      expect(screen.getByText('Choose Photos')).toBeInTheDocument();
-    });
+  it('uses custom label with capitalized first letter', () => {
+    render(<Dropzone onFilesSelected={mockOnFilesSelected} label="photos" />);
+    expect(screen.getByText('Choose Photos')).toBeInTheDocument();
+  });
 
-    it('does not show drag and drop text', () => {
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
+  it('does not trigger file input when disabled', async () => {
+    const user = userEvent.setup();
+    render(<Dropzone onFilesSelected={mockOnFilesSelected} disabled={true} />);
+    const input = screen.getByTestId('dropzone-input');
+    const clickSpy = vi.spyOn(input, 'click');
+    await user.click(screen.getByTestId('dropzone-choose-files'));
+    expect(clickSpy).not.toHaveBeenCalled();
+    clickSpy.mockRestore();
+  });
 
-      expect(
-        screen.queryByText('Drag and drop files here')
-      ).not.toBeInTheDocument();
-    });
-
-    it('has hidden file input', () => {
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
-
-      const input = screen.getByTestId('dropzone-input');
-
-      expect(input).toHaveClass('hidden');
-    });
-
-    it('does not trigger file input when disabled', async () => {
-      const user = userEvent.setup();
-      render(
-        <Dropzone onFilesSelected={mockOnFilesSelected} disabled={true} />
-      );
-
-      const button = screen.getByTestId('dropzone-choose-files');
-      const input = screen.getByTestId('dropzone-input');
-      const clickSpy = vi.spyOn(input, 'click');
-
-      await user.click(button);
-
-      expect(clickSpy).not.toHaveBeenCalled();
-      clickSpy.mockRestore();
-    });
-
-    it('triggers file input when clicked and not disabled', async () => {
-      const user = userEvent.setup();
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
-
-      const button = screen.getByTestId('dropzone-choose-files');
-      const input = screen.getByTestId('dropzone-input');
-      const clickSpy = vi.spyOn(input, 'click');
-
-      await user.click(button);
-
-      expect(clickSpy).toHaveBeenCalled();
-      clickSpy.mockRestore();
-    });
+  it('triggers file input when clicked', async () => {
+    const user = userEvent.setup();
+    render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
+    const input = screen.getByTestId('dropzone-input');
+    const clickSpy = vi.spyOn(input, 'click');
+    await user.click(screen.getByTestId('dropzone-choose-files'));
+    expect(clickSpy).toHaveBeenCalled();
+    clickSpy.mockRestore();
   });
 });

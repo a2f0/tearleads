@@ -12,7 +12,7 @@ vi.mock('@tearleads/calendar/package.json', () => ({
   default: { version: '4.5.6' }
 }));
 
-vi.mock('@/hooks/useAppVersion', () => ({
+vi.mock('@/hooks/app', () => ({
   useAppVersion: () => '0.0.0'
 }));
 

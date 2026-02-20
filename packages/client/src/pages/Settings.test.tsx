@@ -40,8 +40,15 @@ vi.mock('@tearleads/settings', () => ({
   )
 }));
 
-vi.mock('@/hooks/useAppVersion', () => ({
-  useAppVersion: vi.fn(() => packageJson.version)
+vi.mock('@/hooks/app', () => ({
+  useAppVersion: vi.fn(() => packageJson.version),
+  useFeatureFlags: vi.fn(() => ({
+    entries: [],
+    hasOverrides: false,
+    setOverride: vi.fn(),
+    clearOverride: vi.fn(),
+    resetOverrides: vi.fn()
+  }))
 }));
 
 function renderSettings(showBackLink = true) {

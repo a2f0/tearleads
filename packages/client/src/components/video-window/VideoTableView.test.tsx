@@ -77,7 +77,7 @@ vi.mock('@/i18n', () => ({
   })
 }));
 
-vi.mock('@/hooks/useVirtualVisibleRange', () => ({
+vi.mock('@/hooks/device', () => ({
   useVirtualVisibleRange: () => ({ firstVisible: 0, lastVisible: 0 })
 }));
 

@@ -28,7 +28,7 @@ import { RefreshButton } from '@/components/ui/RefreshButton';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { ClientContactsProvider } from '@/contexts/ClientContactsProvider';
 import { useDatabaseContext } from '@/db/hooks';
-import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
+import { useVirtualVisibleRange } from '@/hooks/device';
 import { useTypedTranslation } from '@/i18n';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { AddContactCard } from './AddContactCard';

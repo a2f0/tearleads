@@ -55,7 +55,7 @@ vi.mock('@/db/instanceRegistry', () => ({
   getActiveInstanceId: getActiveInstanceIdMock
 }));
 
-vi.mock('@/hooks/useInstanceChange', () => ({
+vi.mock('@/hooks/app', () => ({
   emitInstanceChange: emitInstanceChangeMock
 }));
 

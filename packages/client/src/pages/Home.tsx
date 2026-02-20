@@ -19,7 +19,7 @@ import { navItems } from '@/components/Sidebar';
 import { DisplayPropertiesWindow } from '@/components/settings/DisplayPropertiesWindow';
 import { DesktopBackground } from '@/components/ui/desktop-background';
 import { MOBILE_BREAKPOINT } from '@/constants/breakpoints';
-import { useIsMobile } from '@/hooks/useIsMobile';
+import { useIsMobile } from '@/hooks/device';
 import { useTypedTranslation } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { MOBILE_COLUMNS, STORAGE_KEY } from './home-components/constants';

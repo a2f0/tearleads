@@ -1,4 +1,4 @@
-import type { ColumnMapping } from '@/hooks/useContactsImport';
+import type { ColumnMapping } from '@/hooks/contacts';
 import { DroppableArea } from './DroppableArea';
 import type { TargetField } from './types';
 

@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { isBiometricAvailable } from '@/db/crypto/keyManager';
 import { useDatabaseContext } from '@/db/hooks';
-import { useIsMobile } from '@/hooks/useIsMobile';
+import { useIsMobile } from '@/hooks/device';
 import { getErrorMessage } from '@/lib/errors';
 import { detectPlatform } from '@/lib/utils';
 

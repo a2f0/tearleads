@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useDialogAccessibility } from '@/hooks/useDialogAccessibility';
+import { useDialogAccessibility } from '@/hooks/ui';
 import type { VideoPlaylist } from '@/video/VideoPlaylistContext';
 
 export interface DeleteVideoPlaylistDialogProps {

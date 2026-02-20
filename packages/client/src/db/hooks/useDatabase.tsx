@@ -6,10 +6,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   clearSessionActive,
+  emitInstanceChange,
   markSessionActive,
   wasSessionActive
-} from '@/hooks/useAppLifecycle';
-import { emitInstanceChange } from '@/hooks/useInstanceChange';
+} from '@/hooks/app';
 import { toError } from '@/lib/errors';
 import { deleteFileStorageForInstance } from '@/storage/opfs';
 import type { Database } from '../index';

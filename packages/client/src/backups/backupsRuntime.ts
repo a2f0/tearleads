@@ -8,7 +8,7 @@ import {
 } from '@/db/backup';
 import { getKeyManager } from '@/db/crypto';
 import { getActiveInstance, getActiveInstanceId } from '@/db/instanceRegistry';
-import { emitInstanceChange } from '@/hooks/useInstanceChange';
+import { emitInstanceChange } from '@/hooks/app';
 import { saveFile } from '@/lib/fileUtils';
 import {
   deleteBackupFromStorage,

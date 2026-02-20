@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
-import { useIsMobile } from '@/hooks/useIsMobile';
+import { useIsMobile } from '@/hooks/device';
 import { setupThemeMocks } from '@/test/themeTestUtils';
 import { SettingsButton } from './SettingsButton';
 import { ANIMATION_DURATION_MS } from './ui/bottom-sheet';
@@ -12,7 +12,7 @@ vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowManagerActions: vi.fn()
 }));
 
-vi.mock('@/hooks/useIsMobile', () => ({
+vi.mock('@/hooks/device', () => ({
   useIsMobile: vi.fn()
 }));
 

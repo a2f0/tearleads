@@ -1,14 +1,14 @@
 import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { useCallback, useState } from 'react';
-import { getDatabase } from '../db';
-import { contactEmails, contactPhones, contacts } from '../db/schema';
-import { saveFile } from '../lib/fileUtils';
+import { getDatabase } from '@/db';
+import { contactEmails, contactPhones, contacts } from '@/db/schema';
+import { saveFile } from '@/lib/fileUtils';
 import {
   generateVCard,
   generateVCardFilename,
   generateVCards,
   type VCardContact
-} from '../lib/vcard';
+} from '@/lib/vcard';
 
 export function useContactsExport() {
   const [exporting, setExporting] = useState(false);

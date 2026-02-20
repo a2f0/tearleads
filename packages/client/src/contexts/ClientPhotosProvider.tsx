@@ -9,7 +9,7 @@ import { setMediaDragData } from '@tearleads/shared';
 import { type ReactNode, useMemo } from 'react';
 import { zIndex } from '@/constants/zIndex';
 import { useDatabaseContext } from '@/db/hooks';
-import { useDropZone } from '@/hooks/useDropZone';
+import { useDropZone } from '@/hooks/dnd';
 import { uint8ArrayToDataUrl } from '@/lib/chatAttachments';
 import { formatDate, formatFileSize } from '@/lib/utils';
 import {
