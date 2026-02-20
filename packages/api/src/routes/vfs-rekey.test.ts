@@ -54,7 +54,7 @@ describe('VFS routes (rekey)', () => {
         .send({ reason: 'unshare' }); // missing newEpoch and wrappedKeys
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('required');
+      expect(response.body.error).toContain('Invalid request payload');
     });
 
     it('returns 400 when reason is invalid', async () => {

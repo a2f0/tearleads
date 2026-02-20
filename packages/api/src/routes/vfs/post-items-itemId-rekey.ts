@@ -163,7 +163,8 @@ export const postItemsItemIdRekeyHandler = async (
   const payload = parseRekeyPayload(req.body);
   if (!payload) {
     res.status(400).json({
-      error: 'reason, newEpoch, and wrappedKeys are required'
+      error:
+        'Invalid request payload. Please check the `reason`, `newEpoch`, and `wrappedKeys` fields.'
     });
     return;
   }
