@@ -30,13 +30,13 @@ variable "prod_access_member_emails" {
 variable "create_staging_vault_auth_key" {
   description = "Whether to create a reusable tagged auth key for staging Vault"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "create_prod_vault_auth_key" {
   description = "Whether to create a reusable tagged auth key for production Vault"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "auth_key_expiry_seconds" {
