@@ -14,7 +14,17 @@ export default defineConfig({
   },
   vite: {
     plugins: [tailwindcss()],
+    ssr: {
+      // Bundle router packages in SSR so Vite evaluates them as ESM.
+      noExternal: ['react-router-dom', 'react-router'],
+      // Ensure SSR resolution also selects react-router's ESM condition.
+      resolve: {
+        conditions: ['module-sync'],
+      },
+    },
     resolve: {
+      // Prefer react-router's ESM export condition over the Node CJS fallback.
+      conditions: ['module-sync'],
       alias: [
         {
           find: '@tearleads/ui/styles.css',
