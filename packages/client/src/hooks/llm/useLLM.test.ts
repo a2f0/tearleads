@@ -250,6 +250,103 @@ describe('useLLM', () => {
     });
   });
 
+  describe('worker edge cases', () => {
+    it('clamps progress when total is zero', async () => {
+      const { useLLM } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      await act(async () => {
+        result.current.loadModel('test-model');
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        mockOnMessage?.(
+          new MessageEvent('message', {
+            data: {
+              type: 'progress',
+              file: 'model.bin',
+              progress: 5,
+              total: 0
+            }
+          })
+        );
+      });
+
+      expect(result.current.loadProgress).toEqual({
+        text: 'Downloading model.bin...',
+        progress: 1
+      });
+    });
+
+    it('clears loaded model state on unloaded message', async () => {
+      const { clearLastLoadedModel } = await import('../app');
+      const { useLLM } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      await act(async () => {
+        result.current.loadModel('test-model');
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        mockOnMessage?.(
+          new MessageEvent('message', {
+            data: {
+              type: 'loaded',
+              modelId: 'test-model',
+              modelType: 'chat',
+              durationMs: 100
+            }
+          })
+        );
+      });
+
+      expect(result.current.loadedModel).toBe('test-model');
+
+      await act(async () => {
+        mockOnMessage?.(
+          new MessageEvent('message', {
+            data: { type: 'unloaded' }
+          })
+        );
+      });
+
+      expect(result.current.loadedModel).toBeNull();
+      expect(result.current.modelType).toBeNull();
+      expect(vi.mocked(clearLastLoadedModel)).toHaveBeenCalledWith(
+        'test-instance-id'
+      );
+    });
+
+    it('surfaces worker crashes and rejects pending load', async () => {
+      const { toast } = await import('sonner');
+      const { getWorker } = await import('./store');
+      const { useLLM } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      let loadPromise: Promise<void> | undefined;
+      await act(async () => {
+        loadPromise = result.current.loadModel('test-model');
+        await Promise.resolve();
+      });
+
+      const worker = getWorker();
+      await act(async () => {
+        worker.onerror?.(new ErrorEvent('error', { message: 'kaboom' }));
+        try {
+          await loadPromise;
+        } catch {
+          // Expected rejection from worker crash.
+        }
+      });
+
+      expect(result.current.error).toBe('Worker error: kaboom');
+      expect(vi.mocked(toast.error)).toHaveBeenCalled();
+      await expect(loadPromise).rejects.toThrow('Worker error: kaboom');
+    });
+  });
+
   describe('resetLLMUIState', () => {
     it('clears UI state but preserves loadedModel and modelType', async () => {
       const { useLLM, resetLLMUIState } = await import('./useLLM');
