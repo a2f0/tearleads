@@ -4,13 +4,24 @@ variable "hcloud_token" {
   sensitive   = true
 }
 
+variable "cloudflare_api_token" {
+  description = "Cloudflare API token for DNS management"
+  type        = string
+  sensitive   = true
+}
+
+variable "cloudflare_account_id" {
+  description = "Cloudflare account ID"
+  type        = string
+}
+
 variable "ssh_key_name" {
   description = "Name of existing SSH key in Hetzner"
   type        = string
 }
 
-variable "domain" {
-  description = "DNS zone name for the Hetzner managed domain"
+variable "staging_domain" {
+  description = "DNS zone name for the Cloudflare managed staging domain"
   type        = string
 }
 
