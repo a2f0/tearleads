@@ -104,10 +104,14 @@ export function VfsOrchestratorProvider({
         itemKeyStore,
         recipientPublicKeyResolver,
         createKeySetupPayload: async (): Promise<VfsKeySetupPayload> => {
-          // Ensure VFS keys are set up (this handles key generation/fetching)
+          // Ensure VFS keys are set up (this handles key generation/fetching).
+          // The ensureVfsKeys() function handles the full key setup flow including
+          // server registration. This callback is used by VfsKeyManager for its
+          // internal state tracking, but the actual crypto keys are managed by
+          // the useVfsKeys hook and stored on the server during onboarding.
+          // The empty strings are intentional placeholders as the key manager
+          // doesn't need the actual values - it defers to userKeyProvider.
           await ensureVfsKeys();
-          // Return a placeholder payload - the actual key setup is handled by ensureVfsKeys
-          // which stores keys on the server. This payload is used for key manager bookkeeping.
           return {
             publicEncryptionKey: '',
             publicSigningKey: '',

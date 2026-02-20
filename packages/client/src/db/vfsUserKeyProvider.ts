@@ -10,14 +10,19 @@ export interface UserKeyProvider {
 let cachedPublicKeyId: string | null = null;
 
 /**
+ * Ensures Uint8Array is typed with ArrayBuffer (not ArrayBufferLike).
+ * WebCrypto APIs require BufferSource which expects ArrayBuffer, not SharedArrayBuffer.
+ */
+function asBufferSource(data: Uint8Array): Uint8Array<ArrayBuffer> {
+  return data as Uint8Array<ArrayBuffer>;
+}
+
+/**
  * Derives a stable public key ID from the user's public key.
  * Uses SHA-256 hash truncated to 16 bytes, encoded as base64url.
  */
 async function derivePublicKeyId(publicKey: Uint8Array): Promise<string> {
-  const hash = await crypto.subtle.digest(
-    'SHA-256',
-    publicKey as unknown as BufferSource
-  );
+  const hash = await crypto.subtle.digest('SHA-256', asBufferSource(publicKey));
   const hashBytes = new Uint8Array(hash).slice(0, 16);
   return uint8ArrayToBase64Url(hashBytes);
 }

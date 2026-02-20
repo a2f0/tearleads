@@ -182,6 +182,7 @@ export function useFileUpload() {
       });
 
       // Use secure facade for encrypted server upload when available
+      let serverUploadSucceeded = false;
       if (
         isLoggedIn() &&
         getFeatureFlagValue('vfsSecureUpload') &&
@@ -198,16 +199,20 @@ export function useFileUpload() {
             stream: createStreamFromData(data),
             expiresAt: expiresAt.toISOString()
           });
+          serverUploadSucceeded = true;
         } catch (err) {
           console.warn('Failed to upload via secure facade:', err);
           // Fall through to legacy registration if secure upload fails
         }
-      } else if (
+      }
+
+      // Legacy registration path - used when secure upload is not enabled or fails
+      if (
+        !serverUploadSucceeded &&
         isLoggedIn() &&
         getFeatureFlagValue('vfsServerRegistration') &&
         encryptedSessionKey
       ) {
-        // Legacy registration path
         try {
           await api.vfs.register({
             id,

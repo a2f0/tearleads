@@ -8,8 +8,13 @@ export interface RecipientPublicKeyResolver {
   } | null>;
 }
 
+/**
+ * Extended share target type that may include public encryption key.
+ * The base ShareTargetSearchResult doesn't include this field, but
+ * the API may return it for users who have set up VFS encryption.
+ */
 interface ShareTargetWithKey extends ShareTargetSearchResult {
-  publicEncryptionKey?: string;
+  publicEncryptionKey?: string | undefined;
 }
 
 /**
