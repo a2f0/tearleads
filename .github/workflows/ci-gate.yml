@@ -4,10 +4,21 @@ name: CI Gate
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  workflow_run:
+    workflows:
+      - build
+      - Web E2E Tests (Release)
+      - Website E2E Tests (Release)
+      - Electron E2E Tests (Release)
+      - Android Instrumented Tests
+      - Android Maestro Tests (Release)
+      - iOS Maestro Tests (Release)
+    types: [completed]
 
 permissions:
   actions: read
   contents: read
+  pull-requests: read
 
 jobs:
   detect-required-workflows:
@@ -40,8 +51,20 @@ jobs:
         run: |
           set -eu
 
-          BASE_SHA='${{ github.event.pull_request.base.sha }}'
-          HEAD_SHA='${{ github.event.pull_request.head.sha }}'
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA='${{ github.event.pull_request.base.sha }}'
+            HEAD_SHA='${{ github.event.pull_request.head.sha }}'
+          else
+            HEAD_SHA='${{ github.event.workflow_run.head_sha }}'
+            BASE_SHA="$(gh api -H "Accept: application/vnd.github+json" "/repos/${{ github.repository }}/commits/$HEAD_SHA/pulls" | jq -r '.[0].base.sha // empty')"
+
+            if [ -z "$BASE_SHA" ]; then
+              echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+              echo "required_workflows=[]" >> "$GITHUB_OUTPUT"
+              echo "No pull request found for head SHA $HEAD_SHA; skipping CI gate checks." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          fi
 
           tsx scripts/ciImpact/requiredWorkflows.ts --base "$BASE_SHA" --head "$HEAD_SHA" > required-workflows.json
 
