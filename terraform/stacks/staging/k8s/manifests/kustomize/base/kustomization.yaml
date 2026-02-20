@@ -6,6 +6,7 @@ resources:
   - configmap.yaml
   - postgres.yaml
   - redis.yaml
+  - garage.yaml
   - api.yaml
   - client.yaml
   - website.yaml
