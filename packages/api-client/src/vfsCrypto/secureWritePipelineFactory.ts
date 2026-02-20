@@ -70,10 +70,12 @@ export function createVfsSecurePipelineBundle(
       }),
       resolveKeyEpoch: async (itemId) => {
         const epoch = await options.itemKeyStore.getLatestKeyEpoch(itemId);
-        if (epoch === null) {
-          throw new Error(`No key epoch found for item ${itemId}`);
+        if (epoch !== null) {
+          return epoch;
         }
-        return epoch;
+        // Auto-create key for first upload
+        const result = await keyManager.createItemKey({ itemId });
+        return result.keyEpoch;
       },
       listWrappedFileKeys: async ({ itemId, keyEpoch }) => {
         const shares = await options.itemKeyStore.listItemShares(itemId);

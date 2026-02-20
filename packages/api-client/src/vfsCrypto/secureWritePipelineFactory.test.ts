@@ -246,7 +246,7 @@ describe('createVfsSecurePipelineBundle', () => {
     expect(isValid).toBe(true);
   });
 
-  it('throws error when no key epoch exists for item', async () => {
+  it('auto-creates item key on first secure upload when no key exists', async () => {
     vi.mocked(global.fetch).mockImplementation(async (): Promise<Response> => {
       return new Response(
         JSON.stringify({
@@ -283,21 +283,33 @@ describe('createVfsSecurePipelineBundle', () => {
 
     const facade = bundle.createFacade(orchestrator);
 
+    // No pre-created key - the pipeline should auto-create one
+    expect(await itemKeyStore.getLatestKeyEpoch('new-item')).toBe(null);
+
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
-        controller.enqueue(new TextEncoder().encode('Data'));
+        controller.enqueue(new TextEncoder().encode('First upload data'));
         controller.close();
       }
     });
 
-    await expect(
-      facade.stageAttachEncryptedBlobAndPersist({
-        itemId: 'nonexistent-item',
-        blobId: 'blob-1',
-        stream,
-        expiresAt: '2026-02-20T00:00:00.000Z'
-      })
-    ).rejects.toThrow('No key epoch found for item nonexistent-item');
+    const result = await facade.stageAttachEncryptedBlobAndPersist({
+      itemId: 'new-item',
+      blobId: 'blob-1',
+      stream,
+      expiresAt: '2026-02-20T00:00:00.000Z'
+    });
+
+    // Key should have been auto-created with epoch 1
+    expect(result.manifest.keyEpoch).toBe(1);
+    expect(await itemKeyStore.getLatestKeyEpoch('new-item')).toBe(1);
+
+    // Verify encryption worked
+    expect(result.stagingId).toBeTruthy();
+    expect(result.manifest.totalPlaintextBytes).toBe(17); // 'First upload data'.length
+
+    const isValid = await bundle.engine.verifyManifest(result.manifest);
+    expect(isValid).toBe(true);
   });
 
   it('includes wrapped keys for shares with matching key epoch', async () => {

@@ -1,10 +1,18 @@
+import { generateKeyPair, type VfsKeyPair } from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createVfsCryptoEngine } from './engineRuntime';
+import type {
+  ItemKeyRecord,
+  ItemKeyStore,
+  UserKeyProvider
+} from './keyManagerRuntime';
 import {
   createVfsSecureOrchestratorFacade,
   createVfsSecureOrchestratorFacadeWithRuntime
 } from './secureOrchestratorFacade';
+import { createVfsSecurePipelineBundle } from './secureWritePipelineFactory';
 import { createVfsSecureWritePipeline } from './secureWritePipelineRuntime';
+import type { Epoch, ItemId } from './types';
 
 function generateTestKey(): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(32));
@@ -288,4 +296,159 @@ describe('secureOrchestratorFacade with real crypto', () => {
     expect(result.encryptedOp).not.toContain('sensitive');
     expect(result.encryptedOp).not.toContain('data');
   });
+
+  it('auto-creates item key on first upload with real crypto pipeline bundle', async () => {
+    vi.mocked(global.fetch).mockImplementation(async (): Promise<Response> => {
+      return new Response(
+        JSON.stringify({
+          clientId: 'desktop',
+          results: [],
+          items: [],
+          hasMore: false,
+          nextCursor: null,
+          lastReconciledWriteIds: {}
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    });
+
+    const ownerKeyPair = generateKeyPair();
+    const itemKeyStore = createRealCryptoMockItemKeyStore();
+    const userKeyProvider = createRealCryptoMockUserKeyProvider(ownerKeyPair);
+
+    const bundle = createVfsSecurePipelineBundle({
+      userKeyProvider,
+      itemKeyStore,
+      recipientPublicKeyResolver: {
+        resolvePublicKey: vi.fn(async () => null)
+      },
+      createKeySetupPayload: vi.fn()
+    });
+
+    const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');
+    const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
+      crdt: {
+        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+      },
+      blob: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+    });
+
+    const facade = bundle.createFacade(orchestrator, { relationKind: 'file' });
+
+    // Verify no key exists before upload
+    expect(await itemKeyStore.getLatestKeyEpoch('first-upload-item')).toBe(
+      null
+    );
+
+    const plaintext = new TextEncoder().encode(
+      'First upload with auto-created key using real crypto'
+    );
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(plaintext);
+        controller.close();
+      }
+    });
+
+    const result = await facade.stageAttachEncryptedBlobAndPersist({
+      itemId: 'first-upload-item',
+      blobId: 'blob-first',
+      contentType: 'text/plain',
+      stream,
+      expiresAt: '2026-02-20T00:00:00.000Z'
+    });
+
+    // Verify key was auto-created
+    expect(result.manifest.keyEpoch).toBe(1);
+    expect(await itemKeyStore.getLatestKeyEpoch('first-upload-item')).toBe(1);
+
+    // Verify encryption worked with real crypto
+    expect(result.stagingId).toBeTruthy();
+    expect(result.manifest.totalPlaintextBytes).toBe(plaintext.length);
+    expect(result.manifest.chunkCount).toBe(1);
+    expect(result.manifest.manifestSignature).toBeTruthy();
+
+    const isValid = await bundle.engine.verifyManifest(result.manifest);
+    expect(isValid).toBe(true);
+
+    // Verify subsequent upload uses the same key epoch
+    const stream2 = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('Second upload'));
+        controller.close();
+      }
+    });
+
+    const result2 = await facade.stageAttachEncryptedBlobAndPersist({
+      itemId: 'first-upload-item',
+      blobId: 'blob-second',
+      contentType: 'text/plain',
+      stream: stream2,
+      expiresAt: '2026-02-20T00:00:00.000Z'
+    });
+
+    expect(result2.manifest.keyEpoch).toBe(1);
+    expect(await itemKeyStore.getLatestKeyEpoch('first-upload-item')).toBe(1);
+  });
 });
+
+function createRealCryptoMockUserKeyProvider(
+  keyPair: VfsKeyPair
+): UserKeyProvider {
+  return {
+    getUserKeyPair: vi.fn(async () => keyPair),
+    getUserId: vi.fn(async () => 'user-owner'),
+    getPublicKeyId: vi.fn(async () => 'pk-owner')
+  };
+}
+
+function createRealCryptoMockItemKeyStore(): ItemKeyStore {
+  const records = new Map<string, ItemKeyRecord>();
+
+  return {
+    getItemKey: vi.fn(
+      async ({
+        itemId,
+        keyEpoch
+      }: {
+        itemId: ItemId;
+        keyEpoch?: Epoch;
+      }): Promise<ItemKeyRecord | null> => {
+        if (keyEpoch !== undefined) {
+          return records.get(`${itemId}:${keyEpoch}`) ?? null;
+        }
+        let latestRecord: ItemKeyRecord | null = null;
+        let latestEpoch = 0;
+        for (const [key, record] of records) {
+          if (key.startsWith(`${itemId}:`) && record.keyEpoch > latestEpoch) {
+            latestEpoch = record.keyEpoch;
+            latestRecord = record;
+          }
+        }
+        return latestRecord;
+      }
+    ),
+    setItemKey: vi.fn(async (record: ItemKeyRecord): Promise<void> => {
+      records.set(`${record.itemId}:${record.keyEpoch}`, record);
+    }),
+    getLatestKeyEpoch: vi.fn(async (itemId: ItemId): Promise<Epoch | null> => {
+      let latest: Epoch | null = null;
+      for (const [key, record] of records) {
+        if (
+          key.startsWith(`${itemId}:`) &&
+          (latest === null || record.keyEpoch > latest)
+        ) {
+          latest = record.keyEpoch;
+        }
+      }
+      return latest;
+    }),
+    listItemShares: vi.fn(
+      async (
+        _itemId: ItemId
+      ): Promise<Array<{ recipientUserId: string; keyEpoch: Epoch }>> => {
+        return [];
+      }
+    )
+  };
+}
