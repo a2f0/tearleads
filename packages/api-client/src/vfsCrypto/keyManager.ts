@@ -22,6 +22,7 @@ export interface WrapItemKeyForShareInput {
   itemId: ItemId;
   recipientUserId: UserId;
   recipientPublicKey: Base64;
+  keyEpoch: Epoch;
 }
 
 export interface RotateItemKeyEpochInput {
