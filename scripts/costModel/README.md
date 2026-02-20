@@ -38,6 +38,10 @@ Infrastructure cost estimation and tracking for tearleads resources.
 scripts/costModel/
 ├── README.md              # This file
 ├── index.ts               # Main entry point
+├── commands/
+│   ├── billing.ts         # User accounting reports
+│   ├── live.ts            # Live server cost estimates
+│   └── orphans.ts         # Find unmanaged AWS resources
 ├── providers/
 │   ├── hetzner.ts         # Hetzner Cloud pricing data
 │   └── azure.ts           # Azure pricing data
@@ -70,6 +74,10 @@ npx tsx scripts/costModel/index.ts scrape
 
 # Query user accounting from postgres (requires DB credentials)
 npx tsx scripts/costModel/index.ts billing
+
+# Find AWS resources not managed by Terraform (requires AWS CLI)
+npx tsx scripts/costModel/index.ts orphans
+npx tsx scripts/costModel/index.ts orphans us-west-2  # specify region
 ```
 
 Or use the skill:
@@ -91,6 +99,32 @@ export POSTGRES_PORT=<port>                    # default: 5432
 ```
 
 Provision the read-only user via your database bootstrap workflow before running billing reports.
+
+## AWS Orphaned Resources
+
+The `orphans` command finds AWS resources that exist in your account but are not managed by Terraform. This helps identify:
+
+- Resources created manually that should be imported
+- Leftover resources from deleted infrastructure
+- Resources that may be incurring unexpected costs
+
+### Prerequisites
+
+- AWS CLI configured with appropriate credentials
+- Access to the `tearleads-terraform-state` S3 bucket
+
+### Resources Checked
+
+| Resource Type | AWS API | Notes |
+|---------------|---------|-------|
+| S3 Buckets | `s3api list-buckets` | Global |
+| ECR Repositories | `ecr describe-repositories` | Regional |
+| RDS Instances | `rds describe-db-instances` | Regional |
+| DynamoDB Tables | `dynamodb list-tables` | Skips terraform lock table |
+| IAM Users | `iam list-users` | Global |
+| IAM Roles | `iam list-roles` | Skips AWS service roles |
+| Security Groups | `ec2 describe-security-groups` | Skips default SGs |
+| Route53 Zones | `route53 list-hosted-zones` | Global |
 
 ## Future Work
 

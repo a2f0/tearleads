@@ -9,12 +9,14 @@
  *   npx tsx scripts/costModel/index.ts list
  *   npx tsx scripts/costModel/index.ts scrape
  *   npx tsx scripts/costModel/index.ts servers
+ *   npx tsx scripts/costModel/index.ts orphans [region]
  */
 
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runBillingSummary } from './commands/billing';
 import { runLiveCostEstimate } from './commands/live';
+import { runOrphanedResourcesScan } from './commands/orphans';
 import { requireDbCredentials } from './dbCredentials';
 import { estimateCosts } from './estimators';
 import { scrapeAzurePricing } from './scrapers/azure';
@@ -100,7 +102,7 @@ function printServers(): void {
 function printUsage(command: string): void {
   console.log(`Unknown command: ${command}`);
   console.log(
-    'Usage: costModel estimate|live|snapshot|list|scrape|servers|billing'
+    'Usage: costModel estimate|live|snapshot|list|scrape|servers|billing|orphans'
   );
   console.log('\nCommands:');
   console.log('  estimate  - Estimate costs from terraform definitions');
@@ -112,6 +114,7 @@ function printUsage(command: string): void {
   console.log(
     '  billing   - Query postgres for user accounting (requires DB credentials)'
   );
+  console.log('  orphans   - Find AWS resources not managed by Terraform');
 }
 
 /**
@@ -151,6 +154,11 @@ async function main(): Promise<void> {
     case 'billing': {
       await requireDbCredentials();
       await runBillingSummary();
+      break;
+    }
+    case 'orphans': {
+      const region = process.argv[3] ?? 'us-east-1';
+      await runOrphanedResourcesScan(region);
       break;
     }
     default:
