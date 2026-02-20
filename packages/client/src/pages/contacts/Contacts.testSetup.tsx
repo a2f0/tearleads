@@ -97,7 +97,7 @@ export async function renderContacts(): Promise<RenderResult> {
   });
   // Wait for initial async effects to complete
   await waitFor(() => {
-    expect(screen.queryByText('Loading database...')).not.toBeInTheDocument();
+    expect(screen.queryByText('Loading database...')).toBeNull();
   });
   return result;
 }

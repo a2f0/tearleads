@@ -115,7 +115,7 @@ export async function renderFiles() {
   const result = renderFilesRaw();
   // Wait for initial async effects to complete
   await waitFor(() => {
-    expect(screen.queryByText('Loading files...')).not.toBeInTheDocument();
+    expect(screen.queryByText('Loading files...')).toBeNull();
   });
   return result;
 }
