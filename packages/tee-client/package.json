@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/tee-client",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "TEE API client with request/response security and privacy assertions",
   "type": "module",
   "main": "src/index.ts",
