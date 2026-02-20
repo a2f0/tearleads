@@ -231,9 +231,7 @@ describe('VideoPage - File Upload', () => {
   it('handles upload error gracefully', async () => {
     mocks.mockUploadFile.mockRejectedValue(new Error('Upload failed'));
 
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     await user.upload(input as HTMLInputElement, videoFile);
 
@@ -282,9 +280,7 @@ describe('VideoPage - File Upload', () => {
       type: 'video/x-ms-wmv'
     });
 
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     await user.upload(input as HTMLInputElement, unsupportedFile);
 
