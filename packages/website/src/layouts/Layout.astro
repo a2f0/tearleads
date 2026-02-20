@@ -1,6 +1,4 @@
 ---
-import NavDropdown from '../components/NavDropdown.astro';
-import { SettingsIsland } from '../components/SettingsIsland';
 import { defaultLanguage, supportedLanguages } from '../i18n/config';
 import type { SupportedLanguage } from '../i18n/config';
 import { getHref, getLocalizedPath } from '../i18n/utils';
@@ -12,21 +10,6 @@ interface Props {
 }
 
 const { title, lang = defaultLanguage } = Astro.props;
-const currentYear = new Date().getFullYear();
-
-const productLinks = [
-  { href: getHref('/products/cli', lang), text: 'CLI' },
-  { href: getHref('/products/desktop', lang), text: 'Desktop' },
-  { href: getHref('/products/mobile', lang), text: 'Mobile' },
-  { href: getHref('/products/web', lang), text: 'Web' },
-  { href: getHref('/products/chrome-extension', lang), text: 'Chrome Extension' },
-];
-
-const docsLinks = [
-  { href: getHref('/docs/architecture', lang), text: 'Security Architecture' },
-  { href: getHref('/docs/backup-restore', lang), text: 'Backup & Restore' },
-  { href: getHref('/docs/api', lang), text: 'API' },
-];
 
 // Generate hreflang URLs for SEO
 const currentPath = Astro.url.pathname;
@@ -63,20 +46,15 @@ const hreflangUrls = supportedLanguages.map((hrefLang) => ({
   </head>
   <body>
     <div class="flex min-h-screen flex-col bg-background">
-      <header class="border-b">
+      <header>
         <div
-          class="container mx-auto flex items-center justify-between px-4 py-4"
+          class="container mx-auto max-w-4xl px-4 py-4"
         >
-          <a href={getHref('/', lang)} class="flex items-center gap-3">
-            <img src="/favicon.svg" alt="Tearleads" class="h-8 w-8" />
-            <p class="font-bold text-2xl">Tearleads</p>
-          </a>
-          <div class="flex items-center gap-4">
-            <nav class="hidden items-center gap-4 md:flex">
-              <NavDropdown title="Products" links={productLinks} />
-              <NavDropdown title="Docs" links={docsLinks} />
-            </nav>
-            <SettingsIsland client:load currentLang={lang} />
+          <div class="border-b pb-2">
+            <a href={getHref('/', lang)} class="flex items-end gap-3">
+              <img src="/favicon.svg" alt="Tearleads" class="h-8 w-8" />
+              <p class="self-end translate-y-[2px] font-bold text-2xl leading-none">Tearleads</p>
+            </a>
           </div>
         </div>
       </header>
@@ -88,7 +66,6 @@ const hreflangUrls = supportedLanguages.map((hrefLang) => ({
         style="padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));"
       >
         <div class="container mx-auto flex flex-col items-center gap-2 px-4">
-          <p>&copy; {currentYear} Tearleads. All rights reserved.</p>
           <a href={getHref('/licenses', lang)} class="text-xs hover:text-foreground hover:underline">Open Source Licenses</a>
         </div>
       </footer>

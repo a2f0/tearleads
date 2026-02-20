@@ -4,14 +4,17 @@ This document provides review guidelines for AI agents (Gemini, Claude Code, Cod
 
 ## Quick Reference
 
-| Area       | Key Files                    | Watch For                       | Detailed Standards                                       |
-|------------|------------------------------|---------------------------------|----------------------------------------------------------|
-| TypeScript | `*.ts`, `*.tsx`              | `any`, `as` casts, `@ts-ignore` | [TypeScript](./docs/agent-instructions/reviews/typescript.md) |
-| React      | `packages/*/src/components/` | Oversized files, missing tests  | [React](./docs/agent-instructions/reviews/react.md)           |
-| API        | `packages/api/src/routes/`   | Auth checks, ownership          | [API Security](./docs/agent-instructions/reviews/api-security.md) |
-| Database   | `packages/*/src/**/*.ts`     | N+1 queries, missing indexes    | See below                                                |
-| Security   | All routes, auth code         | Boundary violations, injection  | [Security](./docs/agent-instructions/reviews/security-compliance.md) |
-| i18n       | `packages/*/src/i18n/`       | Missing keys, hardcoded strings | [i18n](./docs/agent-instructions/reviews/i18n.md)             |
+| Area          | Key Files                    | Watch For                       | Detailed Standards                                              |
+|---------------|------------------------------|---------------------------------|-----------------------------------------------------------------|
+| TypeScript    | `*.ts`, `*.tsx`              | `any`, `as` casts, `@ts-ignore` | [TypeScript](./docs/agent-instructions/reviews/typescript.md)   |
+| React         | `packages/*/src/components/` | Oversized files, missing tests  | [React](./docs/agent-instructions/reviews/react.md)             |
+| API           | `packages/api/src/routes/`   | Auth checks, ownership          | [API Security](./docs/agent-instructions/reviews/api-security.md) |
+| Database      | `packages/*/src/**/*.ts`     | N+1 queries, missing indexes    | [Database](./docs/agent-instructions/reviews/database.md)       |
+| Security      | All routes, auth code        | Boundary violations, injection  | [Security](./docs/agent-instructions/reviews/security-compliance.md) |
+| i18n          | `packages/*/src/i18n/`       | Missing keys, hardcoded strings | [i18n](./docs/agent-instructions/reviews/i18n.md)               |
+| Testing       | `*.test.ts`, `*.test.tsx`    | Coverage, async patterns        | [Testing](./docs/agent-instructions/reviews/testing.md)         |
+| Accessibility | `packages/*/src/components/` | ARIA, keyboard navigation       | [Accessibility](./docs/agent-instructions/reviews/accessibility.md) |
+| Errors        | All code                     | Boundaries, Result types        | [Error Handling](./docs/agent-instructions/reviews/error-handling.md) |
 
 ## TypeScript Standards
 
