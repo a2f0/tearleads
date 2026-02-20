@@ -14,7 +14,14 @@ export default defineConfig({
   },
   vite: {
     plugins: [tailwindcss()],
+    ssr: {
+      noExternal: ['react-router-dom', 'react-router'],
+      resolve: {
+        conditions: ['module-sync'],
+      },
+    },
     resolve: {
+      conditions: ['module-sync'],
       alias: [
         {
           find: '@tearleads/ui/styles.css',
