@@ -11,7 +11,6 @@ import type {
   PhotosUIContextValue
 } from './photosUITypes';
 
-// Re-export all types for backwards compatibility
 export type {
   AboutMenuItemProps,
   ActionToolbarProps,

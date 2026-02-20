@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { PhotosWindowThumbnailView } from './PhotosWindowThumbnailView';
 
-vi.mock('@/pages/Photos', () => ({
+vi.mock('@/pages/photos-components', () => ({
   Photos: ({
     onSelectPhoto
   }: {

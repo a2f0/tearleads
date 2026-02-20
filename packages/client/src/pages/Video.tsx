@@ -23,7 +23,6 @@ import { useVideoActions } from './video-components/useVideoActions';
 import { useVideoData } from './video-components/useVideoData';
 import { useVideoUpload } from './video-components/useVideoUpload';
 
-// Re-export types for backwards compatibility
 export type {
   VideoInfo,
   VideoOpenOptions,

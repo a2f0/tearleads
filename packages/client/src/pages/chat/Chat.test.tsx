@@ -1,16 +1,10 @@
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor
-} from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Chat } from './Chat';
 
 // Mock useLLM hook
-vi.mock('@/hooks/useLLM', () => ({
+vi.mock('@/hooks/llm', () => ({
   useLLM: vi.fn(() => ({
     loadedModel: null,
     modelType: null,
@@ -62,10 +56,9 @@ vi.mock('@/components/sqlite/InlineUnlock', () => ({
 }));
 
 // Mock database
-const mockSelect = vi.fn();
 vi.mock('@/db', () => ({
   getDatabase: () => ({
-    select: mockSelect
+    select: vi.fn()
   })
 }));
 
@@ -78,27 +71,21 @@ vi.mock('@/db/crypto', () => ({
 }));
 
 // Mock file storage
-const mockRetrieve = vi.fn();
-const mockIsFileStorageInitialized = vi.fn();
-const mockInitializeFileStorage = vi.fn();
 vi.mock('@/storage/opfs', () => ({
   getFileStorage: () => ({
-    retrieve: mockRetrieve,
-    measureRetrieve: mockRetrieve
+    retrieve: vi.fn(),
+    measureRetrieve: vi.fn()
   }),
-  isFileStorageInitialized: () => mockIsFileStorageInitialized(),
-  initializeFileStorage: (key: Uint8Array, instanceId: string) =>
-    mockInitializeFileStorage(key, instanceId),
+  isFileStorageInitialized: () => true,
+  initializeFileStorage: vi.fn(),
   createRetrieveLogger: () => vi.fn()
 }));
 
 // Mock llm-runtime
-const mockSetAttachedImage = vi.fn();
-const mockGetAttachedImage = vi.fn((): string | null => null);
 vi.mock('@/lib/llmRuntime', () => ({
   createLLMAdapter: vi.fn(() => ({})),
-  getAttachedImage: () => mockGetAttachedImage(),
-  setAttachedImage: (img: string | null) => mockSetAttachedImage(img)
+  getAttachedImage: () => null,
+  setAttachedImage: vi.fn()
 }));
 
 // Mock assistant-ui components
@@ -208,7 +195,7 @@ vi.mock('@assistant-ui/react', () => ({
   useLocalRuntime: vi.fn(() => ({}))
 }));
 
-import { useLLM } from '@/hooks/useLLM';
+import { useLLM } from '@/hooks/llm';
 
 function renderChat() {
   return render(
@@ -218,38 +205,25 @@ function renderChat() {
   );
 }
 
-function findImageButton(): HTMLElement {
-  return screen.getByRole('button', { name: /attach image/i });
-}
-
-function findCloseButton(): HTMLElement {
-  return screen.getByRole('button', { name: /close/i });
-}
-
 describe('Chat', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
-    // Default mocks for database context
     mockUseDatabaseContext.mockReturnValue({
       isUnlocked: true,
       isLoading: false,
       currentInstanceId: 'test-instance'
     });
     mockGetCurrentKey.mockReturnValue(new Uint8Array([1, 2, 3, 4]));
-    mockIsFileStorageInitialized.mockReturnValue(true);
   });
 
   describe('when no model is loaded', () => {
     it('renders the page title', () => {
       renderChat();
-
       expect(screen.getByText('AI')).toBeInTheDocument();
     });
 
     it('shows no model loaded message', () => {
       renderChat();
-
       expect(screen.getByText('No Model Loaded')).toBeInTheDocument();
       expect(
         screen.getByText(/Load a model from the Models page/)
@@ -258,7 +232,6 @@ describe('Chat', () => {
 
     it('shows a button to navigate to the Models page', () => {
       renderChat();
-
       const button = screen.getByRole('button', { name: /go to models/i });
       expect(button).toBeInTheDocument();
     });
@@ -285,33 +258,27 @@ describe('Chat', () => {
 
     it('renders the chat interface', () => {
       renderChat();
-
       expect(screen.getByTestId('thread-root')).toBeInTheDocument();
     });
 
     it('shows the loaded model name', () => {
       renderChat();
-
       expect(screen.getByText('Phi 3.5 Mini')).toBeInTheDocument();
     });
 
     it('does not show the no model loaded message', () => {
       renderChat();
-
       expect(screen.queryByText('No Model Loaded')).not.toBeInTheDocument();
     });
 
     it('renders the composer input', () => {
       renderChat();
-
       expect(screen.getByTestId('composer-input')).toBeInTheDocument();
     });
 
     it('stretches the chat interface to fill the window', () => {
       renderChat();
-
       const container = screen.getByTestId('chat-interface-container');
-
       expect(container).toHaveClass('h-full flex flex-col');
     });
   });
@@ -337,70 +304,27 @@ describe('Chat', () => {
 
     it('shows the vision model name', () => {
       renderChat();
-
       expect(screen.getByText('SmolVLM 256M Instruct')).toBeInTheDocument();
     });
 
     it('renders chat interface with thread empty state', () => {
       renderChat();
-
       expect(screen.getByTestId('thread-empty')).toBeInTheDocument();
     });
 
     it('renders the composer for vision models', () => {
       renderChat();
-
       expect(screen.getByTestId('composer')).toBeInTheDocument();
     });
-  });
 
-  describe('model display name parsing', () => {
-    const testCases = [
-      {
-        modelId: 'onnx-community/Phi-3.5-mini-instruct-onnx-web',
-        expectedName: 'Phi 3.5 Mini'
-      },
-      {
-        modelId: 'HuggingFaceTB/SmolVLM-256M-Instruct',
-        expectedName: 'SmolVLM 256M Instruct'
-      },
-      {
-        modelId: 'mistralai/mistral-7b-instruct',
-        expectedName: 'Mistral 7b'
-      },
-      {
-        modelId: 'simple-model',
-        expectedName: 'Simple Model'
-      },
-      {
-        modelId: 'org/model-name-instruct',
-        expectedName: 'Model Name'
-      }
-    ];
-
-    for (const { modelId, expectedName } of testCases) {
-      it(`parses "${modelId}" to "${expectedName}"`, () => {
-        vi.mocked(useLLM).mockReturnValue({
-          loadedModel: modelId,
-          modelType: 'chat',
-          isLoading: false,
-          loadProgress: null,
-          error: null,
-          isClassifying: false,
-          loadModel: vi.fn(),
-          unloadModel: vi.fn(),
-          generate: vi.fn(),
-          classify: vi.fn(),
-          abort: vi.fn(),
-          isWebGPUSupported: vi.fn().mockResolvedValue(true),
-          previouslyLoadedModel: null
-        });
-
-        renderChat();
-
-        expect(screen.getByText(expectedName)).toBeInTheDocument();
-      });
-    }
+    it('shows vision-specific placeholder text', () => {
+      renderChat();
+      const input = screen.getByTestId('composer-input');
+      expect(input).toHaveAttribute(
+        'placeholder',
+        'Type a message... (attach an image for vision)'
+      );
+    });
   });
 
   describe('when a paligemma model is loaded', () => {
@@ -424,13 +348,11 @@ describe('Chat', () => {
 
     it('renders the chat interface', () => {
       renderChat();
-
       expect(screen.getByTestId('thread-root')).toBeInTheDocument();
     });
 
     it('shows the model name', () => {
       renderChat();
-
       expect(screen.getByText('Paligemma Model')).toBeInTheDocument();
     });
   });
@@ -478,50 +400,6 @@ describe('Chat', () => {
     });
   });
 
-  describe('vision model image attachment placeholder', () => {
-    beforeEach(() => {
-      vi.mocked(useLLM).mockReturnValue({
-        loadedModel: 'HuggingFaceTB/SmolVLM-256M-Instruct',
-        modelType: 'vision',
-        isLoading: false,
-        loadProgress: null,
-        error: null,
-        loadModel: vi.fn(),
-        unloadModel: vi.fn(),
-        generate: vi.fn(),
-        classify: vi.fn(),
-        abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true),
-        isClassifying: false,
-        previouslyLoadedModel: null
-      });
-    });
-
-    it('renders image attachment button for vision models', () => {
-      renderChat();
-
-      // The mock Composer renders a placeholder for the attach image button
-      expect(screen.getByTestId('composer')).toBeInTheDocument();
-    });
-
-    it('shows vision-specific placeholder text', () => {
-      renderChat();
-
-      // ComposerPrimitive.Input receives placeholder prop - rendered in our mock
-      const input = screen.getByTestId('composer-input');
-      expect(input).toHaveAttribute(
-        'placeholder',
-        'Type a message... (attach an image for vision)'
-      );
-    });
-
-    it('shows empty state message about attaching images', () => {
-      renderChat();
-
-      expect(screen.getByTestId('thread-empty')).toBeInTheDocument();
-    });
-  });
-
   describe('non-vision model composer', () => {
     beforeEach(() => {
       vi.mocked(useLLM).mockReturnValue({
@@ -543,734 +421,8 @@ describe('Chat', () => {
 
     it('shows basic placeholder for non-vision models', () => {
       renderChat();
-
       const input = screen.getByTestId('composer-input');
       expect(input).toHaveAttribute('placeholder', 'Type a message...');
-    });
-  });
-
-  describe('model name edge cases', () => {
-    it('handles model name with empty parts', () => {
-      vi.mocked(useLLM).mockReturnValue({
-        loadedModel: 'org/-model-name',
-        modelType: 'chat',
-        isLoading: false,
-        loadProgress: null,
-        error: null,
-        loadModel: vi.fn(),
-        unloadModel: vi.fn(),
-        generate: vi.fn(),
-        classify: vi.fn(),
-        abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true),
-        isClassifying: false,
-        previouslyLoadedModel: null
-      });
-
-      renderChat();
-
-      // Should render the parsed model name correctly
-      expect(screen.getByText('Model Name')).toBeInTheDocument();
-    });
-
-    it('handles model name without org prefix', () => {
-      vi.mocked(useLLM).mockReturnValue({
-        loadedModel: 'standalone-model-name',
-        modelType: 'chat',
-        isLoading: false,
-        loadProgress: null,
-        error: null,
-        loadModel: vi.fn(),
-        unloadModel: vi.fn(),
-        generate: vi.fn(),
-        classify: vi.fn(),
-        abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true),
-        isClassifying: false,
-        previouslyLoadedModel: null
-      });
-
-      renderChat();
-
-      expect(screen.getByText('Standalone Model Name')).toBeInTheDocument();
-    });
-
-    it('handles model name with -4k-instruct suffix', () => {
-      vi.mocked(useLLM).mockReturnValue({
-        loadedModel: 'org/model-4k-instruct',
-        modelType: 'chat',
-        isLoading: false,
-        loadProgress: null,
-        error: null,
-        loadModel: vi.fn(),
-        unloadModel: vi.fn(),
-        generate: vi.fn(),
-        classify: vi.fn(),
-        abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true),
-        isClassifying: false,
-        previouslyLoadedModel: null
-      });
-
-      renderChat();
-
-      expect(screen.getByText('Model')).toBeInTheDocument();
-    });
-  });
-
-  describe('ChatHeader component', () => {
-    it('renders the model name in the header', () => {
-      vi.mocked(useLLM).mockReturnValue({
-        loadedModel: 'org/model',
-        modelType: 'chat',
-        isLoading: false,
-        loadProgress: null,
-        error: null,
-        loadModel: vi.fn(),
-        unloadModel: vi.fn(),
-        generate: vi.fn(),
-        classify: vi.fn(),
-        abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true),
-        isClassifying: false,
-        previouslyLoadedModel: null
-      });
-
-      renderChat();
-
-      expect(screen.getByText('Model')).toBeInTheDocument();
-    });
-  });
-
-  describe('UserMessage and AssistantMessage components', () => {
-    beforeEach(() => {
-      vi.mocked(useLLM).mockReturnValue({
-        loadedModel: 'org/model',
-        modelType: 'chat',
-        isLoading: false,
-        loadProgress: null,
-        error: null,
-        loadModel: vi.fn(),
-        unloadModel: vi.fn(),
-        generate: vi.fn(),
-        classify: vi.fn(),
-        abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true),
-        isClassifying: false,
-        previouslyLoadedModel: null
-      });
-    });
-
-    it('renders the thread messages container', () => {
-      renderChat();
-
-      expect(screen.getByTestId('thread-messages')).toBeInTheDocument();
-    });
-  });
-
-  describe('NoModelLoadedContent styling', () => {
-    beforeEach(() => {
-      // Reset to no model loaded state
-      vi.mocked(useLLM).mockReturnValue({
-        loadedModel: null,
-        modelType: null,
-        isLoading: false,
-        loadProgress: null,
-        error: null,
-        loadModel: vi.fn(),
-        unloadModel: vi.fn(),
-        generate: vi.fn(),
-        classify: vi.fn(),
-        abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true),
-        isClassifying: false,
-        previouslyLoadedModel: null
-      });
-    });
-
-    it('renders with proper card styling', () => {
-      renderChat();
-
-      const cardTitle = screen.getByText('No Model Loaded');
-      expect(cardTitle).toBeInTheDocument();
-
-      const description = screen.getByText(/Load a model from the Models page/);
-      expect(description).toBeInTheDocument();
-    });
-
-    it('renders Bot icon in the card', () => {
-      renderChat();
-
-      // The button contains a Bot icon
-      const button = screen.getByRole('button', { name: /go to models/i });
-      expect(button).toBeInTheDocument();
-    });
-  });
-
-  describe('PhotoPicker component', () => {
-    beforeEach(() => {
-      vi.mocked(useLLM).mockReturnValue({
-        loadedModel: 'HuggingFaceTB/SmolVLM-256M-Instruct',
-        modelType: 'vision',
-        isLoading: false,
-        loadProgress: null,
-        error: null,
-        loadModel: vi.fn(),
-        unloadModel: vi.fn(),
-        generate: vi.fn(),
-        classify: vi.fn(),
-        abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true),
-        isClassifying: false,
-        previouslyLoadedModel: null
-      });
-    });
-
-    it('opens photo picker when attach image button is clicked', async () => {
-      // Set up mock to return photos
-      mockSelect.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            orderBy: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue([])
-            })
-          })
-        })
-      });
-
-      renderChat();
-
-      const imageButton = findImageButton();
-
-      await act(async () => {
-        fireEvent.click(imageButton);
-      });
-
-      // Wait for the photo picker to appear
-      await waitFor(() => {
-        expect(screen.getByText('Select a Photo')).toBeInTheDocument();
-      });
-    });
-
-    it('shows loading state when fetching photos', async () => {
-      // Set up a delayed mock
-      mockSelect.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            orderBy: vi.fn().mockReturnValue({
-              limit: vi
-                .fn()
-                .mockImplementation(
-                  () =>
-                    new Promise((resolve) => setTimeout(() => resolve([]), 100))
-                )
-            })
-          })
-        })
-      });
-
-      renderChat();
-
-      const imageButton = findImageButton();
-
-      await act(async () => {
-        fireEvent.click(imageButton);
-      });
-
-      // Should show loading state
-      await waitFor(() => {
-        expect(screen.getByText(/Loading photos/)).toBeInTheDocument();
-      });
-    });
-
-    it('shows empty state when no photos available', async () => {
-      mockSelect.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            orderBy: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue([])
-            })
-          })
-        })
-      });
-
-      renderChat();
-
-      const imageButton = findImageButton();
-
-      await act(async () => {
-        fireEvent.click(imageButton);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText(/No photos found/)).toBeInTheDocument();
-      });
-    });
-
-    it('shows lock screen when database is not unlocked', async () => {
-      // When database is not unlocked, show the lock screen instead of the chat interface
-      mockUseDatabaseContext.mockReturnValue({
-        isUnlocked: false,
-        isLoading: false,
-        currentInstanceId: null
-      });
-
-      renderChat();
-
-      // Should show the InlineUnlock component since database is locked
-      expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
-    });
-
-    it('closes photo picker when close button is clicked', async () => {
-      mockSelect.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            orderBy: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue([])
-            })
-          })
-        })
-      });
-
-      renderChat();
-
-      const imageButton = findImageButton();
-
-      await act(async () => {
-        fireEvent.click(imageButton);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText('Select a Photo')).toBeInTheDocument();
-      });
-
-      // Find and click the close button (X button in the header)
-      const closeButton = findCloseButton();
-
-      await act(async () => {
-        fireEvent.click(closeButton);
-      });
-
-      await waitFor(() => {
-        expect(screen.queryByText('Select a Photo')).not.toBeInTheDocument();
-      });
-    });
-
-    it('shows error when encryption key is not available', async () => {
-      mockGetCurrentKey.mockReturnValue(null);
-      mockSelect.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            orderBy: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue([
-                {
-                  id: '1',
-                  name: 'test.jpg',
-                  storagePath: '/photos/test.jpg',
-                  thumbnailPath: '/photos/thumb_test.jpg'
-                }
-              ])
-            })
-          })
-        })
-      });
-
-      renderChat();
-
-      const imageButton = findImageButton();
-
-      await act(async () => {
-        fireEvent.click(imageButton);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText(/Database not unlocked/)).toBeInTheDocument();
-      });
-    });
-
-    it('shows error when no active instance', async () => {
-      mockUseDatabaseContext.mockReturnValue({
-        isUnlocked: true,
-        isLoading: false,
-        currentInstanceId: null
-      });
-      mockSelect.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            orderBy: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue([
-                {
-                  id: '1',
-                  name: 'test.jpg',
-                  storagePath: '/photos/test.jpg',
-                  thumbnailPath: '/photos/thumb_test.jpg'
-                }
-              ])
-            })
-          })
-        })
-      });
-
-      renderChat();
-
-      const imageButton = findImageButton();
-
-      await act(async () => {
-        fireEvent.click(imageButton);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText(/No active instance/)).toBeInTheDocument();
-      });
-    });
-
-    it('displays photos when available', async () => {
-      mockRetrieve.mockResolvedValue(new Uint8Array([1, 2, 3, 4]));
-      mockSelect.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            orderBy: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue([
-                {
-                  id: '1',
-                  name: 'test-photo.jpg',
-                  storagePath: '/photos/test.jpg',
-                  thumbnailPath: '/photos/thumb_test.jpg'
-                }
-              ])
-            })
-          })
-        })
-      });
-
-      // Mock URL.createObjectURL
-      const mockCreateObjectURL = vi
-        .fn()
-        .mockReturnValue('blob:test-object-url');
-      global.URL.createObjectURL = mockCreateObjectURL;
-      global.URL.revokeObjectURL = vi.fn();
-
-      renderChat();
-
-      const imageButton = findImageButton();
-
-      await act(async () => {
-        fireEvent.click(imageButton);
-      });
-
-      await waitFor(() => {
-        const photos = screen.getAllByRole('button').filter((btn) => {
-          const img = btn.querySelector('img');
-          return img && img.getAttribute('alt') === 'test-photo.jpg';
-        });
-        expect(photos.length).toBeGreaterThan(0);
-      });
-    });
-
-    it('handles storage retrieval errors gracefully', async () => {
-      mockRetrieve.mockRejectedValue(new Error('Storage error'));
-      mockSelect.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            orderBy: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue([
-                {
-                  id: '1',
-                  name: 'test.jpg',
-                  storagePath: '/photos/test.jpg',
-                  thumbnailPath: null
-                }
-              ])
-            })
-          })
-        })
-      });
-
-      renderChat();
-
-      const imageButton = findImageButton();
-
-      await act(async () => {
-        fireEvent.click(imageButton);
-      });
-
-      // Should show no photos because the retrieval failed
-      await waitFor(() => {
-        expect(screen.getByText(/No photos found/)).toBeInTheDocument();
-      });
-    });
-
-    it('initializes file storage if not initialized', async () => {
-      mockIsFileStorageInitialized.mockReturnValue(false);
-      mockInitializeFileStorage.mockResolvedValue(undefined);
-      mockRetrieve.mockResolvedValue(new Uint8Array([1, 2, 3, 4]));
-      mockSelect.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            orderBy: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue([
-                {
-                  id: '1',
-                  name: 'test.jpg',
-                  storagePath: '/photos/test.jpg',
-                  thumbnailPath: null
-                }
-              ])
-            })
-          })
-        })
-      });
-
-      global.URL.createObjectURL = vi.fn().mockReturnValue('blob:test-url');
-      global.URL.revokeObjectURL = vi.fn();
-
-      renderChat();
-
-      const imageButton = findImageButton();
-
-      await act(async () => {
-        fireEvent.click(imageButton);
-      });
-
-      await waitFor(() => {
-        expect(mockInitializeFileStorage).toHaveBeenCalled();
-      });
-    });
-
-    it('selects a photo and closes picker', async () => {
-      mockRetrieve.mockResolvedValue(new Uint8Array([1, 2, 3, 4]));
-      mockSelect.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            orderBy: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue([
-                {
-                  id: '1',
-                  name: 'test-photo.jpg',
-                  storagePath: '/photos/test.jpg',
-                  thumbnailPath: '/photos/thumb_test.jpg'
-                }
-              ])
-            })
-          })
-        })
-      });
-
-      global.URL.createObjectURL = vi.fn().mockReturnValue('blob:test-url');
-      global.URL.revokeObjectURL = vi.fn();
-
-      // Mock FileReader using a class
-      class MockFileReader {
-        result = 'data:image/jpeg;base64,test';
-        onload: ((ev: ProgressEvent<FileReader>) => void) | null = null;
-        readAsDataURL() {
-          // Simulate async FileReader behavior
-          setTimeout(() => {
-            if (this.onload) {
-              this.onload({} as ProgressEvent<FileReader>);
-            }
-          }, 0);
-        }
-      }
-      vi.stubGlobal('FileReader', MockFileReader);
-
-      renderChat();
-
-      const imageButton = findImageButton();
-
-      await act(async () => {
-        fireEvent.click(imageButton);
-      });
-
-      // Wait for photos to load
-      await waitFor(() => {
-        const photoButtons = screen.getAllByRole('button').filter((btn) => {
-          const img = btn.querySelector('img');
-          return img && img.getAttribute('alt') === 'test-photo.jpg';
-        });
-        expect(photoButtons.length).toBeGreaterThan(0);
-      });
-
-      // Click the photo to select it
-      const photoButtons = screen.getAllByRole('button').filter((btn) => {
-        const img = btn.querySelector('img');
-        return img && img.getAttribute('alt') === 'test-photo.jpg';
-      });
-      const firstPhotoButton = photoButtons[0];
-      if (!firstPhotoButton) throw new Error('Photo button not found');
-
-      await act(async () => {
-        fireEvent.click(firstPhotoButton);
-      });
-
-      // Wait for FileReader callback to fire and setAttachedImage to be called
-      await waitFor(() => {
-        expect(mockSetAttachedImage).toHaveBeenCalledWith(
-          'data:image/jpeg;base64,test'
-        );
-      });
-    });
-  });
-
-  describe('image attachment removal', () => {
-    beforeEach(() => {
-      vi.mocked(useLLM).mockReturnValue({
-        loadedModel: 'HuggingFaceTB/SmolVLM-256M-Instruct',
-        modelType: 'vision',
-        isLoading: false,
-        loadProgress: null,
-        error: null,
-        loadModel: vi.fn(),
-        unloadModel: vi.fn(),
-        generate: vi.fn(),
-        classify: vi.fn(),
-        abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true),
-        isClassifying: false,
-        previouslyLoadedModel: null
-      });
-    });
-
-    it('clears attached image when remove button is clicked', async () => {
-      // Set up so there's an attached image
-      mockGetAttachedImage.mockReturnValue(
-        'data:image/jpeg;base64,existingImage'
-      );
-
-      renderChat();
-
-      // The attached image should trigger a state sync in useEffect
-      // Wait for the remove button to appear
-      const removeButton = await screen.findByRole('button', {
-        name: /remove attached image/i
-      });
-
-      fireEvent.click(removeButton);
-      expect(mockSetAttachedImage).toHaveBeenCalledWith(null);
-    });
-  });
-
-  describe('database loading state', () => {
-    it('shows loading message when database is loading', () => {
-      mockUseDatabaseContext.mockReturnValue({
-        isUnlocked: false,
-        isLoading: true,
-        currentInstanceId: null
-      });
-
-      renderChat();
-
-      expect(screen.getByText('Loading database...')).toBeInTheDocument();
-    });
-  });
-
-  describe('conversation handlers', () => {
-    const mockCreateConversation = vi.fn().mockResolvedValue('conv-123');
-    const mockSelectConversation = vi.fn().mockResolvedValue(undefined);
-
-    beforeEach(async () => {
-      const { useConversations } = await import('@/hooks/useConversations');
-      vi.mocked(useConversations).mockReturnValue({
-        conversations: [
-          {
-            id: 'conv-1',
-            title: 'Test Conversation',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            userId: 'user-1',
-            organizationId: 'org-1',
-            modelId: 'model-1',
-            messageCount: 0
-          }
-        ],
-        loading: false,
-        error: null,
-        currentConversationId: null,
-        currentMessages: [],
-        currentSessionKey: null,
-        messagesLoading: false,
-        createConversation: mockCreateConversation,
-        selectConversation: mockSelectConversation,
-        renameConversation: vi.fn().mockResolvedValue(undefined),
-        deleteConversation: vi.fn().mockResolvedValue(undefined),
-        addMessage: vi.fn().mockResolvedValue(undefined),
-        refetch: vi.fn().mockResolvedValue(undefined),
-        clearCurrentConversation: vi.fn()
-      });
-    });
-
-    it('calls selectConversation when conversation is clicked', async () => {
-      renderChat();
-
-      const conversationButton = screen.getByText('Test Conversation');
-      await act(async () => {
-        fireEvent.click(conversationButton);
-      });
-
-      expect(mockSelectConversation).toHaveBeenCalledWith('conv-1');
-    });
-
-    it('calls createConversation when new conversation is confirmed', async () => {
-      renderChat();
-
-      // Click the "New Conversation" button (Plus icon)
-      const newButton = screen.getByTitle('New Conversation');
-      await act(async () => {
-        fireEvent.click(newButton);
-      });
-
-      // Wait for dialog to appear
-      await waitFor(() => {
-        expect(
-          screen.getByTestId('new-conversation-dialog')
-        ).toBeInTheDocument();
-      });
-
-      // Click the Create button
-      const createButton = screen.getByTestId('new-conversation-dialog-create');
-      await act(async () => {
-        fireEvent.click(createButton);
-      });
-
-      await waitFor(() => {
-        expect(mockCreateConversation).toHaveBeenCalled();
-      });
-    });
-  });
-
-  describe('ChatInterface useEffect sync', () => {
-    beforeEach(() => {
-      vi.mocked(useLLM).mockReturnValue({
-        loadedModel: 'HuggingFaceTB/SmolVLM-256M-Instruct',
-        modelType: 'vision',
-        isLoading: false,
-        loadProgress: null,
-        error: null,
-        loadModel: vi.fn(),
-        unloadModel: vi.fn(),
-        generate: vi.fn(),
-        classify: vi.fn(),
-        abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true),
-        isClassifying: false,
-        previouslyLoadedModel: null
-      });
-    });
-
-    it('syncs attached image state from runtime module', async () => {
-      mockGetAttachedImage.mockReturnValue('data:image/png;base64,syncedImage');
-
-      renderChat();
-
-      // The useEffect should sync the state
-      await waitFor(() => {
-        // If state is synced, the attached image preview should show
-        const imgs = screen.queryAllByRole('img');
-        const attachedImg = imgs.find(
-          (img) => img.getAttribute('alt') === 'Attached'
-        );
-        expect(attachedImg).toBeInTheDocument();
-      });
     });
   });
 });

@@ -30,7 +30,6 @@ import {
   type WasmNodeAdapterOptions
 } from './wasmNodeTypes.js';
 
-// Re-export types for backwards compatibility
 export type {
   JsonBackupData,
   WasmNodeAdapterOptions

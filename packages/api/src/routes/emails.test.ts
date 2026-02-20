@@ -71,7 +71,7 @@ const createMockClient = () => ({
   }
 });
 
-vi.mock('../lib/redis.js', () => ({
+vi.mock('@tearleads/shared/redis', () => ({
   getRedisClient: vi.fn(() => Promise.resolve(createMockClient()))
 }));
 

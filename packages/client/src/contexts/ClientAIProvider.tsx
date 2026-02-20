@@ -21,8 +21,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { useDatabaseContext } from '@/db/hooks';
+import { useLLM } from '@/hooks/llm';
 import { useConversations } from '@/hooks/useConversations';
-import { useLLM } from '@/hooks/useLLM';
 import { useTranslation } from '@/i18n';
 import { getAttachedImage, setAttachedImage } from '@/lib/llmRuntime';
 import { PhotoPicker } from '@/pages/chat/PhotoPicker';

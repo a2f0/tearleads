@@ -13,7 +13,7 @@ vi.mock('../lib/postgres.js', () => ({
   closePostgresPool: () => mockClosePostgresPool()
 }));
 
-vi.mock('../lib/redis.js', () => ({
+vi.mock('@tearleads/shared/redis', () => ({
   closeRedisClient: () => mockCloseRedisClient()
 }));
 

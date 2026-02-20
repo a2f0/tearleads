@@ -1,4 +1,4 @@
-import { Photos } from '@/pages/Photos';
+import { Photos } from '@/pages/photos-components';
 
 interface PhotosWindowThumbnailViewProps {
   refreshToken: number;

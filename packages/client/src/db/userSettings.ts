@@ -1,49 +1,6 @@
 /**
  * Database-specific user settings functions.
- *
- * Types, constants, validators, and localStorage functions are re-exported
- * from @tearleads/settings. This file only contains the database operations.
  */
-
-import { inArray } from 'drizzle-orm';
-import type { Database } from './index';
-import { runLocalWrite } from './localWrite';
-import { userSettings } from './schema';
-
-// Re-export everything from @tearleads/settings
-export {
-  BORDER_RADIUS_VALUES,
-  type BorderRadiusValue,
-  DESKTOP_ICON_BACKGROUND_VALUES,
-  DESKTOP_ICON_DEPTH_VALUES,
-  type DesktopIconBackgroundValue,
-  type DesktopIconDepthValue,
-  type DesktopPatternValue,
-  dispatchSettingsSyncedEvent,
-  type FontValue,
-  getSettingFromStorage,
-  isBorderRadiusValue,
-  isDesktopIconBackgroundValue,
-  isDesktopIconDepthValue,
-  isDesktopPatternValue,
-  isFontValue,
-  isLanguageValue,
-  isThemeValue,
-  isTooltipsValue,
-  isWindowOpacityValue,
-  type LanguageValue,
-  SETTING_DEFAULTS,
-  SETTING_STORAGE_KEYS,
-  type SettingsSyncedDetail,
-  type SettingValueMap,
-  setSettingInStorage,
-  THEME_VALUES,
-  type ThemeValue,
-  type TooltipsValue,
-  type UserSettingKey,
-  WINDOW_OPACITY_VALUES,
-  type WindowOpacityValue
-} from '@tearleads/settings';
 
 import {
   isBorderRadiusValue,
@@ -59,6 +16,10 @@ import {
   type SettingValueMap,
   type UserSettingKey
 } from '@tearleads/settings';
+import { inArray } from 'drizzle-orm';
+import type { Database } from './index';
+import { runLocalWrite } from './localWrite';
+import { userSettings } from './schema';
 
 // Map of setting keys to their type guard validators
 const SETTING_VALIDATORS: {

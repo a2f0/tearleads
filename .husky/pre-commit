@@ -3,3 +3,4 @@ set -euo pipefail
 
 ./scripts/preen/checkFileLimits.sh --staged
 ./scripts/checkBinaryFiles.sh --staged
+pnpm exec tsx scripts/preen/checkCompatShims.ts --staged

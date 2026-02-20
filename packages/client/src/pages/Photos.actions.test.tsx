@@ -7,7 +7,7 @@ import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Photos } from './Photos';
+import { Photos } from './photos-components';
 
 // Mocks must be defined in each test file (hoisted)
 vi.mock('@/components/photos-window/PhotosAlbumsSidebar', () => ({

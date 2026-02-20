@@ -5,8 +5,8 @@
  */
 
 import { useCallback } from 'react';
+import { resetLLMUIState } from '@/hooks/llm';
 import { useOnInstanceChange } from '@/hooks/useInstanceChange';
-import { resetLLMUIState } from '@/hooks/useLLM';
 import { clearAttachedImage } from '@/lib/llmRuntime';
 
 export function InstanceChangeHandler() {

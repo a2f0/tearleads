@@ -6,7 +6,6 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 
-// Re-export all types for backwards compatibility
 export type {
   AboutMenuItemProps,
   ActionToolbarProps,

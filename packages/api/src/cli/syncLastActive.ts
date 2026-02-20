@@ -1,7 +1,7 @@
+import { closeRedisClient } from '@tearleads/shared/redis';
 import type { Command } from 'commander';
 import { buildPostgresConnectionLabel } from '../lib/cliPostgres.js';
 import { closePostgresPool, getPostgresPool } from '../lib/postgres.js';
-import { closeRedisClient } from '../lib/redis.js';
 import { getLatestLastActiveByUserIds } from '../lib/sessions.js';
 
 type SyncLastActiveOptions = {
