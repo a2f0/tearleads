@@ -15,6 +15,7 @@ import { registerPostBlobsStageStagingIdAbandonRoute } from './vfs/post-blobs-st
 import { registerPostBlobsStageStagingIdAttachRoute } from './vfs/post-blobs-stage-stagingId-attach.js';
 import { registerPostCrdtPushRoute } from './vfs/post-crdt-push.js';
 import { registerPostCrdtReconcileRoute } from './vfs/post-crdt-reconcile.js';
+import { registerPostItemsItemIdRekeyRoute } from './vfs/post-items-itemId-rekey.js';
 import { registerPostSyncReconcileRoute } from './vfs/post-sync-reconcile.js';
 import { registerPostKeysRoute } from './vfs/postKeys.js';
 import { registerPostRegisterRoute } from './vfs/postRegister.js';
@@ -33,5 +34,6 @@ registerPostCrdtReconcileRoute(vfsRouter);
 registerPostKeysRoute(vfsRouter);
 registerPostRegisterRoute(vfsRouter);
 registerPostSyncReconcileRoute(vfsRouter);
+registerPostItemsItemIdRekeyRoute(vfsRouter);
 
 export { vfsRouter };
