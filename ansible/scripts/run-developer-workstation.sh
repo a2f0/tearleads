@@ -10,7 +10,7 @@
 
 set -e
 
-cd "$(dirname "$0")" || exit
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Validate required environment variables
 if [ -z "$TF_VAR_staging_domain" ]; then
@@ -23,4 +23,4 @@ if [ -z "$TF_VAR_production_domain" ]; then
   exit 1
 fi
 
-ansible-playbook -i localhost, ../playbooks/developerWorkstation.yml "$@"
+ansible-playbook -i localhost, "$SCRIPT_DIR/../playbooks/developerWorkstation.yml" "$@"

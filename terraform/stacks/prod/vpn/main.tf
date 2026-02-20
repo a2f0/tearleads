@@ -69,6 +69,11 @@ resource "hcloud_server" "vpn" {
 
   user_data = <<-EOF
     #cloud-config
+    # Prevent cloud-init from regenerating ed25519 key (we provide our own)
+    # Allow RSA/ECDSA generation since SSH needs them
+    ssh_deletekeys: false
+    ssh_genkeytypes: ['rsa', 'ecdsa']
+
     write_files:
       - path: /etc/ssh/ssh_host_ed25519_key
         owner: root:root
@@ -89,6 +94,10 @@ resource "hcloud_server" "vpn" {
           - ${data.hcloud_ssh_key.main.public_key}
     ssh_pwauth: false
     disable_root: true
+
+    runcmd:
+      # Restart SSH to use the persistent host keys written above
+      - systemctl restart ssh
   EOF
 
   labels = {

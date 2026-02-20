@@ -1,3 +1,3 @@
 #!/bin/sh
-cd "$(dirname "$0")" || exit
-ansible-playbook -i ../inventories/vault-prod.sh ../playbooks/vault.yml
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ansible-playbook -i "$SCRIPT_DIR/../inventories/vault-prod.sh" "$SCRIPT_DIR/../playbooks/vault.yml" "$@"
