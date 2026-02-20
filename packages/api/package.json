@@ -30,7 +30,7 @@
   "author": "",
   "license": "UNLICENSED",
   "dependencies": {
-    "@aws-sdk/client-s3": "3.992.0",
+    "@aws-sdk/client-s3": "3.994.0",
     "@tearleads/db": "workspace:*",
     "@tearleads/shared": "workspace:*",
     "@tearleads/vfs-sync": "workspace:*",
@@ -42,7 +42,7 @@
     "morgan": "1.10.1",
     "nodemailer": "8.0.1",
     "pg": "8.18.0",
-    "redis": "5.10.0",
+    "redis": "5.11.0",
     "swagger-jsdoc": "6.2.8"
   },
   "devDependencies": {
@@ -50,7 +50,7 @@
     "@types/express": "5.0.6",
     "@types/jsonwebtoken": "9.0.10",
     "@types/morgan": "1.9.10",
-    "@types/node": "25.2.3",
+    "@types/node": "25.3.0",
     "@types/nodemailer": "7.0.10",
     "@types/pg": "8.16.0",
     "@types/supertest": "6.0.3",
