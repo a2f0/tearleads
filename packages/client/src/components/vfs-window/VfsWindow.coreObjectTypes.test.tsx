@@ -1,41 +1,57 @@
+import type { VfsOpenItem } from '@tearleads/vfs-explorer';
+import type { ReactNode } from 'react';
 import { render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VfsWindow } from './index';
-import {
-  createClientVfsExplorerProviderMock,
-  createDesktopFloatingWindowMock,
-  createInlineUnlockMock,
-  createVfsWindowMock,
-  latestProps,
-  mockFileInputRef,
-  mockHandleFileInputChange,
-  mockHandleUpload,
-  mockOpenWindow,
-  mockRequestWindowOpen,
-  mockResolveFileOpenTarget,
-  mockResolvePlaylistType,
-  mockUseDatabaseContext,
-  resetAllMocks
-} from './VfsWindow.testSetup';
+
+// Create hoisted mocks inline - cannot use imports in vi.mock() factories
+const hoistedMocks = vi.hoisted(() => {
+  let capturedProps: {
+    onItemOpen?: (item: VfsOpenItem) => void;
+    onUpload?: (folderId: string) => void;
+  } | null = null;
+
+  return {
+    mockOpenWindow: vi.fn(),
+    mockRequestWindowOpen: vi.fn(),
+    mockResolveFileOpenTarget: vi.fn(),
+    mockResolvePlaylistType: vi.fn(),
+    mockHandleUpload: vi.fn(),
+    mockHandleFileInputChange: vi.fn(),
+    mockFileInputRef: { current: null },
+    mockUseDatabaseContext: vi.fn(),
+    getLatestProps: () => capturedProps,
+    setLatestProps: (
+      props: {
+        onItemOpen?: (item: VfsOpenItem) => void;
+        onUpload?: (folderId: string) => void;
+      } | null
+    ) => {
+      capturedProps = props;
+    }
+  };
+});
 
 // Mock database context
 vi.mock('@/db/hooks', () => ({
-  useDatabaseContext: () => mockUseDatabaseContext()
+  useDatabaseContext: () => hoistedMocks.mockUseDatabaseContext()
 }));
 
 // Mock useVfsUploader hook
 vi.mock('@/hooks/vfs', () => ({
   useVfsUploader: () => ({
-    fileInputRef: mockFileInputRef,
+    fileInputRef: hoistedMocks.mockFileInputRef,
     refreshToken: 0,
-    handleUpload: mockHandleUpload,
-    handleFileInputChange: mockHandleFileInputChange
+    handleUpload: hoistedMocks.mockHandleUpload,
+    handleFileInputChange: hoistedMocks.mockHandleFileInputChange
   })
 }));
 
 // Mock InlineUnlock component
 vi.mock('@/components/sqlite/InlineUnlock', () => ({
-  InlineUnlock: createInlineUnlockMock()
+  InlineUnlock: ({ description }: { description: string }) => (
+    <div data-testid="inline-unlock">Unlock {description}</div>
+  )
 }));
 
 // Mock FloatingWindow component
@@ -45,22 +61,32 @@ vi.mock('@tearleads/window-manager', async (importOriginal) => {
 
   return {
     ...actual,
-    DesktopFloatingWindow: createDesktopFloatingWindowMock()
+    DesktopFloatingWindow: ({ children }: { children: ReactNode }) => (
+      <div data-testid="floating-window">{children}</div>
+    )
   };
 });
 
 vi.mock('@tearleads/vfs-explorer', () => ({
-  VfsWindow: createVfsWindowMock()
+  VfsWindow: (props: {
+    onItemOpen?: (item: VfsOpenItem) => void;
+    onUpload?: (folderId: string) => void;
+  }) => {
+    hoistedMocks.setLatestProps(props);
+    return <div data-testid="vfs-window-base" />;
+  }
 }));
 
 vi.mock('@/contexts/ClientVfsExplorerProvider', () => ({
-  ClientVfsExplorerProvider: createClientVfsExplorerProviderMock()
+  ClientVfsExplorerProvider: ({ children }: { children: ReactNode }) => (
+    <>{children}</>
+  )
 }));
 
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowManagerActions: () => ({
-    openWindow: mockOpenWindow,
-    requestWindowOpen: mockRequestWindowOpen,
+    openWindow: hoistedMocks.mockOpenWindow,
+    requestWindowOpen: hoistedMocks.mockRequestWindowOpen,
     closeWindow: vi.fn(),
     focusWindow: vi.fn(),
     minimizeWindow: vi.fn(),
@@ -72,13 +98,25 @@ vi.mock('@/contexts/WindowManagerContext', () => ({
 
 vi.mock('@/lib/vfsOpen', () => ({
   resolveFileOpenTarget: (...args: unknown[]) =>
-    mockResolveFileOpenTarget(...args),
-  resolvePlaylistType: (...args: unknown[]) => mockResolvePlaylistType(...args)
+    hoistedMocks.mockResolveFileOpenTarget(...args),
+  resolvePlaylistType: (...args: unknown[]) =>
+    hoistedMocks.mockResolvePlaylistType(...args)
 }));
 
 describe('VfsWindow - Core Object Types', () => {
   beforeEach(() => {
-    resetAllMocks();
+    hoistedMocks.mockOpenWindow.mockReset();
+    hoistedMocks.mockRequestWindowOpen.mockReset();
+    hoistedMocks.mockResolveFileOpenTarget.mockReset();
+    hoistedMocks.mockResolvePlaylistType.mockReset();
+    hoistedMocks.mockHandleUpload.mockReset();
+    hoistedMocks.mockHandleFileInputChange.mockReset();
+    hoistedMocks.setLatestProps(null);
+    hoistedMocks.mockUseDatabaseContext.mockReturnValue({
+      isUnlocked: true,
+      isLoading: false,
+      currentInstanceId: 'test-instance'
+    });
   });
 
   it('opens contacts window for contact items', async () => {
@@ -92,15 +130,15 @@ describe('VfsWindow - Core Object Types', () => {
       />
     );
 
-    await latestProps?.onItemOpen?.({
+    await hoistedMocks.getLatestProps()?.onItemOpen?.({
       id: 'contact-1',
       objectType: 'contact',
       name: 'Contact',
       createdAt: new Date()
     });
 
-    expect(mockOpenWindow).toHaveBeenCalledWith('contacts');
-    expect(mockRequestWindowOpen).toHaveBeenCalledWith('contacts', {
+    expect(hoistedMocks.mockOpenWindow).toHaveBeenCalledWith('contacts');
+    expect(hoistedMocks.mockRequestWindowOpen).toHaveBeenCalledWith('contacts', {
       contactId: 'contact-1'
     });
   });
@@ -116,15 +154,15 @@ describe('VfsWindow - Core Object Types', () => {
       />
     );
 
-    await latestProps?.onItemOpen?.({
+    await hoistedMocks.getLatestProps()?.onItemOpen?.({
       id: 'note-1',
       objectType: 'note',
       name: 'Note',
       createdAt: new Date()
     });
 
-    expect(mockOpenWindow).toHaveBeenCalledWith('notes');
-    expect(mockRequestWindowOpen).toHaveBeenCalledWith('notes', {
+    expect(hoistedMocks.mockOpenWindow).toHaveBeenCalledWith('notes');
+    expect(hoistedMocks.mockRequestWindowOpen).toHaveBeenCalledWith('notes', {
       noteId: 'note-1'
     });
   });
@@ -140,15 +178,15 @@ describe('VfsWindow - Core Object Types', () => {
       />
     );
 
-    await latestProps?.onItemOpen?.({
+    await hoistedMocks.getLatestProps()?.onItemOpen?.({
       id: 'photo-1',
       objectType: 'photo',
       name: 'Photo',
       createdAt: new Date()
     });
 
-    expect(mockOpenWindow).toHaveBeenCalledWith('photos');
-    expect(mockRequestWindowOpen).toHaveBeenCalledWith('photos', {
+    expect(hoistedMocks.mockOpenWindow).toHaveBeenCalledWith('photos');
+    expect(hoistedMocks.mockRequestWindowOpen).toHaveBeenCalledWith('photos', {
       photoId: 'photo-1'
     });
   });
@@ -164,15 +202,15 @@ describe('VfsWindow - Core Object Types', () => {
       />
     );
 
-    await latestProps?.onItemOpen?.({
+    await hoistedMocks.getLatestProps()?.onItemOpen?.({
       id: 'audio-1',
       objectType: 'audio',
       name: 'Track',
       createdAt: new Date()
     });
 
-    expect(mockOpenWindow).toHaveBeenCalledWith('audio');
-    expect(mockRequestWindowOpen).toHaveBeenCalledWith('audio', {
+    expect(hoistedMocks.mockOpenWindow).toHaveBeenCalledWith('audio');
+    expect(hoistedMocks.mockRequestWindowOpen).toHaveBeenCalledWith('audio', {
       audioId: 'audio-1'
     });
   });
@@ -188,15 +226,15 @@ describe('VfsWindow - Core Object Types', () => {
       />
     );
 
-    await latestProps?.onItemOpen?.({
+    await hoistedMocks.getLatestProps()?.onItemOpen?.({
       id: 'album-1',
       objectType: 'album',
       name: 'Album',
       createdAt: new Date()
     });
 
-    expect(mockOpenWindow).toHaveBeenCalledWith('photos');
-    expect(mockRequestWindowOpen).toHaveBeenCalledWith('photos', {
+    expect(hoistedMocks.mockOpenWindow).toHaveBeenCalledWith('photos');
+    expect(hoistedMocks.mockRequestWindowOpen).toHaveBeenCalledWith('photos', {
       albumId: 'album-1'
     });
   });
@@ -212,15 +250,15 @@ describe('VfsWindow - Core Object Types', () => {
       />
     );
 
-    await latestProps?.onItemOpen?.({
+    await hoistedMocks.getLatestProps()?.onItemOpen?.({
       id: 'video-1',
       objectType: 'video',
       name: 'Video',
       createdAt: new Date()
     });
 
-    expect(mockOpenWindow).toHaveBeenCalledWith('videos');
-    expect(mockRequestWindowOpen).toHaveBeenCalledWith('videos', {
+    expect(hoistedMocks.mockOpenWindow).toHaveBeenCalledWith('videos');
+    expect(hoistedMocks.mockRequestWindowOpen).toHaveBeenCalledWith('videos', {
       videoId: 'video-1'
     });
   });
@@ -236,14 +274,14 @@ describe('VfsWindow - Core Object Types', () => {
       />
     );
 
-    await latestProps?.onItemOpen?.({
+    await hoistedMocks.getLatestProps()?.onItemOpen?.({
       id: 'email-1',
       objectType: 'email',
       name: 'Email',
       createdAt: new Date()
     });
 
-    expect(mockOpenWindow).toHaveBeenCalledWith('email');
+    expect(hoistedMocks.mockOpenWindow).toHaveBeenCalledWith('email');
   });
 
   it('opens contacts window for contact group items', async () => {
@@ -257,15 +295,15 @@ describe('VfsWindow - Core Object Types', () => {
       />
     );
 
-    await latestProps?.onItemOpen?.({
+    await hoistedMocks.getLatestProps()?.onItemOpen?.({
       id: 'group-1',
       objectType: 'contactGroup',
       name: 'Group',
       createdAt: new Date()
     });
 
-    expect(mockOpenWindow).toHaveBeenCalledWith('contacts');
-    expect(mockRequestWindowOpen).toHaveBeenCalledWith('contacts', {
+    expect(hoistedMocks.mockOpenWindow).toHaveBeenCalledWith('contacts');
+    expect(hoistedMocks.mockRequestWindowOpen).toHaveBeenCalledWith('contacts', {
       groupId: 'group-1'
     });
   });
@@ -281,14 +319,14 @@ describe('VfsWindow - Core Object Types', () => {
       />
     );
 
-    await latestProps?.onItemOpen?.({
+    await hoistedMocks.getLatestProps()?.onItemOpen?.({
       id: 'tag-1',
       objectType: 'tag',
       name: 'Tag',
       createdAt: new Date()
     });
 
-    expect(mockOpenWindow).toHaveBeenCalledWith('files');
+    expect(hoistedMocks.mockOpenWindow).toHaveBeenCalledWith('files');
   });
 
   it('does not open a window for folder items', async () => {
@@ -302,14 +340,14 @@ describe('VfsWindow - Core Object Types', () => {
       />
     );
 
-    await latestProps?.onItemOpen?.({
+    await hoistedMocks.getLatestProps()?.onItemOpen?.({
       id: 'folder-1',
       objectType: 'folder',
       name: 'Folder',
       createdAt: new Date()
     });
 
-    expect(mockOpenWindow).not.toHaveBeenCalled();
-    expect(mockRequestWindowOpen).not.toHaveBeenCalled();
+    expect(hoistedMocks.mockOpenWindow).not.toHaveBeenCalled();
+    expect(hoistedMocks.mockRequestWindowOpen).not.toHaveBeenCalled();
   });
 });

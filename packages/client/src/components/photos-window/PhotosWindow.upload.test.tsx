@@ -2,21 +2,20 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PhotosWindow } from './PhotosWindow';
-import {
-  createDefaultProps,
-  createDesktopFloatingWindowMock,
-  createPhotosAlbumsSidebarMock,
-  createPhotosWindowContentMock,
-  createPhotosWindowDetailMock,
-  createPhotosWindowMenuBarMock,
-  createPhotosWindowTableViewMock,
-  createPhotosWindowThumbnailViewMock,
-  mockAddPhotoToAlbum,
-  mockUploadFile,
-  mockUseDatabaseContext,
+import { createDefaultProps, setupMocks } from './PhotosWindow.testSetup';
+
+// Hoisted mock variables - these are available before vi.mock runs
+const {
   mockWindowOpenRequest,
-  setupMocks
-} from './PhotosWindow.testSetup';
+  mockUseDatabaseContext,
+  mockUploadFile,
+  mockAddPhotoToAlbum
+} = vi.hoisted(() => ({
+  mockWindowOpenRequest: vi.fn(),
+  mockUseDatabaseContext: vi.fn(),
+  mockUploadFile: vi.fn(),
+  mockAddPhotoToAlbum: vi.fn()
+}));
 
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowOpenRequest: () => mockWindowOpenRequest(),
@@ -29,49 +28,94 @@ vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
-vi.mock('@tearleads/window-manager', () => ({
-  DesktopFloatingWindow: createDesktopFloatingWindowMock(),
-  WindowControlBar: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="window-control-bar">{children}</div>
-  ),
-  WindowControlItem: ({
-    children,
-    onClick,
-    'data-testid': dataTestId
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/window-manager')>();
+  return {
+    ...actual,
+    DesktopFloatingWindow: ({
+      children
+    }: {
+      children: React.ReactNode;
+    }) => <div data-testid="floating-window">{children}</div>,
+    useWindowRefresh: () => ({
+      refreshToken: 0,
+      triggerRefresh: vi.fn()
+    })
+  };
+});
+
+vi.mock('./PhotosWindowMenuBar', () => ({
+  PhotosWindowMenuBar: ({
+    onUpload
   }: {
-    children: React.ReactNode;
-    onClick?: () => void;
-    'data-testid'?: string;
+    onUpload: () => void;
   }) => (
-    <button type="button" onClick={onClick} data-testid={dataTestId}>
-      {children}
-    </button>
+    <div data-testid="menu-bar">
+      <button type="button" onClick={onUpload} data-testid="upload-button">
+        Upload
+      </button>
+    </div>
   )
 }));
 
-vi.mock('./PhotosWindowMenuBar', () => ({
-  PhotosWindowMenuBar: createPhotosWindowMenuBarMock()
-}));
-
 vi.mock('./PhotosWindowContent', () => ({
-  PhotosWindowContent: createPhotosWindowContentMock()
+  PhotosWindowContent: () => (
+    <div data-testid="photos-content">Photos Content</div>
+  )
 }));
 
 vi.mock('./PhotosWindowDetail', () => ({
-  PhotosWindowDetail: createPhotosWindowDetailMock()
+  PhotosWindowDetail: () => <div data-testid="photos-detail">Photos Detail</div>
 }));
 
 vi.mock('./PhotosWindowTableView', () => ({
-  PhotosWindowTableView: createPhotosWindowTableViewMock()
+  PhotosWindowTableView: () => (
+    <div data-testid="photos-table-content">Photos Table Content</div>
+  )
 }));
 
 vi.mock('./PhotosWindowThumbnailView', () => ({
-  PhotosWindowThumbnailView: createPhotosWindowThumbnailViewMock()
+  PhotosWindowThumbnailView: () => (
+    <div data-testid="photos-thumbnail-content">Photos Thumbnail Content</div>
+  )
 }));
 
 vi.mock('./PhotosAlbumsSidebar', () => ({
   ALL_PHOTOS_ID: '__all__',
-  PhotosAlbumsSidebar: createPhotosAlbumsSidebarMock()
+  PhotosAlbumsSidebar: ({
+    selectedAlbumId,
+    onAlbumSelect,
+    onDropToAlbum
+  }: {
+    selectedAlbumId: string | null;
+    onAlbumSelect: (id: string | null) => void;
+    onDropToAlbum?: (
+      albumId: string,
+      files: File[],
+      photoIds?: string[]
+    ) => void | Promise<void>;
+  }) => (
+    <div data-testid="photos-albums-sidebar">
+      <button
+        type="button"
+        data-testid="select-album"
+        onClick={() => onAlbumSelect('test-album-id')}
+      >
+        Select Album
+      </button>
+      <span data-testid="selected-album">{selectedAlbumId}</span>
+      <button
+        type="button"
+        data-testid="drop-photo-ids"
+        onClick={() =>
+          onDropToAlbum?.('test-album-id', [], ['photo-1', 'photo-2'])
+        }
+      >
+        Drop Photo Ids
+      </button>
+    </div>
+  )
 }));
 
 vi.mock('./usePhotoAlbums', () => ({
@@ -100,7 +144,12 @@ describe('PhotosWindow upload', () => {
   const defaultProps = createDefaultProps();
 
   beforeEach(() => {
-    setupMocks();
+    setupMocks({
+      mockWindowOpenRequest,
+      mockUseDatabaseContext,
+      mockUploadFile,
+      mockAddPhotoToAlbum
+    });
   });
 
   describe('file input handling', () => {

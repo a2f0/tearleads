@@ -25,7 +25,7 @@ vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowManager: () => mockUseWindowManager()
 }));
 
-vi.mock('@/hooks/useIsMobile', () => ({
+vi.mock('@/hooks/device', () => ({
   useIsMobile: () => mockUseIsMobile()
 }));
 

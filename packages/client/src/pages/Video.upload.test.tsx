@@ -5,13 +5,26 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VideoPage } from './Video';
 import {
   createMockQueryChain,
-  createVideoMocks,
   setupVideoPageMocks,
   TEST_VIDEO
 } from './Video.testSetup';
 
-// Create hoisted mocks that can be used in vi.mock() calls
-const mocks = vi.hoisted(() => createVideoMocks());
+// Create hoisted mocks inline - cannot call imported functions in vi.hoisted()
+const mocks = vi.hoisted(() => ({
+  mockUseDatabaseContext: vi.fn(),
+  mockSelect: vi.fn(),
+  mockUpdate: vi.fn(),
+  mockInsertValues: vi.fn(),
+  mockInsert: vi.fn(),
+  mockNavigate: vi.fn(),
+  mockGetCurrentKey: vi.fn(),
+  mockRetrieve: vi.fn(),
+  mockStore: vi.fn(),
+  mockIsFileStorageInitialized: vi.fn(),
+  mockInitializeFileStorage: vi.fn(),
+  mockUploadFile: vi.fn(),
+  mockDetectPlatform: vi.fn()
+}));
 
 // Mock VideoPlaylistsSidebar
 vi.mock('@/components/video-window/VideoPlaylistsSidebar', () => ({

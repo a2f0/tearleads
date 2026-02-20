@@ -1,41 +1,57 @@
+import type { VfsOpenItem } from '@tearleads/vfs-explorer';
+import type { ReactNode } from 'react';
 import { render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VfsWindow } from './index';
-import {
-  createClientVfsExplorerProviderMock,
-  createDesktopFloatingWindowMock,
-  createInlineUnlockMock,
-  createVfsWindowMock,
-  latestProps,
-  mockFileInputRef,
-  mockHandleFileInputChange,
-  mockHandleUpload,
-  mockOpenWindow,
-  mockRequestWindowOpen,
-  mockResolveFileOpenTarget,
-  mockResolvePlaylistType,
-  mockUseDatabaseContext,
-  resetAllMocks
-} from './VfsWindow.testSetup';
+
+// Create hoisted mocks inline - cannot use imports in vi.mock() factories
+const hoistedMocks = vi.hoisted(() => {
+  let capturedProps: {
+    onItemOpen?: (item: VfsOpenItem) => void;
+    onUpload?: (folderId: string) => void;
+  } | null = null;
+
+  return {
+    mockOpenWindow: vi.fn(),
+    mockRequestWindowOpen: vi.fn(),
+    mockResolveFileOpenTarget: vi.fn(),
+    mockResolvePlaylistType: vi.fn(),
+    mockHandleUpload: vi.fn(),
+    mockHandleFileInputChange: vi.fn(),
+    mockFileInputRef: { current: null },
+    mockUseDatabaseContext: vi.fn(),
+    getLatestProps: () => capturedProps,
+    setLatestProps: (
+      props: {
+        onItemOpen?: (item: VfsOpenItem) => void;
+        onUpload?: (folderId: string) => void;
+      } | null
+    ) => {
+      capturedProps = props;
+    }
+  };
+});
 
 // Mock database context
 vi.mock('@/db/hooks', () => ({
-  useDatabaseContext: () => mockUseDatabaseContext()
+  useDatabaseContext: () => hoistedMocks.mockUseDatabaseContext()
 }));
 
 // Mock useVfsUploader hook
 vi.mock('@/hooks/vfs', () => ({
   useVfsUploader: () => ({
-    fileInputRef: mockFileInputRef,
+    fileInputRef: hoistedMocks.mockFileInputRef,
     refreshToken: 0,
-    handleUpload: mockHandleUpload,
-    handleFileInputChange: mockHandleFileInputChange
+    handleUpload: hoistedMocks.mockHandleUpload,
+    handleFileInputChange: hoistedMocks.mockHandleFileInputChange
   })
 }));
 
 // Mock InlineUnlock component
 vi.mock('@/components/sqlite/InlineUnlock', () => ({
-  InlineUnlock: createInlineUnlockMock()
+  InlineUnlock: ({ description }: { description: string }) => (
+    <div data-testid="inline-unlock">Unlock {description}</div>
+  )
 }));
 
 // Mock FloatingWindow component
@@ -45,22 +61,32 @@ vi.mock('@tearleads/window-manager', async (importOriginal) => {
 
   return {
     ...actual,
-    DesktopFloatingWindow: createDesktopFloatingWindowMock()
+    DesktopFloatingWindow: ({ children }: { children: ReactNode }) => (
+      <div data-testid="floating-window">{children}</div>
+    )
   };
 });
 
 vi.mock('@tearleads/vfs-explorer', () => ({
-  VfsWindow: createVfsWindowMock()
+  VfsWindow: (props: {
+    onItemOpen?: (item: VfsOpenItem) => void;
+    onUpload?: (folderId: string) => void;
+  }) => {
+    hoistedMocks.setLatestProps(props);
+    return <div data-testid="vfs-window-base" />;
+  }
 }));
 
 vi.mock('@/contexts/ClientVfsExplorerProvider', () => ({
-  ClientVfsExplorerProvider: createClientVfsExplorerProviderMock()
+  ClientVfsExplorerProvider: ({ children }: { children: ReactNode }) => (
+    <>{children}</>
+  )
 }));
 
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowManagerActions: () => ({
-    openWindow: mockOpenWindow,
-    requestWindowOpen: mockRequestWindowOpen,
+    openWindow: hoistedMocks.mockOpenWindow,
+    requestWindowOpen: hoistedMocks.mockRequestWindowOpen,
     closeWindow: vi.fn(),
     focusWindow: vi.fn(),
     minimizeWindow: vi.fn(),
@@ -72,17 +98,29 @@ vi.mock('@/contexts/WindowManagerContext', () => ({
 
 vi.mock('@/lib/vfsOpen', () => ({
   resolveFileOpenTarget: (...args: unknown[]) =>
-    mockResolveFileOpenTarget(...args),
-  resolvePlaylistType: (...args: unknown[]) => mockResolvePlaylistType(...args)
+    hoistedMocks.mockResolveFileOpenTarget(...args),
+  resolvePlaylistType: (...args: unknown[]) =>
+    hoistedMocks.mockResolvePlaylistType(...args)
 }));
 
 describe('VfsWindow - Playlist and Upload', () => {
   beforeEach(() => {
-    resetAllMocks();
+    hoistedMocks.mockOpenWindow.mockReset();
+    hoistedMocks.mockRequestWindowOpen.mockReset();
+    hoistedMocks.mockResolveFileOpenTarget.mockReset();
+    hoistedMocks.mockResolvePlaylistType.mockReset();
+    hoistedMocks.mockHandleUpload.mockReset();
+    hoistedMocks.mockHandleFileInputChange.mockReset();
+    hoistedMocks.setLatestProps(null);
+    hoistedMocks.mockUseDatabaseContext.mockReturnValue({
+      isUnlocked: true,
+      isLoading: false,
+      currentInstanceId: 'test-instance'
+    });
   });
 
   it('opens audio window for audio playlist items', async () => {
-    mockResolvePlaylistType.mockResolvedValue('audio');
+    hoistedMocks.mockResolvePlaylistType.mockResolvedValue('audio');
 
     render(
       <VfsWindow
@@ -94,21 +132,21 @@ describe('VfsWindow - Playlist and Upload', () => {
       />
     );
 
-    await latestProps?.onItemOpen?.({
+    await hoistedMocks.getLatestProps()?.onItemOpen?.({
       id: 'playlist-1',
       objectType: 'playlist',
       name: 'Audio Playlist',
       createdAt: new Date()
     });
 
-    expect(mockOpenWindow).toHaveBeenCalledWith('audio');
-    expect(mockRequestWindowOpen).toHaveBeenCalledWith('audio', {
+    expect(hoistedMocks.mockOpenWindow).toHaveBeenCalledWith('audio');
+    expect(hoistedMocks.mockRequestWindowOpen).toHaveBeenCalledWith('audio', {
       playlistId: 'playlist-1'
     });
   });
 
   it('opens videos window for video playlist items', async () => {
-    mockResolvePlaylistType.mockResolvedValue('video');
+    hoistedMocks.mockResolvePlaylistType.mockResolvedValue('video');
 
     render(
       <VfsWindow
@@ -120,15 +158,15 @@ describe('VfsWindow - Playlist and Upload', () => {
       />
     );
 
-    await latestProps?.onItemOpen?.({
+    await hoistedMocks.getLatestProps()?.onItemOpen?.({
       id: 'playlist-2',
       objectType: 'playlist',
       name: 'Video Playlist',
       createdAt: new Date()
     });
 
-    expect(mockOpenWindow).toHaveBeenCalledWith('videos');
-    expect(mockRequestWindowOpen).toHaveBeenCalledWith('videos', {
+    expect(hoistedMocks.mockOpenWindow).toHaveBeenCalledWith('videos');
+    expect(hoistedMocks.mockRequestWindowOpen).toHaveBeenCalledWith('videos', {
       playlistId: 'playlist-2'
     });
   });
@@ -145,9 +183,9 @@ describe('VfsWindow - Playlist and Upload', () => {
     );
 
     // Call onUpload from VfsWindowBase props
-    latestProps?.onUpload?.('folder-123');
+    hoistedMocks.getLatestProps()?.onUpload?.('folder-123');
 
     // Should call the mocked handleUpload from useVfsUploader
-    expect(mockHandleUpload).toHaveBeenCalledWith('folder-123');
+    expect(hoistedMocks.mockHandleUpload).toHaveBeenCalledWith('folder-123');
   });
 });

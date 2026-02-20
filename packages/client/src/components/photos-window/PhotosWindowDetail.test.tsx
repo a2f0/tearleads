@@ -55,7 +55,8 @@ vi.mock('@/db', () => ({
       catch: vi.fn(() => Promise.resolve())
     };
     return chainable;
-  }
+  },
+  getCurrentInstanceId: () => 'test-instance'
 }));
 
 // Mock crypto key manager
@@ -226,7 +227,9 @@ describe('PhotosWindowDetail', () => {
   it('shows error when fetch fails', async () => {
     const consoleSpy = mockConsoleError();
     shouldResolve = true;
-    limitResult = Promise.reject(new Error('Database error'));
+    const rejection = Promise.reject(new Error('Database error'));
+    rejection.catch(() => {}); // Prevent unhandled rejection warning
+    limitResult = rejection;
 
     await act(async () => {
       render(<PhotosWindowDetail {...defaultProps} />);

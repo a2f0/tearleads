@@ -3,22 +3,24 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Video } from './Video';
-import {
-  mockDetectPlatform,
-  mockGetCurrentKey,
-  mockInitializeFileStorage,
-  mockInsert,
-  mockInsertValues,
-  mockIsFileStorageInitialized,
-  mockNavigate,
-  mockRetrieve,
-  mockSelect,
-  mockStore,
-  mockUpdate,
-  mockUploadFile,
-  mockUseDatabaseContext,
-  setupVideoWrapperMocks
-} from './Video.testSetup';
+import { setupVideoWrapperMocks } from './Video.testSetup';
+
+// Create hoisted mocks inline - required for vi.mock() factories
+const mocks = vi.hoisted(() => ({
+  mockUseDatabaseContext: vi.fn(),
+  mockSelect: vi.fn(),
+  mockUpdate: vi.fn(),
+  mockInsertValues: vi.fn(),
+  mockInsert: vi.fn(),
+  mockNavigate: vi.fn(),
+  mockGetCurrentKey: vi.fn(),
+  mockRetrieve: vi.fn(),
+  mockStore: vi.fn(),
+  mockIsFileStorageInitialized: vi.fn(),
+  mockInitializeFileStorage: vi.fn(),
+  mockUploadFile: vi.fn(),
+  mockDetectPlatform: vi.fn()
+}));
 
 // Mock VideoPlaylistsSidebar
 vi.mock('@/components/video-window/VideoPlaylistsSidebar', () => ({
@@ -94,15 +96,15 @@ vi.mock('@tanstack/react-virtual', () => ({
 
 // Mock the database context
 vi.mock('@/db/hooks', () => ({
-  useDatabaseContext: () => mockUseDatabaseContext()
+  useDatabaseContext: () => mocks.mockUseDatabaseContext()
 }));
 
 // Mock the database
 vi.mock('@/db', () => ({
   getDatabase: () => ({
-    select: mockSelect,
-    update: mockUpdate,
-    insert: mockInsert
+    select: mocks.mockSelect,
+    update: mocks.mockUpdate,
+    insert: mocks.mockInsert
   })
 }));
 
@@ -111,7 +113,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();
   return {
     ...actual,
-    useNavigate: () => mockNavigate,
+    useNavigate: () => mocks.mockNavigate,
     useLocation: () => ({ pathname: '/', state: null })
   };
 });
@@ -119,26 +121,27 @@ vi.mock('react-router-dom', async (importOriginal) => {
 // Mock the key manager
 vi.mock('@/db/crypto', () => ({
   getKeyManager: () => ({
-    getCurrentKey: mockGetCurrentKey
+    getCurrentKey: mocks.mockGetCurrentKey
   })
 }));
 
 // Mock file storage
 vi.mock('@/storage/opfs', () => ({
   getFileStorage: () => ({
-    retrieve: mockRetrieve,
-    measureRetrieve: mockRetrieve,
-    store: mockStore
+    retrieve: mocks.mockRetrieve,
+    measureRetrieve: mocks.mockRetrieve,
+    store: mocks.mockStore
   }),
-  isFileStorageInitialized: () => mockIsFileStorageInitialized(),
-  initializeFileStorage: (key: Uint8Array) => mockInitializeFileStorage(key),
+  isFileStorageInitialized: () => mocks.mockIsFileStorageInitialized(),
+  initializeFileStorage: (key: Uint8Array) =>
+    mocks.mockInitializeFileStorage(key),
   createRetrieveLogger: () => vi.fn()
 }));
 
 // Mock useFileUpload hook
 vi.mock('@/hooks/vfs', () => ({
   useFileUpload: () => ({
-    uploadFile: mockUploadFile
+    uploadFile: mocks.mockUploadFile
   })
 }));
 
@@ -147,7 +150,7 @@ vi.mock('@/lib/utils', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/utils')>();
   return {
     ...actual,
-    detectPlatform: () => mockDetectPlatform()
+    detectPlatform: () => mocks.mockDetectPlatform()
   };
 });
 
@@ -165,12 +168,12 @@ function renderVideo(route = '/videos') {
 describe('Video (wrapper with sidebar)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    setupVideoWrapperMocks();
+    setupVideoWrapperMocks(mocks);
   });
 
   describe('when database is unlocked', () => {
     beforeEach(() => {
-      mockUseDatabaseContext.mockReturnValue({
+      mocks.mockUseDatabaseContext.mockReturnValue({
         isUnlocked: true,
         isLoading: false,
         currentInstanceId: 'test-instance'
@@ -210,7 +213,9 @@ describe('Video (wrapper with sidebar)', () => {
       await user.click(screen.getByTestId('select-playlist-1'));
 
       // Navigation is now handled via URL routing
-      expect(mockNavigate).toHaveBeenCalledWith('/videos/playlists/playlist-1');
+      expect(mocks.mockNavigate).toHaveBeenCalledWith(
+        '/videos/playlists/playlist-1'
+      );
     });
 
     it('links dropped video ids to playlist', async () => {
@@ -220,9 +225,9 @@ describe('Video (wrapper with sidebar)', () => {
       await user.click(screen.getByTestId('drop-to-playlist'));
 
       await waitFor(() => {
-        expect(mockInsert).toHaveBeenCalled();
-        expect(mockInsertValues).toHaveBeenCalledTimes(1);
-        expect(mockInsertValues).toHaveBeenCalledWith(
+        expect(mocks.mockInsert).toHaveBeenCalled();
+        expect(mocks.mockInsertValues).toHaveBeenCalledTimes(1);
+        expect(mocks.mockInsertValues).toHaveBeenCalledWith(
           expect.arrayContaining([
             expect.objectContaining({ childId: 'video-1' }),
             expect.objectContaining({ childId: 'video-2' })
@@ -257,7 +262,7 @@ describe('Video (wrapper with sidebar)', () => {
 
   describe('when database is locked', () => {
     beforeEach(() => {
-      mockUseDatabaseContext.mockReturnValue({
+      mocks.mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
         isLoading: false,
         currentInstanceId: null,
@@ -291,7 +296,7 @@ describe('Video (wrapper with sidebar)', () => {
 
   describe('URL-based routing', () => {
     beforeEach(() => {
-      mockUseDatabaseContext.mockReturnValue({
+      mocks.mockUseDatabaseContext.mockReturnValue({
         isUnlocked: true,
         isLoading: false,
         currentInstanceId: 'test-instance'
@@ -320,7 +325,9 @@ describe('Video (wrapper with sidebar)', () => {
 
       await user.click(screen.getByTestId('select-playlist-1'));
 
-      expect(mockNavigate).toHaveBeenCalledWith('/videos/playlists/playlist-1');
+      expect(mocks.mockNavigate).toHaveBeenCalledWith(
+        '/videos/playlists/playlist-1'
+      );
     });
 
     it('navigates to /videos when ALL_VIDEO_ID is selected', async () => {
@@ -353,7 +360,7 @@ describe('Video (wrapper with sidebar)', () => {
 
       await user.click(screen.getByTestId('select-all-videos'));
 
-      expect(mockNavigate).toHaveBeenCalledWith('/videos');
+      expect(mocks.mockNavigate).toHaveBeenCalledWith('/videos');
 
       consoleSpy.mockRestore();
     });
