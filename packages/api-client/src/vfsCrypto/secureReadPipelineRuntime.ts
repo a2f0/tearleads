@@ -187,7 +187,9 @@ function concatChunks(chunks: Uint8Array[]): Uint8Array {
 }
 
 async function hashBase64(data: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', data);
+  const stableBuffer = new ArrayBuffer(data.byteLength);
+  new Uint8Array(stableBuffer).set(data);
+  const digest = await crypto.subtle.digest('SHA-256', stableBuffer);
   return toBase64(new Uint8Array(digest));
 }
 
