@@ -147,6 +147,80 @@ export const emailFolders = sqliteTable('email_folders', {
 });
 
 /**
+ * Emails - extends registry for email-type items.
+ * Stores encrypted email metadata.
+ */
+export const emails = sqliteTable(
+  'emails',
+  {
+    id: text('id')
+      .primaryKey()
+      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+    encryptedSubject: text('encrypted_subject'),
+    encryptedFrom: text('encrypted_from'),
+    encryptedTo: text('encrypted_to'),
+    encryptedCc: text('encrypted_cc'),
+    encryptedBodyPath: text('encrypted_body_path'),
+    receivedAt: integer('received_at', { mode: 'timestamp_ms' }).notNull(),
+    isRead: integer('is_read', { mode: 'boolean' }).notNull().default(false),
+    isStarred: integer('is_starred', { mode: 'boolean' })
+      .notNull()
+      .default(false)
+  },
+  (table) => [index('emails_received_at_idx').on(table.receivedAt)]
+);
+
+/**
+ * Composed emails - extends registry for draft and sent email items.
+ * Stores encrypted composed email content for drafts and sent messages.
+ */
+export const composedEmails = sqliteTable(
+  'composed_emails',
+  {
+    id: text('id')
+      .primaryKey()
+      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+    encryptedTo: text('encrypted_to'),
+    encryptedCc: text('encrypted_cc'),
+    encryptedBcc: text('encrypted_bcc'),
+    encryptedSubject: text('encrypted_subject'),
+    encryptedBody: text('encrypted_body'),
+    status: text('status', {
+      enum: ['draft', 'sending', 'sent', 'failed']
+    })
+      .notNull()
+      .default('draft'),
+    sentAt: integer('sent_at', { mode: 'timestamp_ms' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (table) => [
+    index('composed_emails_status_idx').on(table.status),
+    index('composed_emails_updated_idx').on(table.updatedAt)
+  ]
+);
+
+/**
+ * Email attachments - file references for composed emails.
+ * Links attachments to composed emails with metadata.
+ */
+export const emailAttachments = sqliteTable(
+  'email_attachments',
+  {
+    id: text('id').primaryKey(),
+    composedEmailId: text('composed_email_id')
+      .notNull()
+      .references(() => composedEmails.id, { onDelete: 'cascade' }),
+    encryptedFileName: text('encrypted_file_name').notNull(),
+    mimeType: text('mime_type').notNull(),
+    size: integer('size').notNull(),
+    encryptedStoragePath: text('encrypted_storage_path').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (table) => [index('email_attachments_email_idx').on(table.composedEmailId)]
+);
+
+/**
  * Tags - extends registry for tag-type items.
  * Stores tag metadata for cross-cutting organization.
  */
@@ -232,80 +306,6 @@ export const walletItemMedia = sqliteTable(
       table.side
     )
   ]
-);
-
-/**
- * Emails - extends registry for email-type items.
- * Stores encrypted email metadata.
- */
-export const emails = sqliteTable(
-  'emails',
-  {
-    id: text('id')
-      .primaryKey()
-      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
-    encryptedSubject: text('encrypted_subject'),
-    encryptedFrom: text('encrypted_from'),
-    encryptedTo: text('encrypted_to'),
-    encryptedCc: text('encrypted_cc'),
-    encryptedBodyPath: text('encrypted_body_path'),
-    receivedAt: integer('received_at', { mode: 'timestamp_ms' }).notNull(),
-    isRead: integer('is_read', { mode: 'boolean' }).notNull().default(false),
-    isStarred: integer('is_starred', { mode: 'boolean' })
-      .notNull()
-      .default(false)
-  },
-  (table) => [index('emails_received_at_idx').on(table.receivedAt)]
-);
-
-/**
- * Composed emails - extends registry for draft and sent email items.
- * Stores encrypted composed email content for drafts and sent messages.
- */
-export const composedEmails = sqliteTable(
-  'composed_emails',
-  {
-    id: text('id')
-      .primaryKey()
-      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
-    encryptedTo: text('encrypted_to'),
-    encryptedCc: text('encrypted_cc'),
-    encryptedBcc: text('encrypted_bcc'),
-    encryptedSubject: text('encrypted_subject'),
-    encryptedBody: text('encrypted_body'),
-    status: text('status', {
-      enum: ['draft', 'sending', 'sent', 'failed']
-    })
-      .notNull()
-      .default('draft'),
-    sentAt: integer('sent_at', { mode: 'timestamp_ms' }),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
-  },
-  (table) => [
-    index('composed_emails_status_idx').on(table.status),
-    index('composed_emails_updated_idx').on(table.updatedAt)
-  ]
-);
-
-/**
- * Email attachments - file references for composed emails.
- * Links attachments to composed emails with metadata.
- */
-export const emailAttachments = sqliteTable(
-  'email_attachments',
-  {
-    id: text('id').primaryKey(),
-    composedEmailId: text('composed_email_id')
-      .notNull()
-      .references(() => composedEmails.id, { onDelete: 'cascade' }),
-    encryptedFileName: text('encrypted_file_name').notNull(),
-    mimeType: text('mime_type').notNull(),
-    size: integer('size').notNull(),
-    encryptedStoragePath: text('encrypted_storage_path').notNull(),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
-  },
-  (table) => [index('email_attachments_email_idx').on(table.composedEmailId)]
 );
 
 /**
