@@ -19,11 +19,6 @@ data "hcloud_ssh_key" "main" {
 
 # Cleanup Tailscale device registration on destroy
 # This prevents stale entries like vault-prod-1, vault-prod-2, etc.
-#
-# Note: The API token must be in triggers because destroy-time provisioners
-# can only access self.triggers values. This is a Terraform limitation.
-# The token is marked sensitive in variables.tf to prevent display in logs.
-# Run with TF_LOG=ERROR to minimize exposure during destroy operations.
 resource "null_resource" "tailscale_cleanup" {
   triggers = {
     hostname  = local.tailscale_hostname
@@ -31,14 +26,18 @@ resource "null_resource" "tailscale_cleanup" {
   }
 
   provisioner "local-exec" {
-    when    = destroy
+    when = destroy
+    environment = {
+      TAILSCALE_API_TOKEN = self.triggers.api_token
+      TAILSCALE_HOSTNAME  = self.triggers.hostname
+    }
     command = <<-EOF
-      echo "Cleaning up Tailscale devices matching '${self.triggers.hostname}'..."
+      echo "Cleaning up Tailscale devices matching '$TAILSCALE_HOSTNAME'..."
 
       # List all devices and find ones matching our hostname pattern
-      DEVICES=$(curl -s -H "Authorization: Bearer ${self.triggers.api_token}" \
+      DEVICES=$(curl -s -H "Authorization: Bearer $TAILSCALE_API_TOKEN" \
         "https://api.tailscale.com/api/v2/tailnet/-/devices" | \
-        jq -r '.devices[] | select(.hostname | startswith("${self.triggers.hostname}")) | "\(.id) \(.hostname)"')
+        jq -r ".devices[] | select(.hostname | startswith(\"$TAILSCALE_HOSTNAME\")) | \"\(.id) \(.hostname)\"")
 
       if [ -z "$DEVICES" ]; then
         echo "No matching devices found."
@@ -51,7 +50,7 @@ resource "null_resource" "tailscale_cleanup" {
       # Delete each matching device
       echo "$DEVICES" | while read -r ID NAME; do
         echo "Deleting device: $NAME ($ID)"
-        curl -s -X DELETE -H "Authorization: Bearer ${self.triggers.api_token}" \
+        curl -s -X DELETE -H "Authorization: Bearer $TAILSCALE_API_TOKEN" \
           "https://api.tailscale.com/api/v2/device/$ID"
       done
 
