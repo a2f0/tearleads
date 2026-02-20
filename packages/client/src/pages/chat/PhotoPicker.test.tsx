@@ -29,7 +29,7 @@ vi.mock('@/hooks/llm', () => ({
 }));
 
 // Mock useConversations hook
-vi.mock('@/hooks/useConversations', () => ({
+vi.mock('@/hooks/ai/useConversations', () => ({
   useConversations: vi.fn(() => ({
     conversations: [],
     loading: false,

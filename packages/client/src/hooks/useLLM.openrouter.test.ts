@@ -26,7 +26,7 @@ vi.mock('@/db', () => ({
 }));
 
 // Mock useAppLifecycle
-vi.mock('./useAppLifecycle', () => ({
+vi.mock('./app/useAppLifecycle', () => ({
   saveLastLoadedModel: vi.fn(),
   getLastLoadedModel: vi.fn().mockReturnValue(null),
   clearLastLoadedModel: vi.fn()
@@ -52,7 +52,7 @@ describe('useLLM OpenRouter models', () => {
         requestAdapter: vi.fn().mockResolvedValue({})
       }
     });
-    const { getLastLoadedModel } = await import('./useAppLifecycle');
+    const { getLastLoadedModel } = await import('./app/useAppLifecycle');
     vi.mocked(getLastLoadedModel).mockReturnValue(null);
   });
 

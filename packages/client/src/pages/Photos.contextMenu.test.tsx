@@ -2,7 +2,6 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Photos } from './Photos';
 import {
   mockCanShareFiles,
   mockDb,
@@ -22,6 +21,7 @@ import {
   renderPhotos,
   setupPhotosTestMocks
 } from './Photos.testSetup';
+import { Photos } from './photos-components';
 
 // ============================================================
 // vi.mock() calls - must be inline in each test file
