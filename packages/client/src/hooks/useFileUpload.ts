@@ -10,7 +10,10 @@
 import { and, eq } from 'drizzle-orm';
 import { fileTypeFromBuffer } from 'file-type';
 import { useCallback } from 'react';
-import { useVfsSecureFacade } from '@/contexts/VfsOrchestratorContext';
+import {
+  useVfsOrchestratorInstance,
+  useVfsSecureFacade
+} from '@/contexts/VfsOrchestratorContext';
 import { getDatabase } from '@/db';
 import { logEvent } from '@/db/analytics';
 import { getCurrentInstanceId, getKeyManager } from '@/db/crypto';
@@ -51,6 +54,7 @@ function createStreamFromData(data: Uint8Array): ReadableStream<Uint8Array> {
 
 export function useFileUpload() {
   const secureFacade = useVfsSecureFacade();
+  const orchestrator = useVfsOrchestratorInstance();
 
   const uploadFile = useCallback(
     async (
@@ -186,7 +190,8 @@ export function useFileUpload() {
       if (
         isLoggedIn() &&
         getFeatureFlagValue('vfsSecureUpload') &&
-        secureFacade
+        secureFacade &&
+        orchestrator
       ) {
         try {
           const expiresAt = new Date();
@@ -199,6 +204,12 @@ export function useFileUpload() {
             stream: createStreamFromData(data),
             expiresAt: expiresAt.toISOString()
           });
+
+          // Flush queued operations to ensure data reaches the server.
+          // stageAttachEncryptedBlobAndPersist only queues operations locally;
+          // flushAll sends them over the network.
+          await orchestrator.flushAll();
+
           serverUploadSucceeded = true;
         } catch (err) {
           console.warn('Failed to upload via secure facade:', err);
@@ -228,7 +239,7 @@ export function useFileUpload() {
 
       return { id, isDuplicate: false };
     },
-    [secureFacade]
+    [secureFacade, orchestrator]
   );
 
   return { uploadFile };

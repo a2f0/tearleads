@@ -130,6 +130,53 @@ describe('vfsUserKeyProvider', () => {
         'VFS public key not available'
       );
     });
+
+    it('throws when user is not authenticated', async () => {
+      const provider = createUserKeyProvider(() => null);
+
+      await expect(provider.getPublicKeyId()).rejects.toThrow(
+        'User is not authenticated'
+      );
+    });
+
+    it('recomputes key ID when user changes', async () => {
+      const { getVfsPublicKey } = await import('@/hooks/useVfsKeys');
+      const keyPair1 = generateKeyPair();
+      const keyPair2 = generateKeyPair();
+
+      // First user
+      vi.mocked(getVfsPublicKey).mockResolvedValue({
+        x25519PublicKey: keyPair1.x25519PublicKey,
+        mlKemPublicKey: keyPair1.mlKemPublicKey
+      });
+
+      let currentUser: { id: string; email: string } | null = {
+        id: 'user-1',
+        email: 'user1@example.com'
+      };
+
+      const provider = createUserKeyProvider(() => currentUser);
+
+      const result1 = await provider.getPublicKeyId();
+      expect(getVfsPublicKey).toHaveBeenCalledTimes(1);
+
+      // Same user, should use cache
+      const result1Again = await provider.getPublicKeyId();
+      expect(result1Again).toBe(result1);
+      expect(getVfsPublicKey).toHaveBeenCalledTimes(1);
+
+      // Switch to different user - should recompute
+      currentUser = { id: 'user-2', email: 'user2@example.com' };
+      vi.mocked(getVfsPublicKey).mockResolvedValue({
+        x25519PublicKey: keyPair2.x25519PublicKey,
+        mlKemPublicKey: keyPair2.mlKemPublicKey
+      });
+
+      const result2 = await provider.getPublicKeyId();
+      expect(getVfsPublicKey).toHaveBeenCalledTimes(2);
+      // Different keys should produce different IDs
+      expect(result2).not.toBe(result1);
+    });
   });
 
   describe('clearUserKeyProviderCache', () => {

@@ -7,7 +7,11 @@ export interface UserKeyProvider {
   getPublicKeyId(): Promise<string>;
 }
 
-let cachedPublicKeyId: string | null = null;
+/**
+ * Cache entry that stores the public key ID scoped to a specific user.
+ * This prevents returning stale key IDs after user account switches.
+ */
+let cachedPublicKeyId: { userId: string; keyId: string } | null = null;
 
 /**
  * Ensures Uint8Array is typed with ArrayBuffer (not ArrayBufferLike).
@@ -53,8 +57,14 @@ export function createUserKeyProvider(
     },
 
     async getPublicKeyId(): Promise<string> {
-      if (cachedPublicKeyId) {
-        return cachedPublicKeyId;
+      const user = getUser();
+      if (!user) {
+        throw new Error('User is not authenticated');
+      }
+
+      // Return cached value only if it belongs to the current user
+      if (cachedPublicKeyId && cachedPublicKeyId.userId === user.id) {
+        return cachedPublicKeyId.keyId;
       }
 
       const publicKey = await getVfsPublicKey();
@@ -69,8 +79,9 @@ export function createUserKeyProvider(
       combined.set(publicKey.x25519PublicKey, 0);
       combined.set(publicKey.mlKemPublicKey, publicKey.x25519PublicKey.length);
 
-      cachedPublicKeyId = await derivePublicKeyId(combined);
-      return cachedPublicKeyId;
+      const keyId = await derivePublicKeyId(combined);
+      cachedPublicKeyId = { userId: user.id, keyId };
+      return keyId;
     }
   };
 }

@@ -53,6 +53,7 @@ vi.mock('./useVfsKeys', () => ({
 }));
 
 vi.mock('@/contexts/VfsOrchestratorContext', () => ({
+  useVfsOrchestratorInstance: vi.fn(() => null),
   useVfsSecureFacade: vi.fn(() => null)
 }));
 

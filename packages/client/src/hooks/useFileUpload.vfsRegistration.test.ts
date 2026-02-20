@@ -52,7 +52,8 @@ vi.mock('./useVfsKeys', () => ({
 }));
 
 vi.mock('@/contexts/VfsOrchestratorContext', () => ({
-  useVfsSecureFacade: vi.fn(() => null)
+  useVfsSecureFacade: vi.fn(() => null),
+  useVfsOrchestratorInstance: vi.fn(() => null)
 }));
 
 vi.mock('@/lib/api', () => ({
@@ -64,7 +65,10 @@ vi.mock('@/lib/api', () => ({
 }));
 
 import { fileTypeFromBuffer } from 'file-type';
-import { useVfsSecureFacade } from '@/contexts/VfsOrchestratorContext';
+import {
+  useVfsOrchestratorInstance,
+  useVfsSecureFacade
+} from '@/contexts/VfsOrchestratorContext';
 import { getDatabase } from '@/db';
 import { logEvent } from '@/db/analytics';
 import { getKeyManager } from '@/db/crypto';
@@ -199,6 +203,15 @@ describe('useFileUpload VFS registration', () => {
       mockSecureFacade as unknown as ReturnType<typeof useVfsSecureFacade>
     );
 
+    const mockOrchestrator = {
+      flushAll: vi.fn().mockResolvedValue({ success: true })
+    };
+    vi.mocked(useVfsOrchestratorInstance).mockReturnValue(
+      mockOrchestrator as unknown as ReturnType<
+        typeof useVfsOrchestratorInstance
+      >
+    );
+
     const { result } = renderHook(() => useFileUpload());
     const file = new File(['test'], 'test.png', { type: 'image/png' });
 
@@ -212,6 +225,7 @@ describe('useFileUpload VFS registration', () => {
         contentType: 'image/png'
       })
     );
+    expect(mockOrchestrator.flushAll).toHaveBeenCalled();
   });
 
   it('falls back gracefully when secure facade upload fails', async () => {
@@ -228,6 +242,54 @@ describe('useFileUpload VFS registration', () => {
     };
     vi.mocked(useVfsSecureFacade).mockReturnValue(
       mockSecureFacade as unknown as ReturnType<typeof useVfsSecureFacade>
+    );
+
+    const mockOrchestrator = {
+      flushAll: vi.fn().mockResolvedValue({ success: true })
+    };
+    vi.mocked(useVfsOrchestratorInstance).mockReturnValue(
+      mockOrchestrator as unknown as ReturnType<
+        typeof useVfsOrchestratorInstance
+      >
+    );
+
+    const { result } = renderHook(() => useFileUpload());
+    const file = new File(['test'], 'test.png', { type: 'image/png' });
+
+    const uploadResult = await result.current.uploadFile(file);
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to upload via secure facade:',
+      expect.any(Error)
+    );
+    expect(uploadResult.id).toBe('test-uuid-1234');
+    consoleSpy.mockRestore();
+  });
+
+  it('falls back gracefully when flushAll fails', async () => {
+    const consoleSpy = mockConsoleWarn();
+    vi.mocked(isLoggedIn).mockReturnValue(true);
+    vi.mocked(getFeatureFlagValue).mockImplementation((flag: string) => {
+      return flag === 'vfsSecureUpload';
+    });
+
+    const mockSecureFacade = {
+      stageAttachEncryptedBlobAndPersist: vi.fn().mockResolvedValue({
+        stagingId: 'test-staging-id',
+        manifest: {}
+      })
+    };
+    vi.mocked(useVfsSecureFacade).mockReturnValue(
+      mockSecureFacade as unknown as ReturnType<typeof useVfsSecureFacade>
+    );
+
+    const mockOrchestrator = {
+      flushAll: vi.fn().mockRejectedValue(new Error('Network flush failed'))
+    };
+    vi.mocked(useVfsOrchestratorInstance).mockReturnValue(
+      mockOrchestrator as unknown as ReturnType<
+        typeof useVfsOrchestratorInstance
+      >
     );
 
     const { result } = renderHook(() => useFileUpload());
