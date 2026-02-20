@@ -73,7 +73,10 @@ export function createVfsSecurePipelineBundle(
         if (epoch !== null) {
           return epoch;
         }
-        // Auto-create key for first upload
+        // Auto-create key for first upload.
+        // TODO(#2065 item 2): Race condition - concurrent uploads for same new item
+        // can both call createItemKey. Requires ItemKeyStore.setItemKey with
+        // INSERT-IF-NOT-EXISTS semantics or locking. Deferred to item 2.
         const result = await keyManager.createItemKey({ itemId });
         return result.keyEpoch;
       },
