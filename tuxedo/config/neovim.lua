@@ -144,6 +144,7 @@ require("lazy").setup({
           hide_gitignored = true,
           hide_hidden = false,
           never_show = { ".git" },
+          always_show = { ".secrets", ".test_files" },
         },
       },
       git_status = {
@@ -223,7 +224,13 @@ vim.keymap.set('n', '<leader>fr', builtin.oldfiles, { desc = 'Recent files' })
 vim.keymap.set('n', '<leader>fs', builtin.grep_string, { desc = 'Grep word under cursor' })
 
 vim.keymap.set('n', '<leader>gd', function()
-  require('diffview').toggle()
+  local lib = require('diffview.lib')
+  local view = lib.get_current_view()
+  if view then
+    vim.cmd('DiffviewClose')
+  else
+    vim.cmd('DiffviewOpen')
+  end
 end, { desc = 'Toggle Diffview' })
 vim.keymap.set('n', '<leader>gD', '<cmd>DiffviewClose<CR>', { desc = 'Close Diffview' })
 vim.keymap.set('n', '<leader>gh', '<cmd>DiffviewFileHistory %<CR>', { desc = 'File history (Diffview)' })
