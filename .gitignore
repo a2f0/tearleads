@@ -44,6 +44,7 @@ npm-debug.log*
 # These are generated artifacts - run the script after git clone or when updating SQLite version
 packages/client/src/workers/sqlite-wasm/
 packages/client/public/sqlite/
+packages/db-test-utils/sqlite-wasm/
 packages/client/public/assets/sqlite3-opfs-async-proxy.js
 packages/client/.generated/
 packages/client/generated/
