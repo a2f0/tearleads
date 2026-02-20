@@ -13,7 +13,7 @@ import {
   type RenderResult
 } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { vi } from 'vitest';
+import { expect, vi } from 'vitest';
 import { Contacts } from './Contacts';
 
 // Mock function exports - these are referenced by vi.mock() calls in test files

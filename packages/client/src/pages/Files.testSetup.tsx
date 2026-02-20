@@ -1,7 +1,7 @@
 import { ThemeProvider } from '@tearleads/ui';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { vi } from 'vitest';
+import { expect, vi } from 'vitest';
 import { Files } from './Files';
 
 // ============================================
