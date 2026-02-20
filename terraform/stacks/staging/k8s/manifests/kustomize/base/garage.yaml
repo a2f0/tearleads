@@ -1,0 +1,238 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: garage-config
+  namespace: tearleads
+data:
+  garage.toml: |
+    metadata_dir = "/var/lib/garage/meta"
+    data_dir = "/var/lib/garage/data"
+    db_engine = "sqlite"
+
+    replication_factor = 1
+
+    [rpc]
+    bind_addr = "[::]:3901"
+    rpc_public_addr = "garage:3901"
+    secret = "${GARAGE_RPC_SECRET}"
+
+    [s3_api]
+    s3_region = "us-east-1"
+    api_bind_addr = "[::]:3900"
+    root_domain = ".s3.garage.localhost"
+
+    [s3_web]
+    bind_addr = "[::]:3902"
+    root_domain = ".web.garage.localhost"
+
+    [admin]
+    api_bind_addr = "[::]:3903"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: garage-meta
+  namespace: tearleads
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: garage-data
+  namespace: tearleads
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: garage
+  namespace: tearleads
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: garage
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: garage
+    spec:
+      containers:
+        - name: garage
+          image: dxflrs/garage:v2.2.0
+          ports:
+            - containerPort: 3900
+              name: s3
+            - containerPort: 3901
+              name: rpc
+            - containerPort: 3902
+              name: web
+            - containerPort: 3903
+              name: admin
+          env:
+            - name: GARAGE_RPC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: GARAGE_RPC_SECRET
+            - name: GARAGE_ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: GARAGE_ADMIN_TOKEN
+          volumeMounts:
+            - name: config
+              mountPath: /etc/garage.toml
+              subPath: garage.toml
+            - name: meta
+              mountPath: /var/lib/garage/meta
+            - name: data
+              mountPath: /var/lib/garage/data
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3903
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3903
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: config
+          configMap:
+            name: garage-config
+        - name: meta
+          persistentVolumeClaim:
+            claimName: garage-meta
+        - name: data
+          persistentVolumeClaim:
+            claimName: garage-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: garage
+  namespace: tearleads
+spec:
+  selector:
+    app: garage
+  ports:
+    - port: 3900
+      targetPort: 3900
+      name: s3
+    - port: 3901
+      targetPort: 3901
+      name: rpc
+    - port: 3902
+      targetPort: 3902
+      name: web
+    - port: 3903
+      targetPort: 3903
+      name: admin
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: garage-setup
+  namespace: tearleads
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-garage
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for Garage to be ready..."
+              until wget -q --spider http://garage:3903/health; do
+                echo "Garage not ready, waiting..."
+                sleep 2
+              done
+              echo "Garage is ready"
+      containers:
+        - name: setup
+          image: dxflrs/garage:v2.2.0
+          env:
+            - name: GARAGE_RPC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: GARAGE_RPC_SECRET
+            - name: GARAGE_ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: GARAGE_ADMIN_TOKEN
+            - name: VFS_BLOB_S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: VFS_BLOB_S3_ACCESS_KEY_ID
+            - name: VFS_BLOB_S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: VFS_BLOB_S3_SECRET_ACCESS_KEY
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              export GARAGE_RPC_HOST="garage:3901"
+              export GARAGE_ADMIN_API_BIND="garage:3903"
+
+              # Get node ID and configure layout
+              NODE_ID=$(garage -c /etc/garage.toml node id 2>/dev/null | head -1 | cut -d'@' -f1)
+              echo "Node ID: $NODE_ID"
+
+              # Assign capacity to node (1GB zone dc1)
+              garage -c /etc/garage.toml layout assign -z dc1 -c 1G "$NODE_ID" || true
+
+              # Apply layout
+              garage -c /etc/garage.toml layout apply --version 1 || true
+
+              # Create access key
+              garage -c /etc/garage.toml key create vfs-blob-key || true
+              garage -c /etc/garage.toml key import -n vfs-blob-key "$VFS_BLOB_S3_ACCESS_KEY_ID" "$VFS_BLOB_S3_SECRET_ACCESS_KEY" || true
+
+              # Create bucket
+              garage -c /etc/garage.toml bucket create vfs-blobs || true
+
+              # Grant permissions
+              garage -c /etc/garage.toml bucket allow --read --write --owner vfs-blobs --key vfs-blob-key || true
+
+              echo "Garage setup complete"
+          volumeMounts:
+            - name: config
+              mountPath: /etc/garage.toml
+              subPath: garage.toml
+      volumes:
+        - name: config
+          configMap:
+            name: garage-config

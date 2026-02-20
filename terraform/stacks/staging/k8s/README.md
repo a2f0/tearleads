@@ -70,6 +70,7 @@ The zone uses `prevent_destroy`, so `terraform destroy` will not remove it.
 | `secrets.yaml` | Sensitive configuration (passwords, keys) |
 | `postgres.yaml` | PostgreSQL StatefulSet with PVC |
 | `redis.yaml` | Redis deployment |
+| `garage.yaml` | Garage S3-compatible object storage for VFS blobs |
 | `api.yaml` | API server deployment |
 | `client.yaml` | Web client deployment |
 | `website.yaml` | Marketing website deployment |
@@ -121,10 +122,10 @@ Internet ──────────►│  ┌──────────
                     │  │  │  │ api │ │client│ │web│ │   │   │
                     │  │  │  └──┬──┘ └──────┘ └───┘ │   │   │
                     │  │  │     │                    │   │   │
-                    │  │  │  ┌──▼───┐  ┌───────┐    │   │   │
-                    │  │  │  │postgres│ │ redis │    │   │   │
-                    │  │  │  │ (PVC) │  └───────┘    │   │   │
-                    │  │  │  └───────┘               │   │   │
+                    │  │  │  ┌──▼───┐ ┌─────┐ ┌────┐│   │   │
+                    │  │  │  │postgres│redis││garage││   │   │
+                    │  │  │  │ (PVC) │└─────┘│(PVC)││   │   │
+                    │  │  │  └───────┘       └─────┘│   │   │
                     │  │  └──────────────────────────┘   │   │
                     │  └─────────────────────────────────┘   │
                     └─────────────────────────────────────────┘
@@ -155,6 +156,77 @@ kubectl exec -it statefulset/postgres -n tearleads -- psql -U tearleads -d tearl
 
 # View logs
 kubectl logs statefulset/postgres -n tearleads
+```
+
+## Object Storage (Garage)
+
+Staging uses [Garage](https://garagehq.deuxfleurs.fr/) for S3-compatible object storage, backing the VFS blob persistence layer. Garage is a lightweight, distributed storage system written in Rust.
+
+### Configuration
+
+| Environment Variable | Value | Description |
+|---------------------|-------|-------------|
+| `VFS_BLOB_S3_ENDPOINT` | `http://garage:3900` | Garage S3 API endpoint |
+| `VFS_BLOB_S3_BUCKET` | `vfs-blobs` | Bucket for VFS blob data |
+| `VFS_BLOB_S3_REGION` | `us-east-1` | Region (required by SDK) |
+| `VFS_BLOB_S3_FORCE_PATH_STYLE` | `true` | Use path-style URLs |
+
+### Garage Secrets
+
+| Secret | Description |
+|--------|-------------|
+| `GARAGE_RPC_SECRET` | Inter-node RPC authentication |
+| `GARAGE_ADMIN_TOKEN` | Admin API authentication |
+| `VFS_BLOB_S3_ACCESS_KEY_ID` | S3 access key for API |
+| `VFS_BLOB_S3_SECRET_ACCESS_KEY` | S3 secret key for API |
+
+Generate secrets:
+
+```bash
+GARAGE_RPC_SECRET=$(openssl rand -hex 32)
+GARAGE_ADMIN_TOKEN=$(openssl rand -hex 32)
+VFS_BLOB_S3_ACCESS_KEY_ID=$(openssl rand -hex 16)
+VFS_BLOB_S3_SECRET_ACCESS_KEY=$(openssl rand -hex 32)
+```
+
+### Initial Setup
+
+The `garage-setup` Job runs automatically on first deploy to:
+
+1. Configure the storage layout (assign capacity to node)
+2. Import S3 credentials
+3. Create the `vfs-blobs` bucket
+4. Grant read/write/owner permissions
+
+### Commands
+
+```bash
+# Check Garage status
+kubectl logs deployment/garage -n tearleads
+
+# Check setup job
+kubectl logs job/garage-setup -n tearleads
+
+# Exec into Garage pod for CLI access
+kubectl exec -it deployment/garage -n tearleads -- garage -c /etc/garage.toml status
+
+# List buckets
+kubectl exec -it deployment/garage -n tearleads -- garage -c /etc/garage.toml bucket list
+
+# Check bucket info
+kubectl exec -it deployment/garage -n tearleads -- garage -c /etc/garage.toml bucket info vfs-blobs
+```
+
+### Re-running Setup
+
+If you need to re-run the setup job (e.g., after changing credentials):
+
+```bash
+# Delete the old job
+kubectl delete job garage-setup -n tearleads
+
+# Re-apply the manifest
+kubectl apply -f manifests/garage.yaml
 ```
 
 ## Secrets
@@ -206,4 +278,26 @@ kubectl logs -n cert-manager -l app=cert-manager
 # Check certificate status
 kubectl get certificates -n tearleads
 kubectl describe certificate <cert-name> -n tearleads
+```
+
+### Garage / Object storage issues
+
+```bash
+# Check Garage pod status
+kubectl get pods -n tearleads -l app=garage
+
+# Check Garage logs
+kubectl logs deployment/garage -n tearleads
+
+# Check setup job logs
+kubectl logs job/garage-setup -n tearleads
+
+# Verify Garage health
+kubectl exec -it deployment/garage -n tearleads -- wget -qO- http://localhost:3903/health
+
+# Check storage layout
+kubectl exec -it deployment/garage -n tearleads -- garage -c /etc/garage.toml layout show
+
+# List keys
+kubectl exec -it deployment/garage -n tearleads -- garage -c /etc/garage.toml key list
 ```

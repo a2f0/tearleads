@@ -35,6 +35,16 @@ spec:
                 secretKeyRef:
                   name: tearleads-secrets
                   key: POSTGRES_PASSWORD
+            - name: VFS_BLOB_S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: VFS_BLOB_S3_ACCESS_KEY_ID
+            - name: VFS_BLOB_S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: VFS_BLOB_S3_SECRET_ACCESS_KEY
           resources:
             requests:
               memory: "128Mi"

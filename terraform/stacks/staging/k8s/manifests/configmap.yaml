@@ -11,3 +11,9 @@ data:
   POSTGRES_USER: "tearleads"
   POSTGRES_DATABASE: "tearleads"
   REDIS_URL: "redis://redis:6379"
+  # VFS Blob Storage (Garage / S3-compatible)
+  VFS_BLOB_STORE_PROVIDER: "s3"
+  VFS_BLOB_S3_ENDPOINT: "http://garage:3900"
+  VFS_BLOB_S3_BUCKET: "vfs-blobs"
+  VFS_BLOB_S3_REGION: "us-east-1"
+  VFS_BLOB_S3_FORCE_PATH_STYLE: "true"
