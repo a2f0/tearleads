@@ -6,12 +6,13 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 SKIP_WEBSITE="${SKIP_WEBSITE:-false}"
 
-echo "Building and pushing staging images..."
+build_args=()
 if [[ "$SKIP_WEBSITE" == "true" ]]; then
-  "$REPO_ROOT/scripts/buildContainers.sh" staging --no-website "$@"
-else
-  "$REPO_ROOT/scripts/buildContainers.sh" staging "$@"
+  build_args+=(--no-website)
 fi
+
+echo "Building and pushing staging images..."
+"$REPO_ROOT/scripts/buildContainers.sh" staging "${build_args[@]}" "$@"
 
 echo ""
 echo "Build complete. Images pushed to ECR."

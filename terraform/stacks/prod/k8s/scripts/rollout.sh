@@ -15,21 +15,21 @@ fi
 
 export KUBECONFIG="$KUBECONFIG_FILE"
 
+deployments=("deployment/api" "deployment/client")
+if [[ "$SKIP_WEBSITE" != "true" ]]; then
+  deployments+=("deployment/website")
+fi
+
 echo "Refreshing ECR pull secret..."
 "$SCRIPT_DIR/setup-ecr-secret.sh"
 
 echo "Restarting deployments..."
-kubectl rollout restart deployment/api deployment/client -n tearleads
-if [[ "$SKIP_WEBSITE" != "true" ]]; then
-  kubectl rollout restart deployment/website -n tearleads
-fi
+kubectl rollout restart "${deployments[@]}" -n tearleads
 
 echo "Waiting for rollouts (timeout: $ROLLOUT_TIMEOUT)..."
-kubectl rollout status deployment/api -n tearleads --timeout="$ROLLOUT_TIMEOUT"
-kubectl rollout status deployment/client -n tearleads --timeout="$ROLLOUT_TIMEOUT"
-if [[ "$SKIP_WEBSITE" != "true" ]]; then
-  kubectl rollout status deployment/website -n tearleads --timeout="$ROLLOUT_TIMEOUT"
-fi
+for dep in "${deployments[@]}"; do
+  kubectl rollout status "$dep" -n tearleads --timeout="$ROLLOUT_TIMEOUT"
+done
 
 echo ""
 echo "Rollout complete. Deployments are running latest images."
