@@ -35,7 +35,17 @@ export const vfsCrdtOps = pgTable(
     }),
     sourceTable: text('source_table').notNull(),
     sourceId: text('source_id').notNull(),
-    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull()
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
+    /** Encrypted operation payload (base64-encoded ciphertext) */
+    encryptedPayload: text('encrypted_payload'),
+    /** Key epoch used for encryption */
+    keyEpoch: integer('key_epoch'),
+    /** Encryption nonce (base64-encoded) */
+    encryptionNonce: text('encryption_nonce'),
+    /** Additional authenticated data hash (base64-encoded) */
+    encryptionAad: text('encryption_aad'),
+    /** Operation signature for integrity verification (base64-encoded) */
+    encryptionSignature: text('encryption_signature')
   },
   (table) => [
     index('vfs_crdt_ops_item_idx').on(table.itemId),

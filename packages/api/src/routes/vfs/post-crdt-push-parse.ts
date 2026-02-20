@@ -152,29 +152,77 @@ function parsePushOperation(
     occurredAt
   };
 
-  if (opType === 'acl_add' || opType === 'acl_remove') {
-    const principalType = value['principalType'];
-    const principalId = normalizeRequiredString(value['principalId']);
-    if (!isValidPrincipalType(principalType) || !principalId) {
+  // Check for encrypted envelope
+  const encryptedPayload = normalizeRequiredString(value['encryptedPayload']);
+  const hasEncryptedPayload = encryptedPayload !== null;
+
+  // Validate encrypted envelope fields if present
+  if (hasEncryptedPayload) {
+    const keyEpoch = value['keyEpoch'];
+    if (typeof keyEpoch !== 'number' || keyEpoch < 1) {
       return {
         status: 'invalid',
         opId
       };
     }
 
-    operation.principalType = principalType;
-    operation.principalId = principalId;
+    operation.encryptedPayload = encryptedPayload;
+    operation.keyEpoch = keyEpoch;
+
+    // Optional encryption metadata
+    const encryptionNonce = normalizeRequiredString(value['encryptionNonce']);
+    if (encryptionNonce) {
+      operation.encryptionNonce = encryptionNonce;
+    }
+
+    const encryptionAad = normalizeRequiredString(value['encryptionAad']);
+    if (encryptionAad) {
+      operation.encryptionAad = encryptionAad;
+    }
+
+    const encryptionSignature = normalizeRequiredString(
+      value['encryptionSignature']
+    );
+    if (encryptionSignature) {
+      operation.encryptionSignature = encryptionSignature;
+    }
+  }
+
+  if (opType === 'acl_add' || opType === 'acl_remove') {
+    const principalType = value['principalType'];
+    const principalId = normalizeRequiredString(value['principalId']);
+
+    // With encrypted payload, plaintext ACL fields are optional
+    // (the actual ACL data is in the encrypted envelope)
+    if (!hasEncryptedPayload) {
+      if (!isValidPrincipalType(principalType) || !principalId) {
+        return {
+          status: 'invalid',
+          opId
+        };
+      }
+    }
+
+    // Store plaintext fields if provided (allows hybrid encrypted+plaintext operations)
+    if (isValidPrincipalType(principalType)) {
+      operation.principalType = principalType;
+    }
+    if (principalId) {
+      operation.principalId = principalId;
+    }
 
     if (opType === 'acl_add') {
       const accessLevel = value['accessLevel'];
-      if (!isValidAccessLevel(accessLevel)) {
+      if (!hasEncryptedPayload && !isValidAccessLevel(accessLevel)) {
         return {
           status: 'invalid',
           opId
         };
       }
 
-      operation.accessLevel = accessLevel;
+      if (isValidAccessLevel(accessLevel)) {
+        operation.accessLevel = accessLevel;
+      }
     }
   }
 

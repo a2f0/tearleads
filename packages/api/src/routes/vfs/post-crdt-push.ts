@@ -216,7 +216,12 @@ export const postCrdtPushHandler = async (req: Request, res: Response) => {
           actor_id,
           source_table,
           source_id,
-          occurred_at
+          occurred_at,
+          encrypted_payload,
+          key_epoch,
+          encryption_nonce,
+          encryption_aad,
+          encryption_signature
         ) VALUES (
           vfs_make_event_id('crdt'),
           $1::text,
@@ -229,7 +234,12 @@ export const postCrdtPushHandler = async (req: Request, res: Response) => {
           $8::text,
           $9::text,
           $10::text,
-          $11::timestamptz
+          $11::timestamptz,
+          $12::text,
+          $13::integer,
+          $14::text,
+          $15::text,
+          $16::text
         )
         `,
         [
@@ -243,7 +253,12 @@ export const postCrdtPushHandler = async (req: Request, res: Response) => {
           claims.sub,
           CRDT_CLIENT_PUSH_SOURCE_TABLE,
           sourceId,
-          canonicalOccurredAt
+          canonicalOccurredAt,
+          operation.encryptedPayload ?? null,
+          operation.keyEpoch ?? null,
+          operation.encryptionNonce ?? null,
+          operation.encryptionAad ?? null,
+          operation.encryptionSignature ?? null
         ]
       );
 
