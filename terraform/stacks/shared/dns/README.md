@@ -44,7 +44,7 @@ Use imports to adopt existing live records into Terraform state (no DNS changes)
 ./scripts/init.sh
 ```
 
-2. Set helpers:
+1. Set helpers:
 
 ```bash
 ZONE_NAME="${TF_VAR_dns_domain:-tearleads.com}"
@@ -57,7 +57,7 @@ ZONE_ID=$(curl -sS -X GET \
   -H "Content-Type: application/json" | jq -r '.result[0].id')
 ```
 
-3. List current MX/TXT records and IDs (for verification):
+1. List current MX/TXT records and IDs (for verification):
 
 ```bash
 curl -sS -X GET \
@@ -72,7 +72,7 @@ curl -sS -X GET \
   '
 ```
 
-4. Import expected MX records:
+1. Import expected MX records:
 
 ```bash
 terraform -chdir=. import 'cloudflare_record.mx["1-aspmx.l.google.com."]' "${ZONE_ID}/<MX_RECORD_ID_FOR_1_ASPMX>"
@@ -82,14 +82,14 @@ terraform -chdir=. import 'cloudflare_record.mx["10-aspmx2.googlemail.com."]' "$
 terraform -chdir=. import 'cloudflare_record.mx["10-aspmx3.googlemail.com."]' "${ZONE_ID}/<MX_RECORD_ID_FOR_10_ASPMX3>"
 ```
 
-5. Import expected TXT Google verification records:
+1. Import expected TXT Google verification records:
 
 ```bash
 terraform -chdir=. import 'cloudflare_record.google_site_verification["google-site-verification=-U0LmlFws7EMjM8T1_HE3JFm1yrPFBscL-MT2n7y9RY"]' "${ZONE_ID}/<TXT_RECORD_ID_FOR_U0LmlF...>"
 terraform -chdir=. import 'cloudflare_record.google_site_verification["google-site-verification=nIgRjHZv6Eaf78a8KhqGk7lJsBUndJBNoioOYluKsbo"]' "${ZONE_ID}/<TXT_RECORD_ID_FOR_nIgRjH...>"
 ```
 
-6. Verify:
+1. Verify:
 
 ```bash
 ./scripts/plan.sh
