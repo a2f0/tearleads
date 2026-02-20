@@ -253,3 +253,34 @@ export interface VfsSharedWithMeItem {
   sharedAt: string;
   expiresAt: string | null;
 }
+
+/**
+ * Wrapped key payload for a single recipient.
+ * Contains the encrypted session key and sender signature.
+ */
+export interface VfsWrappedKeyPayload {
+  recipientUserId: string;
+  recipientPublicKeyId: string;
+  keyEpoch: number;
+  encryptedKey: string;
+  senderSignature: string;
+}
+
+/**
+ * Request to rotate the encryption key for a VFS item.
+ * Client generates the new epoch and wraps for all active recipients.
+ */
+export interface VfsRekeyRequest {
+  reason: 'unshare' | 'expiry' | 'manual';
+  newEpoch: number;
+  wrappedKeys: VfsWrappedKeyPayload[];
+}
+
+/**
+ * Response from a successful rekey operation.
+ */
+export interface VfsRekeyResponse {
+  itemId: string;
+  newEpoch: number;
+  wrapsApplied: number;
+}

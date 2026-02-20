@@ -44,6 +44,7 @@ const API_EVENT_SLUGS = [
   'api_post_vfs_org_share',
   'api_delete_vfs_org_share',
   'api_get_vfs_share_targets',
+  'api_post_vfs_rekey',
   'api_post_ai_conversation',
   'api_get_ai_conversations',
   'api_get_ai_conversation',
