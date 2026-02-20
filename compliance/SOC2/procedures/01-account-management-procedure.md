@@ -20,7 +20,7 @@
 
 ```bash
 pnpm --filter @tearleads/api test -- src/routes/auth.test.ts
-pnpm --filter @tearleads/api test -- src/routes/admin/users.test.ts
+pnpm --filter @tearleads/api test -- src/routes/admin/users.patch.orgs.test.ts
 pnpm --filter @tearleads/client test -- src/components/auth/RegisterForm.test.tsx
 ```
 
