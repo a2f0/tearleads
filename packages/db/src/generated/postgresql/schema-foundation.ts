@@ -252,7 +252,9 @@ export const contactPhones = pgTable(
   'contact_phones',
   {
     id: text('id').primaryKey(),
-    contactId: text('contact_id').notNull(),
+    contactId: text('contact_id')
+      .notNull()
+      .references(() => contacts.id, { onDelete: 'cascade' }),
     phoneNumber: text('phone_number').notNull(),
     label: text('label'),
     isPrimary: boolean('is_primary').notNull().default(false)
@@ -267,7 +269,9 @@ export const contactEmails = pgTable(
   'contact_emails',
   {
     id: text('id').primaryKey(),
-    contactId: text('contact_id').notNull(),
+    contactId: text('contact_id')
+      .notNull()
+      .references(() => contacts.id, { onDelete: 'cascade' }),
     email: text('email').notNull(),
     label: text('label'),
     isPrimary: boolean('is_primary').notNull().default(false)

@@ -253,7 +253,9 @@ export const contactPhones = sqliteTable(
   'contact_phones',
   {
     id: text('id').primaryKey(),
-    contactId: text('contact_id').notNull(),
+    contactId: text('contact_id')
+      .notNull()
+      .references(() => contacts.id, { onDelete: 'cascade' }),
     phoneNumber: text('phone_number').notNull(),
     label: text('label'),
     isPrimary: integer('is_primary', { mode: 'boolean' })
@@ -270,7 +272,9 @@ export const contactEmails = sqliteTable(
   'contact_emails',
   {
     id: text('id').primaryKey(),
-    contactId: text('contact_id').notNull(),
+    contactId: text('contact_id')
+      .notNull()
+      .references(() => contacts.id, { onDelete: 'cascade' }),
     email: text('email').notNull(),
     label: text('label'),
     isPrimary: integer('is_primary', { mode: 'boolean' })

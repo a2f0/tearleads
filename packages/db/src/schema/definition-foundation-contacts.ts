@@ -62,7 +62,12 @@ export const contactPhonesTable: TableDefinition = {
     contactId: {
       type: 'text',
       sqlName: 'contact_id',
-      notNull: true
+      notNull: true,
+      references: {
+        table: 'contacts',
+        column: 'id',
+        onDelete: 'cascade'
+      }
     },
     phoneNumber: {
       type: 'text',
@@ -99,7 +104,12 @@ export const contactEmailsTable: TableDefinition = {
     contactId: {
       type: 'text',
       sqlName: 'contact_id',
-      notNull: true
+      notNull: true,
+      references: {
+        table: 'contacts',
+        column: 'id',
+        onDelete: 'cascade'
+      }
     },
     email: {
       type: 'text',
