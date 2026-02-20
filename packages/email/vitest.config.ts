@@ -24,6 +24,8 @@ export default defineConfig({
         'src/hooks/useCompose.ts',
         'src/types/compose.ts'
       ],
+      // TODO: Increase coverage thresholds by adding tests for
+      // persistence, compose components, and useCompose hook
       thresholds: {
         statements: 85,
         branches: 75,

@@ -11,6 +11,8 @@ export default defineConfig({
       reportsDirectory: './coverage',
       include: ['src/**/*.ts'],
       exclude: ['src/**/*.test.ts', 'src/index.ts', 'src/test/**/*'],
+      // TODO: Increase branch coverage to 85% by adding tests for
+      // teeClient.ts error handling paths
       thresholds: {
         statements: 88,
         branches: 75,

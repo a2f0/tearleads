@@ -18,6 +18,8 @@ export default defineConfig({
         'src/utils/**/*',
         'src/backup/**/*'
       ],
+      // TODO: Increase coverage thresholds back to 100% by adding tests
+      // for backup module (compression.ts, decoder.ts, encoder.ts, crypto.ts)
       thresholds: {
         statements: 85,
         branches: 65,
