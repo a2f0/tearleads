@@ -36,19 +36,6 @@ vi.mock('@/components/pdf/PdfViewer', () => ({
   PdfViewer: () => null
 }));
 
-vi.mock('@/components/settings/SettingsSection', () => ({
-  SettingsSection: () => null
-}));
-vi.mock('@/components/settings/SettingsSheet', () => ({
-  SettingsSheet: () => null
-}));
-vi.mock('@/components/settings/ThemePreview', () => ({
-  ThemePreview: () => null
-}));
-vi.mock('@/components/settings/ThemeSelector', () => ({
-  ThemeSelector: () => null
-}));
-
 vi.mock('@/components/ui/bottom-sheet/BottomSheet', () => ({
   BottomSheet: () => null,
   ANIMATION_DURATION_MS: 120
@@ -100,7 +87,6 @@ import * as columnMapper from '@/components/contacts/column-mapper/index';
 import * as durationChart from '@/components/duration-chart/index';
 import * as notificationCenter from '@/components/notification-center';
 import * as pdf from '@/components/pdf/index';
-import * as settings from '@/components/settings/index';
 import * as backLink from '@/components/ui/back-link/index';
 import * as bottomSheet from '@/components/ui/bottom-sheet/index';
 import * as card from '@/components/ui/card/index';
@@ -137,11 +123,6 @@ describe('barrel exports', () => {
     expect(notificationCenter.notificationStore).toBeDefined();
 
     expect(pdf.PdfViewer).toBeDefined();
-
-    expect(settings.SettingsSection).toBeDefined();
-    expect(settings.SettingsSheet).toBeDefined();
-    expect(settings.ThemePreview).toBeDefined();
-    expect(settings.ThemeSelector).toBeDefined();
 
     expect(backLink.BackLink).toBeDefined();
     expect(backLink.LinkWithFrom).toBeDefined();
