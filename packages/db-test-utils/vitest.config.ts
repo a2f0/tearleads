@@ -16,7 +16,9 @@ export default defineConfig({
         'src/index.ts',
         'src/**/index.ts',
         'src/test/**/*',
-        'src/adapters/types.ts'
+        'src/adapters/types.ts',
+        // Type definitions extracted during refactoring
+        'src/adapters/wasmNodeTypes.ts'
       ],
       thresholds: {
         statements: 85,

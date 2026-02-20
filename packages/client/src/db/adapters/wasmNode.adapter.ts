@@ -6,10 +6,6 @@
  * It runs SQLite WASM directly in Node.js without Web Workers.
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { isRecord } from '@tearleads/shared';
 import type {
   DatabaseAdapter,
   DatabaseConfig,
@@ -17,284 +13,23 @@ import type {
   QueryResult
 } from './types';
 import { convertRowsToArrays } from './utils';
+import { initializeSqliteWasm } from './wasmNode/initializeSqliteWasm';
+import type {
+  JsonBackupData,
+  SQLiteDatabase,
+  WasmNodeAdapterOptions
+} from './wasmNode/types';
+import {
+  getStringField,
+  isJsonBackupData,
+  isNameSqlEntry,
+  keyToHex,
+  parseJsonBackupData,
+  patchFetchForFileUrls,
+  restoreFetch
+} from './wasmNode/utils';
 
-declare global {
-  var sqlite3InitModuleState:
-    | { wasmFilename: string; debugModule: () => void }
-    | undefined;
-}
-
-// Store original fetch to restore later
-const originalFetch = globalThis.fetch;
-
-/**
- * Polyfill fetch for file:// URLs in Node.js.
- * The SQLite WASM module uses fetch to load the .wasm file, which doesn't work
- * with file:// URLs in Node.js. This polyfill handles that case.
- */
-function patchFetchForFileUrls(): void {
-  globalThis.fetch = async (
-    input: RequestInfo | URL,
-    init?: RequestInit
-  ): Promise<Response> => {
-    const url = typeof input === 'string' ? input : input.toString();
-
-    // Handle file:// URLs by reading from filesystem
-    if (url.startsWith('file://')) {
-      const filePath = fileURLToPath(url);
-      const buffer = fs.readFileSync(filePath);
-      return new Response(buffer, {
-        status: 200,
-        statusText: 'OK',
-        headers: { 'Content-Type': 'application/wasm' }
-      });
-    }
-
-    // Fall back to original fetch for other URLs
-    return originalFetch(input, init);
-  };
-}
-
-/**
- * Restore the original fetch function.
- */
-function restoreFetch(): void {
-  if (originalFetch) {
-    globalThis.fetch = originalFetch;
-  }
-}
-
-/**
- * SQLite WASM Database instance type.
- */
-interface SQLiteDatabase {
-  exec(options: {
-    sql: string;
-    bind?: unknown[];
-    rowMode?: 'object' | 'array';
-    callback?: (row: Record<string, unknown>) => boolean | undefined;
-    returnValue?: 'resultRows';
-  }): unknown[][];
-  exec(sql: string): void;
-  changes(): number;
-  close(): void;
-  pointer: number;
-}
-
-/**
- * SQLite WASM OO1 API (Object-Oriented API Level 1).
- */
-interface SQLiteOO1 {
-  DB: new (options: {
-    filename: string;
-    flags: string;
-    hexkey?: string;
-  }) => SQLiteDatabase;
-}
-
-/**
- * SQLite WASM C API bindings.
- */
-interface SQLiteCAPI {
-  sqlite3_libversion(): string;
-  sqlite3_js_db_export(db: SQLiteDatabase): Uint8Array;
-  sqlite3_deserialize(
-    dbPointer: number,
-    schema: string,
-    data: Uint8Array,
-    dataSize: number,
-    bufferSize: number,
-    flags: number
-  ): number;
-}
-
-/**
- * SQLite WASM module instance.
- */
-interface SQLite3Module {
-  oo1: SQLiteOO1;
-  capi: SQLiteCAPI;
-}
-
-/**
- * SQLite WASM initialization function type.
- */
-type SQLite3InitModule = (options: {
-  print: typeof console.log;
-  printErr: typeof console.error;
-  locateFile?: (path: string) => string;
-  wasmBinary?: ArrayBuffer;
-}) => Promise<SQLite3Module>;
-
-function getStringField(
-  record: Record<string, unknown>,
-  key: string
-): string | null {
-  const value = record[key];
-  return typeof value === 'string' ? value : null;
-}
-
-function isNameSqlEntry(
-  value: unknown
-): value is { name: string; sql: string } {
-  return (
-    isRecord(value) &&
-    typeof value['name'] === 'string' &&
-    typeof value['sql'] === 'string'
-  );
-}
-
-function isJsonBackupData(value: unknown): value is JsonBackupData {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  if (typeof value['version'] !== 'number') {
-    return false;
-  }
-
-  if (
-    !Array.isArray(value['tables']) ||
-    !value['tables'].every(isNameSqlEntry) ||
-    !Array.isArray(value['indexes']) ||
-    !value['indexes'].every(isNameSqlEntry)
-  ) {
-    return false;
-  }
-
-  if (!isRecord(value['data'])) {
-    return false;
-  }
-
-  for (const tableRows of Object.values(value['data'])) {
-    if (!Array.isArray(tableRows)) {
-      return false;
-    }
-    for (const row of tableRows) {
-      if (!isRecord(row)) {
-        return false;
-      }
-    }
-  }
-
-  return true;
-}
-
-function parseJsonBackupData(jsonData: string): JsonBackupData {
-  const parsed = JSON.parse(jsonData);
-  if (!isJsonBackupData(parsed)) {
-    throw new Error('Invalid backup data format');
-  }
-  return parsed;
-}
-
-// Module-level state for caching the initialized SQLite module
-let sqlite3: SQLite3Module | null = null;
-
-/**
- * Get the path to the WASM files directory.
- */
-function getWasmDir(): string {
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  return path.resolve(__dirname, '../../workers/sqlite-wasm');
-}
-
-/**
- * Initialize the SQLite WASM module for Node.js.
- * This only needs to run once per process.
- */
-async function initializeSqliteWasm(): Promise<SQLite3Module> {
-  if (sqlite3) {
-    return sqlite3;
-  }
-
-  const wasmDir = getWasmDir();
-  // IMPORTANT: DO NOT change .js back to .mjs - see issue #670
-  // Android WebView requires .js for proper MIME type handling.
-  // See: https://github.com/apache/cordova-android/issues/1142
-  const modulePath = path.join(wasmDir, 'sqlite3.js');
-  const wasmPath = path.join(wasmDir, 'sqlite3.wasm');
-
-  // Verify the files exist
-  if (!fs.existsSync(modulePath)) {
-    throw new Error(
-      `SQLite WASM module not found at ${modulePath}. ` +
-        'Run ./scripts/downloadSqliteWasm.sh to download it.'
-    );
-  }
-  if (!fs.existsSync(wasmPath)) {
-    throw new Error(
-      `SQLite WASM binary not found at ${wasmPath}. ` +
-        'Run ./scripts/downloadSqliteWasm.sh to download it.'
-    );
-  }
-
-  // Patch fetch to handle file:// URLs before importing the module
-  // The sqlite3 module uses fetch internally to load the .wasm file
-  patchFetchForFileUrls();
-
-  try {
-    // Set up globalThis.sqlite3InitModuleState BEFORE importing the module
-    // The module reads this during import to configure instantiateWasm
-    globalThis.sqlite3InitModuleState = {
-      wasmFilename: 'sqlite3.wasm',
-      debugModule: () => {}
-    };
-
-    // Import the WASM module
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const wasmModule = await import(/* @vite-ignore */ modulePath);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-    const initModule: SQLite3InitModule | undefined = wasmModule.default;
-
-    if (!initModule) {
-      throw new Error('Failed to load sqlite3InitModule from module');
-    }
-
-    // Initialize with Node.js-compatible settings
-    sqlite3 = await initModule({
-      print: console.log,
-      printErr: console.error
-    });
-
-    if (!sqlite3 || !sqlite3.oo1 || !sqlite3.capi) {
-      throw new Error('SQLite module loaded but missing expected properties');
-    }
-
-    return sqlite3;
-  } finally {
-    // Restore original fetch
-    restoreFetch();
-  }
-}
-
-/**
- * Convert a Uint8Array encryption key to a hex string for SQLite.
- */
-function keyToHex(key: Uint8Array): string {
-  return Array.from(key)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-export interface WasmNodeAdapterOptions {
-  /**
-   * Skip encryption (for testing without encryption overhead). Default: false.
-   */
-  skipEncryption?: boolean;
-}
-
-/**
- * JSON backup format for WASM SQLite databases.
- * Used by exportDatabaseAsJson/importDatabaseFromJson.
- */
-export type JsonBackupData = {
-  version: number;
-  tables: { name: string; sql: string }[];
-  indexes: { name: string; sql: string }[];
-  data: Record<string, Record<string, unknown>[]>;
-};
+export type { JsonBackupData, WasmNodeAdapterOptions };
 
 export class WasmNodeAdapter implements DatabaseAdapter {
   private db: SQLiteDatabase | null = null;
@@ -672,6 +407,18 @@ export class WasmNodeAdapter implements DatabaseAdapter {
     );
   }
 }
+
+// Re-export test utilities from wasmNode module
+export { initializeSqliteWasm } from './wasmNode/initializeSqliteWasm';
+export {
+  getStringField,
+  isJsonBackupData,
+  isNameSqlEntry,
+  keyToHex,
+  parseJsonBackupData,
+  patchFetchForFileUrls,
+  restoreFetch
+} from './wasmNode/utils';
 
 export const __test__ = {
   getStringField,

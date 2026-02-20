@@ -9,25 +9,14 @@ import {
 import { setMediaDragData } from '../../lib/mediaDragData';
 import { AudioListContextMenus } from './AudioListContextMenus';
 import { AudioListHeader } from './AudioListHeader';
-import { ALL_AUDIO_ID } from './AudioPlaylistsSidebar';
+import {
+  type AudioWindowListProps,
+  type BlankSpaceMenuState,
+  type ContextMenuState,
+  useAudioTableData
+} from './audio-table';
 
 const ROW_HEIGHT_ESTIMATE = 56;
-
-interface AudioWindowListProps {
-  onSelectTrack?: (trackId: string) => void;
-  refreshToken?: number;
-  showDeleted?: boolean;
-  showDropzone?: boolean;
-  onUploadFiles?: (files: File[]) => void | Promise<void>;
-  selectedPlaylistId?: string | null;
-  /** Currently selected album ID for filtering */
-  selectedAlbumId?: string | null;
-  /** Callback when album selection changes */
-  onAlbumSelect?: (albumId: string | null) => void;
-  uploading?: boolean;
-  uploadProgress?: number;
-  onUpload?: () => void;
-}
 
 export function AudioWindowList({
   onSelectTrack,
@@ -49,15 +38,13 @@ export function AudioWindowList({
     databaseState,
     ui,
     t,
-    fetchAudioFilesWithUrls,
-    getTrackIdsInPlaylist,
     softDeleteAudio,
     restoreAudio,
     formatFileSize,
     logError,
     detectPlatform
   } = useAudioUIContext();
-  const { isUnlocked, isLoading, currentInstanceId } = databaseState;
+  const { isUnlocked, isLoading } = databaseState;
   const {
     ListRow,
     RefreshButton,
@@ -69,22 +56,26 @@ export function AudioWindowList({
   } = ui;
 
   const { currentTrack, isPlaying, play, pause, resume } = useAudio();
-  const currentTrackRef = useRef(currentTrack);
-  const [tracks, setTracks] = useState<AudioWithUrl[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [hasFetched, setHasFetched] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [contextMenu, setContextMenu] = useState<{
-    track: AudioWithUrl;
-    x: number;
-    y: number;
-  } | null>(null);
-  const [blankSpaceMenu, setBlankSpaceMenu] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [blankSpaceMenu, setBlankSpaceMenu] =
+    useState<BlankSpaceMenuState | null>(null);
   const parentRef = useRef<HTMLDivElement>(null);
+
+  const {
+    tracks,
+    setTracks,
+    loading,
+    error,
+    setError,
+    hasFetched,
+    fetchTracks,
+    currentTrackRef
+  } = useAudioTableData({ selectedPlaylistId, showDeleted, refreshToken });
+
+  useEffect(() => {
+    currentTrackRef.current = currentTrack;
+  }, [currentTrack, currentTrackRef]);
 
   const filteredTracks = tracks.filter((track) => {
     const searchLower = searchQuery.toLowerCase();
@@ -110,117 +101,6 @@ export function AudioWindowList({
     const platform = detectPlatform();
     return platform === 'web' || platform === 'electron';
   }, [detectPlatform]);
-
-  const fetchTracks = useCallback(async () => {
-    if (!isUnlocked) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      let trackIds: string[] | null = null;
-      if (selectedPlaylistId && selectedPlaylistId !== ALL_AUDIO_ID) {
-        trackIds = await getTrackIdsInPlaylist(selectedPlaylistId);
-        if (trackIds.length === 0) {
-          setTracks([]);
-          setHasFetched(true);
-          setLoading(false);
-          return;
-        }
-      }
-
-      const tracksWithUrls = await fetchAudioFilesWithUrls(
-        trackIds ?? undefined,
-        showDeleted
-      );
-      setTracks(tracksWithUrls);
-      setHasFetched(true);
-    } catch (err) {
-      logError('Failed to fetch tracks', String(err));
-      setError(err instanceof Error ? err.message : String(err));
-      setHasFetched(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    fetchAudioFilesWithUrls,
-    getTrackIdsInPlaylist,
-    isUnlocked,
-    logError,
-    selectedPlaylistId,
-    showDeleted
-  ]);
-
-  const fetchedForFilterRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    const filterKey = selectedPlaylistId ?? ALL_AUDIO_ID;
-    const fetchKey = `${currentInstanceId ?? 'none'}:${filterKey}:${showDeleted ? 'all' : 'active'}`;
-
-    const needsFetch =
-      isUnlocked &&
-      !loading &&
-      (!hasFetched || fetchedForFilterRef.current !== fetchKey);
-
-    if (needsFetch) {
-      if (
-        fetchedForFilterRef.current !== fetchKey &&
-        fetchedForFilterRef.current !== null
-      ) {
-        for (const track of tracks) {
-          if (track.id !== currentTrackRef.current?.id) {
-            URL.revokeObjectURL(track.objectUrl);
-          }
-          if (track.thumbnailUrl) {
-            URL.revokeObjectURL(track.thumbnailUrl);
-          }
-        }
-        setTracks([]);
-        setError(null);
-        setHasFetched(false);
-      }
-
-      fetchedForFilterRef.current = fetchKey;
-
-      const timeoutId = setTimeout(() => {
-        fetchTracks();
-      }, 0);
-
-      return () => clearTimeout(timeoutId);
-    }
-    return undefined;
-  }, [
-    currentInstanceId,
-    fetchTracks,
-    hasFetched,
-    isUnlocked,
-    loading,
-    selectedPlaylistId,
-    showDeleted,
-    tracks
-  ]);
-
-  useEffect(() => {
-    if (!isUnlocked || refreshToken === 0 || !hasFetched) return;
-    fetchTracks();
-  }, [fetchTracks, hasFetched, isUnlocked, refreshToken]);
-
-  useEffect(() => {
-    currentTrackRef.current = currentTrack;
-  }, [currentTrack]);
-
-  useEffect(() => {
-    return () => {
-      for (const t of tracks) {
-        if (t.id !== currentTrackRef.current?.id) {
-          URL.revokeObjectURL(t.objectUrl);
-        }
-        if (t.thumbnailUrl) {
-          URL.revokeObjectURL(t.thumbnailUrl);
-        }
-      }
-    };
-  }, [tracks]);
 
   const handlePlayPause = useCallback(
     (track: AudioWithUrl) => {
@@ -298,7 +178,7 @@ export function AudioWindowList({
         setError(err instanceof Error ? err.message : String(err));
       }
     },
-    [softDeleteAudio, logError]
+    [softDeleteAudio, logError, setTracks, setError]
   );
 
   const handleRestore = useCallback(
@@ -319,7 +199,7 @@ export function AudioWindowList({
         setError(err instanceof Error ? err.message : String(err));
       }
     },
-    [logError, restoreAudio]
+    [logError, restoreAudio, setTracks, setError]
   );
 
   return (

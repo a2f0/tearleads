@@ -8,14 +8,8 @@ import {
   ArrowUp,
   ArrowUpDown,
   Clipboard,
-  FileBox,
-  Folder,
-  Layers,
   Loader2,
-  Share2,
-  Trash2,
-  Upload,
-  UserCheck
+  Upload
 } from 'lucide-react';
 import {
   type MouseEvent,
@@ -24,77 +18,27 @@ import {
   useMemo,
   useState
 } from 'react';
-import {
-  ALL_ITEMS_FOLDER_ID,
-  SHARED_BY_ME_FOLDER_ID,
-  SHARED_WITH_ME_FOLDER_ID,
-  TRASH_FOLDER_ID,
-  UNFILED_FOLDER_ID
-} from '../constants';
 import { useVfsClipboard } from '../context';
-import {
-  useVfsAllItems,
-  useVfsFolderContents,
-  useVfsSharedByMe,
-  useVfsSharedWithMe,
-  useVfsTrashItems,
-  useVfsUnfiledItems,
-  type VfsItem,
-  type VfsObjectType
-} from '../hooks';
+import type { VfsItem, VfsObjectType } from '../hooks';
 import {
   cn,
   type DisplayItem,
   OBJECT_TYPE_COLORS,
   OBJECT_TYPE_ICONS,
   type VfsSortColumn,
-  type VfsSortState,
-  type VfsViewMode
+  type VfsSortState
 } from '../lib';
 import { ItemContextMenu } from './ItemContextMenu';
 import { VfsDraggableItem } from './VfsDraggableItem';
+import {
+  type ContextMenuState,
+  type EmptySpaceContextMenuState,
+  useVfsDetailsPanelData,
+  VfsDetailsPanelEmptyState,
+  type VfsDetailsPanelProps
+} from './vfs-details-panel';
 
 export type { DisplayItem, VfsItem, VfsObjectType };
-
-interface VfsDetailsPanelProps {
-  folderId: string | null;
-  viewMode?: VfsViewMode | undefined;
-  compact?: boolean | undefined;
-  refreshToken?: number | undefined;
-  /** Currently selected item IDs */
-  selectedItemIds?: string[] | undefined;
-  /** Selection anchor used for shift-range selection */
-  selectionAnchorId?: string | null | undefined;
-  /** Callback when selection changes */
-  onItemSelectionChange?:
-    | ((itemIds: string[], anchorId: string | null) => void)
-    | undefined;
-  /** Callback when a folder item is double-clicked (to navigate into it) */
-  onFolderSelect?: ((folderId: string) => void) | undefined;
-  /** Callback when a non-folder item is double-clicked (to open it) */
-  onItemOpen?: ((item: DisplayItem) => void) | undefined;
-  /** Callback when items change (for status bar) */
-  onItemsChange?: ((items: DisplayItem[]) => void) | undefined;
-  /** Callback when download is requested via context menu */
-  onItemDownload?: ((item: DisplayItem) => void) | undefined;
-  /** Callback when sharing is requested via context menu */
-  onItemShare?: ((item: DisplayItem) => void) | undefined;
-  /** Callback when paste is requested via context menu */
-  onPaste?: ((targetFolderId: string) => void) | undefined;
-  /** Callback when upload is requested via context menu */
-  onUpload?: ((folderId: string) => void) | undefined;
-}
-
-interface EmptySpaceContextMenuState {
-  x: number;
-  y: number;
-}
-
-interface ContextMenuState {
-  x: number;
-  y: number;
-  item: DisplayItem;
-}
 
 const DEFAULT_SORT: VfsSortState = { column: null, direction: null };
 
@@ -115,12 +59,6 @@ export function VfsDetailsPanel({
   onUpload
 }: VfsDetailsPanelProps) {
   const { hasItems } = useVfsClipboard();
-  // Treat null folderId as unfiled (default view)
-  const isUnfiled = folderId === UNFILED_FOLDER_ID || folderId === null;
-  const isAllItems = folderId === ALL_ITEMS_FOLDER_ID;
-  const isSharedByMe = folderId === SHARED_BY_ME_FOLDER_ID;
-  const isSharedWithMe = folderId === SHARED_WITH_ME_FOLDER_ID;
-  const isTrash = folderId === TRASH_FOLDER_ID;
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [emptySpaceContextMenu, setEmptySpaceContextMenu] =
     useState<EmptySpaceContextMenuState | null>(null);
@@ -131,6 +69,18 @@ export function VfsDetailsPanel({
   useEffect(() => {
     setSort(DEFAULT_SORT);
   }, [folderId]);
+
+  const {
+    items,
+    loading,
+    error,
+    isUnfiled,
+    isAllItems,
+    isSharedByMe,
+    isSharedWithMe,
+    isTrash,
+    isVirtualFolder
+  } = useVfsDetailsPanelData({ folderId, sort, refreshToken });
 
   const handleSort = useCallback((column: VfsSortColumn) => {
     setSort((prev) => {
@@ -165,31 +115,11 @@ export function VfsDetailsPanel({
   const handleEmptySpaceContextMenu = useCallback(
     (e: MouseEvent) => {
       e.preventDefault();
-      // Show context menu for real folders (not virtual folders)
-      // when upload or paste actions are available
-      if (
-        !isUnfiled &&
-        !isAllItems &&
-        !isSharedByMe &&
-        !isSharedWithMe &&
-        !isTrash &&
-        folderId &&
-        (onUpload || (onPaste && hasItems))
-      ) {
+      if (!isVirtualFolder && folderId && (onUpload || (onPaste && hasItems))) {
         setEmptySpaceContextMenu({ x: e.clientX, y: e.clientY });
       }
     },
-    [
-      isUnfiled,
-      isAllItems,
-      isSharedByMe,
-      isSharedWithMe,
-      isTrash,
-      folderId,
-      onUpload,
-      onPaste,
-      hasItems
-    ]
+    [isVirtualFolder, folderId, onUpload, onPaste, hasItems]
   );
 
   const handleContextMenu = useCallback(
@@ -232,6 +162,7 @@ export function VfsDetailsPanel({
     },
     [onItemShare]
   );
+
   const createEmptySpaceActionHandler = (action: () => void) => () => {
     action();
     setEmptySpaceContextMenu(null);
@@ -265,49 +196,6 @@ export function VfsDetailsPanel({
       </WindowContextMenu>
     );
   };
-
-  // Use the appropriate hook based on selection
-  const isVirtualFolder =
-    isUnfiled || isAllItems || isSharedByMe || isSharedWithMe || isTrash;
-  const folderContents = useVfsFolderContents(
-    isVirtualFolder ? null : folderId,
-    sort
-  );
-  const unfiledItems = useVfsUnfiledItems(sort);
-  const allItems = useVfsAllItems({ enabled: isAllItems, sort });
-  const sharedByMe = useVfsSharedByMe({ enabled: isSharedByMe, sort });
-  const sharedWithMe = useVfsSharedWithMe({ enabled: isSharedWithMe, sort });
-  const trashItems = useVfsTrashItems({ enabled: isTrash, sort });
-
-  // Refetch when refreshToken changes
-  // biome-ignore lint/correctness/useExhaustiveDependencies: refetch functions are stable, including full objects causes infinite loops
-  useEffect(() => {
-    if (refreshToken !== undefined && refreshToken > 0) {
-      if (isSharedByMe) {
-        sharedByMe.refetch();
-      } else if (isSharedWithMe) {
-        sharedWithMe.refetch();
-      } else if (isTrash) {
-        trashItems.refetch();
-      } else if (isAllItems) {
-        allItems.refetch();
-      } else if (isUnfiled) {
-        unfiledItems.refetch();
-      } else {
-        folderContents.refetch();
-      }
-    }
-  }, [refreshToken]);
-
-  // Select the appropriate data source
-  const { items, loading, error } = (() => {
-    if (isSharedByMe) return sharedByMe;
-    if (isSharedWithMe) return sharedWithMe;
-    if (isTrash) return trashItems;
-    if (isAllItems) return allItems;
-    if (isUnfiled) return unfiledItems;
-    return folderContents;
-  })();
 
   const getRangeSelection = useCallback(
     (anchorId: string, itemId: string) => {
@@ -400,64 +288,20 @@ export function VfsDetailsPanel({
 
   if (items.length === 0) {
     return (
-      <>
-        {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty state */}
-        <div
-          className="flex flex-1 items-center justify-center text-muted-foreground"
-          onContextMenu={handleEmptySpaceContextMenu}
-        >
-          <div className="text-center">
-            {isSharedByMe ? (
-              <>
-                <Share2 className="mx-auto h-12 w-12 opacity-50" />
-                <p className="mt-2 text-sm">No items shared</p>
-                <p className="mt-1 text-xs">
-                  Items you share with others will appear here
-                </p>
-              </>
-            ) : isSharedWithMe ? (
-              <>
-                <UserCheck className="mx-auto h-12 w-12 opacity-50" />
-                <p className="mt-2 text-sm">No shared items</p>
-                <p className="mt-1 text-xs">
-                  Items shared with you will appear here
-                </p>
-              </>
-            ) : isAllItems ? (
-              <>
-                <Layers className="mx-auto h-12 w-12 opacity-50" />
-                <p className="mt-2 text-sm">No items in registry</p>
-                <p className="mt-1 text-xs">Upload files to get started</p>
-              </>
-            ) : isTrash ? (
-              <>
-                <Trash2 className="mx-auto h-12 w-12 opacity-50" />
-                <p className="mt-2 text-sm">Trash is empty</p>
-                <p className="mt-1 text-xs">
-                  Items marked for deletion will appear here
-                </p>
-              </>
-            ) : isUnfiled ? (
-              <>
-                <FileBox className="mx-auto h-12 w-12 opacity-50" />
-                <p className="mt-2 text-sm">No unfiled items</p>
-                <p className="mt-1 text-xs">
-                  Uploaded files will appear here until organized
-                </p>
-              </>
-            ) : (
-              <>
-                <Folder className="mx-auto h-12 w-12 opacity-50" />
-                <p className="mt-2 text-sm">This folder is empty</p>
-                <p className="mt-1 text-xs">
-                  Use &quot;Link Item&quot; to add items
-                </p>
-              </>
-            )}
-          </div>
-        </div>
-        {renderEmptySpaceContextMenu()}
-      </>
+      <VfsDetailsPanelEmptyState
+        isSharedByMe={isSharedByMe}
+        isSharedWithMe={isSharedWithMe}
+        isAllItems={isAllItems}
+        isTrash={isTrash}
+        isUnfiled={isUnfiled}
+        folderId={folderId}
+        hasClipboardItems={hasItems}
+        emptySpaceContextMenu={emptySpaceContextMenu}
+        onContextMenu={handleEmptySpaceContextMenu}
+        onContextMenuClose={() => setEmptySpaceContextMenu(null)}
+        onUpload={onUpload}
+        onPaste={onPaste}
+      />
     );
   }
 

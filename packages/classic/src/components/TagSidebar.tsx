@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   CREATE_CLASSIC_TAG_ARIA_LABEL,
@@ -9,48 +8,9 @@ import {
   UNTAGGED_TAG_NAME
 } from '../lib/constants';
 import { highlightText } from '../lib/highlightText';
-import type { ClassicTag } from '../lib/types';
-import {
-  ClassicContextMenu,
-  type ClassicContextMenuComponents
-} from './ClassicContextMenu';
-
-interface TagSidebarProps {
-  tags: ClassicTag[];
-  deletedTags?: ClassicTag[];
-  activeTagId: string | null;
-  editingTagId?: string | null;
-  autoFocusSearch?: boolean;
-  untaggedCount?: number;
-  noteCountByTagId?: Record<string, number>;
-  onSelectTag: (tagId: string) => void;
-  onMoveTag: (tagId: string, direction: 'up' | 'down') => void;
-  onReorderTag: (tagId: string, targetTagId: string) => void;
-  onCreateTag?: (() => void | Promise<void>) | undefined;
-  onStartEditTag?: (tagId: string) => void;
-  onRenameTag?: (tagId: string, newName: string) => void;
-  onCancelEditTag?: () => void;
-  onDeleteTag?: (tagId: string) => void;
-  onRestoreTag?: (tagId: string) => void;
-  onTagNote?: (tagId: string, noteId: string) => void;
-  searchValue: string;
-  onSearchChange: (value: string) => void;
-  onSearchKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
-  searchInputRef?: React.RefObject<HTMLInputElement | null>;
-  contextMenuComponents?: ClassicContextMenuComponents | undefined;
-}
-
-interface TagContextMenuState {
-  x: number;
-  y: number;
-  actions: Array<{
-    label: string;
-    onClick: () => void;
-    disabled?: boolean;
-    ariaLabel: string;
-  }>;
-  ariaLabel: string;
-}
+import { ClassicContextMenu } from './ClassicContextMenu';
+import type { TagContextMenuState, TagSidebarProps } from './tagSidebarState';
+import { useTagSidebarState } from './tagSidebarState';
 
 export function TagSidebar({
   tags,
@@ -77,81 +37,34 @@ export function TagSidebar({
   contextMenuComponents
 }: TagSidebarProps) {
   const { t } = useTranslation('classic');
-  const [contextMenu, setContextMenu] = useState<TagContextMenuState | null>(
-    null
-  );
-  const [draggedTagId, setDraggedTagId] = useState<string | null>(null);
-  const [lastHoverTagId, setLastHoverTagId] = useState<string | null>(null);
-  const [dragArmedTagId, setDragArmedTagId] = useState<string | null>(null);
-  const [dropTargetTagId, setDropTargetTagId] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState('');
-  const editInputRef = useRef<HTMLInputElement>(null);
-  const localSearchInputRef = useRef<HTMLInputElement>(null);
-  const effectiveSearchInputRef = searchInputRef ?? localSearchInputRef;
-
-  useEffect(() => {
-    if (autoFocusSearch) {
-      effectiveSearchInputRef.current?.focus();
-    }
-  }, [autoFocusSearch, effectiveSearchInputRef]);
-
-  useEffect(() => {
-    if (editingTagId) {
-      const tag = tags.find((t) => t.id === editingTagId);
-      setEditValue(tag?.name ?? '');
-      setTimeout(() => {
-        editInputRef.current?.focus();
-        editInputRef.current?.select();
-      }, 0);
-    }
-  }, [editingTagId, tags]);
-
-  const closeContextMenu = () => setContextMenu(null);
-
-  const commitOrCancelEdit = (tagId: string) => {
-    if (editValue.trim() && onRenameTag) {
-      onRenameTag(tagId, editValue.trim());
-    } else {
-      onCancelEditTag?.();
-    }
-  };
-
-  const handleEditKeyDown = (
-    event: React.KeyboardEvent<HTMLInputElement>,
-    tagId: string
-  ) => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      commitOrCancelEdit(tagId);
-    } else if (event.key === 'Escape') {
-      event.preventDefault();
-      onCancelEditTag?.();
-    }
-  };
-
-  const handleEditBlur = (tagId: string) => {
-    setTimeout(() => {
-      const activeElement = document.activeElement;
-      const isStillEditing =
-        activeElement === editInputRef.current ||
-        activeElement?.closest(`[data-tag-id="${tagId}"]`);
-      if (!isStillEditing) {
-        commitOrCancelEdit(tagId);
-      }
-    }, 0);
-  };
-
-  const handleSave = (tagId: string) => {
-    if (editValue.trim() && onRenameTag) {
-      onRenameTag(tagId, editValue.trim());
-    } else {
-      onCancelEditTag?.();
-    }
-  };
-
-  const handleCancel = () => {
-    onCancelEditTag?.();
-  };
+  const {
+    contextMenu,
+    setContextMenu,
+    draggedTagId,
+    setDraggedTagId,
+    lastHoverTagId,
+    setLastHoverTagId,
+    dragArmedTagId,
+    setDragArmedTagId,
+    dropTargetTagId,
+    setDropTargetTagId,
+    editValue,
+    setEditValue,
+    editInputRef,
+    effectiveSearchInputRef,
+    closeContextMenu,
+    handleEditKeyDown,
+    handleEditBlur,
+    handleSave,
+    handleCancel
+  } = useTagSidebarState({
+    tags,
+    editingTagId,
+    autoFocusSearch,
+    onRenameTag,
+    onCancelEditTag,
+    searchInputRef
+  });
   const openEmptySpaceContextMenu = (x: number, y: number) => {
     setContextMenu({
       x,
