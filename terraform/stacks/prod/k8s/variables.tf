@@ -57,3 +57,14 @@ variable "cloudflare_account_id" {
   description = "Cloudflare account ID"
   type        = string
 }
+
+variable "ssh_host_private_key" {
+  description = "SSH host private key for the server"
+  type        = string
+  sensitive   = true
+}
+
+variable "ssh_host_public_key" {
+  description = "SSH host public key for the server"
+  type        = string
+}

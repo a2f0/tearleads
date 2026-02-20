@@ -13,33 +13,22 @@ output "server_status" {
   value       = module.server.status
 }
 
-output "vault_hostname" {
-  description = "Vault server hostname"
-  value       = "vault.${var.production_domain}"
+output "tailscale_hostname" {
+  description = "Vault server Tailscale hostname"
+  value       = "vault-prod"
 }
 
 output "vault_url" {
-  description = "Vault API URL (via Cloudflare Tunnel)"
-  value       = "https://vault.${var.production_domain}"
+  description = "Vault API URL (via Tailscale)"
+  value       = "http://vault-prod:8200"
 }
 
 output "ssh_command" {
-  description = "SSH command to connect to the server"
-  value       = "ssh ${var.server_username}@${module.server.ipv4_address}"
+  description = "SSH command to connect to the server (via Tailscale)"
+  value       = "ssh vault-prod"
 }
 
 output "server_username" {
   description = "Username for SSH access"
   value       = var.server_username
-}
-
-output "tunnel_id" {
-  description = "Cloudflare tunnel ID"
-  value       = module.tunnel.tunnel_id
-}
-
-output "tunnel_token" {
-  description = "Cloudflare tunnel token (for cloudflared deployment)"
-  value       = module.tunnel.tunnel_token
-  sensitive   = true
 }

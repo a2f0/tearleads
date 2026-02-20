@@ -13,6 +13,17 @@ module "server" {
 
   user_data = <<-EOF
     #cloud-config
+    write_files:
+      - path: /etc/ssh/ssh_host_ed25519_key
+        owner: root:root
+        permissions: '0600'
+        content: |
+          ${indent(10, var.ssh_host_private_key)}
+      - path: /etc/ssh/ssh_host_ed25519_key.pub
+        owner: root:root
+        permissions: '0644'
+        content: |
+          ${indent(10, var.ssh_host_public_key)}
     users:
       - name: ${var.server_username}
         groups: sudo
@@ -29,6 +40,9 @@ module "server" {
       - curl
 
     runcmd:
+      # Install Tailscale
+      - curl -fsSL https://tailscale.com/install.sh | sh
+      - tailscale up --authkey=${var.tailscale_auth_key} --hostname=vault-prod
       # Install HashiCorp GPG key and repo
       - curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
       - echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" > /etc/apt/sources.list.d/hashicorp.list
@@ -45,7 +59,7 @@ module "server" {
   create_firewall = true
   allowed_ssh_ips = var.allowed_ssh_ips
 
-  # No public Vault port - access via Cloudflare Tunnel only
+  # No public Vault port - access via Tailscale only
   firewall_rules = [
     {
       direction  = "in"
@@ -58,20 +72,4 @@ module "server" {
     environment = "prod"
     stack       = "vault"
   }
-}
-
-# Cloudflare Tunnel for secure Vault access (no public port exposure)
-module "tunnel" {
-  source = "../../../modules/cloudflare-tunnel"
-
-  account_id  = var.cloudflare_account_id
-  zone_name   = var.production_domain
-  tunnel_name = "vault-prod"
-
-  ingress_rules = [
-    {
-      hostname = "vault.${var.production_domain}"
-      service  = "http://localhost:8200"
-    }
-  ]
 }
