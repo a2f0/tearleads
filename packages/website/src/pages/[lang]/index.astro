@@ -2,7 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import { isSupportedLanguage, defaultLanguage } from '../../i18n/config';
 import type { SupportedLanguage } from '../../i18n/config';
-import { getStaticPathsForLocales, getHref } from '../../i18n/utils';
+import { getStaticPathsForLocales } from '../../i18n/utils';
 
 export const getStaticPaths = getStaticPathsForLocales;
 
@@ -11,50 +11,7 @@ const currentLang: SupportedLanguage = isSupportedLanguage(lang) ? lang : defaul
 ---
 
 <Layout title="Tearleads" lang={currentLang}>
-  <div class="container mx-auto px-4 py-16">
-    <h2 class="font-bold text-4xl">Welcome to Tearleads</h2>
-
-    <div class="mt-8 flex flex-wrap gap-4">
-      <a href="#" class="transition-opacity hover:opacity-80">
-        <img src="/app-store-badge.svg" alt="Download on the App Store" width="180" height="53" />
-      </a>
-      <a href="#" class="transition-opacity hover:opacity-80">
-        <img src="/google-play-badge.svg" alt="Get it on Google Play" width="180" height="53" />
-      </a>
-    </div>
+  <div class="container mx-auto max-w-4xl px-4 pt-4 pb-16">
+    <p>Tearleads is a multi-user end-to-end encrypted operating system.</p>
   </div>
-
-  <section class="container mx-auto px-4 py-8">
-    <div class="grid gap-6 md:grid-cols-3">
-      <a href={getHref('/docs/architecture', currentLang)} class="group rounded-lg border bg-card p-4 transition-colors hover:border-foreground/20">
-        <h3 class="mb-2 font-semibold text-lg group-hover:underline">Security Architecture</h3>
-        <p class="text-muted-foreground text-sm">
-          Learn how Tearleads encrypts your data at rest using industry-standard
-          encryption across all platforms.
-        </p>
-      </a>
-      <a href={getHref('/docs/api', currentLang)} class="group rounded-lg border bg-card p-4 transition-colors hover:border-foreground/20">
-        <h3 class="mb-2 font-semibold text-lg group-hover:underline">API Documentation</h3>
-        <p class="text-muted-foreground text-sm">
-          Interactive API documentation with Swagger UI.
-          Explore endpoints and try requests directly.
-        </p>
-      </a>
-      <div class="rounded-lg border bg-card p-4">
-        <h3 class="mb-2 font-semibold text-lg">Platform Security</h3>
-        <p class="text-muted-foreground text-sm">
-          Each platform uses native encryption: SQLCipher on mobile,
-          ChaCha20-Poly1305 on desktop, and SQLite3MultipleCiphers in the
-          browser.
-        </p>
-      </div>
-      <div class="rounded-lg border bg-card p-4">
-        <h3 class="mb-2 font-semibold text-lg">Memory Safety</h3>
-        <p class="text-muted-foreground text-sm">
-          Encryption keys are securely zeroed from memory after use, preventing
-          extraction from memory dumps or swap files.
-        </p>
-      </div>
-    </div>
-  </section>
 </Layout>
