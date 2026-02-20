@@ -77,7 +77,7 @@ describe('admin users routes - GET', () => {
                 marked_for_deletion_at: null,
                 marked_for_deletion_by: null,
                 organization_ids: ['org-1'],
-                created_at: '2024-02-01T00:00:00.000Z'
+                created_at: new Date('2024-02-01T00:00:00.000Z')
               }
             ]
           })
@@ -206,7 +206,7 @@ describe('admin users routes - GET', () => {
                 marked_for_deletion_at: null,
                 marked_for_deletion_by: null,
                 organization_ids: ['org-2'],
-                created_at: '2024-02-01T00:00:00.000Z'
+                created_at: new Date('2024-02-01T00:00:00.000Z')
               }
             ]
           })
