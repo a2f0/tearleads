@@ -25,6 +25,7 @@ cd terraform/stacks/prod/vault
 ```
 
 This creates:
+
 - Unseal keys at `.secrets/vault-keys.json` (back this up securely!)
 - KV v2 secrets engine at `secret/`
 - Environment paths: `secret/staging/env`, `secret/prod/env`
@@ -160,7 +161,7 @@ The backup is a single encrypted file containing all secrets.
 
 ## Secret Organization
 
-```
+```text
 secret/
 ├── staging/
 │   └── env           # Staging environment variables
@@ -209,6 +210,7 @@ vault login $(jq -r '.root_token' .secrets/vault-keys.json)
 ### Lost vault-keys.json
 
 **This is unrecoverable.** You would need to:
+
 1. Destroy and recreate the Vault server
 2. Restore from a Raft snapshot backup (if you have one)
 3. Re-migrate all secrets

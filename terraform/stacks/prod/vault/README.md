@@ -27,6 +27,7 @@ cd terraform/stacks/prod/vault
 ```
 
 This configures:
+
 - Raft storage backend
 - Vault listener (port 8200)
 - Security hardening
@@ -69,6 +70,7 @@ This creates unseal keys at `.secrets/vault-keys.json`.
 | Vault secrets | Vault CLI | `scripts/setup-vault.sh` |
 
 **Why Ansible for Vault config?**
+
 - Idempotent: can rerun to update config
 - Version controlled: changes are visible in git
 - No reprovision required: update config without destroying server
