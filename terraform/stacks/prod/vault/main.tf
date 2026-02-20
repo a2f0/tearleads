@@ -11,6 +11,8 @@ module "server" {
   server_type  = var.server_type
   location     = var.server_location
 
+  # Cloud-init handles base setup only (SSH, Tailscale, Vault install)
+  # Vault configuration is managed by Ansible: ansible/playbooks/vault.yml
   user_data = <<-EOF
     #cloud-config
     # Prevent cloud-init from regenerating ed25519 key (we provide our own)
@@ -55,12 +57,9 @@ module "server" {
       - echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" > /etc/apt/sources.list.d/hashicorp.list
       - apt-get update
       - apt-get install -y vault
-      # Create vault data directory
+      # Create vault data directory (Ansible configures Vault itself)
       - mkdir -p /opt/vault/data
       - chown -R vault:vault /opt/vault
-      # Enable and start vault
-      - systemctl enable vault
-      - systemctl start vault
   EOF
 
   create_firewall = true
