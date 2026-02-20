@@ -70,7 +70,7 @@ module "server" {
     # Prevent cloud-init from regenerating ed25519 key (we provide our own)
     # Allow RSA/ECDSA generation since SSH needs them
     ssh_deletekeys: false
-    ssh_genkeytypes: ['rsa', 'ecdsa']
+    ssh_genkeytypes: []
 
     write_files:
       - path: /etc/ssh/ssh_host_ed25519_key
