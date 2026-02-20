@@ -38,6 +38,7 @@ variable "googleworkspace_oauth_scopes" {
   type        = list(string)
   default = [
     "https://www.googleapis.com/auth/admin.directory.group",
+    "https://www.googleapis.com/auth/apps.groups.settings",
   ]
 }
 
@@ -66,6 +67,17 @@ variable "googleworkspace_group_settings_overrides" {
     who_can_leave_group            = optional(string)
   }))
   default = {}
+}
+
+variable "googleworkspace_domain" {
+  description = "Primary Google Workspace domain (e.g., example.com)"
+  type        = string
+}
+
+variable "alerts_group_enabled" {
+  description = "Whether to create the alerts@domain distribution group"
+  type        = bool
+  default     = true
 }
 
 check "impersonation_requires_service_account" {
