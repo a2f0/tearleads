@@ -70,10 +70,15 @@ export function createVfsSecurePipelineBundle(
       }),
       resolveKeyEpoch: async (itemId) => {
         const epoch = await options.itemKeyStore.getLatestKeyEpoch(itemId);
-        if (epoch === null) {
-          throw new Error(`No key epoch found for item ${itemId}`);
+        if (epoch !== null) {
+          return epoch;
         }
-        return epoch;
+        // Auto-create key for first upload.
+        // TODO(#2065 item 2): Race condition - concurrent uploads for same new item
+        // can both call createItemKey. Requires ItemKeyStore.setItemKey with
+        // INSERT-IF-NOT-EXISTS semantics or locking. Deferred to item 2.
+        const result = await keyManager.createItemKey({ itemId });
+        return result.keyEpoch;
       },
       listWrappedFileKeys: async ({ itemId, keyEpoch }) => {
         const shares = await options.itemKeyStore.listItemShares(itemId);
