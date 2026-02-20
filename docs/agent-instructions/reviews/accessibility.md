@@ -110,14 +110,15 @@ useEffect(() => {
   if (!isOpen) return;
 
   const dialog = dialogRef.current;
-  const focusable = dialog?.querySelectorAll(
+  const focusable = dialog?.querySelectorAll<HTMLElement>(
     'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
   );
+  if (!focusable || focusable.length === 0) return;
 
-  const first = focusable?.[0] as HTMLElement;
-  const last = focusable?.[focusable.length - 1] as HTMLElement;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
 
-  first?.focus();
+  first.focus();
 
   const handleTab = (e: KeyboardEvent) => {
     if (e.key !== "Tab") return;

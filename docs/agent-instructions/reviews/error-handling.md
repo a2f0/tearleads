@@ -216,8 +216,10 @@ const results = await Promise.allSettled([
 ]);
 
 const successes = results
-  .filter((r): r is PromiseFulfilledResult<User> => r.status === "fulfilled")
-  .map((r) => r.value);
+  .filter((r): r is PromiseFulfilledResult<Result<User>> =>
+    r.status === "fulfilled" && r.value.ok
+  )
+  .map((r) => r.value.value);
 
 const failures = results
   .filter((r): r is PromiseRejectedResult => r.status === "rejected")
