@@ -5,17 +5,15 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+// Get the mocked detectPlatform for test manipulation
+import { detectPlatform as mockDetectPlatformFn } from '@/lib/utils';
 import { AudioPage } from './Audio';
 import {
   createMockQueryChain,
-  createMockUpdateChain,
   mockGetCurrentKey,
+  mockInitializeFileStorage,
   mockInsertValues,
   mockIsFileStorageInitialized,
-  mockInitializeFileStorage,
-  mockPause,
-  mockPlay,
-  mockResume,
   mockRetrieve,
   mockSelect,
   mockUpdate,
@@ -26,9 +24,6 @@ import {
   TEST_AUDIO_TRACK,
   TEST_AUDIO_TRACK_2
 } from './Audio.testSetup';
-
-// Get the mocked detectPlatform for test manipulation
-import { detectPlatform as mockDetectPlatformFn } from '@/lib/utils';
 
 const mockDetectPlatform = mockDetectPlatformFn as ReturnType<typeof vi.fn>;
 
@@ -291,23 +286,23 @@ describe('AudioPage - tracks', () => {
 
     const hintText = 'Drop an audio file here to add it to your library';
 
-    it.each(['web', 'electron'])(
-      'shows drag and drop hint on %s',
-      async (platform) => {
-        mockDetectPlatform.mockReturnValue(platform);
-        await renderAudio();
-        expect(screen.getByText(hintText)).toBeInTheDocument();
-      }
-    );
+    it.each([
+      'web',
+      'electron'
+    ])('shows drag and drop hint on %s', async (platform) => {
+      mockDetectPlatform.mockReturnValue(platform);
+      await renderAudio();
+      expect(screen.getByText(hintText)).toBeInTheDocument();
+    });
 
-    it.each(['ios', 'android'])(
-      'hides drag and drop hint on %s',
-      async (platform) => {
-        mockDetectPlatform.mockReturnValue(platform);
-        await renderAudio();
-        expect(screen.queryByText(hintText)).not.toBeInTheDocument();
-      }
-    );
+    it.each([
+      'ios',
+      'android'
+    ])('hides drag and drop hint on %s', async (platform) => {
+      mockDetectPlatform.mockReturnValue(platform);
+      await renderAudio();
+      expect(screen.queryByText(hintText)).not.toBeInTheDocument();
+    });
   });
 
   describe('refresh functionality', () => {

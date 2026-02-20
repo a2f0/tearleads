@@ -1,22 +1,19 @@
 /**
  * Tests for Contacts list display, search, and refresh functionality.
  */
-import { screen, waitFor, act } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  mockNavigate,
-  mockUseDatabaseContext,
-  mockOrderBy,
-  mockUpdate,
-  mockSet,
-  mockUpdateWhere,
-  mockParseFile,
-  mockImportContacts,
-  mockExportContact,
-  dbMock,
   createMockContact,
+  dbMock,
   mockContactsList,
+  mockExportContact,
+  mockImportContacts,
+  mockNavigate,
+  mockOrderBy,
+  mockParseFile,
+  mockUseDatabaseContext,
   renderContacts,
   setupDefaultMocks,
   teardownMocks

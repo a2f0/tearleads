@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VideoPage } from './Video';
 import {
   createMockQueryChain,
-  createMockUpdateChain,
   createVideoMocks,
   setupVideoPageMocks,
   TEST_VIDEO

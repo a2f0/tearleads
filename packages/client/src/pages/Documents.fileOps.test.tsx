@@ -7,7 +7,6 @@ import { Documents } from './Documents';
 import {
   mockCanShareFiles,
   mockDb,
-  mockDocuments,
   mockDownloadFile,
   mockInitializeFileStorage,
   mockIsFileStorageInitialized,
@@ -16,7 +15,6 @@ import {
   mockStorage,
   mockUploadFile,
   mockUseDatabaseContext,
-  render,
   renderDocuments,
   screen,
   setupDefaultMocks

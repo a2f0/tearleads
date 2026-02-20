@@ -30,33 +30,35 @@ const mockUploadFile = vi.fn();
 // ============================================
 
 vi.mock('@tanstack/react-virtual', () => ({
-  useVirtualizer: vi.fn((options: { count: number } & Record<string, unknown>) => {
-    const getScrollElement = options['getScrollElement'];
-    if (typeof getScrollElement === 'function') {
-      getScrollElement();
+  useVirtualizer: vi.fn(
+    (options: { count: number } & Record<string, unknown>) => {
+      const getScrollElement = options['getScrollElement'];
+      if (typeof getScrollElement === 'function') {
+        getScrollElement();
+      }
+      const estimateSize = options['estimateSize'];
+      if (typeof estimateSize === 'function') {
+        estimateSize();
+      }
+      const { count } = options;
+      return {
+        getVirtualItems: Object.assign(
+          () =>
+            Array.from({ length: count }, (_, i) => ({
+              index: i,
+              start: i * 56,
+              end: (i + 1) * 56,
+              size: 56,
+              key: i,
+              lane: 0
+            })),
+          { updateDeps: vi.fn() }
+        ),
+        getTotalSize: () => count * 56,
+        measureElement: vi.fn()
+      };
     }
-    const estimateSize = options['estimateSize'];
-    if (typeof estimateSize === 'function') {
-      estimateSize();
-    }
-    const { count } = options;
-    return {
-      getVirtualItems: Object.assign(
-        () =>
-          Array.from({ length: count }, (_, i) => ({
-            index: i,
-            start: i * 56,
-            end: (i + 1) * 56,
-            size: 56,
-            key: i,
-            lane: 0
-          })),
-        { updateDeps: vi.fn() }
-      ),
-      getTotalSize: () => count * 56,
-      measureElement: vi.fn()
-    };
-  })
+  )
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -148,7 +150,10 @@ describe('Files - Upload', () => {
     mockUploadFile.mockReset();
     mockUploadFile.mockResolvedValue({ id: 'new-id', isDuplicate: false });
     mockSelect.mockReturnValue(
-      createMockQueryChain([TEST_FILE_WITH_THUMBNAIL, TEST_FILE_WITHOUT_THUMBNAIL])
+      createMockQueryChain([
+        TEST_FILE_WITH_THUMBNAIL,
+        TEST_FILE_WITHOUT_THUMBNAIL
+      ])
     );
     mockUpdate.mockReturnValue(createMockUpdateChain());
   });
@@ -174,9 +179,7 @@ describe('Files - Upload', () => {
       const dropzones = screen.getAllByTestId('dropzone');
       expect(dropzones[0]).toBeInTheDocument();
 
-      expect(
-        screen.getByText(/Drag and drop files here/i)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Drag and drop files here/i)).toBeInTheDocument();
     });
 
     it('hides dropzone when database is locked', () => {

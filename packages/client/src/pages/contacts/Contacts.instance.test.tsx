@@ -7,17 +7,14 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Contacts } from './Contacts';
 import {
-  mockNavigate,
-  mockUseDatabaseContext,
-  mockOrderBy,
-  mockUpdate,
-  mockSet,
-  mockUpdateWhere,
-  mockParseFile,
-  mockImportContacts,
-  mockExportContact,
-  dbMock,
   createMockContact,
+  dbMock,
+  mockExportContact,
+  mockImportContacts,
+  mockNavigate,
+  mockOrderBy,
+  mockParseFile,
+  mockUseDatabaseContext,
   renderContacts,
   setupDefaultMocks,
   teardownMocks

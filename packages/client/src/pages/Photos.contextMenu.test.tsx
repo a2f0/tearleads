@@ -327,9 +327,7 @@ describe('Photos context menu', () => {
     const user = userEvent.setup();
     mockUpdateWhere.mockRejectedValue(new Error('Delete failed'));
 
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     await renderPhotos();
 
@@ -357,9 +355,7 @@ describe('Photos context menu', () => {
     const user = userEvent.setup();
     mockUpdateWhere.mockRejectedValue('String error');
 
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     await renderPhotos();
 

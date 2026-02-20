@@ -5,17 +5,14 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  mockNavigate,
-  mockUseDatabaseContext,
-  mockOrderBy,
-  mockUpdate,
-  mockSet,
-  mockUpdateWhere,
-  mockParseFile,
-  mockImportContacts,
-  mockExportContact,
-  dbMock,
   createMockContact,
+  dbMock,
+  mockExportContact,
+  mockImportContacts,
+  mockNavigate,
+  mockOrderBy,
+  mockParseFile,
+  mockUseDatabaseContext,
   renderContacts,
   setupDefaultMocks,
   teardownMocks

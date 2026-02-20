@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,7 +10,6 @@ import {
   mockInitializeFileStorage,
   mockIsFileStorageInitialized,
   mockNavigate,
-  mockPhotos,
   mockSetAttachedImage,
   mockShareFile,
   mockStorage,

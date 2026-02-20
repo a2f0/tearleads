@@ -6,17 +6,17 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/consoleMocks';
 import {
-  mockNavigate,
-  mockUseDatabaseContext,
-  mockOrderBy,
-  mockUpdate,
-  mockSet,
-  mockUpdateWhere,
-  mockParseFile,
-  mockImportContacts,
-  mockExportContact,
   dbMock,
   mockContextMenuContact,
+  mockExportContact,
+  mockImportContacts,
+  mockNavigate,
+  mockOrderBy,
+  mockParseFile,
+  mockSet,
+  mockUpdate,
+  mockUpdateWhere,
+  mockUseDatabaseContext,
   renderContacts,
   setupDefaultMocks,
   teardownMocks
