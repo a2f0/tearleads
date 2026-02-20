@@ -28,6 +28,22 @@ This map documents the private IPv4 ranges currently defined in Terraform stack 
 10.200.0.0/24  prod-wireguard-clients
 ```
 
+## Tailscale overlay network
+
+Tailscale provides a secure overlay network for internal service access. IPs are assigned from the `100.x.x.x` CGNAT range by Tailscale.
+
+| Stack | Hostname | Access Groups | Ports | Purpose |
+|---|---|---|---|---|
+| `stacks/prod/vault` | `vault-prod` | `group:prod-access` | 22 (SSH), 8200 (Vault) | HashiCorp Vault secrets management |
+| `stacks/staging/vault` | `vault-staging` | `group:staging-access` | 22 (SSH), 8200 (Vault) | Staging Vault (when deployed) |
+
+**ACL Configuration**: `terraform/stacks/shared/tailscale/main.tf`
+
+Access groups:
+
+- `group:staging-access` - Members can access `tag:staging-vault` devices
+- `group:prod-access` - Members can access `tag:prod-vault` devices
+
 ## Reserved / externally managed networking
 
 The following stacks use provider-managed or externally selected networking and do not currently define private subnet CIDRs in Terraform defaults:
@@ -35,4 +51,4 @@ The following stacks use provider-managed or externally selected networking and 
 - `terraform/stacks/staging/k8s`
 - `terraform/stacks/prod/k8s`
 - `terraform/stacks/prod/rds`
-- `terraform/stacks/prod/vault`
+- `terraform/stacks/prod/vault` - Uses Tailscale overlay (see above)

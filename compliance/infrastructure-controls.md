@@ -35,6 +35,10 @@ This document maps infrastructure compliance sentinels to their implementations 
 | `TL-DR-001` | State Isolation | `terraform/stacks/*/versions.tf` | Per-stack S3 backend with unique state keys |
 | `TL-DR-002` | State Locking | `terraform/bootstrap/main.tf` | DynamoDB state locking for concurrent access protection |
 | `TL-DR-003` | Container Recovery | `terraform/docs/container-deployments.md` | Documented build/push/deploy workflow for rapid recovery |
+| `TL-SECRETS-001` | Secrets Management | `terraform/stacks/prod/vault/main.tf`, `terraform/docs/vault-workflow.md` | HashiCorp Vault with Raft storage for centralized secrets management |
+| `TL-SECRETS-002` | Secrets Backup | `terraform/stacks/prod/vault/scripts/backup.sh` | Raft snapshot backups for secrets recovery |
+| `TL-SECRETS-003` | Secrets Access | `terraform/stacks/shared/tailscale/main.tf` | Vault access via Tailscale ACLs with separate staging/prod groups |
+| `TL-INFRA-005` | Persistent Host Keys | `terraform/stacks/prod/vault/main.tf` | Persistent ED25519 SSH host keys via cloud-init for TOFU protection |
 
 ## Modular Terraform Structure
 
@@ -75,6 +79,9 @@ These controls support the following framework requirements:
 | `TL-CR-004` | CC6.5 | Container image lifecycle and disposal |
 | `TL-DR-001`, `TL-DR-002` | CC9.1, A1.2 | Infrastructure state protection and recovery |
 | `TL-DR-003` | A1.2, A1.3 | Container deployment recovery procedures |
+| `TL-SECRETS-001`, `TL-SECRETS-002` | CC6.1, CC6.7, A1.2 | Centralized secrets management with backup/recovery |
+| `TL-SECRETS-003` | CC6.1, CC6.6 | Network-level secrets access control via Tailscale ACLs |
+| `TL-INFRA-005` | CC6.1, CC6.6 | SSH host key persistence prevents MITM attacks |
 
 ### NIST SP 800-53
 
@@ -94,6 +101,9 @@ These controls support the following framework requirements:
 | `TL-CR-004` | MP-6 | Container image media sanitization |
 | `TL-DR-001`, `TL-DR-002` | CP-9, CP-10 | Infrastructure state backup and recovery |
 | `TL-DR-003` | CP-10, IR-4 | Container deployment recovery, incident handling |
+| `TL-SECRETS-001`, `TL-SECRETS-002` | SC-12, CP-9 | Cryptographic key establishment, secrets backup |
+| `TL-SECRETS-003` | AC-4, SC-7 | Secrets access via network boundary protection |
+| `TL-INFRA-005` | IA-5, SC-8 | SSH authenticator management, transmission integrity |
 
 ### HIPAA Security Rule
 
@@ -109,6 +119,9 @@ These controls support the following framework requirements:
 | `TL-CR-001`, `TL-CR-003` | 164.312(a)(1), 164.312(d) | Container registry access control, authentication |
 | `TL-CR-002` | 164.308(a)(1)(ii)(D) | Container security scanning (information system activity review) |
 | `TL-DR-001`, `TL-DR-002`, `TL-DR-003` | 164.308(a)(7)(ii)(A), 164.308(a)(7)(ii)(B) | Disaster recovery plan, data backup plan |
+| `TL-SECRETS-001`, `TL-SECRETS-002` | 164.312(a)(2)(iv), 164.308(a)(7)(ii)(A) | Secrets encryption and backup |
+| `TL-SECRETS-003` | 164.312(e)(1) | Secrets transmission security via Tailscale |
+| `TL-INFRA-005` | 164.312(e)(2)(ii) | SSH integrity controls |
 
 ## Evidence Collection
 
@@ -179,6 +192,29 @@ done
 
 # Verify K8s ECR secret exists (TL-CR-003)
 kubectl get secret ecr-registry -n tearleads -o jsonpath='{.type}'
+```
+
+### Vault Secrets Management Evidence
+
+Vault secrets infrastructure can be verified:
+
+```bash
+# Verify Vault is accessible via Tailscale (TL-SECRETS-001)
+VAULT_ADDR=http://vault-prod:8200 vault status
+
+# Verify Vault is using Raft storage (TL-SECRETS-001)
+ssh vault-prod 'grep -A5 "storage \"raft\"" /etc/vault.d/vault.hcl'
+
+# Verify Raft snapshots exist (TL-SECRETS-002)
+ls -la terraform/stacks/prod/vault/.secrets/vault-backups/
+
+# Verify Tailscale ACLs restrict Vault access (TL-SECRETS-003)
+# Check staging and prod access groups are defined
+terraform -chdir=terraform/stacks/shared/tailscale show -json | jq '.values.root_module.resources[] | select(.type == "tailscale_acl")'
+
+# Verify persistent SSH host key matches known key (TL-INFRA-005)
+ssh-keyscan -t ed25519 vault-prod 2>/dev/null | awk '{print $2, $3}'
+cat .secrets/persistent_ssh_host_ed25519_key.pub | awk '{print $1, $2}'
 ```
 
 ### Disaster Recovery Evidence
