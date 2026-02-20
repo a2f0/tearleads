@@ -3,7 +3,7 @@
  */
 
 import { getCurrentInstanceId } from '@/db';
-import { clearLastLoadedModel, saveLastLoadedModel } from '../useAppLifecycle';
+import { clearLastLoadedModel, saveLastLoadedModel } from '../app';
 import { logLLMAnalytics } from './analytics';
 import type {
   ClassificationResult,

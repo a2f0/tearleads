@@ -1,5 +1,5 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
-import { emitInstanceChange } from '@/hooks/useInstanceChange';
+import { emitInstanceChange } from '@/hooks/app';
 import { toError } from '@/lib/errors';
 import { logStore } from '@/stores/logStore';
 import { notificationStore } from '@/stores/notificationStore';

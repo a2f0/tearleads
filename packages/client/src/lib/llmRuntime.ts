@@ -1,5 +1,5 @@
 import type { ChatModelAdapter } from '@assistant-ui/react';
-import type { ChatMessage, GenerateCallback } from '@/hooks/llm';
+import type { ChatMessage, GenerateCallback } from '@/hooks/ai';
 
 type GenerateFunction = (
   messages: ChatMessage[],

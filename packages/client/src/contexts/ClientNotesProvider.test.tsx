@@ -88,7 +88,7 @@ vi.mock('@/db/hooks', () => ({
   })
 }));
 
-vi.mock('@/hooks/useVfsKeys', () => ({
+vi.mock('@/hooks/vfs', () => ({
   generateSessionKey: vi.fn(),
   wrapSessionKey: vi.fn()
 }));

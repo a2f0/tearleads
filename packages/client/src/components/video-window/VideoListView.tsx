@@ -9,7 +9,7 @@ import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ListRow } from '@/components/ui/ListRow';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
-import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
+import { useVirtualVisibleRange } from '@/hooks/device';
 import { useTypedTranslation } from '@/i18n';
 import { setMediaDragData } from '@/lib/mediaDragData';
 import { formatFileSize } from '@/lib/utils';

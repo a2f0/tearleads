@@ -15,7 +15,7 @@ import { Film, Info, Play, Trash2, Upload } from 'lucide-react';
 import type { RefObject } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
-import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
+import { useVirtualVisibleRange } from '@/hooks/device';
 import { useTypedTranslation } from '@/i18n';
 import { setMediaDragData } from '@/lib/mediaDragData';
 import { formatDate, formatFileSize, getVideoTypeDisplay } from '@/lib/utils';

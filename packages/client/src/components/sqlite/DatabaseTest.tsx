@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getDatabaseAdapter } from '@/db';
 import { isBiometricAvailable } from '@/db/crypto/keyManager';
 import { useDatabaseContext } from '@/db/hooks';
-import { useOnInstanceChange } from '@/hooks/useInstanceChange';
+import { useOnInstanceChange } from '@/hooks/app';
 import { getErrorMessage } from '@/lib/errors';
 import { detectPlatform } from '@/lib/utils';
 import { DatabaseTestControls } from './DatabaseTestControls';

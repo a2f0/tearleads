@@ -5,7 +5,7 @@ import {
   useNativeFilePicker
 } from './useNativeFilePicker';
 
-vi.mock('../lib/utils', () => ({
+vi.mock('@/lib/utils', () => ({
   detectPlatform: vi.fn()
 }));
 
@@ -18,7 +18,7 @@ vi.mock('@capawesome/capacitor-file-picker', () => ({
 }));
 
 import { FilePicker } from '@capawesome/capacitor-file-picker';
-import { detectPlatform } from '../lib/utils';
+import { detectPlatform } from '@/lib/utils';
 
 const createAudioResponse = () => {
   const response = new Response();

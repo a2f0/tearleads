@@ -16,7 +16,7 @@ import { ActionToolbar } from '@/components/ui/ActionToolbar';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { EditableTitle } from '@/components/ui/editable-title';
-import { useAudioErrorHandler } from '@/hooks/useAudioErrorHandler';
+import { useAudioErrorHandler } from '@/hooks/media';
 import { formatDate, formatFileSize } from '@/lib/utils';
 import { useAudioDetailActions, useAudioDetailData } from './audioDetailState';
 

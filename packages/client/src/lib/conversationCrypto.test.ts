@@ -40,7 +40,7 @@ const mockEnsureVfsKeys = vi.fn();
 const mockGenerateSessionKey = vi.fn();
 const mockWrapSessionKey = vi.fn();
 
-vi.mock('@/hooks/useVfsKeys', () => ({
+vi.mock('@/hooks/vfs', () => ({
   ensureVfsKeys: (...args: unknown[]) => mockEnsureVfsKeys(...args),
   generateSessionKey: (...args: unknown[]) => mockGenerateSessionKey(...args),
   wrapSessionKey: (...args: unknown[]) => mockWrapSessionKey(...args)

@@ -204,21 +204,20 @@ describe('ColumnMapper Google Contacts auto-mapping', () => {
       'E-mail 2 - Label',
       'E-mail 2 - Value'
     ]);
-    render(<ColumnMapper {...defaultProps} data={googleData} />);
+    const { unmount: unmountEmail } = render(
+      <ColumnMapper {...defaultProps} data={googleData} />
+    );
     const csvColumnsSection = screen.getByText('CSV Columns').parentElement;
     expect(
       csvColumnsSection?.querySelectorAll('.cursor-not-allowed')?.length
     ).toBe(3);
+    unmountEmail();
 
     const phone3Data = createMockCSVData([
       'First Name',
       'Phone 3 - Label',
       'Phone 3 - Value'
     ]);
-    const { unmount } = render(
-      <ColumnMapper {...defaultProps} data={googleData} />
-    );
-    unmount();
     render(<ColumnMapper {...defaultProps} data={phone3Data} />);
     const section = screen.getByText('CSV Columns').parentElement;
     expect(section?.querySelectorAll('.cursor-not-allowed')?.length).toBe(3);

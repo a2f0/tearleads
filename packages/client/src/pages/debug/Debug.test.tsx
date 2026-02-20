@@ -28,7 +28,7 @@ vi.mock('@/lib/utils', async () => {
 });
 
 // Mock useAppVersion
-vi.mock('@/hooks/useAppVersion', () => ({
+vi.mock('@/hooks/app', () => ({
   useAppVersion: vi.fn(() => '0.1.234')
 }));
 

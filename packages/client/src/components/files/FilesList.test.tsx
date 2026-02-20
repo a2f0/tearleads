@@ -65,7 +65,7 @@ vi.mock('@/storage/opfs', () => ({
 }));
 
 const mockUploadFile = vi.fn();
-vi.mock('@/hooks/useFileUpload', () => ({
+vi.mock('@/hooks/vfs', () => ({
   useFileUpload: () => ({
     uploadFile: mockUploadFile
   })
@@ -145,7 +145,7 @@ vi.mock('@tanstack/react-virtual', () => ({
   })
 }));
 
-vi.mock('@/hooks/useVirtualVisibleRange', () => ({
+vi.mock('@/hooks/device', () => ({
   useVirtualVisibleRange: () => ({
     firstVisible: 0,
     lastVisible: 0

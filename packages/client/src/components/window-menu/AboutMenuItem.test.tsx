@@ -3,10 +3,10 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as dropdownMenuModule from '@/components/ui/dropdown-menu';
-import * as useAppVersionModule from '@/hooks/useAppVersion';
+import * as useAppVersionModule from '@/hooks/app';
 import { AboutMenuItem } from './AboutMenuItem';
 
-vi.mock('@/hooks/useAppVersion', () => ({
+vi.mock('@/hooks/app', () => ({
   useAppVersion: vi.fn(() => '1.2.3')
 }));
 

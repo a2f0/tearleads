@@ -152,12 +152,17 @@ vi.mock('@/components/sqlite/TableSizes', () => ({
   TableSizes: () => <div data-testid="table-sizes">TableSizes Mock</div>
 }));
 
-vi.mock('@/hooks/useContactsImport', () => ({
+vi.mock('@/hooks/contacts', () => ({
   useContactsImport: () => ({
     parseFile: vi.fn(),
     importContacts: vi.fn(),
     importing: false,
     progress: 0
+  }),
+  useContactsExport: () => ({
+    exportContact: vi.fn(),
+    exportAllContacts: vi.fn(),
+    exporting: false
   })
 }));
 

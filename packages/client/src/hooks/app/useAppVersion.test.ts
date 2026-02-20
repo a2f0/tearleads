@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAppVersion } from './useAppVersion';
 
 // Mock detectPlatform
-vi.mock('../lib/utils', () => ({
+vi.mock('@/lib/utils', () => ({
   detectPlatform: vi.fn()
 }));
 
@@ -16,7 +16,7 @@ vi.mock('@capacitor/app', () => ({
 
 // Import mocks after mocking
 import { App } from '@capacitor/app';
-import { detectPlatform } from '../lib/utils';
+import { detectPlatform } from '@/lib/utils';
 
 describe('useAppVersion', () => {
   beforeEach(() => {

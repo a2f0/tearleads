@@ -3,9 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModelSelector } from './ModelSelector';
 
-vi.mock('@/hooks/llm');
+vi.mock('@/hooks/ai');
 
-import { useLLM } from '@/hooks/llm';
+import { useLLM } from '@/hooks/ai';
 
 const mockLoadModel = vi.fn();
 const mockUnloadModel = vi.fn();

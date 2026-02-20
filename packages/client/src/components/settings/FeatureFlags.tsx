@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useFeatureFlags } from '@/hooks/app';
 
 function formatFlagValue(value: boolean): string {
   return value ? 'On' : 'Off';

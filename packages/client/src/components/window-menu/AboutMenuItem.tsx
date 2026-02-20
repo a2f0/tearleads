@@ -3,7 +3,7 @@ import {
   DropdownMenuItem,
   useDropdownMenuContext
 } from '@/components/ui/dropdown-menu';
-import { useAppVersion } from '@/hooks/useAppVersion';
+import { useAppVersion } from '@/hooks/app';
 import { AboutDialog } from './AboutDialog';
 
 export interface AboutMenuItemProps {

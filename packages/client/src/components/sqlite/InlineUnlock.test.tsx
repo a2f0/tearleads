@@ -32,7 +32,7 @@ vi.mock('@/contexts/WindowManagerContext', () => ({
 }));
 
 const mockUseIsMobile = vi.fn();
-vi.mock('@/hooks/useIsMobile', () => ({
+vi.mock('@/hooks/device', () => ({
   useIsMobile: () => mockUseIsMobile()
 }));
 

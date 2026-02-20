@@ -8,7 +8,7 @@ vi.mock('@tearleads/mls-chat/package.json', () => ({
   default: { version: '0.0.7' }
 }));
 
-vi.mock('@/hooks/useAppVersion', () => ({
+vi.mock('@/hooks/app', () => ({
   useAppVersion: () => '0.0.0'
 }));
 

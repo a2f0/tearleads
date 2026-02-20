@@ -7,7 +7,7 @@ import { WindowOptionsMenuItem } from './WindowOptionsMenuItem';
 const mockSetPreserveWindowState = vi.fn();
 let mockPreserveWindowState = true;
 
-vi.mock('@/hooks/usePreserveWindowState', () => ({
+vi.mock('@/hooks/window', () => ({
   usePreserveWindowState: () => ({
     preserveWindowState: mockPreserveWindowState,
     setPreserveWindowState: mockSetPreserveWindowState

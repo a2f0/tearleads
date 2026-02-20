@@ -1,16 +1,74 @@
-/**
- * Photos navigation and click tests.
- */
-
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Photos } from './Photos';
+import {
+  mockCanShareFiles,
+  mockDb,
+  mockDownloadFile,
+  mockInitializeFileStorage,
+  mockIsFileStorageInitialized,
+  mockNavigate,
+  mockSetAttachedImage,
+  mockShareFile,
+  mockStorage,
+  mockUint8ArrayToDataUrl,
+  mockUploadFile,
+  mockUseDatabaseContext,
+  renderPhotos,
+  setupPhotosTestMocks
+} from './Photos.testSetup';
 
-// Mocks must be defined in each test file (hoisted)
+// ============================================================
+// vi.mock() calls - must be inline in each test file
+// ============================================================
+
 vi.mock('@/components/photos-window/PhotosAlbumsSidebar', () => ({
   ALL_PHOTOS_ID: '__all__',
-  PhotosAlbumsSidebar: vi.fn(() => <div data-testid="photos-albums-sidebar" />)
+  PhotosAlbumsSidebar: vi.fn(
+    ({
+      selectedAlbumId,
+      onAlbumSelect,
+      onAlbumChanged,
+      onDropToAlbum,
+      onWidthChange,
+      width
+    }) => (
+      <div data-testid="photos-albums-sidebar">
+        <span data-testid="selected-album">{selectedAlbumId}</span>
+        <span data-testid="sidebar-width">{width}</span>
+        <button
+          type="button"
+          data-testid="select-album-1"
+          onClick={() => onAlbumSelect('album-1')}
+        >
+          Select Album 1
+        </button>
+        <button
+          type="button"
+          data-testid="trigger-album-changed"
+          onClick={() => onAlbumChanged?.()}
+        >
+          Trigger Album Changed
+        </button>
+        <button
+          type="button"
+          data-testid="change-width"
+          onClick={() => onWidthChange?.(300)}
+        >
+          Change Width
+        </button>
+        <button
+          type="button"
+          data-testid="drop-to-album"
+          onClick={() => onDropToAlbum?.('album-1', [], ['photo-1', 'photo-2'])}
+        >
+          Drop To Album
+        </button>
+      </div>
+    )
+  )
 }));
 
 vi.mock('@tanstack/react-virtual', () => ({
@@ -27,225 +85,219 @@ vi.mock('@tanstack/react-virtual', () => ({
   }))
 }));
 
-const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
-  return { ...actual, useNavigate: () => mockNavigate };
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate
+  };
 });
 
-const mockUseDatabaseContext = vi.fn();
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
-const mockDb = {
-  select: vi.fn().mockReturnThis(),
-  from: vi.fn().mockReturnThis(),
-  where: vi.fn().mockReturnThis(),
-  orderBy: vi.fn(),
-  update: vi.fn()
-};
+vi.mock('@/db', () => ({
+  getDatabase: vi.fn(() => mockDb)
+}));
 
-vi.mock('@/db', () => ({ getDatabase: vi.fn(() => mockDb) }));
 vi.mock('@/db/crypto', () => ({
   getKeyManager: vi.fn(() => ({
     getCurrentKey: vi.fn(() => new Uint8Array(32))
   }))
 }));
 
-const mockStorage = { retrieve: vi.fn() };
 vi.mock('@/storage/opfs', () => ({
-  isFileStorageInitialized: () => true,
-  initializeFileStorage: vi.fn(),
+  isFileStorageInitialized: () => mockIsFileStorageInitialized(),
+  initializeFileStorage: (...args: unknown[]) =>
+    mockInitializeFileStorage(...args),
   getFileStorage: vi.fn(() => mockStorage),
   createRetrieveLogger: () => vi.fn()
 }));
 
-vi.mock('@/hooks/useFileUpload', () => ({
-  useFileUpload: () => ({ uploadFile: vi.fn() })
+vi.mock('@/hooks/vfs', () => ({
+  useFileUpload: () => ({ uploadFile: mockUploadFile })
 }));
 
 vi.mock('@/lib/fileUtils', () => ({
-  canShareFiles: () => false,
-  downloadFile: vi.fn(),
-  shareFile: vi.fn()
+  canShareFiles: () => mockCanShareFiles(),
+  downloadFile: (...args: unknown[]) => mockDownloadFile(...args),
+  shareFile: (...args: unknown[]) => mockShareFile(...args)
 }));
 
 vi.mock('@/lib/llmRuntime', () => ({
-  setAttachedImage: vi.fn()
+  setAttachedImage: (image: string | null) => mockSetAttachedImage(image)
 }));
 
 vi.mock('@/lib/chatAttachments', () => ({
-  uint8ArrayToDataUrl: vi.fn()
+  uint8ArrayToDataUrl: (data: Uint8Array, mimeType: string) =>
+    mockUint8ArrayToDataUrl(data, mimeType)
 }));
 
-import { Photos } from './photos-components';
+// ============================================================
+// Tests
+// ============================================================
 
-const mockPhotos = [
-  {
-    id: 'photo-1',
-    name: 'test-image.jpg',
-    size: 1024,
-    mimeType: 'image/jpeg',
-    uploadDate: new Date('2025-01-01'),
-    storagePath: '/photos/test-image.jpg'
-  },
-  {
-    id: 'photo-2',
-    name: 'another-image.png',
-    size: 2048,
-    mimeType: 'image/png',
-    uploadDate: new Date('2025-01-02'),
-    storagePath: '/photos/another-image.png'
-  }
-];
-
-async function renderPhotos() {
-  const result = render(
-    <MemoryRouter>
-      <Photos />
-    </MemoryRouter>
-  );
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  return result;
-}
-
-function setupDefaultMocks() {
-  mockUseDatabaseContext.mockReturnValue({
-    isUnlocked: true,
-    isLoading: false,
-    currentInstanceId: 'test-instance'
-  });
-  mockDb.orderBy.mockResolvedValue(mockPhotos);
-  mockStorage.retrieve.mockResolvedValue(new Uint8Array([1, 2, 3]));
-  global.URL.createObjectURL = vi.fn(() => 'blob:test-url');
-  global.URL.revokeObjectURL = vi.fn();
-}
-
-describe('Photos click navigation', () => {
+describe('Photos', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    setupDefaultMocks();
+    setupPhotosTestMocks();
   });
 
-  it('navigates to photo detail on left click', async () => {
-    const user = userEvent.setup();
-    await renderPhotos();
+  describe('photo click navigation', () => {
+    it('navigates to photo detail on left click', async () => {
+      const user = userEvent.setup();
+      await renderPhotos();
 
-    await waitFor(() => {
-      expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByAltText('test-image.jpg'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/photos/photo-1', {
+        state: { from: '/', fromLabel: 'Back to Photos' }
+      });
     });
 
-    await user.click(screen.getByAltText('test-image.jpg'));
+    it('calls onSelectPhoto on left click when provided', async () => {
+      const user = userEvent.setup();
+      const onSelectPhoto = vi.fn();
+      render(
+        <MemoryRouter>
+          <Photos onSelectPhoto={onSelectPhoto} />
+        </MemoryRouter>
+      );
 
-    expect(mockNavigate).toHaveBeenCalledWith('/photos/photo-1', {
-      state: { from: '/', fromLabel: 'Back to Photos' }
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByAltText('test-image.jpg'));
+
+      expect(onSelectPhoto).toHaveBeenCalledWith('photo-1');
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['Enter', '{Enter}'],
+      ['Space', ' ']
+    ])('navigates to photo detail on keyboard %s', async (_keyName, key) => {
+      const user = userEvent.setup();
+      await renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      const photoContainer =
+        screen.getByAltText('test-image.jpg').parentElement;
+      photoContainer?.focus();
+      await user.keyboard(key);
+
+      expect(mockNavigate).toHaveBeenCalledWith('/photos/photo-1', {
+        state: { from: '/', fromLabel: 'Back to Photos' }
+      });
+    });
+  });
+
+  describe('download functionality', () => {
+    beforeEach(async () => {
+      await renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+    });
+
+    it('shows download button for each photo', () => {
+      // Download button should be present for each photo (visible on hover via CSS)
+      const downloadButtons = screen.getAllByTitle('Download');
+      expect(downloadButtons.length).toBe(2); // One for each photo
+    });
+
+    it('downloads photo when download button is clicked', async () => {
+      const user = userEvent.setup();
+
+      // Get the first download button
+      const downloadButtons = screen.getAllByTitle('Download');
+      expect(downloadButtons.length).toBeGreaterThan(0);
+      await user.click(downloadButtons[0] as HTMLElement);
+
+      await waitFor(() => {
+        // Should retrieve the full image, not thumbnail
+        expect(mockStorage.retrieve).toHaveBeenCalledWith(
+          '/photos/test-image.jpg'
+        );
+      });
     });
   });
 
-  it('calls onSelectPhoto on left click when provided', async () => {
-    const user = userEvent.setup();
-    const onSelectPhoto = vi.fn();
-    render(
-      <MemoryRouter>
-        <Photos onSelectPhoto={onSelectPhoto} />
-      </MemoryRouter>
-    );
+  describe('share functionality', () => {
+    let user: ReturnType<typeof userEvent.setup>;
+    let shareButtons: HTMLElement[];
 
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
+    beforeEach(async () => {
+      user = userEvent.setup();
+      mockCanShareFiles.mockReturnValue(true);
+
+      await renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      shareButtons = screen.getAllByTitle('Share');
     });
 
-    await waitFor(() => {
-      expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+    it('shows share button when sharing is available', () => {
+      expect(shareButtons.length).toBeGreaterThan(0);
     });
 
-    await user.click(screen.getByAltText('test-image.jpg'));
+    it('shares photo when share button is clicked', async () => {
+      await user.click(shareButtons[0] as HTMLElement);
 
-    expect(onSelectPhoto).toHaveBeenCalledWith('photo-1');
-    expect(mockNavigate).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    ['Enter', '{Enter}'],
-    ['Space', ' ']
-  ])('navigates to photo detail on keyboard %s', async (_keyName, key) => {
-    const user = userEvent.setup();
-    await renderPhotos();
-
-    await waitFor(() => {
-      expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(mockShareFile).toHaveBeenCalledWith(
+          expect.any(Uint8Array),
+          'test-image.jpg',
+          'image/jpeg'
+        );
+      });
     });
 
-    const photoContainer = screen.getByAltText('test-image.jpg').parentElement;
-    photoContainer?.focus();
-    await user.keyboard(key);
+    it('handles share cancellation gracefully', async () => {
+      const abortError = new Error('Share cancelled');
+      abortError.name = 'AbortError';
+      mockShareFile.mockRejectedValue(abortError);
 
-    expect(mockNavigate).toHaveBeenCalledWith('/photos/photo-1', {
-      state: { from: '/', fromLabel: 'Back to Photos' }
-    });
-  });
-});
+      await user.click(shareButtons[0] as HTMLElement);
 
-describe('Photos refresh and refetch', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    setupDefaultMocks();
-  });
+      // Should NOT show an error for AbortError
+      await waitFor(() => {
+        expect(mockShareFile).toHaveBeenCalled();
+      });
 
-  it('refetches photos when refresh is clicked', async () => {
-    const user = userEvent.setup();
-    await renderPhotos();
-
-    await waitFor(() => {
-      expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      expect(screen.queryByText(/cancelled/i)).not.toBeInTheDocument();
     });
 
-    mockDb.orderBy.mockClear();
+    it('shows error when share fails', async () => {
+      mockShareFile.mockRejectedValue(new Error('Share failed'));
 
-    await user.click(screen.getByRole('button', { name: /refresh/i }));
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
 
-    await waitFor(() => {
-      expect(mockDb.orderBy).toHaveBeenCalled();
-    });
-  });
-});
+      await user.click(shareButtons[0] as HTMLElement);
 
-describe('Photos instance switching', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    setupDefaultMocks();
-  });
+      await waitFor(() => {
+        expect(screen.getByText('Share failed')).toBeInTheDocument();
+      });
 
-  it('refetches photos when instance changes', async () => {
-    const { rerender } = await renderPhotos();
-
-    await waitFor(() => {
-      expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
-    });
-
-    mockDb.orderBy.mockClear();
-
-    mockUseDatabaseContext.mockReturnValue({
-      isUnlocked: true,
-      isLoading: false,
-      currentInstanceId: 'new-instance'
-    });
-
-    rerender(
-      <MemoryRouter>
-        <Photos />
-      </MemoryRouter>
-    );
-
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-
-    await waitFor(() => {
-      expect(mockDb.orderBy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
     });
   });
 });

@@ -40,7 +40,7 @@ vi.mock('@tearleads/settings', () => ({
   )
 }));
 
-vi.mock('@/hooks/useAppVersion', () => ({
+vi.mock('@/hooks/app', () => ({
   useAppVersion: vi.fn(() => packageJson.version)
 }));
 

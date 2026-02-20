@@ -8,7 +8,7 @@ import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files as filesTable } from '@/db/schema';
-import { useOnInstanceChange } from '@/hooks/useInstanceChange';
+import { useOnInstanceChange } from '@/hooks/app';
 import {
   createRetrieveLogger,
   getFileStorage,
