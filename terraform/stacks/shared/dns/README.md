@@ -55,6 +55,12 @@ ZONE_ID=$(curl -sS -X GET \
   "https://api.cloudflare.com/client/v4/zones?name=${ZONE_NAME}&account.id=${ACCOUNT_ID}" \
   -H "Authorization: Bearer ${TOKEN}" \
   -H "Content-Type: application/json" | jq -r '.result[0].id')
+
+if [[ -z "$ZONE_ID" || "$ZONE_ID" == "null" ]]; then
+  echo "Error: failed to retrieve ZONE_ID for zone '${ZONE_NAME}'." >&2
+  echo "Check TF_VAR_cloudflare_account_id, TF_VAR_cloudflare_api_token, and zone name." >&2
+  exit 1
+fi
 ```
 
 1. List current MX/TXT records and IDs (for verification):
