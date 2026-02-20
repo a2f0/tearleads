@@ -26,7 +26,6 @@ import { v022 } from './v022';
 import { v023 } from './v023';
 
 export type { Migration, MigrationFn } from './types';
-export { addColumnIfNotExists, tableExists } from './utils';
 
 /**
  * All migrations in order. Add new migrations to this array.
@@ -62,9 +61,7 @@ export const migrations: Migration[] = [
  * Get the current schema version from the database.
  * Returns 0 if no migrations have been applied.
  */
-export async function getCurrentVersion(
-  adapter: DatabaseAdapter
-): Promise<number> {
+async function getCurrentVersion(adapter: DatabaseAdapter): Promise<number> {
   try {
     const result = await adapter.execute(
       'SELECT MAX(version) as version FROM schema_migrations'
