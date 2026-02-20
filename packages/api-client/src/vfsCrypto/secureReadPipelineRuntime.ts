@@ -56,7 +56,9 @@ class DefaultVfsSecureReadPipeline implements VfsSecureReadPipeline {
       });
 
       if (plaintext.length !== chunk.plaintextLength) {
-        throw new Error('Decrypted chunk length does not match manifest metadata');
+        throw new Error(
+          'Decrypted chunk length does not match manifest metadata'
+        );
       }
 
       plaintextChunks.push(plaintext);
@@ -64,7 +66,9 @@ class DefaultVfsSecureReadPipeline implements VfsSecureReadPipeline {
 
     const plaintext = concatChunks(plaintextChunks);
     if (plaintext.length !== input.manifest.totalPlaintextBytes) {
-      throw new Error('Decrypted plaintext total does not match manifest metadata');
+      throw new Error(
+        'Decrypted plaintext total does not match manifest metadata'
+      );
     }
 
     return plaintext;
@@ -100,7 +104,9 @@ async function normalizeAndValidateChunks(
 
     const ciphertext = fromBase64(chunk.ciphertextBase64);
     if (ciphertext.length !== chunk.ciphertextLength) {
-      throw new Error('Encrypted chunk ciphertextLength does not match ciphertext');
+      throw new Error(
+        'Encrypted chunk ciphertextLength does not match ciphertext'
+      );
     }
 
     const hash = await hashBase64(ciphertext);
@@ -134,7 +140,9 @@ async function normalizeAndValidateChunks(
 
     const shouldBeFinal = index === byIndex.length - 1;
     if (chunk.isFinal !== shouldBeFinal) {
-      throw new Error('Encrypted chunk finality does not match manifest ordering');
+      throw new Error(
+        'Encrypted chunk finality does not match manifest ordering'
+      );
     }
 
     ordered.push(chunk);
@@ -154,13 +162,14 @@ function validateChunkShape(
     throw new Error('Encrypted chunk chunkIndex is out of manifest bounds');
   }
   if (!Number.isInteger(chunk.plaintextLength) || chunk.plaintextLength < 0) {
-    throw new Error('Encrypted chunk plaintextLength must be a non-negative integer');
+    throw new Error(
+      'Encrypted chunk plaintextLength must be a non-negative integer'
+    );
   }
-  if (
-    !Number.isInteger(chunk.ciphertextLength) ||
-    chunk.ciphertextLength < 0
-  ) {
-    throw new Error('Encrypted chunk ciphertextLength must be a non-negative integer');
+  if (!Number.isInteger(chunk.ciphertextLength) || chunk.ciphertextLength < 0) {
+    throw new Error(
+      'Encrypted chunk ciphertextLength must be a non-negative integer'
+    );
   }
 }
 

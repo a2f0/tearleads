@@ -1,5 +1,5 @@
-import type { EncryptedManifest } from './types';
 import type { UploadEncryptedBlobChunk } from './secureWritePipeline';
+import type { EncryptedManifest } from './types';
 
 export interface DownloadEncryptedBlobInput {
   manifest: EncryptedManifest;

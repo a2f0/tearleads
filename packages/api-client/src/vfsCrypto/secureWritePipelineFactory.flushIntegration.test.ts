@@ -1,6 +1,10 @@
 import { generateKeyPair, type VfsKeyPair } from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ItemKeyRecord, ItemKeyStore, UserKeyProvider } from './keyManagerRuntime';
+import type {
+  ItemKeyRecord,
+  ItemKeyStore,
+  UserKeyProvider
+} from './keyManagerRuntime';
 import { createVfsSecurePipelineBundle } from './secureWritePipelineFactory';
 
 function createMockUserKeyProvider(keyPair: VfsKeyPair): UserKeyProvider {
@@ -41,7 +45,8 @@ function createMockItemKeyStore(): ItemKeyStore {
         if (!key.startsWith(`${itemId}:`)) {
           continue;
         }
-        latest = latest === null ? record.keyEpoch : Math.max(latest, record.keyEpoch);
+        latest =
+          latest === null ? record.keyEpoch : Math.max(latest, record.keyEpoch);
       }
       return latest;
     }),
@@ -83,50 +88,52 @@ describe('secureWritePipelineFactory flush integration', () => {
   it('flushes real encrypted chunk output to blob stage endpoints', async () => {
     const requests: Array<{ url: string; body: unknown }> = [];
 
-    global.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = input.toString();
-      if (typeof init?.body === 'string') {
-        requests.push({ url, body: JSON.parse(init.body) });
-      }
+    global.fetch = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input.toString();
+        if (typeof init?.body === 'string') {
+          requests.push({ url, body: JSON.parse(init.body) });
+        }
 
-      if (url.endsWith('/v1/vfs/crdt/push')) {
-        return new Response(
-          JSON.stringify({
-            clientId: 'desktop',
-            results: []
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
+        if (url.endsWith('/v1/vfs/crdt/push')) {
+          return new Response(
+            JSON.stringify({
+              clientId: 'desktop',
+              results: []
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
 
-      if (url.includes('/v1/vfs/crdt/vfs-sync')) {
-        return new Response(
-          JSON.stringify({
-            items: [],
-            hasMore: false,
-            nextCursor: null,
-            lastReconciledWriteIds: {}
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
+        if (url.includes('/v1/vfs/crdt/vfs-sync')) {
+          return new Response(
+            JSON.stringify({
+              items: [],
+              hasMore: false,
+              nextCursor: null,
+              lastReconciledWriteIds: {}
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
 
-      if (url.endsWith('/v1/vfs/crdt/reconcile')) {
-        return new Response(
-          JSON.stringify({
-            clientId: 'desktop',
-            cursor: '2026-02-20T00:00:00.000Z|desktop-1',
-            lastReconciledWriteIds: { desktop: 1 }
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
+        if (url.endsWith('/v1/vfs/crdt/reconcile')) {
+          return new Response(
+            JSON.stringify({
+              clientId: 'desktop',
+              cursor: '2026-02-20T00:00:00.000Z|desktop-1',
+              lastReconciledWriteIds: { desktop: 1 }
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
 
-      return new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    });
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    );
 
     const bundle = createVfsSecurePipelineBundle({
       userKeyProvider: createMockUserKeyProvider(generateKeyPair()),
@@ -151,7 +158,9 @@ describe('secureWritePipelineFactory flush integration', () => {
     });
 
     const facade = bundle.createFacade(orchestrator, { relationKind: 'file' });
-    const plaintext = new TextEncoder().encode('full pipeline flush integration');
+    const plaintext = new TextEncoder().encode(
+      'full pipeline flush integration'
+    );
 
     await facade.stageAttachEncryptedBlobAndPersist({
       itemId: 'item-1',
@@ -199,61 +208,63 @@ describe('secureWritePipelineFactory flush integration', () => {
     expect(
       requests.some((request) => request.url.endsWith('/v1/vfs/blobs/stage'))
     ).toBe(true);
-    expect(
-      requests.some((request) => request.url.endsWith('/commit'))
-    ).toBe(true);
-    expect(
-      requests.some((request) => request.url.endsWith('/attach'))
-    ).toBe(true);
+    expect(requests.some((request) => request.url.endsWith('/commit'))).toBe(
+      true
+    );
+    expect(requests.some((request) => request.url.endsWith('/attach'))).toBe(
+      true
+    );
   });
 
   it('flushes multi-chunk encrypted payload with contiguous chunk indices', async () => {
     const requests: Array<{ url: string; body: unknown }> = [];
 
-    global.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = input.toString();
-      if (typeof init?.body === 'string') {
-        requests.push({ url, body: JSON.parse(init.body) });
-      }
+    global.fetch = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input.toString();
+        if (typeof init?.body === 'string') {
+          requests.push({ url, body: JSON.parse(init.body) });
+        }
 
-      if (url.endsWith('/v1/vfs/crdt/push')) {
-        return new Response(
-          JSON.stringify({
-            clientId: 'desktop',
-            results: []
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
+        if (url.endsWith('/v1/vfs/crdt/push')) {
+          return new Response(
+            JSON.stringify({
+              clientId: 'desktop',
+              results: []
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
 
-      if (url.includes('/v1/vfs/crdt/vfs-sync')) {
-        return new Response(
-          JSON.stringify({
-            items: [],
-            hasMore: false,
-            nextCursor: null,
-            lastReconciledWriteIds: {}
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
+        if (url.includes('/v1/vfs/crdt/vfs-sync')) {
+          return new Response(
+            JSON.stringify({
+              items: [],
+              hasMore: false,
+              nextCursor: null,
+              lastReconciledWriteIds: {}
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
 
-      if (url.endsWith('/v1/vfs/crdt/reconcile')) {
-        return new Response(
-          JSON.stringify({
-            clientId: 'desktop',
-            cursor: '2026-02-20T00:00:00.000Z|desktop-1',
-            lastReconciledWriteIds: { desktop: 1 }
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
+        if (url.endsWith('/v1/vfs/crdt/reconcile')) {
+          return new Response(
+            JSON.stringify({
+              clientId: 'desktop',
+              cursor: '2026-02-20T00:00:00.000Z|desktop-1',
+              lastReconciledWriteIds: { desktop: 1 }
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
 
-      return new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    });
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    );
 
     const bundle = createVfsSecurePipelineBundle({
       userKeyProvider: createMockUserKeyProvider(generateKeyPair()),

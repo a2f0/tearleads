@@ -145,7 +145,9 @@ describe('secureReadPipelineRuntime', () => {
         manifest: uploadResult.manifest,
         chunks: tamperedChunks
       })
-    ).rejects.toThrow('Encrypted chunk ciphertextLength does not match ciphertext');
+    ).rejects.toThrow(
+      'Encrypted chunk ciphertextLength does not match ciphertext'
+    );
   });
 
   it('fails closed when chunk finality is invalid for manifest order', async () => {
@@ -195,6 +197,8 @@ describe('secureReadPipelineRuntime', () => {
         manifest: uploadResult.manifest,
         chunks: tamperedChunks
       })
-    ).rejects.toThrow('Encrypted chunk finality does not match manifest ordering');
+    ).rejects.toThrow(
+      'Encrypted chunk finality does not match manifest ordering'
+    );
   });
 });
