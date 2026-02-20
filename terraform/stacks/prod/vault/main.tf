@@ -77,12 +77,12 @@ module "server" {
         owner: root:root
         permissions: '0600'
         encoding: b64
-        content: ${base64encode(var.ssh_host_private_key)}
+        content: ${base64encode("${chomp(var.ssh_host_private_key)}\n")}
       - path: /etc/ssh/ssh_host_ed25519_key.pub
         owner: root:root
         permissions: '0644'
         encoding: b64
-        content: ${base64encode(var.ssh_host_public_key)}
+        content: ${base64encode("${chomp(var.ssh_host_public_key)}\n")}
     users:
       - name: ${var.server_username}
         groups: sudo
