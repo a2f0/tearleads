@@ -59,12 +59,6 @@ export function expectContainerClocksMonotonic(
   }
 }
 
-export function toStageCodeSignatures(
-  events: Array<{ stage: string; code: string }>
-): string[] {
-  return events.map((event) => `${event.stage}:${event.code}`);
-}
-
 export interface ObservedPullPage {
   requestCursor: { changedAt: string; changeId: string } | null;
   items: VfsCrdtSyncItem[];
@@ -341,51 +335,18 @@ export function readReplaySnapshotCursorOrThrow(input: {
   return seedReplayCursor;
 }
 
-export type GuardrailViolationSnapshot = {
-  code: string;
-  stage: string;
-  message: string;
-  details?: Record<string, string | number | boolean | null>;
-};
-
-export function expectLastWriteIdRegressionViolation(input: {
-  violations: GuardrailViolationSnapshot[];
-  stage: 'pull' | 'reconcile';
-  replicaId: string;
-  previousWriteId: number;
-  incomingWriteId: number;
-}): void {
-  const message =
-    input.stage === 'pull'
-      ? 'pull response regressed replica write-id state'
-      : 'reconcile acknowledgement regressed replica write-id state';
-
-  expect(input.violations).toContainEqual({
-    code: 'lastWriteIdRegression',
-    stage: input.stage,
-    message,
-    details: {
-      replicaId: input.replicaId,
-      previousWriteId: input.previousWriteId,
-      incomingWriteId: input.incomingWriteId
-    }
-  });
-}
-
-export function createGuardrailViolationCollector(): {
-  violations: GuardrailViolationSnapshot[];
-  onGuardrailViolation: (violation: GuardrailViolationSnapshot) => void;
-} {
-  const violations: GuardrailViolationSnapshot[] = [];
-  return {
-    violations,
-    onGuardrailViolation: (violation) => {
-      violations.push({
-        code: violation.code,
-        stage: violation.stage,
-        message: violation.message,
-        details: violation.details ? { ...violation.details } : undefined
-      });
-    }
-  };
-}
+export type { GuardrailViolationSnapshot } from './sync-client-test-support-guardrails.js';
+// Re-export guardrail test helpers from dedicated module
+export {
+  createGuardrailViolationCollector,
+  expectExactGuardrailSignatures,
+  expectGuardrailSignature,
+  expectHydrateGuardrailViolation,
+  expectLastWriteIdRegressionViolation,
+  expectPullCursorRegressionViolation,
+  expectPullDuplicateOpReplayViolation,
+  expectPullPageInvariantViolation,
+  expectReconcileCursorRegressionViolation,
+  expectStaleWriteRecoveryExhaustedViolation,
+  toStageCodeSignatures
+} from './sync-client-test-support-guardrails.js';
