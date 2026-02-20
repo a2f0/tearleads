@@ -19,6 +19,11 @@ data "hcloud_ssh_key" "main" {
 
 # Cleanup Tailscale device registration on destroy
 # This prevents stale entries like vault-prod-1, vault-prod-2, etc.
+#
+# Note: The API token must be in triggers because destroy-time provisioners
+# can only access self.triggers values. This is a Terraform limitation.
+# The token is marked sensitive in variables.tf to prevent display in logs.
+# Run with TF_LOG=ERROR to minimize exposure during destroy operations.
 resource "null_resource" "tailscale_cleanup" {
   triggers = {
     hostname  = local.tailscale_hostname

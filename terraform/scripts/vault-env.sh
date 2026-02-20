@@ -66,10 +66,14 @@ fi
 echo "==> Loading secrets from $SECRET_PATH"
 
 # Export all key-value pairs as environment variables
-eval "$(vault kv get -format=json "$SECRET_PATH" | jq -r '
-  .data.data // {} | to_entries | .[] |
-  "export \(.key)=\(.value | @sh)"
-')"
+# Read JSON once and parse key-value pairs safely
+while IFS='=' read -r key value; do
+  if [[ -n "$key" ]]; then
+    export "$key"="$value"
+  fi
+done < <(vault kv get -format=json "$SECRET_PATH" | jq -r '
+  .data.data // {} | to_entries[] | "\(.key)=\(.value)"
+')
 
 echo "==> Running: $*"
 exec "$@"

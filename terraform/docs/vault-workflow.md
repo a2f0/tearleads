@@ -209,13 +209,15 @@ vault login $(jq -r '.root_token' .secrets/vault-keys.json)
 
 ### Lost vault-keys.json
 
-**This is unrecoverable.** You would need to:
+Without `vault-keys.json`, you cannot unseal Vault. If you have a Raft snapshot backup,
+you can restore data after re-initializing, but **without a backup, all secrets are lost**.
 
-1. Destroy and recreate the Vault server
-2. Restore from a Raft snapshot backup (if you have one)
-3. Re-migrate all secrets
+Recovery options:
 
-Always keep `vault-keys.json` backed up securely.
+1. **With Raft snapshot**: Destroy Vault, recreate, initialize (new keys), restore snapshot
+2. **Without snapshot**: Destroy Vault, recreate, re-migrate all secrets from scratch
+
+Always keep `vault-keys.json` and Raft snapshots backed up securely in separate locations.
 
 ## Security Notes
 
