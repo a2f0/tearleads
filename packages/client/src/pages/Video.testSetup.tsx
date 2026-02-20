@@ -6,8 +6,6 @@
  * Each test file should use vi.hoisted() to create its own mock references
  * that can be used in vi.mock() calls.
  */
-import { act, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { vi } from 'vitest';
 
 // ============================================================================
