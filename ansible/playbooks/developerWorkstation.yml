@@ -85,12 +85,6 @@
         regexp: "^vault-prod\\s+"
         state: absent
 
-    - name: Add known_hosts entry for vault-prod
-      ansible.builtin.lineinfile:
-        path: "{{ known_hosts_file }}"
-        line: "vault-prod {{ ssh_key_type }} {{ ssh_key_data }}"
-        state: present
-
     - name: Ensure ssh config file exists
       ansible.builtin.file:
         path: "{{ ssh_config_file }}"
@@ -147,9 +141,8 @@
         block: |
           Host vault-prod
               User {{ deploy_user }}
-              StrictHostKeyChecking yes
+              StrictHostKeyChecking accept-new
               IdentitiesOnly yes
-              HostKeyAlgorithms ssh-ed25519
         state: present
       when: not vault_prod_host_exists
 
@@ -163,12 +156,11 @@
             - {{ staging_domain }}
             - *.{{ production_domain }}
             - {{ production_domain }}
-            - vault-prod
 
           SSH config blocks added for:
             - *.{{ staging_domain }} (User: {{ deploy_user }})
             - *.{{ production_domain }} (User: {{ deploy_user }})
-            - vault-prod (User: {{ deploy_user }}, HostKeyAlgorithms: ssh-ed25519)
+            - vault-prod (User: {{ deploy_user }}, StrictHostKeyChecking: accept-new)
 
           Files modified:
             - {{ known_hosts_file }}
