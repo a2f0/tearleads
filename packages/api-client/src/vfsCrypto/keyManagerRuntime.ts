@@ -98,7 +98,7 @@ class DefaultVfsKeyManager implements VfsKeyManager {
     const publicKeyId = await this.userKeyProvider.getPublicKeyId();
     const userKeyPair = await this.userKeyProvider.getUserKeyPair();
 
-    const ownerWrappedKey = wrapSessionKeyForKeyPair(
+    const ownerWrappedKey = await wrapSessionKeyForKeyPair(
       sessionKey,
       userId,
       publicKeyId,
@@ -119,10 +119,13 @@ class DefaultVfsKeyManager implements VfsKeyManager {
     input: WrapItemKeyForShareInput
   ): Promise<VfsWrappedKey> {
     const itemKey = await this.itemKeyStore.getItemKey({
-      itemId: input.itemId
+      itemId: input.itemId,
+      keyEpoch: input.keyEpoch
     });
     if (!itemKey) {
-      throw new Error(`Item key not found for itemId=${input.itemId}`);
+      throw new Error(
+        `Item key not found for itemId=${input.itemId}, keyEpoch=${input.keyEpoch}`
+      );
     }
 
     const recipientKey = await this.recipientPublicKeyResolver.resolvePublicKey(
@@ -182,7 +185,7 @@ class DefaultVfsKeyManager implements VfsKeyManager {
     const publicKeyId = await this.userKeyProvider.getPublicKeyId();
     const userKeyPair = await this.userKeyProvider.getUserKeyPair();
 
-    const ownerWrap = wrapSessionKeyForKeyPair(
+    const ownerWrap = await wrapSessionKeyForKeyPair(
       newSessionKey,
       userId,
       publicKeyId,
@@ -229,13 +232,13 @@ class DefaultVfsKeyManager implements VfsKeyManager {
   }
 }
 
-function wrapSessionKeyForKeyPair(
+export async function wrapSessionKeyForKeyPair(
   sessionKey: Uint8Array,
   userId: string,
   publicKeyId: string,
   keyEpoch: Epoch,
   keyPair: VfsKeyPair
-): VfsWrappedKey {
+): Promise<VfsWrappedKey> {
   const publicKey = {
     x25519PublicKey: keyPair.x25519PublicKey,
     mlKemPublicKey: keyPair.mlKemPublicKey
@@ -243,13 +246,14 @@ function wrapSessionKeyForKeyPair(
 
   const encapsulation = wrapKeyForRecipient(sessionKey, publicKey);
   const encryptedKey = combineEncapsulationToBase64(encapsulation);
+  const senderSignature = await signWrappedKey(encryptedKey, keyEpoch, keyPair);
 
   return {
     recipientUserId: userId,
     recipientPublicKeyId: publicKeyId,
     keyEpoch,
     encryptedKey,
-    senderSignature: ''
+    senderSignature
   };
 }
 

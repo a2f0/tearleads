@@ -1,80 +1,15 @@
-import { generateKeyPair, type VfsKeyPair } from '@tearleads/shared';
+import {
+  combinePublicKey,
+  generateKeyPair,
+  serializePublicKey
+} from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type {
-  ItemKeyRecord,
-  ItemKeyStore,
-  UserKeyProvider
-} from './keyManagerRuntime';
 import { createVfsSecurePipelineBundle } from './secureWritePipelineFactory';
-import type { Epoch, ItemId } from './types';
-
-function createMockUserKeyProvider(keyPair: VfsKeyPair): UserKeyProvider {
-  return {
-    getUserKeyPair: vi.fn(async () => keyPair),
-    getUserId: vi.fn(async () => 'user-owner'),
-    getPublicKeyId: vi.fn(async () => 'pk-owner')
-  };
-}
-
-function createMockItemKeyStore(): ItemKeyStore & {
-  _records: Map<string, ItemKeyRecord>;
-  _shares: Map<string, Array<{ recipientUserId: string; keyEpoch: Epoch }>>;
-} {
-  const records = new Map<string, ItemKeyRecord>();
-  const shares = new Map<
-    string,
-    Array<{ recipientUserId: string; keyEpoch: Epoch }>
-  >();
-
-  return {
-    _records: records,
-    _shares: shares,
-    getItemKey: vi.fn(
-      async ({
-        itemId,
-        keyEpoch
-      }: {
-        itemId: ItemId;
-        keyEpoch?: Epoch;
-      }): Promise<ItemKeyRecord | null> => {
-        if (keyEpoch !== undefined) {
-          return records.get(`${itemId}:${keyEpoch}`) ?? null;
-        }
-        let latestRecord: ItemKeyRecord | null = null;
-        let latestEpoch = 0;
-        for (const [key, record] of records) {
-          if (key.startsWith(`${itemId}:`) && record.keyEpoch > latestEpoch) {
-            latestEpoch = record.keyEpoch;
-            latestRecord = record;
-          }
-        }
-        return latestRecord;
-      }
-    ),
-    setItemKey: vi.fn(async (record: ItemKeyRecord): Promise<void> => {
-      records.set(`${record.itemId}:${record.keyEpoch}`, record);
-    }),
-    getLatestKeyEpoch: vi.fn(async (itemId: ItemId): Promise<Epoch | null> => {
-      let latest: Epoch | null = null;
-      for (const [key, record] of records) {
-        if (
-          key.startsWith(`${itemId}:`) &&
-          (latest === null || record.keyEpoch > latest)
-        ) {
-          latest = record.keyEpoch;
-        }
-      }
-      return latest;
-    }),
-    listItemShares: vi.fn(
-      async (
-        itemId: ItemId
-      ): Promise<Array<{ recipientUserId: string; keyEpoch: Epoch }>> => {
-        return shares.get(itemId) ?? [];
-      }
-    )
-  };
-}
+import {
+  createMockFetchResponse,
+  createMockItemKeyStore,
+  createMockUserKeyProvider
+} from './testHelpers';
 
 describe('createVfsSecurePipelineBundle', () => {
   const originalFetch = global.fetch;
@@ -116,19 +51,9 @@ describe('createVfsSecurePipelineBundle', () => {
   });
 
   it('creates item key and encrypts blob with full pipeline', async () => {
-    vi.mocked(global.fetch).mockImplementation(async (): Promise<Response> => {
-      return new Response(
-        JSON.stringify({
-          clientId: 'desktop',
-          results: [],
-          items: [],
-          hasMore: false,
-          nextCursor: null,
-          lastReconciledWriteIds: {}
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      );
-    });
+    vi.mocked(global.fetch).mockImplementation(async () =>
+      createMockFetchResponse()
+    );
 
     const ownerKeyPair = generateKeyPair();
     const itemKeyStore = createMockItemKeyStore();
@@ -182,19 +107,9 @@ describe('createVfsSecurePipelineBundle', () => {
   });
 
   it('rotates key epoch and re-encrypts with new key', async () => {
-    vi.mocked(global.fetch).mockImplementation(async (): Promise<Response> => {
-      return new Response(
-        JSON.stringify({
-          clientId: 'desktop',
-          results: [],
-          items: [],
-          hasMore: false,
-          nextCursor: null,
-          lastReconciledWriteIds: {}
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      );
-    });
+    vi.mocked(global.fetch).mockImplementation(async () =>
+      createMockFetchResponse()
+    );
 
     const ownerKeyPair = generateKeyPair();
     const itemKeyStore = createMockItemKeyStore();
@@ -247,19 +162,9 @@ describe('createVfsSecurePipelineBundle', () => {
   });
 
   it('auto-creates item key on first secure upload when no key exists', async () => {
-    vi.mocked(global.fetch).mockImplementation(async (): Promise<Response> => {
-      return new Response(
-        JSON.stringify({
-          clientId: 'desktop',
-          results: [],
-          items: [],
-          hasMore: false,
-          nextCursor: null,
-          lastReconciledWriteIds: {}
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      );
-    });
+    vi.mocked(global.fetch).mockImplementation(async () =>
+      createMockFetchResponse()
+    );
 
     const ownerKeyPair = generateKeyPair();
     const itemKeyStore = createMockItemKeyStore();
@@ -306,28 +211,19 @@ describe('createVfsSecurePipelineBundle', () => {
 
     // Verify encryption worked
     expect(result.stagingId).toBeTruthy();
-    expect(result.manifest.totalPlaintextBytes).toBe(17); // 'First upload data'.length
+    expect(result.manifest.totalPlaintextBytes).toBe(17);
 
     const isValid = await bundle.engine.verifyManifest(result.manifest);
     expect(isValid).toBe(true);
   });
 
   it('includes wrapped keys for shares with matching key epoch', async () => {
-    vi.mocked(global.fetch).mockImplementation(async (): Promise<Response> => {
-      return new Response(
-        JSON.stringify({
-          clientId: 'desktop',
-          results: [],
-          items: [],
-          hasMore: false,
-          nextCursor: null,
-          lastReconciledWriteIds: {}
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      );
-    });
+    vi.mocked(global.fetch).mockImplementation(async () =>
+      createMockFetchResponse()
+    );
 
     const ownerKeyPair = generateKeyPair();
+    const aliceKeyPair = generateKeyPair();
     const itemKeyStore = createMockItemKeyStore();
 
     itemKeyStore._shares.set('item-shared', [
@@ -336,12 +232,11 @@ describe('createVfsSecurePipelineBundle', () => {
       { recipientUserId: 'user-charlie', keyEpoch: 2 }
     ]);
 
+    const alicePublicKey = combinePublicKey(serializePublicKey(aliceKeyPair));
+
     const resolvePublicKey = vi.fn(async (userId: string) => {
       if (userId === 'user-alice') {
-        return {
-          publicKeyId: 'pk-alice',
-          publicEncryptionKey: 'enc-key-alice'
-        };
+        return { publicKeyId: 'pk-alice', publicEncryptionKey: alicePublicKey };
       }
       if (userId === 'user-bob') {
         return null;
@@ -382,14 +277,32 @@ describe('createVfsSecurePipelineBundle', () => {
       expiresAt: '2026-02-20T00:00:00.000Z'
     });
 
-    expect(result.manifest.wrappedFileKeys).toHaveLength(1);
-    expect(result.manifest.wrappedFileKeys[0]).toEqual({
-      recipientUserId: 'user-alice',
-      recipientPublicKeyId: 'pk-alice',
-      keyEpoch: 1,
-      encryptedKey: '',
-      senderSignature: ''
-    });
+    // Should include owner's + alice's wrapped key (bob skipped - no key)
+    expect(result.manifest.wrappedFileKeys).toHaveLength(2);
+
+    // Verify owner's wrapped key
+    const ownerWrap = result.manifest.wrappedFileKeys.find(
+      (k) => k.recipientUserId === 'user-owner'
+    );
+    expect(ownerWrap).toBeDefined();
+    if (!ownerWrap) throw new Error('ownerWrap not found');
+    expect(ownerWrap.recipientPublicKeyId).toBe('pk-owner');
+    expect(ownerWrap.keyEpoch).toBe(1);
+    expect(ownerWrap.encryptedKey).toBeTruthy();
+    expect(ownerWrap.encryptedKey.split('.').length).toBe(4); // HPKE format
+    expect(ownerWrap.senderSignature).toBeTruthy();
+
+    // Verify alice's wrapped key
+    const aliceWrap = result.manifest.wrappedFileKeys.find(
+      (k) => k.recipientUserId === 'user-alice'
+    );
+    expect(aliceWrap).toBeDefined();
+    if (!aliceWrap) throw new Error('aliceWrap not found');
+    expect(aliceWrap.recipientPublicKeyId).toBe('pk-alice');
+    expect(aliceWrap.keyEpoch).toBe(1);
+    expect(aliceWrap.encryptedKey).toBeTruthy();
+    expect(aliceWrap.encryptedKey.split('.').length).toBe(4); // HPKE format
+    expect(aliceWrap.senderSignature).toBeTruthy();
 
     expect(resolvePublicKey).toHaveBeenCalledWith('user-alice');
     expect(resolvePublicKey).toHaveBeenCalledWith('user-bob');
@@ -397,19 +310,9 @@ describe('createVfsSecurePipelineBundle', () => {
   });
 
   it('filters out shares with non-matching key epoch', async () => {
-    vi.mocked(global.fetch).mockImplementation(async (): Promise<Response> => {
-      return new Response(
-        JSON.stringify({
-          clientId: 'desktop',
-          results: [],
-          items: [],
-          hasMore: false,
-          nextCursor: null,
-          lastReconciledWriteIds: {}
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      );
-    });
+    vi.mocked(global.fetch).mockImplementation(async () =>
+      createMockFetchResponse()
+    );
 
     const ownerKeyPair = generateKeyPair();
     const itemKeyStore = createMockItemKeyStore();
@@ -457,11 +360,18 @@ describe('createVfsSecurePipelineBundle', () => {
     });
 
     expect(result.manifest.keyEpoch).toBe(1);
-    expect(result.manifest.wrappedFileKeys).toHaveLength(0);
+    // Only owner's wrapped key (no shares match current epoch)
+    expect(result.manifest.wrappedFileKeys).toHaveLength(1);
+    expect(result.manifest.wrappedFileKeys[0].recipientUserId).toBe(
+      'user-owner'
+    );
+    expect(result.manifest.wrappedFileKeys[0].encryptedKey).toBeTruthy();
+    expect(result.manifest.wrappedFileKeys[0].senderSignature).toBeTruthy();
+    // user-old has epoch 99, but we're uploading with epoch 1
     expect(resolvePublicKey).not.toHaveBeenCalled();
   });
 
-  it('throws error when item key not found in store for engine operation', async () => {
+  it('throws error when item key not found in store for engine', async () => {
     const ownerKeyPair = generateKeyPair();
     const itemKeyStore = createMockItemKeyStore();
 
