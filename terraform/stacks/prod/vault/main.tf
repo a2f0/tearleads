@@ -1,6 +1,48 @@
+locals {
+  tailscale_hostname = "vault-prod"
+}
+
 # Lookup SSH key for cloud-init user_data
 data "hcloud_ssh_key" "main" {
   name = var.ssh_key_name
+}
+
+# Cleanup Tailscale device registration on destroy
+# This prevents stale entries like vault-prod-1, vault-prod-2, etc.
+resource "null_resource" "tailscale_cleanup" {
+  triggers = {
+    hostname  = local.tailscale_hostname
+    api_token = var.tailscale_api_token
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOF
+      echo "Cleaning up Tailscale devices matching '${self.triggers.hostname}'..."
+
+      # List all devices and find ones matching our hostname pattern
+      DEVICES=$(curl -s -H "Authorization: Bearer ${self.triggers.api_token}" \
+        "https://api.tailscale.com/api/v2/tailnet/-/devices" | \
+        jq -r '.devices[] | select(.hostname | startswith("${self.triggers.hostname}")) | "\(.id) \(.hostname)"')
+
+      if [ -z "$DEVICES" ]; then
+        echo "No matching devices found."
+        exit 0
+      fi
+
+      echo "Found devices:"
+      echo "$DEVICES"
+
+      # Delete each matching device
+      echo "$DEVICES" | while read -r ID NAME; do
+        echo "Deleting device: $NAME ($ID)"
+        curl -s -X DELETE -H "Authorization: Bearer ${self.triggers.api_token}" \
+          "https://api.tailscale.com/api/v2/device/$ID"
+      done
+
+      echo "Tailscale cleanup complete."
+    EOF
+  }
 }
 
 module "server" {

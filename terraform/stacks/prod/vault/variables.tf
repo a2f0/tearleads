@@ -38,6 +38,12 @@ variable "tailscale_auth_key" {
   sensitive   = true
 }
 
+variable "tailscale_api_token" {
+  description = "Tailscale API token for device management"
+  type        = string
+  sensitive   = true
+}
+
 variable "ssh_host_private_key" {
   description = "SSH host private key for the server"
   type        = string
