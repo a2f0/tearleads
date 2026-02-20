@@ -43,8 +43,8 @@ FROM nginx:alpine
 COPY --from=builder /app/packages/website/dist /usr/share/nginx/html
 
 # Ensure static files are world-readable for nginx worker user.
-RUN find /usr/share/nginx/html -type d -exec chmod 755 {} \; && \
-    find /usr/share/nginx/html -type f -exec chmod 644 {} \;
+RUN find /usr/share/nginx/html -type d -exec chmod 755 {} + && \
+    find /usr/share/nginx/html -type f -exec chmod 644 {} +
 
 # Copy nginx config
 RUN echo 'server { \
