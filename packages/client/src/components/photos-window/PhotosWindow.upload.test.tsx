@@ -33,11 +33,9 @@ vi.mock('@tearleads/window-manager', async (importOriginal) => {
     await importOriginal<typeof import('@tearleads/window-manager')>();
   return {
     ...actual,
-    DesktopFloatingWindow: ({
-      children
-    }: {
-      children: React.ReactNode;
-    }) => <div data-testid="floating-window">{children}</div>,
+    DesktopFloatingWindow: ({ children }: { children: React.ReactNode }) => (
+      <div data-testid="floating-window">{children}</div>
+    ),
     useWindowRefresh: () => ({
       refreshToken: 0,
       triggerRefresh: vi.fn()
@@ -46,11 +44,7 @@ vi.mock('@tearleads/window-manager', async (importOriginal) => {
 });
 
 vi.mock('./PhotosWindowMenuBar', () => ({
-  PhotosWindowMenuBar: ({
-    onUpload
-  }: {
-    onUpload: () => void;
-  }) => (
+  PhotosWindowMenuBar: ({ onUpload }: { onUpload: () => void }) => (
     <div data-testid="menu-bar">
       <button type="button" onClick={onUpload} data-testid="upload-button">
         Upload

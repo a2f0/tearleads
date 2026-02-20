@@ -1,6 +1,6 @@
 import type { VfsOpenItem } from '@tearleads/vfs-explorer';
-import type { ReactNode } from 'react';
 import { render } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VfsWindow } from './index';
 
@@ -138,9 +138,12 @@ describe('VfsWindow - Core Object Types', () => {
     });
 
     expect(hoistedMocks.mockOpenWindow).toHaveBeenCalledWith('contacts');
-    expect(hoistedMocks.mockRequestWindowOpen).toHaveBeenCalledWith('contacts', {
-      contactId: 'contact-1'
-    });
+    expect(hoistedMocks.mockRequestWindowOpen).toHaveBeenCalledWith(
+      'contacts',
+      {
+        contactId: 'contact-1'
+      }
+    );
   });
 
   it('opens notes window for note items', async () => {
@@ -303,9 +306,12 @@ describe('VfsWindow - Core Object Types', () => {
     });
 
     expect(hoistedMocks.mockOpenWindow).toHaveBeenCalledWith('contacts');
-    expect(hoistedMocks.mockRequestWindowOpen).toHaveBeenCalledWith('contacts', {
-      groupId: 'group-1'
-    });
+    expect(hoistedMocks.mockRequestWindowOpen).toHaveBeenCalledWith(
+      'contacts',
+      {
+        groupId: 'group-1'
+      }
+    );
   });
 
   it('opens files window for tag items', async () => {

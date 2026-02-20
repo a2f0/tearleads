@@ -1,6 +1,6 @@
 import type { VfsOpenItem } from '@tearleads/vfs-explorer';
-import type { ReactNode } from 'react';
 import { render } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VfsWindow } from './index';
 
@@ -140,9 +140,12 @@ describe('VfsWindow - File Resolution', () => {
     });
 
     expect(hoistedMocks.mockOpenWindow).toHaveBeenCalledWith('documents');
-    expect(hoistedMocks.mockRequestWindowOpen).toHaveBeenCalledWith('documents', {
-      documentId: 'file-1'
-    });
+    expect(hoistedMocks.mockRequestWindowOpen).toHaveBeenCalledWith(
+      'documents',
+      {
+        documentId: 'file-1'
+      }
+    );
   });
 
   it('opens files window for file items resolved as generic files', async () => {
