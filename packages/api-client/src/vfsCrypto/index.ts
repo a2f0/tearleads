@@ -6,6 +6,8 @@ export * from './keyOnboarding';
 export * from './onboardingClient';
 export * from './registrationClient';
 export * from './secureOrchestratorFacade';
+export type * from './secureReadPipeline';
+export * from './secureReadPipelineRuntime';
 export type * from './secureWritePipeline';
 export * from './secureWritePipelineFactory';
 export * from './secureWritePipelineRuntime';
