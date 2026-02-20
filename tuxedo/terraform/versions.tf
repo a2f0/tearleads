@@ -1,7 +1,10 @@
 terraform {
   required_version = ">= 1.0"
 
-  cloud {}
+  # COMPLIANCE_SENTINEL: TL-DR-001 | control=state-isolation
+  backend "s3" {
+    key = "tuxedo/terraform.tfstate"
+  }
 
   required_providers {
     hcloud = {
