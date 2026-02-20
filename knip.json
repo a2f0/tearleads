@@ -26,5 +26,19 @@
     "^@/components/sqlite/exportTableCsv$",
     "^@/db/analytics$"
   ],
-  "ignoreBinaries": ["ansible-lint", "shellcheck", "playwright"]
+  "ignoreBinaries": ["ansible-lint", "shellcheck", "playwright"],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "scripts/*.ts",
+        "scripts/agents/*.ts",
+        "scripts/agents/tooling/agentTool.ts",
+        "scripts/ciImpact/*.ts",
+        "scripts/costModel/index.ts",
+        "scripts/lib/*.ts",
+        "scripts/preen/*.ts",
+        "scripts/tooling/scriptTool.ts"
+      ]
+    }
+  }
 }
