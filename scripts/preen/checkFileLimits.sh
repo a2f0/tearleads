@@ -23,7 +23,7 @@ IGNORE_PATTERNS=(
   "\.min\.js$"
   "\.map$"
   # Legal documents: terms of service translations cannot be split
-  "^docs/[a-z]{2}/terms-of-service\.md$"
+  "^docs/[a-z-]+/terms-of-service\.md$"
 )
 
 usage() {
