@@ -335,13 +335,13 @@ describe('VfsBackgroundSyncClient guardrail telemetry determinism', () => {
 
       const malformedState = {
         pendingOperations: [],
-        localWriteId: -1,
+        nextLocalWriteId: -1, // Invalid value, should be a positive integer
+        reconcileState: null,
+        containerClocks: [],
         replaySnapshot: {
           acl: [],
           links: [],
-          cursor: null,
-          lastReconciledWriteIds: {},
-          containerClocks: []
+          cursor: null
         }
       };
 
