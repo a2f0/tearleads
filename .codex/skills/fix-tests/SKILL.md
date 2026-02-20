@@ -22,6 +22,7 @@ This skill diagnoses and fixes failing CI jobs. It can target a specific job whe
 | `build`                    | build.yml                   | ~15 min         |
 | `web-e2e`                  | web-e2e.yml                 | ~10 min         |
 | `electron-e2e`             | electron-e2e.yml            | ~10 min         |
+| `android-instrumented`     | android-instrumented.yml    | ~10-15 min      |
 | `android-maestro-release`  | android-maestro-release.yml | ~20 min         |
 | `ios-maestro-release`      | ios-maestro-release.yml     | ~30 min         |
 | `website-e2e`              | website-e2e.yml             | ~5 min          |
@@ -162,6 +163,22 @@ If persistent, check:
 - CI resource limits
 - External service dependencies
 - Database connection issues
+
+### Android Instrumented D8 OOM (known recurring pattern)
+
+**Symptoms** (from failed logs):
+
+- `:capacitor-preferences:mergeExtDexDebugAndroidTest FAILED`
+- `ERROR: D8: java.lang.OutOfMemoryError: Java heap space`
+- `DexArchiveMergerException` during `connectedAndroidTest`
+
+**Interpretation**: This is typically a CI memory-pressure failure during dex merging, not an app-logic regression.
+
+**Response order**:
+
+1. Rerun the failed `android-instrumented` workflow run first.
+2. If downstream `CI Gate` is red only because of that failed run, rerun `CI Gate` after the rerun passes.
+3. If the same OOM reproduces repeatedly (3x), treat as infra/config debt and escalate with an issue instead of guessing at product-code changes.
 
 ## 4. Job-Specific Fixes
 
