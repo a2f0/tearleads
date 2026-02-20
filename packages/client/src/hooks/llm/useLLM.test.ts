@@ -72,7 +72,7 @@ describe('useLLM', () => {
   describe('snapshot immutability', () => {
     it('updates state correctly during model loading', async () => {
       // Import fresh module
-      const { useLLM } = await import('./llm');
+      const { useLLM } = await import('./useLLM');
       const { result } = renderHook(() => useLLM());
 
       // Capture initial state values
@@ -111,7 +111,7 @@ describe('useLLM', () => {
 
     it('maintains stable state when no changes occur', async () => {
       // Import fresh module
-      const { useLLM } = await import('./llm');
+      const { useLLM } = await import('./useLLM');
       const { result, rerender } = renderHook(() => useLLM());
 
       // Capture initial state
@@ -132,7 +132,7 @@ describe('useLLM', () => {
   describe('state updates during model loading', () => {
     it('handles state transitions correctly when loading a new model', async () => {
       // Import fresh module
-      const { useLLM } = await import('./llm');
+      const { useLLM } = await import('./useLLM');
       const { result } = renderHook(() => useLLM());
 
       // Capture initial state
@@ -178,7 +178,7 @@ describe('useLLM', () => {
   describe('loadProgress updates', () => {
     it('creates new snapshots for progress updates', async () => {
       // Import fresh module
-      const { useLLM } = await import('./llm');
+      const { useLLM } = await import('./useLLM');
       const { result } = renderHook(() => useLLM());
 
       // Start loading
@@ -213,7 +213,7 @@ describe('useLLM', () => {
   describe('error handling', () => {
     it('creates new snapshot on error', async () => {
       // Import fresh module
-      const { useLLM } = await import('./llm');
+      const { useLLM } = await import('./useLLM');
       const { result } = renderHook(() => useLLM());
 
       // Start loading - we'll handle the rejection when it occurs
@@ -252,7 +252,7 @@ describe('useLLM', () => {
 
   describe('resetLLMUIState', () => {
     it('clears UI state but preserves loadedModel and modelType', async () => {
-      const { useLLM, resetLLMUIState } = await import('./llm');
+      const { useLLM, resetLLMUIState } = await import('./useLLM');
       const { result } = renderHook(() => useLLM());
 
       // Load a model first
@@ -293,7 +293,7 @@ describe('useLLM', () => {
     });
 
     it('rejects in-progress generation when reset', async () => {
-      const { useLLM, resetLLMUIState } = await import('./llm');
+      const { useLLM, resetLLMUIState } = await import('./useLLM');
       const { result } = renderHook(() => useLLM());
 
       // Load a model first
@@ -341,7 +341,7 @@ describe('useLLM', () => {
     });
 
     it('rejects pending load when reset', async () => {
-      const { useLLM, resetLLMUIState } = await import('./llm');
+      const { useLLM, resetLLMUIState } = await import('./useLLM');
       const { result } = renderHook(() => useLLM());
 
       // Start loading a model
