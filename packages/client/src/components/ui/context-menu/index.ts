@@ -1,3 +1,5 @@
-export { ContextMenu } from './ContextMenu';
-export { ContextMenuItem } from './ContextMenuItem';
-export { ContextMenuSeparator } from './ContextMenuSeparator';
+export {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem,
+  DesktopContextMenuSeparator as ContextMenuSeparator
+} from '@tearleads/window-manager';

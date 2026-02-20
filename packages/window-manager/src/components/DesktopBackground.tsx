@@ -1,5 +1,12 @@
-import { type DesktopPatternValue, useSettings } from '@tearleads/settings';
 import type { ReactNode } from 'react';
+import { cn } from '../lib/utils.js';
+
+export type DesktopBackgroundPattern =
+  | 'solid'
+  | 'honeycomb'
+  | 'isometric'
+  | 'triangles'
+  | 'diamonds';
 
 function HoneycombSvg() {
   return (
@@ -155,7 +162,7 @@ function DiamondsSvg() {
 }
 
 const PATTERN_COMPONENTS: Record<
-  Exclude<DesktopPatternValue, 'solid'>,
+  Exclude<DesktopBackgroundPattern, 'solid'>,
   () => ReactNode
 > = {
   honeycomb: HoneycombSvg,
@@ -164,10 +171,17 @@ const PATTERN_COMPONENTS: Record<
   diamonds: DiamondsSvg
 };
 
-export function DesktopBackground() {
-  const { getSetting } = useSettings();
-  const pattern = getSetting('desktopPattern');
+export interface DesktopBackgroundProps {
+  /** The pattern to display */
+  pattern: DesktopBackgroundPattern;
+  /** Optional additional className */
+  className?: string | undefined;
+}
 
+export function DesktopBackground({
+  pattern,
+  className
+}: DesktopBackgroundProps) {
   if (pattern === 'solid') {
     return null;
   }
@@ -175,8 +189,12 @@ export function DesktopBackground() {
   const PatternComponent = PATTERN_COMPONENTS[pattern];
   return (
     <div
-      className="pointer-events-none absolute inset-0 text-foreground"
+      className={cn(
+        'pointer-events-none absolute inset-0 text-foreground',
+        className
+      )}
       aria-hidden="true"
+      data-testid="desktop-background"
     >
       <PatternComponent />
     </div>

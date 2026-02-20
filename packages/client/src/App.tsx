@@ -1,6 +1,13 @@
 import { Footer } from '@tearleads/ui';
 import logo from '@tearleads/ui/logo.svg';
-import { WindowConnectionIndicator } from '@tearleads/window-manager';
+import {
+  DesktopContextMenu,
+  DesktopContextMenuItem,
+  DesktopStartBar,
+  DesktopStartButton,
+  DesktopSystemTray,
+  WindowConnectionIndicator
+} from '@tearleads/window-manager';
 import { Info, Lock, Search } from 'lucide-react';
 import {
   lazy,
@@ -28,8 +35,6 @@ import { Sidebar } from './components/Sidebar';
 import { SSEConnectionDialog } from './components/SSEConnectionDialog';
 import { useScreensaver } from './components/screensaver';
 import { Taskbar } from './components/taskbar';
-import { ContextMenu } from './components/ui/context-menu/ContextMenu';
-import { ContextMenuItem } from './components/ui/context-menu/ContextMenuItem';
 import { DesktopBackground } from './components/ui/desktop-background';
 import { FOOTER_HEIGHT } from './constants/layout';
 import { useWindowManagerActions } from './contexts/WindowManagerContext';
@@ -132,7 +137,7 @@ function App() {
   );
 
   const handleStartBarContextMenu = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
+    (event: React.MouseEvent<HTMLElement>) => {
       if (event.target !== event.currentTarget) {
         return;
       }
@@ -261,90 +266,71 @@ function App() {
         version={undefined}
         onContextMenu={handleFooterContextMenu}
         leftAction={
-          // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on start bar
-          <section
-            className="flex items-center gap-2"
-            onContextMenu={handleStartBarContextMenu}
-            data-testid="start-bar"
-          >
+          <DesktopStartBar onContextMenu={handleStartBarContextMenu}>
             <div className="hidden items-center lg:flex lg:w-[calc(16rem-1cm)]">
-              <button
-                type="button"
+              <DesktopStartButton
+                logoSrc={logo}
+                isOpen={isSidebarOpen}
                 onClick={() => setIsSidebarOpen((prev) => !prev)}
                 onContextMenu={handleStartMenuContextMenu}
                 ref={startButtonRef}
-                className="hidden items-center justify-center lg:flex"
-                aria-label="Toggle sidebar"
-                aria-pressed={isSidebarOpen}
-                aria-controls="sidebar"
-                data-testid="start-button"
-              >
-                <img src={logo} alt="" className="h-6 w-6" aria-hidden="true" />
-              </button>
+              />
             </div>
             <Taskbar onContextMenu={handleTaskbarContextMenu} />
-          </section>
+          </DesktopStartBar>
         }
         copyrightText=""
       />
       {startMenuContextMenu && (
-        <ContextMenu
+        <DesktopContextMenu
           x={startMenuContextMenu.x}
           y={startMenuContextMenu.y}
           onClose={handleCloseStartMenuContextMenu}
         >
-          <ContextMenuItem
+          <DesktopContextMenuItem
             icon={<Search className="h-4 w-4" />}
             onClick={handleOpenSearch}
           >
             Open Search
-          </ContextMenuItem>
+          </DesktopContextMenuItem>
           {startMenuContextMenu.showLockAction && (
-            <ContextMenuItem
+            <DesktopContextMenuItem
               icon={<Lock className="h-4 w-4" />}
               onClick={handleLockInstance}
             >
               Lock Instance
-            </ContextMenuItem>
+            </DesktopContextMenuItem>
           )}
-        </ContextMenu>
+        </DesktopContextMenu>
       )}
-      <div
-        className="fixed right-4 z-50 flex h-6 items-center"
-        style={{
-          bottom: `calc(${FOOTER_HEIGHT / 2}px - 0.75rem + env(safe-area-inset-bottom, 0px))`,
-          right: 'max(1rem, env(safe-area-inset-right, 0px))'
-        }}
-      >
-        <div className="flex items-center gap-2">
-          <RuntimeLanguagePicker />
-          {sse && (
-            <WindowConnectionIndicator
-              state={sse.connectionState}
-              tooltip={t(sseTooltipKeys[sse.connectionState])}
-              onClick={handleShowConnectionDetails}
-              onContextMenu={handleSseContextMenu}
-            />
-          )}
-          <Suspense fallback={null}>
-            <NotificationCenterTrigger />
-          </Suspense>
-        </div>
-      </div>
+      <DesktopSystemTray footerHeight={FOOTER_HEIGHT}>
+        <RuntimeLanguagePicker />
+        {sse && (
+          <WindowConnectionIndicator
+            state={sse.connectionState}
+            tooltip={t(sseTooltipKeys[sse.connectionState])}
+            onClick={handleShowConnectionDetails}
+            onContextMenu={handleSseContextMenu}
+          />
+        )}
+        <Suspense fallback={null}>
+          <NotificationCenterTrigger />
+        </Suspense>
+      </DesktopSystemTray>
       <MiniPlayer />
       {sseContextMenu && (
-        <ContextMenu
+        <DesktopContextMenu
           x={sseContextMenu.x}
           y={sseContextMenu.y}
           onClose={handleCloseSseContextMenu}
         >
-          <ContextMenuItem
+          <DesktopContextMenuItem
             icon={<Info className="h-4 w-4" />}
             onClick={handleShowConnectionDetails}
           >
             Connection Details
-          </ContextMenuItem>
-        </ContextMenu>
+          </DesktopContextMenuItem>
+        </DesktopContextMenu>
       )}
       {sse && (
         <SSEConnectionDialog

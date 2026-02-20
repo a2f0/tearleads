@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DesktopBackground } from './DesktopBackground';
+import { DesktopBackground } from './index';
 
 const mockGetSetting = vi.fn();
 
@@ -44,50 +44,20 @@ describe('DesktopBackground', () => {
     expect(pattern).toBeInTheDocument();
   });
 
-  it('renders triangles SVG when pattern is triangles', () => {
-    mockGetSetting.mockReturnValue('triangles');
-    const { container } = render(<DesktopBackground />);
-
-    const svg = container.querySelector('svg');
-    expect(svg).toBeInTheDocument();
-
-    const pattern = container.querySelector('pattern#triangles-bg');
-    expect(pattern).toBeInTheDocument();
-  });
-
-  it('renders diamonds SVG when pattern is diamonds', () => {
+  it('reads pattern from settings', () => {
     mockGetSetting.mockReturnValue('diamonds');
-    const { container } = render(<DesktopBackground />);
+    render(<DesktopBackground />);
 
-    const svg = container.querySelector('svg');
-    expect(svg).toBeInTheDocument();
-
-    const pattern = container.querySelector('pattern#diamonds-bg');
-    expect(pattern).toBeInTheDocument();
+    expect(mockGetSetting).toHaveBeenCalledWith('desktopPattern');
   });
 
-  it('has aria-hidden attribute for accessibility', () => {
+  it('passes className to the base component', () => {
     mockGetSetting.mockReturnValue('honeycomb');
-    const { container } = render(<DesktopBackground />);
+    const { container } = render(
+      <DesktopBackground className="custom-class" />
+    );
 
     const wrapper = container.firstElementChild;
-    expect(wrapper).toHaveAttribute('aria-hidden', 'true');
-  });
-
-  it('has pointer-events-none class to allow click-through', () => {
-    mockGetSetting.mockReturnValue('honeycomb');
-    const { container } = render(<DesktopBackground />);
-
-    const wrapper = container.firstElementChild;
-    expect(wrapper?.className).toContain('pointer-events-none');
-  });
-
-  it('has absolute positioning to cover parent', () => {
-    mockGetSetting.mockReturnValue('isometric');
-    const { container } = render(<DesktopBackground />);
-
-    const wrapper = container.firstElementChild;
-    expect(wrapper?.className).toContain('absolute');
-    expect(wrapper?.className).toContain('inset-0');
+    expect(wrapper?.className).toContain('custom-class');
   });
 });
