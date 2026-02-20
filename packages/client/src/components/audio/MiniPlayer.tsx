@@ -10,8 +10,8 @@ import { useAudioContext } from '@/audio';
 import { Button } from '@/components/ui/button';
 import { FOOTER_HEIGHT } from '@/constants/layout';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
-import { useDraggable } from '@/hooks/dnd';
 import { useIsMobile } from '@/hooks/device';
+import { useDraggable } from '@/hooks/dnd';
 
 const MINI_PLAYER_WIDTH = 224; // w-56
 const MINI_PLAYER_HEIGHT = 56; // p-2 (8px) * 2 + h-8 button (32px)

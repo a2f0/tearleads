@@ -7,15 +7,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/consoleMocks';
 import { AudioPage } from './Audio';
 import {
-  createMockQueryChain,
-  createMockUpdateChain,
   mockGetCurrentKey,
+  mockInitializeFileStorage,
   mockInsertValues,
   mockIsFileStorageInitialized,
-  mockInitializeFileStorage,
-  mockPause,
-  mockPlay,
-  mockResume,
   mockRetrieve,
   mockSelect,
   mockUpdate,
@@ -23,8 +18,6 @@ import {
   mockUseAudio,
   mockUseDatabaseContext,
   setupDefaultMocks,
-  TEST_AUDIO_DATA,
-  TEST_AUDIO_TRACK,
   TEST_ENCRYPTION_KEY
 } from './Audio.testSetup';
 

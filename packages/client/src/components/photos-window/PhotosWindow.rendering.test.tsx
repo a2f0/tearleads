@@ -78,7 +78,9 @@ vi.mock('./PhotosWindowMenuBar', () => ({
       <div data-testid="menu-show-dropzone">
         {showDropzone ? 'true' : 'false'}
       </div>
-      <div data-testid="menu-show-deleted">{showDeleted ? 'true' : 'false'}</div>
+      <div data-testid="menu-show-deleted">
+        {showDeleted ? 'true' : 'false'}
+      </div>
       <button type="button" onClick={onRefresh} data-testid="refresh-button">
         Refresh
       </button>

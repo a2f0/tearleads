@@ -5,15 +5,17 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+// Get the mocked detectPlatform for test manipulation
+import { detectPlatform as mockDetectPlatformFn } from '@/lib/utils';
 import { Audio } from './Audio';
 import {
   createMockQueryChain,
   createMockUpdateChain,
   mockGetCurrentKey,
+  mockInitializeFileStorage,
   mockInsert,
   mockInsertValues,
   mockIsFileStorageInitialized,
-  mockInitializeFileStorage,
   mockNavigate,
   mockPause,
   mockPlay,
@@ -28,9 +30,6 @@ import {
   TEST_AUDIO_TRACK,
   TEST_ENCRYPTION_KEY
 } from './Audio.testSetup';
-
-// Get the mocked detectPlatform for test manipulation
-import { detectPlatform as mockDetectPlatformFn } from '@/lib/utils';
 
 const mockDetectPlatform = mockDetectPlatformFn as ReturnType<typeof vi.fn>;
 

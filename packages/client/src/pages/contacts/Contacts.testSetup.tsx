@@ -7,10 +7,10 @@
  */
 import {
   act,
+  type RenderResult,
   render,
   screen,
-  waitFor,
-  type RenderResult
+  waitFor
 } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { expect, vi } from 'vitest';

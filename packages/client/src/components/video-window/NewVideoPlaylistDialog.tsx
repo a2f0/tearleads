@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useDialogAccessibility } from '@/hooks/ui';
 import { useVideoPlaylists } from '@/hooks/media';
+import { useDialogAccessibility } from '@/hooks/ui';
 
 export interface NewVideoPlaylistDialogProps {
   open: boolean;

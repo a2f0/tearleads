@@ -1,9 +1,6 @@
 import { act, render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  emitInstanceChange,
-  resetInstanceChangeState
-} from '@/hooks/app';
+import { emitInstanceChange, resetInstanceChangeState } from '@/hooks/app';
 import { InstanceChangeHandler } from './InstanceChangeHandler';
 
 const mockResetLLMUIState = vi.fn();

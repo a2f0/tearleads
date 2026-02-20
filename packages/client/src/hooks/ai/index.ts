@@ -1,4 +1,3 @@
-export * from './useConversations';
 export {
   type ChatMessage,
   type ClassificationResult,
@@ -9,3 +8,4 @@ export {
   type UseLLMReturn,
   useLLM
 } from '../llm';
+export * from './useConversations';

@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react';
 import { render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { VfsWindow } from './index';
 import {
   createClientVfsExplorerProviderMock,
   createDesktopFloatingWindowMock,
@@ -17,7 +17,6 @@ import {
   mockUseDatabaseContext,
   resetAllMocks
 } from './VfsWindow.testSetup';
-import { VfsWindow } from './index';
 
 // Mock database context
 vi.mock('@/db/hooks', () => ({

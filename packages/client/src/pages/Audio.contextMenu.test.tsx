@@ -8,11 +8,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AudioPage } from './Audio';
 import {
   createMockQueryChain,
-  createMockUpdateChain,
   mockGetCurrentKey,
+  mockInitializeFileStorage,
   mockInsertValues,
   mockIsFileStorageInitialized,
-  mockInitializeFileStorage,
   mockNavigate,
   mockPause,
   mockPlay,
