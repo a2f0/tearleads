@@ -1,5 +1,5 @@
 locals {
-  full_dns_hostname = "${var.dns_hostname}.${var.domain}"
+  full_dns_hostname = "${var.dns_hostname}.${var.staging_domain}"
 }
 
 output "server_ip" {
@@ -30,4 +30,14 @@ output "ssh_command" {
 output "server_username" {
   description = "Username for SSH access"
   value       = var.server_username
+}
+
+output "ssh_host_public_key" {
+  description = "SSH host public key for known_hosts (ed25519)"
+  value       = var.ssh_host_public_key
+}
+
+output "known_hosts_entry" {
+  description = "Ready-to-use known_hosts entry for this server"
+  value       = "${local.full_dns_hostname} ${var.ssh_host_public_key}"
 }

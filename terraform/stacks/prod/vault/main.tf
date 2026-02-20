@@ -22,13 +22,13 @@ module "server" {
       - path: /etc/ssh/ssh_host_ed25519_key
         owner: root:root
         permissions: '0600'
-        content: |
-          ${indent(10, var.ssh_host_private_key)}
+        encoding: b64
+        content: ${base64encode(var.ssh_host_private_key)}
       - path: /etc/ssh/ssh_host_ed25519_key.pub
         owner: root:root
         permissions: '0644'
-        content: |
-          ${indent(10, var.ssh_host_public_key)}
+        encoding: b64
+        content: ${base64encode(var.ssh_host_public_key)}
     users:
       - name: ${var.server_username}
         groups: sudo
@@ -45,6 +45,9 @@ module "server" {
       - curl
 
     runcmd:
+      # Ensure trailing newline in key files (base64 decode may strip it)
+      - sed -i -e '$a\' /etc/ssh/ssh_host_ed25519_key
+      - sed -i -e '$a\' /etc/ssh/ssh_host_ed25519_key.pub
       # Restart SSH to use the persistent host keys written above
       - systemctl restart ssh
       # Install Tailscale

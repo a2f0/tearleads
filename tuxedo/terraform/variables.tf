@@ -9,7 +9,7 @@ variable "ssh_key_name" {
   type        = string
 }
 
-variable "domain" {
+variable "staging_domain" {
   description = "DNS zone name for the Hetzner managed domain"
   type        = string
 }
@@ -47,5 +47,27 @@ variable "server_image" {
 
 variable "server_username" {
   description = "Non-root username for server access"
+  type        = string
+}
+
+variable "ssh_host_private_key" {
+  description = "Persistent SSH host ed25519 private key for stable server identity"
+  type        = string
+  sensitive   = true
+}
+
+variable "ssh_host_public_key" {
+  description = "Persistent SSH host ed25519 public key for known_hosts"
+  type        = string
+}
+
+variable "cloudflare_api_token" {
+  description = "Cloudflare API token"
+  type        = string
+  sensitive   = true
+}
+
+variable "cloudflare_account_id" {
+  description = "Cloudflare account ID"
   type        = string
 }
