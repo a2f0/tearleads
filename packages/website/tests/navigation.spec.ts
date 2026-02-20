@@ -5,7 +5,7 @@ test.describe('Website Smoke', () => {
     await page.goto('/');
     await expect(page).toHaveURL(/\/$/);
     await expect(page).toHaveTitle('Tearleads');
-    await expect(page.getByRole('heading', { name: 'Welcome to Tearleads' })).toBeVisible();
+    await expect(page.getByText('Tearleads is a multi-user end-to-end encrypted operating system.')).toBeVisible();
   });
 
   test('architecture page renders doc content', async ({ page }) => {
