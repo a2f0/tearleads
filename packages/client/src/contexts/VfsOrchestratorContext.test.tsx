@@ -54,7 +54,7 @@ vi.mock('@/db/vfsUserKeyProvider', () => ({
   }))
 }));
 
-vi.mock('@/hooks/useVfsKeys', () => ({
+vi.mock('@/hooks/vfs', () => ({
   ensureVfsKeys: vi.fn().mockResolvedValue(undefined)
 }));
 

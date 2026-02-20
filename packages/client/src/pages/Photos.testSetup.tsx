@@ -9,7 +9,7 @@ import { act, render } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { vi } from 'vitest';
-import { Photos, PhotosPage } from './Photos';
+import { Photos, PhotosPage } from './photos-components';
 
 // ============================================================
 // Mock Functions
