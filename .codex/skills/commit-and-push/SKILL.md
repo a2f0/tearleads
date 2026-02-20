@@ -149,6 +149,17 @@ Track these state flags during execution:
 
     If `deferred_items` is non-empty, mention that `$enter-merge-queue` will create a tracking issue with the `deferred-fix` label after merge.
 
+## CI Gate stale-check fallback
+
+If required checks have been rerun successfully but `CI Gate` remains failed/stale on the same head SHA, rerun the `CI Gate` workflow run itself:
+
+```bash
+./scripts/agents/tooling/agentTool.ts getPrChecks --number "$PR_NUMBER"
+./scripts/agents/tooling/agentTool.ts rerunWorkflow --run-id "<ci-gate-run-id>"
+```
+
+Use this as a fallback only; canonical behavior should still come from workflow trigger wiring.
+
 ## Token Efficiency (CRITICAL)
 
 **MANDATORY**: ALL git commit and push commands MUST redirect stdout to `/dev/null`. Failure to do this wastes thousands of tokens on hook output.
