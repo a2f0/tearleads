@@ -22,6 +22,8 @@ IGNORE_PATTERNS=(
   "^packages/website/src/data/releases\.json$"
   "\.min\.js$"
   "\.map$"
+  # Legal documents: terms of service translations cannot be split
+  "^docs/[a-z]{2}/terms-of-service\.md$"
 )
 
 usage() {
