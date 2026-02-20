@@ -3,6 +3,8 @@
   "exclude": [
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
+    "src/**/*.testUtils.ts",
+    "src/**/*.testUtils.tsx",
     "src/**/*.integration.test.ts",
     "src/**/*.integration.test.tsx",
     "src/test/**/*",
