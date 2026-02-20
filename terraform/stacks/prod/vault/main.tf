@@ -2,6 +2,16 @@ locals {
   tailscale_hostname = "vault-prod"
 }
 
+# Read Tailscale stack outputs for tagged auth key
+data "terraform_remote_state" "tailscale" {
+  backend = "s3"
+  config = {
+    bucket = "tearleads-terraform-state"
+    key    = "shared/tailscale/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
 # Lookup SSH key for cloud-init user_data
 data "hcloud_ssh_key" "main" {
   name = var.ssh_key_name
@@ -93,7 +103,7 @@ module "server" {
       - systemctl restart ssh
       # Install Tailscale
       - curl -fsSL https://tailscale.com/install.sh | sh
-      - tailscale up --authkey=${var.tailscale_auth_key} --hostname=vault-prod
+      - tailscale up --authkey=${data.terraform_remote_state.tailscale.outputs.prod_vault_auth_key} --hostname=vault-prod
       # Install HashiCorp GPG key and repo
       - curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
       - echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" > /etc/apt/sources.list.d/hashicorp.list

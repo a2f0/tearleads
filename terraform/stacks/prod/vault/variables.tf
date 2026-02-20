@@ -32,12 +32,6 @@ variable "allowed_ssh_ips" {
   default     = ["0.0.0.0/0", "::/0"]
 }
 
-variable "tailscale_auth_key" {
-  description = "Tailscale auth key for server registration"
-  type        = string
-  sensitive   = true
-}
-
 variable "tailscale_api_token" {
   description = "Tailscale API token for device management"
   type        = string
