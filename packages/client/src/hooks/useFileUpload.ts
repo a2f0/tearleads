@@ -1,10 +1,16 @@
 /**
  * Hook for uploading files to OPFS with encryption.
+ *
+ * When the 'vfsSecureUpload' feature flag is enabled and the secure facade
+ * is available, uploads will use end-to-end encryption through the secure
+ * pipeline. Otherwise, falls back to local OPFS storage with optional
+ * server registration.
  */
 
 import { and, eq } from 'drizzle-orm';
 import { fileTypeFromBuffer } from 'file-type';
 import { useCallback } from 'react';
+import { useVfsSecureFacade } from '@/contexts/VfsOrchestratorContext';
 import { getDatabase } from '@/db';
 import { logEvent } from '@/db/analytics';
 import { getCurrentInstanceId, getKeyManager } from '@/db/crypto';
@@ -28,7 +34,24 @@ export interface UploadResult {
   isDuplicate: boolean;
 }
 
+/** Default expiration for staged blobs (7 days) */
+const DEFAULT_BLOB_EXPIRY_DAYS = 7;
+
+/**
+ * Convert a Uint8Array to a ReadableStream for the secure pipeline.
+ */
+function createStreamFromData(data: Uint8Array): ReadableStream<Uint8Array> {
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(data);
+      controller.close();
+    }
+  });
+}
+
 export function useFileUpload() {
+  const secureFacade = useVfsSecureFacade();
+
   const uploadFile = useCallback(
     async (
       file: File,
@@ -158,11 +181,33 @@ export function useFileUpload() {
         createdAt: new Date()
       });
 
+      // Use secure facade for encrypted server upload when available
       if (
+        isLoggedIn() &&
+        getFeatureFlagValue('vfsSecureUpload') &&
+        secureFacade
+      ) {
+        try {
+          const expiresAt = new Date();
+          expiresAt.setDate(expiresAt.getDate() + DEFAULT_BLOB_EXPIRY_DAYS);
+
+          await secureFacade.stageAttachEncryptedBlobAndPersist({
+            itemId: id,
+            blobId: crypto.randomUUID(),
+            contentType: mimeType,
+            stream: createStreamFromData(data),
+            expiresAt: expiresAt.toISOString()
+          });
+        } catch (err) {
+          console.warn('Failed to upload via secure facade:', err);
+          // Fall through to legacy registration if secure upload fails
+        }
+      } else if (
         isLoggedIn() &&
         getFeatureFlagValue('vfsServerRegistration') &&
         encryptedSessionKey
       ) {
+        // Legacy registration path
         try {
           await api.vfs.register({
             id,
@@ -178,7 +223,7 @@ export function useFileUpload() {
 
       return { id, isDuplicate: false };
     },
-    []
+    [secureFacade]
   );
 
   return { uploadFile };

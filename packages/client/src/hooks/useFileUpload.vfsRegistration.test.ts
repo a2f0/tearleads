@@ -51,11 +51,26 @@ vi.mock('./useVfsKeys', () => ({
   wrapSessionKey: vi.fn()
 }));
 
+vi.mock('@/contexts/VfsOrchestratorContext', () => ({
+  useVfsSecureFacade: vi.fn(() => null)
+}));
+
+vi.mock('@/lib/api', () => ({
+  api: {
+    vfs: {
+      register: vi.fn()
+    }
+  }
+}));
+
 import { fileTypeFromBuffer } from 'file-type';
+import { useVfsSecureFacade } from '@/contexts/VfsOrchestratorContext';
 import { getDatabase } from '@/db';
 import { logEvent } from '@/db/analytics';
 import { getKeyManager } from '@/db/crypto';
+import { api } from '@/lib/api';
 import { isLoggedIn } from '@/lib/authStorage';
+import { getFeatureFlagValue } from '@/lib/featureFlags';
 import { computeContentHash, readFileAsUint8Array } from '@/lib/fileUtils';
 import { generateThumbnail, isThumbnailSupported } from '@/lib/thumbnail';
 import { getFileStorage, isFileStorageInitialized } from '@/storage/opfs';
@@ -165,6 +180,110 @@ describe('useFileUpload VFS registration', () => {
       expect.any(Error)
     );
     expect(mockDb.insert).toHaveBeenCalled();
+    consoleSpy.mockRestore();
+  });
+
+  it('uses secure facade when vfsSecureUpload feature flag is enabled', async () => {
+    vi.mocked(isLoggedIn).mockReturnValue(true);
+    vi.mocked(getFeatureFlagValue).mockImplementation((flag: string) => {
+      return flag === 'vfsSecureUpload';
+    });
+
+    const mockSecureFacade = {
+      stageAttachEncryptedBlobAndPersist: vi.fn().mockResolvedValue({
+        stagingId: 'test-staging-id',
+        manifest: {}
+      })
+    };
+    vi.mocked(useVfsSecureFacade).mockReturnValue(
+      mockSecureFacade as unknown as ReturnType<typeof useVfsSecureFacade>
+    );
+
+    const { result } = renderHook(() => useFileUpload());
+    const file = new File(['test'], 'test.png', { type: 'image/png' });
+
+    await result.current.uploadFile(file);
+
+    expect(
+      mockSecureFacade.stageAttachEncryptedBlobAndPersist
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemId: 'test-uuid-1234',
+        contentType: 'image/png'
+      })
+    );
+  });
+
+  it('falls back gracefully when secure facade upload fails', async () => {
+    const consoleSpy = mockConsoleWarn();
+    vi.mocked(isLoggedIn).mockReturnValue(true);
+    vi.mocked(getFeatureFlagValue).mockImplementation((flag: string) => {
+      return flag === 'vfsSecureUpload';
+    });
+
+    const mockSecureFacade = {
+      stageAttachEncryptedBlobAndPersist: vi
+        .fn()
+        .mockRejectedValue(new Error('Network error'))
+    };
+    vi.mocked(useVfsSecureFacade).mockReturnValue(
+      mockSecureFacade as unknown as ReturnType<typeof useVfsSecureFacade>
+    );
+
+    const { result } = renderHook(() => useFileUpload());
+    const file = new File(['test'], 'test.png', { type: 'image/png' });
+
+    const uploadResult = await result.current.uploadFile(file);
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to upload via secure facade:',
+      expect.any(Error)
+    );
+    expect(uploadResult.id).toBe('test-uuid-1234');
+    consoleSpy.mockRestore();
+  });
+
+  it('uses legacy registration when vfsServerRegistration is enabled but not vfsSecureUpload', async () => {
+    vi.mocked(isLoggedIn).mockReturnValue(true);
+    vi.mocked(getFeatureFlagValue).mockImplementation((flag: string) => {
+      return flag === 'vfsServerRegistration';
+    });
+    vi.mocked(useVfsSecureFacade).mockReturnValue(null);
+
+    const { result } = renderHook(() => useFileUpload());
+    const file = new File(['test'], 'test.png', { type: 'image/png' });
+
+    await result.current.uploadFile(file);
+
+    expect(api.vfs.register).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'test-uuid-1234',
+        objectType: 'file'
+      })
+    );
+  });
+
+  it('handles legacy registration failure gracefully', async () => {
+    // Mock console.warn before execution
+    const consoleSpy = mockConsoleWarn();
+
+    vi.mocked(isLoggedIn).mockReturnValue(true);
+    vi.mocked(getFeatureFlagValue).mockImplementation((flag: string) => {
+      return flag === 'vfsServerRegistration';
+    });
+    vi.mocked(useVfsSecureFacade).mockReturnValue(null);
+    vi.mocked(api.vfs.register).mockRejectedValue(new Error('Server error'));
+
+    const { result } = renderHook(() => useFileUpload());
+    const file = new File(['test'], 'test.png', { type: 'image/png' });
+
+    const uploadResult = await result.current.uploadFile(file);
+
+    // Verify the file was still saved (graceful degradation)
+    expect(uploadResult.id).toBe('test-uuid-1234');
+    expect(mockDb.insert).toHaveBeenCalled();
+
+    // Clean up
     consoleSpy.mockRestore();
   });
 });

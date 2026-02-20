@@ -4,7 +4,7 @@ import type { Base64, EncryptedManifest, ItemId } from './types';
 export interface UploadEncryptedBlobInput {
   itemId: ItemId;
   blobId: string;
-  contentType?: string;
+  contentType?: string | undefined;
   stream: ReadableStream<Uint8Array>;
 }
 
@@ -34,8 +34,8 @@ export interface UploadEncryptedBlobChunk {
 
 export interface UploadEncryptedBlobResult {
   manifest: EncryptedManifest;
-  uploadId?: string;
-  chunks?: UploadEncryptedBlobChunk[];
+  uploadId?: string | undefined;
+  chunks?: UploadEncryptedBlobChunk[] | undefined;
 }
 
 export interface VfsSecureWritePipeline {

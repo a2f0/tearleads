@@ -13,7 +13,7 @@ export interface EncryptChunkInput {
   isFinal: boolean;
   plaintext: Uint8Array;
   keyEpoch: Epoch;
-  contentType?: string;
+  contentType?: string | undefined;
 }
 
 export interface DecryptChunkInput {
@@ -21,7 +21,7 @@ export interface DecryptChunkInput {
   blobId: string;
   chunk: EncryptedChunk;
   keyEpoch: Epoch;
-  contentType?: string;
+  contentType?: string | undefined;
 }
 
 export type UnsignedEncryptedManifest = Omit<

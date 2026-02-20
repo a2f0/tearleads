@@ -13,6 +13,14 @@ import type { VfsWrappedKey } from './types';
 const DEFAULT_CHUNK_SIZE_BYTES = 4 * 1024 * 1024;
 const CRDT_BLOB_PREFIX = 'crdt-op';
 
+/**
+ * Ensures Uint8Array is typed with ArrayBuffer (not ArrayBufferLike).
+ * WebCrypto APIs require BufferSource which expects ArrayBuffer, not SharedArrayBuffer.
+ */
+function asBufferSource(data: Uint8Array): Uint8Array<ArrayBuffer> {
+  return data as Uint8Array<ArrayBuffer>;
+}
+
 export interface VfsSecureWritePipelineRuntimeOptions {
   engine: VfsCryptoEngine;
   chunkSizeBytes?: number;
@@ -218,9 +226,9 @@ function toUploadEncryptedBlobChunk(input: {
 async function* splitStreamIntoChunks(
   stream: ReadableStream<Uint8Array>,
   chunkSizeBytes: number
-): AsyncGenerator<Uint8Array> {
+): AsyncGenerator<Uint8Array<ArrayBuffer>> {
   const reader = stream.getReader();
-  let carry = new Uint8Array(0);
+  let carry: Uint8Array<ArrayBuffer> = new Uint8Array(0);
 
   try {
     while (true) {
@@ -247,9 +255,12 @@ async function* splitStreamIntoChunks(
   }
 }
 
-function concatBytes(left: Uint8Array, right: Uint8Array): Uint8Array {
+function concatBytes(
+  left: Uint8Array,
+  right: Uint8Array
+): Uint8Array<ArrayBuffer> {
   if (left.length === 0) {
-    return right.slice();
+    return new Uint8Array(right);
   }
   const combined = new Uint8Array(left.length + right.length);
   combined.set(left, 0);
@@ -258,7 +269,10 @@ function concatBytes(left: Uint8Array, right: Uint8Array): Uint8Array {
 }
 
 async function hashBase64(input: Uint8Array): Promise<string> {
-  const digestBuffer = await crypto.subtle.digest('SHA-256', input);
+  const digestBuffer = await crypto.subtle.digest(
+    'SHA-256',
+    asBufferSource(input)
+  );
   return toBase64(new Uint8Array(digestBuffer));
 }
 

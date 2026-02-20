@@ -1,0 +1,206 @@
+/**
+ * VFS Write Orchestrator Context
+ *
+ * Provides the VfsWriteOrchestrator and VfsSecureOrchestratorFacade
+ * throughout the application. Initializes with proper adapters for
+ * key management and encryption.
+ */
+import {
+  createVfsSecurePipelineBundle,
+  type VfsKeySetupPayload,
+  type VfsSecureOrchestratorFacade,
+  VfsWriteOrchestrator
+} from '@tearleads/api-client';
+import type { ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState
+} from 'react';
+import { createItemKeyStore } from '@/db/vfsItemKeys';
+import { createRecipientPublicKeyResolver } from '@/db/vfsRecipientKeyResolver';
+import { createUserKeyProvider } from '@/db/vfsUserKeyProvider';
+import { ensureVfsKeys } from '@/hooks/useVfsKeys';
+import { useAuth } from './AuthContext';
+
+export interface VfsOrchestratorContextValue {
+  /** The underlying orchestrator for queue/flush operations */
+  orchestrator: VfsWriteOrchestrator | null;
+  /** The secure facade for encrypted operations */
+  secureFacade: VfsSecureOrchestratorFacade | null;
+  /** Whether the orchestrator is fully initialized and ready */
+  isReady: boolean;
+  /** Whether initialization is in progress */
+  isInitializing: boolean;
+  /** Any error that occurred during initialization */
+  error: Error | null;
+  /** Reinitialize the orchestrator (e.g., after logout/login) */
+  reinitialize: () => Promise<void>;
+}
+
+const VfsOrchestratorContext =
+  createContext<VfsOrchestratorContextValue | null>(null);
+
+interface VfsOrchestratorProviderProps {
+  children: ReactNode;
+  /** Base URL for API calls (defaults to VITE_API_URL) */
+  baseUrl?: string;
+  /** API prefix for routes (defaults to '/v1') */
+  apiPrefix?: string;
+}
+
+export function VfsOrchestratorProvider({
+  children,
+  baseUrl,
+  apiPrefix = '/v1'
+}: VfsOrchestratorProviderProps) {
+  const { user, isAuthenticated } = useAuth();
+  const [orchestrator, setOrchestrator] = useState<VfsWriteOrchestrator | null>(
+    null
+  );
+  const [secureFacade, setSecureFacade] =
+    useState<VfsSecureOrchestratorFacade | null>(null);
+  const [isInitializing, setIsInitializing] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const effectiveBaseUrl = baseUrl ?? import.meta.env.VITE_API_URL ?? '';
+
+  const initialize = useCallback(async () => {
+    if (!user || !isAuthenticated) {
+      setOrchestrator(null);
+      setSecureFacade(null);
+      return;
+    }
+
+    setIsInitializing(true);
+    setError(null);
+
+    try {
+      // Create the orchestrator
+      const newOrchestrator = new VfsWriteOrchestrator(user.id, 'client', {
+        crdt: {
+          transportOptions: {
+            baseUrl: effectiveBaseUrl,
+            apiPrefix
+          }
+        },
+        blob: {
+          baseUrl: effectiveBaseUrl,
+          apiPrefix
+        }
+      });
+
+      // Create adapters
+      const itemKeyStore = createItemKeyStore();
+      const userKeyProvider = createUserKeyProvider(() => user);
+      const recipientPublicKeyResolver = createRecipientPublicKeyResolver();
+
+      // Create the secure pipeline bundle
+      const bundle = createVfsSecurePipelineBundle({
+        userKeyProvider,
+        itemKeyStore,
+        recipientPublicKeyResolver,
+        createKeySetupPayload: async (): Promise<VfsKeySetupPayload> => {
+          // Ensure VFS keys are set up (this handles key generation/fetching)
+          await ensureVfsKeys();
+          // Return a placeholder payload - the actual key setup is handled by ensureVfsKeys
+          // which stores keys on the server. This payload is used for key manager bookkeeping.
+          return {
+            publicEncryptionKey: '',
+            publicSigningKey: '',
+            encryptedPrivateKeys: '',
+            argon2Salt: ''
+          };
+        }
+      });
+
+      // Create the secure facade
+      const facade = bundle.createFacade(newOrchestrator, {
+        relationKind: 'file'
+      });
+
+      setOrchestrator(newOrchestrator);
+      setSecureFacade(facade);
+    } catch (err) {
+      const initError =
+        err instanceof Error ? err : new Error('Failed to initialize VFS');
+      setError(initError);
+      console.error('VFS orchestrator initialization failed:', err);
+    } finally {
+      setIsInitializing(false);
+    }
+  }, [user, isAuthenticated, effectiveBaseUrl, apiPrefix]);
+
+  // Initialize when user becomes authenticated
+  useEffect(() => {
+    void initialize();
+  }, [initialize]);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      setOrchestrator(null);
+      setSecureFacade(null);
+    };
+  }, []);
+
+  const contextValue = useMemo<VfsOrchestratorContextValue>(
+    () => ({
+      orchestrator,
+      secureFacade,
+      isReady:
+        orchestrator !== null && secureFacade !== null && !isInitializing,
+      isInitializing,
+      error,
+      reinitialize: initialize
+    }),
+    [orchestrator, secureFacade, isInitializing, error, initialize]
+  );
+
+  return (
+    <VfsOrchestratorContext.Provider value={contextValue}>
+      {children}
+    </VfsOrchestratorContext.Provider>
+  );
+}
+
+/**
+ * Hook to access the VFS orchestrator context.
+ * Throws if used outside of VfsOrchestratorProvider.
+ */
+export function useVfsOrchestrator(): VfsOrchestratorContextValue {
+  const context = useContext(VfsOrchestratorContext);
+  if (!context) {
+    throw new Error(
+      'useVfsOrchestrator must be used within VfsOrchestratorProvider'
+    );
+  }
+  return context;
+}
+
+/**
+ * Hook to access the secure facade.
+ * Returns null if not ready or if provider is not present.
+ */
+export function useVfsSecureFacade(): VfsSecureOrchestratorFacade | null {
+  const context = useContext(VfsOrchestratorContext);
+  if (!context || !context.isReady) {
+    return null;
+  }
+  return context.secureFacade;
+}
+
+/**
+ * Hook to access the orchestrator.
+ * Returns null if not ready or if provider is not present.
+ */
+export function useVfsOrchestratorInstance(): VfsWriteOrchestrator | null {
+  const context = useContext(VfsOrchestratorContext);
+  if (!context || !context.isReady) {
+    return null;
+  }
+  return context.orchestrator;
+}

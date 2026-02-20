@@ -883,6 +883,9 @@ importers:
       '@tearleads/analytics':
         specifier: workspace:*
         version: link:../analytics
+      '@tearleads/api-client':
+        specifier: workspace:*
+        version: link:../api-client
       '@tearleads/audio':
         specifier: workspace:*
         version: link:../audio
@@ -946,6 +949,9 @@ importers:
       '@tearleads/vfs-explorer':
         specifier: workspace:*
         version: link:../vfs-explorer
+      '@tearleads/vfs-sync':
+        specifier: workspace:*
+        version: link:../vfs-sync
       '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager

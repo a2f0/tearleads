@@ -141,6 +141,7 @@ export const createViteAliases = (
     ),
     '@tearleads/settings': path.resolve(dirname, '../settings/src/index.ts'),
     '@tearleads/vfs-sync/package.json': path.resolve(dirname, '../vfs-sync/package.json'),
+    '@tearleads/vfs-sync/vfs': path.resolve(dirname, '../vfs-sync/src/vfs/index.ts'),
     '@tearleads/vfs-sync': path.resolve(dirname, '../vfs-sync/src/index.ts'),
     '@tearleads/terminal/package.json': path.resolve(
       dirname,

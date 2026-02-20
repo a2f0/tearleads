@@ -131,7 +131,7 @@ describe('secureOrchestratorFacade with real crypto', () => {
     vi.mocked(global.fetch).mockImplementation(
       async (
         input: RequestInfo | URL,
-        init?: RequestInit
+        _init?: RequestInit
       ): Promise<Response> => {
         const url = input.toString();
         if (url.includes('/v1/vfs/crdt')) {
