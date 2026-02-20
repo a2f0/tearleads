@@ -20,6 +20,7 @@ const requiredEnvVars = [
   'ANDROID_KEYSTORE_STORE_PASS',
   'ANDROID_KEYSTORE_KEY_PASS',
   'ANTHROPIC_API_KEY',
+  'OPENROUTER_API_KEY',
   'TF_VAR_staging_domain',
   'TF_VAR_server_username',
   'VITE_API_URL'
@@ -40,6 +41,7 @@ const managedSecretNames = [
   'ANDROID_KEYSTORE_KEY_PASS',
   'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON',
   'ANTHROPIC_API_KEY',
+  'OPENROUTER_API_KEY',
   'DEPLOY_SSH_KEY',
   'DEPLOY_DOMAIN',
   'DEPLOY_USER',
@@ -184,6 +186,7 @@ function main(): void {
       value: googlePlayServiceAccountJsonBase64
     },
     { name: 'ANTHROPIC_API_KEY', value: env.ANTHROPIC_API_KEY },
+    { name: 'OPENROUTER_API_KEY', value: env.OPENROUTER_API_KEY },
     { name: 'DEPLOY_SSH_KEY', value: deploySshKey },
     { name: 'DEPLOY_DOMAIN', value: env.TF_VAR_staging_domain },
     { name: 'DEPLOY_USER', value: env.TF_VAR_server_username },
