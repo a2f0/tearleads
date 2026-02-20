@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { UNTAGGED_TAG_NAME } from '../lib/constants';
 import { ClassicMenuBar } from './ClassicMenuBar';
 import { type ClassicAppProps, useClassicAppState } from './classicAppState';
@@ -74,7 +74,7 @@ export function ClassicApp({
     onUpdateNote
   });
 
-  const activeTagName = (() => {
+  const activeTagName = useMemo(() => {
     if (state.activeTagId === null) {
       return 'All Entries';
     }
@@ -82,7 +82,7 @@ export function ClassicApp({
       return UNTAGGED_TAG_NAME;
     }
     return state.tags.find((tag) => tag.id === state.activeTagId)?.name ?? null;
-  })();
+  }, [state.activeTagId, state.tags]);
 
   const handleTagSearchKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
