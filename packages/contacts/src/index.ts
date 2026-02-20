@@ -42,5 +42,3 @@ export {
   useContactsExport,
   useContactsImport
 } from './hooks';
-
-export { cn, generateVCard } from './lib';

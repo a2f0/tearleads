@@ -21,6 +21,5 @@ export {
   type ColumnMapping,
   type ImportResult,
   type ParsedCSV,
-  parseCSV,
   useContactsImport
 } from './useContactsImport';
