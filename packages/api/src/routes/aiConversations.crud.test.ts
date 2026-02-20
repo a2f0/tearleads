@@ -305,7 +305,7 @@ describe('AI Conversations Routes - CRUD', () => {
       const response = await request(app).get('/v1/ai/conversations');
 
       expect(response.status).toBe(401);
-    }, 15000);
+    });
   });
 
   describe('GET /v1/ai/conversations/:id', () => {
