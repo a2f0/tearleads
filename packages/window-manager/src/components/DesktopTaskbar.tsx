@@ -86,16 +86,17 @@ export function DesktopTaskbar({
         return;
       }
 
-      const preMaximizeDimensions =
-        targetWindow.dimensions?.preMaximizeDimensions ??
-        (targetWindow.dimensions && !targetWindow.dimensions.isMaximized
-          ? {
-              width: targetWindow.dimensions.width,
-              height: targetWindow.dimensions.height,
-              x: targetWindow.dimensions.x,
-              y: targetWindow.dimensions.y
-            }
-          : undefined);
+      const preMaximizeDimensions = (() => {
+        const { dimensions } = targetWindow;
+        if (dimensions?.preMaximizeDimensions) {
+          return dimensions.preMaximizeDimensions;
+        }
+        if (dimensions && !dimensions.isMaximized) {
+          const { width, height, x, y } = dimensions;
+          return { width, height, x, y };
+        }
+        return undefined;
+      })();
 
       onUpdateWindowDimensions(windowId, {
         width: window.innerWidth,
