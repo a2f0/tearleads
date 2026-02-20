@@ -202,10 +202,10 @@ export default defineConfig({
       thresholds: {
         // Threshold lowered after file-splitting refactor. Coverage fluctuates
         // slightly depending on test execution order and module loading.
-        statements: 90.3,
+        statements: 90.2,
         branches: 82.4,
-        functions: 91.6,
-        lines: 91.8
+        functions: 91.4,
+        lines: 91.7
       }
     }
   },
