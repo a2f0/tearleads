@@ -3,8 +3,8 @@ variable "name" {
   type        = string
 }
 
-variable "ssh_key_name" {
-  description = "Name of existing SSH key in Hetzner"
+variable "ssh_key_id" {
+  description = "ID of existing SSH key in Hetzner"
   type        = string
 }
 

@@ -6,8 +6,8 @@ data "hcloud_ssh_key" "main" {
 module "server" {
   source = "../../../modules/hetzner-server"
 
-  name         = "k8s-${var.staging_domain}"
-  ssh_key_name = var.ssh_key_name
+  name       = "k8s-${var.staging_domain}"
+  ssh_key_id = data.hcloud_ssh_key.main.id
   server_type  = var.server_type
   location     = var.server_location
 

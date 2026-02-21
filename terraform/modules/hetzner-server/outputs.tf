@@ -28,11 +28,6 @@ output "status" {
   value       = hcloud_server.main.status
 }
 
-output "ssh_public_key" {
-  description = "SSH public key used for authentication"
-  value       = data.hcloud_ssh_key.main.public_key
-}
-
 output "firewall_id" {
   description = "ID of the firewall (if created)"
   value       = var.create_firewall ? hcloud_firewall.main[0].id : null
