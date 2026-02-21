@@ -55,6 +55,7 @@ export function createVfsSecurePipelineBundle(
     recipientPublicKeyResolver: options.recipientPublicKeyResolver,
     createKeySetupPayload: options.createKeySetupPayload
   });
+  const inFlightKeyProvisioning = new Map<string, Promise<number>>();
 
   const createFacade = (
     orchestrator: Pick<
@@ -77,12 +78,27 @@ export function createVfsSecurePipelineBundle(
         if (epoch !== null) {
           return epoch;
         }
-        // Auto-create key for first upload.
-        // TODO(#2065 item 2): Race condition - concurrent uploads for same new item
-        // can both call createItemKey. Requires ItemKeyStore.setItemKey with
-        // INSERT-IF-NOT-EXISTS semantics or locking. Deferred to item 2.
-        const result = await keyManager.createItemKey({ itemId });
-        return result.keyEpoch;
+        const existingProvisioning = inFlightKeyProvisioning.get(itemId);
+        if (existingProvisioning) {
+          return existingProvisioning;
+        }
+
+        const provisionPromise = (async () => {
+          const refreshedEpoch =
+            await options.itemKeyStore.getLatestKeyEpoch(itemId);
+          if (refreshedEpoch !== null) {
+            return refreshedEpoch;
+          }
+          const result = await keyManager.createItemKey({ itemId });
+          return result.keyEpoch;
+        })();
+        inFlightKeyProvisioning.set(itemId, provisionPromise);
+
+        try {
+          return await provisionPromise;
+        } finally {
+          inFlightKeyProvisioning.delete(itemId);
+        }
       },
       listWrappedFileKeys: async ({ itemId, keyEpoch }) => {
         const wrappedKeys: VfsWrappedKey[] = [];

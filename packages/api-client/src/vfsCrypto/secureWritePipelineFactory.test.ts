@@ -217,6 +217,70 @@ describe('createVfsSecurePipelineBundle', () => {
     expect(isValid).toBe(true);
   });
 
+  it('dedupes concurrent first-upload key provisioning for the same item', async () => {
+    vi.mocked(global.fetch).mockImplementation(async () =>
+      createMockFetchResponse()
+    );
+
+    const ownerKeyPair = generateKeyPair();
+    const itemKeyStore = createMockItemKeyStore();
+
+    const bundle = createVfsSecurePipelineBundle({
+      userKeyProvider: createMockUserKeyProvider(ownerKeyPair),
+      itemKeyStore,
+      recipientPublicKeyResolver: {
+        resolvePublicKey: vi.fn(async () => null)
+      },
+      createKeySetupPayload: vi.fn()
+    });
+
+    const originalCreateItemKey =
+      bundle.keyManager.createItemKey.bind(bundle.keyManager);
+    const createItemKeySpy = vi
+      .spyOn(bundle.keyManager, 'createItemKey')
+      .mockImplementation(async (input) => {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        return originalCreateItemKey(input);
+      });
+
+    const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');
+    const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
+      crdt: {
+        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+      },
+      blob: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+    });
+
+    const facade = bundle.createFacade(orchestrator);
+    const createStream = (content: string): ReadableStream<Uint8Array> =>
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(content));
+          controller.close();
+        }
+      });
+
+    const [firstResult, secondResult] = await Promise.all([
+      facade.stageAttachEncryptedBlobAndPersist({
+        itemId: 'concurrent-new-item',
+        blobId: 'blob-1',
+        stream: createStream('first'),
+        expiresAt: '2026-02-20T00:00:00.000Z'
+      }),
+      facade.stageAttachEncryptedBlobAndPersist({
+        itemId: 'concurrent-new-item',
+        blobId: 'blob-2',
+        stream: createStream('second'),
+        expiresAt: '2026-02-20T00:00:00.000Z'
+      })
+    ]);
+
+    expect(firstResult.manifest.keyEpoch).toBe(1);
+    expect(secondResult.manifest.keyEpoch).toBe(1);
+    expect(await itemKeyStore.getLatestKeyEpoch('concurrent-new-item')).toBe(1);
+    expect(createItemKeySpy).toHaveBeenCalledTimes(1);
+  });
+
   it('includes wrapped keys for shares with matching key epoch', async () => {
     vi.mocked(global.fetch).mockImplementation(async () =>
       createMockFetchResponse()

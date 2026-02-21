@@ -33,7 +33,12 @@ export const vfsCrdtOps = sqliteTable(
     }),
     sourceTable: text('source_table').notNull(),
     sourceId: text('source_id').notNull(),
-    occurredAt: integer('occurred_at', { mode: 'timestamp_ms' }).notNull()
+    occurredAt: integer('occurred_at', { mode: 'timestamp_ms' }).notNull(),
+    encryptedPayload: text('encrypted_payload'),
+    keyEpoch: integer('key_epoch'),
+    encryptionNonce: text('encryption_nonce'),
+    encryptionAad: text('encryption_aad'),
+    encryptionSignature: text('encryption_signature')
   },
   (table) => [
     index('vfs_crdt_ops_item_idx').on(table.itemId),

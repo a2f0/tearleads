@@ -328,6 +328,7 @@ export const vfsAclEntries = sqliteTable(
     }).notNull(),
     wrappedSessionKey: text('wrapped_session_key'),
     wrappedHierarchicalKey: text('wrapped_hierarchical_key'),
+    keyEpoch: integer('key_epoch'),
     grantedBy: text('granted_by').references(() => users.id, {
       onDelete: 'restrict'
     }),
