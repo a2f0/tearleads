@@ -179,14 +179,18 @@ export function useFileUpload() {
         createdAt: new Date()
       });
 
-      // Use secure facade for encrypted server upload when available
+      const secureUploadEnabled =
+        isLoggedIn() && getFeatureFlagValue('vfsSecureUpload');
+
+      // Use secure facade for encrypted server upload when enabled.
+      // Fail closed when secure mode is enabled but runtime dependencies fail.
       let serverUploadSucceeded = false;
-      if (
-        isLoggedIn() &&
-        getFeatureFlagValue('vfsSecureUpload') &&
-        secureFacade &&
-        orchestrator
-      ) {
+      if (secureUploadEnabled) {
+        if (!secureFacade || !orchestrator) {
+          throw new Error(
+            'Secure upload is enabled but VFS secure orchestrator is not ready'
+          );
+        }
         try {
           const expiresAt = new Date();
           expiresAt.setDate(expiresAt.getDate() + DEFAULT_BLOB_EXPIRY_DAYS);
@@ -209,13 +213,15 @@ export function useFileUpload() {
 
           serverUploadSucceeded = true;
         } catch (err) {
-          console.warn('Failed to upload via secure facade:', err);
-          // Fall through to legacy registration if secure upload fails
+          throw new Error('Secure upload failed', {
+            cause: err
+          });
         }
       }
 
-      // Legacy registration path - used when secure upload is not enabled or fails
+      // Legacy registration path - used when secure upload is not enabled.
       if (
+        !secureUploadEnabled &&
         !serverUploadSucceeded &&
         isLoggedIn() &&
         getFeatureFlagValue('vfsServerRegistration') &&

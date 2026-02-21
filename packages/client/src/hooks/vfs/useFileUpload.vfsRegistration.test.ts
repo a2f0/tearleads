@@ -240,8 +240,7 @@ describe('useFileUpload VFS registration', () => {
     expect(mockOrchestrator.flushAll).toHaveBeenCalled();
   });
 
-  it('falls back gracefully when secure facade upload fails', async () => {
-    const consoleSpy = mockConsoleWarn();
+  it('fails closed when secure facade upload fails', async () => {
     vi.mocked(isLoggedIn).mockReturnValue(true);
     vi.mocked(getFeatureFlagValue).mockImplementation((flag: string) => {
       return flag === 'vfsSecureUpload';
@@ -268,18 +267,12 @@ describe('useFileUpload VFS registration', () => {
     const { result } = renderHook(() => useFileUpload());
     const file = new File(['test'], 'test.png', { type: 'image/png' });
 
-    const uploadResult = await result.current.uploadFile(file);
-
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Failed to upload via secure facade:',
-      expect.any(Error)
+    await expect(result.current.uploadFile(file)).rejects.toThrow(
+      'Secure upload failed'
     );
-    expect(uploadResult.id).toBe('test-uuid-1234');
-    consoleSpy.mockRestore();
   });
 
-  it('falls back gracefully when flushAll fails', async () => {
-    const consoleSpy = mockConsoleWarn();
+  it('fails closed when secure upload flushAll fails', async () => {
     vi.mocked(isLoggedIn).mockReturnValue(true);
     vi.mocked(getFeatureFlagValue).mockImplementation((flag: string) => {
       return flag === 'vfsSecureUpload';
@@ -307,14 +300,25 @@ describe('useFileUpload VFS registration', () => {
     const { result } = renderHook(() => useFileUpload());
     const file = new File(['test'], 'test.png', { type: 'image/png' });
 
-    const uploadResult = await result.current.uploadFile(file);
-
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Failed to upload via secure facade:',
-      expect.any(Error)
+    await expect(result.current.uploadFile(file)).rejects.toThrow(
+      'Secure upload failed'
     );
-    expect(uploadResult.id).toBe('test-uuid-1234');
-    consoleSpy.mockRestore();
+  });
+
+  it('fails closed when secure upload is enabled but facade is unavailable', async () => {
+    vi.mocked(isLoggedIn).mockReturnValue(true);
+    vi.mocked(getFeatureFlagValue).mockImplementation((flag: string) => {
+      return flag === 'vfsSecureUpload';
+    });
+    vi.mocked(useVfsSecureFacade).mockReturnValue(null);
+    vi.mocked(useVfsOrchestratorInstance).mockReturnValue(null);
+
+    const { result } = renderHook(() => useFileUpload());
+    const file = new File(['test'], 'test.png', { type: 'image/png' });
+
+    await expect(result.current.uploadFile(file)).rejects.toThrow(
+      'Secure upload is enabled but VFS secure orchestrator is not ready'
+    );
   });
 
   it('uses legacy registration when vfsServerRegistration is enabled but not vfsSecureUpload', async () => {
