@@ -44,13 +44,7 @@ export async function rotateItemKeyEpochAndPersist(
   await input.apiClient.rekeyItem(input.itemId, {
     reason: input.reason,
     newEpoch: rotated.newEpoch,
-    wrappedKeys: rotated.wraps.map((wrap) => ({
-      recipientUserId: wrap.recipientUserId,
-      recipientPublicKeyId: wrap.recipientPublicKeyId,
-      keyEpoch: wrap.keyEpoch,
-      encryptedKey: wrap.encryptedKey,
-      senderSignature: wrap.senderSignature
-    }))
+    wrappedKeys: rotated.wraps
   });
 
   return rotated;

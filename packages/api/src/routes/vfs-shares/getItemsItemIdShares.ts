@@ -5,6 +5,7 @@ import type {
   VfsShareType,
   VfsWrappedKeyPayload
 } from '@tearleads/shared';
+import { isRecord } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 import {
@@ -20,10 +21,6 @@ interface WrappedKeyMetadata {
   senderSignature: string;
 }
 
-function isRecordValue(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
 function parseWrappedKeyMetadata(
   value: string | null
 ): WrappedKeyMetadata | null {
@@ -32,7 +29,7 @@ function parseWrappedKeyMetadata(
   }
   try {
     const parsed = JSON.parse(value);
-    if (!isRecordValue(parsed)) {
+    if (!isRecord(parsed)) {
       return null;
     }
 
@@ -72,6 +69,7 @@ function buildWrappedKeyForShare(input: {
     !input.wrappedSessionKey.trim() ||
     typeof input.keyEpoch !== 'number' ||
     !Number.isInteger(input.keyEpoch) ||
+    !Number.isSafeInteger(input.keyEpoch) ||
     input.keyEpoch < 1
   ) {
     return null;

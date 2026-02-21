@@ -276,12 +276,8 @@ function isValidPermissionLevel(value: unknown): value is VfsPermissionLevel {
   );
 }
 
-function isRecordValue(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
 function parseWrappedKeyPayload(value: unknown): VfsWrappedKeyPayload | null {
-  if (!isRecordValue(value)) {
+  if (!isRecord(value)) {
     return null;
   }
 

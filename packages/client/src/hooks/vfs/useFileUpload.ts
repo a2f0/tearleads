@@ -216,9 +216,11 @@ export function useFileUpload() {
               stream: createStreamFromFile(file),
               expiresAt: expiresAt.toISOString()
             });
-          } catch {
+          } catch (err) {
             secureUploadFailStage = 'stage_attach';
-            throw new Error('Secure upload failed (stage_attach)');
+            throw new Error('Secure upload failed (stage_attach)', {
+              cause: err
+            });
           }
 
           // Flush queued operations to ensure data reaches the server.
@@ -226,9 +228,9 @@ export function useFileUpload() {
           // flushAll sends them over the network.
           try {
             await orchestrator.flushAll();
-          } catch {
+          } catch (err) {
             secureUploadFailStage = 'flush';
-            throw new Error('Secure upload failed (flush)');
+            throw new Error('Secure upload failed (flush)', { cause: err });
           }
 
           serverUploadSucceeded = true;
@@ -272,7 +274,6 @@ export function useFileUpload() {
       // Legacy registration path - used when secure upload is not enabled.
       if (
         !secureUploadEnabled &&
-        !serverUploadSucceeded &&
         isLoggedIn() &&
         getFeatureFlagValue('vfsServerRegistration') &&
         encryptedSessionKey
