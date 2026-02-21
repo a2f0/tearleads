@@ -11,5 +11,5 @@ source "$REPO_ROOT/terraform/scripts/common.sh"
 
 setup_ssh_host_keys
 
-terraform -chdir="$STACK_DIR" init
+terraform -chdir="$STACK_DIR" init -backend-config="$(get_backend_config)"
 terraform -chdir="$STACK_DIR" apply "$@"

@@ -17,49 +17,45 @@ data "hcloud_ssh_key" "main" {
   name = var.ssh_key_name
 }
 
-# Cleanup Tailscale device registration on destroy
-# This prevents stale entries like vault-prod-1, vault-prod-2, etc.
-resource "null_resource" "tailscale_cleanup" {
-  triggers = {
-    hostname  = local.tailscale_hostname
-    api_token = var.tailscale_api_token
-  }
+# Pre-create cleanup: runs BEFORE server creation to handle taint/recreate scenarios
+# When a server is tainted, the old Tailscale device must be removed before the new
+# server's cloud-init registers, otherwise it gets a suffixed name (vault-prod-1)
+resource "terraform_data" "tailscale_pre_cleanup" {
+  triggers_replace = [timestamp()]
 
   provisioner "local-exec" {
-    when = destroy
     environment = {
-      TAILSCALE_API_TOKEN = self.triggers.api_token
-      TAILSCALE_HOSTNAME  = self.triggers.hostname
+      TAILSCALE_API_TOKEN = var.tailscale_api_token
+      TAILSCALE_HOSTNAME  = local.tailscale_hostname
     }
     command = <<-EOF
-      echo "Cleaning up Tailscale devices matching '$TAILSCALE_HOSTNAME'..."
+      echo "Pre-create cleanup: removing Tailscale devices matching '$TAILSCALE_HOSTNAME'..."
 
-      # List all devices and find ones matching our hostname pattern
       DEVICES=$(curl -s -H "Authorization: Bearer $TAILSCALE_API_TOKEN" \
         "https://api.tailscale.com/api/v2/tailnet/-/devices" | \
-        jq -r ".devices[] | select(.hostname | startswith(\"$TAILSCALE_HOSTNAME\")) | \"\(.id) \(.hostname)\"")
+        jq -r ".devices[] | select(.hostname | startswith(\"$TAILSCALE_HOSTNAME\")) | \"\(.id)|\(.hostname)\"")
 
       if [ -z "$DEVICES" ]; then
         echo "No matching devices found."
         exit 0
       fi
 
-      echo "Found devices:"
-      echo "$DEVICES"
+      echo "Found devices to clean up:"
+      echo "$DEVICES" | tr '|' ' '
 
-      # Delete each matching device
-      echo "$DEVICES" | while read -r ID NAME; do
+      echo "$DEVICES" | while IFS='|' read -r ID NAME; do
         echo "Deleting device: $NAME ($ID)"
         curl -s -X DELETE -H "Authorization: Bearer $TAILSCALE_API_TOKEN" \
           "https://api.tailscale.com/api/v2/device/$ID"
       done
 
-      echo "Tailscale cleanup complete."
+      echo "Pre-create cleanup complete."
     EOF
   }
 }
 
 module "server" {
+  depends_on = [terraform_data.tailscale_pre_cleanup]
   source = "../../../modules/hetzner-server"
 
   name         = "vault-prod"
@@ -133,5 +129,46 @@ module "server" {
   labels = {
     environment = "prod"
     stack       = "vault"
+  }
+}
+
+# Destroy-time cleanup: removes Tailscale device when stack is destroyed
+# This complements pre-create cleanup for full lifecycle coverage
+resource "terraform_data" "tailscale_destroy_cleanup" {
+  input = {
+    hostname  = local.tailscale_hostname
+    api_token = var.tailscale_api_token
+    server_id = module.server.server_id
+  }
+
+  provisioner "local-exec" {
+    when = destroy
+    environment = {
+      TAILSCALE_API_TOKEN = self.input.api_token
+      TAILSCALE_HOSTNAME  = self.input.hostname
+    }
+    command = <<-EOF
+      echo "Destroy cleanup: removing Tailscale devices matching '$TAILSCALE_HOSTNAME'..."
+
+      DEVICES=$(curl -s -H "Authorization: Bearer $TAILSCALE_API_TOKEN" \
+        "https://api.tailscale.com/api/v2/tailnet/-/devices" | \
+        jq -r ".devices[] | select(.hostname | startswith(\"$TAILSCALE_HOSTNAME\")) | \"\(.id)|\(.hostname)\"")
+
+      if [ -z "$DEVICES" ]; then
+        echo "No matching devices found."
+        exit 0
+      fi
+
+      echo "Found devices to clean up:"
+      echo "$DEVICES" | tr '|' ' '
+
+      echo "$DEVICES" | while IFS='|' read -r ID NAME; do
+        echo "Deleting device: $NAME ($ID)"
+        curl -s -X DELETE -H "Authorization: Bearer $TAILSCALE_API_TOKEN" \
+          "https://api.tailscale.com/api/v2/device/$ID"
+      done
+
+      echo "Destroy cleanup complete."
+    EOF
   }
 }
