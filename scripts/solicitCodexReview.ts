@@ -37,51 +37,48 @@ function main(): void {
     throw new Error('Cannot review main branch. Checkout a PR branch first.');
   }
 
-  const repo =
-    tryRun('gh', [
-      'repo',
-      'view',
-      '--json',
-      'nameWithOwner',
-      '-q',
-      '.nameWithOwner'
-    ]) || '';
+  const repoRaw = tryRun('gh', ['repo', 'view', '--json', 'nameWithOwner']);
+  const repo = repoRaw
+    ? (JSON.parse(repoRaw) as { nameWithOwner: string }).nameWithOwner
+    : '';
   if (repo.length === 0) {
     throw new Error(
       'Could not determine repository. Ensure gh is authenticated.'
     );
   }
 
-  const prNumber =
-    tryRun('gh', [
-      'pr',
-      'list',
-      '--head',
-      branch,
-      '--state',
-      'open',
-      '--json',
-      'number',
-      '--jq',
-      '.[0].number',
-      '-R',
-      repo
-    ]) || '';
+  const prListRaw = tryRun('gh', [
+    'pr',
+    'list',
+    '--head',
+    branch,
+    '--state',
+    'open',
+    '--json',
+    'number',
+    '-R',
+    repo
+  ]);
+  const prNumber = prListRaw
+    ? String(
+        (JSON.parse(prListRaw) as Array<{ number: number }>)[0]?.number ?? ''
+      )
+    : '';
   if (prNumber.length === 0) {
     throw new Error(`No PR found for branch '${branch}'. Create a PR first.`);
   }
 
-  const baseRef = run('gh', [
+  const baseRefRaw = run('gh', [
     'pr',
     'view',
     prNumber,
     '--json',
     'baseRefName',
-    '-q',
-    '.baseRefName',
     '-R',
     repo
   ]);
+  const baseRef = (JSON.parse(baseRefRaw) as { baseRefName: string })
+    .baseRefName;
 
   ensureChanges(baseRef);
 

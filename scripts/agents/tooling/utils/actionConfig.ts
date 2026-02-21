@@ -59,8 +59,7 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
   addLabel: {
     safetyClass: 'safe_write_remote',
     retrySafe: true,
-    isInline: false,
-    scriptPath: (_repo, agents) => path.join(agents, 'addLabel.ts')
+    isInline: true
   },
   approveSkippedChecks: {
     safetyClass: 'safe_write_remote',
@@ -71,9 +70,7 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
   tagPrWithTuxedoInstance: {
     safetyClass: 'safe_write_remote',
     retrySafe: true,
-    isInline: false,
-    scriptPath: (_repo, agents) =>
-      path.join(agents, 'tagPrWithTuxedoInstance.ts')
+    isInline: true
   },
   getPrInfo: { safetyClass: 'safe_read', retrySafe: true, isInline: true },
   getPrChecks: { safetyClass: 'safe_read', retrySafe: true, isInline: true },
