@@ -127,6 +127,31 @@ describe('VfsKeyManager', () => {
       const result = await manager.ensureUserKeys();
       expect(result).toEqual(expectedPayload);
     });
+
+    it('memoizes key setup payload per manager instance', async () => {
+      const ownerKeyPair = generateKeyPair();
+      const createKeySetupPayload = vi.fn(async () => ({
+        publicEncryptionKey: 'pub-key',
+        publicSigningKey: 'sign-key',
+        encryptedPrivateKeys: 'enc-keys',
+        argon2Salt: 'salt'
+      }));
+
+      const manager = createVfsKeyManager({
+        userKeyProvider: createMockUserKeyProvider(ownerKeyPair),
+        itemKeyStore: createMockItemKeyStore(),
+        recipientPublicKeyResolver: createMockRecipientResolver(new Map()),
+        createKeySetupPayload
+      });
+
+      const [first, second] = await Promise.all([
+        manager.ensureUserKeys(),
+        manager.ensureUserKeys()
+      ]);
+
+      expect(first).toEqual(second);
+      expect(createKeySetupPayload).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('createItemKey', () => {
@@ -148,6 +173,7 @@ describe('VfsKeyManager', () => {
       });
 
       const result = await manager.createItemKey({ itemId: 'item-1' });
+      await manager.createItemKey({ itemId: 'item-2' });
 
       expect(result.keyEpoch).toBe(1);
       expect(createKeySetupPayload).toHaveBeenCalledTimes(1);

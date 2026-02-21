@@ -69,6 +69,7 @@ class DefaultVfsKeyManager implements VfsKeyManager {
   private readonly itemKeyStore: ItemKeyStore;
   private readonly recipientPublicKeyResolver: RecipientPublicKeyResolver;
   private readonly createKeySetupPayload: () => Promise<VfsKeySetupPayload>;
+  private keySetupPromise: Promise<VfsKeySetupPayload> | null = null;
 
   constructor(options: VfsKeyManagerRuntimeOptions) {
     this.userKeyProvider = options.userKeyProvider;
@@ -78,7 +79,15 @@ class DefaultVfsKeyManager implements VfsKeyManager {
   }
 
   async ensureUserKeys(): Promise<VfsKeySetupPayload> {
-    return this.createKeySetupPayload();
+    if (this.keySetupPromise === null) {
+      this.keySetupPromise = Promise.resolve()
+        .then(() => this.createKeySetupPayload())
+        .catch((error) => {
+          this.keySetupPromise = null;
+          throw error;
+        });
+    }
+    return this.keySetupPromise;
   }
 
   async createItemKey(input: CreateItemKeyInput): Promise<CreateItemKeyResult> {
