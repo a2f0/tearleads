@@ -425,23 +425,26 @@ describe('secureOrchestratorFacade checkpoint fields', () => {
       expiresAt: '2026-02-20T00:00:00.000Z'
     });
 
-    expect(queueBlobStageAndPersist).toHaveBeenCalledWith({
-      blobId: 'blob-6',
-      expiresAt: '2026-02-20T00:00:00.000Z',
-      encryption: {
-        algorithm: 'vfs-envelope-v1',
-        keyEpoch: 3,
-        manifestHash: result.manifest.manifestSignature,
-        chunkCount: 1,
-        chunkSizeBytes: plaintext.length,
-        plaintextSizeBytes: plaintext.length,
-        ciphertextSizeBytes: expect.any(Number),
-        checkpoint: {
-          uploadId: expect.any(String),
-          nextChunkIndex: 1
+    expect(queueBlobStageAndPersist).toHaveBeenCalledWith(
+      expect.objectContaining({
+        blobId: 'blob-6',
+        expiresAt: '2026-02-20T00:00:00.000Z',
+        stagingId: expect.any(String),
+        encryption: {
+          algorithm: 'vfs-envelope-v1',
+          keyEpoch: 3,
+          manifestHash: result.manifest.manifestSignature,
+          chunkCount: 1,
+          chunkSizeBytes: plaintext.length,
+          plaintextSizeBytes: plaintext.length,
+          ciphertextSizeBytes: expect.any(Number),
+          checkpoint: {
+            uploadId: expect.any(String),
+            nextChunkIndex: 1
+          }
         }
-      }
-    });
+      })
+    );
 
     const encryption = queueBlobStageAndPersist.mock.calls[0][0].encryption;
     expect(encryption.ciphertextSizeBytes).toBeGreaterThan(

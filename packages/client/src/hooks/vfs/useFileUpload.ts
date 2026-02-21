@@ -22,7 +22,12 @@ import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { UnsupportedFileTypeError } from '@/lib/errors';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
-import { computeContentHash, readFileAsUint8Array } from '@/lib/fileUtils';
+import {
+  computeContentHash,
+  createStreamFromFile,
+  readFileAsUint8Array,
+  readMagicBytes
+} from '@/lib/fileUtils';
 import { generateThumbnail, isThumbnailSupported } from '@/lib/thumbnail';
 import {
   createStoreLogger,
@@ -39,18 +44,6 @@ export interface UploadResult {
 
 /** Default expiration for staged blobs (7 days) */
 const DEFAULT_BLOB_EXPIRY_DAYS = 7;
-
-/**
- * Convert a Uint8Array to a ReadableStream for the secure pipeline.
- */
-function createStreamFromData(data: Uint8Array): ReadableStream<Uint8Array> {
-  return new ReadableStream({
-    start(controller) {
-      controller.enqueue(data);
-      controller.close();
-    }
-  });
-}
 
 export function useFileUpload() {
   const secureFacade = useVfsSecureFacade();
@@ -75,21 +68,22 @@ export function useFileUpload() {
         await initializeFileStorage(encryptionKey, instanceId);
       }
 
-      // Read file data
-      const data = await readFileAsUint8Array(file);
-      onProgress?.(20);
-
-      // Detect MIME type from file content (magic bytes)
-      const detectedType = await fileTypeFromBuffer(data);
+      // Detect MIME type from file content (magic bytes only - memory efficient)
+      const magicBytes = await readMagicBytes(file);
+      const detectedType = await fileTypeFromBuffer(magicBytes);
       let mimeType: string;
       if (detectedType) {
         mimeType = detectedType.mime;
       } else if (file.type.startsWith('text/')) {
-        // Text files don't have magic bytes, so fall back to browser-provided MIME type
         mimeType = file.type;
       } else {
         throw new UnsupportedFileTypeError(file.name);
       }
+      onProgress?.(10);
+
+      // Read file data for local storage and hash computation
+      const data = await readFileAsUint8Array(file);
+      onProgress?.(30);
 
       // Compute content hash for deduplication
       const contentHash = await computeContentHash(data);
@@ -197,11 +191,14 @@ export function useFileUpload() {
           const expiresAt = new Date();
           expiresAt.setDate(expiresAt.getDate() + DEFAULT_BLOB_EXPIRY_DAYS);
 
+          // Stream directly from File for memory-efficient encrypted upload.
+          // The secure pipeline processes chunks via callback without
+          // accumulating ciphertext in memory.
           await secureFacade.stageAttachEncryptedBlobAndPersist({
             itemId: id,
             blobId: crypto.randomUUID(),
             contentType: mimeType,
-            stream: createStreamFromData(data),
+            stream: createStreamFromFile(file),
             expiresAt: expiresAt.toISOString()
           });
 
