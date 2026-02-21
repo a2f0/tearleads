@@ -36,7 +36,18 @@ describe('post-crdt-push-parse encrypted envelope', () => {
       throw new Error('Expected parsePushPayload to succeed');
     }
 
-    expect(result.value.operations[0]?.status).toBe('parsed');
+    expect(result.value.operations[0]).toEqual({
+      status: 'parsed',
+      opId: 'op-1',
+      operation: {
+        ...buildValidAclAddOperation(),
+        encryptedPayload: 'base64-ciphertext',
+        keyEpoch: 1,
+        encryptionNonce: 'base64-nonce',
+        encryptionAad: 'base64-aad',
+        encryptionSignature: 'base64-sig'
+      }
+    });
   });
 
   it('parses encrypted ACL operation without plaintext ACL fields', () => {
@@ -64,7 +75,23 @@ describe('post-crdt-push-parse encrypted envelope', () => {
       throw new Error('Expected parsePushPayload to succeed');
     }
 
-    expect(result.value.operations[0]?.status).toBe('parsed');
+    expect(result.value.operations[0]).toEqual({
+      status: 'parsed',
+      opId: 'op-1',
+      operation: {
+        opId: 'op-1',
+        opType: 'acl_add',
+        itemId: 'item-1',
+        replicaId: 'client-1',
+        writeId: 1,
+        occurredAt: '2026-02-16T00:00:00.000Z',
+        encryptedPayload: 'base64-ciphertext',
+        keyEpoch: 1,
+        encryptionNonce: 'base64-nonce',
+        encryptionAad: 'base64-aad',
+        encryptionSignature: 'base64-sig'
+      }
+    });
   });
 
   it('rejects encrypted operation with invalid keyEpoch', () => {
@@ -128,7 +155,23 @@ describe('post-crdt-push-parse encrypted envelope', () => {
       throw new Error('Expected parsePushPayload to succeed');
     }
 
-    expect(result.value.operations[0]?.status).toBe('parsed');
+    expect(result.value.operations[0]).toEqual({
+      status: 'parsed',
+      opId: 'op-link-1',
+      operation: {
+        opId: 'op-link-1',
+        opType: 'link_add',
+        itemId: 'item-1',
+        replicaId: 'client-1',
+        writeId: 1,
+        occurredAt: '2026-02-16T00:00:00.000Z',
+        encryptedPayload: 'base64-ciphertext',
+        keyEpoch: 1,
+        encryptionNonce: 'base64-nonce',
+        encryptionAad: 'base64-aad',
+        encryptionSignature: 'base64-sig'
+      }
+    });
   });
 
   it('rejects unencrypted ACL operation without plaintext fields', () => {
