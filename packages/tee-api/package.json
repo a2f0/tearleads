@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/tee-api",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Secure API primitives and reference server for the TEE environment",
   "type": "module",
   "main": "src/index.ts",
