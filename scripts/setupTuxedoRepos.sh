@@ -2,7 +2,8 @@
 set -eu
 
 BASE_DIR="${TUXEDO_BASE_DIR:-$HOME/tuxedo}"
-REPO_SSH_URL="git@github.com-tuxedo:a2f0/tearleads.git"
+# Server uses github.com-tuxedo (deploy key alias); developers use github.com directly
+REPO_SSH_URL="${TUXEDO_REPO_SSH_URL:-git@github.com-tuxedo:a2f0/tearleads.git}"
 WORKSPACE_COUNT="${TUXEDO_WORKSPACE_COUNT:-10}"
 
 clone_or_update() {
