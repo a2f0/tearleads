@@ -55,10 +55,28 @@ This creates unseal keys at `.secrets/vault-keys.json`.
 | `scripts/apply02.sh` | Step 2: Ansible (Vault configuration) |
 | `scripts/destroy.sh` | Destroy infrastructure |
 | `scripts/setup-vault.sh` | Initialize and unseal Vault |
+| `scripts/create-user.sh` | Create/update a userpass Vault user |
 | `scripts/backup.sh` | Create Raft snapshot backup |
 | `scripts/restore.sh` | Restore from Raft snapshot |
 | `scripts/migrate-secrets.sh` | Migrate `.secrets/` files to Vault |
 | `scripts/fetch-secrets.sh` | Fetch secrets from Vault to `.secrets/` |
+
+## Userpass Auth (Optional)
+
+Enable userpass auth and the `vault-files-reader` policy with Terraform:
+
+```bash
+cd terraform/stacks/prod/vault
+export VAULT_ADDR=http://vault-prod:8200
+export VAULT_TOKEN=$(jq -r '.root_token' .secrets/vault-keys.json)
+terraform apply -var='enable_userpass_auth=true'
+```
+
+Create a user for `fetch-secrets.sh`:
+
+```bash
+./scripts/create-user.sh --username alice
+```
 
 ## Configuration Management
 

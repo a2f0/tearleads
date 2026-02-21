@@ -48,3 +48,30 @@ variable "ssh_host_public_key" {
   description = "SSH host public key for the server"
   type        = string
 }
+
+variable "enable_userpass_auth" {
+  description = "Enable Vault userpass auth backend and file-reader policy management"
+  type        = bool
+  default     = false
+}
+
+variable "vault_bootstrap_username" {
+  description = "Optional initial userpass username to create (requires vault_bootstrap_password)"
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      (var.vault_bootstrap_username == "" && var.vault_bootstrap_password == "") ||
+      (var.vault_bootstrap_username != "" && var.vault_bootstrap_password != "")
+    )
+    error_message = "vault_bootstrap_username and vault_bootstrap_password must both be set or both be empty."
+  }
+}
+
+variable "vault_bootstrap_password" {
+  description = "Optional initial userpass password to create (sensitive; requires vault_bootstrap_username)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}

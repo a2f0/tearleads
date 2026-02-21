@@ -44,6 +44,16 @@ vault login $(jq -r '.root_token' .secrets/vault-keys.json)
 jq -r '.root_token' .secrets/vault-keys.json > ~/.vault-token
 ```
 
+Optional: enable `userpass` auth and create a non-root user for daily file syncs:
+
+```bash
+cd terraform/stacks/prod/vault
+export VAULT_ADDR=http://vault-prod:8200
+export VAULT_TOKEN=$(jq -r '.root_token' .secrets/vault-keys.json)
+terraform apply -var='enable_userpass_auth=true'
+./scripts/create-user.sh --username alice
+```
+
 ### 3. Migrate Existing Secrets
 
 ```bash
@@ -125,6 +135,11 @@ cd terraform/stacks/prod/vault
 
 # Fetch to a different directory
 ./scripts/fetch-secrets.sh -o /tmp/secrets
+
+# Fetch using userpass auth instead of VAULT_TOKEN
+export VAULT_USERNAME=alice
+export VAULT_PASSWORD='your-password'
+./scripts/fetch-secrets.sh
 ```
 
 ## Backup and Restore

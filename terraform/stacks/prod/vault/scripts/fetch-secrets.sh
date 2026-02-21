@@ -20,6 +20,12 @@ usage() {
   echo "  -o, --output-dir    Output directory (default: .secrets)"
   echo "  -f, --force         Overwrite existing files"
   echo "  -h, --help          Show this help"
+  echo ""
+  echo "Environment:"
+  echo "  VAULT_USERNAME   Username for userpass auth (optional)"
+  echo "  VAULT_PASSWORD   Password for userpass auth (optional)"
+  echo "  VAULT_TOKEN      Direct token auth (optional)"
+  echo "  VAULT_ADDR       Vault address (default: http://vault-prod:8200)"
   exit 0
 }
 
@@ -54,8 +60,10 @@ done
 if [[ -z "${VAULT_TOKEN:-}" ]]; then
   if [[ -f ~/.vault-token ]]; then
     export VAULT_TOKEN=$(cat ~/.vault-token)
+  elif [[ -n "${VAULT_USERNAME:-}" && -n "${VAULT_PASSWORD:-}" ]]; then
+    vault login -method=userpass username="$VAULT_USERNAME" password="$VAULT_PASSWORD" >/dev/null
   else
-    echo "ERROR: No VAULT_TOKEN set and ~/.vault-token not found."
+    echo "ERROR: No VAULT_TOKEN, ~/.vault-token, or VAULT_USERNAME/VAULT_PASSWORD set."
     exit 1
   fi
 fi
