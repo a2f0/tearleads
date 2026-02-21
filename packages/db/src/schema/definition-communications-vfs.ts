@@ -50,6 +50,10 @@ export const vfsAclEntriesTable: TableDefinition = {
       type: 'text',
       sqlName: 'wrapped_hierarchical_key'
     },
+    keyEpoch: {
+      type: 'integer',
+      sqlName: 'key_epoch'
+    },
     grantedBy: {
       type: 'text',
       sqlName: 'granted_by',

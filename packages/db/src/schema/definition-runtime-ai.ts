@@ -86,6 +86,26 @@ export const vfsCrdtOpsTable: TableDefinition = {
       type: 'timestamp',
       sqlName: 'occurred_at',
       notNull: true
+    },
+    encryptedPayload: {
+      type: 'text',
+      sqlName: 'encrypted_payload'
+    },
+    keyEpoch: {
+      type: 'integer',
+      sqlName: 'key_epoch'
+    },
+    encryptionNonce: {
+      type: 'text',
+      sqlName: 'encryption_nonce'
+    },
+    encryptionAad: {
+      type: 'text',
+      sqlName: 'encryption_aad'
+    },
+    encryptionSignature: {
+      type: 'text',
+      sqlName: 'encryption_signature'
     }
   },
   indexes: [
