@@ -82,11 +82,15 @@ for vault_path in "${VAULT_PATHS[@]}"; do
   }
 
   # Extract the data and export each key as an env var
-  while IFS='=' read -r key value; do
-    if [[ -n "$key" ]]; then
-      export "$key"="$value"
-    fi
-  done < <(echo "$SECRET_JSON" | jq -r '.data.data | to_entries[] | "\(.key)=\(.value)"')
+  # Uses @sh to safely escape values (handles newlines, special chars)
+  # Filters to only valid shell identifiers (skips keys with dots, dashes, etc.)
+  # Supports both KV v1 (.data) and v2 (.data.data) engines
+  EXPORT_CMDS=$(jq -r '
+    (.data.data // .data) | to_entries[] |
+    select(.key | test("^[a-zA-Z_][a-zA-Z0-9_]*$")) |
+    "export \(.key)=\(.value | @sh)"
+  ' <<< "$SECRET_JSON")
+  eval "$EXPORT_CMDS"
 done
 
 # Execute the command with the injected environment
