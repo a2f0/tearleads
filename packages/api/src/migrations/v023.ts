@@ -14,33 +14,18 @@ export const v023: Migration = {
   up: async (pool: Pool) => {
     await pool.query('BEGIN');
     try {
-      // Add encrypted payload column (base64-encoded ciphertext)
+      // Add encrypted envelope columns in a single statement for atomicity
+      // - encrypted_payload: base64-encoded ciphertext
+      // - key_epoch: tracks which encryption key version was used
+      // - encryption_nonce: base64-encoded nonce
+      // - encryption_aad: additional authenticated data hash (base64-encoded)
+      // - encryption_signature: integrity verification signature (base64-encoded)
       await pool.query(`
         ALTER TABLE "vfs_crdt_ops"
-        ADD COLUMN IF NOT EXISTS "encrypted_payload" TEXT
-      `);
-
-      // Add key epoch column (tracks which encryption key version was used)
-      await pool.query(`
-        ALTER TABLE "vfs_crdt_ops"
-        ADD COLUMN IF NOT EXISTS "key_epoch" INTEGER
-      `);
-
-      // Add encryption nonce column (base64-encoded)
-      await pool.query(`
-        ALTER TABLE "vfs_crdt_ops"
-        ADD COLUMN IF NOT EXISTS "encryption_nonce" TEXT
-      `);
-
-      // Add additional authenticated data hash column (base64-encoded)
-      await pool.query(`
-        ALTER TABLE "vfs_crdt_ops"
-        ADD COLUMN IF NOT EXISTS "encryption_aad" TEXT
-      `);
-
-      // Add signature column for integrity verification (base64-encoded)
-      await pool.query(`
-        ALTER TABLE "vfs_crdt_ops"
+        ADD COLUMN IF NOT EXISTS "encrypted_payload" TEXT,
+        ADD COLUMN IF NOT EXISTS "key_epoch" INTEGER,
+        ADD COLUMN IF NOT EXISTS "encryption_nonce" TEXT,
+        ADD COLUMN IF NOT EXISTS "encryption_aad" TEXT,
         ADD COLUMN IF NOT EXISTS "encryption_signature" TEXT
       `);
 
