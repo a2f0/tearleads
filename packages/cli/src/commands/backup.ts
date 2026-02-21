@@ -34,10 +34,7 @@ async function resolveBackupPassword(options: BackupOptions): Promise<string> {
   return password;
 }
 
-export async function runBackup(
-  file: string,
-  options: BackupOptions
-): Promise<void> {
+async function runBackup(file: string, options: BackupOptions): Promise<void> {
   if (!(await isDatabaseSetUp())) {
     console.error('Database not set up. Run "tearleads setup" first.');
     process.exit(1);

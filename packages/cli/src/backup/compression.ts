@@ -41,26 +41,3 @@ export async function compress(data: Uint8Array): Promise<Uint8Array> {
 export async function decompress(data: Uint8Array): Promise<Uint8Array> {
   return decompressNode(data);
 }
-
-/**
- * Compress a string (UTF-8 encoded) using gzip.
- *
- * @param text - String to compress
- * @returns Compressed data
- */
-export async function compressString(text: string): Promise<Uint8Array> {
-  const encoder = new TextEncoder();
-  return compress(encoder.encode(text));
-}
-
-/**
- * Decompress gzip data to a string (UTF-8 decoded).
- *
- * @param data - Compressed data
- * @returns Decompressed string
- */
-export async function decompressString(data: Uint8Array): Promise<string> {
-  const decompressed = await decompress(data);
-  const decoder = new TextDecoder();
-  return decoder.decode(decompressed);
-}

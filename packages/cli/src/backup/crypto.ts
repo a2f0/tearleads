@@ -8,7 +8,6 @@
 
 import {
   AES_KEY_BITS,
-  AUTH_TAG_SIZE,
   IV_SIZE,
   PBKDF2_ITERATIONS,
   SALT_SIZE
@@ -119,19 +118,4 @@ export async function decrypt(
   );
 
   return new Uint8Array(plaintext);
-}
-
-/**
- * Calculate the encrypted size for a given plaintext size.
- * AES-GCM adds a 16-byte authentication tag.
- */
-export function encryptedSize(plaintextSize: number): number {
-  return plaintextSize + AUTH_TAG_SIZE;
-}
-
-/**
- * Calculate the plaintext size for a given ciphertext size.
- */
-export function plaintextSize(ciphertextSize: number): number {
-  return ciphertextSize - AUTH_TAG_SIZE;
 }

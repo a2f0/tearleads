@@ -46,7 +46,7 @@ export const AppPlatformSchema = z.enum(['ios', 'android', 'desktop', 'pwa']);
 /**
  * Theme configuration schema.
  */
-export const AppThemeSchema = z.object({
+const AppThemeSchema = z.object({
   primaryColor: z
     .string()
     .regex(
@@ -70,7 +70,7 @@ export const AppThemeSchema = z.object({
 /**
  * API configuration schema.
  */
-export const AppApiConfigSchema = z.object({
+const AppApiConfigSchema = z.object({
   productionUrl: z.string().url('Production URL must be a valid URL'),
   stagingUrl: z.string().url('Staging URL must be a valid URL').optional()
 });
@@ -78,7 +78,7 @@ export const AppApiConfigSchema = z.object({
 /**
  * Store configuration schema.
  */
-export const AppStoreConfigSchema = z
+const AppStoreConfigSchema = z
   .object({
     appleTeamId: z.string().optional(),
     appleItcTeamId: z.string().optional(),
@@ -89,7 +89,7 @@ export const AppStoreConfigSchema = z
 /**
  * Assets configuration schema.
  */
-export const AppAssetsSchema = z.object({
+const AppAssetsSchema = z.object({
   iconSource: z.string().optional(),
   splashSource: z.string().optional()
 });
@@ -97,7 +97,7 @@ export const AppAssetsSchema = z.object({
 /**
  * Monitoring configuration schema.
  */
-export const AppMonitoringSchema = z.object({
+const AppMonitoringSchema = z.object({
   sentryDsn: z.string().url('Sentry DSN must be a valid URL').optional(),
   googleAnalyticsId: z.string().optional(),
   posthogToken: z.string().optional()
@@ -106,7 +106,7 @@ export const AppMonitoringSchema = z.object({
 /**
  * Bundle IDs schema.
  */
-export const AppBundleIdsSchema = z.object({
+const AppBundleIdsSchema = z.object({
   ios: z
     .string()
     .regex(bundleIdRegex, 'iOS bundle ID must be in reverse domain notation'),

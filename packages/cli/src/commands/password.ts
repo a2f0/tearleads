@@ -6,7 +6,7 @@ import { Command } from 'commander';
 import { changePassword, isDatabaseSetUp } from '../db/index.js';
 import { promptPassword } from '../utils/prompt.js';
 
-export async function runPassword(): Promise<void> {
+async function runPassword(): Promise<void> {
   if (!(await isDatabaseSetUp())) {
     console.error('Database not set up. Run "tearleads setup" first.');
     process.exit(1);

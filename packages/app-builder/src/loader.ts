@@ -82,18 +82,3 @@ export async function loadAppConfig(appId: string): Promise<LoadedAppConfig> {
     assetsDir: join(configDir, 'assets')
   };
 }
-
-/**
- * Load all app configurations.
- */
-export async function loadAllAppConfigs(): Promise<LoadedAppConfig[]> {
-  const appIds = listApps();
-  const configs: LoadedAppConfig[] = [];
-
-  for (const appId of appIds) {
-    const loaded = await loadAppConfig(appId);
-    configs.push(loaded);
-  }
-
-  return configs;
-}

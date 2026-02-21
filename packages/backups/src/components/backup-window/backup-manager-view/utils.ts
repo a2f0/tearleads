@@ -18,16 +18,6 @@ export function formatBytes(bytes: number): string {
   return `${parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
 }
 
-export function formatBackupFilename(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
-  return `tearleads-backup-${year}-${month}-${day}-${hours}${minutes}${seconds}.tbu`;
-}
-
 export function formatDate(timestamp: number): string {
   const date = new Date(timestamp);
   return date.toLocaleDateString('en-US', {
