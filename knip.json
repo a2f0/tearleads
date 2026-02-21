@@ -19,6 +19,7 @@
   ],
   "ignoreFiles": [
     "packages/**/src/generated/**",
+    "packages/client/tests/playwright-env.d.ts",
     "scripts/dist/**",
     "scripts/dist-tests/**"
   ],
@@ -37,6 +38,14 @@
         "scripts/lib/**/*.ts",
         "scripts/preen/**/*.ts",
         "scripts/tooling/scriptTool.ts"
+      ]
+    },
+    "packages/client": {
+      "entry": [
+        "electron.vite.config.ts",
+        "electronBuilder.config.ts",
+        "electron/main.ts",
+        "electron/preload.ts"
       ]
     }
   }
