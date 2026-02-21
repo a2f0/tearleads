@@ -19,7 +19,7 @@ vi.mock('@/db/crypto', () => ({
 
 vi.mock('@/lib/fileUtils', () => ({
   readFileAsUint8Array: vi.fn(),
-  computeContentHash: vi.fn(),
+  computeContentHashStreaming: vi.fn(),
   readMagicBytes: vi.fn(() =>
     Promise.resolve(new Uint8Array([0xff, 0xd8, 0xff]))
   ),
@@ -74,7 +74,10 @@ import { getDatabase } from '@/db';
 import { logEvent } from '@/db/analytics';
 import { getCurrentInstanceId, getKeyManager } from '@/db/crypto';
 import { isLoggedIn } from '@/lib/authStorage';
-import { computeContentHash, readFileAsUint8Array } from '@/lib/fileUtils';
+import {
+  computeContentHashStreaming,
+  readFileAsUint8Array
+} from '@/lib/fileUtils';
 import { generateThumbnail, isThumbnailSupported } from '@/lib/thumbnail';
 import {
   getFileStorage,
@@ -130,7 +133,7 @@ describe('useFileUpload file type and environment', () => {
     vi.mocked(readFileAsUint8Array).mockResolvedValue(
       new Uint8Array([1, 2, 3])
     );
-    vi.mocked(computeContentHash).mockResolvedValue('mock-hash');
+    vi.mocked(computeContentHashStreaming).mockResolvedValue('mock-hash');
     vi.mocked(mockStorage.measureStore).mockResolvedValue('storage/path');
     vi.mocked(isThumbnailSupported).mockReturnValue(false);
     vi.mocked(generateThumbnail).mockResolvedValue(new Uint8Array([1, 2, 3]));
