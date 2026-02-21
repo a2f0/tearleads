@@ -56,12 +56,12 @@ resource "terraform_data" "tailscale_pre_cleanup" {
 
 module "server" {
   depends_on = [terraform_data.tailscale_pre_cleanup]
-  source = "../../../modules/hetzner-server"
+  source     = "../../../modules/hetzner-server"
 
-  name       = "vault-prod"
-  ssh_key_id = data.hcloud_ssh_key.main.id
-  server_type  = var.server_type
-  location     = var.server_location
+  name        = "vault-prod"
+  ssh_key_id  = data.hcloud_ssh_key.main.id
+  server_type = var.server_type
+  location    = var.server_location
 
   # Cloud-init handles base setup only (SSH, Tailscale, Vault install)
   # Vault configuration is managed by Ansible: ansible/playbooks/vault.yml
