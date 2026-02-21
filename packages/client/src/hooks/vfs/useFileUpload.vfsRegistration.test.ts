@@ -88,8 +88,8 @@ import { api } from '@/lib/api';
 import { isLoggedIn } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
 import {
-  createStreamFromFile,
   computeContentHashStreaming,
+  createStreamFromFile,
   readFileAsUint8Array
 } from '@/lib/fileUtils';
 import { generateThumbnail, isThumbnailSupported } from '@/lib/thumbnail';
