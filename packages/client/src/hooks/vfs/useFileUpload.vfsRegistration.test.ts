@@ -89,6 +89,7 @@ import { isLoggedIn } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
 import {
   computeContentHashStreaming,
+  createStreamFromFile,
   readFileAsUint8Array
 } from '@/lib/fileUtils';
 import { generateThumbnail, isThumbnailSupported } from '@/lib/thumbnail';
@@ -240,6 +241,7 @@ describe('useFileUpload VFS registration', () => {
         contentType: 'image/png'
       })
     );
+    expect(createStreamFromFile).toHaveBeenCalledTimes(1);
     expect(mockOrchestrator.flushAll).toHaveBeenCalled();
     expect(logEvent).toHaveBeenCalledWith(
       expect.anything(),

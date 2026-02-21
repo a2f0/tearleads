@@ -81,12 +81,17 @@ export function useFileUpload() {
       }
       onProgress?.(10);
 
+      const secureUploadEnabled =
+        isLoggedIn() && getFeatureFlagValue('vfsSecureUpload');
+
       const db = getDatabase();
       const storage = getFileStorage();
       const id = crypto.randomUUID();
-      const contentHash = await computeContentHashStreaming(
-        createStreamFromFile(file)
-      );
+      const fileStream = createStreamFromFile(file);
+      const [hashStream, secureUploadStream] = secureUploadEnabled
+        ? fileStream.tee()
+        : [fileStream, null];
+      const contentHash = await computeContentHashStreaming(hashStream);
       let storagePath: string;
       let thumbnailPath: string | null = null;
 
@@ -187,9 +192,6 @@ export function useFileUpload() {
         createdAt: new Date()
       });
 
-      const secureUploadEnabled =
-        isLoggedIn() && getFeatureFlagValue('vfsSecureUpload');
-
       // Use secure facade for encrypted server upload when enabled.
       // Fail closed when secure mode is enabled but runtime dependencies fail.
       let serverUploadSucceeded = false;
@@ -212,6 +214,9 @@ export function useFileUpload() {
 
           const expiresAt = new Date();
           expiresAt.setDate(expiresAt.getDate() + DEFAULT_BLOB_EXPIRY_DAYS);
+          if (!secureUploadStream) {
+            throw new Error('Secure upload stream was not initialized');
+          }
 
           // Stream directly from File for memory-efficient encrypted upload.
           // The secure pipeline processes chunks via callback without
@@ -221,7 +226,7 @@ export function useFileUpload() {
               itemId: id,
               blobId: crypto.randomUUID(),
               contentType: mimeType,
-              stream: createStreamFromFile(file),
+              stream: secureUploadStream,
               expiresAt: expiresAt.toISOString()
             });
           } catch (err) {
