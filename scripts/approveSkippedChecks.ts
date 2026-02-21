@@ -130,14 +130,8 @@ function parseCheckRuns(raw: string): CheckRun[] {
 }
 
 function getRepo(): string {
-  return run('gh', [
-    'repo',
-    'view',
-    '--json',
-    'nameWithOwner',
-    '-q',
-    '.nameWithOwner'
-  ]);
+  const raw = run('gh', ['repo', 'view', '--json', 'nameWithOwner']);
+  return (JSON.parse(raw) as { nameWithOwner: string }).nameWithOwner;
 }
 
 function getPrNumber(maybePrNumber: string | undefined): string {
@@ -145,32 +139,25 @@ function getPrNumber(maybePrNumber: string | undefined): string {
     return maybePrNumber;
   }
 
-  const currentPr = tryRun('gh', [
-    'pr',
-    'view',
-    '--json',
-    'number',
-    '-q',
-    '.number'
-  ]);
-  if (!currentPr || currentPr.length === 0) {
+  const raw = tryRun('gh', ['pr', 'view', '--json', 'number']);
+  if (!raw || raw.length === 0) {
     throw new UsageError('Could not determine PR number. Use --pr <number>');
   }
-  return currentPr;
+  const parsed = (JSON.parse(raw) as { number: number }).number;
+  return String(parsed);
 }
 
 function getHeadSha(repo: string, prNumber: string): string {
-  return run('gh', [
+  const raw = run('gh', [
     'pr',
     'view',
     prNumber,
     '--json',
     'headRefOid',
-    '-q',
-    '.headRefOid',
     '-R',
     repo
   ]);
+  return (JSON.parse(raw) as { headRefOid: string }).headRefOid;
 }
 
 function createCheckRun(params: {

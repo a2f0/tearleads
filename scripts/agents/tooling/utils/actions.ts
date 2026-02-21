@@ -16,6 +16,10 @@ import {
   listDeferredFixIssuesWithOctokit
 } from './octokitIssueHandlers.ts';
 import {
+  addLabelWithOctokit,
+  tagPrWithTuxedoInstanceWithOctokit
+} from './octokitLabelHandlers.ts';
+import {
   createDeferredFixIssueWithOctokit,
   sanitizePrBodyWithOctokit,
   updatePrBodyWithOctokit
@@ -78,6 +82,16 @@ export async function runInlineAction(
     case 'checkMainVersionBumpSetup': {
       const context = createGitHubClientContext(repo);
       return checkMainVersionBumpSetupWithOctokit(context, options);
+    }
+
+    case 'addLabel': {
+      const context = createGitHubClientContext(repo);
+      return addLabelWithOctokit(context, options);
+    }
+
+    case 'tagPrWithTuxedoInstance': {
+      const context = createGitHubClientContext(repo);
+      return tagPrWithTuxedoInstanceWithOctokit(context, options);
     }
 
     case 'getPrInfo': {
@@ -436,12 +450,6 @@ export function runDelegatedAction(
     if (options.maxAndroidJump !== undefined) {
       args.push('--max-android-jump', String(options.maxAndroidJump));
     }
-  } else if (action === 'addLabel') {
-    args.push('--type', requireDefined(options.type, '--type'));
-    args.push('--number', String(options.number));
-    args.push('--label', requireDefined(options.label, '--label'));
-  } else if (action === 'tagPrWithTuxedoInstance' && options.pr) {
-    args.push('--pr', String(options.pr));
   } else if (action === 'runPreen') {
     if (options.mode) {
       args.push('--mode', options.mode);
