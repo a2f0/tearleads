@@ -26,7 +26,7 @@ import { loadShareAuthorizationContext } from './shared.js';
  *       500:
  *         description: Server error
  */
-export const deleteSharesShareidHandler = async (
+const deleteSharesShareidHandler = async (
   req: Request<{ shareId: string }>,
   res: Response
 ) => {

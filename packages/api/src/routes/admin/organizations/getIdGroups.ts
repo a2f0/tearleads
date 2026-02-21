@@ -27,7 +27,7 @@ import { ensureOrganizationExists } from '../lib/organizations.js';
  *       500:
  *         description: Database error
  */
-export const getIdGroupsHandler = async (
+const getIdGroupsHandler = async (
   req: Request<{ id: string }>,
   res: Response
 ) => {

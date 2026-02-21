@@ -16,7 +16,7 @@ import { toSafeCipherSuite } from './shared.js';
  *       200:
  *         description: User's key packages
  */
-export const getKeyPackagesMeHandler = async (req: Request, res: Response) => {
+const getKeyPackagesMeHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });

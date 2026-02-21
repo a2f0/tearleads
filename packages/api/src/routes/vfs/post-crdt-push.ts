@@ -69,7 +69,7 @@ async function rollbackQuietly(client: PoolClient): Promise<void> {
  *       500:
  *         description: Server error
  */
-export const postCrdtPushHandler = async (req: Request, res: Response) => {
+const postCrdtPushHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });

@@ -116,7 +116,7 @@ function buildWrappedKeyForShare(input: {
  *       500:
  *         description: Server error
  */
-export const getItemsItemidSharesHandler = async (
+const getItemsItemidSharesHandler = async (
   req: Request<{ itemId: string }>,
   res: Response
 ) => {

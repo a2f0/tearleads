@@ -43,7 +43,7 @@ import { parseUploadKeyPackagesPayload } from './shared.js';
  *       401:
  *         description: Unauthorized
  */
-export const postKeyPackagesHandler = async (req: Request, res: Response) => {
+const postKeyPackagesHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });

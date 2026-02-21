@@ -35,7 +35,7 @@ import { getUserDrafts } from './shared.js';
  *       401:
  *         description: Unauthorized
  */
-export const getDraftsHandler = async (req: Request, res: Response) => {
+const getDraftsHandler = async (req: Request, res: Response) => {
   try {
     const userId = req.authClaims?.sub;
     if (!userId) {

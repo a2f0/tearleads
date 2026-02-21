@@ -11,7 +11,7 @@ interface BlobRegistryRow {
   owner_id: string | null;
 }
 
-export const getBlobsBlobIdHandler = async (req: Request, res: Response) => {
+const getBlobsBlobIdHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });

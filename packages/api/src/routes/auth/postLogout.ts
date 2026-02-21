@@ -19,7 +19,7 @@ import { deleteSession } from '../../lib/sessions.js';
  *       500:
  *         description: Server error
  */
-export const postLogoutHandler = async (
+const postLogoutHandler = async (
   req: Request,
   res: Response
 ): Promise<void> => {

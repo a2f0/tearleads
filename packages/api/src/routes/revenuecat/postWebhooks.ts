@@ -158,7 +158,7 @@ async function processBillingUpdate(
  *       500:
  *         description: Server error
  */
-export const postWebhooksHandler = async (
+const postWebhooksHandler = async (
   req: Request,
   res: Response
 ): Promise<void> => {

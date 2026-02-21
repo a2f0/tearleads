@@ -46,7 +46,7 @@ import { parseAddMessagePayload } from './shared.js';
  *       404:
  *         description: Conversation not found
  */
-export const postConversationsIdMessagesHandler = async (
+const postConversationsIdMessagesHandler = async (
   req: Request,
   res: Response
 ) => {

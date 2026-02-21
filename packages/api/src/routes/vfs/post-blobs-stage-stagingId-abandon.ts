@@ -9,7 +9,7 @@ interface BlobStagingStateRow {
   status: string;
 }
 
-export const postBlobsStageStagingIdAbandonHandler = async (
+const postBlobsStageStagingIdAbandonHandler = async (
   req: Request,
   res: Response
 ) => {

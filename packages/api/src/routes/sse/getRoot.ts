@@ -106,7 +106,7 @@ function isBroadcastMessage(value: unknown): value is BroadcastMessage {
  *       401:
  *         description: Unauthorized
  */
-export const getRootHandler = async (req: Request, res: Response) => {
+const getRootHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });

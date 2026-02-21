@@ -40,7 +40,7 @@ import {
  *       401:
  *         description: Unauthorized
  */
-export const postConversationsHandler = async (req: Request, res: Response) => {
+const postConversationsHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });

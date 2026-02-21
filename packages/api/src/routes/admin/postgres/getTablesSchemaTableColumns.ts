@@ -32,7 +32,7 @@ import { getPostgresPool } from '../../../lib/postgres.js';
  *       500:
  *         description: Postgres connection error
  */
-export const getTablesSchemaTableColumnsHandler = async (
+const getTablesSchemaTableColumnsHandler = async (
   req: Request,
   res: Response
 ) => {

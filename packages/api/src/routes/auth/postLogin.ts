@@ -47,10 +47,7 @@ import {
  *       500:
  *         description: Server error
  */
-export const postLoginHandler = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+const postLoginHandler = async (req: Request, res: Response): Promise<void> => {
   const payload = parseAuthPayload(req.body);
   if (!payload) {
     res.status(400).json({ error: 'email and password are required' });

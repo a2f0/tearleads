@@ -52,7 +52,7 @@ type BillingAccountRow = {
  *       500:
  *         description: Server error
  */
-export const getOrganizationsOrganizationidHandler = async (
+const getOrganizationsOrganizationidHandler = async (
   req: Request<{ organizationId: string }>,
   res: Response
 ): Promise<void> => {

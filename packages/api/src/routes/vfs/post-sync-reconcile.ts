@@ -58,7 +58,7 @@ function toIsoString(value: Date | string): string | null {
  *       500:
  *         description: Server error
  */
-export const postSyncReconcileHandler = async (req: Request, res: Response) => {
+const postSyncReconcileHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });

@@ -37,7 +37,7 @@ import { getPostgresPool } from '../../lib/postgres.js';
  *       401:
  *         description: Unauthorized
  */
-export const getUsageHandler = async (req: Request, res: Response) => {
+const getUsageHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });

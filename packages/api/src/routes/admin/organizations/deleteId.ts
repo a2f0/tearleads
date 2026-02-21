@@ -16,10 +16,7 @@ import { requireRootAdmin } from '../../../middleware/adminAccess.js';
  *       500:
  *         description: Database error
  */
-export const deleteIdHandler = async (
-  req: Request<{ id: string }>,
-  res: Response
-) => {
+const deleteIdHandler = async (req: Request<{ id: string }>, res: Response) => {
   if (!requireRootAdmin(req, res)) {
     return;
   }

@@ -27,7 +27,7 @@ import {
  *       201:
  *         description: Message sent
  */
-export const postGroupsGroupidMessagesHandler = async (
+const postGroupsGroupidMessagesHandler = async (
   req: Request,
   res: Response
 ) => {

@@ -24,7 +24,7 @@ import { getUserDrafts } from './shared.js';
  *       401:
  *         description: Unauthorized
  */
-export const deleteDraftsIdHandler = async (
+const deleteDraftsIdHandler = async (
   req: Request<{ id: string }>,
   res: Response
 ) => {

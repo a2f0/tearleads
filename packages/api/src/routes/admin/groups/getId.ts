@@ -49,10 +49,7 @@ import {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export const getIdHandler = async (
-  req: Request<{ id: string }>,
-  res: Response
-) => {
+const getIdHandler = async (req: Request<{ id: string }>, res: Response) => {
   try {
     const { id } = req.params;
     const pool = await getPostgresPool();

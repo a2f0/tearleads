@@ -46,7 +46,7 @@ import {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export const getIdHandler = async (req: Request, res: Response) => {
+const getIdHandler = async (req: Request, res: Response) => {
   try {
     const access = req.adminAccess;
     if (!access) {

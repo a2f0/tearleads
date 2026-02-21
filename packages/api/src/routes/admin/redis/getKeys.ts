@@ -55,7 +55,7 @@ import type { Request, Response, Router as RouterType } from 'express';
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export const getKeysHandler = async (req: Request, res: Response) => {
+const getKeysHandler = async (req: Request, res: Response) => {
   try {
     const client = await getRedisClient();
     const cursor = String(req.query['cursor'] ?? '0');

@@ -65,7 +65,7 @@ import {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export const putIdHandler = async (
+const putIdHandler = async (
   req: Request<{ id: string }, unknown, UpdateGroupRequest>,
   res: Response
 ) => {
