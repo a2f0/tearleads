@@ -127,9 +127,77 @@ describe('VfsKeyManager', () => {
       const result = await manager.ensureUserKeys();
       expect(result).toEqual(expectedPayload);
     });
+
+    it('memoizes key setup payload per manager instance', async () => {
+      const ownerKeyPair = generateKeyPair();
+      const createKeySetupPayload = vi.fn(async () => ({
+        publicEncryptionKey: 'pub-key',
+        publicSigningKey: 'sign-key',
+        encryptedPrivateKeys: 'enc-keys',
+        argon2Salt: 'salt'
+      }));
+
+      const manager = createVfsKeyManager({
+        userKeyProvider: createMockUserKeyProvider(ownerKeyPair),
+        itemKeyStore: createMockItemKeyStore(),
+        recipientPublicKeyResolver: createMockRecipientResolver(new Map()),
+        createKeySetupPayload
+      });
+
+      const [first, second] = await Promise.all([
+        manager.ensureUserKeys(),
+        manager.ensureUserKeys()
+      ]);
+
+      expect(first).toEqual(second);
+      expect(createKeySetupPayload).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('createItemKey', () => {
+    it('ensures user keys before creating first item key', async () => {
+      const ownerKeyPair = generateKeyPair();
+      const itemKeyStore = createMockItemKeyStore();
+      const createKeySetupPayload = vi.fn(async () => ({
+        publicEncryptionKey: 'pub-key',
+        publicSigningKey: 'sign-key',
+        encryptedPrivateKeys: 'enc-keys',
+        argon2Salt: 'salt'
+      }));
+
+      const manager = createVfsKeyManager({
+        userKeyProvider: createMockUserKeyProvider(ownerKeyPair),
+        itemKeyStore,
+        recipientPublicKeyResolver: createMockRecipientResolver(new Map()),
+        createKeySetupPayload
+      });
+
+      const result = await manager.createItemKey({ itemId: 'item-1' });
+      await manager.createItemKey({ itemId: 'item-2' });
+
+      expect(result.keyEpoch).toBe(1);
+      expect(createKeySetupPayload).toHaveBeenCalledTimes(1);
+    });
+
+    it('fails closed when user key bootstrap fails', async () => {
+      const ownerKeyPair = generateKeyPair();
+      const itemKeyStore = createMockItemKeyStore();
+
+      const manager = createVfsKeyManager({
+        userKeyProvider: createMockUserKeyProvider(ownerKeyPair),
+        itemKeyStore,
+        recipientPublicKeyResolver: createMockRecipientResolver(new Map()),
+        createKeySetupPayload: vi.fn(async () => {
+          throw new Error('bootstrap failed');
+        })
+      });
+
+      await expect(
+        manager.createItemKey({ itemId: 'item-fail' })
+      ).rejects.toThrow('bootstrap failed');
+      expect(itemKeyStore.setItemKey).not.toHaveBeenCalled();
+    });
+
     it('creates first key with epoch 1', async () => {
       const ownerKeyPair = generateKeyPair();
       const itemKeyStore = createMockItemKeyStore();
