@@ -47,6 +47,9 @@
         "electron/main.ts",
         "electron/preload.ts"
       ]
+    },
+    "packages/vfs-sync": {
+      "entry": ["src/clientEntry.ts"]
     }
   }
 }

@@ -31,7 +31,7 @@ import { getPostgresPool } from '../../lib/postgres.js';
  *       500:
  *         description: Server error
  */
-export const getKeysMeHandler = async (req: Request, res: Response) => {
+const getKeysMeHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });

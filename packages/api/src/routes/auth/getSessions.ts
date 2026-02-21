@@ -19,7 +19,7 @@ import { getSessionsByUserId } from '../../lib/sessions.js';
  *       500:
  *         description: Server error
  */
-export const getSessionsHandler = async (
+const getSessionsHandler = async (
   req: Request,
   res: Response
 ): Promise<void> => {

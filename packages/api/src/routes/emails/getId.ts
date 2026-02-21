@@ -31,10 +31,7 @@ import {
  *       500:
  *         description: Server error
  */
-export const getIdHandler = async (
-  req: Request<{ id: string }>,
-  res: Response
-) => {
+const getIdHandler = async (req: Request<{ id: string }>, res: Response) => {
   try {
     const userId = req.authClaims?.sub;
     if (!userId) {

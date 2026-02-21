@@ -54,7 +54,7 @@ import type { Request, Response, Router as RouterType } from 'express';
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export const getKeysKeyHandler = async (
+const getKeysKeyHandler = async (
   req: Request<{ key: string }>,
   res: Response
 ) => {

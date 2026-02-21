@@ -41,7 +41,7 @@ import { getGroupOrganizationId } from './shared.js';
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export const deleteIdMembersUseridHandler = async (
+const deleteIdMembersUseridHandler = async (
   req: Request<{ id: string; userId: string }>,
   res: Response
 ) => {

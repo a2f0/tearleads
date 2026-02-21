@@ -67,7 +67,7 @@ import {
  *       500:
  *         description: Server error
  */
-export const getRootHandler = async (req: Request, res: Response) => {
+const getRootHandler = async (req: Request, res: Response) => {
   try {
     const userId = req.authClaims?.sub;
     if (!userId) {

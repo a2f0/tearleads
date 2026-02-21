@@ -38,7 +38,7 @@ export interface ImportResult {
  * Parse CSV text using papaparse library.
  * Handles quoted fields, multiline values, and various CSV edge cases.
  */
-export function parseCSV(text: string): ParsedCSV {
+function parseCSV(text: string): ParsedCSV {
   const result = Papa.parse<string[]>(text, {
     header: false,
     skipEmptyLines: true,

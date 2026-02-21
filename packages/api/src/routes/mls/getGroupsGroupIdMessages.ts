@@ -35,10 +35,7 @@ import { getActiveMlsGroupMembership } from './shared.js';
  *       200:
  *         description: Message history
  */
-export const getGroupsGroupidMessagesHandler = async (
-  req: Request,
-  res: Response
-) => {
+const getGroupsGroupidMessagesHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });

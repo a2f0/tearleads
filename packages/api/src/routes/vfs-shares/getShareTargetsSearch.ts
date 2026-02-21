@@ -46,7 +46,7 @@ import { isValidShareType } from './shared.js';
  *       500:
  *         description: Server error
  */
-export const getShareTargetsSearchHandler = async (
+const getShareTargetsSearchHandler = async (
   req: Request<unknown, unknown, unknown, { q?: string; type?: string }>,
   res: Response
 ) => {

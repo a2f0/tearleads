@@ -35,10 +35,7 @@ import { getGroupOrganizationId } from './shared.js';
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export const deleteIdHandler = async (
-  req: Request<{ id: string }>,
-  res: Response
-) => {
+const deleteIdHandler = async (req: Request<{ id: string }>, res: Response) => {
   try {
     const { id } = req.params;
     const pool = await getPostgresPool();

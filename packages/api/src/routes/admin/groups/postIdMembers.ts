@@ -66,7 +66,7 @@ import { getGroupOrganizationId } from './shared.js';
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export const postIdMembersHandler = async (
+const postIdMembersHandler = async (
   req: Request<{ id: string }, unknown, AddMemberRequest>,
   res: Response
 ) => {

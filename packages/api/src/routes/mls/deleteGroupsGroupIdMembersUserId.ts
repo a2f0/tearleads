@@ -31,7 +31,7 @@ import {
  *       204:
  *         description: Member removed
  */
-export const deleteGroupsGroupidMembersUseridHandler = async (
+const deleteGroupsGroupidMembersUseridHandler = async (
   req: Request,
   res: Response
 ) => {

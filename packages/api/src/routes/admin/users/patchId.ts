@@ -70,7 +70,7 @@ import {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export const patchIdHandler = async (req: Request, res: Response) => {
+const patchIdHandler = async (req: Request, res: Response) => {
   if (!requireRootAdmin(req, res)) {
     return;
   }

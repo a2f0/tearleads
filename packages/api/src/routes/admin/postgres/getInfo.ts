@@ -34,7 +34,7 @@ import {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export const getInfoHandler = async (_req: Request, res: Response) => {
+const getInfoHandler = async (_req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
     const versionResult = await pool.query<{ version: string }>(

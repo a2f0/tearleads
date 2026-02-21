@@ -43,7 +43,7 @@ import {
  *       500:
  *         description: Server error
  */
-export const postRefreshHandler = async (
+const postRefreshHandler = async (
   req: Request,
   res: Response
 ): Promise<void> => {

@@ -25,10 +25,7 @@ import { getActiveMlsGroupMembership } from './shared.js';
  *       200:
  *         description: List of members
  */
-export const getGroupsGroupidMembersHandler = async (
-  req: Request,
-  res: Response
-) => {
+const getGroupsGroupidMembersHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });

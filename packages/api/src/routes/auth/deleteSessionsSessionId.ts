@@ -29,7 +29,7 @@ import { deleteSession } from '../../lib/sessions.js';
  *       500:
  *         description: Server error
  */
-export const deleteSessionsSessionIdHandler = async (
+const deleteSessionsSessionIdHandler = async (
   req: Request,
   res: Response
 ): Promise<void> => {

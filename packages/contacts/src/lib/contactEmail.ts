@@ -1,4 +1,4 @@
-export function buildMailtoUrl(recipients: string[]): string | null {
+function buildMailtoUrl(recipients: string[]): string | null {
   const normalizedRecipients = Array.from(
     new Set(
       recipients

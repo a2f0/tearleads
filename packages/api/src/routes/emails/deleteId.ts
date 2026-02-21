@@ -30,10 +30,7 @@ import {
  *       500:
  *         description: Server error
  */
-export const deleteIdHandler = async (
-  req: Request<{ id: string }>,
-  res: Response
-) => {
+const deleteIdHandler = async (req: Request<{ id: string }>, res: Response) => {
   try {
     const userId = req.authClaims?.sub;
     if (!userId) {

@@ -26,10 +26,7 @@ import {
  *       200:
  *         description: Group updated
  */
-export const patchGroupsGroupidHandler = async (
-  req: Request,
-  res: Response
-) => {
+const patchGroupsGroupidHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });

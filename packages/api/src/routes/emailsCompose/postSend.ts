@@ -59,7 +59,7 @@ import { getUserDrafts, type SendRequest } from './shared.js';
  *       500:
  *         description: Failed to send
  */
-export const postSendHandler = async (
+const postSendHandler = async (
   req: Request<object, object, SendRequest>,
   res: Response
 ) => {

@@ -216,9 +216,7 @@ async function createAccount(
   }
 }
 
-export async function runCreateAccount(
-  options: CreateAccountOptions
-): Promise<void> {
+async function runCreateAccount(options: CreateAccountOptions): Promise<void> {
   const emailValue = options.email ?? null;
   const passwordValue = options.password ?? null;
   const passwordFromStdin = options.passwordStdin ?? false;

@@ -46,7 +46,7 @@ interface BlobLinkRow {
   visible_children: unknown;
 }
 
-export const postBlobsStageStagingIdAttachHandler = async (
+const postBlobsStageStagingIdAttachHandler = async (
   req: Request,
   res: Response
 ) => {

@@ -46,7 +46,7 @@ import {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export const getIdMembersHandler = async (
+const getIdMembersHandler = async (
   req: Request<{ id: string }>,
   res: Response
 ) => {

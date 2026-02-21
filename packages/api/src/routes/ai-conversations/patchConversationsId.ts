@@ -38,10 +38,7 @@ import { parseUpdateConversationPayload } from './shared.js';
  *       404:
  *         description: Conversation not found
  */
-export const patchConversationsIdHandler = async (
-  req: Request,
-  res: Response
-) => {
+const patchConversationsIdHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });

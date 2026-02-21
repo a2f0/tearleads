@@ -47,7 +47,7 @@ import { getUserOrganizationId, parseRecordUsagePayload } from './shared.js';
  *       401:
  *         description: Unauthorized
  */
-export const postUsageHandler = async (req: Request, res: Response) => {
+const postUsageHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });

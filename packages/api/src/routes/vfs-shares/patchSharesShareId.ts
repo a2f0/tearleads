@@ -51,7 +51,7 @@ import {
  *       500:
  *         description: Server error
  */
-export const patchSharesShareidHandler = async (
+const patchSharesShareidHandler = async (
   req: Request<{ shareId: string }>,
   res: Response
 ) => {

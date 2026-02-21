@@ -3,7 +3,7 @@ import type { Pool } from 'pg';
 
 type OrganizationIdRow = { id: string };
 
-export async function organizationExists(
+async function organizationExists(
   pool: Pool,
   organizationId: string
 ): Promise<boolean> {

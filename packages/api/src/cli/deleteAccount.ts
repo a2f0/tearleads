@@ -101,9 +101,7 @@ async function deleteAccount(email: string): Promise<void> {
   }
 }
 
-export async function runDeleteAccount(
-  options: DeleteAccountOptions
-): Promise<void> {
+async function runDeleteAccount(options: DeleteAccountOptions): Promise<void> {
   const emailValue = options.email ?? null;
   if (!emailValue) {
     throw new Error('Email is required. Use --email or -e.');

@@ -55,7 +55,7 @@ import {
  *       500:
  *         description: Server error
  */
-export const postRegisterHandler = async (
+const postRegisterHandler = async (
   req: Request,
   res: Response
 ): Promise<void> => {

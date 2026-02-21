@@ -12,7 +12,6 @@ import { getPostgresPool } from '../../lib/postgres.js';
 
 export const OPENROUTER_API_URL =
   'https://openrouter.ai/api/v1/chat/completions';
-export const DEFAULT_OPENROUTER_MODEL = DEFAULT_OPENROUTER_MODEL_ID;
 
 /**
  * @openapi
@@ -68,7 +67,7 @@ export const DEFAULT_OPENROUTER_MODEL = DEFAULT_OPENROUTER_MODEL_ID;
  *       500:
  *         description: Server configuration error
  */
-export const postCompletionsHandler = async (req: Request, res: Response) => {
+const postCompletionsHandler = async (req: Request, res: Response) => {
   const messageResult = validateChatMessages(req.body?.['messages']);
   if (!messageResult.ok) {
     res.status(400).json({ error: messageResult.error });

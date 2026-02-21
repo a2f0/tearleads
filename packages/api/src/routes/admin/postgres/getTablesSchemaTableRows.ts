@@ -48,10 +48,7 @@ import { getPostgresPool } from '../../../lib/postgres.js';
  *       500:
  *         description: Postgres connection error
  */
-export const getTablesSchemaTableRowsHandler = async (
-  req: Request,
-  res: Response
-) => {
+const getTablesSchemaTableRowsHandler = async (req: Request, res: Response) => {
   const schema = req.params['schema'];
   const table = req.params['table'];
 

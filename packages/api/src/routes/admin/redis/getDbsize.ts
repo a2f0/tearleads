@@ -27,7 +27,7 @@ import type { Request, Response, Router as RouterType } from 'express';
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export const getDbsizeHandler = async (_req: Request, res: Response) => {
+const getDbsizeHandler = async (_req: Request, res: Response) => {
   try {
     const client = await getRedisClient();
     const count = await client.dbSize();

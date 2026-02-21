@@ -60,7 +60,7 @@ import { type GroupRow, mapGroupRow } from './shared.js';
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export const postRootHandler = async (
+const postRootHandler = async (
   req: Request<Record<string, never>, unknown, CreateGroupRequest>,
   res: Response
 ) => {

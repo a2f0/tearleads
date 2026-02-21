@@ -55,7 +55,7 @@ import {
  *       401:
  *         description: Unauthorized
  */
-export const postDraftsHandler = async (
+const postDraftsHandler = async (
   req: Request<object, object, DraftRequest>,
   res: Response
 ) => {

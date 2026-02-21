@@ -63,7 +63,7 @@ import {
  *       500:
  *         description: Server error
  */
-export const postItemsItemidOrgSharesHandler = async (
+const postItemsItemidOrgSharesHandler = async (
   req: Request<{ itemId: string }>,
   res: Response
 ) => {

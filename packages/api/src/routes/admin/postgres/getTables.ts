@@ -33,7 +33,7 @@ import { coerceNumber, type PostgresTableRow } from './shared.js';
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export const getTablesHandler = async (_req: Request, res: Response) => {
+const getTablesHandler = async (_req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
     const result = await pool.query<{

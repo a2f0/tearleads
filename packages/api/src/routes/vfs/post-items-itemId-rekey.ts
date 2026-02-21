@@ -159,7 +159,7 @@ function parseRekeyPayload(body: unknown): VfsRekeyRequest | null {
  *       500:
  *         description: Server error
  */
-export const postItemsItemIdRekeyHandler = async (
+const postItemsItemIdRekeyHandler = async (
   req: Request<{ itemId: string }>,
   res: Response
 ) => {

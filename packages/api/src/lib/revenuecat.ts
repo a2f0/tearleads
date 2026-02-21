@@ -29,7 +29,7 @@ export type RevenueCatWebhookPayload = {
   event: RevenueCatWebhookEvent;
 };
 
-export const SUPPORTED_REVENUECAT_EVENT_TYPES = [
+const SUPPORTED_REVENUECAT_EVENT_TYPES = [
   'INITIAL_PURCHASE',
   'RENEWAL',
   'CANCELLATION',

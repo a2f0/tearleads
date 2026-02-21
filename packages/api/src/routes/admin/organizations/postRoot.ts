@@ -25,7 +25,7 @@ import { mapOrganizationRow, type OrganizationRow } from './shared.js';
  *       500:
  *         description: Database error
  */
-export const postRootHandler = async (
+const postRootHandler = async (
   req: Request<Record<string, never>, unknown, CreateOrganizationRequest>,
   res: Response
 ) => {
