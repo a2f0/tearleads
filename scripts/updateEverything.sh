@@ -17,6 +17,7 @@
 #   SKIP_LINT=1       Skip pnpm lint:fix + pnpm lint
 #   SKIP_UPDATE=1     Skip pnpm -r update --latest
 #   SKIP_INSTALL=1    Skip pnpm install
+#   SKIP_CODEX_UPGRADE=1 Skip brew upgrade codex on macOS
 set -eu
 
 SCRIPT_PATH=$0
@@ -50,6 +51,15 @@ cd "$REPO_ROOT"
 
 if [ -n "$(git status --porcelain)" ]; then
   echo "Warning: working tree is not clean. Continuing anyway." >&2
+fi
+
+# Keep Codex CLI current on macOS hosts.
+if [ "${SKIP_CODEX_UPGRADE:-0}" -ne 1 ] && [ "$(uname -s)" = "Darwin" ]; then
+  if command -v brew >/dev/null 2>&1; then
+    brew upgrade codex || echo "Warning: Failed to upgrade codex CLI." >&2
+  else
+    echo "Warning: Homebrew not found; skipping codex upgrade." >&2
+  fi
 fi
 
 ensure_nvm_node_runtime
