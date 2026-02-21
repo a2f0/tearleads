@@ -3,5 +3,5 @@ set -eu
 
 cd "$(dirname "$0")"
 
-pip install ansible
+pip3 install 'ansible-core==2.16.6'
 ansible-galaxy collection install -r ../requirements.yml
