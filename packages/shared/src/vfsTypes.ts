@@ -93,6 +93,16 @@ export interface VfsCrdtSyncItem {
   sourceTable: string;
   sourceId: string;
   occurredAt: string;
+  /** Encrypted operation payload (base64-encoded ciphertext) */
+  encryptedPayload?: string;
+  /** Key epoch used for encryption */
+  keyEpoch?: number;
+  /** Encryption nonce (base64-encoded) */
+  encryptionNonce?: string;
+  /** Additional authenticated data hash (base64-encoded) */
+  encryptionAad?: string;
+  /** Operation signature for integrity verification (base64-encoded) */
+  encryptionSignature?: string;
 }
 
 export interface VfsCrdtSyncResponse {
@@ -175,6 +185,11 @@ export interface VfsShare {
   createdByEmail: string;
   createdAt: string;
   expiresAt: string | null;
+  /**
+   * Wrapped key metadata for encrypted user shares.
+   * Present when server has persisted share-key material for this share.
+   */
+  wrappedKey?: VfsWrappedKeyPayload;
 }
 
 export interface VfsOrgShare {
@@ -197,6 +212,11 @@ export interface CreateVfsShareRequest {
   targetId: string;
   permissionLevel: VfsPermissionLevel;
   expiresAt?: string | null;
+  /**
+   * Wrapped key payload for encrypted user shares.
+   * Must target the same user as `targetId` when provided.
+   */
+  wrappedKey?: VfsWrappedKeyPayload | null;
 }
 
 export interface CreateOrgShareRequest {

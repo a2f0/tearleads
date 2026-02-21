@@ -332,6 +332,67 @@ describe('post-crdt-push-parse', () => {
       });
     });
 
+    it('rejects encrypted operation with non-integer keyEpoch', () => {
+      const result = parsePushPayload({
+        clientId: 'client-1',
+        operations: [
+          {
+            ...buildValidAclAddOperation(),
+            encryptedPayload: 'base64-ciphertext',
+            keyEpoch: 1.5
+          }
+        ]
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) {
+        throw new Error('Expected parsePushPayload to succeed');
+      }
+
+      expect(result.value.operations[0]).toEqual({
+        status: 'invalid',
+        opId: 'op-1'
+      });
+    });
+
+    it('parses encrypted link operation without plaintext link fields', () => {
+      const result = parsePushPayload({
+        clientId: 'client-1',
+        operations: [
+          {
+            opId: 'op-link-1',
+            opType: 'link_add',
+            itemId: 'item-1',
+            replicaId: 'client-1',
+            writeId: 1,
+            occurredAt: '2026-02-16T00:00:00.000Z',
+            encryptedPayload: 'base64-ciphertext',
+            keyEpoch: 1
+          }
+        ]
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) {
+        throw new Error('Expected parsePushPayload to succeed');
+      }
+
+      expect(result.value.operations[0]).toEqual({
+        status: 'parsed',
+        opId: 'op-link-1',
+        operation: {
+          opId: 'op-link-1',
+          opType: 'link_add',
+          itemId: 'item-1',
+          replicaId: 'client-1',
+          writeId: 1,
+          occurredAt: '2026-02-16T00:00:00.000Z',
+          encryptedPayload: 'base64-ciphertext',
+          keyEpoch: 1
+        }
+      });
+    });
+
     it('rejects unencrypted ACL operation without plaintext fields', () => {
       const result = parsePushPayload({
         clientId: 'client-1',

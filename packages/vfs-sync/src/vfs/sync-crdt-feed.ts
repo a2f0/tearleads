@@ -62,6 +62,11 @@ export interface VfsCrdtSyncDbRow {
   source_table: string;
   source_id: string;
   occurred_at: Date | string;
+  encrypted_payload?: string | null;
+  key_epoch?: number | string | null;
+  encryption_nonce?: string | null;
+  encryption_aad?: string | null;
+  encryption_signature?: string | null;
 }
 
 export type VfsCrdtFeedOrderViolationCode =
@@ -69,7 +74,8 @@ export type VfsCrdtFeedOrderViolationCode =
   | 'missingOpId'
   | 'duplicateOpId'
   | 'outOfOrderRow'
-  | 'invalidLinkPayload';
+  | 'invalidLinkPayload'
+  | 'invalidEncryptedEnvelope';
 
 export class VfsCrdtFeedOrderViolationError extends Error {
   readonly code: VfsCrdtFeedOrderViolationCode;
@@ -209,6 +215,34 @@ function normalizeAccessLevel(value: unknown): VfsAclAccessLevel | null {
   for (const accessLevel of VALID_ACCESS_LEVELS) {
     if (accessLevel === value) {
       return accessLevel;
+    }
+  }
+
+  return null;
+}
+
+function normalizePositiveInteger(value: unknown): number | null {
+  if (typeof value === 'number') {
+    if (
+      Number.isFinite(value) &&
+      Number.isInteger(value) &&
+      value >= 1 &&
+      value <= Number.MAX_SAFE_INTEGER
+    ) {
+      return value;
+    }
+    return null;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number.parseInt(value, 10);
+    if (
+      Number.isFinite(parsed) &&
+      Number.isInteger(parsed) &&
+      parsed >= 1 &&
+      parsed <= Number.MAX_SAFE_INTEGER
+    ) {
+      return parsed;
     }
   }
 
@@ -380,6 +414,22 @@ export function mapVfsCrdtSyncRows(
     const opType = normalizeOpType(row.op_type);
     const parentId = normalizeNonEmptyString(row.parent_id);
     const childId = normalizeNonEmptyString(row.child_id);
+    const encryptedPayload = normalizeNonEmptyString(row.encrypted_payload);
+    const hasEncryptedPayload = encryptedPayload !== null;
+    const keyEpoch = normalizePositiveInteger(row.key_epoch);
+    const encryptionNonce = normalizeNonEmptyString(row.encryption_nonce);
+    const encryptionAad = normalizeNonEmptyString(row.encryption_aad);
+    const encryptionSignature = normalizeNonEmptyString(
+      row.encryption_signature
+    );
+
+    if (hasEncryptedPayload && keyEpoch === null) {
+      throw new VfsCrdtFeedOrderViolationError(
+        'invalidEncryptedEnvelope',
+        index,
+        `CRDT row ${index} has invalid encrypted envelope metadata`
+      );
+    }
 
     if (opType === 'link_add' || opType === 'link_remove') {
       /**
@@ -387,11 +437,15 @@ export function mapVfsCrdtSyncRows(
        * hierarchy invariants. Malformed link rows are rejected fail-closed so
        * bad persisted feed state cannot escape API boundaries.
        */
+      const hasPlaintextLinkFields = parentId !== null || childId !== null;
+      const shouldRequirePlaintextLinkFields = !hasEncryptedPayload;
       if (
-        !parentId ||
-        !childId ||
-        childId !== row.item_id ||
-        parentId === childId
+        (shouldRequirePlaintextLinkFields && (!parentId || !childId)) ||
+        (hasPlaintextLinkFields &&
+          (!parentId ||
+            !childId ||
+            childId !== row.item_id ||
+            parentId === childId))
       ) {
         throw new VfsCrdtFeedOrderViolationError(
           'invalidLinkPayload',
@@ -413,7 +467,16 @@ export function mapVfsCrdtSyncRows(
       actorId: row.actor_id,
       sourceTable: row.source_table,
       sourceId: row.source_id,
-      occurredAt
+      occurredAt,
+      ...(hasEncryptedPayload && keyEpoch !== null
+        ? {
+            encryptedPayload,
+            keyEpoch
+          }
+        : {}),
+      ...(encryptionNonce !== null ? { encryptionNonce } : {}),
+      ...(encryptionAad !== null ? { encryptionAad } : {}),
+      ...(encryptionSignature !== null ? { encryptionSignature } : {})
     });
   }
 

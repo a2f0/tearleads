@@ -56,6 +56,16 @@ function parseNullableString(value: unknown, fieldName: string): string | null {
   return parseRequiredString(value, fieldName);
 }
 
+function parseOptionalNullableString(
+  value: unknown,
+  fieldName: string
+): string | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  return parseNullableString(value, fieldName);
+}
+
 function parseIsoString(value: unknown, fieldName: string): string {
   const normalized = parseRequiredString(value, fieldName);
   const parsedMs = Date.parse(normalized);
@@ -218,17 +228,68 @@ function parseSyncItem(value: unknown, index: number): VfsCrdtSyncItem {
     )
   };
 
+  const encryptedPayload = parseOptionalNullableString(
+    value['encryptedPayload'],
+    `items[${index}].encryptedPayload`
+  );
+  const keyEpochValue = value['keyEpoch'];
+  if (encryptedPayload !== undefined && encryptedPayload !== null) {
+    if (
+      typeof keyEpochValue !== 'number' ||
+      !Number.isInteger(keyEpochValue) ||
+      keyEpochValue < 1
+    ) {
+      throw new Error(
+        `transport returned invalid encrypted envelope at items[${index}]`
+      );
+    }
+
+    parsedItem.encryptedPayload = encryptedPayload;
+    parsedItem.keyEpoch = keyEpochValue;
+  }
+
+  const encryptionNonce = parseOptionalNullableString(
+    value['encryptionNonce'],
+    `items[${index}].encryptionNonce`
+  );
+  if (encryptionNonce !== undefined && encryptionNonce !== null) {
+    parsedItem.encryptionNonce = encryptionNonce;
+  }
+
+  const encryptionAad = parseOptionalNullableString(
+    value['encryptionAad'],
+    `items[${index}].encryptionAad`
+  );
+  if (encryptionAad !== undefined && encryptionAad !== null) {
+    parsedItem.encryptionAad = encryptionAad;
+  }
+
+  const encryptionSignature = parseOptionalNullableString(
+    value['encryptionSignature'],
+    `items[${index}].encryptionSignature`
+  );
+  if (encryptionSignature !== undefined && encryptionSignature !== null) {
+    parsedItem.encryptionSignature = encryptionSignature;
+  }
+
   if (parsedItem.opType === 'link_add' || parsedItem.opType === 'link_remove') {
     /**
      * Guardrail: link graph mutations must preserve the same child scope as
      * the CRDT operation identity and must never self-link. Rejecting malformed
      * remote payloads here prevents corrupted feed rows from entering replay.
      */
+    const hasPlaintextLinkFields =
+      parsedItem.parentId !== null || parsedItem.childId !== null;
+    const shouldRequirePlaintextLinkFields =
+      parsedItem.encryptedPayload === undefined;
     if (
-      parsedItem.parentId === null ||
-      parsedItem.childId === null ||
-      parsedItem.childId !== parsedItem.itemId ||
-      parsedItem.parentId === parsedItem.childId
+      (shouldRequirePlaintextLinkFields &&
+        (parsedItem.parentId === null || parsedItem.childId === null)) ||
+      (hasPlaintextLinkFields &&
+        (parsedItem.parentId === null ||
+          parsedItem.childId === null ||
+          parsedItem.childId !== parsedItem.itemId ||
+          parsedItem.parentId === parsedItem.childId))
     ) {
       throw new Error(
         `transport returned invalid link payload at items[${index}]`

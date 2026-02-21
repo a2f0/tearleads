@@ -240,6 +240,7 @@ describe('VFS Shares routes (POST share)', () => {
       expect(aclInsertCall?.[1]?.[4]).toBe('read');
     });
 
+
     it('returns 500 on database error', async () => {
       const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();
@@ -431,5 +432,6 @@ describe('VFS Shares routes (POST share)', () => {
 
       expect(response.status).toBe(400);
     });
+
   });
 });

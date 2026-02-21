@@ -166,6 +166,63 @@ describe('VFS CRDT sync route', () => {
     ]);
   });
 
+  it('returns encrypted envelope fields for encrypted CRDT operations', async () => {
+    const authHeader = await createAuthHeader();
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          op_id: 'op-enc-1',
+          item_id: 'item-1',
+          op_type: 'link_add',
+          principal_type: null,
+          principal_id: null,
+          access_level: null,
+          parent_id: null,
+          child_id: null,
+          actor_id: 'user-1',
+          source_table: 'vfs_crdt_client_push',
+          source_id: 'user-1:desktop:3:op-enc-1',
+          occurred_at: new Date('2026-02-14T00:00:00.000Z'),
+          encrypted_payload: 'base64-ciphertext',
+          key_epoch: 3,
+          encryption_nonce: 'base64-nonce',
+          encryption_aad: 'base64-aad',
+          encryption_signature: 'base64-signature'
+        }
+      ]
+    });
+    mockQuery.mockResolvedValueOnce({
+      rows: []
+    });
+
+    const response = await request(app)
+      .get('/v1/vfs/crdt/vfs-sync?limit=10')
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(200);
+    expect(response.body.items).toEqual([
+      {
+        opId: 'op-enc-1',
+        itemId: 'item-1',
+        opType: 'link_add',
+        principalType: null,
+        principalId: null,
+        accessLevel: null,
+        parentId: null,
+        childId: null,
+        actorId: 'user-1',
+        sourceTable: 'vfs_crdt_client_push',
+        sourceId: 'user-1:desktop:3:op-enc-1',
+        occurredAt: '2026-02-14T00:00:00.000Z',
+        encryptedPayload: 'base64-ciphertext',
+        keyEpoch: 3,
+        encryptionNonce: 'base64-nonce',
+        encryptionAad: 'base64-aad',
+        encryptionSignature: 'base64-signature'
+      }
+    ]);
+  });
+
   it('normalizes unexpected CRDT enum values instead of crashing', async () => {
     const authHeader = await createAuthHeader();
     mockQuery.mockResolvedValueOnce({

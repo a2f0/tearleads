@@ -164,6 +164,13 @@ export const postItemsItemidSharesHandler = async (
     const aclId = buildShareAclId(shareId);
     const now = new Date();
     const expiresAt = payload.expiresAt ? new Date(payload.expiresAt) : null;
+    const wrappedKeyMetadata =
+      payload.wrappedKey === null
+        ? null
+        : JSON.stringify({
+            recipientPublicKeyId: payload.wrappedKey.recipientPublicKeyId,
+            senderSignature: payload.wrappedKey.senderSignature
+          });
 
     const result = await pool.query<{
       acl_id: string;
@@ -183,17 +190,21 @@ export const postItemsItemidSharesHandler = async (
           access_level,
           wrapped_session_key,
           wrapped_hierarchical_key,
+          key_epoch,
           granted_by,
           created_at,
           updated_at,
           expires_at,
           revoked_at
         )
-        VALUES ($1, $2, $3, $4, $5, NULL, NULL, $6, $7, $7, $8, NULL)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $11, NULL)
         ON CONFLICT (item_id, principal_type, principal_id)
         DO UPDATE SET
           id = EXCLUDED.id,
           access_level = EXCLUDED.access_level,
+          wrapped_session_key = EXCLUDED.wrapped_session_key,
+          wrapped_hierarchical_key = EXCLUDED.wrapped_hierarchical_key,
+          key_epoch = EXCLUDED.key_epoch,
           granted_by = EXCLUDED.granted_by,
           created_at = EXCLUDED.created_at,
           updated_at = EXCLUDED.updated_at,
@@ -215,6 +226,9 @@ export const postItemsItemidSharesHandler = async (
         payload.shareType,
         payload.targetId,
         mapSharePermissionLevelToAclAccessLevel(payload.permissionLevel),
+        payload.wrappedKey?.encryptedKey ?? null,
+        wrappedKeyMetadata,
+        payload.wrappedKey?.keyEpoch ?? null,
         claims.sub,
         now,
         expiresAt
@@ -245,7 +259,8 @@ export const postItemsItemidSharesHandler = async (
       createdBy: creatorId,
       createdByEmail: creatorResult.rows[0]?.email ?? 'Unknown',
       createdAt: row.created_at.toISOString(),
-      expiresAt: row.expires_at ? row.expires_at.toISOString() : null
+      expiresAt: row.expires_at ? row.expires_at.toISOString() : null,
+      ...(payload.wrappedKey !== null && { wrappedKey: payload.wrappedKey })
     };
 
     res.status(201).json({ share });

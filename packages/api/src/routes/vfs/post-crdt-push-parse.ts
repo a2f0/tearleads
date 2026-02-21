@@ -159,7 +159,11 @@ function parsePushOperation(
   // Validate encrypted envelope fields if present
   if (hasEncryptedPayload) {
     const keyEpoch = value['keyEpoch'];
-    if (typeof keyEpoch !== 'number' || keyEpoch < 1) {
+    if (
+      typeof keyEpoch !== 'number' ||
+      !Number.isInteger(keyEpoch) ||
+      keyEpoch < 1
+    ) {
       return {
         status: 'invalid',
         opId
@@ -228,8 +232,12 @@ function parsePushOperation(
 
   if (opType === 'link_add' || opType === 'link_remove') {
     const parentId = normalizeRequiredString(value['parentId']);
-    const childId = normalizeRequiredString(value['childId']) ?? itemId;
-    if (!parentId || !childId) {
+    const rawChildId = normalizeRequiredString(value['childId']);
+    const shouldRequirePlaintextLinkFields = !hasEncryptedPayload;
+    const childId = shouldRequirePlaintextLinkFields
+      ? (rawChildId ?? itemId)
+      : rawChildId;
+    if (shouldRequirePlaintextLinkFields && (!parentId || !childId)) {
       return {
         status: 'invalid',
         opId
@@ -242,15 +250,22 @@ function parsePushOperation(
      * API ingress so malformed graph mutations never enter canonical feed
      * ordering.
      */
-    if (childId !== itemId || parentId === childId) {
+    if (
+      (parentId !== null || childId !== null) &&
+      (!parentId || !childId || childId !== itemId || parentId === childId)
+    ) {
       return {
         status: 'invalid',
         opId
       };
     }
 
-    operation.parentId = parentId;
-    operation.childId = childId;
+    if (parentId !== null) {
+      operation.parentId = parentId;
+    }
+    if (childId !== null) {
+      operation.childId = childId;
+    }
   }
 
   return {
