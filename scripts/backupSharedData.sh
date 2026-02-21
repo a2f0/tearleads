@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SOURCE_DIRS=(".secrets" ".test_files")
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+SOURCE_DIRS_REL=(".secrets" ".test_files")
+SOURCE_DIRS=("${SOURCE_DIRS_REL[@]/#/$REPO_ROOT/}")
 DEFAULT_OUTPUT_DIR="$HOME/tearleads-backups"
 OUTPUT_DIR="$DEFAULT_OUTPUT_DIR"
 PASSWORD=""
+NO_PASSWORD=false
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 ARCHIVE_NAME="shared-data-backup-${TIMESTAMP}.zip"
 
 usage() {
-  echo "Usage: backupSharedData.sh [output_dir] [--password <password>]"
+  echo "Usage: backupSharedData.sh [output_dir] [--password <password>] [--no-password]"
 }
 
 output_dir_set=0
@@ -26,6 +29,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --password=*)
       PASSWORD="${1#*=}"
+      shift
+      ;;
+    --no-password)
+      NO_PASSWORD=true
       shift
       ;;
     -h | --help)
@@ -76,15 +83,17 @@ done
 ZIP_ARGS=(-r)
 if [[ -n "$PASSWORD" ]]; then
   ZIP_ARGS+=(-P "$PASSWORD")
+elif [[ "$NO_PASSWORD" == "true" ]]; then
+  : # No encryption
 elif [[ -t 0 && -t 1 ]]; then
   ZIP_ARGS+=(-e)
 else
-  echo "backupSharedData: encryption password required in non-interactive mode." >&2
-  echo "Use --password <password> or run interactively to enter a password prompt." >&2
-  exit 1
+  : # Non-interactive without password - create unencrypted backup
 fi
 
-zip "${ZIP_ARGS[@]}" "$ARCHIVE_PATH" "${SOURCE_DIRS[@]}" >/dev/null
+# Zip from repo root to maintain relative paths in archive
+# Symlinks are followed by default (zip dereferences them)
+(cd "$REPO_ROOT" && zip "${ZIP_ARGS[@]}" "$ARCHIVE_PATH" "${SOURCE_DIRS_REL[@]}" >/dev/null)
 
 echo "Created backup: $ARCHIVE_PATH"
-echo "Backed up directories: ${SOURCE_DIRS[*]}"
+echo "Backed up directories: ${SOURCE_DIRS_REL[*]}"

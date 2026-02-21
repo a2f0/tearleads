@@ -1,9 +1,3 @@
-# COMPLIANCE_SENTINEL: TL-INFRA-001 | control=ssh-key-auth
-# SSH key-only authentication - password auth disabled via cloud-init
-data "hcloud_ssh_key" "main" {
-  name = var.ssh_key_name
-}
-
 # COMPLIANCE_SENTINEL: TL-NET-004 | control=infrastructure-firewall
 # Hetzner Cloud firewall with default-deny posture
 resource "hcloud_firewall" "main" {
@@ -40,7 +34,7 @@ resource "hcloud_server" "main" {
   server_type = var.server_type
   location    = var.location
 
-  ssh_keys = [data.hcloud_ssh_key.main.id]
+  ssh_keys = [var.ssh_key_id]
 
   user_data = var.user_data
 

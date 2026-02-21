@@ -183,7 +183,7 @@ while IFS= read -r -d '' file; do
   fi
 
   ((MIGRATED++))
-done < <(find "$SECRETS_DIR" -type f -print0)
+done < <(find -L "$SECRETS_DIR" -type f -print0)
 
 echo ""
 echo "==> Migration complete!"

@@ -31,6 +31,21 @@ if vault status 2>/dev/null | grep -q "Initialized.*true"; then
   exit 0
 fi
 
+# Guard: warn if vault-keys.json exists before fresh init
+# Re-initializing would make existing backups unrestorable
+if [[ -f "$VAULT_KEYS_FILE" ]]; then
+  echo "WARNING: $VAULT_KEYS_FILE already exists."
+  echo "Re-initializing will generate new keys and make existing backups unrestorable."
+  echo "If restoring from backup, run restore.sh instead."
+  echo ""
+  read -p "Continue with fresh initialization? [y/N] " -n 1 -r
+  echo ""
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Aborted."
+    exit 1
+  fi
+fi
+
 echo "==> Initializing Vault with Raft storage..."
 
 # Initialize with 1 key share (single operator setup)

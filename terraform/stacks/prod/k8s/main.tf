@@ -6,10 +6,10 @@ data "hcloud_ssh_key" "main" {
 module "server" {
   source = "../../../modules/hetzner-server"
 
-  name         = "k8s-prod-${var.production_domain}"
-  ssh_key_name = var.ssh_key_name
-  server_type  = var.server_type
-  location     = var.server_location
+  name        = "k8s-prod-${var.production_domain}"
+  ssh_key_id  = data.hcloud_ssh_key.main.id
+  server_type = var.server_type
+  location    = var.server_location
 
   user_data = <<-EOF
     #cloud-config
