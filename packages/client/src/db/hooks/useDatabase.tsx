@@ -42,6 +42,8 @@ import type {
   DatabaseProviderProps
 } from './useDatabaseTypes';
 
+export { useDatabaseContext } from './useDatabaseContext';
+
 /**
  * Provider component for database access.
  * Supports multi-instance with instance switching.
@@ -490,9 +492,3 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
     </DatabaseContext.Provider>
   );
 }
-
-export {
-  useDatabase,
-  useDatabaseContext,
-  useDatabaseOptional
-} from './useDatabaseContext';

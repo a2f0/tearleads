@@ -3,12 +3,10 @@ export {
   useFileUpload
 } from './useFileUpload';
 export {
-  clearVfsKeysCache,
   ensureVfsKeyPair,
   ensureVfsKeys,
   generateSessionKey,
   getVfsPublicKey,
-  hasVfsKeys,
   type RegisterVfsItemWithCurrentKeysInput,
   type RegisterVfsItemWithCurrentKeysResult,
   registerVfsItemWithCurrentKeys,
