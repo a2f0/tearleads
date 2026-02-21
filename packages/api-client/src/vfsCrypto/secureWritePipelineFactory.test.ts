@@ -234,8 +234,9 @@ describe('createVfsSecurePipelineBundle', () => {
       createKeySetupPayload: vi.fn()
     });
 
-    const originalCreateItemKey =
-      bundle.keyManager.createItemKey.bind(bundle.keyManager);
+    const originalCreateItemKey = bundle.keyManager.createItemKey.bind(
+      bundle.keyManager
+    );
     const createItemKeySpy = vi
       .spyOn(bundle.keyManager, 'createItemKey')
       .mockImplementation(async (input) => {
