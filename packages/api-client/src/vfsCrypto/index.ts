@@ -5,6 +5,7 @@ export * from './keyManagerRuntime';
 export * from './keyOnboarding';
 export * from './onboardingClient';
 export * from './registrationClient';
+export * from './rekeyClient';
 export * from './secureOrchestratorFacade';
 export type * from './secureReadPipeline';
 export * from './secureReadPipelineRuntime';
