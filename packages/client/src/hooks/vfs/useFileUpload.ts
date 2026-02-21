@@ -214,6 +214,9 @@ export function useFileUpload() {
 
           const expiresAt = new Date();
           expiresAt.setDate(expiresAt.getDate() + DEFAULT_BLOB_EXPIRY_DAYS);
+          if (!secureUploadStream) {
+            throw new Error('Secure upload stream was not initialized');
+          }
 
           // Stream directly from File for memory-efficient encrypted upload.
           // The secure pipeline processes chunks via callback without
