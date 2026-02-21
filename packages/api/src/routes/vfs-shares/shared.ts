@@ -2,9 +2,9 @@ import type {
   CreateOrgShareRequest,
   CreateVfsShareRequest,
   UpdateVfsShareRequest,
-  VfsWrappedKeyPayload,
   VfsPermissionLevel,
-  VfsShareType
+  VfsShareType,
+  VfsWrappedKeyPayload
 } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
 import type { Pool } from 'pg';
@@ -353,7 +353,11 @@ export function parseCreateSharePayload(
     wrappedKeyValue === undefined || wrappedKeyValue === null
       ? null
       : parseWrappedKeyPayload(wrappedKeyValue);
-  if (wrappedKeyValue !== undefined && wrappedKeyValue !== null && !wrappedKey) {
+  if (
+    wrappedKeyValue !== undefined &&
+    wrappedKeyValue !== null &&
+    !wrappedKey
+  ) {
     return null;
   }
 

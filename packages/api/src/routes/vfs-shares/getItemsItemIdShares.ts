@@ -1,9 +1,9 @@
 import type {
   VfsOrgShare,
   VfsShare,
-  VfsWrappedKeyPayload,
   VfsSharesResponse,
-  VfsShareType
+  VfsShareType,
+  VfsWrappedKeyPayload
 } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
@@ -24,7 +24,9 @@ function isRecordValue(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function parseWrappedKeyMetadata(value: string | null): WrappedKeyMetadata | null {
+function parseWrappedKeyMetadata(
+  value: string | null
+): WrappedKeyMetadata | null {
   if (typeof value !== 'string') {
     return null;
   }
