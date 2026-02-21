@@ -2,6 +2,9 @@
 # Create or update a Vault userpass user for file-secret access.
 set -eu
 
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+VAULT_KEYS_FILE="$REPO_ROOT/.secrets/vault-keys.json"
+
 export VAULT_ADDR="${VAULT_ADDR:-http://vault-prod:8200}"
 
 DEFAULT_POLICIES="vault-files-reader"
@@ -21,7 +24,7 @@ usage() {
   echo "  -h, --help      Show this help"
   echo ""
   echo "Environment:"
-  echo "  VAULT_TOKEN  Vault admin token (or use ~/.vault-token)"
+  echo "  VAULT_TOKEN  Vault admin token (optional)"
   echo "  VAULT_ADDR   Vault address (default: http://vault-prod:8200)"
   exit 0
 }
@@ -66,10 +69,16 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 if [[ -z "${VAULT_TOKEN:-}" ]]; then
-  if [[ -f ~/.vault-token ]]; then
+  if [[ -f "$VAULT_KEYS_FILE" ]]; then
+    export VAULT_TOKEN=$(jq -r '.root_token // empty' "$VAULT_KEYS_FILE")
+    if [[ -z "${VAULT_TOKEN}" ]]; then
+      echo "ERROR: $VAULT_KEYS_FILE exists but has no root_token."
+      exit 1
+    fi
+  elif [[ -f ~/.vault-token ]]; then
     export VAULT_TOKEN=$(cat ~/.vault-token)
   else
-    echo "ERROR: No VAULT_TOKEN set and ~/.vault-token not found."
+    echo "ERROR: No VAULT_TOKEN set, $VAULT_KEYS_FILE not found, and ~/.vault-token not found."
     exit 1
   fi
 fi
