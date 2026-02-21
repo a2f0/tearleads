@@ -90,7 +90,7 @@ class DefaultVfsSecureWritePipeline implements VfsSecureWritePipeline {
     const processChunk = async (chunk: UploadEncryptedBlobChunk) => {
       chunkCount += 1;
       if (useCallback) {
-        await input.onChunk!(chunk);
+        await input.onChunk?.(chunk);
       } else {
         chunks.push(chunk);
       }

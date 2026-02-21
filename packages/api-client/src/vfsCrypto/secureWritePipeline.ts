@@ -6,7 +6,9 @@ import type { Base64, EncryptedManifest, ItemId } from './types';
  * When provided, chunks are processed immediately without accumulation,
  * enabling bounded memory usage for large file uploads.
  */
-export type OnChunkCallback = (chunk: UploadEncryptedBlobChunk) => Promise<void>;
+export type OnChunkCallback = (
+  chunk: UploadEncryptedBlobChunk
+) => Promise<void>;
 
 export interface UploadEncryptedBlobInput {
   itemId: ItemId;

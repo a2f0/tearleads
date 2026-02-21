@@ -95,7 +95,7 @@ describe('secureOrchestratorFacade integration', () => {
       {
         uploadEncryptedBlob: vi.fn(async (input) => {
           // Simulate streaming chunks via callback
-          await input.onChunk!({
+          await input.onChunk?.({
             chunkIndex: 0,
             isFinal: false,
             nonce: 'nonce-1',
@@ -104,7 +104,7 @@ describe('secureOrchestratorFacade integration', () => {
             plaintextLength: 512,
             ciphertextLength: 576
           });
-          await input.onChunk!({
+          await input.onChunk?.({
             chunkIndex: 1,
             isFinal: true,
             nonce: 'nonce-2',

@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { UploadEncryptedBlobChunk } from './secureWritePipeline';
 import { createVfsSecureOrchestratorFacade } from './secureOrchestratorFacade';
 
 describe('createVfsSecureOrchestratorFacade streaming chunk integrity', () => {
@@ -36,7 +35,7 @@ describe('createVfsSecureOrchestratorFacade streaming chunk integrity', () => {
       {
         uploadEncryptedBlob: vi.fn(async (input) => {
           // Simulate streaming chunks via callback
-          await input.onChunk!({
+          await input.onChunk?.({
             chunkIndex: 0,
             isFinal: false,
             nonce: 'nonce-0',
@@ -45,7 +44,7 @@ describe('createVfsSecureOrchestratorFacade streaming chunk integrity', () => {
             plaintextLength: 512,
             ciphertextLength: 544
           });
-          await input.onChunk!({
+          await input.onChunk?.({
             chunkIndex: 1,
             isFinal: true,
             nonce: 'nonce-1',
@@ -100,7 +99,7 @@ describe('createVfsSecureOrchestratorFacade streaming chunk integrity', () => {
       {
         uploadEncryptedBlob: vi.fn(async (input) => {
           // Only emit 1 chunk but manifest says 2
-          await input.onChunk!({
+          await input.onChunk?.({
             chunkIndex: 0,
             isFinal: true,
             nonce: 'nonce-0',
@@ -151,7 +150,7 @@ describe('createVfsSecureOrchestratorFacade streaming chunk integrity', () => {
       {
         uploadEncryptedBlob: vi.fn(async (input) => {
           // Emit chunks with gap (0, 2 instead of 0, 1)
-          await input.onChunk!({
+          await input.onChunk?.({
             chunkIndex: 0,
             isFinal: false,
             nonce: 'nonce-0',
@@ -160,7 +159,7 @@ describe('createVfsSecureOrchestratorFacade streaming chunk integrity', () => {
             plaintextLength: 512,
             ciphertextLength: 544
           });
-          await input.onChunk!({
+          await input.onChunk?.({
             chunkIndex: 2,
             isFinal: true,
             nonce: 'nonce-2',
@@ -211,7 +210,7 @@ describe('createVfsSecureOrchestratorFacade streaming chunk integrity', () => {
       {
         uploadEncryptedBlob: vi.fn(async (input) => {
           // Start at index 1 instead of 0
-          await input.onChunk!({
+          await input.onChunk?.({
             chunkIndex: 1,
             isFinal: true,
             nonce: 'nonce-1',
@@ -262,7 +261,7 @@ describe('createVfsSecureOrchestratorFacade streaming chunk integrity', () => {
       {
         uploadEncryptedBlob: vi.fn(async (input) => {
           // Chunk 0 is marked as final but there's another chunk
-          await input.onChunk!({
+          await input.onChunk?.({
             chunkIndex: 0,
             isFinal: true,
             nonce: 'nonce-0',
@@ -271,7 +270,7 @@ describe('createVfsSecureOrchestratorFacade streaming chunk integrity', () => {
             plaintextLength: 512,
             ciphertextLength: 544
           });
-          await input.onChunk!({
+          await input.onChunk?.({
             chunkIndex: 1,
             isFinal: true,
             nonce: 'nonce-1',
@@ -311,7 +310,7 @@ describe('createVfsSecureOrchestratorFacade streaming chunk integrity', () => {
   });
 
   it('queues chunks immediately as they stream', async () => {
-    const queueBlobChunkAndPersist = vi.fn(async () => ({
+    const _queueBlobChunkAndPersist = vi.fn(async () => ({
       operationId: 'op-chunk',
       kind: 'chunk' as const,
       payload: {}
@@ -350,7 +349,7 @@ describe('createVfsSecureOrchestratorFacade streaming chunk integrity', () => {
         uploadEncryptedBlob: vi.fn(async (input) => {
           // Simulate streaming 3 chunks
           for (let i = 0; i < 3; i++) {
-            await input.onChunk!({
+            await input.onChunk?.({
               chunkIndex: i,
               isFinal: i === 2,
               nonce: `nonce-${i}`,
@@ -430,7 +429,7 @@ describe('createVfsSecureOrchestratorFacade streaming chunk integrity', () => {
       },
       {
         uploadEncryptedBlob: vi.fn(async (input) => {
-          await input.onChunk!({
+          await input.onChunk?.({
             chunkIndex: 0,
             isFinal: false,
             nonce: 'n0',
@@ -439,7 +438,7 @@ describe('createVfsSecureOrchestratorFacade streaming chunk integrity', () => {
             plaintextLength: 100,
             ciphertextLength: 116
           });
-          await input.onChunk!({
+          await input.onChunk?.({
             chunkIndex: 1,
             isFinal: true,
             nonce: 'n1',
@@ -476,8 +475,8 @@ describe('createVfsSecureOrchestratorFacade streaming chunk integrity', () => {
     });
 
     expect(queuedChunks).toHaveLength(2);
-    expect(queuedChunks[0]!.stagingId).toBe(result.stagingId);
-    expect(queuedChunks[1]!.stagingId).toBe(result.stagingId);
-    expect(queuedChunks[0]!.uploadId).toBe(queuedChunks[1]!.uploadId);
+    expect(queuedChunks[0]?.stagingId).toBe(result.stagingId);
+    expect(queuedChunks[1]?.stagingId).toBe(result.stagingId);
+    expect(queuedChunks[0]?.uploadId).toBe(queuedChunks[1]?.uploadId);
   });
 });
