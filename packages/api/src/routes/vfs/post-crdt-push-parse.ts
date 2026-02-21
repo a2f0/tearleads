@@ -170,26 +170,23 @@ function parsePushOperation(
       };
     }
 
-    operation.encryptedPayload = encryptedPayload;
-    operation.keyEpoch = keyEpoch;
-
-    // Optional encryption metadata
     const encryptionNonce = normalizeRequiredString(value['encryptionNonce']);
-    if (encryptionNonce) {
-      operation.encryptionNonce = encryptionNonce;
-    }
-
     const encryptionAad = normalizeRequiredString(value['encryptionAad']);
-    if (encryptionAad) {
-      operation.encryptionAad = encryptionAad;
-    }
-
     const encryptionSignature = normalizeRequiredString(
       value['encryptionSignature']
     );
-    if (encryptionSignature) {
-      operation.encryptionSignature = encryptionSignature;
+    if (!encryptionNonce || !encryptionAad || !encryptionSignature) {
+      return {
+        status: 'invalid',
+        opId
+      };
     }
+
+    operation.encryptedPayload = encryptedPayload;
+    operation.keyEpoch = keyEpoch;
+    operation.encryptionNonce = encryptionNonce;
+    operation.encryptionAad = encryptionAad;
+    operation.encryptionSignature = encryptionSignature;
   }
 
   if (opType === 'acl_add' || opType === 'acl_remove') {
