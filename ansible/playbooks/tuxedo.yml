@@ -206,8 +206,15 @@
         cmd: "/home/{{ ansible_user }}/setupTuxedoRepos.sh"
       become: true
       become_user: "{{ ansible_user }}"
+      environment:
+        TUXEDO_BASE_DIR: "{{ tuxedo_base_dir }}"
+        TUXEDO_WORKSPACE_PREFIX: "{{ tuxedo_workspace_prefix }}"
+        TUXEDO_WORKSPACE_START: "{{ tuxedo_workspace_start }}"
+        TUXEDO_REPO_SSH_URL: "git@github.com-tuxedo:a2f0/tearleads.git"
+        TUXEDO_WORKSPACE_COUNT: "{{ tuxedo_workspace_count }}"
       register: setup_repos_result
-      changed_when: setup_repos_result.stderr | length > 0
+      # Script always reports changed since git operations output to stderr
+      changed_when: false
 
     - name: Create tuxedo.sh wrapper in home directory
       ansible.builtin.copy:

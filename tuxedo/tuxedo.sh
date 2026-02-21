@@ -2,8 +2,8 @@
 # Tuxedo - tmux session manager for tearleads development
 #
 # Configurable via environment variables:
-#   TUXEDO_BASE_DIR     - Base directory for workspaces (default: $HOME/github)
-#   TUXEDO_DASHBOARD_DIR - Directory for PR dashboards (default: $BASE_DIR/$PREFIX, e.g. ~/github/tearleads)
+#   TUXEDO_BASE_DIR     - Base directory for workspaces (default: $HOME/tuxedo)
+#   TUXEDO_DASHBOARD_DIR - Directory for PR dashboards (default: $BASE_DIR/$PREFIX, e.g. ~/tuxedo/tearleads)
 #   TUXEDO_EDITOR       - Editor command (default: uses local nvim config)
 #   TUXEDO_WORKSPACES   - Number of workspaces to create (default: 10)
 #   TUXEDO_ENABLE_PR_DASHBOARDS - Enable PR dashboards on windows 0/1 (default: 1)

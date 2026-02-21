@@ -7,7 +7,7 @@ tuxedo_init() {
     CONFIG_DIR="$SCRIPT_DIR/config"
     GHOSTTY_CONF="$CONFIG_DIR/ghostty.conf"
 
-    BASE_DIR="${TUXEDO_BASE_DIR:-$HOME/github}"
+    BASE_DIR="${TUXEDO_BASE_DIR:-$HOME/tuxedo}"
     NUM_WORKSPACES="${TUXEDO_WORKSPACES:-10}"
     # Workspace naming: prefix-main, prefix-shared, prefix1, prefix2, etc.
     # Defaults to "tearleads" for backward compatibility (tearleads-main, tearleads2, ...)
