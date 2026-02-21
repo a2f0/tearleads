@@ -6,7 +6,7 @@ import { Command } from 'commander';
 import { isDatabaseSetUp, setupDatabase } from '../db/index.js';
 import { promptPassword } from '../utils/prompt.js';
 
-export async function runSetup(): Promise<void> {
+async function runSetup(): Promise<void> {
   if (await isDatabaseSetUp()) {
     console.error(
       'Database already set up. Use "tearleads password" to change password.'

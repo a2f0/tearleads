@@ -11,9 +11,6 @@ export const FEATURE_FLAG_KEYS: FeatureFlagKey[] = [
   'vfsSecureUpload'
 ];
 
-// Re-export app feature utilities for convenience
-export { getAppFeatures, isAppFeatureEnabled } from './appConfig.js';
-
 export const FEATURE_FLAGS: Record<FeatureFlagKey, FeatureFlagDefinition> = {
   vfsServerRegistration: {
     label: 'VFS server registration',

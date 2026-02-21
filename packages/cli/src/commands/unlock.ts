@@ -12,7 +12,7 @@ import {
 } from '../db/index.js';
 import { promptPassword } from '../utils/prompt.js';
 
-export async function runUnlock(): Promise<void> {
+async function runUnlock(): Promise<void> {
   if (!(await isDatabaseSetUp())) {
     console.error('Database not set up. Run "tearleads setup" first.');
     process.exit(1);

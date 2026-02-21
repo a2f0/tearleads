@@ -5,7 +5,7 @@
 import { Command } from 'commander';
 import { lockDatabase } from '../db/index.js';
 
-export async function runLock(): Promise<void> {
+async function runLock(): Promise<void> {
   await lockDatabase();
   console.log('Database locked.');
 }

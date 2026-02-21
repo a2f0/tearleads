@@ -20,7 +20,7 @@ interface RestoreOptions {
   password?: string;
 }
 
-export async function runRestore(
+async function runRestore(
   file: string,
   options: RestoreOptions
 ): Promise<void> {
