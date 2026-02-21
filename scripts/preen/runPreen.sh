@@ -306,11 +306,11 @@ metric_count() {
     preen-compliance-docs)
       gaps=0
       for fw in HIPAA NIST.SP.800-53 SOC2; do
-        find "compliance/$fw/policies" -name '*-policy.md' -type f 2>/dev/null | while read -r policy_file; do
+        while read -r policy_file; do
           policy=$(basename "$policy_file" -policy.md)
           [ ! -f "compliance/$fw/procedures/${policy}-procedure.md" ] && gaps=$((gaps + 1))
           [ ! -f "compliance/$fw/technical-controls/${policy}-control-map.md" ] && gaps=$((gaps + 1))
-        done
+        done < <(find "compliance/$fw/policies" -name '*-policy.md' -type f 2>/dev/null)
       done
       unnumbered=$(find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' | xargs -I{} basename {} | grep -v '^[0-9][0-9]-' | wc -l)
       echo $((gaps + unnumbered))
