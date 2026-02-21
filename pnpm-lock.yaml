@@ -868,6 +868,9 @@ importers:
       '@ionic/core':
         specifier: 8.7.17
         version: 8.7.17
+      '@noble/hashes':
+        specifier: 2.0.1
+        version: 2.0.1
       '@radix-ui/react-slot':
         specifier: 1.2.4
         version: 1.2.4(@types/react@19.2.14)(react@19.2.4)
