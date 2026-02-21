@@ -22,9 +22,6 @@ export const SALT_SIZE = 16;
 /** Size of the IV for AES-GCM */
 export const IV_SIZE = 12;
 
-/** Size of the GCM authentication tag (included in ciphertext) */
-export const AUTH_TAG_SIZE = 16;
-
 /** Chunk header size: 4 (length) + 1 (type) + 3 (reserved) + 12 (IV) = 20 bytes */
 export const CHUNK_HEADER_SIZE = 20;
 
