@@ -138,15 +138,16 @@ INNER_TMUX_SOCKET="tuxedo-inner"
 
 # Get command to start/attach inner tmux session for a workspace
 # Returns the command to run in an outer tmux pane
+# Uses escaped $PATH and $TUXEDO_WORKSPACE so they expand at runtime in the outer pane
 inner_tmux_cmd() {
     session_name="$1"
     work_dir="${2:-}"
     if [ "$USE_INNER_TMUX" = true ]; then
-        # Attach to existing session or create new one, optionally starting in workspace directory
+        # Attach to existing session or create new one, passing through PATH and TUXEDO_WORKSPACE
         if [ -n "$work_dir" ]; then
-            echo "tmux -L $INNER_TMUX_SOCKET -f \"$CONFIG_DIR/tmux-inner.conf\" new-session -A -s $session_name -c \"$work_dir\""
+            echo "tmux -L $INNER_TMUX_SOCKET -f \"$CONFIG_DIR/tmux-inner.conf\" new-session -A -s $session_name -c \"$work_dir\" -e \"PATH=\$PATH\" -e \"TUXEDO_WORKSPACE=\$TUXEDO_WORKSPACE\""
         else
-            echo "tmux -L $INNER_TMUX_SOCKET -f \"$CONFIG_DIR/tmux-inner.conf\" new-session -A -s $session_name"
+            echo "tmux -L $INNER_TMUX_SOCKET -f \"$CONFIG_DIR/tmux-inner.conf\" new-session -A -s $session_name -e \"PATH=\$PATH\" -e \"TUXEDO_WORKSPACE=\$TUXEDO_WORKSPACE\""
         fi
     else
         # Fallback: outer tmux will start default shell
