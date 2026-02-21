@@ -16,12 +16,17 @@ function buildValidAclAddOperation(): Record<string, unknown> {
 }
 
 describe('post-crdt-push-parse encrypted envelope', () => {
-  it('parses encrypted ACL operation with all envelope fields', () => {
+  it('parses encrypted ACL remove operation with all envelope fields', () => {
     const result = parsePushPayload({
       clientId: 'client-1',
       operations: [
         {
-          ...buildValidAclAddOperation(),
+          opId: 'op-1',
+          opType: 'acl_remove',
+          itemId: 'item-1',
+          replicaId: 'client-1',
+          writeId: 1,
+          occurredAt: '2026-02-16T00:00:00.000Z',
           encryptedPayload: 'base64-ciphertext',
           keyEpoch: 1,
           encryptionNonce: 'base64-nonce',
@@ -40,7 +45,12 @@ describe('post-crdt-push-parse encrypted envelope', () => {
       status: 'parsed',
       opId: 'op-1',
       operation: {
-        ...buildValidAclAddOperation(),
+        opId: 'op-1',
+        opType: 'acl_remove',
+        itemId: 'item-1',
+        replicaId: 'client-1',
+        writeId: 1,
+        occurredAt: '2026-02-16T00:00:00.000Z',
         encryptedPayload: 'base64-ciphertext',
         keyEpoch: 1,
         encryptionNonce: 'base64-nonce',
@@ -225,6 +235,65 @@ describe('post-crdt-push-parse encrypted envelope', () => {
     expect(result.value.operations[0]).toEqual({
       status: 'invalid',
       opId: 'op-missing-metadata'
+    });
+  });
+
+  it('rejects encrypted ACL operation that mixes plaintext ACL fields', () => {
+    const result = parsePushPayload({
+      clientId: 'client-1',
+      operations: [
+        {
+          ...buildValidAclAddOperation(),
+          encryptedPayload: 'base64-ciphertext',
+          keyEpoch: 1,
+          encryptionNonce: 'base64-nonce',
+          encryptionAad: 'base64-aad',
+          encryptionSignature: 'base64-sig'
+        }
+      ]
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error('Expected parsePushPayload to succeed');
+    }
+
+    expect(result.value.operations[0]).toEqual({
+      status: 'invalid',
+      opId: 'op-1'
+    });
+  });
+
+  it('rejects encrypted link operation that mixes plaintext link fields', () => {
+    const result = parsePushPayload({
+      clientId: 'client-1',
+      operations: [
+        {
+          opId: 'op-link-1',
+          opType: 'link_add',
+          itemId: 'item-1',
+          replicaId: 'client-1',
+          writeId: 1,
+          occurredAt: '2026-02-16T00:00:00.000Z',
+          encryptedPayload: 'base64-ciphertext',
+          keyEpoch: 1,
+          encryptionNonce: 'base64-nonce',
+          encryptionAad: 'base64-aad',
+          encryptionSignature: 'base64-sig',
+          parentId: 'folder-1',
+          childId: 'item-1'
+        }
+      ]
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error('Expected parsePushPayload to succeed');
+    }
+
+    expect(result.value.operations[0]).toEqual({
+      status: 'invalid',
+      opId: 'op-link-1'
     });
   });
 });

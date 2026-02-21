@@ -190,11 +190,20 @@ function parsePushOperation(
   }
 
   if (opType === 'acl_add' || opType === 'acl_remove') {
+    const includesPlaintextAclFields =
+      Object.hasOwn(value, 'principalType') ||
+      Object.hasOwn(value, 'principalId') ||
+      (opType === 'acl_add' && Object.hasOwn(value, 'accessLevel'));
+    if (hasEncryptedPayload && includesPlaintextAclFields) {
+      return {
+        status: 'invalid',
+        opId
+      };
+    }
+
     const principalType = value['principalType'];
     const principalId = normalizeRequiredString(value['principalId']);
 
-    // With encrypted payload, plaintext ACL fields are optional
-    // (the actual ACL data is in the encrypted envelope)
     if (!hasEncryptedPayload) {
       if (!isValidPrincipalType(principalType) || !principalId) {
         return {
@@ -204,7 +213,6 @@ function parsePushOperation(
       }
     }
 
-    // Store plaintext fields if provided (allows hybrid encrypted+plaintext operations)
     if (isValidPrincipalType(principalType)) {
       operation.principalType = principalType;
     }
@@ -228,6 +236,15 @@ function parsePushOperation(
   }
 
   if (opType === 'link_add' || opType === 'link_remove') {
+    const includesPlaintextLinkFields =
+      Object.hasOwn(value, 'parentId') || Object.hasOwn(value, 'childId');
+    if (hasEncryptedPayload && includesPlaintextLinkFields) {
+      return {
+        status: 'invalid',
+        opId
+      };
+    }
+
     const parentId = normalizeRequiredString(value['parentId']);
     const rawChildId = normalizeRequiredString(value['childId']);
     const shouldRequirePlaintextLinkFields = !hasEncryptedPayload;
