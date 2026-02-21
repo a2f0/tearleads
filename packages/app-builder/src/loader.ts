@@ -8,6 +8,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /**
+ * The default app ID used when no APP env var is set.
+ * This is the full-featured tearleads app.
+ */
+export const DEFAULT_APP_ID = 'tearleads';
+
+/**
+ * Get the default app ID.
+ */
+export function getDefaultAppId(): string {
+  return DEFAULT_APP_ID;
+}
+
+/**
  * Get the path to the apps directory.
  */
 export function getAppsDir(): string {

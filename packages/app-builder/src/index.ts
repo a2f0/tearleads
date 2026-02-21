@@ -12,7 +12,13 @@ export {
   getDisabledPackages,
   getEnabledPackages
 } from './featureMap.js';
-export { getAppsDir, listApps, loadAppConfig } from './loader.js';
+export {
+  DEFAULT_APP_ID,
+  getAppsDir,
+  getDefaultAppId,
+  listApps,
+  loadAppConfig
+} from './loader.js';
 export {
   AppConfigSchema,
   AppFeatureSchema,

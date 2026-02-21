@@ -16,7 +16,7 @@ import {
   generateStringsXml,
   generateXcconfig
 } from './generators/index.js';
-import { listApps, loadAppConfig } from './loader.js';
+import { DEFAULT_APP_ID, listApps, loadAppConfig } from './loader.js';
 import type { AppConfig } from './types.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -270,7 +270,8 @@ program
 program
   .command('generate')
   .description('Generate configuration files for an app')
-  .requiredOption('-a, --app <id>', 'App ID')
+  .option('-a, --app <id>', 'App ID')
+  .option('-d, --default', `Use the default app (${DEFAULT_APP_ID})`)
   .option(
     '-p, --platform <platform>',
     'Platform (ios, android, desktop, pwa, all)',
@@ -283,17 +284,29 @@ program
   .option('--dry-run', 'Show what would be generated without writing files')
   .action(
     async (options: {
-      app: string;
+      app?: string;
+      default?: boolean;
       platform: string;
       output?: string;
       dryRun?: boolean;
     }) => {
+      // Determine app ID: --app takes precedence, then --default, then error
+      let appId: string;
+      if (options.app) {
+        appId = options.app;
+      } else if (options.default) {
+        appId = DEFAULT_APP_ID;
+      } else {
+        console.error('Specify --app <id> or --default');
+        process.exit(1);
+      }
+
       try {
-        const { config, assetsDir } = await loadAppConfig(options.app);
+        const { config, assetsDir } = await loadAppConfig(appId);
         const outputDir = options.output || getDefaultOutputDir();
 
         console.log(
-          `Generating configs for "${config.displayName}" (${options.app})...`
+          `Generating configs for "${config.displayName}" (${appId})...`
         );
         console.log(`  Bundle ID (iOS): ${config.bundleIds.ios}`);
         console.log(`  Bundle ID (Android): ${config.bundleIds.android}`);
