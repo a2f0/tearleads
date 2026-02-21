@@ -17,6 +17,8 @@ usage() {
   echo "  -h, --help         Show this help"
   echo ""
   echo "Environment variables:"
+  echo "  VAULT_USERNAME - Username for userpass auth (optional)"
+  echo "  VAULT_PASSWORD - Password for userpass auth (optional)"
   echo "  VAULT_ADDR   - Vault server address (default: http://vault-prod:8200)"
   echo "  VAULT_TOKEN  - Vault token (or use ~/.vault-token)"
   exit 0
@@ -59,8 +61,10 @@ fi
 if [[ -z "${VAULT_TOKEN:-}" ]]; then
   if [[ -f ~/.vault-token ]]; then
     export VAULT_TOKEN=$(cat ~/.vault-token)
+  elif [[ -n "${VAULT_USERNAME:-}" && -n "${VAULT_PASSWORD:-}" ]]; then
+    vault login -method=userpass username="$VAULT_USERNAME" password="$VAULT_PASSWORD" >/dev/null
   else
-    echo "ERROR: No VAULT_TOKEN set and ~/.vault-token not found."
+    echo "ERROR: No VAULT_TOKEN, ~/.vault-token, or VAULT_USERNAME/VAULT_PASSWORD set."
     exit 1
   fi
 fi

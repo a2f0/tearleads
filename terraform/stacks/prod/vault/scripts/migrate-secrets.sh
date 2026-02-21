@@ -6,6 +6,7 @@ set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+VAULT_KEYS_FILE="$REPO_ROOT/.secrets/vault-keys.json"
 
 export VAULT_ADDR="${VAULT_ADDR:-http://vault-prod:8200}"
 SECRETS_DIR="${SECRETS_DIR:-$REPO_ROOT/.secrets}"
@@ -30,6 +31,12 @@ usage() {
   echo "  - README.md"
   echo "  - vault-keys.json (contains unseal keys - keep local only)"
   echo "  - vault-backups/ directory"
+  echo ""
+  echo "Environment:"
+  echo "  VAULT_USERNAME   Username for userpass auth (optional)"
+  echo "  VAULT_PASSWORD   Password for userpass auth (optional)"
+  echo "  VAULT_TOKEN      Direct token auth (optional)"
+  echo "  VAULT_ADDR       Vault address (default: http://vault-prod:8200)"
   exit 0
 }
 
@@ -60,19 +67,34 @@ if [[ ! -d "$SECRETS_DIR" ]]; then
   exit 1
 fi
 
-# Check for vault token (unless dry run)
+  # Check for vault token (unless dry run)
 if [[ "$DRY_RUN" != "true" ]]; then
   if [[ -z "${VAULT_TOKEN:-}" ]]; then
-    if [[ -f ~/.vault-token ]]; then
+    if [[ -f "$VAULT_KEYS_FILE" ]]; then
+      export VAULT_TOKEN=$(jq -r '.root_token // empty' "$VAULT_KEYS_FILE")
+      if [[ -z "${VAULT_TOKEN}" ]]; then
+        echo "ERROR: $VAULT_KEYS_FILE exists but has no root_token."
+        exit 1
+      fi
+    elif [[ -f ~/.vault-token ]]; then
       export VAULT_TOKEN=$(cat ~/.vault-token)
+    elif [[ -n "${VAULT_USERNAME:-}" && -n "${VAULT_PASSWORD:-}" ]]; then
+      vault login -method=userpass username="$VAULT_USERNAME" password="$VAULT_PASSWORD" >/dev/null
     else
-      echo "ERROR: No VAULT_TOKEN set and ~/.vault-token not found."
+      echo "ERROR: No VAULT_TOKEN, $VAULT_KEYS_FILE, ~/.vault-token, or VAULT_USERNAME/VAULT_PASSWORD set."
       exit 1
     fi
   fi
 
   if ! vault token lookup >/dev/null 2>&1; then
     echo "ERROR: Cannot connect to Vault at $VAULT_ADDR or token is invalid."
+    exit 1
+  fi
+
+  CAPABILITIES=$(vault token capabilities secret/data/files/_migrate_probe 2>/dev/null || true)
+  if ! echo "$CAPABILITIES" | grep -Eq 'create|update|root|sudo'; then
+    echo "ERROR: Current token cannot write to secret/data/files/* (capabilities: ${CAPABILITIES:-none})."
+    echo "Use a token with write access (e.g. root token from $VAULT_KEYS_FILE)."
     exit 1
   fi
 fi

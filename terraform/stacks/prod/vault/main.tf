@@ -17,23 +17,8 @@ data "hcloud_ssh_key" "main" {
   name = var.ssh_key_name
 }
 
-# Pre-create cleanup: runs BEFORE server creation to handle taint/recreate scenarios
-# When a server is tainted, the old Tailscale device must be removed before the new
-# server's cloud-init registers, otherwise it gets a suffixed name (vault-prod-1)
-resource "terraform_data" "tailscale_pre_cleanup" {
-  triggers_replace = [timestamp()]
-
-  provisioner "local-exec" {
-    environment = {
-      TAILSCALE_API_TOKEN = var.tailscale_api_token
-    }
-    command = "${path.module}/scripts/cleanup-tailscale-device.sh ${local.tailscale_hostname}"
-  }
-}
-
 module "server" {
-  depends_on = [terraform_data.tailscale_pre_cleanup]
-  source     = "../../../modules/hetzner-server"
+  source = "../../../modules/hetzner-server"
 
   name        = "vault-prod"
   ssh_key_id  = data.hcloud_ssh_key.main.id
@@ -109,8 +94,7 @@ module "server" {
   }
 }
 
-# Destroy-time cleanup: removes Tailscale device when stack is destroyed
-# This complements pre-create cleanup for full lifecycle coverage
+# Destroy-time cleanup: removes Tailscale device when stack is destroyed.
 resource "terraform_data" "tailscale_destroy_cleanup" {
   input = {
     hostname  = local.tailscale_hostname
