@@ -87,6 +87,21 @@ describe('VFS routes (rekey)', () => {
       expect(response.status).toBe(400);
     });
 
+    it('returns 400 when newEpoch is not a safe integer', async () => {
+      const authHeader = await createAuthHeader();
+
+      const response = await request(app)
+        .post('/v1/vfs/items/item-123/rekey')
+        .set('Authorization', authHeader)
+        .send({
+          reason: 'manual',
+          newEpoch: Number.MAX_SAFE_INTEGER + 1,
+          wrappedKeys: []
+        });
+
+      expect(response.status).toBe(400);
+    });
+
     it('returns 400 when wrapped key epoch does not match newEpoch', async () => {
       const authHeader = await createAuthHeader();
 
@@ -101,6 +116,29 @@ describe('VFS routes (rekey)', () => {
               recipientUserId: 'user-alice',
               recipientPublicKeyId: 'pk-alice',
               keyEpoch: 3,
+              encryptedKey: 'base64-encrypted-key',
+              senderSignature: 'base64-signature'
+            }
+          ]
+        });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 400 when wrapped key epoch is not a safe integer', async () => {
+      const authHeader = await createAuthHeader();
+
+      const response = await request(app)
+        .post('/v1/vfs/items/item-123/rekey')
+        .set('Authorization', authHeader)
+        .send({
+          reason: 'manual',
+          newEpoch: 2,
+          wrappedKeys: [
+            {
+              recipientUserId: 'user-alice',
+              recipientPublicKeyId: 'pk-alice',
+              keyEpoch: Number.MAX_SAFE_INTEGER + 1,
               encryptedKey: 'base64-encrypted-key',
               senderSignature: 'base64-signature'
             }

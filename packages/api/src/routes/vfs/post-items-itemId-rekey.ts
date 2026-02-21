@@ -26,6 +26,7 @@ function parseRekeyPayload(body: unknown): VfsRekeyRequest | null {
   if (
     typeof newEpoch !== 'number' ||
     !Number.isInteger(newEpoch) ||
+    !Number.isSafeInteger(newEpoch) ||
     newEpoch < 1
   ) {
     return null;
@@ -51,6 +52,7 @@ function parseRekeyPayload(body: unknown): VfsRekeyRequest | null {
       !isNonEmptyString(recipientPublicKeyId) ||
       typeof keyEpoch !== 'number' ||
       !Number.isInteger(keyEpoch) ||
+      !Number.isSafeInteger(keyEpoch) ||
       keyEpoch < 1 ||
       !isNonEmptyString(encryptedKey) ||
       !isNonEmptyString(senderSignature)

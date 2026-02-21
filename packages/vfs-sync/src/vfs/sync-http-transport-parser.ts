@@ -237,6 +237,7 @@ function parseSyncItem(value: unknown, index: number): VfsCrdtSyncItem {
     if (
       typeof keyEpochValue !== 'number' ||
       !Number.isInteger(keyEpochValue) ||
+      !Number.isSafeInteger(keyEpochValue) ||
       keyEpochValue < 1
     ) {
       throw new Error(
