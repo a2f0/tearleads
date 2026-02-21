@@ -87,6 +87,29 @@ describe('VFS routes (rekey)', () => {
       expect(response.status).toBe(400);
     });
 
+    it('returns 400 when wrapped key epoch does not match newEpoch', async () => {
+      const authHeader = await createAuthHeader();
+
+      const response = await request(app)
+        .post('/v1/vfs/items/item-123/rekey')
+        .set('Authorization', authHeader)
+        .send({
+          reason: 'manual',
+          newEpoch: 2,
+          wrappedKeys: [
+            {
+              recipientUserId: 'user-alice',
+              recipientPublicKeyId: 'pk-alice',
+              keyEpoch: 3,
+              encryptedKey: 'base64-encrypted-key',
+              senderSignature: 'base64-signature'
+            }
+          ]
+        });
+
+      expect(response.status).toBe(400);
+    });
+
     it('returns 404 when item does not exist', async () => {
       const authHeader = await createAuthHeader();
       mockQuery.mockResolvedValueOnce({ rows: [] }); // no item found
@@ -142,6 +165,17 @@ describe('VFS routes (rekey)', () => {
         newEpoch: 2,
         wrapsApplied: 1
       });
+      const updateCall = mockQuery.mock.calls[1];
+      expect(updateCall?.[1]?.[0]).toBe('base64-encrypted-key');
+      expect(updateCall?.[1]?.[1]).toBe(
+        JSON.stringify({
+          recipientPublicKeyId: 'pk-alice',
+          senderSignature: 'base64-signature'
+        })
+      );
+      expect(updateCall?.[1]?.[2]).toBe(2);
+      expect(updateCall?.[1]?.[3]).toBe('item-123');
+      expect(updateCall?.[1]?.[4]).toBe('user-alice');
     });
 
     it('returns 200 with zero wraps when no ACL entries match', async () => {

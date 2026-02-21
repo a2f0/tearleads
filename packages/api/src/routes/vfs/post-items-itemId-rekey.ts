@@ -2,6 +2,10 @@ import type { VfsRekeyRequest, VfsRekeyResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 /**
  * Parse and validate the rekey request payload.
  */
@@ -19,7 +23,11 @@ function parseRekeyPayload(body: unknown): VfsRekeyRequest | null {
     return null;
   }
 
-  if (typeof newEpoch !== 'number' || newEpoch < 1) {
+  if (
+    typeof newEpoch !== 'number' ||
+    !Number.isInteger(newEpoch) ||
+    newEpoch < 1
+  ) {
     return null;
   }
 
@@ -31,21 +39,26 @@ function parseRekeyPayload(body: unknown): VfsRekeyRequest | null {
     if (typeof key !== 'object' || key === null) {
       return null;
     }
-    const {
-      recipientUserId,
-      recipientPublicKeyId,
-      keyEpoch,
-      encryptedKey,
-      senderSignature
-    } = key as Record<string, unknown>;
+    const keyRecord = key as Record<string, unknown>;
+    const recipientUserId = keyRecord['recipientUserId'];
+    const recipientPublicKeyId = keyRecord['recipientPublicKeyId'];
+    const keyEpoch = keyRecord['keyEpoch'];
+    const encryptedKey = keyRecord['encryptedKey'];
+    const senderSignature = keyRecord['senderSignature'];
 
     if (
-      typeof recipientUserId !== 'string' ||
-      typeof recipientPublicKeyId !== 'string' ||
+      !isNonEmptyString(recipientUserId) ||
+      !isNonEmptyString(recipientPublicKeyId) ||
       typeof keyEpoch !== 'number' ||
-      typeof encryptedKey !== 'string' ||
-      typeof senderSignature !== 'string'
+      !Number.isInteger(keyEpoch) ||
+      keyEpoch < 1 ||
+      !isNonEmptyString(encryptedKey) ||
+      !isNonEmptyString(senderSignature)
     ) {
+      return null;
+    }
+
+    if (keyEpoch !== newEpoch) {
       return null;
     }
   }
@@ -192,18 +205,30 @@ export const postItemsItemIdRekeyHandler = async (
     let wrapsApplied = 0;
 
     for (const wrap of payload.wrappedKeys) {
+      const wrappedKeyMetadata = JSON.stringify({
+        recipientPublicKeyId: wrap.recipientPublicKeyId,
+        senderSignature: wrap.senderSignature
+      });
+
       // Find active ACL entry for this recipient
       const result = await pool.query(
         `UPDATE vfs_acl_entries
          SET wrapped_session_key = $1,
-             key_epoch = $2,
+             wrapped_hierarchical_key = $2,
+             key_epoch = $3,
              updated_at = NOW()
-         WHERE item_id = $3
+         WHERE item_id = $4
            AND principal_type = 'user'
-           AND principal_id = $4
+           AND principal_id = $5
            AND revoked_at IS NULL
          RETURNING id`,
-        [wrap.encryptedKey, wrap.keyEpoch, itemId, wrap.recipientUserId]
+        [
+          wrap.encryptedKey,
+          wrappedKeyMetadata,
+          wrap.keyEpoch,
+          itemId,
+          wrap.recipientUserId
+        ]
       );
 
       if (result.rowCount && result.rowCount > 0) {
