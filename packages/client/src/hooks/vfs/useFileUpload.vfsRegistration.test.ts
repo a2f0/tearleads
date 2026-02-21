@@ -18,7 +18,19 @@ vi.mock('@/db/crypto', () => ({
 
 vi.mock('@/lib/fileUtils', () => ({
   readFileAsUint8Array: vi.fn(),
-  computeContentHash: vi.fn()
+  computeContentHash: vi.fn(),
+  readMagicBytes: vi.fn(() =>
+    Promise.resolve(new Uint8Array([0xff, 0xd8, 0xff]))
+  ),
+  createStreamFromFile: vi.fn(
+    () =>
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array([1, 2, 3]));
+          controller.close();
+        }
+      })
+  )
 }));
 
 vi.mock('@/lib/thumbnail', () => ({

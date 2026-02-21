@@ -18,7 +18,19 @@ vi.mock('@/db/crypto', () => ({
 
 vi.mock('@/lib/fileUtils', () => ({
   readFileAsUint8Array: vi.fn(),
-  computeContentHash: vi.fn()
+  computeContentHash: vi.fn(),
+  readMagicBytes: vi.fn(() =>
+    Promise.resolve(new Uint8Array([0xff, 0xd8, 0xff]))
+  ),
+  createStreamFromFile: vi.fn(
+    () =>
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array([1, 2, 3]));
+          controller.close();
+        }
+      })
+  )
 }));
 
 vi.mock('@/lib/thumbnail', () => ({
@@ -141,7 +153,8 @@ describe('useFileUpload progress and thumbnails', () => {
 
     await result.current.uploadFile(file, onProgress);
 
-    expect(onProgress).toHaveBeenCalledWith(20);
+    expect(onProgress).toHaveBeenCalledWith(10);
+    expect(onProgress).toHaveBeenCalledWith(30);
     expect(onProgress).toHaveBeenCalledWith(40);
     expect(onProgress).toHaveBeenCalledWith(50);
     expect(onProgress).toHaveBeenCalledWith(65);
@@ -162,7 +175,8 @@ describe('useFileUpload progress and thumbnails', () => {
 
     await result.current.uploadFile(file, onProgress);
 
-    expect(onProgress).toHaveBeenCalledWith(20);
+    expect(onProgress).toHaveBeenCalledWith(10);
+    expect(onProgress).toHaveBeenCalledWith(30);
     expect(onProgress).toHaveBeenCalledWith(40);
     expect(onProgress).toHaveBeenCalledWith(50);
     expect(onProgress).toHaveBeenCalledWith(65);
