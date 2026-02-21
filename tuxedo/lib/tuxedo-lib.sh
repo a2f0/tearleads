@@ -140,10 +140,14 @@ INNER_TMUX_SOCKET="tuxedo-inner"
 # Returns the command to run in an outer tmux pane
 inner_tmux_cmd() {
     session_name="$1"
-    work_dir="$2"
+    work_dir="${2:-}"
     if [ "$USE_INNER_TMUX" = true ]; then
-        # Attach to existing session or create new one, starting in workspace directory
-        echo "tmux -L $INNER_TMUX_SOCKET -f \"$CONFIG_DIR/tmux-inner.conf\" new-session -A -s $session_name -c \"$work_dir\""
+        # Attach to existing session or create new one, optionally starting in workspace directory
+        if [ -n "$work_dir" ]; then
+            echo "tmux -L $INNER_TMUX_SOCKET -f \"$CONFIG_DIR/tmux-inner.conf\" new-session -A -s $session_name -c \"$work_dir\""
+        else
+            echo "tmux -L $INNER_TMUX_SOCKET -f \"$CONFIG_DIR/tmux-inner.conf\" new-session -A -s $session_name"
+        fi
     else
         # Fallback: outer tmux will start default shell
         echo ""
@@ -152,17 +156,22 @@ inner_tmux_cmd() {
 
 # Set up editor split in an inner tmux session (called after all windows created)
 inner_tmux_setup_editor() {
+    [ "$USE_INNER_TMUX" = true ] || return 0
+
     session_name="$1"
     editor_cmd="$2"
-    work_dir="$3"
-    [ "$USE_INNER_TMUX" = true ] || return 0
+    work_dir="${3:-}"
 
     # Wait for session to exist (poll up to 5 seconds)
     tries=0
     while [ $tries -lt 50 ]; do
         if tmux -L "$INNER_TMUX_SOCKET" has-session -t "$session_name" 2>/dev/null; then
             # Found it - split and run editor in workspace directory (-d keeps terminal active)
-            tmux -L "$INNER_TMUX_SOCKET" split-window -d -h -t "$session_name" -c "$work_dir" "$editor_cmd"
+            if [ -n "$work_dir" ]; then
+                tmux -L "$INNER_TMUX_SOCKET" split-window -d -h -t "$session_name" -c "$work_dir" "$editor_cmd"
+            else
+                tmux -L "$INNER_TMUX_SOCKET" split-window -d -h -t "$session_name" "$editor_cmd"
+            fi
             return 0
         fi
         sleep 0.1
