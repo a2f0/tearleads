@@ -59,15 +59,6 @@ export function detectPlatform(): Platform {
   return 'web';
 }
 
-export function generateUniqueId(prefix?: string): string {
-  const cryptoObj = globalThis.crypto;
-  const randomPart =
-    cryptoObj && typeof cryptoObj.randomUUID === 'function'
-      ? cryptoObj.randomUUID()
-      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return prefix ? `${prefix}-${randomPart}` : randomPart;
-}
-
 export function formatFileSize(bytes: number): string {
   if (bytes < 0) return 'Invalid size';
   if (bytes === 0) return '0 B';
@@ -88,15 +79,6 @@ export function formatDate(date: Date): string {
     hour: '2-digit',
     minute: '2-digit'
   });
-}
-
-export function formatTimestamp(timestamp: string | null): string {
-  if (!timestamp) return '—';
-  return formatDate(new Date(timestamp));
-}
-
-export function formatNumber(value: number): string {
-  return new Intl.NumberFormat().format(value);
 }
 
 export function getVideoTypeDisplay(mimeType: string): string {
@@ -142,4 +124,13 @@ export function getWebGPUErrorInfo(): WebGPUErrorInfo {
           'Supported browsers: Chrome 113+, Edge 113+, Firefox 121+, Safari 18+.'
       };
   }
+}
+
+export function formatTimestamp(timestamp: string | null): string {
+  if (!timestamp) return '—';
+  return formatDate(new Date(timestamp));
+}
+
+export function formatNumber(value: number): string {
+  return new Intl.NumberFormat().format(value);
 }

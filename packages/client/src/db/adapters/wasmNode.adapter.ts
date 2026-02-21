@@ -384,8 +384,8 @@ export class WasmNodeAdapter implements DatabaseAdapter {
     // However, sqlite3_deserialize does NOT work with SQLite3MultipleCiphers WASM
     // (returns SQLITE_NOTADB error).
     //
-    // WORKAROUND: Check if the data is our JSON format first (for compatibility with
-    // exportDatabaseAsJson). If it's a binary SQLite file, we currently cannot import it.
+    // WORKAROUND: Check if the data is our JSON format first (matching JSON export format).
+    // If it's a binary SQLite file, we currently cannot import it.
     //
     // For proper backup/restore support, use exportDatabaseAsJson/importDatabaseFromJson instead.
 
@@ -408,18 +408,7 @@ export class WasmNodeAdapter implements DatabaseAdapter {
   }
 }
 
-// Re-export test utilities from wasmNode module
-export { initializeSqliteWasm } from './wasmNode/initializeSqliteWasm';
-export {
-  getStringField,
-  isJsonBackupData,
-  isNameSqlEntry,
-  keyToHex,
-  parseJsonBackupData,
-  patchFetchForFileUrls,
-  restoreFetch
-} from './wasmNode/utils';
-
+// Test utilities - expose functions imported at top of file for test access
 export const __test__ = {
   getStringField,
   initializeSqliteWasm,

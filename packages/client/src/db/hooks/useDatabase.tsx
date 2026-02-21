@@ -35,12 +35,14 @@ import {
   setActiveInstanceId,
   touchInstance
 } from '../instanceRegistry';
-import { DatabaseContext } from './useDatabaseContext';
+import { DatabaseContext, useDatabaseContext } from './useDatabaseContext';
 import { initializeAndRestoreDatabaseState } from './useDatabaseInitialization';
 import type {
   DatabaseContextValue,
   DatabaseProviderProps
 } from './useDatabaseTypes';
+
+export { useDatabaseContext };
 
 /**
  * Provider component for database access.
@@ -490,9 +492,3 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
     </DatabaseContext.Provider>
   );
 }
-
-export {
-  useDatabase,
-  useDatabaseContext,
-  useDatabaseOptional
-} from './useDatabaseContext';
