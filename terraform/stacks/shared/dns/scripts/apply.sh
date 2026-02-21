@@ -10,4 +10,5 @@ source "$REPO_ROOT/terraform/scripts/common.sh"
 
 validate_cloudflare_env
 
+terraform -chdir="$STACK_DIR" init
 terraform -chdir="$STACK_DIR" apply "$@"

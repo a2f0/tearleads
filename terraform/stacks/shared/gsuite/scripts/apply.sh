@@ -10,4 +10,5 @@ source "$SCRIPT_DIR/auth.sh"
 
 hydrate_googleworkspace_auth "$REPO_ROOT"
 
+terraform -chdir="$STACK_DIR" init
 terraform -chdir="$STACK_DIR" apply "$@"

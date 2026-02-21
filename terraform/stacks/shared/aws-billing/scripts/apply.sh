@@ -9,4 +9,5 @@ source "$REPO_ROOT/terraform/scripts/common.sh"
 
 validate_aws_env
 
+terraform -chdir="$STACK_DIR" init
 terraform -chdir="$STACK_DIR" apply "$@"
