@@ -34,8 +34,8 @@ function parseWrappedKeyMetadata(value: string | null): WrappedKeyMetadata | nul
       return null;
     }
 
-    const recipientPublicKeyId = parsed.recipientPublicKeyId;
-    const senderSignature = parsed.senderSignature;
+    const recipientPublicKeyId = parsed['recipientPublicKeyId'];
+    const senderSignature = parsed['senderSignature'];
     if (
       typeof recipientPublicKeyId !== 'string' ||
       !recipientPublicKeyId.trim() ||

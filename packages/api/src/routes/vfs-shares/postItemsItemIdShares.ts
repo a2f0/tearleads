@@ -164,12 +164,13 @@ export const postItemsItemidSharesHandler = async (
     const aclId = buildShareAclId(shareId);
     const now = new Date();
     const expiresAt = payload.expiresAt ? new Date(payload.expiresAt) : null;
+    const wrappedKey = payload.wrappedKey ?? null;
     const wrappedKeyMetadata =
-      payload.wrappedKey === null
+      wrappedKey === null
         ? null
         : JSON.stringify({
-            recipientPublicKeyId: payload.wrappedKey.recipientPublicKeyId,
-            senderSignature: payload.wrappedKey.senderSignature
+            recipientPublicKeyId: wrappedKey.recipientPublicKeyId,
+            senderSignature: wrappedKey.senderSignature
           });
 
     const result = await pool.query<{
@@ -226,9 +227,9 @@ export const postItemsItemidSharesHandler = async (
         payload.shareType,
         payload.targetId,
         mapSharePermissionLevelToAclAccessLevel(payload.permissionLevel),
-        payload.wrappedKey?.encryptedKey ?? null,
+        wrappedKey?.encryptedKey ?? null,
         wrappedKeyMetadata,
-        payload.wrappedKey?.keyEpoch ?? null,
+        wrappedKey?.keyEpoch ?? null,
         claims.sub,
         now,
         expiresAt
@@ -260,7 +261,7 @@ export const postItemsItemidSharesHandler = async (
       createdByEmail: creatorResult.rows[0]?.email ?? 'Unknown',
       createdAt: row.created_at.toISOString(),
       expiresAt: row.expires_at ? row.expires_at.toISOString() : null,
-      ...(payload.wrappedKey !== null && { wrappedKey: payload.wrappedKey })
+      ...(wrappedKey !== null && { wrappedKey })
     };
 
     res.status(201).json({ share });

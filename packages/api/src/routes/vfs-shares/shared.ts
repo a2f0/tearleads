@@ -285,11 +285,11 @@ function parseWrappedKeyPayload(value: unknown): VfsWrappedKeyPayload | null {
     return null;
   }
 
-  const recipientUserId = value.recipientUserId;
-  const recipientPublicKeyId = value.recipientPublicKeyId;
-  const keyEpoch = value.keyEpoch;
-  const encryptedKey = value.encryptedKey;
-  const senderSignature = value.senderSignature;
+  const recipientUserId = value['recipientUserId'];
+  const recipientPublicKeyId = value['recipientPublicKeyId'];
+  const keyEpoch = value['keyEpoch'];
+  const encryptedKey = value['encryptedKey'];
+  const senderSignature = value['senderSignature'];
 
   if (
     typeof recipientUserId !== 'string' ||
