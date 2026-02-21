@@ -204,5 +204,4 @@ describe('post-crdt-push-parse', () => {
       expect(result.value.operations[1]?.status).toBe('parsed');
     });
   });
-
 });
