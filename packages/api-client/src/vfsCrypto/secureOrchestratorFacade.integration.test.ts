@@ -93,40 +93,42 @@ describe('secureOrchestratorFacade integration', () => {
     const facade = createVfsSecureOrchestratorFacade(
       orchestrator,
       {
-        uploadEncryptedBlob: vi.fn(async () => ({
-          manifest: {
-            itemId: 'item-1',
-            blobId: 'blob-1',
-            keyEpoch: 7,
-            totalPlaintextBytes: 1024,
-            totalCiphertextBytes: 1152,
-            chunkCount: 2,
-            chunkHashes: ['hash-1', 'hash-2'],
-            wrappedFileKeys: [],
-            manifestSignature: 'manifest-signature-7'
-          },
-          uploadId: 'upload-7',
-          chunks: [
-            {
-              chunkIndex: 0,
-              isFinal: false,
-              nonce: 'nonce-1',
-              aadHash: 'aad-hash-1',
-              ciphertextBase64: 'Y2lwaGVydGV4dC0x',
-              plaintextLength: 512,
-              ciphertextLength: 576
+        uploadEncryptedBlob: vi.fn(async (input) => {
+          // Simulate streaming chunks via callback
+          await input.onChunk?.({
+            chunkIndex: 0,
+            isFinal: false,
+            nonce: 'nonce-1',
+            aadHash: 'aad-hash-1',
+            ciphertextBase64: 'Y2lwaGVydGV4dC0x',
+            plaintextLength: 512,
+            ciphertextLength: 576
+          });
+          await input.onChunk?.({
+            chunkIndex: 1,
+            isFinal: true,
+            nonce: 'nonce-2',
+            aadHash: 'aad-hash-2',
+            ciphertextBase64: 'Y2lwaGVydGV4dC0y',
+            plaintextLength: 512,
+            ciphertextLength: 576
+          });
+
+          return {
+            manifest: {
+              itemId: 'item-1',
+              blobId: 'blob-1',
+              keyEpoch: 7,
+              totalPlaintextBytes: 1024,
+              totalCiphertextBytes: 1152,
+              chunkCount: 2,
+              chunkHashes: ['hash-1', 'hash-2'],
+              wrappedFileKeys: [],
+              manifestSignature: 'manifest-signature-7'
             },
-            {
-              chunkIndex: 1,
-              isFinal: true,
-              nonce: 'nonce-2',
-              aadHash: 'aad-hash-2',
-              ciphertextBase64: 'Y2lwaGVydGV4dC0y',
-              plaintextLength: 512,
-              ciphertextLength: 576
-            }
-          ]
-        })),
+            uploadId: 'upload-7'
+          };
+        }),
         encryptCrdtOp: vi.fn()
       },
       { relationKind: 'file' }

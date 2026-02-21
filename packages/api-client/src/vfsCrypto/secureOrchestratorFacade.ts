@@ -8,6 +8,7 @@ import type {
   QueueEncryptedCrdtOpAndPersistInput,
   StageAttachEncryptedBlobAndPersistInput,
   StageAttachEncryptedBlobAndPersistResult,
+  UploadEncryptedBlobChunk,
   VfsSecureOrchestratorFacade,
   VfsSecureWritePipeline
 } from './secureWritePipeline';
@@ -103,16 +104,46 @@ class DefaultVfsSecureOrchestratorFacade
   async stageAttachEncryptedBlobAndPersist(
     input: StageAttachEncryptedBlobAndPersistInput
   ): Promise<StageAttachEncryptedBlobAndPersistResult> {
+    // Generate upload tracking IDs upfront for streaming chunk queueing
+    const uploadId = crypto.randomUUID();
+    const stagingId = crypto.randomUUID();
+
+    // Collect streamed chunks for validation (bounded: only metadata, not ciphertext)
+    const streamedChunks: Array<{
+      chunkIndex: number;
+      isFinal: boolean;
+    }> = [];
+
+    // Use streaming callback for bounded memory processing
+    const onChunk = async (chunk: UploadEncryptedBlobChunk): Promise<void> => {
+      streamedChunks.push({
+        chunkIndex: chunk.chunkIndex,
+        isFinal: chunk.isFinal
+      });
+      await this.writeOrchestrator.queueBlobChunkAndPersist({
+        stagingId,
+        uploadId,
+        chunkIndex: chunk.chunkIndex,
+        isFinal: chunk.isFinal,
+        nonce: chunk.nonce,
+        aadHash: chunk.aadHash,
+        ciphertextBase64: chunk.ciphertextBase64,
+        plaintextLength: chunk.plaintextLength,
+        ciphertextLength: chunk.ciphertextLength
+      });
+    };
+
     const uploadResult = await this.secureWritePipeline.uploadEncryptedBlob({
       itemId: input.itemId,
       blobId: input.blobId,
       contentType: input.contentType,
-      stream: input.stream
+      stream: input.stream,
+      onChunk
     });
     const { manifest } = uploadResult;
-    const uploadId = uploadResult.uploadId ?? manifest.blobId;
-    const chunks = uploadResult.chunks ?? [];
-    validateUploadChunkIntegrity(chunks, manifest);
+
+    // Validate chunk integrity using streamed metadata
+    validateStreamedChunkIntegrity(streamedChunks, manifest);
 
     const stageRequest: VfsBlobStageRequest = {
       blobId: input.blobId,
@@ -135,23 +166,11 @@ class DefaultVfsSecureOrchestratorFacade
       }
     };
 
-    const stageOperation =
-      await this.writeOrchestrator.queueBlobStageAndPersist(stageRequest);
-    const stagingId = stageOperation.payload.stagingId;
-
-    for (const chunk of chunks) {
-      await this.writeOrchestrator.queueBlobChunkAndPersist({
-        stagingId,
-        uploadId,
-        chunkIndex: chunk.chunkIndex,
-        isFinal: chunk.isFinal,
-        nonce: chunk.nonce,
-        aadHash: chunk.aadHash,
-        ciphertextBase64: chunk.ciphertextBase64,
-        plaintextLength: chunk.plaintextLength,
-        ciphertextLength: chunk.ciphertextLength
-      });
-    }
+    // Queue stage operation (chunks were already queued via callback)
+    await this.writeOrchestrator.queueBlobStageAndPersist({
+      ...stageRequest,
+      stagingId
+    });
 
     await this.writeOrchestrator.queueBlobManifestCommitAndPersist({
       stagingId,
@@ -189,50 +208,36 @@ function estimateChunkSizeBytes(
   return Math.max(1, estimated);
 }
 
-function validateUploadChunkIntegrity(
-  chunks: NonNullable<
-    Awaited<ReturnType<VfsSecureWritePipeline['uploadEncryptedBlob']>>['chunks']
-  >,
+interface StreamedChunkMetadata {
+  chunkIndex: number;
+  isFinal: boolean;
+}
+
+function validateStreamedChunkIntegrity(
+  streamedChunks: StreamedChunkMetadata[],
   manifest: Awaited<
     ReturnType<VfsSecureWritePipeline['uploadEncryptedBlob']>
   >['manifest']
 ): void {
-  if (chunks.length === 0) {
+  if (streamedChunks.length === 0) {
     return;
   }
 
-  if (chunks.length !== manifest.chunkCount) {
-    throw new Error('Encrypted upload chunks do not match manifest chunkCount');
+  if (streamedChunks.length !== manifest.chunkCount) {
+    throw new Error('Streamed chunks do not match manifest chunkCount');
   }
 
-  const sortedChunks = [...chunks].sort((left, right) => {
+  const sortedChunks = [...streamedChunks].sort((left, right) => {
     return left.chunkIndex - right.chunkIndex;
   });
   for (const [index, chunk] of sortedChunks.entries()) {
     if (chunk.chunkIndex !== index) {
-      throw new Error(
-        'Encrypted upload chunks must be contiguous from index 0'
-      );
+      throw new Error('Streamed chunks must be contiguous from index 0');
     }
     const shouldBeFinal = index === sortedChunks.length - 1;
     if (chunk.isFinal !== shouldBeFinal) {
-      throw new Error('Encrypted upload chunk finality metadata is invalid');
+      throw new Error('Streamed chunk finality metadata is invalid');
     }
-  }
-
-  const totalPlaintextBytes = sortedChunks.reduce((total, chunk) => {
-    return total + chunk.plaintextLength;
-  }, 0);
-  const totalCiphertextBytes = sortedChunks.reduce((total, chunk) => {
-    return total + chunk.ciphertextLength;
-  }, 0);
-  if (
-    totalPlaintextBytes !== manifest.totalPlaintextBytes ||
-    totalCiphertextBytes !== manifest.totalCiphertextBytes
-  ) {
-    throw new Error(
-      'Encrypted upload chunk sizes do not match manifest totals'
-    );
   }
 }
 

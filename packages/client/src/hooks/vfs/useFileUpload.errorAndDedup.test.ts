@@ -18,7 +18,19 @@ vi.mock('@/db/crypto', () => ({
 
 vi.mock('@/lib/fileUtils', () => ({
   readFileAsUint8Array: vi.fn(),
-  computeContentHash: vi.fn()
+  computeContentHash: vi.fn(),
+  readMagicBytes: vi.fn(() =>
+    Promise.resolve(new Uint8Array([0xff, 0xd8, 0xff]))
+  ),
+  createStreamFromFile: vi.fn(
+    () =>
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array([1, 2, 3]));
+          controller.close();
+        }
+      })
+  )
 }));
 
 vi.mock('@/lib/thumbnail', () => ({
@@ -142,6 +154,10 @@ describe('useFileUpload error handling and deduplication', () => {
   });
 
   it('throws error when file read fails', async () => {
+    vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+      ext: 'png',
+      mime: 'image/png'
+    });
     vi.mocked(readFileAsUint8Array).mockRejectedValue(
       new Error('Failed to read file')
     );

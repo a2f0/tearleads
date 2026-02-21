@@ -1,11 +1,26 @@
 import type { VfsCrdtOpType } from '@tearleads/vfs-sync/vfs';
 import type { Base64, EncryptedManifest, ItemId } from './types';
 
+/**
+ * Callback invoked for each encrypted chunk during upload.
+ * When provided, chunks are processed immediately without accumulation,
+ * enabling bounded memory usage for large file uploads.
+ */
+export type OnChunkCallback = (
+  chunk: UploadEncryptedBlobChunk
+) => Promise<void>;
+
 export interface UploadEncryptedBlobInput {
   itemId: ItemId;
   blobId: string;
   contentType?: string | undefined;
   stream: ReadableStream<Uint8Array>;
+  /**
+   * Optional callback to process each chunk as it's encrypted.
+   * When provided, chunks are NOT accumulated in the result array,
+   * reducing memory usage for large files.
+   */
+  onChunk?: OnChunkCallback | undefined;
 }
 
 export interface EncryptCrdtOpInput {

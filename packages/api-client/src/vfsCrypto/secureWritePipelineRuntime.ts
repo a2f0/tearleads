@@ -74,11 +74,27 @@ class DefaultVfsSecureWritePipeline implements VfsSecureWritePipeline {
     });
 
     const chunkHashes: string[] = [];
-    const chunks: UploadEncryptedBlobChunk[] = [];
+    // Only accumulate chunks when no callback is provided (bounded memory mode)
+    const chunks: UploadEncryptedBlobChunk[] = input.onChunk ? [] : [];
+    const useCallback = !!input.onChunk;
     let totalPlaintextBytes = 0;
     let totalCiphertextBytes = 0;
     let chunkIndex = 0;
+    let chunkCount = 0;
     let pendingPlaintextChunk: Uint8Array | null = null;
+
+    /**
+     * Process an encrypted chunk: either stream it via callback (bounded memory)
+     * or accumulate it in the chunks array (legacy behavior).
+     */
+    const processChunk = async (chunk: UploadEncryptedBlobChunk) => {
+      chunkCount += 1;
+      if (useCallback) {
+        await input.onChunk?.(chunk);
+      } else {
+        chunks.push(chunk);
+      }
+    };
 
     for await (const plaintextChunk of splitStreamIntoChunks(
       input.stream,
@@ -94,7 +110,8 @@ class DefaultVfsSecureWritePipeline implements VfsSecureWritePipeline {
           keyEpoch,
           contentType: input.contentType
         });
-        chunks.push(toUploadEncryptedBlobChunk(encryptedChunk));
+        const uploadChunk = toUploadEncryptedBlobChunk(encryptedChunk);
+        await processChunk(uploadChunk);
         chunkHashes.push(await hashBase64(encryptedChunk.ciphertext));
         totalPlaintextBytes += encryptedChunk.plaintextLength;
         totalCiphertextBytes += encryptedChunk.ciphertextLength;
@@ -113,7 +130,8 @@ class DefaultVfsSecureWritePipeline implements VfsSecureWritePipeline {
       keyEpoch,
       contentType: input.contentType
     });
-    chunks.push(toUploadEncryptedBlobChunk(finalEncryptedChunk));
+    const finalUploadChunk = toUploadEncryptedBlobChunk(finalEncryptedChunk);
+    await processChunk(finalUploadChunk);
     chunkHashes.push(await hashBase64(finalEncryptedChunk.ciphertext));
     totalPlaintextBytes += finalEncryptedChunk.plaintextLength;
     totalCiphertextBytes += finalEncryptedChunk.ciphertextLength;
@@ -125,7 +143,7 @@ class DefaultVfsSecureWritePipeline implements VfsSecureWritePipeline {
       contentType: input.contentType,
       totalPlaintextBytes,
       totalCiphertextBytes,
-      chunkCount: chunks.length,
+      chunkCount,
       chunkHashes,
       wrappedFileKeys
     };
@@ -139,7 +157,8 @@ class DefaultVfsSecureWritePipeline implements VfsSecureWritePipeline {
         manifestSignature
       },
       uploadId: this.createUploadId(),
-      chunks
+      // Only include chunks array when callback was not used
+      chunks: useCallback ? undefined : chunks
     };
   }
 

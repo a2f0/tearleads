@@ -126,6 +126,16 @@ export interface VfsCrdtPushOperation {
   accessLevel?: VfsAclAccessLevel;
   parentId?: string;
   childId?: string;
+  /** Encrypted operation payload (base64-encoded ciphertext) */
+  encryptedPayload?: string;
+  /** Key epoch used for encryption */
+  keyEpoch?: number;
+  /** Encryption nonce (base64-encoded) */
+  encryptionNonce?: string;
+  /** Additional authenticated data hash (base64-encoded) */
+  encryptionAad?: string;
+  /** Operation signature for integrity verification (base64-encoded) */
+  encryptionSignature?: string;
 }
 
 export interface VfsCrdtPushRequest {
