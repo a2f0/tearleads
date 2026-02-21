@@ -81,70 +81,76 @@ export function useFileUpload() {
       }
       onProgress?.(10);
 
-      // Read file data for local storage and hash computation
-      const data = await readFileAsUint8Array(file);
-      onProgress?.(30);
-
-      // Compute content hash for deduplication
-      const contentHash = await computeContentHash(data);
-      onProgress?.(40);
-
       const db = getDatabase();
-      const existing = await db
-        .select({ id: files.id })
-        .from(files)
-        .where(
-          and(eq(files.contentHash, contentHash), eq(files.deleted, false))
-        )
-        .limit(1);
-
-      if (existing.length > 0 && existing[0]) {
-        onProgress?.(100);
-        return { id: existing[0].id, isDuplicate: true };
-      }
-
-      // Store encrypted file
       const storage = getFileStorage();
       const id = crypto.randomUUID();
-      onProgress?.(50);
-
-      const storagePath = await storage.measureStore(
-        id,
-        data,
-        createStoreLogger(db)
-      );
-      onProgress?.(65);
-
-      // Generate thumbnail for supported types (images and audio with cover art)
+      let contentHash: string;
+      let storagePath: string;
       let thumbnailPath: string | null = null;
-      if (isThumbnailSupported(mimeType)) {
-        const thumbnailStartTime = performance.now();
-        let thumbnailSuccess = false;
-        try {
-          const thumbnailData = await generateThumbnail(data, mimeType);
-          if (thumbnailData) {
-            const thumbnailId = `${id}-thumb`;
-            thumbnailPath = await storage.store(thumbnailId, thumbnailData);
-            thumbnailSuccess = true;
+
+      // Scope full-file buffers to local persistence work so large payloads can
+      // be collected before secure network staging/flush begins.
+      {
+        // Read file data for local storage and hash computation
+        const data = await readFileAsUint8Array(file);
+        onProgress?.(30);
+
+        // Compute content hash for deduplication
+        contentHash = await computeContentHash(data);
+        onProgress?.(40);
+
+        const existing = await db
+          .select({ id: files.id })
+          .from(files)
+          .where(
+            and(eq(files.contentHash, contentHash), eq(files.deleted, false))
+          )
+          .limit(1);
+
+        if (existing.length > 0 && existing[0]) {
+          onProgress?.(100);
+          return { id: existing[0].id, isDuplicate: true };
+        }
+
+        // Store encrypted file
+        onProgress?.(50);
+        storagePath = await storage.measureStore(
+          id,
+          data,
+          createStoreLogger(db)
+        );
+        onProgress?.(65);
+
+        // Generate thumbnail for supported types (images and audio with cover art)
+        if (isThumbnailSupported(mimeType)) {
+          const thumbnailStartTime = performance.now();
+          let thumbnailSuccess = false;
+          try {
+            const thumbnailData = await generateThumbnail(data, mimeType);
+            if (thumbnailData) {
+              const thumbnailId = `${id}-thumb`;
+              thumbnailPath = await storage.store(thumbnailId, thumbnailData);
+              thumbnailSuccess = true;
+            }
+          } catch (err) {
+            console.warn(`Failed to generate thumbnail for ${file.name}:`, err);
+            // Continue without thumbnail
           }
-        } catch (err) {
-          console.warn(`Failed to generate thumbnail for ${file.name}:`, err);
-          // Continue without thumbnail
+          const thumbnailDurationMs = performance.now() - thumbnailStartTime;
+          try {
+            await logEvent(
+              db,
+              'thumbnail_generation',
+              thumbnailDurationMs,
+              thumbnailSuccess
+            );
+          } catch (err) {
+            // Don't let logging errors affect the main operation
+            console.warn('Failed to log thumbnail_generation event:', err);
+          }
         }
-        const thumbnailDurationMs = performance.now() - thumbnailStartTime;
-        try {
-          await logEvent(
-            db,
-            'thumbnail_generation',
-            thumbnailDurationMs,
-            thumbnailSuccess
-          );
-        } catch (err) {
-          // Don't let logging errors affect the main operation
-          console.warn('Failed to log thumbnail_generation event:', err);
-        }
+        onProgress?.(85);
       }
-      onProgress?.(85);
 
       // Insert metadata
       await db.insert(files).values({
