@@ -7,6 +7,7 @@ set -eu
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FETCH_SECRETS="${REPO_ROOT}/terraform/stacks/prod/vault/scripts/fetch-secrets.sh"
 VAULT_HOST="vault-prod"
+export VAULT_ADDR="${VAULT_ADDR:-http://${VAULT_HOST}:8200}"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -41,7 +42,7 @@ check_prerequisites() {
       exit 1
     fi
   else
-    for cmd in curl sudo lsb_release; do
+    for cmd in curl sudo; do
       if ! has_cmd "$cmd"; then
         echo "'${cmd}' is required but not found in PATH." >&2
         exit 1
@@ -81,9 +82,10 @@ install_vault() {
   else
     sudo install -m 0755 -d /etc/apt/keyrings
     curl -fsSL https://apt.releases.hashicorp.com/gpg | \
-      sudo gpg --dearmor -o /etc/apt/keyrings/hashicorp.gpg
+      sudo gpg --dearmor --yes -o /etc/apt/keyrings/hashicorp.gpg
     sudo chmod 644 /etc/apt/keyrings/hashicorp.gpg
-    echo "deb [signed-by=/etc/apt/keyrings/hashicorp.gpg arch=$(dpkg --print-architecture)] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
+    # shellcheck source=/dev/null
+    echo "deb [signed-by=/etc/apt/keyrings/hashicorp.gpg arch=$(dpkg --print-architecture)] https://apt.releases.hashicorp.com $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") main" | \
       sudo tee /etc/apt/sources.list.d/hashicorp.list >/dev/null
     sudo apt-get update -qq
     sudo apt-get install -y vault
@@ -136,7 +138,7 @@ try_fetch_secrets() {
 
   # 2. Vault host reachable?
   set +e
-  tailscale ping --timeout 3s --c 1 "$VAULT_HOST" >/dev/null 2>&1
+  tailscale ping --timeout 3s -c 1 "$VAULT_HOST" >/dev/null 2>&1
   ping_rc=$?
   set -e
   if [ $ping_rc -ne 0 ]; then
@@ -158,7 +160,7 @@ try_fetch_secrets() {
   vault_rc=$?
   set -e
   if [ $vault_rc -ne 0 ]; then
-    echo "Vault is not responding at ${VAULT_ADDR:-http://vault-prod:8200}."
+    echo "Vault is not responding at ${VAULT_ADDR}."
     echo "Check that the Vault server is running and unsealed."
     return
   fi
