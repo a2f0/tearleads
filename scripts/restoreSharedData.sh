@@ -117,12 +117,12 @@ if [[ "$NEEDS_SYMLINK_HANDLING" -eq 1 ]]; then
       REAL_TARGET=$(readlink -f "$target_dir" 2>/dev/null || python3 -c "import os; print(os.path.realpath('$target_dir'))")
       mkdir -p "$REAL_TARGET"
       if [[ -d "$TEMP_DIR/$target_dir" ]]; then
-        cp -R "$TEMP_DIR/$target_dir"/* "$REAL_TARGET"/
+        cp -R "$TEMP_DIR/$target_dir/." "$REAL_TARGET"/
         echo "Restored $target_dir -> $REAL_TARGET"
       fi
     elif [[ -d "$TEMP_DIR/$target_dir" ]]; then
       mkdir -p "$target_dir"
-      cp -R "$TEMP_DIR/$target_dir"/* "$target_dir"/
+      cp -R "$TEMP_DIR/$target_dir/." "$target_dir"/
       echo "Restored $target_dir"
     fi
   done

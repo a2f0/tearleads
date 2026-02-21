@@ -2,7 +2,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-SOURCE_DIRS=("$REPO_ROOT/.secrets" "$REPO_ROOT/.test_files")
+SOURCE_DIRS_REL=(".secrets" ".test_files")
+SOURCE_DIRS=("${SOURCE_DIRS_REL[@]/#/$REPO_ROOT/}")
 DEFAULT_OUTPUT_DIR="$HOME/tearleads-backups"
 OUTPUT_DIR="$DEFAULT_OUTPUT_DIR"
 PASSWORD=""
@@ -92,7 +93,7 @@ fi
 
 # Zip from repo root to maintain relative paths in archive
 # Symlinks are followed by default (zip dereferences them)
-(cd "$REPO_ROOT" && zip "${ZIP_ARGS[@]}" "$ARCHIVE_PATH" .secrets .test_files >/dev/null)
+(cd "$REPO_ROOT" && zip "${ZIP_ARGS[@]}" "$ARCHIVE_PATH" "${SOURCE_DIRS_REL[@]}" >/dev/null)
 
 echo "Created backup: $ARCHIVE_PATH"
-echo "Backed up directories: .secrets .test_files"
+echo "Backed up directories: ${SOURCE_DIRS_REL[*]}"

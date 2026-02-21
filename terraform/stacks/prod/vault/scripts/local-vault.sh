@@ -1,7 +1,7 @@
 #!/bin/bash
 # Bootstrap a local Vault instance from a Raft snapshot
 # Useful for accessing secrets when the production Vault is unavailable
-set -eu
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(git rev-parse --show-toplevel)"

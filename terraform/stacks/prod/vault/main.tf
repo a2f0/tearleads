@@ -26,31 +26,8 @@ resource "terraform_data" "tailscale_pre_cleanup" {
   provisioner "local-exec" {
     environment = {
       TAILSCALE_API_TOKEN = var.tailscale_api_token
-      TAILSCALE_HOSTNAME  = local.tailscale_hostname
     }
-    command = <<-EOF
-      echo "Pre-create cleanup: removing Tailscale devices matching '$TAILSCALE_HOSTNAME'..."
-
-      DEVICES=$(curl -s -H "Authorization: Bearer $TAILSCALE_API_TOKEN" \
-        "https://api.tailscale.com/api/v2/tailnet/-/devices" | \
-        jq -r ".devices[] | select(.hostname | startswith(\"$TAILSCALE_HOSTNAME\")) | \"\(.id)|\(.hostname)\"")
-
-      if [ -z "$DEVICES" ]; then
-        echo "No matching devices found."
-        exit 0
-      fi
-
-      echo "Found devices to clean up:"
-      echo "$DEVICES" | tr '|' ' '
-
-      echo "$DEVICES" | while IFS='|' read -r ID NAME; do
-        echo "Deleting device: $NAME ($ID)"
-        curl -s -X DELETE -H "Authorization: Bearer $TAILSCALE_API_TOKEN" \
-          "https://api.tailscale.com/api/v2/device/$ID"
-      done
-
-      echo "Pre-create cleanup complete."
-    EOF
+    command = "${path.module}/scripts/cleanup-tailscale-device.sh ${local.tailscale_hostname}"
   }
 }
 
@@ -145,30 +122,7 @@ resource "terraform_data" "tailscale_destroy_cleanup" {
     when = destroy
     environment = {
       TAILSCALE_API_TOKEN = self.input.api_token
-      TAILSCALE_HOSTNAME  = self.input.hostname
     }
-    command = <<-EOF
-      echo "Destroy cleanup: removing Tailscale devices matching '$TAILSCALE_HOSTNAME'..."
-
-      DEVICES=$(curl -s -H "Authorization: Bearer $TAILSCALE_API_TOKEN" \
-        "https://api.tailscale.com/api/v2/tailnet/-/devices" | \
-        jq -r ".devices[] | select(.hostname | startswith(\"$TAILSCALE_HOSTNAME\")) | \"\(.id)|\(.hostname)\"")
-
-      if [ -z "$DEVICES" ]; then
-        echo "No matching devices found."
-        exit 0
-      fi
-
-      echo "Found devices to clean up:"
-      echo "$DEVICES" | tr '|' ' '
-
-      echo "$DEVICES" | while IFS='|' read -r ID NAME; do
-        echo "Deleting device: $NAME ($ID)"
-        curl -s -X DELETE -H "Authorization: Bearer $TAILSCALE_API_TOKEN" \
-          "https://api.tailscale.com/api/v2/device/$ID"
-      done
-
-      echo "Destroy cleanup complete."
-    EOF
+    command = "${path.module}/scripts/cleanup-tailscale-device.sh ${self.input.hostname}"
   }
 }
