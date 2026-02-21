@@ -23,7 +23,7 @@ export function generateSalt(): Uint8Array {
 /**
  * Generate a random IV for AES-GCM encryption.
  */
-export function generateIv(): Uint8Array {
+function generateIv(): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(IV_SIZE));
 }
 

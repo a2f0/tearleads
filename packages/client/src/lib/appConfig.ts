@@ -18,27 +18,6 @@ interface AppConfigData {
 const config: AppConfigData = generatedConfig as AppConfigData;
 
 /**
- * Get the current app ID.
- */
-export function getAppId(): string {
-  return config.id;
-}
-
-/**
- * Get the current app display name.
- */
-export function getAppDisplayName(): string {
-  return config.displayName;
-}
-
-/**
- * Get the list of enabled features for this app.
- */
-export function getAppFeatures(): AppFeature[] {
-  return config.features;
-}
-
-/**
  * Check if a specific feature is enabled for this app.
  */
 export function isAppFeatureEnabled(feature: AppFeature): boolean {

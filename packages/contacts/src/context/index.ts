@@ -30,6 +30,5 @@ export {
   useContactsUI,
   useDatabaseState,
   type VfsRegistrationResult,
-  type VirtualListStatusProps,
-  type WindowOptionsMenuItemProps
+  type VirtualListStatusProps
 } from './ContactsContext';

@@ -1,10 +1,3 @@
-export type {
-  ClipboardItem,
-  ClipboardOperation,
-  ClipboardState,
-  VfsClipboardContextValue,
-  VfsClipboardProviderProps
-} from './VfsClipboardContext';
 export { useVfsClipboard, VfsClipboardProvider } from './VfsClipboardContext';
 export type {
   AboutMenuItemProps,
@@ -25,7 +18,6 @@ export type {
   VfsExplorerProviderProps,
   VfsExplorerUIComponents,
   VfsKeyFunctions,
-  VfsShareApiFunctions,
   WindowDimensions,
   WindowOptionsMenuItemProps
 } from './VfsExplorerContext';

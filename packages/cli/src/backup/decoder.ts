@@ -32,7 +32,7 @@ import {
 /**
  * Error thrown when backup file is invalid or corrupted.
  */
-export class BackupDecodeError extends Error {
+class BackupDecodeError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'BackupDecodeError';
@@ -42,7 +42,7 @@ export class BackupDecodeError extends Error {
 /**
  * Error thrown when password is incorrect.
  */
-export class InvalidPasswordError extends Error {
+class InvalidPasswordError extends Error {
   constructor() {
     super('Invalid password or corrupted backup');
     this.name = 'InvalidPasswordError';
@@ -258,35 +258,4 @@ export async function decode(options: DecodeOptions): Promise<DecodeResult> {
 
   const key = await deriveKey(password, header.salt, PBKDF2_ITERATIONS);
   return decodeWithKey(key);
-}
-
-/**
- * Read just the header from a backup file without decrypting.
- */
-export function readHeader(data: Uint8Array): BackupHeader {
-  return parseHeader(data);
-}
-
-/**
- * Validate a backup file without fully decoding it.
- */
-export function validateBackup(data: Uint8Array): {
-  valid: boolean;
-  error?: string;
-} {
-  try {
-    const header = parseHeader(data);
-    if (header.version > FORMAT_VERSION) {
-      return {
-        valid: false,
-        error: `Unsupported backup version: ${header.version}`
-      };
-    }
-    return { valid: true };
-  } catch (err) {
-    return {
-      valid: false,
-      error: err instanceof Error ? err.message : 'Invalid backup file'
-    };
-  }
 }
