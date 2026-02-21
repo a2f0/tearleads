@@ -278,7 +278,7 @@ describe('useFileUpload VFS registration', () => {
     const file = new File(['test'], 'test.png', { type: 'image/png' });
 
     await expect(result.current.uploadFile(file)).rejects.toThrow(
-      'Secure upload failed'
+      'Secure upload failed (stage_attach)'
     );
     expect(logEvent).toHaveBeenCalledWith(
       expect.anything(),
@@ -320,7 +320,7 @@ describe('useFileUpload VFS registration', () => {
     const file = new File(['test'], 'test.png', { type: 'image/png' });
 
     await expect(result.current.uploadFile(file)).rejects.toThrow(
-      'Secure upload failed'
+      'Secure upload failed (flush)'
     );
     expect(logEvent).toHaveBeenCalledWith(
       expect.anything(),

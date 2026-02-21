@@ -296,6 +296,7 @@ function parseWrappedKeyPayload(value: unknown): VfsWrappedKeyPayload | null {
     typeof recipientPublicKeyId !== 'string' ||
     typeof keyEpoch !== 'number' ||
     !Number.isInteger(keyEpoch) ||
+    !Number.isSafeInteger(keyEpoch) ||
     keyEpoch < 1 ||
     typeof encryptedKey !== 'string' ||
     typeof senderSignature !== 'string'

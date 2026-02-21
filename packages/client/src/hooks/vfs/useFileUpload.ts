@@ -218,7 +218,7 @@ export function useFileUpload() {
             });
           } catch {
             secureUploadFailStage = 'stage_attach';
-            throw new Error('Secure upload failed');
+            throw new Error('Secure upload failed (stage_attach)');
           }
 
           // Flush queued operations to ensure data reaches the server.
@@ -228,7 +228,7 @@ export function useFileUpload() {
             await orchestrator.flushAll();
           } catch {
             secureUploadFailStage = 'flush';
-            throw new Error('Secure upload failed');
+            throw new Error('Secure upload failed (flush)');
           }
 
           serverUploadSucceeded = true;
@@ -244,7 +244,9 @@ export function useFileUpload() {
           if (secureUploadFailStage === null) {
             secureUploadFailStage = 'unknown';
           }
-          throw new Error('Secure upload failed', { cause: err });
+          throw new Error(`Secure upload failed (${secureUploadFailStage})`, {
+            cause: err
+          });
         } finally {
           const durationMs = performance.now() - secureUploadStartTime;
           try {
