@@ -62,6 +62,7 @@ export type AnalyticsEventSlug =
   | 'api_delete_vfs_blob'
   | 'api_post_vfs_org_share'
   | 'api_delete_vfs_org_share'
+  | 'api_post_vfs_rekey'
   | 'api_get_vfs_share_targets'
   // LLM operations
   | 'llm_model_load'
@@ -136,6 +137,7 @@ export const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
   api_delete_vfs_blob: 'API Delete VFS Blob',
   api_post_vfs_org_share: 'API Create VFS Org Share',
   api_delete_vfs_org_share: 'API Delete VFS Org Share',
+  api_post_vfs_rekey: 'API Rekey VFS Item',
   api_get_vfs_share_targets: 'API Search VFS Share Targets',
   // LLM
   llm_model_load: 'LLM Model Load',
@@ -326,6 +328,9 @@ export interface ApiPostVfsOrgShareDetail {
 export interface ApiDeleteVfsOrgShareDetail {
   deleted?: boolean;
 }
+export interface ApiPostVfsRekeyDetail {
+  wrapsApplied?: number;
+}
 export interface ApiGetVfsShareTargetsDetail {
   resultCount?: number;
 }
@@ -430,6 +435,7 @@ export interface EventDetailMap {
   api_delete_vfs_blob: ApiDeleteVfsBlobDetail;
   api_post_vfs_org_share: ApiPostVfsOrgShareDetail;
   api_delete_vfs_org_share: ApiDeleteVfsOrgShareDetail;
+  api_post_vfs_rekey: ApiPostVfsRekeyDetail;
   api_get_vfs_share_targets: ApiGetVfsShareTargetsDetail;
   llm_model_load: LlmModelLoadDetail;
   llm_prompt_text: LlmPromptTextDetail;

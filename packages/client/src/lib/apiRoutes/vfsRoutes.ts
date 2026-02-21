@@ -7,6 +7,8 @@ import type {
   VfsOrgShare,
   VfsRegisterRequest,
   VfsRegisterResponse,
+  VfsRekeyRequest,
+  VfsRekeyResponse,
   VfsShare,
   VfsSharesResponse,
   VfsShareType,
@@ -60,7 +62,8 @@ export const vfsRoutes = {
             shareType: data.shareType,
             targetId: data.targetId,
             permissionLevel: data.permissionLevel,
-            expiresAt: data.expiresAt
+            expiresAt: data.expiresAt,
+            wrappedKey: data.wrappedKey
           })
         },
         eventName: 'api_post_vfs_share'
@@ -135,6 +138,18 @@ export const vfsRoutes = {
       {
         fetchOptions: { method: 'DELETE' },
         eventName: 'api_delete_vfs_blob'
+      }
+    ),
+  rekeyItem: (itemId: string, data: VfsRekeyRequest) =>
+    request<VfsRekeyResponse>(
+      `/vfs/items/${encodeURIComponent(itemId)}/rekey`,
+      {
+        fetchOptions: {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        },
+        eventName: 'api_post_vfs_rekey'
       }
     )
 };
