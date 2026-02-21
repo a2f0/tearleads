@@ -42,7 +42,8 @@ assert_dashboard_respawn_call() {
     script_name="$3"
     limit="${4:-20}"
     interval="${5:-30}"
-    assert_contains "$calls" "respawn-pane -k -t tuxedo:${window_name}.0 sh -lc 'while true; do output="
+    assert_contains "$calls" "respawn-pane -k "
+    assert_contains "$calls" "-t tuxedo:${window_name}.0 sh -lc 'while true; do output="
     assert_contains "$calls" "\"/tmp/tux/scripts/${script_name}\" --limit ${limit} 2>&1 || true);"
     assert_contains "$calls" "printf \"%s"
     assert_contains "$calls" "\"\$output\"; sleep ${interval}; done'"
@@ -81,6 +82,8 @@ cmd=$(inner_tmux_cmd tux-1)
 assert_contains "$cmd" "tmux -L tuxedo-inner"
 assert_contains "$cmd" "-f \"$CONFIG_DIR/tmux-inner.conf\""
 assert_contains "$cmd" "new-session -A -s tux-1"
+assert_contains "$cmd" '-e "PATH=$PATH"'
+assert_contains "$cmd" '-e "TUXEDO_WORKSPACE=$TUXEDO_WORKSPACE"'
 
 USE_INNER_TMUX=false
 assert_eq "" "$(inner_tmux_cmd tux-1)"
@@ -351,6 +354,31 @@ test_inner_tmux_cmd_returns_command_when_enabled() {
     assert_contains "$cmd" "tmux -L tuxedo-inner"
     assert_contains "$cmd" "-f \"/tmp/config/tmux-inner.conf\""
     assert_contains "$cmd" "new-session -A -s tux-test"
+    # Verify PATH and TUXEDO_WORKSPACE are passed through
+    assert_contains "$cmd" '-e "PATH=$PATH"'
+    assert_contains "$cmd" '-e "TUXEDO_WORKSPACE=$TUXEDO_WORKSPACE"'
+}
+
+test_inner_tmux_cmd_with_workdir_passes_env() {
+    USE_INNER_TMUX=true
+    CONFIG_DIR="/tmp/config"
+    cmd=$(inner_tmux_cmd "tux-test" "/tmp/workspace")
+    assert_contains "$cmd" "new-session -A -s tux-test -c \"/tmp/workspace\""
+    # Verify PATH and TUXEDO_WORKSPACE are passed through
+    assert_contains "$cmd" '-e "PATH=$PATH"'
+    assert_contains "$cmd" '-e "TUXEDO_WORKSPACE=$TUXEDO_WORKSPACE"'
+}
+
+test_workspace_path_includes_scripts_dirs() {
+    BASE_PATH="/usr/bin:/bin"
+    result=$(workspace_path "/home/user/tuxedo/tearleads2")
+    assert_contains "$result" "/home/user/tuxedo/tearleads2/scripts:"
+    assert_contains "$result" "/home/user/tuxedo/tearleads2/scripts/agents:"
+    # Verify scripts dirs come before BASE_PATH
+    case "$result" in
+        */tearleads2/scripts:*/tearleads2/scripts/agents:*) ;;
+        *) fail "scripts dirs should be prepended to PATH" ;;
+    esac
 }
 
 test_inner_tmux_cmd_returns_empty_when_disabled() {
@@ -362,5 +390,7 @@ test_inner_tmux_cmd_returns_empty_when_disabled() {
 test_inner_tmux_setup_editor_skips_when_disabled
 test_inner_tmux_cmd_returns_command_when_enabled
 test_inner_tmux_cmd_returns_empty_when_disabled
+test_inner_tmux_cmd_with_workdir_passes_env
+test_workspace_path_includes_scripts_dirs
 
 echo "OK"
