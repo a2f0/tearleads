@@ -63,6 +63,9 @@ vim.opt.wrap = true
 vim.opt.mouse = "a"
 vim.opt.clipboard = "unnamedplus"
 
+-- Auto-yank to clipboard on mouse release (select-to-copy behavior)
+vim.keymap.set('v', '<LeftRelease>', '"+y', { desc = 'Yank selection to clipboard on mouse release' })
+
 vim.cmd([[ let g:neo_tree_remove_legacy_commands = 1 ]])
 
 -- spacing and indentation
