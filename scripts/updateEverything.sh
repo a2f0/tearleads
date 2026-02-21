@@ -52,6 +52,15 @@ if [ -n "$(git status --porcelain)" ]; then
   echo "Warning: working tree is not clean. Continuing anyway." >&2
 fi
 
+# Keep Codex CLI current on macOS hosts.
+if [ "$(uname -s)" = "Darwin" ]; then
+  if command -v brew >/dev/null 2>&1; then
+    brew upgrade codex
+  else
+    echo "Warning: Homebrew not found; skipping codex upgrade." >&2
+  fi
+fi
+
 ensure_nvm_node_runtime
 
 if [ "${SKIP_TOOLCHAIN_SYNC:-0}" -ne 1 ]; then
