@@ -82,6 +82,10 @@ class DefaultVfsKeyManager implements VfsKeyManager {
   }
 
   async createItemKey(input: CreateItemKeyInput): Promise<CreateItemKeyResult> {
+    // Ensure user keys are provisioned before creating item-level epochs.
+    // This keeps first secure upload fail-closed when key bootstrap is missing.
+    await this.ensureUserKeys();
+
     const existingEpoch = await this.itemKeyStore.getLatestKeyEpoch(
       input.itemId
     );
