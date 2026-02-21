@@ -2,7 +2,7 @@
  * Vite plugin for app configuration.
  *
  * Loads app config from packages/app-builder/apps/{APP}/config.ts
- * based on the APP environment variable (defaults to 'tearleads').
+ * based on the APP environment variable (defaults to DEFAULT_APP_ID).
  *
  * Provides:
  * - Virtual module 'virtual:app-config' for runtime access
@@ -15,6 +15,11 @@ import path from 'node:path';
 
 const VIRTUAL_MODULE_ID = 'virtual:app-config';
 const RESOLVED_VIRTUAL_MODULE_ID = `\0${VIRTUAL_MODULE_ID}`;
+
+/**
+ * The default app ID. Keep in sync with @tearleads/app-builder/src/loader.ts
+ */
+const DEFAULT_APP_ID = 'tearleads';
 
 // Inline jiti types to avoid adding a dev dependency
 type Jiti = (id: string) => unknown;
@@ -139,7 +144,7 @@ export function createAppConfigPlugin(
   dirname: string,
   options: AppConfigPluginOptions = {}
 ): AppConfigPluginResult {
-  const appId = process.env['APP'] || 'tearleads';
+  const appId = process.env['APP'] || DEFAULT_APP_ID;
   const config = loadAppConfig(appId, dirname);
   const enableTreeShaking =
     options.enableTreeShaking ?? process.env['NODE_ENV'] === 'production';
