@@ -105,6 +105,48 @@ describe('VFS Shares routes (GET/search)', () => {
       expect(orgSharesQuerySql).not.toMatch(/\bvfs_access\b/u);
     });
 
+    it('returns wrapped key metadata for encrypted user shares', async () => {
+      const authHeader = await createAuthHeader();
+      mockQuery.mockResolvedValueOnce({ rows: [{ owner_id: 'user-1' }] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [
+          {
+            acl_id: 'share:share-enc',
+            item_id: 'item-123',
+            share_type: 'user',
+            target_id: 'user-456',
+            target_name: 'Encrypted User',
+            access_level: 'read',
+            created_by: 'user-001',
+            created_by_email: 'creator@test.com',
+            created_at: new Date('2024-01-01'),
+            expires_at: null,
+            wrapped_session_key: 'base64-encrypted-key',
+            wrapped_hierarchical_key: JSON.stringify({
+              recipientPublicKeyId: 'pk-user-456',
+              senderSignature: 'base64-signature'
+            }),
+            key_epoch: 2
+          }
+        ]
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .get('/v1/vfs/items/item-123/shares')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(200);
+      expect(response.body.shares).toHaveLength(1);
+      expect(response.body.shares[0].wrappedKey).toEqual({
+        recipientUserId: 'user-456',
+        recipientPublicKeyId: 'pk-user-456',
+        keyEpoch: 2,
+        encryptedKey: 'base64-encrypted-key',
+        senderSignature: 'base64-signature'
+      });
+    });
+
     it('returns 500 when share rows contain malformed ACL ids', async () => {
       const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();

@@ -263,6 +263,78 @@ describe('mapVfsCrdtSyncRows', () => {
     );
   });
 
+  it('allows encrypted link rows without plaintext parent/child fields', () => {
+    const rows: VfsCrdtSyncDbRow[] = [
+      {
+        op_id: 'op-link-enc-1',
+        item_id: 'item-1',
+        op_type: 'link_add',
+        principal_type: null,
+        principal_id: null,
+        access_level: null,
+        parent_id: null,
+        child_id: null,
+        actor_id: 'user-1',
+        source_table: 'vfs_crdt_client_push',
+        source_id: 'user-1:desktop:3:op-link-enc-1',
+        occurred_at: new Date('2026-02-14T00:00:01.000Z'),
+        encrypted_payload: 'base64-ciphertext',
+        key_epoch: 3,
+        encryption_nonce: 'base64-nonce',
+        encryption_aad: 'base64-aad',
+        encryption_signature: 'base64-signature'
+      }
+    ];
+
+    const result = mapVfsCrdtSyncRows(rows, 10);
+    expect(result.items).toEqual([
+      {
+        opId: 'op-link-enc-1',
+        itemId: 'item-1',
+        opType: 'link_add',
+        principalType: null,
+        principalId: null,
+        accessLevel: null,
+        parentId: null,
+        childId: null,
+        actorId: 'user-1',
+        sourceTable: 'vfs_crdt_client_push',
+        sourceId: 'user-1:desktop:3:op-link-enc-1',
+        occurredAt: '2026-02-14T00:00:01.000Z',
+        encryptedPayload: 'base64-ciphertext',
+        keyEpoch: 3,
+        encryptionNonce: 'base64-nonce',
+        encryptionAad: 'base64-aad',
+        encryptionSignature: 'base64-signature'
+      }
+    ]);
+  });
+
+  it('throws when encrypted rows have invalid key epoch metadata', () => {
+    const rows: VfsCrdtSyncDbRow[] = [
+      {
+        op_id: 'op-enc-1',
+        item_id: 'item-1',
+        op_type: 'acl_add',
+        principal_type: null,
+        principal_id: null,
+        access_level: null,
+        parent_id: null,
+        child_id: null,
+        actor_id: 'user-1',
+        source_table: 'vfs_crdt_client_push',
+        source_id: 'user-1:desktop:1:op-enc-1',
+        occurred_at: new Date('2026-02-14T00:00:00.000Z'),
+        encrypted_payload: 'base64-ciphertext',
+        key_epoch: null
+      }
+    ];
+
+    expect(() => mapVfsCrdtSyncRows(rows, 10)).toThrowError(
+      /invalid encrypted envelope metadata/
+    );
+  });
+
   it('normalizes unexpected enum values', () => {
     const rows: VfsCrdtSyncDbRow[] = [
       {

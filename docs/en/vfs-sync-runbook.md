@@ -136,3 +136,8 @@ Test suites should use standardized assertion helpers from `sync-client-test-sup
 - Prefer idempotent retries with identical payloads; avoid mutation between retries unless advancing reconcile state.
 - All errors must be actionable: include stage, code, and relevant details for diagnosis.
 - No silent fallbacks: guardrail violations always throw errors after emitting telemetry.
+
+## 6) Secure Upload Rollout
+
+For staged `vfsSecureUpload` promotion, rollback triggers, and production QA
+checklist, see `docs/en/vfs-secure-upload-rollout.md`.

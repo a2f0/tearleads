@@ -29,6 +29,7 @@ import type {
   VfsCrdtReconcileResponse,
   VfsCrdtSyncResponse,
   VfsRegisterResponse,
+  VfsRekeyResponse,
   VfsSharesResponse,
   VfsSyncReconcileResponse,
   VfsSyncResponse,
@@ -420,6 +421,14 @@ export const handlers = [
   http.delete(withOptionalV1Prefix('/vfs/org-shares/[^/]+'), () =>
     ok({ deleted: true })
   ),
+  http.post(withOptionalV1Prefix('/vfs/items/[^/]+/rekey'), () => {
+    const response: VfsRekeyResponse = {
+      itemId: 'item-1',
+      newEpoch: 2,
+      wrapsApplied: 1
+    };
+    return ok(response);
+  }),
   http.get(withOptionalV1Prefix('/vfs/share-targets/search'), () =>
     ok<ShareTargetSearchResponse>(defaultShareTargetSearchResponse)
   ),

@@ -2,8 +2,10 @@ import type {
   VfsOrgShare,
   VfsShare,
   VfsSharesResponse,
-  VfsShareType
+  VfsShareType,
+  VfsWrappedKeyPayload
 } from '@tearleads/shared';
+import { isRecord } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 import {
@@ -13,6 +15,79 @@ import {
   mapAclAccessLevelToSharePermissionLevel,
   type VfsAclAccessLevel
 } from './shared.js';
+
+interface WrappedKeyMetadata {
+  recipientPublicKeyId: string;
+  senderSignature: string;
+}
+
+function parseWrappedKeyMetadata(
+  value: string | null
+): WrappedKeyMetadata | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(value);
+    if (!isRecord(parsed)) {
+      return null;
+    }
+
+    const recipientPublicKeyId = parsed['recipientPublicKeyId'];
+    const senderSignature = parsed['senderSignature'];
+    if (
+      typeof recipientPublicKeyId !== 'string' ||
+      !recipientPublicKeyId.trim() ||
+      typeof senderSignature !== 'string' ||
+      !senderSignature.trim()
+    ) {
+      return null;
+    }
+
+    return {
+      recipientPublicKeyId: recipientPublicKeyId.trim(),
+      senderSignature: senderSignature.trim()
+    };
+  } catch {
+    return null;
+  }
+}
+
+function buildWrappedKeyForShare(input: {
+  shareType: VfsShareType;
+  targetId: string;
+  wrappedSessionKey: string | null;
+  wrappedHierarchicalKey: string | null;
+  keyEpoch: number | null;
+}): VfsWrappedKeyPayload | null {
+  if (input.shareType !== 'user') {
+    return null;
+  }
+
+  if (
+    typeof input.wrappedSessionKey !== 'string' ||
+    !input.wrappedSessionKey.trim() ||
+    typeof input.keyEpoch !== 'number' ||
+    !Number.isInteger(input.keyEpoch) ||
+    !Number.isSafeInteger(input.keyEpoch) ||
+    input.keyEpoch < 1
+  ) {
+    return null;
+  }
+
+  const metadata = parseWrappedKeyMetadata(input.wrappedHierarchicalKey);
+  if (!metadata) {
+    return null;
+  }
+
+  return {
+    recipientUserId: input.targetId,
+    recipientPublicKeyId: metadata.recipientPublicKeyId,
+    keyEpoch: input.keyEpoch,
+    encryptedKey: input.wrappedSessionKey,
+    senderSignature: metadata.senderSignature
+  };
+}
 
 /**
  * @openapi
@@ -83,6 +158,9 @@ export const getItemsItemidSharesHandler = async (
       expires_at: Date | null;
       target_name: string | null;
       created_by_email: string | null;
+      wrapped_session_key: string | null;
+      wrapped_hierarchical_key: string | null;
+      key_epoch: number | null;
     }>(
       `SELECT
           acl.id AS acl_id,
@@ -93,6 +171,9 @@ export const getItemsItemidSharesHandler = async (
           acl.granted_by AS created_by,
           acl.created_at,
           acl.expires_at,
+          acl.wrapped_session_key,
+          acl.wrapped_hierarchical_key,
+          acl.key_epoch,
           CASE
             WHEN acl.principal_type = 'user' THEN (SELECT email FROM users WHERE id = acl.principal_id)
             WHEN acl.principal_type = 'group' THEN (SELECT name FROM groups WHERE id = acl.principal_id)
@@ -107,20 +188,31 @@ export const getItemsItemidSharesHandler = async (
       [itemId]
     );
 
-    const shares: VfsShare[] = sharesResult.rows.map((row) => ({
-      id: extractShareIdFromAclId(row.acl_id),
-      itemId: row.item_id,
-      shareType: row.share_type,
-      targetId: row.target_id,
-      targetName: row.target_name ?? 'Unknown',
-      permissionLevel: mapAclAccessLevelToSharePermissionLevel(
-        row.access_level
-      ),
-      createdBy: row.created_by ?? 'unknown',
-      createdByEmail: row.created_by_email ?? 'Unknown',
-      createdAt: row.created_at.toISOString(),
-      expiresAt: row.expires_at ? row.expires_at.toISOString() : null
-    }));
+    const shares: VfsShare[] = sharesResult.rows.map((row) => {
+      const wrappedKey = buildWrappedKeyForShare({
+        shareType: row.share_type,
+        targetId: row.target_id,
+        wrappedSessionKey: row.wrapped_session_key,
+        wrappedHierarchicalKey: row.wrapped_hierarchical_key,
+        keyEpoch: row.key_epoch
+      });
+
+      return {
+        id: extractShareIdFromAclId(row.acl_id),
+        itemId: row.item_id,
+        shareType: row.share_type,
+        targetId: row.target_id,
+        targetName: row.target_name ?? 'Unknown',
+        permissionLevel: mapAclAccessLevelToSharePermissionLevel(
+          row.access_level
+        ),
+        createdBy: row.created_by ?? 'unknown',
+        createdByEmail: row.created_by_email ?? 'Unknown',
+        createdAt: row.created_at.toISOString(),
+        expiresAt: row.expires_at ? row.expires_at.toISOString() : null,
+        ...(wrappedKey !== null && { wrappedKey })
+      };
+    });
 
     const orgSharesResult = await pool.query<{
       acl_id: string;

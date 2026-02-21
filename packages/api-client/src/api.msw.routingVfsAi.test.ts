@@ -74,7 +74,14 @@ describe('api with msw', () => {
       itemId: 'item 1',
       shareType: 'user',
       targetId: 'user-2',
-      permissionLevel: 'view'
+      permissionLevel: 'view',
+      wrappedKey: {
+        recipientUserId: 'user-2',
+        recipientPublicKeyId: 'pk-user-2',
+        keyEpoch: 2,
+        encryptedKey: 'wrapped-key',
+        senderSignature: 'sender-signature'
+      }
     });
     await api.vfs.updateShare('share 1', { permissionLevel: 'edit' });
     await api.vfs.deleteShare('share 1');
@@ -85,6 +92,19 @@ describe('api with msw', () => {
       permissionLevel: 'view'
     });
     await api.vfs.deleteOrgShare('org share 1');
+    await api.vfs.rekeyItem('item 1', {
+      reason: 'manual',
+      newEpoch: 2,
+      wrappedKeys: [
+        {
+          recipientUserId: 'user-2',
+          recipientPublicKeyId: 'pk-user-2',
+          keyEpoch: 2,
+          encryptedKey: 'wrapped-key',
+          senderSignature: 'sender-signature'
+        }
+      ]
+    });
     await api.vfs.searchShareTargets('test query', 'user');
 
     expect(wasApiRequestMade('GET', '/vfs/keys/me')).toBe(true);
@@ -100,6 +120,7 @@ describe('api with msw', () => {
     expect(wasApiRequestMade('DELETE', '/vfs/org-shares/org%20share%201')).toBe(
       true
     );
+    expect(wasApiRequestMade('POST', '/vfs/items/item%201/rekey')).toBe(true);
     expect(wasApiRequestMade('GET', '/vfs/share-targets/search')).toBe(true);
 
     expectSingleRequestQuery('GET', '/vfs/share-targets/search', {

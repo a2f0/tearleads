@@ -40,7 +40,12 @@ export const VFS_CRDT_SYNC_SQL = `
         ops.actor_id,
         ops.source_table,
         ops.source_id,
-        ops.occurred_at
+        ops.occurred_at,
+        ops.encrypted_payload,
+        ops.key_epoch,
+        ops.encryption_nonce,
+        ops.encryption_aad,
+        ops.encryption_signature
       FROM vfs_crdt_ops ops
       INNER JOIN eligible_items access ON access.item_id = ops.item_id
       WHERE (

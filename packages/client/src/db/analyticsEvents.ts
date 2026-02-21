@@ -16,6 +16,7 @@ export type AnalyticsEventSlug =
   | 'file_encrypt'
   | 'file_decrypt'
   | 'thumbnail_generation'
+  | 'vfs_secure_upload'
   // API operations
   | 'api_get_ping'
   | 'api_get_admin_redis_keys'
@@ -62,6 +63,7 @@ export type AnalyticsEventSlug =
   | 'api_delete_vfs_blob'
   | 'api_post_vfs_org_share'
   | 'api_delete_vfs_org_share'
+  | 'api_post_vfs_rekey'
   | 'api_get_vfs_share_targets'
   // LLM operations
   | 'llm_model_load'
@@ -90,6 +92,7 @@ export const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
   file_encrypt: 'File Encrypt',
   file_decrypt: 'File Decrypt',
   thumbnail_generation: 'Thumbnail Generation',
+  vfs_secure_upload: 'VFS Secure Upload',
   // API
   api_get_ping: 'API Ping',
   api_get_admin_redis_keys: 'API List Redis Keys',
@@ -136,6 +139,7 @@ export const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
   api_delete_vfs_blob: 'API Delete VFS Blob',
   api_post_vfs_org_share: 'API Create VFS Org Share',
   api_delete_vfs_org_share: 'API Delete VFS Org Share',
+  api_post_vfs_rekey: 'API Rekey VFS Item',
   api_get_vfs_share_targets: 'API Search VFS Share Targets',
   // LLM
   llm_model_load: 'LLM Model Load',
@@ -187,6 +191,11 @@ export interface FileDecryptDetail {
 export interface ThumbnailGenerationDetail {
   fileSize?: number;
   mimeType?: string;
+}
+export interface VfsSecureUploadDetail {
+  fileSize?: number;
+  mimeType?: string;
+  failStage?: 'orchestrator_unavailable' | 'stage_attach' | 'flush' | 'unknown';
 }
 
 // API events
@@ -326,6 +335,9 @@ export interface ApiPostVfsOrgShareDetail {
 export interface ApiDeleteVfsOrgShareDetail {
   deleted?: boolean;
 }
+export interface ApiPostVfsRekeyDetail {
+  wrapsApplied?: number;
+}
 export interface ApiGetVfsShareTargetsDetail {
   resultCount?: number;
 }
@@ -386,6 +398,7 @@ export interface EventDetailMap {
   file_encrypt: FileEncryptDetail;
   file_decrypt: FileDecryptDetail;
   thumbnail_generation: ThumbnailGenerationDetail;
+  vfs_secure_upload: VfsSecureUploadDetail;
   api_get_ping: ApiGetPingDetail;
   api_get_admin_redis_keys: ApiGetAdminRedisKeysDetail;
   api_get_admin_redis_key: ApiGetAdminRedisKeyDetail;
@@ -430,6 +443,7 @@ export interface EventDetailMap {
   api_delete_vfs_blob: ApiDeleteVfsBlobDetail;
   api_post_vfs_org_share: ApiPostVfsOrgShareDetail;
   api_delete_vfs_org_share: ApiDeleteVfsOrgShareDetail;
+  api_post_vfs_rekey: ApiPostVfsRekeyDetail;
   api_get_vfs_share_targets: ApiGetVfsShareTargetsDetail;
   llm_model_load: LlmModelLoadDetail;
   llm_prompt_text: LlmPromptTextDetail;

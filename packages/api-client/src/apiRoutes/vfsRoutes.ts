@@ -62,7 +62,8 @@ export const vfsRoutes = {
             shareType: data.shareType,
             targetId: data.targetId,
             permissionLevel: data.permissionLevel,
-            expiresAt: data.expiresAt
+            expiresAt: data.expiresAt,
+            wrappedKey: data.wrappedKey
           })
         },
         eventName: 'api_post_vfs_share'

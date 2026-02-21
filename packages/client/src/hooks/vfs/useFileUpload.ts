@@ -81,70 +81,76 @@ export function useFileUpload() {
       }
       onProgress?.(10);
 
-      // Read file data for local storage and hash computation
-      const data = await readFileAsUint8Array(file);
-      onProgress?.(30);
-
-      // Compute content hash for deduplication
-      const contentHash = await computeContentHash(data);
-      onProgress?.(40);
-
       const db = getDatabase();
-      const existing = await db
-        .select({ id: files.id })
-        .from(files)
-        .where(
-          and(eq(files.contentHash, contentHash), eq(files.deleted, false))
-        )
-        .limit(1);
-
-      if (existing.length > 0 && existing[0]) {
-        onProgress?.(100);
-        return { id: existing[0].id, isDuplicate: true };
-      }
-
-      // Store encrypted file
       const storage = getFileStorage();
       const id = crypto.randomUUID();
-      onProgress?.(50);
-
-      const storagePath = await storage.measureStore(
-        id,
-        data,
-        createStoreLogger(db)
-      );
-      onProgress?.(65);
-
-      // Generate thumbnail for supported types (images and audio with cover art)
+      let contentHash: string;
+      let storagePath: string;
       let thumbnailPath: string | null = null;
-      if (isThumbnailSupported(mimeType)) {
-        const thumbnailStartTime = performance.now();
-        let thumbnailSuccess = false;
-        try {
-          const thumbnailData = await generateThumbnail(data, mimeType);
-          if (thumbnailData) {
-            const thumbnailId = `${id}-thumb`;
-            thumbnailPath = await storage.store(thumbnailId, thumbnailData);
-            thumbnailSuccess = true;
+
+      // Scope full-file buffers to local persistence work so large payloads can
+      // be collected before secure network staging/flush begins.
+      {
+        // Read file data for local storage and hash computation
+        const data = await readFileAsUint8Array(file);
+        onProgress?.(30);
+
+        // Compute content hash for deduplication
+        contentHash = await computeContentHash(data);
+        onProgress?.(40);
+
+        const existing = await db
+          .select({ id: files.id })
+          .from(files)
+          .where(
+            and(eq(files.contentHash, contentHash), eq(files.deleted, false))
+          )
+          .limit(1);
+
+        if (existing.length > 0 && existing[0]) {
+          onProgress?.(100);
+          return { id: existing[0].id, isDuplicate: true };
+        }
+
+        // Store encrypted file
+        onProgress?.(50);
+        storagePath = await storage.measureStore(
+          id,
+          data,
+          createStoreLogger(db)
+        );
+        onProgress?.(65);
+
+        // Generate thumbnail for supported types (images and audio with cover art)
+        if (isThumbnailSupported(mimeType)) {
+          const thumbnailStartTime = performance.now();
+          let thumbnailSuccess = false;
+          try {
+            const thumbnailData = await generateThumbnail(data, mimeType);
+            if (thumbnailData) {
+              const thumbnailId = `${id}-thumb`;
+              thumbnailPath = await storage.store(thumbnailId, thumbnailData);
+              thumbnailSuccess = true;
+            }
+          } catch (err) {
+            console.warn(`Failed to generate thumbnail for ${file.name}:`, err);
+            // Continue without thumbnail
           }
-        } catch (err) {
-          console.warn(`Failed to generate thumbnail for ${file.name}:`, err);
-          // Continue without thumbnail
+          const thumbnailDurationMs = performance.now() - thumbnailStartTime;
+          try {
+            await logEvent(
+              db,
+              'thumbnail_generation',
+              thumbnailDurationMs,
+              thumbnailSuccess
+            );
+          } catch (err) {
+            // Don't let logging errors affect the main operation
+            console.warn('Failed to log thumbnail_generation event:', err);
+          }
         }
-        const thumbnailDurationMs = performance.now() - thumbnailStartTime;
-        try {
-          await logEvent(
-            db,
-            'thumbnail_generation',
-            thumbnailDurationMs,
-            thumbnailSuccess
-          );
-        } catch (err) {
-          // Don't let logging errors affect the main operation
-          console.warn('Failed to log thumbnail_generation event:', err);
-        }
+        onProgress?.(85);
       }
-      onProgress?.(85);
 
       // Insert metadata
       await db.insert(files).values({
@@ -179,44 +185,101 @@ export function useFileUpload() {
         createdAt: new Date()
       });
 
-      // Use secure facade for encrypted server upload when available
+      const secureUploadEnabled =
+        isLoggedIn() && getFeatureFlagValue('vfsSecureUpload');
+
+      // Use secure facade for encrypted server upload when enabled.
+      // Fail closed when secure mode is enabled but runtime dependencies fail.
       let serverUploadSucceeded = false;
-      if (
-        isLoggedIn() &&
-        getFeatureFlagValue('vfsSecureUpload') &&
-        secureFacade &&
-        orchestrator
-      ) {
+      if (secureUploadEnabled) {
+        const secureUploadStartTime = performance.now();
+        let secureUploadFailStage:
+          | 'orchestrator_unavailable'
+          | 'stage_attach'
+          | 'flush'
+          | 'unknown'
+          | null = null;
+
         try {
+          if (!secureFacade || !orchestrator) {
+            secureUploadFailStage = 'orchestrator_unavailable';
+            throw new Error(
+              'Secure upload is enabled but VFS secure orchestrator is not ready'
+            );
+          }
+
           const expiresAt = new Date();
           expiresAt.setDate(expiresAt.getDate() + DEFAULT_BLOB_EXPIRY_DAYS);
 
           // Stream directly from File for memory-efficient encrypted upload.
           // The secure pipeline processes chunks via callback without
           // accumulating ciphertext in memory.
-          await secureFacade.stageAttachEncryptedBlobAndPersist({
-            itemId: id,
-            blobId: crypto.randomUUID(),
-            contentType: mimeType,
-            stream: createStreamFromFile(file),
-            expiresAt: expiresAt.toISOString()
-          });
+          try {
+            await secureFacade.stageAttachEncryptedBlobAndPersist({
+              itemId: id,
+              blobId: crypto.randomUUID(),
+              contentType: mimeType,
+              stream: createStreamFromFile(file),
+              expiresAt: expiresAt.toISOString()
+            });
+          } catch (err) {
+            secureUploadFailStage = 'stage_attach';
+            throw new Error('Secure upload failed (stage_attach)', {
+              cause: err
+            });
+          }
 
           // Flush queued operations to ensure data reaches the server.
           // stageAttachEncryptedBlobAndPersist only queues operations locally;
           // flushAll sends them over the network.
-          await orchestrator.flushAll();
+          try {
+            await orchestrator.flushAll();
+          } catch (err) {
+            secureUploadFailStage = 'flush';
+            throw new Error('Secure upload failed (flush)', { cause: err });
+          }
 
           serverUploadSucceeded = true;
         } catch (err) {
-          console.warn('Failed to upload via secure facade:', err);
-          // Fall through to legacy registration if secure upload fails
+          if (
+            err instanceof Error &&
+            err.message ===
+              'Secure upload is enabled but VFS secure orchestrator is not ready'
+          ) {
+            throw err;
+          }
+
+          if (secureUploadFailStage === null) {
+            secureUploadFailStage = 'unknown';
+          }
+          throw new Error(`Secure upload failed (${secureUploadFailStage})`, {
+            cause: err
+          });
+        } finally {
+          const durationMs = performance.now() - secureUploadStartTime;
+          try {
+            await logEvent(
+              db,
+              'vfs_secure_upload',
+              durationMs,
+              serverUploadSucceeded,
+              {
+                fileSize: file.size,
+                mimeType,
+                ...(secureUploadFailStage && {
+                  failStage: secureUploadFailStage
+                })
+              }
+            );
+          } catch (err) {
+            console.warn('Failed to log vfs_secure_upload event:', err);
+          }
         }
       }
 
-      // Legacy registration path - used when secure upload is not enabled or fails
+      // Legacy registration path - used when secure upload is not enabled.
       if (
-        !serverUploadSucceeded &&
+        !secureUploadEnabled &&
         isLoggedIn() &&
         getFeatureFlagValue('vfsServerRegistration') &&
         encryptedSessionKey
