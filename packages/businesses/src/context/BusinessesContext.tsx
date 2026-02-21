@@ -36,9 +36,7 @@ export interface BusinessesContextValue {
   ui: BusinessesUIComponents;
 }
 
-export const BusinessesContext = createContext<BusinessesContextValue | null>(
-  null
-);
+const BusinessesContext = createContext<BusinessesContextValue | null>(null);
 
 export interface BusinessesProviderProps {
   children: ReactNode;
