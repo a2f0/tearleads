@@ -223,7 +223,7 @@ export function useFileUpload() {
               itemId: id,
               blobId: crypto.randomUUID(),
               contentType: mimeType,
-              stream: secureUploadStream ?? createStreamFromFile(file),
+              stream: secureUploadStream,
               expiresAt: expiresAt.toISOString()
             });
           } catch (err) {
