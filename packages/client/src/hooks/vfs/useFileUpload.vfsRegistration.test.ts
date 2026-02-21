@@ -238,6 +238,16 @@ describe('useFileUpload VFS registration', () => {
       })
     );
     expect(mockOrchestrator.flushAll).toHaveBeenCalled();
+    expect(logEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      'vfs_secure_upload',
+      expect.any(Number),
+      true,
+      expect.objectContaining({
+        fileSize: file.size,
+        mimeType: 'image/png'
+      })
+    );
   });
 
   it('fails closed when secure facade upload fails', async () => {
@@ -269,6 +279,15 @@ describe('useFileUpload VFS registration', () => {
 
     await expect(result.current.uploadFile(file)).rejects.toThrow(
       'Secure upload failed'
+    );
+    expect(logEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      'vfs_secure_upload',
+      expect.any(Number),
+      false,
+      expect.objectContaining({
+        failStage: 'stage_attach'
+      })
     );
   });
 
@@ -303,6 +322,15 @@ describe('useFileUpload VFS registration', () => {
     await expect(result.current.uploadFile(file)).rejects.toThrow(
       'Secure upload failed'
     );
+    expect(logEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      'vfs_secure_upload',
+      expect.any(Number),
+      false,
+      expect.objectContaining({
+        failStage: 'flush'
+      })
+    );
   });
 
   it('fails closed when secure upload is enabled but facade is unavailable', async () => {
@@ -318,6 +346,15 @@ describe('useFileUpload VFS registration', () => {
 
     await expect(result.current.uploadFile(file)).rejects.toThrow(
       'Secure upload is enabled but VFS secure orchestrator is not ready'
+    );
+    expect(logEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      'vfs_secure_upload',
+      expect.any(Number),
+      false,
+      expect.objectContaining({
+        failStage: 'orchestrator_unavailable'
+      })
     );
   });
 

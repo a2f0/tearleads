@@ -186,36 +186,84 @@ export function useFileUpload() {
       // Fail closed when secure mode is enabled but runtime dependencies fail.
       let serverUploadSucceeded = false;
       if (secureUploadEnabled) {
-        if (!secureFacade || !orchestrator) {
-          throw new Error(
-            'Secure upload is enabled but VFS secure orchestrator is not ready'
-          );
-        }
+        const secureUploadStartTime = performance.now();
+        let secureUploadFailStage:
+          | 'orchestrator_unavailable'
+          | 'stage_attach'
+          | 'flush'
+          | 'unknown'
+          | null = null;
+
         try {
+          if (!secureFacade || !orchestrator) {
+            secureUploadFailStage = 'orchestrator_unavailable';
+            throw new Error(
+              'Secure upload is enabled but VFS secure orchestrator is not ready'
+            );
+          }
+
           const expiresAt = new Date();
           expiresAt.setDate(expiresAt.getDate() + DEFAULT_BLOB_EXPIRY_DAYS);
 
           // Stream directly from File for memory-efficient encrypted upload.
           // The secure pipeline processes chunks via callback without
           // accumulating ciphertext in memory.
-          await secureFacade.stageAttachEncryptedBlobAndPersist({
-            itemId: id,
-            blobId: crypto.randomUUID(),
-            contentType: mimeType,
-            stream: createStreamFromFile(file),
-            expiresAt: expiresAt.toISOString()
-          });
+          try {
+            await secureFacade.stageAttachEncryptedBlobAndPersist({
+              itemId: id,
+              blobId: crypto.randomUUID(),
+              contentType: mimeType,
+              stream: createStreamFromFile(file),
+              expiresAt: expiresAt.toISOString()
+            });
+          } catch {
+            secureUploadFailStage = 'stage_attach';
+            throw new Error('Secure upload failed');
+          }
 
           // Flush queued operations to ensure data reaches the server.
           // stageAttachEncryptedBlobAndPersist only queues operations locally;
           // flushAll sends them over the network.
-          await orchestrator.flushAll();
+          try {
+            await orchestrator.flushAll();
+          } catch {
+            secureUploadFailStage = 'flush';
+            throw new Error('Secure upload failed');
+          }
 
           serverUploadSucceeded = true;
         } catch (err) {
-          throw new Error('Secure upload failed', {
-            cause: err
-          });
+          if (
+            err instanceof Error &&
+            err.message ===
+              'Secure upload is enabled but VFS secure orchestrator is not ready'
+          ) {
+            throw err;
+          }
+
+          if (secureUploadFailStage === null) {
+            secureUploadFailStage = 'unknown';
+          }
+          throw new Error('Secure upload failed', { cause: err });
+        } finally {
+          const durationMs = performance.now() - secureUploadStartTime;
+          try {
+            await logEvent(
+              db,
+              'vfs_secure_upload',
+              durationMs,
+              serverUploadSucceeded,
+              {
+                fileSize: file.size,
+                mimeType,
+                ...(secureUploadFailStage && {
+                  failStage: secureUploadFailStage
+                })
+              }
+            );
+          } catch (err) {
+            console.warn('Failed to log vfs_secure_upload event:', err);
+          }
         }
       }
 
