@@ -23,7 +23,7 @@ import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { UnsupportedFileTypeError } from '@/lib/errors';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
 import {
-  computeContentHash,
+  computeContentHashStreaming,
   createStreamFromFile,
   readFileAsUint8Array,
   readMagicBytes
@@ -84,33 +84,35 @@ export function useFileUpload() {
       const db = getDatabase();
       const storage = getFileStorage();
       const id = crypto.randomUUID();
-      let contentHash: string;
+      const contentHash = await computeContentHashStreaming(
+        createStreamFromFile(file)
+      );
       let storagePath: string;
       let thumbnailPath: string | null = null;
+
+      // Compute hash from a stream first so duplicate detection does not
+      // require buffering the entire file in memory.
+      onProgress?.(30);
+
+      const existing = await db
+        .select({ id: files.id })
+        .from(files)
+        .where(
+          and(eq(files.contentHash, contentHash), eq(files.deleted, false))
+        )
+        .limit(1);
+
+      if (existing.length > 0 && existing[0]) {
+        onProgress?.(100);
+        return { id: existing[0].id, isDuplicate: true };
+      }
 
       // Scope full-file buffers to local persistence work so large payloads can
       // be collected before secure network staging/flush begins.
       {
-        // Read file data for local storage and hash computation
+        // Read file data only after deduplication miss.
         const data = await readFileAsUint8Array(file);
-        onProgress?.(30);
-
-        // Compute content hash for deduplication
-        contentHash = await computeContentHash(data);
         onProgress?.(40);
-
-        const existing = await db
-          .select({ id: files.id })
-          .from(files)
-          .where(
-            and(eq(files.contentHash, contentHash), eq(files.deleted, false))
-          )
-          .limit(1);
-
-        if (existing.length > 0 && existing[0]) {
-          onProgress?.(100);
-          return { id: existing[0].id, isDuplicate: true };
-        }
 
         // Store encrypted file
         onProgress?.(50);
