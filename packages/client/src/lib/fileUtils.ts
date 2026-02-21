@@ -3,7 +3,14 @@
  */
 
 import { Capacitor } from '@capacitor/core';
+import { sha256 } from '@noble/hashes/sha2.js';
 import { assertPlainArrayBuffer } from '@tearleads/shared';
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
 
 /**
  * Compute SHA-256 hash of file data.
@@ -12,9 +19,7 @@ import { assertPlainArrayBuffer } from '@tearleads/shared';
 export async function computeContentHash(data: Uint8Array): Promise<string> {
   assertPlainArrayBuffer(data);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  return bytesToHex(new Uint8Array(hashBuffer));
 }
 
 /**
@@ -100,37 +105,22 @@ export function createStreamFromFile(file: File): ReadableStream<Uint8Array> {
 export async function computeContentHashStreaming(
   stream: ReadableStream<Uint8Array>
 ): Promise<string> {
-  // Use SubtleCrypto's digest with streaming via a hash accumulator
-  // SubtleCrypto doesn't support incremental hashing directly, so we use
-  // a workaround: collect into a single buffer only if needed, or use
-  // the Web Streams API to pipe through a hash transform.
-
-  // For now, we'll use a simple accumulator approach that's still memory-bound
-  // but processes in chunks. A future optimization could use WASM-based
-  // incremental SHA-256.
+  const hasher = sha256.create();
   const reader = stream.getReader();
-  const chunks: Uint8Array[] = [];
-  let totalLength = 0;
-
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
+  try {
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      assertPlainArrayBuffer(value);
+      hasher.update(value);
     }
-    chunks.push(value);
-    totalLength += value.length;
+  } finally {
+    reader.releaseLock();
   }
-
-  // Combine chunks for hashing
-  const combined = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    combined.set(chunk, offset);
-    offset += chunk.length;
-  }
-
-  return computeContentHash(combined);
+  return bytesToHex(hasher.digest());
 }
 
 /**
