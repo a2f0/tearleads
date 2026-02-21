@@ -1,15 +1,15 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env -S npx tsx
 
 /**
  * Cost Model - Infrastructure cost estimation tool
  *
  * Usage:
- *   npx tsx scripts/costModel/index.ts estimate
- *   npx tsx scripts/costModel/index.ts snapshot
- *   npx tsx scripts/costModel/index.ts list
- *   npx tsx scripts/costModel/index.ts scrape
- *   npx tsx scripts/costModel/index.ts servers
- *   npx tsx scripts/costModel/index.ts orphans [region]
+ *   ./scripts/costModel/index.ts estimate
+ *   ./scripts/costModel/index.ts snapshot
+ *   ./scripts/costModel/index.ts list
+ *   ./scripts/costModel/index.ts scrape
+ *   ./scripts/costModel/index.ts servers
+ *   ./scripts/costModel/index.ts orphans [region]
  */
 
 import * as path from 'node:path';
