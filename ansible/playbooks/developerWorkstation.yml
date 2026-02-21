@@ -16,8 +16,10 @@
     ssh_config_file: "{{ ssh_dir }}/config"
     # Tuxedo workspace configuration (developer uses github.com directly, not deploy key alias)
     tuxedo_base_dir: "{{ user_home }}/tuxedo"
-    tuxedo_repo_ssh_url: "git@github.com:a2f0/tearleads.git"
-    tuxedo_workspace_count: "10"
+    tuxedo_repo_ssh_url: "{{ lookup('env', 'TUXEDO_REPO_SSH_URL') | default('git@github.com:a2f0/tearleads.git', true) }}"
+    tuxedo_workspace_prefix: tearleads
+    tuxedo_workspace_start: 2
+    tuxedo_workspace_count: 10
 
   tasks:
     - name: Validate required environment variables
@@ -156,7 +158,7 @@
         state: present
       when: not vault_prod_host_exists
 
-    # Tuxedo workspace setup (clones tearleads repo into ~/tuxedo/tuxedo1, tuxedo2, etc.)
+    # Tuxedo workspace setup (clones tearleads repo into ~/tuxedo/tearleads2, tearleads3, etc.)
     - name: Copy tuxedo repo setup script
       ansible.builtin.copy:
         src: "{{ repo_root }}/scripts/setupTuxedoRepos.sh"
@@ -168,10 +170,13 @@
         cmd: "{{ user_home }}/setupTuxedoRepos.sh"
       environment:
         TUXEDO_BASE_DIR: "{{ tuxedo_base_dir }}"
+        TUXEDO_WORKSPACE_PREFIX: "{{ tuxedo_workspace_prefix }}"
+        TUXEDO_WORKSPACE_START: "{{ tuxedo_workspace_start }}"
         TUXEDO_REPO_SSH_URL: "{{ tuxedo_repo_ssh_url }}"
         TUXEDO_WORKSPACE_COUNT: "{{ tuxedo_workspace_count }}"
       register: setup_repos_result
-      changed_when: setup_repos_result.stderr | length > 0
+      # Script always reports changed since git operations output to stderr
+      changed_when: false
 
     - name: Display configuration summary
       ansible.builtin.debug:
@@ -195,6 +200,6 @@
             - {{ ssh_config_file }}
 
           Tuxedo workspaces configured:
-            - {{ tuxedo_base_dir }}/tuxedo-main
-            - {{ tuxedo_base_dir }}/tuxedo-shared
-            - {{ tuxedo_base_dir }}/tuxedo1 through tuxedo{{ tuxedo_workspace_count }}
+            - {{ tuxedo_base_dir }}/{{ tuxedo_workspace_prefix }}-main
+            - {{ tuxedo_base_dir }}/{{ tuxedo_workspace_prefix }}-shared
+            - {{ tuxedo_base_dir }}/{{ tuxedo_workspace_prefix }}{{ tuxedo_workspace_start }} through {{ tuxedo_workspace_prefix }}{{ tuxedo_workspace_count }}
