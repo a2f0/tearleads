@@ -178,8 +178,9 @@ require("lazy").setup({
 vim.cmd('colorscheme tokyonight-night')
 
 -- ripgrep is required for live_grep and grep_string
--- brew install ripgrep (macOS) or apt install ripgrep (Linux)
--- fd is faster for file finding: brew install fd (macOS)
+-- macOS: brew install ripgrep | Linux: apt install ripgrep
+-- fd is required for find_files
+-- macOS: brew install fd | Linux: apt install fd-find && ln -s $(which fdfind) /usr/local/bin/fd
 local telescope = require('telescope')
 telescope.setup{
   defaults = {

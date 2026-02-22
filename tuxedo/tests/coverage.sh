@@ -28,7 +28,7 @@ fi
 DEFAULT_BASH=$(command -v bash)
 DEFAULT_BASH_MAJOR=$("$DEFAULT_BASH" -c 'echo "${BASH_VERSINFO[0]}"')
 if [ "$DEFAULT_BASH_MAJOR" -lt 4 ]; then
-    echo "bash >= 4 is required for bashcov (install via brew install bash)." >&2
+    echo "bash >= 4 is required for bashcov (macOS: brew install bash | Linux: apt install bash)." >&2
     exit 1
 fi
 ROOT_DIR="$REPO_ROOT/tuxedo"
