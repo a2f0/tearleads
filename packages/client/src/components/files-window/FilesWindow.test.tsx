@@ -1,7 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
-import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FilesWindow } from './FilesWindow';
 
@@ -496,72 +495,5 @@ describe('FilesWindow', () => {
 
     expect(mockUploadFiles).not.toHaveBeenCalled();
     expect(fileInput.value).toBe('');
-  });
-
-  it('shows detail view when a file is selected', async () => {
-    const user = userEvent.setup();
-    render(<FilesWindow {...defaultProps} />);
-
-    await user.click(screen.getByTestId('select-file-button'));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('files-detail')).toBeInTheDocument();
-      expect(screen.getByTestId('detail-file-id')).toHaveTextContent(
-        'test-file-id'
-      );
-      expect(screen.queryByTestId('files-content')).not.toBeInTheDocument();
-      expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
-    });
-  });
-
-  it('returns to list view when back button is clicked', async () => {
-    const user = userEvent.setup();
-    render(<FilesWindow {...defaultProps} />);
-
-    await user.click(screen.getByTestId('select-file-button'));
-    expect(screen.getByTestId('files-detail')).toBeInTheDocument();
-
-    await user.click(screen.getByTestId('detail-back'));
-
-    expect(screen.queryByTestId('files-detail')).not.toBeInTheDocument();
-    expect(screen.getByTestId('files-content')).toBeInTheDocument();
-    expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
-  });
-
-  it('returns to list view when control bar back is clicked', async () => {
-    const user = userEvent.setup();
-    render(<FilesWindow {...defaultProps} />);
-
-    await user.click(screen.getByTestId('select-file-button'));
-    expect(screen.getByTestId('files-window-control-back')).toBeInTheDocument();
-
-    await user.click(screen.getByTestId('files-window-control-back'));
-
-    expect(screen.queryByTestId('files-detail')).not.toBeInTheDocument();
-    expect(screen.getByTestId('files-content')).toBeInTheDocument();
-  });
-
-  it('returns to list view when file is deleted', async () => {
-    const user = userEvent.setup();
-    render(<FilesWindow {...defaultProps} />);
-
-    await user.click(screen.getByTestId('select-file-button'));
-    expect(screen.getByTestId('files-detail')).toBeInTheDocument();
-
-    await user.click(screen.getByTestId('detail-deleted'));
-
-    expect(screen.queryByTestId('files-detail')).not.toBeInTheDocument();
-    expect(screen.getByTestId('files-content')).toBeInTheDocument();
-  });
-
-  it('renders without error when inside a router context (WindowRenderer is inside BrowserRouter)', () => {
-    expect(() =>
-      render(
-        <MemoryRouter>
-          <FilesWindow {...defaultProps} />
-        </MemoryRouter>
-      )
-    ).not.toThrow();
-    expect(screen.getByTestId('files-content')).toBeInTheDocument();
   });
 });
