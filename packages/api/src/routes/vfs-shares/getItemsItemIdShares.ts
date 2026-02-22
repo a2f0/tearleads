@@ -1,4 +1,5 @@
 import type {
+  VfsOrgWrappedKeyPayload,
   VfsOrgShare,
   VfsShare,
   VfsSharesResponse,
@@ -82,6 +83,37 @@ function buildWrappedKeyForShare(input: {
 
   return {
     recipientUserId: input.targetId,
+    recipientPublicKeyId: metadata.recipientPublicKeyId,
+    keyEpoch: input.keyEpoch,
+    encryptedKey: input.wrappedSessionKey,
+    senderSignature: metadata.senderSignature
+  };
+}
+
+function buildWrappedKeyForOrgShare(input: {
+  targetOrgId: string;
+  wrappedSessionKey: string | null;
+  wrappedHierarchicalKey: string | null;
+  keyEpoch: number | null;
+}): VfsOrgWrappedKeyPayload | null {
+  if (
+    typeof input.wrappedSessionKey !== 'string' ||
+    !input.wrappedSessionKey.trim() ||
+    typeof input.keyEpoch !== 'number' ||
+    !Number.isInteger(input.keyEpoch) ||
+    !Number.isSafeInteger(input.keyEpoch) ||
+    input.keyEpoch < 1
+  ) {
+    return null;
+  }
+
+  const metadata = parseWrappedKeyMetadata(input.wrappedHierarchicalKey);
+  if (!metadata) {
+    return null;
+  }
+
+  return {
+    recipientOrgId: input.targetOrgId,
     recipientPublicKeyId: metadata.recipientPublicKeyId,
     keyEpoch: input.keyEpoch,
     encryptedKey: input.wrappedSessionKey,
@@ -225,6 +257,9 @@ const getItemsItemidSharesHandler = async (
       source_org_name: string | null;
       target_org_name: string | null;
       created_by_email: string | null;
+      wrapped_session_key: string | null;
+      wrapped_hierarchical_key: string | null;
+      key_epoch: number | null;
     }>(
       `SELECT
           acl.id AS acl_id,
@@ -234,6 +269,9 @@ const getItemsItemidSharesHandler = async (
           acl.granted_by AS created_by,
           acl.created_at,
           acl.expires_at,
+          acl.wrapped_session_key,
+          acl.wrapped_hierarchical_key,
+          acl.key_epoch,
           (
             SELECT name
             FROM organizations
@@ -250,21 +288,31 @@ const getItemsItemidSharesHandler = async (
       [itemId]
     );
 
-    const orgShares: VfsOrgShare[] = orgSharesResult.rows.map((row) => ({
-      id: extractOrgShareIdFromAclId(row.acl_id),
-      sourceOrgId: extractSourceOrgIdFromOrgShareAclId(row.acl_id),
-      sourceOrgName: row.source_org_name ?? 'Unknown',
-      targetOrgId: row.target_org_id,
-      targetOrgName: row.target_org_name ?? 'Unknown',
-      itemId: row.item_id,
-      permissionLevel: mapAclAccessLevelToSharePermissionLevel(
-        row.access_level
-      ),
-      createdBy: row.created_by ?? 'unknown',
-      createdByEmail: row.created_by_email ?? 'Unknown',
-      createdAt: row.created_at.toISOString(),
-      expiresAt: row.expires_at ? row.expires_at.toISOString() : null
-    }));
+    const orgShares: VfsOrgShare[] = orgSharesResult.rows.map((row) => {
+      const wrappedKey = buildWrappedKeyForOrgShare({
+        targetOrgId: row.target_org_id,
+        wrappedSessionKey: row.wrapped_session_key,
+        wrappedHierarchicalKey: row.wrapped_hierarchical_key,
+        keyEpoch: row.key_epoch
+      });
+
+      return {
+        id: extractOrgShareIdFromAclId(row.acl_id),
+        sourceOrgId: extractSourceOrgIdFromOrgShareAclId(row.acl_id),
+        sourceOrgName: row.source_org_name ?? 'Unknown',
+        targetOrgId: row.target_org_id,
+        targetOrgName: row.target_org_name ?? 'Unknown',
+        itemId: row.item_id,
+        permissionLevel: mapAclAccessLevelToSharePermissionLevel(
+          row.access_level
+        ),
+        createdBy: row.created_by ?? 'unknown',
+        createdByEmail: row.created_by_email ?? 'Unknown',
+        createdAt: row.created_at.toISOString(),
+        expiresAt: row.expires_at ? row.expires_at.toISOString() : null,
+        ...(wrappedKey !== null && { wrappedKey })
+      };
+    });
 
     const response: VfsSharesResponse = { shares, orgShares };
     res.json(response);
