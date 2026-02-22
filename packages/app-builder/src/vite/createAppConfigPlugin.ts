@@ -124,12 +124,12 @@ function loadAppConfig(appId: string, dirname: string): AppConfig {
   return configModule.default;
 }
 
-export interface AppConfigPluginOptions {
+interface AppConfigPluginOptions {
   /** Enable tree-shaking of disabled packages. Defaults to true in production. */
   enableTreeShaking?: boolean;
 }
 
-export interface AppConfigPluginResult {
+interface AppConfigPluginResult {
   plugin: AppConfigVitePlugin;
   config: AppConfig;
   disabledPackages: string[];

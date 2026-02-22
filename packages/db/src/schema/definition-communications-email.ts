@@ -118,7 +118,7 @@ export const emailsTable: TableDefinition = {
  * Composed emails - extends registry for draft and sent email items.
  * Stores encrypted composed email content for drafts and sent messages.
  */
-export const composedEmailsTable: TableDefinition = {
+const composedEmailsTable: TableDefinition = {
   name: 'composed_emails',
   propertyName: 'composedEmails',
   comment:
@@ -186,7 +186,7 @@ export const composedEmailsTable: TableDefinition = {
  * Email attachments - file references for composed emails.
  * Links attachments to composed emails with metadata.
  */
-export const emailAttachmentsTable: TableDefinition = {
+const emailAttachmentsTable: TableDefinition = {
   name: 'email_attachments',
   propertyName: 'emailAttachments',
   comment:

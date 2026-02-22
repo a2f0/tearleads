@@ -26,8 +26,6 @@ import {
   type VisualizerVisibility
 } from './visualizer.utils';
 
-export type { VisualizerVisibility } from './visualizer.utils';
-
 interface AudioPlayerProps {
   tracks: AudioTrack[];
 }

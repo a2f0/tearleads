@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { PhotoAlbum } from './usePhotoAlbums';
 
-export interface DeleteAlbumDialogProps {
+interface DeleteAlbumDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   album: PhotoAlbum | null;

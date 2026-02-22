@@ -18,8 +18,6 @@ import {
   type VisualizerVisibility
 } from './visualizer.utils';
 
-export type { VisualizerVisibility } from './visualizer.utils';
-
 interface AudioVisualizerProps {
   visibility?: VisualizerVisibility;
   onVisibilityChange?: (visibility: VisualizerVisibility) => void;

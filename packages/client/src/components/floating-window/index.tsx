@@ -5,7 +5,7 @@ import {
 
 export type { WindowDimensions } from '@tearleads/window-manager';
 
-export type FloatingWindowProps = BaseFloatingWindowProps;
+type FloatingWindowProps = BaseFloatingWindowProps;
 
 export function FloatingWindow(props: FloatingWindowProps) {
   return <BaseFloatingWindow {...props} />;

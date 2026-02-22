@@ -7,8 +7,7 @@ export {
   mlsGroupsTable,
   mlsKeyPackagesTable,
   mlsMessagesTable,
-  mlsWelcomeMessagesTable,
-  runtimeAiMlsTables
+  mlsWelcomeMessagesTable
 } from './definition-runtime-ai-mls.js';
 
 // Import for combining into runtimeAiTables
@@ -125,7 +124,7 @@ export const vfsCrdtOpsTable: TableDefinition = {
  * AI conversations - stores encrypted conversation metadata.
  * Each conversation belongs to a user and optionally an organization.
  */
-export const aiConversationsTable: TableDefinition = {
+const aiConversationsTable: TableDefinition = {
   name: 'ai_conversations',
   propertyName: 'aiConversations',
   comment:
@@ -205,7 +204,7 @@ export const aiConversationsTable: TableDefinition = {
  * AI messages - stores encrypted message content.
  * Messages are encrypted client-side before storage.
  */
-export const aiMessagesTable: TableDefinition = {
+const aiMessagesTable: TableDefinition = {
   name: 'ai_messages',
   propertyName: 'aiMessages',
   comment:
@@ -264,7 +263,7 @@ export const aiMessagesTable: TableDefinition = {
  * AI usage - tracks token usage per request for billing/analytics.
  * Usage data is stored in plaintext (not encrypted) for aggregation.
  */
-export const aiUsageTable: TableDefinition = {
+const aiUsageTable: TableDefinition = {
   name: 'ai_usage',
   propertyName: 'aiUsage',
   comment:

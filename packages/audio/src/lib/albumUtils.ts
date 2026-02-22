@@ -7,20 +7,6 @@
  */
 
 /**
- * Represents an album derived from audio track metadata.
- */
-export interface AudioAlbum {
-  /** Unique identifier for the album (derived from name and artist) */
-  id: string;
-  /** Album name from metadata */
-  name: string;
-  /** Album artist from metadata (may be null) */
-  artist: string | null;
-  /** Number of tracks in this album (within the current view) */
-  trackCount: number;
-}
-
-/**
  * Separator used in album ID encoding.
  * Using a null character as it's unlikely to appear in album/artist names.
  */

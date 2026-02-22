@@ -1,13 +1,13 @@
 import type { ComponentType } from 'react';
 import type { WalletMediaFileOption } from './walletData';
 
-export interface WalletDatabaseContextValue {
+interface WalletDatabaseContextValue {
   isLoading: boolean;
   isUnlocked: boolean;
   currentInstanceId: string | null;
 }
 
-export interface InlineUnlockProps {
+interface InlineUnlockProps {
   description?: string;
 }
 

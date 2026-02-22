@@ -31,25 +31,24 @@ let snapshot: LLMState = { ...store };
 const listeners = new Set<() => void>();
 
 // Track current loading operation to handle cancellation
-export let loadingModelId: string | null = null;
+let loadingModelId: string | null = null;
 
 // Singleton worker
 let worker: Worker | null = null;
 
 // Callbacks for generation streaming
-export let currentTokenCallback: GenerateCallback | null = null;
-export let currentGenerateResolve: (() => void) | null = null;
-export let currentGenerateReject: ((error: Error) => void) | null = null;
+let currentTokenCallback: GenerateCallback | null = null;
+let currentGenerateResolve: (() => void) | null = null;
+let currentGenerateReject: ((error: Error) => void) | null = null;
 
 // Callbacks for classification
-export let currentClassifyResolve:
-  | ((result: ClassificationResult) => void)
-  | null = null;
-export let currentClassifyReject: ((error: Error) => void) | null = null;
+let currentClassifyResolve: ((result: ClassificationResult) => void) | null =
+  null;
+let currentClassifyReject: ((error: Error) => void) | null = null;
 
 // Promise for load operation
-export let loadResolve: (() => void) | null = null;
-export let loadReject: ((error: Error) => void) | null = null;
+let loadResolve: (() => void) | null = null;
+let loadReject: ((error: Error) => void) | null = null;
 
 export function setLoadingModelId(id: string | null): void {
   loadingModelId = id;

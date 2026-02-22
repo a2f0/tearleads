@@ -77,7 +77,7 @@ vi.mock('@/db/crypto', () => ({
 
 // Mock file storage
 export const mockRetrieve = vi.fn();
-export const mockStore = vi.fn();
+const mockStore = vi.fn();
 export const mockIsFileStorageInitialized = vi.fn();
 export const mockInitializeFileStorage = vi.fn();
 vi.mock('@/storage/opfs', () => ({
@@ -132,12 +132,9 @@ vi.mock('@/lib/dataRetrieval', () => ({
     mockRetrieveFileData(storagePath, instanceId)
 }));
 
-// Mock useOnInstanceChange to capture callback for testing
-export let instanceChangeCallback: (() => void) | null = null;
+// Mock useOnInstanceChange
 vi.mock('@/hooks/app/useInstanceChange', () => ({
-  useOnInstanceChange: (callback: () => void) => {
-    instanceChangeCallback = callback;
-  }
+  useOnInstanceChange: vi.fn()
 }));
 
 // Test data
@@ -226,10 +223,8 @@ export function createMockUpdateChain() {
   };
 }
 
-// URL mock counter
-export let objectUrlCounter = 0;
 export function resetObjectUrlCounter() {
-  objectUrlCounter = 0;
+  // no-op: counter was removed with setupDefaultMocks
 }
 
 export function renderFilesRaw() {
@@ -249,33 +244,4 @@ export async function renderFiles() {
     expect(screen.queryByText('Loading files...')).not.toBeInTheDocument();
   });
   return result;
-}
-
-export function setupDefaultMocks() {
-  // Mock URL methods
-  vi.spyOn(URL, 'createObjectURL').mockImplementation(() => {
-    const url = `blob:test-${objectUrlCounter++}`;
-    return url;
-  });
-  vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
-
-  // Default mocks for unlocked database
-  mockUseDatabaseContext.mockReturnValue({
-    isUnlocked: true,
-    isLoading: false,
-    currentInstanceId: 'test-instance'
-  });
-  mockGetCurrentKey.mockReturnValue(TEST_ENCRYPTION_KEY);
-  mockIsFileStorageInitialized.mockReturnValue(true);
-  mockRetrieve.mockResolvedValue(TEST_THUMBNAIL_DATA);
-  mockRetrieveFileData.mockResolvedValue(new Uint8Array([1, 2, 3, 4]));
-  mockUploadFile.mockReset();
-  mockUploadFile.mockResolvedValue({ id: 'new-id', isDuplicate: false });
-  mockSelect.mockReturnValue(
-    createMockQueryChain([
-      TEST_FILE_WITH_THUMBNAIL,
-      TEST_FILE_WITHOUT_THUMBNAIL
-    ])
-  );
-  mockUpdate.mockReturnValue(createMockUpdateChain());
 }

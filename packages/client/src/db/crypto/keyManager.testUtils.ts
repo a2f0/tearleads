@@ -7,7 +7,7 @@
 
 import { vi } from 'vitest';
 
-export let keyBytesByKey = new WeakMap<object, Uint8Array>();
+let keyBytesByKey = new WeakMap<object, Uint8Array>();
 
 export function resetKeyBytesMap() {
   keyBytesByKey = new WeakMap();
@@ -16,14 +16,14 @@ export function resetKeyBytesMap() {
 // Password tracking for mock crypto operations
 const passwordByKey = new WeakMap<object, string>();
 
-export const createMockCryptoKey = () => ({
+const createMockCryptoKey = () => ({
   type: 'secret',
   extractable: true,
   algorithm: { name: 'AES-GCM' },
   usages: ['encrypt', 'decrypt']
 });
 
-export const encodePassword = (password: string) => {
+const encodePassword = (password: string) => {
   const bytes = new Uint8Array(32);
   const sum = Array.from(password).reduce(
     (total, char) => total + char.charCodeAt(0),
@@ -80,7 +80,7 @@ export const createUtilsMock = () => ({
 });
 
 // Mock crypto.subtle for KCV generation
-export const mockEncrypt = vi.fn(async (_algo, key) => {
+const mockEncrypt = vi.fn(async (_algo, key) => {
   const buffer = new Uint8Array(32);
   if (typeof key === 'object' && key !== null) {
     const keyBytes = keyBytesByKey.get(key);
@@ -134,7 +134,7 @@ export const mockObjectStore = {
   })
 };
 
-export function createMockTransaction() {
+function createMockTransaction() {
   const tx = {
     objectStore: vi.fn(() => mockObjectStore),
     oncomplete: null as (() => void) | null
@@ -190,7 +190,7 @@ export const TEST_INSTANCE_ID = 'test-instance';
  * Setup global mocks that all keyManager tests need.
  * Call this before importing keyManager in each test file.
  */
-export function setupGlobalMocks() {
+function setupGlobalMocks() {
   Object.defineProperty(global, 'crypto', {
     value: {
       subtle: {

@@ -139,7 +139,7 @@ export async function decryptConversation(
 /**
  * Decrypt a message using a session key.
  */
-export async function decryptMessage(
+async function decryptMessage(
   message: AiMessage,
   sessionKey: Uint8Array
 ): Promise<DecryptedAiMessage> {

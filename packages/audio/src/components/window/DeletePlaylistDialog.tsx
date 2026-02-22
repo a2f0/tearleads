@@ -4,7 +4,7 @@ import {
   useAudioUIContext
 } from '../../context/AudioUIContext';
 
-export interface DeletePlaylistDialogProps {
+interface DeletePlaylistDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   playlist: AudioPlaylist | null;

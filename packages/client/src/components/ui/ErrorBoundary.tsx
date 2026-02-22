@@ -10,7 +10,7 @@ interface State {
   error: Error | null;
 }
 
-export interface ErrorBoundaryHandle {
+interface ErrorBoundaryHandle {
   setError: (error: Error) => void;
   clearError: () => void;
 }

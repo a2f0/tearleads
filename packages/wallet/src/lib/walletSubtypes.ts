@@ -1,12 +1,12 @@
 import type { WalletItemType } from './walletTypes';
 
-export interface WalletSubtypeFieldDefinition {
+interface WalletSubtypeFieldDefinition {
   key: string;
   label: string;
   placeholder: string;
 }
 
-export interface WalletSubtypeDefinition {
+interface WalletSubtypeDefinition {
   id: string;
   label: string;
   description: string;

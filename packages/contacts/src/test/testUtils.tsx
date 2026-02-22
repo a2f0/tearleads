@@ -13,7 +13,7 @@ import {
 // Mock translation function that handles the keys used in tests
 // (currently using i18next mock instead)
 
-export const createMockDatabaseState = (
+const createMockDatabaseState = (
   overrides?: Partial<DatabaseState>
 ): DatabaseState => ({
   isUnlocked: true,
@@ -60,13 +60,13 @@ export const createMockDatabase = (): MockDb => {
   return mockDb;
 };
 
-export const createMockDatabaseAdapter = (): DatabaseAdapter => ({
+const createMockDatabaseAdapter = (): DatabaseAdapter => ({
   beginTransaction: vi.fn().mockResolvedValue(undefined),
   commitTransaction: vi.fn().mockResolvedValue(undefined),
   rollbackTransaction: vi.fn().mockResolvedValue(undefined)
 });
 
-export const mockUIComponents: ContactsUIComponents = {
+const mockUIComponents: ContactsUIComponents = {
   Button: ({ children, onClick, disabled, ...props }) => (
     <button type="button" onClick={onClick} disabled={disabled} {...props}>
       {children}

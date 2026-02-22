@@ -12,7 +12,7 @@ import {
 } from '@/storage/opfs';
 import { ALL_PHOTOS_ID } from './PhotosAlbumsSidebar';
 
-export interface PhotoInfo {
+interface PhotoInfo {
   id: string;
   name: string;
   size: number;

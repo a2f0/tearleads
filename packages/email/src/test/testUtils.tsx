@@ -6,7 +6,7 @@ import {
   type EmailUIComponents
 } from '../context';
 
-export const mockUIComponents: EmailUIComponents = {
+const mockUIComponents: EmailUIComponents = {
   DropdownMenu: ({ trigger, children }) => (
     <div data-testid={`dropdown-${trigger}`}>
       <button type="button" data-testid={`trigger-${trigger}`}>

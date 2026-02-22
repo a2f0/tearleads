@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { filterFilesByAccept } from '../lib/fileFilter';
 
-export interface UseDropZoneOptions {
+interface UseDropZoneOptions {
   /** MIME type accept string (e.g., "audio/*") */
   accept?: string;
   /** Callback when valid files are dropped */
@@ -14,7 +14,7 @@ export interface UseDropZoneOptions {
   onDragLeave?: () => void;
 }
 
-export interface UseDropZoneReturn {
+interface UseDropZoneReturn {
   /** Whether files are currently being dragged over the zone */
   isDragging: boolean;
   /** Props to spread on the drop zone container */

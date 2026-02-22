@@ -1,7 +1,7 @@
 import { Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export interface DropZoneOverlayProps {
+interface DropZoneOverlayProps {
   /** Whether the overlay should be visible */
   isVisible: boolean;
   /** Label for the file type (e.g., "photos", "videos", "documents") */

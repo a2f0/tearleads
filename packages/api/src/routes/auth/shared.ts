@@ -2,8 +2,7 @@ import {
   isRecord,
   PASSWORD_COMPLEXITY_ERROR,
   PASSWORD_MIN_LENGTH,
-  passwordMeetsComplexity,
-  type RegisterRequest
+  passwordMeetsComplexity
 } from '@tearleads/shared';
 import {
   getAccessTokenTtlSeconds,
@@ -17,14 +16,12 @@ export const MIN_PASSWORD_LENGTH = PASSWORD_MIN_LENGTH;
 export { PASSWORD_COMPLEXITY_ERROR, passwordMeetsComplexity };
 export const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
-export type LoginPayload = {
+type LoginPayload = {
   email: string;
   password: string;
 };
 
-export type RegisterPayload = RegisterRequest;
-
-export type RefreshPayload = {
+type RefreshPayload = {
   refreshToken: string;
 };
 

@@ -10,7 +10,7 @@
  */
 import { createRequire } from 'node:module';
 
-export interface PostgresConfig {
+interface PostgresConfig {
   user: string;
   password: string;
   host: string;
@@ -41,7 +41,7 @@ export function checkPostgresEnvVars(): {
 /**
  * Get postgres config from environment variables
  */
-export function getPostgresConfig(): PostgresConfig {
+function getPostgresConfig(): PostgresConfig {
   const { valid, missing } = checkPostgresEnvVars();
   if (!valid) {
     throw new Error(
@@ -95,7 +95,7 @@ let pool: PoolInstance | null = null;
 /**
  * Get a connection pool (singleton)
  */
-export function getPool(): PoolInstance {
+function getPool(): PoolInstance {
   if (!pool) {
     const config = getPostgresConfig();
     pool = new PgPool({

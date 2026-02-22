@@ -1,6 +1,6 @@
 import { cn } from '@tearleads/ui';
 
-export interface GridSquareProps {
+interface GridSquareProps {
   children: React.ReactNode;
   className?: string;
   onClick?: () => void;

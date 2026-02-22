@@ -7,7 +7,7 @@ import type {
 } from '@/video/VideoPlaylistContext';
 import { VideoPlaylistProvider } from '@/video/VideoPlaylistContext';
 
-export const createMockDatabaseState = (
+const createMockDatabaseState = (
   overrides: Partial<DatabaseState> = {}
 ): DatabaseState => ({
   isUnlocked: true,
@@ -27,7 +27,7 @@ export const createMockVideoPlaylist = (
   ...overrides
 });
 
-export interface MockVideoPlaylistContextOptions {
+interface MockVideoPlaylistContextOptions {
   databaseState?: Partial<DatabaseState>;
   fetchPlaylists?: () => Promise<VideoPlaylist[]>;
   createPlaylist?: (name: string) => Promise<string>;
@@ -42,7 +42,7 @@ export interface MockVideoPlaylistContextOptions {
   logError?: (message: string, details?: string) => void;
 }
 
-export function createMockVideoPlaylistContextValue(
+function createMockVideoPlaylistContextValue(
   options: MockVideoPlaylistContextOptions = {}
 ): VideoPlaylistContextValue {
   return {

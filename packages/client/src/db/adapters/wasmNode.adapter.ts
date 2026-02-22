@@ -29,8 +29,6 @@ import {
   restoreFetch
 } from './wasmNode/utils';
 
-export type { JsonBackupData, WasmNodeAdapterOptions };
-
 export class WasmNodeAdapter implements DatabaseAdapter {
   private db: SQLiteDatabase | null = null;
   private encryptionKey: string | null = null;

@@ -20,13 +20,7 @@ import {
 } from '@tearleads/search';
 import { eq, inArray } from 'drizzle-orm';
 import type { ReactNode } from 'react';
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef
-} from 'react';
+import { createContext, useCallback, useEffect, useRef } from 'react';
 import { getDatabase } from '@/db';
 import { getKeyManagerForInstance } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks/useDatabase';
@@ -309,15 +303,4 @@ export function SearchProvider({ children }: SearchProviderProps) {
       {children}
     </SearchContext.Provider>
   );
-}
-
-/**
- * Hook to access search context (rebuild functionality).
- */
-export function useSearchContext(): SearchContextValue {
-  const context = useContext(SearchContext);
-  if (!context) {
-    throw new Error('useSearchContext must be used within a SearchProvider');
-  }
-  return context;
 }

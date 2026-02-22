@@ -390,6 +390,9 @@ importers:
       commander:
         specifier: 14.0.3
         version: 14.0.3
+      jiti:
+        specifier: 2.6.1
+        version: 2.6.1
       zod:
         specifier: 4.3.6
         version: 4.3.6
@@ -847,9 +850,6 @@ importers:
       '@capacitor/keyboard':
         specifier: 8.0.0
         version: 8.0.0(@capacitor/core@8.1.0)
-      '@capacitor/preferences':
-        specifier: 8.0.1
-        version: 8.0.1(@capacitor/core@8.1.0)
       '@capacitor/share':
         specifier: 8.0.1
         version: 8.0.1(@capacitor/core@8.1.0)
@@ -928,9 +928,6 @@ importers:
       '@tearleads/notes':
         specifier: workspace:*
         version: link:../notes
-      '@tearleads/photos':
-        specifier: workspace:*
-        version: link:../photos
       '@tearleads/search':
         specifier: workspace:*
         version: link:../search
@@ -1267,18 +1264,12 @@ importers:
       '@tearleads/ui':
         specifier: workspace:*
         version: link:../ui
-      clsx:
-        specifier: 2.1.1
-        version: 2.1.1
       lucide-react:
         specifier: 0.575.0
         version: 0.575.0(react@19.2.4)
       papaparse:
         specifier: 5.5.3
         version: 5.5.3
-      tailwind-merge:
-        specifier: 3.5.0
-        version: 3.5.0
     devDependencies:
       '@tearleads/db':
         specifier: workspace:*
@@ -12828,6 +12819,7 @@ snapshots:
   '@capacitor/preferences@8.0.1(@capacitor/core@8.1.0)':
     dependencies:
       '@capacitor/core': 8.1.0
+    optional: true
 
   '@capacitor/share@8.0.1(@capacitor/core@8.1.0)':
     dependencies:

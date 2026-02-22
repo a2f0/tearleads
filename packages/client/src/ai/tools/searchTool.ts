@@ -66,7 +66,7 @@ export interface SearchToolArgs {
 /**
  * A single search result item.
  */
-export interface SearchToolResultItem {
+interface SearchToolResultItem {
   id: string;
   type: SearchableEntityType;
   title: string;
@@ -77,7 +77,7 @@ export interface SearchToolResultItem {
 /**
  * Result of the search tool execution.
  */
-export interface SearchToolResult {
+interface SearchToolResult {
   results: SearchToolResultItem[];
   totalFound: number;
   query: string;

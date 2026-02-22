@@ -1,13 +1,12 @@
 import { isRecord, toFiniteNumber } from '@tearleads/shared';
-import { RRule, RRuleSet, rrulestr } from 'rrule';
 import { getDatabaseAdapter, isDatabaseInitialized } from './index';
 
-export interface RecurrenceRule {
+interface RecurrenceRule {
   rrule: string;
   exdates?: string[];
 }
 
-export interface CalendarEvent {
+interface CalendarEvent {
   id: string;
   calendarName: string;
   title: string;
@@ -20,7 +19,7 @@ export interface CalendarEvent {
   originalStartAt?: Date | null;
 }
 
-export interface CreateCalendarEventInput {
+interface CreateCalendarEventInput {
   calendarName: string;
   title: string;
   startAt: Date;
@@ -28,18 +27,7 @@ export interface CreateCalendarEventInput {
   recurrence?: { rrule: string } | null | undefined;
 }
 
-export interface CalendarEventOccurrence {
-  id: string;
-  parentEventId?: string;
-  calendarName: string;
-  title: string;
-  startAt: Date;
-  endAt: Date | null;
-  isRecurring: boolean;
-  isException: boolean;
-}
-
-export interface ContactBirthdayEvent {
+interface ContactBirthdayEvent {
   id: string;
   calendarName: string;
   title: string;
@@ -395,83 +383,4 @@ export async function getContactBirthdayEvents(
   }
 
   return events.sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
-}
-
-export function expandRecurringEvents(
-  events: CalendarEvent[],
-  rangeStart: Date,
-  rangeEnd: Date
-): CalendarEventOccurrence[] {
-  const occurrences: CalendarEventOccurrence[] = [];
-
-  for (const event of events) {
-    if (!event.recurrence?.rrule) {
-      occurrences.push({
-        id: event.id,
-        calendarName: event.calendarName,
-        title: event.title,
-        startAt: event.startAt,
-        endAt: event.endAt,
-        isRecurring: false,
-        isException: !!event.recurringEventId
-      });
-      continue;
-    }
-
-    try {
-      const rruleSet = new RRuleSet();
-      const rule = rrulestr(event.recurrence.rrule, {
-        dtstart: event.startAt
-      });
-
-      if (!(rule instanceof RRule)) {
-        occurrences.push({
-          id: event.id,
-          calendarName: event.calendarName,
-          title: event.title,
-          startAt: event.startAt,
-          endAt: event.endAt,
-          isRecurring: false,
-          isException: false
-        });
-        continue;
-      }
-
-      rruleSet.rrule(rule);
-
-      for (const exdate of event.recurrence.exdates ?? []) {
-        rruleSet.exdate(new Date(exdate));
-      }
-
-      const instances = rruleSet.between(rangeStart, rangeEnd, true);
-      const duration = event.endAt
-        ? event.endAt.getTime() - event.startAt.getTime()
-        : 0;
-
-      for (const instanceStart of instances) {
-        occurrences.push({
-          id: `${event.id}:${instanceStart.toISOString()}`,
-          parentEventId: event.id,
-          calendarName: event.calendarName,
-          title: event.title,
-          startAt: instanceStart,
-          endAt: duration ? new Date(instanceStart.getTime() + duration) : null,
-          isRecurring: true,
-          isException: false
-        });
-      }
-    } catch {
-      occurrences.push({
-        id: event.id,
-        calendarName: event.calendarName,
-        title: event.title,
-        startAt: event.startAt,
-        endAt: event.endAt,
-        isRecurring: false,
-        isException: false
-      });
-    }
-  }
-
-  return occurrences.sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
 }
