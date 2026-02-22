@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WindowManagerProvider } from '@/contexts/WindowManagerContext';
 import { i18n } from '@/i18n';
+import { mockMatchMedia } from '@/test/sidebarTestUtils';
 import { Sidebar } from './Sidebar';
 
 const mockNavigate = vi.fn();
@@ -47,28 +48,6 @@ describe('Admin flyout menu', () => {
       configurable: true
     });
   });
-
-  function mockMatchMedia({
-    isMobile,
-    isTouch = false
-  }: {
-    isMobile: boolean;
-    isTouch?: boolean;
-  }) {
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: vi.fn().mockImplementation((query: string) => ({
-        matches: query === '(max-width: 1023px)' ? isMobile : isTouch,
-        media: query,
-        onchange: null,
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        dispatchEvent: vi.fn()
-      }))
-    });
-  }
 
   const renderSidebar = (initialRoute = '/', isOpen = true) => {
     return render(
