@@ -119,11 +119,11 @@ jobs:
     needs: [detect-impact, build]
     if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        shard: [1]
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v4
 
@@ -133,7 +133,7 @@ jobs:
           {
             echo "=== Runner Hardware Specs ==="
             echo "Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-            echo "Shard: ${{ matrix.shard }}/4"
+            echo "Shard: ${{ matrix.shard }}/2"
             echo ""
             echo "=== CPU ==="
             lscpu | grep -E "Model name|CPU\(s\)|Thread|Core|Socket"
@@ -263,8 +263,8 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm --filter @tearleads/client exec playwright install chromium
 
-      - name: Run Playwright tests (shard ${{ matrix.shard }}/1)
-        run: pnpm --filter @tearleads/client test:e2e --shard=${{ matrix.shard }}/1
+      - name: Run Playwright tests (shard ${{ matrix.shard }}/2)
+        run: pnpm --filter @tearleads/client test:e2e --shard=${{ matrix.shard }}/2
         env:
           BASE_URL: http://localhost:8080
           PW_EXTERNAL_SERVER: 'true'
