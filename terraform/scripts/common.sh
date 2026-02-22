@@ -13,6 +13,20 @@ get_backend_config() {
   echo "$repo_root/terraform/configs/backend.hcl"
 }
 
+# Load secrets from .secrets/env if present
+load_secrets_env() {
+  local secrets_file
+  secrets_file="$(get_repo_root)/.secrets/env"
+
+  if [[ ! -f "$secrets_file" ]]; then
+    echo "WARNING: $secrets_file not found. Environment variables must be set manually." >&2
+    return 0
+  fi
+
+  # shellcheck source=/dev/null
+  source "$secrets_file"
+}
+
 # Validate required environment variables for Hetzner stacks (base)
 validate_hetzner_env() {
   setup_ssh_host_keys

@@ -8,6 +8,8 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 # shellcheck source=../../../../scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"
 
+load_secrets_env
+
 # Get outputs from Terraform
 SERVER_IP=$(terraform -chdir="$STACK_DIR" output -raw server_ip)
 if K8S_API_HOSTNAME=$(terraform -chdir="$STACK_DIR" output -raw k8s_api_hostname 2>/dev/null); then

@@ -3,7 +3,13 @@ set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 STACK_DIR="$(dirname "$SCRIPT_DIR")"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 MANIFESTS_DIR="$STACK_DIR/manifests"
+
+# shellcheck source=../../../../scripts/common.sh
+source "$REPO_ROOT/terraform/scripts/common.sh"
+
+load_secrets_env
 KUSTOMIZE_OVERLAY="$MANIFESTS_DIR/kustomize/overlays/staging"
 USE_KUSTOMIZE="${USE_KUSTOMIZE:-false}"
 STAGING_DOMAIN="${TF_VAR_staging_domain:-}"
