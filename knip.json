@@ -56,6 +56,9 @@
     "packages/classic": {
       "ignoreDependencies": ["@tearleads/db-test-utils"]
     },
+    "packages/website": {
+      "ignoreDependencies": ["tailwindcss"]
+    },
     "packages/keychain": {
       "entry": ["src/clientEntry.ts"]
     },
