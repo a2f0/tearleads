@@ -76,7 +76,9 @@ function isUnexpectedError(text: string): boolean {
     /Failed to load resource/i
   ];
   return !ignoredPatterns.some((pattern) => pattern.test(text));
-}test.describe('Analytics page', () => {
+}
+
+test.describe('Analytics page', () => {
 
   test.beforeEach(async ({ page }) => {
     await clearOriginStorage(page);

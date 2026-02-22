@@ -1,16 +1,16 @@
-import express from 'express';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
 import { createAuthHeader } from '../../test/auth.js';
-import { getRootHandler } from './organizations/getRoot.js';
 
 const mockQuery = vi.fn();
 const mockGetPostgresPool = vi.fn();
 
 vi.mock('../../lib/postgres.js', () => ({
   getPostgresPool: () => mockGetPostgresPool()
-}));describe('admin organizations routes - CRUD', () => {
+}));
+
+describe('admin organizations routes - CRUD', () => {
 
   let authHeader: string;
 

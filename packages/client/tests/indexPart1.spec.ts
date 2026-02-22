@@ -241,6 +241,12 @@ function formatMessages(messages: ConsoleMessage[]): string {
     .join('\n');
 }
 
+void dbTest;
+void setupAndUnlockDatabase;
+void resetDatabase;
+void importContacts;
+void waitForModelsOrWebGPUError;
+
 test.describe('Console warnings', () => {
   test('should have no console warnings or errors on page load', async ({
     page

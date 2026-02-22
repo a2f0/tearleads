@@ -5,79 +5,17 @@
  */
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { clearOriginStorage, MINIMAL_PNG } from './testUtils';
-
-const TEST_PASSWORD = 'testpassword123';
-const INSTANCE1_PASSWORD = 'password-instance1!';
-const INSTANCE2_PASSWORD = 'different-password2@';
-const DB_OPERATION_TIMEOUT = 15000;
-
-// Helper to wait for successful database operation
-const waitForSuccess = (page: Page) =>
-  expect(page.getByTestId('db-test-result')).toHaveAttribute(
-    'data-status',
-    'success',
-    { timeout: DB_OPERATION_TIMEOUT }
-  );
-
-// Helper to setup a new database with test password
-const setupDatabase = async (page: Page, password = TEST_PASSWORD) => {
-  await page.getByTestId('db-password-input').fill(password);
-  await page.getByTestId('db-setup-button').click();
-  await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
-    timeout: DB_OPERATION_TIMEOUT
-  });
-};
-
-// Helper to create a new instance via account switcher
-const createNewInstance = async (page: Page) => {
-  await page.getByTestId('account-switcher-button').click();
-  await expect(page.getByTestId('create-instance-button')).toBeVisible();
-  await page.getByTestId('create-instance-button').click();
-  // Wait for the new instance to be active (database should be not set up)
-  await expect(page.getByTestId('db-status')).toHaveText('Not Set Up', {
-    timeout: DB_OPERATION_TIMEOUT
-  });
-};
-
-// Helper to switch to a specific instance by index (0 = first instance)
-const switchToInstance = async (page: Page, instanceIndex: number) => {
-  await page.getByTestId('account-switcher-button').click();
-  // Instance items have testid pattern: instance-{uuid}
-  const instanceItems = page.locator(
-    '[data-testid^="instance-"]:not([data-testid*="unlocked"]):not([data-testid*="locked"]):not([data-testid*="delete"])'
-  );
-  await expect(instanceItems.nth(instanceIndex)).toBeVisible();
-  await instanceItems.nth(instanceIndex).click();
-};
-
-// Helper to ensure database is unlocked (handles both locked and unlocked states)
-const ensureUnlocked = async (page: Page, password = TEST_PASSWORD) => {
-  // Wait for status to stabilize (not "Not Set Up" which means still switching)
-  await expect(page.getByTestId('db-status')).not.toHaveText('Not Set Up', {
-    timeout: DB_OPERATION_TIMEOUT
-  });
-
-  // Wait a moment for React state to settle after instance switch
-  await page.waitForTimeout(100);
-
-  const status = await page.getByTestId('db-status').textContent();
-  if (status === 'Locked') {
-    await page.getByTestId('db-password-input').fill(password);
-    await page.getByTestId('db-unlock-button').click();
-    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
-      timeout: DB_OPERATION_TIMEOUT
-    });
-  }
-};
-
-// Helper to wait for authentication error
-const waitForAuthError = (page: Page) =>
-  expect(page.getByTestId('db-test-result')).toHaveAttribute(
-    'data-status',
-    'error',
-    { timeout: DB_OPERATION_TIMEOUT }
-  );
+import { clearOriginStorage } from './testUtils';
+import {
+  DB_OPERATION_TIMEOUT,
+  TEST_PASSWORD,
+  createNewInstanceFromAnyPage,
+  navigateToPage,
+  setupDatabaseOnSqlitePage,
+  switchToInstanceFromAnyPage,
+  unlockIfNeeded,
+  uploadTestFile
+} from './instanceSwitchingHelpers';
 
 // Helper to delete all instances except the current one (for test isolation)
 const deleteAllOtherInstances = async (page: Page) => {

@@ -1,6 +1,5 @@
-import type { ConsoleMessage, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { clearOriginStorage } from './testUtils';
 
 // Use dbTest for tests that require database setup
 const dbTest = test;
@@ -64,19 +63,7 @@ async function setupDatabase(page: Page) {
   });
 }
 
-// Filter out known/expected console messages
-function isUnexpectedError(text: string): boolean {
-  const ignoredPatterns = [
-    /React DevTools/i,
-    /Download the React DevTools/i,
-    // React development warnings (not actual errors)
-    /Each child in a list should have a unique "key" prop/i,
-    // Network errors are expected when API server isn't running (PWA works offline)
-    /ERR_CONNECTION_REFUSED/i,
-    /Failed to load resource/i
-  ];
-  return !ignoredPatterns.some((pattern) => pattern.test(text));
-}test.describe('Analytics page', () => {
+test.describe('Analytics page', () => {
 
 
   dbTest('should handle tearleads navigation without errors', async ({ page }) => {

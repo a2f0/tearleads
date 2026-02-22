@@ -241,6 +241,11 @@ function formatMessages(messages: ConsoleMessage[]): string {
     .join('\n');
 }
 
+void waitForModelsOrWebGPUError;
+void setupConsoleCapture;
+void filterIgnoredWarnings;
+void formatMessages;
+
 test.describe('Contacts page', () => {
   // Timeout for waiting for contacts list to refresh after import
   const CONTACT_REFRESH_TIMEOUT = 5000;

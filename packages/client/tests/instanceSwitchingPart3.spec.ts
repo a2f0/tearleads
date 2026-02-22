@@ -5,7 +5,7 @@
  */
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { clearOriginStorage, MINIMAL_PNG } from './testUtils';
+import { clearOriginStorage } from './testUtils';
 
 const TEST_PASSWORD = 'testpassword123';
 const INSTANCE1_PASSWORD = 'password-instance1!';

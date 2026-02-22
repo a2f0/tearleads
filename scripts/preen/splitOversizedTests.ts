@@ -57,6 +57,9 @@ const getCallbackArgument = (
 ): { argument: ts.ArrowFunction | ts.FunctionExpression; index: number } | undefined => {
   for (let index = callExpression.arguments.length - 1; index >= 0; index -= 1) {
     const argument = callExpression.arguments[index];
+    if (!argument) {
+      continue;
+    }
     if (ts.isArrowFunction(argument) || ts.isFunctionExpression(argument)) {
       return { argument, index };
     }
@@ -128,7 +131,7 @@ const splitFile = (filePath: string): ChunkResult => {
   if (chunks.length <= 1) {
     const testStatements = statements.filter(isTestStatement);
     if (testStatements.length === 1) {
-      const testStatement = testStatements[0];
+      const testStatement = testStatements[0]!;
       const testCall = getTestCall(testStatement);
       if (testCall) {
         const callbackInfo = getCallbackArgument(testCall);

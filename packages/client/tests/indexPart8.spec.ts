@@ -241,6 +241,15 @@ function formatMessages(messages: ConsoleMessage[]): string {
     .join('\n');
 }
 
+void clearOriginStorage;
+void setupAndUnlockDatabase;
+void resetDatabase;
+void importContacts;
+void waitForModelsOrWebGPUError;
+void setupConsoleCapture;
+void filterIgnoredWarnings;
+void formatMessages;
+
 test.describe('Dropzone', () => {
   dbTest('should upload file and show completion status', async ({ page }) => {
     // First unlock the database

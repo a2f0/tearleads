@@ -3,7 +3,6 @@ import { expect, test } from './fixtures';
 import { clearOriginStorage } from './testUtils';
 
 const TEST_PASSWORD = 'testpassword123';
-const NEW_PASSWORD = 'newpassword456';
 const DB_OPERATION_TIMEOUT = 15000;
 
 const maybeEnableOpfsDebugLogs = async (page: Page) => {
@@ -43,14 +42,6 @@ const waitForSuccess = (page: Page) =>
   expect(page.getByTestId('db-test-result')).toHaveAttribute(
     'data-status',
     'success',
-    { timeout: DB_OPERATION_TIMEOUT }
-  );
-
-// Helper to wait for failed database operation
-const waitForError = (page: Page) =>
-  expect(page.getByTestId('db-test-result')).toHaveAttribute(
-    'data-status',
-    'error',
     { timeout: DB_OPERATION_TIMEOUT }
   );
 

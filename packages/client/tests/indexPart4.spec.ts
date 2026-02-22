@@ -241,6 +241,14 @@ function formatMessages(messages: ConsoleMessage[]): string {
     .join('\n');
 }
 
+void resetDatabase;
+void importContacts;
+
+void waitForModelsOrWebGPUError;
+void setupConsoleCapture;
+void filterIgnoredWarnings;
+void formatMessages;
+
 test.describe('Tables page', () => {
   test.beforeEach(async ({ page }) => {
     await clearOriginStorage(page);
