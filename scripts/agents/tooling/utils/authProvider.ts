@@ -43,15 +43,17 @@ function readTokenFromGhConfig(): string | null {
 
   try {
     const content = readFileSync(hostsPath, 'utf8');
-    const hostSection = new RegExp(
-      `^${host.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:`,
-      'm'
-    );
-    if (!hostSection.test(content)) return null;
+    const escapedHost = host.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const hostPattern = new RegExp(`^${escapedHost}:`, 'm');
+    if (!hostPattern.test(content)) return null;
 
-    const hostStart = content.search(hostSection);
+    const hostStart = content.search(hostPattern);
     const afterHost = content.slice(hostStart);
-    const match = afterHost.match(/^\s+oauth_token:\s*(.+)$/m);
+    const nextHostMatch = afterHost.match(/\n\S/);
+    const section = nextHostMatch
+      ? afterHost.slice(0, nextHostMatch.index)
+      : afterHost;
+    const match = section.match(/^\s+oauth_token:\s*(.+)$/m);
     if (!match?.[1]) return null;
 
     return match[1].trim();

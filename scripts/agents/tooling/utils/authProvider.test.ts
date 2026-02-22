@@ -109,10 +109,15 @@ exit 1
     fs.mkdirSync(ghDir, { recursive: true });
     fs.writeFileSync(
       path.join(ghDir, 'hosts.yml'),
-      `github.com:
+      `evil.corp:
+    oauth_token: wrong-token
+github.com:
     oauth_token: config-token-value
     user: testuser
     git_protocol: ssh
+another.host.com:
+    oauth_token: also-wrong-token
+    user: someotheruser
 `
     );
 
