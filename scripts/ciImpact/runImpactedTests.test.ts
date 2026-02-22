@@ -159,6 +159,24 @@ test('runImpactedTests dry-run treats build workflow edits as non-full-run excep
   assert.deepEqual(Reflect.get(parsed, 'targets'), []);
 });
 
+test('runImpactedTests dry-run includes package tests when test infrastructure changes', () => {
+  const result = runImpactedTests([
+    '--files',
+    'packages/analytics/src/test/clientCompat/db.ts',
+    '--dry-run',
+    '--print-targets-json'
+  ]);
+  assert.equal(result.status, 0, stderrText(result));
+
+  const stdout = stdoutText(result);
+  const parsed = JSON.parse(stdout);
+  const targets: unknown = Reflect.get(parsed, 'targets');
+  assert.ok(
+    Array.isArray(targets) && targets.includes('@tearleads/analytics'),
+    `Expected targets to include @tearleads/analytics, got: ${JSON.stringify(targets)}`
+  );
+});
+
 test('runImpactedTests dry-run avoids global fanout for high-risk script config changes', () => {
   const result = runImpactedTests([
     '--files',
