@@ -10,17 +10,11 @@ interface MockGestureCallbacks {
   onEnd: GestureCallback;
 }
 
-let mockGestureCallbacks: MockGestureCallbacks | null = null;
 const mockCreateGesture = vi.fn();
 
 vi.mock('@ionic/core', () => ({
   createGesture: (options: MockGestureCallbacks) => {
     mockCreateGesture(options);
-    mockGestureCallbacks = {
-      onStart: options.onStart,
-      onMove: options.onMove,
-      onEnd: options.onEnd
-    };
     return {
       enable: vi.fn(),
       destroy: vi.fn()
@@ -30,7 +24,6 @@ vi.mock('@ionic/core', () => ({
 
 describe('BottomSheet', () => {
   beforeEach(() => {
-    mockGestureCallbacks = null;
     mockCreateGesture.mockClear();
 
     Object.defineProperty(window, 'innerHeight', {
