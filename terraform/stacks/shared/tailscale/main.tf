@@ -15,6 +15,12 @@ locals {
       "tag:prod-vault"    = ["autogroup:admin"]
     }
     acls = [
+      # Allow member-owned devices to communicate with each other
+      {
+        action = "accept"
+        src    = ["autogroup:member"]
+        dst    = ["autogroup:member:*"]
+      },
       # Staging access: SSH and Vault API to staging-vault tagged devices
       {
         action = "accept"
