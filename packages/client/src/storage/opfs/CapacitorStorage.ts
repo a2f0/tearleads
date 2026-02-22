@@ -98,7 +98,9 @@ export class CapacitorStorage implements FileStorage {
         encrypted.byteLength,
         true
       );
-      const payload = new Uint8Array(lengthPrefix.byteLength + encrypted.byteLength);
+      const payload = new Uint8Array(
+        lengthPrefix.byteLength + encrypted.byteLength
+      );
       payload.set(lengthPrefix, 0);
       payload.set(encrypted, lengthPrefix.byteLength);
       await this.Filesystem.appendFile({
@@ -161,7 +163,11 @@ export class CapacitorStorage implements FileStorage {
     blob: Blob,
     onMetrics?: (metrics: StoreMetrics) => void | Promise<void>
   ): Promise<string> {
-    return measureStoreHelper(() => this.storeBlob(id, blob), blob.size, onMetrics);
+    return measureStoreHelper(
+      () => this.storeBlob(id, blob),
+      blob.size,
+      onMetrics
+    );
   }
 
   async retrieve(storagePath: string): Promise<Uint8Array> {
@@ -187,7 +193,9 @@ export class CapacitorStorage implements FileStorage {
       while (cursor < encrypted.byteLength) {
         const remainingLengthBytes = encrypted.byteLength - cursor;
         if (remainingLengthBytes < 4) {
-          throw new Error('Corrupt chunked encrypted file: missing length prefix');
+          throw new Error(
+            'Corrupt chunked encrypted file: missing length prefix'
+          );
         }
         const chunkLength = new DataView(
           encrypted.buffer,
@@ -196,10 +204,15 @@ export class CapacitorStorage implements FileStorage {
         ).getUint32(0, true);
         cursor += 4;
         if (chunkLength === 0 || cursor + chunkLength > encrypted.byteLength) {
-          throw new Error('Corrupt chunked encrypted file: invalid chunk length');
+          throw new Error(
+            'Corrupt chunked encrypted file: invalid chunk length'
+          );
         }
         const encryptedChunk = encrypted.subarray(cursor, cursor + chunkLength);
-        const plaintextChunk = await decrypt(encryptedChunk, this.encryptionKey);
+        const plaintextChunk = await decrypt(
+          encryptedChunk,
+          this.encryptionKey
+        );
         plaintextChunks.push(plaintextChunk);
         cursor += chunkLength;
       }

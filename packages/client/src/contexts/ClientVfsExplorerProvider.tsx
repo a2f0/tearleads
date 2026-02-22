@@ -3,11 +3,11 @@
  * to the @tearleads/vfs-explorer package components.
  */
 
+import { rotateItemKeyEpochAndPersist } from '@tearleads/api-client';
 import {
   VfsExplorerProvider,
   type VfsExplorerUIComponents
 } from '@tearleads/vfs-explorer';
-import { rotateItemKeyEpochAndPersist } from '@tearleads/api-client';
 import vfsExplorerPackageJson from '@tearleads/vfs-explorer/package.json';
 import {
   DesktopContextMenu as ContextMenu,

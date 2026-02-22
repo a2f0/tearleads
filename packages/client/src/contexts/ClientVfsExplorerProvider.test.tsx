@@ -95,7 +95,10 @@ describe('ClientVfsExplorerProvider', () => {
     );
 
     const vfsShareApi = capturedProviderProps?.vfsShareApi as {
-      deleteShare: (shareId: string, itemId?: string) => Promise<{
+      deleteShare: (
+        shareId: string,
+        itemId?: string
+      ) => Promise<{
         deleted: boolean;
       }>;
     };
@@ -121,7 +124,10 @@ describe('ClientVfsExplorerProvider', () => {
     );
 
     const vfsShareApi = capturedProviderProps?.vfsShareApi as {
-      deleteOrgShare: (shareId: string, itemId?: string) => Promise<{
+      deleteOrgShare: (
+        shareId: string,
+        itemId?: string
+      ) => Promise<{
         deleted: boolean;
       }>;
     };
@@ -147,7 +153,10 @@ describe('ClientVfsExplorerProvider', () => {
     );
 
     const vfsShareApi = capturedProviderProps?.vfsShareApi as {
-      deleteShare: (shareId: string, itemId?: string) => Promise<{
+      deleteShare: (
+        shareId: string,
+        itemId?: string
+      ) => Promise<{
         deleted: boolean;
       }>;
     };
@@ -168,7 +177,10 @@ describe('ClientVfsExplorerProvider', () => {
     );
 
     const vfsShareApi = capturedProviderProps?.vfsShareApi as {
-      deleteShare: (shareId: string, itemId?: string) => Promise<{
+      deleteShare: (
+        shareId: string,
+        itemId?: string
+      ) => Promise<{
         deleted: boolean;
       }>;
     };

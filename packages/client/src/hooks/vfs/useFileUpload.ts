@@ -145,7 +145,11 @@ export function useFileUpload() {
         );
       } else {
         const data = thumbnailSourceData ?? (await readFileAsUint8Array(file));
-        storagePath = await storage.measureStore(id, data, createStoreLogger(db));
+        storagePath = await storage.measureStore(
+          id,
+          data,
+          createStoreLogger(db)
+        );
       }
       onProgress?.(65);
 

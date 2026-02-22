@@ -120,7 +120,10 @@ describe('CapacitorStorage', () => {
     const storage = new CapacitorStorage('instance-1');
     await storage.initialize(encryptionKey);
 
-    const encryptedChunks = [new Uint8Array([255, 1, 2]), new Uint8Array([255, 3])];
+    const encryptedChunks = [
+      new Uint8Array([255, 1, 2]),
+      new Uint8Array([255, 3])
+    ];
     const payload = buildChunkedPayload(encryptedChunks);
 
     mockFilesystem.readFile.mockResolvedValue({

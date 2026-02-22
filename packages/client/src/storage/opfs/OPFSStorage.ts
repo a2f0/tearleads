@@ -109,7 +109,11 @@ export class OPFSStorage implements FileStorage {
 
         const encryptedChunk = await encrypt(value, this.encryptionKey);
         const lengthPrefix = new ArrayBuffer(4);
-        new DataView(lengthPrefix).setUint32(0, encryptedChunk.byteLength, true);
+        new DataView(lengthPrefix).setUint32(
+          0,
+          encryptedChunk.byteLength,
+          true
+        );
         await writable.write(lengthPrefix);
         await writable.write(toArrayBuffer(encryptedChunk));
       }
@@ -138,7 +142,11 @@ export class OPFSStorage implements FileStorage {
     blob: Blob,
     onMetrics?: (metrics: StoreMetrics) => void | Promise<void>
   ): Promise<string> {
-    return measureStoreHelper(() => this.storeBlob(id, blob), blob.size, onMetrics);
+    return measureStoreHelper(
+      () => this.storeBlob(id, blob),
+      blob.size,
+      onMetrics
+    );
   }
 
   async retrieve(storagePath: string): Promise<Uint8Array> {
@@ -155,7 +163,9 @@ export class OPFSStorage implements FileStorage {
       while (cursor < encrypted.byteLength) {
         const remainingLengthBytes = encrypted.byteLength - cursor;
         if (remainingLengthBytes < 4) {
-          throw new Error('Corrupt chunked encrypted file: missing length prefix');
+          throw new Error(
+            'Corrupt chunked encrypted file: missing length prefix'
+          );
         }
         const chunkLength = new DataView(
           encrypted.buffer,
@@ -164,11 +174,16 @@ export class OPFSStorage implements FileStorage {
         ).getUint32(0, true);
         cursor += 4;
         if (chunkLength === 0 || cursor + chunkLength > encrypted.byteLength) {
-          throw new Error('Corrupt chunked encrypted file: invalid chunk length');
+          throw new Error(
+            'Corrupt chunked encrypted file: invalid chunk length'
+          );
         }
 
         const encryptedChunk = encrypted.subarray(cursor, cursor + chunkLength);
-        const plaintextChunk = await decrypt(encryptedChunk, this.encryptionKey);
+        const plaintextChunk = await decrypt(
+          encryptedChunk,
+          this.encryptionKey
+        );
         plaintextChunks.push(plaintextChunk);
         cursor += chunkLength;
       }
