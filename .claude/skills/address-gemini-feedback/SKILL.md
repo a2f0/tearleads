@@ -32,14 +32,14 @@ Before fetching comments, check if Gemini has hit its daily quota:
 
 Parse the comments to check for Gemini's quota message. If the response contains "You have reached your daily quota limit":
 
-- Fall back to Claude Code review:
+- Fall back to Codex review:
 
   ```bash
-  ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
+  ./scripts/agents/tooling/agentTool.ts solicitCodexReview
   ```
 
 - Skip the remaining steps (no Gemini feedback to address)
-- Return early with a message that Claude Code was used as fallback
+- Return early with a message that Codex was used as fallback
 
 ## Deferred Fix Tracking
 

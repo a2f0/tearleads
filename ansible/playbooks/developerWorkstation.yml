@@ -5,6 +5,8 @@
   gather_facts: false
 
   vars:
+    # Use the same Python that runs ansible-playbook (avoids pyenv discovery warning)
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
     staging_domain: "{{ lookup('env', 'TF_VAR_staging_domain') }}"
     production_domain: "{{ lookup('env', 'TF_VAR_production_domain') }}"
     deploy_user: "{{ lookup('env', 'TF_VAR_server_username') | default('deploy', true) }}"

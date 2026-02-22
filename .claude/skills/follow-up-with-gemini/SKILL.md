@@ -48,14 +48,14 @@ gh api graphql -f query='mutation { addPullRequestReview(...) }'
 
 If at any point Gemini responds with quota exhaustion ("You have reached your daily quota limit"):
 
-- Fall back to Claude Code review:
+- Fall back to Codex review:
 
   ```bash
-  ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
+  ./scripts/agents/tooling/agentTool.ts solicitCodexReview
   ```
 
 - Skip waiting for Gemini's response
-- Return early with a message that Claude Code was used as fallback
+- Return early with a message that Codex was used as fallback
 
 ## Steps
 

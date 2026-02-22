@@ -6,11 +6,11 @@ description: Request code review from another AI agent (Claude Code or Codex)
 
 # Cross-Agent Review
 
-Request a code review from another AI agent. This enables Codex to solicit a review from Claude Code, or request a fresh self-review.
+Request a code review from another AI agent. This enables Claude Code to solicit a review from Codex, or request a fresh self-review.
 
 ## Arguments
 
-- First argument: Optional - `claude` or `codex` (defaults to `claude`, i.e. the other agent when invoked from Codex)
+- First argument: Optional - `claude` or `codex` (defaults to `codex`, i.e. the other agent when invoked from Claude Code)
 
 ## Prerequisites
 
@@ -38,8 +38,8 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
 
 1. **Determine agent**: Parse the argument:
 
-   - If argument is `codex`: use Codex (self-review)
-   - Otherwise: use Claude Code (default for Codex invoking this skill)
+   - If argument is `claude`: use Claude Code (self-review)
+   - Otherwise: use Codex (default for Claude Code invoking this skill)
 
 2. **Run the review**: Execute the appropriate agentTool command.
 
@@ -55,12 +55,26 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
    "$AGENT_TOOL" solicitCodexReview
    ```
 
-   If the command fails, report the error to the user and stop.
+   **Credit/quota fallback behavior (required)**:
+
+   - If Codex review fails with a credit/quota style error (for example: `Credit balance is too low`, `quota`, `insufficient credits`), immediately fall back to self-review:
+
+     ```bash
+     "$AGENT_TOOL" solicitClaudeCodeReview
+     ```
+
+   - If Claude Code review also fails (or if Claude Code review was selected first and fails due to nested session restrictions, credits/quota/auth), perform a manual self-review directly in-session:
+     - Inspect the PR diff against base
+     - Review for correctness, regressions, risks, and missing tests
+     - Return concrete findings with file references
+
+   - Only stop immediately for non-credit operational errors (for example: missing PR, missing tool script, malformed args) where fallback is not possible.
 
 3. **Report results**: Output the review results including:
    - Which agent performed the review
    - The PR number and branch
    - The review findings
+   - Whether fallback was used (and why)
 
 ## Use Cases
 
@@ -75,4 +89,4 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
 - Reviews are based on the diff between the PR's base branch and HEAD
 - Claude review derives branch/PR/base from git + GitHub and streams prompt/diff
   via stdin (not argv) to avoid "Argument list too long" failures on large PRs
-- Error output should be relayed verbatim to the user before stopping
+- Error output should be relayed verbatim when fallback is impossible

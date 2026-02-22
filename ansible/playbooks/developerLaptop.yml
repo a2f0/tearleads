@@ -5,6 +5,8 @@
   become: true
 
   vars:
+    # Use the same Python that runs ansible-playbook (avoids pyenv discovery warning)
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
     ansible_user: "{{ lookup('env', 'USER') }}"
     nodejs_major_version: 24
     ghostty_release_tag: "1.2.3-0-ppa1"

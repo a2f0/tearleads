@@ -40,13 +40,13 @@ Request a fresh review from Gemini Code Assist on the current PR.
    Filter for threads where the first comment is from `gemini-code-assist`.
 
 4. **Check for quota exhaustion**: If Gemini's response contains "You have reached your daily quota limit":
-   - Fall back to Claude Code review:
+   - Fall back to Codex review:
 
      ```bash
-     ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
+     ./scripts/agents/tooling/agentTool.ts solicitCodexReview
      ```
 
-   - Report that Gemini quota was exhausted and Claude Code was used instead
+   - Report that Gemini quota was exhausted and Codex was used instead
 
 5. **Report**: Output a summary of Gemini's review (or Claude Code review if fallback was used) and any specific comments.
 
