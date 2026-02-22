@@ -202,12 +202,15 @@ main() {
   if ! tailscale status >/dev/null 2>&1; then
     echo "  1. Connect to Tailscale (see instructions above)"
     echo "  2. Fetch secrets:  ${FETCH_SECRETS}"
-    echo "  3. Run Ansible:    ansible-playbook ansible/playbooks/developerWorkstation.yml"
+    echo "  3. Run Ansible:    ansible-playbook ansible/playbooks/tuxedo.yml"
+    echo "     (installs Neovim 0.10+, Node.js, ripgrep, fd, uv, Claude Code, etc.)"
   elif [ ! -d "${REPO_ROOT}/.secrets" ] || [ -z "$(ls -A "${REPO_ROOT}/.secrets" 2>/dev/null)" ]; then
     echo "  1. Fetch secrets:  ${FETCH_SECRETS}"
-    echo "  2. Run Ansible:    ansible-playbook ansible/playbooks/developerWorkstation.yml"
+    echo "  2. Run Ansible:    ansible-playbook ansible/playbooks/tuxedo.yml"
+    echo "     (installs Neovim 0.10+, Node.js, ripgrep, fd, uv, Claude Code, etc.)"
   else
-    echo "  1. Run Ansible:    ansible-playbook ansible/playbooks/developerWorkstation.yml"
+    echo "  1. Run Ansible:    ansible-playbook ansible/playbooks/tuxedo.yml"
+    echo "     (installs Neovim 0.10+, Node.js, ripgrep, fd, uv, Claude Code, etc.)"
   fi
 }
 
