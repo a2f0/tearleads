@@ -30,10 +30,29 @@ async function isDesktopDevice(page: Page): Promise<boolean> {
 }
 
 async function navigateWithHistory(page: Page, path: string): Promise<void> {
-  await page.evaluate((targetPath) => {
-    window.history.pushState({}, '', targetPath);
-    window.dispatchEvent(new PopStateEvent('popstate'));
-  }, path);
+  // Playwright can momentarily expose about:blank (origin "null") during
+  // transitions; pushState is invalid there, so fall back to a normal navigation.
+  if (page.url() === 'about:blank') {
+    await page.goto(path);
+    return;
+  }
+
+  try {
+    await page.evaluate((targetPath) => {
+      window.history.pushState({}, '', targetPath);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }, path);
+  } catch (error: unknown) {
+    if (
+      error instanceof Error &&
+      error.message.includes("Failed to execute 'pushState'") &&
+      error.message.includes("origin 'null'")
+    ) {
+      await page.goto(path);
+      return;
+    }
+    throw error;
+  }
 }
 
 async function triggerSidebarNavigation(
