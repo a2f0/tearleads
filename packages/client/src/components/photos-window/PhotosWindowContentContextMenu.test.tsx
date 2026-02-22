@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PhotosWindowTableView } from './PhotosWindowTableView';
+import { PhotosWindowContent } from './PhotosWindowContent';
 
 const mockUsePhotosWindowData = vi.fn();
 const mockDownloadFile = vi.fn();
@@ -13,6 +13,14 @@ const mockDownloadPhoto = vi.fn();
 const mockSharePhoto = vi.fn();
 const mockSetAttachedImage = vi.fn();
 const mockUint8ArrayToDataUrl = vi.fn();
+
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: () => ({
+    getVirtualItems: () => [{ index: 0, start: 0, size: 72 }],
+    getTotalSize: () => 72,
+    measureElement: () => undefined
+  })
+}));
 
 vi.mock('./usePhotosWindowData', () => ({
   usePhotosWindowData: () => ({
@@ -54,7 +62,13 @@ vi.mock('@/i18n', () => ({
   })
 }));
 
-describe('PhotosWindowTableView', () => {
+vi.mock('@/components/sqlite/InlineUnlock', () => ({
+  InlineUnlock: ({ description }: { description: string }) => (
+    <div data-testid="inline-unlock">{description}</div>
+  )
+}));
+
+describe('PhotosWindowContent context menu and upload', () => {
   const photo = {
     id: 'photo-1',
     name: 'photo.jpg',
@@ -73,26 +87,7 @@ describe('PhotosWindowTableView', () => {
     mockUint8ArrayToDataUrl.mockResolvedValue('data:image/jpeg;base64,photo');
   });
 
-  it('shows empty state when no photos are available', () => {
-    mockUsePhotosWindowData.mockReturnValue({
-      photos: [],
-      loading: false,
-      error: null,
-      hasFetched: true,
-      isUnlocked: true,
-      isLoading: false,
-      refresh: vi.fn(),
-      currentInstanceId: 'instance-1'
-    });
-
-    render(<PhotosWindowTableView refreshToken={0} />);
-
-    expect(
-      screen.getByText('No photos yet. Use Upload to add images.')
-    ).toBeInTheDocument();
-  });
-
-  it('calls onSelectPhoto when a row is clicked', async () => {
+  it('opens photo details from the context menu', async () => {
     const onSelectPhoto = vi.fn();
     mockUsePhotosWindowData.mockReturnValue({
       photos: [photo],
@@ -105,22 +100,26 @@ describe('PhotosWindowTableView', () => {
       currentInstanceId: 'instance-1'
     });
 
+    const user = userEvent.setup();
     render(
-      <PhotosWindowTableView refreshToken={0} onSelectPhoto={onSelectPhoto} />
+      <PhotosWindowContent refreshToken={0} onSelectPhoto={onSelectPhoto} />
     );
 
-    const user = userEvent.setup();
-    const row = screen.getByText('photo.jpg');
-    await user.click(row);
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByText('photo.jpg')
+    });
+    await user.click(screen.getByRole('button', { name: 'Get Info' }));
 
     expect(onSelectPhoto).toHaveBeenCalledWith('photo-1');
   });
 
-  it('shows error state when hook returns error', () => {
+  it('renders compact dropzone when showDropzone is enabled with photos', () => {
+    const onUploadFiles = vi.fn();
     mockUsePhotosWindowData.mockReturnValue({
-      photos: [],
+      photos: [photo],
       loading: false,
-      error: 'Something went wrong',
+      error: null,
       hasFetched: true,
       isUnlocked: true,
       isLoading: false,
@@ -128,13 +127,18 @@ describe('PhotosWindowTableView', () => {
       currentInstanceId: 'instance-1'
     });
 
-    render(<PhotosWindowTableView refreshToken={0} />);
+    render(
+      <PhotosWindowContent
+        refreshToken={0}
+        showDropzone={true}
+        onUploadFiles={onUploadFiles}
+      />
+    );
 
-    expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+    expect(screen.getByTestId('dropzone')).toBeInTheDocument();
   });
 
-  it('handles context menu actions', async () => {
-    mockCanShareFiles.mockReturnValue(true);
+  it('deletes photo from context menu', async () => {
     mockUsePhotosWindowData.mockReturnValue({
       photos: [photo],
       loading: false,
@@ -147,32 +151,18 @@ describe('PhotosWindowTableView', () => {
     });
 
     const user = userEvent.setup();
-    render(<PhotosWindowTableView refreshToken={0} />);
+    render(<PhotosWindowContent refreshToken={0} />);
 
     await user.pointer({
       keys: '[MouseRight]',
       target: screen.getByText('photo.jpg')
     });
-
-    await user.click(screen.getByRole('button', { name: 'Download' }));
-    await user.click(screen.getByRole('button', { name: 'Share' }));
     await user.click(screen.getByRole('button', { name: 'Delete' }));
 
-    expect(mockDownloadPhoto).toHaveBeenCalledWith(photo);
-    expect(mockDownloadFile).toHaveBeenCalledWith(
-      expect.any(ArrayBuffer),
-      'photo.jpg'
-    );
-    expect(mockSharePhoto).toHaveBeenCalledWith(photo);
-    expect(mockShareFile).toHaveBeenCalledWith(
-      expect.any(ArrayBuffer),
-      'photo.jpg',
-      'image/jpeg'
-    );
     expect(mockDeletePhoto).toHaveBeenCalledWith('photo-1');
   });
 
-  it('restores deleted photos from context menu', async () => {
+  it('restores deleted photo from context menu', async () => {
     mockUsePhotosWindowData.mockReturnValue({
       photos: [{ ...photo, deleted: true }],
       loading: false,
@@ -185,7 +175,7 @@ describe('PhotosWindowTableView', () => {
     });
 
     const user = userEvent.setup();
-    render(<PhotosWindowTableView refreshToken={0} />);
+    render(<PhotosWindowContent refreshToken={0} />);
 
     await user.pointer({
       keys: '[MouseRight]',
@@ -196,11 +186,8 @@ describe('PhotosWindowTableView', () => {
     expect(mockRestorePhoto).toHaveBeenCalledWith('photo-1');
   });
 
-  it('ignores share abort errors from the context menu', async () => {
-    const abortError = new Error('Share aborted');
-    abortError.name = 'AbortError';
-    mockCanShareFiles.mockReturnValue(true);
-    mockSharePhoto.mockRejectedValueOnce(abortError);
+  it('adds photo to AI chat from context menu', async () => {
+    const onOpenAIChat = vi.fn();
     mockUsePhotosWindowData.mockReturnValue({
       photos: [photo],
       loading: false,
@@ -213,21 +200,23 @@ describe('PhotosWindowTableView', () => {
     });
 
     const user = userEvent.setup();
-    render(<PhotosWindowTableView refreshToken={0} />);
+    render(
+      <PhotosWindowContent refreshToken={0} onOpenAIChat={onOpenAIChat} />
+    );
 
     await user.pointer({
       keys: '[MouseRight]',
       target: screen.getByText('photo.jpg')
     });
+    await user.click(screen.getByRole('button', { name: 'Add to AI chat' }));
 
-    await user.click(screen.getByRole('button', { name: 'Share' }));
-
-    expect(mockSharePhoto).toHaveBeenCalledWith(photo);
+    expect(mockSetAttachedImage).toHaveBeenCalledWith(
+      'data:image/jpeg;base64,photo'
+    );
+    expect(onOpenAIChat).toHaveBeenCalled();
   });
 
-  it('logs download errors from the context menu', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    mockDownloadPhoto.mockRejectedValueOnce(new Error('Download failed'));
+  it('shows upload progress when uploading', () => {
     mockUsePhotosWindowData.mockReturnValue({
       photos: [photo],
       loading: false,
@@ -239,27 +228,19 @@ describe('PhotosWindowTableView', () => {
       currentInstanceId: 'instance-1'
     });
 
-    const user = userEvent.setup();
-    render(<PhotosWindowTableView refreshToken={0} />);
-
-    await user.pointer({
-      keys: '[MouseRight]',
-      target: screen.getByText('photo.jpg')
-    });
-
-    await user.click(screen.getByRole('button', { name: 'Download' }));
-
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Failed to download photo:',
-      expect.any(Error)
+    render(
+      <PhotosWindowContent
+        refreshToken={0}
+        uploading={true}
+        uploadProgress={50}
+      />
     );
-    consoleSpy.mockRestore();
+
+    expect(screen.getByText('Uploading...')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
   });
 
-  it('logs share errors from the context menu', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    mockCanShareFiles.mockReturnValue(true);
-    mockSharePhoto.mockRejectedValueOnce(new Error('Share failed'));
+  it('hides file list when uploading', () => {
     mockUsePhotosWindowData.mockReturnValue({
       photos: [photo],
       loading: false,
@@ -271,20 +252,14 @@ describe('PhotosWindowTableView', () => {
       currentInstanceId: 'instance-1'
     });
 
-    const user = userEvent.setup();
-    render(<PhotosWindowTableView refreshToken={0} />);
-
-    await user.pointer({
-      keys: '[MouseRight]',
-      target: screen.getByText('photo.jpg')
-    });
-
-    await user.click(screen.getByRole('button', { name: 'Share' }));
-
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Failed to share photo:',
-      expect.any(Error)
+    render(
+      <PhotosWindowContent
+        refreshToken={0}
+        uploading={true}
+        uploadProgress={25}
+      />
     );
-    consoleSpy.mockRestore();
+
+    expect(screen.queryByText('photo.jpg')).not.toBeInTheDocument();
   });
 });
