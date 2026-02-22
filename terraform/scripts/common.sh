@@ -19,6 +19,10 @@ load_secrets_env() {
   secrets_file="$(get_repo_root)/.secrets/env"
 
   if [[ ! -f "$secrets_file" ]]; then
+    if [[ -e "$secrets_file" ]]; then
+      echo "ERROR: $secrets_file exists but is not a regular file." >&2
+      return 1
+    fi
     echo "WARNING: $secrets_file not found. Environment variables must be set manually." >&2
     return 0
   fi
