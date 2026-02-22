@@ -252,10 +252,10 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    When detected at any point:
    - Set `gemini_quota_exhausted = true`
    - Set `gemini_can_review = false` for this session
-   - If `used_fallback_agent_review` is still `false`, run one cross-agent fallback review:
+   - If `used_fallback_agent_review` is still `false`, run one cross-agent fallback review (Codex):
 
    ```bash
-   ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
+   ./scripts/agents/tooling/agentTool.ts solicitCodexReview
    ```
 
    - Set `used_fallback_agent_review = true`

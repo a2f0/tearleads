@@ -117,11 +117,11 @@ Track these state flags during execution:
 
    - If found:
      - Set `gemini_quota_exhausted=true`.
-     - If `used_fallback_agent_review=false`, run one fallback cross-agent review (Claude Code):
+     - If `used_fallback_agent_review=false`, run one fallback cross-agent review (Codex):
 
      ```bash
-     # Equivalent skill invocation: /cross-agent-review claude
-     ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
+     # Equivalent skill invocation: /cross-agent-review codex
+     ./scripts/agents/tooling/agentTool.ts solicitCodexReview
      ```
 
      - Set `used_fallback_agent_review=true`.
