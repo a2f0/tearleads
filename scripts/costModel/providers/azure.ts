@@ -9,16 +9,6 @@
 
 import type { ProviderPricing, RegionalPricing } from '../types';
 
-// Azure regions used in this project
-export const AZURE_REGIONS = {
-  eastus: 'East US',
-  eastus2: 'East US 2',
-  westus2: 'West US 2',
-  westus3: 'West US 3',
-  westeurope: 'West Europe',
-  northeurope: 'North Europe'
-} as const;
-
 // DCasv5-series (AMD SEV-SNP Confidential VMs) - monthly pricing in USD
 // These are Linux pay-as-you-go prices, 730 hours/month
 const DCASV5_SERIES_MONTHLY_USD: Record<string, RegionalPricing> = {
@@ -129,10 +119,7 @@ const AZURE_BANDWIDTH_USD_PER_GB: Record<string, number> = {
   northeurope: 0.087
 };
 
-// Key Vault pricing (USD per 10,000 operations)
-const KEY_VAULT_OPS_USD = 0.03;
-
-export const azurePricing: ProviderPricing = {
+const azurePricing: ProviderPricing = {
   provider: 'azure',
   lastUpdated: '2025-02-15',
   compute: DCASV5_SERIES_MONTHLY_USD,
@@ -162,15 +149,3 @@ export function getAzureStorageCost(
   const pricing = azurePricing.storage[tier];
   return pricing?.[region] ?? pricing?.['eastus'] ?? 0;
 }
-
-export function getAzureBandwidthCost(
-  egressGb: number,
-  region: string
-): number {
-  // First 100 GB free
-  const billableGb = Math.max(0, egressGb - 100);
-  const rate = AZURE_BANDWIDTH_USD_PER_GB[region] ?? 0.087;
-  return billableGb * rate;
-}
-
-export { KEY_VAULT_OPS_USD };

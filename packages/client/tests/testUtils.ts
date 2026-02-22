@@ -70,9 +70,6 @@ function createMinimalWav(): Buffer {
 
 export const MINIMAL_WAV = createMinimalWav();
 
-// Alias for tests that expect MP3 (WAV works for audio upload tests)
-export const MINIMAL_MP3 = MINIMAL_WAV;
-
 // Minimal valid PNG (1x1 red pixel) for file upload tests
 // Generated with proper CRC checksums for all chunks
 export const MINIMAL_PNG = Buffer.from([

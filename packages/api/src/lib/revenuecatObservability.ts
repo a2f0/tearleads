@@ -1,4 +1,4 @@
-export type RevenueCatWebhookOutcome =
+type RevenueCatWebhookOutcome =
   | 'accepted'
   | 'duplicate'
   | 'invalid_signature'

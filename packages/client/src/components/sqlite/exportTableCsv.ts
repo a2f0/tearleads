@@ -9,7 +9,7 @@ export interface ColumnInfo {
   pk: number;
 }
 
-export type ExportSortDirection = 'asc' | 'desc' | null | undefined;
+type ExportSortDirection = 'asc' | 'desc' | null | undefined;
 
 export function getStringField(
   record: Record<string, unknown>,

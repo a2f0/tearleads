@@ -9,7 +9,7 @@ export type JwtClaims = {
   app?: string;
 };
 
-export type RefreshTokenClaims = {
+type RefreshTokenClaims = {
   sub: string;
   jti: string;
   sid: string;

@@ -1,7 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { InvalidArgumentError } from 'commander';
 
-export interface CommandResult {
+interface CommandResult {
   stdout: string;
   stderr: string;
   exitCode: number;

@@ -44,7 +44,7 @@ import { formatDate } from '@/lib/utils';
 import { createContactDocument, indexDocuments } from '@/search';
 import { useWindowManagerActions } from './WindowManagerContext';
 
-export function ContactsAboutMenuItem() {
+function ContactsAboutMenuItem() {
   return (
     <AboutMenuItem appName="Contacts" version={contactsPackageJson.version} />
   );

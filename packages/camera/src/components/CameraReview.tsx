@@ -1,6 +1,6 @@
 import { Check, RotateCcw } from 'lucide-react';
 
-export interface CameraReviewProps {
+interface CameraReviewProps {
   capture: { id: string; dataUrl: string };
   onRetake: () => void;
   onAccept: () => void;

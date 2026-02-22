@@ -2,7 +2,7 @@ import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import type { MouseEventHandler } from 'react';
 import { cn } from '../lib/utils.js';
 
-export type ConnectionState = 'connected' | 'connecting' | 'disconnected';
+type ConnectionState = 'connected' | 'connecting' | 'disconnected';
 
 export interface WindowConnectionIndicatorProps {
   state: ConnectionState;

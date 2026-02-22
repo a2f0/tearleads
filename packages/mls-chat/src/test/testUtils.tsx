@@ -99,7 +99,7 @@ interface TestProviderProps {
   ui?: Partial<MlsChatUIComponents>;
 }
 
-export function TestMlsChatProvider({
+function TestMlsChatProvider({
   children,
   apiBaseUrl = 'http://localhost:3000',
   getAuthHeader = () => 'Bearer test-token',

@@ -5,15 +5,11 @@ import {
 
 const localWriteOrchestrator = new LocalWriteOrchestrator();
 
-export type LocalDatabaseWriteOptions = LocalWriteOptions;
+type LocalDatabaseWriteOptions = LocalWriteOptions;
 
 export async function runLocalWrite<T>(
   operation: () => Promise<T>,
   options?: LocalDatabaseWriteOptions
 ): Promise<T> {
   return localWriteOrchestrator.enqueue(() => operation(), options);
-}
-
-export async function drainLocalWrites(scope?: string): Promise<void> {
-  await localWriteOrchestrator.drain(scope);
 }

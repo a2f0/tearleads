@@ -10,7 +10,7 @@
 import type { ProviderPricing, RegionalPricing } from '../types';
 
 // Hetzner locations and their display names
-export const HETZNER_LOCATIONS = {
+const HETZNER_LOCATIONS = {
   fsn1: 'Falkenstein, DE',
   nbg1: 'Nuremberg, DE',
   hel1: 'Helsinki, FI',
@@ -98,7 +98,7 @@ function toRegionalPricing(
 // Volume storage pricing (EUR/GB/month)
 const VOLUME_STORAGE_EUR_PER_GB = 0.052;
 
-export const hetznerPricing: ProviderPricing = {
+const hetznerPricing: ProviderPricing = {
   provider: 'hetzner',
   lastUpdated: '2025-02-15',
   compute: toRegionalPricing(ALL_SERVER_TYPES_USD),

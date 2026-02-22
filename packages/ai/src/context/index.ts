@@ -14,7 +14,6 @@ export {
   type DropdownMenuSeparatorProps,
   type GenerateCallback,
   type GenerateFunction,
-  type ImageAttachmentOps,
   type InlineUnlockProps,
   type InputProps,
   type LLMState,

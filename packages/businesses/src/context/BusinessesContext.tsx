@@ -32,7 +32,7 @@ export interface BusinessesUIComponents {
   AboutMenuItem: AboutMenuItemComponent;
 }
 
-export interface BusinessesContextValue {
+interface BusinessesContextValue {
   ui: BusinessesUIComponents;
 }
 

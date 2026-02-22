@@ -4,7 +4,7 @@ import {fileURLToPath} from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export const mainPath = join(__dirname, '../../out/main/main.js');
+const mainPath = join(__dirname, '../../out/main/main.js');
 
 /**
  * Determines if tests should run in headed (visible window) mode.
@@ -18,7 +18,7 @@ const isHeaded = process.env['HEADED'] === 'true';
  * - Default: headless mode with GPU disabled
  * - HEADED=true: visible window mode
  */
-export function getElectronArgs(): string[] {
+function getElectronArgs(): string[] {
   const args = [mainPath];
 
   if (!isHeaded) {

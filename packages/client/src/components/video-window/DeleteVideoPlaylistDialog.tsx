@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { useDialogAccessibility } from '@/hooks/ui';
 import type { VideoPlaylist } from '@/video/VideoPlaylistContext';
 
-export interface DeleteVideoPlaylistDialogProps {
+interface DeleteVideoPlaylistDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   playlist: VideoPlaylist | null;

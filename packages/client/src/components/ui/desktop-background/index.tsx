@@ -1,15 +1,10 @@
 import { useSettings } from '@tearleads/settings';
 import {
   DesktopBackground as BaseDesktopBackground,
-  type DesktopBackgroundProps as BaseDesktopBackgroundProps,
-  type DesktopBackgroundPattern
+  type DesktopBackgroundProps as BaseDesktopBackgroundProps
 } from '@tearleads/window-manager';
 
-export type { DesktopBackgroundPattern };
-export type DesktopBackgroundProps = Omit<
-  BaseDesktopBackgroundProps,
-  'pattern'
->;
+type DesktopBackgroundProps = Omit<BaseDesktopBackgroundProps, 'pattern'>;
 
 /**
  * DesktopBackground component that reads the pattern from settings.

@@ -1,14 +1,14 @@
 import type { WindowDimensions } from '../../components/FloatingWindow.js';
 import type { WindowInstance } from './types.js';
 
-export const DEFAULT_WINDOW_WIDTH_RATIO = 0.51;
-export const DEFAULT_WINDOW_ASPECT_RATIO = 16 / 10;
-export const DEFAULT_WINDOW_MIN_WIDTH = 480;
-export const DEFAULT_WINDOW_MIN_HEIGHT = 320;
-export const DEFAULT_WINDOW_HORIZONTAL_MARGIN = 120;
-export const DEFAULT_WINDOW_VERTICAL_MARGIN = 160;
-export const DEFAULT_WINDOW_CASCADE_OFFSET_X = 36;
-export const DEFAULT_WINDOW_CASCADE_OFFSET_Y = 28;
+const DEFAULT_WINDOW_WIDTH_RATIO = 0.51;
+const DEFAULT_WINDOW_ASPECT_RATIO = 16 / 10;
+const DEFAULT_WINDOW_MIN_WIDTH = 480;
+const DEFAULT_WINDOW_MIN_HEIGHT = 320;
+const DEFAULT_WINDOW_HORIZONTAL_MARGIN = 120;
+const DEFAULT_WINDOW_VERTICAL_MARGIN = 160;
+const DEFAULT_WINDOW_CASCADE_OFFSET_X = 36;
+const DEFAULT_WINDOW_CASCADE_OFFSET_Y = 28;
 
 export interface DefaultDesktopWindowDimensionsOptions {
   mobileBreakpoint: number;

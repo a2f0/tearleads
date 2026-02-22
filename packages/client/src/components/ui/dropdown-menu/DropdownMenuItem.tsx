@@ -1,7 +1,7 @@
 import { Check } from 'lucide-react';
 import { forwardRef } from 'react';
 
-export interface DropdownMenuItemProps {
+interface DropdownMenuItemProps {
   children: React.ReactNode;
   onClick: () => void;
   icon?: React.ReactNode;

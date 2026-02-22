@@ -2,13 +2,13 @@
  * vCard 4.0 generation utilities per RFC 6350.
  */
 
-export interface VCardEmail {
+interface VCardEmail {
   email: string;
   label: string | null;
   isPrimary: boolean;
 }
 
-export interface VCardPhone {
+interface VCardPhone {
   phoneNumber: string;
   label: string | null;
   isPrimary: boolean;
@@ -27,7 +27,7 @@ export interface VCardContact {
  * Escape special characters per RFC 6350.
  * Backslash, semicolon, and comma need escaping.
  */
-export function escapeValue(value: string): string {
+function escapeValue(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,');
 }
 
@@ -35,7 +35,7 @@ export function escapeValue(value: string): string {
  * Map application labels to vCard TYPE parameters.
  * Common labels: Work, Home, Mobile, Main, Other
  */
-export function mapLabelToType(label: string | null): string | null {
+function mapLabelToType(label: string | null): string | null {
   if (!label) return null;
 
   const normalized = label.toLowerCase().trim();

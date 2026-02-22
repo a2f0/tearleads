@@ -6,12 +6,9 @@ export {
   type VideoTrack
 } from './VideoContext';
 
-export {
-  type DatabaseState,
-  useVideoPlaylistContext,
-  useVideoPlaylistDatabaseState,
-  type VideoPlaylist,
-  type VideoPlaylistContextValue,
-  VideoPlaylistProvider,
-  type VideoPlaylistProviderProps
+export type {
+  DatabaseState,
+  VideoPlaylist,
+  VideoPlaylistContextValue,
+  VideoPlaylistProviderProps
 } from './VideoPlaylistContext';

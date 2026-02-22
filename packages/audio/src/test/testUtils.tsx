@@ -28,7 +28,7 @@ import type {
 } from '../context/AudioUIContext';
 import { AudioUIProvider } from '../context/AudioUIContext';
 
-export const createMockDatabaseState = (): DatabaseState => ({
+const createMockDatabaseState = (): DatabaseState => ({
   isUnlocked: true,
   isLoading: false,
   currentInstanceId: 'test-instance'
@@ -146,7 +146,7 @@ function MockAudioPlayer(_props: AudioPlayerProps) {
   return <div data-testid="audio-player">Player</div>;
 }
 
-export const createMockUI = (): AudioUIComponents => ({
+const createMockUI = (): AudioUIComponents => ({
   Button: MockButton,
   Input: MockInput,
   ContextMenu: MockContextMenu,
@@ -183,21 +183,7 @@ export const createMockAudioTrack = (
   ...overrides
 });
 
-export const createMockAudioMetadata = (
-  overrides: Partial<AudioMetadata> = {}
-): AudioMetadata => ({
-  title: null,
-  artist: null,
-  album: null,
-  albumArtist: null,
-  year: null,
-  trackNumber: null,
-  trackTotal: null,
-  genre: null,
-  ...overrides
-});
-
-export interface MockContextOptions {
+interface MockContextOptions {
   databaseState?: Partial<DatabaseState>;
   ui?: Partial<AudioUIComponents>;
   fetchAudioFiles?: (
@@ -240,7 +226,7 @@ export interface MockContextOptions {
   navigateToAudio?: (audioId: string) => void;
 }
 
-export interface MockContextValue {
+interface MockContextValue {
   databaseState: DatabaseState;
   ui: AudioUIComponents;
   t: (key: string) => string;
@@ -347,7 +333,7 @@ const audioTranslations: Record<string, string> = {
   uploaded: 'Uploaded'
 };
 
-export function createMockContextValue(
+function createMockContextValue(
   options: MockContextOptions = {}
 ): MockContextValue {
   const baseContext: Omit<MockContextValue, 'navigateToAudio'> = {

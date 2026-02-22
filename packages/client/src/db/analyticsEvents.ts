@@ -82,7 +82,7 @@ export type AnalyticsEventSlug =
   | 'api_get_ai_usage_summary';
 
 // Hand-curated display names
-export const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
+const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
   // Database
   db_setup: 'Database Setup',
   db_unlock: 'Database Unlock',

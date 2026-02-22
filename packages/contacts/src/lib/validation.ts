@@ -1,5 +1,5 @@
 /** Email validation regex - checks for basic email format */
-export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Email form data structure */
 export interface EmailFormData {
@@ -29,7 +29,7 @@ export interface ContactFormData {
 }
 
 /** Validation result with all errors collected */
-export interface ValidationResult {
+interface ValidationResult {
   isValid: boolean;
   errors: string[];
 }

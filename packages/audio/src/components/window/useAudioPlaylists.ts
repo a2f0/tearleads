@@ -4,7 +4,7 @@ import {
   useAudioUIContext
 } from '../../context/AudioUIContext';
 
-export interface UseAudioPlaylistsResult {
+interface UseAudioPlaylistsResult {
   playlists: AudioPlaylist[];
   loading: boolean;
   error: string | null;

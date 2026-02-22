@@ -101,31 +101,3 @@ export function useSearch(options?: UseSearchOptions): UseSearchReturn {
     error: state.error
   };
 }
-
-/**
- * Hook to get just the search store state without the search function.
- * Useful for displaying indexing progress or status.
- */
-export function useSearchState(): SearchStoreState {
-  const { currentInstanceId } = useDatabaseContext();
-
-  const store = useMemo(() => {
-    if (!currentInstanceId) return null;
-    return getSearchStoreForInstance(currentInstanceId);
-  }, [currentInstanceId]);
-
-  return useSyncExternalStore(
-    useCallback(
-      (onStoreChange) => {
-        if (!store) return () => {};
-        return store.subscribe(onStoreChange);
-      },
-      [store]
-    ),
-    useCallback(() => {
-      if (!store) return defaultState;
-      return store.getState();
-    }, [store]),
-    useCallback(() => defaultState, [])
-  );
-}

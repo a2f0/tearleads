@@ -12,7 +12,7 @@ import {
 
 export type { PhotoAlbum };
 
-export interface UsePhotoAlbumsResult {
+interface UsePhotoAlbumsResult {
   albums: PhotoAlbum[];
   loading: boolean;
   error: string | null;

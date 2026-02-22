@@ -23,12 +23,12 @@ import {
   hasSession as hasSessionFile
 } from '../config/index.js';
 
-export interface StoredKeyData {
+interface StoredKeyData {
   salt: number[];
   keyCheckValue: string;
 }
 
-export interface SessionData {
+interface SessionData {
   wrappedKey: number[];
   wrappingKey: number[];
 }

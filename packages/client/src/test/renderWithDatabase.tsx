@@ -198,23 +198,3 @@ export async function renderWithDatabase(
     routes: routes.length > 0 ? routes : [initialRoute]
   };
 }
-
-/**
- * Synchronous version that returns immediately without waiting.
- * Useful when you need more control over the async flow.
- */
-export function renderWithDatabaseSync(
-  ui: ReactElement,
-  options: Omit<RenderWithDatabaseOptions, 'waitForReady'> = {}
-): RenderResult {
-  const {
-    initialRoute = '/',
-    routes = [],
-    autoSetup = true,
-    password = 'test-password',
-    ...renderOptions
-  } = options;
-
-  const wrapper = createWrapper({ initialRoute, routes, autoSetup, password });
-  return render(ui, { wrapper, ...renderOptions });
-}
