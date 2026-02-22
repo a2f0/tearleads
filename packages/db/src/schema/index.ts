@@ -10,13 +10,6 @@ export {
   healthWeightReadingsTable,
   healthWorkoutEntriesTable,
   migrationsTable,
-  // MLS tables
-  mlsGroupMembersTable,
-  mlsGroupStateTable,
-  mlsGroupsTable,
-  mlsKeyPackagesTable,
-  mlsMessagesTable,
-  mlsWelcomeMessagesTable,
   postgresRuntimeTables,
   secretsTable,
   sqliteRuntimeTables,

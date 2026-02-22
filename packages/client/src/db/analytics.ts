@@ -443,7 +443,6 @@ export async function getDistinctEventTypes(_db: Database): Promise<string[]> {
 export {
   type AnalyticsEventDetail,
   type AnalyticsEventSlug,
-  EVENT_DISPLAY_NAMES,
   type EventDetailMap,
   getEventDisplayName
 } from './analyticsEvents';
