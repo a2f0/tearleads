@@ -7,8 +7,8 @@
   vars:
     ansible_user: "{{ lookup('env', 'USER') }}"
     nodejs_major_version: 24
-    ghostty_version: "1.1.3-0.ppa2"
-    ghostty_ubuntu_codename: "22.04"
+    ghostty_version: "1.2.3-0.ppa1"
+    ghostty_ubuntu_codename: "24.04"
 
   tasks:
     - name: Install shared developer toolchain
