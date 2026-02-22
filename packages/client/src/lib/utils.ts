@@ -2,7 +2,7 @@ import { Capacitor } from '@capacitor/core';
 
 export { cn } from '@tearleads/ui';
 
-export type Platform = 'web' | 'ios' | 'android' | 'electron';
+type Platform = 'web' | 'ios' | 'android' | 'electron';
 
 export function detectPlatform(): Platform {
   // Check for Electron first (before Capacitor which returns 'web' for Electron)
@@ -90,10 +90,19 @@ export function getVideoTypeDisplay(mimeType: string): string {
   return 'Video';
 }
 
-export interface WebGPUErrorInfo {
+interface WebGPUErrorInfo {
   title: string;
   message: string;
   requirement: string;
+}
+
+export function formatTimestamp(timestamp: string | null): string {
+  if (!timestamp) return '\u2014';
+  return formatDate(new Date(timestamp));
+}
+
+export function formatNumber(value: number): string {
+  return new Intl.NumberFormat().format(value);
 }
 
 export function getWebGPUErrorInfo(): WebGPUErrorInfo {
@@ -124,13 +133,4 @@ export function getWebGPUErrorInfo(): WebGPUErrorInfo {
           'Supported browsers: Chrome 113+, Edge 113+, Firefox 121+, Safari 18+.'
       };
   }
-}
-
-export function formatTimestamp(timestamp: string | null): string {
-  if (!timestamp) return '—';
-  return formatDate(new Date(timestamp));
-}
-
-export function formatNumber(value: number): string {
-  return new Intl.NumberFormat().format(value);
 }

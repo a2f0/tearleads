@@ -40,7 +40,7 @@ import {
 import { API_BASE_URL } from '@/lib/api';
 import { getAuthHeaderValue } from '@/lib/authStorage';
 
-export function EmailAboutMenuItem() {
+function EmailAboutMenuItem() {
   return <AboutMenuItem appName="Email" version={emailPackageJson.version} />;
 }
 
