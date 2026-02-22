@@ -15,7 +15,7 @@ import {
   readSeedContainerCursorOrThrow
 } from './sync-client-randomized-test-support.js';
 
-export interface CorrectedCheckpointRecoveryResult {
+interface CorrectedCheckpointRecoveryResult {
   expectedPushedOpIds: string[];
   expectedPushedWriteIds: number[];
   pushedOpIds: string[];
@@ -26,7 +26,7 @@ export interface CorrectedCheckpointRecoveryResult {
   guardrailViolations: VfsSyncGuardrailViolation[];
 }
 
-export interface CorrectedCheckpointDeterministicResult {
+interface CorrectedCheckpointDeterministicResult {
   expectedPushedOpIds: string[];
   expectedPushedWriteIds: number[];
   expectedPageSignatures: string[];

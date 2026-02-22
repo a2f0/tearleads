@@ -90,7 +90,7 @@ function buildOrderBy(sort: VfsSortState, nameExpr: SQL<string>): SQL[] {
 }
 
 /** Result shape for folder contents queries (includes linkId). */
-export interface VfsFolderQueryRow {
+interface VfsFolderQueryRow {
   id: string;
   linkId: string;
   objectType: string;
@@ -99,7 +99,7 @@ export interface VfsFolderQueryRow {
 }
 
 /** Result shape for unfiled/all-items queries. */
-export interface VfsQueryRow {
+interface VfsQueryRow {
   id: string;
   objectType: string;
   name: string;

@@ -43,7 +43,7 @@ function requireAclIdPart(value: string, partName: string): string {
   return normalized;
 }
 
-export interface ShareAuthorizationContext {
+interface ShareAuthorizationContext {
   ownerId: string | null;
   itemId: string;
   shareType: VfsShareType;
@@ -52,7 +52,7 @@ export interface ShareAuthorizationContext {
   aclId: string;
 }
 
-export interface OrgShareAuthorizationContext {
+interface OrgShareAuthorizationContext {
   ownerId: string | null;
   itemId: string;
   targetOrgId: string;

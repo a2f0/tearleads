@@ -8,7 +8,7 @@ import type {
 import { useCallback, useEffect, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 
-export interface UseVfsSharesResult {
+interface UseVfsSharesResult {
   shares: VfsShare[];
   orgShares: VfsOrgShare[];
   loading: boolean;

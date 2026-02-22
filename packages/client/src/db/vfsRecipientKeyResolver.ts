@@ -1,7 +1,7 @@
 import type { ShareTargetSearchResult } from '@tearleads/shared';
 import { api } from '@/lib/api';
 
-export interface RecipientPublicKeyResolver {
+interface RecipientPublicKeyResolver {
   resolvePublicKey(userId: string): Promise<{
     publicKeyId: string;
     publicEncryptionKey: string;

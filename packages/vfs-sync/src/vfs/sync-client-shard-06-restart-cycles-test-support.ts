@@ -9,7 +9,7 @@ import {
   VfsBackgroundSyncClient
 } from './sync-client-test-support.js';
 
-export interface CycleMetric {
+interface CycleMetric {
   cycleStartWriteId: number;
   pushedWriteIds: number[];
   nextLocalWriteId: number;
@@ -19,12 +19,12 @@ export interface CycleMetric {
   persistedCursorMs: number;
 }
 
-export interface CursorValue {
+interface CursorValue {
   changedAt: string;
   changeId: string;
 }
 
-export interface RestartCycleResult {
+interface RestartCycleResult {
   cyclePushWriteIds: number[][];
   cycleMetrics: CycleMetric[];
   cycleCursors: CursorValue[];
@@ -35,7 +35,7 @@ export interface RestartCycleResult {
   }>;
 }
 
-export interface LagRestartCycleResult extends RestartCycleResult {
+interface LagRestartCycleResult extends RestartCycleResult {
   replayAlignedAfterFlush: boolean[];
 }
 

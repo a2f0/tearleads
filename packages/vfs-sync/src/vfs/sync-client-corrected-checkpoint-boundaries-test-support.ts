@@ -15,13 +15,13 @@ import {
   readSeedContainerCursorOrThrow
 } from './sync-client-randomized-test-support.js';
 
-export interface CorrectedCheckpointBoundaryInput {
+interface CorrectedCheckpointBoundaryInput {
   seed: number;
   pullLimit: number;
   containerWindowLimit: number;
 }
 
-export interface CorrectedCheckpointBoundaryResult {
+interface CorrectedCheckpointBoundaryResult {
   expectedForwardSignatures: string[];
   expectedPulledOpIds: string[];
   forwardSignatures: string[];

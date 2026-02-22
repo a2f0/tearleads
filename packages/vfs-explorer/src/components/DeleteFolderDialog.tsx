@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 import { useDeleteVfsFolder, type VfsFolderNode } from '../hooks';
 
-export interface DeleteFolderDialogProps {
+interface DeleteFolderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   folder: VfsFolderNode | null;

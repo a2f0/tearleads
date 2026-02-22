@@ -9,7 +9,7 @@ export interface ParsedStamp {
   opId: string;
 }
 
-export type PreparedOperation =
+type PreparedOperation =
   | {
       kind: 'acl';
       key: string;

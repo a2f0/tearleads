@@ -12,14 +12,14 @@ import {
   VfsBackgroundSyncClient
 } from './sync-client-test-support.js';
 
-export interface Shard09ReplicaHandoffResult {
+interface Shard09ReplicaHandoffResult {
   seedReplayCursor: { changedAt: string; changeId: string };
   cycleOnePulls: ObservedPullPage[];
   cycleTwoPulls: ObservedPullPage[];
   cycleOneTerminalCursor: { changedAt: string; changeId: string };
 }
 
-export interface Shard09BoundaryReplayResult {
+interface Shard09BoundaryReplayResult {
   seedReplayCursor: { changedAt: string; changeId: string };
   resumedPulls: ObservedPhasePullPage[];
   resumedPulledOpIds: string[];

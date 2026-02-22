@@ -1,11 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { isRecord } from '@tearleads/shared';
 
-export type VfsBlobRelationKind =
-  | 'file'
-  | 'emailAttachment'
-  | 'photo'
-  | 'other';
+type VfsBlobRelationKind = 'file' | 'emailAttachment' | 'photo' | 'other';
 
 const VALID_RELATION_KINDS: VfsBlobRelationKind[] = [
   'file',

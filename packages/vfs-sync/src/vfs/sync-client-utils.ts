@@ -12,22 +12,18 @@ import type {
 } from './sync-crdt-reconcile.js';
 import type { VfsSyncCursor } from './sync-cursor.js';
 
-export const DEFAULT_PULL_LIMIT = 100;
-export const MAX_PULL_LIMIT = 500;
-export const MAX_CLIENT_ID_LENGTH = 128;
+const DEFAULT_PULL_LIMIT = 100;
+const MAX_PULL_LIMIT = 500;
+const MAX_CLIENT_ID_LENGTH = 128;
 export const MAX_STALE_PUSH_RECOVERY_ATTEMPTS = 2;
 
-export const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = [
-  'read',
-  'write',
-  'admin'
-];
-export const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = [
+const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
+const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = [
   'user',
   'group',
   'organization'
 ];
-export const VALID_OP_TYPES: VfsCrdtOpType[] = [
+const VALID_OP_TYPES: VfsCrdtOpType[] = [
   'acl_add',
   'acl_remove',
   'link_add',
@@ -71,7 +67,7 @@ export function normalizeOccurredAt(value: unknown): string | null {
   return new Date(parsedMs).toISOString();
 }
 
-export function sleep(ms: number): Promise<void> {
+function sleep(ms: number): Promise<void> {
   if (ms < 1) {
     return Promise.resolve();
   }
@@ -135,7 +131,7 @@ export function cloneCursor(cursor: VfsSyncCursor): VfsSyncCursor {
   };
 }
 
-export function toCursorFromItem(item: VfsCrdtSyncItem): VfsSyncCursor {
+function toCursorFromItem(item: VfsCrdtSyncItem): VfsSyncCursor {
   const occurredAtMs = Date.parse(item.occurredAt);
   if (!Number.isFinite(occurredAtMs)) {
     throw new Error('transport returned item with invalid occurredAt');
@@ -165,7 +161,7 @@ export function lastItemCursor(items: VfsCrdtSyncItem[]): VfsSyncCursor | null {
   return toCursorFromItem(lastItem);
 }
 
-export function isPushStatus(value: unknown): value is VfsCrdtSyncPushStatus {
+function isPushStatus(value: unknown): value is VfsCrdtSyncPushStatus {
   return (
     value === 'applied' ||
     value === 'alreadyApplied' ||

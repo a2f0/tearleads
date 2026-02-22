@@ -21,7 +21,7 @@ interface ReconcileRestartSnapshot {
   } | null;
 }
 
-export interface ReconcileRestartRegressionResult {
+interface ReconcileRestartRegressionResult {
   syncError: string | null;
   guardrailViolations: ReturnType<
     typeof createGuardrailViolationCollector
@@ -35,7 +35,7 @@ export interface ReconcileRestartRegressionResult {
   hasRecoveredAcl: boolean;
 }
 
-export interface ReconcileRestartRecoveryResult {
+interface ReconcileRestartRecoveryResult {
   firstSyncError: string | null;
   guardrailViolations: ReturnType<
     typeof createGuardrailViolationCollector

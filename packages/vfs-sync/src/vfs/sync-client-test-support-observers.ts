@@ -7,7 +7,7 @@ import type {
 } from './sync-client.js';
 import { compareVfsSyncCursorOrder } from './sync-reconcile.js';
 
-export interface ContainerClockCursor {
+interface ContainerClockCursor {
   containerId: string;
   changedAt: string;
   changeId: string;
@@ -79,19 +79,17 @@ export interface ObservedPhaseReconcileSnapshot {
   lastReconciledWriteIds: Record<string, number>;
 }
 
-export type ReconcileState = NonNullable<
-  VfsCrdtSyncTransport['reconcileState']
->;
-export type ReconcileStateInput = Parameters<ReconcileState>[0];
-export type ReconcileStateOutput = Awaited<ReturnType<ReconcileState>>;
-export type PullOperationsInput = Parameters<
+type ReconcileState = NonNullable<VfsCrdtSyncTransport['reconcileState']>;
+type ReconcileStateInput = Parameters<ReconcileState>[0];
+type ReconcileStateOutput = Awaited<ReturnType<ReconcileState>>;
+type PullOperationsInput = Parameters<
   VfsCrdtSyncTransport['pullOperations']
 >[0];
-export type PullOperationsOutput = Awaited<
+type PullOperationsOutput = Awaited<
   ReturnType<VfsCrdtSyncTransport['pullOperations']>
 >;
 
-export function createPhasePullRecordingTransport(input: {
+function createPhasePullRecordingTransport(input: {
   phase: ObservedPullPhase;
   baseTransport: VfsCrdtSyncTransport;
   observedPulls: ObservedPhasePullPage[];
@@ -334,8 +332,6 @@ export function readReplaySnapshotCursorOrThrow(input: {
 
   return seedReplayCursor;
 }
-
-export type { GuardrailViolationSnapshot } from './sync-client-test-support-guardrails.js';
 // Re-export guardrail test helpers from dedicated module
 export {
   createGuardrailViolationCollector,

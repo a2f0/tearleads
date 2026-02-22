@@ -8,8 +8,6 @@ import { useVfsExplorerContext } from '../context';
 import { queryUnfiledItems } from '../lib/vfsQuery';
 import type { VfsObjectType, VfsSortState } from '../lib/vfsTypes';
 
-export type { VfsObjectType };
-
 export interface VfsUnfiledItem {
   id: string;
   objectType: VfsObjectType;

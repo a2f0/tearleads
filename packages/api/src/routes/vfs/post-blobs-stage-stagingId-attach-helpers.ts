@@ -7,13 +7,13 @@ import {
 } from '@tearleads/vfs-sync/vfs';
 import { normalizeRequiredString } from './blob-shared.js';
 
-export interface ParsedBlobAttachConsistency {
+interface ParsedBlobAttachConsistency {
   clientId: string;
   requiredCursor: VfsSyncCursor;
   requiredLastReconciledWriteIds: VfsCrdtLastReconciledWriteIds;
 }
 
-export type ParseBlobAttachConsistencyResult =
+type ParseBlobAttachConsistencyResult =
   | {
       ok: true;
       value: ParsedBlobAttachConsistency | null;

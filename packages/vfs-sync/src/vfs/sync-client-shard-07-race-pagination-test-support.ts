@@ -6,7 +6,7 @@ import {
   waitFor
 } from './sync-client-test-support.js';
 
-export interface RaceHydrateConvergenceResult {
+interface RaceHydrateConvergenceResult {
   hydrateError: string | null;
   guardrailViolations: Array<{
     code: string;
@@ -22,7 +22,7 @@ export interface RaceHydrateConvergenceResult {
   serverSnapshot: ReturnType<InMemoryVfsCrdtSyncServer['snapshot']>;
 }
 
-export interface RacePaginationForwardResult {
+interface RacePaginationForwardResult {
   hydrateError: string | null;
   guardrailViolations: Array<{
     code: string;
@@ -39,7 +39,7 @@ export interface RacePaginationForwardResult {
   firstCursor: { changedAt: string; changeId: string };
 }
 
-export interface RacePaginationRestartResult {
+interface RacePaginationRestartResult {
   firstPageBefore: ReturnType<VfsBackgroundSyncClient['listChangedContainers']>;
   secondPageBefore: ReturnType<
     VfsBackgroundSyncClient['listChangedContainers']

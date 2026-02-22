@@ -7,7 +7,7 @@ import { and, eq } from 'drizzle-orm';
 import { useCallback, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 
-export interface UseCopyVfsItemResult {
+interface UseCopyVfsItemResult {
   copyItem: (itemId: string, targetFolderId: string) => Promise<void>;
   isCopying: boolean;
   error: string | null;

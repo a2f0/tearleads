@@ -17,7 +17,7 @@ interface ClientSnapshotResult {
   nextLocalWriteId: number;
 }
 
-export interface Shard04RestartHydrateResult {
+interface Shard04RestartHydrateResult {
   restartHydrateCount: number;
   restartFloorChecks: number;
   snapshots: ClientSnapshotResult[];

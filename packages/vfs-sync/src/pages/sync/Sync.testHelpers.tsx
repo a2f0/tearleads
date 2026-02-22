@@ -27,7 +27,7 @@ interface AuthStoreState {
 
 export const mockLogin =
   vi.fn<(email: string, password: string) => Promise<LoginResult>>();
-export const mockLogout = vi.fn<() => Promise<void>>();
+const mockLogout = vi.fn<() => Promise<void>>();
 export const mockPingGet =
   vi.fn<() => Promise<{ emailDomain?: string | null }>>();
 

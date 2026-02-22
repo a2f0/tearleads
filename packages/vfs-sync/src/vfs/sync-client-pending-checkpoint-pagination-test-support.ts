@@ -14,7 +14,7 @@ import {
   toStageCodeReplicaSignatures
 } from './sync-client-randomized-test-support.js';
 
-export interface PendingCheckpointPaginationResult {
+interface PendingCheckpointPaginationResult {
   expectedPushedOpIds: string[];
   expectedPushedWriteIds: number[];
   expectedPageSignatures: string[];

@@ -8,8 +8,6 @@ import { useVfsExplorerContext } from '../context';
 import { queryDeletedItems } from '../lib/vfsQuery';
 import type { VfsObjectType, VfsSortState } from '../lib/vfsTypes';
 
-export type { VfsObjectType };
-
 export interface VfsTrashItem {
   id: string;
   objectType: VfsObjectType;
