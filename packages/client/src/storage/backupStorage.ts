@@ -11,7 +11,7 @@ import {
 
 const BACKUP_DIRECTORY = 'tearleads-backups';
 
-export interface StoredBackup {
+interface StoredBackup {
   name: string;
   size: number;
   lastModified: number;

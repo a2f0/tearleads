@@ -13,14 +13,14 @@ import {
   useState
 } from 'react';
 
-export interface VideoTrack {
+interface VideoTrack {
   id: string;
   name: string;
   objectUrl: string;
   mimeType: string;
 }
 
-export interface VideoError {
+interface VideoError {
   message: string;
   trackId: string;
   trackName: string;

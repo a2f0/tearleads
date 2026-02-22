@@ -2,7 +2,7 @@ import path from 'node:path';
 
 type AliasMap = Record<string, string>;
 
-export interface ViteAliasOptions {
+interface ViteAliasOptions {
   /** Packages to stub out (tree-shake). Provided by app-config plugin. */
   disabledPackages?: string[];
 }

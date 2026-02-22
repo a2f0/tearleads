@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { zIndex } from '@/constants/zIndex';
 
-export interface WindowOptionsDialogProps {
+interface WindowOptionsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   preserveWindowState: boolean;

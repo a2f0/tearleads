@@ -29,7 +29,7 @@ function getElectronArgs(): string[] {
   return args;
 }
 
-export interface LaunchOptions {
+interface LaunchOptions {
   /**
    * Clear all storage (IndexedDB, localStorage, etc.) before the app loads.
    * Default: true for test isolation.

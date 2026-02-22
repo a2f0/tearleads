@@ -15,7 +15,7 @@ export type WindowMinimizeCase = [
   dimensions: WindowDimensions
 ];
 
-export interface WindowCase {
+interface WindowCase {
   label: string;
   type: string;
   id: string;
