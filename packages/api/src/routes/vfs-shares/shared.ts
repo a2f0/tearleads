@@ -3,11 +3,14 @@ import type {
   CreateVfsShareRequest,
   UpdateVfsShareRequest,
   VfsPermissionLevel,
-  VfsShareType,
-  VfsWrappedKeyPayload
+  VfsShareType
 } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
 import type { Pool } from 'pg';
+import {
+  parseOrgWrappedKeyPayload,
+  parseWrappedKeyPayload
+} from './wrappedKeyParsers.js';
 
 const VALID_SHARE_TYPES: VfsShareType[] = ['user', 'group', 'organization'];
 const VALID_PERMISSION_LEVELS: VfsPermissionLevel[] = [
@@ -276,48 +279,6 @@ function isValidPermissionLevel(value: unknown): value is VfsPermissionLevel {
   );
 }
 
-function parseWrappedKeyPayload(value: unknown): VfsWrappedKeyPayload | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  const recipientUserId = value['recipientUserId'];
-  const recipientPublicKeyId = value['recipientPublicKeyId'];
-  const keyEpoch = value['keyEpoch'];
-  const encryptedKey = value['encryptedKey'];
-  const senderSignature = value['senderSignature'];
-
-  if (
-    typeof recipientUserId !== 'string' ||
-    typeof recipientPublicKeyId !== 'string' ||
-    typeof keyEpoch !== 'number' ||
-    !Number.isInteger(keyEpoch) ||
-    !Number.isSafeInteger(keyEpoch) ||
-    keyEpoch < 1 ||
-    typeof encryptedKey !== 'string' ||
-    typeof senderSignature !== 'string'
-  ) {
-    return null;
-  }
-
-  if (
-    !recipientUserId.trim() ||
-    !recipientPublicKeyId.trim() ||
-    !encryptedKey.trim() ||
-    !senderSignature.trim()
-  ) {
-    return null;
-  }
-
-  return {
-    recipientUserId: recipientUserId.trim(),
-    recipientPublicKeyId: recipientPublicKeyId.trim(),
-    keyEpoch,
-    encryptedKey: encryptedKey.trim(),
-    senderSignature: senderSignature.trim()
-  };
-}
-
 export function parseCreateSharePayload(
   body: unknown
 ): CreateVfsShareRequest | null {
@@ -384,7 +345,14 @@ export function parseCreateOrgSharePayload(
   if (!isRecord(body)) {
     return null;
   }
-  const { itemId, sourceOrgId, targetOrgId, permissionLevel, expiresAt } = body;
+  const {
+    itemId,
+    sourceOrgId,
+    targetOrgId,
+    permissionLevel,
+    expiresAt,
+    wrappedKey: wrappedKeyValue
+  } = body;
 
   if (
     typeof itemId !== 'string' ||
@@ -407,6 +375,22 @@ export function parseCreateOrgSharePayload(
     return null;
   }
 
+  const wrappedKey =
+    wrappedKeyValue === undefined || wrappedKeyValue === null
+      ? null
+      : parseOrgWrappedKeyPayload(wrappedKeyValue);
+  if (
+    wrappedKeyValue !== undefined &&
+    wrappedKeyValue !== null &&
+    !wrappedKey
+  ) {
+    return null;
+  }
+
+  if (wrappedKey && wrappedKey.recipientOrgId !== targetOrgId.trim()) {
+    return null;
+  }
+
   return {
     itemId: itemId.trim(),
     sourceOrgId: sourceOrgId.trim(),
@@ -415,7 +399,8 @@ export function parseCreateOrgSharePayload(
     expiresAt:
       typeof expiresAt === 'string' && expiresAt.trim()
         ? expiresAt.trim()
-        : null
+        : null,
+    wrappedKey
   };
 }
 

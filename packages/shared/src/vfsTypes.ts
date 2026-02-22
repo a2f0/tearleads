@@ -204,6 +204,11 @@ export interface VfsOrgShare {
   createdByEmail: string;
   createdAt: string;
   expiresAt: string | null;
+  /**
+   * Wrapped key metadata for encrypted org shares.
+   * Present when server has persisted share-key material for this share.
+   */
+  wrappedKey?: VfsOrgWrappedKeyPayload;
 }
 
 export interface CreateVfsShareRequest {
@@ -225,6 +230,11 @@ export interface CreateOrgShareRequest {
   targetOrgId: string;
   permissionLevel: VfsPermissionLevel;
   expiresAt?: string | null;
+  /**
+   * Wrapped key payload for encrypted org shares.
+   * Must target the same org as `targetOrgId` when provided.
+   */
+  wrappedKey?: VfsOrgWrappedKeyPayload | null;
 }
 
 export interface VfsSharesResponse {
@@ -290,6 +300,18 @@ export interface VfsSharedWithMeItem {
  */
 export interface VfsWrappedKeyPayload {
   recipientUserId: string;
+  recipientPublicKeyId: string;
+  keyEpoch: number;
+  encryptedKey: string;
+  senderSignature: string;
+}
+
+/**
+ * Wrapped key payload for a target organization.
+ * Mirrors user wrapped-key metadata with org recipient identity.
+ */
+export interface VfsOrgWrappedKeyPayload {
+  recipientOrgId: string;
   recipientPublicKeyId: string;
   keyEpoch: number;
   encryptedKey: string;
