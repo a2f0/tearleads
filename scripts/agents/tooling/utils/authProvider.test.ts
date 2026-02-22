@@ -13,6 +13,7 @@ function withPatchedEnv<T>(mutate: () => T): T {
   const originalPath = process.env['PATH'];
   const originalGitHubToken = process.env['GITHUB_TOKEN'];
   const originalGhToken = process.env['GH_TOKEN'];
+  const originalXdgConfigHome = process.env['XDG_CONFIG_HOME'];
 
   try {
     return mutate();
@@ -31,6 +32,11 @@ function withPatchedEnv<T>(mutate: () => T): T {
       delete process.env['GH_TOKEN'];
     } else {
       process.env['GH_TOKEN'] = originalGhToken;
+    }
+    if (originalXdgConfigHome === undefined) {
+      delete process.env['XDG_CONFIG_HOME'];
+    } else {
+      process.env['XDG_CONFIG_HOME'] = originalXdgConfigHome;
     }
   }
 }
@@ -81,6 +87,48 @@ exit 1
 
       const provider = createDefaultAuthProvider();
       assert.equal(provider.getGitHubToken(), 'gh-token-value');
+    });
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('auth provider falls back to gh config hosts.yml when gh auth token fails', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agenttool-auth-'));
+  const configDir = path.join(tempDir, 'config');
+  const ghDir = path.join(configDir, 'gh');
+  try {
+    writeExecutableScript(
+      tempDir,
+      'gh',
+      `#!/bin/sh
+exit 1
+`
+    );
+
+    fs.mkdirSync(ghDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(ghDir, 'hosts.yml'),
+      `evil.corp:
+    oauth_token: wrong-token
+github.com:
+    oauth_token: config-token-value
+    user: testuser
+    git_protocol: ssh
+another.host.com:
+    oauth_token: also-wrong-token
+    user: someotheruser
+`
+    );
+
+    withPatchedEnv(() => {
+      process.env['PATH'] = `${tempDir}:${process.env['PATH'] ?? ''}`;
+      delete process.env['GITHUB_TOKEN'];
+      delete process.env['GH_TOKEN'];
+      process.env['XDG_CONFIG_HOME'] = configDir;
+
+      const provider = createDefaultAuthProvider();
+      assert.equal(provider.getGitHubToken(), 'config-token-value');
     });
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
