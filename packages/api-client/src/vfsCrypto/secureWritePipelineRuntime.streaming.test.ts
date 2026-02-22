@@ -142,6 +142,72 @@ describe('secureWritePipelineRuntime streaming', () => {
     expect(result.manifest.totalPlaintextBytes).toBe(10 * 1024);
   });
 
+  it('handles high chunk-count streaming in bounded callback mode', async () => {
+    const chunkSizeBytes = 1024;
+    const totalChunks = 2048;
+    const encryptChunk = vi.fn(
+      async ({
+        chunkIndex,
+        isFinal,
+        plaintext
+      }: {
+        chunkIndex: number;
+        isFinal: boolean;
+        plaintext: Uint8Array;
+      }) => ({
+        chunkIndex,
+        isFinal,
+        nonce: `nonce-${chunkIndex}`,
+        aadHash: `aad-${chunkIndex}`,
+        ciphertext: new Uint8Array(plaintext.length + 16),
+        plaintextLength: plaintext.length,
+        ciphertextLength: plaintext.length + 16
+      })
+    );
+
+    const pipeline = createVfsSecureWritePipeline({
+      engine: {
+        encryptChunk,
+        decryptChunk: vi.fn(),
+        signManifest: vi.fn(async () => 'sig'),
+        verifyManifest: vi.fn()
+      } satisfies VfsCryptoEngine,
+      chunkSizeBytes
+    });
+
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let index = 0; index < totalChunks; index += 1) {
+          controller.enqueue(new Uint8Array(chunkSizeBytes));
+        }
+        controller.close();
+      }
+    });
+
+    let observedChunks = 0;
+    let lastChunkIndex = -1;
+    const onChunk = vi.fn(async (chunk: { chunkIndex: number }) => {
+      observedChunks += 1;
+      lastChunkIndex = chunk.chunkIndex;
+    });
+
+    const result = await pipeline.uploadEncryptedBlob({
+      itemId: 'item-high-chunk-count',
+      blobId: 'blob-high-chunk-count',
+      stream,
+      onChunk
+    });
+
+    expect(onChunk).toHaveBeenCalledTimes(totalChunks);
+    expect(observedChunks).toBe(totalChunks);
+    expect(lastChunkIndex).toBe(totalChunks - 1);
+    expect(result.chunks).toBeUndefined();
+    expect(result.manifest.chunkCount).toBe(totalChunks);
+    expect(result.manifest.totalPlaintextBytes).toBe(
+      totalChunks * chunkSizeBytes
+    );
+  });
+
   it('re-chunks highly fragmented input deterministically', async () => {
     const seenPlaintextChunks: Uint8Array[] = [];
     const encryptChunk = vi.fn(

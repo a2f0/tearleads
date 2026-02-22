@@ -245,4 +245,50 @@ describe('useFileUpload secure streaming', () => {
       })
     );
   });
+
+  it('keeps 2GB-class uploads on stream+blob path without file buffer reads', async () => {
+    const mockSecureFacade = {
+      stageAttachEncryptedBlobAndPersist: vi.fn().mockResolvedValue({
+        stagingId: 'test-staging-id',
+        manifest: {}
+      })
+    };
+    vi.mocked(useVfsSecureFacade).mockReturnValue(
+      mockSecureFacade as unknown as ReturnType<typeof useVfsSecureFacade>
+    );
+    vi.mocked(useVfsOrchestratorInstance).mockReturnValue({
+      flushAll: vi.fn().mockResolvedValue({ success: true })
+    } as unknown as ReturnType<typeof useVfsOrchestratorInstance>);
+
+    vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+      ext: 'bin',
+      mime: 'application/octet-stream'
+    });
+
+    const hugeFile = {
+      name: 'huge-secure.bin',
+      type: 'application/octet-stream',
+      size: 2 * 1024 * 1024 * 1024
+    } as unknown as File;
+
+    const { result } = renderHook(() => useFileUpload());
+    await result.current.uploadFile(hugeFile);
+
+    expect(mockStorage.measureStoreBlob).toHaveBeenCalledWith(
+      'test-uuid-1234',
+      hugeFile,
+      expect.any(Function)
+    );
+    expect(mockStorage.measureStore).not.toHaveBeenCalled();
+    expect(readFileAsUint8Array).not.toHaveBeenCalled();
+    expect(createStreamFromFile).toHaveBeenCalledTimes(2);
+    expect(
+      mockSecureFacade.stageAttachEncryptedBlobAndPersist
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemId: 'test-uuid-1234',
+        contentType: 'application/octet-stream'
+      })
+    );
+  });
 });

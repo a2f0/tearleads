@@ -139,8 +139,8 @@ This writes:
 This command runs a focused cross-package matrix covering:
 
 - API rekey + encrypted envelope parser contract
-- API-client secure pipeline + rekey client contract
-- Client fail-closed upload behavior + large-file local storage paths
+- API-client secure pipeline + streaming chunk stress + rekey client contract
+- Client fail-closed upload behavior + secure streaming + large-file local storage paths
 - VFS sync guardrail behavior for encrypted-envelope mismatch handling
 
 Do not promote `vfsSecureUpload` without a green run from this gate on the
