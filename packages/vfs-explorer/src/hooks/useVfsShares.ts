@@ -116,7 +116,10 @@ export function useVfsShares(itemId: string | null): UseVfsSharesResult {
       }
 
       try {
-        const result = await vfsShareApi.deleteShare(shareId);
+        const result = await vfsShareApi.deleteShare(
+          shareId,
+          itemId ?? undefined
+        );
         if (result.deleted) {
           setShares((prev) => prev.filter((s) => s.id !== shareId));
         }
@@ -127,7 +130,7 @@ export function useVfsShares(itemId: string | null): UseVfsSharesResult {
         return false;
       }
     },
-    [vfsShareApi]
+    [itemId, vfsShareApi]
   );
 
   const createOrgShare = useCallback(
@@ -161,7 +164,10 @@ export function useVfsShares(itemId: string | null): UseVfsSharesResult {
       }
 
       try {
-        const result = await vfsShareApi.deleteOrgShare(shareId);
+        const result = await vfsShareApi.deleteOrgShare(
+          shareId,
+          itemId ?? undefined
+        );
         if (result.deleted) {
           setOrgShares((prev) => prev.filter((s) => s.id !== shareId));
         }
@@ -172,7 +178,7 @@ export function useVfsShares(itemId: string | null): UseVfsSharesResult {
         return false;
       }
     },
-    [vfsShareApi]
+    [itemId, vfsShareApi]
   );
 
   return {

@@ -44,6 +44,8 @@ export interface UploadResult {
 
 /** Default expiration for staged blobs (7 days) */
 const DEFAULT_BLOB_EXPIRY_DAYS = 7;
+const STREAMING_LOCAL_STORE_MIN_BYTES = 16 * 1024 * 1024;
+const MAX_THUMBNAIL_SOURCE_BYTES = 64 * 1024 * 1024;
 
 export function useFileUpload() {
   const secureFacade = useVfsSecureFacade();
@@ -112,52 +114,73 @@ export function useFileUpload() {
         return { id: existing[0].id, isDuplicate: true };
       }
 
-      // Scope full-file buffers to local persistence work so large payloads can
-      // be collected before secure network staging/flush begins.
-      {
-        // Read file data only after deduplication miss.
-        const data = await readFileAsUint8Array(file);
-        onProgress?.(40);
+      const shouldUseStreamingLocalStore =
+        file.size >= STREAMING_LOCAL_STORE_MIN_BYTES;
+      const shouldGenerateThumbnail =
+        isThumbnailSupported(mimeType) &&
+        file.size <= MAX_THUMBNAIL_SOURCE_BYTES;
+      let thumbnailSourceData: Uint8Array | null = null;
 
-        // Store encrypted file
-        onProgress?.(50);
-        storagePath = await storage.measureStore(
+      if (shouldGenerateThumbnail) {
+        thumbnailSourceData = await readFileAsUint8Array(file);
+      } else if (isThumbnailSupported(mimeType)) {
+        console.warn(
+          `Skipping thumbnail generation for large file (${file.size} bytes): ${file.name}`
+        );
+      }
+      onProgress?.(40);
+
+      // Store encrypted file.
+      // For large files, use blob streaming APIs when available to avoid
+      // whole-file buffers in the upload path.
+      onProgress?.(50);
+      if (
+        shouldUseStreamingLocalStore &&
+        typeof storage.measureStoreBlob === 'function'
+      ) {
+        storagePath = await storage.measureStoreBlob(
           id,
-          data,
+          file,
           createStoreLogger(db)
         );
-        onProgress?.(65);
-
-        // Generate thumbnail for supported types (images and audio with cover art)
-        if (isThumbnailSupported(mimeType)) {
-          const thumbnailStartTime = performance.now();
-          let thumbnailSuccess = false;
-          try {
-            const thumbnailData = await generateThumbnail(data, mimeType);
-            if (thumbnailData) {
-              const thumbnailId = `${id}-thumb`;
-              thumbnailPath = await storage.store(thumbnailId, thumbnailData);
-              thumbnailSuccess = true;
-            }
-          } catch (err) {
-            console.warn(`Failed to generate thumbnail for ${file.name}:`, err);
-            // Continue without thumbnail
-          }
-          const thumbnailDurationMs = performance.now() - thumbnailStartTime;
-          try {
-            await logEvent(
-              db,
-              'thumbnail_generation',
-              thumbnailDurationMs,
-              thumbnailSuccess
-            );
-          } catch (err) {
-            // Don't let logging errors affect the main operation
-            console.warn('Failed to log thumbnail_generation event:', err);
-          }
-        }
-        onProgress?.(85);
+      } else {
+        const data = thumbnailSourceData ?? (await readFileAsUint8Array(file));
+        storagePath = await storage.measureStore(id, data, createStoreLogger(db));
       }
+      onProgress?.(65);
+
+      // Generate thumbnail for supported types when source size is bounded.
+      if (shouldGenerateThumbnail && thumbnailSourceData) {
+        const thumbnailStartTime = performance.now();
+        let thumbnailSuccess = false;
+        try {
+          const thumbnailData = await generateThumbnail(
+            thumbnailSourceData,
+            mimeType
+          );
+          if (thumbnailData) {
+            const thumbnailId = `${id}-thumb`;
+            thumbnailPath = await storage.store(thumbnailId, thumbnailData);
+            thumbnailSuccess = true;
+          }
+        } catch (err) {
+          console.warn(`Failed to generate thumbnail for ${file.name}:`, err);
+          // Continue without thumbnail
+        }
+        const thumbnailDurationMs = performance.now() - thumbnailStartTime;
+        try {
+          await logEvent(
+            db,
+            'thumbnail_generation',
+            thumbnailDurationMs,
+            thumbnailSuccess
+          );
+        } catch (err) {
+          // Don't let logging errors affect the main operation
+          console.warn('Failed to log thumbnail_generation event:', err);
+        }
+      }
+      onProgress?.(85);
 
       // Insert metadata
       await db.insert(files).values({

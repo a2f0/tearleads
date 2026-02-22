@@ -7,6 +7,7 @@ import {
   VfsExplorerProvider,
   type VfsExplorerUIComponents
 } from '@tearleads/vfs-explorer';
+import { rotateItemKeyEpochAndPersist } from '@tearleads/api-client';
 import vfsExplorerPackageJson from '@tearleads/vfs-explorer/package.json';
 import {
   DesktopContextMenu as ContextMenu,
@@ -30,6 +31,7 @@ import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
 import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
+import { useVfsKeyManager } from './VfsOrchestratorContext';
 
 export function VfsExplorerAboutMenuItem() {
   return (
@@ -62,6 +64,7 @@ export function ClientVfsExplorerProvider({
   children
 }: ClientVfsExplorerProviderProps) {
   const databaseContext = useDatabaseContext();
+  const keyManager = useVfsKeyManager();
 
   const databaseState = useMemo(
     () => ({
@@ -125,12 +128,44 @@ export function ClientVfsExplorerProvider({
       getShares: api.vfs.getShares,
       createShare: api.vfs.createShare,
       updateShare: api.vfs.updateShare,
-      deleteShare: api.vfs.deleteShare,
+      deleteShare: async (shareId: string, itemId?: string) => {
+        const result = await api.vfs.deleteShare(shareId);
+        if (result.deleted && itemId) {
+          if (!keyManager) {
+            throw new Error('VFS key manager is not initialized');
+          }
+          await rotateItemKeyEpochAndPersist({
+            itemId,
+            reason: 'unshare',
+            keyManager,
+            apiClient: {
+              rekeyItem: api.vfs.rekeyItem
+            }
+          });
+        }
+        return result;
+      },
       createOrgShare: api.vfs.createOrgShare,
-      deleteOrgShare: api.vfs.deleteOrgShare,
+      deleteOrgShare: async (shareId: string, itemId?: string) => {
+        const result = await api.vfs.deleteOrgShare(shareId);
+        if (result.deleted && itemId) {
+          if (!keyManager) {
+            throw new Error('VFS key manager is not initialized');
+          }
+          await rotateItemKeyEpochAndPersist({
+            itemId,
+            reason: 'unshare',
+            keyManager,
+            apiClient: {
+              rekeyItem: api.vfs.rekeyItem
+            }
+          });
+        }
+        return result;
+      },
       searchTargets: api.vfs.searchShareTargets
     }),
-    []
+    [keyManager]
   );
 
   return (

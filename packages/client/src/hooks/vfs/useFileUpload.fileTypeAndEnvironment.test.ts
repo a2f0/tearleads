@@ -91,6 +91,7 @@ describe('useFileUpload file type and environment', () => {
   const mockStorage = {
     store: vi.fn(),
     measureStore: vi.fn(),
+    measureStoreBlob: vi.fn(),
     delete: vi.fn()
   };
 
@@ -135,6 +136,7 @@ describe('useFileUpload file type and environment', () => {
     );
     vi.mocked(computeContentHashStreaming).mockResolvedValue('mock-hash');
     vi.mocked(mockStorage.measureStore).mockResolvedValue('storage/path');
+    vi.mocked(mockStorage.measureStoreBlob).mockResolvedValue('storage/path');
     vi.mocked(isThumbnailSupported).mockReturnValue(false);
     vi.mocked(generateThumbnail).mockResolvedValue(new Uint8Array([1, 2, 3]));
     vi.mocked(logEvent).mockResolvedValue(undefined);
@@ -297,6 +299,33 @@ describe('useFileUpload file type and environment', () => {
       mockEncryptionKey,
       'test-instance'
     );
+  });
+
+  it('uses streaming local storage for large files without thumbnail buffers', async () => {
+    vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+      ext: 'pdf',
+      mime: 'application/pdf'
+    });
+    vi.mocked(isThumbnailSupported).mockReturnValue(false);
+
+    const largeFile = new File(
+      [new Uint8Array(17 * 1024 * 1024)],
+      'large.pdf',
+      { type: 'application/pdf' }
+    );
+
+    const { result } = renderHook(() => useFileUpload());
+
+    await result.current.uploadFile(largeFile);
+
+    expect(mockStorage.measureStoreBlob).toHaveBeenCalledTimes(1);
+    expect(mockStorage.measureStoreBlob).toHaveBeenCalledWith(
+      'test-uuid-1234',
+      largeFile,
+      expect.any(Function)
+    );
+    expect(readFileAsUint8Array).not.toHaveBeenCalled();
+    expect(mockStorage.measureStore).not.toHaveBeenCalled();
   });
 
   it('logs a warning when thumbnail analytics fail', async () => {

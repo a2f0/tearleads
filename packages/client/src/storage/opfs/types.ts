@@ -26,9 +26,15 @@ export interface FileStorage {
   instanceId: string;
   initialize(encryptionKey: Uint8Array): Promise<void>;
   store(id: string, data: Uint8Array): Promise<string>;
+  storeBlob(id: string, blob: Blob): Promise<string>;
   measureStore(
     id: string,
     data: Uint8Array,
+    onMetrics?: (metrics: StoreMetrics) => void | Promise<void>
+  ): Promise<string>;
+  measureStoreBlob(
+    id: string,
+    blob: Blob,
     onMetrics?: (metrics: StoreMetrics) => void | Promise<void>
   ): Promise<string>;
   retrieve(storagePath: string): Promise<Uint8Array>;

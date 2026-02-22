@@ -7,6 +7,7 @@
  */
 import {
   createVfsSecurePipelineBundle,
+  type VfsKeyManager,
   type VfsKeySetupPayload,
   type VfsSecureOrchestratorFacade,
   VfsWriteOrchestrator
@@ -31,6 +32,8 @@ export interface VfsOrchestratorContextValue {
   orchestrator: VfsWriteOrchestrator | null;
   /** The secure facade for encrypted operations */
   secureFacade: VfsSecureOrchestratorFacade | null;
+  /** Runtime key manager for item-key provisioning and rotation */
+  keyManager: VfsKeyManager | null;
   /** Whether the orchestrator is fully initialized and ready */
   isReady: boolean;
   /** Whether initialization is in progress */
@@ -63,6 +66,7 @@ export function VfsOrchestratorProvider({
   );
   const [secureFacade, setSecureFacade] =
     useState<VfsSecureOrchestratorFacade | null>(null);
+  const [keyManager, setKeyManager] = useState<VfsKeyManager | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -72,6 +76,7 @@ export function VfsOrchestratorProvider({
     if (!user || !isAuthenticated) {
       setOrchestrator(null);
       setSecureFacade(null);
+      setKeyManager(null);
       return;
     }
 
@@ -128,6 +133,7 @@ export function VfsOrchestratorProvider({
 
       setOrchestrator(newOrchestrator);
       setSecureFacade(facade);
+      setKeyManager(bundle.keyManager);
     } catch (err) {
       const initError =
         err instanceof Error ? err : new Error('Failed to initialize VFS');
@@ -148,6 +154,7 @@ export function VfsOrchestratorProvider({
     return () => {
       setOrchestrator(null);
       setSecureFacade(null);
+      setKeyManager(null);
     };
   }, []);
 
@@ -155,13 +162,17 @@ export function VfsOrchestratorProvider({
     () => ({
       orchestrator,
       secureFacade,
+      keyManager,
       isReady:
-        orchestrator !== null && secureFacade !== null && !isInitializing,
+        orchestrator !== null &&
+        secureFacade !== null &&
+        keyManager !== null &&
+        !isInitializing,
       isInitializing,
       error,
       reinitialize: initialize
     }),
-    [orchestrator, secureFacade, isInitializing, error, initialize]
+    [orchestrator, secureFacade, keyManager, isInitializing, error, initialize]
   );
 
   return (
@@ -195,6 +206,18 @@ export function useVfsSecureFacade(): VfsSecureOrchestratorFacade | null {
     return null;
   }
   return context.secureFacade;
+}
+
+/**
+ * Hook to access the key manager.
+ * Returns null if provider is not present or key manager is not initialized.
+ */
+export function useVfsKeyManager(): VfsKeyManager | null {
+  const context = useContext(VfsOrchestratorContext);
+  if (!context) {
+    return null;
+  }
+  return context.keyManager;
 }
 
 /**

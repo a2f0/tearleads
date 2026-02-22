@@ -141,3 +141,9 @@ Test suites should use standardized assertion helpers from `sync-client-test-sup
 
 For staged `vfsSecureUpload` promotion, rollback triggers, and production QA
 checklist, see `docs/en/vfs-secure-upload-rollout.md`.
+
+Promotion readiness should include a passing automated matrix run:
+
+```bash
+pnpm qaVfsSecureUpload
+```
