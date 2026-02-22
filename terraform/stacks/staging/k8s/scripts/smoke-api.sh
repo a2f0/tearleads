@@ -96,12 +96,27 @@ phase_in_cluster_api() {
     return 1
   fi
 
+  # The API container is a minimal Node.js image without wget/curl,
+  # so use node to make the HTTP request.
   local response
   response="$(kubectl -n "$NAMESPACE" exec "$api_pod" -- \
-    wget -qO- --timeout=5 "http://localhost:5001/v1/ping" 2>/dev/null || true)"
+    node -e "
+      const http = require('http');
+      http.get('http://localhost:5001/v1/ping', res => {
+        let d = '';
+        res.on('data', c => d += c);
+        res.on('end', () => {
+          process.stdout.write(d);
+          process.exit(res.statusCode === 200 ? 0 : 1);
+        });
+      }).on('error', e => {
+        process.stderr.write(e.message);
+        process.exit(1);
+      });
+    " 2>/dev/null || true)"
 
   if [[ -n "$response" ]]; then
-    pass "API pod $api_pod responded to /v1/ping"
+    pass "API pod $api_pod responded to /v1/ping ($response)"
   else
     fail "API pod $api_pod did not respond to /v1/ping"
   fi
@@ -140,25 +155,24 @@ phase_client_api_url() {
   fi
 
   local expected_api_url="https://api.k8s.$STAGING_DOMAIN"
-  local found
-  found="$(kubectl -n "$NAMESPACE" exec "$client_pod" -- \
-    grep -rl "api\.k8s\." /usr/share/nginx/html/assets/ 2>/dev/null | head -1 || true)"
 
-  if [[ -z "$found" ]]; then
-    fail "no JS asset contains an api.k8s. URL in client pod"
-    return 1
-  fi
-
+  # Search broadly for any https://api.<something> URL baked into JS assets.
+  # This catches both correct (api.k8s.domain) and incorrect (api.domain) URLs.
   local baked_url
   baked_url="$(kubectl -n "$NAMESPACE" exec "$client_pod" -- \
-    grep -oP 'https?://api\.k8s\.[a-zA-Z0-9._-]+' "$found" 2>/dev/null | head -1 || true)"
+    grep -roh 'https\?://api\.[a-zA-Z0-9._/-]*' /usr/share/nginx/html/assets/ 2>/dev/null \
+    | sort -u | head -1 || true)"
 
-  if [[ "$baked_url" == "$expected_api_url" ]]; then
+  # Strip any trailing path (e.g. /v1) to compare just the origin
+  local baked_origin="${baked_url%%/v1*}"
+  baked_origin="${baked_origin%%/}"
+
+  if [[ -z "$baked_url" ]]; then
+    fail "could not find any API URL in client JS assets"
+  elif [[ "$baked_origin" == "$expected_api_url" ]]; then
     pass "client JS contains correct API URL: $baked_url"
-  elif [[ -n "$baked_url" ]]; then
-    fail "client JS contains wrong API URL: $baked_url (expected $expected_api_url)"
   else
-    fail "could not extract API URL from client JS assets"
+    fail "client JS contains wrong API URL: $baked_url (expected $expected_api_url)"
   fi
 }
 
@@ -196,11 +210,11 @@ echo "  Kubeconfig: $KUBECONFIG"
 
 failures=0
 
-phase_dns              || ((failures++))
-phase_in_cluster_api   || ((failures++))
-phase_external_api     || ((failures++))
-phase_client_api_url   || ((failures++))
-phase_external_client  || ((failures++))
+phase_dns              || ((failures++)) || true
+phase_in_cluster_api   || ((failures++)) || true
+phase_external_api     || ((failures++)) || true
+phase_client_api_url   || ((failures++)) || true
+phase_external_client  || ((failures++)) || true
 
 echo ""
 if (( failures == 0 )); then
