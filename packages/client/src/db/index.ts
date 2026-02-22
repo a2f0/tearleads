@@ -104,7 +104,7 @@ export async function setupDatabase(
   return db;
 }
 
-export interface UnlockResult {
+interface UnlockResult {
   db: Database;
   sessionPersisted: boolean;
 }
@@ -443,6 +443,5 @@ export async function importDatabase(data: Uint8Array): Promise<void> {
   await runMigrations(adapterInstance);
 }
 
-export type { DatabaseAdapter, PlatformInfo } from './adapters';
 // Re-export schema and types
 export * from './schema';

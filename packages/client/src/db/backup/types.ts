@@ -115,18 +115,6 @@ export interface ImportResult {
   manifest: BackupManifest;
 }
 
-/** Blob provider interface for platform-specific blob access */
-export interface BlobProvider {
-  /** List all blobs in storage */
-  listBlobs(): Promise<BlobEntry[]>;
-  /** Read a blob by path */
-  readBlob(path: string): Promise<Uint8Array>;
-  /** Write a blob to storage */
-  writeBlob(path: string, data: Uint8Array, mimeType: string): Promise<void>;
-  /** Delete a blob */
-  deleteBlob(path: string): Promise<void>;
-}
-
 /** Entry in the blob listing */
 export interface BlobEntry {
   /** Relative path */

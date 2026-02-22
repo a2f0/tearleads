@@ -126,7 +126,7 @@ export async function getTrackedKeystoreInstanceIds(): Promise<string[]> {
   }
 }
 
-export interface BiometricOptions {
+interface BiometricOptions {
   /** Whether to require biometric authentication for retrieval */
   useBiometric?: boolean;
   /** Title shown on biometric prompt */

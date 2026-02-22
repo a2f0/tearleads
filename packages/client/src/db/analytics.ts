@@ -24,19 +24,7 @@ import {
 import { analyticsEvents } from './schema';
 import { getDatabaseAdapter, isDatabaseInitialized } from './state';
 
-export type {
-  AnalyticsEvent,
-  DatabaseInsert,
-  EventStats,
-  GetEventCountOptions,
-  GetEventStatsOptions,
-  GetEventsOptions,
-  RawAnalyticsRow,
-  RawStatsRow,
-  SortColumn,
-  SortDirection,
-  StatsSortColumn
-} from './analyticsTypes';
+export type { AnalyticsEvent, DatabaseInsert } from './analyticsTypes';
 
 /**
  * Generate a UUID for event IDs.
@@ -441,8 +429,6 @@ export async function getDistinctEventTypes(_db: Database): Promise<string[]> {
 
 // Re-export types from analytics-events for convenience
 export {
-  type AnalyticsEventDetail,
   type AnalyticsEventSlug,
-  type EventDetailMap,
   getEventDisplayName
 } from './analyticsEvents';

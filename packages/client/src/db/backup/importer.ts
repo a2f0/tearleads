@@ -33,7 +33,7 @@ const IMPORT_SKIP_TABLES = new Set(['schema_migrations']);
 /**
  * Options for restoring a backup.
  */
-export interface RestoreBackupOptions {
+interface RestoreBackupOptions {
   /** The backup file data */
   backupData: Uint8Array;
   /** Password used to encrypt the backup */

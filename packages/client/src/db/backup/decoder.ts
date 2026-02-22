@@ -71,7 +71,7 @@ export interface DecodeResult {
 /**
  * Options for decoding a backup file.
  */
-export interface DecodeOptions {
+interface DecodeOptions {
   /** Backup file data */
   data: Uint8Array;
   /** Password for decryption */
