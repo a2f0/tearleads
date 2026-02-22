@@ -1,6 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
+<<<<<<< HEAD
 run_step() (
   label="$1"
   shift
