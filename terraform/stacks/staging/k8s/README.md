@@ -237,6 +237,7 @@ S3_ENDPOINT=http://garage:3900 \
 ```
 
 Notes:
+
 - By default, the script does not fail if `garage-setup` is still running; set `REQUIRE_SETUP_JOB_COMPLETE=true` to enforce completion.
 - If the in-cluster smoke pod image cannot be pulled, the script automatically falls back to local `aws` CLI + `kubectl port-forward`.
 
