@@ -36,6 +36,3 @@ export const AES_KEY_BITS = 256;
 
 /** Maximum blob size before splitting into multiple chunks (10 MB) */
 export const MAX_BLOB_CHUNK_SIZE = 10 * 1024 * 1024;
-
-/** File extension for backup files */
-export const BACKUP_EXTENSION = '.tbu';
