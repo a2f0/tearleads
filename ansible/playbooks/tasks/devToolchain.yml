@@ -1,0 +1,294 @@
+---
+# Shared developer toolchain tasks
+# Expects variables:
+# - ansible_user
+# - nodejs_major_version
+# - ghostty_release_tag (e.g. 1.2.3-0-ppa1)
+# - ghostty_package_version (e.g. 1.2.3-0.ppa1)
+# - ghostty_ubuntu_codename (e.g. 24.04)
+# - claude_install_sha256 (sha256 checksum for https://claude.ai/install.sh)
+
+- name: Update apt cache and upgrade all packages
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+    upgrade: dist
+
+- name: Install dev packages
+  ansible.builtin.apt:
+    name:
+      - build-essential
+      - ca-certificates
+      - curl
+      - fd-find
+      - git
+      - gnupg
+      - ncurses-bin
+      - ripgrep
+      - software-properties-common
+      - autoconf
+      - automake
+      - libncurses-dev
+      - libpam0g-dev
+      - xclip
+    state: present
+
+# On Debian/Ubuntu, fd-find installs the binary as 'fdfind'.
+# Neovim Telescope and other tools expect the command to be 'fd'.
+- name: Create fd symlink for fd-find
+  ansible.builtin.file:
+    src: /usr/bin/fdfind
+    dest: /usr/local/bin/fd
+    state: link
+
+# JetBrains Mono font (used by ghostty.conf)
+- name: Check if JetBrains Mono is installed
+  ansible.builtin.shell:
+    cmd: set -o pipefail && fc-list | grep -qi "JetBrains Mono"
+    executable: /bin/bash
+  register: jetbrains_mono_check
+  changed_when: false
+  failed_when: false
+
+- name: Download JetBrains Mono font
+  ansible.builtin.get_url:
+    url: https://github.com/JetBrains/JetBrainsMono/releases/download/v2.304/JetBrainsMono-2.304.zip
+    dest: /tmp/JetBrainsMono.zip
+    mode: "0644"
+  when: jetbrains_mono_check.rc != 0
+
+- name: Create fonts directory
+  ansible.builtin.file:
+    path: /usr/local/share/fonts/jetbrains-mono
+    state: directory
+    mode: "0755"
+  when: jetbrains_mono_check.rc != 0
+
+- name: Extract JetBrains Mono font
+  ansible.builtin.unarchive:
+    src: /tmp/JetBrainsMono.zip
+    dest: /usr/local/share/fonts/jetbrains-mono
+    remote_src: true
+  when: jetbrains_mono_check.rc != 0
+
+- name: Refresh font cache
+  ansible.builtin.command:
+    cmd: fc-cache -f
+  when: jetbrains_mono_check.rc != 0
+  changed_when: true
+
+# Neovim PPA for version 0.10+ (required for vim.uv API used in neovim.lua)
+- name: Add Neovim PPA
+  ansible.builtin.apt_repository:
+    repo: ppa:neovim-ppa/unstable
+    state: present
+    update_cache: true
+
+- name: Install Neovim from PPA
+  ansible.builtin.apt:
+    name: neovim
+    state: present
+
+- name: Verify Neovim version is 0.10+
+  ansible.builtin.shell:
+    cmd: set -o pipefail && nvim --version | head -1 | grep -oP '\d+\.\d+' | head -1
+    executable: /bin/bash
+  register: nvim_version
+  changed_when: false
+  failed_when: nvim_version.stdout is version('0.10', '<')
+
+- name: Create Neovim config directory
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/.config/nvim"
+    state: directory
+    mode: "0755"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: Deploy Neovim configuration
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../tuxedo/config/neovim.lua"
+    dest: "/home/{{ ansible_user }}/.config/nvim/init.lua"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+
+# GNU screen 5.0+ with truecolor support (Ubuntu only ships 4.x which lacks truecolor)
+- name: Check installed screen version
+  ansible.builtin.command:
+    cmd: /usr/local/bin/screen --version
+  register: screen_version_check
+  changed_when: false
+  failed_when: false
+
+- name: Download GNU screen 5.0.0 source
+  ansible.builtin.get_url:
+    url: https://ftp.gnu.org/gnu/screen/screen-5.0.0.tar.gz
+    dest: /tmp/screen-5.0.0.tar.gz
+    mode: "0644"
+    checksum: "sha256:f04a39d00a0e5c7c86a55338808903082ad5df4d73df1a2fd3425976aed94971"
+  when: screen_version_check.rc != 0 or 'version 5' not in screen_version_check.stdout
+
+- name: Extract screen source
+  ansible.builtin.unarchive:
+    src: /tmp/screen-5.0.0.tar.gz
+    dest: /tmp
+    remote_src: true
+  when: screen_version_check.rc != 0 or 'version 5' not in screen_version_check.stdout
+
+- name: Build and install screen 5.0.0
+  ansible.builtin.shell:
+    cmd: |
+      cd /tmp/screen-5.0.0
+      ./autogen.sh
+      ./configure --prefix=/usr/local
+      make -j$(nproc)
+      make install
+    creates: /usr/local/bin/screen
+  when: screen_version_check.rc != 0 or 'version 5' not in screen_version_check.stdout
+
+# Ghostty terminal support
+- name: Copy Ghostty terminfo
+  ansible.builtin.copy:
+    src: files/ghostty.terminfo
+    dest: /tmp/ghostty.terminfo
+    mode: "0644"
+  register: copy_terminfo_result
+
+- name: Check for existing compiled Ghostty terminfo
+  ansible.builtin.stat:
+    path: /usr/share/terminfo/g/ghostty
+  register: compiled_terminfo_stat
+
+- name: Compile Ghostty terminfo system-wide
+  ansible.builtin.command:
+    cmd: tic -x -o /usr/share/terminfo /tmp/ghostty.terminfo
+  when: copy_terminfo_result.changed or not compiled_terminfo_stat.stat.exists
+  changed_when: true
+
+# tmux-256color with truecolor support (required for Claude Code colors in screen/tmux)
+- name: Ensure user terminfo directory exists
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/.terminfo/t"
+    state: directory
+    mode: "0755"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: Copy tmux-256color truecolor terminfo source
+  ansible.builtin.copy:
+    src: files/tmux-256color-tc.terminfo
+    dest: /tmp/tmux-256color-tc.terminfo
+    mode: "0644"
+  register: copy_tmux_terminfo_result
+
+- name: Check for existing compiled tmux-256color terminfo
+  ansible.builtin.stat:
+    path: "/home/{{ ansible_user }}/.terminfo/t/tmux-256color"
+  register: compiled_tmux_terminfo_stat
+
+- name: Compile tmux-256color truecolor terminfo for user
+  ansible.builtin.command:
+    cmd: "tic -x -o /home/{{ ansible_user }}/.terminfo /tmp/tmux-256color-tc.terminfo"
+  become: true
+  become_user: "{{ ansible_user }}"
+  when: copy_tmux_terminfo_result.changed or not compiled_tmux_terminfo_stat.stat.exists
+  changed_when: true
+
+- name: Create keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Download and dearmor NodeSource GPG key
+  ansible.builtin.shell:
+    cmd: set -o pipefail && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+    executable: /bin/bash
+    creates: /etc/apt/keyrings/nodesource.gpg
+
+- name: Set permissions on NodeSource GPG key
+  ansible.builtin.file:
+    path: /etc/apt/keyrings/nodesource.gpg
+    mode: "0644"
+
+- name: Add NodeSource repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_{{ nodejs_major_version }}.x nodistro main"
+    state: present
+    filename: nodesource
+
+- name: Install Node.js
+  ansible.builtin.apt:
+    name: nodejs
+    state: present
+    update_cache: true
+
+# uv (Python package manager) -- required by scripts/setupSerenaMcp.sh
+- name: Check if uv is installed
+  ansible.builtin.stat:
+    path: "/home/{{ ansible_user }}/.local/bin/uv"
+  register: uv_stat
+
+- name: Install uv
+  ansible.builtin.shell:
+    cmd: set -o pipefail && curl -LsSf https://astral.sh/uv/install.sh | sh
+    executable: /bin/bash
+  become: true
+  become_user: "{{ ansible_user }}"
+  when: not uv_stat.stat.exists
+  changed_when: true
+
+- name: Check if Claude Code is installed
+  ansible.builtin.stat:
+    path: "/home/{{ ansible_user }}/.claude/local/claude"
+  register: claude_code_stat
+
+# SECURITY NOTE: The Claude Code installer script is dynamically maintained by Anthropic.
+# We still pin a known SHA-256 checksum (`claude_install_sha256`) for supply-chain integrity.
+# When updating Claude Code installer behavior, refresh this checksum intentionally.
+- name: Download Claude Code installer script
+  ansible.builtin.get_url:
+    url: https://claude.ai/install.sh
+    dest: /tmp/claude-install.sh
+    mode: "0755"
+    checksum: "sha256:{{ claude_install_sha256 }}"
+  when: not claude_code_stat.stat.exists
+
+- name: Install Claude Code CLI via native installer
+  ansible.builtin.command:
+    cmd: /tmp/claude-install.sh
+  become: true
+  become_user: "{{ ansible_user }}"
+  environment:
+    HOME: "/home/{{ ansible_user }}"
+  when: not claude_code_stat.stat.exists
+  changed_when: true
+
+- name: Install OpenAI Codex CLI
+  community.general.npm:
+    name: "@openai/codex"
+    global: true
+    state: present
+
+# Ghostty terminal emulator
+- name: Check if Ghostty is installed
+  ansible.builtin.command:
+    cmd: ghostty --version
+  register: ghostty_check
+  changed_when: false
+  failed_when: false
+
+- name: Download Ghostty .deb package
+  ansible.builtin.get_url:
+    url: >-
+      https://github.com/mkasberg/ghostty-ubuntu/releases/download/{{ ghostty_release_tag
+      }}/ghostty_{{ ghostty_package_version }}_amd64_{{ ghostty_ubuntu_codename }}.deb
+    dest: "/tmp/ghostty_{{ ghostty_package_version }}.deb"
+    mode: "0644"
+  when: ghostty_check.rc != 0
+
+- name: Install Ghostty from .deb
+  ansible.builtin.apt:
+    deb: "/tmp/ghostty_{{ ghostty_package_version }}.deb"
+  when: ghostty_check.rc != 0

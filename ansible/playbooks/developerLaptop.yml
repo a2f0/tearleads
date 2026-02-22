@@ -1,0 +1,20 @@
+---
+- name: Install developer tools on local machine
+  hosts: localhost
+  connection: local
+  become: true
+
+  vars:
+    ansible_user: "{{ lookup('env', 'USER') }}"
+    nodejs_major_version: 24
+    ghostty_release_tag: "1.2.3-0-ppa1"
+    ghostty_package_version: "1.2.3-0.ppa1"
+    ghostty_ubuntu_codename: "24.04"
+    claude_install_sha256: "a27f0c75029d86eab7313ce4d5a2464e4e68dcce76905a1462a76ab4f19937de"
+
+  tasks:
+    - name: Install shared developer toolchain
+      ansible.builtin.import_tasks: tasks/devToolchain.yml
+
+    - name: Configure laptop CLI shell environment
+      ansible.builtin.import_tasks: tasks/laptopCliEnvironment.yml
