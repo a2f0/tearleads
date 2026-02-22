@@ -4,12 +4,9 @@ set -e
 
 cd "$(dirname "$0")/../../terraform/stacks/staging/k8s"
 
-# Capture stderr to detect actual errors vs missing outputs
+# Use DNS hostname (matches known_hosts entries from developerWorkstation.yml)
 TF_STDERR=$(mktemp)
-HOSTNAME=$(terraform output -raw server_ip 2>"$TF_STDERR") || true
-if [ -z "$HOSTNAME" ]; then
-  HOSTNAME=$(terraform output -raw k8s_hostname 2>>"$TF_STDERR") || true
-fi
+HOSTNAME=$(terraform output -raw ssh_hostname 2>"$TF_STDERR") || true
 USERNAME=$(terraform output -raw server_username 2>>"$TF_STDERR") || true
 
 # Check for real errors (not just "output not found")
