@@ -1,6 +1,9 @@
 import { ThemeProvider } from '@tearleads/ui';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { EmailAboutMenuItem } from './ClientEmailProvider';
+import { NotesAboutMenuItem } from './ClientNotesProvider';
+import { VfsExplorerAboutMenuItem } from './ClientVfsExplorerProvider';
 
 vi.mock('@/hooks/app', () => ({
   useAppVersion: vi.fn(() => undefined)
@@ -21,20 +24,17 @@ vi.mock('@tearleads/vfs-explorer/package.json', () => ({
 const testCases = [
   {
     name: 'Email',
-    importPath: './ClientEmailProvider',
-    componentName: 'EmailAboutMenuItem',
+    Component: EmailAboutMenuItem,
     expectedVersion: '0.0.8'
   },
   {
     name: 'Notes',
-    importPath: './ClientNotesProvider',
-    componentName: 'NotesAboutMenuItem',
+    Component: NotesAboutMenuItem,
     expectedVersion: '0.0.1'
   },
   {
     name: 'VFS Explorer',
-    importPath: './ClientVfsExplorerProvider',
-    componentName: 'VfsExplorerAboutMenuItem',
+    Component: VfsExplorerAboutMenuItem,
     expectedVersion: '0.0.8'
   }
 ];
@@ -42,17 +42,14 @@ const testCases = [
 describe('ClientProvider AboutMenuItem wrappers', () => {
   it.each(
     testCases
-  )('renders $name AboutMenuItem with correct app name and version', async ({
+  )('renders $name AboutMenuItem with correct app name and version', ({
     name,
-    importPath,
-    componentName,
+    Component,
     expectedVersion
   }) => {
-    const module = await import(importPath);
-    const AboutMenuItemWrapper = module[componentName];
     render(
       <ThemeProvider>
-        <AboutMenuItemWrapper />
+        <Component />
       </ThemeProvider>
     );
 
