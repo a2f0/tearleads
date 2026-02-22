@@ -141,4 +141,70 @@ describe('secureWritePipelineRuntime streaming', () => {
     expect(result.manifest.chunkCount).toBe(10);
     expect(result.manifest.totalPlaintextBytes).toBe(10 * 1024);
   });
+
+  it('re-chunks highly fragmented input deterministically', async () => {
+    const seenPlaintextChunks: Uint8Array[] = [];
+    const encryptChunk = vi.fn(
+      async ({
+        chunkIndex,
+        isFinal,
+        plaintext
+      }: {
+        chunkIndex: number;
+        isFinal: boolean;
+        plaintext: Uint8Array;
+      }) => {
+        seenPlaintextChunks.push(plaintext);
+        return {
+          chunkIndex,
+          isFinal,
+          nonce: `nonce-${chunkIndex}`,
+          aadHash: `aad-${chunkIndex}`,
+          ciphertext: plaintext,
+          plaintextLength: plaintext.length,
+          ciphertextLength: plaintext.length
+        };
+      }
+    );
+
+    const pipeline = createVfsSecureWritePipeline({
+      engine: {
+        encryptChunk,
+        decryptChunk: vi.fn(),
+        signManifest: vi.fn(async () => 'sig'),
+        verifyManifest: vi.fn()
+      } satisfies VfsCryptoEngine,
+      chunkSizeBytes: 4
+    });
+
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array([1]));
+        controller.enqueue(new Uint8Array([2]));
+        controller.enqueue(new Uint8Array([3]));
+        controller.enqueue(new Uint8Array([4]));
+        controller.enqueue(new Uint8Array([5]));
+        controller.enqueue(new Uint8Array([6]));
+        controller.enqueue(new Uint8Array([7]));
+        controller.enqueue(new Uint8Array([8]));
+        controller.enqueue(new Uint8Array([9]));
+        controller.close();
+      }
+    });
+
+    const result = await pipeline.uploadEncryptedBlob({
+      itemId: 'item-fragmented',
+      blobId: 'blob-fragmented',
+      stream
+    });
+
+    expect(encryptChunk).toHaveBeenCalledTimes(3);
+    expect(seenPlaintextChunks).toEqual([
+      new Uint8Array([1, 2, 3, 4]),
+      new Uint8Array([5, 6, 7, 8]),
+      new Uint8Array([9])
+    ]);
+    expect(result.manifest.chunkCount).toBe(3);
+    expect(result.manifest.totalPlaintextBytes).toBe(9);
+  });
 });

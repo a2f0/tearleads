@@ -9,6 +9,13 @@ import {
   normalizeRequiredString,
   normalizeStageEncryptionMetadata
 } from './vfsBlobNetworkFlusherHelpers';
+import {
+  defaultRetrySleep,
+  emitTelemetryHook,
+  getBlobOperationErrorInfo,
+  isRetryableBlobOperationError,
+  normalizeRetryPolicy
+} from './vfsBlobNetworkFlusherRetry';
 import type {
   LoadStateCallback,
   PersistStateCallback,
@@ -24,6 +31,9 @@ import type {
   VfsBlobNetworkFlusherOptions,
   VfsBlobNetworkFlusherPersistedState,
   VfsBlobNetworkOperation,
+  VfsBlobNetworkOperationResultEvent,
+  VfsBlobNetworkRetryEvent,
+  VfsBlobNetworkRetryPolicy,
   VfsBlobStageQueueOperation,
   VfsBlobStageRequest
 } from './vfsBlobNetworkFlusherTypes';
@@ -49,6 +59,9 @@ export type {
   VfsBlobNetworkFlusherOptions,
   VfsBlobNetworkFlusherPersistedState,
   VfsBlobNetworkOperation,
+  VfsBlobNetworkOperationResultEvent,
+  VfsBlobNetworkRetryEvent,
+  VfsBlobNetworkRetryPolicy,
   VfsBlobRelationKind,
   VfsBlobStageQueueOperation,
   VfsBlobStageRequest,
@@ -62,6 +75,14 @@ export class VfsBlobNetworkFlusher {
   private readonly fetchImpl: typeof fetch;
   private readonly saveState: PersistStateCallback | null;
   private readonly loadState: LoadStateCallback | null;
+  private readonly retryPolicy: VfsBlobNetworkRetryPolicy;
+  private readonly retrySleep: (delayMs: number) => Promise<void>;
+  private readonly onRetry:
+    | ((event: VfsBlobNetworkRetryEvent) => Promise<void> | void)
+    | undefined;
+  private readonly onOperationResult:
+    | ((event: VfsBlobNetworkOperationResultEvent) => Promise<void> | void)
+    | undefined;
   private readonly pendingOperations: VfsBlobNetworkOperation[] = [];
   private flushPromise: Promise<VfsBlobNetworkFlusherFlushResult> | null = null;
 
@@ -72,6 +93,15 @@ export class VfsBlobNetworkFlusher {
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.saveState = options.saveState ?? null;
     this.loadState = options.loadState ?? null;
+    this.retryPolicy = normalizeRetryPolicy(options.retryPolicy);
+    this.onRetry = options.onRetry;
+    this.onOperationResult = options.onOperationResult;
+    this.retrySleep = async (delayMs) => {
+      await Promise.resolve(options.retrySleep?.(delayMs));
+      if (!options.retrySleep) {
+        await defaultRetrySleep(delayMs);
+      }
+    };
   }
 
   queuedOperations(): VfsBlobNetworkOperation[] {
@@ -355,15 +385,7 @@ export class VfsBlobNetworkFlusher {
           break;
         }
 
-        await executeBlobNetworkOperation(
-          {
-            baseUrl: this.baseUrl,
-            apiPrefix: this.apiPrefix,
-            headers: this.headers,
-            fetchImpl: this.fetchImpl
-          },
-          operation
-        );
+        await this.executeOperationWithRetry(operation);
         processedOperations += 1;
         await this.persistPendingFromOffset(processedOperations);
       }
@@ -387,5 +409,70 @@ export class VfsBlobNetworkFlusher {
     await this.saveState({
       pendingOperations: cloneOperations(this.pendingOperations.slice(offset))
     });
+  }
+
+  private async executeOperationWithRetry(
+    operation: VfsBlobNetworkOperation
+  ): Promise<void> {
+    let attempt = 1;
+    let delayMs = this.retryPolicy.initialDelayMs;
+
+    // Retry only transient failures and keep retries bounded.
+    while (true) {
+      try {
+        await executeBlobNetworkOperation(
+          {
+            baseUrl: this.baseUrl,
+            apiPrefix: this.apiPrefix,
+            headers: this.headers,
+            fetchImpl: this.fetchImpl
+          },
+          operation
+        );
+        await emitTelemetryHook(this.onOperationResult, {
+          operationId: operation.operationId,
+          operationKind: operation.kind,
+          attempts: attempt,
+          retryCount: Math.max(0, attempt - 1),
+          success: true
+        });
+        return;
+      } catch (error) {
+        const errorInfo = getBlobOperationErrorInfo(error, this.retryPolicy);
+        const canRetry =
+          attempt < this.retryPolicy.maxAttempts &&
+          isRetryableBlobOperationError(error, this.retryPolicy);
+        if (!canRetry) {
+          await emitTelemetryHook(this.onOperationResult, {
+            operationId: operation.operationId,
+            operationKind: operation.kind,
+            attempts: attempt,
+            retryCount: Math.max(0, attempt - 1),
+            success: false,
+            failureClass: errorInfo.failureClass,
+            statusCode: errorInfo.statusCode,
+            retryable: errorInfo.retryable
+          });
+          throw error;
+        }
+
+        await emitTelemetryHook(this.onRetry, {
+          operationId: operation.operationId,
+          operationKind: operation.kind,
+          attempt,
+          maxAttempts: this.retryPolicy.maxAttempts,
+          delayMs,
+          failureClass: errorInfo.failureClass,
+          statusCode: errorInfo.statusCode
+        });
+      }
+
+      await this.retrySleep(delayMs);
+      delayMs = Math.min(
+        this.retryPolicy.maxDelayMs,
+        Math.max(1, Math.round(delayMs * this.retryPolicy.backoffMultiplier))
+      );
+      attempt += 1;
+    }
   }
 }

@@ -247,7 +247,8 @@ async function* splitStreamIntoChunks(
   chunkSizeBytes: number
 ): AsyncGenerator<Uint8Array<ArrayBuffer>> {
   const reader = stream.getReader();
-  let carry: Uint8Array<ArrayBuffer> = new Uint8Array(0);
+  const pendingSegments: Uint8Array[] = [];
+  let pendingBytes = 0;
 
   try {
     while (true) {
@@ -259,32 +260,50 @@ async function* splitStreamIntoChunks(
         continue;
       }
 
-      carry = concatBytes(carry, value);
-      while (carry.length >= chunkSizeBytes) {
-        yield carry.slice(0, chunkSizeBytes);
-        carry = carry.slice(chunkSizeBytes);
+      pendingSegments.push(value);
+      pendingBytes += value.length;
+
+      while (pendingBytes >= chunkSizeBytes) {
+        yield drainPendingBytes(pendingSegments, chunkSizeBytes);
+        pendingBytes -= chunkSizeBytes;
       }
     }
   } finally {
     reader.releaseLock();
   }
 
-  if (carry.length > 0) {
-    yield carry;
+  if (pendingBytes > 0) {
+    yield drainPendingBytes(pendingSegments, pendingBytes);
   }
 }
 
-function concatBytes(
-  left: Uint8Array,
-  right: Uint8Array
+function drainPendingBytes(
+  pendingSegments: Uint8Array[],
+  bytesToDrain: number
 ): Uint8Array<ArrayBuffer> {
-  if (left.length === 0) {
-    return new Uint8Array(right);
+  const drained = new Uint8Array(bytesToDrain);
+  let offset = 0;
+
+  while (offset < bytesToDrain) {
+    const segment = pendingSegments[0];
+    if (!segment) {
+      throw new Error('Stream chunking invariant violated: no pending segment');
+    }
+
+    const remaining = bytesToDrain - offset;
+    if (segment.length <= remaining) {
+      drained.set(segment, offset);
+      offset += segment.length;
+      pendingSegments.shift();
+      continue;
+    }
+
+    drained.set(segment.subarray(0, remaining), offset);
+    pendingSegments[0] = segment.subarray(remaining);
+    offset += remaining;
   }
-  const combined = new Uint8Array(left.length + right.length);
-  combined.set(left, 0);
-  combined.set(right, left.length);
-  return combined;
+
+  return drained;
 }
 
 async function hashBase64(input: Uint8Array): Promise<string> {

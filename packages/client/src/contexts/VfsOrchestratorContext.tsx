@@ -21,6 +21,8 @@ import {
   useMemo,
   useState
 } from 'react';
+import { getDatabase, isDatabaseInitialized } from '@/db';
+import { logEvent } from '@/db/analytics';
 import { createItemKeyStore } from '@/db/vfsItemKeys';
 import { createRecipientPublicKeyResolver } from '@/db/vfsRecipientKeyResolver';
 import { createUserKeyProvider } from '@/db/vfsUserKeyProvider';
@@ -72,6 +74,48 @@ export function VfsOrchestratorProvider({
 
   const effectiveBaseUrl = baseUrl ?? import.meta.env.VITE_API_URL ?? '';
 
+  const logBlobFlushOperationTelemetry = useCallback(
+    async (event: {
+      operationKind: 'stage' | 'attach' | 'abandon' | 'chunk' | 'commit';
+      attempts: number;
+      retryCount: number;
+      success: boolean;
+      failureClass?: 'http_status' | 'network' | 'unknown' | undefined;
+      statusCode?: number | undefined;
+      retryable?: boolean | undefined;
+    }): Promise<void> => {
+      // Keep chunk-volume noise low: log chunks only when they retried or failed.
+      if (
+        event.operationKind === 'chunk' &&
+        event.success &&
+        event.retryCount === 0
+      ) {
+        return;
+      }
+
+      if (!isDatabaseInitialized()) {
+        return;
+      }
+
+      try {
+        const db = getDatabase();
+        await logEvent(db, 'vfs_blob_flush_operation', 0, event.success, {
+          operationKind: event.operationKind,
+          attempts: event.attempts,
+          retryCount: event.retryCount,
+          ...(event.failureClass && { failureClass: event.failureClass }),
+          ...(event.statusCode !== undefined && {
+            statusCode: event.statusCode
+          }),
+          ...(event.retryable !== undefined && { retryable: event.retryable })
+        });
+      } catch (err) {
+        console.warn('Failed to log vfs_blob_flush_operation event:', err);
+      }
+    },
+    []
+  );
+
   const initialize = useCallback(async () => {
     if (!user || !isAuthenticated) {
       setOrchestrator(null);
@@ -94,7 +138,8 @@ export function VfsOrchestratorProvider({
         },
         blob: {
           baseUrl: effectiveBaseUrl,
-          apiPrefix
+          apiPrefix,
+          onOperationResult: logBlobFlushOperationTelemetry
         }
       });
 
@@ -142,7 +187,13 @@ export function VfsOrchestratorProvider({
     } finally {
       setIsInitializing(false);
     }
-  }, [user, isAuthenticated, effectiveBaseUrl, apiPrefix]);
+  }, [
+    user,
+    isAuthenticated,
+    effectiveBaseUrl,
+    apiPrefix,
+    logBlobFlushOperationTelemetry
+  ]);
 
   // Initialize when user becomes authenticated
   useEffect(() => {

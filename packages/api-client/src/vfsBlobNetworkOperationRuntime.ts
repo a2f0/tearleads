@@ -317,9 +317,11 @@ async function requestJson(
   const parsedBody = parseBody(rawBody);
 
   if (!response.ok) {
-    throw new Error(
+    const error = new Error(
       parseErrorMessage(parsedBody, `API error: ${response.status}`)
     );
+    Reflect.set(error, 'status', response.status);
+    throw error;
   }
 
   return parsedBody;
