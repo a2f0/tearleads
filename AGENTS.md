@@ -171,6 +171,12 @@ Files must stay below 500 lines and 20,000 bytes. When the guardrail trips, spli
 - Do not install or upgrade Node with Homebrew in agent workflows.
 - Scripts that manage Node versions must fail fast when `nvm` is unavailable, then run `nvm install && nvm use` against repo `.nvmrc`.
 
+## Dependency Installation Policy
+
+- It is always acceptable to install dependencies when needed to run tooling, tests, or scripts.
+- Use `pnpm i` for a direct dependency install in the current workspace.
+- Use `scripts/agents/refresh.sh` when a full workspace refresh is needed (main sync + install/build), especially after merges or large upstream changes.
+
 ## Greenfield Compatibility Policy
 
 - This repository is in greenfield design mode and not in production.

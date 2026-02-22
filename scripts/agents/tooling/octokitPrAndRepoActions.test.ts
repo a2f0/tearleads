@@ -259,7 +259,7 @@ test('getReviewThreadsWithOctokit filters unresolved threads', async () => {
                         nodes: [
                           {
                             id: 'C1',
-                            databaseId: 10,
+                            fullDatabaseId: '10',
                             author: { login: 'x' },
                             body: 'b'
                           }
@@ -281,6 +281,7 @@ test('getReviewThreadsWithOctokit filters unresolved threads', async () => {
   const parsed = JSON.parse(output);
   assert.equal(parsed.length, 1);
   assert.equal(parsed[0].id, 'T2');
+  assert.equal(parsed[0].comments[0].databaseId, '10');
 });
 
 test('triggerGeminiReviewWithOctokit can timeout immediately', async () => {
