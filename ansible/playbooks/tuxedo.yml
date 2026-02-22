@@ -6,7 +6,8 @@
   vars:
     ansible_python_interpreter: /usr/bin/python3
     nodejs_major_version: 24
-    ghostty_version: "1.2.3-0.ppa1"
+    ghostty_release_tag: "1.2.3-0-ppa1"
+    ghostty_package_version: "1.2.3-0.ppa1"
     ghostty_ubuntu_codename: "24.04"
     linux_security_baseline_manage_ufw: true
     linux_security_baseline_ufw_allow_rules:

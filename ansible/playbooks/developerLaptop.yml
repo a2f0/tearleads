@@ -7,7 +7,8 @@
   vars:
     ansible_user: "{{ lookup('env', 'USER') }}"
     nodejs_major_version: 24
-    ghostty_version: "1.2.3-0.ppa1"
+    ghostty_release_tag: "1.2.3-0-ppa1"
+    ghostty_package_version: "1.2.3-0.ppa1"
     ghostty_ubuntu_codename: "24.04"
 
   tasks:

@@ -1,6 +1,11 @@
 ---
 # Shared developer toolchain tasks
-# Expects variables: ansible_user, nodejs_major_version, ghostty_version, ghostty_ubuntu_codename
+# Expects variables:
+# - ansible_user
+# - nodejs_major_version
+# - ghostty_release_tag (e.g. 1.2.3-0-ppa1)
+# - ghostty_package_version (e.g. 1.2.3-0.ppa1)
+# - ghostty_ubuntu_codename (e.g. 24.04)
 
 - name: Update apt cache and upgrade all packages
   ansible.builtin.apt:
@@ -277,13 +282,13 @@
 - name: Download Ghostty .deb package
   ansible.builtin.get_url:
     url: >-
-      https://github.com/mkasberg/ghostty-ubuntu/releases/download/{{ ghostty_version
-      }}/ghostty_{{ ghostty_version }}_amd64_{{ ghostty_ubuntu_codename }}.deb
-    dest: "/tmp/ghostty_{{ ghostty_version }}.deb"
+      https://github.com/mkasberg/ghostty-ubuntu/releases/download/{{ ghostty_release_tag
+      }}/ghostty_{{ ghostty_package_version }}_amd64_{{ ghostty_ubuntu_codename }}.deb
+    dest: "/tmp/ghostty_{{ ghostty_package_version }}.deb"
     mode: "0644"
   when: ghostty_check.rc != 0
 
 - name: Install Ghostty from .deb
   ansible.builtin.apt:
-    deb: "/tmp/ghostty_{{ ghostty_version }}.deb"
+    deb: "/tmp/ghostty_{{ ghostty_package_version }}.deb"
   when: ghostty_check.rc != 0
