@@ -1,4 +1,7 @@
 import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
 
 export interface AuthProvider {
   getGitHubToken(): string;
@@ -30,6 +33,33 @@ function readTokenFromGh(): string | null {
   }
 }
 
+function readTokenFromGhConfig(): string | null {
+  const host = process.env['GITHUB_HOST']?.trim() ?? 'github.com';
+  const configDir =
+    process.env['XDG_CONFIG_HOME']?.trim() ?? join(homedir(), '.config');
+  const hostsPath = join(configDir, 'gh', 'hosts.yml');
+
+  if (!existsSync(hostsPath)) return null;
+
+  try {
+    const content = readFileSync(hostsPath, 'utf8');
+    const hostSection = new RegExp(
+      `^${host.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:`,
+      'm'
+    );
+    if (!hostSection.test(content)) return null;
+
+    const hostStart = content.search(hostSection);
+    const afterHost = content.slice(hostStart);
+    const match = afterHost.match(/^\s+oauth_token:\s*(.+)$/m);
+    if (!match?.[1]) return null;
+
+    return match[1].trim();
+  } catch {
+    return null;
+  }
+}
+
 class DefaultAuthProvider implements AuthProvider {
   getGitHubToken(): string {
     const envToken = readTokenFromEnv();
@@ -37,6 +67,9 @@ class DefaultAuthProvider implements AuthProvider {
 
     const ghToken = readTokenFromGh();
     if (ghToken) return ghToken;
+
+    const configToken = readTokenFromGhConfig();
+    if (configToken) return configToken;
 
     throw new Error(
       'Missing GitHub token. Set GITHUB_TOKEN/GH_TOKEN or authenticate gh (`gh auth login`).'
