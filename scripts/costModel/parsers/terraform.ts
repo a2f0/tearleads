@@ -57,7 +57,7 @@ function extractAttribute(block: string, attrName: string): string | undefined {
 /**
  * Parse a single .tf file and extract resources
  */
-export function parseTerraformFile(filePath: string): TerraformResource[] {
+function parseTerraformFile(filePath: string): TerraformResource[] {
   const content = fs.readFileSync(filePath, 'utf-8');
   const resources: TerraformResource[] = [];
 
@@ -117,7 +117,7 @@ export function parseTerraformFile(filePath: string): TerraformResource[] {
 /**
  * Find and parse all .tf files in a directory
  */
-export function parseTerraformDirectory(dirPath: string): TerraformResource[] {
+function parseTerraformDirectory(dirPath: string): TerraformResource[] {
   const resources: TerraformResource[] = [];
 
   if (!fs.existsSync(dirPath)) {

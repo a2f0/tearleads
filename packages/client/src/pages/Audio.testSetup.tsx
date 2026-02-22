@@ -34,7 +34,6 @@ export const mockGetCurrentKey = vi.fn();
 
 // File storage mocks
 export const mockRetrieve = vi.fn();
-export const mockStore = vi.fn();
 export const mockIsFileStorageInitialized = vi.fn();
 export const mockInitializeFileStorage = vi.fn();
 

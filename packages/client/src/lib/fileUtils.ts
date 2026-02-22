@@ -124,16 +124,6 @@ export async function computeContentHashStreaming(
 }
 
 /**
- * Clone a ReadableStream into two independent streams.
- * Useful when you need to both hash and process the same stream.
- */
-export function teeStream(
-  stream: ReadableStream<Uint8Array>
-): [ReadableStream<Uint8Array>, ReadableStream<Uint8Array>] {
-  return stream.tee();
-}
-
-/**
  * Check if the Web Share API with file sharing is supported.
  */
 export function canShareFiles(): boolean {

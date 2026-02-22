@@ -6,7 +6,7 @@
 
 import { query } from './postgres';
 
-export interface OrganizationBillingSummary {
+interface OrganizationBillingSummary {
   organizationId: string;
   organizationName: string;
   entitlementStatus: string;
@@ -16,7 +16,7 @@ export interface OrganizationBillingSummary {
   createdAt: Date;
 }
 
-export interface AiUsageSummary {
+interface AiUsageSummary {
   organizationId: string | null;
   organizationName: string | null;
   totalPromptTokens: number;
@@ -27,7 +27,7 @@ export interface AiUsageSummary {
   periodEnd: Date;
 }
 
-export interface UserCountSummary {
+interface UserCountSummary {
   totalUsers: number;
   activeUsers: number;
   disabledUsers: number;

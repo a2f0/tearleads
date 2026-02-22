@@ -302,7 +302,7 @@ vi.mock('@/components/admin-window', () => ({
   })
 }));
 
-export const mockOpenWindow = vi.fn();
+const mockOpenWindow = vi.fn();
 export const mockCloseWindow = vi.fn();
 export const mockFocusWindow = vi.fn();
 export const mockMinimizeWindow = vi.fn();

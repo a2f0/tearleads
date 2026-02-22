@@ -6,7 +6,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-export interface ConfigPaths {
+interface ConfigPaths {
   root: string;
   database: string;
   keyData: string;

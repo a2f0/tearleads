@@ -136,8 +136,3 @@ export function useAudioActions(
     handleDelete
   };
 }
-
-export function useCurrentTrackState() {
-  const { currentTrack, isPlaying } = useAudio();
-  return { currentTrack, isPlaying };
-}

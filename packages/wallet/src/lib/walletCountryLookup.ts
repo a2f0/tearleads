@@ -1,4 +1,4 @@
-export interface WalletCountryOption {
+interface WalletCountryOption {
   code: string;
   name: string;
   label: string;

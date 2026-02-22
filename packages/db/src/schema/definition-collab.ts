@@ -2,14 +2,12 @@ import type { TableDefinition } from './types.js';
 
 // Re-export from split modules
 export {
-  collabHealthTables,
   healthBloodPressureReadingsTable,
   healthWeightReadingsTable,
   healthWorkoutEntriesTable
 } from './definition-collab-health.js';
 
 export {
-  collabVfsTables,
   userKeysTable,
   vfsLinksTable,
   vfsRegistryTable

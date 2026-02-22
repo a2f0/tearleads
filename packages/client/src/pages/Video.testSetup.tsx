@@ -32,7 +32,7 @@ export const TEST_VIDEO_2 = {
   thumbnailPath: '/thumbnails/another-video.jpg'
 };
 
-export const TEST_VIDEO_DATA = new Uint8Array([
+const TEST_VIDEO_DATA = new Uint8Array([
   0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70
 ]); // MP4 magic bytes
 
@@ -57,7 +57,7 @@ export function createMockQueryChain(result: unknown[]) {
   };
 }
 
-export function createMockUpdateChain() {
+function createMockUpdateChain() {
   return {
     set: vi.fn().mockReturnValue({
       where: vi.fn().mockResolvedValue(undefined)
@@ -73,7 +73,7 @@ export function createMockUpdateChain() {
  * Creates all mock functions needed for Video tests.
  * Each test file should call this in vi.hoisted() to get properly scoped mocks.
  */
-export function createVideoMocks() {
+function createVideoMocks() {
   return {
     // Database context mock
     mockUseDatabaseContext: vi.fn(),

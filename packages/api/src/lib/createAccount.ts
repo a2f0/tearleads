@@ -1,4 +1,4 @@
-export type CreateAccountInput = {
+type CreateAccountInput = {
   email: string;
   password: string;
 };

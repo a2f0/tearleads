@@ -14,7 +14,7 @@ export type BillingEntitlementStatus =
   | 'grace_period'
   | 'expired';
 
-export type RevenueCatWebhookEvent = {
+type RevenueCatWebhookEvent = {
   id: string;
   type: string;
   app_user_id: string;
@@ -24,7 +24,7 @@ export type RevenueCatWebhookEvent = {
   expiration_at_ms: number | null;
 };
 
-export type RevenueCatWebhookPayload = {
+type RevenueCatWebhookPayload = {
   rawPayload: Record<string, unknown>;
   event: RevenueCatWebhookEvent;
 };
@@ -43,10 +43,9 @@ const SUPPORTED_REVENUECAT_EVENT_TYPES = [
   'SUBSCRIPTION_EXTENDED'
 ] as const;
 
-export type RevenueCatEventType =
-  (typeof SUPPORTED_REVENUECAT_EVENT_TYPES)[number];
+type RevenueCatEventType = (typeof SUPPORTED_REVENUECAT_EVENT_TYPES)[number];
 
-export type RevenueCatReplayWindowValidation =
+type RevenueCatReplayWindowValidation =
   | {
       valid: true;
       eventAt: Date;

@@ -26,7 +26,7 @@ export function isTestMode(): boolean {
 /**
  * Get the test worker index from the injected global, or null if not in test mode.
  */
-export function getTestWorkerIndex(): number | null {
+function getTestWorkerIndex(): number | null {
   if (typeof window === 'undefined') return null;
   const index = window.__PLAYWRIGHT_WORKER_INDEX__;
   return typeof index === 'number' && Number.isFinite(index) && index >= 0

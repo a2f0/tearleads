@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { getPostgresPool } from '../lib/postgres.js';
 import type { SessionData } from '../lib/sessions.js';
 
-export type AdminAccessContext = {
+type AdminAccessContext = {
   isRootAdmin: boolean;
   organizationIds: string[];
 };

@@ -42,7 +42,7 @@ if (typeof privateKeyPem !== 'string' || typeof publicKeyPem !== 'string') {
   throw new Error('Unable to export msw signing key pair as PEM strings');
 }
 
-export const TEE_API_MSW_KEY_ID = 'tee-msw-primary';
+const TEE_API_MSW_KEY_ID = 'tee-msw-primary';
 
 export function teeApiMswTrustedPublicKeys(): Record<string, string> {
   return {

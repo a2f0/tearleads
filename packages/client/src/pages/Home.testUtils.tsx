@@ -2,15 +2,7 @@
  * Shared test utilities for Home page tests.
  */
 
-import { ThemeProvider } from '@tearleads/ui';
-import { render } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
-import { WindowManagerProvider } from '@/contexts/WindowManagerContext';
-import { setupScreensaverMock } from '@/test/screensaverMock';
-import { Home } from './Home';
-
-export const mockNavigate = vi.fn();
 
 export const mockGetSetting = vi.fn();
 
@@ -50,37 +42,6 @@ export const MOCK_SAVED_POSITIONS = {
   '/classic': { x: 400, y: 700 },
   '/backups': { x: 500, y: 700 }
 };
-
-export function setupHomeMocks() {
-  vi.mock('react-router-dom', async () => {
-    const actual = await vi.importActual('react-router-dom');
-    return {
-      ...actual,
-      useNavigate: () => mockNavigate
-    };
-  });
-
-  vi.mock('@tearleads/settings', () => ({
-    useSettings: () => ({
-      getSetting: mockGetSetting,
-      setSetting: vi.fn()
-    })
-  }));
-
-  setupScreensaverMock();
-}
-
-export function renderHome() {
-  return render(
-    <ThemeProvider>
-      <WindowManagerProvider>
-        <MemoryRouter>
-          <Home />
-        </MemoryRouter>
-      </WindowManagerProvider>
-    </ThemeProvider>
-  );
-}
 
 export function setupDefaultMockSettings() {
   mockGetSetting.mockImplementation((key: string) => {

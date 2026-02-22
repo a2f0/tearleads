@@ -73,7 +73,7 @@ function reducer(
   }
 }
 
-export interface UseBackupManagerResult {
+interface UseBackupManagerResult {
   password: string;
   confirmPassword: string;
   includeBlobs: boolean;

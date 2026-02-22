@@ -8,7 +8,7 @@ export interface PhotoAlbum {
   albumType: AlbumType;
 }
 
-export type SystemAlbumType = Exclude<AlbumType, 'custom'>;
+type SystemAlbumType = Exclude<AlbumType, 'custom'>;
 
 export const SYSTEM_ALBUM_TYPES: SystemAlbumType[] = ['photoroll'];
 

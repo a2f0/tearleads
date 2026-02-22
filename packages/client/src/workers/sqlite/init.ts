@@ -62,14 +62,10 @@ export function getCurrentDbFilename(): string | null {
   return currentDbFilename;
 }
 
-export function getSqliteBaseUrl(): string | null {
-  return sqliteBaseUrl;
-}
-
 /**
  * Initialize SQLite WASM module (only runs once per worker lifetime).
  */
-export async function initializeSqliteWasm(): Promise<void> {
+async function initializeSqliteWasm(): Promise<void> {
   if (sqlite3) {
     debugLog('SQLite WASM already initialized');
     return;

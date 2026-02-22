@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 
-export interface VirtualListStatusProps {
+interface VirtualListStatusProps {
   firstVisible: number | null;
   lastVisible: number | null;
   loadedCount: number;

@@ -10,7 +10,7 @@ export const mockUnlock = vi.fn();
 export const mockRestoreSession = vi.fn();
 export const mockLock = vi.fn();
 export const mockExportDatabase = vi.fn();
-export const mockImportDatabase = vi.fn();
+const mockImportDatabase = vi.fn();
 export const mockChangePassword = vi.fn();
 export const mockSwitchInstance = vi.fn();
 
@@ -33,11 +33,11 @@ export const mockContext = {
 };
 
 export const mockSaveFile = vi.fn();
-export const mockGetErrorMessage = vi.fn((error: unknown) =>
+const mockGetErrorMessage = vi.fn((error: unknown) =>
   error instanceof Error ? error.message : String(error)
 );
-export const mockGenerateBackupFilename = vi.fn(() => 'tearleads-backup.db');
-export const mockReadFileAsUint8Array = vi.fn(() =>
+const mockGenerateBackupFilename = vi.fn(() => 'tearleads-backup.db');
+const mockReadFileAsUint8Array = vi.fn(() =>
   Promise.resolve(new Uint8Array([1, 2, 3]))
 );
 

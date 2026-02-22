@@ -116,7 +116,7 @@ function calculateResourceCost(
   };
 }
 
-export interface EstimateResult {
+interface EstimateResult {
   resources: ResourceCost[];
   totalMonthlyCostUsd: number;
   providerTotals: Record<Provider, number>;

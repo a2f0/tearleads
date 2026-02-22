@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { PhotoAlbum } from './usePhotoAlbums';
 
-export interface RenameAlbumDialogProps {
+interface RenameAlbumDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   album: PhotoAlbum | null;

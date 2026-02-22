@@ -83,18 +83,6 @@ export interface BlobHeader {
   totalParts?: number;
 }
 
-/** Chunk header structure (20 bytes) */
-export interface ChunkHeader {
-  /** Length of the encrypted payload */
-  payloadLength: number;
-  /** Type of chunk (manifest, database, blob) */
-  chunkType: ChunkTypeValue;
-  /** Reserved bytes for future use */
-  reserved: Uint8Array;
-  /** Initialization vector for AES-GCM */
-  iv: Uint8Array;
-}
-
 /** Progress event during backup/restore */
 export interface BackupProgressEvent {
   /** Current phase of the operation */

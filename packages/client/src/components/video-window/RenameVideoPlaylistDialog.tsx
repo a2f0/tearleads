@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { useDialogAccessibility } from '@/hooks/ui';
 import type { VideoPlaylist } from '@/video/VideoPlaylistContext';
 
-export interface RenameVideoPlaylistDialogProps {
+interface RenameVideoPlaylistDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   playlist: VideoPlaylist | null;

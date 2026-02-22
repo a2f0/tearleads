@@ -117,7 +117,7 @@ interface MlsChatPageProps {
   className?: string;
 }
 
-export const MlsChatPage: FC<MlsChatPageProps> = ({ className }) => {
+const MlsChatPage: FC<MlsChatPageProps> = ({ className }) => {
   const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();
   const { token, user } = useAuth();
 
