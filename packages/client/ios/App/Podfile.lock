@@ -13,8 +13,6 @@ PODS:
     - IONFilesystemLib (~> 1.1.1)
   - CapacitorKeyboard (8.0.0):
     - Capacitor
-  - CapacitorPreferences (8.0.1):
-    - Capacitor
   - CapacitorShare (8.0.1):
     - Capacitor
   - CapawesomeCapacitorFilePicker (8.0.2):
@@ -36,7 +34,6 @@ DEPENDENCIES:
   - "CapacitorCordova (from `../../../../node_modules/.pnpm/@capacitor+ios@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/ios`)"
   - "CapacitorFilesystem (from `../../../../node_modules/.pnpm/@capacitor+filesystem@8.1.2_@capacitor+core@8.1.0/node_modules/@capacitor/filesystem`)"
   - "CapacitorKeyboard (from `../../../../node_modules/.pnpm/@capacitor+keyboard@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/keyboard`)"
-  - "CapacitorPreferences (from `../../../../node_modules/.pnpm/@capacitor+preferences@8.0.1_@capacitor+core@8.1.0/node_modules/@capacitor/preferences`)"
   - "CapacitorShare (from `../../../../node_modules/.pnpm/@capacitor+share@8.0.1_@capacitor+core@8.1.0/node_modules/@capacitor/share`)"
   - "CapawesomeCapacitorFilePicker (from `../../../../node_modules/.pnpm/@capawesome+capacitor-file-picker@8.0.2_@capacitor+core@8.1.0/node_modules/@capawesome/capacitor-file-picker`)"
   - "CapgoCapacitorNativeBiometric (from `../../../../node_modules/.pnpm/@capgo+capacitor-native-biometric@8.4.1_@capacitor+core@8.1.0/node_modules/@capgo/capacitor-native-biometric`)"
@@ -60,8 +57,6 @@ EXTERNAL SOURCES:
     :path: "../../../../node_modules/.pnpm/@capacitor+filesystem@8.1.2_@capacitor+core@8.1.0/node_modules/@capacitor/filesystem"
   CapacitorKeyboard:
     :path: "../../../../node_modules/.pnpm/@capacitor+keyboard@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/keyboard"
-  CapacitorPreferences:
-    :path: "../../../../node_modules/.pnpm/@capacitor+preferences@8.0.1_@capacitor+core@8.1.0/node_modules/@capacitor/preferences"
   CapacitorShare:
     :path: "../../../../node_modules/.pnpm/@capacitor+share@8.0.1_@capacitor+core@8.1.0/node_modules/@capacitor/share"
   CapawesomeCapacitorFilePicker:
@@ -76,7 +71,6 @@ SPEC CHECKSUMS:
   CapacitorCordova: e8b76fd95fc1e157775abc484c59cc0de464095d
   CapacitorFilesystem: 2db285a1ac6e475cc27cae2e1bea999000f9e2be
   CapacitorKeyboard: d7868c079a4d5277a3deca27a10a488fcbbb8b69
-  CapacitorPreferences: cca2021f386efb75947c850334447d9ff22b14f1
   CapacitorShare: 0c58305114538568059bfc07111f22dcb9cb2a82
   CapawesomeCapacitorFilePicker: eb29fb54c59614fede51e0e0fe25070dda9d024c
   CapgoCapacitorNativeBiometric: c9a116d9516b3f52dd335aea6a0c5073be36fe5a
@@ -84,6 +78,6 @@ SPEC CHECKSUMS:
   SQLCipher: eb79c64049cb002b4e9fcb30edb7979bf4706dfc
   ZIPFoundation: dfd3d681c4053ff7e2f7350bc4e53b5dba3f5351
 
-PODFILE CHECKSUM: ceb0ec90abf584bb1c57bd82481b9633493ce28a
+PODFILE CHECKSUM: bdbfbc3a88a8cf2377fe2c7cc59c94955c9b7e6b
 
 COCOAPODS: 1.16.2
