@@ -253,6 +253,7 @@
     url: https://claude.ai/install.sh
     dest: /tmp/claude-install.sh
     mode: "0755"
+    checksum: "sha256:{{ claude_install_sha256 }}"
   when: not claude_code_stat.stat.exists
 
 - name: Install Claude Code CLI via native installer
