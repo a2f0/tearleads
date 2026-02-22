@@ -1,0 +1,379 @@
+/**
+ * Tests for useConversations hook.
+ */
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  clearConversationKeyCache,
+  useConversations
+} from './useConversations';
+
+// Mock the API
+const mockListConversations = vi.fn();
+const mockCreateConversation = vi.fn();
+const mockGetConversation = vi.fn();
+const mockUpdateConversation = vi.fn();
+const mockDeleteConversation = vi.fn();
+const mockAddMessage = vi.fn();
+
+vi.mock('@/lib/api', () => ({
+  api: {
+    ai: {
+      listConversations: (...args: unknown[]) => mockListConversations(...args),
+      createConversation: (...args: unknown[]) =>
+        mockCreateConversation(...args),
+      getConversation: (...args: unknown[]) => mockGetConversation(...args),
+      updateConversation: (...args: unknown[]) =>
+        mockUpdateConversation(...args),
+      deleteConversation: (...args: unknown[]) =>
+        mockDeleteConversation(...args),
+      addMessage: (...args: unknown[]) => mockAddMessage(...args)
+    }
+  }
+}));
+
+// Mock conversation crypto
+vi.mock('@/lib/conversationCrypto', () => ({
+  createConversationEncryption: vi.fn().mockResolvedValue({
+    encryptedTitle: 'encrypted-title',
+    encryptedSessionKey: 'encrypted-key',
+    sessionKey: new Uint8Array(32)
+  }),
+  decryptConversation: vi.fn().mockImplementation((conv) =>
+    Promise.resolve({
+      ...conv,
+      title: 'Decrypted Title'
+    })
+  ),
+  decryptMessages: vi.fn().mockResolvedValue([]),
+  encryptMessage: vi.fn().mockResolvedValue('encrypted-content'),
+  encryptTitle: vi.fn().mockResolvedValue('encrypted-title'),
+  generateTitleFromMessage: vi.fn().mockReturnValue('Generated Title')
+}));
+
+// Mock VFS keys
+vi.mock('@/hooks/vfs', () => ({
+  ensureVfsKeyPair: vi.fn().mockResolvedValue({
+    x25519PublicKey: new Uint8Array(32),
+    x25519PrivateKey: new Uint8Array(32),
+    mlKemPublicKey: new Uint8Array(1184),
+    mlKemPrivateKey: new Uint8Array(2400)
+  })
+}));describe('useConversations', () => {
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    clearConversationKeyCache();
+
+    // Default mock implementations
+    mockListConversations.mockResolvedValue({
+      conversations: [],
+      hasMore: false
+    });
+  });
+
+  afterEach(() => {
+    clearConversationKeyCache();
+  });
+
+  it('fetches conversations on mount', async () => {
+    mockListConversations.mockResolvedValue({
+      conversations: [
+        {
+          id: 'conv-1',
+          userId: 'user-1',
+          organizationId: 'org-1',
+          encryptedTitle: 'encrypted-title',
+          encryptedSessionKey: 'encrypted-key',
+          modelId: 'gpt-4',
+          messageCount: 5,
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z'
+        }
+      ],
+      hasMore: false
+    });
+
+    const { result } = renderHook(() => useConversations());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(mockListConversations).toHaveBeenCalledWith({ limit: 100 });
+    // Without cached session key, title shows as [Encrypted]
+    expect(result.current.conversations).toHaveLength(1);
+    expect(result.current.conversations[0]?.title).toBe('[Encrypted]');
+  });
+
+  it('creates a conversation', async () => {
+    const now = new Date().toISOString();
+    mockCreateConversation.mockResolvedValue({
+      conversation: {
+        id: 'new-conv',
+        userId: 'user-1',
+        organizationId: 'org-1',
+        encryptedTitle: 'encrypted-title',
+        encryptedSessionKey: 'encrypted-key',
+        modelId: null,
+        messageCount: 0,
+        createdAt: now,
+        updatedAt: now
+      }
+    });
+
+    const { result } = renderHook(() => useConversations());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    let convId: string | undefined;
+    await act(async () => {
+      convId = await result.current.createConversation('Hello, world!');
+    });
+
+    expect(convId).toBe('new-conv');
+    expect(mockCreateConversation).toHaveBeenCalled();
+    expect(result.current.currentConversationId).toBe('new-conv');
+  });
+
+  it('selects a conversation', async () => {
+    const now = new Date().toISOString();
+
+    // First create a conversation to populate the cache
+    mockCreateConversation.mockResolvedValue({
+      conversation: {
+        id: 'conv-1',
+        userId: 'user-1',
+        organizationId: null,
+        encryptedTitle: 'encrypted-title',
+        encryptedSessionKey: 'encrypted-key',
+        modelId: null,
+        messageCount: 0,
+        createdAt: now,
+        updatedAt: now
+      }
+    });
+
+    mockGetConversation.mockResolvedValue({
+      conversation: {
+        id: 'conv-1',
+        userId: 'user-1',
+        organizationId: null,
+        encryptedTitle: 'encrypted-title',
+        encryptedSessionKey: 'encrypted-key',
+        modelId: null,
+        messageCount: 1,
+        createdAt: now,
+        updatedAt: now
+      },
+      messages: [
+        {
+          id: 'msg-1',
+          conversationId: 'conv-1',
+          role: 'user',
+          encryptedContent: 'encrypted-content',
+          modelId: null,
+          sequenceNumber: 1,
+          createdAt: now
+        }
+      ]
+    });
+
+    const { result } = renderHook(() => useConversations());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    // Create conversation first to populate session key cache
+    await act(async () => {
+      await result.current.createConversation('Hello');
+    });
+
+    // Now select it
+    await act(async () => {
+      await result.current.selectConversation('conv-1');
+    });
+
+    expect(result.current.currentConversationId).toBe('conv-1');
+    expect(mockGetConversation).toHaveBeenCalledWith('conv-1');
+  });
+
+  it('clears selection when selecting null', async () => {
+    const { result } = renderHook(() => useConversations());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.selectConversation(null);
+    });
+
+    expect(result.current.currentConversationId).toBeNull();
+    expect(result.current.currentMessages).toEqual([]);
+    expect(result.current.currentSessionKey).toBeNull();
+  });
+
+  it('deletes a conversation', async () => {
+    const now = new Date().toISOString();
+
+    mockCreateConversation.mockResolvedValue({
+      conversation: {
+        id: 'conv-1',
+        userId: 'user-1',
+        organizationId: null,
+        encryptedTitle: 'encrypted-title',
+        encryptedSessionKey: 'encrypted-key',
+        modelId: null,
+        messageCount: 0,
+        createdAt: now,
+        updatedAt: now
+      }
+    });
+
+    mockDeleteConversation.mockResolvedValue({});
+
+    const { result } = renderHook(() => useConversations());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    // Create a conversation first
+    await act(async () => {
+      await result.current.createConversation('Hello');
+    });
+
+    expect(result.current.conversations).toHaveLength(1);
+
+    // Delete it
+    await act(async () => {
+      await result.current.deleteConversation('conv-1');
+    });
+
+    expect(mockDeleteConversation).toHaveBeenCalledWith('conv-1');
+    expect(result.current.conversations).toHaveLength(0);
+  });
+
+  it('clears current conversation', async () => {
+    const { result } = renderHook(() => useConversations());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    act(() => {
+      result.current.clearCurrentConversation();
+    });
+
+    expect(result.current.currentConversationId).toBeNull();
+    expect(result.current.currentMessages).toEqual([]);
+    expect(result.current.currentSessionKey).toBeNull();
+  });
+
+  it('handles API errors gracefully', async () => {
+    mockListConversations.mockRejectedValue(new Error('Network error'));
+
+    const { result } = renderHook(() => useConversations());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.error).toBe('Network error');
+    expect(result.current.conversations).toEqual([]);
+  });
+
+  it('refetches conversations', async () => {
+    mockListConversations.mockResolvedValue({
+      conversations: [],
+      hasMore: false
+    });
+
+    const { result } = renderHook(() => useConversations());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.refetch();
+    });
+
+    // Called twice - once on mount, once on refetch
+    expect(mockListConversations).toHaveBeenCalledTimes(2);
+  });
+
+  it('renames a conversation', async () => {
+    const now = new Date().toISOString();
+
+    mockCreateConversation.mockResolvedValue({
+      conversation: {
+        id: 'conv-1',
+        userId: 'user-1',
+        organizationId: null,
+        encryptedTitle: 'encrypted-title',
+        encryptedSessionKey: 'encrypted-key',
+        modelId: null,
+        messageCount: 0,
+        createdAt: now,
+        updatedAt: now
+      }
+    });
+
+    mockUpdateConversation.mockResolvedValue({
+      conversation: {
+        id: 'conv-1',
+        userId: 'user-1',
+        organizationId: null,
+        encryptedTitle: 'new-encrypted-title',
+        encryptedSessionKey: 'encrypted-key',
+        modelId: null,
+        messageCount: 0,
+        createdAt: now,
+        updatedAt: now
+      }
+    });
+
+    const { result } = renderHook(() => useConversations());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    // Create a conversation first to have the session key
+    await act(async () => {
+      await result.current.createConversation('Hello');
+    });
+
+    expect(result.current.conversations).toHaveLength(1);
+
+    // Rename it
+    await act(async () => {
+      await result.current.renameConversation('conv-1', 'New Title');
+    });
+
+    expect(mockUpdateConversation).toHaveBeenCalledWith('conv-1', {
+      encryptedTitle: 'encrypted-title'
+    });
+
+    // Check that the conversation title was updated locally
+    expect(result.current.conversations[0]?.title).toBe('New Title');
+  });
+
+  it('throws error when renaming without session key', async () => {
+    const { result } = renderHook(() => useConversations());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    // Try to rename without creating the conversation first (no session key)
+    await expect(async () => {
+      await result.current.renameConversation('nonexistent', 'New Title');
+    }).rejects.toThrow('Cannot rename - session key not available');
+  });
+});
