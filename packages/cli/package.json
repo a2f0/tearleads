@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/cli",
-  "version": "0.0.57",
+  "version": "0.0.58",
   "description": "Tearleads CLI for database management",
   "type": "module",
   "bin": {
