@@ -55,6 +55,7 @@ test('dry-run writes readiness reports with skipped checks', (t) => {
   assert.match(readOutput(result.stdout), /Dry run: yes/);
 
   const parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf8')) as {
+    command: string;
     candidateSha: string;
     dryRun: boolean;
     failed: number;
@@ -64,6 +65,7 @@ test('dry-run writes readiness reports with skipped checks', (t) => {
   };
 
   assert.equal(parsed.candidateSha, candidateSha);
+  assert.equal(parsed.command, 'pnpm qaVfsSecureUploadEvidence');
   assert.equal(parsed.dryRun, true);
   assert.equal(parsed.failed, 0);
   assert.equal(parsed.checksRun, 4);

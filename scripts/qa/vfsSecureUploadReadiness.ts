@@ -13,7 +13,6 @@ type Check = {
 type CheckResult = {
   check: Check;
   status: 'pass' | 'fail' | 'skipped';
-  success: boolean;
   durationMs: number;
 };
 
@@ -107,37 +106,35 @@ const CHECKS: Check[] = [
 ];
 
 function parseCliOptions(argv: string[]): CliOptions {
+  const args = argv.slice(2);
   let dryRun = false;
   let continueOnFailure = false;
   let reportJsonPath: string | null = null;
   let reportMarkdownPath: string | null = null;
 
-  for (let index = 2; index < argv.length; index += 1) {
-    const token = argv[index];
+  while (args.length > 0) {
+    const token = args.shift();
     if (!token) {
       continue;
     }
-    if (token === '--dry-run') {
-      dryRun = true;
-      continue;
-    }
-    if (token === '--continue-on-failure') {
-      continueOnFailure = true;
-      continue;
-    }
 
-    const next = argv[index + 1];
-    if (!next || next.startsWith('--')) {
-      continue;
-    }
-    if (token === '--report-json') {
-      reportJsonPath = next;
-      index += 1;
-      continue;
-    }
-    if (token === '--report-markdown') {
-      reportMarkdownPath = next;
-      index += 1;
+    switch (token) {
+      case '--dry-run':
+        dryRun = true;
+        break;
+      case '--continue-on-failure':
+        continueOnFailure = true;
+        break;
+      case '--report-json':
+        if (args.length > 0 && !args[0]?.startsWith('--')) {
+          reportJsonPath = args.shift() ?? null;
+        }
+        break;
+      case '--report-markdown':
+        if (args.length > 0 && !args[0]?.startsWith('--')) {
+          reportMarkdownPath = args.shift() ?? null;
+        }
+        break;
     }
   }
 
@@ -164,7 +161,6 @@ async function runCheck(check: Check): Promise<CheckResult> {
   return {
     check,
     status: exitCode === 0 ? 'pass' : 'fail',
-    success: exitCode === 0,
     durationMs: Date.now() - start
   };
 }
@@ -208,7 +204,10 @@ function buildReport(
   ).length;
 
   return {
-    command: 'pnpm qaVfsSecureUpload',
+    command:
+      options.reportJsonPath || options.reportMarkdownPath
+        ? 'pnpm qaVfsSecureUploadEvidence'
+        : 'pnpm qaVfsSecureUpload',
     candidateSha,
     startedAt: startedAt.toISOString(),
     completedAt: completedAt.toISOString(),
@@ -294,7 +293,6 @@ async function main(): Promise<void> {
       ? {
           check,
           status: 'skipped' as const,
-          success: true,
           durationMs: 0
         }
       : await runCheck(check);
@@ -310,7 +308,7 @@ async function main(): Promise<void> {
     );
     console.log('');
 
-    if (!result.success && !options.continueOnFailure) {
+    if (result.status === 'fail' && !options.continueOnFailure) {
       break;
     }
   }
