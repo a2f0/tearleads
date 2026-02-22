@@ -3,6 +3,7 @@ name: preen
 description: Stateful preening across all preen skills. Lands focused improvements, opens a PR, and enters merge queue.
 ---
 
+
 # Preen All
 
 Perform a proactive, stateful pass through preen skills, implement focused improvements, open a PR, and enter the merge queue.
@@ -64,8 +65,7 @@ Use `PREEN_MODE` to control scope:
 
 | Mode | Behavior |
 | ---- | -------- |
-| `aggressive` (default) | Run all categories and land 4-5 fixes total |
-| `full` | Alias of `aggressive` for backward compatibility |
+| `full` (default) | Run all categories and land at most one fix per category |
 | `single` | Run exactly one rotating category and land at most one fix |
 | `security` | Run only security categories and land at most one fix |
 | `audit` | Run discovery + scoring only; no edits, no branch, no PR |
@@ -75,7 +75,7 @@ Use `PREEN_MODE` to control scope:
 Persist rotation state locally so repeated runs in rotating modes naturally cover the full quality surface.
 
 ```bash
-MODE="${PREEN_MODE:-aggressive}"
+MODE="${PREEN_MODE:-full}"
 STATE_DIR=".git/preen"
 CURSOR_FILE="$STATE_DIR/cursor"
 RUNS_FILE="$STATE_DIR/runs.jsonl"
@@ -112,34 +112,24 @@ mkdir -p "$STATE_DIR"
 CURSOR=$(cat "$CURSOR_FILE")
 
 case "$MODE" in
-  aggressive)
-    ACTIVE_CATEGORIES=("${CATEGORIES[@]}")
-    NEXT_CURSOR="$CURSOR"
-    MIN_FIXES=4
-    MAX_FIXES=5
-    ;;
   single)
     ACTIVE_CATEGORIES=("${CATEGORIES[$CURSOR]}")
     NEXT_CURSOR=$(( (CURSOR + 1) % ${#CATEGORIES[@]} ))
-    MIN_FIXES=1
     MAX_FIXES=1
     ;;
   full)
     ACTIVE_CATEGORIES=("${CATEGORIES[@]}")
-    MIN_FIXES=4
-    MAX_FIXES=5
     NEXT_CURSOR="$CURSOR"
+    MAX_FIXES=${#CATEGORIES[@]}
     ;;
   security)
     ACTIVE_CATEGORIES=("${SECURITY_CATEGORIES[@]}")
-    MIN_FIXES=1
     NEXT_CURSOR="$CURSOR"
     MAX_FIXES=1
     ;;
   audit)
     ACTIVE_CATEGORIES=("${CATEGORIES[$CURSOR]}")
     NEXT_CURSOR=$(( (CURSOR + 1) % ${#CATEGORIES[@]} ))
-    MIN_FIXES=0
     MAX_FIXES=0
     ;;
   *)
@@ -148,7 +138,7 @@ case "$MODE" in
     ;;
 esac
 
-printf 'mode=%s active=%s min_fixes=%s max_fixes=%s\n' "$MODE" "${ACTIVE_CATEGORIES[*]}" "$MIN_FIXES" "$MAX_FIXES"
+printf 'mode=%s active=%s max_fixes=%s\n' "$MODE" "${ACTIVE_CATEGORIES[*]}" "$MAX_FIXES"
 ```
 
 ## Historical Analysis (Self-Improvement)
@@ -586,9 +576,8 @@ For each active category, select the highest-value candidate with this rubric:
 
 Selection guardrails:
 
-- `aggressive`: minimum 4 fixes, maximum 5 fixes total
-- `full`: minimum 4 fixes, maximum 5 fixes total (alias of `aggressive`)
 - `single`: maximum 1 total fix in the run
+- `full`: maximum 1 fix per active category
 - `security`: maximum 1 security fix
 - `audit`: no fixes (discovery and scoring only)
 
@@ -762,15 +751,7 @@ PR_NUMBER=$(echo "$PR_URL" | rg -o '[0-9]+$' || true)
 /enter-merge-queue
 ```
 
-### 10. Refresh Workspace
-
-After merge queue completion, refresh the workspace via `agentTool.ts`:
-
-```bash
-./scripts/agents/tooling/agentTool.ts refresh
-```
-
-### 11. Persist Cursor and Structured Run Log
+### 10. Persist Cursor and Structured Run Log
 
 Always persist rotation state and run metadata after evaluation:
 
@@ -803,7 +784,7 @@ If no high-value candidate is found, or `audit` mode is used:
 
 ## Default-Mode Philosophy
 
-Default `aggressive` mode targets 4-5 landed fixes per run for higher throughput. Use `single` when you want smaller, lower-risk incremental changes that rotate over time.
+Default `full` mode enables broad, category-by-category sweeps. Use `single` when you want smaller, lower-risk incremental changes that rotate over time.
 
 ## Self-Improvement Protocol
 
@@ -907,9 +888,8 @@ Always regenerate from registry after structural changes:
 
 ## Guardrails
 
-- In `aggressive` mode, land at least 4 and at most 5 fixes
-- In `full` mode, land at least 4 and at most 5 fixes (alias of `aggressive`)
 - In `single` mode, do not land more than one fix total
+- In `full` mode, do not land more than one fix per category
 - In `security` mode, do not land more than one security fix total
 - In `audit` mode, do not make edits
 - Do not change runtime behavior unless fixing a bug
