@@ -163,10 +163,16 @@ jobs:
         if: matrix.lint-type == 'ansible'
         run: pnpm lint:ansible
 
+      - name: Read Terraform version
+        if: matrix.lint-type == 'terraform'
+        id: terraform-version
+        run: echo "version=$(cat .terraform-version)" >> "$GITHUB_OUTPUT"
+
       - name: Setup Terraform
         if: matrix.lint-type == 'terraform'
         uses: hashicorp/setup-terraform@v3
         with:
+          terraform_version: ${{ steps.terraform-version.outputs.version }}
           terraform_wrapper: false
 
       - name: Setup TFLint
