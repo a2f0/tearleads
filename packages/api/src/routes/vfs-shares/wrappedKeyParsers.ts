@@ -4,21 +4,30 @@ import type {
 } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
 
-export function parseWrappedKeyPayload(
-  value: unknown
-): VfsWrappedKeyPayload | null {
+interface WrappedKeyParts {
+  recipientId: string;
+  recipientPublicKeyId: string;
+  keyEpoch: number;
+  encryptedKey: string;
+  senderSignature: string;
+}
+
+function parseWrappedKeyParts(
+  value: unknown,
+  recipientKey: 'recipientUserId' | 'recipientOrgId'
+): WrappedKeyParts | null {
   if (!isRecord(value)) {
     return null;
   }
 
-  const recipientUserId = value['recipientUserId'];
+  const recipientId = value[recipientKey];
   const recipientPublicKeyId = value['recipientPublicKeyId'];
   const keyEpoch = value['keyEpoch'];
   const encryptedKey = value['encryptedKey'];
   const senderSignature = value['senderSignature'];
 
   if (
-    typeof recipientUserId !== 'string' ||
+    typeof recipientId !== 'string' ||
     typeof recipientPublicKeyId !== 'string' ||
     typeof keyEpoch !== 'number' ||
     !Number.isInteger(keyEpoch) ||
@@ -31,7 +40,7 @@ export function parseWrappedKeyPayload(
   }
 
   if (
-    !recipientUserId.trim() ||
+    !recipientId.trim() ||
     !recipientPublicKeyId.trim() ||
     !encryptedKey.trim() ||
     !senderSignature.trim()
@@ -40,7 +49,7 @@ export function parseWrappedKeyPayload(
   }
 
   return {
-    recipientUserId: recipientUserId.trim(),
+    recipientId: recipientId.trim(),
     recipientPublicKeyId: recipientPublicKeyId.trim(),
     keyEpoch,
     encryptedKey: encryptedKey.trim(),
@@ -48,46 +57,36 @@ export function parseWrappedKeyPayload(
   };
 }
 
-export function parseOrgWrappedKeyPayload(
+export function parseWrappedKeyPayload(
   value: unknown
-): VfsOrgWrappedKeyPayload | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  const recipientOrgId = value['recipientOrgId'];
-  const recipientPublicKeyId = value['recipientPublicKeyId'];
-  const keyEpoch = value['keyEpoch'];
-  const encryptedKey = value['encryptedKey'];
-  const senderSignature = value['senderSignature'];
-
-  if (
-    typeof recipientOrgId !== 'string' ||
-    typeof recipientPublicKeyId !== 'string' ||
-    typeof keyEpoch !== 'number' ||
-    !Number.isInteger(keyEpoch) ||
-    !Number.isSafeInteger(keyEpoch) ||
-    keyEpoch < 1 ||
-    typeof encryptedKey !== 'string' ||
-    typeof senderSignature !== 'string'
-  ) {
-    return null;
-  }
-
-  if (
-    !recipientOrgId.trim() ||
-    !recipientPublicKeyId.trim() ||
-    !encryptedKey.trim() ||
-    !senderSignature.trim()
-  ) {
+): VfsWrappedKeyPayload | null {
+  const parts = parseWrappedKeyParts(value, 'recipientUserId');
+  if (!parts) {
     return null;
   }
 
   return {
-    recipientOrgId: recipientOrgId.trim(),
-    recipientPublicKeyId: recipientPublicKeyId.trim(),
-    keyEpoch,
-    encryptedKey: encryptedKey.trim(),
-    senderSignature: senderSignature.trim()
+    recipientUserId: parts.recipientId,
+    recipientPublicKeyId: parts.recipientPublicKeyId,
+    keyEpoch: parts.keyEpoch,
+    encryptedKey: parts.encryptedKey,
+    senderSignature: parts.senderSignature
+  };
+}
+
+export function parseOrgWrappedKeyPayload(
+  value: unknown
+): VfsOrgWrappedKeyPayload | null {
+  const parts = parseWrappedKeyParts(value, 'recipientOrgId');
+  if (!parts) {
+    return null;
+  }
+
+  return {
+    recipientOrgId: parts.recipientId,
+    recipientPublicKeyId: parts.recipientPublicKeyId,
+    keyEpoch: parts.keyEpoch,
+    encryptedKey: parts.encryptedKey,
+    senderSignature: parts.senderSignature
   };
 }
