@@ -276,7 +276,9 @@
 
 - name: Download Ghostty .deb package
   ansible.builtin.get_url:
-    url: "https://github.com/mkasberg/ghostty-ubuntu/releases/download/{{ ghostty_version }}/ghostty_{{ ghostty_version }}_amd64_{{ ghostty_ubuntu_codename }}.deb"
+    url: >-
+      https://github.com/mkasberg/ghostty-ubuntu/releases/download/{{ ghostty_version
+      }}/ghostty_{{ ghostty_version }}_amd64_{{ ghostty_ubuntu_codename }}.deb
     dest: "/tmp/ghostty_{{ ghostty_version }}.deb"
     mode: "0644"
   when: ghostty_check.rc != 0
