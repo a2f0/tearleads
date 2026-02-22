@@ -55,7 +55,7 @@ export function getStringField(
   return typeof value === 'string' ? value : null;
 }
 
-export function isNameSqlEntry(
+function isNameSqlEntry(
   value: unknown
 ): value is { name: string; sql: string } {
   return (
