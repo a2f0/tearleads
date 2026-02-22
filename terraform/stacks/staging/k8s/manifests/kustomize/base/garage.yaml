@@ -11,10 +11,9 @@ data:
 
     replication_factor = 1
 
-    [rpc]
-    bind_addr = "[::]:3901"
+    rpc_bind_addr = "[::]:3901"
     rpc_public_addr = "garage:3901"
-    secret = "${GARAGE_RPC_SECRET}"
+    rpc_secret = "${GARAGE_RPC_SECRET}"
 
     [s3_api]
     s3_region = "us-east-1"
@@ -27,6 +26,7 @@ data:
 
     [admin]
     api_bind_addr = "[::]:3903"
+    admin_token = "${GARAGE_ADMIN_TOKEN}"
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

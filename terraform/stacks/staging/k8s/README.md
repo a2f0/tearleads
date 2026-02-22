@@ -36,6 +36,7 @@ This stack provisions a k3s Kubernetes cluster on Hetzner Cloud for the staging 
 | `scripts/setup-ecr-secret.sh` | Create ECR pull secret for container registry |
 | `scripts/deploy.sh` | Apply all Kubernetes manifests |
 | `scripts/update.sh` | Update server packages via Ansible |
+| `scripts/smoke-s3.sh` | Verify Garage-backed S3 storage with in-cluster put/get/delete |
 
 ## Quick Start
 
@@ -216,6 +217,29 @@ kubectl exec -it deployment/garage -n tearleads -- garage -c /etc/garage.toml bu
 # Check bucket info
 kubectl exec -it deployment/garage -n tearleads -- garage -c /etc/garage.toml bucket info vfs-blobs
 ```
+
+### Smoke Test (Recommended)
+
+Run the end-to-end S3 smoke test against staging (uses live in-cluster secret
+credentials and performs put/get/delete):
+
+```bash
+./scripts/smoke-s3.sh
+```
+
+Optional overrides:
+
+```bash
+NAMESPACE=tearleads \
+S3_BUCKET=vfs-blobs \
+S3_ENDPOINT=http://garage:3900 \
+./scripts/smoke-s3.sh
+```
+
+Notes:
+
+- By default, the script does not fail if `garage-setup` is still running; set `REQUIRE_SETUP_JOB_COMPLETE=true` to enforce completion.
+- If the in-cluster smoke pod image cannot be pulled, the script automatically falls back to local `aws` CLI + `kubectl port-forward`.
 
 ### Re-running Setup
 
