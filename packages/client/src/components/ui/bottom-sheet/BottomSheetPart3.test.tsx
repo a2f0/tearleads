@@ -28,18 +28,6 @@ vi.mock('@ionic/core', () => ({
   }
 }));
 
-async function _simulateGestureDrag(deltaY: number, velocityY: number = 0) {
-  if (!mockGestureCallbacks) {
-    throw new Error('Gesture not initialized');
-  }
-
-  await act(async () => {
-    mockGestureCallbacks?.onStart({ deltaY: 0, velocityY: 0 });
-    mockGestureCallbacks?.onMove({ deltaY, velocityY: 0 });
-    mockGestureCallbacks?.onEnd({ deltaY, velocityY });
-  });
-}
-
 describe('BottomSheet', () => {
   beforeEach(() => {
     mockGestureCallbacks = null;

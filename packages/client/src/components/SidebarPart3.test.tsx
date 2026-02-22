@@ -35,28 +35,6 @@ vi.mock('@/contexts/WindowManagerContext', async () => {
   };
 });
 
-function _mockMatchMedia({
-  isMobile,
-  isTouch = false
-}: {
-  isMobile: boolean;
-  isTouch?: boolean;
-}) {
-  Object.defineProperty(window, 'matchMedia', {
-    writable: true,
-    value: vi.fn().mockImplementation((query: string) => ({
-      matches: query === '(max-width: 1023px)' ? isMobile : isTouch,
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn()
-    }))
-  });
-}
-
 describe('Admin flyout menu', () => {
   const mockOnClose = vi.fn();
 
