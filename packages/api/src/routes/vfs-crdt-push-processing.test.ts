@@ -233,17 +233,10 @@ describe('VFS CRDT push route processing', () => {
     expect(mockQuery.mock.calls[5]?.[1]?.[6]).toBe('item-1');
   });
 
-  it('applies encrypted link op without plaintext link fields', async () => {
+  it('rejects encrypted link op with deterministic unsupported status', async () => {
     const authHeader = await createAuthHeader();
     mockQuery
       .mockResolvedValueOnce({}) // BEGIN
-      .mockResolvedValueOnce({
-        rows: [{ id: 'item-1', owner_id: 'user-1' }]
-      }) // owner lookup
-      .mockResolvedValueOnce({}) // advisory lock
-      .mockResolvedValueOnce({ rows: [] }) // existing source
-      .mockResolvedValueOnce({ rows: [{ max_write_id: 0 }] }) // max write
-      .mockResolvedValueOnce({ rowCount: 1 }) // INSERT
       .mockResolvedValueOnce({}); // COMMIT
 
     const response = await postCrdtPush(
@@ -271,12 +264,16 @@ describe('VFS CRDT push route processing', () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       clientId: 'desktop',
-      results: [{ opId: 'desktop-link-enc-1', status: 'applied' }]
+      results: [
+        {
+          opId: 'desktop-link-enc-1',
+          status: 'encryptedEnvelopeUnsupported'
+        }
+      ]
     });
-    expect(mockQuery.mock.calls[5]?.[1]?.[5]).toBeNull();
-    expect(mockQuery.mock.calls[5]?.[1]?.[6]).toBeNull();
-    expect(mockQuery.mock.calls[5]?.[1]?.[11]).toBe('base64-ciphertext');
-    expect(mockQuery.mock.calls[5]?.[1]?.[12]).toBe(3);
+    expect(mockQuery).toHaveBeenCalledTimes(2);
+    expect(mockQuery.mock.calls[0]?.[0]).toBe('BEGIN');
+    expect(mockQuery.mock.calls[1]?.[0]).toBe('COMMIT');
   });
 
   it('returns invalidOp when item is missing or not owned', async () => {

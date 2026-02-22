@@ -171,7 +171,8 @@ export function isPushStatus(value: unknown): value is VfsCrdtSyncPushStatus {
     value === 'alreadyApplied' ||
     value === 'staleWriteId' ||
     value === 'outdatedOp' ||
-    value === 'invalidOp'
+    value === 'invalidOp' ||
+    value === 'encryptedEnvelopeUnsupported'
   );
 }
 
@@ -194,7 +195,8 @@ export type VfsCrdtSyncPushStatus =
   | 'alreadyApplied'
   | 'staleWriteId'
   | 'outdatedOp'
-  | 'invalidOp';
+  | 'invalidOp'
+  | 'encryptedEnvelopeUnsupported';
 
 export interface VfsCrdtSyncPushResult {
   opId: string;

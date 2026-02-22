@@ -182,6 +182,38 @@ describe('VfsBackgroundSyncClient', () => {
     });
   });
 
+  it('fails closed when push rejects encrypted envelopes as unsupported', async () => {
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async (input) => ({
+        results: input.operations.map((operation) => ({
+          opId: operation.opId,
+          status: 'encryptedEnvelopeUnsupported'
+        }))
+      }),
+      pullOperations: async () => ({
+        items: [],
+        hasMore: false,
+        nextCursor: null,
+        lastReconciledWriteIds: {}
+      })
+    };
+
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport);
+    client.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-1',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'read',
+      occurredAt: '2026-02-14T12:10:01.000Z'
+    });
+
+    await expect(client.flush()).rejects.toBeInstanceOf(
+      VfsCrdtSyncPushRejectedError
+    );
+    expect(client.snapshot().pendingOperations).toBe(1);
+  });
+
   it('converges concurrent clients when one client requires stale-write recovery', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
     await server.pushOperations({

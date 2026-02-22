@@ -158,7 +158,8 @@ export type VfsCrdtPushStatus =
   | 'alreadyApplied'
   | 'staleWriteId'
   | 'outdatedOp'
-  | 'invalidOp';
+  | 'invalidOp'
+  | 'encryptedEnvelopeUnsupported';
 
 export interface VfsCrdtPushResult {
   opId: string;
