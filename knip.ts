@@ -27,12 +27,19 @@ const config: KnipConfig = {
   // Used by scripts/costModel/db/postgres.ts, which is outside lint:knip tsconfig scope.
   ignoreDependencies: ['pg'],
   ignoreIssues: {
+    // Test alias bridge modules for analytics runtime tests.
+    'packages/analytics/src/test/clientCompat/db/hooks.ts': ['exports'],
+    'packages/analytics/src/test/clientCompat/db/index.ts': ['exports'],
     // Consumed from source across package boundaries (admin/client split) via path aliases.
     'packages/client/src/lib/utils.ts': ['exports'],
     // Imported as a type-only contract by admin package via client alias.
     'packages/client/src/i18n/translations/types.ts': ['types'],
     // Imported by notifications package through client alias.
     'packages/client/src/stores/logStore.ts': ['types'],
+    // Public barrel exports consumed across workspace packages.
+    'packages/vfs-explorer/src/components/index.ts': ['exports'],
+    // Exported public API return type expected by consumers.
+    'packages/api-client/src/apiRoutes/vfsRoutes.ts': ['types'],
     // Exported interface appears in an inferred cross-module public return type.
     'packages/vfs-explorer/src/hooks/useVfsAllItems.ts': ['types']
   },
@@ -59,7 +66,11 @@ const config: KnipConfig = {
         'electron/preload.ts'
       ],
       // Resolved from Electron entrypoints and CSS tooling paths outside tsconfig project graph.
-      ignoreDependencies: ['better-sqlite3-multiple-ciphers', 'tailwindcss']
+      ignoreDependencies: [
+        '@electron/rebuild',
+        'better-sqlite3-multiple-ciphers',
+        'tailwindcss'
+      ]
     },
     'packages/classic': {
       // Only used by integration test support files that are excluded from current knip project scope.

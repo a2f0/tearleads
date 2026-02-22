@@ -1016,6 +1016,9 @@ importers:
       '@electron-toolkit/utils':
         specifier: 4.0.0
         version: 4.0.0(electron@40.6.0)
+      '@electron/rebuild':
+        specifier: 4.0.3
+        version: 4.0.3
       '@playwright/test':
         specifier: 1.58.2
         version: 1.58.2
