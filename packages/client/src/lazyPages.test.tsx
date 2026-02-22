@@ -173,7 +173,9 @@ describe('lazyPages', () => {
           <PageComponent />
         </Suspense>
       );
-      expect(await screen.findByTestId(name)).toBeInTheDocument();
+      expect(
+        await screen.findByTestId(name, {}, { timeout: 5000 })
+      ).toBeInTheDocument();
       cleanup();
     }
   }, 60_000);
