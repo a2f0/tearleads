@@ -6,6 +6,7 @@
 # - ghostty_release_tag (e.g. 1.2.3-0-ppa1)
 # - ghostty_package_version (e.g. 1.2.3-0.ppa1)
 # - ghostty_ubuntu_codename (e.g. 24.04)
+# - claude_install_sha256 (sha256 checksum for https://claude.ai/install.sh)
 
 - name: Update apt cache and upgrade all packages
   ansible.builtin.apt:
@@ -243,11 +244,9 @@
     path: "/home/{{ ansible_user }}/.claude/local/claude"
   register: claude_code_stat
 
-# SECURITY NOTE: The Claude Code installer script is dynamically maintained by Anthropic
-# and changes with each release. A pinned checksum would break on every update, requiring
-# manual intervention. We accept the risk of using an official Anthropic endpoint without
-# checksum verification, similar to other official installers (nvm, rustup, etc.).
-# Periodically review https://claude.ai/install.sh to verify its integrity.
+# SECURITY NOTE: The Claude Code installer script is dynamically maintained by Anthropic.
+# We still pin a known SHA-256 checksum (`claude_install_sha256`) for supply-chain integrity.
+# When updating Claude Code installer behavior, refresh this checksum intentionally.
 - name: Download Claude Code installer script
   ansible.builtin.get_url:
     url: https://claude.ai/install.sh
