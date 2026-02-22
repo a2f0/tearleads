@@ -63,6 +63,10 @@ done
 
 cd "$SCRIPT_DIR/../packages/client"
 
+# Android Maestro lanes require gradle-wrapper.jar, which is gitignored.
+# Ensure it is present before invoking any Gradle/Fastlane tasks.
+./scripts/downloadGradleWrapper.sh
+
 if [ -z "${ANDROID_SERIAL:-}" ]; then
   ANDROID_SERIAL="$(adb devices | awk 'NR>1 && $2=="device"{print $1}' | grep -m 1 '^emulator-' || true)"
   if [ -z "$ANDROID_SERIAL" ]; then

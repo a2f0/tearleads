@@ -12,20 +12,7 @@ const config: KnipConfig = {
     'unresolved',
     'binaries'
   ],
-  ignore: [
-    'packages/client/android/**',
-    'packages/client/ios/**'
-  ],
-  ignoreFiles: [
-    'packages/**/src/generated/**',
-    'packages/client/tests/playwright-env.d.ts'
-  ],
-  ignoreUnresolved: [
-    '^@/db/analytics$'
-  ],
   ignoreBinaries: ['ansible-lint', 'shellcheck', 'playwright'],
-  // Used by scripts/costModel/db/postgres.ts, which is outside lint:knip tsconfig scope.
-  ignoreDependencies: ['pg'],
   ignoreIssues: {
     // Test alias bridge modules for analytics runtime tests.
     'packages/analytics/src/test/clientCompat/db/hooks.ts': ['exports'],
@@ -49,7 +36,7 @@ const config: KnipConfig = {
         'scripts/*.ts',
         'scripts/agents/**/*.ts',
         'scripts/ciImpact/**/*.ts',
-        'scripts/costModel/index.ts',
+        'scripts/costModel/**/*.ts',
         'scripts/lib/**/*.ts',
         'scripts/preen/**/*.ts',
         'scripts/tooling/scriptTool.ts'
