@@ -391,18 +391,25 @@ export async function runFlushLoop(
       }
     }
 
-    const invalidResults = rejectedResults.filter(
-      (result) =>
+    const invalidResults: typeof rejectedResults = [];
+    const staleResults: typeof rejectedResults = [];
+    for (const result of rejectedResults) {
+      if (
         result.status === 'invalidOp' ||
         result.status === 'encryptedEnvelopeUnsupported'
-    );
+      ) {
+        invalidResults.push(result);
+        continue;
+      }
+      if (result.status === 'staleWriteId') {
+        staleResults.push(result);
+      }
+    }
+
     if (invalidResults.length > 0) {
       throw new VfsCrdtSyncPushRejectedError(invalidResults);
     }
 
-    const staleResults = rejectedResults.filter(
-      (result) => result.status === 'staleWriteId'
-    );
     if (staleResults.length > 0) {
       /**
        * Guardrail: stale write IDs are only recoverable by first pulling and
