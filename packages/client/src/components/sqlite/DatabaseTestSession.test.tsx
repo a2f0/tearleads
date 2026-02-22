@@ -5,8 +5,6 @@ import { DatabaseTest } from './DatabaseTest';
 
 const mockUseDatabaseContext = vi.fn();
 const mockGetDatabaseAdapter = vi.fn();
-let _capturedInstanceChangeCallback: (() => void) | null = null;
-
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
@@ -16,9 +14,7 @@ vi.mock('@/db', () => ({
 }));
 
 vi.mock('@/hooks/app', () => ({
-  useOnInstanceChange: (callback: () => void) => {
-    _capturedInstanceChangeCallback = callback;
-  }
+  useOnInstanceChange: () => {}
 }));
 
 vi.mock('@/lib/utils', () => ({

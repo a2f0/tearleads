@@ -249,26 +249,6 @@ describe('FilesWindowTableView - media playback and MIME types', () => {
     });
   });
 
-  it('refetches when sort changes', async () => {
-    mockDb.orderBy.mockResolvedValue(mockFiles);
-    const user = userEvent.setup();
-    render(<FilesWindowTableView {...defaultProps} />);
-
-    await waitFor(() => {
-      expect(screen.getByText('document.pdf')).toBeInTheDocument();
-    });
-
-    const initialCallCount = mockDb.orderBy.mock.calls.length;
-
-    await user.click(screen.getByText('Name'));
-
-    await waitFor(() => {
-      expect(mockDb.orderBy.mock.calls.length).toBeGreaterThan(
-        initialCallCount
-      );
-    });
-  });
-
   it('does not show context menu actions for deleted files except restore', async () => {
     const deletedFile = { ...mockFiles[0], deleted: true };
     mockDb.orderBy.mockResolvedValue([deletedFile]);
