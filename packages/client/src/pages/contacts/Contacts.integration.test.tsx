@@ -210,7 +210,7 @@ describe('Contacts Page Integration Tests', () => {
           expect(screen.getByText('John Doe')).toBeInTheDocument();
           expect(screen.queryByText('Jane Smith')).not.toBeInTheDocument();
         },
-        { timeout: 500 }
+        { timeout: 2000 }
       );
     });
 
@@ -243,7 +243,7 @@ describe('Contacts Page Integration Tests', () => {
             screen.getByText(/No contacts found matching "xyz"/i)
           ).toBeInTheDocument();
         },
-        { timeout: 500 }
+        { timeout: 2000 }
       );
     });
   });

@@ -1,6 +1,5 @@
 import { ThemeProvider } from '@tearleads/ui';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/hooks/app', () => ({
@@ -51,15 +50,14 @@ describe('ClientProvider AboutMenuItem wrappers', () => {
   }) => {
     const module = await import(importPath);
     const AboutMenuItemWrapper = module[componentName];
-    const user = userEvent.setup();
-
     render(
       <ThemeProvider>
         <AboutMenuItemWrapper />
       </ThemeProvider>
     );
 
-    await user.click(screen.getByText('About'));
+    const [aboutButton] = screen.getAllByRole('menuitem', { name: 'About' });
+    fireEvent.click(aboutButton);
 
     expect(screen.getByText(`About ${name}`)).toBeInTheDocument();
     expect(screen.getByTestId('about-version')).toHaveTextContent(

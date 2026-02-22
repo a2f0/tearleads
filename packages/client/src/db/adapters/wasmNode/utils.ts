@@ -8,7 +8,7 @@ import { isRecord } from '@tearleads/shared';
 import type { JsonBackupData } from './types';
 
 // Store original fetch to restore later
-const originalFetch = globalThis.fetch;
+let originalFetch: typeof fetch | null = null;
 
 /**
  * Polyfill fetch for file:// URLs in Node.js.
@@ -16,6 +16,11 @@ const originalFetch = globalThis.fetch;
  * with file:// URLs in Node.js. This polyfill handles that case.
  */
 export function patchFetchForFileUrls(): void {
+  if (!originalFetch) {
+    originalFetch = globalThis.fetch;
+  }
+  const fallbackFetch = originalFetch;
+
   globalThis.fetch = async (
     input: RequestInfo | URL,
     init?: RequestInit
@@ -34,7 +39,10 @@ export function patchFetchForFileUrls(): void {
     }
 
     // Fall back to original fetch for other URLs
-    return originalFetch(input, init);
+    if (!fallbackFetch) {
+      throw new Error('Fetch is not available in this environment');
+    }
+    return fallbackFetch(input, init);
   };
 }
 
@@ -44,6 +52,7 @@ export function patchFetchForFileUrls(): void {
 export function restoreFetch(): void {
   if (originalFetch) {
     globalThis.fetch = originalFetch;
+    originalFetch = null;
   }
 }
 

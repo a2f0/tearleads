@@ -214,6 +214,8 @@ vi.mock('@assistant-ui/react', () => ({
   useLocalRuntime: vi.fn(() => ({}))
 }));
 
+import { useLLM } from '@/hooks/llm';
+
 function renderChat() {
   return render(
     <MemoryRouter>
@@ -245,6 +247,24 @@ describe('Chat', () => {
   });
 
   describe('PhotoPicker component', () => {
+    beforeEach(() => {
+      vi.mocked(useLLM).mockReturnValue({
+        loadedModel: 'HuggingFaceTB/SmolVLM-256M-Instruct',
+        modelType: 'vision',
+        isLoading: false,
+        loadProgress: null,
+        error: null,
+        loadModel: vi.fn(),
+        unloadModel: vi.fn(),
+        generate: vi.fn(),
+        classify: vi.fn(),
+        abort: vi.fn(),
+        isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        isClassifying: false,
+        previouslyLoadedModel: null
+      });
+    });
+
     it('displays photos when available', async () => {
       mockRetrieve.mockResolvedValue(new Uint8Array([1, 2, 3, 4]));
       mockSelect.mockReturnValue({

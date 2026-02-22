@@ -2,6 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleWarn } from '@/test/consoleMocks';
+import {
+  getStringField,
+  isJsonBackupData,
+  restoreFetch
+} from './wasmNode/utils';
 
 const TEST_KEY = new Uint8Array([1, 2, 3, 4]);
 
@@ -42,10 +47,7 @@ describe('WasmNodeAdapter', () => {
         configurable: true
       });
 
-      vi.resetModules();
-      const module = await import('./wasmNode.adapter');
-
-      module.__test__.restoreFetch();
+      restoreFetch();
     } finally {
       Object.defineProperty(globalThis, 'fetch', {
         value: originalFetch,
@@ -58,9 +60,6 @@ describe('WasmNodeAdapter', () => {
   });
 
   it('validates JSON backup shape helpers', async () => {
-    const module = await import('./wasmNode.adapter');
-    const { getStringField, isJsonBackupData } = module.__test__;
-
     expect(getStringField({ name: 123 }, 'name')).toBeNull();
 
     expect(isJsonBackupData(null)).toBe(false);
@@ -111,13 +110,13 @@ describe('WasmNodeAdapter', () => {
   });
 
   it('throws when sqlite3 module file is missing', async () => {
-    vi.resetModules();
-    const module = await import('./wasmNode.adapter');
-
     const existsSpy = vi.spyOn(fs, 'existsSync');
     existsSpy.mockReturnValueOnce(false);
 
-    await expect(module.__test__.initializeSqliteWasm()).rejects.toThrow(
+    const { initializeSqliteWasm } = await import(
+      './wasmNode/initializeSqliteWasm'
+    );
+    await expect(initializeSqliteWasm()).rejects.toThrow(
       'SQLite WASM module not found'
     );
 
@@ -125,13 +124,13 @@ describe('WasmNodeAdapter', () => {
   });
 
   it('throws when sqlite3 wasm file is missing', async () => {
-    vi.resetModules();
-    const module = await import('./wasmNode.adapter');
-
     const existsSpy = vi.spyOn(fs, 'existsSync');
     existsSpy.mockReturnValueOnce(true).mockReturnValueOnce(false);
 
-    await expect(module.__test__.initializeSqliteWasm()).rejects.toThrow(
+    const { initializeSqliteWasm } = await import(
+      './wasmNode/initializeSqliteWasm'
+    );
+    await expect(initializeSqliteWasm()).rejects.toThrow(
       'SQLite WASM binary not found'
     );
 
@@ -146,12 +145,14 @@ describe('WasmNodeAdapter', () => {
 
     vi.doMock(modulePath, () => ({ default: undefined }));
     vi.resetModules();
-    const module = await import('./wasmNode.adapter');
 
     const existsSpy = vi.spyOn(fs, 'existsSync');
     existsSpy.mockReturnValue(true);
 
-    await expect(module.__test__.initializeSqliteWasm()).rejects.toThrow(
+    const { initializeSqliteWasm } = await import(
+      './wasmNode/initializeSqliteWasm'
+    );
+    await expect(initializeSqliteWasm()).rejects.toThrow(
       'Failed to load sqlite3InitModule from module'
     );
 
@@ -170,12 +171,14 @@ describe('WasmNodeAdapter', () => {
       default: async () => ({})
     }));
     vi.resetModules();
-    const module = await import('./wasmNode.adapter');
 
     const existsSpy = vi.spyOn(fs, 'existsSync');
     existsSpy.mockReturnValue(true);
 
-    await expect(module.__test__.initializeSqliteWasm()).rejects.toThrow(
+    const { initializeSqliteWasm } = await import(
+      './wasmNode/initializeSqliteWasm'
+    );
+    await expect(initializeSqliteWasm()).rejects.toThrow(
       'SQLite module loaded but missing expected properties'
     );
 

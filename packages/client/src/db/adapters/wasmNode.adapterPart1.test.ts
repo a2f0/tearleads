@@ -4,6 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleWarn } from '@/test/consoleMocks';
+import { patchFetchForFileUrls, restoreFetch } from './wasmNode/utils';
 
 const TEST_KEY = new Uint8Array([1, 2, 3, 4]);
 
@@ -392,14 +393,11 @@ describe('WasmNodeAdapter', () => {
     const fetchSpy = vi.fn(async () => new Response('ok'));
     globalThis.fetch = fetchSpy;
 
-    vi.resetModules();
-    const module = await import('./wasmNode.adapter');
-
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tearleads-wasm-'));
     const tempFile = path.join(tempDir, 'test.wasm');
     fs.writeFileSync(tempFile, 'wasm');
 
-    module.__test__.patchFetchForFileUrls();
+    patchFetchForFileUrls();
 
     const fileResponse = await globalThis.fetch(pathToFileURL(tempFile));
     expect(await fileResponse.text()).toBe('wasm');
@@ -407,7 +405,7 @@ describe('WasmNodeAdapter', () => {
     await globalThis.fetch('https://example.com');
     expect(fetchSpy).toHaveBeenCalled();
 
-    module.__test__.restoreFetch();
+    restoreFetch();
     globalThis.fetch = originalFetch;
   });
 });

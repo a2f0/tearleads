@@ -8,6 +8,11 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
+import {
+  sampleContactRow,
+  sampleContactWithJoinRow,
+  sampleFileRow
+} from './columnMappingTestFixtures';
 
 describe('Column Mapping', () => {
   describe('WebAdapter getConnection()', () => {
