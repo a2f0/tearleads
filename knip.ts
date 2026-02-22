@@ -13,10 +13,16 @@ const config: KnipConfig = {
     'binaries'
   ],
   ignoreBinaries: ['ansible-lint', 'shellcheck', 'playwright'],
+  ignore: [
+    // Generated native build artifacts (gitignored but present on disk).
+    'packages/client/ios/App/App/public/**',
+    'packages/client/android/app/src/main/assets/public/**',
+    // Test stubs resolved via vitest path alias (`@` → clientCompat); knip cannot follow aliases.
+    'packages/analytics/src/test/clientCompat/**',
+    // Ambient type declarations consumed by Playwright test files.
+    'packages/client/tests/playwright-env.d.ts'
+  ],
   ignoreIssues: {
-    // Test alias bridge modules for analytics runtime tests.
-    'packages/analytics/src/test/clientCompat/db/hooks.ts': ['exports'],
-    'packages/analytics/src/test/clientCompat/db/index.ts': ['exports'],
     // Consumed from source across package boundaries (admin/client split) via path aliases.
     'packages/client/src/lib/utils.ts': ['exports'],
     // Imported as a type-only contract by admin package via client alias.
@@ -52,20 +58,8 @@ const config: KnipConfig = {
         'electron/main.ts',
         'electron/preload.ts'
       ],
-      // Resolved from Electron entrypoints and CSS tooling paths outside tsconfig project graph.
-      ignoreDependencies: [
-        '@electron/rebuild',
-        'better-sqlite3-multiple-ciphers',
-        'tailwindcss'
-      ]
-    },
-    'packages/classic': {
-      // Only used by integration test support files that are excluded from current knip project scope.
-      ignoreDependencies: ['@tearleads/db-test-utils']
-    },
-    'packages/website': {
-      // Required by Astro/Tailwind CSS pipeline.
-      ignoreDependencies: ['tailwindcss']
+      // CLI tool used by electron-builder rebuild scripts, not imported in source.
+      ignoreDependencies: ['@electron/rebuild']
     },
     'packages/keychain': {
       entry: ['src/clientEntry.ts']
