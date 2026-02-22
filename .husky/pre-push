@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-run_step() {
+run_step() (
   label="$1"
   shift
 
@@ -22,7 +22,7 @@ run_step() {
   fi
 
   echo "[pre-push] OK    ${label} (${elapsed}s)" >&2
-}
+)
 
 run_step "checkNodeVersion" ./scripts/checkNodeVersion.sh
 run_step "checkFileLimits" ./scripts/preen/checkFileLimits.sh --from-upstream
