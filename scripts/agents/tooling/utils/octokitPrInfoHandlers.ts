@@ -314,14 +314,21 @@ export async function getReviewThreadsWithOctokit(
         isResolved: thread.isResolved,
         path: thread.path,
         line: thread.line,
-        comments: thread.comments.nodes.map((comment) => ({
-          id: comment.id,
-          // GitHub deprecated GraphQL databaseId in favor of fullDatabaseId.
-          // Keep the output key stable for existing automation consumers.
-          databaseId: comment.fullDatabaseId ?? '',
-          author: comment.author,
-          body: comment.body
-        }))
+        comments: thread.comments.nodes.flatMap((comment) => {
+          if (!comment.fullDatabaseId) {
+            return [];
+          }
+          return [
+            {
+              id: comment.id,
+              // GitHub deprecated GraphQL databaseId in favor of fullDatabaseId.
+              // Keep the output key stable for existing automation consumers.
+              databaseId: comment.fullDatabaseId,
+              author: comment.author,
+              body: comment.body
+            }
+          ];
+        })
       });
     }
     if (!page.pageInfo.hasNextPage) {
