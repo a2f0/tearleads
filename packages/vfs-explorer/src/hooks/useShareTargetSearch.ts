@@ -2,7 +2,7 @@ import type { ShareTargetSearchResult, VfsShareType } from '@tearleads/shared';
 import { useCallback, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 
-export interface UseShareTargetSearchResult {
+interface UseShareTargetSearchResult {
   results: ShareTargetSearchResult[];
   loading: boolean;
   error: string | null;

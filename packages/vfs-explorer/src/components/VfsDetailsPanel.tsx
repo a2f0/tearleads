@@ -38,7 +38,7 @@ import {
   type VfsDetailsPanelProps
 } from './vfs-details-panel';
 
-export type { DisplayItem, VfsItem, VfsObjectType };
+export type { VfsItem, VfsObjectType };
 
 const DEFAULT_SORT: VfsSortState = { column: null, direction: null };
 

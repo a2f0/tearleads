@@ -12,9 +12,9 @@ import {
 import { useVfsClipboard, useVfsExplorerContext } from '../context';
 import type { DisplayItem } from '../lib';
 
-export type ContextMenuItemType = 'cut' | 'copy' | 'share';
+type ContextMenuItemType = 'cut' | 'copy' | 'share';
 
-export interface ItemContextMenuProps {
+interface ItemContextMenuProps {
   x: number;
   y: number;
   item: DisplayItem;

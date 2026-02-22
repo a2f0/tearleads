@@ -16,7 +16,7 @@ import { useVfsExplorerContext } from '../context';
 import { useShareTargetSearch, useVfsShares } from '../hooks';
 import { cn, type DisplayItem } from '../lib';
 
-export interface SharingPanelProps {
+interface SharingPanelProps {
   item: DisplayItem;
   width: number;
   onWidthChange: (width: number) => void;

@@ -258,14 +258,14 @@ export async function wrapSessionKey(sessionKey: Uint8Array): Promise<string> {
   return combineEncapsulation(encapsulation);
 }
 
-export interface RegisterVfsItemWithCurrentKeysInput {
+interface RegisterVfsItemWithCurrentKeysInput {
   id: string;
   objectType: VfsObjectType;
   registerOnServer?: boolean;
   sessionKey?: Uint8Array;
 }
 
-export interface RegisterVfsItemWithCurrentKeysResult {
+interface RegisterVfsItemWithCurrentKeysResult {
   sessionKey: Uint8Array;
   encryptedSessionKey: string;
 }

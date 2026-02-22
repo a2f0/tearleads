@@ -32,7 +32,7 @@ import {
 import type { VfsSyncCursor } from './sync-cursor.js';
 import { compareVfsSyncCursorOrder } from './sync-reconcile.js';
 
-export interface VfsSyncClientLoopDependencies {
+interface VfsSyncClientLoopDependencies {
   userId: string;
   clientId: string;
   pullLimit: number;

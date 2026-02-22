@@ -189,7 +189,7 @@ function parseReconcileBody(body: unknown): ParsedReconcileBody | null {
   };
 }
 
-export interface HttpHarnessDelayConfig {
+interface HttpHarnessDelayConfig {
   desktopPushDelayMs?: number;
   mobilePushDelayMs?: number;
   tabletPushDelayMs?: number;
@@ -209,7 +209,7 @@ interface HttpHarnessReconcilePayload {
   lastReconciledWriteIds: Record<string, number>;
 }
 
-export interface HttpHarnessOptions {
+interface HttpHarnessOptions {
   delays: HttpHarnessDelayConfig;
   mutatePullPayload?: (
     payload: HttpHarnessPullPayload,

@@ -1,6 +1,6 @@
 import { expect } from 'vitest';
 
-export type GuardrailViolationSnapshot = {
+type GuardrailViolationSnapshot = {
   code: string;
   stage: string;
   message: string;

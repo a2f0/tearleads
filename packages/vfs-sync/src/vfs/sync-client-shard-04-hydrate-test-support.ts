@@ -10,7 +10,7 @@ import {
   VfsBackgroundSyncClient
 } from './sync-client-test-support.js';
 
-export interface HydrateGuardrailRecord {
+interface HydrateGuardrailRecord {
   code: string;
   stage: string;
   message: string;

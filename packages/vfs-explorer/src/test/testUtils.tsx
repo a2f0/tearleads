@@ -48,23 +48,23 @@ export const createMockDatabase = (): MockDb => {
   return mockDb;
 };
 
-export const createMockVfsKeys = () => ({
+const createMockVfsKeys = () => ({
   generateSessionKey: vi.fn(() => new Uint8Array(32)),
   wrapSessionKey: vi.fn(async () => 'wrapped-session-key')
 });
 
-export const createMockAuth = () => ({
+const createMockAuth = () => ({
   isLoggedIn: vi.fn(() => false),
   readStoredAuth: vi.fn((): { user: { id: string } | null } => ({
     user: { id: 'test-user-id' }
   }))
 });
 
-export const createMockFeatureFlags = () => ({
+const createMockFeatureFlags = () => ({
   getFeatureFlagValue: vi.fn(() => false)
 });
 
-export const createMockVfsApi = () => ({
+const createMockVfsApi = () => ({
   register: vi.fn(async () => {})
 });
 
@@ -87,7 +87,7 @@ export const createMockUI = () => ({
   )
 });
 
-export interface MockContextOptions {
+interface MockContextOptions {
   databaseState?: Partial<DatabaseState>;
   database?: ReturnType<typeof createMockDatabase>;
   vfsKeys?: Partial<ReturnType<typeof createMockVfsKeys>>;
@@ -96,7 +96,7 @@ export interface MockContextOptions {
   vfsApi?: Partial<ReturnType<typeof createMockVfsApi>>;
 }
 
-export function createMockContextValue(options: MockContextOptions = {}) {
+function createMockContextValue(options: MockContextOptions = {}) {
   const database = options.database ?? createMockDatabase();
 
   return {

@@ -16,7 +16,7 @@ function debugLog(...args: unknown[]): void {
   }
 }
 
-export function hasOpfsDb(oo1: SQLiteOO1): oo1 is SQLiteOO1WithOpfs {
+function hasOpfsDb(oo1: SQLiteOO1): oo1 is SQLiteOO1WithOpfs {
   return 'OpfsDb' in oo1;
 }
 

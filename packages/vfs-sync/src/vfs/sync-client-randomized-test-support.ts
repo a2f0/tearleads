@@ -50,7 +50,7 @@ function pickDifferent<T>(
   return candidate;
 }
 
-export function pickTwoDistinct<T>(
+function pickTwoDistinct<T>(
   values: readonly T[],
   random: () => number
 ): [T, T] {
@@ -104,7 +104,7 @@ type MixedRecoveryParentCandidate = 'root' | 'archive' | 'workspace';
 type MixedRecoveryPrincipalType = 'group' | 'organization';
 type MixedRecoveryAccessLevel = 'read' | 'write' | 'admin';
 
-export interface SeededMixedRecoveryInputBundle {
+interface SeededMixedRecoveryInputBundle {
   parentOne: MixedRecoveryParentCandidate;
   parentTwo: MixedRecoveryParentCandidate;
   principalType: MixedRecoveryPrincipalType;
@@ -236,7 +236,7 @@ export function createCallCountedPullResolverFromPages(input: {
   });
 }
 
-export const MIXED_RECOVERY_GUARDRAIL_SIGNATURES = [
+const MIXED_RECOVERY_GUARDRAIL_SIGNATURES = [
   'pull:lastWriteIdRegression:desktop',
   'reconcile:lastWriteIdRegression:mobile'
 ] as const;
@@ -319,7 +319,7 @@ export function readSeedContainerCursorOrThrow(input: {
   return seedCursor;
 }
 
-export type GuardrailViolationSnapshot = {
+type GuardrailViolationSnapshot = {
   code: string;
   stage: string;
   message: string;

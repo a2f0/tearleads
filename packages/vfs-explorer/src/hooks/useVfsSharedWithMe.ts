@@ -20,7 +20,7 @@ function toNullableDate(value: string | Date | null): Date | null {
   return value instanceof Date ? value : new Date(value);
 }
 
-export interface VfsSharedWithMeItem {
+interface VfsSharedWithMeItem {
   id: string;
   objectType: VfsObjectType;
   name: string;
@@ -34,7 +34,7 @@ export interface VfsSharedWithMeItem {
   expiresAt: Date | null;
 }
 
-export interface UseVfsSharedWithMeResult {
+interface UseVfsSharedWithMeResult {
   items: VfsSharedWithMeItem[];
   loading: boolean;
   error: string | null;

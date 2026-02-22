@@ -77,7 +77,6 @@
     "@tearleads/ui": "workspace:*",
     "@tearleads/vehicles": "workspace:*",
     "@tearleads/vfs-explorer": "workspace:*",
-    "@tearleads/vfs-sync": "workspace:*",
     "@tearleads/window-manager": "workspace:*",
     "@uiw/react-md-editor": "4.0.11",
     "better-sqlite3-multiple-ciphers": "12.6.2",

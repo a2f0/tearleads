@@ -1,18 +1,18 @@
 import { isRecord, toFiniteNumber } from '@tearleads/shared';
 import { getDatabaseAdapter, isDatabaseInitialized } from './index';
 
-export interface ItemKeyRecord {
+interface ItemKeyRecord {
   itemId: string;
   keyEpoch: number;
   sessionKey: Uint8Array;
 }
 
-export interface ShareRecord {
+interface ShareRecord {
   recipientUserId: string;
   keyEpoch: number;
 }
 
-export interface ItemKeyStore {
+interface ItemKeyStore {
   getItemKey(input: {
     itemId: string;
     keyEpoch?: number;

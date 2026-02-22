@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 import { useRenameVfsFolder, type VfsFolderNode } from '../hooks';
 
-export interface RenameFolderDialogProps {
+interface RenameFolderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   folder: VfsFolderNode | null;

@@ -14,7 +14,7 @@ import type {
 export const CLASSIC_ROOT_ID = '11111111-1111-1111-1111-111111111111';
 
 type WithRealDatabaseCallback = Parameters<typeof withRealDatabase>[0];
-export type TestDb = Parameters<WithRealDatabaseCallback>[0]['db'];
+type TestDb = Parameters<WithRealDatabaseCallback>[0]['db'];
 
 export async function withClassicRealDatabase(
   callback: WithRealDatabaseCallback

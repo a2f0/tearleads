@@ -37,7 +37,7 @@ import {
 } from '@/storage/opfs';
 import { generateSessionKey, wrapSessionKey } from './useVfsKeys';
 
-export interface UploadResult {
+interface UploadResult {
   id: string;
   isDuplicate: boolean;
 }

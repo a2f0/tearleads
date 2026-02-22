@@ -29,7 +29,7 @@ import { createUserKeyProvider } from '@/db/vfsUserKeyProvider';
 import { ensureVfsKeys } from '@/hooks/vfs';
 import { useAuth } from './AuthContext';
 
-export interface VfsOrchestratorContextValue {
+interface VfsOrchestratorContextValue {
   /** The underlying orchestrator for queue/flush operations */
   orchestrator: VfsWriteOrchestrator | null;
   /** The secure facade for encrypted operations */

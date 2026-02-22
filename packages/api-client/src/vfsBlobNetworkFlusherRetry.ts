@@ -71,7 +71,7 @@ export async function emitTelemetryHook<T>(
   }
 }
 
-export interface BlobOperationErrorInfo {
+interface BlobOperationErrorInfo {
   failureClass: VfsBlobFailureClass;
   statusCode?: number | undefined;
   retryable: boolean;

@@ -5,7 +5,7 @@ import type { VfsObjectType } from '../lib/vfsTypes';
 /**
  * Represents an item in the clipboard
  */
-export interface ClipboardItem {
+interface ClipboardItem {
   id: string;
   objectType: VfsObjectType;
   name: string;
@@ -14,12 +14,12 @@ export interface ClipboardItem {
 /**
  * Type of clipboard operation
  */
-export type ClipboardOperation = 'cut' | 'copy';
+type ClipboardOperation = 'cut' | 'copy';
 
 /**
  * Clipboard state
  */
-export interface ClipboardState {
+interface ClipboardState {
   items: ClipboardItem[];
   operation: ClipboardOperation | null;
 }
@@ -27,7 +27,7 @@ export interface ClipboardState {
 /**
  * Context value interface
  */
-export interface VfsClipboardContextValue {
+interface VfsClipboardContextValue {
   /** Current clipboard state */
   clipboard: ClipboardState;
   /** Cut items to clipboard */
@@ -48,7 +48,7 @@ const VfsClipboardContext = createContext<VfsClipboardContextValue | null>(
   null
 );
 
-export interface VfsClipboardProviderProps {
+interface VfsClipboardProviderProps {
   children: ReactNode;
 }
 

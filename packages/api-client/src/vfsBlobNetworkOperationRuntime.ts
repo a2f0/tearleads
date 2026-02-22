@@ -19,7 +19,7 @@ import type {
   VfsBlobStageQueueOperation
 } from './vfsBlobNetworkFlusherTypes';
 
-export interface ExecuteBlobOperationContext {
+interface ExecuteBlobOperationContext {
   apiPrefix: string;
   baseUrl: string;
   fetchImpl: typeof fetch;

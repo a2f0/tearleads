@@ -337,11 +337,11 @@
       "qualityMetric": "Knip finding count (dependencies + devDependencies + unlisted + unresolved + exports + types)",
       "security": false,
       "discoveryCommands": [
-        "pnpm exec knip --config knip.json --use-tsconfig-files --reporter compact | head -80 || true"
+        "pnpm exec knip --config knip.ts --use-tsconfig-files --reporter compact | head -80 || true"
       ],
       "metricCountCommands": [
         "KNIP_JSON=$(mktemp)",
-        "pnpm exec knip --config knip.json --use-tsconfig-files --reporter json > \"$KNIP_JSON\" 2>/dev/null || true",
+        "pnpm exec knip --config knip.ts --use-tsconfig-files --reporter json > \"$KNIP_JSON\" 2>/dev/null || true",
         "jq '[",
         "  .issues[]? |",
         "  (.dependencies // []),",

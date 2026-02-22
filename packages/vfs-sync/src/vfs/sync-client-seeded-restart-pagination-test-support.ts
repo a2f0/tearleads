@@ -14,7 +14,7 @@ import {
   toStageCodeReplicaSignatures
 } from './sync-client-randomized-test-support.js';
 
-export interface SeededRestartPaginationResult {
+interface SeededRestartPaginationResult {
   expectedPageSignatures: string[];
   expectedGuardrailSignatures: string[];
   excludedPhantomSignature: string;

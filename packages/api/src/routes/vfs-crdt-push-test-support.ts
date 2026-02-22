@@ -1,9 +1,9 @@
 import { type Mock, vi } from 'vitest';
 
 export const mockQuery: Mock = vi.fn();
-export const mockGetPostgresPool: Mock = vi.fn();
+const mockGetPostgresPool: Mock = vi.fn();
 export const mockClientRelease: Mock = vi.fn();
-export const mockPoolConnect: Mock = vi.fn().mockImplementation(() =>
+const mockPoolConnect: Mock = vi.fn().mockImplementation(() =>
   Promise.resolve({
     query: mockQuery,
     release: mockClientRelease
