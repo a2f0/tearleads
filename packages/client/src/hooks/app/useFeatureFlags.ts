@@ -11,7 +11,7 @@ import {
   setFeatureFlagOverride
 } from '@/lib/featureFlags';
 
-export interface FeatureFlagEntry {
+interface FeatureFlagEntry {
   key: FeatureFlagKey;
   label: string;
   description: string;

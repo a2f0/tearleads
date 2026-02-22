@@ -8,7 +8,7 @@ import {
   contacts as contactsTable
 } from '@/db/schema';
 
-export interface ContactInfo {
+interface ContactInfo {
   id: string;
   firstName: string;
   lastName: string | null;
@@ -16,16 +16,16 @@ export interface ContactInfo {
   primaryPhone: string | null;
 }
 
-export type SortColumn = 'firstName' | 'lastName' | 'primaryEmail';
-export type SortDirection = 'asc' | 'desc';
+type SortColumn = 'firstName' | 'lastName' | 'primaryEmail';
+type SortDirection = 'asc' | 'desc';
 
-export interface UseContactsOptions {
+interface UseContactsOptions {
   refreshToken?: number | undefined;
   sortColumn?: SortColumn;
   sortDirection?: SortDirection;
 }
 
-export interface UseContactsResult {
+interface UseContactsResult {
   contactsList: ContactInfo[];
   loading: boolean;
   error: string | null;

@@ -26,7 +26,7 @@ export const COMMON_AUDIO_MIME_TYPES = [
   'audio/ogg' // .ogg
 ];
 
-export interface NativeFilePickerOptions {
+interface NativeFilePickerOptions {
   /** MIME types to accept (e.g., 'audio/*', 'image/*'). Only used when source is 'files'. */
   accept?: string | undefined;
   /** Allow multiple file selection */
@@ -38,10 +38,6 @@ export interface NativeFilePickerOptions {
    * - 'media': Photo library (images and videos)
    */
   source?: FilePickerSource | undefined;
-}
-
-export interface NativeFilePickerResult {
-  files: File[];
 }
 
 /**

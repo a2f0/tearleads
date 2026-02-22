@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { VideoPlaylist } from '@/video/VideoPlaylistContext';
 import { useVideoPlaylistContext } from '@/video/VideoPlaylistContext';
 
-export interface UseVideoPlaylistsResult {
+interface UseVideoPlaylistsResult {
   playlists: VideoPlaylist[];
   loading: boolean;
   error: string | null;

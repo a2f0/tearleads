@@ -22,12 +22,7 @@ import {
   unwrapConversationSessionKey
 } from '@/lib/conversationCrypto';
 
-export interface ConversationWithKey {
-  conversation: DecryptedAiConversation;
-  sessionKey: Uint8Array;
-}
-
-export interface UseConversationsResult {
+interface UseConversationsResult {
   conversations: DecryptedAiConversation[];
   loading: boolean;
   error: string | null;

@@ -37,12 +37,7 @@ import { checkWebGPUSupport, loadLocalModel } from './webgpu';
 export { resetLLMUIState } from './store';
 // Re-export types and utilities
 export type {
-  ChatMessage,
-  ClassificationResult,
-  GenerateCallback,
-  LLMState,
-  LoadProgress,
-  UseLLMReturn
+  ClassificationResult
 } from './types';
 
 async function loadModelInternal(modelId: string): Promise<void> {
