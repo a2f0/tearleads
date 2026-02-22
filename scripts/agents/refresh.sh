@@ -39,16 +39,21 @@ echo "Syncing Capacitor..."
 cd "$CLIENT_DIR"
 pnpm cap sync
 
-# Install Ruby gems (for fastlane, cocoapods, etc.)
-echo "Installing Ruby gems..."
-bundle install
+# CocoaPods/iOS dependency install is only supported on macOS hosts.
+if [ "$(uname -s)" = "Darwin" ]; then
+  # Install Ruby gems (for fastlane, cocoapods, etc.)
+  echo "Installing Ruby gems..."
+  bundle install
 
-# Install CocoaPods using the committed Podfile.lock.
-# Clean installs belong in update-everything (when dependencies change),
-# not in refresh (which restores to the committed state).
-echo "Installing CocoaPods..."
-cd "$CLIENT_DIR/ios/App"
-bundle exec pod install
+  # Install CocoaPods using the committed Podfile.lock.
+  # Clean installs belong in update-everything (when dependencies change),
+  # not in refresh (which restores to the committed state).
+  echo "Installing CocoaPods..."
+  cd "$CLIENT_DIR/ios/App"
+  bundle exec pod install
+else
+  echo "Skipping Ruby/CocoaPods install on non-macOS host."
+fi
 
 # Return to repo root
 cd "$REPO_ROOT"
