@@ -30,29 +30,10 @@ async function isDesktopDevice(page: Page): Promise<boolean> {
 }
 
 async function navigateWithHistory(page: Page, path: string): Promise<void> {
-  // Playwright can momentarily expose about:blank (origin "null") during
-  // transitions; pushState is invalid there, so fall back to a normal navigation.
-  if (page.url() === 'about:blank') {
-    await page.goto(path);
-    return;
-  }
-
-  try {
-    await page.evaluate((targetPath) => {
-      window.history.pushState({}, '', targetPath);
-      window.dispatchEvent(new PopStateEvent('popstate'));
-    }, path);
-  } catch (error: unknown) {
-    if (
-      error instanceof Error &&
-      error.message.includes("Failed to execute 'pushState'") &&
-      error.message.includes("origin 'null'")
-    ) {
-      await page.goto(path);
-      return;
-    }
-    throw error;
-  }
+  await page.evaluate((targetPath) => {
+    window.history.pushState({}, '', targetPath);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, path);
 }
 
 async function triggerSidebarNavigation(
@@ -101,6 +82,12 @@ const URL_NAVIGATION_PATHS = new Set<string>([]);
 
 // Helper to navigate via sidebar or URL navigation
 async function navigateTo(page: Page, linkName: string) {
+  const startButton = page.getByTestId('start-button');
+  if (page.url() === 'about:blank' || (await startButton.count()) === 0) {
+    await page.goto('/');
+    await expect(startButton).toBeVisible({ timeout: 10000 });
+  }
+
   const slug = linkName.toLowerCase().replace(/\s+/g, '-');
   const slugPath = linkName === 'Home' ? '/' : `/${slug}`;
   // Apply path override if exists (e.g., /tables -> /sqlite/tables)
@@ -109,12 +96,24 @@ async function navigateTo(page: Page, linkName: string) {
 
   // Use URL navigation for window-capable paths or paths that might be scrolled out of view
   if (isDesktop && (WINDOW_LAUNCH_PATHS.has(path) || URL_NAVIGATION_PATHS.has(path))) {
-    await navigateWithHistory(page, path);
+    try {
+      await navigateWithHistory(page, path);
+    } catch (error: unknown) {
+      if (
+        error instanceof Error &&
+        error.message.includes("Failed to execute 'pushState'")
+      ) {
+        await page.goto('/');
+        await expect(startButton).toBeVisible({ timeout: 10000 });
+        await navigateWithHistory(page, path);
+      } else {
+        throw error;
+      }
+    }
     return;
   }
   // Check if sidebar is visible, if not open it
   const sidebar = page.locator('aside nav');
-  const startButton = page.getByTestId('start-button');
   const isSidebarOpen =
     (await startButton.getAttribute('aria-pressed')) === 'true';
   if (!isSidebarOpen) {
