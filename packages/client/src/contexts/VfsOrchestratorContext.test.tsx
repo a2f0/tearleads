@@ -35,11 +35,7 @@ vi.mock('@tearleads/api-client', () => {
   const MockVfsWriteOrchestrator = class {
     mockOrchestrator = true;
     static lastOptions: unknown;
-    constructor(
-      _userId: string,
-      _clientId: string,
-      options: unknown
-    ) {
+    constructor(_userId: string, _clientId: string, options: unknown) {
       MockVfsWriteOrchestrator.lastOptions = options;
     }
   };

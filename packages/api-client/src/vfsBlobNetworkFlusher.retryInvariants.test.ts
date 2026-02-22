@@ -42,11 +42,15 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
 
   it('resumes from failed chunk while preserving operation order', async () => {
     const persistedSnapshots: VfsBlobNetworkFlusherPersistedState[] = [];
-    const saveState = vi.fn(async (state: VfsBlobNetworkFlusherPersistedState) => {
-      persistedSnapshots.push(
-        JSON.parse(JSON.stringify(state)) as VfsBlobNetworkFlusherPersistedState
-      );
-    });
+    const saveState = vi.fn(
+      async (state: VfsBlobNetworkFlusherPersistedState) => {
+        persistedSnapshots.push(
+          JSON.parse(
+            JSON.stringify(state)
+          ) as VfsBlobNetworkFlusherPersistedState
+        );
+      }
+    );
 
     let failedChunk2 = false;
     const observedRequests: ObservedRequest[] = [];
@@ -169,7 +173,8 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
         init?: RequestInit
       ): Promise<Response> => {
         const url = input.toString();
-        const body = typeof init?.body === 'string' ? JSON.parse(init.body) : {};
+        const body =
+          typeof init?.body === 'string' ? JSON.parse(init.body) : {};
         observedRequests.push({ url, body });
 
         if (
@@ -225,9 +230,9 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     await expect(flusher.flush()).rejects.toThrow(
       'Manifest commit unavailable'
     );
-    expect(flusher.queuedOperations().map((operation) => operation.kind)).toEqual(
-      ['commit', 'attach']
-    );
+    expect(
+      flusher.queuedOperations().map((operation) => operation.kind)
+    ).toEqual(['commit', 'attach']);
 
     await expect(flusher.flush()).resolves.toEqual({
       processedOperations: 2,
@@ -369,8 +374,8 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     // Stage retried once on TypeError, attach 409 was not retried.
     expect(networkAttempts).toBe(2);
     expect(retrySleep).toHaveBeenCalledTimes(1);
-    expect(flusher.queuedOperations().map((operation) => operation.kind)).toEqual(
-      ['attach']
-    );
+    expect(
+      flusher.queuedOperations().map((operation) => operation.kind)
+    ).toEqual(['attach']);
   });
 });

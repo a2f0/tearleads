@@ -9,6 +9,13 @@ import {
   normalizeRequiredString,
   normalizeStageEncryptionMetadata
 } from './vfsBlobNetworkFlusherHelpers';
+import {
+  defaultRetrySleep,
+  emitTelemetryHook,
+  getBlobOperationErrorInfo,
+  isRetryableBlobOperationError,
+  normalizeRetryPolicy
+} from './vfsBlobNetworkFlusherRetry';
 import type {
   LoadStateCallback,
   PersistStateCallback,
@@ -22,11 +29,11 @@ import type {
   VfsBlobManifestCommitRequest,
   VfsBlobNetworkFlusherFlushResult,
   VfsBlobNetworkFlusherOptions,
-  VfsBlobNetworkRetryPolicy,
-  VfsBlobNetworkRetryEvent,
-  VfsBlobNetworkOperationResultEvent,
   VfsBlobNetworkFlusherPersistedState,
   VfsBlobNetworkOperation,
+  VfsBlobNetworkOperationResultEvent,
+  VfsBlobNetworkRetryEvent,
+  VfsBlobNetworkRetryPolicy,
   VfsBlobStageQueueOperation,
   VfsBlobStageRequest
 } from './vfsBlobNetworkFlusherTypes';
@@ -35,12 +42,6 @@ import {
   isManifestCommitSizeShapeValid,
   normalizeBlobNetworkOperation
 } from './vfsBlobNetworkOperationRuntime';
-import {
-  defaultRetrySleep,
-  getBlobOperationErrorInfo,
-  isRetryableBlobOperationError,
-  normalizeRetryPolicy
-} from './vfsBlobNetworkFlusherRetry';
 
 export type {
   VfsBlobAbandonQueueOperation,
@@ -56,11 +57,11 @@ export type {
   VfsBlobManifestCommitRequest,
   VfsBlobNetworkFlusherFlushResult,
   VfsBlobNetworkFlusherOptions,
-  VfsBlobNetworkRetryPolicy,
-  VfsBlobNetworkRetryEvent,
-  VfsBlobNetworkOperationResultEvent,
   VfsBlobNetworkFlusherPersistedState,
   VfsBlobNetworkOperation,
+  VfsBlobNetworkOperationResultEvent,
+  VfsBlobNetworkRetryEvent,
+  VfsBlobNetworkRetryPolicy,
   VfsBlobRelationKind,
   VfsBlobStageQueueOperation,
   VfsBlobStageRequest,
@@ -76,9 +77,12 @@ export class VfsBlobNetworkFlusher {
   private readonly loadState: LoadStateCallback | null;
   private readonly retryPolicy: VfsBlobNetworkRetryPolicy;
   private readonly retrySleep: (delayMs: number) => Promise<void>;
-  private readonly onRetry: ((event: VfsBlobNetworkRetryEvent) => Promise<void> | void) | undefined;
+  private readonly onRetry:
+    | ((event: VfsBlobNetworkRetryEvent) => Promise<void> | void)
+    | undefined;
   private readonly onOperationResult:
-    ((event: VfsBlobNetworkOperationResultEvent) => Promise<void> | void) | undefined;
+    | ((event: VfsBlobNetworkOperationResultEvent) => Promise<void> | void)
+    | undefined;
   private readonly pendingOperations: VfsBlobNetworkOperation[] = [];
   private flushPromise: Promise<VfsBlobNetworkFlusherFlushResult> | null = null;
 
@@ -425,7 +429,7 @@ export class VfsBlobNetworkFlusher {
           },
           operation
         );
-        await this.emitOperationResult({
+        await emitTelemetryHook(this.onOperationResult, {
           operationId: operation.operationId,
           operationKind: operation.kind,
           attempts: attempt,
@@ -439,7 +443,7 @@ export class VfsBlobNetworkFlusher {
           attempt < this.retryPolicy.maxAttempts &&
           isRetryableBlobOperationError(error, this.retryPolicy);
         if (!canRetry) {
-          await this.emitOperationResult({
+          await emitTelemetryHook(this.onOperationResult, {
             operationId: operation.operationId,
             operationKind: operation.kind,
             attempts: attempt,
@@ -452,7 +456,7 @@ export class VfsBlobNetworkFlusher {
           throw error;
         }
 
-        await this.emitRetry({
+        await emitTelemetryHook(this.onRetry, {
           operationId: operation.operationId,
           operationKind: operation.kind,
           attempt,
@@ -469,32 +473,6 @@ export class VfsBlobNetworkFlusher {
         Math.max(1, Math.round(delayMs * this.retryPolicy.backoffMultiplier))
       );
       attempt += 1;
-    }
-  }
-
-  private async emitRetry(event: VfsBlobNetworkRetryEvent): Promise<void> {
-    if (!this.onRetry) {
-      return;
-    }
-
-    try {
-      await this.onRetry(event);
-    } catch {
-      // Telemetry hooks must not affect flush behavior.
-    }
-  }
-
-  private async emitOperationResult(
-    event: VfsBlobNetworkOperationResultEvent
-  ): Promise<void> {
-    if (!this.onOperationResult) {
-      return;
-    }
-
-    try {
-      await this.onOperationResult(event);
-    } catch {
-      // Telemetry hooks must not affect flush behavior.
     }
   }
 }

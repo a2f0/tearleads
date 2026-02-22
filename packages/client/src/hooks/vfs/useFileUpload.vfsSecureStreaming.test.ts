@@ -183,11 +183,9 @@ describe('useFileUpload secure streaming', () => {
     vi.mocked(useVfsSecureFacade).mockReturnValue(
       mockSecureFacade as unknown as ReturnType<typeof useVfsSecureFacade>
     );
-    vi.mocked(useVfsOrchestratorInstance).mockReturnValue(
-      {
-        flushAll: vi.fn().mockResolvedValue({ success: true })
-      } as unknown as ReturnType<typeof useVfsOrchestratorInstance>
-    );
+    vi.mocked(useVfsOrchestratorInstance).mockReturnValue({
+      flushAll: vi.fn().mockResolvedValue({ success: true })
+    } as unknown as ReturnType<typeof useVfsOrchestratorInstance>);
 
     const { result } = renderHook(() => useFileUpload());
     const file = new File(['test'], 'test.png', { type: 'image/png' });
@@ -213,11 +211,9 @@ describe('useFileUpload secure streaming', () => {
     vi.mocked(useVfsSecureFacade).mockReturnValue(
       mockSecureFacade as unknown as ReturnType<typeof useVfsSecureFacade>
     );
-    vi.mocked(useVfsOrchestratorInstance).mockReturnValue(
-      {
-        flushAll: vi.fn().mockResolvedValue({ success: true })
-      } as unknown as ReturnType<typeof useVfsOrchestratorInstance>
-    );
+    vi.mocked(useVfsOrchestratorInstance).mockReturnValue({
+      flushAll: vi.fn().mockResolvedValue({ success: true })
+    } as unknown as ReturnType<typeof useVfsOrchestratorInstance>);
 
     vi.mocked(fileTypeFromBuffer).mockResolvedValue({
       ext: 'bin',

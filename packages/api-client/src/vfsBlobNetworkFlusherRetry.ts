@@ -56,6 +56,21 @@ export async function defaultRetrySleep(delayMs: number): Promise<void> {
   });
 }
 
+export async function emitTelemetryHook<T>(
+  callback: ((event: T) => Promise<void> | void) | undefined,
+  event: T
+): Promise<void> {
+  if (!callback) {
+    return;
+  }
+
+  try {
+    await callback(event);
+  } catch {
+    // Telemetry hooks must not affect flush behavior.
+  }
+}
+
 export interface BlobOperationErrorInfo {
   failureClass: VfsBlobFailureClass;
   statusCode?: number | undefined;
