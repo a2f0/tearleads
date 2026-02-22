@@ -103,9 +103,10 @@ const postCrdtPushHandler = async (req: Request, res: Response) => {
     }
 
     const ownerByItemId = new Map<string, string | null>();
-    const ownerValidatedOperations: VfsCrdtPushOperation[] = validOperations.filter(
-      (operation) => operation.encryptedPayload === undefined
-    );
+    const ownerValidatedOperations: VfsCrdtPushOperation[] =
+      validOperations.filter(
+        (operation) => operation.encryptedPayload === undefined
+      );
     if (ownerValidatedOperations.length > 0) {
       const uniqueItemIds = Array.from(
         new Set(ownerValidatedOperations.map((operation) => operation.itemId))
