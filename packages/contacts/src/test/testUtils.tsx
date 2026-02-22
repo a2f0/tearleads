@@ -148,7 +148,7 @@ const mockUIComponents: ContactsUIComponents = {
   )
 };
 
-export interface TestContactsProviderProps {
+interface TestContactsProviderProps {
   children: ReactNode;
   databaseState?: Partial<DatabaseState>;
   database?: MockDb;

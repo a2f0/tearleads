@@ -24,7 +24,6 @@ import { useVideoData } from './video-components/useVideoData';
 import { useVideoUpload } from './video-components/useVideoUpload';
 
 export type {
-  VideoInfo,
   VideoOpenOptions,
   VideoWithThumbnail
 } from './video-components/types';

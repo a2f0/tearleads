@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { cn } from '../../lib/utils.js';
 import { buildFloatingWindowStyles } from './windowStyles.js';
 
-export interface FloatingWindowStyleProps {
+interface FloatingWindowStyleProps {
   isDesktop: boolean;
   isMaximized: boolean;
   isNearMaximized: boolean;

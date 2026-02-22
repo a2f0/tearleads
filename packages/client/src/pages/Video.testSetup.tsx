@@ -104,7 +104,7 @@ function createVideoMocks() {
   };
 }
 
-export type VideoMocks = ReturnType<typeof createVideoMocks>;
+type VideoMocks = ReturnType<typeof createVideoMocks>;
 
 // ============================================================================
 // Common beforeEach Setup

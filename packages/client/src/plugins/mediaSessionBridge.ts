@@ -1,7 +1,7 @@
 import type { PluginListenerHandle } from '@capacitor/core';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 
-export type TransportControlAction =
+type TransportControlAction =
   | 'play'
   | 'pause'
   | 'togglePlayPause'
@@ -10,7 +10,7 @@ export type TransportControlAction =
   | 'stop'
   | 'seekTo';
 
-export interface TransportControlEvent {
+interface TransportControlEvent {
   action: TransportControlAction;
   positionMs?: number;
   mediaId?: string;
@@ -37,7 +37,7 @@ interface MediaCatalogTrack {
   durationMs?: number;
 }
 
-export interface MediaSessionBridgePlugin {
+interface MediaSessionBridgePlugin {
   updatePlaybackState(options: UpdatePlaybackStateOptions): Promise<void>;
   updateMetadata(options: UpdateMetadataOptions): Promise<void>;
   updateCatalog(options: { tracks: MediaCatalogTrack[] }): Promise<void>;

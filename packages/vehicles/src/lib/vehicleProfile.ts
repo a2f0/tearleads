@@ -15,7 +15,7 @@ export interface VehicleProfile {
   color: string | null;
 }
 
-export type VehicleProfileField = 'make' | 'model' | 'year' | 'color';
+type VehicleProfileField = 'make' | 'model' | 'year' | 'color';
 
 export interface VehicleProfileValidationError {
   field: VehicleProfileField;

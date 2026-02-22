@@ -1,6 +1,6 @@
-import type { ColumnMapping, ParsedCSV } from '../../hooks/useContactsImport';
+import type { ColumnMapping } from '../../hooks/useContactsImport';
 
-export type { ColumnMapping, ParsedCSV };
+export type { ColumnMapping };
 
 export interface TargetField {
   key: keyof ColumnMapping;

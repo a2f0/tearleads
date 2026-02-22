@@ -22,15 +22,6 @@ import {
 } from './keyManagerStorageAdapters';
 import * as nativeSecureStorage from './nativeSecureStorage';
 
-export interface KeyManagerConfig {
-  databaseName: string;
-}
-
-export interface StoredKeyData {
-  salt: Uint8Array;
-  keyCheckValue: string; // Used to verify correct password
-}
-
 /**
  * Key manager class for handling encryption key lifecycle.
  * Each instance has its own isolated key storage.
@@ -373,7 +364,7 @@ export async function isBiometricAvailable(): Promise<nativeSecureStorage.Biomet
 /**
  * Key status for an instance (existence only, no values).
  */
-export interface KeyStatus {
+interface KeyStatus {
   salt: boolean;
   keyCheckValue: boolean;
   wrappingKey: boolean;
@@ -416,5 +407,4 @@ export async function deleteSessionKeysForInstance(
   await storage.clearSession();
 }
 
-export type { OrphanCleanupResult } from './keyManagerOrphans';
 export { validateAndPruneOrphanedInstances } from './keyManagerOrphans';

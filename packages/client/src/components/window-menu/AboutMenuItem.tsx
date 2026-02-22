@@ -6,7 +6,7 @@ import {
 import { useAppVersion } from '@/hooks/app';
 import { AboutDialog } from './AboutDialog';
 
-export interface AboutMenuItemProps {
+interface AboutMenuItemProps {
   appName?: string;
   version?: string;
   closeLabel?: string;

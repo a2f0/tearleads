@@ -45,12 +45,3 @@ export const createMockFeatureFlags = () => ({
 export const createMockVfsApi = () => ({
   register: vi.fn(async () => {})
 });
-
-export interface MockContextOptions {
-  databaseState?: Partial<DatabaseState>;
-  database?: ReturnType<typeof createMockDatabase>;
-  vfsKeys?: Partial<ReturnType<typeof createMockVfsKeys>>;
-  auth?: Partial<ReturnType<typeof createMockAuth>>;
-  featureFlags?: Partial<ReturnType<typeof createMockFeatureFlags>>;
-  vfsApi?: Partial<ReturnType<typeof createMockVfsApi>>;
-}

@@ -23,7 +23,7 @@ import type {
 /**
  * Options for creating a backup.
  */
-export interface CreateBackupOptions {
+interface CreateBackupOptions {
   /** Password for encrypting the backup */
   password: string;
   /** Include file blobs in the backup */

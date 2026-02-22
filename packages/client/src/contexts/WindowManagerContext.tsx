@@ -97,7 +97,7 @@ export interface WindowOpenRequestPayloads {
   help: { helpDocId?: HelpDocId };
 }
 
-export type WindowOpenRequests = {
+type WindowOpenRequests = {
   [K in keyof WindowOpenRequestPayloads]?: WindowOpenRequestPayloads[K] & {
     requestId: number;
   };
@@ -133,8 +133,6 @@ type WindowManagerActions = Omit<
   WindowManagerContextValue,
   'windows' | 'windowOpenRequests' | 'isWindowOpen' | 'getWindow'
 >;
-
-export type { WindowDimensions, WindowManagerActions };
 
 const WindowManagerContext = createContext<WindowManagerContextValue | null>(
   null

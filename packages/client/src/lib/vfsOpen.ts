@@ -3,7 +3,7 @@ import { getDatabase } from '@/db';
 import { files, playlists } from '@/db/schema';
 
 export type FileOpenTarget = 'audio' | 'document' | 'file' | 'photo' | 'video';
-export type PlaylistType = 'audio' | 'video';
+type PlaylistType = 'audio' | 'video';
 
 export async function resolveFileOpenTarget(
   fileId: string

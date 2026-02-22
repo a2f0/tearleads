@@ -16,7 +16,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString();
 
-export interface ThumbnailOptions {
+interface ThumbnailOptions {
   maxWidth: number;
   maxHeight: number;
   quality: number;

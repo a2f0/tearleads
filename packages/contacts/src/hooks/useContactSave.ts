@@ -8,20 +8,14 @@ import type {
   PhoneFormData
 } from '../lib/validation';
 
-/** Callback for VFS registration after contact creation */
-export type OnContactCreatedCallback = (
-  contactId: string,
-  createdAt: Date
-) => Promise<void>;
-
-export interface SaveContactParams {
+interface SaveContactParams {
   contactId?: string;
   formData: ContactFormData;
   emails: EmailFormData[];
   phones: PhoneFormData[];
 }
 
-export interface SaveContactResult {
+interface SaveContactResult {
   success: boolean;
   contactId?: string;
   error?: string;

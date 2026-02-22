@@ -1,4 +1,4 @@
-export interface ComplianceDocument {
+interface ComplianceDocument {
   frameworkId: string;
   frameworkLabel: string;
   docPath: string;
@@ -7,14 +7,14 @@ export interface ComplianceDocument {
   source: string;
 }
 
-export interface ComplianceFramework {
+interface ComplianceFramework {
   id: string;
   label: string;
   defaultRoutePath: string;
   documentCount: number;
 }
 
-export interface ResolveComplianceLinkParams {
+interface ResolveComplianceLinkParams {
   frameworkId: string;
   currentDocPath: string;
   href: string;

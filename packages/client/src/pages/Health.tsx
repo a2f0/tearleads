@@ -1,14 +1,11 @@
 import {
   Health as BaseHealth,
   createHealthTracker,
-  type HealthDrilldownRoute,
   HealthRuntimeProvider
 } from '@tearleads/health';
 import { type ComponentProps, useCallback } from 'react';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
-
-export type { HealthDrilldownRoute };
 
 type HealthProps = ComponentProps<typeof BaseHealth>;
 

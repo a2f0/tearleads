@@ -28,7 +28,7 @@ import { EmailFolderContextMenu } from './EmailFolderContextMenu';
 import { EmptySpaceContextMenu } from './EmptySpaceContextMenu';
 import { RenameFolderDialog } from './RenameFolderDialog';
 
-export interface EmailFoldersSidebarProps {
+interface EmailFoldersSidebarProps {
   width: number;
   onWidthChange: (width: number) => void;
   selectedFolderId: string | null;

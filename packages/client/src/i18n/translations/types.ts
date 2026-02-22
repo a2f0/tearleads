@@ -56,20 +56,8 @@ export type I18NextTranslations = {
   health: HealthTranslations;
 } & Record<string, Record<string, TranslationValue>>;
 
-export type CommonKeys = keyof CommonTranslations;
-export type MenuKeys = keyof MenuTranslations;
-export type AudioKeys = keyof AudioTranslations;
-export type TooltipsKeys = keyof TooltipsTranslations;
-export type ContextMenuKeys = keyof ContextMenuTranslations;
-export type SettingsKeys = keyof SettingsTranslations;
-export type ClassicKeys = keyof ClassicTranslations;
-export type ContactsKeys = keyof ContactsTranslations;
-export type SyncKeys = keyof SyncTranslations;
-export type DebugKeys = keyof DebugTranslations;
-export type SearchKeys = keyof SearchTranslations;
-export type VehiclesKeys = keyof VehiclesTranslations;
 export type AdminKeys = keyof AdminTranslations;
-export type HealthKeys = keyof HealthTranslations;
+export type MenuKeys = keyof MenuTranslations;
 
 export type NamespaceKeys = keyof Translations;
 

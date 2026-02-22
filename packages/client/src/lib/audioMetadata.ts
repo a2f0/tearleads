@@ -21,7 +21,7 @@ const AUDIO_MIME_TYPES = new Set([
   'audio/x-aiff'
 ]);
 
-export interface CoverArtInfo {
+interface CoverArtInfo {
   data: Uint8Array;
   format: string;
 }

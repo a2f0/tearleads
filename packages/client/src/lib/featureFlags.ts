@@ -1,6 +1,6 @@
 export type FeatureFlagKey = 'vfsServerRegistration' | 'vfsSecureUpload';
 
-export interface FeatureFlagDefinition {
+interface FeatureFlagDefinition {
   label: string;
   description: string;
   defaultValue: boolean;

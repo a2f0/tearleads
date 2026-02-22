@@ -21,15 +21,7 @@ import { WebAdapter } from './web.adapter';
 // and is only meant for Vitest integration tests.
 // Import directly from './node.adapter' in test files.
 
-export type {
-  DatabaseAdapter,
-  DatabaseConfig,
-  DrizzleConnection,
-  DrizzleConnectionMethod,
-  Platform,
-  PlatformInfo,
-  QueryResult
-} from './types';
+export type { DatabaseAdapter, PlatformInfo } from './types';
 export { getPlatformInfo } from './types';
 
 /**

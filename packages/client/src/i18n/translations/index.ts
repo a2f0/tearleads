@@ -10,6 +10,4 @@ export const translations = {
   ua
 } as const;
 
-export type SupportedLanguage = keyof typeof translations;
-
 export * from './types';

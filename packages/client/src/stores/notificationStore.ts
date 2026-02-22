@@ -1,5 +1,1 @@
-export {
-  type Notification,
-  type NotificationLevel,
-  notificationStore
-} from '../../../notifications/src/stores';
+export { notificationStore } from '../../../notifications/src/stores';

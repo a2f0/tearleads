@@ -5,7 +5,7 @@ import { cn } from '../../lib/utils.js';
 
 const INDENT_PX = 16;
 
-export interface TreeViewProps<T> {
+interface TreeViewProps<T> {
   /** Flattened tree items to render */
   items: FlatTreeItem<T>[];
   /** Currently selected node ID */

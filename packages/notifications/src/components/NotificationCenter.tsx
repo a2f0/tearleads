@@ -24,8 +24,6 @@ import {
 import { LogsTab } from './LogsTab';
 import { NotificationsTab } from './NotificationsTab';
 
-export type { Corner } from '@tearleads/window-manager';
-
 type TabId = 'analytics' | 'logs' | 'notifications';
 
 interface NotificationCenterProps {

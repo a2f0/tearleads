@@ -21,12 +21,8 @@ import type {
 } from './wasmNode/types';
 import {
   getStringField,
-  isJsonBackupData,
-  isNameSqlEntry,
   keyToHex,
-  parseJsonBackupData,
-  patchFetchForFileUrls,
-  restoreFetch
+  parseJsonBackupData
 } from './wasmNode/utils';
 
 export class WasmNodeAdapter implements DatabaseAdapter {
@@ -405,15 +401,3 @@ export class WasmNodeAdapter implements DatabaseAdapter {
     );
   }
 }
-
-// Test utilities - expose functions imported at top of file for test access
-export const __test__ = {
-  getStringField,
-  initializeSqliteWasm,
-  isJsonBackupData,
-  isNameSqlEntry,
-  keyToHex,
-  parseJsonBackupData,
-  patchFetchForFileUrls,
-  restoreFetch
-};

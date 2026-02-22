@@ -28,12 +28,4 @@ export function useTypedTranslation<NS extends NamespaceKeys = 'common'>(
 
 export { useTranslation } from 'react-i18next';
 
-export type {
-  AudioKeys,
-  CommonKeys,
-  MenuKeys,
-  NamespaceKeys,
-  TooltipsKeys,
-  TranslationKeys,
-  Translations
-} from './translations';
+export type { MenuKeys } from './translations';

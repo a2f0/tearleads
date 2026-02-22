@@ -21,7 +21,7 @@ export const CLASSIC_EMPTY_STATE: ClassicState = {
   activeTagId: null
 };
 
-export interface LoadedClassicState {
+interface LoadedClassicState {
   state: ClassicState;
   linkRows: VfsLinkLikeRow[];
 }

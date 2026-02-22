@@ -7,8 +7,6 @@ import {
 } from '@tearleads/window-manager';
 import type { WindowType } from '@/contexts/WindowManagerContext';
 
-export type { StoredWindowDimensions };
-
 export function saveWindowDimensions(
   windowType: WindowType,
   dimensions: StoredWindowDimensions

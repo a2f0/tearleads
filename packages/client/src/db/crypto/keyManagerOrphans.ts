@@ -5,7 +5,7 @@ import * as nativeSecureStorage from './nativeSecureStorage';
 /**
  * Result of orphan validation and cleanup.
  */
-export interface OrphanCleanupResult {
+interface OrphanCleanupResult {
   /** Instance IDs that had Keystore entries but no registry entry */
   orphanedKeystoreEntries: string[];
   /** Instance IDs that were in registry but had no valid salt/KCV */
