@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { useVideoPlaylists } from '@/hooks/media';
 import { useDialogAccessibility } from '@/hooks/ui';
 
-export interface NewVideoPlaylistDialogProps {
+interface NewVideoPlaylistDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPlaylistCreated?: (id: string, name: string) => void;

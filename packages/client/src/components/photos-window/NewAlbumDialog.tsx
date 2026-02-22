@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { usePhotoAlbums } from './usePhotoAlbums';
 
-export interface NewAlbumDialogProps {
+interface NewAlbumDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAlbumCreated?: (id: string, name: string) => void;

@@ -40,7 +40,7 @@ export interface WalletItemDetailRecord extends WalletItemSummary {
   subtypeFields: Record<string, string>;
 }
 
-export interface SaveWalletItemInput {
+interface SaveWalletItemInput {
   id?: string;
   itemType: WalletItemType;
   itemSubtype: string;

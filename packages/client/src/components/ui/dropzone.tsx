@@ -12,7 +12,7 @@ const COMPACT_SQUARE_CLASSES =
 const COMPACT_ROW_CLASSES =
   'flex h-14 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2';
 
-export interface DropzoneProps {
+interface DropzoneProps {
   onFilesSelected: (files: File[]) => void;
   accept?: string;
   multiple?: boolean;

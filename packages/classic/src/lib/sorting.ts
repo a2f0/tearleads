@@ -134,7 +134,7 @@ export function getNoteTagCountById(
   return counts;
 }
 
-export interface SortTagsArgs {
+interface SortTagsArgs {
   state: ClassicState;
   tags: readonly ClassicTag[];
   sortOrder: TagSortOrder;
@@ -213,7 +213,7 @@ export function sortTags({
   return sorted;
 }
 
-export interface SortNoteIdsArgs {
+interface SortNoteIdsArgs {
   state: ClassicState;
   noteIds: readonly string[];
   activeTagId: string | null;
@@ -336,7 +336,7 @@ export function sortNoteIds({
   return sorted;
 }
 
-export interface BuildClassicSortMetadataArgs {
+interface BuildClassicSortMetadataArgs {
   registryRows: ReadonlyArray<{
     id: string;
     objectType: string;

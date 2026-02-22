@@ -8,7 +8,7 @@
 
 import { execSync } from 'node:child_process';
 
-export interface HetznerServerType {
+interface HetznerServerType {
   id: number;
   name: string;
   description: string;
@@ -21,7 +21,7 @@ export interface HetznerServerType {
   deprecation: string | null;
 }
 
-export interface HetznerLocation {
+interface HetznerLocation {
   id: number;
   name: string;
   description: string;
@@ -45,7 +45,7 @@ export function isHcloudAvailable(): boolean {
 /**
  * Fetch all server types from Hetzner Cloud
  */
-export function fetchServerTypes(): HetznerServerType[] {
+function fetchServerTypes(): HetznerServerType[] {
   if (!isHcloudAvailable()) {
     console.warn('hcloud CLI not available, using cached pricing data');
     return [];
@@ -91,7 +91,7 @@ export function fetchServerTypes(): HetznerServerType[] {
 /**
  * Fetch all locations from Hetzner Cloud
  */
-export function fetchLocations(): HetznerLocation[] {
+function fetchLocations(): HetznerLocation[] {
   if (!isHcloudAvailable()) {
     return [];
   }

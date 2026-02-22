@@ -11,15 +11,3 @@ export function createTestJwt(exp: number): string {
   const signature = 'test-signature';
   return `${header}.${payload}.${signature}`;
 }
-
-/**
- * Creates a test JWT token that expires in the specified number of seconds.
- * For testing purposes only - the signature is not cryptographically valid.
- *
- * @param expInSeconds - Number of seconds from now until expiration (can be negative for expired)
- * @returns A JWT-formatted string
- */
-export function createTestJwtExpiresIn(expInSeconds: number): string {
-  const exp = Math.floor(Date.now() / 1000) + expInSeconds;
-  return createTestJwt(exp);
-}

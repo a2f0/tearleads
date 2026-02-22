@@ -46,18 +46,3 @@ export interface ToolResult {
   role: 'tool';
   content: string; // JSON stringified result
 }
-
-/**
- * Tool executor function type.
- */
-export type ToolExecutor<TArgs = unknown, TResult = unknown> = (
-  args: TArgs
-) => Promise<TResult>;
-
-/**
- * Registry of available tools with their executors.
- */
-export interface ToolRegistry {
-  definitions: ToolDefinition[];
-  execute: (toolCall: ToolCall) => Promise<ToolResult>;
-}

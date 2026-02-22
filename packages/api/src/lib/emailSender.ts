@@ -7,7 +7,7 @@ export interface EmailAttachment {
   contentType: string;
 }
 
-export interface EmailMessage {
+interface EmailMessage {
   from?: string;
   to: string[];
   cc?: string[];
@@ -17,7 +17,7 @@ export interface EmailMessage {
   attachments?: EmailAttachment[];
 }
 
-export interface SendResult {
+interface SendResult {
   success: boolean;
   messageId?: string;
   error?: string;

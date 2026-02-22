@@ -3,12 +3,10 @@ import type { TableDefinition } from './types.js';
 export {
   contactEmailsTable,
   contactPhonesTable,
-  contactsTable,
-  foundationContactsTables
+  contactsTable
 } from './definition-foundation-contacts.js';
 // Re-export from split modules
 export {
-  foundationUsersTables,
   organizationBillingAccountsTable,
   organizationsTable,
   revenuecatWebhookEventsTable,

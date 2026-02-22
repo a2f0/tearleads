@@ -24,8 +24,6 @@ import { v021 } from './v021.js';
 import { v022 } from './v022.js';
 import { v023 } from './v023.js';
 
-export type { Migration, MigrationFn } from './types.js';
-
 /**
  * All migrations in order. Add new migrations to this array.
  * Migrations must have sequential version numbers starting from 1.

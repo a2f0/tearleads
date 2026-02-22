@@ -47,10 +47,10 @@ export const mockDownloadFile = vi.fn();
 export const mockShareFile = vi.fn();
 
 // LLM runtime mock
-export const mockSetAttachedImage = vi.fn();
+const mockSetAttachedImage = vi.fn();
 
 // Chat attachments mock
-export const mockObjectUrlToDataUrl = vi.fn();
+const mockObjectUrlToDataUrl = vi.fn();
 
 // Test data
 export const mockDocuments = [
@@ -94,7 +94,7 @@ export async function renderDocuments(
 /**
  * Re-exports for convenience
  */
-export { act, render, screen };
+export { screen };
 
 /**
  * Sets up the default mock states for tests.
@@ -122,13 +122,4 @@ export function setupDefaultMocks() {
   mockUpdate.mockReturnValue({ set: mockSet });
   mockSet.mockReturnValue({ where: mockUpdateWhere });
   mockUpdateWhere.mockResolvedValue(undefined);
-}
-
-/**
- * Chains the update mock for database operations.
- * Called during setup and can be called again after vi.clearAllMocks().
- */
-export function chainUpdateMock() {
-  mockUpdate.mockReturnValue({ set: mockSet });
-  mockSet.mockReturnValue({ where: mockUpdateWhere });
 }

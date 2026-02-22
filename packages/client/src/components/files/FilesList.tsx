@@ -36,7 +36,7 @@ export interface FilesListRef {
   triggerUpload: (files: File[]) => void;
 }
 
-export interface FilesListProps {
+interface FilesListProps {
   showDeleted: boolean;
   onShowDeletedChange?: (show: boolean) => void;
   showHeader?: boolean;

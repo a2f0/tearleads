@@ -149,7 +149,7 @@ vi.mock('@/db/crypto', async (importOriginal) => {
 /**
  * Reset the test instance registry to initial state.
  */
-export function resetTestInstanceRegistry(): void {
+function resetTestInstanceRegistry(): void {
   testInstances = [
     {
       id: TEST_INSTANCE_ID,
@@ -205,19 +205,3 @@ afterEach(async () => {
     warnSpy = null;
   }
 });
-
-/**
- * Helper to get the currently active adapter (for test assertions).
- */
-export function getActiveAdapter(): WasmNodeAdapter | null {
-  return activeAdapter;
-}
-
-/**
- * Helper to manually create a fresh adapter for tests that need explicit control.
- */
-export function createTestAdapter(
-  options?: ConstructorParameters<typeof WasmNodeAdapter>[0]
-): WasmNodeAdapter {
-  return new WasmNodeAdapter(options);
-}

@@ -4,7 +4,7 @@ import { migrations } from './index.js';
 
 export { migrations };
 
-export interface MockQueryResult {
+interface MockQueryResult {
   rows: Array<{ version: number | null }>;
   rowCount: number;
 }

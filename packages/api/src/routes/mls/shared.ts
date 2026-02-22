@@ -18,7 +18,7 @@ const VALID_CIPHER_SUITES = Object.values(MLS_CIPHERSUITES).filter(
 );
 const MAX_KEY_PACKAGES_PER_UPLOAD = 100;
 
-export interface ActiveMlsGroupMembership {
+interface ActiveMlsGroupMembership {
   role: 'admin' | 'member';
   organizationId: string;
 }

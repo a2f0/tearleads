@@ -1,5 +1,1 @@
-export {
-  getMediaDragIds,
-  type MediaDragType,
-  setMediaDragData
-} from '@tearleads/shared';
+export { getMediaDragIds, setMediaDragData } from '@tearleads/shared';

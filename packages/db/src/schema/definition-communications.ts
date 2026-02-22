@@ -2,15 +2,11 @@ import type { TableDefinition } from './types.js';
 
 // Re-export from split modules
 export {
-  communicationsEmailTables,
-  composedEmailsTable,
-  emailAttachmentsTable,
   emailFoldersTable,
   emailsTable
 } from './definition-communications-email.js';
 
 export {
-  communicationsVfsTables,
   vfsAclEntriesTable,
   vfsBlobObjectsTable,
   vfsBlobRefsTable,

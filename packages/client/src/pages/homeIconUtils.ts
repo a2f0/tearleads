@@ -12,7 +12,7 @@ export const LABEL_HEIGHT = 16;
 export const ICON_LABEL_GAP = 8;
 export const ITEM_HEIGHT = ICON_SIZE + LABEL_HEIGHT + ICON_LABEL_GAP;
 const ITEM_HEIGHT_MOBILE = ICON_SIZE_MOBILE + LABEL_HEIGHT + ICON_LABEL_GAP;
-export const OVERLAP_PADDING = 4;
+const OVERLAP_PADDING = 4;
 
 export type Position = { x: number; y: number };
 export type Positions = Record<string, Position>;

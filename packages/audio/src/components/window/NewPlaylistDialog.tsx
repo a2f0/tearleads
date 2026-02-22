@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAudioUIContext } from '../../context/AudioUIContext';
 import { useAudioPlaylists } from './useAudioPlaylists';
 
-export interface NewPlaylistDialogProps {
+interface NewPlaylistDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPlaylistCreated?: (id: string, name: string) => void;

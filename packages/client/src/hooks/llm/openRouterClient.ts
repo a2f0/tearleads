@@ -66,9 +66,7 @@ function getErrorDetail(body: unknown): string | null {
   return null;
 }
 
-export function extractOpenRouterResponse(
-  payload: unknown
-): OpenRouterResponse {
+function extractOpenRouterResponse(payload: unknown): OpenRouterResponse {
   if (!isRecord(payload)) {
     return { content: null, toolCalls: null };
   }
@@ -121,7 +119,7 @@ export function extractOpenRouterResponse(
   return { content: textContent, toolCalls: parsedToolCalls };
 }
 
-export function buildOpenRouterMessages(
+function buildOpenRouterMessages(
   messages: ChatMessage[],
   image?: string
 ): OpenRouterMessage[] {

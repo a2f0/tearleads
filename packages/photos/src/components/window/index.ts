@@ -6,7 +6,6 @@ export {
   type PhotosWindowContentProps
 } from './PhotosWindowContent';
 export {
-  ALL_PHOTOS_ID,
   PhotosWindowContentArea,
   type PhotosWindowContentAreaProps
 } from './PhotosWindowContentArea';
