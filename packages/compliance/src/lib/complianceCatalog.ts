@@ -14,7 +14,7 @@ export interface ComplianceFramework {
   documentCount: number;
 }
 
-export interface ResolveComplianceLinkParams {
+interface ResolveComplianceLinkParams {
   frameworkId: string;
   currentDocPath: string;
   href: string;
