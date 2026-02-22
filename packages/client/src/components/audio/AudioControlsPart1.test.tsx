@@ -34,8 +34,8 @@ const TEST_TRACKS = [
     objectUrl: 'blob:test-url-3',
     mimeType: 'audio/mpeg'
   }
-];describe('AudioControls', () => {
-
+];
+describe('AudioControls', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

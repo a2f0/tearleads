@@ -23,7 +23,7 @@ const mockImageFile = {
   storagePath: '/files/file-1.jpg'
 };
 
-const mockAudioFile = {
+const _mockAudioFile = {
   id: 'file-2',
   name: 'test-audio.mp3',
   size: 2048,
@@ -32,7 +32,7 @@ const mockAudioFile = {
   storagePath: '/files/file-2.mp3'
 };
 
-const mockVideoFile = {
+const _mockVideoFile = {
   id: 'file-3',
   name: 'test-video.mp4',
   size: 4096,
@@ -41,7 +41,7 @@ const mockVideoFile = {
   storagePath: '/files/file-3.mp4'
 };
 
-const mockTextFile = {
+const _mockTextFile = {
   id: 'file-5',
   name: 'test-text.txt',
   size: 512,
@@ -182,8 +182,8 @@ const mockObjectUrl = 'blob:http://localhost/test-file';
 vi.stubGlobal('URL', {
   createObjectURL: () => mockObjectUrl,
   revokeObjectURL: () => {}
-});describe('FilesWindowDetail', () => {
-
+});
+describe('FilesWindowDetail', () => {
   const defaultProps = {
     fileId: 'file-1',
     onBack: vi.fn(),

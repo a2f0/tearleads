@@ -14,7 +14,7 @@ import {
   readHeader,
   validateBackup
 } from './decoder';
-import { encode, estimateBackupSize } from './encoder';
+import { encode } from './encoder';
 import type { BackupDatabase, BackupManifest, BlobEntry } from './types';
 
 describe('decoder', () => {

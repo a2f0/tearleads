@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '@/contexts/AuthContext';
-import { SSEProvider, useSSE, useSSEContext } from './SSEContext';
+import { SSEProvider, useSSE } from './SSEContext';
 
 const mockTryRefreshToken = vi.fn().mockResolvedValue(false);
 const mockIsJwtExpired = vi.fn().mockReturnValue(false);
@@ -128,7 +128,6 @@ function createMockFetch() {
 }
 
 describe('SSEContext', () => {
-
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();

@@ -59,8 +59,8 @@ vi.mock('@/hooks/vfs', () => ({
     mlKemPublicKey: new Uint8Array(1184),
     mlKemPrivateKey: new Uint8Array(2400)
   })
-}));describe('useConversations', () => {
-
+}));
+describe('useConversations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     clearConversationKeyCache();

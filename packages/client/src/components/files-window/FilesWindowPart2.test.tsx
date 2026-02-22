@@ -214,8 +214,8 @@ vi.mock('./FilesWindowDetail', () => ({
       </button>
     </div>
   )
-}));describe('FilesWindow', () => {
-
+}));
+describe('FilesWindow', () => {
   const defaultProps = {
     id: 'test-window',
     onClose: vi.fn(),

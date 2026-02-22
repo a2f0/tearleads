@@ -8,10 +8,10 @@ import {
 } from '@/lib/windowStatePreference';
 import {
   useWindowManager,
-  useWindowOpenRequest,
   WindowManagerProvider
-} from './WindowManagerContext';describe('WindowManagerContext', () => {
+} from './WindowManagerContext';
 
+describe('WindowManagerContext', () => {
   function wrapper({ children }: { children: ReactNode }) {
     return <WindowManagerProvider>{children}</WindowManagerProvider>;
   }

@@ -4,14 +4,13 @@ import {
   createMockVideoPlaylist,
   createVideoPlaylistWrapper
 } from '@/test/videoPlaylistTestUtils';
-import { ALL_VIDEO_ID, VideoPlaylistsSidebar } from './VideoPlaylistsSidebar';
+import { VideoPlaylistsSidebar } from './VideoPlaylistsSidebar';
 
 const mockPlaylists = [
   createMockVideoPlaylist({ id: 'playlist-1', name: 'Action', trackCount: 5 }),
   createMockVideoPlaylist({ id: 'playlist-2', name: 'Comedy', trackCount: 3 })
-];describe('VideoPlaylistsSidebar', () => {
-
-
+];
+describe('VideoPlaylistsSidebar', () => {
   it('ignores drop with no video files or IDs', async () => {
     const fetchPlaylists = vi.fn(async () => mockPlaylists);
     const onDropToPlaylist = vi.fn();

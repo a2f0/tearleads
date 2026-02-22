@@ -9,7 +9,6 @@ import userEvent from '@testing-library/user-event';
 import type { ComponentProps, FC } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError } from '@/test/consoleMocks';
 import { TableRows } from './TableRows';
 
 // Mock lucide-react icons to add testids
@@ -75,7 +74,7 @@ async function renderTableRows(tableName = 'test_table') {
 }
 
 // Helper to simulate user scroll on the virtual scroll container
-async function simulateScroll(container: HTMLElement) {
+async function _simulateScroll(container: HTMLElement) {
   // Find the scroll container by data-testid
   const scrollContainer = container.querySelector(
     '[data-testid="scroll-container"]'
@@ -91,7 +90,6 @@ async function simulateScroll(container: HTMLElement) {
 }
 
 describe('TableRows', () => {
-
   const mockColumns = [
     {
       cid: 0,

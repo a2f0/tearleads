@@ -127,7 +127,6 @@ function renderContactDetail(contactId: string = 'contact-123') {
 }
 
 describe('ContactDetail', () => {
-
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseDatabaseContext.mockReturnValue({

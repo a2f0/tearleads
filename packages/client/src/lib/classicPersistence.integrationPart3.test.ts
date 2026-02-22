@@ -25,13 +25,8 @@ import {
   CLASSIC_TAG_PARENT_ID,
   createClassicNote,
   createClassicTag,
-  deleteClassicTag,
   linkNoteToTag,
-  loadClassicStateFromDatabase,
-  persistClassicOrderToDatabase,
-  renameClassicTag,
-  restoreClassicTag,
-  updateClassicNote
+  loadClassicStateFromDatabase
 } from './classicPersistence';
 
 async function withClassicTestDatabase(
@@ -176,7 +171,7 @@ async function seedClassicFixture(
   ]);
 }
 
-async function createUntaggedNoteInDb(
+async function _createUntaggedNoteInDb(
   db: TestDatabaseContext['db'],
   note: {
     id: string;
@@ -206,7 +201,7 @@ type UpdatePerfStats = {
   durationMs: number;
 };
 
-async function measureUpdatePerf(
+async function _measureUpdatePerf(
   adapter: TestDatabaseContext['adapter'],
   run: () => Promise<void>
 ): Promise<UpdatePerfStats> {
@@ -234,7 +229,7 @@ async function measureUpdatePerf(
   };
 }
 
-async function seedLargeClassicFixture(
+async function _seedLargeClassicFixture(
   db: TestDatabaseContext['db'],
   options: {
     tagCount: number;
@@ -312,7 +307,6 @@ async function seedLargeClassicFixture(
 }
 
 describe('classicPersistence integration', () => {
-
   afterEach(() => {
     testDbState.db = null;
   });

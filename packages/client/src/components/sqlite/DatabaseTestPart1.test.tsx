@@ -1,11 +1,11 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DatabaseTest } from './DatabaseTest';
 
 const mockUseDatabaseContext = vi.fn();
 const mockGetDatabaseAdapter = vi.fn();
-let capturedInstanceChangeCallback: (() => void) | null = null;
+let _capturedInstanceChangeCallback: (() => void) | null = null;
 
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
@@ -17,15 +17,15 @@ vi.mock('@/db', () => ({
 
 vi.mock('@/hooks/app', () => ({
   useOnInstanceChange: (callback: () => void) => {
-    capturedInstanceChangeCallback = callback;
+    _capturedInstanceChangeCallback = callback;
   }
 }));
 
 vi.mock('@/lib/utils', () => ({
   cn: (...args: string[]) => args.filter(Boolean).join(' '),
   detectPlatform: () => 'web'
-}));describe('DatabaseTest', () => {
-
+}));
+describe('DatabaseTest', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.restoreAllMocks();

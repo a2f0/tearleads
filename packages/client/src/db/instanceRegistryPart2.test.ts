@@ -16,18 +16,12 @@ import {
 import type { InstanceMetadata } from './instanceRegistry';
 import {
   clearRegistry,
-  createInstance,
-  deleteInstanceFromRegistry,
   getActiveInstance,
   getActiveInstanceId,
   getInstance,
-  getInstances,
   getRegistryData,
   initializeRegistry,
-  resetInitializationState,
-  setActiveInstanceId,
-  touchInstance,
-  updateInstance
+  resetInitializationState
 } from './instanceRegistry';
 
 vi.mock('@/lib/testInstance', () => ({
@@ -159,8 +153,8 @@ vi.stubGlobal('indexedDB', {
 // Mock crypto.randomUUID
 vi.stubGlobal('crypto', {
   randomUUID: vi.fn(() => 'test-uuid-1234')
-});describe('instance-registry', () => {
-
+});
+describe('instance-registry', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockStore.clear();

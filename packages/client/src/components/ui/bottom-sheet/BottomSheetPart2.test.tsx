@@ -1,5 +1,4 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import {
   afterEach,
   beforeEach,
@@ -9,7 +8,7 @@ import {
   type Mock,
   vi
 } from 'vitest';
-import { ANIMATION_DURATION_MS, BottomSheet } from './BottomSheet';
+import { BottomSheet } from './BottomSheet';
 
 type GestureCallback = (detail: { deltaY: number; velocityY: number }) => void;
 
@@ -50,7 +49,6 @@ async function simulateGestureDrag(deltaY: number, velocityY: number = 0) {
 }
 
 describe('BottomSheet', () => {
-
   beforeEach(() => {
     mockGestureCallbacks = null;
     mockCreateGesture.mockClear();

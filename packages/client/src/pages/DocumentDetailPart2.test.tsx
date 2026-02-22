@@ -3,7 +3,6 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError } from '@/test/consoleMocks';
 import { DocumentDetail } from './DocumentDetail';
 
 const mockUseDatabaseContext = vi.fn();
@@ -121,7 +120,6 @@ async function renderDocumentDetail(documentId: string = 'doc-123') {
 }
 
 describe('DocumentDetail', () => {
-
   beforeEach(() => {
     vi.clearAllMocks();
 

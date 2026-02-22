@@ -34,8 +34,8 @@ const TEST_TRACK = {
   name: 'Test Song.mp3',
   objectUrl: 'blob:test-url',
   mimeType: 'audio/mpeg'
-};describe('MiniPlayer', () => {
-
+};
+describe('MiniPlayer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Default to desktop (non-mobile)

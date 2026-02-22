@@ -1,15 +1,6 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  type Mock,
-  vi
-} from 'vitest';
-import { ANIMATION_DURATION_MS, BottomSheet } from './BottomSheet';
+import { act, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { BottomSheet } from './BottomSheet';
 
 type GestureCallback = (detail: { deltaY: number; velocityY: number }) => void;
 
@@ -37,7 +28,7 @@ vi.mock('@ionic/core', () => ({
   }
 }));
 
-async function simulateGestureDrag(deltaY: number, velocityY: number = 0) {
+async function _simulateGestureDrag(deltaY: number, velocityY: number = 0) {
   if (!mockGestureCallbacks) {
     throw new Error('Gesture not initialized');
   }
@@ -50,7 +41,6 @@ async function simulateGestureDrag(deltaY: number, velocityY: number = 0) {
 }
 
 describe('BottomSheet', () => {
-
   beforeEach(() => {
     mockGestureCallbacks = null;
     mockCreateGesture.mockClear();

@@ -214,8 +214,6 @@ vi.mock('@assistant-ui/react', () => ({
   useLocalRuntime: vi.fn(() => ({}))
 }));
 
-import { useLLM } from '@/hooks/llm';
-
 function renderChat() {
   return render(
     <MemoryRouter>
@@ -228,12 +226,11 @@ function findImageButton(): HTMLElement {
   return screen.getByRole('button', { name: /attach image/i });
 }
 
-function findCloseButton(): HTMLElement {
+function _findCloseButton(): HTMLElement {
   return screen.getByRole('button', { name: /close/i });
 }
 
 describe('Chat', () => {
-
   beforeEach(() => {
     vi.clearAllMocks();
 

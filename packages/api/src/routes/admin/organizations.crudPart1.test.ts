@@ -10,8 +10,8 @@ const mockGetPostgresPool = vi.fn();
 
 vi.mock('../../lib/postgres.js', () => ({
   getPostgresPool: () => mockGetPostgresPool()
-}));describe('admin organizations routes - CRUD', () => {
-
+}));
+describe('admin organizations routes - CRUD', () => {
   let authHeader: string;
 
   beforeEach(async () => {

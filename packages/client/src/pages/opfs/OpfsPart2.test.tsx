@@ -99,7 +99,6 @@ function mockNavigatorStorage(storage: StorageManager | undefined) {
 }
 
 describe('Opfs', () => {
-
   beforeEach(() => {
     vi.clearAllMocks();
   });

@@ -1,12 +1,11 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { I18nextProvider } from 'react-i18next';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WindowManagerProvider } from '@/contexts/WindowManagerContext';
 import { i18n } from '@/i18n';
-import { en } from '@/i18n/translations/en';
-import { navItems, Sidebar } from './Sidebar';
+import { Sidebar } from './Sidebar';
 
 const mockNavigate = vi.fn();
 const mockOpenWindow = vi.fn();

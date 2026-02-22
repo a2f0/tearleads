@@ -1,7 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError } from '@/test/consoleMocks';
 import { FilesWindowTableView } from './FilesWindowTableView';
 
 const mockDatabaseState = {
@@ -112,8 +110,8 @@ const mockDb = {
 
 vi.mock('@/db', () => ({
   getDatabase: () => mockDb
-}));describe('FilesWindowTableView', () => {
-
+}));
+describe('FilesWindowTableView', () => {
   const defaultProps = {
     showDeleted: false,
     onUpload: vi.fn()

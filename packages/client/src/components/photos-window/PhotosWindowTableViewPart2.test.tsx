@@ -52,8 +52,8 @@ vi.mock('@/i18n', () => ({
         share: 'Share'
       })[key] ?? key
   })
-}));describe('PhotosWindowTableView', () => {
-
+}));
+describe('PhotosWindowTableView', () => {
   const photo = {
     id: 'photo-1',
     name: 'photo.jpg',

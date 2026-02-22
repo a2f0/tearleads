@@ -121,7 +121,6 @@ async function renderDocumentDetail(documentId: string = 'doc-123') {
 }
 
 describe('DocumentDetail', () => {
-
   beforeEach(() => {
     vi.clearAllMocks();
 

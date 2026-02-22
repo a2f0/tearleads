@@ -1,7 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError } from '@/test/consoleMocks';
 import { FilesWindowDetail } from './FilesWindowDetail';
 
 const mockDatabaseState = {
@@ -23,7 +22,7 @@ const mockImageFile = {
   storagePath: '/files/file-1.jpg'
 };
 
-const mockAudioFile = {
+const _mockAudioFile = {
   id: 'file-2',
   name: 'test-audio.mp3',
   size: 2048,
@@ -32,7 +31,7 @@ const mockAudioFile = {
   storagePath: '/files/file-2.mp3'
 };
 
-const mockVideoFile = {
+const _mockVideoFile = {
   id: 'file-3',
   name: 'test-video.mp4',
   size: 4096,
@@ -41,7 +40,7 @@ const mockVideoFile = {
   storagePath: '/files/file-3.mp4'
 };
 
-const mockTextFile = {
+const _mockTextFile = {
   id: 'file-5',
   name: 'test-text.txt',
   size: 512,
@@ -50,7 +49,7 @@ const mockTextFile = {
   storagePath: '/files/file-5.txt'
 };
 
-const mockUnknownFile = {
+const _mockUnknownFile = {
   id: 'file-6',
   name: 'test-unknown.xyz',
   size: 256,
@@ -59,7 +58,7 @@ const mockUnknownFile = {
   storagePath: '/files/file-6.xyz'
 };
 
-const mockPdfFile = {
+const _mockPdfFile = {
   id: 'file-7',
   name: 'test-document.pdf',
   size: 3072,
@@ -182,8 +181,8 @@ const mockObjectUrl = 'blob:http://localhost/test-file';
 vi.stubGlobal('URL', {
   createObjectURL: () => mockObjectUrl,
   revokeObjectURL: () => {}
-});describe('FilesWindowDetail', () => {
-
+});
+describe('FilesWindowDetail', () => {
   const defaultProps = {
     fileId: 'file-1',
     onBack: vi.fn(),

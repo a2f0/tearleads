@@ -91,7 +91,6 @@ async function simulateScroll(container: HTMLElement) {
 }
 
 describe('TableRows', () => {
-
   const mockColumns = [
     {
       cid: 0,

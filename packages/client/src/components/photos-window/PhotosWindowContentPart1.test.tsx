@@ -66,8 +66,8 @@ vi.mock('@/components/sqlite/InlineUnlock', () => ({
   InlineUnlock: ({ description }: { description: string }) => (
     <div data-testid="inline-unlock">{description}</div>
   )
-}));describe('PhotosWindowContent', () => {
-
+}));
+describe('PhotosWindowContent', () => {
   const photo = {
     id: 'photo-1',
     name: 'photo.jpg',

@@ -11,7 +11,6 @@ vi.mock('../../lib/postgres.js', () => ({
 }));
 
 describe('admin organizations routes - CRUD', () => {
-
   let authHeader: string;
 
   beforeEach(async () => {

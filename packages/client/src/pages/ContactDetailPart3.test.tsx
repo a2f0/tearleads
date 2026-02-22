@@ -93,7 +93,7 @@ function createMockSelectChain(results: unknown[][]) {
   }));
 }
 
-function createMockUpdateChain() {
+function _createMockUpdateChain() {
   return vi.fn().mockReturnValue({
     set: vi.fn().mockReturnValue({
       where: vi.fn().mockResolvedValue(undefined)
@@ -101,13 +101,13 @@ function createMockUpdateChain() {
   });
 }
 
-function createMockInsertChain() {
+function _createMockInsertChain() {
   return vi.fn().mockReturnValue({
     values: vi.fn().mockResolvedValue(undefined)
   });
 }
 
-function createMockDeleteChain() {
+function _createMockDeleteChain() {
   return vi.fn().mockReturnValue({
     where: vi.fn().mockResolvedValue(undefined)
   });
@@ -127,7 +127,6 @@ function renderContactDetail(contactId: string = 'contact-123') {
 }
 
 describe('ContactDetail', () => {
-
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseDatabaseContext.mockReturnValue({

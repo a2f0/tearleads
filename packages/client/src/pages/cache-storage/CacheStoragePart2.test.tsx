@@ -60,7 +60,6 @@ function renderCacheStorage(showBackLink = true) {
 }
 
 describe('CacheStorage', () => {
-
   beforeEach(() => {
     vi.clearAllMocks();
   });

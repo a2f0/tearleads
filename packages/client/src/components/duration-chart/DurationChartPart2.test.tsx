@@ -87,9 +87,8 @@ const mockEvents = [
     timestamp: new Date('2024-01-15T10:10:00Z'),
     detail: null
   }
-];describe('DurationChart', () => {
-
-
+];
+describe('DurationChart', () => {
   describe('renders with different time filters', () => {
     it('mounts with hour time filter', () => {
       const hourEvents = [

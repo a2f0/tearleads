@@ -4,16 +4,8 @@ import {
   FORMAT_VERSION,
   HEADER_SIZE,
   MAGIC_BYTES,
-  MAGIC_SIZE,
   MAX_BLOB_CHUNK_SIZE
 } from './constants';
-import {
-  BackupDecodeError,
-  decode,
-  InvalidPasswordError,
-  readHeader,
-  validateBackup
-} from './decoder';
 import { encode, estimateBackupSize } from './encoder';
 import type { BackupDatabase, BackupManifest, BlobEntry } from './types';
 

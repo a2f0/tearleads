@@ -7,7 +7,7 @@
  * 3. Helper functions correctly parse SQL and convert row formats
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { convertRowsToArrays, extractSelectColumns, rowToArray } from './utils';
 
@@ -206,7 +206,7 @@ describe('SQL Column Extraction', () => {
 });
 
 // Sample row data as it would come from SQLite (snake_case column names)
-const sampleContactRow = {
+const _sampleContactRow = {
   id: 'contact-123',
   first_name: 'John',
   last_name: 'Doe',
@@ -216,7 +216,7 @@ const sampleContactRow = {
   deleted: 0
 };
 
-const sampleFileRow = {
+const _sampleFileRow = {
   id: 'file-123',
   name: 'photo.jpg',
   size: 1024,
@@ -227,7 +227,7 @@ const sampleFileRow = {
   deleted: 0
 };
 
-const sampleContactWithJoinRow = {
+const _sampleContactWithJoinRow = {
   id: 'contact-123',
   first_name: 'John',
   last_name: 'Doe',

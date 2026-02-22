@@ -1,10 +1,4 @@
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor
-} from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Chat } from './Chat';
@@ -224,16 +218,15 @@ function renderChat() {
   );
 }
 
-function findImageButton(): HTMLElement {
+function _findImageButton(): HTMLElement {
   return screen.getByRole('button', { name: /attach image/i });
 }
 
-function findCloseButton(): HTMLElement {
+function _findCloseButton(): HTMLElement {
   return screen.getByRole('button', { name: /close/i });
 }
 
 describe('Chat', () => {
-
   beforeEach(() => {
     vi.clearAllMocks();
 

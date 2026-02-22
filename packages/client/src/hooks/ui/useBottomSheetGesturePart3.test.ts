@@ -1,10 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  type SnapPoint,
-  setupResizeListener,
-  useBottomSheetGesture
-} from './useBottomSheetGesture';
+import { type SnapPoint, useBottomSheetGesture } from './useBottomSheetGesture';
 
 type GestureCallback = (detail: { deltaY: number; velocityY: number }) => void;
 
@@ -34,8 +30,8 @@ const defaultSnapPoints: SnapPoint[] = [
   { name: 'collapsed', height: 200 },
   { name: 'half', height: 400 },
   { name: 'expanded', height: 800 }
-];describe('useBottomSheetGesture', () => {
-
+];
+describe('useBottomSheetGesture', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGestureCallbacks = null;

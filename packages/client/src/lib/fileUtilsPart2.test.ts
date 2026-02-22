@@ -1,22 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  canShareFiles,
-  computeContentHash,
-  downloadFile,
-  generateBackupFilename,
-  readFileAsUint8Array,
-  saveFile,
-  shareFile
-} from './fileUtils';
+import { saveFile, shareFile } from './fileUtils';
 
 // Mock Capacitor
 vi.mock('@capacitor/core', () => ({
   Capacitor: {
     getPlatform: vi.fn(() => 'web')
   }
-}));describe('file-utils', () => {
-
-
+}));
+describe('file-utils', () => {
   describe('shareFile', () => {
     const originalNavigator = { ...navigator };
 

@@ -128,7 +128,6 @@ function createMockFetch() {
 }
 
 describe('SSEContext', () => {
-
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();

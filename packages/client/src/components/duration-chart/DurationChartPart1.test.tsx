@@ -1,10 +1,5 @@
 import { ThemeProvider } from '@tearleads/ui';
-import {
-  act,
-  render as rtlRender,
-  screen,
-  waitFor
-} from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DurationChart } from './DurationChart';
@@ -19,7 +14,7 @@ function render(ui: React.ReactElement) {
 }
 
 // Track ResizeObserver callbacks for testing
-let resizeObserverCallback: ResizeObserverCallback | null = null;
+let _resizeObserverCallback: ResizeObserverCallback | null = null;
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 
@@ -27,7 +22,7 @@ let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 // and our useContainerReady hook
 class ResizeObserverMock implements ResizeObserver {
   constructor(callback: ResizeObserverCallback) {
-    resizeObserverCallback = callback;
+    _resizeObserverCallback = callback;
   }
   observe = vi.fn();
   unobserve = vi.fn();
@@ -39,7 +34,7 @@ window.ResizeObserver = ResizeObserverMock;
 const mockGetBoundingClientRect = vi.fn();
 
 beforeEach(() => {
-  resizeObserverCallback = null;
+  _resizeObserverCallback = null;
   consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
   // Default to valid dimensions
@@ -87,8 +82,8 @@ const mockEvents = [
     timestamp: new Date('2024-01-15T10:10:00Z'),
     detail: null
   }
-];describe('DurationChart', () => {
-
+];
+describe('DurationChart', () => {
   it('renders empty state when no events match selection', () => {
     render(
       <DurationChart

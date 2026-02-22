@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AudioPlayer } from './AudioPlayer';
@@ -53,8 +53,9 @@ const TEST_TRACKS = [
     objectUrl: 'blob:test-url-3',
     mimeType: 'audio/mpeg'
   }
-];describe('AudioPlayer', () => {
+];
 
+describe('AudioPlayer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockLocalStorage.clear();

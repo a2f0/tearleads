@@ -24,8 +24,8 @@ vi.mock('@/hooks/app', () => ({
 vi.mock('@/lib/utils', () => ({
   cn: (...args: string[]) => args.filter(Boolean).join(' '),
   detectPlatform: () => 'web'
-}));describe('DatabaseTest', () => {
-
+}));
+describe('DatabaseTest', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.restoreAllMocks();

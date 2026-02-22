@@ -10,8 +10,8 @@ const TEST_KEY = new Uint8Array([1, 2, 3, 4]);
 const createConfig = (name: string) => ({
   name,
   encryptionKey: TEST_KEY
-});describe('WasmNodeAdapter', () => {
-
+});
+describe('WasmNodeAdapter', () => {
   type WasmNodeAdapterClass =
     typeof import('./wasmNode.adapter').WasmNodeAdapter;
   type WasmNodeAdapterInstance = InstanceType<WasmNodeAdapterClass>;

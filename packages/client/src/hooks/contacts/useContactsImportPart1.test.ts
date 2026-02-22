@@ -1,11 +1,5 @@
-import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type {
-  ColumnMapping,
-  ImportResult,
-  ParsedCSV
-} from './useContactsImport';
-import { parseCSV, useContactsImport } from './useContactsImport';
+import { describe, expect, it, vi } from 'vitest';
+import { parseCSV } from './useContactsImport';
 
 // Mock the database module
 const mockInsert = vi.fn().mockReturnValue({

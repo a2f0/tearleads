@@ -75,7 +75,7 @@ async function renderTableRows(tableName = 'test_table') {
 }
 
 // Helper to simulate user scroll on the virtual scroll container
-async function simulateScroll(container: HTMLElement) {
+async function _simulateScroll(container: HTMLElement) {
   // Find the scroll container by data-testid
   const scrollContainer = container.querySelector(
     '[data-testid="scroll-container"]'
@@ -91,7 +91,6 @@ async function simulateScroll(container: HTMLElement) {
 }
 
 describe('TableRows', () => {
-
   const mockColumns = [
     {
       cid: 0,

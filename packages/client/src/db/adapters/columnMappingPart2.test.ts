@@ -9,8 +9,6 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { convertRowsToArrays, extractSelectColumns, rowToArray } from './utils';
-
 describe('Column Mapping', () => {
   describe('WebAdapter getConnection()', () => {
     it('should NOT map column names - Drizzle expects snake_case', async () => {

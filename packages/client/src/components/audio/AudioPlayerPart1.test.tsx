@@ -53,8 +53,8 @@ const TEST_TRACKS = [
     objectUrl: 'blob:test-url-3',
     mimeType: 'audio/mpeg'
   }
-];describe('AudioPlayer', () => {
-
+];
+describe('AudioPlayer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockLocalStorage.clear();

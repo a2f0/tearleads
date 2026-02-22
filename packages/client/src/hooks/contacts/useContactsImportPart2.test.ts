@@ -5,7 +5,7 @@ import type {
   ImportResult,
   ParsedCSV
 } from './useContactsImport';
-import { parseCSV, useContactsImport } from './useContactsImport';
+import { useContactsImport } from './useContactsImport';
 
 // Mock the database module
 const mockInsert = vi.fn().mockReturnValue({

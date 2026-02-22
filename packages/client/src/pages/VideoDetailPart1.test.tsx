@@ -2,7 +2,7 @@ import { ThemeProvider } from '@tearleads/ui';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/consoleMocks';
 import { VideoDetail } from './VideoDetail';
 
@@ -121,7 +121,6 @@ async function renderVideoDetail(videoId: string = 'video-123') {
 }
 
 describe('VideoDetail', () => {
-
   beforeEach(() => {
     vi.clearAllMocks();
 

@@ -30,9 +30,14 @@ const isTestStatement = (statement: ts.Statement): boolean => {
 
   const isTargetIdentifier = (node: ts.Expression): boolean => {
     if (ts.isIdentifier(node)) {
-      return node.text === 'describe' || node.text === 'test' || node.text === 'it';
+      return (
+        node.text === 'describe' || node.text === 'test' || node.text === 'it'
+      );
     }
-    if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression)) {
+    if (
+      ts.isPropertyAccessExpression(node) &&
+      ts.isIdentifier(node.expression)
+    ) {
       return (
         node.expression.text === 'describe' ||
         node.expression.text === 'test' ||
@@ -45,7 +50,9 @@ const isTestStatement = (statement: ts.Statement): boolean => {
   return isTargetIdentifier(callee);
 };
 
-const getTestCall = (statement: ts.Statement): ts.CallExpression | undefined => {
+const getTestCall = (
+  statement: ts.Statement
+): ts.CallExpression | undefined => {
   if (!ts.isExpressionStatement(statement)) return undefined;
   const expression = statement.expression;
   if (!ts.isCallExpression(expression)) return undefined;
@@ -53,9 +60,15 @@ const getTestCall = (statement: ts.Statement): ts.CallExpression | undefined => 
 };
 
 const getCallbackArgument = (
-  callExpression: ts.CallExpression,
-): { argument: ts.ArrowFunction | ts.FunctionExpression; index: number } | undefined => {
-  for (let index = callExpression.arguments.length - 1; index >= 0; index -= 1) {
+  callExpression: ts.CallExpression
+):
+  | { argument: ts.ArrowFunction | ts.FunctionExpression; index: number }
+  | undefined => {
+  for (
+    let index = callExpression.arguments.length - 1;
+    index >= 0;
+    index -= 1
+  ) {
     const argument = callExpression.arguments[index];
     if (!argument) {
       continue;
@@ -87,8 +100,16 @@ const buildPartPath = (filePath: string, partIndex: number): string => {
 
 const splitFile = (filePath: string): ChunkResult => {
   const content = fs.readFileSync(filePath, 'utf8');
-  const scriptKind = filePath.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
-  const sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true, scriptKind);
+  const scriptKind = filePath.endsWith('.tsx')
+    ? ts.ScriptKind.TSX
+    : ts.ScriptKind.TS;
+  const sourceFile = ts.createSourceFile(
+    filePath,
+    content,
+    ts.ScriptTarget.Latest,
+    true,
+    scriptKind
+  );
   const statements = sourceFile.statements;
   const firstTestIndex = statements.findIndex(isTestStatement);
 
@@ -98,15 +119,19 @@ const splitFile = (filePath: string): ChunkResult => {
       parts: [],
       oversizedParts: [],
       skipped: true,
-      reason: 'No top-level test/describe statements found.',
+      reason: 'No top-level test/describe statements found.'
     };
   }
 
   const preambleStatements = statements.slice(0, firstTestIndex);
-  const preamble = preambleStatements.map((statement) => statement.getFullText(sourceFile)).join('');
+  const preamble = preambleStatements
+    .map((statement) => statement.getFullText(sourceFile))
+    .join('');
   const preambleLines = countLines(preamble);
 
-  const remainingStatements = statements.slice(firstTestIndex).map((statement) => statement.getFullText(sourceFile));
+  const remainingStatements = statements
+    .slice(firstTestIndex)
+    .map((statement) => statement.getFullText(sourceFile));
   const chunks: string[][] = [];
   let currentChunk: string[] = [];
   let currentLines = 0;
@@ -131,7 +156,16 @@ const splitFile = (filePath: string): ChunkResult => {
   if (chunks.length <= 1) {
     const testStatements = statements.filter(isTestStatement);
     if (testStatements.length === 1) {
-      const testStatement = testStatements[0]!;
+      const [testStatement] = testStatements;
+      if (!testStatement) {
+        return {
+          file: filePath,
+          parts: [],
+          oversizedParts: [],
+          skipped: true,
+          reason: 'Unable to locate the test statement.'
+        };
+      }
       const testCall = getTestCall(testStatement);
       if (testCall) {
         const callbackInfo = getCallbackArgument(testCall);
@@ -139,9 +173,13 @@ const splitFile = (filePath: string): ChunkResult => {
           const callbackBody = callbackInfo.argument.body;
           if (ts.isBlock(callbackBody)) {
             const innerStatements = callbackBody.statements;
-            const innerFirstTestIndex = innerStatements.findIndex(isTestStatement);
+            const innerFirstTestIndex =
+              innerStatements.findIndex(isTestStatement);
             if (innerFirstTestIndex !== -1) {
-              const innerPreambleStatements = innerStatements.slice(0, innerFirstTestIndex);
+              const innerPreambleStatements = innerStatements.slice(
+                0,
+                innerFirstTestIndex
+              );
               const innerPreamble = innerPreambleStatements
                 .map((statement) => statement.getFullText(sourceFile))
                 .join('');
@@ -156,8 +194,16 @@ const splitFile = (filePath: string): ChunkResult => {
 
               for (const statementText of innerRemainingStatements) {
                 const statementLines = countLines(statementText);
-                const projectedLines = preambleLines + innerPreambleLines + currentInnerLines + statementLines + 4;
-                if (currentInnerChunk.length > 0 && projectedLines > MAX_LINES) {
+                const projectedLines =
+                  preambleLines +
+                  innerPreambleLines +
+                  currentInnerLines +
+                  statementLines +
+                  4;
+                if (
+                  currentInnerChunk.length > 0 &&
+                  projectedLines > MAX_LINES
+                ) {
                   innerChunks.push(currentInnerChunk);
                   currentInnerChunk = [statementText];
                   currentInnerLines = statementLines;
@@ -173,11 +219,14 @@ const splitFile = (filePath: string): ChunkResult => {
 
               if (innerChunks.length > 1) {
                 const calleeText = testCall.expression.getText(sourceFile);
-                const argumentTexts = testCall.arguments.map((argument) => argument.getText(sourceFile));
+                const argumentTexts = testCall.arguments.map((argument) =>
+                  argument.getText(sourceFile)
+                );
                 const beforeArgs = argumentTexts.slice(0, callbackInfo.index);
                 const afterArgs = argumentTexts.slice(callbackInfo.index + 1);
                 const argsPrefix = [...beforeArgs, '() => {'].join(', ');
-                const argsSuffix = afterArgs.length > 0 ? `}, ${afterArgs.join(', ')}` : '}';
+                const argsSuffix =
+                  afterArgs.length > 0 ? `}, ${afterArgs.join(', ')}` : '}';
                 const wrapperStart = `${calleeText}(${argsPrefix}\n`;
                 const wrapperEnd = `\n${argsSuffix});\n`;
 
@@ -188,7 +237,7 @@ const splitFile = (filePath: string): ChunkResult => {
                   const partIndex = index + 1;
                   const newPath = buildPartPath(filePath, partIndex);
                   const nextContent = `${preamble}${wrapperStart}${innerPreamble}${innerChunk.join(
-                    '',
+                    ''
                   )}${wrapperEnd}`;
                   fs.writeFileSync(newPath, nextContent, 'utf8');
                   parts.push(newPath);
@@ -204,7 +253,7 @@ const splitFile = (filePath: string): ChunkResult => {
                   file: filePath,
                   parts,
                   oversizedParts,
-                  skipped: false,
+                  skipped: false
                 };
               }
             }
@@ -218,7 +267,7 @@ const splitFile = (filePath: string): ChunkResult => {
       parts: [],
       oversizedParts: [],
       skipped: true,
-      reason: 'Unable to split into multiple chunks within MAX_LINES.',
+      reason: 'Unable to split into multiple chunks within MAX_LINES.'
     };
   }
 
@@ -243,14 +292,20 @@ const splitFile = (filePath: string): ChunkResult => {
     file: filePath,
     parts,
     oversizedParts,
-    skipped: false,
+    skipped: false
   };
 };
 
 const results: ChunkResult[] = [];
 for (const file of inputFiles) {
   if (!fs.existsSync(file)) {
-    results.push({ file, parts: [], oversizedParts: [], skipped: true, reason: 'File not found.' });
+    results.push({
+      file,
+      parts: [],
+      oversizedParts: [],
+      skipped: true,
+      reason: 'File not found.'
+    });
     continue;
   }
   results.push(splitFile(file));
@@ -262,7 +317,9 @@ const oversizedParts = results.flatMap((result) => result.oversizedParts);
 if (skipped.length > 0) {
   console.error('Skipped files:');
   skipped.forEach((result) => {
-    console.error(`- ${result.file}${result.reason ? `: ${result.reason}` : ''}`);
+    console.error(
+      `- ${result.file}${result.reason ? `: ${result.reason}` : ''}`
+    );
   });
 }
 

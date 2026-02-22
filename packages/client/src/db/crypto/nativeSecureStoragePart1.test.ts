@@ -46,7 +46,6 @@ import { BiometryType } from '@capgo/capacitor-native-biometric';
 import { mockConsoleError } from '@/test/consoleMocks';
 import {
   clearSession,
-  getTrackedKeystoreInstanceIds,
   hasSession,
   isBiometricAvailable,
   retrieveWrappedKey,
@@ -56,8 +55,8 @@ import {
   verifyBiometric
 } from './nativeSecureStorage';
 
-const TEST_INSTANCE_ID = 'test-instance-123';describe('native-secure-storage', () => {
-
+const TEST_INSTANCE_ID = 'test-instance-123';
+describe('native-secure-storage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

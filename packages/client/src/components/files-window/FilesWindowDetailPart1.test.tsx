@@ -50,7 +50,7 @@ const mockTextFile = {
   storagePath: '/files/file-5.txt'
 };
 
-const mockUnknownFile = {
+const _mockUnknownFile = {
   id: 'file-6',
   name: 'test-unknown.xyz',
   size: 256,
@@ -59,7 +59,7 @@ const mockUnknownFile = {
   storagePath: '/files/file-6.xyz'
 };
 
-const mockPdfFile = {
+const _mockPdfFile = {
   id: 'file-7',
   name: 'test-document.pdf',
   size: 3072,
@@ -182,8 +182,8 @@ const mockObjectUrl = 'blob:http://localhost/test-file';
 vi.stubGlobal('URL', {
   createObjectURL: () => mockObjectUrl,
   revokeObjectURL: () => {}
-});describe('FilesWindowDetail', () => {
-
+});
+describe('FilesWindowDetail', () => {
   const defaultProps = {
     fileId: 'file-1',
     onBack: vi.fn(),

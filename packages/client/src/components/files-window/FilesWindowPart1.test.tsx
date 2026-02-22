@@ -1,7 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
-import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FilesWindow } from './FilesWindow';
 
@@ -214,8 +213,8 @@ vi.mock('./FilesWindowDetail', () => ({
       </button>
     </div>
   )
-}));describe('FilesWindow', () => {
-
+}));
+describe('FilesWindow', () => {
   const defaultProps = {
     id: 'test-window',
     onClose: vi.fn(),

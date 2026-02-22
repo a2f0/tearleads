@@ -1,7 +1,5 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleWarn } from '@/test/consoleMocks';
 
@@ -10,8 +8,8 @@ const TEST_KEY = new Uint8Array([1, 2, 3, 4]);
 const createConfig = (name: string) => ({
   name,
   encryptionKey: TEST_KEY
-});describe('WasmNodeAdapter', () => {
-
+});
+describe('WasmNodeAdapter', () => {
   type WasmNodeAdapterClass =
     typeof import('./wasmNode.adapter').WasmNodeAdapter;
   type WasmNodeAdapterInstance = InstanceType<WasmNodeAdapterClass>;

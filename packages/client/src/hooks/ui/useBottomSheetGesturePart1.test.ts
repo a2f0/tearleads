@@ -1,10 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  type SnapPoint,
-  setupResizeListener,
-  useBottomSheetGesture
-} from './useBottomSheetGesture';
+import { type SnapPoint, useBottomSheetGesture } from './useBottomSheetGesture';
 
 type GestureCallback = (detail: { deltaY: number; velocityY: number }) => void;
 
@@ -14,11 +10,11 @@ interface MockGestureCallbacks {
   onEnd: GestureCallback;
 }
 
-let mockGestureCallbacks: MockGestureCallbacks | null = null;
+let _mockGestureCallbacks: MockGestureCallbacks | null = null;
 
 vi.mock('@ionic/core', () => ({
   createGesture: vi.fn((options: MockGestureCallbacks) => {
-    mockGestureCallbacks = {
+    _mockGestureCallbacks = {
       onStart: options.onStart,
       onMove: options.onMove,
       onEnd: options.onEnd
@@ -34,11 +30,11 @@ const defaultSnapPoints: SnapPoint[] = [
   { name: 'collapsed', height: 200 },
   { name: 'half', height: 400 },
   { name: 'expanded', height: 800 }
-];describe('useBottomSheetGesture', () => {
-
+];
+describe('useBottomSheetGesture', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGestureCallbacks = null;
+    _mockGestureCallbacks = null;
 
     Object.defineProperty(window, 'innerHeight', {
       writable: true,

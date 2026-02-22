@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ALL_PHOTOS_ID, PhotosAlbumsSidebar } from './PhotosAlbumsSidebar';
@@ -113,8 +113,8 @@ vi.mock('./DeleteAlbumDialog', () => ({
         </button>
       </div>
     ) : null
-}));describe('PhotosAlbumsSidebar', () => {
-
+}));
+describe('PhotosAlbumsSidebar', () => {
   const defaultProps = {
     width: 200,
     onWidthChange: vi.fn(),

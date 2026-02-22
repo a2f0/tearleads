@@ -4,9 +4,7 @@ import {
   computeContentHash,
   downloadFile,
   generateBackupFilename,
-  readFileAsUint8Array,
-  saveFile,
-  shareFile
+  readFileAsUint8Array
 } from './fileUtils';
 
 // Mock Capacitor
@@ -14,8 +12,8 @@ vi.mock('@capacitor/core', () => ({
   Capacitor: {
     getPlatform: vi.fn(() => 'web')
   }
-}));describe('file-utils', () => {
-
+}));
+describe('file-utils', () => {
   describe('generateBackupFilename', () => {
     beforeEach(() => {
       vi.useFakeTimers();

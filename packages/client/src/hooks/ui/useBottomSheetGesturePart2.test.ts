@@ -34,8 +34,8 @@ const defaultSnapPoints: SnapPoint[] = [
   { name: 'collapsed', height: 200 },
   { name: 'half', height: 400 },
   { name: 'expanded', height: 800 }
-];describe('useBottomSheetGesture', () => {
-
+];
+describe('useBottomSheetGesture', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGestureCallbacks = null;

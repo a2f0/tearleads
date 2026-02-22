@@ -71,7 +71,6 @@ async function searchFor(
 }
 
 describe('SearchWindowContent', () => {
-
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseIsMobile.mockReturnValue(true);

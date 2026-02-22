@@ -2,7 +2,7 @@ import {
   createTestDatabase,
   type TestDatabaseContext
 } from '@tearleads/db-test-utils';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { migrations } from '@/db/migrations';
 import { notes, tags, vfsLinks, vfsRegistry } from '@/db/schema';
@@ -23,15 +23,10 @@ vi.mock('@/db', () => ({
 
 import {
   CLASSIC_TAG_PARENT_ID,
-  createClassicNote,
-  createClassicTag,
   deleteClassicTag,
-  linkNoteToTag,
   loadClassicStateFromDatabase,
   persistClassicOrderToDatabase,
-  renameClassicTag,
-  restoreClassicTag,
-  updateClassicNote
+  restoreClassicTag
 } from './classicPersistence';
 
 async function withClassicTestDatabase(
@@ -176,7 +171,7 @@ async function seedClassicFixture(
   ]);
 }
 
-async function createUntaggedNoteInDb(
+async function _createUntaggedNoteInDb(
   db: TestDatabaseContext['db'],
   note: {
     id: string;
@@ -312,7 +307,6 @@ async function seedLargeClassicFixture(
 }
 
 describe('classicPersistence integration', () => {
-
   afterEach(() => {
     testDbState.db = null;
   });

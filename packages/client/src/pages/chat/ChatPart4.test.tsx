@@ -233,7 +233,6 @@ function findCloseButton(): HTMLElement {
 }
 
 describe('Chat', () => {
-
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -463,6 +462,5 @@ describe('Chat', () => {
         expect(screen.getByText(/No active instance/)).toBeInTheDocument();
       });
     });
-
   });
 });

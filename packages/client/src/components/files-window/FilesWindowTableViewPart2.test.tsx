@@ -112,8 +112,8 @@ const mockDb = {
 
 vi.mock('@/db', () => ({
   getDatabase: () => mockDb
-}));describe('FilesWindowTableView', () => {
-
+}));
+describe('FilesWindowTableView', () => {
   const defaultProps = {
     showDeleted: false,
     onUpload: vi.fn()

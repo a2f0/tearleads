@@ -113,8 +113,8 @@ vi.mock('./DeleteAlbumDialog', () => ({
         </button>
       </div>
     ) : null
-}));describe('PhotosAlbumsSidebar', () => {
-
+}));
+describe('PhotosAlbumsSidebar', () => {
   const defaultProps = {
     width: 200,
     onWidthChange: vi.fn(),

@@ -15,15 +15,10 @@ import {
 } from '@/lib/testInstance';
 import type { InstanceMetadata } from './instanceRegistry';
 import {
-  clearRegistry,
   createInstance,
   deleteInstanceFromRegistry,
-  getActiveInstance,
   getActiveInstanceId,
-  getInstance,
   getInstances,
-  getRegistryData,
-  initializeRegistry,
   resetInitializationState,
   setActiveInstanceId,
   touchInstance,
@@ -38,7 +33,7 @@ vi.mock('@/lib/testInstance', () => ({
 
 const mockIsTestMode = vi.mocked(isTestMode);
 const mockGetTestInstanceId = vi.mocked(getTestInstanceId);
-const mockIsTestInstance = vi.mocked(isTestInstance);
+const _mockIsTestInstance = vi.mocked(isTestInstance);
 
 // Mock IndexedDB
 type StoreValue =
@@ -159,8 +154,8 @@ vi.stubGlobal('indexedDB', {
 // Mock crypto.randomUUID
 vi.stubGlobal('crypto', {
   randomUUID: vi.fn(() => 'test-uuid-1234')
-});describe('instance-registry', () => {
-
+});
+describe('instance-registry', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockStore.clear();

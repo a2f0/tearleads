@@ -4,7 +4,6 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DatabaseInsert } from '@/db/analytics';
-import { mockConsoleWarn } from '@/test/consoleMocks';
 
 // Use vi.hoisted for mock functions to avoid hoisting issues
 const { mockImportKey, mockEncrypt, mockDecrypt } = vi.hoisted(() => ({
@@ -25,19 +24,12 @@ vi.mock('@tearleads/shared', async (importOriginal) => {
 
 // Import after mocks
 import {
-  clearFileStorageForInstance,
   clearFileStorageInstance,
   createRetrieveLogger,
   createStoreLogger,
-  deleteFileStorageForInstance,
-  getCurrentStorageInstanceId,
-  getFileStorage,
-  getFileStorageForInstance,
   initializeFileStorage,
-  isFileStorageInitialized,
   type RetrieveMetrics,
-  type StoreMetrics,
-  setCurrentStorageInstanceId
+  type StoreMetrics
 } from './opfs';
 
 type MockWritableStream = {
@@ -73,7 +65,7 @@ type MockDirectoryHandle = {
 
 type MockHandle = MockFileHandle | MockDirectoryHandle;
 
-function setStorageFilesDirectoryNull(storage: object) {
+function _setStorageFilesDirectoryNull(storage: object) {
   Object.defineProperty(storage, 'filesDirectory', {
     value: null,
     writable: true
@@ -164,8 +156,8 @@ const createMockDirectoryHandle = (
     queryPermission: vi.fn(),
     requestPermission: vi.fn()
   };
-};describe('opfs storage', () => {
-
+};
+describe('opfs storage', () => {
   let mockRootDirectory: MockDirectoryHandle;
   let mockFilesDirectory: MockDirectoryHandle;
   const testInstanceId = 'test-instance';

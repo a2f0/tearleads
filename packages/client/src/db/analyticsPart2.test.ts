@@ -16,26 +16,16 @@ vi.mock('./state', () => ({
 }));
 
 // Import after mocks
-import {
-  clearEvents,
-  getDistinctEventTypes,
-  getEventCount,
-  getEventStats,
-  getEvents,
-  logApiEvent,
-  logEvent,
-  measureOperation
-} from './analytics';
+import { getEvents } from './analytics';
 import type { Database } from './index';
-import { isDatabaseInitialized } from './state';
 
 // Create mock database
 const mockDb = {
   insert: vi.fn(() => ({
     values: vi.fn()
   }))
-} as unknown as Database;describe('analytics', () => {
-
+} as unknown as Database;
+describe('analytics', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
