@@ -78,9 +78,10 @@
   changed_when: true
 
 # Neovim 0.10+ from GitHub releases (PPA doesn't support all Ubuntu codenames)
-- name: Set Neovim version
+- name: Set Neovim version and architecture
   ansible.builtin.set_fact:
     neovim_version: "0.10.4"
+    neovim_arch: "{{ 'x86_64' if ansible_architecture == 'x86_64' else 'aarch64' }}"
 
 - name: Check installed Neovim version
   ansible.builtin.command:
@@ -91,27 +92,27 @@
 
 - name: Download Neovim release tarball
   ansible.builtin.get_url:
-    url: "https://github.com/neovim/neovim/releases/download/v{{ neovim_version }}/nvim-linux-x86_64.tar.gz"
-    dest: "/tmp/nvim-linux-x86_64.tar.gz"
+    url: "https://github.com/neovim/neovim/releases/download/v{{ neovim_version }}/nvim-linux-{{ neovim_arch }}.tar.gz"
+    dest: "/tmp/nvim-linux-{{ neovim_arch }}.tar.gz"
     mode: "0644"
   when: nvim_installed_check.rc != 0 or ('v' + neovim_version) not in nvim_installed_check.stdout
 
 - name: Remove old Neovim installation
   ansible.builtin.file:
-    path: /usr/local/nvim-linux-x86_64
+    path: "/usr/local/nvim-linux-{{ neovim_arch }}"
     state: absent
   when: nvim_installed_check.rc != 0 or ('v' + neovim_version) not in nvim_installed_check.stdout
 
 - name: Extract Neovim tarball
   ansible.builtin.unarchive:
-    src: /tmp/nvim-linux-x86_64.tar.gz
+    src: "/tmp/nvim-linux-{{ neovim_arch }}.tar.gz"
     dest: /usr/local
     remote_src: true
   when: nvim_installed_check.rc != 0 or ('v' + neovim_version) not in nvim_installed_check.stdout
 
 - name: Symlink nvim binary
   ansible.builtin.file:
-    src: /usr/local/nvim-linux-x86_64/bin/nvim
+    src: "/usr/local/nvim-linux-{{ neovim_arch }}/bin/nvim"
     dest: /usr/local/bin/nvim
     state: link
   when: nvim_installed_check.rc != 0 or ('v' + neovim_version) not in nvim_installed_check.stdout
