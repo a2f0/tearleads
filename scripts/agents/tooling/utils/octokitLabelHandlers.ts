@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import path from 'node:path';
 import type { GlobalOptions } from '../types.ts';
 import type { GitHubClientContext } from './githubClient.ts';
-import { requireDefined } from './helpers.ts';
+import { requireDefined, resolveCurrentBranchName } from './helpers.ts';
 
 function getLabelNames(labels: Array<{ name?: string | undefined }>): string[] {
   return labels
@@ -93,9 +93,7 @@ function getInstanceName(): string {
 async function findPrNumberForCurrentBranch(
   context: GitHubClientContext
 ): Promise<number> {
-  const branch = execSync('git branch --show-current', {
-    encoding: 'utf8'
-  }).trim();
+  const branch = resolveCurrentBranchName();
 
   const response = await context.octokit.rest.pulls.list({
     owner: context.owner,

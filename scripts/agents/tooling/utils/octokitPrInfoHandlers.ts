@@ -1,13 +1,12 @@
-import { execSync } from 'node:child_process';
 import type { RestEndpointMethodTypes } from '@octokit/rest';
 import type { GitHubClientContext } from './githubClient.ts';
-import { sleepMs } from './helpers.ts';
+import { resolveCurrentBranchName, sleepMs } from './helpers.ts';
 
 type PullItem = RestEndpointMethodTypes['pulls']['get']['response']['data'];
 
 function resolveBranchName(branch: string | undefined): string {
   if (branch) return branch;
-  return execSync('git branch --show-current', { encoding: 'utf8' }).trim();
+  return resolveCurrentBranchName();
 }
 
 function toMergeStateStatus(value: string | null | undefined): string {
