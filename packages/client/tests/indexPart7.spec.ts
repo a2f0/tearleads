@@ -30,6 +30,10 @@ async function isDesktopDevice(page: Page): Promise<boolean> {
 }
 
 async function navigateWithHistory(page: Page, path: string): Promise<void> {
+  const currentUrl = page.url();
+  if (currentUrl === 'about:blank') {
+    await page.goto('/');
+  }
   await page.evaluate((targetPath) => {
     window.history.pushState({}, '', targetPath);
     window.dispatchEvent(new PopStateEvent('popstate'));
