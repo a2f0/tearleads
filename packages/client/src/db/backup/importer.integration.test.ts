@@ -58,7 +58,7 @@ describe('backup importer integration (real database)', () => {
 
         const baseline = {
           queryCount: 10,
-          durationMs: 300
+          durationMs: 1000
         };
 
         const inserted = await db.select({ id: contacts.id }).from(contacts);

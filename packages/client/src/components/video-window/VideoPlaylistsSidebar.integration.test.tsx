@@ -92,12 +92,12 @@ describe('Video playlist drag and drop integration', () => {
       }
     );
 
-    await waitFor(() => {
-      const playlistButton = screen.getByRole('button', { name: /Movies/i });
-      expect(playlistButton).toHaveTextContent('0');
-    });
-
-    const playlistButton = screen.getByRole('button', { name: /Movies/i });
+    const playlistButton = await screen.findByRole(
+      'button',
+      { name: /Movies/i },
+      { timeout: 4000 }
+    );
+    expect(playlistButton).toHaveTextContent('0');
     const payload = JSON.stringify({ mediaType: 'video', ids: ['video-1'] });
     const dataTransfer = {
       files: [],

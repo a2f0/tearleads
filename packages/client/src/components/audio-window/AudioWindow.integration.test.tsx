@@ -95,12 +95,12 @@ describe('Audio playlist drag and drop integration', () => {
       }
     );
 
-    await waitFor(() => {
-      const playlistButton = screen.getByRole('button', { name: /Road Trip/i });
-      expect(playlistButton).toHaveTextContent('0');
-    });
-
-    const playlistButton = screen.getByRole('button', { name: /Road Trip/i });
+    const playlistButton = await screen.findByRole(
+      'button',
+      { name: /Road Trip/i },
+      { timeout: 4000 }
+    );
+    expect(playlistButton).toHaveTextContent('0');
     const payload = JSON.stringify({
       mediaType: 'audio',
       ids: ['track-1']

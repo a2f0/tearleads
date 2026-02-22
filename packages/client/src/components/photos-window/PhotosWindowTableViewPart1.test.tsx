@@ -1,0 +1,418 @@
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PhotosWindowTableView } from './PhotosWindowTableView';
+
+const mockUsePhotosWindowData = vi.fn();
+const mockDownloadFile = vi.fn();
+const mockShareFile = vi.fn();
+const mockCanShareFiles = vi.fn(() => false);
+const mockDeletePhoto = vi.fn();
+const mockRestorePhoto = vi.fn();
+const mockDownloadPhoto = vi.fn();
+const mockSharePhoto = vi.fn();
+const mockSetAttachedImage = vi.fn();
+const mockUint8ArrayToDataUrl = vi.fn();
+
+vi.mock('./usePhotosWindowData', () => ({
+  usePhotosWindowData: () => ({
+    ...mockUsePhotosWindowData(),
+    deletePhoto: mockDeletePhoto,
+    restorePhoto: mockRestorePhoto,
+    downloadPhoto: mockDownloadPhoto,
+    sharePhoto: mockSharePhoto
+  })
+}));
+
+vi.mock('@/lib/fileUtils', () => ({
+  canShareFiles: () => mockCanShareFiles(),
+  downloadFile: (data: ArrayBuffer, name: string) =>
+    mockDownloadFile(data, name),
+  shareFile: (data: ArrayBuffer, name: string, mimeType: string) =>
+    mockShareFile(data, name, mimeType)
+}));
+
+vi.mock('@/lib/llmRuntime', () => ({
+  setAttachedImage: (image: string | null) => mockSetAttachedImage(image)
+}));
+
+vi.mock('@/lib/chatAttachments', () => ({
+  uint8ArrayToDataUrl: (data: Uint8Array, mimeType: string) =>
+    mockUint8ArrayToDataUrl(data, mimeType)
+}));
+
+vi.mock('@/i18n', () => ({
+  useTypedTranslation: () => ({
+    t: (key: string) =>
+      ({
+        getInfo: 'Get Info',
+        delete: 'Delete',
+        restore: 'Restore',
+        download: 'Download',
+        share: 'Share'
+      })[key] ?? key
+  })
+}));
+describe('PhotosWindowTableView', () => {
+  const photo = {
+    id: 'photo-1',
+    name: 'photo.jpg',
+    size: 1200,
+    mimeType: 'image/jpeg',
+    uploadDate: new Date('2024-01-01T00:00:00Z'),
+    storagePath: '/photos/photo.jpg',
+    thumbnailPath: null,
+    objectUrl: 'blob:photo'
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockDownloadPhoto.mockResolvedValue(new ArrayBuffer(8));
+    mockSharePhoto.mockResolvedValue(new ArrayBuffer(8));
+    mockUint8ArrayToDataUrl.mockResolvedValue('data:image/jpeg;base64,photo');
+  });
+
+  it('shows empty state when no photos are available', () => {
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    expect(
+      screen.getByText('No photos yet. Use Upload to add images.')
+    ).toBeInTheDocument();
+  });
+
+  it('calls onSelectPhoto when a row is clicked', async () => {
+    const onSelectPhoto = vi.fn();
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [photo],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    render(
+      <PhotosWindowTableView refreshToken={0} onSelectPhoto={onSelectPhoto} />
+    );
+
+    const user = userEvent.setup();
+    const row = screen.getByText('photo.jpg');
+    await user.click(row);
+
+    expect(onSelectPhoto).toHaveBeenCalledWith('photo-1');
+  });
+
+  it('shows error state when hook returns error', () => {
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [],
+      loading: false,
+      error: 'Something went wrong',
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+  });
+
+  it('handles context menu actions', async () => {
+    mockCanShareFiles.mockReturnValue(true);
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [photo],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    const user = userEvent.setup();
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByText('photo.jpg')
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Download' }));
+    await user.click(screen.getByRole('button', { name: 'Share' }));
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+
+    expect(mockDownloadPhoto).toHaveBeenCalledWith(photo);
+    expect(mockDownloadFile).toHaveBeenCalledWith(
+      expect.any(ArrayBuffer),
+      'photo.jpg'
+    );
+    expect(mockSharePhoto).toHaveBeenCalledWith(photo);
+    expect(mockShareFile).toHaveBeenCalledWith(
+      expect.any(ArrayBuffer),
+      'photo.jpg',
+      'image/jpeg'
+    );
+    expect(mockDeletePhoto).toHaveBeenCalledWith('photo-1');
+  });
+
+  it('restores deleted photos from context menu', async () => {
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [{ ...photo, deleted: true }],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    const user = userEvent.setup();
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByText('photo.jpg')
+    });
+    await user.click(screen.getByRole('button', { name: 'Restore' }));
+
+    expect(mockRestorePhoto).toHaveBeenCalledWith('photo-1');
+  });
+
+  it('ignores share abort errors from the context menu', async () => {
+    const abortError = new Error('Share aborted');
+    abortError.name = 'AbortError';
+    mockCanShareFiles.mockReturnValue(true);
+    mockSharePhoto.mockRejectedValueOnce(abortError);
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [photo],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    const user = userEvent.setup();
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByText('photo.jpg')
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Share' }));
+
+    expect(mockSharePhoto).toHaveBeenCalledWith(photo);
+  });
+
+  it('logs download errors from the context menu', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockDownloadPhoto.mockRejectedValueOnce(new Error('Download failed'));
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [photo],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    const user = userEvent.setup();
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByText('photo.jpg')
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Download' }));
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to download photo:',
+      expect.any(Error)
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it('logs share errors from the context menu', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockCanShareFiles.mockReturnValue(true);
+    mockSharePhoto.mockRejectedValueOnce(new Error('Share failed'));
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [photo],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    const user = userEvent.setup();
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByText('photo.jpg')
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Share' }));
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to share photo:',
+      expect.any(Error)
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it('does not show share action when sharing is unsupported', async () => {
+    mockCanShareFiles.mockReturnValue(false);
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [photo],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    const user = userEvent.setup();
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByText('photo.jpg')
+    });
+
+    expect(
+      screen.queryByRole('button', { name: 'Share' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('sorts by name when header is clicked', async () => {
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [
+        {
+          ...photo,
+          id: 'photo-1',
+          name: 'b.jpg',
+          uploadDate: new Date('2024-01-02T00:00:00Z')
+        },
+        {
+          ...photo,
+          id: 'photo-2',
+          name: 'a.jpg',
+          uploadDate: new Date('2024-01-01T00:00:00Z')
+        }
+      ],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    const user = userEvent.setup();
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    await user.click(screen.getByRole('button', { name: 'Name' }));
+
+    let rows = screen.getAllByRole('row');
+    expect(rows[1]?.textContent).toContain('a.jpg');
+
+    await user.click(screen.getByRole('button', { name: 'Name' }));
+    rows = screen.getAllByRole('row');
+    expect(rows[1]?.textContent).toContain('b.jpg');
+  });
+
+  it('shows fallback type for unknown image mime types', () => {
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [
+        {
+          ...photo,
+          id: 'photo-3',
+          name: 'scan.tiff',
+          mimeType: 'image/tiff'
+        }
+      ],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    expect(screen.getByText('TIFF')).toBeInTheDocument();
+  });
+
+  it('falls back to Image when mime type lacks subtype', () => {
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [
+        {
+          ...photo,
+          id: 'photo-4',
+          name: 'unknown',
+          mimeType: 'image'
+        }
+      ],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    expect(screen.getByText('Image')).toBeInTheDocument();
+  });
+
+  it('shows loading state when database is loading', () => {
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [],
+      loading: false,
+      error: null,
+      hasFetched: false,
+      isUnlocked: false,
+      isLoading: true,
+      refresh: vi.fn(),
+      currentInstanceId: null
+    });
+
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    expect(screen.getByText('Loading database...')).toBeInTheDocument();
+  });
+});
