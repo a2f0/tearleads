@@ -290,7 +290,8 @@
     # JetBrains Mono font (used by ghostty.conf)
     - name: Check if JetBrains Mono is installed
       ansible.builtin.shell:
-        cmd: fc-list | grep -qi "JetBrains Mono"
+        cmd: set -o pipefail && fc-list | grep -qi "JetBrains Mono"
+        executable: /bin/bash
       register: jetbrains_mono_check
       changed_when: false
       failed_when: false
