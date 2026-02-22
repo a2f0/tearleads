@@ -63,9 +63,7 @@ function readTokenFromGhConfig(): string | null {
         continue;
       }
 
-      const tokenMatch = line.match(
-        /^\s+oauth_token:\s*(".*?"|'.*?'|[^#\s]+)/
-      );
+      const tokenMatch = line.match(/^\s+oauth_token:\s*(".*?"|'.*?'|[^#\s]+)/);
       if (!tokenMatch?.[1]) {
         continue;
       }
