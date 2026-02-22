@@ -1,6 +1,6 @@
 import type {
-  VfsOrgWrappedKeyPayload,
   VfsOrgShare,
+  VfsOrgWrappedKeyPayload,
   VfsShare,
   VfsSharesResponse,
   VfsShareType,
