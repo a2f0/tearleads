@@ -165,6 +165,14 @@ Files must stay below 500 lines and 20,000 bytes. When the guardrail trips, spli
 - Guardrails run in `pre-push` and CI via `scripts/preen/checkCircularImports.ts`.
 - To fix cycles: extract shared types/constants to a separate module, or restructure module boundaries.
 
+## Husky Shell Compatibility Policy
+
+- Husky hooks in `.husky/` must be strict POSIX `sh` compatible across environments.
+- Use `#!/usr/bin/env sh` and `set -eu` in hook scripts. Do not use `set -o pipefail`.
+- Do not use Bash-only features in hooks (`local`, `[[ ... ]]`, arrays, `source`, `function`, process substitution).
+- If a hook needs advanced logic, move that logic to repo scripts and keep the hook as a thin POSIX `sh` wrapper.
+- When modifying hooks, validate syntax with `sh -n .husky/<hook-file>` before committing.
+
 ## Node Version Management Policy
 
 - Use `nvm` for all Node version management.

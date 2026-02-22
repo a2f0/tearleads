@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env sh
+set -eu
 
 ./scripts/preen/checkFileLimits.sh --staged
 ./scripts/checkBinaryFiles.sh --staged
