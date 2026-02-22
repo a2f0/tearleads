@@ -189,4 +189,43 @@ export interface VfsBlobNetworkFlusherOptions {
   fetchImpl?: typeof fetch;
   saveState?: PersistStateCallback;
   loadState?: LoadStateCallback;
+  retryPolicy?: Partial<VfsBlobNetworkRetryPolicy>;
+  retrySleep?: (delayMs: number) => Promise<void> | void;
+  onRetry?: (event: VfsBlobNetworkRetryEvent) => Promise<void> | void;
+  onOperationResult?:
+    | ((event: VfsBlobNetworkOperationResultEvent) => Promise<void> | void)
+    | undefined;
+}
+
+export interface VfsBlobNetworkRetryPolicy {
+  maxAttempts: number;
+  initialDelayMs: number;
+  maxDelayMs: number;
+  backoffMultiplier: number;
+  retryableStatusCodes: number[];
+}
+
+export type VfsBlobNetworkOperationKind = VfsBlobNetworkOperation['kind'];
+
+export type VfsBlobFailureClass = 'http_status' | 'network' | 'unknown';
+
+export interface VfsBlobNetworkRetryEvent {
+  operationId: string;
+  operationKind: VfsBlobNetworkOperationKind;
+  attempt: number;
+  maxAttempts: number;
+  delayMs: number;
+  failureClass: VfsBlobFailureClass;
+  statusCode?: number | undefined;
+}
+
+export interface VfsBlobNetworkOperationResultEvent {
+  operationId: string;
+  operationKind: VfsBlobNetworkOperationKind;
+  attempts: number;
+  retryCount: number;
+  success: boolean;
+  failureClass?: VfsBlobFailureClass | undefined;
+  statusCode?: number | undefined;
+  retryable?: boolean | undefined;
 }

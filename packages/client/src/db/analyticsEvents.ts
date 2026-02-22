@@ -17,6 +17,7 @@ export type AnalyticsEventSlug =
   | 'file_decrypt'
   | 'thumbnail_generation'
   | 'vfs_secure_upload'
+  | 'vfs_blob_flush_operation'
   // API operations
   | 'api_get_ping'
   | 'api_get_admin_redis_keys'
@@ -93,6 +94,7 @@ const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
   file_decrypt: 'File Decrypt',
   thumbnail_generation: 'Thumbnail Generation',
   vfs_secure_upload: 'VFS Secure Upload',
+  vfs_blob_flush_operation: 'VFS Blob Flush Operation',
   // API
   api_get_ping: 'API Ping',
   api_get_admin_redis_keys: 'API List Redis Keys',
@@ -196,6 +198,14 @@ export interface VfsSecureUploadDetail {
   fileSize?: number;
   mimeType?: string;
   failStage?: 'orchestrator_unavailable' | 'stage_attach' | 'flush' | 'unknown';
+}
+export interface VfsBlobFlushOperationDetail {
+  operationKind?: 'stage' | 'chunk' | 'commit' | 'attach' | 'abandon';
+  attempts?: number;
+  retryCount?: number;
+  failureClass?: 'http_status' | 'network' | 'unknown';
+  statusCode?: number;
+  retryable?: boolean;
 }
 
 // API events
@@ -399,6 +409,7 @@ export interface EventDetailMap {
   file_decrypt: FileDecryptDetail;
   thumbnail_generation: ThumbnailGenerationDetail;
   vfs_secure_upload: VfsSecureUploadDetail;
+  vfs_blob_flush_operation: VfsBlobFlushOperationDetail;
   api_get_ping: ApiGetPingDetail;
   api_get_admin_redis_keys: ApiGetAdminRedisKeysDetail;
   api_get_admin_redis_key: ApiGetAdminRedisKeyDetail;

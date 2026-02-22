@@ -101,6 +101,7 @@ describe('useFileUpload VFS registration', () => {
   const mockStorage = {
     store: vi.fn(),
     measureStore: vi.fn(),
+    measureStoreBlob: vi.fn(),
     delete: vi.fn()
   };
 
@@ -145,6 +146,7 @@ describe('useFileUpload VFS registration', () => {
     );
     vi.mocked(computeContentHashStreaming).mockResolvedValue('mock-hash');
     vi.mocked(mockStorage.measureStore).mockResolvedValue('storage/path');
+    vi.mocked(mockStorage.measureStoreBlob).mockResolvedValue('storage/path');
     vi.mocked(isThumbnailSupported).mockReturnValue(false);
     vi.mocked(generateThumbnail).mockResolvedValue(new Uint8Array([1, 2, 3]));
     vi.mocked(logEvent).mockResolvedValue(undefined);
@@ -241,7 +243,7 @@ describe('useFileUpload VFS registration', () => {
         contentType: 'image/png'
       })
     );
-    expect(createStreamFromFile).toHaveBeenCalledTimes(1);
+    expect(createStreamFromFile).toHaveBeenCalledTimes(2);
     expect(mockOrchestrator.flushAll).toHaveBeenCalled();
     expect(logEvent).toHaveBeenCalledWith(
       expect.anything(),

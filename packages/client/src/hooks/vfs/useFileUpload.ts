@@ -89,10 +89,12 @@ export function useFileUpload() {
       const db = getDatabase();
       const storage = getFileStorage();
       const id = crypto.randomUUID();
-      const fileStream = createStreamFromFile(file);
-      const [hashStream, secureUploadStream] = secureUploadEnabled
-        ? fileStream.tee()
-        : [fileStream, null];
+      // Avoid tee() here: hashing is consumed immediately while secure upload
+      // runs later, and tee can buffer the unread branch for large files.
+      const hashStream = createStreamFromFile(file);
+      const secureUploadStream = secureUploadEnabled
+        ? createStreamFromFile(file)
+        : null;
       const contentHash = await computeContentHashStreaming(hashStream);
       let storagePath: string;
       let thumbnailPath: string | null = null;

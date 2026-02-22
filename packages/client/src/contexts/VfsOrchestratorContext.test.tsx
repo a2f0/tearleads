@@ -15,6 +15,9 @@ const mockUser = {
 };
 
 const mockUseAuth = vi.fn();
+const mockLogEvent = vi.fn().mockResolvedValue(undefined);
+const mockIsDatabaseInitialized = vi.fn(() => true);
+const mockGetDatabase = vi.fn(() => ({ insert: vi.fn() }));
 const mockKeyManager = {
   createItemKey: vi.fn(),
   wrapItemKeyForShare: vi.fn(),
@@ -31,6 +34,14 @@ const mockCreateVfsSecurePipelineBundle = vi.fn(() => ({
 vi.mock('@tearleads/api-client', () => {
   const MockVfsWriteOrchestrator = class {
     mockOrchestrator = true;
+    static lastOptions: unknown;
+    constructor(
+      _userId: string,
+      _clientId: string,
+      options: unknown
+    ) {
+      MockVfsWriteOrchestrator.lastOptions = options;
+    }
   };
   return {
     createVfsSecurePipelineBundle: (...args: unknown[]) =>
@@ -38,6 +49,15 @@ vi.mock('@tearleads/api-client', () => {
     VfsWriteOrchestrator: MockVfsWriteOrchestrator
   };
 });
+
+vi.mock('@/db', () => ({
+  isDatabaseInitialized: () => mockIsDatabaseInitialized(),
+  getDatabase: () => mockGetDatabase()
+}));
+
+vi.mock('@/db/analytics', () => ({
+  logEvent: (...args: unknown[]) => mockLogEvent(...args)
+}));
 
 vi.mock('@/db/vfsItemKeys', () => ({
   createItemKeyStore: vi.fn(() => ({
@@ -83,6 +103,9 @@ describe('VfsOrchestratorContext', () => {
       user: mockUser,
       isAuthenticated: true
     });
+    mockIsDatabaseInitialized.mockReturnValue(true);
+    mockGetDatabase.mockReturnValue({ insert: vi.fn() });
+    mockLogEvent.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -196,6 +219,66 @@ describe('VfsOrchestratorContext', () => {
       });
 
       expect(typeof contextValue?.reinitialize).toBe('function');
+    });
+
+    it('wires blob flush telemetry callback for orchestrator operations', async () => {
+      render(
+        <VfsOrchestratorProvider>
+          <div>Test</div>
+        </VfsOrchestratorProvider>
+      );
+
+      await waitFor(() => {
+        expect(mockCreateFacade).toHaveBeenCalled();
+      });
+
+      const apiClientModule = await import('@tearleads/api-client');
+      const MockVfsWriteOrchestrator = apiClientModule.VfsWriteOrchestrator as {
+        lastOptions?: {
+          blob?: {
+            onOperationResult?: (event: {
+              operationKind:
+                | 'stage'
+                | 'attach'
+                | 'abandon'
+                | 'chunk'
+                | 'commit';
+              attempts: number;
+              retryCount: number;
+              success: boolean;
+              failureClass?: 'http_status' | 'network' | 'unknown';
+              statusCode?: number;
+              retryable?: boolean;
+            }) => Promise<void>;
+          };
+        };
+      };
+
+      const onOperationResult =
+        MockVfsWriteOrchestrator.lastOptions?.blob?.onOperationResult;
+      expect(typeof onOperationResult).toBe('function');
+      if (!onOperationResult) {
+        throw new Error('Expected blob onOperationResult callback');
+      }
+
+      await onOperationResult({
+        operationKind: 'commit',
+        attempts: 2,
+        retryCount: 1,
+        success: true
+      });
+
+      expect(mockLogEvent).toHaveBeenCalledWith(
+        expect.anything(),
+        'vfs_blob_flush_operation',
+        0,
+        true,
+        expect.objectContaining({
+          operationKind: 'commit',
+          attempts: 2,
+          retryCount: 1
+        })
+      );
     });
   });
 
