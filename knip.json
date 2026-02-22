@@ -11,20 +11,14 @@
     "binaries"
   ],
   "ignore": [
-    "**/dist/**",
-    "**/coverage/**",
-    "**/node_modules/**",
     "packages/client/android/**",
     "packages/client/ios/**"
   ],
   "ignoreFiles": [
     "packages/**/src/generated/**",
-    "packages/client/tests/playwright-env.d.ts",
-    "scripts/dist/**",
-    "scripts/dist-tests/**"
+    "packages/client/tests/playwright-env.d.ts"
   ],
   "ignoreUnresolved": [
-    "^@/components/sqlite/exportTableCsv$",
     "^@/db/analytics$"
   ],
   "ignoreBinaries": ["ansible-lint", "shellcheck", "playwright"],
@@ -40,6 +34,9 @@
         "scripts/tooling/scriptTool.ts"
       ]
     },
+    "packages/app-builder": {
+      "entry": ["apps/*/config.ts"]
+    },
     "packages/client": {
       "entry": [
         "electron.vite.config.ts",
@@ -48,7 +45,13 @@
         "electron/preload.ts"
       ]
     },
+    "packages/keychain": {
+      "entry": ["src/clientEntry.ts"]
+    },
     "packages/vfs-sync": {
+      "entry": ["src/clientEntry.ts"]
+    },
+    "packages/wallet": {
       "entry": ["src/clientEntry.ts"]
     }
   }
