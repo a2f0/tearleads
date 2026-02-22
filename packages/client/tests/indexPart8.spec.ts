@@ -96,20 +96,23 @@ async function navigateTo(page: Page, linkName: string) {
 
   // Use URL navigation for window-capable paths or paths that might be scrolled out of view
   if (isDesktop && (WINDOW_LAUNCH_PATHS.has(path) || URL_NAVIGATION_PATHS.has(path))) {
-    try {
-      await navigateWithHistory(page, path);
-    } catch (error: unknown) {
-      if (
-        error instanceof Error &&
-        error.message.includes("Failed to execute 'pushState'")
-      ) {
-        await page.goto('/');
-        await expect(startButton).toBeVisible({ timeout: 10000 });
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
         await navigateWithHistory(page, path);
-      } else {
+        return;
+      } catch (error: unknown) {
+        if (
+          error instanceof Error &&
+          error.message.includes("Failed to execute 'pushState'")
+        ) {
+          await page.goto('/');
+          await expect(startButton).toBeVisible({ timeout: 10000 });
+          continue;
+        }
         throw error;
       }
     }
+    await page.goto(path);
     return;
   }
   // Check if sidebar is visible, if not open it
