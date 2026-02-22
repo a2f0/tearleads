@@ -264,6 +264,38 @@ describe('post-crdt-push-parse encrypted envelope', () => {
     });
   });
 
+  it('rejects encrypted ACL remove operation that includes accessLevel', () => {
+    const result = parsePushPayload({
+      clientId: 'client-1',
+      operations: [
+        {
+          opId: 'op-remove-1',
+          opType: 'acl_remove',
+          itemId: 'item-1',
+          replicaId: 'client-1',
+          writeId: 1,
+          occurredAt: '2026-02-16T00:00:00.000Z',
+          encryptedPayload: 'base64-ciphertext',
+          keyEpoch: 1,
+          encryptionNonce: 'base64-nonce',
+          encryptionAad: 'base64-aad',
+          encryptionSignature: 'base64-sig',
+          accessLevel: 'read'
+        }
+      ]
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error('Expected parsePushPayload to succeed');
+    }
+
+    expect(result.value.operations[0]).toEqual({
+      status: 'invalid',
+      opId: 'op-remove-1'
+    });
+  });
+
   it('rejects encrypted link operation that mixes plaintext link fields', () => {
     const result = parsePushPayload({
       clientId: 'client-1',

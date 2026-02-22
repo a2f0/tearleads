@@ -193,7 +193,7 @@ function parsePushOperation(
     const includesPlaintextAclFields =
       Object.hasOwn(value, 'principalType') ||
       Object.hasOwn(value, 'principalId') ||
-      (opType === 'acl_add' && Object.hasOwn(value, 'accessLevel'));
+      Object.hasOwn(value, 'accessLevel');
     if (hasEncryptedPayload && includesPlaintextAclFields) {
       return {
         status: 'invalid',
