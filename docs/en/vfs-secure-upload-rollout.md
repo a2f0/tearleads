@@ -125,6 +125,17 @@ Run the secure-upload readiness matrix from repo root:
 pnpm qaVfsSecureUpload
 ```
 
+For promotion evidence artifacts (JSON + Markdown), run:
+
+```bash
+pnpm qaVfsSecureUploadEvidence
+```
+
+This writes:
+
+- `coverage/qa/vfsSecureUploadReadiness.json`
+- `coverage/qa/vfsSecureUploadReadiness.md`
+
 This command runs a focused cross-package matrix covering:
 
 - API rekey + encrypted envelope parser contract
@@ -141,6 +152,7 @@ Evidence to capture:
 - staging API logs for one successful and one forced-failure secure upload
 - final promotion decision and owner sign-off
 - output of `pnpm qaVfsSecureUpload` from staging candidate SHA
+- readiness report artifact from `pnpm qaVfsSecureUploadEvidence`
 
 ## Sign-off Template
 
@@ -148,6 +160,7 @@ Record this block in the release tracking artifact before promotion:
 
 - Candidate commit SHA:
 - Readiness gate command: `pnpm qaVfsSecureUpload`
+- Readiness evidence command: `pnpm qaVfsSecureUploadEvidence`
 - Readiness gate result: PASS/FAIL
 - Staging successful secure upload evidence link:
 - Staging forced-failure secure upload evidence link:

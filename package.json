@@ -31,6 +31,8 @@
     "enforceTypeScriptIncrementalBuilds": "./scripts/preen/enforceTypeScriptIncrementalBuilds.ts",
     "test": "pnpm -r test && pnpm test:tuxedo",
     "qaVfsSecureUpload": "tsx scripts/qa/vfsSecureUploadReadiness.ts",
+    "qaVfsSecureUploadEvidence": "tsx scripts/qa/vfsSecureUploadReadiness.ts --continue-on-failure --report-json coverage/qa/vfsSecureUploadReadiness.json --report-markdown coverage/qa/vfsSecureUploadReadiness.md",
+    "testVfsSecureUploadReadiness": "tsx --test scripts/qa/vfsSecureUploadReadiness.test.ts",
     "test:tuxedo": "sh ./tuxedo/tests/run.sh",
     "test:coverage": "sh ./tuxedo/tests/coverage.sh",
     "clean": "pnpm -r clean",
