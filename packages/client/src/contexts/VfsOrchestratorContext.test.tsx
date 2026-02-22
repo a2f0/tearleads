@@ -1,6 +1,7 @@
 import { render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  useVfsKeyManager,
   useVfsOrchestrator,
   useVfsOrchestratorInstance,
   useVfsSecureFacade,
@@ -14,9 +15,15 @@ const mockUser = {
 };
 
 const mockUseAuth = vi.fn();
+const mockKeyManager = {
+  createItemKey: vi.fn(),
+  wrapItemKeyForShare: vi.fn(),
+  rotateItemKeyEpoch: vi.fn()
+};
 
 const mockCreateFacade = vi.fn(() => ({ mockFacade: true }));
 const mockCreateVfsSecurePipelineBundle = vi.fn(() => ({
+  keyManager: mockKeyManager,
   createFacade: mockCreateFacade
 }));
 
@@ -68,6 +75,7 @@ describe('VfsOrchestratorContext', () => {
     // Reset mock implementations
     mockCreateFacade.mockReturnValue({ mockFacade: true });
     mockCreateVfsSecurePipelineBundle.mockReturnValue({
+      keyManager: mockKeyManager,
       createFacade: mockCreateFacade
     });
     // Default to authenticated user
@@ -102,6 +110,7 @@ describe('VfsOrchestratorContext', () => {
 
       expect(contextValue?.orchestrator).not.toBeNull();
       expect(contextValue?.secureFacade).not.toBeNull();
+      expect(contextValue?.keyManager).toBe(mockKeyManager);
       expect(contextValue?.isInitializing).toBe(false);
       expect(contextValue?.error).toBeNull();
     });
@@ -131,6 +140,7 @@ describe('VfsOrchestratorContext', () => {
 
       expect(contextValue?.orchestrator).toBeNull();
       expect(contextValue?.secureFacade).toBeNull();
+      expect(contextValue?.keyManager).toBeNull();
       expect(contextValue?.isReady).toBe(false);
     });
 
@@ -288,6 +298,40 @@ describe('VfsOrchestratorContext', () => {
 
       await waitFor(() => {
         expect(orchestrator).not.toBeNull();
+      });
+    });
+  });
+
+  describe('useVfsKeyManager', () => {
+    it('returns null when provider is missing', () => {
+      let keyManager: ReturnType<typeof useVfsKeyManager> = null;
+
+      function TestConsumer() {
+        keyManager = useVfsKeyManager();
+        return <div>Test</div>;
+      }
+
+      render(<TestConsumer />);
+
+      expect(keyManager).toBeNull();
+    });
+
+    it('returns keyManager when initialized', async () => {
+      let keyManager: ReturnType<typeof useVfsKeyManager> = null;
+
+      function TestConsumer() {
+        keyManager = useVfsKeyManager();
+        return <div>Test</div>;
+      }
+
+      render(
+        <VfsOrchestratorProvider>
+          <TestConsumer />
+        </VfsOrchestratorProvider>
+      );
+
+      await waitFor(() => {
+        expect(keyManager).toBe(mockKeyManager);
       });
     });
   });

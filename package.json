@@ -30,6 +30,7 @@
     "build": "pnpm -r build",
     "enforceTypeScriptIncrementalBuilds": "./scripts/preen/enforceTypeScriptIncrementalBuilds.ts",
     "test": "pnpm -r test && pnpm test:tuxedo",
+    "qaVfsSecureUpload": "tsx scripts/qa/vfsSecureUploadReadiness.ts",
     "test:tuxedo": "sh ./tuxedo/tests/run.sh",
     "test:coverage": "sh ./tuxedo/tests/coverage.sh",
     "clean": "pnpm -r clean",

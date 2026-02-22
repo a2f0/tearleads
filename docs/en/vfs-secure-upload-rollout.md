@@ -117,8 +117,39 @@ Run these checks in staging and again before production promotion:
 6. Restart/hydrate recovers pending secure queue and converges after sync.
 7. Failure cases are actionable and deterministic (no ambiguous fallback).
 
+### Required automated gate
+
+Run the secure-upload readiness matrix from repo root:
+
+```bash
+pnpm qaVfsSecureUpload
+```
+
+This command runs a focused cross-package matrix covering:
+
+- API rekey + encrypted envelope parser contract
+- API-client secure pipeline + rekey client contract
+- Client fail-closed upload behavior + large-file local storage paths
+- VFS sync guardrail behavior for encrypted-envelope mismatch handling
+
+Do not promote `vfsSecureUpload` without a green run from this gate on the
+candidate commit.
+
 Evidence to capture:
 
 - test run references (suite names and commit SHA)
 - staging API logs for one successful and one forced-failure secure upload
 - final promotion decision and owner sign-off
+- output of `pnpm qaVfsSecureUpload` from staging candidate SHA
+
+## Sign-off Template
+
+Record this block in the release tracking artifact before promotion:
+
+- Candidate commit SHA:
+- Readiness gate command: `pnpm qaVfsSecureUpload`
+- Readiness gate result: PASS/FAIL
+- Staging successful secure upload evidence link:
+- Staging forced-failure secure upload evidence link:
+- Rollback owner:
+- Promotion decision owner + timestamp:

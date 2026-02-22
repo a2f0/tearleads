@@ -65,9 +65,15 @@ export interface VfsShareApiFunctions {
     shareId: string,
     request: UpdateVfsShareRequest
   ) => Promise<VfsShare>;
-  deleteShare: (shareId: string) => Promise<{ deleted: boolean }>;
+  deleteShare: (
+    shareId: string,
+    itemId?: string
+  ) => Promise<{ deleted: boolean }>;
   createOrgShare: (request: CreateOrgShareRequest) => Promise<VfsOrgShare>;
-  deleteOrgShare: (shareId: string) => Promise<{ deleted: boolean }>;
+  deleteOrgShare: (
+    shareId: string,
+    itemId?: string
+  ) => Promise<{ deleted: boolean }>;
   searchTargets: (
     query: string,
     type?: VfsShareType
@@ -201,7 +207,7 @@ export interface VfsExplorerContextValue {
   featureFlags: FeatureFlagFunctions;
   /** VFS API functions */
   vfsApi: VfsApiFunctions;
-  /** VFS Share API functions (optional for backwards compatibility) */
+  /** VFS Share API functions (optional) */
   vfsShareApi?: VfsShareApiFunctions | undefined;
 }
 
