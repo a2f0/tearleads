@@ -101,13 +101,13 @@ for secret_name in $SECRETS; do
   # Check if file exists
   if [[ -f "$output_file" && "$FORCE" != "true" ]]; then
     echo "[SKIP] $secret_name (file exists, use -f to overwrite)"
-    ((SKIPPED++))
+    ((++SKIPPED))
     continue
   fi
 
   if [[ "$DRY_RUN" == "true" ]]; then
     echo "[DRY] $vault_path -> $output_file"
-    ((FETCHED++))
+    ((++FETCHED))
     continue
   fi
 
@@ -133,7 +133,7 @@ for secret_name in $SECRETS; do
 
   # Set restrictive permissions for sensitive files
   chmod 600 "$output_file"
-  ((FETCHED++))
+  ((++FETCHED))
 done
 
 echo ""
