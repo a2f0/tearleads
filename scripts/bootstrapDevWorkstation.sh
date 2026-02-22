@@ -42,13 +42,21 @@ check_prerequisites() {
       exit 1
     fi
   else
-    for cmd in curl sudo; do
+    for cmd in curl sudo apt-get dpkg gpg; do
       if ! has_cmd "$cmd"; then
         echo "'${cmd}' is required but not found in PATH." >&2
         exit 1
       fi
     done
   fi
+}
+
+dir_has_files() {
+  dir="$1"
+  if [ ! -d "$dir" ]; then
+    return 1
+  fi
+  find "$dir" -mindepth 1 -print -quit 2>/dev/null | grep -q .
 }
 
 # ---------------------------------------------------------------------------
@@ -205,7 +213,7 @@ main() {
     echo "  3. Run Ansible:    ansible-playbook ansible/playbooks/developerWorkstation.yml"
     echo "  4. Run tuxedo playbook (on tuxedo server): ansible-playbook ansible/playbooks/tuxedo.yml"
     echo "     (installs Neovim 0.10+, Node.js, ripgrep, fd, uv, Claude Code, etc.)"
-  elif [ ! -d "${REPO_ROOT}/.secrets" ] || [ -z "$(ls -A "${REPO_ROOT}/.secrets" 2>/dev/null)" ]; then
+  elif ! dir_has_files "${REPO_ROOT}/.secrets"; then
     echo "  1. Fetch secrets:  ${FETCH_SECRETS}"
     echo "  2. Run Ansible:    ansible-playbook ansible/playbooks/developerWorkstation.yml"
     echo "  3. Run tuxedo playbook (on tuxedo server): ansible-playbook ansible/playbooks/tuxedo.yml"

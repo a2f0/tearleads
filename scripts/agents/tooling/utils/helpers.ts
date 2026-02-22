@@ -41,6 +41,30 @@ export function getRepo(): string {
   }
 }
 
+function readGit(args: string[]): string {
+  return execFileSync('git', args, {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore']
+  }).trim();
+}
+
+export function resolveCurrentBranchName(): string {
+  try {
+    const branch = readGit(['branch', '--show-current']);
+    if (branch && branch !== 'HEAD') {
+      return branch;
+    }
+  } catch {
+    // Fallback for older git versions without --show-current.
+  }
+
+  const branch = readGit(['rev-parse', '--abbrev-ref', 'HEAD']);
+  if (!branch || branch === 'HEAD') {
+    throw new Error('Could not determine current branch (detached HEAD?)');
+  }
+  return branch;
+}
+
 export function sleepMs(milliseconds: number): void {
   const waitBuffer = new SharedArrayBuffer(4);
   const waitArray = new Int32Array(waitBuffer);
@@ -48,9 +72,7 @@ export function sleepMs(milliseconds: number): void {
 }
 
 export function getGitContext(): string {
-  const branch = execSync('git branch --show-current', {
-    encoding: 'utf8'
-  }).trim();
+  const branch = resolveCurrentBranchName();
   const headSha = execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
 
   return JSON.stringify(

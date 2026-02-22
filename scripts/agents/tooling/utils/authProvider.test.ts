@@ -14,6 +14,8 @@ function withPatchedEnv<T>(mutate: () => T): T {
   const originalGitHubToken = process.env['GITHUB_TOKEN'];
   const originalGhToken = process.env['GH_TOKEN'];
   const originalXdgConfigHome = process.env['XDG_CONFIG_HOME'];
+  const originalGhConfigDir = process.env['GH_CONFIG_DIR'];
+  const originalGitHubHost = process.env['GITHUB_HOST'];
 
   try {
     return mutate();
@@ -37,6 +39,16 @@ function withPatchedEnv<T>(mutate: () => T): T {
       delete process.env['XDG_CONFIG_HOME'];
     } else {
       process.env['XDG_CONFIG_HOME'] = originalXdgConfigHome;
+    }
+    if (originalGhConfigDir === undefined) {
+      delete process.env['GH_CONFIG_DIR'];
+    } else {
+      process.env['GH_CONFIG_DIR'] = originalGhConfigDir;
+    }
+    if (originalGitHubHost === undefined) {
+      delete process.env['GITHUB_HOST'];
+    } else {
+      process.env['GITHUB_HOST'] = originalGitHubHost;
     }
   }
 }
@@ -129,6 +141,42 @@ another.host.com:
 
       const provider = createDefaultAuthProvider();
       assert.equal(provider.getGitHubToken(), 'config-token-value');
+    });
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('auth provider reads quoted token from GH_CONFIG_DIR hosts.yml', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agenttool-auth-'));
+  const ghConfigDir = path.join(tempDir, 'ghconfig');
+  const ghDir = path.join(ghConfigDir, 'gh');
+  try {
+    writeExecutableScript(
+      tempDir,
+      'gh',
+      `#!/bin/sh
+exit 1
+`
+    );
+
+    fs.mkdirSync(ghDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(ghDir, 'hosts.yml'),
+      `"github.example.com":
+    oauth_token: "quoted-token-value"
+`
+    );
+
+    withPatchedEnv(() => {
+      process.env['PATH'] = `${tempDir}:${process.env['PATH'] ?? ''}`;
+      delete process.env['GITHUB_TOKEN'];
+      delete process.env['GH_TOKEN'];
+      process.env['GH_CONFIG_DIR'] = ghConfigDir;
+      process.env['GITHUB_HOST'] = 'github.example.com';
+
+      const provider = createDefaultAuthProvider();
+      assert.equal(provider.getGitHubToken(), 'quoted-token-value');
     });
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });

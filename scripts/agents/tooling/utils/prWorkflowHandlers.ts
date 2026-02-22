@@ -1,10 +1,11 @@
 import { execFileSync, execSync } from 'node:child_process';
 
 import type { GlobalOptions } from '../types.ts';
+import { resolveCurrentBranchName } from './helpers.ts';
 
 function resolveBranchName(branch: string | undefined): string {
   if (branch) return branch;
-  return execSync('git branch --show-current', { encoding: 'utf8' }).trim();
+  return resolveCurrentBranchName();
 }
 
 function validateBranchName(branch: string): void {
