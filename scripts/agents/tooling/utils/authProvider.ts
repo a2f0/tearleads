@@ -35,11 +35,14 @@ function readTokenFromGh(): string | null {
 
 function readTokenFromGhConfig(): string | null {
   const host = process.env['GITHUB_HOST']?.trim() ?? 'github.com';
-  const configDir =
-    process.env['GH_CONFIG_DIR']?.trim() ||
-    process.env['XDG_CONFIG_HOME']?.trim() ||
-    join(homedir(), '.config');
-  const hostsPath = join(configDir, 'gh', 'hosts.yml');
+  const ghConfigDir = process.env['GH_CONFIG_DIR']?.trim();
+  const hostsPath = ghConfigDir
+    ? join(ghConfigDir, 'hosts.yml')
+    : join(
+        process.env['XDG_CONFIG_HOME']?.trim() || join(homedir(), '.config'),
+        'gh',
+        'hosts.yml'
+      );
 
   if (!existsSync(hostsPath)) return null;
 
@@ -49,7 +52,7 @@ function readTokenFromGhConfig(): string | null {
     let inTargetHost = false;
 
     for (const line of lines) {
-      const hostMatch = line.match(/^("?[^":\s]+"?):\s*$/);
+      const hostMatch = line.match(/^("?[^":\s]+"?):\s*(?:#.*)?$/);
       if (hostMatch?.[1]) {
         const hostName = hostMatch[1].replace(/^"(.*)"$/, '$1');
         inTargetHost = hostName === host;
@@ -60,7 +63,9 @@ function readTokenFromGhConfig(): string | null {
         continue;
       }
 
-      const tokenMatch = line.match(/^\s+oauth_token:\s*(.+?)\s*$/);
+      const tokenMatch = line.match(
+        /^\s+oauth_token:\s*(".*?"|'.*?'|[^#\s]+)/
+      );
       if (!tokenMatch?.[1]) {
         continue;
       }

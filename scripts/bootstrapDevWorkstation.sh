@@ -56,7 +56,7 @@ dir_has_files() {
   if [ ! -d "$dir" ]; then
     return 1
   fi
-  find "$dir" -mindepth 1 -print -quit 2>/dev/null | grep -q .
+  [ -n "$(ls -A "$dir" 2>/dev/null)" ]
 }
 
 # ---------------------------------------------------------------------------

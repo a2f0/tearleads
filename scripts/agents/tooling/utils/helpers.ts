@@ -73,7 +73,7 @@ export function sleepMs(milliseconds: number): void {
 
 export function getGitContext(): string {
   const branch = resolveCurrentBranchName();
-  const headSha = execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
+  const headSha = readGit(['rev-parse', 'HEAD']);
 
   return JSON.stringify(
     {

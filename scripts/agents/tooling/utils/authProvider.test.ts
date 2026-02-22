@@ -150,7 +150,6 @@ another.host.com:
 test('auth provider reads quoted token from GH_CONFIG_DIR hosts.yml', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agenttool-auth-'));
   const ghConfigDir = path.join(tempDir, 'ghconfig');
-  const ghDir = path.join(ghConfigDir, 'gh');
   try {
     writeExecutableScript(
       tempDir,
@@ -160,9 +159,9 @@ exit 1
 `
     );
 
-    fs.mkdirSync(ghDir, { recursive: true });
+    fs.mkdirSync(ghConfigDir, { recursive: true });
     fs.writeFileSync(
-      path.join(ghDir, 'hosts.yml'),
+      path.join(ghConfigDir, 'hosts.yml'),
       `"github.example.com":
     oauth_token: "quoted-token-value"
 `
