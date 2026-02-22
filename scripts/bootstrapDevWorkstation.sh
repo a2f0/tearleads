@@ -9,7 +9,6 @@ FETCH_SECRETS="${REPO_ROOT}/terraform/stacks/prod/vault/scripts/fetch-secrets.sh
 VAULT_HOST="vault-prod"
 REPO_VAULT_VERSION_FILE="${REPO_ROOT}/.vault-version"
 REPO_TERRAFORM_VERSION_FILE="${REPO_ROOT}/.terraform-version"
-DEFAULT_MIN_TERRAFORM_VERSION="1.6.0"
 REQUIRED_TERRAFORM_VERSION=""
 REQUIRED_VAULT_VERSION=""
 export VAULT_ADDR="${VAULT_ADDR:-http://${VAULT_HOST}:8200}"
@@ -51,54 +50,18 @@ vault_version() {
   vault version 2>/dev/null | sed -n 's/^Vault v\([0-9][0-9.]*\).*/\1/p'
 }
 
-version_gte() {
-  version_a="$1"
-  version_b="$2"
-
-  a_major="$(printf '%s' "$version_a" | cut -d. -f1)"
-  a_minor="$(printf '%s' "$version_a" | cut -d. -f2)"
-  a_patch="$(printf '%s' "$version_a" | cut -d. -f3)"
-  b_major="$(printf '%s' "$version_b" | cut -d. -f1)"
-  b_minor="$(printf '%s' "$version_b" | cut -d. -f2)"
-  b_patch="$(printf '%s' "$version_b" | cut -d. -f3)"
-
-  [ -n "$a_patch" ] || a_patch="0"
-  [ -n "$b_patch" ] || b_patch="0"
-
-  case "$a_major:$a_minor:$a_patch:$b_major:$b_minor:$b_patch" in
-    *[!0-9:]* | *::*)
-      return 1
-      ;;
-  esac
-
-  if [ "$a_major" -gt "$b_major" ]; then
-    return 0
-  fi
-  if [ "$a_major" -lt "$b_major" ]; then
-    return 1
-  fi
-  if [ "$a_minor" -gt "$b_minor" ]; then
-    return 0
-  fi
-  if [ "$a_minor" -lt "$b_minor" ]; then
-    return 1
-  fi
-
-  [ "$a_patch" -ge "$b_patch" ]
-}
-
 load_required_terraform_version() {
-  REQUIRED_TERRAFORM_VERSION="$DEFAULT_MIN_TERRAFORM_VERSION"
-
   if [ ! -f "$REPO_TERRAFORM_VERSION_FILE" ]; then
-    return
+    echo "Missing required Terraform version file: ${REPO_TERRAFORM_VERSION_FILE}" >&2
+    exit 1
   fi
 
   configured_version="$(sed -n '1{s/[[:space:]]//g;p;q;}' "$REPO_TERRAFORM_VERSION_FILE")"
   configured_version="${configured_version#v}"
 
   if [ -z "$configured_version" ]; then
-    return
+    echo "Terraform version file is empty: ${REPO_TERRAFORM_VERSION_FILE}" >&2
+    exit 1
   fi
 
   case "$configured_version" in
@@ -111,9 +74,8 @@ load_required_terraform_version() {
   REQUIRED_TERRAFORM_VERSION="$configured_version"
 }
 
-terraform_meets_required_version() {
-  version="$(terraform_version)"
-  version_gte "$version" "$REQUIRED_TERRAFORM_VERSION"
+terraform_matches_required_version() {
+  [ "$(terraform_version)" = "$REQUIRED_TERRAFORM_VERSION" ]
 }
 
 load_required_vault_version() {
@@ -245,13 +207,13 @@ install_vault() {
 install_terraform() {
   terraform_bin="$(terraform_cmd_path)"
 
-  if has_cmd terraform && terraform_meets_required_version; then
-    echo "Terraform $(terraform_version) is already installed (>= ${REQUIRED_TERRAFORM_VERSION})."
+  if has_cmd terraform && terraform_matches_required_version; then
+    echo "Terraform $(terraform_version) is already installed."
     return
   fi
 
   if has_cmd terraform; then
-    echo "Terraform $(terraform_version) is installed at ${terraform_bin:-unknown path} but below required version >= ${REQUIRED_TERRAFORM_VERSION}."
+    echo "Terraform $(terraform_version) is installed at ${terraform_bin:-unknown path} but required version is ${REQUIRED_TERRAFORM_VERSION}."
     echo "Upgrading Terraform..."
   else
     echo "Installing Terraform..."
@@ -276,14 +238,21 @@ install_terraform() {
         fi
       else
         ensure_hashicorp_apt_repo
-        sudo apt-get install -y terraform
+        terraform_pkg_version="$(apt-cache madison terraform | awk -v req="$REQUIRED_TERRAFORM_VERSION" '$3 ~ ("^" req "-") { print $3; exit }')"
+        if [ -z "$terraform_pkg_version" ]; then
+          echo "Required Terraform version ${REQUIRED_TERRAFORM_VERSION} is not available in apt repository." >&2
+          echo "Available versions (top 10):" >&2
+          apt-cache madison terraform | awk '{ print $3 }' | head -n 10 >&2
+          exit 1
+        fi
+        sudo apt-get install -y "terraform=${terraform_pkg_version}"
       fi
       ;;
   esac
 
-  if ! has_cmd terraform || ! terraform_meets_required_version; then
-    # If apt/brew installed a newer terraform but PATH still resolves to a stale tfenv shim,
-    # repair by pinning tfenv to the minimum required version.
+  if ! has_cmd terraform || ! terraform_matches_required_version; then
+    # If apt/brew installed terraform but PATH still resolves to a stale tfenv shim,
+    # repair by pinning tfenv to the required version.
     terraform_bin="$(terraform_cmd_path)"
     case "$terraform_bin" in
       *"/.tfenv/"*)
@@ -296,10 +265,10 @@ install_terraform() {
     esac
   fi
 
-  if ! has_cmd terraform || ! terraform_meets_required_version; then
+  if ! has_cmd terraform || ! terraform_matches_required_version; then
     resolved_bin="$(terraform_cmd_path)"
     resolved_version="$(terraform_version)"
-    echo "Terraform installation failed: ${resolved_bin:-terraform not found} reports version ${resolved_version:-unknown}, which does not satisfy >= ${REQUIRED_TERRAFORM_VERSION}." >&2
+    echo "Terraform installation failed: ${resolved_bin:-terraform not found} reports version ${resolved_version:-unknown}, which does not match required ${REQUIRED_TERRAFORM_VERSION}." >&2
     if [ -n "$resolved_bin" ]; then
       echo "All terraform binaries in PATH:" >&2
       which -a terraform >&2 || true
