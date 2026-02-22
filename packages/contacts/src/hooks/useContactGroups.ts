@@ -14,7 +14,7 @@ export interface ContactGroup {
   contactCount: number;
 }
 
-export interface UseContactGroupsResult {
+interface UseContactGroupsResult {
   groups: ContactGroup[];
   loading: boolean;
   error: string | null;

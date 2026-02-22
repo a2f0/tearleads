@@ -3,19 +3,6 @@ import type { ComponentType, ReactNode, Ref } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 
 /**
- * Contact data structure matching the contacts table schema
- */
-export interface ContactInfo {
-  id: string;
-  firstName: string;
-  lastName: string | null;
-  birthday: string | null;
-  primaryEmail: string | null;
-  primaryPhone: string | null;
-  createdAt: Date;
-}
-
-/**
  * Database context state
  */
 export interface DatabaseState {

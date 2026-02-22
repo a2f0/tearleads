@@ -19,14 +19,14 @@ export interface ContactInfo {
 export type SortColumn = 'firstName' | 'lastName' | 'primaryEmail';
 export type SortDirection = 'asc' | 'desc';
 
-export interface UseContactsOptions {
+interface UseContactsOptions {
   refreshToken?: number | undefined;
   sortColumn?: SortColumn;
   sortDirection?: SortDirection;
   groupId?: string | null | undefined;
 }
 
-export interface UseContactsResult {
+interface UseContactsResult {
   contactsList: ContactInfo[];
   loading: boolean;
   error: string | null;
