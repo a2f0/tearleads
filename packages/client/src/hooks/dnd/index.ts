@@ -1,7 +1,5 @@
 export { useDraggable } from './useDraggable';
-export {
-  useDropZone
-} from './useDropZone';
+export { useDropZone } from './useDropZone';
 export {
   type FilePickerSource,
   useNativeFilePicker

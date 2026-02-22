@@ -26,7 +26,6 @@ import { v022 } from './v022';
 import { v023 } from './v023';
 import { v024 } from './v024';
 
-
 /**
  * All migrations in order. Add new migrations to this array.
  * Migrations must have sequential version numbers starting from 1.

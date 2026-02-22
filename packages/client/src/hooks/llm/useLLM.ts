@@ -36,9 +36,7 @@ import { checkWebGPUSupport, loadLocalModel } from './webgpu';
 
 export { resetLLMUIState } from './store';
 // Re-export types and utilities
-export type {
-  ClassificationResult
-} from './types';
+export type { ClassificationResult } from './types';
 
 async function loadModelInternal(modelId: string): Promise<void> {
   // Don't reload if already loaded

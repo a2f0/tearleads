@@ -14,8 +14,7 @@ import { WindowManagerProvider } from '@/contexts/WindowManagerContext';
 import { ClientSettingsProvider } from '@/db/hooks';
 import { TestDatabaseProvider } from './testDatabaseProvider';
 
-interface RenderWithDatabaseOptions
-  extends Omit<RenderOptions, 'wrapper'> {
+interface RenderWithDatabaseOptions extends Omit<RenderOptions, 'wrapper'> {
   /**
    * Initial route for the MemoryRouter.
    * Default: '/'
