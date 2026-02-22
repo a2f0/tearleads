@@ -8,6 +8,8 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 # shellcheck source=../../../../scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"
 
+load_secrets_env
+
 if [[ -z "${1-}" ]]; then
   echo "Usage: $0 <LOCK_ID>"
   echo "You can find the LOCK_ID in the 'terraform apply' error message."

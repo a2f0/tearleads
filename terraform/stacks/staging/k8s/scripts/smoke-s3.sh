@@ -2,6 +2,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# shellcheck source=../../../../scripts/common.sh
+source "$REPO_ROOT/terraform/scripts/common.sh"
+
+load_secrets_env
 
 NAMESPACE="${NAMESPACE:-tearleads}"
 KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config-staging-k8s}"
@@ -110,7 +116,7 @@ check_placeholder_secrets_or_fail() {
   if is_placeholder "$garage_rpc_secret" || is_placeholder "$garage_admin_token" || is_placeholder "$access_key" || is_placeholder "$secret_key"; then
     echo "ERROR: $SECRET_NAME contains placeholder values (for example \${...})."
     echo "Apply rendered secrets first, for example:"
-    echo "  source .secrets/env.prod"
+    echo "  source .secrets/env"
     echo "  envsubst < terraform/stacks/staging/k8s/manifests/secrets.yaml | kubectl apply -f -"
     exit 1
   fi
