@@ -2,6 +2,12 @@
 
 This folder tracks policy, procedure, and technical control mappings for compliance frameworks.
 
+## Dependency Installation Policy
+
+- It is always acceptable to install dependencies when needed to run tooling, tests, or scripts.
+- Use `pnpm i` for a direct dependency install in the current workspace.
+- Use `scripts/agents/refresh.sh` when a full workspace refresh is needed (main sync + install/build), especially after merges or large upstream changes.
+
 ## Infrastructure Configuration Locations
 
 Infrastructure-as-code files that implement compliance controls are located in:

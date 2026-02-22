@@ -100,7 +100,7 @@ async function listReviewThreadsPage(
       pageInfo: { hasNextPage: boolean };
       nodes: Array<{
         id: string;
-        databaseId: number;
+        fullDatabaseId: string | null;
         author: { login: string | null } | null;
         body: string;
       }>;
@@ -124,7 +124,7 @@ async function listReviewThreadsPage(
               pageInfo: { hasNextPage: boolean };
               nodes: Array<{
                 id: string;
-                databaseId: number;
+                fullDatabaseId: string | null;
                 author: { login: string | null } | null;
                 body: string;
               }>;
@@ -154,7 +154,7 @@ async function listReviewThreadsPage(
                   }
                   nodes {
                     id
-                    databaseId
+                    fullDatabaseId
                     author { login }
                     body
                   }
@@ -291,7 +291,7 @@ export async function getReviewThreadsWithOctokit(
     line: number | null;
     comments: Array<{
       id: string;
-      databaseId: number;
+      databaseId: string;
       author: { login: string | null } | null;
       body: string;
     }>;
@@ -314,7 +314,14 @@ export async function getReviewThreadsWithOctokit(
         isResolved: thread.isResolved,
         path: thread.path,
         line: thread.line,
-        comments: thread.comments.nodes
+        comments: thread.comments.nodes.map((comment) => ({
+          id: comment.id,
+          // GitHub deprecated GraphQL databaseId in favor of fullDatabaseId.
+          // Keep the output key stable for existing automation consumers.
+          databaseId: comment.fullDatabaseId ?? '',
+          author: comment.author,
+          body: comment.body
+        }))
       });
     }
     if (!page.pageInfo.hasNextPage) {
