@@ -22,6 +22,18 @@ function runReadiness(
   );
 }
 
+function readOutput(value: string | NodeJS.ArrayBufferView | null): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value === null) {
+    return '';
+  }
+  return Buffer.from(value.buffer, value.byteOffset, value.byteLength).toString(
+    'utf8'
+  );
+}
+
 test('dry-run writes readiness reports with skipped checks', (t) => {
   const tempDir = fs.mkdtempSync(
     path.join(os.tmpdir(), 'vfs-secure-upload-qa-')
@@ -39,8 +51,8 @@ test('dry-run writes readiness reports with skipped checks', (t) => {
     { GITHUB_SHA: candidateSha }
   );
 
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /Dry run: yes/);
+  assert.equal(result.status, 0, readOutput(result.stderr));
+  assert.match(readOutput(result.stdout), /Dry run: yes/);
 
   const parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf8')) as {
     candidateSha: string;
