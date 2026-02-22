@@ -37,14 +37,14 @@ export interface TeeSecureEnvelope<TData extends JsonValue> {
   proof: TeeResponseProof;
 }
 
-export interface ComputeRequestDigestInput {
+interface ComputeRequestDigestInput {
   method: string;
   path: string;
   requestNonce: string;
   body: JsonValue | undefined;
 }
 
-export interface ComputeResponseDigestInput {
+interface ComputeResponseDigestInput {
   status: number;
   body: JsonValue;
 }

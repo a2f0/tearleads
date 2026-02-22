@@ -24,19 +24,19 @@ export const MLS_CIPHERSUITE_NAME =
   'MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519';
 export const MLS_CIPHERSUITE_ID = 0x0003;
 
-export interface KeyPackageWithRef {
+interface KeyPackageWithRef {
   ref: string;
   keyPackageBytes: Uint8Array;
 }
 
-export interface CommitResult {
+interface CommitResult {
   commit: Uint8Array;
   welcome?: Uint8Array;
   groupInfo?: Uint8Array;
   newEpoch?: number;
 }
 
-export interface DecryptedContent {
+interface DecryptedContent {
   senderId: string;
   plaintext: Uint8Array;
   authenticatedData: Uint8Array;

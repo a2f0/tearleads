@@ -7,7 +7,7 @@ import type {
   TerminalUtilities
 } from './commandExecutor';
 
-export interface CommandExecutorTestContext {
+interface CommandExecutorTestContext {
   db: DatabaseOperations;
   terminal: TerminalControl;
   filePicker: FilePicker;

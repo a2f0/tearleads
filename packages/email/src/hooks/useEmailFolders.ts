@@ -15,7 +15,7 @@ import {
   SYSTEM_FOLDER_TYPES
 } from '../types/folder.js';
 
-export interface UseEmailFoldersResult {
+interface UseEmailFoldersResult {
   /** All folders as a flat list */
   folders: EmailFolder[];
   /** Folders organized as a tree (for custom folders only) */

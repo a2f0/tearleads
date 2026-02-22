@@ -1,6 +1,6 @@
-export type AlbumType = 'photoroll' | 'custom';
+type AlbumType = 'photoroll' | 'custom';
 
-export interface PhotoAlbum {
+interface PhotoAlbum {
   id: string;
   name: string;
   photoCount: number;
