@@ -109,7 +109,10 @@ ${diff}
 - Be concise: one line per issue with file:line reference
 - Output your review to stdout`;
 
-  const result = spawnSync('claude', ['--print', prompt], { stdio: 'inherit' });
+  const result = spawnSync('claude', ['--print'], {
+    stdio: ['pipe', 'inherit', 'inherit'],
+    input: prompt
+  });
   process.exit(result.status || 0);
 }
 
