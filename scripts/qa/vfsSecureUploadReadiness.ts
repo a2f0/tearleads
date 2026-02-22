@@ -70,6 +70,7 @@ const CHECKS: Check[] = [
       'test',
       '--',
       'src/vfsCrypto/secureWritePipelineFactory.test.ts',
+      'src/vfsCrypto/secureWritePipelineRuntime.streaming.test.ts',
       'src/vfsCrypto/rekeyClient.test.ts'
     ]
   },
@@ -84,6 +85,7 @@ const CHECKS: Check[] = [
       'test',
       '--',
       'src/hooks/vfs/useFileUpload.vfsRegistration.test.ts',
+      'src/hooks/vfs/useFileUpload.vfsSecureStreaming.test.ts',
       'src/hooks/vfs/useFileUpload.fileTypeAndEnvironment.test.ts',
       'src/storage/opfs/CapacitorStorage.test.ts',
       'src/contexts/ClientVfsExplorerProvider.test.tsx'
