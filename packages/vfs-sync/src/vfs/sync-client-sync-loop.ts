@@ -368,7 +368,9 @@ export async function runFlushLoop(
     const pushResults = validatePushResponse(currentBatch, pushResponse);
     const rejectedResults = pushResults.filter(
       (result) =>
-        result.status === 'staleWriteId' || result.status === 'invalidOp'
+        result.status === 'staleWriteId' ||
+        result.status === 'invalidOp' ||
+        result.status === 'encryptedEnvelopeUnsupported'
     );
 
     for (const result of pushResults) {
@@ -390,7 +392,9 @@ export async function runFlushLoop(
     }
 
     const invalidResults = rejectedResults.filter(
-      (result) => result.status === 'invalidOp'
+      (result) =>
+        result.status === 'invalidOp' ||
+        result.status === 'encryptedEnvelopeUnsupported'
     );
     if (invalidResults.length > 0) {
       throw new VfsCrdtSyncPushRejectedError(invalidResults);

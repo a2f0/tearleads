@@ -65,6 +65,9 @@ Explorer folder metadata paths are canonical-only and resolve through
 3. `crdtPush`
    - `vfs_registry`: ownership checks
    - `vfs_crdt_ops`: idempotent source checks + canonical inserts
+   - Protocol gate: encrypted CRDT envelopes (`encryptedPayload` +
+     `keyEpoch`/nonce/aad/signature) are explicitly rejected in v1 with
+     `encryptedEnvelopeUnsupported` so clients fail closed deterministically.
 4. `crdtReconcile`
    - `vfs_sync_client_state`: monotonic client cursor/write-id state
 

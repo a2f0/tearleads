@@ -28,7 +28,8 @@ const VALID_PUSH_STATUSES: VfsCrdtPushStatus[] = [
   'alreadyApplied',
   'staleWriteId',
   'outdatedOp',
-  'invalidOp'
+  'invalidOp',
+  'encryptedEnvelopeUnsupported'
 ];
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -61,7 +61,10 @@ async function rollbackQuietly(client: PoolClient): Promise<void> {
  *                   type: object
  *     responses:
  *       200:
- *         description: Per-op push acknowledgement results
+ *         description: |
+ *           Per-op push acknowledgement results. Encrypted CRDT envelope operations
+ *           are deterministically rejected in v1 with status
+ *           `encryptedEnvelopeUnsupported`.
  *       400:
  *         description: Invalid request payload
  *       401:
@@ -100,9 +103,12 @@ const postCrdtPushHandler = async (req: Request, res: Response) => {
     }
 
     const ownerByItemId = new Map<string, string | null>();
-    if (validOperations.length > 0) {
+    const ownerValidatedOperations: VfsCrdtPushOperation[] = validOperations.filter(
+      (operation) => operation.encryptedPayload === undefined
+    );
+    if (ownerValidatedOperations.length > 0) {
       const uniqueItemIds = Array.from(
-        new Set(validOperations.map((operation) => operation.itemId))
+        new Set(ownerValidatedOperations.map((operation) => operation.itemId))
       );
 
       const itemRows = await client.query<ItemOwnerRow>(
@@ -128,6 +134,19 @@ const postCrdtPushHandler = async (req: Request, res: Response) => {
       }
 
       const operation = entry.operation;
+      if (operation.encryptedPayload !== undefined) {
+        /**
+         * v1 protocol gate: encrypted CRDT envelopes are recognized but not yet
+         * supported for canonical push ingestion. Keep response deterministic so
+         * secure clients can fail closed with a stable reason.
+         */
+        results.push({
+          opId: operation.opId,
+          status: 'encryptedEnvelopeUnsupported'
+        });
+        continue;
+      }
+
       if (ownerByItemId.get(operation.itemId) !== claims.sub) {
         results.push({
           opId: operation.opId,
