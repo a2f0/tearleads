@@ -178,4 +178,29 @@ describe('PostgresTableSizes', () => {
 
     expect(onTableSelect).toHaveBeenCalledWith('public', 'users');
   });
+
+  it('renders table list in a scrollable region', async () => {
+    mockGetTables.mockResolvedValue({
+      tables: [
+        {
+          schema: 'public',
+          name: 'users',
+          rowCount: 12,
+          totalBytes: 2048,
+          tableBytes: 1024,
+          indexBytes: 1024
+        }
+      ]
+    });
+
+    renderWithRouter(<PostgresTableSizes />);
+
+    await waitFor(() => {
+      expect(screen.getByText('public.users')).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByTestId('postgres-table-sizes-scroll-region')
+    ).toHaveClass('overflow-auto');
+  });
 });
