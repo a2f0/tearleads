@@ -1,8 +1,8 @@
 import type { Request, Response, Router as RouterType } from 'express';
 import type { PoolClient } from 'pg';
 import { getPostgresPool } from '../../lib/postgres.js';
-import { deleteBlobUploadSessionsForStaging } from './blobUploadSessions.js';
 import { normalizeRequiredString } from './blob-shared.js';
+import { deleteBlobUploadSessionsForStaging } from './blobUploadSessions.js';
 
 interface BlobStagingStateRow {
   id: string;

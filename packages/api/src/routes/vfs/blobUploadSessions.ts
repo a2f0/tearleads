@@ -37,31 +37,19 @@ function parseUploadedChunk(value: unknown): UploadedChunk | null {
   }
 
   const candidate = value;
-  const chunkIndex = Object.prototype.hasOwnProperty.call(
-    candidate,
-    'chunkIndex'
-  )
+  const chunkIndex = Object.hasOwn(candidate, 'chunkIndex')
     ? Reflect.get(candidate, 'chunkIndex')
     : undefined;
-  const isFinal = Object.prototype.hasOwnProperty.call(candidate, 'isFinal')
+  const isFinal = Object.hasOwn(candidate, 'isFinal')
     ? Reflect.get(candidate, 'isFinal')
     : undefined;
-  const ciphertextBase64 = Object.prototype.hasOwnProperty.call(
-    candidate,
-    'ciphertextBase64'
-  )
+  const ciphertextBase64 = Object.hasOwn(candidate, 'ciphertextBase64')
     ? Reflect.get(candidate, 'ciphertextBase64')
     : undefined;
-  const plaintextLength = Object.prototype.hasOwnProperty.call(
-    candidate,
-    'plaintextLength'
-  )
+  const plaintextLength = Object.hasOwn(candidate, 'plaintextLength')
     ? Reflect.get(candidate, 'plaintextLength')
     : undefined;
-  const ciphertextLength = Object.prototype.hasOwnProperty.call(
-    candidate,
-    'ciphertextLength'
-  )
+  const ciphertextLength = Object.hasOwn(candidate, 'ciphertextLength')
     ? Reflect.get(candidate, 'ciphertextLength')
     : undefined;
 
