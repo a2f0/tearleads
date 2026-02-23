@@ -18,6 +18,7 @@ describe('feature flags', () => {
 
   it('returns default value when no overrides exist', () => {
     expect(getFeatureFlagValue('vfsServerRegistration')).toBe(true);
+    expect(getFeatureFlagValue('vfsSecureUpload')).toBe(true);
   });
 
   it('reads overrides from localStorage', () => {
