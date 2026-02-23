@@ -49,6 +49,69 @@ export const v021: Migration = {
       `);
 
       await pool.query(`
+        CREATE TABLE IF NOT EXISTS "vfs_acl_entries" (
+          "id" TEXT PRIMARY KEY,
+          "item_id" TEXT NOT NULL REFERENCES "vfs_registry"("id") ON DELETE CASCADE,
+          "principal_type" TEXT NOT NULL CHECK ("principal_type" IN ('user', 'group', 'organization')),
+          "principal_id" TEXT NOT NULL,
+          "access_level" TEXT NOT NULL CHECK ("access_level" IN ('read', 'write', 'admin')),
+          "wrapped_session_key" TEXT,
+          "wrapped_hierarchical_key" TEXT,
+          "key_epoch" INTEGER,
+          "granted_by" TEXT REFERENCES "users"("id") ON DELETE RESTRICT,
+          "created_at" TIMESTAMPTZ NOT NULL,
+          "updated_at" TIMESTAMPTZ NOT NULL,
+          "expires_at" TIMESTAMPTZ,
+          "revoked_at" TIMESTAMPTZ
+        )
+      `);
+
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS "vfs_acl_entries_item_idx"
+        ON "vfs_acl_entries" ("item_id")
+      `);
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS "vfs_acl_entries_principal_idx"
+        ON "vfs_acl_entries" ("principal_type", "principal_id")
+      `);
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS "vfs_acl_entries_active_idx"
+        ON "vfs_acl_entries" ("principal_type", "principal_id", "revoked_at", "expires_at")
+      `);
+      await pool.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS "vfs_acl_entries_item_principal_idx"
+        ON "vfs_acl_entries" ("item_id", "principal_type", "principal_id")
+      `);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "vfs_sync_changes" (
+          "id" TEXT PRIMARY KEY,
+          "item_id" TEXT NOT NULL REFERENCES "vfs_registry"("id") ON DELETE CASCADE,
+          "change_type" TEXT NOT NULL CHECK ("change_type" IN ('upsert', 'delete', 'acl')),
+          "changed_at" TIMESTAMPTZ NOT NULL,
+          "changed_by" TEXT REFERENCES "users"("id") ON DELETE SET NULL,
+          "root_id" TEXT REFERENCES "vfs_registry"("id") ON DELETE SET NULL
+        )
+      `);
+
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS "vfs_sync_changes_item_idx"
+        ON "vfs_sync_changes" ("item_id")
+      `);
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS "vfs_sync_changes_changed_at_idx"
+        ON "vfs_sync_changes" ("changed_at")
+      `);
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS "vfs_sync_changes_root_idx"
+        ON "vfs_sync_changes" ("root_id")
+      `);
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS "vfs_sync_changes_item_changed_idx"
+        ON "vfs_sync_changes" ("item_id", "changed_at")
+      `);
+
+      await pool.query(`
         CREATE TABLE IF NOT EXISTS "vfs_sync_client_state" (
           "user_id" TEXT NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
           "client_id" TEXT NOT NULL,

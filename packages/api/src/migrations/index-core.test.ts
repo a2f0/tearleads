@@ -391,6 +391,8 @@ describe('migrations (core through v021)', () => {
       expect(queries).toContain(
         'CREATE TABLE IF NOT EXISTS "vfs_sync_client_state"'
       );
+      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_acl_entries"');
+      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_sync_changes"');
       expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_crdt_ops"');
       expect(queries).toContain(
         'CREATE OR REPLACE FUNCTION "vfs_merge_reconciled_write_ids"'
@@ -404,6 +406,12 @@ describe('migrations (core through v021)', () => {
       expect(queries).toContain(
         'CREATE INDEX IF NOT EXISTS "vfs_sync_client_state_user_idx"'
       );
+      expect(queries).toContain(
+        'CREATE UNIQUE INDEX IF NOT EXISTS "vfs_acl_entries_item_principal_idx"'
+      );
+      expect(queries).toContain(
+        'CREATE INDEX IF NOT EXISTS "vfs_sync_changes_item_changed_idx"'
+      );
       expect(queries).toContain('DROP TABLE IF EXISTS "vfs_blob_refs"');
       expect(queries).toContain('DROP TABLE IF EXISTS "vfs_blob_staging"');
       expect(queries).toContain('DROP TABLE IF EXISTS "vfs_blob_objects"');
@@ -411,6 +419,26 @@ describe('migrations (core through v021)', () => {
       expect(queries).toContain('DROP TABLE IF EXISTS "vfs_folders"');
       expect(queries).toContain('DROP TABLE IF EXISTS "vfs_shares"');
       expect(queries).toContain('DROP TABLE IF EXISTS "org_shares"');
+    });
+  });
+
+  describe('v022 migration', () => {
+    it('ensures vfs_acl_entries exists and has key_epoch', async () => {
+      const pool = createMockPool(new Map());
+
+      const v022 = migrations.find((m: Migration) => m.version === 22);
+      if (!v022) {
+        throw new Error('v022 migration not found');
+      }
+
+      await v022.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_acl_entries"');
+      expect(queries).toContain(
+        'CREATE UNIQUE INDEX IF NOT EXISTS "vfs_acl_entries_item_principal_idx"'
+      );
+      expect(queries).toContain('ADD COLUMN IF NOT EXISTS "key_epoch" INTEGER');
     });
   });
 
