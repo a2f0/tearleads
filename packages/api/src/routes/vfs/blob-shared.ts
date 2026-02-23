@@ -116,6 +116,137 @@ export function parseBlobAttachBody(body: unknown): {
   return null;
 }
 
+export interface ParsedBlobChunkBody {
+  uploadId: string;
+  chunkIndex: number;
+  isFinal: boolean;
+  nonce: string;
+  aadHash: string;
+  ciphertextBase64: string;
+  plaintextLength: number;
+  ciphertextLength: number;
+}
+
+export function parseBlobChunkBody(body: unknown): ParsedBlobChunkBody | null {
+  if (!isRecord(body)) {
+    return null;
+  }
+
+  const uploadId = normalizeRequiredString(body['uploadId']);
+  const nonce = normalizeRequiredString(body['nonce']);
+  const aadHash = normalizeRequiredString(body['aadHash']);
+  const ciphertextBase64 = normalizeRequiredString(body['ciphertextBase64']);
+  const chunkIndexValue = body['chunkIndex'];
+  const isFinal = body['isFinal'];
+  const plaintextLengthValue = body['plaintextLength'];
+  const ciphertextLengthValue = body['ciphertextLength'];
+
+  if (
+    typeof chunkIndexValue !== 'number' ||
+    typeof plaintextLengthValue !== 'number' ||
+    typeof ciphertextLengthValue !== 'number'
+  ) {
+    return null;
+  }
+
+  const chunkIndex = chunkIndexValue;
+  const plaintextLength = plaintextLengthValue;
+  const ciphertextLength = ciphertextLengthValue;
+
+  if (
+    !uploadId ||
+    !nonce ||
+    !aadHash ||
+    !ciphertextBase64 ||
+    !Number.isInteger(chunkIndex) ||
+    chunkIndex < 0 ||
+    typeof isFinal !== 'boolean' ||
+    !Number.isInteger(plaintextLength) ||
+    plaintextLength < 0 ||
+    !Number.isInteger(ciphertextLength) ||
+    ciphertextLength < 0
+  ) {
+    return null;
+  }
+
+  return {
+    uploadId,
+    chunkIndex,
+    isFinal,
+    nonce,
+    aadHash,
+    ciphertextBase64,
+    plaintextLength,
+    ciphertextLength
+  };
+}
+
+export interface ParsedBlobCommitBody {
+  uploadId: string;
+  keyEpoch: number;
+  manifestHash: string;
+  manifestSignature: string;
+  chunkCount: number;
+  totalPlaintextBytes: number;
+  totalCiphertextBytes: number;
+}
+
+export function parseBlobCommitBody(
+  body: unknown
+): ParsedBlobCommitBody | null {
+  if (!isRecord(body)) {
+    return null;
+  }
+
+  const uploadId = normalizeRequiredString(body['uploadId']);
+  const manifestHash = normalizeRequiredString(body['manifestHash']);
+  const manifestSignature = normalizeRequiredString(body['manifestSignature']);
+  const keyEpochValue = body['keyEpoch'];
+  const chunkCountValue = body['chunkCount'];
+  const totalPlaintextBytesValue = body['totalPlaintextBytes'];
+  const totalCiphertextBytesValue = body['totalCiphertextBytes'];
+
+  if (
+    typeof keyEpochValue !== 'number' ||
+    typeof chunkCountValue !== 'number' ||
+    typeof totalPlaintextBytesValue !== 'number' ||
+    typeof totalCiphertextBytesValue !== 'number'
+  ) {
+    return null;
+  }
+
+  const keyEpoch = keyEpochValue;
+  const chunkCount = chunkCountValue;
+  const totalPlaintextBytes = totalPlaintextBytesValue;
+  const totalCiphertextBytes = totalCiphertextBytesValue;
+
+  if (
+    !uploadId ||
+    !manifestHash ||
+    !manifestSignature ||
+    !Number.isInteger(keyEpoch) ||
+    keyEpoch < 1 ||
+    !Number.isInteger(chunkCount) ||
+    chunkCount < 1 ||
+    !Number.isInteger(totalPlaintextBytes) ||
+    totalPlaintextBytes < 0 ||
+    !Number.isInteger(totalCiphertextBytes) ||
+    totalCiphertextBytes < 0
+  ) {
+    return null;
+  }
+
+  return {
+    uploadId,
+    keyEpoch,
+    manifestHash,
+    manifestSignature,
+    chunkCount,
+    totalPlaintextBytes,
+    totalCiphertextBytes
+  };
+}
+
 export function toIsoFromDateOrString(value: Date | string): string {
   if (value instanceof Date) {
     return value.toISOString();

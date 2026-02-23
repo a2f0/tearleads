@@ -145,17 +145,11 @@ describe('createVfsSecureOrchestratorFacade', () => {
     expect(queueBlobStageAndPersist).toHaveBeenCalledWith(
       expect.objectContaining({
         blobId: 'blob-1',
-        expiresAt: '2026-02-19T12:00:00.000Z',
-        encryption: expect.objectContaining({
-          algorithm: 'vfs-envelope-v1',
-          keyEpoch: 4,
-          manifestHash: 'manifest-signature-1',
-          chunkCount: 2,
-          chunkSizeBytes: 512,
-          plaintextSizeBytes: 1024,
-          ciphertextSizeBytes: 1152
-        })
+        expiresAt: '2026-02-19T12:00:00.000Z'
       })
+    );
+    expect(queueBlobStageAndPersist.mock.invocationCallOrder[0]).toBeLessThan(
+      queueBlobChunkAndPersist.mock.invocationCallOrder[0] ?? Number.MAX_VALUE
     );
     expect(queueBlobAttachAndPersist).toHaveBeenCalledWith(
       expect.objectContaining({

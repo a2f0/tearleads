@@ -155,6 +155,15 @@ describe('useVfsKeys', () => {
       expect(result).toBe(false);
     });
 
+    it('returns false when keys are not set up', async () => {
+      vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(
+        new Error('VFS keys not set up')
+      );
+
+      const result = await hasVfsKeys();
+      expect(result).toBe(false);
+    });
+
     it('throws on other errors', async () => {
       vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('500'));
 
@@ -204,6 +213,19 @@ describe('useVfsKeys', () => {
         encryptedPrivateKeys: expect.any(String),
         argon2Salt: expect.any(String)
       });
+    });
+
+    it('generates and stores new keys when server says keys are not set up', async () => {
+      vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(
+        new Error('VFS keys not set up')
+      );
+      vi.mocked(api.vfs.setupKeys).mockResolvedValueOnce({ created: true });
+
+      const keys = await ensureVfsKeys();
+
+      expect(keys.x25519PublicKey).toBeInstanceOf(Uint8Array);
+      expect(keys.mlKemPublicKey).toBeInstanceOf(Uint8Array);
+      expect(api.vfs.setupKeys).toHaveBeenCalledTimes(1);
     });
 
     it('throws when database is not unlocked', async () => {

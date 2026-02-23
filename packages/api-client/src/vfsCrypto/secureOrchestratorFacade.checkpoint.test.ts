@@ -106,12 +106,9 @@ describe('secureOrchestratorFacade checkpoint fields', () => {
 
     expect(queueBlobStageAndPersist).toHaveBeenCalledWith(
       expect.objectContaining({
-        encryption: expect.objectContaining({
-          checkpoint: {
-            uploadId: expect.any(String),
-            nextChunkIndex: 1
-          }
-        })
+        blobId: 'blob-1',
+        expiresAt: '2026-02-20T00:00:00.000Z',
+        stagingId: expect.any(String)
       })
     );
   });
@@ -185,13 +182,9 @@ describe('secureOrchestratorFacade checkpoint fields', () => {
 
     expect(queueBlobStageAndPersist).toHaveBeenCalledWith(
       expect.objectContaining({
-        encryption: expect.objectContaining({
-          chunkCount,
-          checkpoint: {
-            uploadId: expect.any(String),
-            nextChunkIndex: chunkCount
-          }
-        })
+        blobId: 'blob-2',
+        expiresAt: '2026-02-20T00:00:00.000Z',
+        stagingId: expect.any(String)
       })
     );
   });
@@ -262,14 +255,9 @@ describe('secureOrchestratorFacade checkpoint fields', () => {
 
     expect(queueBlobStageAndPersist).toHaveBeenCalledWith(
       expect.objectContaining({
-        encryption: expect.objectContaining({
-          plaintextSizeBytes: 0,
-          chunkCount: 1,
-          checkpoint: {
-            uploadId: expect.any(String),
-            nextChunkIndex: 1
-          }
-        })
+        blobId: 'blob-3',
+        expiresAt: '2026-02-20T00:00:00.000Z',
+        stagingId: expect.any(String)
       })
     );
   });
@@ -294,14 +282,13 @@ describe('secureOrchestratorFacade checkpoint fields', () => {
     keyResolver.setKey('item-4', 1, testKey);
     keyResolver.setKey('item-5', 1, testKey);
 
-    const uploadIds: string[] = [];
+    const uploadIds = new Set<string>();
     const queueBlobStageAndPersist = vi.fn(async (input) => {
-      uploadIds.push(input.encryption?.checkpoint?.uploadId);
       return {
-        operationId: `op-stage-${uploadIds.length}`,
+        operationId: `op-stage-${uploadIds.size + 1}`,
         kind: 'stage' as const,
         payload: {
-          stagingId: `stage-${uploadIds.length}`,
+          stagingId: `stage-${uploadIds.size + 1}`,
           blobId: input.blobId,
           expiresAt: input.expiresAt
         }
@@ -316,6 +303,14 @@ describe('secureOrchestratorFacade checkpoint fields', () => {
       blob: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
     });
     orchestrator.queueBlobStageAndPersist = queueBlobStageAndPersist;
+    orchestrator.queueBlobChunkAndPersist = vi.fn(async (input) => {
+      uploadIds.add(input.uploadId);
+      return {
+        operationId: `op-chunk-${input.chunkIndex}`,
+        kind: 'chunk' as const,
+        payload: input
+      };
+    });
 
     const facade = createVfsSecureOrchestratorFacadeWithRuntime(
       orchestrator,
@@ -355,10 +350,7 @@ describe('secureOrchestratorFacade checkpoint fields', () => {
       expiresAt: '2026-02-20T00:00:00.000Z'
     });
 
-    expect(uploadIds).toHaveLength(2);
-    expect(uploadIds[0]).toBeTruthy();
-    expect(uploadIds[1]).toBeTruthy();
-    expect(uploadIds[0]).not.toBe(uploadIds[1]);
+    expect(uploadIds.size).toBe(2);
   });
 
   it('checkpoint contains correct encryption metadata fields', async () => {
@@ -429,26 +421,14 @@ describe('secureOrchestratorFacade checkpoint fields', () => {
       expect.objectContaining({
         blobId: 'blob-6',
         expiresAt: '2026-02-20T00:00:00.000Z',
-        stagingId: expect.any(String),
-        encryption: {
-          algorithm: 'vfs-envelope-v1',
-          keyEpoch: 3,
-          manifestHash: result.manifest.manifestSignature,
-          chunkCount: 1,
-          chunkSizeBytes: plaintext.length,
-          plaintextSizeBytes: plaintext.length,
-          ciphertextSizeBytes: expect.any(Number),
-          checkpoint: {
-            uploadId: expect.any(String),
-            nextChunkIndex: 1
-          }
-        }
+        stagingId: expect.any(String)
       })
     );
-
-    const encryption = queueBlobStageAndPersist.mock.calls[0][0].encryption;
-    expect(encryption.ciphertextSizeBytes).toBeGreaterThan(
-      encryption.plaintextSizeBytes
+    expect(result.manifest.keyEpoch).toBe(3);
+    expect(result.manifest.chunkCount).toBe(1);
+    expect(result.manifest.totalPlaintextBytes).toBe(plaintext.length);
+    expect(result.manifest.totalCiphertextBytes).toBeGreaterThan(
+      result.manifest.totalPlaintextBytes
     );
   });
 });

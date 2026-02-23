@@ -30,6 +30,15 @@ import { api } from '@/lib/api';
 // In-memory cache for the decrypted VFS keypair
 let cachedKeyPair: VfsKeyPair | null = null;
 
+function isVfsKeysNotSetupError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  return message.includes('404') || message.includes('vfs keys not set up');
+}
+
 /**
  * Clear the cached keypair (e.g., on logout or instance change).
  */
@@ -168,7 +177,7 @@ async function fetchAndDecryptKeys(): Promise<FetchedKeys> {
     };
   } catch (error) {
     // 404 means no keys exist yet
-    if (error instanceof Error && error.message.includes('404')) {
+    if (isVfsKeysNotSetupError(error)) {
       return null;
     }
     throw error;
@@ -238,7 +247,7 @@ export async function hasVfsKeys(): Promise<boolean> {
     await api.vfs.getMyKeys();
     return true;
   } catch (error) {
-    if (error instanceof Error && error.message.includes('404')) {
+    if (isVfsKeysNotSetupError(error)) {
       return false;
     }
     throw error;
@@ -311,7 +320,7 @@ export async function getVfsPublicKey(): Promise<VfsPublicKey | null> {
     const serialized = splitPublicKey(response.publicEncryptionKey);
     return deserializePublicKey(serialized);
   } catch (error) {
-    if (error instanceof Error && error.message.includes('404')) {
+    if (isVfsKeysNotSetupError(error)) {
       return null;
     }
     throw error;

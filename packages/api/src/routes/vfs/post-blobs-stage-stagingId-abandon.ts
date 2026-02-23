@@ -2,6 +2,7 @@ import type { Request, Response, Router as RouterType } from 'express';
 import type { PoolClient } from 'pg';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { normalizeRequiredString } from './blob-shared.js';
+import { deleteBlobUploadSessionsForStaging } from './blobUploadSessions.js';
 
 interface BlobStagingStateRow {
   id: string;
@@ -109,6 +110,8 @@ const postBlobsStageStagingIdAbandonHandler = async (
       res.status(409).json({ error: 'Blob staging is no longer abandonable' });
       return;
     }
+
+    await deleteBlobUploadSessionsForStaging({ stagingId });
 
     await client.query('COMMIT');
     inTransaction = false;
