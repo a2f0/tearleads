@@ -13,6 +13,7 @@ KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config-staging-k8s}"
 ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-300s}"
 SKIP_WEBSITE="${SKIP_WEBSITE:-false}"
 SKIP_SMOKE="${SKIP_SMOKE:-false}"
+SKIP_POSTGRES_SMOKE="${SKIP_POSTGRES_SMOKE:-false}"
 
 if [[ ! -f "$KUBECONFIG_FILE" ]]; then
   echo "ERROR: Kubeconfig not found at $KUBECONFIG_FILE"
@@ -42,9 +43,17 @@ echo ""
 echo "Rollout complete. Deployments are running latest images."
 
 if [[ "$SKIP_SMOKE" == "true" ]]; then
-  echo "Skipping API smoke test (SKIP_SMOKE=true)."
+  echo "Skipping smoke tests (SKIP_SMOKE=true)."
 else
   echo ""
   echo "Running API smoke test..."
   "$SCRIPT_DIR/smoke-api.sh"
+
+  if [[ "$SKIP_POSTGRES_SMOKE" == "true" ]]; then
+    echo "Skipping Postgres smoke test (SKIP_POSTGRES_SMOKE=true)."
+  else
+    echo ""
+    echo "Running Postgres smoke test..."
+    "$SCRIPT_DIR/smoke-postgres.sh"
+  fi
 fi
