@@ -152,13 +152,15 @@ install_tailscale() {
     return
   fi
 
-  echo "Installing Tailscale..."
   if [ "$OS" = "darwin" ]; then
-    brew install --cask tailscale
+    echo "Skipping Tailscale installation on macOS for now."
+    echo "Install Tailscale manually, then re-run this script."
+    return
   else
+    echo "Installing Tailscale..."
     curl -fsSL https://tailscale.com/install.sh | sh
+    echo "Tailscale installed."
   fi
-  echo "Tailscale installed."
 }
 
 install_vault() {
@@ -294,6 +296,16 @@ prompt_tailscale_auth() {
   echo ""
   echo "--- Tailscale connectivity ---"
 
+  if ! has_cmd tailscale; then
+    if [ "$OS" = "darwin" ]; then
+      echo "Tailscale CLI not found; cannot verify status from script."
+      echo "If Tailscale.app shows connected, continuing is fine."
+      return
+    fi
+    echo "Tailscale CLI not found."
+    return
+  fi
+
   # Check if tailscale is running and authenticated
   set +e
   tailscale status >/dev/null 2>&1
@@ -319,23 +331,31 @@ try_fetch_secrets() {
   echo ""
   echo "--- Vault secrets fetch ---"
 
-  # 1. Tailscale connected?
-  set +e
-  tailscale status >/dev/null 2>&1
-  ts_rc=$?
-  set -e
-  if [ $ts_rc -ne 0 ]; then
-    echo "Tailscale is not connected. Connect first, then re-run this script."
-    return
+  # 1. Tailscale status (best-effort; do not fail early on macOS CLI mismatch)
+  if has_cmd tailscale; then
+    set +e
+    tailscale status >/dev/null 2>&1
+    ts_rc=$?
+    set -e
+    if [ $ts_rc -ne 0 ]; then
+      echo "Tailscale CLI status check failed; continuing to direct Vault reachability check."
+    fi
+  else
+    echo "Tailscale CLI unavailable; using direct Vault reachability check."
   fi
 
   # 2. Vault host reachable?
   set +e
-  tailscale ping --timeout 3s -c 1 "$VAULT_HOST" >/dev/null 2>&1
-  ping_rc=$?
+  if has_cmd tailscale; then
+    tailscale ping --timeout 3s -c 1 "$VAULT_HOST" >/dev/null 2>&1
+    reach_rc=$?
+  else
+    curl -s --max-time 3 -o /dev/null "${VAULT_ADDR}/v1/sys/health"
+    reach_rc=$?
+  fi
   set -e
-  if [ $ping_rc -ne 0 ]; then
-    echo "Cannot reach '${VAULT_HOST}' over Tailscale."
+  if [ $reach_rc -ne 0 ]; then
+    echo "Cannot reach Vault at ${VAULT_ADDR}."
     echo "Vault may not be provisioned yet. Skipping secret fetch."
     return
   fi
@@ -395,8 +415,14 @@ main() {
   echo "==> Bootstrap complete!"
   echo ""
   echo "Next steps:"
-  if ! tailscale status >/dev/null 2>&1; then
+  if has_cmd tailscale && ! tailscale status >/dev/null 2>&1; then
     echo "  1. Connect to Tailscale (see instructions above)"
+    echo "  2. Fetch secrets:  ${FETCH_SECRETS}"
+    echo "  3. Run Ansible:    ansible-playbook ansible/playbooks/developerWorkstation.yml"
+    echo "  4. Run tuxedo playbook (remote host): ansible-playbook ansible/playbooks/tuxedo.yml"
+    echo "     (installs Neovim 0.10+, Node.js, ripgrep, fd, uv, Claude Code, etc.)"
+  elif ! has_cmd tailscale && [ "$OS" = "darwin" ]; then
+    echo "  1. Confirm Tailscale.app is connected"
     echo "  2. Fetch secrets:  ${FETCH_SECRETS}"
     echo "  3. Run Ansible:    ansible-playbook ansible/playbooks/developerWorkstation.yml"
     echo "  4. Run tuxedo playbook (remote host): ansible-playbook ansible/playbooks/tuxedo.yml"
