@@ -98,14 +98,14 @@ describe('migrations (core through v021)', () => {
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 23 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 24 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       // No new migrations should be applied
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(23);
+      expect(result.currentVersion).toBe(24);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -122,7 +122,7 @@ describe('migrations (core through v021)', () => {
               rowCount: 1
             });
           }
-          return Promise.resolve({ rows: [{ version: 23 }], rowCount: 1 });
+          return Promise.resolve({ rows: [{ version: 24 }], rowCount: 1 });
         }
 
         return Promise.resolve({ rows: [], rowCount: 0 });
@@ -132,9 +132,9 @@ describe('migrations (core through v021)', () => {
 
       expect(result.applied).toEqual([
         2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
-        22, 23
+        22, 23, 24
       ]);
-      expect(result.currentVersion).toBe(23);
+      expect(result.currentVersion).toBe(24);
     });
   });
 
@@ -461,6 +461,31 @@ describe('migrations (core through v021)', () => {
       expect(queries).toContain('"encryption_nonce" TEXT');
       expect(queries).toContain('"encryption_aad" TEXT');
       expect(queries).toContain('"encryption_signature" TEXT');
+    });
+  });
+
+  describe('v024 migration', () => {
+    it('creates inbound SMTP encrypted message tables', async () => {
+      const pool = createMockPool(new Map());
+
+      const v024 = migrations.find((m: Migration) => m.version === 24);
+      if (!v024) {
+        throw new Error('v024 migration not found');
+      }
+
+      await v024.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "email_messages"');
+      expect(queries).toContain(
+        'CREATE TABLE IF NOT EXISTS "email_recipients"'
+      );
+      expect(queries).toContain(
+        'CREATE INDEX IF NOT EXISTS "email_recipients_user_created_idx"'
+      );
+      expect(queries).toContain(
+        'UNIQUE ("message_id", "user_id")'
+      );
     });
   });
 });
