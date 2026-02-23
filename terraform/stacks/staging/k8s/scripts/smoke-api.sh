@@ -154,22 +154,18 @@ phase_client_api_url() {
     return 1
   fi
 
-  local expected_api_url="https://api.k8s.$STAGING_DOMAIN"
+  local expected_api_url="https://api.k8s.$STAGING_DOMAIN/v1"
 
   # Search broadly for any https://api.<something> URL baked into JS assets.
-  # This catches both correct (api.k8s.domain) and incorrect (api.domain) URLs.
+  # This catches both correct (api.k8s.domain/v1) and incorrect values.
   local baked_url
   baked_url="$(kubectl -n "$NAMESPACE" exec "$client_pod" -c client -- \
     grep -roh 'https\?://api\.[a-zA-Z0-9._/-]*' /usr/share/nginx/html/assets/ 2>/dev/null \
     | sort -u | head -1 || true)"
 
-  # Strip any trailing path (e.g. /v1) to compare just the origin
-  local baked_origin="${baked_url%%/v1*}"
-  baked_origin="${baked_origin%%/}"
-
   if [[ -z "$baked_url" ]]; then
     fail "could not find any API URL in client JS assets"
-  elif [[ "$baked_origin" == "$expected_api_url" ]]; then
+  elif [[ "$baked_url" == "$expected_api_url"* ]]; then
     pass "client JS contains correct API URL: $baked_url"
   else
     fail "client JS contains wrong API URL: $baked_url (expected $expected_api_url)"
