@@ -209,7 +209,7 @@ jobs:
         run: ./scripts/checks/checkClientBoundary.sh --from-upstream
 
       - name: Check preen ecosystem parity
-        run: ./scripts/checkPreenEcosystem.sh --strict
+        run: ./scripts/checks/preen/checkPreenEcosystem.sh --strict
 
       - name: Verify file guardrails
         run: ./scripts/verifyFileGuardrails.sh

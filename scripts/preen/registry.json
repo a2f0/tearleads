@@ -129,10 +129,10 @@
       "qualityMetric": "MSW parity risk count (missing + low-confidence)",
       "security": false,
       "discoveryCommands": [
-        "./scripts/preen/checkMswParity.ts",
-        "./scripts/preen/checkMswParity.ts --json | head -40"
+        "./scripts/checks/checkMswParity.ts",
+        "./scripts/checks/checkMswParity.ts --json | head -40"
       ],
-      "metricCountCommand": "./scripts/preen/checkMswParity.ts --json | jq '.missingRouteCount + .lowConfidenceRouteCount'"
+      "metricCountCommand": "./scripts/checks/checkMswParity.ts --json | jq '.missingRouteCount + .lowConfidenceRouteCount'"
     },
     {
       "id": "preen-skill-tooling",
@@ -141,9 +141,9 @@
       "qualityMetric": "Skill parity/tooling issues",
       "security": false,
       "discoveryCommands": [
-        "./scripts/checkPreenEcosystem.sh --summary"
+        "./scripts/checks/preen/checkPreenEcosystem.sh --summary"
       ],
-      "metricCountCommand": "./scripts/checkPreenEcosystem.sh --count-issues"
+      "metricCountCommand": "./scripts/checks/preen/checkPreenEcosystem.sh --count-issues"
     },
     {
       "id": "preen-skill-parity",
@@ -152,9 +152,9 @@
       "qualityMetric": "Cross-agent skill parity issues",
       "security": false,
       "discoveryCommands": [
-        "./scripts/checkSkillParity.sh --summary"
+        "./scripts/checks/skills/checkSkillParity.sh --summary"
       ],
-      "metricCountCommand": "./scripts/checkSkillParity.sh --count-issues"
+      "metricCountCommand": "./scripts/checks/skills/checkSkillParity.sh --count-issues"
     },
     {
       "id": "preen-compliance-docs",

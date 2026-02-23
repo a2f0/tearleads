@@ -50,7 +50,7 @@ main() {
     echo "     (installs Neovim 0.10+, Node.js, ripgrep, fd, uv, Claude Code, etc.)"
   else
     echo "  1. Run Ansible:    ansible-playbook ansible/playbooks/developerWorkstation.yml"
-    echo "  2. Optional local S3: sh scripts/setupLocalGarage.sh"
+    echo "  2. Optional local S3: sh scripts/garage/setupLocalGarage.sh"
     echo "  3. Run tuxedo playbook (remote host): ansible-playbook ansible/playbooks/tuxedo.yml"
     echo "     (installs Neovim 0.10+, Node.js, ripgrep, fd, uv, Claude Code, etc.)"
   fi

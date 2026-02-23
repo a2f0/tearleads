@@ -72,7 +72,8 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     safetyClass: 'safe_write_remote',
     retrySafe: true,
     isInline: false,
-    scriptPath: (repo) => path.join(repo, 'scripts', 'approveSkippedChecks.ts')
+    scriptPath: (_repo, agents) =>
+      path.join(agents, 'tooling', 'scripts', 'approveSkippedChecks.ts')
   },
   tagPrWithTuxedoInstance: {
     safetyClass: 'safe_write_remote',

@@ -9,9 +9,9 @@ pnpm dev
 
 Use these helpers if you're working on the Postgres integration locally:
 
-- `scripts/setupPostgresDev.sh` installs and starts Postgres on macOS and prints PG* defaults (including `PGDATABASE=tearleads_development`).
-- `scripts/runPostgresMigration.sh` runs pending database migrations (uses `DATABASE_URL` or PG* envs).
-- `scripts/dropPostgresDb.ts` drops `tearleads_development` only (requires `--yes`).
+- `scripts/postgres/setupPostgresDev.sh` installs and starts Postgres on macOS and prints PG* defaults (including `PGDATABASE=tearleads_development`).
+- `scripts/postgres/runPostgresMigration.sh` runs pending database migrations (uses `DATABASE_URL` or PG* envs).
+- `scripts/postgres/dropPostgresDb.ts` drops `tearleads_development` only (requires `--yes`).
 
 ## App Store Connect API Key
 

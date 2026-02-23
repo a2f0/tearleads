@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE' >&2
-Usage: ./scripts/checkPreenEcosystem.sh [--strict|--summary|--count-issues]
+Usage: ./scripts/checks/preen/checkPreenEcosystem.sh [--strict|--summary|--count-issues]
 
 Modes:
   --strict       Print findings and exit non-zero on issues (default)

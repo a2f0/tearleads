@@ -241,7 +241,8 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     safetyClass: 'safe_write_local',
     retrySafe: true,
     defaultTimeoutSeconds: 1200,
-    scriptPath: (repo) => path.join(repo, 'scripts', 'setupPostgresDev.sh'),
+    scriptPath: (repo) =>
+      path.join(repo, 'scripts', 'postgres', 'setupPostgresDev.sh'),
     scriptType: 'shell',
     description: 'Install/start local PostgreSQL and provision dev DB',
     category: 'environment'

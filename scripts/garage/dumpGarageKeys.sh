@@ -3,7 +3,7 @@ set -eu
 
 ROOT_DIR="$(cd -- "$(dirname -- "$0")/.." && pwd -P)"
 API_ENV_LINK_PATH="${ROOT_DIR}/packages/api/.env"
-GARAGE_CREDENTIALS_FILE="${ROOT_DIR}/scripts/dev/garage/.s3-credentials.env"
+GARAGE_CREDENTIALS_FILE="${ROOT_DIR}/scripts/garage/.s3-credentials.env"
 
 VFS_BLOB_S3_BUCKET="${VFS_BLOB_S3_BUCKET:-}"
 VFS_BLOB_S3_REGION="${VFS_BLOB_S3_REGION:-}"

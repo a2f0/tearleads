@@ -2,7 +2,7 @@
 set -eu
 
 ROOT_DIR="$(cd -- "$(dirname -- "$0")/.." && pwd -P)"
-COMPOSE_FILE="${ROOT_DIR}/scripts/dev/garage/docker-compose.yml"
+COMPOSE_FILE="${ROOT_DIR}/scripts/garage/docker-compose.yml"
 GARAGE_RPC_SECRET="${GARAGE_RPC_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}"
 GARAGE_ADMIN_TOKEN="${GARAGE_ADMIN_TOKEN:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}"
 

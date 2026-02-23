@@ -192,14 +192,14 @@ run_discovery() {
       rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'retry|retries|flaky|TODO.*flaky' packages . | head -30 || true
       ;;
     preen-msw-parity)
-      ./scripts/preen/checkMswParity.ts
-      ./scripts/preen/checkMswParity.ts --json | head -40
+      ./scripts/checks/checkMswParity.ts
+      ./scripts/checks/checkMswParity.ts --json | head -40
       ;;
     preen-skill-tooling)
-      ./scripts/checkPreenEcosystem.sh --summary
+      ./scripts/checks/preen/checkPreenEcosystem.sh --summary
       ;;
     preen-skill-parity)
-      ./scripts/checkSkillParity.sh --summary
+      ./scripts/checks/skills/checkSkillParity.sh --summary
       ;;
     preen-compliance-docs)
       for fw in HIPAA NIST.SP.800-53 SOC2; do
@@ -298,13 +298,13 @@ metric_count() {
       rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\(|waitForTimeout\(|sleep\(|retry|retries|flaky|TODO.*flaky' packages . | wc -l
       ;;
     preen-msw-parity)
-      ./scripts/preen/checkMswParity.ts --json | jq '.missingRouteCount + .lowConfidenceRouteCount'
+      ./scripts/checks/checkMswParity.ts --json | jq '.missingRouteCount + .lowConfidenceRouteCount'
       ;;
     preen-skill-tooling)
-      ./scripts/checkPreenEcosystem.sh --count-issues
+      ./scripts/checks/preen/checkPreenEcosystem.sh --count-issues
       ;;
     preen-skill-parity)
-      ./scripts/checkSkillParity.sh --count-issues
+      ./scripts/checks/skills/checkSkillParity.sh --count-issues
       ;;
     preen-compliance-docs)
       gaps=0
