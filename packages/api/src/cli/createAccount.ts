@@ -1,15 +1,9 @@
-import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { Command } from 'commander';
-import { buildRevenueCatAppUserId } from '../lib/billing.js';
 import { buildPostgresConnectionLabel } from '../lib/cliPostgres.js';
-import {
-  buildCreateAccountInput,
-  buildPersonalOrganizationId,
-  buildPersonalOrganizationName
-} from '../lib/createAccount.js';
-import { hashPassword } from '../lib/passwords.js';
+import { buildCreateAccountInput } from '../lib/createAccount.js';
 import { closePostgresPool, getPostgresPool } from '../lib/postgres.js';
+import { seedHarnessAccount } from '../lib/testHarness/accountSeed.js';
 
 type ParsedArgs = {
   email: string | null;
@@ -130,81 +124,19 @@ async function createAccount(
   try {
     await client.query('BEGIN');
 
-    const existingUser = await client.query<{ id: string }>(
-      'SELECT id FROM users WHERE email = $1 LIMIT 1',
-      [email]
-    );
-
-    if (existingUser.rows.length > 0) {
-      throw new Error(`Account already exists for ${email}.`);
-    }
-
-    const userId = randomUUID();
-    const personalOrganizationId = buildPersonalOrganizationId(userId);
-    const personalOrganizationName = buildPersonalOrganizationName(userId);
-    const revenueCatAppUserId = buildRevenueCatAppUserId(
-      personalOrganizationId
-    );
-    const { salt, hash } = await hashPassword(password);
-    const now = new Date().toISOString();
-
-    await client.query(
-      `INSERT INTO users (
-         id,
-         email,
-         email_confirmed,
-         admin,
-         personal_organization_id,
-         created_at,
-         updated_at
-       )
-       VALUES ($1, $2, $3, $4, $5, $6, $6)`,
-      [userId, email, false, admin, personalOrganizationId, now]
-    );
-
-    await client.query(
-      `INSERT INTO organizations (
-         id,
-         name,
-         description,
-         is_personal,
-         created_at,
-         updated_at
-       )
-       VALUES ($1, $2, $3, true, $4, $4)`,
-      [
-        personalOrganizationId,
-        personalOrganizationName,
-        `Personal organization for ${email}`,
-        now
-      ]
-    );
-
-    await client.query(
-      `INSERT INTO user_organizations (user_id, organization_id, joined_at, is_admin)
-       VALUES ($1, $2, $3, true)`,
-      [userId, personalOrganizationId, now]
-    );
-
-    await client.query(
-      `INSERT INTO organization_billing_accounts (
-         organization_id,
-         revenuecat_app_user_id,
-         entitlement_status,
-         created_at,
-         updated_at
-       )
-       VALUES ($1, $2, 'inactive', $3, $3)`,
-      [personalOrganizationId, revenueCatAppUserId, now]
-    );
-
-    await client.query(
-      'INSERT INTO user_credentials (user_id, password_hash, password_salt, created_at, updated_at) VALUES ($1, $2, $3, $4, $4)',
-      [userId, hash, salt, now]
-    );
+    const result = await seedHarnessAccount(client, {
+      email,
+      password,
+      admin,
+      emailConfirmed: false,
+      includeVfsOnboardingKeys: true
+    });
 
     await client.query('COMMIT');
-    console.log(`Created account ${email} (id ${userId}).`);
+    console.log(`Created account ${email} (id ${result.userId}).`);
+    if (result.createdVfsOnboardingKeys) {
+      console.log('Provisioned VFS onboarding keys for this account.');
+    }
     console.log(`Postgres connection: ${label}`);
   } catch (error) {
     try {
