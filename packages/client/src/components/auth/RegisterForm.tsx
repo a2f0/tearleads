@@ -6,6 +6,7 @@ import {
 import { useCallback, useId, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { useAuth } from '@/contexts/AuthContext';
 
 /** Delay before scrolling input into view, allowing keyboard to fully appear */
@@ -156,10 +157,9 @@ export function RegisterForm({
           <label htmlFor={`${id}-password`} className="font-medium text-sm">
             Password
           </label>
-          <Input
+          <PasswordInput
             ref={passwordRef}
             id={`${id}-password`}
-            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onFocus={() => handleInputFocus(passwordRef)}
@@ -182,10 +182,9 @@ export function RegisterForm({
           >
             Confirm Password
           </label>
-          <Input
+          <PasswordInput
             ref={confirmPasswordRef}
             id={`${id}-confirm-password`}
-            type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             onFocus={() => handleInputFocus(confirmPasswordRef)}
@@ -193,6 +192,7 @@ export function RegisterForm({
             required
             disabled={isSubmitting}
             autoComplete="new-password"
+            ariaLabelBase="confirm password"
           />
         </div>
 

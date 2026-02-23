@@ -339,6 +339,38 @@ describe('RegisterForm', () => {
     );
   });
 
+  it('toggles password visibility when eye icon is clicked', async () => {
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+
+    const passwordInput = screen.getByLabelText('Password');
+    expect(passwordInput).toHaveAttribute('type', 'password');
+
+    await user.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(passwordInput).toHaveAttribute('type', 'text');
+
+    await user.click(screen.getByRole('button', { name: 'Hide password' }));
+    expect(passwordInput).toHaveAttribute('type', 'password');
+  });
+
+  it('toggles confirm password visibility when eye icon is clicked', async () => {
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+
+    const confirmInput = screen.getByLabelText('Confirm Password');
+    expect(confirmInput).toHaveAttribute('type', 'password');
+
+    await user.click(
+      screen.getByRole('button', { name: 'Show confirm password' })
+    );
+    expect(confirmInput).toHaveAttribute('type', 'text');
+
+    await user.click(
+      screen.getByRole('button', { name: 'Hide confirm password' })
+    );
+    expect(confirmInput).toHaveAttribute('type', 'password');
+  });
+
   it('has correct autocomplete attributes', () => {
     render(<RegisterForm />);
 
