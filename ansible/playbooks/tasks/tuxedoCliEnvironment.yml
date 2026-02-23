@@ -1,16 +1,21 @@
+- name: Set CLI environment facts
+  ansible.builtin.set_fact:
+    cli_user_home: "{{ ansible_facts.user_dir | default(lookup('env', 'HOME')) }}"
+    cli_user_group: "{{ (ansible_facts.user_gid | default(lookup('pipe', 'id -g'))) | string }}"
+
 - name: Ensure Claude Code config directory exists
   ansible.builtin.file:
-    path: "/home/{{ ansible_user }}/.claude"
+    path: "{{ cli_user_home }}/.claude"
     state: directory
     mode: "0700"
     owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
+    group: "{{ cli_user_group }}"
 
 - name: Configure Claude Code dark theme
   ansible.builtin.copy:
-    dest: "/home/{{ ansible_user }}/.claude.json"
+    dest: "{{ cli_user_home }}/.claude.json"
     owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
+    group: "{{ cli_user_group }}"
     mode: "0600"
     force: false
     content: |

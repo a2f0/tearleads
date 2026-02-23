@@ -8,11 +8,32 @@
 # - ghostty_ubuntu_codename (e.g. 24.04)
 # - claude_install_sha256 (sha256 checksum for https://claude.ai/install.sh)
 
+- name: Set toolchain OS facts
+  ansible.builtin.set_fact:
+    toolchain_is_linux: "{{ (ansible_facts.system | default('')) == 'Linux' }}"
+    toolchain_is_darwin: "{{ (ansible_facts.system | default('')) == 'Darwin' }}"
+    toolchain_target_user: "{{ lookup('env', 'SUDO_USER') | default(ansible_user, true) }}"
+
+- name: Resolve toolchain user account details
+  ansible.builtin.command:
+    cmd: >-
+      python3 -c "import pwd; p = pwd.getpwnam('{{ toolchain_target_user }}');
+      print(f'{p.pw_dir}:{p.pw_gid}')"
+  register: toolchain_user_account_details
+  changed_when: false
+  become: false
+
+- name: Set toolchain user home/group facts
+  ansible.builtin.set_fact:
+    toolchain_user_home: "{{ toolchain_user_account_details.stdout.split(':')[0] }}"
+    toolchain_user_group: "{{ toolchain_user_account_details.stdout.split(':')[1] }}"
+
 - name: Update apt cache and upgrade all packages
   ansible.builtin.apt:
     update_cache: true
     cache_valid_time: 3600
     upgrade: dist
+  when: toolchain_is_linux
 
 - name: Install dev packages
   ansible.builtin.apt:
@@ -32,6 +53,29 @@
       - libpam0g-dev
       - xclip
     state: present
+  when: toolchain_is_linux
+
+- name: Ensure Homebrew is installed on macOS
+  ansible.builtin.command:
+    cmd: brew --version
+  become: false
+  changed_when: false
+  when: toolchain_is_darwin
+
+- name: Install dev packages via Homebrew on macOS
+  ansible.builtin.command:
+    cmd: "brew install {{ item }}"
+  loop:
+    - fd
+    - ripgrep
+    - gnupg
+    - automake
+    - autoconf
+    - ncurses
+  become: false
+  register: brew_install_result
+  changed_when: false
+  when: toolchain_is_darwin
 
 # On Debian/Ubuntu, fd-find installs the binary as 'fdfind'.
 # Neovim Telescope and other tools expect the command to be 'fd'.
@@ -40,6 +84,7 @@
     src: /usr/bin/fdfind
     dest: /usr/local/bin/fd
     state: link
+  when: toolchain_is_linux
 
 # JetBrains Mono font (used by ghostty.conf)
 - name: Check if JetBrains Mono is installed
@@ -49,39 +94,40 @@
   register: jetbrains_mono_check
   changed_when: false
   failed_when: false
+  when: toolchain_is_linux
 
 - name: Download JetBrains Mono font
   ansible.builtin.get_url:
     url: https://github.com/JetBrains/JetBrainsMono/releases/download/v2.304/JetBrainsMono-2.304.zip
     dest: /tmp/JetBrainsMono.zip
     mode: "0644"
-  when: jetbrains_mono_check.rc != 0
+  when: toolchain_is_linux and jetbrains_mono_check.rc != 0
 
 - name: Create fonts directory
   ansible.builtin.file:
     path: /usr/local/share/fonts/jetbrains-mono
     state: directory
     mode: "0755"
-  when: jetbrains_mono_check.rc != 0
+  when: toolchain_is_linux and jetbrains_mono_check.rc != 0
 
 - name: Extract JetBrains Mono font
   ansible.builtin.unarchive:
     src: /tmp/JetBrainsMono.zip
     dest: /usr/local/share/fonts/jetbrains-mono
     remote_src: true
-  when: jetbrains_mono_check.rc != 0
+  when: toolchain_is_linux and jetbrains_mono_check.rc != 0
 
 - name: Refresh font cache
   ansible.builtin.command:
     cmd: fc-cache -f
-  when: jetbrains_mono_check.rc != 0
+  when: toolchain_is_linux and jetbrains_mono_check.rc != 0
   changed_when: true
 
 # Neovim 0.10+ from GitHub releases (PPA doesn't support all Ubuntu codenames)
 - name: Set Neovim version and architecture
   ansible.builtin.set_fact:
     neovim_version: "0.10.4"
-    neovim_arch: "{{ 'x86_64' if ansible_architecture == 'x86_64' else 'aarch64' }}"
+    neovim_arch: "{{ 'x86_64' if (ansible_facts.architecture | default('')) == 'x86_64' else 'aarch64' }}"
 
 - name: Check installed Neovim version
   ansible.builtin.command:
@@ -95,31 +141,42 @@
     url: "https://github.com/neovim/neovim/releases/download/v{{ neovim_version }}/nvim-linux-{{ neovim_arch }}.tar.gz"
     dest: "/tmp/nvim-linux-{{ neovim_arch }}.tar.gz"
     mode: "0644"
-  when: nvim_installed_check.rc != 0 or ('v' + neovim_version) not in nvim_installed_check.stdout
+  when: toolchain_is_linux and (nvim_installed_check.rc != 0 or ('v' + neovim_version) not in nvim_installed_check.stdout)
 
 - name: Remove old Neovim installation
   ansible.builtin.file:
     path: "/usr/local/nvim-linux-{{ neovim_arch }}"
     state: absent
-  when: nvim_installed_check.rc != 0 or ('v' + neovim_version) not in nvim_installed_check.stdout
+  when: toolchain_is_linux and (nvim_installed_check.rc != 0 or ('v' + neovim_version) not in nvim_installed_check.stdout)
 
 - name: Extract Neovim tarball
   ansible.builtin.unarchive:
     src: "/tmp/nvim-linux-{{ neovim_arch }}.tar.gz"
     dest: /usr/local
     remote_src: true
-  when: nvim_installed_check.rc != 0 or ('v' + neovim_version) not in nvim_installed_check.stdout
+  when: toolchain_is_linux and (nvim_installed_check.rc != 0 or ('v' + neovim_version) not in nvim_installed_check.stdout)
 
 - name: Symlink nvim binary
   ansible.builtin.file:
     src: "/usr/local/nvim-linux-{{ neovim_arch }}/bin/nvim"
     dest: /usr/local/bin/nvim
     state: link
-  when: nvim_installed_check.rc != 0 or ('v' + neovim_version) not in nvim_installed_check.stdout
+  when: toolchain_is_linux and (nvim_installed_check.rc != 0 or ('v' + neovim_version) not in nvim_installed_check.stdout)
+
+- name: Install Neovim via Homebrew on macOS
+  ansible.builtin.command:
+    cmd: brew install neovim
+  become: false
+  register: brew_nvim_result
+  changed_when: "'already installed' not in brew_nvim_result.stdout"
+  when: toolchain_is_darwin
 
 - name: Verify Neovim version is 0.10+
   ansible.builtin.shell:
-    cmd: set -o pipefail && /usr/local/bin/nvim --version | head -1 | grep -oP '\d+\.\d+' | head -1
+    cmd: |
+      set -o pipefail
+      command -v nvim >/dev/null
+      nvim --version | head -1 | grep -oE '[0-9]+\.[0-9]+' | head -1
     executable: /bin/bash
   register: nvim_version
   changed_when: false
@@ -127,18 +184,18 @@
 
 - name: Create Neovim config directory
   ansible.builtin.file:
-    path: "/home/{{ ansible_user }}/.config/nvim"
+    path: "{{ toolchain_user_home }}/.config/nvim"
     state: directory
     mode: "0755"
     owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
+    group: "{{ toolchain_user_group }}"
 
 - name: Deploy Neovim configuration
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/../../tuxedo/config/neovim.lua"
-    dest: "/home/{{ ansible_user }}/.config/nvim/init.lua"
+    dest: "{{ toolchain_user_home }}/.config/nvim/init.lua"
     owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
+    group: "{{ toolchain_user_group }}"
     mode: "0644"
 
 # GNU screen 5.0+ with truecolor support (Ubuntu only ships 4.x which lacks truecolor)
@@ -148,6 +205,7 @@
   register: screen_version_check
   changed_when: false
   failed_when: false
+  when: toolchain_is_linux
 
 - name: Download GNU screen 5.0.0 source
   ansible.builtin.get_url:
@@ -155,14 +213,14 @@
     dest: /tmp/screen-5.0.0.tar.gz
     mode: "0644"
     checksum: "sha256:f04a39d00a0e5c7c86a55338808903082ad5df4d73df1a2fd3425976aed94971"
-  when: screen_version_check.rc != 0 or 'version 5' not in screen_version_check.stdout
+  when: toolchain_is_linux and (screen_version_check.rc != 0 or 'version 5' not in screen_version_check.stdout)
 
 - name: Extract screen source
   ansible.builtin.unarchive:
     src: /tmp/screen-5.0.0.tar.gz
     dest: /tmp
     remote_src: true
-  when: screen_version_check.rc != 0 or 'version 5' not in screen_version_check.stdout
+  when: toolchain_is_linux and (screen_version_check.rc != 0 or 'version 5' not in screen_version_check.stdout)
 
 - name: Build and install screen 5.0.0
   ansible.builtin.shell:
@@ -173,7 +231,15 @@
       make -j$(nproc)
       make install
     creates: /usr/local/bin/screen
-  when: screen_version_check.rc != 0 or 'version 5' not in screen_version_check.stdout
+  when: toolchain_is_linux and (screen_version_check.rc != 0 or 'version 5' not in screen_version_check.stdout)
+
+- name: Install GNU screen via Homebrew on macOS
+  ansible.builtin.command:
+    cmd: brew install screen
+  become: false
+  register: brew_screen_result
+  changed_when: "'already installed' not in brew_screen_result.stdout"
+  when: toolchain_is_darwin
 
 # Ghostty terminal support
 - name: Copy Ghostty terminfo
@@ -182,26 +248,50 @@
     dest: /tmp/ghostty.terminfo
     mode: "0644"
   register: copy_terminfo_result
+  when: toolchain_is_linux
 
 - name: Check for existing compiled Ghostty terminfo
   ansible.builtin.stat:
     path: /usr/share/terminfo/g/ghostty
   register: compiled_terminfo_stat
+  when: toolchain_is_linux
 
 - name: Compile Ghostty terminfo system-wide
   ansible.builtin.command:
     cmd: tic -x -o /usr/share/terminfo /tmp/ghostty.terminfo
-  when: copy_terminfo_result.changed or not compiled_terminfo_stat.stat.exists
+  when: toolchain_is_linux and (copy_terminfo_result.changed or not compiled_terminfo_stat.stat.exists)
   changed_when: true
 
-# tmux-256color with truecolor support (required for Claude Code colors in screen/tmux)
 - name: Ensure user terminfo directory exists
   ansible.builtin.file:
-    path: "/home/{{ ansible_user }}/.terminfo/t"
+    path: "{{ toolchain_user_home }}/.terminfo/t"
     state: directory
     mode: "0755"
     owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
+    group: "{{ toolchain_user_group }}"
+
+# tmux-256color with truecolor support (required for Claude Code colors in screen/tmux)
+- name: Copy Ghostty terminfo source for user compile on macOS
+  ansible.builtin.copy:
+    src: files/ghostty.terminfo
+    dest: /tmp/ghostty-user.terminfo
+    mode: "0644"
+  register: copy_ghostty_user_terminfo_result
+  when: toolchain_is_darwin
+
+- name: Check for existing user Ghostty terminfo on macOS
+  ansible.builtin.stat:
+    path: "{{ toolchain_user_home }}/.terminfo/g/ghostty"
+  register: compiled_ghostty_user_terminfo_stat
+  when: toolchain_is_darwin
+
+- name: Compile Ghostty terminfo for user on macOS
+  ansible.builtin.command:
+    cmd: "tic -x -o {{ toolchain_user_home }}/.terminfo /tmp/ghostty-user.terminfo"
+  become: true
+  become_user: "{{ ansible_user }}"
+  when: toolchain_is_darwin and (copy_ghostty_user_terminfo_result.changed or not compiled_ghostty_user_terminfo_stat.stat.exists)
+  changed_when: true
 
 - name: Copy tmux-256color truecolor terminfo source
   ansible.builtin.copy:
@@ -212,12 +302,12 @@
 
 - name: Check for existing compiled tmux-256color terminfo
   ansible.builtin.stat:
-    path: "/home/{{ ansible_user }}/.terminfo/t/tmux-256color"
+    path: "{{ toolchain_user_home }}/.terminfo/t/tmux-256color"
   register: compiled_tmux_terminfo_stat
 
 - name: Compile tmux-256color truecolor terminfo for user
   ansible.builtin.command:
-    cmd: "tic -x -o /home/{{ ansible_user }}/.terminfo /tmp/tmux-256color-tc.terminfo"
+    cmd: "tic -x -o {{ toolchain_user_home }}/.terminfo /tmp/tmux-256color-tc.terminfo"
   become: true
   become_user: "{{ ansible_user }}"
   when: copy_tmux_terminfo_result.changed or not compiled_tmux_terminfo_stat.stat.exists
@@ -228,34 +318,47 @@
     path: /etc/apt/keyrings
     state: directory
     mode: "0755"
+  when: toolchain_is_linux
 
 - name: Download and dearmor NodeSource GPG key
   ansible.builtin.shell:
     cmd: set -o pipefail && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
     executable: /bin/bash
     creates: /etc/apt/keyrings/nodesource.gpg
+  when: toolchain_is_linux
 
 - name: Set permissions on NodeSource GPG key
   ansible.builtin.file:
     path: /etc/apt/keyrings/nodesource.gpg
     mode: "0644"
+  when: toolchain_is_linux
 
 - name: Add NodeSource repository
   ansible.builtin.apt_repository:
     repo: "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_{{ nodejs_major_version }}.x nodistro main"
     state: present
     filename: nodesource
+  when: toolchain_is_linux
 
 - name: Install Node.js
   ansible.builtin.apt:
     name: nodejs
     state: present
     update_cache: true
+  when: toolchain_is_linux
+
+- name: Install Node.js via Homebrew on macOS
+  ansible.builtin.command:
+    cmd: brew install node
+  become: false
+  register: brew_node_result
+  changed_when: "'already installed' not in brew_node_result.stdout"
+  when: toolchain_is_darwin
 
 # uv (Python package manager) -- required by scripts/setupSerenaMcp.sh
 - name: Check if uv is installed
   ansible.builtin.stat:
-    path: "/home/{{ ansible_user }}/.local/bin/uv"
+    path: "{{ toolchain_user_home }}/.local/bin/uv"
   register: uv_stat
 
 - name: Install uv
@@ -263,14 +366,28 @@
     cmd: set -o pipefail && curl -LsSf https://astral.sh/uv/install.sh | sh
     executable: /bin/bash
   become: true
-  become_user: "{{ ansible_user }}"
+  become_user: "{{ toolchain_target_user }}"
+  become_flags: "-H"
+  environment:
+    HOME: "{{ toolchain_user_home }}"
   when: not uv_stat.stat.exists
   changed_when: true
 
 - name: Check if Claude Code is installed
   ansible.builtin.stat:
-    path: "/home/{{ ansible_user }}/.claude/local/claude"
+    path: "{{ toolchain_user_home }}/.claude/local/claude"
   register: claude_code_stat
+
+- name: Ensure user cache directory exists
+  ansible.builtin.file:
+    path: "{{ toolchain_user_home }}/.cache"
+    state: directory
+    mode: "0755"
+    owner: "{{ toolchain_target_user }}"
+    group: "{{ toolchain_user_group }}"
+  become: true
+  become_user: "{{ toolchain_target_user }}"
+  become_flags: "-H"
 
 # SECURITY NOTE: The Claude Code installer script is dynamically maintained by Anthropic.
 # We still pin a known SHA-256 checksum (`claude_install_sha256`) for supply-chain integrity.
@@ -278,18 +395,23 @@
 - name: Download Claude Code installer script
   ansible.builtin.get_url:
     url: https://claude.ai/install.sh
-    dest: /tmp/claude-install.sh
+    dest: "{{ toolchain_user_home }}/.cache/claude-install.sh"
     mode: "0755"
     checksum: "sha256:{{ claude_install_sha256 }}"
+  become: true
+  become_user: "{{ toolchain_target_user }}"
+  become_flags: "-H"
   when: not claude_code_stat.stat.exists
 
 - name: Install Claude Code CLI via native installer
   ansible.builtin.command:
-    cmd: /tmp/claude-install.sh
+    cmd: "{{ toolchain_user_home }}/.cache/claude-install.sh"
   become: true
-  become_user: "{{ ansible_user }}"
+  become_user: "{{ toolchain_target_user }}"
+  become_flags: "-H"
   environment:
-    HOME: "/home/{{ ansible_user }}"
+    HOME: "{{ toolchain_user_home }}"
+    USER: "{{ toolchain_target_user }}"
   when: not claude_code_stat.stat.exists
   changed_when: true
 
@@ -314,9 +436,17 @@
       }}/ghostty_{{ ghostty_package_version }}_amd64_{{ ghostty_ubuntu_codename }}.deb
     dest: "/tmp/ghostty_{{ ghostty_package_version }}.deb"
     mode: "0644"
-  when: ghostty_check.rc != 0
+  when: toolchain_is_linux and ghostty_check.rc != 0
 
 - name: Install Ghostty from .deb
   ansible.builtin.apt:
     deb: "/tmp/ghostty_{{ ghostty_package_version }}.deb"
-  when: ghostty_check.rc != 0
+  when: toolchain_is_linux and ghostty_check.rc != 0
+
+- name: Install Ghostty via Homebrew cask on macOS
+  ansible.builtin.command:
+    cmd: brew install --cask ghostty
+  become: false
+  register: brew_ghostty_result
+  changed_when: "'already installed' not in brew_ghostty_result.stdout"
+  when: toolchain_is_darwin and ghostty_check.rc != 0

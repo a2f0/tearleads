@@ -194,11 +194,13 @@ install_vault() {
 
   if ! has_cmd vault || ! vault_matches_required_version; then
     resolved_version="$(vault_version)"
-    echo "Vault installation failed: installed version ${resolved_version:-unknown} does not match required ${REQUIRED_VAULT_VERSION}." >&2
     if [ "$OS" = "darwin" ]; then
-      echo "On macOS, Homebrew may not provide exact historical versions. Install the pinned version manually or update .vault-version." >&2
+      echo "Warning: Vault version ${resolved_version:-unknown} does not match required ${REQUIRED_VAULT_VERSION}." >&2
+      echo "Homebrew may not provide exact historical versions on macOS; continuing with installed version." >&2
+    else
+      echo "Vault installation failed: installed version ${resolved_version:-unknown} does not match required ${REQUIRED_VAULT_VERSION}." >&2
+      exit 1
     fi
-    exit 1
   fi
 
   echo "Vault CLI $(vault_version) installed."
@@ -268,12 +270,17 @@ install_terraform() {
   if ! has_cmd terraform || ! terraform_matches_required_version; then
     resolved_bin="$(terraform_cmd_path)"
     resolved_version="$(terraform_version)"
-    echo "Terraform installation failed: ${resolved_bin:-terraform not found} reports version ${resolved_version:-unknown}, which does not match required ${REQUIRED_TERRAFORM_VERSION}." >&2
-    if [ -n "$resolved_bin" ]; then
-      echo "All terraform binaries in PATH:" >&2
-      which -a terraform >&2 || true
+    if [ "$OS" = "darwin" ]; then
+      echo "Warning: ${resolved_bin:-terraform not found} reports version ${resolved_version:-unknown}, expected ${REQUIRED_TERRAFORM_VERSION}." >&2
+      echo "Homebrew may not provide exact historical versions on macOS; continuing with installed version." >&2
+    else
+      echo "Terraform installation failed: ${resolved_bin:-terraform not found} reports version ${resolved_version:-unknown}, which does not match required ${REQUIRED_TERRAFORM_VERSION}." >&2
+      if [ -n "$resolved_bin" ]; then
+        echo "All terraform binaries in PATH:" >&2
+        which -a terraform >&2 || true
+      fi
+      exit 1
     fi
-    exit 1
   fi
 
   echo "Terraform $(terraform_version) installed at $(terraform_cmd_path)."
