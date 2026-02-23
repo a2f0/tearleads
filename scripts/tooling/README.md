@@ -34,7 +34,7 @@
 
 ### Environment
 
-- `setupPostgresDev` - Install/start Homebrew PostgreSQL and provision dev DB
+- `setupPostgresDev` - Install/start local PostgreSQL and provision dev DB
 - `setupSerenaMcp` - Configure Serena MCP server for Codex and Claude
 - `setupTuxedoRepos` - Clone/fetch local tuxedo workspace repositories
 - `updateEverything` - Run repository-wide dependency and validation refresh
