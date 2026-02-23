@@ -14,26 +14,27 @@ ensure_linux_role_exists() {
     return
   fi
 
-  if ! command -v psql >/dev/null 2>&1; then
-    return
-  fi
-
   if ! command -v sudo >/dev/null 2>&1; then
     return
   fi
 
-  role_exists="$(sudo -u postgres psql --dbname postgres --tuples-only --quiet --no-align -c "SELECT 1 FROM pg_roles WHERE rolname='${role_name}'" 2>/dev/null | tr -d '[:space:]')"
-  if [ "${role_exists}" = "1" ]; then
+  set +e
+  create_output="$(sudo -u postgres createuser "${role_name}" 2>&1)"
+  create_status=$?
+  set -e
+
+  if [ ${create_status} -eq 0 ]; then
+    echo "Created Postgres role ${role_name}."
     return
   fi
 
-  if sudo -u postgres createuser "${role_name}" >/dev/null 2>&1; then
-    echo "Created Postgres role ${role_name}."
+  if echo "${create_output}" | grep -q "already exists"; then
     return
   fi
 
   echo "Postgres role ${role_name} does not exist and could not be created automatically." >&2
   echo "Run: sudo -u postgres createuser ${role_name}" >&2
+  echo "Error details: ${create_output}" >&2
   exit 1
 }
 

@@ -304,17 +304,19 @@ install_postgres_linux() {
 
   # Start Postgres service if system manager is available.
   if has_cmd systemctl; then
-    if sudo systemctl enable --now postgresql >/dev/null 2>&1; then
+    if output=$(sudo systemctl enable --now postgresql 2>&1); then
       echo "PostgreSQL service enabled and started."
     else
       echo "Warning: Could not start postgresql via systemctl." >&2
       echo "Try: sudo pg_ctlcluster <version> <cluster> start" >&2
+      echo "Error details: ${output}" >&2
     fi
   elif has_cmd service; then
-    if sudo service postgresql start >/dev/null 2>&1; then
+    if output=$(sudo service postgresql start 2>&1); then
       echo "PostgreSQL service started."
     else
       echo "Warning: Could not start postgresql via service." >&2
+      echo "Error details: ${output}" >&2
     fi
   fi
 }
