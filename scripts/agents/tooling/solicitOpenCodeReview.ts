@@ -1,10 +1,11 @@
 #!/usr/bin/env -S pnpm exec tsx
 import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const rootDir = path.resolve(scriptDir, '..');
+const rootDir = path.resolve(scriptDir, '../../..');
 process.chdir(rootDir);
 
 function run(command: string, args: string[]): string {
@@ -81,15 +82,38 @@ function main(): void {
     .baseRefName;
 
   ensureChanges(baseRef);
+  const diff = run('git', ['diff', `${baseRef}...HEAD`]);
 
-  const result = spawnSync(
-    'codex',
-    ['review', '--base', baseRef, '--title', `PR #${prNumber} (${branch})`],
-    {
-      stdio: 'inherit'
-    }
-  );
+  let reviewInstructions = '';
+  const reviewPath = path.join(rootDir, 'REVIEW.md');
+  if (existsSync(reviewPath)) {
+    reviewInstructions = readFileSync(reviewPath, 'utf8');
+  }
 
+  const prompt = `Review this PR diff. Be concise and actionable.
+
+## Review Guidelines
+${reviewInstructions}
+
+## PR Context
+Branch: ${branch}
+PR: #${prNumber}
+Base: ${baseRef}
+
+## Diff
+${diff}
+
+## Instructions
+- Flag security issues, type safety violations, and missing tests as high priority
+- Use severity levels: Blocker, Major, Minor, Suggestion
+- Be concise: one line per issue with file:line reference
+- Output your review to stdout
+`;
+
+  const result = spawnSync('opencode', ['run'], {
+    stdio: ['pipe', 'inherit', 'inherit'],
+    input: prompt
+  });
   process.exit(result.status || 0);
 }
 

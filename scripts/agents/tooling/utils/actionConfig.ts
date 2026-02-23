@@ -47,14 +47,21 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     safetyClass: 'safe_read',
     retrySafe: true,
     isInline: false,
-    scriptPath: (repo) => path.join(repo, 'scripts', 'solicitCodexReview.ts')
+    scriptPath: (repo) =>
+      path.join(repo, 'scripts', 'agents', 'tooling', 'solicitCodexReview.ts')
   },
   solicitClaudeCodeReview: {
     safetyClass: 'safe_read',
     retrySafe: true,
     isInline: false,
     scriptPath: (repo) =>
-      path.join(repo, 'scripts', 'solicitClaudeCodeReview.ts')
+      path.join(
+        repo,
+        'scripts',
+        'agents',
+        'tooling',
+        'solicitClaudeCodeReview.ts'
+      )
   },
   addLabel: {
     safetyClass: 'safe_write_remote',

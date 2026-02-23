@@ -23,7 +23,7 @@ function stderrText(result: ReturnType<typeof spawnSync>): string {
 test('runImpactedQuality dry-run reports baseline scripts typecheck guard', () => {
   const result = runImpactedQuality([
     '--files',
-    'scripts/checkPort.ts',
+    'scripts/lib/checkPort.ts',
     '--dry-run'
   ]);
   assert.equal(result.status, 0, stderrText(result));

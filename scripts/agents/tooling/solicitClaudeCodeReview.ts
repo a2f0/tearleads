@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const rootDir = path.resolve(scriptDir, '..');
+const rootDir = path.resolve(scriptDir, '../../..');
 process.chdir(rootDir);
 
 function run(command: string, args: string[]): string {
@@ -90,7 +90,7 @@ function main(): void {
     reviewInstructions = readFileSync(reviewPath, 'utf8');
   }
 
-  const prompt = `Review this PR diff. Be concise and actionable.
+  const prompt = `Review this PR diff using the project's review guidelines. Be concise and actionable.
 
 ## Review Guidelines
 ${reviewInstructions}
@@ -107,10 +107,9 @@ ${diff}
 - Flag security issues, type safety violations, and missing tests as high priority
 - Use severity levels: Blocker, Major, Minor, Suggestion
 - Be concise: one line per issue with file:line reference
-- Output your review to stdout
-`;
+- Output your review to stdout`;
 
-  const result = spawnSync('opencode', ['run'], {
+  const result = spawnSync('claude', ['--print'], {
     stdio: ['pipe', 'inherit', 'inherit'],
     input: prompt
   });

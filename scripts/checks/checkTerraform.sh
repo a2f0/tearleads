@@ -5,7 +5,7 @@ set -euo pipefail
 # Runs terraform fmt check and tflint on all terraform directories
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 TERRAFORM_DIRS=(
   "terraform"

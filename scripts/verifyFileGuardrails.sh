@@ -7,64 +7,77 @@ set -euo pipefail
 errors=()
 
 # Check 1: Binary check script exists
-if [ ! -f "scripts/checkBinaryFiles.sh" ]; then
-  errors+=("Missing scripts/checkBinaryFiles.sh")
-elif [ ! -x "scripts/checkBinaryFiles.sh" ]; then
-  errors+=("scripts/checkBinaryFiles.sh is not executable")
+if [ ! -f "scripts/checks/checkBinaryFiles.sh" ]; then
+  errors+=("Missing scripts/checks/checkBinaryFiles.sh")
+elif [ ! -x "scripts/checks/checkBinaryFiles.sh" ]; then
+  errors+=("scripts/checks/checkBinaryFiles.sh is not executable")
 fi
 
 # Check 2: JavaScript check script exists
-if [ ! -f "scripts/preen/checkJs.sh" ]; then
-  errors+=("Missing scripts/preen/checkJs.sh")
-elif [ ! -x "scripts/preen/checkJs.sh" ]; then
-  errors+=("scripts/preen/checkJs.sh is not executable")
+if [ ! -f "scripts/checks/checkJs.sh" ]; then
+  errors+=("Missing scripts/checks/checkJs.sh")
+elif [ ! -x "scripts/checks/checkJs.sh" ]; then
+  errors+=("scripts/checks/checkJs.sh is not executable")
 fi
 
 # Check 3: Client boundary check script exists
-if [ ! -f "scripts/preen/checkClientBoundary.sh" ]; then
-  errors+=("Missing scripts/preen/checkClientBoundary.sh")
-elif [ ! -x "scripts/preen/checkClientBoundary.sh" ]; then
-  errors+=("scripts/preen/checkClientBoundary.sh is not executable")
+if [ ! -f "scripts/checks/checkClientBoundary.sh" ]; then
+  errors+=("Missing scripts/checks/checkClientBoundary.sh")
+elif [ ! -x "scripts/checks/checkClientBoundary.sh" ]; then
+  errors+=("scripts/checks/checkClientBoundary.sh is not executable")
 fi
 
-# Check 4: Pre-commit hook exists and calls binary check
+# Check 4: File naming check script exists
+if [ ! -f "scripts/checks/checkFileNames.sh" ]; then
+  errors+=("Missing scripts/checks/checkFileNames.sh")
+elif [ ! -x "scripts/checks/checkFileNames.sh" ]; then
+  errors+=("scripts/checks/checkFileNames.sh is not executable")
+fi
+
+# Check 5: Pre-commit hook exists and calls binary check
 if [ ! -f ".husky/pre-commit" ]; then
   errors+=("Missing .husky/pre-commit hook")
 elif ! grep -q "checkBinaryFiles.sh --staged" ".husky/pre-commit"; then
   errors+=(".husky/pre-commit does not call checkBinaryFiles.sh --staged")
 fi
 
-# Check 5: Pre-push hook calls binary, JS, and client boundary checks
+# Check 6: Pre-push hook calls binary, JS, filename, and client boundary checks
 if [ ! -f ".husky/pre-push" ]; then
   errors+=("Missing .husky/pre-push hook")
 else
-  if ! grep -q "checkBinaryFiles.sh --from-upstream" ".husky/pre-push"; then
-    errors+=(".husky/pre-push does not call checkBinaryFiles.sh --from-upstream")
+  if ! grep -q "scripts/checks/checkBinaryFiles.sh --from-upstream" ".husky/pre-push"; then
+    errors+=(".husky/pre-push does not call scripts/checks/checkBinaryFiles.sh --from-upstream")
   fi
-  if ! grep -q "scripts/preen/checkJs.sh --from-upstream" ".husky/pre-push"; then
-    errors+=(".husky/pre-push does not call scripts/preen/checkJs.sh --from-upstream")
+  if ! grep -q "scripts/checks/checkJs.sh --from-upstream" ".husky/pre-push"; then
+    errors+=(".husky/pre-push does not call scripts/checks/checkJs.sh --from-upstream")
   fi
-  if ! grep -q "scripts/preen/checkClientBoundary.sh --from-upstream" ".husky/pre-push"; then
-    errors+=(".husky/pre-push does not call scripts/preen/checkClientBoundary.sh --from-upstream")
+  if ! grep -q "scripts/checks/checkFileNames.sh --from-upstream" ".husky/pre-push"; then
+    errors+=(".husky/pre-push does not call scripts/checks/checkFileNames.sh --from-upstream")
+  fi
+  if ! grep -q "scripts/checks/checkClientBoundary.sh --from-upstream" ".husky/pre-push"; then
+    errors+=(".husky/pre-push does not call scripts/checks/checkClientBoundary.sh --from-upstream")
   fi
 fi
 
-# Check 6: CI workflow includes binary, JS, and client boundary checks
+# Check 7: CI workflow includes binary, JS, filename, and client boundary checks
 if [ ! -f ".github/workflows/build.yml" ]; then
   errors+=("Missing .github/workflows/build.yml")
 else
-  if ! grep -q "checkBinaryFiles.sh" ".github/workflows/build.yml"; then
+  if ! grep -q "scripts/checks/checkBinaryFiles.sh" ".github/workflows/build.yml"; then
     errors+=(".github/workflows/build.yml does not include binary file check")
   fi
-  if ! grep -q "scripts/preen/checkJs.sh" ".github/workflows/build.yml"; then
+  if ! grep -q "scripts/checks/checkJs.sh" ".github/workflows/build.yml"; then
     errors+=(".github/workflows/build.yml does not include plain JavaScript file check")
   fi
-  if ! grep -q "scripts/preen/checkClientBoundary.sh" ".github/workflows/build.yml"; then
+  if ! grep -q "scripts/checks/checkFileNames.sh" ".github/workflows/build.yml"; then
+    errors+=(".github/workflows/build.yml does not include TypeScript file naming check")
+  fi
+  if ! grep -q "scripts/checks/checkClientBoundary.sh" ".github/workflows/build.yml"; then
     errors+=(".github/workflows/build.yml does not include client boundary check")
   fi
 fi
 
-# Check 7: Agent instructions include binary/JS policy
+# Check 8: Agent instructions include binary/JS policy
 for file in CLAUDE.md AGENTS.md; do
   if [ -f "$file" ]; then
     if ! grep -q "Binary Files Policy" "$file"; then

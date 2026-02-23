@@ -21,7 +21,7 @@ PW_TEST_PORT=3002
 PW_DEBUG_HANDLES=true
 
 # Check if test port is already in use
-pnpm exec tsx "$SCRIPT_DIR/checkPort.ts" "$PW_TEST_PORT"
+pnpm exec tsx "$SCRIPT_DIR/lib/checkPort.ts" "$PW_TEST_PORT"
 
 cd "$SCRIPT_DIR/../packages/client"
 

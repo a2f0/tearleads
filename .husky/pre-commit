@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 set -eu
 
-./scripts/preen/checkFileLimits.sh --staged
-./scripts/checkBinaryFiles.sh --staged
-pnpm exec tsx scripts/preen/checkCompatShims.ts --staged
+./scripts/checks/checkFileLimits.sh --staged
+./scripts/checks/checkBinaryFiles.sh --staged
+pnpm exec tsx scripts/checks/checkCompatShims.ts --staged
