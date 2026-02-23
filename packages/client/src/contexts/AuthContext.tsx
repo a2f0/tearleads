@@ -8,8 +8,8 @@ import {
   useMemo,
   useState
 } from 'react';
-import { api, tryRefreshToken } from '@/lib/api';
 import { createVfsKeySetupPayloadForOnboarding } from '@/hooks/vfs';
+import { api, tryRefreshToken } from '@/lib/api';
 import {
   AUTH_REFRESH_TOKEN_KEY,
   AUTH_TOKEN_KEY,
@@ -172,7 +172,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   const register = useCallback(
-    async (email: string, password: string, vfsKeySetup?: VfsKeySetupRequest) => {
+    async (
+      email: string,
+      password: string,
+      vfsKeySetup?: VfsKeySetupRequest
+    ) => {
       clearAuthError();
       let effectiveVfsKeySetup = vfsKeySetup;
       if (!effectiveVfsKeySetup) {

@@ -1,8 +1,8 @@
 import { decrypt } from '@tearleads/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  createVfsKeySetupPayloadForOnboarding,
   clearVfsKeysCache,
+  createVfsKeySetupPayloadForOnboarding,
   ensureVfsKeyPair,
   ensureVfsKeys,
   generateSessionKey,

@@ -45,14 +45,16 @@ describe('Auth register routes', () => {
     });
 
     it('returns 400 when vfsKeySetup payload is malformed', async () => {
-      const response = await request(app).post('/v1/auth/register').send({
-        email: 'user@example.com',
-        password: 'SecurePassword123!',
-        vfsKeySetup: {
-          publicEncryptionKey: 'pub',
-          encryptedPrivateKeys: 'encrypted'
-        }
-      });
+      const response = await request(app)
+        .post('/v1/auth/register')
+        .send({
+          email: 'user@example.com',
+          password: 'SecurePassword123!',
+          vfsKeySetup: {
+            publicEncryptionKey: 'pub',
+            encryptedPrivateKeys: 'encrypted'
+          }
+        });
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
