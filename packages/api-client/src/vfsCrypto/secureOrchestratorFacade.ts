@@ -1,7 +1,5 @@
 import type { QueueVfsCrdtLocalOperationInput } from '@tearleads/vfs-sync/vfs';
-import type {
-  VfsBlobRelationKind
-} from '../vfsBlobNetworkFlusher';
+import type { VfsBlobRelationKind } from '../vfsBlobNetworkFlusher';
 import type { VfsWriteOrchestrator } from '../vfsWriteOrchestrator';
 import type {
   QueueEncryptedCrdtOpAndPersistInput,

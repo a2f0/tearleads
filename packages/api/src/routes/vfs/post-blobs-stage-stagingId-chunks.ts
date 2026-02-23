@@ -1,9 +1,6 @@
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
-import {
-  normalizeRequiredString,
-  parseBlobChunkBody
-} from './blob-shared.js';
+import { normalizeRequiredString, parseBlobChunkBody } from './blob-shared.js';
 import { upsertBlobUploadChunk } from './blobUploadSessions.js';
 
 interface BlobStagingRow {

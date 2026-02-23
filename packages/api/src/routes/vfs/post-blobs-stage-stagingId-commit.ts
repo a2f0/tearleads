@@ -1,10 +1,7 @@
 import type { Request, Response, Router as RouterType } from 'express';
-import { persistVfsBlobData } from '../../lib/vfsBlobStore.js';
 import { getPostgresPool } from '../../lib/postgres.js';
-import {
-  normalizeRequiredString,
-  parseBlobCommitBody
-} from './blob-shared.js';
+import { persistVfsBlobData } from '../../lib/vfsBlobStore.js';
+import { normalizeRequiredString, parseBlobCommitBody } from './blob-shared.js';
 import {
   deleteBlobUploadSession,
   getBlobUploadChunks
@@ -110,7 +107,9 @@ const postBlobsStageStagingIdCommitHandler = async (
   }
 
   if (chunks.length !== payload.chunkCount) {
-    res.status(409).json({ error: 'Chunk count does not match commit payload' });
+    res
+      .status(409)
+      .json({ error: 'Chunk count does not match commit payload' });
     return;
   }
 
@@ -146,11 +145,15 @@ const postBlobsStageStagingIdCommitHandler = async (
   }
 
   if (totalCiphertextBytes !== payload.totalCiphertextBytes) {
-    res.status(409).json({ error: 'Ciphertext size does not match commit payload' });
+    res
+      .status(409)
+      .json({ error: 'Ciphertext size does not match commit payload' });
     return;
   }
   if (totalPlaintextBytes !== payload.totalPlaintextBytes) {
-    res.status(409).json({ error: 'Plaintext size does not match commit payload' });
+    res
+      .status(409)
+      .json({ error: 'Plaintext size does not match commit payload' });
     return;
   }
 

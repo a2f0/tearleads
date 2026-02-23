@@ -12,7 +12,9 @@ interface UploadSession {
 
 const sessionsByStagingId = new Map<string, Map<string, UploadSession>>();
 
-function getOrCreateStagingSessions(stagingId: string): Map<string, UploadSession> {
+function getOrCreateStagingSessions(
+  stagingId: string
+): Map<string, UploadSession> {
   const existing = sessionsByStagingId.get(stagingId);
   if (existing) {
     return existing;

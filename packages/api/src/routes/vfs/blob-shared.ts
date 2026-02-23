@@ -136,10 +136,22 @@ export function parseBlobChunkBody(body: unknown): ParsedBlobChunkBody | null {
   const nonce = normalizeRequiredString(body['nonce']);
   const aadHash = normalizeRequiredString(body['aadHash']);
   const ciphertextBase64 = normalizeRequiredString(body['ciphertextBase64']);
-  const chunkIndex = body['chunkIndex'];
+  const chunkIndexValue = body['chunkIndex'];
   const isFinal = body['isFinal'];
-  const plaintextLength = body['plaintextLength'];
-  const ciphertextLength = body['ciphertextLength'];
+  const plaintextLengthValue = body['plaintextLength'];
+  const ciphertextLengthValue = body['ciphertextLength'];
+
+  if (
+    typeof chunkIndexValue !== 'number' ||
+    typeof plaintextLengthValue !== 'number' ||
+    typeof ciphertextLengthValue !== 'number'
+  ) {
+    return null;
+  }
+
+  const chunkIndex = chunkIndexValue;
+  const plaintextLength = plaintextLengthValue;
+  const ciphertextLength = ciphertextLengthValue;
 
   if (
     !uploadId ||
@@ -189,10 +201,24 @@ export function parseBlobCommitBody(
   const uploadId = normalizeRequiredString(body['uploadId']);
   const manifestHash = normalizeRequiredString(body['manifestHash']);
   const manifestSignature = normalizeRequiredString(body['manifestSignature']);
-  const keyEpoch = body['keyEpoch'];
-  const chunkCount = body['chunkCount'];
-  const totalPlaintextBytes = body['totalPlaintextBytes'];
-  const totalCiphertextBytes = body['totalCiphertextBytes'];
+  const keyEpochValue = body['keyEpoch'];
+  const chunkCountValue = body['chunkCount'];
+  const totalPlaintextBytesValue = body['totalPlaintextBytes'];
+  const totalCiphertextBytesValue = body['totalCiphertextBytes'];
+
+  if (
+    typeof keyEpochValue !== 'number' ||
+    typeof chunkCountValue !== 'number' ||
+    typeof totalPlaintextBytesValue !== 'number' ||
+    typeof totalCiphertextBytesValue !== 'number'
+  ) {
+    return null;
+  }
+
+  const keyEpoch = keyEpochValue;
+  const chunkCount = chunkCountValue;
+  const totalPlaintextBytes = totalPlaintextBytesValue;
+  const totalCiphertextBytes = totalCiphertextBytesValue;
 
   if (
     !uploadId ||
