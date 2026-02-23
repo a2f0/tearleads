@@ -1,15 +1,4 @@
 export { S3InboundBlobStore } from './lib/inboundBlobStore.js';
-export type {
-  EncryptedBlobWriteResult,
-  InboundBlobStore,
-  InboundMessageEnvelopeRecord,
-  InboundMessageIngestor,
-  InboundRecipientKeyLookup,
-  InboundVfsEmailRepository,
-  RecipientKeyRecord,
-  ResolvedInboundRecipient,
-  WrappedRecipientKeyEnvelope
-} from './types/inboundContracts.js';
 export { DefaultInboundMessageIngestor } from './lib/inboundIngest.js';
 export { PostgresInboundRecipientKeyLookup } from './lib/inboundKeyLookup.js';
 export { PostgresInboundVfsEmailRepository } from './lib/inboundVfsRepository.js';
@@ -28,3 +17,14 @@ export type {
   SmtpListenerConfig,
   StoredEmail
 } from './types/email.js';
+export type {
+  EncryptedBlobWriteResult,
+  InboundBlobStore,
+  InboundMessageEnvelopeRecord,
+  InboundMessageIngestor,
+  InboundRecipientKeyLookup,
+  InboundVfsEmailRepository,
+  RecipientKeyRecord,
+  ResolvedInboundRecipient,
+  WrappedRecipientKeyEnvelope
+} from './types/inboundContracts.js';

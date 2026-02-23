@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { sendMock, s3CtorMock, putObjectCtorMock } = vi.hoisted(() => ({
   sendMock: vi.fn(async (_command: unknown) => ({})),
@@ -64,7 +64,9 @@ describe('S3InboundBlobStore', () => {
         ciphertext: new Uint8Array([1, 2, 3]),
         contentType: 'message/rfc822'
       })
-    ).rejects.toThrow('Missing required environment variable: VFS_BLOB_S3_BUCKET');
+    ).rejects.toThrow(
+      'Missing required environment variable: VFS_BLOB_S3_BUCKET'
+    );
   });
 
   it('throws for unsupported blob provider', async () => {
@@ -78,7 +80,9 @@ describe('S3InboundBlobStore', () => {
         ciphertext: new Uint8Array([9]),
         contentType: 'message/rfc822'
       })
-    ).rejects.toThrow('Unsupported VFS_BLOB_STORE_PROVIDER "garage". Expected "s3".');
+    ).rejects.toThrow(
+      'Unsupported VFS_BLOB_STORE_PROVIDER "garage". Expected "s3".'
+    );
   });
 
   it('stores encrypted message with trimmed prefix and explicit credentials', async () => {
@@ -119,7 +123,8 @@ describe('S3InboundBlobStore', () => {
     expect(sendMock).toHaveBeenCalledOnce();
     expect(result).toEqual({
       storageKey: 'ingest-root/smtp/inbound/msg-3.bin',
-      sha256: 'afa27b44d43b02a9fea41d13cedc2e4016cfcf87c5dbf990e593669aa8ce286d',
+      sha256:
+        'afa27b44d43b02a9fea41d13cedc2e4016cfcf87c5dbf990e593669aa8ce286d',
       ciphertextSize: ciphertext.byteLength
     });
   });

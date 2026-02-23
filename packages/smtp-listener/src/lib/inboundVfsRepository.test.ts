@@ -69,7 +69,9 @@ describe('PostgresInboundVfsEmailRepository', () => {
   });
 
   it('returns early when there are no recipients', async () => {
-    const { PostgresInboundVfsEmailRepository } = await import('./inboundVfsRepository.js');
+    const { PostgresInboundVfsEmailRepository } = await import(
+      './inboundVfsRepository.js'
+    );
 
     await new PostgresInboundVfsEmailRepository().persistInboundMessage({
       envelope: buildEnvelope(),
@@ -94,7 +96,9 @@ describe('PostgresInboundVfsEmailRepository', () => {
 
     getPostgresPoolMock.mockResolvedValue({ connect: connectMock });
 
-    const { PostgresInboundVfsEmailRepository } = await import('./inboundVfsRepository.js');
+    const { PostgresInboundVfsEmailRepository } = await import(
+      './inboundVfsRepository.js'
+    );
 
     await new PostgresInboundVfsEmailRepository().persistInboundMessage({
       envelope: buildEnvelope(),
@@ -132,7 +136,9 @@ describe('PostgresInboundVfsEmailRepository', () => {
       }))
     });
 
-    const { PostgresInboundVfsEmailRepository } = await import('./inboundVfsRepository.js');
+    const { PostgresInboundVfsEmailRepository } = await import(
+      './inboundVfsRepository.js'
+    );
 
     await new PostgresInboundVfsEmailRepository().persistInboundMessage({
       envelope: buildEnvelope(),
@@ -140,7 +146,9 @@ describe('PostgresInboundVfsEmailRepository', () => {
     });
 
     expect(clientQueryMock).toHaveBeenCalledWith(
-      expect.stringContaining("INSERT INTO vfs_registry (id, object_type, owner_id, created_at)"),
+      expect.stringContaining(
+        'INSERT INTO vfs_registry (id, object_type, owner_id, created_at)'
+      ),
       [expect.stringMatching(/^uuid-\d+$/), 'user-1']
     );
     expect(clientQueryMock).toHaveBeenCalledWith(
@@ -167,7 +175,9 @@ describe('PostgresInboundVfsEmailRepository', () => {
       }))
     });
 
-    const { PostgresInboundVfsEmailRepository } = await import('./inboundVfsRepository.js');
+    const { PostgresInboundVfsEmailRepository } = await import(
+      './inboundVfsRepository.js'
+    );
     const envelope = buildEnvelope();
     envelope.wrappedRecipientKeys = [];
 
@@ -202,7 +212,9 @@ describe('PostgresInboundVfsEmailRepository', () => {
       }))
     });
 
-    const { PostgresInboundVfsEmailRepository } = await import('./inboundVfsRepository.js');
+    const { PostgresInboundVfsEmailRepository } = await import(
+      './inboundVfsRepository.js'
+    );
 
     await expect(
       new PostgresInboundVfsEmailRepository().persistInboundMessage({

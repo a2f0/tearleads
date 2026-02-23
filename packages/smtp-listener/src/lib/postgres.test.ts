@@ -70,7 +70,9 @@ describe('postgres pool runtime', () => {
 
     expect(poolCtorSpy).toHaveBeenCalledOnce();
     expect(first).toBe(second);
-    expect(createdPools[0]?.config).toEqual({ connectionString: 'postgres://db-one' });
+    expect(createdPools[0]?.config).toEqual({
+      connectionString: 'postgres://db-one'
+    });
   });
 
   it('rebuilds and closes previous pool when config key changes', async () => {
@@ -85,7 +87,9 @@ describe('postgres pool runtime', () => {
     expect(first).not.toBe(second);
     expect(poolCtorSpy).toHaveBeenCalledTimes(2);
     expect(createdPools[0]?.end).toHaveBeenCalledOnce();
-    expect(createdPools[1]?.config).toEqual({ connectionString: 'postgres://db-two' });
+    expect(createdPools[1]?.config).toEqual({
+      connectionString: 'postgres://db-two'
+    });
   });
 
   it('builds field-based config and ignores invalid port values', async () => {
@@ -122,7 +126,9 @@ describe('postgres pool runtime', () => {
     process.env['PGHOST'] = 'localhost';
     process.env['PGDATABASE'] = 'maildb';
     process.env['PGPORT'] = '5433';
-    const { closePostgresPool, getPostgresPool } = await import('./postgres.js');
+    const { closePostgresPool, getPostgresPool } = await import(
+      './postgres.js'
+    );
 
     const first = await getPostgresPool();
     await closePostgresPool();

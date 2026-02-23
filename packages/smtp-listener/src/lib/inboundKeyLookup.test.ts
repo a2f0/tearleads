@@ -17,9 +17,12 @@ describe('PostgresInboundRecipientKeyLookup', () => {
   });
 
   it('returns empty map without querying when no user ids are provided', async () => {
-    const { PostgresInboundRecipientKeyLookup } = await import('./inboundKeyLookup.js');
+    const { PostgresInboundRecipientKeyLookup } = await import(
+      './inboundKeyLookup.js'
+    );
 
-    const result = await new PostgresInboundRecipientKeyLookup().getPublicEncryptionKeys([]);
+    const result =
+      await new PostgresInboundRecipientKeyLookup().getPublicEncryptionKeys([]);
 
     expect(result.size).toBe(0);
     expect(getPostgresPoolMock).not.toHaveBeenCalled();
@@ -44,18 +47,22 @@ describe('PostgresInboundRecipientKeyLookup', () => {
       ]
     });
 
-    const { PostgresInboundRecipientKeyLookup } = await import('./inboundKeyLookup.js');
+    const { PostgresInboundRecipientKeyLookup } = await import(
+      './inboundKeyLookup.js'
+    );
 
-    const result = await new PostgresInboundRecipientKeyLookup().getPublicEncryptionKeys([
-      'user-1',
-      'user-1',
-      'user-2'
-    ]);
+    const result =
+      await new PostgresInboundRecipientKeyLookup().getPublicEncryptionKeys([
+        'user-1',
+        'user-1',
+        'user-2'
+      ]);
 
     expect(getPostgresPoolMock).toHaveBeenCalledOnce();
-    expect(poolQueryMock).toHaveBeenCalledWith(expect.stringContaining('FROM user_keys'), [
-      ['user-1', 'user-2']
-    ]);
+    expect(poolQueryMock).toHaveBeenCalledWith(
+      expect.stringContaining('FROM user_keys'),
+      [['user-1', 'user-2']]
+    );
     expect(result).toEqual(
       new Map([
         [
