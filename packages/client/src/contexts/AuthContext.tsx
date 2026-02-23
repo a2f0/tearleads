@@ -176,16 +176,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       clearAuthError();
       let effectiveVfsKeySetup = vfsKeySetup;
       if (!effectiveVfsKeySetup) {
-        try {
-          effectiveVfsKeySetup = await createVfsKeySetupPayloadForOnboarding();
-        } catch (error) {
-          // Non-fatal fallback: registration still succeeds and VFS key setup can
-          // be completed by the existing post-register /vfs/keys path.
-          console.warn(
-            'Failed to prepare VFS key bundle during registration:',
-            error
-          );
-        }
+        effectiveVfsKeySetup = await createVfsKeySetupPayloadForOnboarding();
       }
 
       const response = await api.auth.register(
