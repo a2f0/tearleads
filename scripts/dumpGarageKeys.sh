@@ -61,14 +61,15 @@ read_env_value() {
 
 load_value_if_unset() {
   key="$1"
-  if eval "[ -n \"\${${key}}\" ]"; then
+  current_value="$(read_current_value "${key}")"
+  if [ -n "${current_value}" ]; then
     return
   fi
 
   if [ -f "${GARAGE_CREDENTIALS_FILE}" ]; then
     value="$(read_env_value "${GARAGE_CREDENTIALS_FILE}" "${key}" || true)"
     if [ -n "${value}" ]; then
-      eval "${key}=\"${value}\""
+      assign_value "${key}" "${value}"
       return
     fi
   fi
@@ -76,8 +77,58 @@ load_value_if_unset() {
   api_env_file="$(resolve_env_file_path "${API_ENV_LINK_PATH}")"
   value="$(read_env_value "${api_env_file}" "${key}" || true)"
   if [ -n "${value}" ]; then
-    eval "${key}=\"${value}\""
+    assign_value "${key}" "${value}"
   fi
+}
+
+read_current_value() {
+  key="$1"
+  case "${key}" in
+    VFS_BLOB_S3_BUCKET)
+      printf '%s\n' "${VFS_BLOB_S3_BUCKET}"
+      ;;
+    VFS_BLOB_S3_REGION)
+      printf '%s\n' "${VFS_BLOB_S3_REGION}"
+      ;;
+    VFS_BLOB_S3_ENDPOINT)
+      printf '%s\n' "${VFS_BLOB_S3_ENDPOINT}"
+      ;;
+    VFS_BLOB_S3_ACCESS_KEY_ID)
+      printf '%s\n' "${VFS_BLOB_S3_ACCESS_KEY_ID}"
+      ;;
+    VFS_BLOB_S3_SECRET_ACCESS_KEY)
+      printf '%s\n' "${VFS_BLOB_S3_SECRET_ACCESS_KEY}"
+      ;;
+    *)
+      printf '\n'
+      ;;
+  esac
+}
+
+assign_value() {
+  key="$1"
+  value="$2"
+  case "${key}" in
+    VFS_BLOB_S3_BUCKET)
+      VFS_BLOB_S3_BUCKET="${value}"
+      ;;
+    VFS_BLOB_S3_REGION)
+      VFS_BLOB_S3_REGION="${value}"
+      ;;
+    VFS_BLOB_S3_ENDPOINT)
+      VFS_BLOB_S3_ENDPOINT="${value}"
+      ;;
+    VFS_BLOB_S3_ACCESS_KEY_ID)
+      VFS_BLOB_S3_ACCESS_KEY_ID="${value}"
+      ;;
+    VFS_BLOB_S3_SECRET_ACCESS_KEY)
+      VFS_BLOB_S3_SECRET_ACCESS_KEY="${value}"
+      ;;
+    *)
+      echo "Unsupported key: ${key}" >&2
+      exit 1
+      ;;
+  esac
 }
 
 normalize_endpoint_for_docker() {

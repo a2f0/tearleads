@@ -218,7 +218,7 @@ const postRegisterHandler = async (
           [
             userId,
             payload.vfsKeySetup.publicEncryptionKey,
-            payload.vfsKeySetup.publicSigningKey ?? '',
+            payload.vfsKeySetup.publicSigningKey,
             payload.vfsKeySetup.encryptedPrivateKeys,
             payload.vfsKeySetup.argon2Salt,
             now
