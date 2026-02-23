@@ -29,6 +29,47 @@ import { createUserKeyProvider } from '@/db/vfsUserKeyProvider';
 import { ensureVfsKeys } from '@/hooks/vfs';
 import { useAuth } from './AuthContext';
 
+function normalizeApiPrefix(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return '';
+  }
+  const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return withLeadingSlash.endsWith('/')
+    ? withLeadingSlash.slice(0, -1)
+    : withLeadingSlash;
+}
+
+function normalizeBasePath(baseUrl: string): string {
+  const trimmed = baseUrl.trim();
+  if (trimmed.length === 0) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.pathname.endsWith('/')
+      ? parsed.pathname.slice(0, -1)
+      : parsed.pathname;
+  } catch {
+    return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
+  }
+}
+
+function resolveTransportApiPrefix(baseUrl: string, apiPrefix: string): string {
+  const normalizedPrefix = normalizeApiPrefix(apiPrefix);
+  if (normalizedPrefix.length === 0) {
+    return '';
+  }
+
+  const normalizedBasePath = normalizeBasePath(baseUrl);
+  if (normalizedBasePath.endsWith(normalizedPrefix)) {
+    return '';
+  }
+
+  return normalizedPrefix;
+}
+
 interface VfsOrchestratorContextValue {
   /** The underlying orchestrator for queue/flush operations */
   orchestrator: VfsWriteOrchestrator | null;
@@ -73,6 +114,10 @@ export function VfsOrchestratorProvider({
   const [error, setError] = useState<Error | null>(null);
 
   const effectiveBaseUrl = baseUrl ?? import.meta.env.VITE_API_URL ?? '';
+  const effectiveApiPrefix = resolveTransportApiPrefix(
+    effectiveBaseUrl,
+    apiPrefix
+  );
 
   const logBlobFlushOperationTelemetry = useCallback(
     async (event: {
@@ -133,12 +178,12 @@ export function VfsOrchestratorProvider({
         crdt: {
           transportOptions: {
             baseUrl: effectiveBaseUrl,
-            apiPrefix
+            apiPrefix: effectiveApiPrefix
           }
         },
         blob: {
           baseUrl: effectiveBaseUrl,
-          apiPrefix,
+          apiPrefix: effectiveApiPrefix,
           onOperationResult: logBlobFlushOperationTelemetry
         }
       });
@@ -191,7 +236,7 @@ export function VfsOrchestratorProvider({
     user,
     isAuthenticated,
     effectiveBaseUrl,
-    apiPrefix,
+    effectiveApiPrefix,
     logBlobFlushOperationTelemetry
   ]);
 

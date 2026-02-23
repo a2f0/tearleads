@@ -276,6 +276,33 @@ describe('VfsOrchestratorContext', () => {
         })
       );
     });
+
+    it('does not duplicate /v1 prefix when baseUrl already includes it', async () => {
+      render(
+        <VfsOrchestratorProvider baseUrl="http://localhost:5001/v1">
+          <div>Test</div>
+        </VfsOrchestratorProvider>
+      );
+
+      await waitFor(() => {
+        expect(mockCreateFacade).toHaveBeenCalled();
+      });
+
+      const apiClientModule = await import('@tearleads/api-client');
+      const MockVfsWriteOrchestrator = apiClientModule.VfsWriteOrchestrator as {
+        lastOptions?: {
+          crdt?: {
+            transportOptions?: { apiPrefix?: string };
+          };
+          blob?: { apiPrefix?: string };
+        };
+      };
+
+      expect(
+        MockVfsWriteOrchestrator.lastOptions?.crdt?.transportOptions?.apiPrefix
+      ).toBe('');
+      expect(MockVfsWriteOrchestrator.lastOptions?.blob?.apiPrefix).toBe('');
+    });
   });
 
   describe('useVfsOrchestrator', () => {
