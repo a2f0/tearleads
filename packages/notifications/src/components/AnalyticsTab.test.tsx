@@ -47,7 +47,9 @@ function createDeferred<T>() {
 }
 
 async function flushPromises(): Promise<void> {
-  await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+  await act(async () => {
+    await Promise.resolve();
+  });
 }
 
 describe('AnalyticsTab', () => {
