@@ -331,4 +331,43 @@ describe('server onData', () => {
       ['legacy-user']
     );
   });
+
+  it('uses inbound ingestor when configured', async () => {
+    const inboundIngestor = {
+      ingest: vi.fn(async () => {})
+    };
+    const listener = await createSmtpListener({
+      port: 2525,
+      inboundIngestor
+    });
+    await listener.start();
+
+    const mockCallback = vi.fn();
+    const stream = createMockStream();
+    const session = {
+      envelope: {
+        mailFrom: { address: 'sender@test.com' },
+        rcptTo: [{ address: `${USER_ID_A}@test.com` }]
+      }
+    };
+
+    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
+    stream.emit('data', Buffer.from('Subject: Test\r\n\r\nBody'));
+    stream.emit('end');
+
+    await vi.waitFor(() => {
+      expect(mockCallback).toHaveBeenCalledWith();
+    });
+    expect(inboundIngestor.ingest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: expect.objectContaining({
+          envelope: expect.objectContaining({
+            rcptTo: [{ address: `${USER_ID_A}@test.com` }]
+          })
+        }),
+        userIds: [USER_ID_A]
+      })
+    );
+    expect(smtpTestDoubles.mockStorageStore).not.toHaveBeenCalled();
+  });
 });
