@@ -50,6 +50,21 @@ vault_version() {
   vault version 2>/dev/null | sed -n 's/^Vault v\([0-9][0-9.]*\).*/\1/p'
 }
 
+vault_cmd_path() {
+  command -v vault 2>/dev/null || true
+}
+
+darwin_release_arch() {
+  case "$(uname -m)" in
+    arm64 | aarch64) echo "arm64" ;;
+    x86_64 | amd64) echo "amd64" ;;
+    *)
+      echo "Unsupported macOS architecture: $(uname -m)" >&2
+      exit 1
+      ;;
+  esac
+}
+
 load_required_terraform_version() {
   if [ ! -f "$REPO_TERRAFORM_VERSION_FILE" ]; then
     echo "Missing required Terraform version file: ${REPO_TERRAFORM_VERSION_FILE}" >&2
@@ -108,9 +123,8 @@ vault_matches_required_version() {
 
 check_prerequisites() {
   if [ "$OS" = "darwin" ]; then
-    if ! has_cmd brew; then
-      echo "Homebrew is required but not found in PATH." >&2
-      echo "Install it from https://brew.sh" >&2
+    if ! has_cmd curl; then
+      echo "'curl' is required but not found in PATH." >&2
       exit 1
     fi
   else
@@ -121,6 +135,45 @@ check_prerequisites() {
       fi
     done
   fi
+}
+
+extract_zip_archive() {
+  zip_path="$1"
+  target_dir="$2"
+
+  if has_cmd bsdtar; then
+    bsdtar -xf "$zip_path" -C "$target_dir"
+  elif has_cmd unzip; then
+    unzip -oq "$zip_path" -d "$target_dir"
+  else
+    echo "Cannot extract archive: missing bsdtar and unzip." >&2
+    return 1
+  fi
+}
+
+install_binary_in_path() {
+  source_path="$1"
+  target_path="$2"
+
+  if [ -w "$(dirname "$target_path")" ]; then
+    install -m 0755 "$source_path" "$target_path"
+  else
+    sudo install -m 0755 "$source_path" "$target_path"
+  fi
+}
+
+install_darwin_hashicorp_zip() {
+  tool_name="$1"
+  tool_version="$2"
+  tool_arch="$(darwin_release_arch)"
+  tool_tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/${tool_name}-bootstrap.XXXXXX")"
+  tool_zip_path="${tool_tmp_dir}/${tool_name}.zip"
+  tool_download_url="https://releases.hashicorp.com/${tool_name}/${tool_version}/${tool_name}_${tool_version}_darwin_${tool_arch}.zip"
+
+  echo "Installing ${tool_name} ${tool_version} from HashiCorp releases." >&2
+  curl -fsSL "$tool_download_url" -o "$tool_zip_path"
+  extract_zip_archive "$tool_zip_path" "$tool_tmp_dir"
+  echo "$tool_tmp_dir"
 }
 
 dir_has_files() {
@@ -177,11 +230,13 @@ install_vault() {
   fi
 
   if [ "$OS" = "darwin" ]; then
-    if brew list vault >/dev/null 2>&1; then
-      brew upgrade vault
-    else
-      brew install vault
+    vault_tmp_dir="$(install_darwin_hashicorp_zip "vault" "$REQUIRED_VAULT_VERSION")"
+    target_vault_path="$(vault_cmd_path)"
+    if [ -z "$target_vault_path" ]; then
+      target_vault_path="/usr/local/bin/vault"
     fi
+    install_binary_in_path "${vault_tmp_dir}/vault" "$target_vault_path"
+    rm -rf "$vault_tmp_dir"
   else
     ensure_hashicorp_apt_repo
     vault_pkg_version="$(apt-cache madison vault | awk -v req="$REQUIRED_VAULT_VERSION" '$3 ~ ("^" req "-") { print $3; exit }')"
@@ -196,16 +251,16 @@ install_vault() {
 
   if ! has_cmd vault || ! vault_matches_required_version; then
     resolved_version="$(vault_version)"
-    if [ "$OS" = "darwin" ]; then
-      echo "Warning: Vault version ${resolved_version:-unknown} does not match required ${REQUIRED_VAULT_VERSION}." >&2
-      echo "Homebrew may not provide exact historical versions on macOS; continuing with installed version." >&2
-    else
-      echo "Vault installation failed: installed version ${resolved_version:-unknown} does not match required ${REQUIRED_VAULT_VERSION}." >&2
-      exit 1
+    resolved_path="$(vault_cmd_path)"
+    echo "Vault installation failed: ${resolved_path:-vault not found} reports version ${resolved_version:-unknown}, expected ${REQUIRED_VAULT_VERSION}." >&2
+    if [ -n "$resolved_path" ]; then
+      echo "All vault binaries in PATH:" >&2
+      which -a vault >&2 || true
     fi
+    exit 1
   fi
 
-  echo "Vault CLI $(vault_version) installed."
+  echo "Vault CLI $(vault_version) installed at $(vault_cmd_path)."
 }
 
 install_terraform() {
@@ -235,11 +290,13 @@ install_terraform() {
       ;;
     *)
       if [ "$OS" = "darwin" ]; then
-        if brew list terraform >/dev/null 2>&1; then
-          brew upgrade terraform
-        else
-          brew install terraform
+        terraform_tmp_dir="$(install_darwin_hashicorp_zip "terraform" "$REQUIRED_TERRAFORM_VERSION")"
+        target_terraform_path="$(terraform_cmd_path)"
+        if [ -z "$target_terraform_path" ]; then
+          target_terraform_path="/usr/local/bin/terraform"
         fi
+        install_binary_in_path "${terraform_tmp_dir}/terraform" "$target_terraform_path"
+        rm -rf "$terraform_tmp_dir"
       else
         ensure_hashicorp_apt_repo
         terraform_pkg_version="$(apt-cache madison terraform | awk -v req="$REQUIRED_TERRAFORM_VERSION" '$3 ~ ("^" req "-") { print $3; exit }')"
@@ -255,7 +312,7 @@ install_terraform() {
   esac
 
   if ! has_cmd terraform || ! terraform_matches_required_version; then
-    # If apt/brew installed terraform but PATH still resolves to a stale tfenv shim,
+    # If apt/direct install completed but PATH still resolves to a stale tfenv shim,
     # repair by pinning tfenv to the required version.
     terraform_bin="$(terraform_cmd_path)"
     case "$terraform_bin" in
@@ -272,17 +329,12 @@ install_terraform() {
   if ! has_cmd terraform || ! terraform_matches_required_version; then
     resolved_bin="$(terraform_cmd_path)"
     resolved_version="$(terraform_version)"
-    if [ "$OS" = "darwin" ]; then
-      echo "Warning: ${resolved_bin:-terraform not found} reports version ${resolved_version:-unknown}, expected ${REQUIRED_TERRAFORM_VERSION}." >&2
-      echo "Homebrew may not provide exact historical versions on macOS; continuing with installed version." >&2
-    else
-      echo "Terraform installation failed: ${resolved_bin:-terraform not found} reports version ${resolved_version:-unknown}, which does not match required ${REQUIRED_TERRAFORM_VERSION}." >&2
-      if [ -n "$resolved_bin" ]; then
-        echo "All terraform binaries in PATH:" >&2
-        which -a terraform >&2 || true
-      fi
-      exit 1
+    echo "Terraform installation failed: ${resolved_bin:-terraform not found} reports version ${resolved_version:-unknown}, expected ${REQUIRED_TERRAFORM_VERSION}." >&2
+    if [ -n "$resolved_bin" ]; then
+      echo "All terraform binaries in PATH:" >&2
+      which -a terraform >&2 || true
     fi
+    exit 1
   fi
 
   echo "Terraform $(terraform_version) installed at $(terraform_cmd_path)."
