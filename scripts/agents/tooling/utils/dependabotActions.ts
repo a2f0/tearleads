@@ -14,17 +14,35 @@ export async function runDependabotAction(
   const context = createGitHubClientContext(repo);
 
   if (action === 'listDependabotAlerts') {
-    return listDependabotAlertsWithOctokit(context, {
-      state: options.state,
-      severity: options.severity,
-      ecosystem: options.ecosystem,
-      packageName: options.package,
-      manifest: options.manifest,
-      scope: options.scope,
-      sort: options.sort,
-      direction: options.direction,
-      perPage: options.perPage
-    });
+    const input: Parameters<typeof listDependabotAlertsWithOctokit>[1] = {};
+    if (options.state !== undefined) {
+      input.state = options.state;
+    }
+    if (options.severity !== undefined) {
+      input.severity = options.severity;
+    }
+    if (options.ecosystem !== undefined) {
+      input.ecosystem = options.ecosystem;
+    }
+    if (options.package !== undefined) {
+      input.packageName = options.package;
+    }
+    if (options.manifest !== undefined) {
+      input.manifest = options.manifest;
+    }
+    if (options.scope !== undefined) {
+      input.scope = options.scope;
+    }
+    if (options.sort !== undefined) {
+      input.sort = options.sort;
+    }
+    if (options.direction !== undefined) {
+      input.direction = options.direction;
+    }
+    if (options.perPage !== undefined) {
+      input.perPage = options.perPage;
+    }
+    return listDependabotAlertsWithOctokit(context, input);
   }
 
   if (action === 'getDependabotAlert') {
@@ -41,12 +59,17 @@ export async function runDependabotAction(
     if (options.state === undefined) {
       throw new Error('updateDependabotAlert requires --state');
     }
-    return updateDependabotAlertWithOctokit(context, {
+    const input: Parameters<typeof updateDependabotAlertWithOctokit>[1] = {
       alertNumber: options.alertNumber,
-      state: options.state,
-      dismissedReason: options.dismissedReason,
-      dismissedComment: options.dismissedComment
-    });
+      state: options.state
+    };
+    if (options.dismissedReason !== undefined) {
+      input.dismissedReason = options.dismissedReason;
+    }
+    if (options.dismissedComment !== undefined) {
+      input.dismissedComment = options.dismissedComment;
+    }
+    return updateDependabotAlertWithOctokit(context, input);
   }
 
   return null;

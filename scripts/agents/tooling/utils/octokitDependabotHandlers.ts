@@ -1,7 +1,7 @@
 import type { RestEndpointMethodTypes } from '@octokit/rest';
 import type { GitHubClientContext } from './githubClient.ts';
 
-type AlertState = 'open' | 'dismissed';
+type UpdateAlertState = 'open' | 'dismissed';
 type AlertSort = 'created' | 'updated' | 'epss_percentage';
 type AlertDirection = 'asc' | 'desc';
 type AlertScope = 'development' | 'runtime';
@@ -42,7 +42,9 @@ function parseCsvInput(value: string | undefined): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function parseAlertState(value: string | undefined): AlertState | undefined {
+function parseUpdateAlertState(
+  value: string | undefined
+): UpdateAlertState | undefined {
   if (value === undefined) {
     return undefined;
   }
@@ -60,7 +62,17 @@ function parseCommaSeparatedAlertStates(
     return undefined;
   }
   for (const token of candidate.split(',')) {
-    parseAlertState(token.trim());
+    const state = token.trim();
+    if (
+      state !== 'open' &&
+      state !== 'dismissed' &&
+      state !== 'fixed' &&
+      state !== 'auto_dismissed'
+    ) {
+      throw new Error(
+        '--state must be one of "open", "dismissed", "fixed", or "auto_dismissed" (comma-separated allowed)'
+      );
+    }
   }
   return candidate;
 }
@@ -161,19 +173,51 @@ export async function listDependabotAlertsWithOctokit(
   context: GitHubClientContext,
   input: ListDependabotAlertsInput
 ): Promise<string> {
-  const response = await context.octokit.rest.dependabot.listAlertsForRepo({
+  const request: Parameters<
+    typeof context.octokit.rest.dependabot.listAlertsForRepo
+  >[0] = {
     owner: context.owner,
-    repo: context.repo,
-    state: parseCommaSeparatedAlertStates(input.state),
-    severity: parseCsvInput(input.severity),
-    ecosystem: parseCsvInput(input.ecosystem),
-    package: parseCsvInput(input.packageName),
-    manifest: parseCsvInput(input.manifest),
-    scope: parseAlertScope(input.scope),
-    sort: parseAlertSort(input.sort),
-    direction: parseAlertDirection(input.direction),
-    per_page: input.perPage
-  });
+    repo: context.repo
+  };
+  const state = parseCommaSeparatedAlertStates(input.state);
+  const severity = parseCsvInput(input.severity);
+  const ecosystem = parseCsvInput(input.ecosystem);
+  const packageName = parseCsvInput(input.packageName);
+  const manifest = parseCsvInput(input.manifest);
+  const scope = parseAlertScope(input.scope);
+  const sort = parseAlertSort(input.sort);
+  const direction = parseAlertDirection(input.direction);
+
+  if (state !== undefined) {
+    request.state = state;
+  }
+  if (severity !== undefined) {
+    request.severity = severity;
+  }
+  if (ecosystem !== undefined) {
+    request.ecosystem = ecosystem;
+  }
+  if (packageName !== undefined) {
+    request.package = packageName;
+  }
+  if (manifest !== undefined) {
+    request.manifest = manifest;
+  }
+  if (scope !== undefined) {
+    request.scope = scope;
+  }
+  if (sort !== undefined) {
+    request.sort = sort;
+  }
+  if (direction !== undefined) {
+    request.direction = direction;
+  }
+  if (input.perPage !== undefined) {
+    request.per_page = input.perPage;
+  }
+
+  const response =
+    await context.octokit.rest.dependabot.listAlertsForRepo(request);
 
   const alerts = response.data.map(normalizeDependabotAlert);
 
@@ -204,7 +248,7 @@ export async function updateDependabotAlertWithOctokit(
   context: GitHubClientContext,
   input: UpdateDependabotAlertInput
 ): Promise<string> {
-  const state = parseAlertState(input.state);
+  const state = parseUpdateAlertState(input.state);
   if (state === undefined) {
     throw new Error('updateDependabotAlert requires --state');
   }
@@ -226,14 +270,23 @@ export async function updateDependabotAlertWithOctokit(
     );
   }
 
-  const response = await context.octokit.rest.dependabot.updateAlert({
+  const request: Parameters<
+    typeof context.octokit.rest.dependabot.updateAlert
+  >[0] = {
     owner: context.owner,
     repo: context.repo,
     alert_number: input.alertNumber,
-    state,
-    dismissed_reason: dismissedReason,
-    dismissed_comment: input.dismissedComment
-  });
+    state
+  };
+
+  if (dismissedReason !== undefined) {
+    request.dismissed_reason = dismissedReason;
+  }
+  if (input.dismissedComment !== undefined) {
+    request.dismissed_comment = input.dismissedComment;
+  }
+
+  const response = await context.octokit.rest.dependabot.updateAlert(request);
 
   return JSON.stringify(normalizeDependabotAlert(response.data), null, 2);
 }
