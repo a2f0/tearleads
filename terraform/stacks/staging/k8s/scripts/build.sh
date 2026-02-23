@@ -17,7 +17,12 @@ if [[ "$SKIP_WEBSITE" == "true" ]]; then
 fi
 
 echo "Building and pushing staging images..."
-"$REPO_ROOT/scripts/buildContainers.sh" staging "${build_args[@]}" "$@"
+cmd=("$REPO_ROOT/scripts/buildContainers.sh" staging)
+if ((${#build_args[@]})); then
+  cmd+=("${build_args[@]}")
+fi
+cmd+=("$@")
+"${cmd[@]}"
 
 echo ""
 echo "Build complete. Images pushed to ECR."
