@@ -392,7 +392,9 @@ describe('migrations (core through v021)', () => {
         'CREATE TABLE IF NOT EXISTS "vfs_sync_client_state"'
       );
       expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_acl_entries"');
-      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_sync_changes"');
+      expect(queries).toContain(
+        'CREATE TABLE IF NOT EXISTS "vfs_sync_changes"'
+      );
       expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_crdt_ops"');
       expect(queries).toContain(
         'CREATE OR REPLACE FUNCTION "vfs_merge_reconciled_write_ids"'
