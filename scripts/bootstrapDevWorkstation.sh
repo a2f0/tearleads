@@ -288,6 +288,37 @@ install_terraform() {
   echo "Terraform $(terraform_version) installed at $(terraform_cmd_path)."
 }
 
+install_postgres_linux() {
+  if [ "$OS" != "linux" ]; then
+    return
+  fi
+
+  if has_cmd psql && has_cmd createdb; then
+    echo "PostgreSQL client tools are already installed."
+  else
+    echo "Installing PostgreSQL server/client..."
+    sudo apt-get update -qq
+    sudo apt-get install -y postgresql postgresql-client
+    echo "PostgreSQL packages installed."
+  fi
+
+  # Start Postgres service if system manager is available.
+  if has_cmd systemctl; then
+    if sudo systemctl enable --now postgresql >/dev/null 2>&1; then
+      echo "PostgreSQL service enabled and started."
+    else
+      echo "Warning: Could not start postgresql via systemctl." >&2
+      echo "Try: sudo pg_ctlcluster <version> <cluster> start" >&2
+    fi
+  elif has_cmd service; then
+    if sudo service postgresql start >/dev/null 2>&1; then
+      echo "PostgreSQL service started."
+    else
+      echo "Warning: Could not start postgresql via service." >&2
+    fi
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # Post-install checks
 # ---------------------------------------------------------------------------
@@ -408,6 +439,7 @@ main() {
   install_tailscale
   install_vault
   install_terraform
+  install_postgres_linux
   prompt_tailscale_auth
   try_fetch_secrets
 

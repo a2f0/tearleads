@@ -50,6 +50,8 @@
       - automake
       - libncurses-dev
       - libpam0g-dev
+      - postgresql
+      - postgresql-client
       - xclip
     state: present
   when: toolchain_is_linux
@@ -68,6 +70,13 @@
   register: brew_install_result
   changed_when: "'already installed' not in brew_install_result.stdout"
   when: toolchain_is_darwin
+
+- name: Ensure PostgreSQL service is enabled and running
+  ansible.builtin.systemd:
+    name: postgresql
+    enabled: true
+    state: started
+  when: ansible_service_mgr == 'systemd'
 
 # On Debian/Ubuntu, fd-find installs the binary as 'fdfind'.
 # Neovim Telescope and other tools expect the command to be 'fd'.

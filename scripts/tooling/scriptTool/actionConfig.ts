@@ -242,7 +242,7 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     defaultTimeoutSeconds: 1200,
     scriptPath: (repo) => path.join(repo, 'scripts', 'setupPostgresDev.sh'),
     scriptType: 'shell',
-    description: 'Install/start Homebrew PostgreSQL and provision dev DB',
+    description: 'Install/start local PostgreSQL and provision dev DB',
     category: 'environment'
   },
   setupSerenaMcp: {

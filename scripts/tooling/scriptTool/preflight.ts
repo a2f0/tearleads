@@ -127,9 +127,24 @@ export function runPreflight(
       break;
 
     case 'setupPostgresDev':
-      ensureMacOs(action);
-      ensureCommand(action, 'brew', repoRoot);
-      addCheck('macOS and Homebrew are available');
+      if (process.platform === 'darwin') {
+        ensureCommand(action, 'brew', repoRoot);
+        addCheck('macOS and Homebrew are available');
+      } else if (process.platform === 'linux') {
+        if (
+          !commandExists('psql', repoRoot) &&
+          !commandExists('apt-get', repoRoot)
+        ) {
+          throw new Error(
+            `${action} preflight failed: Linux requires psql/createdb installed or apt-get available`
+          );
+        }
+        addCheck('Linux supported (psql or apt-get available)');
+      } else {
+        throw new Error(
+          `${action} preflight failed: only macOS and Linux are supported`
+        );
+      }
       break;
 
     case 'setupSerenaMcp':
