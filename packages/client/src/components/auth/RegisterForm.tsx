@@ -3,6 +3,7 @@ import {
   PASSWORD_MIN_LENGTH,
   passwordMeetsComplexity
 } from '@tearleads/shared';
+import { Eye, EyeOff } from 'lucide-react';
 import { useCallback, useId, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +43,8 @@ export function RegisterForm({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
@@ -156,19 +159,34 @@ export function RegisterForm({
           <label htmlFor={`${id}-password`} className="font-medium text-sm">
             Password
           </label>
-          <Input
-            ref={passwordRef}
-            id={`${id}-password`}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onFocus={() => handleInputFocus(passwordRef)}
-            placeholder="Create a password"
-            required
-            disabled={isSubmitting}
-            autoComplete="new-password"
-            minLength={PASSWORD_MIN_LENGTH}
-          />
+          <div className="relative">
+            <Input
+              ref={passwordRef}
+              id={`${id}-password`}
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onFocus={() => handleInputFocus(passwordRef)}
+              placeholder="Create a password"
+              required
+              disabled={isSubmitting}
+              autoComplete="new-password"
+              minLength={PASSWORD_MIN_LENGTH}
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="absolute top-1/2 right-1 -translate-y-1/2 p-2 text-muted-foreground hover:text-foreground"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? (
+                <EyeOff className="h-5 w-5" />
+              ) : (
+                <Eye className="h-5 w-5" />
+              )}
+            </button>
+          </div>
           <p className="text-muted-foreground text-xs">
             Minimum {PASSWORD_MIN_LENGTH} characters, including uppercase,
             lowercase, number, and symbol
@@ -182,18 +200,37 @@ export function RegisterForm({
           >
             Confirm Password
           </label>
-          <Input
-            ref={confirmPasswordRef}
-            id={`${id}-confirm-password`}
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            onFocus={() => handleInputFocus(confirmPasswordRef)}
-            placeholder="Confirm your password"
-            required
-            disabled={isSubmitting}
-            autoComplete="new-password"
-          />
+          <div className="relative">
+            <Input
+              ref={confirmPasswordRef}
+              id={`${id}-confirm-password`}
+              type={showConfirmPassword ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              onFocus={() => handleInputFocus(confirmPasswordRef)}
+              placeholder="Confirm your password"
+              required
+              disabled={isSubmitting}
+              autoComplete="new-password"
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword((prev) => !prev)}
+              className="absolute top-1/2 right-1 -translate-y-1/2 p-2 text-muted-foreground hover:text-foreground"
+              aria-label={
+                showConfirmPassword
+                  ? 'Hide confirm password'
+                  : 'Show confirm password'
+              }
+            >
+              {showConfirmPassword ? (
+                <EyeOff className="h-5 w-5" />
+              ) : (
+                <Eye className="h-5 w-5" />
+              )}
+            </button>
+          </div>
         </div>
 
         <Button
