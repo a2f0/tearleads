@@ -18,17 +18,17 @@ import { organizationsRouter } from './routes/admin/organizations.js';
 import { postgresRouter } from './routes/admin/postgres.js';
 import { redisRouter } from './routes/admin/redis.js';
 import { usersRouter } from './routes/admin/users.js';
-import { aiConversationsRouter } from './routes/aiConversations.js';
-import { authRouter } from './routes/auth.js';
-import { billingRouter } from './routes/billing.js';
-import { chatRouter } from './routes/chat.js';
-import { emailsRouter } from './routes/emails.js';
-import { emailsComposeRouter } from './routes/emailsCompose.js';
-import { mlsRouter } from './routes/mls.js';
-import { revenuecatRouter } from './routes/revenuecat.js';
-import { closeAllSSEConnections, sseRouter } from './routes/sse.js';
-import { vfsRouter } from './routes/vfs.js';
-import { vfsSharesRouter } from './routes/vfsShares.js';
+import { aiConversationsRouter } from './routes/ai-conversations/router.js';
+import { authRouter } from './routes/auth/router.js';
+import { billingRouter } from './routes/billing/router.js';
+import { chatRouter } from './routes/chat/router.js';
+import { emailsRouter } from './routes/emails/router.js';
+import { emailsComposeRouter } from './routes/emailsCompose/router.js';
+import { mlsRouter } from './routes/mls/router.js';
+import { revenuecatRouter } from './routes/revenuecat/router.js';
+import { closeAllSSEConnections, sseRouter } from './routes/sse/router.js';
+import { vfsRouter } from './routes/vfs/router.js';
+import { vfsSharesRouter } from './routes/vfs-shares/router.js';
 
 dotenv.config({ quiet: true });
 

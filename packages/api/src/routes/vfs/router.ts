@@ -1,0 +1,39 @@
+/**
+ * VFS (Virtual Filesystem) API routes.
+ *
+ * Handles user key management and VFS item registration.
+ */
+
+import { Router, type Router as RouterType } from 'express';
+import { registerDeleteBlobsBlobIdRoute } from './delete-blobs-blobId.js';
+import { registerGetBlobsBlobIdRoute } from './get-blobs-blobId.js';
+import { registerGetCrdtSyncRoute } from './get-crdt-sync.js';
+import { registerGetSyncRoute } from './get-sync.js';
+import { registerGetKeysMeRoute } from './getKeysMe.js';
+import { registerPostBlobsStageRoute } from './post-blobs-stage.js';
+import { registerPostBlobsStageStagingIdAbandonRoute } from './post-blobs-stage-stagingId-abandon.js';
+import { registerPostBlobsStageStagingIdAttachRoute } from './post-blobs-stage-stagingId-attach.js';
+import { registerPostCrdtPushRoute } from './post-crdt-push.js';
+import { registerPostCrdtReconcileRoute } from './post-crdt-reconcile.js';
+import { registerPostItemsItemIdRekeyRoute } from './post-items-itemId-rekey.js';
+import { registerPostSyncReconcileRoute } from './post-sync-reconcile.js';
+import { registerPostKeysRoute } from './postKeys.js';
+import { registerPostRegisterRoute } from './postRegister.js';
+
+const vfsRouter: RouterType = Router();
+registerGetKeysMeRoute(vfsRouter);
+registerGetCrdtSyncRoute(vfsRouter);
+registerGetSyncRoute(vfsRouter);
+registerPostBlobsStageRoute(vfsRouter);
+registerPostBlobsStageStagingIdAttachRoute(vfsRouter);
+registerPostBlobsStageStagingIdAbandonRoute(vfsRouter);
+registerGetBlobsBlobIdRoute(vfsRouter);
+registerDeleteBlobsBlobIdRoute(vfsRouter);
+registerPostCrdtPushRoute(vfsRouter);
+registerPostCrdtReconcileRoute(vfsRouter);
+registerPostKeysRoute(vfsRouter);
+registerPostRegisterRoute(vfsRouter);
+registerPostSyncReconcileRoute(vfsRouter);
+registerPostItemsItemIdRekeyRoute(vfsRouter);
+
+export { vfsRouter };
