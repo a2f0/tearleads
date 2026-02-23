@@ -16,8 +16,8 @@ SINCE="${SINCE:-}"
 TAIL_LINES="${TAIL_LINES:-100}"
 
 if [[ ! -f "$KUBECONFIG_FILE" ]]; then
-  echo "ERROR: Kubeconfig not found at $KUBECONFIG_FILE"
-  echo "Run $SCRIPT_DIR/kubeconfig.sh first, then retry."
+  echo "ERROR: Kubeconfig not found at $KUBECONFIG_FILE" >&2
+  echo "Run $SCRIPT_DIR/kubeconfig.sh first, then retry." >&2
   exit 1
 fi
 
