@@ -116,10 +116,9 @@ export function applyDependabotCommandOptions(
         .hook('preAction', (thisCommand) => {
           const opts = thisCommand.opts();
           if (opts.state === 'dismissed' && !opts.dismissedReason) {
-            console.error(
-              'error: updateDependabotAlert requires --dismissed-reason when --state dismissed'
+            throw new InvalidArgumentError(
+              'updateDependabotAlert requires --dismissed-reason when --state dismissed'
             );
-            process.exit(1);
           }
           if (opts.state === 'open' && opts.dismissedReason) {
             throw new InvalidArgumentError(
