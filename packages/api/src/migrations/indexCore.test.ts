@@ -483,9 +483,7 @@ describe('migrations (core through v021)', () => {
       expect(queries).toContain(
         'CREATE INDEX IF NOT EXISTS "email_recipients_user_created_idx"'
       );
-      expect(queries).toContain(
-        'UNIQUE ("message_id", "user_id")'
-      );
+      expect(queries).toContain('UNIQUE ("message_id", "user_id")');
     });
   });
 });

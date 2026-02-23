@@ -137,7 +137,9 @@ async function insertEmailForRecipient(input: {
   );
 }
 
-export class PostgresInboundVfsEmailRepository implements InboundVfsEmailRepository {
+export class PostgresInboundVfsEmailRepository
+  implements InboundVfsEmailRepository
+{
   async persistInboundMessage(input: {
     envelope: InboundMessageEnvelopeRecord;
     recipients: ResolvedInboundRecipient[];

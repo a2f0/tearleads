@@ -21,16 +21,17 @@ function buildPublicKeyString(): string {
 describe('DefaultInboundMessageIngestor', () => {
   it('encrypts payload and persists recipient fanout envelope', async () => {
     const keyLookup: InboundRecipientKeyLookup = {
-      getPublicEncryptionKeys: vi.fn(async () =>
-        new Map([
-          [
-            '11111111-1111-4111-8111-111111111111',
-            {
-              userId: '11111111-1111-4111-8111-111111111111',
-              publicEncryptionKey: buildPublicKeyString()
-            }
-          ]
-        ])
+      getPublicEncryptionKeys: vi.fn(
+        async () =>
+          new Map([
+            [
+              '11111111-1111-4111-8111-111111111111',
+              {
+                userId: '11111111-1111-4111-8111-111111111111',
+                publicEncryptionKey: buildPublicKeyString()
+              }
+            ]
+          ])
       )
     };
     const blobStore: InboundBlobStore = {

@@ -125,8 +125,9 @@ const getRootHandler = async (req: Request, res: Response) => {
         id: row.id,
         from: row.encrypted_from ?? '',
         to: Array.isArray(row.encrypted_to)
-          ? row.encrypted_to
-              .filter((value): value is string => typeof value === 'string')
+          ? row.encrypted_to.filter(
+              (value): value is string => typeof value === 'string'
+            )
           : [],
         subject: row.encrypted_subject ?? '',
         receivedAt: row.received_at,

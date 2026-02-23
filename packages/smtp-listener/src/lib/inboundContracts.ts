@@ -1,5 +1,4 @@
-import type { EmailAddress } from '../types/email.js';
-import type { StoredEmail } from '../types/email.js';
+import type { EmailAddress, StoredEmail } from '../types/email.js';
 
 export interface ResolvedInboundRecipient {
   userId: string;
@@ -59,8 +58,5 @@ export interface InboundVfsEmailRepository {
 }
 
 export interface InboundMessageIngestor {
-  ingest(input: {
-    email: StoredEmail;
-    userIds: string[];
-  }): Promise<void>;
+  ingest(input: { email: StoredEmail; userIds: string[] }): Promise<void>;
 }

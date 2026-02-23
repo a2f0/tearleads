@@ -78,7 +78,9 @@ const getIdHandler = async (req: Request<{ id: string }>, res: Response) => {
       }
 
       const encryptedTo = Array.isArray(row.encrypted_to)
-        ? row.encrypted_to.filter((value): value is string => typeof value === 'string')
+        ? row.encrypted_to.filter(
+            (value): value is string => typeof value === 'string'
+          )
         : [];
 
       res.json({

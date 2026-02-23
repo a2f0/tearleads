@@ -5,6 +5,7 @@ import {
   splitPublicKey,
   wrapKeyForRecipient
 } from '@tearleads/shared';
+import type { StoredEmail } from '../types/email.js';
 import type {
   InboundBlobStore,
   InboundMessageIngestor,
@@ -13,7 +14,6 @@ import type {
   ResolvedInboundRecipient,
   WrappedRecipientKeyEnvelope
 } from './inboundContracts.js';
-import type { StoredEmail } from '../types/email.js';
 
 const NONCE_BYTES = 12;
 
@@ -39,7 +39,10 @@ function parseUserIdFromAddress(address: string): string | null {
   return normalized.slice(0, atIndex);
 }
 
-function resolveRecipients(email: StoredEmail, userIds: string[]): ResolvedInboundRecipient[] {
+function resolveRecipients(
+  email: StoredEmail,
+  userIds: string[]
+): ResolvedInboundRecipient[] {
   const resolved: ResolvedInboundRecipient[] = [];
   for (const userId of userIds) {
     let matchedAddress = `${userId}@unknown`;
@@ -58,7 +61,10 @@ function resolveRecipients(email: StoredEmail, userIds: string[]): ResolvedInbou
   return resolved;
 }
 
-function encryptBytesAesGcm(plaintext: Uint8Array, dek: Uint8Array): Uint8Array {
+function encryptBytesAesGcm(
+  plaintext: Uint8Array,
+  dek: Uint8Array
+): Uint8Array {
   const nonce = randomBytes(NONCE_BYTES);
   const cipher = createCipheriv('aes-256-gcm', dek, nonce);
   const encryptedPart1 = cipher.update(plaintext);
@@ -119,7 +125,10 @@ export class DefaultInboundMessageIngestor implements InboundMessageIngestor {
     private readonly repository: InboundVfsEmailRepository
   ) {}
 
-  async ingest(input: { email: StoredEmail; userIds: string[] }): Promise<void> {
+  async ingest(input: {
+    email: StoredEmail;
+    userIds: string[];
+  }): Promise<void> {
     if (input.userIds.length === 0) {
       return;
     }
