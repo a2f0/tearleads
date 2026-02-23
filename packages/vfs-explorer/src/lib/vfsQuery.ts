@@ -193,10 +193,7 @@ export async function queryDeletedItems(
     .from(vfsRegistry)
     .innerJoin(vfsItemState, eq(vfsRegistry.id, vfsItemState.itemId))
     .where(
-      and(
-        ne(vfsRegistry.id, VFS_ROOT_ID),
-        isNotNull(vfsItemState.deletedAt)
-      )
+      and(ne(vfsRegistry.id, VFS_ROOT_ID), isNotNull(vfsItemState.deletedAt))
     )
     .orderBy(...orderExprs);
 

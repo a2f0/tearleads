@@ -77,9 +77,7 @@ async function applyCanonicalItemOperation(
       [operation.itemId, actorId]
     );
     return;
-  }
-
-  else if (operation.opType === 'item_delete') {
+  } else if (operation.opType === 'item_delete') {
     await client.query(
       `
       INSERT INTO vfs_item_state (
