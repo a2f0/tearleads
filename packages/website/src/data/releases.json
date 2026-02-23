@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "version": "0.0.1445",
+      "date": "2026-02-23",
+      "platforms": {
+        "macos": {
+          "arch": "arm64",
+          "ext": "dmg"
+        },
+        "windows": {
+          "arch": "x64",
+          "ext": "exe"
+        },
+        "linux": {
+          "arch": "x64",
+          "ext": "AppImage"
+        }
+      }
+    },
+    {
       "version": "0.0.1444",
       "date": "2026-02-23",
       "platforms": {
