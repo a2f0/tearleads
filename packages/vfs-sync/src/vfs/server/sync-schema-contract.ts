@@ -86,6 +86,11 @@ export const VFS_SYNC_SCHEMA_DEPENDENCIES: VfsSyncSchemaDependency[] = [
     purpose: 'idempotent source checks and canonical CRDT operation writes'
   },
   {
+    tableName: 'vfs_item_state',
+    domain: 'crdtPush',
+    purpose: 'canonical encrypted item snapshot upsert/tombstone writes'
+  },
+  {
     tableName: 'vfs_sync_client_state',
     domain: 'crdtReconcile',
     purpose: 'monotonic per-client reconcile cursor + replica-write state'
