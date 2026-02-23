@@ -30,6 +30,7 @@ module "ci_artifacts" {
   ecr_repositories = [
     "tearleads-staging/api",
     "tearleads-staging/client",
+    "tearleads-staging/smtp-listener",
     "tearleads-staging/website",
   ]
   ecr_lifecycle_max_images = 20

@@ -37,6 +37,7 @@ This stack provisions a k3s Kubernetes cluster on Hetzner Cloud for the staging 
 | `scripts/deploy.sh` | Apply all Kubernetes manifests |
 | `scripts/update.sh` | Update server packages via Ansible |
 | `scripts/smoke-s3.sh` | Verify Garage-backed S3 storage with in-cluster put/get/delete |
+| `scripts/smoke-smtp.sh` | Verify SMTP listener accepts mail and persists it to Redis |
 | `scripts/dump-api-env.sh` | Inspect API pod environment variable visibility (names by default, `--show-values` for full values) |
 
 ## Quick Start
@@ -73,6 +74,7 @@ The zone uses `prevent_destroy`, so `terraform destroy` will not remove it.
 | `postgres.yaml` | PostgreSQL StatefulSet with PVC |
 | `redis.yaml` | Redis deployment |
 | `garage.yaml` | Garage S3-compatible object storage for VFS blobs |
+| `smtp-listener.yaml` | SMTP listener deployment and service |
 | `api.yaml` | API server deployment |
 | `client.yaml` | Web client deployment |
 | `website.yaml` | Marketing website deployment |
@@ -145,7 +147,7 @@ Images are pulled from ECR. See [Container Deployments](../../../docs/container-
 ./scripts/setup-ecr-secret.sh
 
 # Restart deployments to pull new images
-kubectl rollout restart deployment/api deployment/client deployment/website -n tearleads
+kubectl rollout restart deployment/api deployment/client deployment/smtp-listener deployment/website -n tearleads
 ```
 
 ## Database
