@@ -6,12 +6,12 @@ This map ties payment infrastructure policy controls to concrete implementation 
 
 | Sentinel | Description | HIPAA Standard | Implementation Evidence | Test Evidence |
 | --- | --- | --- | --- | --- |
-| `TL-PAY-001` | HMAC-SHA256 webhook signature verification | 164.312(e)(2)(i) | [`packages/api/src/lib/revenuecat.ts`](../../../packages/api/src/lib/revenuecat.ts) | [`packages/api/src/lib/revenuecat.test.ts`](../../../packages/api/src/lib/revenuecat.test.ts), [`packages/api/src/routes/revenuecat.test.ts`](../../../packages/api/src/routes/revenuecat.test.ts) |
-| `TL-PAY-002` | Replay attack prevention via event age validation | 164.312(d) | [`packages/api/src/lib/revenuecat.ts`](../../../packages/api/src/lib/revenuecat.ts) | [`packages/api/src/lib/revenuecat.test.ts`](../../../packages/api/src/lib/revenuecat.test.ts), [`packages/api/src/routes/revenuecat.test.ts`](../../../packages/api/src/routes/revenuecat.test.ts) |
-| `TL-PAY-003` | Idempotent event processing via unique event_id | 164.312(c)(1), 164.312(c)(2) | [`packages/db/src/schema/definition.ts`](../../../packages/db/src/schema/definition.ts), [`packages/api/src/routes/revenuecat/postWebhooks.ts`](../../../packages/api/src/routes/revenuecat/postWebhooks.ts) | [`packages/api/src/routes/revenuecat.test.ts`](../../../packages/api/src/routes/revenuecat.test.ts) |
-| `TL-PAY-004` | Full webhook payload storage for audit trail | 164.312(b) | [`packages/db/src/schema/definition.ts`](../../../packages/db/src/schema/definition.ts) | [`packages/api/src/routes/revenuecat.test.ts`](../../../packages/api/src/routes/revenuecat.test.ts) |
-| `TL-PAY-005` | Organization membership verification for billing access | 164.312(a)(1), 164.312(a)(2)(i) | [`packages/api/src/routes/billing/getOrganizationsOrganizationId.ts`](../../../packages/api/src/routes/billing/getOrganizationsOrganizationId.ts) | [`packages/api/src/routes/billing.test.ts`](../../../packages/api/src/routes/billing.test.ts) |
-| `TL-PAY-006` | Entitlement state tracking with event attribution | 164.312(c)(1), 164.312(c)(2) | [`packages/db/src/schema/definition.ts`](../../../packages/db/src/schema/definition.ts), [`packages/api/src/routes/revenuecat/postWebhooks.ts`](../../../packages/api/src/routes/revenuecat/postWebhooks.ts) | [`packages/api/src/routes/revenuecat.test.ts`](../../../packages/api/src/routes/revenuecat.test.ts) |
+| `TL-PAY-001` | HMAC-SHA256 webhook signature verification | 164.312(e)(2)(i) | [`packages/api/src/lib/revenuecat.ts`](../../../packages/api/src/lib/revenuecat.ts) | [`packages/api/src/lib/revenuecat.test.ts`](../../../packages/api/src/lib/revenuecat.test.ts), [`packages/api/src/routes/revenuecat/revenuecat.test.ts`](../../../packages/api/src/routes/revenuecat/revenuecat.test.ts) |
+| `TL-PAY-002` | Replay attack prevention via event age validation | 164.312(d) | [`packages/api/src/lib/revenuecat.ts`](../../../packages/api/src/lib/revenuecat.ts) | [`packages/api/src/lib/revenuecat.test.ts`](../../../packages/api/src/lib/revenuecat.test.ts), [`packages/api/src/routes/revenuecat/revenuecat.test.ts`](../../../packages/api/src/routes/revenuecat/revenuecat.test.ts) |
+| `TL-PAY-003` | Idempotent event processing via unique event_id | 164.312(c)(1), 164.312(c)(2) | [`packages/db/src/schema/definition.ts`](../../../packages/db/src/schema/definition.ts), [`packages/api/src/routes/revenuecat/postWebhooks.ts`](../../../packages/api/src/routes/revenuecat/postWebhooks.ts) | [`packages/api/src/routes/revenuecat/revenuecat.test.ts`](../../../packages/api/src/routes/revenuecat/revenuecat.test.ts) |
+| `TL-PAY-004` | Full webhook payload storage for audit trail | 164.312(b) | [`packages/db/src/schema/definition.ts`](../../../packages/db/src/schema/definition.ts) | [`packages/api/src/routes/revenuecat/revenuecat.test.ts`](../../../packages/api/src/routes/revenuecat/revenuecat.test.ts) |
+| `TL-PAY-005` | Organization membership verification for billing access | 164.312(a)(1), 164.312(a)(2)(i) | [`packages/api/src/routes/billing/getOrganizationsOrganizationId.ts`](../../../packages/api/src/routes/billing/getOrganizationsOrganizationId.ts) | [`packages/api/src/routes/billing/billing.test.ts`](../../../packages/api/src/routes/billing/billing.test.ts) |
+| `TL-PAY-006` | Entitlement state tracking with event attribution | 164.312(c)(1), 164.312(c)(2) | [`packages/db/src/schema/definition.ts`](../../../packages/db/src/schema/definition.ts), [`packages/api/src/routes/revenuecat/postWebhooks.ts`](../../../packages/api/src/routes/revenuecat/postWebhooks.ts) | [`packages/api/src/routes/revenuecat/revenuecat.test.ts`](../../../packages/api/src/routes/revenuecat/revenuecat.test.ts) |
 
 ## HIPAA Technical Safeguards Coverage
 
@@ -76,8 +76,8 @@ This map ties payment infrastructure policy controls to concrete implementation 
 | Test File | Controls Verified | HIPAA Standards |
 | --- | --- | --- |
 | `packages/api/src/lib/revenuecat.test.ts` | TL-PAY-001, TL-PAY-002 | 164.312(d), 164.312(e) |
-| `packages/api/src/routes/revenuecat.test.ts` | TL-PAY-001-006 | All |
-| `packages/api/src/routes/billing.test.ts` | TL-PAY-005 | 164.312(a) |
+| `packages/api/src/routes/revenuecat/revenuecat.test.ts` | TL-PAY-001-006 | All |
+| `packages/api/src/routes/billing/billing.test.ts` | TL-PAY-005 | 164.312(a) |
 
 ## Configuration Evidence
 
