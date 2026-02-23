@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-ROOT_DIR="$(cd -- "$(dirname -- "$0")/.." && pwd -P)"
+ROOT_DIR="$(cd -- "$(dirname -- "$0")/../.." && pwd -P)"
 
 # If no explicit PG env is set, dev mode defaults to local Postgres.
 # On Linux this prefers the local socket path for peer auth.
@@ -34,7 +34,7 @@ if [ "${HAS_PG_ENV}" -eq 0 ] && command -v pg_isready >/dev/null 2>&1; then
     else
       echo "Postgres is not reachable at localhost:5432." >&2
     fi
-    echo "Run ./scripts/setupPostgresDev.sh to provision/start local dev Postgres, then retry." >&2
+    echo "Run ./scripts/postgres/setupPostgresDev.sh to provision/start local dev Postgres, then retry." >&2
     exit 1
   fi
 fi
