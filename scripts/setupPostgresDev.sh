@@ -7,6 +7,36 @@ OS_NAME="$(uname -s)"
 DB_NAME="tearleads_development"
 PG_USER="${USER:-${LOGNAME:-}}"
 
+ensure_linux_role_exists() {
+  role_name="$1"
+
+  if [ "${OS_NAME}" != "Linux" ] || [ -z "${role_name}" ]; then
+    return
+  fi
+
+  if ! command -v psql >/dev/null 2>&1; then
+    return
+  fi
+
+  if ! command -v sudo >/dev/null 2>&1; then
+    return
+  fi
+
+  role_exists="$(sudo -u postgres psql --dbname postgres --tuples-only --quiet --no-align -c "SELECT 1 FROM pg_roles WHERE rolname='${role_name}'" 2>/dev/null | tr -d '[:space:]')"
+  if [ "${role_exists}" = "1" ]; then
+    return
+  fi
+
+  if sudo -u postgres createuser "${role_name}" >/dev/null 2>&1; then
+    echo "Created Postgres role ${role_name}."
+    return
+  fi
+
+  echo "Postgres role ${role_name} does not exist and could not be created automatically." >&2
+  echo "Run: sudo -u postgres createuser ${role_name}" >&2
+  exit 1
+}
+
 match_formula() {
   if command -v rg >/dev/null 2>&1; then
     rg "^postgresql(@[0-9]+)?$"
@@ -194,19 +224,30 @@ start_postgres_linux() {
 
 provision_dev_db() {
   psql_base_args="--dbname postgres --tuples-only --quiet --no-align"
+  psql_check_output=""
+  psql_status=1
   createdb_status=1
   createdb_output=""
 
   if [ -n "${PG_USER}" ]; then
     set +e
-    db_exists=$(PGUSER="${PG_USER}" psql ${psql_base_args} -c "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" 2>/dev/null | tr -d '[:space:]')
+    psql_check_output="$(PGUSER="${PG_USER}" psql ${psql_base_args} -c "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" 2>&1)"
     psql_status=$?
     set -e
+    if [ "${psql_status}" -ne 0 ] && echo "${psql_check_output}" | grep -q "role .* does not exist"; then
+      ensure_linux_role_exists "${PG_USER}"
+      set +e
+      psql_check_output="$(PGUSER="${PG_USER}" psql ${psql_base_args} -c "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" 2>&1)"
+      psql_status=$?
+      set -e
+    fi
+    db_exists="$(printf '%s\n' "${psql_check_output}" | tr -d '[:space:]')"
   else
     set +e
-    db_exists=$(psql ${psql_base_args} -c "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" 2>/dev/null | tr -d '[:space:]')
+    psql_check_output="$(psql ${psql_base_args} -c "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" 2>&1)"
     psql_status=$?
     set -e
+    db_exists="$(printf '%s\n' "${psql_check_output}" | tr -d '[:space:]')"
   fi
 
   if [ "${db_exists}" = "1" ]; then
@@ -230,9 +271,26 @@ provision_dev_db() {
     echo "Created database ${DB_NAME}."
   elif echo "${createdb_output}" | grep -q "already exists"; then
     echo "Database ${DB_NAME} already exists."
+  elif echo "${createdb_output}" | grep -q "permission denied to create database"; then
+    if [ "${OS_NAME}" = "Linux" ] && [ -n "${PG_USER}" ]; then
+      if command -v sudo >/dev/null 2>&1 && sudo -u postgres createdb -O "${PG_USER}" "${DB_NAME}" >/dev/null 2>&1; then
+        echo "Created database ${DB_NAME} via postgres superuser."
+        return
+      fi
+      echo "Role ${PG_USER} lacks CREATEDB permission." >&2
+      echo "Run one of the following, then rerun:" >&2
+      echo "  sudo -u postgres createdb -O ${PG_USER} ${DB_NAME}" >&2
+      echo "  sudo -u postgres psql -d postgres -c \"ALTER ROLE ${PG_USER} CREATEDB;\"" >&2
+      exit 1
+    fi
+    echo "Failed to create database ${DB_NAME}: permission denied." >&2
+    echo "${createdb_output}" >&2
+    exit 1
   elif [ ${psql_status} -ne 0 ]; then
     echo "Failed to check for database ${DB_NAME}; createdb also failed." >&2
+    echo "${psql_check_output}" >&2
     echo "${createdb_output}" >&2
+    exit 1
   else
     echo "Failed to create database ${DB_NAME}." >&2
     echo "${createdb_output}" >&2
