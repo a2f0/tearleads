@@ -15,7 +15,8 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     safetyClass: 'safe_read',
     retrySafe: true,
     defaultTimeoutSeconds: 300,
-    scriptPath: (repo) => path.join(repo, 'scripts', 'checkBinaryFiles.sh'),
+    scriptPath: (repo) =>
+      path.join(repo, 'scripts', 'checks', 'checkBinaryFiles.sh'),
     scriptType: 'shell',
     description: 'Check for binary files (guardrail validation)',
     category: 'analysis',
@@ -264,7 +265,7 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     safetyClass: 'safe_write_local',
     retrySafe: true,
     defaultTimeoutSeconds: 1800,
-    scriptPath: (repo) => path.join(repo, 'scripts', 'setupTuxedoRepos.sh'),
+    scriptPath: (repo) => path.join(repo, 'tuxedo', 'setupTuxedoRepos.sh'),
     scriptType: 'shell',
     description: 'Clone/fetch local tuxedo workspace repositories',
     category: 'environment',

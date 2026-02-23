@@ -260,7 +260,7 @@ run_discovery() {
       rg -n --glob '*.tsx' 'cursor-col-resize.*onMouseDown|handleResize.*MouseEvent' packages | rg -v 'window-manager' | head -20
       ;;
     preen-file-limits)
-      ./scripts/preen/checkFileLimits.sh --all 2>&1 | head -40
+      ./scripts/checks/checkFileLimits.sh --all 2>&1 | head -40
       ;;
     preen-knip)
       pnpm exec knip --config knip.ts --use-tsconfig-files --reporter compact | head -80 || true
@@ -361,7 +361,7 @@ metric_count() {
       echo $((MANUAL_REFRESH + MANUAL_DRAG + MANUAL_RESIZE))
       ;;
     preen-file-limits)
-      ./scripts/preen/checkFileLimits.sh --all 2>&1 | grep '^  - ' | wc -l
+      ./scripts/checks/checkFileLimits.sh --all 2>&1 | grep '^  - ' | wc -l
       ;;
     preen-knip)
       KNIP_JSON=$(mktemp)

@@ -326,9 +326,9 @@
       "qualityMetric": "Files exceeding size limits (500 lines or 20,000 bytes)",
       "security": false,
       "discoveryCommands": [
-        "./scripts/preen/checkFileLimits.sh --all 2>&1 | head -40"
+        "./scripts/checks/checkFileLimits.sh --all 2>&1 | head -40"
       ],
-      "metricCountCommand": "./scripts/preen/checkFileLimits.sh --all 2>&1 | grep \"^  - \" | wc -l"
+      "metricCountCommand": "./scripts/checks/checkFileLimits.sh --all 2>&1 | grep \"^  - \" | wc -l"
     },
     {
       "id": "preen-knip",

@@ -185,7 +185,7 @@ jobs:
 
       - name: Lint Terraform
         if: matrix.lint-type == 'terraform'
-        run: ./scripts/checkTerraform.sh
+        run: ./scripts/checks/checkTerraform.sh
 
   # Check for binary/JS files and verify guardrails
   guardrails:
@@ -197,13 +197,16 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Check for binary files
-        run: ./scripts/checkBinaryFiles.sh --from-upstream
+        run: ./scripts/checks/checkBinaryFiles.sh --from-upstream
 
       - name: Check for plain JavaScript files
-        run: ./scripts/preen/checkJs.sh --from-upstream
+        run: ./scripts/checks/checkJs.sh --from-upstream
+
+      - name: Check TypeScript file naming
+        run: ./scripts/checks/checkFileNames.sh --from-upstream
 
       - name: Check client package boundary
-        run: ./scripts/preen/checkClientBoundary.sh --from-upstream
+        run: ./scripts/checks/checkClientBoundary.sh --from-upstream
 
       - name: Check preen ecosystem parity
         run: ./scripts/checkPreenEcosystem.sh --strict
@@ -251,7 +254,7 @@ jobs:
           pnpm exec tsx scripts/ciImpact/runImpactedTests.ts --base "$BASE_SHA" --head "$HEAD_SHA" --scripts-only
 
       - name: Check for circular imports
-        run: ./scripts/preen/checkCircularImports.ts
+        run: ./scripts/checks/checkCircularImports.ts
 
       - name: Cache SQLite WASM
         uses: actions/cache@v4

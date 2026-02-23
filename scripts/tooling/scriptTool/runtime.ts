@@ -68,7 +68,7 @@ export function buildScriptInvocation(
 
     case 'setupTuxedoRepos':
       if (options.baseDir) env.TUXEDO_BASE_DIR = options.baseDir;
-      // setupTuxedoRepos.sh reads TUXEDO_WORKSPACE_COUNT.
+      // tuxedo/setupTuxedoRepos.sh reads TUXEDO_WORKSPACE_COUNT.
       if (options.workspaceCount !== undefined)
         env.TUXEDO_WORKSPACE_COUNT = String(options.workspaceCount);
       break;

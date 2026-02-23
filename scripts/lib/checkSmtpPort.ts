@@ -1,10 +1,10 @@
 #!/usr/bin/env -S pnpm exec tsx
 /**
  * Check if SMTP port is in use and kill existing listener if from this repo.
- * Usage: tsx scripts/checkSmtpPort.ts
+ * Usage: tsx scripts/lib/checkSmtpPort.ts
  */
 import path from 'node:path';
-import { createExitOnce, isPortInUse, parsePort } from './lib/portHelpers.ts';
+import { createExitOnce, isPortInUse, parsePort } from './portHelpers.ts';
 import {
   getPidsOnPort,
   getProcessCwd,
@@ -13,7 +13,7 @@ import {
   resolveRealPath,
   resolveRepoRoot,
   sleep
-} from './lib/processHelpers.ts';
+} from './processHelpers.ts';
 
 const host = process.env.SMTP_HOST || '127.0.0.1';
 const port = parsePort(process.env.SMTP_PORT || '25');

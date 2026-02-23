@@ -9,7 +9,7 @@
  * 3. Re-export statements with compatibility comments
  *
  * Usage:
- *   pnpm exec tsx scripts/preen/checkCompatShims.ts [--staged | --from-upstream]
+ *   pnpm exec tsx scripts/checks/checkCompatShims.ts [--staged | --from-upstream]
  */
 
 import { execSync } from 'node:child_process';

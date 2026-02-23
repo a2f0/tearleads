@@ -83,5 +83,5 @@ fi
 
 echo "Error: binary files are not allowed in commits." >&2
 printf '%s\n' "${bad_files[@]}" >&2
-echo "If you must add a binary, update the allowlist in scripts/checkBinaryFiles.sh and document why." >&2
+echo "If you must add a binary, update the allowlist in scripts/checks/checkBinaryFiles.sh and document why." >&2
 exit 1

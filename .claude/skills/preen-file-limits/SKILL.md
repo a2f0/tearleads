@@ -10,7 +10,7 @@ Proactively search for files exceeding project size limits (500 lines or 20,000 
 
 ## When to Run
 
-Run this skill when maintaining code quality or during slack time. It searches the entire codebase for files that exceed the project's size limits as defined in `scripts/preen/checkFileLimits.sh`.
+Run this skill when maintaining code quality or during slack time. It searches the entire codebase for files that exceed the project's size limits as defined in `scripts/checks/checkFileLimits.sh`.
 
 ## Discovery Phase
 
@@ -18,7 +18,7 @@ Search all files for those exceeding size limits:
 
 ```bash
 # Find all files exceeding 500 lines or 20,000 bytes
-./scripts/preen/checkFileLimits.sh --all 2>&1 | head -40
+./scripts/checks/checkFileLimits.sh --all 2>&1 | head -40
 ```
 
 ## Decide If Refactor Is Worth It
@@ -32,7 +32,7 @@ Prioritize files that meet at least one signal:
 
 **Do NOT split files that:**
 
-- Are strictly ignored by `scripts/preen/checkFileLimits.sh`
+- Are strictly ignored by `scripts/checks/checkFileLimits.sh`
 - Would become less readable after splitting (e.g., highly coupled logic)
 - Are generated files (though these should be ignored by the script)
 - Are large documentation files where splitting doesn't add value (unless they can be naturally partitioned)

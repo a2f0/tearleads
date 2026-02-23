@@ -138,19 +138,19 @@ Files must stay below 500 lines and 20,000 bytes. When the guardrail trips, spli
 
 - Do not add binary files to the repo. Prefer SVG or external URLs.
 - Binary guardrails run in `pre-commit` (staged files) and `pre-push` (unpushed commits).
-- Allowed binaries must be explicitly listed in `scripts/checkBinaryFiles.sh` with documented rationale in the issue or PR.
+- Allowed binaries must be explicitly listed in `scripts/checks/checkBinaryFiles.sh` with documented rationale in the issue or PR.
 
 ## JavaScript Files Policy
 
 - Do not commit plain JavaScript files (`.js`, `.mjs`, `.cjs`, `.jsx`) to the repo.
 - Use TypeScript files (`.ts`, `.tsx`) instead.
-- JavaScript guardrails run in `pre-push` and CI via `scripts/preen/checkJs.sh`.
+- JavaScript guardrails run in `pre-push` and CI via `scripts/checks/checkJs.sh`.
 
 ## Circular Imports Policy
 
 - Do not introduce circular import cycles between modules.
 - Circular imports cause runtime errors, undefined values, and bundler warnings.
-- Guardrails run in `pre-push` and CI via `scripts/preen/checkCircularImports.ts`.
+- Guardrails run in `pre-push` and CI via `scripts/checks/checkCircularImports.ts`.
 - To fix cycles: extract shared types/constants to a separate module, or restructure module boundaries.
 
 ## Node Version Management Policy
@@ -284,7 +284,7 @@ Skills are version-controlled like any other file. Create, edit, or delete files
 
 ### Enforcement
 
-File naming conventions are enforced via `scripts/checkFileNames.sh` which runs in pre-push hooks and CI.
+File naming conventions are enforced via `scripts/checks/checkFileNames.sh` which runs in pre-push hooks and CI.
 
 ## Running Tests (CRITICAL: Use Headless Mode)
 

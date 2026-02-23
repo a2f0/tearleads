@@ -24,16 +24,17 @@ run_step() (
   echo "[pre-push] OK    ${label} (${elapsed}s)" >&2
 )
 
-run_step "checkNodeVersion" ./scripts/checkNodeVersion.sh
-run_step "checkFileLimits" ./scripts/preen/checkFileLimits.sh --from-upstream
-run_step "checkSentinelMarkdownLinks" ./scripts/preen/checkSentinelMarkdownLinks.sh --all
-run_step "checkBinaryFiles" ./scripts/checkBinaryFiles.sh --from-upstream
-run_step "checkJs" ./scripts/preen/checkJs.sh --from-upstream
-run_step "checkClientBoundary" ./scripts/preen/checkClientBoundary.sh --from-upstream
+run_step "checkNodeVersion" ./scripts/checks/checkNodeVersion.sh
+run_step "checkFileLimits" ./scripts/checks/checkFileLimits.sh --from-upstream
+run_step "checkSentinelMarkdownLinks" ./scripts/checks/checkSentinelMarkdownLinks.sh --all
+run_step "checkBinaryFiles" ./scripts/checks/checkBinaryFiles.sh --from-upstream
+run_step "checkJs" ./scripts/checks/checkJs.sh --from-upstream
+run_step "checkFileNames" ./scripts/checks/checkFileNames.sh --from-upstream
+run_step "checkClientBoundary" ./scripts/checks/checkClientBoundary.sh --from-upstream
 run_step "checkPreenEcosystem" ./scripts/checkPreenEcosystem.sh --strict
-run_step "checkCircularImports" ./scripts/preen/checkCircularImports.ts
-run_step "checkGitHubActions" ./scripts/checkGithubActions.sh --from-upstream
-run_step "checkTerraform" ./scripts/checkTerraform.sh
+run_step "checkCircularImports" ./scripts/checks/checkCircularImports.ts
+run_step "checkGitHubActions" ./scripts/checks/checkGithubActions.sh --from-upstream
+run_step "checkTerraform" ./scripts/checks/checkTerraform.sh
 run_step "typecheckSolutionBuild" pnpm exec tsc -b
 run_step "enforceTypeScriptIncrementalBuilds" pnpm enforceTypeScriptIncrementalBuilds
 run_step "runImpactedQuality" pnpm exec tsx scripts/ciImpact/runImpactedQuality.ts --base origin/main --head HEAD
