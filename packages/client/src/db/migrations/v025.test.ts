@@ -28,7 +28,6 @@ describe('v025 migration', () => {
     const execute = vi
       .fn<DatabaseAdapter['execute']>()
       .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
     const adapter = createAdapter(executeMany, execute);
 
