@@ -90,3 +90,7 @@ coverage/
 .claude/commands/sessions/
 .claude/commands/shell_snapshots/
 .claude/commands/tmp/
+
+# Local Garage runtime artifacts
+scripts/dev/garage/data/
+scripts/dev/garage/.s3-credentials.env

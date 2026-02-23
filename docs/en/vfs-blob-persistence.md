@@ -81,3 +81,19 @@ Contract tests are in `packages/api/src/routes/vfs-blobs-persistence-contract.te
 ## Operations
 
 - For sync divergence and staged-blob visibility diagnosis, see `docs/en/vfs-sync-runbook.md`.
+
+## Local Garage Bootstrap
+
+For local VFS blob persistence with the same S3-compatible backend used in k8s:
+
+```bash
+sh scripts/setupLocalGarage.sh
+```
+
+This starts Garage from `scripts/dev/garage/docker-compose.yml`, initializes the `vfs-blobs` bucket, and writes blob-store env defaults into `packages/api/.env`.
+
+To stop it:
+
+```bash
+sh scripts/stopLocalGarage.sh
+```

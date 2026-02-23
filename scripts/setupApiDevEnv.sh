@@ -117,3 +117,19 @@ if [ -z "${current_openrouter_key}" ] || [ "${current_openrouter_key}" = "your-o
     echo "Initialized OPENROUTER_API_KEY from .secrets/env."
   fi
 fi
+
+while IFS='=' read -r key value; do
+  [ -n "${key}" ] || continue
+  current_value="$(read_env_value "${API_ENV_FILE}" "${key}" || true)"
+  if [ -z "${current_value}" ]; then
+    upsert_env_value "${API_ENV_FILE}" "${key}" "${value}"
+  fi
+done <<EOF
+VFS_BLOB_STORE_PROVIDER=s3
+VFS_BLOB_S3_BUCKET=vfs-blobs
+VFS_BLOB_S3_REGION=us-east-1
+VFS_BLOB_S3_ENDPOINT=http://127.0.0.1:3900
+VFS_BLOB_S3_ACCESS_KEY_ID=vfs-blob-key
+VFS_BLOB_S3_SECRET_ACCESS_KEY=vfs-blob-secret-local-dev
+VFS_BLOB_S3_FORCE_PATH_STYLE=true
+EOF
