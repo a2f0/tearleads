@@ -37,12 +37,19 @@ if [[ -z "$SERVER_USERNAME" ]]; then
 fi
 
 KUBECONFIG_FILE="$HOME/.kube/config-staging-k8s"
-if [[ $# -gt 0 && "${1:-}" != "--" ]]; then
-  KUBECONFIG_FILE="$1"
-  shift
-fi
 if [[ "${1:-}" == "--" ]]; then
   shift
+elif [[ $# -gt 1 && "${2:-}" == "--" ]]; then
+  KUBECONFIG_FILE="$1"
+  shift
+  shift
+elif [[ $# -eq 1 ]]; then
+  KUBECONFIG_FILE="$1"
+  set --
+elif [[ $# -gt 1 ]]; then
+  echo "Error: Invalid arguments. To run a command, use '--' to separate it." >&2
+  echo "Usage: $0 [kubeconfig-path] [-- command...]" >&2
+  exit 1
 fi
 
 SSH_RETRIES="${SSH_RETRIES:-30}"
