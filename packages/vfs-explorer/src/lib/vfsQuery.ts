@@ -4,7 +4,7 @@
  */
 
 import type { Database } from '@tearleads/db/sqlite';
-import { vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
+import { vfsItemState, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
 import type { SQL } from 'drizzle-orm';
 import { and, asc, desc, eq, isNull, ne, sql } from 'drizzle-orm';
 import { VFS_ROOT_ID } from '../constants';
@@ -170,9 +170,8 @@ export async function queryAllItems(
 }
 
 /**
- * Query items marked as deleted in entity tables, sorted at the database level.
- * Currently includes files, contacts, and notes (the VFS-backed types with a
- * soft-delete column).
+ * Query items marked as deleted in the canonical VFS registry state, sorted at
+ * the database level.
  */
 export async function queryDeletedItems(
   db: Database,
@@ -190,7 +189,13 @@ export async function queryDeletedItems(
       createdAt: vfsRegistry.createdAt
     })
     .from(vfsRegistry)
-    .where(sql`0 = 1`)
+    .innerJoin(vfsItemState, eq(vfsRegistry.id, vfsItemState.itemId))
+    .where(
+      and(
+        ne(vfsRegistry.id, VFS_ROOT_ID),
+        sql`${vfsItemState.deletedAt} IS NOT NULL`
+      )
+    )
     .orderBy(...orderExprs);
 
   return rows as VfsQueryRow[];

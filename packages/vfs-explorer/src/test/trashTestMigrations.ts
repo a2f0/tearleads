@@ -2,8 +2,8 @@ import type { Migration } from '@tearleads/db-test-utils';
 
 /**
  * Minimal schema for VFS trash integration tests.
- * Mirrors the VFS test migrations but includes `deleted` columns needed by
- * queryDeletedItems/useVfsTrashItems.
+ * Mirrors the VFS test migrations and includes canonical `vfs_item_state`
+ * tombstones used by queryDeletedItems/useVfsTrashItems.
  */
 export const trashTestMigrations: Migration[] = [
   {
@@ -35,6 +35,18 @@ export const trashTestMigrations: Migration[] = [
           visible_children TEXT,
           position INTEGER,
           created_at INTEGER NOT NULL
+        )
+      `);
+      await adapter.execute(`
+        CREATE TABLE IF NOT EXISTS vfs_item_state (
+          item_id TEXT PRIMARY KEY REFERENCES vfs_registry(id) ON DELETE CASCADE,
+          encrypted_payload TEXT,
+          key_epoch INTEGER,
+          encryption_nonce TEXT,
+          encryption_aad TEXT,
+          encryption_signature TEXT,
+          updated_at INTEGER NOT NULL,
+          deleted_at INTEGER
         )
       `);
       await adapter.execute(`
