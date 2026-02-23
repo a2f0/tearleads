@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   createHarnessActors,
-  seedVfsScenario,
-  type HarnessSqlClient
+  seedVfsScenario
 } from './vfsScenarioHarness.js';
+import type { HarnessSqlClient } from './accountSeed.js';
 
 function createSqlRecorder(): {
   client: HarnessSqlClient;
@@ -12,7 +12,10 @@ function createSqlRecorder(): {
   const calls: Array<{ text: string; values: readonly unknown[] | undefined }> =
     [];
   const client: HarnessSqlClient = {
-    async query(text, values) {
+    async query(
+      text: string,
+      values?: readonly unknown[]
+    ): Promise<{ rows: Record<string, unknown>[] }> {
       calls.push({ text, values });
       if (text.includes('SELECT id FROM users WHERE email = $1')) {
         return { rows: [] };

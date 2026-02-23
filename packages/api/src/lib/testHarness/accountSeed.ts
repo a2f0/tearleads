@@ -14,10 +14,10 @@ import {
 import { hashPassword } from '../passwords.js';
 
 export interface HarnessSqlClient {
-  query<Row extends Record<string, unknown> = Record<string, unknown>>(
+  query(
     text: string,
     values?: readonly unknown[]
-  ): Promise<{ rows: Row[] }>;
+  ): Promise<{ rows: Record<string, unknown>[] }>;
 }
 
 export interface SeedHarnessAccountInput {
@@ -60,11 +60,12 @@ export async function seedHarnessAccount(
   const emailConfirmed = input.emailConfirmed ?? false;
   const includeVfsOnboardingKeys = input.includeVfsOnboardingKeys ?? true;
 
-  const existingUser = await client.query<{ id: string }>(
+  const existingUser = await client.query(
     'SELECT id FROM users WHERE email = $1 LIMIT 1',
     [input.email]
   );
-  if (existingUser.rows.length > 0) {
+  const existingUserId = existingUser.rows[0]?.['id'];
+  if (typeof existingUserId === 'string' && existingUserId.length > 0) {
     throw new Error(`Account already exists for ${input.email}.`);
   }
 

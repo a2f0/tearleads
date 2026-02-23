@@ -297,12 +297,19 @@ export async function seedVfsScenario(
       `organization "${key}" admins`
     );
 
-    organizationsByKey[key] = await createHarnessOrganization(client, {
+    const organizationSeedInput: HarnessOrganizationSeedInput = {
       name: organization.name,
-      description: organization.description,
       memberUserIds,
       adminUserIds
-    });
+    };
+    if (organization.description !== undefined) {
+      organizationSeedInput.description = organization.description;
+    }
+
+    organizationsByKey[key] = await createHarnessOrganization(
+      client,
+      organizationSeedInput
+    );
   }
 
   const groupsByKey: Record<string, HarnessGroup> = {};
@@ -324,12 +331,16 @@ export async function seedVfsScenario(
       `group "${key}" members`
     );
 
-    groupsByKey[key] = await createHarnessGroup(client, {
+    const groupSeedInput: HarnessGroupSeedInput = {
       organizationId: organization.id,
       name: group.name,
-      description: group.description,
       memberUserIds
-    });
+    };
+    if (group.description !== undefined) {
+      groupSeedInput.description = group.description;
+    }
+
+    groupsByKey[key] = await createHarnessGroup(client, groupSeedInput);
   }
 
   return {

@@ -4,7 +4,7 @@ import {
   reconstructVfsKeyPair,
   splitPublicKey
 } from '@tearleads/shared';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   seedHarnessAccount,
   type HarnessSqlClient
@@ -12,14 +12,21 @@ import {
 
 describe('seedHarnessAccount', () => {
   it('persists onboarding keys derived from the account password', async () => {
-    const queryImpl: HarnessSqlClient['query'] = async (text) => {
-      if (text.includes('SELECT id FROM users')) {
+    const calls: Array<{ text: string; values: readonly unknown[] | undefined }> =
+      [];
+    const client: HarnessSqlClient = {
+      async query(
+        text: string,
+        values?: readonly unknown[]
+      ): Promise<{ rows: Record<string, unknown>[] }> {
+        calls.push({ text, values });
+        if (text.includes('SELECT id FROM users')) {
+          return { rows: [] };
+        }
         return { rows: [] };
       }
-      return { rows: [] };
     };
-    const querySpy = vi.fn(queryImpl);
-    const client: HarnessSqlClient = { query: querySpy };
+
     const password = 'ComplexPassword123!';
 
     const result = await seedHarnessAccount(client, {
@@ -29,14 +36,14 @@ describe('seedHarnessAccount', () => {
 
     expect(result.createdVfsOnboardingKeys).toBe(true);
 
-    const userKeysCall = querySpy.mock.calls.find(([text]) =>
-      text.includes('INSERT INTO user_keys')
+    const userKeysCall = calls.find((call) =>
+      call.text.includes('INSERT INTO user_keys')
     );
     expect(userKeysCall).toBeDefined();
     if (!userKeysCall) {
       throw new Error('Expected INSERT INTO user_keys call');
     }
-    const values = userKeysCall[1];
+    const values = userKeysCall.values;
     if (!values) {
       throw new Error('Expected parameter values for user_keys insert');
     }
@@ -67,14 +74,17 @@ describe('seedHarnessAccount', () => {
   });
 
   it('throws when the account already exists', async () => {
-    const queryImpl: HarnessSqlClient['query'] = async (text) => {
-      if (text.includes('SELECT id FROM users')) {
-        return { rows: [{ id: 'existing-user-id' }] };
+    const calls: Array<{ text: string; values: readonly unknown[] | undefined }> =
+      [];
+    const client: HarnessSqlClient = {
+      async query(text: string): Promise<{ rows: Record<string, unknown>[] }> {
+        calls.push({ text, values: undefined });
+        if (text.includes('SELECT id FROM users')) {
+          return { rows: [{ id: 'existing-user-id' }] };
+        }
+        return { rows: [] };
       }
-      return { rows: [] };
     };
-    const querySpy = vi.fn(queryImpl);
-    const client: HarnessSqlClient = { query: querySpy };
 
     await expect(
       seedHarnessAccount(client, {
@@ -83,8 +93,8 @@ describe('seedHarnessAccount', () => {
       })
     ).rejects.toThrow('Account already exists for alice@example.com.');
 
-    const insertUserCall = querySpy.mock.calls.find(([text]) =>
-      text.includes('INSERT INTO users')
+    const insertUserCall = calls.find((call) =>
+      call.text.includes('INSERT INTO users')
     );
     expect(insertUserCall).toBeUndefined();
   });
