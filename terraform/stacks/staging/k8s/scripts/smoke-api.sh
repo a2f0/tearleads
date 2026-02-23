@@ -71,7 +71,7 @@ phase_dns() {
     if command -v dig >/dev/null 2>&1; then
       resolved="$(dig +short "$h" 2>/dev/null | head -1)"
     else
-      resolved="$(host "$h" 2>/dev/null | grep -oP 'has address \K\S+' | head -1)"
+      resolved="$(host "$h" 2>/dev/null | awk '/has address/ { print $NF; exit }')"
     fi
 
     if [[ -n "$resolved" ]]; then
@@ -89,7 +89,7 @@ phase_in_cluster_api() {
   echo "Phase 2: In-cluster API health check"
 
   local api_pod
-  api_pod="$(kubectl -n "$NAMESPACE" get pods -l app=api -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+  api_pod="$(kubectl -n "$NAMESPACE" get pods -l app=api --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
 
   if [[ -z "$api_pod" ]]; then
     fail "no running API pod found (label app=api)"
@@ -99,7 +99,7 @@ phase_in_cluster_api() {
   # The API container is a minimal Node.js image without wget/curl,
   # so use node to make the HTTP request.
   local response
-  response="$(kubectl -n "$NAMESPACE" exec "$api_pod" -- \
+  response="$(kubectl -n "$NAMESPACE" exec "$api_pod" -c api -- \
     node -e "
       const http = require('http');
       http.get('http://localhost:5001/v1/ping', res => {
@@ -147,7 +147,7 @@ phase_client_api_url() {
   echo "Phase 4: Client baked-in API URL verification"
 
   local client_pod
-  client_pod="$(kubectl -n "$NAMESPACE" get pods -l app=client -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+  client_pod="$(kubectl -n "$NAMESPACE" get pods -l app=client --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
 
   if [[ -z "$client_pod" ]]; then
     fail "no running client pod found (label app=client)"
@@ -159,7 +159,7 @@ phase_client_api_url() {
   # Search broadly for any https://api.<something> URL baked into JS assets.
   # This catches both correct (api.k8s.domain) and incorrect (api.domain) URLs.
   local baked_url
-  baked_url="$(kubectl -n "$NAMESPACE" exec "$client_pod" -- \
+  baked_url="$(kubectl -n "$NAMESPACE" exec "$client_pod" -c client -- \
     grep -roh 'https\?://api\.[a-zA-Z0-9._/-]*' /usr/share/nginx/html/assets/ 2>/dev/null \
     | sort -u | head -1 || true)"
 
@@ -210,11 +210,11 @@ echo "  Kubeconfig: $KUBECONFIG"
 
 failures=0
 
-phase_dns              || ((failures++)) || true
-phase_in_cluster_api   || ((failures++)) || true
-phase_external_api     || ((failures++)) || true
-phase_client_api_url   || ((failures++)) || true
-phase_external_client  || ((failures++)) || true
+phase_dns              || failures=$((failures + 1))
+phase_in_cluster_api   || failures=$((failures + 1))
+phase_external_api     || failures=$((failures + 1))
+phase_client_api_url   || failures=$((failures + 1))
+phase_external_client  || failures=$((failures + 1))
 
 echo ""
 if (( failures == 0 )); then
