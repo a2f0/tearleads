@@ -23,7 +23,6 @@ export const v022: Migration = {
           "access_level" TEXT NOT NULL CHECK ("access_level" IN ('read', 'write', 'admin')),
           "wrapped_session_key" TEXT,
           "wrapped_hierarchical_key" TEXT,
-          "key_epoch" INTEGER,
           "granted_by" TEXT REFERENCES "users"("id") ON DELETE RESTRICT,
           "created_at" TIMESTAMPTZ NOT NULL,
           "updated_at" TIMESTAMPTZ NOT NULL,
