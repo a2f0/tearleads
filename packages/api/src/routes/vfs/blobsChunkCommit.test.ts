@@ -16,14 +16,14 @@ vi.mock('../../lib/vfsBlobStore.js', () => ({
 }));
 
 describe('VFS routes (blob chunk + commit)', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     setupVfsTestEnv();
-    clearBlobUploadSessions();
+    await clearBlobUploadSessions();
     mockPersistVfsBlobData.mockReset();
   });
 
-  afterEach(() => {
-    clearBlobUploadSessions();
+  afterEach(async () => {
+    await clearBlobUploadSessions();
     teardownVfsTestEnv();
   });
 
@@ -43,9 +43,24 @@ describe('VFS routes (blob chunk + commit)', () => {
       .mockResolvedValueOnce({
         rows: [{ staged_by: 'user-1', status: 'staged' }]
       })
+      .mockResolvedValueOnce({})
       .mockResolvedValueOnce({
         rows: [{ blob_id: 'blob-1', staged_by: 'user-1', status: 'staged' }]
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            visible_children: {
+              chunkIndex: 0,
+              isFinal: true,
+              ciphertextBase64: 'Y2lwaGVydGV4dA==',
+              plaintextLength: 10,
+              ciphertextLength: 10
+            }
+          }
+        ]
       });
+    mockQuery.mockResolvedValueOnce({});
 
     mockPersistVfsBlobData.mockResolvedValue({
       bucket: 'bucket',
@@ -108,6 +123,7 @@ describe('VFS routes (blob chunk + commit)', () => {
     mockQuery.mockResolvedValueOnce({
       rows: [{ blob_id: 'blob-1', staged_by: 'user-1', status: 'staged' }]
     });
+    mockQuery.mockResolvedValueOnce({ rows: [] });
 
     const response = await request(app)
       .post('/v1/vfs/blobs/stage/stage-1/commit')

@@ -66,7 +66,7 @@ const postBlobsStageStagingIdChunksHandler = async (
     return;
   }
 
-  upsertBlobUploadChunk({
+  await upsertBlobUploadChunk({
     stagingId,
     uploadId: payload.uploadId,
     chunk: {

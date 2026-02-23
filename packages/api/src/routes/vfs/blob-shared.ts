@@ -227,7 +227,7 @@ export function parseBlobCommitBody(
     !Number.isInteger(keyEpoch) ||
     keyEpoch < 1 ||
     !Number.isInteger(chunkCount) ||
-    chunkCount < 0 ||
+    chunkCount < 1 ||
     !Number.isInteger(totalPlaintextBytes) ||
     totalPlaintextBytes < 0 ||
     !Number.isInteger(totalCiphertextBytes) ||

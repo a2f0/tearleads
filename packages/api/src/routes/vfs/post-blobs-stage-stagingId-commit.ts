@@ -97,7 +97,7 @@ const postBlobsStageStagingIdCommitHandler = async (
     return;
   }
 
-  const chunks = getBlobUploadChunks({
+  const chunks = await getBlobUploadChunks({
     stagingId,
     uploadId: payload.uploadId
   });
@@ -169,7 +169,7 @@ const postBlobsStageStagingIdCommitHandler = async (
       blobId,
       data: mergedCiphertext
     });
-    deleteBlobUploadSession({
+    await deleteBlobUploadSession({
       stagingId,
       uploadId: payload.uploadId
     });
