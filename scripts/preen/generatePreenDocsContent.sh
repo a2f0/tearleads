@@ -60,7 +60,7 @@ Before running, verify skill parity, command syntax, and registry drift:
 1. Run ecosystem checks:
 
 ```bash
-./scripts/checkPreenEcosystem.sh --summary
+./scripts/checks/preen/checkPreenEcosystem.sh --summary
 ```
 
 1. Ensure top-level preen docs are generated from registry:
@@ -73,7 +73,7 @@ If checks fail, STOP and sync before running preen:
 
 ```bash
 ./scripts/preen/generatePreenDocs.sh
-./scripts/checkPreenEcosystem.sh --strict
+./scripts/checks/preen/checkPreenEcosystem.sh --strict
 ```
 
 ## Preen Skills Registry

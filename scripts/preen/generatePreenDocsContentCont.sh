@@ -299,7 +299,7 @@ Always regenerate from registry after structural changes:
 
 ```bash
 ./scripts/preen/generatePreenDocs.sh
-./scripts/checkPreenEcosystem.sh --strict
+./scripts/checks/preen/checkPreenEcosystem.sh --strict
 ```
 
 ## Guardrails

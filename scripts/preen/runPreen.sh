@@ -196,10 +196,10 @@ run_discovery() {
       ./scripts/checks/checkMswParity.ts --json | head -40
       ;;
     preen-skill-tooling)
-      ./scripts/checkPreenEcosystem.sh --summary
+      ./scripts/checks/preen/checkPreenEcosystem.sh --summary
       ;;
     preen-skill-parity)
-      ./scripts/checkSkillParity.sh --summary
+      ./scripts/checks/skills/checkSkillParity.sh --summary
       ;;
     preen-compliance-docs)
       for fw in HIPAA NIST.SP.800-53 SOC2; do
@@ -301,10 +301,10 @@ metric_count() {
       ./scripts/checks/checkMswParity.ts --json | jq '.missingRouteCount + .lowConfidenceRouteCount'
       ;;
     preen-skill-tooling)
-      ./scripts/checkPreenEcosystem.sh --count-issues
+      ./scripts/checks/preen/checkPreenEcosystem.sh --count-issues
       ;;
     preen-skill-parity)
-      ./scripts/checkSkillParity.sh --count-issues
+      ./scripts/checks/skills/checkSkillParity.sh --count-issues
       ;;
     preen-compliance-docs)
       gaps=0
