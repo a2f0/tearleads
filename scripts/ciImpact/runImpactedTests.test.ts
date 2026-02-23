@@ -49,6 +49,20 @@ test('runImpactedTests dry-run skips ciImpact script tests for unrelated package
   );
 });
 
+test('runImpactedTests dry-run selects ciImpact script tests for script changes', () => {
+  const result = runImpactedTests([
+    '--files',
+    'scripts/postgres/reset.sh',
+    '--dry-run',
+    '--scripts-only'
+  ]);
+  assert.equal(result.status, 0, stderrText(result));
+  assert.match(
+    stdoutText(result),
+    /ci-impact: running ciImpact script tests\./
+  );
+});
+
 test('runImpactedTests skips impacted tests when all changes are non-material', () => {
   const result = runImpactedTests(['--files', 'docs/en/ci.md', '--dry-run']);
   assert.equal(result.status, 0, stderrText(result));

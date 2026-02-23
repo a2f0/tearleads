@@ -61,10 +61,7 @@ const FULL_RUN_PREFIXES: ReadonlyArray<string> = [
 const FULL_RUN_EXACT_EXCEPTIONS: ReadonlyArray<string> = [
   '.github/workflows/build.yml'
 ];
-const CI_IMPACT_SCRIPT_TEST_PREFIXES: ReadonlyArray<string> = [
-  'scripts/ciImpact/',
-  'scripts/agents/tooling/'
-];
+const CI_IMPACT_SCRIPT_TEST_PREFIX = 'scripts/';
 const CI_IMPACT_SCRIPT_TEST_FILES: ReadonlyArray<string> = [
   'scripts/ciImpact/ciImpact.test.ts',
   'scripts/ciImpact/requiredWorkflows.test.ts',
@@ -282,7 +279,7 @@ function shouldRunCiImpactScriptTests(
     return true;
   }
   return changedFiles.some((file) =>
-    CI_IMPACT_SCRIPT_TEST_PREFIXES.some((prefix) => file.startsWith(prefix))
+    file.startsWith(CI_IMPACT_SCRIPT_TEST_PREFIX)
   );
 }
 
