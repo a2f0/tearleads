@@ -15,13 +15,13 @@ export const FEATURE_FLAGS: Record<FeatureFlagKey, FeatureFlagDefinition> = {
   vfsServerRegistration: {
     label: 'VFS server registration',
     description: 'Send VFS registrations to the server after local writes.',
-    defaultValue: false
+    defaultValue: true
   },
   vfsSecureUpload: {
     label: 'VFS secure upload',
     description:
       'Use end-to-end encrypted upload pipeline for file storage on server.',
-    defaultValue: false
+    defaultValue: true
   }
 };
 

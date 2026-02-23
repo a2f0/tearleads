@@ -27,7 +27,7 @@ describe('FeatureFlags', () => {
     renderFeatureFlags();
     expect(
       screen.getByTestId('feature-flag-vfsServerRegistration-status')
-    ).toHaveTextContent('Status: Off');
+    ).toHaveTextContent('Status: On');
   });
 
   it('writes override when toggled on', async () => {
@@ -65,7 +65,7 @@ describe('FeatureFlags', () => {
     await waitFor(() => {
       expect(
         screen.getByTestId('feature-flag-vfsServerRegistration-status')
-      ).toHaveTextContent('Status: Off');
+      ).toHaveTextContent('Status: On');
     });
 
     expect(localStorage.getItem(FEATURE_FLAGS_STORAGE_KEY)).toBeNull();
