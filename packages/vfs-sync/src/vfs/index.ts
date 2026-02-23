@@ -2,7 +2,7 @@ export {
   buildVfsAclKeyView,
   type VfsAclKeyViewEntry,
   type VfsAclSnapshotEntry
-} from './acl-key-view.js';
+} from './access/acl-key-view.js';
 export {
   type EffectiveVfsAclKeyViewEntry,
   type EffectiveVfsMemberItemAccessEntry,
@@ -10,7 +10,7 @@ export {
   type VfsAuthoritativeMembershipSnapshot,
   type VfsAuthoritativePrincipalCatalogSnapshot,
   type VfsMemberPrincipalView
-} from './sync-access-harness.js';
+} from './access/sync-access-harness.js';
 export {
   type AbandonVfsBlobInput,
   type AttachVfsBlobInput,
@@ -20,18 +20,18 @@ export {
   type VfsBlobCommitStatus,
   type VfsBlobStageRecord,
   type VfsBlobStageStatus
-} from './sync-blob-commit.js';
+} from './blob/sync-blob-commit.js';
 export {
   type AttachVfsBlobWithIsolationInput,
   InMemoryVfsBlobIsolationStore,
   type VfsBlobIsolationAttachResult,
   type VfsBlobIsolationAttachStatus
-} from './sync-blob-isolation.js';
+} from './blob/sync-blob-isolation.js';
 export {
   alwaysAvailableVfsBlobObjectStore,
   InMemoryVfsBlobObjectStore,
   type VfsBlobObjectStore
-} from './sync-blob-object-store.js';
+} from './blob/sync-blob-object-store.js';
 export {
   delayVfsCrdtSyncTransport,
   type InMemoryVfsCrdtSyncTransportDelayConfig,
@@ -51,17 +51,17 @@ export {
   type VfsCrdtSyncTransport,
   type VfsSyncGuardrailViolation,
   type VfsSyncGuardrailViolationCode
-} from './sync-client.js';
+} from './client/sync-client.js';
 export {
   InMemoryVfsCrdtSyncServer,
   type InMemoryVfsCrdtSyncServerSnapshot,
   InMemoryVfsCrdtSyncTransport
-} from './sync-client-harness.js';
+} from './client/sync-client-harness.js';
 export {
   InMemoryVfsContainerClockStore,
   type ListVfsContainerClockChangesResult,
   type VfsContainerClockEntry
-} from './sync-container-clocks.js';
+} from './protocol/sync-container-clocks.js';
 export {
   assertCanonicalVfsCrdtOperationOrder,
   InMemoryVfsCrdtStateStore,
@@ -76,7 +76,7 @@ export {
   type VfsCrdtOrderViolationCode,
   VfsCrdtOrderViolationError,
   type VfsCrdtSnapshot
-} from './sync-crdt.js';
+} from './protocol/sync-crdt.js';
 export {
   assertStronglyConsistentVfsCrdtRows,
   type BuildVfsCrdtSyncQueryInput,
@@ -92,13 +92,13 @@ export {
   type VfsCrdtSyncDbRow,
   type VfsCrdtSyncItem,
   type VfsCrdtSyncResponse
-} from './sync-crdt-feed.js';
+} from './protocol/sync-crdt-feed.js';
 export {
   InMemoryVfsCrdtFeedReplayStore,
   VfsCrdtFeedReplayError,
   type VfsCrdtFeedReplaySnapshot,
   type VfsCrdtFeedReplayViolationCode
-} from './sync-crdt-feed-replay.js';
+} from './protocol/sync-crdt-feed-replay.js';
 export {
   InMemoryVfsCrdtClientStateStore,
   mergeVfsCrdtLastReconciledWriteIds,
@@ -111,12 +111,12 @@ export {
   reconcileVfsCrdtClientState,
   type VfsCrdtClientReconcileState,
   type VfsCrdtLastReconciledWriteIds
-} from './sync-crdt-reconcile.js';
+} from './protocol/sync-crdt-reconcile.js';
 export {
   decodeVfsSyncCursor,
   encodeVfsSyncCursor,
   type VfsSyncCursor
-} from './sync-cursor.js';
+} from './protocol/sync-cursor.js';
 export {
   assertStronglyConsistentVfsSyncRows,
   type BuildVfsSyncQueryInput,
@@ -130,11 +130,11 @@ export {
   type VfsSyncDbRow,
   type VfsSyncOrderViolationCode,
   VfsSyncOrderViolationError
-} from './sync-engine.js';
+} from './server/sync-engine.js';
 export {
   VfsHttpCrdtSyncTransport,
   type VfsHttpCrdtSyncTransportOptions
-} from './sync-http-transport.js';
+} from './transport/sync-http-transport.js';
 export {
   compareVfsSyncCursorOrder,
   InMemoryVfsSyncClientStateStore,
@@ -143,7 +143,7 @@ export {
   parseVfsSyncReconcilePayload,
   type ReconcileVfsSyncCursorResult,
   reconcileVfsSyncCursor
-} from './sync-reconcile.js';
+} from './protocol/sync-reconcile.js';
 export {
   deriveVfsFlatteningInventory,
   extractPostgresTableNamesFromDrizzleSchema,
@@ -154,4 +154,4 @@ export {
   type VfsFlatteningInventory,
   type VfsSyncSchemaDependency,
   type VfsSyncSchemaDomain
-} from './sync-schema-contract.js';
+} from './server/sync-schema-contract.js';
