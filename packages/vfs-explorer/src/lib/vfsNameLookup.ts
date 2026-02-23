@@ -43,20 +43,22 @@ export async function fetchItemNames(
       id: vfsRegistry.id,
       name: sql<string>`COALESCE(
         NULLIF(${vfsRegistry.encryptedName}, ''),
-        CASE WHEN ${vfsRegistry.objectType} = 'folder' THEN 'Unnamed Folder' END,
-        CASE WHEN ${vfsRegistry.objectType} = 'file' THEN 'Unnamed File' END,
-        CASE WHEN ${vfsRegistry.objectType} = 'photo' THEN 'Unnamed Photo' END,
-        CASE WHEN ${vfsRegistry.objectType} = 'audio' THEN 'Unnamed Audio' END,
-        CASE WHEN ${vfsRegistry.objectType} = 'video' THEN 'Unnamed Video' END,
-        CASE WHEN ${vfsRegistry.objectType} = 'contact' THEN 'Unnamed Contact' END,
-        CASE WHEN ${vfsRegistry.objectType} = 'note' THEN 'Untitled Note' END,
-        CASE WHEN ${vfsRegistry.objectType} = 'playlist' THEN 'Unnamed Playlist' END,
-        CASE WHEN ${vfsRegistry.objectType} = 'album' THEN 'Unnamed Album' END,
-        CASE WHEN ${vfsRegistry.objectType} = 'contactGroup' THEN 'Unnamed Group' END,
-        CASE WHEN ${vfsRegistry.objectType} = 'emailFolder' THEN 'Unnamed Folder' END,
-        CASE WHEN ${vfsRegistry.objectType} = 'tag' THEN 'Unnamed Tag' END,
-        CASE WHEN ${vfsRegistry.objectType} = 'email' THEN '(No Subject)' END,
-        'Unknown'
+        CASE ${vfsRegistry.objectType}
+          WHEN 'folder' THEN 'Unnamed Folder'
+          WHEN 'file' THEN 'Unnamed File'
+          WHEN 'photo' THEN 'Unnamed Photo'
+          WHEN 'audio' THEN 'Unnamed Audio'
+          WHEN 'video' THEN 'Unnamed Video'
+          WHEN 'contact' THEN 'Unnamed Contact'
+          WHEN 'note' THEN 'Untitled Note'
+          WHEN 'playlist' THEN 'Unnamed Playlist'
+          WHEN 'album' THEN 'Unnamed Album'
+          WHEN 'contactGroup' THEN 'Unnamed Group'
+          WHEN 'emailFolder' THEN 'Unnamed Folder'
+          WHEN 'tag' THEN 'Unnamed Tag'
+          WHEN 'email' THEN '(No Subject)'
+          ELSE 'Unknown'
+        END
       ) as "name"`
     })
     .from(vfsRegistry)
