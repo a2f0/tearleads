@@ -17,7 +17,7 @@ describe('feature flags', () => {
   });
 
   it('returns default value when no overrides exist', () => {
-    expect(getFeatureFlagValue('vfsServerRegistration')).toBe(false);
+    expect(getFeatureFlagValue('vfsServerRegistration')).toBe(true);
   });
 
   it('reads overrides from localStorage', () => {
@@ -58,7 +58,7 @@ describe('feature flags', () => {
   it('handles invalid localStorage data gracefully', () => {
     localStorage.setItem(FEATURE_FLAGS_STORAGE_KEY, 'not-json');
 
-    expect(getFeatureFlagValue('vfsServerRegistration')).toBe(false);
+    expect(getFeatureFlagValue('vfsServerRegistration')).toBe(true);
     expect(getFeatureFlagOverrides()).toEqual({});
   });
 
@@ -69,7 +69,7 @@ describe('feature flags', () => {
     );
 
     expect(getFeatureFlagOverrides()).toEqual({});
-    expect(getFeatureFlagValue('vfsServerRegistration')).toBe(false);
+    expect(getFeatureFlagValue('vfsServerRegistration')).toBe(true);
   });
 
   it('ignores non-record overrides', () => {
@@ -79,7 +79,7 @@ describe('feature flags', () => {
     );
 
     expect(getFeatureFlagOverrides()).toEqual({});
-    expect(getFeatureFlagValue('vfsServerRegistration')).toBe(false);
+    expect(getFeatureFlagValue('vfsServerRegistration')).toBe(true);
   });
 
   it('listFeatureFlags returns all flag keys', () => {
