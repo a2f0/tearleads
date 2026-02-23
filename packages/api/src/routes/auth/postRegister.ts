@@ -71,11 +71,19 @@ const postRegisterHandler = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const payload = parseRegisterPayload(req.body);
-  if (!payload) {
+  const parsedPayload = parseRegisterPayload(req.body);
+  if (!parsedPayload.ok) {
+    if (parsedPayload.error === 'INVALID_VFS_KEY_SETUP') {
+      res.status(400).json({
+        error:
+          'vfsKeySetup must include publicEncryptionKey, encryptedPrivateKeys, and argon2Salt'
+      });
+      return;
+    }
     res.status(400).json({ error: 'email and password are required' });
     return;
   }
+  const payload = parsedPayload.value;
 
   if (!EMAIL_REGEX.test(payload.email)) {
     res.status(400).json({ error: 'Invalid email format' });

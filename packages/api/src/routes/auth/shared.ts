@@ -26,6 +26,16 @@ type RegisterPayload = LoginPayload & {
   vfsKeySetup?: VfsKeySetupRequest;
 };
 
+type ParseRegisterPayloadResult =
+  | {
+      ok: true;
+      value: RegisterPayload;
+    }
+  | {
+      ok: false;
+      error: 'INVALID_AUTH_PAYLOAD' | 'INVALID_VFS_KEY_SETUP';
+    };
+
 type RefreshPayload = {
   refreshToken: string;
 };
@@ -85,29 +95,46 @@ function parseOptionalVfsKeySetupPayload(
   };
 }
 
-export function parseRegisterPayload(body: unknown): RegisterPayload | null {
+export function parseRegisterPayload(
+  body: unknown
+): ParseRegisterPayloadResult {
   if (!isRecord(body)) {
-    return null;
+    return {
+      ok: false,
+      error: 'INVALID_AUTH_PAYLOAD'
+    };
   }
 
   const parsedAuth = parseAuthPayload(body);
   if (!parsedAuth) {
-    return null;
+    return {
+      ok: false,
+      error: 'INVALID_AUTH_PAYLOAD'
+    };
   }
 
   const rawVfsKeySetup = body['vfsKeySetup'];
   if (rawVfsKeySetup === undefined) {
-    return parsedAuth;
+    return {
+      ok: true,
+      value: parsedAuth
+    };
   }
 
   const parsedVfsKeySetup = parseOptionalVfsKeySetupPayload(rawVfsKeySetup);
   if (!parsedVfsKeySetup) {
-    return null;
+    return {
+      ok: false,
+      error: 'INVALID_VFS_KEY_SETUP'
+    };
   }
 
   return {
-    ...parsedAuth,
-    vfsKeySetup: parsedVfsKeySetup
+    ok: true,
+    value: {
+      ...parsedAuth,
+      vfsKeySetup: parsedVfsKeySetup
+    }
   };
 }
 

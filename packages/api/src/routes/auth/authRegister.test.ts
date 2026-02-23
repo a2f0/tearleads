@@ -56,8 +56,10 @@ describe('Auth register routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
-        error: 'email and password are required'
+        error:
+          'vfsKeySetup must include publicEncryptionKey, encryptedPrivateKeys, and argon2Salt'
       });
+      expect(mockQuery).not.toHaveBeenCalled();
     });
 
     // COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/01-account-management-policy.md | procedure=compliance/SOC2/procedures/01-account-management-procedure.md | control=password-complexity
