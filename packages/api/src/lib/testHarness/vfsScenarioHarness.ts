@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { buildRevenueCatAppUserId } from '../billing.js';
 import {
-  seedHarnessAccount,
   type HarnessSqlClient,
   type SeedHarnessAccountInput,
-  type SeedHarnessAccountResult
+  type SeedHarnessAccountResult,
+  seedHarnessAccount
 } from './accountSeed.js';
 
 export interface HarnessActorDefinition {

@@ -5,15 +5,14 @@ import {
   splitPublicKey
 } from '@tearleads/shared';
 import { describe, expect, it } from 'vitest';
-import {
-  seedHarnessAccount,
-  type HarnessSqlClient
-} from './accountSeed.js';
+import { type HarnessSqlClient, seedHarnessAccount } from './accountSeed.js';
 
 describe('seedHarnessAccount', () => {
   it('persists onboarding keys derived from the account password', async () => {
-    const calls: Array<{ text: string; values: readonly unknown[] | undefined }> =
-      [];
+    const calls: Array<{
+      text: string;
+      values: readonly unknown[] | undefined;
+    }> = [];
     const client: HarnessSqlClient = {
       async query(
         text: string,
@@ -70,12 +69,16 @@ describe('seedHarnessAccount', () => {
       decryptedPrivateKeys
     );
 
-    expect(buildVfsPublicEncryptionKey(reconstructed)).toBe(publicEncryptionKey);
+    expect(buildVfsPublicEncryptionKey(reconstructed)).toBe(
+      publicEncryptionKey
+    );
   });
 
   it('throws when the account already exists', async () => {
-    const calls: Array<{ text: string; values: readonly unknown[] | undefined }> =
-      [];
+    const calls: Array<{
+      text: string;
+      values: readonly unknown[] | undefined;
+    }> = [];
     const client: HarnessSqlClient = {
       async query(text: string): Promise<{ rows: Record<string, unknown>[] }> {
         calls.push({ text, values: undefined });
