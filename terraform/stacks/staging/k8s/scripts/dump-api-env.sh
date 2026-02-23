@@ -11,9 +11,41 @@ EXPECTED_API_ENV_VARS=(
   "JWT_SECRET"
 )
 
-if [[ "${1:-}" == "--show-values" ]]; then
-  SHOW_VALUES="true"
-fi
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") [--show-values] [--help]
+
+Inspect API pod environment in staging k8s.
+
+Options:
+  --show-values   Print full env key/value pairs from the API container (sensitive).
+  -h, --help      Show this help text and exit.
+
+Environment:
+  NAMESPACE       Kubernetes namespace (default: tearleads)
+  KUBECONFIG      Path to kubeconfig (default: ~/.kube/config-staging-k8s)
+  SHOW_VALUES     Set to "true" to print env values (same as --show-values)
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --show-values)
+      SHOW_VALUES="true"
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "ERROR: Unknown argument: $1" >&2
+      echo "" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
 
 if ! command -v kubectl >/dev/null 2>&1; then
   echo "ERROR: kubectl is required but not found." >&2
