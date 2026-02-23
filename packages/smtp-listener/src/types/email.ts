@@ -1,4 +1,4 @@
-import type { InboundMessageIngestor } from '../lib/inboundContracts.js';
+import type { InboundMessageIngestor } from './inboundContracts.js';
 
 export interface EmailAddress {
   address: string;

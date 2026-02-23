@@ -9,7 +9,7 @@ export type {
   RecipientKeyRecord,
   ResolvedInboundRecipient,
   WrappedRecipientKeyEnvelope
-} from './lib/inboundContracts.js';
+} from './types/inboundContracts.js';
 export { DefaultInboundMessageIngestor } from './lib/inboundIngest.js';
 export { PostgresInboundRecipientKeyLookup } from './lib/inboundKeyLookup.js';
 export { PostgresInboundVfsEmailRepository } from './lib/inboundVfsRepository.js';

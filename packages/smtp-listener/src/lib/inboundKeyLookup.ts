@@ -1,7 +1,7 @@
 import type {
   InboundRecipientKeyLookup,
   RecipientKeyRecord
-} from './inboundContracts.js';
+} from '../types/inboundContracts.js';
 import { getPostgresPool } from './postgres.js';
 
 interface UserKeyRow {

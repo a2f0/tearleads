@@ -13,7 +13,7 @@ import type {
   InboundVfsEmailRepository,
   ResolvedInboundRecipient,
   WrappedRecipientKeyEnvelope
-} from './inboundContracts.js';
+} from '../types/inboundContracts.js';
 
 const NONCE_BYTES = 12;
 

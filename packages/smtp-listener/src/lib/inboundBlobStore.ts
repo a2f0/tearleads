@@ -3,7 +3,7 @@ import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import type {
   EncryptedBlobWriteResult,
   InboundBlobStore
-} from './inboundContracts.js';
+} from '../types/inboundContracts.js';
 
 interface BlobRuntime {
   client: S3Client;

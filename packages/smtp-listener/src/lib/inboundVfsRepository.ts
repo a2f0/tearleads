@@ -5,7 +5,7 @@ import type {
   InboundVfsEmailRepository,
   ResolvedInboundRecipient,
   WrappedRecipientKeyEnvelope
-} from './inboundContracts.js';
+} from '../types/inboundContracts.js';
 import { getPostgresPool } from './postgres.js';
 
 interface InboxRow {
