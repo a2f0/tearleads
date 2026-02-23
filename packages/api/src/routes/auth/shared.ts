@@ -2,7 +2,8 @@ import {
   isRecord,
   PASSWORD_COMPLEXITY_ERROR,
   PASSWORD_MIN_LENGTH,
-  passwordMeetsComplexity
+  passwordMeetsComplexity,
+  type VfsKeySetupRequest
 } from '@tearleads/shared';
 import {
   getAccessTokenTtlSeconds,
@@ -19,6 +20,10 @@ export const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 type LoginPayload = {
   email: string;
   password: string;
+};
+
+type RegisterPayload = LoginPayload & {
+  vfsKeySetup?: VfsKeySetupRequest;
 };
 
 type RefreshPayload = {
@@ -40,6 +45,70 @@ export function parseAuthPayload(body: unknown): LoginPayload | null {
     return null;
   }
   return { email, password };
+}
+
+function parseOptionalVfsKeySetupPayload(
+  value: unknown
+): VfsKeySetupRequest | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const publicEncryptionKey = value['publicEncryptionKey'];
+  const publicSigningKey = value['publicSigningKey'];
+  const encryptedPrivateKeys = value['encryptedPrivateKeys'];
+  const argon2Salt = value['argon2Salt'];
+
+  if (
+    typeof publicEncryptionKey !== 'string' ||
+    (publicSigningKey != null && typeof publicSigningKey !== 'string') ||
+    typeof encryptedPrivateKeys !== 'string' ||
+    typeof argon2Salt !== 'string'
+  ) {
+    return null;
+  }
+
+  if (
+    !publicEncryptionKey.trim() ||
+    !encryptedPrivateKeys.trim() ||
+    !argon2Salt.trim()
+  ) {
+    return null;
+  }
+
+  return {
+    publicEncryptionKey: publicEncryptionKey.trim(),
+    publicSigningKey:
+      typeof publicSigningKey === 'string' ? publicSigningKey.trim() : '',
+    encryptedPrivateKeys: encryptedPrivateKeys.trim(),
+    argon2Salt: argon2Salt.trim()
+  };
+}
+
+export function parseRegisterPayload(body: unknown): RegisterPayload | null {
+  if (!isRecord(body)) {
+    return null;
+  }
+
+  const parsedAuth = parseAuthPayload(body);
+  if (!parsedAuth) {
+    return null;
+  }
+
+  const rawVfsKeySetup = body['vfsKeySetup'];
+  if (rawVfsKeySetup === undefined) {
+    return parsedAuth;
+  }
+
+  const parsedVfsKeySetup = parseOptionalVfsKeySetupPayload(rawVfsKeySetup);
+  if (!parsedVfsKeySetup) {
+    return null;
+  }
+
+  return {
+    ...parsedAuth,
+    vfsKeySetup: parsedVfsKeySetup
+  };
 }
 
 export function parseRefreshPayload(body: unknown): RefreshPayload | null {

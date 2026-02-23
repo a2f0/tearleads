@@ -1,4 +1,8 @@
-import type { AuthResponse, SessionsResponse } from '@tearleads/shared';
+import type {
+  AuthResponse,
+  SessionsResponse,
+  VfsKeySetupRequest
+} from '@tearleads/shared';
 import { request } from '../apiCore';
 
 export const authRoutes = {
@@ -12,12 +16,20 @@ export const authRoutes = {
       eventName: 'api_post_auth_login',
       skipTokenRefresh: true
     }),
-  register: (email: string, password: string) =>
+  register: (
+    email: string,
+    password: string,
+    vfsKeySetup?: VfsKeySetupRequest
+  ) =>
     request<AuthResponse>('/auth/register', {
       fetchOptions: {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({
+          email,
+          password,
+          ...(vfsKeySetup ? { vfsKeySetup } : {})
+        })
       },
       eventName: 'api_post_auth_register',
       skipTokenRefresh: true

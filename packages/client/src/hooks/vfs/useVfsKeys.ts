@@ -20,6 +20,7 @@ import {
   serializeKeyPair,
   splitPublicKey,
   type VfsKeyPair,
+  type VfsKeySetupRequest,
   type VfsObjectType,
   type VfsPublicKey,
   wrapKeyForRecipient
@@ -81,6 +82,23 @@ async function encryptPrivateKeys(
   return {
     encryptedBlob: bundle.encryptedPrivateKeys,
     argon2Salt: bundle.argon2Salt
+  };
+}
+
+/**
+ * Build a VFS key setup payload locally for account onboarding.
+ * This does not persist anything to the server.
+ */
+export async function createVfsKeySetupPayloadForOnboarding(): Promise<VfsKeySetupRequest> {
+  const keyPair = generateKeyPair();
+  const serialized = serializeKeyPair(keyPair);
+  const { encryptedBlob, argon2Salt } = await encryptPrivateKeys(serialized);
+
+  return {
+    publicEncryptionKey: buildVfsPublicEncryptionKey(keyPair),
+    // publicSigningKey omitted - not yet implemented
+    encryptedPrivateKeys: encryptedBlob,
+    argon2Salt
   };
 }
 

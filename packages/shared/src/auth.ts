@@ -1,3 +1,5 @@
+import type { VfsKeySetupRequest } from './vfsTypes.js';
+
 /**
  * Shared Auth types
  */
@@ -10,6 +12,7 @@ export interface AuthUser {
 export interface RegisterRequest {
   email: string;
   password: string;
+  vfsKeySetup?: VfsKeySetupRequest;
 }
 
 export const PASSWORD_MIN_LENGTH = 12;

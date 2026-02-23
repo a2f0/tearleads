@@ -44,6 +44,22 @@ describe('Auth register routes', () => {
       expect(response.body).toEqual({ error: 'Invalid email format' });
     });
 
+    it('returns 400 when vfsKeySetup payload is malformed', async () => {
+      const response = await request(app).post('/v1/auth/register').send({
+        email: 'user@example.com',
+        password: 'SecurePassword123!',
+        vfsKeySetup: {
+          publicEncryptionKey: 'pub',
+          encryptedPrivateKeys: 'encrypted'
+        }
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error: 'email and password are required'
+      });
+    });
+
     // COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/01-account-management-policy.md | procedure=compliance/SOC2/procedures/01-account-management-procedure.md | control=password-complexity
     it('returns 400 for password too short', async () => {
       const response = await request(app)
@@ -147,6 +163,60 @@ describe('Auth register routes', () => {
       expect(mockClient.release).toHaveBeenCalled();
 
       // Clean up Redis session data
+      const claims = verifyJwt(response.body.accessToken, 'test-secret');
+      if (claims) {
+        await deleteSession(claims.jti, response.body.user.id);
+      }
+      const refreshClaims = verifyRefreshJwt(
+        response.body.refreshToken,
+        'test-secret'
+      );
+      if (refreshClaims) {
+        await deleteRefreshToken(refreshClaims.jti);
+      }
+    });
+
+    it('persists vfs keys during registration when bundle is provided', async () => {
+      vi.stubEnv('SMTP_RECIPIENT_DOMAINS', '');
+
+      const mockClient = {
+        query: vi.fn(),
+        release: vi.fn()
+      };
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // Check for existing user
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery,
+        connect: vi.fn().mockResolvedValue(mockClient)
+      });
+
+      const response = await request(app)
+        .post('/v1/auth/register')
+        .send({
+          email: 'newuser@example.com',
+          password: 'SecurePassword123!',
+          vfsKeySetup: {
+            publicEncryptionKey: 'enc-pub',
+            publicSigningKey: 'sign-pub',
+            encryptedPrivateKeys: 'encrypted-private-bundle',
+            argon2Salt: 'argon2-salt'
+          }
+        });
+
+      expect(response.status).toBe(200);
+      expect(mockClient.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO user_keys'),
+        expect.arrayContaining([
+          expect.any(String),
+          'enc-pub',
+          'sign-pub',
+          'encrypted-private-bundle',
+          'argon2-salt',
+          expect.any(String)
+        ])
+      );
+      expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
+      expect(mockClient.release).toHaveBeenCalled();
+
       const claims = verifyJwt(response.body.accessToken, 'test-secret');
       if (claims) {
         await deleteSession(claims.jti, response.body.user.id);
