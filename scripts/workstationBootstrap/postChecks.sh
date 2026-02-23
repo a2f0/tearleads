@@ -114,7 +114,7 @@ bootstrap_api_dev_env() {
 }
 
 bootstrap_local_garage() {
-  setup_garage_script="${REPO_ROOT}/scripts/setupLocalGarage.sh"
+  setup_garage_script="${REPO_ROOT}/scripts/garage/setupLocalGarage.sh"
   if [ ! -f "${setup_garage_script}" ]; then
     return
   fi

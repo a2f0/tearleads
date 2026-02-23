@@ -2,7 +2,7 @@
 set -eu
 
 ROOT_DIR="$(cd -- "$(dirname -- "$0")/.." && pwd -P)"
-GARAGE_DIR="${ROOT_DIR}/scripts/dev/garage"
+GARAGE_DIR="${ROOT_DIR}/scripts/garage"
 COMPOSE_FILE="${GARAGE_DIR}/docker-compose.yml"
 API_ENV_LINK_PATH="${ROOT_DIR}/packages/api/.env"
 GARAGE_CREDENTIALS_FILE="${GARAGE_DIR}/.s3-credentials.env"
