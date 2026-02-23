@@ -448,7 +448,7 @@ run_discovery() {
       ./scripts/preen/checkFileLimits.sh --all 2>&1 | head -40
       ;;
     preen-knip)
-      pnpm exec knip --config knip.json --use-tsconfig-files --reporter compact | head -80 || true
+      pnpm exec knip --config knip.ts --use-tsconfig-files --reporter compact | head -80 || true
       ;;
   esac
 }
@@ -543,7 +543,7 @@ metric_count() {
       ;;
     preen-knip)
       KNIP_JSON=$(mktemp)
-      pnpm exec knip --config knip.json --use-tsconfig-files --reporter json > "$KNIP_JSON" 2>/dev/null || true
+      pnpm exec knip --config knip.ts --use-tsconfig-files --reporter json > "$KNIP_JSON" 2>/dev/null || true
       jq '[
         .issues[]? |
         (.dependencies // []),
