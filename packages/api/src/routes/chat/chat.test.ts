@@ -3,7 +3,7 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
 import { createAuthHeader } from '../../test/auth.js';
-import { OPENROUTER_API_URL } from './chat/postCompletions.js';
+import { OPENROUTER_API_URL } from './postCompletions.js';
 
 const fetchMock = vi.fn<typeof fetch>();
 let previousApiKey: string | undefined;

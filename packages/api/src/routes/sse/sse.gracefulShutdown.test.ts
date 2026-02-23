@@ -8,7 +8,7 @@ vi.mock('../../lib/redisPubSub.js', () => ({
 
 // Import after mocking
 const { closeAllSSEConnections, addConnection, removeConnection } =
-  await import('./sse.js');
+  await import('./router.js');
 
 describe('SSE Graceful Shutdown', () => {
   beforeEach(() => {
