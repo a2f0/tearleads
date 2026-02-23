@@ -13,7 +13,7 @@ source "$REPO_ROOT/terraform/scripts/common.sh"
 load_secrets_env
 
 # Ensure Terraform backend/providers are initialized before reading outputs.
-"$SCRIPT_DIR/init.sh" >/dev/null
+"$SCRIPT_DIR/init.sh"
 
 # Get outputs from Terraform (use DNS hostname for SSH to match known_hosts entries)
 SSH_HOSTNAME=$(terraform -chdir="$STACK_DIR" output -raw ssh_hostname)
