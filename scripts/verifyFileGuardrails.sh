@@ -45,8 +45,8 @@ fi
 if [ ! -f ".husky/pre-push" ]; then
   errors+=("Missing .husky/pre-push hook")
 else
-  if ! grep -q "checkBinaryFiles.sh --from-upstream" ".husky/pre-push"; then
-    errors+=(".husky/pre-push does not call checkBinaryFiles.sh --from-upstream")
+  if ! grep -q "scripts/checks/checkBinaryFiles.sh --from-upstream" ".husky/pre-push"; then
+    errors+=(".husky/pre-push does not call scripts/checks/checkBinaryFiles.sh --from-upstream")
   fi
   if ! grep -q "scripts/checks/checkJs.sh --from-upstream" ".husky/pre-push"; then
     errors+=(".husky/pre-push does not call scripts/checks/checkJs.sh --from-upstream")
@@ -63,7 +63,7 @@ fi
 if [ ! -f ".github/workflows/build.yml" ]; then
   errors+=("Missing .github/workflows/build.yml")
 else
-  if ! grep -q "checkBinaryFiles.sh" ".github/workflows/build.yml"; then
+  if ! grep -q "scripts/checks/checkBinaryFiles.sh" ".github/workflows/build.yml"; then
     errors+=(".github/workflows/build.yml does not include binary file check")
   fi
   if ! grep -q "scripts/checks/checkJs.sh" ".github/workflows/build.yml"; then
