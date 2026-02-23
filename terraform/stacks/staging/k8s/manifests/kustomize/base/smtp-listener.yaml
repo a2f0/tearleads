@@ -29,6 +29,25 @@ spec:
               value: "0.0.0.0"
             - name: SMTP_PORT
               value: "25"
+            - name: SMTP_INGEST_MODE
+              value: "vfs"
+            - name: SMTP_RECIPIENT_ADDRESSING
+              value: "uuid-local-part"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: POSTGRES_PASSWORD
+            - name: VFS_BLOB_S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: VFS_BLOB_S3_ACCESS_KEY_ID
+            - name: VFS_BLOB_S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: VFS_BLOB_S3_SECRET_ACCESS_KEY
           resources:
             requests:
               memory: "64Mi"
