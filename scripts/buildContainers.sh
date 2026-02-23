@@ -21,7 +21,9 @@ usage() {
   echo "Options:"
   echo "  --api-only      Only build the API container"
   echo "  --client-only   Only build the client container"
+  echo "  --smtp-only     Only build the SMTP listener container"
   echo "  --website-only  Only build the website container"
+  echo "  --no-smtp       Skip building the SMTP listener container"
   echo "  --no-website    Skip building the website container"
   echo "  --no-push       Build only, don't push to ECR"
   echo "  --tag TAG       Use specific tag (default: latest)"
@@ -48,6 +50,10 @@ fi
 # Parse options
 BUILD_API=true
 BUILD_CLIENT=true
+BUILD_SMTP=false
+if [[ "$ENV" == "staging" ]]; then
+  BUILD_SMTP=true
+fi
 BUILD_WEBSITE=true
 PUSH=true
 TAG="latest"
@@ -56,17 +62,31 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --api-only)
       BUILD_CLIENT=false
+      BUILD_SMTP=false
       BUILD_WEBSITE=false
       shift
       ;;
     --client-only)
       BUILD_API=false
+      BUILD_SMTP=false
       BUILD_WEBSITE=false
+      shift
+      ;;
+    --smtp-only)
+      BUILD_API=false
+      BUILD_CLIENT=false
+      BUILD_WEBSITE=false
+      BUILD_SMTP=true
       shift
       ;;
     --website-only)
       BUILD_API=false
       BUILD_CLIENT=false
+      BUILD_SMTP=false
+      shift
+      ;;
+    --no-smtp)
+      BUILD_SMTP=false
       shift
       ;;
     --no-website)
@@ -91,6 +111,7 @@ done
 # Set ECR repo names based on environment
 API_REPO="tearleads-${ENV}/api"
 CLIENT_REPO="tearleads-${ENV}/client"
+SMTP_REPO="tearleads-${ENV}/smtp-listener"
 WEBSITE_REPO="tearleads-${ENV}/website"
 
 echo "=== Container Build Configuration ==="
@@ -99,6 +120,7 @@ echo "ECR Registry: $ECR_REGISTRY"
 echo "Tag: $TAG"
 echo "Build API: $BUILD_API"
 echo "Build Client: $BUILD_CLIENT"
+echo "Build SMTP Listener: $BUILD_SMTP"
 echo "Build Website: $BUILD_WEBSITE"
 echo "Push to ECR: $PUSH"
 echo "Docker Platform: $DOCKER_BUILD_PLATFORM"
@@ -157,6 +179,22 @@ if [[ "$BUILD_CLIENT" == "true" ]]; then
   echo ""
 fi
 
+# Build SMTP listener
+if [[ "$BUILD_SMTP" == "true" ]]; then
+  echo "=== Building SMTP listener container ==="
+  docker build \
+    --platform "$DOCKER_BUILD_PLATFORM" \
+    -f packages/smtp-listener/Dockerfile \
+    -t "${ECR_REGISTRY}/${SMTP_REPO}:${TAG}" \
+    .
+
+  if [[ "$PUSH" == "true" ]]; then
+    echo "=== Pushing SMTP listener container ==="
+    docker push "${ECR_REGISTRY}/${SMTP_REPO}:${TAG}"
+  fi
+  echo ""
+fi
+
 # Build Website
 if [[ "$BUILD_WEBSITE" == "true" ]]; then
   echo "=== Building Website container ==="
@@ -181,6 +219,9 @@ if [[ "$PUSH" == "true" ]]; then
   fi
   if [[ "$BUILD_CLIENT" == "true" ]]; then
     echo "  - ${ECR_REGISTRY}/${CLIENT_REPO}:${TAG}"
+  fi
+  if [[ "$BUILD_SMTP" == "true" ]]; then
+    echo "  - ${ECR_REGISTRY}/${SMTP_REPO}:${TAG}"
   fi
   if [[ "$BUILD_WEBSITE" == "true" ]]; then
     echo "  - ${ECR_REGISTRY}/${WEBSITE_REPO}:${TAG}"

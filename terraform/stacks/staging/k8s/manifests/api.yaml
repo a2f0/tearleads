@@ -50,6 +50,10 @@ spec:
                 secretKeyRef:
                   name: tearleads-secrets
                   key: VFS_BLOB_S3_SECRET_ACCESS_KEY
+            - name: SMTP_HOST
+              value: smtp-listener
+            - name: SMTP_PORT
+              value: "25"
           resources:
             requests:
               memory: "128Mi"

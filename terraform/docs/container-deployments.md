@@ -8,7 +8,7 @@ Container images are stored in AWS ECR (Elastic Container Registry) with separat
 
 | Environment | Repository Prefix | Images |
 |-------------|-------------------|--------|
-| Staging | `tearleads-staging/` | api, client, website |
+| Staging | `tearleads-staging/` | api, client, smtp-listener, website |
 | Production | `tearleads-prod/` | api, client, website |
 
 ## Prerequisites
@@ -35,7 +35,9 @@ Use the `buildContainers.sh` script to build and push images to ECR:
 |--------|-------------|
 | `--api-only` | Only build the API container |
 | `--client-only` | Only build the client container |
+| `--smtp-only` | Only build the SMTP listener container |
 | `--website-only` | Only build the website container |
+| `--no-smtp` | Skip building the SMTP listener container |
 | `--no-push` | Build locally without pushing to ECR |
 | `--tag TAG` | Use a specific tag (default: `latest`) |
 
@@ -121,6 +123,7 @@ kubectl apply -f terraform/stacks/staging/k8s/manifests/
 # Or apply specific deployments
 kubectl apply -f terraform/stacks/staging/k8s/manifests/api.yaml
 kubectl apply -f terraform/stacks/staging/k8s/manifests/client.yaml
+kubectl apply -f terraform/stacks/staging/k8s/manifests/smtp-listener.yaml
 kubectl apply -f terraform/stacks/staging/k8s/manifests/website.yaml
 ```
 
@@ -131,6 +134,7 @@ To trigger a rolling update with the latest image:
 ```bash
 kubectl rollout restart deployment/api -n tearleads
 kubectl rollout restart deployment/client -n tearleads
+kubectl rollout restart deployment/smtp-listener -n tearleads
 kubectl rollout restart deployment/website -n tearleads
 ```
 

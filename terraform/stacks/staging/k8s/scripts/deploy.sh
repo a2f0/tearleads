@@ -106,6 +106,7 @@ else
   kubectl apply -f "$MANIFESTS_DIR/postgres.yaml"
   kubectl apply -f "$MANIFESTS_DIR/redis.yaml"
   kubectl apply -f "$MANIFESTS_DIR/garage.yaml"
+  kubectl apply -f "$MANIFESTS_DIR/smtp-listener.yaml"
   kubectl apply -f "$MANIFESTS_DIR/api.yaml"
   kubectl apply -f "$MANIFESTS_DIR/client.yaml"
   kubectl apply -f "$MANIFESTS_DIR/website.yaml"

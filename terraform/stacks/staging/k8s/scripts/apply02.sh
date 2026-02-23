@@ -17,6 +17,7 @@ AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-}"
 ECR_REPOSITORIES=(
   "tearleads-staging/api"
   "tearleads-staging/client"
+  "tearleads-staging/smtp-listener"
   "tearleads-staging/website"
 )
 

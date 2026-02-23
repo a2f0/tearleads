@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smtp-listener
+  namespace: tearleads
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: smtp-listener
+  template:
+    metadata:
+      labels:
+        app: smtp-listener
+    spec:
+      imagePullSecrets:
+        - name: ecr-registry
+      containers:
+        - name: smtp-listener
+          image: 956489103522.dkr.ecr.us-east-1.amazonaws.com/tearleads-staging/smtp-listener:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 25
+          envFrom:
+            - configMapRef:
+                name: tearleads-config
+          env:
+            - name: SMTP_HOST
+              value: "0.0.0.0"
+            - name: SMTP_PORT
+              value: "25"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          livenessProbe:
+            tcpSocket:
+              port: 25
+            initialDelaySeconds: 30
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smtp-listener
+  namespace: tearleads
+spec:
+  selector:
+    app: smtp-listener
+  ports:
+    - port: 25
+      targetPort: 25

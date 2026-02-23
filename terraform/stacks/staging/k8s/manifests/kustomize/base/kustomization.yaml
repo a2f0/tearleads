@@ -7,6 +7,7 @@ resources:
   - postgres.yaml
   - redis.yaml
   - garage.yaml
+  - smtp-listener.yaml
   - api.yaml
   - client.yaml
   - website.yaml

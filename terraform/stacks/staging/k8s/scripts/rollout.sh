@@ -14,6 +14,7 @@ ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-300s}"
 SKIP_WEBSITE="${SKIP_WEBSITE:-false}"
 SKIP_SMOKE="${SKIP_SMOKE:-false}"
 SKIP_POSTGRES_SMOKE="${SKIP_POSTGRES_SMOKE:-false}"
+SKIP_SMTP_SMOKE="${SKIP_SMTP_SMOKE:-false}"
 
 if [[ ! -f "$KUBECONFIG_FILE" ]]; then
   echo "ERROR: Kubeconfig not found at $KUBECONFIG_FILE"
@@ -23,7 +24,7 @@ fi
 
 export KUBECONFIG="$KUBECONFIG_FILE"
 
-deployments=("deployment/api" "deployment/client")
+deployments=("deployment/api" "deployment/client" "deployment/smtp-listener")
 if [[ "$SKIP_WEBSITE" != "true" ]]; then
   deployments+=("deployment/website")
 fi
@@ -55,5 +56,13 @@ else
     echo ""
     echo "Running Postgres smoke test..."
     "$SCRIPT_DIR/smoke-postgres.sh"
+  fi
+
+  if [[ "$SKIP_SMTP_SMOKE" == "true" ]]; then
+    echo "Skipping SMTP smoke test (SKIP_SMTP_SMOKE=true)."
+  else
+    echo ""
+    echo "Running SMTP smoke test..."
+    "$SCRIPT_DIR/smoke-smtp.sh"
   fi
 fi
