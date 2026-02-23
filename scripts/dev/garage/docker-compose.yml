@@ -1,0 +1,16 @@
+services:
+  garage:
+    image: dxflrs/garage:v2.2.0
+    restart: unless-stopped
+    environment:
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN}
+    ports:
+      - "3900:3900"
+      - "3901:3901"
+      - "3902:3902"
+      - "3903:3903"
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+      - ./data/meta:/var/lib/garage/meta
+      - ./data/data:/var/lib/garage/data
