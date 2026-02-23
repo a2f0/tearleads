@@ -26,7 +26,7 @@ export interface HarnessActorsResult {
 
 export interface HarnessOrganizationSeedInput {
   name: string;
-  description?: string | null;
+  description?: string | null | undefined;
   memberUserIds?: string[];
   adminUserIds?: string[];
 }
@@ -40,7 +40,7 @@ export interface HarnessOrganization {
 export interface HarnessGroupSeedInput {
   organizationId: string;
   name: string;
-  description?: string | null;
+  description?: string | null | undefined;
   memberUserIds?: string[];
 }
 
@@ -299,12 +299,10 @@ export async function seedVfsScenario(
 
     const organizationSeedInput: HarnessOrganizationSeedInput = {
       name: organization.name,
+      description: organization.description,
       memberUserIds,
       adminUserIds
     };
-    if (organization.description !== undefined) {
-      organizationSeedInput.description = organization.description;
-    }
 
     organizationsByKey[key] = await createHarnessOrganization(
       client,
@@ -334,11 +332,9 @@ export async function seedVfsScenario(
     const groupSeedInput: HarnessGroupSeedInput = {
       organizationId: organization.id,
       name: group.name,
+      description: group.description,
       memberUserIds
     };
-    if (group.description !== undefined) {
-      groupSeedInput.description = group.description;
-    }
 
     groupsByKey[key] = await createHarnessGroup(client, groupSeedInput);
   }

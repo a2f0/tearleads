@@ -65,7 +65,7 @@ export async function seedHarnessAccount(
     [input.email]
   );
   const existingUserId = existingUser.rows[0]?.['id'];
-  if (typeof existingUserId === 'string' && existingUserId.length > 0) {
+  if (existingUserId) {
     throw new Error(`Account already exists for ${input.email}.`);
   }
 
