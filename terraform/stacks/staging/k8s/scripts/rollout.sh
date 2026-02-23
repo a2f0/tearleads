@@ -12,6 +12,7 @@ load_secrets_env
 KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config-staging-k8s}"
 ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-300s}"
 SKIP_WEBSITE="${SKIP_WEBSITE:-false}"
+SKIP_SMOKE="${SKIP_SMOKE:-false}"
 
 if [[ ! -f "$KUBECONFIG_FILE" ]]; then
   echo "ERROR: Kubeconfig not found at $KUBECONFIG_FILE"
@@ -39,3 +40,11 @@ done
 
 echo ""
 echo "Rollout complete. Deployments are running latest images."
+
+if [[ "$SKIP_SMOKE" == "true" ]]; then
+  echo "Skipping API smoke test (SKIP_SMOKE=true)."
+else
+  echo ""
+  echo "Running API smoke test..."
+  "$SCRIPT_DIR/smoke-api.sh"
+fi
