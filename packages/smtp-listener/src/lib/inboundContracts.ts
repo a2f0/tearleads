@@ -1,4 +1,5 @@
 import type { EmailAddress } from '../types/email.js';
+import type { StoredEmail } from '../types/email.js';
 
 export interface ResolvedInboundRecipient {
   userId: string;
@@ -42,7 +43,11 @@ export interface InboundMessageEnvelopeRecord {
   to: EmailAddress[];
   receivedAt: string;
   encryptedSubject: string;
+  encryptedFrom: string;
+  encryptedTo: string[];
   encryptedBodyPointer: string;
+  encryptedBodySha256: string;
+  encryptedBodySize: number;
   wrappedRecipientKeys: WrappedRecipientKeyEnvelope[];
 }
 
@@ -50,5 +55,12 @@ export interface InboundVfsEmailRepository {
   persistInboundMessage(input: {
     envelope: InboundMessageEnvelopeRecord;
     recipients: ResolvedInboundRecipient[];
+  }): Promise<void>;
+}
+
+export interface InboundMessageIngestor {
+  ingest(input: {
+    email: StoredEmail;
+    userIds: string[];
   }): Promise<void>;
 }

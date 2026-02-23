@@ -1,4 +1,9 @@
+import { S3InboundBlobStore } from './lib/inboundBlobStore.js';
+import { DefaultInboundMessageIngestor } from './lib/inboundIngest.js';
+import { PostgresInboundRecipientKeyLookup } from './lib/inboundKeyLookup.js';
+import { PostgresInboundVfsEmailRepository } from './lib/inboundVfsRepository.js';
 import { createSmtpListener } from './lib/server.js';
+import type { SmtpListenerConfig } from './types/email.js';
 
 const port = Number(process.env['SMTP_PORT']) || 25;
 const host = process.env['SMTP_HOST'] || '0.0.0.0';
@@ -7,20 +12,36 @@ const recipientDomains = (process.env['SMTP_RECIPIENT_DOMAINS'] ?? '')
   .split(',')
   .map((domain) => domain.trim())
   .filter((domain) => domain.length > 0);
-const recipientAddressing =
+const recipientAddressing: 'uuid-local-part' | 'legacy-local-part' =
   process.env['SMTP_RECIPIENT_ADDRESSING'] === 'legacy-local-part'
     ? 'legacy-local-part'
     : 'uuid-local-part';
+const ingestMode =
+  process.env['SMTP_INGEST_MODE']?.trim().toLowerCase() ?? 'legacy-redis';
 
 async function main(): Promise<void> {
   console.log(`Starting SMTP listener on ${host}:${port}...`);
+  const inboundIngestor =
+    ingestMode === 'vfs'
+      ? new DefaultInboundMessageIngestor(
+          new PostgresInboundRecipientKeyLookup(),
+          new S3InboundBlobStore(),
+          new PostgresInboundVfsEmailRepository()
+        )
+      : undefined;
+  if (inboundIngestor) {
+    console.log('SMTP ingest mode: vfs');
+  } else {
+    console.log('SMTP ingest mode: legacy-redis');
+  }
 
-  const listener = await createSmtpListener({
+  const listenerConfig: SmtpListenerConfig = {
     port,
     host,
     redisUrl,
     recipientDomains,
     recipientAddressing,
+    ...(inboundIngestor ? { inboundIngestor } : {}),
     onEmail: (email) => {
       console.log(
         `Received email ${email.id} from ${
@@ -28,7 +49,9 @@ async function main(): Promise<void> {
         } (${email.size} bytes)`
       );
     }
-  });
+  };
+
+  const listener = await createSmtpListener(listenerConfig);
 
   await listener.start();
   console.log(`SMTP listener running on ${host}:${listener.getPort()}`);

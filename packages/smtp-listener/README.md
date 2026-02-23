@@ -13,6 +13,7 @@ The listener is configured via environment variables:
 | `REDIS_URL` | `redis://localhost:6379` | Redis connection URL for email storage |
 | `SMTP_RECIPIENT_DOMAINS` | _none_ | Comma-separated list of domains that map local parts to user IDs (e.g. `email.example.com`) |
 | `SMTP_RECIPIENT_ADDRESSING` | `uuid-local-part` | Recipient local-part mode: `uuid-local-part` (canonical `users.id`) or `legacy-local-part` |
+| `SMTP_INGEST_MODE` | `legacy-redis` | Ingest backend mode: `legacy-redis` or `vfs` |
 
 By default, recipients are resolved only when local-part is a canonical UUID. This enforces `uuid@host` addressing for inbound routing.
 

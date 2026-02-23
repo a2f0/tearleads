@@ -2071,9 +2071,15 @@ importers:
 
   packages/smtp-listener:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: 3.994.0
+        version: 3.994.0
       '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
+      pg:
+        specifier: 8.18.0
+        version: 8.18.0
       smtp-server:
         specifier: 3.18.1
         version: 3.18.1
@@ -2081,6 +2087,9 @@ importers:
       '@types/node':
         specifier: 25.3.0
         version: 25.3.0
+      '@types/pg':
+        specifier: 8.15.6
+        version: 8.15.6
       '@types/smtp-server':
         specifier: 3.5.12
         version: 3.5.12
@@ -5913,6 +5922,9 @@ packages:
 
   '@types/papaparse@5.5.2':
     resolution: {integrity: sha512-gFnFp/JMzLHCwRf7tQHrNnfhN4eYBVYYI897CGX4MY1tzY9l2aLkVyx2IlKZ/SAqDbB3I1AOZW5gTMGGsqWliA==}
+
+  '@types/pg@8.15.6':
+    resolution: {integrity: sha512-NoaMtzhxOrubeL/7UZuNTrejB4MPAJ0RpxZqXQf2qXuVlTPuG6Y8p4u9dKRaue4yjmC7ZhzVO2/Yyyn25znrPQ==}
 
   '@types/pg@8.16.0':
     resolution: {integrity: sha512-RmhMd/wD+CF8Dfo+cVIy3RR5cl8CyfXQ0tGgW6XBL8L4LM/UTEbNXYRbLwU6w+CgrKBNbrQWt4FUtTfaU5jSYQ==}
@@ -14917,6 +14929,12 @@ snapshots:
   '@types/papaparse@5.5.2':
     dependencies:
       '@types/node': 25.3.0
+
+  '@types/pg@8.15.6':
+    dependencies:
+      '@types/node': 25.3.0
+      pg-protocol: 1.11.0
+      pg-types: 2.2.0
 
   '@types/pg@8.16.0':
     dependencies:

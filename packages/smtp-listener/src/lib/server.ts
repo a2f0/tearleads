@@ -49,6 +49,7 @@ export async function createSmtpListener(
   let storage: EmailStorage | null = null;
   const allowedDomains = normalizeDomains(config.recipientDomains);
   const recipientAddressing = config.recipientAddressing ?? 'uuid-local-part';
+  const inboundIngestor = config.inboundIngestor;
 
   const server = new SMTPServer({
     authOptional: true,
@@ -72,7 +73,9 @@ export async function createSmtpListener(
             recipientAddressing
           });
 
-          if (storage && userIds.length > 0) {
+          if (inboundIngestor) {
+            await inboundIngestor.ingest({ email, userIds });
+          } else if (storage && userIds.length > 0) {
             await storage.store(email, userIds);
           }
           if (config.onEmail) {
