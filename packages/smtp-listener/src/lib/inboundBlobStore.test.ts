@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 
 const { sendMock, s3CtorMock, putObjectCtorMock } = vi.hoisted(() => ({
-  sendMock: vi.fn(async () => ({})),
+  sendMock: vi.fn(async (_command: unknown) => ({})),
   s3CtorMock: vi.fn(),
   putObjectCtorMock: vi.fn()
 }));
