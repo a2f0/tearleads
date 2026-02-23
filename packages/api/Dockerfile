@@ -25,15 +25,16 @@ COPY packages/vfs-sync packages/vfs-sync
 # Build shared packages first, then API bundle
 RUN pnpm --filter @tearleads/shared build && \
     pnpm --filter @tearleads/db build && \
-    pnpm --filter @tearleads/api build:bundle
+    pnpm --filter @tearleads/api build:all
 
 # Production stage
 FROM node:22-slim
 
 WORKDIR /app
 
-# Copy only the bundled output
+# Copy bundled output (server + CLI)
 COPY --from=builder /app/packages/api/dist/server.cjs ./server.cjs
+COPY --from=builder /app/packages/api/dist/apiCli.cjs ./apiCli.cjs
 
 ENV NODE_ENV=production
 ENV PORT=5001
