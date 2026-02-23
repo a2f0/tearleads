@@ -55,6 +55,9 @@ Run `--help` for full action and option list:
 - `findDeferredWork` - Find deferred work comments
 - `listDeferredFixIssues` - List deferred-fix issues
 - `getIssue` - Fetch issue details by number
+- `listDependabotAlerts` - List Dependabot alerts with optional filters
+- `getDependabotAlert` - Fetch Dependabot alert details by alert number
+- `updateDependabotAlert` - Reopen or dismiss a Dependabot alert
 - `runPreen` - Run stateful preen discovery (`aggressive` default, supports `--passive`)
 - `issueTemplate` - Print standard issue body template
 - `createIssue` - Create user-requested/deferred-fix issues with dedupe checks
@@ -112,6 +115,8 @@ Most GitHub operations are handled via Octokit. `gh` remains a fallback for auth
 ./scripts/agents/tooling/agentTool.ts sanitizePrBody --number 123
 ./scripts/agents/tooling/agentTool.ts createDeferredFixIssue --number 123 --pr-url "https://github.com/org/repo/pull/123" --deferred-items-json '[{"body":"Handle edge case","path":"src/x.ts","line":42,"html_url":"https://github.com/org/repo/pull/123#discussion_r1"}]'
 ./scripts/agents/tooling/agentTool.ts updatePrBody --number 123 --body-file /tmp/pr-body.md
+./scripts/agents/tooling/agentTool.ts listDependabotAlerts --state open --severity high,critical --per-page 50
+./scripts/agents/tooling/agentTool.ts updateDependabotAlert --alert-number 64 --state dismissed --dismissed-reason not_used --dismissed-comment "Not reachable in this app"
 ./scripts/agents/tooling/agentTool.ts refresh
 ./scripts/agents/tooling/agentTool.ts runTerraformStackScript --stack staging/k8s --script apply01 --yes
 ./scripts/agents/tooling/agentTool.ts runAnsibleBootstrap --target staging-k8s --yes

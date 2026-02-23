@@ -184,6 +184,7 @@ run_discovery() {
       ;;
     preen-dependency-security)
       pnpm audit --prod --audit-level high --json 2>/dev/null | head -40 || true
+      ./scripts/agents/tooling/agentTool.ts listDependabotAlerts --state open --sort updated --direction desc --per-page 25 2>/dev/null | jq '.alerts[:10]' 2>/dev/null || true
       rg -n --glob 'package.json' 'latest|next|canary|beta' packages scripts . | head -20 || true
       ;;
     preen-test-flakiness)
@@ -289,7 +290,9 @@ metric_count() {
       rg -L --glob '*.ts' 'authClaims|req\.session' packages/api/src/routes | rg -v 'index\.ts|shared\.ts|test\.' | wc -l
       ;;
     preen-dependency-security)
-      pnpm audit --prod --audit-level high --json 2>/dev/null | jq '[.. | objects | .severity? // empty | select(. == "high" or . == "critical")] | length' 2>/dev/null || echo 0
+      AUDIT_COUNT=$(pnpm audit --prod --audit-level high --json 2>/dev/null | jq '[.. | objects | .severity? // empty | select(. == "high" or . == "critical")] | length' 2>/dev/null || echo 0)
+      DEPENDABOT_COUNT=$(./scripts/agents/tooling/agentTool.ts listDependabotAlerts --state open --per-page 100 2>/dev/null | jq '.alerts | length' 2>/dev/null || echo 0)
+      echo $((AUDIT_COUNT + DEPENDABOT_COUNT))
       ;;
     preen-test-flakiness)
       rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\(|waitForTimeout\(|sleep\(|retry|retries|flaky|TODO.*flaky' packages . | wc -l

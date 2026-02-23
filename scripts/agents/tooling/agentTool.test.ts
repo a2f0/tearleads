@@ -54,6 +54,42 @@ test('createIssue deferred-fix requires --source-pr', () => {
   );
 });
 
+test('updateDependabotAlert requires dismissed reason for dismissed state', () => {
+  const result = runAgentTool([
+    'updateDependabotAlert',
+    '--alert-number',
+    '64',
+    '--state',
+    'dismissed'
+  ]);
+
+  assert.equal(result.status, 1);
+  const combinedOutput = `${result.stdout}\n${result.stderr}`;
+  assert.match(
+    combinedOutput,
+    /updateDependabotAlert requires --dismissed-reason when --state dismissed/
+  );
+});
+
+test('updateDependabotAlert rejects dismissed reason for open state', () => {
+  const result = runAgentTool([
+    'updateDependabotAlert',
+    '--alert-number',
+    '64',
+    '--state',
+    'open',
+    '--dismissed-reason',
+    'not_used'
+  ]);
+
+  assert.equal(result.status, 1);
+  const combinedOutput = `${result.stdout}\n${result.stderr}`;
+  assert.match(
+    combinedOutput,
+    /does not accept --dismissed-reason when --state open/
+  );
+});
+
 test('verifyBranchPush reports synced branch heads', (t) => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agenttool-sync-'));
   t.after(() => {
