@@ -1,5 +1,7 @@
 import { getRedisClient } from '@tearleads/shared/redis';
 import type { Request, Response, Router as RouterType } from 'express';
+import { getPostgresPool } from '../../lib/postgres.js';
+import { getEmailStorageBackend } from './backend.js';
 import {
   type EmailListItem,
   extractSubject,
@@ -82,6 +84,58 @@ const getRootHandler = async (req: Request, res: Response) => {
       100,
       Math.max(1, parseInt(req.query['limit'] as string, 10) || 50)
     );
+    const backend = getEmailStorageBackend();
+
+    if (backend === 'vfs') {
+      const pool = await getPostgresPool();
+      const totalResult = await pool.query<{ total: string }>(
+        `SELECT COUNT(*)::text AS total
+         FROM emails e
+         INNER JOIN vfs_registry vr ON vr.id = e.id
+         WHERE vr.owner_id = $1`,
+        [userId]
+      );
+      const total = parseInt(totalResult.rows[0]?.total ?? '0', 10) || 0;
+      const rows = await pool.query<{
+        id: string;
+        encrypted_from: string | null;
+        encrypted_to: unknown;
+        encrypted_subject: string | null;
+        received_at: string;
+        ciphertext_size: number | null;
+      }>(
+        `SELECT
+           e.id,
+           e.encrypted_from,
+           e.encrypted_to,
+           e.encrypted_subject,
+           e.received_at,
+           em.ciphertext_size
+         FROM emails e
+         INNER JOIN vfs_registry vr ON vr.id = e.id
+         LEFT JOIN email_messages em ON em.storage_key = e.encrypted_body_path
+         WHERE vr.owner_id = $1
+         ORDER BY e.received_at DESC
+         OFFSET $2
+         LIMIT $3`,
+        [userId, offset, limit]
+      );
+
+      const emails: EmailListItem[] = rows.rows.map((row) => ({
+        id: row.id,
+        from: row.encrypted_from ?? '',
+        to: Array.isArray(row.encrypted_to)
+          ? row.encrypted_to
+              .filter((value): value is string => typeof value === 'string')
+          : [],
+        subject: row.encrypted_subject ?? '',
+        receivedAt: row.received_at,
+        size: row.ciphertext_size ?? 0
+      }));
+
+      res.json({ emails, total, offset, limit });
+      return;
+    }
 
     const client = await getRedisClient();
     const emailListKey = getEmailListKey(userId);
