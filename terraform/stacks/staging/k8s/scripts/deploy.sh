@@ -18,6 +18,33 @@ LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-}"
 
 KUBECONFIG="${KUBECONFIG:-$HOME/.kube/config-staging-k8s}"
 
+require_secret_env_vars() {
+  local missing=()
+  local required_vars=(
+    "JWT_SECRET"
+    "OPENROUTER_API_KEY"
+    "POSTGRES_PASSWORD"
+    "GARAGE_RPC_SECRET"
+    "GARAGE_ADMIN_TOKEN"
+    "VFS_BLOB_S3_ACCESS_KEY_ID"
+    "VFS_BLOB_S3_SECRET_ACCESS_KEY"
+  )
+
+  local var_name
+  for var_name in "${required_vars[@]}"; do
+    if [[ -z "${!var_name:-}" ]]; then
+      missing+=("$var_name")
+    fi
+  done
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "ERROR: Missing required secret env vars for manifest rendering:" >&2
+    printf '  - %s\n' "${missing[@]}" >&2
+    echo "Set these in .secrets/env (or export in shell) and retry." >&2
+    exit 1
+  fi
+}
+
 if [[ ! -f "$KUBECONFIG" ]]; then
   echo "ERROR: Kubeconfig not found at $KUBECONFIG"
   echo "Run ./scripts/kubeconfig.sh first to fetch it"
@@ -41,13 +68,22 @@ if [[ -z "$LETSENCRYPT_EMAIL" ]]; then
   LETSENCRYPT_EMAIL="admin@$STAGING_DOMAIN"
 fi
 ESCAPED_LETSENCRYPT_EMAIL="$(printf '%s' "$LETSENCRYPT_EMAIL" | sed -e 's/[&|\\]/\\&/g')"
+require_secret_env_vars
+
+if ! command -v envsubst >/dev/null 2>&1; then
+  echo "ERROR: envsubst is required to render secrets.yaml."
+  echo "Install gettext (provides envsubst) and retry."
+  exit 1
+fi
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 RENDERED_INGRESS="$TMP_DIR/ingress.yaml"
 RENDERED_ISSUER="$TMP_DIR/cert-manager-issuer.yaml"
+RENDERED_SECRETS="$TMP_DIR/secrets.yaml"
 sed "s/DOMAIN_PLACEHOLDER/$STAGING_DOMAIN/g" "$MANIFESTS_DIR/ingress.yaml" > "$RENDERED_INGRESS"
 sed "s|REPLACE_WITH_YOUR_EMAIL|$ESCAPED_LETSENCRYPT_EMAIL|g" "$MANIFESTS_DIR/cert-manager-issuer.yaml" > "$RENDERED_ISSUER"
+envsubst < "$MANIFESTS_DIR/secrets.yaml" > "$RENDERED_SECRETS"
 
 echo "Deploying manifests from $MANIFESTS_DIR..."
 
@@ -58,14 +94,14 @@ if [[ "$USE_KUSTOMIZE" == "true" ]]; then
   fi
 
   echo "Applying secrets manifest directly (outside kustomize)."
-  kubectl apply -f "$MANIFESTS_DIR/secrets.yaml"
+  kubectl apply -f "$RENDERED_SECRETS"
 
   echo "Applying core resources via kustomize overlay: $KUSTOMIZE_OVERLAY"
   kubectl apply -k "$KUSTOMIZE_OVERLAY"
 else
   # Apply manifests in order
   kubectl apply -f "$MANIFESTS_DIR/namespace.yaml"
-  kubectl apply -f "$MANIFESTS_DIR/secrets.yaml"
+  kubectl apply -f "$RENDERED_SECRETS"
   kubectl apply -f "$MANIFESTS_DIR/configmap.yaml"
   kubectl apply -f "$MANIFESTS_DIR/postgres.yaml"
   kubectl apply -f "$MANIFESTS_DIR/redis.yaml"
