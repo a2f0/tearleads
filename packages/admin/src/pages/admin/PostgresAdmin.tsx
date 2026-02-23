@@ -17,7 +17,7 @@ export function PostgresAdmin({
   const inRouterContext = useInRouterContext();
 
   const content = (
-    <div className="flex h-full flex-col space-y-6">
+    <div className="flex h-full min-h-0 flex-col space-y-6">
       <div className="space-y-2">
         {showBackLink && (
           <BackLink defaultTo="/" defaultLabel={t('backToHome')} />

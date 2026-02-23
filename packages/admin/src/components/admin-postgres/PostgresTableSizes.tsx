@@ -82,7 +82,7 @@ export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
 
   return (
     <div
-      className="space-y-3 rounded-lg border p-4"
+      className="flex min-h-0 flex-1 flex-col space-y-3 rounded-lg border p-4"
       data-testid="postgres-table-sizes"
     >
       <div className="flex items-center justify-between">
@@ -98,7 +98,7 @@ export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
       {error && <div className="text-destructive text-sm">{error}</div>}
 
       {!error && (
-        <div className="space-y-2 text-sm">
+        <div className="flex min-h-0 flex-1 flex-col space-y-2 text-sm">
           <div className="flex items-center justify-between border-b pb-2">
             <div className="flex items-center gap-2">
               <HardDrive className="h-4 w-4 text-muted-foreground" />
@@ -116,7 +116,10 @@ export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
               No tables found
             </div>
           ) : (
-            <div className="overflow-auto rounded-lg border">
+            <div
+              className="min-h-0 flex-1 overflow-auto rounded-lg border"
+              data-testid="postgres-table-sizes-scroll-region"
+            >
               <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
                 <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
                   <tr>
