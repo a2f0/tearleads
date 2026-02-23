@@ -33,7 +33,11 @@ export const v025: Migration = {
     ];
 
     await adapter.executeMany(statements);
-    await addColumnIfNotExists(adapter, 'vfs_acl_entries', 'key_epoch', 'INTEGER');
+    await addColumnIfNotExists(
+      adapter,
+      'vfs_acl_entries',
+      'key_epoch',
+      'INTEGER'
+    );
   }
 };
-

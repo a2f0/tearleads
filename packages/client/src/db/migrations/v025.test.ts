@@ -43,7 +43,9 @@ describe('v025 migration', () => {
     );
     expect(statements[0]).toContain('"item_id" TEXT NOT NULL');
     expect(statements[0]).toContain('"wrapped_session_key" TEXT');
-    expect(statements[0]).toContain('"granted_by" TEXT REFERENCES "users"("id")');
+    expect(statements[0]).toContain(
+      '"granted_by" TEXT REFERENCES "users"("id")'
+    );
 
     expect(statements[1]).toContain('vfs_acl_entries_item_idx');
     expect(statements[2]).toContain('vfs_acl_entries_principal_idx');
