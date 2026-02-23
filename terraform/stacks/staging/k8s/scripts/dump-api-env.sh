@@ -28,23 +28,24 @@ Environment:
 EOF
 }
 
-case "${1:-}" in
-  --show-values)
-    SHOW_VALUES="true"
-    ;;
-  -h|--help)
-    usage
-    exit 0
-    ;;
-  "")
-    ;;
-  *)
-    echo "ERROR: Unknown argument: ${1}" >&2
-    echo "" >&2
-    usage >&2
-    exit 1
-    ;;
-esac
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --show-values)
+      SHOW_VALUES="true"
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "ERROR: Unknown argument: $1" >&2
+      echo "" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
 
 if ! command -v kubectl >/dev/null 2>&1; then
   echo "ERROR: kubectl is required but not found." >&2
