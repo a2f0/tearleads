@@ -87,7 +87,7 @@ Contract tests are in `packages/api/src/routes/vfs-blobs-persistence-contract.te
 For local VFS blob persistence with the same S3-compatible backend used in k8s:
 
 ```bash
-pnpm setupLocalGarage
+sh scripts/setupLocalGarage.sh
 ```
 
 This starts Garage from `scripts/dev/garage/docker-compose.yml`, initializes the `vfs-blobs` bucket, and writes blob-store env defaults into `packages/api/.env`.
@@ -95,5 +95,5 @@ This starts Garage from `scripts/dev/garage/docker-compose.yml`, initializes the
 To stop it:
 
 ```bash
-pnpm stopLocalGarage
+sh scripts/stopLocalGarage.sh
 ```
