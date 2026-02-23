@@ -118,37 +118,18 @@ if [ -z "${current_openrouter_key}" ] || [ "${current_openrouter_key}" = "your-o
   fi
 fi
 
-current_blob_provider="$(read_env_value "${API_ENV_FILE}" "VFS_BLOB_STORE_PROVIDER" || true)"
-if [ -z "${current_blob_provider}" ]; then
-  upsert_env_value "${API_ENV_FILE}" "VFS_BLOB_STORE_PROVIDER" "s3"
-fi
-
-current_blob_bucket="$(read_env_value "${API_ENV_FILE}" "VFS_BLOB_S3_BUCKET" || true)"
-if [ -z "${current_blob_bucket}" ]; then
-  upsert_env_value "${API_ENV_FILE}" "VFS_BLOB_S3_BUCKET" "vfs-blobs"
-fi
-
-current_blob_region="$(read_env_value "${API_ENV_FILE}" "VFS_BLOB_S3_REGION" || true)"
-if [ -z "${current_blob_region}" ]; then
-  upsert_env_value "${API_ENV_FILE}" "VFS_BLOB_S3_REGION" "us-east-1"
-fi
-
-current_blob_endpoint="$(read_env_value "${API_ENV_FILE}" "VFS_BLOB_S3_ENDPOINT" || true)"
-if [ -z "${current_blob_endpoint}" ]; then
-  upsert_env_value "${API_ENV_FILE}" "VFS_BLOB_S3_ENDPOINT" "http://127.0.0.1:3900"
-fi
-
-current_blob_access_key="$(read_env_value "${API_ENV_FILE}" "VFS_BLOB_S3_ACCESS_KEY_ID" || true)"
-if [ -z "${current_blob_access_key}" ]; then
-  upsert_env_value "${API_ENV_FILE}" "VFS_BLOB_S3_ACCESS_KEY_ID" "vfs-blob-key"
-fi
-
-current_blob_secret_key="$(read_env_value "${API_ENV_FILE}" "VFS_BLOB_S3_SECRET_ACCESS_KEY" || true)"
-if [ -z "${current_blob_secret_key}" ]; then
-  upsert_env_value "${API_ENV_FILE}" "VFS_BLOB_S3_SECRET_ACCESS_KEY" "vfs-blob-secret-local-dev"
-fi
-
-current_force_path_style="$(read_env_value "${API_ENV_FILE}" "VFS_BLOB_S3_FORCE_PATH_STYLE" || true)"
-if [ -z "${current_force_path_style}" ]; then
-  upsert_env_value "${API_ENV_FILE}" "VFS_BLOB_S3_FORCE_PATH_STYLE" "true"
-fi
+while IFS='=' read -r key value; do
+  [ -n "${key}" ] || continue
+  current_value="$(read_env_value "${API_ENV_FILE}" "${key}" || true)"
+  if [ -z "${current_value}" ]; then
+    upsert_env_value "${API_ENV_FILE}" "${key}" "${value}"
+  fi
+done <<EOF
+VFS_BLOB_STORE_PROVIDER=s3
+VFS_BLOB_S3_BUCKET=vfs-blobs
+VFS_BLOB_S3_REGION=us-east-1
+VFS_BLOB_S3_ENDPOINT=http://127.0.0.1:3900
+VFS_BLOB_S3_ACCESS_KEY_ID=vfs-blob-key
+VFS_BLOB_S3_SECRET_ACCESS_KEY=vfs-blob-secret-local-dev
+VFS_BLOB_S3_FORCE_PATH_STYLE=true
+EOF

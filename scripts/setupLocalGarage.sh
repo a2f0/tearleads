@@ -156,7 +156,7 @@ configure_garage_bucket() {
 
   read_or_create_credentials
 
-  node_id="$(garage_cli node id | tail -1 | cut -d'@' -f1 | cut -c1-16)"
+  node_id="$(garage_cli node id | awk -F'@' 'NF>1 { print $1; exit }')"
   if [ -z "${node_id}" ]; then
     echo "Could not determine Garage node ID." >&2
     exit 1
@@ -219,13 +219,17 @@ main() {
     chmod 600 "${API_ENV_FILE}" 2>/dev/null || true
   fi
 
-  upsert_env_value "${API_ENV_FILE}" "VFS_BLOB_STORE_PROVIDER" "${VFS_BLOB_STORE_PROVIDER}"
-  upsert_env_value "${API_ENV_FILE}" "VFS_BLOB_S3_BUCKET" "${VFS_BLOB_S3_BUCKET}"
-  upsert_env_value "${API_ENV_FILE}" "VFS_BLOB_S3_REGION" "${VFS_BLOB_S3_REGION}"
-  upsert_env_value "${API_ENV_FILE}" "VFS_BLOB_S3_ENDPOINT" "${VFS_BLOB_S3_ENDPOINT}"
-  upsert_env_value "${API_ENV_FILE}" "VFS_BLOB_S3_ACCESS_KEY_ID" "${VFS_BLOB_S3_ACCESS_KEY_ID}"
-  upsert_env_value "${API_ENV_FILE}" "VFS_BLOB_S3_SECRET_ACCESS_KEY" "${VFS_BLOB_S3_SECRET_ACCESS_KEY}"
-  upsert_env_value "${API_ENV_FILE}" "VFS_BLOB_S3_FORCE_PATH_STYLE" "${VFS_BLOB_S3_FORCE_PATH_STYLE}"
+  for key in \
+    VFS_BLOB_STORE_PROVIDER \
+    VFS_BLOB_S3_BUCKET \
+    VFS_BLOB_S3_REGION \
+    VFS_BLOB_S3_ENDPOINT \
+    VFS_BLOB_S3_ACCESS_KEY_ID \
+    VFS_BLOB_S3_SECRET_ACCESS_KEY \
+    VFS_BLOB_S3_FORCE_PATH_STYLE; do
+    eval "value=\${${key}}"
+    upsert_env_value "${API_ENV_FILE}" "${key}" "${value}"
+  done
 
   echo "Garage local S3 is ready at ${VFS_BLOB_S3_ENDPOINT}."
   echo "Bucket: ${VFS_BLOB_S3_BUCKET}"
