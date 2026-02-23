@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+# Fetches kubeconfig from the staging k3s server, rewrites the API host, and
+# optionally runs a command with KUBECONFIG set (so no shell export is needed).
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 STACK_DIR="$(dirname "$SCRIPT_DIR")"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
@@ -34,7 +36,15 @@ if [[ -z "$SERVER_USERNAME" ]]; then
   exit 1
 fi
 
-KUBECONFIG_FILE="${1:-$HOME/.kube/config-staging-k8s}"
+KUBECONFIG_FILE="$HOME/.kube/config-staging-k8s"
+if [[ $# -gt 0 && "${1:-}" != "--" ]]; then
+  KUBECONFIG_FILE="$1"
+  shift
+fi
+if [[ "${1:-}" == "--" ]]; then
+  shift
+fi
+
 SSH_RETRIES="${SSH_RETRIES:-30}"
 SSH_RETRY_DELAY_SECONDS="${SSH_RETRY_DELAY_SECONDS:-10}"
 SSH_CONNECT_TIMEOUT_SECONDS="${SSH_CONNECT_TIMEOUT_SECONDS:-10}"
@@ -63,6 +73,14 @@ chmod 600 "$KUBECONFIG_FILE"
 
 echo "Kubeconfig saved to: $KUBECONFIG_FILE"
 echo ""
-echo "To use this cluster:"
-echo "  export KUBECONFIG=$KUBECONFIG_FILE"
-echo "  kubectl get nodes"
+
+if [[ $# -gt 0 ]]; then
+  echo "Running with KUBECONFIG set:"
+  echo "  $*"
+  exec env KUBECONFIG="$KUBECONFIG_FILE" "$@"
+fi
+
+echo "Run without exporting:"
+echo "  KUBECONFIG=$KUBECONFIG_FILE kubectl get nodes"
+echo "Or wrap a command directly:"
+echo "  $0 $KUBECONFIG_FILE -- kubectl get nodes"
