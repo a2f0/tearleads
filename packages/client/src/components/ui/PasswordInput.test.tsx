@@ -30,10 +30,7 @@ describe('PasswordInput', () => {
   it('uses custom ariaLabelBase', async () => {
     const user = userEvent.setup();
     render(
-      <PasswordInput
-        placeholder="Confirm"
-        ariaLabelBase="confirm password"
-      />
+      <PasswordInput placeholder="Confirm" ariaLabelBase="confirm password" />
     );
 
     expect(

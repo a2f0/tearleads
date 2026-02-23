@@ -1,9 +1,9 @@
+import type { VariantProps } from 'class-variance-authority';
 import { Eye, EyeOff } from 'lucide-react';
 import * as React from 'react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Input, type inputVariants } from './input';
-import type { VariantProps } from 'class-variance-authority';
 
 interface PasswordInputProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size' | 'type'>,
@@ -29,9 +29,7 @@ const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
           onClick={() => setShowPassword((prev) => !prev)}
           className="absolute top-1/2 right-1 -translate-y-1/2 p-2 text-muted-foreground hover:text-foreground"
           aria-label={
-            showPassword
-              ? `Hide ${ariaLabelBase}`
-              : `Show ${ariaLabelBase}`
+            showPassword ? `Hide ${ariaLabelBase}` : `Show ${ariaLabelBase}`
           }
         >
           {showPassword ? (
