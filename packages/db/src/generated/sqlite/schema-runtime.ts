@@ -17,7 +17,14 @@ export const vfsCrdtOps = sqliteTable(
       .notNull()
       .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
     opType: text('op_type', {
-      enum: ['acl_add', 'acl_remove', 'link_add', 'link_remove']
+      enum: [
+        'acl_add',
+        'acl_remove',
+        'link_add',
+        'link_remove',
+        'item_upsert',
+        'item_delete'
+      ]
     }).notNull(),
     principalType: text('principal_type', {
       enum: ['user', 'group', 'organization']

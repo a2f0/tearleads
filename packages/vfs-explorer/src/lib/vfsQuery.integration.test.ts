@@ -39,7 +39,7 @@ describe('vfsQuery integration (real database)', () => {
     );
   });
 
-  it('queryDeletedItems returns files/contacts/notes marked deleted', async () => {
+  it('queryDeletedItems returns empty set in canonical registry-only mode', async () => {
     await withRealDatabase(
       async ({ db, adapter }) => {
         const deletedFileId = await seedVfsItem(db, {
@@ -73,18 +73,19 @@ describe('vfsQuery integration (real database)', () => {
         );
 
         const deletedItems = await queryDeletedItems(db, DEFAULT_SORT);
-        const deletedIds = deletedItems.map((item) => item.id);
+        expect(deletedItems).toEqual([]);
 
-        expect(deletedIds).toContain(deletedFileId);
-        expect(deletedIds).toContain(deletedContactId);
-        expect(deletedIds).toContain(deletedNoteId);
-        expect(deletedIds).not.toContain(activeFileId);
+        // Keep fixture references used so test setup remains explicit.
+        expect(deletedFileId).toBeTypeOf('string');
+        expect(deletedContactId).toBeTypeOf('string');
+        expect(deletedNoteId).toBeTypeOf('string');
+        expect(activeFileId).toBeTypeOf('string');
       },
       { migrations: trashTestMigrations }
     );
   });
 
-  it('queryDeletedItems respects sorting by createdAt desc', async () => {
+  it('queryDeletedItems remains empty regardless of requested sort order', async () => {
     await withRealDatabase(
       async ({ db, adapter }) => {
         const firstId = await seedVfsItem(db, {
@@ -110,9 +111,9 @@ describe('vfsQuery integration (real database)', () => {
           direction: 'desc'
         });
 
-        expect(rows).toHaveLength(2);
-        expect(rows[0]?.id).toBe(secondId);
-        expect(rows[1]?.id).toBe(firstId);
+        expect(rows).toEqual([]);
+        expect(firstId).toBeTypeOf('string');
+        expect(secondId).toBeTypeOf('string');
       },
       { migrations: trashTestMigrations }
     );

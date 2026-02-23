@@ -25,6 +25,87 @@ interface ExistingSourceRow {
   id: string;
 }
 
+async function applyCanonicalItemOperation(
+  client: PoolClient,
+  actorId: string,
+  operation: VfsCrdtPushOperation
+): Promise<void> {
+  if (operation.opType === 'item_upsert') {
+    await client.query(
+      `
+      INSERT INTO vfs_item_state (
+        item_id,
+        encrypted_payload,
+        key_epoch,
+        encryption_nonce,
+        encryption_aad,
+        encryption_signature,
+        updated_at,
+        deleted_at
+      ) VALUES (
+        $1::text,
+        $2::text,
+        $3::integer,
+        $4::text,
+        $5::text,
+        $6::text,
+        NOW(),
+        NULL
+      )
+      ON CONFLICT (item_id) DO UPDATE
+      SET
+        encrypted_payload = EXCLUDED.encrypted_payload,
+        key_epoch = EXCLUDED.key_epoch,
+        encryption_nonce = EXCLUDED.encryption_nonce,
+        encryption_aad = EXCLUDED.encryption_aad,
+        encryption_signature = EXCLUDED.encryption_signature,
+        updated_at = NOW(),
+        deleted_at = NULL
+      `,
+      [
+        operation.itemId,
+        operation.encryptedPayload ?? null,
+        operation.keyEpoch ?? null,
+        operation.encryptionNonce ?? null,
+        operation.encryptionAad ?? null,
+        operation.encryptionSignature ?? null
+      ]
+    );
+
+    await client.query(
+      `SELECT vfs_emit_sync_change($1::text, 'upsert', $2::text, NULL)`,
+      [operation.itemId, actorId]
+    );
+    return;
+  }
+
+  if (operation.opType === 'item_delete') {
+    await client.query(
+      `
+      INSERT INTO vfs_item_state (
+        item_id,
+        updated_at,
+        deleted_at
+      ) VALUES (
+        $1::text,
+        NOW(),
+        NOW()
+      )
+      ON CONFLICT (item_id) DO UPDATE
+      SET
+        updated_at = NOW(),
+        deleted_at = NOW()
+      `,
+      [operation.itemId]
+    );
+
+    await client.query(
+      `SELECT vfs_emit_sync_change($1::text, 'delete', $2::text, NULL)`,
+      [operation.itemId, actorId]
+    );
+  }
+}
+
 async function rollbackQuietly(client: PoolClient): Promise<void> {
   try {
     await client.query('ROLLBACK');
@@ -62,9 +143,7 @@ async function rollbackQuietly(client: PoolClient): Promise<void> {
  *     responses:
  *       200:
  *         description: |
- *           Per-op push acknowledgement results. Encrypted CRDT envelope operations
- *           are deterministically rejected in v1 with status
- *           `encryptedEnvelopeUnsupported`.
+ *           Per-op push acknowledgement results.
  *       400:
  *         description: Invalid request payload
  *       401:
@@ -103,13 +182,9 @@ const postCrdtPushHandler = async (req: Request, res: Response) => {
     }
 
     const ownerByItemId = new Map<string, string | null>();
-    const ownerValidatedOperations: VfsCrdtPushOperation[] =
-      validOperations.filter(
-        (operation) => operation.encryptedPayload === undefined
-      );
-    if (ownerValidatedOperations.length > 0) {
+    if (validOperations.length > 0) {
       const uniqueItemIds = Array.from(
-        new Set(ownerValidatedOperations.map((operation) => operation.itemId))
+        new Set(validOperations.map((operation) => operation.itemId))
       );
 
       const itemRows = await client.query<ItemOwnerRow>(
@@ -135,19 +210,6 @@ const postCrdtPushHandler = async (req: Request, res: Response) => {
       }
 
       const operation = entry.operation;
-      if (operation.encryptedPayload !== undefined) {
-        /**
-         * v1 protocol gate: encrypted CRDT envelopes are recognized but not yet
-         * supported for canonical push ingestion. Keep response deterministic so
-         * secure clients can fail closed with a stable reason.
-         */
-        results.push({
-          opId: operation.opId,
-          status: 'encryptedEnvelopeUnsupported'
-        });
-        continue;
-      }
-
       if (ownerByItemId.get(operation.itemId) !== claims.sub) {
         results.push({
           opId: operation.opId,
@@ -282,9 +344,14 @@ const postCrdtPushHandler = async (req: Request, res: Response) => {
         ]
       );
 
+      const applied = (insertResult.rowCount ?? 0) > 0;
+      if (applied) {
+        await applyCanonicalItemOperation(client, claims.sub, operation);
+      }
+
       results.push({
         opId: operation.opId,
-        status: (insertResult.rowCount ?? 0) > 0 ? 'applied' : 'outdatedOp'
+        status: applied ? 'applied' : 'outdatedOp'
       });
     }
 

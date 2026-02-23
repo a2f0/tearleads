@@ -233,10 +233,17 @@ describe('VFS CRDT push route processing', () => {
     expect(mockQuery.mock.calls[5]?.[1]?.[6]).toBe('item-1');
   });
 
-  it('rejects encrypted link op with deterministic unsupported status', async () => {
+  it('applies encrypted link op via canonical push path', async () => {
     const authHeader = await createAuthHeader();
     mockQuery
       .mockResolvedValueOnce({}) // BEGIN
+      .mockResolvedValueOnce({
+        rows: [{ id: 'item-1', owner_id: 'user-1' }]
+      }) // owner lookup
+      .mockResolvedValueOnce({}) // advisory lock
+      .mockResolvedValueOnce({ rows: [] }) // existing source
+      .mockResolvedValueOnce({ rows: [{ max_write_id: 0 }] }) // max write
+      .mockResolvedValueOnce({ rowCount: 1 }) // INSERT
       .mockResolvedValueOnce({}); // COMMIT
 
     const response = await postCrdtPush(
@@ -267,13 +274,13 @@ describe('VFS CRDT push route processing', () => {
       results: [
         {
           opId: 'desktop-link-enc-1',
-          status: 'encryptedEnvelopeUnsupported'
+          status: 'applied'
         }
       ]
     });
-    expect(mockQuery).toHaveBeenCalledTimes(2);
+    expect(mockQuery).toHaveBeenCalledTimes(7);
     expect(mockQuery.mock.calls[0]?.[0]).toBe('BEGIN');
-    expect(mockQuery.mock.calls[1]?.[0]).toBe('COMMIT');
+    expect(mockQuery.mock.calls[6]?.[0]).toBe('COMMIT');
   });
 
   it('returns invalidOp when item is missing or not owned', async () => {
@@ -293,6 +300,54 @@ describe('VFS CRDT push route processing', () => {
       results: [{ opId: 'desktop-1', status: 'invalidOp' }]
     });
     expect(mockClientRelease).toHaveBeenCalledTimes(1);
+  });
+
+  it('persists canonical item payload state for item_upsert operations', async () => {
+    const authHeader = await createAuthHeader();
+    mockQuery
+      .mockResolvedValueOnce({}) // BEGIN
+      .mockResolvedValueOnce({
+        rows: [{ id: 'item-1', owner_id: 'user-1' }]
+      }) // owner lookup
+      .mockResolvedValueOnce({}) // advisory lock
+      .mockResolvedValueOnce({ rows: [] }) // existing source
+      .mockResolvedValueOnce({ rows: [{ max_write_id: 0 }] }) // max write
+      .mockResolvedValueOnce({ rowCount: 1 }) // INSERT crdt op
+      .mockResolvedValueOnce({}) // UPSERT vfs_item_state
+      .mockResolvedValueOnce({}) // vfs_emit_sync_change
+      .mockResolvedValueOnce({}); // COMMIT
+
+    const response = await postCrdtPush(
+      {
+        clientId: 'desktop',
+        operations: [
+          {
+            opId: 'desktop-item-upsert-1',
+            opType: 'item_upsert',
+            itemId: 'item-1',
+            replicaId: 'desktop',
+            writeId: 1,
+            occurredAt: '2026-02-14T20:00:00.000Z',
+            encryptedPayload: 'base64-ciphertext',
+            keyEpoch: 3,
+            encryptionNonce: 'base64-nonce',
+            encryptionAad: 'base64-aad',
+            encryptionSignature: 'base64-signature'
+          }
+        ]
+      },
+      authHeader
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      clientId: 'desktop',
+      results: [{ opId: 'desktop-item-upsert-1', status: 'applied' }]
+    });
+    expect(mockQuery.mock.calls[6]?.[0]).toContain(
+      'INSERT INTO vfs_item_state'
+    );
+    expect(mockQuery.mock.calls[7]?.[0]).toContain('vfs_emit_sync_change');
   });
 
   it('rolls back and returns 500 on push processing error', async () => {

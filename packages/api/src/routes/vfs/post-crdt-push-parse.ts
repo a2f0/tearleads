@@ -13,7 +13,9 @@ const VALID_OP_TYPES: VfsCrdtOpType[] = [
   'acl_add',
   'acl_remove',
   'link_add',
-  'link_remove'
+  'link_remove',
+  'item_upsert',
+  'item_delete'
 ];
 const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = [
   'user',
@@ -279,6 +281,36 @@ function parsePushOperation(
     }
     if (childId !== null) {
       operation.childId = childId;
+    }
+  }
+
+  if (opType === 'item_upsert' || opType === 'item_delete') {
+    const includesAclFields =
+      Object.hasOwn(value, 'principalType') ||
+      Object.hasOwn(value, 'principalId') ||
+      Object.hasOwn(value, 'accessLevel');
+    const includesLinkFields =
+      Object.hasOwn(value, 'parentId') || Object.hasOwn(value, 'childId');
+
+    if (includesAclFields || includesLinkFields) {
+      return {
+        status: 'invalid',
+        opId
+      };
+    }
+
+    if (opType === 'item_upsert' && !hasEncryptedPayload) {
+      return {
+        status: 'invalid',
+        opId
+      };
+    }
+
+    if (opType === 'item_delete' && hasEncryptedPayload) {
+      return {
+        status: 'invalid',
+        opId
+      };
     }
   }
 

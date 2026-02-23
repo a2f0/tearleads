@@ -4,20 +4,7 @@
  */
 
 import type { Database } from '@tearleads/db/sqlite';
-import {
-  albums,
-  contactGroups,
-  contacts,
-  emailFolders,
-  emails,
-  files,
-  notes,
-  playlists,
-  tags,
-  users,
-  vfsAclEntries,
-  vfsRegistry
-} from '@tearleads/db/sqlite';
+import { users, vfsAclEntries, vfsRegistry } from '@tearleads/db/sqlite';
 import {
   isVfsSharedByMeQueryRow,
   isVfsSharedWithMeQueryRow,
@@ -25,7 +12,7 @@ import {
   type VfsSharedWithMeQueryRow
 } from '@tearleads/shared';
 import type { SQL } from 'drizzle-orm';
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { VfsSortState } from './vfsTypes';
 
 const SHARE_ACL_ID_PREFIX = 'share:';
@@ -117,25 +104,17 @@ function nameCoalesce(): SQL<string> {
   return sql<string>`COALESCE(
     NULLIF(${vfsRegistry.encryptedName}, ''),
     CASE WHEN ${vfsRegistry.objectType} = 'folder' THEN 'Unnamed Folder' END,
-    NULLIF(${files.name}, ''),
-    CASE WHEN ${contacts.id} IS NOT NULL THEN
-      CASE WHEN ${contacts.lastName} IS NOT NULL AND ${contacts.lastName} != ''
-        THEN ${contacts.firstName} || ' ' || ${contacts.lastName}
-        ELSE ${contacts.firstName}
-      END
-    END,
-    NULLIF(${notes.title}, ''),
-    NULLIF(${playlists.encryptedName}, ''),
+    CASE WHEN ${vfsRegistry.objectType} = 'file' THEN 'Unnamed File' END,
+    CASE WHEN ${vfsRegistry.objectType} = 'photo' THEN 'Unnamed Photo' END,
+    CASE WHEN ${vfsRegistry.objectType} = 'audio' THEN 'Unnamed Audio' END,
+    CASE WHEN ${vfsRegistry.objectType} = 'video' THEN 'Unnamed Video' END,
+    CASE WHEN ${vfsRegistry.objectType} = 'contact' THEN 'Unnamed Contact' END,
+    CASE WHEN ${vfsRegistry.objectType} = 'note' THEN 'Untitled Note' END,
     CASE WHEN ${vfsRegistry.objectType} = 'playlist' THEN 'Unnamed Playlist' END,
-    NULLIF(${albums.encryptedName}, ''),
     CASE WHEN ${vfsRegistry.objectType} = 'album' THEN 'Unnamed Album' END,
-    NULLIF(${contactGroups.encryptedName}, ''),
     CASE WHEN ${vfsRegistry.objectType} = 'contactGroup' THEN 'Unnamed Group' END,
-    NULLIF(${emailFolders.encryptedName}, ''),
     CASE WHEN ${vfsRegistry.objectType} = 'emailFolder' THEN 'Unnamed Folder' END,
-    NULLIF(${tags.encryptedName}, ''),
     CASE WHEN ${vfsRegistry.objectType} = 'tag' THEN 'Unnamed Tag' END,
-    NULLIF(${emails.encryptedSubject}, ''),
     CASE WHEN ${vfsRegistry.objectType} = 'email' THEN '(No Subject)' END,
     'Unknown'
   )`;
@@ -197,57 +176,6 @@ export async function querySharedByMe(
     })
     .from(vfsAclEntries)
     .innerJoin(vfsRegistry, eq(vfsAclEntries.itemId, vfsRegistry.id))
-    .leftJoin(
-      files,
-      and(
-        eq(vfsRegistry.id, files.id),
-        inArray(vfsRegistry.objectType, ['file', 'photo', 'audio', 'video'])
-      )
-    )
-    .leftJoin(
-      contacts,
-      and(
-        eq(vfsRegistry.id, contacts.id),
-        eq(vfsRegistry.objectType, 'contact')
-      )
-    )
-    .leftJoin(
-      notes,
-      and(eq(vfsRegistry.id, notes.id), eq(vfsRegistry.objectType, 'note'))
-    )
-    .leftJoin(
-      playlists,
-      and(
-        eq(vfsRegistry.id, playlists.id),
-        eq(vfsRegistry.objectType, 'playlist')
-      )
-    )
-    .leftJoin(
-      albums,
-      and(eq(vfsRegistry.id, albums.id), eq(vfsRegistry.objectType, 'album'))
-    )
-    .leftJoin(
-      contactGroups,
-      and(
-        eq(vfsRegistry.id, contactGroups.id),
-        eq(vfsRegistry.objectType, 'contactGroup')
-      )
-    )
-    .leftJoin(
-      emailFolders,
-      and(
-        eq(vfsRegistry.id, emailFolders.id),
-        eq(vfsRegistry.objectType, 'emailFolder')
-      )
-    )
-    .leftJoin(
-      tags,
-      and(eq(vfsRegistry.id, tags.id), eq(vfsRegistry.objectType, 'tag'))
-    )
-    .leftJoin(
-      emails,
-      and(eq(vfsRegistry.id, emails.id), eq(vfsRegistry.objectType, 'email'))
-    )
     .where(
       and(
         eq(vfsAclEntries.grantedBy, currentUserId),
@@ -303,57 +231,6 @@ export async function querySharedWithMe(
       .from(vfsAclEntries)
       .innerJoin(vfsRegistry, eq(vfsAclEntries.itemId, vfsRegistry.id))
       .leftJoin(users, eq(vfsAclEntries.grantedBy, users.id))
-      .leftJoin(
-        files,
-        and(
-          eq(vfsRegistry.id, files.id),
-          inArray(vfsRegistry.objectType, ['file', 'photo', 'audio', 'video'])
-        )
-      )
-      .leftJoin(
-        contacts,
-        and(
-          eq(vfsRegistry.id, contacts.id),
-          eq(vfsRegistry.objectType, 'contact')
-        )
-      )
-      .leftJoin(
-        notes,
-        and(eq(vfsRegistry.id, notes.id), eq(vfsRegistry.objectType, 'note'))
-      )
-      .leftJoin(
-        playlists,
-        and(
-          eq(vfsRegistry.id, playlists.id),
-          eq(vfsRegistry.objectType, 'playlist')
-        )
-      )
-      .leftJoin(
-        albums,
-        and(eq(vfsRegistry.id, albums.id), eq(vfsRegistry.objectType, 'album'))
-      )
-      .leftJoin(
-        contactGroups,
-        and(
-          eq(vfsRegistry.id, contactGroups.id),
-          eq(vfsRegistry.objectType, 'contactGroup')
-        )
-      )
-      .leftJoin(
-        emailFolders,
-        and(
-          eq(vfsRegistry.id, emailFolders.id),
-          eq(vfsRegistry.objectType, 'emailFolder')
-        )
-      )
-      .leftJoin(
-        tags,
-        and(eq(vfsRegistry.id, tags.id), eq(vfsRegistry.objectType, 'tag'))
-      )
-      .leftJoin(
-        emails,
-        and(eq(vfsRegistry.id, emails.id), eq(vfsRegistry.objectType, 'email'))
-      )
       .where(
         and(
           eq(vfsAclEntries.principalId, currentUserId),

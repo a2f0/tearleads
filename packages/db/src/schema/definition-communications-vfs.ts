@@ -101,6 +101,62 @@ export const vfsAclEntriesTable: TableDefinition = {
 };
 
 /**
+ * Canonical encrypted state for VFS items.
+ * Stores latest encrypted payload snapshot for non-blob content.
+ */
+export const vfsItemStateTable: TableDefinition = {
+  name: 'vfs_item_state',
+  propertyName: 'vfsItemState',
+  comment:
+    'Canonical encrypted state for VFS items.\nStores latest encrypted payload snapshot for non-blob content.',
+  columns: {
+    itemId: {
+      type: 'text',
+      sqlName: 'item_id',
+      primaryKey: true,
+      references: {
+        table: 'vfs_registry',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    encryptedPayload: {
+      type: 'text',
+      sqlName: 'encrypted_payload'
+    },
+    keyEpoch: {
+      type: 'integer',
+      sqlName: 'key_epoch'
+    },
+    encryptionNonce: {
+      type: 'text',
+      sqlName: 'encryption_nonce'
+    },
+    encryptionAad: {
+      type: 'text',
+      sqlName: 'encryption_aad'
+    },
+    encryptionSignature: {
+      type: 'text',
+      sqlName: 'encryption_signature'
+    },
+    updatedAt: {
+      type: 'timestamp',
+      sqlName: 'updated_at',
+      notNull: true
+    },
+    deletedAt: {
+      type: 'timestamp',
+      sqlName: 'deleted_at'
+    }
+  },
+  indexes: [
+    { name: 'vfs_item_state_updated_idx', columns: ['updatedAt'] },
+    { name: 'vfs_item_state_deleted_idx', columns: ['deletedAt'] }
+  ]
+};
+
+/**
  * Append-only VFS change feed for cursor-based differential synchronization.
  * Records all item and ACL mutations in a stable time-ordered stream.
  */
@@ -406,6 +462,7 @@ export const vfsBlobRefsTable: TableDefinition = {
 
 export const communicationsVfsTables: TableDefinition[] = [
   vfsAclEntriesTable,
+  vfsItemStateTable,
   vfsSyncChangesTable,
   vfsSyncClientStateTable,
   vfsBlobObjectsTable,

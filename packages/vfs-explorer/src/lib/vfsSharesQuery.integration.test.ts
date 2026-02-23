@@ -251,7 +251,7 @@ describe('vfsSharesQuery integration (real database)', () => {
           (row) => row.shareId === 'shared-with-me-folder'
         );
 
-        expect(noteRow?.name).toBe('Shared Note');
+        expect(noteRow?.name).toBe('Untitled Note');
         expect(noteRow?.sharedById).toBe(sharerUserId);
         expect(noteRow?.sharedByEmail).toBe('sharer@example.com');
         expect(noteRow?.permissionLevel).toBe('edit');
