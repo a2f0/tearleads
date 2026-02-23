@@ -41,10 +41,6 @@ has_cmd() {
 # shellcheck source=/dev/null
 . "${REPO_ROOT}/scripts/lib/bootstrapToolInstallHelpers.sh"
 
-terraform_cmd_path() {
-  command -v terraform 2>/dev/null || true
-}
-
 terraform_version() {
   terraform version 2>/dev/null | awk 'NR==1 { print $2 }' | sed 's/^v//'
 }
@@ -179,13 +175,16 @@ install_vault() {
   fi
 
   if [ "$OS" = "darwin" ]; then
-    vault_tmp_dir="$(install_darwin_hashicorp_zip "vault" "$REQUIRED_VAULT_VERSION")"
-    target_vault_path="$(vault_cmd_path)"
-    if [ -z "$target_vault_path" ]; then
-      target_vault_path="/usr/local/bin/vault"
-    fi
-    install_binary_in_path "${vault_tmp_dir}/vault" "$target_vault_path"
-    rm -rf "$vault_tmp_dir"
+    (
+      set -e
+      vault_tmp_dir="$(install_darwin_hashicorp_zip "vault" "$REQUIRED_VAULT_VERSION")"
+      trap 'rm -rf "$vault_tmp_dir"' EXIT
+      target_vault_path="$(vault_cmd_path)"
+      if [ -z "$target_vault_path" ]; then
+        target_vault_path="/usr/local/bin/vault"
+      fi
+      install_binary_in_path "${vault_tmp_dir}/vault" "$target_vault_path"
+    )
   else
     ensure_hashicorp_apt_repo
     vault_pkg_version="$(apt-cache madison vault | awk -v req="$REQUIRED_VAULT_VERSION" '$3 ~ ("^" req "-") { print $3; exit }')"
@@ -213,7 +212,7 @@ install_vault() {
 }
 
 install_terraform() {
-  terraform_bin="$(terraform_cmd_path)"
+  terraform_bin="$(tool_cmd_path "terraform")"
 
   if has_cmd terraform && terraform_matches_required_version; then
     echo "Terraform $(terraform_version) is already installed."
@@ -239,13 +238,16 @@ install_terraform() {
       ;;
     *)
       if [ "$OS" = "darwin" ]; then
-        terraform_tmp_dir="$(install_darwin_hashicorp_zip "terraform" "$REQUIRED_TERRAFORM_VERSION")"
-        target_terraform_path="$(terraform_cmd_path)"
-        if [ -z "$target_terraform_path" ]; then
-          target_terraform_path="/usr/local/bin/terraform"
-        fi
-        install_binary_in_path "${terraform_tmp_dir}/terraform" "$target_terraform_path"
-        rm -rf "$terraform_tmp_dir"
+        (
+          set -e
+          terraform_tmp_dir="$(install_darwin_hashicorp_zip "terraform" "$REQUIRED_TERRAFORM_VERSION")"
+          trap 'rm -rf "$terraform_tmp_dir"' EXIT
+          target_terraform_path="$(tool_cmd_path "terraform")"
+          if [ -z "$target_terraform_path" ]; then
+            target_terraform_path="/usr/local/bin/terraform"
+          fi
+          install_binary_in_path "${terraform_tmp_dir}/terraform" "$target_terraform_path"
+        )
       else
         ensure_hashicorp_apt_repo
         terraform_pkg_version="$(apt-cache madison terraform | awk -v req="$REQUIRED_TERRAFORM_VERSION" '$3 ~ ("^" req "-") { print $3; exit }')"
@@ -263,7 +265,7 @@ install_terraform() {
   if ! has_cmd terraform || ! terraform_matches_required_version; then
     # If apt/direct install completed but PATH still resolves to a stale tfenv shim,
     # repair by pinning tfenv to the required version.
-    terraform_bin="$(terraform_cmd_path)"
+    terraform_bin="$(tool_cmd_path "terraform")"
     case "$terraform_bin" in
       *"/.tfenv/"*)
         if has_cmd tfenv; then
@@ -276,7 +278,7 @@ install_terraform() {
   fi
 
   if ! has_cmd terraform || ! terraform_matches_required_version; then
-    resolved_bin="$(terraform_cmd_path)"
+    resolved_bin="$(tool_cmd_path "terraform")"
     resolved_version="$(terraform_version)"
     echo "Terraform installation failed: ${resolved_bin:-terraform not found} reports version ${resolved_version:-unknown}, expected ${REQUIRED_TERRAFORM_VERSION}." >&2
     if [ -n "$resolved_bin" ]; then
@@ -286,7 +288,7 @@ install_terraform() {
     exit 1
   fi
 
-  echo "Terraform $(terraform_version) installed at $(terraform_cmd_path)."
+  echo "Terraform $(terraform_version) installed at $(tool_cmd_path "terraform")."
 }
 
 install_postgres_linux() {

@@ -1,5 +1,9 @@
+tool_cmd_path() {
+  command -v "$1" 2>/dev/null || true
+}
+
 vault_cmd_path() {
-  command -v vault 2>/dev/null || true
+  tool_cmd_path "vault"
 }
 
 darwin_release_arch() {
