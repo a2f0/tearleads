@@ -7,6 +7,8 @@ import {
 import { createSmtpListener } from './server.js';
 
 const smtpTestDoubles = getSmtpTestDoubles();
+const USER_ID_A = '11111111-1111-4111-8111-111111111111';
+const USER_ID_B = '22222222-2222-4222-8222-222222222222';
 
 describe('server onData', () => {
   beforeEach(() => {
@@ -26,7 +28,7 @@ describe('server onData', () => {
     const session = {
       envelope: {
         mailFrom: { address: 'sender@test.com' },
-        rcptTo: [{ address: 'user-1@test.com' }]
+        rcptTo: [{ address: `${USER_ID_A}@test.com` }]
       }
     };
 
@@ -50,7 +52,7 @@ describe('server onData', () => {
     const session = {
       envelope: {
         mailFrom: { address: 'sender@test.com' },
-        rcptTo: [{ address: 'user-1@test.com' }]
+        rcptTo: [{ address: `${USER_ID_A}@test.com` }]
       }
     };
 
@@ -64,7 +66,7 @@ describe('server onData', () => {
 
     expect(smtpTestDoubles.mockStorageStore).toHaveBeenCalledWith(
       expect.any(Object),
-      ['user-1']
+      [USER_ID_A]
     );
   });
 
@@ -78,7 +80,7 @@ describe('server onData', () => {
     const session = {
       envelope: {
         mailFrom: { address: 'sender@test.com', args: {} },
-        rcptTo: [{ address: 'user-1@test.com', args: {} }]
+        rcptTo: [{ address: `${USER_ID_A}@test.com`, args: {} }]
       }
     };
 
@@ -91,7 +93,7 @@ describe('server onData', () => {
         expect.objectContaining({
           envelope: {
             mailFrom: { address: 'sender@test.com' },
-            rcptTo: [{ address: 'user-1@test.com' }]
+            rcptTo: [{ address: `${USER_ID_A}@test.com` }]
           }
         })
       );
@@ -111,8 +113,8 @@ describe('server onData', () => {
       envelope: {
         mailFrom: { address: 'sender@test.com' },
         rcptTo: [
-          { address: 'user-1@mail.test.com' },
-          { address: 'user-2@other.test.com' }
+          { address: `${USER_ID_A}@mail.test.com` },
+          { address: `${USER_ID_B}@other.test.com` }
         ]
       }
     };
@@ -123,7 +125,7 @@ describe('server onData', () => {
     await vi.waitFor(() => {
       expect(smtpTestDoubles.mockStorageStore).toHaveBeenCalledWith(
         expect.any(Object),
-        ['user-1']
+        [USER_ID_A]
       );
     });
   });
@@ -140,7 +142,7 @@ describe('server onData', () => {
     const session = {
       envelope: {
         mailFrom: { address: 'sender@test.com' },
-        rcptTo: [{ address: 'user-1@any.test.com' }]
+        rcptTo: [{ address: `${USER_ID_A}@any.test.com` }]
       }
     };
 
@@ -150,7 +152,7 @@ describe('server onData', () => {
     await vi.waitFor(() => {
       expect(smtpTestDoubles.mockStorageStore).toHaveBeenCalledWith(
         expect.any(Object),
-        ['user-1']
+        [USER_ID_A]
       );
     });
   });
@@ -166,7 +168,7 @@ describe('server onData', () => {
         mailFrom: { address: 'sender@test.com' },
         rcptTo: [
           { address: 'invalid' },
-          { address: 'user-1@test.com' },
+          { address: `${USER_ID_A}@test.com` },
           { address: 'user-2@' }
         ]
       }
@@ -178,7 +180,7 @@ describe('server onData', () => {
     await vi.waitFor(() => {
       expect(smtpTestDoubles.mockStorageStore).toHaveBeenCalledWith(
         expect.any(Object),
-        ['user-1']
+        [USER_ID_A]
       );
     });
   });
@@ -192,7 +194,7 @@ describe('server onData', () => {
     const session = {
       envelope: {
         mailFrom: undefined,
-        rcptTo: [{ address: 'user-1@test.com' }]
+        rcptTo: [{ address: `${USER_ID_A}@test.com` }]
       }
     };
 
@@ -204,10 +206,10 @@ describe('server onData', () => {
         expect.objectContaining({
           envelope: {
             mailFrom: false,
-            rcptTo: [{ address: 'user-1@test.com' }]
+            rcptTo: [{ address: `${USER_ID_A}@test.com` }]
           }
         }),
-        ['user-1']
+        [USER_ID_A]
       );
     });
   });
@@ -221,7 +223,7 @@ describe('server onData', () => {
     const session = {
       envelope: {
         mailFrom: { address: 'sender@test.com' },
-        rcptTo: [{ address: 'user-1@test.com' }]
+        rcptTo: [{ address: `${USER_ID_A}@test.com` }]
       }
     };
 
@@ -245,7 +247,7 @@ describe('server onData', () => {
     const session = {
       envelope: {
         mailFrom: { address: 'sender@test.com' },
-        rcptTo: [{ address: 'user-1@test.com' }]
+        rcptTo: [{ address: `${USER_ID_A}@test.com` }]
       }
     };
 
@@ -268,7 +270,7 @@ describe('server onData', () => {
     const session = {
       envelope: {
         mailFrom: { address: 'sender@test.com' },
-        rcptTo: []
+        rcptTo: [{ address: `${USER_ID_A}@test.com` }]
       }
     };
 
@@ -278,5 +280,55 @@ describe('server onData', () => {
     await vi.waitFor(() => {
       expect(mockCallback).toHaveBeenCalledWith(expect.any(Error));
     });
+  });
+
+  it('drops non-uuid local-parts by default', async () => {
+    const listener = await createSmtpListener({ port: 2525 });
+    await listener.start();
+
+    const mockCallback = vi.fn();
+    const stream = createMockStream();
+    const session = {
+      envelope: {
+        mailFrom: { address: 'sender@test.com' },
+        rcptTo: [{ address: 'legacy-user@test.com' }]
+      }
+    };
+
+    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
+    stream.emit('end');
+
+    await vi.waitFor(() => {
+      expect(mockCallback).toHaveBeenCalledWith();
+    });
+    expect(smtpTestDoubles.mockStorageStore).not.toHaveBeenCalled();
+  });
+
+  it('accepts non-uuid local-parts in legacy-local-part mode', async () => {
+    const listener = await createSmtpListener({
+      port: 2525,
+      recipientAddressing: 'legacy-local-part'
+    });
+    await listener.start();
+
+    const mockCallback = vi.fn();
+    const stream = createMockStream();
+    const session = {
+      envelope: {
+        mailFrom: { address: 'sender@test.com' },
+        rcptTo: [{ address: 'legacy-user@test.com' }]
+      }
+    };
+
+    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
+    stream.emit('end');
+
+    await vi.waitFor(() => {
+      expect(mockCallback).toHaveBeenCalledWith();
+    });
+    expect(smtpTestDoubles.mockStorageStore).toHaveBeenCalledWith(
+      expect.any(Object),
+      ['legacy-user']
+    );
   });
 });

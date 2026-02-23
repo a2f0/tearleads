@@ -7,6 +7,10 @@ const recipientDomains = (process.env['SMTP_RECIPIENT_DOMAINS'] ?? '')
   .split(',')
   .map((domain) => domain.trim())
   .filter((domain) => domain.length > 0);
+const recipientAddressing =
+  process.env['SMTP_RECIPIENT_ADDRESSING'] === 'legacy-local-part'
+    ? 'legacy-local-part'
+    : 'uuid-local-part';
 
 async function main(): Promise<void> {
   console.log(`Starting SMTP listener on ${host}:${port}...`);
@@ -16,6 +20,7 @@ async function main(): Promise<void> {
     host,
     redisUrl,
     recipientDomains,
+    recipientAddressing,
     onEmail: (email) => {
       console.log(
         `Received email ${email.id} from ${
