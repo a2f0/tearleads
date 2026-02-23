@@ -12,6 +12,9 @@ source "$REPO_ROOT/terraform/scripts/common.sh"
 
 load_secrets_env
 
+# Ensure Terraform backend/providers are initialized before reading outputs.
+"$SCRIPT_DIR/init.sh"
+
 # Get outputs from Terraform (use DNS hostname for SSH to match known_hosts entries)
 SSH_HOSTNAME=$(terraform -chdir="$STACK_DIR" output -raw ssh_hostname)
 if K8S_API_HOSTNAME=$(terraform -chdir="$STACK_DIR" output -raw k8s_api_hostname 2>/dev/null); then
