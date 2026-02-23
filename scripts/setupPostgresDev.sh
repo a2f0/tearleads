@@ -223,7 +223,6 @@ start_postgres_linux() {
 }
 
 provision_dev_db() {
-  psql_base_args="--dbname postgres --tuples-only --quiet --no-align"
   psql_check_output=""
   psql_status=1
   createdb_status=1
@@ -231,20 +230,20 @@ provision_dev_db() {
 
   if [ -n "${PG_USER}" ]; then
     set +e
-    psql_check_output="$(PGUSER="${PG_USER}" psql ${psql_base_args} -c "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" 2>&1)"
+    psql_check_output="$(PGUSER="${PG_USER}" psql --dbname postgres --tuples-only --quiet --no-align -c "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" 2>&1)"
     psql_status=$?
     set -e
     if [ "${psql_status}" -ne 0 ] && echo "${psql_check_output}" | grep -q "role .* does not exist"; then
       ensure_linux_role_exists "${PG_USER}"
       set +e
-      psql_check_output="$(PGUSER="${PG_USER}" psql ${psql_base_args} -c "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" 2>&1)"
+      psql_check_output="$(PGUSER="${PG_USER}" psql --dbname postgres --tuples-only --quiet --no-align -c "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" 2>&1)"
       psql_status=$?
       set -e
     fi
     db_exists="$(printf '%s\n' "${psql_check_output}" | tr -d '[:space:]')"
   else
     set +e
-    psql_check_output="$(psql ${psql_base_args} -c "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" 2>&1)"
+    psql_check_output="$(psql --dbname postgres --tuples-only --quiet --no-align -c "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" 2>&1)"
     psql_status=$?
     set -e
     db_exists="$(printf '%s\n' "${psql_check_output}" | tr -d '[:space:]')"
