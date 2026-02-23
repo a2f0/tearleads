@@ -19,7 +19,9 @@ function printUsage(): void {
       'Environment:',
       '  DATABASE_URL or POSTGRES_URL take precedence.',
       '  Otherwise PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE are used.',
-      '  In dev mode, defaults to localhost:5432 and tearleads_development.'
+      '  In dev mode, defaults to local Postgres',
+      '  (Linux: /var/run/postgresql peer auth; others: localhost:5432)',
+      '  and database tearleads_development.'
     ].join('\n')
   );
 }

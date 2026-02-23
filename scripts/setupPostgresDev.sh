@@ -313,10 +313,19 @@ esac
 
 provision_dev_db
 
-echo "Suggested environment variables for dev:"
-echo "  export PGHOST=localhost"
-echo "  export PGPORT=5432"
-if [ -n "${PG_USER}" ]; then
-  echo "  export PGUSER=${PG_USER}"
+echo "Local dev defaults are ready."
+if [ "${OS_NAME}" = "Linux" ]; then
+  echo "No Postgres env vars are required for local dev."
+  echo "Defaults use peer auth over /var/run/postgresql with database ${DB_NAME}."
+  if [ -n "${PG_USER}" ]; then
+    echo "Current role: ${PG_USER}"
+  fi
+else
+  echo "No Postgres env vars are required for local dev."
+  echo "Defaults use localhost:5432 with database ${DB_NAME}."
 fi
-echo "  export PGDATABASE=tearleads_development"
+echo "Optional overrides:"
+echo "  export PGHOST=<host>"
+echo "  export PGPORT=<port>"
+echo "  export PGUSER=<user>"
+echo "  export PGDATABASE=<database>"
