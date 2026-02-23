@@ -48,7 +48,7 @@ export function getDevDefaults(): {
     }
   }
   const baseDefaults = {
-    host: 'localhost',
+    host: process.platform === 'linux' ? '/var/run/postgresql' : 'localhost',
     port: 5432,
     database: DEV_DATABASE_NAME
   };

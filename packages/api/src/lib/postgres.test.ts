@@ -68,6 +68,10 @@ function setupDevEnvWithoutVars() {
   }
 }
 
+function expectedDevHost(): string {
+  return process.platform === 'linux' ? '/var/run/postgresql' : 'localhost';
+}
+
 describe('postgres lib', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -174,7 +178,7 @@ describe('postgres lib', () => {
     const { getPostgresConnectionInfo } = await loadPostgresModule();
 
     expect(getPostgresConnectionInfo()).toEqual({
-      host: 'localhost',
+      host: expectedDevHost(),
       port: 5432,
       database: 'tearleads_development',
       user: 'tearleads_os_user'
@@ -189,7 +193,7 @@ describe('postgres lib', () => {
     await getPostgresPool();
 
     expect(poolInstances[0]?.config).toEqual({
-      host: 'localhost',
+      host: expectedDevHost(),
       port: 5432,
       user: 'tearleads_os_user',
       database: 'tearleads_development'
