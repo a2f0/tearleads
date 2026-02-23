@@ -2,19 +2,23 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-
-# shellcheck source=../../../../scripts/common.sh
-source "$REPO_ROOT/terraform/scripts/common.sh"
-
-load_secrets_env
 
 NAMESPACE="${NAMESPACE:-tearleads}"
 KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config-staging-k8s}"
 SHOW_VALUES="${SHOW_VALUES:-false}"
+EXPECTED_API_ENV_VARS=(
+  "OPENROUTER_API_KEY"
+  "JWT_SECRET"
+)
 
 if [[ "${1:-}" == "--show-values" ]]; then
   SHOW_VALUES="true"
+fi
+
+if ! command -v kubectl >/dev/null 2>&1; then
+  echo "ERROR: kubectl is required but not found." >&2
+  echo "Please install kubectl and ensure it's in your PATH." >&2
+  exit 1
 fi
 
 if [[ ! -f "$KUBECONFIG_FILE" ]]; then
@@ -50,14 +54,11 @@ echo "Secret keys in tearleads-secrets:"
 kubectl -n "$NAMESPACE" get secret tearleads-secrets -o go-template='{{range $k, $v := .data}}{{printf "%s\n" $k}}{{end}}' | sort
 
 echo ""
-if kubectl -n "$NAMESPACE" exec "$api_pod" -c api -- env | grep -q '^OPENROUTER_API_KEY='; then
-  echo "OPENROUTER_API_KEY is present in API pod env."
-else
-  echo "OPENROUTER_API_KEY is NOT present in API pod env."
-fi
-
-if kubectl -n "$NAMESPACE" exec "$api_pod" -c api -- env | grep -q '^JWT_SECRET='; then
-  echo "JWT_SECRET is present in API pod env."
-else
-  echo "JWT_SECRET is NOT present in API pod env."
-fi
+pod_env="$(kubectl -n "$NAMESPACE" exec "$api_pod" -c api -- env)"
+for expected_var in "${EXPECTED_API_ENV_VARS[@]}"; do
+  if grep -q "^${expected_var}=" <<< "$pod_env"; then
+    echo "${expected_var} is present in API pod env."
+  else
+    echo "${expected_var} is NOT present in API pod env."
+  fi
+done
