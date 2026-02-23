@@ -3,6 +3,11 @@ import test from 'node:test';
 import { Octokit } from '@octokit/rest';
 import type { GitHubClientContext } from './utils/githubClient.ts';
 import {
+  getDependabotAlertWithOctokit,
+  listDependabotAlertsWithOctokit,
+  updateDependabotAlertWithOctokit
+} from './utils/octokitDependabotHandlers.ts';
+import {
   createIssueWithOctokit,
   findExistingIssueWithOctokit,
   getIssueWithOctokit,
@@ -162,6 +167,173 @@ test('createIssueWithOctokit returns created issue URL', async () => {
   });
 
   assert.equal(issueUrl, 'https://example.com/issues/2001');
+});
+
+test('listDependabotAlertsWithOctokit returns normalized alert payload', async () => {
+  const context = createContext((url) => {
+    if (url.includes('/repos/a2f0/tearleads/dependabot/alerts')) {
+      return {
+        status: 200,
+        body: [
+          {
+            number: 64,
+            state: 'open',
+            dependency: {
+              package: { ecosystem: 'npm', name: 'ajv' },
+              manifest_path: 'pnpm-lock.yaml',
+              scope: 'runtime',
+              relationship: 'transitive'
+            },
+            security_advisory: {
+              ghsa_id: 'GHSA-2g4f-4pwh-qvx6',
+              cve_id: 'CVE-2025-69873',
+              summary: 'ajv has ReDoS when using $data option',
+              severity: 'medium'
+            },
+            security_vulnerability: {
+              severity: 'medium',
+              vulnerable_version_range: '< 6.14.0',
+              first_patched_version: { identifier: '6.14.0' }
+            },
+            html_url:
+              'https://github.com/a2f0/tearleads/security/dependabot/64',
+            created_at: '2026-02-20T22:39:19Z',
+            updated_at: '2026-02-20T22:39:19Z',
+            dismissed_at: null,
+            dismissed_reason: null,
+            dismissed_comment: null,
+            fixed_at: null
+          }
+        ]
+      };
+    }
+    return { status: 404, body: { message: 'not found' } };
+  });
+
+  const output = await listDependabotAlertsWithOctokit(context, {
+    state: 'open'
+  });
+  const parsed = JSON.parse(output);
+
+  assert.equal(parsed.total, 1);
+  assert.equal(parsed.alerts[0].number, 64);
+  assert.equal(parsed.alerts[0].dependency.name, 'ajv');
+});
+
+test('getDependabotAlertWithOctokit returns normalized alert payload', async () => {
+  const context = createContext((url) => {
+    if (url.endsWith('/repos/a2f0/tearleads/dependabot/alerts/61')) {
+      return {
+        status: 200,
+        body: {
+          number: 61,
+          state: 'dismissed',
+          dependency: {
+            package: { ecosystem: 'npm', name: 'minimatch' },
+            manifest_path: 'pnpm-lock.yaml',
+            scope: 'runtime',
+            relationship: 'transitive'
+          },
+          security_advisory: {
+            ghsa_id: 'GHSA-3ppc-4f35-3m26',
+            cve_id: 'CVE-2026-26996',
+            summary: 'minimatch has ReDoS',
+            severity: 'high'
+          },
+          security_vulnerability: {
+            severity: 'high',
+            vulnerable_version_range: '< 10.2.1',
+            first_patched_version: { identifier: '10.2.1' }
+          },
+          html_url: 'https://github.com/a2f0/tearleads/security/dependabot/61',
+          created_at: '2026-02-18T22:53:25Z',
+          updated_at: '2026-02-21T10:00:00Z',
+          dismissed_at: '2026-02-21T10:00:00Z',
+          dismissed_reason: 'tolerable_risk',
+          dismissed_comment: 'Validated low impact',
+          fixed_at: null
+        }
+      };
+    }
+    return { status: 404, body: { message: 'not found' } };
+  });
+
+  const output = await getDependabotAlertWithOctokit(context, 61);
+  const parsed = JSON.parse(output);
+
+  assert.equal(parsed.number, 61);
+  assert.equal(parsed.state, 'dismissed');
+  assert.equal(parsed.dismissed_reason, 'tolerable_risk');
+});
+
+test('updateDependabotAlertWithOctokit sends dismiss payload', async () => {
+  const context = createContext((url, method) => {
+    if (
+      method === 'PATCH' &&
+      url.endsWith('/repos/a2f0/tearleads/dependabot/alerts/64')
+    ) {
+      return {
+        status: 200,
+        body: {
+          number: 64,
+          state: 'dismissed',
+          dependency: {
+            package: { ecosystem: 'npm', name: 'ajv' },
+            manifest_path: 'pnpm-lock.yaml',
+            scope: 'runtime',
+            relationship: 'transitive'
+          },
+          security_advisory: {
+            ghsa_id: 'GHSA-2g4f-4pwh-qvx6',
+            cve_id: 'CVE-2025-69873',
+            summary: 'ajv has ReDoS',
+            severity: 'medium'
+          },
+          security_vulnerability: {
+            severity: 'medium',
+            vulnerable_version_range: '< 6.14.0',
+            first_patched_version: { identifier: '6.14.0' }
+          },
+          html_url: 'https://github.com/a2f0/tearleads/security/dependabot/64',
+          created_at: '2026-02-20T22:39:19Z',
+          updated_at: '2026-02-22T08:00:00Z',
+          dismissed_at: '2026-02-22T08:00:00Z',
+          dismissed_reason: 'not_used',
+          dismissed_comment: 'Not reachable in runtime',
+          fixed_at: null
+        }
+      };
+    }
+    return { status: 404, body: { message: 'not found' } };
+  });
+
+  const output = await updateDependabotAlertWithOctokit(context, {
+    alertNumber: 64,
+    state: 'dismissed',
+    dismissedReason: 'not_used',
+    dismissedComment: 'Not reachable in runtime'
+  });
+  const parsed = JSON.parse(output);
+
+  assert.equal(parsed.number, 64);
+  assert.equal(parsed.state, 'dismissed');
+  assert.equal(parsed.dismissed_reason, 'not_used');
+  assert.equal(parsed.dismissed_comment, 'Not reachable in runtime');
+});
+
+test('updateDependabotAlertWithOctokit validates dismiss reason', async () => {
+  const context = createContext(() => ({
+    status: 404,
+    body: { message: 'not found' }
+  }));
+
+  await assert.rejects(
+    updateDependabotAlertWithOctokit(context, {
+      alertNumber: 64,
+      state: 'dismissed'
+    }),
+    /requires --dismissed-reason/
+  );
 });
 
 test('replyToReviewCommentWithOctokit returns normalized reply payload', async () => {

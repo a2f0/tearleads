@@ -35,6 +35,9 @@ export type ActionName =
   | 'findDeferredWork'
   | 'listDeferredFixIssues'
   | 'getIssue'
+  | 'listDependabotAlerts'
+  | 'getDependabotAlert'
+  | 'updateDependabotAlert'
   | 'runPreen'
   | 'runTerraformStackScript'
   | 'runAnsibleBootstrap'
@@ -82,6 +85,7 @@ export interface GlobalOptions {
   pr?: number;
   search?: string;
   sourcePr?: number;
+  scope?: 'development' | 'runtime';
   reviewThreadUrl?: string;
   force?: boolean;
   deferredItemsJson?: string;
@@ -89,6 +93,21 @@ export interface GlobalOptions {
   bodyFile?: string;
   quotaMessage?: string;
   limit?: number;
+  alertNumber?: number;
+  severity?: string;
+  ecosystem?: string;
+  package?: string;
+  manifest?: string;
+  sort?: string;
+  direction?: 'asc' | 'desc';
+  perPage?: number;
+  dismissedReason?:
+    | 'fix_started'
+    | 'inaccurate'
+    | 'no_bandwidth'
+    | 'not_used'
+    | 'tolerable_risk';
+  dismissedComment?: string;
   stack?: string;
   script?: string;
   target?: string;

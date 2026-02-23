@@ -155,6 +155,21 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     retrySafe: true,
     isInline: true
   },
+  listDependabotAlerts: {
+    safetyClass: 'safe_read',
+    retrySafe: true,
+    isInline: true
+  },
+  getDependabotAlert: {
+    safetyClass: 'safe_read',
+    retrySafe: true,
+    isInline: true
+  },
+  updateDependabotAlert: {
+    safetyClass: 'safe_write_remote',
+    retrySafe: true,
+    isInline: true
+  },
   runPreen: {
     safetyClass: 'safe_write_local',
     retrySafe: false,

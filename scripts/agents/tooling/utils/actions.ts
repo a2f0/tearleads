@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { runWithTimeout } from '../../../tooling/lib/cliShared.ts';
 import type { ActionConfig, ActionName, GlobalOptions } from '../types.ts';
+import { runDependabotAction } from './dependabotActions.ts';
 import { createGitHubClientContext } from './githubClient.ts';
 import { getGitContext, requireDefined } from './helpers.ts';
 import {
@@ -65,6 +66,11 @@ export async function runInlineAction(
   timeoutMs: number,
   repoRoot: string
 ): Promise<string> {
+  const dependabotResult = await runDependabotAction(action, repo, options);
+  if (dependabotResult !== null) {
+    return dependabotResult;
+  }
+
   switch (action) {
     case 'getRepo': {
       return repo;
