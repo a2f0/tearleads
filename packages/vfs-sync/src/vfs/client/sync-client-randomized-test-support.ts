@@ -1,10 +1,10 @@
 import type { VfsCrdtSyncItem } from '@tearleads/shared';
 import { expect } from 'vitest';
+import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
 import type {
   VfsBackgroundSyncClient,
   VfsCrdtSyncTransport
 } from './sync-client.js';
-import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
 
 export function createDeterministicRandom(seed: number): () => number {
   let state = seed >>> 0;

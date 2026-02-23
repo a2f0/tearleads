@@ -1,3 +1,12 @@
+import {
+  InMemoryVfsContainerClockStore,
+  type ListVfsContainerClockChangesResult
+} from '../protocol/sync-container-clocks.js';
+import type { VfsCrdtOperation } from '../protocol/sync-crdt.js';
+import { InMemoryVfsCrdtFeedReplayStore } from '../protocol/sync-crdt-feed-replay.js';
+import { InMemoryVfsCrdtClientStateStore } from '../protocol/sync-crdt-reconcile.js';
+import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
+import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
 import { bumpLocalWriteIdFromReconcileState } from './sync-client-pending-operations.js';
 import {
   normalizePersistedContainerClocks,
@@ -24,15 +33,6 @@ import {
   parsePullLimit,
   validateClientId
 } from './sync-client-utils.js';
-import {
-  InMemoryVfsContainerClockStore,
-  type ListVfsContainerClockChangesResult
-} from '../protocol/sync-container-clocks.js';
-import type { VfsCrdtOperation } from '../protocol/sync-crdt.js';
-import { InMemoryVfsCrdtFeedReplayStore } from '../protocol/sync-crdt-feed-replay.js';
-import { InMemoryVfsCrdtClientStateStore } from '../protocol/sync-crdt-reconcile.js';
-import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
-import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
 
 export type * from './sync-client-utils.js';
 export {

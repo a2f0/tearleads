@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
 import {
   VfsBackgroundSyncClient,
   type VfsCrdtSyncTransport
@@ -11,7 +12,6 @@ import {
   expectLastWriteIdRegressionViolation,
   readSeedContainerCursorOrThrow
 } from './sync-client-randomized-test-support.js';
-import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
 
 describe('VfsBackgroundSyncClient', () => {
   it('keeps mixed acl/link container windows strictly forward after alternating failure recoveries', async () => {

@@ -118,6 +118,15 @@ export {
   type VfsSyncCursor
 } from './protocol/sync-cursor.js';
 export {
+  compareVfsSyncCursorOrder,
+  InMemoryVfsSyncClientStateStore,
+  type ParsedVfsSyncReconcilePayload,
+  type ParseVfsSyncReconcilePayloadResult,
+  parseVfsSyncReconcilePayload,
+  type ReconcileVfsSyncCursorResult,
+  reconcileVfsSyncCursor
+} from './protocol/sync-reconcile.js';
+export {
   assertStronglyConsistentVfsSyncRows,
   type BuildVfsSyncQueryInput,
   buildVfsSyncQuery,
@@ -132,19 +141,6 @@ export {
   VfsSyncOrderViolationError
 } from './server/sync-engine.js';
 export {
-  VfsHttpCrdtSyncTransport,
-  type VfsHttpCrdtSyncTransportOptions
-} from './transport/sync-http-transport.js';
-export {
-  compareVfsSyncCursorOrder,
-  InMemoryVfsSyncClientStateStore,
-  type ParsedVfsSyncReconcilePayload,
-  type ParseVfsSyncReconcilePayloadResult,
-  parseVfsSyncReconcilePayload,
-  type ReconcileVfsSyncCursorResult,
-  reconcileVfsSyncCursor
-} from './protocol/sync-reconcile.js';
-export {
   deriveVfsFlatteningInventory,
   extractPostgresTableNamesFromDrizzleSchema,
   extractSqlTableReferences,
@@ -155,3 +151,7 @@ export {
   type VfsSyncSchemaDependency,
   type VfsSyncSchemaDomain
 } from './server/sync-schema-contract.js';
+export {
+  VfsHttpCrdtSyncTransport,
+  type VfsHttpCrdtSyncTransportOptions
+} from './transport/sync-http-transport.js';

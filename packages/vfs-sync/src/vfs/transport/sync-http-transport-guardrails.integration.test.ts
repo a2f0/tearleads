@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { InMemoryVfsCrdtSyncServer, VfsBackgroundSyncClient } from '../index.js';
+import {
+  InMemoryVfsCrdtSyncServer,
+  VfsBackgroundSyncClient
+} from '../index.js';
 import { encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
 import { createServerBackedFetch } from './sync-http-transport.integration-harness.js';
 import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';

@@ -1,3 +1,10 @@
+import type { VfsCrdtSyncItem } from '../protocol/sync-crdt-feed.js';
+import {
+  InMemoryVfsCrdtFeedReplayStore,
+  type VfsCrdtFeedReplaySnapshot
+} from '../protocol/sync-crdt-feed-replay.js';
+import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
+import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
 import {
   buildVfsAclKeyView,
   type VfsAclSnapshotEntry
@@ -21,13 +28,6 @@ import type {
   VfsAuthoritativePrincipalCatalogSnapshot,
   VfsMemberPrincipalView
 } from './sync-access-harness-types.js';
-import type { VfsCrdtSyncItem } from '../protocol/sync-crdt-feed.js';
-import {
-  InMemoryVfsCrdtFeedReplayStore,
-  type VfsCrdtFeedReplaySnapshot
-} from '../protocol/sync-crdt-feed-replay.js';
-import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
-import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
 
 /**
  * Combines CRDT-authored ACL presence/levels with key-wrapping material from

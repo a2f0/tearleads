@@ -5,7 +5,10 @@ import {
 } from '../index.js';
 import type { VfsCrdtOperation } from '../protocol/sync-crdt.js';
 import { parseVfsCrdtLastReconciledWriteIds } from '../protocol/sync-crdt-reconcile.js';
-import { decodeVfsSyncCursor, encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
+import {
+  decodeVfsSyncCursor,
+  encodeVfsSyncCursor
+} from '../protocol/sync-cursor.js';
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {

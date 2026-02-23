@@ -1,4 +1,11 @@
 import {
+  InMemoryVfsCrdtClientStateStore,
+  type ReconcileVfsCrdtClientStateResult,
+  type VfsCrdtLastReconciledWriteIds
+} from '../protocol/sync-crdt-reconcile.js';
+import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
+import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
+import {
   type AbandonVfsBlobInput,
   type AttachVfsBlobInput,
   InMemoryVfsBlobCommitStore,
@@ -6,13 +13,6 @@ import {
   type VfsBlobCommitStatus,
   type VfsBlobStageRecord
 } from './sync-blob-commit.js';
-import {
-  InMemoryVfsCrdtClientStateStore,
-  type ReconcileVfsCrdtClientStateResult,
-  type VfsCrdtLastReconciledWriteIds
-} from '../protocol/sync-crdt-reconcile.js';
-import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
-import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
 
 export type VfsBlobIsolationAttachStatus =
   | VfsBlobCommitStatus

@@ -1,3 +1,4 @@
+import type { VfsCrdtOperation } from '../protocol/sync-crdt.js';
 import type { QueueVfsCrdtLocalOperationInput } from './sync-client-utils.js';
 import {
   isAccessLevel,
@@ -5,7 +6,6 @@ import {
   normalizeOccurredAt,
   normalizeRequiredString
 } from './sync-client-utils.js';
-import type { VfsCrdtOperation } from '../protocol/sync-crdt.js';
 
 interface BuildQueuedLocalOperationParams {
   input: QueueVfsCrdtLocalOperationInput;

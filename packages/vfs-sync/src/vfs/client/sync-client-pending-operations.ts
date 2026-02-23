@@ -1,7 +1,7 @@
-import { cloneCursor } from './sync-client-utils.js';
 import type { VfsCrdtOperation } from '../protocol/sync-crdt.js';
 import type { VfsCrdtClientReconcileState } from '../protocol/sync-crdt-reconcile.js';
 import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
+import { cloneCursor } from './sync-client-utils.js';
 
 interface GetCurrentCursorFromStateParams {
   reconcileState: VfsCrdtClientReconcileState | null;

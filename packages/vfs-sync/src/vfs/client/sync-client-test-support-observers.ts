@@ -1,11 +1,11 @@
 import type { VfsCrdtSyncItem } from '@tearleads/shared';
 import { expect } from 'vitest';
+import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
 import type {
   VfsBackgroundSyncClient,
   VfsBackgroundSyncClientPersistedState,
   VfsCrdtSyncTransport
 } from './sync-client.js';
-import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
 
 interface ContainerClockCursor {
   containerId: string;

@@ -1,3 +1,11 @@
+import type { VfsContainerClockEntry } from '../protocol/sync-container-clocks.js';
+import type { VfsCrdtOperation } from '../protocol/sync-crdt.js';
+import type { VfsCrdtFeedReplaySnapshot } from '../protocol/sync-crdt-feed-replay.js';
+import {
+  parseVfsCrdtLastReconciledWriteIds,
+  type VfsCrdtClientReconcileState
+} from '../protocol/sync-crdt-reconcile.js';
+import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
 import {
   isAccessLevel,
   isCrdtOpType,
@@ -7,14 +15,6 @@ import {
   normalizeRequiredString,
   parsePositiveSafeInteger
 } from './sync-client-utils.js';
-import type { VfsContainerClockEntry } from '../protocol/sync-container-clocks.js';
-import type { VfsCrdtOperation } from '../protocol/sync-crdt.js';
-import type { VfsCrdtFeedReplaySnapshot } from '../protocol/sync-crdt-feed-replay.js';
-import {
-  parseVfsCrdtLastReconciledWriteIds,
-  type VfsCrdtClientReconcileState
-} from '../protocol/sync-crdt-reconcile.js';
-import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
 
 export function normalizePersistedReplaySnapshot(
   value: VfsCrdtFeedReplaySnapshot

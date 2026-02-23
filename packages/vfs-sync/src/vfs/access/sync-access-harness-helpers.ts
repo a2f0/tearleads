@@ -1,10 +1,10 @@
 import type { VfsAclAccessLevel, VfsAclPrincipalType } from '@tearleads/shared';
+import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
 import type {
   EffectiveVfsAclKeyViewEntry,
   EffectiveVfsMemberItemAccessEntry,
   VfsMemberPrincipalView
 } from './sync-access-harness-types.js';
-import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
 
 const ACCESS_RANK: Record<VfsAclAccessLevel, number> = {
   read: 1,

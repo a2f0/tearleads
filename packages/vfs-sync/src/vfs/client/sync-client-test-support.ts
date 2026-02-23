@@ -1,4 +1,5 @@
 import type { VfsCrdtSyncItem } from '@tearleads/shared';
+import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
 import {
   VfsBackgroundSyncClient,
   VfsCrdtSyncPushRejectedError,
@@ -8,7 +9,6 @@ import {
   InMemoryVfsCrdtSyncServer,
   InMemoryVfsCrdtSyncTransport
 } from './sync-client-harness.js';
-import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
 
 export {
   VfsBackgroundSyncClient,
