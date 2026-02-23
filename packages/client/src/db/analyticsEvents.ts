@@ -197,7 +197,12 @@ export interface ThumbnailGenerationDetail {
 export interface VfsSecureUploadDetail {
   fileSize?: number;
   mimeType?: string;
-  failStage?: 'orchestrator_unavailable' | 'stage_attach' | 'flush' | 'unknown';
+  failStage?:
+    | 'register'
+    | 'orchestrator_unavailable'
+    | 'stage_attach'
+    | 'flush'
+    | 'unknown';
 }
 export interface VfsBlobFlushOperationDetail {
   operationKind?: 'stage' | 'chunk' | 'commit' | 'attach' | 'abandon';
