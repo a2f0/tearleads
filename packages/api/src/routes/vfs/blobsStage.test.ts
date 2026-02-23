@@ -71,6 +71,7 @@ describe('VFS routes (blobs stage)', () => {
       const expiresAt = new Date('2026-02-14T11:00:00.000Z');
       mockQuery
         .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob
         .mockResolvedValueOnce({
           rows: [{ object_type: 'blob' }]
         }) // SELECT blob registry row
@@ -111,6 +112,7 @@ describe('VFS routes (blobs stage)', () => {
       const authHeader = await createAuthHeader();
       mockQuery
         .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob
         .mockResolvedValueOnce({
           rows: [{ object_type: 'blob' }]
         }) // SELECT blob registry row
@@ -152,6 +154,7 @@ describe('VFS routes (blobs stage)', () => {
       const authHeader = await createAuthHeader();
       mockQuery
         .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob
         .mockResolvedValueOnce({
           rows: [{ object_type: 'blob' }]
         }) // SELECT blob registry row
@@ -176,6 +179,7 @@ describe('VFS routes (blobs stage)', () => {
       const authHeader = await createAuthHeader();
       mockQuery
         .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob
         .mockResolvedValueOnce({ rows: [] }) // SELECT blob registry row
         .mockResolvedValueOnce({}); // ROLLBACK
 
@@ -198,6 +202,7 @@ describe('VFS routes (blobs stage)', () => {
       });
       mockQuery
         .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob
         .mockResolvedValueOnce({
           rows: [{ object_type: 'blob' }]
         }) // SELECT blob registry row
@@ -222,6 +227,7 @@ describe('VFS routes (blobs stage)', () => {
       const authHeader = await createAuthHeader();
       mockQuery
         .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob
         .mockResolvedValueOnce({
           rows: [{ object_type: 'blob' }]
         }) // SELECT blob registry row
@@ -245,6 +251,7 @@ describe('VFS routes (blobs stage)', () => {
       const authHeader = await createAuthHeader();
       mockQuery
         .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob
         .mockResolvedValueOnce({
           rows: [{ object_type: 'note' }]
         }) // SELECT blob registry row

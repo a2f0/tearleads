@@ -116,6 +116,111 @@ export function parseBlobAttachBody(body: unknown): {
   return null;
 }
 
+export interface ParsedBlobChunkBody {
+  uploadId: string;
+  chunkIndex: number;
+  isFinal: boolean;
+  nonce: string;
+  aadHash: string;
+  ciphertextBase64: string;
+  plaintextLength: number;
+  ciphertextLength: number;
+}
+
+export function parseBlobChunkBody(body: unknown): ParsedBlobChunkBody | null {
+  if (!isRecord(body)) {
+    return null;
+  }
+
+  const uploadId = normalizeRequiredString(body['uploadId']);
+  const nonce = normalizeRequiredString(body['nonce']);
+  const aadHash = normalizeRequiredString(body['aadHash']);
+  const ciphertextBase64 = normalizeRequiredString(body['ciphertextBase64']);
+  const chunkIndex = body['chunkIndex'];
+  const isFinal = body['isFinal'];
+  const plaintextLength = body['plaintextLength'];
+  const ciphertextLength = body['ciphertextLength'];
+
+  if (
+    !uploadId ||
+    !nonce ||
+    !aadHash ||
+    !ciphertextBase64 ||
+    !Number.isInteger(chunkIndex) ||
+    chunkIndex < 0 ||
+    typeof isFinal !== 'boolean' ||
+    !Number.isInteger(plaintextLength) ||
+    plaintextLength < 0 ||
+    !Number.isInteger(ciphertextLength) ||
+    ciphertextLength < 0
+  ) {
+    return null;
+  }
+
+  return {
+    uploadId,
+    chunkIndex,
+    isFinal,
+    nonce,
+    aadHash,
+    ciphertextBase64,
+    plaintextLength,
+    ciphertextLength
+  };
+}
+
+export interface ParsedBlobCommitBody {
+  uploadId: string;
+  keyEpoch: number;
+  manifestHash: string;
+  manifestSignature: string;
+  chunkCount: number;
+  totalPlaintextBytes: number;
+  totalCiphertextBytes: number;
+}
+
+export function parseBlobCommitBody(
+  body: unknown
+): ParsedBlobCommitBody | null {
+  if (!isRecord(body)) {
+    return null;
+  }
+
+  const uploadId = normalizeRequiredString(body['uploadId']);
+  const manifestHash = normalizeRequiredString(body['manifestHash']);
+  const manifestSignature = normalizeRequiredString(body['manifestSignature']);
+  const keyEpoch = body['keyEpoch'];
+  const chunkCount = body['chunkCount'];
+  const totalPlaintextBytes = body['totalPlaintextBytes'];
+  const totalCiphertextBytes = body['totalCiphertextBytes'];
+
+  if (
+    !uploadId ||
+    !manifestHash ||
+    !manifestSignature ||
+    !Number.isInteger(keyEpoch) ||
+    keyEpoch < 1 ||
+    !Number.isInteger(chunkCount) ||
+    chunkCount < 0 ||
+    !Number.isInteger(totalPlaintextBytes) ||
+    totalPlaintextBytes < 0 ||
+    !Number.isInteger(totalCiphertextBytes) ||
+    totalCiphertextBytes < 0
+  ) {
+    return null;
+  }
+
+  return {
+    uploadId,
+    keyEpoch,
+    manifestHash,
+    manifestSignature,
+    chunkCount,
+    totalPlaintextBytes,
+    totalCiphertextBytes
+  };
+}
+
 export function toIsoFromDateOrString(value: Date | string): string {
   if (value instanceof Date) {
     return value.toISOString();

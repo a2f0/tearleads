@@ -89,25 +89,23 @@ const postBlobsStageHandler = async (req: Request, res: Response) => {
       await client.query('BEGIN');
       inTransaction = true;
 
-      if (decodedBlobData) {
-        await client.query(
-          `
-          INSERT INTO vfs_registry (
-            id,
-            object_type,
-            owner_id,
-            created_at
-          ) VALUES (
-            $1::text,
-            'blob',
-            $2::text,
-            NOW()
-          )
-          ON CONFLICT (id) DO NOTHING
-          `,
-          [parsedBody.blobId, claims.sub]
-        );
-      }
+      await client.query(
+        `
+        INSERT INTO vfs_registry (
+          id,
+          object_type,
+          owner_id,
+          created_at
+        ) VALUES (
+          $1::text,
+          'blob',
+          $2::text,
+          NOW()
+        )
+        ON CONFLICT (id) DO NOTHING
+        `,
+        [parsedBody.blobId, claims.sub]
+      );
 
       const blobRegistryResult = await client.query<BlobRegistryTypeRow>(
         `

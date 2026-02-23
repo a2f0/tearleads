@@ -1,7 +1,6 @@
 import type { QueueVfsCrdtLocalOperationInput } from '@tearleads/vfs-sync/vfs';
 import type {
-  VfsBlobRelationKind,
-  VfsBlobStageRequest
+  VfsBlobRelationKind
 } from '../vfsBlobNetworkFlusher';
 import type { VfsWriteOrchestrator } from '../vfsWriteOrchestrator';
 import type {
@@ -108,6 +107,13 @@ class DefaultVfsSecureOrchestratorFacade
     const uploadId = crypto.randomUUID();
     const stagingId = crypto.randomUUID();
 
+    // Queue stage first so chunk uploads always reference an existing staging row.
+    await this.writeOrchestrator.queueBlobStageAndPersist({
+      stagingId,
+      blobId: input.blobId,
+      expiresAt: input.expiresAt
+    });
+
     // Collect streamed chunks for validation (bounded: only metadata, not ciphertext)
     const streamedChunks: Array<{
       chunkIndex: number;
@@ -145,33 +151,6 @@ class DefaultVfsSecureOrchestratorFacade
     // Validate chunk integrity using streamed metadata
     validateStreamedChunkIntegrity(streamedChunks, manifest);
 
-    const stageRequest: VfsBlobStageRequest = {
-      blobId: input.blobId,
-      expiresAt: input.expiresAt,
-      encryption: {
-        algorithm: 'vfs-envelope-v1',
-        keyEpoch: manifest.keyEpoch,
-        manifestHash: manifest.manifestSignature,
-        chunkCount: manifest.chunkCount,
-        chunkSizeBytes: estimateChunkSizeBytes(
-          manifest.totalPlaintextBytes,
-          manifest.chunkCount
-        ),
-        plaintextSizeBytes: manifest.totalPlaintextBytes,
-        ciphertextSizeBytes: manifest.totalCiphertextBytes,
-        checkpoint: {
-          uploadId,
-          nextChunkIndex: manifest.chunkCount
-        }
-      }
-    };
-
-    // Queue stage operation (chunks were already queued via callback)
-    await this.writeOrchestrator.queueBlobStageAndPersist({
-      ...stageRequest,
-      stagingId
-    });
-
     await this.writeOrchestrator.queueBlobManifestCommitAndPersist({
       stagingId,
       uploadId,
@@ -194,18 +173,6 @@ class DefaultVfsSecureOrchestratorFacade
       manifest
     };
   }
-}
-
-function estimateChunkSizeBytes(
-  totalPlaintextBytes: number,
-  chunkCount: number
-): number {
-  if (chunkCount <= 0) {
-    return 1;
-  }
-
-  const estimated = Math.ceil(totalPlaintextBytes / chunkCount);
-  return Math.max(1, estimated);
 }
 
 interface StreamedChunkMetadata {
