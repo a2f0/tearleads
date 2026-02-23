@@ -1,27 +1,21 @@
-#!/bin/sh
+#!/bin/bash
 # Configure local developer workstation SSH for staging and production servers
 #
-# Required environment variables:
-#   TF_VAR_staging_domain    - Staging domain (e.g., staging.example.com)
-#   TF_VAR_production_domain - Production domain (e.g., example.com)
-#
-# Optional environment variables:
-#   TF_VAR_server_username   - Deploy user (default: deploy)
+# Loads .secrets/env automatically via terraform/scripts/common.sh.
+# Required values (from shell or .secrets/env):
+#   TF_VAR_staging_domain
+#   TF_VAR_production_domain
 
-set -e
+set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 export ANSIBLE_CONFIG="${SCRIPT_DIR}/../ansible.cfg"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+# shellcheck source=../../terraform/scripts/common.sh
+source "$REPO_ROOT/terraform/scripts/common.sh"
 
-# Validate required environment variables
-if [ -z "$TF_VAR_staging_domain" ]; then
-  echo "ERROR: TF_VAR_staging_domain not set" >&2
-  exit 1
-fi
-
-if [ -z "$TF_VAR_production_domain" ]; then
-  echo "ERROR: TF_VAR_production_domain not set" >&2
-  exit 1
-fi
+load_secrets_env
+validate_staging_domain_env
+validate_production_domain_env
 
 ansible-playbook -i localhost, "$SCRIPT_DIR/../playbooks/developerWorkstation.yml" "$@"
