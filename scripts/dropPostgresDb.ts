@@ -151,15 +151,20 @@ const adminUrl = buildDatabaseUrl({
 
 const safeDatabaseLiteral = targetDatabase.replace(/'/g, "''");
 const safeDatabaseIdentifier = targetDatabase.replace(/"/g, '""');
-const sql =
+const terminateSql =
   `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${safeDatabaseLiteral}' ` +
-  'AND pid <> pg_backend_pid(); ' +
-  `DROP DATABASE IF EXISTS "${safeDatabaseIdentifier}";`;
+  'AND pid <> pg_backend_pid();';
+const dropSql = `DROP DATABASE IF EXISTS "${safeDatabaseIdentifier}";`;
 
 try {
   execFileSync(
     'psql',
-    ['--set=ON_ERROR_STOP=1', '--dbname', adminUrl, '-c', sql],
+    ['--set=ON_ERROR_STOP=1', '--dbname', adminUrl, '-c', terminateSql],
+    { stdio: 'inherit' }
+  );
+  execFileSync(
+    'psql',
+    ['--set=ON_ERROR_STOP=1', '--dbname', adminUrl, '-c', dropSql],
     { stdio: 'inherit' }
   );
 } catch (error) {
