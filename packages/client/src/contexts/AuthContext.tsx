@@ -1,4 +1,4 @@
-import type { AuthUser } from '@tearleads/shared';
+import type { AuthUser, VfsKeySetupRequest } from '@tearleads/shared';
 import type { ReactNode } from 'react';
 import {
   createContext,
@@ -8,6 +8,7 @@ import {
   useMemo,
   useState
 } from 'react';
+import { createVfsKeySetupPayloadForOnboarding } from '@/hooks/vfs';
 import { api, tryRefreshToken } from '@/lib/api';
 import {
   AUTH_REFRESH_TOKEN_KEY,
@@ -34,7 +35,11 @@ interface AuthContextValue {
   authError: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  register: (
+    email: string,
+    password: string,
+    vfsKeySetup?: VfsKeySetupRequest
+  ) => Promise<void>;
   logout: () => Promise<void>;
   clearAuthError: () => void;
   getTokenTimeRemaining: () => number | null;
@@ -166,18 +171,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
     storeAuth(response.accessToken, response.refreshToken, response.user);
   }, []);
 
-  const register = useCallback(async (email: string, password: string) => {
-    clearAuthError();
-    const response = await api.auth.register(email, password);
+  const register = useCallback(
+    async (
+      email: string,
+      password: string,
+      vfsKeySetup?: VfsKeySetupRequest
+    ) => {
+      clearAuthError();
+      let effectiveVfsKeySetup = vfsKeySetup;
+      if (!effectiveVfsKeySetup) {
+        effectiveVfsKeySetup = await createVfsKeySetupPayloadForOnboarding();
+      }
 
-    // Store in state (same as login - auto-login after registration)
-    setToken(response.accessToken);
-    setUser(response.user);
-    setAuthErrorState(null);
+      const response = await api.auth.register(
+        email,
+        password,
+        effectiveVfsKeySetup
+      );
 
-    // Persist to localStorage
-    storeAuth(response.accessToken, response.refreshToken, response.user);
-  }, []);
+      // Store in state (same as login - auto-login after registration)
+      setToken(response.accessToken);
+      setUser(response.user);
+      setAuthErrorState(null);
+
+      // Persist to localStorage
+      storeAuth(response.accessToken, response.refreshToken, response.user);
+    },
+    []
+  );
 
   const logout = useCallback(async () => {
     // Invalidate session on server (best effort)

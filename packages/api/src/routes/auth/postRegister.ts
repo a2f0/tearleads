@@ -16,7 +16,7 @@ import {
   getAllowedEmailDomains,
   MIN_PASSWORD_LENGTH,
   PASSWORD_COMPLEXITY_ERROR,
-  parseAuthPayload,
+  parseRegisterPayload,
   passwordMeetsComplexity,
   REFRESH_TOKEN_TTL_SECONDS
 } from './shared.js';
@@ -42,6 +42,18 @@ import {
  *               password:
  *                 type: string
  *                 minLength: 12
+ *               vfsKeySetup:
+ *                 type: object
+ *                 description: Optional VFS key bundle to persist during onboarding
+ *                 properties:
+ *                   publicEncryptionKey:
+ *                     type: string
+ *                   publicSigningKey:
+ *                     type: string
+ *                   encryptedPrivateKeys:
+ *                     type: string
+ *                   argon2Salt:
+ *                     type: string
  *             required:
  *               - email
  *               - password
@@ -59,11 +71,19 @@ const postRegisterHandler = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const payload = parseAuthPayload(req.body);
-  if (!payload) {
+  const parsedPayload = parseRegisterPayload(req.body);
+  if (!parsedPayload.ok) {
+    if (parsedPayload.error === 'INVALID_VFS_KEY_SETUP') {
+      res.status(400).json({
+        error:
+          'vfsKeySetup must include publicEncryptionKey, encryptedPrivateKeys, and argon2Salt'
+      });
+      return;
+    }
     res.status(400).json({ error: 'email and password are required' });
     return;
   }
+  const payload = parsedPayload.value;
 
   if (!EMAIL_REGEX.test(payload.email)) {
     res.status(400).json({ error: 'Invalid email format' });
@@ -184,6 +204,27 @@ const postRegisterHandler = async (
          VALUES ($1, $2, $3, $4, $4)`,
         [userId, hash, salt, now]
       );
+
+      if (payload.vfsKeySetup) {
+        await client.query(
+          `INSERT INTO user_keys (
+             user_id,
+             public_encryption_key,
+             public_signing_key,
+             encrypted_private_keys,
+             argon2_salt,
+             created_at
+           ) VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            userId,
+            payload.vfsKeySetup.publicEncryptionKey,
+            payload.vfsKeySetup.publicSigningKey,
+            payload.vfsKeySetup.encryptedPrivateKeys,
+            payload.vfsKeySetup.argon2Salt,
+            now
+          ]
+        );
+      }
 
       await client.query('COMMIT');
 

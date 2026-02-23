@@ -235,6 +235,13 @@ describe('useFileUpload VFS registration', () => {
 
     await result.current.uploadFile(file);
 
+    expect(api.vfs.register).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'test-uuid-1234',
+        objectType: 'file',
+        encryptedSessionKey: 'wrapped-key'
+      })
+    );
     expect(
       mockSecureFacade.stageAttachEncryptedBlobAndPersist
     ).toHaveBeenCalledWith(
@@ -294,6 +301,50 @@ describe('useFileUpload VFS registration', () => {
       false,
       expect.objectContaining({
         failStage: 'stage_attach'
+      })
+    );
+  });
+
+  it('fails closed when secure upload registration fails', async () => {
+    vi.mocked(isLoggedIn).mockReturnValue(true);
+    vi.mocked(getFeatureFlagValue).mockImplementation((flag: string) => {
+      return flag === 'vfsSecureUpload';
+    });
+    vi.mocked(api.vfs.register).mockRejectedValue(new Error('register failed'));
+
+    const mockSecureFacade = {
+      stageAttachEncryptedBlobAndPersist: vi.fn()
+    };
+    vi.mocked(useVfsSecureFacade).mockReturnValue(
+      mockSecureFacade as unknown as ReturnType<typeof useVfsSecureFacade>
+    );
+
+    const mockOrchestrator = {
+      flushAll: vi.fn()
+    };
+    vi.mocked(useVfsOrchestratorInstance).mockReturnValue(
+      mockOrchestrator as unknown as ReturnType<
+        typeof useVfsOrchestratorInstance
+      >
+    );
+
+    const { result } = renderHook(() => useFileUpload());
+    const file = new File(['test'], 'test.png', { type: 'image/png' });
+
+    await expect(result.current.uploadFile(file)).rejects.toThrow(
+      'Secure upload failed (register)'
+    );
+    expect(
+      mockSecureFacade.stageAttachEncryptedBlobAndPersist
+    ).not.toHaveBeenCalled();
+    expect(mockOrchestrator.flushAll).not.toHaveBeenCalled();
+    expect(logEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      'vfs_secure_upload',
+      expect.any(Number),
+      false,
+      expect.objectContaining({
+        failStage: 'register'
       })
     );
   });

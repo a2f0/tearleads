@@ -1,5 +1,6 @@
 export { useFileUpload } from './useFileUpload';
 export {
+  createVfsKeySetupPayloadForOnboarding,
   ensureVfsKeyPair,
   ensureVfsKeys,
   generateSessionKey,

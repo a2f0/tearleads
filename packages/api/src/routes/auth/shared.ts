@@ -2,7 +2,8 @@ import {
   isRecord,
   PASSWORD_COMPLEXITY_ERROR,
   PASSWORD_MIN_LENGTH,
-  passwordMeetsComplexity
+  passwordMeetsComplexity,
+  type VfsKeySetupRequest
 } from '@tearleads/shared';
 import {
   getAccessTokenTtlSeconds,
@@ -20,6 +21,20 @@ type LoginPayload = {
   email: string;
   password: string;
 };
+
+type RegisterPayload = LoginPayload & {
+  vfsKeySetup?: VfsKeySetupRequest;
+};
+
+type ParseRegisterPayloadResult =
+  | {
+      ok: true;
+      value: RegisterPayload;
+    }
+  | {
+      ok: false;
+      error: 'INVALID_AUTH_PAYLOAD' | 'INVALID_VFS_KEY_SETUP';
+    };
 
 type RefreshPayload = {
   refreshToken: string;
@@ -40,6 +55,87 @@ export function parseAuthPayload(body: unknown): LoginPayload | null {
     return null;
   }
   return { email, password };
+}
+
+function parseOptionalVfsKeySetupPayload(
+  value: unknown
+): VfsKeySetupRequest | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const publicEncryptionKey = value['publicEncryptionKey'];
+  const publicSigningKey = value['publicSigningKey'];
+  const encryptedPrivateKeys = value['encryptedPrivateKeys'];
+  const argon2Salt = value['argon2Salt'];
+
+  if (
+    typeof publicEncryptionKey !== 'string' ||
+    (publicSigningKey != null && typeof publicSigningKey !== 'string') ||
+    typeof encryptedPrivateKeys !== 'string' ||
+    typeof argon2Salt !== 'string'
+  ) {
+    return null;
+  }
+
+  if (
+    !publicEncryptionKey.trim() ||
+    !encryptedPrivateKeys.trim() ||
+    !argon2Salt.trim()
+  ) {
+    return null;
+  }
+
+  return {
+    publicEncryptionKey: publicEncryptionKey.trim(),
+    publicSigningKey:
+      typeof publicSigningKey === 'string' ? publicSigningKey.trim() : '',
+    encryptedPrivateKeys: encryptedPrivateKeys.trim(),
+    argon2Salt: argon2Salt.trim()
+  };
+}
+
+export function parseRegisterPayload(
+  body: unknown
+): ParseRegisterPayloadResult {
+  if (!isRecord(body)) {
+    return {
+      ok: false,
+      error: 'INVALID_AUTH_PAYLOAD'
+    };
+  }
+
+  const parsedAuth = parseAuthPayload(body);
+  if (!parsedAuth) {
+    return {
+      ok: false,
+      error: 'INVALID_AUTH_PAYLOAD'
+    };
+  }
+
+  const rawVfsKeySetup = body['vfsKeySetup'];
+  if (rawVfsKeySetup === undefined) {
+    return {
+      ok: true,
+      value: parsedAuth
+    };
+  }
+
+  const parsedVfsKeySetup = parseOptionalVfsKeySetupPayload(rawVfsKeySetup);
+  if (!parsedVfsKeySetup) {
+    return {
+      ok: false,
+      error: 'INVALID_VFS_KEY_SETUP'
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      ...parsedAuth,
+      vfsKeySetup: parsedVfsKeySetup
+    }
+  };
 }
 
 export function parseRefreshPayload(body: unknown): RefreshPayload | null {

@@ -2,6 +2,7 @@ import { decrypt } from '@tearleads/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearVfsKeysCache,
+  createVfsKeySetupPayloadForOnboarding,
   ensureVfsKeyPair,
   ensureVfsKeys,
   generateSessionKey,
@@ -233,6 +234,19 @@ describe('useVfsKeys', () => {
       mockKeyManager.getCurrentKey.mockReturnValueOnce(null);
 
       await expect(ensureVfsKeys()).rejects.toThrow('Database is not unlocked');
+    });
+  });
+
+  describe('createVfsKeySetupPayloadForOnboarding', () => {
+    it('builds onboarding payload without posting to /vfs/keys', async () => {
+      const payload = await createVfsKeySetupPayloadForOnboarding();
+
+      expect(payload).toEqual({
+        publicEncryptionKey: 'combined-public-key',
+        encryptedPrivateKeys: expect.any(String),
+        argon2Salt: expect.any(String)
+      });
+      expect(api.vfs.setupKeys).not.toHaveBeenCalled();
     });
   });
 
