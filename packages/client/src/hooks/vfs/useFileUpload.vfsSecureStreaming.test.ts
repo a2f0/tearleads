@@ -67,6 +67,14 @@ vi.mock('@/contexts/VfsOrchestratorContext', () => ({
   useVfsOrchestratorInstance: vi.fn(() => null)
 }));
 
+vi.mock('@/lib/api', () => ({
+  api: {
+    vfs: {
+      register: vi.fn()
+    }
+  }
+}));
+
 import { fileTypeFromBuffer } from 'file-type';
 import {
   useVfsOrchestratorInstance,
@@ -75,6 +83,7 @@ import {
 import { getDatabase } from '@/db';
 import { logEvent } from '@/db/analytics';
 import { getKeyManager } from '@/db/crypto';
+import { api } from '@/lib/api';
 import { isLoggedIn } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
 import {
@@ -143,6 +152,10 @@ describe('useFileUpload secure streaming', () => {
     vi.mocked(isLoggedIn).mockReturnValue(true);
     vi.mocked(getFeatureFlagValue).mockImplementation((flag: string) => {
       return flag === 'vfsSecureUpload';
+    });
+    vi.mocked(api.vfs.register).mockResolvedValue({
+      id: 'test-uuid-1234',
+      createdAt: new Date().toISOString()
     });
     vi.mocked(generateSessionKey).mockReturnValue(new Uint8Array(32));
     vi.mocked(wrapSessionKey).mockResolvedValue('wrapped-key');

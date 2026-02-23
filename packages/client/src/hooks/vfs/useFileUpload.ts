@@ -227,6 +227,7 @@ export function useFileUpload() {
       if (secureUploadEnabled) {
         const secureUploadStartTime = performance.now();
         let secureUploadFailStage:
+          | 'register'
           | 'orchestrator_unavailable'
           | 'stage_attach'
           | 'flush'
@@ -239,6 +240,25 @@ export function useFileUpload() {
             throw new Error(
               'Secure upload is enabled but VFS secure orchestrator is not ready'
             );
+          }
+          if (!encryptedSessionKey) {
+            secureUploadFailStage = 'register';
+            throw new Error(
+              'Secure upload requires an encrypted session key for server registration'
+            );
+          }
+
+          try {
+            await api.vfs.register({
+              id,
+              objectType: 'file',
+              encryptedSessionKey
+            });
+          } catch (err) {
+            secureUploadFailStage = 'register';
+            throw new Error('Secure upload failed (register)', {
+              cause: err
+            });
           }
 
           const expiresAt = new Date();
