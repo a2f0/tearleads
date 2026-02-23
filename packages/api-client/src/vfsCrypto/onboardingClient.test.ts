@@ -83,6 +83,26 @@ describe('vfs onboarding client', () => {
     expect(apiClient.getMyKeys).toHaveBeenCalledTimes(2);
   });
 
+  it('creates keys when server says keys are not set up', async () => {
+    const serverKeys = createServerKeys();
+    const apiClient = {
+      getMyKeys: vi
+        .fn<() => Promise<VfsUserKeysResponse>>()
+        .mockRejectedValueOnce(new Error('VFS keys not set up'))
+        .mockResolvedValueOnce(serverKeys),
+      setupKeys: vi.fn(async () => ({ created: true }))
+    };
+
+    const result = await ensureVfsOnboardingKeys({
+      password: 'password',
+      apiClient
+    });
+
+    expect(result.created).toBe(true);
+    expect(apiClient.setupKeys).toHaveBeenCalledTimes(1);
+    expect(apiClient.getMyKeys).toHaveBeenCalledTimes(2);
+  });
+
   it('throws if password is empty', async () => {
     const apiClient = {
       getMyKeys: vi.fn(async () => createServerKeys()),

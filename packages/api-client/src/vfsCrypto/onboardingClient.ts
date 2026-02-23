@@ -14,7 +14,11 @@ export interface VfsPublicKey {
 }
 
 function isNotFoundError(error: unknown): boolean {
-  return error instanceof Error && error.message.includes('404');
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const message = error.message.toLowerCase();
+  return message.includes('404') || message.includes('vfs keys not set up');
 }
 
 export interface VfsOnboardingApiClient {
