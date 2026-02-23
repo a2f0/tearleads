@@ -192,8 +192,8 @@ run_discovery() {
       rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'retry|retries|flaky|TODO.*flaky' packages . | head -30 || true
       ;;
     preen-msw-parity)
-      ./scripts/preen/checkMswParity.ts
-      ./scripts/preen/checkMswParity.ts --json | head -40
+      ./scripts/checks/checkMswParity.ts
+      ./scripts/checks/checkMswParity.ts --json | head -40
       ;;
     preen-skill-tooling)
       ./scripts/checkPreenEcosystem.sh --summary
@@ -298,7 +298,7 @@ metric_count() {
       rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\(|waitForTimeout\(|sleep\(|retry|retries|flaky|TODO.*flaky' packages . | wc -l
       ;;
     preen-msw-parity)
-      ./scripts/preen/checkMswParity.ts --json | jq '.missingRouteCount + .lowConfidenceRouteCount'
+      ./scripts/checks/checkMswParity.ts --json | jq '.missingRouteCount + .lowConfidenceRouteCount'
       ;;
     preen-skill-tooling)
       ./scripts/checkPreenEcosystem.sh --count-issues

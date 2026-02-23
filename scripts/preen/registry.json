@@ -129,10 +129,10 @@
       "qualityMetric": "MSW parity risk count (missing + low-confidence)",
       "security": false,
       "discoveryCommands": [
-        "./scripts/preen/checkMswParity.ts",
-        "./scripts/preen/checkMswParity.ts --json | head -40"
+        "./scripts/checks/checkMswParity.ts",
+        "./scripts/checks/checkMswParity.ts --json | head -40"
       ],
-      "metricCountCommand": "./scripts/preen/checkMswParity.ts --json | jq '.missingRouteCount + .lowConfidenceRouteCount'"
+      "metricCountCommand": "./scripts/checks/checkMswParity.ts --json | jq '.missingRouteCount + .lowConfidenceRouteCount'"
     },
     {
       "id": "preen-skill-tooling",

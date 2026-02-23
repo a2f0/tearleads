@@ -6,9 +6,9 @@
  * translated, and checks translation key coverage across all supported languages.
  *
  * Usage:
- *   ./scripts/preen/checkI18nCoverage.ts           # Text summary
- *   ./scripts/preen/checkI18nCoverage.ts --json    # JSON output
- *   ./scripts/preen/checkI18nCoverage.ts --strict  # Exit 1 if issues found
+ *   ./scripts/checks/checkI18nCoverage.ts           # Text summary
+ *   ./scripts/checks/checkI18nCoverage.ts --json    # JSON output
+ *   ./scripts/checks/checkI18nCoverage.ts --strict  # Exit 1 if issues found
  *
  * The script detects:
  * 1. Hardcoded JSX text content (e.g., <span>Hello</span>)
