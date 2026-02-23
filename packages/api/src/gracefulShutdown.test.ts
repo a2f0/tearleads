@@ -14,7 +14,7 @@ vi.mock('./lib/postgres.js', () => ({
   closePostgresPool: vi.fn().mockResolvedValue(undefined)
 }));
 
-vi.mock('./routes/sse.js', async () => {
+vi.mock('./routes/sse/router.js', async () => {
   const { Router } = await import('express');
   return {
     closeAllSSEConnections: vi.fn(),
@@ -27,7 +27,7 @@ const { gracefulShutdown, resetShutdownState } = await import('./index.js');
 const { closeRedisClient } = await import('@tearleads/shared/redis');
 const { closeRedisSubscriberClient } = await import('./lib/redisPubSub.js');
 const { closePostgresPool } = await import('./lib/postgres.js');
-const { closeAllSSEConnections } = await import('./routes/sse.js');
+const { closeAllSSEConnections } = await import('./routes/sse/router.js');
 
 describe('gracefulShutdown', () => {
   let mockServer: Server;
