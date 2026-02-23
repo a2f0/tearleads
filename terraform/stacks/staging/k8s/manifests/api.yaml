@@ -30,6 +30,11 @@ spec:
                 secretKeyRef:
                   name: tearleads-secrets
                   key: JWT_SECRET
+            - name: OPENROUTER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: OPENROUTER_API_KEY
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:

@@ -37,6 +37,7 @@ This stack provisions a k3s Kubernetes cluster on Hetzner Cloud for the staging 
 | `scripts/deploy.sh` | Apply all Kubernetes manifests |
 | `scripts/update.sh` | Update server packages via Ansible |
 | `scripts/smoke-s3.sh` | Verify Garage-backed S3 storage with in-cluster put/get/delete |
+| `scripts/dump-api-env.sh` | Inspect API pod environment variable visibility (names by default, `--show-values` for full values) |
 
 ## Quick Start
 
@@ -255,17 +256,28 @@ kubectl apply -f manifests/garage.yaml
 
 ## Secrets
 
-Update secrets in `manifests/secrets.yaml` (base64 encoded):
+`manifests/secrets.yaml` uses `stringData` with `${VAR_NAME}` placeholders.
+`scripts/deploy.sh` renders those placeholders from your shell environment
+(typically loaded from `.secrets/env` via `load_secrets_env`) before applying.
+
+Required staging API secrets currently include:
+
+- `JWT_SECRET`
+- `OPENROUTER_API_KEY`
+- `POSTGRES_PASSWORD`
+- `GARAGE_RPC_SECRET`
+- `GARAGE_ADMIN_TOKEN`
+- `VFS_BLOB_S3_ACCESS_KEY_ID`
+- `VFS_BLOB_S3_SECRET_ACCESS_KEY`
+
+Inspect API env visibility:
 
 ```bash
-# Encode a secret
-echo -n "my-secret-value" | base64
+# Safe default: variable names only + secret keys + presence checks
+./scripts/dump-api-env.sh
 
-# Apply updated secrets
-kubectl apply -f manifests/secrets.yaml
-
-# Restart pods to pick up changes
-kubectl rollout restart deployment/api -n tearleads
+# Full values (sensitive)
+./scripts/dump-api-env.sh --show-values
 ```
 
 ## Troubleshooting
