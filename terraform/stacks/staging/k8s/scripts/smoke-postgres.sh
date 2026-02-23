@@ -42,12 +42,13 @@ phase_postgres_query() {
     return 1
   fi
 
-  if kubectl -n "$NAMESPACE" exec "$postgres_pod" -c postgres -- sh -lc 'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT 1" | grep -qx 1' >/dev/null 2>&1; then
+  local psql_output
+  if psql_output="$(kubectl -n "$NAMESPACE" exec "$postgres_pod" -c postgres -- sh -lc 'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT 1" | grep -qx 1' 2>&1)"; then
     pass "Postgres pod $postgres_pod accepted query SELECT 1"
     return 0
   fi
 
-  fail "Postgres pod $postgres_pod did not return SELECT 1"
+  fail "Postgres pod $postgres_pod did not return SELECT 1. Output: ${psql_output:-No output}"
 }
 
 phase_api_to_postgres_tcp() {
@@ -62,11 +63,13 @@ phase_api_to_postgres_tcp() {
     return 1
   fi
 
-  if kubectl -n "$NAMESPACE" exec "$api_pod" -c api -- node -e "
+  local node_output
+  if node_output="$(kubectl -n "$NAMESPACE" exec "$api_pod" -c api -- node -e "
     const net = require('net');
     const socket = net.createConnection({ host: 'postgres', port: 5432 });
     const timeout = setTimeout(() => {
       socket.destroy();
+      console.error('timeout connecting to postgres:5432');
       process.exit(1);
     }, 5000);
     socket.on('connect', () => {
@@ -74,16 +77,17 @@ phase_api_to_postgres_tcp() {
       socket.end();
       process.exit(0);
     });
-    socket.on('error', () => {
+    socket.on('error', (err) => {
+      console.error(err.message);
       clearTimeout(timeout);
       process.exit(1);
     });
-  " >/dev/null 2>&1; then
+  " 2>&1)"; then
     pass "API pod $api_pod reached postgres:5432"
     return 0
   fi
 
-  fail "API pod $api_pod could not reach postgres:5432"
+  fail "API pod $api_pod could not reach postgres:5432. Output: ${node_output:-No output}"
 }
 
 require_kubeconfig_and_kubectl
