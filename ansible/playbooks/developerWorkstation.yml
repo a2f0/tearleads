@@ -2,7 +2,7 @@
 - name: Configure developer workstation SSH for staging and production
   hosts: localhost
   connection: local
-  gather_facts: false
+  gather_facts: true
 
   vars:
     # Use the same Python that runs ansible-playbook (avoids pyenv discovery warning)
@@ -12,7 +12,7 @@
     deploy_user: "{{ lookup('env', 'TF_VAR_server_username') | default('deploy', true) }}"
     repo_root: "{{ playbook_dir }}/../.."
     ssh_host_public_key_file: "{{ repo_root }}/.secrets/persistent_ssh_host_ed25519_key.pub"
-    user_home: "{{ lookup('env', 'HOME') }}"
+    user_home: "{{ ansible_facts.env.HOME | default(lookup('env', 'HOME')) }}"
     ssh_dir: "{{ user_home }}/.ssh"
     known_hosts_file: "{{ ssh_dir }}/known_hosts"
     ssh_config_file: "{{ ssh_dir }}/config"
