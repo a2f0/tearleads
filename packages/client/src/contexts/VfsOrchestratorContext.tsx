@@ -23,6 +23,10 @@ import {
 } from 'react';
 import { getDatabase, isDatabaseInitialized } from '@/db';
 import { logEvent } from '@/db/analytics';
+import {
+  loadVfsOrchestratorState,
+  saveVfsOrchestratorState
+} from '@/db/vfsOrchestratorState';
 import { createItemKeyStore } from '@/db/vfsItemKeys';
 import { createRecipientPublicKeyResolver } from '@/db/vfsRecipientKeyResolver';
 import { createUserKeyProvider } from '@/db/vfsUserKeyProvider';
@@ -104,6 +108,7 @@ export function VfsOrchestratorProvider({
   baseUrl,
   apiPrefix = '/v1'
 }: VfsOrchestratorProviderProps) {
+  const orchestratorClientId = 'client';
   const { user, isAuthenticated } = useAuth();
   const [orchestrator, setOrchestrator] = useState<VfsWriteOrchestrator | null>(
     null
@@ -187,8 +192,15 @@ export function VfsOrchestratorProvider({
           baseUrl: effectiveBaseUrl,
           apiPrefix: effectiveApiPrefix,
           onOperationResult: logBlobFlushOperationTelemetry
+        },
+        saveState: async (state) => {
+          await saveVfsOrchestratorState(user.id, orchestratorClientId, state);
+        },
+        loadState: async () => {
+          return loadVfsOrchestratorState(user.id, orchestratorClientId);
         }
       });
+      await newOrchestrator.hydrateFromPersistence();
 
       // Create adapters
       const itemKeyStore = createItemKeyStore();
@@ -230,6 +242,9 @@ export function VfsOrchestratorProvider({
         orchestrator: newOrchestrator,
         secureFacade: facade
       });
+      void newOrchestrator.flushAll().catch((flushErr) => {
+        console.warn('Initial VFS orchestrator flush failed:', flushErr);
+      });
     } catch (err) {
       const initError =
         err instanceof Error ? err : new Error('Failed to initialize VFS');
@@ -244,7 +259,8 @@ export function VfsOrchestratorProvider({
     isAuthenticated,
     effectiveBaseUrl,
     effectiveApiPrefix,
-    logBlobFlushOperationTelemetry
+    logBlobFlushOperationTelemetry,
+    orchestratorClientId
   ]);
 
   // Initialize when user becomes authenticated
@@ -253,6 +269,23 @@ export function VfsOrchestratorProvider({
   }, [initialize]);
 
   // Clean up on unmount
+  useEffect(() => {
+    if (!orchestrator || !isAuthenticated) {
+      return;
+    }
+
+    const flushOnOnline = () => {
+      void orchestrator.flushAll().catch((err) => {
+        console.warn('VFS flush on reconnect failed:', err);
+      });
+    };
+
+    window.addEventListener('online', flushOnOnline);
+    return () => {
+      window.removeEventListener('online', flushOnOnline);
+    };
+  }, [orchestrator, isAuthenticated]);
+
   useEffect(() => {
     return () => {
       setOrchestrator(null);
