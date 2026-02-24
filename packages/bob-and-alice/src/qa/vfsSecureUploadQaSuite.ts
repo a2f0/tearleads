@@ -1,29 +1,30 @@
-#!/usr/bin/env tsx
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-type Check = {
+export type Check = {
   id: string;
   description: string;
   command: string;
   args: string[];
 };
 
-type CheckResult = {
+export type CheckStatus = 'pass' | 'fail' | 'skipped';
+
+export type CheckResult = {
   check: Check;
-  status: 'pass' | 'fail' | 'skipped';
+  status: CheckStatus;
   durationMs: number;
 };
 
-interface CliOptions {
+export interface CliOptions {
   dryRun: boolean;
   continueOnFailure: boolean;
   reportJsonPath: string | null;
   reportMarkdownPath: string | null;
 }
 
-interface ReadinessReport {
+export interface QaSuiteReport {
   command: string;
   candidateSha: string;
   startedAt: string;
@@ -39,12 +40,12 @@ interface ReadinessReport {
     description: string;
     command: string;
     args: string[];
-    status: 'pass' | 'fail' | 'skipped';
+    status: CheckStatus;
     durationMs: number;
   }>;
 }
 
-const CHECKS: Check[] = [
+export const CHECKS: Check[] = [
   {
     id: 'api-rekey-crdt',
     description:
@@ -107,7 +108,7 @@ const CHECKS: Check[] = [
   }
 ];
 
-function parseCliOptions(argv: string[]): CliOptions {
+export function parseCliOptions(argv: string[]): CliOptions {
   const args = argv.slice(2);
   let dryRun = false;
   let continueOnFailure = false;
@@ -148,57 +149,46 @@ function parseCliOptions(argv: string[]): CliOptions {
   };
 }
 
-async function runCheck(check: Check): Promise<CheckResult> {
-  const start = Date.now();
-  const exitCode = await new Promise<number>((resolve) => {
-    const child = spawn(check.command, check.args, {
-      stdio: 'inherit',
-      shell: false
-    });
-
-    child.on('error', () => resolve(1));
-    child.on('close', (code) => resolve(code ?? 1));
-  });
-
-  return {
-    check,
-    status: exitCode === 0 ? 'pass' : 'fail',
-    durationMs: Date.now() - start
-  };
-}
-
-function formatDuration(ms: number): string {
+export function formatDuration(ms: number): string {
   const seconds = (ms / 1000).toFixed(1);
   return `${seconds}s`;
 }
 
-function resolveCandidateSha(): string {
-  const envSha = process.env['GITHUB_SHA'];
+export function resolveCandidateSha(
+  envSha: string | undefined,
+  getHeadSha: () => string | null = () => {
+    const gitResult = spawnSync('git', ['rev-parse', 'HEAD'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    });
+    if (gitResult.status === 0 && typeof gitResult.stdout === 'string') {
+      const value = gitResult.stdout.trim();
+      if (value.length > 0) {
+        return value;
+      }
+    }
+    return null;
+  }
+): string {
   if (typeof envSha === 'string' && envSha.length > 0) {
     return envSha;
   }
 
-  const gitResult = spawnSync('git', ['rev-parse', 'HEAD'], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'ignore']
-  });
-  if (gitResult.status === 0 && typeof gitResult.stdout === 'string') {
-    const value = gitResult.stdout.trim();
-    if (value.length > 0) {
-      return value;
-    }
+  const gitSha = getHeadSha();
+  if (typeof gitSha === 'string' && gitSha.length > 0) {
+    return gitSha;
   }
 
   return 'unknown';
 }
 
-function buildReport(
+export function buildReport(
   options: CliOptions,
   candidateSha: string,
   startedAt: Date,
   completedAt: Date,
   results: CheckResult[]
-): ReadinessReport {
+): QaSuiteReport {
   const passed = results.filter((result) => result.status === 'pass').length;
   const failed = results.filter((result) => result.status === 'fail').length;
   const skipped = results.filter(
@@ -208,8 +198,8 @@ function buildReport(
   return {
     command:
       options.reportJsonPath || options.reportMarkdownPath
-        ? 'pnpm qaVfsSecureUploadEvidence'
-        : 'pnpm qaVfsSecureUpload',
+        ? 'pnpm qaVfsSecureUploadTestEvidence'
+        : 'pnpm qaVfsSecureUploadTestSuite',
     candidateSha,
     startedAt: startedAt.toISOString(),
     completedAt: completedAt.toISOString(),
@@ -230,9 +220,9 @@ function buildReport(
   };
 }
 
-function formatMarkdownReport(report: ReadinessReport): string {
+export function formatMarkdownReport(report: QaSuiteReport): string {
   const lines: string[] = [
-    '# VFS Secure Upload Readiness Report',
+    '# VFS Secure Upload QA Suite Report',
     '',
     `- Candidate SHA: \`${report.candidateSha}\``,
     `- Command: \`${report.command}\``,
@@ -271,33 +261,69 @@ function formatMarkdownReport(report: ReadinessReport): string {
   return lines.join('\n');
 }
 
-function writeReportFile(pathValue: string, content: string): void {
+export function writeReportFile(pathValue: string, content: string): void {
   const absolute = resolve(pathValue);
   mkdirSync(dirname(absolute), { recursive: true });
   writeFileSync(absolute, content, 'utf8');
 }
 
-async function main(): Promise<void> {
-  const options = parseCliOptions(process.argv);
-  const candidateSha = resolveCandidateSha();
+export type CheckExecutor = (check: Check) => Promise<CheckResult>;
+
+export async function runCheck(check: Check): Promise<CheckResult> {
+  const start = Date.now();
+  const exitCode = await new Promise<number>((resolveCode) => {
+    const child = spawn(check.command, check.args, {
+      stdio: 'inherit',
+      shell: false
+    });
+
+    child.on('error', () => resolveCode(1));
+    child.on('close', (code) => resolveCode(code ?? 1));
+  });
+
+  return {
+    check,
+    status: exitCode === 0 ? 'pass' : 'fail',
+    durationMs: Date.now() - start
+  };
+}
+
+export interface RunQaSuiteResult {
+  report: QaSuiteReport;
+  results: CheckResult[];
+}
+
+export async function runQaSuiteChecks(
+  options: CliOptions,
+  candidateSha: string,
+  executeCheck: CheckExecutor = runCheck,
+  log: (message: string) => void = (message) => {
+    console.log(message);
+  }
+): Promise<RunQaSuiteResult> {
   const startedAt = new Date();
   const results: CheckResult[] = [];
 
-  console.log('VFS secure upload readiness checks');
-  console.log(`Candidate SHA: ${candidateSha}`);
-  console.log(`Started: ${startedAt.toISOString()}`);
-  console.log(`Dry run: ${options.dryRun ? 'yes' : 'no'}`);
-  console.log('');
+  log('VFS secure upload QA suite checks');
+  log(`Candidate SHA: ${candidateSha}`);
+  log(`Started: ${startedAt.toISOString()}`);
+  log(`Dry run: ${options.dryRun ? 'yes' : 'no'}`);
+  log('');
 
   for (const check of CHECKS) {
-    console.log(`[${check.id}] ${check.description}`);
-    const result = options.dryRun
-      ? {
-          check,
-          status: 'skipped' as const,
-          durationMs: 0
-        }
-      : await runCheck(check);
+    log(`[${check.id}] ${check.description}`);
+
+    let result: CheckResult;
+    if (options.dryRun) {
+      result = {
+        check,
+        status: 'skipped',
+        durationMs: 0
+      };
+    } else {
+      result = await executeCheck(check);
+    }
+
     results.push(result);
     const status =
       result.status === 'pass'
@@ -305,10 +331,10 @@ async function main(): Promise<void> {
         : result.status === 'fail'
           ? 'FAIL'
           : 'SKIP';
-    console.log(
+    log(
       `Result: ${status} (${formatDuration(result.durationMs)}) for ${check.id}`
     );
-    console.log('');
+    log('');
 
     if (result.status === 'fail' && !options.continueOnFailure) {
       break;
@@ -324,43 +350,25 @@ async function main(): Promise<void> {
     results
   );
 
-  console.log('Summary');
-  console.log(`Completed: ${completedAt.toISOString()}`);
-  console.log(`Checks run: ${report.checksRun}`);
-  console.log(`Passed: ${report.passed}`);
-  console.log(`Failed: ${report.failed}`);
-  console.log(`Skipped: ${report.skipped}`);
-  console.log('');
+  log('Summary');
+  log(`Completed: ${completedAt.toISOString()}`);
+  log(`Checks run: ${report.checksRun}`);
+  log(`Passed: ${report.passed}`);
+  log(`Failed: ${report.failed}`);
+  log(`Skipped: ${report.skipped}`);
+  log('');
 
   for (const result of results) {
-    console.log(
-      `- ${result.check.id}: ${
-        result.status === 'pass'
-          ? 'PASS'
-          : result.status === 'fail'
-            ? 'FAIL'
-            : 'SKIP'
-      } (${formatDuration(result.durationMs)})`
+    const status =
+      result.status === 'pass'
+        ? 'PASS'
+        : result.status === 'fail'
+          ? 'FAIL'
+          : 'SKIP';
+    log(
+      `- ${result.check.id}: ${status} (${formatDuration(result.durationMs)})`
     );
   }
 
-  if (options.reportJsonPath) {
-    writeReportFile(
-      options.reportJsonPath,
-      `${JSON.stringify(report, null, 2)}\n`
-    );
-    console.log(`JSON report written: ${resolve(options.reportJsonPath)}`);
-  }
-  if (options.reportMarkdownPath) {
-    writeReportFile(options.reportMarkdownPath, formatMarkdownReport(report));
-    console.log(
-      `Markdown report written: ${resolve(options.reportMarkdownPath)}`
-    );
-  }
-
-  if (!options.dryRun && report.failed > 0) {
-    process.exit(1);
-  }
+  return { report, results };
 }
-
-void main();

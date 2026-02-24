@@ -117,24 +117,24 @@ Run these checks in staging and again before production promotion:
 6. Restart/hydrate recovers pending secure queue and converges after sync.
 7. Failure cases are actionable and deterministic (no ambiguous fallback).
 
-### Required automated gate
+### Required automated QA suite
 
-Run the secure-upload readiness matrix from repo root:
+Run the secure-upload test suite matrix from repo root:
 
 ```bash
-pnpm qaVfsSecureUpload
+pnpm qaVfsSecureUploadTestSuite
 ```
 
 For promotion evidence artifacts (JSON + Markdown), run:
 
 ```bash
-pnpm qaVfsSecureUploadEvidence
+pnpm qaVfsSecureUploadTestEvidence
 ```
 
 This writes:
 
-- `coverage/qa/vfsSecureUploadReadiness.json`
-- `coverage/qa/vfsSecureUploadReadiness.md`
+- `coverage/qa/vfsSecureUploadQaSuite.json`
+- `coverage/qa/vfsSecureUploadQaSuite.md`
 
 This command runs a focused cross-package matrix covering:
 
@@ -151,17 +151,17 @@ Evidence to capture:
 - test run references (suite names and commit SHA)
 - staging API logs for one successful and one forced-failure secure upload
 - final promotion decision and owner sign-off
-- output of `pnpm qaVfsSecureUpload` from staging candidate SHA
-- readiness report artifact from `pnpm qaVfsSecureUploadEvidence`
+- output of `pnpm qaVfsSecureUploadTestSuite` from staging candidate SHA
+- QA suite report artifact from `pnpm qaVfsSecureUploadTestEvidence`
 
 ## Sign-off Template
 
 Record this block in the release tracking artifact before promotion:
 
 - Candidate commit SHA:
-- Readiness gate command: `pnpm qaVfsSecureUpload`
-- Readiness evidence command: `pnpm qaVfsSecureUploadEvidence`
-- Readiness gate result: PASS/FAIL
+- QA suite command: `pnpm qaVfsSecureUploadTestSuite`
+- QA suite evidence command: `pnpm qaVfsSecureUploadTestEvidence`
+- QA suite result: PASS/FAIL
 - Staging successful secure upload evidence link:
 - Staging forced-failure secure upload evidence link:
 - Rollback owner:
