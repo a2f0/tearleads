@@ -13,25 +13,39 @@ get_backend_config() {
   echo "$repo_root/terraform/configs/backend.hcl"
 }
 
-# Load secrets from .secrets/env if present
-load_secrets_env() {
-  local secrets_file
-  secrets_file="$(get_repo_root)/.secrets/env"
+# Source a single env file with export semantics.
+_source_env_file() {
+  local env_file="$1"
 
-  if [[ ! -f "$secrets_file" ]]; then
-    if [[ -e "$secrets_file" ]]; then
-      echo "ERROR: $secrets_file exists but is not a regular file." >&2
+  if [[ ! -f "$env_file" ]]; then
+    if [[ -e "$env_file" ]]; then
+      echo "ERROR: $env_file exists but is not a regular file." >&2
       return 1
     fi
-    echo "WARNING: $secrets_file not found. Environment variables must be set manually." >&2
+    echo "WARNING: $env_file not found. Environment variables must be set manually." >&2
     return 0
   fi
 
-  # Export all variables loaded from .secrets/env for child processes (terraform, aws, etc.).
   set -a
   # shellcheck source=/dev/null
-  source "$secrets_file"
+  source "$env_file"
   set +a
+}
+
+# Load secrets from .secrets/{root,<tier>}.env files.
+# Usage: load_secrets_env [staging|prod]
+#   - Always sources .secrets/root.env (shared infra creds).
+#   - When a tier is given, also sources .secrets/<tier>.env.
+load_secrets_env() {
+  local tier="${1:-}"
+  local secrets_dir
+  secrets_dir="$(get_repo_root)/.secrets"
+
+  _source_env_file "$secrets_dir/root.env"
+
+  if [[ -n "$tier" ]]; then
+    _source_env_file "$secrets_dir/${tier}.env"
+  fi
 }
 
 # Validate required environment variables for Hetzner stacks (base)
@@ -50,24 +64,11 @@ validate_hetzner_env() {
   fi
 }
 
-# Validate staging domain
-validate_staging_domain_env() {
+# Validate domain
+validate_domain_env() {
   local missing=()
 
-  [[ -z "${TF_VAR_staging_domain:-}" ]] && missing+=("TF_VAR_staging_domain")
-
-  if [[ ${#missing[@]} -gt 0 ]]; then
-    echo "ERROR: Missing required environment variables:" >&2
-    printf '  - %s\n' "${missing[@]}" >&2
-    return 1
-  fi
-}
-
-# Validate production domain
-validate_production_domain_env() {
-  local missing=()
-
-  [[ -z "${TF_VAR_production_domain:-}" ]] && missing+=("TF_VAR_production_domain")
+  [[ -z "${TF_VAR_domain:-}" ]] && missing+=("TF_VAR_domain")
 
   if [[ ${#missing[@]} -gt 0 ]]; then
     echo "ERROR: Missing required environment variables:" >&2

@@ -8,14 +8,10 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 # shellcheck source=../../../../scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"
 
-load_secrets_env staging
+load_secrets_env prod
+validate_aws_env
 
 BACKEND_CONFIG=$(get_backend_config)
-
-validate_aws_env
-validate_hetzner_env
-validate_domain_env
-validate_cloudflare_env
 
 terraform -chdir="$STACK_DIR" init \
   -backend-config="$BACKEND_CONFIG" \

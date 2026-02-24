@@ -7,8 +7,8 @@
   vars:
     # Use the same Python that runs ansible-playbook (avoids pyenv discovery warning)
     ansible_python_interpreter: "{{ ansible_playbook_python }}"
-    staging_domain: "{{ lookup('env', 'TF_VAR_staging_domain') }}"
-    production_domain: "{{ lookup('env', 'TF_VAR_production_domain') }}"
+    staging_domain: "{{ staging_domain }}"
+    production_domain: "{{ production_domain }}"
     deploy_user: "{{ lookup('env', 'TF_VAR_server_username') | default('deploy', true) }}"
     repo_root: "{{ playbook_dir }}/../.."
     ssh_host_public_key_file: "{{ repo_root }}/.secrets/persistent_ssh_host_ed25519_key.pub"
@@ -31,7 +31,7 @@
           - production_domain | length > 0
         fail_msg: >-
           Required environment variables not set.
-          Please export TF_VAR_staging_domain and TF_VAR_production_domain.
+          staging_domain and production_domain must be provided via extra vars.
 
     - name: Read persistent SSH host public key
       ansible.builtin.slurp:

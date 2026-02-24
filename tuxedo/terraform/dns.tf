@@ -1,6 +1,6 @@
 data "cloudflare_zone" "staging" {
   account_id = var.cloudflare_account_id
-  name       = var.staging_domain
+  name       = var.domain
 }
 
 locals {

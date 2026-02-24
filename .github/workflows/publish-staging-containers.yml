@@ -16,7 +16,7 @@ jobs:
     env:
       AWS_REGION: us-east-1
       DOCKER_BUILD_PLATFORM: linux/amd64
-      TF_VAR_staging_domain: ${{ secrets.DEPLOY_DOMAIN }}
+      TF_VAR_domain: ${{ secrets.DEPLOY_DOMAIN }}
 
     steps:
       - uses: actions/checkout@v4

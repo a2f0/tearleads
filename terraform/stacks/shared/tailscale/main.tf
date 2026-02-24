@@ -7,8 +7,8 @@ provider "tailscale" {
 locals {
   acl_policy = {
     groups = {
-      "group:staging-access" = var.staging_access_member_emails
-      "group:prod-access"    = var.prod_access_member_emails
+      "group:staging-access" = var.access_member_emails
+      "group:prod-access"    = var.access_member_emails
     }
     tagOwners = {
       "tag:staging-vault" = ["autogroup:admin"]

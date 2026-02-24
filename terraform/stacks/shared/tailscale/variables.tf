@@ -15,14 +15,8 @@ variable "tailscale_base_url" {
   default     = "https://api.tailscale.com"
 }
 
-variable "staging_access_member_emails" {
-  description = "User emails with access to staging resources"
-  type        = list(string)
-  default     = []
-}
-
-variable "prod_access_member_emails" {
-  description = "User emails with access to production resources"
+variable "access_member_emails" {
+  description = "User emails with access to staging and production resources"
   type        = list(string)
   default     = []
 }

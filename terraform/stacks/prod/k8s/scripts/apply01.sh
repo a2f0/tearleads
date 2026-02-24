@@ -8,7 +8,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 # shellcheck source=../../../../scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"
 
-load_secrets_env
+load_secrets_env prod
 setup_ssh_host_keys
 
 "$SCRIPT_DIR/init.sh"

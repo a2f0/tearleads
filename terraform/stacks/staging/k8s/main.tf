@@ -6,7 +6,7 @@ data "hcloud_ssh_key" "main" {
 module "server" {
   source = "../../../modules/hetzner-server"
 
-  name        = "k8s-${var.staging_domain}"
+  name        = "k8s-${var.domain}"
   ssh_key_id  = data.hcloud_ssh_key.main.id
   server_type = var.server_type
   location    = var.server_location
@@ -44,7 +44,7 @@ module "server" {
       - systemctl restart ssh
       - curl -sfL https://get.k3s.io -o /tmp/install-k3s.sh
       - chmod +x /tmp/install-k3s.sh
-      - INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.staging_domain} --tls-san k8s-api.${var.staging_domain}" /tmp/install-k3s.sh
+      - INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.domain} --tls-san k8s-api.${var.domain}" /tmp/install-k3s.sh
       - rm /tmp/install-k3s.sh
       - mkdir -p /home/${var.server_username}/.kube
       - cp /etc/rancher/k3s/k3s.yaml /home/${var.server_username}/.kube/config
@@ -88,7 +88,7 @@ module "server" {
 
 data "cloudflare_zone" "staging" {
   account_id = var.cloudflare_account_id
-  name       = var.staging_domain
+  name       = var.domain
 }
 
 # Cloudflare Tunnel - routes staging traffic through Cloudflare
@@ -97,22 +97,22 @@ module "tunnel" {
 
   account_id          = var.cloudflare_account_id
   zone_id             = data.cloudflare_zone.staging.id
-  zone_name           = var.staging_domain
+  zone_name           = var.domain
   lookup_zone_by_name = false
   tunnel_name         = "k8s-staging"
   create_dns_records  = false
 
   ingress_rules = [
     {
-      hostname = "k8s.${var.staging_domain}"
+      hostname = "k8s.${var.domain}"
       service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
     },
     {
-      hostname = "app.k8s.${var.staging_domain}"
+      hostname = "app.k8s.${var.domain}"
       service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
     },
     {
-      hostname = "api.k8s.${var.staging_domain}"
+      hostname = "api.k8s.${var.domain}"
       service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
     }
   ]
@@ -120,9 +120,9 @@ module "tunnel" {
 
 locals {
   ingress_hostnames = [
-    "k8s.${var.staging_domain}",
-    "app.k8s.${var.staging_domain}",
-    "api.k8s.${var.staging_domain}"
+    "k8s.${var.domain}",
+    "app.k8s.${var.domain}",
+    "api.k8s.${var.domain}"
   ]
 }
 
@@ -161,7 +161,7 @@ resource "cloudflare_record" "k8s_api" {
   }
 
   zone_id = data.cloudflare_zone.staging.id
-  name    = "k8s-api.${var.staging_domain}"
+  name    = "k8s-api.${var.domain}"
   type    = each.key
   content = each.value
   proxied = false
