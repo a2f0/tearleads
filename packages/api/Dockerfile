@@ -9,7 +9,6 @@ RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 # Copy package files for dependency installation
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY packages/api/package.json packages/api/
-COPY packages/db-test-utils/package.json packages/db-test-utils/
 COPY packages/shared/package.json packages/shared/
 COPY packages/db/package.json packages/db/
 COPY packages/vfs-sync/package.json packages/vfs-sync/
@@ -19,7 +18,6 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # Copy source code
 COPY packages/api packages/api
-COPY packages/db-test-utils packages/db-test-utils
 COPY packages/shared packages/shared
 COPY packages/db packages/db
 COPY packages/vfs-sync packages/vfs-sync
@@ -27,7 +25,6 @@ COPY packages/vfs-sync packages/vfs-sync
 # Build shared packages first, then API bundle
 RUN pnpm --filter @tearleads/shared build && \
     pnpm --filter @tearleads/db build && \
-    pnpm --filter @tearleads/db-test-utils build && \
     pnpm --filter @tearleads/api build:all
 
 # Production stage

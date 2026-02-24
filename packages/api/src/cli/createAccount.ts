@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
-import { seedHarnessAccount } from '@tearleads/db-test-utils/seeding';
 import type { Command } from 'commander';
 import { buildPostgresConnectionLabel } from '../lib/cliPostgres.js';
 import { buildCreateAccountInput } from '../lib/createAccount.js';
 import { closePostgresPool, getPostgresPool } from '../lib/postgres.js';
+import { seedHarnessAccount } from './seedAccount.js';
 
 type ParsedArgs = {
   email: string | null;
