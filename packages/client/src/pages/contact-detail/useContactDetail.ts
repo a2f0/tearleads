@@ -192,7 +192,9 @@ export function useContactDetail(): UseContactDetailResult {
 
   const handleFormChange = useCallback(
     (field: keyof ContactFormData, value: string) => {
-      setFormData((previous) => (previous ? { ...previous, [field]: value } : null));
+      setFormData((previous) =>
+        previous ? { ...previous, [field]: value } : null
+      );
     },
     []
   );

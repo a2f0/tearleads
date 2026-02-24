@@ -16,7 +16,10 @@ interface VfsSyncRuntime {
     VfsWriteOrchestrator,
     'flushAll' | 'queueCrdtLocalOperationAndPersist'
   >;
-  secureFacade: Pick<VfsSecureOrchestratorFacade, 'queueEncryptedCrdtOpAndPersist'>;
+  secureFacade: Pick<
+    VfsSecureOrchestratorFacade,
+    'queueEncryptedCrdtOpAndPersist'
+  >;
 }
 
 interface QueueItemUpsertAndFlushInput {

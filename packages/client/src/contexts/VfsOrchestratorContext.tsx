@@ -23,11 +23,11 @@ import {
 } from 'react';
 import { getDatabase, isDatabaseInitialized } from '@/db';
 import { logEvent } from '@/db/analytics';
+import { createItemKeyStore } from '@/db/vfsItemKeys';
 import {
   loadVfsOrchestratorState,
   saveVfsOrchestratorState
 } from '@/db/vfsOrchestratorState';
-import { createItemKeyStore } from '@/db/vfsItemKeys';
 import { createRecipientPublicKeyResolver } from '@/db/vfsRecipientKeyResolver';
 import { createUserKeyProvider } from '@/db/vfsUserKeyProvider';
 import { ensureVfsKeys } from '@/hooks/vfs';
@@ -259,8 +259,7 @@ export function VfsOrchestratorProvider({
     isAuthenticated,
     effectiveBaseUrl,
     effectiveApiPrefix,
-    logBlobFlushOperationTelemetry,
-    orchestratorClientId
+    logBlobFlushOperationTelemetry
   ]);
 
   // Initialize when user becomes authenticated

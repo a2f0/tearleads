@@ -214,9 +214,7 @@ export function ContactNew() {
       await queueItemUpsertAndFlush({
         itemId: contactId,
         objectType: 'contact',
-        ...(encryptedSessionKey
-          ? { encryptedSessionKey }
-          : {}),
+        ...(encryptedSessionKey ? { encryptedSessionKey } : {}),
         payload: {
           id: contactId,
           objectType: 'contact',
