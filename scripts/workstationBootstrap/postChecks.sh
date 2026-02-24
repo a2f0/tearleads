@@ -98,18 +98,12 @@ try_fetch_secrets() {
 }
 
 bootstrap_api_dev_env() {
-  setup_api_env_script="${REPO_ROOT}/scripts/workstationBootstrap/setupApiDevEnv.sh"
-  if [ ! -f "${setup_api_env_script}" ]; then
-    return
-  fi
-
   echo ""
   echo "--- API env bootstrap ---"
-  if sh "${setup_api_env_script}"; then
+  if setup_api_dev_env; then
     echo "API env bootstrap complete."
   else
     echo "Warning: API env bootstrap failed; continuing." >&2
-    echo "Run manually: ${setup_api_env_script}" >&2
   fi
 }
 
