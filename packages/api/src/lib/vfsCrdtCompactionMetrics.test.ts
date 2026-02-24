@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   buildVfsCrdtCompactionRunMetric,
+  emitVfsCrdtCompactionRunMetric,
   isVfsCrdtCompactionRunMetric
 } from './vfsCrdtCompactionMetrics.js';
 
@@ -103,5 +104,75 @@ describe('vfsCrdtCompactionMetrics', () => {
         durationMs: -1
       })
     ).toBe(false);
+  });
+
+  it('rejects malformed metric field variants', () => {
+    const valid = buildVfsCrdtCompactionRunMetric({
+      plan: {
+        now: '2026-02-24T00:00:00.000Z',
+        latestCursor: null,
+        hotRetentionFloor: null,
+        activeClientCount: 0,
+        staleClientCount: 0,
+        oldestActiveCursor: null,
+        cutoffOccurredAt: null,
+        estimatedRowsToDelete: 0,
+        staleClientIds: [],
+        note: 'none'
+      },
+      executed: false,
+      success: true,
+      deletedRows: 0,
+      durationMs: 1
+    });
+
+    const invalidVariants: unknown[] = [
+      { ...valid, metricVersion: 2 },
+      { ...valid, event: 'wrong' },
+      { ...valid, occurredAt: 'invalid-date' },
+      { ...valid, success: 'yes' },
+      { ...valid, executed: 'no' },
+      { ...valid, cutoffOccurredAt: 123 },
+      { ...valid, estimatedRowsToDelete: -1 },
+      { ...valid, deletedRows: -1 },
+      { ...valid, activeClientCount: -1 },
+      { ...valid, staleClientCount: -1 },
+      { ...valid, staleClientIds: ['ok', 1] },
+      { ...valid, error: 42 }
+    ];
+
+    for (const invalid of invalidVariants) {
+      expect(isVfsCrdtCompactionRunMetric(invalid)).toBe(false);
+    }
+  });
+
+  it('emits serialized metric payload', () => {
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const metric = buildVfsCrdtCompactionRunMetric({
+      plan: {
+        now: '2026-02-24T00:00:00.000Z',
+        latestCursor: null,
+        hotRetentionFloor: null,
+        activeClientCount: 0,
+        staleClientCount: 0,
+        oldestActiveCursor: null,
+        cutoffOccurredAt: null,
+        estimatedRowsToDelete: 0,
+        staleClientIds: [],
+        note: 'none'
+      },
+      executed: false,
+      success: true,
+      deletedRows: 0,
+      durationMs: 1
+    });
+
+    emitVfsCrdtCompactionRunMetric(metric);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]?.[0]).toContain(
+      '"event":"vfs_crdt_compaction_run"'
+    );
+    spy.mockRestore();
   });
 });
