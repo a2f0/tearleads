@@ -64,7 +64,7 @@ function deriveRecoveryKeyMaterial(password: string): Uint8Array {
 
   for (let index = 0; index < digestInput.length; index += 1) {
     const slot = index % digest.length;
-    const mixed = digest[slot] ^ digestInput[index];
+    const mixed = (digest[slot] ?? 0) ^ (digestInput[index] ?? 0);
     digest[slot] = ((mixed << 5) | (mixed >> 3)) & 0xff;
   }
 
