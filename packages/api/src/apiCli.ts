@@ -14,6 +14,7 @@
  *   make-admin        Grant admin privileges to an existing account
  *   list-admins       List accounts with admin privileges
  *   sync-last-active  Sync lastActiveAt from Redis sessions to PostgreSQL
+ *   vfs-crdt-compaction  Plan or execute VFS CRDT log compaction
  *
  * Environment variables:
  *   NODE_ENV - Set to 'production' for production mode
@@ -29,6 +30,7 @@ import { listAdminsCommand } from './cli/listAdmins.js';
 import { makeAdminCommand } from './cli/makeAdmin.js';
 import { migrateCommand } from './cli/migrate.js';
 import { syncLastActiveCommand } from './cli/syncLastActive.js';
+import { vfsCrdtCompactionCommand } from './cli/vfsCrdtCompaction.js';
 
 const version = '0.0.1';
 
@@ -44,5 +46,6 @@ deleteAccountCommand(program);
 makeAdminCommand(program);
 listAdminsCommand(program);
 syncLastActiveCommand(program);
+vfsCrdtCompactionCommand(program);
 
 program.parse();

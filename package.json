@@ -47,6 +47,7 @@
     "lint:knip:fix": "knip -n --config knip.ts --use-tsconfig-files --fix --fix-type dependencies --format",
     "lintPreen": "./scripts/checks/preen/checkPreenEcosystem.sh --strict",
     "checkMswParity": "./scripts/checks/checkMswParity.ts",
+    "checkVfsCrdtCompactionMetrics": "./scripts/checks/checkVfsCrdtCompactionMetrics.ts",
     "format": "biome format --write .",
     "generatePreenDocs": "./scripts/preen/generatePreenDocs.sh",
     "prepare": "husky"
