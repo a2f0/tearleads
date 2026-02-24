@@ -46,7 +46,8 @@ phase_api_to_rds_tcp() {
   local node_output
   if node_output="$(kubectl -n "$NAMESPACE" exec "$api_pod" -c api -- node -e "
     const net = require('net');
-    const host = process.env.POSTGRES_HOST || 'localhost';
+    const host = process.env.POSTGRES_HOST;
+    if (!host) { console.error('POSTGRES_HOST not set'); process.exit(1); }
     const port = parseInt(process.env.POSTGRES_PORT || '5432', 10);
     const socket = net.createConnection({ host, port });
     const timeout = setTimeout(() => {

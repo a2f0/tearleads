@@ -37,8 +37,8 @@ require_secret_env_vars() {
 require_secret_env_vars
 
 if ! command -v envsubst >/dev/null 2>&1; then
-  echo "ERROR: envsubst is required to render secrets.yaml."
-  echo "Install gettext (provides envsubst) and retry."
+  echo "ERROR: envsubst is required to render manifest templates." >&2
+  echo "Install gettext (e.g., 'brew install gettext' or 'apt-get install gettext-base') and retry." >&2
   exit 1
 fi
 
