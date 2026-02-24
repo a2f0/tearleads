@@ -11,9 +11,8 @@ export async function runDependabotAction(
   repo: string,
   options: GlobalOptions
 ): Promise<string | null> {
-  const context = createGitHubClientContext(repo);
-
   if (action === 'listDependabotAlerts') {
+    const context = createGitHubClientContext(repo);
     const input: Parameters<typeof listDependabotAlertsWithOctokit>[1] = {};
     if (options.state !== undefined) {
       input.state = options.state;
@@ -49,6 +48,7 @@ export async function runDependabotAction(
     if (options.alertNumber === undefined) {
       throw new Error('getDependabotAlert requires --alert-number');
     }
+    const context = createGitHubClientContext(repo);
     return getDependabotAlertWithOctokit(context, options.alertNumber);
   }
 
@@ -69,6 +69,7 @@ export async function runDependabotAction(
     if (options.dismissedComment !== undefined) {
       input.dismissedComment = options.dismissedComment;
     }
+    const context = createGitHubClientContext(repo);
     return updateDependabotAlertWithOctokit(context, input);
   }
 
