@@ -53,8 +53,50 @@ const optionalGithubVars = [
   'AWS_PROD_ECR_ROLE_ARN'
 ] as const;
 
+const secretsEnvFile = '.secrets/env';
+
 interface SecretListItem {
   name?: string;
+}
+
+function loadSecretsEnv(): void {
+  if (!existsSync(secretsEnvFile)) {
+    process.stderr.write(
+      `WARNING: ${secretsEnvFile} not found. Environment variables must be set manually.\n`
+    );
+    return;
+  }
+
+  const content = readFileSync(secretsEnvFile, 'utf8');
+  for (const rawLine of content.split('\n')) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) {
+      continue;
+    }
+
+    const withoutExport = line.startsWith('export ')
+      ? line.slice('export '.length)
+      : line;
+
+    const eqIndex = withoutExport.indexOf('=');
+    if (eqIndex === -1) {
+      continue;
+    }
+
+    const key = withoutExport.slice(0, eqIndex).trim();
+    let value = withoutExport.slice(eqIndex + 1).trim();
+
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    if (!process.env[key]) {
+      process.env[key] = value;
+    }
+  }
 }
 
 function getRequiredEnv(name: (typeof requiredEnvVars)[number]): string {
@@ -129,6 +171,8 @@ function parseArgs(argv: string[]): { deleteExtra: boolean } {
 
 function main(): void {
   const { deleteExtra } = parseArgs(process.argv);
+
+  loadSecretsEnv();
 
   const env = Object.fromEntries(
     requiredEnvVars.map((name) => [name, getRequiredEnv(name)])
