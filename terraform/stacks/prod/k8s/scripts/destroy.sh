@@ -8,6 +8,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 # shellcheck source=../../../../scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"
 
+load_secrets_env
 setup_ssh_host_keys
 
 echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
@@ -19,4 +20,5 @@ echo ""
 echo "Press Ctrl+C to cancel, or wait 10 seconds to continue..."
 sleep 10
 
+"$SCRIPT_DIR/init.sh"
 terraform -chdir="$STACK_DIR" destroy "$@"

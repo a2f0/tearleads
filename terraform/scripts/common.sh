@@ -27,8 +27,11 @@ load_secrets_env() {
     return 0
   fi
 
+  # Export all variables loaded from .secrets/env for child processes (terraform, aws, etc.).
+  set -a
   # shellcheck source=/dev/null
   source "$secrets_file"
+  set +a
 }
 
 # Validate required environment variables for Hetzner stacks (base)
@@ -154,8 +157,42 @@ setup_ssh_host_keys() {
     ssh-keygen -t ed25519 -f "$key_file" -N "" -C "persistent_ssh_host_ed25519_key" > /dev/null
   fi
 
-  export TF_VAR_ssh_host_private_key=$(cat "$key_file")
-  export TF_VAR_ssh_host_public_key=$(cat "$key_file.pub")
+  export TF_VAR_ssh_host_private_key="$(cat "$key_file")"
+  export TF_VAR_ssh_host_public_key="$(cat "$key_file.pub")"
+}
+
+# Ensure known_hosts has the persistent ed25519 host key for a host.
+# This avoids stale host key conflicts after server recreation.
+sync_known_host_key() {
+  local host="$1"
+  local secrets_dir
+  local key_file
+  local key_material
+  local known_hosts_file
+
+  secrets_dir="$(get_repo_root)/.secrets"
+  key_file="$secrets_dir/persistent_ssh_host_ed25519_key.pub"
+  known_hosts_file="$HOME/.ssh/known_hosts"
+
+  if [[ ! -f "$key_file" ]]; then
+    return 0
+  fi
+
+  key_material="$(awk '{print $1 " " $2}' "$key_file")"
+  if [[ -z "$key_material" ]]; then
+    echo "ERROR: Could not parse SSH public key from $key_file" >&2
+    return 1
+  fi
+
+  mkdir -p "$HOME/.ssh"
+  chmod 700 "$HOME/.ssh"
+  touch "$known_hosts_file"
+  chmod 600 "$known_hosts_file"
+
+  ssh-keygen -R "$host" -f "$known_hosts_file" >/dev/null 2>&1 || true
+  if ! grep -Fq "$host $key_material" "$known_hosts_file"; then
+    echo "$host $key_material" >> "$known_hosts_file"
+  fi
 }
 
 # Wait until SSH is reachable on a host, with retries and surfaced failure output.
@@ -164,6 +201,9 @@ wait_for_ssh_ready() {
   local ssh_retries="${2:-30}"
   local ssh_retry_delay_seconds="${3:-10}"
   local ssh_connect_timeout_seconds="${4:-10}"
+  local ssh_host="${ssh_target#*@}"
+
+  sync_known_host_key "$ssh_host"
 
   local attempt=1
   local ssh_output=""

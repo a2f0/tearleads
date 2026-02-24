@@ -2,6 +2,12 @@
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# shellcheck source=../../../../scripts/common.sh
+source "$REPO_ROOT/terraform/scripts/common.sh"
+
+load_secrets_env
 
 KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config-prod-k8s}"
 ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-300s}"

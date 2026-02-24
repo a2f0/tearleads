@@ -22,13 +22,13 @@ module "server" {
       - path: /etc/ssh/ssh_host_ed25519_key
         owner: root:root
         permissions: '0600'
-        content: |
-          ${indent(10, var.ssh_host_private_key)}
+        encoding: b64
+        content: ${base64encode("${chomp(var.ssh_host_private_key)}\n")}
       - path: /etc/ssh/ssh_host_ed25519_key.pub
         owner: root:root
         permissions: '0644'
-        content: |
-          ${indent(10, var.ssh_host_public_key)}
+        encoding: b64
+        content: ${base64encode("${chomp(var.ssh_host_public_key)}\n")}
     users:
       - name: ${var.server_username}
         groups: sudo
@@ -44,7 +44,7 @@ module "server" {
       - systemctl restart ssh
       - curl -sfL https://get.k3s.io -o /tmp/install-k3s.sh
       - chmod +x /tmp/install-k3s.sh
-      - INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.production_domain}" /tmp/install-k3s.sh
+      - INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.production_domain} --tls-san k8s-api.${var.production_domain}" /tmp/install-k3s.sh
       - rm /tmp/install-k3s.sh
       - mkdir -p /home/${var.server_username}/.kube
       - cp /etc/rancher/k3s/k3s.yaml /home/${var.server_username}/.kube/config
@@ -92,12 +92,16 @@ module "tunnel" {
 
   ingress_rules = [
     {
-      hostname = "k8s.${var.production_domain}"
-      service  = "http://localhost:80"
+      hostname = var.production_domain
+      service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
     },
     {
-      hostname = "*.k8s.${var.production_domain}"
-      service  = "http://localhost:80"
+      hostname = "app.${var.production_domain}"
+      service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
+    },
+    {
+      hostname = "api.${var.production_domain}"
+      service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
     }
   ]
 }
@@ -111,6 +115,21 @@ resource "cloudflare_record" "k8s_ssh" {
 
   zone_id = data.cloudflare_zone.production.id
   name    = "k8s-ssh.${var.production_domain}"
+  type    = each.key
+  content = each.value
+  proxied = false
+  ttl     = 1
+}
+
+# Direct DNS records for Kubernetes API access (not proxied through tunnel)
+resource "cloudflare_record" "k8s_api" {
+  for_each = {
+    A    = module.server.ipv4_address
+    AAAA = module.server.ipv6_address
+  }
+
+  zone_id = data.cloudflare_zone.production.id
+  name    = "k8s-api.${var.production_domain}"
   type    = each.key
   content = each.value
   proxied = false
