@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useMlsChatApi } from '../context/index.js';
 import type { MlsClient } from '../lib/mls.js';
+import { uploadGroupStateSnapshot } from './groupStateSync.js';
 
 interface UseWelcomeMessagesResult {
   welcomeMessages: MlsWelcomeMessage[];
@@ -85,6 +86,19 @@ export function useWelcomeMessages(
           welcomeBytes,
           welcome.keyPackageRef
         );
+        try {
+          await uploadGroupStateSnapshot({
+            groupId: welcome.groupId,
+            client,
+            apiBaseUrl,
+            getAuthHeader
+          });
+        } catch (uploadError) {
+          console.warn(
+            `Failed to upload MLS state for group ${welcome.groupId}:`,
+            uploadError
+          );
+        }
 
         // Acknowledge the welcome
         const headers: HeadersInit = { 'Content-Type': 'application/json' };

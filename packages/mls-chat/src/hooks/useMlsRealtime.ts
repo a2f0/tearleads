@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMlsChatApi } from '../context/index.js';
 import type { SseConnectionState } from '../lib/index.js';
 import type { MlsClient } from '../lib/mls.js';
+import { uploadGroupStateSnapshot } from './groupStateSync.js';
 
 interface UseMlsRealtimeResult {
   connectionState: SseConnectionState;
@@ -254,9 +255,23 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
                   const commitBytes = Uint8Array.from(atob(commit), (c) =>
                     c.charCodeAt(0)
                   );
-                  client.processCommit(groupId, commitBytes).catch(() => {
-                    // Commit processing failed - may need state refresh
-                  });
+                  client
+                    .processCommit(groupId, commitBytes)
+                    .then(async () => {
+                      try {
+                        await uploadGroupStateSnapshot({
+                          groupId,
+                          client,
+                          apiBaseUrl,
+                          getAuthHeader
+                        });
+                      } catch {
+                        // State uploads are best effort.
+                      }
+                    })
+                    .catch(() => {
+                      // Commit processing failed - may need state refresh
+                    });
                 }
               }
             } catch {

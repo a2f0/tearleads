@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useMlsChatApi } from '../context/index.js';
 import type { MlsClient } from '../lib/mls.js';
+import { uploadGroupStateSnapshot } from './groupStateSync.js';
 
 interface UseGroupMembersResult {
   members: MlsGroupMember[];
@@ -129,6 +130,20 @@ export function useGroupMembers(
         throw new Error('Failed to add member');
       }
 
+      try {
+        await uploadGroupStateSnapshot({
+          groupId,
+          client,
+          apiBaseUrl,
+          getAuthHeader
+        });
+      } catch (uploadError) {
+        console.warn(
+          `Failed to upload MLS state for group ${groupId}:`,
+          uploadError
+        );
+      }
+
       await fetchMembers();
     },
     [groupId, client, apiBaseUrl, getAuthHeader, fetchMembers]
@@ -176,6 +191,20 @@ export function useGroupMembers(
 
       if (!response.ok) {
         throw new Error('Failed to remove member');
+      }
+
+      try {
+        await uploadGroupStateSnapshot({
+          groupId,
+          client,
+          apiBaseUrl,
+          getAuthHeader
+        });
+      } catch (uploadError) {
+        console.warn(
+          `Failed to upload MLS state for group ${groupId}:`,
+          uploadError
+        );
       }
 
       await fetchMembers();
