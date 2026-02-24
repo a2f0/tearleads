@@ -8,7 +8,7 @@ API_ENV_LINK_PATH="${API_DIR}/.env"
 SMTP_DIR="${ROOT_DIR}/packages/smtp-listener"
 SMTP_EXAMPLE_ENV_FILE="${SMTP_DIR}/.env.example"
 SMTP_ENV_LINK_PATH="${SMTP_DIR}/.env"
-SECRETS_ENV_FILE="${ROOT_DIR}/.secrets/env.dev"
+SECRETS_ENV_FILE="${ROOT_DIR}/.secrets/dev.env"
 
 resolve_env_file_path() {
   link_path="$1"
@@ -117,7 +117,7 @@ if [ -z "${current_openrouter_key}" ] || [ "${current_openrouter_key}" = "your-o
   openrouter_from_secrets="$(read_env_value "${SECRETS_ENV_FILE}" "OPENROUTER_API_KEY" || true)"
   if [ -n "${openrouter_from_secrets}" ]; then
     upsert_env_value "${API_ENV_FILE}" "OPENROUTER_API_KEY" "${openrouter_from_secrets}"
-    echo "Initialized OPENROUTER_API_KEY from .secrets/env.dev."
+    echo "Initialized OPENROUTER_API_KEY from .secrets/dev.env."
   fi
 fi
 
