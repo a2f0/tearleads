@@ -10,9 +10,9 @@ source "$REPO_ROOT/terraform/scripts/common.sh"
 
 load_secrets_env prod
 
-# Bridge POSTGRES_PASSWORD → TF_VAR_postgres_password so .secrets/env
+# Bridge POSTGRES_PASSWORD → TF_VAR_postgres_password so .secrets/prod.env
 # uses the same variable name as the k8s stack.
-export TF_VAR_postgres_password="${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .secrets/env}"
+export TF_VAR_postgres_password="${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .secrets/prod.env}"
 
 validate_aws_env
 

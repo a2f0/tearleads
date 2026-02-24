@@ -116,7 +116,7 @@ check_placeholder_secrets_or_fail() {
   if is_placeholder "$garage_rpc_secret" || is_placeholder "$garage_admin_token" || is_placeholder "$access_key" || is_placeholder "$secret_key"; then
     echo "ERROR: $SECRET_NAME contains placeholder values (for example \${...})."
     echo "Apply rendered secrets first, for example:"
-    echo "  source .secrets/env"
+    echo "  source .secrets/staging.env"
     echo "  envsubst < terraform/stacks/staging/k8s/manifests/secrets.yaml | kubectl apply -f -"
     exit 1
   fi
