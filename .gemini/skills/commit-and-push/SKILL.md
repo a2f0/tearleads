@@ -39,6 +39,10 @@ Track these state flags during execution:
 
 3. Commit format:
    - Follow `CLAUDE.md` commit guidelines (conventional commits, GPG signed with 5s timeout, no co-author lines, no footers).
+   - **Header must be ≤ 50 characters** (enforced by commitlint `header-max-length`). The header is the entire first line: `type(scope): description`. To ensure adherence, count characters before committing. If too long, shorten the scope or description:
+     - Drop the scope: `feat: add redis and garage reset scripts`
+     - Abbreviate: `feat(scripts): add reset scripts` (put details in body)
+     - Use a broader verb: `feat(scripts): add stack reset tooling`
    - Do not bump versions here.
 
 4. Push:
