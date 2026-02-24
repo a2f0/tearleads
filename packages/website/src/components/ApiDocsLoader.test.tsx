@@ -14,7 +14,10 @@ describe('ApiDocsLoader', () => {
   });
 
   it('renders loading state before docs are loaded', () => {
-    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise(() => {}))
+    );
 
     render(<ApiDocsLoader />);
 

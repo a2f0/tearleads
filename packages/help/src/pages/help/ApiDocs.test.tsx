@@ -10,7 +10,10 @@ describe('ApiDocsPage', () => {
   });
 
   it('renders the shared API docs UI', () => {
-    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise(() => {}))
+    );
 
     render(
       <MemoryRouter>

@@ -1,6 +1,6 @@
 import { ApiDocs, BackLink } from '@tearleads/ui';
 import { FileText } from 'lucide-react';
-import { useEffect, useState, type ComponentProps } from 'react';
+import { type ComponentProps, useEffect, useState } from 'react';
 
 type ApiSpec = ComponentProps<typeof ApiDocs>['spec'];
 

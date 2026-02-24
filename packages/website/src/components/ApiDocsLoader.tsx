@@ -1,5 +1,5 @@
 import { ApiDocs } from '@tearleads/ui';
-import { useEffect, useState, type ComponentProps } from 'react';
+import { type ComponentProps, useEffect, useState } from 'react';
 
 type ApiSpec = ComponentProps<typeof ApiDocs>['spec'];
 

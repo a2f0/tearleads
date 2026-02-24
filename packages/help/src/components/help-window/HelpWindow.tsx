@@ -15,7 +15,7 @@ import {
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { ArrowLeft, CircleHelp } from 'lucide-react';
-import { useEffect, useMemo, useState, type ComponentProps } from 'react';
+import { type ComponentProps, useEffect, useMemo, useState } from 'react';
 import { HelpDocumentation } from '../help-links/HelpDocumentation';
 import { HelpLinksGrid } from '../help-links/HelpLinksGrid';
 import { HelpWindowMenuBar } from './HelpWindowMenuBar';
