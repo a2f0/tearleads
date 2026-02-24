@@ -269,7 +269,7 @@ export function writeReportFile(pathValue: string, content: string): void {
 
 export type CheckExecutor = (
   check: Check
-) => Promise<{ status: CheckStatus; durationMs: number }>;
+) => Promise<CheckResult>;
 
 export async function runCheck(check: Check): Promise<CheckResult> {
   const start = Date.now();
@@ -298,10 +298,7 @@ export interface RunQaSuiteResult {
 export async function runQaSuiteChecks(
   options: CliOptions,
   candidateSha: string,
-  executeCheck: CheckExecutor = async (check) => {
-    const result = await runCheck(check);
-    return { status: result.status, durationMs: result.durationMs };
-  },
+  executeCheck: CheckExecutor = runCheck,
   log: (message: string) => void = (message) => {
     console.log(message);
   }
@@ -326,12 +323,7 @@ export async function runQaSuiteChecks(
         durationMs: 0
       };
     } else {
-      const execution = await executeCheck(check);
-      result = {
-        check,
-        status: execution.status,
-        durationMs: execution.durationMs
-      };
+      result = await executeCheck(check);
     }
 
     results.push(result);

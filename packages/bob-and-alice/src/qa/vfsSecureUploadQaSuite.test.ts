@@ -49,7 +49,7 @@ describe('vfsSecureUploadQaSuite', () => {
       'sha-123',
       async (check) => {
         checkCalls.push(check);
-        return { status: 'pass', durationMs: 5 };
+        return { check, status: 'pass', durationMs: 5 };
       },
       (line) => {
         logs.push(line);
@@ -71,9 +71,9 @@ describe('vfsSecureUploadQaSuite', () => {
   it('stops on first failure unless continue-on-failure is enabled', async () => {
     const executor = async (check: Check) => {
       if (check.id === CHECKS[0]?.id) {
-        return { status: 'fail' as const, durationMs: 10 };
+        return { check, status: 'fail' as const, durationMs: 10 };
       }
-      return { status: 'pass' as const, durationMs: 10 };
+      return { check, status: 'pass' as const, durationMs: 10 };
     };
 
     const stopResult = await runQaSuiteChecks(

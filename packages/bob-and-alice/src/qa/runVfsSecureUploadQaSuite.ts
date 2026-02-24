@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+import { resolve } from 'node:path';
 import {
   formatMarkdownReport,
   parseCliOptions,
@@ -17,12 +18,14 @@ async function main(): Promise<void> {
       options.reportJsonPath,
       `${JSON.stringify(report, null, 2)}\n`
     );
-    console.log(`JSON report written: ${options.reportJsonPath}`);
+    console.log(`JSON report written: ${resolve(options.reportJsonPath)}`);
   }
 
   if (options.reportMarkdownPath) {
     writeReportFile(options.reportMarkdownPath, formatMarkdownReport(report));
-    console.log(`Markdown report written: ${options.reportMarkdownPath}`);
+    console.log(
+      `Markdown report written: ${resolve(options.reportMarkdownPath)}`
+    );
   }
 
   if (!options.dryRun && report.failed > 0) {
