@@ -359,6 +359,30 @@ export const vfsAclEntries = pgTable(
 );
 
 /**
+ * Canonical encrypted state for VFS items.
+ * Stores latest encrypted payload snapshot for non-blob content.
+ */
+export const vfsItemState = pgTable(
+  'vfs_item_state',
+  {
+    itemId: text('item_id')
+      .primaryKey()
+      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+    encryptedPayload: text('encrypted_payload'),
+    keyEpoch: integer('key_epoch'),
+    encryptionNonce: text('encryption_nonce'),
+    encryptionAad: text('encryption_aad'),
+    encryptionSignature: text('encryption_signature'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true })
+  },
+  (table) => [
+    index('vfs_item_state_updated_idx').on(table.updatedAt),
+    index('vfs_item_state_deleted_idx').on(table.deletedAt)
+  ]
+);
+
+/**
  * Append-only VFS change feed for cursor-based differential synchronization.
  * Records all item and ACL mutations in a stable time-ordered stream.
  */

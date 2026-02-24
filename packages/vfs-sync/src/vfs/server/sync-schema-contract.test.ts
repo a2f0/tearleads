@@ -103,6 +103,7 @@ describe('sync schema contract', () => {
 
     expect(routeReferences).toEqual([
       'vfs_crdt_ops',
+      'vfs_item_state',
       'vfs_registry',
       'vfs_sync_client_state'
     ]);

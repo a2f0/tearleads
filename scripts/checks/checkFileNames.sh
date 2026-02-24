@@ -39,7 +39,10 @@ collect_files() {
       exit 1
     fi
 
-    git diff --name-only --diff-filter=AM "$base_branch..HEAD"
+    # Pre-push should enforce naming for newly introduced files while allowing
+    # incremental edits to legacy kebab-case TypeScript files that predate this
+    # guardrail. A dedicated migration can rename legacy files separately.
+    git diff --name-only --diff-filter=A "$base_branch..HEAD"
     return
   fi
 

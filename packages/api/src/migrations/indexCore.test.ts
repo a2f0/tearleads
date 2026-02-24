@@ -465,7 +465,7 @@ describe('migrations (core through v021)', () => {
   });
 
   describe('v024 migration', () => {
-    it('creates inbound SMTP encrypted message tables', async () => {
+    it('creates SMTP tables and canonical item-state CRDT updates', async () => {
       const pool = createMockPool(new Map());
 
       const v024 = migrations.find((m: Migration) => m.version === 24);
@@ -484,6 +484,20 @@ describe('migrations (core through v021)', () => {
         'CREATE INDEX IF NOT EXISTS "email_recipients_user_created_idx"'
       );
       expect(queries).toContain('UNIQUE ("message_id", "user_id")');
+      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_item_state"');
+      expect(queries).toContain('"encrypted_payload" TEXT');
+      expect(queries).toContain('"deleted_at" TIMESTAMPTZ');
+      expect(queries).toContain(
+        'CREATE INDEX IF NOT EXISTS "vfs_item_state_updated_idx"'
+      );
+      expect(queries).toContain(
+        'CREATE INDEX IF NOT EXISTS "vfs_item_state_deleted_idx"'
+      );
+      expect(queries).toContain(
+        'DROP CONSTRAINT IF EXISTS "vfs_crdt_ops_op_type_check"'
+      );
+      expect(queries).toContain("'item_upsert'");
+      expect(queries).toContain("'item_delete'");
     });
   });
 });

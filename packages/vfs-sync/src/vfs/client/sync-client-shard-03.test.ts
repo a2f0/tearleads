@@ -182,12 +182,12 @@ describe('VfsBackgroundSyncClient', () => {
     });
   });
 
-  it('fails closed when push rejects encrypted envelopes as unsupported', async () => {
+  it('fails closed when push rejects encrypted envelopes as invalid', async () => {
     const transport: VfsCrdtSyncTransport = {
       pushOperations: async (input) => ({
         results: input.operations.map((operation) => ({
           opId: operation.opId,
-          status: 'encryptedEnvelopeUnsupported'
+          status: 'invalidOp'
         }))
       }),
       pullOperations: async () => ({

@@ -15,7 +15,9 @@ const VALID_OP_TYPES: VfsCrdtOpType[] = [
   'acl_add',
   'acl_remove',
   'link_add',
-  'link_remove'
+  'link_remove',
+  'item_upsert',
+  'item_delete'
 ];
 const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = [
   'user',

@@ -102,6 +102,28 @@ export function buildQueuedLocalOperation({
     }
   }
 
+  if (input.opType === 'item_upsert' || input.opType === 'item_delete') {
+    const includesAclFields =
+      input.principalType !== undefined ||
+      input.principalId !== undefined ||
+      input.accessLevel !== undefined;
+    const includesLinkFields =
+      input.parentId !== undefined || input.childId !== undefined;
+    if (includesAclFields || includesLinkFields) {
+      throw new Error(
+        `${input.opType} must not include ACL or link relationship fields`
+      );
+    }
+
+    if (input.opType === 'item_upsert' && !hasEncryptedPayload) {
+      throw new Error('item_upsert requires encrypted payload');
+    }
+
+    if (input.opType === 'item_delete' && hasEncryptedPayload) {
+      throw new Error('item_delete must not include encrypted payload');
+    }
+  }
+
   if (hasEncryptedPayload) {
     const encryptedPayload = normalizeRequiredString(input.encryptedPayload);
     if (!encryptedPayload) {

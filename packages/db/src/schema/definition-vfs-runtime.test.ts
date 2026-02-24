@@ -219,7 +219,7 @@ describe('vfsRegistryTable', () => {
 
 describe('allTables', () => {
   it('contains all canonical tables', () => {
-    expect(allTables).toHaveLength(49);
+    expect(allTables).toHaveLength(50);
   });
 
   it('contains all table definitions', () => {

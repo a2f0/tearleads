@@ -38,7 +38,14 @@ export const vfsCrdtOpsTable: TableDefinition = {
       type: 'text',
       sqlName: 'op_type',
       notNull: true,
-      enumValues: ['acl_add', 'acl_remove', 'link_add', 'link_remove'] as const
+      enumValues: [
+        'acl_add',
+        'acl_remove',
+        'link_add',
+        'link_remove',
+        'item_upsert',
+        'item_delete'
+      ] as const
     },
     principalType: {
       type: 'text',

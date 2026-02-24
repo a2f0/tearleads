@@ -45,7 +45,6 @@ describe('vfsQuery', () => {
       expect(result).toEqual(mockRows);
       expect(mockDb.select).toHaveBeenCalled();
       expect(mockDb.innerJoin).toHaveBeenCalled();
-      expect(mockDb.leftJoin).toHaveBeenCalled();
       expect(mockDb.where).toHaveBeenCalled();
       expect(mockDb.orderBy).toHaveBeenCalled();
     });
@@ -141,7 +140,6 @@ describe('vfsQuery', () => {
 
       expect(result).toEqual(mockRows);
       expect(mockDb.select).toHaveBeenCalled();
-      expect(mockDb.leftJoin).toHaveBeenCalled();
       expect(mockDb.where).toHaveBeenCalled();
       expect(mockDb.orderBy).toHaveBeenCalled();
     });
@@ -206,7 +204,6 @@ describe('vfsQuery', () => {
 
       expect(result).toEqual(mockRows);
       expect(mockDb.select).toHaveBeenCalled();
-      expect(mockDb.leftJoin).toHaveBeenCalled();
       expect(mockDb.where).toHaveBeenCalled();
       expect(mockDb.orderBy).toHaveBeenCalled();
     });
@@ -275,7 +272,6 @@ describe('vfsQuery', () => {
 
       expect(result).toEqual(mockRows);
       expect(mockDb.select).toHaveBeenCalled();
-      expect(mockDb.leftJoin).toHaveBeenCalled();
       expect(mockDb.where).toHaveBeenCalled();
       expect(mockDb.orderBy).toHaveBeenCalled();
     });

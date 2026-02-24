@@ -90,7 +90,9 @@ function parseOperationsFromPushBody(body: unknown) {
       opType !== 'acl_add' &&
       opType !== 'acl_remove' &&
       opType !== 'link_add' &&
-      opType !== 'link_remove'
+      opType !== 'link_remove' &&
+      opType !== 'item_upsert' &&
+      opType !== 'item_delete'
     ) {
       return null;
     }

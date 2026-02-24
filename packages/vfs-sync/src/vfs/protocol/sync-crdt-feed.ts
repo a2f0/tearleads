@@ -98,7 +98,9 @@ const VALID_OP_TYPES: VfsCrdtOpType[] = [
   'acl_add',
   'acl_remove',
   'link_add',
-  'link_remove'
+  'link_remove',
+  'item_upsert',
+  'item_delete'
 ];
 const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = [
   'user',
@@ -432,11 +434,6 @@ export function mapVfsCrdtSyncRows(
     }
 
     if (opType === 'link_add' || opType === 'link_remove') {
-      /**
-       * Guardrail: link operations are child-scoped and must preserve canonical
-       * hierarchy invariants. Malformed link rows are rejected fail-closed so
-       * bad persisted feed state cannot escape API boundaries.
-       */
       const hasPlaintextLinkFields = parentId !== null || childId !== null;
       const shouldRequirePlaintextLinkFields = !hasEncryptedPayload;
       if (

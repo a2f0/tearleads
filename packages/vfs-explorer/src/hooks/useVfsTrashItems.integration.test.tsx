@@ -41,10 +41,10 @@ describe('useVfsTrashItems integration (real database)', () => {
         });
 
         await adapter.execute(
-          `INSERT INTO files (id, name, deleted) VALUES ('${deletedId}', 'Deleted File', 1)`
+          `INSERT OR REPLACE INTO vfs_item_state (item_id, updated_at, deleted_at) VALUES ('${deletedId}', 1, 2)`
         );
         await adapter.execute(
-          `INSERT INTO files (id, name, deleted) VALUES ('${activeId}', 'Active File', 0)`
+          `INSERT OR REPLACE INTO vfs_item_state (item_id, updated_at, deleted_at) VALUES ('${activeId}', 1, NULL)`
         );
 
         const wrapper = ({ children }: { children: ReactNode }) => (
@@ -96,7 +96,7 @@ describe('useVfsTrashItems integration (real database)', () => {
           createLink: false
         });
         await adapter.execute(
-          `INSERT INTO notes (id, title, deleted) VALUES ('${firstDeletedId}', 'Deleted Note 1', 1)`
+          `INSERT OR REPLACE INTO vfs_item_state (item_id, updated_at, deleted_at) VALUES ('${firstDeletedId}', 1, 2)`
         );
 
         const wrapper = ({ children }: { children: ReactNode }) => (
@@ -138,7 +138,7 @@ describe('useVfsTrashItems integration (real database)', () => {
           createLink: false
         });
         await adapter.execute(
-          `INSERT INTO contacts (id, first_name, last_name, deleted) VALUES ('${secondDeletedId}', 'Deleted', 'Contact 2', 1)`
+          `INSERT OR REPLACE INTO vfs_item_state (item_id, updated_at, deleted_at) VALUES ('${secondDeletedId}', 1, 2)`
         );
 
         await act(async () => {
