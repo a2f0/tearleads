@@ -1,5 +1,4 @@
-import { ApiDocs, BackLink } from '@tearleads/ui';
-import { FileText } from 'lucide-react';
+import { ApiDocs } from '@tearleads/ui';
 import { useEffect, useState, type ComponentProps } from 'react';
 
 type ApiSpec = ComponentProps<typeof ApiDocs>['spec'];
@@ -8,7 +7,7 @@ function isApiSpec(value: unknown): value is ApiSpec {
   return typeof value === 'object' && value !== null && 'openapi' in value;
 }
 
-export function ApiDocsPage() {
+export function ApiDocsLoader() {
   const [openapiSpec, setOpenapiSpec] = useState<ApiSpec | null>(null);
 
   useEffect(() => {
@@ -32,21 +31,9 @@ export function ApiDocsPage() {
     };
   }, []);
 
-  return (
-    <div className="flex h-full flex-col space-y-6">
-      <div className="space-y-2">
-        <BackLink defaultTo="/help" defaultLabel="Back to Help" />
-        <div className="flex items-center gap-3">
-          <FileText className="h-8 w-8 text-muted-foreground" />
-          <h1 className="font-bold text-2xl tracking-tight">API Docs</h1>
-        </div>
-      </div>
+  if (!openapiSpec) {
+    return <p className="text-muted-foreground text-sm">Loading API docs...</p>;
+  }
 
-      {openapiSpec ? (
-        <ApiDocs spec={openapiSpec} />
-      ) : (
-        <div className="text-muted-foreground text-sm">Loading API docs...</div>
-      )}
-    </div>
-  );
+  return <ApiDocs spec={openapiSpec} />;
 }

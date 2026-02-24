@@ -14,8 +14,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@help/*": ["./src/*"],
-      "@tearleads/api/dist/openapi.json": ["../api/dist/openapi.json"]
+      "@help/*": ["./src/*"]
     },
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },

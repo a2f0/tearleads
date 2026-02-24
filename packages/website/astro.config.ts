@@ -46,10 +46,6 @@ export default defineConfig({
           replacement: path.resolve(import.meta.dirname, '../ui/src/index.ts'),
         },
         {
-          find: '@tearleads/api/dist/openapi.json',
-          replacement: path.resolve(import.meta.dirname, '../api/dist/openapi.json'),
-        },
-        {
           find: '@tearleads/shared/licenses.json',
           replacement: path.resolve(import.meta.dirname, '../shared/dist/licenses.json'),
         },

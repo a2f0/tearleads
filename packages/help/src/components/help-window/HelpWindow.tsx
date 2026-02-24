@@ -6,7 +6,6 @@ import {
   DOCS_WINDOW_MIN_WIDTH,
   getDocsWindowDefaults
 } from '@help/lib/docsWindowSizing';
-import openapiSpec from '@tearleads/api/dist/openapi.json';
 import { ApiDocs } from '@tearleads/ui';
 import {
   DesktopFloatingWindow as FloatingWindow,
@@ -16,12 +15,17 @@ import {
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { ArrowLeft, CircleHelp } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ComponentProps } from 'react';
 import { HelpDocumentation } from '../help-links/HelpDocumentation';
 import { HelpLinksGrid } from '../help-links/HelpLinksGrid';
 import { HelpWindowMenuBar } from './HelpWindowMenuBar';
 
 type HelpView = 'index' | 'developer' | 'legal' | 'api' | HelpDocId;
+type ApiSpec = ComponentProps<typeof ApiDocs>['spec'];
+
+function isApiSpec(value: unknown): value is ApiSpec {
+  return typeof value === 'object' && value !== null && 'openapi' in value;
+}
 
 function getHelpWindowTitle(view: HelpView): string {
   switch (view) {
@@ -64,12 +68,38 @@ export function HelpWindow({
   openRequestId
 }: HelpWindowProps) {
   const [view, setView] = useState<HelpView>('index');
+  const [openapiSpec, setOpenapiSpec] = useState<ApiSpec | null>(null);
 
   // Navigate to a specific help doc when requested from another window
   useEffect(() => {
     if (!openRequestId || !openHelpDocId) return;
     setView(openHelpDocId);
   }, [openHelpDocId, openRequestId]);
+
+  useEffect(() => {
+    if (view !== 'api' || openapiSpec) {
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch('/v1/openapi.json');
+        if (!response.ok || cancelled) {
+          return;
+        }
+
+        const spec: unknown = await response.json();
+        if (isApiSpec(spec)) {
+          setOpenapiSpec(spec);
+        }
+      } catch {}
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [openapiSpec, view]);
 
   const { defaultWidth, defaultHeight } = useMemo(() => {
     if (typeof window === 'undefined') {
@@ -146,7 +176,13 @@ export function HelpWindow({
             </div>
           ) : view === 'api' ? (
             <div className="h-full overflow-auto">
-              <ApiDocs spec={openapiSpec} />
+              {openapiSpec ? (
+                <ApiDocs spec={openapiSpec} />
+              ) : (
+                <div className="text-muted-foreground text-sm">
+                  Loading API docs...
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex h-full min-h-0 flex-col overflow-hidden">

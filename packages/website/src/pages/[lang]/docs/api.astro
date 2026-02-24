@@ -1,7 +1,6 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
-import { ApiDocs } from '@tearleads/ui';
-import openapiSpec from '@tearleads/api/dist/openapi.json';
+import { ApiDocsLoader } from '../../../components/ApiDocsLoader';
 import { defaultLanguage, isSupportedLanguage } from '../../../i18n/config';
 import type { SupportedLanguage } from '../../../i18n/config';
 import { getStaticPathsForLocales } from '../../../i18n/utils';
@@ -16,6 +15,6 @@ const currentLang: SupportedLanguage = isSupportedLanguage(lang)
 
 <Layout title="API Documentation - Tearleads" lang={currentLang}>
   <section class="container mx-auto px-4 py-8">
-    <ApiDocs client:load spec={openapiSpec} />
+    <ApiDocsLoader client:load />
   </section>
 </Layout>
