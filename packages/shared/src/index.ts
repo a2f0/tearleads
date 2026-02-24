@@ -36,6 +36,8 @@ export * from './openrouter.js';
 export * from './tree/index.js';
 // Type guards
 export * from './typeGuards/vfs.js';
+// Postgres dev-mode defaults
+export * from './postgresDefaults.js';
 // Domain type bundles
 export * from './vfsTypes.js';
 

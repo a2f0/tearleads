@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 interface MockPool {
   config: unknown;
@@ -30,7 +30,16 @@ vi.mock('pg', () => ({
   }
 }));
 
+vi.mock('node:os', () => ({
+  default: {
+    userInfo: () => ({ username: 'smtp_os_user' })
+  }
+}));
+
+const savedNodeEnv = process.env['NODE_ENV'];
+
 function clearPostgresEnv(): void {
+  delete process.env['NODE_ENV'];
   delete process.env['DATABASE_URL'];
   delete process.env['POSTGRES_URL'];
   delete process.env['POSTGRES_HOST'];
@@ -53,7 +62,32 @@ describe('postgres pool runtime', () => {
     clearPostgresEnv();
   });
 
-  it('throws when no connection environment variables are set', async () => {
+  afterAll(() => {
+    if (savedNodeEnv !== undefined) {
+      process.env['NODE_ENV'] = savedNodeEnv;
+    }
+  });
+
+  it('uses dev defaults when no env vars are set in dev mode', async () => {
+    process.env['NODE_ENV'] = 'development';
+    delete process.env['USER'];
+    delete process.env['LOGNAME'];
+    const { getPostgresPool } = await import('./postgres.js');
+
+    await getPostgresPool();
+
+    const expectedHost =
+      process.platform === 'linux' ? '/var/run/postgresql' : 'localhost';
+    expect(createdPools[0]?.config).toEqual({
+      host: expectedHost,
+      port: 5432,
+      user: 'smtp_os_user',
+      database: 'tearleads_development'
+    });
+  });
+
+  it('throws when no env vars are set in release mode', async () => {
+    process.env['NODE_ENV'] = 'production';
     const { getPostgresPool } = await import('./postgres.js');
 
     await expect(getPostgresPool()).rejects.toThrow(
