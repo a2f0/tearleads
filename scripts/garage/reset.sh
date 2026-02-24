@@ -40,10 +40,10 @@ read_env_value() {
   fi
 
   awk -v key="${key}" '
-    $0 ~ "^[[:space:]]*(export[[:space:]]+)?" key "=" {
+    $0 ~ "^[[:space:]]*(export[[:space:]]+)?" key "[[:space:]]*=" {
       line = $0
       sub(/^[[:space:]]*(export[[:space:]]+)?/, "", line)
-      sub("^" key "=", "", line)
+      sub("^" key "[[:space:]]*=", "", line)
       print line
       found = 1
       exit
@@ -165,31 +165,18 @@ run_aws_cli() {
 }
 
 delete_all_objects() {
-  while true; do
-    output="$(run_aws_cli s3api list-objects-v2 \
-      --bucket "${VFS_BLOB_S3_BUCKET}" \
-      --max-keys 1000 \
-      --query 'Contents[].Key' \
-      --output text || true)"
-
-    if [ -z "${output}" ] || [ "${output}" = "None" ]; then
-      break
-    fi
-
-    for key in $(printf '%s\n' "${output}" | tr '\t' '\n'); do
-      run_aws_cli s3api delete-object \
-        --bucket "${VFS_BLOB_S3_BUCKET}" \
-        --key "${key}" >/dev/null
-    done
-  done
+  run_aws_cli s3 rm "s3://${VFS_BLOB_S3_BUCKET}/" --recursive
 }
 
 main() {
-  load_value_if_unset VFS_BLOB_S3_BUCKET
-  load_value_if_unset VFS_BLOB_S3_REGION
-  load_value_if_unset VFS_BLOB_S3_ENDPOINT
-  load_value_if_unset VFS_BLOB_S3_ACCESS_KEY_ID
-  load_value_if_unset VFS_BLOB_S3_SECRET_ACCESS_KEY
+  for key in \
+    VFS_BLOB_S3_BUCKET \
+    VFS_BLOB_S3_REGION \
+    VFS_BLOB_S3_ENDPOINT \
+    VFS_BLOB_S3_ACCESS_KEY_ID \
+    VFS_BLOB_S3_SECRET_ACCESS_KEY; do
+    load_value_if_unset "${key}"
+  done
 
   VFS_BLOB_S3_BUCKET="${VFS_BLOB_S3_BUCKET:-vfs-blobs}"
   VFS_BLOB_S3_REGION="${VFS_BLOB_S3_REGION:-us-east-1}"
