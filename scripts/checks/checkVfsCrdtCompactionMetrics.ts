@@ -176,9 +176,13 @@ function printUsage(): void {
   console.log('');
   console.log('Options:');
   console.log('  --file <path>       Read logs from file (default: stdin)');
-  console.log('  --strict            Exit non-zero on parse errors for JSON lines');
+  console.log(
+    '  --strict            Exit non-zero on parse errors for JSON lines'
+  );
   console.log('  --json              Print summary as JSON');
-  console.log('  --allow-no-metric   Allow runs with zero compaction metric events');
+  console.log(
+    '  --allow-no-metric   Allow runs with zero compaction metric events'
+  );
   console.log('  -h, --help          Show usage');
 }
 

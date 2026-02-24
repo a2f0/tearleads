@@ -105,13 +105,19 @@ function buildCompactionOptions(options: CliOptions): VfsCrdtCompactionOptions {
   return built;
 }
 
-function printHumanPlan(plan: Awaited<ReturnType<typeof planVfsCrdtCompaction>>): void {
+function printHumanPlan(
+  plan: Awaited<ReturnType<typeof planVfsCrdtCompaction>>
+): void {
   console.log('VFS CRDT compaction plan');
   console.log('=======================');
   console.log(`now: ${plan.now}`);
-  console.log(`latestCursor: ${plan.latestCursor ? `${plan.latestCursor.changedAt} | ${plan.latestCursor.changeId}` : 'none'}`);
+  console.log(
+    `latestCursor: ${plan.latestCursor ? `${plan.latestCursor.changedAt} | ${plan.latestCursor.changeId}` : 'none'}`
+  );
   console.log(`hotRetentionFloor: ${plan.hotRetentionFloor ?? 'none'}`);
-  console.log(`oldestActiveCursor: ${plan.oldestActiveCursor ? `${plan.oldestActiveCursor.changedAt} | ${plan.oldestActiveCursor.changeId}` : 'none'}`);
+  console.log(
+    `oldestActiveCursor: ${plan.oldestActiveCursor ? `${plan.oldestActiveCursor.changedAt} | ${plan.oldestActiveCursor.changeId}` : 'none'}`
+  );
   console.log(`cutoffOccurredAt: ${plan.cutoffOccurredAt ?? 'none'}`);
   console.log(`estimatedRowsToDelete: ${plan.estimatedRowsToDelete}`);
   console.log(`activeClientCount: ${plan.activeClientCount}`);
@@ -126,12 +132,24 @@ export function vfsCrdtCompactionCommand(program: Command): void {
   program
     .command('vfs-crdt-compaction')
     .description('Plan or execute VFS CRDT operation-log compaction')
-    .option('--execute', 'Apply deletion for the computed cutoff (default is dry-run)')
+    .option(
+      '--execute',
+      'Apply deletion for the computed cutoff (default is dry-run)'
+    )
     .option('--json', 'Print machine-readable JSON output')
     .option('--hot-retention-days <days>', 'Hot log retention window in days')
-    .option('--inactive-client-days <days>', 'Client stale classification window in days')
-    .option('--safety-buffer-hours <hours>', 'Safety buffer subtracted from active frontier')
-    .option('--client-prefix <prefix>', 'Client id namespace prefix (default: crdt:)')
+    .option(
+      '--inactive-client-days <days>',
+      'Client stale classification window in days'
+    )
+    .option(
+      '--safety-buffer-hours <hours>',
+      'Safety buffer subtracted from active frontier'
+    )
+    .option(
+      '--client-prefix <prefix>',
+      'Client id namespace prefix (default: crdt:)'
+    )
     .option(
       '--max-delete-rows <rows>',
       'When executing, cap rows deleted in this run'
@@ -183,7 +201,6 @@ export function vfsCrdtCompactionCommand(program: Command): void {
             printHumanPlan(plan);
             console.log(`deletedRows: ${deletedRows}`);
           }
-
         } else {
           if (options.json) {
             console.log(JSON.stringify({ plan, deletedRows: 0 }, null, 2));
@@ -203,7 +220,6 @@ export function vfsCrdtCompactionCommand(program: Command): void {
           })
         );
         hasLoggedMetric = true;
-
       } catch (error) {
         if (client) {
           try {

@@ -2,6 +2,7 @@ import {
   buildVfsCrdtCompactionDeleteQuery,
   type VfsCrdtCompactionExecuteOptions
 } from './vfsCrdtCompactionSql.js';
+
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MS_PER_HOUR = 60 * 60 * 1000;
 
@@ -87,7 +88,9 @@ function parsePositiveMs(value: number | undefined, fallback: number): number {
   return Math.trunc(value);
 }
 
-function normalizeOptions(options: VfsCrdtCompactionOptions): NormalizedOptions {
+function normalizeOptions(
+  options: VfsCrdtCompactionOptions
+): NormalizedOptions {
   return {
     now: options.now ?? new Date(),
     hotRetentionMs: parsePositiveMs(
@@ -230,7 +233,9 @@ function buildCompactionPlanFromRows(
     }
 
     if (updatedAtMs < cutoffForActiveClientMs) {
-      staleClientIds.push(sanitizeClientId(row.client_id, options.clientIdPrefix));
+      staleClientIds.push(
+        sanitizeClientId(row.client_id, options.clientIdPrefix)
+      );
       continue;
     }
 
@@ -263,8 +268,7 @@ function buildCompactionPlanFromRows(
       cutoffOccurredAt: null,
       estimatedRowsToDelete: 0,
       staleClientIds,
-      note:
-        'No safe cutoff was found below the latest cursor; skip compaction for this run.'
+      note: 'No safe cutoff was found below the latest cursor; skip compaction for this run.'
     };
   }
 

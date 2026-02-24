@@ -122,9 +122,7 @@ describe('vfsCrdtCompaction plan', () => {
   });
 
   it('builds unbounded delete query by default', () => {
-    const query = buildVfsCrdtCompactionDeleteQuery(
-      '2026-02-10T12:00:00.000Z'
-    );
+    const query = buildVfsCrdtCompactionDeleteQuery('2026-02-10T12:00:00.000Z');
 
     expect(query.values).toEqual(['2026-02-10T12:00:00.000Z']);
     expect(query.text).toContain('DELETE FROM vfs_crdt_ops');

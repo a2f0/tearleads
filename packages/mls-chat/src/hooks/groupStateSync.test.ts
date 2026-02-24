@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   recoverMissingGroupState,
   uploadGroupStateSnapshot
@@ -35,19 +35,20 @@ describe('groupStateSync', () => {
     client.importGroupState.mockResolvedValue(undefined);
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () =>
-        new Response(
-          JSON.stringify({
-            state: {
-              id: 'state-1',
-              groupId: 'group-1',
-              epoch: 4,
-              encryptedState: btoa('serialized-state'),
-              stateHash: 'hash-1',
-              createdAt: new Date().toISOString()
-            }
-          })
-        )
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              state: {
+                id: 'state-1',
+                groupId: 'group-1',
+                epoch: 4,
+                encryptedState: btoa('serialized-state'),
+                stateHash: 'hash-1',
+                createdAt: new Date().toISOString()
+              }
+            })
+          )
       )
     );
 

@@ -45,7 +45,10 @@ export function isVfsCrdtCompactionRunMetric(
     return false;
   }
 
-  if (typeof occurredAt !== 'string' || !Number.isFinite(Date.parse(occurredAt))) {
+  if (
+    typeof occurredAt !== 'string' ||
+    !Number.isFinite(Date.parse(occurredAt))
+  ) {
     return false;
   }
 
@@ -77,7 +80,11 @@ export function isVfsCrdtCompactionRunMetric(
     return false;
   }
 
-  if (typeof deletedRows !== 'number' || !Number.isFinite(deletedRows) || deletedRows < 0) {
+  if (
+    typeof deletedRows !== 'number' ||
+    !Number.isFinite(deletedRows) ||
+    deletedRows < 0
+  ) {
     return false;
   }
 
