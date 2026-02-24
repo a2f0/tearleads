@@ -5,18 +5,11 @@ metadata:
   namespace: tearleads
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   ingressClassName: nginx
-  tls:
-    - hosts:
-        - k8s.DOMAIN_PLACEHOLDER
-        - app.k8s.DOMAIN_PLACEHOLDER
-        - api.k8s.DOMAIN_PLACEHOLDER
-      secretName: tearleads-tls
   rules:
-    # Website at root domain: k8s.example.com
-    - host: k8s.DOMAIN_PLACEHOLDER
+    # Website at root domain: example.com
+    - host: DOMAIN_PLACEHOLDER
       http:
         paths:
           - path: /
@@ -26,8 +19,8 @@ spec:
                 name: website
                 port:
                   number: 80
-    # Client app: app.k8s.example.com
-    - host: app.k8s.DOMAIN_PLACEHOLDER
+    # Client app: app.example.com
+    - host: app.DOMAIN_PLACEHOLDER
       http:
         paths:
           - path: /
@@ -37,8 +30,8 @@ spec:
                 name: client
                 port:
                   number: 80
-    # API: api.k8s.example.com
-    - host: api.k8s.DOMAIN_PLACEHOLDER
+    # API: api.example.com
+    - host: api.DOMAIN_PLACEHOLDER
       http:
         paths:
           - path: /

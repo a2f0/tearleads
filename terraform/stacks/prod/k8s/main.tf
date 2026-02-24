@@ -92,12 +92,16 @@ module "tunnel" {
 
   ingress_rules = [
     {
-      hostname = "k8s.${var.production_domain}"
-      service  = "http://localhost:80"
+      hostname = var.production_domain
+      service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
     },
     {
-      hostname = "*.k8s.${var.production_domain}"
-      service  = "http://localhost:80"
+      hostname = "app.${var.production_domain}"
+      service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
+    },
+    {
+      hostname = "api.${var.production_domain}"
+      service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
     }
   ]
 }

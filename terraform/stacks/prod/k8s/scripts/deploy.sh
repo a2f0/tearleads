@@ -5,7 +5,6 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 STACK_DIR="$(dirname "$SCRIPT_DIR")"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 MANIFESTS_DIR="$STACK_DIR/manifests"
-LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-}"
 PRODUCTION_DOMAIN="${TF_VAR_production_domain:-}"
 
 # shellcheck source=../../../../scripts/common.sh
@@ -31,23 +30,9 @@ if [[ -z "$PRODUCTION_DOMAIN" ]]; then
   PRODUCTION_DOMAIN="${K8S_HOSTNAME#k8s.}"
 fi
 
-if [[ -z "$LETSENCRYPT_EMAIL" ]]; then
-  if [[ -n "$PRODUCTION_DOMAIN" ]]; then
-    LETSENCRYPT_EMAIL="admin@$PRODUCTION_DOMAIN"
-  else
-    echo "ERROR: Could not determine production domain for default Let's Encrypt email."
-    echo "Set LETSENCRYPT_EMAIL or TF_VAR_production_domain."
-    exit 1
-  fi
-fi
-
-ESCAPED_LETSENCRYPT_EMAIL="$(printf '%s' "$LETSENCRYPT_EMAIL" | sed -e 's/[&|\\]/\\&/g')"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
-RENDERED_ISSUER="$TMP_DIR/cert-manager-issuer.yaml"
 RENDERED_INGRESS="$TMP_DIR/ingress.yaml"
-sed "s|__LETSENCRYPT_EMAIL__|$ESCAPED_LETSENCRYPT_EMAIL|g" \
-  "$MANIFESTS_DIR/cert-manager-issuer.yaml" > "$RENDERED_ISSUER"
 sed "s/DOMAIN_PLACEHOLDER/$PRODUCTION_DOMAIN/g" \
   "$MANIFESTS_DIR/ingress.yaml" > "$RENDERED_INGRESS"
 
@@ -61,8 +46,8 @@ kubectl apply -f "$MANIFESTS_DIR/redis.yaml"
 kubectl apply -f "$MANIFESTS_DIR/api.yaml"
 kubectl apply -f "$MANIFESTS_DIR/client.yaml"
 kubectl apply -f "$MANIFESTS_DIR/website.yaml"
+kubectl apply -f "$MANIFESTS_DIR/cloudflared.yaml"
 kubectl apply -f "$RENDERED_INGRESS"
-kubectl apply -f "$RENDERED_ISSUER"
 
 echo ""
 echo "Deployment complete!"

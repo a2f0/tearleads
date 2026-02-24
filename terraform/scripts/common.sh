@@ -27,8 +27,11 @@ load_secrets_env() {
     return 0
   fi
 
+  # Export all variables loaded from .secrets/env for child processes (terraform, aws, etc.).
+  set -a
   # shellcheck source=/dev/null
   source "$secrets_file"
+  set +a
 }
 
 # Validate required environment variables for Hetzner stacks (base)
