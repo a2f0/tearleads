@@ -7,16 +7,17 @@ const config: UserConfig = {
       2,
       'always',
       [
+        'build',
+        'chore',
+        'ci',
+        'docs',
         'feat',
         'fix',
-        'docs',
-        'style',
-        'refactor',
-        'test',
-        'chore',
         'perf',
-        'ci',
-        'build'
+        'refactor',
+        'revert',
+        'style',
+        'test'
       ]
     ],
     'header-max-length': [2, 'always', 50]
