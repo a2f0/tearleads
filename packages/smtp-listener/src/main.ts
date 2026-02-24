@@ -1,9 +1,12 @@
+import dotenv from 'dotenv';
 import { S3InboundBlobStore } from './lib/inboundBlobStore.js';
 import { DefaultInboundMessageIngestor } from './lib/inboundIngest.js';
 import { PostgresInboundRecipientKeyLookup } from './lib/inboundKeyLookup.js';
 import { PostgresInboundVfsEmailRepository } from './lib/inboundVfsRepository.js';
 import { createSmtpListener } from './lib/server.js';
 import type { SmtpListenerConfig } from './types/email.js';
+
+dotenv.config({ quiet: true });
 
 const port = Number(process.env['SMTP_PORT']) || 25;
 const host = process.env['SMTP_HOST'] || '0.0.0.0';

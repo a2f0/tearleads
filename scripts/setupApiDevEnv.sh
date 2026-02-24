@@ -5,7 +5,10 @@ ROOT_DIR="$(cd -- "$(dirname -- "$0")/.." && pwd -P)"
 API_DIR="${ROOT_DIR}/packages/api"
 EXAMPLE_ENV_FILE="${API_DIR}/.env.example"
 API_ENV_LINK_PATH="${API_DIR}/.env"
-SECRETS_ENV_FILE="${ROOT_DIR}/.secrets/env"
+SMTP_DIR="${ROOT_DIR}/packages/smtp-listener"
+SMTP_EXAMPLE_ENV_FILE="${SMTP_DIR}/.env.example"
+SMTP_ENV_LINK_PATH="${SMTP_DIR}/.env"
+SECRETS_ENV_FILE="${ROOT_DIR}/.secrets/env.dev"
 
 resolve_env_file_path() {
   link_path="$1"
@@ -114,7 +117,7 @@ if [ -z "${current_openrouter_key}" ] || [ "${current_openrouter_key}" = "your-o
   openrouter_from_secrets="$(read_env_value "${SECRETS_ENV_FILE}" "OPENROUTER_API_KEY" || true)"
   if [ -n "${openrouter_from_secrets}" ]; then
     upsert_env_value "${API_ENV_FILE}" "OPENROUTER_API_KEY" "${openrouter_from_secrets}"
-    echo "Initialized OPENROUTER_API_KEY from .secrets/env."
+    echo "Initialized OPENROUTER_API_KEY from .secrets/env.dev."
   fi
 fi
 
@@ -133,3 +136,34 @@ VFS_BLOB_S3_ACCESS_KEY_ID=vfs-blob-key
 VFS_BLOB_S3_SECRET_ACCESS_KEY=vfs-blob-secret-local-dev
 VFS_BLOB_S3_FORCE_PATH_STYLE=true
 EOF
+
+# --- smtp-listener env bootstrap ---
+
+SMTP_ENV_FILE="$(resolve_env_file_path "${SMTP_ENV_LINK_PATH}")"
+mkdir -p "$(dirname "${SMTP_ENV_FILE}")"
+
+if [ ! -f "${SMTP_ENV_FILE}" ]; then
+  if [ ! -f "${SMTP_EXAMPLE_ENV_FILE}" ]; then
+    echo "Missing smtp-listener env example at ${SMTP_EXAMPLE_ENV_FILE}." >&2
+    exit 1
+  fi
+  cp "${SMTP_EXAMPLE_ENV_FILE}" "${SMTP_ENV_FILE}"
+  chmod 600 "${SMTP_ENV_FILE}" 2>/dev/null || true
+  echo "Created smtp-listener env file at ${SMTP_ENV_FILE}."
+fi
+
+while IFS='=' read -r key value; do
+  [ -n "${key}" ] || continue
+  current_value="$(read_env_value "${SMTP_ENV_FILE}" "${key}" || true)"
+  if [ -z "${current_value}" ]; then
+    upsert_env_value "${SMTP_ENV_FILE}" "${key}" "${value}"
+  fi
+done <<SMTP_EOF
+VFS_BLOB_STORE_PROVIDER=s3
+VFS_BLOB_S3_BUCKET=vfs-blobs
+VFS_BLOB_S3_REGION=us-east-1
+VFS_BLOB_S3_ENDPOINT=http://127.0.0.1:3900
+VFS_BLOB_S3_ACCESS_KEY_ID=vfs-blob-key
+VFS_BLOB_S3_SECRET_ACCESS_KEY=vfs-blob-secret-local-dev
+VFS_BLOB_S3_FORCE_PATH_STYLE=true
+SMTP_EOF

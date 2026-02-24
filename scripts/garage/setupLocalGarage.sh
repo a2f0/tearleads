@@ -5,6 +5,7 @@ ROOT_DIR="$(cd -- "$(dirname -- "$0")/../.." && pwd -P)"
 GARAGE_DIR="${ROOT_DIR}/scripts/garage"
 COMPOSE_FILE="${GARAGE_DIR}/docker-compose.yml"
 API_ENV_LINK_PATH="${ROOT_DIR}/packages/api/.env"
+SMTP_ENV_LINK_PATH="${ROOT_DIR}/packages/smtp-listener/.env"
 GARAGE_CREDENTIALS_FILE="${GARAGE_DIR}/.s3-credentials.env"
 
 GARAGE_RPC_SECRET="${GARAGE_RPC_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}"
@@ -219,6 +220,13 @@ main() {
     chmod 600 "${API_ENV_FILE}" 2>/dev/null || true
   fi
 
+  SMTP_ENV_FILE="$(resolve_env_file_path "${SMTP_ENV_LINK_PATH}")"
+  mkdir -p "$(dirname "${SMTP_ENV_FILE}")"
+  if [ ! -f "${SMTP_ENV_FILE}" ]; then
+    cp "${ROOT_DIR}/packages/smtp-listener/.env.example" "${SMTP_ENV_FILE}"
+    chmod 600 "${SMTP_ENV_FILE}" 2>/dev/null || true
+  fi
+
   for key in \
     VFS_BLOB_STORE_PROVIDER \
     VFS_BLOB_S3_BUCKET \
@@ -229,11 +237,13 @@ main() {
     VFS_BLOB_S3_FORCE_PATH_STYLE; do
     eval "value=\${${key}}"
     upsert_env_value "${API_ENV_FILE}" "${key}" "${value}"
+    upsert_env_value "${SMTP_ENV_FILE}" "${key}" "${value}"
   done
 
   echo "Garage local S3 is ready at ${VFS_BLOB_S3_ENDPOINT}."
   echo "Bucket: ${VFS_BLOB_S3_BUCKET}"
   echo "API env updated: ${API_ENV_FILE}"
+  echo "smtp-listener env updated: ${SMTP_ENV_FILE}"
 }
 
 main "$@"
