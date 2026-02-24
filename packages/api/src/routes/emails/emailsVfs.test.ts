@@ -55,7 +55,6 @@ describe('Emails Routes (VFS backend)', () => {
     vi.clearAllMocks();
     sessionStore.clear();
     vi.stubEnv('JWT_SECRET', 'test-secret');
-    vi.stubEnv('EMAIL_STORAGE_BACKEND', 'vfs');
 
     mocks.postgresClientRelease.mockImplementation(() => {});
     mocks.postgresConnect.mockResolvedValue({

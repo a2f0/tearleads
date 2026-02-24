@@ -13,6 +13,7 @@
  *   delete-account    Delete an account from the database
  *   make-admin        Grant admin privileges to an existing account
  *   list-admins       List accounts with admin privileges
+ *   list-users        List all user accounts
  *   sync-last-active  Sync lastActiveAt from Redis sessions to PostgreSQL
  *   vfs-crdt-compaction  Plan or execute VFS CRDT log compaction
  *
@@ -27,6 +28,7 @@ import { program } from 'commander';
 import { createAccountCommand } from './cli/createAccount.js';
 import { deleteAccountCommand } from './cli/deleteAccount.js';
 import { listAdminsCommand } from './cli/listAdmins.js';
+import { listUsersCommand } from './cli/listUsers.js';
 import { makeAdminCommand } from './cli/makeAdmin.js';
 import { migrateCommand } from './cli/migrate.js';
 import { syncLastActiveCommand } from './cli/syncLastActive.js';
@@ -45,6 +47,7 @@ createAccountCommand(program);
 deleteAccountCommand(program);
 makeAdminCommand(program);
 listAdminsCommand(program);
+listUsersCommand(program);
 syncLastActiveCommand(program);
 vfsCrdtCompactionCommand(program);
 

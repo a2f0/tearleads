@@ -9,7 +9,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 source "$REPO_ROOT/terraform/scripts/common.sh"
 
 load_secrets_env prod
-export TF_VAR_postgres_password="${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .secrets/env}"
+export TF_VAR_postgres_password="${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .secrets/prod.env}"
 validate_aws_env
 
 "$SCRIPT_DIR/init.sh"

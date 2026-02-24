@@ -19,7 +19,7 @@ describe('server onData', () => {
     vi.clearAllMocks();
   });
 
-  it('handles email when storage is not initialized', async () => {
+  it('drops email when no ingestor configured and no recipients', async () => {
     const onEmail = vi.fn();
     await createSmtpListener({ port: 2525, onEmail });
 
@@ -39,35 +39,7 @@ describe('server onData', () => {
       expect(mockCallback).toHaveBeenCalledWith();
     });
 
-    expect(smtpTestDoubles.mockStorageStore).not.toHaveBeenCalled();
     expect(onEmail).toHaveBeenCalled();
-  });
-
-  it('processes incoming email and stores it', async () => {
-    const listener = await createSmtpListener({ port: 2525 });
-    await listener.start();
-
-    const mockCallback = vi.fn();
-    const stream = createMockStream();
-    const session = {
-      envelope: {
-        mailFrom: { address: 'sender@test.com' },
-        rcptTo: [{ address: `${USER_ID_A}@test.com` }]
-      }
-    };
-
-    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
-    stream.emit('data', Buffer.from('Subject: Test\r\n\r\nBody'));
-    stream.emit('end');
-
-    await vi.waitFor(() => {
-      expect(mockCallback).toHaveBeenCalledWith();
-    });
-
-    expect(smtpTestDoubles.mockStorageStore).toHaveBeenCalledWith(
-      expect.any(Object),
-      [USER_ID_A]
-    );
   });
 
   it('calls onEmail callback when provided', async () => {
@@ -100,190 +72,14 @@ describe('server onData', () => {
     });
   });
 
-  it('filters recipients by configured domains', async () => {
-    const listener = await createSmtpListener({
-      port: 2525,
-      recipientDomains: ['mail.test.com']
-    });
-    await listener.start();
-
-    const mockCallback = vi.fn();
-    const stream = createMockStream();
-    const session = {
-      envelope: {
-        mailFrom: { address: 'sender@test.com' },
-        rcptTo: [
-          { address: `${USER_ID_A}@mail.test.com` },
-          { address: `${USER_ID_B}@other.test.com` }
-        ]
-      }
-    };
-
-    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
-    stream.emit('end');
-
-    await vi.waitFor(() => {
-      expect(smtpTestDoubles.mockStorageStore).toHaveBeenCalledWith(
-        expect.any(Object),
-        [USER_ID_A]
-      );
-    });
-  });
-
-  it('allows all domains when recipient domains are blank', async () => {
-    const listener = await createSmtpListener({
-      port: 2525,
-      recipientDomains: ['   ']
-    });
-    await listener.start();
-
-    const mockCallback = vi.fn();
-    const stream = createMockStream();
-    const session = {
-      envelope: {
-        mailFrom: { address: 'sender@test.com' },
-        rcptTo: [{ address: `${USER_ID_A}@any.test.com` }]
-      }
-    };
-
-    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
-    stream.emit('end');
-
-    await vi.waitFor(() => {
-      expect(smtpTestDoubles.mockStorageStore).toHaveBeenCalledWith(
-        expect.any(Object),
-        [USER_ID_A]
-      );
-    });
-  });
-
-  it('ignores malformed recipient addresses', async () => {
-    const listener = await createSmtpListener({ port: 2525 });
-    await listener.start();
-
-    const mockCallback = vi.fn();
-    const stream = createMockStream();
-    const session = {
-      envelope: {
-        mailFrom: { address: 'sender@test.com' },
-        rcptTo: [
-          { address: 'invalid' },
-          { address: `${USER_ID_A}@test.com` },
-          { address: 'user-2@' }
-        ]
-      }
-    };
-
-    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
-    stream.emit('end');
-
-    await vi.waitFor(() => {
-      expect(smtpTestDoubles.mockStorageStore).toHaveBeenCalledWith(
-        expect.any(Object),
-        [USER_ID_A]
-      );
-    });
-  });
-
-  it('handles missing mailFrom', async () => {
-    const listener = await createSmtpListener({ port: 2525 });
-    await listener.start();
-
-    const mockCallback = vi.fn();
-    const stream = createMockStream();
-    const session = {
-      envelope: {
-        mailFrom: undefined,
-        rcptTo: [{ address: `${USER_ID_A}@test.com` }]
-      }
-    };
-
-    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
-    stream.emit('end');
-
-    await vi.waitFor(() => {
-      expect(smtpTestDoubles.mockStorageStore).toHaveBeenCalledWith(
-        expect.objectContaining({
-          envelope: {
-            mailFrom: false,
-            rcptTo: [{ address: `${USER_ID_A}@test.com` }]
-          }
-        }),
-        [USER_ID_A]
-      );
-    });
-  });
-
-  it('handles stream errors', async () => {
-    const listener = await createSmtpListener({ port: 2525 });
-    await listener.start();
-
-    const mockCallback = vi.fn();
-    const stream = createMockStream();
-    const session = {
-      envelope: {
-        mailFrom: { address: 'sender@test.com' },
-        rcptTo: [{ address: `${USER_ID_A}@test.com` }]
-      }
-    };
-
-    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
-    const streamError = new Error('Stream error');
-    stream.emit('error', streamError);
-
-    expect(mockCallback).toHaveBeenCalledWith(streamError);
-  });
-
-  it('handles storage errors', async () => {
-    smtpTestDoubles.mockStorageStore.mockRejectedValue(
-      new Error('Storage error')
-    );
-
-    const listener = await createSmtpListener({ port: 2525 });
-    await listener.start();
-
-    const mockCallback = vi.fn();
-    const stream = createMockStream();
-    const session = {
-      envelope: {
-        mailFrom: { address: 'sender@test.com' },
-        rcptTo: [{ address: `${USER_ID_A}@test.com` }]
-      }
-    };
-
-    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
-    stream.emit('end');
-
-    await vi.waitFor(() => {
-      expect(mockCallback).toHaveBeenCalledWith(expect.any(Error));
-    });
-  });
-
-  it('handles non-Error rejections', async () => {
-    smtpTestDoubles.mockStorageStore.mockRejectedValue('String error');
-
-    const listener = await createSmtpListener({ port: 2525 });
-    await listener.start();
-
-    const mockCallback = vi.fn();
-    const stream = createMockStream();
-    const session = {
-      envelope: {
-        mailFrom: { address: 'sender@test.com' },
-        rcptTo: [{ address: `${USER_ID_A}@test.com` }]
-      }
-    };
-
-    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
-    stream.emit('end');
-
-    await vi.waitFor(() => {
-      expect(mockCallback).toHaveBeenCalledWith(expect.any(Error));
-    });
-  });
-
   it('drops non-uuid local-parts by default', async () => {
-    const listener = await createSmtpListener({ port: 2525 });
+    const inboundIngestor = {
+      ingest: vi.fn(async () => {})
+    };
+    const listener = await createSmtpListener({
+      port: 2525,
+      inboundIngestor
+    });
     await listener.start();
 
     const mockCallback = vi.fn();
@@ -301,13 +97,17 @@ describe('server onData', () => {
     await vi.waitFor(() => {
       expect(mockCallback).toHaveBeenCalledWith();
     });
-    expect(smtpTestDoubles.mockStorageStore).not.toHaveBeenCalled();
+    expect(inboundIngestor.ingest).not.toHaveBeenCalled();
   });
 
   it('accepts non-uuid local-parts in legacy-local-part mode', async () => {
+    const inboundIngestor = {
+      ingest: vi.fn(async () => {})
+    };
     const listener = await createSmtpListener({
       port: 2525,
-      recipientAddressing: 'legacy-local-part'
+      recipientAddressing: 'legacy-local-part',
+      inboundIngestor
     });
     await listener.start();
 
@@ -326,9 +126,10 @@ describe('server onData', () => {
     await vi.waitFor(() => {
       expect(mockCallback).toHaveBeenCalledWith();
     });
-    expect(smtpTestDoubles.mockStorageStore).toHaveBeenCalledWith(
-      expect.any(Object),
-      ['legacy-user']
+    expect(inboundIngestor.ingest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userIds: ['legacy-user']
+      })
     );
   });
 
@@ -368,6 +169,218 @@ describe('server onData', () => {
         userIds: [USER_ID_A]
       })
     );
-    expect(smtpTestDoubles.mockStorageStore).not.toHaveBeenCalled();
+  });
+
+  it('filters recipients by configured domains', async () => {
+    const inboundIngestor = {
+      ingest: vi.fn(async () => {})
+    };
+    const listener = await createSmtpListener({
+      port: 2525,
+      recipientDomains: ['mail.test.com'],
+      inboundIngestor
+    });
+    await listener.start();
+
+    const mockCallback = vi.fn();
+    const stream = createMockStream();
+    const session = {
+      envelope: {
+        mailFrom: { address: 'sender@test.com' },
+        rcptTo: [
+          { address: `${USER_ID_A}@mail.test.com` },
+          { address: `${USER_ID_B}@other.test.com` }
+        ]
+      }
+    };
+
+    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
+    stream.emit('end');
+
+    await vi.waitFor(() => {
+      expect(inboundIngestor.ingest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userIds: [USER_ID_A]
+        })
+      );
+    });
+  });
+
+  it('allows all domains when recipient domains are blank', async () => {
+    const inboundIngestor = {
+      ingest: vi.fn(async () => {})
+    };
+    const listener = await createSmtpListener({
+      port: 2525,
+      recipientDomains: ['   '],
+      inboundIngestor
+    });
+    await listener.start();
+
+    const mockCallback = vi.fn();
+    const stream = createMockStream();
+    const session = {
+      envelope: {
+        mailFrom: { address: 'sender@test.com' },
+        rcptTo: [{ address: `${USER_ID_A}@any.test.com` }]
+      }
+    };
+
+    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
+    stream.emit('end');
+
+    await vi.waitFor(() => {
+      expect(inboundIngestor.ingest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userIds: [USER_ID_A]
+        })
+      );
+    });
+  });
+
+  it('handles missing mailFrom', async () => {
+    const inboundIngestor = {
+      ingest: vi.fn(async () => {})
+    };
+    const listener = await createSmtpListener({
+      port: 2525,
+      inboundIngestor
+    });
+    await listener.start();
+
+    const mockCallback = vi.fn();
+    const stream = createMockStream();
+    const session = {
+      envelope: {
+        mailFrom: undefined,
+        rcptTo: [{ address: `${USER_ID_A}@test.com` }]
+      }
+    };
+
+    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
+    stream.emit('end');
+
+    await vi.waitFor(() => {
+      expect(inboundIngestor.ingest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: expect.objectContaining({
+            envelope: {
+              mailFrom: false,
+              rcptTo: [{ address: `${USER_ID_A}@test.com` }]
+            }
+          }),
+          userIds: [USER_ID_A]
+        })
+      );
+    });
+  });
+
+  it('handles stream errors', async () => {
+    const listener = await createSmtpListener({ port: 2525 });
+    await listener.start();
+
+    const mockCallback = vi.fn();
+    const stream = createMockStream();
+    const session = {
+      envelope: {
+        mailFrom: { address: 'sender@test.com' },
+        rcptTo: [{ address: `${USER_ID_A}@test.com` }]
+      }
+    };
+
+    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
+    const streamError = new Error('Stream error');
+    stream.emit('error', streamError);
+
+    expect(mockCallback).toHaveBeenCalledWith(streamError);
+  });
+
+  it('handles ingestor errors', async () => {
+    const inboundIngestor = {
+      ingest: vi.fn().mockRejectedValue(new Error('Ingest error'))
+    };
+    const listener = await createSmtpListener({
+      port: 2525,
+      inboundIngestor
+    });
+    await listener.start();
+
+    const mockCallback = vi.fn();
+    const stream = createMockStream();
+    const session = {
+      envelope: {
+        mailFrom: { address: 'sender@test.com' },
+        rcptTo: [{ address: `${USER_ID_A}@test.com` }]
+      }
+    };
+
+    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
+    stream.emit('end');
+
+    await vi.waitFor(() => {
+      expect(mockCallback).toHaveBeenCalledWith(expect.any(Error));
+    });
+  });
+
+  it('handles non-Error rejections', async () => {
+    const inboundIngestor = {
+      ingest: vi.fn().mockRejectedValue('String error')
+    };
+    const listener = await createSmtpListener({
+      port: 2525,
+      inboundIngestor
+    });
+    await listener.start();
+
+    const mockCallback = vi.fn();
+    const stream = createMockStream();
+    const session = {
+      envelope: {
+        mailFrom: { address: 'sender@test.com' },
+        rcptTo: [{ address: `${USER_ID_A}@test.com` }]
+      }
+    };
+
+    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
+    stream.emit('end');
+
+    await vi.waitFor(() => {
+      expect(mockCallback).toHaveBeenCalledWith(expect.any(Error));
+    });
+  });
+
+  it('ignores malformed recipient addresses', async () => {
+    const inboundIngestor = {
+      ingest: vi.fn(async () => {})
+    };
+    const listener = await createSmtpListener({
+      port: 2525,
+      inboundIngestor
+    });
+    await listener.start();
+
+    const mockCallback = vi.fn();
+    const stream = createMockStream();
+    const session = {
+      envelope: {
+        mailFrom: { address: 'sender@test.com' },
+        rcptTo: [
+          { address: 'invalid' },
+          { address: `${USER_ID_A}@test.com` },
+          { address: 'user-2@' }
+        ]
+      }
+    };
+
+    smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
+    stream.emit('end');
+
+    await vi.waitFor(() => {
+      expect(inboundIngestor.ingest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userIds: [USER_ID_A]
+        })
+      );
+    });
   });
 });

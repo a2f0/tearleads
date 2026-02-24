@@ -26,6 +26,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "3.994.0",
     "@tearleads/shared": "workspace:*",
+    "dotenv": "17.3.1",
     "pg": "8.16.3",
     "smtp-server": "3.18.1"
   },

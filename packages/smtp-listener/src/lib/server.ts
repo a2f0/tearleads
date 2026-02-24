@@ -6,7 +6,6 @@ import type {
 } from '../types/email.js';
 import { createStoredEmail } from './parser.js';
 import { resolveRecipientUserIds } from './recipientResolver.js';
-import { createStorage, type EmailStorage } from './storage.js';
 
 export interface SmtpListener {
   start(): Promise<void>;
@@ -45,8 +44,6 @@ function normalizeDomains(domains: string[] | undefined): Set<string> | null {
 export async function createSmtpListener(
   config: SmtpListenerConfig
 ): Promise<SmtpListener> {
-  const redisUrl = config.redisUrl ?? 'redis://localhost:6379';
-  let storage: EmailStorage | null = null;
   const allowedDomains = normalizeDomains(config.recipientDomains);
   const recipientAddressing = config.recipientAddressing ?? 'uuid-local-part';
   const inboundIngestor = config.inboundIngestor;
@@ -73,11 +70,16 @@ export async function createSmtpListener(
             recipientAddressing
           });
 
-          if (inboundIngestor) {
+          let disposition: string;
+          if (userIds.length === 0) {
+            disposition = 'dropped: no resolved recipients';
+          } else if (inboundIngestor) {
             await inboundIngestor.ingest({ email, userIds });
-          } else if (storage && userIds.length > 0) {
-            await storage.store(email, userIds);
+            disposition = `delivered via vfs (${userIds.length} recipient(s))`;
+          } else {
+            disposition = 'dropped: no ingestor configured';
           }
+          console.log(`Message ${email.id}: ${disposition}`);
           if (config.onEmail) {
             await config.onEmail(email);
           }
@@ -98,7 +100,6 @@ export async function createSmtpListener(
 
   return {
     async start(): Promise<void> {
-      storage = await createStorage(redisUrl);
       return new Promise((resolve, reject) => {
         server.listen(config.port, config.host, () => {
           const address = server.server.address();
@@ -114,20 +115,7 @@ export async function createSmtpListener(
     async stop(): Promise<void> {
       return new Promise((resolve) => {
         server.close(() => {
-          if (storage) {
-            storage
-              .close()
-              .then(resolve)
-              .catch((err) => {
-                console.error(
-                  'Failed to close Redis storage on SMTP listener stop:',
-                  err
-                );
-                resolve();
-              });
-          } else {
-            resolve();
-          }
+          resolve();
         });
       });
     },

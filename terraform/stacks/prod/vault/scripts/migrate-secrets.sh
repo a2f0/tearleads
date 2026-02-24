@@ -105,6 +105,7 @@ EXCLUDE_PATTERNS=(
   "vault-keys.json"
   "vault-backups"
   ".DS_Store"
+  "dev.env"
 )
 
 is_excluded() {

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   createSmtpListener,
-  createStorage,
   createStoredEmail,
   generateEmailId,
   parseAddress
@@ -11,11 +10,6 @@ describe('index exports', () => {
   it('should export createSmtpListener', () => {
     expect(createSmtpListener).toBeDefined();
     expect(typeof createSmtpListener).toBe('function');
-  });
-
-  it('should export createStorage', () => {
-    expect(createStorage).toBeDefined();
-    expect(typeof createStorage).toBe('function');
   });
 
   it('should export createStoredEmail', () => {

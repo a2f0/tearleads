@@ -1,3 +1,4 @@
+import { getPostgresDevDefaults, isDevMode } from '@tearleads/shared';
 import type { Pool as PgPool, PoolConfig } from 'pg';
 import pg from 'pg';
 
@@ -56,9 +57,27 @@ function buildPoolConfig(): { config: PoolConfig; key: string } {
     !config.database &&
     !config.port
   ) {
-    throw new Error(
-      'Missing Postgres connection info. Set DATABASE_URL or PGDATABASE/POSTGRES_DATABASE (plus PGHOST/PGPORT/PGUSER as needed).'
-    );
+    if (!isDevMode()) {
+      throw new Error(
+        'Missing Postgres connection info. Set DATABASE_URL or PGDATABASE/POSTGRES_DATABASE (plus PGHOST/PGPORT/PGUSER as needed).'
+      );
+    }
+    const defaults = getPostgresDevDefaults();
+    const devConfig: PoolConfig = {
+      ...(defaults.host ? { host: defaults.host } : {}),
+      ...(defaults.port ? { port: defaults.port } : {}),
+      ...(defaults.user ? { user: defaults.user } : {}),
+      ...(defaults.database ? { database: defaults.database } : {})
+    };
+    return {
+      config: devConfig,
+      key: JSON.stringify({
+        host: defaults.host ?? null,
+        user: defaults.user ?? null,
+        database: defaults.database ?? null,
+        port: defaults.port ?? null
+      })
+    };
   }
 
   return {

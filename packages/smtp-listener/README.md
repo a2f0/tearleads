@@ -10,10 +10,8 @@ The listener is configured via environment variables:
 | -------- | ------- | ----------- |
 | `SMTP_PORT` | `25` | Port to listen on |
 | `SMTP_HOST` | `0.0.0.0` | Host/interface to bind to |
-| `REDIS_URL` | `redis://localhost:6379` | Redis connection URL for email storage |
 | `SMTP_RECIPIENT_DOMAINS` | _none_ | Comma-separated list of domains that map local parts to user IDs (e.g. `email.example.com`) |
 | `SMTP_RECIPIENT_ADDRESSING` | `uuid-local-part` | Recipient local-part mode: `uuid-local-part` (canonical `users.id`) or `legacy-local-part` |
-| `SMTP_INGEST_MODE` | `legacy-redis` | Ingest backend mode: `legacy-redis` or `vfs` |
 
 By default, recipients are resolved only when local-part is a canonical UUID. This enforces `uuid@host` addressing for inbound routing.
 
@@ -93,7 +91,7 @@ sudo systemctl cat tearleads-smtp-listener
 For local development, you can send a message directly to your workstation's listener:
 
 ```bash
-SMTP_TO=test@localhost ./scripts/deliverMail.sh
+SMTP_TO=test@localhost ./scripts/users/deliverMail.ts
 ```
 
 ```bash
@@ -111,20 +109,20 @@ swaks --to test@yourdomain.com --from sender@example.com \
 ## Architecture
 
 ```text
-┌─────────────────────────────────────────────────────────┐
-│                    SMTP Listener                        │
-│                                                         │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐ │
-│  │ smtp-server │───▶│   parser    │───▶│   storage   │ │
-│  │  (port 25)  │    │  (parsing)  │    │   (Redis)   │ │
-│  └─────────────┘    └─────────────┘    └─────────────┘ │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                       SMTP Listener                              │
+│                                                                  │
+│  ┌─────────────┐    ┌─────────────┐    ┌──────────────────────┐ │
+│  │ smtp-server │───▶│   parser    │───▶│   VFS ingestor       │ │
+│  │  (port 25)  │    │  (parsing)  │    │ (Postgres + S3 blob) │ │
+│  └─────────────┘    └─────────────┘    └──────────────────────┘ │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 - **smtp-server**: Handles SMTP protocol, accepts incoming connections
 - **parser**: Parses raw email data into structured format
-- **storage**: Stores parsed emails in Redis for later processing
+- **VFS ingestor**: Encrypts and stores emails via Postgres metadata + S3 blob storage
 
 ## Limitations
 

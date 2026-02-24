@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { runListAdmins, runListAdminsFromArgv } from './listAdmins.js';
+import { runListUsers, runListUsersFromArgv } from './listUsers.js';
 
 const mockGetPostgresPool = vi.fn();
 const mockGetPostgresConnectionInfo = vi.fn();
@@ -11,7 +11,7 @@ vi.mock('../lib/postgres.js', () => ({
   closePostgresPool: () => mockClosePostgresPool()
 }));
 
-describe('list admins cli', () => {
+describe('list users cli', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPostgresConnectionInfo.mockReturnValue({
@@ -26,7 +26,7 @@ describe('list admins cli', () => {
     vi.restoreAllMocks();
   });
 
-  it('prints a message when no admins are found', async () => {
+  it('prints a message when no users are found', async () => {
     const mockClient = {
       query: vi.fn().mockResolvedValue({ rows: [] }),
       release: vi.fn()
@@ -36,21 +36,21 @@ describe('list admins cli', () => {
 
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    await runListAdmins();
+    await runListUsers();
 
-    expect(consoleLog).toHaveBeenCalledWith('No admin accounts found.');
+    expect(consoleLog).toHaveBeenCalledWith('No user accounts found.');
     expect(consoleLog).toHaveBeenCalledWith(
       'Postgres connection: host=localhost, port=5432, user=tearleads, database=tearleads_test'
     );
     expect(mockClient.release).toHaveBeenCalled();
   });
 
-  it('prints admin accounts in order', async () => {
+  it('prints user accounts with admin tag', async () => {
     const mockClient = {
       query: vi.fn().mockResolvedValue({
         rows: [
-          { id: 'admin-1', email: 'admin1@example.com' },
-          { id: 'admin-2', email: 'admin2@example.com' }
+          { id: 'user-1', email: 'user1@example.com', admin: false },
+          { id: 'user-2', email: 'user2@example.com', admin: true }
         ]
       }),
       release: vi.fn()
@@ -60,22 +60,20 @@ describe('list admins cli', () => {
 
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    await runListAdmins();
+    await runListUsers();
 
-    expect(consoleLog).toHaveBeenCalledWith('Admin accounts:');
+    expect(consoleLog).toHaveBeenCalledWith('User accounts:');
+    expect(consoleLog).toHaveBeenCalledWith('- user1@example.com (id user-1)');
     expect(consoleLog).toHaveBeenCalledWith(
-      '- admin1@example.com (id admin-1)'
-    );
-    expect(consoleLog).toHaveBeenCalledWith(
-      '- admin2@example.com (id admin-2)'
+      '- user2@example.com (id user-2) [admin]'
     );
     expect(mockClient.release).toHaveBeenCalled();
   });
 
   it('outputs JSON array when json flag is true', async () => {
     const rows = [
-      { id: 'admin-1', email: 'admin1@example.com' },
-      { id: 'admin-2', email: 'admin2@example.com' }
+      { id: 'user-1', email: 'user1@example.com', admin: false },
+      { id: 'user-2', email: 'user2@example.com', admin: true }
     ];
     const mockClient = {
       query: vi.fn().mockResolvedValue({ rows }),
@@ -86,7 +84,7 @@ describe('list admins cli', () => {
 
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    await runListAdmins(true);
+    await runListUsers(true);
 
     expect(consoleLog).toHaveBeenCalledWith(JSON.stringify(rows));
     expect(consoleLog).toHaveBeenCalledTimes(1);
@@ -103,20 +101,20 @@ describe('list admins cli', () => {
 
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    await runListAdminsFromArgv(['--json']);
+    await runListUsersFromArgv(['--json']);
 
     expect(consoleLog).toHaveBeenCalledWith('[]');
     expect(mockClosePostgresPool).toHaveBeenCalled();
   });
 
   it('prints help from argv and closes the pool', async () => {
-    await runListAdminsFromArgv(['--help']);
+    await runListUsersFromArgv(['--help']);
 
     expect(mockClosePostgresPool).toHaveBeenCalled();
   });
 
   it('rejects unknown arguments and closes the pool', async () => {
-    await expect(runListAdminsFromArgv(['--nope'])).rejects.toThrow(
+    await expect(runListUsersFromArgv(['--nope'])).rejects.toThrow(
       'Unknown argument: --nope'
     );
 

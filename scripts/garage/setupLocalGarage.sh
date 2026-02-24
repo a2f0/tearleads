@@ -1,10 +1,11 @@
 #!/usr/bin/env sh
 set -eu
 
-ROOT_DIR="$(cd -- "$(dirname -- "$0")/.." && pwd -P)"
+ROOT_DIR="$(cd -- "$(dirname -- "$0")/../.." && pwd -P)"
 GARAGE_DIR="${ROOT_DIR}/scripts/garage"
 COMPOSE_FILE="${GARAGE_DIR}/docker-compose.yml"
 API_ENV_LINK_PATH="${ROOT_DIR}/packages/api/.env"
+SMTP_ENV_LINK_PATH="${ROOT_DIR}/packages/smtp-listener/.env"
 GARAGE_CREDENTIALS_FILE="${GARAGE_DIR}/.s3-credentials.env"
 
 GARAGE_RPC_SECRET="${GARAGE_RPC_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}"
@@ -154,8 +155,6 @@ configure_garage_bucket() {
     chmod 600 "${GARAGE_CREDENTIALS_FILE}" 2>/dev/null || true
   }
 
-  read_or_create_credentials
-
   node_id="$(garage_cli node id | awk -F'@' 'NF>1 { print $1; exit }')"
   if [ -z "${node_id}" ]; then
     echo "Could not determine Garage node ID." >&2
@@ -180,6 +179,8 @@ configure_garage_bucket() {
     echo "Garage layout did not converge to version 1." >&2
     exit 1
   fi
+
+  read_or_create_credentials
 
   garage_cli key info "${GARAGE_KEY_NAME}" >/dev/null 2>&1 || garage_cli key create "${GARAGE_KEY_NAME}" >/dev/null
 
@@ -219,6 +220,13 @@ main() {
     chmod 600 "${API_ENV_FILE}" 2>/dev/null || true
   fi
 
+  SMTP_ENV_FILE="$(resolve_env_file_path "${SMTP_ENV_LINK_PATH}")"
+  mkdir -p "$(dirname "${SMTP_ENV_FILE}")"
+  if [ ! -f "${SMTP_ENV_FILE}" ]; then
+    cp "${ROOT_DIR}/packages/smtp-listener/.env.example" "${SMTP_ENV_FILE}"
+    chmod 600 "${SMTP_ENV_FILE}" 2>/dev/null || true
+  fi
+
   for key in \
     VFS_BLOB_STORE_PROVIDER \
     VFS_BLOB_S3_BUCKET \
@@ -229,11 +237,13 @@ main() {
     VFS_BLOB_S3_FORCE_PATH_STYLE; do
     eval "value=\${${key}}"
     upsert_env_value "${API_ENV_FILE}" "${key}" "${value}"
+    upsert_env_value "${SMTP_ENV_FILE}" "${key}" "${value}"
   done
 
   echo "Garage local S3 is ready at ${VFS_BLOB_S3_ENDPOINT}."
   echo "Bucket: ${VFS_BLOB_S3_BUCKET}"
   echo "API env updated: ${API_ENV_FILE}"
+  echo "smtp-listener env updated: ${SMTP_ENV_FILE}"
 }
 
 main "$@"

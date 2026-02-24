@@ -168,7 +168,7 @@ jobs:
       - name: Build web assets
         run: pnpm --filter @tearleads/client build
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_API_URL: https://api.${{ secrets.DEPLOY_DOMAIN_PROD }}/v1
 
       - name: Generate Android images
         run: ./packages/client/scripts/buildAndroidImageAssets.sh

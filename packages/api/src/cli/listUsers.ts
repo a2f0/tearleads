@@ -11,8 +11,8 @@ function printUsage(): void {
   console.log(
     [
       'Usage:',
-      '  pnpm --filter @tearleads/api cli list-admins',
-      '  pnpm exec tsx scripts/listAdmins.ts',
+      '  pnpm --filter @tearleads/api cli list-users',
+      '  pnpm exec tsx scripts/users/listUsers.ts',
       '',
       'Options:',
       '  --help, -h            Show this help message.',
@@ -53,17 +53,18 @@ function parseArgs(argv: string[]): ParsedArgs {
   return { help, json };
 }
 
-export type AdminRow = {
+export type UserRow = {
   id: string;
   email: string;
+  admin: boolean;
 };
 
-export async function getAdminUsers(): Promise<AdminRow[]> {
+export async function getUsers(): Promise<UserRow[]> {
   const pool = await getPostgresPool();
   const client = await pool.connect();
   try {
-    const result = await client.query<AdminRow>(
-      'SELECT id, email FROM users WHERE admin = TRUE ORDER BY email'
+    const result = await client.query<UserRow>(
+      'SELECT id, email, admin FROM users ORDER BY email'
     );
     return result.rows;
   } finally {
@@ -71,8 +72,8 @@ export async function getAdminUsers(): Promise<AdminRow[]> {
   }
 }
 
-async function listAdmins(json: boolean): Promise<void> {
-  const rows = await getAdminUsers();
+async function listUsers(json: boolean): Promise<void> {
+  const rows = await getUsers();
 
   if (json) {
     console.log(JSON.stringify(rows));
@@ -82,22 +83,23 @@ async function listAdmins(json: boolean): Promise<void> {
   const label = buildPostgresConnectionLabel();
 
   if (rows.length === 0) {
-    console.log('No admin accounts found.');
+    console.log('No user accounts found.');
   } else {
-    console.log('Admin accounts:');
+    console.log('User accounts:');
     for (const row of rows) {
-      console.log(`- ${row.email} (id ${row.id})`);
+      const adminTag = row.admin ? ' [admin]' : '';
+      console.log(`- ${row.email} (id ${row.id})${adminTag}`);
     }
   }
 
   console.log(`Postgres connection: ${label}`);
 }
 
-export async function runListAdmins(json = false): Promise<void> {
-  await listAdmins(json);
+export async function runListUsers(json = false): Promise<void> {
+  await listUsers(json);
 }
 
-export async function runListAdminsFromArgv(argv: string[]): Promise<void> {
+export async function runListUsersFromArgv(argv: string[]): Promise<void> {
   try {
     const parsed = parseArgs(argv);
     if (parsed.help) {
@@ -105,24 +107,24 @@ export async function runListAdminsFromArgv(argv: string[]): Promise<void> {
       return;
     }
 
-    await runListAdmins(parsed.json);
+    await runListUsers(parsed.json);
   } finally {
     await closePostgresPool();
   }
 }
 
-export function listAdminsCommand(program: Command): void {
+export function listUsersCommand(program: Command): void {
   program
-    .command('list-admins')
-    .description('List accounts with admin privileges')
+    .command('list-users')
+    .description('List all user accounts')
     .option('--json', 'Output as JSON array')
     .action(async (options: { json?: boolean }) => {
       let exitCode = 0;
       try {
-        await runListAdmins(options.json === true);
+        await runListUsers(options.json === true);
       } catch (error) {
         exitCode = 1;
-        console.error('\nList admins failed:');
+        console.error('\nList users failed:');
         console.error(error instanceof Error ? error.message : String(error));
       } finally {
         await closePostgresPool();

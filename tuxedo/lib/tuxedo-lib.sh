@@ -82,45 +82,6 @@ ensure_symlinks() {
         echo "Symlinked $link -> $relative_path"
     done
 
-    # Symlink package-specific files (mirrored path structure)
-    for item in packages/api/.env; do
-        target="$SHARED_DIR/$item"
-        link="$workspace/$item"
-        # Dynamically calculate relative path depth based on item path
-        depth=$(echo "$item" | tr -cd '/' | wc -c | tr -d ' ')
-        # Add 1 for the workspace directory itself
-        depth=$((depth + 1))
-        relative_prefix=$(printf '../%.0s' $(seq 1 $depth))
-        relative_path="${relative_prefix}${shared_basename}/$item"
-
-        # Skip if shared file doesn't exist
-        [ -f "$target" ] || continue
-
-        # Ensure parent directory exists
-        link_dir=$(dirname "$link")
-        [ -d "$link_dir" ] || continue
-
-        # If it's already a correct symlink, skip
-        if [ -L "$link" ]; then
-            current_target=$(readlink "$link")
-            if [ "$current_target" = "$target" ] || [ "$current_target" = "$relative_path" ]; then
-                continue
-            fi
-            # Wrong symlink, remove it
-            rm "$link"
-        elif [ -f "$link" ]; then
-            # It's a real file - remove it (symlink to shared will replace it)
-            echo "Removing file '$link' (will be symlinked to shared)"
-            rm "$link"
-        elif [ -e "$link" ]; then
-            # Some other type exists, remove it
-            rm "$link"
-        fi
-
-        # Create the symlink (relative path for portability)
-        ln -s "$relative_path" "$link"
-        echo "Symlinked $link -> $relative_path"
-    done
 }
 
 tuxedo_set_inner_tmux_flag() {
@@ -254,10 +215,7 @@ tuxedo_start_pr_dashboards() {
 
 tuxedo_prepare_shared_dirs() {
     if [ -d "$SHARED_DIR" ]; then
-        mkdir -p "$SHARED_DIR/.test_files" "$SHARED_DIR/.secrets" "$SHARED_DIR/packages/api"
-
-        # Touch package-specific env files if they don't exist
-        [ -f "$SHARED_DIR/packages/api/.env" ] || touch "$SHARED_DIR/packages/api/.env"
+        mkdir -p "$SHARED_DIR/.test_files" "$SHARED_DIR/.secrets"
 
         ensure_symlinks "$MAIN_DIR"
         i=$WORKSPACE_START

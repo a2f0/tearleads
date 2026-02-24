@@ -1,5 +1,8 @@
-import os from 'node:os';
-import type { PostgresConnectionInfo } from '@tearleads/shared';
+import {
+  getPostgresDevDefaults,
+  isDevMode,
+  type PostgresConnectionInfo
+} from '@tearleads/shared';
 import type { Pool as PgPool, PoolConfig } from 'pg';
 import pg from 'pg';
 
@@ -46,40 +49,6 @@ function parsePort(value: string | undefined): number | null {
   if (!value) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
-}
-
-function isDevMode(): boolean {
-  const nodeEnv = process.env['NODE_ENV'];
-  return nodeEnv === 'development' || !nodeEnv;
-}
-
-function getDevDefaults(): {
-  host?: string;
-  port?: number;
-  user?: string;
-  database?: string;
-} {
-  if (!isDevMode()) {
-    return {};
-  }
-  let user = process.env['USER'] ?? process.env['LOGNAME'];
-  if (!user) {
-    try {
-      const osUser = os.userInfo().username;
-      user = osUser && osUser.trim().length > 0 ? osUser : undefined;
-    } catch {
-      user = undefined;
-    }
-  }
-  const baseDefaults = {
-    host: process.platform === 'linux' ? '/var/run/postgresql' : 'localhost',
-    port: 5432,
-    database: 'tearleads_development'
-  };
-  if (user && user.trim().length > 0) {
-    return { ...baseDefaults, user };
-  }
-  return baseDefaults;
 }
 
 function requireReleaseConfig(): {
@@ -140,7 +109,7 @@ function buildConnectionInfo(): PostgresConnectionInfo {
     };
   }
 
-  const defaults = getDevDefaults();
+  const defaults = getPostgresDevDefaults();
   const host = getEnvValue(HOST_KEYS) ?? defaults.host ?? null;
   const port = parsePort(getEnvValue(PORT_KEYS)) ?? defaults.port ?? null;
   const user = getEnvValue(USER_KEYS) ?? defaults.user ?? null;
@@ -179,7 +148,7 @@ function buildPoolConfig(): { config: PoolConfig; configKey: string } {
     };
   }
 
-  const defaults = getDevDefaults();
+  const defaults = getPostgresDevDefaults();
   const host = getEnvValue(HOST_KEYS) ?? defaults.host;
   const port = parsePort(getEnvValue(PORT_KEYS)) ?? defaults.port;
   const user = getEnvValue(USER_KEYS) ?? defaults.user;

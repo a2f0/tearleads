@@ -21,7 +21,6 @@ export interface StoredEmail {
 export interface SmtpListenerConfig {
   port: number;
   host?: string;
-  redisUrl?: string;
   maxMessageSize?: number;
   recipientDomains?: string[];
   /**

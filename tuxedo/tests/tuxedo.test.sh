@@ -133,18 +133,6 @@ assert_eq "../tearleads-shared/.test_files" "$(readlink "$WORKSPACE_DIR/.test_fi
 tuxedo_prepare_shared_dirs
 [ -L "$MAIN_DIR/.secrets" ] || fail "expected tearleads-main .secrets symlink"
 [ -L "$BASE_DIR/tearleads2/.test_files" ] || fail "expected tearleads2 .test_files symlink"
-[ -d "$SHARED_DIR/packages/api" ] || fail "expected shared packages/api directory"
-
-# Test .env symlink for packages/api
-# tuxedo_prepare_shared_dirs creates packages/api dir and touches .env, so just add content
-echo "PORT=5001" > "$SHARED_DIR/packages/api/.env"
-mkdir -p "$WORKSPACE_DIR/packages/api"
-
-ensure_symlinks "$WORKSPACE_DIR"
-
-[ -L "$WORKSPACE_DIR/packages/api/.env" ] || fail "expected packages/api/.env symlink"
-assert_eq "../../../tearleads-shared/packages/api/.env" "$(readlink "$WORKSPACE_DIR/packages/api/.env")"
-
 # sync_vscode_title sets @workspace option for a window (enables dynamic titles)
 # Verify the function exists and handles missing tmux session gracefully
 sync_vscode_title "$WORKSPACE_DIR" "tearleads2"

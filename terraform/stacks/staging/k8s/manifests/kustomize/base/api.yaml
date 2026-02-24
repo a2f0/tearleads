@@ -54,8 +54,6 @@ spec:
               value: smtp-listener
             - name: SMTP_PORT
               value: "25"
-            - name: EMAIL_STORAGE_BACKEND
-              value: "vfs"
           resources:
             requests:
               memory: "128Mi"

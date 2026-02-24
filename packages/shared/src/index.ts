@@ -32,6 +32,8 @@ export * from './mediaDragData.js';
 export * from './mlsTypes.js';
 // OpenRouter model options
 export * from './openrouter.js';
+// Postgres dev-mode defaults
+export * from './postgresDefaults.js';
 // Tree utilities
 export * from './tree/index.js';
 // Type guards
