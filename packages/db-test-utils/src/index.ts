@@ -26,17 +26,46 @@ export {
 } from './createWrapper.js';
 // WASM location
 export { locateWasmDir, wasmFilesExist } from './locateWasm.js';
-export type { SeedFolderOptions, SeedVfsItemOptions } from './seeding/index.js';
+export type {
+  HarnessSqlClient,
+  SeedFolderOptions,
+  SeedHarnessAccountInput,
+  SeedHarnessAccountResult,
+  SeedVfsItemOptions
+} from './seeding/index.js';
+export type {
+  HarnessActor,
+  HarnessActorDefinition,
+  HarnessActorsResult,
+  HarnessGroup,
+  HarnessGroupDefinition,
+  HarnessGroupSeedInput,
+  HarnessOrganization,
+  HarnessOrganizationDefinition,
+  HarnessOrganizationSeedInput,
+  SeedVfsScenarioInput,
+  SeedVfsScenarioResult
+} from './seeding/index.js';
 
 // Seeding utilities
 export {
+  buildPersonalOrganizationId,
+  buildPersonalOrganizationName,
+  buildRevenueCatAppUserId,
+  buildVfsKeySetupFromPassword,
   classicTestMigrations,
   commonTestMigrations,
   contactsTestMigrations,
+  createHarnessActors,
+  createHarnessGroup,
+  createHarnessOrganization,
   ensureVfsRoot,
+  hashPassword,
   seedFolder,
+  seedHarnessAccount,
   seedVfsItem,
   seedVfsLink,
+  seedVfsScenario,
   VFS_ROOT_ID,
   vfsTestMigrations
 } from './seeding/index.js';

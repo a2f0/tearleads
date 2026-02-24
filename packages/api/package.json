@@ -46,6 +46,7 @@
     "swagger-jsdoc": "6.2.8"
   },
   "devDependencies": {
+    "@tearleads/db-test-utils": "workspace:*",
     "@types/cors": "2.8.19",
     "@types/express": "5.0.6",
     "@types/jsonwebtoken": "9.0.10",

@@ -5,7 +5,7 @@ import {
   splitPublicKey
 } from '@tearleads/shared';
 import { describe, expect, it } from 'vitest';
-import { type HarnessSqlClient, seedHarnessAccount } from './accountSeed.js';
+import { type HarnessSqlClient, seedHarnessAccount } from './pgAccount.js';
 
 describe('seedHarnessAccount', () => {
   it('persists onboarding keys derived from the account password', async () => {

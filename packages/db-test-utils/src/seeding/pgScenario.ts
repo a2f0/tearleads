@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import { buildRevenueCatAppUserId } from '../billing.js';
 import {
   type HarnessSqlClient,
   type SeedHarnessAccountInput,
   type SeedHarnessAccountResult,
   seedHarnessAccount
-} from './accountSeed.js';
+} from './pgAccount.js';
+import { buildRevenueCatAppUserId } from './pgAccountHelpers.js';
+
+export type { HarnessSqlClient };
 
 export interface HarnessActorDefinition {
   alias: string;

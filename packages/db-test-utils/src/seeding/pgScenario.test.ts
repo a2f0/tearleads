@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { HarnessSqlClient } from './accountSeed.js';
-import { createHarnessActors, seedVfsScenario } from './vfsScenarioHarness.js';
+import type { HarnessSqlClient } from './pgAccount.js';
+import { createHarnessActors, seedVfsScenario } from './pgScenario.js';
 
 function createSqlRecorder(): {
   client: HarnessSqlClient;

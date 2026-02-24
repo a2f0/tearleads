@@ -3,7 +3,7 @@ import type { Command } from 'commander';
 import { buildPostgresConnectionLabel } from '../lib/cliPostgres.js';
 import { buildCreateAccountInput } from '../lib/createAccount.js';
 import { closePostgresPool, getPostgresPool } from '../lib/postgres.js';
-import { seedHarnessAccount } from '../lib/testHarness/accountSeed.js';
+import { seedHarnessAccount } from '@tearleads/db-test-utils';
 
 type ParsedArgs = {
   email: string | null;
