@@ -125,7 +125,15 @@ if [ "$1" = "rev-parse" ] && [ "$2" = "--show-toplevel" ]; then
   pwd
   exit 0
 fi
+if [ "$1" = "rev-parse" ] && [ "$2" = "--abbrev-ref" ] && [ "$3" = "HEAD" ]; then
+  echo "feature/test"
+  exit 0
+fi
 if [ "$1" = "fetch" ] && [ "$2" = "origin" ]; then
+  exit 0
+fi
+if [ "$1" = "remote" ] && [ "$2" = "get-url" ] && [ "$3" = "origin" ]; then
+  echo "git@github.com:a2f0/tearleads.git"
   exit 0
 fi
 if [ "$1" = "rev-parse" ] && [ "$2" = "HEAD" ]; then
@@ -145,7 +153,7 @@ exit 1
     PATH: `${fakeBinDir}:${pathEnv}`
   });
 
-  assert.equal(result.status, 0);
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   const parsed = JSON.parse(readStdout(result));
   assert.equal(parsed.status, 'synced');
   assert.equal(parsed.synced, true);
@@ -173,6 +181,10 @@ if [ "$1" = "branch" ] && [ "$2" = "--show-current" ]; then
 fi
 if [ "$1" = "rev-parse" ] && [ "$2" = "--show-toplevel" ]; then
   pwd
+  exit 0
+fi
+if [ "$1" = "rev-parse" ] && [ "$2" = "--abbrev-ref" ] && [ "$3" = "HEAD" ]; then
+  echo "test-branch"
   exit 0
 fi
 if [ "$1" = "rev-parse" ] && [ "$2" = "HEAD" ]; then
@@ -205,7 +217,7 @@ exit 1
     PATH: `${fakeBinDir}:${pathEnv}`
   });
 
-  assert.equal(result.status, 0);
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   const parsed = JSON.parse(readStdout(result));
   assert.equal(parsed.branch, 'test-branch');
   assert.equal(parsed.head_sha, fakeSha);

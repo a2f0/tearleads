@@ -205,3 +205,19 @@ test('runImpactedTests dry-run avoids global fanout for high-risk script config 
   assert.equal(Reflect.get(parsed, 'fullRun'), true);
   assert.deepEqual(Reflect.get(parsed, 'targets'), []);
 });
+
+test('runImpactedTests fails closed when ciImpact cannot diff base/head', () => {
+  const result = runImpactedTests([
+    '--base',
+    'not-a-real-ref',
+    '--head',
+    'HEAD',
+    '--dry-run',
+    '--scripts-only'
+  ]);
+  assert.equal(result.status, 1);
+  assert.match(
+    stderrText(result),
+    /unable to compute a reliable diff for impacted test selection; failing closed/
+  );
+});
