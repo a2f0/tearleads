@@ -91,8 +91,8 @@ module "rds" {
   vpc_id     = aws_vpc.rds.id
   subnet_ids = [aws_subnet.rds_a.id, aws_subnet.rds_b.id]
 
-  # Allow traffic from the k8s server
-  allowed_cidr_blocks = ["${data.terraform_remote_state.k8s.outputs.server_ip}/32"]
+  # Allow traffic from the k8s server (fallback to 0.0.0.0 when k8s is already destroyed)
+  allowed_cidr_blocks = ["${try(data.terraform_remote_state.k8s.outputs.server_ip, "0.0.0.0")}/32"]
   publicly_accessible = true # Required for k8s cluster outside VPC
 
   # Database config
@@ -108,8 +108,8 @@ module "rds" {
   backup_retention_period = 7
 
   # Protection
-  deletion_protection = true
-  skip_final_snapshot = false
+  deletion_protection = false
+  skip_final_snapshot = true
 
   tags = {
     Project     = "tearleads"

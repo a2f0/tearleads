@@ -1,5 +1,6 @@
 resource "aws_s3_bucket" "vfs_blobs" {
-  bucket = "tearleads-prod-vfs-blobs"
+  bucket        = "tearleads-prod-vfs-blobs"
+  force_destroy = true
 
   tags = {
     Project     = "tearleads"
