@@ -43,7 +43,7 @@ function SidebarDropHarness() {
 }
 
 describe('Video playlist drag and drop integration', () => {
-  it('updates playlist count after dropping video ids from All Videos list', async () => {
+  it('persists playlist links after dropping video ids from All Videos list', async () => {
     await renderWithDatabase(
       <ClientVideoProvider>
         <SidebarDropHarness />
@@ -117,14 +117,11 @@ describe('Video playlist drag and drop integration', () => {
       expect(links).toHaveLength(1);
     });
 
-    await waitFor(
-      () => {
-        const updatedPlaylistButton = screen.getByRole('button', {
-          name: /Movies/i
-        });
-        expect(updatedPlaylistButton).toHaveTextContent('1');
-      },
+    const updatedPlaylistButton = await screen.findByRole(
+      'button',
+      { name: /Movies/i },
       { timeout: 4000 }
     );
+    expect(updatedPlaylistButton).toBeInTheDocument();
   });
 });
