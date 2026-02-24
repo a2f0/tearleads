@@ -223,9 +223,8 @@ describe('useVfsKeys', () => {
 
   describe('createVfsKeySetupPayloadForOnboarding', () => {
     it('builds onboarding payload without posting to /vfs/keys', async () => {
-      const payload = await createVfsKeySetupPayloadForOnboarding(
-        'password123'
-      );
+      const payload =
+        await createVfsKeySetupPayloadForOnboarding('password123');
 
       expect(payload).toEqual({
         publicEncryptionKey: 'combined-public-key',
@@ -238,9 +237,7 @@ describe('useVfsKeys', () => {
     it('throws when recovery password is unavailable', async () => {
       await expect(
         createVfsKeySetupPayloadForOnboarding('   ')
-      ).rejects.toThrow(
-        'Recovery password is required'
-      );
+      ).rejects.toThrow('Recovery password is required');
     });
   });
 
