@@ -21,6 +21,7 @@ interface CiImpactOutput {
   materialFiles: string[];
   changedPackages: string[];
   affectedPackages: string[];
+  warnings: string[];
   jobs: CiImpactJobs;
 }
 
@@ -153,6 +154,7 @@ function parseImpact(rawJson: string): CiImpactOutput {
     materialFiles: readStringArray(parsed, 'materialFiles'),
     changedPackages: readStringArray(parsed, 'changedPackages'),
     affectedPackages: readStringArray(parsed, 'affectedPackages'),
+    warnings: readStringArray(parsed, 'warnings'),
     jobs: {
       build: {
         run: buildRun,
@@ -306,6 +308,10 @@ function runCiImpactScriptTests(): void {
   }
 }
 
+function hasUncertainDiffWarning(warnings: string[]): boolean {
+  return warnings.some((warning) => warning.startsWith('Unable to diff '));
+}
+
 function runCoverageForPackage(pkg: string): void {
   const result = spawnSync('pnpm', ['--filter', pkg, 'test:coverage'], {
     stdio: 'inherit',
@@ -357,28 +363,22 @@ function listCoveragePackages(): string[] {
   if (!fs.existsSync(packagesDir)) {
     return [];
   }
-
   const entries = fs.readdirSync(packagesDir, { withFileTypes: true });
   const workspacePackages: WorkspacePackage[] = [];
-
   for (const entry of entries) {
     if (!entry.isDirectory()) {
       continue;
     }
-
     const packageJsonPath = path.join(packagesDir, entry.name, 'package.json');
     if (!fs.existsSync(packageJsonPath)) {
       continue;
     }
-
     const pkg = readPackageJson(packageJsonPath);
     if (typeof pkg.name !== 'string') {
       continue;
     }
-
     const hasCoverageScript =
       typeof pkg.scripts?.['test:coverage'] === 'string';
-
     workspacePackages.push({
       name: pkg.name,
       hasCoverageScript
@@ -395,8 +395,13 @@ function listCoveragePackages(): string[] {
 function main(): void {
   const args = parseArgs(process.argv);
   const impact = runCiImpact(args);
+  if (hasUncertainDiffWarning(impact.warnings)) {
+    console.error(
+      'ci-impact: unable to compute a reliable diff for impacted test selection; failing closed.'
+    );
+    process.exit(1);
+  }
   const coveragePackages = listCoveragePackages();
-
   const fullRun = requiresFullCoverageRun(impact.changedFiles);
   const runScriptTests = shouldRunCiImpactScriptTests(
     impact.changedFiles,
