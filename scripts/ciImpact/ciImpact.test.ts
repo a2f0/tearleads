@@ -90,10 +90,10 @@ const scenarios: ReadonlyArray<Scenario> = [
       build: true,
       'web-e2e': true,
       'website-e2e': true,
-      'electron-e2e': true,
-      android: true,
-      'android-maestro-release': true,
-      'ios-maestro-release': true
+      'electron-e2e': false,
+      android: false,
+      'android-maestro-release': false,
+      'ios-maestro-release': false
     }
   },
   {

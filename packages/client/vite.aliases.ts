@@ -51,11 +51,6 @@ export const createViteAliases = (
       '../vehicles/package.json'
     ),
     '@tearleads/vehicles': path.resolve(dirname, '../vehicles/src/index.ts'),
-    // API openapi spec
-    '@tearleads/api/dist/openapi.json': path.resolve(
-      dirname,
-      '../api/dist/openapi.json'
-    ),
     // Workspace packages aliased to source for HMR
     '@tearleads/admin/package.json': path.resolve(dirname, '../admin/package.json'),
     '@tearleads/admin': path.resolve(dirname, '../admin/src/index.ts'),

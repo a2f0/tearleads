@@ -212,6 +212,9 @@ jobs:
       - name: Check client package boundary
         run: ./scripts/checks/checkClientBoundary.sh --from-upstream
 
+      - name: Check API package boundary
+        run: ./scripts/checks/checkApiBoundary.sh --from-upstream
+
       - name: Check preen ecosystem parity
         run: ./scripts/checks/preen/checkPreenEcosystem.sh --strict
 

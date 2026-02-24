@@ -31,6 +31,7 @@ run_step "checkBinaryFiles" ./scripts/checks/checkBinaryFiles.sh --from-upstream
 run_step "checkJs" ./scripts/checks/checkJs.sh --from-upstream
 run_step "checkFileNames" ./scripts/checks/checkFileNames.sh --from-upstream
 run_step "checkClientBoundary" ./scripts/checks/checkClientBoundary.sh --from-upstream
+run_step "checkApiBoundary" ./scripts/checks/checkApiBoundary.sh --from-upstream
 run_step "checkPreenEcosystem" ./scripts/checks/preen/checkPreenEcosystem.sh --strict
 run_step "checkCircularImports" ./scripts/checks/checkCircularImports.ts
 run_step "checkGitHubActions" ./scripts/checks/checkGithubActions.sh --from-upstream

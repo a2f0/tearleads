@@ -157,11 +157,7 @@ const scenarios: ReadonlyArray<Scenario> = [
     name: 'API-only change',
     files: ['packages/api/src/index.ts'],
     expectedWorkflows: [
-      'Android Instrumented Tests',
-      'Android Maestro Tests (Release)',
       'build',
-      'Electron E2E Tests (Release)',
-      'iOS Maestro Tests (Release)',
       'Web E2E Tests (Release)',
       'Website E2E Tests (Release)'
     ]

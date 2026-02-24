@@ -13,8 +13,7 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@analytics/*": ["./src/*"],
-      "@tearleads/api/dist/openapi.json": ["../api/dist/openapi.json"]
+      "@analytics/*": ["./src/*"]
     },
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },

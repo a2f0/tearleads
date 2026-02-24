@@ -34,14 +34,21 @@ elif [ ! -x "scripts/checks/checkFileNames.sh" ]; then
   errors+=("scripts/checks/checkFileNames.sh is not executable")
 fi
 
-# Check 5: Pre-commit hook exists and calls binary check
+# Check 5: API boundary check script exists
+if [ ! -f "scripts/checks/checkApiBoundary.sh" ]; then
+  errors+=("Missing scripts/checks/checkApiBoundary.sh")
+elif [ ! -x "scripts/checks/checkApiBoundary.sh" ]; then
+  errors+=("scripts/checks/checkApiBoundary.sh is not executable")
+fi
+
+# Check 6: Pre-commit hook exists and calls binary check
 if [ ! -f ".husky/pre-commit" ]; then
   errors+=("Missing .husky/pre-commit hook")
 elif ! grep -q "checkBinaryFiles.sh --staged" ".husky/pre-commit"; then
   errors+=(".husky/pre-commit does not call checkBinaryFiles.sh --staged")
 fi
 
-# Check 6: Pre-push hook calls binary, JS, filename, and client boundary checks
+# Check 7: Pre-push hook calls binary, JS, filename, and boundary checks
 if [ ! -f ".husky/pre-push" ]; then
   errors+=("Missing .husky/pre-push hook")
 else
@@ -57,9 +64,12 @@ else
   if ! grep -q "scripts/checks/checkClientBoundary.sh --from-upstream" ".husky/pre-push"; then
     errors+=(".husky/pre-push does not call scripts/checks/checkClientBoundary.sh --from-upstream")
   fi
+  if ! grep -q "scripts/checks/checkApiBoundary.sh --from-upstream" ".husky/pre-push"; then
+    errors+=(".husky/pre-push does not call scripts/checks/checkApiBoundary.sh --from-upstream")
+  fi
 fi
 
-# Check 7: CI workflow includes binary, JS, filename, and client boundary checks
+# Check 8: CI workflow includes binary, JS, filename, and boundary checks
 if [ ! -f ".github/workflows/build.yml" ]; then
   errors+=("Missing .github/workflows/build.yml")
 else
@@ -75,9 +85,12 @@ else
   if ! grep -q "scripts/checks/checkClientBoundary.sh" ".github/workflows/build.yml"; then
     errors+=(".github/workflows/build.yml does not include client boundary check")
   fi
+  if ! grep -q "scripts/checks/checkApiBoundary.sh" ".github/workflows/build.yml"; then
+    errors+=(".github/workflows/build.yml does not include API boundary check")
+  fi
 fi
 
-# Check 8: Agent instructions include binary/JS policy
+# Check 9: Agent instructions include binary/JS policy
 for file in CLAUDE.md AGENTS.md; do
   if [ -f "$file" ]; then
     if ! grep -q "Binary Files Policy" "$file"; then

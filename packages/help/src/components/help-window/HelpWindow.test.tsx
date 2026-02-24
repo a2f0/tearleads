@@ -1,30 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HelpWindow } from './HelpWindow';
-
-vi.mock('@tearleads/api/dist/openapi.json', () => ({
-  default: {
-    openapi: '3.0.0',
-    info: {
-      title: 'Client Docs',
-      version: '0.1.0',
-      description: 'Client docs overview.'
-    },
-    paths: {
-      '/ping': {
-        get: {
-          summary: 'Ping',
-          responses: {
-            '200': {
-              description: 'ok'
-            }
-          }
-        }
-      }
-    }
-  }
-}));
 
 vi.mock('@tearleads/ui', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@tearleads/ui')>();
@@ -74,6 +51,39 @@ vi.mock('../help-links/HelpDocumentation', () => ({
 }));
 
 describe('HelpWindow', () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          openapi: '3.0.0',
+          info: {
+            title: 'Client Docs',
+            version: '0.1.0',
+            description: 'Client docs overview.'
+          },
+          paths: {
+            '/ping': {
+              get: {
+                summary: 'Ping',
+                responses: {
+                  '200': {
+                    description: 'ok'
+                  }
+                }
+              }
+            }
+          }
+        })
+      }))
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   const docCases = [
     { label: 'CLI Reference', title: 'CLI Reference', docId: 'cliReference' },
     { label: 'CI', title: 'CI', docId: 'ci' },
@@ -134,8 +144,91 @@ describe('HelpWindow', () => {
     await user.click(screen.getByText('API Docs'));
 
     expect(screen.getByTestId('window-title')).toHaveTextContent('API Docs');
-    expect(screen.getByTestId('api-docs')).toHaveTextContent('Client Docs');
+    expect(await screen.findByTestId('api-docs')).toHaveTextContent(
+      'Client Docs'
+    );
     expect(screen.getByTestId('help-window-control-back')).toBeInTheDocument();
+  });
+
+  it('shows an error when API docs cannot be loaded', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        json: async () => ({})
+      }))
+    );
+    const user = userEvent.setup();
+    render(
+      <HelpWindow
+        id="help-1"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={1}
+      />
+    );
+
+    await user.click(screen.getByText('API Docs'));
+
+    expect(
+      await screen.findByText('Unable to load API docs.')
+    ).toBeInTheDocument();
+  });
+
+  it('shows an error when API docs payload is invalid', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          info: {
+            title: 'missing openapi'
+          }
+        })
+      }))
+    );
+    const user = userEvent.setup();
+    render(
+      <HelpWindow
+        id="help-1"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={1}
+      />
+    );
+
+    await user.click(screen.getByText('API Docs'));
+
+    expect(
+      await screen.findByText('Unable to load API docs.')
+    ).toBeInTheDocument();
+  });
+
+  it('shows an error when fetching API docs throws', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('network failure');
+      })
+    );
+    const user = userEvent.setup();
+    render(
+      <HelpWindow
+        id="help-1"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={1}
+      />
+    );
+
+    await user.click(screen.getByText('API Docs'));
+
+    expect(
+      await screen.findByText('Unable to load API docs.')
+    ).toBeInTheDocument();
   });
 
   it('navigates back to index from API docs view', async () => {
