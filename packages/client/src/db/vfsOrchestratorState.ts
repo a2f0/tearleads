@@ -49,17 +49,18 @@ export async function saveVfsOrchestratorState(
   const db = getDatabase();
   const key = buildStateKey(userId, clientId);
   const now = new Date();
+  const value = JSON.stringify(state);
   await db
     .insert(userSettings)
     .values({
       key,
-      value: JSON.stringify(state),
+      value,
       updatedAt: now
     })
     .onConflictDoUpdate({
       target: userSettings.key,
       set: {
-        value: JSON.stringify(state),
+        value,
         updatedAt: now
       }
     });
