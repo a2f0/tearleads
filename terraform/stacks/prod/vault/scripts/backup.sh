@@ -43,14 +43,16 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Check for vault token
+# Raft snapshots require elevated privileges; use root token from vault-keys.json.
+VAULT_KEYS_FILE="$REPO_ROOT/.secrets/vault-keys.json"
 if [[ -z "${VAULT_TOKEN:-}" ]]; then
-  if [[ -f ~/.vault-token ]]; then
+  if [[ -f "$VAULT_KEYS_FILE" ]]; then
+    export VAULT_TOKEN
+    VAULT_TOKEN=$(jq -r .root_token "$VAULT_KEYS_FILE")
+  elif [[ -f ~/.vault-token ]]; then
     export VAULT_TOKEN=$(cat ~/.vault-token)
-  elif [[ -n "${VAULT_USERNAME:-}" && -n "${VAULT_PASSWORD:-}" ]]; then
-    vault login -method=userpass username="$VAULT_USERNAME" password="$VAULT_PASSWORD" >/dev/null
   else
-    echo "ERROR: No VAULT_TOKEN, ~/.vault-token, or VAULT_USERNAME/VAULT_PASSWORD set."
+    echo "ERROR: No VAULT_TOKEN, ~/.vault-token, or $VAULT_KEYS_FILE found."
     exit 1
   fi
 fi
