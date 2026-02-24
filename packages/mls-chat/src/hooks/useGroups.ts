@@ -10,6 +10,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { useMlsChatApi } from '../context/index.js';
 import type { ActiveGroup } from '../lib/index.js';
 import type { MlsClient } from '../lib/mls.js';
+import {
+  recoverMissingGroupState,
+  uploadGroupStateSnapshot
+} from './groupStateSync.js';
 
 interface UseGroupsResult {
   groups: ActiveGroup[];
@@ -47,6 +51,29 @@ export function useGroups(client: MlsClient | null): UseGroupsResult {
       }
 
       const data = (await response.json()) as { groups: MlsGroup[] };
+
+      if (client) {
+        await Promise.all(
+          data.groups.map(async (group) => {
+            if (client.hasGroup(group.id)) {
+              return;
+            }
+            try {
+              await recoverMissingGroupState({
+                groupId: group.id,
+                client,
+                apiBaseUrl,
+                getAuthHeader
+              });
+            } catch (recoverError) {
+              console.warn(
+                `Failed to recover MLS state for group ${group.id}:`,
+                recoverError
+              );
+            }
+          })
+        );
+      }
 
       // Map server groups to active groups with local decryption capability
       const activeGroups: ActiveGroup[] = data.groups.map((group) => ({
@@ -112,6 +139,19 @@ export function useGroups(client: MlsClient | null): UseGroupsResult {
 
       // Initialize MLS group state locally
       await client.createGroup(data.group.id);
+      try {
+        await uploadGroupStateSnapshot({
+          groupId: data.group.id,
+          client,
+          apiBaseUrl,
+          getAuthHeader
+        });
+      } catch (uploadError) {
+        console.warn(
+          `Failed to upload MLS state for group ${data.group.id}:`,
+          uploadError
+        );
+      }
 
       // Optimistically add the new group to state so it appears immediately
       setGroups((prev) => [
