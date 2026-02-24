@@ -1,7 +1,6 @@
 #!/usr/bin/env -S pnpm exec tsx
 import fs from 'node:fs/promises';
 import process from 'node:process';
-import { isVfsCrdtCompactionRunMetric } from '../../packages/api/src/lib/vfsCrdtCompactionMetrics.js';
 
 type Args = {
   file: string | null;
@@ -18,6 +17,106 @@ type CheckSummary = {
   parseErrors: number;
   errors: string[];
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isVfsCrdtCompactionRunMetric(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const metricVersion = value['metricVersion'];
+  const event = value['event'];
+  const occurredAt = value['occurredAt'];
+  const success = value['success'];
+  const executed = value['executed'];
+  const durationMs = value['durationMs'];
+  const cutoffOccurredAt = value['cutoffOccurredAt'];
+  const estimatedRowsToDelete = value['estimatedRowsToDelete'];
+  const deletedRows = value['deletedRows'];
+  const activeClientCount = value['activeClientCount'];
+  const staleClientCount = value['staleClientCount'];
+  const staleClientIds = value['staleClientIds'];
+  const error = value['error'];
+
+  if (metricVersion !== 1 || event !== 'vfs_crdt_compaction_run') {
+    return false;
+  }
+
+  if (
+    typeof occurredAt !== 'string' ||
+    !Number.isFinite(Date.parse(occurredAt))
+  ) {
+    return false;
+  }
+
+  if (typeof success !== 'boolean' || typeof executed !== 'boolean') {
+    return false;
+  }
+
+  if (
+    typeof durationMs !== 'number' ||
+    !Number.isFinite(durationMs) ||
+    durationMs < 0
+  ) {
+    return false;
+  }
+
+  if (
+    cutoffOccurredAt !== null &&
+    (typeof cutoffOccurredAt !== 'string' ||
+      !Number.isFinite(Date.parse(cutoffOccurredAt)))
+  ) {
+    return false;
+  }
+
+  if (
+    typeof estimatedRowsToDelete !== 'number' ||
+    !Number.isFinite(estimatedRowsToDelete) ||
+    estimatedRowsToDelete < 0
+  ) {
+    return false;
+  }
+
+  if (
+    typeof deletedRows !== 'number' ||
+    !Number.isFinite(deletedRows) ||
+    deletedRows < 0
+  ) {
+    return false;
+  }
+
+  if (
+    typeof activeClientCount !== 'number' ||
+    !Number.isFinite(activeClientCount) ||
+    activeClientCount < 0
+  ) {
+    return false;
+  }
+
+  if (
+    typeof staleClientCount !== 'number' ||
+    !Number.isFinite(staleClientCount) ||
+    staleClientCount < 0
+  ) {
+    return false;
+  }
+
+  if (
+    !Array.isArray(staleClientIds) ||
+    staleClientIds.some((entry) => typeof entry !== 'string')
+  ) {
+    return false;
+  }
+
+  if (error !== null && typeof error !== 'string') {
+    return false;
+  }
+
+  return true;
+}
 
 function parseArgs(argv: string[]): Args {
   let file: string | null = null;
