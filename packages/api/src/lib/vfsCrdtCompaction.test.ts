@@ -228,7 +228,7 @@ describe('vfsCrdtCompaction plan', () => {
       estimatedRowsToDelete: 7,
       staleClientIds: [],
       note: 'test'
-    } as const;
+    };
 
     const deletedUnbounded = await executeVfsCrdtCompaction(
       { query },
