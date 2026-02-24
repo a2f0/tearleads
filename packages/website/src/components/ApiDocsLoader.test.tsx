@@ -99,7 +99,7 @@ describe('ApiDocsLoader', () => {
   });
 
   it('does not update state after unmount before fetch resolves', async () => {
-    let resolveFetch: ((value: Response) => void) | null = null;
+    let resolveFetch!: (value: Response) => void;
     vi.stubGlobal(
       'fetch',
       vi.fn(
@@ -113,7 +113,7 @@ describe('ApiDocsLoader', () => {
     const { unmount } = render(<ApiDocsLoader />);
     unmount();
 
-    resolveFetch?.({
+    resolveFetch({
       ok: false,
       json: async () => ({})
     } as Response);
@@ -123,7 +123,7 @@ describe('ApiDocsLoader', () => {
   });
 
   it('does not update state after unmount before json resolves', async () => {
-    let resolveJson: ((value: unknown) => void) | null = null;
+    let resolveJson!: (value: unknown) => void;
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({
@@ -139,7 +139,7 @@ describe('ApiDocsLoader', () => {
     await Promise.resolve();
     unmount();
 
-    resolveJson?.({
+    resolveJson({
       openapi: '3.0.0',
       info: { title: 'Ignored', version: '1.0.0' },
       paths: {}
@@ -150,7 +150,7 @@ describe('ApiDocsLoader', () => {
   });
 
   it('does not set loadFailed after unmount when fetch later throws', async () => {
-    let rejectFetch: ((reason?: unknown) => void) | null = null;
+    let rejectFetch!: (reason?: unknown) => void;
     vi.stubGlobal(
       'fetch',
       vi.fn(
@@ -164,7 +164,7 @@ describe('ApiDocsLoader', () => {
     const { unmount } = render(<ApiDocsLoader />);
     unmount();
 
-    rejectFetch?.(new Error('late failure'));
+    rejectFetch(new Error('late failure'));
 
     await Promise.resolve();
     expect(fetch).toHaveBeenCalledTimes(1);
