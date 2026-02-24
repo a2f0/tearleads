@@ -10,7 +10,7 @@ The package provides reusable harness classes that compose in-memory sync infras
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────┐
 │                ScenarioHarness                  │
 │  Orchestrates lifecycle, deterministic clocks   │
