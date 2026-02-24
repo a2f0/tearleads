@@ -92,6 +92,11 @@ ensure_cloudflare_tunnel_secret() {
 "$SCRIPT_DIR/kubeconfig.sh" "$KUBECONFIG_FILE"
 export KUBECONFIG="$KUBECONFIG_FILE"
 
+echo "Syncing kubeconfig to GitHub Actions secret..."
+REPO="$(cd "$REPO_ROOT" && git remote get-url origin | sed 's|.*github.com[:/]||;s|\.git$||')"
+base64 < "$KUBECONFIG_FILE" | gh secret set STAGING_KUBECONFIG_B64 -R "$REPO"
+echo "STAGING_KUBECONFIG_B64 secret updated."
+
 echo "Waiting for Kubernetes node readiness (timeout: $K8S_READY_TIMEOUT)..."
 kubectl wait --for=condition=Ready nodes --all --timeout="$K8S_READY_TIMEOUT"
 

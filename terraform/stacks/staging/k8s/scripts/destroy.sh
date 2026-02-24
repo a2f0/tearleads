@@ -17,3 +17,11 @@ echo "Press Ctrl+C to cancel, or wait 5 seconds to continue..."
 sleep 5
 
 terraform -chdir="$STACK_DIR" destroy "$@"
+
+echo "Removing STAGING_KUBECONFIG_B64 from GitHub Actions secrets..."
+REPO="$(cd "$REPO_ROOT" && git remote get-url origin | sed 's|.*github.com[:/]||;s|\.git$||')"
+if gh secret delete STAGING_KUBECONFIG_B64 -R "$REPO" 2>/dev/null; then
+  echo "STAGING_KUBECONFIG_B64 secret removed."
+else
+  echo "STAGING_KUBECONFIG_B64 secret was not set (nothing to remove)."
+fi
