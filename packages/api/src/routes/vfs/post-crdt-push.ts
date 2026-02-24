@@ -6,6 +6,7 @@ import type {
 import type { Request, Response, Router as RouterType } from 'express';
 import type { PoolClient } from 'pg';
 import { getPostgresPool } from '../../lib/postgres.js';
+import { publishVfsContainerCursorBump } from '../../lib/vfsSyncChannels.js';
 import {
   CRDT_CLIENT_PUSH_SOURCE_TABLE,
   type MaxWriteIdRow,
@@ -23,6 +24,57 @@ interface ItemOwnerRow {
 
 interface ExistingSourceRow {
   id: string;
+}
+
+interface InsertedCrdtOpRow {
+  id: string;
+  occurred_at: Date | string;
+}
+
+interface VfsContainerCursorNotification {
+  containerId: string;
+  changedAt: string;
+  changeId: string;
+}
+
+function toIsoString(value: Date | string): string | null {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  const parsedMs = Date.parse(value);
+  if (!Number.isFinite(parsedMs)) {
+    return null;
+  }
+
+  return new Date(parsedMs).toISOString();
+}
+
+function compareCursor(
+  left: Pick<VfsContainerCursorNotification, 'changedAt' | 'changeId'>,
+  right: Pick<VfsContainerCursorNotification, 'changedAt' | 'changeId'>
+): number {
+  const leftMs = Date.parse(left.changedAt);
+  const rightMs = Date.parse(right.changedAt);
+
+  if (leftMs < rightMs) {
+    return -1;
+  }
+  if (leftMs > rightMs) {
+    return 1;
+  }
+
+  return left.changeId.localeCompare(right.changeId);
+}
+
+function resolveContainerId(operation: VfsCrdtPushOperation): string | null {
+  if (operation.opType === 'link_add' || operation.opType === 'link_remove') {
+    const parentId = operation.parentId?.trim();
+    return parentId && parentId.length > 0 ? parentId : null;
+  }
+
+  const itemId = operation.itemId.trim();
+  return itemId.length > 0 ? itemId : null;
 }
 
 async function applyCanonicalItemOperation(
@@ -171,6 +223,10 @@ const postCrdtPushHandler = async (req: Request, res: Response) => {
     inTransaction = true;
 
     const results: VfsCrdtPushResult[] = [];
+    const containerNotifications = new Map<
+      string,
+      VfsContainerCursorNotification
+    >();
     const parsedOperations = parsedPayload.value.operations;
     const validOperations: VfsCrdtPushOperation[] = [];
     for (const entry of parsedOperations) {
@@ -282,7 +338,7 @@ const postCrdtPushHandler = async (req: Request, res: Response) => {
         maxWriteRow?.max_occurred_at ?? null
       );
 
-      const insertResult = await client.query(
+      const insertResult = await client.query<InsertedCrdtOpRow>(
         `
         INSERT INTO vfs_crdt_ops (
           id,
@@ -321,6 +377,7 @@ const postCrdtPushHandler = async (req: Request, res: Response) => {
           $15::text,
           $16::text
         )
+        RETURNING id, occurred_at
         `,
         [
           operation.itemId,
@@ -344,6 +401,27 @@ const postCrdtPushHandler = async (req: Request, res: Response) => {
 
       const applied = (insertResult.rowCount ?? 0) > 0;
       if (applied) {
+        const insertedRow = insertResult.rows?.[0];
+        const containerId = resolveContainerId(operation);
+        const changedAt = insertedRow
+          ? toIsoString(insertedRow.occurred_at)
+          : null;
+        const changeId = insertedRow?.id?.trim() ?? '';
+        if (containerId && changedAt && changeId.length > 0) {
+          const nextNotification: VfsContainerCursorNotification = {
+            containerId,
+            changedAt,
+            changeId
+          };
+          const existingNotification = containerNotifications.get(containerId);
+          if (
+            !existingNotification ||
+            compareCursor(nextNotification, existingNotification) > 0
+          ) {
+            containerNotifications.set(containerId, nextNotification);
+          }
+        }
+
         await applyCanonicalItemOperation(client, claims.sub, operation);
       }
 
@@ -360,6 +438,24 @@ const postCrdtPushHandler = async (req: Request, res: Response) => {
       clientId: parsedPayload.value.clientId,
       results
     };
+
+    for (const notification of containerNotifications.values()) {
+      try {
+        await publishVfsContainerCursorBump({
+          containerId: notification.containerId,
+          changedAt: notification.changedAt,
+          changeId: notification.changeId,
+          actorId: claims.sub,
+          sourceClientId: parsedPayload.value.clientId
+        });
+      } catch (publishError) {
+        console.error('Failed to publish VFS container cursor bump:', {
+          containerId: notification.containerId,
+          error: publishError
+        });
+      }
+    }
+
     res.status(200).json(response);
   } catch (error) {
     if (inTransaction) {
