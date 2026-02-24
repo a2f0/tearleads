@@ -98,7 +98,7 @@ try_fetch_secrets() {
 }
 
 bootstrap_api_dev_env() {
-  setup_api_env_script="${REPO_ROOT}/scripts/setupApiDevEnv.sh"
+  setup_api_env_script="${REPO_ROOT}/scripts/workstationBootstrap/setupApiDevEnv.sh"
   if [ ! -f "${setup_api_env_script}" ]; then
     return
   fi

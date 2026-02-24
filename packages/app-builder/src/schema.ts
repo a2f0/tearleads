@@ -151,7 +151,7 @@ export const AppConfigSchema = z.object({
   store: AppStoreConfigSchema,
   assets: AppAssetsSchema.optional(),
   monitoring: AppMonitoringSchema.optional(),
-  translations: z.record(z.string()).optional(),
+  translations: z.record(z.string(), z.string()).optional(),
   keychainPrefix: z.string().optional()
 });
 
@@ -170,6 +170,6 @@ export function validateAppConfig(
  */
 export function safeValidateAppConfig(
   config: unknown
-): z.SafeParseReturnType<unknown, z.infer<typeof AppConfigSchema>> {
+): ReturnType<typeof AppConfigSchema.safeParse> {
   return AppConfigSchema.safeParse(config);
 }
