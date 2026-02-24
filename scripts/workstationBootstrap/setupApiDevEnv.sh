@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-ROOT_DIR="$(cd -- "$(dirname -- "$0")/.." && pwd -P)"
+ROOT_DIR="$(cd -- "$(dirname -- "$0")/../.." && pwd -P)"
 API_DIR="${ROOT_DIR}/packages/api"
 EXAMPLE_ENV_FILE="${API_DIR}/.env.example"
 API_ENV_LINK_PATH="${API_DIR}/.env"
