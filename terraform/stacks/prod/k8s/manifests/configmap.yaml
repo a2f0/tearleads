@@ -6,9 +6,10 @@ metadata:
 data:
   NODE_ENV: "production"
   PORT: "5001"
-  # RDS endpoint - get from: terraform -chdir=terraform/stacks/prod/rds output address
-  POSTGRES_HOST: "tearleads-prod.xxxxx.us-east-1.rds.amazonaws.com"
+  # RDS endpoint - rendered at deploy time from terraform output
+  POSTGRES_HOST: "${POSTGRES_HOST}"
   POSTGRES_PORT: "5432"
   POSTGRES_USER: "postgres"
   POSTGRES_DATABASE: "tearleads"
+  POSTGRES_SSL: "1"
   REDIS_URL: "redis://redis:6379"
