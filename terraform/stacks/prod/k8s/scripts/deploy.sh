@@ -16,7 +16,10 @@ require_secret_env_vars() {
   local missing=()
   local required_vars=(
     "JWT_SECRET"
+    "OPENROUTER_API_KEY"
     "POSTGRES_PASSWORD"
+    "VFS_BLOB_S3_ACCESS_KEY_ID"
+    "VFS_BLOB_S3_SECRET_ACCESS_KEY"
   )
 
   local var_name
@@ -50,6 +53,12 @@ RDS_STACK_DIR="$REPO_ROOT/terraform/stacks/prod/rds"
 export POSTGRES_HOST
 POSTGRES_HOST="$(terraform -chdir="$RDS_STACK_DIR" output -raw address)"
 echo "RDS endpoint: $POSTGRES_HOST"
+
+# Read S3 bucket name from the prod/s3 terraform stack
+S3_STACK_DIR="$REPO_ROOT/terraform/stacks/prod/s3"
+export VFS_BLOB_S3_BUCKET
+VFS_BLOB_S3_BUCKET="$(terraform -chdir="$S3_STACK_DIR" output -raw bucket_name)"
+echo "S3 bucket: $VFS_BLOB_S3_BUCKET"
 
 KUBECONFIG="${KUBECONFIG:-$HOME/.kube/config-prod-k8s}"
 
