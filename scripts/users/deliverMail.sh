@@ -1,8 +1,8 @@
 #!/bin/sh
 # Usage:
-#   ./scripts/deliverMail.sh
-#   SMTP_HOST=localhost SMTP_PORT=25 SMTP_TO=test@localhost ./scripts/deliverMail.sh
-#   SMTP_TO_USER_ID=<uuid> SMTP_TO_DOMAIN=smoke.local ./scripts/deliverMail.sh
+#   ./scripts/users/deliverMail.sh
+#   SMTP_HOST=localhost SMTP_PORT=25 SMTP_TO=test@localhost ./scripts/users/deliverMail.sh
+#   SMTP_TO_USER_ID=<uuid> SMTP_TO_DOMAIN=smoke.local ./scripts/users/deliverMail.sh
 set -eu
 
 HOST=${SMTP_HOST:-localhost}
