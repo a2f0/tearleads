@@ -84,6 +84,9 @@ function loadSecretsEnv(): void {
     }
 
     const key = withoutExport.slice(0, eqIndex).trim();
+    if (!key) {
+      continue;
+    }
     let value = withoutExport.slice(eqIndex + 1).trim();
 
     if (
