@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiDocsLoader } from './ApiDocsLoader';
 
@@ -47,7 +47,7 @@ describe('ApiDocsLoader', () => {
     );
   });
 
-  it('keeps loading state when response is not ok', async () => {
+  it('shows error when response is not ok', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({
@@ -58,12 +58,12 @@ describe('ApiDocsLoader', () => {
 
     render(<ApiDocsLoader />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Loading API docs...')).toBeInTheDocument();
-    });
+    expect(
+      await screen.findByText('Unable to load API docs.')
+    ).toBeInTheDocument();
   });
 
-  it('keeps loading state when payload is not an OpenAPI doc', async () => {
+  it('shows error when payload is not an OpenAPI doc', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({
@@ -78,12 +78,12 @@ describe('ApiDocsLoader', () => {
 
     render(<ApiDocsLoader />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Loading API docs...')).toBeInTheDocument();
-    });
+    expect(
+      await screen.findByText('Unable to load API docs.')
+    ).toBeInTheDocument();
   });
 
-  it('keeps loading state when fetch fails', async () => {
+  it('shows error when fetch fails', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => {
@@ -93,8 +93,8 @@ describe('ApiDocsLoader', () => {
 
     render(<ApiDocsLoader />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Loading API docs...')).toBeInTheDocument();
-    });
+    expect(
+      await screen.findByText('Unable to load API docs.')
+    ).toBeInTheDocument();
   });
 });

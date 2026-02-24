@@ -69,6 +69,7 @@ export function HelpWindow({
 }: HelpWindowProps) {
   const [view, setView] = useState<HelpView>('index');
   const [openapiSpec, setOpenapiSpec] = useState<ApiSpec | null>(null);
+  const [apiDocsLoadFailed, setApiDocsLoadFailed] = useState(false);
 
   // Navigate to a specific help doc when requested from another window
   useEffect(() => {
@@ -85,15 +86,30 @@ export function HelpWindow({
     void (async () => {
       try {
         const response = await fetch('/v1/openapi.json');
-        if (!response.ok || cancelled) {
+        if (cancelled) {
+          return;
+        }
+
+        if (!response.ok) {
+          setApiDocsLoadFailed(true);
           return;
         }
 
         const spec: unknown = await response.json();
+        if (cancelled) {
+          return;
+        }
         if (isApiSpec(spec)) {
           setOpenapiSpec(spec);
+          return;
         }
-      } catch {}
+
+        setApiDocsLoadFailed(true);
+      } catch {
+        if (!cancelled) {
+          setApiDocsLoadFailed(true);
+        }
+      }
     })();
 
     return () => {
@@ -178,6 +194,10 @@ export function HelpWindow({
             <div className="h-full overflow-auto">
               {openapiSpec ? (
                 <ApiDocs spec={openapiSpec} />
+              ) : apiDocsLoadFailed ? (
+                <div className="text-danger text-sm">
+                  Unable to load API docs.
+                </div>
               ) : (
                 <div className="text-muted-foreground text-sm">
                   Loading API docs...
