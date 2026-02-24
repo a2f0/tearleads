@@ -97,14 +97,14 @@ jobs:
       - name: Build packages
         run: pnpm build
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_API_URL: https://api.${{ secrets.DEPLOY_DOMAIN_PROD }}/v1
 
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy.key
           chmod 600 ~/.ssh/deploy.key
-          ssh-keyscan -H ${{ secrets.DEPLOY_DOMAIN }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.DEPLOY_DOMAIN_PROD }} >> ~/.ssh/known_hosts
 
       - name: Deploy Website
         run: |
@@ -112,8 +112,8 @@ jobs:
           # and must persist indefinitely to avoid 404s for cached HTML references
           rsync -avz --delete --filter='P /_astro/**' -e "ssh -vvv -i ~/.ssh/deploy.key" \
             packages/website/dist/ \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/var/www/www/
-          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN_PROD }}:/var/www/www/
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN_PROD }} \
             "chgrp -R www-data /var/www/www && chmod -R u=rwX,g=rX,o= /var/www/www"
 
       - name: Deploy Client
@@ -122,8 +122,8 @@ jobs:
           # and must persist indefinitely to avoid 404s for cached HTML references
           rsync -avz --delete --filter='P /assets/**' -e "ssh -vvv -i ~/.ssh/deploy.key" \
             packages/client/dist/ \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/var/www/app/
-          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN_PROD }}:/var/www/app/
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN_PROD }} \
             "chgrp -R www-data /var/www/app && chmod -R u=rwX,g=rX,o= /var/www/app"
 
       - name: Build API bundle and CLI
@@ -131,22 +131,22 @@ jobs:
 
       - name: Deploy API
         run: |
-          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN_PROD }} \
             "sudo mkdir -p /opt/tearleads-api/dist && sudo chown -R ${{ secrets.DEPLOY_USER }}:www-data /opt/tearleads-api"
           rsync -avz --delete -e "ssh -vvv -i ~/.ssh/deploy.key" \
             packages/api/dist/ \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/opt/tearleads-api/dist/
-          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN_PROD }}:/opt/tearleads-api/dist/
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN_PROD }} \
             "chgrp -R www-data /opt/tearleads-api && chmod -R u=rwX,g=rX,o= /opt/tearleads-api"
 
       - name: Run database migrations
         run: |
-          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN_PROD }} \
             "/usr/local/bin/apiCli.sh migrate"
 
       - name: Restart API service
         run: |
-          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN_PROD }} \
             "sudo systemctl restart tearleads-api && sudo systemctl --no-pager status tearleads-api"
 
       - name: Build SMTP Listener bundle
@@ -154,15 +154,15 @@ jobs:
 
       - name: Deploy SMTP Listener
         run: |
-          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN_PROD }} \
             "sudo mkdir -p /opt/tearleads-smtp-listener/dist && sudo chown -R ${{ secrets.DEPLOY_USER }}:www-data /opt/tearleads-smtp-listener"
           rsync -avz --delete -e "ssh -vvv -i ~/.ssh/deploy.key" \
             packages/smtp-listener/dist/ \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/opt/tearleads-smtp-listener/dist/
-          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN_PROD }}:/opt/tearleads-smtp-listener/dist/
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN_PROD }} \
             "chgrp -R www-data /opt/tearleads-smtp-listener && chmod -R u=rwX,g=rX,o= /opt/tearleads-smtp-listener"
 
       - name: Restart SMTP Listener service
         run: |
-          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN_PROD }} \
             "sudo systemctl restart tearleads-smtp-listener && sudo systemctl --no-pager status tearleads-smtp-listener"

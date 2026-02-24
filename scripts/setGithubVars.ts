@@ -21,9 +21,7 @@ const requiredEnvVars = [
   'ANDROID_KEYSTORE_KEY_PASS',
   'ANTHROPIC_API_KEY',
   'OPENROUTER_API_KEY',
-  'TF_VAR_domain',
-  'TF_VAR_server_username',
-  'VITE_API_URL'
+  'TF_VAR_server_username'
 ] as const;
 
 const managedSecretNames = [
@@ -43,9 +41,9 @@ const managedSecretNames = [
   'ANTHROPIC_API_KEY',
   'OPENROUTER_API_KEY',
   'DEPLOY_SSH_KEY',
-  'DEPLOY_DOMAIN',
-  'DEPLOY_USER',
-  'VITE_API_URL'
+  'DEPLOY_DOMAIN_PROD',
+  'DEPLOY_DOMAIN_STAGING',
+  'DEPLOY_USER'
 ] as const;
 
 const optionalGithubVars = [
@@ -53,7 +51,7 @@ const optionalGithubVars = [
   'AWS_PROD_ECR_ROLE_ARN'
 ] as const;
 
-const secretsEnvFile = '.secrets/env';
+const secretsEnvFile = '.secrets/root.env';
 
 interface SecretListItem {
   name?: string;
@@ -100,6 +98,39 @@ function loadSecretsEnv(): void {
       process.env[key] = value;
     }
   }
+}
+
+function readEnvValue(filePath: string, key: string): string {
+  if (!existsSync(filePath)) {
+    throw new Error(`${filePath} not found`);
+  }
+  const content = readFileSync(filePath, 'utf8');
+  for (const rawLine of content.split('\n')) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) {
+      continue;
+    }
+    const withoutExport = line.startsWith('export ')
+      ? line.slice('export '.length)
+      : line;
+    const eqIndex = withoutExport.indexOf('=');
+    if (eqIndex === -1) {
+      continue;
+    }
+    const k = withoutExport.slice(0, eqIndex).trim();
+    if (k !== key) {
+      continue;
+    }
+    let value = withoutExport.slice(eqIndex + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    return value;
+  }
+  throw new Error(`${key} not found in ${filePath}`);
 }
 
 function getRequiredEnv(name: (typeof requiredEnvVars)[number]): string {
@@ -181,6 +212,9 @@ function main(): void {
     requiredEnvVars.map((name) => [name, getRequiredEnv(name)])
   ) as Record<(typeof requiredEnvVars)[number], string>;
 
+  const prodDomain = readEnvValue('.secrets/prod.env', 'TF_VAR_domain');
+  const stagingDomain = readEnvValue('.secrets/staging.env', 'TF_VAR_domain');
+
   const p8File = `.secrets/AuthKey_${env.APP_STORE_CONNECT_KEY_ID}.p8`;
   const keystoreFile = '.secrets/tearleads-release.keystore';
   const googlePlayJsonFile = '.secrets/google-play-service-account.json';
@@ -235,9 +269,9 @@ function main(): void {
     { name: 'ANTHROPIC_API_KEY', value: env.ANTHROPIC_API_KEY },
     { name: 'OPENROUTER_API_KEY', value: env.OPENROUTER_API_KEY },
     { name: 'DEPLOY_SSH_KEY', value: deploySshKey },
-    { name: 'DEPLOY_DOMAIN', value: env.TF_VAR_domain },
-    { name: 'DEPLOY_USER', value: env.TF_VAR_server_username },
-    { name: 'VITE_API_URL', value: env.VITE_API_URL }
+    { name: 'DEPLOY_DOMAIN_PROD', value: prodDomain },
+    { name: 'DEPLOY_DOMAIN_STAGING', value: stagingDomain },
+    { name: 'DEPLOY_USER', value: env.TF_VAR_server_username }
   ];
 
   for (const secret of secrets) {
