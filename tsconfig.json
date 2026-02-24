@@ -50,6 +50,8 @@
     { "path": "./packages/msw" },
     { "path": "./packages/msw/tsconfig.test.json" },
     { "path": "./packages/mls-chat" },
+    { "path": "./packages/bob-and-alice" },
+    { "path": "./packages/bob-and-alice/tsconfig.test.json" },
     { "path": "./packages/local-write-orchestrator" },
     { "path": "./packages/local-write-orchestrator/tsconfig.test.json" },
     { "path": "./packages/smtp-listener" },

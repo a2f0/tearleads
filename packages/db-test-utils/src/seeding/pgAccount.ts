@@ -6,12 +6,12 @@ import {
   generateKeyPair,
   serializeKeyPair
 } from '@tearleads/shared';
-import { buildRevenueCatAppUserId } from '../billing.js';
 import {
   buildPersonalOrganizationId,
-  buildPersonalOrganizationName
-} from '../createAccount.js';
-import { hashPassword } from '../passwords.js';
+  buildPersonalOrganizationName,
+  buildRevenueCatAppUserId,
+  hashPassword
+} from './pgAccountHelpers.js';
 
 export interface HarnessSqlClient {
   query(
@@ -34,7 +34,7 @@ export interface SeedHarnessAccountResult {
   createdVfsOnboardingKeys: boolean;
 }
 
-async function buildVfsKeySetupFromPassword(
+export async function buildVfsKeySetupFromPassword(
   password: string
 ): Promise<VfsKeySetupRequest> {
   const keyPair = generateKeyPair();
