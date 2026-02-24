@@ -27,13 +27,6 @@ export {
 // WASM location
 export { locateWasmDir, wasmFilesExist } from './locateWasm.js';
 export type {
-  HarnessSqlClient,
-  SeedFolderOptions,
-  SeedHarnessAccountInput,
-  SeedHarnessAccountResult,
-  SeedVfsItemOptions
-} from './seeding/index.js';
-export type {
   HarnessActor,
   HarnessActorDefinition,
   HarnessActorsResult,
@@ -43,6 +36,11 @@ export type {
   HarnessOrganization,
   HarnessOrganizationDefinition,
   HarnessOrganizationSeedInput,
+  HarnessSqlClient,
+  SeedFolderOptions,
+  SeedHarnessAccountInput,
+  SeedHarnessAccountResult,
+  SeedVfsItemOptions,
   SeedVfsScenarioInput,
   SeedVfsScenarioResult
 } from './seeding/index.js';

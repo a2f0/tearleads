@@ -40,8 +40,7 @@ export interface AssertServerHasLinkInput {
 export function assertServerHasLink(input: AssertServerHasLinkInput): void {
   const snapshot = input.server.snapshot();
   const match = snapshot.links.find(
-    (link) =>
-      link.parentId === input.parentId && link.childId === input.childId
+    (link) => link.parentId === input.parentId && link.childId === input.childId
   );
   if (!match) {
     throw new Error(
@@ -76,14 +75,10 @@ export function assertLocalVfsRegistryHas(
   input: AssertLocalVfsRegistryHasInput
 ): void {
   const snapshot = input.actor.syncSnapshot();
-  const hasAcl = snapshot.acl.some(
-    (entry) => entry.itemId === input.itemId
+  const hasAcl = snapshot.acl.some((entry) => entry.itemId === input.itemId);
+  const hasLink = snapshot.links.some(
+    (link) => link.parentId === input.itemId || link.childId === input.itemId
   );
-  const hasLink =
-    snapshot.links.some(
-      (link) =>
-        link.parentId === input.itemId || link.childId === input.itemId
-    );
 
   if (!hasAcl && !hasLink) {
     throw new Error(
@@ -99,9 +94,7 @@ export function assertActorFeedReplayHas(
   itemId: string
 ): void {
   const snapshot = actor.syncSnapshot();
-  const hasAcl = snapshot.acl.some(
-    (entry) => entry.itemId === itemId
-  );
+  const hasAcl = snapshot.acl.some((entry) => entry.itemId === itemId);
   const hasLink = snapshot.links.some(
     (link) => link.parentId === itemId || link.childId === itemId
   );

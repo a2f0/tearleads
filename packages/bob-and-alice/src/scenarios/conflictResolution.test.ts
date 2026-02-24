@@ -109,12 +109,8 @@ describe('conflictResolution', () => {
     // Verify both actors see all 4 ACL entries
     const aliceSnapshot = alice.syncSnapshot();
     const bobSnapshot = bob.syncSnapshot();
-    const aliceAclForItem = aliceSnapshot.acl.filter(
-      (e) => e.itemId === itemX
-    );
-    const bobAclForItem = bobSnapshot.acl.filter(
-      (e) => e.itemId === itemX
-    );
+    const aliceAclForItem = aliceSnapshot.acl.filter((e) => e.itemId === itemX);
+    const bobAclForItem = bobSnapshot.acl.filter((e) => e.itemId === itemX);
     expect(aliceAclForItem).toHaveLength(4);
     expect(bobAclForItem).toHaveLength(4);
   });

@@ -23,10 +23,7 @@ export class ScenarioHarness {
   private readonly timestampStrideMs: number;
   private timestampCounter = 0;
 
-  private constructor(
-    server: ServerHarness,
-    config: ScenarioHarnessConfig
-  ) {
+  private constructor(server: ServerHarness, config: ScenarioHarnessConfig) {
     this.server = server;
     this.timestampBaseMs = Date.parse(
       config.timestampBaseIso ?? '2025-01-01T00:00:00.000Z'
@@ -65,9 +62,7 @@ export class ScenarioHarness {
     const found = this.actorMap.get(alias);
     if (!found) {
       const known = [...this.actorMap.keys()].join(', ');
-      throw new Error(
-        `Unknown actor "${alias}". Known actors: ${known}`
-      );
+      throw new Error(`Unknown actor "${alias}". Known actors: ${known}`);
     }
     return found;
   }
@@ -77,7 +72,8 @@ export class ScenarioHarness {
   }
 
   nextTimestamp(): string {
-    const ms = this.timestampBaseMs + this.timestampCounter * this.timestampStrideMs;
+    const ms =
+      this.timestampBaseMs + this.timestampCounter * this.timestampStrideMs;
     this.timestampCounter += 1;
     return new Date(ms).toISOString();
   }

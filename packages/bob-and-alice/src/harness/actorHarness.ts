@@ -48,9 +48,7 @@ export class ActorHarness {
     this.clientId = config.clientId ?? `client-${config.alias}`;
     this.server = config.server;
 
-    this.transport = new InMemoryVfsCrdtSyncTransport(
-      this.server.syncServer
-    );
+    this.transport = new InMemoryVfsCrdtSyncTransport(this.server.syncServer);
 
     const syncOptions = config.now ? { now: config.now } : {};
     this.syncClient = new VfsBackgroundSyncClient(

@@ -6,7 +6,10 @@ export type {
   SeedHarnessAccountInput,
   SeedHarnessAccountResult
 } from './pgAccount.js';
-export { buildVfsKeySetupFromPassword, seedHarnessAccount } from './pgAccount.js';
+export {
+  buildVfsKeySetupFromPassword,
+  seedHarnessAccount
+} from './pgAccount.js';
 export {
   buildPersonalOrganizationId,
   buildPersonalOrganizationName,
