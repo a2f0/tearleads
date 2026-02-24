@@ -101,6 +101,7 @@ export class ActorHarness {
   }
 
   async close(): Promise<void> {
+    await this.syncClient.stopBackgroundFlush(false);
     await this.writeOrchestrator.drain();
     if (this.dbContext) {
       await this.dbContext.adapter.close();

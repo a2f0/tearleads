@@ -66,6 +66,15 @@ export function assertServerFeedLength(
   }
 }
 
+function actorSnapshotHasItem(actor: ActorHarness, itemId: string): boolean {
+  const snapshot = actor.syncSnapshot();
+  const hasAcl = snapshot.acl.some((entry) => entry.itemId === itemId);
+  const hasLink = snapshot.links.some(
+    (link) => link.parentId === itemId || link.childId === itemId
+  );
+  return hasAcl || hasLink;
+}
+
 export interface AssertLocalVfsRegistryHasInput {
   actor: ActorHarness;
   itemId: string;
@@ -74,13 +83,8 @@ export interface AssertLocalVfsRegistryHasInput {
 export function assertLocalVfsRegistryHas(
   input: AssertLocalVfsRegistryHasInput
 ): void {
-  const snapshot = input.actor.syncSnapshot();
-  const hasAcl = snapshot.acl.some((entry) => entry.itemId === input.itemId);
-  const hasLink = snapshot.links.some(
-    (link) => link.parentId === input.itemId || link.childId === input.itemId
-  );
-
-  if (!hasAcl && !hasLink) {
+  if (!actorSnapshotHasItem(input.actor, input.itemId)) {
+    const snapshot = input.actor.syncSnapshot();
     throw new Error(
       `Expected actor "${input.actor.alias}" to have item ${input.itemId} ` +
         `in local VFS registry (acl or links). ` +
@@ -93,13 +97,8 @@ export function assertActorFeedReplayHas(
   actor: ActorHarness,
   itemId: string
 ): void {
-  const snapshot = actor.syncSnapshot();
-  const hasAcl = snapshot.acl.some((entry) => entry.itemId === itemId);
-  const hasLink = snapshot.links.some(
-    (link) => link.parentId === itemId || link.childId === itemId
-  );
-
-  if (!hasAcl && !hasLink) {
+  if (!actorSnapshotHasItem(actor, itemId)) {
+    const snapshot = actor.syncSnapshot();
     throw new Error(
       `Expected actor "${actor.alias}" feed replay to contain item ${itemId}. ` +
         `ACL: ${JSON.stringify(snapshot.acl)}, Links: ${JSON.stringify(snapshot.links)}`

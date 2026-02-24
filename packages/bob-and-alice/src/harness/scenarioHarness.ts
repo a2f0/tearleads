@@ -19,16 +19,14 @@ export interface ScenarioHarnessConfig {
 export class ScenarioHarness {
   readonly server: ServerHarness;
   private readonly actorMap: Map<string, ActorHarness> = new Map();
-  private readonly timestampBaseMs: number;
-  private readonly timestampStrideMs: number;
-  private timestampCounter = 0;
+  private readonly nowFactory: DeterministicNowFactory;
 
-  private constructor(server: ServerHarness, config: ScenarioHarnessConfig) {
+  private constructor(
+    server: ServerHarness,
+    nowFactory: DeterministicNowFactory
+  ) {
     this.server = server;
-    this.timestampBaseMs = Date.parse(
-      config.timestampBaseIso ?? '2025-01-01T00:00:00.000Z'
-    );
-    this.timestampStrideMs = config.timestampStrideMs ?? 1_000;
+    this.nowFactory = nowFactory;
   }
 
   static async create(config: ScenarioHarnessConfig): Promise<ScenarioHarness> {
@@ -38,14 +36,14 @@ export class ScenarioHarness {
       config.timestampStrideMs ?? 1_000
     );
 
-    const harness = new ScenarioHarness(server, config);
+    const harness = new ScenarioHarness(server, nowFactory);
 
     for (const actorDef of config.actors) {
       const dbOpts = actorDef.databaseOptions ?? config.databaseOptions;
       const actorConfig: ActorHarnessConfig = {
         alias: actorDef.alias,
         server,
-        now: nowFactory,
+        now: () => nowFactory.next(),
         ...(actorDef.userId !== undefined && { userId: actorDef.userId }),
         ...(actorDef.clientId !== undefined && { clientId: actorDef.clientId }),
         ...(dbOpts !== undefined && { databaseOptions: dbOpts })
@@ -72,10 +70,7 @@ export class ScenarioHarness {
   }
 
   nextTimestamp(): string {
-    const ms =
-      this.timestampBaseMs + this.timestampCounter * this.timestampStrideMs;
-    this.timestampCounter += 1;
-    return new Date(ms).toISOString();
+    return this.nowFactory.next().toISOString();
   }
 
   async teardown(): Promise<void> {
@@ -85,14 +80,20 @@ export class ScenarioHarness {
   }
 }
 
+interface DeterministicNowFactory {
+  next(): Date;
+}
+
 function createDeterministicNowFactory(
   baseMs: number,
   strideMs: number
-): () => Date {
+): DeterministicNowFactory {
   let counter = 0;
-  return () => {
-    const ms = baseMs + counter * strideMs;
-    counter += 1;
-    return new Date(ms);
+  return {
+    next() {
+      const ms = baseMs + counter * strideMs;
+      counter += 1;
+      return new Date(ms);
+    }
   };
 }
