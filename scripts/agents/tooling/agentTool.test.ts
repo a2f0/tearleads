@@ -152,15 +152,63 @@ exit 1
   assert.equal(parsed.branch, 'feature/test');
 });
 
-test('getGitContext returns branch and head sha', () => {
-  const result = runAgentTool(['getGitContext']);
+test('getGitContext returns branch and head sha', (t) => {
+  const fakeSha = 'a'.repeat(40);
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agenttool-gitctx-'));
+  t.after(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  const fakeBinDir = path.join(tempDir, 'bin');
+  fs.mkdirSync(fakeBinDir);
+  const pathEnv = process.env['PATH'] ?? '';
+
+  createCustomScript(
+    fakeBinDir,
+    'git',
+    `#!/bin/sh
+if [ "$1" = "branch" ] && [ "$2" = "--show-current" ]; then
+  echo "test-branch"
+  exit 0
+fi
+if [ "$1" = "rev-parse" ] && [ "$2" = "--show-toplevel" ]; then
+  pwd
+  exit 0
+fi
+if [ "$1" = "rev-parse" ] && [ "$2" = "HEAD" ]; then
+  echo "${fakeSha}"
+  exit 0
+fi
+if [ "$1" = "remote" ] && [ "$2" = "get-url" ]; then
+  echo "git@github.com:a2f0/tearleads.git"
+  exit 0
+fi
+echo "unexpected git invocation: $@" >&2
+exit 1
+`
+  );
+
+  createCustomScript(
+    fakeBinDir,
+    'gh',
+    `#!/bin/sh
+if [ "$1" = "repo" ] && [ "$2" = "view" ]; then
+  echo "a2f0/tearleads"
+  exit 0
+fi
+echo "unexpected gh invocation: $@" >&2
+exit 1
+`
+  );
+
+  const result = runAgentTool(['getGitContext'], {
+    PATH: `${fakeBinDir}:${pathEnv}`
+  });
 
   assert.equal(result.status, 0);
   const parsed = JSON.parse(readStdout(result));
-  assert.equal(typeof parsed.branch, 'string');
-  assert.equal(typeof parsed.head_sha, 'string');
-  assert.ok(parsed.branch.length > 0);
-  assert.match(parsed.head_sha, /^[0-9a-f]{40}$/);
+  assert.equal(parsed.branch, 'test-branch');
+  assert.equal(parsed.head_sha, fakeSha);
 });
 
 test('runTerraformStackScript requires --yes unless dry-run', () => {
