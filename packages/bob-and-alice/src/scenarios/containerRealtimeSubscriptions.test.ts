@@ -3,6 +3,15 @@ import type { VfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ScenarioHarness } from '../harness/scenarioHarness.js';
 
+function expectedChannelsForContainerIds(containerIds: string[]): string[] {
+  return [
+    'broadcast',
+    ...containerIds
+      .map((containerId) => `vfs:container:${containerId}:sync`)
+      .sort((left, right) => left.localeCompare(right))
+  ];
+}
+
 describe('containerRealtimeSubscriptions', () => {
   let harness: ScenarioHarness | null = null;
 
@@ -45,10 +54,9 @@ describe('containerRealtimeSubscriptions', () => {
     expect(bob.vfsContainerSyncChannels()).toEqual(['broadcast']);
 
     await bob.sync();
-    expect(bob.vfsContainerSyncChannels()).toEqual([
-      'broadcast',
-      `vfs:container:${firstItemId}:sync`
-    ]);
+    expect(bob.vfsContainerSyncChannels()).toEqual(
+      expectedChannelsForContainerIds([firstItemId])
+    );
 
     alice.queueCrdtOp({
       opType: 'acl_add',
@@ -74,11 +82,9 @@ describe('containerRealtimeSubscriptions', () => {
     ]);
 
     await bob.sync();
-    expect(bob.vfsContainerSyncChannels()).toEqual([
-      'broadcast',
-      `vfs:container:${firstItemId}:sync`,
-      `vfs:container:${secondItemId}:sync`
-    ]);
+    expect(bob.vfsContainerSyncChannels()).toEqual(
+      expectedChannelsForContainerIds([firstItemId, secondItemId])
+    );
   });
 
   it('supports incremental container subscription updates via cursor paging', async () => {
