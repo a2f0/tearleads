@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-ROOT_DIR="$(cd -- "$(dirname -- "$0")/.." && pwd -P)"
+ROOT_DIR="$(cd -- "$(dirname -- "$0")/../.." && pwd -P)"
 GARAGE_DIR="${ROOT_DIR}/scripts/garage"
 COMPOSE_FILE="${GARAGE_DIR}/docker-compose.yml"
 API_ENV_LINK_PATH="${ROOT_DIR}/packages/api/.env"
@@ -154,8 +154,6 @@ configure_garage_bucket() {
     chmod 600 "${GARAGE_CREDENTIALS_FILE}" 2>/dev/null || true
   }
 
-  read_or_create_credentials
-
   node_id="$(garage_cli node id | awk -F'@' 'NF>1 { print $1; exit }')"
   if [ -z "${node_id}" ]; then
     echo "Could not determine Garage node ID." >&2
@@ -180,6 +178,8 @@ configure_garage_bucket() {
     echo "Garage layout did not converge to version 1." >&2
     exit 1
   fi
+
+  read_or_create_credentials
 
   garage_cli key info "${GARAGE_KEY_NAME}" >/dev/null 2>&1 || garage_cli key create "${GARAGE_KEY_NAME}" >/dev/null
 
