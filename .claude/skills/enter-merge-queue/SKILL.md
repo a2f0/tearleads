@@ -532,4 +532,4 @@ Then ensure the PR body ends with `Agent: ${AGENT_ID}`. Add bullets for signific
 
 ## Commit Rules
 
-Follow commit guidelines in `CLAUDE.md`: conventional commits, GPG signed with 5s timeout, no co-author lines or footers.
+Follow commit guidelines in `CLAUDE.md`: conventional commits, GPG signed with 5s timeout, no co-author lines or footers. **Header must be ≤ 50 characters** (enforced by commitlint `header-max-length`). The header is the entire first line: `type(scope): description`. If too long, drop the scope or shorten the description and put details in the commit body.
