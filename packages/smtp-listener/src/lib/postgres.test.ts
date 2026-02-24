@@ -86,6 +86,42 @@ describe('postgres pool runtime', () => {
     });
   });
 
+  it('omits missing dev defaults from config', async () => {
+    process.env['NODE_ENV'] = 'development';
+    vi.doMock('@tearleads/shared', () => ({
+      isDevMode: () => true,
+      getPostgresDevDefaults: () => ({
+        host: 'localhost',
+        port: null,
+        user: null,
+        database: 'tearleads_development'
+      })
+    }));
+    const { getPostgresPool } = await import('./postgres.js');
+
+    await getPostgresPool();
+
+    expect(createdPools[0]?.config).toEqual({
+      host: 'localhost',
+      database: 'tearleads_development'
+    });
+    vi.doUnmock('@tearleads/shared');
+  });
+
+  it('handles fully empty dev defaults', async () => {
+    process.env['NODE_ENV'] = 'development';
+    vi.doMock('@tearleads/shared', () => ({
+      isDevMode: () => true,
+      getPostgresDevDefaults: () => ({})
+    }));
+    const { getPostgresPool } = await import('./postgres.js');
+
+    await getPostgresPool();
+
+    expect(createdPools[0]?.config).toEqual({});
+    vi.doUnmock('@tearleads/shared');
+  });
+
   it('throws when no env vars are set in release mode', async () => {
     process.env['NODE_ENV'] = 'production';
     const { getPostgresPool } = await import('./postgres.js');

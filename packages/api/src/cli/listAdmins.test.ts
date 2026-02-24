@@ -72,6 +72,43 @@ describe('list admins cli', () => {
     expect(mockClient.release).toHaveBeenCalled();
   });
 
+  it('outputs JSON array when json flag is true', async () => {
+    const rows = [
+      { id: 'admin-1', email: 'admin1@example.com' },
+      { id: 'admin-2', email: 'admin2@example.com' }
+    ];
+    const mockClient = {
+      query: vi.fn().mockResolvedValue({ rows }),
+      release: vi.fn()
+    };
+    const mockConnect = vi.fn().mockResolvedValue(mockClient);
+    mockGetPostgresPool.mockResolvedValue({ connect: mockConnect });
+
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    await runListAdmins(true);
+
+    expect(consoleLog).toHaveBeenCalledWith(JSON.stringify(rows));
+    expect(consoleLog).toHaveBeenCalledTimes(1);
+    expect(mockClient.release).toHaveBeenCalled();
+  });
+
+  it('parses --json from argv', async () => {
+    const mockClient = {
+      query: vi.fn().mockResolvedValue({ rows: [] }),
+      release: vi.fn()
+    };
+    const mockConnect = vi.fn().mockResolvedValue(mockClient);
+    mockGetPostgresPool.mockResolvedValue({ connect: mockConnect });
+
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    await runListAdminsFromArgv(['--json']);
+
+    expect(consoleLog).toHaveBeenCalledWith('[]');
+    expect(mockClosePostgresPool).toHaveBeenCalled();
+  });
+
   it('prints help from argv and closes the pool', async () => {
     await runListAdminsFromArgv(['--help']);
 
