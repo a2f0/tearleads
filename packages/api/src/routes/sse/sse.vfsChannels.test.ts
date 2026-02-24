@@ -1,6 +1,6 @@
 import type { Response } from 'supertest';
 import request from 'supertest';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
 import { createAuthHeader } from '../../test/auth.js';
 
@@ -60,6 +60,7 @@ vi.mock('../../lib/postgres.js', () => ({
 describe('SSE VFS container channels', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv('JWT_SECRET', 'test-secret');
     mockConnect.mockResolvedValue(undefined);
     mockQuit.mockResolvedValue(undefined);
     mockSubscribe.mockResolvedValue(undefined);
@@ -69,6 +70,10 @@ describe('SSE VFS container channels', () => {
       subscribe: mockSubscribe,
       unsubscribe: vi.fn().mockResolvedValue(undefined)
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('subscribes to authorized VFS container channels', async () => {
