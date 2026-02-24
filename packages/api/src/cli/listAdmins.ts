@@ -4,6 +4,7 @@ import { closePostgresPool, getPostgresPool } from '../lib/postgres.js';
 
 type ParsedArgs = {
   help: boolean;
+  json: boolean;
 };
 
 function printUsage(): void {
@@ -15,6 +16,7 @@ function printUsage(): void {
       '',
       'Options:',
       '  --help, -h            Show this help message.',
+      '  --json                Output as JSON array.',
       '',
       'Environment:',
       '  DATABASE_URL or POSTGRES_URL take precedence.',
@@ -28,6 +30,7 @@ function printUsage(): void {
 
 function parseArgs(argv: string[]): ParsedArgs {
   let help = false;
+  let json = false;
 
   for (const arg of argv) {
     if (!arg) {
@@ -39,10 +42,15 @@ function parseArgs(argv: string[]): ParsedArgs {
       continue;
     }
 
+    if (arg === '--json') {
+      json = true;
+      continue;
+    }
+
     throw new Error(`Unknown argument: ${arg}`);
   }
 
-  return { help };
+  return { help, json };
 }
 
 export type AdminRow = {
@@ -63,9 +71,15 @@ export async function getAdminUsers(): Promise<AdminRow[]> {
   }
 }
 
-async function listAdmins(): Promise<void> {
-  const label = buildPostgresConnectionLabel();
+async function listAdmins(json: boolean): Promise<void> {
   const rows = await getAdminUsers();
+
+  if (json) {
+    console.log(JSON.stringify(rows));
+    return;
+  }
+
+  const label = buildPostgresConnectionLabel();
 
   if (rows.length === 0) {
     console.log('No admin accounts found.');
@@ -79,8 +93,8 @@ async function listAdmins(): Promise<void> {
   console.log(`Postgres connection: ${label}`);
 }
 
-export async function runListAdmins(): Promise<void> {
-  await listAdmins();
+export async function runListAdmins(json = false): Promise<void> {
+  await listAdmins(json);
 }
 
 export async function runListAdminsFromArgv(argv: string[]): Promise<void> {
@@ -91,7 +105,7 @@ export async function runListAdminsFromArgv(argv: string[]): Promise<void> {
       return;
     }
 
-    await runListAdmins();
+    await runListAdmins(parsed.json);
   } finally {
     await closePostgresPool();
   }
@@ -101,10 +115,11 @@ export function listAdminsCommand(program: Command): void {
   program
     .command('list-admins')
     .description('List accounts with admin privileges')
-    .action(async () => {
+    .option('--json', 'Output as JSON array')
+    .action(async (options: { json?: boolean }) => {
       let exitCode = 0;
       try {
-        await runListAdmins();
+        await runListAdmins(options.json === true);
       } catch (error) {
         exitCode = 1;
         console.error('\nList admins failed:');

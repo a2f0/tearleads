@@ -1,8 +1,12 @@
 #!/usr/bin/env -S pnpm exec tsx
+import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { closePostgresPool } from '../../packages/api/src/lib/postgres.ts';
-import { getAdminUsers } from '../../packages/api/src/cli/listAdmins.ts';
 import { deliverMail } from './deliverMail.ts';
+
+type AdminRow = {
+  id: string;
+  email: string;
+};
 
 function printUsage(): void {
   console.log(
@@ -32,6 +36,17 @@ function printUsage(): void {
   );
 }
 
+function getAdminUsers(): AdminRow[] {
+  const raw = execFileSync(
+    'pnpm',
+    ['--filter', '@tearleads/api', 'cli', 'list-admins', '--json'],
+    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+  );
+  const lines = raw.trim().split('\n');
+  const jsonLine = lines.at(-1) ?? '[]';
+  return JSON.parse(jsonLine) as AdminRow[];
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   if (args.includes('--help') || args.includes('-h')) {
@@ -46,7 +61,7 @@ async function main(): Promise<void> {
   const marker = process.env.SMTP_MARKER || '';
   const timestamp = new Date().toUTCString();
 
-  const admins = await getAdminUsers();
+  const admins = getAdminUsers();
   if (admins.length === 0) {
     console.log('No admin users found.');
     return;
@@ -75,10 +90,8 @@ async function main(): Promise<void> {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  main()
-    .catch((error) => {
-      console.error('Failed to email admins:', error);
-      process.exitCode = 1;
-    })
-    .finally(() => closePostgresPool());
+  main().catch((error) => {
+    console.error('Failed to email admins:', error);
+    process.exitCode = 1;
+  });
 }
