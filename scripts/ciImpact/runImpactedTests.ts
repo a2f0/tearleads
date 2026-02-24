@@ -309,6 +309,7 @@ function runCiImpactScriptTests(): void {
 }
 
 function hasUncertainDiffWarning(warnings: string[]): boolean {
+  // Keep this prefix aligned with the warning emitted in scripts/ciImpact/ciImpact.ts.
   return warnings.some((warning) => warning.startsWith('Unable to diff '));
 }
 
