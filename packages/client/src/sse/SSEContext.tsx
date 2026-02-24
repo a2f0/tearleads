@@ -57,6 +57,23 @@ interface SSEEvent {
   data: string;
 }
 
+const SSE_RECONNECT_BASE_DELAY_MS = 1000;
+const SSE_RECONNECT_MAX_DELAY_MS = 30000;
+
+function computeReconnectDelayWithJitter(attempt: number): number {
+  if (attempt <= 0) {
+    return SSE_RECONNECT_BASE_DELAY_MS;
+  }
+
+  const exponentialDelay = Math.min(
+    SSE_RECONNECT_BASE_DELAY_MS * 2 ** attempt,
+    SSE_RECONNECT_MAX_DELAY_MS
+  );
+  const jitterFloor = Math.floor(exponentialDelay / 2);
+  const jitterRange = Math.max(0, exponentialDelay - jitterFloor);
+  return jitterFloor + Math.floor(Math.random() * (jitterRange + 1));
+}
+
 function parseSSEEvents(chunk: string, buffer: string): [SSEEvent[], string] {
   const combined = buffer + chunk;
   const events: SSEEvent[] = [];
@@ -141,6 +158,7 @@ export function SSEProvider({
         return;
       }
 
+      channelsRef.current = [...channelsToUse];
       disconnect();
       setConnectionState('connecting');
 
@@ -167,7 +185,9 @@ export function SSEProvider({
 
         // Network error or other issue - set disconnected and use exponential backoff
         setConnectionState('disconnected');
-        const delay = Math.min(1000 * 2 ** reconnectAttemptRef.current, 30000);
+        const delay = computeReconnectDelayWithJitter(
+          reconnectAttemptRef.current
+        );
         reconnectAttemptRef.current++;
 
         reconnectTimeoutRef.current = setTimeout(() => {

@@ -2,6 +2,7 @@ import { type BroadcastMessage, isRecord } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { getRedisSubscriberClient } from '../../lib/redisPubSub.js';
+import { parseVfsContainerIdFromSyncChannel } from '../../lib/vfsSyncChannels.js';
 import { addConnection, cleanupSseClient, removeConnection } from './shared.js';
 
 async function isUserMemberOfGroup(
@@ -30,6 +31,21 @@ async function filterAuthorizedChannels(
   userId: string
 ): Promise<string[]> {
   const authorized: string[] = [];
+  const knownVfsContainerIds = new Set<string>();
+  for (const channel of channels) {
+    const containerId = parseVfsContainerIdFromSyncChannel(channel);
+    if (containerId) {
+      knownVfsContainerIds.add(containerId);
+    }
+  }
+
+  const authorizedVfsContainerIds =
+    knownVfsContainerIds.size > 0
+      ? await filterAuthorizedVfsContainerIds(
+          Array.from(knownVfsContainerIds),
+          userId
+        )
+      : new Set<string>();
 
   for (const channel of channels) {
     if (channel === 'broadcast') {
@@ -51,10 +67,60 @@ async function filterAuthorizedChannels(
       if (isMember) {
         authorized.push(channel);
       }
+      continue;
+    }
+
+    const vfsContainerId = parseVfsContainerIdFromSyncChannel(channel);
+    if (
+      vfsContainerId &&
+      authorizedVfsContainerIds.has(vfsContainerId)
+    ) {
+      authorized.push(channel);
     }
   }
 
   return authorized;
+}
+
+async function filterAuthorizedVfsContainerIds(
+  containerIds: string[],
+  userId: string
+): Promise<Set<string>> {
+  if (containerIds.length === 0) {
+    return new Set<string>();
+  }
+
+  const pool = await getPostgresPool();
+  const result = await pool.query<{ item_id: string }>(
+    `
+    WITH principals AS (
+      SELECT 'user'::text AS principal_type, $1::text AS principal_id
+      UNION ALL
+      SELECT 'group'::text AS principal_type, ug.group_id AS principal_id
+      FROM user_groups ug
+      WHERE ug.user_id = $1
+      UNION ALL
+      SELECT 'organization'::text AS principal_type, uo.organization_id AS principal_id
+      FROM user_organizations uo
+      WHERE uo.user_id = $1
+    )
+    SELECT DISTINCT entry.item_id
+    FROM vfs_acl_entries entry
+    INNER JOIN principals principal
+      ON principal.principal_type = entry.principal_type
+     AND principal.principal_id = entry.principal_id
+    WHERE entry.item_id = ANY($2::text[])
+      AND entry.revoked_at IS NULL
+      AND (entry.expires_at IS NULL OR entry.expires_at > NOW())
+    `,
+    [userId, containerIds]
+  );
+
+  return new Set(
+    result.rows
+      .map((row) => row.item_id?.trim())
+      .filter((itemId): itemId is string => Boolean(itemId))
+  );
 }
 
 function parseMessage(message: string): BroadcastMessage | null {

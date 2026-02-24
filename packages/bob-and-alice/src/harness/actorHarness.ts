@@ -10,12 +10,14 @@ import { LocalWriteOrchestrator } from '@tearleads/local-write-orchestrator';
 import {
   InMemoryVfsCrdtFeedReplayStore,
   InMemoryVfsCrdtSyncTransport,
+  type ListVfsContainerClockChangesResult,
   type QueueVfsCrdtLocalOperationInput,
   VfsBackgroundSyncClient,
   type VfsBackgroundSyncClientFlushResult,
   type VfsBackgroundSyncClientSnapshot,
   type VfsBackgroundSyncClientSyncResult,
-  type VfsCrdtOperation
+  type VfsCrdtOperation,
+  type VfsSyncCursor
 } from '@tearleads/vfs-sync/vfs';
 import type { ServerHarness } from './serverHarness.js';
 
@@ -98,6 +100,28 @@ export class ActorHarness {
 
   syncSnapshot(): VfsBackgroundSyncClientSnapshot {
     return this.syncClient.snapshot();
+  }
+
+  listChangedContainers(
+    cursor: VfsSyncCursor | null,
+    limit?: number
+  ): ListVfsContainerClockChangesResult {
+    return this.syncClient.listChangedContainers(cursor, limit);
+  }
+
+  knownContainerIds(limit?: number): string[] {
+    return this.listChangedContainers(null, limit).items
+      .map((entry) => entry.containerId)
+      .sort((left, right) => left.localeCompare(right));
+  }
+
+  vfsContainerSyncChannels(limit?: number): string[] {
+    return [
+      'broadcast',
+      ...this.knownContainerIds(limit).map(
+        (containerId) => `vfs:container:${containerId}:sync`
+      )
+    ];
   }
 
   async close(): Promise<void> {

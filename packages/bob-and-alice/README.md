@@ -85,6 +85,7 @@ Key methods: `queueCrdtOp()`, `flush()`, `sync()`, `syncSnapshot()`, `close()`
 | Note sharing | `noteSharing.test.ts` | Alice creates a note, grants Bob read access, flushes; Bob syncs and sees the shared item |
 | Bidirectional sync | `bidirectionalSync.test.ts` | Both actors create items independently, flush, sync, and converge to the same state |
 | Conflict resolution | `conflictResolution.test.ts` | Concurrent ACL grants from both actors merge correctly via CRDT semantics |
+| Container realtime subscriptions | `containerRealtimeSubscriptions.test.ts` | Actors derive per-container sync channels from local container clocks and only subscribe to newly observed containers after syncing |
 
 ## Running Tests
 

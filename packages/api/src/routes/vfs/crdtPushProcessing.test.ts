@@ -7,6 +7,7 @@ import {
   buildValidPushPayload,
   mockClientRelease,
   mockQuery,
+  mockRedisPublish,
   setupCrdtPushRouteTestEnv,
   teardownCrdtPushRouteTestEnv
 } from './crdtPushTestSupport.js';
@@ -41,7 +42,10 @@ describe('VFS CRDT push route processing', () => {
       .mockResolvedValueOnce({}) // advisory lock
       .mockResolvedValueOnce({ rows: [] }) // existing source
       .mockResolvedValueOnce({ rows: [{ max_write_id: 0 }] }) // max write
-      .mockResolvedValueOnce({ rowCount: 1 }) // INSERT
+      .mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [{ id: 'crdt-op-1', occurred_at: '2026-02-14T20:00:00.000Z' }]
+      }) // INSERT
       .mockResolvedValueOnce({}); // COMMIT
 
     const response = await postCrdtPush(buildValidPushPayload(), authHeader);
@@ -53,7 +57,45 @@ describe('VFS CRDT push route processing', () => {
     });
     expect(mockQuery.mock.calls[3]?.[0]).toContain('WHERE source_table = $1');
     expect(mockQuery.mock.calls[4]?.[0]).toContain('MAX(occurred_at)');
+    expect(mockRedisPublish).toHaveBeenCalledWith(
+      'vfs:container:item-1:sync',
+      expect.stringContaining('"type":"vfs:cursor-bump"')
+    );
+    expect(mockRedisPublish).toHaveBeenCalledWith(
+      'vfs:container:item-1:sync',
+      expect.stringContaining('"changeId":"crdt-op-1"')
+    );
     expect(mockClientRelease).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not fail push when VFS cursor bump publish fails', async () => {
+    const restoreConsole = mockConsoleError();
+    const authHeader = await createAuthHeader();
+    mockRedisPublish.mockRejectedValueOnce(new Error('publish failed'));
+
+    mockQuery
+      .mockResolvedValueOnce({}) // BEGIN
+      .mockResolvedValueOnce({
+        rows: [{ id: 'item-1', owner_id: 'user-1' }]
+      }) // owner lookup
+      .mockResolvedValueOnce({}) // advisory lock
+      .mockResolvedValueOnce({ rows: [] }) // existing source
+      .mockResolvedValueOnce({ rows: [{ max_write_id: 0 }] }) // max write
+      .mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [{ id: 'crdt-op-1', occurred_at: '2026-02-14T20:00:00.000Z' }]
+      }) // INSERT
+      .mockResolvedValueOnce({}); // COMMIT
+
+    const response = await postCrdtPush(buildValidPushPayload(), authHeader);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      clientId: 'desktop',
+      results: [{ opId: 'desktop-1', status: 'applied' }]
+    });
+    expect(mockRedisPublish).toHaveBeenCalledTimes(1);
+    restoreConsole();
   });
 
   it('canonicalizes occurredAt when another replica already advanced actor feed time', async () => {

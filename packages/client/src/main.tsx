@@ -16,6 +16,7 @@ import {
   LaserScreensaver,
   ScreensaverProvider
 } from './components/screensaver';
+import { VfsRealtimeSyncBridge } from './components/VfsRealtimeSyncBridge';
 import { ErrorBoundary, errorBoundaryRef } from './components/ui/ErrorBoundary';
 import { WindowRenderer } from './components/window-renderer';
 import { AuthProvider } from './contexts/AuthContext';
@@ -86,6 +87,7 @@ if (rootElement) {
                           <AuthProvider>
                             <VfsOrchestratorProvider>
                               <SSEProvider>
+                                <VfsRealtimeSyncBridge />
                                 <WindowManagerProvider>
                                   <BrowserRouter>
                                     <Suspense
