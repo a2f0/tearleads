@@ -10,6 +10,10 @@ import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import { getDatabase } from '@/db';
 import { runLocalWrite } from '@/db/localWrite';
 import { notes, tags, vfsLinks, vfsRegistry } from '@/db/schema';
+import {
+  queueItemDeleteAndFlush,
+  queueItemUpsertAndFlush
+} from '@/lib/vfsItemSyncWriter';
 
 export const CLASSIC_TAG_PARENT_ID = '__vfs_root__';
 
@@ -188,6 +192,17 @@ export async function createClassicTag(
     })
   );
 
+  await queueItemUpsertAndFlush({
+    itemId: tagId,
+    objectType: 'tag',
+    payload: {
+      id: tagId,
+      objectType: 'tag',
+      name,
+      deleted: false
+    }
+  });
+
   return tagId;
 }
 
@@ -234,6 +249,19 @@ export async function createClassicNote(
     })
   );
 
+  await queueItemUpsertAndFlush({
+    itemId: noteId,
+    objectType: 'note',
+    payload: {
+      id: noteId,
+      objectType: 'note',
+      title,
+      content,
+      tagId,
+      deleted: false
+    }
+  });
+
   return noteId;
 }
 
@@ -277,6 +305,11 @@ export async function deleteClassicTag(tagId: string): Promise<void> {
   await runLocalWrite(async () => {
     await db.update(tags).set({ deleted: true }).where(eq(tags.id, tagId));
   });
+
+  await queueItemDeleteAndFlush({
+    itemId: tagId,
+    objectType: 'tag'
+  });
 }
 
 export async function restoreClassicTag(tagId: string): Promise<void> {
@@ -284,6 +317,24 @@ export async function restoreClassicTag(tagId: string): Promise<void> {
 
   await runLocalWrite(async () => {
     await db.update(tags).set({ deleted: false }).where(eq(tags.id, tagId));
+  });
+
+  const rows = await db
+    .select({ encryptedName: tags.encryptedName })
+    .from(tags)
+    .where(eq(tags.id, tagId))
+    .limit(1);
+  const restored = rows[0];
+
+  await queueItemUpsertAndFlush({
+    itemId: tagId,
+    objectType: 'tag',
+    payload: {
+      id: tagId,
+      objectType: 'tag',
+      name: restored?.encryptedName ?? DEFAULT_CLASSIC_TAG_NAME,
+      deleted: false
+    }
   });
 }
 
@@ -299,6 +350,17 @@ export async function renameClassicTag(
       .set({ encryptedName: newName })
       .where(eq(tags.id, tagId));
   });
+
+  await queueItemUpsertAndFlush({
+    itemId: tagId,
+    objectType: 'tag',
+    payload: {
+      id: tagId,
+      objectType: 'tag',
+      name: newName,
+      deleted: false
+    }
+  });
 }
 
 export async function updateClassicNote(
@@ -313,5 +375,17 @@ export async function updateClassicNote(
       .update(notes)
       .set({ title, content, updatedAt: new Date() })
       .where(eq(notes.id, noteId));
+  });
+
+  await queueItemUpsertAndFlush({
+    itemId: noteId,
+    objectType: 'note',
+    payload: {
+      id: noteId,
+      objectType: 'note',
+      title,
+      content,
+      deleted: false
+    }
   });
 }

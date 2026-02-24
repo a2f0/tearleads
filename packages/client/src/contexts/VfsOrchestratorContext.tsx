@@ -27,6 +27,7 @@ import { createItemKeyStore } from '@/db/vfsItemKeys';
 import { createRecipientPublicKeyResolver } from '@/db/vfsRecipientKeyResolver';
 import { createUserKeyProvider } from '@/db/vfsUserKeyProvider';
 import { ensureVfsKeys } from '@/hooks/vfs';
+import { setVfsItemSyncRuntime } from '@/lib/vfsItemSyncWriter';
 import { useAuth } from './AuthContext';
 
 function normalizeApiPrefix(value: string): string {
@@ -166,6 +167,7 @@ export function VfsOrchestratorProvider({
       setOrchestrator(null);
       setSecureFacade(null);
       setKeyManager(null);
+      setVfsItemSyncRuntime(null);
       return;
     }
 
@@ -224,11 +226,16 @@ export function VfsOrchestratorProvider({
       setOrchestrator(newOrchestrator);
       setSecureFacade(facade);
       setKeyManager(bundle.keyManager);
+      setVfsItemSyncRuntime({
+        orchestrator: newOrchestrator,
+        secureFacade: facade
+      });
     } catch (err) {
       const initError =
         err instanceof Error ? err : new Error('Failed to initialize VFS');
       setError(initError);
       console.error('VFS orchestrator initialization failed:', err);
+      setVfsItemSyncRuntime(null);
     } finally {
       setIsInitializing(false);
     }
@@ -251,6 +258,7 @@ export function VfsOrchestratorProvider({
       setOrchestrator(null);
       setSecureFacade(null);
       setKeyManager(null);
+      setVfsItemSyncRuntime(null);
     };
   }, []);
 

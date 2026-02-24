@@ -13,6 +13,10 @@ import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { notes } from '@/db/schema';
 import { formatDate } from '@/lib/utils';
+import {
+  queueItemDeleteAndFlush,
+  queueItemUpsertAndFlush
+} from '@/lib/vfsItemSyncWriter';
 
 interface NoteInfo {
   id: string;
@@ -93,22 +97,36 @@ export function NoteDetail() {
       if (!id || newContent === lastSavedContentRef.current) return;
 
       try {
+        const updatedAt = new Date();
         const db = getDatabase();
         await db
           .update(notes)
-          .set({ content: newContent, updatedAt: new Date() })
+          .set({ content: newContent, updatedAt })
           .where(eq(notes.id, id));
+
+        await queueItemUpsertAndFlush({
+          itemId: id,
+          objectType: 'note',
+          payload: {
+            id,
+            objectType: 'note',
+            title: note?.title ?? '',
+            content: newContent,
+            deleted: false,
+            updatedAt: updatedAt.toISOString()
+          }
+        });
 
         lastSavedContentRef.current = newContent;
         setNote((prev) =>
-          prev ? { ...prev, content: newContent, updatedAt: new Date() } : prev
+          prev ? { ...prev, content: newContent, updatedAt } : prev
         );
       } catch (err) {
         console.error('Failed to save note:', err);
         setError(err instanceof Error ? err.message : String(err));
       }
     },
-    [id]
+    [id, note?.title]
   );
 
   const handleContentChange = useCallback(
@@ -138,14 +156,29 @@ export function NoteDetail() {
   useEffect(() => {
     return () => {
       if (content !== lastSavedContentRef.current && id) {
+        const updatedAt = new Date();
         const db = getDatabase();
         db.update(notes)
-          .set({ content, updatedAt: new Date() })
+          .set({ content, updatedAt })
           .where(eq(notes.id, id))
+          .then(async () => {
+            await queueItemUpsertAndFlush({
+              itemId: id,
+              objectType: 'note',
+              payload: {
+                id,
+                objectType: 'note',
+                title: note?.title ?? '',
+                content,
+                deleted: false,
+                updatedAt: updatedAt.toISOString()
+              }
+            });
+          })
           .catch((err) => console.error('Failed to save on unmount:', err));
       }
     };
-  }, [content, id]);
+  }, [content, id, note?.title]);
 
   const handleDelete = useCallback(async () => {
     if (!note) return;
@@ -153,10 +186,16 @@ export function NoteDetail() {
     setActionLoading('delete');
     try {
       const db = getDatabase();
+      const updatedAt = new Date();
       await db
         .update(notes)
-        .set({ deleted: true })
+        .set({ deleted: true, updatedAt })
         .where(eq(notes.id, note.id));
+
+      await queueItemDeleteAndFlush({
+        itemId: note.id,
+        objectType: 'note'
+      });
 
       navigate('/notes');
     } catch (err) {
@@ -171,16 +210,30 @@ export function NoteDetail() {
       if (!id) return;
 
       const db = getDatabase();
+      const updatedAt = new Date();
       await db
         .update(notes)
-        .set({ title: newTitle, updatedAt: new Date() })
+        .set({ title: newTitle, updatedAt })
         .where(eq(notes.id, id));
 
+      await queueItemUpsertAndFlush({
+        itemId: id,
+        objectType: 'note',
+        payload: {
+          id,
+          objectType: 'note',
+          title: newTitle,
+          content,
+          deleted: false,
+          updatedAt: updatedAt.toISOString()
+        }
+      });
+
       setNote((prev) =>
-        prev ? { ...prev, title: newTitle, updatedAt: new Date() } : prev
+        prev ? { ...prev, title: newTitle, updatedAt } : prev
       );
     },
-    [id]
+    [id, content]
   );
 
   const handleToggleToolbar = useCallback(() => {
