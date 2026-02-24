@@ -91,7 +91,7 @@ sudo systemctl cat tearleads-smtp-listener
 For local development, you can send a message directly to your workstation's listener:
 
 ```bash
-SMTP_TO=test@localhost ./scripts/users/deliverMail.sh
+SMTP_TO=test@localhost ./scripts/users/deliverMail.ts
 ```
 
 ```bash

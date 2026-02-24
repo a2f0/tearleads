@@ -45,34 +45,38 @@ function parseArgs(argv: string[]): ParsedArgs {
   return { help };
 }
 
-type AdminRow = {
+export type AdminRow = {
   id: string;
   email: string;
 };
 
-async function listAdmins(): Promise<void> {
-  const label = buildPostgresConnectionLabel();
+export async function getAdminUsers(): Promise<AdminRow[]> {
   const pool = await getPostgresPool();
   const client = await pool.connect();
-
   try {
     const result = await client.query<AdminRow>(
       'SELECT id, email FROM users WHERE admin = TRUE ORDER BY email'
     );
-
-    if (result.rows.length === 0) {
-      console.log('No admin accounts found.');
-    } else {
-      console.log('Admin accounts:');
-      for (const row of result.rows) {
-        console.log(`- ${row.email} (id ${row.id})`);
-      }
-    }
-
-    console.log(`Postgres connection: ${label}`);
+    return result.rows;
   } finally {
     client.release();
   }
+}
+
+async function listAdmins(): Promise<void> {
+  const label = buildPostgresConnectionLabel();
+  const rows = await getAdminUsers();
+
+  if (rows.length === 0) {
+    console.log('No admin accounts found.');
+  } else {
+    console.log('Admin accounts:');
+    for (const row of rows) {
+      console.log(`- ${row.email} (id ${row.id})`);
+    }
+  }
+
+  console.log(`Postgres connection: ${label}`);
 }
 
 export async function runListAdmins(): Promise<void> {
