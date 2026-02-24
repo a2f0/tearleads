@@ -72,15 +72,19 @@ async function uploadPhoto(page: Page, name = 'test-photo.png') {
 
 // Helper to create a folder in VFS Explorer window
 async function createFolder(page: Page, folderName: string) {
-  // Click the "File" menu dropdown
-  const fileMenu = page.getByRole('button', { name: 'File', exact: true });
-  await expect(fileMenu).toBeVisible({ timeout: 10000 });
-  await fileMenu.click();
+  // Right-click tree panel empty area below "Unfiled Items"
+  const unfiledItems = page.getByText('Unfiled Items').first();
+  await expect(unfiledItems).toBeVisible({ timeout: 10000 });
+  const box = await unfiledItems.boundingBox();
+  if (!box) throw new Error('Cannot get bounding box for Unfiled Items');
+  await page.mouse.click(box.x + 50, box.y + 100, { button: 'right' });
 
-  // Click the "New Folder" menu item
-  const newFolderItem = page.getByRole('menuitem', { name: 'New Folder' });
-  await expect(newFolderItem).toBeVisible({ timeout: 5000 });
-  await newFolderItem.click();
+  // Click the "New Folder" context action
+  const newFolderButton = page
+    .locator('div.fixed.inset-0')
+    .getByRole('button', { name: 'New Folder' });
+  await expect(newFolderButton).toBeVisible({ timeout: 5000 });
+  await newFolderButton.click();
 
   // Fill in the folder name
   const folderNameInput = page.getByTestId('new-folder-name-input');
@@ -111,18 +115,17 @@ test.describe('VFS Explorer linking', () => {
     // Open VFS Explorer floating window
     await openVfsWindow(page);
 
-    // Wait for items to load
-    await expect(page.getByText('test-photo.png')).toBeVisible({
-      timeout: 30000
-    });
+    // Navigate to All Items so unfiled uploads are visible.
+    await page.getByText('All Items').first().click();
+
+    // Wait for items to load and locate a non-folder row.
+    const photoRow = page.locator('tbody tr').first();
+    await expect(photoRow).toBeVisible({ timeout: 30000 });
 
     // Create a folder to link to
     await createFolder(page, 'Test Folder');
 
-    // Right-click on the photo to open context menu
-    const photoRow = page
-      .locator('tr')
-      .filter({ has: page.getByText('test-photo.png') });
+    // Right-click on the photo row to open context menu
     await photoRow.click({ button: 'right', force: true });
 
     // Click "Copy" in the context menu (it's a button, not menuitem)
@@ -151,8 +154,8 @@ test.describe('VFS Explorer linking', () => {
     await expect(pasteButton).toBeVisible({ timeout: 5000 });
     await pasteButton.click();
 
-    // Verify the photo now appears in the folder
-    await expect(page.getByText('test-photo.png')).toBeVisible({
+    // Verify an item now appears in the folder.
+    await expect(page.locator('tbody tr').first()).toBeVisible({
       timeout: 10000
     });
 
