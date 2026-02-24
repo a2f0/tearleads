@@ -149,16 +149,24 @@ function buildConnectionInfo(): PostgresConnectionInfo {
   return { host, port, database, user };
 }
 
+function parseSslConfig(): PoolConfig['ssl'] | undefined {
+  const sslEnv = process.env['POSTGRES_SSL'];
+  if (!sslEnv || sslEnv === '0' || sslEnv === 'false') return undefined;
+  return { rejectUnauthorized: false };
+}
+
 function buildPoolConfig(): { config: PoolConfig; configKey: string } {
   if (!isDevMode()) {
     const config = requireReleaseConfig();
+    const ssl = parseSslConfig();
     return {
-      config,
+      config: { ...config, ...(ssl ? { ssl } : {}) },
       configKey: JSON.stringify({
         host: config.host,
         port: config.port,
         user: config.user,
-        database: config.database
+        database: config.database,
+        ssl: !!ssl
       })
     };
   }
