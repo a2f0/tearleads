@@ -54,7 +54,7 @@ const config: KnipConfig = {
     'packages/client': {
       entry: [
         'electron.vite.config.ts',
-        'electronBuilder.config.ts',
+        'electron-builder.config.ts',
         'electron/main.ts',
         'electron/preload.ts'
       ],

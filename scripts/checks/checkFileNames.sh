@@ -6,7 +6,7 @@ set -euo pipefail
 # - TypeScript utilities (.ts): camelCase
 # - Test files: match source file naming
 # - Type definitions (.d.ts): camelCase
-# - Excluded: skills directories, vite-env.d.ts, playwright-env.d.ts
+# - Excluded: skills directories, vite-env.d.ts, playwright-env.d.ts, electron-builder.config.ts
 
 usage() {
   echo "Usage: $0 --staged | --from-upstream" >&2
@@ -74,7 +74,7 @@ is_excluded() {
   local basename
   basename=$(basename "$path")
   case "$basename" in
-    vite-env.d.ts|playwright-env.d.ts) return 0 ;;
+    vite-env.d.ts|playwright-env.d.ts|electron-builder.config.ts) return 0 ;;
   esac
 
   return 1
