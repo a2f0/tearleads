@@ -150,6 +150,87 @@ describe('HelpWindow', () => {
     expect(screen.getByTestId('help-window-control-back')).toBeInTheDocument();
   });
 
+  it('shows an error when API docs cannot be loaded', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        json: async () => ({})
+      }))
+    );
+    const user = userEvent.setup();
+    render(
+      <HelpWindow
+        id="help-1"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={1}
+      />
+    );
+
+    await user.click(screen.getByText('API Docs'));
+
+    expect(
+      await screen.findByText('Unable to load API docs.')
+    ).toBeInTheDocument();
+  });
+
+  it('shows an error when API docs payload is invalid', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          info: {
+            title: 'missing openapi'
+          }
+        })
+      }))
+    );
+    const user = userEvent.setup();
+    render(
+      <HelpWindow
+        id="help-1"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={1}
+      />
+    );
+
+    await user.click(screen.getByText('API Docs'));
+
+    expect(
+      await screen.findByText('Unable to load API docs.')
+    ).toBeInTheDocument();
+  });
+
+  it('shows an error when fetching API docs throws', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('network failure');
+      })
+    );
+    const user = userEvent.setup();
+    render(
+      <HelpWindow
+        id="help-1"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={1}
+      />
+    );
+
+    await user.click(screen.getByText('API Docs'));
+
+    expect(
+      await screen.findByText('Unable to load API docs.')
+    ).toBeInTheDocument();
+  });
+
   it('navigates back to index from API docs view', async () => {
     const user = userEvent.setup();
     render(

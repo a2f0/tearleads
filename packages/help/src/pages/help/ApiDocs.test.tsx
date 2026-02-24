@@ -64,4 +64,67 @@ describe('ApiDocsPage', () => {
     expect(await screen.findByText('Client Docs')).toBeInTheDocument();
     expect(await screen.findByText('Ping')).toBeInTheDocument();
   });
+
+  it('shows an error when API docs fail to load', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        json: async () => ({})
+      }))
+    );
+
+    render(
+      <MemoryRouter>
+        <ApiDocsPage />
+      </MemoryRouter>
+    );
+
+    expect(
+      await screen.findByText('Unable to load API docs.')
+    ).toBeInTheDocument();
+  });
+
+  it('shows an error when payload is not an OpenAPI doc', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          info: {
+            title: 'missing openapi'
+          }
+        })
+      }))
+    );
+
+    render(
+      <MemoryRouter>
+        <ApiDocsPage />
+      </MemoryRouter>
+    );
+
+    expect(
+      await screen.findByText('Unable to load API docs.')
+    ).toBeInTheDocument();
+  });
+
+  it('shows an error when fetching API docs throws', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('network failure');
+      })
+    );
+
+    render(
+      <MemoryRouter>
+        <ApiDocsPage />
+      </MemoryRouter>
+    );
+
+    expect(
+      await screen.findByText('Unable to load API docs.')
+    ).toBeInTheDocument();
+  });
 });
