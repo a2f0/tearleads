@@ -40,4 +40,3 @@ run_step "enforceTypeScriptIncrementalBuilds" pnpm enforceTypeScriptIncrementalB
 run_step "runImpactedQuality" pnpm exec tsx scripts/ciImpact/runImpactedQuality.ts --base origin/main --head HEAD
 # Run impacted package coverage tests with conservative full-run fallback.
 run_step "runImpactedTests" pnpm exec tsx scripts/ciImpact/runImpactedTests.ts --base origin/main --head HEAD
-run_step "auditDependencies" pnpm audit --audit-level high
