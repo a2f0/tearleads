@@ -8,7 +8,10 @@ import {
   useMemo,
   useState
 } from 'react';
-import { createVfsKeySetupPayloadForOnboarding } from '@/hooks/vfs';
+import {
+  createVfsKeySetupPayloadForOnboarding,
+  setVfsRecoveryPassword
+} from '@/hooks/vfs';
 import { api, tryRefreshToken } from '@/lib/api';
 import {
   AUTH_REFRESH_TOKEN_KEY,
@@ -161,6 +164,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = useCallback(async (email: string, password: string) => {
     clearAuthError();
     const response = await api.auth.login(email, password);
+    setVfsRecoveryPassword(password);
 
     // Store in state
     setToken(response.accessToken);
@@ -179,8 +183,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     ) => {
       clearAuthError();
       let effectiveVfsKeySetup = vfsKeySetup;
+      setVfsRecoveryPassword(password);
       if (!effectiveVfsKeySetup) {
-        effectiveVfsKeySetup = await createVfsKeySetupPayloadForOnboarding();
+        effectiveVfsKeySetup =
+          await createVfsKeySetupPayloadForOnboarding(password);
       }
 
       const response = await api.auth.register(
@@ -212,6 +218,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setToken(null);
     setUser(null);
     setAuthErrorState(null);
+    setVfsRecoveryPassword(null);
     clearStoredAuth();
     clearAuthError();
   }, []);

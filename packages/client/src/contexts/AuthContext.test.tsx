@@ -5,8 +5,11 @@ import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from '@/lib/authStorage';
 import { AuthProvider, useAuth } from './AuthContext';
 
 const mockLogin = vi.fn();
+const mockRegister = vi.fn();
 const mockLogout = vi.fn();
 const mockTryRefreshToken = vi.fn().mockResolvedValue(false);
+const mockCreateVfsKeySetupPayloadForOnboarding = vi.fn();
+const mockSetVfsRecoveryPassword = vi.fn();
 
 function createJwt(expiresAtSeconds: number): string {
   const header = btoa(JSON.stringify({ alg: 'none', typ: 'JWT' }))
@@ -24,10 +27,18 @@ vi.mock('@/lib/api', () => ({
   api: {
     auth: {
       login: (...args: unknown[]) => mockLogin(...args),
+      register: (...args: unknown[]) => mockRegister(...args),
       logout: () => mockLogout()
     }
   },
   tryRefreshToken: () => mockTryRefreshToken()
+}));
+
+vi.mock('@/hooks/vfs', () => ({
+  createVfsKeySetupPayloadForOnboarding: (...args: unknown[]) =>
+    mockCreateVfsKeySetupPayloadForOnboarding(...args),
+  setVfsRecoveryPassword: (...args: unknown[]) =>
+    mockSetVfsRecoveryPassword(...args)
 }));
 
 function TestComponent() {
@@ -38,12 +49,16 @@ function TestComponent() {
     token,
     isLoading,
     login,
+    register,
     logout,
     clearAuthError
   } = useAuth();
 
   const handleLogin = async () => {
     await login('test@example.com', 'password123');
+  };
+  const handleRegister = async () => {
+    await register('new@example.com', 'password123A!');
   };
 
   if (isLoading) {
@@ -61,6 +76,9 @@ function TestComponent() {
       <button type="button" onClick={handleLogin}>
         Login
       </button>
+      <button type="button" onClick={handleRegister}>
+        Register
+      </button>
       <button type="button" onClick={logout}>
         Logout
       </button>
@@ -75,6 +93,11 @@ describe('AuthContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    mockCreateVfsKeySetupPayloadForOnboarding.mockResolvedValue({
+      publicEncryptionKey: 'combined-public-key',
+      encryptedPrivateKeys: 'encrypted-private-bundle',
+      argon2Salt: 'argon2-salt'
+    });
   });
 
   afterEach(() => {
@@ -228,6 +251,56 @@ describe('AuthContext', () => {
       id: '456',
       email: 'new@example.com'
     });
+    expect(mockSetVfsRecoveryPassword).toHaveBeenCalledWith('password123');
+  });
+
+  it('handles register success and prepares onboarding key payload', async () => {
+    mockRegister.mockResolvedValueOnce({
+      accessToken: 'registered-token',
+      refreshToken: 'registered-refresh-token',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      user: { id: '999', email: 'new@example.com' }
+    });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent(
+        'not authenticated'
+      );
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Register' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent(
+        'authenticated'
+      );
+      expect(screen.getByTestId('user-email')).toHaveTextContent(
+        'new@example.com'
+      );
+    });
+
+    expect(mockSetVfsRecoveryPassword).toHaveBeenCalledWith('password123A!');
+    expect(mockCreateVfsKeySetupPayloadForOnboarding).toHaveBeenCalledWith(
+      'password123A!'
+    );
+    expect(mockRegister).toHaveBeenCalledWith(
+      'new@example.com',
+      'password123A!',
+      {
+        publicEncryptionKey: 'combined-public-key',
+        encryptedPrivateKeys: 'encrypted-private-bundle',
+        argon2Salt: 'argon2-salt'
+      }
+    );
   });
 
   it('handles logout and calls server API', async () => {
@@ -263,6 +336,7 @@ describe('AuthContext', () => {
     expect(mockLogout).toHaveBeenCalledTimes(1);
     expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBeNull();
     expect(localStorage.getItem(AUTH_USER_KEY)).toBeNull();
+    expect(mockSetVfsRecoveryPassword).toHaveBeenCalledWith(null);
   });
 
   it('clears local state even when logout API fails (offline support)', async () => {
