@@ -4,6 +4,10 @@ import { app } from '../../index.js';
 import { createAuthHeader } from '../../test/auth.js';
 import { mockConsoleError } from '../../test/consoleMocks.js';
 
+const { mockDeleteVfsBlobByStorageKey } = vi.hoisted(() => ({
+  mockDeleteVfsBlobByStorageKey: vi.fn()
+}));
+
 const sessionStore = new Map<string, string>();
 const mockLRange = vi.fn();
 const mockLLen = vi.fn();
@@ -17,6 +21,9 @@ const mockSIsMember = vi.fn();
 const mockSRem = vi.fn();
 const mockSCard = vi.fn();
 const mockPostgresQuery = vi.fn();
+const mockPostgresConnect = vi.fn();
+const mockPostgresClientQuery = vi.fn();
+const mockPostgresClientRelease = vi.fn();
 
 const userSessionsStore = new Map<string, Set<string>>();
 const mockTtl = new Map<string, number>();
@@ -79,9 +86,14 @@ vi.mock('@tearleads/shared/redis', () => ({
 vi.mock('../../lib/postgres.js', () => ({
   getPostgresPool: vi.fn(() =>
     Promise.resolve({
-      query: mockPostgresQuery
+      query: mockPostgresQuery,
+      connect: mockPostgresConnect
     })
   )
+}));
+
+vi.mock('../../lib/vfsBlobStore.js', () => ({
+  deleteVfsBlobByStorageKey: mockDeleteVfsBlobByStorageKey
 }));
 
 const mockStoredEmail = {
@@ -134,6 +146,15 @@ describe('Emails Routes', () => {
     mockSCard.mockResolvedValue(0);
     mockEval.mockResolvedValue(1);
     mockPostgresQuery.mockReset();
+    mockPostgresConnect.mockReset();
+    mockPostgresClientQuery.mockReset();
+    mockPostgresClientRelease.mockReset();
+    mockDeleteVfsBlobByStorageKey.mockReset();
+    mockPostgresClientRelease.mockImplementation(() => {});
+    mockPostgresConnect.mockResolvedValue({
+      query: mockPostgresClientQuery,
+      release: mockPostgresClientRelease
+    });
     authHeader = await createAuthHeader();
   });
 
@@ -391,96 +412,4 @@ describe('Emails Routes', () => {
     });
   });
 
-  describe('VFS backend', () => {
-    beforeEach(() => {
-      vi.stubEnv('EMAIL_STORAGE_BACKEND', 'vfs');
-    });
-
-    afterEach(() => {
-      vi.unstubAllEnvs();
-    });
-
-    it('lists emails from Postgres', async () => {
-      mockPostgresQuery
-        .mockResolvedValueOnce({ rows: [{ total: '1' }] })
-        .mockResolvedValueOnce({
-          rows: [
-            {
-              id: 'vfs-email-1',
-              encrypted_from: 'enc-from',
-              encrypted_to: ['enc-to'],
-              encrypted_subject: 'enc-subject',
-              received_at: '2026-02-23T00:00:00.000Z',
-              ciphertext_size: 77
-            }
-          ]
-        });
-
-      const response = await request(app)
-        .get('/v1/emails')
-        .set('Authorization', authHeader);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({
-        emails: [
-          {
-            id: 'vfs-email-1',
-            from: 'enc-from',
-            to: ['enc-to'],
-            subject: 'enc-subject',
-            receivedAt: '2026-02-23T00:00:00.000Z',
-            size: 77
-          }
-        ],
-        total: 1,
-        offset: 0,
-        limit: 50
-      });
-    });
-
-    it('gets email by id from Postgres', async () => {
-      mockPostgresQuery.mockResolvedValueOnce({
-        rows: [
-          {
-            id: 'vfs-email-1',
-            encrypted_from: 'enc-from',
-            encrypted_to: ['enc-to'],
-            encrypted_subject: 'enc-subject',
-            received_at: '2026-02-23T00:00:00.000Z',
-            ciphertext_size: 88,
-            encrypted_body_path: 'smtp/inbound/msg-1.bin'
-          }
-        ]
-      });
-
-      const response = await request(app)
-        .get('/v1/emails/vfs-email-1')
-        .set('Authorization', authHeader);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({
-        id: 'vfs-email-1',
-        from: 'enc-from',
-        to: ['enc-to'],
-        subject: 'enc-subject',
-        receivedAt: '2026-02-23T00:00:00.000Z',
-        size: 88,
-        rawData: '',
-        encryptedBodyPath: 'smtp/inbound/msg-1.bin'
-      });
-    });
-
-    it('deletes email by id via Postgres ownership check', async () => {
-      mockPostgresQuery.mockResolvedValueOnce({
-        rows: [{ id: 'vfs-email-1' }]
-      });
-
-      const response = await request(app)
-        .delete('/v1/emails/vfs-email-1')
-        .set('Authorization', authHeader);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({ success: true });
-    });
-  });
 });

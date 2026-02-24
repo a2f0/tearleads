@@ -241,3 +241,15 @@ export async function deleteVfsBlobData(params: {
     })
   );
 }
+
+export async function deleteVfsBlobByStorageKey(params: {
+  storageKey: string;
+}): Promise<void> {
+  const { client, config } = getRuntime();
+  await client.send(
+    new DeleteObjectCommand({
+      Bucket: config.bucket,
+      Key: params.storageKey
+    })
+  );
+}
