@@ -147,7 +147,7 @@ describe('vfsCrdtCompactionMetrics', () => {
   });
 
   it('emits serialized metric payload', () => {
-    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const metric = buildVfsCrdtCompactionRunMetric({
       plan: {
         now: '2026-02-24T00:00:00.000Z',

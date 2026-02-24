@@ -224,8 +224,11 @@ export function vfsCrdtCompactionCommand(program: Command): void {
         if (client) {
           try {
             await client.query('ROLLBACK');
-          } catch {
-            // no-op
+          } catch (rollbackError) {
+            console.error(
+              'Failed to rollback VFS CRDT compaction transaction:',
+              rollbackError
+            );
           }
         }
 

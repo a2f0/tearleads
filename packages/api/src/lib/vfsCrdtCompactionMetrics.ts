@@ -1,3 +1,4 @@
+import { isRecord } from '@tearleads/shared';
 import type { VfsCrdtCompactionPlan } from './vfsCrdtCompaction.js';
 
 export interface VfsCrdtCompactionRunMetric {
@@ -14,10 +15,6 @@ export interface VfsCrdtCompactionRunMetric {
   staleClientCount: number;
   staleClientIds: string[];
   error: string | null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 export function isVfsCrdtCompactionRunMetric(
@@ -155,5 +152,5 @@ export function buildVfsCrdtCompactionRunMetric(input: {
 export function emitVfsCrdtCompactionRunMetric(
   metric: VfsCrdtCompactionRunMetric
 ): void {
-  console.log(JSON.stringify(metric));
+  console.error(JSON.stringify(metric));
 }

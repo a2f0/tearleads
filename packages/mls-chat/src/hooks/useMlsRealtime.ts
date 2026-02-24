@@ -265,8 +265,11 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
                           apiBaseUrl,
                           getAuthHeader
                         });
-                      } catch {
-                        // State uploads are best effort.
+                      } catch (uploadError) {
+                        console.warn(
+                          `Failed to upload MLS state for group ${groupId}:`,
+                          uploadError
+                        );
                       }
                     })
                     .catch(() => {
