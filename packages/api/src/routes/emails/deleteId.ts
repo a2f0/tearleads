@@ -1,14 +1,6 @@
-import { getRedisClient } from '@tearleads/shared/redis';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { deleteVfsBlobByStorageKey } from '../../lib/vfsBlobStore.js';
-import { getEmailStorageBackend } from './backend.js';
-import {
-  EMAIL_DELETE_SCRIPT,
-  getEmailKey,
-  getEmailListKey,
-  getEmailUsersKey
-} from './shared.js';
 
 /**
  * @openapi
@@ -41,19 +33,17 @@ const deleteIdHandler = async (req: Request<{ id: string }>, res: Response) => {
       return;
     }
     const { id } = req.params;
-    const backend = getEmailStorageBackend();
 
-    if (backend === 'vfs') {
-      const pool = await getPostgresPool();
-      const client = await pool.connect();
-      let orphanedStorageKey: string | null = null;
-      try {
-        await client.query('BEGIN');
-        const emailRowResult = await client.query<{
-          message_id: string | null;
-          storage_key: string | null;
-        }>(
-          `SELECT
+    const pool = await getPostgresPool();
+    const client = await pool.connect();
+    let orphanedStorageKey: string | null = null;
+    try {
+      await client.query('BEGIN');
+      const emailRowResult = await client.query<{
+        message_id: string | null;
+        storage_key: string | null;
+      }>(
+        `SELECT
              em.id AS message_id,
              em.storage_key
            FROM vfs_registry vr
@@ -63,105 +53,83 @@ const deleteIdHandler = async (req: Request<{ id: string }>, res: Response) => {
              AND vr.owner_id = $2
              AND vr.object_type = 'email'
            LIMIT 1`,
-          [id, userId]
-        );
+        [id, userId]
+      );
 
-        const emailRow = emailRowResult.rows[0];
-        if (!emailRow) {
-          await client.query('ROLLBACK');
-          res.status(404).json({ error: 'Email not found' });
-          return;
-        }
+      const emailRow = emailRowResult.rows[0];
+      if (!emailRow) {
+        await client.query('ROLLBACK');
+        res.status(404).json({ error: 'Email not found' });
+        return;
+      }
 
-        if (emailRow.message_id) {
-          await client.query(
-            `DELETE FROM email_recipients
+      if (emailRow.message_id) {
+        await client.query(
+          `DELETE FROM email_recipients
              WHERE message_id = $1
                AND user_id = $2`,
-            [emailRow.message_id, userId]
-          );
-          const remainingRecipients = await client.query<{ count: string }>(
-            `SELECT COUNT(*)::text AS count
+          [emailRow.message_id, userId]
+        );
+        const remainingRecipients = await client.query<{ count: string }>(
+          `SELECT COUNT(*)::text AS count
              FROM email_recipients
              WHERE message_id = $1`,
-            [emailRow.message_id]
-          );
-          const remainingCount =
-            parseInt(remainingRecipients.rows[0]?.count ?? '0', 10) || 0;
-          if (remainingCount === 0) {
-            const deletedMessage = await client.query<{ storage_key: string }>(
-              `DELETE FROM email_messages
+          [emailRow.message_id]
+        );
+        const remainingCount =
+          parseInt(remainingRecipients.rows[0]?.count ?? '0', 10) || 0;
+        if (remainingCount === 0) {
+          const deletedMessage = await client.query<{ storage_key: string }>(
+            `DELETE FROM email_messages
                WHERE id = $1
                RETURNING storage_key`,
-              [emailRow.message_id]
-            );
-            orphanedStorageKey = deletedMessage.rows[0]?.storage_key ?? null;
-          }
+            [emailRow.message_id]
+          );
+          orphanedStorageKey = deletedMessage.rows[0]?.storage_key ?? null;
         }
+      }
 
-        const deleted = await client.query<{ id: string }>(
-          `DELETE FROM vfs_registry
+      const deleted = await client.query<{ id: string }>(
+        `DELETE FROM vfs_registry
            WHERE id = $1
              AND owner_id = $2
              AND object_type = 'email'
            RETURNING id`,
-          [id, userId]
+        [id, userId]
+      );
+      if (!deleted.rows[0]) {
+        await client.query('ROLLBACK');
+        res.status(404).json({ error: 'Email not found' });
+        return;
+      }
+      await client.query('COMMIT');
+    } catch (error) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error(
+          'Failed to rollback email delete transaction:',
+          rollbackError
         );
-        if (!deleted.rows[0]) {
-          await client.query('ROLLBACK');
-          res.status(404).json({ error: 'Email not found' });
-          return;
-        }
-        await client.query('COMMIT');
-      } catch (error) {
-        try {
-          await client.query('ROLLBACK');
-        } catch (rollbackError) {
-          console.error(
-            'Failed to rollback email delete transaction:',
-            rollbackError
-          );
-        }
-        throw error;
-      } finally {
-        client.release();
       }
+      throw error;
+    } finally {
+      client.release();
+    }
 
-      if (orphanedStorageKey) {
-        try {
-          await deleteVfsBlobByStorageKey({ storageKey: orphanedStorageKey });
-        } catch (blobDeleteError) {
-          // Blob cleanup is best-effort after successful metadata deletion.
-          console.error(
-            'Failed to delete orphaned inbound email blob:',
-            blobDeleteError
-          );
-        }
+    if (orphanedStorageKey) {
+      try {
+        await deleteVfsBlobByStorageKey({ storageKey: orphanedStorageKey });
+      } catch (blobDeleteError) {
+        // Blob cleanup is best-effort after successful metadata deletion.
+        console.error(
+          'Failed to delete orphaned inbound email blob:',
+          blobDeleteError
+        );
       }
-
-      res.json({ success: true });
-      return;
     }
 
-    const client = await getRedisClient();
-    const key = getEmailKey(id);
-    const usersKey = getEmailUsersKey(id);
-    const hasAccess = await client.sIsMember(usersKey, userId);
-
-    if (hasAccess !== 1) {
-      res.status(404).json({ error: 'Email not found' });
-      return;
-    }
-
-    const result = await client.eval(EMAIL_DELETE_SCRIPT, {
-      keys: [usersKey, getEmailListKey(userId), key],
-      arguments: [userId, id]
-    });
-    if (result === 1) {
-      res.json({ success: true });
-      return;
-    }
-    res.status(404).json({ error: 'Email not found' });
+    res.json({ success: true });
   } catch (error) {
     console.error('Failed to delete email:', error);
     res.status(500).json({ error: 'Failed to delete email' });

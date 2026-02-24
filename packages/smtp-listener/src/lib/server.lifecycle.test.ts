@@ -27,7 +27,7 @@ describe('server lifecycle', () => {
   });
 
   describe('start', () => {
-    it('starts the server and connects to storage', async () => {
+    it('starts the server', async () => {
       const listener = await createSmtpListener({ port: 2525 });
       await listener.start();
 
@@ -88,36 +88,15 @@ describe('server lifecycle', () => {
   });
 
   describe('stop', () => {
-    it('stops the server and closes storage', async () => {
+    it('stops the server', async () => {
       const listener = await createSmtpListener({ port: 2525 });
       await listener.start();
       await listener.stop();
 
       expect(smtpTestDoubles.mockServerClose).toHaveBeenCalled();
-      expect(smtpTestDoubles.mockStorageClose).toHaveBeenCalled();
     });
 
-    it('handles storage close error gracefully', async () => {
-      smtpTestDoubles.mockStorageClose.mockRejectedValue(
-        new Error('Close failed')
-      );
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
-
-      const listener = await createSmtpListener({ port: 2525 });
-      await listener.start();
-      await listener.stop();
-
-      expect(smtpTestDoubles.mockServerClose).toHaveBeenCalled();
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Failed to close Redis storage on SMTP listener stop:',
-        expect.any(Error)
-      );
-      consoleSpy.mockRestore();
-    });
-
-    it('stops without storage if not started', async () => {
+    it('stops without prior start', async () => {
       const listener = await createSmtpListener({ port: 2525 });
       await listener.stop();
 

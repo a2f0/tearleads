@@ -10,7 +10,6 @@ export {
 export { closePostgresPool, getPostgresPool } from './lib/postgres.js';
 export { resolveRecipientUserIds } from './lib/recipientResolver.js';
 export { createSmtpListener, type SmtpListener } from './lib/server.js';
-export { createStorage, type EmailStorage } from './lib/storage.js';
 export type {
   EmailAddress,
   EmailEnvelope,

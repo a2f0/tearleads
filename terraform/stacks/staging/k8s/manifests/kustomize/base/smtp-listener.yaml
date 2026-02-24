@@ -29,8 +29,6 @@ spec:
               value: "0.0.0.0"
             - name: SMTP_PORT
               value: "25"
-            - name: SMTP_INGEST_MODE
-              value: "vfs"
             - name: SMTP_RECIPIENT_ADDRESSING
               value: "uuid-local-part"
             - name: POSTGRES_PASSWORD

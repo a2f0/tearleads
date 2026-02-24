@@ -10,8 +10,6 @@ type OnDataHandler = (
 ) => void;
 
 interface SmtpTestDoubles {
-  mockStorageStore: ReturnType<typeof vi.fn>;
-  mockStorageClose: ReturnType<typeof vi.fn>;
   mockServerListen: ReturnType<typeof vi.fn>;
   mockServerClose: ReturnType<typeof vi.fn>;
   mockServerOn: ReturnType<typeof vi.fn>;
@@ -22,8 +20,6 @@ interface SmtpTestDoubles {
 }
 
 const doubles: SmtpTestDoubles = vi.hoisted(() => ({
-  mockStorageStore: vi.fn(),
-  mockStorageClose: vi.fn(),
   mockServerListen: vi.fn(),
   mockServerClose: vi.fn(),
   mockServerOn: vi.fn(),
@@ -31,15 +27,6 @@ const doubles: SmtpTestDoubles = vi.hoisted(() => ({
   mockServerAddress: vi.fn<() => { port: number } | string | null>(() => ({
     port: 2525
   }))
-}));
-
-vi.mock('../lib/storage.js', () => ({
-  createStorage: vi.fn(() =>
-    Promise.resolve({
-      store: doubles.mockStorageStore,
-      close: doubles.mockStorageClose
-    })
-  )
 }));
 
 vi.mock('smtp-server', () => ({
@@ -68,8 +55,6 @@ export const resetSmtpTestDoubles = (): void => {
   doubles.mockServerClose.mockImplementation((callback: () => void) => {
     callback();
   });
-  doubles.mockStorageStore.mockResolvedValue(undefined);
-  doubles.mockStorageClose.mockResolvedValue(undefined);
 };
 
 export const createMockStream = (): EventEmitter => new EventEmitter();
