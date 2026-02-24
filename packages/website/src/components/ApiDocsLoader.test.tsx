@@ -97,4 +97,76 @@ describe('ApiDocsLoader', () => {
       await screen.findByText('Unable to load API docs.')
     ).toBeInTheDocument();
   });
+
+  it('does not update state after unmount before fetch resolves', async () => {
+    let resolveFetch: ((value: Response) => void) | null = null;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveFetch = resolve as (value: Response) => void;
+          })
+      )
+    );
+
+    const { unmount } = render(<ApiDocsLoader />);
+    unmount();
+
+    resolveFetch?.({
+      ok: false,
+      json: async () => ({})
+    } as Response);
+
+    await Promise.resolve();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not update state after unmount before json resolves', async () => {
+    let resolveJson: ((value: unknown) => void) | null = null;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () =>
+          new Promise((resolve) => {
+            resolveJson = resolve;
+          })
+      }))
+    );
+
+    const { unmount } = render(<ApiDocsLoader />);
+    await Promise.resolve();
+    unmount();
+
+    resolveJson?.({
+      openapi: '3.0.0',
+      info: { title: 'Ignored', version: '1.0.0' },
+      paths: {}
+    });
+
+    await Promise.resolve();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not set loadFailed after unmount when fetch later throws', async () => {
+    let rejectFetch: ((reason?: unknown) => void) | null = null;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        () =>
+          new Promise((_, reject) => {
+            rejectFetch = reject;
+          })
+      )
+    );
+
+    const { unmount } = render(<ApiDocsLoader />);
+    unmount();
+
+    rejectFetch?.(new Error('late failure'));
+
+    await Promise.resolve();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
 });
