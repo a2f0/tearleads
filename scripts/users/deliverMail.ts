@@ -11,10 +11,7 @@ export interface DeliverMailOptions {
   body: string;
 }
 
-function smtpExchange(
-  socket: net.Socket,
-  command: string
-): Promise<string> {
+function smtpExchange(socket: net.Socket, command: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const onData = (data: Buffer): void => {
       socket.removeListener('data', onData);
@@ -146,7 +143,9 @@ async function main(): Promise<void> {
   }
 
   const opts = buildOptions();
-  console.log(`Sending test email to ${opts.to} via ${opts.host}:${opts.port}...`);
+  console.log(
+    `Sending test email to ${opts.to} via ${opts.host}:${opts.port}...`
+  );
   await deliverMail(opts);
   console.log('Email sent successfully');
 }

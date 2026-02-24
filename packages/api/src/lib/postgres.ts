@@ -1,7 +1,7 @@
 import {
-  type PostgresConnectionInfo,
   getPostgresDevDefaults,
-  isDevMode
+  isDevMode,
+  type PostgresConnectionInfo
 } from '@tearleads/shared';
 import type { Pool as PgPool, PoolConfig } from 'pg';
 import pg from 'pg';

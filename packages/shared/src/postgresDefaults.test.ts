@@ -50,9 +50,7 @@ describe('postgresDefaults', () => {
   describe('getPostgresDevDefaults', () => {
     it('returns empty object in non-dev mode', async () => {
       process.env['NODE_ENV'] = 'production';
-      const { getPostgresDevDefaults } = await import(
-        './postgresDefaults.js'
-      );
+      const { getPostgresDevDefaults } = await import('./postgresDefaults.js');
       expect(getPostgresDevDefaults()).toEqual({});
     });
 
@@ -60,9 +58,7 @@ describe('postgresDefaults', () => {
       process.env['NODE_ENV'] = 'development';
       delete process.env['USER'];
       delete process.env['LOGNAME'];
-      const { getPostgresDevDefaults } = await import(
-        './postgresDefaults.js'
-      );
+      const { getPostgresDevDefaults } = await import('./postgresDefaults.js');
       const defaults = getPostgresDevDefaults();
       const expectedHost =
         process.platform === 'linux' ? '/var/run/postgresql' : 'localhost';
@@ -75,9 +71,7 @@ describe('postgresDefaults', () => {
     it('uses USER env var when available', async () => {
       process.env['NODE_ENV'] = 'development';
       process.env['USER'] = 'env_user';
-      const { getPostgresDevDefaults } = await import(
-        './postgresDefaults.js'
-      );
+      const { getPostgresDevDefaults } = await import('./postgresDefaults.js');
       expect(getPostgresDevDefaults().user).toBe('env_user');
     });
 
@@ -85,18 +79,14 @@ describe('postgresDefaults', () => {
       process.env['NODE_ENV'] = 'development';
       delete process.env['USER'];
       process.env['LOGNAME'] = 'logname_user';
-      const { getPostgresDevDefaults } = await import(
-        './postgresDefaults.js'
-      );
+      const { getPostgresDevDefaults } = await import('./postgresDefaults.js');
       expect(getPostgresDevDefaults().user).toBe('logname_user');
     });
 
     it('returns defaults when NODE_ENV is unset', async () => {
       delete process.env['NODE_ENV'];
       process.env['USER'] = 'dev_user';
-      const { getPostgresDevDefaults } = await import(
-        './postgresDefaults.js'
-      );
+      const { getPostgresDevDefaults } = await import('./postgresDefaults.js');
       const defaults = getPostgresDevDefaults();
       expect(defaults.port).toBe(5432);
       expect(defaults.database).toBe('tearleads_development');

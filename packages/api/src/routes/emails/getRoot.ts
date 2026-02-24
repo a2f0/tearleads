@@ -1,6 +1,6 @@
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
-import { type EmailListItem } from './shared.js';
+import type { EmailListItem } from './shared.js';
 
 /**
  * @openapi

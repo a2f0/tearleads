@@ -67,7 +67,9 @@ async function main(): Promise<void> {
     return;
   }
 
-  console.log(`Found ${admins.length} admin(s). Sending test emails via ${host}:${port}...`);
+  console.log(
+    `Found ${admins.length} admin(s). Sending test emails via ${host}:${port}...`
+  );
 
   for (const admin of admins) {
     const to = `${admin.id}@${domain}`;

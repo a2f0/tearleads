@@ -213,7 +213,10 @@ function main(): void {
 
   const prodDomain = readEnvValue('.secrets/prod.env', 'TF_VAR_domain');
   const stagingDomain = readEnvValue('.secrets/staging.env', 'TF_VAR_domain');
-  const openrouterApiKey = readEnvValue('.secrets/prod.env', 'OPENROUTER_API_KEY');
+  const openrouterApiKey = readEnvValue(
+    '.secrets/prod.env',
+    'OPENROUTER_API_KEY'
+  );
 
   const p8File = `.secrets/AuthKey_${env.APP_STORE_CONNECT_KEY_ID}.p8`;
   const keystoreFile = '.secrets/tearleads-release.keystore';
