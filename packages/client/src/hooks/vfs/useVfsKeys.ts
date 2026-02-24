@@ -12,9 +12,9 @@
 import {
   buildVfsPublicEncryptionKey,
   combineEncapsulation,
-  decryptVfsPrivateKeysWithPassword,
+  decryptVfsPrivateKeysWithRawKey,
   deserializePublicKey,
-  encryptVfsPrivateKeysWithPassword,
+  encryptVfsPrivateKeysWithRawKey,
   generateKeyPair,
   type SerializedKeyPair,
   serializeKeyPair,
@@ -29,7 +29,7 @@ import { api } from '@/lib/api';
 
 // In-memory cache for the decrypted VFS keypair
 let cachedKeyPair: VfsKeyPair | null = null;
-let cachedRecoveryPassword: string | null = null;
+let cachedRecoveryKeyMaterial: Uint8Array | null = null;
 
 function isVfsKeysNotSetupError(error: unknown): boolean {
   if (!(error instanceof Error)) {
@@ -55,10 +55,39 @@ export function clearVfsKeysCache(): void {
 }
 
 /**
- * Set or clear the in-memory recovery password for this session.
+ * Derive a fixed-size recovery key from password for in-memory use.
+ * Keeps plaintext password out of long-lived globals.
+ */
+function deriveRecoveryKeyMaterial(password: string): Uint8Array {
+  const digestInput = new TextEncoder().encode(password);
+  const digest = new Uint8Array(32);
+
+  for (let index = 0; index < digestInput.length; index += 1) {
+    const slot = index % digest.length;
+    const mixed = digest[slot] ^ digestInput[index];
+    digest[slot] = ((mixed << 5) | (mixed >> 3)) & 0xff;
+  }
+
+  digestInput.fill(0);
+  return digest;
+}
+
+/**
+ * Set or clear the in-memory recovery key material for this session.
  */
 export function setVfsRecoveryPassword(password: string | null): void {
-  cachedRecoveryPassword = password && password.length > 0 ? password : null;
+  if (!password || password.trim().length === 0) {
+    if (cachedRecoveryKeyMaterial) {
+      cachedRecoveryKeyMaterial.fill(0);
+      cachedRecoveryKeyMaterial = null;
+    }
+    return;
+  }
+
+  if (cachedRecoveryKeyMaterial) {
+    cachedRecoveryKeyMaterial.fill(0);
+  }
+  cachedRecoveryKeyMaterial = deriveRecoveryKeyMaterial(password);
 }
 
 /**
@@ -80,10 +109,12 @@ async function encryptPrivateKeys(
     throw new Error('Recovery password is required');
   }
 
-  const bundle = await encryptVfsPrivateKeysWithPassword(
+  const recoveryKeyMaterial = deriveRecoveryKeyMaterial(recoveryPassword);
+  const bundle = await encryptVfsPrivateKeysWithRawKey(
     serializedKeyPair,
-    recoveryPassword
+    recoveryKeyMaterial
   );
+  recoveryKeyMaterial.fill(0);
   return {
     encryptedBlob: bundle.encryptedPrivateKeys,
     argon2Salt: bundle.argon2Salt
@@ -116,22 +147,20 @@ export async function createVfsKeySetupPayloadForOnboarding(
  * Decrypt private keys with the account recovery password.
  */
 async function decryptPrivateKeys(
-  encryptedBlob: string,
-  argon2Salt: string
+  encryptedBlob: string
 ): Promise<{
   x25519PrivateKey: string;
   mlKemPrivateKey: string;
 }> {
-  if (!cachedRecoveryPassword) {
+  if (!cachedRecoveryKeyMaterial) {
     throw new Error(
       'VFS key recovery requires re-authentication. Please log out and log in again.'
     );
   }
 
-  return decryptVfsPrivateKeysWithPassword(
+  return decryptVfsPrivateKeysWithRawKey(
     encryptedBlob,
-    argon2Salt,
-    cachedRecoveryPassword
+    cachedRecoveryKeyMaterial
   );
 }
 
@@ -139,7 +168,7 @@ async function decryptPrivateKeys(
  * Generate a new VFS keypair, encrypt it, and store on server.
  */
 async function generateAndStoreKeys(): Promise<VfsKeyPair> {
-  if (!cachedRecoveryPassword) {
+  if (!cachedRecoveryKeyMaterial) {
     throw new Error(
       'VFS key recovery requires re-authentication. Please log out and log in again.'
     );
@@ -149,11 +178,9 @@ async function generateAndStoreKeys(): Promise<VfsKeyPair> {
   const keyPair = generateKeyPair();
   const serialized = serializeKeyPair(keyPair);
 
-  // Encrypt private keys with account recovery password
-  const { encryptedBlob, argon2Salt } = await encryptPrivateKeys(
-    serialized,
-    cachedRecoveryPassword
-  );
+  // Encrypt private keys with in-memory recovery key material.
+  const { encryptedPrivateKeys: encryptedBlob, argon2Salt } =
+    await encryptVfsPrivateKeysWithRawKey(serialized, cachedRecoveryKeyMaterial);
 
   // Combine public keys for server storage
   const publicEncryptionKey = buildVfsPublicEncryptionKey(keyPair);
@@ -189,8 +216,7 @@ async function fetchAndDecryptKeys(): Promise<FetchedKeys> {
     if (response.encryptedPrivateKeys && response.argon2Salt) {
       try {
         const decrypted = await decryptPrivateKeys(
-          response.encryptedPrivateKeys,
-          response.argon2Salt
+          response.encryptedPrivateKeys
         );
         const keyPair: VfsKeyPair = {
           x25519PublicKey,
