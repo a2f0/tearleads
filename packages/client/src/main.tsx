@@ -16,8 +16,8 @@ import {
   LaserScreensaver,
   ScreensaverProvider
 } from './components/screensaver';
-import { VfsRealtimeSyncBridge } from './components/VfsRealtimeSyncBridge';
 import { ErrorBoundary, errorBoundaryRef } from './components/ui/ErrorBoundary';
+import { VfsRealtimeSyncBridge } from './components/VfsRealtimeSyncBridge';
 import { WindowRenderer } from './components/window-renderer';
 import { AuthProvider } from './contexts/AuthContext';
 import { VfsOrchestratorProvider } from './contexts/VfsOrchestratorContext';

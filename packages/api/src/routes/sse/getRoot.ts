@@ -71,10 +71,7 @@ async function filterAuthorizedChannels(
     }
 
     const vfsContainerId = parseVfsContainerIdFromSyncChannel(channel);
-    if (
-      vfsContainerId &&
-      authorizedVfsContainerIds.has(vfsContainerId)
-    ) {
+    if (vfsContainerId && authorizedVfsContainerIds.has(vfsContainerId)) {
       authorized.push(channel);
     }
   }

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { afterEach, describe, expect, it } from 'vitest';
 import type { VfsSyncCursor } from '@tearleads/vfs-sync/vfs';
+import { afterEach, describe, expect, it } from 'vitest';
 import { ScenarioHarness } from '../harness/scenarioHarness.js';
 
 describe('containerRealtimeSubscriptions', () => {
@@ -141,7 +141,9 @@ describe('containerRealtimeSubscriptions', () => {
     await bob.sync();
 
     const delta = bob.listChangedContainers(baselineCursor, 50);
-    expect(delta.items.map((entry) => entry.containerId)).toEqual([secondItemId]);
+    expect(delta.items.map((entry) => entry.containerId)).toEqual([
+      secondItemId
+    ]);
     expect(delta.hasMore).toBe(false);
   });
 });

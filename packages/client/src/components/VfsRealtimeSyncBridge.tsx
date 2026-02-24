@@ -23,9 +23,7 @@ function isSameStringArray(left: string[], right: string[]): boolean {
 }
 
 function isVfsContainerSyncChannel(channel: string): boolean {
-  return (
-    channel.startsWith('vfs:container:') && channel.endsWith(':sync')
-  );
+  return channel.startsWith('vfs:container:') && channel.endsWith(':sync');
 }
 
 function buildChannelList(
@@ -125,7 +123,10 @@ export function VfsRealtimeSyncBridge() {
     };
 
     refreshChannels();
-    const refreshTimer = setInterval(refreshChannels, CHANNEL_REFRESH_INTERVAL_MS);
+    const refreshTimer = setInterval(
+      refreshChannels,
+      CHANNEL_REFRESH_INTERVAL_MS
+    );
     return () => {
       clearInterval(refreshTimer);
     };

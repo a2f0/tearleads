@@ -110,8 +110,8 @@ export class ActorHarness {
   }
 
   knownContainerIds(limit?: number): string[] {
-    return this.listChangedContainers(null, limit).items
-      .map((entry) => entry.containerId)
+    return this.listChangedContainers(null, limit)
+      .items.map((entry) => entry.containerId)
       .sort((left, right) => left.localeCompare(right));
   }
 
