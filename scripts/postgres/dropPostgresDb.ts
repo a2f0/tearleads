@@ -80,22 +80,16 @@ function parseDatabaseUrl(databaseUrl: string): ConnectionParts {
   };
 }
 
-function buildDatabaseUrl(parts: ConnectionParts): string {
-  if (!parts.database) {
-    throw new Error('Database must be specified in connection parts.');
-  }
-  const encodedUser = parts.user ? encodeURIComponent(parts.user) : '';
-  const encodedPassword = parts.password
-    ? encodeURIComponent(parts.password)
-    : '';
-  const auth = encodedUser
-    ? encodedPassword
-      ? `${encodedUser}:${encodedPassword}`
-      : encodedUser
-    : '';
-  const host = parts.host ?? 'localhost';
-  const port = parts.port ?? 5432;
-  return `postgres://${auth ? `${auth}@` : ''}${host}:${port}/${parts.database}`;
+function buildPsqlEnv(
+  parts: ConnectionParts,
+  database: string
+): Record<string, string> {
+  const env: Record<string, string> = { PGDATABASE: database };
+  if (parts.host != null) env['PGHOST'] = parts.host;
+  if (parts.port != null) env['PGPORT'] = String(parts.port);
+  if (parts.user != null) env['PGUSER'] = parts.user;
+  if (parts.password != null) env['PGPASSWORD'] = parts.password;
+  return env;
 }
 
 const options = parseArgs(process.argv.slice(2));
@@ -144,10 +138,7 @@ if (!options.yes) {
 }
 
 const adminDatabase = 'postgres';
-const adminUrl = buildDatabaseUrl({
-  ...baseParts,
-  database: adminDatabase
-});
+const psqlEnv = buildPsqlEnv(baseParts, adminDatabase);
 
 const safeDatabaseLiteral = targetDatabase.replace(/'/g, "''");
 const safeDatabaseIdentifier = targetDatabase.replace(/"/g, '""');
@@ -157,16 +148,14 @@ const terminateSql =
 const dropSql = `DROP DATABASE IF EXISTS "${safeDatabaseIdentifier}";`;
 
 try {
-  execFileSync(
-    'psql',
-    ['--set=ON_ERROR_STOP=1', '--dbname', adminUrl, '-c', terminateSql],
-    { stdio: 'inherit' }
-  );
-  execFileSync(
-    'psql',
-    ['--set=ON_ERROR_STOP=1', '--dbname', adminUrl, '-c', dropSql],
-    { stdio: 'inherit' }
-  );
+  execFileSync('psql', ['--set=ON_ERROR_STOP=1', '-c', terminateSql], {
+    stdio: 'inherit',
+    env: { ...process.env, ...psqlEnv }
+  });
+  execFileSync('psql', ['--set=ON_ERROR_STOP=1', '-c', dropSql], {
+    stdio: 'inherit',
+    env: { ...process.env, ...psqlEnv }
+  });
 } catch (error) {
   console.error(
     'Failed to drop database. Ensure psql is installed and reachable.'
