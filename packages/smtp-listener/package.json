@@ -24,11 +24,14 @@
   "author": "",
   "license": "UNLICENSED",
   "dependencies": {
+    "@aws-sdk/client-s3": "3.994.0",
     "@tearleads/shared": "workspace:*",
+    "pg": "8.16.3",
     "smtp-server": "3.18.1"
   },
   "devDependencies": {
     "@types/node": "25.3.0",
+    "@types/pg": "8.15.6",
     "@types/smtp-server": "3.5.12",
     "@vitest/coverage-v8": "4.0.18",
     "esbuild": "0.27.3",

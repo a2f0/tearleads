@@ -5,6 +5,7 @@ import type {
   SmtpListenerConfig
 } from '../types/email.js';
 import { createStoredEmail } from './parser.js';
+import { resolveRecipientUserIds } from './recipientResolver.js';
 import { createStorage, type EmailStorage } from './storage.js';
 
 export interface SmtpListener {
@@ -41,33 +42,14 @@ function normalizeDomains(domains: string[] | undefined): Set<string> | null {
   return new Set(normalized);
 }
 
-function extractUserIds(
-  rcptTo: EmailAddress[],
-  allowedDomains: Set<string> | null
-): string[] {
-  const userIds = new Set<string>();
-  for (const recipient of rcptTo) {
-    const address = recipient.address.trim().toLowerCase();
-    const atIndex = address.lastIndexOf('@');
-    if (atIndex <= 0 || atIndex === address.length - 1) {
-      continue;
-    }
-    const localPart = address.slice(0, atIndex);
-    const domain = address.slice(atIndex + 1);
-    if (allowedDomains && !allowedDomains.has(domain)) {
-      continue;
-    }
-    userIds.add(localPart);
-  }
-  return Array.from(userIds);
-}
-
 export async function createSmtpListener(
   config: SmtpListenerConfig
 ): Promise<SmtpListener> {
   const redisUrl = config.redisUrl ?? 'redis://localhost:6379';
   let storage: EmailStorage | null = null;
   const allowedDomains = normalizeDomains(config.recipientDomains);
+  const recipientAddressing = config.recipientAddressing ?? 'uuid-local-part';
+  const inboundIngestor = config.inboundIngestor;
 
   const server = new SMTPServer({
     authOptional: true,
@@ -85,9 +67,15 @@ export async function createSmtpListener(
           const rawData = Buffer.concat(chunks).toString('utf8');
           const envelope = buildEnvelope(session);
           const email = createStoredEmail(envelope, rawData);
-          const userIds = extractUserIds(envelope.rcptTo, allowedDomains);
+          const userIds = resolveRecipientUserIds({
+            rcptTo: envelope.rcptTo,
+            allowedDomains,
+            recipientAddressing
+          });
 
-          if (storage) {
+          if (inboundIngestor) {
+            await inboundIngestor.ingest({ email, userIds });
+          } else if (storage && userIds.length > 0) {
             await storage.store(email, userIds);
           }
           if (config.onEmail) {

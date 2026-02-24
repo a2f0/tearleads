@@ -14,8 +14,10 @@ KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config-staging-k8s}"
 SMTP_HOST="${SMTP_HOST:-smtp-listener}"
 SMTP_PORT="${SMTP_PORT:-25}"
 SMTP_SMOKE_USER="${SMTP_SMOKE_USER:-smtp-smoke}"
+SMTP_SMOKE_USER_ID="${SMTP_SMOKE_USER_ID:-}"
 SMTP_SMOKE_DOMAIN="${SMTP_SMOKE_DOMAIN:-smoke.local}"
 SMTP_FROM_ADDRESS="${SMTP_FROM_ADDRESS:-noreply@$SMTP_SMOKE_DOMAIN}"
+SMTP_SMOKE_BACKEND="${SMTP_SMOKE_BACKEND:-auto}"
 SMTP_WAIT_RETRIES="${SMTP_WAIT_RETRIES:-10}"
 SMTP_WAIT_DELAY="${SMTP_WAIT_DELAY:-2}"
 
@@ -46,6 +48,50 @@ get_running_pod_or_fail() {
     exit 1
   fi
   printf '%s\n' "$pod"
+}
+
+resolve_storage_backend() {
+  local api_pod="$1"
+  local backend="$SMTP_SMOKE_BACKEND"
+  if [[ "$backend" != "auto" ]]; then
+    printf '%s\n' "$backend"
+    return
+  fi
+
+  local detected
+  detected="$(kubectl -n "$NAMESPACE" exec "$api_pod" -c api -- sh -lc 'printf "%s" "${EMAIL_STORAGE_BACKEND:-}"' 2>/dev/null || true)"
+  detected="$(printf '%s' "$detected" | tr -d '\r' | tr '[:upper:]' '[:lower:]')"
+  if [[ "$detected" == "vfs" ]]; then
+    printf 'vfs\n'
+    return
+  fi
+  printf 'redis\n'
+}
+
+postgres_query_or_fail() {
+  local postgres_pod="$1"
+  local sql="$2"
+  local output
+  if ! output="$(kubectl -n "$NAMESPACE" exec "$postgres_pod" -c postgres -- sh -lc "PGPASSWORD=\"\$POSTGRES_PASSWORD\" psql -h 127.0.0.1 -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -tAc \"$sql\"" 2>/dev/null)"; then
+    echo "ERROR: failed postgres query: $sql"
+    exit 1
+  fi
+  printf '%s\n' "$output" | tr -d '\r'
+}
+
+resolve_vfs_recipient_user_id_or_fail() {
+  local postgres_pod="$1"
+  if [[ -n "$SMTP_SMOKE_USER_ID" ]]; then
+    printf '%s\n' "$SMTP_SMOKE_USER_ID"
+    return
+  fi
+  local user_id
+  user_id="$(postgres_query_or_fail "$postgres_pod" "SELECT id FROM users ORDER BY created_at ASC LIMIT 1")"
+  if [[ -z "$user_id" ]]; then
+    echo "ERROR: no users found for VFS SMTP smoke test; set SMTP_SMOKE_USER_ID explicitly."
+    exit 1
+  fi
+  printf '%s\n' "$user_id"
 }
 
 phase_api_to_smtp_tcp() {
@@ -84,21 +130,45 @@ phase_api_to_smtp_tcp() {
   fail "API pod $api_pod could not reach $SMTP_HOST:$SMTP_PORT. Output: ${node_output:-No output}"
 }
 
-phase_send_and_verify_redis() {
+phase_send_and_verify_storage() {
   echo ""
-  echo "Phase 2: Send SMTP message and verify Redis storage"
+  echo "Phase 2: Send SMTP message and verify storage backend"
 
-  local api_pod redis_pod smtp_pod
+  local api_pod redis_pod postgres_pod smtp_pod
   api_pod="$(get_running_pod_or_fail "app=api")"
-  redis_pod="$(get_running_pod_or_fail "app=redis")"
   smtp_pod="$(get_running_pod_or_fail "app=smtp-listener")"
+  local backend
+  backend="$(resolve_storage_backend "$api_pod")"
+
+  if [[ "$backend" != "redis" && "$backend" != "vfs" ]]; then
+    fail "unsupported SMTP smoke backend '$backend' (expected redis or vfs)"
+    return 1
+  fi
+  echo "  Backend: $backend"
+
+  if [[ "$backend" == "redis" ]]; then
+    redis_pod="$(get_running_pod_or_fail "app=redis")"
+  else
+    postgres_pod="$(get_running_pod_or_fail "app=postgres")"
+  fi
+
+  local recipient_local_part
+  if [[ "$backend" == "vfs" ]]; then
+    recipient_local_part="$(resolve_vfs_recipient_user_id_or_fail "$postgres_pod")"
+  else
+    recipient_local_part="$SMTP_SMOKE_USER"
+  fi
 
   local smtp_to redis_list_key marker before_count after_count email_id stored_json attempt
-  smtp_to="${SMTP_SMOKE_USER}@${SMTP_SMOKE_DOMAIN}"
-  redis_list_key="smtp:emails:${SMTP_SMOKE_USER}"
+  smtp_to="${recipient_local_part}@${SMTP_SMOKE_DOMAIN}"
+  redis_list_key="smtp:emails:${recipient_local_part}"
   marker="smtp-smoke-$(date +%s)-$RANDOM"
 
-  before_count="$(kubectl -n "$NAMESPACE" exec "$redis_pod" -c redis -- redis-cli LLEN "$redis_list_key" 2>/dev/null || echo 0)"
+  if [[ "$backend" == "redis" ]]; then
+    before_count="$(kubectl -n "$NAMESPACE" exec "$redis_pod" -c redis -- redis-cli LLEN "$redis_list_key" 2>/dev/null || echo 0)"
+  else
+    before_count="$(postgres_query_or_fail "$postgres_pod" "SELECT COUNT(*) FROM email_recipients WHERE user_id = '$recipient_local_part'")"
+  fi
   if [[ ! "$before_count" =~ ^[0-9]+$ ]]; then
     before_count=0
   fi
@@ -207,7 +277,11 @@ phase_send_and_verify_redis() {
   after_count="$before_count"
   attempt=1
   while (( attempt <= SMTP_WAIT_RETRIES )); do
-    after_count="$(kubectl -n "$NAMESPACE" exec "$redis_pod" -c redis -- redis-cli LLEN "$redis_list_key" 2>/dev/null || echo 0)"
+    if [[ "$backend" == "redis" ]]; then
+      after_count="$(kubectl -n "$NAMESPACE" exec "$redis_pod" -c redis -- redis-cli LLEN "$redis_list_key" 2>/dev/null || echo 0)"
+    else
+      after_count="$(postgres_query_or_fail "$postgres_pod" "SELECT COUNT(*) FROM email_recipients WHERE user_id = '$recipient_local_part'")"
+    fi
     if [[ "$after_count" =~ ^[0-9]+$ ]] && (( after_count > before_count )); then
       break
     fi
@@ -216,8 +290,13 @@ phase_send_and_verify_redis() {
   done
 
   if [[ ! "$after_count" =~ ^[0-9]+$ ]] || (( after_count <= before_count )); then
-    fail "SMTP message not observed in Redis list $redis_list_key after send (before=$before_count, after=$after_count, smtp_pod=$smtp_pod)"
+    fail "SMTP message not observed in $backend backend after send (before=$before_count, after=$after_count, smtp_pod=$smtp_pod)"
     return 1
+  fi
+
+  if [[ "$backend" == "vfs" ]]; then
+    pass "SMTP message accepted and observed in Postgres email_recipients for user $recipient_local_part (before=$before_count, after=$after_count)"
+    return 0
   fi
 
   email_id="$(kubectl -n "$NAMESPACE" exec "$redis_pod" -c redis -- redis-cli LINDEX "$redis_list_key" 0 2>/dev/null || true)"
@@ -249,7 +328,7 @@ echo "  SMTP target: $SMTP_HOST:$SMTP_PORT"
 failures=0
 
 phase_api_to_smtp_tcp       || failures=$((failures + 1))
-phase_send_and_verify_redis || failures=$((failures + 1))
+phase_send_and_verify_storage || failures=$((failures + 1))
 
 echo ""
 if (( failures == 0 )); then

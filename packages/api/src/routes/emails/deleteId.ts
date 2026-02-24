@@ -1,5 +1,7 @@
 import { getRedisClient } from '@tearleads/shared/redis';
 import type { Request, Response, Router as RouterType } from 'express';
+import { getPostgresPool } from '../../lib/postgres.js';
+import { getEmailStorageBackend } from './backend.js';
 import {
   EMAIL_DELETE_SCRIPT,
   getEmailKey,
@@ -38,6 +40,26 @@ const deleteIdHandler = async (req: Request<{ id: string }>, res: Response) => {
       return;
     }
     const { id } = req.params;
+    const backend = getEmailStorageBackend();
+
+    if (backend === 'vfs') {
+      const pool = await getPostgresPool();
+      const deleted = await pool.query<{ id: string }>(
+        `DELETE FROM vfs_registry
+         WHERE id = $1
+           AND owner_id = $2
+           AND object_type = 'email'
+         RETURNING id`,
+        [id, userId]
+      );
+      if (!deleted.rows[0]) {
+        res.status(404).json({ error: 'Email not found' });
+        return;
+      }
+      res.json({ success: true });
+      return;
+    }
+
     const client = await getRedisClient();
     const key = getEmailKey(id);
     const usersKey = getEmailUsersKey(id);
