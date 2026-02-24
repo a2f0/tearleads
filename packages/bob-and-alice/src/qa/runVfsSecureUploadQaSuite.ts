@@ -13,7 +13,10 @@ async function main(): Promise<void> {
   const { report } = await runQaSuiteChecks(options, candidateSha);
 
   if (options.reportJsonPath) {
-    writeReportFile(options.reportJsonPath, `${JSON.stringify(report, null, 2)}\n`);
+    writeReportFile(
+      options.reportJsonPath,
+      `${JSON.stringify(report, null, 2)}\n`
+    );
     console.log(`JSON report written: ${options.reportJsonPath}`);
   }
 

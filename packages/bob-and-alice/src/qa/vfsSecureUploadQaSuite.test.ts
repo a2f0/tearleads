@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   CHECKS,
+  type Check,
   formatMarkdownReport,
   parseCliOptions,
   resolveCandidateSha,
-  runQaSuiteChecks,
-  type Check
+  runQaSuiteChecks
 } from './vfsSecureUploadQaSuite.js';
 
 describe('vfsSecureUploadQaSuite', () => {
@@ -62,7 +62,9 @@ describe('vfsSecureUploadQaSuite', () => {
     expect(report.checksRun).toBe(CHECKS.length);
     expect(report.skipped).toBe(CHECKS.length);
     expect(report.failed).toBe(0);
-    expect(report.checks.every((check) => check.status === 'skipped')).toBe(true);
+    expect(report.checks.every((check) => check.status === 'skipped')).toBe(
+      true
+    );
     expect(logs.join('\n')).toContain('Dry run: yes');
   });
 

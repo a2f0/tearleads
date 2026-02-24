@@ -341,7 +341,9 @@ export async function runQaSuiteChecks(
         : result.status === 'fail'
           ? 'FAIL'
           : 'SKIP';
-    log(`Result: ${status} (${formatDuration(result.durationMs)}) for ${check.id}`);
+    log(
+      `Result: ${status} (${formatDuration(result.durationMs)}) for ${check.id}`
+    );
     log('');
 
     if (result.status === 'fail' && !options.continueOnFailure) {
@@ -373,7 +375,9 @@ export async function runQaSuiteChecks(
         : result.status === 'fail'
           ? 'FAIL'
           : 'SKIP';
-    log(`- ${result.check.id}: ${status} (${formatDuration(result.durationMs)})`);
+    log(
+      `- ${result.check.id}: ${status} (${formatDuration(result.durationMs)})`
+    );
   }
 
   return { report, results };
