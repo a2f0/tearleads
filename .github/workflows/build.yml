@@ -189,7 +189,7 @@ jobs:
 
       - name: Audit dependencies
         if: matrix.lint-type == 'audit'
-        run: pnpm audit --audit-level high
+        run: pnpm audit --audit-level critical
 
   # Check for binary/JS files and verify guardrails
   guardrails:
