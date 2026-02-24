@@ -9,7 +9,7 @@ STACK_DIR="$(dirname "$SCRIPT_DIR")"
 # Source common functions
 source "$STACK_DIR/../../../scripts/common.sh"
 
-load_secrets_env
+load_secrets_env staging
 
 # Configuration
 AWS_REGION="${AWS_REGION:-us-east-1}"

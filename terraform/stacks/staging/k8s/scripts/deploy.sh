@@ -9,7 +9,7 @@ MANIFESTS_DIR="$STACK_DIR/manifests"
 # shellcheck source=../../../../scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"
 
-load_secrets_env
+load_secrets_env staging
 KUSTOMIZE_OVERLAY="$MANIFESTS_DIR/kustomize/overlays/staging"
 USE_KUSTOMIZE="${USE_KUSTOMIZE:-false}"
 STAGING_DOMAIN="${TF_VAR_staging_domain:-}"
@@ -40,7 +40,7 @@ require_secret_env_vars() {
   if [[ ${#missing[@]} -gt 0 ]]; then
     echo "ERROR: Missing required secret env vars for manifest rendering:" >&2
     printf '  - %s\n' "${missing[@]}" >&2
-    echo "Set these in .secrets/env (or export in shell) and retry." >&2
+    echo "Set these in .secrets/staging.env (or export in shell) and retry." >&2
     exit 1
   fi
 }

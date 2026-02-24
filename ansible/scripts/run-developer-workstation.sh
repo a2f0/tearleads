@@ -1,7 +1,7 @@
 #!/bin/bash
 # Configure local developer workstation SSH for staging and production servers
 #
-# Loads .secrets/env automatically via terraform/scripts/common.sh.
+# Loads .secrets/root.env automatically via terraform/scripts/common.sh.
 # Required values (from shell or .secrets/env):
 #   TF_VAR_staging_domain
 #   TF_VAR_production_domain

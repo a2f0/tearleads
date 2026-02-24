@@ -8,7 +8,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 # shellcheck source=../../../../scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"
 
-load_secrets_env
+load_secrets_env prod
 
 # Bridge POSTGRES_PASSWORD → TF_VAR_postgres_password so .secrets/env
 # uses the same variable name as the k8s stack.

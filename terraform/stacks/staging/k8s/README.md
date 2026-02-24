@@ -260,7 +260,7 @@ kubectl apply -f manifests/garage.yaml
 
 `manifests/secrets.yaml` uses `stringData` with `${VAR_NAME}` placeholders.
 `scripts/deploy.sh` renders those placeholders from your shell environment
-(typically loaded from `.secrets/env` via `load_secrets_env`) before applying.
+(typically loaded from `.secrets/root.env` and `.secrets/staging.env` via `load_secrets_env staging`) before applying.
 
 Required staging API secrets currently include:
 

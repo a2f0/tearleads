@@ -10,7 +10,7 @@ PRODUCTION_DOMAIN="${TF_VAR_production_domain:-}"
 # shellcheck source=../../../../scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"
 
-load_secrets_env
+load_secrets_env prod
 
 require_secret_env_vars() {
   local missing=()
@@ -32,7 +32,7 @@ require_secret_env_vars() {
   if [[ ${#missing[@]} -gt 0 ]]; then
     echo "ERROR: Missing required secret env vars for manifest rendering:" >&2
     printf '  - %s\n' "${missing[@]}" >&2
-    echo "Set these in .secrets/env (or export in shell) and retry." >&2
+    echo "Set these in .secrets/prod.env (or export in shell) and retry." >&2
     exit 1
   fi
 }

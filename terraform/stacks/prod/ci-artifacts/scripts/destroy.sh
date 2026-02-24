@@ -9,7 +9,7 @@ ENV_NAME=$(basename "$(dirname "$STACK_DIR")")
 # shellcheck source=../../../../scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"
 
-load_secrets_env
+load_secrets_env prod
 
 echo "WARNING: This will destroy $ENV_NAME/$STACK_NAME."
 echo "Press Ctrl+C to cancel, or wait 5 seconds to continue..."
