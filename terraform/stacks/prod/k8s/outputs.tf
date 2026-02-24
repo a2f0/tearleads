@@ -18,6 +18,11 @@ output "k8s_hostname" {
   value       = "k8s.${var.production_domain}"
 }
 
+output "k8s_api_hostname" {
+  description = "Direct Kubernetes API hostname"
+  value       = "k8s-api.${var.production_domain}"
+}
+
 output "ssh_command" {
   description = "SSH command to connect to the server"
   value       = "ssh k8s-ssh.${var.production_domain}"

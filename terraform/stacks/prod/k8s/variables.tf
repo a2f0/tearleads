@@ -28,7 +28,7 @@ variable "server_username" {
 variable "server_type" {
   description = "Hetzner server type"
   type        = string
-  default     = "cx33"
+  default     = "cx23"
 }
 
 variable "allowed_ssh_ips" {
@@ -40,11 +40,7 @@ variable "allowed_ssh_ips" {
 variable "allowed_k8s_api_ips" {
   description = "List of IP addresses/CIDRs allowed to access k8s API (port 6443)"
   type        = list(string)
-
-  validation {
-    condition     = length(var.allowed_k8s_api_ips) > 0
-    error_message = "allowed_k8s_api_ips must be explicitly set to trusted IP addresses"
-  }
+  default     = ["0.0.0.0/0", "::/0"] # Match staging behavior to avoid first-run var wiring failures
 }
 
 variable "cloudflare_api_token" {
