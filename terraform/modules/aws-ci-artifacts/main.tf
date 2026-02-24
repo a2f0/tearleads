@@ -1,6 +1,7 @@
 # S3 bucket for CI artifacts
 resource "aws_s3_bucket" "artifacts" {
-  bucket = var.bucket_name
+  bucket        = var.bucket_name
+  force_destroy = true
 
   tags = merge(var.tags, {
     Environment = var.environment
@@ -150,6 +151,7 @@ resource "aws_ecr_repository" "repos" {
 
   name                 = each.value
   image_tag_mutability = var.ecr_image_tag_mutability
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = var.ecr_scan_on_push
