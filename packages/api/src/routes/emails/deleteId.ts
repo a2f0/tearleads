@@ -117,7 +117,10 @@ const deleteIdHandler = async (req: Request<{ id: string }>, res: Response) => {
         try {
           await client.query('ROLLBACK');
         } catch (rollbackError) {
-          console.error('Failed to rollback email delete transaction:', rollbackError);
+          console.error(
+            'Failed to rollback email delete transaction:',
+            rollbackError
+          );
         }
         throw error;
       } finally {

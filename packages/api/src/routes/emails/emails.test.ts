@@ -411,5 +411,4 @@ describe('Emails Routes', () => {
       expect(response.body).toEqual({ error: 'Failed to delete email' });
     });
   });
-
 });
