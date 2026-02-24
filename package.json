@@ -60,6 +60,9 @@
   "description": "Monorepo for Tearleads application",
   "devDependencies": {
     "@biomejs/biome": "2.4.3",
+    "@commitlint/cli": "20.4.2",
+    "@commitlint/config-conventional": "20.4.2",
+    "@commitlint/types": "20.4.0",
     "@octokit/rest": "22.0.1",
     "@tsconfig/strictest": "2.0.8",
     "@types/node": "25.3.0",

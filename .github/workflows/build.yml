@@ -83,7 +83,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lint-type: [biome, scripts, markdown, rubocop, ansible, terraform]
+        lint-type: [biome, scripts, markdown, rubocop, ansible, terraform, audit]
     steps:
       - name: Report no impact detected
         if: ${{ github.event_name != 'workflow_dispatch' && needs.detect-impact.outputs.should-run != 'true' }}
@@ -186,6 +186,10 @@ jobs:
       - name: Lint Terraform
         if: matrix.lint-type == 'terraform'
         run: ./scripts/checks/checkTerraform.sh
+
+      - name: Audit dependencies
+        if: matrix.lint-type == 'audit'
+        run: pnpm audit --audit-level high
 
   # Check for binary/JS files and verify guardrails
   guardrails:
