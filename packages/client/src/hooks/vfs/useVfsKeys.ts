@@ -146,9 +146,7 @@ export async function createVfsKeySetupPayloadForOnboarding(
 /**
  * Decrypt private keys with the account recovery password.
  */
-async function decryptPrivateKeys(
-  encryptedBlob: string
-): Promise<{
+async function decryptPrivateKeys(encryptedBlob: string): Promise<{
   x25519PrivateKey: string;
   mlKemPrivateKey: string;
 }> {
@@ -180,7 +178,10 @@ async function generateAndStoreKeys(): Promise<VfsKeyPair> {
 
   // Encrypt private keys with in-memory recovery key material.
   const { encryptedPrivateKeys: encryptedBlob, argon2Salt } =
-    await encryptVfsPrivateKeysWithRawKey(serialized, cachedRecoveryKeyMaterial);
+    await encryptVfsPrivateKeysWithRawKey(
+      serialized,
+      cachedRecoveryKeyMaterial
+    );
 
   // Combine public keys for server storage
   const publicEncryptionKey = buildVfsPublicEncryptionKey(keyPair);
