@@ -1,6 +1,6 @@
 #!/usr/bin/env -S pnpm exec tsx
 import { pathToFileURL } from 'node:url';
-import { runListAdminsFromArgv } from '../packages/api/src/cli/listAdmins.ts';
+import { runListAdminsFromArgv } from '../../packages/api/src/cli/listAdmins.ts';
 
 async function main(): Promise<void> {
   await runListAdminsFromArgv(process.argv.slice(2));
