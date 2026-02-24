@@ -9,10 +9,13 @@ import {
 import { ScenarioHarness } from '../harness/scenarioHarness.js';
 
 describe('noteSharing', () => {
-  let harness: ScenarioHarness;
+  let harness: ScenarioHarness | null = null;
 
   afterEach(async () => {
-    await harness.teardown();
+    if (harness) {
+      await harness.teardown();
+      harness = null;
+    }
   });
 
   it('Alice creates a note and shares it with Bob via CRDT sync', async () => {

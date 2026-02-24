@@ -8,10 +8,13 @@ import {
 import { ScenarioHarness } from '../harness/scenarioHarness.js';
 
 describe('bidirectionalSync', () => {
-  let harness: ScenarioHarness;
+  let harness: ScenarioHarness | null = null;
 
   afterEach(async () => {
-    await harness.teardown();
+    if (harness) {
+      await harness.teardown();
+      harness = null;
+    }
   });
 
   it('Alice and Bob each create items, flush, sync, and converge', async () => {

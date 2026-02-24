@@ -8,10 +8,13 @@ import {
 import { ScenarioHarness } from '../harness/scenarioHarness.js';
 
 describe('conflictResolution', () => {
-  let harness: ScenarioHarness;
+  let harness: ScenarioHarness | null = null;
 
   afterEach(async () => {
-    await harness.teardown();
+    if (harness) {
+      await harness.teardown();
+      harness = null;
+    }
   });
 
   it('concurrent ACL grants by both actors merge correctly', async () => {
