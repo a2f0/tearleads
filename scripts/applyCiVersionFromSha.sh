@@ -118,34 +118,26 @@ if [ "$APPLY" = "true" ]; then
   IOS_PROJECT="$REPO_ROOT/packages/client/ios/App/App.xcodeproj/project.pbxproj"
 
   TMP_FILE="$(mktemp)"
+  trap 'rm -f "$TMP_FILE"' EXIT
   if ! jq --arg v "$CLIENT_VERSION" '.version = $v' "$CLIENT_PACKAGE_JSON" > "$TMP_FILE"; then
-    rm -f "$TMP_FILE"
     exit 1
   fi
   mv "$TMP_FILE" "$CLIENT_PACKAGE_JSON"
 
-  CURRENT_ANDROID_CODE="$(grep -E 'versionCode [0-9]+' "$ANDROID_GRADLE" | head -1 | sed -E 's/.*versionCode ([0-9]+).*/\1/')"
-  CURRENT_ANDROID_NAME="$(grep -E 'versionName "[^"]+"' "$ANDROID_GRADLE" | head -1 | sed -E 's/.*versionName "([^"]+)".*/\1/')"
-
-  sedi "s/versionCode $CURRENT_ANDROID_CODE/versionCode $ANDROID_VERSION_CODE/" "$ANDROID_GRADLE"
-  sedi "s/versionName \"$CURRENT_ANDROID_NAME\"/versionName \"$ANDROID_VERSION_NAME\"/" "$ANDROID_GRADLE"
+  sedi "s/versionCode [0-9][0-9]*/versionCode $ANDROID_VERSION_CODE/" "$ANDROID_GRADLE"
+  sedi "s/versionName \"[^\"]*\"/versionName \"$ANDROID_VERSION_NAME\"/" "$ANDROID_GRADLE"
   sedi "s/CURRENT_PROJECT_VERSION = [0-9][0-9]*/CURRENT_PROJECT_VERSION = $IOS_BUILD_NUMBER/g" "$IOS_PROJECT"
 fi
 
-echo "source_sha=$SOURCE_SHA"
-echo "serial=$SERIAL"
-echo "client_version=$CLIENT_VERSION"
-echo "android_version_code=$ANDROID_VERSION_CODE"
-echo "android_version_name=$ANDROID_VERSION_NAME"
-echo "ios_build_number=$IOS_BUILD_NUMBER"
+OUTPUT="source_sha=$SOURCE_SHA
+serial=$SERIAL
+client_version=$CLIENT_VERSION
+android_version_code=$ANDROID_VERSION_CODE
+android_version_name=$ANDROID_VERSION_NAME
+ios_build_number=$IOS_BUILD_NUMBER"
+
+echo "$OUTPUT"
 
 if [ -n "$GITHUB_OUTPUT_PATH" ]; then
-  {
-    echo "source_sha=$SOURCE_SHA"
-    echo "serial=$SERIAL"
-    echo "client_version=$CLIENT_VERSION"
-    echo "android_version_code=$ANDROID_VERSION_CODE"
-    echo "android_version_name=$ANDROID_VERSION_NAME"
-    echo "ios_build_number=$IOS_BUILD_NUMBER"
-  } >> "$GITHUB_OUTPUT_PATH"
+  echo "$OUTPUT" >> "$GITHUB_OUTPUT_PATH"
 fi
