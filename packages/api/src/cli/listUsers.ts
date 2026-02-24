@@ -4,6 +4,7 @@ import { closePostgresPool, getPostgresPool } from '../lib/postgres.js';
 
 type ParsedArgs = {
   help: boolean;
+  json: boolean;
 };
 
 function printUsage(): void {
@@ -15,6 +16,7 @@ function printUsage(): void {
       '',
       'Options:',
       '  --help, -h            Show this help message.',
+      '  --json                Output as JSON array.',
       '',
       'Environment:',
       '  DATABASE_URL or POSTGRES_URL take precedence.',
@@ -28,6 +30,7 @@ function printUsage(): void {
 
 function parseArgs(argv: string[]): ParsedArgs {
   let help = false;
+  let json = false;
 
   for (const arg of argv) {
     if (!arg) {
@@ -39,10 +42,15 @@ function parseArgs(argv: string[]): ParsedArgs {
       continue;
     }
 
+    if (arg === '--json') {
+      json = true;
+      continue;
+    }
+
     throw new Error(`Unknown argument: ${arg}`);
   }
 
-  return { help };
+  return { help, json };
 }
 
 export type UserRow = {
@@ -64,9 +72,15 @@ export async function getUsers(): Promise<UserRow[]> {
   }
 }
 
-async function listUsers(): Promise<void> {
-  const label = buildPostgresConnectionLabel();
+async function listUsers(json: boolean): Promise<void> {
   const rows = await getUsers();
+
+  if (json) {
+    console.log(JSON.stringify(rows));
+    return;
+  }
+
+  const label = buildPostgresConnectionLabel();
 
   if (rows.length === 0) {
     console.log('No user accounts found.');
@@ -81,8 +95,8 @@ async function listUsers(): Promise<void> {
   console.log(`Postgres connection: ${label}`);
 }
 
-export async function runListUsers(): Promise<void> {
-  await listUsers();
+export async function runListUsers(json = false): Promise<void> {
+  await listUsers(json);
 }
 
 export async function runListUsersFromArgv(argv: string[]): Promise<void> {
@@ -93,7 +107,7 @@ export async function runListUsersFromArgv(argv: string[]): Promise<void> {
       return;
     }
 
-    await runListUsers();
+    await runListUsers(parsed.json);
   } finally {
     await closePostgresPool();
   }
@@ -103,10 +117,11 @@ export function listUsersCommand(program: Command): void {
   program
     .command('list-users')
     .description('List all user accounts')
-    .action(async () => {
+    .option('--json', 'Output as JSON array')
+    .action(async (options: { json?: boolean }) => {
       let exitCode = 0;
       try {
-        await runListUsers();
+        await runListUsers(options.json === true);
       } catch (error) {
         exitCode = 1;
         console.error('\nList users failed:');
