@@ -40,6 +40,7 @@ const contentNames = [
   'userKeys',
   'vfsRegistry',
   'vfsLinks',
+  'vfsItemState',
   'playlists',
   'albums',
   'contactGroups',

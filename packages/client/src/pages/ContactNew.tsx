@@ -14,9 +14,8 @@ import {
   vfsRegistry
 } from '@/db/schema';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
-import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
-import { getFeatureFlagValue } from '@/lib/featureFlags';
+import { queueItemUpsertAndFlush } from '@/lib/vfsItemSyncWriter';
 import { EmailAddressesSection } from '@/pages/contact-new/EmailAddressesSection';
 import { PhoneNumbersSection } from '@/pages/contact-new/PhoneNumbersSection';
 import type {
@@ -212,21 +211,31 @@ export function ContactNew() {
         }
       });
 
-      if (
-        isLoggedIn() &&
-        getFeatureFlagValue('vfsServerRegistration') &&
-        encryptedSessionKey
-      ) {
-        try {
-          await api.vfs.register({
-            id: contactId,
-            objectType: 'contact',
-            encryptedSessionKey
-          });
-        } catch (err) {
-          console.warn('Failed to register contact on server:', err);
+      await queueItemUpsertAndFlush({
+        itemId: contactId,
+        objectType: 'contact',
+        ...(encryptedSessionKey ? { encryptedSessionKey } : {}),
+        payload: {
+          id: contactId,
+          objectType: 'contact',
+          firstName: formData.firstName.trim(),
+          lastName: formData.lastName.trim() || null,
+          birthday: formData.birthday.trim() || null,
+          emails: emailsForm.map((email) => ({
+            id: email.id,
+            email: email.email.trim(),
+            label: email.label.trim() || null,
+            isPrimary: email.isPrimary
+          })),
+          phones: phonesForm.map((phone) => ({
+            id: phone.id,
+            phoneNumber: phone.phoneNumber.trim(),
+            label: phone.label.trim() || null,
+            isPrimary: phone.isPrimary
+          })),
+          deleted: false
         }
-      }
+      });
 
       navigate(`/contacts/${contactId}`);
     } catch (err) {

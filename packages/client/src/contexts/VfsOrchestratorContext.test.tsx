@@ -29,15 +29,24 @@ const mockCreateVfsSecurePipelineBundle = vi.fn(() => ({
   keyManager: mockKeyManager,
   createFacade: mockCreateFacade
 }));
+const mockLoadVfsOrchestratorState = vi.fn();
+const mockSaveVfsOrchestratorState = vi.fn();
 
 // Mock dependencies
 vi.mock('@tearleads/api-client', () => {
   const MockVfsWriteOrchestrator = class {
     mockOrchestrator = true;
     static lastOptions: unknown;
+    static lastInstance: MockVfsWriteOrchestrator | null = null;
     constructor(_userId: string, _clientId: string, options: unknown) {
       MockVfsWriteOrchestrator.lastOptions = options;
+      MockVfsWriteOrchestrator.lastInstance = this;
     }
+    hydrateFromPersistence = vi.fn().mockResolvedValue(false);
+    flushAll = vi.fn().mockResolvedValue({
+      crdt: { pushed: 0, pulled: 0, remainingQueued: 0 },
+      blob: { processed: 0, remainingQueued: 0 }
+    });
   };
   return {
     createVfsSecurePipelineBundle: (...args: unknown[]) =>
@@ -53,6 +62,13 @@ vi.mock('@/db', () => ({
 
 vi.mock('@/db/analytics', () => ({
   logEvent: (...args: unknown[]) => mockLogEvent(...args)
+}));
+
+vi.mock('@/db/vfsOrchestratorState', () => ({
+  loadVfsOrchestratorState: (...args: unknown[]) =>
+    mockLoadVfsOrchestratorState(...args),
+  saveVfsOrchestratorState: (...args: unknown[]) =>
+    mockSaveVfsOrchestratorState(...args)
 }));
 
 vi.mock('@/db/vfsItemKeys', () => ({
@@ -102,6 +118,8 @@ describe('VfsOrchestratorContext', () => {
     mockIsDatabaseInitialized.mockReturnValue(true);
     mockGetDatabase.mockReturnValue({ insert: vi.fn() });
     mockLogEvent.mockResolvedValue(undefined);
+    mockLoadVfsOrchestratorState.mockResolvedValue(null);
+    mockSaveVfsOrchestratorState.mockResolvedValue(undefined);
   });
 
   afterEach(() => {

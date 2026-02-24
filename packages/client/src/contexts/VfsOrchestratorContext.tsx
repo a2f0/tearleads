@@ -24,9 +24,14 @@ import {
 import { getDatabase, isDatabaseInitialized } from '@/db';
 import { logEvent } from '@/db/analytics';
 import { createItemKeyStore } from '@/db/vfsItemKeys';
+import {
+  loadVfsOrchestratorState,
+  saveVfsOrchestratorState
+} from '@/db/vfsOrchestratorState';
 import { createRecipientPublicKeyResolver } from '@/db/vfsRecipientKeyResolver';
 import { createUserKeyProvider } from '@/db/vfsUserKeyProvider';
 import { ensureVfsKeys } from '@/hooks/vfs';
+import { setVfsItemSyncRuntime } from '@/lib/vfsItemSyncWriter';
 import { useAuth } from './AuthContext';
 
 function normalizeApiPrefix(value: string): string {
@@ -103,6 +108,7 @@ export function VfsOrchestratorProvider({
   baseUrl,
   apiPrefix = '/v1'
 }: VfsOrchestratorProviderProps) {
+  const orchestratorClientId = 'client';
   const { user, isAuthenticated } = useAuth();
   const [orchestrator, setOrchestrator] = useState<VfsWriteOrchestrator | null>(
     null
@@ -166,6 +172,7 @@ export function VfsOrchestratorProvider({
       setOrchestrator(null);
       setSecureFacade(null);
       setKeyManager(null);
+      setVfsItemSyncRuntime(null);
       return;
     }
 
@@ -185,8 +192,15 @@ export function VfsOrchestratorProvider({
           baseUrl: effectiveBaseUrl,
           apiPrefix: effectiveApiPrefix,
           onOperationResult: logBlobFlushOperationTelemetry
+        },
+        saveState: async (state) => {
+          await saveVfsOrchestratorState(user.id, orchestratorClientId, state);
+        },
+        loadState: async () => {
+          return loadVfsOrchestratorState(user.id, orchestratorClientId);
         }
       });
+      await newOrchestrator.hydrateFromPersistence();
 
       // Create adapters
       const itemKeyStore = createItemKeyStore();
@@ -224,11 +238,19 @@ export function VfsOrchestratorProvider({
       setOrchestrator(newOrchestrator);
       setSecureFacade(facade);
       setKeyManager(bundle.keyManager);
+      setVfsItemSyncRuntime({
+        orchestrator: newOrchestrator,
+        secureFacade: facade
+      });
+      void newOrchestrator.flushAll().catch((flushErr) => {
+        console.warn('Initial VFS orchestrator flush failed:', flushErr);
+      });
     } catch (err) {
       const initError =
         err instanceof Error ? err : new Error('Failed to initialize VFS');
       setError(initError);
       console.error('VFS orchestrator initialization failed:', err);
+      setVfsItemSyncRuntime(null);
     } finally {
       setIsInitializing(false);
     }
@@ -247,10 +269,28 @@ export function VfsOrchestratorProvider({
 
   // Clean up on unmount
   useEffect(() => {
+    if (!orchestrator || !isAuthenticated) {
+      return;
+    }
+
+    const flushOnOnline = () => {
+      void orchestrator.flushAll().catch((err) => {
+        console.warn('VFS flush on reconnect failed:', err);
+      });
+    };
+
+    window.addEventListener('online', flushOnOnline);
+    return () => {
+      window.removeEventListener('online', flushOnOnline);
+    };
+  }, [orchestrator, isAuthenticated]);
+
+  useEffect(() => {
     return () => {
       setOrchestrator(null);
       setSecureFacade(null);
       setKeyManager(null);
+      setVfsItemSyncRuntime(null);
     };
   }, []);
 
