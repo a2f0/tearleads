@@ -148,6 +148,11 @@ validate_tailscale_auth_key_env() {
   fi
 }
 
+# Get the GitHub owner/repo slug from the git remote origin URL.
+get_github_repo() {
+  git -C "$(get_repo_root)" remote get-url origin | sed 's|.*github.com[:/]||;s|\.git$||'
+}
+
 # Setup SSH host keys for persistent identity
 setup_ssh_host_keys() {
   local secrets_dir="$(get_repo_root)/.secrets"
