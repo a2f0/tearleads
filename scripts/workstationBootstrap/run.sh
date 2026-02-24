@@ -9,6 +9,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "${SCRIPT_DIR}/installers.sh"
 # shellcheck source=/dev/null
 . "${SCRIPT_DIR}/postChecks.sh"
+# shellcheck source=/dev/null
+. "${SCRIPT_DIR}/api.sh"
 
 main() {
   echo "==> Bootstrapping developer workstation"
