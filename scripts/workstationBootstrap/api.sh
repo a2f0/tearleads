@@ -83,27 +83,52 @@ _api_generate_jwt_secret() {
   od -An -N32 -tx1 /dev/urandom | tr -d ' \n'
 }
 
-setup_api_dev_env() {
-  api_dir="${REPO_ROOT}/packages/api"
-  example_env_file="${api_dir}/.env.example"
-  api_env_link_path="${api_dir}/.env"
-  smtp_dir="${REPO_ROOT}/packages/smtp-listener"
-  smtp_example_env_file="${smtp_dir}/.env.example"
-  smtp_env_link_path="${smtp_dir}/.env"
-  secrets_env_file="${REPO_ROOT}/.secrets/dev.env"
+_api_ensure_env_file() {
+  _ensure_link_path="$1"
+  _ensure_example="$2"
 
-  api_env_file="$(_api_resolve_env_file_path "${api_env_link_path}")"
-  mkdir -p "$(dirname "${api_env_file}")"
+  _ensure_env_file="$(_api_resolve_env_file_path "${_ensure_link_path}")"
+  mkdir -p "$(dirname "${_ensure_env_file}")"
 
-  if [ ! -f "${api_env_file}" ]; then
-    if [ ! -f "${example_env_file}" ]; then
-      echo "Missing API env example at ${example_env_file}." >&2
+  if [ ! -f "${_ensure_env_file}" ]; then
+    if [ ! -f "${_ensure_example}" ]; then
+      echo "Missing env example at ${_ensure_example}." >&2
       return 1
     fi
-    cp "${example_env_file}" "${api_env_file}"
-    chmod 600 "${api_env_file}" 2>/dev/null || true
-    echo "Created API env file at ${api_env_file}."
+    cp "${_ensure_example}" "${_ensure_env_file}"
+    chmod 600 "${_ensure_env_file}" 2>/dev/null || true
+    echo "Created env file at ${_ensure_env_file}."
   fi
+
+  printf '%s\n' "${_ensure_env_file}"
+}
+
+_api_set_vfs_defaults() {
+  _vfs_env_file="$1"
+
+  while IFS='=' read -r key value; do
+    [ -n "${key}" ] || continue
+    current_value="$(_api_read_env_value "${_vfs_env_file}" "${key}" || true)"
+    if [ -z "${current_value}" ]; then
+      _api_upsert_env_value "${_vfs_env_file}" "${key}" "${value}"
+    fi
+  done <<EOF
+VFS_BLOB_STORE_PROVIDER=s3
+VFS_BLOB_S3_BUCKET=vfs-blobs
+VFS_BLOB_S3_REGION=us-east-1
+VFS_BLOB_S3_ENDPOINT=http://127.0.0.1:3900
+VFS_BLOB_S3_ACCESS_KEY_ID=vfs-blob-key
+VFS_BLOB_S3_SECRET_ACCESS_KEY=vfs-blob-secret-local-dev
+VFS_BLOB_S3_FORCE_PATH_STYLE=true
+EOF
+}
+
+setup_api_dev_env() {
+  api_dir="${REPO_ROOT}/packages/api"
+  smtp_dir="${REPO_ROOT}/packages/smtp-listener"
+  secrets_env_file="${REPO_ROOT}/.secrets/dev.env"
+
+  api_env_file="$(_api_ensure_env_file "${api_dir}/.env" "${api_dir}/.env.example")" || return 1
 
   current_jwt_secret="$(_api_read_env_value "${api_env_file}" "JWT_SECRET" || true)"
   if [ -z "${current_jwt_secret}" ] || [ "${current_jwt_secret}" = "your-jwt-secret" ]; then
@@ -121,50 +146,11 @@ setup_api_dev_env() {
     fi
   fi
 
-  while IFS='=' read -r key value; do
-    [ -n "${key}" ] || continue
-    current_value="$(_api_read_env_value "${api_env_file}" "${key}" || true)"
-    if [ -z "${current_value}" ]; then
-      _api_upsert_env_value "${api_env_file}" "${key}" "${value}"
-    fi
-  done <<EOF
-VFS_BLOB_STORE_PROVIDER=s3
-VFS_BLOB_S3_BUCKET=vfs-blobs
-VFS_BLOB_S3_REGION=us-east-1
-VFS_BLOB_S3_ENDPOINT=http://127.0.0.1:3900
-VFS_BLOB_S3_ACCESS_KEY_ID=vfs-blob-key
-VFS_BLOB_S3_SECRET_ACCESS_KEY=vfs-blob-secret-local-dev
-VFS_BLOB_S3_FORCE_PATH_STYLE=true
-EOF
+  _api_set_vfs_defaults "${api_env_file}"
 
   # --- smtp-listener env bootstrap ---
 
-  smtp_env_file="$(_api_resolve_env_file_path "${smtp_env_link_path}")"
-  mkdir -p "$(dirname "${smtp_env_file}")"
+  smtp_env_file="$(_api_ensure_env_file "${smtp_dir}/.env" "${smtp_dir}/.env.example")" || return 1
 
-  if [ ! -f "${smtp_env_file}" ]; then
-    if [ ! -f "${smtp_example_env_file}" ]; then
-      echo "Missing smtp-listener env example at ${smtp_example_env_file}." >&2
-      return 1
-    fi
-    cp "${smtp_example_env_file}" "${smtp_env_file}"
-    chmod 600 "${smtp_env_file}" 2>/dev/null || true
-    echo "Created smtp-listener env file at ${smtp_env_file}."
-  fi
-
-  while IFS='=' read -r key value; do
-    [ -n "${key}" ] || continue
-    current_value="$(_api_read_env_value "${smtp_env_file}" "${key}" || true)"
-    if [ -z "${current_value}" ]; then
-      _api_upsert_env_value "${smtp_env_file}" "${key}" "${value}"
-    fi
-  done <<SMTP_EOF
-VFS_BLOB_STORE_PROVIDER=s3
-VFS_BLOB_S3_BUCKET=vfs-blobs
-VFS_BLOB_S3_REGION=us-east-1
-VFS_BLOB_S3_ENDPOINT=http://127.0.0.1:3900
-VFS_BLOB_S3_ACCESS_KEY_ID=vfs-blob-key
-VFS_BLOB_S3_SECRET_ACCESS_KEY=vfs-blob-secret-local-dev
-VFS_BLOB_S3_FORCE_PATH_STYLE=true
-SMTP_EOF
+  _api_set_vfs_defaults "${smtp_env_file}"
 }
