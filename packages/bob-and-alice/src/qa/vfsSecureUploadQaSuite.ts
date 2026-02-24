@@ -267,9 +267,7 @@ export function writeReportFile(pathValue: string, content: string): void {
   writeFileSync(absolute, content, 'utf8');
 }
 
-export type CheckExecutor = (
-  check: Check
-) => Promise<CheckResult>;
+export type CheckExecutor = (check: Check) => Promise<CheckResult>;
 
 export async function runCheck(check: Check): Promise<CheckResult> {
   const start = Date.now();
