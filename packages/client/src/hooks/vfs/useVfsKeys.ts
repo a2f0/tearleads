@@ -4,7 +4,7 @@
  * Manages the user's VFS keypair lifecycle:
  * - Checks for existing keys on the server
  * - Generates new keypairs if needed
- * - Encrypts private keys with the local database encryption key
+ * - Encrypts private keys with a recovery password from auth login/register
  * - Stores public keys and encrypted private keys on server
  * - Wraps session keys for file registration
  */
@@ -12,9 +12,9 @@
 import {
   buildVfsPublicEncryptionKey,
   combineEncapsulation,
-  decryptVfsPrivateKeysWithRawKey,
+  decryptVfsPrivateKeysWithPassword,
   deserializePublicKey,
-  encryptVfsPrivateKeysWithRawKey,
+  encryptVfsPrivateKeysWithPassword,
   generateKeyPair,
   type SerializedKeyPair,
   serializeKeyPair,
@@ -25,11 +25,11 @@ import {
   type VfsPublicKey,
   wrapKeyForRecipient
 } from '@tearleads/shared';
-import { getKeyManager } from '@/db/crypto/keyManager';
 import { api } from '@/lib/api';
 
 // In-memory cache for the decrypted VFS keypair
 let cachedKeyPair: VfsKeyPair | null = null;
+let cachedRecoveryPassword: string | null = null;
 
 function isVfsKeysNotSetupError(error: unknown): boolean {
   if (!(error instanceof Error)) {
@@ -55,6 +55,13 @@ export function clearVfsKeysCache(): void {
 }
 
 /**
+ * Set or clear the in-memory recovery password for this session.
+ */
+export function setVfsRecoveryPassword(password: string | null): void {
+  cachedRecoveryPassword = password && password.length > 0 ? password : null;
+}
+
+/**
  * Convert a base64 string to Uint8Array.
  */
 function fromBase64(base64: string): Uint8Array {
@@ -62,22 +69,20 @@ function fromBase64(base64: string): Uint8Array {
 }
 
 /**
- * Encrypt the private keys with the local database encryption key.
+ * Encrypt the private keys with the account recovery password.
  * Returns base64-encoded encrypted blob.
  */
 async function encryptPrivateKeys(
-  serializedKeyPair: SerializedKeyPair
+  serializedKeyPair: SerializedKeyPair,
+  recoveryPassword: string
 ): Promise<{ encryptedBlob: string; argon2Salt: string }> {
-  const keyManager = getKeyManager();
-  const dbKey = keyManager.getCurrentKey();
-
-  if (!dbKey) {
-    throw new Error('Database is not unlocked');
+  if (!recoveryPassword.trim()) {
+    throw new Error('Recovery password is required');
   }
 
-  const bundle = await encryptVfsPrivateKeysWithRawKey(
+  const bundle = await encryptVfsPrivateKeysWithPassword(
     serializedKeyPair,
-    dbKey
+    recoveryPassword
   );
   return {
     encryptedBlob: bundle.encryptedPrivateKeys,
@@ -89,10 +94,15 @@ async function encryptPrivateKeys(
  * Build a VFS key setup payload locally for account onboarding.
  * This does not persist anything to the server.
  */
-export async function createVfsKeySetupPayloadForOnboarding(): Promise<VfsKeySetupRequest> {
+export async function createVfsKeySetupPayloadForOnboarding(
+  recoveryPassword: string
+): Promise<VfsKeySetupRequest> {
   const keyPair = generateKeyPair();
   const serialized = serializeKeyPair(keyPair);
-  const { encryptedBlob, argon2Salt } = await encryptPrivateKeys(serialized);
+  const { encryptedBlob, argon2Salt } = await encryptPrivateKeys(
+    serialized,
+    recoveryPassword
+  );
 
   return {
     publicEncryptionKey: buildVfsPublicEncryptionKey(keyPair),
@@ -103,32 +113,47 @@ export async function createVfsKeySetupPayloadForOnboarding(): Promise<VfsKeySet
 }
 
 /**
- * Decrypt private keys with the local database encryption key.
+ * Decrypt private keys with the account recovery password.
  */
-async function decryptPrivateKeys(encryptedBlob: string): Promise<{
+async function decryptPrivateKeys(
+  encryptedBlob: string,
+  argon2Salt: string
+): Promise<{
   x25519PrivateKey: string;
   mlKemPrivateKey: string;
 }> {
-  const keyManager = getKeyManager();
-  const dbKey = keyManager.getCurrentKey();
-
-  if (!dbKey) {
-    throw new Error('Database is not unlocked');
+  if (!cachedRecoveryPassword) {
+    throw new Error(
+      'VFS key recovery requires re-authentication. Please log out and log in again.'
+    );
   }
 
-  return decryptVfsPrivateKeysWithRawKey(encryptedBlob, dbKey);
+  return decryptVfsPrivateKeysWithPassword(
+    encryptedBlob,
+    argon2Salt,
+    cachedRecoveryPassword
+  );
 }
 
 /**
  * Generate a new VFS keypair, encrypt it, and store on server.
  */
 async function generateAndStoreKeys(): Promise<VfsKeyPair> {
+  if (!cachedRecoveryPassword) {
+    throw new Error(
+      'VFS key recovery requires re-authentication. Please log out and log in again.'
+    );
+  }
+
   // Generate a new keypair
   const keyPair = generateKeyPair();
   const serialized = serializeKeyPair(keyPair);
 
-  // Encrypt private keys with local database key
-  const { encryptedBlob, argon2Salt } = await encryptPrivateKeys(serialized);
+  // Encrypt private keys with account recovery password
+  const { encryptedBlob, argon2Salt } = await encryptPrivateKeys(
+    serialized,
+    cachedRecoveryPassword
+  );
 
   // Combine public keys for server storage
   const publicEncryptionKey = buildVfsPublicEncryptionKey(keyPair);
@@ -161,10 +186,11 @@ async function fetchAndDecryptKeys(): Promise<FetchedKeys> {
     const x25519PublicKey = fromBase64(publicKey.x25519PublicKey);
     const mlKemPublicKey = fromBase64(publicKey.mlKemPublicKey);
 
-    if (response.encryptedPrivateKeys) {
+    if (response.encryptedPrivateKeys && response.argon2Salt) {
       try {
         const decrypted = await decryptPrivateKeys(
-          response.encryptedPrivateKeys
+          response.encryptedPrivateKeys,
+          response.argon2Salt
         );
         const keyPair: VfsKeyPair = {
           x25519PublicKey,

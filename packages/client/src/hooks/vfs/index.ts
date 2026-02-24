@@ -6,6 +6,7 @@ export {
   generateSessionKey,
   getVfsPublicKey,
   registerVfsItemWithCurrentKeys,
+  setVfsRecoveryPassword,
   wrapSessionKey
 } from './useVfsKeys';
 export { useVfsUploader } from './useVfsUploader';

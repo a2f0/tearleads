@@ -1,4 +1,3 @@
-import { decrypt } from '@tearleads/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearVfsKeysCache,
@@ -9,6 +8,7 @@ import {
   getVfsPublicKey,
   hasVfsKeys,
   registerVfsItemWithCurrentKeys,
+  setVfsRecoveryPassword,
   wrapSessionKey
 } from './useVfsKeys';
 
@@ -20,7 +20,7 @@ vi.mock('@tearleads/shared', () => ({
   ),
   buildVfsPublicEncryptionKey: vi.fn(() => 'combined-public-key'),
   combinePublicKey: vi.fn(() => 'combined-public-key'),
-  decryptVfsPrivateKeysWithRawKey: vi.fn(async () => ({
+  decryptVfsPrivateKeysWithPassword: vi.fn(async () => ({
     x25519PrivateKey: 'dGVzdA==',
     mlKemPrivateKey: 'dGVzdA=='
   })),
@@ -30,20 +30,16 @@ vi.mock('@tearleads/shared', () => ({
       mlKemPublicKey: new Uint8Array(800)
     })
   ),
-  encryptVfsPrivateKeysWithRawKey: vi.fn(async () => ({
+  encryptVfsPrivateKeysWithPassword: vi.fn(async () => ({
     encryptedPrivateKeys: 'ZW5jcnlwdGVk',
     argon2Salt: 'c2FsdA=='
   })),
-  decrypt: vi.fn(async () => new Uint8Array([1, 2, 3, 4])),
-  encrypt: vi.fn(async () => new Uint8Array([1, 2, 3, 4])),
   generateKeyPair: vi.fn(() => ({
     x25519PublicKey: new Uint8Array(32).fill(1),
     x25519PrivateKey: new Uint8Array(32).fill(2),
     mlKemPublicKey: new Uint8Array(800).fill(3),
     mlKemPrivateKey: new Uint8Array(2400).fill(4)
   })),
-  generateSalt: vi.fn(() => new Uint8Array(16)),
-  importKey: vi.fn(async () => ({}) as CryptoKey),
   serializeKeyPair: vi.fn((_kp: { x25519PublicKey: Uint8Array }) => ({
     x25519PublicKey: 'base64-x25519-pub',
     x25519PrivateKey: 'base64-x25519-priv',
@@ -60,11 +56,6 @@ vi.mock('@tearleads/shared', () => ({
   }))
 }));
 
-// Mock key manager
-vi.mock('@/db/crypto/keyManager', () => ({
-  getKeyManager: vi.fn()
-}));
-
 // Mock API
 vi.mock('@/lib/api', () => ({
   api: {
@@ -76,22 +67,13 @@ vi.mock('@/lib/api', () => ({
   }
 }));
 
-import { getKeyManager } from '@/db/crypto/keyManager';
 import { api } from '@/lib/api';
 
 describe('useVfsKeys', () => {
-  const mockKeyManager = {
-    getCurrentKey: vi.fn<() => Uint8Array | null>(() =>
-      new Uint8Array(32).fill(5)
-    )
-  };
-
   beforeEach(() => {
     vi.clearAllMocks();
     clearVfsKeysCache();
-    vi.mocked(getKeyManager).mockReturnValue(
-      mockKeyManager as unknown as ReturnType<typeof getKeyManager>
-    );
+    setVfsRecoveryPassword('password123');
 
     // Mock crypto.getRandomValues for generateSessionKey
     vi.stubGlobal('crypto', {
@@ -229,17 +211,21 @@ describe('useVfsKeys', () => {
       expect(api.vfs.setupKeys).toHaveBeenCalledTimes(1);
     });
 
-    it('throws when database is not unlocked', async () => {
+    it('throws when recovery password is unavailable', async () => {
       vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('404'));
-      mockKeyManager.getCurrentKey.mockReturnValueOnce(null);
+      setVfsRecoveryPassword(null);
 
-      await expect(ensureVfsKeys()).rejects.toThrow('Database is not unlocked');
+      await expect(ensureVfsKeys()).rejects.toThrow(
+        'VFS key recovery requires re-authentication'
+      );
     });
   });
 
   describe('createVfsKeySetupPayloadForOnboarding', () => {
     it('builds onboarding payload without posting to /vfs/keys', async () => {
-      const payload = await createVfsKeySetupPayloadForOnboarding();
+      const payload = await createVfsKeySetupPayloadForOnboarding(
+        'password123'
+      );
 
       expect(payload).toEqual({
         publicEncryptionKey: 'combined-public-key',
@@ -248,25 +234,24 @@ describe('useVfsKeys', () => {
       });
       expect(api.vfs.setupKeys).not.toHaveBeenCalled();
     });
+
+    it('throws when recovery password is unavailable', async () => {
+      await expect(
+        createVfsKeySetupPayloadForOnboarding('   ')
+      ).rejects.toThrow(
+        'Recovery password is required'
+      );
+    });
   });
 
   describe('ensureVfsKeyPair', () => {
     it('returns decrypted private keys when available', async () => {
-      const privateKeyPayload = JSON.stringify({
-        x25519PrivateKey: 'dGVzdA==',
-        mlKemPrivateKey: 'dGVzdA=='
-      });
-
       vi.mocked(api.vfs.getMyKeys).mockResolvedValueOnce({
         publicEncryptionKey: 'server-key',
         publicSigningKey: 'sign',
         encryptedPrivateKeys: 'ZW5jcnlwdGVk',
         argon2Salt: 'argon2'
       });
-
-      vi.mocked(decrypt).mockResolvedValueOnce(
-        new TextEncoder().encode(privateKeyPayload)
-      );
 
       const keyPair = await ensureVfsKeyPair();
 
