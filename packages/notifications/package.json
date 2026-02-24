@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/notifications",
-  "version": "0.0.17",
+  "version": "0.0.18",
   "description": "Notification Center window for Tearleads",
   "type": "module",
   "main": "src/index.ts",
