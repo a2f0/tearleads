@@ -8,7 +8,7 @@ When reviewing pull requests in this repository, follow these guidelines.
 
 1. **Security** - Auth checks, ownership verification, SQL injection
 2. **Type Safety**
-3. **Environment Variables** - Non-Terraform variables stay **ALL CAPS**, while Terraform `TF_VAR_*` inputs match snake_case names (e.g., `TF_VAR_staging_domain`, `TF_VAR_prod_domain`, `TF_VAR_server_username`)
+3. **Environment Variables** - Non-Terraform variables stay **ALL CAPS**, while Terraform `TF_VAR_*` inputs match snake_case names (e.g., `TF_VAR_domain`, `TF_VAR_server_username`)
 4. **Test Coverage** - New code must have tests
 5. **Performance** - N+1 queries, missing memoization
 

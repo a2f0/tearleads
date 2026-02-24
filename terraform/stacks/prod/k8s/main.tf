@@ -6,7 +6,7 @@ data "hcloud_ssh_key" "main" {
 module "server" {
   source = "../../../modules/hetzner-server"
 
-  name        = "k8s-prod-${var.production_domain}"
+  name        = "k8s-prod-${var.domain}"
   ssh_key_id  = data.hcloud_ssh_key.main.id
   server_type = var.server_type
   location    = var.server_location
@@ -44,7 +44,7 @@ module "server" {
       - systemctl restart ssh
       - curl -sfL https://get.k3s.io -o /tmp/install-k3s.sh
       - chmod +x /tmp/install-k3s.sh
-      - INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.production_domain} --tls-san k8s-api.${var.production_domain}" /tmp/install-k3s.sh
+      - INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.domain} --tls-san k8s-api.${var.domain}" /tmp/install-k3s.sh
       - rm /tmp/install-k3s.sh
       - mkdir -p /home/${var.server_username}/.kube
       - cp /etc/rancher/k3s/k3s.yaml /home/${var.server_username}/.kube/config
@@ -78,7 +78,7 @@ module "server" {
 # Cloudflare zone lookup for DNS records
 data "cloudflare_zone" "production" {
   account_id = var.cloudflare_account_id
-  name       = var.production_domain
+  name       = var.domain
 }
 
 # Cloudflare Tunnel - routes traffic through Cloudflare without exposing public IP
@@ -92,15 +92,15 @@ module "tunnel" {
 
   ingress_rules = [
     {
-      hostname = var.production_domain
+      hostname = var.domain
       service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
     },
     {
-      hostname = "app.${var.production_domain}"
+      hostname = "app.${var.domain}"
       service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
     },
     {
-      hostname = "api.${var.production_domain}"
+      hostname = "api.${var.domain}"
       service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
     }
   ]
@@ -114,7 +114,7 @@ resource "cloudflare_record" "k8s_ssh" {
   }
 
   zone_id = data.cloudflare_zone.production.id
-  name    = "k8s-ssh.${var.production_domain}"
+  name    = "k8s-ssh.${var.domain}"
   type    = each.key
   content = each.value
   proxied = false
@@ -129,7 +129,7 @@ resource "cloudflare_record" "k8s_api" {
   }
 
   zone_id = data.cloudflare_zone.production.id
-  name    = "k8s-api.${var.production_domain}"
+  name    = "k8s-api.${var.domain}"
   type    = each.key
   content = each.value
   proxied = false

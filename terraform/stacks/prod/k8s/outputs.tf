@@ -15,27 +15,27 @@ output "server_status" {
 
 output "k8s_hostname" {
   description = "K8s cluster hostname"
-  value       = "k8s.${var.production_domain}"
+  value       = "k8s.${var.domain}"
 }
 
 output "k8s_api_hostname" {
   description = "Direct Kubernetes API hostname"
-  value       = "k8s-api.${var.production_domain}"
+  value       = "k8s-api.${var.domain}"
 }
 
 output "ssh_command" {
   description = "SSH command to connect to the server"
-  value       = "ssh k8s-ssh.${var.production_domain}"
+  value       = "ssh k8s-ssh.${var.domain}"
 }
 
 output "ssh_hostname" {
   description = "SSH hostname for direct server access"
-  value       = "k8s-ssh.${var.production_domain}"
+  value       = "k8s-ssh.${var.domain}"
 }
 
 output "kubeconfig_command" {
   description = "Command to fetch kubeconfig"
-  value       = "scp k8s-ssh.${var.production_domain}:.kube/config ~/.kube/config-prod-k8s"
+  value       = "scp k8s-ssh.${var.domain}:.kube/config ~/.kube/config-prod-k8s"
 }
 
 output "server_username" {

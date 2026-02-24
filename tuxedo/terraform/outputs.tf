@@ -1,5 +1,5 @@
 locals {
-  full_dns_hostname = "${var.dns_hostname}.${var.staging_domain}"
+  full_dns_hostname = "${var.dns_hostname}.${var.domain}"
 }
 
 output "server_ip" {

@@ -1,5 +1,5 @@
-variable "production_domain" {
-  description = "Production domain name"
+variable "domain" {
+  description = "Domain name"
   type        = string
 }
 

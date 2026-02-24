@@ -64,24 +64,11 @@ validate_hetzner_env() {
   fi
 }
 
-# Validate staging domain
-validate_staging_domain_env() {
+# Validate domain
+validate_domain_env() {
   local missing=()
 
-  [[ -z "${TF_VAR_staging_domain:-}" ]] && missing+=("TF_VAR_staging_domain")
-
-  if [[ ${#missing[@]} -gt 0 ]]; then
-    echo "ERROR: Missing required environment variables:" >&2
-    printf '  - %s\n' "${missing[@]}" >&2
-    return 1
-  fi
-}
-
-# Validate production domain
-validate_production_domain_env() {
-  local missing=()
-
-  [[ -z "${TF_VAR_production_domain:-}" ]] && missing+=("TF_VAR_production_domain")
+  [[ -z "${TF_VAR_domain:-}" ]] && missing+=("TF_VAR_domain")
 
   if [[ ${#missing[@]} -gt 0 ]]; then
     echo "ERROR: Missing required environment variables:" >&2

@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 STACK_DIR="$(dirname "$SCRIPT_DIR")"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 MANIFESTS_DIR="$STACK_DIR/manifests"
-PRODUCTION_DOMAIN="${TF_VAR_production_domain:-}"
+PRODUCTION_DOMAIN="${TF_VAR_domain:-}"
 
 # shellcheck source=../../../../scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"

@@ -21,9 +21,9 @@ module "ci_artifacts" {
   lifecycle_expiration_days = 0 # Keep prod artifacts indefinitely
 
   cors_allowed_origins = [
-    "https://${var.production_domain}",
-    "https://app.${var.production_domain}",
-    "https://download.${var.production_domain}"
+    "https://${var.domain}",
+    "https://app.${var.domain}",
+    "https://download.${var.domain}"
   ]
 
   # Container registries

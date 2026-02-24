@@ -65,7 +65,7 @@ const usersWithOrders = await db
 ### Environment Variables
 
 - **All caps only** - Non-Terraform environment variables (e.g., `DATABASE_URL`, `GITHUB_TOKEN`) must always be uppercase to stay consistent across automation and tool chains.
-- **Terraform inputs** - When you export `TF_VAR_*` variables, make the suffix match the Terraform input name in snake_case (e.g., `TF_VAR_hcloud_token`, `TF_VAR_server_username`, `TF_VAR_production_domain`). Keeping Terraform variables in snake_case keeps the configuration aligned with community conventions and avoids confusing casing differences between the environment and Terraform code.
+- **Terraform inputs** - When you export `TF_VAR_*` variables, make the suffix match the Terraform input name in snake_case (e.g., `TF_VAR_hcloud_token`, `TF_VAR_server_username`, `TF_VAR_domain`). Keeping Terraform variables in snake_case keeps the configuration aligned with community conventions and avoids confusing casing differences between the environment and Terraform code.
 
 ### File Restrictions
 

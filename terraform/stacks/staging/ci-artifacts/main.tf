@@ -21,9 +21,9 @@ module "ci_artifacts" {
   lifecycle_expiration_days = 30
 
   cors_allowed_origins = [
-    "https://${var.staging_domain}",
-    "https://app.${var.staging_domain}",
-    "https://download.${var.staging_domain}"
+    "https://${var.domain}",
+    "https://app.${var.domain}",
+    "https://download.${var.domain}"
   ]
 
   # Container registries

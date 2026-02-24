@@ -12,7 +12,7 @@ source "$REPO_ROOT/terraform/scripts/common.sh"
 load_secrets_env staging
 KUSTOMIZE_OVERLAY="$MANIFESTS_DIR/kustomize/overlays/staging"
 USE_KUSTOMIZE="${USE_KUSTOMIZE:-false}"
-STAGING_DOMAIN="${TF_VAR_staging_domain:-}"
+STAGING_DOMAIN="${TF_VAR_domain:-}"
 K8S_HOSTNAME=""
 LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-}"
 
@@ -60,7 +60,7 @@ fi
 
 if [[ -z "$STAGING_DOMAIN" ]]; then
   echo "ERROR: Could not determine staging domain."
-  echo "Set TF_VAR_staging_domain or ensure terraform output k8s_hostname is available."
+  echo "Set TF_VAR_domain or ensure terraform output k8s_hostname is available."
   exit 1
 fi
 

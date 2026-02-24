@@ -21,7 +21,7 @@ const requiredEnvVars = [
   'ANDROID_KEYSTORE_KEY_PASS',
   'ANTHROPIC_API_KEY',
   'OPENROUTER_API_KEY',
-  'TF_VAR_staging_domain',
+  'TF_VAR_domain',
   'TF_VAR_server_username',
   'VITE_API_URL'
 ] as const;
@@ -235,7 +235,7 @@ function main(): void {
     { name: 'ANTHROPIC_API_KEY', value: env.ANTHROPIC_API_KEY },
     { name: 'OPENROUTER_API_KEY', value: env.OPENROUTER_API_KEY },
     { name: 'DEPLOY_SSH_KEY', value: deploySshKey },
-    { name: 'DEPLOY_DOMAIN', value: env.TF_VAR_staging_domain },
+    { name: 'DEPLOY_DOMAIN', value: env.TF_VAR_domain },
     { name: 'DEPLOY_USER', value: env.TF_VAR_server_username },
     { name: 'VITE_API_URL', value: env.VITE_API_URL }
   ];

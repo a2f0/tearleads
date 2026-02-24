@@ -20,8 +20,8 @@ variable "ssh_key_name" {
   type        = string
 }
 
-variable "staging_domain" {
-  description = "DNS zone name for the Cloudflare managed staging domain"
+variable "domain" {
+  description = "DNS zone name for the Cloudflare managed domain"
   type        = string
 }
 
