@@ -20,7 +20,6 @@ const requiredEnvVars = [
   'ANDROID_KEYSTORE_STORE_PASS',
   'ANDROID_KEYSTORE_KEY_PASS',
   'ANTHROPIC_API_KEY',
-  'OPENROUTER_API_KEY',
   'TF_VAR_server_username'
 ] as const;
 
@@ -214,6 +213,7 @@ function main(): void {
 
   const prodDomain = readEnvValue('.secrets/prod.env', 'TF_VAR_domain');
   const stagingDomain = readEnvValue('.secrets/staging.env', 'TF_VAR_domain');
+  const openrouterApiKey = readEnvValue('.secrets/prod.env', 'OPENROUTER_API_KEY');
 
   const p8File = `.secrets/AuthKey_${env.APP_STORE_CONNECT_KEY_ID}.p8`;
   const keystoreFile = '.secrets/tearleads-release.keystore';
@@ -267,7 +267,7 @@ function main(): void {
       value: googlePlayServiceAccountJsonBase64
     },
     { name: 'ANTHROPIC_API_KEY', value: env.ANTHROPIC_API_KEY },
-    { name: 'OPENROUTER_API_KEY', value: env.OPENROUTER_API_KEY },
+    { name: 'OPENROUTER_API_KEY', value: openrouterApiKey },
     { name: 'DEPLOY_SSH_KEY', value: deploySshKey },
     { name: 'DEPLOY_DOMAIN_PROD', value: prodDomain },
     { name: 'DEPLOY_DOMAIN_STAGING', value: stagingDomain },
