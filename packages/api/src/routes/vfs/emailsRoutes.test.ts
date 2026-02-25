@@ -145,7 +145,6 @@ describe('VFS email routes', () => {
       .mockResolvedValueOnce({
         rows: [{ message_id: 'msg-1', storage_key: 'smtp/inbound/msg-1.bin' }]
       })
-      .mockResolvedValueOnce({ rows: [] }) // DELETE email_recipients
       .mockResolvedValueOnce({ rows: [{ id: 'vfs-email-1' }] }) // DELETE vfs_registry
       .mockResolvedValueOnce({ rows: [{ count: '0' }] }) // remaining email items
       .mockResolvedValueOnce({
@@ -171,7 +170,6 @@ describe('VFS email routes', () => {
       .mockResolvedValueOnce({
         rows: [{ message_id: 'msg-1', storage_key: 'smtp/inbound/msg-1.bin' }]
       })
-      .mockResolvedValueOnce({ rows: [] }) // DELETE email_recipients
       .mockResolvedValueOnce({ rows: [{ id: 'vfs-email-1' }] }) // DELETE vfs_registry
       .mockResolvedValueOnce({ rows: [{ count: '1' }] }) // remaining email items
       .mockResolvedValueOnce({ rows: [] }); // COMMIT

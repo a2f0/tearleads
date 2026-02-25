@@ -61,15 +61,6 @@ const deleteEmailsIdHandler = async (
         return;
       }
 
-      if (emailRow.message_id) {
-        await client.query(
-          `DELETE FROM email_recipients
-             WHERE message_id = $1
-               AND user_id = $2`,
-          [emailRow.message_id, userId]
-        );
-      }
-
       const deleted = await client.query<{ id: string }>(
         `DELETE FROM vfs_registry
            WHERE id = $1

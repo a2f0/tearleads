@@ -232,35 +232,6 @@ export class PostgresInboundVfsEmailRepository
 
         const inboxFolderId = await ensureInboxFolder(client, recipient.userId);
 
-        await client.query(
-          `INSERT INTO email_recipients (
-             id,
-             message_id,
-             user_id,
-             smtp_recipient_address,
-             wrapped_dek,
-             key_encryption_algorithm,
-             created_at
-           ) VALUES (
-             $1,
-             $2,
-             $3,
-             $4,
-             $5,
-             $6,
-             NOW()
-           )
-           ON CONFLICT (message_id, user_id) DO NOTHING`,
-          [
-            randomUUID(),
-            input.envelope.messageId,
-            recipient.userId,
-            recipient.address,
-            wrappedKey.wrappedDek,
-            wrappedKey.keyAlgorithm
-          ]
-        );
-
         await insertEmailForRecipient({
           client,
           envelope: input.envelope,

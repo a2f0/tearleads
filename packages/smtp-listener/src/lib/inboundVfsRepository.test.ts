@@ -112,10 +112,6 @@ describe('PostgresInboundVfsEmailRepository', () => {
       expect.any(Array)
     );
     expect(clientQueryMock).toHaveBeenCalledWith(
-      expect.stringContaining('INSERT INTO email_recipients'),
-      expect.arrayContaining(['msg-1', 'user-1'])
-    );
-    expect(clientQueryMock).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO vfs_acl_entries'),
       expect.arrayContaining(['user-1', 'wrapped-dek'])
     );
@@ -199,7 +195,7 @@ describe('PostgresInboundVfsEmailRepository', () => {
 
   it('rolls back when a query fails after begin', async () => {
     const clientQueryMock = vi.fn(async (query: string) => {
-      if (query.includes('INSERT INTO email_recipients')) {
+      if (query.includes('INSERT INTO vfs_acl_entries')) {
         throw new Error('db failure');
       }
       if (query.includes('FROM email_folders')) {
