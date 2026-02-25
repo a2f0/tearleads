@@ -13,6 +13,29 @@ vi.mock('@/contexts/VfsOrchestratorContext', () => ({
   useVfsOrchestratorInstance: () => mockUseVfsOrchestratorInstance()
 }));
 
+function deferred<T>() {
+  let resolveValue: ((value: T | PromiseLike<T>) => void) | null = null;
+  let rejectValue: ((reason?: unknown) => void) | null = null;
+  const promise = new Promise<T>((resolve, reject) => {
+    resolveValue = resolve;
+    rejectValue = reject;
+  });
+
+  return {
+    promise,
+    resolve: (value: T) => {
+      if (resolveValue) {
+        resolveValue(value);
+      }
+    },
+    reject: (reason?: unknown) => {
+      if (rejectValue) {
+        rejectValue(reason);
+      }
+    }
+  };
+}
+
 describe('VfsRealtimeSyncBridge', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -94,8 +117,181 @@ describe('VfsRealtimeSyncBridge', () => {
       }
     };
     rerender(<VfsRealtimeSyncBridge />);
+    sseState.lastMessage = {
+      channel: 'vfs:container:item-1:sync',
+      message: {
+        type: 'vfs:cursor-bump',
+        payload: {},
+        timestamp: new Date().toISOString()
+      }
+    };
+    rerender(<VfsRealtimeSyncBridge />);
 
     await vi.advanceTimersByTimeAsync(200);
     expect(syncCrdt).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores non-VFS or non-cursor-bump messages', async () => {
+    const connect = vi.fn();
+    const syncCrdt = vi.fn().mockResolvedValue(undefined);
+    const sseState = {
+      connect,
+      lastMessage: null as {
+        channel: string;
+        message: { type: string; payload: unknown; timestamp: string };
+      } | null
+    };
+
+    mockUseSSE.mockImplementation(() => sseState);
+    mockUseVfsOrchestratorInstance.mockReturnValue({
+      crdt: {
+        listChangedContainers: vi.fn(() => ({
+          items: [{ containerId: 'item-1' }],
+          hasMore: false,
+          nextCursor: null
+        }))
+      },
+      syncCrdt
+    });
+
+    const { rerender } = render(<VfsRealtimeSyncBridge />);
+    sseState.lastMessage = {
+      channel: 'broadcast',
+      message: {
+        type: 'vfs:cursor-bump',
+        payload: {},
+        timestamp: new Date().toISOString()
+      }
+    };
+    rerender(<VfsRealtimeSyncBridge />);
+
+    sseState.lastMessage = {
+      channel: 'vfs:container:item-1:sync',
+      message: {
+        type: 'something-else',
+        payload: {},
+        timestamp: new Date().toISOString()
+      }
+    };
+    rerender(<VfsRealtimeSyncBridge />);
+
+    await vi.advanceTimersByTimeAsync(250);
+    expect(syncCrdt).not.toHaveBeenCalled();
+  });
+
+  it('coalesces cursor-bump syncs while a sync is in flight', async () => {
+    const connect = vi.fn();
+    const syncGate = deferred<void>();
+    const syncCrdt = vi.fn(() => syncGate.promise);
+    const sseState = {
+      connect,
+      lastMessage: null as {
+        channel: string;
+        message: { type: string; payload: unknown; timestamp: string };
+      } | null
+    };
+
+    mockUseSSE.mockImplementation(() => sseState);
+    mockUseVfsOrchestratorInstance.mockReturnValue({
+      crdt: {
+        listChangedContainers: vi.fn(() => ({
+          items: [{ containerId: 'item-1' }],
+          hasMore: false,
+          nextCursor: null
+        }))
+      },
+      syncCrdt
+    });
+
+    const { rerender } = render(<VfsRealtimeSyncBridge />);
+    sseState.lastMessage = {
+      channel: 'vfs:container:item-1:sync',
+      message: {
+        type: 'vfs:cursor-bump',
+        payload: {},
+        timestamp: new Date().toISOString()
+      }
+    };
+    rerender(<VfsRealtimeSyncBridge />);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(syncCrdt).toHaveBeenCalledTimes(1);
+
+    sseState.lastMessage = {
+      channel: 'vfs:container:item-1:sync',
+      message: {
+        type: 'vfs:cursor-bump',
+        payload: {},
+        timestamp: new Date().toISOString()
+      }
+    };
+    rerender(<VfsRealtimeSyncBridge />);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(syncCrdt).toHaveBeenCalledTimes(1);
+
+    syncGate.resolve(undefined);
+    await Promise.resolve();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+
+    sseState.lastMessage = {
+      channel: 'vfs:container:item-1:sync',
+      message: {
+        type: 'vfs:cursor-bump',
+        payload: {},
+        timestamp: new Date().toISOString()
+      }
+    };
+    rerender(<VfsRealtimeSyncBridge />);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(syncCrdt).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries failed sync with backoff and re-enters debounced path', async () => {
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+    const connect = vi.fn();
+    const syncCrdt = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('sync failed'))
+      .mockResolvedValue(undefined);
+    const sseState = {
+      connect,
+      lastMessage: null as {
+        channel: string;
+        message: { type: string; payload: unknown; timestamp: string };
+      } | null
+    };
+
+    mockUseSSE.mockImplementation(() => sseState);
+    mockUseVfsOrchestratorInstance.mockReturnValue({
+      crdt: {
+        listChangedContainers: vi.fn(() => ({
+          items: [{ containerId: 'item-1' }],
+          hasMore: false,
+          nextCursor: null
+        }))
+      },
+      syncCrdt
+    });
+
+    const { rerender } = render(<VfsRealtimeSyncBridge />);
+    sseState.lastMessage = {
+      channel: 'vfs:container:item-1:sync',
+      message: {
+        type: 'vfs:cursor-bump',
+        payload: {},
+        timestamp: new Date().toISOString()
+      }
+    };
+    rerender(<VfsRealtimeSyncBridge />);
+
+    await vi.advanceTimersByTimeAsync(200);
+    expect(syncCrdt).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(999);
+    expect(syncCrdt).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(200);
+    expect(syncCrdt).toHaveBeenCalledTimes(2);
+    randomSpy.mockRestore();
   });
 });
