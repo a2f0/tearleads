@@ -32,6 +32,7 @@ import { createRecipientPublicKeyResolver } from '@/db/vfsRecipientKeyResolver';
 import { createUserKeyProvider } from '@/db/vfsUserKeyProvider';
 import { ensureVfsKeys } from '@/hooks/vfs';
 import { setVfsItemSyncRuntime } from '@/lib/vfsItemSyncWriter';
+import { rematerializeRemoteVfsStateIfNeeded } from '@/lib/vfsRematerialization';
 import { useAuth } from './AuthContext';
 
 function normalizeApiPrefix(value: string): string {
@@ -186,6 +187,17 @@ export function VfsOrchestratorProvider({
           transportOptions: {
             baseUrl: effectiveBaseUrl,
             apiPrefix: effectiveApiPrefix
+          },
+          onRematerializationRequired: async () => {
+            try {
+              await rematerializeRemoteVfsStateIfNeeded();
+            } catch (rematerializationError) {
+              console.warn(
+                'VFS rematerialization callback failed; continuing with sync fallback state reset:',
+                rematerializationError
+              );
+            }
+            return null;
           }
         },
         blob: {

@@ -63,6 +63,12 @@ export class VfsApiNetworkFlusher {
           pullLimit: options.pullLimit
         }),
         ...(options.now !== undefined && { now: options.now }),
+        ...(options.maxRematerializationAttempts !== undefined && {
+          maxRematerializationAttempts: options.maxRematerializationAttempts
+        }),
+        ...(options.onRematerializationRequired !== undefined && {
+          onRematerializationRequired: options.onRematerializationRequired
+        }),
         ...(options.onBackgroundError !== undefined && {
           onBackgroundError: options.onBackgroundError
         }),
