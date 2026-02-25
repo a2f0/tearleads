@@ -59,7 +59,10 @@ function chunkArray<T>(values: readonly T[], size: number): T[][] {
   return chunks;
 }
 
-function parseTimestampMs(value: string | null | undefined, fallback: number): number {
+function parseTimestampMs(
+  value: string | null | undefined,
+  fallback: number
+): number {
   if (!value) {
     return fallback;
   }
@@ -104,7 +107,9 @@ async function fetchAllCrdtItems(): Promise<VfsCrdtSyncItem[]> {
   return items;
 }
 
-function buildRegistryState(syncItems: readonly VfsSyncItem[]): Map<string, RegistryRowState> {
+function buildRegistryState(
+  syncItems: readonly VfsSyncItem[]
+): Map<string, RegistryRowState> {
   const registryById = new Map<string, RegistryRowState>();
   for (const item of syncItems) {
     if (item.changeType === 'delete') {
@@ -115,7 +120,10 @@ function buildRegistryState(syncItems: readonly VfsSyncItem[]): Map<string, Regi
       continue;
     }
 
-    const createdAtMs = parseTimestampMs(item.createdAt, parseTimestampMs(item.changedAt, Date.now()));
+    const createdAtMs = parseTimestampMs(
+      item.createdAt,
+      parseTimestampMs(item.changedAt, Date.now())
+    );
     registryById.set(item.itemId, {
       id: item.itemId,
       objectType: item.objectType,

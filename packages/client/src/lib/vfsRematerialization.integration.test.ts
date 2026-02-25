@@ -1,10 +1,20 @@
 import '../test/setupIntegration';
 
-import { vfsAclEntries, vfsItemState, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
+import {
+  vfsAclEntries,
+  vfsItemState,
+  vfsLinks,
+  vfsRegistry
+} from '@tearleads/db/sqlite';
 import { resetTestKeyManager } from '@tearleads/db-test-utils';
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getDatabase, getDatabaseAdapter, resetDatabase, setupDatabase } from '@/db';
+import {
+  getDatabase,
+  getDatabaseAdapter,
+  resetDatabase,
+  setupDatabase
+} from '@/db';
 import { rematerializeRemoteVfsStateIfNeeded } from './vfsRematerialization';
 
 const mockGetSync = vi.fn();
@@ -40,102 +50,100 @@ describe('vfsRematerialization integration', () => {
   });
 
   it('rebuilds canonical VFS tables from remote sync feeds when local registry is empty', async () => {
-    mockGetSync
-      .mockResolvedValueOnce({
-        items: [
-          {
-            changeId: 'change-1',
-            itemId: 'root-item',
-            changeType: 'upsert',
-            changedAt: '2026-01-01T00:00:01.000Z',
-            objectType: 'folder',
-            ownerId: 'user-1',
-            createdAt: '2026-01-01T00:00:00.000Z',
-            accessLevel: 'admin'
-          },
-          {
-            changeId: 'change-2',
-            itemId: 'child-item',
-            changeType: 'upsert',
-            changedAt: '2026-01-01T00:00:02.000Z',
-            objectType: 'note',
-            ownerId: 'user-1',
-            createdAt: '2026-01-01T00:00:02.000Z',
-            accessLevel: 'admin'
-          }
-        ],
-        nextCursor: null,
-        hasMore: false
-      });
+    mockGetSync.mockResolvedValueOnce({
+      items: [
+        {
+          changeId: 'change-1',
+          itemId: 'root-item',
+          changeType: 'upsert',
+          changedAt: '2026-01-01T00:00:01.000Z',
+          objectType: 'folder',
+          ownerId: 'user-1',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          accessLevel: 'admin'
+        },
+        {
+          changeId: 'change-2',
+          itemId: 'child-item',
+          changeType: 'upsert',
+          changedAt: '2026-01-01T00:00:02.000Z',
+          objectType: 'note',
+          ownerId: 'user-1',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          accessLevel: 'admin'
+        }
+      ],
+      nextCursor: null,
+      hasMore: false
+    });
 
-    mockGetCrdtSync
-      .mockResolvedValueOnce({
-        items: [
-          {
-            opId: 'op-1',
-            itemId: 'root-item',
-            opType: 'item_upsert',
-            principalType: null,
-            principalId: null,
-            accessLevel: null,
-            parentId: null,
-            childId: null,
-            actorId: 'user-1',
-            sourceTable: 'vfs_crdt_client_push',
-            sourceId: 'source-1',
-            occurredAt: '2026-01-01T00:00:01.100Z',
-            encryptedPayload: 'enc-root',
-            keyEpoch: 1
-          },
-          {
-            opId: 'op-2',
-            itemId: 'child-item',
-            opType: 'item_upsert',
-            principalType: null,
-            principalId: null,
-            accessLevel: null,
-            parentId: null,
-            childId: null,
-            actorId: 'user-1',
-            sourceTable: 'vfs_crdt_client_push',
-            sourceId: 'source-2',
-            occurredAt: '2026-01-01T00:00:02.100Z',
-            encryptedPayload: 'enc-child',
-            keyEpoch: 2
-          },
-          {
-            opId: 'op-3',
-            itemId: 'child-item',
-            opType: 'acl_add',
-            principalType: 'user',
-            principalId: 'user-1',
-            accessLevel: 'admin',
-            parentId: null,
-            childId: null,
-            actorId: 'user-1',
-            sourceTable: 'vfs_crdt_client_push',
-            sourceId: 'source-3',
-            occurredAt: '2026-01-01T00:00:02.200Z'
-          },
-          {
-            opId: 'op-4',
-            itemId: 'child-item',
-            opType: 'link_add',
-            principalType: null,
-            principalId: null,
-            accessLevel: null,
-            parentId: 'root-item',
-            childId: 'child-item',
-            actorId: 'user-1',
-            sourceTable: 'vfs_crdt_client_push',
-            sourceId: 'source-4',
-            occurredAt: '2026-01-01T00:00:02.300Z'
-          }
-        ],
-        nextCursor: null,
-        hasMore: false,
-        lastReconciledWriteIds: { 'user-1:client': 4 }
-      });
+    mockGetCrdtSync.mockResolvedValueOnce({
+      items: [
+        {
+          opId: 'op-1',
+          itemId: 'root-item',
+          opType: 'item_upsert',
+          principalType: null,
+          principalId: null,
+          accessLevel: null,
+          parentId: null,
+          childId: null,
+          actorId: 'user-1',
+          sourceTable: 'vfs_crdt_client_push',
+          sourceId: 'source-1',
+          occurredAt: '2026-01-01T00:00:01.100Z',
+          encryptedPayload: 'enc-root',
+          keyEpoch: 1
+        },
+        {
+          opId: 'op-2',
+          itemId: 'child-item',
+          opType: 'item_upsert',
+          principalType: null,
+          principalId: null,
+          accessLevel: null,
+          parentId: null,
+          childId: null,
+          actorId: 'user-1',
+          sourceTable: 'vfs_crdt_client_push',
+          sourceId: 'source-2',
+          occurredAt: '2026-01-01T00:00:02.100Z',
+          encryptedPayload: 'enc-child',
+          keyEpoch: 2
+        },
+        {
+          opId: 'op-3',
+          itemId: 'child-item',
+          opType: 'acl_add',
+          principalType: 'user',
+          principalId: 'user-1',
+          accessLevel: 'admin',
+          parentId: null,
+          childId: null,
+          actorId: 'user-1',
+          sourceTable: 'vfs_crdt_client_push',
+          sourceId: 'source-3',
+          occurredAt: '2026-01-01T00:00:02.200Z'
+        },
+        {
+          opId: 'op-4',
+          itemId: 'child-item',
+          opType: 'link_add',
+          principalType: null,
+          principalId: null,
+          accessLevel: null,
+          parentId: 'root-item',
+          childId: 'child-item',
+          actorId: 'user-1',
+          sourceTable: 'vfs_crdt_client_push',
+          sourceId: 'source-4',
+          occurredAt: '2026-01-01T00:00:02.300Z'
+        }
+      ],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: { 'user-1:client': 4 }
+    });
 
     await expect(rematerializeRemoteVfsStateIfNeeded()).resolves.toBe(true);
 

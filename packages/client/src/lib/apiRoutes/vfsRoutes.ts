@@ -1,9 +1,9 @@
 import type {
   CreateOrgShareRequest,
   CreateVfsShareRequest,
-  VfsCrdtSyncResponse,
   ShareTargetSearchResponse,
   UpdateVfsShareRequest,
+  VfsCrdtSyncResponse,
   VfsKeySetupRequest,
   VfsOrgShare,
   VfsRegisterRequest,
