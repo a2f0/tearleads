@@ -93,6 +93,12 @@ export const emailsTable: TableDefinition = {
       type: 'text',
       sqlName: 'encrypted_body_path'
     },
+    ciphertextSize: {
+      type: 'integer',
+      sqlName: 'ciphertext_size',
+      notNull: true,
+      defaultValue: 0
+    },
     receivedAt: {
       type: 'timestamp',
       sqlName: 'received_at',

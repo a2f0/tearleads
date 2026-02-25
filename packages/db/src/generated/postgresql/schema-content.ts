@@ -164,6 +164,7 @@ export const emails = pgTable(
     encryptedTo: jsonb('encrypted_to'),
     encryptedCc: jsonb('encrypted_cc'),
     encryptedBodyPath: text('encrypted_body_path'),
+    ciphertextSize: integer('ciphertext_size').notNull().default(0),
     receivedAt: timestamp('received_at', { withTimezone: true }).notNull(),
     isRead: boolean('is_read').notNull().default(false),
     isStarred: boolean('is_starred').notNull().default(false)

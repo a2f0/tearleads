@@ -161,6 +161,7 @@ export const emails = sqliteTable(
     encryptedTo: text('encrypted_to'),
     encryptedCc: text('encrypted_cc'),
     encryptedBodyPath: text('encrypted_body_path'),
+    ciphertextSize: integer('ciphertext_size').notNull().default(0),
     receivedAt: integer('received_at', { mode: 'timestamp_ms' }).notNull(),
     isRead: integer('is_read', { mode: 'boolean' }).notNull().default(false),
     isStarred: integer('is_starred', { mode: 'boolean' })

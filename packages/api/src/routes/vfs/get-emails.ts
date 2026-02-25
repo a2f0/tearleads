@@ -78,10 +78,9 @@ const getEmailsHandler = async (req: Request, res: Response) => {
            e.encrypted_to,
            e.encrypted_subject,
            e.received_at,
-           em.ciphertext_size
+           e.ciphertext_size
          FROM emails e
          INNER JOIN vfs_registry vr ON vr.id = e.id
-         LEFT JOIN email_messages em ON em.storage_key = e.encrypted_body_path
          WHERE vr.owner_id = $1
          ORDER BY e.received_at DESC
          OFFSET $2

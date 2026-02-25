@@ -143,13 +143,10 @@ describe('VFS email routes', () => {
     mocks.postgresClientQuery
       .mockResolvedValueOnce({ rows: [] }) // BEGIN
       .mockResolvedValueOnce({
-        rows: [{ message_id: 'msg-1', storage_key: 'smtp/inbound/msg-1.bin' }]
+        rows: [{ storage_key: 'smtp/inbound/msg-1.bin' }]
       })
       .mockResolvedValueOnce({ rows: [{ id: 'vfs-email-1' }] }) // DELETE vfs_registry
       .mockResolvedValueOnce({ rows: [{ count: '0' }] }) // remaining email items
-      .mockResolvedValueOnce({
-        rows: [{ storage_key: 'smtp/inbound/msg-1.bin' }]
-      }) // DELETE email_messages
       .mockResolvedValueOnce({ rows: [] }); // COMMIT
 
     const response = await request(app)
@@ -168,7 +165,7 @@ describe('VFS email routes', () => {
     mocks.postgresClientQuery
       .mockResolvedValueOnce({ rows: [] }) // BEGIN
       .mockResolvedValueOnce({
-        rows: [{ message_id: 'msg-1', storage_key: 'smtp/inbound/msg-1.bin' }]
+        rows: [{ storage_key: 'smtp/inbound/msg-1.bin' }]
       })
       .mockResolvedValueOnce({ rows: [{ id: 'vfs-email-1' }] }) // DELETE vfs_registry
       .mockResolvedValueOnce({ rows: [{ count: '1' }] }) // remaining email items

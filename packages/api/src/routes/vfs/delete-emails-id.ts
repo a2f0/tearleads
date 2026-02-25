@@ -37,16 +37,11 @@ const deleteEmailsIdHandler = async (
 
     try {
       await client.query('BEGIN');
-      const emailRowResult = await client.query<{
-        message_id: string | null;
-        storage_key: string | null;
-      }>(
+      const emailRowResult = await client.query<{ storage_key: string | null }>(
         `SELECT
-             em.id AS message_id,
-             em.storage_key
+             e.encrypted_body_path AS storage_key
            FROM vfs_registry vr
            INNER JOIN emails e ON e.id = vr.id
-           LEFT JOIN email_messages em ON em.storage_key = e.encrypted_body_path
            WHERE vr.id = $1
              AND vr.owner_id = $2
              AND vr.object_type = 'email'
@@ -76,7 +71,7 @@ const deleteEmailsIdHandler = async (
         return;
       }
 
-      if (emailRow.message_id && emailRow.storage_key) {
+      if (emailRow.storage_key) {
         const remainingItems = await client.query<{ count: string }>(
           `SELECT COUNT(*)::text AS count
              FROM emails
@@ -87,13 +82,7 @@ const deleteEmailsIdHandler = async (
         const remainingCount =
           parseInt(remainingItems.rows[0]?.count ?? '0', 10) || 0;
         if (remainingCount === 0) {
-          const deletedMessage = await client.query<{ storage_key: string }>(
-            `DELETE FROM email_messages
-               WHERE id = $1
-               RETURNING storage_key`,
-            [emailRow.message_id]
-          );
-          orphanedStorageKey = deletedMessage.rows[0]?.storage_key ?? null;
+          orphanedStorageKey = emailRow.storage_key;
         }
       }
 

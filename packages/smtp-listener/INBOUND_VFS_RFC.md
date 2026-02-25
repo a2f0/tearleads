@@ -47,8 +47,6 @@
 
 ## Persistence Model (Proposed)
 
-- `email_messages` (message-level object metadata):
-  - `id`, `storage_key`, `sha256`, `cipher_size`, `cipher_algo`, `created_at`.
 - VFS integration:
   - Ensure system Inbox exists for recipient.
   - Create/link VFS email item under Inbox with encrypted fields and blob reference.

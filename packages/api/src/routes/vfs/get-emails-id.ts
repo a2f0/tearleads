@@ -48,10 +48,9 @@ const getEmailsIdHandler = async (
            e.encrypted_subject,
            e.received_at,
            e.encrypted_body_path,
-           em.ciphertext_size
+           e.ciphertext_size
          FROM emails e
          INNER JOIN vfs_registry vr ON vr.id = e.id
-         LEFT JOIN email_messages em ON em.storage_key = e.encrypted_body_path
          WHERE e.id = $1
            AND vr.owner_id = $2
          LIMIT 1`,

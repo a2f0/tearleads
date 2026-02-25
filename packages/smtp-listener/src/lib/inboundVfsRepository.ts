@@ -89,6 +89,7 @@ async function insertEmailForRecipient(input: {
        encrypted_to,
        encrypted_cc,
        encrypted_body_path,
+       ciphertext_size,
        received_at,
        is_read,
        is_starred
@@ -99,7 +100,8 @@ async function insertEmailForRecipient(input: {
        $4::json,
        $5::json,
        $6,
-       $7::timestamptz,
+       $7,
+       $8::timestamptz,
        false,
        false
      )`,
@@ -110,6 +112,7 @@ async function insertEmailForRecipient(input: {
       JSON.stringify(input.envelope.encryptedTo),
       JSON.stringify([]),
       input.envelope.encryptedBodyPointer,
+      input.envelope.encryptedBodySize,
       input.envelope.receivedAt
     ]
   );
@@ -192,33 +195,6 @@ export class PostgresInboundVfsEmailRepository
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query(
-        `INSERT INTO email_messages (
-           id,
-           storage_key,
-           sha256,
-           ciphertext_size,
-           ciphertext_content_type,
-           content_encryption_algorithm,
-           created_at
-         ) VALUES (
-           $1,
-           $2,
-           $3,
-           $4,
-           'message/rfc822',
-           'aes-256-gcm',
-           NOW()
-         )
-         ON CONFLICT (id) DO NOTHING`,
-        [
-          input.envelope.messageId,
-          input.envelope.encryptedBodyPointer,
-          input.envelope.encryptedBodySha256,
-          input.envelope.encryptedBodySize
-        ]
-      );
-
       for (const recipient of input.recipients) {
         const wrappedKey = findWrappedKey(
           input.envelope.wrappedRecipientKeys,

@@ -2,28 +2,15 @@ import type { Pool } from 'pg';
 import type { Migration } from './types.js';
 
 /**
- * Migration v024: Add inbound SMTP encrypted message table and canonical VFS
- * item-state persistence for non-blob CRDT operations.
+ * Migration v024: Add canonical VFS item-state persistence for non-blob CRDT
+ * operations.
  */
 export const v024: Migration = {
   version: 24,
-  description:
-    'Add inbound SMTP encrypted message table and canonical VFS item-state CRDT op types',
+  description: 'Add canonical VFS item-state CRDT op types',
   up: async (pool: Pool) => {
     await pool.query('BEGIN');
     try {
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS "email_messages" (
-          "id" TEXT PRIMARY KEY,
-          "storage_key" TEXT NOT NULL UNIQUE,
-          "sha256" TEXT NOT NULL,
-          "ciphertext_size" INTEGER NOT NULL CHECK ("ciphertext_size" >= 0),
-          "ciphertext_content_type" TEXT NOT NULL DEFAULT 'message/rfc822',
-          "content_encryption_algorithm" TEXT NOT NULL DEFAULT 'aes-256-gcm',
-          "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-      `);
-
       await pool.query(`
         CREATE TABLE IF NOT EXISTS "vfs_item_state" (
           "item_id" TEXT PRIMARY KEY REFERENCES "vfs_registry"("id") ON DELETE CASCADE,

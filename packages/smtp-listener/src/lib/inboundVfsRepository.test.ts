@@ -108,7 +108,7 @@ describe('PostgresInboundVfsEmailRepository', () => {
     expect(connectMock).toHaveBeenCalledOnce();
     expect(clientQueryMock).toHaveBeenCalledWith('BEGIN');
     expect(clientQueryMock).toHaveBeenCalledWith(
-      expect.stringContaining('INSERT INTO email_messages'),
+      expect.stringContaining('INSERT INTO emails'),
       expect.any(Array)
     );
     expect(clientQueryMock).toHaveBeenCalledWith(
