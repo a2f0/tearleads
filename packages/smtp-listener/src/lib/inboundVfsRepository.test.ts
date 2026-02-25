@@ -112,7 +112,7 @@ describe('PostgresInboundVfsEmailRepository', () => {
     );
     expect(clientQueryMock).toHaveBeenCalledWith(
       expect.stringContaining(
-        "INSERT INTO vfs_registry (id, object_type, owner_id, created_at)"
+        'INSERT INTO vfs_registry (id, object_type, owner_id, created_at)'
       ),
       ['email-inbox:user-1', 'user-1']
     );
