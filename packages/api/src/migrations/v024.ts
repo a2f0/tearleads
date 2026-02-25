@@ -2,13 +2,13 @@ import type { Pool } from 'pg';
 import type { Migration } from './types.js';
 
 /**
- * Migration v024: Add inbound SMTP encrypted message tables and canonical VFS
+ * Migration v024: Add inbound SMTP encrypted message table and canonical VFS
  * item-state persistence for non-blob CRDT operations.
  */
 export const v024: Migration = {
   version: 24,
   description:
-    'Add inbound SMTP encrypted message tables and canonical VFS item-state CRDT op types',
+    'Add inbound SMTP encrypted message table and canonical VFS item-state CRDT op types',
   up: async (pool: Pool) => {
     await pool.query('BEGIN');
     try {
@@ -22,24 +22,6 @@ export const v024: Migration = {
           "content_encryption_algorithm" TEXT NOT NULL DEFAULT 'aes-256-gcm',
           "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
-      `);
-
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS "email_recipients" (
-          "id" TEXT PRIMARY KEY,
-          "message_id" TEXT NOT NULL REFERENCES "email_messages"("id") ON DELETE CASCADE,
-          "user_id" TEXT NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
-          "smtp_recipient_address" TEXT NOT NULL,
-          "wrapped_dek" TEXT NOT NULL,
-          "key_encryption_algorithm" TEXT NOT NULL DEFAULT 'x25519-mlkem768-hybrid-v1',
-          "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          UNIQUE ("message_id", "user_id")
-        )
-      `);
-
-      await pool.query(`
-        CREATE INDEX IF NOT EXISTS "email_recipients_user_created_idx"
-          ON "email_recipients" ("user_id", "created_at" DESC)
       `);
 
       await pool.query(`
