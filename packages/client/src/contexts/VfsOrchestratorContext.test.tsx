@@ -321,7 +321,6 @@ describe('VfsOrchestratorContext', () => {
       ).toBe('');
       expect(MockVfsWriteOrchestrator.lastOptions?.blob?.apiPrefix).toBe('');
     });
-
   });
 
   describe('useVfsOrchestrator', () => {

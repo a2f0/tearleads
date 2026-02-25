@@ -219,7 +219,10 @@ describe('VfsOrchestratorContext persistence', () => {
     });
 
     const apiClientModule = await import('@tearleads/api-client');
-    const lastOptions = Reflect.get(apiClientModule.VfsWriteOrchestrator, 'lastOptions');
+    const lastOptions = Reflect.get(
+      apiClientModule.VfsWriteOrchestrator,
+      'lastOptions'
+    );
     const onRematerializationRequired =
       typeof lastOptions === 'object' &&
       lastOptions !== null &&
