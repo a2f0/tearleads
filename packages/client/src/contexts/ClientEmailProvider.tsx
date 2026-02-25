@@ -10,7 +10,7 @@ import {
   SYSTEM_FOLDER_TYPES
 } from '@tearleads/email';
 import emailPackageJson from '@tearleads/email/package.json';
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { BackLink } from '@/components/ui/back-link';
 import {
@@ -30,7 +30,7 @@ import {
 } from '@/db/emailDrafts';
 import { useDatabaseContext } from '@/db/hooks';
 import { runLocalWrite } from '@/db/localWrite';
-import { contactEmails, contacts, vfsLinks, vfsRegistry } from '@/db/schema';
+import { contactEmails, contacts, emails, vfsLinks, vfsRegistry } from '@/db/schema';
 import { API_BASE_URL } from '@/lib/api';
 import { getAuthHeaderValue } from '@/lib/authStorage';
 
@@ -102,12 +102,26 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
       )
       .orderBy(asc(vfsRegistry.encryptedName));
 
+    const unreadRows = await db
+      .select({
+        parentId: vfsLinks.parentId,
+        unreadCount: sql<number>`cast(count(*) as integer)`
+      })
+      .from(vfsLinks)
+      .innerJoin(emails, eq(vfsLinks.childId, emails.id))
+      .where(eq(emails.isRead, false))
+      .groupBy(vfsLinks.parentId);
+
+    const unreadByFolderId = new Map(
+      unreadRows.map((row) => [row.parentId, row.unreadCount ?? 0])
+    );
+
     return folderRows.map((row) => ({
       id: row.id,
       name: row.encryptedName ?? 'Unnamed Folder',
       folderType: deriveFolderType(row.encryptedName),
       parentId: row.parentId ?? null,
-      unreadCount: 0
+      unreadCount: unreadByFolderId.get(row.id) ?? 0
     }));
   }, []);
 

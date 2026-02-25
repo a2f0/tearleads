@@ -111,9 +111,7 @@ describe('PostgresInboundVfsEmailRepository', () => {
       expect.arrayContaining(['user-1', 'wrapped-dek'])
     );
     expect(clientQueryMock).toHaveBeenCalledWith(
-      expect.stringContaining(
-        'INSERT INTO vfs_registry (id, object_type, owner_id, created_at)'
-      ),
+      expect.stringContaining('INSERT INTO vfs_registry ('),
       ['email-inbox:user-1', 'user-1']
     );
     expect(clientQueryMock).toHaveBeenCalledWith('COMMIT');
@@ -142,9 +140,7 @@ describe('PostgresInboundVfsEmailRepository', () => {
     });
 
     expect(clientQueryMock).toHaveBeenCalledWith(
-      expect.stringContaining(
-        'INSERT INTO vfs_registry (id, object_type, owner_id, created_at)'
-      ),
+      expect.stringContaining('INSERT INTO vfs_registry ('),
       ['email-inbox:user-1', 'user-1']
     );
     expect(clientQueryMock).toHaveBeenCalledWith('COMMIT');

@@ -26,9 +26,24 @@ async function ensureInboxFolder(
 ): Promise<string> {
   const folderId = `email-inbox:${userId}`;
   await client.query(
-    `INSERT INTO vfs_registry (id, object_type, owner_id, created_at)
-     VALUES ($1, 'folder', $2, NOW())
-     ON CONFLICT (id) DO NOTHING`,
+    `INSERT INTO vfs_registry (
+       id,
+       object_type,
+       owner_id,
+       encrypted_name,
+       icon,
+       created_at
+     ) VALUES (
+       $1,
+       'folder',
+       $2,
+       'Inbox',
+       'email-folder',
+       NOW()
+     )
+     ON CONFLICT (id) DO UPDATE
+     SET encrypted_name = 'Inbox',
+         icon = 'email-folder'`,
     [folderId, userId]
   );
   return folderId;
