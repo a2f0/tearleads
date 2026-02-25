@@ -27,28 +27,17 @@ describe('api with msw', () => {
       init?: RequestInit;
     }> = [
       { method: 'GET', pathname: '/billing/organizations/org-1' },
-      { method: 'GET', pathname: '/emails' },
-      { method: 'GET', pathname: '/emails/email-1' },
-      { method: 'GET', pathname: '/emails/drafts' },
-      { method: 'GET', pathname: '/emails/drafts/draft-1' },
+      { method: 'GET', pathname: '/vfs/emails' },
+      { method: 'GET', pathname: '/vfs/emails/email-1' },
       {
         method: 'POST',
-        pathname: '/emails/drafts',
-        init: {
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ subject: 'test draft' })
-        }
-      },
-      { method: 'DELETE', pathname: '/emails/drafts/draft-1' },
-      {
-        method: 'POST',
-        pathname: '/emails/send',
+        pathname: '/vfs/emails/send',
         init: {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ to: 'user@example.com' })
         }
       },
-      { method: 'DELETE', pathname: '/emails/email-1' },
+      { method: 'DELETE', pathname: '/vfs/emails/email-1' },
       { method: 'GET', pathname: '/mls/groups' },
       { method: 'GET', pathname: '/mls/groups/group-1' },
       { method: 'GET', pathname: '/mls/groups/group-1/members' },

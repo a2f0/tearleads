@@ -48,7 +48,7 @@ vi.mock('../../lib/vfsBlobStore.js', () => ({
   deleteVfsBlobByStorageKey: mocks.deleteVfsBlobByStorageKey
 }));
 
-describe('Emails Routes (VFS backend)', () => {
+describe('VFS email routes', () => {
   let authHeader: string;
 
   beforeEach(async () => {
@@ -86,7 +86,7 @@ describe('Emails Routes (VFS backend)', () => {
       });
 
     const response = await request(app)
-      .get('/v1/emails')
+      .get('/v1/vfs/emails')
       .set('Authorization', authHeader);
 
     expect(response.status).toBe(200);
@@ -123,7 +123,7 @@ describe('Emails Routes (VFS backend)', () => {
     });
 
     const response = await request(app)
-      .get('/v1/emails/vfs-email-1')
+      .get('/v1/vfs/emails/vfs-email-1')
       .set('Authorization', authHeader);
 
     expect(response.status).toBe(200);
@@ -154,7 +154,7 @@ describe('Emails Routes (VFS backend)', () => {
       .mockResolvedValueOnce({ rows: [] }); // COMMIT
 
     const response = await request(app)
-      .delete('/v1/emails/vfs-email-1')
+      .delete('/v1/vfs/emails/vfs-email-1')
       .set('Authorization', authHeader);
 
     expect(response.status).toBe(200);
@@ -177,7 +177,7 @@ describe('Emails Routes (VFS backend)', () => {
       .mockResolvedValueOnce({ rows: [] }); // COMMIT
 
     const response = await request(app)
-      .delete('/v1/emails/vfs-email-1')
+      .delete('/v1/vfs/emails/vfs-email-1')
       .set('Authorization', authHeader);
 
     expect(response.status).toBe(200);

@@ -6,8 +6,11 @@
 
 import { Router, type Router as RouterType } from 'express';
 import { registerDeleteBlobsBlobIdRoute } from './delete-blobs-blobId.js';
+import { registerDeleteEmailsIdRoute } from './delete-emails-id.js';
 import { registerGetBlobsBlobIdRoute } from './get-blobs-blobId.js';
 import { registerGetCrdtSyncRoute } from './get-crdt-sync.js';
+import { registerGetEmailsIdRoute } from './get-emails-id.js';
+import { registerGetEmailsRoute } from './get-emails.js';
 import { registerGetSyncRoute } from './get-sync.js';
 import { registerGetKeysMeRoute } from './getKeysMe.js';
 import { registerPostBlobsStageRoute } from './post-blobs-stage.js';
@@ -17,6 +20,7 @@ import { registerPostBlobsStageStagingIdChunksRoute } from './post-blobs-stage-s
 import { registerPostBlobsStageStagingIdCommitRoute } from './post-blobs-stage-stagingId-commit.js';
 import { registerPostCrdtPushRoute } from './post-crdt-push.js';
 import { registerPostCrdtReconcileRoute } from './post-crdt-reconcile.js';
+import { registerPostEmailsSendRoute } from './post-emails-send.js';
 import { registerPostItemsItemIdRekeyRoute } from './post-items-itemId-rekey.js';
 import { registerPostSyncReconcileRoute } from './post-sync-reconcile.js';
 import { registerPostKeysRoute } from './postKeys.js';
@@ -33,6 +37,10 @@ registerPostBlobsStageStagingIdChunksRoute(vfsRouter);
 registerPostBlobsStageStagingIdCommitRoute(vfsRouter);
 registerGetBlobsBlobIdRoute(vfsRouter);
 registerDeleteBlobsBlobIdRoute(vfsRouter);
+registerGetEmailsRoute(vfsRouter);
+registerGetEmailsIdRoute(vfsRouter);
+registerDeleteEmailsIdRoute(vfsRouter);
+registerPostEmailsSendRoute(vfsRouter);
 registerPostCrdtPushRoute(vfsRouter);
 registerPostCrdtReconcileRoute(vfsRouter);
 registerPostKeysRoute(vfsRouter);

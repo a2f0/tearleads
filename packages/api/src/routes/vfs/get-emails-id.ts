@@ -3,34 +3,32 @@ import { getPostgresPool } from '../../lib/postgres.js';
 
 /**
  * @openapi
- * /emails/{id}:
+ * /vfs/emails/{id}:
  *   get:
- *     summary: Get email by ID
- *     description: Returns a single email with full raw data
+ *     summary: Get email by id via VFS-backed metadata
  *     tags:
- *       - Emails
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Email ID
+ *       - VFS
  *     responses:
  *       200:
  *         description: Email details
+ *       401:
+ *         description: Unauthorized
  *       404:
  *         description: Email not found
  *       500:
  *         description: Server error
  */
-const getIdHandler = async (req: Request<{ id: string }>, res: Response) => {
+const getEmailsIdHandler = async (
+  req: Request<{ id: string }>,
+  res: Response
+) => {
   try {
     const userId = req.authClaims?.sub;
     if (!userId) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
+
     const { id } = req.params;
 
     const pool = await getPostgresPool();
@@ -83,11 +81,11 @@ const getIdHandler = async (req: Request<{ id: string }>, res: Response) => {
       encryptedBodyPath: row.encrypted_body_path ?? null
     });
   } catch (error) {
-    console.error('Failed to get email:', error);
+    console.error('Failed to get VFS email:', error);
     res.status(500).json({ error: 'Failed to get email' });
   }
 };
 
-export function registerGetIdRoute(routeRouter: RouterType): void {
-  routeRouter.get('/:id', getIdHandler);
+export function registerGetEmailsIdRoute(routeRouter: RouterType): void {
+  routeRouter.get('/emails/:id', getEmailsIdHandler);
 }

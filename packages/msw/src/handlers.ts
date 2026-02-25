@@ -274,20 +274,10 @@ export const handlers = [
       ]
     });
   }),
-  http.get(withOptionalV1Prefix('/emails/drafts'), () => ok({ drafts: [] })),
-  http.get(withOptionalV1Prefix('/emails/drafts/[^/]+'), () =>
-    ok({ draft: null })
-  ),
-  http.post(withOptionalV1Prefix('/emails/drafts'), () =>
-    ok({ draft: { id: 'draft-1' } })
-  ),
-  http.delete(withOptionalV1Prefix('/emails/drafts/[^/]+'), () =>
-    ok({ deleted: true })
-  ),
-  http.post(withOptionalV1Prefix('/emails/send'), () => ok({ sent: true })),
-  http.get(withOptionalV1Prefix('/emails'), () => ok({ emails: [] })),
-  http.get(withOptionalV1Prefix('/emails/[^/]+'), () => ok({ email: null })),
-  http.delete(withOptionalV1Prefix('/emails/[^/]+'), () =>
+  http.post(withOptionalV1Prefix('/vfs/emails/send'), () => ok({ sent: true })),
+  http.get(withOptionalV1Prefix('/vfs/emails'), () => ok({ emails: [] })),
+  http.get(withOptionalV1Prefix('/vfs/emails/[^/]+'), () => ok({ email: null })),
+  http.delete(withOptionalV1Prefix('/vfs/emails/[^/]+'), () =>
     ok({ deleted: true })
   ),
   http.get(withOptionalV1Prefix('/ai/conversations'), () => {

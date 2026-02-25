@@ -198,7 +198,7 @@ export function useCompose(options: UseComposeOptions = {}): UseComposeReturn {
         })
       );
 
-      const response = await fetch(`${apiBaseUrl}/emails/send`, {
+      const response = await fetch(`${apiBaseUrl}/vfs/emails/send`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({
