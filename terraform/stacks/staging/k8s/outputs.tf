@@ -63,3 +63,14 @@ output "cloudflare_zone_nameservers" {
   description = "Cloudflare authoritative nameservers for the staging zone"
   value       = data.cloudflare_zone.staging.name_servers
 }
+
+output "tailscale_hostname" {
+  description = "Tailscale hostname for the k8s server"
+  value       = local.tailscale_hostname
+}
+
+output "tailscale_auth_key" {
+  description = "Tailscale auth key for k8s server (passthrough from shared stack)"
+  value       = data.terraform_remote_state.tailscale.outputs.staging_k8s_auth_key
+  sensitive   = true
+}

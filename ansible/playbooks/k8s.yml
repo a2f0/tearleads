@@ -27,6 +27,60 @@
     - name: Apply shared Linux security baseline
       ansible.builtin.import_tasks: tasks/linuxSecurityBaseline.yml
 
+    - name: Configure Tailscale
+      when: tailscale_auth_key is defined and tailscale_auth_key | length > 0
+      block:
+        - name: Download Tailscale install script
+          ansible.builtin.get_url:
+            url: https://tailscale.com/install.sh
+            dest: /tmp/install-tailscale.sh
+            mode: "0755"
+          when: not ansible_check_mode
+
+        - name: Install Tailscale
+          ansible.builtin.command:
+            cmd: /tmp/install-tailscale.sh
+            creates: /usr/bin/tailscale
+
+        - name: Check Tailscale status
+          ansible.builtin.command:
+            cmd: tailscale status
+          register: tailscale_status
+          failed_when: false
+          changed_when: false
+
+        - name: Connect to Tailscale
+          ansible.builtin.command:
+            cmd: tailscale up --hostname=staging-k8s
+          environment:
+            TS_AUTHKEY: "{{ tailscale_auth_key }}"
+          changed_when: true
+          no_log: true
+          when: tailscale_status.rc != 0
+
+        - name: Verify Tailscale is running
+          ansible.builtin.command:
+            cmd: tailscale status
+          changed_when: false
+
+        - name: Ensure k3s config directory exists
+          ansible.builtin.file:
+            path: /etc/rancher/k3s
+            state: directory
+            owner: root
+            group: root
+            mode: "0755"
+
+        - name: Ensure k3s TLS SAN includes Tailscale hostname
+          ansible.builtin.lineinfile:
+            path: /etc/rancher/k3s/config.yaml
+            line: 'tls-san: ["staging-k8s"]'
+            create: true
+            owner: root
+            group: root
+            mode: "0644"
+          notify: Restart k3s
+
     - name: Wait for k3s to be ready
       ansible.builtin.command:
         cmd: k3s kubectl get nodes
@@ -219,6 +273,11 @@
         - "/tmp/buildkit-v{{ buildkit_version }}.linux-amd64.tar.gz"
 
   handlers:
+    - name: Restart k3s
+      ansible.builtin.systemd:
+        name: k3s
+        state: restarted
+
     - name: Restart buildkit
       ansible.builtin.systemd:
         name: buildkit

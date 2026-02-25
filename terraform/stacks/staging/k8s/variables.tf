@@ -64,3 +64,9 @@ variable "cloudflare_account_id" {
   description = "Cloudflare account ID"
   type        = string
 }
+
+variable "tailscale_api_token" {
+  description = "Tailscale API token for destroy-time device cleanup"
+  type        = string
+  sensitive   = true
+}

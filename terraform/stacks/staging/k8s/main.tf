@@ -1,3 +1,17 @@
+locals {
+  tailscale_hostname = "staging-k8s"
+}
+
+# Read Tailscale stack outputs for tagged auth key
+data "terraform_remote_state" "tailscale" {
+  backend = "s3"
+  config = {
+    bucket = "tearleads-terraform-state"
+    key    = "shared/tailscale/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
 # Lookup SSH key for cloud-init user_data
 data "hcloud_ssh_key" "main" {
   name = var.ssh_key_name
@@ -42,9 +56,12 @@ module "server" {
     runcmd:
       # Restart SSH to use the persistent host keys written above
       - systemctl restart ssh
+      # Install Tailscale
+      - curl -fsSL https://tailscale.com/install.sh | sh
+      - tailscale up --authkey=${data.terraform_remote_state.tailscale.outputs.staging_k8s_auth_key} --hostname=${local.tailscale_hostname}
       - curl -sfL https://get.k3s.io -o /tmp/install-k3s.sh
       - chmod +x /tmp/install-k3s.sh
-      - INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.domain} --tls-san k8s-api.${var.domain}" /tmp/install-k3s.sh
+      - INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.domain} --tls-san k8s-api.${var.domain} --tls-san ${local.tailscale_hostname}" /tmp/install-k3s.sh
       - rm /tmp/install-k3s.sh
       - mkdir -p /home/${var.server_username}/.kube
       - cp /etc/rancher/k3s/k3s.yaml /home/${var.server_username}/.kube/config
@@ -166,4 +183,21 @@ resource "cloudflare_record" "k8s_api" {
   content = each.value
   proxied = false
   ttl     = 1
+}
+
+# Destroy-time cleanup: removes Tailscale device when stack is destroyed.
+resource "terraform_data" "tailscale_destroy_cleanup" {
+  input = {
+    hostname  = local.tailscale_hostname
+    api_token = var.tailscale_api_token
+    server_id = module.server.server_id
+  }
+
+  provisioner "local-exec" {
+    when = destroy
+    environment = {
+      TAILSCALE_API_TOKEN = self.input.api_token
+    }
+    command = "${path.module}/scripts/cleanup-tailscale-device.sh ${self.input.hostname}"
+  }
 }

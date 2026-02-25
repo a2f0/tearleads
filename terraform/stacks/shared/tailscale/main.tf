@@ -13,6 +13,8 @@ locals {
     tagOwners = {
       "tag:staging-vault" = ["autogroup:admin"]
       "tag:prod-vault"    = ["autogroup:admin"]
+      "tag:staging-k8s"   = ["autogroup:admin"]
+      "tag:ci"            = ["autogroup:admin"]
     }
     acls = [
       # Allow member-owned devices to communicate with each other
@@ -32,6 +34,18 @@ locals {
         action = "accept"
         src    = ["group:prod-access"]
         dst    = ["tag:prod-vault:22", "tag:prod-vault:8200"]
+      },
+      # CI access: k8s API on staging-k8s tagged devices
+      {
+        action = "accept"
+        src    = ["tag:ci"]
+        dst    = ["tag:staging-k8s:6443"]
+      },
+      # Staging access: SSH and k8s API on staging-k8s tagged devices
+      {
+        action = "accept"
+        src    = ["group:staging-access"]
+        dst    = ["tag:staging-k8s:22", "tag:staging-k8s:6443"]
       }
     ]
   }
@@ -63,6 +77,18 @@ resource "tailscale_tailnet_key" "prod_vault" {
   preauthorized       = true
   ephemeral           = false
   tags                = ["tag:prod-vault"]
+  expiry              = var.auth_key_expiry_seconds
+  recreate_if_invalid = "always"
+}
+
+resource "tailscale_tailnet_key" "staging_k8s" {
+  count = var.create_staging_k8s_auth_key ? 1 : 0
+
+  description         = "terraform-staging-k8s"
+  reusable            = true
+  preauthorized       = true
+  ephemeral           = false
+  tags                = ["tag:staging-k8s"]
   expiry              = var.auth_key_expiry_seconds
   recreate_if_invalid = "always"
 }
