@@ -1,14 +1,9 @@
 import type {
-  AddAiMessageResponse,
   AdminUserResponse,
   AdminUsersResponse,
   AdminUserUpdateResponse,
-  AiConversationDetailResponse,
-  AiConversationResponse,
-  AiConversationsListResponse,
   AiUsageListResponse,
   AiUsageSummaryResponse,
-  CreateAiConversationResponse,
   GroupDetailResponse,
   GroupMembersResponse,
   GroupsListResponse,
@@ -44,8 +39,6 @@ import {
 import { HttpResponse, http } from 'msw';
 import {
   defaultAdminContext,
-  defaultAiConversation,
-  defaultAiMessage,
   defaultAiUsage,
   defaultAiUsageSummary,
   defaultAuthResponse,
@@ -281,43 +274,6 @@ export const handlers = [
   ),
   http.delete(withOptionalV1Prefix('/vfs/emails/[^/]+'), () =>
     ok({ deleted: true })
-  ),
-  http.get(withOptionalV1Prefix('/ai/conversations'), () => {
-    const response: AiConversationsListResponse = {
-      conversations: [defaultAiConversation],
-      hasMore: false
-    };
-    return ok(response);
-  }),
-  http.get(withOptionalV1Prefix('/ai/conversations/[^/]+'), () => {
-    const response: AiConversationDetailResponse = {
-      conversation: defaultAiConversation,
-      messages: [defaultAiMessage]
-    };
-    return ok(response);
-  }),
-  http.post(withOptionalV1Prefix('/ai/conversations'), () => {
-    const response: CreateAiConversationResponse = {
-      conversation: defaultAiConversation
-    };
-    return ok(response);
-  }),
-  http.post(withOptionalV1Prefix('/ai/conversations/[^/]+/messages'), () => {
-    const response: AddAiMessageResponse = {
-      message: defaultAiMessage,
-      conversation: defaultAiConversation
-    };
-    return ok(response);
-  }),
-  http.patch(withOptionalV1Prefix('/ai/conversations/[^/]+'), () => {
-    const response: AiConversationResponse = {
-      conversation: defaultAiConversation
-    };
-    return ok(response);
-  }),
-  http.delete(
-    withOptionalV1Prefix('/ai/conversations/[^/]+'),
-    () => new HttpResponse(null, { status: 204 })
   ),
   http.post(withOptionalV1Prefix('/ai/usage'), () => {
     const response: RecordAiUsageResponse = {

@@ -44,6 +44,8 @@ const contentNames = [
   'playlists',
   'albums',
   'contactGroups',
+  'aiConversations',
+  'aiMessages',
   'tags',
   'walletItems',
   'walletItemMedia',
@@ -63,8 +65,6 @@ const runtimeNames = [
   'mlsMessages',
   'mlsWelcomeMessages',
   'mlsGroupState',
-  'aiConversations',
-  'aiMessages',
   'aiUsage'
 ] as const;
 

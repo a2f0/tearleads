@@ -176,19 +176,15 @@ describe('api with msw', () => {
     it('handles 204 no-content responses', async () => {
       server.use(
         http.delete(
-          'http://localhost/ai/conversations/conv-1',
+          'http://localhost/vfs/shares/share-1',
           () => new HttpResponse(null, { status: 204 })
         )
       );
 
       const api = await loadApi();
 
-      await expect(
-        api.ai.deleteConversation('conv-1')
-      ).resolves.toBeUndefined();
-      expect(wasApiRequestMade('DELETE', '/ai/conversations/conv-1')).toBe(
-        true
-      );
+      await expect(api.vfs.deleteShare('share-1')).resolves.toBeUndefined();
+      expect(wasApiRequestMade('DELETE', '/vfs/shares/share-1')).toBe(true);
     });
 
     it('handles 205 reset-content responses', async () => {

@@ -1,26 +1,40 @@
 /**
- * Hook for managing AI conversations.
+ * Hook for managing AI conversations via local SQLite + VFS CRDT sync.
  *
- * Provides CRUD operations for conversations with client-side encryption.
+ * Conversations are VFS objects (objectType: 'conversation') stored in vfs_registry.
+ * Messages are materialized in the local ai_messages table and serialized
+ * into the conversation's CRDT encrypted payload for replication.
  */
 
 import type {
-  AiConversation,
   DecryptedAiConversation,
   DecryptedAiMessage
 } from '@tearleads/shared';
+import { asc, desc, eq } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ensureVfsKeyPair } from '@/hooks/vfs';
-import { api } from '@/lib/api';
+import { getDatabase } from '@/db';
+import { runLocalWrite } from '@/db/localWrite';
+import { aiConversations, aiMessages, vfsRegistry } from '@/db/schema';
+import { ensureVfsKeys, generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
 import {
-  createConversationEncryption,
-  decryptConversation,
-  decryptMessages,
-  encryptMessage,
-  encryptTitle,
-  generateTitleFromMessage,
-  unwrapConversationSessionKey
+  decryptContent,
+  encryptContent,
+  generateTitleFromMessage
 } from '@/lib/conversationCrypto';
+import {
+  queueItemDeleteAndFlush,
+  queueItemUpsertAndFlush
+} from '@/lib/vfsItemSyncWriter';
+import {
+  buildCrdtPayload,
+  cacheSessionKey,
+  evictSessionKey,
+  getCachedSessionKey,
+  getSessionKey,
+  toISOString
+} from './conversationDb';
+
+export { clearConversationKeyCache } from './conversationDb';
 
 interface UseConversationsResult {
   conversations: DecryptedAiConversation[];
@@ -46,52 +60,6 @@ interface UseConversationsResult {
   clearCurrentConversation: () => void;
 }
 
-// Cache session keys by conversation ID
-const sessionKeyCache = new Map<string, Uint8Array>();
-
-/**
- * Unwrap a session key for a conversation.
- * Uses cache to avoid repeated crypto operations.
- *
- * Note: Requires the user's private keys to be available (database unlocked).
- */
-async function getSessionKey(
-  conversation: AiConversation
-): Promise<Uint8Array> {
-  const cached = sessionKeyCache.get(conversation.id);
-  if (cached) {
-    return cached;
-  }
-
-  const keyPair = await ensureVfsKeyPair();
-
-  try {
-    const sessionKey = await unwrapConversationSessionKey(
-      conversation.encryptedSessionKey,
-      keyPair
-    );
-    sessionKeyCache.set(conversation.id, sessionKey);
-    return sessionKey;
-  } catch (error) {
-    // If unwrapping fails, we can't decrypt the conversation.
-    console.error('Failed to unwrap conversation session key:', error);
-    throw new Error(
-      'Cannot decrypt conversation - private keys not available. ' +
-        'Please unlock your database or create a new conversation.'
-    );
-  }
-}
-
-/**
- * Clear the session key cache (e.g., on logout).
- */
-export function clearConversationKeyCache(): void {
-  for (const key of sessionKeyCache.values()) {
-    key.fill(0);
-  }
-  sessionKeyCache.clear();
-}
-
 export function useConversations(): UseConversationsResult {
   const [conversations, setConversations] = useState<DecryptedAiConversation[]>(
     []
@@ -110,7 +78,6 @@ export function useConversations(): UseConversationsResult {
   );
   const [messagesLoading, setMessagesLoading] = useState(false);
 
-  // Track mounted state
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -120,48 +87,59 @@ export function useConversations(): UseConversationsResult {
     };
   }, []);
 
-  // Fetch conversations list
   const fetchConversations = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await api.ai.listConversations({ limit: 100 });
+      const db = getDatabase();
+      const rows = await db
+        .select({
+          id: aiConversations.id,
+          encryptedTitle: aiConversations.encryptedTitle,
+          modelId: aiConversations.modelId,
+          messageCount: aiConversations.messageCount,
+          createdAt: aiConversations.createdAt,
+          updatedAt: aiConversations.updatedAt,
+          encryptedSessionKey: vfsRegistry.encryptedSessionKey
+        })
+        .from(aiConversations)
+        .innerJoin(vfsRegistry, eq(aiConversations.id, vfsRegistry.id))
+        .orderBy(desc(aiConversations.updatedAt));
 
-      // Decrypt conversations that we have session keys for
       const decrypted: DecryptedAiConversation[] = [];
 
-      for (const conv of response.conversations) {
+      for (const row of rows) {
         try {
-          // Check if we have the session key cached
-          const cachedKey = sessionKeyCache.get(conv.id);
-          if (cachedKey) {
-            const dec = await decryptConversation(conv, cachedKey);
-            decrypted.push(dec);
-          } else {
-            // For conversations without cached keys, show placeholder
+          if (row.encryptedSessionKey) {
+            const sk = await getSessionKey(row.id, row.encryptedSessionKey);
+            const title = await decryptContent(row.encryptedTitle, sk);
             decrypted.push({
-              id: conv.id,
-              userId: conv.userId,
-              organizationId: conv.organizationId,
+              id: row.id,
+              title,
+              modelId: row.modelId,
+              messageCount: row.messageCount,
+              createdAt: toISOString(row.createdAt),
+              updatedAt: toISOString(row.updatedAt)
+            });
+          } else {
+            decrypted.push({
+              id: row.id,
               title: '[Encrypted]',
-              modelId: conv.modelId,
-              messageCount: conv.messageCount,
-              createdAt: conv.createdAt,
-              updatedAt: conv.updatedAt
+              modelId: row.modelId,
+              messageCount: row.messageCount,
+              createdAt: toISOString(row.createdAt),
+              updatedAt: toISOString(row.updatedAt)
             });
           }
         } catch {
-          // If decryption fails, show placeholder
           decrypted.push({
-            id: conv.id,
-            userId: conv.userId,
-            organizationId: conv.organizationId,
+            id: row.id,
             title: '[Encrypted]',
-            modelId: conv.modelId,
-            messageCount: conv.messageCount,
-            createdAt: conv.createdAt,
-            updatedAt: conv.updatedAt
+            modelId: row.modelId,
+            messageCount: row.messageCount,
+            createdAt: toISOString(row.createdAt),
+            updatedAt: toISOString(row.updatedAt)
           });
         }
       }
@@ -182,12 +160,10 @@ export function useConversations(): UseConversationsResult {
     }
   }, []);
 
-  // Initial fetch
   useEffect(() => {
     void fetchConversations();
   }, [fetchConversations]);
 
-  // Create a new conversation
   const createConversation = useCallback(
     async (firstMessage?: string): Promise<string> => {
       setError(null);
@@ -195,33 +171,69 @@ export function useConversations(): UseConversationsResult {
         ? generateTitleFromMessage(firstMessage)
         : 'New Conversation';
 
-      const { encryptedTitle, encryptedSessionKey, sessionKey } =
-        await createConversationEncryption(title);
+      await ensureVfsKeys();
+      const sessionKey = generateSessionKey();
+      const encryptedSessionKey = await wrapSessionKey(sessionKey);
+      const encryptedTitle = await encryptContent(title, sessionKey);
 
-      const response = await api.ai.createConversation({
-        encryptedTitle,
+      const conversationId = crypto.randomUUID();
+      const now = new Date();
+
+      await runLocalWrite(async () => {
+        const db = getDatabase();
+        await db.transaction(async (tx) => {
+          await tx.insert(vfsRegistry).values({
+            id: conversationId,
+            objectType: 'conversation',
+            ownerId: null,
+            encryptedSessionKey,
+            createdAt: now
+          });
+
+          await tx.insert(aiConversations).values({
+            id: conversationId,
+            encryptedTitle,
+            modelId: null,
+            messageCount: 0,
+            createdAt: now,
+            updatedAt: now
+          });
+        });
+      });
+
+      cacheSessionKey(conversationId, sessionKey);
+
+      await queueItemUpsertAndFlush({
+        itemId: conversationId,
+        objectType: 'conversation',
+        payload: {
+          encryptedTitle,
+          modelId: null,
+          messages: [],
+          updatedAt: now.toISOString()
+        },
         encryptedSessionKey
       });
 
-      const conv = response.conversation;
-
-      // Cache the session key
-      sessionKeyCache.set(conv.id, sessionKey);
-
-      // Decrypt and add to list
-      const decrypted = await decryptConversation(conv, sessionKey);
+      const decrypted: DecryptedAiConversation = {
+        id: conversationId,
+        title,
+        modelId: null,
+        messageCount: 0,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString()
+      };
 
       setConversations((prev) => [decrypted, ...prev]);
-      setCurrentConversationId(conv.id);
+      setCurrentConversationId(conversationId);
       setCurrentMessages([]);
       setCurrentSessionKey(sessionKey);
 
-      return conv.id;
+      return conversationId;
     },
     []
   );
 
-  // Select a conversation (loads messages)
   const selectConversation = useCallback(
     async (id: string | null): Promise<void> => {
       if (id === null) {
@@ -237,20 +249,43 @@ export function useConversations(): UseConversationsResult {
       setCurrentMessages([]);
 
       try {
-        const response = await api.ai.getConversation(id);
+        const db = getDatabase();
 
-        // Get session key
-        let sessionKey = sessionKeyCache.get(id);
-        if (!sessionKey) {
-          // Try to get from VFS keys
-          sessionKey = await getSessionKey(response.conversation);
+        const regRow = await db
+          .select({ encryptedSessionKey: vfsRegistry.encryptedSessionKey })
+          .from(vfsRegistry)
+          .where(eq(vfsRegistry.id, id))
+          .limit(1);
+
+        const encryptedSessionKey = regRow[0]?.encryptedSessionKey;
+        if (!encryptedSessionKey) {
+          throw new Error('Session key not found for conversation');
         }
 
-        // Decrypt messages
-        const decryptedMessages = await decryptMessages(
-          response.messages,
-          sessionKey
-        );
+        const sessionKey = await getSessionKey(id, encryptedSessionKey);
+
+        const msgs = await db
+          .select()
+          .from(aiMessages)
+          .where(eq(aiMessages.conversationId, id))
+          .orderBy(asc(aiMessages.sequenceNumber));
+
+        const decryptedMessages: DecryptedAiMessage[] = [];
+        for (const msg of msgs) {
+          const content = await decryptContent(
+            msg.encryptedContent,
+            sessionKey
+          );
+          decryptedMessages.push({
+            id: msg.id,
+            conversationId: msg.conversationId,
+            role: msg.role as DecryptedAiMessage['role'],
+            content,
+            modelId: msg.modelId,
+            sequenceNumber: msg.sequenceNumber,
+            createdAt: toISOString(msg.createdAt)
+          });
+        }
 
         if (mountedRef.current) {
           setCurrentMessages(decryptedMessages);
@@ -274,42 +309,57 @@ export function useConversations(): UseConversationsResult {
     []
   );
 
-  // Rename a conversation
   const renameConversation = useCallback(
     async (id: string, title: string): Promise<void> => {
-      const sessionKey = sessionKeyCache.get(id);
+      const sessionKey = getCachedSessionKey(id);
       if (!sessionKey) {
         throw new Error('Cannot rename - session key not available');
       }
 
-      const encryptedTitle = await encryptTitle(title, sessionKey);
+      const newEncryptedTitle = await encryptContent(title, sessionKey);
+      const now = new Date();
 
-      await api.ai.updateConversation(id, { encryptedTitle });
+      await runLocalWrite(async () => {
+        const db = getDatabase();
+        await db
+          .update(aiConversations)
+          .set({ encryptedTitle: newEncryptedTitle, updatedAt: now })
+          .where(eq(aiConversations.id, id));
+      });
 
-      // Update local state
+      const payload = await buildCrdtPayload(id, newEncryptedTitle, null);
+      await queueItemUpsertAndFlush({
+        itemId: id,
+        objectType: 'conversation',
+        payload
+      });
+
       setConversations((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, title } : c))
+        prev.map((c) =>
+          c.id === id ? { ...c, title, updatedAt: now.toISOString() } : c
+        )
       );
     },
     []
   );
 
-  // Delete a conversation
   const deleteConversation = useCallback(
     async (id: string): Promise<void> => {
-      await api.ai.deleteConversation(id);
+      await runLocalWrite(async () => {
+        const db = getDatabase();
+        await db.delete(aiConversations).where(eq(aiConversations.id, id));
+        await db.delete(vfsRegistry).where(eq(vfsRegistry.id, id));
+      });
 
-      // Clear from cache
-      const key = sessionKeyCache.get(id);
-      if (key) {
-        key.fill(0);
-        sessionKeyCache.delete(id);
-      }
+      await queueItemDeleteAndFlush({
+        itemId: id,
+        objectType: 'conversation'
+      });
 
-      // Update local state
+      evictSessionKey(id);
+
       setConversations((prev) => prev.filter((c) => c.id !== id));
 
-      // Clear current if it was the deleted one
       if (currentConversationId === id) {
         setCurrentConversationId(null);
         setCurrentMessages([]);
@@ -319,7 +369,6 @@ export function useConversations(): UseConversationsResult {
     [currentConversationId]
   );
 
-  // Add a message to the current conversation
   const addMessage = useCallback(
     async (
       role: 'user' | 'assistant',
@@ -330,44 +379,85 @@ export function useConversations(): UseConversationsResult {
         throw new Error('No conversation selected');
       }
 
-      const encryptedContent = await encryptMessage(content, currentSessionKey);
+      const encryptedContent = await encryptContent(content, currentSessionKey);
+      const messageId = crypto.randomUUID();
+      const now = new Date();
 
-      const response = await api.ai.addMessage(currentConversationId, {
-        role,
-        encryptedContent,
-        ...(modelId ? { modelId } : {})
+      const currentCount = currentMessages.length;
+      const sequenceNumber = currentCount + 1;
+
+      await runLocalWrite(async () => {
+        const db = getDatabase();
+        await db.transaction(async (tx) => {
+          await tx.insert(aiMessages).values({
+            id: messageId,
+            conversationId: currentConversationId,
+            role,
+            encryptedContent,
+            modelId: modelId ?? null,
+            sequenceNumber,
+            createdAt: now
+          });
+
+          await tx
+            .update(aiConversations)
+            .set({
+              messageCount: sequenceNumber,
+              updatedAt: now
+            })
+            .where(eq(aiConversations.id, currentConversationId));
+        });
       });
 
-      // Add decrypted message to local state
+      const convRow = await getDatabase()
+        .select({
+          encryptedTitle: aiConversations.encryptedTitle,
+          modelId: aiConversations.modelId
+        })
+        .from(aiConversations)
+        .where(eq(aiConversations.id, currentConversationId))
+        .limit(1);
+
+      if (convRow[0]) {
+        const payload = await buildCrdtPayload(
+          currentConversationId,
+          convRow[0].encryptedTitle,
+          convRow[0].modelId
+        );
+        await queueItemUpsertAndFlush({
+          itemId: currentConversationId,
+          objectType: 'conversation',
+          payload
+        });
+      }
+
       const decryptedMessage: DecryptedAiMessage = {
-        id: response.message.id,
-        conversationId: response.message.conversationId,
-        role: response.message.role,
+        id: messageId,
+        conversationId: currentConversationId,
+        role,
         content,
-        modelId: response.message.modelId,
-        sequenceNumber: response.message.sequenceNumber,
-        createdAt: response.message.createdAt
+        modelId: modelId ?? null,
+        sequenceNumber,
+        createdAt: now.toISOString()
       };
 
       setCurrentMessages((prev) => [...prev, decryptedMessage]);
 
-      // Update conversation in list
       setConversations((prev) =>
         prev.map((c) =>
           c.id === currentConversationId
             ? {
                 ...c,
-                messageCount: response.conversation.messageCount,
-                updatedAt: response.conversation.updatedAt
+                messageCount: sequenceNumber,
+                updatedAt: now.toISOString()
               }
             : c
         )
       );
     },
-    [currentConversationId, currentSessionKey]
+    [currentConversationId, currentSessionKey, currentMessages.length]
   );
 
-  // Clear current conversation state
   const clearCurrentConversation = useCallback(() => {
     setCurrentConversationId(null);
     setCurrentMessages([]);

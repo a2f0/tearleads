@@ -18,7 +18,6 @@ import {
   splitEncapsulation,
   unwrapKeyWithKeyPair
 } from '@tearleads/shared';
-import { ensureVfsKeys, generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
 
 /**
  * Convert a base64 string to Uint8Array.
@@ -69,7 +68,7 @@ export async function decryptContent(
 
 /**
  * Unwrap a session key using the user's VFS keypair.
- * The encapsulated key is stored in the conversation's encryptedSessionKey field.
+ * The encapsulated key is stored in vfs_registry.encrypted_session_key.
  */
 export async function unwrapConversationSessionKey(
   encryptedSessionKey: string,
@@ -85,37 +84,6 @@ export async function unwrapConversationSessionKey(
 }
 
 /**
- * Create encryption data for a new conversation.
- * Generates a session key and wraps it with the user's VFS public key.
- */
-export async function createConversationEncryption(title: string): Promise<{
-  encryptedTitle: string;
-  encryptedSessionKey: string;
-  sessionKey: Uint8Array;
-}> {
-  await ensureVfsKeys();
-  const sessionKey = generateSessionKey();
-  const encryptedSessionKey = await wrapSessionKey(sessionKey);
-  const encryptedTitle = await encryptContent(title, sessionKey);
-
-  return {
-    encryptedTitle,
-    encryptedSessionKey,
-    sessionKey
-  };
-}
-
-/**
- * Encrypt a message for a conversation.
- */
-export async function encryptMessage(
-  content: string,
-  sessionKey: Uint8Array
-): Promise<string> {
-  return encryptContent(content, sessionKey);
-}
-
-/**
  * Decrypt a conversation using a session key.
  */
 export async function decryptConversation(
@@ -126,8 +94,6 @@ export async function decryptConversation(
 
   return {
     id: conversation.id,
-    userId: conversation.userId,
-    organizationId: conversation.organizationId,
     title,
     modelId: conversation.modelId,
     messageCount: conversation.messageCount,

@@ -23,6 +23,7 @@ export type VfsObjectType =
   | 'contact'
   | 'note'
   | 'email'
+  | 'conversation'
   // Collections
   | 'folder'
   | 'playlist'
