@@ -39,6 +39,9 @@ function isVfsCrdtCompactionRunMetric(value: unknown): boolean {
   const activeClientCount = value['activeClientCount'];
   const staleClientCount = value['staleClientCount'];
   const staleClientIds = value['staleClientIds'];
+  const staleClientIdsTruncatedCount = value['staleClientIdsTruncatedCount'];
+  const malformedClientStateCount = value['malformedClientStateCount'];
+  const blockedReason = value['blockedReason'];
   const error = value['error'];
 
   if (metricVersion !== 1 || event !== 'vfs_crdt_compaction_run') {
@@ -108,6 +111,26 @@ function isVfsCrdtCompactionRunMetric(value: unknown): boolean {
     !Array.isArray(staleClientIds) ||
     staleClientIds.some((entry) => typeof entry !== 'string')
   ) {
+    return false;
+  }
+
+  if (
+    typeof staleClientIdsTruncatedCount !== 'number' ||
+    !Number.isFinite(staleClientIdsTruncatedCount) ||
+    staleClientIdsTruncatedCount < 0
+  ) {
+    return false;
+  }
+
+  if (
+    typeof malformedClientStateCount !== 'number' ||
+    !Number.isFinite(malformedClientStateCount) ||
+    malformedClientStateCount < 0
+  ) {
+    return false;
+  }
+
+  if (blockedReason !== null && blockedReason !== 'malformedClientState') {
     return false;
   }
 

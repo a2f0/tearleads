@@ -48,6 +48,9 @@ describe('vfsCrdtCompaction plan', () => {
     expect(plan.activeClientCount).toBe(0);
     expect(plan.staleClientCount).toBe(1);
     expect(plan.staleClientIds).toEqual(['old-device']);
+    expect(plan.staleClientIdsTruncatedCount).toBe(0);
+    expect(plan.malformedClientStateCount).toBe(0);
+    expect(plan.blockedReason).toBeNull();
     expect(plan.cutoffOccurredAt).toBe('2026-02-17T12:00:00.000Z');
     expect(plan.estimatedRowsToDelete).toBe(99);
   });
@@ -82,6 +85,7 @@ describe('vfsCrdtCompaction plan', () => {
 
     expect(plan.activeClientCount).toBe(2);
     expect(plan.staleClientCount).toBe(0);
+    expect(plan.malformedClientStateCount).toBe(0);
     expect(plan.oldestActiveCursor).toEqual({
       changedAt: '2026-02-20T09:00:00.000Z',
       changeId: 'crdt:320'
@@ -119,8 +123,100 @@ describe('vfsCrdtCompaction plan', () => {
 
     expect(plan.activeClientCount).toBe(1);
     expect(plan.staleClientIds).toEqual(['very-old-tablet']);
+    expect(plan.staleClientIdsTruncatedCount).toBe(0);
     expect(plan.note).toContain('re-materialization');
     expect(plan.cutoffOccurredAt).toBe('2026-02-10T12:00:00.000Z');
+  });
+
+  it('fails closed when malformed client state rows are present', () => {
+    const plan = planVfsCrdtCompactionFromState({
+      latestCursor: {
+        changedAt: '2026-02-24T12:00:00.000Z',
+        changeId: 'crdt:500'
+      },
+      clientState: [
+        {
+          clientId: `${DEFAULT_VFS_CRDT_CLIENT_PREFIX}desktop`,
+          lastReconciledAt: '2026-02-23T00:00:00.000Z',
+          lastReconciledChangeId: 'crdt:450',
+          updatedAt: '2026-02-24T11:00:00.000Z'
+        },
+        {
+          clientId: `${DEFAULT_VFS_CRDT_CLIENT_PREFIX}broken`,
+          lastReconciledAt: 'not-a-date',
+          lastReconciledChangeId: 'crdt:10',
+          updatedAt: '2026-02-24T11:00:00.000Z'
+        }
+      ],
+      options: {
+        now: new Date('2026-02-24T12:00:00.000Z'),
+        hotRetentionMs: 7 * 24 * 60 * 60 * 1000,
+        inactiveClientWindowMs: 30 * 24 * 60 * 60 * 1000
+      }
+    });
+
+    expect(plan.cutoffOccurredAt).toBeNull();
+    expect(plan.estimatedRowsToDelete).toBe(0);
+    expect(plan.malformedClientStateCount).toBe(1);
+    expect(plan.blockedReason).toBe('malformedClientState');
+    expect(plan.note).toContain('blocked');
+  });
+
+  it('truncates stale client ids in plan output deterministically', () => {
+    const plan = planVfsCrdtCompactionFromState({
+      latestCursor: {
+        changedAt: '2026-02-24T12:00:00.000Z',
+        changeId: 'crdt:500'
+      },
+      clientState: [
+        {
+          clientId: `${DEFAULT_VFS_CRDT_CLIENT_PREFIX}old-1`,
+          lastReconciledAt: '2025-01-01T00:00:00.000Z',
+          lastReconciledChangeId: 'crdt:1',
+          updatedAt: '2025-01-01T00:00:00.000Z'
+        },
+        {
+          clientId: `${DEFAULT_VFS_CRDT_CLIENT_PREFIX}old-2`,
+          lastReconciledAt: '2025-01-02T00:00:00.000Z',
+          lastReconciledChangeId: 'crdt:2',
+          updatedAt: '2025-01-02T00:00:00.000Z'
+        },
+        {
+          clientId: `${DEFAULT_VFS_CRDT_CLIENT_PREFIX}old-3`,
+          lastReconciledAt: '2025-01-03T00:00:00.000Z',
+          lastReconciledChangeId: 'crdt:3',
+          updatedAt: '2025-01-03T00:00:00.000Z'
+        }
+      ],
+      options: {
+        now: new Date('2026-02-24T12:00:00.000Z'),
+        hotRetentionMs: 7 * 24 * 60 * 60 * 1000,
+        inactiveClientWindowMs: 24 * 60 * 60 * 1000,
+        staleClientIdSampleLimit: 2
+      }
+    });
+
+    expect(plan.staleClientCount).toBe(3);
+    expect(plan.staleClientIds).toEqual(['old-1', 'old-2']);
+    expect(plan.staleClientIdsTruncatedCount).toBe(1);
+  });
+
+  it('clamps hot retention to server time when latest cursor is in the future', () => {
+    const plan = planVfsCrdtCompactionFromState({
+      latestCursor: {
+        changedAt: '2035-02-24T12:00:00.000Z',
+        changeId: 'crdt:999'
+      },
+      clientState: [],
+      options: {
+        now: new Date('2026-02-24T12:00:00.000Z'),
+        hotRetentionMs: 7 * 24 * 60 * 60 * 1000,
+        inactiveClientWindowMs: 24 * 60 * 60 * 1000
+      }
+    });
+
+    expect(plan.hotRetentionFloor).toBe('2026-02-17T12:00:00.000Z');
+    expect(plan.cutoffOccurredAt).toBe('2026-02-17T12:00:00.000Z');
   });
 
   it('builds unbounded delete query by default', () => {
@@ -227,6 +323,9 @@ describe('vfsCrdtCompaction plan', () => {
       cutoffOccurredAt: '2026-02-20T07:00:00.000Z',
       estimatedRowsToDelete: 7,
       staleClientIds: [],
+      staleClientIdsTruncatedCount: 0,
+      malformedClientStateCount: 0,
+      blockedReason: null,
       note: 'test'
     };
 
@@ -258,6 +357,9 @@ describe('vfsCrdtCompaction plan', () => {
         cutoffOccurredAt: null,
         estimatedRowsToDelete: 0,
         staleClientIds: [],
+        staleClientIdsTruncatedCount: 0,
+        malformedClientStateCount: 0,
+        blockedReason: null,
         note: 'none'
       }
     );
