@@ -7,7 +7,7 @@ import {
   CI_GATE_WORKFLOW_NAME,
   WORKFLOW_BY_JOB,
   WORKFLOW_FILE_BY_JOB
-} from './workflowConfig.js';
+} from './workflowConfig.ts';
 
 interface CiImpactConfig {
   jobNames?: string[];

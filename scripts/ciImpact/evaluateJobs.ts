@@ -1,4 +1,4 @@
-import { ALL_JOB_NAMES, type JobName } from './workflowConfig.js';
+import { ALL_JOB_NAMES, type JobName } from './workflowConfig.ts';
 
 interface Config {
   ignoredPrefixes: string[];

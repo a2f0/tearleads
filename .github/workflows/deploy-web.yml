@@ -20,11 +20,8 @@ jobs:
         with:
           node-version-file: '.nvmrc'
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Prepare ciImpact runtime
+        run: echo "Using node --experimental-strip-types for CI impact scripts"
 
       - name: Decide deploy impact
         id: decide
@@ -37,7 +34,7 @@ jobs:
           else
             BASE_SHA="$HEAD_SHA"
           fi
-          pnpm exec tsx scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
+          node --experimental-strip-types scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
           SHOULD_DEPLOY=$(jq -r '(.jobs["web-e2e"].run or .jobs["website-e2e"].run or .jobs["electron-e2e"].run)' ci-impact.json)
           echo "should-deploy=$SHOULD_DEPLOY" >> "$GITHUB_OUTPUT"
           echo "impact-json<<JSON" >> "$GITHUB_OUTPUT"
