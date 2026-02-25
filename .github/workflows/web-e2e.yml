@@ -95,9 +95,8 @@ jobs:
 
       - name: Generate app configs
         run: |
-          npm install -g tsx
           cd packages/app-builder
-          tsx src/cli.ts generate --app tearleads
+          pnpm exec tsx src/cli.ts generate --app tearleads
 
       - name: Build all packages
         run: pnpm build
@@ -204,9 +203,8 @@ jobs:
 
       - name: Generate app configs
         run: |
-          npm install -g tsx
           cd packages/app-builder
-          tsx src/cli.ts generate --app tearleads
+          pnpm exec tsx src/cli.ts generate --app tearleads
 
       - name: Build API and client images (k8s Dockerfiles)
         run: |
