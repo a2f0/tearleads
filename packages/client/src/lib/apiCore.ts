@@ -160,19 +160,12 @@ export async function tryRefreshToken(): Promise<boolean> {
       setSessionExpiredError();
       clearStoredAuth();
     } else if (result.attemptedByThisTab) {
-      if (result.rejected) {
-        // Server permanently rejected the token (401/403) — session was
-        // destroyed server-side (e.g. DB reset, admin revocation).
-        // Clear auth regardless of JWT expiration.
+      const { isJwtExpired } = await import('./jwt');
+      if (result.rejected || isJwtExpired(finalToken)) {
+        // Server permanently rejected the token (401/403) or the JWT has
+        // expired. In either case, the session is invalid — clear auth.
         setSessionExpiredError();
         clearStoredAuth();
-      } else {
-        // Transient failure — only clear if the JWT itself has expired
-        const { isJwtExpired } = await import('./jwt');
-        if (isJwtExpired(finalToken)) {
-          setSessionExpiredError();
-          clearStoredAuth();
-        }
       }
     }
   }
