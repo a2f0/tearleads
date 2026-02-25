@@ -445,10 +445,10 @@ export type VfsRematerializationRequiredHandler = (input: {
   error: VfsCrdtRematerializationRequiredError;
   attempt: number;
 }) =>
-  | Promise<VfsBackgroundSyncClientRematerializedState | null | void>
+  | Promise<VfsBackgroundSyncClientRematerializedState | null | undefined>
   | VfsBackgroundSyncClientRematerializedState
   | null
-  | void;
+  | undefined;
 
 export interface InMemoryVfsCrdtSyncTransportDelayConfig {
   pushDelayMs?: number;
@@ -473,11 +473,15 @@ export function parseRematerializationAttempts(value: unknown): number {
   }
 
   if (typeof value !== 'number' || !Number.isInteger(value)) {
-    throw new Error('maxRematerializationAttempts must be a non-negative integer');
+    throw new Error(
+      'maxRematerializationAttempts must be a non-negative integer'
+    );
   }
 
   if (value < 0) {
-    throw new Error('maxRematerializationAttempts must be a non-negative integer');
+    throw new Error(
+      'maxRematerializationAttempts must be a non-negative integer'
+    );
   }
 
   return value;

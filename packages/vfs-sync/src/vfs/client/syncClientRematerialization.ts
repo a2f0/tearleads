@@ -11,9 +11,9 @@ import {
 } from './sync-client-persistence-normalizers.js';
 import type {
   VfsBackgroundSyncClientRematerializedState,
-  VfsCrdtRematerializationRequiredError
+  VfsCrdtRematerializationRequiredError,
+  VfsRematerializationRequiredHandler
 } from './sync-client-utils.js';
-import type { VfsRematerializationRequiredHandler } from './sync-client-utils.js';
 
 interface RematerializationStores {
   replayStore: InMemoryVfsCrdtFeedReplayStore;
@@ -34,10 +34,7 @@ export async function runWithRematerializationRecovery<T>(input: {
     try {
       return await input.execute();
     } catch (error) {
-      if (
-        !isRematerializationError(error) ||
-        attempt >= input.maxAttempts
-      ) {
+      if (!isRematerializationError(error) || attempt >= input.maxAttempts) {
         throw error;
       }
 
@@ -62,7 +59,7 @@ export function applyRematerializedState(input: {
   stores: RematerializationStores;
   pendingOperations: VfsCrdtOperation[];
   nextLocalWriteId: number;
-  state: VfsBackgroundSyncClientRematerializedState | null | void;
+  state: VfsBackgroundSyncClientRematerializedState | null | undefined;
 }): number {
   const state = input.state ?? {
     replaySnapshot: { acl: [], links: [], cursor: null },
@@ -146,9 +143,7 @@ export async function rematerializeClientState(input: {
   stores: RematerializationStores;
   pendingOperations: VfsCrdtOperation[];
   nextLocalWriteId: number;
-  onRematerializationRequired:
-    | VfsRematerializationRequiredHandler
-    | null;
+  onRematerializationRequired: VfsRematerializationRequiredHandler | null;
 }): Promise<number> {
   const rematerializedState = input.onRematerializationRequired
     ? ((await input.onRematerializationRequired({

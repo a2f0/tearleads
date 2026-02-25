@@ -15,10 +15,6 @@ import {
   normalizePersistedReplaySnapshot
 } from './sync-client-persistence-normalizers.js';
 import { buildQueuedLocalOperation } from './sync-client-queue-local-operation.js';
-import {
-  rematerializeClientState,
-  runWithRematerializationRecovery
-} from './syncClientRematerialization.js';
 import { pullUntilSettledLoop, runFlushLoop } from './sync-client-sync-loop.js';
 import type {
   QueueVfsCrdtLocalOperationInput,
@@ -28,18 +24,23 @@ import type {
   VfsBackgroundSyncClientSnapshot,
   VfsBackgroundSyncClientSyncResult,
   VfsCrdtRematerializationRequiredError,
-  VfsRematerializationRequiredHandler,
   VfsCrdtSyncTransport,
+  VfsRematerializationRequiredHandler,
   VfsSyncGuardrailViolation
 } from './sync-client-utils.js';
 import {
   cloneCursor,
   normalizeRequiredString,
-  parseRematerializationAttempts,
   parsePositiveSafeInteger,
   parsePullLimit,
+  parseRematerializationAttempts,
   validateClientId
 } from './sync-client-utils.js';
+import {
+  rematerializeClientState,
+  runWithRematerializationRecovery
+} from './syncClientRematerialization.js';
+
 export type * from './sync-client-utils.js';
 export {
   delayVfsCrdtSyncTransport,
@@ -442,8 +443,7 @@ export class VfsBackgroundSyncClient {
     return runWithRematerializationRecovery({
       maxAttempts: this.maxRematerializationAttempts,
       execute: () => runFlushLoop(dependencies),
-      rematerialize: (attempt, error) =>
-        this.rematerializeState(attempt, error)
+      rematerialize: (attempt, error) => this.rematerializeState(attempt, error)
     });
   }
 
@@ -452,8 +452,7 @@ export class VfsBackgroundSyncClient {
     return runWithRematerializationRecovery({
       maxAttempts: this.maxRematerializationAttempts,
       execute: () => pullUntilSettledLoop(dependencies),
-      rematerialize: (attempt, error) =>
-        this.rematerializeState(attempt, error)
+      rematerialize: (attempt, error) => this.rematerializeState(attempt, error)
     });
   }
 

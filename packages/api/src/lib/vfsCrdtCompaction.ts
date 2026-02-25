@@ -293,8 +293,7 @@ function buildCompactionPlanFromRows(
       staleClientIdsTruncatedCount,
       malformedClientStateCount,
       blockedReason: 'malformedClientState',
-      note:
-        'Compaction was blocked because malformed CRDT client-state rows were found; fix reconcile state before retrying.'
+      note: 'Compaction was blocked because malformed CRDT client-state rows were found; fix reconcile state before retrying.'
     };
   }
 

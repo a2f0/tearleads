@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import type { VfsSyncGuardrailViolation } from './sync-client-utils.js';
 import {
   toGuardrailMetricEvent,
   toRematerializationMetricEvent
 } from './syncClientTelemetry.js';
-import type { VfsSyncGuardrailViolation } from './sync-client-utils.js';
 
 describe('sync-client telemetry helpers', () => {
   it('maps guardrail violations to deterministic metric tags', () => {

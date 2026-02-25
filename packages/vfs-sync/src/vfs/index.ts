@@ -53,16 +53,16 @@ export {
   type VfsSyncGuardrailViolationCode
 } from './client/sync-client.js';
 export {
+  InMemoryVfsCrdtSyncServer,
+  type InMemoryVfsCrdtSyncServerSnapshot,
+  InMemoryVfsCrdtSyncTransport
+} from './client/sync-client-harness.js';
+export {
   toGuardrailMetricEvent,
   toRematerializationMetricEvent,
   type VfsSyncGuardrailMetricEvent,
   type VfsSyncRematerializationMetricEvent
 } from './client/syncClientTelemetry.js';
-export {
-  InMemoryVfsCrdtSyncServer,
-  type InMemoryVfsCrdtSyncServerSnapshot,
-  InMemoryVfsCrdtSyncTransport
-} from './client/sync-client-harness.js';
 export {
   InMemoryVfsContainerClockStore,
   type ListVfsContainerClockChangesResult,

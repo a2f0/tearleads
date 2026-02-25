@@ -130,10 +130,7 @@ export function isVfsCrdtCompactionRunMetric(
     return false;
   }
 
-  if (
-    blockedReason !== null &&
-    blockedReason !== 'malformedClientState'
-  ) {
+  if (blockedReason !== null && blockedReason !== 'malformedClientState') {
     return false;
   }
 

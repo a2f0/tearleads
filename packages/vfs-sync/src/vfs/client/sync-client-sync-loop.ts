@@ -184,9 +184,7 @@ export async function pullUntilSettledLoop(
       ),
       replayCursor: dependencies.replayStore.snapshot().cursor
     });
-    let response: Awaited<
-      ReturnType<VfsCrdtSyncTransport['pullOperations']>
-    >;
+    let response: Awaited<ReturnType<VfsCrdtSyncTransport['pullOperations']>>;
     try {
       response = await dependencies.transport.pullOperations({
         userId: dependencies.userId,

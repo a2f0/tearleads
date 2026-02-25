@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { VfsCrdtRematerializationRequiredError } from '../client/sync-client-utils.js';
 import { encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
-import { VfsCrdtRematerializationRequiredError } from '../client/sync-client-utils.js';
 import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
 import {
   getHeaderValue,

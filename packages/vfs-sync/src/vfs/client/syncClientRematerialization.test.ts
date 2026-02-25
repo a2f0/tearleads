@@ -208,9 +208,7 @@ describe('VfsBackgroundSyncClient rematerialization recovery', () => {
       }
     );
 
-    await expect(client.sync()).rejects.toThrow(
-      /re-materialization required/
-    );
+    await expect(client.sync()).rejects.toThrow(/re-materialization required/);
     expect(pullCalls).toBe(1);
   });
 });

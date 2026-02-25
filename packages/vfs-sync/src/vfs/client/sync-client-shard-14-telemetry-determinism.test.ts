@@ -15,8 +15,8 @@ import {
   expectHydrateGuardrailViolation,
   expectPullCursorRegressionViolation,
   expectPullDuplicateOpReplayViolation,
-  expectPullRematerializationRequiredViolation,
   expectPullPageInvariantViolation,
+  expectPullRematerializationRequiredViolation,
   expectReconcileCursorRegressionViolation,
   expectStaleWriteRecoveryExhaustedViolation,
   toStageCodeSignatures

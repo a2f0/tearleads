@@ -45,8 +45,7 @@ describe('VfsHttpCrdtSyncTransport rematerialization integration', () => {
               'CRDT cursor is older than retained history; re-materialization required',
             code: 'crdt_rematerialization_required',
             requestedCursor: `sync:${cursor.changedAt}:${cursor.changeId}`,
-            oldestAvailableCursor:
-              'sync:2026-03-10T00%3A00%3A00.000Z:remote-1'
+            oldestAvailableCursor: 'sync:2026-03-10T00%3A00%3A00.000Z:remote-1'
           }),
           { status: 409 }
         );
@@ -65,7 +64,8 @@ describe('VfsHttpCrdtSyncTransport rematerialization integration', () => {
         onRematerializationRequired: async () => {
           rematerializationCalls += 1;
           const canonical = server.snapshot();
-          const lastFeedItem = canonical.feed[canonical.feed.length - 1] ?? null;
+          const lastFeedItem =
+            canonical.feed[canonical.feed.length - 1] ?? null;
           const canonicalCursor = lastFeedItem
             ? {
                 changedAt: lastFeedItem.occurredAt,
@@ -185,9 +185,7 @@ describe('VfsHttpCrdtSyncTransport rematerialization integration', () => {
       }
     );
 
-    await expect(client.sync()).rejects.toThrow(
-      /re-materialization required/
-    );
+    await expect(client.sync()).rejects.toThrow(/re-materialization required/);
 
     expect(rematerializationCalls).toBe(1);
     expect(

@@ -1,4 +1,7 @@
-import { decodeVfsSyncCursor, encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
+import {
+  decodeVfsSyncCursor,
+  encodeVfsSyncCursor
+} from '@tearleads/vfs-sync/vfs';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
@@ -92,7 +95,9 @@ describe('VFS CRDT sync route', () => {
     });
 
     const response = await request(app)
-      .get(`/v1/vfs/crdt/vfs-sync?limit=10&cursor=${encodeURIComponent(staleCursor)}`)
+      .get(
+        `/v1/vfs/crdt/vfs-sync?limit=10&cursor=${encodeURIComponent(staleCursor)}`
+      )
       .set('Authorization', authHeader);
 
     expect(response.status).toBe(409);
