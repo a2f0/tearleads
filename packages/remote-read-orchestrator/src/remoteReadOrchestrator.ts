@@ -144,12 +144,14 @@ export class RemoteReadOrchestrator<Result = unknown> {
     const previousTail = state.tail;
     let runPromise: Promise<Result> | null = null;
     runPromise = previousTail.then(async () => {
+      if (runPromise === null) {
+        throw new Error('remote read orchestration invariant violated');
+      }
+
       const controller = new AbortController();
       state.inFlightController = controller;
       try {
-        if (runPromise) {
-          state.inFlight = runPromise;
-        }
+        state.inFlight = runPromise;
         return await operation({ scope, signal: controller.signal });
       } finally {
         if (state.inFlight === runPromise) {
@@ -194,12 +196,11 @@ export class RemoteReadOrchestrator<Result = unknown> {
     }
 
     if (state.debounceTimer && state.scheduledDebounceMs === debounceMs) {
+      if (!state.debouncedDeferred) {
+        throw new Error('remote read debounce state invariant violated');
+      }
       state.debouncedOperation = operation;
-      return state.debouncedDeferred
-        ? state.debouncedDeferred.promise
-        : Promise.resolve().then(() =>
-            this.scheduleImmediate(state, scope, operation, coalesceInFlight)
-          );
+      return state.debouncedDeferred.promise;
     }
 
     if (state.debounceTimer) {
