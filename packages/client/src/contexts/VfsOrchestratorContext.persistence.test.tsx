@@ -16,9 +16,6 @@ const mockCreateVfsSecurePipelineBundle = vi.fn(() => ({
 }));
 const mockLoadVfsOrchestratorState = vi.fn();
 const mockSaveVfsOrchestratorState = vi.fn();
-const mockRematerializeRemoteVfsStateIfNeeded = vi.fn().mockResolvedValue(
-  false
-);
 
 vi.mock('@tearleads/api-client', () => {
   class MockVfsWriteOrchestrator {
@@ -86,11 +83,6 @@ vi.mock('@/hooks/vfs', () => ({
   ensureVfsKeys: vi.fn().mockResolvedValue(undefined)
 }));
 
-vi.mock('@/lib/vfsRematerialization', () => ({
-  rematerializeRemoteVfsStateIfNeeded: (...args: unknown[]) =>
-    mockRematerializeRemoteVfsStateIfNeeded(...args)
-}));
-
 vi.mock('./AuthContext', () => ({
   useAuth: () => mockUseAuth()
 }));
@@ -104,7 +96,6 @@ describe('VfsOrchestratorContext persistence', () => {
     });
     mockLoadVfsOrchestratorState.mockResolvedValue(null);
     mockSaveVfsOrchestratorState.mockResolvedValue(undefined);
-    mockRematerializeRemoteVfsStateIfNeeded.mockResolvedValue(false);
   });
 
   it('hydrates orchestrator state from sqlite persistence', async () => {

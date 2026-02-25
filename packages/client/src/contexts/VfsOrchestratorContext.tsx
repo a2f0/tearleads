@@ -31,7 +31,6 @@ import {
 import { createRecipientPublicKeyResolver } from '@/db/vfsRecipientKeyResolver';
 import { createUserKeyProvider } from '@/db/vfsUserKeyProvider';
 import { ensureVfsKeys } from '@/hooks/vfs';
-import { rematerializeRemoteVfsStateIfNeeded } from '@/lib/vfsRematerialization';
 import { setVfsItemSyncRuntime } from '@/lib/vfsItemSyncWriter';
 import { useAuth } from './AuthContext';
 
@@ -202,7 +201,6 @@ export function VfsOrchestratorProvider({
         }
       });
       await newOrchestrator.hydrateFromPersistence();
-      await rematerializeRemoteVfsStateIfNeeded();
 
       // Create adapters
       const itemKeyStore = createItemKeyStore();
