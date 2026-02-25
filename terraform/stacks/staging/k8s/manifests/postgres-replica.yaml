@@ -68,6 +68,11 @@ spec:
                 secretKeyRef:
                   name: tearleads-secrets
                   key: POSTGRES_PASSWORD
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: POSTGRES_REPLICATION_PASSWORD
           volumeMounts:
             - name: postgres-replica-data
               mountPath: /var/lib/postgresql/data
