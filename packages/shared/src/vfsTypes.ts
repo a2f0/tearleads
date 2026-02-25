@@ -28,7 +28,6 @@ export type VfsObjectType =
   | 'playlist'
   | 'album'
   | 'contactGroup'
-  | 'emailFolder'
   | 'tag';
 
 export interface VfsRegisterRequest {

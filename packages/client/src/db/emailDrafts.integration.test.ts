@@ -9,7 +9,7 @@ import {
   saveEmailDraftToDb
 } from './emailDrafts';
 import { migrations } from './migrations';
-import { composedEmails, emailFolders, vfsLinks, vfsRegistry } from './schema';
+import { composedEmails, vfsLinks, vfsRegistry } from './schema';
 
 describe('email drafts integration', () => {
   let warnSpy: ReturnType<typeof vi.spyOn>;
@@ -134,16 +134,11 @@ describe('email drafts integration', () => {
 
         await db.insert(vfsRegistry).values({
           id: draftsFolderId,
-          objectType: 'emailFolder',
+          objectType: 'folder',
           ownerId: null,
-          createdAt: now
-        });
-
-        await db.insert(emailFolders).values({
-          id: draftsFolderId,
           encryptedName: 'Drafts',
-          folderType: 'drafts',
-          unreadCount: 0
+          icon: 'email-folder',
+          createdAt: now
         });
 
         // Save a draft with the draftsFolderId

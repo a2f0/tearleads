@@ -54,7 +54,6 @@ export async function fetchItemNames(
           WHEN 'playlist' THEN 'Unnamed Playlist'
           WHEN 'album' THEN 'Unnamed Album'
           WHEN 'contactGroup' THEN 'Unnamed Group'
-          WHEN 'emailFolder' THEN 'Unnamed Folder'
           WHEN 'tag' THEN 'Unnamed Tag'
           WHEN 'email' THEN '(No Subject)'
           ELSE 'Unknown'

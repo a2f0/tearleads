@@ -30,7 +30,6 @@ export function Vfs() {
         audio: `/audio/${item.id}`,
         video: `/videos/${item.id}`,
         email: '/email',
-        emailFolder: '/email',
         contactGroup: `/contacts/groups/${item.id}`,
         tag: '/files'
       };

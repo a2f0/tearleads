@@ -76,7 +76,6 @@ export function VfsWindow({
           openWithPayload('videos', { videoId: id });
           return;
         case 'email':
-        case 'emailFolder':
           openWindow('email');
           return;
         case 'playlist': {

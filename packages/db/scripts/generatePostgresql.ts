@@ -44,7 +44,6 @@ const contentNames = [
   'playlists',
   'albums',
   'contactGroups',
-  'emailFolders',
   'tags',
   'walletItems',
   'walletItemMedia',

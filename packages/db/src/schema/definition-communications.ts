@@ -2,7 +2,6 @@ import type { TableDefinition } from './types.js';
 
 // Re-export from split modules
 export {
-  emailFoldersTable,
   emailsTable
 } from './definition-communications-email.js';
 
