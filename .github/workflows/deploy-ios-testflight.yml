@@ -26,7 +26,7 @@ jobs:
           node-version-file: '.nvmrc'
 
       - name: Install tsx
-        run: corepack enable && pnpm add -g tsx
+        run: echo "Using node --experimental-strip-types for CI impact scripts"
 
       - name: Decide deploy impact
         id: decide
@@ -39,7 +39,7 @@ jobs:
           else
             BASE_SHA="$HEAD_SHA"
           fi
-          tsx scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
+          node --experimental-strip-types scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
           SHOULD_DEPLOY=$(jq -r '.jobs["ios-maestro-release"].run' ci-impact.json)
 
           LATEST_MAIN_SHA="$HEAD_SHA"

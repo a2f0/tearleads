@@ -22,7 +22,7 @@ jobs:
           node-version-file: '.nvmrc'
 
       - name: Install tsx
-        run: corepack enable && pnpm add -g tsx
+        run: echo "Using node --experimental-strip-types for CI impact scripts"
 
       - name: Analyze CI impact
         id: impact
@@ -41,7 +41,7 @@ jobs:
             fi
           fi
 
-          tsx scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
+          node --experimental-strip-types scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
           SHOULD_RUN="$(jq -r '.jobs["electron-e2e"].run' ci-impact.json)"
           echo "should-run=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
           echo "impact-json<<JSON" >> "$GITHUB_OUTPUT"

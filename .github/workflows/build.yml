@@ -30,7 +30,7 @@ jobs:
           node-version-file: '.nvmrc'
 
       - name: Install tsx
-        run: corepack enable && pnpm add -g tsx
+        run: echo "Using node --experimental-strip-types for CI impact scripts"
 
       - name: Analyze CI impact
         id: impact
@@ -49,12 +49,12 @@ jobs:
             fi
           fi
 
-          tsx scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
+          node --experimental-strip-types scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
           SHOULD_RUN="$(jq -r '.jobs["build"].run' ci-impact.json)"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TARGETS_JSON="$(tsx scripts/ciImpact/runImpactedTests.ts --files "package.json" --dry-run --print-targets-json)"
+            TARGETS_JSON="$(node --experimental-strip-types scripts/ciImpact/runImpactedTests.ts --files "package.json" --dry-run --print-targets-json)"
           else
-            TARGETS_JSON="$(tsx scripts/ciImpact/runImpactedTests.ts --base "$BASE_SHA" --head "$HEAD_SHA" --dry-run --print-targets-json)"
+            TARGETS_JSON="$(node --experimental-strip-types scripts/ciImpact/runImpactedTests.ts --base "$BASE_SHA" --head "$HEAD_SHA" --dry-run --print-targets-json)"
           fi
           TEST_PACKAGES="$(printf '%s' "$TARGETS_JSON" | jq -cr '.targets | map(sub("^@tearleads/"; ""))')"
           TEST_SHOULD_RUN="$(printf '%s' "$TARGETS_JSON" | jq -r 'if (.targets | length) > 0 then "true" else "false" end')"
@@ -260,7 +260,7 @@ jobs:
             fi
           fi
 
-          pnpm exec tsx scripts/ciImpact/runImpactedTests.ts --base "$BASE_SHA" --head "$HEAD_SHA" --scripts-only
+          pnpm exec node --experimental-strip-types scripts/ciImpact/runImpactedTests.ts --base "$BASE_SHA" --head "$HEAD_SHA" --scripts-only
 
       - name: Check for circular imports
         run: ./scripts/checks/checkCircularImports.ts
