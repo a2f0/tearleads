@@ -14,20 +14,26 @@ import {
 
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 
+type RefreshOutcome = 'success' | 'rejected' | 'transient';
+
 interface RefreshAttemptResult {
   refreshed: boolean;
   attemptedByThisTab: boolean;
+  rejected: boolean;
 }
 
 let refreshPromise: Promise<RefreshAttemptResult> | null = null;
 
 /**
  * Core token refresh logic. Makes a single refresh request to the server.
- * Returns true if refresh succeeded, false if it failed (transient or permanent).
+ * Returns 'success' if refresh succeeded, 'rejected' if the server permanently
+ * rejected the token (401/403), or 'transient' for temporary failures.
  */
-async function executeTokenRefresh(refreshToken: string): Promise<boolean> {
+async function executeTokenRefresh(
+  refreshToken: string
+): Promise<RefreshOutcome> {
   if (!API_BASE_URL) {
-    return false;
+    return 'transient';
   }
 
   const startTime = performance.now();
@@ -42,29 +48,29 @@ async function executeTokenRefresh(refreshToken: string): Promise<boolean> {
     });
 
     if (response.status === 401 || response.status === 403) {
-      // Permanent failure - token is invalid
-      return false;
+      // Permanent failure - token is invalid or session was destroyed
+      return 'rejected';
     }
 
     if (!response.ok) {
       // Transient failure (500, etc) - don't clear auth yet
-      return false;
+      return 'transient';
     }
 
     const data = (await response.json()) as AuthResponse;
     receivedValidRefreshResponse = true;
     updateStoredTokens(data.accessToken, data.refreshToken);
     success = true;
-    return true;
+    return 'success';
   } catch (error) {
     console.error('Token refresh attempt failed:', error);
     if (receivedValidRefreshResponse) {
       // Treat storage failures after a successful refresh response as non-fatal.
       // Callers will still fail the retry if no auth header is available.
-      return true;
+      return 'success';
     }
     // Transient failure (network error)
-    return false;
+    return 'transient';
   } finally {
     const durationMs = performance.now() - startTime;
     void logApiEvent('api_post_auth_refresh', durationMs, success);
@@ -78,7 +84,7 @@ async function executeTokenRefresh(refreshToken: string): Promise<boolean> {
 async function attemptTokenRefresh(): Promise<RefreshAttemptResult> {
   const originalRefreshToken = getStoredRefreshToken();
   if (!originalRefreshToken) {
-    return { refreshed: false, attemptedByThisTab: false };
+    return { refreshed: false, attemptedByThisTab: false, rejected: false };
   }
 
   // Try to acquire the refresh lock. If we fail, it means another tab is
@@ -91,14 +97,18 @@ async function attemptTokenRefresh(): Promise<RefreshAttemptResult> {
     );
     // If the other tab succeeded, we now have new tokens.
     // If it timed out, we will not proceed to refresh without a lock.
-    return { refreshed: otherTabSucceeded, attemptedByThisTab: false };
+    return {
+      refreshed: otherTabSucceeded,
+      attemptedByThisTab: false,
+      rejected: false
+    };
   }
 
   try {
     // First attempt with the original refresh token
-    const refreshed = await executeTokenRefresh(originalRefreshToken);
-    if (refreshed) {
-      return { refreshed: true, attemptedByThisTab: true };
+    const outcome = await executeTokenRefresh(originalRefreshToken);
+    if (outcome === 'success') {
+      return { refreshed: true, attemptedByThisTab: true, rejected: false };
     }
 
     // First attempt failed - check if another tab already updated the token
@@ -111,11 +121,15 @@ async function attemptTokenRefresh(): Promise<RefreshAttemptResult> {
     const currentRefreshToken = getStoredRefreshToken();
     if (currentRefreshToken && currentRefreshToken !== originalRefreshToken) {
       // Token was updated by another tab - our refresh "succeeded" via the other tab
-      return { refreshed: true, attemptedByThisTab: true };
+      return { refreshed: true, attemptedByThisTab: true, rejected: false };
     }
 
     // No luck - refresh truly failed
-    return { refreshed: false, attemptedByThisTab: true };
+    return {
+      refreshed: false,
+      attemptedByThisTab: true,
+      rejected: outcome === 'rejected'
+    };
   } finally {
     releaseRefreshLock();
   }
@@ -145,11 +159,20 @@ export async function tryRefreshToken(): Promise<boolean> {
       // No token at all - session is truly expired
       setSessionExpiredError();
       clearStoredAuth();
-    } else {
-      const { isJwtExpired } = await import('./jwt');
-      if (result.attemptedByThisTab && isJwtExpired(finalToken)) {
+    } else if (result.attemptedByThisTab) {
+      if (result.rejected) {
+        // Server permanently rejected the token (401/403) — session was
+        // destroyed server-side (e.g. DB reset, admin revocation).
+        // Clear auth regardless of JWT expiration.
         setSessionExpiredError();
         clearStoredAuth();
+      } else {
+        // Transient failure — only clear if the JWT itself has expired
+        const { isJwtExpired } = await import('./jwt');
+        if (isJwtExpired(finalToken)) {
+          setSessionExpiredError();
+          clearStoredAuth();
+        }
       }
     }
   }
