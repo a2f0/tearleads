@@ -1,6 +1,7 @@
 import type {
   CreateOrgShareRequest,
   CreateVfsShareRequest,
+  VfsCrdtSyncResponse,
   ShareTargetSearchResponse,
   UpdateVfsShareRequest,
   VfsKeySetupRequest,
@@ -12,6 +13,7 @@ import type {
   VfsShare,
   VfsSharesResponse,
   VfsShareType,
+  VfsSyncResponse,
   VfsUserKeysResponse
 } from '@tearleads/shared';
 import { request, requestResponse } from '../apiCore';
@@ -26,6 +28,29 @@ export const vfsRoutes = {
     request<VfsUserKeysResponse>('/vfs/keys/me', {
       eventName: 'api_get_vfs_keys'
     }),
+  getSync: (cursor?: string, limit = 500) => {
+    const params = new URLSearchParams();
+    params.set('limit', String(limit));
+    if (cursor) {
+      params.set('cursor', cursor);
+    }
+    return request<VfsSyncResponse>(`/vfs/vfs-sync?${params.toString()}`, {
+      eventName: 'api_get_vfs_keys'
+    });
+  },
+  getCrdtSync: (cursor?: string, limit = 500) => {
+    const params = new URLSearchParams();
+    params.set('limit', String(limit));
+    if (cursor) {
+      params.set('cursor', cursor);
+    }
+    return request<VfsCrdtSyncResponse>(
+      `/vfs/crdt/vfs-sync?${params.toString()}`,
+      {
+        eventName: 'api_get_vfs_keys'
+      }
+    );
+  },
   setupKeys: (data: VfsKeySetupRequest) =>
     request<{ created: boolean }>('/vfs/keys', {
       fetchOptions: {

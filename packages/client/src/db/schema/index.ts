@@ -41,6 +41,8 @@ export {
   userSettings,
   users,
   vehicles,
+  vfsAclEntries,
+  vfsItemState,
   vfsLinks,
   vfsRegistry,
   walletItemMedia,

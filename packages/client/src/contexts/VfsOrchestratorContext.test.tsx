@@ -31,6 +31,9 @@ const mockCreateVfsSecurePipelineBundle = vi.fn(() => ({
 }));
 const mockLoadVfsOrchestratorState = vi.fn();
 const mockSaveVfsOrchestratorState = vi.fn();
+const mockRematerializeRemoteVfsStateIfNeeded = vi.fn().mockResolvedValue(
+  false
+);
 
 // Mock dependencies
 vi.mock('@tearleads/api-client', () => {
@@ -97,6 +100,11 @@ vi.mock('@/hooks/vfs', () => ({
   ensureVfsKeys: vi.fn().mockResolvedValue(undefined)
 }));
 
+vi.mock('@/lib/vfsRematerialization', () => ({
+  rematerializeRemoteVfsStateIfNeeded: (...args: unknown[]) =>
+    mockRematerializeRemoteVfsStateIfNeeded(...args)
+}));
+
 vi.mock('./AuthContext', () => ({
   useAuth: () => mockUseAuth()
 }));
@@ -120,6 +128,7 @@ describe('VfsOrchestratorContext', () => {
     mockLogEvent.mockResolvedValue(undefined);
     mockLoadVfsOrchestratorState.mockResolvedValue(null);
     mockSaveVfsOrchestratorState.mockResolvedValue(undefined);
+    mockRematerializeRemoteVfsStateIfNeeded.mockResolvedValue(false);
   });
 
   afterEach(() => {
