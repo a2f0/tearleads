@@ -4,51 +4,44 @@ import { deleteVfsBlobByStorageKey } from '../../lib/vfsBlobStore.js';
 
 /**
  * @openapi
- * /emails/{id}:
+ * /vfs/emails/{id}:
  *   delete:
- *     summary: Delete email by ID
- *     description: Deletes a single email
+ *     summary: Delete an email item and cleanup orphaned inbound message data
  *     tags:
- *       - Emails
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Email ID
+ *       - VFS
  *     responses:
  *       200:
  *         description: Email deleted
+ *       401:
+ *         description: Unauthorized
  *       404:
  *         description: Email not found
  *       500:
  *         description: Server error
  */
-const deleteIdHandler = async (req: Request<{ id: string }>, res: Response) => {
+const deleteEmailsIdHandler = async (
+  req: Request<{ id: string }>,
+  res: Response
+) => {
   try {
     const userId = req.authClaims?.sub;
     if (!userId) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
-    const { id } = req.params;
 
+    const { id } = req.params;
     const pool = await getPostgresPool();
     const client = await pool.connect();
     let orphanedStorageKey: string | null = null;
+
     try {
       await client.query('BEGIN');
-      const emailRowResult = await client.query<{
-        message_id: string | null;
-        storage_key: string | null;
-      }>(
+      const emailRowResult = await client.query<{ storage_key: string | null }>(
         `SELECT
-             em.id AS message_id,
-             em.storage_key
+             e.encrypted_body_path AS storage_key
            FROM vfs_registry vr
            INNER JOIN emails e ON e.id = vr.id
-           LEFT JOIN email_messages em ON em.storage_key = e.encrypted_body_path
            WHERE vr.id = $1
              AND vr.owner_id = $2
              AND vr.object_type = 'email'
@@ -63,32 +56,6 @@ const deleteIdHandler = async (req: Request<{ id: string }>, res: Response) => {
         return;
       }
 
-      if (emailRow.message_id) {
-        await client.query(
-          `DELETE FROM email_recipients
-             WHERE message_id = $1
-               AND user_id = $2`,
-          [emailRow.message_id, userId]
-        );
-        const remainingRecipients = await client.query<{ count: string }>(
-          `SELECT COUNT(*)::text AS count
-             FROM email_recipients
-             WHERE message_id = $1`,
-          [emailRow.message_id]
-        );
-        const remainingCount =
-          parseInt(remainingRecipients.rows[0]?.count ?? '0', 10) || 0;
-        if (remainingCount === 0) {
-          const deletedMessage = await client.query<{ storage_key: string }>(
-            `DELETE FROM email_messages
-               WHERE id = $1
-               RETURNING storage_key`,
-            [emailRow.message_id]
-          );
-          orphanedStorageKey = deletedMessage.rows[0]?.storage_key ?? null;
-        }
-      }
-
       const deleted = await client.query<{ id: string }>(
         `DELETE FROM vfs_registry
            WHERE id = $1
@@ -97,18 +64,35 @@ const deleteIdHandler = async (req: Request<{ id: string }>, res: Response) => {
            RETURNING id`,
         [id, userId]
       );
+
       if (!deleted.rows[0]) {
         await client.query('ROLLBACK');
         res.status(404).json({ error: 'Email not found' });
         return;
       }
+
+      if (emailRow.storage_key) {
+        const remainingItems = await client.query<{ count: string }>(
+          `SELECT COUNT(*)::text AS count
+             FROM emails
+             WHERE encrypted_body_path = $1`,
+          [emailRow.storage_key]
+        );
+
+        const remainingCount =
+          parseInt(remainingItems.rows[0]?.count ?? '0', 10) || 0;
+        if (remainingCount === 0) {
+          orphanedStorageKey = emailRow.storage_key;
+        }
+      }
+
       await client.query('COMMIT');
     } catch (error) {
       try {
         await client.query('ROLLBACK');
       } catch (rollbackError) {
         console.error(
-          'Failed to rollback email delete transaction:',
+          'Failed to rollback VFS email delete transaction:',
           rollbackError
         );
       }
@@ -131,11 +115,11 @@ const deleteIdHandler = async (req: Request<{ id: string }>, res: Response) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Failed to delete email:', error);
+    console.error('Failed to delete VFS email:', error);
     res.status(500).json({ error: 'Failed to delete email' });
   }
 };
 
-export function registerDeleteIdRoute(routeRouter: RouterType): void {
-  routeRouter.delete('/:id', deleteIdHandler);
+export function registerDeleteEmailsIdRoute(routeRouter: RouterType): void {
+  routeRouter.delete('/emails/:id', deleteEmailsIdHandler);
 }

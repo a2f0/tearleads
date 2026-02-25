@@ -1,7 +1,6 @@
 import {
   FileIcon,
   Folder,
-  FolderOpen,
   ImageIcon,
   Images,
   ListMusic,
@@ -29,7 +28,6 @@ export const OBJECT_TYPE_ICONS: Record<VfsObjectType, typeof Folder> = {
   playlist: ListMusic,
   album: Images,
   contactGroup: Users,
-  emailFolder: FolderOpen,
   tag: Tag
 };
 
@@ -47,6 +45,5 @@ export const OBJECT_TYPE_COLORS: Record<VfsObjectType, string> = {
   playlist: 'text-purple-600 dark:text-purple-400',
   album: 'text-success',
   contactGroup: 'text-blue-600 dark:text-blue-400',
-  emailFolder: 'text-sky-600 dark:text-sky-400',
   tag: 'text-pink-600 dark:text-pink-400'
 };

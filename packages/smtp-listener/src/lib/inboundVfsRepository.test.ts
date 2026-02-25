@@ -81,13 +81,8 @@ describe('PostgresInboundVfsEmailRepository', () => {
     expect(getPostgresPoolMock).not.toHaveBeenCalled();
   });
 
-  it('persists inbound data and commits when inbox already exists', async () => {
-    const clientQueryMock = vi.fn(async (query: string) => {
-      if (query.includes('FROM email_folders')) {
-        return { rows: [{ id: 'existing-inbox' }] };
-      }
-      return { rows: [] };
-    });
+  it('persists inbound data and commits', async () => {
+    const clientQueryMock = vi.fn(async () => ({ rows: [] }));
     const releaseMock = vi.fn();
     const connectMock = vi.fn(async () => ({
       query: clientQueryMock,
@@ -108,25 +103,24 @@ describe('PostgresInboundVfsEmailRepository', () => {
     expect(connectMock).toHaveBeenCalledOnce();
     expect(clientQueryMock).toHaveBeenCalledWith('BEGIN');
     expect(clientQueryMock).toHaveBeenCalledWith(
-      expect.stringContaining('INSERT INTO email_messages'),
+      expect.stringContaining('INSERT INTO emails'),
       expect.any(Array)
     );
     expect(clientQueryMock).toHaveBeenCalledWith(
-      expect.stringContaining('INSERT INTO email_recipients'),
-      expect.arrayContaining(['msg-1', 'user-1'])
+      expect.stringContaining('INSERT INTO vfs_acl_entries'),
+      expect.arrayContaining(['user-1', 'wrapped-dek'])
+    );
+    expect(clientQueryMock).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO vfs_registry ('),
+      ['email-inbox:user-1', 'user-1']
     );
     expect(clientQueryMock).toHaveBeenCalledWith('COMMIT');
     expect(clientQueryMock).not.toHaveBeenCalledWith('ROLLBACK');
     expect(releaseMock).toHaveBeenCalledOnce();
   });
 
-  it('creates an inbox folder when one does not exist', async () => {
-    const clientQueryMock = vi.fn(async (query: string) => {
-      if (query.includes('FROM email_folders')) {
-        return { rows: [] };
-      }
-      return { rows: [] };
-    });
+  it('upserts canonical inbox folder in vfs_registry', async () => {
+    const clientQueryMock = vi.fn(async () => ({ rows: [] }));
     const releaseMock = vi.fn();
 
     getPostgresPoolMock.mockResolvedValue({
@@ -146,26 +140,15 @@ describe('PostgresInboundVfsEmailRepository', () => {
     });
 
     expect(clientQueryMock).toHaveBeenCalledWith(
-      expect.stringContaining(
-        'INSERT INTO vfs_registry (id, object_type, owner_id, created_at)'
-      ),
-      [expect.stringMatching(/^uuid-\d+$/), 'user-1']
-    );
-    expect(clientQueryMock).toHaveBeenCalledWith(
-      expect.stringContaining('INSERT INTO email_folders'),
-      [expect.stringMatching(/^uuid-\d+$/), 'inbox']
+      expect.stringContaining('INSERT INTO vfs_registry ('),
+      ['email-inbox:user-1', 'user-1']
     );
     expect(clientQueryMock).toHaveBeenCalledWith('COMMIT');
     expect(releaseMock).toHaveBeenCalledOnce();
   });
 
   it('rolls back and throws when wrapped key is missing', async () => {
-    const clientQueryMock = vi.fn(async (query: string) => {
-      if (query.includes('FROM email_folders')) {
-        return { rows: [{ id: 'existing-inbox' }] };
-      }
-      return { rows: [] };
-    });
+    const clientQueryMock = vi.fn(async () => ({ rows: [] }));
     const releaseMock = vi.fn();
 
     getPostgresPoolMock.mockResolvedValue({
@@ -195,11 +178,8 @@ describe('PostgresInboundVfsEmailRepository', () => {
 
   it('rolls back when a query fails after begin', async () => {
     const clientQueryMock = vi.fn(async (query: string) => {
-      if (query.includes('INSERT INTO email_recipients')) {
+      if (query.includes('INSERT INTO vfs_acl_entries')) {
         throw new Error('db failure');
-      }
-      if (query.includes('FROM email_folders')) {
-        return { rows: [{ id: 'existing-inbox' }] };
       }
       return { rows: [] };
     });

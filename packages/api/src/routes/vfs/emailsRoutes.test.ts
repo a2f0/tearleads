@@ -48,7 +48,7 @@ vi.mock('../../lib/vfsBlobStore.js', () => ({
   deleteVfsBlobByStorageKey: mocks.deleteVfsBlobByStorageKey
 }));
 
-describe('Emails Routes (VFS backend)', () => {
+describe('VFS email routes', () => {
   let authHeader: string;
 
   beforeEach(async () => {
@@ -86,7 +86,7 @@ describe('Emails Routes (VFS backend)', () => {
       });
 
     const response = await request(app)
-      .get('/v1/emails')
+      .get('/v1/vfs/emails')
       .set('Authorization', authHeader);
 
     expect(response.status).toBe(200);
@@ -123,7 +123,7 @@ describe('Emails Routes (VFS backend)', () => {
     });
 
     const response = await request(app)
-      .get('/v1/emails/vfs-email-1')
+      .get('/v1/vfs/emails/vfs-email-1')
       .set('Authorization', authHeader);
 
     expect(response.status).toBe(200);
@@ -143,18 +143,14 @@ describe('Emails Routes (VFS backend)', () => {
     mocks.postgresClientQuery
       .mockResolvedValueOnce({ rows: [] }) // BEGIN
       .mockResolvedValueOnce({
-        rows: [{ message_id: 'msg-1', storage_key: 'smtp/inbound/msg-1.bin' }]
-      })
-      .mockResolvedValueOnce({ rows: [] }) // DELETE email_recipients
-      .mockResolvedValueOnce({ rows: [{ count: '0' }] }) // remaining recipients
-      .mockResolvedValueOnce({
         rows: [{ storage_key: 'smtp/inbound/msg-1.bin' }]
-      }) // DELETE email_messages
+      })
       .mockResolvedValueOnce({ rows: [{ id: 'vfs-email-1' }] }) // DELETE vfs_registry
+      .mockResolvedValueOnce({ rows: [{ count: '0' }] }) // remaining email items
       .mockResolvedValueOnce({ rows: [] }); // COMMIT
 
     const response = await request(app)
-      .delete('/v1/emails/vfs-email-1')
+      .delete('/v1/vfs/emails/vfs-email-1')
       .set('Authorization', authHeader);
 
     expect(response.status).toBe(200);
@@ -169,15 +165,14 @@ describe('Emails Routes (VFS backend)', () => {
     mocks.postgresClientQuery
       .mockResolvedValueOnce({ rows: [] }) // BEGIN
       .mockResolvedValueOnce({
-        rows: [{ message_id: 'msg-1', storage_key: 'smtp/inbound/msg-1.bin' }]
+        rows: [{ storage_key: 'smtp/inbound/msg-1.bin' }]
       })
-      .mockResolvedValueOnce({ rows: [] }) // DELETE email_recipients
-      .mockResolvedValueOnce({ rows: [{ count: '1' }] }) // remaining recipients
       .mockResolvedValueOnce({ rows: [{ id: 'vfs-email-1' }] }) // DELETE vfs_registry
+      .mockResolvedValueOnce({ rows: [{ count: '1' }] }) // remaining email items
       .mockResolvedValueOnce({ rows: [] }); // COMMIT
 
     const response = await request(app)
-      .delete('/v1/emails/vfs-email-1')
+      .delete('/v1/vfs/emails/vfs-email-1')
       .set('Authorization', authHeader);
 
     expect(response.status).toBe(200);

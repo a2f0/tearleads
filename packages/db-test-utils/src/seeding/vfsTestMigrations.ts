@@ -4,9 +4,10 @@ import type { DatabaseAdapter } from '../adapters/types.js';
  * Test migrations for VFS tables.
  * These create a minimal VFS schema for testing purposes.
  *
- * Includes canonical vfs_item_state tombstones used by trash queries, plus
- * stub tables for queryFolderContents LEFT JOINs: files, contacts, notes,
- * playlists, albums, contactGroups, emailFolders, tags, emails.
+<<<<<<< HEAD
+ * Includes stub tables for queryFolderContents LEFT JOINs:
+ * files, contacts, notes, playlists, albums, contactGroups, tags, emails
+ * Includes canonical vfs_item_state tombstones used by trash queries.
  */
 export const vfsTestMigrations = [
   {
@@ -98,12 +99,6 @@ export const vfsTestMigrations = [
       `);
       await adapter.execute(`
         CREATE TABLE IF NOT EXISTS contact_groups (
-          id TEXT PRIMARY KEY,
-          encrypted_name TEXT
-        )
-      `);
-      await adapter.execute(`
-        CREATE TABLE IF NOT EXISTS email_folders (
           id TEXT PRIMARY KEY,
           encrypted_name TEXT
         )

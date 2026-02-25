@@ -11,7 +11,6 @@ export {
   contactPhones,
   contacts,
   emailAttachments,
-  emailFolders,
   emails,
   files,
   groups,

@@ -22,8 +22,6 @@ import { aiConversationsRouter } from './routes/ai-conversations/router.js';
 import { authRouter } from './routes/auth/router.js';
 import { billingRouter } from './routes/billing/router.js';
 import { chatRouter } from './routes/chat/router.js';
-import { emailsRouter } from './routes/emails/router.js';
-import { emailsComposeRouter } from './routes/emailsCompose/router.js';
 import { mlsRouter } from './routes/mls/router.js';
 import { revenuecatRouter } from './routes/revenuecat/router.js';
 import { closeAllSSEConnections, sseRouter } from './routes/sse/router.js';
@@ -140,10 +138,6 @@ app.use('/v1/chat', chatRouter);
 
 // AI conversations and usage tracking
 app.use('/v1/ai', aiConversationsRouter);
-
-// Email routes
-app.use('/v1/emails', emailsComposeRouter);
-app.use('/v1/emails', emailsRouter);
 
 // SSE route
 app.use('/v1/sse', sseRouter);

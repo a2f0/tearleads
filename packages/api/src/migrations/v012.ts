@@ -10,7 +10,6 @@ import type { Migration } from './types.js';
  * - playlists table for audio collections
  * - albums table for photo collections
  * - contact_groups table for contact organization
- * - email_folders table for email organization with IMAP sync
  * - tags table for cross-cutting organization
  * - emails table for email messages
  */
@@ -66,18 +65,6 @@ export const v012: Migration = {
         )
       `);
 
-      // Create email_folders table
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS "email_folders" (
-          "id" TEXT PRIMARY KEY REFERENCES "vfs_registry"("id") ON DELETE CASCADE,
-          "encrypted_name" TEXT,
-          "folder_type" TEXT CHECK ("folder_type" IN ('inbox', 'sent', 'drafts', 'trash', 'spam', 'custom')),
-          "unread_count" INTEGER NOT NULL DEFAULT 0,
-          "sync_uid_validity" INTEGER,
-          "sync_last_uid" INTEGER
-        )
-      `);
-
       // Create tags table
       await pool.query(`
         CREATE TABLE IF NOT EXISTS "tags" (
@@ -97,6 +84,7 @@ export const v012: Migration = {
           "encrypted_to" JSONB,
           "encrypted_cc" JSONB,
           "encrypted_body_path" TEXT,
+          "ciphertext_size" INTEGER NOT NULL DEFAULT 0,
           "received_at" TIMESTAMPTZ NOT NULL,
           "is_read" BOOLEAN NOT NULL DEFAULT false,
           "is_starred" BOOLEAN NOT NULL DEFAULT false

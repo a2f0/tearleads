@@ -133,23 +133,6 @@ export const contactGroups = pgTable('contact_groups', {
 });
 
 /**
- * Email folders - extends registry for emailFolder-type items.
- * Stores email folder metadata including sync state for IMAP.
- */
-export const emailFolders = pgTable('email_folders', {
-  id: text('id')
-    .primaryKey()
-    .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
-  encryptedName: text('encrypted_name'),
-  folderType: text('folder_type', {
-    enum: ['inbox', 'sent', 'drafts', 'trash', 'spam', 'custom']
-  }),
-  unreadCount: integer('unread_count').notNull().default(0),
-  syncUidValidity: integer('sync_uid_validity'),
-  syncLastUid: integer('sync_last_uid')
-});
-
-/**
  * Emails - extends registry for email-type items.
  * Stores encrypted email metadata.
  */
@@ -164,6 +147,7 @@ export const emails = pgTable(
     encryptedTo: jsonb('encrypted_to'),
     encryptedCc: jsonb('encrypted_cc'),
     encryptedBodyPath: text('encrypted_body_path'),
+    ciphertextSize: integer('ciphertext_size').notNull().default(0),
     receivedAt: timestamp('received_at', { withTimezone: true }).notNull(),
     isRead: boolean('is_read').notNull().default(false),
     isStarred: boolean('is_starred').notNull().default(false)

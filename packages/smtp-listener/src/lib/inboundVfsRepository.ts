@@ -8,10 +8,6 @@ import type {
 } from '../types/inboundContracts.js';
 import { getPostgresPool } from './postgres.js';
 
-interface InboxRow {
-  id: string;
-}
-
 function findWrappedKey(
   wrappedRecipientKeys: WrappedRecipientKeyEnvelope[],
   userId: string
@@ -28,30 +24,27 @@ async function ensureInboxFolder(
   client: PoolClient,
   userId: string
 ): Promise<string> {
-  const existing = await client.query<InboxRow>(
-    `SELECT ef.id
-     FROM email_folders ef
-     INNER JOIN vfs_registry vr ON vr.id = ef.id
-     WHERE vr.owner_id = $1
-       AND ef.folder_type = 'inbox'
-     LIMIT 1`,
-    [userId]
-  );
-  const existingRow = existing.rows[0];
-  if (existingRow?.id) {
-    return existingRow.id;
-  }
-
-  const folderId = randomUUID();
+  const folderId = `email-inbox:${userId}`;
   await client.query(
-    `INSERT INTO vfs_registry (id, object_type, owner_id, created_at)
-     VALUES ($1, 'emailFolder', $2, NOW())`,
+    `INSERT INTO vfs_registry (
+       id,
+       object_type,
+       owner_id,
+       encrypted_name,
+       icon,
+       created_at
+     ) VALUES (
+       $1,
+       'folder',
+       $2,
+       'Inbox',
+       'email-folder',
+       NOW()
+     )
+     ON CONFLICT (id) DO UPDATE
+     SET encrypted_name = 'Inbox',
+         icon = 'email-folder'`,
     [folderId, userId]
-  );
-  await client.query(
-    `INSERT INTO email_folders (id, encrypted_name, folder_type, unread_count)
-     VALUES ($1, $2, 'inbox', 0)`,
-    [folderId, 'inbox']
   );
   return folderId;
 }
@@ -62,7 +55,7 @@ async function insertEmailForRecipient(input: {
   recipient: ResolvedInboundRecipient;
   wrappedKey: WrappedRecipientKeyEnvelope;
   inboxFolderId: string;
-}): Promise<void> {
+}): Promise<string> {
   const emailItemId = randomUUID();
   await input.client.query(
     `INSERT INTO vfs_registry (
@@ -89,6 +82,7 @@ async function insertEmailForRecipient(input: {
        encrypted_to,
        encrypted_cc,
        encrypted_body_path,
+       ciphertext_size,
        received_at,
        is_read,
        is_starred
@@ -99,7 +93,8 @@ async function insertEmailForRecipient(input: {
        $4::json,
        $5::json,
        $6,
-       $7::timestamptz,
+       $7,
+       $8::timestamptz,
        false,
        false
      )`,
@@ -110,6 +105,7 @@ async function insertEmailForRecipient(input: {
       JSON.stringify(input.envelope.encryptedTo),
       JSON.stringify([]),
       input.envelope.encryptedBodyPointer,
+      input.envelope.encryptedBodySize,
       input.envelope.receivedAt
     ]
   );
@@ -135,6 +131,46 @@ async function insertEmailForRecipient(input: {
       input.wrappedKey.wrappedDek
     ]
   );
+
+  await input.client.query(
+    `INSERT INTO vfs_acl_entries (
+       id,
+       item_id,
+       principal_type,
+       principal_id,
+       access_level,
+       wrapped_session_key,
+       wrapped_hierarchical_key,
+       key_epoch,
+       granted_by,
+       created_at,
+       updated_at,
+       expires_at,
+       revoked_at
+     ) VALUES (
+       $1,
+       $2,
+       'user',
+       $3,
+       'read',
+       $4,
+       NULL,
+       NULL,
+       NULL,
+       NOW(),
+       NOW(),
+       NULL,
+       NULL
+     )`,
+    [
+      randomUUID(),
+      emailItemId,
+      input.recipient.userId,
+      input.wrappedKey.wrappedDek
+    ]
+  );
+
+  return emailItemId;
 }
 
 export class PostgresInboundVfsEmailRepository
@@ -152,33 +188,6 @@ export class PostgresInboundVfsEmailRepository
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query(
-        `INSERT INTO email_messages (
-           id,
-           storage_key,
-           sha256,
-           ciphertext_size,
-           ciphertext_content_type,
-           content_encryption_algorithm,
-           created_at
-         ) VALUES (
-           $1,
-           $2,
-           $3,
-           $4,
-           'message/rfc822',
-           'aes-256-gcm',
-           NOW()
-         )
-         ON CONFLICT (id) DO NOTHING`,
-        [
-          input.envelope.messageId,
-          input.envelope.encryptedBodyPointer,
-          input.envelope.encryptedBodySha256,
-          input.envelope.encryptedBodySize
-        ]
-      );
-
       for (const recipient of input.recipients) {
         const wrappedKey = findWrappedKey(
           input.envelope.wrappedRecipientKeys,
@@ -191,35 +200,6 @@ export class PostgresInboundVfsEmailRepository
         }
 
         const inboxFolderId = await ensureInboxFolder(client, recipient.userId);
-
-        await client.query(
-          `INSERT INTO email_recipients (
-             id,
-             message_id,
-             user_id,
-             smtp_recipient_address,
-             wrapped_dek,
-             key_encryption_algorithm,
-             created_at
-           ) VALUES (
-             $1,
-             $2,
-             $3,
-             $4,
-             $5,
-             $6,
-             NOW()
-           )
-           ON CONFLICT (message_id, user_id) DO NOTHING`,
-          [
-            randomUUID(),
-            input.envelope.messageId,
-            recipient.userId,
-            recipient.address,
-            wrappedKey.wrappedDek,
-            wrappedKey.keyAlgorithm
-          ]
-        );
 
         await insertEmailForRecipient({
           client,

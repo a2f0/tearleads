@@ -1,72 +1,50 @@
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
-import type { EmailListItem } from './shared.js';
+
+interface EmailListItem {
+  id: string;
+  from: string;
+  to: string[];
+  subject: string;
+  receivedAt: string;
+  size: number;
+}
 
 /**
  * @openapi
- * /emails:
+ * /vfs/emails:
  *   get:
- *     summary: List emails with pagination
- *     description: Returns a paginated list of stored emails with parsed metadata
+ *     summary: List emails via canonical VFS-backed metadata
+ *     description: Returns a paginated list of email items owned by the authenticated user.
  *     tags:
- *       - Emails
+ *       - VFS
  *     parameters:
  *       - in: query
  *         name: offset
  *         schema:
  *           type: integer
  *           default: 0
- *         description: Number of emails to skip
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
  *           default: 50
- *         description: Maximum number of emails to return
  *     responses:
  *       200:
  *         description: List of emails
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 emails:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: string
- *                       from:
- *                         type: string
- *                       to:
- *                         type: array
- *                         items:
- *                           type: string
- *                       subject:
- *                         type: string
- *                       receivedAt:
- *                         type: string
- *                       size:
- *                         type: number
- *                 total:
- *                   type: integer
- *                   description: Total number of emails
- *                 offset:
- *                   type: integer
- *                 limit:
- *                   type: integer
+ *       401:
+ *         description: Unauthorized
  *       500:
  *         description: Server error
  */
-const getRootHandler = async (req: Request, res: Response) => {
+const getEmailsHandler = async (req: Request, res: Response) => {
   try {
     const userId = req.authClaims?.sub;
     if (!userId) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
+
     const offset = Math.max(
       0,
       parseInt(req.query['offset'] as string, 10) || 0
@@ -85,6 +63,7 @@ const getRootHandler = async (req: Request, res: Response) => {
       [userId]
     );
     const total = parseInt(totalResult.rows[0]?.total ?? '0', 10) || 0;
+
     const rows = await pool.query<{
       id: string;
       encrypted_from: string | null;
@@ -99,10 +78,9 @@ const getRootHandler = async (req: Request, res: Response) => {
            e.encrypted_to,
            e.encrypted_subject,
            e.received_at,
-           em.ciphertext_size
+           e.ciphertext_size
          FROM emails e
          INNER JOIN vfs_registry vr ON vr.id = e.id
-         LEFT JOIN email_messages em ON em.storage_key = e.encrypted_body_path
          WHERE vr.owner_id = $1
          ORDER BY e.received_at DESC
          OFFSET $2
@@ -125,11 +103,11 @@ const getRootHandler = async (req: Request, res: Response) => {
 
     res.json({ emails, total, offset, limit });
   } catch (error) {
-    console.error('Failed to list emails:', error);
+    console.error('Failed to list VFS emails:', error);
     res.status(500).json({ error: 'Failed to list emails' });
   }
 };
 
-export function registerGetRootRoute(routeRouter: RouterType): void {
-  routeRouter.get('/', getRootHandler);
+export function registerGetEmailsRoute(routeRouter: RouterType): void {
+  routeRouter.get('/emails', getEmailsHandler);
 }

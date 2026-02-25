@@ -15,7 +15,7 @@ export function useEmails() {
     try {
       const authHeader = getAuthHeader?.();
       const response = await fetch(
-        `${apiBaseUrl}/emails`,
+        `${apiBaseUrl}/vfs/emails`,
         authHeader ? { headers: { Authorization: authHeader } } : {}
       );
       if (!response.ok) {

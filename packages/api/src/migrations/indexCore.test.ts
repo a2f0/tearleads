@@ -465,7 +465,7 @@ describe('migrations (core through v021)', () => {
   });
 
   describe('v024 migration', () => {
-    it('creates SMTP tables and canonical item-state CRDT updates', async () => {
+    it('creates canonical item-state CRDT updates', async () => {
       const pool = createMockPool(new Map());
 
       const v024 = migrations.find((m: Migration) => m.version === 24);
@@ -476,14 +476,6 @@ describe('migrations (core through v021)', () => {
       await v024.up(pool);
 
       const queries = pool.queries.join('\n');
-      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "email_messages"');
-      expect(queries).toContain(
-        'CREATE TABLE IF NOT EXISTS "email_recipients"'
-      );
-      expect(queries).toContain(
-        'CREATE INDEX IF NOT EXISTS "email_recipients_user_created_idx"'
-      );
-      expect(queries).toContain('UNIQUE ("message_id", "user_id")');
       expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_item_state"');
       expect(queries).toContain('"encrypted_payload" TEXT');
       expect(queries).toContain('"deleted_at" TIMESTAMPTZ');

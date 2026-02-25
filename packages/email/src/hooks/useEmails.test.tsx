@@ -199,7 +199,7 @@ describe('useEmails', () => {
     });
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://custom-api.com/v1/emails',
+      'http://custom-api.com/v1/vfs/emails',
       {}
     );
   });
@@ -219,7 +219,7 @@ describe('useEmails', () => {
     });
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://localhost:5001/v1/emails',
+      'http://localhost:5001/v1/vfs/emails',
       { headers: { Authorization: 'Bearer token123' } }
     );
   });
@@ -239,7 +239,7 @@ describe('useEmails', () => {
     });
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://localhost:5001/v1/emails',
+      'http://localhost:5001/v1/vfs/emails',
       {}
     );
   });

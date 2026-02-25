@@ -130,23 +130,6 @@ export const contactGroups = sqliteTable('contact_groups', {
 });
 
 /**
- * Email folders - extends registry for emailFolder-type items.
- * Stores email folder metadata including sync state for IMAP.
- */
-export const emailFolders = sqliteTable('email_folders', {
-  id: text('id')
-    .primaryKey()
-    .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
-  encryptedName: text('encrypted_name'),
-  folderType: text('folder_type', {
-    enum: ['inbox', 'sent', 'drafts', 'trash', 'spam', 'custom']
-  }),
-  unreadCount: integer('unread_count').notNull().default(0),
-  syncUidValidity: integer('sync_uid_validity'),
-  syncLastUid: integer('sync_last_uid')
-});
-
-/**
  * Emails - extends registry for email-type items.
  * Stores encrypted email metadata.
  */
@@ -161,6 +144,7 @@ export const emails = sqliteTable(
     encryptedTo: text('encrypted_to'),
     encryptedCc: text('encrypted_cc'),
     encryptedBodyPath: text('encrypted_body_path'),
+    ciphertextSize: integer('ciphertext_size').notNull().default(0),
     receivedAt: integer('received_at', { mode: 'timestamp_ms' }).notNull(),
     isRead: integer('is_read', { mode: 'boolean' }).notNull().default(false),
     isStarred: integer('is_starred', { mode: 'boolean' })

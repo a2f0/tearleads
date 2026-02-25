@@ -1,11 +1,10 @@
 import type { Migration } from './types';
 
 /**
- * v011: Add contact groups, email folders, tags, and emails tables
+ * v011: Add contact groups, tags, and emails tables
  *
  * Adds missing VFS extension tables required for name lookups:
  * - contact_groups (contactGroup)
- * - email_folders (emailFolder)
  * - tags (tag)
  * - emails (email)
  */
@@ -19,14 +18,6 @@ export const v011: Migration = {
         "encrypted_name" TEXT,
         "color" TEXT,
         "icon" TEXT
-      )`,
-      `CREATE TABLE IF NOT EXISTS "email_folders" (
-        "id" TEXT PRIMARY KEY NOT NULL REFERENCES "vfs_registry"("id") ON DELETE CASCADE,
-        "encrypted_name" TEXT,
-        "folder_type" TEXT,
-        "unread_count" INTEGER NOT NULL DEFAULT 0,
-        "sync_uid_validity" INTEGER,
-        "sync_last_uid" INTEGER
       )`,
       `CREATE TABLE IF NOT EXISTS "tags" (
         "id" TEXT PRIMARY KEY NOT NULL REFERENCES "vfs_registry"("id") ON DELETE CASCADE,

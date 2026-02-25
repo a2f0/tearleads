@@ -7,7 +7,6 @@ import {
   contactGroupsTable,
   contactPhonesTable,
   contactsTable,
-  emailFoldersTable,
   emailsTable,
   filesTable,
   groupsTable,
@@ -219,7 +218,7 @@ describe('vfsRegistryTable', () => {
 
 describe('allTables', () => {
   it('contains all canonical tables', () => {
-    expect(allTables).toHaveLength(50);
+    expect(allTables).toHaveLength(49);
   });
 
   it('contains all table definitions', () => {
@@ -252,7 +251,6 @@ describe('allTables', () => {
     expect(allTables).toContain(playlistsTable);
     expect(allTables).toContain(albumsTable);
     expect(allTables).toContain(contactGroupsTable);
-    expect(allTables).toContain(emailFoldersTable);
     expect(allTables).toContain(tagsTable);
     expect(allTables).toContain(emailsTable);
     expect(allTables).toContain(vfsAclEntriesTable);

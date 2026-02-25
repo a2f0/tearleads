@@ -19,7 +19,6 @@ export type VfsObjectType =
   | 'playlist'
   | 'album'
   | 'contactGroup'
-  | 'emailFolder'
   | 'tag';
 
 /**

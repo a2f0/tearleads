@@ -18,7 +18,6 @@ const VALID_OBJECT_TYPES: VfsObjectType[] = [
   'playlist',
   'album',
   'contactGroup',
-  'emailFolder',
   'tag'
 ];
 

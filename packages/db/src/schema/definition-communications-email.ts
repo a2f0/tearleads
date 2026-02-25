@@ -1,59 +1,6 @@
 import type { TableDefinition } from './types.js';
 
 /**
- * Email folders - extends registry for emailFolder-type items.
- * Stores email folder metadata including sync state for IMAP.
- */
-export const emailFoldersTable: TableDefinition = {
-  name: 'email_folders',
-  propertyName: 'emailFolders',
-  comment:
-    'Email folders - extends registry for emailFolder-type items.\nStores email folder metadata including sync state for IMAP.',
-  columns: {
-    id: {
-      type: 'text',
-      sqlName: 'id',
-      primaryKey: true,
-      references: {
-        table: 'vfs_registry',
-        column: 'id',
-        onDelete: 'cascade'
-      }
-    },
-    encryptedName: {
-      type: 'text',
-      sqlName: 'encrypted_name'
-    },
-    folderType: {
-      type: 'text',
-      sqlName: 'folder_type',
-      enumValues: [
-        'inbox',
-        'sent',
-        'drafts',
-        'trash',
-        'spam',
-        'custom'
-      ] as const
-    },
-    unreadCount: {
-      type: 'integer',
-      sqlName: 'unread_count',
-      notNull: true,
-      defaultValue: 0
-    },
-    syncUidValidity: {
-      type: 'integer',
-      sqlName: 'sync_uid_validity'
-    },
-    syncLastUid: {
-      type: 'integer',
-      sqlName: 'sync_last_uid'
-    }
-  }
-};
-
-/**
  * Emails - extends registry for email-type items.
  * Stores encrypted email metadata.
  */
@@ -92,6 +39,12 @@ export const emailsTable: TableDefinition = {
     encryptedBodyPath: {
       type: 'text',
       sqlName: 'encrypted_body_path'
+    },
+    ciphertextSize: {
+      type: 'integer',
+      sqlName: 'ciphertext_size',
+      notNull: true,
+      defaultValue: 0
     },
     receivedAt: {
       type: 'timestamp',
@@ -239,7 +192,6 @@ const emailAttachmentsTable: TableDefinition = {
 };
 
 export const communicationsEmailTables: TableDefinition[] = [
-  emailFoldersTable,
   emailsTable,
   composedEmailsTable,
   emailAttachmentsTable
