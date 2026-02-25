@@ -1,4 +1,8 @@
-import { vfsTestMigrations, withRealDatabase } from '@tearleads/db-test-utils';
+import {
+  seedEmailFolder,
+  vfsTestMigrations,
+  withRealDatabase
+} from '@tearleads/db-test-utils';
 import { describe, expect, it } from 'vitest';
 import { fetchItemNames } from './vfsNameLookup';
 
@@ -33,6 +37,34 @@ describe('vfsNameLookup integration (real database)', () => {
         expect(names.get(canonicalFolderId)).toBe('Canonical Folder Name');
         expect(names.get(legacyOnlyFolderId)).toBe('Unnamed Folder');
         expect(names.get(unnamedFolderId)).toBe('Unnamed Folder');
+      },
+      { migrations: vfsTestMigrations }
+    );
+  });
+
+  it.fails('resolves email folder names from email_folders table', async () => {
+    await withRealDatabase(
+      async ({ db }) => {
+        const inboxId = await seedEmailFolder(db, {
+          name: 'Inbox',
+          folderType: 'inbox'
+        });
+        const sentId = await seedEmailFolder(db, {
+          name: 'Sent',
+          folderType: 'sent'
+        });
+        const spamId = await seedEmailFolder(db, {
+          name: 'Spam',
+          folderType: 'spam'
+        });
+
+        const names = await fetchItemNames(db, {
+          emailFolder: [inboxId, sentId, spamId]
+        });
+
+        expect(names.get(inboxId)).toBe('Inbox');
+        expect(names.get(sentId)).toBe('Sent');
+        expect(names.get(spamId)).toBe('Spam');
       },
       { migrations: vfsTestMigrations }
     );

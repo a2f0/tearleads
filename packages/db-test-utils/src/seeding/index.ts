@@ -35,9 +35,14 @@ export {
   createHarnessOrganization,
   seedVfsScenario
 } from './pgScenario.js';
-export type { SeedFolderOptions, SeedVfsItemOptions } from './vfs.js';
+export type {
+  SeedEmailFolderOptions,
+  SeedFolderOptions,
+  SeedVfsItemOptions
+} from './vfs.js';
 export {
   ensureVfsRoot,
+  seedEmailFolder,
   seedFolder,
   seedVfsItem,
   seedVfsLink,

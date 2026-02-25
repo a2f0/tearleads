@@ -1,7 +1,17 @@
-import { seedVfsItem, withRealDatabase } from '@tearleads/db-test-utils';
+import {
+  seedEmailFolder,
+  seedFolder,
+  seedVfsItem,
+  withRealDatabase
+} from '@tearleads/db-test-utils';
 import { describe, expect, it } from 'vitest';
 import { trashTestMigrations } from '../test/trashTestMigrations';
-import { queryAllItems, queryDeletedItems } from './vfsQuery';
+import {
+  queryAllItems,
+  queryDeletedItems,
+  queryFolderContents,
+  queryUnfiledItems
+} from './vfsQuery';
 import type { VfsSortState } from './vfsTypes';
 
 const DEFAULT_SORT: VfsSortState = { column: null, direction: null };
@@ -114,6 +124,78 @@ describe('vfsQuery integration (real database)', () => {
         expect(rows).toEqual([]);
         expect(firstId).toBeTypeOf('string');
         expect(secondId).toBeTypeOf('string');
+      },
+      { migrations: trashTestMigrations }
+    );
+  });
+
+  it.fails('queryAllItems resolves email folder names from email_folders table', async () => {
+    await withRealDatabase(
+      async ({ db }) => {
+        await seedEmailFolder(db, { name: 'Inbox', folderType: 'inbox' });
+        await seedEmailFolder(db, { name: 'Sent', folderType: 'sent' });
+        await seedEmailFolder(db, { name: 'Drafts', folderType: 'drafts' });
+
+        const allItems = await queryAllItems(db, DEFAULT_SORT);
+        const emailFolderItems = allItems.filter(
+          (row) => row.objectType === 'emailFolder'
+        );
+
+        expect(emailFolderItems).toHaveLength(3);
+
+        const names = emailFolderItems.map((row) => row.name).sort();
+        expect(names).toEqual(['Drafts', 'Inbox', 'Sent']);
+      },
+      { migrations: trashTestMigrations }
+    );
+  });
+
+  it.fails('queryUnfiledItems resolves email folder names (unfiled email folders)', async () => {
+    await withRealDatabase(
+      async ({ db }) => {
+        // Email folders without a parent link are unfiled
+        await seedEmailFolder(db, { name: 'Inbox', folderType: 'inbox' });
+        await seedEmailFolder(db, { name: 'Trash', folderType: 'trash' });
+
+        const unfiledItems = await queryUnfiledItems(db, DEFAULT_SORT);
+        const emailFolderItems = unfiledItems.filter(
+          (row) => row.objectType === 'emailFolder'
+        );
+
+        expect(emailFolderItems).toHaveLength(2);
+
+        const names = emailFolderItems.map((row) => row.name).sort();
+        expect(names).toEqual(['Inbox', 'Trash']);
+      },
+      { migrations: trashTestMigrations }
+    );
+  });
+
+  it.fails('queryFolderContents resolves email folder names inside a parent folder', async () => {
+    await withRealDatabase(
+      async ({ db }) => {
+        const parentId = await seedFolder(db, { name: 'Email Root' });
+
+        await seedEmailFolder(db, {
+          name: 'Inbox',
+          folderType: 'inbox',
+          parentId
+        });
+        await seedEmailFolder(db, {
+          name: 'Sent',
+          folderType: 'sent',
+          parentId
+        });
+
+        const contents = await queryFolderContents(db, parentId, DEFAULT_SORT);
+        const emailFolderItems = contents.filter(
+          (row) => row.objectType === 'emailFolder'
+        );
+
+        expect(emailFolderItems).toHaveLength(2);
+
+        const names = emailFolderItems.map((row) => row.name).sort();
+        expect(names).toEqual(['Inbox', 'Sent']);
       },
       { migrations: trashTestMigrations }
     );

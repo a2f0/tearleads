@@ -6,7 +6,7 @@
  */
 
 import type { Database } from '@tearleads/db/sqlite';
-import { vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
+import { emailFolders, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
 
 /**
  * The VFS root folder ID.
@@ -168,6 +168,81 @@ export async function seedVfsItem(
 
   // Create link to parent if requested
   if (createLink && parentId) {
+    await db.insert(vfsLinks).values({
+      id: crypto.randomUUID(),
+      parentId,
+      childId: id,
+      wrappedSessionKey: 'test-wrapped-key',
+      createdAt: now
+    });
+  }
+
+  return id;
+}
+
+/**
+ * Options for seeding an email folder.
+ */
+export interface SeedEmailFolderOptions {
+  /** Override the generated ID */
+  id?: string;
+  /** Email folder name (stored in email_folders.encrypted_name) */
+  name: string;
+  /** Folder type */
+  folderType?: 'inbox' | 'sent' | 'drafts' | 'trash' | 'spam' | 'custom';
+  /** Parent folder ID for link creation */
+  parentId?: string;
+}
+
+/**
+ * Seeds an email folder in the database.
+ *
+ * Creates entries in vfsRegistry (objectType: 'emailFolder'),
+ * email_folders, and optionally vfsLinks.
+ * Mirrors the creation flow in ClientEmailProvider.createFolder().
+ *
+ * @returns The email folder ID
+ *
+ * @example
+ * ```ts
+ * const folderId = await seedEmailFolder(db, { name: 'Inbox', folderType: 'inbox' });
+ * ```
+ */
+export async function seedEmailFolder(
+  db: Database,
+  options: SeedEmailFolderOptions
+): Promise<string> {
+  const {
+    id = crypto.randomUUID(),
+    name,
+    folderType = 'custom',
+    parentId
+  } = options;
+
+  const now = new Date();
+
+  if (parentId) {
+    await ensureVfsRoot(db);
+  }
+
+  // Create VFS registry entry (no encryptedName - matches real creation flow)
+  await db.insert(vfsRegistry).values({
+    id,
+    objectType: 'emailFolder',
+    ownerId: null,
+    createdAt: now
+  });
+
+  // Create email_folders entry with the name
+  await db.insert(emailFolders).values({
+    id,
+    encryptedName: name,
+    folderType,
+    unreadCount: 0
+  });
+
+  // Create link to parent if provided
+  if (parentId) {
     await db.insert(vfsLinks).values({
       id: crypto.randomUUID(),
       parentId,
