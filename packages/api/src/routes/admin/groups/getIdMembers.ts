@@ -1,6 +1,6 @@
 import type { GroupMembersResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
-import { getPostgresPool } from '../../../lib/postgres.js';
+import { getPool } from '../../../lib/postgres.js';
 import { ensureOrganizationAccess } from '../../../middleware/adminAccess.js';
 import {
   type GroupMemberRow,
@@ -52,7 +52,7 @@ const getIdMembersHandler = async (
 ) => {
   try {
     const { id } = req.params;
-    const pool = await getPostgresPool();
+    const pool = await getPool('read');
 
     const organizationId = await getGroupOrganizationId(pool, id);
     if (!organizationId) {

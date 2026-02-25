@@ -11,7 +11,8 @@ const mockPoolConnect: Mock = vi.fn().mockImplementation(() =>
 );
 
 vi.mock('../../lib/postgres.js', () => ({
-  getPostgresPool: () => mockGetPostgresPool()
+  getPostgresPool: () => mockGetPostgresPool(),
+  getPool: () => mockGetPostgresPool()
 }));
 
 const sessionStore = new Map<string, string>();

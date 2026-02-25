@@ -8,10 +8,10 @@ import {
   Router,
   type Router as RouterType
 } from 'express';
-import { getPostgresPool } from '../../lib/postgres.js';
+import { getPool } from '../../lib/postgres.js';
 
 async function loadOrganizationsForRoot(): Promise<AdminScopeOrganization[]> {
-  const pool = await getPostgresPool();
+  const pool = await getPool('read');
   const result = await pool.query<{ id: string; name: string }>(
     `SELECT id, name
        FROM organizations
@@ -23,7 +23,7 @@ async function loadOrganizationsForRoot(): Promise<AdminScopeOrganization[]> {
 async function loadOrganizationsForOrgAdmin(
   userId: string
 ): Promise<AdminScopeOrganization[]> {
-  const pool = await getPostgresPool();
+  const pool = await getPool('read');
   const result = await pool.query<{ id: string; name: string }>(
     `SELECT o.id, o.name
        FROM user_organizations uo

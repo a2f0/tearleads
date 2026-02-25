@@ -4,7 +4,7 @@ import type {
   MlsMessageType
 } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
-import { getPostgresPool } from '../../lib/postgres.js';
+import { getPool } from '../../lib/postgres.js';
 import { getActiveMlsGroupMembership } from './shared.js';
 
 /**
@@ -72,7 +72,7 @@ const getGroupsGroupidMessagesHandler = async (req: Request, res: Response) => {
   }
 
   try {
-    const pool = await getPostgresPool();
+    const pool = await getPool('read');
 
     const membership = await getActiveMlsGroupMembership(groupId, claims.sub);
     if (!membership) {

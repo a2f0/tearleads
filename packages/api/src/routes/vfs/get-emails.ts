@@ -1,5 +1,5 @@
 import type { Request, Response, Router as RouterType } from 'express';
-import { getPostgresPool } from '../../lib/postgres.js';
+import { getPool } from '../../lib/postgres.js';
 
 interface EmailListItem {
   id: string;
@@ -54,7 +54,7 @@ const getEmailsHandler = async (req: Request, res: Response) => {
       Math.max(1, parseInt(req.query['limit'] as string, 10) || 50)
     );
 
-    const pool = await getPostgresPool();
+    const pool = await getPool('read');
     const totalResult = await pool.query<{ total: string }>(
       `SELECT COUNT(*)::text AS total
          FROM emails e

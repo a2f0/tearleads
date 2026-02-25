@@ -54,6 +54,11 @@ vi.mock('../../lib/postgres.js', () => ({
     Promise.resolve({
       query: mockQuery
     })
+  ),
+  getPool: vi.fn(() =>
+    Promise.resolve({
+      query: mockQuery
+    })
   )
 }));
 

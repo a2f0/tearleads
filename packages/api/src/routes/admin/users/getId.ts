@@ -1,6 +1,6 @@
 import type { AdminUserResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
-import { getPostgresPool } from '../../../lib/postgres.js';
+import { getPool } from '../../../lib/postgres.js';
 import { getLatestLastActiveByUserIds } from '../../../lib/sessions.js';
 import {
   ensureOrganizationAccess,
@@ -65,7 +65,7 @@ const getIdHandler = async (req: Request, res: Response) => {
       return;
     }
 
-    const pool = await getPostgresPool();
+    const pool = await getPool('read');
     const result =
       access.isRootAdmin && !requestedOrganizationId
         ? await pool.query<UserRow>(

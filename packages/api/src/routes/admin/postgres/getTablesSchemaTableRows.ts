@@ -1,6 +1,6 @@
 import type { PostgresRowsResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
-import { getPostgresPool } from '../../../lib/postgres.js';
+import { getPool } from '../../../lib/postgres.js';
 
 /**
  * @openapi
@@ -74,7 +74,7 @@ const getTablesSchemaTableRowsHandler = async (req: Request, res: Response) => {
     | undefined;
 
   try {
-    const pool = await getPostgresPool();
+    const pool = await getPool('read');
 
     const columnsResult = await pool.query<{
       column_name: string;

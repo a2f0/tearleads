@@ -1,6 +1,6 @@
 import type { AiUsageSummaryResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
-import { getPostgresPool } from '../../lib/postgres.js';
+import { getPool } from '../../lib/postgres.js';
 
 /**
  * @openapi
@@ -36,7 +36,7 @@ const getUsageSummaryHandler = async (req: Request, res: Response) => {
   }
 
   try {
-    const pool = await getPostgresPool();
+    const pool = await getPool('read');
     const startDate =
       typeof req.query['startDate'] === 'string'
         ? req.query['startDate']
