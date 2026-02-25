@@ -20,7 +20,7 @@ import { registerPostBlobsStageStagingIdChunksRoute } from './post-blobs-stage-s
 import { registerPostBlobsStageStagingIdCommitRoute } from './post-blobs-stage-stagingId-commit.js';
 import { registerPostCrdtPushRoute } from './post-crdt-push.js';
 import { registerPostCrdtReconcileRoute } from './post-crdt-reconcile.js';
-import { registerPostEmailsSendRoute } from './post-emails-send.js';
+import { registerPostEmailsSendRoute } from './postEmailsSend.js';
 import { registerPostItemsItemIdRekeyRoute } from './post-items-itemId-rekey.js';
 import { registerPostSyncReconcileRoute } from './post-sync-reconcile.js';
 import { registerPostKeysRoute } from './postKeys.js';
