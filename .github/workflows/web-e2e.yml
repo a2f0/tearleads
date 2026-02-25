@@ -21,8 +21,11 @@ jobs:
         with:
           node-version-file: '.nvmrc'
 
-      - name: Install tsx
-        run: echo "Using node --experimental-strip-types for CI impact scripts"
+      - name: Setup pnpm
+        uses: pnpm/action-setup
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Analyze CI impact
         id: impact
@@ -41,7 +44,7 @@ jobs:
             fi
           fi
 
-          node --experimental-strip-types scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
+          pnpm exec tsx scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
           SHOULD_RUN="$(jq -r '.jobs["web-e2e"].run' ci-impact.json)"
           echo "should-run=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
           echo "impact-json<<JSON" >> "$GITHUB_OUTPUT"

@@ -24,8 +24,11 @@ jobs:
         with:
           node-version-file: '.nvmrc'
 
-      - name: Install tsx
-        run: echo "Using node --experimental-strip-types for CI impact scripts"
+      - name: Setup pnpm
+        uses: pnpm/action-setup
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Decide deploy impact
         id: decide
@@ -38,7 +41,7 @@ jobs:
           else
             BASE_SHA="$HEAD_SHA"
           fi
-          node --experimental-strip-types scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
+          pnpm exec tsx scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
           SHOULD_DEPLOY=$(jq -r '(.jobs["android"].run or .jobs["android-maestro-release"].run)' ci-impact.json)
 
           LATEST_MAIN_SHA="$HEAD_SHA"
