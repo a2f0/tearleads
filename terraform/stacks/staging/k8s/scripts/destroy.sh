@@ -25,3 +25,10 @@ if gh secret delete STAGING_KUBECONFIG_B64 -R "$REPO" 2>/dev/null; then
 else
   echo "STAGING_KUBECONFIG_B64 secret was not set (nothing to remove)."
 fi
+
+echo "Removing STAGING_K8S_SSH_HOST from GitHub Actions variables..."
+if gh variable delete STAGING_K8S_SSH_HOST -R "$REPO" 2>/dev/null; then
+  echo "STAGING_K8S_SSH_HOST variable removed."
+else
+  echo "STAGING_K8S_SSH_HOST variable was not set (nothing to remove)."
+fi

@@ -33,6 +33,12 @@ variable "create_prod_vault_auth_key" {
   default     = true
 }
 
+variable "create_staging_k8s_auth_key" {
+  description = "Whether to create a reusable tagged auth key for staging k8s"
+  type        = bool
+  default     = true
+}
+
 variable "auth_key_expiry_seconds" {
   description = "Auth key expiry in seconds (default 90 days)"
   type        = number

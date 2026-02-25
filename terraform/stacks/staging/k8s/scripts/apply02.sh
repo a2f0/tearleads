@@ -100,6 +100,11 @@ if ! base64 < "$KUBECONFIG_FILE" | gh secret set STAGING_KUBECONFIG_B64 -R "$REP
 fi
 echo "STAGING_KUBECONFIG_B64 secret updated."
 
+echo "Syncing k8s SSH hostname to GitHub Actions variable..."
+K8S_SSH_HOST=$(terraform -chdir="$STACK_DIR" output -raw ssh_hostname)
+gh variable set STAGING_K8S_SSH_HOST -R "$REPO" --body "$K8S_SSH_HOST"
+echo "STAGING_K8S_SSH_HOST variable updated."
+
 echo "Waiting for Kubernetes node readiness (timeout: $K8S_READY_TIMEOUT)..."
 kubectl wait --for=condition=Ready nodes --all --timeout="$K8S_READY_TIMEOUT"
 
@@ -110,7 +115,12 @@ if ! command -v ansible-playbook >/dev/null 2>&1; then
 fi
 
 echo "Running Ansible baseline bootstrap..."
-"$REPO_ROOT/ansible/scripts/run-k8s.sh"
+TS_AUTH_KEY=$(terraform -chdir="$STACK_DIR" output -raw tailscale_auth_key 2>/dev/null || true)
+if [[ -n "$TS_AUTH_KEY" && "$TS_AUTH_KEY" != "null" ]]; then
+  "$REPO_ROOT/ansible/scripts/run-k8s.sh" --extra-vars "tailscale_auth_key=$TS_AUTH_KEY"
+else
+  "$REPO_ROOT/ansible/scripts/run-k8s.sh"
+fi
 
 check_ecr_repositories
 

@@ -14,3 +14,9 @@ output "prod_vault_auth_key" {
   value       = try(tailscale_tailnet_key.prod_vault[0].key, null)
   sensitive   = true
 }
+
+output "staging_k8s_auth_key" {
+  description = "Reusable auth key for staging k8s bootstrap (tag:staging-k8s)"
+  value       = try(tailscale_tailnet_key.staging_k8s[0].key, null)
+  sensitive   = true
+}

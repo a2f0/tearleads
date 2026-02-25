@@ -20,7 +20,9 @@ const requiredEnvVars = [
   'ANDROID_KEYSTORE_STORE_PASS',
   'ANDROID_KEYSTORE_KEY_PASS',
   'ANTHROPIC_API_KEY',
-  'TF_VAR_server_username'
+  'TF_VAR_server_username',
+  'TAILSCALE_OAUTH_CLIENT_ID',
+  'TAILSCALE_OAUTH_CLIENT_SECRET'
 ] as const;
 
 const managedSecretNames = [
@@ -42,7 +44,9 @@ const managedSecretNames = [
   'DEPLOY_SSH_KEY',
   'DEPLOY_DOMAIN_PROD',
   'DEPLOY_DOMAIN_STAGING',
-  'DEPLOY_USER'
+  'DEPLOY_USER',
+  'TAILSCALE_OAUTH_CLIENT_ID',
+  'TAILSCALE_OAUTH_CLIENT_SECRET'
 ] as const;
 
 const optionalGithubVars = [
@@ -274,7 +278,15 @@ function main(): void {
     { name: 'DEPLOY_SSH_KEY', value: deploySshKey },
     { name: 'DEPLOY_DOMAIN_PROD', value: prodDomain },
     { name: 'DEPLOY_DOMAIN_STAGING', value: stagingDomain },
-    { name: 'DEPLOY_USER', value: env.TF_VAR_server_username }
+    { name: 'DEPLOY_USER', value: env.TF_VAR_server_username },
+    {
+      name: 'TAILSCALE_OAUTH_CLIENT_ID',
+      value: env.TAILSCALE_OAUTH_CLIENT_ID
+    },
+    {
+      name: 'TAILSCALE_OAUTH_CLIENT_SECRET',
+      value: env.TAILSCALE_OAUTH_CLIENT_SECRET
+    }
   ];
 
   for (const secret of secrets) {

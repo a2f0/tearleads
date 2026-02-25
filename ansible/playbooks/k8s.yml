@@ -27,6 +27,53 @@
     - name: Apply shared Linux security baseline
       ansible.builtin.import_tasks: tasks/linuxSecurityBaseline.yml
 
+    - name: Install Tailscale
+      ansible.builtin.shell:
+        cmd: curl -fsSL https://tailscale.com/install.sh | sh
+        creates: /usr/bin/tailscale
+      when: tailscale_auth_key is defined and tailscale_auth_key | length > 0
+
+    - name: Check Tailscale status
+      ansible.builtin.command:
+        cmd: tailscale status
+      register: tailscale_status
+      failed_when: false
+      changed_when: false
+      when: tailscale_auth_key is defined and tailscale_auth_key | length > 0
+
+    - name: Connect to Tailscale
+      ansible.builtin.command:
+        cmd: tailscale up --authkey={{ tailscale_auth_key }} --hostname=staging-k8s
+      when:
+        - tailscale_auth_key is defined and tailscale_auth_key | length > 0
+        - tailscale_status.rc != 0
+
+    - name: Verify Tailscale is running
+      ansible.builtin.command:
+        cmd: tailscale status
+      changed_when: false
+      when: tailscale_auth_key is defined and tailscale_auth_key | length > 0
+
+    - name: Ensure k3s TLS SAN includes Tailscale hostname
+      ansible.builtin.copy:
+        dest: /etc/rancher/k3s/config.yaml
+        content: |
+          tls-san:
+            - "staging-k8s"
+        owner: root
+        group: root
+        mode: "0644"
+      register: k3s_config
+      when: tailscale_auth_key is defined and tailscale_auth_key | length > 0
+
+    - name: Restart k3s to pick up TLS SAN change
+      ansible.builtin.systemd:
+        name: k3s
+        state: restarted
+      when:
+        - tailscale_auth_key is defined and tailscale_auth_key | length > 0
+        - k3s_config is changed
+
     - name: Wait for k3s to be ready
       ansible.builtin.command:
         cmd: k3s kubectl get nodes
