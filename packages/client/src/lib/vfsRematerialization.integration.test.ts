@@ -217,4 +217,131 @@ describe('vfsRematerialization integration', () => {
       .where(eq(vfsRegistry.id, 'existing-item'));
     expect(row).toHaveLength(1);
   });
+
+  it('supports paginated feeds and apply/remove convergence', async () => {
+    mockGetSync
+      .mockResolvedValueOnce({
+        items: [
+          {
+            changeId: 'sync-1',
+            itemId: 'root-item',
+            changeType: 'upsert',
+            changedAt: '2026-01-02T00:00:01.000Z',
+            objectType: 'folder',
+            ownerId: 'user-2',
+            createdAt: '2026-01-02T00:00:00.000Z',
+            accessLevel: 'admin'
+          }
+        ],
+        nextCursor: 'sync-cursor-1',
+        hasMore: true
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            changeId: 'sync-2',
+            itemId: 'removed-item',
+            changeType: 'delete',
+            changedAt: '2026-01-02T00:00:02.000Z',
+            objectType: null,
+            ownerId: null,
+            createdAt: null,
+            accessLevel: 'read'
+          }
+        ],
+        nextCursor: null,
+        hasMore: false
+      });
+
+    mockGetCrdtSync
+      .mockResolvedValueOnce({
+        items: [
+          {
+            opId: 'crdt-1',
+            itemId: 'root-item',
+            opType: 'item_upsert',
+            principalType: null,
+            principalId: null,
+            accessLevel: null,
+            parentId: null,
+            childId: null,
+            actorId: 'user-2',
+            sourceTable: 'vfs_crdt_client_push',
+            sourceId: 'source-11',
+            occurredAt: '2026-01-02T00:00:01.100Z',
+            encryptedPayload: 'enc-root-2',
+            keyEpoch: 3
+          },
+          {
+            opId: 'crdt-2',
+            itemId: 'root-item',
+            opType: 'acl_add',
+            principalType: 'user',
+            principalId: 'user-2',
+            accessLevel: 'admin',
+            parentId: null,
+            childId: null,
+            actorId: 'user-2',
+            sourceTable: 'vfs_crdt_client_push',
+            sourceId: 'source-12',
+            occurredAt: '2026-01-02T00:00:01.200Z'
+          }
+        ],
+        nextCursor: 'crdt-cursor-1',
+        hasMore: true,
+        lastReconciledWriteIds: { 'user-2:client': 2 }
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            opId: 'crdt-3',
+            itemId: 'root-item',
+            opType: 'item_delete',
+            principalType: null,
+            principalId: null,
+            accessLevel: null,
+            parentId: null,
+            childId: null,
+            actorId: 'user-2',
+            sourceTable: 'vfs_crdt_client_push',
+            sourceId: 'source-13',
+            occurredAt: '2026-01-02T00:00:01.300Z'
+          },
+          {
+            opId: 'crdt-4',
+            itemId: 'root-item',
+            opType: 'acl_remove',
+            principalType: 'user',
+            principalId: 'user-2',
+            accessLevel: null,
+            parentId: null,
+            childId: null,
+            actorId: 'user-2',
+            sourceTable: 'vfs_crdt_client_push',
+            sourceId: 'source-14',
+            occurredAt: '2026-01-02T00:00:01.400Z'
+          }
+        ],
+        nextCursor: null,
+        hasMore: false,
+        lastReconciledWriteIds: { 'user-2:client': 4 }
+      });
+
+    await expect(rematerializeRemoteVfsStateIfNeeded()).resolves.toBe(true);
+
+    expect(mockGetSync).toHaveBeenNthCalledWith(1, undefined, 500);
+    expect(mockGetSync).toHaveBeenNthCalledWith(2, 'sync-cursor-1', 500);
+    expect(mockGetCrdtSync).toHaveBeenNthCalledWith(1, undefined, 500);
+    expect(mockGetCrdtSync).toHaveBeenNthCalledWith(2, 'crdt-cursor-1', 500);
+
+    const db = getDatabase();
+    const registryRows = await db.select().from(vfsRegistry);
+    expect(registryRows).toEqual([
+      expect.objectContaining({
+        id: 'root-item',
+        objectType: 'folder',
+        ownerId: 'user-2'
+      })
+    ]);
+  });
 });
