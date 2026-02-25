@@ -117,7 +117,11 @@ fi
 echo "Running Ansible baseline bootstrap..."
 TS_AUTH_KEY=$(terraform -chdir="$STACK_DIR" output -raw tailscale_auth_key 2>/dev/null || true)
 if [[ -n "$TS_AUTH_KEY" && "$TS_AUTH_KEY" != "null" ]]; then
-  "$REPO_ROOT/ansible/scripts/run-k8s.sh" --extra-vars "tailscale_auth_key=$TS_AUTH_KEY"
+  TS_VARS_FILE=$(mktemp)
+  chmod 600 "$TS_VARS_FILE"
+  printf 'tailscale_auth_key: "%s"\n' "$TS_AUTH_KEY" > "$TS_VARS_FILE"
+  "$REPO_ROOT/ansible/scripts/run-k8s.sh" --extra-vars "@$TS_VARS_FILE"
+  rm -f "$TS_VARS_FILE"
 else
   "$REPO_ROOT/ansible/scripts/run-k8s.sh"
 fi

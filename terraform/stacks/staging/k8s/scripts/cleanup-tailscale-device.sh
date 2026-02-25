@@ -5,7 +5,7 @@
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <hostname-prefix>" >&2
+  echo "Usage: $0 <hostname>" >&2
   exit 1
 fi
 
