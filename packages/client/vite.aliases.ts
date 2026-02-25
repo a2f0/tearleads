@@ -99,6 +99,14 @@ export const createViteAliases = (
       dirname,
       '../local-write-orchestrator/src/index.ts'
     ),
+    '@tearleads/remote-read-orchestrator/package.json': path.resolve(
+      dirname,
+      '../remote-read-orchestrator/package.json'
+    ),
+    '@tearleads/remote-read-orchestrator': path.resolve(
+      dirname,
+      '../remote-read-orchestrator/src/index.ts'
+    ),
     '@tearleads/keychain/package.json': path.resolve(
       dirname,
       '../keychain/package.json'
