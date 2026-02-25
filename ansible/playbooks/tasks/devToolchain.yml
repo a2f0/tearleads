@@ -14,18 +14,36 @@
     toolchain_is_darwin: "{{ (ansible_facts.system | default('')) == 'Darwin' }}"
     toolchain_target_user: "{{ lookup('env', 'SUDO_USER') | default(ansible_user, true) }}"
 
-- name: Resolve toolchain user account details
-  ansible.builtin.getent:
-    database: passwd
-    key: "{{ toolchain_target_user }}"
-  register: toolchain_user_account_details
+- name: Resolve toolchain user home on Linux
+  ansible.builtin.command:
+    cmd: "getent passwd {{ toolchain_target_user }}"
+  register: toolchain_linux_passwd_entry
+  changed_when: false
+  become: false
+  when: toolchain_is_linux
+
+- name: Resolve toolchain user home on macOS
+  ansible.builtin.command:
+    cmd: "dscl . -read /Users/{{ toolchain_target_user }} NFSHomeDirectory"
+  register: toolchain_darwin_home_entry
+  changed_when: false
+  become: false
+  when: toolchain_is_darwin
+
+- name: Resolve toolchain user primary group
+  ansible.builtin.command:
+    cmd: "id -gn {{ toolchain_target_user }}"
+  register: toolchain_user_group_entry
   changed_when: false
   become: false
 
 - name: Set toolchain user home/group facts
   ansible.builtin.set_fact:
-    toolchain_user_home: "{{ toolchain_user_account_details.ansible_facts.getent_passwd[toolchain_target_user][4] }}"
-    toolchain_user_group: "{{ toolchain_user_account_details.ansible_facts.getent_passwd[toolchain_target_user][2] }}"
+    toolchain_user_home: >-
+      {{ toolchain_linux_passwd_entry.stdout.strip().split(':')[5]
+         if toolchain_is_linux
+         else (toolchain_darwin_home_entry.stdout.split(':', 1)[1] | trim) }}
+    toolchain_user_group: "{{ toolchain_user_group_entry.stdout | trim }}"
 
 - name: Update apt cache and upgrade all packages
   ansible.builtin.apt:
@@ -76,7 +94,7 @@
     name: postgresql
     enabled: true
     state: started
-  when: ansible_service_mgr == 'systemd'
+  when: (ansible_facts.service_mgr | default('')) == 'systemd'
 
 # On Debian/Ubuntu, fd-find installs the binary as 'fdfind'.
 # Neovim Telescope and other tools expect the command to be 'fd'.
@@ -416,17 +434,40 @@
   when: not claude_code_stat.stat.exists
   changed_when: true
 
-- name: Install OpenAI Codex CLI
-  community.general.npm:
-    name: "@openai/codex"
-    global: true
-    state: present
+- name: Install AI CLIs if missing
+  when: toolchain_is_linux or toolchain_is_darwin
+  block:
+    - name: Check if OpenAI Codex CLI is installed
+      ansible.builtin.command:
+        cmd: codex --version
+      register: codex_cli_check
+      changed_when: false
+      failed_when: false
+      become: false
 
-- name: Install Google Gemini CLI
-  community.general.npm:
-    name: "@google/gemini-cli"
-    global: true
-    state: present
+    - name: Install OpenAI Codex CLI
+      community.general.npm:
+        name: "@openai/codex"
+        global: true
+        state: present
+      become: false
+      when: codex_cli_check.rc != 0
+
+    - name: Check if Google Gemini CLI is installed
+      ansible.builtin.command:
+        cmd: gemini --version
+      register: gemini_cli_check
+      changed_when: false
+      failed_when: false
+      become: false
+
+    - name: Install Google Gemini CLI
+      community.general.npm:
+        name: "@google/gemini-cli"
+        global: true
+        state: present
+      become: false
+      when: gemini_cli_check.rc != 0
 
 # Ghostty terminal emulator
 - name: Check if Ghostty is installed

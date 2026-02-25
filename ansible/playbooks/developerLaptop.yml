@@ -2,7 +2,6 @@
 - name: Install developer tools on local machine
   hosts: localhost
   connection: local
-  become: true
 
   vars:
     # Use the same Python that runs ansible-playbook (avoids pyenv discovery warning)
@@ -17,6 +16,8 @@
   tasks:
     - name: Install shared developer toolchain
       ansible.builtin.import_tasks: tasks/devToolchain.yml
+      become: true
 
     - name: Configure laptop CLI shell environment
       ansible.builtin.import_tasks: tasks/laptopCliEnvironment.yml
+      become: false
