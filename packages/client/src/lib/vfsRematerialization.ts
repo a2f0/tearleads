@@ -287,6 +287,7 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
     id: `link:${entry.parentId}:${entry.childId}`,
     parentId: entry.parentId,
     childId: entry.childId,
+    // Sync feeds do not currently include wrapped link keys, and this column is non-null.
     wrappedSessionKey: '',
     wrappedHierarchicalKey: null,
     visibleChildren: null,

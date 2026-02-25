@@ -54,6 +54,8 @@ export type AnalyticsEventSlug =
   | 'api_delete_auth_session'
   // VFS operations
   | 'api_get_vfs_keys'
+  | 'api_get_vfs_sync'
+  | 'api_get_vfs_crdt_sync'
   | 'api_post_vfs_keys'
   | 'api_post_vfs_register'
   | 'api_get_vfs_shares'
@@ -131,6 +133,8 @@ const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
   api_delete_auth_session: 'API Delete Session',
   // VFS
   api_get_vfs_keys: 'API Get VFS Keys',
+  api_get_vfs_sync: 'API Get VFS Sync Feed',
+  api_get_vfs_crdt_sync: 'API Get VFS CRDT Sync Feed',
   api_post_vfs_keys: 'API Setup VFS Keys',
   api_post_vfs_register: 'API Register VFS Item',
   api_get_vfs_shares: 'API Get VFS Shares',
@@ -319,6 +323,12 @@ export interface ApiDeleteAuthSessionDetail {
 export interface ApiGetVfsKeysDetail {
   hasKeys?: boolean;
 }
+export interface ApiGetVfsSyncDetail {
+  pageSize?: number;
+}
+export interface ApiGetVfsCrdtSyncDetail {
+  pageSize?: number;
+}
 export interface ApiPostVfsKeysDetail {
   created?: boolean;
 }
@@ -449,6 +459,8 @@ export interface EventDetailMap {
   api_get_auth_sessions: ApiGetAuthSessionsDetail;
   api_delete_auth_session: ApiDeleteAuthSessionDetail;
   api_get_vfs_keys: ApiGetVfsKeysDetail;
+  api_get_vfs_sync: ApiGetVfsSyncDetail;
+  api_get_vfs_crdt_sync: ApiGetVfsCrdtSyncDetail;
   api_post_vfs_keys: ApiPostVfsKeysDetail;
   api_post_vfs_register: ApiPostVfsRegisterDetail;
   api_get_vfs_shares: ApiGetVfsSharesDetail;

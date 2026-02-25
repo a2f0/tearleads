@@ -35,7 +35,7 @@ export const vfsRoutes = {
       params.set('cursor', cursor);
     }
     return request<VfsSyncResponse>(`/vfs/vfs-sync?${params.toString()}`, {
-      eventName: 'api_get_vfs_keys'
+      eventName: 'api_get_vfs_sync'
     });
   },
   getCrdtSync: (cursor?: string, limit = 500) => {
@@ -47,7 +47,7 @@ export const vfsRoutes = {
     return request<VfsCrdtSyncResponse>(
       `/vfs/crdt/vfs-sync?${params.toString()}`,
       {
-        eventName: 'api_get_vfs_keys'
+        eventName: 'api_get_vfs_crdt_sync'
       }
     );
   },
