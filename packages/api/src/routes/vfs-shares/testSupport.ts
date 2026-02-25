@@ -4,7 +4,8 @@ export const mockQuery: Mock = vi.fn();
 const mockGetPostgresPool: Mock = vi.fn();
 
 vi.mock('../../lib/postgres.js', () => ({
-  getPostgresPool: () => mockGetPostgresPool()
+  getPostgresPool: () => mockGetPostgresPool(),
+  getPool: () => mockGetPostgresPool()
 }));
 
 const sessionStore = new Map<string, string>();

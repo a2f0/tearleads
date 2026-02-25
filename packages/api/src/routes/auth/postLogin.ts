@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Request, Response, Router as RouterType } from 'express';
 import { createJwt } from '../../lib/jwt.js';
 import { verifyPassword } from '../../lib/passwords.js';
-import { getPostgresPool } from '../../lib/postgres.js';
+import { getPool } from '../../lib/postgres.js';
 import { getClientIp } from '../../lib/requestUtils.js';
 import { createSession, storeRefreshToken } from '../../lib/sessions.js';
 import {
@@ -68,7 +68,7 @@ const postLoginHandler = async (req: Request, res: Response): Promise<void> => {
   }
 
   try {
-    const pool = await getPostgresPool();
+    const pool = await getPool('read');
     const userResult = await pool.query<{
       id: string;
       email: string;

@@ -3,7 +3,7 @@ import type {
   PostgresColumnsResponse
 } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
-import { getPostgresPool } from '../../../lib/postgres.js';
+import { getPool } from '../../../lib/postgres.js';
 
 /**
  * @openapi
@@ -39,7 +39,7 @@ const getTablesSchemaTableColumnsHandler = async (
   const { schema, table } = req.params;
 
   try {
-    const pool = await getPostgresPool();
+    const pool = await getPool('read');
 
     const tableCheck = await pool.query<{ exists: boolean }>(
       `SELECT EXISTS (

@@ -8,7 +8,8 @@ const mockGetPostgresPool = vi.fn();
 const mockDeleteAllSessionsForUser = vi.fn();
 
 vi.mock('../../lib/postgres.js', () => ({
-  getPostgresPool: () => mockGetPostgresPool()
+  getPostgresPool: () => mockGetPostgresPool(),
+  getPool: () => mockGetPostgresPool()
 }));
 
 vi.mock('../../lib/sessions.js', async (importOriginal) => {

@@ -35,14 +35,18 @@ vi.mock('@tearleads/shared/redis', () => ({
   )
 }));
 
-vi.mock('../../lib/postgres.js', () => ({
-  getPostgresPool: vi.fn(() =>
+vi.mock('../../lib/postgres.js', () => {
+  const poolFactory = vi.fn(() =>
     Promise.resolve({
       query: mocks.postgresQuery,
       connect: mocks.postgresConnect
     })
-  )
-}));
+  );
+  return {
+    getPostgresPool: poolFactory,
+    getPool: poolFactory
+  };
+});
 
 vi.mock('../../lib/vfsBlobStore.js', () => ({
   deleteVfsBlobByStorageKey: mocks.deleteVfsBlobByStorageKey

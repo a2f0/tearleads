@@ -1,9 +1,6 @@
 import type { PostgresAdminInfoResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
-import {
-  getPostgresConnectionInfo,
-  getPostgresPool
-} from '../../../lib/postgres.js';
+import { getPool, getPostgresConnectionInfo } from '../../../lib/postgres.js';
 
 /**
  * @openapi
@@ -36,7 +33,7 @@ import {
  */
 const getInfoHandler = async (_req: Request, res: Response) => {
   try {
-    const pool = await getPostgresPool();
+    const pool = await getPool('read');
     const versionResult = await pool.query<{ version: string }>(
       'SELECT version() AS version'
     );

@@ -1,6 +1,6 @@
 import type { AiConversationsListResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
-import { getPostgresPool } from '../../lib/postgres.js';
+import { getPool } from '../../lib/postgres.js';
 
 /**
  * @openapi
@@ -35,7 +35,7 @@ const getConversationsHandler = async (req: Request, res: Response) => {
   }
 
   try {
-    const pool = await getPostgresPool();
+    const pool = await getPool('read');
     const limit = Math.min(
       Math.max(1, parseInt(String(req.query['limit']), 10) || 50),
       100

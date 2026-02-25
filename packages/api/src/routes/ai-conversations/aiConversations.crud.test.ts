@@ -11,7 +11,8 @@ const mockPool = {
 };
 
 vi.mock('../../lib/postgres.js', () => ({
-  getPostgresPool: () => Promise.resolve(mockPool)
+  getPostgresPool: () => Promise.resolve(mockPool),
+  getPool: () => Promise.resolve(mockPool)
 }));
 
 let authHeader: string;

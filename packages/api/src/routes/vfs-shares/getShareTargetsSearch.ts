@@ -4,7 +4,7 @@ import type {
   VfsShareType
 } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
-import { getPostgresPool } from '../../lib/postgres.js';
+import { getPool } from '../../lib/postgres.js';
 import { isValidShareType } from './shared.js';
 
 /**
@@ -68,7 +68,7 @@ const getShareTargetsSearchHandler = async (
     type && isValidShareType(type) ? type : null;
 
   try {
-    const pool = await getPostgresPool();
+    const pool = await getPool('read');
     const results: ShareTargetSearchResult[] = [];
 
     const userOrgResult = await pool.query<{ organization_id: string }>(

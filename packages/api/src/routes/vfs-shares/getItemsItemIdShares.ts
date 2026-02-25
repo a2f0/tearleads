@@ -8,7 +8,7 @@ import type {
 } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
-import { getPostgresPool } from '../../lib/postgres.js';
+import { getPool } from '../../lib/postgres.js';
 import {
   extractOrgShareIdFromAclId,
   extractShareIdFromAclId,
@@ -160,7 +160,7 @@ const getItemsItemidSharesHandler = async (
 
   try {
     const { itemId } = req.params;
-    const pool = await getPostgresPool();
+    const pool = await getPool('read');
 
     const itemResult = await pool.query<{ owner_id: string | null }>(
       'SELECT owner_id FROM vfs_registry WHERE id = $1',

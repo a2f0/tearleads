@@ -9,6 +9,7 @@ const mockCloseRedisClient = vi.fn();
 
 vi.mock('../lib/postgres.js', () => ({
   getPostgresPool: () => mockGetPostgresPool(),
+  getPool: () => mockGetPostgresPool(),
   getPostgresConnectionInfo: () => mockGetPostgresConnectionInfo(),
   closePostgresPool: () => mockClosePostgresPool()
 }));

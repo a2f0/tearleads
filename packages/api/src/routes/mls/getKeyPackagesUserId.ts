@@ -1,6 +1,6 @@
 import type { MlsKeyPackage, MlsKeyPackagesResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
-import { getPostgresPool } from '../../lib/postgres.js';
+import { getPool } from '../../lib/postgres.js';
 import { toSafeCipherSuite } from './shared.js';
 
 /**
@@ -38,7 +38,7 @@ const getKeyPackagesUseridHandler = async (req: Request, res: Response) => {
   const userId = userIdParam;
 
   try {
-    const pool = await getPostgresPool();
+    const pool = await getPool('read');
 
     const sharedOrganizationResult = await pool.query(
       `SELECT 1

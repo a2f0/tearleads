@@ -1,5 +1,5 @@
 import type { Request, Response, Router as RouterType } from 'express';
-import { getPostgresPool } from '../../lib/postgres.js';
+import { getPool } from '../../lib/postgres.js';
 
 /**
  * @openapi
@@ -31,7 +31,7 @@ const getEmailsIdHandler = async (
 
     const { id } = req.params;
 
-    const pool = await getPostgresPool();
+    const pool = await getPool('read');
     const result = await pool.query<{
       id: string;
       encrypted_from: string | null;

@@ -10,7 +10,8 @@ const mockGetPostgresPool = vi.fn();
 const mockGetLatestLastActiveByUserIds = vi.fn();
 
 vi.mock('../../lib/postgres.js', () => ({
-  getPostgresPool: () => mockGetPostgresPool()
+  getPostgresPool: () => mockGetPostgresPool(),
+  getPool: () => mockGetPostgresPool()
 }));
 
 vi.mock('../../lib/sessions.js', async (importOriginal) => {

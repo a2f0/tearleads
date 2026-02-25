@@ -8,9 +8,17 @@ import pg from 'pg';
 
 const { Pool } = pg;
 
+type QueryIntent = 'read' | 'write';
+
 let pool: PgPool | null = null;
 let poolConfigKey: string | null = null;
 let poolMutex: Promise<void> = Promise.resolve();
+
+let replicaPool: PgPool | null = null;
+let replicaPoolConfigKey: string | null = null;
+let replicaPoolMutex: Promise<void> = Promise.resolve();
+let replicaHealthy = true;
+let replicaHealthTimer: ReturnType<typeof setInterval> | null = null;
 
 const DATABASE_URL_KEYS = ['DATABASE_URL', 'POSTGRES_URL'];
 const HOST_KEYS = ['POSTGRES_HOST', 'PGHOST'];
@@ -125,11 +133,17 @@ function parseSslConfig(): PoolConfig['ssl'] | undefined {
 }
 
 function buildPoolConfig(): { config: PoolConfig; configKey: string } {
+  const poolSizing = {
+    max: 15,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 5_000
+  };
+
   if (!isDevMode()) {
     const config = requireReleaseConfig();
     const ssl = parseSslConfig();
     return {
-      config: { ...config, ...(ssl ? { ssl } : {}) },
+      config: { ...config, ...poolSizing, ...(ssl ? { ssl } : {}) },
       configKey: JSON.stringify({
         host: config.host,
         port: config.port,
@@ -143,7 +157,7 @@ function buildPoolConfig(): { config: PoolConfig; configKey: string } {
   const databaseUrl = getEnvValue(DATABASE_URL_KEYS);
   if (databaseUrl) {
     return {
-      config: { connectionString: databaseUrl },
+      config: { connectionString: databaseUrl, ...poolSizing },
       configKey: `url:${databaseUrl}`
     };
   }
@@ -160,7 +174,8 @@ function buildPoolConfig(): { config: PoolConfig; configKey: string } {
     ...(port ? { port } : {}),
     ...(user ? { user } : {}),
     ...(password ? { password } : {}),
-    ...(database ? { database } : {})
+    ...(database ? { database } : {}),
+    ...poolSizing
   };
 
   const configKey = JSON.stringify({
@@ -171,6 +186,111 @@ function buildPoolConfig(): { config: PoolConfig; configKey: string } {
   });
 
   return { config, configKey };
+}
+
+function buildReplicaPoolConfig(): {
+  config: PoolConfig;
+  configKey: string;
+} | null {
+  if (isDevMode()) return null;
+
+  const replicaHost = getEnvValue(['POSTGRES_REPLICA_HOST']);
+  if (!replicaHost) return null;
+
+  const primaryConfig = requireReleaseConfig();
+  const ssl = parseSslConfig();
+  const replicaSizing = {
+    max: 20,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 5_000
+  };
+
+  return {
+    config: {
+      host: replicaHost,
+      port: primaryConfig.port,
+      user: primaryConfig.user,
+      password: primaryConfig.password,
+      database: primaryConfig.database,
+      ...replicaSizing,
+      ...(ssl ? { ssl } : {})
+    },
+    configKey: JSON.stringify({
+      replica: true,
+      host: replicaHost,
+      port: primaryConfig.port,
+      user: primaryConfig.user,
+      database: primaryConfig.database,
+      ssl: !!ssl
+    })
+  };
+}
+
+function startReplicaHealthCheck(
+  replicaPoolInstance: PgPool,
+  intervalMs = 30_000
+): void {
+  if (replicaHealthTimer) {
+    clearInterval(replicaHealthTimer);
+  }
+  replicaHealthTimer = setInterval(async () => {
+    try {
+      const result = await replicaPoolInstance.query<{
+        pg_is_in_recovery: boolean;
+      }>('SELECT pg_is_in_recovery()');
+      replicaHealthy = result.rows[0]?.pg_is_in_recovery === true;
+    } catch {
+      replicaHealthy = false;
+    }
+  }, intervalMs);
+}
+
+async function getReplicaPool(): Promise<PgPool | null> {
+  const replicaConfig = buildReplicaPoolConfig();
+  if (!replicaConfig) return null;
+
+  const { config, configKey } = replicaConfig;
+
+  if (replicaPool && replicaPoolConfigKey === configKey) {
+    return replicaPool;
+  }
+
+  let resolve: () => void = () => {};
+  const prevMutex = replicaPoolMutex;
+  replicaPoolMutex = new Promise<void>((r) => {
+    resolve = r;
+  });
+
+  try {
+    await prevMutex;
+
+    if (replicaPool && replicaPoolConfigKey === configKey) {
+      return replicaPool;
+    }
+
+    if (
+      replicaPool &&
+      replicaPoolConfigKey &&
+      replicaPoolConfigKey !== configKey
+    ) {
+      if (replicaHealthTimer) {
+        clearInterval(replicaHealthTimer);
+        replicaHealthTimer = null;
+      }
+      const poolToClose = replicaPool;
+      replicaPool = null;
+      replicaPoolConfigKey = null;
+      await poolToClose.end();
+    }
+
+    replicaPoolConfigKey = configKey;
+    replicaPool = new Pool(config);
+    replicaHealthy = true;
+    startReplicaHealthCheck(replicaPool);
+    return replicaPool;
+  } finally {
+    resolve();
+  }
 }
 
 export function getPostgresConnectionInfo(): PostgresConnectionInfo {
@@ -212,7 +332,43 @@ export async function getPostgresPool(): Promise<PgPool> {
   }
 }
 
+export async function getPool(intent: QueryIntent): Promise<PgPool> {
+  if (intent === 'write') {
+    return getPostgresPool();
+  }
+
+  if (replicaHealthy) {
+    const replica = await getReplicaPool();
+    if (replica) return replica;
+  }
+
+  return getPostgresPool();
+}
+
 export async function closePostgresPool(): Promise<void> {
+  let replicaResolve: () => void = () => {};
+  const prevReplicaMutex = replicaPoolMutex;
+  replicaPoolMutex = new Promise<void>((r) => {
+    replicaResolve = r;
+  });
+
+  try {
+    await prevReplicaMutex;
+    if (replicaHealthTimer) {
+      clearInterval(replicaHealthTimer);
+      replicaHealthTimer = null;
+    }
+    if (replicaPool) {
+      const poolToClose = replicaPool;
+      replicaPool = null;
+      replicaPoolConfigKey = null;
+      replicaHealthy = true;
+      await poolToClose.end();
+    }
+  } finally {
+    replicaResolve();
+  }
+
   let resolve: () => void = () => {};
   const prevMutex = poolMutex;
   poolMutex = new Promise<void>((r) => {

@@ -17,7 +17,8 @@ const mockQuery = vi.fn();
 const mockGetPostgresPool = vi.fn();
 
 vi.mock('../../lib/postgres.js', () => ({
-  getPostgresPool: () => mockGetPostgresPool()
+  getPostgresPool: () => mockGetPostgresPool(),
+  getPool: () => mockGetPostgresPool()
 }));
 
 describe('Auth refresh routes', () => {

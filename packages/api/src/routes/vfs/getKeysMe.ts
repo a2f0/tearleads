@@ -1,6 +1,6 @@
 import type { VfsUserKeysResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
-import { getPostgresPool } from '../../lib/postgres.js';
+import { getPool } from '../../lib/postgres.js';
 
 /**
  * @openapi
@@ -39,7 +39,7 @@ const getKeysMeHandler = async (req: Request, res: Response) => {
   }
 
   try {
-    const pool = await getPostgresPool();
+    const pool = await getPool('read');
     const result = await pool.query<{
       public_encryption_key: string;
       public_signing_key: string;

@@ -3,7 +3,7 @@ import type {
   PostgresTablesResponse
 } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
-import { getPostgresPool } from '../../../lib/postgres.js';
+import { getPool } from '../../../lib/postgres.js';
 import { coerceNumber, type PostgresTableRow } from './shared.js';
 
 /**
@@ -35,7 +35,7 @@ import { coerceNumber, type PostgresTableRow } from './shared.js';
  */
 const getTablesHandler = async (_req: Request, res: Response) => {
   try {
-    const pool = await getPostgresPool();
+    const pool = await getPool('read');
     const result = await pool.query<{
       schema: string;
       name: string;

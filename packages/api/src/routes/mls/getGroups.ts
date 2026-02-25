@@ -1,6 +1,6 @@
 import type { MlsGroup, MlsGroupsResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
-import { getPostgresPool } from '../../lib/postgres.js';
+import { getPool } from '../../lib/postgres.js';
 import { toSafeCipherSuite } from './shared.js';
 
 /**
@@ -24,7 +24,7 @@ const getGroupsHandler = async (req: Request, res: Response) => {
   }
 
   try {
-    const pool = await getPostgresPool();
+    const pool = await getPool('read');
     const result = await pool.query<{
       id: string;
       group_id_mls: string;
