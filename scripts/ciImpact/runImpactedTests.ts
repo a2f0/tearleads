@@ -178,6 +178,11 @@ function runCiImpact(args: CliArgs): CiImpactOutput {
     args: string[];
     display: string;
   }> = [
+    {
+      cmd: process.execPath,
+      args: ['--experimental-strip-types', ...ciImpactArgs],
+      display: 'node --experimental-strip-types'
+    },
     { cmd: 'tsx', args: ciImpactArgs, display: 'tsx' },
     {
       cmd: 'pnpm',
