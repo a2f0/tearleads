@@ -1,9 +1,7 @@
 import type { TableDefinition } from './types.js';
 
 // Re-export from split modules
-export {
-  emailsTable
-} from './definition-communications-email.js';
+export { emailsTable } from './definition-communications-email.js';
 
 export {
   vfsAclEntriesTable,
