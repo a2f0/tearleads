@@ -30,7 +30,13 @@ import {
 } from '@/db/emailDrafts';
 import { useDatabaseContext } from '@/db/hooks';
 import { runLocalWrite } from '@/db/localWrite';
-import { contactEmails, contacts, emails, vfsLinks, vfsRegistry } from '@/db/schema';
+import {
+  contactEmails,
+  contacts,
+  emails,
+  vfsLinks,
+  vfsRegistry
+} from '@/db/schema';
 import { API_BASE_URL } from '@/lib/api';
 import { getAuthHeaderValue } from '@/lib/authStorage';
 
