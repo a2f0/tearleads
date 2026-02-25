@@ -492,5 +492,4 @@ describe('migrations (core through v021)', () => {
       expect(queries).toContain("'item_delete'");
     });
   });
-
-});
+  });
