@@ -364,12 +364,12 @@
 
 - name: Install Node.js via mise
   ansible.builtin.shell:
-    cmd: mise use --global node@{{ nodejs_major_version }}
+    cmd: PATH="{{ toolchain_user_home }}/.local/bin:$PATH" mise use --global node@{{ nodejs_major_version }}
     executable: /bin/bash
   become: true
   become_user: "{{ toolchain_target_user }}"
   register: mise_node_result
-  changed_when: "'installed' in mise_node_result.stderr or 'installed' in mise_node_result.stdout"
+  changed_when: "'installed' in mise_node_result.stderr"
 
 # uv (Python package manager) -- required by scripts/setupSerenaMcp.sh
 - name: Check if uv is installed
