@@ -200,38 +200,44 @@ while IFS= read -r -d '' file; do
     encoding="text"
   fi
 
-  if [[ "$DRY_RUN" == "true" ]]; then
-    echo "[DRY] $rel_path -> $vault_path ($encoding)"
-    ((NEW++))
-    continue
-  fi
-
   # Check if secret already exists and compare content (unless --force)
   existing_content=""
   secret_exists=false
-  if [[ "$FORCE" != "true" ]]; then
+  if [[ "$DRY_RUN" == "true" || "$FORCE" != "true" ]]; then
     if existing_content=$(get_vault_content "$vault_path"); then
       secret_exists=true
     fi
   fi
 
+  if [[ "$DRY_RUN" == "true" ]]; then
+    if [[ "$FORCE" != "true" && "$secret_exists" == "true" && "$existing_content" == "$content" ]]; then
+      echo "[UNCHANGED] $rel_path ($encoding)"
+      ((UNCHANGED++))
+    elif [[ "$secret_exists" == "true" ]]; then
+      echo "[DRY][UPDATE] $rel_path -> $vault_path ($encoding)"
+      ((UPDATED++))
+    else
+      echo "[DRY][NEW] $rel_path -> $vault_path ($encoding)"
+      ((NEW++))
+    fi
+    continue
+  fi
+
   if [[ "$FORCE" != "true" && "$secret_exists" == "true" && "$existing_content" == "$content" ]]; then
     echo "[UNCHANGED] $rel_path ($encoding)"
     ((UNCHANGED++))
-  elif [[ "$secret_exists" == "true" ]]; then
-    echo "[UPDATE] $rel_path -> $vault_path ($encoding)"
-    vault kv put "$vault_path" \
-      content="$content" \
-      encoding="$encoding" \
-      original_filename="$filename"
-    ((UPDATED++))
   else
-    echo "[NEW] $rel_path -> $vault_path ($encoding)"
+    if [[ "$secret_exists" == "true" ]]; then
+      echo "[UPDATE] $rel_path -> $vault_path ($encoding)"
+      ((UPDATED++))
+    else
+      echo "[NEW] $rel_path -> $vault_path ($encoding)"
+      ((NEW++))
+    fi
     vault kv put "$vault_path" \
       content="$content" \
       encoding="$encoding" \
       original_filename="$filename"
-    ((NEW++))
   fi
 done < <(find -L "$SECRETS_DIR" -type f -print0)
 
