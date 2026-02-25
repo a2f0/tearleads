@@ -50,11 +50,12 @@ function hasTsxFiles(dir: string): boolean {
 function extractSourceDirectives(cssContent: string): Set<string> {
   const sources = new Set<string>();
   const regex = /@source\s+"\.\.\/\.\.\/([^"]+)\/src";/g;
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(cssContent)) !== null) {
+  let match = regex.exec(cssContent);
+  while (match !== null) {
     if (match[1]) {
       sources.add(match[1]);
     }
+    match = regex.exec(cssContent);
   }
   return sources;
 }
