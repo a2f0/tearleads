@@ -147,6 +147,10 @@ Test suites should use standardized assertion helpers from `sync-client-test-sup
 - Track `pull:pullRematerializationRequired` event rate per environment and per release.
 - Alert if rematerialization rate spikes above baseline after compaction config changes.
 - Correlate spikes with compaction planner metrics (`staleClientCount`, `cutoffOccurredAt`, `malformedClientStateCount`) before tightening retention windows.
+- Counter wiring:
+  - `vfs_sync_guardrail_violation_total{stage,code,signature}`
+  - `vfs_sync_rematerialization_required_total{code="crdt_rematerialization_required",signature="pull:pullRematerializationRequired"}`
+- Suggested alert: page on sustained `vfs_sync_rematerialization_required_total` increase of >3x trailing 7-day baseline for 30 minutes.
 
 ## 7) Secure Upload Rollout
 

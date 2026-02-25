@@ -102,8 +102,12 @@ describe('sync schema contract', () => {
     ).sort((left, right) => left.localeCompare(right));
 
     expect(routeReferences).toEqual([
+      'user_groups',
+      'user_organizations',
+      'vfs_acl_entries',
       'vfs_crdt_ops',
       'vfs_item_state',
+      'vfs_links',
       'vfs_registry',
       'vfs_sync_client_state'
     ]);

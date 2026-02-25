@@ -121,7 +121,9 @@ Schema-contract utilities and tests assert sync-critical SQL/table dependencies 
 ```ts
 import {
   VfsBackgroundSyncClient,
-  VfsHttpCrdtSyncTransport
+  VfsHttpCrdtSyncTransport,
+  toGuardrailMetricEvent,
+  toRematerializationMetricEvent
 } from '@tearleads/vfs-sync/vfs';
 
 const transport = new VfsHttpCrdtSyncTransport({
@@ -137,6 +139,16 @@ const syncClient = new VfsBackgroundSyncClient(
   {
     pullLimit: 100,
     maxRematerializationAttempts: 1,
+    onGuardrailViolation: (violation) => {
+      const guardrailMetric = toGuardrailMetricEvent(violation);
+      const rematerializationMetric = toRematerializationMetricEvent(violation);
+      metrics.counter(guardrailMetric.metricName, guardrailMetric.tags).inc(1);
+      if (rematerializationMetric) {
+        metrics
+          .counter(rematerializationMetric.metricName, rematerializationMetric.tags)
+          .inc(1);
+      }
+    },
     onRematerializationRequired: async ({ error }) => {
       console.warn(
         'CRDT rematerialization required',

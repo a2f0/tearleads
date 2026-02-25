@@ -81,6 +81,9 @@ This is the planning/execution primitive; orchestration (scheduled job, metrics,
 1. Run planner in dry-run mode and log:
    - `cutoffOccurredAt`, `estimatedRowsToDelete`, `activeClientCount`, `staleClientCount`.
 2. Track stale-client re-materialization rate.
+   - Wire client counters:
+     - `vfs_sync_guardrail_violation_total{stage,code,signature}`
+     - `vfs_sync_rematerialization_required_total{code="crdt_rematerialization_required",signature="pull:pullRematerializationRequired"}`
 3. Enable delete execution in limited batches (for example `--max-delete-rows 1000`).
 4. Add periodic scheduler once metrics stabilize.
 
