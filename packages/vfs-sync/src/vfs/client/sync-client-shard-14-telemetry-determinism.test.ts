@@ -5,6 +5,7 @@ import {
   InMemoryVfsCrdtSyncServer,
   InMemoryVfsCrdtSyncTransport,
   VfsBackgroundSyncClient,
+  VfsCrdtRematerializationRequiredError,
   VfsCrdtSyncPushRejectedError
 } from './sync-client-test-support.js';
 import {
@@ -14,6 +15,7 @@ import {
   expectHydrateGuardrailViolation,
   expectPullCursorRegressionViolation,
   expectPullDuplicateOpReplayViolation,
+  expectPullRematerializationRequiredViolation,
   expectPullPageInvariantViolation,
   expectReconcileCursorRegressionViolation,
   expectStaleWriteRecoveryExhaustedViolation,
@@ -197,6 +199,49 @@ describe('VfsBackgroundSyncClient guardrail telemetry determinism', () => {
         previousChangeId: 'op-1',
         incomingChangedAt: '2026-02-20T09:59:00.000Z',
         incomingChangeId: 'regressed-op'
+      });
+    });
+
+    it('emits pullRematerializationRequired when transport requires re-materialization', async () => {
+      const guardrailCollector = createGuardrailViolationCollector();
+      const requestedCursor =
+        'eyJ2ZXJzaW9uIjoxLCJjaGFuZ2VkQXQiOiIyMDI2LTAyLTEwVDAwOjAwOjAwLjAwMFoiLCJjaGFuZ2VJZCI6Im9wLTEwIn0';
+      const oldestAvailableCursor =
+        'eyJ2ZXJzaW9uIjoxLCJjaGFuZ2VkQXQiOiIyMDI2LTAyLTE0VDAwOjAwOjAwLjAwMFoiLCJjaGFuZ2VJZCI6Im9wLTEwMCJ9';
+
+      const transport: VfsCrdtSyncTransport = {
+        pushOperations: async () => ({ results: [] }),
+        pullOperations: async () => {
+          throw new VfsCrdtRematerializationRequiredError({
+            requestedCursor,
+            oldestAvailableCursor
+          });
+        }
+      };
+
+      const client = new VfsBackgroundSyncClient(
+        'user-1',
+        'desktop',
+        transport,
+        {
+          pullLimit: 10,
+          onGuardrailViolation: guardrailCollector.onGuardrailViolation
+        }
+      );
+
+      await expect(client.sync()).rejects.toThrow(
+        /re-materialization required/
+      );
+
+      expectGuardrailSignature({
+        violations: guardrailCollector.violations,
+        signature: 'pull:pullRematerializationRequired'
+      });
+
+      expectPullRematerializationRequiredViolation({
+        violations: guardrailCollector.violations,
+        requestedCursor,
+        oldestAvailableCursor
       });
     });
   });

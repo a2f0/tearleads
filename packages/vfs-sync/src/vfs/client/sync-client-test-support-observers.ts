@@ -341,6 +341,7 @@ export {
   expectLastWriteIdRegressionViolation,
   expectPullCursorRegressionViolation,
   expectPullDuplicateOpReplayViolation,
+  expectPullRematerializationRequiredViolation,
   expectPullPageInvariantViolation,
   expectReconcileCursorRegressionViolation,
   expectStaleWriteRecoveryExhaustedViolation,

@@ -1,4 +1,4 @@
-import { decodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
+import { decodeVfsSyncCursor, encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
@@ -73,6 +73,40 @@ describe('VFS CRDT sync route', () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({ error: 'Invalid cursor' });
+  });
+
+  it('returns 409 when cursor is older than retained CRDT history', async () => {
+    const authHeader = await createAuthHeader();
+    const staleCursor = encodeVfsSyncCursor({
+      changedAt: '2026-02-10T00:00:00.000Z',
+      changeId: 'op-10'
+    });
+
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          occurred_at: new Date('2026-02-14T00:00:00.000Z'),
+          id: 'op-100'
+        }
+      ]
+    });
+
+    const response = await request(app)
+      .get(`/v1/vfs/crdt/vfs-sync?limit=10&cursor=${encodeURIComponent(staleCursor)}`)
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({
+      error:
+        'CRDT cursor is older than retained history; re-materialization required',
+      code: 'crdt_rematerialization_required',
+      requestedCursor: staleCursor,
+      oldestAvailableCursor: encodeVfsSyncCursor({
+        changedAt: '2026-02-14T00:00:00.000Z',
+        changeId: 'op-100'
+      })
+    });
+    expect(mockQuery).toHaveBeenCalledTimes(1);
   });
 
   it('returns a cursor-paginated CRDT operation page', async () => {

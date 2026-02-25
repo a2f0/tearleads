@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
+import { VfsCrdtRematerializationRequiredError } from '../client/sync-client-utils.js';
 import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
 import {
   getHeaderValue,
@@ -240,5 +241,54 @@ describe('VfsHttpCrdtSyncTransport', () => {
         desktop: 4
       }
     });
+  });
+
+  it('throws typed rematerialization error for 409 stale-cursor responses', async () => {
+    const requestedCursor = encodeVfsSyncCursor({
+      changedAt: '2026-02-10T00:00:00.000Z',
+      changeId: 'op-10'
+    });
+    const oldestAvailableCursor = encodeVfsSyncCursor({
+      changedAt: '2026-02-14T00:00:00.000Z',
+      changeId: 'op-100'
+    });
+
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            error:
+              'CRDT cursor is older than retained history; re-materialization required',
+            code: 'crdt_rematerialization_required',
+            requestedCursor,
+            oldestAvailableCursor
+          }),
+          { status: 409 }
+        )
+    );
+
+    const transport = new VfsHttpCrdtSyncTransport({
+      baseUrl: 'https://sync.example.com',
+      fetchImpl: fetchMock
+    });
+
+    await expect(
+      transport.pullOperations({
+        userId: 'user-1',
+        clientId: 'desktop',
+        cursor: {
+          changedAt: '2026-02-10T00:00:00.000Z',
+          changeId: 'op-10'
+        },
+        limit: 50
+      })
+    ).rejects.toEqual(
+      expect.objectContaining<VfsCrdtRematerializationRequiredError>({
+        name: 'VfsCrdtRematerializationRequiredError',
+        code: 'crdt_rematerialization_required',
+        requestedCursor,
+        oldestAvailableCursor
+      })
+    );
   });
 });

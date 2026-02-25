@@ -37,6 +37,7 @@ import {
 export type * from './sync-client-utils.js';
 export {
   delayVfsCrdtSyncTransport,
+  VfsCrdtRematerializationRequiredError,
   VfsCrdtSyncPushRejectedError
 } from './sync-client-utils.js';
 

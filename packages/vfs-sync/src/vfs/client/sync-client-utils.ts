@@ -215,6 +215,7 @@ export type VfsSyncGuardrailViolationCode =
   | 'pullPageInvariantViolation'
   | 'pullDuplicateOpReplay'
   | 'pullCursorRegression'
+  | 'pullRematerializationRequired'
   | 'reconcileCursorRegression'
   | 'lastWriteIdRegression'
   | 'hydrateGuardrailViolation';
@@ -253,6 +254,27 @@ export class VfsCrdtSyncPushRejectedError extends Error {
     super('push rejected one or more operations');
     this.name = 'VfsCrdtSyncPushRejectedError';
     this.rejectedResults = results;
+  }
+}
+
+export class VfsCrdtRematerializationRequiredError extends Error {
+  readonly code: 'crdt_rematerialization_required';
+  readonly requestedCursor: string | null;
+  readonly oldestAvailableCursor: string | null;
+
+  constructor(input?: {
+    message?: string;
+    requestedCursor?: string | null;
+    oldestAvailableCursor?: string | null;
+  }) {
+    super(
+      input?.message ??
+        'CRDT cursor is older than retained history; re-materialization required'
+    );
+    this.name = 'VfsCrdtRematerializationRequiredError';
+    this.code = 'crdt_rematerialization_required';
+    this.requestedCursor = input?.requestedCursor ?? null;
+    this.oldestAvailableCursor = input?.oldestAvailableCursor ?? null;
   }
 }
 

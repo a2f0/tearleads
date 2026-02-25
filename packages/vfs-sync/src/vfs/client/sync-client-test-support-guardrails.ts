@@ -115,6 +115,23 @@ export function expectPullCursorRegressionViolation(input: {
   );
 }
 
+export function expectPullRematerializationRequiredViolation(input: {
+  violations: GuardrailViolationSnapshot[];
+  requestedCursor: string;
+  oldestAvailableCursor: string;
+}): void {
+  expect(input.violations).toContainEqual(
+    expect.objectContaining({
+      code: 'pullRematerializationRequired',
+      stage: 'pull',
+      details: expect.objectContaining({
+        requestedCursor: input.requestedCursor,
+        oldestAvailableCursor: input.oldestAvailableCursor
+      })
+    })
+  );
+}
+
 export function expectReconcileCursorRegressionViolation(input: {
   violations: GuardrailViolationSnapshot[];
   previousChangedAt: string;

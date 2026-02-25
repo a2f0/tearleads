@@ -11,6 +11,13 @@ import type {
 import { parseVfsCrdtLastReconciledWriteIds } from '../protocol/sync-crdt-reconcile.js';
 import { decodeVfsSyncCursor } from '../protocol/sync-cursor.js';
 
+export interface ParsedApiErrorResponse {
+  message: string;
+  code: string | null;
+  requestedCursor: string | null;
+  oldestAvailableCursor: string | null;
+}
+
 const VALID_OP_TYPES: VfsCrdtOpType[] = [
   'acl_add',
   'acl_remove',
@@ -387,4 +394,41 @@ export function parseErrorMessage(status: number, body: unknown): string {
   }
 
   return `request failed with status ${status}`;
+}
+
+export function parseApiErrorResponse(
+  status: number,
+  body: unknown
+): ParsedApiErrorResponse {
+  const message = parseErrorMessage(status, body);
+  if (!isRecord(body)) {
+    return {
+      message,
+      code: null,
+      requestedCursor: null,
+      oldestAvailableCursor: null
+    };
+  }
+
+  const codeRaw = body['code'];
+  const requestedCursorRaw = body['requestedCursor'];
+  const oldestAvailableCursorRaw = body['oldestAvailableCursor'];
+
+  return {
+    message,
+    code:
+      typeof codeRaw === 'string' && codeRaw.trim().length > 0
+        ? codeRaw.trim()
+        : null,
+    requestedCursor:
+      typeof requestedCursorRaw === 'string' &&
+      requestedCursorRaw.trim().length > 0
+        ? requestedCursorRaw.trim()
+        : null,
+    oldestAvailableCursor:
+      typeof oldestAvailableCursorRaw === 'string' &&
+      oldestAvailableCursorRaw.trim().length > 0
+        ? oldestAvailableCursorRaw.trim()
+        : null
+  };
 }
