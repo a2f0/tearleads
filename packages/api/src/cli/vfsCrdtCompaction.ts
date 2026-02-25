@@ -170,6 +170,9 @@ export function vfsCrdtCompactionCommand(program: Command): void {
         cutoffOccurredAt: null,
         estimatedRowsToDelete: 0,
         staleClientIds: [],
+        staleClientIdsTruncatedCount: 0,
+        malformedClientStateCount: 0,
+        blockedReason: null,
         note: 'Plan did not run'
       };
       try {

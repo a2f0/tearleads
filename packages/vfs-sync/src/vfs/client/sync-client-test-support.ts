@@ -2,6 +2,7 @@ import type { VfsCrdtSyncItem } from '@tearleads/shared';
 import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
 import {
   VfsBackgroundSyncClient,
+  VfsCrdtRematerializationRequiredError,
   VfsCrdtSyncPushRejectedError,
   type VfsCrdtSyncTransport
 } from './sync-client.js';
@@ -12,6 +13,7 @@ import {
 
 export {
   VfsBackgroundSyncClient,
+  VfsCrdtRematerializationRequiredError,
   VfsCrdtSyncPushRejectedError,
   InMemoryVfsCrdtSyncServer,
   InMemoryVfsCrdtSyncTransport,

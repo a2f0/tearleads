@@ -327,4 +327,8 @@ export class InMemoryVfsCrdtClientStateStore {
       advancedLastReconciledWriteIds: result.advancedLastReconciledWriteIds
     };
   }
+
+  clear(userId: string, clientId: string): void {
+    this.state.delete(this.getKey(userId, clientId));
+  }
 }

@@ -220,6 +220,11 @@ interface HttpHarnessOptions {
     payload: HttpHarnessPullPayload,
     context: { url: URL }
   ) => HttpHarnessPullPayload;
+  interceptPullResponse?: (context: {
+    url: URL;
+    cursor: { changedAt: string; changeId: string } | null;
+    limit: number;
+  }) => Response | null;
   mutateReconcilePayload?: (
     payload: HttpHarnessReconcilePayload,
     context: {
@@ -233,7 +238,12 @@ export function createServerBackedFetch(
   server: InMemoryVfsCrdtSyncServer,
   options: HttpHarnessOptions
 ): typeof fetch {
-  const { delays, mutatePullPayload, mutateReconcilePayload } = options;
+  const {
+    delays,
+    mutatePullPayload,
+    interceptPullResponse,
+    mutateReconcilePayload
+  } = options;
   const reconcileStateStore = new InMemoryVfsCrdtClientStateStore();
 
   return async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -295,10 +305,21 @@ export function createServerBackedFetch(
           status: 400
         });
       }
+      const pullLimit = parsePullLimit(url.searchParams);
+      if (interceptPullResponse) {
+        const intercepted = interceptPullResponse({
+          url,
+          cursor: decodedCursor,
+          limit: pullLimit
+        });
+        if (intercepted) {
+          return intercepted;
+        }
+      }
 
       const pullResult = await server.pullOperations({
         cursor: decodedCursor,
-        limit: parsePullLimit(url.searchParams)
+        limit: pullLimit
       });
       const payload: HttpHarnessPullPayload = {
         items: pullResult.items,

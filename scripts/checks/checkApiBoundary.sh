@@ -47,7 +47,7 @@ fi
 
 violations=()
 
-import_pattern="(import[[:space:]]*\\(|require[[:space:]]*\\(|from[[:space:]]+)[[:space:]]*['\"][^'\"]*(@tearleads/api|packages/api/)"
+import_pattern="(import[[:space:]]*\\(|require[[:space:]]*\\(|from[[:space:]]+)[[:space:]]*['\"][^'\"]*(@tearleads/api($|/)|packages/api/)"
 
 search_with_line_numbers() {
   local pattern="$1"

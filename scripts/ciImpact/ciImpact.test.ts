@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import test from 'node:test';
-import { ALL_JOB_NAMES, type JobName } from './workflowConfig.js';
+import { ALL_JOB_NAMES, type JobName } from './workflowConfig.ts';
 
 interface JobState {
   run: boolean;

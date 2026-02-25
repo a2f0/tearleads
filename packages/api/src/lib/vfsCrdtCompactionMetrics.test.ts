@@ -24,6 +24,9 @@ describe('vfsCrdtCompactionMetrics', () => {
         cutoffOccurredAt: '2026-01-25T00:00:00.000Z',
         estimatedRowsToDelete: 10,
         staleClientIds: ['old-tablet'],
+        staleClientIdsTruncatedCount: 0,
+        malformedClientStateCount: 0,
+        blockedReason: null,
         note: 'test plan'
       },
       executed: true,
@@ -46,6 +49,9 @@ describe('vfsCrdtCompactionMetrics', () => {
       activeClientCount: 2,
       staleClientCount: 1,
       staleClientIds: ['old-tablet'],
+      staleClientIdsTruncatedCount: 0,
+      malformedClientStateCount: 0,
+      blockedReason: null,
       error: null
     });
   });
@@ -62,6 +68,9 @@ describe('vfsCrdtCompactionMetrics', () => {
         cutoffOccurredAt: null,
         estimatedRowsToDelete: 0,
         staleClientIds: [],
+        staleClientIdsTruncatedCount: 0,
+        malformedClientStateCount: 0,
+        blockedReason: null,
         note: 'none'
       },
       executed: false,
@@ -89,6 +98,9 @@ describe('vfsCrdtCompactionMetrics', () => {
         cutoffOccurredAt: null,
         estimatedRowsToDelete: 0,
         staleClientIds: [],
+        staleClientIdsTruncatedCount: 0,
+        malformedClientStateCount: 0,
+        blockedReason: null,
         note: 'none'
       },
       executed: false,
@@ -118,6 +130,9 @@ describe('vfsCrdtCompactionMetrics', () => {
         cutoffOccurredAt: null,
         estimatedRowsToDelete: 0,
         staleClientIds: [],
+        staleClientIdsTruncatedCount: 0,
+        malformedClientStateCount: 0,
+        blockedReason: null,
         note: 'none'
       },
       executed: false,
@@ -138,6 +153,9 @@ describe('vfsCrdtCompactionMetrics', () => {
       { ...valid, activeClientCount: -1 },
       { ...valid, staleClientCount: -1 },
       { ...valid, staleClientIds: ['ok', 1] },
+      { ...valid, staleClientIdsTruncatedCount: -1 },
+      { ...valid, malformedClientStateCount: -1 },
+      { ...valid, blockedReason: 'unknown' },
       { ...valid, error: 42 }
     ];
 
@@ -159,6 +177,9 @@ describe('vfsCrdtCompactionMetrics', () => {
         cutoffOccurredAt: null,
         estimatedRowsToDelete: 0,
         staleClientIds: [],
+        staleClientIdsTruncatedCount: 0,
+        malformedClientStateCount: 0,
+        blockedReason: null,
         note: 'none'
       },
       executed: false,

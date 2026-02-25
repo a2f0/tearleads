@@ -68,11 +68,22 @@ Implemented in API lib:
 
 This is the planning/execution primitive; orchestration (scheduled job, metrics, and rollback controls) is the next slice.
 
+### Stale cursor contract
+
+- `GET /v1/vfs/crdt/vfs-sync` now returns `409` with `code=crdt_rematerialization_required` when the requested cursor is older than retained accessible CRDT history.
+- Response includes:
+  - `requestedCursor`
+  - `oldestAvailableCursor`
+- Clients should re-materialize from canonical sync state and then resume CRDT tail sync from the latest canonical baseline.
+
 ## Operational rollout
 
 1. Run planner in dry-run mode and log:
    - `cutoffOccurredAt`, `estimatedRowsToDelete`, `activeClientCount`, `staleClientCount`.
 2. Track stale-client re-materialization rate.
+   - Wire client counters:
+     - `vfs_sync_guardrail_violation_total{stage,code,signature}`
+     - `vfs_sync_rematerialization_required_total{code="crdt_rematerialization_required",signature="pull:pullRematerializationRequired"}`
 3. Enable delete execution in limited batches (for example `--max-delete-rows 1000`).
 4. Add periodic scheduler once metrics stabilize.
 

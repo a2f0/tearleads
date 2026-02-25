@@ -16,6 +16,9 @@ const mockCreateVfsSecurePipelineBundle = vi.fn(() => ({
 }));
 const mockLoadVfsOrchestratorState = vi.fn();
 const mockSaveVfsOrchestratorState = vi.fn();
+const mockRematerializeRemoteVfsStateIfNeeded = vi
+  .fn()
+  .mockResolvedValue(false);
 
 vi.mock('@tearleads/api-client', () => {
   class MockVfsWriteOrchestrator {
@@ -83,6 +86,11 @@ vi.mock('@/hooks/vfs', () => ({
   ensureVfsKeys: vi.fn().mockResolvedValue(undefined)
 }));
 
+vi.mock('@/lib/vfsRematerialization', () => ({
+  rematerializeRemoteVfsStateIfNeeded: (...args: unknown[]) =>
+    mockRematerializeRemoteVfsStateIfNeeded(...args)
+}));
+
 vi.mock('./AuthContext', () => ({
   useAuth: () => mockUseAuth()
 }));
@@ -96,6 +104,7 @@ describe('VfsOrchestratorContext persistence', () => {
     });
     mockLoadVfsOrchestratorState.mockResolvedValue(null);
     mockSaveVfsOrchestratorState.mockResolvedValue(undefined);
+    mockRematerializeRemoteVfsStateIfNeeded.mockResolvedValue(false);
   });
 
   it('hydrates orchestrator state from sqlite persistence', async () => {
@@ -196,5 +205,52 @@ describe('VfsOrchestratorContext persistence', () => {
     await waitFor(() => {
       expect(flushAll).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('wires CRDT rematerialization callback to bootstrap helper', async () => {
+    render(
+      <VfsOrchestratorProvider>
+        <div>Test</div>
+      </VfsOrchestratorProvider>
+    );
+
+    await waitFor(() => {
+      expect(mockCreateFacade).toHaveBeenCalled();
+    });
+
+    const apiClientModule = await import('@tearleads/api-client');
+    const lastOptions = Reflect.get(
+      apiClientModule.VfsWriteOrchestrator,
+      'lastOptions'
+    );
+    const onRematerializationRequired =
+      typeof lastOptions === 'object' &&
+      lastOptions !== null &&
+      'crdt' in lastOptions &&
+      typeof lastOptions.crdt === 'object' &&
+      lastOptions.crdt !== null &&
+      'onRematerializationRequired' in lastOptions.crdt
+        ? lastOptions.crdt.onRematerializationRequired
+        : undefined;
+    expect(typeof onRematerializationRequired).toBe('function');
+    if (!onRematerializationRequired) {
+      throw new Error('Expected CRDT onRematerializationRequired callback');
+    }
+
+    await expect(
+      onRematerializationRequired({
+        userId: mockUser.id,
+        clientId: 'client',
+        attempt: 1,
+        error: {
+          name: 'VfsCrdtRematerializationRequiredError',
+          message: 'CRDT feed cursor requires re-materialization',
+          code: 'crdt_rematerialization_required',
+          requestedCursor: 'cursor-requested',
+          oldestAvailableCursor: 'cursor-oldest'
+        }
+      })
+    ).resolves.toBeNull();
+    expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
   });
 });

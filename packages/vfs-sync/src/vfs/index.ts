@@ -58,6 +58,12 @@ export {
   InMemoryVfsCrdtSyncTransport
 } from './client/sync-client-harness.js';
 export {
+  toGuardrailMetricEvent,
+  toRematerializationMetricEvent,
+  type VfsSyncGuardrailMetricEvent,
+  type VfsSyncRematerializationMetricEvent
+} from './client/syncClientTelemetry.js';
+export {
   InMemoryVfsContainerClockStore,
   type ListVfsContainerClockChangesResult,
   type VfsContainerClockEntry

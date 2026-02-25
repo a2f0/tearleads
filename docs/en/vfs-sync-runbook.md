@@ -23,6 +23,8 @@ Use this runbook to diagnose:
   - Example error: `transport returned regressing sync cursor`
 - `pull:pullDuplicateOpReplay`
   - Example error: `transport replayed opId ... during pull pagination`
+- `pull:pullRematerializationRequired`
+  - Example error: `pull requires re-materialization from canonical state`
 - `reconcile:reconcileCursorRegression`
   - Example error: `transport reconcile regressed sync cursor`
 - `reconcile:lastWriteIdRegression`
@@ -37,6 +39,7 @@ Use this runbook to diagnose:
 3. If state changed on a failed attempt, treat as a bug (fail-closed invariant break).
 4. Compare cursor + `lastReconciledWriteIds` with server snapshot ordering.
 5. If mismatch persists, restart via hydrate from last known-good exported state and re-run sync.
+6. If the server returns `409` with `code=crdt_rematerialization_required`, rematerialize from canonical sync state (`/v1/vfs/vfs-sync`) and retry CRDT sync.
 
 ## 2) Staged-Blob Visibility Failures
 
@@ -109,6 +112,7 @@ All guardrail violations emit a deterministic `stage:code` signature for monitor
 | `pull:pullPageInvariantViolation` | `hasMore=true` with empty items, or `nextCursor` doesn't match page tail |
 | `pull:pullDuplicateOpReplay` | Same opId appears twice within one pull-until-settled cycle |
 | `pull:pullCursorRegression` | New pull cursor moves backward relative to previous cursor |
+| `pull:pullRematerializationRequired` | CRDT cursor is older than retained server history (`409 crdt_rematerialization_required`) |
 | `pull:lastWriteIdRegression` | Pull response regresses `lastReconciledWriteIds` on any replica |
 | `reconcile:reconcileCursorRegression` | Remote reconcile acknowledgement cursor moves backward |
 | `reconcile:lastWriteIdRegression` | Reconcile response regresses `lastReconciledWriteIds` |
@@ -122,6 +126,7 @@ Test suites should use standardized assertion helpers from `sync-client-test-sup
 - `expectPullPageInvariantViolation({ violations, hasMore, itemsLength })`
 - `expectPullDuplicateOpReplayViolation({ violations, opId })`
 - `expectPullCursorRegressionViolation({ violations, previousChangedAt, ... })`
+- `expectPullRematerializationRequiredViolation({ violations, requestedCursor, oldestAvailableCursor })`
 - `expectReconcileCursorRegressionViolation({ violations, ... })`
 - `expectLastWriteIdRegressionViolation({ violations, stage, replicaId, ... })`
 - `expectStaleWriteRecoveryExhaustedViolation({ violations, attempts, maxAttempts })`
@@ -137,7 +142,17 @@ Test suites should use standardized assertion helpers from `sync-client-test-sup
 - All errors must be actionable: include stage, code, and relevant details for diagnosis.
 - No silent fallbacks: guardrail violations always throw errors after emitting telemetry.
 
-## 6) Secure Upload Rollout
+## 6) Rematerialization Telemetry
+
+- Track `pull:pullRematerializationRequired` event rate per environment and per release.
+- Alert if rematerialization rate spikes above baseline after compaction config changes.
+- Correlate spikes with compaction planner metrics (`staleClientCount`, `cutoffOccurredAt`, `malformedClientStateCount`) before tightening retention windows.
+- Counter wiring:
+  - `vfs_sync_guardrail_violation_total{stage,code,signature}`
+  - `vfs_sync_rematerialization_required_total{code="crdt_rematerialization_required",signature="pull:pullRematerializationRequired"}`
+- Suggested alert: page on sustained `vfs_sync_rematerialization_required_total` increase of >3x trailing 7-day baseline for 30 minutes.
+
+## 7) Secure Upload Rollout
 
 For staged `vfsSecureUpload` promotion, rollback triggers, and production QA
 checklist, see `docs/en/vfs-secure-upload-rollout.md`.

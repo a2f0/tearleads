@@ -4,7 +4,7 @@ import {
   ALL_JOB_NAMES,
   type JobName,
   WORKFLOW_BY_JOB
-} from './workflowConfig.js';
+} from './workflowConfig.ts';
 
 interface CliArgs {
   base?: string;

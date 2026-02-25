@@ -248,4 +248,55 @@ describe('vfsNetworkFlusher', () => {
     await expect(targetFlusher.hydrateFromPersistence()).resolves.toBe(true);
     expect(targetFlusher.queuedOperations()).toHaveLength(1);
   });
+
+  it('forwards rematerialization options to sync client', async () => {
+    class MockRematerializationRequiredError extends Error {
+      readonly code = 'crdt_rematerialization_required';
+      readonly requestedCursor: string;
+      readonly oldestAvailableCursor: string;
+
+      constructor() {
+        super('CRDT feed cursor requires re-materialization');
+        this.name = 'VfsCrdtRematerializationRequiredError';
+        this.requestedCursor = 'cursor-requested';
+        this.oldestAvailableCursor = 'cursor-oldest';
+      }
+    }
+
+    let pullCalls = 0;
+    const onRematerializationRequired = vi.fn(async () => null);
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({ results: [] }),
+      pullOperations: async () => {
+        pullCalls += 1;
+        if (pullCalls === 1) {
+          throw new MockRematerializationRequiredError();
+        }
+        return {
+          items: [],
+          hasMore: false,
+          nextCursor: null,
+          lastReconciledWriteIds: {}
+        };
+      },
+      reconcileState: async ({ cursor, lastReconciledWriteIds }) => ({
+        cursor,
+        lastReconciledWriteIds
+      })
+    };
+
+    const { VfsApiNetworkFlusher } = await import('./vfsNetworkFlusher');
+    const flusher = new VfsApiNetworkFlusher('user-1', 'desktop', {
+      transport,
+      maxRematerializationAttempts: 1,
+      onRematerializationRequired
+    });
+
+    await expect(flusher.sync()).resolves.toEqual({
+      pulledOperations: 0,
+      pullPages: 1
+    });
+    expect(pullCalls).toBe(2);
+    expect(onRematerializationRequired).toHaveBeenCalledTimes(1);
+  });
 });

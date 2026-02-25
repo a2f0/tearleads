@@ -67,22 +67,30 @@ cd "$SCRIPT_DIR/../packages/client"
 # Ensure it is present before invoking any Gradle/Fastlane tasks.
 ./scripts/downloadGradleWrapper.sh
 
-if [ -z "${ANDROID_SERIAL:-}" ]; then
-  ANDROID_SERIAL="$(adb devices | awk 'NR>1 && $2=="device"{print $1}' | grep -m 1 '^emulator-' || true)"
-  if [ -z "$ANDROID_SERIAL" ]; then
-    ANDROID_SERIAL="$(adb devices | awk 'NR>1 && $2=="device"{print $1}' | head -n 1 || true)"
-  fi
-  if [ -n "$ANDROID_SERIAL" ]; then
-    export ANDROID_SERIAL
-  fi
-fi
-
 if [ -n "$FLOW_PATH" ] && [ "${FLOW_PATH#/.maestro/}" = "$FLOW_PATH" ] && [ "${FLOW_PATH#./.maestro/}" = "$FLOW_PATH" ] && [ "${FLOW_PATH#./}" = "$FLOW_PATH" ]; then
   # Prepend ../.maestro/ since Fastlane runs from fastlane/ subdirectory
   FLOW_PATH="../.maestro/${FLOW_PATH}"
 fi
 
-if adb devices | grep -q "emulator.*device"; then
+find_connected_emulator() {
+  adb devices | awk 'NR>1 && $2=="device" && $1 ~ /^emulator-/ { print $1; exit }'
+}
+
+is_serial_connected() {
+  serial="$1"
+  if [ -z "$serial" ]; then
+    return 1
+  fi
+  adb devices | awk 'NR>1 && $2=="device" { print $1 }' | grep -qx "$serial"
+}
+
+if [ -n "${ANDROID_SERIAL:-}" ] && ! is_serial_connected "$ANDROID_SERIAL"; then
+  echo "Warning: ANDROID_SERIAL=$ANDROID_SERIAL is not currently connected; will auto-detect emulator." >&2
+  unset ANDROID_SERIAL
+fi
+
+EMULATOR_SERIAL="$(find_connected_emulator || true)"
+if [ -n "$EMULATOR_SERIAL" ]; then
   echo "==> Android emulator is already running"
 else
   echo "==> Starting Android emulator..."
@@ -98,13 +106,55 @@ else
   else
     emulator -avd "$AVD_NAME" &
   fi
-  echo "==> Waiting for emulator to boot..."
-  adb wait-for-device
-  while [ "$(adb shell getprop sys.boot_completed 2>/dev/null)" != "1" ]; do
+
+  echo "==> Waiting for emulator to be available..."
+  EMULATOR_SERIAL=""
+  wait_seconds=0
+  while [ -z "$EMULATOR_SERIAL" ] && [ "$wait_seconds" -lt 180 ]; do
+    EMULATOR_SERIAL="$(find_connected_emulator || true)"
+    if [ -n "$EMULATOR_SERIAL" ]; then
+      break
+    fi
+    sleep 1
+    wait_seconds=$((wait_seconds + 1))
+  done
+  if [ -z "$EMULATOR_SERIAL" ]; then
+    echo "Error: Timed out waiting for Android emulator device to connect." >&2
+    adb devices >&2 || true
+    exit 1
+  fi
+
+  echo "==> Waiting for emulator boot completion on $EMULATOR_SERIAL..."
+  adb -s "$EMULATOR_SERIAL" wait-for-device
+  while [ "$(adb -s "$EMULATOR_SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" != "1" ]; do
     sleep 1
   done
+
   echo "==> Emulator is ready"
 fi
+
+if [ -z "${ANDROID_SERIAL:-}" ]; then
+  if [ -n "$EMULATOR_SERIAL" ]; then
+    ANDROID_SERIAL="$EMULATOR_SERIAL"
+  else
+    ANDROID_SERIAL="$(adb devices | awk 'NR>1 && $2=="device"{print $1}' | head -n 1 || true)"
+  fi
+fi
+
+if [ -z "$ANDROID_SERIAL" ]; then
+  echo "Error: No connected Android device/emulator detected." >&2
+  adb devices >&2 || true
+  exit 1
+fi
+
+if ! is_serial_connected "$ANDROID_SERIAL"; then
+  echo "Error: Selected Android serial '$ANDROID_SERIAL' is not connected." >&2
+  adb devices >&2 || true
+  exit 1
+fi
+
+export ANDROID_SERIAL
+echo "==> Using Android serial: $ANDROID_SERIAL"
 
 echo "==> Building the app..."
 pnpm build

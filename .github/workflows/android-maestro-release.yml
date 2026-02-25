@@ -21,8 +21,8 @@ jobs:
         with:
           node-version-file: '.nvmrc'
 
-      - name: Install tsx
-        run: npm install -g tsx
+      - name: Prepare ciImpact runtime
+        run: echo "Using node --experimental-strip-types for CI impact scripts"
 
       - name: Analyze CI impact
         id: impact
@@ -41,7 +41,7 @@ jobs:
             fi
           fi
 
-          tsx scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
+          node --experimental-strip-types scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
           SHOULD_RUN="$(jq -r '.jobs["android-maestro-release"].run' ci-impact.json)"
           echo "should-run=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
           echo "impact-json<<JSON" >> "$GITHUB_OUTPUT"
@@ -268,7 +268,8 @@ jobs:
           script: |
             adb wait-for-device
             adb shell input keyevent 82
-            bundle exec fastlane android test_maestro_release
+            echo "Using Android serial: emulator-5554"
+            ANDROID_SERIAL=emulator-5554 bundle exec fastlane android test_maestro_release
 
       - name: Upload Maestro artifacts
         uses: actions/upload-artifact@v4

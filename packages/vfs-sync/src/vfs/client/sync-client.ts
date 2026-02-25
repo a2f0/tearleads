@@ -23,7 +23,9 @@ import type {
   VfsBackgroundSyncClientPersistedState,
   VfsBackgroundSyncClientSnapshot,
   VfsBackgroundSyncClientSyncResult,
+  VfsCrdtRematerializationRequiredError,
   VfsCrdtSyncTransport,
+  VfsRematerializationRequiredHandler,
   VfsSyncGuardrailViolation
 } from './sync-client-utils.js';
 import {
@@ -31,12 +33,18 @@ import {
   normalizeRequiredString,
   parsePositiveSafeInteger,
   parsePullLimit,
+  parseRematerializationAttempts,
   validateClientId
 } from './sync-client-utils.js';
+import {
+  rematerializeClientState,
+  runWithRematerializationRecovery
+} from './syncClientRematerialization.js';
 
 export type * from './sync-client-utils.js';
 export {
   delayVfsCrdtSyncTransport,
+  VfsCrdtRematerializationRequiredError,
   VfsCrdtSyncPushRejectedError
 } from './sync-client-utils.js';
 
@@ -50,6 +58,8 @@ export class VfsBackgroundSyncClient {
   private readonly onGuardrailViolation:
     | ((violation: VfsSyncGuardrailViolation) => void)
     | null;
+  private readonly maxRematerializationAttempts: number;
+  private readonly onRematerializationRequired: VfsRematerializationRequiredHandler | null;
 
   private readonly pendingOperations: VfsCrdtOperation[] = [];
   private readonly pendingOpIds: Set<string> = new Set();
@@ -58,7 +68,6 @@ export class VfsBackgroundSyncClient {
   private readonly replayStore = new InMemoryVfsCrdtFeedReplayStore();
   private readonly reconcileStateStore = new InMemoryVfsCrdtClientStateStore();
   private readonly containerClockStore = new InMemoryVfsContainerClockStore();
-
   private flushPromise: Promise<VfsBackgroundSyncClientFlushResult> | null =
     null;
   private backgroundFlushTimer: ReturnType<typeof setInterval> | null = null;
@@ -87,6 +96,12 @@ export class VfsBackgroundSyncClient {
     this.now = options.now ?? (() => new Date());
     this.onBackgroundError = options.onBackgroundError ?? null;
     this.onGuardrailViolation = options.onGuardrailViolation ?? null;
+    this.maxRematerializationAttempts = parseRematerializationAttempts(
+      options.maxRematerializationAttempts
+    );
+    this.onRematerializationRequired = options.onRematerializationRequired
+      ? async (input) => options.onRematerializationRequired?.(input)
+      : null;
   }
 
   queueLocalOperation(
@@ -189,11 +204,6 @@ export class VfsBackgroundSyncClient {
         state.containerClocks
       );
 
-      /**
-       * Guardrail invariant: reconcile cursor cannot trail the replay cursor for
-       * the same persisted snapshot. Allowing this would regress effective pull
-       * boundaries after restart and can replay or skip canonical feed entries.
-       */
       if (
         normalizedReplaySnapshot.cursor &&
         normalizedReconcileState &&
@@ -215,11 +225,6 @@ export class VfsBackgroundSyncClient {
         );
       }
       if (effectivePersistedCursor) {
-        /**
-         * Guardrail invariant: per-container clocks are a projection of replayed
-         * feed history and therefore cannot advance beyond the persisted sync
-         * cursor boundary. A clock ahead of this cursor indicates corruption.
-         */
         for (let index = 0; index < normalizedContainerClocks.length; index++) {
           const clock = normalizedContainerClocks[index];
           if (
@@ -352,7 +357,6 @@ export class VfsBackgroundSyncClient {
     if (this.flushPromise) {
       return this.flushPromise;
     }
-
     this.flushPromise = this.runFlush();
     try {
       return await this.flushPromise;
@@ -369,7 +373,6 @@ export class VfsBackgroundSyncClient {
     if (this.backgroundFlushTimer) {
       return;
     }
-
     this.backgroundFlushTimer = setInterval(() => {
       void this.flush().catch((error) => {
         if (this.onBackgroundError) {
@@ -414,11 +417,6 @@ export class VfsBackgroundSyncClient {
       throw new Error('cannot hydrate state while background flush is active');
     }
 
-    /**
-     * Guardrail: hydration replaces all local client state. We only allow it on
-     * a pristine client instance to avoid blending persisted state with live
-     * mutable state from a previous process lifetime.
-     */
     if (this.pendingOperations.length > 0 || this.pendingOpIds.size > 0) {
       throw new Error('cannot hydrate state on a non-empty pending queue');
     }
@@ -441,28 +439,25 @@ export class VfsBackgroundSyncClient {
   }
 
   private async runFlush(): Promise<VfsBackgroundSyncClientFlushResult> {
-    return runFlushLoop({
-      userId: this.userId,
-      clientId: this.clientId,
-      pullLimit: this.pullLimit,
-      transport: this.transport,
-      pendingOperations: this.pendingOperations,
-      pendingOpIds: this.pendingOpIds,
-      replayStore: this.replayStore,
-      reconcileStateStore: this.reconcileStateStore,
-      containerClockStore: this.containerClockStore,
-      readNextLocalWriteId: () => this.nextLocalWriteId,
-      writeNextLocalWriteId: (value) => {
-        this.nextLocalWriteId = value;
-      },
-      emitGuardrailViolation: (violation) => {
-        this.emitGuardrailViolation(violation);
-      }
+    const dependencies = this.buildLoopDependencies();
+    return runWithRematerializationRecovery({
+      maxAttempts: this.maxRematerializationAttempts,
+      execute: () => runFlushLoop(dependencies),
+      rematerialize: (attempt, error) => this.rematerializeState(attempt, error)
     });
   }
 
   private async pullUntilSettled(): Promise<VfsBackgroundSyncClientSyncResult> {
-    return pullUntilSettledLoop({
+    const dependencies = this.buildLoopDependencies();
+    return runWithRematerializationRecovery({
+      maxAttempts: this.maxRematerializationAttempts,
+      execute: () => pullUntilSettledLoop(dependencies),
+      rematerialize: (attempt, error) => this.rematerializeState(attempt, error)
+    });
+  }
+
+  private buildLoopDependencies() {
+    return {
       userId: this.userId,
       clientId: this.clientId,
       pullLimit: this.pullLimit,
@@ -473,12 +468,32 @@ export class VfsBackgroundSyncClient {
       reconcileStateStore: this.reconcileStateStore,
       containerClockStore: this.containerClockStore,
       readNextLocalWriteId: () => this.nextLocalWriteId,
-      writeNextLocalWriteId: (value) => {
+      writeNextLocalWriteId: (value: number) => {
         this.nextLocalWriteId = value;
       },
-      emitGuardrailViolation: (violation) => {
+      emitGuardrailViolation: (violation: VfsSyncGuardrailViolation) => {
         this.emitGuardrailViolation(violation);
       }
+    };
+  }
+
+  private async rematerializeState(
+    attempt: number,
+    error: VfsCrdtRematerializationRequiredError
+  ): Promise<void> {
+    this.nextLocalWriteId = await rematerializeClientState({
+      userId: this.userId,
+      clientId: this.clientId,
+      attempt,
+      error,
+      stores: {
+        replayStore: this.replayStore,
+        reconcileStateStore: this.reconcileStateStore,
+        containerClockStore: this.containerClockStore
+      },
+      pendingOperations: this.pendingOperations,
+      nextLocalWriteId: this.nextLocalWriteId,
+      onRematerializationRequired: this.onRematerializationRequired
     });
   }
 }

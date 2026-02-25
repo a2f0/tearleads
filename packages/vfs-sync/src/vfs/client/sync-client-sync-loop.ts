@@ -28,6 +28,7 @@ import {
   MAX_STALE_PUSH_RECOVERY_ATTEMPTS,
   normalizeCursor,
   normalizeRequiredString,
+  VfsCrdtRematerializationRequiredError,
   VfsCrdtSyncPushRejectedError,
   validatePushResponse
 } from './sync-client-utils.js';
@@ -183,12 +184,28 @@ export async function pullUntilSettledLoop(
       ),
       replayCursor: dependencies.replayStore.snapshot().cursor
     });
-    const response = await dependencies.transport.pullOperations({
-      userId: dependencies.userId,
-      clientId: dependencies.clientId,
-      cursor: cursorBeforePull,
-      limit: dependencies.pullLimit
-    });
+    let response: Awaited<ReturnType<VfsCrdtSyncTransport['pullOperations']>>;
+    try {
+      response = await dependencies.transport.pullOperations({
+        userId: dependencies.userId,
+        clientId: dependencies.clientId,
+        cursor: cursorBeforePull,
+        limit: dependencies.pullLimit
+      });
+    } catch (error) {
+      if (error instanceof VfsCrdtRematerializationRequiredError) {
+        dependencies.emitGuardrailViolation({
+          code: 'pullRematerializationRequired',
+          stage: 'pull',
+          message: 'pull requires re-materialization from canonical state',
+          details: {
+            requestedCursor: error.requestedCursor,
+            oldestAvailableCursor: error.oldestAvailableCursor
+          }
+        });
+      }
+      throw error;
+    }
     pullPages += 1;
 
     const parsedWriteIds = parseVfsCrdtLastReconciledWriteIds(

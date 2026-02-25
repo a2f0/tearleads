@@ -4,6 +4,7 @@ import type {
   VfsCrdtSyncReconcileResponse,
   VfsCrdtSyncTransport
 } from '../client/sync-client.js';
+import { VfsCrdtRematerializationRequiredError } from '../client/sync-client-utils.js';
 import type { VfsCrdtOperation } from '../protocol/sync-crdt.js';
 import {
   decodeVfsSyncCursor,
@@ -11,6 +12,7 @@ import {
   type VfsSyncCursor
 } from '../protocol/sync-cursor.js';
 import {
+  parseApiErrorResponse,
   parseApiPullResponse,
   parseApiPushResponse,
   parseApiReconcileResponse,
@@ -18,6 +20,7 @@ import {
 } from './sync-http-transport-parser.js';
 
 type FetchImpl = typeof fetch;
+const CRDT_REMATERIALIZATION_REQUIRED_CODE = 'crdt_rematerialization_required';
 
 function normalizeBaseUrl(baseUrl: string): string {
   const trimmed = baseUrl.trim();
@@ -180,6 +183,18 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     const rawBody = await response.text();
     const parsedBody = this.parseBody(rawBody);
     if (!response.ok) {
+      const parsedError = parseApiErrorResponse(response.status, parsedBody);
+      if (
+        response.status === 409 &&
+        parsedError.code === CRDT_REMATERIALIZATION_REQUIRED_CODE
+      ) {
+        throw new VfsCrdtRematerializationRequiredError({
+          message: parsedError.message,
+          requestedCursor: parsedError.requestedCursor,
+          oldestAvailableCursor: parsedError.oldestAvailableCursor
+        });
+      }
+
       throw new Error(parseErrorMessage(response.status, parsedBody));
     }
 

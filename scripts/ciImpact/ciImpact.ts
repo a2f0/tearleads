@@ -2,8 +2,8 @@
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { evaluateJobs } from './evaluateJobs.js';
-import type { JobName } from './workflowConfig.js';
+import { evaluateJobs } from './evaluateJobs.ts';
+import type { JobName } from './workflowConfig.ts';
 
 type StringSetMap = Map<string, Set<string>>;
 

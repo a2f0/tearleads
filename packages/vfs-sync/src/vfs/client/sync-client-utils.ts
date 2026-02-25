@@ -15,6 +15,7 @@ import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
 const DEFAULT_PULL_LIMIT = 100;
 const MAX_PULL_LIMIT = 500;
 const MAX_CLIENT_ID_LENGTH = 128;
+const DEFAULT_REMATERIALIZATION_ATTEMPTS = 1;
 export const MAX_STALE_PUSH_RECOVERY_ATTEMPTS = 2;
 
 const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
@@ -215,6 +216,7 @@ export type VfsSyncGuardrailViolationCode =
   | 'pullPageInvariantViolation'
   | 'pullDuplicateOpReplay'
   | 'pullCursorRegression'
+  | 'pullRematerializationRequired'
   | 'reconcileCursorRegression'
   | 'lastWriteIdRegression'
   | 'hydrateGuardrailViolation';
@@ -253,6 +255,27 @@ export class VfsCrdtSyncPushRejectedError extends Error {
     super('push rejected one or more operations');
     this.name = 'VfsCrdtSyncPushRejectedError';
     this.rejectedResults = results;
+  }
+}
+
+export class VfsCrdtRematerializationRequiredError extends Error {
+  readonly code: 'crdt_rematerialization_required';
+  readonly requestedCursor: string | null;
+  readonly oldestAvailableCursor: string | null;
+
+  constructor(input?: {
+    message?: string;
+    requestedCursor?: string | null;
+    oldestAvailableCursor?: string | null;
+  }) {
+    super(
+      input?.message ??
+        'CRDT cursor is older than retained history; re-materialization required'
+    );
+    this.name = 'VfsCrdtRematerializationRequiredError';
+    this.code = 'crdt_rematerialization_required';
+    this.requestedCursor = input?.requestedCursor ?? null;
+    this.oldestAvailableCursor = input?.oldestAvailableCursor ?? null;
   }
 }
 
@@ -369,6 +392,8 @@ export interface VfsBackgroundSyncClientOptions {
   now?: () => Date;
   onBackgroundError?: (error: unknown) => void;
   onGuardrailViolation?: (violation: VfsSyncGuardrailViolation) => void;
+  maxRematerializationAttempts?: number;
+  onRematerializationRequired?: VfsRematerializationRequiredHandler;
 }
 
 export interface VfsBackgroundSyncClientFlushResult {
@@ -408,6 +433,23 @@ export interface VfsBackgroundSyncClientPersistedState {
   nextLocalWriteId: number;
 }
 
+export interface VfsBackgroundSyncClientRematerializedState {
+  replaySnapshot: VfsCrdtFeedReplaySnapshot;
+  reconcileState: VfsCrdtClientReconcileState | null;
+  containerClocks: VfsContainerClockEntry[];
+}
+
+export type VfsRematerializationRequiredHandler = (input: {
+  userId: string;
+  clientId: string;
+  error: VfsCrdtRematerializationRequiredError;
+  attempt: number;
+}) =>
+  | Promise<VfsBackgroundSyncClientRematerializedState | null | undefined>
+  | VfsBackgroundSyncClientRematerializedState
+  | null
+  | undefined;
+
 export interface InMemoryVfsCrdtSyncTransportDelayConfig {
   pushDelayMs?: number;
   pullDelayMs?: number;
@@ -423,4 +465,18 @@ export async function delayVfsCrdtSyncTransport(
   }
 
   await sleep(delayMs);
+}
+
+export function parseRematerializationAttempts(value: unknown): number {
+  if (value === undefined) {
+    return DEFAULT_REMATERIALIZATION_ATTEMPTS;
+  }
+
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+    throw new Error(
+      'maxRematerializationAttempts must be a non-negative integer'
+    );
+  }
+
+  return value;
 }

@@ -10,6 +10,7 @@ export const DEFAULT_VFS_CRDT_HOT_RETENTION_MS = 30 * MS_PER_DAY;
 export const DEFAULT_VFS_CRDT_INACTIVE_CLIENT_WINDOW_MS = 90 * MS_PER_DAY;
 export const DEFAULT_VFS_CRDT_CURSOR_SAFETY_BUFFER_MS = 6 * MS_PER_HOUR;
 export const DEFAULT_VFS_CRDT_CLIENT_PREFIX = 'crdt:';
+export const DEFAULT_VFS_CRDT_STALE_CLIENT_ID_SAMPLE_LIMIT = 50;
 
 interface CursorRow {
   occurred_at: Date | string;
@@ -41,6 +42,7 @@ export interface VfsCrdtCompactionOptions {
   inactiveClientWindowMs?: number;
   cursorSafetyBufferMs?: number;
   clientIdPrefix?: string;
+  staleClientIdSampleLimit?: number;
 }
 
 export interface VfsCrdtCompactionCursor {
@@ -65,6 +67,9 @@ export interface VfsCrdtCompactionPlan {
   cutoffOccurredAt: string | null;
   estimatedRowsToDelete: number;
   staleClientIds: string[];
+  staleClientIdsTruncatedCount: number;
+  malformedClientStateCount: number;
+  blockedReason: 'malformedClientState' | null;
   note: string;
 }
 
@@ -74,9 +79,25 @@ interface NormalizedOptions {
   inactiveClientWindowMs: number;
   cursorSafetyBufferMs: number;
   clientIdPrefix: string;
+  staleClientIdSampleLimit: number;
 }
 
 function parsePositiveMs(value: number | undefined, fallback: number): number {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  if (!Number.isFinite(value) || value < 0) {
+    return fallback;
+  }
+
+  return Math.trunc(value);
+}
+
+function parseNonNegativeInteger(
+  value: number | undefined,
+  fallback: number
+): number {
   if (value === undefined) {
     return fallback;
   }
@@ -105,7 +126,11 @@ function normalizeOptions(
       options.cursorSafetyBufferMs,
       DEFAULT_VFS_CRDT_CURSOR_SAFETY_BUFFER_MS
     ),
-    clientIdPrefix: options.clientIdPrefix ?? DEFAULT_VFS_CRDT_CLIENT_PREFIX
+    clientIdPrefix: options.clientIdPrefix ?? DEFAULT_VFS_CRDT_CLIENT_PREFIX,
+    staleClientIdSampleLimit: parseNonNegativeInteger(
+      options.staleClientIdSampleLimit,
+      DEFAULT_VFS_CRDT_STALE_CLIENT_ID_SAMPLE_LIMIT
+    )
   };
 }
 
@@ -205,16 +230,22 @@ function buildCompactionPlanFromRows(
       cutoffOccurredAt: null,
       estimatedRowsToDelete: 0,
       staleClientIds: [],
+      staleClientIdsTruncatedCount: 0,
+      malformedClientStateCount: 0,
+      blockedReason: null,
       note: 'No CRDT operations found; compaction is not needed.'
     };
   }
 
-  const hotRetentionFloorMs =
-    Date.parse(latestCursor.changedAt) - options.hotRetentionMs;
+  const latestCursorMs = Date.parse(latestCursor.changedAt);
+  const boundedLatestCursorMs = Math.min(latestCursorMs, nowMs);
+  const hotRetentionFloorMs = boundedLatestCursorMs - options.hotRetentionMs;
   const hotRetentionFloor = new Date(hotRetentionFloorMs).toISOString();
 
   const activeCursors: VfsCrdtCompactionCursor[] = [];
   const staleClientIds: string[] = [];
+  let staleClientIdsTruncatedCount = 0;
+  let malformedClientStateCount = 0;
 
   for (const row of clientStateRows) {
     const updatedAt = toIsoString(row.updated_at);
@@ -224,22 +255,46 @@ function buildCompactionPlanFromRows(
     );
 
     if (!updatedAt || !reconciledCursor) {
+      malformedClientStateCount += 1;
       continue;
     }
 
     const updatedAtMs = Date.parse(updatedAt);
     if (!Number.isFinite(updatedAtMs)) {
+      malformedClientStateCount += 1;
       continue;
     }
 
     if (updatedAtMs < cutoffForActiveClientMs) {
-      staleClientIds.push(
-        sanitizeClientId(row.client_id, options.clientIdPrefix)
-      );
+      if (staleClientIds.length < options.staleClientIdSampleLimit) {
+        staleClientIds.push(
+          sanitizeClientId(row.client_id, options.clientIdPrefix)
+        );
+      } else {
+        staleClientIdsTruncatedCount += 1;
+      }
       continue;
     }
 
     activeCursors.push(reconciledCursor);
+  }
+
+  if (malformedClientStateCount > 0) {
+    return {
+      now: options.now.toISOString(),
+      latestCursor,
+      hotRetentionFloor,
+      activeClientCount: activeCursors.length,
+      staleClientCount: staleClientIds.length + staleClientIdsTruncatedCount,
+      oldestActiveCursor: null,
+      cutoffOccurredAt: null,
+      estimatedRowsToDelete: 0,
+      staleClientIds,
+      staleClientIdsTruncatedCount,
+      malformedClientStateCount,
+      blockedReason: 'malformedClientState',
+      note: 'Compaction was blocked because malformed CRDT client-state rows were found; fix reconcile state before retrying.'
+    };
   }
 
   let oldestActiveCursor: VfsCrdtCompactionCursor | null = null;
@@ -251,23 +306,26 @@ function buildCompactionPlanFromRows(
 
   let cutoffMs = hotRetentionFloorMs;
   if (oldestActiveCursor) {
+    const oldestActiveCursorMs = Date.parse(oldestActiveCursor.changedAt);
     const activeBoundMs =
-      Date.parse(oldestActiveCursor.changedAt) - options.cursorSafetyBufferMs;
+      Math.min(oldestActiveCursorMs, nowMs) - options.cursorSafetyBufferMs;
     cutoffMs = Math.min(cutoffMs, activeBoundMs);
   }
 
-  const latestCursorMs = Date.parse(latestCursor.changedAt);
   if (cutoffMs >= latestCursorMs) {
     return {
       now: options.now.toISOString(),
       latestCursor,
       hotRetentionFloor,
       activeClientCount: activeCursors.length,
-      staleClientCount: staleClientIds.length,
+      staleClientCount: staleClientIds.length + staleClientIdsTruncatedCount,
       oldestActiveCursor,
       cutoffOccurredAt: null,
       estimatedRowsToDelete: 0,
       staleClientIds,
+      staleClientIdsTruncatedCount,
+      malformedClientStateCount,
+      blockedReason: null,
       note: 'No safe cutoff was found below the latest cursor; skip compaction for this run.'
     };
   }
@@ -279,13 +337,16 @@ function buildCompactionPlanFromRows(
     latestCursor,
     hotRetentionFloor,
     activeClientCount: activeCursors.length,
-    staleClientCount: staleClientIds.length,
+    staleClientCount: staleClientIds.length + staleClientIdsTruncatedCount,
     oldestActiveCursor,
     cutoffOccurredAt,
     estimatedRowsToDelete,
     staleClientIds,
+    staleClientIdsTruncatedCount,
+    malformedClientStateCount,
+    blockedReason: null,
     note:
-      staleClientIds.length > 0
+      staleClientIds.length + staleClientIdsTruncatedCount > 0
         ? 'Stale clients were excluded from the frontier and will require re-materialization on return.'
         : 'Compaction frontier is bounded by active client cursors and hot retention.'
   };
