@@ -132,7 +132,8 @@ export function useConversations(): UseConversationsResult {
               updatedAt: toISOString(row.updatedAt)
             });
           }
-        } catch {
+        } catch (e) {
+          console.error(`Failed to decrypt conversation ${row.id}:`, e);
           decrypted.push({
             id: row.id,
             title: '[Encrypted]',
@@ -327,7 +328,17 @@ export function useConversations(): UseConversationsResult {
           .where(eq(aiConversations.id, id));
       });
 
-      const payload = await buildCrdtPayload(id, newEncryptedTitle, null);
+      const convRow = await getDatabase()
+        .select({ modelId: aiConversations.modelId })
+        .from(aiConversations)
+        .where(eq(aiConversations.id, id))
+        .limit(1);
+
+      const payload = await buildCrdtPayload(
+        id,
+        newEncryptedTitle,
+        convRow[0]?.modelId ?? null
+      );
       await queueItemUpsertAndFlush({
         itemId: id,
         objectType: 'conversation',

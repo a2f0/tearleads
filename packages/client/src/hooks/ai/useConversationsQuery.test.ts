@@ -153,7 +153,10 @@ describe('useConversations queries', () => {
       });
 
       expect(result.current.conversations[0]?.title).toBe('[Encrypted]');
-      expect(consoleSpy).not.toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to decrypt conversation c3:',
+        expect.objectContaining({ message: 'key failure' })
+      );
       consoleSpy.mockRestore();
     });
 
