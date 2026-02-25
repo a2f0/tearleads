@@ -57,7 +57,7 @@ export {
   toRematerializationMetricEvent,
   type VfsSyncGuardrailMetricEvent,
   type VfsSyncRematerializationMetricEvent
-} from './client/sync-client-telemetry.js';
+} from './client/syncClientTelemetry.js';
 export {
   InMemoryVfsCrdtSyncServer,
   type InMemoryVfsCrdtSyncServerSnapshot,

@@ -18,7 +18,7 @@ import { buildQueuedLocalOperation } from './sync-client-queue-local-operation.j
 import {
   rematerializeClientState,
   runWithRematerializationRecovery
-} from './sync-client-rematerialization.js';
+} from './syncClientRematerialization.js';
 import { pullUntilSettledLoop, runFlushLoop } from './sync-client-sync-loop.js';
 import type {
   QueueVfsCrdtLocalOperationInput,

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   toGuardrailMetricEvent,
   toRematerializationMetricEvent
-} from './sync-client-telemetry.js';
+} from './syncClientTelemetry.js';
 import type { VfsSyncGuardrailViolation } from './sync-client-utils.js';
 
 describe('sync-client telemetry helpers', () => {
