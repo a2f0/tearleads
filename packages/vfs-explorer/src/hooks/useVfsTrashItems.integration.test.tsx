@@ -1,10 +1,13 @@
-import { seedVfsItem, withRealDatabase } from '@tearleads/db-test-utils';
+import {
+  seedVfsItem,
+  vfsTestMigrations,
+  withRealDatabase
+} from '@tearleads/db-test-utils';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { VfsExplorerProviderProps } from '../context';
 import { VfsExplorerProvider } from '../context';
-import { trashTestMigrations } from '../test/trashTestMigrations';
 import { useVfsTrashItems } from './useVfsTrashItems';
 
 function createMockUI(): VfsExplorerProviderProps['ui'] {
@@ -84,7 +87,7 @@ describe('useVfsTrashItems integration (real database)', () => {
         expect(result.current.items).toHaveLength(1);
         expect(result.current.items[0]?.id).toBe(deletedId);
       },
-      { migrations: trashTestMigrations }
+      { migrations: vfsTestMigrations }
     );
   });
 
@@ -149,7 +152,7 @@ describe('useVfsTrashItems integration (real database)', () => {
         expect(ids).toContain(firstDeletedId);
         expect(ids).toContain(secondDeletedId);
       },
-      { migrations: trashTestMigrations }
+      { migrations: vfsTestMigrations }
     );
   });
 });
