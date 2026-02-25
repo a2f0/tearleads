@@ -4,7 +4,12 @@ import {
   withRealDatabase
 } from '@tearleads/db-test-utils';
 import { describe, expect, it } from 'vitest';
-import { queryAllItems, queryDeletedItems } from './vfsQuery';
+import {
+  queryAllItems,
+  queryDeletedItems,
+  queryFolderContents,
+  queryUnfiledItems
+} from './vfsQuery';
 import type { VfsSortState } from './vfsTypes';
 
 const DEFAULT_SORT: VfsSortState = { column: null, direction: null };
@@ -37,6 +42,84 @@ describe('vfsQuery integration (real database)', () => {
 
         expect(canonicalRow?.name).toBe('Canonical Folder Name');
         expect(legacyOnlyRow?.name).toBe('Unnamed Folder');
+      },
+      { migrations: vfsTestMigrations }
+    );
+  });
+
+  it('queryUnfiledItems uses canonical folder names without legacy fallback', async () => {
+    await withRealDatabase(
+      async ({ db, adapter }) => {
+        const canonicalFolderId = crypto.randomUUID();
+        const nullNameFolderId = crypto.randomUUID();
+        const emptyNameFolderId = crypto.randomUUID();
+        const now = Date.now();
+
+        await adapter.execute(
+          `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at) VALUES (?, ?, ?, ?, ?)`,
+          [canonicalFolderId, 'folder', null, 'Inbox', now]
+        );
+
+        await adapter.execute(
+          `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at) VALUES (?, ?, ?, ?, ?)`,
+          [nullNameFolderId, 'folder', null, null, now + 1]
+        );
+
+        await adapter.execute(
+          `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at) VALUES (?, ?, ?, ?, ?)`,
+          [emptyNameFolderId, 'folder', null, '', now + 2]
+        );
+
+        const unfiledItems = await queryUnfiledItems(db, DEFAULT_SORT);
+        const canonicalRow = unfiledItems.find((row) => row.id === canonicalFolderId);
+        const nullNameRow = unfiledItems.find((row) => row.id === nullNameFolderId);
+        const emptyNameRow = unfiledItems.find((row) => row.id === emptyNameFolderId);
+
+        expect(canonicalRow?.name).toBe('Inbox');
+        expect(nullNameRow?.name).toBe('Unnamed Folder');
+        expect(emptyNameRow?.name).toBe('Unnamed Folder');
+      },
+      { migrations: vfsTestMigrations }
+    );
+  });
+
+  it('queryFolderContents uses canonical folder names without legacy fallback', async () => {
+    await withRealDatabase(
+      async ({ db, adapter }) => {
+        const parentId = crypto.randomUUID();
+        const canonicalChildId = crypto.randomUUID();
+        const nullNameChildId = crypto.randomUUID();
+        const now = Date.now();
+
+        await adapter.execute(
+          `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at) VALUES (?, ?, ?, ?, ?)`,
+          [parentId, 'folder', null, 'Email Root', now]
+        );
+
+        await adapter.execute(
+          `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at) VALUES (?, ?, ?, ?, ?)`,
+          [canonicalChildId, 'folder', null, 'Sent', now + 1]
+        );
+        await adapter.execute(
+          `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at) VALUES (?, ?, ?, ?, ?)`,
+          [nullNameChildId, 'folder', null, null, now + 2]
+        );
+
+        await adapter.execute(
+          `INSERT INTO vfs_links (id, parent_id, child_id, wrapped_session_key, created_at) VALUES (?, ?, ?, ?, ?)`,
+          [crypto.randomUUID(), parentId, canonicalChildId, 'wrapped-key', now + 3]
+        );
+        await adapter.execute(
+          `INSERT INTO vfs_links (id, parent_id, child_id, wrapped_session_key, created_at) VALUES (?, ?, ?, ?, ?)`,
+          [crypto.randomUUID(), parentId, nullNameChildId, 'wrapped-key', now + 4]
+        );
+
+        const folderContents = await queryFolderContents(db, parentId, DEFAULT_SORT);
+        const canonicalRow = folderContents.find((row) => row.id === canonicalChildId);
+        const nullNameRow = folderContents.find((row) => row.id === nullNameChildId);
+
+        expect(canonicalRow?.name).toBe('Sent');
+        expect(nullNameRow?.name).toBe('Unnamed Folder');
       },
       { migrations: vfsTestMigrations }
     );
