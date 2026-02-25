@@ -26,7 +26,7 @@ jobs:
           node-version-file: '.nvmrc'
 
       - name: Install tsx
-        run: npm install -g tsx
+        run: corepack enable && pnpm add -g tsx
 
       - name: Decide deploy impact
         id: decide
