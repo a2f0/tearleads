@@ -19,8 +19,13 @@ usage() {
   echo ""
   echo "Options:"
   echo "  -d, --dry-run       Show what would be migrated without doing it"
+  echo "  -f, --force         Write all secrets even if unchanged"
   echo "  -s, --secrets-dir   Source directory (default: .secrets)"
   echo "  -h, --help          Show this help"
+  echo ""
+  echo "Idempotency:"
+  echo "  By default, each secret is compared against the existing value in Vault."
+  echo "  Only new or changed secrets are written. Use -f to force write all."
   echo ""
   echo "File storage:"
   echo "  - Binary files (.keystore, .p8): stored as base64 at secret/files/<name>"
@@ -41,11 +46,16 @@ usage() {
 }
 
 DRY_RUN=false
+FORCE=false
 
 while [[ $# -gt 0 ]]; do
   case $1 in
     -d|--dry-run)
       DRY_RUN=true
+      shift
+      ;;
+    -f|--force)
+      FORCE=true
       shift
       ;;
     -s|--secrets-dir)
@@ -142,6 +152,16 @@ is_json() {
   [[ "${file##*.}" == "json" ]]
 }
 
+# Fetch the current content of a secret from Vault.
+# Returns the content field value via stdout, or empty string if not found.
+# Return code: 0 if secret exists, 1 if not found.
+get_vault_content() {
+  local path="$1"
+  local existing
+  existing=$(vault kv get -format=json "$path" 2>/dev/null) || return 1
+  echo "$existing" | jq -r '.data.data.content // empty'
+}
+
 echo "==> Migrating secrets from $SECRETS_DIR to Vault"
 echo "    Vault: $VAULT_ADDR"
 echo "    Path prefix: $VAULT_PATH_PREFIX"
@@ -150,7 +170,9 @@ if [[ "$DRY_RUN" == "true" ]]; then
 fi
 echo ""
 
-MIGRATED=0
+NEW=0
+UPDATED=0
+UNCHANGED=0
 SKIPPED=0
 
 # Find all files (not directories)
@@ -168,50 +190,63 @@ while IFS= read -r -d '' file; do
   vault_path="$VAULT_PATH_PREFIX/$filename"
 
   if is_binary "$file"; then
-    storage_type="base64"
-    if [[ "$DRY_RUN" == "true" ]]; then
-      echo "[DRY] $rel_path -> $vault_path (base64)"
-    else
-      echo "[MIGRATE] $rel_path -> $vault_path (base64)"
-      content=$(base64 < "$file")
-      vault kv put "$vault_path" \
-        content="$content" \
-        encoding="base64" \
-        original_filename="$filename"
-    fi
+    content=$(base64 < "$file")
+    encoding="base64"
   elif is_json "$file"; then
-    storage_type="json"
-    if [[ "$DRY_RUN" == "true" ]]; then
-      echo "[DRY] $rel_path -> $vault_path (json)"
-    else
-      echo "[MIGRATE] $rel_path -> $vault_path (json)"
-      content=$(cat "$file")
-      vault kv put "$vault_path" \
-        content="$content" \
-        encoding="json" \
-        original_filename="$filename"
-    fi
+    content=$(cat "$file")
+    encoding="json"
   else
-    storage_type="text"
-    if [[ "$DRY_RUN" == "true" ]]; then
-      echo "[DRY] $rel_path -> $vault_path (text)"
-    else
-      echo "[MIGRATE] $rel_path -> $vault_path (text)"
-      content=$(cat "$file")
-      vault kv put "$vault_path" \
-        content="$content" \
-        encoding="text" \
-        original_filename="$filename"
+    content=$(cat "$file")
+    encoding="text"
+  fi
+
+  # Check if secret already exists and compare content (unless --force)
+  existing_content=""
+  secret_exists=false
+  if [[ "$DRY_RUN" == "true" || "$FORCE" != "true" ]]; then
+    if existing_content=$(get_vault_content "$vault_path"); then
+      secret_exists=true
     fi
   fi
 
-  ((MIGRATED++))
+  if [[ "$DRY_RUN" == "true" ]]; then
+    if [[ "$FORCE" != "true" && "$secret_exists" == "true" && "$existing_content" == "$content" ]]; then
+      echo "[UNCHANGED] $rel_path ($encoding)"
+      ((UNCHANGED++))
+    elif [[ "$secret_exists" == "true" ]]; then
+      echo "[DRY][UPDATE] $rel_path -> $vault_path ($encoding)"
+      ((UPDATED++))
+    else
+      echo "[DRY][NEW] $rel_path -> $vault_path ($encoding)"
+      ((NEW++))
+    fi
+    continue
+  fi
+
+  if [[ "$FORCE" != "true" && "$secret_exists" == "true" && "$existing_content" == "$content" ]]; then
+    echo "[UNCHANGED] $rel_path ($encoding)"
+    ((UNCHANGED++))
+  else
+    if [[ "$secret_exists" == "true" ]]; then
+      echo "[UPDATE] $rel_path -> $vault_path ($encoding)"
+      ((UPDATED++))
+    else
+      echo "[NEW] $rel_path -> $vault_path ($encoding)"
+      ((NEW++))
+    fi
+    vault kv put "$vault_path" \
+      content="$content" \
+      encoding="$encoding" \
+      original_filename="$filename"
+  fi
 done < <(find -L "$SECRETS_DIR" -type f -print0)
 
 echo ""
 echo "==> Migration complete!"
-echo "    Migrated: $MIGRATED files"
-echo "    Skipped: $SKIPPED files"
+echo "    New:       $NEW files"
+echo "    Updated:   $UPDATED files"
+echo "    Unchanged: $UNCHANGED files"
+echo "    Skipped:   $SKIPPED files"
 
 if [[ "$DRY_RUN" == "true" ]]; then
   echo ""
