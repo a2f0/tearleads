@@ -155,6 +155,38 @@ describe('RemoteReadOrchestrator', () => {
     expect(calls).toBe(1);
   });
 
+  it('replaces pending debounce when debounceMs changes', async () => {
+    const orchestrator = new RemoteReadOrchestrator<string>();
+    let calls = 0;
+
+    const first = orchestrator.schedule(
+      async () => {
+        calls += 1;
+        return 'first';
+      },
+      { scope: 'vfs', debounceMs: 30 }
+    );
+
+    const second = orchestrator.schedule(
+      async () => {
+        calls += 1;
+        return 'second';
+      },
+      { scope: 'vfs', debounceMs: 5 }
+    );
+
+    await sleep(20);
+    await expect(second).resolves.toBe('second');
+    expect(calls).toBe(1);
+
+    // The first promise was superseded by debounce replacement and should not resolve.
+    const firstState = await Promise.race([
+      first.then(() => 'resolved'),
+      sleep(5).then(() => 'pending')
+    ]);
+    expect(firstState).toBe('pending');
+  });
+
   it('drain waits for active and scheduled debounce work', async () => {
     const orchestrator = new RemoteReadOrchestrator<void>();
     let completed = false;
@@ -176,6 +208,18 @@ describe('RemoteReadOrchestrator', () => {
     expect(completed).toBe(true);
   });
 
+  it('propagates errors from debounced operations', async () => {
+    const orchestrator = new RemoteReadOrchestrator<void>();
+    const readPromise = orchestrator.schedule(
+      async () => {
+        throw new Error('debounced failure');
+      },
+      { scope: 'vfs', debounceMs: 5 }
+    );
+
+    await expect(readPromise).rejects.toThrow('debounced failure');
+  });
+
   it('can abort an in-flight read', async () => {
     const orchestrator = new RemoteReadOrchestrator<string>();
     const aborted = deferred<void>();
@@ -191,5 +235,43 @@ describe('RemoteReadOrchestrator', () => {
     await Promise.resolve();
     orchestrator.cancelInFlight();
     await expect(readPromise).rejects.toThrow('aborted');
+  });
+
+  it('can abort only a specific scope in-flight read', async () => {
+    const orchestrator = new RemoteReadOrchestrator<string>();
+    const abortedA = deferred<void>();
+    const startedB = deferred<void>();
+
+    const readA = orchestrator.schedule(
+      async ({ signal }) => {
+        signal.addEventListener('abort', () => {
+          abortedA.resolve(undefined);
+        });
+        await abortedA.promise;
+        throw new Error('aborted-a');
+      },
+      { scope: 'a', coalesceInFlight: false }
+    );
+
+    const readB = orchestrator.schedule(
+      async () => {
+        startedB.resolve(undefined);
+        await sleep(15);
+        return 'ok-b';
+      },
+      { scope: 'b', coalesceInFlight: false }
+    );
+
+    await Promise.resolve();
+    orchestrator.cancelInFlight('a');
+    await startedB.promise;
+
+    await expect(readA).rejects.toThrow('aborted-a');
+    await expect(readB).resolves.toBe('ok-b');
+  });
+
+  it('drain on an unknown scope resolves immediately', async () => {
+    const orchestrator = new RemoteReadOrchestrator<void>();
+    await expect(orchestrator.drain('missing-scope')).resolves.toBeUndefined();
   });
 });
