@@ -134,7 +134,21 @@ const syncClient = new VfsBackgroundSyncClient(
   'user-123',
   'desktop',
   transport,
-  { pullLimit: 100 }
+  {
+    pullLimit: 100,
+    maxRematerializationAttempts: 1,
+    onRematerializationRequired: async ({ error }) => {
+      console.warn(
+        'CRDT rematerialization required',
+        error.requestedCursor,
+        error.oldestAvailableCursor
+      );
+
+      // Return canonical replay/reconcile/container-clock state if available.
+      // Returning null/void clears CRDT replay state before retrying.
+      return null;
+    }
+  }
 );
 
 syncClient.queueLocalOperation({

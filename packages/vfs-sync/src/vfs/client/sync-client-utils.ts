@@ -15,6 +15,7 @@ import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
 const DEFAULT_PULL_LIMIT = 100;
 const MAX_PULL_LIMIT = 500;
 const MAX_CLIENT_ID_LENGTH = 128;
+const DEFAULT_REMATERIALIZATION_ATTEMPTS = 1;
 export const MAX_STALE_PUSH_RECOVERY_ATTEMPTS = 2;
 
 const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
@@ -391,6 +392,8 @@ export interface VfsBackgroundSyncClientOptions {
   now?: () => Date;
   onBackgroundError?: (error: unknown) => void;
   onGuardrailViolation?: (violation: VfsSyncGuardrailViolation) => void;
+  maxRematerializationAttempts?: number;
+  onRematerializationRequired?: VfsRematerializationRequiredHandler;
 }
 
 export interface VfsBackgroundSyncClientFlushResult {
@@ -430,6 +433,23 @@ export interface VfsBackgroundSyncClientPersistedState {
   nextLocalWriteId: number;
 }
 
+export interface VfsBackgroundSyncClientRematerializedState {
+  replaySnapshot: VfsCrdtFeedReplaySnapshot;
+  reconcileState: VfsCrdtClientReconcileState | null;
+  containerClocks: VfsContainerClockEntry[];
+}
+
+export type VfsRematerializationRequiredHandler = (input: {
+  userId: string;
+  clientId: string;
+  error: VfsCrdtRematerializationRequiredError;
+  attempt: number;
+}) =>
+  | Promise<VfsBackgroundSyncClientRematerializedState | null | void>
+  | VfsBackgroundSyncClientRematerializedState
+  | null
+  | void;
+
 export interface InMemoryVfsCrdtSyncTransportDelayConfig {
   pushDelayMs?: number;
   pullDelayMs?: number;
@@ -445,4 +465,20 @@ export async function delayVfsCrdtSyncTransport(
   }
 
   await sleep(delayMs);
+}
+
+export function parseRematerializationAttempts(value: unknown): number {
+  if (value === undefined) {
+    return DEFAULT_REMATERIALIZATION_ATTEMPTS;
+  }
+
+  if (typeof value !== 'number' || !Number.isInteger(value)) {
+    throw new Error('maxRematerializationAttempts must be a non-negative integer');
+  }
+
+  if (value < 0) {
+    throw new Error('maxRematerializationAttempts must be a non-negative integer');
+  }
+
+  return value;
 }
