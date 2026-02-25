@@ -71,9 +71,15 @@ describe('vfsQuery integration (real database)', () => {
         );
 
         const unfiledItems = await queryUnfiledItems(db, DEFAULT_SORT);
-        const canonicalRow = unfiledItems.find((row) => row.id === canonicalFolderId);
-        const nullNameRow = unfiledItems.find((row) => row.id === nullNameFolderId);
-        const emptyNameRow = unfiledItems.find((row) => row.id === emptyNameFolderId);
+        const canonicalRow = unfiledItems.find(
+          (row) => row.id === canonicalFolderId
+        );
+        const nullNameRow = unfiledItems.find(
+          (row) => row.id === nullNameFolderId
+        );
+        const emptyNameRow = unfiledItems.find(
+          (row) => row.id === emptyNameFolderId
+        );
 
         expect(canonicalRow?.name).toBe('Inbox');
         expect(nullNameRow?.name).toBe('Unnamed Folder');
@@ -107,16 +113,36 @@ describe('vfsQuery integration (real database)', () => {
 
         await adapter.execute(
           `INSERT INTO vfs_links (id, parent_id, child_id, wrapped_session_key, created_at) VALUES (?, ?, ?, ?, ?)`,
-          [crypto.randomUUID(), parentId, canonicalChildId, 'wrapped-key', now + 3]
+          [
+            crypto.randomUUID(),
+            parentId,
+            canonicalChildId,
+            'wrapped-key',
+            now + 3
+          ]
         );
         await adapter.execute(
           `INSERT INTO vfs_links (id, parent_id, child_id, wrapped_session_key, created_at) VALUES (?, ?, ?, ?, ?)`,
-          [crypto.randomUUID(), parentId, nullNameChildId, 'wrapped-key', now + 4]
+          [
+            crypto.randomUUID(),
+            parentId,
+            nullNameChildId,
+            'wrapped-key',
+            now + 4
+          ]
         );
 
-        const folderContents = await queryFolderContents(db, parentId, DEFAULT_SORT);
-        const canonicalRow = folderContents.find((row) => row.id === canonicalChildId);
-        const nullNameRow = folderContents.find((row) => row.id === nullNameChildId);
+        const folderContents = await queryFolderContents(
+          db,
+          parentId,
+          DEFAULT_SORT
+        );
+        const canonicalRow = folderContents.find(
+          (row) => row.id === canonicalChildId
+        );
+        const nullNameRow = folderContents.find(
+          (row) => row.id === nullNameChildId
+        );
 
         expect(canonicalRow?.name).toBe('Sent');
         expect(nullNameRow?.name).toBe('Unnamed Folder');
