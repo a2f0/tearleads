@@ -28,6 +28,35 @@ def set_version_name(version_name)
   File.write(GRADLE_FILE, new_content)
 end
 
+def resolve_android_device_serial
+  adb_output = `adb devices`
+  connected = adb_output
+    .lines
+    .drop(1)
+    .map(&:strip)
+    .reject(&:empty?)
+    .map { |line| line.split(/\s+/, 2) }
+    .select { |parts| parts[1] == 'device' }
+    .map { |parts| parts[0] }
+
+  requested_serial = ENV.fetch('ANDROID_SERIAL', '').strip
+  if !requested_serial.empty?
+    return requested_serial if connected.include?(requested_serial)
+
+    UI.important(
+      "ANDROID_SERIAL=#{requested_serial} is not connected; falling back to auto-detected device."
+    )
+  end
+
+  emulator_serial = connected.find { |serial| serial.start_with?('emulator-') }
+  return emulator_serial unless emulator_serial.nil?
+  return connected.first unless connected.empty?
+
+  UI.user_error!(
+    "No connected Android device/emulator found. `adb devices` output:\n#{adb_output}"
+  )
+end
+
 platform :android do
   desc 'Build debug APK'
   lane :build_debug do
@@ -197,8 +226,8 @@ platform :android do
     maestro_dir = File.expand_path('../.maestro', __dir__)
     maestro_target = ENV.fetch('MAESTRO_FLOW_PATH', maestro_dir)
 
-    emulator_id = `adb devices | grep emulator | head -1 | cut -f1`.strip
-    UI.user_error!('No Android emulator found. Start an emulator first.') if emulator_id.empty?
+    emulator_id = resolve_android_device_serial
+    sh("adb -s #{emulator_id} wait-for-device")
 
     sh("adb -s #{emulator_id} uninstall #{APP_ID} || true")
     sh("adb -s #{emulator_id} install -r '#{apk_path}'")

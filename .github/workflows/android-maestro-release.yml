@@ -268,6 +268,14 @@ jobs:
           script: |
             adb wait-for-device
             adb shell input keyevent 82
+            EMULATOR_SERIAL="$(adb devices | awk 'NR>1 && $2=="device" && $1 ~ /^emulator-/ {print $1; exit}')"
+            if [ -z "$EMULATOR_SERIAL" ]; then
+              echo "Failed to resolve emulator serial from adb devices" >&2
+              adb devices >&2 || true
+              exit 1
+            fi
+            export ANDROID_SERIAL="$EMULATOR_SERIAL"
+            echo "Using Android serial: $ANDROID_SERIAL"
             bundle exec fastlane android test_maestro_release
 
       - name: Upload Maestro artifacts
