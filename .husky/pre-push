@@ -34,6 +34,7 @@ run_step "checkClientBoundary" ./scripts/checks/checkClientBoundary.sh --from-up
 run_step "checkApiBoundary" ./scripts/checks/checkApiBoundary.sh --from-upstream
 run_step "checkPreenEcosystem" ./scripts/checks/preen/checkPreenEcosystem.sh --strict
 run_step "checkCircularImports" ./scripts/checks/checkCircularImports.ts
+run_step "checkTailwindSources" ./scripts/checks/checkTailwindSources.ts
 run_step "checkGitHubActions" ./scripts/checks/checkGithubActions.sh --from-upstream
 run_step "checkTerraform" ./scripts/checks/checkTerraform.sh
 run_step "typecheckSolutionBuild" pnpm exec tsc -b

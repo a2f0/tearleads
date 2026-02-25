@@ -6,9 +6,36 @@
 @import "../generated/app-theme.css" layer(app);
 @import "../../ui/src/styles/theme.css" layer(themes);
 
+/* Override Tailwind preflight's `border: 0 solid` (which defaults border-color to
+   currentColor). Placed directly in @layer base (not inside a layer(base) import) so
+   it sits at the same level as Tailwind's preflight — later in source order wins —
+   while remaining overridable by utilities like border-transparent / hover:border-primary. */
+@layer base {
+  * {
+    border-color: var(--soft-border);
+  }
+}
+
 @source "../../admin/src";
+@source "../../ai/src";
+@source "../../analytics/src";
+@source "../../audio/src";
+@source "../../backups/src";
+@source "../../businesses/src";
 @source "../../calendar/src";
+@source "../../camera/src";
+@source "../../classic/src";
+@source "../../contacts/src";
+@source "../../email/src";
+@source "../../health/src";
+@source "../../mls-chat/src";
+@source "../../notes/src";
+@source "../../settings/src";
+@source "../../terminal/src";
 @source "../../ui/src";
+@source "../../vehicles/src";
+@source "../../vfs-explorer/src";
+@source "../../window-manager/src";
 
 :root.square-corners {
   --radius: 0rem;
