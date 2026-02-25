@@ -273,6 +273,10 @@ async function getReplicaPool(): Promise<PgPool | null> {
       replicaPoolConfigKey &&
       replicaPoolConfigKey !== configKey
     ) {
+      if (replicaHealthTimer) {
+        clearInterval(replicaHealthTimer);
+        replicaHealthTimer = null;
+      }
       const poolToClose = replicaPool;
       replicaPool = null;
       replicaPoolConfigKey = null;
@@ -342,11 +346,6 @@ export async function getPool(intent: QueryIntent): Promise<PgPool> {
 }
 
 export async function closePostgresPool(): Promise<void> {
-  if (replicaHealthTimer) {
-    clearInterval(replicaHealthTimer);
-    replicaHealthTimer = null;
-  }
-
   let replicaResolve: () => void = () => {};
   const prevReplicaMutex = replicaPoolMutex;
   replicaPoolMutex = new Promise<void>((r) => {
@@ -355,6 +354,10 @@ export async function closePostgresPool(): Promise<void> {
 
   try {
     await prevReplicaMutex;
+    if (replicaHealthTimer) {
+      clearInterval(replicaHealthTimer);
+      replicaHealthTimer = null;
+    }
     if (replicaPool) {
       const poolToClose = replicaPool;
       replicaPool = null;
