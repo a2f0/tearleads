@@ -9,7 +9,7 @@
   "scripts": {
     "postinstall": "pnpm buildPreDev",
     "buildPreDev": "pnpm build:shared && pnpm build:db && pnpm downloadSqliteWasm && pnpm generateDefaultApp",
-    "downloadSqliteWasm": "./scripts/downloadSqliteWasm.sh",
+    "downloadSqliteWasm": "bash ./scripts/downloadSqliteWasm.sh",
     "generateDefaultApp": "tsx packages/app-builder/src/cli.ts generate --default",
     "build:shared": "pnpm --filter @tearleads/shared build",
     "build:db": "pnpm --filter @tearleads/db build",
