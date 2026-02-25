@@ -27,9 +27,18 @@
     - name: Apply shared Linux security baseline
       ansible.builtin.import_tasks: tasks/linuxSecurityBaseline.yml
 
+    - name: Download Tailscale install script
+      ansible.builtin.get_url:
+        url: https://tailscale.com/install.sh
+        dest: /tmp/install-tailscale.sh
+        mode: "0755"
+      when:
+        - tailscale_auth_key is defined and tailscale_auth_key | length > 0
+        - not ansible_check_mode
+
     - name: Install Tailscale
-      ansible.builtin.shell:
-        cmd: curl -fsSL https://tailscale.com/install.sh | sh
+      ansible.builtin.command:
+        cmd: /tmp/install-tailscale.sh
         creates: /usr/bin/tailscale
       when: tailscale_auth_key is defined and tailscale_auth_key | length > 0
 
@@ -44,6 +53,7 @@
     - name: Connect to Tailscale
       ansible.builtin.command:
         cmd: tailscale up --authkey={{ tailscale_auth_key }} --hostname=staging-k8s
+      changed_when: true
       when:
         - tailscale_auth_key is defined and tailscale_auth_key | length > 0
         - tailscale_status.rc != 0
