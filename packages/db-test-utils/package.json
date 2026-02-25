@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/db-test-utils",
-  "version": "0.0.25",
+  "version": "0.0.26",
   "description": "Database testing utilities for Tearleads integration tests",
   "type": "module",
   "main": "dist/index.js",
