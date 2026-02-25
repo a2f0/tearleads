@@ -1,6 +1,6 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { validateAppConfig } from './schema.js';
 import type { LoadedAppConfig } from './types.js';
 
@@ -61,8 +61,11 @@ export async function loadAppConfig(appId: string): Promise<LoadedAppConfig> {
     throw new Error(`Config file not found: ${configPath}`);
   }
 
-  // Dynamic import of the config file
-  const configModule = await import(configPath);
+  // Dynamic import of the config file.
+  // pathToFileURL is required because on Windows, absolute paths like D:\...
+  // are misinterpreted by the ESM loader as having a "D:" URL scheme.
+  // Converting to a file:// URL works correctly on all platforms.
+  const configModule = await import(pathToFileURL(configPath).href);
   const rawConfig = configModule.default as unknown;
 
   // Validate the config
