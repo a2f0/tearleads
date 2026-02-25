@@ -1,6 +1,9 @@
-import { seedVfsItem, withRealDatabase } from '@tearleads/db-test-utils';
+import {
+  seedVfsItem,
+  vfsTestMigrations,
+  withRealDatabase
+} from '@tearleads/db-test-utils';
 import { describe, expect, it } from 'vitest';
-import { trashTestMigrations } from '../test/trashTestMigrations';
 import { queryAllItems, queryDeletedItems } from './vfsQuery';
 import type { VfsSortState } from './vfsTypes';
 
@@ -35,7 +38,7 @@ describe('vfsQuery integration (real database)', () => {
         expect(canonicalRow?.name).toBe('Canonical Folder Name');
         expect(legacyOnlyRow?.name).toBe('Unnamed Folder');
       },
-      { migrations: trashTestMigrations }
+      { migrations: vfsTestMigrations }
     );
   });
 
@@ -81,7 +84,7 @@ describe('vfsQuery integration (real database)', () => {
         expect(deletedNoteId).toBeTypeOf('string');
         expect(activeFileId).toBeTypeOf('string');
       },
-      { migrations: trashTestMigrations }
+      { migrations: vfsTestMigrations }
     );
   });
 
@@ -115,7 +118,7 @@ describe('vfsQuery integration (real database)', () => {
         expect(firstId).toBeTypeOf('string');
         expect(secondId).toBeTypeOf('string');
       },
-      { migrations: trashTestMigrations }
+      { migrations: vfsTestMigrations }
     );
   });
 });
