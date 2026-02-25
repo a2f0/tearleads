@@ -276,7 +276,9 @@ export const handlers = [
   }),
   http.post(withOptionalV1Prefix('/vfs/emails/send'), () => ok({ sent: true })),
   http.get(withOptionalV1Prefix('/vfs/emails'), () => ok({ emails: [] })),
-  http.get(withOptionalV1Prefix('/vfs/emails/[^/]+'), () => ok({ email: null })),
+  http.get(withOptionalV1Prefix('/vfs/emails/[^/]+'), () =>
+    ok({ email: null })
+  ),
   http.delete(withOptionalV1Prefix('/vfs/emails/[^/]+'), () =>
     ok({ deleted: true })
   ),

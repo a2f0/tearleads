@@ -115,6 +115,10 @@ describe('PostgresInboundVfsEmailRepository', () => {
       expect.stringContaining('INSERT INTO email_recipients'),
       expect.arrayContaining(['msg-1', 'user-1'])
     );
+    expect(clientQueryMock).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO vfs_acl_entries'),
+      expect.arrayContaining(['user-1', 'wrapped-dek'])
+    );
     expect(clientQueryMock).toHaveBeenCalledWith('COMMIT');
     expect(clientQueryMock).not.toHaveBeenCalledWith('ROLLBACK');
     expect(releaseMock).toHaveBeenCalledOnce();

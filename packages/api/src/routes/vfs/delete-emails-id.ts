@@ -68,25 +68,6 @@ const deleteEmailsIdHandler = async (
                AND user_id = $2`,
           [emailRow.message_id, userId]
         );
-
-        const remainingRecipients = await client.query<{ count: string }>(
-          `SELECT COUNT(*)::text AS count
-             FROM email_recipients
-             WHERE message_id = $1`,
-          [emailRow.message_id]
-        );
-
-        const remainingCount =
-          parseInt(remainingRecipients.rows[0]?.count ?? '0', 10) || 0;
-        if (remainingCount === 0) {
-          const deletedMessage = await client.query<{ storage_key: string }>(
-            `DELETE FROM email_messages
-               WHERE id = $1
-               RETURNING storage_key`,
-            [emailRow.message_id]
-          );
-          orphanedStorageKey = deletedMessage.rows[0]?.storage_key ?? null;
-        }
       }
 
       const deleted = await client.query<{ id: string }>(
@@ -102,6 +83,27 @@ const deleteEmailsIdHandler = async (
         await client.query('ROLLBACK');
         res.status(404).json({ error: 'Email not found' });
         return;
+      }
+
+      if (emailRow.message_id && emailRow.storage_key) {
+        const remainingItems = await client.query<{ count: string }>(
+          `SELECT COUNT(*)::text AS count
+             FROM emails
+             WHERE encrypted_body_path = $1`,
+          [emailRow.storage_key]
+        );
+
+        const remainingCount =
+          parseInt(remainingItems.rows[0]?.count ?? '0', 10) || 0;
+        if (remainingCount === 0) {
+          const deletedMessage = await client.query<{ storage_key: string }>(
+            `DELETE FROM email_messages
+               WHERE id = $1
+               RETURNING storage_key`,
+            [emailRow.message_id]
+          );
+          orphanedStorageKey = deletedMessage.rows[0]?.storage_key ?? null;
+        }
       }
 
       await client.query('COMMIT');
@@ -124,7 +126,10 @@ const deleteEmailsIdHandler = async (
         await deleteVfsBlobByStorageKey({ storageKey: orphanedStorageKey });
       } catch (blobDeleteError) {
         // Blob cleanup is best-effort after successful metadata deletion.
-        console.error('Failed to delete orphaned inbound email blob:', blobDeleteError);
+        console.error(
+          'Failed to delete orphaned inbound email blob:',
+          blobDeleteError
+        );
       }
     }
 

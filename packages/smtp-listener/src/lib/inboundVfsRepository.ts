@@ -62,7 +62,7 @@ async function insertEmailForRecipient(input: {
   recipient: ResolvedInboundRecipient;
   wrappedKey: WrappedRecipientKeyEnvelope;
   inboxFolderId: string;
-}): Promise<void> {
+}): Promise<string> {
   const emailItemId = randomUUID();
   await input.client.query(
     `INSERT INTO vfs_registry (
@@ -135,6 +135,46 @@ async function insertEmailForRecipient(input: {
       input.wrappedKey.wrappedDek
     ]
   );
+
+  await input.client.query(
+    `INSERT INTO vfs_acl_entries (
+       id,
+       item_id,
+       principal_type,
+       principal_id,
+       access_level,
+       wrapped_session_key,
+       wrapped_hierarchical_key,
+       key_epoch,
+       granted_by,
+       created_at,
+       updated_at,
+       expires_at,
+       revoked_at
+     ) VALUES (
+       $1,
+       $2,
+       'user',
+       $3,
+       'read',
+       $4,
+       NULL,
+       NULL,
+       NULL,
+       NOW(),
+       NOW(),
+       NULL,
+       NULL
+     )`,
+    [
+      randomUUID(),
+      emailItemId,
+      input.recipient.userId,
+      input.wrappedKey.wrappedDek
+    ]
+  );
+
+  return emailItemId;
 }
 
 export class PostgresInboundVfsEmailRepository
