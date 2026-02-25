@@ -18,6 +18,7 @@ import {
 } from './components/screensaver';
 import { ErrorBoundary, errorBoundaryRef } from './components/ui/ErrorBoundary';
 import { VfsRealtimeSyncBridge } from './components/VfsRealtimeSyncBridge';
+import { VfsRematerializationBootstrap } from './components/VfsRematerializationBootstrap';
 import { WindowRenderer } from './components/window-renderer';
 import { AuthProvider } from './contexts/AuthContext';
 import { VfsOrchestratorProvider } from './contexts/VfsOrchestratorContext';
@@ -86,6 +87,7 @@ if (rootElement) {
                         <VideoProvider>
                           <AuthProvider>
                             <VfsOrchestratorProvider>
+                              <VfsRematerializationBootstrap />
                               <SSEProvider>
                                 <VfsRealtimeSyncBridge />
                                 <WindowManagerProvider>
