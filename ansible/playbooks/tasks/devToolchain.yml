@@ -40,10 +40,10 @@
 - name: Set toolchain user home/group facts
   ansible.builtin.set_fact:
     toolchain_user_home: >-
-      {{ toolchain_linux_passwd_entry.stdout.split(':')[5]
+      {{ toolchain_linux_passwd_entry.stdout.strip().split(':')[5]
          if toolchain_is_linux
-         else toolchain_darwin_home_entry.stdout.split(': ', 1)[1] }}
-    toolchain_user_group: "{{ toolchain_user_group_entry.stdout }}"
+         else (toolchain_darwin_home_entry.stdout.split(':', 1)[1] | trim) }}
+    toolchain_user_group: "{{ toolchain_user_group_entry.stdout | trim }}"
 
 - name: Update apt cache and upgrade all packages
   ansible.builtin.apt:
@@ -434,39 +434,40 @@
   when: not claude_code_stat.stat.exists
   changed_when: true
 
-- name: Check if OpenAI Codex CLI is installed
-  ansible.builtin.command:
-    cmd: codex --version
-  register: codex_cli_check
-  changed_when: false
-  failed_when: false
-  become: false
+- name: Install AI CLIs if missing
   when: toolchain_is_linux or toolchain_is_darwin
+  block:
+    - name: Check if OpenAI Codex CLI is installed
+      ansible.builtin.command:
+        cmd: codex --version
+      register: codex_cli_check
+      changed_when: false
+      failed_when: false
+      become: false
 
-- name: Install OpenAI Codex CLI
-  community.general.npm:
-    name: "@openai/codex"
-    global: true
-    state: present
-  become: false
-  when: (toolchain_is_linux or toolchain_is_darwin) and codex_cli_check.rc != 0
+    - name: Install OpenAI Codex CLI
+      community.general.npm:
+        name: "@openai/codex"
+        global: true
+        state: present
+      become: false
+      when: codex_cli_check.rc != 0
 
-- name: Check if Google Gemini CLI is installed
-  ansible.builtin.command:
-    cmd: gemini --version
-  register: gemini_cli_check
-  changed_when: false
-  failed_when: false
-  become: false
-  when: toolchain_is_linux or toolchain_is_darwin
+    - name: Check if Google Gemini CLI is installed
+      ansible.builtin.command:
+        cmd: gemini --version
+      register: gemini_cli_check
+      changed_when: false
+      failed_when: false
+      become: false
 
-- name: Install Google Gemini CLI
-  community.general.npm:
-    name: "@google/gemini-cli"
-    global: true
-    state: present
-  become: false
-  when: (toolchain_is_linux or toolchain_is_darwin) and gemini_cli_check.rc != 0
+    - name: Install Google Gemini CLI
+      community.general.npm:
+        name: "@google/gemini-cli"
+        global: true
+        state: present
+      become: false
+      when: gemini_cli_check.rc != 0
 
 # Ghostty terminal emulator
 - name: Check if Ghostty is installed
