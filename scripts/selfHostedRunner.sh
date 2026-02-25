@@ -11,7 +11,7 @@
 #   ./scripts/selfHostedRunner.sh enable     # Enable self-hosted mode (set repo variable)
 #   ./scripts/selfHostedRunner.sh disable    # Disable self-hosted mode (delete repo variable)
 #   ./scripts/selfHostedRunner.sh uninstall  # Remove runner and service
-#   ./scripts/selfHostedRunner.sh prereqs    # Install prerequisites (nvm + Homebrew)
+#   ./scripts/selfHostedRunner.sh prereqs    # Install prerequisites (mise + Homebrew)
 
 set -euo pipefail
 
@@ -38,17 +38,10 @@ check_repo() {
   log_info "Repository: $REPO"
 }
 
-ensure_nvm() {
-  export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-
-  if [[ -s "$NVM_DIR/nvm.sh" ]]; then
-    # shellcheck source=/dev/null
-    . "$NVM_DIR/nvm.sh"
-  fi
-
-  if ! command -v nvm &>/dev/null; then
-    log_error "nvm is required for Node.js management but was not found."
-    log_error "Install nvm and ensure \$NVM_DIR/nvm.sh is available, then rerun."
+ensure_mise() {
+  if ! command -v mise &>/dev/null; then
+    log_error "mise is required for Node.js management but was not found."
+    log_error "Install mise (https://mise.jdx.dev) and rerun."
     exit 1
   fi
 }
@@ -146,13 +139,12 @@ configure_runner_git_behavior() {
   cleanup_user_gitconfig_safe_directories
 }
 cmd_prereqs() {
-  ensure_nvm
-  log_info "Installing Node.js from .nvmrc via nvm..."
-  nvm install
-  nvm use
+  ensure_mise
+  log_info "Installing Node.js from .nvmrc via mise..."
+  mise install node
 
   if ! command -v corepack &>/dev/null; then
-    log_error "corepack was not found after activating Node via nvm."
+    log_error "corepack was not found after activating Node via mise."
     exit 1
   fi
 
@@ -171,7 +163,7 @@ cmd_prereqs() {
     exit 1
   fi
 
-  # Core build tools (Node.js and pnpm are managed via nvm/corepack).
+  # Core build tools (Node.js and pnpm are managed via mise/corepack).
   brew install ruby python imagemagick
 
   # Install ansible via pip
@@ -375,7 +367,7 @@ cmd_help() {
   echo "  enable      Enable self-hosted mode (set USE_SELF_HOSTED=true)"
   echo "  disable     Disable self-hosted mode (delete USE_SELF_HOSTED)"
   echo "  uninstall   Remove runner and service"
-  echo "  prereqs     Install prerequisites (nvm + Homebrew)"
+  echo "  prereqs     Install prerequisites (mise + Homebrew)"
   echo ""
   echo "Environment variables:"
   echo "  RUNNER_DIR      Runner installation directory (default: ~/actions-runner)"

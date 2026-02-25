@@ -155,9 +155,9 @@ Files must stay below 500 lines and 20,000 bytes. When the guardrail trips, spli
 
 ## Node Version Management Policy
 
-- Use `nvm` for all Node version management.
+- Use `mise` for all Node version management.
 - Do not install or upgrade Node with Homebrew in agent workflows.
-- Scripts that manage Node versions must fail fast when `nvm` is unavailable, then run `nvm install && nvm use` against repo `.nvmrc`.
+- Scripts that manage Node versions must fail fast when `mise` is unavailable, then run `mise install node` against repo `.nvmrc`.
 
 ## Dependency Installation Policy
 

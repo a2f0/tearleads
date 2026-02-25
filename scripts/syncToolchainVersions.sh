@@ -309,7 +309,7 @@ if [ "$APPLY" -eq 1 ] && [ "$CHANGED" -eq 1 ]; then
 fi
 
 if [ "$APPLY" -eq 1 ] && [ "$NODE_RUNTIME_MISMATCH" -eq 1 ] && [ "$ALLOW_RUNTIME_MISMATCH" -ne 1 ]; then
-  log "Toolchain sync: switch to the desired Node version (nvm use) and rerun."
+  log "Toolchain sync: switch to the desired Node version (mise install node) and rerun."
   exit 3
 fi
 
