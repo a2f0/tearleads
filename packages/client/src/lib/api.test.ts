@@ -277,6 +277,32 @@ describe('api edge cases requiring direct fetch mocking', () => {
       expect(localStorage.getItem('auth_refresh_token')).toBeNull();
     });
 
+    it('clears auth when server rejects refresh token (401) even if JWT is not expired', async () => {
+      const futureExp = Math.floor(Date.now() / 1000) + 3600;
+      const validToken = createJwt(futureExp);
+      localStorage.setItem('auth_token', 'access-token');
+      localStorage.setItem('auth_refresh_token', validToken);
+      localStorage.setItem(
+        'auth_user',
+        JSON.stringify({ id: '1', email: 'test@example.com' })
+      );
+
+      // Server returns 401 because session was destroyed (e.g. DB/Redis reset)
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({ error: 'Refresh token has been revoked' }),
+          { status: 401, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+
+      const { tryRefreshToken } = await import('./api');
+      const result = await tryRefreshToken();
+
+      expect(result).toBe(false);
+      expect(localStorage.getItem('auth_token')).toBeNull();
+      expect(localStorage.getItem('auth_refresh_token')).toBeNull();
+    });
+
     it('does NOT clear auth on transient network error if token is NOT expired', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       const futureExp = Math.floor(Date.now() / 1000) + 3600;
