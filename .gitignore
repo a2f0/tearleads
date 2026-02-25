@@ -92,5 +92,5 @@ coverage/
 .claude/commands/tmp/
 
 # Local Garage runtime artifacts
-scripts/dev/garage/data/
-scripts/dev/garage/.s3-credentials.env
+scripts/garage/data/
+scripts/garage/.s3-credentials.env
