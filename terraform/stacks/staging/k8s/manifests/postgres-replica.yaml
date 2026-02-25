@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: postgres-pvc
+  name: postgres-replica-pvc
   namespace: tearleads
 spec:
   accessModes:
@@ -13,32 +13,43 @@ spec:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: postgres
+  name: postgres-replica
   namespace: tearleads
 spec:
-  serviceName: postgres
+  serviceName: postgres-replica
   replicas: 1
   selector:
     matchLabels:
-      app: postgres
+      app: postgres-replica
   template:
     metadata:
       labels:
-        app: postgres
+        app: postgres-replica
     spec:
+      initContainers:
+        - name: pg-basebackup
+          image: postgres:16
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: POSTGRES_REPLICATION_PASSWORD
+          command: ["sh", "-c"]
+          args:
+            - |
+              if [ -z "$(ls -A /var/lib/postgresql/data)" ]; then
+                echo "Data directory empty — running pg_basebackup from primary..."
+                pg_basebackup -h postgres -U replicator -D /var/lib/postgresql/data -Fp -Xs -P -R
+              else
+                echo "Data directory already populated — skipping pg_basebackup."
+              fi
+          volumeMounts:
+            - name: postgres-replica-data
+              mountPath: /var/lib/postgresql/data
       containers:
         - name: postgres
           image: postgres:16
-          args:
-            - "postgres"
-            - "-c"
-            - "wal_level=replica"
-            - "-c"
-            - "max_wal_senders=3"
-            - "-c"
-            - "max_replication_slots=2"
-            - "-c"
-            - "hot_standby=on"
           ports:
             - containerPort: 5432
           env:
@@ -57,16 +68,9 @@ spec:
                 secretKeyRef:
                   name: tearleads-secrets
                   key: POSTGRES_PASSWORD
-            - name: POSTGRES_REPLICATION_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: tearleads-secrets
-                  key: POSTGRES_REPLICATION_PASSWORD
           volumeMounts:
-            - name: postgres-data
+            - name: postgres-replica-data
               mountPath: /var/lib/postgresql/data
-            - name: init-replication
-              mountPath: /docker-entrypoint-initdb.d
           resources:
             requests:
               memory: "256Mi"
@@ -75,37 +79,18 @@ spec:
               memory: "512Mi"
               cpu: "500m"
       volumes:
-        - name: postgres-data
+        - name: postgres-replica-data
           persistentVolumeClaim:
-            claimName: postgres-pvc
-        - name: init-replication
-          configMap:
-            name: postgres-init-replication
+            claimName: postgres-replica-pvc
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: postgres
+  name: postgres-replica
   namespace: tearleads
 spec:
   selector:
-    app: postgres
+    app: postgres-replica
   ports:
     - port: 5432
       targetPort: 5432
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: postgres-init-replication
-  namespace: tearleads
-data:
-  init-replication.sh: |
-    #!/bin/bash
-    set -e
-
-    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-      CREATE USER replicator WITH REPLICATION ENCRYPTED PASSWORD '${POSTGRES_REPLICATION_PASSWORD}';
-    EOSQL
-
-    echo "host replication replicator all md5" >> "$PGDATA/pg_hba.conf"

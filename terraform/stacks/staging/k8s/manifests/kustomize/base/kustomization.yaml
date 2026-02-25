@@ -5,6 +5,7 @@ resources:
   - namespace.yaml
   - configmap.yaml
   - postgres.yaml
+  - postgres-replica.yaml
   - redis.yaml
   - garage.yaml
   - smtp-listener.yaml

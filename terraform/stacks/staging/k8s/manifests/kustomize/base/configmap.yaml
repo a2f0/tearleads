@@ -17,3 +17,5 @@ data:
   VFS_BLOB_S3_BUCKET: "vfs-blobs"
   VFS_BLOB_S3_REGION: "us-east-1"
   VFS_BLOB_S3_FORCE_PATH_STYLE: "true"
+  # Postgres read replica (Phase 2: app-level read/write splitting)
+  POSTGRES_REPLICA_HOST: "postgres-replica"

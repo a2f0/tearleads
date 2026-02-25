@@ -28,6 +28,7 @@ require_secret_env_vars() {
     "GARAGE_ADMIN_TOKEN"
     "VFS_BLOB_S3_ACCESS_KEY_ID"
     "VFS_BLOB_S3_SECRET_ACCESS_KEY"
+    "POSTGRES_REPLICATION_PASSWORD"
   )
 
   local var_name
@@ -104,6 +105,7 @@ else
   kubectl apply -f "$RENDERED_SECRETS"
   kubectl apply -f "$MANIFESTS_DIR/configmap.yaml"
   kubectl apply -f "$MANIFESTS_DIR/postgres.yaml"
+  kubectl apply -f "$MANIFESTS_DIR/postgres-replica.yaml"
   kubectl apply -f "$MANIFESTS_DIR/redis.yaml"
   kubectl apply -f "$MANIFESTS_DIR/garage.yaml"
   kubectl apply -f "$MANIFESTS_DIR/smtp-listener.yaml"
