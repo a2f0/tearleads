@@ -8,10 +8,6 @@ import type {
 } from '../types/inboundContracts.js';
 import { getPostgresPool } from './postgres.js';
 
-interface InboxRow {
-  id: string;
-}
-
 function findWrappedKey(
   wrappedRecipientKeys: WrappedRecipientKeyEnvelope[],
   userId: string
@@ -28,30 +24,12 @@ async function ensureInboxFolder(
   client: PoolClient,
   userId: string
 ): Promise<string> {
-  const existing = await client.query<InboxRow>(
-    `SELECT ef.id
-     FROM email_folders ef
-     INNER JOIN vfs_registry vr ON vr.id = ef.id
-     WHERE vr.owner_id = $1
-       AND ef.folder_type = 'inbox'
-     LIMIT 1`,
-    [userId]
-  );
-  const existingRow = existing.rows[0];
-  if (existingRow?.id) {
-    return existingRow.id;
-  }
-
-  const folderId = randomUUID();
+  const folderId = `email-inbox:${userId}`;
   await client.query(
     `INSERT INTO vfs_registry (id, object_type, owner_id, created_at)
-     VALUES ($1, 'emailFolder', $2, NOW())`,
+     VALUES ($1, 'folder', $2, NOW())
+     ON CONFLICT (id) DO NOTHING`,
     [folderId, userId]
-  );
-  await client.query(
-    `INSERT INTO email_folders (id, encrypted_name, folder_type, unread_count)
-     VALUES ($1, $2, 'inbox', 0)`,
-    [folderId, 'inbox']
   );
   return folderId;
 }
