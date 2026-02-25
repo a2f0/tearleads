@@ -16,6 +16,6 @@ CURRENT="${CURRENT_RAW#v}"
 
 if [[ "$CURRENT" != "$EXPECTED" ]]; then
   echo "checkNodeVersion: unsupported Node version $CURRENT_RAW (expected v$EXPECTED)." >&2
-  echo "Run 'nvm use' in this repo, then re-run your command." >&2
+  echo "Run 'mise install node' in this repo, then re-run your command." >&2
   exit 1
 fi

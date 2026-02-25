@@ -339,40 +339,37 @@
     mode: "0755"
   when: toolchain_is_linux
 
-- name: Download and dearmor NodeSource GPG key
-  ansible.builtin.shell:
-    cmd: set -o pipefail && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
-    executable: /bin/bash
-    creates: /etc/apt/keyrings/nodesource.gpg
-  when: toolchain_is_linux
+- name: Download mise installer on Linux
+  ansible.builtin.get_url:
+    url: https://mise.run
+    dest: /tmp/mise-install.sh
+    mode: "0755"
+  when: toolchain_is_linux and not (toolchain_user_home + '/.local/bin/mise') is file
 
-- name: Set permissions on NodeSource GPG key
-  ansible.builtin.file:
-    path: /etc/apt/keyrings/nodesource.gpg
-    mode: "0644"
-  when: toolchain_is_linux
-
-- name: Add NodeSource repository
-  ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_{{ nodejs_major_version }}.x nodistro main"
-    state: present
-    filename: nodesource
-  when: toolchain_is_linux
-
-- name: Install Node.js
-  ansible.builtin.apt:
-    name: nodejs
-    state: present
-    update_cache: true
-  when: toolchain_is_linux
-
-- name: Install Node.js via Homebrew on macOS
+- name: Run mise installer on Linux
   ansible.builtin.command:
-    cmd: brew install node
+    cmd: /tmp/mise-install.sh
+    creates: "{{ toolchain_user_home }}/.local/bin/mise"
+  become: true
+  become_user: "{{ toolchain_target_user }}"
+  when: toolchain_is_linux
+
+- name: Install mise via Homebrew on macOS
+  ansible.builtin.command:
+    cmd: brew install mise
   become: false
-  register: brew_node_result
-  changed_when: "'already installed' not in brew_node_result.stdout"
+  register: brew_mise_result
+  changed_when: "'already installed' not in brew_mise_result.stdout"
   when: toolchain_is_darwin
+
+- name: Install Node.js via mise
+  ansible.builtin.shell:
+    cmd: PATH="{{ toolchain_user_home }}/.local/bin:$PATH" mise use --global node@{{ nodejs_major_version }}
+    executable: /bin/bash
+  become: true
+  become_user: "{{ toolchain_target_user }}"
+  register: mise_node_result
+  changed_when: "'installed' in mise_node_result.stderr"
 
 # uv (Python package manager) -- required by scripts/setupSerenaMcp.sh
 - name: Check if uv is installed

@@ -12,8 +12,8 @@ Update all dependencies in the workspace (especially under `packages/`) and veri
 
 - Confirm you are not on `main`; create/switch branches before running updates.
 - Start from a clean `git status` or note existing changes so you do not clobber them.
-- `nvm` must be available in an interactive shell PATH; if missing, stop and report the blocker.
-- Run `nvm install && nvm use` to match `.nvmrc`.
+- `mise` must be available on PATH; if missing, stop and report the blocker.
+- Run `mise install node` to match `.nvmrc`.
 - Never install or update Node with Homebrew in this workflow.
 - Ensure platform tooling is available (pnpm, bundler, CocoaPods, Android SDK). If something is missing, continue where possible and flag the gap in the final summary.
 
@@ -25,7 +25,7 @@ Use the shared script to perform the standard update flow:
 ./scripts/updateEverything.sh
 ```
 
-This now includes `nvm install && nvm use` (hard-fails if `nvm` is unavailable) and an automatic toolchain sync step before dependency updates.
+This now includes `mise install node` (hard-fails if `mise` is unavailable) and an automatic toolchain sync step before dependency updates.
 
 Optional toggles (set to `1` as needed): `SKIP_TOOLCHAIN_SYNC`, `SKIP_TOOLCHAIN_NODE`, `SKIP_TOOLCHAIN_ANDROID`, `SKIP_RUBY`, `SKIP_CAP_SYNC`, `SKIP_POD_CLEAN`, `SKIP_MAESTRO`, `SKIP_TESTS`, `SKIP_BUILD`, `SKIP_LINT`, `SKIP_UPDATE`, `SKIP_INSTALL`.
 
@@ -57,7 +57,7 @@ Script exits early on dependency hygiene checks—fix then rerun:
 Guardrails:
 
 - Android bumps are capped by `TOOLCHAIN_SYNC_MAX_ANDROID_JUMP` to avoid large blind jumps.
-- If Node files are updated and active runtime does not match `.nvmrc`, the toolchain script exits so you can run `nvm use` and rerun.
+- If Node files are updated and active runtime does not match `.nvmrc`, the toolchain script exits so you can run `mise install node` and rerun.
 
 ## Fastlane and Ruby Gems Update
 
