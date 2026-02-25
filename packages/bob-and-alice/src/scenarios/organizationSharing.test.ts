@@ -17,8 +17,6 @@ describe('organizationSharing', () => {
   });
 
   it('shares a folder with Bob using a group principal when users are modeled in one org', async () => {
-    const sharedOrganizationId = randomUUID();
-    const bobOrganizationId = sharedOrganizationId;
     const sharedGroupId = randomUUID();
     const folderId = randomUUID();
 
@@ -28,9 +26,6 @@ describe('organizationSharing', () => {
 
     const alice = harness.actor('alice');
     const bob = harness.actor('bob');
-
-    // Modeling metadata for scenario readability (not enforced by this harness).
-    expect(sharedOrganizationId).toBe(bobOrganizationId);
 
     alice.queueCrdtOp({
       opType: 'acl_add',
