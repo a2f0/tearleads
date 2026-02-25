@@ -472,13 +472,7 @@ export function parseRematerializationAttempts(value: unknown): number {
     return DEFAULT_REMATERIALIZATION_ATTEMPTS;
   }
 
-  if (typeof value !== 'number' || !Number.isInteger(value)) {
-    throw new Error(
-      'maxRematerializationAttempts must be a non-negative integer'
-    );
-  }
-
-  if (value < 0) {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
     throw new Error(
       'maxRematerializationAttempts must be a non-negative integer'
     );
