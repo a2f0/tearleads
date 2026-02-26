@@ -1,13 +1,10 @@
 #!/usr/bin/env -S pnpm exec tsx
 import { pathToFileURL } from 'node:url';
-import { buildCreateAccountInput } from '../../../packages/api/src/lib/createAccount.ts';
-import { buildPostgresConnectionLabel } from '../../../packages/api/src/lib/cliPostgres.ts';
-import {
-  closePostgresPool,
-  getPostgresPool
-} from '../../../packages/api/src/lib/postgres.ts';
-import { seedHarnessAccount } from '../../../packages/api/src/cli/seedAccount.ts';
-import { type TestUser, allTestUsers } from './testUsers.ts';
+import { buildCreateAccountInput } from '../lib/createAccount.js';
+import { buildPostgresConnectionLabel } from '../lib/cliPostgres.js';
+import { closePostgresPool, getPostgresPool } from '../lib/postgres.js';
+import { seedHarnessAccount } from './seedAccount.js';
+import { type TestUser, allTestUsers } from './testUsers.js';
 
 async function createTestUser(
   client: import('pg').PoolClient,
