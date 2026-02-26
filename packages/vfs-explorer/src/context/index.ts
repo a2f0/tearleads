@@ -15,6 +15,7 @@ export type {
   InputProps,
   VfsApiFunctions,
   VfsExplorerContextValue,
+  VfsShareApiFunctions,
   VfsExplorerProviderProps,
   VfsExplorerUIComponents,
   VfsKeyFunctions,
