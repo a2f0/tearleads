@@ -63,6 +63,10 @@ echo "Fetching kubeconfig from $SERVER_USERNAME@$SSH_HOSTNAME..."
 
 wait_for_ssh_ready "$SERVER_USERNAME@$SSH_HOSTNAME" "$SSH_RETRIES" "$SSH_RETRY_DELAY_SECONDS" "$SSH_CONNECT_TIMEOUT_SECONDS"
 
+echo "Waiting for cloud-init to finish on remote host..."
+ssh -o BatchMode=yes -o ConnectTimeout="$SSH_CONNECT_TIMEOUT_SECONDS" "$SERVER_USERNAME@$SSH_HOSTNAME" \
+  'sudo cloud-init status --wait'
+
 tmp_kubeconfig="$(mktemp)"
 trap 'rm -f "$tmp_kubeconfig"' EXIT
 

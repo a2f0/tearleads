@@ -43,6 +43,10 @@ done
 echo ""
 echo "Rollout complete. Deployments are running latest images."
 
+echo ""
+echo "Running database migrations..."
+"$SCRIPT_DIR/migrate.sh"
+
 if [[ "$SKIP_SMOKE" == "true" ]]; then
   echo "Skipping smoke tests (SKIP_SMOKE=true)."
 else

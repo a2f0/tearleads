@@ -59,6 +59,19 @@ postgres_query_or_fail() {
   printf '%s\n' "$output" | tr -d '\r'
 }
 
+ensure_smoke_user_exists() {
+  local api_pod="$1"
+  local postgres_pod="$2"
+  local existing
+  existing="$(postgres_query_or_fail "$postgres_pod" "SELECT id FROM users ORDER BY created_at ASC LIMIT 1")"
+  if [[ -n "$existing" ]]; then
+    return
+  fi
+  echo "  No users found; creating smoke test account..."
+  kubectl -n "$NAMESPACE" exec "$api_pod" -c api -- node apiCli.cjs create-account \
+    --email "smoke@$SMTP_SMOKE_DOMAIN" --password "smoke-test-pass-$(date +%s)" >/dev/null 2>&1
+}
+
 resolve_vfs_recipient_user_id_or_fail() {
   local postgres_pod="$1"
   if [[ -n "$SMTP_SMOKE_USER_ID" ]]; then
@@ -119,6 +132,8 @@ phase_send_and_verify_storage() {
   smtp_pod="$(get_running_pod_or_fail "app=smtp-listener")"
   postgres_pod="$(get_running_pod_or_fail "app=postgres")"
 
+  ensure_smoke_user_exists "$api_pod" "$postgres_pod"
+
   local recipient_local_part
   recipient_local_part="$(resolve_vfs_recipient_user_id_or_fail "$postgres_pod")"
 
@@ -126,7 +141,7 @@ phase_send_and_verify_storage() {
   smtp_to="${recipient_local_part}@${SMTP_SMOKE_DOMAIN}"
   marker="smtp-smoke-$(date +%s)-$RANDOM"
 
-  before_count="$(postgres_query_or_fail "$postgres_pod" "SELECT COUNT(*) FROM email_recipients WHERE user_id = '$recipient_local_part'")"
+  before_count="$(postgres_query_or_fail "$postgres_pod" "SELECT COUNT(*) FROM emails e JOIN vfs_registry r ON r.id = e.id WHERE r.owner_id = '$recipient_local_part'")"
   if [[ ! "$before_count" =~ ^[0-9]+$ ]]; then
     before_count=0
   fi
@@ -235,7 +250,7 @@ phase_send_and_verify_storage() {
   after_count="$before_count"
   attempt=1
   while (( attempt <= SMTP_WAIT_RETRIES )); do
-    after_count="$(postgres_query_or_fail "$postgres_pod" "SELECT COUNT(*) FROM email_recipients WHERE user_id = '$recipient_local_part'")"
+    after_count="$(postgres_query_or_fail "$postgres_pod" "SELECT COUNT(*) FROM emails e JOIN vfs_registry r ON r.id = e.id WHERE r.owner_id = '$recipient_local_part'")"
     if [[ "$after_count" =~ ^[0-9]+$ ]] && (( after_count > before_count )); then
       break
     fi
@@ -248,7 +263,7 @@ phase_send_and_verify_storage() {
     return 1
   fi
 
-  pass "SMTP message accepted and observed in Postgres email_recipients for user $recipient_local_part (before=$before_count, after=$after_count)"
+  pass "SMTP message accepted and observed in Postgres emails/vfs_registry for user $recipient_local_part (before=$before_count, after=$after_count)"
 }
 
 require_kubeconfig_and_kubectl

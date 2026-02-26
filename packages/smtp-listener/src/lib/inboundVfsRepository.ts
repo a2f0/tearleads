@@ -30,20 +30,14 @@ async function ensureInboxFolder(
        id,
        object_type,
        owner_id,
-       encrypted_name,
-       icon,
        created_at
      ) VALUES (
        $1,
        'folder',
        $2,
-       'Inbox',
-       'email-folder',
        NOW()
      )
-     ON CONFLICT (id) DO UPDATE
-     SET encrypted_name = 'Inbox',
-         icon = 'email-folder'`,
+     ON CONFLICT (id) DO NOTHING`,
     [folderId, userId]
   );
   return folderId;
