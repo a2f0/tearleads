@@ -106,7 +106,11 @@ decode_content() {
     base64)
       printf '%s' "$content" | base64 -d
       ;;
-    json|text|*)
+    json|text)
+      printf '%s\n' "$content"
+      ;;
+    *)
+      echo "  WARNING: Unknown encoding '$encoding', treating as text" >&2
       printf '%s\n' "$content"
       ;;
   esac
@@ -130,8 +134,7 @@ for secret_name in $SECRETS; do
 
   if [[ -f "$output_file" ]]; then
     # Compare in-memory content against existing file
-    existing=$(cat "$output_file")
-    if [[ "$decoded" == "$existing" ]]; then
+    if cmp -s <(printf '%s' "$decoded") "$output_file"; then
       echo "[OK] $secret_name (unchanged)"
       ((++UNCHANGED))
     elif [[ "$FORCE" == "true" ]]; then
