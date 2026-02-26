@@ -1,4 +1,4 @@
-import { seedTestUser, type SeededUser } from '@tearleads/api-test-utils';
+import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import {
   getRecordedApiRequests,
   HttpResponse,
@@ -169,11 +169,13 @@ describe('msw handlers', () => {
     const authHeaders = { Authorization: `Bearer ${seededUser.accessToken}` };
 
     await fetch('http://localhost/ping', { headers: authHeaders });
-    await fetch('http://localhost/admin/redis/dbsize', { headers: authHeaders });
+    await fetch('http://localhost/admin/redis/dbsize', {
+      headers: authHeaders
+    });
 
     // Filter out internal bypass requests (forwarded to Express on a random port)
-    const recordedRequests = getRecordedApiRequests().filter(
-      (r) => r.url.startsWith('http://localhost/')
+    const recordedRequests = getRecordedApiRequests().filter((r) =>
+      r.url.startsWith('http://localhost/')
     );
     expect(recordedRequests).toEqual([
       {

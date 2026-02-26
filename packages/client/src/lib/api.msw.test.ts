@@ -1,4 +1,4 @@
-import { seedTestUser, type SeededUser } from '@tearleads/api-test-utils';
+import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import {
   getRecordedApiRequests,
   HttpResponse,

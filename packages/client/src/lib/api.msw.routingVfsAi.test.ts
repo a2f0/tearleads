@@ -1,4 +1,4 @@
-import { seedTestUser, type SeededUser } from '@tearleads/api-test-utils';
+import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { getRecordedApiRequests, wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_TOKEN_KEY } from '@/lib/authStorage';
@@ -129,7 +129,8 @@ describe('api with msw', () => {
       permissionLevel: 'view'
     });
     const orgShareParts = orgShareResponse.id.split(':');
-    const orgShareUuid = orgShareParts[orgShareParts.length - 1]!;
+    const orgShareUuid = orgShareParts[orgShareParts.length - 1];
+    expect(orgShareUuid).toBeTruthy();
 
     // Rekey while share is still active
     await api.vfs.rekeyItem('item-1', {
@@ -149,7 +150,7 @@ describe('api with msw', () => {
     // Update and delete shares
     await api.vfs.updateShare(shareUuid, { permissionLevel: 'edit' });
     await api.vfs.deleteShare(shareUuid);
-    await api.vfs.deleteOrgShare(orgShareUuid);
+    await api.vfs.deleteOrgShare(orgShareUuid ?? '');
 
     // Search share targets
     await api.vfs.searchShareTargets('test query', 'user');

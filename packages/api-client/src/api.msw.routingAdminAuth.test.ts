@@ -1,4 +1,4 @@
-import { seedTestUser, type SeededUser } from '@tearleads/api-test-utils';
+import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import {
   getRecordedApiRequests,
   HttpResponse,
@@ -354,14 +354,19 @@ describe('api with msw', () => {
 
     await api.admin.groups.list({ organizationId: seededUser.organizationId });
     await api.admin.groups.get('group 1');
-    await api.admin.groups.create({ name: 'New Team', organizationId: 'org 1' });
+    await api.admin.groups.create({
+      name: 'New Team',
+      organizationId: 'org 1'
+    });
     await api.admin.groups.update('group 1', { name: 'Team Updated' });
     await api.admin.groups.getMembers('group 1');
     await api.admin.groups.addMember('group 1', seededUser.userId);
     await api.admin.groups.removeMember('group 1', seededUser.userId);
     await api.admin.groups.delete('group 1');
 
-    await api.admin.organizations.list({ organizationId: seededUser.organizationId });
+    await api.admin.organizations.list({
+      organizationId: seededUser.organizationId
+    });
     await api.admin.organizations.get('org 1');
     await api.admin.organizations.getUsers('org 1');
     await api.admin.organizations.getGroups('org 1');
@@ -430,9 +435,9 @@ describe('api with msw', () => {
     );
 
     expect(wasApiRequestMade('GET', '/admin/users')).toBe(true);
-    expect(
-      wasApiRequestMade('GET', `/admin/users/${secondUser.userId}`)
-    ).toBe(true);
+    expect(wasApiRequestMade('GET', `/admin/users/${secondUser.userId}`)).toBe(
+      true
+    );
     expect(
       wasApiRequestMade('PATCH', `/admin/users/${secondUser.userId}`)
     ).toBe(true);

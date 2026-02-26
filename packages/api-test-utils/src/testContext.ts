@@ -7,8 +7,8 @@ import {
   setRedisSubscriberOverrideForTesting
 } from '@tearleads/shared/redis';
 import { setPoolOverrideForTesting } from '@tearleads/shared/testing';
-import type { Pool as PgPool } from 'pg';
 import type { Express } from 'express';
+import type { Pool as PgPool } from 'pg';
 import { createPglitePool } from './pglitePool.js';
 import { createRedisMock, type RedisMockClient } from './redisMock.js';
 
@@ -59,7 +59,9 @@ export async function createTestContext(
   // 4. Create Redis mock, inject overrides
   const redis = createRedisMock();
   setRedisClientOverrideForTesting(redis as unknown as RedisClient);
-  setRedisSubscriberOverrideForTesting(redis.duplicate() as unknown as RedisClient);
+  setRedisSubscriberOverrideForTesting(
+    redis.duplicate() as unknown as RedisClient
+  );
 
   // 5. Set required env vars
   process.env['JWT_SECRET'] =
@@ -84,8 +86,7 @@ export async function createTestContext(
   });
 
   const address = server.address();
-  const port =
-    address && typeof address === 'object' ? address.port : 0;
+  const port = address && typeof address === 'object' ? address.port : 0;
   const baseUrl = `http://localhost:${String(port)}`;
 
   // Cache table names after migrations

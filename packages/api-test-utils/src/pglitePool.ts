@@ -1,5 +1,5 @@
-import { PGlite } from '@electric-sql/pglite';
 import { EventEmitter } from 'node:events';
+import { PGlite } from '@electric-sql/pglite';
 import type { Pool as PgPool, QueryResult } from 'pg';
 
 interface PgliteResult {
@@ -55,15 +55,15 @@ class PglitePoolClient extends EventEmitter {
     super();
   }
 
-  async query(
-    text: string,
-    values?: unknown[]
-  ): Promise<QueryResult> {
+  async query(text: string, values?: unknown[]): Promise<QueryResult> {
     if (!values?.length && needsSimpleProtocol(text)) {
       await this.pglite.exec(text);
       return { rows: [], rowCount: 0, command: '', oid: 0, fields: [] };
     }
-    const result = await this.pglite.query(text, values) as unknown as PgliteResult;
+    const result = (await this.pglite.query(
+      text,
+      values
+    )) as unknown as PgliteResult;
     return mapResult(result);
   }
 
@@ -77,15 +77,15 @@ export class PglitePool extends EventEmitter {
     super();
   }
 
-  async query(
-    text: string,
-    values?: unknown[]
-  ): Promise<QueryResult> {
+  async query(text: string, values?: unknown[]): Promise<QueryResult> {
     if (!values?.length && needsSimpleProtocol(text)) {
       await this.pglite.exec(text);
       return { rows: [], rowCount: 0, command: '', oid: 0, fields: [] };
     }
-    const result = await this.pglite.query(text, values) as unknown as PgliteResult;
+    const result = (await this.pglite.query(
+      text,
+      values
+    )) as unknown as PgliteResult;
     return mapResult(result);
   }
 

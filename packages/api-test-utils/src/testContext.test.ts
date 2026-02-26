@@ -47,7 +47,9 @@ describe('TestContext', () => {
 
     await ctx.resetState();
 
-    const userResult = await ctx.pool.query('SELECT COUNT(*) AS count FROM users');
+    const userResult = await ctx.pool.query(
+      'SELECT COUNT(*) AS count FROM users'
+    );
     expect(Number(userResult.rows[0]?.count)).toBe(0);
     expect(await ctx.redis.get('testkey')).toBeNull();
   });

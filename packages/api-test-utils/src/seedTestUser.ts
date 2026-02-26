@@ -1,6 +1,6 @@
-import { createJwt } from './jwt.js';
 import { randomUUID } from 'node:crypto';
 import type { Pool as PgPool } from 'pg';
+import { createJwt } from './jwt.js';
 import type { RedisMockClient } from './redisMock.js';
 
 export interface SeededUser {
@@ -86,7 +86,8 @@ export async function seedTestUser(
   );
 
   // Create JWT tokens
-  const jwtSecret = process.env['JWT_SECRET'] ?? 'test-jwt-secret-for-api-test-utils';
+  const jwtSecret =
+    process.env['JWT_SECRET'] ?? 'test-jwt-secret-for-api-test-utils';
   const accessToken = createJwt(
     { sub: userId, email, jti: sessionId },
     jwtSecret,
@@ -98,5 +99,12 @@ export async function seedTestUser(
     604800
   );
 
-  return { userId, email, accessToken, refreshToken, sessionId, organizationId: orgId };
+  return {
+    userId,
+    email,
+    accessToken,
+    refreshToken,
+    sessionId,
+    organizationId: orgId
+  };
 }

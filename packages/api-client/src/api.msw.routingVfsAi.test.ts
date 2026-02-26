@@ -1,4 +1,4 @@
-import { seedTestUser, type SeededUser } from '@tearleads/api-test-utils';
+import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { getRecordedApiRequests, wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_TOKEN_KEY } from './authStorage';
@@ -131,7 +131,8 @@ describe('api with msw', () => {
       permissionLevel: 'view'
     });
     const orgShareParts = orgShareResponse.id.split(':');
-    const orgShareUuid = orgShareParts[orgShareParts.length - 1]!;
+    const orgShareUuid = orgShareParts[orgShareParts.length - 1];
+    expect(orgShareUuid).toBeTruthy();
 
     // Rekey while share is still active
     await api.vfs.rekeyItem('item-1', {
@@ -151,7 +152,7 @@ describe('api with msw', () => {
     // Update and delete shares
     await api.vfs.updateShare(shareUuid, { permissionLevel: 'edit' });
     await api.vfs.deleteShare(shareUuid);
-    await api.vfs.deleteOrgShare(orgShareUuid);
+    await api.vfs.deleteOrgShare(orgShareUuid ?? '');
 
     // Search share targets
     await api.vfs.searchShareTargets('test query', 'user');
@@ -303,7 +304,9 @@ describe('api with msw', () => {
         }
       ]
     });
-    const uploadedKeyPackageId = uploadResponse.keyPackages[0]!.id;
+    const uploadedKp = uploadResponse.keyPackages[0];
+    expect(uploadedKp).toBeTruthy();
+    const uploadedKeyPackageId = uploadedKp?.id;
 
     // Welcome messages
     await api.mls.getWelcomeMessages();
@@ -323,24 +326,24 @@ describe('api with msw', () => {
       newEpoch: 3
     });
     await api.mls.leaveGroup(groupId);
-    await api.mls.deleteKeyPackage(uploadedKeyPackageId);
+    await api.mls.deleteKeyPackage(uploadedKeyPackageId ?? '');
 
     expect(wasApiRequestMade('GET', '/mls/groups')).toBe(true);
     expect(wasApiRequestMade('GET', `/mls/groups/${groupId}`)).toBe(true);
     expect(wasApiRequestMade('POST', '/mls/groups')).toBe(true);
     expect(wasApiRequestMade('PATCH', `/mls/groups/${groupId}`)).toBe(true);
-    expect(
-      wasApiRequestMade('GET', `/mls/groups/${groupId}/members`)
-    ).toBe(true);
-    expect(
-      wasApiRequestMade('POST', `/mls/groups/${groupId}/members`)
-    ).toBe(true);
-    expect(
-      wasApiRequestMade('GET', `/mls/groups/${groupId}/messages`)
-    ).toBe(true);
-    expect(
-      wasApiRequestMade('POST', `/mls/groups/${groupId}/messages`)
-    ).toBe(true);
+    expect(wasApiRequestMade('GET', `/mls/groups/${groupId}/members`)).toBe(
+      true
+    );
+    expect(wasApiRequestMade('POST', `/mls/groups/${groupId}/members`)).toBe(
+      true
+    );
+    expect(wasApiRequestMade('GET', `/mls/groups/${groupId}/messages`)).toBe(
+      true
+    );
+    expect(wasApiRequestMade('POST', `/mls/groups/${groupId}/messages`)).toBe(
+      true
+    );
     expect(wasApiRequestMade('GET', `/mls/groups/${groupId}/state`)).toBe(true);
     expect(wasApiRequestMade('POST', `/mls/groups/${groupId}/state`)).toBe(
       true

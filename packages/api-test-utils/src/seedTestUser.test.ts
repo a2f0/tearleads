@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { createTestContext, type TestContext } from './testContext.js';
 import { seedTestUser } from './seedTestUser.js';
+import { createTestContext, type TestContext } from './testContext.js';
 
 describe('seedTestUser', () => {
   let ctx: TestContext;
@@ -42,7 +42,7 @@ describe('seedTestUser', () => {
     const sessionKey = `session:${user.sessionId}`;
     const raw = await ctx.redis.get(sessionKey);
     expect(raw).toBeTruthy();
-    const session = JSON.parse(raw!);
+    const session = JSON.parse(raw ?? '');
     expect(session.userId).toBe(user.userId);
     expect(session.email).toBe(user.email);
   });

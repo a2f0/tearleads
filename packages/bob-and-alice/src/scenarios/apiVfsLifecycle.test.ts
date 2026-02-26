@@ -17,10 +17,10 @@ describe('API VFS lifecycle', () => {
   });
 
   it('Alice sets up keys, registers an item, shares with Bob, and Bob receives it', async () => {
-    harness = await ApiScenarioHarness.create([
-      { alias: 'alice' },
-      { alias: 'bob' }
-    ], getApiDeps);
+    harness = await ApiScenarioHarness.create(
+      [{ alias: 'alice' }, { alias: 'bob' }],
+      getApiDeps
+    );
 
     const alice = harness.actor('alice');
     const bob = harness.actor('bob');
@@ -157,10 +157,9 @@ describe('API VFS lifecycle', () => {
     expect(rekeyBody.newEpoch).toBe(2);
 
     // Alice deletes the share
-    const deleteShareResponse = await alice.fetch(
-      `/vfs/shares/${shareUuid}`,
-      { method: 'DELETE' }
-    );
+    const deleteShareResponse = await alice.fetch(`/vfs/shares/${shareUuid}`, {
+      method: 'DELETE'
+    });
     expect(deleteShareResponse.status).toBe(200);
 
     // Verify shares list is empty again
@@ -171,10 +170,10 @@ describe('API VFS lifecycle', () => {
   });
 
   it('creates an org-share between two organizations', async () => {
-    harness = await ApiScenarioHarness.create([
-      { alias: 'alice' },
-      { alias: 'bob' }
-    ], getApiDeps);
+    harness = await ApiScenarioHarness.create(
+      [{ alias: 'alice' }, { alias: 'bob' }],
+      getApiDeps
+    );
 
     const alice = harness.actor('alice');
 
@@ -238,7 +237,8 @@ describe('API VFS lifecycle', () => {
 
     // Delete org-share
     const orgShareParts = orgShareBody.id.split(':');
-    const orgShareUuid = orgShareParts[orgShareParts.length - 1]!;
+    const orgShareUuid = orgShareParts[orgShareParts.length - 1];
+    expect(orgShareUuid).toBeTruthy();
     const deleteResponse = await alice.fetch(
       `/vfs/org-shares/${orgShareUuid}`,
       { method: 'DELETE' }

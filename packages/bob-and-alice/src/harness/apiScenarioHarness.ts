@@ -1,7 +1,7 @@
 import {
   createTestContext,
-  seedTestUser,
   type SeededUser,
+  seedTestUser,
   type TestContext,
   type TestContextDeps
 } from '@tearleads/api-test-utils';
@@ -38,7 +38,10 @@ export class ApiScenarioHarness {
       const user = await seedTestUser(ctx, { admin: def.admin ?? false });
       const baseUrl = `http://localhost:${String(ctx.port)}/v1`;
 
-      const actorFetch = (path: string, init?: RequestInit): Promise<Response> =>
+      const actorFetch = (
+        path: string,
+        init?: RequestInit
+      ): Promise<Response> =>
         fetch(`${baseUrl}${path}`, {
           ...init,
           headers: {

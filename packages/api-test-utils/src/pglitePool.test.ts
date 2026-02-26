@@ -1,6 +1,6 @@
+import type { Pool as PgPool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createPglitePool } from './pglitePool.js';
-import type { Pool as PgPool } from 'pg';
 
 describe('PglitePool', () => {
   let pool: PgPool;
@@ -32,9 +32,7 @@ describe('PglitePool', () => {
     await pool.query("INSERT INTO test_items (name) VALUES ('alpha')");
     await pool.query("INSERT INTO test_items (name) VALUES ('beta')");
 
-    const result = await pool.query(
-      'SELECT name FROM test_items ORDER BY id'
-    );
+    const result = await pool.query('SELECT name FROM test_items ORDER BY id');
     expect(result.rows).toEqual([{ name: 'alpha' }, { name: 'beta' }]);
     expect(result.rowCount).toBe(2);
   });
@@ -48,9 +46,7 @@ describe('PglitePool', () => {
     await pool.query('INSERT INTO tx_test (val) VALUES (20)');
     await pool.query('COMMIT');
 
-    const result = await pool.query(
-      'SELECT val FROM tx_test ORDER BY id'
-    );
+    const result = await pool.query('SELECT val FROM tx_test ORDER BY id');
     expect(result.rows).toEqual([{ val: 10 }, { val: 20 }]);
   });
 

@@ -1,9 +1,9 @@
-import type { Pool } from 'pg';
 import {
   getCurrentVersion as getCurrentVersionBase,
-  runMigrations as runMigrationsBase,
-  type Migration
+  type Migration,
+  runMigrations as runMigrationsBase
 } from '@tearleads/db/migrations';
+import type { Pool } from 'pg';
 import { v001 } from './v001.js';
 import { v002 } from './v002.js';
 import { v003 } from './v003.js';

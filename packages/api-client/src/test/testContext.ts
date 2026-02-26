@@ -7,6 +7,7 @@ export function setSharedTestContext(c: TestContext): void {
 }
 
 export function getSharedTestContext(): TestContext {
-  if (!ctx) throw new Error('Test context not initialized — setup.ts must run first');
+  if (!ctx)
+    throw new Error('Test context not initialized — setup.ts must run first');
   return ctx;
 }

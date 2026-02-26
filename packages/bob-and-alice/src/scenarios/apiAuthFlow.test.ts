@@ -31,7 +31,10 @@ describe('API auth flow', () => {
   });
 
   it('registers a new user, logs in, refreshes, and logs out', async () => {
-    harness = await ApiScenarioHarness.create([{ alias: 'alice', admin: true }], getApiDeps);
+    harness = await ApiScenarioHarness.create(
+      [{ alias: 'alice', admin: true }],
+      getApiDeps
+    );
     const alice = harness.actor('alice');
     const baseUrl = `http://localhost:${String(harness.ctx.port)}/v1`;
 
