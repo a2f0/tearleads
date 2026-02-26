@@ -102,16 +102,33 @@ const listSkillFiles = (rootDir: string): string[] => {
   return output;
 };
 
-const collectLineMatches = (filePath: string, pattern: RegExp): string[] => {
+const collectLineMatches = (
+  filePath: string,
+  pattern: RegExp
+): Map<string, string[]> => {
   const lines = readText(filePath).split('\n');
-  const matches: string[] = [];
+  const matchesByCommand = new Map<string, string[]>();
+  const globalPattern = new RegExp(pattern.source, 'g');
+
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? '';
-    if (pattern.test(line)) {
-      matches.push(`${index + 1}:${line}`);
+    const matches = line.matchAll(globalPattern);
+    for (const match of matches) {
+      const commandName = match[2];
+      if (typeof commandName !== 'string' || commandName.length === 0) {
+        continue;
+      }
+      const existing = matchesByCommand.get(commandName);
+      const lineRef = `${index + 1}:${line}`;
+      if (existing === undefined) {
+        matchesByCommand.set(commandName, [lineRef]);
+      } else {
+        existing.push(lineRef);
+      }
     }
   }
-  return matches;
+
+  return matchesByCommand;
 };
 
 const checkPrefixUsage = (
@@ -123,23 +140,29 @@ const checkPrefixUsage = (
   }
 
   const pattern = expectedStyle === 'codex' ? slashPattern : dollarPattern;
-  const matches = collectLineMatches(filePath, pattern);
+  const matchesByCommand = collectLineMatches(filePath, pattern);
 
-  if (matches.length === 0) {
+  if (matchesByCommand.size === 0) {
     return;
   }
 
-  if (expectedStyle === 'codex') {
-    reportIssue(`Codex skill uses slash command '/<cmd>' in ${filePath}`);
-  } else if (expectedStyle === 'gemini') {
-    reportIssue(`Gemini skill uses dollar command '$<cmd>' in ${filePath}`);
-  } else {
-    reportIssue(`Claude skill uses dollar command '$<cmd>' in ${filePath}`);
-  }
+  for (const [commandName, matches] of matchesByCommand.entries()) {
+    if (expectedStyle === 'codex') {
+      reportIssue(`Codex skill uses slash command '/${commandName}' in ${filePath}`);
+    } else if (expectedStyle === 'gemini') {
+      reportIssue(
+        `Gemini skill uses dollar command '$${commandName}' in ${filePath}`
+      );
+    } else {
+      reportIssue(
+        `Claude skill uses dollar command '$${commandName}' in ${filePath}`
+      );
+    }
 
-  if (mode !== 'count') {
-    for (const match of matches) {
-      console.error(`  ${match}`);
+    if (mode !== 'count') {
+      for (const match of matches) {
+        console.error(`  ${match}`);
+      }
     }
   }
 };
@@ -177,7 +200,7 @@ const normalizeText = (text: string): string => {
     .map((line) => line.replace(/[ \t]+$/g, ''))
     .join('\n');
 
-  normalized = normalized.replace(/^(?:\s*\n)+/, '');
+  normalized = normalized.replace(/^(?:\s*\n)+/, '').trimEnd();
 
   return normalized;
 };
