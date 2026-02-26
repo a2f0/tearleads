@@ -21,6 +21,7 @@ This package is part of the Tearleads monorepo and is not published independentl
 
 ```typescript
 import { withRealDatabase } from '@tearleads/db-test-utils';
+import { users } from '@tearleads/db/sqlite';
 import { migrations } from '@tearleads/db/migrations';
 
 it('queries the database', async () => {
@@ -66,6 +67,7 @@ it('works with real database', async () => {
         ({ children }) => <OtherProvider>{children}</OtherProvider>
       )
     });
+    // assert on result.current
   });
 });
 ```
