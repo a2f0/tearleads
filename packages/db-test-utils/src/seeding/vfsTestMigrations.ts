@@ -4,7 +4,6 @@ import type { DatabaseAdapter } from '../adapters/types.js';
  * Test migrations for VFS tables.
  * These create a minimal VFS schema for testing purposes.
  *
-<<<<<<< HEAD
  * Includes stub tables for queryFolderContents LEFT JOINs:
  * files, contacts, notes, playlists, albums, contactGroups, tags, emails
  * Includes canonical vfs_item_state tombstones used by trash queries.
