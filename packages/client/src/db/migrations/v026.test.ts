@@ -54,6 +54,6 @@ describe('v026 migration', () => {
 
   it('has correct version and description', () => {
     expect(v026.version).toBe(26);
-    expect(v026.description).toBe('Add vfs_item_state table');
+    expect(v026.description).toBe('Add canonical VFS item state table');
   });
 });
