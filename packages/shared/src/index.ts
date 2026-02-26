@@ -20,6 +20,8 @@ export interface LicenseInfo {
   repository?: string;
 }
 
+// Account utilities
+export * from './account.js';
 // Sub-modules
 export * from './admin.js';
 // AI conversations
@@ -32,6 +34,8 @@ export * from './mediaDragData.js';
 export * from './mlsTypes.js';
 // OpenRouter model options
 export * from './openrouter.js';
+// Note: passwords and seedAccount are exported via '@tearleads/shared/server'
+// to avoid bundling node:crypto into browser bundles.
 // Postgres dev-mode defaults
 export * from './postgresDefaults.js';
 // Tree utilities
