@@ -45,7 +45,7 @@
     "lint:actions": "./scripts/checks/checkGithubActions.sh",
     "lint:knip": "knip --config knip.ts --use-tsconfig-files",
     "lint:knip:fix": "knip -n --config knip.ts --use-tsconfig-files --fix --fix-type dependencies --format",
-    "lintPreen": "./scripts/checks/preen/checkPreenEcosystem.sh --strict",
+    "lintPreen": "./scripts/checks/preen/checkPreenEcosystem.ts --strict",
     "checkMswParity": "./scripts/checks/checkMswParity.ts",
     "checkVfsCrdtCompactionMetrics": "./scripts/checks/checkVfsCrdtCompactionMetrics.ts",
     "format": "biome format --write .",

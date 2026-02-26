@@ -141,9 +141,9 @@
       "qualityMetric": "Skill parity/tooling issues",
       "security": false,
       "discoveryCommands": [
-        "./scripts/checks/preen/checkPreenEcosystem.sh --summary"
+        "./scripts/checks/preen/checkPreenEcosystem.ts --summary"
       ],
-      "metricCountCommand": "./scripts/checks/preen/checkPreenEcosystem.sh --count-issues"
+      "metricCountCommand": "./scripts/checks/preen/checkPreenEcosystem.ts --count-issues"
     },
     {
       "id": "preen-skill-parity",

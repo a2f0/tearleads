@@ -196,7 +196,7 @@ run_discovery() {
       ./scripts/checks/checkMswParity.ts --json | head -40
       ;;
     preen-skill-tooling)
-      ./scripts/checks/preen/checkPreenEcosystem.sh --summary
+      ./scripts/checks/preen/checkPreenEcosystem.ts --summary
       ;;
     preen-skill-parity)
       ./scripts/checks/skills/checkSkillParity.sh --summary
@@ -301,7 +301,7 @@ metric_count() {
       ./scripts/checks/checkMswParity.ts --json | jq '.missingRouteCount + .lowConfidenceRouteCount'
       ;;
     preen-skill-tooling)
-      ./scripts/checks/preen/checkPreenEcosystem.sh --count-issues
+      ./scripts/checks/preen/checkPreenEcosystem.ts --count-issues
       ;;
     preen-skill-parity)
       ./scripts/checks/skills/checkSkillParity.sh --count-issues
