@@ -266,7 +266,9 @@ function logPoolStats(poolInstance: PgPool, poolType: 'primary' | 'replica') {
   });
 }
 
-async function validateReplicaHealth(replicaPoolInstance: PgPool): Promise<boolean> {
+async function validateReplicaHealth(
+  replicaPoolInstance: PgPool
+): Promise<boolean> {
   try {
     const result = await replicaPoolInstance.query<{
       pg_is_in_recovery: boolean;
@@ -278,10 +280,11 @@ async function validateReplicaHealth(replicaPoolInstance: PgPool): Promise<boole
     );
     const row = result.rows[0];
     const inRecovery = row?.pg_is_in_recovery === true;
-    const lagSeconds = row?.replay_lag_seconds ?? null;
-    const maxLagSeconds = parseReplicaMaxLagSeconds();
-    const lagHealthy =
-      lagSeconds === null || (Number.isFinite(lagSeconds) && lagSeconds <= maxLagSeconds);
+  const lagSeconds = row?.replay_lag_seconds ?? null;
+  const maxLagSeconds = parseReplicaMaxLagSeconds();
+  const lagHealthy =
+    lagSeconds === null ||
+    (Number.isFinite(lagSeconds) && lagSeconds <= maxLagSeconds);
     const healthy = inRecovery && lagHealthy;
 
     logPoolStats(replicaPoolInstance, 'replica');
