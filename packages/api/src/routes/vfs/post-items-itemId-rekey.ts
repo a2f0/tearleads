@@ -187,66 +187,106 @@ const postItemsItemIdRekeyHandler = async (
   try {
     const pool = await getPostgresPool();
     const rekeyablePrincipalTypes = ['user', 'group', 'organization'];
+    const client = await pool.connect();
+    let transactionOpen = false;
 
-    // Verify item exists and user is owner
-    const itemResult = await pool.query<{
-      id: string;
-      owner_id: string | null;
-    }>('SELECT id, owner_id FROM vfs_registry WHERE id = $1', [itemId]);
+    try {
+      await client.query('BEGIN');
+      transactionOpen = true;
 
-    if (!itemResult.rows[0]) {
-      res.status(404).json({ error: 'Item not found' });
-      return;
-    }
+      // Verify item exists and user is owner while holding a transaction-bound lock.
+      const itemResult = await client.query<{
+        id: string;
+        owner_id: string | null;
+      }>('SELECT id, owner_id FROM vfs_registry WHERE id = $1 FOR UPDATE', [
+        itemId
+      ]);
+      const item = itemResult.rows[0];
 
-    if (itemResult.rows[0].owner_id !== claims.sub) {
-      res.status(403).json({ error: 'Not authorized to rekey this item' });
-      return;
-    }
+      if (!item) {
+        await client.query('ROLLBACK');
+        transactionOpen = false;
+        res.status(404).json({ error: 'Item not found' });
+        return;
+      }
 
-    // Update wrapped keys for each recipient in the ACL
-    let wrapsApplied = 0;
+      if (item.owner_id !== claims.sub) {
+        await client.query('ROLLBACK');
+        transactionOpen = false;
+        res.status(403).json({ error: 'Not authorized to rekey this item' });
+        return;
+      }
 
-    for (const wrap of payload.wrappedKeys) {
-      const wrappedKeyMetadata = JSON.stringify({
-        recipientPublicKeyId: wrap.recipientPublicKeyId,
-        senderSignature: wrap.senderSignature
-      });
+      const wrappedKeyMetadata = payload.wrappedKeys.map((wrap) =>
+        JSON.stringify({
+          recipientPublicKeyId: wrap.recipientPublicKeyId,
+          senderSignature: wrap.senderSignature
+        })
+      );
 
-      // Find active ACL entry for this recipient
-      const result = await pool.query(
-        `UPDATE vfs_acl_entries
-         SET wrapped_session_key = $1,
-             wrapped_hierarchical_key = $2,
-             key_epoch = $3,
+      // Apply all recipient updates in one statement to avoid one query per wrapped key.
+      const updateResult = await client.query(
+        `WITH input_rows AS (
+           SELECT recipient_user_id, wrapped_session_key, wrapped_hierarchical_key, key_epoch
+           FROM UNNEST(
+             $1::text[],
+             $2::text[],
+             $3::text[],
+             $4::int4[]
+           ) AS rekey_rows(
+             recipient_user_id,
+             wrapped_session_key,
+             wrapped_hierarchical_key,
+             key_epoch
+           )
+         )
+         UPDATE vfs_acl_entries AS acl
+         SET wrapped_session_key = input_rows.wrapped_session_key,
+             wrapped_hierarchical_key = input_rows.wrapped_hierarchical_key,
+             key_epoch = input_rows.key_epoch,
              updated_at = NOW()
-         WHERE item_id = $4
-           AND principal_id = $5
-           AND principal_type = ANY($6::text[])
-           AND revoked_at IS NULL
-         RETURNING id`,
+         FROM input_rows
+         WHERE acl.item_id = $5
+           AND acl.principal_id = input_rows.recipient_user_id
+           AND acl.principal_type = ANY($6::text[])
+           AND acl.revoked_at IS NULL
+         RETURNING acl.id`,
         [
-          wrap.encryptedKey,
+          payload.wrappedKeys.map((wrap) => wrap.recipientUserId),
+          payload.wrappedKeys.map((wrap) => wrap.encryptedKey),
           wrappedKeyMetadata,
-          wrap.keyEpoch,
+          payload.wrappedKeys.map((wrap) => wrap.keyEpoch),
           itemId,
-          wrap.recipientUserId,
           rekeyablePrincipalTypes
         ]
       );
+      const wrapsApplied = updateResult.rowCount ?? 0;
 
-      if (result.rowCount && result.rowCount > 0) {
-        wrapsApplied += result.rowCount;
+      await client.query('COMMIT');
+      transactionOpen = false;
+
+      const response: VfsRekeyResponse = {
+        itemId,
+        newEpoch: payload.newEpoch,
+        wrapsApplied
+      };
+
+      res.status(200).json(response);
+    } catch (transactionError) {
+      if (transactionOpen) {
+        try {
+          await client.query('ROLLBACK');
+        } catch (rollbackError) {
+          console.error(
+            'Failed to rollback VFS rekey transaction:',
+            rollbackError
+          );
+        }
       }
+      throw transactionError;
+    } finally {
+      client.release();
     }
-
-    const response: VfsRekeyResponse = {
-      itemId,
-      newEpoch: payload.newEpoch,
-      wrapsApplied
-    };
-
-    res.status(200).json(response);
   } catch (error) {
     console.error('Failed to rekey VFS item:', error);
     res.status(500).json({ error: 'Failed to rekey VFS item' });

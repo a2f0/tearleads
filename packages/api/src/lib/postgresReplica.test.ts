@@ -1,117 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-vi.mock('node:os', () => ({
-  default: {
-    userInfo: () => ({ username: 'tearleads_os_user' })
-  }
-}));
-
-type PoolConfig = {
-  connectionString?: string;
-  host?: string;
-  port?: number;
-  user?: string;
-  password?: string;
-  database?: string;
-  ssl?: {
-    rejectUnauthorized: boolean;
-  };
-  max?: number;
-  idleTimeoutMillis?: number;
-  connectionTimeoutMillis?: number;
-};
-
-type PoolInstance = {
-  config: PoolConfig;
-  end: ReturnType<typeof vi.fn>;
-  query: ReturnType<typeof vi.fn>;
-  on: ReturnType<typeof vi.fn>;
-  totalCount: number;
-  idleCount: number;
-  waitingCount: number;
-};
-
-const poolInstances: PoolInstance[] = [];
-const poolQueryMock = vi.fn();
-
-class PoolMock {
-  config: PoolConfig;
-  end: ReturnType<typeof vi.fn>;
-  query: ReturnType<typeof vi.fn>;
-  on: ReturnType<typeof vi.fn>;
-  totalCount: number;
-  idleCount: number;
-  waitingCount: number;
-
-  constructor(config: PoolConfig) {
-    this.config = config;
-    this.end = vi.fn().mockResolvedValue(undefined);
-    this.query = vi.fn(async (...args: unknown[]) => {
-      return poolQueryMock(...args);
-    });
-    this.on = vi.fn();
-    this.totalCount = 1;
-    this.idleCount = 1;
-    this.waitingCount = 0;
-    poolInstances.push(this);
-  }
-}
-
-vi.mock('pg', () => ({
-  default: { Pool: PoolMock },
-  Pool: PoolMock
-}));
-
-const originalEnv = process.env;
-
-const DEV_ENV_KEYS = [
-  'USER',
-  'LOGNAME',
-  'DATABASE_URL',
-  'POSTGRES_URL',
-  'POSTGRES_HOST',
-  'POSTGRES_PORT',
-  'POSTGRES_USER',
-  'POSTGRES_PASSWORD',
-  'POSTGRES_DATABASE',
-  'PGHOST',
-  'PGPORT',
-  'PGUSER',
-  'PGPASSWORD',
-  'PGDATABASE'
-];
-
-async function loadPostgresModule() {
-  return import('./postgres.js');
-}
-
-function setReleaseEnv() {
-  process.env['POSTGRES_HOST'] = 'primary.db';
-  process.env['POSTGRES_PORT'] = '5432';
-  process.env['POSTGRES_USER'] = 'app';
-  process.env['POSTGRES_PASSWORD'] = 'secret';
-  process.env['POSTGRES_DATABASE'] = 'tearleads';
-}
+import {
+  loadPostgresModule,
+  poolInstances,
+  poolQueryMock,
+  resetPostgresTestEnv,
+  restorePostgresTestEnv,
+  setReleaseEnv
+} from './postgresTestHarness.js';
 
 describe('replica pool', () => {
   beforeEach(() => {
-    vi.resetModules();
-    poolQueryMock.mockReset();
-    poolQueryMock.mockResolvedValue({
-      rows: [{ pg_is_in_recovery: true, replay_lag_seconds: 0 }]
-    });
-    process.env = { ...originalEnv };
-    for (const key of DEV_ENV_KEYS) {
-      delete process.env[key];
-    }
-    if (!process.env['NODE_ENV']) {
-      process.env['NODE_ENV'] = 'test';
-    }
-    poolInstances.length = 0;
+    resetPostgresTestEnv();
   });
 
   afterEach(() => {
-    process.env = originalEnv;
+    restorePostgresTestEnv();
   });
 
   it('getPool("write") returns primary pool', async () => {
@@ -274,6 +177,23 @@ describe('replica pool', () => {
     setReleaseEnv();
     process.env['POSTGRES_REPLICA_HOST'] = 'replica.db';
     process.env['POSTGRES_SSL'] = '1';
+    const { getPool } = await loadPostgresModule();
+
+    await getPool('read');
+
+    const replicaInstance = poolInstances.find(
+      (p) => p.config.host === 'replica.db'
+    );
+    expect(replicaInstance?.config).toMatchObject({
+      ssl: { rejectUnauthorized: true }
+    });
+  });
+
+  it('allows explicit insecure SSL opt-out for replica pool', async () => {
+    setReleaseEnv();
+    process.env['POSTGRES_REPLICA_HOST'] = 'replica.db';
+    process.env['POSTGRES_SSL'] = '1';
+    process.env['POSTGRES_SSL_REJECT_UNAUTHORIZED'] = 'false';
     const { getPool } = await loadPostgresModule();
 
     await getPool('read');

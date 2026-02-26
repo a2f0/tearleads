@@ -150,7 +150,10 @@ describe('VFS routes (rekey)', () => {
 
     it('returns 404 when item does not exist', async () => {
       const authHeader = await createAuthHeader();
-      mockQuery.mockResolvedValueOnce({ rows: [] }); // no item found
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rows: [] }) // no item found
+        .mockResolvedValueOnce({}); // ROLLBACK
 
       const response = await request(app)
         .post('/v1/vfs/items/nonexistent-item/rekey')
@@ -163,9 +166,12 @@ describe('VFS routes (rekey)', () => {
 
     it('returns 403 when user is not the item owner', async () => {
       const authHeader = await createAuthHeader();
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 'item-123', owner_id: 'different-user' }]
-      });
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [{ id: 'item-123', owner_id: 'different-user' }]
+        }) // owner lookup
+        .mockResolvedValueOnce({}); // ROLLBACK
 
       const response = await request(app)
         .post('/v1/vfs/items/item-123/rekey')
@@ -181,16 +187,16 @@ describe('VFS routes (rekey)', () => {
     it('returns 200 and updates wrapped keys for owner', async () => {
       const authHeader = await createAuthHeader();
 
-      // Item lookup - user is owner
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 'item-123', owner_id: mockUserId }]
-      });
-
-      // Update wrapped key for recipient
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 'acl-entry-1' }],
-        rowCount: 1
-      });
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [{ id: 'item-123', owner_id: mockUserId }]
+        }) // owner lookup
+        .mockResolvedValueOnce({
+          rows: [{ id: 'acl-entry-1' }],
+          rowCount: 1
+        }) // batched update
+        .mockResolvedValueOnce({}); // COMMIT
 
       const response = await request(app)
         .post('/v1/vfs/items/item-123/rekey')
@@ -203,33 +209,33 @@ describe('VFS routes (rekey)', () => {
         newEpoch: 2,
         wrapsApplied: 1
       });
-      const updateCall = mockQuery.mock.calls[1];
-      expect(updateCall?.[1]?.[0]).toBe('base64-encrypted-key');
-      expect(updateCall?.[1]?.[1]).toBe(
+      const updateCall = mockQuery.mock.calls[2];
+      expect(updateCall?.[1]?.[0]).toEqual(['user-alice']);
+      expect(updateCall?.[1]?.[1]).toEqual(['base64-encrypted-key']);
+      expect(updateCall?.[1]?.[2]).toEqual([
         JSON.stringify({
           recipientPublicKeyId: 'pk-alice',
           senderSignature: 'base64-signature'
         })
-      );
-      expect(updateCall?.[1]?.[2]).toBe(2);
-      expect(updateCall?.[1]?.[3]).toBe('item-123');
-      expect(updateCall?.[1]?.[4]).toBe('user-alice');
+      ]);
+      expect(updateCall?.[1]?.[3]).toEqual([2]);
+      expect(updateCall?.[1]?.[4]).toBe('item-123');
       expect(updateCall?.[1]?.[5]).toEqual(['user', 'group', 'organization']);
     });
 
     it('returns 200 with zero wraps when no ACL entries match', async () => {
       const authHeader = await createAuthHeader();
 
-      // Item lookup - user is owner
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 'item-123', owner_id: mockUserId }]
-      });
-
-      // Update finds no matching ACL entry
-      mockQuery.mockResolvedValueOnce({
-        rows: [],
-        rowCount: 0
-      });
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [{ id: 'item-123', owner_id: mockUserId }]
+        }) // owner lookup
+        .mockResolvedValueOnce({
+          rows: [],
+          rowCount: 0
+        }) // batched update
+        .mockResolvedValueOnce({}); // COMMIT
 
       const response = await request(app)
         .post('/v1/vfs/items/item-123/rekey')
@@ -267,22 +273,16 @@ describe('VFS routes (rekey)', () => {
         ]
       };
 
-      // Item lookup - user is owner
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 'item-456', owner_id: mockUserId }]
-      });
-
-      // Update for alice
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 'acl-alice' }],
-        rowCount: 1
-      });
-
-      // Update for bob
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 'acl-bob' }],
-        rowCount: 1
-      });
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [{ id: 'item-456', owner_id: mockUserId }]
+        }) // owner lookup
+        .mockResolvedValueOnce({
+          rows: [{ id: 'acl-alice' }, { id: 'acl-bob' }],
+          rowCount: 2
+        }) // batched update
+        .mockResolvedValueOnce({}); // COMMIT
 
       const response = await request(app)
         .post('/v1/vfs/items/item-456/rekey')
@@ -300,13 +300,16 @@ describe('VFS routes (rekey)', () => {
     it('matches recipient id across user/group/organization principals', async () => {
       const authHeader = await createAuthHeader();
 
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 'item-789', owner_id: mockUserId }]
-      });
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 'acl-any-principal' }],
-        rowCount: 1
-      });
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [{ id: 'item-789', owner_id: mockUserId }]
+        }) // owner lookup
+        .mockResolvedValueOnce({
+          rows: [{ id: 'acl-any-principal' }],
+          rowCount: 1
+        }) // batched update
+        .mockResolvedValueOnce({}); // COMMIT
 
       const response = await request(app)
         .post('/v1/vfs/items/item-789/rekey')
@@ -314,7 +317,7 @@ describe('VFS routes (rekey)', () => {
         .send(validPayload);
 
       expect(response.status).toBe(200);
-      const updateCall = mockQuery.mock.calls[1];
+      const updateCall = mockQuery.mock.calls[2];
       expect(updateCall?.[0]).toContain('principal_type = ANY');
       expect(updateCall?.[1]?.[5]).toEqual(['user', 'group', 'organization']);
     });
@@ -324,9 +327,16 @@ describe('VFS routes (rekey)', () => {
       const reasons = ['unshare', 'expiry', 'manual'];
 
       for (const reason of reasons) {
-        mockQuery.mockResolvedValueOnce({
-          rows: [{ id: 'item-123', owner_id: mockUserId }]
-        });
+        mockQuery
+          .mockResolvedValueOnce({}) // BEGIN
+          .mockResolvedValueOnce({
+            rows: [{ id: 'item-123', owner_id: mockUserId }]
+          }) // owner lookup
+          .mockResolvedValueOnce({
+            rows: [],
+            rowCount: 0
+          }) // batched update
+          .mockResolvedValueOnce({}); // COMMIT
 
         const response = await request(app)
           .post('/v1/vfs/items/item-123/rekey')

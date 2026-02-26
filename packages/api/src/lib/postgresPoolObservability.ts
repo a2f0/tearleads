@@ -55,6 +55,8 @@ export async function validateReplicaHealth(
     const effectiveLagSeconds = caughtUp ? 0 : lagSeconds;
     const maxLagSeconds = parseReplicaMaxLagSeconds();
     const lagHealthy =
+      // Null lag can occur on fresh replicas before any replay timestamp exists.
+      // We treat that state as healthy as long as the node is in recovery mode.
       effectiveLagSeconds === null ||
       (Number.isFinite(effectiveLagSeconds) &&
         effectiveLagSeconds <= maxLagSeconds);

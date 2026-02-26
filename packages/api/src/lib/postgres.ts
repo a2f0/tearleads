@@ -136,8 +136,24 @@ function buildConnectionInfo(): PostgresConnectionInfo {
 
 function parseSslConfig(): PoolConfig['ssl'] | undefined {
   const sslEnv = process.env['POSTGRES_SSL'];
-  if (!sslEnv || sslEnv === '0' || sslEnv === 'false') return undefined;
-  return { rejectUnauthorized: false };
+  const normalizedSslEnv = sslEnv?.trim().toLowerCase();
+  if (
+    !normalizedSslEnv ||
+    normalizedSslEnv === '0' ||
+    normalizedSslEnv === 'false'
+  ) {
+    return undefined;
+  }
+
+  const rejectUnauthorizedEnv = process.env['POSTGRES_SSL_REJECT_UNAUTHORIZED']
+    ?.trim()
+    .toLowerCase();
+  if (rejectUnauthorizedEnv === '0' || rejectUnauthorizedEnv === 'false') {
+    return { rejectUnauthorized: false };
+  }
+
+  // Default to certificate verification unless explicitly disabled.
+  return { rejectUnauthorized: true };
 }
 
 function buildPoolConfig(): { config: PoolConfig; configKey: string } {
