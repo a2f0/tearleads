@@ -1,4 +1,5 @@
 import {
+  Binary,
   FileIcon,
   Folder,
   ImageIcon,
@@ -18,6 +19,7 @@ import type { VfsObjectType } from './vfsTypes';
 export const OBJECT_TYPE_ICONS: Record<VfsObjectType, typeof Folder> = {
   // Entities
   file: FileIcon,
+  blob: Binary,
   photo: ImageIcon,
   audio: Music,
   video: Video,
@@ -36,6 +38,7 @@ export const OBJECT_TYPE_ICONS: Record<VfsObjectType, typeof Folder> = {
 export const OBJECT_TYPE_COLORS: Record<VfsObjectType, string> = {
   // Entities
   file: 'text-gray-600 dark:text-gray-400',
+  blob: 'text-slate-600 dark:text-slate-400',
   photo: 'text-green-600 dark:text-green-400',
   audio: 'text-purple-600 dark:text-purple-400',
   video: 'text-red-600 dark:text-red-400',

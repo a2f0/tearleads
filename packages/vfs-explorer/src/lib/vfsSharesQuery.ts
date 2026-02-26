@@ -106,6 +106,7 @@ function nameCoalesce(): SQL<string> {
     CASE ${vfsRegistry.objectType}
       WHEN 'folder' THEN 'Unnamed Folder'
       WHEN 'file' THEN 'Unnamed File'
+      WHEN 'blob' THEN 'Unnamed Blob'
       WHEN 'photo' THEN 'Unnamed Photo'
       WHEN 'audio' THEN 'Unnamed Audio'
       WHEN 'video' THEN 'Unnamed Video'
