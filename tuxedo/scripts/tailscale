@@ -1,0 +1,18 @@
+#!/bin/sh
+# Wrapper to expose the tailscale CLI on macOS (app bundle) and Linux (system binary)
+case "$(uname -s)" in
+  Darwin) ts_bin="/Applications/Tailscale.app/Contents/MacOS/Tailscale" ;;
+  *)
+    for p in /usr/bin/tailscale /usr/local/bin/tailscale /usr/sbin/tailscale; do
+      [ -x "$p" ] && ts_bin="$p" && break
+    done
+    : "${ts_bin:=/usr/bin/tailscale}"
+    ;;
+esac
+
+if [ ! -x "$ts_bin" ]; then
+  echo "tuxedo: tailscale binary not found at expected path: $ts_bin" >&2
+  exit 127
+fi
+
+exec "$ts_bin" "$@"
