@@ -1,1 +1,1 @@
-export { hashPassword, verifyPassword } from '@tearleads/shared';
+export { hashPassword, verifyPassword } from '@tearleads/shared/server';

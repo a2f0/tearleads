@@ -34,12 +34,10 @@ export * from './mediaDragData.js';
 export * from './mlsTypes.js';
 // OpenRouter model options
 export * from './openrouter.js';
-// Password hashing
-export * from './passwords.js';
+// Note: passwords and seedAccount are exported via '@tearleads/shared/server'
+// to avoid bundling node:crypto into browser bundles.
 // Postgres dev-mode defaults
 export * from './postgresDefaults.js';
-// Seed account harness
-export * from './seedAccount.js';
 // Tree utilities
 export * from './tree/index.js';
 // Type guards
