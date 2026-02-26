@@ -148,7 +148,9 @@ const checkPrefixUsage = (
 
   for (const [commandName, matches] of matchesByCommand.entries()) {
     if (expectedStyle === 'codex') {
-      reportIssue(`Codex skill uses slash command '/${commandName}' in ${filePath}`);
+      reportIssue(
+        `Codex skill uses slash command '/${commandName}' in ${filePath}`
+      );
     } else if (expectedStyle === 'gemini') {
       reportIssue(
         `Gemini skill uses dollar command '$${commandName}' in ${filePath}`
