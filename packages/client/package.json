@@ -5,7 +5,7 @@
   "main": "out/main/main.js",
   "type": "module",
   "scripts": {
-    "dev": "tsx ../../scripts/killPnpmDev.ts && cross-env DOTENV_CONFIG_QUIET=true vite",
+    "dev": "tsx ../../scripts/lib/killPnpmDev.ts && cross-env DOTENV_CONFIG_QUIET=true vite",
     "build": "tsc && cross-env DOTENV_CONFIG_QUIET=true vite build",
     "preview": "cross-env DOTENV_CONFIG_QUIET=true vite preview",
     "clean": "rm -rf dist",

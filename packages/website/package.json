@@ -4,7 +4,7 @@
   "description": "Marketing website for Tearleads",
   "type": "module",
   "scripts": {
-    "dev": "tsx ../../scripts/killPnpmDev.ts && astro dev",
+    "dev": "tsx ../../scripts/lib/killPnpmDev.ts && astro dev",
     "build": "astro build",
     "preview": "astro preview",
     "clean": "rm -rf dist",

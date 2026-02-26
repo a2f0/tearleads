@@ -23,7 +23,7 @@
     "build:email": "pnpm --filter @tearleads/email build",
     "build:calendar": "pnpm --filter @tearleads/calendar build",
     "build:health": "pnpm --filter @tearleads/health build",
-    "dev": "FORCE_COLOR=0 tsx scripts/killPnpmDev.ts --force && FORCE_COLOR=0 VITE_API_URL=http://localhost:5001/v1 pnpm buildPreDev && FORCE_COLOR=0 pnpm --filter @tearleads/api buildOpenapi && FORCE_COLOR=0 tsx scripts/lib/checkSmtpPort.ts && FORCE_COLOR=0 TEARLEADS_SKIP_DEV_KILL=1 concurrently -n api,client,website,smtp -c blue,magenta,cyan,green \"FORCE_COLOR=0 pnpm --filter @tearleads/api dev\" \"FORCE_COLOR=0 pnpm --filter @tearleads/client dev\" \"FORCE_COLOR=0 pnpm --filter @tearleads/website dev\" \"FORCE_COLOR=0 pnpm --filter @tearleads/smtp-listener dev\"",
+    "dev": "FORCE_COLOR=0 tsx scripts/lib/killPnpmDev.ts --force && FORCE_COLOR=0 VITE_API_URL=http://localhost:5001/v1 pnpm buildPreDev && FORCE_COLOR=0 pnpm --filter @tearleads/api buildOpenapi && FORCE_COLOR=0 tsx scripts/lib/checkSmtpPort.ts && FORCE_COLOR=0 TEARLEADS_SKIP_DEV_KILL=1 concurrently -n api,client,website,smtp -c blue,magenta,cyan,green \"FORCE_COLOR=0 pnpm --filter @tearleads/api dev\" \"FORCE_COLOR=0 pnpm --filter @tearleads/client dev\" \"FORCE_COLOR=0 pnpm --filter @tearleads/website dev\" \"FORCE_COLOR=0 pnpm --filter @tearleads/smtp-listener dev\"",
     "dev:api": "FORCE_COLOR=0 pnpm build:shared && FORCE_COLOR=0 pnpm build:db && FORCE_COLOR=0 pnpm --filter @tearleads/api dev",
     "dev:client": "FORCE_COLOR=0 VITE_API_URL=http://localhost:5001/v1 pnpm buildPreDev && FORCE_COLOR=0 pnpm --filter @tearleads/client dev",
     "devWebsite": "FORCE_COLOR=0 pnpm --filter @tearleads/api buildOpenapi && FORCE_COLOR=0 pnpm --filter @tearleads/website dev",
