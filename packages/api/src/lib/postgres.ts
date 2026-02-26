@@ -280,11 +280,11 @@ async function validateReplicaHealth(
     );
     const row = result.rows[0];
     const inRecovery = row?.pg_is_in_recovery === true;
-  const lagSeconds = row?.replay_lag_seconds ?? null;
-  const maxLagSeconds = parseReplicaMaxLagSeconds();
-  const lagHealthy =
-    lagSeconds === null ||
-    (Number.isFinite(lagSeconds) && lagSeconds <= maxLagSeconds);
+    const lagSeconds = row?.replay_lag_seconds ?? null;
+    const maxLagSeconds = parseReplicaMaxLagSeconds();
+    const lagHealthy =
+      lagSeconds === null ||
+      (Number.isFinite(lagSeconds) && lagSeconds <= maxLagSeconds);
     const healthy = inRecovery && lagHealthy;
 
     logPoolStats(replicaPoolInstance, 'replica');
