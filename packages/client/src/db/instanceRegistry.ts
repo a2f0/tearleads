@@ -35,6 +35,7 @@ export interface InstanceMetadata {
   name: string;
   createdAt: number;
   lastAccessedAt: number;
+  boundUserId?: string | null;
 }
 
 interface RegistryData {
@@ -177,7 +178,9 @@ export async function createInstance(): Promise<InstanceMetadata> {
  */
 export async function updateInstance(
   instanceId: string,
-  updates: Partial<Pick<InstanceMetadata, 'name' | 'lastAccessedAt'>>
+  updates: Partial<
+    Pick<InstanceMetadata, 'name' | 'lastAccessedAt' | 'boundUserId'>
+  >
 ): Promise<void> {
   const instances = await getInstances();
   const existingInstance = instances.find((inst) => inst.id === instanceId);
@@ -191,9 +194,72 @@ export async function updateInstance(
     id: existingInstance.id,
     name: updates.name ?? existingInstance.name,
     createdAt: existingInstance.createdAt,
-    lastAccessedAt: updates.lastAccessedAt ?? existingInstance.lastAccessedAt
+    lastAccessedAt: updates.lastAccessedAt ?? existingInstance.lastAccessedAt,
+    boundUserId:
+      updates.boundUserId === undefined
+        ? (existingInstance.boundUserId ?? null)
+        : updates.boundUserId
   };
   await setInStore(REGISTRY_KEY, instances);
+}
+
+export async function getInstanceForUser(
+  userId: string
+): Promise<InstanceMetadata | null> {
+  const normalizedUserId = userId.trim();
+  if (!normalizedUserId) {
+    return null;
+  }
+
+  const instances = await getInstances();
+  return (
+    instances.find((instance) => instance.boundUserId === normalizedUserId) ??
+    null
+  );
+}
+
+export async function bindInstanceToUser(
+  instanceId: string,
+  userId: string
+): Promise<void> {
+  const normalizedUserId = userId.trim();
+  if (!normalizedUserId) {
+    throw new Error('userId is required');
+  }
+
+  const instances = await getInstances();
+  const target = instances.find((instance) => instance.id === instanceId);
+  if (!target) {
+    throw new Error(`Instance not found: ${instanceId}`);
+  }
+
+  let changed = false;
+  for (let index = 0; index < instances.length; index++) {
+    const instance = instances[index];
+    if (!instance) {
+      continue;
+    }
+
+    if (instance.id === instanceId) {
+      if (instance.boundUserId !== normalizedUserId) {
+        instances[index] = {
+          ...instance,
+          boundUserId: normalizedUserId
+        };
+        changed = true;
+      }
+    } else if (instance.boundUserId === normalizedUserId) {
+      instances[index] = {
+        ...instance,
+        boundUserId: null
+      };
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    await setInStore(REGISTRY_KEY, instances);
+  }
 }
 
 /**
