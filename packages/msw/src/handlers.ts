@@ -351,6 +351,50 @@ export const handlers = [
       abandonedAt: nowIsoString()
     })
   ),
+  http.post(
+    withOptionalV1Prefix('/vfs/blobs/stage/[^/]+/chunks'),
+    ({ request }) => {
+      const url = new URL(request.url);
+      const stagingId = decodeURIComponent(
+        url.pathname.split('/').at(-2) ?? 'staging-1'
+      );
+      return ok({
+        accepted: true,
+        stagingId,
+        uploadId: 'upload-1',
+        chunkIndex: 0
+      });
+    }
+  ),
+  http.post(
+    withOptionalV1Prefix('/vfs/blobs/stage/[^/]+/commit'),
+    ({ request }) => {
+      const url = new URL(request.url);
+      const stagingId = decodeURIComponent(
+        url.pathname.split('/').at(-2) ?? 'staging-1'
+      );
+      return ok({
+        committed: true,
+        stagingId,
+        uploadId: 'upload-1',
+        blobId: 'blob-1'
+      });
+    }
+  ),
+  http.get(
+    withOptionalV1Prefix('/vfs/blobs/[^/]+'),
+    () =>
+      new HttpResponse(new Uint8Array([0]), {
+        headers: { 'Content-Type': 'application/octet-stream' }
+      })
+  ),
+  http.delete(withOptionalV1Prefix('/vfs/blobs/[^/]+'), ({ request }) => {
+    const url = new URL(request.url);
+    const blobId = decodeURIComponent(
+      url.pathname.split('/').pop() ?? 'blob-1'
+    );
+    return ok({ deleted: true, blobId });
+  }),
   http.get(withOptionalV1Prefix('/vfs/items/[^/]+/shares'), () =>
     ok<VfsSharesResponse>(defaultVfsSharesResponse)
   ),
