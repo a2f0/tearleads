@@ -26,7 +26,7 @@
     "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage",
     "test:watch": "cross-env DOTENV_CONFIG_QUIET=true vitest",
-    "electron:prepare-sqlite": "../../scripts/prepareElectronSqliteBinary.sh",
+    "electron:prepare-sqlite": "sh ../../scripts/prepareElectronSqliteBinary.sh",
     "electron:dev": "pnpm electron:prepare-sqlite && cross-env DOTENV_CONFIG_QUIET=true electron-vite dev",
     "electron:build": "pnpm electron:prepare-sqlite && cross-env DOTENV_CONFIG_QUIET=true electron-vite build",
     "electron:preview": "pnpm electron:prepare-sqlite && cross-env DOTENV_CONFIG_QUIET=true electron-vite preview",
