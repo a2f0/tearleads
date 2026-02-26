@@ -56,9 +56,7 @@ function createRealDbVfsWrapper(
           isLoading: false,
           currentInstanceId: 'test-instance'
         }}
-        getDatabase={
-          (() => db) as VfsExplorerProviderProps['getDatabase']
-        }
+        getDatabase={(() => db) as VfsExplorerProviderProps['getDatabase']}
         ui={createMockUI()}
         vfsKeys={{
           generateSessionKey: vi.fn(() => new Uint8Array(32)),

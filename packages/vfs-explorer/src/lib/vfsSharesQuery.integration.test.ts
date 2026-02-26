@@ -1,7 +1,7 @@
 import { vfsTestMigrations, withRealDatabase } from '@tearleads/db-test-utils';
 import { describe, expect, it } from 'vitest';
-import { querySharedByMe, querySharedWithMe } from './vfsSharesQuery';
 import { vfsAclEnabledMigrations } from '../test/vfsAclTestMigrations';
+import { querySharedByMe, querySharedWithMe } from './vfsSharesQuery';
 
 describe('vfsSharesQuery integration (real database)', () => {
   it('fails when canonical ACL table is unavailable', async () => {

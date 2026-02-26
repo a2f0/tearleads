@@ -151,9 +151,7 @@ describe('vfsSharingScenario integration (Bob & Alice)', () => {
           revokedAt: now + 1000
         });
 
-        expect(await querySharedByMe(db, BOB_ID, DEFAULT_SORT)).toHaveLength(
-          0
-        );
+        expect(await querySharedByMe(db, BOB_ID, DEFAULT_SORT)).toHaveLength(0);
         expect(
           await querySharedWithMe(db, ALICE_ID, DEFAULT_SORT)
         ).toHaveLength(0);
@@ -180,9 +178,7 @@ describe('vfsSharingScenario integration (Bob & Alice)', () => {
           createdAt: now
         });
 
-        expect(await querySharedByMe(db, BOB_ID, DEFAULT_SORT)).toHaveLength(
-          0
-        );
+        expect(await querySharedByMe(db, BOB_ID, DEFAULT_SORT)).toHaveLength(0);
         expect(
           await querySharedWithMe(db, ALICE_ID, DEFAULT_SORT)
         ).toHaveLength(0);
@@ -212,9 +208,7 @@ describe('vfsSharingScenario integration (Bob & Alice)', () => {
         expect(
           await querySharedWithMe(db, ALICE_ID, DEFAULT_SORT)
         ).toHaveLength(0);
-        expect(await querySharedByMe(db, BOB_ID, DEFAULT_SORT)).toHaveLength(
-          1
-        );
+        expect(await querySharedByMe(db, BOB_ID, DEFAULT_SORT)).toHaveLength(1);
       },
       { migrations: vfsAclEnabledMigrations }
     );
@@ -278,9 +272,7 @@ describe('vfsSharingScenario integration (Bob & Alice)', () => {
           createdAt: now
         });
 
-        expect(await querySharedByMe(db, BOB_ID, DEFAULT_SORT)).toHaveLength(
-          0
-        );
+        expect(await querySharedByMe(db, BOB_ID, DEFAULT_SORT)).toHaveLength(0);
       },
       { migrations: vfsAclEnabledMigrations }
     );
