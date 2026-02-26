@@ -66,5 +66,8 @@ test('runImpactedQuality dry-run uses selective mode for ciImpact script edits',
     '--dry-run'
   ]);
   assert.equal(result.status, 0, stderrText(result));
-  assert.match(stdoutText(result), /ci-impact: selective quality checks enabled\./);
+  assert.match(
+    stdoutText(result),
+    /ci-impact: selective quality checks enabled\./
+  );
 });
