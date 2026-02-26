@@ -324,44 +324,47 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
   // Disable FK checks during bulk rebuild — grantedBy may reference users not
   // yet present locally. The server guarantees referential integrity.
   await adapter.execute('PRAGMA foreign_keys = OFF', []);
-  await runLocalWrite(async () => {
-    await db.transaction(async (tx) => {
-      await tx.delete(vfsLinks);
-      if (hasAclEntriesTable) {
-        await tx.delete(vfsAclEntries);
-      }
-      if (hasItemStateTable) {
-        await tx.delete(vfsItemState);
-      }
-      await tx.delete(vfsRegistry);
+  try {
+    await runLocalWrite(async () => {
+      await db.transaction(async (tx) => {
+        await tx.delete(vfsLinks);
+        if (hasAclEntriesTable) {
+          await tx.delete(vfsAclEntries);
+        }
+        if (hasItemStateTable) {
+          await tx.delete(vfsItemState);
+        }
+        await tx.delete(vfsRegistry);
 
-      for (const chunk of chunkArray(registryRows, INSERT_BATCH_SIZE)) {
-        if (chunk.length > 0) {
-          await tx.insert(vfsRegistry).values(chunk);
-        }
-      }
-      if (hasItemStateTable) {
-        for (const chunk of chunkArray(itemStateRows, INSERT_BATCH_SIZE)) {
+        for (const chunk of chunkArray(registryRows, INSERT_BATCH_SIZE)) {
           if (chunk.length > 0) {
-            await tx.insert(vfsItemState).values(chunk);
+            await tx.insert(vfsRegistry).values(chunk);
           }
         }
-      }
-      if (hasAclEntriesTable) {
-        for (const chunk of chunkArray(aclRows, INSERT_BATCH_SIZE)) {
-          if (chunk.length > 0) {
-            await tx.insert(vfsAclEntries).values(chunk);
+        if (hasItemStateTable) {
+          for (const chunk of chunkArray(itemStateRows, INSERT_BATCH_SIZE)) {
+            if (chunk.length > 0) {
+              await tx.insert(vfsItemState).values(chunk);
+            }
           }
         }
-      }
-      for (const chunk of chunkArray(linkRows, INSERT_BATCH_SIZE)) {
-        if (chunk.length > 0) {
-          await tx.insert(vfsLinks).values(chunk);
+        if (hasAclEntriesTable) {
+          for (const chunk of chunkArray(aclRows, INSERT_BATCH_SIZE)) {
+            if (chunk.length > 0) {
+              await tx.insert(vfsAclEntries).values(chunk);
+            }
+          }
         }
-      }
+        for (const chunk of chunkArray(linkRows, INSERT_BATCH_SIZE)) {
+          if (chunk.length > 0) {
+            await tx.insert(vfsLinks).values(chunk);
+          }
+        }
+      });
     });
-  });
-  await adapter.execute('PRAGMA foreign_keys = ON', []);
+  } finally {
+    await adapter.execute('PRAGMA foreign_keys = ON', []);
+  }
 
   return true;
 }

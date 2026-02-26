@@ -17,8 +17,13 @@ import {
 } from '@/db';
 import { rematerializeRemoteVfsStateIfNeeded } from './vfsRematerialization';
 
+type LocalWriteCallback = () => Promise<void>;
+
 const mockGetSync = vi.fn();
 const mockGetCrdtSync = vi.fn();
+const mockRunLocalWrite = vi.fn(
+  async (callback: LocalWriteCallback): Promise<void> => callback()
+);
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -27,6 +32,9 @@ vi.mock('@/lib/api', () => ({
       getCrdtSync: (...args: unknown[]) => mockGetCrdtSync(...args)
     }
   }
+}));
+vi.mock('@/db/localWrite', () => ({
+  runLocalWrite: (callback: LocalWriteCallback) => mockRunLocalWrite(callback)
 }));
 
 const TEST_PASSWORD = 'test-password-123';
@@ -41,9 +49,19 @@ async function hasTable(name: string): Promise<boolean> {
   return result.rows.length > 0;
 }
 
+async function foreignKeysEnabled(): Promise<boolean> {
+  const adapter = getDatabaseAdapter();
+  const result = await adapter.execute('PRAGMA foreign_keys', []);
+  const value = result.rows[0]?.foreign_keys;
+  return value === 1 || value === '1' || value === true;
+}
+
 describe('vfsRematerialization integration', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    mockRunLocalWrite.mockImplementation(
+      async (callback: LocalWriteCallback): Promise<void> => callback()
+    );
     await resetTestKeyManager();
     await resetDatabase(TEST_INSTANCE_ID);
     await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
@@ -344,5 +362,38 @@ describe('vfsRematerialization integration', () => {
         ownerId: 'user-2'
       })
     ]);
+  });
+
+  it('re-enables foreign key enforcement when rematerialization fails mid-write', async () => {
+    mockGetSync.mockResolvedValueOnce({
+      items: [
+        {
+          changeId: 'sync-1',
+          itemId: 'root-item',
+          changeType: 'upsert',
+          changedAt: '2026-01-03T00:00:01.000Z',
+          objectType: 'folder',
+          ownerId: 'user-3',
+          createdAt: '2026-01-03T00:00:00.000Z',
+          accessLevel: 'admin'
+        }
+      ],
+      nextCursor: null,
+      hasMore: false
+    });
+    mockGetCrdtSync.mockResolvedValueOnce({
+      items: [],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {}
+    });
+    mockRunLocalWrite.mockImplementationOnce(async () => {
+      throw new Error('forced local write failure');
+    });
+
+    await expect(rematerializeRemoteVfsStateIfNeeded()).rejects.toThrow(
+      'forced local write failure'
+    );
+    await expect(foreignKeysEnabled()).resolves.toBe(true);
   });
 });
