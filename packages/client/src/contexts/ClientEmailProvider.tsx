@@ -218,30 +218,30 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
 
     for (const folderType of SYSTEM_FOLDER_TYPES) {
       const folderName = systemFolderName(folderType);
-      const existing = await db
-        .select({ id: vfsRegistry.id })
-        .from(vfsRegistry)
-        .where(
-          and(
-            eq(vfsRegistry.objectType, 'emailFolder'),
-            eq(vfsRegistry.encryptedName, folderName)
-          )
-        );
 
-      if (existing.length === 0) {
-        const folderId = crypto.randomUUID();
-        const now = new Date();
+      await runLocalWrite(async () => {
+        await db.transaction(async (tx) => {
+          const existing = await tx
+            .select({ id: vfsRegistry.id })
+            .from(vfsRegistry)
+            .where(
+              and(
+                eq(vfsRegistry.objectType, 'emailFolder'),
+                eq(vfsRegistry.encryptedName, folderName)
+              )
+            );
 
-        await runLocalWrite(async () => {
-          await db.insert(vfsRegistry).values({
-            id: folderId,
-            objectType: 'emailFolder',
-            ownerId: null,
-            encryptedName: folderName,
-            createdAt: now
-          });
+          if (existing.length === 0) {
+            await tx.insert(vfsRegistry).values({
+              id: crypto.randomUUID(),
+              objectType: 'emailFolder',
+              ownerId: null,
+              encryptedName: folderName,
+              createdAt: new Date()
+            });
+          }
         });
-      }
+      });
     }
   }, []);
 

@@ -190,21 +190,16 @@ export function usePhotoAlbums(): UsePhotoAlbumsResult {
   useEffect(() => {
     if (!isUnlocked || !currentInstanceId) return;
 
-    // Module-level guard: only the first hook instance for a given database
-    // instance triggers initialization. All other concurrent instances
-    // (e.g. from sibling components) share the same promise.
-    if (!systemAlbumInitPromises.has(currentInstanceId)) {
-      const promise = initializeSystemAlbums()
-        .then(() => fetchAlbums())
-        .catch(() => fetchAlbums());
-      systemAlbumInitPromises.set(currentInstanceId, promise);
-    } else {
-      // Another instance already started init; wait for it then fetch
-      systemAlbumInitPromises
-        .get(currentInstanceId)
-        ?.then(() => fetchAlbums())
-        .catch(() => fetchAlbums());
+    let initPromise = systemAlbumInitPromises.get(currentInstanceId);
+
+    if (!initPromise) {
+      initPromise = initializeSystemAlbums();
+      systemAlbumInitPromises.set(currentInstanceId, initPromise);
     }
+
+    initPromise.finally(() => {
+      fetchAlbums();
+    });
   }, [isUnlocked, currentInstanceId, initializeSystemAlbums, fetchAlbums]);
 
   useEffect(() => {
