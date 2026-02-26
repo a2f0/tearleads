@@ -8,6 +8,7 @@
 export type VfsObjectType =
   // Entities
   | 'file'
+  | 'blob'
   | 'photo'
   | 'audio'
   | 'video'
