@@ -151,13 +151,11 @@ const checkPrefixUsage = (
       reportIssue(
         `Codex skill uses slash command '/${commandName}' in ${filePath}`
       );
-    } else if (expectedStyle === 'gemini') {
-      reportIssue(
-        `Gemini skill uses dollar command '$${commandName}' in ${filePath}`
-      );
     } else {
+      const agentName =
+        expectedStyle.charAt(0).toUpperCase() + expectedStyle.slice(1);
       reportIssue(
-        `Claude skill uses dollar command '$${commandName}' in ${filePath}`
+        `${agentName} skill uses dollar command '$${commandName}' in ${filePath}`
       );
     }
 
@@ -188,12 +186,7 @@ const normalizeText = (text: string): string => {
   let normalized = stripFrontmatter(text);
 
   normalized = normalized.replace(
-    new RegExp(`(^|[^\\w.-])/(${commandAlt})([^\\w-]|$)`, 'gm'),
-    '$1<cmd:$2>$3'
-  );
-
-  normalized = normalized.replace(
-    new RegExp(`(^|[^\\w.-])\\$(${commandAlt})([^\\w-]|$)`, 'gm'),
+    new RegExp(`(^|[^\\w.-])[/\\$](${commandAlt})([^\\w-]|$)`, 'gm'),
     '$1<cmd:$2>$3'
   );
 
