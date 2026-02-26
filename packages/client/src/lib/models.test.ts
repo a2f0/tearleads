@@ -1,15 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@tearleads/shared', () => ({
-  OPENROUTER_CHAT_MODELS: [
-    {
-      id: 'mock-model',
-      name: 'Mock Model',
-      description: 'Mock',
-      isFree: true
-    }
-  ]
-}));
+vi.mock('@tearleads/shared', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tearleads/shared')>();
+  return {
+    ...actual,
+    OPENROUTER_CHAT_MODELS: [
+      {
+        id: 'mock-model',
+        name: 'Mock Model',
+        description: 'Mock',
+        isFree: true
+      }
+    ]
+  };
+});
 
 describe('models', () => {
   it('defaults OpenRouter vision flag when missing', async () => {

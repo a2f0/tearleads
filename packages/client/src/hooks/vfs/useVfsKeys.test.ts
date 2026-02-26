@@ -13,7 +13,10 @@ import {
 } from './useVfsKeys';
 
 // Mock @tearleads/shared crypto functions
-vi.mock('@tearleads/shared', () => ({
+vi.mock('@tearleads/shared', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tearleads/shared')>();
+  return {
+    ...actual,
   combineEncapsulation: vi.fn(
     (enc: { x25519: Uint8Array; mlKem: Uint8Array }) =>
       `combined:${enc.x25519.length}:${enc.mlKem.length}`
@@ -54,7 +57,8 @@ vi.mock('@tearleads/shared', () => ({
     x25519: new Uint8Array(48),
     mlKem: new Uint8Array(1088)
   }))
-}));
+  };
+});
 
 // Mock API
 vi.mock('@/lib/api', () => ({
