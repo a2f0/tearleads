@@ -2,7 +2,12 @@
 # Wrapper to expose the tailscale CLI on macOS (app bundle) and Linux (system binary)
 case "$(uname -s)" in
   Darwin) ts_bin="/Applications/Tailscale.app/Contents/MacOS/Tailscale" ;;
-  *)      ts_bin="/usr/bin/tailscale" ;;
+  *)
+    for p in /usr/bin/tailscale /usr/local/bin/tailscale /usr/sbin/tailscale; do
+      [ -x "$p" ] && ts_bin="$p" && break
+    done
+    : "${ts_bin:=/usr/bin/tailscale}"
+    ;;
 esac
 
 if [ ! -x "$ts_bin" ]; then
