@@ -132,4 +132,49 @@ describe('RedisMock', () => {
     await redis.set('a', '1');
     expect(await redis.dbSize()).toBe(1);
   });
+
+  it('should support error handlers via on/emitError', () => {
+    const errors: Error[] = [];
+    redis.on('error', (err) => errors.push(err));
+    redis.emitError(new Error('test error'));
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.message).toBe('test error');
+  });
+
+  it('should support multi with type, ttl, del, set, sAdd, sRem, expire', async () => {
+    await redis.set('mk', 'val', { EX: 120 });
+    await redis.sAdd('ms', 'x');
+
+    const results = await redis
+      .multi()
+      .set('mk2', 'v2')
+      .type('mk')
+      .ttl('mk')
+      .del('mk')
+      .sAdd('ms', 'y')
+      .sRem('ms', 'x')
+      .expire('mk2', 30)
+      .exec();
+
+    expect(results).toEqual(['OK', 'string', 120, 1, 1, 1, 1]);
+  });
+
+  it('should return empty for sMembers on non-set key', async () => {
+    await redis.set('str', 'val');
+    expect(await redis.sMembers('str')).toEqual([]);
+  });
+
+  it('should return empty for hGetAll on non-hash key', async () => {
+    await redis.set('str', 'val');
+    expect(await redis.hGetAll('str')).toEqual({});
+  });
+
+  it('should return 0 for sRem on non-set key', async () => {
+    await redis.set('str', 'val');
+    expect(await redis.sRem('str', 'x')).toBe(0);
+  });
+
+  it('should return 0 for publish with no subscribers', async () => {
+    expect(await redis.publish('nochan', 'msg')).toBe(0);
+  });
 });
