@@ -71,7 +71,8 @@
       "@tearleads/msw/package.json": ["../msw/package.json"],
       "@tearleads/msw": ["../msw/src/index.ts"],
       "@tearleads/msw/node": ["../msw/src/node.ts"],
-      "@tearleads/window-manager": ["../window-manager/src/index.ts"]
+      "@tearleads/window-manager": ["../window-manager/src/index.ts"],
+      "@tearleads/api-test-utils": ["../api-test-utils/src/index.ts"]
     }
   },
   "include": ["src"],
