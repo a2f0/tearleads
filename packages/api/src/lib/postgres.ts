@@ -151,9 +151,6 @@ function parseSslConfig(): PoolConfig['ssl'] | undefined {
   if (rejectUnauthorizedEnv === '0' || rejectUnauthorizedEnv === 'false') {
     return { rejectUnauthorized: false };
   }
-  if (rejectUnauthorizedEnv === '1' || rejectUnauthorizedEnv === 'true') {
-    return { rejectUnauthorized: true };
-  }
 
   // Default to certificate verification unless explicitly disabled.
   return { rejectUnauthorized: true };
