@@ -1,1 +1,1 @@
-export { handlers } from './handlers.js';
+export { createExpressPassthroughHandlers } from './passthroughHandlers.js';

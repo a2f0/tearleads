@@ -1823,9 +1823,6 @@ importers:
 
   packages/msw:
     dependencies:
-      '@tearleads/shared':
-        specifier: workspace:*
-        version: link:../shared
       msw:
         specifier: 2.12.10
         version: 2.12.10(@types/node@25.3.0)(typescript@5.9.3)
