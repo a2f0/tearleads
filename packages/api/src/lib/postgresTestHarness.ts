@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import { type Mock, vi } from 'vitest';
 
 vi.mock('node:os', () => ({
   default: {
@@ -32,7 +32,7 @@ export type PoolInstance = {
 };
 
 export const poolInstances: PoolInstance[] = [];
-export const poolQueryMock = vi.fn();
+export const poolQueryMock: Mock = vi.fn();
 
 class PoolMock {
   config: PoolConfig;
