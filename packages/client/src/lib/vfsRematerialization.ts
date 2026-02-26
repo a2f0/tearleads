@@ -220,6 +220,8 @@ function applyCrdtItemToDerivedState(
 }
 
 async function isLocalRegistryEmpty(): Promise<boolean> {
+  // Return false (not empty) when the DB is uninitialized so callers skip
+  // rematerialization rather than writing to a database that isn't ready.
   if (!isDatabaseInitialized()) {
     return false;
   }

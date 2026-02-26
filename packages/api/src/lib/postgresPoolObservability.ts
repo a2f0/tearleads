@@ -54,6 +54,10 @@ export async function validateReplicaHealth(
     );
     const effectiveLagSeconds = caughtUp ? 0 : lagSeconds;
     const maxLagSeconds = parseReplicaMaxLagSeconds();
+    // When effectiveLagSeconds is null the replica has not yet replayed any
+    // transaction (pg_last_xact_replay_timestamp() returns null).  Treat this
+    // as healthy so a freshly-started replica can begin serving reads
+    // immediately rather than forcing all traffic to the primary.
     const lagHealthy =
       effectiveLagSeconds === null ||
       (Number.isFinite(effectiveLagSeconds) &&
