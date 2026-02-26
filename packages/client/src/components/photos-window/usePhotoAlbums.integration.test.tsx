@@ -1,7 +1,7 @@
 import '../../test/setupIntegration';
 
-import { eq } from 'drizzle-orm';
 import { waitFor } from '@testing-library/react';
+import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { getDatabase } from '@/db';
 import { albums } from '@/db/schema';

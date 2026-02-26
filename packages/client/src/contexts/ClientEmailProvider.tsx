@@ -10,6 +10,7 @@ import {
   SYSTEM_FOLDER_TYPES
 } from '@tearleads/email';
 import emailPackageJson from '@tearleads/email/package.json';
+import { VFS_ROOT_ID } from '@tearleads/vfs-explorer';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { BackLink } from '@/components/ui/back-link';
@@ -39,7 +40,6 @@ import {
 } from '@/db/schema';
 import { API_BASE_URL } from '@/lib/api';
 import { getAuthHeaderValue } from '@/lib/authStorage';
-import { VFS_ROOT_ID } from '@tearleads/vfs-explorer';
 
 const EMAIL_FOLDER_ICON = 'email-folder';
 
