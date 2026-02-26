@@ -71,7 +71,10 @@ export function AuthInstanceBinding() {
         await bindInstanceToUser(newInstanceId, userId);
         await refreshInstances();
       } catch (error) {
-        console.error('Failed to align DB instance with authenticated user:', error);
+        console.error(
+          'Failed to align DB instance with authenticated user:',
+          error
+        );
       } finally {
         isBindingRef.current = false;
       }

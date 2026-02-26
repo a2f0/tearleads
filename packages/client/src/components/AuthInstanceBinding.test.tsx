@@ -87,6 +87,9 @@ describe('AuthInstanceBinding', () => {
     await waitFor(() => {
       expect(createInstance).toHaveBeenCalledTimes(1);
     });
-    expect(mockBindInstanceToUser).toHaveBeenCalledWith('instance-new', 'user-1');
+    expect(mockBindInstanceToUser).toHaveBeenCalledWith(
+      'instance-new',
+      'user-1'
+    );
   });
 });

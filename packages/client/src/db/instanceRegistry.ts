@@ -203,9 +203,6 @@ export async function updateInstance(
   await setInStore(REGISTRY_KEY, instances);
 }
 
-/**
- * Find the instance currently bound to a user.
- */
 export async function getInstanceForUser(
   userId: string
 ): Promise<InstanceMetadata | null> {
@@ -221,10 +218,6 @@ export async function getInstanceForUser(
   );
 }
 
-/**
- * Bind an instance to a user.
- * Keeps a one-to-one mapping by unbinding any prior instance for the same user.
- */
 export async function bindInstanceToUser(
   instanceId: string,
   userId: string
@@ -247,7 +240,10 @@ export async function bindInstanceToUser(
       continue;
     }
 
-    if (instance.boundUserId === normalizedUserId && instance.id !== instanceId) {
+    if (
+      instance.boundUserId === normalizedUserId &&
+      instance.id !== instanceId
+    ) {
       instances[index] = {
         ...instance,
         boundUserId: null
@@ -255,7 +251,10 @@ export async function bindInstanceToUser(
       changed = true;
     }
 
-    if (instance.id === instanceId && instance.boundUserId !== normalizedUserId) {
+    if (
+      instance.id === instanceId &&
+      instance.boundUserId !== normalizedUserId
+    ) {
       instances[index] = {
         ...instance,
         boundUserId: normalizedUserId
