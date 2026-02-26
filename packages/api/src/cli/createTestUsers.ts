@@ -1,16 +1,19 @@
 #!/usr/bin/env -S pnpm exec tsx
 import { pathToFileURL } from 'node:url';
-import { buildCreateAccountInput } from '../lib/createAccount.js';
 import { buildPostgresConnectionLabel } from '../lib/cliPostgres.js';
+import { buildCreateAccountInput } from '../lib/createAccount.js';
 import { closePostgresPool, getPostgresPool } from '../lib/postgres.js';
 import { seedHarnessAccount } from './seedAccount.js';
-import { type TestUser, allTestUsers } from './testUsers.js';
+import { allTestUsers, type TestUser } from './testUsers.js';
 
 async function createTestUser(
   client: import('pg').PoolClient,
   user: TestUser
 ): Promise<void> {
-  const { email, password } = buildCreateAccountInput(user.email, user.password);
+  const { email, password } = buildCreateAccountInput(
+    user.email,
+    user.password
+  );
 
   const existing = await client.query(
     'SELECT id FROM users WHERE email = $1 LIMIT 1',
