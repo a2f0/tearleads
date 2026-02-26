@@ -18,6 +18,10 @@
       "types": "./dist/server/index.d.ts",
       "import": "./dist/server/index.js"
     },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing/index.js"
+    },
     "./licenses.json": "./dist/licenses.json"
   },
   "files": [
@@ -46,6 +50,7 @@
     "redis": "5.11.0"
   },
   "devDependencies": {
+    "@types/pg": "8.16.0",
     "@vitest/coverage-v8": "4.0.18",
     "tsx": "4.21.0",
     "typescript": "5.9.3",
