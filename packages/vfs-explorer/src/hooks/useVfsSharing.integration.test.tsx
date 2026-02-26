@@ -268,8 +268,10 @@ describe('useVfsSharing integration (real database)', () => {
           createOrgShare: vi.fn(async () => ({
             id: 'org-share-id',
             itemId,
-            organizationId: 'org-1',
-            organizationName: 'Org',
+            sourceOrgId: 'org-1',
+            sourceOrgName: 'Source Org',
+            targetOrgId: 'org-2',
+            targetOrgName: 'Org',
             permissionLevel: 'view' as const,
             createdBy: BOB_ID,
             createdByEmail: BOB_EMAIL,
