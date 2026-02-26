@@ -32,11 +32,7 @@ export function VfsRematerializationBootstrap() {
     }
 
     const runRematerialization = () => {
-      if (
-        cancelled ||
-        inFlightRef.current ||
-        retryTimerRef.current
-      ) {
+      if (cancelled || inFlightRef.current || retryTimerRef.current) {
         return;
       }
 

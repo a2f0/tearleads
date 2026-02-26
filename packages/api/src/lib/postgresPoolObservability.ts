@@ -49,7 +49,9 @@ export async function validateReplicaHealth(
     const lagSeconds = row?.replay_lag_seconds ?? null;
     const receiveLsn = row?.receive_lsn ?? null;
     const replayLsn = row?.replay_lsn ?? null;
-    const caughtUp = Boolean(receiveLsn && replayLsn && receiveLsn === replayLsn);
+    const caughtUp = Boolean(
+      receiveLsn && replayLsn && receiveLsn === replayLsn
+    );
     const effectiveLagSeconds = caughtUp ? 0 : lagSeconds;
     const maxLagSeconds = parseReplicaMaxLagSeconds();
     const lagHealthy =
