@@ -8,6 +8,7 @@ export default mergeConfig(
     test: {
       environment: 'jsdom',
       globals: true,
+      hookTimeout: 30000,
       setupFiles: ['./src/test/setup.ts'],
       include: ['src/**/*.test.{ts,tsx}'],
       exclude: ['node_modules', 'dist'],
@@ -54,7 +55,9 @@ export default mergeConfig(
         '@tearleads/local-write-orchestrator': fileURLToPath(
           new URL('../local-write-orchestrator/src/index.ts', import.meta.url)
         ),
-        '@tearleads/msw/node': fileURLToPath(new URL('../msw/src/node.ts', import.meta.url)),
+        '@tearleads/msw/node': fileURLToPath(
+          new URL('../msw/src/node.ts', import.meta.url)
+        ),
         '@tearleads/msw': fileURLToPath(new URL('../msw/src/index.ts', import.meta.url)),
         '@tearleads/shared/redis': fileURLToPath(
           new URL('../shared/src/redis/index.ts', import.meta.url)

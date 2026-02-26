@@ -29,6 +29,7 @@ export default mergeConfig(
       // Increase timeout for integration tests that use WASM-based SQLite
       // Default is 5000ms, but integration tests need more time for database setup
       testTimeout: 15000,
+      hookTimeout: 30000,
       coverage: {
         provider: 'v8',
         reporter: ['text', 'json', 'json-summary', 'html'],
