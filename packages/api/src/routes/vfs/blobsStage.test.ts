@@ -73,7 +73,7 @@ describe('VFS routes (blobs stage)', () => {
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'blob' }]
+          rows: [{ object_type: 'file' }]
         }) // SELECT blob registry row
         .mockResolvedValueOnce({}) // INSERT staging registry row
         .mockResolvedValueOnce({
@@ -114,7 +114,7 @@ describe('VFS routes (blobs stage)', () => {
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'blob' }]
+          rows: [{ object_type: 'file' }]
         }) // SELECT blob registry row
         .mockResolvedValueOnce({}) // INSERT staging registry row
         .mockResolvedValueOnce({
@@ -156,7 +156,7 @@ describe('VFS routes (blobs stage)', () => {
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'blob' }]
+          rows: [{ object_type: 'file' }]
         }) // SELECT blob registry row
         .mockResolvedValueOnce({}) // INSERT staging registry row
         .mockResolvedValueOnce({ rows: [] }) // INSERT staging link row
@@ -204,7 +204,7 @@ describe('VFS routes (blobs stage)', () => {
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'blob' }]
+          rows: [{ object_type: 'file' }]
         }) // SELECT blob registry row
         .mockRejectedValueOnce(conflictError) // INSERT stage registry
         .mockResolvedValueOnce({}); // ROLLBACK
@@ -229,7 +229,7 @@ describe('VFS routes (blobs stage)', () => {
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'blob' }]
+          rows: [{ object_type: 'file' }]
         }) // SELECT blob registry row
         .mockRejectedValueOnce(new Error('db unavailable')) // INSERT stage registry
         .mockResolvedValueOnce({}); // ROLLBACK
@@ -284,7 +284,7 @@ describe('VFS routes (blobs stage)', () => {
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'blob' }]
+          rows: [{ object_type: 'file' }]
         }) // SELECT blob registry row
         .mockResolvedValueOnce({}) // INSERT staging registry row
         .mockResolvedValueOnce({
@@ -388,7 +388,7 @@ describe('VFS routes (blobs stage)', () => {
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'blob' }]
+          rows: [{ object_type: 'file' }]
         }) // SELECT blob registry row
         .mockResolvedValueOnce({}) // INSERT staging registry row
         .mockResolvedValueOnce({

@@ -45,7 +45,7 @@ describe('VFS blob stage retry outcomes', () => {
         ]
       }) // UPDATE #1
       .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob #1
-      .mockResolvedValueOnce({ rows: [{ object_type: 'blob' }] }) // SELECT blob #1
+      .mockResolvedValueOnce({ rows: [{ object_type: 'file' }] }) // SELECT blob #1
       .mockResolvedValueOnce({
         rows: [{ id: 'ref-1', created_at: '2026-02-14T10:10:00.000Z' }]
       }) // INSERT ref #1
@@ -117,7 +117,7 @@ describe('VFS blob stage retry outcomes', () => {
         ]
       }) // UPDATE #1
       .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob #1
-      .mockResolvedValueOnce({ rows: [{ object_type: 'blob' }] }) // SELECT blob #1
+      .mockResolvedValueOnce({ rows: [{ object_type: 'file' }] }) // SELECT blob #1
       .mockResolvedValueOnce({
         rows: [{ id: 'ref-1', created_at: '2026-02-14T10:10:00.000Z' }]
       }) // INSERT ref #1

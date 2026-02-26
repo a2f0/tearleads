@@ -98,7 +98,7 @@ const postBlobsStageHandler = async (req: Request, res: Response) => {
           created_at
         ) VALUES (
           $1::text,
-          'blob',
+          'file',
           $2::text,
           NOW()
         )
@@ -125,7 +125,7 @@ const postBlobsStageHandler = async (req: Request, res: Response) => {
         return;
       }
 
-      if (blobRegistryRow.object_type !== 'blob') {
+      if (blobRegistryRow.object_type !== 'file') {
         await client.query('ROLLBACK');
         inTransaction = false;
         res

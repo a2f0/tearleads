@@ -44,7 +44,7 @@ describe('VFS routes (blobs attach existing-link metadata)', () => {
         ]
       }) // UPDATE staging link
       .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob registry
-      .mockResolvedValueOnce({ rows: [{ object_type: 'blob' }] }) // SELECT blob registry
+      .mockResolvedValueOnce({ rows: [{ object_type: 'file' }] }) // SELECT blob registry
       .mockResolvedValueOnce({ rows: [] }) // INSERT blob link conflict
       .mockResolvedValueOnce({
         rows: [
@@ -94,7 +94,7 @@ describe('VFS routes (blobs attach existing-link metadata)', () => {
         ]
       }) // UPDATE staging link
       .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob registry
-      .mockResolvedValueOnce({ rows: [{ object_type: 'blob' }] }) // SELECT blob registry
+      .mockResolvedValueOnce({ rows: [{ object_type: 'file' }] }) // SELECT blob registry
       .mockResolvedValueOnce({ rows: [] }) // INSERT blob link conflict
       .mockResolvedValueOnce({
         rows: [

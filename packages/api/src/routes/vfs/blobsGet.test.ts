@@ -50,7 +50,7 @@ describe('VFS routes (blobs get)', () => {
     it('returns 409 when blob id resolves to non-blob type', async () => {
       const authHeader = await createAuthHeader();
       mockQuery.mockResolvedValueOnce({
-        rows: [{ object_type: 'file', owner_id: 'user-1' }]
+        rows: [{ object_type: 'folder', owner_id: 'user-1' }]
       });
 
       const response = await request(app)
@@ -67,7 +67,7 @@ describe('VFS routes (blobs get)', () => {
     it('returns 403 when blob is owned by a different user', async () => {
       const authHeader = await createAuthHeader();
       mockQuery.mockResolvedValueOnce({
-        rows: [{ object_type: 'blob', owner_id: 'another-user' }]
+        rows: [{ object_type: 'file', owner_id: 'another-user' }]
       });
 
       const response = await request(app)
@@ -82,7 +82,7 @@ describe('VFS routes (blobs get)', () => {
     it('returns blob bytes when read succeeds', async () => {
       const authHeader = await createAuthHeader();
       mockQuery.mockResolvedValueOnce({
-        rows: [{ object_type: 'blob', owner_id: 'user-1' }]
+        rows: [{ object_type: 'file', owner_id: 'user-1' }]
       });
       mockReadVfsBlobData.mockResolvedValueOnce({
         data: Uint8Array.from([104, 101, 108, 108, 111]),
@@ -102,7 +102,7 @@ describe('VFS routes (blobs get)', () => {
       const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();
       mockQuery.mockResolvedValueOnce({
-        rows: [{ object_type: 'blob', owner_id: 'user-1' }]
+        rows: [{ object_type: 'file', owner_id: 'user-1' }]
       });
       mockReadVfsBlobData.mockRejectedValueOnce(new Error('storage down'));
 

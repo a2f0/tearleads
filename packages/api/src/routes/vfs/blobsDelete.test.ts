@@ -57,7 +57,7 @@ describe('VFS routes (blobs delete)', () => {
       mockQuery
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'file', owner_id: 'user-1' }]
+          rows: [{ object_type: 'folder', owner_id: 'user-1' }]
         }) // SELECT registry
         .mockResolvedValueOnce({}); // ROLLBACK
 
@@ -77,7 +77,7 @@ describe('VFS routes (blobs delete)', () => {
       mockQuery
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'blob', owner_id: 'another-user' }]
+          rows: [{ object_type: 'file', owner_id: 'another-user' }]
         }) // SELECT registry
         .mockResolvedValueOnce({}); // ROLLBACK
 
@@ -95,7 +95,7 @@ describe('VFS routes (blobs delete)', () => {
       mockQuery
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'blob', owner_id: 'user-1' }]
+          rows: [{ object_type: 'file', owner_id: 'user-1' }]
         }) // SELECT registry
         .mockResolvedValueOnce({ rows: [{ exists: 1 }] }) // SELECT attached links
         .mockResolvedValueOnce({}); // ROLLBACK
@@ -117,7 +117,7 @@ describe('VFS routes (blobs delete)', () => {
       mockQuery
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'blob', owner_id: 'user-1' }]
+          rows: [{ object_type: 'file', owner_id: 'user-1' }]
         }) // SELECT registry
         .mockResolvedValueOnce({ rows: [] }) // SELECT attached links
         .mockResolvedValueOnce({ rowCount: 1 }) // DELETE registry
@@ -139,7 +139,7 @@ describe('VFS routes (blobs delete)', () => {
       mockQuery
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'blob', owner_id: 'user-1' }]
+          rows: [{ object_type: 'file', owner_id: 'user-1' }]
         }) // SELECT registry
         .mockResolvedValueOnce({ rows: [] }) // SELECT attached links
         .mockResolvedValueOnce({}); // ROLLBACK

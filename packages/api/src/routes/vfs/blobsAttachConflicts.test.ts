@@ -50,7 +50,7 @@ describe('VFS routes (blobs attach conflicts)', () => {
           rowCount: 1
         }) // UPSERT blob into vfs_registry
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'blob' }]
+          rows: [{ object_type: 'file' }]
         }) // SELECT blob registry row
         .mockResolvedValueOnce({ rows: [] }) // INSERT ref conflict
         .mockResolvedValueOnce({ rows: [] }) // SELECT existing ref missing
@@ -96,7 +96,7 @@ describe('VFS routes (blobs attach conflicts)', () => {
           rowCount: 1
         }) // UPSERT blob into vfs_registry
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'blob' }]
+          rows: [{ object_type: 'file' }]
         }) // SELECT blob registry row
         .mockResolvedValueOnce({ rows: [] }) // INSERT blob link conflict
         .mockResolvedValueOnce({
@@ -342,7 +342,7 @@ describe('VFS routes (blobs attach conflicts)', () => {
           rowCount: 1
         }) // UPSERT blob into vfs_registry
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'blob' }]
+          rows: [{ object_type: 'file' }]
         }) // SELECT blob registry row
         .mockRejectedValueOnce(new Error('insert ref failed')) // INSERT blob link
         .mockResolvedValueOnce({}); // ROLLBACK
