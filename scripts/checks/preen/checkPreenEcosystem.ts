@@ -1,16 +1,26 @@
 #!/usr/bin/env -S pnpm exec tsx
 
-import { accessSync, constants, existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import {
+  accessSync,
+  constants,
+  existsSync,
+  readdirSync,
+  readFileSync
+} from 'node:fs';
+import { join } from 'node:path';
 
 type Mode = 'strict' | 'summary' | 'count';
 
 const usage = (): never => {
-  console.error('Usage: ./scripts/checks/preen/checkPreenEcosystem.ts [--strict|--summary|--count-issues]');
+  console.error(
+    'Usage: ./scripts/checks/preen/checkPreenEcosystem.ts [--strict|--summary|--count-issues]'
+  );
   console.error('');
   console.error('Modes:');
-  console.error('  --strict       Print findings and exit non-zero on issues (default)');
+  console.error(
+    '  --strict       Print findings and exit non-zero on issues (default)'
+  );
   console.error('  --summary      Print findings but always exit zero');
   console.error('  --count-issues Print issue count only and exit zero');
   process.exit(2);
@@ -50,7 +60,9 @@ if (commandNames.length === 0) {
   process.exit(1);
 }
 
-const escapedCommandNames = commandNames.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+const escapedCommandNames = commandNames.map((name) =>
+  name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+);
 const commandAlt = escapedCommandNames.join('|');
 
 const slashPattern = new RegExp(`(^|[^\\w.-])/(${commandAlt})([^\\w-]|$)`);
@@ -102,7 +114,10 @@ const collectLineMatches = (filePath: string, pattern: RegExp): string[] => {
   return matches;
 };
 
-const checkPrefixUsage = (filePath: string, expectedStyle: 'codex' | 'gemini' | 'claude'): void => {
+const checkPrefixUsage = (
+  filePath: string,
+  expectedStyle: 'codex' | 'gemini' | 'claude'
+): void => {
   if (!existsSync(filePath)) {
     return;
   }
@@ -149,12 +164,12 @@ const normalizeText = (text: string): string => {
 
   normalized = normalized.replace(
     new RegExp(`(^|[^\\w.-])/(${commandAlt})([^\\w-]|$)`, 'gm'),
-    '$1<cmd:$2>$3',
+    '$1<cmd:$2>$3'
   );
 
   normalized = normalized.replace(
     new RegExp(`(^|[^\\w.-])\\$(${commandAlt})([^\\w-]|$)`, 'gm'),
-    '$1<cmd:$2>$3',
+    '$1<cmd:$2>$3'
   );
 
   normalized = normalized
@@ -193,7 +208,7 @@ const renderDiffSnippet = (leftText: string, rightText: string): string[] => {
       return [
         `  @@ first diff at line ${index + 1} @@`,
         `  - ${leftLine}`,
-        `  + ${rightLine}`,
+        `  + ${rightLine}`
       ];
     }
   }
@@ -201,7 +216,11 @@ const renderDiffSnippet = (leftText: string, rightText: string): string[] => {
   return ['  @@ contents differ but no line-level diff was detected @@'];
 };
 
-const compareNormalizedPair = (label: string, leftFile: string, rightFile: string): void => {
+const compareNormalizedPair = (
+  label: string,
+  leftFile: string,
+  rightFile: string
+): void => {
   const leftNormalized = getNormalizedText(leftFile);
   const rightNormalized = getNormalizedText(rightFile);
 
@@ -228,7 +247,11 @@ const collectTopLevelPreenIds = (rootDir: string): string[] => {
     .sort();
 };
 
-const reportMissing = (label: string, source: string[], target: Set<string>): void => {
+const reportMissing = (
+  label: string,
+  source: string[],
+  target: Set<string>
+): void => {
   for (const value of source) {
     if (!target.has(value)) {
       reportIssue(`Missing ${label} preen skill for ${value}`);
@@ -243,7 +266,9 @@ const checkRegistryGeneration = (): void => {
 
   const generatorPath = 'scripts/preen/generatePreenDocs.sh';
   if (!existsSync(generatorPath)) {
-    reportIssue('Missing executable generator: scripts/preen/generatePreenDocs.sh');
+    reportIssue(
+      'Missing executable generator: scripts/preen/generatePreenDocs.sh'
+    );
     return;
   }
 
@@ -256,16 +281,22 @@ const checkRegistryGeneration = (): void => {
   try {
     accessSync(generatorPath, constants.X_OK);
   } catch {
-    reportIssue('Missing executable generator: scripts/preen/generatePreenDocs.sh');
+    reportIssue(
+      'Missing executable generator: scripts/preen/generatePreenDocs.sh'
+    );
     return;
   }
 
-  const result = spawnSync(`./${generatorPath}`, ['--check'], { encoding: 'utf8' });
+  const result = spawnSync(`./${generatorPath}`, ['--check'], {
+    encoding: 'utf8'
+  });
   if (result.status === 0) {
     return;
   }
 
-  reportIssue('Top-level preen docs are not generated from scripts/preen/registry.json');
+  reportIssue(
+    'Top-level preen docs are not generated from scripts/preen/registry.json'
+  );
   if (mode !== 'count') {
     const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
     const lines = output.split('\n').slice(0, 120);
@@ -278,14 +309,18 @@ const checkRegistryGeneration = (): void => {
 };
 
 const codexSkillFiles = listSkillFiles('.codex/skills').filter(
-  (filePath) => /\/preen[^/]*\/SKILL\.md$/.test(filePath) || /\/misc\/preen-enhancements\/SKILL\.md$/.test(filePath),
+  (filePath) =>
+    /\/preen[^/]*\/SKILL\.md$/.test(filePath) ||
+    /\/misc\/preen-enhancements\/SKILL\.md$/.test(filePath)
 );
 for (const filePath of codexSkillFiles) {
   checkPrefixUsage(filePath, 'codex');
 }
 
 const geminiSkillFiles = listSkillFiles('.gemini/skills').filter(
-  (filePath) => /\/preen[^/]*\/SKILL\.md$/.test(filePath) || /\/preen-enhancements\/SKILL\.md$/.test(filePath),
+  (filePath) =>
+    /\/preen[^/]*\/SKILL\.md$/.test(filePath) ||
+    /\/preen-enhancements\/SKILL\.md$/.test(filePath)
 );
 for (const filePath of geminiSkillFiles) {
   checkPrefixUsage(filePath, 'gemini');
@@ -320,18 +355,24 @@ for (const preenId of claudePreenIds) {
   }
 }
 
-if (existsSync('.claude/skills/preen/SKILL.md') && existsSync('.codex/skills/preen/SKILL.md')) {
+if (
+  existsSync('.claude/skills/preen/SKILL.md') &&
+  existsSync('.codex/skills/preen/SKILL.md')
+) {
   compareNormalizedPair(
     'preen (Claude/Codex)',
     '.claude/skills/preen/SKILL.md',
-    '.codex/skills/preen/SKILL.md',
+    '.codex/skills/preen/SKILL.md'
   );
 }
-if (existsSync('.claude/skills/preen/SKILL.md') && existsSync('.gemini/skills/preen/SKILL.md')) {
+if (
+  existsSync('.claude/skills/preen/SKILL.md') &&
+  existsSync('.gemini/skills/preen/SKILL.md')
+) {
   compareNormalizedPair(
     'preen (Claude/Gemini)',
     '.claude/skills/preen/SKILL.md',
-    '.gemini/skills/preen/SKILL.md',
+    '.gemini/skills/preen/SKILL.md'
   );
 }
 
