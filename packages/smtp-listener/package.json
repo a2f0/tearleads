@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/smtp-listener",
-  "version": "0.0.16",
+  "version": "0.0.17",
   "description": "SMTP listener for receiving and storing emails",
   "main": "dist/index.js",
   "type": "module",
