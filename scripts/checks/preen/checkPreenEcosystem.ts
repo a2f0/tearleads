@@ -1,4 +1,4 @@
-#!/usr/bin/env -S node --import tsx
+#!/usr/bin/env -S node --experimental-strip-types
 
 import { spawnSync } from 'node:child_process';
 import {
