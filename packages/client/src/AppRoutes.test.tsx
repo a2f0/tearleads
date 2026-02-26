@@ -10,7 +10,7 @@ function makePage(name: string) {
   };
 }
 
-vi.mock('./App', () => ({
+vi.mock('./app/App', () => ({
   default: () => <Outlet />
 }));
 
