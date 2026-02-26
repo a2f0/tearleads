@@ -221,6 +221,7 @@ function applyCrdtItemToDerivedState(
 
 async function isLocalRegistryEmpty(): Promise<boolean> {
   if (!isDatabaseInitialized()) {
+    // If local DB is unavailable we skip rematerialization and let normal init flow run.
     return false;
   }
 

@@ -1,117 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-vi.mock('node:os', () => ({
-  default: {
-    userInfo: () => ({ username: 'tearleads_os_user' })
-  }
-}));
-
-type PoolConfig = {
-  connectionString?: string;
-  host?: string;
-  port?: number;
-  user?: string;
-  password?: string;
-  database?: string;
-  ssl?: {
-    rejectUnauthorized: boolean;
-  };
-  max?: number;
-  idleTimeoutMillis?: number;
-  connectionTimeoutMillis?: number;
-};
-
-type PoolInstance = {
-  config: PoolConfig;
-  end: ReturnType<typeof vi.fn>;
-  query: ReturnType<typeof vi.fn>;
-  on: ReturnType<typeof vi.fn>;
-  totalCount: number;
-  idleCount: number;
-  waitingCount: number;
-};
-
-const poolInstances: PoolInstance[] = [];
-const poolQueryMock = vi.fn();
-
-class PoolMock {
-  config: PoolConfig;
-  end: ReturnType<typeof vi.fn>;
-  query: ReturnType<typeof vi.fn>;
-  on: ReturnType<typeof vi.fn>;
-  totalCount: number;
-  idleCount: number;
-  waitingCount: number;
-
-  constructor(config: PoolConfig) {
-    this.config = config;
-    this.end = vi.fn().mockResolvedValue(undefined);
-    this.query = vi.fn(async (...args: unknown[]) => {
-      return poolQueryMock(...args);
-    });
-    this.on = vi.fn();
-    this.totalCount = 1;
-    this.idleCount = 1;
-    this.waitingCount = 0;
-    poolInstances.push(this);
-  }
-}
-
-vi.mock('pg', () => ({
-  default: { Pool: PoolMock },
-  Pool: PoolMock
-}));
-
-const originalEnv = process.env;
-
-const DEV_ENV_KEYS = [
-  'USER',
-  'LOGNAME',
-  'DATABASE_URL',
-  'POSTGRES_URL',
-  'POSTGRES_HOST',
-  'POSTGRES_PORT',
-  'POSTGRES_USER',
-  'POSTGRES_PASSWORD',
-  'POSTGRES_DATABASE',
-  'PGHOST',
-  'PGPORT',
-  'PGUSER',
-  'PGPASSWORD',
-  'PGDATABASE'
-];
-
-async function loadPostgresModule() {
-  return import('./postgres.js');
-}
-
-function setReleaseEnv() {
-  process.env['POSTGRES_HOST'] = 'primary.db';
-  process.env['POSTGRES_PORT'] = '5432';
-  process.env['POSTGRES_USER'] = 'app';
-  process.env['POSTGRES_PASSWORD'] = 'secret';
-  process.env['POSTGRES_DATABASE'] = 'tearleads';
-}
+import {
+  loadPostgresModule,
+  poolInstances,
+  poolQueryMock,
+  resetPostgresTestEnv,
+  restorePostgresTestEnv,
+  setReleaseEnv
+} from './postgresTestHarness.js';
 
 describe('replica pool', () => {
   beforeEach(() => {
-    vi.resetModules();
-    poolQueryMock.mockReset();
-    poolQueryMock.mockResolvedValue({
-      rows: [{ pg_is_in_recovery: true, replay_lag_seconds: 0 }]
-    });
-    process.env = { ...originalEnv };
-    for (const key of DEV_ENV_KEYS) {
-      delete process.env[key];
-    }
-    if (!process.env['NODE_ENV']) {
-      process.env['NODE_ENV'] = 'test';
-    }
-    poolInstances.length = 0;
+    resetPostgresTestEnv();
   });
 
   afterEach(() => {
-    process.env = originalEnv;
+    restorePostgresTestEnv();
   });
 
   it('getPool("write") returns primary pool', async () => {
@@ -151,9 +54,7 @@ describe('replica pool', () => {
 
     await getPool('read');
 
-    const replicaInstance = poolInstances.find(
-      (p) => p.config.host === 'replica.db'
-    );
+    const replicaInstance = poolInstances.find((p) => p.config.host === 'replica.db');
     expect(replicaInstance).toBeDefined();
     expect(replicaInstance?.config).toEqual({
       host: 'replica.db',
@@ -173,9 +74,7 @@ describe('replica pool', () => {
 
     await getPostgresPool();
 
-    const primaryInstance = poolInstances.find(
-      (p) => p.config.host === 'primary.db'
-    );
+    const primaryInstance = poolInstances.find((p) => p.config.host === 'primary.db');
     expect(primaryInstance).toBeDefined();
     expect(primaryInstance?.config).toMatchObject({
       max: 15,
@@ -209,9 +108,7 @@ describe('replica pool', () => {
     const pool2 = await getPool('read');
     expect(pool1).toBe(pool2);
 
-    const replicaInstances = poolInstances.filter(
-      (p) => p.config.host === 'replica.db'
-    );
+    const replicaInstances = poolInstances.filter((p) => p.config.host === 'replica.db');
     expect(replicaInstances).toHaveLength(1);
   });
 
@@ -234,9 +131,7 @@ describe('replica pool', () => {
 
     const firstRead = await getPool('read');
     expect(firstRead).toBeDefined();
-    const firstReplica = poolInstances.find(
-      (p) => p.config.host === 'replica-a.db'
-    );
+    const firstReplica = poolInstances.find((p) => p.config.host === 'replica-a.db');
     expect(firstReplica).toBeDefined();
 
     process.env['POSTGRES_REPLICA_HOST'] = 'replica-b.db';
@@ -244,9 +139,7 @@ describe('replica pool', () => {
     expect(secondRead).not.toBe(firstRead);
 
     expect(firstReplica?.end).toHaveBeenCalledTimes(1);
-    const secondReplica = poolInstances.find(
-      (p) => p.config.host === 'replica-b.db'
-    );
+    const secondReplica = poolInstances.find((p) => p.config.host === 'replica-b.db');
     expect(secondReplica).toBeDefined();
   });
 
@@ -259,9 +152,7 @@ describe('replica pool', () => {
 
     process.env['POSTGRES_REPLICA_HOST'] = 'replica-b.db';
     poolQueryMock.mockRejectedValueOnce(new Error('replica-b down'));
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const readPool = await getPool('read');
     const primaryPool = await getPool('write');
@@ -278,9 +169,22 @@ describe('replica pool', () => {
 
     await getPool('read');
 
-    const replicaInstance = poolInstances.find(
-      (p) => p.config.host === 'replica.db'
-    );
+    const replicaInstance = poolInstances.find((p) => p.config.host === 'replica.db');
+    expect(replicaInstance?.config).toMatchObject({
+      ssl: { rejectUnauthorized: true }
+    });
+  });
+
+  it('allows explicit insecure SSL opt-out for replica pool', async () => {
+    setReleaseEnv();
+    process.env['POSTGRES_REPLICA_HOST'] = 'replica.db';
+    process.env['POSTGRES_SSL'] = '1';
+    process.env['POSTGRES_SSL_REJECT_UNAUTHORIZED'] = 'false';
+    const { getPool } = await loadPostgresModule();
+
+    await getPool('read');
+
+    const replicaInstance = poolInstances.find((p) => p.config.host === 'replica.db');
     expect(replicaInstance?.config).toMatchObject({
       ssl: { rejectUnauthorized: false }
     });
@@ -290,9 +194,7 @@ describe('replica pool', () => {
     setReleaseEnv();
     process.env['POSTGRES_REPLICA_HOST'] = 'replica.db';
     poolQueryMock.mockRejectedValueOnce(new Error('replica down'));
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { getPool } = await loadPostgresModule();
 
     const readPool = await getPool('read');
@@ -309,9 +211,7 @@ describe('replica pool', () => {
     poolQueryMock.mockResolvedValueOnce({
       rows: [{ pg_is_in_recovery: true, replay_lag_seconds: 12 }]
     });
-    const consoleWarnSpy = vi
-      .spyOn(console, 'warn')
-      .mockImplementation(() => {});
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { getPool } = await loadPostgresModule();
 
     const readPool = await getPool('read');
