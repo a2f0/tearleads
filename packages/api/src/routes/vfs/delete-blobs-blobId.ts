@@ -48,7 +48,7 @@ const deleteBlobsBlobIdHandler = async (req: Request, res: Response) => {
       return;
     }
 
-    if (blobRegistryRow.object_type !== 'blob') {
+    if (blobRegistryRow.object_type !== 'file') {
       await client.query('ROLLBACK');
       inTransaction = false;
       res
@@ -86,7 +86,7 @@ const deleteBlobsBlobIdHandler = async (req: Request, res: Response) => {
       `
       DELETE FROM vfs_registry
       WHERE id = $1::text
-        AND object_type = 'blob'
+        AND object_type = 'file'
       `,
       [blobId]
     );

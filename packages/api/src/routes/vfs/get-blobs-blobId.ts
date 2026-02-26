@@ -41,7 +41,7 @@ const getBlobsBlobIdHandler = async (req: Request, res: Response) => {
       return;
     }
 
-    if (blobRegistryRow.object_type !== 'blob') {
+    if (blobRegistryRow.object_type !== 'file') {
       res
         .status(409)
         .json({ error: 'Blob object id conflicts with existing VFS object' });

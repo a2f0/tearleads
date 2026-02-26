@@ -78,7 +78,7 @@ describe('VFS blob persistence contract tests', () => {
 
       // Registry says blob exists
       mockQuery.mockResolvedValueOnce({
-        rows: [{ object_type: 'blob', owner_id: 'user-1' }]
+        rows: [{ object_type: 'file', owner_id: 'user-1' }]
       });
 
       // But S3 returns NoSuchKey (object was deleted or never uploaded)
@@ -102,7 +102,7 @@ describe('VFS blob persistence contract tests', () => {
       const authHeader = await createAuthHeader();
 
       mockQuery.mockResolvedValueOnce({
-        rows: [{ object_type: 'blob', owner_id: 'user-1' }]
+        rows: [{ object_type: 'file', owner_id: 'user-1' }]
       });
       mockReadVfsBlobData.mockRejectedValueOnce(
         createS3Error('AccessDenied', 'Access Denied', 403)
@@ -122,7 +122,7 @@ describe('VFS blob persistence contract tests', () => {
       mockQuery
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'blob', owner_id: 'user-1' }]
+          rows: [{ object_type: 'file', owner_id: 'user-1' }]
         }) // SELECT registry
         .mockResolvedValueOnce({ rows: [] }) // SELECT attached links
         .mockResolvedValueOnce({}); // ROLLBACK
@@ -192,7 +192,7 @@ describe('VFS blob persistence contract tests', () => {
       const authHeader = await createAuthHeader();
 
       mockQuery.mockResolvedValueOnce({
-        rows: [{ object_type: 'blob', owner_id: 'user-1' }]
+        rows: [{ object_type: 'file', owner_id: 'user-1' }]
       });
       mockReadVfsBlobData.mockRejectedValueOnce(
         createS3Error('InternalError', 'We encountered an internal error', 500)
@@ -212,7 +212,7 @@ describe('VFS blob persistence contract tests', () => {
       mockQuery
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'blob', owner_id: 'user-1' }]
+          rows: [{ object_type: 'file', owner_id: 'user-1' }]
         }) // SELECT registry
         .mockResolvedValueOnce({ rows: [] }) // SELECT attached links
         .mockResolvedValueOnce({}); // ROLLBACK
@@ -266,7 +266,7 @@ describe('VFS blob persistence contract tests', () => {
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'blob' }]
+          rows: [{ object_type: 'file' }]
         }) // SELECT blob registry row
         .mockResolvedValueOnce({}) // INSERT staging registry row
         .mockResolvedValueOnce({
@@ -308,7 +308,7 @@ describe('VFS blob persistence contract tests', () => {
 
       // First attempt - registry exists, S3 throttled
       mockQuery.mockResolvedValueOnce({
-        rows: [{ object_type: 'blob', owner_id: 'user-1' }]
+        rows: [{ object_type: 'file', owner_id: 'user-1' }]
       });
       mockReadVfsBlobData.mockRejectedValueOnce(
         createS3Error('SlowDown', 'Reduce your request rate', 503)
@@ -322,7 +322,7 @@ describe('VFS blob persistence contract tests', () => {
 
       // Second attempt succeeds
       mockQuery.mockResolvedValueOnce({
-        rows: [{ object_type: 'blob', owner_id: 'user-1' }]
+        rows: [{ object_type: 'file', owner_id: 'user-1' }]
       });
       mockReadVfsBlobData.mockResolvedValueOnce({
         data: Uint8Array.from([116, 101, 115, 116]),
@@ -360,7 +360,7 @@ describe('VFS blob persistence contract tests', () => {
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'blob' }]
+          rows: [{ object_type: 'file' }]
         }) // SELECT blob registry
         .mockResolvedValueOnce({}) // INSERT staging registry
         .mockResolvedValueOnce({
@@ -388,7 +388,7 @@ describe('VFS blob persistence contract tests', () => {
 
       // Read
       mockQuery.mockResolvedValueOnce({
-        rows: [{ object_type: 'blob', owner_id: 'user-1' }]
+        rows: [{ object_type: 'file', owner_id: 'user-1' }]
       });
       mockReadVfsBlobData.mockResolvedValueOnce({
         data: Uint8Array.from([
@@ -405,7 +405,7 @@ describe('VFS blob persistence contract tests', () => {
       mockQuery
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'blob', owner_id: 'user-1' }]
+          rows: [{ object_type: 'file', owner_id: 'user-1' }]
         }) // SELECT registry
         .mockResolvedValueOnce({ rows: [] }) // SELECT attached links
         .mockResolvedValueOnce({ rowCount: 1 }) // DELETE registry
@@ -444,7 +444,7 @@ describe('VFS blob persistence contract tests', () => {
       mockQuery
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({
-          rows: [{ object_type: 'blob', owner_id: 'other-user' }]
+          rows: [{ object_type: 'file', owner_id: 'other-user' }]
         }) // SELECT registry - different owner
         .mockResolvedValueOnce({}); // ROLLBACK
 

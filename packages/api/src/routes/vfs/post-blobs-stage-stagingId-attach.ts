@@ -290,7 +290,7 @@ const postBlobsStageStagingIdAttachHandler = async (
         created_at
       ) VALUES (
         $1::text,
-        'blob',
+        'file',
         $2::text,
         NOW()
       )
@@ -309,7 +309,7 @@ const postBlobsStageStagingIdAttachHandler = async (
       [stagedBlobId]
     );
     const blobRegistryRow = blobRegistryResult.rows[0];
-    if (!blobRegistryRow || blobRegistryRow.object_type !== 'blob') {
+    if (!blobRegistryRow || blobRegistryRow.object_type !== 'file') {
       await client.query('ROLLBACK');
       inTransaction = false;
       res

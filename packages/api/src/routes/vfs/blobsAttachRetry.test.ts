@@ -81,7 +81,7 @@ describe('VFS routes (blobs attach retry contracts)', () => {
         ]
       }) // UPDATE (attempt 2)
       .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob registry
-      .mockResolvedValueOnce({ rows: [{ object_type: 'blob' }] }) // SELECT blob registry
+      .mockResolvedValueOnce({ rows: [{ object_type: 'file' }] }) // SELECT blob registry
       .mockResolvedValueOnce({
         rows: [{ id: 'ref-1', created_at: '2026-02-14T10:10:00.000Z' }]
       }) // INSERT ref
@@ -150,7 +150,7 @@ describe('VFS routes (blobs attach retry contracts)', () => {
         ]
       }) // UPDATE (attempt 1)
       .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob registry
-      .mockResolvedValueOnce({ rows: [{ object_type: 'blob' }] }) // SELECT blob registry
+      .mockResolvedValueOnce({ rows: [{ object_type: 'file' }] }) // SELECT blob registry
       .mockResolvedValueOnce({
         rows: [{ id: 'ref-1', created_at: '2026-02-14T10:10:00.000Z' }]
       }) // INSERT ref

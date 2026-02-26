@@ -98,7 +98,6 @@ describe('VFS routes (register)', () => {
     it('accepts all valid object types', async () => {
       const objectTypes = [
         'file',
-        'blob',
         'folder',
         'contact',
         'note',

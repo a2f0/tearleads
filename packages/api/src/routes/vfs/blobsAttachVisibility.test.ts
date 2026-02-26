@@ -109,7 +109,7 @@ describe('VFS routes (blobs attach visibility)', () => {
         ]
       }) // UPDATE
       .mockResolvedValueOnce({ rowCount: 1 }) // UPSERT blob into vfs_registry
-      .mockResolvedValueOnce({ rows: [{ object_type: 'blob' }] }) // SELECT blob registry row
+      .mockResolvedValueOnce({ rows: [{ object_type: 'file' }] }) // SELECT blob registry row
       .mockResolvedValueOnce({
         rows: [{ id: 'ref-1', created_at: '2026-02-14T10:10:00.000Z' }]
       }) // INSERT blob link
