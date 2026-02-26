@@ -45,6 +45,36 @@ if [ "${#COMMAND_NAMES[@]}" -eq 0 ]; then
 fi
 
 ISSUES=0
+NORMALIZE_CACHE_DIR="$(mktemp -d)"
+trap 'rm -rf "$NORMALIZE_CACHE_DIR"' EXIT
+
+escape_ere() {
+  printf '%s' "$1" | sed -E 's/[][(){}.^$*+?|\\]/\\&/g'
+}
+
+join_with_pipe() {
+  local output="$1"
+  shift
+
+  local item
+  for item in "$@"; do
+    if [ -z "$output" ]; then
+      output="$item"
+    else
+      output="${output}|${item}"
+    fi
+  done
+
+  printf '%s' "$output"
+}
+
+mapfile -t ESCAPED_COMMAND_NAMES < <(
+  for command_name in "${COMMAND_NAMES[@]}"; do
+    escape_ere "$command_name"
+    echo
+  done
+)
+COMMAND_ALT="$(join_with_pipe "" "${ESCAPED_COMMAND_NAMES[@]}")"
 
 report_issue() {
   ISSUES=$((ISSUES + 1))
@@ -53,67 +83,61 @@ report_issue() {
   fi
 }
 
-normalize_file() {
+get_normalized_file() {
   local source_file="$1"
-  local output_file="$2"
-  local working_file
+  local cache_key
+  local normalized_file
 
-  working_file="$(mktemp)"
+  cache_key="$(printf '%s' "$source_file" | shasum | awk '{print $1}')"
+  normalized_file="${NORMALIZE_CACHE_DIR}/${cache_key}.normalized"
 
-  awk '
-    NR == 1 && $0 == "---" { in_frontmatter = 1; next }
-    in_frontmatter && $0 == "---" { in_frontmatter = 0; next }
-    in_frontmatter { next }
-    { print }
-  ' "$source_file" > "$working_file"
+  if [ ! -f "$normalized_file" ]; then
+    awk '
+      NR == 1 && $0 == "---" { in_frontmatter = 1; next }
+      in_frontmatter && $0 == "---" { in_frontmatter = 0; next }
+      in_frontmatter { next }
+      { print }
+    ' "$source_file" \
+      | perl -pe "
+        s{(^|[^[:alnum:]_.-])/(${COMMAND_ALT})(?=[^[:alnum:]-]|\\\$)}{\$1<cmd:\$2>}g;
+        s{(^|[^[:alnum:]_.-])\\\$(${COMMAND_ALT})(?=[^[:alnum:]-]|\\\$)}{\$1<cmd:\$2>}g;
+      " \
+      | sed -E 's/[[:space:]]+$//' \
+      | sed -E '/./,$!d' > "$normalized_file"
+  fi
 
-  mv "$working_file" "$output_file"
-
-  local command_name
-  for command_name in "${COMMAND_NAMES[@]}"; do
-    sed -E "s#/${command_name}([^[:alnum:]-]|$)#<cmd:${command_name}>\\1#g; s#\\\$${command_name}([^[:alnum:]-]|$)#<cmd:${command_name}>\\1#g" "$output_file" > "$output_file.tmp"
-    mv "$output_file.tmp" "$output_file"
-  done
-
-  sed -E 's/[[:space:]]+$//' "$output_file" > "$output_file.tmp"
-  mv "$output_file.tmp" "$output_file"
-
-  sed -E '/./,$!d' "$output_file" > "$output_file.tmp"
-  mv "$output_file.tmp" "$output_file"
+  printf '%s\n' "$normalized_file"
 }
 
 check_prefix_usage() {
   local file_path="$1"
   local expected_style="$2"
-  local command_name
   local grep_output
 
   grep_output="$(mktemp)"
 
-  for command_name in "${COMMAND_NAMES[@]}"; do
-    if [ "$expected_style" = "codex" ]; then
-      if grep -nE "(^|[^[:alnum:]_.-])/${command_name}([^[:alnum:]-]|$)" "$file_path" >"$grep_output"; then
-        report_issue "Codex skill uses slash command '/${command_name}' in ${file_path}"
-        if [ "$MODE" != "count" ]; then
-          sed 's/^/  /' "$grep_output" >&2
-        fi
-      fi
-    elif [ "$expected_style" = "gemini" ]; then
-      if grep -nE "(^|[^[:alnum:]_.-])\\\$${command_name}([^[:alnum:]-]|$)" "$file_path" >"$grep_output"; then
-        report_issue "Gemini skill uses dollar command '\$${command_name}' in ${file_path}"
-        if [ "$MODE" != "count" ]; then
-          sed 's/^/  /' "$grep_output" >&2
-        fi
-      fi
-    else
-      if grep -nE "(^|[^[:alnum:]_.-])\\\$${command_name}([^[:alnum:]-]|$)" "$file_path" >"$grep_output"; then
-        report_issue "Claude skill uses dollar command '\$${command_name}' in ${file_path}"
-        if [ "$MODE" != "count" ]; then
-          sed 's/^/  /' "$grep_output" >&2
-        fi
+  if [ "$expected_style" = "codex" ]; then
+    if grep -nE "(^|[^[:alnum:]_.-])/(${COMMAND_ALT})([^[:alnum:]-]|$)" "$file_path" >"$grep_output"; then
+      report_issue "Codex skill uses slash command '/<cmd>' in ${file_path}"
+      if [ "$MODE" != "count" ]; then
+        sed 's/^/  /' "$grep_output" >&2
       fi
     fi
-  done
+  elif [ "$expected_style" = "gemini" ]; then
+    if grep -nE "(^|[^[:alnum:]_.-])\\\$(${COMMAND_ALT})([^[:alnum:]-]|$)" "$file_path" >"$grep_output"; then
+      report_issue "Gemini skill uses dollar command '\$<cmd>' in ${file_path}"
+      if [ "$MODE" != "count" ]; then
+        sed 's/^/  /' "$grep_output" >&2
+      fi
+    fi
+  else
+    if grep -nE "(^|[^[:alnum:]_.-])\\\$(${COMMAND_ALT})([^[:alnum:]-]|$)" "$file_path" >"$grep_output"; then
+      report_issue "Claude skill uses dollar command '\$<cmd>' in ${file_path}"
+      if [ "$MODE" != "count" ]; then
+        sed 's/^/  /' "$grep_output" >&2
+      fi
+    fi
+  fi
 
   rm -f "$grep_output"
 }
@@ -126,12 +150,10 @@ compare_normalized_pair() {
   local left_norm
   local right_norm
   local diff_output
-  left_norm="$(mktemp)"
-  right_norm="$(mktemp)"
   diff_output="$(mktemp)"
 
-  normalize_file "$left_file" "$left_norm"
-  normalize_file "$right_file" "$right_norm"
+  left_norm="$(get_normalized_file "$left_file")"
+  right_norm="$(get_normalized_file "$right_file")"
 
   if ! diff -u "$left_norm" "$right_norm" >"$diff_output"; then
     report_issue "Semantic drift detected for ${label}"
@@ -140,7 +162,7 @@ compare_normalized_pair() {
     fi
   fi
 
-  rm -f "$left_norm" "$right_norm" "$diff_output"
+  rm -f "$diff_output"
 }
 
 check_registry_generation() {
