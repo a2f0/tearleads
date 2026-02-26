@@ -238,12 +238,6 @@ spec:
               ADMIN="http://garage:3903"
               AUTH="Authorization: Bearer $GARAGE_ADMIN_TOKEN"
 
-              api_post() {
-                local path="$1" body="$2"
-                wget -q -O - --header="$AUTH" --header="Content-Type: application/json" \
-                  --post-data="$body" "$ADMIN$path" 2>&1
-              }
-
               # Best-effort helper: succeed even if the call returns an HTTP error
               api_post_ok() {
                 local path="$1" body="$2"
@@ -253,7 +247,7 @@ spec:
 
               # Get node ID from cluster status
               STATUS=$(wget -q -O - --header="$AUTH" "$ADMIN/v2/GetClusterStatus")
-              NODE_ID=$(echo "$STATUS" | tr -d '[:space:]' | sed 's/.*"nodes":\[{"id":"//' | sed 's/".*//')
+              NODE_ID=$(echo "$STATUS" | sed -n 's/.*"nodes":\[{"id":"\([^"]*\)".*/\1/p')
               echo "Node ID: $NODE_ID"
 
               # Assign layout to node (1GB, zone dc1) — idempotent
@@ -274,7 +268,7 @@ spec:
               # Create bucket — idempotent (returns existing bucket)
               echo "Creating bucket..."
               BUCKET_RESP=$(api_post_ok "/v2/CreateBucket" '{"globalAlias":"vfs-blobs"}')
-              BUCKET_ID=$(echo "$BUCKET_RESP" | sed 's/.*"id":"//' | sed 's/".*//')
+              BUCKET_ID=$(echo "$BUCKET_RESP" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
               echo "Bucket ID: $BUCKET_ID"
 
               # Grant permissions
