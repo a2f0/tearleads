@@ -34,7 +34,8 @@ import {
   getItemHeightForMobile,
   LABEL_HEIGHT,
   type Positions,
-  positionsAreEqual
+  positionsAreEqual,
+  sortItemsByLabel
 } from './homeIconUtils';
 
 export { PATH_TO_WINDOW_TYPE } from './home-components/constants';
@@ -182,9 +183,12 @@ export function Home() {
           // Invalid JSON, fall through to default grid
         }
       }
-      setPositions(calculateGridPositions(appItems, width, isMobile));
+      const sortedItems = sortItemsByLabel(appItems, (item) =>
+        t(item.labelKey as Parameters<typeof t>[0])
+      );
+      setPositions(calculateGridPositions(sortedItems, width, isMobile));
     }
-  }, [appItems, isMobile]);
+  }, [appItems, isMobile, t]);
 
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden">
