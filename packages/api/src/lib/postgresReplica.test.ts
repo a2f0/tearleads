@@ -346,11 +346,24 @@ describe('replica pool', () => {
   it('shares a single in-flight validation for concurrent read pool lookups', async () => {
     setReleaseEnv();
     process.env['POSTGRES_REPLICA_HOST'] = 'replica.db';
-    let resolveValidation: ((value: unknown) => void) | null = null;
+    let releaseValidation: () => void = () => {
+      throw new Error('expected validation resolver');
+    };
     poolQueryMock.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
-          resolveValidation = resolve;
+          releaseValidation = () => {
+            resolve({
+              rows: [
+                {
+                  pg_is_in_recovery: true,
+                  replay_lag_seconds: 0,
+                  receive_lsn: '0/16B6A78',
+                  replay_lsn: '0/16B6A78'
+                }
+              ]
+            });
+          };
         })
     );
 
@@ -365,19 +378,7 @@ describe('replica pool', () => {
     }
     expect(poolQueryMock).toHaveBeenCalledTimes(1);
 
-    if (!resolveValidation) {
-      throw new Error('expected validation resolver');
-    }
-    resolveValidation({
-      rows: [
-        {
-          pg_is_in_recovery: true,
-          replay_lag_seconds: 0,
-          receive_lsn: '0/16B6A78',
-          replay_lsn: '0/16B6A78'
-        }
-      ]
-    });
+    releaseValidation();
 
     const [pool1, pool2, pool3] = await Promise.all([read1, read2, read3]);
     expect(pool1).toBe(pool2);
