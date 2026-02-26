@@ -1,41 +1,7 @@
-import {
-  type Migration,
-  vfsTestMigrations,
-  withRealDatabase
-} from '@tearleads/db-test-utils';
+import { vfsTestMigrations, withRealDatabase } from '@tearleads/db-test-utils';
 import { describe, expect, it } from 'vitest';
+import { vfsAclEnabledMigrations } from '../test/vfsAclTestMigrations';
 import { querySharedByMe, querySharedWithMe } from './vfsSharesQuery';
-
-const vfsAclEnabledMigrations: Migration[] = [
-  ...vfsTestMigrations,
-  {
-    version: 2,
-    up: async (adapter) => {
-      await adapter.execute(`
-        CREATE TABLE IF NOT EXISTS users (
-          id TEXT PRIMARY KEY,
-          email TEXT NOT NULL
-        )
-      `);
-      await adapter.execute(`
-        CREATE TABLE IF NOT EXISTS vfs_acl_entries (
-          id TEXT PRIMARY KEY,
-          item_id TEXT NOT NULL REFERENCES vfs_registry(id) ON DELETE CASCADE,
-          principal_type TEXT NOT NULL,
-          principal_id TEXT NOT NULL,
-          access_level TEXT NOT NULL,
-          wrapped_session_key TEXT,
-          wrapped_hierarchical_key TEXT,
-          granted_by TEXT REFERENCES users(id) ON DELETE RESTRICT,
-          created_at INTEGER NOT NULL,
-          updated_at INTEGER NOT NULL,
-          expires_at INTEGER,
-          revoked_at INTEGER
-        )
-      `);
-    }
-  }
-];
 
 describe('vfsSharesQuery integration (real database)', () => {
   it('fails when canonical ACL table is unavailable', async () => {

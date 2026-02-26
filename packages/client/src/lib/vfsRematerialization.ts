@@ -48,6 +48,8 @@ interface AclRowState {
   principalId: string;
   accessLevel: VfsAclAccessLevel;
   keyEpoch: number | null;
+  sourceId: string;
+  actorId: string | null;
   updatedAtMs: number;
 }
 
@@ -213,6 +215,8 @@ function applyCrdtItemToDerivedState(
         principalId: item.principalId,
         accessLevel: item.accessLevel,
         keyEpoch: item.keyEpoch ?? null,
+        sourceId: item.sourceId,
+        actorId: item.actorId,
         updatedAtMs: occurredAtMs
       });
     }
@@ -288,7 +292,7 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
     createdAt: new Date(0)
   }));
   const aclRows = Array.from(aclByKey.values()).map((entry) => ({
-    id: `acl:${entry.itemId}:${entry.principalType}:${entry.principalId}`,
+    id: entry.sourceId,
     itemId: entry.itemId,
     principalType: entry.principalType,
     principalId: entry.principalId,
@@ -296,7 +300,7 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
     wrappedSessionKey: null,
     wrappedHierarchicalKey: null,
     keyEpoch: entry.keyEpoch,
-    grantedBy: null,
+    grantedBy: entry.actorId,
     createdAt: new Date(entry.updatedAtMs),
     updatedAt: new Date(entry.updatedAtMs),
     expiresAt: null,
@@ -314,45 +318,53 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
   }));
 
   const db = getDatabase();
+  const adapter = getDatabaseAdapter();
   const hasItemStateTable = await tableExists('vfs_item_state');
   const hasAclEntriesTable = await tableExists('vfs_acl_entries');
-  await runLocalWrite(async () => {
-    await db.transaction(async (tx) => {
-      await tx.delete(vfsLinks);
-      if (hasAclEntriesTable) {
-        await tx.delete(vfsAclEntries);
-      }
-      if (hasItemStateTable) {
-        await tx.delete(vfsItemState);
-      }
-      await tx.delete(vfsRegistry);
+  // Disable FK checks during bulk rebuild — grantedBy may reference users not
+  // yet present locally. The server guarantees referential integrity.
+  await adapter.execute('PRAGMA foreign_keys = OFF', []);
+  try {
+    await runLocalWrite(async () => {
+      await db.transaction(async (tx) => {
+        await tx.delete(vfsLinks);
+        if (hasAclEntriesTable) {
+          await tx.delete(vfsAclEntries);
+        }
+        if (hasItemStateTable) {
+          await tx.delete(vfsItemState);
+        }
+        await tx.delete(vfsRegistry);
 
-      for (const chunk of chunkArray(registryRows, INSERT_BATCH_SIZE)) {
-        if (chunk.length > 0) {
-          await tx.insert(vfsRegistry).values(chunk);
-        }
-      }
-      if (hasItemStateTable) {
-        for (const chunk of chunkArray(itemStateRows, INSERT_BATCH_SIZE)) {
+        for (const chunk of chunkArray(registryRows, INSERT_BATCH_SIZE)) {
           if (chunk.length > 0) {
-            await tx.insert(vfsItemState).values(chunk);
+            await tx.insert(vfsRegistry).values(chunk);
           }
         }
-      }
-      if (hasAclEntriesTable) {
-        for (const chunk of chunkArray(aclRows, INSERT_BATCH_SIZE)) {
-          if (chunk.length > 0) {
-            await tx.insert(vfsAclEntries).values(chunk);
+        if (hasItemStateTable) {
+          for (const chunk of chunkArray(itemStateRows, INSERT_BATCH_SIZE)) {
+            if (chunk.length > 0) {
+              await tx.insert(vfsItemState).values(chunk);
+            }
           }
         }
-      }
-      for (const chunk of chunkArray(linkRows, INSERT_BATCH_SIZE)) {
-        if (chunk.length > 0) {
-          await tx.insert(vfsLinks).values(chunk);
+        if (hasAclEntriesTable) {
+          for (const chunk of chunkArray(aclRows, INSERT_BATCH_SIZE)) {
+            if (chunk.length > 0) {
+              await tx.insert(vfsAclEntries).values(chunk);
+            }
+          }
         }
-      }
+        for (const chunk of chunkArray(linkRows, INSERT_BATCH_SIZE)) {
+          if (chunk.length > 0) {
+            await tx.insert(vfsLinks).values(chunk);
+          }
+        }
+      });
     });
-  });
+  } finally {
+    await adapter.execute('PRAGMA foreign_keys = ON', []);
+  }
 
   return true;
 }
