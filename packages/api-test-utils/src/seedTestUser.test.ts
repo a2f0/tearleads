@@ -6,7 +6,10 @@ describe('seedTestUser', () => {
   let ctx: TestContext;
 
   beforeAll(async () => {
-    ctx = await createTestContext();
+    ctx = await createTestContext(async () => {
+      const api = await import('@tearleads/api');
+      return { app: api.app, migrations: api.migrations };
+    });
   });
 
   beforeEach(async () => {

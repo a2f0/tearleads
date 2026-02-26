@@ -59,8 +59,14 @@ export default mergeConfig(
         '@tearleads/shared/redis': fileURLToPath(
           new URL('../shared/src/redis/index.ts', import.meta.url)
         ),
+        '@tearleads/shared/testing': fileURLToPath(
+          new URL('../shared/src/testing/index.ts', import.meta.url)
+        ),
         '@tearleads/shared': fileURLToPath(
           new URL('../shared/src/index.ts', import.meta.url)
+        ),
+        '@tearleads/db/migrations': fileURLToPath(
+          new URL('../db/src/migrations/index.ts', import.meta.url)
         ),
         '@tearleads/shared/package.json': fileURLToPath(
           new URL('../shared/package.json', import.meta.url)

@@ -1,4 +1,4 @@
-import { createJwt } from '@tearleads/api/lib/jwt';
+import { createJwt } from './jwt.js';
 import { randomUUID } from 'node:crypto';
 import type { Pool as PgPool } from 'pg';
 import type { RedisMockClient } from './redisMock.js';

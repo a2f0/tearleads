@@ -58,6 +58,18 @@ export async function getRedisClient(url?: string): Promise<RedisClient> {
   }
 }
 
+let subscriberOverride: RedisClient | null = null;
+
+export function setRedisSubscriberOverrideForTesting(
+  override: RedisClient | null
+): void {
+  subscriberOverride = override;
+}
+
+export function getRedisSubscriberOverride(): RedisClient | null {
+  return subscriberOverride;
+}
+
 export async function closeRedisClient(): Promise<void> {
   let resolveRelease: () => void = () => {};
   const release = new Promise<void>((resolve) => {

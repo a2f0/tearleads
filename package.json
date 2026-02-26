@@ -62,6 +62,7 @@
   "description": "Monorepo for Tearleads application",
   "devDependencies": {
     "@biomejs/biome": "2.4.3",
+    "@tearleads/api": "workspace:*",
     "@commitlint/cli": "20.4.2",
     "@commitlint/config-conventional": "20.4.2",
     "@commitlint/types": "20.4.0",

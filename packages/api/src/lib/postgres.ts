@@ -3,12 +3,18 @@ import {
   isDevMode,
   type PostgresConnectionInfo
 } from '@tearleads/shared';
+import {
+  getPoolOverride,
+  setPoolOverrideForTesting
+} from '@tearleads/shared/testing';
 import type { Pool as PgPool, PoolConfig } from 'pg';
 import pg from 'pg';
 import {
   logPoolStats,
   validateReplicaHealth
 } from './postgresPoolObservability.js';
+
+export { setPoolOverrideForTesting };
 
 const { Pool } = pg;
 
@@ -17,12 +23,6 @@ type QueryIntent = 'read' | 'write';
 let pool: PgPool | null = null;
 let poolConfigKey: string | null = null;
 let poolMutex: Promise<void> = Promise.resolve();
-
-let poolOverride: PgPool | null = null;
-
-export function setPoolOverrideForTesting(override: PgPool | null): void {
-  poolOverride = override;
-}
 
 let replicaPool: PgPool | null = null;
 let replicaPoolConfigKey: string | null = null;
@@ -327,7 +327,8 @@ export function getPostgresConnectionInfo(): PostgresConnectionInfo {
 }
 
 export async function getPostgresPool(): Promise<PgPool> {
-  if (poolOverride) return poolOverride;
+  const override = getPoolOverride();
+  if (override) return override;
 
   const { config, configKey } = buildPoolConfig();
 
@@ -401,7 +402,8 @@ async function getHealthyReplicaPool(): Promise<PgPool | null> {
 }
 
 export async function getPool(intent: QueryIntent): Promise<PgPool> {
-  if (poolOverride) return poolOverride;
+  const override = getPoolOverride();
+  if (override) return override;
 
   if (intent === 'write') {
     return getPostgresPool();

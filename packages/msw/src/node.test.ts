@@ -1,3 +1,4 @@
+import { http, HttpResponse } from 'msw';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   getRecordedApiRequests,
@@ -6,13 +7,22 @@ import {
   wasApiRequestMade
 } from './node.js';
 
+const testHandlers = [
+  http.get('http://localhost/ping', () => HttpResponse.json({ ok: true })),
+  http.get('http://localhost/v1/ping', () => HttpResponse.json({ ok: true })),
+  http.get('http://localhost/admin/redis/dbsize', () =>
+    HttpResponse.json({ dbsize: 0 })
+  )
+];
+
 describe('msw node server', () => {
   beforeAll(() => {
     server.listen({ onUnhandledRequest: 'error' });
+    server.use(...testHandlers);
   });
 
   afterEach(() => {
-    server.resetHandlers();
+    server.resetHandlers(...testHandlers);
     resetMockApiServerState();
   });
 

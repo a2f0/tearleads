@@ -1,19 +1,18 @@
+import {
+  getRedisSubscriberOverride,
+  setRedisSubscriberOverrideForTesting
+} from '@tearleads/shared/redis';
 import { createClient } from 'redis';
+
+export { setRedisSubscriberOverrideForTesting };
 
 type RedisClient = ReturnType<typeof createClient>;
 
 let subscriberClientPromise: Promise<RedisClient> | null = null;
 
-let subscriberOverride: RedisClient | null = null;
-
-export function setRedisSubscriberOverrideForTesting(
-  override: RedisClient | null
-): void {
-  subscriberOverride = override;
-}
-
 export async function getRedisSubscriberClient(): Promise<RedisClient> {
-  if (subscriberOverride) return subscriberOverride;
+  const override = getRedisSubscriberOverride();
+  if (override) return override as RedisClient;
 
   if (!subscriberClientPromise) {
     subscriberClientPromise = (async () => {

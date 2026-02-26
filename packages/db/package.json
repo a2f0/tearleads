@@ -18,6 +18,10 @@
       "types": "./dist/generated/postgresql/schema.d.ts",
       "import": "./dist/generated/postgresql/schema.js"
     },
+    "./migrations": {
+      "types": "./dist/migrations/index.d.ts",
+      "import": "./dist/migrations/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -43,7 +47,8 @@
   "license": "UNLICENSED",
   "dependencies": {
     "@tearleads/shared": "workspace:*",
-    "drizzle-orm": "0.45.1"
+    "drizzle-orm": "0.45.1",
+    "pg": "8.18.0"
   },
   "devDependencies": {
     "@types/pg": "8.16.0",

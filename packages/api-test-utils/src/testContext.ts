@@ -1,9 +1,12 @@
 import type { Server } from 'node:http';
-import { setPoolOverrideForTesting } from '@tearleads/api/lib/postgres';
-import { setRedisSubscriberOverrideForTesting } from '@tearleads/api/lib/redisPubSub';
-import { runMigrations } from '@tearleads/api/migrations';
+import type { Migration } from '@tearleads/db/migrations';
+import { runMigrations } from '@tearleads/db/migrations';
 import type { RedisClient } from '@tearleads/shared/redis';
-import { setRedisClientOverrideForTesting } from '@tearleads/shared/redis';
+import {
+  setRedisClientOverrideForTesting,
+  setRedisSubscriberOverrideForTesting
+} from '@tearleads/shared/redis';
+import { setPoolOverrideForTesting } from '@tearleads/shared/testing';
 import type { Pool as PgPool } from 'pg';
 import type { Express } from 'express';
 import { createPglitePool } from './pglitePool.js';
@@ -20,6 +23,15 @@ export interface TestContext {
   teardown: () => Promise<void>;
 }
 
+/**
+ * Dependencies that must be provided by the consumer.
+ * This avoids a direct dependency on @tearleads/api.
+ */
+export interface TestContextDeps {
+  app: Express;
+  migrations: Migration[];
+}
+
 async function getAllUserTableNames(pool: PgPool): Promise<string[]> {
   const result = await pool.query<{ tablename: string }>(
     `SELECT tablename FROM pg_tables
@@ -29,7 +41,9 @@ async function getAllUserTableNames(pool: PgPool): Promise<string[]> {
   return result.rows.map((r) => r.tablename);
 }
 
-export async function createTestContext(): Promise<TestContext> {
+export async function createTestContext(
+  getDeps: () => Promise<TestContextDeps>
+): Promise<TestContext> {
   // 1. Create PGlite pool
   const { pool, exec } = await createPglitePool();
 
@@ -42,27 +56,29 @@ export async function createTestContext(): Promise<TestContext> {
      LANGUAGE SQL AS $$ SELECT (EXTRACT(EPOCH FROM now()) * 1000)::BIGINT $$;`
   );
 
-  // 4. Run migrations
-  await runMigrations(pool);
-
-  // 5. Create Redis mock, inject overrides
+  // 4. Create Redis mock, inject overrides
   const redis = createRedisMock();
   setRedisClientOverrideForTesting(redis as unknown as RedisClient);
   setRedisSubscriberOverrideForTesting(redis.duplicate() as unknown as RedisClient);
 
-  // 6. Set required env vars
-  process.env['JWT_SECRET'] = process.env['JWT_SECRET'] ?? 'test-jwt-secret-for-api-test-utils';
+  // 5. Set required env vars
+  process.env['JWT_SECRET'] =
+    process.env['JWT_SECRET'] ?? 'test-jwt-secret-for-api-test-utils';
   process.env['NODE_ENV'] = 'test';
 
-  // Set dummy Postgres env vars for getPostgresConnectionInfo() display (queries use PGlite override)
   process.env['POSTGRES_HOST'] = process.env['POSTGRES_HOST'] ?? 'pglite';
   process.env['POSTGRES_PORT'] = process.env['POSTGRES_PORT'] ?? '5432';
   process.env['POSTGRES_USER'] = process.env['POSTGRES_USER'] ?? 'test';
   process.env['POSTGRES_PASSWORD'] = process.env['POSTGRES_PASSWORD'] ?? 'test';
   process.env['POSTGRES_DATABASE'] = process.env['POSTGRES_DATABASE'] ?? 'test';
 
-  // 7. Import and start Express app
-  const { app } = await import('@tearleads/api');
+  // 6. Load app and migrations from consumer
+  const { app, migrations } = await getDeps();
+
+  // 7. Run migrations
+  await runMigrations(pool, migrations);
+
+  // 8. Start Express server on random port
   const server = await new Promise<Server>((resolve) => {
     const s = app.listen(0, () => resolve(s));
   });

@@ -29,7 +29,10 @@ export class ApiScenarioHarness {
   static async create(
     actorDefs: ApiActorDefinition[]
   ): Promise<ApiScenarioHarness> {
-    const ctx = await createTestContext();
+    const ctx = await createTestContext(async () => {
+      const api = await import('@tearleads/api');
+      return { app: api.app, migrations: api.migrations };
+    });
     const actorMap = new Map<string, ApiActor>();
 
     for (const def of actorDefs) {

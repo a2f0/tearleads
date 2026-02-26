@@ -31,7 +31,7 @@
   "license": "UNLICENSED",
   "dependencies": {
     "@electric-sql/pglite": "0.2.17",
-    "@tearleads/api": "workspace:*",
+    "@tearleads/db": "workspace:*",
     "@tearleads/shared": "workspace:*",
     "jsonwebtoken": "9.0.3",
     "pg": "8.18.0"

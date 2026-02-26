@@ -10,7 +10,10 @@ import { setSharedTestContext } from './testContext';
 let testContext: TestContext | null = null;
 
 beforeAll(async () => {
-  testContext = await createTestContext();
+  testContext = await createTestContext(async () => {
+    const api = await import('@tearleads/api');
+    return { app: api.app, migrations: api.migrations };
+  });
   setSharedTestContext(testContext);
   configureForExpressPassthrough('http://localhost', testContext.port);
   server.listen({ onUnhandledRequest: 'warn' });
