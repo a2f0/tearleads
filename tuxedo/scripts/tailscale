@@ -1,0 +1,6 @@
+#!/bin/sh
+# Wrapper to expose the tailscale CLI on macOS (app bundle) and Linux (system binary)
+case "$(uname -s)" in
+  Darwin) exec /Applications/Tailscale.app/Contents/MacOS/Tailscale "$@" ;;
+  *)      exec /usr/bin/tailscale "$@" ;;
+esac
