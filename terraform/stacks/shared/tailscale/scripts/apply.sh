@@ -10,7 +10,7 @@ source "$REPO_ROOT/terraform/scripts/common.sh"
 
 load_secrets_env
 
-# Tailscale provider uses api_key; unset OAuth vars to avoid conflict
+# Tailscale provider uses api_key; unset OAuth vars used by GitHub Actions
 unset TAILSCALE_OAUTH_CLIENT_ID TAILSCALE_OAUTH_CLIENT_SECRET
 
 validate_aws_env
