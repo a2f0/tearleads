@@ -3,19 +3,71 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useVfsOrchestrator } from '@/contexts/VfsOrchestratorContext';
 import { rematerializeRemoteVfsStateIfNeeded } from '@/lib/vfsRematerialization';
 
+const INITIAL_RETRY_DELAY_MS = 2_000;
+const MAX_RETRY_DELAY_MS = 60_000;
+
 export function VfsRematerializationBootstrap() {
   const { isAuthenticated } = useAuth();
   const { isReady } = useVfsOrchestrator();
-  const attemptedRef = useRef(false);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryDelayMsRef = useRef(INITIAL_RETRY_DELAY_MS);
+  const inFlightRef = useRef(false);
 
   useEffect(() => {
-    if (!isAuthenticated || !isReady || attemptedRef.current) {
-      return;
+    let cancelled = false;
+    const clearRetryTimer = () => {
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    };
+
+    if (!isAuthenticated || !isReady) {
+      clearRetryTimer();
+      retryDelayMsRef.current = INITIAL_RETRY_DELAY_MS;
+      inFlightRef.current = false;
+      return () => {
+        cancelled = true;
+      };
     }
-    attemptedRef.current = true;
-    void rematerializeRemoteVfsStateIfNeeded().catch((error) => {
-      console.warn('VFS rematerialization bootstrap failed:', error);
-    });
+
+    const runRematerialization = () => {
+      if (cancelled || inFlightRef.current || retryTimerRef.current) {
+        return;
+      }
+
+      inFlightRef.current = true;
+      void rematerializeRemoteVfsStateIfNeeded()
+        .then(() => {
+          retryDelayMsRef.current = INITIAL_RETRY_DELAY_MS;
+        })
+        .catch((error) => {
+          console.warn('VFS rematerialization bootstrap failed:', error);
+          const delayMs = retryDelayMsRef.current;
+          retryDelayMsRef.current = Math.min(
+            retryDelayMsRef.current * 2,
+            MAX_RETRY_DELAY_MS
+          );
+          retryTimerRef.current = setTimeout(() => {
+            retryTimerRef.current = null;
+            inFlightRef.current = false;
+            runRematerialization();
+          }, delayMs);
+        })
+        .finally(() => {
+          if (!retryTimerRef.current) {
+            inFlightRef.current = false;
+          }
+        });
+    };
+
+    runRematerialization();
+
+    return () => {
+      cancelled = true;
+      clearRetryTimer();
+      inFlightRef.current = false;
+    };
   }, [isAuthenticated, isReady]);
 
   return null;

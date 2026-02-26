@@ -73,164 +73,150 @@ function parseTimestampMs(
   return parsed;
 }
 
-async function fetchAllSyncItems(): Promise<VfsSyncItem[]> {
-  const items: VfsSyncItem[] = [];
+async function forEachSyncItem(
+  onItem: (item: VfsSyncItem) => void | Promise<void>
+): Promise<void> {
   let cursor: string | undefined;
 
   while (true) {
     const page = await api.vfs.getSync(cursor, SYNC_PAGE_LIMIT);
-    items.push(...page.items);
+    for (const item of page.items) {
+      await onItem(item);
+    }
 
     if (!page.hasMore || !page.nextCursor) {
       break;
     }
     cursor = page.nextCursor;
   }
-
-  return items;
 }
 
-async function fetchAllCrdtItems(): Promise<VfsCrdtSyncItem[]> {
-  const items: VfsCrdtSyncItem[] = [];
+async function forEachCrdtItem(
+  onItem: (item: VfsCrdtSyncItem) => void | Promise<void>
+): Promise<void> {
   let cursor: string | undefined;
 
   while (true) {
     const page = await api.vfs.getCrdtSync(cursor, SYNC_PAGE_LIMIT);
-    items.push(...page.items);
+    for (const item of page.items) {
+      await onItem(item);
+    }
 
     if (!page.hasMore || !page.nextCursor) {
       break;
     }
     cursor = page.nextCursor;
   }
-
-  return items;
 }
 
-function buildRegistryState(
-  syncItems: readonly VfsSyncItem[]
-): Map<string, RegistryRowState> {
-  const registryById = new Map<string, RegistryRowState>();
-  for (const item of syncItems) {
-    if (item.changeType === 'delete') {
-      registryById.delete(item.itemId);
-      continue;
-    }
-    if (!item.objectType) {
-      continue;
-    }
+function applySyncItemToRegistryState(
+  registryById: Map<string, RegistryRowState>,
+  item: VfsSyncItem
+): void {
+  if (item.changeType === 'delete') {
+    registryById.delete(item.itemId);
+    return;
+  }
+  if (!item.objectType) {
+    return;
+  }
 
-    const createdAtMs = parseTimestampMs(
-      item.createdAt,
-      parseTimestampMs(item.changedAt, Date.now())
-    );
-    registryById.set(item.itemId, {
-      id: item.itemId,
-      objectType: item.objectType,
-      ownerId: item.ownerId,
-      createdAtMs
+  const createdAtMs = parseTimestampMs(
+    item.createdAt,
+    parseTimestampMs(item.changedAt, Date.now())
+  );
+  registryById.set(item.itemId, {
+    id: item.itemId,
+    objectType: item.objectType,
+    ownerId: item.ownerId,
+    createdAtMs
+  });
+}
+
+function applyCrdtItemToDerivedState(
+  item: VfsCrdtSyncItem,
+  registryIds: ReadonlySet<string>,
+  itemStateById: Map<string, ItemStateRowState>,
+  linksByKey: Map<string, LinkRowState>,
+  aclByKey: Map<string, AclRowState>
+): void {
+  const occurredAtMs = parseTimestampMs(item.occurredAt, Date.now());
+  if (item.opType === 'item_upsert') {
+    if (!registryIds.has(item.itemId)) {
+      return;
+    }
+    itemStateById.set(item.itemId, {
+      itemId: item.itemId,
+      encryptedPayload: item.encryptedPayload ?? null,
+      keyEpoch: item.keyEpoch ?? null,
+      encryptionNonce: item.encryptionNonce ?? null,
+      encryptionAad: item.encryptionAad ?? null,
+      encryptionSignature: item.encryptionSignature ?? null,
+      updatedAtMs: occurredAtMs,
+      deletedAtMs: null
     });
+    return;
   }
-  return registryById;
-}
 
-function buildCrdtDerivedState(
-  crdtItems: readonly VfsCrdtSyncItem[],
-  registryIds: ReadonlySet<string>
-): {
-  itemStateById: Map<string, ItemStateRowState>;
-  linksByKey: Map<string, LinkRowState>;
-  aclByKey: Map<string, AclRowState>;
-} {
-  const itemStateById = new Map<string, ItemStateRowState>();
-  const linksByKey = new Map<string, LinkRowState>();
-  const aclByKey = new Map<string, AclRowState>();
+  if (item.opType === 'item_delete') {
+    if (!registryIds.has(item.itemId)) {
+      return;
+    }
+    itemStateById.set(item.itemId, {
+      itemId: item.itemId,
+      encryptedPayload: null,
+      keyEpoch: null,
+      encryptionNonce: null,
+      encryptionAad: null,
+      encryptionSignature: null,
+      updatedAtMs: occurredAtMs,
+      deletedAtMs: occurredAtMs
+    });
+    return;
+  }
 
-  for (const item of crdtItems) {
-    const occurredAtMs = parseTimestampMs(item.occurredAt, Date.now());
-    if (item.opType === 'item_upsert') {
-      if (!registryIds.has(item.itemId)) {
-        continue;
-      }
-      itemStateById.set(item.itemId, {
+  if (item.opType === 'link_add' || item.opType === 'link_remove') {
+    if (!item.parentId || !item.childId) {
+      return;
+    }
+    if (!registryIds.has(item.parentId) || !registryIds.has(item.childId)) {
+      return;
+    }
+
+    const key = `${item.parentId}::${item.childId}`;
+    if (item.opType === 'link_remove') {
+      linksByKey.delete(key);
+    } else {
+      linksByKey.set(key, {
+        parentId: item.parentId,
+        childId: item.childId
+      });
+    }
+    return;
+  }
+
+  if (item.opType === 'acl_add' || item.opType === 'acl_remove') {
+    if (!item.principalType || !item.principalId) {
+      return;
+    }
+    if (!registryIds.has(item.itemId)) {
+      return;
+    }
+
+    const key = `${item.itemId}::${item.principalType}::${item.principalId}`;
+    if (item.opType === 'acl_remove') {
+      aclByKey.delete(key);
+    } else if (item.accessLevel) {
+      aclByKey.set(key, {
         itemId: item.itemId,
-        encryptedPayload: item.encryptedPayload ?? null,
+        principalType: item.principalType,
+        principalId: item.principalId,
+        accessLevel: item.accessLevel,
         keyEpoch: item.keyEpoch ?? null,
-        encryptionNonce: item.encryptionNonce ?? null,
-        encryptionAad: item.encryptionAad ?? null,
-        encryptionSignature: item.encryptionSignature ?? null,
-        updatedAtMs: occurredAtMs,
-        deletedAtMs: null
+        updatedAtMs: occurredAtMs
       });
-      continue;
-    }
-
-    if (item.opType === 'item_delete') {
-      if (!registryIds.has(item.itemId)) {
-        continue;
-      }
-      itemStateById.set(item.itemId, {
-        itemId: item.itemId,
-        encryptedPayload: null,
-        keyEpoch: null,
-        encryptionNonce: null,
-        encryptionAad: null,
-        encryptionSignature: null,
-        updatedAtMs: occurredAtMs,
-        deletedAtMs: occurredAtMs
-      });
-      continue;
-    }
-
-    if (item.opType === 'link_add' || item.opType === 'link_remove') {
-      if (!item.parentId || !item.childId) {
-        continue;
-      }
-      if (!registryIds.has(item.parentId) || !registryIds.has(item.childId)) {
-        continue;
-      }
-
-      const key = `${item.parentId}::${item.childId}`;
-      if (item.opType === 'link_remove') {
-        linksByKey.delete(key);
-      } else {
-        linksByKey.set(key, {
-          parentId: item.parentId,
-          childId: item.childId
-        });
-      }
-      continue;
-    }
-
-    if (item.opType === 'acl_add' || item.opType === 'acl_remove') {
-      if (!item.principalType || !item.principalId) {
-        continue;
-      }
-      if (!registryIds.has(item.itemId)) {
-        continue;
-      }
-
-      const key = `${item.itemId}::${item.principalType}::${item.principalId}`;
-      if (item.opType === 'acl_remove') {
-        aclByKey.delete(key);
-      } else if (item.accessLevel) {
-        aclByKey.set(key, {
-          itemId: item.itemId,
-          principalType: item.principalType,
-          principalId: item.principalId,
-          accessLevel: item.accessLevel,
-          keyEpoch: item.keyEpoch ?? null,
-          updatedAtMs: occurredAtMs
-        });
-      }
     }
   }
-
-  return {
-    itemStateById,
-    linksByKey,
-    aclByKey
-  };
 }
 
 async function isLocalRegistryEmpty(): Promise<boolean> {
@@ -265,17 +251,23 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
     return false;
   }
 
-  const [syncItems, crdtItems] = await Promise.all([
-    fetchAllSyncItems(),
-    fetchAllCrdtItems()
-  ]);
-
-  const registryById = buildRegistryState(syncItems);
+  const registryById = new Map<string, RegistryRowState>();
+  await forEachSyncItem((item) => {
+    applySyncItemToRegistryState(registryById, item);
+  });
   const registryIds = new Set(registryById.keys());
-  const { itemStateById, linksByKey, aclByKey } = buildCrdtDerivedState(
-    crdtItems,
-    registryIds
-  );
+  const itemStateById = new Map<string, ItemStateRowState>();
+  const linksByKey = new Map<string, LinkRowState>();
+  const aclByKey = new Map<string, AclRowState>();
+  await forEachCrdtItem((item) => {
+    applyCrdtItemToDerivedState(
+      item,
+      registryIds,
+      itemStateById,
+      linksByKey,
+      aclByKey
+    );
+  });
 
   const registryRows = Array.from(registryById.values()).map((entry) => ({
     id: entry.id,

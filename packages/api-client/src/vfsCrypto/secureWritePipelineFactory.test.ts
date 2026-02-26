@@ -19,7 +19,9 @@ describe('createVfsSecurePipelineBundle', () => {
     vi.clearAllMocks();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
     global.fetch = vi.fn();
-    localStorage.clear();
+    if (typeof localStorage?.clear === 'function') {
+      localStorage.clear();
+    }
   });
 
   afterEach(() => {

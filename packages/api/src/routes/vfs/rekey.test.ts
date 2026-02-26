@@ -214,6 +214,7 @@ describe('VFS routes (rekey)', () => {
       expect(updateCall?.[1]?.[2]).toBe(2);
       expect(updateCall?.[1]?.[3]).toBe('item-123');
       expect(updateCall?.[1]?.[4]).toBe('user-alice');
+      expect(updateCall?.[1]?.[5]).toEqual(['user', 'group', 'organization']);
     });
 
     it('returns 200 with zero wraps when no ACL entries match', async () => {
@@ -294,6 +295,28 @@ describe('VFS routes (rekey)', () => {
         newEpoch: 3,
         wrapsApplied: 2
       });
+    });
+
+    it('matches recipient id across user/group/organization principals', async () => {
+      const authHeader = await createAuthHeader();
+
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'item-789', owner_id: mockUserId }]
+      });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'acl-any-principal' }],
+        rowCount: 1
+      });
+
+      const response = await request(app)
+        .post('/v1/vfs/items/item-789/rekey')
+        .set('Authorization', authHeader)
+        .send(validPayload);
+
+      expect(response.status).toBe(200);
+      const updateCall = mockQuery.mock.calls[1];
+      expect(updateCall?.[0]).toContain('principal_type = ANY');
+      expect(updateCall?.[1]?.[5]).toEqual(['user', 'group', 'organization']);
     });
 
     it('accepts all valid reason values', async () => {
