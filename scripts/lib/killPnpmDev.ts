@@ -1,7 +1,7 @@
 #!/usr/bin/env -S pnpm exec tsx
 /**
  * Kill existing pnpm dev processes running from this repo.
- * Usage: tsx scripts/killPnpmDev.ts
+ * Usage: tsx scripts/lib/killPnpmDev.ts
  *
  * Note: relies on `ps` and `lsof` output formats commonly available on macOS.
  *
@@ -22,7 +22,7 @@ import {
   killPid,
   resolveRepoRoot,
   sleep
-} from './lib/processHelpers.ts';
+} from './processHelpers.ts';
 
 type ProcessInfo = {
   pid: number;

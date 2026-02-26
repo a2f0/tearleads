@@ -8,7 +8,7 @@
     "dist"
   ],
   "scripts": {
-    "dev": "tsx ../../scripts/killPnpmDev.ts && tsx watch --clear-screen=false src/index.ts",
+    "dev": "tsx ../../scripts/lib/killPnpmDev.ts && tsx watch --clear-screen=false src/index.ts",
     "build": "tsc && pnpm buildOpenapi",
     "buildOpenapi": "tsx scripts/generateOpenapi.ts",
     "createAccount": "tsx scripts/createAccount.ts",
