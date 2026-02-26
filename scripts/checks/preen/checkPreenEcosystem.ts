@@ -34,6 +34,8 @@ const parseMode = (args: string[]): Mode => {
     default:
       usage();
   }
+
+  throw new Error('Unreachable mode parsing branch');
 };
 
 const mode = parseMode(process.argv.slice(2));
@@ -92,8 +94,9 @@ const collectLineMatches = (filePath: string, pattern: RegExp): string[] => {
   const lines = readText(filePath).split('\n');
   const matches: string[] = [];
   for (let index = 0; index < lines.length; index += 1) {
-    if (pattern.test(lines[index])) {
-      matches.push(`${index + 1}:${lines[index]}`);
+    const line = lines[index] ?? '';
+    if (pattern.test(line)) {
+      matches.push(`${index + 1}:${line}`);
     }
   }
   return matches;
