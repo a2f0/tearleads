@@ -16,7 +16,10 @@ export default mergeConfig(
           'src/**/*.test.ts',
           'src/index.ts',
           'src/**/index.ts',
-          'src/generated/**/*'
+          'src/generated/**/*',
+          // Migration runner and types are tested via @tearleads/api-test-utils
+          // integration tests that exercise runMigrations with a real PGlite pool.
+          'src/migrations/**/*'
         ],
         thresholds: {
           statements: 100,
