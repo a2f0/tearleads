@@ -604,6 +604,9 @@ importers:
 
   packages/bob-and-alice:
     dependencies:
+      '@tearleads/api-test-utils':
+        specifier: workspace:*
+        version: link:../api-test-utils
       '@tearleads/db':
         specifier: workspace:*
         version: link:../db

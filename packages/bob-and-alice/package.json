@@ -23,6 +23,7 @@
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "dependencies": {
+    "@tearleads/api-test-utils": "workspace:*",
     "@tearleads/db": "workspace:*",
     "@tearleads/db-test-utils": "workspace:*",
     "@tearleads/local-write-orchestrator": "workspace:*",
