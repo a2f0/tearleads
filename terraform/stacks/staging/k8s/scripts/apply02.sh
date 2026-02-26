@@ -120,10 +120,10 @@ if [[ -n "$TS_AUTH_KEY" && "$TS_AUTH_KEY" != "null" ]]; then
   TS_VARS_FILE=$(mktemp)
   chmod 600 "$TS_VARS_FILE"
   printf 'tailscale_auth_key: "%s"\n' "$TS_AUTH_KEY" > "$TS_VARS_FILE"
-  "$REPO_ROOT/ansible/scripts/run-k8s.sh" --extra-vars "@$TS_VARS_FILE"
+  "$REPO_ROOT/ansible/scripts/run-k8s-staging.sh" --extra-vars "@$TS_VARS_FILE"
   rm -f "$TS_VARS_FILE"
 else
-  "$REPO_ROOT/ansible/scripts/run-k8s.sh"
+  "$REPO_ROOT/ansible/scripts/run-k8s-staging.sh"
 fi
 
 check_ecr_repositories

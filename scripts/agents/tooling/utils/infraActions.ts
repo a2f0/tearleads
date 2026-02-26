@@ -7,7 +7,7 @@ const TERRAFORM_STACK_SCRIPTS: Record<string, ReadonlyArray<string>> = {
 };
 
 const ANSIBLE_BOOTSTRAP_SCRIPTS: Record<string, string> = {
-  'staging-k8s': 'ansible/scripts/run-k8s.sh',
+  'staging-k8s': 'ansible/scripts/run-k8s-staging.sh',
   'prod-k8s': 'ansible/scripts/run-k8s-prod.sh',
   'prod-vpn': 'ansible/scripts/run-vpn-prod.sh'
 };
