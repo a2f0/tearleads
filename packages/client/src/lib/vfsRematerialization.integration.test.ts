@@ -163,11 +163,12 @@ describe('vfsRematerialization integration', () => {
       const aclRows = await db.select().from(vfsAclEntries);
       expect(aclRows).toEqual([
         expect.objectContaining({
-          id: 'acl:child-item:user:user-1',
+          id: 'source-3',
           itemId: 'child-item',
           principalType: 'user',
           principalId: 'user-1',
-          accessLevel: 'admin'
+          accessLevel: 'admin',
+          grantedBy: 'user-1'
         })
       ]);
     }
