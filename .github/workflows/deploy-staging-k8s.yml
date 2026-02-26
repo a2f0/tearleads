@@ -56,6 +56,7 @@ jobs:
             exit 1
           fi
           echo "Resolved staging-k8s to ${TAILSCALE_IP}"
+          sudo sed -i '/\bstaging-k8s\b/d' /etc/hosts
           echo "${TAILSCALE_IP} staging-k8s" | sudo tee -a /etc/hosts
 
       - name: Configure kubeconfig
