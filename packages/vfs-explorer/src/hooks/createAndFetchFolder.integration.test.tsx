@@ -297,7 +297,7 @@ describe('VFS Folder Integration: Create and Fetch', () => {
     );
   });
 
-  it('shows email folders linked to VFS_ROOT as children (#2274)', async () => {
+  it('excludes emailFolder objects from the folder tree (#2274)', async () => {
     await withRealDatabase(
       async ({ db }) => {
         // Seed VFS root
@@ -326,33 +326,25 @@ describe('VFS Folder Integration: Create and Fetch', () => {
           createdAt: new Date()
         });
 
-        // Seed email system folders linked to VFS_ROOT (as initializeSystemFolders does)
-        const emailFolders = ['Inbox', 'Sent', 'Drafts', 'Trash', 'Spam'];
-        for (const name of emailFolders) {
+        // Seed email system folders with objectType 'emailFolder'
+        const emailFolderNames = ['Inbox', 'Sent', 'Drafts', 'Trash', 'Spam'];
+        for (const name of emailFolderNames) {
           const emailId = `email-${name.toLowerCase()}`;
           await db.insert(vfsRegistry).values({
             id: emailId,
-            objectType: 'folder',
+            objectType: 'emailFolder',
             ownerId: null,
             encryptedName: name,
-            icon: 'email-folder',
-            createdAt: new Date()
-          });
-          await db.insert(vfsLinks).values({
-            id: `link-email-${name.toLowerCase()}`,
-            parentId: VFS_ROOT_ID,
-            childId: emailId,
-            wrappedSessionKey: '',
             createdAt: new Date()
           });
         }
 
-        // Verify all folders exist in DB
-        const allFolders = await db
+        // Verify email folders exist in DB with correct type
+        const emailFolders = await db
           .select({ id: vfsRegistry.id })
           .from(vfsRegistry)
-          .where(eq(vfsRegistry.objectType, 'folder'));
-        expect(allFolders).toHaveLength(7); // root + user + 5 email
+          .where(eq(vfsRegistry.objectType, 'emailFolder'));
+        expect(emailFolders).toHaveLength(5);
 
         const wrapper = createTestWrapper(
           db as ReturnType<VfsExplorerProviderProps['getDatabase']>
@@ -366,16 +358,13 @@ describe('VFS Folder Integration: Create and Fetch', () => {
           expect(foldersResult.current.hasFetched).toBe(true);
         });
 
-        // VFS root should appear with all children (user folder + email folders)
+        // Only VFS root + user folder should appear (emailFolder type excluded)
         expect(foldersResult.current.folders).toHaveLength(1);
         expect(foldersResult.current.folders[0]?.id).toBe(VFS_ROOT_ID);
-        expect(foldersResult.current.folders[0]?.children).toHaveLength(6);
-        const childNames =
-          foldersResult.current.folders[0]?.children?.map((c) => c.name) ?? [];
-        expect(childNames).toContain('My Documents');
-        for (const name of emailFolders) {
-          expect(childNames).toContain(name);
-        }
+        expect(foldersResult.current.folders[0]?.children).toHaveLength(1);
+        expect(foldersResult.current.folders[0]?.children?.[0]?.name).toBe(
+          'My Documents'
+        );
       },
       { migrations: vfsTestMigrations }
     );

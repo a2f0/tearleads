@@ -25,6 +25,7 @@ export type VfsObjectType =
   | 'conversation'
   // Collections
   | 'folder'
+  | 'emailFolder'
   | 'playlist'
   | 'album'
   | 'contactGroup'

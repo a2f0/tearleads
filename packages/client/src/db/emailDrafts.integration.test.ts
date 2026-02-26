@@ -134,10 +134,9 @@ describe('email drafts integration', () => {
 
         await db.insert(vfsRegistry).values({
           id: draftsFolderId,
-          objectType: 'folder',
+          objectType: 'emailFolder',
           ownerId: null,
           encryptedName: 'Drafts',
-          icon: 'email-folder',
           createdAt: now
         });
 

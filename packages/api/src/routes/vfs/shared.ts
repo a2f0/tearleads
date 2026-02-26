@@ -15,6 +15,7 @@ const VALID_OBJECT_TYPES: VfsObjectType[] = [
   'email',
   'conversation',
   'folder',
+  'emailFolder',
   'playlist',
   'album',
   'contactGroup',

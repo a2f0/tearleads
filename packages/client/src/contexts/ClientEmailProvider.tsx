@@ -10,7 +10,6 @@ import {
   SYSTEM_FOLDER_TYPES
 } from '@tearleads/email';
 import emailPackageJson from '@tearleads/email/package.json';
-import { VFS_ROOT_ID } from '@tearleads/vfs-explorer';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { BackLink } from '@/components/ui/back-link';
@@ -40,8 +39,6 @@ import {
 } from '@/db/schema';
 import { API_BASE_URL } from '@/lib/api';
 import { getAuthHeaderValue } from '@/lib/authStorage';
-
-const EMAIL_FOLDER_ICON = 'email-folder';
 
 function deriveFolderType(name: string | null): EmailFolderType {
   const normalized = (name ?? '').trim().toLowerCase();
@@ -101,12 +98,7 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
       })
       .from(vfsRegistry)
       .leftJoin(vfsLinks, eq(vfsRegistry.id, vfsLinks.childId))
-      .where(
-        and(
-          eq(vfsRegistry.objectType, 'folder'),
-          eq(vfsRegistry.icon, EMAIL_FOLDER_ICON)
-        )
-      )
+      .where(eq(vfsRegistry.objectType, 'emailFolder'))
       .orderBy(asc(vfsRegistry.encryptedName));
 
     const unreadRows = await db
@@ -142,10 +134,9 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
         db.transaction(async (tx) => {
           await tx.insert(vfsRegistry).values({
             id: folderId,
-            objectType: 'folder',
+            objectType: 'emailFolder',
             ownerId: null,
             encryptedName: name,
-            icon: EMAIL_FOLDER_ICON,
             createdAt: now
           });
 
@@ -232,8 +223,7 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
         .from(vfsRegistry)
         .where(
           and(
-            eq(vfsRegistry.objectType, 'folder'),
-            eq(vfsRegistry.icon, EMAIL_FOLDER_ICON),
+            eq(vfsRegistry.objectType, 'emailFolder'),
             eq(vfsRegistry.encryptedName, folderName)
           )
         );
@@ -243,37 +233,12 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
         const now = new Date();
 
         await runLocalWrite(async () => {
-          await db.transaction(async (tx) => {
-            // Ensure VFS root exists
-            await tx
-              .insert(vfsRegistry)
-              .values({
-                id: VFS_ROOT_ID,
-                objectType: 'folder',
-                ownerId: null,
-                encryptedName: 'VFS Root',
-                createdAt: now
-              })
-              .onConflictDoNothing();
-
-            // Create the email system folder
-            await tx.insert(vfsRegistry).values({
-              id: folderId,
-              objectType: 'folder',
-              ownerId: null,
-              encryptedName: folderName,
-              icon: EMAIL_FOLDER_ICON,
-              createdAt: now
-            });
-
-            // Link to VFS root so it appears in the folder tree
-            await tx.insert(vfsLinks).values({
-              id: crypto.randomUUID(),
-              parentId: VFS_ROOT_ID,
-              childId: folderId,
-              wrappedSessionKey: '',
-              createdAt: now
-            });
+          await db.insert(vfsRegistry).values({
+            id: folderId,
+            objectType: 'emailFolder',
+            ownerId: null,
+            encryptedName: folderName,
+            createdAt: now
           });
         });
       }
@@ -293,8 +258,7 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
         .from(vfsRegistry)
         .where(
           and(
-            eq(vfsRegistry.objectType, 'folder'),
-            eq(vfsRegistry.icon, EMAIL_FOLDER_ICON),
+            eq(vfsRegistry.objectType, 'emailFolder'),
             eq(vfsRegistry.encryptedName, folderName)
           )
         );
