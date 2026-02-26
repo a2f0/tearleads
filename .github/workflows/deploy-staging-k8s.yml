@@ -46,6 +46,19 @@ jobs:
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
 
+      - name: Resolve Tailscale IP for staging-k8s
+        run: |
+          set -eu
+          TAILSCALE_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName=="staging-k8s") | .TailscaleIPs[0]')
+          if [ -z "$TAILSCALE_IP" ]; then
+            echo "::error::Could not resolve Tailscale IP for staging-k8s"
+            tailscale status
+            exit 1
+          fi
+          echo "Resolved staging-k8s to ${TAILSCALE_IP}"
+          sudo sed -i '/\bstaging-k8s\b/d' /etc/hosts
+          echo "${TAILSCALE_IP} staging-k8s" | sudo tee -a /etc/hosts
+
       - name: Configure kubeconfig
         run: |
           set -eu
