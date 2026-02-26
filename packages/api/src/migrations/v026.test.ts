@@ -21,7 +21,9 @@ describe('v026 migration', () => {
       'OLD.access_level IS DISTINCT FROM NEW.access_level'
     );
     expect(queries).toContain('OLD.expires_at IS DISTINCT FROM NEW.expires_at');
-    expect(queries).toContain('OLD.revoked_at IS NULL AND NEW.revoked_at IS NULL');
+    expect(queries).toContain(
+      'OLD.revoked_at IS NULL AND NEW.revoked_at IS NULL'
+    );
     expect(queries).toContain(
       'OLD.revoked_at IS NULL AND NEW.revoked_at IS NOT NULL'
     );
