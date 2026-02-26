@@ -44,9 +44,7 @@ describe('groupSharingEdgeCases', () => {
       return 'read';
     };
 
-    for (let i = 0; i < groupCount; i++) {
-      const gid = groupIds[i];
-      if (!gid) throw new Error(`Missing groupId at index ${i}`);
+    for (const [i, gid] of groupIds.entries()) {
       alice.queueCrdtOp({
         opType: 'acl_add',
         itemId,
@@ -65,9 +63,7 @@ describe('groupSharingEdgeCases', () => {
       .acl.filter((e) => e.itemId === itemId && e.principalType === 'group');
     expect(serverGroupAcl).toHaveLength(groupCount);
 
-    for (let i = 0; i < groupCount; i++) {
-      const gid = groupIds[i];
-      if (!gid) throw new Error(`Missing groupId at index ${i}`);
+    for (const [i, gid] of groupIds.entries()) {
       assertServerHasAclEntry({
         server: harness.server,
         itemId,

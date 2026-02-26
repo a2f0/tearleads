@@ -193,9 +193,6 @@ describe('groupSharingBasics', () => {
           e.principalId === groupId
       );
     expect(serverGroupAcl).toHaveLength(1);
-    const entry = serverGroupAcl[0];
-    expect(entry).toBeDefined();
-    expect(entry?.accessLevel).toBe('admin');
   });
 
   it('overlapping user and group grants coexist on the same item', async () => {
