@@ -10,6 +10,21 @@ import {
   SYSTEM_ALBUM_TYPES
 } from './albumTypes';
 
+/**
+ * Module-level guard that deduplicates initializeSystemAlbums calls across
+ * all concurrent hook instances (e.g. PhotosWindow, PhotosAlbumsSidebar,
+ * NewAlbumDialog all mount simultaneously). Keyed by database instance ID
+ * so a database reset re-runs initialization.
+ */
+const systemAlbumInitPromises = new Map<string, Promise<void>>();
+
+/**
+ * Reset the module-level guard. Exposed for tests only.
+ */
+export function resetSystemAlbumInitGuard(): void {
+  systemAlbumInitPromises.clear();
+}
+
 export type { PhotoAlbum };
 
 interface UsePhotoAlbumsResult {
@@ -133,60 +148,63 @@ export function usePhotoAlbums(): UsePhotoAlbumsResult {
       const db = getDatabase();
 
       for (const albumType of SYSTEM_ALBUM_TYPES) {
-        // Check if system album already exists
-        const existing = await db
-          .select({ id: albums.id })
-          .from(albums)
-          .where(eq(albums.albumType, albumType));
+        // Use a transaction so the check-then-insert is atomic.
+        // Without this, concurrent callers can all read "0 existing"
+        // and each insert a duplicate system album.
+        await db.transaction(async (tx) => {
+          const existing = await tx
+            .select({ id: albums.id })
+            .from(albums)
+            .where(eq(albums.albumType, albumType));
 
-        if (existing.length === 0) {
-          const albumId = crypto.randomUUID();
-          const now = new Date();
-          const albumName = SYSTEM_ALBUM_NAMES[albumType];
+          if (existing.length === 0) {
+            const albumId = crypto.randomUUID();
+            const now = new Date();
+            const albumName = SYSTEM_ALBUM_NAMES[albumType];
 
-          // Create registry entry
-          await db.insert(vfsRegistry).values({
-            id: albumId,
-            objectType: 'album',
-            ownerId: null,
-            createdAt: now
-          });
+            await tx.insert(vfsRegistry).values({
+              id: albumId,
+              objectType: 'album',
+              ownerId: null,
+              createdAt: now
+            });
 
-          // Create album metadata with system type
-          await db.insert(albums).values({
-            id: albumId,
-            encryptedName: albumName,
-            encryptedDescription: null,
-            coverPhotoId: null,
-            albumType
-          });
-        }
+            await tx.insert(albums).values({
+              id: albumId,
+              encryptedName: albumName,
+              encryptedDescription: null,
+              coverPhotoId: null,
+              albumType
+            });
+          }
+        });
       }
     } catch (err) {
-      // Silently ignore initialization errors - they'll be retried on next mount
-      // or when the user manually interacts with albums
       if (!isDatabaseNotInitializedError(err)) {
         console.warn('Failed to initialize system albums:', err);
       }
     }
   }, [isUnlocked]);
 
-  const systemAlbumsInitializedRef = useRef(false);
-
   useEffect(() => {
-    if (isUnlocked && !systemAlbumsInitializedRef.current) {
-      systemAlbumsInitializedRef.current = true;
-      initializeSystemAlbums()
-        .then(() => {
-          fetchAlbums();
-        })
-        .catch(() => {
-          // Error already handled in initializeSystemAlbums
-          // Still attempt to fetch existing albums
-          fetchAlbums();
-        });
+    if (!isUnlocked) return;
+
+    // Module-level guard: only the first hook instance for a given database
+    // instance triggers initialization. All other concurrent instances
+    // (e.g. from sibling components) share the same promise.
+    if (!systemAlbumInitPromises.has(currentInstanceId)) {
+      const promise = initializeSystemAlbums()
+        .then(() => fetchAlbums())
+        .catch(() => fetchAlbums());
+      systemAlbumInitPromises.set(currentInstanceId, promise);
+    } else {
+      // Another instance already started init; wait for it then fetch
+      systemAlbumInitPromises
+        .get(currentInstanceId)
+        ?.then(() => fetchAlbums())
+        .catch(() => fetchAlbums());
     }
-  }, [isUnlocked, initializeSystemAlbums, fetchAlbums]);
+  }, [isUnlocked, currentInstanceId, initializeSystemAlbums, fetchAlbums]);
 
   useEffect(() => {
     const needsFetch =
