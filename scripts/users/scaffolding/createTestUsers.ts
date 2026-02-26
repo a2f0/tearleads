@@ -68,7 +68,11 @@ async function crossLinkOrganizations(
       await client.query(
         `INSERT INTO user_organizations (user_id, organization_id, joined_at, is_admin)
          VALUES ($1, $2, $3, false)`,
-        [result.userId, otherResult.personalOrganizationId, new Date().toISOString()]
+        [
+          result.userId,
+          otherResult.personalOrganizationId,
+          new Date().toISOString()
+        ]
       );
       console.log(`Added ${name} as member of ${otherName}'s personal org.`);
     }
