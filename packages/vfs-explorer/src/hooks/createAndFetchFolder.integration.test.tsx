@@ -8,7 +8,7 @@
 import { vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
 import { vfsTestMigrations, withRealDatabase } from '@tearleads/db-test-utils';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VFS_ROOT_ID } from '../constants';

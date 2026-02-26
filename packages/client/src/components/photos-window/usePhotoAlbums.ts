@@ -187,7 +187,7 @@ export function usePhotoAlbums(): UsePhotoAlbumsResult {
   }, [isUnlocked]);
 
   useEffect(() => {
-    if (!isUnlocked) return;
+    if (!isUnlocked || !currentInstanceId) return;
 
     // Module-level guard: only the first hook instance for a given database
     // instance triggers initialization. All other concurrent instances
