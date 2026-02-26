@@ -250,6 +250,26 @@ describe('replica pool', () => {
     expect(secondReplica).toBeDefined();
   });
 
+  it('revalidates a recreated replica pool before routing reads to it', async () => {
+    setReleaseEnv();
+    process.env['POSTGRES_REPLICA_HOST'] = 'replica-a.db';
+    const { getPool } = await loadPostgresModule();
+
+    await getPool('read');
+
+    process.env['POSTGRES_REPLICA_HOST'] = 'replica-b.db';
+    poolQueryMock.mockRejectedValueOnce(new Error('replica-b down'));
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+
+    const readPool = await getPool('read');
+    const primaryPool = await getPool('write');
+
+    expect(readPool).toBe(primaryPool);
+    consoleErrorSpy.mockRestore();
+  });
+
   it('replica pool includes SSL config when POSTGRES_SSL is set', async () => {
     setReleaseEnv();
     process.env['POSTGRES_REPLICA_HOST'] = 'replica.db';
@@ -299,5 +319,68 @@ describe('replica pool', () => {
 
     expect(readPool).toBe(primaryPool);
     consoleWarnSpy.mockRestore();
+  });
+
+  it('keeps routing reads to replica when LSN replay is caught up', async () => {
+    setReleaseEnv();
+    process.env['POSTGRES_REPLICA_HOST'] = 'replica.db';
+    process.env['POSTGRES_REPLICA_MAX_LAG_SECONDS'] = '5';
+    poolQueryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          pg_is_in_recovery: true,
+          replay_lag_seconds: 30,
+          receive_lsn: '0/16B6A78',
+          replay_lsn: '0/16B6A78'
+        }
+      ]
+    });
+    const { getPool } = await loadPostgresModule();
+
+    const readPool = await getPool('read');
+    const writePool = await getPool('write');
+
+    expect(readPool).not.toBe(writePool);
+  });
+
+  it('shares a single in-flight validation for concurrent read pool lookups', async () => {
+    setReleaseEnv();
+    process.env['POSTGRES_REPLICA_HOST'] = 'replica.db';
+    let resolveValidation: ((value: unknown) => void) | null = null;
+    poolQueryMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveValidation = resolve;
+        })
+    );
+
+    const { getPool } = await loadPostgresModule();
+
+    const read1 = getPool('read');
+    const read2 = getPool('read');
+    const read3 = getPool('read');
+
+    for (let i = 0; i < 5 && poolQueryMock.mock.calls.length === 0; i += 1) {
+      await Promise.resolve();
+    }
+    expect(poolQueryMock).toHaveBeenCalledTimes(1);
+
+    if (!resolveValidation) {
+      throw new Error('expected validation resolver');
+    }
+    resolveValidation({
+      rows: [
+        {
+          pg_is_in_recovery: true,
+          replay_lag_seconds: 0,
+          receive_lsn: '0/16B6A78',
+          replay_lsn: '0/16B6A78'
+        }
+      ]
+    });
+
+    const [pool1, pool2, pool3] = await Promise.all([read1, read2, read3]);
+    expect(pool1).toBe(pool2);
+    expect(pool2).toBe(pool3);
   });
 });

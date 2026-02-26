@@ -15,12 +15,25 @@ export function VfsRematerializationBootstrap() {
 
   useEffect(() => {
     let cancelled = false;
+    const clearRetryTimer = () => {
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    };
+
+    if (!isAuthenticated || !isReady) {
+      clearRetryTimer();
+      retryDelayMsRef.current = INITIAL_RETRY_DELAY_MS;
+      inFlightRef.current = false;
+      return () => {
+        cancelled = true;
+      };
+    }
 
     const runRematerialization = () => {
       if (
         cancelled ||
-        !isAuthenticated ||
-        !isReady ||
         inFlightRef.current ||
         retryTimerRef.current
       ) {
@@ -56,17 +69,10 @@ export function VfsRematerializationBootstrap() {
 
     return () => {
       cancelled = true;
+      clearRetryTimer();
+      inFlightRef.current = false;
     };
   }, [isAuthenticated, isReady]);
-
-  useEffect(() => {
-    return () => {
-      if (retryTimerRef.current) {
-        clearTimeout(retryTimerRef.current);
-        retryTimerRef.current = null;
-      }
-    };
-  }, []);
 
   return null;
 }

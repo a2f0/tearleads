@@ -5,6 +5,10 @@ import {
 } from '@tearleads/shared';
 import type { Pool as PgPool, PoolConfig } from 'pg';
 import pg from 'pg';
+import {
+  logPoolStats,
+  validateReplicaHealth
+} from './postgresPoolObservability.js';
 
 const { Pool } = pg;
 
@@ -37,7 +41,6 @@ const RELEASE_ENV_KEYS = {
 };
 const REPLICA_HEALTH_CHECK_INTERVAL_MS = 30_000;
 const REPLICA_VALIDATE_MIN_INTERVAL_MS = 2_000;
-const DEFAULT_REPLICA_MAX_LAG_SECONDS = 5;
 
 function getEnvValue(keys: string[]): string | undefined {
   for (const key of keys) {
@@ -243,65 +246,6 @@ function startReplicaHealthCheck(
   }, intervalMs);
 }
 
-function parseReplicaMaxLagSeconds(): number {
-  const raw = process.env['POSTGRES_REPLICA_MAX_LAG_SECONDS'];
-  if (!raw) {
-    return DEFAULT_REPLICA_MAX_LAG_SECONDS;
-  }
-
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return DEFAULT_REPLICA_MAX_LAG_SECONDS;
-  }
-
-  return parsed;
-}
-
-function logPoolStats(poolInstance: PgPool, poolType: 'primary' | 'replica') {
-  console.info('postgres_pool_stats', {
-    pool: poolType,
-    totalConnections: poolInstance.totalCount,
-    idleConnections: poolInstance.idleCount,
-    waitingRequests: poolInstance.waitingCount
-  });
-}
-
-async function validateReplicaHealth(
-  replicaPoolInstance: PgPool
-): Promise<boolean> {
-  try {
-    const result = await replicaPoolInstance.query<{
-      pg_is_in_recovery: boolean;
-      replay_lag_seconds: number | null;
-    }>(
-      `SELECT
-         pg_is_in_recovery() AS pg_is_in_recovery,
-         EXTRACT(EPOCH FROM COALESCE(NOW() - pg_last_xact_replay_timestamp(), INTERVAL '0'))::float8 AS replay_lag_seconds`
-    );
-    const row = result.rows[0];
-    const inRecovery = row?.pg_is_in_recovery === true;
-    const lagSeconds = row?.replay_lag_seconds ?? null;
-    const maxLagSeconds = parseReplicaMaxLagSeconds();
-    const lagHealthy =
-      lagSeconds === null ||
-      (Number.isFinite(lagSeconds) && lagSeconds <= maxLagSeconds);
-    const healthy = inRecovery && lagHealthy;
-
-    logPoolStats(replicaPoolInstance, 'replica');
-    if (!healthy) {
-      console.warn('postgres_replica_unhealthy', {
-        inRecovery,
-        lagSeconds,
-        maxLagSeconds
-      });
-    }
-    return healthy;
-  } catch (error) {
-    console.error('postgres_replica_health_check_failed', { error });
-    return false;
-  }
-}
-
 async function getReplicaPool(): Promise<PgPool | null> {
   const replicaConfig = buildReplicaPoolConfig();
   if (!replicaConfig) return null;
@@ -347,6 +291,8 @@ async function getReplicaPool(): Promise<PgPool | null> {
       console.error('postgres_replica_pool_error', { error });
     });
     replicaHealthy = true;
+    replicaLastValidationMs = 0;
+    replicaValidationPromise = null;
     startReplicaHealthCheck(replicaPool);
     return replicaPool;
   } finally {
@@ -412,20 +358,22 @@ async function getHealthyReplicaPool(): Promise<PgPool | null> {
   }
 
   if (!replicaValidationPromise) {
-    replicaValidationPromise = (async () => {
+    const validationPromise = (async () => {
       const isHealthy = await validateReplicaHealth(replica);
       replicaHealthy = isHealthy;
       replicaLastValidationMs = Date.now();
       return isHealthy;
     })();
+    void validationPromise.finally(() => {
+      if (replicaValidationPromise === validationPromise) {
+        replicaValidationPromise = null;
+      }
+    });
+    replicaValidationPromise = validationPromise;
   }
 
-  try {
-    const isHealthy = await replicaValidationPromise;
-    return isHealthy ? replica : null;
-  } finally {
-    replicaValidationPromise = null;
-  }
+  const isHealthy = await replicaValidationPromise;
+  return isHealthy ? replica : null;
 }
 
 export async function getPool(intent: QueryIntent): Promise<PgPool> {
