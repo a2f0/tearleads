@@ -1,4 +1,4 @@
-#!/usr/bin/env -S node --experimental-strip-types
+#!/usr/bin/env -S pnpm exec tsx
 
 import { spawnSync } from 'node:child_process';
 import {
