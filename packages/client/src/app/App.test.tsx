@@ -68,15 +68,15 @@ vi.mock('@tearleads/ui/logo.svg', () => ({
   default: 'logo.svg'
 }));
 
-vi.mock('./components/AccountSwitcher', () => ({
+vi.mock('../components/AccountSwitcher', () => ({
   AccountSwitcher: () => <div data-testid="account-switcher" />
 }));
 
-vi.mock('./components/audio/MiniPlayer', () => ({
+vi.mock('../components/audio/MiniPlayer', () => ({
   MiniPlayer: () => <div data-testid="mini-player" />
 }));
 
-vi.mock('./components/language-picker', () => ({
+vi.mock('../components/language-picker', () => ({
   RuntimeLanguagePicker: () => <div data-testid="runtime-language-picker" />
 }));
 
@@ -86,11 +86,11 @@ vi.mock('@/components/notification-center', () => ({
   )
 }));
 
-vi.mock('./components/MobileMenu', () => ({
+vi.mock('../components/MobileMenu', () => ({
   MobileMenu: () => <div data-testid="mobile-menu" />
 }));
 
-vi.mock('./components/screensaver', () => ({
+vi.mock('../components/screensaver', () => ({
   useScreensaver: () => ({
     isActive: false,
     activate: vi.fn(),
@@ -98,11 +98,11 @@ vi.mock('./components/screensaver', () => ({
   })
 }));
 
-vi.mock('./components/SettingsButton', () => ({
+vi.mock('../components/SettingsButton', () => ({
   SettingsButton: () => <div data-testid="settings-button" />
 }));
 
-vi.mock('./components/SSEConnectionDialog', () => ({
+vi.mock('../components/SSEConnectionDialog', () => ({
   SSEConnectionDialog: ({
     isOpen,
     onClose
@@ -120,30 +120,30 @@ vi.mock('./components/SSEConnectionDialog', () => ({
     ) : null
 }));
 
-vi.mock('./components/Sidebar', () => ({
+vi.mock('../components/Sidebar', () => ({
   Sidebar: () => <div data-testid="sidebar" />
 }));
 
-vi.mock('./components/window-renderer', () => ({
+vi.mock('../components/window-renderer', () => ({
   WindowRenderer: () => null
 }));
 
-vi.mock('./components/taskbar', () => ({
+vi.mock('../components/taskbar', () => ({
   Taskbar: () => <div data-testid="taskbar" />
 }));
 
-vi.mock('./components/ui/desktop-background', () => ({
+vi.mock('../components/ui/desktop-background', () => ({
   DesktopBackground: () => <div data-testid="desktop-background" />
 }));
 
-vi.mock('./db/hooks', () => ({
+vi.mock('../db/hooks', () => ({
   useDatabaseContext: () => ({
     isUnlocked: mockIsUnlocked,
     lock: mockLock
   })
 }));
 
-vi.mock('./contexts/WindowManagerContext', () => ({
+vi.mock('../contexts/WindowManagerContext', () => ({
   useWindowManager: () => ({
     openWindow: mockOpenWindow
   }),
@@ -152,15 +152,15 @@ vi.mock('./contexts/WindowManagerContext', () => ({
   })
 }));
 
-vi.mock('./hooks/app', () => ({
+vi.mock('../hooks/app', () => ({
   useAppVersion: () => mockUseAppVersion()
 }));
 
-vi.mock('./hooks/ui', () => ({
+vi.mock('../hooks/ui', () => ({
   useKeyboardHeight: () => mockKeyboardHeight
 }));
 
-vi.mock('./sse', () => ({
+vi.mock('../sse', () => ({
   useSSEContext: () => mockUseSSEContext()
 }));
 

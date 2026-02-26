@@ -41,6 +41,7 @@ For long-lived access or manual lifecycle control use `createTestDatabase` direc
 `WasmNodeAdapter` implements the `DatabaseAdapter` interface using the same SQLite WASM module (with SQLite3MultipleCiphers encryption) that the web app uses. It runs SQLite WASM directly in Node.js without Web Workers, so tests exercise the real query engine without requiring native SQLite bindings.
 
 Key capabilities:
+
 - Encrypted in-memory databases (AES-256 via SQLite3MultipleCiphers)
 - Transaction support (`beginTransaction`, `commitTransaction`, `rollbackTransaction`)
 - Re-keying for password-change tests

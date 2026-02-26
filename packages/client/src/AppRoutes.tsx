@@ -1,5 +1,5 @@
 import { Route, Routes } from 'react-router-dom';
-import App from './App';
+import App from './app/App';
 import { RequireAuth } from './components/auth';
 import {
   Admin,
