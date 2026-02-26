@@ -27,20 +27,20 @@ const NotificationCenterTrigger = lazy(() =>
 );
 
 import { useKeyboardHeight } from '@/hooks/ui';
-import { AccountSwitcher } from './components/AccountSwitcher';
-import { MiniPlayer } from './components/audio/MiniPlayer';
-import { RuntimeLanguagePicker } from './components/language-picker';
-import { MobileMenu } from './components/MobileMenu';
-import { SettingsButton } from './components/SettingsButton';
-import { Sidebar } from './components/Sidebar';
-import { SSEConnectionDialog } from './components/SSEConnectionDialog';
-import { useScreensaver } from './components/screensaver';
-import { Taskbar } from './components/taskbar';
-import { DesktopBackground } from './components/ui/desktop-background';
-import { FOOTER_HEIGHT } from './constants/layout';
-import { useWindowManagerActions } from './contexts/WindowManagerContext';
-import { useDatabaseContext } from './db/hooks';
-import { useSSEContext } from './sse';
+import { AccountSwitcher } from '../components/AccountSwitcher';
+import { MiniPlayer } from '../components/audio/MiniPlayer';
+import { RuntimeLanguagePicker } from '../components/language-picker';
+import { MobileMenu } from '../components/MobileMenu';
+import { SettingsButton } from '../components/SettingsButton';
+import { Sidebar } from '../components/Sidebar';
+import { SSEConnectionDialog } from '../components/SSEConnectionDialog';
+import { useScreensaver } from '../components/screensaver';
+import { Taskbar } from '../components/taskbar';
+import { DesktopBackground } from '../components/ui/desktop-background';
+import { FOOTER_HEIGHT } from '../constants/layout';
+import { useWindowManagerActions } from '../contexts/WindowManagerContext';
+import { useDatabaseContext } from '../db/hooks';
+import { useSSEContext } from '../sse';
 
 /** Extra padding to add when keyboard is open (matches pb-16 = 4rem = 64px) */
 const KEYBOARD_EXTRA_PADDING = 64;

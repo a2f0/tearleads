@@ -6,14 +6,14 @@
  */
 
 // Import integration setup FIRST - this sets up mocks for adapters and key manager
-import './test/setupIntegration';
+import '../test/setupIntegration';
 
 import { resetTestKeyManager } from '@tearleads/db-test-utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import App from './App';
-import { renderWithDatabase } from './test/renderWithDatabase';
+import { renderWithDatabase } from '../test/renderWithDatabase';
 
 describe('App Integration Tests', () => {
   beforeEach(() => {

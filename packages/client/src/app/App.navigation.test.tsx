@@ -14,13 +14,13 @@ import {
   setupScreensaverMock
 } from '@/test/screensaverMock';
 import App from './App';
-import { WindowManagerProvider } from './contexts/WindowManagerContext';
-import { Contacts } from './pages/contacts';
-import { Debug, DebugBrowserLauncher, DebugLauncher } from './pages/debug';
-import { Files } from './pages/Files';
-import { Home } from './pages/Home';
-import { Settings } from './pages/Settings';
-import { Sqlite } from './pages/Sqlite';
+import { WindowManagerProvider } from '../contexts/WindowManagerContext';
+import { Contacts } from '../pages/contacts';
+import { Debug, DebugBrowserLauncher, DebugLauncher } from '../pages/debug';
+import { Files } from '../pages/Files';
+import { Home } from '../pages/Home';
+import { Settings } from '../pages/Settings';
+import { Sqlite } from '../pages/Sqlite';
 
 const mockExecute = vi.fn().mockResolvedValue({ rows: [] });
 const mockLock = vi.fn().mockResolvedValue(undefined);
