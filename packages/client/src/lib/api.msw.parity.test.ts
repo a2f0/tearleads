@@ -137,11 +137,19 @@ describe('api with msw', () => {
         string,
         string
       >;
-      await fetch(`http://localhost${request.pathname}`, {
+      const response = await fetch(`http://localhost${request.pathname}`, {
         method: request.method,
         headers: { ...authHeaders, ...initHeaders },
         ...(request.init?.body !== undefined ? { body: request.init.body } : {})
       });
+      // Verify the request reached the server (not a network error).
+      // We don't assert response.ok because many endpoints return 4xx/5xx
+      // without full data setup — the parity test validates MSW captures
+      // the request, not that the endpoint succeeds.
+      expect(
+        response.status,
+        `${request.method} ${request.pathname} got no response`
+      ).toBeGreaterThanOrEqual(200);
     }
 
     for (const request of requests) {
