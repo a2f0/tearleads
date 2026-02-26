@@ -134,6 +134,10 @@ export const createViteAliases = (
       '../api/src/migrations/index.ts'
     ),
     '@tearleads/api': path.resolve(dirname, '../api/src/index.ts'),
+    '@tearleads/shared/server': path.resolve(
+      dirname,
+      '../shared/src/server/index.ts'
+    ),
     '@tearleads/shared/testing': path.resolve(
       dirname,
       '../shared/src/testing/index.ts'
