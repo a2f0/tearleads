@@ -18,6 +18,12 @@ let pool: PgPool | null = null;
 let poolConfigKey: string | null = null;
 let poolMutex: Promise<void> = Promise.resolve();
 
+let poolOverride: PgPool | null = null;
+
+export function setPoolOverrideForTesting(override: PgPool | null): void {
+  poolOverride = override;
+}
+
 let replicaPool: PgPool | null = null;
 let replicaPoolConfigKey: string | null = null;
 let replicaPoolMutex: Promise<void> = Promise.resolve();
@@ -321,6 +327,8 @@ export function getPostgresConnectionInfo(): PostgresConnectionInfo {
 }
 
 export async function getPostgresPool(): Promise<PgPool> {
+  if (poolOverride) return poolOverride;
+
   const { config, configKey } = buildPoolConfig();
 
   if (pool && poolConfigKey === configKey) {
@@ -393,6 +401,8 @@ async function getHealthyReplicaPool(): Promise<PgPool | null> {
 }
 
 export async function getPool(intent: QueryIntent): Promise<PgPool> {
+  if (poolOverride) return poolOverride;
+
   if (intent === 'write') {
     return getPostgresPool();
   }

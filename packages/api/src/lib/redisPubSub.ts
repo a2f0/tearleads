@@ -4,7 +4,17 @@ type RedisClient = ReturnType<typeof createClient>;
 
 let subscriberClientPromise: Promise<RedisClient> | null = null;
 
+let subscriberOverride: RedisClient | null = null;
+
+export function setRedisSubscriberOverrideForTesting(
+  override: RedisClient | null
+): void {
+  subscriberOverride = override;
+}
+
 export async function getRedisSubscriberClient(): Promise<RedisClient> {
+  if (subscriberOverride) return subscriberOverride;
+
   if (!subscriberClientPromise) {
     subscriberClientPromise = (async () => {
       const client = createClient({

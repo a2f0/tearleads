@@ -1,95 +1,111 @@
-import { getRecordedApiRequests, wasApiRequestMade } from '@tearleads/msw/node';
+import { seedTestUser, type SeededUser } from '@tearleads/api-test-utils';
+import {
+  getRecordedApiRequests,
+  HttpResponse,
+  http,
+  server,
+  wasApiRequestMade
+} from '@tearleads/msw/node';
 import { DEFAULT_OPENROUTER_MODEL_ID } from '@tearleads/shared';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getSharedTestContext } from '../testContext';
+
+let seededUser: SeededUser;
+
+beforeEach(async () => {
+  vi.resetModules();
+  const ctx = getSharedTestContext();
+  seededUser = await seedTestUser(ctx, { admin: true });
+});
 
 describe('msw handlers', () => {
   it('mocks the ping endpoint', async () => {
-    const response = await fetch('http://localhost/ping');
+    const response = await fetch('http://localhost/ping', {
+      headers: { Authorization: `Bearer ${seededUser.accessToken}` }
+    });
 
     expect(response.ok).toBe(true);
     expect(wasApiRequestMade('GET', '/ping')).toBe(true);
-    await expect(response.json()).resolves.toEqual({
-      version: 'test',
-      dbVersion: '0'
-    });
+    const payload = await response.json();
+    expect(payload).toHaveProperty('version');
+    expect(payload).toHaveProperty('dbVersion');
   });
 
   it('mocks admin redis endpoints', async () => {
-    const keysResponse = await fetch('http://localhost/admin/redis/keys');
+    const authHeaders = { Authorization: `Bearer ${seededUser.accessToken}` };
+    const ctx = getSharedTestContext();
+    await ctx.redis.set('user:1', 'test-value');
+
+    const keysResponse = await fetch('http://localhost/admin/redis/keys', {
+      headers: authHeaders
+    });
     const keysPayload = await keysResponse.json();
 
     expect(wasApiRequestMade('GET', '/admin/redis/keys')).toBe(true);
-    expect(keysPayload).toEqual({
-      keys: [
-        { key: 'key:1', type: 'string', ttl: -1 },
-        { key: 'key:2', type: 'string', ttl: -1 },
-        { key: 'key:3', type: 'string', ttl: -1 },
-        { key: 'key:4', type: 'string', ttl: -1 },
-        { key: 'key:5', type: 'string', ttl: -1 },
-        { key: 'key:6', type: 'string', ttl: -1 },
-        { key: 'key:7', type: 'string', ttl: -1 },
-        { key: 'key:8', type: 'string', ttl: -1 },
-        { key: 'key:9', type: 'string', ttl: -1 },
-        { key: 'key:10', type: 'string', ttl: -1 }
-      ],
-      cursor: '10',
-      hasMore: true
-    });
+    expect(keysPayload).toHaveProperty('keys');
+    expect(keysPayload).toHaveProperty('cursor');
+    expect(Array.isArray(keysPayload.keys)).toBe(true);
 
     const keyResponse = await fetch(
-      'http://localhost/admin/redis/keys/user%3A1'
+      'http://localhost/admin/redis/keys/user%3A1',
+      { headers: authHeaders }
     );
     const keyPayload = await keyResponse.json();
 
     expect(wasApiRequestMade('GET', '/admin/redis/keys/user%3A1')).toBe(true);
-    expect(keyPayload).toEqual({
-      key: 'user:1',
-      type: 'string',
-      ttl: -1,
-      value: ''
-    });
+    expect(keyPayload).toHaveProperty('key', 'user:1');
+    expect(keyPayload).toHaveProperty('value', 'test-value');
   });
 
   it('mocks admin postgres endpoints', async () => {
-    const infoResponse = await fetch('http://localhost/admin/postgres/info');
+    const authHeaders = { Authorization: `Bearer ${seededUser.accessToken}` };
+
+    const infoResponse = await fetch('http://localhost/admin/postgres/info', {
+      headers: authHeaders
+    });
     const infoPayload = await infoResponse.json();
 
     expect(wasApiRequestMade('GET', '/admin/postgres/info')).toBe(true);
-    expect(infoPayload).toEqual({
-      status: 'ok',
-      info: {
-        host: 'localhost',
-        port: 5432,
-        database: 'tearleads',
-        user: 'tearleads'
-      },
-      serverVersion: 'PostgreSQL 15.1'
-    });
+    expect(infoPayload).toHaveProperty('status', 'ok');
+    expect(infoPayload).toHaveProperty('info');
+    expect(infoPayload).toHaveProperty('serverVersion');
 
     const tablesResponse = await fetch(
-      'http://localhost/admin/postgres/tables'
+      'http://localhost/admin/postgres/tables',
+      { headers: authHeaders }
     );
     const tablesPayload = await tablesResponse.json();
 
     expect(wasApiRequestMade('GET', '/admin/postgres/tables')).toBe(true);
-    expect(tablesPayload).toEqual({
-      tables: [
-        {
-          schema: 'public',
-          name: 'users',
-          rowCount: 12,
-          totalBytes: 2048,
-          tableBytes: 1024,
-          indexBytes: 1024
-        }
-      ]
-    });
+    expect(tablesPayload).toHaveProperty('tables');
+    expect(Array.isArray(tablesPayload.tables)).toBe(true);
   });
 
   it('mocks chat completions', async () => {
+    // Chat completions proxy to OpenRouter (external), so use server.use() override
+    server.use(
+      http.post('http://localhost/chat/completions', () =>
+        HttpResponse.json({
+          id: 'chatcmpl-test',
+          model: DEFAULT_OPENROUTER_MODEL_ID,
+          choices: [
+            {
+              message: {
+                role: 'assistant',
+                content: 'Mock reply'
+              }
+            }
+          ]
+        })
+      )
+    );
+
     const response = await fetch('http://localhost/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${seededUser.accessToken}`
+      },
       body: JSON.stringify({
         model: DEFAULT_OPENROUTER_MODEL_ID,
         messages: [{ role: 'user', content: 'Hello' }]
@@ -115,7 +131,10 @@ describe('msw handlers', () => {
   it('returns validation errors for chat completions', async () => {
     const response = await fetch('http://localhost/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${seededUser.accessToken}`
+      },
       body: JSON.stringify({ messages: [] })
     });
 
@@ -129,7 +148,10 @@ describe('msw handlers', () => {
   it('returns model validation errors for chat completions', async () => {
     const response = await fetch('http://localhost/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${seededUser.accessToken}`
+      },
       body: JSON.stringify({
         model: 'unknown/model',
         messages: [{ role: 'user', content: 'Hello' }]
@@ -144,17 +166,15 @@ describe('msw handlers', () => {
   });
 
   it('records request metadata for debugging parity', async () => {
-    await fetch('http://localhost/ping');
-    await fetch('http://localhost/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: DEFAULT_OPENROUTER_MODEL_ID,
-        messages: [{ role: 'user', content: 'Hello' }]
-      })
-    });
+    const authHeaders = { Authorization: `Bearer ${seededUser.accessToken}` };
 
-    const recordedRequests = getRecordedApiRequests();
+    await fetch('http://localhost/ping', { headers: authHeaders });
+    await fetch('http://localhost/admin/redis/dbsize', { headers: authHeaders });
+
+    // Filter out internal bypass requests (forwarded to Express on a random port)
+    const recordedRequests = getRecordedApiRequests().filter(
+      (r) => r.url.startsWith('http://localhost/')
+    );
     expect(recordedRequests).toEqual([
       {
         method: 'GET',
@@ -162,9 +182,9 @@ describe('msw handlers', () => {
         url: 'http://localhost/ping'
       },
       {
-        method: 'POST',
-        pathname: '/chat/completions',
-        url: 'http://localhost/chat/completions'
+        method: 'GET',
+        pathname: '/admin/redis/dbsize',
+        url: 'http://localhost/admin/redis/dbsize'
       }
     ]);
   });

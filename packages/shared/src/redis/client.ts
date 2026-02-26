@@ -6,7 +6,17 @@ let clientPromise: Promise<RedisClient> | null = null;
 let currentUrl: string | null = null;
 let mutex: Promise<void> = Promise.resolve();
 
+let clientOverride: RedisClient | null = null;
+
+export function setRedisClientOverrideForTesting(
+  override: RedisClient | null
+): void {
+  clientOverride = override;
+}
+
 export async function getRedisClient(url?: string): Promise<RedisClient> {
+  if (clientOverride) return clientOverride;
+
   const redisUrl = url ?? process.env['REDIS_URL'] ?? 'redis://localhost:6379';
 
   let resolveRelease: () => void = () => {};

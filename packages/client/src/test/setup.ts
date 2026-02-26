@@ -1,10 +1,18 @@
 import '@testing-library/jest-dom/vitest';
-import { resetMockApiServerState, server } from '@tearleads/msw/node';
+import { createTestContext, type TestContext } from '@tearleads/api-test-utils';
+import {
+  configureForExpressPassthrough,
+  resetMockApiServerState,
+  server
+} from '@tearleads/msw/node';
 import { cleanup } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { createElement, Fragment } from 'react';
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 import failOnConsole from 'vitest-fail-on-console';
+import { setSharedTestContext } from './testContext';
+
+let testContext: TestContext | null = null;
 
 // Enable React act() environment checks before tests run.
 // https://react.dev/reference/react-dom/test-utils/act#environment
@@ -197,18 +205,27 @@ vi.mock('pdfjs-dist', () => {
   };
 });
 
-beforeAll(() => {
+beforeAll(async () => {
+  testContext = await createTestContext();
+  setSharedTestContext(testContext);
+  configureForExpressPassthrough('http://localhost', testContext.port);
   server.listen({ onUnhandledRequest: 'warn' });
 });
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
   server.resetHandlers();
+  if (testContext) {
+    configureForExpressPassthrough('http://localhost', testContext.port);
+    await testContext.resetState();
+  }
   resetMockApiServerState();
 });
 
-afterAll(() => {
+afterAll(async () => {
   server.close();
+  await testContext?.teardown();
+  testContext = null;
 });
 
 // Mock __APP_VERSION__ global defined by Vite

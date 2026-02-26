@@ -1,5 +1,6 @@
 import { setupServer } from 'msw/node';
 import { handlers, resetMockApiState } from './handlers.js';
+import { createExpressPassthroughHandlers } from './passthroughHandlers.js';
 
 export interface RecordedApiRequest {
   method: string;
@@ -51,5 +52,15 @@ export const wasApiRequestMade = (
     return pathname.test(request.pathname);
   });
 };
+
+export function configureForExpressPassthrough(
+  baseUrl: string,
+  port: number,
+  pathPrefix = '/v1'
+): void {
+  server.resetHandlers(
+    ...createExpressPassthroughHandlers(baseUrl, port, pathPrefix)
+  );
+}
 
 export { HttpResponse, http } from 'msw';
