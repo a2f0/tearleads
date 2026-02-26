@@ -54,7 +54,9 @@ describe('replica pool', () => {
 
     await getPool('read');
 
-    const replicaInstance = poolInstances.find((p) => p.config.host === 'replica.db');
+    const replicaInstance = poolInstances.find(
+      (p) => p.config.host === 'replica.db'
+    );
     expect(replicaInstance).toBeDefined();
     expect(replicaInstance?.config).toEqual({
       host: 'replica.db',
@@ -74,7 +76,9 @@ describe('replica pool', () => {
 
     await getPostgresPool();
 
-    const primaryInstance = poolInstances.find((p) => p.config.host === 'primary.db');
+    const primaryInstance = poolInstances.find(
+      (p) => p.config.host === 'primary.db'
+    );
     expect(primaryInstance).toBeDefined();
     expect(primaryInstance?.config).toMatchObject({
       max: 15,
@@ -108,7 +112,9 @@ describe('replica pool', () => {
     const pool2 = await getPool('read');
     expect(pool1).toBe(pool2);
 
-    const replicaInstances = poolInstances.filter((p) => p.config.host === 'replica.db');
+    const replicaInstances = poolInstances.filter(
+      (p) => p.config.host === 'replica.db'
+    );
     expect(replicaInstances).toHaveLength(1);
   });
 
@@ -131,7 +137,9 @@ describe('replica pool', () => {
 
     const firstRead = await getPool('read');
     expect(firstRead).toBeDefined();
-    const firstReplica = poolInstances.find((p) => p.config.host === 'replica-a.db');
+    const firstReplica = poolInstances.find(
+      (p) => p.config.host === 'replica-a.db'
+    );
     expect(firstReplica).toBeDefined();
 
     process.env['POSTGRES_REPLICA_HOST'] = 'replica-b.db';
@@ -139,7 +147,9 @@ describe('replica pool', () => {
     expect(secondRead).not.toBe(firstRead);
 
     expect(firstReplica?.end).toHaveBeenCalledTimes(1);
-    const secondReplica = poolInstances.find((p) => p.config.host === 'replica-b.db');
+    const secondReplica = poolInstances.find(
+      (p) => p.config.host === 'replica-b.db'
+    );
     expect(secondReplica).toBeDefined();
   });
 
@@ -152,7 +162,9 @@ describe('replica pool', () => {
 
     process.env['POSTGRES_REPLICA_HOST'] = 'replica-b.db';
     poolQueryMock.mockRejectedValueOnce(new Error('replica-b down'));
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
 
     const readPool = await getPool('read');
     const primaryPool = await getPool('write');
@@ -169,7 +181,9 @@ describe('replica pool', () => {
 
     await getPool('read');
 
-    const replicaInstance = poolInstances.find((p) => p.config.host === 'replica.db');
+    const replicaInstance = poolInstances.find(
+      (p) => p.config.host === 'replica.db'
+    );
     expect(replicaInstance?.config).toMatchObject({
       ssl: { rejectUnauthorized: true }
     });
@@ -184,7 +198,9 @@ describe('replica pool', () => {
 
     await getPool('read');
 
-    const replicaInstance = poolInstances.find((p) => p.config.host === 'replica.db');
+    const replicaInstance = poolInstances.find(
+      (p) => p.config.host === 'replica.db'
+    );
     expect(replicaInstance?.config).toMatchObject({
       ssl: { rejectUnauthorized: false }
     });
@@ -194,7 +210,9 @@ describe('replica pool', () => {
     setReleaseEnv();
     process.env['POSTGRES_REPLICA_HOST'] = 'replica.db';
     poolQueryMock.mockRejectedValueOnce(new Error('replica down'));
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
     const { getPool } = await loadPostgresModule();
 
     const readPool = await getPool('read');
@@ -211,7 +229,9 @@ describe('replica pool', () => {
     poolQueryMock.mockResolvedValueOnce({
       rows: [{ pg_is_in_recovery: true, replay_lag_seconds: 12 }]
     });
-    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => {});
     const { getPool } = await loadPostgresModule();
 
     const readPool = await getPool('read');

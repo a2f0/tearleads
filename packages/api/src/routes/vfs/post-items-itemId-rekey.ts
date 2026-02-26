@@ -277,7 +277,10 @@ const postItemsItemIdRekeyHandler = async (
         try {
           await client.query('ROLLBACK');
         } catch (rollbackError) {
-          console.error('Failed to rollback VFS rekey transaction:', rollbackError);
+          console.error(
+            'Failed to rollback VFS rekey transaction:',
+            rollbackError
+          );
         }
       }
       throw transactionError;
