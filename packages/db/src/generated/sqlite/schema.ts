@@ -1,5 +1,7 @@
 import type { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy';
 import {
+  aiConversations,
+  aiMessages,
   albums,
   composedEmails,
   contactGroups,
@@ -43,8 +45,6 @@ import {
   vehicles
 } from './schema-foundation.js';
 import {
-  aiConversations,
-  aiMessages,
   aiUsage,
   mlsGroupMembers,
   mlsGroupState,
@@ -93,6 +93,8 @@ export const schema = {
   playlists,
   albums,
   contactGroups,
+  aiConversations,
+  aiMessages,
   tags,
   walletItems,
   walletItemMedia,
@@ -109,8 +111,6 @@ export const schema = {
   mlsMessages,
   mlsWelcomeMessages,
   mlsGroupState,
-  aiConversations,
-  aiMessages,
   aiUsage
 };
 

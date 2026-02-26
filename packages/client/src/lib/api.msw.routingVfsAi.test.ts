@@ -105,22 +105,6 @@ describe('api with msw', () => {
     });
     await api.vfs.searchShareTargets('test query', 'user');
 
-    await api.ai.createConversation({
-      encryptedTitle: 'encrypted-title',
-      encryptedSessionKey: 'encrypted-session-key'
-    });
-    await api.ai.listConversations({ cursor: 'cursor-1', limit: 5 });
-    await api.ai.getConversation('conversation 1');
-    await api.ai.updateConversation('conversation 1', {
-      encryptedTitle: 'encrypted-title-2'
-    });
-    await expect(
-      api.ai.deleteConversation('conversation 1')
-    ).resolves.toBeUndefined();
-    await api.ai.addMessage('conversation 1', {
-      role: 'user',
-      encryptedContent: 'encrypted-content'
-    });
     await api.ai.recordUsage({
       conversationId: 'conversation-1',
       messageId: 'message-1',
@@ -156,20 +140,6 @@ describe('api with msw', () => {
     expect(wasApiRequestMade('POST', '/vfs/items/item%201/rekey')).toBe(true);
     expect(wasApiRequestMade('GET', '/vfs/share-targets/search')).toBe(true);
 
-    expect(wasApiRequestMade('POST', '/ai/conversations')).toBe(true);
-    expect(wasApiRequestMade('GET', '/ai/conversations')).toBe(true);
-    expect(wasApiRequestMade('GET', '/ai/conversations/conversation%201')).toBe(
-      true
-    );
-    expect(
-      wasApiRequestMade('PATCH', '/ai/conversations/conversation%201')
-    ).toBe(true);
-    expect(
-      wasApiRequestMade('DELETE', '/ai/conversations/conversation%201')
-    ).toBe(true);
-    expect(
-      wasApiRequestMade('POST', '/ai/conversations/conversation%201/messages')
-    ).toBe(true);
     expect(wasApiRequestMade('POST', '/ai/usage')).toBe(true);
     expect(wasApiRequestMade('GET', '/ai/usage')).toBe(true);
     expect(wasApiRequestMade('GET', '/ai/usage/summary')).toBe(true);
@@ -201,8 +171,6 @@ describe('api with msw', () => {
     await api.admin.redis.getKeys('cursor-1', 10);
     await api.admin.redis.getKeys();
 
-    await api.ai.listConversations({ cursor: 'cursor-1', limit: 5 });
-    await api.ai.listConversations();
     await api.ai.getUsage({
       startDate: '2024-01-01',
       endDate: '2024-01-31',
@@ -231,12 +199,6 @@ describe('api with msw', () => {
         },
         {}
       ])
-    );
-
-    const aiConversationRequests = getRequestsFor('GET', '/ai/conversations');
-    expect(aiConversationRequests).toHaveLength(2);
-    expect(aiConversationRequests.map(getRequestQuery)).toEqual(
-      expect.arrayContaining([{ cursor: 'cursor-1', limit: '5' }, {}])
     );
 
     const aiUsageRequests = getRequestsFor('GET', '/ai/usage');

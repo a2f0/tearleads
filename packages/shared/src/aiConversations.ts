@@ -1,8 +1,9 @@
 /**
  * AI Conversation and Usage Tracking Types
  *
- * These types support encrypted conversation storage and token usage tracking
- * for billing and analytics purposes.
+ * Conversations are VFS objects (objectType: 'conversation') stored in vfs_registry.
+ * Messages are serialized into the conversation's CRDT encrypted payload.
+ * Usage tracking remains as REST endpoints for admin token auditing.
  */
 
 // =============================================================================
@@ -12,13 +13,10 @@
 /** Role of a message in an AI conversation */
 export type AiMessageRole = 'system' | 'user' | 'assistant';
 
-/** AI conversation metadata (encrypted fields stored server-side) */
+/** AI conversation metadata (VFS-backed, encrypted fields) */
 export interface AiConversation {
   id: string;
-  userId: string;
-  organizationId: string | null;
   encryptedTitle: string;
-  encryptedSessionKey: string;
   modelId: string | null;
   messageCount: number;
   createdAt: string;
@@ -28,8 +26,6 @@ export interface AiConversation {
 /** Decrypted conversation for client-side use */
 export interface DecryptedAiConversation {
   id: string;
-  userId: string;
-  organizationId: string | null;
   title: string;
   modelId: string | null;
   messageCount: number;
@@ -37,7 +33,7 @@ export interface DecryptedAiConversation {
   updatedAt: string;
 }
 
-/** AI message (encrypted content stored server-side) */
+/** AI message (encrypted content stored in local SQLite) */
 export interface AiMessage {
   id: string;
   conversationId: string;
@@ -89,57 +85,8 @@ export interface AiUsageSummary {
 }
 
 // =============================================================================
-// API Request/Response Types
+// API Request/Response Types (Usage only - conversations are VFS-backed)
 // =============================================================================
-
-/** Request to create a new conversation */
-export interface CreateAiConversationRequest {
-  encryptedTitle: string;
-  encryptedSessionKey: string;
-  modelId?: string;
-}
-
-/** Response after creating a conversation */
-export interface CreateAiConversationResponse {
-  conversation: AiConversation;
-}
-
-/** Request to update a conversation */
-export interface UpdateAiConversationRequest {
-  encryptedTitle?: string;
-  modelId?: string;
-}
-
-/** Response with a single conversation */
-export interface AiConversationResponse {
-  conversation: AiConversation;
-}
-
-/** Response with conversation list */
-export interface AiConversationsListResponse {
-  conversations: AiConversation[];
-  hasMore: boolean;
-  cursor?: string;
-}
-
-/** Response with conversation and its messages */
-export interface AiConversationDetailResponse {
-  conversation: AiConversation;
-  messages: AiMessage[];
-}
-
-/** Request to add a message to a conversation */
-export interface AddAiMessageRequest {
-  role: AiMessageRole;
-  encryptedContent: string;
-  modelId?: string;
-}
-
-/** Response after adding a message */
-export interface AddAiMessageResponse {
-  message: AiMessage;
-  conversation: AiConversation;
-}
 
 /** Request with usage data to record */
 export interface RecordAiUsageRequest {

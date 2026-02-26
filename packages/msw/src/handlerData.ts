@@ -1,7 +1,5 @@
 import type {
   AdminAccessContextResponse,
-  AiConversation,
-  AiMessage,
   AiUsage,
   AiUsageSummary,
   AuthResponse,
@@ -295,28 +293,6 @@ const defaultShareTargetSearchResponse: ShareTargetSearchResponse = {
   ]
 };
 
-const defaultAiConversation: AiConversation = {
-  id: 'conversation-1',
-  userId: 'user-1',
-  organizationId: null,
-  encryptedTitle: 'encrypted-title',
-  encryptedSessionKey: 'encrypted-session-key',
-  modelId: DEFAULT_OPENROUTER_MODEL_ID,
-  messageCount: 1,
-  createdAt: nowIsoString(),
-  updatedAt: nowIsoString()
-};
-
-const defaultAiMessage: AiMessage = {
-  id: 'message-1',
-  conversationId: defaultAiConversation.id,
-  role: 'assistant',
-  encryptedContent: 'encrypted-content',
-  modelId: DEFAULT_OPENROUTER_MODEL_ID,
-  sequenceNumber: 1,
-  createdAt: nowIsoString()
-};
-
 const defaultAiUsageSummary: AiUsageSummary = {
   totalPromptTokens: 120,
   totalCompletionTokens: 80,
@@ -328,8 +304,8 @@ const defaultAiUsageSummary: AiUsageSummary = {
 
 const defaultAiUsage: AiUsage = {
   id: 'usage-1',
-  conversationId: defaultAiConversation.id,
-  messageId: defaultAiMessage.id,
+  conversationId: 'conversation-1',
+  messageId: 'message-1',
   userId: 'user-1',
   organizationId: null,
   modelId: DEFAULT_OPENROUTER_MODEL_ID,
@@ -357,8 +333,6 @@ const defaultBillingAccountResponse: OrganizationBillingAccountResponse = {
 
 export {
   defaultAdminContext,
-  defaultAiConversation,
-  defaultAiMessage,
   defaultAiUsage,
   defaultAiUsageSummary,
   defaultAuthResponse,

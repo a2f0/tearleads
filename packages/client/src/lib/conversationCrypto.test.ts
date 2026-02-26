@@ -4,12 +4,10 @@
 import type { AiConversation, AiMessage } from '@tearleads/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  createConversationEncryption,
   decryptContent,
   decryptConversation,
   decryptMessages,
   encryptContent,
-  encryptMessage,
   encryptTitle,
   generateTitleFromMessage,
   unwrapConversationSessionKey
@@ -35,17 +33,6 @@ vi.mock('@tearleads/shared', async (importOriginal) => {
   };
 });
 
-// Mock the VFS keys hook
-const mockEnsureVfsKeys = vi.fn();
-const mockGenerateSessionKey = vi.fn();
-const mockWrapSessionKey = vi.fn();
-
-vi.mock('@/hooks/vfs', () => ({
-  ensureVfsKeys: (...args: unknown[]) => mockEnsureVfsKeys(...args),
-  generateSessionKey: (...args: unknown[]) => mockGenerateSessionKey(...args),
-  wrapSessionKey: (...args: unknown[]) => mockWrapSessionKey(...args)
-}));
-
 describe('conversation-crypto', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -60,12 +47,6 @@ describe('conversation-crypto', () => {
       ciphertext: new Uint8Array(32)
     });
     mockUnwrapKeyWithKeyPair.mockReturnValue(new Uint8Array(32));
-    mockEnsureVfsKeys.mockResolvedValue({
-      x25519PublicKey: new Uint8Array(32),
-      mlKemPublicKey: new Uint8Array(1184)
-    });
-    mockGenerateSessionKey.mockReturnValue(new Uint8Array(32));
-    mockWrapSessionKey.mockResolvedValue('wrapped-key-base64');
   });
 
   describe('encryptContent', () => {
@@ -86,15 +67,6 @@ describe('conversation-crypto', () => {
       expect(mockImportKey).toHaveBeenCalled();
       expect(mockDecrypt).toHaveBeenCalled();
       expect(result).toBe('decrypted');
-    });
-  });
-
-  describe('encryptMessage', () => {
-    it('encrypts message content', async () => {
-      const result = await encryptMessage('hello', new Uint8Array(32));
-
-      expect(mockEncrypt).toHaveBeenCalled();
-      expect(typeof result).toBe('string');
     });
   });
 
@@ -129,29 +101,11 @@ describe('conversation-crypto', () => {
     });
   });
 
-  describe('createConversationEncryption', () => {
-    it('creates encryption data for new conversation', async () => {
-      const result = await createConversationEncryption('Test Title');
-
-      expect(mockEnsureVfsKeys).toHaveBeenCalled();
-      expect(mockGenerateSessionKey).toHaveBeenCalled();
-      expect(mockWrapSessionKey).toHaveBeenCalled();
-
-      expect(result).toHaveProperty('encryptedTitle');
-      expect(result).toHaveProperty('encryptedSessionKey');
-      expect(result).toHaveProperty('sessionKey');
-      expect(result.encryptedSessionKey).toBe('wrapped-key-base64');
-    });
-  });
-
   describe('decryptConversation', () => {
     it('decrypts conversation data', async () => {
       const conversation: AiConversation = {
         id: 'conv-1',
-        userId: 'user-1',
-        organizationId: null,
         encryptedTitle: btoa('encrypted-title'),
-        encryptedSessionKey: 'session-key',
         modelId: 'gpt-4',
         messageCount: 5,
         createdAt: '2024-01-01T00:00:00Z',
@@ -164,8 +118,6 @@ describe('conversation-crypto', () => {
       );
 
       expect(result.id).toBe('conv-1');
-      expect(result.userId).toBe('user-1');
-      expect(result.organizationId).toBeNull();
       expect(result.title).toBe('decrypted');
       expect(result.modelId).toBe('gpt-4');
       expect(result.messageCount).toBe(5);

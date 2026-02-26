@@ -122,149 +122,10 @@ export const vfsCrdtOpsTable: TableDefinition = {
 };
 
 // =============================================================================
-// AI Conversation & Usage Tables
+// AI Usage Table
 // =============================================================================
-// Design Note: Messages are encrypted client-side following the VFS pattern.
 // Usage data (token counts) is stored in plaintext for billing/analytics.
-
-/**
- * AI conversations - stores encrypted conversation metadata.
- * Each conversation belongs to a user and optionally an organization.
- */
-const aiConversationsTable: TableDefinition = {
-  name: 'ai_conversations',
-  propertyName: 'aiConversations',
-  comment:
-    'AI conversations - stores encrypted conversation metadata.\nEach conversation belongs to a user and optionally an organization.',
-  columns: {
-    id: {
-      type: 'text',
-      sqlName: 'id',
-      primaryKey: true
-    },
-    userId: {
-      type: 'text',
-      sqlName: 'user_id',
-      notNull: true,
-      references: {
-        table: 'users',
-        column: 'id',
-        onDelete: 'cascade'
-      }
-    },
-    organizationId: {
-      type: 'text',
-      sqlName: 'organization_id',
-      references: {
-        table: 'organizations',
-        column: 'id',
-        onDelete: 'set null'
-      }
-    },
-    encryptedTitle: {
-      type: 'text',
-      sqlName: 'encrypted_title',
-      notNull: true
-    },
-    encryptedSessionKey: {
-      type: 'text',
-      sqlName: 'encrypted_session_key',
-      notNull: true
-    },
-    modelId: {
-      type: 'text',
-      sqlName: 'model_id'
-    },
-    messageCount: {
-      type: 'integer',
-      sqlName: 'message_count',
-      notNull: true,
-      defaultValue: 0
-    },
-    createdAt: {
-      type: 'timestamp',
-      sqlName: 'created_at',
-      notNull: true
-    },
-    updatedAt: {
-      type: 'timestamp',
-      sqlName: 'updated_at',
-      notNull: true
-    },
-    deleted: {
-      type: 'boolean',
-      sqlName: 'deleted',
-      notNull: true,
-      defaultValue: false
-    }
-  },
-  indexes: [
-    {
-      name: 'ai_conversations_user_idx',
-      columns: ['userId', 'deleted', 'updatedAt']
-    },
-    { name: 'ai_conversations_org_idx', columns: ['organizationId'] }
-  ]
-};
-
-/**
- * AI messages - stores encrypted message content.
- * Messages are encrypted client-side before storage.
- */
-const aiMessagesTable: TableDefinition = {
-  name: 'ai_messages',
-  propertyName: 'aiMessages',
-  comment:
-    'AI messages - stores encrypted message content.\nMessages are encrypted client-side before storage.',
-  columns: {
-    id: {
-      type: 'text',
-      sqlName: 'id',
-      primaryKey: true
-    },
-    conversationId: {
-      type: 'text',
-      sqlName: 'conversation_id',
-      notNull: true,
-      references: {
-        table: 'ai_conversations',
-        column: 'id',
-        onDelete: 'cascade'
-      }
-    },
-    role: {
-      type: 'text',
-      sqlName: 'role',
-      notNull: true,
-      enumValues: ['system', 'user', 'assistant'] as const
-    },
-    encryptedContent: {
-      type: 'text',
-      sqlName: 'encrypted_content',
-      notNull: true
-    },
-    modelId: {
-      type: 'text',
-      sqlName: 'model_id'
-    },
-    sequenceNumber: {
-      type: 'integer',
-      sqlName: 'sequence_number',
-      notNull: true
-    },
-    createdAt: {
-      type: 'timestamp',
-      sqlName: 'created_at',
-      notNull: true
-    }
-  },
-  indexes: [
-    {
-      name: 'ai_messages_conversation_idx',
-      columns: ['conversationId', 'sequenceNumber']
-    }
-  ]
-};
+// AI conversations and messages are now VFS objects in definitionCommunicationsAi.ts.
 
 /**
  * AI usage - tracks token usage per request for billing/analytics.
@@ -285,19 +146,14 @@ const aiUsageTable: TableDefinition = {
       type: 'text',
       sqlName: 'conversation_id',
       references: {
-        table: 'ai_conversations',
+        table: 'vfs_registry',
         column: 'id',
         onDelete: 'set null'
       }
     },
     messageId: {
       type: 'text',
-      sqlName: 'message_id',
-      references: {
-        table: 'ai_messages',
-        column: 'id',
-        onDelete: 'set null'
-      }
+      sqlName: 'message_id'
     },
     userId: {
       type: 'text',
@@ -358,7 +214,5 @@ const aiUsageTable: TableDefinition = {
 export const runtimeAiTables: TableDefinition[] = [
   vfsCrdtOpsTable,
   ...runtimeAiMlsTables,
-  aiConversationsTable,
-  aiMessagesTable,
   aiUsageTable
 ];

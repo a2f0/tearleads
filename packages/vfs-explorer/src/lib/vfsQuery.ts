@@ -34,6 +34,7 @@ function nameCoalesce(): SQL<string> {
       WHEN 'contactGroup' THEN 'Unnamed Group'
       WHEN 'tag' THEN 'Unnamed Tag'
       WHEN 'email' THEN '(No Subject)'
+      WHEN 'conversation' THEN 'Untitled Conversation'
       ELSE 'Unknown'
     END
   )`;

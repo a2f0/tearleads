@@ -2,6 +2,7 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
 import { createAuthHeader } from '../../test/auth.js';
+import { coerceNumber } from './postgres/shared.js';
 
 const mockQuery = vi.fn();
 const mockGetPostgresPool = vi.fn();
@@ -340,5 +341,12 @@ describe('admin postgres routes', () => {
       expect(response.status).toBe(200);
       expect(response.body.limit).toBe(1000);
     });
+  });
+});
+
+describe('coerceNumber', () => {
+  it('returns 0 for non-numeric strings', () => {
+    expect(coerceNumber('not-a-number')).toBe(0);
+    expect(coerceNumber('Infinity')).toBe(0);
   });
 });

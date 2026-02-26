@@ -1,8 +1,6 @@
 import type { TableDefinition } from './types.js';
 
-// Re-export from split modules
 export { emailsTable } from './definition-communications-email.js';
-
 export {
   vfsAclEntriesTable,
   vfsBlobObjectsTable,
@@ -11,10 +9,16 @@ export {
   vfsSyncChangesTable,
   vfsSyncClientStateTable
 } from './definition-communications-vfs.js';
+// Re-export from split modules
+export {
+  aiConversationsTable,
+  aiMessagesTable
+} from './definitionCommunicationsAi.js';
 
-// Import for combining into communicationsTables
 import { communicationsEmailTables } from './definition-communications-email.js';
 import { communicationsVfsTables } from './definition-communications-vfs.js';
+// Import for combining into communicationsTables
+import { communicationsAiTables } from './definitionCommunicationsAi.js';
 
 export const contactGroupsTable: TableDefinition = {
   name: 'contact_groups',
@@ -240,6 +244,7 @@ export const walletItemMediaTable: TableDefinition = {
 
 export const communicationsTables: TableDefinition[] = [
   contactGroupsTable,
+  ...communicationsAiTables,
   ...communicationsEmailTables,
   tagsTable,
   walletItemsTable,

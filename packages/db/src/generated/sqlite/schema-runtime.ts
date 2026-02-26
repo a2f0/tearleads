@@ -231,65 +231,6 @@ export const mlsGroupState = sqliteTable(
 );
 
 /**
- * AI conversations - stores encrypted conversation metadata.
- * Each conversation belongs to a user and optionally an organization.
- */
-export const aiConversations = sqliteTable(
-  'ai_conversations',
-  {
-    id: text('id').primaryKey(),
-    userId: text('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    organizationId: text('organization_id').references(() => organizations.id, {
-      onDelete: 'set null'
-    }),
-    encryptedTitle: text('encrypted_title').notNull(),
-    encryptedSessionKey: text('encrypted_session_key').notNull(),
-    modelId: text('model_id'),
-    messageCount: integer('message_count').notNull().default(0),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
-    deleted: integer('deleted', { mode: 'boolean' }).notNull().default(false)
-  },
-  (table) => [
-    index('ai_conversations_user_idx').on(
-      table.userId,
-      table.deleted,
-      table.updatedAt
-    ),
-    index('ai_conversations_org_idx').on(table.organizationId)
-  ]
-);
-
-/**
- * AI messages - stores encrypted message content.
- * Messages are encrypted client-side before storage.
- */
-export const aiMessages = sqliteTable(
-  'ai_messages',
-  {
-    id: text('id').primaryKey(),
-    conversationId: text('conversation_id')
-      .notNull()
-      .references(() => aiConversations.id, { onDelete: 'cascade' }),
-    role: text('role', {
-      enum: ['system', 'user', 'assistant']
-    }).notNull(),
-    encryptedContent: text('encrypted_content').notNull(),
-    modelId: text('model_id'),
-    sequenceNumber: integer('sequence_number').notNull(),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
-  },
-  (table) => [
-    index('ai_messages_conversation_idx').on(
-      table.conversationId,
-      table.sequenceNumber
-    )
-  ]
-);
-
-/**
  * AI usage - tracks token usage per request for billing/analytics.
  * Usage data is stored in plaintext (not encrypted) for aggregation.
  */
@@ -297,13 +238,10 @@ export const aiUsage = sqliteTable(
   'ai_usage',
   {
     id: text('id').primaryKey(),
-    conversationId: text('conversation_id').references(
-      () => aiConversations.id,
-      { onDelete: 'set null' }
-    ),
-    messageId: text('message_id').references(() => aiMessages.id, {
+    conversationId: text('conversation_id').references(() => vfsRegistry.id, {
       onDelete: 'set null'
     }),
+    messageId: text('message_id'),
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),

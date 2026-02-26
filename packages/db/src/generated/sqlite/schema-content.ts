@@ -130,6 +130,52 @@ export const contactGroups = sqliteTable('contact_groups', {
 });
 
 /**
+ * AI conversations - extends vfs_registry for conversation-type items.
+ * Stores encrypted conversation metadata as a VFS object.
+ */
+export const aiConversations = sqliteTable(
+  'ai_conversations',
+  {
+    id: text('id')
+      .primaryKey()
+      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+    encryptedTitle: text('encrypted_title').notNull(),
+    modelId: text('model_id'),
+    messageCount: integer('message_count').notNull().default(0),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (table) => [index('ai_conversations_updated_idx').on(table.updatedAt)]
+);
+
+/**
+ * AI messages - stores encrypted message content.
+ * Child table of ai_conversations, materialized from CRDT payload.
+ */
+export const aiMessages = sqliteTable(
+  'ai_messages',
+  {
+    id: text('id').primaryKey(),
+    conversationId: text('conversation_id')
+      .notNull()
+      .references(() => aiConversations.id, { onDelete: 'cascade' }),
+    role: text('role', {
+      enum: ['system', 'user', 'assistant']
+    }).notNull(),
+    encryptedContent: text('encrypted_content').notNull(),
+    modelId: text('model_id'),
+    sequenceNumber: integer('sequence_number').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (table) => [
+    index('ai_messages_conversation_idx').on(
+      table.conversationId,
+      table.sequenceNumber
+    )
+  ]
+);
+
+/**
  * Emails - extends registry for email-type items.
  * Stores encrypted email metadata.
  */

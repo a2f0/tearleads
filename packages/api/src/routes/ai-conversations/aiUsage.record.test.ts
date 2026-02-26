@@ -109,6 +109,48 @@ describe('AI Usage Routes - Record', () => {
       expect(response.body.usage.conversationId).toBeNull();
     });
 
+    it('records usage with whitespace-only optional fields stripped', async () => {
+      const now = new Date();
+
+      mockPool.query
+        .mockResolvedValueOnce({ rows: [{ organization_id: 'org-123' }] })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'usage-456',
+              conversation_id: null,
+              message_id: null,
+              user_id: 'test-user',
+              organization_id: 'org-123',
+              model_id: 'gpt-4',
+              prompt_tokens: 100,
+              completion_tokens: 50,
+              total_tokens: 150,
+              openrouter_request_id: null,
+              created_at: now
+            }
+          ]
+        });
+
+      const response = await request(app)
+        .post('/v1/ai/usage')
+        .set('Authorization', authHeader)
+        .send({
+          conversationId: '   ',
+          messageId: '  ',
+          modelId: 'gpt-4',
+          promptTokens: 100,
+          completionTokens: 50,
+          totalTokens: 150,
+          openrouterRequestId: ' '
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body.usage.conversationId).toBeNull();
+      expect(response.body.usage.messageId).toBeNull();
+      expect(response.body.usage.openrouterRequestId).toBeNull();
+    });
+
     it('returns 400 if required fields missing', async () => {
       const response = await request(app)
         .post('/v1/ai/usage')
