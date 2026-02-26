@@ -1,6 +1,20 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
 
+interface AuthResponse {
+  accessToken: string;
+  refreshToken: string;
+  user: { email: string };
+}
+
+interface SessionsResponse {
+  sessions: unknown[];
+}
+
+interface LogoutResponse {
+  loggedOut: boolean;
+}
+
 const getApiDeps = async () => {
   const api = await import('@tearleads/api');
   return { app: api.app, migrations: api.migrations };
@@ -32,7 +46,7 @@ describe('API auth flow', () => {
     });
 
     expect(registerResponse.status).toBe(200);
-    const registerBody = await registerResponse.json();
+    const registerBody = (await registerResponse.json()) as AuthResponse;
     expect(registerBody).toHaveProperty('accessToken');
     expect(registerBody).toHaveProperty('refreshToken');
     expect(registerBody).toHaveProperty('user');
@@ -49,7 +63,7 @@ describe('API auth flow', () => {
     });
 
     expect(loginResponse.status).toBe(200);
-    const loginBody = await loginResponse.json();
+    const loginBody = (await loginResponse.json()) as AuthResponse;
     expect(loginBody).toHaveProperty('accessToken');
     expect(loginBody).toHaveProperty('refreshToken');
     expect(loginBody.user.email).toBe('newuser@test.local');
@@ -67,7 +81,7 @@ describe('API auth flow', () => {
     });
 
     expect(refreshResponse.status).toBe(200);
-    const refreshBody = await refreshResponse.json();
+    const refreshBody = (await refreshResponse.json()) as AuthResponse;
     expect(refreshBody).toHaveProperty('accessToken');
     expect(refreshBody).toHaveProperty('refreshToken');
     expect(refreshBody.accessToken).not.toBe(accessToken);
@@ -78,7 +92,7 @@ describe('API auth flow', () => {
     });
 
     expect(sessionsResponse.status).toBe(200);
-    const sessionsBody = await sessionsResponse.json();
+    const sessionsBody = (await sessionsResponse.json()) as SessionsResponse;
     expect(sessionsBody.sessions.length).toBeGreaterThanOrEqual(1);
 
     // Logout
@@ -88,7 +102,7 @@ describe('API auth flow', () => {
     });
 
     expect(logoutResponse.status).toBe(200);
-    const logoutBody = await logoutResponse.json();
+    const logoutBody = (await logoutResponse.json()) as LogoutResponse;
     expect(logoutBody.loggedOut).toBe(true);
 
     // Verify the seeded user's auth also works via the harness
