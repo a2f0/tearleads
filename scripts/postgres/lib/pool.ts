@@ -24,14 +24,19 @@ export interface Pool {
 }
 
 async function loadPgPoolConstructor(): Promise<
-  new (config: PoolOptions) => Pool
+  new (
+    config: PoolOptions
+  ) => Pool
 > {
   // Use a variable to prevent TypeScript from resolving 'pg' types statically.
   // The module is resolved at runtime by tsx; no @types/pg needed at build time.
   const moduleName = 'pg';
   const mod: { default?: { Pool: new (config: PoolOptions) => Pool } } =
     await import(moduleName);
-  return mod.default!.Pool;
+  if (!mod.default) {
+    throw new Error('Failed to load pg module');
+  }
+  return mod.default.Pool;
 }
 
 export async function createPool(): Promise<Pool> {

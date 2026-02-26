@@ -1,15 +1,15 @@
 import { randomUUID } from 'node:crypto';
-import type { VfsKeySetupRequest } from './vfsTypes.js';
-import {
-  buildVfsPublicEncryptionKey,
-  encryptVfsPrivateKeysWithPassword
-} from './crypto/vfsKeyBundles.js';
-import { generateKeyPair, serializeKeyPair } from './crypto/asymmetric.js';
 import {
   buildPersonalOrganizationId,
   buildPersonalOrganizationName
 } from './account.js';
+import { generateKeyPair, serializeKeyPair } from './crypto/asymmetric.js';
+import {
+  buildVfsPublicEncryptionKey,
+  encryptVfsPrivateKeysWithPassword
+} from './crypto/vfsKeyBundles.js';
 import { hashPassword } from './passwords.js';
+import type { VfsKeySetupRequest } from './vfsTypes.js';
 
 const REVENUECAT_APP_USER_PREFIX = 'org:';
 
