@@ -2,7 +2,8 @@ import {
   createTestContext,
   seedTestUser,
   type SeededUser,
-  type TestContext
+  type TestContext,
+  type TestContextDeps
 } from '@tearleads/api-test-utils';
 
 export interface ApiActorDefinition {
@@ -27,12 +28,10 @@ export class ApiScenarioHarness {
   }
 
   static async create(
-    actorDefs: ApiActorDefinition[]
+    actorDefs: ApiActorDefinition[],
+    getDeps: () => Promise<TestContextDeps>
   ): Promise<ApiScenarioHarness> {
-    const ctx = await createTestContext(async () => {
-      const api = await import('@tearleads/api');
-      return { app: api.app, migrations: api.migrations };
-    });
+    const ctx = await createTestContext(getDeps);
     const actorMap = new Map<string, ApiActor>();
 
     for (const def of actorDefs) {

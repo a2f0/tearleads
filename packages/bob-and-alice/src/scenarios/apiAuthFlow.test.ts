@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
 
+const getApiDeps = async () => {
+  const api = await import('@tearleads/api');
+  return { app: api.app, migrations: api.migrations };
+};
+
 describe('API auth flow', () => {
   let harness: ApiScenarioHarness | null = null;
 
@@ -12,7 +17,7 @@ describe('API auth flow', () => {
   });
 
   it('registers a new user, logs in, refreshes, and logs out', async () => {
-    harness = await ApiScenarioHarness.create([{ alias: 'alice', admin: true }]);
+    harness = await ApiScenarioHarness.create([{ alias: 'alice', admin: true }], getApiDeps);
     const alice = harness.actor('alice');
     const baseUrl = `http://localhost:${String(harness.ctx.port)}/v1`;
 
@@ -92,7 +97,7 @@ describe('API auth flow', () => {
   });
 
   it('rejects login with wrong password', async () => {
-    harness = await ApiScenarioHarness.create([{ alias: 'alice' }]);
+    harness = await ApiScenarioHarness.create([{ alias: 'alice' }], getApiDeps);
     const baseUrl = `http://localhost:${String(harness.ctx.port)}/v1`;
 
     // Register a user first
@@ -119,7 +124,7 @@ describe('API auth flow', () => {
   });
 
   it('rejects duplicate registration', async () => {
-    harness = await ApiScenarioHarness.create([{ alias: 'alice' }]);
+    harness = await ApiScenarioHarness.create([{ alias: 'alice' }], getApiDeps);
     const baseUrl = `http://localhost:${String(harness.ctx.port)}/v1`;
 
     // Register first user

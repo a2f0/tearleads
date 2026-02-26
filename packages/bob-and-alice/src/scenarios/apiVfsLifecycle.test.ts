@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
 
+const getApiDeps = async () => {
+  const api = await import('@tearleads/api');
+  return { app: api.app, migrations: api.migrations };
+};
+
 describe('API VFS lifecycle', () => {
   let harness: ApiScenarioHarness | null = null;
 
@@ -15,7 +20,7 @@ describe('API VFS lifecycle', () => {
     harness = await ApiScenarioHarness.create([
       { alias: 'alice' },
       { alias: 'bob' }
-    ]);
+    ], getApiDeps);
 
     const alice = harness.actor('alice');
     const bob = harness.actor('bob');
@@ -169,7 +174,7 @@ describe('API VFS lifecycle', () => {
     harness = await ApiScenarioHarness.create([
       { alias: 'alice' },
       { alias: 'bob' }
-    ]);
+    ], getApiDeps);
 
     const alice = harness.actor('alice');
 
@@ -242,7 +247,7 @@ describe('API VFS lifecycle', () => {
   });
 
   it('records and queries AI usage', async () => {
-    harness = await ApiScenarioHarness.create([{ alias: 'alice' }]);
+    harness = await ApiScenarioHarness.create([{ alias: 'alice' }], getApiDeps);
     const alice = harness.actor('alice');
 
     // Record usage
