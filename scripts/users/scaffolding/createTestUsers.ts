@@ -1,13 +1,46 @@
 #!/usr/bin/env -S pnpm exec tsx
 import { pathToFileURL } from 'node:url';
-import { buildPostgresConnectionLabel } from '../lib/cliPostgres.js';
-import { buildCreateAccountInput } from '../lib/createAccount.js';
-import { closePostgresPool, getPostgresPool } from '../lib/postgres.js';
-import { seedHarnessAccount } from './seedAccount.js';
-import { allTestUsers, type TestUser } from './testUsers.js';
+import pg from 'pg';
+import {
+  buildCreateAccountInput,
+  getPostgresDevDefaults,
+  seedHarnessAccount
+} from '@tearleads/shared';
+import { allTestUsers, type TestUser } from './testUsers.ts';
+
+const { Pool } = pg;
+
+function createPool(): pg.Pool {
+  const databaseUrl =
+    process.env['DATABASE_URL'] ?? process.env['POSTGRES_URL'];
+  if (databaseUrl) {
+    return new Pool({ connectionString: databaseUrl });
+  }
+
+  const defaults = getPostgresDevDefaults();
+  return new Pool({
+    host: process.env['PGHOST'] ?? defaults.host,
+    port: Number(process.env['PGPORT'] ?? defaults.port ?? 5432),
+    user: process.env['PGUSER'] ?? defaults.user,
+    password: process.env['PGPASSWORD'],
+    database:
+      process.env['PGDATABASE'] ?? defaults.database ?? 'tearleads_development'
+  });
+}
+
+function buildConnectionLabel(pool: pg.Pool): string {
+  const opts = pool.options;
+  const parts = [
+    opts.host ? `host=${opts.host}` : null,
+    opts.port ? `port=${opts.port}` : null,
+    opts.user ? `user=${opts.user}` : null,
+    opts.database ? `database=${opts.database}` : null
+  ].filter((v): v is string => Boolean(v));
+  return parts.join(', ');
+}
 
 async function createTestUser(
-  client: import('pg').PoolClient,
+  client: pg.PoolClient,
   user: TestUser
 ): Promise<void> {
   const { email, password } = buildCreateAccountInput(
@@ -40,8 +73,8 @@ async function createTestUser(
 }
 
 async function main(): Promise<void> {
-  const label = buildPostgresConnectionLabel();
-  const pool = await getPostgresPool();
+  const pool = createPool();
+  const label = buildConnectionLabel(pool);
   const client = await pool.connect();
 
   try {
@@ -62,14 +95,13 @@ async function main(): Promise<void> {
     throw error;
   } finally {
     client.release();
+    await pool.end();
   }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  main()
-    .catch((error) => {
-      console.error('Failed to create test users:', error);
-      process.exitCode = 1;
-    })
-    .finally(() => closePostgresPool());
+  main().catch((error) => {
+    console.error('Failed to create test users:', error);
+    process.exitCode = 1;
+  });
 }

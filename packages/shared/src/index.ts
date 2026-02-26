@@ -20,6 +20,8 @@ export interface LicenseInfo {
   repository?: string;
 }
 
+// Account utilities
+export * from './account.js';
 // Sub-modules
 export * from './admin.js';
 // AI conversations
@@ -32,8 +34,12 @@ export * from './mediaDragData.js';
 export * from './mlsTypes.js';
 // OpenRouter model options
 export * from './openrouter.js';
+// Password hashing
+export * from './passwords.js';
 // Postgres dev-mode defaults
 export * from './postgresDefaults.js';
+// Seed account harness
+export * from './seedAccount.js';
 // Tree utilities
 export * from './tree/index.js';
 // Type guards
