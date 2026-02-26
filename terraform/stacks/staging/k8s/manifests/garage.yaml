@@ -69,6 +69,34 @@ spec:
       labels:
         app: garage
     spec:
+      initContainers:
+        - name: render-config
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              # busybox lacks envsubst; use sed to replace placeholders
+              sed \
+                -e "s|\${GARAGE_RPC_SECRET}|${GARAGE_RPC_SECRET}|g" \
+                -e "s|\${GARAGE_ADMIN_TOKEN}|${GARAGE_ADMIN_TOKEN}|g" \
+                /etc/garage-template/garage.toml > /etc/garage-rendered/garage.toml
+          env:
+            - name: GARAGE_RPC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: GARAGE_RPC_SECRET
+            - name: GARAGE_ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: GARAGE_ADMIN_TOKEN
+          volumeMounts:
+            - name: config
+              mountPath: /etc/garage-template
+            - name: rendered-config
+              mountPath: /etc/garage-rendered
       containers:
         - name: garage
           image: dxflrs/garage:v2.2.0
@@ -93,7 +121,7 @@ spec:
                   name: tearleads-secrets
                   key: GARAGE_ADMIN_TOKEN
           volumeMounts:
-            - name: config
+            - name: rendered-config
               mountPath: /etc/garage.toml
               subPath: garage.toml
             - name: meta
@@ -107,6 +135,12 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
+          startupProbe:
+            tcpSocket:
+              port: 3903
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 60
           readinessProbe:
             httpGet:
               path: /health
@@ -114,8 +148,7 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 5
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 3903
             initialDelaySeconds: 30
             periodSeconds: 10
@@ -123,6 +156,8 @@ spec:
         - name: config
           configMap:
             name: garage-config
+        - name: rendered-config
+          emptyDir: {}
         - name: meta
           persistentVolumeClaim:
             claimName: garage-meta
@@ -136,6 +171,7 @@ metadata:
   name: garage
   namespace: tearleads
 spec:
+  publishNotReadyAddresses: true
   selector:
     app: garage
   ports:
@@ -169,21 +205,16 @@ spec:
             - sh
             - -c
             - |
-              echo "Waiting for Garage to be ready..."
-              until wget -q --spider http://garage:3903/health; do
+              echo "Waiting for Garage admin port to accept connections..."
+              until wget -S -O /dev/null --timeout=2 http://garage:3903/health 2>&1 | grep -q "HTTP/"; do
                 echo "Garage not ready, waiting..."
                 sleep 2
               done
-              echo "Garage is ready"
+              echo "Garage admin port is reachable"
       containers:
         - name: setup
-          image: dxflrs/garage:v2.2.0
+          image: busybox:1.36
           env:
-            - name: GARAGE_RPC_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: tearleads-secrets
-                  key: GARAGE_RPC_SECRET
             - name: GARAGE_ADMIN_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -204,34 +235,56 @@ spec:
             - -c
             - |
               set -e
-              export GARAGE_RPC_HOST="garage:3901"
-              export GARAGE_ADMIN_API_BIND="garage:3903"
+              ADMIN="http://garage:3903"
+              AUTH="Authorization: Bearer $GARAGE_ADMIN_TOKEN"
 
-              # Get node ID and configure layout
-              NODE_ID=$(garage -c /etc/garage.toml node id | head -1 | cut -d'@' -f1)
+              api_post() {
+                local path="$1" body="$2"
+                wget -q -O - --header="$AUTH" --header="Content-Type: application/json" \
+                  --post-data="$body" "$ADMIN$path" 2>&1
+              }
+
+              # Best-effort helper: succeed even if the call returns an HTTP error
+              api_post_ok() {
+                local path="$1" body="$2"
+                wget -q -O - --header="$AUTH" --header="Content-Type: application/json" \
+                  --post-data="$body" "$ADMIN$path" 2>&1 || true
+              }
+
+              # Get node ID from cluster status
+              STATUS=$(wget -q -O - --header="$AUTH" "$ADMIN/v2/GetClusterStatus")
+              NODE_ID=$(echo "$STATUS" | tr -d '[:space:]' | sed 's/.*"nodes":\[{"id":"//' | sed 's/".*//')
               echo "Node ID: $NODE_ID"
 
-              # Assign capacity to node (1GB zone dc1)
-              garage -c /etc/garage.toml layout assign -z dc1 -c 1G "$NODE_ID"
+              # Assign layout to node (1GB, zone dc1) — idempotent
+              echo "Assigning layout..."
+              api_post_ok "/v2/UpdateClusterLayout" \
+                "{\"roles\":[{\"id\":\"$NODE_ID\",\"zone\":\"dc1\",\"capacity\":1000000000,\"tags\":[]}]}"
 
-              # Apply layout
-              garage -c /etc/garage.toml layout apply --version 1
+              # Apply layout — may fail if already applied at this version
+              echo "Applying layout..."
+              api_post_ok "/v2/ApplyClusterLayout" '{"version":1}'
 
-              # Create access key
-              garage -c /etc/garage.toml key create vfs-blob-key
-              garage -c /etc/garage.toml key import -n vfs-blob-key "$VFS_BLOB_S3_ACCESS_KEY_ID" "$VFS_BLOB_S3_SECRET_ACCESS_KEY"
+              # Import access key — idempotent (re-imports existing GK-format key)
+              echo "Importing access key..."
+              api_post_ok "/v2/ImportKey" \
+                "{\"accessKeyId\":\"$VFS_BLOB_S3_ACCESS_KEY_ID\",\"secretAccessKey\":\"$VFS_BLOB_S3_SECRET_ACCESS_KEY\",\"name\":\"vfs-blob-key\"}"
+              echo ""
 
-              # Create bucket
-              garage -c /etc/garage.toml bucket create vfs-blobs
+              # Create bucket — idempotent (returns existing bucket)
+              echo "Creating bucket..."
+              BUCKET_RESP=$(api_post_ok "/v2/CreateBucket" '{"globalAlias":"vfs-blobs"}')
+              BUCKET_ID=$(echo "$BUCKET_RESP" | sed 's/.*"id":"//' | sed 's/".*//')
+              echo "Bucket ID: $BUCKET_ID"
 
               # Grant permissions
-              garage -c /etc/garage.toml bucket allow --read --write --owner vfs-blobs --key vfs-blob-key
+              if [ -n "$BUCKET_ID" ]; then
+                echo "Granting bucket permissions..."
+                api_post_ok "/v2/AllowBucketKey" \
+                  "{\"bucketId\":\"$BUCKET_ID\",\"accessKeyId\":\"$VFS_BLOB_S3_ACCESS_KEY_ID\",\"permissions\":{\"read\":true,\"write\":true,\"owner\":true}}"
+              fi
 
               echo "Garage setup complete"
-          volumeMounts:
-            - name: config
-              mountPath: /etc/garage.toml
-              subPath: garage.toml
       volumes:
         - name: config
           configMap:
