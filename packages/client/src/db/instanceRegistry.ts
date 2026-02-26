@@ -240,24 +240,18 @@ export async function bindInstanceToUser(
       continue;
     }
 
-    if (
-      instance.boundUserId === normalizedUserId &&
-      instance.id !== instanceId
-    ) {
+    if (instance.id === instanceId) {
+      if (instance.boundUserId !== normalizedUserId) {
+        instances[index] = {
+          ...instance,
+          boundUserId: normalizedUserId
+        };
+        changed = true;
+      }
+    } else if (instance.boundUserId === normalizedUserId) {
       instances[index] = {
         ...instance,
         boundUserId: null
-      };
-      changed = true;
-    }
-
-    if (
-      instance.id === instanceId &&
-      instance.boundUserId !== normalizedUserId
-    ) {
-      instances[index] = {
-        ...instance,
-        boundUserId: normalizedUserId
       };
       changed = true;
     }

@@ -45,7 +45,7 @@ export function AuthInstanceBinding() {
           getInstanceForUser(userId),
           getInstance(currentInstanceId)
         ]);
-        if (cancelled) {
+        if (cancelled || !currentInstance) {
           return;
         }
 

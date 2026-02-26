@@ -92,4 +92,17 @@ describe('AuthInstanceBinding', () => {
       'user-1'
     );
   });
+
+  it('bails out when current instance is missing from registry', async () => {
+    mockGetInstance.mockResolvedValue(null);
+
+    render(<AuthInstanceBinding />);
+
+    await waitFor(() => {
+      expect(mockGetInstance).toHaveBeenCalledWith('instance-current');
+    });
+    expect(switchInstance).not.toHaveBeenCalled();
+    expect(createInstance).not.toHaveBeenCalled();
+    expect(mockBindInstanceToUser).not.toHaveBeenCalled();
+  });
 });
