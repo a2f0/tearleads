@@ -49,7 +49,7 @@ jobs:
       - name: Resolve Tailscale IP for staging-k8s
         run: |
           set -eu
-          TAILSCALE_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName=="staging-k8s") | .TailscaleIPs[0]')
+          TAILSCALE_IP=$(tailscale ip -4 staging-k8s)
           if [ -z "$TAILSCALE_IP" ]; then
             echo "::error::Could not resolve Tailscale IP for staging-k8s"
             tailscale status
