@@ -186,6 +186,7 @@ const postItemsItemIdRekeyHandler = async (
 
   try {
     const pool = await getPostgresPool();
+    const rekeyablePrincipalTypes = ['user', 'group', 'organization'];
 
     // Verify item exists and user is owner
     const itemResult = await pool.query<{
@@ -220,8 +221,8 @@ const postItemsItemIdRekeyHandler = async (
              key_epoch = $3,
              updated_at = NOW()
          WHERE item_id = $4
-           AND principal_type = 'user'
            AND principal_id = $5
+           AND principal_type = ANY($6::text[])
            AND revoked_at IS NULL
          RETURNING id`,
         [
@@ -229,7 +230,8 @@ const postItemsItemIdRekeyHandler = async (
           wrappedKeyMetadata,
           wrap.keyEpoch,
           itemId,
-          wrap.recipientUserId
+          wrap.recipientUserId,
+          rekeyablePrincipalTypes
         ]
       );
 

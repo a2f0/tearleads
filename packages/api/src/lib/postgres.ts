@@ -19,6 +19,8 @@ let replicaPoolConfigKey: string | null = null;
 let replicaPoolMutex: Promise<void> = Promise.resolve();
 let replicaHealthy = true;
 let replicaHealthTimer: ReturnType<typeof setInterval> | null = null;
+let replicaValidationPromise: Promise<boolean> | null = null;
+let replicaLastValidationMs = 0;
 
 const DATABASE_URL_KEYS = ['DATABASE_URL', 'POSTGRES_URL'];
 const HOST_KEYS = ['POSTGRES_HOST', 'PGHOST'];
@@ -33,6 +35,9 @@ const RELEASE_ENV_KEYS = {
   password: 'POSTGRES_PASSWORD',
   database: 'POSTGRES_DATABASE'
 };
+const REPLICA_HEALTH_CHECK_INTERVAL_MS = 30_000;
+const REPLICA_VALIDATE_MIN_INTERVAL_MS = 2_000;
+const DEFAULT_REPLICA_MAX_LAG_SECONDS = 5;
 
 function getEnvValue(keys: string[]): string | undefined {
   for (const key of keys) {
@@ -228,21 +233,70 @@ function buildReplicaPoolConfig(): {
 
 function startReplicaHealthCheck(
   replicaPoolInstance: PgPool,
-  intervalMs = 30_000
+  intervalMs = REPLICA_HEALTH_CHECK_INTERVAL_MS
 ): void {
   if (replicaHealthTimer) {
     clearInterval(replicaHealthTimer);
   }
   replicaHealthTimer = setInterval(async () => {
-    try {
-      const result = await replicaPoolInstance.query<{
-        pg_is_in_recovery: boolean;
-      }>('SELECT pg_is_in_recovery()');
-      replicaHealthy = result.rows[0]?.pg_is_in_recovery === true;
-    } catch {
-      replicaHealthy = false;
-    }
+    replicaHealthy = await validateReplicaHealth(replicaPoolInstance);
   }, intervalMs);
+}
+
+function parseReplicaMaxLagSeconds(): number {
+  const raw = process.env['POSTGRES_REPLICA_MAX_LAG_SECONDS'];
+  if (!raw) {
+    return DEFAULT_REPLICA_MAX_LAG_SECONDS;
+  }
+
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return DEFAULT_REPLICA_MAX_LAG_SECONDS;
+  }
+
+  return parsed;
+}
+
+function logPoolStats(poolInstance: PgPool, poolType: 'primary' | 'replica') {
+  console.info('postgres_pool_stats', {
+    pool: poolType,
+    totalConnections: poolInstance.totalCount,
+    idleConnections: poolInstance.idleCount,
+    waitingRequests: poolInstance.waitingCount
+  });
+}
+
+async function validateReplicaHealth(replicaPoolInstance: PgPool): Promise<boolean> {
+  try {
+    const result = await replicaPoolInstance.query<{
+      pg_is_in_recovery: boolean;
+      replay_lag_seconds: number | null;
+    }>(
+      `SELECT
+         pg_is_in_recovery() AS pg_is_in_recovery,
+         EXTRACT(EPOCH FROM COALESCE(NOW() - pg_last_xact_replay_timestamp(), INTERVAL '0'))::float8 AS replay_lag_seconds`
+    );
+    const row = result.rows[0];
+    const inRecovery = row?.pg_is_in_recovery === true;
+    const lagSeconds = row?.replay_lag_seconds ?? null;
+    const maxLagSeconds = parseReplicaMaxLagSeconds();
+    const lagHealthy =
+      lagSeconds === null || (Number.isFinite(lagSeconds) && lagSeconds <= maxLagSeconds);
+    const healthy = inRecovery && lagHealthy;
+
+    logPoolStats(replicaPoolInstance, 'replica');
+    if (!healthy) {
+      console.warn('postgres_replica_unhealthy', {
+        inRecovery,
+        lagSeconds,
+        maxLagSeconds
+      });
+    }
+    return healthy;
+  } catch (error) {
+    console.error('postgres_replica_health_check_failed', { error });
+    return false;
+  }
 }
 
 async function getReplicaPool(): Promise<PgPool | null> {
@@ -285,6 +339,10 @@ async function getReplicaPool(): Promise<PgPool | null> {
 
     replicaPoolConfigKey = configKey;
     replicaPool = new Pool(config);
+    replicaPool.on('error', (error) => {
+      replicaHealthy = false;
+      console.error('postgres_replica_pool_error', { error });
+    });
     replicaHealthy = true;
     startReplicaHealthCheck(replicaPool);
     return replicaPool;
@@ -326,9 +384,44 @@ export async function getPostgresPool(): Promise<PgPool> {
 
     poolConfigKey = configKey;
     pool = new Pool(config);
+    pool.on('error', (error) => {
+      console.error('postgres_primary_pool_error', { error });
+    });
+    logPoolStats(pool, 'primary');
     return pool;
   } finally {
     resolve();
+  }
+}
+
+async function getHealthyReplicaPool(): Promise<PgPool | null> {
+  const replica = await getReplicaPool();
+  if (!replica) {
+    return null;
+  }
+
+  const now = Date.now();
+  if (
+    replicaHealthy &&
+    now - replicaLastValidationMs < REPLICA_VALIDATE_MIN_INTERVAL_MS
+  ) {
+    return replica;
+  }
+
+  if (!replicaValidationPromise) {
+    replicaValidationPromise = (async () => {
+      const isHealthy = await validateReplicaHealth(replica);
+      replicaHealthy = isHealthy;
+      replicaLastValidationMs = Date.now();
+      return isHealthy;
+    })();
+  }
+
+  try {
+    const isHealthy = await replicaValidationPromise;
+    return isHealthy ? replica : null;
+  } finally {
+    replicaValidationPromise = null;
   }
 }
 
@@ -337,9 +430,9 @@ export async function getPool(intent: QueryIntent): Promise<PgPool> {
     return getPostgresPool();
   }
 
-  if (replicaHealthy) {
-    const replica = await getReplicaPool();
-    if (replica) return replica;
+  const replica = await getHealthyReplicaPool();
+  if (replica) {
+    return replica;
   }
 
   return getPostgresPool();
@@ -363,6 +456,8 @@ export async function closePostgresPool(): Promise<void> {
       replicaPool = null;
       replicaPoolConfigKey = null;
       replicaHealthy = true;
+      replicaLastValidationMs = 0;
+      replicaValidationPromise = null;
       await poolToClose.end();
     }
   } finally {
