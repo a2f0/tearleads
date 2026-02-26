@@ -9,6 +9,7 @@ import { AppRoutes } from './AppRoutes';
 import { AudioProvider } from './audio';
 import { clientBackupsRuntime } from './backups/backupsRuntime';
 import { AppTooltipProvider } from './components/AppTooltipProvider';
+import { AuthInstanceBinding } from './components/AuthInstanceBinding';
 import { AndroidMediaSessionBridge } from './components/audio/AndroidMediaSessionBridge';
 import { GlobalSettingsEffects } from './components/GlobalSettingsEffects';
 import { InstanceChangeHandler } from './components/InstanceChangeHandler';
@@ -86,6 +87,7 @@ if (rootElement) {
                         <AndroidMediaSessionBridge />
                         <VideoProvider>
                           <AuthProvider>
+                            <AuthInstanceBinding />
                             <VfsOrchestratorProvider>
                               <VfsRematerializationBootstrap />
                               <SSEProvider>

@@ -15,9 +15,11 @@ import {
 } from '@/lib/testInstance';
 import type { InstanceMetadata } from './instanceRegistry';
 import {
+  bindInstanceToUser,
   createInstance,
   deleteInstanceFromRegistry,
   getActiveInstanceId,
+  getInstanceForUser,
   getInstances,
   resetInitializationState,
   setActiveInstanceId,
@@ -366,6 +368,50 @@ describe('instance-registry', () => {
 
       const stored = getStoredInstances();
       expect(stored[0]?.lastAccessedAt).toBeGreaterThan(oldTimestamp);
+    });
+  });
+
+  describe('user bindings', () => {
+    it('binds an instance to a user and finds it', async () => {
+      mockStore.set('instances', [
+        {
+          id: 'inst-1',
+          name: 'Instance 1',
+          createdAt: 1000,
+          lastAccessedAt: 2000
+        }
+      ]);
+
+      await bindInstanceToUser('inst-1', 'user-1');
+
+      const bound = await getInstanceForUser('user-1');
+      expect(bound?.id).toBe('inst-1');
+    });
+
+    it('enforces one-to-one user binding by unbinding prior instance', async () => {
+      mockStore.set('instances', [
+        {
+          id: 'inst-1',
+          name: 'Instance 1',
+          createdAt: 1000,
+          lastAccessedAt: 2000,
+          boundUserId: 'user-1'
+        },
+        {
+          id: 'inst-2',
+          name: 'Instance 2',
+          createdAt: 1000,
+          lastAccessedAt: 2000
+        }
+      ]);
+
+      await bindInstanceToUser('inst-2', 'user-1');
+
+      const instances = await getInstances();
+      const first = instances.find((instance) => instance.id === 'inst-1');
+      const second = instances.find((instance) => instance.id === 'inst-2');
+      expect(first?.boundUserId ?? null).toBeNull();
+      expect(second?.boundUserId).toBe('user-1');
     });
   });
 });
