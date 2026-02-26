@@ -39,6 +39,7 @@ import {
 } from '@/db/schema';
 import { API_BASE_URL } from '@/lib/api';
 import { getAuthHeaderValue } from '@/lib/authStorage';
+import { VFS_ROOT_ID } from '@tearleads/vfs-explorer';
 
 const EMAIL_FOLDER_ICON = 'email-folder';
 
@@ -238,14 +239,41 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
         );
 
       if (existing.length === 0) {
+        const folderId = crypto.randomUUID();
+        const now = new Date();
+
         await runLocalWrite(async () => {
-          await db.insert(vfsRegistry).values({
-            id: crypto.randomUUID(),
-            objectType: 'folder',
-            ownerId: null,
-            encryptedName: folderName,
-            icon: EMAIL_FOLDER_ICON,
-            createdAt: new Date()
+          await db.transaction(async (tx) => {
+            // Ensure VFS root exists
+            await tx
+              .insert(vfsRegistry)
+              .values({
+                id: VFS_ROOT_ID,
+                objectType: 'folder',
+                ownerId: null,
+                encryptedName: 'VFS Root',
+                createdAt: now
+              })
+              .onConflictDoNothing();
+
+            // Create the email system folder
+            await tx.insert(vfsRegistry).values({
+              id: folderId,
+              objectType: 'folder',
+              ownerId: null,
+              encryptedName: folderName,
+              icon: EMAIL_FOLDER_ICON,
+              createdAt: now
+            });
+
+            // Link to VFS root so it appears in the folder tree
+            await tx.insert(vfsLinks).values({
+              id: crypto.randomUUID(),
+              parentId: VFS_ROOT_ID,
+              childId: folderId,
+              wrappedSessionKey: '',
+              createdAt: now
+            });
           });
         });
       }
