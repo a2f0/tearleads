@@ -93,8 +93,8 @@ describe('VfsRematerializationBootstrap', () => {
     await Promise.resolve();
 
     // Next retry should be at 60s cap, not 64s
-    const callsBefore = mockRematerializeRemoteVfsStateIfNeeded.mock.calls
-      .length;
+    const callsBefore =
+      mockRematerializeRemoteVfsStateIfNeeded.mock.calls.length;
     await vi.advanceTimersByTimeAsync(60_000);
     expect(
       mockRematerializeRemoteVfsStateIfNeeded.mock.calls.length
