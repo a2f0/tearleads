@@ -23,6 +23,7 @@ function nameCoalesce(): SQL<string> {
     NULLIF(${vfsRegistry.encryptedName}, ''),
     CASE ${vfsRegistry.objectType}
       WHEN 'folder' THEN 'Unnamed Folder'
+      WHEN 'emailFolder' THEN 'Unnamed Folder'
       WHEN 'file' THEN 'Unnamed File'
       WHEN 'blob' THEN 'Unnamed Blob'
       WHEN 'photo' THEN 'Unnamed Photo'

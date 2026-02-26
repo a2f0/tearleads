@@ -166,6 +166,7 @@ export function usePhotoAlbums(): UsePhotoAlbumsResult {
               id: albumId,
               objectType: 'album',
               ownerId: null,
+              encryptedName: albumName,
               createdAt: now
             });
 
@@ -242,7 +243,8 @@ export function usePhotoAlbums(): UsePhotoAlbumsResult {
       await db.insert(vfsRegistry).values({
         id: albumId,
         objectType: 'album',
-        ownerId: null, // Device-first, no owner yet
+        ownerId: null,
+        encryptedName: name,
         createdAt: now
       });
 
@@ -267,6 +269,10 @@ export function usePhotoAlbums(): UsePhotoAlbumsResult {
         .update(albums)
         .set({ encryptedName: newName })
         .where(eq(albums.id, albumId));
+      await db
+        .update(vfsRegistry)
+        .set({ encryptedName: newName })
+        .where(eq(vfsRegistry.id, albumId));
       await fetchAlbums();
     },
     [fetchAlbums]
