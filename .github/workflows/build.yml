@@ -216,7 +216,7 @@ jobs:
         run: ./scripts/checks/checkApiBoundary.sh --from-upstream
 
       - name: Check preen ecosystem parity
-        run: ./scripts/checks/preen/checkPreenEcosystem.sh --strict
+        run: ./scripts/checks/preen/checkPreenEcosystem.ts --strict
 
       - name: Verify file guardrails
         run: ./scripts/verifyFileGuardrails.sh
