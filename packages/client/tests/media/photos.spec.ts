@@ -1,0 +1,314 @@
+import type { Page } from '@playwright/test';
+import { expect, test } from '../fixtures';
+import { clearOriginStorage, MINIMAL_PNG } from '../testUtils';
+
+// Helper to check if viewport is mobile (sidebar hidden at lg breakpoint = 1024px)
+function isMobileViewport(page: Page): boolean {
+  const viewport = page.viewportSize();
+  return (viewport?.width ?? 0) < 1024;
+}
+
+test.beforeEach(async ({ page }) => {
+  await clearOriginStorage(page);
+});
+
+// Map page names to routes
+const PAGE_ROUTES = {
+  SQLite: '/sqlite',
+  Photos: '/photos'
+} as const;
+
+// Helper to navigate using in-app routing (preserves React state)
+async function navigateInApp(page: Page, path: string) {
+  await page.evaluate((route) => {
+    window.history.pushState({}, '', route);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, path);
+  // Give React time to process the navigation
+  await page.waitForTimeout(500);
+}
+
+// Helper to navigate to a page, handling mobile/desktop differences
+async function navigateToPage(page: Page, pageName: 'SQLite' | 'Photos') {
+  const isMobile = isMobileViewport(page);
+
+  if (isMobile) {
+    await page.getByTestId('mobile-menu-button').click();
+    // Scope to mobile menu dropdown to avoid strict mode violation
+    await page
+      .getByTestId('mobile-menu-dropdown')
+      .getByTestId(`${pageName.toLowerCase()}-link`)
+      .click();
+  } else {
+    // Use in-app navigation to preserve React state (including database unlock status)
+    const route = PAGE_ROUTES[pageName];
+    await navigateInApp(page, route);
+  }
+}
+
+// Helper to reset, setup, and unlock the database
+async function setupAndUnlockDatabase(page: Page, password = 'testpassword123') {
+  await navigateToPage(page, 'SQLite');
+
+  await page.getByTestId('db-reset-button').click();
+  await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
+    timeout: 10000
+  });
+  await page.getByTestId('db-password-input').fill(password);
+  await page.getByTestId('db-setup-button').click();
+  await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+    timeout: 10000
+  });
+}
+
+// Helper to navigate to Photos page
+async function navigateToPhotos(page: Page) {
+  await navigateToPage(page, 'Photos');
+}
+
+// Helper to upload a single test image and wait for grid to appear
+async function uploadTestImage(page: Page) {
+  // Wait for the dropzone to be ready
+  const fileInput = page.getByTestId('dropzone-input');
+  await expect(fileInput).toBeAttached({ timeout: 10000 });
+
+  await fileInput.setInputFiles({
+    name: 'test-image.png',
+    mimeType: 'image/png',
+    buffer: MINIMAL_PNG
+  });
+
+  // Wait for "1 photo" text which confirms the entire upload->fetch->display cycle:
+  // 1. File was uploaded successfully
+  // 2. fetchPhotos ran and found the photo in the database
+  // 3. The grid container is now rendered (since photos.length > 0)
+  await expect(page.getByText('1 photo')).toBeVisible({ timeout: 60000 });
+
+  // Now the grid should be visible
+  await expect(page.getByTestId('photos-grid')).toBeVisible();
+}
+
+test.describe('Photo albums context menu', () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  // Helper to open the Photos floating window from Home desktop
+  async function openPhotosWindow(page: Page) {
+    // Navigate to Home page using in-app navigation to preserve React state (including database unlock)
+    await navigateInApp(page, '/');
+
+    // Double-click the Photos icon (using data-icon-path attribute) to open the floating window
+    const photosIcon = page.locator('button[data-icon-path="/photos"]');
+    await expect(photosIcon).toBeVisible({ timeout: 10000 });
+    await photosIcon.dblclick();
+
+    // Wait for the floating window to appear (ID includes UUID, so match with regex)
+    // Use role=dialog to get the main window element, not resize handles or title bar
+    const photosWindow = page.locator(
+      '[data-testid^="floating-window-photos"][role="dialog"]'
+    );
+    await expect(photosWindow).toBeVisible({ timeout: 10000 });
+  }
+
+  test('should show context menu when right-clicking an album', async ({
+    page
+  }) => {
+    await page.goto('/');
+    await setupAndUnlockDatabase(page);
+    await openPhotosWindow(page);
+
+    // Create a new album by clicking the "New Album" button in the window
+    const newAlbumButton = page.locator('button[title="New Album"]');
+    await expect(newAlbumButton).toBeVisible({ timeout: 10000 });
+    await newAlbumButton.click();
+
+    // Fill in the album name in the dialog
+    const albumNameInput = page.getByTestId('new-album-name-input');
+    await expect(albumNameInput).toBeVisible({ timeout: 5000 });
+    await albumNameInput.fill('Test Album');
+
+    // Click create button
+    await page.getByTestId('new-album-dialog-create').click();
+
+    // Wait for the album to appear in the sidebar
+    const albumItem = page.getByText('Test Album');
+    await expect(albumItem).toBeVisible({ timeout: 10000 });
+
+    // Right-click on the album to open context menu
+    await albumItem.click({ button: 'right' });
+
+    // Verify the context menu is visible
+    const contextMenu = page.getByTestId('album-context-menu');
+    await expect(contextMenu).toBeVisible({ timeout: 5000 });
+
+    // Verify the menu has the expected options
+    await expect(page.getByRole('button', { name: 'Rename' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Delete' })).toBeVisible();
+
+    // Verify the context menu is not obscured by checking it's clickable
+    const renameButton = page.getByRole('button', { name: 'Rename' });
+    await expect(renameButton).toBeVisible();
+
+    // Click rename to verify the menu is interactive
+    await renameButton.click();
+
+    // Verify the rename dialog opens
+    await expect(
+      page.getByRole('heading', { name: 'Rename Album' })
+    ).toBeVisible({ timeout: 5000 });
+  });
+
+  test('should close context menu when clicking backdrop', async ({ page }) => {
+    await page.goto('/');
+    await setupAndUnlockDatabase(page);
+    await openPhotosWindow(page);
+
+    // Create a new album
+    const newAlbumButton = page.locator('button[title="New Album"]');
+    await expect(newAlbumButton).toBeVisible({ timeout: 10000 });
+    await newAlbumButton.click();
+    const albumNameInput = page.getByTestId('new-album-name-input');
+    await expect(albumNameInput).toBeVisible({ timeout: 5000 });
+    await albumNameInput.fill('Backdrop Test Album');
+    await page.getByTestId('new-album-dialog-create').click();
+
+    // Wait for album and right-click
+    const albumItem = page.getByText('Backdrop Test Album');
+    await expect(albumItem).toBeVisible({ timeout: 10000 });
+    await albumItem.click({ button: 'right' });
+
+    // Verify context menu appears
+    const contextMenu = page.getByTestId('album-context-menu');
+    await expect(contextMenu).toBeVisible({ timeout: 5000 });
+
+    // Click the backdrop to close
+    await page.getByTestId('album-context-menu-backdrop').click();
+
+    // Verify context menu is hidden
+    await expect(contextMenu).not.toBeVisible();
+  });
+});
+
+test.describe('Photos page responsive layout', () => {
+  test.describe('Mobile viewport (375px - iPhone)', () => {
+    test.use({ viewport: { width: 375, height: 667 } });
+
+    // This test involves database setup, file upload, and thumbnail generation
+    // which can be slow in CI environments
+    test('should display photos grid with 3 columns and square aspect ratio on mobile', async ({
+      page
+    }) => {
+      test.slow(); // Triple the default timeout
+      await page.goto('/');
+      await setupAndUnlockDatabase(page);
+      await navigateToPhotos(page);
+
+      // Upload a test image to trigger grid display
+      await uploadTestImage(page);
+
+      // Verify the grid container is visible
+      const gridContainer = page.getByTestId('photos-grid');
+      await expect(gridContainer).toBeVisible();
+
+      // With virtualization, grid-cols-3 is on child divs inside the container
+      // Verify the inner grid has the correct column class
+      const innerGrid = gridContainer.locator('.grid-cols-3').first();
+      await expect(innerGrid).toBeVisible();
+
+      // Verify at least one photo item exists
+      const photos = gridContainer.locator('[role="button"]');
+      await expect(photos.first()).toBeVisible();
+
+      // Verify square aspect ratio
+      const firstPhoto = photos.first();
+      const boundingBox = await firstPhoto.boundingBox();
+      expect(boundingBox).not.toBeNull();
+
+      if (boundingBox) {
+        // Aspect ratio should be approximately 1:1 (square)
+        const aspectRatio = boundingBox.width / boundingBox.height;
+        expect(aspectRatio).toBeCloseTo(1, 1);
+
+        // On mobile with 3 columns, photos should fill ~1/3 of container width
+        // Container is 375px - 32px padding = 343px, with 8px gaps = ~105px per photo
+        expect(boundingBox.width).toBeGreaterThan(80);
+        expect(boundingBox.width).toBeLessThan(140);
+      }
+    });
+  });
+
+  test.describe('Tablet viewport (768px - iPad)', () => {
+    test.use({ viewport: { width: 768, height: 1024 } });
+
+    test('should display photos grid with 5 columns on tablet (md breakpoint)', async ({
+      page
+    }) => {
+      test.slow(); // File upload and thumbnail generation can be slow in CI
+      await page.goto('/');
+      await setupAndUnlockDatabase(page);
+      await navigateToPhotos(page);
+
+      await uploadTestImage(page);
+
+      const gridContainer = page.getByTestId('photos-grid');
+      await expect(gridContainer).toBeVisible();
+
+      // With virtualization, the inner grid has the column classes
+      // At md breakpoint (768px+), useColumnCount returns 5 columns
+      const innerGrid = gridContainer.locator('.md\\:grid-cols-5').first();
+      await expect(innerGrid).toBeVisible();
+    });
+  });
+
+  test.describe('Desktop viewport (1280px)', () => {
+    test.use({ viewport: { width: 1280, height: 800 } });
+
+    test('should display photos grid with responsive column classes on desktop', async ({
+      page
+    }) => {
+      test.slow(); // File upload and thumbnail generation can be slow in CI
+      await page.goto('/');
+      await setupAndUnlockDatabase(page);
+      await navigateToPhotos(page);
+
+      await uploadTestImage(page);
+
+      const gridContainer = page.getByTestId('photos-grid');
+      await expect(gridContainer).toBeVisible();
+
+      // With virtualization, inner grid divs have the responsive classes
+      // Verify the inner grid has all responsive column classes
+      const innerGrid = gridContainer.locator('.grid').first();
+      await expect(innerGrid).toBeVisible();
+      await expect(innerGrid).toHaveClass(/grid-cols-3/);
+      await expect(innerGrid).toHaveClass(/sm:grid-cols-4/);
+      await expect(innerGrid).toHaveClass(/md:grid-cols-5/);
+      await expect(innerGrid).toHaveClass(/lg:grid-cols-6/);
+    });
+
+    test('photos should be smaller on desktop due to more columns', async ({
+      page
+    }) => {
+      test.slow(); // File upload and thumbnail generation can be slow in CI
+      await page.goto('/');
+      await setupAndUnlockDatabase(page);
+      await navigateToPhotos(page);
+
+      await uploadTestImage(page);
+
+      const gridContainer = page.getByTestId('photos-grid');
+      const firstPhoto = gridContainer.locator('[role="button"]').first();
+
+      const boundingBox = await firstPhoto.boundingBox();
+      expect(boundingBox).not.toBeNull();
+
+      if (boundingBox) {
+        // On desktop with 6 columns, photos should be smaller
+        // Container is constrained, so photos should be less than 250px wide
+        expect(boundingBox.width).toBeLessThan(250);
+        // Still should be square
+        const aspectRatio = boundingBox.width / boundingBox.height;
+        expect(aspectRatio).toBeCloseTo(1, 1);
+      }
+    });
+  });
+});
