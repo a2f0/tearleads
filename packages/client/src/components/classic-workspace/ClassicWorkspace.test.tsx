@@ -32,7 +32,8 @@ vi.mock('@/lib/classicPersistence', () => ({
     noteOrderByTagId: {},
     activeTagId: null
   },
-  loadClassicStateFromDatabase: (...args: unknown[]) => mockLoadClassicStateFromDatabase(...args),
+  loadClassicStateFromDatabase: (...args: unknown[]) =>
+    mockLoadClassicStateFromDatabase(...args),
   persistClassicOrderToDatabase: (...args: unknown[]) =>
     mockPersistClassicOrderToDatabase(...args),
   deleteClassicTag: (...args: unknown[]) => mockDeleteClassicTag(...args),

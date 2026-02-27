@@ -45,7 +45,8 @@ export function useContacts(
     groupId
   } = options;
 
-  const { databaseState, getDatabase, activeOrganizationId } = useContactsContext();
+  const { databaseState, getDatabase, activeOrganizationId } =
+    useContactsContext();
   const { isUnlocked, currentInstanceId } = databaseState;
 
   const [contactsList, setContactsList] = useState<ContactInfo[]>([]);
@@ -136,7 +137,14 @@ export function useContacts(
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, sortColumn, sortDirection, groupId, getDatabase, activeOrganizationId]);
+  }, [
+    isUnlocked,
+    sortColumn,
+    sortDirection,
+    groupId,
+    getDatabase,
+    activeOrganizationId
+  ]);
 
   useEffect(() => {
     if (refreshToken === undefined) return;

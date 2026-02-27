@@ -21,14 +21,14 @@ const createAdapter = (
 
 describe('v027 migration', () => {
   it('adds organization_id column and index to contacts and vfs_registry', async () => {
-    const execute = vi.fn<DatabaseAdapter['execute']>().mockImplementation(
-      async (sql) => {
+    const execute = vi
+      .fn<DatabaseAdapter['execute']>()
+      .mockImplementation(async (sql) => {
         if (typeof sql === 'string' && sql.startsWith('PRAGMA')) {
           return { rows: [] };
         }
         return { rows: [] };
-      }
-    );
+      });
     const adapter = createAdapter(execute);
 
     await v027.up(adapter);
@@ -57,14 +57,14 @@ describe('v027 migration', () => {
   });
 
   it('skips ALTER TABLE when column already exists', async () => {
-    const execute = vi.fn<DatabaseAdapter['execute']>().mockImplementation(
-      async (sql) => {
+    const execute = vi
+      .fn<DatabaseAdapter['execute']>()
+      .mockImplementation(async (sql) => {
         if (typeof sql === 'string' && sql.startsWith('PRAGMA')) {
           return { rows: [{ name: 'organization_id' }] };
         }
         return { rows: [] };
-      }
-    );
+      });
     const adapter = createAdapter(execute);
 
     await v027.up(adapter);
@@ -72,9 +72,7 @@ describe('v027 migration', () => {
     const calls = execute.mock.calls.map((c) => c[0]);
 
     // Should NOT add columns since they exist
-    expect(calls).not.toContainEqual(
-      expect.stringContaining('ALTER TABLE')
-    );
+    expect(calls).not.toContainEqual(expect.stringContaining('ALTER TABLE'));
 
     // Should still create indexes (IF NOT EXISTS is idempotent)
     expect(calls).toContainEqual(

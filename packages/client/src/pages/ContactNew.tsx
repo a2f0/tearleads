@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useOrg } from '@/contexts/OrgContext';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { runLocalWrite } from '@/db/localWrite';
@@ -14,7 +15,6 @@ import {
   vfsRegistry
 } from '@/db/schema';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
-import { useOrg } from '@/contexts/OrgContext';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { queueItemUpsertAndFlush } from '@/lib/vfsItemSyncWriter';
 import { EmailAddressesSection } from '@/pages/contact-new/EmailAddressesSection';

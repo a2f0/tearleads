@@ -66,8 +66,12 @@ function parseCSV(text: string): ParsedCSV {
 }
 
 export function useContactsImport() {
-  const { getDatabase, getDatabaseAdapter, onContactsImported, activeOrganizationId } =
-    useContactsContext();
+  const {
+    getDatabase,
+    getDatabaseAdapter,
+    onContactsImported,
+    activeOrganizationId
+  } = useContactsContext();
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
 

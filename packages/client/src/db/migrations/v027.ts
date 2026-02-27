@@ -11,12 +11,7 @@ export const v027: Migration = {
   version: 27,
   description: 'Add organization_id to contacts and vfs_registry',
   up: async (adapter) => {
-    await addColumnIfNotExists(
-      adapter,
-      'contacts',
-      'organization_id',
-      'TEXT'
-    );
+    await addColumnIfNotExists(adapter, 'contacts', 'organization_id', 'TEXT');
     await adapter.execute(
       'CREATE INDEX IF NOT EXISTS "contacts_org_idx" ON "contacts" ("organization_id")'
     );

@@ -66,7 +66,8 @@ export function ClassicWorkspace({
     setWorkspaceError(null);
 
     try {
-      const { state, linkRows } = await loadClassicStateFromDatabase(activeOrganizationId);
+      const { state, linkRows } =
+        await loadClassicStateFromDatabase(activeOrganizationId);
       setInitialState(state);
       linkRowsRef.current = linkRows;
       setStateRevision((current) => current + 1);
@@ -82,10 +83,8 @@ export function ClassicWorkspace({
   }, [isUnlocked, activeOrganizationId]);
 
   useEffect(() => {
-    const instanceChanged =
-      fetchedForInstanceRef.current !== currentInstanceId;
-    const orgChanged =
-      fetchedForOrgRef.current !== activeOrganizationId;
+    const instanceChanged = fetchedForInstanceRef.current !== currentInstanceId;
+    const orgChanged = fetchedForOrgRef.current !== activeOrganizationId;
     const needsFetch =
       isUnlocked && !workspaceLoading && (instanceChanged || orgChanged);
 
@@ -96,7 +95,13 @@ export function ClassicWorkspace({
     fetchedForInstanceRef.current = currentInstanceId;
     fetchedForOrgRef.current = activeOrganizationId;
     fetchClassicState();
-  }, [isUnlocked, workspaceLoading, currentInstanceId, activeOrganizationId, fetchClassicState]);
+  }, [
+    isUnlocked,
+    workspaceLoading,
+    currentInstanceId,
+    activeOrganizationId,
+    fetchClassicState
+  ]);
 
   const handleStateChange = useCallback((nextState: ClassicState) => {
     saveQueueRef.current = saveQueueRef.current
@@ -173,7 +178,13 @@ export function ClassicWorkspace({
             await renameClassicTag(tagId, newName);
           }}
           onCreateNote={async (noteId, tagId, title, body) => {
-            await createClassicNote(tagId, title, body, noteId, activeOrganizationId);
+            await createClassicNote(
+              tagId,
+              title,
+              body,
+              noteId,
+              activeOrganizationId
+            );
           }}
           onUpdateNote={async (noteId, title, body) => {
             await updateClassicNote(noteId, title, body);

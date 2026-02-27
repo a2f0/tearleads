@@ -26,8 +26,12 @@ interface SaveContactResult {
  * Extracts common database transaction logic for both new and existing contacts.
  */
 export function useContactSave() {
-  const { getDatabase, getDatabaseAdapter, registerInVfs, activeOrganizationId } =
-    useContactsContext();
+  const {
+    getDatabase,
+    getDatabaseAdapter,
+    registerInVfs,
+    activeOrganizationId
+  } = useContactsContext();
   const [saving, setSaving] = useState(false);
 
   /**
