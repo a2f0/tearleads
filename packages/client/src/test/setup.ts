@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { createTestContext, type TestContext } from '@tearleads/api-test-utils';
 import {
   configureForExpressPassthrough,
+  getRecordedApiRequests,
   resetMockApiServerState,
   server
 } from '@tearleads/msw/node';
@@ -10,7 +11,11 @@ import type { ReactNode } from 'react';
 import { createElement, Fragment } from 'react';
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 import failOnConsole from 'vitest-fail-on-console';
-import { setSharedTestContext } from './testContext';
+import {
+  resetSharedTestContextAccessed,
+  setSharedTestContext,
+  wasSharedTestContextAccessed
+} from './testContext';
 
 let testContext: TestContext | null = null;
 
@@ -220,9 +225,14 @@ afterEach(async () => {
   server.resetHandlers();
   if (testContext) {
     configureForExpressPassthrough('http://localhost', testContext.port);
-    await testContext.resetState();
+    const usedApi = getRecordedApiRequests().length > 0;
+    const usedSharedContext = wasSharedTestContextAccessed();
+    if (usedApi || usedSharedContext) {
+      await testContext.resetState();
+    }
   }
   resetMockApiServerState();
+  resetSharedTestContextAccessed();
 });
 
 afterAll(async () => {
