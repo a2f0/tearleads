@@ -270,11 +270,13 @@ describe('contactsTable', () => {
     expect(contactsTable.columns['createdAt']).toBeDefined();
     expect(contactsTable.columns['updatedAt']).toBeDefined();
     expect(contactsTable.columns['deleted']).toBeDefined();
+    expect(contactsTable.columns['organizationId']).toBeDefined();
   });
 
   it('has indexes', () => {
-    expect(contactsTable.indexes).toHaveLength(1);
+    expect(contactsTable.indexes).toHaveLength(2);
     expect(contactsTable.indexes?.[0]?.name).toBe('contacts_first_name_idx');
+    expect(contactsTable.indexes?.[1]?.name).toBe('contacts_org_idx');
   });
 });
 
