@@ -263,7 +263,6 @@ function formatMessages(messages: ConsoleMessage[]): string {
 }
 
 void clearOriginStorage;
-void setupAndUnlockDatabase;
 void resetDatabase;
 void importContacts;
 void waitForModelsOrWebGPUError;
@@ -274,11 +273,7 @@ void formatMessages;
 test.describe('Dropzone', () => {
   dbTest('should upload file and show completion status', async ({ page }) => {
     // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    await setupAndUnlockDatabase(page);
 
     // Go to Files page
     await navigateTo(page, 'Files');
@@ -299,11 +294,7 @@ test.describe('Dropzone', () => {
 
   dbTest('should display formatted file size during upload', async ({ page }) => {
     // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    await setupAndUnlockDatabase(page);
 
     // Go to Files page
     await navigateTo(page, 'Files');

@@ -34,7 +34,8 @@ import {
   getItemHeightForMobile,
   LABEL_HEIGHT,
   type Positions,
-  positionsAreEqual
+  positionsAreEqual,
+  sortItemsByLabel
 } from './homeIconUtils';
 
 export { PATH_TO_WINDOW_TYPE } from './home-components/constants';
@@ -50,6 +51,8 @@ export function Home() {
   );
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const translateRef = useRef(t);
+  translateRef.current = t;
   const [positions, setPositions] = useState<Positions>({});
   const isMobile = useIsMobile();
 
@@ -182,7 +185,10 @@ export function Home() {
           // Invalid JSON, fall through to default grid
         }
       }
-      setPositions(calculateGridPositions(appItems, width, isMobile));
+      const sortedItems = sortItemsByLabel(appItems, (item) =>
+        translateRef.current(item.labelKey)
+      );
+      setPositions(calculateGridPositions(sortedItems, width, isMobile));
     }
   }, [appItems, isMobile]);
 
