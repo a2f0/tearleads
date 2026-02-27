@@ -15,6 +15,8 @@ jobs:
     timeout-minutes: 20
     env:
       AWS_REGION: us-east-1
+      DOCKER_BUILD_PLATFORM: linux/amd64
+      TF_VAR_domain: ${{ secrets.DEPLOY_DOMAIN_STAGING }}
 
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +37,9 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ vars.AWS_STAGING_ECR_ROLE_ARN }}
           role-session-name: github-actions-staging-k8s-deploy
+
+      - name: Build and push staging images
+        run: ./scripts/buildContainers.sh staging --tag "${GITHUB_SHA}"
 
       - name: Connect to Tailscale
         uses: tailscale/github-action@v3
