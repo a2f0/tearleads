@@ -2,7 +2,8 @@ import { spawnSync } from 'node:child_process';
 
 const DEFAULT_MAX_WORKERS = 4;
 const PACKAGE_WORKER_CAPS = new Map<string, number>([
-  ['@tearleads/api-client', 1]
+  ['@tearleads/api-client', 1],
+  ['@tearleads/client', 1]
 ]);
 
 function parseCoverageTimeoutMs(): number {
