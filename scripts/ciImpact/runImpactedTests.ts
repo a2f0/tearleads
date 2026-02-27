@@ -63,10 +63,6 @@ const FULL_RUN_PREFIXES: ReadonlyArray<string> = [
 const FULL_RUN_EXACT_EXCEPTIONS: ReadonlyArray<string> = [
   '.github/workflows/build.yml'
 ];
-const CI_IMPACT_SCRIPT_TEST_PREFIXES: ReadonlyArray<string> = [
-  'scripts/ciImpact/',
-  'scripts/agents/tooling/'
-];
 const CI_IMPACT_SCRIPT_TEST_REGEX =
   /^(?:scripts\/ciImpact\/|scripts\/agents\/tooling\/)/;
 const CI_IMPACT_SCRIPT_TEST_FILES: ReadonlyArray<string> = [
