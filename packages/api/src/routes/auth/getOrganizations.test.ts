@@ -146,7 +146,9 @@ describe('GET /auth/organizations', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(response.status).toBe(500);
-    expect(response.body).toEqual({ error: 'User record not found' });
+    expect(response.body).toEqual({
+      error: 'User personal organization ID not found'
+    });
 
     await deleteSession(sessionId, userId);
   });

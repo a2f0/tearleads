@@ -55,7 +55,9 @@ const getOrganizationsHandler = async (
     const personalOrganizationId =
       personalOrgResult.rows[0]?.personal_organization_id;
     if (!personalOrganizationId) {
-      res.status(500).json({ error: 'User record not found' });
+      res
+        .status(500)
+        .json({ error: 'User personal organization ID not found' });
       return;
     }
 
