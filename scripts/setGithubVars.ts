@@ -1,8 +1,12 @@
 #!/usr/bin/env -S pnpm exec tsx
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  readEnvValueFromFile,
+  validateAndroidKeystore
+} from './lib/androidKeystore.ts';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 process.chdir(path.resolve(scriptDir, '..'));
@@ -107,32 +111,12 @@ function readEnvValue(filePath: string, key: string): string {
   if (!existsSync(filePath)) {
     throw new Error(`${filePath} not found`);
   }
-  const content = readFileSync(filePath, 'utf8');
-  for (const rawLine of content.split('\n')) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith('#')) {
-      continue;
-    }
-    const withoutExport = line.startsWith('export ')
-      ? line.slice('export '.length)
-      : line;
-    const eqIndex = withoutExport.indexOf('=');
-    if (eqIndex === -1) {
-      continue;
-    }
-    const k = withoutExport.slice(0, eqIndex).trim();
-    if (k !== key) {
-      continue;
-    }
-    let value = withoutExport.slice(eqIndex + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
+
+  const value = readEnvValueFromFile(filePath, key);
+  if (value) {
     return value;
   }
+
   throw new Error(`${key} not found in ${filePath}`);
 }
 
@@ -147,52 +131,6 @@ function getRequiredEnv(name: (typeof requiredEnvVars)[number]): string {
 function requireFile(filePath: string, errorMessage: string): void {
   if (!existsSync(filePath)) {
     throw new Error(errorMessage);
-  }
-}
-
-function validateAndroidKeystore(
-  filePath: string,
-  storePassword: string,
-  keyPassword: string
-): void {
-  const keyAlias = 'tearleads';
-  const result = spawnSync(
-    'keytool',
-    [
-      '-list',
-      '-keystore',
-      filePath,
-      '-storepass',
-      storePassword,
-      '-alias',
-      keyAlias,
-      '-keypass',
-      keyPassword
-    ],
-    { encoding: 'utf8', stdio: ['ignore', 'ignore', 'pipe'] }
-  );
-
-  if (result.error) {
-    throw new Error(
-      `Android keystore validation failed for ${filePath}. keytool is unavailable: ${result.error.message}`
-    );
-  }
-
-  if (result.status !== 0) {
-    const stderr =
-      typeof result.stderr === 'string' ? result.stderr.trim() : '';
-    const lastLine = stderr.split('\n').at(-1)?.trim() ?? '';
-    const tail =
-      lastLine.length > 0
-        ? lastLine
-        : `keytool exited with status ${result.status}`;
-    throw new Error(
-      [
-        `Android keystore validation failed for ${filePath}.`,
-        `Confirm the keystore bytes are intact and credentials for alias "${keyAlias}" are correct.`,
-        `keytool error: ${tail}`
-      ].join(' ')
-    );
   }
 }
 
@@ -288,8 +226,12 @@ function main(): void {
   );
   validateAndroidKeystore(
     keystoreFile,
-    env.ANDROID_KEYSTORE_STORE_PASS,
-    env.ANDROID_KEYSTORE_KEY_PASS
+    {
+      keyAlias: 'tearleads',
+      keyPassword: env.ANDROID_KEYSTORE_KEY_PASS,
+      storePassword: env.ANDROID_KEYSTORE_STORE_PASS
+    },
+    `Android keystore validation for ${keystoreFile}`
   );
 
   const appStoreConnectApiKey = readFileSync(p8File).toString('base64');

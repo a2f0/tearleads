@@ -84,7 +84,7 @@ try_fetch_secrets() {
   fi
 
   if [ ! -f "$FETCH_SECRETS" ]; then
-    echo "fetch-secrets.sh not found at ${FETCH_SECRETS}."
+    echo "fetch-secrets.ts not found at ${FETCH_SECRETS}."
     echo "Skipping secret fetch."
     return
   fi
