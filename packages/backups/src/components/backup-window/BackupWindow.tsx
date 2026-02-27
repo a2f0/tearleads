@@ -9,7 +9,7 @@ import { BackupDocumentation } from './BackupDocumentation';
 import { BackupManagerView } from './BackupManagerView';
 import { BackupWindowMenuBar } from './BackupWindowMenuBar';
 
-interface BackupWindowProps {
+export interface BackupWindowProps {
   id: string;
   onClose: () => void;
   onMinimize: (dimensions: WindowDimensions) => void;

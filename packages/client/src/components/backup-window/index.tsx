@@ -1,18 +1,11 @@
-import { BackupWindow as BackupWindowBase } from '@tearleads/backups';
-import type { WindowDimensions } from '@tearleads/window-manager';
+import {
+  BackupWindow as BackupWindowBase,
+  type BackupWindowProps as BackupWindowBaseProps
+} from '@tearleads/backups';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { useDatabaseContext } from '@/db/hooks/useDatabaseContext';
 
-interface BackupWindowProps {
-  id: string;
-  onClose: () => void;
-  onMinimize: (dimensions: WindowDimensions) => void;
-  onDimensionsChange?: ((dimensions: WindowDimensions) => void) | undefined;
-  onRename?: ((title: string) => void) | undefined;
-  onFocus: () => void;
-  zIndex: number;
-  initialDimensions?: WindowDimensions | undefined;
-}
+type BackupWindowProps = Omit<BackupWindowBaseProps, 'databaseBlocker'>;
 
 export function BackupWindow(props: BackupWindowProps) {
   const { isUnlocked, isLoading } = useDatabaseContext();
