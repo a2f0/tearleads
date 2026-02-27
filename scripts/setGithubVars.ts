@@ -179,7 +179,8 @@ function validateAndroidKeystore(
   }
 
   if (result.status !== 0) {
-    const stderr = typeof result.stderr === 'string' ? result.stderr.trim() : '';
+    const stderr =
+      typeof result.stderr === 'string' ? result.stderr.trim() : '';
     const lastLine = stderr.split('\n').at(-1)?.trim() ?? '';
     const tail =
       lastLine.length > 0
