@@ -173,6 +173,15 @@ vi.mock('@/storage', () => ({
   })
 }));
 
+vi.mock('@/contexts/OrgContext', () => ({
+  useOrg: () => ({
+    activeOrganizationId: null,
+    organizations: [],
+    setActiveOrganizationId: vi.fn(),
+    isLoading: false
+  })
+}));
+
 interface RenderAppOptions {
   entries?: string[];
   initialIndex?: number;
