@@ -10,6 +10,7 @@ const sharedTestConfig = {
     deps: { optimizer: { client: { enabled: true }, ssr: { enabled: true } } },
   },
 };
+const isCoverageRun = process.argv.includes('--coverage');
 
 // Initialize app config plugin for virtual module support in tests
 const { plugin: appConfigPlugin } = createAppConfigPlugin(__dirname);
@@ -19,7 +20,15 @@ export default mergeConfig(
   defineConfig({
     plugins: [appConfigPlugin, react()],
     test: {
-      environment: 'happy-dom',
+      ...(isCoverageRun
+        ? {
+            pool: 'forks',
+            maxWorkers: 1,
+            minWorkers: 1,
+            execArgv: ['--max-old-space-size=12288'],
+            environment: 'jsdom'
+          }
+        : { environment: 'happy-dom' }),
       globals: true,
       setupFiles: ['./src/test/setup.ts'],
       // Include both unit tests and integration tests.

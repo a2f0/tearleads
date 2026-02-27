@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiDocsPage } from './ApiDocs';
@@ -33,5 +33,49 @@ describe('ApiDocsPage', () => {
       screen.getByRole('heading', { name: 'API Docs' })
     ).toBeInTheDocument();
     expect(await screen.findByText('Client Docs')).toBeInTheDocument();
+  });
+
+  it('keeps loading state when fetch is not ok', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        json: async () => ({ openapi: '3.0.0', info: { title: 'Ignored' } })
+      }))
+    );
+
+    render(
+      <MemoryRouter>
+        <ApiDocsPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Loading API docs...')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText('Ignored')).not.toBeInTheDocument();
+    });
+  });
+
+  it('keeps loading state when response is not an OpenAPI document', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ info: { title: 'Missing openapi key' } })
+      }))
+    );
+
+    render(
+      <MemoryRouter>
+        <ApiDocsPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Loading API docs...')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.queryByText('Missing openapi key')
+      ).not.toBeInTheDocument();
+    });
   });
 });
