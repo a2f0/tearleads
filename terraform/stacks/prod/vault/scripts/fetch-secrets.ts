@@ -3,31 +3,30 @@ import { execFileSync } from 'node:child_process';
 import {
   chmodSync,
   copyFileSync,
-  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
   writeFileSync
 } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  readEnvValueFromFile,
-  type AndroidKeystoreCredentials,
+  decodeBase64Strict,
   validateAndroidKeystore
 } from '../../../../../scripts/lib/androidKeystore.ts';
+import {
+  ensureVaultAuth as ensureVaultAuthShared,
+  readVaultSecretPayload,
+  resolveKeystoreCredentials,
+  runVault
+} from '../../../../../scripts/lib/vault.ts';
 
 interface FetchOptions {
   dryRun: boolean;
   force: boolean;
   outputDir: string;
-}
-
-interface VaultSecretPayload {
-  content: string;
-  encoding: string;
 }
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -116,65 +115,15 @@ function parseArgs(argv: string[]): FetchOptions {
   return { dryRun, force, outputDir };
 }
 
-function runVault(args: string[]): string {
-  return execFileSync('vault', args, {
-    encoding: 'utf8',
-    env: { ...process.env, VAULT_ADDR: vaultAddr },
-    stdio: ['ignore', 'pipe', 'pipe']
+function ensureVaultAuth(): void {
+  ensureVaultAuthShared({
+    vaultAddr,
+    vaultKeysFile
   });
 }
 
-function ensureVaultAuth(): void {
-  if (!process.env.VAULT_TOKEN) {
-    if (existsSync(vaultKeysFile)) {
-      const parsed = JSON.parse(readFileSync(vaultKeysFile, 'utf8'));
-      if (
-        typeof parsed === 'object' &&
-        parsed !== null &&
-        'root_token' in parsed &&
-        typeof parsed.root_token === 'string' &&
-        parsed.root_token.length > 0
-      ) {
-        process.env.VAULT_TOKEN = parsed.root_token;
-      }
-    }
-
-    if (!process.env.VAULT_TOKEN) {
-      const tokenPath = join(homedir(), '.vault-token');
-      if (existsSync(tokenPath)) {
-        process.env.VAULT_TOKEN = readFileSync(tokenPath, 'utf8').trim();
-      }
-    }
-
-    if (
-      !process.env.VAULT_TOKEN &&
-      process.env.VAULT_USERNAME &&
-      process.env.VAULT_PASSWORD
-    ) {
-      execFileSync(
-        'vault',
-        [
-          'login',
-          '-method=userpass',
-          `username=${process.env.VAULT_USERNAME}`,
-          `password=${process.env.VAULT_PASSWORD}`
-        ],
-        { env: { ...process.env, VAULT_ADDR: vaultAddr }, stdio: 'ignore' }
-      );
-    }
-  }
-
-  if (!process.env.VAULT_TOKEN) {
-    throw new Error(
-      'No VAULT_TOKEN, ~/.vault-token, root token in .secrets/vault-keys.json, or VAULT_USERNAME/VAULT_PASSWORD set.'
-    );
-  }
-
-  runVault(['token', 'lookup']);
-}
-
 function listVaultSecrets(): string[] {
-  const raw = runVault(['kv', 'list', '-format=json', vaultPathPrefix]);
+  const raw = runVault(['kv', 'list', '-format=json', vaultPathPrefix], vaultAddr);
   const parsed = JSON.parse(raw);
   if (!Array.isArray(parsed)) {
     return [];
@@ -198,73 +147,6 @@ function listVaultSecrets(): string[] {
   });
 
   return names;
-}
-
-function decodeBase64Strict(content: string): Buffer {
-  const normalized = content.replace(/\s+/g, '');
-  if (normalized.length === 0 || normalized.length % 4 !== 0) {
-    throw new Error('Invalid base64 payload.');
-  }
-
-  const decoded = Buffer.from(normalized, 'base64');
-  if (decoded.toString('base64') !== normalized) {
-    throw new Error('Invalid base64 payload.');
-  }
-
-  return decoded;
-}
-
-function readVaultSecretPayload(secretPath: string): VaultSecretPayload {
-  const raw = runVault(['kv', 'get', '-format=json', secretPath]);
-  const parsed = JSON.parse(raw);
-  if (typeof parsed !== 'object' || parsed === null) {
-    throw new Error(`Vault payload is malformed for ${secretPath}`);
-  }
-
-  const data = 'data' in parsed ? parsed.data : undefined;
-  if (typeof data !== 'object' || data === null) {
-    throw new Error(`Vault data node is missing for ${secretPath}`);
-  }
-
-  const nested = 'data' in data ? data.data : undefined;
-  if (typeof nested !== 'object' || nested === null) {
-    throw new Error(`Vault secret fields are missing for ${secretPath}`);
-  }
-
-  const content = 'content' in nested ? nested.content : undefined;
-  if (typeof content !== 'string') {
-    throw new Error(`Vault secret content is missing for ${secretPath}`);
-  }
-
-  const encoding =
-    'encoding' in nested && typeof nested.encoding === 'string'
-      ? nested.encoding
-      : 'text';
-
-  return { content, encoding };
-}
-
-function resolveKeystoreCredentials(secretsDir: string): AndroidKeystoreCredentials {
-  const alias = process.env.ANDROID_KEY_ALIAS ?? 'tearleads';
-  const rootEnvPath = join(secretsDir, 'root.env');
-  const storePassword =
-    process.env.ANDROID_KEYSTORE_STORE_PASS ??
-    (existsSync(rootEnvPath)
-      ? readEnvValueFromFile(rootEnvPath, 'ANDROID_KEYSTORE_STORE_PASS')
-      : undefined);
-  const keyPassword =
-    process.env.ANDROID_KEYSTORE_KEY_PASS ??
-    (existsSync(rootEnvPath)
-      ? readEnvValueFromFile(rootEnvPath, 'ANDROID_KEYSTORE_KEY_PASS')
-      : undefined);
-
-  if (!storePassword || !keyPassword) {
-    throw new Error(
-      `Vault keystore validation failed: missing ANDROID_KEYSTORE_STORE_PASS/ANDROID_KEYSTORE_KEY_PASS (env or ${rootEnvPath}).`
-    );
-  }
-
-  return { keyAlias: alias, keyPassword, storePassword };
 }
 
 function main(): void {
@@ -303,13 +185,16 @@ function main(): void {
       continue;
     }
 
-    const payload = readVaultSecretPayload(secretPath);
+    const payload = readVaultSecretPayload(secretPath, vaultAddr);
     const tempDir = mkdtempSync(join(tmpdir(), 'tearleads-vault-fetch-'));
     const tempPath = join(tempDir, 'secret.bin');
 
     try {
       if (payload.encoding === 'base64') {
-        writeFileSync(tempPath, decodeBase64Strict(payload.content));
+        writeFileSync(
+          tempPath,
+          decodeBase64Strict(payload.content, `Vault secret ${secretPath}`)
+        );
       } else {
         writeFileSync(tempPath, `${payload.content}\n`, 'utf8');
       }
@@ -317,7 +202,10 @@ function main(): void {
       if (secretName.endsWith('.keystore')) {
         validateAndroidKeystore(
           tempPath,
-          resolveKeystoreCredentials(options.outputDir),
+          resolveKeystoreCredentials(
+            options.outputDir,
+            'Vault keystore validation failed'
+          ),
           `Vault secret ${secretPath}`
         );
       }

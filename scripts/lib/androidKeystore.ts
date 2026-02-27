@@ -1,11 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import {
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  unlinkSync,
-  writeFileSync
-} from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -103,16 +97,7 @@ export function validateAndroidKeystoreBase64(
   credentials: AndroidKeystoreCredentials,
   context: string
 ): void {
-  const normalized = base64Content.replace(/\s+/g, '');
-  if (normalized.length === 0 || normalized.length % 4 !== 0) {
-    throw new Error(`${context} failed: invalid base64 payload.`);
-  }
-
-  const decoded = Buffer.from(normalized, 'base64');
-  const reencoded = decoded.toString('base64');
-  if (reencoded !== normalized) {
-    throw new Error(`${context} failed: invalid base64 payload.`);
-  }
+  const decoded = decodeBase64Strict(base64Content, context);
 
   const tempDir = mkdtempSync(join(tmpdir(), 'tearleads-keystore-'));
   const tempPath = join(tempDir, 'keystore.p12');
@@ -121,14 +106,27 @@ export function validateAndroidKeystoreBase64(
     validateAndroidKeystore(tempPath, credentials, context);
   } finally {
     try {
-      unlinkSync(tempPath);
-    } catch {
-      // best-effort cleanup
-    }
-    try {
-      rmSync(tempDir, { recursive: true });
+      rmSync(tempDir, { recursive: true, force: true });
     } catch {
       // best-effort cleanup
     }
   }
+}
+
+export function decodeBase64Strict(content: string, context?: string): Buffer {
+  const normalized = content.replace(/\s+/g, '');
+  if (normalized.length === 0 || normalized.length % 4 !== 0) {
+    throw new Error(
+      `${context ? `${context} failed: ` : ''}invalid base64 payload.`
+    );
+  }
+
+  const decoded = Buffer.from(normalized, 'base64');
+  if (decoded.toString('base64') !== normalized) {
+    throw new Error(
+      `${context ? `${context} failed: ` : ''}invalid base64 payload.`
+    );
+  }
+
+  return decoded;
 }

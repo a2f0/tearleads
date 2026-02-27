@@ -1,30 +1,28 @@
 #!/usr/bin/env -S pnpm exec tsx
 import { execFileSync } from 'node:child_process';
 import {
-  existsSync,
   readdirSync,
   readFileSync,
   statSync
 } from 'node:fs';
-import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  readEnvValueFromFile,
-  type AndroidKeystoreCredentials,
   validateAndroidKeystore,
   validateAndroidKeystoreBase64
 } from '../../../../../scripts/lib/androidKeystore.ts';
+import {
+  ensureVaultAuth as ensureVaultAuthShared,
+  resolveKeystoreCredentials,
+  runVault,
+  tryReadVaultSecretPayload,
+  type VaultSecretPayload
+} from '../../../../../scripts/lib/vault.ts';
 
 interface MigrateOptions {
   dryRun: boolean;
   force: boolean;
   secretsDir: string;
-}
-
-interface VaultSecretPayload {
-  content: string;
-  encoding: string;
 }
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -114,76 +112,13 @@ function parseArgs(argv: string[]): MigrateOptions {
   return { dryRun, force, secretsDir };
 }
 
-function runVault(args: string[]): string {
-  return execFileSync('vault', args, {
-    encoding: 'utf8',
-    env: { ...process.env, VAULT_ADDR: vaultAddr },
-    stdio: ['ignore', 'pipe', 'pipe']
-  });
-}
-
 function ensureVaultAuth(dryRun: boolean): void {
-  if (dryRun) {
-    return;
-  }
-
-  if (!process.env.VAULT_TOKEN) {
-    if (existsSync(vaultKeysFile)) {
-      const parsed = JSON.parse(readFileSync(vaultKeysFile, 'utf8'));
-      if (
-        typeof parsed === 'object' &&
-        parsed !== null &&
-        'root_token' in parsed &&
-        typeof parsed.root_token === 'string' &&
-        parsed.root_token.length > 0
-      ) {
-        process.env.VAULT_TOKEN = parsed.root_token;
-      }
-    }
-
-    if (!process.env.VAULT_TOKEN) {
-      const tokenPath = join(homedir(), '.vault-token');
-      if (existsSync(tokenPath)) {
-        process.env.VAULT_TOKEN = readFileSync(tokenPath, 'utf8').trim();
-      }
-    }
-
-    if (
-      !process.env.VAULT_TOKEN &&
-      process.env.VAULT_USERNAME &&
-      process.env.VAULT_PASSWORD
-    ) {
-      execFileSync(
-        'vault',
-        [
-          'login',
-          '-method=userpass',
-          `username=${process.env.VAULT_USERNAME}`,
-          `password=${process.env.VAULT_PASSWORD}`
-        ],
-        { env: { ...process.env, VAULT_ADDR: vaultAddr }, stdio: 'ignore' }
-      );
-    }
-  }
-
-  if (!process.env.VAULT_TOKEN) {
-    throw new Error(
-      `No VAULT_TOKEN, ${vaultKeysFile}, ~/.vault-token, or VAULT_USERNAME/VAULT_PASSWORD set.`
-    );
-  }
-
-  runVault(['token', 'lookup']);
-
-  const capabilities = runVault([
-    'token',
-    'capabilities',
-    'secret/data/files/_migrate_probe'
-  ]).trim();
-  if (!/(create|update|root|sudo)/.test(capabilities)) {
-    throw new Error(
-      `Current token cannot write to secret/data/files/* (capabilities: ${capabilities || 'none'}).`
-    );
-  }
+  ensureVaultAuthShared({
+    dryRun,
+    requireWritePath: 'secret/data/files/_migrate_probe',
+    vaultAddr,
+    vaultKeysFile
+  });
 }
 
 function isExcluded(relativePath: string): boolean {
@@ -237,63 +172,6 @@ function isJsonFile(filePath: string): boolean {
   return (filePath.split('.').at(-1) ?? '') === 'json';
 }
 
-function getVaultPayload(path: string): VaultSecretPayload | undefined {
-  try {
-    const raw = runVault(['kv', 'get', '-format=json', path]);
-    const parsed = JSON.parse(raw);
-    if (typeof parsed !== 'object' || parsed === null) {
-      return undefined;
-    }
-
-    const data = 'data' in parsed ? parsed.data : undefined;
-    if (typeof data !== 'object' || data === null) {
-      return undefined;
-    }
-
-    const nested = 'data' in data ? data.data : undefined;
-    if (typeof nested !== 'object' || nested === null) {
-      return undefined;
-    }
-
-    const content = 'content' in nested ? nested.content : undefined;
-    if (typeof content !== 'string') {
-      return undefined;
-    }
-
-    const encoding =
-      'encoding' in nested && typeof nested.encoding === 'string'
-        ? nested.encoding
-        : 'text';
-
-    return { content, encoding };
-  } catch {
-    return undefined;
-  }
-}
-
-function resolveKeystoreCredentials(secretsDir: string): AndroidKeystoreCredentials {
-  const alias = process.env.ANDROID_KEY_ALIAS ?? 'tearleads';
-  const rootEnvPath = join(secretsDir, 'root.env');
-  const storePassword =
-    process.env.ANDROID_KEYSTORE_STORE_PASS ??
-    (existsSync(rootEnvPath)
-      ? readEnvValueFromFile(rootEnvPath, 'ANDROID_KEYSTORE_STORE_PASS')
-      : undefined);
-  const keyPassword =
-    process.env.ANDROID_KEYSTORE_KEY_PASS ??
-    (existsSync(rootEnvPath)
-      ? readEnvValueFromFile(rootEnvPath, 'ANDROID_KEYSTORE_KEY_PASS')
-      : undefined);
-
-  if (!storePassword || !keyPassword) {
-    throw new Error(
-      `Keystore validation failed: missing ANDROID_KEYSTORE_STORE_PASS/ANDROID_KEYSTORE_KEY_PASS (env or ${rootEnvPath}).`
-    );
-  }
-
-  return { keyAlias: alias, keyPassword, storePassword };
-}
-
 function main(): void {
   const options = parseArgs(process.argv);
 
@@ -344,12 +222,17 @@ function main(): void {
     }
 
     const existingPayload =
-      options.dryRun || !options.force ? getVaultPayload(vaultPath) : undefined;
+      options.dryRun || !options.force
+        ? tryReadVaultSecretPayload(vaultPath, vaultAddr)
+        : undefined;
     const secretExists = existingPayload !== undefined;
 
     let existingKeystoreValid = true;
     if (encoding === 'base64' && fileName.endsWith('.keystore')) {
-      const credentials = resolveKeystoreCredentials(options.secretsDir);
+      const credentials = resolveKeystoreCredentials(
+        options.secretsDir,
+        'Keystore validation failed'
+      );
       validateAndroidKeystore(
         filePath,
         credentials,
@@ -420,14 +303,17 @@ function main(): void {
       newCount += 1;
     }
 
-    runVault([
+    runVault(
+      [
       'kv',
       'put',
       vaultPath,
       `content=${content}`,
       `encoding=${encoding}`,
       `original_filename=${fileName}`
-    ]);
+      ],
+      vaultAddr
+    );
   }
 
   process.stdout.write('\n==> Migration complete!\n');
