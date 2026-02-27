@@ -70,6 +70,23 @@ describe('BackupWindow', () => {
     expect(screen.queryByTestId('backup-manager-view')).not.toBeInTheDocument();
   });
 
+  it('renders databaseBlocker instead of content when provided', async () => {
+    render(
+      <BackupWindow
+        {...defaultProps}
+        databaseBlocker={
+          <div data-testid="database-blocker">Database is not set up</div>
+        }
+      />
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('database-blocker')).toBeInTheDocument();
+      expect(
+        screen.queryByTestId('backup-manager-view')
+      ).not.toBeInTheDocument();
+    });
+  });
+
   it('returns to manager view from documentation back action', async () => {
     const user = userEvent.setup();
     render(<BackupWindow {...defaultProps} />);

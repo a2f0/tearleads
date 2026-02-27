@@ -4,9 +4,11 @@ import type { FormEvent, KeyboardEvent, MouseEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Input } from '@/components/ui/input';
 import type { HelpDocId } from '@/constants/help';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
+import { useDatabaseContext } from '@/db/hooks/useDatabaseContext';
 import { useIsMobile } from '@/hooks/device';
 import { type FileOpenTarget, resolveFileOpenTarget } from '@/lib/vfsOpen';
 import type { SearchableEntityType, SearchResult } from '@/search';
@@ -60,6 +62,7 @@ export function SearchWindowContent({
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { openWindow, requestWindowOpen } = useWindowManagerActions();
+  const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();
 
   const filterOptions = useMemo(
     () =>
@@ -374,6 +377,14 @@ export function SearchWindowContent({
     },
     [results, selectedIndex, handleResultClick, resetSearch]
   );
+
+  if (!isDatabaseLoading && !isUnlocked) {
+    return (
+      <div className="flex h-full min-h-0 flex-col items-center justify-center p-8">
+        <InlineUnlock description="search" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col">

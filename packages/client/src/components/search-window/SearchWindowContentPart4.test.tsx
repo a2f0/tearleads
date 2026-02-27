@@ -43,6 +43,10 @@ vi.mock('@/contexts/WindowManagerContext', () => ({
   })
 }));
 
+vi.mock('@/db/hooks/useDatabaseContext', () => ({
+  useDatabaseContext: () => ({ isUnlocked: true, isLoading: false })
+}));
+
 vi.mock('@/hooks/device', () => ({
   useIsMobile: () => mockUseIsMobile()
 }));
