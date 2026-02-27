@@ -24,68 +24,41 @@ const originalFetch = globalThis.fetch;
 let sqlite3: SQLite3Module | null = null;
 let cachedWasmDir: string | null = null;
 
+function getStringProperty(value: unknown, key: string): string | null {
+  if (typeof value !== 'object' || value === null) {
+    return null;
+  }
+  const property = Reflect.get(value, key);
+  return typeof property === 'string' ? property : null;
+}
+
+function resolveFetchInputUrl(input: RequestInfo | URL): string | null {
+  if (typeof input === 'string') {
+    return input;
+  }
+  if (input instanceof URL) {
+    return input.href;
+  }
+  const url = getStringProperty(input, 'url');
+  if (url) {
+    return url;
+  }
+  const href = getStringProperty(input, 'href');
+  if (href) {
+    return href;
+  }
+  const fallback = String(input);
+  return fallback.includes('://') ? fallback : null;
+}
+
 export function patchFetchForFileUrls(): void {
   globalThis.fetch = async (
     input: RequestInfo | URL,
     init?: RequestInit
   ): Promise<Response> => {
-    let directFilePath: string | null = null;
-    if (typeof input !== 'string') {
-      try {
-        directFilePath = fileURLToPath(input as URL);
-      } catch {
-        directFilePath = null;
-      }
-    }
-    if (directFilePath) {
-      const buffer = fs.readFileSync(directFilePath);
-      const dataUrl = `data:application/wasm;base64,${buffer.toString('base64')}`;
-      return originalFetch(dataUrl, init);
-    }
+    const url = resolveFetchInputUrl(input);
 
-    const requestLike = input as {
-      href?: unknown;
-      url?: unknown;
-      protocol?: unknown;
-      pathname?: unknown;
-      toString?: () => string;
-    };
-    const possibleUrls: string[] = [];
-    if (typeof input === 'string') {
-      possibleUrls.push(input);
-    }
-    if (typeof requestLike.href === 'string') {
-      possibleUrls.push(requestLike.href);
-    } else if (requestLike.href) {
-      possibleUrls.push(String(requestLike.href));
-    }
-    if (typeof requestLike.url === 'string') {
-      possibleUrls.push(requestLike.url);
-    } else if (requestLike.url) {
-      possibleUrls.push(String(requestLike.url));
-    }
-    if (
-      requestLike.protocol === 'file:' &&
-      typeof requestLike.pathname === 'string'
-    ) {
-      possibleUrls.push(`file://${requestLike.pathname}`);
-    }
-    try {
-      const jsonString = JSON.stringify(input);
-      if (typeof jsonString === 'string') {
-        possibleUrls.push(jsonString);
-      }
-    } catch {
-      // ignore serialization failures
-    }
-    possibleUrls.push(String(input));
-
-    const url =
-      possibleUrls.find((candidate) => candidate.includes('://')) ??
-      possibleUrls[0] ??
-      '';
-
-    if (url.startsWith('file://')) {
+    if (typeof url === 'string' && url.startsWith('file://')) {
       const filePath = fileURLToPath(url);
       const buffer = fs.readFileSync(filePath);
       const dataUrl = `data:application/wasm;base64,${buffer.toString('base64')}`;

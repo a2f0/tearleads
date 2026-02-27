@@ -1,5 +1,10 @@
 import { spawnSync } from 'node:child_process';
 
+const DEFAULT_MAX_WORKERS = 4;
+const PACKAGE_WORKER_CAPS = new Map<string, number>([
+  ['@tearleads/api-client', 1]
+]);
+
 function parseCoverageTimeoutMs(): number {
   const raw = process.env['PRE_PUSH_COVERAGE_TIMEOUT_MINUTES'];
   if (raw === undefined) {
@@ -12,25 +17,45 @@ function parseCoverageTimeoutMs(): number {
   return parsed * 60 * 1000;
 }
 
-function parseVitestMaxWorkersArg(): string {
+function parseGlobalMaxWorkers(): number {
   const raw = process.env['PRE_PUSH_VITEST_MAX_WORKERS'];
   if (typeof raw === 'string' && raw.trim().length > 0) {
-    return `--maxWorkers=${raw.trim()}`;
+    const parsed = Number.parseInt(raw.trim(), 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
   }
-  return '--maxWorkers=4';
+  return DEFAULT_MAX_WORKERS;
+}
+
+function parsePackageCaps(): Map<string, number> {
+  const result = new Map(PACKAGE_WORKER_CAPS);
+  const raw = process.env['PRE_PUSH_VITEST_MAX_WORKERS_BY_PACKAGE'];
+  if (!raw) {
+    return result;
+  }
+
+  for (const entry of raw.split(',')) {
+    const [pkg, workers] = entry.split('=');
+    if (!pkg || !workers) {
+      continue;
+    }
+    const parsed = Number.parseInt(workers.trim(), 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      result.set(pkg.trim(), parsed);
+    }
+  }
+  return result;
 }
 
 function resolveVitestMaxWorkersArg(pkg: string): string {
-  const configuredArg = parseVitestMaxWorkersArg();
-  if (process.env['PRE_PUSH_VITEST_MAX_WORKERS'] !== undefined) {
-    return configuredArg;
-  }
-
-  if (pkg === '@tearleads/api-client') {
-    return '--maxWorkers=1';
-  }
-
-  return configuredArg;
+  const globalWorkers = parseGlobalMaxWorkers();
+  const packageCap = parsePackageCaps().get(pkg);
+  const effectiveWorkers =
+    typeof packageCap === 'number'
+      ? Math.min(globalWorkers, packageCap)
+      : globalWorkers;
+  return `--maxWorkers=${effectiveWorkers}`;
 }
 
 export function runCoverageForPackage(pkg: string): void {

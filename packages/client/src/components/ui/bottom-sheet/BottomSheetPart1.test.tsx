@@ -176,7 +176,7 @@ describe('BottomSheet', () => {
     );
 
     const dialog = screen.getByRole('dialog');
-    expect(dialog.getAttribute('style')).toContain('max-height: 90vh');
+    expect(dialog.style.maxHeight).toBe('90vh');
   });
 
   it('unmounts after close animation', async () => {
@@ -236,6 +236,7 @@ describe('BottomSheet', () => {
       const dialog = screen.getByRole('dialog');
       const initialHeight = parseInt(dialog.style.height, 10);
 
+      // Use a tiny negative Y delta so gesture direction is recognized in happy-dom.
       await simulateGestureDrag(-100, -1);
 
       await waitFor(() => {
