@@ -71,3 +71,16 @@ test('runImpactedQuality dry-run uses selective mode for ciImpact script edits',
     /ci-impact: selective quality checks enabled\./
   );
 });
+
+test('runImpactedQuality dry-run reports changed ansible lint targets', () => {
+  const result = runImpactedQuality([
+    '--files',
+    'ansible/playbooks/developerLaptop.yml',
+    '--dry-run'
+  ]);
+  assert.equal(result.status, 0, stderrText(result));
+  assert.match(
+    stdoutText(result),
+    /ci-impact: ansible targets => ansible\/playbooks\/developerLaptop\.yml/
+  );
+});

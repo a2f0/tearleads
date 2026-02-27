@@ -53,6 +53,13 @@ const FULL_RUN_PREFIXES: ReadonlyArray<string> = [
   '.github/workflows/ios-maestro-release.yml'
 ];
 
+const ANSIBLE_LINT_PREFIXES: ReadonlyArray<string> = [
+  'ansible/',
+  'tee/ansible/',
+  'terraform/stacks/staging/tee/ansible/',
+  'terraform/stacks/prod/tee/ansible/'
+];
+
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = { dryRun: false };
   for (let i = 2; i < argv.length; i += 1) {
@@ -266,12 +273,19 @@ function shouldRunRubocop(changedFiles: string[]): boolean {
 }
 
 function shouldRunAnsibleLint(changedFiles: string[]): boolean {
-  return changedFiles.some(
-    (f) =>
-      f.startsWith('ansible/') ||
-      f.startsWith('tee/ansible/') ||
-      f.startsWith('terraform/stacks/staging/tee/ansible/') ||
-      f.startsWith('terraform/stacks/prod/tee/ansible/')
+  return changedFiles.some((f) =>
+    ANSIBLE_LINT_PREFIXES.some((prefix) => f.startsWith(prefix))
+  );
+}
+
+function changedAnsibleLintTargets(changedFiles: string[]): string[] {
+  return uniqueSorted(
+    changedFiles.filter(
+      (filePath) =>
+        fileExists(filePath) &&
+        /\.(ya?ml)$/.test(filePath) &&
+        ANSIBLE_LINT_PREFIXES.some((prefix) => filePath.startsWith(prefix))
+    )
   );
 }
 
@@ -342,6 +356,7 @@ function main(): void {
   const runMdLint = shouldRunLintMd(impact.changedFiles);
   const runRubo = shouldRunRubocop(impact.changedFiles);
   const runAnsLint = shouldRunAnsibleLint(impact.changedFiles);
+  const ansibleLintTargets = changedAnsibleLintTargets(impact.changedFiles);
   const runScriptsTypecheck = true;
 
   const buildTargets = impactedPackages.filter((pkgName) => {
@@ -366,6 +381,11 @@ function main(): void {
 
   if (biomeTargets.length > 0) {
     console.log(`ci-impact: biome targets => ${biomeTargets.join(', ')}`);
+  }
+  if (ansibleLintTargets.length > 0) {
+    console.log(
+      `ci-impact: ansible targets => ${ansibleLintTargets.join(', ')}`
+    );
   }
   console.log(
     'ci-impact: running scripts TypeScript check (baseline pre-push guard).'
@@ -400,7 +420,12 @@ function main(): void {
       'ansible-lint',
       'Error: ansible-lint is not installed. Run: pipx install ansible-lint && pipx inject ansible-lint ansible'
     );
-    runCommand('pnpm', ['lint:ansible']);
+    if (ansibleLintTargets.length > 0) {
+      runCommand('ansible-lint', ansibleLintTargets);
+    } else {
+      // Fail closed for non-file changes (e.g. deletions) by keeping full lint.
+      runCommand('pnpm', ['lint:ansible']);
+    }
   }
 
   for (const pkgName of typecheckTargets) {

@@ -79,27 +79,26 @@ const reportIssue = (message: string): void => {
 
 const readText = (filePath: string): string => readFileSync(filePath, 'utf8');
 
-const listSkillFiles = (rootDir: string): string[] => {
-  const output: string[] = [];
-
-  const walk = (dirPath: string): void => {
-    const entries = readdirSync(dirPath, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = join(dirPath, entry.name);
-      if (entry.isDirectory()) {
-        walk(fullPath);
-      } else if (entry.isFile() && entry.name === 'SKILL.md') {
-        output.push(fullPath);
-      }
-    }
-  };
-
-  if (existsSync(rootDir)) {
-    walk(rootDir);
+const listTopLevelPreenSkillFiles = (rootDir: string): string[] => {
+  if (!existsSync(rootDir)) {
+    return [];
   }
+
+  const output = readdirSync(rootDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && /^preen/.test(entry.name))
+    .map((entry) => join(rootDir, entry.name, 'SKILL.md'))
+    .filter((filePath) => existsSync(filePath));
 
   output.sort();
   return output;
+};
+
+const listMiscPreenEnhancementsSkillFile = (rootDir: string): string[] => {
+  const filePath = join(rootDir, 'misc', 'preen-enhancements', 'SKILL.md');
+  if (!existsSync(filePath)) {
+    return [];
+  }
+  return [filePath];
 };
 
 const collectLineMatches = (
@@ -326,29 +325,21 @@ const checkRegistryGeneration = (): void => {
   }
 };
 
-const codexSkillFiles = listSkillFiles('.codex/skills').filter(
-  (filePath) =>
-    /\/preen[^/]*\/SKILL\.md$/.test(filePath) ||
-    /\/misc\/preen-enhancements\/SKILL\.md$/.test(filePath)
-);
+const codexSkillFiles = [
+  ...listTopLevelPreenSkillFiles('.codex/skills'),
+  ...listMiscPreenEnhancementsSkillFile('.codex/skills')
+];
 for (const filePath of codexSkillFiles) {
   checkPrefixUsage(filePath, 'codex');
 }
 
-const geminiSkillFiles = listSkillFiles('.gemini/skills').filter(
-  (filePath) =>
-    /\/preen[^/]*\/SKILL\.md$/.test(filePath) ||
-    /\/preen-enhancements\/SKILL\.md$/.test(filePath)
-);
+const geminiSkillFiles = listTopLevelPreenSkillFiles('.gemini/skills');
 for (const filePath of geminiSkillFiles) {
   checkPrefixUsage(filePath, 'gemini');
 }
 
-const claudePreenDirs = readdirSync('.claude/skills', { withFileTypes: true })
-  .filter((entry) => entry.isDirectory() && /^preen/.test(entry.name))
-  .map((entry) => join('.claude/skills', entry.name, 'SKILL.md'))
-  .sort();
-for (const filePath of claudePreenDirs) {
+const claudeSkillFiles = listTopLevelPreenSkillFiles('.claude/skills');
+for (const filePath of claudeSkillFiles) {
   checkPrefixUsage(filePath, 'claude');
 }
 
