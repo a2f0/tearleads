@@ -12,6 +12,7 @@
   ansible.builtin.set_fact:
     toolchain_is_linux: "{{ (ansible_facts.system | default('')) == 'Linux' }}"
     toolchain_is_darwin: "{{ (ansible_facts.system | default('')) == 'Darwin' }}"
+    toolchain_is_local: "{{ ansible_connection == 'local' }}"
     toolchain_target_user: "{{ lookup('env', 'SUDO_USER') | default(ansible_user, true) }}"
 
 - name: Resolve toolchain user home on Linux
@@ -50,6 +51,7 @@
     update_cache: true
     cache_valid_time: 3600
     upgrade: dist
+  become: true
   when: toolchain_is_linux
 
 - name: Install dev packages
@@ -72,6 +74,7 @@
       - postgresql-client
       - xclip
     state: present
+  become: true
   when: toolchain_is_linux
 
 - name: Ensure Homebrew is installed on macOS
@@ -94,6 +97,7 @@
     name: postgresql
     enabled: true
     state: started
+  become: true
   when: (ansible_facts.service_mgr | default('')) == 'systemd'
 
 # On Debian/Ubuntu, fd-find installs the binary as 'fdfind'.
@@ -103,6 +107,7 @@
     src: /usr/bin/fdfind
     dest: /usr/local/bin/fd
     state: link
+  become: true
   when: toolchain_is_linux
 
 # JetBrains Mono font (used by ghostty.conf)
@@ -127,6 +132,7 @@
     path: /usr/local/share/fonts/jetbrains-mono
     state: directory
     mode: "0755"
+  become: true
   when: toolchain_is_linux and jetbrains_mono_check.rc != 0
 
 - name: Extract JetBrains Mono font
@@ -134,11 +140,13 @@
     src: /tmp/JetBrainsMono.zip
     dest: /usr/local/share/fonts/jetbrains-mono
     remote_src: true
+  become: true
   when: toolchain_is_linux and jetbrains_mono_check.rc != 0
 
 - name: Refresh font cache
   ansible.builtin.command:
     cmd: fc-cache -f
+  become: true
   when: toolchain_is_linux and jetbrains_mono_check.rc != 0
   changed_when: true
 
@@ -166,6 +174,7 @@
   ansible.builtin.file:
     path: "/usr/local/nvim-linux-{{ neovim_arch }}"
     state: absent
+  become: true
   when: toolchain_is_linux and (nvim_installed_check.rc != 0 or ('v' + neovim_version) not in nvim_installed_check.stdout)
 
 - name: Extract Neovim tarball
@@ -173,6 +182,7 @@
     src: "/tmp/nvim-linux-{{ neovim_arch }}.tar.gz"
     dest: /usr/local
     remote_src: true
+  become: true
   when: toolchain_is_linux and (nvim_installed_check.rc != 0 or ('v' + neovim_version) not in nvim_installed_check.stdout)
 
 - name: Symlink nvim binary
@@ -180,6 +190,7 @@
     src: "/usr/local/nvim-linux-{{ neovim_arch }}/bin/nvim"
     dest: /usr/local/bin/nvim
     state: link
+  become: true
   when: toolchain_is_linux and (nvim_installed_check.rc != 0 or ('v' + neovim_version) not in nvim_installed_check.stdout)
 
 - name: Install Neovim via Homebrew on macOS
@@ -208,6 +219,7 @@
     mode: "0755"
     owner: "{{ toolchain_target_user }}"
     group: "{{ toolchain_user_group }}"
+  become: "{{ not toolchain_is_local }}"
 
 - name: Deploy Neovim configuration
   ansible.builtin.copy:
@@ -216,6 +228,7 @@
     owner: "{{ toolchain_target_user }}"
     group: "{{ toolchain_user_group }}"
     mode: "0644"
+  become: "{{ not toolchain_is_local }}"
 
 # GNU screen 5.0+ with truecolor support (Ubuntu only ships 4.x which lacks truecolor)
 - name: Check installed screen version
@@ -250,6 +263,7 @@
       make -j$(nproc)
       make install
     creates: /usr/local/bin/screen
+  become: true
   when: toolchain_is_linux and (screen_version_check.rc != 0 or 'version 5' not in screen_version_check.stdout)
 
 - name: Install GNU screen via Homebrew on macOS
@@ -278,6 +292,7 @@
 - name: Compile Ghostty terminfo system-wide
   ansible.builtin.command:
     cmd: tic -x -o /usr/share/terminfo /tmp/ghostty.terminfo
+  become: true
   when: toolchain_is_linux and (copy_terminfo_result.changed or not compiled_terminfo_stat.stat.exists)
   changed_when: true
 
@@ -288,6 +303,7 @@
     mode: "0755"
     owner: "{{ toolchain_target_user }}"
     group: "{{ toolchain_user_group }}"
+  become: "{{ not toolchain_is_local }}"
 
 # tmux-256color with truecolor support (required for Claude Code colors in screen/tmux)
 - name: Copy Ghostty terminfo source for user compile on macOS
@@ -307,7 +323,7 @@
 - name: Compile Ghostty terminfo for user on macOS
   ansible.builtin.command:
     cmd: "tic -x -o {{ toolchain_user_home }}/.terminfo /tmp/ghostty-user.terminfo"
-  become: true
+  become: "{{ not toolchain_is_local }}"
   become_user: "{{ toolchain_target_user }}"
   when: toolchain_is_darwin and (copy_ghostty_user_terminfo_result.changed or not compiled_ghostty_user_terminfo_stat.stat.exists)
   changed_when: true
@@ -327,144 +343,13 @@
 - name: Compile tmux-256color truecolor terminfo for user
   ansible.builtin.command:
     cmd: "tic -x -o {{ toolchain_user_home }}/.terminfo /tmp/tmux-256color-tc.terminfo"
-  become: true
+  become: "{{ not toolchain_is_local }}"
   become_user: "{{ toolchain_target_user }}"
   when: copy_tmux_terminfo_result.changed or not compiled_tmux_terminfo_stat.stat.exists
   changed_when: true
 
-- name: Create keyrings directory
-  ansible.builtin.file:
-    path: /etc/apt/keyrings
-    state: directory
-    mode: "0755"
-  when: toolchain_is_linux
-
-- name: Download mise installer on Linux
-  ansible.builtin.get_url:
-    url: https://mise.run
-    dest: /tmp/mise-install.sh
-    mode: "0755"
-  when: toolchain_is_linux and not (toolchain_user_home + '/.local/bin/mise') is file
-
-- name: Run mise installer on Linux
-  ansible.builtin.command:
-    cmd: /tmp/mise-install.sh
-    creates: "{{ toolchain_user_home }}/.local/bin/mise"
-  become: true
-  become_user: "{{ toolchain_target_user }}"
-  when: toolchain_is_linux
-
-- name: Install mise via Homebrew on macOS
-  ansible.builtin.command:
-    cmd: brew install mise
-  become: false
-  register: brew_mise_result
-  changed_when: "'already installed' not in brew_mise_result.stdout"
-  when: toolchain_is_darwin
-
-- name: Install Node.js via mise
-  ansible.builtin.shell:
-    cmd: PATH="{{ toolchain_user_home }}/.local/bin:$PATH" mise use --global node@{{ nodejs_major_version }}
-    executable: /bin/bash
-  become: true
-  become_user: "{{ toolchain_target_user }}"
-  register: mise_node_result
-  changed_when: "'installed' in mise_node_result.stderr"
-
-# uv (Python package manager) -- required by scripts/setupSerenaMcp.sh
-- name: Check if uv is installed
-  ansible.builtin.stat:
-    path: "{{ toolchain_user_home }}/.local/bin/uv"
-  register: uv_stat
-
-- name: Install uv
-  ansible.builtin.shell:
-    cmd: set -o pipefail && curl -LsSf https://astral.sh/uv/install.sh | sh
-    executable: /bin/bash
-  become: true
-  become_user: "{{ toolchain_target_user }}"
-  become_flags: "-H"
-  environment:
-    HOME: "{{ toolchain_user_home }}"
-  when: not uv_stat.stat.exists
-  changed_when: true
-
-- name: Check if Claude Code is installed
-  ansible.builtin.stat:
-    path: "{{ toolchain_user_home }}/.claude/local/claude"
-  register: claude_code_stat
-
-- name: Ensure user cache directory exists
-  ansible.builtin.file:
-    path: "{{ toolchain_user_home }}/.cache"
-    state: directory
-    mode: "0755"
-    owner: "{{ toolchain_target_user }}"
-    group: "{{ toolchain_user_group }}"
-  become: true
-  become_user: "{{ toolchain_target_user }}"
-  become_flags: "-H"
-
-# SECURITY NOTE: The Claude Code installer script is dynamically maintained by Anthropic.
-# We still pin a known SHA-256 checksum (`claude_install_sha256`) for supply-chain integrity.
-# When updating Claude Code installer behavior, refresh this checksum intentionally.
-- name: Download Claude Code installer script
-  ansible.builtin.get_url:
-    url: https://claude.ai/install.sh
-    dest: "{{ toolchain_user_home }}/.cache/claude-install.sh"
-    mode: "0755"
-    checksum: "sha256:{{ claude_install_sha256 }}"
-  become: true
-  become_user: "{{ toolchain_target_user }}"
-  become_flags: "-H"
-  when: not claude_code_stat.stat.exists
-
-- name: Install Claude Code CLI via native installer
-  ansible.builtin.command:
-    cmd: "{{ toolchain_user_home }}/.cache/claude-install.sh"
-  become: true
-  become_user: "{{ toolchain_target_user }}"
-  become_flags: "-H"
-  environment:
-    HOME: "{{ toolchain_user_home }}"
-    USER: "{{ toolchain_target_user }}"
-  when: not claude_code_stat.stat.exists
-  changed_when: true
-
-- name: Install AI CLIs if missing
-  when: toolchain_is_linux or toolchain_is_darwin
-  block:
-    - name: Check if OpenAI Codex CLI is installed
-      ansible.builtin.command:
-        cmd: codex --version
-      register: codex_cli_check
-      changed_when: false
-      failed_when: false
-      become: false
-
-    - name: Install OpenAI Codex CLI
-      community.general.npm:
-        name: "@openai/codex"
-        global: true
-        state: present
-      become: false
-      when: codex_cli_check.rc != 0
-
-    - name: Check if Google Gemini CLI is installed
-      ansible.builtin.command:
-        cmd: gemini --version
-      register: gemini_cli_check
-      changed_when: false
-      failed_when: false
-      become: false
-
-    - name: Install Google Gemini CLI
-      community.general.npm:
-        name: "@google/gemini-cli"
-        global: true
-        state: present
-      become: false
-      when: gemini_cli_check.rc != 0
+- name: Install AI tools and language runtimes
+  ansible.builtin.import_tasks: devToolchainAiTools.yml
 
 # Ghostty terminal emulator
 - name: Check if Ghostty is installed
@@ -486,6 +371,7 @@
 - name: Install Ghostty from .deb
   ansible.builtin.apt:
     deb: "/tmp/ghostty_{{ ghostty_package_version }}.deb"
+  become: true
   when: toolchain_is_linux and ghostty_check.rc != 0
 
 - name: Install Ghostty via Homebrew cask on macOS
