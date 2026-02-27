@@ -2,6 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { runCoverageForPackage } from './coverageRunner';
 
 interface CliArgs {
   base?: string;
@@ -318,21 +319,6 @@ function hasUncertainDiffWarning(warnings: string[]): boolean {
   return warnings.some((warning) => warning.startsWith('Unable to diff '));
 }
 
-function runCoverageForPackage(pkg: string): void {
-  const result = spawnSync('pnpm', ['--filter', pkg, 'test:coverage'], {
-    stdio: 'inherit',
-    env: process.env
-  });
-
-  if (typeof result.status === 'number' && result.status !== 0) {
-    process.exit(result.status);
-  }
-
-  if (result.status === null) {
-    process.exit(1);
-  }
-}
-
 function readPackageJson(filePath: string): PackageJsonShape {
   const raw = fs.readFileSync(filePath, 'utf8');
   const parsed = JSON.parse(raw);
@@ -493,7 +479,14 @@ function main(): void {
   }
 
   for (const pkg of targets) {
-    runCoverageForPackage(pkg);
+    try {
+      runCoverageForPackage(pkg);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : String(error ?? 'unknown error');
+      console.error(message);
+      process.exit(1);
+    }
   }
 }
 
