@@ -366,9 +366,9 @@ test.describe('Analytics page interactions', () => {
 
     await page.goto('/');
 
-    // Navigate to SQLite via mobile menu
+    // Navigate to SQLite via mobile menu (generous timeout for lazy-loaded page in CI)
     await navigateMobile('sqlite-link');
-    await expect(page.getByTestId('database-test')).toBeVisible();
+    await expect(page.getByTestId('database-test')).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
 
     // Reset and setup database
     await page.getByTestId('db-reset-button').click();

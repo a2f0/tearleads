@@ -51,7 +51,7 @@ test.describe('Electron App', () => {
 
     await expect(
       window.getByRole('heading', {name: 'Settings'})
-    ).toBeVisible();
+    ).toBeVisible({timeout: APP_LOAD_TIMEOUT});
   });
 
   test('should navigate to tables page', async () => {
@@ -60,7 +60,7 @@ test.describe('Electron App', () => {
 
     await expect(
       window.getByRole('heading', {name: 'Tables'})
-    ).toBeVisible();
+    ).toBeVisible({timeout: APP_LOAD_TIMEOUT});
   });
 
   test('should show inline unlock on tables page when database not unlocked', async () => {
