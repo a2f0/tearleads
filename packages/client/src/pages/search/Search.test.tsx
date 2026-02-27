@@ -13,6 +13,10 @@ vi.mock('@/search', () => ({
   })
 }));
 
+vi.mock('@/db/hooks/useDatabaseContext', () => ({
+  useDatabaseContext: () => ({ isUnlocked: true, isLoading: false })
+}));
+
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowManagerActions: () => ({
     openWindow: vi.fn(),
