@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig, mergeConfig } from 'vitest/config';
 import { sharedTestConfig } from '../../vitest.shared';
 
@@ -26,6 +27,16 @@ export default mergeConfig(
           functions: 75,
           lines: 75
         }
+      }
+    },
+    resolve: {
+      alias: {
+        '@tearleads/api/migrations': fileURLToPath(
+          new URL('../api/src/migrations/index.ts', import.meta.url)
+        ),
+        '@tearleads/api': fileURLToPath(
+          new URL('../api/src/index.ts', import.meta.url)
+        )
       }
     }
   })
