@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { useOrg } from '@/contexts/OrgContext';
 import { getCurrentInstanceId, getDatabase, getDatabaseAdapter } from '@/db';
 import { runLocalWrite } from '@/db/localWrite';
 import { contactEmails, contactPhones, contacts } from '@/db/schema';
@@ -135,6 +136,7 @@ export function parseCSV(text: string): ParsedCSV {
 }
 
 export function useContactsImport() {
+  const { activeOrganizationId } = useOrg();
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
 
@@ -253,7 +255,8 @@ export function useContactsImport() {
                   lastName,
                   birthday,
                   createdAt: now,
-                  updatedAt: now
+                  updatedAt: now,
+                  organizationId: activeOrganizationId
                 });
 
                 // Batch insert emails for better performance
@@ -337,7 +340,7 @@ export function useContactsImport() {
       setImporting(false);
       return result;
     },
-    []
+    [activeOrganizationId]
   );
 
   return { parseFile, importContacts, importing, progress };

@@ -14,6 +14,7 @@ import {
   vfsRegistry
 } from '@/db/schema';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
+import { useOrg } from '@/contexts/OrgContext';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { queueItemUpsertAndFlush } from '@/lib/vfsItemSyncWriter';
 import { EmailAddressesSection } from '@/pages/contact-new/EmailAddressesSection';
@@ -27,6 +28,7 @@ import type {
 export function ContactNew() {
   const navigate = useNavigate();
   const { isUnlocked, isLoading } = useDatabaseContext();
+  const { activeOrganizationId } = useOrg();
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -164,7 +166,8 @@ export function ContactNew() {
             birthday: formData.birthday.trim() || null,
             createdAt: now,
             updatedAt: now,
-            deleted: false
+            deleted: false,
+            organizationId: activeOrganizationId
           });
 
           for (const email of emailsForm) {
@@ -200,6 +203,7 @@ export function ContactNew() {
             id: contactId,
             objectType: 'contact',
             ownerId: auth.user?.id ?? null,
+            organizationId: activeOrganizationId,
             encryptedSessionKey,
             createdAt: now
           });
@@ -244,7 +248,7 @@ export function ContactNew() {
     } finally {
       setSaving(false);
     }
-  }, [formData, emailsForm, phonesForm, navigate]);
+  }, [formData, emailsForm, phonesForm, navigate, activeOrganizationId]);
 
   return (
     <div className="space-y-6">

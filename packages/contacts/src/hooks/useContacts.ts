@@ -4,7 +4,7 @@ import {
   contacts as contactsTable,
   vfsLinks
 } from '@tearleads/db/sqlite';
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, or } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useContactsContext } from '../context';
 
@@ -45,7 +45,7 @@ export function useContacts(
     groupId
   } = options;
 
-  const { databaseState, getDatabase } = useContactsContext();
+  const { databaseState, getDatabase, activeOrganizationId } = useContactsContext();
   const { isUnlocked, currentInstanceId } = databaseState;
 
   const [contactsList, setContactsList] = useState<ContactInfo[]>([]);
@@ -54,6 +54,7 @@ export function useContacts(
   const [hasFetched, setHasFetched] = useState(false);
   const fetchedForInstanceRef = useRef<string | null>(null);
   const previousGroupIdRef = useRef<string | null | undefined>(groupId);
+  const previousOrgIdRef = useRef<string | null>(activeOrganizationId);
 
   const fetchContacts = useCallback(async () => {
     if (!isUnlocked) return;
@@ -71,7 +72,16 @@ export function useContacts(
       }[sortColumn];
 
       const orderFn = sortDirection === 'asc' ? asc : desc;
-      const baseCondition = eq(contactsTable.deleted, false);
+      const deletedCondition = eq(contactsTable.deleted, false);
+      const orgFilter = activeOrganizationId
+        ? or(
+            eq(contactsTable.organizationId, activeOrganizationId),
+            isNull(contactsTable.organizationId)
+          )
+        : undefined;
+      const baseCondition = orgFilter
+        ? and(deletedCondition, orgFilter)
+        : deletedCondition;
       let query = db
         .select({
           id: contactsTable.id,
@@ -126,7 +136,7 @@ export function useContacts(
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, sortColumn, sortDirection, groupId, getDatabase]);
+  }, [isUnlocked, sortColumn, sortDirection, groupId, getDatabase, activeOrganizationId]);
 
   useEffect(() => {
     if (refreshToken === undefined) return;
@@ -140,6 +150,13 @@ export function useContacts(
     setHasFetched(false);
     setError(null);
   }, [groupId]);
+
+  useEffect(() => {
+    if (previousOrgIdRef.current === activeOrganizationId) return;
+    previousOrgIdRef.current = activeOrganizationId;
+    setHasFetched(false);
+    setError(null);
+  }, [activeOrganizationId]);
 
   useEffect(() => {
     const needsFetch =

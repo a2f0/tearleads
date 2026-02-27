@@ -88,6 +88,10 @@ export const vfsRegistryTable: TableDefinition = {
       type: 'text',
       sqlName: 'owner_id'
     },
+    organizationId: {
+      type: 'text',
+      sqlName: 'organization_id'
+    },
     encryptedSessionKey: {
       type: 'text',
       sqlName: 'encrypted_session_key'
@@ -128,7 +132,8 @@ export const vfsRegistryTable: TableDefinition = {
   },
   indexes: [
     { name: 'vfs_registry_owner_idx', columns: ['ownerId'] },
-    { name: 'vfs_registry_type_idx', columns: ['objectType'] }
+    { name: 'vfs_registry_type_idx', columns: ['objectType'] },
+    { name: 'vfs_registry_org_idx', columns: ['organizationId'] }
   ]
 };
 

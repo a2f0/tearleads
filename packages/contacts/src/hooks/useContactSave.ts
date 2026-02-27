@@ -26,7 +26,7 @@ interface SaveContactResult {
  * Extracts common database transaction logic for both new and existing contacts.
  */
 export function useContactSave() {
-  const { getDatabase, getDatabaseAdapter, registerInVfs } =
+  const { getDatabase, getDatabaseAdapter, registerInVfs, activeOrganizationId } =
     useContactsContext();
   const [saving, setSaving] = useState(false);
 
@@ -55,7 +55,8 @@ export function useContactSave() {
             birthday: formData.birthday.trim() || null,
             createdAt: now,
             updatedAt: now,
-            deleted: false
+            deleted: false,
+            organizationId: activeOrganizationId
           });
 
           if (emails.length > 0) {
@@ -105,7 +106,7 @@ export function useContactSave() {
         setSaving(false);
       }
     },
-    [getDatabase, getDatabaseAdapter, registerInVfs]
+    [getDatabase, getDatabaseAdapter, registerInVfs, activeOrganizationId]
   );
 
   /**

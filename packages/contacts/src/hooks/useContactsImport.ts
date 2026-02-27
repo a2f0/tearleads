@@ -66,7 +66,7 @@ function parseCSV(text: string): ParsedCSV {
 }
 
 export function useContactsImport() {
-  const { getDatabase, getDatabaseAdapter, onContactsImported } =
+  const { getDatabase, getDatabaseAdapter, onContactsImported, activeOrganizationId } =
     useContactsContext();
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -152,6 +152,7 @@ export function useContactsImport() {
         birthday: string | null;
         createdAt: Date;
         updatedAt: Date;
+        organizationId: string | null;
       }[] = [];
       const emailsToInsert: {
         id: string;
@@ -201,7 +202,8 @@ export function useContactsImport() {
           lastName,
           birthday,
           createdAt: now,
-          updatedAt: now
+          updatedAt: now,
+          organizationId: activeOrganizationId
         });
 
         importedContacts.push({
@@ -289,7 +291,7 @@ export function useContactsImport() {
       setImporting(false);
       return result;
     },
-    [getDatabase, getDatabaseAdapter, onContactsImported]
+    [getDatabase, getDatabaseAdapter, onContactsImported, activeOrganizationId]
   );
 
   return { parseFile, importContacts, importing, progress };

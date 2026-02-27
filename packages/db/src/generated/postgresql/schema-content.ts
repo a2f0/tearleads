@@ -35,6 +35,7 @@ export const vfsRegistry = pgTable(
     id: text('id').primaryKey(),
     objectType: text('object_type').notNull(),
     ownerId: text('owner_id'),
+    organizationId: text('organization_id'),
     encryptedSessionKey: text('encrypted_session_key'),
     publicHierarchicalKey: text('public_hierarchical_key'),
     encryptedPrivateHierarchicalKey: text('encrypted_private_hierarchical_key'),
@@ -47,7 +48,8 @@ export const vfsRegistry = pgTable(
   },
   (table) => [
     index('vfs_registry_owner_idx').on(table.ownerId),
-    index('vfs_registry_type_idx').on(table.objectType)
+    index('vfs_registry_type_idx').on(table.objectType),
+    index('vfs_registry_org_idx').on(table.organizationId)
   ]
 );
 
