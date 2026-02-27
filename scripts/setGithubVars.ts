@@ -21,8 +21,8 @@ const requiredEnvVars = [
   'ANDROID_KEYSTORE_KEY_PASS',
   'ANTHROPIC_API_KEY',
   'TF_VAR_server_username',
-  'TAILSCALE_OAUTH_CLIENT_ID',
-  'TAILSCALE_OAUTH_CLIENT_SECRET'
+  'TAILSCALE_GITHUB_OAUTH_CLIENT_ID',
+  'TAILSCALE_GITHUB_OAUTH_CLIENT_SECRET'
 ] as const;
 
 const managedSecretNames = [
@@ -45,8 +45,8 @@ const managedSecretNames = [
   'DEPLOY_DOMAIN_PROD',
   'DEPLOY_DOMAIN_STAGING',
   'DEPLOY_USER',
-  'TAILSCALE_OAUTH_CLIENT_ID',
-  'TAILSCALE_OAUTH_CLIENT_SECRET'
+  'TAILSCALE_GITHUB_OAUTH_CLIENT_ID',
+  'TAILSCALE_GITHUB_OAUTH_CLIENT_SECRET'
 ] as const;
 
 const optionalGithubVars = [
@@ -280,12 +280,12 @@ function main(): void {
     { name: 'DEPLOY_DOMAIN_STAGING', value: stagingDomain },
     { name: 'DEPLOY_USER', value: env.TF_VAR_server_username },
     {
-      name: 'TAILSCALE_OAUTH_CLIENT_ID',
-      value: env.TAILSCALE_OAUTH_CLIENT_ID
+      name: 'TAILSCALE_GITHUB_OAUTH_CLIENT_ID',
+      value: env.TAILSCALE_GITHUB_OAUTH_CLIENT_ID
     },
     {
-      name: 'TAILSCALE_OAUTH_CLIENT_SECRET',
-      value: env.TAILSCALE_OAUTH_CLIENT_SECRET
+      name: 'TAILSCALE_GITHUB_OAUTH_CLIENT_SECRET',
+      value: env.TAILSCALE_GITHUB_OAUTH_CLIENT_SECRET
     }
   ];
 

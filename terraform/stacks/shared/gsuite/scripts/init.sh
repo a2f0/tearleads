@@ -10,6 +10,8 @@ source "$REPO_ROOT/terraform/scripts/common.sh"
 # shellcheck source=./auth.sh
 source "$SCRIPT_DIR/auth.sh"
 
+load_secrets_env
+
 BACKEND_CONFIG="$(get_backend_config)"
 
 validate_aws_env

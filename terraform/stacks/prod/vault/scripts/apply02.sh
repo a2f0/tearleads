@@ -8,6 +8,8 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 # shellcheck source=../../../../scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"
 
+load_secrets_env prod
+
 SSH_TARGET="vault-prod"
 
 echo "Waiting for SSH to become available on $SSH_TARGET..."

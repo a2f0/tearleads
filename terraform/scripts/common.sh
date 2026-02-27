@@ -148,6 +148,31 @@ validate_tailscale_auth_key_env() {
   fi
 }
 
+# Load VAULT_TOKEN from .secrets/vault-keys.json at runtime.
+# Skips if VAULT_TOKEN is already set in the environment.
+load_vault_token() {
+  if [[ -n "${VAULT_TOKEN:-}" ]]; then
+    return 0
+  fi
+
+  local vault_keys_file
+  vault_keys_file="$(get_repo_root)/.secrets/vault-keys.json"
+
+  if [[ -f "$vault_keys_file" ]]; then
+    VAULT_TOKEN=$(jq -r '.root_token // empty' "$vault_keys_file")
+    if [[ -z "$VAULT_TOKEN" ]]; then
+      echo "ERROR: $vault_keys_file exists but has no root_token." >&2
+      return 1
+    fi
+    export VAULT_TOKEN
+  elif [[ -f ~/.vault-token ]]; then
+    VAULT_TOKEN=$(cat ~/.vault-token)
+    export VAULT_TOKEN
+  else
+    echo "WARNING: No VAULT_TOKEN, vault-keys.json, or ~/.vault-token found." >&2
+  fi
+}
+
 # Get the GitHub owner/repo slug from the git remote origin URL.
 get_github_repo() {
   git -C "$(get_repo_root)" remote get-url origin | sed 's|.*github.com[:/]||;s|\.git$||'
