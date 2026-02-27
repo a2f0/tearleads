@@ -284,6 +284,14 @@ describe('API VFS lifecycle', () => {
   });
 
   it('handles blob stage/chunk/attach lifecycle transitions', async () => {
+    const hostItemId = 'blob-host-item';
+    const hostItemSessionKey = 'host-item-session-key';
+    const stageOneId = 'blob-stage-1';
+    const blobOneId = 'blob-object-1';
+    const uploadOneId = 'upload-1';
+    const stageTwoId = 'blob-stage-2';
+    const blobTwoId = 'blob-object-2';
+
     harness = await ApiScenarioHarness.create([{ alias: 'alice' }], getApiDeps);
     const alice = harness.actor('alice');
 
@@ -291,9 +299,9 @@ describe('API VFS lifecycle', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        id: 'blob-host-item',
+        id: hostItemId,
         objectType: 'file',
-        encryptedSessionKey: 'host-item-session-key'
+        encryptedSessionKey: hostItemSessionKey
       })
     });
 
@@ -307,13 +315,13 @@ describe('API VFS lifecycle', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        stagingId: 'blob-stage-1',
-        blobId: 'blob-object-1',
+        stagingId: stageOneId,
+        blobId: blobOneId,
         expiresAt: '2099-01-01T00:00:00.000Z'
       })
     });
-    expect(stageResponse.stagingId).toBe('blob-stage-1');
-    expect(stageResponse.blobId).toBe('blob-object-1');
+    expect(stageResponse.stagingId).toBe(stageOneId);
+    expect(stageResponse.blobId).toBe(blobOneId);
     expect(stageResponse.status).toBe('staged');
 
     const chunkResponse = await alice.fetchJson<{
@@ -321,11 +329,11 @@ describe('API VFS lifecycle', () => {
       stagingId: string;
       uploadId: string;
       chunkIndex: number;
-    }>('/vfs/blobs/stage/blob-stage-1/chunks', {
+    }>(`/vfs/blobs/stage/${stageOneId}/chunks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        uploadId: 'upload-1',
+        uploadId: uploadOneId,
         chunkIndex: 0,
         isFinal: true,
         nonce: 'nonce-1',
@@ -336,8 +344,8 @@ describe('API VFS lifecycle', () => {
       })
     });
     expect(chunkResponse.accepted).toBe(true);
-    expect(chunkResponse.stagingId).toBe('blob-stage-1');
-    expect(chunkResponse.uploadId).toBe('upload-1');
+    expect(chunkResponse.stagingId).toBe(stageOneId);
+    expect(chunkResponse.uploadId).toBe(uploadOneId);
 
     const attachResponse = await alice.fetchJson<{
       attached: boolean;
@@ -347,21 +355,21 @@ describe('API VFS lifecycle', () => {
       relationKind: string;
       refId: string;
       attachedAt: string;
-    }>('/vfs/blobs/stage/blob-stage-1/attach', {
+    }>(`/vfs/blobs/stage/${stageOneId}/attach`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        itemId: 'blob-host-item',
+        itemId: hostItemId,
         relationKind: 'file'
       })
     });
     expect(attachResponse.attached).toBe(true);
-    expect(attachResponse.blobId).toBe('blob-object-1');
-    expect(attachResponse.itemId).toBe('blob-host-item');
+    expect(attachResponse.blobId).toBe(blobOneId);
+    expect(attachResponse.itemId).toBe(hostItemId);
     expect(attachResponse.relationKind).toBe('file');
 
     const abandonAfterAttach = await alice.fetch(
-      '/vfs/blobs/stage/blob-stage-1/abandon',
+      `/vfs/blobs/stage/${stageOneId}/abandon`,
       { method: 'POST' }
     );
     expect(abandonAfterAttach.status).toBe(409);
@@ -369,7 +377,7 @@ describe('API VFS lifecycle', () => {
       error: 'Blob staging is no longer abandonable'
     });
 
-    const deleteAttachedBlob = await alice.fetch('/vfs/blobs/blob-object-1', {
+    const deleteAttachedBlob = await alice.fetch(`/vfs/blobs/${blobOneId}`, {
       method: 'DELETE'
     });
     expect(deleteAttachedBlob.status).toBe(409);
@@ -381,8 +389,8 @@ describe('API VFS lifecycle', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        stagingId: 'blob-stage-2',
-        blobId: 'blob-object-2',
+        stagingId: stageTwoId,
+        blobId: blobTwoId,
         expiresAt: '2099-01-02T00:00:00.000Z'
       })
     });
@@ -391,24 +399,21 @@ describe('API VFS lifecycle', () => {
       abandoned: boolean;
       stagingId: string;
       status: string;
-    }>('/vfs/blobs/stage/blob-stage-2/abandon', {
+    }>(`/vfs/blobs/stage/${stageTwoId}/abandon`, {
       method: 'POST'
     });
     expect(abandonResponse.abandoned).toBe(true);
-    expect(abandonResponse.stagingId).toBe('blob-stage-2');
+    expect(abandonResponse.stagingId).toBe(stageTwoId);
     expect(abandonResponse.status).toBe('abandoned');
 
-    const attachAfterAbandon = await alice.fetch(
-      '/vfs/blobs/stage/blob-stage-2/attach',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          itemId: 'blob-host-item',
-          relationKind: 'file'
-        })
-      }
-    );
+    const attachAfterAbandon = await alice.fetch(`/vfs/blobs/stage/${stageTwoId}/attach`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        itemId: hostItemId,
+        relationKind: 'file'
+      })
+    });
     expect(attachAfterAbandon.status).toBe(409);
     expect(await attachAfterAbandon.json()).toEqual({
       error: 'Blob staging is no longer attachable'
