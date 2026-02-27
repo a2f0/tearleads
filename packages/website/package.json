@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/website",
-  "version": "0.0.275",
+  "version": "0.0.276",
   "description": "Marketing website for Tearleads",
   "type": "module",
   "scripts": {

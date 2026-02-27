@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/remote-read-orchestrator",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Remote read orchestration primitives",
   "type": "module",
   "main": "src/index.ts",

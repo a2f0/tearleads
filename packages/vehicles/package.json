@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/vehicles",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Vehicle profile utilities for Tearleads",
   "type": "module",
   "main": "dist/index.js",

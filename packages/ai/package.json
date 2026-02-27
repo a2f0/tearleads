@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/ai",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "AI chat components for Tearleads",
   "type": "module",
   "main": "dist/index.js",
