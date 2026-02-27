@@ -166,8 +166,8 @@ load_vault_token() {
     fi
     export VAULT_TOKEN
   elif [[ -f ~/.vault-token ]]; then
-    export VAULT_TOKEN
     VAULT_TOKEN=$(cat ~/.vault-token)
+    export VAULT_TOKEN
   else
     echo "WARNING: No VAULT_TOKEN, vault-keys.json, or ~/.vault-token found." >&2
   fi
