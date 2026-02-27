@@ -11,6 +11,8 @@ const sharedTestConfig = {
   },
 };
 const isCoverageRun = process.argv.includes('--coverage');
+const useMinimalCoverageReporters =
+  process.env['TEARLEADS_PREPUSH_MINIMAL_COVERAGE_REPORTERS'] === '1';
 
 // Initialize app config plugin for virtual module support in tests
 const { plugin: appConfigPlugin } = createAppConfigPlugin(__dirname);
@@ -40,7 +42,9 @@ export default mergeConfig(
       hookTimeout: 30000,
       coverage: {
         provider: 'v8',
-        reporter: ['text', 'json', 'json-summary', 'html'],
+        reporter: useMinimalCoverageReporters
+          ? ['text', 'json', 'json-summary']
+          : ['text', 'json', 'json-summary', 'html'],
         reportsDirectory: './coverage',
         include: ['src/**/*.{ts,tsx}'],
         exclude: [

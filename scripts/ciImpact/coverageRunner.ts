@@ -62,12 +62,16 @@ function resolveVitestMaxWorkersArg(pkg: string): string {
 export function runCoverageForPackage(pkg: string): void {
   const timeoutMs = parseCoverageTimeoutMs();
   const maxWorkersArg = resolveVitestMaxWorkersArg(pkg);
+  const env = {
+    ...process.env,
+    TEARLEADS_PREPUSH_MINIMAL_COVERAGE_REPORTERS: '1'
+  };
   const result = spawnSync(
     'pnpm',
     ['--filter', pkg, 'test:coverage', '--', maxWorkersArg],
     {
       stdio: 'inherit',
-      env: process.env,
+      env,
       timeout: timeoutMs,
       killSignal: 'SIGTERM'
     }
