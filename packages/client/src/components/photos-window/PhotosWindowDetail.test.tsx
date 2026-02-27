@@ -138,11 +138,11 @@ vi.mock('@/components/DeletePhotoDialog', () => ({
     ) : null
 }));
 
-// Mock URL.createObjectURL and URL.revokeObjectURL
+// Preserve URL constructor (needed by PGlite); only add blob URL methods.
 const mockObjectUrl = 'blob:http://localhost/test-photo';
-vi.stubGlobal('URL', {
-  createObjectURL: () => mockObjectUrl,
-  revokeObjectURL: () => {}
+Object.assign(URL, {
+  createObjectURL: vi.fn(() => mockObjectUrl),
+  revokeObjectURL: vi.fn()
 });
 
 describe('PhotosWindowDetail', () => {

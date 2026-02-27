@@ -30,7 +30,9 @@ const mockRedisClient = {
 };
 
 vi.mock('@tearleads/shared/redis', () => ({
-  getRedisClient: () => Promise.resolve(mockRedisClient)
+  getRedisClient: () => Promise.resolve(mockRedisClient),
+  getRedisSubscriberOverride: () => mockRedisClient,
+  setRedisSubscriberOverrideForTesting: vi.fn()
 }));
 
 describe('VFS sync route', () => {

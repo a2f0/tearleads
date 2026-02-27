@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock dependencies before importing
 vi.mock('@tearleads/shared/redis', () => ({
-  closeRedisClient: vi.fn().mockResolvedValue(undefined)
+  closeRedisClient: vi.fn().mockResolvedValue(undefined),
+  getRedisSubscriberOverride: () => null,
+  setRedisSubscriberOverrideForTesting: vi.fn()
 }));
 
 vi.mock('./lib/redisPubSub.js', () => ({

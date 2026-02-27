@@ -1,3 +1,4 @@
+import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import {
   getRecordedApiRequests,
   HttpResponse,
@@ -11,6 +12,7 @@ import {
   AUTH_TOKEN_KEY,
   AUTH_USER_KEY
 } from '@/lib/authStorage';
+import { getSharedTestContext } from '@/test/testContext';
 
 const loadAuthStorage = async () => {
   const module = await import('@/lib/authStorage');
@@ -56,12 +58,17 @@ const expectSingleRequestQuery = (
   expect(getRequestQuery(request)).toEqual(expectedQuery);
 };
 
+let seededUser: SeededUser;
+
 describe('api with msw', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
+    const ctx = getSharedTestContext();
+    seededUser = await seedTestUser(ctx, { admin: true });
+    localStorage.setItem(AUTH_TOKEN_KEY, seededUser.accessToken);
     mockLogApiEvent.mockResolvedValue(undefined);
   });
 
@@ -286,6 +293,9 @@ describe('api with msw', () => {
     });
 
     it('uses generic event name for getValue without leaking key values', async () => {
+      const ctx = getSharedTestContext();
+      await ctx.redis.set('sessions:abc123', 'test-session-data');
+
       const api = await loadApi();
       await api.admin.redis.getValue('sessions:abc123');
 
@@ -354,14 +364,16 @@ describe('api with msw', () => {
 
     it('logs the admin user get endpoint event', async () => {
       const api = await loadApi();
-      await api.admin.users.get('user-1');
+      await api.admin.users.get(seededUser.userId);
 
       expect(mockLogApiEvent).toHaveBeenCalledWith(
         'api_get_admin_user',
         expect.any(Number),
         true
       );
-      expect(wasApiRequestMade('GET', '/admin/users/user-1')).toBe(true);
+      expect(
+        wasApiRequestMade('GET', `/admin/users/${seededUser.userId}`)
+      ).toBe(true);
     });
   });
 });

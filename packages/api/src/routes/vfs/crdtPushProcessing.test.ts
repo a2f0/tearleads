@@ -23,7 +23,7 @@ async function postCrdtPush(
     .send(payload);
 }
 
-describe('VFS CRDT push route processing', () => {
+describe('VFS CRDT push route processing', { timeout: 15_000 }, () => {
   beforeEach(() => {
     setupCrdtPushRouteTestEnv();
   });

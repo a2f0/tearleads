@@ -32,7 +32,6 @@
   "author": "",
   "license": "UNLICENSED",
   "dependencies": {
-    "@tearleads/shared": "workspace:*",
     "msw": "2.12.10"
   },
   "devDependencies": {

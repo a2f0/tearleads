@@ -103,7 +103,9 @@ const createMockClient = (): MockRedisClient => ({
 });
 
 vi.mock('@tearleads/shared/redis', () => ({
-  getRedisClient: vi.fn(() => Promise.resolve(createMockClient()))
+  getRedisClient: vi.fn(() => Promise.resolve(createMockClient())),
+  getRedisSubscriberOverride: () => createMockClient(),
+  setRedisSubscriberOverrideForTesting: vi.fn()
 }));
 
 // Helper to cast mock client to expected type for vi.mocked().mockResolvedValue()

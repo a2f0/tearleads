@@ -152,9 +152,10 @@ vi.mock('@/components/pdf', () => ({
 }));
 
 const mockObjectUrl = 'blob:http://localhost/test-file';
-vi.stubGlobal('URL', {
-  createObjectURL: () => mockObjectUrl,
-  revokeObjectURL: () => {}
+// Preserve URL constructor (needed by PGlite); only add blob URL methods.
+Object.assign(URL, {
+  createObjectURL: vi.fn(() => mockObjectUrl),
+  revokeObjectURL: vi.fn()
 });
 
 describe('FilesWindowDetail - actions and errors', () => {

@@ -3,12 +3,18 @@ import {
   isDevMode,
   type PostgresConnectionInfo
 } from '@tearleads/shared';
+import {
+  getPoolOverride,
+  setPoolOverrideForTesting
+} from '@tearleads/shared/testing';
 import type { Pool as PgPool, PoolConfig } from 'pg';
 import pg from 'pg';
 import {
   logPoolStats,
   validateReplicaHealth
 } from './postgresPoolObservability.js';
+
+export { setPoolOverrideForTesting };
 
 const { Pool } = pg;
 
@@ -321,6 +327,9 @@ export function getPostgresConnectionInfo(): PostgresConnectionInfo {
 }
 
 export async function getPostgresPool(): Promise<PgPool> {
+  const override = getPoolOverride();
+  if (override) return override;
+
   const { config, configKey } = buildPoolConfig();
 
   if (pool && poolConfigKey === configKey) {
@@ -393,6 +402,9 @@ async function getHealthyReplicaPool(): Promise<PgPool | null> {
 }
 
 export async function getPool(intent: QueryIntent): Promise<PgPool> {
+  const override = getPoolOverride();
+  if (override) return override;
+
   if (intent === 'write') {
     return getPostgresPool();
   }

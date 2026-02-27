@@ -119,6 +119,33 @@ export const createViteAliases = (
       '../mls-chat/package.json'
     ),
     '@tearleads/mls-chat': path.resolve(dirname, '../mls-chat/src/index.ts'),
+    '@tearleads/api-test-utils': path.resolve(
+      dirname,
+      '../api-test-utils/src/index.ts'
+    ),
+    '@tearleads/api/lib/postgres': path.resolve(dirname, '../api/src/lib/postgres.ts'),
+    '@tearleads/api/lib/redisPubSub': path.resolve(
+      dirname,
+      '../api/src/lib/redisPubSub.ts'
+    ),
+    '@tearleads/api/lib/jwt': path.resolve(dirname, '../api/src/lib/jwt.ts'),
+    '@tearleads/api/migrations': path.resolve(
+      dirname,
+      '../api/src/migrations/index.ts'
+    ),
+    '@tearleads/api': path.resolve(dirname, '../api/src/index.ts'),
+    '@tearleads/shared/server': path.resolve(
+      dirname,
+      '../shared/src/server/index.ts'
+    ),
+    '@tearleads/shared/testing': path.resolve(
+      dirname,
+      '../shared/src/testing/index.ts'
+    ),
+    '@tearleads/db/migrations': path.resolve(
+      dirname,
+      '../db/src/migrations/index.ts'
+    ),
     '@tearleads/msw/package.json': path.resolve(dirname, '../msw/package.json'),
     '@tearleads/msw/node': path.resolve(dirname, '../msw/src/node.ts'),
     '@tearleads/msw': path.resolve(dirname, '../msw/src/index.ts'),

@@ -1,3 +1,4 @@
+import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import {
   getRecordedApiRequests,
   HttpResponse,
@@ -11,6 +12,7 @@ import {
   AUTH_TOKEN_KEY,
   AUTH_USER_KEY
 } from './authStorage';
+import { getSharedTestContext } from './test/testContext';
 
 const loadAuthStorage = async () => {
   const module = await import('./authStorage');
@@ -36,12 +38,16 @@ const loadApi = async () => {
   return module.api;
 };
 
+let seededUser: SeededUser;
+
 describe('api with msw', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
+    const ctx = getSharedTestContext();
+    seededUser = await seedTestUser(ctx, { admin: true });
     mockLogApiEvent.mockResolvedValue(undefined);
     const { setApiEventLogger } = await import('./apiLogger');
     setApiEventLogger((...args: Parameters<typeof mockLogApiEvent>) =>
@@ -223,15 +229,13 @@ describe('api with msw', () => {
     });
 
     it('returns true when refresh succeeds', async () => {
-      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'refresh-token');
+      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, seededUser.refreshToken);
 
       const { tryRefreshToken } = await import('./api');
 
       await expect(tryRefreshToken()).resolves.toBe(true);
-      expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBe('test-access-token');
-      expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBe(
-        'test-refresh-token'
-      );
+      expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBeTruthy();
+      expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBeTruthy();
       expect(wasApiRequestMade('POST', '/auth/refresh')).toBe(true);
     });
 

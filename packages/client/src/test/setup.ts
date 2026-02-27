@@ -1,10 +1,48 @@
 import '@testing-library/jest-dom/vitest';
-import { resetMockApiServerState, server } from '@tearleads/msw/node';
+import { createTestContext, type TestContext } from '@tearleads/api-test-utils';
+import {
+  configureForExpressPassthrough,
+  getRecordedApiRequests,
+  resetMockApiServerState,
+  server
+} from '@tearleads/msw/node';
 import { cleanup } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { createElement, Fragment } from 'react';
-import { afterAll, afterEach, beforeAll, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, expect, vi } from 'vitest';
 import failOnConsole from 'vitest-fail-on-console';
+import {
+  resetSharedTestContextAccessed,
+  setSharedTestContext,
+  wasSharedTestContextAccessed
+} from './testContext';
+
+let testContext: TestContext | null = null;
+
+const REAL_API_TEST_PATH_PATTERNS = [
+  /\/src\/lib\/api\.msw(?:\..+)?\.test\.tsx?$/,
+  /\/src\/test\/msw\/.*\.test\.tsx?$/
+];
+
+function shouldUseRealApiForCurrentTest(): boolean {
+  const testPath = expect.getState().testPath;
+  if (typeof testPath !== 'string') {
+    return false;
+  }
+  return REAL_API_TEST_PATH_PATTERNS.some((pattern) => pattern.test(testPath));
+}
+
+async function ensureRealApiTestContext(): Promise<TestContext> {
+  if (testContext) {
+    return testContext;
+  }
+  testContext = await createTestContext(async () => {
+    const api = await import('@tearleads/api');
+    return { app: api.app, migrations: api.migrations };
+  });
+  setSharedTestContext(testContext);
+  return testContext;
+}
 
 // Enable React act() environment checks before tests run.
 // https://react.dev/reference/react-dom/test-utils/act#environment
@@ -197,18 +235,37 @@ vi.mock('pdfjs-dist', () => {
   };
 });
 
-beforeAll(() => {
+beforeAll(async () => {
   server.listen({ onUnhandledRequest: 'warn' });
 });
 
-afterEach(() => {
-  cleanup();
-  server.resetHandlers();
-  resetMockApiServerState();
+beforeEach(async () => {
+  if (!shouldUseRealApiForCurrentTest()) {
+    return;
+  }
+  const ctx = await ensureRealApiTestContext();
+  configureForExpressPassthrough('http://localhost', ctx.port);
 });
 
-afterAll(() => {
+afterEach(async () => {
+  cleanup();
+  server.resetHandlers();
+  if (testContext) {
+    configureForExpressPassthrough('http://localhost', testContext.port);
+    const usedApi = getRecordedApiRequests().length > 0;
+    const usedSharedContext = wasSharedTestContextAccessed();
+    if (usedApi || usedSharedContext) {
+      await testContext.resetState();
+    }
+  }
+  resetMockApiServerState();
+  resetSharedTestContextAccessed();
+});
+
+afterAll(async () => {
   server.close();
+  await testContext?.teardown();
+  testContext = null;
 });
 
 // Mock __APP_VERSION__ global defined by Vite

@@ -159,6 +159,9 @@ app.use((_req: Request, res: Response) => {
 // Export app for testing
 export { app };
 
+// Export migrations for test utilities
+export { migrations, runMigrations } from './migrations/index.js';
+
 // Graceful shutdown handler
 let isShuttingDown = false;
 

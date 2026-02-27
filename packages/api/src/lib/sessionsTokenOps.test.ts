@@ -89,22 +89,25 @@ const createMockMulti = () => {
   return chain;
 };
 
-vi.mock('@tearleads/shared/redis', () => ({
-  getRedisClient: vi.fn(() =>
-    Promise.resolve({
-      get: mockGet,
-      set: mockSet,
-      del: mockDel,
-      expire: mockExpire,
-      ttl: mockTtl,
-      sAdd: mockSAdd,
-      sRem: mockSRem,
-      sMembers: mockSMembers,
-      mGet: mockMGet,
-      multi: createMockMulti
-    })
-  )
-}));
+vi.mock('@tearleads/shared/redis', () => {
+  const client = {
+    get: mockGet,
+    set: mockSet,
+    del: mockDel,
+    expire: mockExpire,
+    ttl: mockTtl,
+    sAdd: mockSAdd,
+    sRem: mockSRem,
+    sMembers: mockSMembers,
+    mGet: mockMGet,
+    multi: createMockMulti
+  };
+  return {
+    getRedisClient: vi.fn(() => Promise.resolve(client)),
+    getRedisSubscriberOverride: () => client,
+    setRedisSubscriberOverrideForTesting: vi.fn()
+  };
+});
 
 describe('sessions token operations', () => {
   beforeEach(() => {

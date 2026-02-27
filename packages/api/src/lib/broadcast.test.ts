@@ -16,7 +16,9 @@ function createMockClient(): RedisClient {
 }
 
 vi.mock('@tearleads/shared/redis', () => ({
-  getRedisClient: vi.fn(() => Promise.resolve(createMockClient()))
+  getRedisClient: vi.fn(() => Promise.resolve(createMockClient())),
+  getRedisSubscriberOverride: () => createMockClient(),
+  setRedisSubscriberOverrideForTesting: vi.fn()
 }));
 
 describe('broadcast', () => {

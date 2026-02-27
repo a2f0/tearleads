@@ -13,48 +13,52 @@ import {
 } from './useVfsKeys';
 
 // Mock @tearleads/shared crypto functions
-vi.mock('@tearleads/shared', () => ({
-  combineEncapsulation: vi.fn(
-    (enc: { x25519: Uint8Array; mlKem: Uint8Array }) =>
-      `combined:${enc.x25519.length}:${enc.mlKem.length}`
-  ),
-  buildVfsPublicEncryptionKey: vi.fn(() => 'combined-public-key'),
-  combinePublicKey: vi.fn(() => 'combined-public-key'),
-  decryptVfsPrivateKeysWithRawKey: vi.fn(async () => ({
-    x25519PrivateKey: 'dGVzdA==',
-    mlKemPrivateKey: 'dGVzdA=='
-  })),
-  deserializePublicKey: vi.fn(
-    (_serialized: { x25519: string; mlKem: string }) => ({
-      x25519PublicKey: new Uint8Array(32),
-      mlKemPublicKey: new Uint8Array(800)
-    })
-  ),
-  encryptVfsPrivateKeysWithRawKey: vi.fn(async () => ({
-    encryptedPrivateKeys: 'ZW5jcnlwdGVk',
-    argon2Salt: 'c2FsdA=='
-  })),
-  generateKeyPair: vi.fn(() => ({
-    x25519PublicKey: new Uint8Array(32).fill(1),
-    x25519PrivateKey: new Uint8Array(32).fill(2),
-    mlKemPublicKey: new Uint8Array(800).fill(3),
-    mlKemPrivateKey: new Uint8Array(2400).fill(4)
-  })),
-  serializeKeyPair: vi.fn((_kp: { x25519PublicKey: Uint8Array }) => ({
-    x25519PublicKey: 'base64-x25519-pub',
-    x25519PrivateKey: 'base64-x25519-priv',
-    mlKemPublicKey: 'base64-mlkem-pub',
-    mlKemPrivateKey: 'base64-mlkem-priv'
-  })),
-  splitPublicKey: vi.fn(() => ({
-    x25519PublicKey: btoa(String.fromCharCode(...new Uint8Array(32))),
-    mlKemPublicKey: btoa(String.fromCharCode(...new Uint8Array(800)))
-  })),
-  wrapKeyForRecipient: vi.fn(() => ({
-    x25519: new Uint8Array(48),
-    mlKem: new Uint8Array(1088)
-  }))
-}));
+vi.mock('@tearleads/shared', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tearleads/shared')>();
+  return {
+    ...actual,
+    combineEncapsulation: vi.fn(
+      (enc: { x25519: Uint8Array; mlKem: Uint8Array }) =>
+        `combined:${enc.x25519.length}:${enc.mlKem.length}`
+    ),
+    buildVfsPublicEncryptionKey: vi.fn(() => 'combined-public-key'),
+    combinePublicKey: vi.fn(() => 'combined-public-key'),
+    decryptVfsPrivateKeysWithRawKey: vi.fn(async () => ({
+      x25519PrivateKey: 'dGVzdA==',
+      mlKemPrivateKey: 'dGVzdA=='
+    })),
+    deserializePublicKey: vi.fn(
+      (_serialized: { x25519: string; mlKem: string }) => ({
+        x25519PublicKey: new Uint8Array(32),
+        mlKemPublicKey: new Uint8Array(800)
+      })
+    ),
+    encryptVfsPrivateKeysWithRawKey: vi.fn(async () => ({
+      encryptedPrivateKeys: 'ZW5jcnlwdGVk',
+      argon2Salt: 'c2FsdA=='
+    })),
+    generateKeyPair: vi.fn(() => ({
+      x25519PublicKey: new Uint8Array(32).fill(1),
+      x25519PrivateKey: new Uint8Array(32).fill(2),
+      mlKemPublicKey: new Uint8Array(800).fill(3),
+      mlKemPrivateKey: new Uint8Array(2400).fill(4)
+    })),
+    serializeKeyPair: vi.fn((_kp: { x25519PublicKey: Uint8Array }) => ({
+      x25519PublicKey: 'base64-x25519-pub',
+      x25519PrivateKey: 'base64-x25519-priv',
+      mlKemPublicKey: 'base64-mlkem-pub',
+      mlKemPrivateKey: 'base64-mlkem-priv'
+    })),
+    splitPublicKey: vi.fn(() => ({
+      x25519PublicKey: btoa(String.fromCharCode(...new Uint8Array(32))),
+      mlKemPublicKey: btoa(String.fromCharCode(...new Uint8Array(800)))
+    })),
+    wrapKeyForRecipient: vi.fn(() => ({
+      x25519: new Uint8Array(48),
+      mlKem: new Uint8Array(1088)
+    }))
+  };
+});
 
 // Mock API
 vi.mock('@/lib/api', () => ({

@@ -99,6 +99,7 @@
     "sonner": "2.0.7"
   },
   "devDependencies": {
+    "@tearleads/api-test-utils": "workspace:*",
     "@capacitor/android": "8.1.0",
     "@capacitor/cli": "8.1.0",
     "@capacitor/ios": "8.1.0",

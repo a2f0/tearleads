@@ -1,5 +1,8 @@
+import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { getRecordedApiRequests, wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AUTH_TOKEN_KEY } from '@/lib/authStorage';
+import { getSharedTestContext } from '@/test/testContext';
 
 // Mock analytics to capture logged event names
 const mockLogApiEvent = vi.fn();
@@ -40,12 +43,17 @@ const expectSingleRequestQuery = (
   expect(getRequestQuery(request)).toEqual(expectedQuery);
 };
 
+let seededUser: SeededUser;
+
 describe('api with msw', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
+    const ctx = getSharedTestContext();
+    seededUser = await seedTestUser(ctx, { admin: true });
+    localStorage.setItem(AUTH_TOKEN_KEY, seededUser.accessToken);
     mockLogApiEvent.mockResolvedValue(undefined);
   });
 
@@ -54,60 +62,101 @@ describe('api with msw', () => {
   });
 
   it('routes vfs and ai requests through msw', async () => {
+    const ctx = getSharedTestContext();
+
+    // Create second user in a shared org for share operations
+    const secondUser = await seedTestUser(ctx);
+    const sharedOrgId = 'shared-org-vfs';
+    await ctx.pool.query(
+      `INSERT INTO organizations (id, name, created_at, updated_at)
+       VALUES ($1, 'Shared Org', NOW(), NOW())`,
+      [sharedOrgId]
+    );
+    await ctx.pool.query(
+      `INSERT INTO user_organizations (user_id, organization_id, joined_at)
+       VALUES ($1, $2, NOW()), ($3, $2, NOW())`,
+      [seededUser.userId, sharedOrgId, secondUser.userId]
+    );
+
+    // Create target org for org-share operations
+    const targetOrgId = 'target-org-vfs';
+    await ctx.pool.query(
+      `INSERT INTO organizations (id, name, created_at, updated_at)
+       VALUES ($1, 'Target Org', NOW(), NOW())`,
+      [targetOrgId]
+    );
+
     const api = await loadApi();
 
-    await api.vfs.getMyKeys();
+    // Setup keys first (real API returns 404 if keys don't exist)
     await api.vfs.setupKeys({
       publicEncryptionKey: 'public-encryption-key',
+      publicSigningKey: 'public-signing-key',
       encryptedPrivateKeys: 'encrypted-private-keys',
       argon2Salt: 'argon2-salt'
     });
+    await api.vfs.getMyKeys();
+
+    // Register VFS item
     await api.vfs.register({
       id: 'item-1',
       objectType: 'file',
       encryptedSessionKey: 'encrypted-session-key'
     });
-    await api.vfs.getShares('item 1');
-    await api.vfs.createShare({
-      itemId: 'item 1',
+
+    // Share operations using real item and user IDs
+    await api.vfs.getShares('item-1');
+    const shareResponse = await api.vfs.createShare({
+      itemId: 'item-1',
       shareType: 'user',
-      targetId: 'user-2',
+      targetId: secondUser.userId,
       permissionLevel: 'view',
       wrappedKey: {
-        recipientUserId: 'user-2',
+        recipientUserId: secondUser.userId,
         recipientPublicKeyId: 'pk-user-2',
         keyEpoch: 2,
         encryptedKey: 'wrapped-key',
         senderSignature: 'sender-signature'
       }
     });
-    await api.vfs.updateShare('share 1', { permissionLevel: 'edit' });
-    await api.vfs.deleteShare('share 1');
-    await api.vfs.createOrgShare({
-      itemId: 'item 1',
-      sourceOrgId: 'org-1',
-      targetOrgId: 'org-2',
+    const shareUuid = shareResponse.id.replace('share:', '');
+
+    // Org share operations
+    const orgShareResponse = await api.vfs.createOrgShare({
+      itemId: 'item-1',
+      sourceOrgId: sharedOrgId,
+      targetOrgId: targetOrgId,
       permissionLevel: 'view'
     });
-    await api.vfs.deleteOrgShare('org share 1');
-    await api.vfs.rekeyItem('item 1', {
+    const orgShareParts = orgShareResponse.id.split(':');
+    const orgShareUuid = orgShareParts[orgShareParts.length - 1];
+    expect(orgShareUuid).toBeTruthy();
+
+    // Rekey while share is still active
+    await api.vfs.rekeyItem('item-1', {
       reason: 'manual',
       newEpoch: 2,
       wrappedKeys: [
         {
-          recipientUserId: 'user-2',
+          recipientUserId: secondUser.userId,
           recipientPublicKeyId: 'pk-user-2',
           keyEpoch: 2,
-          encryptedKey: 'wrapped-key',
-          senderSignature: 'sender-signature'
+          encryptedKey: 'rekeyed-key',
+          senderSignature: 'rekey-signature'
         }
       ]
     });
+
+    // Update and delete shares
+    await api.vfs.updateShare(shareUuid, { permissionLevel: 'edit' });
+    await api.vfs.deleteShare(shareUuid);
+    await api.vfs.deleteOrgShare(orgShareUuid ?? '');
+
+    // Search share targets
     await api.vfs.searchShareTargets('test query', 'user');
 
+    // AI usage (no FK-violating conversationId/messageId)
     await api.ai.recordUsage({
-      conversationId: 'conversation-1',
-      messageId: 'message-1',
       modelId: 'mistralai/mistral-7b-instruct',
       promptTokens: 10,
       completionTokens: 5,
@@ -116,7 +165,7 @@ describe('api with msw', () => {
     await api.ai.getUsage({
       startDate: '2024-01-01',
       endDate: '2024-01-31',
-      cursor: 'cursor-1',
+      cursor: '2025-01-01T00:00:00.000Z',
       limit: 10
     });
     await api.ai.getUsageSummary({
@@ -124,20 +173,20 @@ describe('api with msw', () => {
       endDate: '2024-01-31'
     });
 
-    expect(wasApiRequestMade('GET', '/vfs/keys/me')).toBe(true);
     expect(wasApiRequestMade('POST', '/vfs/keys')).toBe(true);
+    expect(wasApiRequestMade('GET', '/vfs/keys/me')).toBe(true);
     expect(wasApiRequestMade('POST', '/vfs/register')).toBe(true);
-    expect(wasApiRequestMade('GET', '/vfs/items/item%201/shares')).toBe(true);
-    expect(wasApiRequestMade('POST', '/vfs/items/item%201/shares')).toBe(true);
-    expect(wasApiRequestMade('PATCH', '/vfs/shares/share%201')).toBe(true);
-    expect(wasApiRequestMade('DELETE', '/vfs/shares/share%201')).toBe(true);
-    expect(wasApiRequestMade('POST', '/vfs/items/item%201/org-shares')).toBe(
+    expect(wasApiRequestMade('GET', '/vfs/items/item-1/shares')).toBe(true);
+    expect(wasApiRequestMade('POST', '/vfs/items/item-1/shares')).toBe(true);
+    expect(wasApiRequestMade('PATCH', `/vfs/shares/${shareUuid}`)).toBe(true);
+    expect(wasApiRequestMade('DELETE', `/vfs/shares/${shareUuid}`)).toBe(true);
+    expect(wasApiRequestMade('POST', '/vfs/items/item-1/org-shares')).toBe(
       true
     );
-    expect(wasApiRequestMade('DELETE', '/vfs/org-shares/org%20share%201')).toBe(
+    expect(wasApiRequestMade('DELETE', `/vfs/org-shares/${orgShareUuid}`)).toBe(
       true
     );
-    expect(wasApiRequestMade('POST', '/vfs/items/item%201/rekey')).toBe(true);
+    expect(wasApiRequestMade('POST', '/vfs/items/item-1/rekey')).toBe(true);
     expect(wasApiRequestMade('GET', '/vfs/share-targets/search')).toBe(true);
 
     expect(wasApiRequestMade('POST', '/ai/usage')).toBe(true);
@@ -151,7 +200,7 @@ describe('api with msw', () => {
     expectSingleRequestQuery('GET', '/ai/usage', {
       startDate: '2024-01-01',
       endDate: '2024-01-31',
-      cursor: 'cursor-1',
+      cursor: '2025-01-01T00:00:00.000Z',
       limit: '10'
     });
   });
@@ -168,13 +217,13 @@ describe('api with msw', () => {
     await api.admin.postgres.getRows('public', 'users');
 
     // Redis getKeys: with params vs without
-    await api.admin.redis.getKeys('cursor-1', 10);
+    await api.admin.redis.getKeys('5', 10);
     await api.admin.redis.getKeys();
 
     await api.ai.getUsage({
       startDate: '2024-01-01',
       endDate: '2024-01-31',
-      cursor: 'cursor-2',
+      cursor: '2025-01-01T00:00:00.000Z',
       limit: 25
     });
     await api.ai.getUsage();
@@ -208,7 +257,7 @@ describe('api with msw', () => {
         {
           startDate: '2024-01-01',
           endDate: '2024-01-31',
-          cursor: 'cursor-2',
+          cursor: '2025-01-01T00:00:00.000Z',
           limit: '25'
         },
         {}
@@ -230,7 +279,7 @@ describe('api with msw', () => {
     const redisKeysRequests = getRequestsFor('GET', '/admin/redis/keys');
     expect(redisKeysRequests).toHaveLength(2);
     expect(redisKeysRequests.map(getRequestQuery)).toEqual(
-      expect.arrayContaining([{ cursor: 'cursor-1', limit: '10' }, {}])
+      expect.arrayContaining([{ cursor: '5', limit: '10' }, {}])
     );
   });
 });

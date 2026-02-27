@@ -45,6 +45,7 @@
     { "path": "./packages/cli" },
     { "path": "./packages/db" },
     { "path": "./packages/db/tsconfig.test.json" },
+    { "path": "./packages/api-test-utils" },
     { "path": "./packages/db-test-utils" },
     { "path": "./packages/db-test-utils/tsconfig.test.json" },
     { "path": "./packages/msw" },

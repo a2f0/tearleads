@@ -306,7 +306,7 @@ jobs:
     needs: [detect-impact, typecheck-build]
     if: ${{ (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') && needs.detect-impact.outputs.test-should-run == 'true' }}
     runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
-    timeout-minutes: 15
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:

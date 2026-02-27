@@ -1,5 +1,7 @@
 export type { ActorHarnessConfig } from './harness/actorHarness.js';
 export { ActorHarness } from './harness/actorHarness.js';
+export type { ApiActorDefinition } from './harness/apiScenarioHarness.js';
+export { ApiScenarioHarness } from './harness/apiScenarioHarness.js';
 export type {
   AssertLocalVfsRegistryHasInput,
   AssertServerFeedLengthInput,

@@ -66,6 +66,9 @@ for path in "${files[@]}"; do
     continue
   fi
 
+  # AGENT INSTRUCTION: Do NOT add exemptions here. If a package needs
+  # something from @tearleads/api, extract the shared code into a
+  # reusable package (e.g. @tearleads/shared, @tearleads/db).
   case "$path" in
     packages/api/*)
       continue

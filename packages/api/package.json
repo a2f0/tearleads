@@ -3,7 +3,31 @@
   "version": "0.0.512",
   "description": "Express API for Tearleads",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./lib/postgres": {
+      "types": "./dist/lib/postgres.d.ts",
+      "import": "./dist/lib/postgres.js"
+    },
+    "./lib/redisPubSub": {
+      "types": "./dist/lib/redisPubSub.d.ts",
+      "import": "./dist/lib/redisPubSub.js"
+    },
+    "./lib/jwt": {
+      "types": "./dist/lib/jwt.d.ts",
+      "import": "./dist/lib/jwt.js"
+    },
+    "./migrations": {
+      "types": "./dist/migrations/index.d.ts",
+      "import": "./dist/migrations/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist"
   ],

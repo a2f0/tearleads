@@ -33,7 +33,9 @@ const mockRedisClient = {
 };
 
 vi.mock('@tearleads/shared/redis', () => ({
-  getRedisClient: () => Promise.resolve(mockRedisClient)
+  getRedisClient: () => Promise.resolve(mockRedisClient),
+  getRedisSubscriberOverride: () => mockRedisClient,
+  setRedisSubscriberOverrideForTesting: vi.fn()
 }));
 
 describe('VFS CRDT sync route', () => {
@@ -52,14 +54,12 @@ describe('VFS CRDT sync route', () => {
 
   it('returns 401 when not authenticated', async () => {
     const response = await request(app).get('/v1/vfs/crdt/vfs-sync');
-
     expect(response.status).toBe(401);
     expect(response.body).toEqual({ error: 'Unauthorized' });
   });
 
   it('returns 400 when limit is invalid', async () => {
     const authHeader = await createAuthHeader();
-
     const response = await request(app)
       .get('/v1/vfs/crdt/vfs-sync?limit=0')
       .set('Authorization', authHeader);

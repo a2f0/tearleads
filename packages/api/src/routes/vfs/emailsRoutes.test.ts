@@ -13,27 +13,30 @@ const mocks = vi.hoisted(() => ({
 
 const sessionStore = new Map<string, string>();
 
-vi.mock('@tearleads/shared/redis', () => ({
-  getRedisClient: vi.fn(() =>
-    Promise.resolve({
-      get: (key: string) => {
-        if (key.startsWith('session:')) {
-          return Promise.resolve(sessionStore.get(key) ?? null);
-        }
-        return Promise.resolve(null);
-      },
-      set: (key: string, value: string) => {
-        sessionStore.set(key, value);
-        return Promise.resolve('OK');
-      },
-      expire: () => Promise.resolve(1),
-      ttl: () => Promise.resolve(3600),
-      sAdd: () => Promise.resolve(1),
-      sRem: () => Promise.resolve(1),
-      sMembers: () => Promise.resolve([])
-    })
-  )
-}));
+vi.mock('@tearleads/shared/redis', () => {
+  const client = {
+    get: (key: string) => {
+      if (key.startsWith('session:')) {
+        return Promise.resolve(sessionStore.get(key) ?? null);
+      }
+      return Promise.resolve(null);
+    },
+    set: (key: string, value: string) => {
+      sessionStore.set(key, value);
+      return Promise.resolve('OK');
+    },
+    expire: () => Promise.resolve(1),
+    ttl: () => Promise.resolve(3600),
+    sAdd: () => Promise.resolve(1),
+    sRem: () => Promise.resolve(1),
+    sMembers: () => Promise.resolve([])
+  };
+  return {
+    getRedisClient: vi.fn(() => Promise.resolve(client)),
+    getRedisSubscriberOverride: () => client,
+    setRedisSubscriberOverrideForTesting: vi.fn()
+  };
+});
 
 vi.mock('../../lib/postgres.js', () => {
   const poolFactory = vi.fn(() =>
