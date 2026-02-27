@@ -1,8 +1,6 @@
-import type { UserConfig } from 'vitest/config';
-
-export const sharedTestConfig: UserConfig = {
+export const sharedTestConfig = {
   test: {
-    pool: 'threads',
+    pool: 'threads' as const,
     deps: {
       optimizer: {
         client: { enabled: true },
