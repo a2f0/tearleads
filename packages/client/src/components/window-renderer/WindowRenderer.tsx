@@ -1,5 +1,4 @@
 import { AnalyticsWindow } from '@tearleads/analytics';
-import { BackupWindow } from '@tearleads/backups';
 import type { WindowDimensions } from '@tearleads/window-manager';
 import type { ComponentType } from 'react';
 import { memo, useCallback, useMemo, useRef } from 'react';
@@ -13,6 +12,7 @@ import {
 } from '@/components/admin-windows';
 import { AIWindow } from '@/components/ai-window';
 import { AudioWindow } from '@/components/audio-window';
+import { BackupWindow } from '@/components/backup-window';
 import { BusinessesWindow } from '@/components/businesses-window';
 import { CacheStorageWindow } from '@/components/cache-storage-window';
 import { CalendarWindow } from '@/components/calendar-window';

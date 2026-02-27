@@ -3,6 +3,7 @@ import {
   WindowControlBar,
   type WindowDimensions
 } from '@tearleads/window-manager';
+import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { BackupDocumentation } from './BackupDocumentation';
 import { BackupManagerView } from './BackupManagerView';
@@ -17,6 +18,7 @@ interface BackupWindowProps {
   onFocus: () => void;
   zIndex: number;
   initialDimensions?: WindowDimensions | undefined;
+  databaseBlocker?: ReactNode;
 }
 
 export function BackupWindow({
@@ -27,7 +29,8 @@ export function BackupWindow({
   onRename,
   onFocus,
   zIndex,
-  initialDimensions
+  initialDimensions,
+  databaseBlocker
 }: BackupWindowProps) {
   const [showDocumentation, setShowDocumentation] = useState(false);
 
@@ -54,7 +57,9 @@ export function BackupWindow({
         />
         <WindowControlBar>{null}</WindowControlBar>
         <div className="flex-1 overflow-y-auto p-4">
-          {showDocumentation ? (
+          {databaseBlocker ? (
+            databaseBlocker
+          ) : showDocumentation ? (
             <BackupDocumentation onBack={() => setShowDocumentation(false)} />
           ) : (
             <BackupManagerView />
