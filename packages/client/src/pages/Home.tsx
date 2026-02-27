@@ -186,7 +186,7 @@ export function Home() {
         }
       }
       const sortedItems = sortItemsByLabel(appItems, (item) =>
-        translateRef.current(item.labelKey as Parameters<typeof t>[0])
+        translateRef.current(item.labelKey)
       );
       setPositions(calculateGridPositions(sortedItems, width, isMobile));
     }
