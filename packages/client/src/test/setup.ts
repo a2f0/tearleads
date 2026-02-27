@@ -62,21 +62,18 @@ if (typeof window.confirm !== 'function') {
 // happy-dom replaces fetch/Response; Node's instantiateStreaming performs
 // strict brand checks on Response instances. Use arrayBuffer-based instantiate
 // in tests to avoid Response constructor mismatches.
-const originalInstantiateStreaming = WebAssembly.instantiateStreaming;
-if (originalInstantiateStreaming) {
-  Object.defineProperty(WebAssembly, 'instantiateStreaming', {
-    configurable: true,
-    writable: true,
-    value: async (
-      source: Promise<Response> | Response,
-      importObject: WebAssembly.Imports
-    ): Promise<WebAssembly.WebAssemblyInstantiatedSource> => {
-      const resolvedSource = await source;
-      const bytes = await resolvedSource.arrayBuffer();
-      return WebAssembly.instantiate(bytes, importObject);
-    }
-  });
-}
+Object.defineProperty(WebAssembly, 'instantiateStreaming', {
+  configurable: true,
+  writable: true,
+  value: async (
+    source: Promise<Response> | Response,
+    importObject: WebAssembly.Imports
+  ): Promise<WebAssembly.WebAssemblyInstantiatedSource> => {
+    const resolvedSource = await source;
+    const bytes = await resolvedSource.arrayBuffer();
+    return WebAssembly.instantiate(bytes, importObject);
+  }
+});
 
 // Initialize i18n for tests (side-effect import)
 import '../i18n';

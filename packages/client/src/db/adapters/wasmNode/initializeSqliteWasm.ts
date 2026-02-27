@@ -90,8 +90,8 @@ export async function initializeSqliteWasm(): Promise<SQLite3Module> {
     }
   };
 
-  const wasmWithOptionalInstantiateStreaming = WebAssembly as WebAssembly & {
-    instantiateStreaming?: typeof WebAssembly.instantiateStreaming;
+  const wasmWithOptionalInstantiateStreaming = WebAssembly as unknown as {
+    instantiateStreaming: typeof WebAssembly.instantiateStreaming | undefined;
   };
   const originalInstantiateStreaming =
     wasmWithOptionalInstantiateStreaming.instantiateStreaming;
