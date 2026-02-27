@@ -272,19 +272,21 @@ function shouldRunRubocop(changedFiles: string[]): boolean {
   );
 }
 
-function shouldRunAnsibleLint(changedFiles: string[]): boolean {
-  return changedFiles.some((f) =>
-    ANSIBLE_LINT_PREFIXES.some((prefix) => f.startsWith(prefix))
+function isAnsibleYaml(filePath: string): boolean {
+  return (
+    /\.(ya?ml)$/.test(filePath) &&
+    ANSIBLE_LINT_PREFIXES.some((prefix) => filePath.startsWith(prefix))
   );
+}
+
+function shouldRunAnsibleLint(changedFiles: string[]): boolean {
+  return changedFiles.some(isAnsibleYaml);
 }
 
 function changedAnsibleLintTargets(changedFiles: string[]): string[] {
   return uniqueSorted(
     changedFiles.filter(
-      (filePath) =>
-        fileExists(filePath) &&
-        /\.(ya?ml)$/.test(filePath) &&
-        ANSIBLE_LINT_PREFIXES.some((prefix) => filePath.startsWith(prefix))
+      (filePath) => fileExists(filePath) && isAnsibleYaml(filePath)
     )
   );
 }
