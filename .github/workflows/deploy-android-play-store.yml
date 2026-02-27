@@ -199,7 +199,7 @@ jobs:
       - name: Setup Android keystore
         run: |
           mkdir -p .secrets
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > .secrets/tearleads-release.keystore
+          printf '%s' "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > .secrets/tearleads-release.keystore
 
       - name: Create keystore.properties
         run: |

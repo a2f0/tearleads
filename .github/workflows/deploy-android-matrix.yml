@@ -165,7 +165,7 @@ jobs:
       - name: Setup Android keystore
         run: |
           mkdir -p .secrets
-          echo "${{ secrets[format('{0}_ANDROID_KEYSTORE_BASE64', env.APP_ID)] || secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > .secrets/release.keystore
+          printf '%s' "${{ secrets[format('{0}_ANDROID_KEYSTORE_BASE64', env.APP_ID)] || secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > .secrets/release.keystore
 
       - name: Create keystore.properties
         run: |

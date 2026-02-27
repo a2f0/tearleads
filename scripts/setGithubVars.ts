@@ -1,5 +1,5 @@
 #!/usr/bin/env -S pnpm exec tsx
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -150,6 +150,51 @@ function requireFile(filePath: string, errorMessage: string): void {
   }
 }
 
+function validateAndroidKeystore(
+  filePath: string,
+  storePassword: string,
+  keyPassword: string
+): void {
+  const keyAlias = 'tearleads';
+  const result = spawnSync(
+    'keytool',
+    [
+      '-list',
+      '-keystore',
+      filePath,
+      '-storepass',
+      storePassword,
+      '-alias',
+      keyAlias,
+      '-keypass',
+      keyPassword
+    ],
+    { encoding: 'utf8', stdio: ['ignore', 'ignore', 'pipe'] }
+  );
+
+  if (result.error) {
+    throw new Error(
+      `Android keystore validation failed for ${filePath}. keytool is unavailable: ${result.error.message}`
+    );
+  }
+
+  if (result.status !== 0) {
+    const stderr = typeof result.stderr === 'string' ? result.stderr.trim() : '';
+    const lastLine = stderr.split('\n').at(-1)?.trim() ?? '';
+    const tail =
+      lastLine.length > 0
+        ? lastLine
+        : `keytool exited with status ${result.status}`;
+    throw new Error(
+      [
+        `Android keystore validation failed for ${filePath}.`,
+        `Confirm the keystore bytes are intact and credentials for alias "${keyAlias}" are correct.`,
+        `keytool error: ${tail}`
+      ].join(' ')
+    );
+  }
+}
+
 function runGh(args: string[]): string {
   return execFileSync('gh', args, {
     encoding: 'utf8',
@@ -239,6 +284,11 @@ function main(): void {
   requireFile(
     deployKeyFile,
     `Error: Deploy SSH key not found at ${deployKeyFile}`
+  );
+  validateAndroidKeystore(
+    keystoreFile,
+    env.ANDROID_KEYSTORE_STORE_PASS,
+    env.ANDROID_KEYSTORE_KEY_PASS
   );
 
   const appStoreConnectApiKey = readFileSync(p8File).toString('base64');
