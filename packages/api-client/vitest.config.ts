@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { sharedTestConfig } from '../../vitest.shared';
 
 const isCoverageRun = process.argv.includes('--coverage');
-
+const environment = isCoverageRun ? 'jsdom' : 'happy-dom';
 export default mergeConfig(
   sharedTestConfig,
   defineConfig({
@@ -18,7 +18,7 @@ export default mergeConfig(
             execArgv: ['--max-old-space-size=8192']
           }
         : {}),
-      environment: 'happy-dom',
+      environment,
       globals: true,
       hookTimeout: 30000,
       setupFiles: ['./src/test/setup.ts'],
