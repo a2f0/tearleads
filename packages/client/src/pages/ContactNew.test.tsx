@@ -39,6 +39,15 @@ vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
+vi.mock('@/contexts/OrgContext', () => ({
+  useOrg: () => ({
+    activeOrganizationId: null,
+    organizations: [],
+    setActiveOrganizationId: vi.fn(),
+    isLoading: false
+  })
+}));
+
 const mockInsert = vi.fn();
 const mockDelete = vi.fn();
 

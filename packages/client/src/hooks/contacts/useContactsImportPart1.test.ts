@@ -38,6 +38,15 @@ vi.mock('@/db', () => ({
   }))
 }));
 
+vi.mock('@/contexts/OrgContext', () => ({
+  useOrg: () => ({
+    activeOrganizationId: null,
+    organizations: [],
+    setActiveOrganizationId: vi.fn(),
+    isLoading: false
+  })
+}));
+
 vi.mock('@/search', () => ({
   createContactDocument: (
     id: string,
