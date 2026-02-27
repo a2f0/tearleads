@@ -1,11 +1,11 @@
 export { WalletWindow } from './components/wallet-window';
-export {
-  type SaveWalletItemInput,
-  type SaveWalletItemResult,
-  type WalletItemDetailRecord,
-  type WalletItemSummary,
-  type WalletMediaFileOption,
-  type WalletMediaSide
+export type {
+  SaveWalletItemInput,
+  SaveWalletItemResult,
+  WalletItemDetailRecord,
+  WalletItemSummary,
+  WalletMediaFileOption,
+  WalletMediaSide
 } from './lib/walletData';
 export {
   createWalletTracker,
@@ -13,8 +13,8 @@ export {
 } from './lib/walletTracker';
 export { Wallet, WalletDetail, WalletNewItem } from './pages/wallet';
 export {
+  useWalletRuntime,
   type WalletRuntimeContextValue,
   WalletRuntimeProvider,
-  type WalletRuntimeProviderProps,
-  useWalletRuntime
+  type WalletRuntimeProviderProps
 } from './runtime';

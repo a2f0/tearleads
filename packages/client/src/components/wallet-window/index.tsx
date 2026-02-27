@@ -15,10 +15,7 @@ export function WalletWindow(props: WalletWindowProps) {
     () => createWalletTracker(getDatabase()),
     []
   );
-  const loadMediaPreview = useCallback(
-    async () => null,
-    []
-  );
+  const loadMediaPreview = useCallback(async () => null, []);
 
   return (
     <WalletRuntimeProvider

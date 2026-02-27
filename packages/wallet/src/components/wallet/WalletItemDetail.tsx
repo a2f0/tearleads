@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getWalletCountryOptionByCode } from '../../lib/walletCountryLookup';
-import {
-  type SaveWalletItemResult,
-  type WalletItemType,
-  type WalletMediaFileOption,
-  type WalletMediaSide
+import type {
+  SaveWalletItemResult,
+  WalletItemType,
+  WalletMediaFileOption,
+  WalletMediaSide
 } from '../../lib/walletData';
 import { getWalletSubtypeDefinition } from '../../lib/walletSubtypes';
 import { useWalletRuntime } from '../../runtime';

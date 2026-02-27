@@ -79,10 +79,7 @@ export function WalletMediaPickerModal({
         const loadedPreviews = await Promise.all(
           files.map(async (file) => {
             try {
-              const objectUrl = await loadMediaPreview(
-                file,
-                currentInstanceId
-              );
+              const objectUrl = await loadMediaPreview(file, currentInstanceId);
               return { ...file, objectUrl };
             } catch {
               return { ...file, objectUrl: null };

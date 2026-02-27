@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import type { SaveWalletItemResult } from '../../lib/walletData';
-import type { WalletItemFormState } from './walletItemFormUtils';
 import { useWalletTracker } from './useWalletTracker';
+import type { WalletItemFormState } from './walletItemFormUtils';
 
 interface UseWalletItemActionsProps {
   itemId: string;
