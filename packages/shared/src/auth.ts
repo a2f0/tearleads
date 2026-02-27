@@ -49,3 +49,14 @@ export interface Session {
 export interface SessionsResponse {
   sessions: Session[];
 }
+
+export interface UserOrganization {
+  id: string;
+  name: string;
+  isPersonal: boolean;
+}
+
+export interface UserOrganizationsResponse {
+  organizations: UserOrganization[];
+  personalOrganizationId: string;
+}

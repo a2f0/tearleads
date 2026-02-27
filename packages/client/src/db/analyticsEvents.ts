@@ -51,6 +51,7 @@ export type AnalyticsEventSlug =
   | 'api_post_auth_logout'
   | 'api_post_auth_refresh'
   | 'api_get_auth_sessions'
+  | 'api_get_auth_organizations'
   | 'api_delete_auth_session'
   // VFS operations
   | 'api_get_vfs_keys'
@@ -130,6 +131,7 @@ const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
   api_post_auth_logout: 'API Auth Logout',
   api_post_auth_refresh: 'API Auth Refresh',
   api_get_auth_sessions: 'API Get Sessions',
+  api_get_auth_organizations: 'API Get Organizations',
   api_delete_auth_session: 'API Delete Session',
   // VFS
   api_get_vfs_keys: 'API Get VFS Keys',
@@ -315,6 +317,9 @@ export interface ApiPostAuthRefreshDetail {
 export interface ApiGetAuthSessionsDetail {
   sessionCount?: number;
 }
+export interface ApiGetAuthOrganizationsDetail {
+  organizationCount?: number;
+}
 export interface ApiDeleteAuthSessionDetail {
   deleted?: boolean;
 }
@@ -457,6 +462,7 @@ export interface EventDetailMap {
   api_post_auth_logout: ApiPostAuthLogoutDetail;
   api_post_auth_refresh: ApiPostAuthRefreshDetail;
   api_get_auth_sessions: ApiGetAuthSessionsDetail;
+  api_get_auth_organizations: ApiGetAuthOrganizationsDetail;
   api_delete_auth_session: ApiDeleteAuthSessionDetail;
   api_get_vfs_keys: ApiGetVfsKeysDetail;
   api_get_vfs_sync: ApiGetVfsSyncDetail;

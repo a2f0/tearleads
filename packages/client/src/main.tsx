@@ -22,6 +22,7 @@ import { VfsRealtimeSyncBridge } from './components/VfsRealtimeSyncBridge';
 import { VfsRematerializationBootstrap } from './components/VfsRematerializationBootstrap';
 import { WindowRenderer } from './components/window-renderer';
 import { AuthProvider } from './contexts/AuthContext';
+import { OrgProvider } from './contexts/OrgContext';
 import { VfsOrchestratorProvider } from './contexts/VfsOrchestratorContext';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
 import { ClientSettingsProvider, DatabaseProvider } from './db/hooks';
@@ -88,26 +89,28 @@ if (rootElement) {
                         <VideoProvider>
                           <AuthProvider>
                             <AuthInstanceBinding />
-                            <VfsOrchestratorProvider>
-                              <VfsRematerializationBootstrap />
-                              <SSEProvider>
-                                <VfsRealtimeSyncBridge />
-                                <WindowManagerProvider>
-                                  <BrowserRouter>
-                                    <Suspense
-                                      fallback={
-                                        <div className="p-8 text-center text-muted-foreground">
-                                          Loading...
-                                        </div>
-                                      }
-                                    >
-                                      <AppRoutes />
-                                    </Suspense>
-                                    <WindowRenderer />
-                                  </BrowserRouter>
-                                </WindowManagerProvider>
-                              </SSEProvider>
-                            </VfsOrchestratorProvider>
+                            <OrgProvider>
+                              <VfsOrchestratorProvider>
+                                <VfsRematerializationBootstrap />
+                                <SSEProvider>
+                                  <VfsRealtimeSyncBridge />
+                                  <WindowManagerProvider>
+                                    <BrowserRouter>
+                                      <Suspense
+                                        fallback={
+                                          <div className="p-8 text-center text-muted-foreground">
+                                            Loading...
+                                          </div>
+                                        }
+                                      >
+                                        <AppRoutes />
+                                      </Suspense>
+                                      <WindowRenderer />
+                                    </BrowserRouter>
+                                  </WindowManagerProvider>
+                                </SSEProvider>
+                              </VfsOrchestratorProvider>
+                            </OrgProvider>
                           </AuthProvider>
                         </VideoProvider>
                       </AudioProvider>
