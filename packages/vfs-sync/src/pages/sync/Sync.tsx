@@ -194,7 +194,9 @@ export function Sync({ showBackLink = true }: SyncProps) {
           : 'flex min-h-full items-center justify-center'
       }
     >
-      {showBackLink ? <BackLink defaultTo="/" defaultLabel="Back to Home" /> : null}
+      {showBackLink ? (
+        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+      ) : null}
 
       <div className="w-full max-w-md">
         {authMode === 'login' ? (
