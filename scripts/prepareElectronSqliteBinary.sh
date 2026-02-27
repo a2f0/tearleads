@@ -1,6 +1,18 @@
 #!/bin/sh
 set -eu
 
+# Convert shell path to Node.js-compatible path.
+# On Windows (Git Bash/MSYS2), pwd returns POSIX paths like /d/a/...
+# which Node.js misinterprets as D:\d\a\... (extra "d" segment).
+# cygpath -m converts to D:/a/... which Node understands correctly.
+to_node_path() {
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -m "$1"
+  else
+    printf '%s' "$1"
+  fi
+}
+
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CLIENT_DIR="$ROOT_DIR/packages/client"
 GENERATED_DIR="$CLIENT_DIR/.generated/electron-native"
@@ -18,10 +30,11 @@ trap cleanup EXIT INT TERM
 get_pkg_version() {
   query="$1"
   error_msg="$2"
+  # Use to_node_path to convert POSIX paths for Node.js on Windows (see comment above)
   node -e "
 const fs = require('node:fs');
 const path = require('node:path');
-const packageJsonPath = path.resolve('$CLIENT_DIR', 'package.json');
+const packageJsonPath = path.resolve('$(to_node_path "$CLIENT_DIR")', 'package.json');
 const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 const value = $query;
 if (typeof value !== 'string' || value.length === 0) {
@@ -78,10 +91,11 @@ EOF
     --version "$ELECTRON_VERSION"
 )
 
+# Use to_node_path to convert POSIX paths for Node.js on Windows (see comment above)
 BUILT_BINARY="$(node -e "
 const path = require('node:path');
 const pkgPath = require.resolve('better-sqlite3-multiple-ciphers/package.json', {
-  paths: ['$WORKSPACE_DIR'],
+  paths: ['$(to_node_path "$WORKSPACE_DIR")'],
 });
 process.stdout.write(
   path.join(path.dirname(pkgPath), 'build', 'Release', 'better_sqlite3.node')
