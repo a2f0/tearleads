@@ -139,8 +139,8 @@ describe('WasmNodeAdapter', () => {
 
   it('throws when sqlite3 module export is missing', async () => {
     const modulePath = path.resolve(
-      process.cwd(),
-      'src/workers/sqlite-wasm/sqlite3.js'
+      import.meta.dirname,
+      '../../workers/sqlite-wasm/sqlite3.js'
     );
 
     vi.doMock(modulePath, () => ({ default: undefined }));
@@ -163,8 +163,8 @@ describe('WasmNodeAdapter', () => {
 
   it('throws when sqlite3 module is missing required properties', async () => {
     const modulePath = path.resolve(
-      process.cwd(),
-      'src/workers/sqlite-wasm/sqlite3.js'
+      import.meta.dirname,
+      '../../workers/sqlite-wasm/sqlite3.js'
     );
 
     vi.doMock(modulePath, () => ({
@@ -189,8 +189,8 @@ describe('WasmNodeAdapter', () => {
 
   it('wraps errors when opening encrypted databases', async () => {
     const modulePath = path.resolve(
-      process.cwd(),
-      'src/workers/sqlite-wasm/sqlite3.js'
+      import.meta.dirname,
+      '../../workers/sqlite-wasm/sqlite3.js'
     );
 
     vi.doMock(modulePath, () => ({
@@ -221,8 +221,8 @@ describe('WasmNodeAdapter', () => {
 
   it('wraps non-error failures when opening encrypted databases', async () => {
     const modulePath = path.resolve(
-      process.cwd(),
-      'src/workers/sqlite-wasm/sqlite3.js'
+      import.meta.dirname,
+      '../../workers/sqlite-wasm/sqlite3.js'
     );
 
     vi.doMock(modulePath, () => ({
@@ -253,8 +253,8 @@ describe('WasmNodeAdapter', () => {
 
   it('wraps non-error failures when importing JSON', async () => {
     const modulePath = path.resolve(
-      process.cwd(),
-      'src/workers/sqlite-wasm/sqlite3.js'
+      import.meta.dirname,
+      '../../workers/sqlite-wasm/sqlite3.js'
     );
 
     vi.doMock(modulePath, () => ({

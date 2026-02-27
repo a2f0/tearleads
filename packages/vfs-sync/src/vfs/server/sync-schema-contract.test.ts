@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { buildVfsCrdtSyncQuery } from '../protocol/sync-crdt-feed.js';
 import { buildVfsSyncQuery } from './sync-engine.js';
@@ -78,7 +78,7 @@ describe('sync schema contract', () => {
   });
 
   it('covers API CRDT route SQL references used for push/pull/reconcile', () => {
-    const syncPackageRoot = process.cwd();
+    const syncPackageRoot = join(import.meta.dirname, '../../..');
     const postPushSource = readFileSync(
       resolve(syncPackageRoot, '../api/src/routes/vfs/post-crdt-push.ts'),
       'utf8'
@@ -119,7 +119,7 @@ describe('sync schema contract', () => {
   });
 
   it('keeps blob stage/attach routes off blob staging tables', () => {
-    const syncPackageRoot = process.cwd();
+    const syncPackageRoot = join(import.meta.dirname, '../../..');
     const postBlobStageSource = readFileSync(
       resolve(syncPackageRoot, '../api/src/routes/vfs/post-blobs-stage.ts'),
       'utf8'
@@ -160,7 +160,7 @@ describe('sync schema contract', () => {
   });
 
   it('keeps share routes on canonical ACL tables only', () => {
-    const syncPackageRoot = process.cwd();
+    const syncPackageRoot = join(import.meta.dirname, '../../..');
     const shareRouteSources = [
       '../api/src/routes/vfs-shares/getItemsItemIdShares.ts',
       '../api/src/routes/vfs-shares/postItemsItemIdShares.ts',
@@ -190,7 +190,7 @@ describe('sync schema contract', () => {
   });
 
   it('keeps share-table read surface inventory empty', () => {
-    const syncPackageRoot = process.cwd();
+    const syncPackageRoot = join(import.meta.dirname, '../../..');
     const shareReadRouteFiles = [
       {
         relativePath: '../api/src/routes/vfs-shares/getItemsItemIdShares.ts',
@@ -238,7 +238,7 @@ describe('sync schema contract', () => {
   });
 
   it('remains compatible with generated Postgres schema', () => {
-    const syncPackageRoot = process.cwd();
+    const syncPackageRoot = join(import.meta.dirname, '../../..');
     const generatedSchemaSource = [
       '../db/src/generated/postgresql/schema.ts',
       '../db/src/generated/postgresql/schema-content.ts',
@@ -258,7 +258,7 @@ describe('sync schema contract', () => {
   });
 
   it('remains compatible with generated SQLite schema', () => {
-    const syncPackageRoot = process.cwd();
+    const syncPackageRoot = join(import.meta.dirname, '../../..');
     const generatedSchemaSource = [
       '../db/src/generated/sqlite/schema.ts',
       '../db/src/generated/sqlite/schema-content.ts',

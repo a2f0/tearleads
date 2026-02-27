@@ -237,8 +237,8 @@ describe('WasmNodeAdapter - JSON backup', () => {
 
   it('wraps non-error failures when importing JSON', async () => {
     const modulePath = path.resolve(
-      process.cwd(),
-      'src/workers/sqlite-wasm/sqlite3.js'
+      import.meta.dirname,
+      '../../workers/sqlite-wasm/sqlite3.js'
     );
 
     vi.doMock(modulePath, () => ({
