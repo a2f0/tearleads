@@ -113,6 +113,7 @@ function buildRecipients(): ResolvedInboundRecipient[] {
 describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
   let pool: PgPool;
   let exec: (sql: string) => Promise<void>;
+  let RepoClass: typeof import('./inboundVfsRepository.js').PostgresInboundVfsEmailRepository;
 
   beforeAll(async () => {
     const result = await createPglitePool();
@@ -122,6 +123,9 @@ describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
     await exec(SCHEMA_DDL);
 
     getPostgresPoolMock.mockResolvedValue(pool);
+
+    const mod = await import('./inboundVfsRepository.js');
+    RepoClass = mod.PostgresInboundVfsEmailRepository;
   });
 
   afterAll(async () => {
@@ -135,11 +139,7 @@ describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
   });
 
   it('persists inbound message with encrypted_name column', async () => {
-    const { PostgresInboundVfsEmailRepository } = await import(
-      './inboundVfsRepository.js'
-    );
-
-    await new PostgresInboundVfsEmailRepository().persistInboundMessage({
+    await new RepoClass().persistInboundMessage({
       envelope: buildEnvelope(),
       recipients: buildRecipients()
     });
@@ -204,10 +204,7 @@ describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
   });
 
   it('upserts inbox folder on duplicate call', async () => {
-    const { PostgresInboundVfsEmailRepository } = await import(
-      './inboundVfsRepository.js'
-    );
-    const repo = new PostgresInboundVfsEmailRepository();
+    const repo = new RepoClass();
 
     // Persist twice for the same recipient
     await repo.persistInboundMessage({
