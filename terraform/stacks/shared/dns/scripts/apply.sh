@@ -8,6 +8,8 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 # shellcheck source=../../../../scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"
 
+load_secrets_env
+
 validate_cloudflare_env
 
 terraform -chdir="$STACK_DIR" init -backend-config="$(get_backend_config)"

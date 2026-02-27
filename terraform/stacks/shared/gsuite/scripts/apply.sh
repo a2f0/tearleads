@@ -11,6 +11,8 @@ source "$REPO_ROOT/terraform/scripts/common.sh"
 # shellcheck source=./auth.sh
 source "$SCRIPT_DIR/auth.sh"
 
+load_secrets_env
+
 hydrate_googleworkspace_auth "$REPO_ROOT"
 
 terraform -chdir="$STACK_DIR" init -backend-config="$(get_backend_config)"
