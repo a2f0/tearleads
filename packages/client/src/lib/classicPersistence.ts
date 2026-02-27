@@ -6,7 +6,7 @@ import {
   DEFAULT_CLASSIC_TAG_NAME,
   type VfsLinkLikeRow
 } from '@tearleads/classic';
-import { and, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or } from 'drizzle-orm';
 import { getDatabase } from '@/db';
 import { runLocalWrite } from '@/db/localWrite';
 import { notes, tags, vfsLinks, vfsRegistry } from '@/db/schema';
@@ -40,7 +40,7 @@ export async function loadClassicStateFromDatabase(
         inArray(vfsRegistry.objectType, ['tag', 'note']),
         or(
           eq(vfsRegistry.organizationId, organizationId),
-          sql`${vfsRegistry.organizationId} IS NULL`
+          isNull(vfsRegistry.organizationId)
         )
       )
     : inArray(vfsRegistry.objectType, ['tag', 'note']);
