@@ -28,7 +28,7 @@ spec:
     spec:
       initContainers:
         - name: pg-basebackup
-          image: postgres:16
+          image: postgres:17
           env:
             - name: PGPASSWORD
               valueFrom:
@@ -49,7 +49,7 @@ spec:
               mountPath: /var/lib/postgresql/data
       containers:
         - name: postgres
-          image: postgres:16
+          image: postgres:17
           ports:
             - containerPort: 5432
           env:
