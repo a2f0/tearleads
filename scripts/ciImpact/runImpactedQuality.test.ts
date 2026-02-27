@@ -20,7 +20,7 @@ function stderrText(result: ReturnType<typeof spawnSync>): string {
   return typeof result.stderr === 'string' ? result.stderr : '';
 }
 
-test('runImpactedQuality dry-run reports baseline scripts typecheck guard', () => {
+test('runImpactedQuality dry-run runs scripts typecheck when scripts change', () => {
   const result = runImpactedQuality([
     '--files',
     'scripts/lib/checkPort.ts',
@@ -29,11 +29,11 @@ test('runImpactedQuality dry-run reports baseline scripts typecheck guard', () =
   assert.equal(result.status, 0, stderrText(result));
   assert.match(
     stdoutText(result),
-    /ci-impact: running scripts TypeScript check \(baseline pre-push guard\)\./
+    /ci-impact: running scripts TypeScript check \(scripts changed\)\./
   );
 });
 
-test('runImpactedQuality dry-run runs baseline scripts typecheck for package-only changes', () => {
+test('runImpactedQuality dry-run skips scripts typecheck for package-only changes', () => {
   const result = runImpactedQuality([
     '--files',
     'packages/shared/src/index.ts',
@@ -42,7 +42,7 @@ test('runImpactedQuality dry-run runs baseline scripts typecheck for package-onl
   assert.equal(result.status, 0, stderrText(result));
   assert.match(
     stdoutText(result),
-    /ci-impact: running scripts TypeScript check \(baseline pre-push guard\)\./
+    /ci-impact: no script changes, skipping scripts TypeScript check\./
   );
 });
 

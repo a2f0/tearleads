@@ -283,6 +283,10 @@ function shouldRunAnsibleLint(changedFiles: string[]): boolean {
   return changedFiles.some(isAnsibleYaml);
 }
 
+function shouldRunScriptsTypecheck(changedFiles: string[]): boolean {
+  return changedFiles.some((f) => f.startsWith('scripts/'));
+}
+
 function changedAnsibleLintTargets(changedFiles: string[]): string[] {
   return uniqueSorted(
     changedFiles.filter(
@@ -359,9 +363,9 @@ function main(): void {
   const runRubo = shouldRunRubocop(impact.changedFiles);
   const runAnsLint = shouldRunAnsibleLint(impact.changedFiles);
   const ansibleLintTargets = changedAnsibleLintTargets(impact.changedFiles);
-  const runScriptsTypecheck = true;
+  const runScriptsTypecheck = shouldRunScriptsTypecheck(impact.changedFiles);
 
-  const buildTargets = impactedPackages.filter((pkgName) => {
+  const buildTargets = directlyChangedPackages.filter((pkgName) => {
     const pkg = workspaceByName.get(pkgName);
     return pkg !== undefined && Object.hasOwn(pkg.scripts, 'build');
   });
@@ -389,9 +393,15 @@ function main(): void {
       `ci-impact: ansible targets => ${ansibleLintTargets.join(', ')}`
     );
   }
-  console.log(
-    'ci-impact: running scripts TypeScript check (baseline pre-push guard).'
-  );
+  if (runScriptsTypecheck) {
+    console.log(
+      'ci-impact: running scripts TypeScript check (scripts changed).'
+    );
+  } else {
+    console.log(
+      'ci-impact: no script changes, skipping scripts TypeScript check.'
+    );
+  }
 
   if (args.dryRun) {
     return;

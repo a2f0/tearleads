@@ -12,12 +12,30 @@ release_lock() {
   fi
 }
 
+lock_owner_description() {
+  owner_pid="$1"
+  if [ -z "$owner_pid" ]; then
+    printf '%s' "pid=unknown"
+    return
+  fi
+
+  owner_line="$(ps -p "$owner_pid" -o etime= -o command= 2>/dev/null | sed -e 's/^[[:space:]]*//')"
+  if [ -n "$owner_line" ]; then
+    printf '%s' "pid=$owner_pid $owner_line"
+    return
+  fi
+
+  printf '%s' "pid=$owner_pid (process info unavailable)"
+}
+
 acquire_lock() {
   wait_step_seconds=2
   wait_log_interval_seconds=30
+  max_wait_seconds=$((45 * 60))
   waited_since_log=0
   total_waited=0
   while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+    lock_owner="pid=unknown (no pid file)"
     if [ -f "$LOCK_DIR/pid" ]; then
       lock_pid="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
       if [ -n "$lock_pid" ] && ! kill -0 "$lock_pid" 2>/dev/null; then
@@ -27,11 +45,19 @@ acquire_lock() {
           continue
         fi
       fi
+      lock_owner="$(lock_owner_description "$lock_pid")"
     fi
+
+    if [ "$total_waited" -ge "$max_wait_seconds" ]; then
+      echo "[pre-push] FAIL  timed out waiting for lock after ${total_waited}s (${lock_owner})" >&2
+      exit 1
+    fi
+
+    remaining_wait=$((max_wait_seconds - total_waited))
     if [ "$waited_since_log" -eq 0 ]; then
-      echo "[pre-push] WAIT  another pre-push is active; waiting..." >&2
+      echo "[pre-push] WAIT  another pre-push is active; waiting (${lock_owner}, timeout in ${remaining_wait}s)..." >&2
     elif [ "$waited_since_log" -ge "$wait_log_interval_seconds" ]; then
-      echo "[pre-push] WAIT  still waiting for lock (${total_waited}s elapsed)" >&2
+      echo "[pre-push] WAIT  still waiting for lock (${total_waited}s elapsed, ${lock_owner}, timeout in ${remaining_wait}s)" >&2
       waited_since_log=0
     fi
     sleep "$wait_step_seconds"
