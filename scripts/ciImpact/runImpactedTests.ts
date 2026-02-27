@@ -2,7 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { runCoverageForPackage } from './coverageRunner';
+import { runCoverageForPackage } from './coverageRunner.ts';
 
 interface CliArgs {
   base?: string;
