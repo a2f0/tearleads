@@ -21,8 +21,11 @@ acquire_lock() {
     if [ -f "$LOCK_DIR/pid" ]; then
       lock_pid="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
       if [ -n "$lock_pid" ] && ! kill -0 "$lock_pid" 2>/dev/null; then
-        rm -rf "$LOCK_DIR"
-        continue
+        stale_lock_dir="$LOCK_DIR.stale.$$"
+        if mv "$LOCK_DIR" "$stale_lock_dir" 2>/dev/null; then
+          rm -rf "$stale_lock_dir"
+          continue
+        fi
       fi
     fi
     if [ "$waited_since_log" -eq 0 ]; then

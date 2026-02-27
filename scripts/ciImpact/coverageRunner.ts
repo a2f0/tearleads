@@ -41,7 +41,9 @@ export function runCoverageForPackage(pkg: string): void {
   }
 
   if (typeof result.status === 'number' && result.status !== 0) {
-    process.exit(result.status);
+    throw new Error(
+      `ci-impact: coverage for ${pkg} exited with status ${result.status}.`
+    );
   }
 
   if (result.status === null) {
