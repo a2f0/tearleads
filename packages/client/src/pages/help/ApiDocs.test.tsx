@@ -73,9 +73,7 @@ describe('ApiDocsPage', () => {
 
     expect(screen.getByText('Loading API docs...')).toBeInTheDocument();
     await waitFor(() => {
-      expect(
-        screen.queryByText('Missing openapi key')
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText('Missing openapi key')).not.toBeInTheDocument();
     });
   });
 });
