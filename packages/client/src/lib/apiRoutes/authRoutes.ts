@@ -1,6 +1,7 @@
 import type {
   AuthResponse,
   SessionsResponse,
+  UserOrganizationsResponse,
   VfsKeySetupRequest
 } from '@tearleads/shared';
 import { request } from '../apiCore';
@@ -50,5 +51,9 @@ export const authRoutes = {
     request<{ loggedOut: boolean }>('/auth/logout', {
       fetchOptions: { method: 'POST' },
       eventName: 'api_post_auth_logout'
+    }),
+  getOrganizations: () =>
+    request<UserOrganizationsResponse>('/auth/organizations', {
+      eventName: 'api_get_auth_organizations'
     })
 };
