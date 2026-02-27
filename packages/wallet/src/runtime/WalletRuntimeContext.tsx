@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useMemo } from 'react';
 import type { WalletMediaFileOption } from '../lib/walletData';
 import type { WalletTracker } from '../lib/walletTracker';
 
@@ -43,10 +43,13 @@ export function WalletRuntimeProvider({
   createTracker,
   loadMediaPreview
 }: WalletRuntimeProviderProps) {
+  const value = useMemo(
+    () => ({ isUnlocked, currentInstanceId, createTracker, loadMediaPreview }),
+    [isUnlocked, currentInstanceId, createTracker, loadMediaPreview]
+  );
+
   return (
-    <WalletRuntimeContext.Provider
-      value={{ isUnlocked, currentInstanceId, createTracker, loadMediaPreview }}
-    >
+    <WalletRuntimeContext.Provider value={value}>
       {children}
     </WalletRuntimeContext.Provider>
   );

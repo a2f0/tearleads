@@ -96,20 +96,13 @@ export function createWalletTracker(db: Database): WalletTracker {
         .innerJoin(files, eq(walletItemMedia.fileId, files.id))
         .where(eq(walletItemMedia.walletItemId, itemId));
 
-      let frontFileId: string | null = null;
-      let frontFileName: string | null = null;
-      let backFileId: string | null = null;
-      let backFileName: string | null = null;
+      const frontMedia = mediaRows.find((media) => media.side === 'front');
+      const backMedia = mediaRows.find((media) => media.side === 'back');
 
-      for (const media of mediaRows) {
-        if (media.side === 'front') {
-          frontFileId = media.fileId;
-          frontFileName = media.fileName;
-        } else if (media.side === 'back') {
-          backFileId = media.fileId;
-          backFileName = media.fileName;
-        }
-      }
+      const frontFileId = frontMedia?.fileId ?? null;
+      const frontFileName = frontMedia?.fileName ?? null;
+      const backFileId = backMedia?.fileId ?? null;
+      const backFileName = backMedia?.fileName ?? null;
 
       return {
         id: row.id,
@@ -170,8 +163,12 @@ export function createWalletTracker(db: Database): WalletTracker {
             issuingAuthority: input.issuingAuthority || null,
             countryCode: input.countryCode || null,
             documentNumberLast4: input.documentNumberLast4 || null,
-            issuedOn: input.issuedOn ? new Date(input.issuedOn) : null,
-            expiresOn: input.expiresOn ? new Date(input.expiresOn) : null,
+            issuedOn: input.issuedOn
+              ? new Date(`${input.issuedOn}T00:00:00`)
+              : null,
+            expiresOn: input.expiresOn
+              ? new Date(`${input.expiresOn}T00:00:00`)
+              : null,
             notes: input.notes || null,
             metadata,
             updatedAt: now
@@ -192,8 +189,12 @@ export function createWalletTracker(db: Database): WalletTracker {
         issuingAuthority: input.issuingAuthority || null,
         countryCode: input.countryCode || null,
         documentNumberLast4: input.documentNumberLast4 || null,
-        issuedOn: input.issuedOn ? new Date(input.issuedOn) : null,
-        expiresOn: input.expiresOn ? new Date(input.expiresOn) : null,
+        issuedOn: input.issuedOn
+          ? new Date(`${input.issuedOn}T00:00:00`)
+          : null,
+        expiresOn: input.expiresOn
+          ? new Date(`${input.expiresOn}T00:00:00`)
+          : null,
         notes: input.notes || null,
         metadata,
         createdAt: now,

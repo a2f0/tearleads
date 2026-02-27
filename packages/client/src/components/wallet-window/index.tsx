@@ -1,6 +1,7 @@
 import {
   WalletWindow as BaseWalletWindow,
   createWalletTracker,
+  type WalletMediaFileOption,
   WalletRuntimeProvider
 } from '@tearleads/wallet';
 import { type ComponentProps, useCallback } from 'react';
@@ -15,7 +16,11 @@ export function WalletWindow(props: WalletWindowProps) {
     () => createWalletTracker(getDatabase()),
     []
   );
-  const loadMediaPreview = useCallback(async () => null, []);
+  // TODO: implement media preview loading
+  const loadMediaPreview = useCallback(
+    async (_file: WalletMediaFileOption, _instanceId: string | null) => null,
+    []
+  );
 
   return (
     <WalletRuntimeProvider
