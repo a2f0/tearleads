@@ -106,7 +106,7 @@ export function ClassicApp({
   );
 
   return (
-    <div className="flex h-full min-h-[420px] w-full flex-col overflow-hidden bg-white">
+    <div className="flex h-full min-h-[420px] w-full flex-col overflow-hidden bg-background">
       {showSortControls && (
         <ClassicMenuBar
           tagSortOrder={resolvedTagSortOrder}
@@ -122,6 +122,7 @@ export function ClassicApp({
           activeTagId={state.activeTagId}
           editingTagId={editingTagId}
           {...(autoFocusSearch !== undefined ? { autoFocusSearch } : {})}
+          totalNoteCount={Object.keys(state.notesById).length}
           untaggedCount={untaggedNoteIds.length}
           noteCountByTagId={noteCountByTagId}
           onSelectTag={handleSelectTag}

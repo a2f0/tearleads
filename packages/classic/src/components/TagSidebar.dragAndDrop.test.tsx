@@ -99,10 +99,10 @@ describe('TagSidebar drag and drop', () => {
       if (!tagItem) throw new Error('Expected tag list item');
 
       fireEvent.dragEnter(tagItem, { dataTransfer });
-      expect(tagItem).toHaveClass('bg-emerald-100');
+      expect(tagItem).toHaveClass('bg-primary/20');
 
       fireEvent.dragLeave(tagItem, { dataTransfer });
-      expect(tagItem).not.toHaveClass('bg-emerald-100');
+      expect(tagItem).not.toHaveClass('bg-primary/20');
     });
 
     it('highlights and accepts plain-text fallback for note drops', () => {
@@ -129,7 +129,7 @@ describe('TagSidebar drag and drop', () => {
       if (!tagItem) throw new Error('Expected tag list item');
 
       fireEvent.dragEnter(tagItem, { dataTransfer });
-      expect(tagItem).toHaveClass('bg-emerald-100');
+      expect(tagItem).toHaveClass('bg-primary/20');
 
       fireEvent.drop(tagItem, { dataTransfer });
       expect(onTagNote).toHaveBeenCalledWith('tag-1', 'note-1');

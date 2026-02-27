@@ -4,6 +4,7 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  ALL_ENTRIES_TAG_ID,
   DEFAULT_CLASSIC_NOTE_TITLE,
   DEFAULT_CLASSIC_TAG_NAME,
   UNTAGGED_TAG_ID
@@ -199,6 +200,10 @@ export function useClassicAppState({
 
   const handleSelectTag = useCallback(
     (tagId: string) => {
+      if (tagId === ALL_ENTRIES_TAG_ID) {
+        updateState({ ...state, activeTagId: null });
+        return;
+      }
       if (tagId === UNTAGGED_TAG_ID) {
         updateState({ ...state, activeTagId: UNTAGGED_TAG_ID });
         return;

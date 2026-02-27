@@ -23,8 +23,8 @@ export function ClassicMenuBar({
 }: ClassicMenuBarProps) {
   const { t } = useTranslation('classic');
   return (
-    <div className="flex items-center gap-3 border-zinc-200 border-b bg-zinc-50 px-3 py-2">
-      <label className="flex items-center gap-2 text-xs text-zinc-600 uppercase tracking-wide">
+    <div className="flex items-center gap-3 border-border border-b bg-card px-3 py-2">
+      <label className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-wide">
         {t('tags')}
         <select
           value={tagSortOrder}
@@ -35,7 +35,7 @@ export function ClassicMenuBar({
             }
             onTagSortOrderChange(nextSortOrder);
           }}
-          className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900"
+          className="rounded border border-border bg-background px-2 py-1 text-foreground text-sm"
           aria-label={t('sortTags')}
         >
           {TAG_SORT_OPTIONS.map((option) => (
@@ -45,7 +45,7 @@ export function ClassicMenuBar({
           ))}
         </select>
       </label>
-      <label className="flex items-center gap-2 text-xs text-zinc-600 uppercase tracking-wide">
+      <label className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-wide">
         {t('entries')}
         <select
           value={entrySortOrder}
@@ -56,7 +56,7 @@ export function ClassicMenuBar({
             }
             onEntrySortOrderChange(nextSortOrder);
           }}
-          className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900"
+          className="rounded border border-border bg-background px-2 py-1 text-foreground text-sm"
           aria-label={t('sortEntries')}
         >
           {ENTRY_SORT_OPTIONS.map((option) => (
