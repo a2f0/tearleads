@@ -126,7 +126,7 @@ export function TagSidebar({
               <div className="flex items-center gap-2">
                 <span
                   aria-hidden="true"
-                  className="w-4 shrink-0 select-none text-center text-xs text-muted-foreground"
+                  className="w-4 shrink-0 select-none text-center text-muted-foreground text-xs"
                 >
                   📁
                 </span>
@@ -153,7 +153,7 @@ export function TagSidebar({
               <div className="flex items-center gap-2">
                 <span
                   aria-hidden="true"
-                  className="w-4 shrink-0 select-none text-center text-xs text-muted-foreground"
+                  className="w-4 shrink-0 select-none text-center text-muted-foreground text-xs"
                 >
                   📁
                 </span>
@@ -176,16 +176,16 @@ export function TagSidebar({
               className="m-0 mb-2 list-none space-y-1 p-0"
               aria-label={t('deletedTags')}
             >
-              <li className="px-2 py-0.5 text-xs text-muted-foreground uppercase tracking-wide">
+              <li className="px-2 py-0.5 text-muted-foreground text-xs uppercase tracking-wide">
                 {t('deletedTags')} ({deletedTags.length})
               </li>
               {deletedTags.map((tag) => (
                 <li key={tag.id} className="border bg-card px-2 py-0.5">
                   <div className="flex items-center gap-2">
-                    <span className="w-4 shrink-0 select-none text-center text-xs text-muted-foreground">
+                    <span className="w-4 shrink-0 select-none text-center text-muted-foreground text-xs">
                       🗑️
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                    <span className="min-w-0 flex-1 truncate text-muted-foreground text-sm">
                       {tag.name}
                     </span>
                     <button
@@ -214,7 +214,7 @@ export function TagSidebar({
                 aria-label={CREATE_CLASSIC_TAG_ARIA_LABEL}
               >
                 <div className="flex items-center gap-2">
-                  <span className="w-4 shrink-0 text-center text-xs text-muted-foreground/50">
+                  <span className="w-4 shrink-0 text-center text-muted-foreground/50 text-xs">
                     ⋮⋮
                   </span>
                   <div className="min-w-0 flex-1 px-1.5 py-0.5">
@@ -233,7 +233,7 @@ export function TagSidebar({
                 onContextMenu={(e) => e.preventDefault()}
               >
                 <div className="flex items-center gap-2">
-                  <span className="w-4 shrink-0 text-center text-xs text-muted-foreground/50">
+                  <span className="w-4 shrink-0 text-center text-muted-foreground/50 text-xs">
                     ⋮⋮
                   </span>
                   <div className="min-w-0 flex-1 px-1.5 py-0.5">
@@ -404,8 +404,8 @@ export function TagSidebar({
                         onMouseUp={() => setDragArmedTagId(null)}
                         className={
                           draggedTagId === tag.id
-                            ? 'w-4 shrink-0 cursor-grabbing select-none text-center text-xs text-foreground'
-                            : 'w-4 shrink-0 cursor-grab select-none text-center text-xs text-muted-foreground'
+                            ? 'w-4 shrink-0 cursor-grabbing select-none text-center text-foreground text-xs'
+                            : 'w-4 shrink-0 cursor-grab select-none text-center text-muted-foreground text-xs'
                         }
                         title={t('dragTag')}
                       >
@@ -427,7 +427,7 @@ export function TagSidebar({
                             <button
                               type="button"
                               onClick={() => handleSave(tag.id)}
-                              className="border border-border px-1.5 py-0.5 text-xs text-foreground hover:border-ring focus:border-ring focus:outline-none"
+                              className="border border-border px-1.5 py-0.5 text-foreground text-xs hover:border-ring focus:border-ring focus:outline-none"
                               aria-label={t('saveTagName')}
                             >
                               {t('save')}
@@ -435,7 +435,7 @@ export function TagSidebar({
                             <button
                               type="button"
                               onClick={handleCancel}
-                              className="border border-border px-1.5 py-0.5 text-xs text-foreground hover:border-ring focus:border-ring focus:outline-none"
+                              className="border border-border px-1.5 py-0.5 text-foreground text-xs hover:border-ring focus:border-ring focus:outline-none"
                               aria-label={t('cancelEditing')}
                             >
                               {t('cancel')}

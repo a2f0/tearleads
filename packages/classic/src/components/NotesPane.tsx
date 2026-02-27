@@ -203,7 +203,7 @@ export function NotesPane({
             aria-label={CREATE_CLASSIC_NOTE_ARIA_LABEL}
           >
             <div className="flex items-start gap-2">
-              <span className="w-4 shrink-0 pt-1 text-center text-xs text-muted-foreground/50">
+              <span className="w-4 shrink-0 pt-1 text-center text-muted-foreground/50 text-xs">
                 ⋮⋮
               </span>
               <div className="min-w-0 flex-1 space-y-1.5">
@@ -219,7 +219,7 @@ export function NotesPane({
             onContextMenu={(e) => e.preventDefault()}
           >
             <div className="flex items-start gap-2">
-              <span className="w-4 shrink-0 pt-1 text-center text-xs text-muted-foreground/50">
+              <span className="w-4 shrink-0 pt-1 text-center text-muted-foreground/50 text-xs">
                 ⋮⋮
               </span>
               <div className="min-w-0 flex-1 space-y-1.5">
@@ -366,8 +366,8 @@ export function NotesPane({
                       <span
                         className={
                           draggedNoteId === note.id
-                            ? 'cursor-grabbing select-none text-center text-xs text-foreground'
-                            : 'cursor-grab select-none text-center text-xs text-muted-foreground'
+                            ? 'cursor-grabbing select-none text-center text-foreground text-xs'
+                            : 'cursor-grab select-none text-center text-muted-foreground text-xs'
                         }
                       >
                         ⋮⋮
@@ -398,7 +398,7 @@ export function NotesPane({
                           <button
                             type="button"
                             onClick={() => handleSave(note.id)}
-                            className="border border-border px-1.5 py-0.5 text-xs text-foreground hover:border-ring focus:border-ring focus:outline-none"
+                            className="border border-border px-1.5 py-0.5 text-foreground text-xs hover:border-ring focus:border-ring focus:outline-none"
                             aria-label={t('saveEntry')}
                           >
                             {t('save')}
@@ -406,7 +406,7 @@ export function NotesPane({
                           <button
                             type="button"
                             onClick={handleCancel}
-                            className="border border-border px-1.5 py-0.5 text-xs text-foreground hover:border-ring focus:border-ring focus:outline-none"
+                            className="border border-border px-1.5 py-0.5 text-foreground text-xs hover:border-ring focus:border-ring focus:outline-none"
                             aria-label={t('cancelEditing')}
                           >
                             {t('cancel')}
@@ -418,7 +418,7 @@ export function NotesPane({
                         <h3 className="text-sm">
                           {highlightText(note.title, searchValue)}
                         </h3>
-                        <p className="font-mono text-xs text-muted-foreground">
+                        <p className="font-mono text-muted-foreground text-xs">
                           {highlightText(note.body, searchValue)}
                         </p>
                       </div>
