@@ -1,10 +1,20 @@
 export { WalletWindow } from './components/wallet-window';
-export {
-  setWalletDataDependencies,
-  type WalletDataDependencies
+export type {
+  SaveWalletItemInput,
+  SaveWalletItemResult,
+  WalletItemDetailRecord,
+  WalletItemSummary,
+  WalletMediaFileOption,
+  WalletMediaSide
 } from './lib/walletData';
 export {
-  setWalletUiDependencies,
-  type WalletUiDependencies
-} from './lib/walletUiDependencies';
+  createWalletTracker,
+  type WalletTracker
+} from './lib/walletTracker';
 export { Wallet, WalletDetail, WalletNewItem } from './pages/wallet';
+export {
+  useWalletRuntime,
+  type WalletRuntimeContextValue,
+  WalletRuntimeProvider,
+  type WalletRuntimeProviderProps
+} from './runtime';

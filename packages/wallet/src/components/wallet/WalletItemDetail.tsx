@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getWalletCountryOptionByCode } from '../../lib/walletCountryLookup';
-import {
-  getWalletItemDetail,
-  listWalletMediaFiles,
-  type SaveWalletItemResult,
-  type WalletItemType,
-  type WalletMediaFileOption,
-  type WalletMediaSide
+import type {
+  SaveWalletItemResult,
+  WalletItemType,
+  WalletMediaFileOption,
+  WalletMediaSide
 } from '../../lib/walletData';
 import { getWalletSubtypeDefinition } from '../../lib/walletSubtypes';
-import { getWalletUiDependencies } from '../../lib/walletUiDependencies';
+import { useWalletRuntime } from '../../runtime';
 import { useWalletItemActions } from './useWalletItemActions';
+import { useWalletTracker } from './useWalletTracker';
 import { WalletItemAlerts } from './WalletItemAlerts';
 import { WalletItemFormFields } from './WalletItemFormFields';
 import { WalletItemHeader } from './WalletItemHeader';
@@ -41,10 +40,8 @@ export function WalletItemDetail({
   onDeleted,
   onCreateItem
 }: WalletItemDetailProps) {
-  const dependencies = getWalletUiDependencies();
-  const databaseContext = dependencies?.useDatabaseContext();
-  const isLoading = databaseContext?.isLoading ?? false;
-  const isUnlocked = databaseContext?.isUnlocked ?? false;
+  const { isUnlocked } = useWalletRuntime();
+  const tracker = useWalletTracker();
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [form, setForm] = useState<WalletItemFormState>(EMPTY_FORM_STATE);
   const [mediaFiles, setMediaFiles] = useState<WalletMediaFileOption[]>([]);
@@ -93,15 +90,16 @@ export function WalletItemDetail({
   });
 
   const loadDetail = useCallback(async () => {
+    if (!tracker) return;
     setLoadingDetail(true);
     setError(null);
 
     try {
-      const mediaFilesPromise = listWalletMediaFiles();
+      const mediaFilesPromise = tracker.listMediaFiles();
 
       if (isNewItem) {
-        const files = await mediaFilesPromise;
-        setMediaFiles(files);
+        const fetchedFiles = await mediaFilesPromise;
+        setMediaFiles(fetchedFiles);
         setForm({
           ...EMPTY_FORM_STATE,
           itemType: initialItemType ?? EMPTY_FORM_STATE.itemType
@@ -110,12 +108,12 @@ export function WalletItemDetail({
         return;
       }
 
-      const [detail, files] = await Promise.all([
-        getWalletItemDetail(itemId),
+      const [detail, fetchedFiles] = await Promise.all([
+        tracker.getItemDetail(itemId),
         mediaFilesPromise
       ]);
 
-      setMediaFiles(files);
+      setMediaFiles(fetchedFiles);
 
       if (!detail) {
         setError('Wallet item not found.');
@@ -139,7 +137,7 @@ export function WalletItemDetail({
     } finally {
       setLoadingDetail(false);
     }
-  }, [initialItemType, isNewItem, itemId, setError]);
+  }, [initialItemType, isNewItem, itemId, setError, tracker]);
 
   useEffect(() => {
     if (!isUnlocked) {
@@ -222,10 +220,9 @@ export function WalletItemDetail({
     [handleFieldChange, pickerSide]
   );
 
-  if (isLoading || !isUnlocked || loadingDetail) {
+  if (!isUnlocked || loadingDetail) {
     return (
       <WalletItemLoadingStates
-        isLoading={isLoading}
         isUnlocked={isUnlocked}
         loadingDetail={loadingDetail}
       />
