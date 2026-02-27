@@ -231,4 +231,22 @@ describe('LoginForm', () => {
       screen.getByText('Session expired. Please sign in again.')
     ).toBeInTheDocument();
   });
+
+  it('renders switch mode CTA and calls onAction', async () => {
+    const user = userEvent.setup();
+    const onAction = vi.fn();
+    render(
+      <LoginForm
+        switchModeCta={{
+          prompt: "Don't have an account?",
+          actionLabel: 'Create one',
+          onAction
+        }}
+      />
+    );
+
+    expect(screen.getByText("Don't have an account?")).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Create one' }));
+    expect(onAction).toHaveBeenCalledTimes(1);
+  });
 });

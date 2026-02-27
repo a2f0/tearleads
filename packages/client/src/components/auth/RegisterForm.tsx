@@ -31,12 +31,21 @@ interface RegisterFormProps {
   description?: string | undefined;
   /** Allowed email domain hint (e.g., "example.com") */
   emailDomain?: string | undefined;
+  /** Optional CTA to switch auth modes (e.g., sign in) */
+  switchModeCta?:
+    | {
+        prompt: string;
+        actionLabel: string;
+        onAction: () => void;
+      }
+    | undefined;
 }
 
 export function RegisterForm({
   title = 'Create Account',
   description = 'Register for a new account',
-  emailDomain
+  emailDomain,
+  switchModeCta
 }: RegisterFormProps) {
   const id = useId();
   const { authError, clearAuthError, register } = useAuth();
@@ -203,6 +212,19 @@ export function RegisterForm({
         >
           {isSubmitting ? 'Creating account...' : 'Create Account'}
         </Button>
+
+        {switchModeCta ? (
+          <div className="text-center text-muted-foreground text-sm">
+            {switchModeCta.prompt}{' '}
+            <button
+              type="button"
+              onClick={switchModeCta.onAction}
+              className="font-medium text-primary hover:underline"
+            >
+              {switchModeCta.actionLabel}
+            </button>
+          </div>
+        ) : null}
       </form>
     </div>
   );

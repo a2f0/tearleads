@@ -3,6 +3,7 @@ import {
   WindowControlBar,
   type WindowDimensions
 } from '@tearleads/window-manager';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sync } from '../../pages/sync';
 import { SyncWindowMenuBar } from './SyncWindowMenuBar';
@@ -29,6 +30,9 @@ export function SyncWindow({
   initialDimensions
 }: SyncWindowProps) {
   const { t } = useTranslation('sync');
+  const controlItems: ReactNode[] = [];
+  const hasControlItems = controlItems.length > 0;
+
   return (
     <FloatingWindow
       id={id}
@@ -50,7 +54,9 @@ export function SyncWindow({
     >
       <div className="flex h-full min-h-0 flex-col">
         <SyncWindowMenuBar onClose={onClose} />
-        <WindowControlBar>{null}</WindowControlBar>
+        {hasControlItems ? (
+          <WindowControlBar>{controlItems}</WindowControlBar>
+        ) : null}
         <div className="min-h-0 flex-1 overflow-auto p-3">
           <Sync showBackLink={false} />
         </div>

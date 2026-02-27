@@ -409,4 +409,22 @@ describe('RegisterForm', () => {
       expect(mockClearAuthError).toHaveBeenCalled();
     });
   });
+
+  it('renders switch mode CTA and calls onAction', async () => {
+    const user = userEvent.setup();
+    const onAction = vi.fn();
+    render(
+      <RegisterForm
+        switchModeCta={{
+          prompt: 'Already have an account?',
+          actionLabel: 'Sign in',
+          onAction
+        }}
+      />
+    );
+
+    expect(screen.getByText('Already have an account?')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(onAction).toHaveBeenCalledTimes(1);
+  });
 });
