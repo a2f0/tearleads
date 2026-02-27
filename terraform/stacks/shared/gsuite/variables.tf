@@ -80,6 +80,12 @@ variable "alerts_group_enabled" {
   default     = true
 }
 
+variable "support_group_enabled" {
+  description = "Whether to create the support@domain distribution group"
+  type        = bool
+  default     = true
+}
+
 check "impersonation_requires_service_account" {
   assert {
     condition = (
