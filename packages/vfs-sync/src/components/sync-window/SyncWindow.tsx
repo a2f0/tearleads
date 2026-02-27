@@ -30,6 +30,7 @@ export function SyncWindow({
   initialDimensions
 }: SyncWindowProps) {
   const { t } = useTranslation('sync');
+  // Populate when sync window needs control-bar actions.
   const controlItems: ReactNode[] = [];
   const hasControlItems = controlItems.length > 0;
 
