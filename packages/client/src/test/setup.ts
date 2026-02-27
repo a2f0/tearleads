@@ -9,7 +9,7 @@ import {
 import { cleanup } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { createElement, Fragment } from 'react';
-import { afterAll, afterEach, beforeAll, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, expect, vi } from 'vitest';
 import failOnConsole from 'vitest-fail-on-console';
 import {
   resetSharedTestContextAccessed,
@@ -18,6 +18,31 @@ import {
 } from './testContext';
 
 let testContext: TestContext | null = null;
+
+const REAL_API_TEST_PATH_PATTERNS = [
+  /\/src\/lib\/api\.msw(?:\..+)?\.test\.tsx?$/,
+  /\/src\/test\/msw\/.*\.test\.tsx?$/
+];
+
+function shouldUseRealApiForCurrentTest(): boolean {
+  const testPath = expect.getState().testPath;
+  if (typeof testPath !== 'string') {
+    return false;
+  }
+  return REAL_API_TEST_PATH_PATTERNS.some((pattern) => pattern.test(testPath));
+}
+
+async function ensureRealApiTestContext(): Promise<TestContext> {
+  if (testContext) {
+    return testContext;
+  }
+  testContext = await createTestContext(async () => {
+    const api = await import('@tearleads/api');
+    return { app: api.app, migrations: api.migrations };
+  });
+  setSharedTestContext(testContext);
+  return testContext;
+}
 
 // Enable React act() environment checks before tests run.
 // https://react.dev/reference/react-dom/test-utils/act#environment
@@ -211,13 +236,15 @@ vi.mock('pdfjs-dist', () => {
 });
 
 beforeAll(async () => {
-  testContext = await createTestContext(async () => {
-    const api = await import('@tearleads/api');
-    return { app: api.app, migrations: api.migrations };
-  });
-  setSharedTestContext(testContext);
-  configureForExpressPassthrough('http://localhost', testContext.port);
   server.listen({ onUnhandledRequest: 'warn' });
+});
+
+beforeEach(async () => {
+  if (!shouldUseRealApiForCurrentTest()) {
+    return;
+  }
+  const ctx = await ensureRealApiTestContext();
+  configureForExpressPassthrough('http://localhost', ctx.port);
 });
 
 afterEach(async () => {
