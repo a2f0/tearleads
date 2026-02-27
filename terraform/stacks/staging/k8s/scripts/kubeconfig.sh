@@ -15,9 +15,12 @@ load_secrets_env staging
 # Ensure Terraform backend/providers are initialized before reading outputs.
 "$SCRIPT_DIR/init.sh"
 
-# Get outputs from Terraform (use DNS hostname for SSH to match known_hosts entries)
+# Get outputs from Terraform (SSH via Tailscale MagicDNS)
 SSH_HOSTNAME=$(terraform -chdir="$STACK_DIR" output -raw ssh_hostname)
-if K8S_API_HOSTNAME=$(terraform -chdir="$STACK_DIR" output -raw k8s_api_hostname 2>/dev/null); then
+# Use Tailscale hostname for the kubeconfig API server URL so kubectl resolves via MagicDNS
+if K8S_API_HOSTNAME=$(terraform -chdir="$STACK_DIR" output -raw tailscale_hostname 2>/dev/null); then
+  :
+elif K8S_API_HOSTNAME=$(terraform -chdir="$STACK_DIR" output -raw k8s_api_hostname 2>/dev/null); then
   :
 else
   K8S_API_HOSTNAME=$(terraform -chdir="$STACK_DIR" output -raw k8s_hostname)
