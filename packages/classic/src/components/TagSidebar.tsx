@@ -115,7 +115,10 @@ export function TagSidebar({
       >
         <div className="pr-2">
           {/* Virtual tags: All Items + Untagged Items */}
-          <ul className="m-0 mb-2 list-none space-y-1 p-0" aria-label={t('virtualTags')}>
+          <ul
+            className="m-0 mb-2 list-none space-y-1 p-0"
+            aria-label={t('virtualTags')}
+          >
             <li
               className={
                 activeTagId === null
