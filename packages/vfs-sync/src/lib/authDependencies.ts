@@ -19,12 +19,26 @@ export interface AuthState {
 export interface LoginFormProps {
   title: string;
   description: string;
+  switchModeCta?:
+    | {
+        prompt: string;
+        actionLabel: string;
+        onAction: () => void;
+      }
+    | undefined;
 }
 
 export interface RegisterFormProps {
   title: string;
   description: string;
   emailDomain?: string | undefined;
+  switchModeCta?:
+    | {
+        prompt: string;
+        actionLabel: string;
+        onAction: () => void;
+      }
+    | undefined;
 }
 
 export interface SyncAuthDependencies {

@@ -24,19 +24,22 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Sync' })).toBeInTheDocument();
+      expect(screen.getByLabelText('Email')).toBeInTheDocument();
     });
 
     expect(screen.getByLabelText('Email')).toBeInTheDocument();
     expect(screen.getByLabelText('Password')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Sync' })
+    ).not.toBeInTheDocument();
   });
 
   it('shows back link by default', async () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Sync' })).toBeInTheDocument();
+      expect(screen.getByLabelText('Email')).toBeInTheDocument();
     });
 
     expect(screen.getByText('Back to Home')).toBeInTheDocument();
@@ -46,7 +49,7 @@ describe('Sync', () => {
     renderSync(false);
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Sync' })).toBeInTheDocument();
+      expect(screen.getByLabelText('Email')).toBeInTheDocument();
     });
 
     expect(screen.queryByText('Back to Home')).not.toBeInTheDocument();

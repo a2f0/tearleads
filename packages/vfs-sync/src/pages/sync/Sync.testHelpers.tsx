@@ -137,7 +137,7 @@ function useMockAuth(): AuthState {
   };
 }
 
-function LoginForm({ title, description }: LoginFormProps) {
+function LoginForm({ title, description, switchModeCta }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -189,17 +189,32 @@ function LoginForm({ title, description }: LoginFormProps) {
       <button type="submit" disabled={!email || !password || isSubmitting}>
         {isSubmitting ? 'Signing in...' : 'Sign In'}
       </button>
+      {switchModeCta ? (
+        <button type="button" onClick={switchModeCta.onAction}>
+          {switchModeCta.actionLabel}
+        </button>
+      ) : null}
       {error ? <div>{error}</div> : null}
     </form>
   );
 }
 
-function RegisterForm({ title, description, emailDomain }: RegisterFormProps) {
+function RegisterForm({
+  title,
+  description,
+  emailDomain,
+  switchModeCta
+}: RegisterFormProps) {
   return (
     <div>
       <h2>{title}</h2>
       <p>{description}</p>
       {emailDomain ? <p>{emailDomain}</p> : null}
+      {switchModeCta ? (
+        <button type="button" onClick={switchModeCta.onAction}>
+          {switchModeCta.actionLabel}
+        </button>
+      ) : null}
       <button type="button">Create Account</button>
     </div>
   );

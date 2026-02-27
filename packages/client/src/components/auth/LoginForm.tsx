@@ -25,11 +25,20 @@ interface LoginFormProps {
   title?: string;
   /** Description text displayed below the title */
   description?: string;
+  /** Optional CTA to switch auth modes (e.g., create account) */
+  switchModeCta?:
+    | {
+        prompt: string;
+        actionLabel: string;
+        onAction: () => void;
+      }
+    | undefined;
 }
 
 export function LoginForm({
   title = 'Login',
-  description = 'Sign in to continue'
+  description = 'Sign in to continue',
+  switchModeCta
 }: LoginFormProps) {
   const id = useId();
   const { authError, clearAuthError, login } = useAuth();
@@ -138,6 +147,19 @@ export function LoginForm({
         >
           {isSubmitting ? 'Signing in...' : 'Sign In'}
         </Button>
+
+        {switchModeCta ? (
+          <div className="text-center text-muted-foreground text-sm">
+            {switchModeCta.prompt}{' '}
+            <button
+              type="button"
+              onClick={switchModeCta.onAction}
+              className="font-medium text-primary hover:underline"
+            >
+              {switchModeCta.actionLabel}
+            </button>
+          </div>
+        ) : null}
       </form>
     </div>
   );

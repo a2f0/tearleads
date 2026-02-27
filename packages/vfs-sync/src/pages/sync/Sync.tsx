@@ -187,45 +187,39 @@ export function Sync({ showBackLink = true }: SyncProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
-        <h1 className="font-bold text-2xl tracking-tight">{t('sync')}</h1>
-      </div>
+    <div
+      className={
+        showBackLink
+          ? 'space-y-6'
+          : 'flex min-h-full items-center justify-center'
+      }
+    >
+      {showBackLink ? (
+        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+      ) : null}
 
-      {authMode === 'login' ? (
-        <LoginForm title={t('login')} description={t('loginDescription')} />
-      ) : (
-        <RegisterForm
-          title={t('createAccount')}
-          description={t('createAccountDescription')}
-          emailDomain={emailDomain ?? undefined}
-        />
-      )}
-
-      <div className="text-center text-muted-foreground text-sm">
+      <div className="w-full max-w-md">
         {authMode === 'login' ? (
-          <>
-            {t('noAccount')}{' '}
-            <button
-              type="button"
-              onClick={() => setAuthMode('register')}
-              className="font-medium text-primary hover:underline"
-            >
-              {t('createOne')}
-            </button>
-          </>
+          <LoginForm
+            title={t('login')}
+            description={t('loginDescription')}
+            switchModeCta={{
+              prompt: t('noAccount'),
+              actionLabel: t('createOne'),
+              onAction: () => setAuthMode('register')
+            }}
+          />
         ) : (
-          <>
-            {t('hasAccount')}{' '}
-            <button
-              type="button"
-              onClick={() => setAuthMode('login')}
-              className="font-medium text-primary hover:underline"
-            >
-              {t('signIn')}
-            </button>
-          </>
+          <RegisterForm
+            title={t('createAccount')}
+            description={t('createAccountDescription')}
+            emailDomain={emailDomain ?? undefined}
+            switchModeCta={{
+              prompt: t('hasAccount'),
+              actionLabel: t('signIn'),
+              onAction: () => setAuthMode('login')
+            }}
+          />
         )}
       </div>
     </div>
