@@ -15,6 +15,7 @@ export const contactsTestMigrations = [
           id TEXT PRIMARY KEY,
           object_type TEXT NOT NULL,
           owner_id TEXT,
+          organization_id TEXT,
           encrypted_session_key TEXT,
           public_hierarchical_key TEXT,
           encrypted_private_hierarchical_key TEXT,
@@ -58,7 +59,8 @@ export const contactsTestMigrations = [
           birthday TEXT,
           created_at INTEGER NOT NULL,
           updated_at INTEGER NOT NULL,
-          deleted INTEGER NOT NULL DEFAULT 0
+          deleted INTEGER NOT NULL DEFAULT 0,
+          organization_id TEXT
         )
       `);
 
