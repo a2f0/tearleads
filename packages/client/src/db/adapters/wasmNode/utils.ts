@@ -25,17 +25,74 @@ export function patchFetchForFileUrls(): void {
     input: RequestInfo | URL,
     init?: RequestInit
   ): Promise<Response> => {
-    const url = typeof input === 'string' ? input : input.toString();
+    let directFilePath: string | null = null;
+    if (typeof input !== 'string') {
+      try {
+        directFilePath = fileURLToPath(input as URL);
+      } catch {
+        directFilePath = null;
+      }
+    }
+    if (directFilePath) {
+      const buffer = fs.readFileSync(directFilePath);
+      if (!fallbackFetch) {
+        throw new Error('Fetch is not available in this environment');
+      }
+      const dataUrl = `data:application/wasm;base64,${buffer.toString('base64')}`;
+      return fallbackFetch(dataUrl, init);
+    }
+
+    const requestLike = input as {
+      href?: unknown;
+      url?: unknown;
+      protocol?: unknown;
+      pathname?: unknown;
+      toString?: () => string;
+    };
+    const possibleUrls: string[] = [];
+    if (typeof input === 'string') {
+      possibleUrls.push(input);
+    }
+    if (typeof requestLike.href === 'string') {
+      possibleUrls.push(requestLike.href);
+    } else if (requestLike.href) {
+      possibleUrls.push(String(requestLike.href));
+    }
+    if (typeof requestLike.url === 'string') {
+      possibleUrls.push(requestLike.url);
+    } else if (requestLike.url) {
+      possibleUrls.push(String(requestLike.url));
+    }
+    if (
+      requestLike.protocol === 'file:' &&
+      typeof requestLike.pathname === 'string'
+    ) {
+      possibleUrls.push(`file://${requestLike.pathname}`);
+    }
+    try {
+      const jsonString = JSON.stringify(input);
+      if (typeof jsonString === 'string') {
+        possibleUrls.push(jsonString);
+      }
+    } catch {
+      // ignore serialization failures
+    }
+    possibleUrls.push(String(input));
+
+    const url =
+      possibleUrls.find((candidate) => candidate.includes('://')) ??
+      possibleUrls[0] ??
+      '';
 
     // Handle file:// URLs by reading from filesystem
     if (url.startsWith('file://')) {
       const filePath = fileURLToPath(url);
       const buffer = fs.readFileSync(filePath);
-      return new Response(buffer, {
-        status: 200,
-        statusText: 'OK',
-        headers: { 'Content-Type': 'application/wasm' }
-      });
+      if (!fallbackFetch) {
+        throw new Error('Fetch is not available in this environment');
+      }
+      const dataUrl = `data:application/wasm;base64,${buffer.toString('base64')}`;
+      return fallbackFetch(dataUrl, init);
     }
 
     // Fall back to original fetch for other URLs

@@ -6,7 +6,7 @@ export default mergeConfig(
   sharedTestConfig,
   defineConfig({
     test: {
-      environment: 'jsdom',
+      environment: 'happy-dom',
       globals: true,
       hookTimeout: 30000,
       setupFiles: ['./src/test/setup.ts'],

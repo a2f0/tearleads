@@ -33,6 +33,6 @@
   "devDependencies": {
     "@tearleads/api-test-utils": "workspace:*",
     "@tearleads/msw": "workspace:*",
-    "jsdom": "28.1.0"
+    "happy-dom": "20.7.0"
   }
 }

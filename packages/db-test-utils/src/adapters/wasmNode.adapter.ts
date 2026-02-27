@@ -6,10 +6,6 @@
  * It runs SQLite WASM directly in Node.js without Web Workers.
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { locateWasmDir } from '../locateWasm.js';
 import type {
   DatabaseAdapter,
   DatabaseConfig,
@@ -24,137 +20,19 @@ import {
   type JsonBackupData,
   keyToHex,
   parseJsonBackupData,
-  type SQLite3InitModule,
-  type SQLite3Module,
   type SQLiteDatabase,
   type WasmNodeAdapterOptions
 } from './wasmNodeTypes.js';
+import {
+  initializeSqliteWasm,
+  patchFetchForFileUrls,
+  restoreFetch
+} from './wasmNodeInit.js';
 
 export type {
   JsonBackupData,
   WasmNodeAdapterOptions
 } from './wasmNodeTypes.js';
-
-declare global {
-  var sqlite3InitModuleState:
-    | { wasmFilename: string; debugModule: () => void }
-    | undefined;
-}
-
-const originalFetch = globalThis.fetch;
-
-/**
- * Polyfill fetch for file:// URLs in Node.js.
- * The SQLite WASM module uses fetch to load the .wasm file, which doesn't work
- * with file:// URLs in Node.js. This polyfill handles that case.
- */
-function patchFetchForFileUrls(): void {
-  globalThis.fetch = async (
-    input: RequestInfo | URL,
-    init?: RequestInit
-  ): Promise<Response> => {
-    const url = typeof input === 'string' ? input : input.toString();
-
-    if (url.startsWith('file://')) {
-      const filePath = fileURLToPath(url);
-      const buffer = fs.readFileSync(filePath);
-      return new Response(buffer, {
-        status: 200,
-        statusText: 'OK',
-        headers: { 'Content-Type': 'application/wasm' }
-      });
-    }
-
-    return originalFetch(input, init);
-  };
-}
-
-/**
- * Restore the original fetch function.
- */
-function restoreFetch(): void {
-  if (originalFetch) {
-    globalThis.fetch = originalFetch;
-  }
-}
-
-let sqlite3: SQLite3Module | null = null;
-let cachedWasmDir: string | null = null;
-
-/**
- * Get the path to the WASM files directory.
- * Uses the configured wasmDir or locates it in the monorepo.
- */
-function getWasmDir(configuredDir?: string): string {
-  if (configuredDir) {
-    return configuredDir;
-  }
-
-  if (cachedWasmDir) {
-    return cachedWasmDir;
-  }
-
-  cachedWasmDir = locateWasmDir();
-  return cachedWasmDir;
-}
-
-/**
- * Initialize the SQLite WASM module for Node.js.
- * This only needs to run once per process.
- */
-async function initializeSqliteWasm(wasmDir?: string): Promise<SQLite3Module> {
-  if (sqlite3) {
-    return sqlite3;
-  }
-
-  const resolvedWasmDir = getWasmDir(wasmDir);
-  const modulePath = path.join(resolvedWasmDir, 'sqlite3.js');
-  const wasmPath = path.join(resolvedWasmDir, 'sqlite3.wasm');
-
-  if (!fs.existsSync(modulePath)) {
-    throw new Error(
-      `SQLite WASM module not found at ${modulePath}. ` +
-        'Run ./scripts/downloadSqliteWasm.sh to download it.'
-    );
-  }
-  if (!fs.existsSync(wasmPath)) {
-    throw new Error(
-      `SQLite WASM binary not found at ${wasmPath}. ` +
-        'Run ./scripts/downloadSqliteWasm.sh to download it.'
-    );
-  }
-
-  patchFetchForFileUrls();
-
-  try {
-    globalThis.sqlite3InitModuleState = {
-      wasmFilename: 'sqlite3.wasm',
-      debugModule: () => {}
-    };
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const wasmModule = await import(/* @vite-ignore */ modulePath);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-    const initModule: SQLite3InitModule | undefined = wasmModule.default;
-
-    if (!initModule) {
-      throw new Error('Failed to load sqlite3InitModule from module');
-    }
-
-    sqlite3 = await initModule({
-      print: console.log,
-      printErr: console.error
-    });
-
-    if (!sqlite3 || !sqlite3.oo1 || !sqlite3.capi) {
-      throw new Error('SQLite module loaded but missing expected properties');
-    }
-
-    return sqlite3;
-  } finally {
-    restoreFetch();
-  }
-}
 
 export class WasmNodeAdapter implements DatabaseAdapter {
   private db: SQLiteDatabase | null = null;

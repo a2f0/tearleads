@@ -399,8 +399,12 @@ describe('WasmNodeAdapter', () => {
 
     patchFetchForFileUrls();
 
-    const fileResponse = await globalThis.fetch(pathToFileURL(tempFile));
-    expect(await fileResponse.text()).toBe('wasm');
+    const fileResponse = await globalThis.fetch(pathToFileURL(tempFile).href);
+    expect(await fileResponse.text()).toBe('ok');
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringMatching(/^data:application\/wasm;base64,/),
+      undefined
+    );
 
     await globalThis.fetch('https://example.com');
     expect(fetchSpy).toHaveBeenCalled();

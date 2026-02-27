@@ -6,7 +6,7 @@ export default mergeConfig(
   defineConfig({
     test: {
       include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
-      environment: 'jsdom',
+      environment: 'happy-dom',
       setupFiles: ['src/test/setup.ts'],
       coverage: {
         provider: 'v8',

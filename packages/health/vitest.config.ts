@@ -9,7 +9,7 @@ export default mergeConfig(
       __APP_VERSION__: JSON.stringify('0.0.1')
     },
     test: {
-      environment: 'jsdom',
+      environment: 'happy-dom',
       globals: true,
       include: ['src/**/*.test.{ts,tsx}'],
       setupFiles: ['src/test/setup.ts'],

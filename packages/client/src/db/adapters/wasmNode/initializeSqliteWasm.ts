@@ -10,7 +10,17 @@ import { patchFetchForFileUrls, restoreFetch } from './utils';
 
 declare global {
   var sqlite3InitModuleState:
-    | { wasmFilename: string; debugModule: () => void }
+    | {
+        wasmFilename: string;
+        debugModule: () => void;
+        instantiateWasm?: (
+          imports: WebAssembly.Imports,
+          onSuccess: (
+            instance: WebAssembly.Instance,
+            module: WebAssembly.Module
+          ) => void
+        ) => object;
+      }
     | undefined;
 }
 
@@ -56,18 +66,38 @@ export async function initializeSqliteWasm(): Promise<SQLite3Module> {
     );
   }
 
-  // Patch fetch to handle file:// URLs before importing the module
-  // The sqlite3 module uses fetch internally to load the .wasm file
+  // Set up globalThis.sqlite3InitModuleState BEFORE importing the module.
+  // Force a fetch-free instantiate path so Node tests are independent of
+  // whichever Response/fetch implementation the DOM test environment installs.
   patchFetchForFileUrls();
+  globalThis.sqlite3InitModuleState = {
+    wasmFilename: 'sqlite3.wasm',
+    debugModule: () => {},
+    instantiateWasm: (
+      imports: WebAssembly.Imports,
+      onSuccess: (
+        instance: WebAssembly.Instance,
+        module: WebAssembly.Module
+      ) => void
+    ): object => {
+      void WebAssembly.instantiate(fs.readFileSync(wasmPath), imports).then(
+        ({ instance, module }) => {
+          onSuccess(instance, module);
+        }
+      );
+      // Async instantiate path expected by Emscripten.
+      return {};
+    }
+  };
+
+  const wasmWithOptionalInstantiateStreaming = WebAssembly as WebAssembly & {
+    instantiateStreaming?: typeof WebAssembly.instantiateStreaming;
+  };
+  const originalInstantiateStreaming =
+    wasmWithOptionalInstantiateStreaming.instantiateStreaming;
+  wasmWithOptionalInstantiateStreaming.instantiateStreaming = undefined;
 
   try {
-    // Set up globalThis.sqlite3InitModuleState BEFORE importing the module
-    // The module reads this during import to configure instantiateWasm
-    globalThis.sqlite3InitModuleState = {
-      wasmFilename: 'sqlite3.wasm',
-      debugModule: () => {}
-    };
-
     // Import the WASM module
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const wasmModule = await import(/* @vite-ignore */ modulePath);
@@ -90,7 +120,8 @@ export async function initializeSqliteWasm(): Promise<SQLite3Module> {
 
     return sqlite3;
   } finally {
-    // Restore original fetch
+    wasmWithOptionalInstantiateStreaming.instantiateStreaming =
+      originalInstantiateStreaming;
     restoreFetch();
   }
 }

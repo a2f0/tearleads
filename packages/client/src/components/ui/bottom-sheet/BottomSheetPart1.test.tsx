@@ -176,7 +176,7 @@ describe('BottomSheet', () => {
     );
 
     const dialog = screen.getByRole('dialog');
-    expect(dialog).toHaveStyle({ maxHeight: '90vh' });
+    expect(dialog.getAttribute('style')).toContain('max-height: 90vh');
   });
 
   it('unmounts after close animation', async () => {
@@ -236,7 +236,7 @@ describe('BottomSheet', () => {
       const dialog = screen.getByRole('dialog');
       const initialHeight = parseInt(dialog.style.height, 10);
 
-      await simulateGestureDrag(-100, 0);
+      await simulateGestureDrag(-100, -1);
 
       await waitFor(() => {
         const newHeight = parseInt(dialog.style.height, 10);
