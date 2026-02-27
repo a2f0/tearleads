@@ -406,14 +406,17 @@ describe('API VFS lifecycle', () => {
     expect(abandonResponse.stagingId).toBe(stageTwoId);
     expect(abandonResponse.status).toBe('abandoned');
 
-    const attachAfterAbandon = await alice.fetch(`/vfs/blobs/stage/${stageTwoId}/attach`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        itemId: hostItemId,
-        relationKind: 'file'
-      })
-    });
+    const attachAfterAbandon = await alice.fetch(
+      `/vfs/blobs/stage/${stageTwoId}/attach`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemId: hostItemId,
+          relationKind: 'file'
+        })
+      }
+    );
     expect(attachAfterAbandon.status).toBe(409);
     expect(await attachAfterAbandon.json()).toEqual({
       error: 'Blob staging is no longer attachable'
