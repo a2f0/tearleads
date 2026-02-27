@@ -76,4 +76,24 @@ describe('ApiDocsPage', () => {
       expect(screen.queryByText('Missing openapi key')).not.toBeInTheDocument();
     });
   });
+
+  it('keeps loading state when fetch rejects', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('network down');
+      })
+    );
+
+    render(
+      <MemoryRouter>
+        <ApiDocsPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Loading API docs...')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText('Client Docs')).not.toBeInTheDocument();
+    });
+  });
 });
