@@ -14,7 +14,8 @@ export default mergeConfig(
         ? {
             pool: 'forks' as const,
             maxWorkers: 1,
-            minWorkers: 1
+            minWorkers: 1,
+            execArgv: ['--max-old-space-size=8192']
           }
         : {}),
       environment: 'happy-dom',
