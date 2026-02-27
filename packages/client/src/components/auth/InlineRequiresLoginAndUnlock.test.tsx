@@ -121,9 +121,17 @@ describe('InlineRequiresLoginAndUnlock', () => {
         </InlineRequiresLoginAndUnlock>
       );
 
-      expect(
-        screen.getByTestId('inline-requires-login-and-unlock-unlock')
-      ).toBeInTheDocument();
+      const unlockWrapper = screen.getByTestId(
+        'inline-requires-login-and-unlock-unlock'
+      );
+      expect(unlockWrapper).toBeInTheDocument();
+      expect(unlockWrapper).toHaveClass(
+        'flex',
+        'h-full',
+        'items-center',
+        'justify-center',
+        'p-4'
+      );
       expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
       expect(screen.queryByTestId('inline-login')).not.toBeInTheDocument();
     });
@@ -204,9 +212,17 @@ describe('InlineRequiresLoginAndUnlock', () => {
         </InlineRequiresLoginAndUnlock>
       );
 
-      expect(
-        screen.getByTestId('inline-requires-login-and-unlock-login')
-      ).toBeInTheDocument();
+      const loginWrapper = screen.getByTestId(
+        'inline-requires-login-and-unlock-login'
+      );
+      expect(loginWrapper).toBeInTheDocument();
+      expect(loginWrapper).toHaveClass(
+        'flex',
+        'h-full',
+        'items-center',
+        'justify-center',
+        'p-4'
+      );
       expect(screen.getByTestId('inline-login')).toBeInTheDocument();
       expect(screen.queryByTestId('inline-unlock')).not.toBeInTheDocument();
     });

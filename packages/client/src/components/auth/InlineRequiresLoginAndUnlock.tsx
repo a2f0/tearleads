@@ -48,7 +48,10 @@ export function InlineRequiresLoginAndUnlock({
   // This order makes sense because the database is needed to store auth tokens
   if (!isUnlocked) {
     return (
-      <div data-testid="inline-requires-login-and-unlock-unlock">
+      <div
+        className="flex h-full items-center justify-center p-4"
+        data-testid="inline-requires-login-and-unlock-unlock"
+      >
         <InlineUnlock description={unlockDescription ?? description} />
       </div>
     );
@@ -56,7 +59,10 @@ export function InlineRequiresLoginAndUnlock({
 
   if (!isAuthenticated) {
     return (
-      <div data-testid="inline-requires-login-and-unlock-login">
+      <div
+        className="flex h-full items-center justify-center p-4"
+        data-testid="inline-requires-login-and-unlock-login"
+      >
         <InlineLogin description={loginDescription ?? description} />
       </div>
     );

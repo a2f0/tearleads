@@ -290,4 +290,60 @@ describe('AdminOrganizationsWindow', () => {
 
     expect(onClose).toHaveBeenCalled();
   });
+
+  describe('auth gating', () => {
+    it('shows loading spinner when isAuthLoading is true', () => {
+      render(
+        <AdminOrganizationsWindow {...defaultProps} isAuthLoading={true} />
+      );
+      expect(
+        screen.getByTestId('admin-organizations-window-loading')
+      ).toBeInTheDocument();
+      expect(screen.getByText('Loading...')).toBeInTheDocument();
+      expect(screen.queryByTestId('orgs-admin-list')).not.toBeInTheDocument();
+    });
+
+    it('shows locked fallback when isUnlocked is false', () => {
+      render(
+        <AdminOrganizationsWindow
+          {...defaultProps}
+          isUnlocked={false}
+          lockedFallback={<div data-testid="locked-fallback">Sign in</div>}
+        />
+      );
+      expect(
+        screen.getByTestId('admin-organizations-window-locked')
+      ).toBeInTheDocument();
+      expect(screen.getByTestId('locked-fallback')).toBeInTheDocument();
+      expect(screen.queryByTestId('orgs-admin-list')).not.toBeInTheDocument();
+    });
+
+    it('shows content when isUnlocked is true (default)', () => {
+      render(<AdminOrganizationsWindow {...defaultProps} />);
+      expect(screen.getByTestId('orgs-admin-list')).toBeInTheDocument();
+      expect(
+        screen.queryByTestId('admin-organizations-window-loading')
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId('admin-organizations-window-locked')
+      ).not.toBeInTheDocument();
+    });
+
+    it('prioritizes loading over locked state', () => {
+      render(
+        <AdminOrganizationsWindow
+          {...defaultProps}
+          isAuthLoading={true}
+          isUnlocked={false}
+          lockedFallback={<div data-testid="locked-fallback">Sign in</div>}
+        />
+      );
+      expect(
+        screen.getByTestId('admin-organizations-window-loading')
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByTestId('admin-organizations-window-locked')
+      ).not.toBeInTheDocument();
+    });
+  });
 });

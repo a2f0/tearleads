@@ -295,7 +295,9 @@ vi.mock('@/components/admin-window', () => ({
   AdminGroupsWindow: createMockWindowComponent({
     testIdPrefix: 'admin-groups-window',
     minimizeDimensions: { x: 0, y: 0, width: 700, height: 600 }
-  }),
+  })
+}));
+vi.mock('@/components/admin-organizations-window', () => ({
   AdminOrganizationsWindow: createMockWindowComponent({
     testIdPrefix: 'admin-organizations-window',
     minimizeDimensions: { x: 0, y: 0, width: 840, height: 620 }
