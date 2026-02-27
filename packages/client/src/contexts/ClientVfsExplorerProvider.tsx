@@ -16,6 +16,7 @@ import {
   DesktopFloatingWindow as FloatingWindow
 } from '@tearleads/window-manager';
 import { type ReactNode, useMemo } from 'react';
+import { InlineLogin } from '@/components/auth/InlineLogin';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -178,6 +179,7 @@ export function ClientVfsExplorerProvider({
       featureFlags={featureFlags}
       vfsApi={vfsApi}
       vfsShareApi={vfsShareApi}
+      loginFallback={<InlineLogin description="shared items" />}
     >
       {children}
     </VfsExplorerProvider>

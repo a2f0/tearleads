@@ -209,6 +209,8 @@ export interface VfsExplorerContextValue {
   vfsApi: VfsApiFunctions;
   /** VFS Share API functions (optional) */
   vfsShareApi?: VfsShareApiFunctions | undefined;
+  /** Fallback UI to render when the user is not logged in */
+  loginFallback?: ReactNode | undefined;
 }
 
 const VfsExplorerContext = createContext<VfsExplorerContextValue | null>(null);
@@ -223,6 +225,7 @@ export interface VfsExplorerProviderProps {
   featureFlags: FeatureFlagFunctions;
   vfsApi: VfsApiFunctions;
   vfsShareApi?: VfsShareApiFunctions | undefined;
+  loginFallback?: ReactNode | undefined;
 }
 
 /**
@@ -237,7 +240,8 @@ export function VfsExplorerProvider({
   auth,
   featureFlags,
   vfsApi,
-  vfsShareApi
+  vfsShareApi,
+  loginFallback
 }: VfsExplorerProviderProps) {
   return (
     <VfsExplorerContext.Provider
@@ -249,7 +253,8 @@ export function VfsExplorerProvider({
         auth,
         featureFlags,
         vfsApi,
-        vfsShareApi
+        vfsShareApi,
+        loginFallback
       }}
     >
       {children}

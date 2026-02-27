@@ -18,7 +18,8 @@ import {
   useMemo,
   useState
 } from 'react';
-import { useVfsClipboard } from '../context';
+import { NOT_LOGGED_IN_ERROR } from '../constants';
+import { useVfsClipboard, useVfsExplorerContext } from '../context';
 import type { VfsItem, VfsObjectType } from '../hooks';
 import {
   cn,
@@ -59,6 +60,7 @@ export function VfsDetailsPanel({
   onUpload
 }: VfsDetailsPanelProps) {
   const { hasItems } = useVfsClipboard();
+  const { loginFallback } = useVfsExplorerContext();
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [emptySpaceContextMenu, setEmptySpaceContextMenu] =
     useState<EmptySpaceContextMenuState | null>(null);
@@ -277,6 +279,13 @@ export function VfsDetailsPanel({
   }
 
   if (error) {
+    if (error === NOT_LOGGED_IN_ERROR && loginFallback) {
+      return (
+        <div className="flex flex-1 items-center justify-center p-4">
+          {loginFallback}
+        </div>
+      );
+    }
     return (
       <div className="flex flex-1 items-center justify-center text-destructive">
         <div className="text-center">

@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { NOT_LOGGED_IN_ERROR } from '../constants';
 import {
   createMockDatabase,
   createMockDatabaseState,
@@ -56,7 +57,7 @@ describe('useVfsSharedByMe', () => {
     });
 
     await waitFor(() => {
-      expect(result.current.error).toBe('Not logged in');
+      expect(result.current.error).toBe(NOT_LOGGED_IN_ERROR);
     });
   });
 

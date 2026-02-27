@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DatabaseState } from '../context';
 
@@ -7,6 +8,8 @@ const mockDatabaseState: DatabaseState = {
   isLoading: false,
   currentInstanceId: 'test-instance'
 };
+
+let mockLoginFallback: ReactNode | undefined;
 
 vi.mock('../context', () => ({
   useDatabaseState: () => mockDatabaseState,
@@ -26,6 +29,9 @@ vi.mock('../context', () => ({
           {children}
         </button>
       )
+    },
+    get loginFallback() {
+      return mockLoginFallback;
     }
   }),
   useVfsClipboard: () => ({
@@ -78,7 +84,12 @@ vi.mock('../hooks', () => ({
   }))
 }));
 
-import { useVfsFolderContents, useVfsUnfiledItems } from '../hooks';
+import { NOT_LOGGED_IN_ERROR, SHARED_BY_ME_FOLDER_ID } from '../constants';
+import {
+  useVfsFolderContents,
+  useVfsSharedByMe,
+  useVfsUnfiledItems
+} from '../hooks';
 import { VfsDetailsPanel } from './VfsDetailsPanel';
 
 const mockItems = [
@@ -122,6 +133,7 @@ const mockItems = [
 describe('VfsDetailsPanel core behavior', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockLoginFallback = undefined;
     mockDatabaseState.isUnlocked = true;
     mockDatabaseState.isLoading = false;
     mockDatabaseState.currentInstanceId = 'test-instance';
@@ -296,5 +308,36 @@ describe('VfsDetailsPanel core behavior', () => {
     rerender(<VfsDetailsPanel folderId="folder-1" refreshToken={1} />);
 
     expect(mockRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders login fallback when error is NOT_LOGGED_IN_ERROR and loginFallback is provided', () => {
+    mockLoginFallback = <div data-testid="mock-login-fallback">Sign in</div>;
+    vi.mocked(useVfsSharedByMe).mockReturnValue({
+      items: [],
+      loading: false,
+      error: NOT_LOGGED_IN_ERROR,
+      hasFetched: true,
+      refetch: vi.fn()
+    });
+
+    render(<VfsDetailsPanel folderId={SHARED_BY_ME_FOLDER_ID} />);
+
+    expect(screen.getByTestId('mock-login-fallback')).toBeInTheDocument();
+    expect(screen.getByText('Sign in')).toBeInTheDocument();
+  });
+
+  it('renders plain error when NOT_LOGGED_IN_ERROR but no loginFallback', () => {
+    mockLoginFallback = undefined;
+    vi.mocked(useVfsSharedByMe).mockReturnValue({
+      items: [],
+      loading: false,
+      error: NOT_LOGGED_IN_ERROR,
+      hasFetched: true,
+      refetch: vi.fn()
+    });
+
+    render(<VfsDetailsPanel folderId={SHARED_BY_ME_FOLDER_ID} />);
+
+    expect(screen.getByText(NOT_LOGGED_IN_ERROR)).toBeInTheDocument();
   });
 });

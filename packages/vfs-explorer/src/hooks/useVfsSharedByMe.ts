@@ -5,6 +5,7 @@
 
 import type { VfsPermissionLevel, VfsShareType } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { NOT_LOGGED_IN_ERROR } from '../constants';
 import { useVfsExplorerContext } from '../context';
 import { querySharedByMe } from '../lib/vfsSharesQuery';
 import type { VfsObjectType, VfsSortState } from '../lib/vfsTypes';
@@ -67,7 +68,7 @@ export function useVfsSharedByMe(
     const storedAuth = auth.readStoredAuth();
     const currentUserId = storedAuth?.user?.id;
     if (!currentUserId) {
-      setError('Not logged in');
+      setError(NOT_LOGGED_IN_ERROR);
       return;
     }
 
