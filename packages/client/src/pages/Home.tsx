@@ -51,6 +51,8 @@ export function Home() {
   );
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const translateRef = useRef(t);
+  translateRef.current = t;
   const [positions, setPositions] = useState<Positions>({});
   const isMobile = useIsMobile();
 
@@ -184,11 +186,11 @@ export function Home() {
         }
       }
       const sortedItems = sortItemsByLabel(appItems, (item) =>
-        t(item.labelKey as Parameters<typeof t>[0])
+        translateRef.current(item.labelKey as Parameters<typeof t>[0])
       );
       setPositions(calculateGridPositions(sortedItems, width, isMobile));
     }
-  }, [appItems, isMobile, t]);
+  }, [appItems, isMobile]);
 
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden">
