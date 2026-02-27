@@ -2212,6 +2212,9 @@ importers:
         specifier: 3.18.1
         version: 3.18.1
     devDependencies:
+      '@tearleads/api-test-utils':
+        specifier: workspace:*
+        version: link:../api-test-utils
       '@types/node':
         specifier: 25.3.0
         version: 25.3.0
