@@ -14,6 +14,11 @@ import type {
 } from './types.js';
 import { convertRowsToArrays } from './utils.js';
 import {
+  initializeSqliteWasm,
+  patchFetchForFileUrls,
+  restoreFetch
+} from './wasmNodeInit.js';
+import {
   getStringField,
   isJsonBackupData,
   isNameSqlEntry,
@@ -23,11 +28,6 @@ import {
   type SQLiteDatabase,
   type WasmNodeAdapterOptions
 } from './wasmNodeTypes.js';
-import {
-  initializeSqliteWasm,
-  patchFetchForFileUrls,
-  restoreFetch
-} from './wasmNodeInit.js';
 
 export type {
   JsonBackupData,
