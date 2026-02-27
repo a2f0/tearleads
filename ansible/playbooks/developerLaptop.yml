@@ -16,7 +16,7 @@
   tasks:
     - name: Install shared developer toolchain
       ansible.builtin.import_tasks: tasks/devToolchain.yml
-      become: true
+      become: false
 
     - name: Configure laptop CLI shell environment
       ansible.builtin.import_tasks: tasks/laptopCliEnvironment.yml
