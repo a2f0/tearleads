@@ -37,3 +37,10 @@ export const SHARED_WITH_ME_FOLDER_ID = '__shared_with_me__';
  * This is a UI-only concept and does not exist in the database.
  */
 export const TRASH_FOLDER_ID = '__trash__';
+
+/**
+ * Sentinel error value indicating the user is not logged in.
+ * Used by shared-items hooks to signal that authentication is required,
+ * allowing the UI to render a login fallback instead of a plain error message.
+ */
+export const NOT_LOGGED_IN_ERROR = '__not_logged_in__';
