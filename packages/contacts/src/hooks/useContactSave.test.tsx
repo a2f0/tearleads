@@ -112,6 +112,36 @@ describe('useContactSave', () => {
       );
     });
 
+    it('should set organizationId on the inserted contact', async () => {
+      const mockValues = vi.fn().mockResolvedValue(undefined);
+      const orgInsert = vi.fn().mockReturnValue({ values: mockValues });
+      const orgDatabase = { insert: orgInsert };
+
+      const wrapper = createWrapper({
+        getDatabase: () => orgDatabase as never,
+        activeOrganizationId: 'test-org-123'
+      });
+      const { result } = renderHook(() => useContactSave(), { wrapper });
+
+      await act(async () => {
+        await result.current.createContact({
+          formData: {
+            firstName: 'Org',
+            lastName: 'User',
+            birthday: ''
+          },
+          emails: [],
+          phones: []
+        });
+      });
+
+      // The first insert call should be for the contact
+      const firstValues = mockValues.mock.calls[0]?.[0];
+      expect(firstValues).toEqual(
+        expect.objectContaining({ organizationId: 'test-org-123' })
+      );
+    });
+
     it('should create a contact with emails and phones', async () => {
       const wrapper = createWrapper();
       const { result } = renderHook(() => useContactSave(), { wrapper });

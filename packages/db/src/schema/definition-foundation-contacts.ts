@@ -41,9 +41,16 @@ export const contactsTable: TableDefinition = {
       sqlName: 'deleted',
       notNull: true,
       defaultValue: false
+    },
+    organizationId: {
+      type: 'text',
+      sqlName: 'organization_id'
     }
   },
-  indexes: [{ name: 'contacts_first_name_idx', columns: ['firstName'] }]
+  indexes: [
+    { name: 'contacts_first_name_idx', columns: ['firstName'] },
+    { name: 'contacts_org_idx', columns: ['organizationId'] }
+  ]
 };
 
 /**

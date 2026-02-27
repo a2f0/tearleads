@@ -300,6 +300,8 @@ export interface ContactsContextValue {
   formatDate: (date: Date) => string;
   /** Open email composer with prefilled recipients */
   openEmailComposer?: (recipients: string[]) => boolean;
+  /** Active organization ID for org-scoped data attribution */
+  activeOrganizationId: string | null;
 }
 
 const ContactsContext = createContext<ContactsContextValue | null>(null);
@@ -319,6 +321,7 @@ export interface ContactsProviderProps {
   navigateWithFrom: (to: string, options?: NavigateOptions) => void;
   formatDate: (date: Date) => string;
   openEmailComposer?: (recipients: string[]) => boolean;
+  activeOrganizationId?: string | null;
 }
 
 /**
@@ -338,7 +341,8 @@ export function ContactsProvider({
   navigate,
   navigateWithFrom,
   formatDate,
-  openEmailComposer
+  openEmailComposer,
+  activeOrganizationId = null
 }: ContactsProviderProps) {
   const value = useMemo<ContactsContextValue>(
     () => ({
@@ -358,6 +362,7 @@ export function ContactsProvider({
       navigate,
       navigateWithFrom,
       formatDate,
+      activeOrganizationId,
       ...(openEmailComposer !== undefined && { openEmailComposer })
     }),
     [
@@ -373,7 +378,8 @@ export function ContactsProvider({
       navigate,
       navigateWithFrom,
       formatDate,
-      openEmailComposer
+      openEmailComposer,
+      activeOrganizationId
     ]
   );
 

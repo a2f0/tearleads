@@ -9,12 +9,21 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { and, eq, inArray } from 'drizzle-orm';
 import { useCallback } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ClientContactsProvider } from '@/contexts/ClientContactsProvider';
 import { getDatabase } from '@/db';
 import { contactGroups, contacts, vfsLinks, vfsRegistry } from '@/db/schema';
 import { renderWithDatabase } from '../../test/renderWithDatabase';
 import { ContactsWindow } from './index';
+
+vi.mock('@/contexts/OrgContext', () => ({
+  useOrg: () => ({
+    activeOrganizationId: null,
+    organizations: [],
+    setActiveOrganizationId: vi.fn(),
+    isLoading: false
+  })
+}));
 
 function ContactsSidebarDropHarness() {
   const { getDatabase: getContactsDatabase } = useContactsContext();

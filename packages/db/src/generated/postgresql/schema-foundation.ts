@@ -240,9 +240,13 @@ export const contacts = pgTable(
     birthday: text('birthday'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
-    deleted: boolean('deleted').notNull().default(false)
+    deleted: boolean('deleted').notNull().default(false),
+    organizationId: text('organization_id')
   },
-  (table) => [index('contacts_first_name_idx').on(table.firstName)]
+  (table) => [
+    index('contacts_first_name_idx').on(table.firstName),
+    index('contacts_org_idx').on(table.organizationId)
+  ]
 );
 
 /**

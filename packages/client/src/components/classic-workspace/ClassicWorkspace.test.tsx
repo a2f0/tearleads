@@ -8,9 +8,14 @@ const mockLoadClassicStateFromDatabase = vi.fn();
 const mockPersistClassicOrderToDatabase = vi.fn();
 const mockDeleteClassicTag = vi.fn();
 const mockRestoreClassicTag = vi.fn();
+const mockUseOrg = vi.fn();
 
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
+}));
+
+vi.mock('@/contexts/OrgContext', () => ({
+  useOrg: () => mockUseOrg()
 }));
 
 vi.mock('@/components/sqlite/InlineUnlock', () => ({
@@ -27,7 +32,8 @@ vi.mock('@/lib/classicPersistence', () => ({
     noteOrderByTagId: {},
     activeTagId: null
   },
-  loadClassicStateFromDatabase: () => mockLoadClassicStateFromDatabase(),
+  loadClassicStateFromDatabase: (...args: unknown[]) =>
+    mockLoadClassicStateFromDatabase(...args),
   persistClassicOrderToDatabase: (...args: unknown[]) =>
     mockPersistClassicOrderToDatabase(...args),
   deleteClassicTag: (...args: unknown[]) => mockDeleteClassicTag(...args),
@@ -92,6 +98,12 @@ describe('ClassicWorkspace', () => {
       isUnlocked: true,
       isLoading: false,
       currentInstanceId: 'test-instance'
+    });
+    mockUseOrg.mockReturnValue({
+      activeOrganizationId: null,
+      organizations: [],
+      setActiveOrganizationId: vi.fn(),
+      isLoading: false
     });
     mockLoadClassicStateFromDatabase.mockResolvedValue({
       state: {
@@ -272,6 +284,23 @@ describe('ClassicWorkspace', () => {
     await waitFor(() => {
       expect(mockLoadClassicStateFromDatabase).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it('passes activeOrganizationId to loadClassicStateFromDatabase', async () => {
+    mockUseOrg.mockReturnValue({
+      activeOrganizationId: 'org-abc',
+      organizations: [],
+      setActiveOrganizationId: vi.fn(),
+      isLoading: false
+    });
+
+    render(<ClassicWorkspace />);
+
+    await waitFor(() => {
+      expect(mockLoadClassicStateFromDatabase).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mockLoadClassicStateFromDatabase).toHaveBeenCalledWith('org-abc');
   });
 
   it('restores a tag and refreshes classic state', async () => {

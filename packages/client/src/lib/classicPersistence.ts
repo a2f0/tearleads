@@ -6,7 +6,7 @@ import {
   DEFAULT_CLASSIC_TAG_NAME,
   type VfsLinkLikeRow
 } from '@tearleads/classic';
-import { and, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { getDatabase } from '@/db';
 import { runLocalWrite } from '@/db/localWrite';
 import { notes, tags, vfsLinks, vfsRegistry } from '@/db/schema';
@@ -30,8 +30,20 @@ interface LoadedClassicState {
   linkRows: VfsLinkLikeRow[];
 }
 
-export async function loadClassicStateFromDatabase(): Promise<LoadedClassicState> {
+export async function loadClassicStateFromDatabase(
+  organizationId?: string | null
+): Promise<LoadedClassicState> {
   const db = getDatabase();
+
+  const orgCondition = organizationId
+    ? and(
+        inArray(vfsRegistry.objectType, ['tag', 'note']),
+        or(
+          eq(vfsRegistry.organizationId, organizationId),
+          isNull(vfsRegistry.organizationId)
+        )
+      )
+    : inArray(vfsRegistry.objectType, ['tag', 'note']);
 
   const [registryRows, tagRows, noteRows, linkRows] = await Promise.all([
     db
@@ -41,7 +53,7 @@ export async function loadClassicStateFromDatabase(): Promise<LoadedClassicState
         createdAt: vfsRegistry.createdAt
       })
       .from(vfsRegistry)
-      .where(inArray(vfsRegistry.objectType, ['tag', 'note'])),
+      .where(orgCondition),
     db
       .select({
         id: tags.id,
@@ -69,17 +81,28 @@ export async function loadClassicStateFromDatabase(): Promise<LoadedClassicState
       .from(vfsLinks)
   ]);
 
+  // Filter link rows to only include links whose parent/child are in the filtered registry set
+  const registryIds = new Set(registryRows.map((r) => r.id));
+  const filteredLinkRows = organizationId
+    ? linkRows.filter(
+        (link) =>
+          (registryIds.has(link.parentId) ||
+            link.parentId === CLASSIC_TAG_PARENT_ID) &&
+          registryIds.has(link.childId)
+      )
+    : linkRows;
+
   const state = buildClassicStateFromVfs({
     rootTagParentId: CLASSIC_TAG_PARENT_ID,
     registryRows,
     tagRows,
     noteRows,
-    linkRows
+    linkRows: filteredLinkRows
   });
 
   return {
     state,
-    linkRows
+    linkRows: filteredLinkRows
   };
 }
 
@@ -157,7 +180,8 @@ async function getNextChildPosition(parentId: string): Promise<number> {
 
 export async function createClassicTag(
   name: string = DEFAULT_CLASSIC_TAG_NAME,
-  tagId: string = crypto.randomUUID()
+  tagId: string = crypto.randomUUID(),
+  organizationId?: string | null
 ): Promise<string> {
   const db = getDatabase();
   const linkId = crypto.randomUUID();
@@ -170,6 +194,7 @@ export async function createClassicTag(
         id: tagId,
         objectType: 'tag',
         ownerId: null,
+        organizationId: organizationId ?? null,
         createdAt: now
       });
 
@@ -210,7 +235,8 @@ export async function createClassicNote(
   tagId: string | null,
   title: string = DEFAULT_CLASSIC_NOTE_TITLE,
   content: string = '',
-  noteId: string = crypto.randomUUID()
+  noteId: string = crypto.randomUUID(),
+  organizationId?: string | null
 ): Promise<string> {
   const db = getDatabase();
   const now = new Date();
@@ -221,6 +247,7 @@ export async function createClassicNote(
         id: noteId,
         objectType: 'note',
         ownerId: null,
+        organizationId: organizationId ?? null,
         createdAt: now
       });
 

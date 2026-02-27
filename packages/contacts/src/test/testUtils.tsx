@@ -168,6 +168,7 @@ interface TestContactsProviderProps {
   ) => Promise<{ success: boolean; error?: string }>;
   formatDate?: (date: Date) => string;
   openEmailComposer?: (recipients: string[]) => boolean;
+  activeOrganizationId?: string | null;
 }
 
 export function TestContactsProvider({
@@ -182,7 +183,8 @@ export function TestContactsProvider({
   saveFile = vi.fn().mockResolvedValue(undefined),
   registerInVfs = vi.fn().mockResolvedValue({ success: true }),
   formatDate = (date) => date.toLocaleDateString(),
-  openEmailComposer
+  openEmailComposer,
+  activeOrganizationId = null
 }: TestContactsProviderProps) {
   const db = database ?? createMockDatabase();
   const adapter = databaseAdapter ?? createMockDatabaseAdapter();
@@ -200,6 +202,7 @@ export function TestContactsProvider({
       navigate={navigate}
       navigateWithFrom={navigateWithFrom}
       formatDate={formatDate}
+      activeOrganizationId={activeOrganizationId}
       {...(openEmailComposer && { openEmailComposer })}
     >
       {children}

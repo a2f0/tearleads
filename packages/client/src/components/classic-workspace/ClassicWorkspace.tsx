@@ -11,6 +11,7 @@ import {
 } from '@tearleads/window-manager';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { useOrg } from '@/contexts/OrgContext';
 import { useDatabaseContext } from '@/db/hooks';
 import {
   CLASSIC_EMPTY_STATE,
@@ -40,12 +41,14 @@ export function ClassicWorkspace({
   onEntrySortOrderChange
 }: ClassicWorkspaceProps) {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
+  const { activeOrganizationId } = useOrg();
   const [initialState, setInitialState] =
     useState<ClassicState>(CLASSIC_EMPTY_STATE);
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [stateRevision, setStateRevision] = useState(0);
   const fetchedForInstanceRef = useRef<string | null>(null);
+  const fetchedForOrgRef = useRef<string | null>(null);
   const linkRowsRef = useRef<VfsLinkLikeRow[]>([]);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const isSortControlledExternally =
@@ -63,7 +66,8 @@ export function ClassicWorkspace({
     setWorkspaceError(null);
 
     try {
-      const { state, linkRows } = await loadClassicStateFromDatabase();
+      const { state, linkRows } =
+        await loadClassicStateFromDatabase(activeOrganizationId);
       setInitialState(state);
       linkRowsRef.current = linkRows;
       setStateRevision((current) => current + 1);
@@ -76,21 +80,28 @@ export function ClassicWorkspace({
     } finally {
       setWorkspaceLoading(false);
     }
-  }, [isUnlocked]);
+  }, [isUnlocked, activeOrganizationId]);
 
   useEffect(() => {
+    const instanceChanged = fetchedForInstanceRef.current !== currentInstanceId;
+    const orgChanged = fetchedForOrgRef.current !== activeOrganizationId;
     const needsFetch =
-      isUnlocked &&
-      !workspaceLoading &&
-      fetchedForInstanceRef.current !== currentInstanceId;
+      isUnlocked && !workspaceLoading && (instanceChanged || orgChanged);
 
     if (!needsFetch) {
       return;
     }
 
     fetchedForInstanceRef.current = currentInstanceId;
+    fetchedForOrgRef.current = activeOrganizationId;
     fetchClassicState();
-  }, [isUnlocked, workspaceLoading, currentInstanceId, fetchClassicState]);
+  }, [
+    isUnlocked,
+    workspaceLoading,
+    currentInstanceId,
+    activeOrganizationId,
+    fetchClassicState
+  ]);
 
   const handleStateChange = useCallback((nextState: ClassicState) => {
     saveQueueRef.current = saveQueueRef.current
@@ -153,7 +164,7 @@ export function ClassicWorkspace({
           })}
           onStateChange={handleStateChange}
           onCreateTag={async (tagId, name) => {
-            await createClassicTag(name, tagId);
+            await createClassicTag(name, tagId, activeOrganizationId);
           }}
           onDeleteTag={async (tagId) => {
             await deleteClassicTag(tagId);
@@ -167,7 +178,13 @@ export function ClassicWorkspace({
             await renameClassicTag(tagId, newName);
           }}
           onCreateNote={async (noteId, tagId, title, body) => {
-            await createClassicNote(tagId, title, body, noteId);
+            await createClassicNote(
+              tagId,
+              title,
+              body,
+              noteId,
+              activeOrganizationId
+            );
           }}
           onUpdateNote={async (noteId, title, body) => {
             await updateClassicNote(noteId, title, body);

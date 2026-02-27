@@ -241,9 +241,13 @@ export const contacts = sqliteTable(
     birthday: text('birthday'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
-    deleted: integer('deleted', { mode: 'boolean' }).notNull().default(false)
+    deleted: integer('deleted', { mode: 'boolean' }).notNull().default(false),
+    organizationId: text('organization_id')
   },
-  (table) => [index('contacts_first_name_idx').on(table.firstName)]
+  (table) => [
+    index('contacts_first_name_idx').on(table.firstName),
+    index('contacts_org_idx').on(table.organizationId)
+  ]
 );
 
 /**

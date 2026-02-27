@@ -32,6 +32,15 @@ vi.mock('@tanstack/react-virtual', () => ({
   }))
 }));
 
+vi.mock('@/contexts/OrgContext', () => ({
+  useOrg: () => ({
+    activeOrganizationId: null,
+    organizations: [],
+    setActiveOrganizationId: vi.fn(),
+    isLoading: false
+  })
+}));
+
 // Helper to create test contacts directly in the database
 // Must be called after renderWithDatabase has set up the database
 async function createTestContact(data: {

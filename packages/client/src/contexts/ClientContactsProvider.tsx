@@ -32,6 +32,7 @@ import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { zIndex } from '@/constants/zIndex';
+import { useOrg } from '@/contexts/OrgContext';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { registerVfsItemWithCurrentKeys } from '@/hooks/vfs';
@@ -92,7 +93,8 @@ async function saveFile(
  */
 async function registerInVfs(
   contactId: string,
-  createdAt: Date
+  createdAt: Date,
+  organizationId?: string | null
 ): Promise<VfsRegistrationResult> {
   try {
     const db = getDatabase();
@@ -118,6 +120,7 @@ async function registerInVfs(
       id: contactId,
       objectType: 'contact',
       ownerId: auth.user?.id ?? null,
+      organizationId: organizationId ?? null,
       encryptedSessionKey,
       createdAt
     });
@@ -141,6 +144,7 @@ export function ClientContactsProvider({
   const navigate = useNavigate();
   const navigateWithFrom = useNavigateWithFrom();
   const { openWindow, requestWindowOpen } = useWindowManagerActions();
+  const { activeOrganizationId } = useOrg();
 
   // Combined translation function that checks contacts namespace first, then contextMenu
   const t = useCallback(
@@ -168,6 +172,12 @@ export function ClientContactsProvider({
       databaseContext.isLoading,
       databaseContext.currentInstanceId
     ]
+  );
+
+  const handleRegisterInVfs = useCallback(
+    (contactId: string, createdAt: Date) =>
+      registerInVfs(contactId, createdAt, activeOrganizationId),
+    [activeOrganizationId]
   );
 
   const handleContactsImported = useCallback(
@@ -221,7 +231,7 @@ export function ClientContactsProvider({
       getDatabase={getDatabase}
       getDatabaseAdapter={getDatabaseAdapter}
       saveFile={saveFile}
-      registerInVfs={registerInVfs}
+      registerInVfs={handleRegisterInVfs}
       onContactsImported={handleContactsImported}
       ui={contactsUIComponents}
       t={t}
@@ -230,6 +240,7 @@ export function ClientContactsProvider({
       navigateWithFrom={navigateWithFrom}
       formatDate={formatDate}
       openEmailComposer={openEmailComposer}
+      activeOrganizationId={activeOrganizationId}
     >
       {children}
     </ContactsProvider>

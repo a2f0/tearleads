@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useOrg } from '@/contexts/OrgContext';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { runLocalWrite } from '@/db/localWrite';
@@ -27,6 +28,7 @@ import type {
 export function ContactNew() {
   const navigate = useNavigate();
   const { isUnlocked, isLoading } = useDatabaseContext();
+  const { activeOrganizationId } = useOrg();
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -164,7 +166,8 @@ export function ContactNew() {
             birthday: formData.birthday.trim() || null,
             createdAt: now,
             updatedAt: now,
-            deleted: false
+            deleted: false,
+            organizationId: activeOrganizationId
           });
 
           for (const email of emailsForm) {
@@ -200,6 +203,7 @@ export function ContactNew() {
             id: contactId,
             objectType: 'contact',
             ownerId: auth.user?.id ?? null,
+            organizationId: activeOrganizationId,
             encryptedSessionKey,
             createdAt: now
           });
@@ -244,7 +248,7 @@ export function ContactNew() {
     } finally {
       setSaving(false);
     }
-  }, [formData, emailsForm, phonesForm, navigate]);
+  }, [formData, emailsForm, phonesForm, navigate, activeOrganizationId]);
 
   return (
     <div className="space-y-6">

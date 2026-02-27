@@ -92,6 +92,15 @@ vi.mock('@/hooks/dnd', () => ({
   }))
 }));
 
+vi.mock('@/contexts/OrgContext', () => ({
+  useOrg: () => ({
+    activeOrganizationId: null,
+    organizations: [],
+    setActiveOrganizationId: vi.fn(),
+    isLoading: false
+  })
+}));
+
 describe('Contacts', () => {
   beforeEach(() => {
     setupDefaultMocks();
