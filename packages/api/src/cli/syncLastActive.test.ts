@@ -15,7 +15,9 @@ vi.mock('../lib/postgres.js', () => ({
 }));
 
 vi.mock('@tearleads/shared/redis', () => ({
-  closeRedisClient: () => mockCloseRedisClient()
+  closeRedisClient: () => mockCloseRedisClient(),
+  getRedisSubscriberOverride: () => null,
+  setRedisSubscriberOverrideForTesting: vi.fn()
 }));
 
 vi.mock('../lib/sessions.js', () => ({

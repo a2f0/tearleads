@@ -34,7 +34,9 @@ const mockRedisClient = {
 };
 
 vi.mock('@tearleads/shared/redis', () => ({
-  getRedisClient: () => Promise.resolve(mockRedisClient)
+  getRedisClient: () => Promise.resolve(mockRedisClient),
+  getRedisSubscriberOverride: () => mockRedisClient,
+  setRedisSubscriberOverrideForTesting: vi.fn()
 }));
 
 export function setupCrdtPushRouteTestEnv(): void {
