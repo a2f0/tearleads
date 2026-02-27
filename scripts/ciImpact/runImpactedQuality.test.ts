@@ -58,3 +58,16 @@ test('runImpactedQuality dry-run enters full quality mode for scripts tsconfig c
     /ci-impact: high-risk changes detected, running full quality pipeline\./
   );
 });
+
+test('runImpactedQuality dry-run uses selective mode for ciImpact script edits', () => {
+  const result = runImpactedQuality([
+    '--files',
+    'scripts/ciImpact/runImpactedQuality.ts',
+    '--dry-run'
+  ]);
+  assert.equal(result.status, 0, stderrText(result));
+  assert.match(
+    stdoutText(result),
+    /ci-impact: selective quality checks enabled\./
+  );
+});

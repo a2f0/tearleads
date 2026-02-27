@@ -42,7 +42,6 @@ const FULL_RUN_FILE_NAMES: ReadonlyArray<string> = [
 
 const FULL_RUN_PREFIXES: ReadonlyArray<string> = [
   '.github/actions/',
-  'scripts/ciImpact/',
   '.github/workflows/build.yml',
   '.github/workflows/ci-gate.yml',
   '.github/workflows/integration-deploy.yml',
