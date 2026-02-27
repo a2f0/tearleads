@@ -20,9 +20,22 @@ function parseVitestMaxWorkersArg(): string {
   return '--maxWorkers=4';
 }
 
+function resolveVitestMaxWorkersArg(pkg: string): string {
+  const configuredArg = parseVitestMaxWorkersArg();
+  if (process.env['PRE_PUSH_VITEST_MAX_WORKERS'] !== undefined) {
+    return configuredArg;
+  }
+
+  if (pkg === '@tearleads/api-client') {
+    return '--maxWorkers=1';
+  }
+
+  return configuredArg;
+}
+
 export function runCoverageForPackage(pkg: string): void {
   const timeoutMs = parseCoverageTimeoutMs();
-  const maxWorkersArg = parseVitestMaxWorkersArg();
+  const maxWorkersArg = resolveVitestMaxWorkersArg(pkg);
   const result = spawnSync(
     'pnpm',
     ['--filter', pkg, 'test:coverage', '--', maxWorkersArg],
