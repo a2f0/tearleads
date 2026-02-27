@@ -18,6 +18,8 @@
     "**/playwright-report",
     "**/test-results",
     // Codex-managed system skills folder - auto-generated markdown that we don't control
-    ".claude/commands/skills/.system"
+    ".claude/commands/skills/.system",
+    // Serena memory files - auto-generated agent memories that we don't control
+    ".serena/memories"
   ]
 }

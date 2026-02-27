@@ -146,7 +146,7 @@ jobs:
             -e POSTGRES_PASSWORD=tearleads_password \
             -e POSTGRES_DB=tearleads \
             -p 5432:5432 \
-            postgres:16
+            postgres:17
           timeout 60 bash -c 'until docker exec ci-postgres pg_isready -U tearleads -d tearleads; do sleep 2; done'
 
       - name: Build API image (k8s Dockerfile)

@@ -25,17 +25,17 @@ output "k8s_api_hostname" {
 
 output "ssh_command" {
   description = "SSH command to connect to the server"
-  value       = "ssh k8s-api.${var.domain}"
+  value       = "ssh ${local.tailscale_hostname}"
 }
 
 output "ssh_hostname" {
-  description = "SSH hostname for direct server access"
-  value       = "k8s-api.${var.domain}"
+  description = "SSH hostname for direct server access (via Tailscale MagicDNS)"
+  value       = local.tailscale_hostname
 }
 
 output "kubeconfig_command" {
   description = "Command to fetch kubeconfig"
-  value       = "scp k8s-api.${var.domain}:.kube/config ~/.kube/config-staging-k8s"
+  value       = "scp ${local.tailscale_hostname}:.kube/config ~/.kube/config-staging-k8s"
 }
 
 output "server_username" {
