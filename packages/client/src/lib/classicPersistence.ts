@@ -6,7 +6,7 @@ import {
   DEFAULT_CLASSIC_TAG_NAME,
   type VfsLinkLikeRow
 } from '@tearleads/classic';
-import { and, eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { getDatabase } from '@/db';
 import { runLocalWrite } from '@/db/localWrite';
 import { notes, tags, vfsLinks, vfsRegistry } from '@/db/schema';
