@@ -58,10 +58,10 @@ terraform apply -var='enable_userpass_auth=true'
 
 ```bash
 # Dry run first
-./scripts/migrate-secrets.sh --dry-run
+./scripts/migrate-secrets.ts --dry-run
 
 # Actually migrate
-./scripts/migrate-secrets.sh
+./scripts/migrate-secrets.ts
 ```
 
 ### 4. Store Environment Variables
@@ -131,15 +131,15 @@ vault kv get secret/files/deploy.key
 
 # Fetch all files to .secrets/ directory
 cd terraform/stacks/prod/vault
-./scripts/fetch-secrets.sh
+./scripts/fetch-secrets.ts
 
 # Fetch to a different directory
-./scripts/fetch-secrets.sh -o /tmp/secrets
+./scripts/fetch-secrets.ts -o /tmp/secrets
 
 # Fetch using userpass auth instead of VAULT_TOKEN
 export VAULT_USERNAME=alice
 export VAULT_PASSWORD='your-password'
-./scripts/fetch-secrets.sh
+./scripts/fetch-secrets.ts
 ```
 
 ## Backup and Restore

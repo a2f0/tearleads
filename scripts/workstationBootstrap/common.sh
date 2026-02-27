@@ -4,7 +4,7 @@ set -eu
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 # shellcheck disable=SC2034 # consumed by sourced postChecks.sh
-FETCH_SECRETS="${REPO_ROOT}/terraform/stacks/prod/vault/scripts/fetch-secrets.sh"
+FETCH_SECRETS="${REPO_ROOT}/terraform/stacks/prod/vault/scripts/fetch-secrets.ts"
 VAULT_HOST="vault-prod"
 REPO_VAULT_VERSION_FILE="${REPO_ROOT}/.vault-version"
 REPO_TERRAFORM_VERSION_FILE="${REPO_ROOT}/.terraform-version"
