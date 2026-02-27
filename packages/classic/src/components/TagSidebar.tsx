@@ -120,11 +120,7 @@ export function TagSidebar({
             aria-label={t('virtualTags')}
           >
             <li
-              className={
-                activeTagId === null
-                  ? 'border bg-accent px-2 py-0.5'
-                  : 'border bg-background px-2 py-0.5'
-              }
+              className={`border px-2 py-0.5 ${activeTagId === null ? 'bg-accent' : 'bg-background'}`}
             >
               <div className="flex items-center gap-2">
                 <span
@@ -147,11 +143,7 @@ export function TagSidebar({
               </div>
             </li>
             <li
-              className={
-                activeTagId === UNTAGGED_TAG_ID
-                  ? 'border bg-accent px-2 py-0.5'
-                  : 'border bg-background px-2 py-0.5'
-              }
+              className={`border px-2 py-0.5 ${activeTagId === UNTAGGED_TAG_ID ? 'bg-accent' : 'bg-background'}`}
             >
               <div className="flex items-center gap-2">
                 <span
@@ -257,13 +249,7 @@ export function TagSidebar({
                 return (
                   <li
                     key={tag.id}
-                    className={
-                      dropTargetTagId === tag.id
-                        ? 'border bg-primary/20 px-2 py-0.5'
-                        : isActive
-                          ? 'border bg-accent px-2 py-0.5'
-                          : 'border bg-background px-2 py-0.5'
-                    }
+                    className={`border px-2 py-0.5 ${dropTargetTagId === tag.id ? 'bg-primary/20' : isActive ? 'bg-accent' : 'bg-background'}`}
                     draggable
                     onDragStart={(event) => {
                       const target = event.target;
