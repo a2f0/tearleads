@@ -1,6 +1,49 @@
 #!/usr/bin/env sh
 set -eu
 
+LOCK_DIR="${TMPDIR:-/tmp}/tearleads-pre-push.lock"
+
+release_lock() {
+  if [ -d "$LOCK_DIR" ] && [ -f "$LOCK_DIR/pid" ]; then
+    lock_pid="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
+    if [ "$lock_pid" = "$$" ]; then
+      rm -rf "$LOCK_DIR"
+    fi
+  fi
+}
+
+acquire_lock() {
+  wait_step_seconds=2
+  wait_log_interval_seconds=30
+  waited_since_log=0
+  total_waited=0
+  while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+    if [ -f "$LOCK_DIR/pid" ]; then
+      lock_pid="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
+      if [ -n "$lock_pid" ] && ! kill -0 "$lock_pid" 2>/dev/null; then
+        stale_lock_dir="$LOCK_DIR.stale.$$"
+        if mv "$LOCK_DIR" "$stale_lock_dir" 2>/dev/null; then
+          rm -rf "$stale_lock_dir"
+          continue
+        fi
+      fi
+    fi
+    if [ "$waited_since_log" -eq 0 ]; then
+      echo "[pre-push] WAIT  another pre-push is active; waiting..." >&2
+    elif [ "$waited_since_log" -ge "$wait_log_interval_seconds" ]; then
+      echo "[pre-push] WAIT  still waiting for lock (${total_waited}s elapsed)" >&2
+      waited_since_log=0
+    fi
+    sleep "$wait_step_seconds"
+    waited_since_log=$((waited_since_log + wait_step_seconds))
+    total_waited=$((total_waited + wait_step_seconds))
+  done
+  printf '%s\n' "$$" > "$LOCK_DIR/pid"
+}
+
+trap 'release_lock' EXIT INT TERM HUP
+acquire_lock
+
 run_step() (
   label="$1"
   shift
