@@ -2,10 +2,21 @@ import { defineConfig, mergeConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
 import { sharedTestConfig } from '../../vitest.shared';
 
+const isCoverageRun = process.argv.includes('--coverage');
+
 export default mergeConfig(
   sharedTestConfig,
   defineConfig({
     test: {
+      // Limit concurrency only during coverage runs, where V8 instrumentation
+      // significantly increases memory pressure in this package.
+      ...(isCoverageRun
+        ? {
+            pool: 'forks' as const,
+            maxWorkers: 1,
+            minWorkers: 1
+          }
+        : {}),
       environment: 'happy-dom',
       globals: true,
       hookTimeout: 30000,
