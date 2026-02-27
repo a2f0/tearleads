@@ -20,7 +20,7 @@ export function highlightText(text: string, searchTerm: string): ReactNode {
   return (
     <>
       {before}
-      <mark className="bg-yellow-200 text-inherit">{match}</mark>
+      <mark className="bg-warning text-warning-foreground">{match}</mark>
       {after}
     </>
   );

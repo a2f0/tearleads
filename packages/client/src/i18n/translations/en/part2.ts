@@ -33,6 +33,7 @@ export const enPart2 = {
     // TagSidebar
     tagsSidebar: 'Tags Sidebar',
     tagListContextMenu: 'Tag list, press Shift+F10 for context menu',
+    allItems: 'All Items',
     virtualTags: 'Virtual Tags',
     deletedTags: 'Deleted Tags',
     tagList: 'Tag List',

@@ -102,13 +102,13 @@ describe('ClassicApp - Core functionality', () => {
       throw new Error('Expected tag list items');
     }
 
-    expect(workTagItem).toHaveStyle({ backgroundColor: '#e0f2fe' });
-    expect(personalTagItem).not.toHaveStyle({ backgroundColor: '#e0f2fe' });
+    expect(workTagItem).toHaveClass('bg-accent');
+    expect(personalTagItem).not.toHaveClass('bg-accent');
 
     fireEvent.click(screen.getByLabelText('Select tag Personal'));
 
-    expect(workTagItem).not.toHaveStyle({ backgroundColor: '#e0f2fe' });
-    expect(personalTagItem).toHaveStyle({ backgroundColor: '#e0f2fe' });
+    expect(workTagItem).not.toHaveClass('bg-accent');
+    expect(personalTagItem).toHaveClass('bg-accent');
   });
 
   it('reorders tags and notes via drag handle hover', () => {

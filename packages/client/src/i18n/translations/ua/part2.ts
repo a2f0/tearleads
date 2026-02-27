@@ -36,6 +36,7 @@ export const uaPart2 = {
     tagsSidebar: 'Бічна панель тегів',
     tagListContextMenu:
       'Список тегів, натисніть Shift+F10 для контекстного меню',
+    allItems: 'Усі елементи',
     virtualTags: 'Віртуальні теги',
     deletedTags: 'Видалені теги',
     tagList: 'Список тегів',

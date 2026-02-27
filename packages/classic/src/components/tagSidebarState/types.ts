@@ -11,6 +11,7 @@ export interface TagSidebarProps {
   activeTagId: string | null;
   editingTagId?: string | null;
   autoFocusSearch?: boolean;
+  totalNoteCount?: number;
   untaggedCount?: number;
   noteCountByTagId?: Record<string, number>;
   onSelectTag: (tagId: string) => void;

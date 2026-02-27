@@ -58,7 +58,7 @@ describe('TagSidebar untagged items', () => {
     expect(button).toHaveAttribute('aria-pressed', 'true');
     const untaggedItem = button.closest('li');
     if (!untaggedItem) throw new Error('Expected untagged list item');
-    expect(untaggedItem).toHaveStyle({ backgroundColor: '#e0f2fe' });
+    expect(untaggedItem).toHaveClass('bg-accent');
   });
 });
 

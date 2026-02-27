@@ -36,6 +36,7 @@ export const ptPart2 = {
     tagsSidebar: 'Barra lateral de tags',
     tagListContextMenu:
       'Lista de tags, pressione Shift+F10 para o menu de contexto',
+    allItems: 'Todos os itens',
     virtualTags: 'Tags virtuais',
     deletedTags: 'Tags excluidas',
     tagList: 'Lista de tags',

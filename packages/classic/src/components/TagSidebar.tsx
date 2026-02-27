@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import {
+  ALL_ENTRIES_TAG_ID,
+  ALL_ENTRIES_TAG_NAME,
   CREATE_CLASSIC_TAG_ARIA_LABEL,
   DEFAULT_CLASSIC_TAG_NAME,
   DRAG_TYPE_NOTE,
@@ -18,6 +20,7 @@ export function TagSidebar({
   activeTagId,
   editingTagId,
   autoFocusSearch,
+  totalNoteCount = 0,
   untaggedCount = 0,
   noteCountByTagId = {},
   onSelectTag,
@@ -111,24 +114,46 @@ export function TagSidebar({
         }}
       >
         <div className="pr-2">
-          {/* Untagged Items virtual tag */}
-          <ul className="m-0 mb-2 list-none p-0" aria-label={t('virtualTags')}>
+          {/* Virtual tags: All Items + Untagged Items */}
+          <ul className="m-0 mb-2 list-none space-y-1 p-0" aria-label={t('virtualTags')}>
             <li
               className={
-                activeTagId === UNTAGGED_TAG_ID
-                  ? 'border bg-sky-100 px-2 py-0.5'
-                  : 'border bg-white px-2 py-0.5'
-              }
-              style={
-                activeTagId === UNTAGGED_TAG_ID
-                  ? { backgroundColor: '#e0f2fe' }
-                  : undefined
+                activeTagId === null
+                  ? 'border bg-accent px-2 py-0.5'
+                  : 'border bg-background px-2 py-0.5'
               }
             >
               <div className="flex items-center gap-2">
                 <span
                   aria-hidden="true"
-                  className="w-4 shrink-0 select-none text-center text-xs text-zinc-400"
+                  className="w-4 shrink-0 select-none text-center text-xs text-muted-foreground"
+                >
+                  📁
+                </span>
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 rounded px-1.5 py-0.5 text-left text-sm"
+                  onClick={() => onSelectTag(ALL_ENTRIES_TAG_ID)}
+                  aria-pressed={activeTagId === null}
+                  aria-label={`Select ${ALL_ENTRIES_TAG_NAME}`}
+                >
+                  <span className="text-foreground">
+                    {t('allItems')} ({totalNoteCount})
+                  </span>
+                </button>
+              </div>
+            </li>
+            <li
+              className={
+                activeTagId === UNTAGGED_TAG_ID
+                  ? 'border bg-accent px-2 py-0.5'
+                  : 'border bg-background px-2 py-0.5'
+              }
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="w-4 shrink-0 select-none text-center text-xs text-muted-foreground"
                 >
                   📁
                 </span>
@@ -139,7 +164,7 @@ export function TagSidebar({
                   aria-pressed={activeTagId === UNTAGGED_TAG_ID}
                   aria-label={`Select ${UNTAGGED_TAG_NAME}`}
                 >
-                  <span className="text-zinc-700">
+                  <span className="text-foreground">
                     {UNTAGGED_TAG_NAME} ({untaggedCount})
                   </span>
                 </button>
@@ -151,21 +176,21 @@ export function TagSidebar({
               className="m-0 mb-2 list-none space-y-1 p-0"
               aria-label={t('deletedTags')}
             >
-              <li className="px-2 py-0.5 text-xs text-zinc-500 uppercase tracking-wide">
+              <li className="px-2 py-0.5 text-xs text-muted-foreground uppercase tracking-wide">
                 {t('deletedTags')} ({deletedTags.length})
               </li>
               {deletedTags.map((tag) => (
-                <li key={tag.id} className="border bg-zinc-50 px-2 py-0.5">
+                <li key={tag.id} className="border bg-card px-2 py-0.5">
                   <div className="flex items-center gap-2">
-                    <span className="w-4 shrink-0 select-none text-center text-xs text-zinc-400">
+                    <span className="w-4 shrink-0 select-none text-center text-xs text-muted-foreground">
                       🗑️
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-sm text-zinc-500">
+                    <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
                       {tag.name}
                     </span>
                     <button
                       type="button"
-                      className="rounded border border-zinc-300 px-1.5 py-0.5 text-xs"
+                      className="rounded border border-border px-1.5 py-0.5 text-xs"
                       onClick={() => onRestoreTag?.(tag.id)}
                       aria-label={`${t('restoreTag')} ${tag.name}`}
                       disabled={onRestoreTag === undefined}
@@ -185,15 +210,15 @@ export function TagSidebar({
                 type="button"
                 onClick={() => void onCreateTag()}
                 onContextMenu={(e) => e.preventDefault()}
-                className="w-full border border-zinc-300 border-dashed bg-zinc-50 px-2 py-0.5 text-left hover:border-zinc-400 hover:bg-zinc-100"
+                className="w-full border border-border border-dashed bg-card px-2 py-0.5 text-left hover:border-foreground/30 hover:bg-accent"
                 aria-label={CREATE_CLASSIC_TAG_ARIA_LABEL}
               >
                 <div className="flex items-center gap-2">
-                  <span className="w-4 shrink-0 text-center text-xs text-zinc-300">
+                  <span className="w-4 shrink-0 text-center text-xs text-muted-foreground/50">
                     ⋮⋮
                   </span>
                   <div className="min-w-0 flex-1 px-1.5 py-0.5">
-                    <span className="block h-4 rounded bg-zinc-200" />
+                    <span className="block h-4 rounded bg-muted" />
                   </div>
                 </div>
               </button>
@@ -204,15 +229,15 @@ export function TagSidebar({
             !onCreateTag && (
               // biome-ignore lint/a11y/noStaticElementInteractions: blocks context menu only
               <div
-                className="w-full border border-zinc-300 border-dashed bg-zinc-50 px-2 py-0.5"
+                className="w-full border border-border border-dashed bg-card px-2 py-0.5"
                 onContextMenu={(e) => e.preventDefault()}
               >
                 <div className="flex items-center gap-2">
-                  <span className="w-4 shrink-0 text-center text-xs text-zinc-300">
+                  <span className="w-4 shrink-0 text-center text-xs text-muted-foreground/50">
                     ⋮⋮
                   </span>
                   <div className="min-w-0 flex-1 px-1.5 py-0.5">
-                    <span className="block h-4 rounded bg-zinc-200" />
+                    <span className="block h-4 rounded bg-muted" />
                   </div>
                 </div>
               </div>
@@ -231,17 +256,10 @@ export function TagSidebar({
                     key={tag.id}
                     className={
                       dropTargetTagId === tag.id
-                        ? 'border bg-emerald-100 px-2 py-0.5'
+                        ? 'border bg-primary/20 px-2 py-0.5'
                         : isActive
-                          ? 'border bg-sky-100 px-2 py-0.5'
-                          : 'border bg-white px-2 py-0.5'
-                    }
-                    style={
-                      dropTargetTagId === tag.id
-                        ? { backgroundColor: '#d1fae5' }
-                        : isActive
-                          ? { backgroundColor: '#e0f2fe' }
-                          : undefined
+                          ? 'border bg-accent px-2 py-0.5'
+                          : 'border bg-background px-2 py-0.5'
                     }
                     draggable
                     onDragStart={(event) => {
@@ -386,8 +404,8 @@ export function TagSidebar({
                         onMouseUp={() => setDragArmedTagId(null)}
                         className={
                           draggedTagId === tag.id
-                            ? 'w-4 shrink-0 cursor-grabbing select-none text-center text-xs text-zinc-500'
-                            : 'w-4 shrink-0 cursor-grab select-none text-center text-xs text-zinc-400'
+                            ? 'w-4 shrink-0 cursor-grabbing select-none text-center text-xs text-foreground'
+                            : 'w-4 shrink-0 cursor-grab select-none text-center text-xs text-muted-foreground'
                         }
                         title={t('dragTag')}
                       >
@@ -402,14 +420,14 @@ export function TagSidebar({
                             onChange={(e) => setEditValue(e.target.value)}
                             onKeyDown={(e) => handleEditKeyDown(e, tag.id)}
                             onBlur={() => handleEditBlur(tag.id)}
-                            className="w-full border border-zinc-300 px-1.5 py-0.5 text-base text-sm focus:border-zinc-500 focus:outline-none"
+                            className="w-full border border-border px-1.5 py-0.5 text-base text-sm focus:border-ring focus:outline-none"
                             aria-label={`Edit tag ${tag.name}`}
                           />
                           <div className="mt-1 grid grid-cols-2 gap-0.5">
                             <button
                               type="button"
                               onClick={() => handleSave(tag.id)}
-                              className="border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-700 hover:border-zinc-500 focus:border-zinc-500 focus:outline-none"
+                              className="border border-border px-1.5 py-0.5 text-xs text-foreground hover:border-ring focus:border-ring focus:outline-none"
                               aria-label={t('saveTagName')}
                             >
                               {t('save')}
@@ -417,7 +435,7 @@ export function TagSidebar({
                             <button
                               type="button"
                               onClick={handleCancel}
-                              className="border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-700 hover:border-zinc-500 focus:border-zinc-500 focus:outline-none"
+                              className="border border-border px-1.5 py-0.5 text-xs text-foreground hover:border-ring focus:border-ring focus:outline-none"
                               aria-label={t('cancelEditing')}
                             >
                               {t('cancel')}
@@ -432,7 +450,7 @@ export function TagSidebar({
                           aria-pressed={isActive}
                           aria-label={`Select tag ${tag.name}`}
                         >
-                          <span className="text-zinc-700">
+                          <span className="text-foreground">
                             {highlightText(tag.name, searchValue)}
                             {noteCountByTagId[tag.id] !== undefined &&
                               ` (${noteCountByTagId[tag.id]})`}
@@ -455,7 +473,7 @@ export function TagSidebar({
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
             onKeyDown={onSearchKeyDown}
-            className="box-border w-full border border-zinc-300 px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
+            className="box-border w-full border border-border px-2 py-1 text-sm focus:border-ring focus:outline-none"
             aria-label={t('searchTags')}
           />
         </div>

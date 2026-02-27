@@ -198,6 +198,7 @@ export interface ClassicTranslations {
   // TagSidebar
   tagsSidebar: string;
   tagListContextMenu: string;
+  allItems: string;
   virtualTags: string;
   deletedTags: string;
   tagList: string;

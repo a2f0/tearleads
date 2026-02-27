@@ -199,32 +199,32 @@ export function NotesPane({
             type="button"
             onClick={() => void onCreateNote()}
             onContextMenu={(e) => e.preventDefault()}
-            className="w-full rounded border border-zinc-300 border-dashed bg-zinc-50 p-3 text-left hover:border-zinc-400 hover:bg-zinc-100"
+            className="w-full rounded border border-border border-dashed bg-card p-3 text-left hover:border-foreground/30 hover:bg-accent"
             aria-label={CREATE_CLASSIC_NOTE_ARIA_LABEL}
           >
             <div className="flex items-start gap-2">
-              <span className="w-4 shrink-0 pt-1 text-center text-xs text-zinc-300">
+              <span className="w-4 shrink-0 pt-1 text-center text-xs text-muted-foreground/50">
                 ⋮⋮
               </span>
               <div className="min-w-0 flex-1 space-y-1.5">
-                <span className="block h-4 w-2/3 rounded bg-zinc-200" />
-                <span className="block h-3 w-full rounded bg-zinc-200" />
+                <span className="block h-4 w-2/3 rounded bg-muted" />
+                <span className="block h-3 w-full rounded bg-muted" />
               </div>
             </div>
           </button>
         ) : noteIds.length === 0 ? (
           // biome-ignore lint/a11y/noStaticElementInteractions: blocks context menu only
           <div
-            className="rounded border border-zinc-300 border-dashed bg-zinc-50 p-3"
+            className="rounded border border-border border-dashed bg-card p-3"
             onContextMenu={(e) => e.preventDefault()}
           >
             <div className="flex items-start gap-2">
-              <span className="w-4 shrink-0 pt-1 text-center text-xs text-zinc-300">
+              <span className="w-4 shrink-0 pt-1 text-center text-xs text-muted-foreground/50">
                 ⋮⋮
               </span>
               <div className="min-w-0 flex-1 space-y-1.5">
-                <span className="block h-4 w-2/3 rounded bg-zinc-200" />
-                <span className="block h-3 w-full rounded bg-zinc-200" />
+                <span className="block h-4 w-2/3 rounded bg-muted" />
+                <span className="block h-3 w-full rounded bg-muted" />
               </div>
             </div>
           </div>
@@ -238,13 +238,8 @@ export function NotesPane({
                   key={note.id}
                   className={
                     dropTargetNoteId === note.id
-                      ? 'rounded bg-emerald-100 p-3'
+                      ? 'rounded bg-primary/20 p-3'
                       : 'rounded p-3'
-                  }
-                  style={
-                    dropTargetNoteId === note.id
-                      ? { backgroundColor: '#d1fae5' }
-                      : undefined
                   }
                   draggable
                   onDragStart={(event) => {
@@ -371,8 +366,8 @@ export function NotesPane({
                       <span
                         className={
                           draggedNoteId === note.id
-                            ? 'cursor-grabbing select-none text-center text-xs text-zinc-500'
-                            : 'cursor-grab select-none text-center text-xs text-zinc-400'
+                            ? 'cursor-grabbing select-none text-center text-xs text-foreground'
+                            : 'cursor-grab select-none text-center text-xs text-muted-foreground'
                         }
                       >
                         ⋮⋮
@@ -387,7 +382,7 @@ export function NotesPane({
                           onChange={(e) => setEditTitle(e.target.value)}
                           onKeyDown={(e) => handleEditKeyDown(e, note.id)}
                           onBlur={() => handleEditBlur(note.id)}
-                          className="w-full border border-zinc-300 px-1.5 py-0.5 text-base text-sm focus:border-zinc-500 focus:outline-none"
+                          className="w-full border border-border px-1.5 py-0.5 text-base text-sm focus:border-ring focus:outline-none"
                           aria-label={t('editEntryTitle')}
                         />
                         <textarea
@@ -395,7 +390,7 @@ export function NotesPane({
                           onChange={(e) => setEditBody(e.target.value)}
                           onKeyDown={(e) => handleEditKeyDown(e, note.id)}
                           onBlur={() => handleEditBlur(note.id)}
-                          className="w-full border border-zinc-300 px-1.5 py-0.5 font-mono text-base text-xs focus:border-zinc-500 focus:outline-none"
+                          className="w-full border border-border px-1.5 py-0.5 font-mono text-base text-xs focus:border-ring focus:outline-none"
                           rows={2}
                           aria-label={t('editEntryBody')}
                         />
@@ -403,7 +398,7 @@ export function NotesPane({
                           <button
                             type="button"
                             onClick={() => handleSave(note.id)}
-                            className="border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-700 hover:border-zinc-500 focus:border-zinc-500 focus:outline-none"
+                            className="border border-border px-1.5 py-0.5 text-xs text-foreground hover:border-ring focus:border-ring focus:outline-none"
                             aria-label={t('saveEntry')}
                           >
                             {t('save')}
@@ -411,7 +406,7 @@ export function NotesPane({
                           <button
                             type="button"
                             onClick={handleCancel}
-                            className="border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-700 hover:border-zinc-500 focus:border-zinc-500 focus:outline-none"
+                            className="border border-border px-1.5 py-0.5 text-xs text-foreground hover:border-ring focus:border-ring focus:outline-none"
                             aria-label={t('cancelEditing')}
                           >
                             {t('cancel')}
@@ -423,7 +418,7 @@ export function NotesPane({
                         <h3 className="text-sm">
                           {highlightText(note.title, searchValue)}
                         </h3>
-                        <p className="font-mono text-xs text-zinc-600">
+                        <p className="font-mono text-xs text-muted-foreground">
                           {highlightText(note.body, searchValue)}
                         </p>
                       </div>
@@ -442,7 +437,7 @@ export function NotesPane({
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
           onKeyDown={onSearchKeyDown}
-          className="w-64 border border-zinc-300 px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
+          className="w-64 border border-border px-2 py-1 text-sm focus:border-ring focus:outline-none"
           aria-label={t('searchEntries')}
         />
       </div>

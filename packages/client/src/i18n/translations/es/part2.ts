@@ -35,6 +35,7 @@ export const esPart2 = {
     tagsSidebar: 'Barra lateral de etiquetas',
     tagListContextMenu:
       'Lista de etiquetas, presione Shift+F10 para el menu contextual',
+    allItems: 'Todos los elementos',
     virtualTags: 'Etiquetas virtuales',
     deletedTags: 'Etiquetas eliminadas',
     tagList: 'Lista de etiquetas',

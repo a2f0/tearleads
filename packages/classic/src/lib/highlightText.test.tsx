@@ -43,7 +43,7 @@ describe('highlightText', () => {
     const mark = container.querySelector('mark');
     expect(mark).toBeInTheDocument();
     expect(mark).toHaveTextContent('World');
-    expect(mark).toHaveClass('bg-yellow-200');
+    expect(mark).toHaveClass('bg-warning');
   });
 
   it('performs case-insensitive matching', () => {
