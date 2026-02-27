@@ -49,6 +49,8 @@ export function runCoverageForPackage(pkg: string): void {
       typeof result.signal === 'string' && result.signal.length > 0
         ? result.signal
         : 'unknown';
-    throw new Error(`ci-impact: coverage for ${pkg} ended by signal ${signal}.`);
+    throw new Error(
+      `ci-impact: coverage for ${pkg} ended by signal ${signal}.`
+    );
   }
 }

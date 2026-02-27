@@ -483,7 +483,9 @@ function main(): void {
       runCoverageForPackage(pkg);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : String(error ?? 'unknown error');
+        error instanceof Error
+          ? error.message
+          : String(error ?? 'unknown error');
       console.error(message);
       process.exit(1);
     }
