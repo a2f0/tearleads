@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const RUNTIME_ROUTES_ROOT = join(process.cwd(), 'src/routes/vfs-shares');
+const RUNTIME_ROUTES_ROOT = join(import.meta.dirname, '.');
 
 function collectRuntimeSourceFiles(dir: string): string[] {
   const files: string[] = [];

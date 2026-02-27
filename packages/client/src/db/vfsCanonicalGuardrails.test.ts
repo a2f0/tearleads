@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const CLIENT_SRC_ROOT = join(process.cwd(), 'src');
+const CLIENT_SRC_ROOT = join(import.meta.dirname, '..');
 
 function collectRuntimeSourceFiles(dir: string): string[] {
   const files: string[] = [];

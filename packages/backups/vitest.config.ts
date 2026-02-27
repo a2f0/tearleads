@@ -1,47 +1,51 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, mergeConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import { createAppConfigPlugin } from '../app-builder/src/vite/createAppConfigPlugin';
+import { sharedTestConfig } from '../../vitest.shared';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const { plugin: appConfigPlugin } = createAppConfigPlugin(__dirname);
 
-export default defineConfig({
-  plugins: [appConfigPlugin, react()],
-  test: {
-    environment: 'jsdom',
-    globals: true,
-    setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
-    exclude: ['node_modules', 'dist'],
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'json-summary', 'html'],
-      reportsDirectory: './coverage',
-      include: ['src/**/*.{ts,tsx}'],
-      exclude: [
-        'src/**/*.test.{ts,tsx}',
-        'src/test/**/*',
-        'src/index.ts',
-        'src/**/index.ts'
-      ],
-      thresholds: {
-        statements: 65,
-        branches: 55,
-        functions: 60,
-        lines: 65
+export default mergeConfig(
+  sharedTestConfig,
+  defineConfig({
+    plugins: [appConfigPlugin, react()],
+    test: {
+      environment: 'jsdom',
+      globals: true,
+      setupFiles: ['./src/test/setup.ts'],
+      include: ['src/**/*.test.{ts,tsx}'],
+      exclude: ['node_modules', 'dist'],
+      coverage: {
+        provider: 'v8',
+        reporter: ['text', 'json', 'json-summary', 'html'],
+        reportsDirectory: './coverage',
+        include: ['src/**/*.{ts,tsx}'],
+        exclude: [
+          'src/**/*.test.{ts,tsx}',
+          'src/test/**/*',
+          'src/index.ts',
+          'src/**/index.ts'
+        ],
+        thresholds: {
+          statements: 65,
+          branches: 55,
+          functions: 60,
+          lines: 65
+        }
+      }
+    },
+    resolve: {
+      alias: {
+        '@backups': fileURLToPath(new URL('./src', import.meta.url)),
+        '@tearleads/ui': fileURLToPath(new URL('../ui/src/index.ts', import.meta.url)),
+        '@tearleads/window-manager': fileURLToPath(
+          new URL('../window-manager/src/index.ts', import.meta.url)
+        )
       }
     }
-  },
-  resolve: {
-    alias: {
-      '@backups': fileURLToPath(new URL('./src', import.meta.url)),
-      '@tearleads/ui': fileURLToPath(new URL('../ui/src/index.ts', import.meta.url)),
-      '@tearleads/window-manager': fileURLToPath(
-        new URL('../window-manager/src/index.ts', import.meta.url)
-      )
-    }
-  }
-});
+  })
+);

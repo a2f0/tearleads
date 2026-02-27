@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { isRecord } from '@tearleads/shared';
 import type { OpenAPIV3 } from 'openapi-types';
 import swaggerJsdoc from 'swagger-jsdoc';
@@ -22,7 +23,7 @@ const options: swaggerJsdoc.Options = {
       }
     ]
   },
-  apis: ['./src/**/*.ts']
+  apis: [join(import.meta.dirname, '**/*.ts')]
 };
 
 const generatedSpec = swaggerJsdoc(options);
