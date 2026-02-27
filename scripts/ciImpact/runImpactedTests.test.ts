@@ -49,7 +49,7 @@ test('runImpactedTests dry-run skips ciImpact script tests for unrelated package
   );
 });
 
-test('runImpactedTests dry-run selects ciImpact script tests for script changes', () => {
+test('runImpactedTests dry-run skips ciImpact script tests for unrelated script changes', () => {
   const result = runImpactedTests([
     '--files',
     'scripts/postgres/reset.sh',
@@ -59,7 +59,7 @@ test('runImpactedTests dry-run selects ciImpact script tests for script changes'
   assert.equal(result.status, 0, stderrText(result));
   assert.match(
     stdoutText(result),
-    /ci-impact: running ciImpact script tests\./
+    /ci-impact: no impacted ciImpact script tests\./
   );
 });
 
