@@ -67,6 +67,8 @@ const CI_IMPACT_SCRIPT_TEST_PREFIXES: ReadonlyArray<string> = [
   'scripts/ciImpact/',
   'scripts/agents/tooling/'
 ];
+const CI_IMPACT_SCRIPT_TEST_REGEX =
+  /^(?:scripts\/ciImpact\/|scripts\/agents\/tooling\/)/;
 const CI_IMPACT_SCRIPT_TEST_FILES: ReadonlyArray<string> = [
   'scripts/ciImpact/ciImpact.test.ts',
   'scripts/ciImpact/requiredWorkflows.test.ts',
@@ -289,9 +291,7 @@ function shouldRunCiImpactScriptTests(
   if (fullRun) {
     return true;
   }
-  return changedFiles.some((file) =>
-    CI_IMPACT_SCRIPT_TEST_PREFIXES.some((prefix) => file.startsWith(prefix))
-  );
+  return changedFiles.some((file) => CI_IMPACT_SCRIPT_TEST_REGEX.test(file));
 }
 
 function shouldRunFullCoverageSet(): boolean {
