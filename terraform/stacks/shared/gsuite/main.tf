@@ -12,6 +12,8 @@ locals {
     allow_external_members         = false
     allow_web_posting              = false
     include_in_global_address_list = false
+    primary_language               = "en_US"
+    who_can_assist_content         = "OWNERS_AND_MANAGERS"
     who_can_join                   = "INVITED_CAN_JOIN"
     who_can_discover_group         = "ALL_MEMBERS_CAN_DISCOVER"
     who_can_view_group             = "ALL_MEMBERS_CAN_VIEW"
@@ -47,6 +49,8 @@ resource "googleworkspace_group_settings" "groups" {
   allow_external_members         = each.value.allow_external_members
   allow_web_posting              = each.value.allow_web_posting
   include_in_global_address_list = each.value.include_in_global_address_list
+  primary_language               = each.value.primary_language
+  who_can_assist_content         = each.value.who_can_assist_content
   who_can_join                   = each.value.who_can_join
   who_can_discover_group         = each.value.who_can_discover_group
   who_can_view_group             = each.value.who_can_view_group
@@ -84,6 +88,47 @@ resource "googleworkspace_group_settings" "alerts" {
 
   # Hide from discovery - members only (most restrictive available)
   include_in_global_address_list = false
+  primary_language               = "en_US"
+  who_can_assist_content         = "OWNERS_AND_MANAGERS"
+  who_can_discover_group         = "ALL_MEMBERS_CAN_DISCOVER"
+  who_can_view_group             = "ALL_MEMBERS_CAN_VIEW"
+  who_can_view_membership        = "ALL_MEMBERS_CAN_VIEW"
+  who_can_contact_owner          = "ALL_MEMBERS_CAN_CONTACT"
+
+  # No web posting - email only
+  allow_web_posting = false
+}
+
+# =============================================================================
+# Support Distribution Group
+# Locked-down group for receiving external support requests
+# =============================================================================
+
+resource "googleworkspace_group" "support" {
+  count = var.support_group_enabled ? 1 : 0
+
+  email       = "support@${var.googleworkspace_domain}"
+  name        = "Support"
+  description = "Receives support requests from external senders"
+}
+
+resource "googleworkspace_group_settings" "support" {
+  count = var.support_group_enabled ? 1 : 0
+
+  email = googleworkspace_group.support[0].email
+
+  # Allow external senders to email this group
+  allow_external_members = false
+  who_can_post_message   = "ANYONE_CAN_POST"
+
+  # Lock down membership - invite only, no self-service
+  who_can_join        = "INVITED_CAN_JOIN"
+  who_can_leave_group = "NONE_CAN_LEAVE"
+
+  # Hide from discovery - members only
+  include_in_global_address_list = false
+  primary_language               = "en_US"
+  who_can_assist_content         = "OWNERS_AND_MANAGERS"
   who_can_discover_group         = "ALL_MEMBERS_CAN_DISCOVER"
   who_can_view_group             = "ALL_MEMBERS_CAN_VIEW"
   who_can_view_membership        = "ALL_MEMBERS_CAN_VIEW"

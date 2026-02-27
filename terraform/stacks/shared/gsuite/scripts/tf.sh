@@ -33,6 +33,14 @@ main() {
       ;;
   esac
 
+  local env_file="$REPO_ROOT/.secrets/root.env"
+  if [[ -f "$env_file" ]]; then
+    set -a
+    # shellcheck source=/dev/null
+    source "$env_file"
+    set +a
+  fi
+
   hydrate_googleworkspace_auth "$REPO_ROOT"
 
   case "$command" in
