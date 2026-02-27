@@ -93,6 +93,7 @@ export function ClientVideoProvider({ children }: ClientVideoProviderProps) {
       id: playlistId,
       objectType: 'playlist',
       ownerId: null,
+      encryptedName: name,
       createdAt: now
     });
 
@@ -115,6 +116,10 @@ export function ClientVideoProvider({ children }: ClientVideoProviderProps) {
         .update(playlists)
         .set({ encryptedName: newName })
         .where(eq(playlists.id, playlistId));
+      await db
+        .update(vfsRegistry)
+        .set({ encryptedName: newName })
+        .where(eq(vfsRegistry.id, playlistId));
     },
     []
   );

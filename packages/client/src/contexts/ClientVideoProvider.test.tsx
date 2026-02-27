@@ -219,7 +219,7 @@ describe('ClientVideoProvider', () => {
     expect(insertValues).toHaveBeenCalledTimes(2);
 
     await lastProviderProps.renamePlaylist('playlist-1', 'Comedy Movies');
-    expect(updateWhere).toHaveBeenCalledTimes(1);
+    expect(updateWhere).toHaveBeenCalledTimes(2);
 
     await lastProviderProps.deletePlaylist('playlist-1');
     expect(deleteWhere).toHaveBeenCalledTimes(3);

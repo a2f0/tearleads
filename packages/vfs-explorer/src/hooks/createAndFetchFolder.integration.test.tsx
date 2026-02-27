@@ -37,6 +37,40 @@ const createMockUI = () => ({
   )
 });
 
+function createTestWrapper(
+  db: ReturnType<VfsExplorerProviderProps['getDatabase']>,
+  overrides?: Partial<VfsExplorerProviderProps>
+) {
+  return ({ children }: { children: ReactNode }) => (
+    <VfsExplorerProvider
+      databaseState={{
+        isUnlocked: true,
+        isLoading: false,
+        currentInstanceId: 'test-instance'
+      }}
+      getDatabase={() => db}
+      ui={createMockUI() as unknown as VfsExplorerProviderProps['ui']}
+      vfsKeys={{
+        generateSessionKey: vi.fn(() => new Uint8Array(32)),
+        wrapSessionKey: vi.fn(async () => 'wrapped-key')
+      }}
+      auth={{
+        isLoggedIn: vi.fn(() => false),
+        readStoredAuth: vi.fn(() => ({ user: null }))
+      }}
+      featureFlags={{
+        getFeatureFlagValue: vi.fn(() => false)
+      }}
+      vfsApi={{
+        register: vi.fn(async () => {})
+      }}
+      {...overrides}
+    >
+      {children}
+    </VfsExplorerProvider>
+  );
+}
+
 describe('VFS Folder Integration: Create and Fetch', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -46,35 +80,8 @@ describe('VFS Folder Integration: Create and Fetch', () => {
     await withRealDatabase(
       async ({ db }) => {
         const folderName = 'My New Folder';
-
-        const wrapper = ({ children }: { children: ReactNode }) => (
-          <VfsExplorerProvider
-            databaseState={{
-              isUnlocked: true,
-              isLoading: false,
-              currentInstanceId: 'test-instance'
-            }}
-            getDatabase={() =>
-              db as ReturnType<VfsExplorerProviderProps['getDatabase']>
-            }
-            ui={createMockUI() as unknown as VfsExplorerProviderProps['ui']}
-            vfsKeys={{
-              generateSessionKey: vi.fn(() => new Uint8Array(32)),
-              wrapSessionKey: vi.fn(async () => 'wrapped-key')
-            }}
-            auth={{
-              isLoggedIn: vi.fn(() => false),
-              readStoredAuth: vi.fn(() => ({ user: null }))
-            }}
-            featureFlags={{
-              getFeatureFlagValue: vi.fn(() => false)
-            }}
-            vfsApi={{
-              register: vi.fn(async () => {})
-            }}
-          >
-            {children}
-          </VfsExplorerProvider>
+        const wrapper = createTestWrapper(
+          db as ReturnType<VfsExplorerProviderProps['getDatabase']>
         );
 
         const { result: createResult } = renderHook(
@@ -140,34 +147,8 @@ describe('VFS Folder Integration: Create and Fetch', () => {
   it('creates a nested folder under an existing parent', async () => {
     await withRealDatabase(
       async ({ db }) => {
-        const wrapper = ({ children }: { children: ReactNode }) => (
-          <VfsExplorerProvider
-            databaseState={{
-              isUnlocked: true,
-              isLoading: false,
-              currentInstanceId: 'test-instance'
-            }}
-            getDatabase={() =>
-              db as ReturnType<VfsExplorerProviderProps['getDatabase']>
-            }
-            ui={createMockUI() as unknown as VfsExplorerProviderProps['ui']}
-            vfsKeys={{
-              generateSessionKey: vi.fn(() => new Uint8Array(32)),
-              wrapSessionKey: vi.fn(async () => 'wrapped-key')
-            }}
-            auth={{
-              isLoggedIn: vi.fn(() => false),
-              readStoredAuth: vi.fn(() => ({ user: null }))
-            }}
-            featureFlags={{
-              getFeatureFlagValue: vi.fn(() => false)
-            }}
-            vfsApi={{
-              register: vi.fn(async () => {})
-            }}
-          >
-            {children}
-          </VfsExplorerProvider>
+        const wrapper = createTestWrapper(
+          db as ReturnType<VfsExplorerProviderProps['getDatabase']>
         );
 
         const { result: createResult } = renderHook(
@@ -233,35 +214,18 @@ describe('VFS Folder Integration: Create and Fetch', () => {
       async ({ db }) => {
         const folderName = 'Encrypted Folder';
         const mockWrapSessionKey = vi.fn(async () => 'wrapped-key-123');
-
-        const wrapper = ({ children }: { children: ReactNode }) => (
-          <VfsExplorerProvider
-            databaseState={{
-              isUnlocked: true,
-              isLoading: false,
-              currentInstanceId: 'test-instance'
-            }}
-            getDatabase={() =>
-              db as ReturnType<VfsExplorerProviderProps['getDatabase']>
-            }
-            ui={createMockUI() as unknown as VfsExplorerProviderProps['ui']}
-            vfsKeys={{
+        const wrapper = createTestWrapper(
+          db as ReturnType<VfsExplorerProviderProps['getDatabase']>,
+          {
+            vfsKeys: {
               generateSessionKey: vi.fn(() => new Uint8Array(32)),
               wrapSessionKey: mockWrapSessionKey
-            }}
-            auth={{
+            },
+            auth: {
               isLoggedIn: vi.fn(() => true),
               readStoredAuth: vi.fn(() => ({ user: { id: 'user-123' } }))
-            }}
-            featureFlags={{
-              getFeatureFlagValue: vi.fn(() => false)
-            }}
-            vfsApi={{
-              register: vi.fn(async () => {})
-            }}
-          >
-            {children}
-          </VfsExplorerProvider>
+            }
+          }
         );
 
         const { result: createResult } = renderHook(
@@ -305,37 +269,10 @@ describe('VFS Folder Integration: Create and Fetch', () => {
             .fn()
             .mockRejectedValue(new Error('Database write failed'))
         };
-
-        const wrapper = ({ children }: { children: ReactNode }) => (
-          <VfsExplorerProvider
-            databaseState={{
-              isUnlocked: true,
-              isLoading: false,
-              currentInstanceId: 'test-instance'
-            }}
-            getDatabase={() =>
-              mockDb as unknown as ReturnType<
-                VfsExplorerProviderProps['getDatabase']
-              >
-            }
-            ui={createMockUI() as unknown as VfsExplorerProviderProps['ui']}
-            vfsKeys={{
-              generateSessionKey: vi.fn(() => new Uint8Array(32)),
-              wrapSessionKey: vi.fn(async () => 'wrapped-key')
-            }}
-            auth={{
-              isLoggedIn: vi.fn(() => false),
-              readStoredAuth: vi.fn(() => ({ user: null }))
-            }}
-            featureFlags={{
-              getFeatureFlagValue: vi.fn(() => false)
-            }}
-            vfsApi={{
-              register: vi.fn(async () => {})
-            }}
+        const wrapper = createTestWrapper(
+          mockDb as unknown as ReturnType<
+            VfsExplorerProviderProps['getDatabase']
           >
-            {children}
-          </VfsExplorerProvider>
         );
 
         const { result: createResult } = renderHook(
@@ -360,37 +297,84 @@ describe('VFS Folder Integration: Create and Fetch', () => {
     );
   });
 
+  it('excludes emailFolder objects from the folder tree (#2274)', async () => {
+    await withRealDatabase(
+      async ({ db }) => {
+        // Seed VFS root
+        await db.insert(vfsRegistry).values({
+          id: VFS_ROOT_ID,
+          objectType: 'folder',
+          ownerId: null,
+          encryptedName: 'VFS Root',
+          createdAt: new Date()
+        });
+
+        // Seed a regular user folder under VFS root
+        const userFolderId = 'user-folder-1';
+        await db.insert(vfsRegistry).values({
+          id: userFolderId,
+          objectType: 'folder',
+          ownerId: null,
+          encryptedName: 'My Documents',
+          createdAt: new Date()
+        });
+        await db.insert(vfsLinks).values({
+          id: 'link-1',
+          parentId: VFS_ROOT_ID,
+          childId: userFolderId,
+          wrappedSessionKey: '',
+          createdAt: new Date()
+        });
+
+        // Seed email system folders with objectType 'emailFolder'
+        const emailFolderNames = ['Inbox', 'Sent', 'Drafts', 'Trash', 'Spam'];
+        for (const name of emailFolderNames) {
+          const emailId = `email-${name.toLowerCase()}`;
+          await db.insert(vfsRegistry).values({
+            id: emailId,
+            objectType: 'emailFolder',
+            ownerId: null,
+            encryptedName: name,
+            createdAt: new Date()
+          });
+        }
+
+        // Verify email folders exist in DB with correct type
+        const emailFolders = await db
+          .select({ id: vfsRegistry.id })
+          .from(vfsRegistry)
+          .where(eq(vfsRegistry.objectType, 'emailFolder'));
+        expect(emailFolders).toHaveLength(5);
+
+        const wrapper = createTestWrapper(
+          db as ReturnType<VfsExplorerProviderProps['getDatabase']>
+        );
+
+        const { result: foldersResult } = renderHook(() => useVfsFolders(), {
+          wrapper
+        });
+
+        await waitFor(() => {
+          expect(foldersResult.current.hasFetched).toBe(true);
+        });
+
+        // Only VFS root + user folder should appear (emailFolder type excluded)
+        expect(foldersResult.current.folders).toHaveLength(1);
+        expect(foldersResult.current.folders[0]?.id).toBe(VFS_ROOT_ID);
+        expect(foldersResult.current.folders[0]?.children).toHaveLength(1);
+        expect(foldersResult.current.folders[0]?.children?.[0]?.name).toBe(
+          'My Documents'
+        );
+      },
+      { migrations: vfsTestMigrations }
+    );
+  });
+
   it('creates multiple folders and verifies they all appear', async () => {
     await withRealDatabase(
       async ({ db }) => {
-        const wrapper = ({ children }: { children: ReactNode }) => (
-          <VfsExplorerProvider
-            databaseState={{
-              isUnlocked: true,
-              isLoading: false,
-              currentInstanceId: 'test-instance'
-            }}
-            getDatabase={() =>
-              db as ReturnType<VfsExplorerProviderProps['getDatabase']>
-            }
-            ui={createMockUI() as unknown as VfsExplorerProviderProps['ui']}
-            vfsKeys={{
-              generateSessionKey: vi.fn(() => new Uint8Array(32)),
-              wrapSessionKey: vi.fn(async () => 'wrapped-key')
-            }}
-            auth={{
-              isLoggedIn: vi.fn(() => false),
-              readStoredAuth: vi.fn(() => ({ user: null }))
-            }}
-            featureFlags={{
-              getFeatureFlagValue: vi.fn(() => false)
-            }}
-            vfsApi={{
-              register: vi.fn(async () => {})
-            }}
-          >
-            {children}
-          </VfsExplorerProvider>
+        const wrapper = createTestWrapper(
+          db as ReturnType<VfsExplorerProviderProps['getDatabase']>
         );
 
         const { result: createResult } = renderHook(

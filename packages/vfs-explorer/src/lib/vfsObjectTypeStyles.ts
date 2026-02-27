@@ -29,6 +29,7 @@ export const OBJECT_TYPE_ICONS: Record<VfsObjectType, typeof Folder> = {
   conversation: MessageSquare,
   // Collections
   folder: Folder,
+  emailFolder: Mail,
   playlist: ListMusic,
   album: Images,
   contactGroup: Users,
@@ -48,6 +49,7 @@ export const OBJECT_TYPE_COLORS: Record<VfsObjectType, string> = {
   conversation: 'text-indigo-600 dark:text-indigo-400',
   // Collections
   folder: 'text-yellow-600 dark:text-yellow-500',
+  emailFolder: 'text-sky-600 dark:text-sky-400',
   playlist: 'text-purple-600 dark:text-purple-400',
   album: 'text-success',
   contactGroup: 'text-blue-600 dark:text-blue-400',

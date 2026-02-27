@@ -112,6 +112,7 @@ export function useContactGroups(): UseContactGroupsResult {
         id: groupId,
         objectType: 'contactGroup',
         ownerId: null,
+        encryptedName: name,
         createdAt: now
       });
 
@@ -135,6 +136,10 @@ export function useContactGroups(): UseContactGroupsResult {
         .update(contactGroups)
         .set({ encryptedName: newName })
         .where(eq(contactGroups.id, groupId));
+      await db
+        .update(vfsRegistry)
+        .set({ encryptedName: newName })
+        .where(eq(vfsRegistry.id, groupId));
       await fetchGroups();
     },
     [fetchGroups, getDatabase]

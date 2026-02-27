@@ -294,6 +294,7 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
       id: playlistId,
       objectType: 'playlist',
       ownerId: null,
+      encryptedName: name,
       createdAt: now
     });
 
@@ -316,6 +317,10 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
         .update(playlists)
         .set({ encryptedName: newName })
         .where(eq(playlists.id, playlistId));
+      await db
+        .update(vfsRegistry)
+        .set({ encryptedName: newName })
+        .where(eq(vfsRegistry.id, playlistId));
     },
     []
   );
@@ -323,7 +328,6 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
   const deletePlaylist = useCallback(
     async (playlistId: string): Promise<void> => {
       const db = getDatabase();
-
       await db.delete(vfsLinks).where(eq(vfsLinks.parentId, playlistId));
       await db.delete(playlists).where(eq(playlists.id, playlistId));
       await db.delete(vfsRegistry).where(eq(vfsRegistry.id, playlistId));

@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { usePhotoAlbums } from './usePhotoAlbums';
+import { resetSystemAlbumInitGuard, usePhotoAlbums } from './usePhotoAlbums';
 
 const mockSelect = vi.fn();
 const mockInsert = vi.fn();
@@ -11,12 +11,16 @@ const mockInnerJoin = vi.fn();
 const mockWhere = vi.fn();
 const mockSet = vi.fn();
 const mockValues = vi.fn();
+const mockTransaction = vi.fn(async (cb: (tx: typeof mockDb) => unknown) =>
+  cb(mockDb)
+);
 
 const mockDb = {
   select: mockSelect,
   insert: mockInsert,
   update: mockUpdate,
-  delete: mockDelete
+  delete: mockDelete,
+  transaction: mockTransaction
 };
 
 vi.mock('@/db', () => ({
@@ -33,6 +37,7 @@ vi.mock('@/db/hooks', () => ({
 describe('usePhotoAlbums', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetSystemAlbumInitGuard();
 
     // Setup mock chain for select queries
     mockSelect.mockReturnValue({ from: mockFrom });

@@ -40,8 +40,6 @@ import {
 import { API_BASE_URL } from '@/lib/api';
 import { getAuthHeaderValue } from '@/lib/authStorage';
 
-const EMAIL_FOLDER_ICON = 'email-folder';
-
 function deriveFolderType(name: string | null): EmailFolderType {
   const normalized = (name ?? '').trim().toLowerCase();
   switch (normalized) {
@@ -100,12 +98,7 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
       })
       .from(vfsRegistry)
       .leftJoin(vfsLinks, eq(vfsRegistry.id, vfsLinks.childId))
-      .where(
-        and(
-          eq(vfsRegistry.objectType, 'folder'),
-          eq(vfsRegistry.icon, EMAIL_FOLDER_ICON)
-        )
-      )
+      .where(eq(vfsRegistry.objectType, 'emailFolder'))
       .orderBy(asc(vfsRegistry.encryptedName));
 
     const unreadRows = await db
@@ -141,10 +134,9 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
         db.transaction(async (tx) => {
           await tx.insert(vfsRegistry).values({
             id: folderId,
-            objectType: 'folder',
+            objectType: 'emailFolder',
             ownerId: null,
             encryptedName: name,
-            icon: EMAIL_FOLDER_ICON,
             createdAt: now
           });
 
@@ -226,29 +218,30 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
 
     for (const folderType of SYSTEM_FOLDER_TYPES) {
       const folderName = systemFolderName(folderType);
-      const existing = await db
-        .select({ id: vfsRegistry.id })
-        .from(vfsRegistry)
-        .where(
-          and(
-            eq(vfsRegistry.objectType, 'folder'),
-            eq(vfsRegistry.icon, EMAIL_FOLDER_ICON),
-            eq(vfsRegistry.encryptedName, folderName)
-          )
-        );
 
-      if (existing.length === 0) {
-        await runLocalWrite(async () => {
-          await db.insert(vfsRegistry).values({
-            id: crypto.randomUUID(),
-            objectType: 'folder',
-            ownerId: null,
-            encryptedName: folderName,
-            icon: EMAIL_FOLDER_ICON,
-            createdAt: new Date()
-          });
+      await runLocalWrite(async () => {
+        await db.transaction(async (tx) => {
+          const existing = await tx
+            .select({ id: vfsRegistry.id })
+            .from(vfsRegistry)
+            .where(
+              and(
+                eq(vfsRegistry.objectType, 'emailFolder'),
+                eq(vfsRegistry.encryptedName, folderName)
+              )
+            );
+
+          if (existing.length === 0) {
+            await tx.insert(vfsRegistry).values({
+              id: crypto.randomUUID(),
+              objectType: 'emailFolder',
+              ownerId: null,
+              encryptedName: folderName,
+              createdAt: new Date()
+            });
+          }
         });
-      }
+      });
     }
   }, []);
 
@@ -265,8 +258,7 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
         .from(vfsRegistry)
         .where(
           and(
-            eq(vfsRegistry.objectType, 'folder'),
-            eq(vfsRegistry.icon, EMAIL_FOLDER_ICON),
+            eq(vfsRegistry.objectType, 'emailFolder'),
             eq(vfsRegistry.encryptedName, folderName)
           )
         );
