@@ -22,10 +22,9 @@ export default mergeConfig(
     test: {
       ...(isCoverageRun
         ? {
-            pool: 'forks',
+            pool: 'threads',
             maxWorkers: 1,
             minWorkers: 1,
-            execArgv: ['--max-old-space-size=12288'],
             environment: 'jsdom'
           }
         : { environment: 'happy-dom' }),
