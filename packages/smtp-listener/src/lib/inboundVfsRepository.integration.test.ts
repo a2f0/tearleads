@@ -1,7 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPglitePool } from '@tearleads/api-test-utils';
-import { migrations } from '@tearleads/api/migrations';
-import { runMigrations } from '@tearleads/db/migrations';
 import type { Pool as PgPool } from 'pg';
 import type {
   InboundMessageEnvelopeRecord,
@@ -15,6 +13,68 @@ const { getPostgresPoolMock } = vi.hoisted(() => ({
 vi.mock('./postgres.js', () => ({
   getPostgresPool: getPostgresPoolMock
 }));
+
+/**
+ * Minimal schema matching the server-side Postgres tables used by
+ * inboundVfsRepository. This avoids importing @tearleads/api migrations
+ * (which violates the API boundary policy) while still exercising the
+ * real SQL queries against an in-memory Postgres via PGlite.
+ *
+ * Sync triggers are intentionally omitted since they reference auxiliary
+ * tables (vfs_sync_changes, vfs_crdt_ops) that are not relevant here.
+ */
+const SCHEMA_DDL = `
+  CREATE TABLE "vfs_registry" (
+    "id" TEXT PRIMARY KEY,
+    "object_type" TEXT NOT NULL,
+    "owner_id" TEXT,
+    "encrypted_session_key" TEXT,
+    "public_hierarchical_key" TEXT,
+    "encrypted_private_hierarchical_key" TEXT,
+    "encrypted_name" TEXT,
+    "created_at" TIMESTAMPTZ NOT NULL
+  );
+
+  CREATE TABLE "emails" (
+    "id" TEXT PRIMARY KEY REFERENCES "vfs_registry"("id") ON DELETE CASCADE,
+    "encrypted_subject" TEXT,
+    "encrypted_from" TEXT,
+    "encrypted_to" JSONB,
+    "encrypted_cc" JSONB,
+    "encrypted_body_path" TEXT,
+    "ciphertext_size" INTEGER NOT NULL DEFAULT 0,
+    "received_at" TIMESTAMPTZ NOT NULL,
+    "is_read" BOOLEAN NOT NULL DEFAULT false,
+    "is_starred" BOOLEAN NOT NULL DEFAULT false
+  );
+
+  CREATE TABLE "vfs_links" (
+    "id" TEXT PRIMARY KEY,
+    "parent_id" TEXT NOT NULL REFERENCES "vfs_registry"("id") ON DELETE CASCADE,
+    "child_id" TEXT NOT NULL REFERENCES "vfs_registry"("id") ON DELETE CASCADE,
+    "wrapped_session_key" TEXT NOT NULL,
+    "wrapped_hierarchical_key" TEXT,
+    "visible_children" JSONB,
+    "position" INTEGER,
+    "created_at" TIMESTAMPTZ NOT NULL
+  );
+
+  CREATE TABLE "vfs_acl_entries" (
+    "id" TEXT PRIMARY KEY,
+    "item_id" TEXT NOT NULL REFERENCES "vfs_registry"("id") ON DELETE CASCADE,
+    "principal_type" TEXT NOT NULL CHECK ("principal_type" IN ('user', 'group', 'organization')),
+    "principal_id" TEXT NOT NULL,
+    "access_level" TEXT NOT NULL CHECK ("access_level" IN ('read', 'write', 'admin')),
+    "wrapped_session_key" TEXT,
+    "wrapped_hierarchical_key" TEXT,
+    "key_epoch" INTEGER,
+    "granted_by" TEXT,
+    "created_at" TIMESTAMPTZ NOT NULL,
+    "updated_at" TIMESTAMPTZ NOT NULL,
+    "expires_at" TIMESTAMPTZ,
+    "revoked_at" TIMESTAMPTZ
+  );
+`;
 
 function buildEnvelope(): InboundMessageEnvelopeRecord {
   return {
@@ -51,13 +111,7 @@ describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
     pool = result.pool;
     exec = result.exec;
 
-    // PGlite compatibility stub for txid_current() used by v021
-    await exec(
-      `CREATE OR REPLACE FUNCTION txid_current() RETURNS BIGINT
-       LANGUAGE SQL AS $$ SELECT (EXTRACT(EPOCH FROM now()) * 1000)::BIGINT $$;`
-    );
-
-    await runMigrations(pool, migrations);
+    await exec(SCHEMA_DDL);
 
     getPostgresPoolMock.mockResolvedValue(pool);
   });
@@ -67,20 +121,8 @@ describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
   });
 
   beforeEach(async () => {
-    // Clean recipient-related tables between tests
     await pool.query(
-      'TRUNCATE vfs_acl_entries, vfs_links, emails, vfs_registry, vfs_sync_changes CASCADE'
-    );
-    await pool.query('DELETE FROM users');
-    await pool.query('DELETE FROM organizations');
-    // Seed user required by vfs_sync_changes FK trigger
-    await pool.query(
-      `INSERT INTO organizations (id, name, is_personal, created_at, updated_at)
-       VALUES ('org-user-1', 'Personal - user-1', TRUE, NOW(), NOW())`
-    );
-    await pool.query(
-      `INSERT INTO users (id, email, personal_organization_id, created_at, updated_at)
-       VALUES ('user-1', 'user-1@test.com', 'org-user-1', NOW(), NOW())`
+      'TRUNCATE vfs_acl_entries, vfs_links, emails, vfs_registry CASCADE'
     );
   });
 
