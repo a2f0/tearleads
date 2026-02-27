@@ -1,6 +1,14 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPglitePool } from '@tearleads/api-test-utils';
 import type { Pool as PgPool } from 'pg';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi
+} from 'vitest';
 import type {
   InboundMessageEnvelopeRecord,
   ResolvedInboundRecipient
@@ -171,6 +179,8 @@ describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
       encrypted_from: 'enc-from'
     });
 
+    const emailItemId = (emailResult.rows[0] as Record<string, unknown>)['id'];
+
     // Verify vfs_link was created
     const linksResult = await pool.query(
       `SELECT parent_id, child_id FROM vfs_links`
@@ -178,7 +188,7 @@ describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
     expect(linksResult.rows).toHaveLength(1);
     expect(linksResult.rows[0]).toMatchObject({
       parent_id: 'email-inbox:user-1',
-      child_id: emailResult.rows[0]!['id']
+      child_id: emailItemId
     });
 
     // Verify ACL entry was created
@@ -187,7 +197,7 @@ describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
     );
     expect(aclResult.rows).toHaveLength(1);
     expect(aclResult.rows[0]).toMatchObject({
-      item_id: emailResult.rows[0]!['id'],
+      item_id: emailItemId,
       principal_id: 'user-1',
       access_level: 'read'
     });
