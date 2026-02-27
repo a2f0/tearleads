@@ -82,7 +82,7 @@ describe('useContacts', () => {
       select: vi.fn().mockReturnValue({ from: mockFrom })
     };
 
-    const { result, rerender } = renderHook(() => useContacts(), {
+    const { result } = renderHook(() => useContacts(), {
       wrapper: createWrapper({
         database: mockDatabase as never,
         activeOrganizationId: null
