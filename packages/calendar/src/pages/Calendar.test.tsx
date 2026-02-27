@@ -156,9 +156,8 @@ describe('Calendar', () => {
 
   it('renames a sidebar calendar from its context menu', async () => {
     const user = userEvent.setup();
-    const promptSpy = vi
-      .spyOn(window, 'prompt')
-      .mockReturnValue('Work Renamed');
+    vi.stubGlobal('prompt', vi.fn().mockReturnValue('Work Renamed'));
+    const promptSpy = vi.spyOn(window, 'prompt');
     render(<CalendarContent />);
 
     fireEvent(
@@ -186,6 +185,7 @@ describe('Calendar', () => {
 
   it('does not rename calendar for cancel, empty, or duplicate names', async () => {
     const user = userEvent.setup();
+    vi.stubGlobal('prompt', vi.fn());
     const promptSpy = vi.spyOn(window, 'prompt');
     render(<CalendarContent />);
 

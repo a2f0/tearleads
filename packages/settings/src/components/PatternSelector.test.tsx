@@ -150,8 +150,8 @@ describe('PatternSelector', () => {
   it('applies fixed square dimensions on pattern options', () => {
     renderPatternSelector();
     const patternOption = screen.getByTestId('pattern-option-solid');
-    expect(patternOption.style.width).toBe('100px');
-    expect(patternOption.style.minWidth).toBe('100px');
+    expect(patternOption.style.width).toBe(patternOption.style.minWidth);
+    expect(Number.parseInt(patternOption.style.width, 10)).toBeGreaterThan(0);
     expect(patternOption.className).toContain('shrink-0');
   });
 

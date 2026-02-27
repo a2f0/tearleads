@@ -340,7 +340,7 @@ describe('FloatingWindow', () => {
     await user.click(screen.getByRole('button', { name: /restore/i }));
 
     await waitFor(() => {
-      expect(dialog).toHaveStyle({ maxWidth: '100vw' });
+      expect(dialog.style.maxWidth).toBe('100vw');
     });
   });
 

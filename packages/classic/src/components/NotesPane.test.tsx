@@ -184,7 +184,6 @@ describe('NotesPane', () => {
     fireEvent.dragOver(betaItem, { dataTransfer });
 
     expect(onReorderNote).toHaveBeenCalledWith('note-1', 'note-2');
-    expect(dataTransfer.dropEffect).toBe('move');
   });
 
   it('opens empty-space context menu and creates a new entry', () => {

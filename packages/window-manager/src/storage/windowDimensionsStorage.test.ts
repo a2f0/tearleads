@@ -52,7 +52,7 @@ describe('windowDimensionsStorage', () => {
 
     it('handles localStorage errors gracefully', () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const mockSetItem = vi.spyOn(Storage.prototype, 'setItem');
+      const mockSetItem = vi.spyOn(localStorage, 'setItem');
       mockSetItem.mockImplementation(() => {
         throw new Error('QuotaExceededError');
       });

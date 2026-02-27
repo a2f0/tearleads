@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -153,7 +153,9 @@ describe('WorkoutDetail', () => {
     await user.selectOptions(screen.getByLabelText('Category'), 'back-squat');
     await user.type(screen.getByLabelText('Reps'), '5');
     await user.type(screen.getByLabelText('Weight'), '225');
-    await user.click(screen.getByRole('button', { name: 'Add Entry' }));
+    fireEvent.submit(
+      screen.getByRole('form', { name: 'Add workout entry form' })
+    );
 
     await waitFor(() => {
       expect(mockAddEntry).toHaveBeenCalledTimes(1);

@@ -32,6 +32,14 @@ describe('CameraCapture', () => {
       configurable: true,
       value: HTMLMediaElement.HAVE_METADATA
     });
+    Object.defineProperty(HTMLVideoElement.prototype, 'videoWidth', {
+      configurable: true,
+      get: () => 1280
+    });
+    Object.defineProperty(HTMLVideoElement.prototype, 'videoHeight', {
+      configurable: true,
+      get: () => 720
+    });
 
     const mockContext = {
       drawImage: vi.fn()
@@ -64,15 +72,9 @@ describe('CameraCapture', () => {
         video: { facingMode: 'environment' }
       });
     });
-
-    const video = screen.getByTestId('camera-video');
-    Object.defineProperty(video, 'videoWidth', {
-      configurable: true,
-      value: 1280
-    });
-    Object.defineProperty(video, 'videoHeight', {
-      configurable: true,
-      value: 720
+    fireEvent.loadedMetadata(screen.getByTestId('camera-video'));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Capture' })).toBeEnabled();
     });
 
     // Capture shows review screen
@@ -104,15 +106,9 @@ describe('CameraCapture', () => {
     await waitFor(() => {
       expect(getUserMedia).toHaveBeenCalledTimes(1);
     });
-
-    const video = screen.getByTestId('camera-video');
-    Object.defineProperty(video, 'videoWidth', {
-      configurable: true,
-      value: 1280
-    });
-    Object.defineProperty(video, 'videoHeight', {
-      configurable: true,
-      value: 720
+    fireEvent.loadedMetadata(screen.getByTestId('camera-video'));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Capture' })).toBeEnabled();
     });
 
     // Capture shows review screen

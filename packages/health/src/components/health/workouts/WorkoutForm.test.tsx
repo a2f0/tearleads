@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkoutForm } from './WorkoutForm';
@@ -19,6 +19,10 @@ const mockExercises = [...mockParentExercises, ...mockChildExercises];
 
 describe('WorkoutForm', () => {
   const mockOnSubmit = vi.fn();
+  const submit = () =>
+    fireEvent.submit(
+      screen.getByRole('form', { name: 'Add workout entry form' })
+    );
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -73,7 +77,7 @@ describe('WorkoutForm', () => {
 
     await user.type(screen.getByLabelText('Reps'), '5');
     await user.type(screen.getByLabelText('Weight'), '225');
-    await user.click(screen.getByRole('button', { name: 'Add Entry' }));
+    submit();
 
     expect(screen.getByText('Exercise is required')).toBeInTheDocument();
     expect(mockOnSubmit).not.toHaveBeenCalled();
@@ -86,7 +90,7 @@ describe('WorkoutForm', () => {
     // Select category without children (auto-selects as exercise)
     await user.selectOptions(screen.getByLabelText('Category'), 'back-squat');
     await user.type(screen.getByLabelText('Weight'), '225');
-    await user.click(screen.getByRole('button', { name: 'Add Entry' }));
+    submit();
 
     expect(screen.getByText('Reps is required')).toBeInTheDocument();
     expect(mockOnSubmit).not.toHaveBeenCalled();
@@ -102,7 +106,7 @@ describe('WorkoutForm', () => {
 
     await user.selectOptions(screen.getByLabelText('Category'), 'back-squat');
     await user.type(screen.getByLabelText('Reps'), '5');
-    await user.click(screen.getByRole('button', { name: 'Add Entry' }));
+    submit();
 
     expect(screen.getByText('Weight is required')).toBeInTheDocument();
     expect(mockOnSubmit).not.toHaveBeenCalled();
@@ -115,7 +119,7 @@ describe('WorkoutForm', () => {
     await user.selectOptions(screen.getByLabelText('Category'), 'back-squat');
     await user.type(screen.getByLabelText('Reps'), '10');
     await user.type(screen.getByLabelText('Weight'), '0');
-    await user.click(screen.getByRole('button', { name: 'Add Entry' }));
+    submit();
 
     await waitFor(() => {
       expect(mockOnSubmit).toHaveBeenCalledTimes(1);
@@ -133,7 +137,7 @@ describe('WorkoutForm', () => {
     await user.selectOptions(screen.getByLabelText('Category'), 'back-squat');
     await user.type(screen.getByLabelText('Reps'), '5');
     await user.type(screen.getByLabelText('Weight'), '225');
-    await user.click(screen.getByRole('button', { name: 'Add Entry' }));
+    submit();
 
     await waitFor(() => {
       expect(mockOnSubmit).toHaveBeenCalledTimes(1);
@@ -156,7 +160,7 @@ describe('WorkoutForm', () => {
     await user.selectOptions(screen.getByLabelText('Exercise'), 'wide-grip');
     await user.type(screen.getByLabelText('Reps'), '10');
     await user.type(screen.getByLabelText('Weight'), '0');
-    await user.click(screen.getByRole('button', { name: 'Add Entry' }));
+    submit();
 
     await waitFor(() => {
       expect(mockOnSubmit).toHaveBeenCalledTimes(1);
@@ -175,7 +179,7 @@ describe('WorkoutForm', () => {
     await user.type(screen.getByLabelText('Reps'), '5');
     await user.type(screen.getByLabelText('Weight'), '100');
     await user.selectOptions(screen.getByLabelText('Unit'), 'kg');
-    await user.click(screen.getByRole('button', { name: 'Add Entry' }));
+    submit();
 
     await waitFor(() => {
       expect(mockOnSubmit).toHaveBeenCalledTimes(1);
@@ -193,7 +197,7 @@ describe('WorkoutForm', () => {
     await user.type(screen.getByLabelText('Reps'), '5');
     await user.type(screen.getByLabelText('Weight'), '225');
     await user.type(screen.getByLabelText('Note'), 'PR attempt');
-    await user.click(screen.getByRole('button', { name: 'Add Entry' }));
+    submit();
 
     await waitFor(() => {
       expect(mockOnSubmit).toHaveBeenCalledTimes(1);
@@ -215,7 +219,7 @@ describe('WorkoutForm', () => {
     await user.type(repsInput, '5');
     await user.type(weightInput, '225');
     await user.type(noteInput, 'Test note');
-    await user.click(screen.getByRole('button', { name: 'Add Entry' }));
+    submit();
 
     await waitFor(() => {
       expect(repsInput).toHaveValue(null);
@@ -239,7 +243,7 @@ describe('WorkoutForm', () => {
     await user.selectOptions(screen.getByLabelText('Category'), 'back-squat');
     await user.type(screen.getByLabelText('Reps'), '5');
     await user.type(screen.getByLabelText('Weight'), '225');
-    await user.click(screen.getByRole('button', { name: 'Add Entry' }));
+    submit();
 
     expect(screen.getByText('Adding...')).toBeInTheDocument();
     expect(screen.getByLabelText('Reps')).toBeDisabled();
@@ -261,7 +265,7 @@ describe('WorkoutForm', () => {
     await user.selectOptions(screen.getByLabelText('Category'), 'back-squat');
     await user.type(screen.getByLabelText('Reps'), '5');
     await user.type(screen.getByLabelText('Weight'), '225');
-    await user.click(screen.getByRole('button', { name: 'Add Entry' }));
+    submit();
 
     await waitFor(() => {
       expect(screen.getByText('Database error')).toBeInTheDocument();

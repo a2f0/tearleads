@@ -1,10 +1,14 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WeightForm } from './WeightForm';
 
 describe('WeightForm', () => {
   const mockOnSubmit = vi.fn();
+  const submit = () =>
+    fireEvent.submit(
+      screen.getByRole('form', { name: 'Add weight reading form' })
+    );
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -32,10 +36,9 @@ describe('WeightForm', () => {
   });
 
   it('shows validation error when weight is empty', async () => {
-    const user = userEvent.setup();
     render(<WeightForm onSubmit={mockOnSubmit} />);
 
-    await user.click(screen.getByRole('button', { name: 'Add Reading' }));
+    submit();
 
     expect(screen.getByText('Weight is required')).toBeInTheDocument();
     expect(mockOnSubmit).not.toHaveBeenCalled();
@@ -47,7 +50,7 @@ describe('WeightForm', () => {
 
     const weightInput = screen.getByLabelText('Weight');
     await user.type(weightInput, '0');
-    await user.click(screen.getByRole('button', { name: 'Add Reading' }));
+    submit();
 
     expect(
       screen.getByText('Weight must be a positive number')
@@ -62,7 +65,7 @@ describe('WeightForm', () => {
     const dateInput = screen.getByLabelText('Date & Time');
     await user.clear(dateInput);
     await user.type(screen.getByLabelText('Weight'), '185');
-    await user.click(screen.getByRole('button', { name: 'Add Reading' }));
+    submit();
 
     expect(screen.getByText('Date is required')).toBeInTheDocument();
     expect(mockOnSubmit).not.toHaveBeenCalled();
@@ -73,7 +76,7 @@ describe('WeightForm', () => {
     render(<WeightForm onSubmit={mockOnSubmit} />);
 
     await user.type(screen.getByLabelText('Weight'), '185.5');
-    await user.click(screen.getByRole('button', { name: 'Add Reading' }));
+    submit();
 
     await waitFor(() => {
       expect(mockOnSubmit).toHaveBeenCalledTimes(1);
@@ -91,7 +94,7 @@ describe('WeightForm', () => {
 
     await user.type(screen.getByLabelText('Weight'), '84');
     await user.selectOptions(screen.getByLabelText('Unit'), 'kg');
-    await user.click(screen.getByRole('button', { name: 'Add Reading' }));
+    submit();
 
     await waitFor(() => {
       expect(mockOnSubmit).toHaveBeenCalledTimes(1);
@@ -107,7 +110,7 @@ describe('WeightForm', () => {
 
     await user.type(screen.getByLabelText('Weight'), '185');
     await user.type(screen.getByLabelText('Note'), 'Morning weight');
-    await user.click(screen.getByRole('button', { name: 'Add Reading' }));
+    submit();
 
     await waitFor(() => {
       expect(mockOnSubmit).toHaveBeenCalledTimes(1);
@@ -126,7 +129,7 @@ describe('WeightForm', () => {
 
     await user.type(weightInput, '185');
     await user.type(noteInput, 'Test note');
-    await user.click(screen.getByRole('button', { name: 'Add Reading' }));
+    submit();
 
     await waitFor(() => {
       expect(weightInput).toHaveValue(null);
@@ -147,7 +150,7 @@ describe('WeightForm', () => {
     render(<WeightForm onSubmit={mockOnSubmit} />);
 
     await user.type(screen.getByLabelText('Weight'), '185');
-    await user.click(screen.getByRole('button', { name: 'Add Reading' }));
+    submit();
 
     expect(screen.getByText('Adding...')).toBeInTheDocument();
     expect(screen.getByLabelText('Weight')).toBeDisabled();
@@ -167,7 +170,7 @@ describe('WeightForm', () => {
     render(<WeightForm onSubmit={mockOnSubmit} />);
 
     await user.type(screen.getByLabelText('Weight'), '185');
-    await user.click(screen.getByRole('button', { name: 'Add Reading' }));
+    submit();
 
     await waitFor(() => {
       expect(screen.getByText('Database error')).toBeInTheDocument();

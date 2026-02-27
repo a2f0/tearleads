@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -131,7 +131,9 @@ describe('WeightDetail', () => {
     render(<WeightDetail />, { wrapper });
 
     await user.type(screen.getByLabelText('Weight'), '184');
-    await user.click(screen.getByRole('button', { name: 'Add Reading' }));
+    fireEvent.submit(
+      screen.getByRole('form', { name: 'Add weight reading form' })
+    );
 
     await waitFor(() => {
       expect(mockAddReading).toHaveBeenCalledTimes(1);
