@@ -2,7 +2,7 @@ import { Button, Input } from '@tearleads/ui';
 import { FileImage, FileText, Loader2, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { WalletMediaFileOption } from '../../lib/walletData';
-import { getWalletUiDependencies } from '../../lib/walletUiDependencies';
+import { useWalletRuntime } from '../../runtime';
 
 interface WalletMediaPreview extends WalletMediaFileOption {
   objectUrl: string | null;
@@ -33,10 +33,8 @@ export function WalletMediaPickerModal({
   onOpenChange,
   onSelectFile
 }: WalletMediaPickerModalProps) {
-  const dependencies = getWalletUiDependencies();
-  const databaseContext = dependencies?.useDatabaseContext();
-  const isUnlocked = databaseContext?.isUnlocked ?? false;
-  const currentInstanceId = databaseContext?.currentInstanceId ?? null;
+  const { isUnlocked, currentInstanceId, loadMediaPreview } =
+    useWalletRuntime();
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,13 +76,10 @@ export function WalletMediaPickerModal({
       setError(null);
 
       try {
-        if (!dependencies) {
-          throw new Error('Wallet is not configured.');
-        }
         const loadedPreviews = await Promise.all(
           files.map(async (file) => {
             try {
-              const objectUrl = await dependencies.loadWalletMediaPreview(
+              const objectUrl = await loadMediaPreview(
                 file,
                 currentInstanceId
               );
@@ -122,9 +117,9 @@ export function WalletMediaPickerModal({
     };
   }, [
     currentInstanceId,
-    dependencies,
     files,
     isUnlocked,
+    loadMediaPreview,
     open,
     replacePreviews
   ]);

@@ -3,11 +3,12 @@ import { CreditCard, Loader2, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import {
   getWalletItemTypeLabel,
-  listWalletItems,
   type WalletItemSummary
 } from '../../lib/walletData';
 import { getWalletSubtypeLabel } from '../../lib/walletSubtypes';
-import { getWalletUiDependencies } from '../../lib/walletUiDependencies';
+import { useWalletRuntime } from '../../runtime';
+import { InlineUnlock } from '../sqlite/InlineUnlock';
+import { useWalletTracker } from './useWalletTracker';
 
 interface WalletItemsListProps {
   onOpenItem: (itemId: string) => void;
@@ -27,28 +28,26 @@ export function WalletItemsList({
   onCreateItem,
   refreshSignal = 0
 }: WalletItemsListProps) {
-  const dependencies = getWalletUiDependencies();
-  const databaseContext = dependencies?.useDatabaseContext();
-  const isLoading = databaseContext?.isLoading ?? false;
-  const isUnlocked = databaseContext?.isUnlocked ?? false;
-  const InlineUnlock = dependencies?.InlineUnlock;
+  const { isUnlocked } = useWalletRuntime();
+  const tracker = useWalletTracker();
   const [items, setItems] = useState<WalletItemSummary[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchItems = useCallback(async () => {
+    if (!tracker) return;
     setLoadingItems(true);
     setError(null);
 
     try {
-      const walletItems = await listWalletItems();
+      const walletItems = await tracker.listItems();
       setItems(walletItems);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoadingItems(false);
     }
-  }, []);
+  }, [tracker]);
 
   useEffect(() => {
     if (!isUnlocked) {
@@ -66,22 +65,7 @@ export function WalletItemsList({
     void fetchItems();
   }, [fetchItems, isUnlocked, refreshSignal]);
 
-  if (isLoading) {
-    return (
-      <div className="rounded-lg border p-6 text-center text-muted-foreground">
-        Loading database...
-      </div>
-    );
-  }
-
   if (!isUnlocked) {
-    if (!InlineUnlock) {
-      return (
-        <div className="rounded-lg border p-6 text-center text-muted-foreground">
-          Wallet is not configured.
-        </div>
-      );
-    }
     return <InlineUnlock description="this wallet" />;
   }
 

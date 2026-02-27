@@ -1,36 +1,16 @@
 import { Loader2 } from 'lucide-react';
-import { getWalletUiDependencies } from '../../lib/walletUiDependencies';
+import { InlineUnlock } from '../sqlite/InlineUnlock';
 
 interface WalletItemLoadingStatesProps {
-  isLoading: boolean;
   isUnlocked: boolean;
   loadingDetail: boolean;
 }
 
 export function WalletItemLoadingStates({
-  isLoading,
   isUnlocked,
   loadingDetail
 }: WalletItemLoadingStatesProps): React.ReactElement | null {
-  const dependencies = getWalletUiDependencies();
-  const InlineUnlock = dependencies?.InlineUnlock;
-
-  if (isLoading) {
-    return (
-      <div className="rounded-lg border p-6 text-center text-muted-foreground">
-        Loading database...
-      </div>
-    );
-  }
-
   if (!isUnlocked) {
-    if (!InlineUnlock) {
-      return (
-        <div className="rounded-lg border p-6 text-center text-muted-foreground">
-          Wallet is not configured.
-        </div>
-      );
-    }
     return <InlineUnlock description="this wallet item" />;
   }
 

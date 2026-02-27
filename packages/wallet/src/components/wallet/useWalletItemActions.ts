@@ -1,10 +1,7 @@
 import { useCallback, useState } from 'react';
-import {
-  type SaveWalletItemResult,
-  saveWalletItem,
-  softDeleteWalletItem
-} from '../../lib/walletData';
+import type { SaveWalletItemResult } from '../../lib/walletData';
 import type { WalletItemFormState } from './walletItemFormUtils';
+import { useWalletTracker } from './useWalletTracker';
 
 interface UseWalletItemActionsProps {
   itemId: string;
@@ -34,18 +31,20 @@ export function useWalletItemActions({
   onSaved,
   onDeleted
 }: UseWalletItemActionsProps): UseWalletItemActionsResult {
+  const tracker = useWalletTracker();
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleSave = useCallback(async () => {
+    if (!tracker) return;
     setSaving(true);
     setError(null);
     setSuccessMessage(null);
 
     try {
-      const result = await saveWalletItem({
+      const result = await tracker.saveItem({
         ...(isNewItem ? {} : { id: itemId }),
         itemType: form.itemType,
         itemSubtype: form.itemSubtype,
@@ -72,10 +71,10 @@ export function useWalletItemActions({
     } finally {
       setSaving(false);
     }
-  }, [form, isNewItem, itemId, onSaved, resolvedDisplayName]);
+  }, [form, isNewItem, itemId, onSaved, resolvedDisplayName, tracker]);
 
   const handleDelete = useCallback(async () => {
-    if (isNewItem) {
+    if (isNewItem || !tracker) {
       return;
     }
 
@@ -84,14 +83,14 @@ export function useWalletItemActions({
     setSuccessMessage(null);
 
     try {
-      await softDeleteWalletItem(itemId);
+      await tracker.softDeleteItem(itemId);
       onDeleted?.(itemId);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setDeleting(false);
     }
-  }, [isNewItem, itemId, onDeleted]);
+  }, [isNewItem, itemId, onDeleted, tracker]);
 
   return {
     saving,
