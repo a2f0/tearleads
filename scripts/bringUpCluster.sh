@@ -12,6 +12,7 @@ SKIP_ROLLOUT=false
 SKIP_MIGRATE=false
 SKIP_SMOKE=false
 SKIP_WEBSITE=false
+YES=false
 IMAGE_TAG=""
 
 usage() {
@@ -28,6 +29,7 @@ Options:
   --skip-migrate    Skip API migration step
   --skip-smoke      Skip smoke tests
   --skip-website    Skip website image build and rollout
+  --yes             Skip interactive confirmation
   --tag <tag>       Image tag for buildContainers (default: latest)
   -h, --help        Show help
 EOF
@@ -55,6 +57,10 @@ while [[ $# -gt 0 ]]; do
       SKIP_WEBSITE=true
       shift
       ;;
+    --yes)
+      YES=true
+      shift
+      ;;
     --tag)
       IMAGE_TAG="${2:-}"
       if [[ -z "$IMAGE_TAG" ]]; then
@@ -74,6 +80,16 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "$YES" != "true" ]]; then
+  echo "This will apply production infra, build/push containers, and run rollout + smoke tests."
+  echo "Type BRINGUP-PROD to continue:"
+  read -r confirmation
+  if [[ "$confirmation" != "BRINGUP-PROD" ]]; then
+    echo "Aborted."
+    exit 1
+  fi
+fi
 
 run_step() {
   local label="$1"
