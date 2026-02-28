@@ -32,8 +32,6 @@ const config: KnipConfig = {
     'packages/api-client/src/apiRoutes/vfsRoutes.ts': ['types'],
     // Exported interface appears in an inferred cross-module public return type.
     'packages/vfs-explorer/src/hooks/useVfsAllItems.ts': ['types'],
-    // Test helper surface for org change event subscription in orgStorage tests.
-    'packages/client/src/lib/orgStorage.ts': ['exports'],
     // Canonical DB schema pieces intentionally re-exported across definition modules.
     'packages/db/src/schema/definition-communications-vfs.ts': ['exports'],
     'packages/db/src/schema/definition-communications.ts': ['exports'],
