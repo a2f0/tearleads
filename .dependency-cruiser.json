@@ -80,12 +80,9 @@
         "path": "^packages/([^/]+)/src/.*",
         "pathNot": [
           "(?:\\.test|\\.spec)\\.(?:ts|tsx)$|/src/test/|/src/__tests__/",
-          "^packages/admin/src/components/admin-window/AdminWindow\\.tsx$",
-          "^packages/admin/src/components/admin-window/ComplianceDocView\\.tsx$",
-          "^packages/admin/src/components/admin-window/ComplianceIndex\\.tsx$",
+          "^packages/admin/src/components/admin-window/(AdminWindow|ComplianceDocView|ComplianceIndex)\\.tsx$",
           "^packages/api-client/src/vfsWriteOrchestrator\\.ts$",
-          "^packages/bob-and-alice/src/harness/actorHarness\\.ts$",
-          "^packages/bob-and-alice/src/harness/apiScenarioHarness\\.ts$",
+          "^packages/bob-and-alice/src/harness/(actorHarness|apiScenarioHarness)\\.ts$",
           "^packages/client/src/backups/backupsRuntime\\.ts$",
           "^packages/client/src/components/admin-windows/index\\.ts$",
           "^packages/client/src/components/backup-window/index\\.tsx$",
@@ -102,19 +99,14 @@
           "^packages/client/src/db/vfsOrchestratorState\\.ts$",
           "^packages/client/src/lib/vfsItemSyncWriter\\.ts$",
           "^packages/client/src/main\\.tsx$",
-          "^packages/client/src/pages/admin/index\\.ts$",
-          "^packages/client/src/pages/analytics/index\\.ts$",
           "^packages/client/src/pages/Backups\\.tsx$",
           "^packages/client/src/pages/Health\\.tsx$",
-          "^packages/client/src/pages/keychain/index\\.ts$",
-          "^packages/client/src/pages/sync/index\\.ts$",
-          "^packages/client/src/pages/wallet/index\\.ts$",
+          "^packages/client/src/pages/(admin|analytics|keychain|sync|wallet)/index\\.ts$",
           "^packages/client/src/sync/configureSyncAuthDependencies\\.ts$",
           "^packages/compliance/src/pages/compliance/ComplianceDocPage\\.tsx$",
           "^packages/console/src/components/console-window/ConsoleDocumentation\\.tsx$",
           "^packages/help/src/components/help-links/HelpDocumentation\\.tsx$",
-          "^packages/tee-client/src/teeApiConsumer\\.ts$",
-          "^packages/tee-client/src/teeClient\\.ts$"
+          "^packages/tee-client/src/(teeApiConsumer|teeClient)\\.ts$"
         ]
       },
       "to": {
