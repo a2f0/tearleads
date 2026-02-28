@@ -1,0 +1,172 @@
+import { describe, expect, it, vi } from 'vitest';
+import { buildSharePolicyPreviewTree } from './vfsSharePolicyPreviewTree.js';
+
+describe('buildSharePolicyPreviewTree', () => {
+  it('returns classified preview nodes with summary and cursor', async () => {
+    const query = vi.fn(async <T>(text: string, values?: unknown[]) => {
+      if (text.includes('SELECT item_id, object_type, depth, node_path')) {
+        expect(values?.[0]).toBe('root-1');
+        return {
+          rows: [
+            {
+              item_id: 'root-1',
+              object_type: 'contact',
+              depth: 0,
+              node_path: 'root-1'
+            },
+            {
+              item_id: 'wallet-1',
+              object_type: 'walletItem',
+              depth: 1,
+              node_path: 'root-1/wallet-1'
+            },
+            {
+              item_id: 'workout-1',
+              object_type: 'healthWorkoutEntry',
+              depth: 1,
+              node_path: 'root-1/workout-1'
+            }
+          ] as T[]
+        };
+      }
+      if (text.includes('SELECT COUNT(*)::bigint AS total_count')) {
+        return {
+          rows: [{ total_count: '3' }] as T[]
+        };
+      }
+      if (text.includes('FROM vfs_acl_entries')) {
+        return {
+          rows: [
+            {
+              id: 'share:share-root',
+              item_id: 'root-1',
+              access_level: 'read',
+              revoked_at: null
+            },
+            {
+              id: 'policy-compiled:user:target:wallet-1',
+              item_id: 'wallet-1',
+              access_level: 'write',
+              revoked_at: null
+            }
+          ] as T[]
+        };
+      }
+      if (text.includes('FROM vfs_acl_entry_provenance')) {
+        return {
+          rows: [
+            {
+              acl_entry_id: 'policy-compiled:user:target:wallet-1',
+              policy_id: 'policy-a'
+            },
+            {
+              acl_entry_id: 'policy-compiled:user:target:wallet-1',
+              policy_id: 'policy-b'
+            }
+          ] as T[]
+        };
+      }
+      throw new Error(`Unexpected query in preview test: ${text}`);
+    });
+
+    const result = await buildSharePolicyPreviewTree(
+      { query },
+      {
+        rootItemId: 'root-1',
+        principalType: 'user',
+        principalId: 'target-user',
+        limit: 2,
+        cursor: null,
+        maxDepth: null,
+        search: null,
+        objectTypes: null
+      }
+    );
+
+    expect(result.nextCursor).toBe('root-1/wallet-1');
+    expect(result.nodes).toEqual([
+      {
+        itemId: 'root-1',
+        objectType: 'contact',
+        depth: 0,
+        path: 'root-1',
+        state: 'direct',
+        effectiveAccessLevel: 'read',
+        sourcePolicyIds: []
+      },
+      {
+        itemId: 'wallet-1',
+        objectType: 'walletItem',
+        depth: 1,
+        path: 'root-1/wallet-1',
+        state: 'derived',
+        effectiveAccessLevel: 'write',
+        sourcePolicyIds: ['policy-a', 'policy-b']
+      }
+    ]);
+    expect(result.summary).toEqual({
+      totalMatchingNodes: 3,
+      returnedNodes: 2,
+      directCount: 1,
+      derivedCount: 1,
+      deniedCount: 0,
+      includedCount: 2,
+      excludedCount: 0
+    });
+  });
+
+  it('returns excluded node counts when no acl entries match the principal', async () => {
+    const query = vi.fn(async <T>(text: string) => {
+      if (text.includes('SELECT item_id, object_type, depth, node_path')) {
+        return {
+          rows: [
+            {
+              item_id: 'root-1',
+              object_type: 'contact',
+              depth: 0,
+              node_path: 'root-1'
+            }
+          ] as T[]
+        };
+      }
+      if (text.includes('SELECT COUNT(*)::bigint AS total_count')) {
+        return {
+          rows: [{ total_count: 1 }] as T[]
+        };
+      }
+      if (text.includes('FROM vfs_acl_entries')) {
+        return { rows: [] as T[] };
+      }
+      throw new Error(`Unexpected query in excluded preview test: ${text}`);
+    });
+
+    const result = await buildSharePolicyPreviewTree(
+      { query },
+      {
+        rootItemId: 'root-1',
+        principalType: 'user',
+        principalId: 'target-user',
+        limit: 10,
+        cursor: null,
+        maxDepth: null,
+        search: null,
+        objectTypes: null
+      }
+    );
+
+    expect(result.nextCursor).toBeNull();
+    expect(result.nodes).toEqual([
+      {
+        itemId: 'root-1',
+        objectType: 'contact',
+        depth: 0,
+        path: 'root-1',
+        state: 'excluded',
+        effectiveAccessLevel: null,
+        sourcePolicyIds: []
+      }
+    ]);
+    expect(result.summary.excludedCount).toBe(1);
+    expect(result.summary.totalMatchingNodes).toBe(1);
+  });
+});
