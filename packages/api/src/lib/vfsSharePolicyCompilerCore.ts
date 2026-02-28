@@ -85,6 +85,7 @@ const ACCESS_RANK: Record<PolicyAccessLevel, number> = {
   write: 2,
   admin: 3
 };
+const AGGREGATE_KEY_SEPARATOR = '\u0000';
 
 function isPolicyPrincipalType(value: string): value is PolicyPrincipalType {
   return value === 'user' || value === 'group' || value === 'organization';
@@ -277,7 +278,7 @@ function aggregateKey(
   principalType: PolicyPrincipalType,
   principalId: string
 ): string {
-  return JSON.stringify([itemId, principalType, principalId]);
+  return [itemId, principalType, principalId].join(AGGREGATE_KEY_SEPARATOR);
 }
 
 function decodeAggregateKey(key: string): {
@@ -285,20 +286,14 @@ function decodeAggregateKey(key: string): {
   principalType: PolicyPrincipalType;
   principalId: string;
 } {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(key);
-  } catch {
-    throw new Error(`Malformed aggregate key: ${key}`);
-  }
-  if (!Array.isArray(parsed) || parsed.length !== 3) {
-    throw new Error(`Malformed aggregate key: ${key}`);
-  }
-  const [itemId, principalType, principalId] = parsed;
+  const [itemId, principalType, principalId, extra] = key.split(
+    AGGREGATE_KEY_SEPARATOR
+  );
   if (
-    typeof itemId !== 'string' ||
-    typeof principalType !== 'string' ||
-    typeof principalId !== 'string' ||
+    !itemId ||
+    !principalType ||
+    !principalId ||
+    extra !== undefined ||
     !isPolicyPrincipalType(principalType)
   ) {
     throw new Error(`Malformed aggregate key: ${key}`);

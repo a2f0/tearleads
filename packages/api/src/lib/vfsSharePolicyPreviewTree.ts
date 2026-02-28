@@ -2,6 +2,7 @@ import type { PgQueryable } from './vfsSharePolicyCompilerState.js';
 
 type PreviewAccessLevel = 'read' | 'write' | 'admin';
 type PreviewPrincipalType = 'user' | 'group' | 'organization';
+const MAX_PREVIEW_QUERY_DEPTH = 50;
 
 interface TreeRow {
   item_id: string | null;
@@ -166,6 +167,10 @@ export async function buildSharePolicyPreviewTree(
   const searchPattern = normalizeSearchPattern(options.search);
   const objectTypes = normalizeObjectTypes(options.objectTypes);
   const pageLimit = Math.max(1, options.limit);
+  const previewDepth =
+    options.maxDepth === null
+      ? MAX_PREVIEW_QUERY_DEPTH
+      : Math.min(Math.max(options.maxDepth, 0), MAX_PREVIEW_QUERY_DEPTH);
 
   const treeRowsResult = await client.query<TreeRow>(
     `
@@ -192,7 +197,7 @@ export async function buildSharePolicyPreviewTree(
         ON l.parent_id = tree.item_id
       JOIN vfs_registry child
         ON child.id = l.child_id
-      WHERE ($2::integer IS NULL OR tree.depth < $2)
+      WHERE tree.depth < $2
         AND NOT child.id = ANY(tree.path)
     ),
     filtered AS (
@@ -224,7 +229,7 @@ export async function buildSharePolicyPreviewTree(
     `,
     [
       options.rootItemId,
-      options.maxDepth,
+      previewDepth,
       searchPattern,
       objectTypes,
       options.cursor,
