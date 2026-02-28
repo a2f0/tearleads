@@ -1,9 +1,16 @@
-import type { QueueVfsCrdtLocalOperationInput } from '@tearleads/vfs-sync/vfs';
 import type {
+  QueueVfsCrdtLocalOperationInput,
+  VfsCrdtOperation
+} from '@tearleads/vfs-sync/vfs';
+import type {
+  VfsBlobAttachQueueOperation,
   VfsBlobAttachRequest,
+  VfsBlobChunkQueueOperation,
   VfsBlobChunkUploadRequest,
+  VfsBlobCommitQueueOperation,
   VfsBlobManifestCommitRequest,
   VfsBlobRelationKind,
+  VfsBlobStageQueueOperation,
   VfsBlobStageRequest
 } from '../vfsBlobNetworkFlusher';
 import type {
@@ -34,13 +41,19 @@ export interface MapEncryptedCrdtOpToLocalOperationInput {
 interface SecureOrchestratorFacadeWriteOrchestrator {
   queueCrdtLocalOperationAndPersist(
     input: QueueVfsCrdtLocalOperationInput
-  ): Promise<void>;
-  queueBlobStageAndPersist(input: VfsBlobStageRequest): Promise<void>;
-  queueBlobChunkAndPersist(input: VfsBlobChunkUploadRequest): Promise<void>;
+  ): Promise<VfsCrdtOperation>;
+  queueBlobStageAndPersist(
+    input: VfsBlobStageRequest
+  ): Promise<VfsBlobStageQueueOperation>;
+  queueBlobChunkAndPersist(
+    input: VfsBlobChunkUploadRequest
+  ): Promise<VfsBlobChunkQueueOperation>;
   queueBlobManifestCommitAndPersist(
     input: VfsBlobManifestCommitRequest
-  ): Promise<void>;
-  queueBlobAttachAndPersist(input: VfsBlobAttachRequest): Promise<void>;
+  ): Promise<VfsBlobCommitQueueOperation>;
+  queueBlobAttachAndPersist(
+    input: VfsBlobAttachRequest
+  ): Promise<VfsBlobAttachQueueOperation>;
 }
 
 export function createVfsSecureOrchestratorFacade(
