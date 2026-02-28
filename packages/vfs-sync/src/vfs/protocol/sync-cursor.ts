@@ -70,10 +70,10 @@ function decodeBase64ToBytes(base64: string): Uint8Array | null {
     const chunk = (value1 << 18) | (value2 << 12) | (value3 << 6) | value4;
 
     bytes[byteIndex++] = (chunk >> 16) & 255;
-    if (char3 !== '=' && byteIndex <= outputLength) {
+    if (char3 !== '=' && byteIndex < outputLength) {
       bytes[byteIndex++] = (chunk >> 8) & 255;
     }
-    if (char4 !== '=' && byteIndex <= outputLength) {
+    if (char4 !== '=' && byteIndex < outputLength) {
       bytes[byteIndex++] = chunk & 255;
     }
   }
