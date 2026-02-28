@@ -36,7 +36,6 @@ const config: KnipConfig = {
     // Exported interfaces are part of public signatures for published helpers.
     'packages/api/src/lib/vfsSyncChannels.ts': ['exports', 'types'],
     'packages/bob-and-alice/src/qa/vfsSecureUploadQaSuite.ts': ['types'],
-    'packages/db-test-utils/src/seeding/pgScenario.ts': ['types'],
     // Class members are part of exported runtime/test harness APIs.
     'packages/api-client/src/vfsBlobNetworkFlusher.ts': ['classMembers'],
     'packages/api-client/src/vfsNetworkFlusher.ts': ['classMembers'],
