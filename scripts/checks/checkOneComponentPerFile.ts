@@ -89,39 +89,37 @@ function resolveBaseBranch(): string {
 }
 
 function collectCandidateFiles(mode: Mode): string[] {
-  if (mode === '--all') {
-    const output = runGit(['ls-files']);
-    return output
+  const processOutput = (output: string): string[] =>
+    output
       .split('\n')
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
+
+  if (mode === '--all') {
+    return processOutput(runGit(['ls-files']));
   }
 
   if (mode === '--staged') {
-    const output = runGit([
-      'diff',
-      '--name-only',
-      '--diff-filter=AM',
-      '--cached'
-    ]);
-    return output
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
+    return processOutput(
+      runGit([
+        'diff',
+        '--name-only',
+        '--diff-filter=AM',
+        '--cached'
+      ])
+    );
   }
 
   const baseBranch = resolveBaseBranch();
   // Phase 1: enforce only newly added files in push range.
-  const output = runGit([
-    'diff',
-    '--name-only',
-    '--diff-filter=A',
-    `${baseBranch}..HEAD`
-  ]);
-  return output
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+  return processOutput(
+    runGit([
+      'diff',
+      '--name-only',
+      '--diff-filter=A',
+      `${baseBranch}..HEAD`
+    ])
+  );
 }
 
 function isExcluded(filePath: string): boolean {
