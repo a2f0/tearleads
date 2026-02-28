@@ -221,7 +221,10 @@ describe('api with msw', () => {
       q: 'test query',
       type: 'user'
     });
-    const previewRequests = getRequestsFor('GET', '/vfs/share-policies/preview');
+    const previewRequests = getRequestsFor(
+      'GET',
+      '/vfs/share-policies/preview'
+    );
     expect(previewRequests).toHaveLength(2);
     expect(previewRequests.map(getRequestQuery)).toEqual([
       {
