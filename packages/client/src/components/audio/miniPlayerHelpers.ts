@@ -24,23 +24,16 @@ interface AudioLike {
   isPlaying: boolean;
 }
 
-export function hasActiveMiniPlayerAudio<T extends AudioLike>(
-  audio: T | null
+export function shouldShowMiniPlayer<T extends AudioLike>(
+  audio: T | null,
+  isOnAudioPage: boolean,
+  isAudioWindowVisible: boolean
 ): audio is T & {
   currentTrack: NonNullable<T['currentTrack']>;
   isPlaying: true;
 } {
-  return Boolean(audio && audio.currentTrack && audio.isPlaying);
-}
-
-export function shouldShowMiniPlayer(
-  audio: AudioLike | null,
-  isOnAudioPage: boolean,
-  isAudioWindowVisible: boolean
-): boolean {
   return Boolean(
-    audio &&
-      audio.currentTrack &&
+    audio?.currentTrack &&
       audio.isPlaying &&
       !isOnAudioPage &&
       !isAudioWindowVisible
@@ -52,6 +45,18 @@ export function getOrOpenAudioWindowId(
   openWindow: (type: 'audio') => string
 ): string {
   return audioWindow?.id ?? openWindow('audio');
+}
+
+export function restoreOrOpenAudioWindow(
+  audioWindow: AudioWindowLike | undefined,
+  openWindow: (type: 'audio') => string,
+  restoreWindow: (id: string) => void
+): void {
+  if (audioWindow) {
+    restoreWindow(audioWindow.id);
+    return;
+  }
+  openWindow('audio');
 }
 
 export function getPreMaximizeDimensions(
