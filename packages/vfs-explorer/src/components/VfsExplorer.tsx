@@ -58,6 +58,9 @@ function VfsExplorerInner({
   onItemDownload,
   onUpload
 }: VfsExplorerProps) {
+  // component-complexity: allow
+  // Rationale: drag/drop orchestration, clipboard handling, and panel layout
+  // state are intentionally co-located in this transition iteration.
   const [internalSelectedFolderId, setInternalSelectedFolderId] = useState<
     string | null
   >(UNFILED_FOLDER_ID);

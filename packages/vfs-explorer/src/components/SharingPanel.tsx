@@ -54,6 +54,9 @@ export function SharingPanel({
   onWidthChange,
   onClose
 }: SharingPanelProps) {
+  // component-complexity: allow
+  // Rationale: this feature slice keeps share authoring, target search, and
+  // preview wiring together until follow-up decomposition lands.
   const {
     ui: { Button, Input }
   } = useVfsExplorerContext();
