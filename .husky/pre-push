@@ -100,6 +100,7 @@ run_step "checkBinaryFiles" ./scripts/checks/checkBinaryFiles.sh --from-upstream
 run_step "checkJs" ./scripts/checks/checkJs.sh --from-upstream
 run_step "checkFileNames" ./scripts/checks/checkFileNames.sh --from-upstream
 run_step "checkOneComponentPerFile" ./scripts/checks/checkOneComponentPerFile.ts --from-upstream
+run_step "checkComponentComplexity" ./scripts/checks/checkComponentComplexity.ts --from-upstream
 run_step "checkClientBoundary" ./scripts/checks/checkClientBoundary.sh --from-upstream
 run_step "checkApiBoundary" ./scripts/checks/checkApiBoundary.sh --from-upstream
 run_step "checkPreenEcosystem" ./scripts/checks/preen/checkPreenEcosystem.ts --strict
