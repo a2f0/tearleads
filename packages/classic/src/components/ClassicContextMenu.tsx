@@ -6,6 +6,7 @@ import type {
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { handleClassicContextMenuKeyDown } from './classicContextMenuKeyboard';
 
 interface ClassicContextMenuAction {
   label: string;
@@ -101,66 +102,8 @@ export function ClassicContextMenu({
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose]);
 
-  const moveFocus = (direction: 'first' | 'last' | 'next' | 'previous') => {
-    const enabledItems = itemRefs.current.filter(
-      (item): item is HTMLButtonElement => Boolean(item && !item.disabled)
-    );
-    if (enabledItems.length === 0) {
-      return;
-    }
-
-    const activeElement = document.activeElement;
-    const activeIndex =
-      activeElement instanceof HTMLButtonElement
-        ? enabledItems.indexOf(activeElement)
-        : -1;
-
-    if (direction === 'first') {
-      enabledItems[0]?.focus();
-      return;
-    }
-
-    if (direction === 'last') {
-      enabledItems[enabledItems.length - 1]?.focus();
-      return;
-    }
-
-    if (activeIndex === -1) {
-      enabledItems[0]?.focus();
-      return;
-    }
-
-    const nextIndex =
-      direction === 'next'
-        ? (activeIndex + 1) % enabledItems.length
-        : (activeIndex - 1 + enabledItems.length) % enabledItems.length;
-
-    enabledItems[nextIndex]?.focus();
-  };
-
   const handleMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      moveFocus('next');
-      return;
-    }
-
-    if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      moveFocus('previous');
-      return;
-    }
-
-    if (event.key === 'Home') {
-      event.preventDefault();
-      moveFocus('first');
-      return;
-    }
-
-    if (event.key === 'End') {
-      event.preventDefault();
-      moveFocus('last');
-    }
+    handleClassicContextMenuKeyDown(event, itemRefs);
   };
 
   if (standardContextMenu && standardContextMenuItem) {

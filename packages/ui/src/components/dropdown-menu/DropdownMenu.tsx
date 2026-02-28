@@ -1,3 +1,4 @@
+import { handleDropdownMenuKeyboard } from '@tearleads/shared';
 import {
   Children,
   cloneElement,
@@ -151,31 +152,13 @@ export function DropdownMenu({
     }
   }, [isOpen]);
 
-  const handleMenuKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const items = menuRef.current?.querySelectorAll<HTMLButtonElement>(
-      '[role="menuitem"]:not([disabled])'
-    );
-    if (!items || items.length === 0) return;
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      const nextIndex = focusedIndex < items.length - 1 ? focusedIndex + 1 : 0;
-      setFocusedIndex(nextIndex);
-      items[nextIndex]?.focus();
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      const prevIndex = focusedIndex > 0 ? focusedIndex - 1 : items.length - 1;
-      setFocusedIndex(prevIndex);
-      items[prevIndex]?.focus();
-    } else if (e.key === 'Home') {
-      e.preventDefault();
-      setFocusedIndex(0);
-      items[0]?.focus();
-    } else if (e.key === 'End') {
-      e.preventDefault();
-      setFocusedIndex(items.length - 1);
-      items[items.length - 1]?.focus();
-    }
+  const handleMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    handleDropdownMenuKeyboard({
+      event,
+      menuRef,
+      focusedIndex,
+      setFocusedIndex
+    });
   };
 
   const getContainerElement = useCallback(() => containerRef.current, []);
