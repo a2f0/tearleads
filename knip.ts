@@ -82,7 +82,7 @@ const config: KnipConfig = {
       ]
     },
     'packages/app-builder': {
-      entry: ['apps/*/config.ts', 'src/vite/createAppConfigPlugin.ts']
+      entry: ['apps/*/config.ts']
     },
     'packages/api': {
       entry: ['src/openapi.ts']
