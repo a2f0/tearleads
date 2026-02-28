@@ -1,9 +1,8 @@
 import { BackLink, Button } from '@tearleads/ui';
 import { Calendar, Key, Loader2, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getKeychainDependencies } from '../../lib/keychainDependencies';
-import type { InstanceMetadata, KeyStatus } from '../../lib/types';
+import { useKeychainInstanceDetail } from '../../lib/useKeychainInstanceDetail';
 import { DeleteKeychainInstanceDialog } from './DeleteKeychainInstanceDialog';
 import { DeleteSessionKeysDialog } from './DeleteSessionKeysDialog';
 import { KeyStatusIndicator } from './KeyStatusIndicator';
@@ -12,91 +11,27 @@ function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleString();
 }
 
-interface InstanceKeyInfo {
-  instance: InstanceMetadata;
-  keyStatus: KeyStatus;
-}
-
 export function KeychainDetail() {
-  const dependencies = getKeychainDependencies();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [instanceInfo, setInstanceInfo] = useState<InstanceKeyInfo | null>(
-    null
-  );
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [sessionKeysDialogOpen, setSessionKeysDialogOpen] = useState(false);
-
-  const fetchInstanceInfo = useCallback(async () => {
-    if (!id) return;
-    if (!dependencies) {
-      setError('Keychain is not configured.');
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const instances = await dependencies.getInstances();
-      const instance = instances.find((i) => i.id === id);
-
-      if (!instance) {
-        setError('Instance not found');
-        return;
-      }
-
-      const keyStatus = await dependencies.getKeyStatusForInstance(id);
-      setInstanceInfo({ instance, keyStatus });
-    } catch (err) {
-      console.error('Failed to fetch instance info:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [dependencies, id]);
-
-  useEffect(() => {
-    fetchInstanceInfo();
-  }, [fetchInstanceInfo]);
-
-  const handleDeleteSessionKeys = useCallback(async () => {
-    if (!instanceInfo) return;
-
-    try {
-      if (!dependencies) {
-        throw new Error('Keychain is not configured.');
-      }
-      await dependencies.deleteSessionKeysForInstance(instanceInfo.instance.id);
-      await fetchInstanceInfo();
-    } catch (err) {
-      console.error('Failed to delete session keys:', err);
-      setError(err instanceof Error ? err.message : String(err));
-      throw err;
-    }
-  }, [dependencies, instanceInfo, fetchInstanceInfo]);
-
-  const handleDeleteInstance = useCallback(async () => {
-    if (!instanceInfo) return;
-
-    try {
-      if (!dependencies) {
-        throw new Error('Keychain is not configured.');
-      }
-      await dependencies.resetInstanceKeys(instanceInfo.instance.id);
-      await dependencies.deleteInstanceFromRegistry(instanceInfo.instance.id);
-      navigate('/keychain');
-    } catch (err) {
-      console.error('Failed to delete instance:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, [dependencies, instanceInfo, navigate]);
-
-  const hasSessionKeys =
-    instanceInfo?.keyStatus.wrappingKey || instanceInfo?.keyStatus.wrappedKey;
+  const onDeleted = useCallback(() => {
+    navigate('/keychain');
+  }, [navigate]);
+  const {
+    instanceInfo,
+    loading,
+    error,
+    deleteDialogOpen,
+    sessionKeysDialogOpen,
+    hasSessionKeys,
+    setDeleteDialogOpen,
+    setSessionKeysDialogOpen,
+    handleDeleteSessionKeys,
+    handleDeleteInstance
+  } = useKeychainInstanceDetail({
+    instanceId: id,
+    onDeleted
+  });
 
   return (
     <div className="space-y-6">

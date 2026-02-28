@@ -1,19 +1,13 @@
 import { Button } from '@tearleads/ui';
 import { ArrowLeft, Calendar, Key, Loader2, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
-import { getKeychainDependencies } from '../../lib/keychainDependencies';
-import type { InstanceMetadata, KeyStatus } from '../../lib/types';
+import { useCallback } from 'react';
+import { useKeychainInstanceDetail } from '../../lib/useKeychainInstanceDetail';
 import { DeleteKeychainInstanceDialog } from '../../pages/keychain/DeleteKeychainInstanceDialog';
 import { DeleteSessionKeysDialog } from '../../pages/keychain/DeleteSessionKeysDialog';
 import { KeyStatusIndicator } from '../../pages/keychain/KeyStatusIndicator';
 
 function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleString();
-}
-
-interface InstanceKeyInfo {
-  instance: InstanceMetadata;
-  keyStatus: KeyStatus;
 }
 
 interface KeychainWindowDetailProps {
@@ -27,88 +21,24 @@ export function KeychainWindowDetail({
   onBack,
   onDeleted
 }: KeychainWindowDetailProps) {
-  const dependencies = getKeychainDependencies();
-  const [instanceInfo, setInstanceInfo] = useState<InstanceKeyInfo | null>(
-    null
-  );
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [sessionKeysDialogOpen, setSessionKeysDialogOpen] = useState(false);
-
-  const fetchInstanceInfo = useCallback(async () => {
-    if (!instanceId) return;
-    if (!dependencies) {
-      setError('Keychain is not configured.');
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const instance = await dependencies.getInstance(instanceId);
-
-      if (!instance) {
-        setError('Instance not found');
-        return;
-      }
-
-      const keyStatus = await dependencies.getKeyStatusForInstance(instanceId);
-      setInstanceInfo({ instance, keyStatus });
-    } catch (err) {
-      console.error('Failed to fetch instance info:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [dependencies, instanceId]);
-
-  useEffect(() => {
-    fetchInstanceInfo();
-  }, [fetchInstanceInfo]);
-
-  const handleDeleteSessionKeys = useCallback(async () => {
-    if (!instanceInfo) return;
-
-    try {
-      if (!dependencies) {
-        throw new Error('Keychain is not configured.');
-      }
-      await dependencies.deleteSessionKeysForInstance(instanceInfo.instance.id);
-      const newKeyStatus = await dependencies.getKeyStatusForInstance(
-        instanceInfo.instance.id
-      );
-      setInstanceInfo((prev) =>
-        prev ? { ...prev, keyStatus: newKeyStatus } : prev
-      );
-    } catch (err) {
-      console.error('Failed to delete session keys:', err);
-      setError(err instanceof Error ? err.message : String(err));
-      throw err;
-    }
-  }, [dependencies, instanceInfo]);
-
-  const handleDeleteInstance = useCallback(async () => {
-    if (!instanceInfo) return;
-
-    try {
-      if (!dependencies) {
-        throw new Error('Keychain is not configured.');
-      }
-      await dependencies.resetInstanceKeys(instanceInfo.instance.id);
-      await dependencies.deleteInstanceFromRegistry(instanceInfo.instance.id);
-      onDeleted();
-    } catch (err) {
-      console.error('Failed to delete instance:', err);
-      setError(err instanceof Error ? err.message : String(err));
-      throw err;
-    }
-  }, [dependencies, instanceInfo, onDeleted]);
-
-  const hasSessionKeys =
-    instanceInfo?.keyStatus.wrappingKey || instanceInfo?.keyStatus.wrappedKey;
+  const onDeletedCallback = useCallback(() => {
+    onDeleted();
+  }, [onDeleted]);
+  const {
+    instanceInfo,
+    loading,
+    error,
+    deleteDialogOpen,
+    sessionKeysDialogOpen,
+    hasSessionKeys,
+    setDeleteDialogOpen,
+    setSessionKeysDialogOpen,
+    handleDeleteSessionKeys,
+    handleDeleteInstance
+  } = useKeychainInstanceDetail({
+    instanceId,
+    onDeleted: onDeletedCallback
+  });
 
   return (
     <div className="flex h-full flex-col space-y-4 overflow-auto p-3">
