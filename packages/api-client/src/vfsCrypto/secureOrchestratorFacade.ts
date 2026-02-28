@@ -34,13 +34,13 @@ export interface MapEncryptedCrdtOpToLocalOperationInput {
 interface SecureOrchestratorFacadeWriteOrchestrator {
   queueCrdtLocalOperationAndPersist(
     input: QueueVfsCrdtLocalOperationInput
-  ): Promise<unknown>;
-  queueBlobStageAndPersist(input: VfsBlobStageRequest): Promise<unknown>;
-  queueBlobChunkAndPersist(input: VfsBlobChunkUploadRequest): Promise<unknown>;
+  ): Promise<void>;
+  queueBlobStageAndPersist(input: VfsBlobStageRequest): Promise<void>;
+  queueBlobChunkAndPersist(input: VfsBlobChunkUploadRequest): Promise<void>;
   queueBlobManifestCommitAndPersist(
     input: VfsBlobManifestCommitRequest
-  ): Promise<unknown>;
-  queueBlobAttachAndPersist(input: VfsBlobAttachRequest): Promise<unknown>;
+  ): Promise<void>;
+  queueBlobAttachAndPersist(input: VfsBlobAttachRequest): Promise<void>;
 }
 
 export function createVfsSecureOrchestratorFacade(
