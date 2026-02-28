@@ -202,6 +202,9 @@ export function createAppConfigPlugin(
     },
 
     configResolved() {
+      if (process.env['NODE_ENV'] === 'test' || process.env['VITEST']) {
+        return;
+      }
       // Log which app is being built
       const featureCount = config.features.length;
       const disabledCount = disabledPackages.length;
