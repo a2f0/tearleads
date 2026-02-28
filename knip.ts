@@ -75,6 +75,10 @@ const config: KnipConfig = {
         'scripts/lib/**/*.ts',
         'scripts/preen/**/*.ts',
         'scripts/tooling/scriptTool.ts'
+      ],
+      ignoreDependencies: [
+        // Invoked via scripts/checks/checkDependencyCruiser.sh.
+        'dependency-cruiser'
       ]
     },
     'packages/app-builder': {
