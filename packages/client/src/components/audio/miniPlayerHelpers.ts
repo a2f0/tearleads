@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-export interface AudioWindowDimensionsLike {
+interface AudioWindowDimensionsLike {
   width: number;
   height: number;
   x: number;
@@ -14,12 +14,12 @@ export interface AudioWindowDimensionsLike {
   };
 }
 
-export interface AudioWindowLike {
+interface AudioWindowLike {
   id: string;
   dimensions?: AudioWindowDimensionsLike;
 }
 
-export interface AudioLike {
+interface AudioLike {
   currentTrack: unknown;
   isPlaying: boolean;
 }
