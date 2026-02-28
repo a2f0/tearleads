@@ -14,6 +14,10 @@ import {
   setActiveOrgForUser
 } from '@/db/orgPreference';
 import { api } from '@/lib/api';
+import {
+  clearActiveOrganizationId as clearStoredOrgId,
+  setActiveOrganizationId as setStoredOrgId
+} from '@/lib/orgStorage';
 import { useAuth } from './AuthContext';
 
 interface OrgContextValue {
@@ -41,6 +45,7 @@ export function OrgProvider({ children }: OrgProviderProps) {
     if (!isAuthenticated || !user) {
       setOrganizations([]);
       setActiveOrgId(null);
+      clearStoredOrgId();
       setIsLoading(false);
       return;
     }
@@ -65,8 +70,10 @@ export function OrgProvider({ children }: OrgProviderProps) {
 
         if (validPersistedOrg) {
           setActiveOrgId(persistedOrgId);
+          setStoredOrgId(persistedOrgId);
         } else {
           setActiveOrgId(response.personalOrganizationId);
+          setStoredOrgId(response.personalOrganizationId);
           await setActiveOrgForUser(userId, response.personalOrganizationId);
         }
       } catch (error) {
@@ -74,6 +81,7 @@ export function OrgProvider({ children }: OrgProviderProps) {
         if (!cancelled) {
           setOrganizations([]);
           setActiveOrgId(null);
+          clearStoredOrgId();
         }
       } finally {
         if (!cancelled) {
@@ -106,6 +114,7 @@ export function OrgProvider({ children }: OrgProviderProps) {
   const setActiveOrganizationId = useCallback(
     (id: string) => {
       setActiveOrgId(id);
+      setStoredOrgId(id);
       if (user) {
         void setActiveOrgForUser(user.id, id);
       }

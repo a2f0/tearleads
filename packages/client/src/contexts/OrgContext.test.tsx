@@ -7,6 +7,8 @@ const mockGetOrganizations = vi.fn();
 const mockGetActiveOrgForUser = vi.fn();
 const mockSetActiveOrgForUser = vi.fn();
 const mockClearActiveOrgForUser = vi.fn();
+const mockSetStoredOrgId = vi.fn();
+const mockClearStoredOrgId = vi.fn();
 
 let mockAuthValue = {
   isAuthenticated: false,
@@ -31,6 +33,12 @@ vi.mock('@/db/orgPreference', () => ({
   setActiveOrgForUser: (...args: unknown[]) => mockSetActiveOrgForUser(...args),
   clearActiveOrgForUser: (...args: unknown[]) =>
     mockClearActiveOrgForUser(...args)
+}));
+
+vi.mock('@/lib/orgStorage', () => ({
+  setActiveOrganizationId: (...args: unknown[]) =>
+    mockSetStoredOrgId(...args),
+  clearActiveOrganizationId: () => mockClearStoredOrgId()
 }));
 
 function TestComponent() {
@@ -321,5 +329,108 @@ describe('OrgContext', () => {
     );
 
     expect(screen.getByTestId('loading')).toBeInTheDocument();
+  });
+
+  it('syncs orgStorage when org is set from fetch', async () => {
+    mockAuthValue = {
+      isAuthenticated: true,
+      isLoading: false,
+      user: { id: 'user-1', email: 'test@example.com' }
+    };
+
+    mockGetOrganizations.mockResolvedValueOnce({
+      organizations: [
+        { id: 'personal-org-1', name: 'Personal', isPersonal: true }
+      ],
+      personalOrganizationId: 'personal-org-1'
+    });
+
+    render(
+      <OrgProvider>
+        <TestComponent />
+      </OrgProvider>
+    );
+
+    await waitFor(() => {
+      expect(mockSetStoredOrgId).toHaveBeenCalledWith('personal-org-1');
+    });
+  });
+
+  it('syncs orgStorage when user switches org', async () => {
+    mockAuthValue = {
+      isAuthenticated: true,
+      isLoading: false,
+      user: { id: 'user-1', email: 'test@example.com' }
+    };
+
+    mockGetOrganizations.mockResolvedValueOnce({
+      organizations: [
+        { id: 'personal-org-1', name: 'Personal', isPersonal: true },
+        { id: 'team-org-1', name: 'Team Alpha', isPersonal: false }
+      ],
+      personalOrganizationId: 'personal-org-1'
+    });
+
+    const user = userEvent.setup();
+
+    render(
+      <OrgProvider>
+        <TestComponent />
+      </OrgProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('org-count')).toHaveTextContent('2');
+    });
+
+    mockSetStoredOrgId.mockClear();
+    await user.click(screen.getByRole('button', { name: 'Switch Org' }));
+
+    await waitFor(() => {
+      expect(mockSetStoredOrgId).toHaveBeenCalledWith('team-org-1');
+    });
+  });
+
+  it('clears orgStorage on logout', async () => {
+    mockAuthValue = {
+      isAuthenticated: true,
+      isLoading: false,
+      user: { id: 'user-1', email: 'test@example.com' }
+    };
+
+    mockGetOrganizations.mockResolvedValueOnce({
+      organizations: [
+        { id: 'personal-org-1', name: 'Personal', isPersonal: true }
+      ],
+      personalOrganizationId: 'personal-org-1'
+    });
+
+    const { rerender } = render(
+      <OrgProvider>
+        <TestComponent />
+      </OrgProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('org-count')).toHaveTextContent('1');
+    });
+
+    mockClearStoredOrgId.mockClear();
+
+    mockAuthValue = {
+      isAuthenticated: false,
+      isLoading: false,
+      user: null
+    };
+
+    rerender(
+      <OrgProvider>
+        <TestComponent />
+      </OrgProvider>
+    );
+
+    await waitFor(() => {
+      expect(mockClearStoredOrgId).toHaveBeenCalled();
+    });
   });
 });

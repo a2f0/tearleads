@@ -11,6 +11,7 @@ import {
   updateStoredTokens,
   waitForRefreshCompletion
 } from '@/lib/authStorage';
+import { getActiveOrganizationId } from '@/lib/orgStorage';
 
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 
@@ -234,6 +235,10 @@ export async function requestResponse(
     if (authHeaderValue !== null && !headers.has('Authorization')) {
       headers.set('Authorization', authHeaderValue);
     }
+    const orgId = getActiveOrganizationId();
+    if (orgId !== null && !headers.has('X-Organization-Id')) {
+      headers.set('X-Organization-Id', orgId);
+    }
 
     let response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...fetchOptions,
@@ -254,6 +259,10 @@ export async function requestResponse(
         const retryHeaders = new Headers(fetchOptions?.headers ?? undefined);
         if (!retryHeaders.has('Authorization')) {
           retryHeaders.set('Authorization', retryAuthHeaderValue);
+        }
+        const retryOrgId = getActiveOrganizationId();
+        if (retryOrgId !== null && !retryHeaders.has('X-Organization-Id')) {
+          retryHeaders.set('X-Organization-Id', retryOrgId);
         }
 
         response = await fetch(`${API_BASE_URL}${endpoint}`, {
