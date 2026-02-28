@@ -81,5 +81,5 @@ output "k8s_server_security_group_id" {
 
 output "k8s_pod_cidr" {
   description = "Pod CIDR used by k3s/flannel in the prod cluster"
-  value       = "10.42.0.0/16"
+  value       = var.k8s_pod_cidr
 }

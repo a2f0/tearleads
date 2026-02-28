@@ -15,6 +15,12 @@ variable "instance_type" {
   default     = "t3.small"
 }
 
+variable "k8s_pod_cidr" {
+  description = "Pod CIDR for k3s/flannel"
+  type        = string
+  default     = "10.244.0.0/16"
+}
+
 variable "server_username" {
   description = "Non-root username for server access"
   type        = string
@@ -23,25 +29,25 @@ variable "server_username" {
 variable "vpc_cidr" {
   description = "CIDR block for the prod k8s VPC"
   type        = string
-  default     = "10.60.0.0/16"
+  default     = "10.42.0.0/16"
 }
 
 variable "public_subnet_cidr" {
   description = "Public subnet CIDR for the k8s EC2 host"
   type        = string
-  default     = "10.60.1.0/24"
+  default     = "10.42.1.0/24"
 }
 
 variable "rds_subnet_a_cidr" {
   description = "Private subnet A CIDR for RDS"
   type        = string
-  default     = "10.60.10.0/24"
+  default     = "10.42.10.0/24"
 }
 
 variable "rds_subnet_b_cidr" {
   description = "Private subnet B CIDR for RDS"
   type        = string
-  default     = "10.60.11.0/24"
+  default     = "10.42.11.0/24"
 }
 
 variable "allowed_ssh_ips" {

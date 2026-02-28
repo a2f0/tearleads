@@ -183,11 +183,12 @@ data "aws_key_pair" "dps_blackbox" {
 }
 
 resource "aws_instance" "server" {
-  ami                    = data.aws_ami.ubuntu.id
-  instance_type          = var.instance_type
-  subnet_id              = aws_subnet.public_a.id
-  vpc_security_group_ids = [aws_security_group.k8s_server.id]
-  key_name               = data.aws_key_pair.dps_blackbox.key_name
+  ami                         = data.aws_ami.ubuntu.id
+  instance_type               = var.instance_type
+  subnet_id                   = aws_subnet.public_a.id
+  vpc_security_group_ids      = [aws_security_group.k8s_server.id]
+  key_name                    = data.aws_key_pair.dps_blackbox.key_name
+  user_data_replace_on_change = true
 
   user_data = <<-EOF
     #cloud-config
@@ -215,7 +216,7 @@ resource "aws_instance" "server" {
       - chmod 440 /etc/sudoers.d/90-${var.server_username}
       - curl -sfL https://get.k3s.io -o /tmp/install-k3s.sh
       - chmod +x /tmp/install-k3s.sh
-      - INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.domain} --tls-san k8s-api.${var.domain}" /tmp/install-k3s.sh
+      - INSTALL_K3S_EXEC="--disable traefik --cluster-cidr ${var.k8s_pod_cidr} --tls-san k8s.${var.domain} --tls-san k8s-api.${var.domain}" /tmp/install-k3s.sh
       - rm /tmp/install-k3s.sh
       - mkdir -p /home/${var.server_username}/.kube
       - cp /etc/rancher/k3s/k3s.yaml /home/${var.server_username}/.kube/config
