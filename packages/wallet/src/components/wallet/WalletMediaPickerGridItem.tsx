@@ -30,13 +30,13 @@ export function WalletMediaPickerGridItem({
             alt={file.name}
             className="h-full w-full object-cover"
           />
-        ) : file.mimeType === 'application/pdf' ? (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
-            <FileText className="h-10 w-10" />
-          </div>
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground">
-            <FileImage className="h-10 w-10" />
+            {file.mimeType === 'application/pdf' ? (
+              <FileText className="h-10 w-10" />
+            ) : (
+              <FileImage className="h-10 w-10" />
+            )}
           </div>
         )}
       </div>

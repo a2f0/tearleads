@@ -16,6 +16,19 @@ function formatExpiryDate(expiresOn: Date | null): string {
   return expiresOn.toLocaleDateString();
 }
 
+function getItemSubtitle(item: WalletItemSummary): string {
+  return [
+    getWalletItemTypeLabel(item.itemType),
+    item.itemSubtype
+      ? (getWalletSubtypeLabel(item.itemType, item.itemSubtype) ??
+        item.itemSubtype)
+      : null,
+    item.documentNumberLast4 ? `•••• ${item.documentNumberLast4}` : null
+  ]
+    .filter((segment): segment is string => Boolean(segment))
+    .join(' • ');
+}
+
 export function WalletItemsListRow({
   item,
   onOpenItem
@@ -31,13 +44,7 @@ export function WalletItemsListRow({
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{item.displayName}</p>
           <p className="text-muted-foreground text-xs">
-            {getWalletItemTypeLabel(item.itemType)}
-            {item.itemSubtype
-              ? ` • ${getWalletSubtypeLabel(item.itemType, item.itemSubtype) ?? item.itemSubtype}`
-              : ''}
-            {item.documentNumberLast4
-              ? ` • •••• ${item.documentNumberLast4}`
-              : ''}
+            {getItemSubtitle(item)}
           </p>
         </div>
         <p className="text-muted-foreground text-xs">
