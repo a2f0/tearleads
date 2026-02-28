@@ -70,25 +70,35 @@ import { VfsTreePanel } from './VfsTreePanel';
 const mockFolders = [
   {
     id: VFS_ROOT_ID,
+    objectType: 'folder' as const,
     name: 'VFS Root',
     parentId: null,
     childCount: 2,
     children: [
       {
         id: 'root-1',
+        objectType: 'folder' as const,
         name: 'My Documents',
         parentId: VFS_ROOT_ID,
         childCount: 2,
         children: [
-          { id: 'folder-1', name: 'Work', parentId: 'root-1', childCount: 0 },
+          {
+            id: 'folder-1',
+            objectType: 'folder' as const,
+            name: 'Work',
+            parentId: 'root-1',
+            childCount: 0
+          },
           {
             id: 'folder-2',
+            objectType: 'folder' as const,
             name: 'Personal',
             parentId: 'root-1',
             childCount: 1,
             children: [
               {
                 id: 'folder-3',
+                objectType: 'folder' as const,
                 name: 'Photos',
                 parentId: 'folder-2',
                 childCount: 0
@@ -99,9 +109,35 @@ const mockFolders = [
       },
       {
         id: 'root-2',
+        objectType: 'folder' as const,
         name: 'Team Files',
         parentId: VFS_ROOT_ID,
-        childCount: 0
+        childCount: 1,
+        children: [
+          {
+            id: 'playlist-1',
+            objectType: 'playlist' as const,
+            name: 'Road Trip',
+            parentId: 'root-2',
+            childCount: 0
+          }
+        ]
+      },
+      {
+        id: 'email-inbox',
+        objectType: 'emailFolder' as const,
+        name: 'Inbox',
+        parentId: VFS_ROOT_ID,
+        childCount: 1,
+        children: [
+          {
+            id: 'email-projects',
+            objectType: 'emailFolder' as const,
+            name: 'Projects',
+            parentId: 'email-inbox',
+            childCount: 0
+          }
+        ]
       }
     ]
   }
@@ -136,6 +172,9 @@ describe('VfsTreePanel', () => {
     expect(screen.getByText('VFS Root')).toBeInTheDocument();
     expect(screen.getByText('My Documents')).toBeInTheDocument();
     expect(screen.getByText('Team Files')).toBeInTheDocument();
+    expect(screen.getByText('Inbox')).toBeInTheDocument();
+    expect(screen.queryByText('Road Trip')).not.toBeInTheDocument();
+    expect(screen.queryByText('Projects')).not.toBeInTheDocument();
   });
 
   it('shows loading state', () => {
@@ -191,6 +230,28 @@ describe('VfsTreePanel', () => {
 
     await user.click(screen.getByText('My Documents'));
     expect(onFolderSelect).toHaveBeenCalledWith('root-1');
+  });
+
+  it('selects playlist containers from the tree', async () => {
+    const user = userEvent.setup();
+    const onFolderSelect = vi.fn();
+    render(<VfsTreePanel {...defaultProps} onFolderSelect={onFolderSelect} />);
+
+    await user.dblClick(screen.getByText('Team Files'));
+    await user.click(screen.getByText('Road Trip'));
+
+    expect(onFolderSelect).toHaveBeenCalledWith('playlist-1');
+  });
+
+  it('renders nested email folders as a tree and supports selection', async () => {
+    const user = userEvent.setup();
+    const onFolderSelect = vi.fn();
+    render(<VfsTreePanel {...defaultProps} onFolderSelect={onFolderSelect} />);
+
+    await user.dblClick(screen.getByText('Inbox'));
+    await user.click(screen.getByText('Projects'));
+
+    expect(onFolderSelect).toHaveBeenCalledWith('email-projects');
   });
 
   it('expands folder to show children when chevron is double-clicked', async () => {

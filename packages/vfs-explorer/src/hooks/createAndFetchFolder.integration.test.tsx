@@ -297,7 +297,7 @@ describe('VFS Folder Integration: Create and Fetch', () => {
     );
   });
 
-  it('excludes emailFolder objects from the folder tree (#2274)', async () => {
+  it('includes emailFolder objects and preserves nested tree structure', async () => {
     await withRealDatabase(
       async ({ db }) => {
         // Seed VFS root
@@ -326,25 +326,37 @@ describe('VFS Folder Integration: Create and Fetch', () => {
           createdAt: new Date()
         });
 
-        // Seed email system folders with objectType 'emailFolder'
-        const emailFolderNames = ['Inbox', 'Sent', 'Drafts', 'Trash', 'Spam'];
-        for (const name of emailFolderNames) {
-          const emailId = `email-${name.toLowerCase()}`;
-          await db.insert(vfsRegistry).values({
-            id: emailId,
-            objectType: 'emailFolder',
-            ownerId: null,
-            encryptedName: name,
-            createdAt: new Date()
-          });
-        }
-
-        // Verify email folders exist in DB with correct type
-        const emailFolders = await db
-          .select({ id: vfsRegistry.id })
-          .from(vfsRegistry)
-          .where(eq(vfsRegistry.objectType, 'emailFolder'));
-        expect(emailFolders).toHaveLength(5);
+        // Seed nested email folders
+        const inboxId = 'email-inbox';
+        const projectSubfolderId = 'email-projects';
+        await db.insert(vfsRegistry).values({
+          id: inboxId,
+          objectType: 'emailFolder',
+          ownerId: null,
+          encryptedName: 'Inbox',
+          createdAt: new Date()
+        });
+        await db.insert(vfsRegistry).values({
+          id: projectSubfolderId,
+          objectType: 'emailFolder',
+          ownerId: null,
+          encryptedName: 'Projects',
+          createdAt: new Date()
+        });
+        await db.insert(vfsLinks).values({
+          id: 'link-email-root',
+          parentId: VFS_ROOT_ID,
+          childId: inboxId,
+          wrappedSessionKey: '',
+          createdAt: new Date()
+        });
+        await db.insert(vfsLinks).values({
+          id: 'link-email-nested',
+          parentId: inboxId,
+          childId: projectSubfolderId,
+          wrappedSessionKey: '',
+          createdAt: new Date()
+        });
 
         const wrapper = createTestWrapper(
           db as ReturnType<VfsExplorerProviderProps['getDatabase']>
@@ -358,13 +370,23 @@ describe('VFS Folder Integration: Create and Fetch', () => {
           expect(foldersResult.current.hasFetched).toBe(true);
         });
 
-        // Only VFS root + user folder should appear (emailFolder type excluded)
+        // VFS root should contain user folder and top-level email folder.
         expect(foldersResult.current.folders).toHaveLength(1);
-        expect(foldersResult.current.folders[0]?.id).toBe(VFS_ROOT_ID);
-        expect(foldersResult.current.folders[0]?.children).toHaveLength(1);
-        expect(foldersResult.current.folders[0]?.children?.[0]?.name).toBe(
-          'My Documents'
+        const vfsRoot = foldersResult.current.folders.find(
+          (node) => node.id === VFS_ROOT_ID
         );
+        expect(vfsRoot?.children).toHaveLength(2);
+
+        const inboxNode = vfsRoot?.children?.find((node) => node.id === inboxId);
+        expect(inboxNode?.objectType).toBe('emailFolder');
+        expect(inboxNode?.children).toHaveLength(1);
+        expect(inboxNode?.children?.[0]?.id).toBe(projectSubfolderId);
+        expect(inboxNode?.children?.[0]?.objectType).toBe('emailFolder');
+
+        const userFolderNode = vfsRoot?.children?.find(
+          (node) => node.id === userFolderId
+        );
+        expect(userFolderNode?.name).toBe('My Documents');
       },
       { migrations: vfsTestMigrations }
     );

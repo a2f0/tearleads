@@ -204,6 +204,7 @@ describe('VfsExplorer', () => {
         folders: [
           {
             id: 'folder-1',
+            objectType: 'folder',
             name: 'My Folder',
             parentId: null,
             childCount: 0,
@@ -261,6 +262,7 @@ describe('VfsExplorer', () => {
         folders: [
           {
             id: 'folder-2',
+            objectType: 'folder',
             name: 'Target Folder',
             parentId: null,
             childCount: 0,
@@ -307,6 +309,7 @@ describe('VfsExplorer', () => {
         folders: [
           {
             id: 'folder-3',
+            objectType: 'folder',
             name: 'Folder',
             parentId: null,
             childCount: 0,
@@ -367,6 +370,7 @@ describe('VfsExplorer', () => {
         folders: [
           {
             id: 'folder-self',
+            objectType: 'folder',
             name: 'Self Folder',
             parentId: null,
             childCount: 0,
