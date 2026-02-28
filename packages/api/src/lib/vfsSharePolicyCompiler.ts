@@ -155,6 +155,7 @@ export interface CompileVfsSharePoliciesOptions {
   compilerRunId?: string;
   actorId?: string | null;
   dryRun?: boolean;
+  policyIds?: string[];
 }
 
 export interface CompileVfsSharePoliciesResult {
@@ -169,7 +170,21 @@ export interface CompileVfsSharePoliciesResult {
   staleRevocationCount: number;
 }
 
-async function loadPolicyState(client: PgQueryable): Promise<{
+function normalizePolicyIds(policyIds: string[] | undefined): string[] | null {
+  if (!policyIds) {
+    return null;
+  }
+  const normalized = policyIds
+    .map((value) => value.trim())
+    .filter((value, index, array) => value.length > 0 && array.indexOf(value) === index)
+    .sort((left, right) => left.localeCompare(right));
+  return normalized;
+}
+
+async function loadPolicyState(
+  client: PgQueryable,
+  policyIds: string[] | null
+): Promise<{
   policies: SharePolicyDefinition[];
   selectors: SharePolicySelectorDefinition[];
   principals: SharePolicyPrincipalDefinition[];
@@ -178,33 +193,69 @@ async function loadPolicyState(client: PgQueryable): Promise<{
 }> {
   const [policyRows, selectorRows, principalRows, registryRows, linkRows] =
     await Promise.all([
-      client.query<PolicyRow>(
-        `
-        SELECT id, root_item_id, status, revoked_at, expires_at
-        FROM vfs_share_policies
-      `
-      ),
-      client.query<SelectorRow>(
-        `
-        SELECT
-          id,
-          policy_id,
-          selector_kind,
-          match_mode,
-          anchor_item_id,
-          max_depth,
-          include_root,
-          object_types,
-          selector_order
-        FROM vfs_share_policy_selectors
-      `
-      ),
-      client.query<PrincipalRow>(
-        `
-        SELECT id, policy_id, principal_type, principal_id, access_level
-        FROM vfs_share_policy_principals
-      `
-      ),
+      policyIds
+        ? client.query<PolicyRow>(
+            `
+            SELECT id, root_item_id, status, revoked_at, expires_at
+            FROM vfs_share_policies
+            WHERE id = ANY($1::text[])
+          `,
+            [policyIds]
+          )
+        : client.query<PolicyRow>(
+            `
+            SELECT id, root_item_id, status, revoked_at, expires_at
+            FROM vfs_share_policies
+          `
+          ),
+      policyIds
+        ? client.query<SelectorRow>(
+            `
+            SELECT
+              id,
+              policy_id,
+              selector_kind,
+              match_mode,
+              anchor_item_id,
+              max_depth,
+              include_root,
+              object_types,
+              selector_order
+            FROM vfs_share_policy_selectors
+            WHERE policy_id = ANY($1::text[])
+          `,
+            [policyIds]
+          )
+        : client.query<SelectorRow>(
+            `
+            SELECT
+              id,
+              policy_id,
+              selector_kind,
+              match_mode,
+              anchor_item_id,
+              max_depth,
+              include_root,
+              object_types,
+              selector_order
+            FROM vfs_share_policy_selectors
+          `
+          ),
+      policyIds
+        ? client.query<PrincipalRow>(
+            `
+            SELECT id, policy_id, principal_type, principal_id, access_level
+            FROM vfs_share_policy_principals
+            WHERE policy_id = ANY($1::text[])
+          `,
+            [policyIds]
+          )
+        : client.query<PrincipalRow>(
+            `
+            SELECT id, policy_id, principal_type, principal_id, access_level
+            FROM vfs_share_policy_principals
+          `
+          ),
       client.query<RegistryRow>(
         `
         SELECT id, object_type
@@ -236,7 +287,21 @@ export async function compileVfsSharePolicies(
   const compilerRunId = options.compilerRunId ?? createCompilerRunId(now);
   const actorId = options.actorId ?? null;
   const dryRun = options.dryRun ?? false;
-  const state = await loadPolicyState(client);
+  const policyIds = normalizePolicyIds(options.policyIds);
+  if (policyIds && policyIds.length === 0) {
+    return {
+      compilerRunId,
+      policyCount: 0,
+      activePolicyCount: 0,
+      selectorCount: 0,
+      principalCount: 0,
+      expandedMatchCount: 0,
+      decisionsCount: 0,
+      touchedAclEntryCount: 0,
+      staleRevocationCount: 0
+    };
+  }
+  const state = await loadPolicyState(client, policyIds);
 
   const compiled = compileSharePolicyCore({
     policies: state.policies,
@@ -344,13 +409,23 @@ export async function compileVfsSharePolicies(
     );
   }
 
-  const existingDerived = await client.query<DerivedAclRow>(
-    `
-    SELECT DISTINCT acl_entry_id
-    FROM vfs_acl_entry_provenance
-    WHERE provenance_type = 'derivedPolicy'
-    `
-  );
+  const existingDerived = policyIds
+    ? await client.query<DerivedAclRow>(
+        `
+        SELECT DISTINCT acl_entry_id
+        FROM vfs_acl_entry_provenance
+        WHERE provenance_type = 'derivedPolicy'
+          AND policy_id = ANY($1::text[])
+        `,
+        [policyIds]
+      )
+    : await client.query<DerivedAclRow>(
+        `
+        SELECT DISTINCT acl_entry_id
+        FROM vfs_acl_entry_provenance
+        WHERE provenance_type = 'derivedPolicy'
+        `
+      );
 
   let staleRevocationCount = 0;
   for (const row of existingDerived.rows) {
