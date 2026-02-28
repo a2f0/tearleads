@@ -10,51 +10,11 @@ import { contactEmails, contactPhones, contacts } from '@/db/schema';
 import { useContactsExport } from '@/hooks/contacts';
 import { queueItemUpsertAndFlush } from '@/lib/vfsItemSyncWriter';
 import type {
-  ContactEmail,
   ContactFormData,
-  ContactInfo,
-  ContactPhone,
   EmailFormData,
-  PhoneFormData
+  PhoneFormData,
+  UseContactDetailResult
 } from './types';
-
-interface UseContactDetailResult {
-  isUnlocked: boolean;
-  isLoading: boolean;
-  contact: ContactInfo | null;
-  emails: ContactEmail[];
-  phones: ContactPhone[];
-  loading: boolean;
-  error: string | null;
-  isEditing: boolean;
-  formData: ContactFormData | null;
-  emailsForm: EmailFormData[];
-  phonesForm: PhoneFormData[];
-  saving: boolean;
-  exporting: boolean;
-  t: (key: string) => string;
-  handleExport: () => Promise<void>;
-  handleEditClick: () => void;
-  handleCancel: () => void;
-  handleSave: () => Promise<void>;
-  handleFormChange: (field: keyof ContactFormData, value: string) => void;
-  handleEmailChange: (
-    emailId: string,
-    field: keyof EmailFormData,
-    value: string | boolean
-  ) => void;
-  handleEmailPrimaryChange: (emailId: string) => void;
-  handleDeleteEmail: (emailId: string) => void;
-  handleAddEmail: () => void;
-  handlePhoneChange: (
-    phoneId: string,
-    field: keyof PhoneFormData,
-    value: string | boolean
-  ) => void;
-  handlePhonePrimaryChange: (phoneId: string) => void;
-  handleDeletePhone: (phoneId: string) => void;
-  handleAddPhone: () => void;
-}
 
 export function useContactDetail(): UseContactDetailResult {
   const { t } = useTranslation('contacts');
@@ -130,6 +90,9 @@ export function useContactDetail(): UseContactDetailResult {
 
       const foundContact = contactResult[0];
       if (!foundContact) {
+        setContact(null);
+        setEmails([]);
+        setPhones([]);
         setError(t('contactNotFound'));
         return;
       }
