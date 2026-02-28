@@ -104,14 +104,12 @@ describe('share policy rollout performance budgets', () => {
       ]);
 
     const query = async <T>(text: string, values?: unknown[]) => {
-      if (text.includes('SELECT item_id, object_type, depth, node_path')) {
+      if (text.includes('FROM total') && text.includes('LEFT JOIN page')) {
         return {
-          rows: pagedRows as T[]
-        };
-      }
-      if (text.includes('SELECT COUNT(*)::bigint AS total_count')) {
-        return {
-          rows: [{ total_count: totalMatchingNodes }] as T[]
+          rows: pagedRows.map((row) => ({
+            ...row,
+            total_count: totalMatchingNodes
+          })) as T[]
         };
       }
       if (text.includes('FROM vfs_acl_entries')) {

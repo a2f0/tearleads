@@ -129,24 +129,24 @@ describe('VFS Shares routes (GET/share policy preview)', () => {
           item_id: 'root-1',
           object_type: 'contact',
           depth: 0,
-          node_path: 'root-1'
+          node_path: 'root-1',
+          total_count: '3'
         },
         {
           item_id: 'wallet-1',
           object_type: 'walletItem',
           depth: 1,
-          node_path: 'root-1/wallet-1'
+          node_path: 'root-1/wallet-1',
+          total_count: '3'
         },
         {
           item_id: 'workout-1',
           object_type: 'healthWorkoutEntry',
           depth: 1,
-          node_path: 'root-1/workout-1'
+          node_path: 'root-1/workout-1',
+          total_count: '3'
         }
       ]
-    });
-    mockQuery.mockResolvedValueOnce({
-      rows: [{ total_count: '3' }]
     });
     mockQuery.mockResolvedValueOnce({
       rows: [
@@ -219,6 +219,7 @@ describe('VFS Shares routes (GET/share policy preview)', () => {
     expect(treeQuerySql).toContain('JOIN vfs_links');
 
     const treeQueryValues = mockQuery.mock.calls[1]?.[1];
+    expect(treeQueryValues?.[1]).toBe(50);
     expect(treeQueryValues?.[3]).toEqual(['contact', 'walletItem']);
   });
 
@@ -228,7 +229,6 @@ describe('VFS Shares routes (GET/share policy preview)', () => {
       rows: [{ owner_id: 'user-1', object_type: 'contact' }]
     });
     mockQuery.mockResolvedValueOnce({ rows: [] });
-    mockQuery.mockResolvedValueOnce({ rows: [{ total_count: '0' }] });
 
     const response = await request(app)
       .get(

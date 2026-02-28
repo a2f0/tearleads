@@ -33,6 +33,8 @@ interface PolicyIdRow {
   policy_id: string;
 }
 
+const RECOMPUTE_SCOPE_MAX_DEPTH = 50;
+
 function normalizeIds(ids: string[]): string[] {
   return ids
     .map((value) => value.trim())
@@ -66,11 +68,12 @@ export async function resolveImpactedSharePolicyIds(
 
   const result = await client.query<PolicyIdRow>(
     `
-    WITH RECURSIVE policy_scope(policy_id, item_id, path) AS (
+    WITH RECURSIVE policy_scope(policy_id, item_id, path, depth) AS (
       SELECT
         p.id AS policy_id,
         p.root_item_id AS item_id,
-        ARRAY[p.root_item_id]::text[] AS path
+        ARRAY[p.root_item_id]::text[] AS path,
+        0 AS depth
       FROM vfs_share_policies p
       WHERE p.status = 'active'
         AND p.revoked_at IS NULL
@@ -81,18 +84,20 @@ export async function resolveImpactedSharePolicyIds(
       SELECT
         ps.policy_id,
         l.child_id AS item_id,
-        ps.path || l.child_id
+        ps.path || l.child_id,
+        ps.depth + 1
       FROM policy_scope ps
       JOIN vfs_links l
         ON l.parent_id = ps.item_id
       WHERE NOT l.child_id = ANY(ps.path)
+        AND ps.depth < $3
     )
     SELECT DISTINCT policy_id
     FROM policy_scope
     WHERE item_id = ANY($1::text[])
     ORDER BY policy_id ASC
     `,
-    [itemIds, now]
+    [itemIds, now, RECOMPUTE_SCOPE_MAX_DEPTH]
   );
 
   return normalizeIds(result.rows.map((row) => row.policy_id));

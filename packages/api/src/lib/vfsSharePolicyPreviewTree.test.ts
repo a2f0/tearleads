@@ -4,7 +4,7 @@ import { buildSharePolicyPreviewTree } from './vfsSharePolicyPreviewTree.js';
 describe('buildSharePolicyPreviewTree', () => {
   it('returns classified preview nodes with summary and cursor', async () => {
     const query = async <T>(text: string, values?: unknown[]) => {
-      if (text.includes('SELECT item_id, object_type, depth, node_path')) {
+      if (text.includes('FROM total') && text.includes('LEFT JOIN page')) {
         expect(values?.[0]).toBe('root-1');
         return {
           rows: [
@@ -12,26 +12,24 @@ describe('buildSharePolicyPreviewTree', () => {
               item_id: 'root-1',
               object_type: 'contact',
               depth: 0,
-              node_path: 'root-1'
+              node_path: 'root-1',
+              total_count: '3'
             },
             {
               item_id: 'wallet-1',
               object_type: 'walletItem',
               depth: 1,
-              node_path: 'root-1/wallet-1'
+              node_path: 'root-1/wallet-1',
+              total_count: '3'
             },
             {
               item_id: 'workout-1',
               object_type: 'healthWorkoutEntry',
               depth: 1,
-              node_path: 'root-1/workout-1'
+              node_path: 'root-1/workout-1',
+              total_count: '3'
             }
           ] as T[]
-        };
-      }
-      if (text.includes('SELECT COUNT(*)::bigint AS total_count')) {
-        return {
-          rows: [{ total_count: '3' }] as T[]
         };
       }
       if (text.includes('FROM vfs_acl_entries')) {
@@ -121,21 +119,17 @@ describe('buildSharePolicyPreviewTree', () => {
 
   it('returns excluded node counts when no acl entries match the principal', async () => {
     const query = async <T>(text: string) => {
-      if (text.includes('SELECT item_id, object_type, depth, node_path')) {
+      if (text.includes('FROM total') && text.includes('LEFT JOIN page')) {
         return {
           rows: [
             {
               item_id: 'root-1',
               object_type: 'contact',
               depth: 0,
-              node_path: 'root-1'
+              node_path: 'root-1',
+              total_count: 1
             }
           ] as T[]
-        };
-      }
-      if (text.includes('SELECT COUNT(*)::bigint AS total_count')) {
-        return {
-          rows: [{ total_count: 1 }] as T[]
         };
       }
       if (text.includes('FROM vfs_acl_entries')) {
@@ -176,14 +170,19 @@ describe('buildSharePolicyPreviewTree', () => {
 
   it('returns empty node pages when filters remove all tree nodes', async () => {
     const query = async <T>(text: string, values?: unknown[]) => {
-      if (text.includes('SELECT item_id, object_type, depth, node_path')) {
+      if (text.includes('FROM total') && text.includes('LEFT JOIN page')) {
         expect(values?.[2]).toBeNull();
         expect(values?.[3]).toEqual(['walletItem']);
-        return { rows: [] as T[] };
-      }
-      if (text.includes('SELECT COUNT(*)::bigint AS total_count')) {
         return {
-          rows: [{ total_count: 0 }] as T[]
+          rows: [
+            {
+              item_id: null,
+              object_type: null,
+              depth: null,
+              node_path: null,
+              total_count: 0
+            }
+          ] as T[]
         };
       }
       throw new Error(`Unexpected query in empty preview test: ${text}`);
@@ -220,21 +219,17 @@ describe('buildSharePolicyPreviewTree', () => {
 
   it('classifies unknown acl ids as included state', async () => {
     const query = async <T>(text: string) => {
-      if (text.includes('SELECT item_id, object_type, depth, node_path')) {
+      if (text.includes('FROM total') && text.includes('LEFT JOIN page')) {
         return {
           rows: [
             {
               item_id: 'root-1',
               object_type: 'contact',
               depth: 0,
-              node_path: 'root-1'
+              node_path: 'root-1',
+              total_count: 1
             }
           ] as T[]
-        };
-      }
-      if (text.includes('SELECT COUNT(*)::bigint AS total_count')) {
-        return {
-          rows: [{ total_count: 1 }] as T[]
         };
       }
       if (text.includes('FROM vfs_acl_entries')) {

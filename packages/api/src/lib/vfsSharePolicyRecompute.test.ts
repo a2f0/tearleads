@@ -80,7 +80,7 @@ describe('resolveImpactedSharePolicyIds', () => {
     expect(impactedPolicyIds).toEqual(['policy-a', 'policy-b']);
     expect(calls).toHaveLength(1);
     expect(calls[0]?.text).toContain('WITH RECURSIVE policy_scope');
-    expect(calls[0]?.values).toEqual([['item-1'], now]);
+    expect(calls[0]?.values).toEqual([['item-1'], now, 50]);
   });
 
   it('uses parent and child ids when recomputing link changes', async () => {
@@ -103,7 +103,7 @@ describe('resolveImpactedSharePolicyIds', () => {
 
     expect(impactedPolicyIds).toEqual([]);
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.values).toEqual([['contact-1', 'wallet-1'], now]);
+    expect(calls[0]?.values).toEqual([['contact-1', 'wallet-1'], now, 50]);
   });
 });
 

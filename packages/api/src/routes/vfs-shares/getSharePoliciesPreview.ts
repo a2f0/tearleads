@@ -17,6 +17,7 @@ interface PreviewQuery {
 }
 
 const CONTAINER_OBJECT_TYPES = new Set<string>(VFS_CONTAINER_OBJECT_TYPES);
+const DEFAULT_PREVIEW_MAX_DEPTH = 50;
 
 function isPreviewPrincipalType(
   value: string | undefined
@@ -35,15 +36,15 @@ function parsePositiveLimit(raw: string | undefined): number {
   return Math.min(parsed, 500);
 }
 
-function parseMaxDepth(raw: string | undefined): number | null {
+function parseMaxDepth(raw: string | undefined): number {
   if (!raw) {
-    return null;
+    return DEFAULT_PREVIEW_MAX_DEPTH;
   }
   const parsed = Number.parseInt(raw, 10);
   if (!Number.isFinite(parsed) || parsed < 0) {
     throw new Error('maxDepth must be a non-negative integer');
   }
-  return parsed;
+  return Math.min(parsed, DEFAULT_PREVIEW_MAX_DEPTH);
 }
 
 function parseObjectTypes(raw: string | undefined): string[] | null {
@@ -106,6 +107,7 @@ function parseObjectTypes(raw: string | undefined): string[] | null {
  *         schema:
  *           type: integer
  *           minimum: 0
+ *           maximum: 50
  *       - in: query
  *         name: q
  *         required: false
@@ -157,7 +159,7 @@ const getSharePoliciesPreviewHandler = async (
   }
 
   let limit: number;
-  let maxDepth: number | null;
+  let maxDepth: number;
   try {
     limit = parsePositiveLimit(req.query.limit);
     maxDepth = parseMaxDepth(req.query.maxDepth);

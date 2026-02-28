@@ -216,19 +216,18 @@ export async function compileVfsSharePolicies(
             `
           );
 
-      let staleRevocationCount = 0;
-      for (const row of existingDerived.rows) {
-        if (touchedAclEntryIds.has(row.acl_entry_id)) {
-          continue;
-        }
-        staleRevocationCount += 1;
+      const staleAclEntryIds = existingDerived.rows
+        .map((row) => row.acl_entry_id)
+        .filter((aclEntryId) => !touchedAclEntryIds.has(aclEntryId));
+
+      if (staleAclEntryIds.length > 0) {
         await client.query(
           `
           UPDATE vfs_acl_entries
           SET revoked_at = $1, updated_at = $1
-          WHERE id = $2
+          WHERE id = ANY($2::text[])
           `,
-          [now, row.acl_entry_id]
+          [now, staleAclEntryIds]
         );
         await client.query(
           `
@@ -241,12 +240,13 @@ export async function compileVfsSharePolicies(
             compiled_at = $1,
             compiler_run_id = $2,
             updated_at = $1
-          WHERE acl_entry_id = $3
+          WHERE acl_entry_id = ANY($3::text[])
             AND provenance_type = 'derivedPolicy'
           `,
-          [now, compilerRunId, row.acl_entry_id]
+          [now, compilerRunId, staleAclEntryIds]
         );
       }
+      const staleRevocationCount = staleAclEntryIds.length;
 
       result = {
         compilerRunId,

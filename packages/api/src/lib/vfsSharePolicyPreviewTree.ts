@@ -4,14 +4,18 @@ type PreviewAccessLevel = 'read' | 'write' | 'admin';
 type PreviewPrincipalType = 'user' | 'group' | 'organization';
 
 interface TreeRow {
+  item_id: string | null;
+  object_type: string | null;
+  depth: number | string | null;
+  node_path: string | null;
+  total_count: number | string;
+}
+
+interface PageTreeRow {
   item_id: string;
   object_type: string;
   depth: number | string;
   node_path: string;
-}
-
-interface CountRow {
-  total_count: number | string;
 }
 
 interface AclRow {
@@ -134,6 +138,27 @@ function normalizeObjectTypes(objectTypes: string[] | null): string[] | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+function normalizePageRows(rows: TreeRow[]): PageTreeRow[] {
+  return rows.flatMap((row) => {
+    if (
+      row.item_id === null ||
+      row.object_type === null ||
+      row.depth === null ||
+      row.node_path === null
+    ) {
+      return [];
+    }
+    return [
+      {
+        item_id: row.item_id,
+        object_type: row.object_type,
+        depth: row.depth,
+        node_path: row.node_path
+      }
+    ];
+  });
+}
+
 export async function buildSharePolicyPreviewTree(
   client: PgQueryable,
   options: BuildSharePolicyPreviewTreeOptions
@@ -169,14 +194,33 @@ export async function buildSharePolicyPreviewTree(
         ON child.id = l.child_id
       WHERE ($2::integer IS NULL OR tree.depth < $2)
         AND NOT child.id = ANY(tree.path)
+    ),
+    filtered AS (
+      SELECT item_id, object_type, depth, node_path
+      FROM tree
+      WHERE ($3::text IS NULL OR LOWER(item_id) LIKE $3 OR LOWER(object_type) LIKE $3)
+        AND ($4::text[] IS NULL OR object_type = ANY($4))
+    ),
+    total AS (
+      SELECT COUNT(*)::bigint AS total_count
+      FROM filtered
+    ),
+    page AS (
+      SELECT item_id, object_type, depth, node_path
+      FROM filtered
+      WHERE ($5::text IS NULL OR node_path > $5)
+      ORDER BY node_path ASC
+      LIMIT $6
     )
-    SELECT item_id, object_type, depth, node_path
-    FROM tree
-    WHERE ($3::text IS NULL OR LOWER(item_id) LIKE $3 OR LOWER(object_type) LIKE $3)
-      AND ($4::text[] IS NULL OR object_type = ANY($4))
-      AND ($5::text IS NULL OR node_path > $5)
-    ORDER BY node_path ASC
-    LIMIT $6
+    SELECT
+      page.item_id,
+      page.object_type,
+      page.depth,
+      page.node_path,
+      total.total_count
+    FROM total
+    LEFT JOIN page ON TRUE
+    ORDER BY page.node_path ASC NULLS LAST
     `,
     [
       options.rootItemId,
@@ -188,45 +232,13 @@ export async function buildSharePolicyPreviewTree(
     ]
   );
 
-  const pageRows = treeRowsResult.rows.slice(0, pageLimit);
-  const hasMore = treeRowsResult.rows.length > pageLimit;
-  const nextCursor = hasMore ? (pageRows.at(-1)?.node_path ?? null) : null;
-
-  const countResult = await client.query<CountRow>(
-    `
-    WITH RECURSIVE tree AS (
-      SELECT
-        r.id AS item_id,
-        r.object_type,
-        0 AS depth,
-        ARRAY[r.id]::text[] AS path
-      FROM vfs_registry r
-      WHERE r.id = $1
-
-      UNION ALL
-
-      SELECT
-        child.id AS item_id,
-        child.object_type,
-        tree.depth + 1 AS depth,
-        tree.path || child.id AS path
-      FROM tree
-      JOIN vfs_links l
-        ON l.parent_id = tree.item_id
-      JOIN vfs_registry child
-        ON child.id = l.child_id
-      WHERE ($2::integer IS NULL OR tree.depth < $2)
-        AND NOT child.id = ANY(tree.path)
-    )
-    SELECT COUNT(*)::bigint AS total_count
-    FROM tree
-    WHERE ($3::text IS NULL OR LOWER(item_id) LIKE $3 OR LOWER(object_type) LIKE $3)
-      AND ($4::text[] IS NULL OR object_type = ANY($4))
-    `,
-    [options.rootItemId, options.maxDepth, searchPattern, objectTypes]
+  const totalMatchingNodes = parseCount(
+    treeRowsResult.rows[0]?.total_count ?? 0
   );
-
-  const totalMatchingNodes = parseCount(countResult.rows[0]?.total_count ?? 0);
+  const matchingRows = normalizePageRows(treeRowsResult.rows);
+  const pageRows = matchingRows.slice(0, pageLimit);
+  const hasMore = matchingRows.length > pageLimit;
+  const nextCursor = hasMore ? (pageRows.at(-1)?.node_path ?? null) : null;
   const itemIds = pageRows.map((row) => row.item_id);
   if (itemIds.length === 0) {
     return {

@@ -86,6 +86,10 @@ const ACCESS_RANK: Record<PolicyAccessLevel, number> = {
   admin: 3
 };
 
+function isPolicyPrincipalType(value: string): value is PolicyPrincipalType {
+  return value === 'user' || value === 'group' || value === 'organization';
+}
+
 function buildChildrenMap(links: LinkEdge[]): Map<string, string[]> {
   const map = new Map<string, string[]>();
   for (const link of links) {
@@ -273,7 +277,7 @@ function aggregateKey(
   principalType: PolicyPrincipalType,
   principalId: string
 ): string {
-  return `${itemId}::${principalType}::${principalId}`;
+  return JSON.stringify([itemId, principalType, principalId]);
 }
 
 function decodeAggregateKey(key: string): {
@@ -281,13 +285,27 @@ function decodeAggregateKey(key: string): {
   principalType: PolicyPrincipalType;
   principalId: string;
 } {
-  const [itemId, principalType, principalId] = key.split('::');
-  if (!itemId || !principalType || !principalId) {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(key);
+  } catch {
+    throw new Error(`Malformed aggregate key: ${key}`);
+  }
+  if (!Array.isArray(parsed) || parsed.length !== 3) {
+    throw new Error(`Malformed aggregate key: ${key}`);
+  }
+  const [itemId, principalType, principalId] = parsed;
+  if (
+    typeof itemId !== 'string' ||
+    typeof principalType !== 'string' ||
+    typeof principalId !== 'string' ||
+    !isPolicyPrincipalType(principalType)
+  ) {
     throw new Error(`Malformed aggregate key: ${key}`);
   }
   return {
     itemId,
-    principalType: principalType as PolicyPrincipalType,
+    principalType,
     principalId
   };
 }
