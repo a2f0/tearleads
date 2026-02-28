@@ -243,6 +243,7 @@ describe('sync schema contract', () => {
       '../db/src/generated/postgresql/schema.ts',
       '../db/src/generated/postgresql/schema-content.ts',
       '../db/src/generated/postgresql/schema-foundation.ts',
+      '../db/src/generated/postgresql/schema-policy.ts',
       '../db/src/generated/postgresql/schema-runtime.ts'
     ]
       .map((relativePath) =>
@@ -263,6 +264,7 @@ describe('sync schema contract', () => {
       '../db/src/generated/sqlite/schema.ts',
       '../db/src/generated/sqlite/schema-content.ts',
       '../db/src/generated/sqlite/schema-foundation.ts',
+      '../db/src/generated/sqlite/schema-policy.ts',
       '../db/src/generated/sqlite/schema-runtime.ts'
     ]
       .map((relativePath) =>

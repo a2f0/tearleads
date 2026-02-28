@@ -9,6 +9,13 @@ export {
   vfsSyncChangesTable,
   vfsSyncClientStateTable
 } from './definition-communications-vfs.js';
+export {
+  communicationsVfsPolicyTables,
+  vfsAclEntryProvenanceTable,
+  vfsSharePoliciesTable,
+  vfsSharePolicyPrincipalsTable,
+  vfsSharePolicySelectorsTable
+} from './definition-communications-vfs-policy.js';
 // Re-export from split modules
 export {
   aiConversationsTable,
@@ -17,6 +24,7 @@ export {
 
 import { communicationsEmailTables } from './definition-communications-email.js';
 import { communicationsVfsTables } from './definition-communications-vfs.js';
+import { communicationsVfsPolicyTables } from './definition-communications-vfs-policy.js';
 // Import for combining into communicationsTables
 import { communicationsAiTables } from './definitionCommunicationsAi.js';
 
@@ -249,5 +257,6 @@ export const communicationsTables: TableDefinition[] = [
   tagsTable,
   walletItemsTable,
   walletItemMediaTable,
+  ...communicationsVfsPolicyTables,
   ...communicationsVfsTables
 ];

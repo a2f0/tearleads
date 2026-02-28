@@ -10,12 +10,8 @@ import {
   playlists,
   tags,
   userKeys,
-  vfsAclEntries,
-  vfsItemState,
   vfsLinks,
   vfsRegistry,
-  vfsSyncChanges,
-  vfsSyncClientState,
   walletItemMedia,
   walletItems
 } from './schema-content.js';
@@ -45,6 +41,16 @@ import {
   vehicles
 } from './schema-foundation.js';
 import {
+  vfsAclEntries,
+  vfsAclEntryProvenance,
+  vfsItemState,
+  vfsSharePolicies,
+  vfsSharePolicyPrincipals,
+  vfsSharePolicySelectors,
+  vfsSyncChanges,
+  vfsSyncClientState
+} from './schema-policy.js';
+import {
   aiUsage,
   mlsGroupMembers,
   mlsGroupState,
@@ -57,6 +63,7 @@ import {
 
 export * from './schema-content.js';
 export * from './schema-foundation.js';
+export * from './schema-policy.js';
 export * from './schema-runtime.js';
 
 /**
@@ -89,7 +96,6 @@ export const schema = {
   userKeys,
   vfsRegistry,
   vfsLinks,
-  vfsItemState,
   playlists,
   albums,
   contactGroups,
@@ -101,7 +107,12 @@ export const schema = {
   emails,
   composedEmails,
   emailAttachments,
+  vfsSharePolicies,
+  vfsSharePolicySelectors,
+  vfsSharePolicyPrincipals,
+  vfsItemState,
   vfsAclEntries,
+  vfsAclEntryProvenance,
   vfsSyncChanges,
   vfsSyncClientState,
   vfsCrdtOps,
