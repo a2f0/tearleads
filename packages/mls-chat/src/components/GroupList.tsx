@@ -6,7 +6,7 @@ import type { FC } from 'react';
 
 import { useMlsChatUI } from '../context/index.js';
 import type { ActiveGroup } from '../lib/index.js';
-import { GroupListItem } from './GroupListItem';
+import { GroupListItem } from './GroupListItem.js';
 
 interface GroupListProps {
   groups: ActiveGroup[];

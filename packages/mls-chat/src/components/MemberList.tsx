@@ -7,7 +7,7 @@ import type { MlsGroupMember } from '@tearleads/shared';
 import type { FC } from 'react';
 
 import { useMlsChatUI } from '../context/index.js';
-import { MemberListItem } from './MemberListItem';
+import { MemberListItem } from './MemberListItem.js';
 
 interface MemberListProps {
   members: MlsGroupMember[];
