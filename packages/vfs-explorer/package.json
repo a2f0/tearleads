@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/vfs-explorer",
-  "version": "0.0.214",
+  "version": "0.0.215",
   "description": "VFS Explorer components for Tearleads",
   "type": "module",
   "main": "dist/index.js",
