@@ -38,6 +38,77 @@ interface TablesProps {
   showBackLink?: boolean;
 }
 
+function shouldFetchTables(
+  isUnlocked: boolean,
+  loading: boolean,
+  tables: TableInfo[],
+  error: string | null,
+  currentInstanceId: string | null,
+  fetchedForInstanceId: string | null
+) {
+  if (!isUnlocked || loading) {
+    return false;
+  }
+
+  const noTablesFetchedYet = tables.length === 0 && !error;
+  const instanceChanged = fetchedForInstanceId !== currentInstanceId;
+  return noTablesFetchedYet || instanceChanged;
+}
+
+function shouldResetTablesForInstanceChange(
+  fetchedForInstanceId: string | null,
+  currentInstanceId: string | null
+) {
+  return (
+    fetchedForInstanceId !== null && fetchedForInstanceId !== currentInstanceId
+  );
+}
+
+function renderTablesContent(
+  isUnlocked: boolean,
+  error: string | null,
+  loading: boolean,
+  tables: TableInfo[]
+) {
+  if (!isUnlocked || error) {
+    return null;
+  }
+
+  if (loading && tables.length === 0) {
+    return (
+      <div className="rounded-lg border p-8 text-center text-muted-foreground">
+        Loading tables...
+      </div>
+    );
+  }
+
+  if (tables.length === 0) {
+    return (
+      <div className="rounded-lg border p-8 text-center text-muted-foreground">
+        No tables found
+      </div>
+    );
+  }
+
+  return tables.map((table) => (
+    <LinkWithFrom
+      key={table.name}
+      to={`/sqlite/tables/${encodeURIComponent(table.name)}`}
+      fromLabel="Back to Tables"
+      className="flex items-center gap-3 rounded-lg border bg-muted/50 p-3 transition-colors hover:bg-muted"
+    >
+      <Table2 className="h-5 w-5 shrink-0 text-muted-foreground" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium font-mono text-sm">{table.name}</p>
+        <p className="text-muted-foreground text-xs">
+          {table.rowCount} {table.rowCount === 1 ? 'row' : 'rows'}
+        </p>
+      </div>
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+    </LinkWithFrom>
+  ));
+}
+
 export function Tables({ showBackLink = true }: TablesProps) {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [tables, setTables] = useState<TableInfo[]>([]);
@@ -93,34 +164,35 @@ export function Tables({ showBackLink = true }: TablesProps) {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: tables intentionally excluded to prevent re-fetch loops
   useEffect(() => {
-    if (!isUnlocked) return;
-
-    // Check if we need to fetch for this instance
-    const needsFetch =
-      (tables.length === 0 && !error) ||
-      fetchedForInstanceRef.current !== currentInstanceId;
-
-    if (needsFetch && !loading) {
-      // If instance changed, clear tables
-      if (
-        fetchedForInstanceRef.current !== currentInstanceId &&
-        fetchedForInstanceRef.current !== null
-      ) {
-        setTables([]);
-        setError(null);
-      }
-
-      // Update ref before fetching
-      fetchedForInstanceRef.current = currentInstanceId;
-
-      // Defer fetch to next tick to ensure database singleton is updated
-      const timeoutId = setTimeout(() => {
-        fetchTables();
-      }, 0);
-
-      return () => clearTimeout(timeoutId);
+    if (
+      !shouldFetchTables(
+        isUnlocked,
+        loading,
+        tables,
+        error,
+        currentInstanceId,
+        fetchedForInstanceRef.current
+      )
+    ) {
+      return undefined;
     }
-    return undefined;
+
+    if (
+      shouldResetTablesForInstanceChange(
+        fetchedForInstanceRef.current,
+        currentInstanceId
+      )
+    ) {
+      setTables([]);
+      setError(null);
+    }
+
+    fetchedForInstanceRef.current = currentInstanceId;
+    const timeoutId = setTimeout(() => {
+      fetchTables();
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
   }, [isUnlocked, currentInstanceId, loading, fetchTables, error]);
 
   return (
@@ -149,39 +221,9 @@ export function Tables({ showBackLink = true }: TablesProps) {
         </div>
       )}
 
-      {isUnlocked && !error && (
-        <div className="space-y-2">
-          {loading && tables.length === 0 ? (
-            <div className="rounded-lg border p-8 text-center text-muted-foreground">
-              Loading tables...
-            </div>
-          ) : tables.length === 0 ? (
-            <div className="rounded-lg border p-8 text-center text-muted-foreground">
-              No tables found
-            </div>
-          ) : (
-            tables.map((table) => (
-              <LinkWithFrom
-                key={table.name}
-                to={`/sqlite/tables/${encodeURIComponent(table.name)}`}
-                fromLabel="Back to Tables"
-                className="flex items-center gap-3 rounded-lg border bg-muted/50 p-3 transition-colors hover:bg-muted"
-              >
-                <Table2 className="h-5 w-5 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium font-mono text-sm">
-                    {table.name}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    {table.rowCount} {table.rowCount === 1 ? 'row' : 'rows'}
-                  </p>
-                </div>
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-              </LinkWithFrom>
-            ))
-          )}
-        </div>
-      )}
+      <div className="space-y-2">
+        {renderTablesContent(isUnlocked, error, loading, tables)}
+      </div>
     </div>
   );
 }

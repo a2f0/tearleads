@@ -45,6 +45,95 @@ function getDefaultSnapPoints(
   ];
 }
 
+function buildSnapPoints(
+  customSnapPoints: SnapPoint[] | undefined,
+  windowHeight: number,
+  maxHeightPercent: number,
+  fitContent: boolean,
+  contentHeight: number | null,
+  title: string | undefined
+) {
+  if (customSnapPoints) return customSnapPoints;
+
+  const defaultPoints = getDefaultSnapPoints(windowHeight, maxHeightPercent);
+  if (!fitContent || contentHeight === null) {
+    return defaultPoints;
+  }
+
+  const totalHeight =
+    HANDLE_HEIGHT +
+    (title ? TITLE_HEIGHT : 0) +
+    contentHeight +
+    CONTENT_PADDING;
+  const maxHeight = windowHeight * maxHeightPercent;
+  const clampedHeight = Math.min(Math.max(totalHeight, MIN_HEIGHT), maxHeight);
+
+  return [
+    { name: 'content', height: clampedHeight },
+    ...defaultPoints.filter(
+      (p) => p.height > clampedHeight + MIN_SNAP_SEPARATION
+    )
+  ];
+}
+
+function syncSnapToContent(
+  fitContent: boolean,
+  contentHeight: number | null,
+  hasSnappedToContent: React.MutableRefObject<boolean>,
+  snapTo: (snapPointName: string) => void
+) {
+  if (!fitContent || contentHeight === null || hasSnappedToContent.current) {
+    return;
+  }
+
+  hasSnappedToContent.current = true;
+  snapTo('content');
+}
+
+function resetSnapFlagOnClose(
+  open: boolean,
+  hasSnappedToContent: React.MutableRefObject<boolean>
+) {
+  if (open) {
+    return;
+  }
+  hasSnappedToContent.current = false;
+}
+
+function syncSheetVisibility(
+  open: boolean,
+  setShouldRender: React.Dispatch<React.SetStateAction<boolean>>,
+  setIsVisible: React.Dispatch<React.SetStateAction<boolean>>
+) {
+  if (open) {
+    setShouldRender(true);
+    requestAnimationFrame(() => setIsVisible(true));
+    return;
+  }
+  setIsVisible(false);
+  const timer = setTimeout(() => setShouldRender(false), ANIMATION_DURATION_MS);
+  return () => clearTimeout(timer);
+}
+
+function registerEscapeHandler(
+  open: boolean,
+  onOpenChange: (open: boolean) => void
+) {
+  if (!open) {
+    return;
+  }
+
+  const handleEscape = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape') {
+      return;
+    }
+    onOpenChange(false);
+  };
+
+  document.addEventListener('keydown', handleEscape);
+  return () => document.removeEventListener('keydown', handleEscape);
+}
+
 export function BottomSheet({
   open,
   onOpenChange,
@@ -97,32 +186,14 @@ export function BottomSheet({
   }, [fitContent, open]);
 
   const snapPoints = useMemo(() => {
-    if (customSnapPoints) return customSnapPoints;
-
-    const defaultPoints = getDefaultSnapPoints(windowHeight, maxHeightPercent);
-
-    // Add content-based snap point when fitContent is enabled and measured
-    if (fitContent && contentHeight !== null) {
-      const totalHeight =
-        HANDLE_HEIGHT +
-        (title ? TITLE_HEIGHT : 0) +
-        contentHeight +
-        CONTENT_PADDING;
-      const maxHeight = windowHeight * maxHeightPercent;
-      const clampedHeight = Math.min(
-        Math.max(totalHeight, MIN_HEIGHT),
-        maxHeight
-      );
-
-      return [
-        { name: 'content', height: clampedHeight },
-        ...defaultPoints.filter(
-          (p) => p.height > clampedHeight + MIN_SNAP_SEPARATION
-        )
-      ];
-    }
-
-    return defaultPoints;
+    return buildSnapPoints(
+      customSnapPoints,
+      windowHeight,
+      maxHeightPercent,
+      fitContent,
+      contentHeight,
+      title
+    );
   }, [
     customSnapPoints,
     windowHeight,
@@ -157,44 +228,20 @@ export function BottomSheet({
   // Snap to content height when it's first measured
   const hasSnappedToContent = useRef(false);
   useEffect(() => {
-    if (fitContent && contentHeight !== null && !hasSnappedToContent.current) {
-      hasSnappedToContent.current = true;
-      snapTo('content');
-    }
+    syncSnapToContent(fitContent, contentHeight, hasSnappedToContent, snapTo);
   }, [fitContent, contentHeight, snapTo]);
 
   // Reset the snap flag when the sheet closes
   useEffect(() => {
-    if (!open) {
-      hasSnappedToContent.current = false;
-    }
+    resetSnapFlagOnClose(open, hasSnappedToContent);
   }, [open]);
 
   useEffect(() => {
-    if (open) {
-      setShouldRender(true);
-      requestAnimationFrame(() => setIsVisible(true));
-      return;
-    }
-    setIsVisible(false);
-    const timer = setTimeout(
-      () => setShouldRender(false),
-      ANIMATION_DURATION_MS
-    );
-    return () => clearTimeout(timer);
+    return syncSheetVisibility(open, setShouldRender, setIsVisible);
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onOpenChange(false);
-      }
-    };
-
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
+    return registerEscapeHandler(open, onOpenChange);
   }, [open, onOpenChange]);
 
   const handleBackdropClick = useCallback(() => {
