@@ -16,9 +16,9 @@ module "rds" {
   vpc_id     = data.terraform_remote_state.k8s.outputs.vpc_id
   subnet_ids = data.terraform_remote_state.k8s.outputs.rds_subnet_ids
 
-  # Allow pod-network traffic from k3s and node-level traffic from the k8s SG.
+  # Allow pod-network traffic from k3s.
   allowed_cidr_blocks        = [data.terraform_remote_state.k8s.outputs.k8s_pod_cidr]
-  allowed_security_group_ids = [data.terraform_remote_state.k8s.outputs.k8s_server_security_group_id]
+  allowed_security_group_ids = []
   publicly_accessible        = false
 
   # Database config
