@@ -121,6 +121,85 @@ validate_cloudflare_env() {
   fi
 }
 
+# Best-effort Cloudflare cache purge for a set of hosts in the given zone domain.
+# Usage:
+#   purge_cloudflare_cache_for_hosts <zone-domain> <host1> [host2 ...]
+# Example:
+#   purge_cloudflare_cache_for_hosts "tearleads.com" "tearleads.com" "app.tearleads.com"
+purge_cloudflare_cache_for_hosts() {
+  local domain="$1"
+  shift
+  local hosts=("$@")
+  local zone_id response payload
+  local files=()
+  local host
+
+  if [[ -z "$domain" ]]; then
+    echo "Skipping Cloudflare cache purge: zone domain is not set."
+    return 0
+  fi
+
+  if [[ ${#hosts[@]} -eq 0 ]]; then
+    echo "Skipping Cloudflare cache purge: no hosts were provided."
+    return 0
+  fi
+
+  if [[ -z "${TF_VAR_cloudflare_api_token:-}" || -z "${TF_VAR_cloudflare_account_id:-}" ]]; then
+    echo "Skipping Cloudflare cache purge: Cloudflare credentials are missing."
+    return 0
+  fi
+
+  if ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+    echo "Skipping Cloudflare cache purge: curl and jq are required."
+    return 0
+  fi
+
+  echo "Resolving Cloudflare zone for $domain..."
+  zone_id="$(
+    curl -sS -X GET "https://api.cloudflare.com/client/v4/zones?name=${domain}&account.id=${TF_VAR_cloudflare_account_id}" \
+      -H "Authorization: Bearer ${TF_VAR_cloudflare_api_token}" \
+      -H "Content-Type: application/json" |
+      jq -r '.result[0].id // empty'
+  )"
+
+  if [[ -z "$zone_id" ]]; then
+    echo "Skipping Cloudflare cache purge: could not resolve zone id for $domain."
+    return 0
+  fi
+
+  for host in "${hosts[@]}"; do
+    files+=(
+      "https://${host}/"
+      "https://${host}/index.html"
+      "https://${host}/favicon.svg"
+      "https://${host}/manifest.webmanifest"
+    )
+    if [[ "$host" == app.* ]]; then
+      files+=(
+        "https://${host}/sw.js"
+        "https://${host}/registerSW.js"
+      )
+    fi
+  done
+
+  payload="$(printf '%s\n' "${files[@]}" | jq -R . | jq -cs '{files: .}')"
+
+  echo "Purging Cloudflare cache for hosts: ${hosts[*]}"
+  response="$(
+    curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${zone_id}/purge_cache" \
+      -H "Authorization: Bearer ${TF_VAR_cloudflare_api_token}" \
+      -H "Content-Type: application/json" \
+      --data "$payload"
+  )"
+
+  if jq -e '.success == true' <<< "$response" >/dev/null; then
+    echo "Cloudflare cache purge request submitted successfully."
+  else
+    echo "Cloudflare cache purge failed (continuing):"
+    jq -c . <<< "$response"
+  fi
+}
+
 # Validate required environment variables for Tailscale stacks
 validate_tailscale_env() {
   local missing=()
