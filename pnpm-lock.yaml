@@ -1810,9 +1810,6 @@ importers:
       react:
         specifier: 19.2.4
         version: 19.2.4
-      react-dom:
-        specifier: 19.2.4
-        version: 19.2.4(react@19.2.4)
     devDependencies:
       '@testing-library/jest-dom':
         specifier: 6.9.1
@@ -2432,10 +2429,6 @@ importers:
         version: 0.10.1(@vitest/utils@4.0.18)(vite@7.3.1(@types/node@25.3.2)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))(vitest@4.0.18(@types/node@25.3.2)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.2)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
 
   packages/vehicles:
-    dependencies:
-      react-dom:
-        specifier: 19.2.4
-        version: 19.2.4(react@19.2.4)
     devDependencies:
       '@types/react':
         specifier: 19.2.14
