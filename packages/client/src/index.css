@@ -28,13 +28,16 @@
 @source "../../contacts/src";
 @source "../../email/src";
 @source "../../health/src";
+@source "../../keychain/src";
 @source "../../mls-chat/src";
 @source "../../notes/src";
+@source "../../notifications/src";
 @source "../../settings/src";
 @source "../../terminal/src";
 @source "../../ui/src";
 @source "../../vehicles/src";
 @source "../../vfs-explorer/src";
+@source "../../vfs-sync/src";
 @source "../../wallet/src";
 @source "../../window-manager/src";
 
