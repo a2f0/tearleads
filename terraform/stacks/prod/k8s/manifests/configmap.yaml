@@ -12,6 +12,7 @@ data:
   POSTGRES_USER: "postgres"
   POSTGRES_DATABASE: "tearleads"
   POSTGRES_SSL: "1"
+  POSTGRES_SSL_REJECT_UNAUTHORIZED: "0"
   REDIS_URL: "redis://redis:6379"
   # VFS Blob Storage (AWS S3)
   VFS_BLOB_STORE_PROVIDER: "s3"
