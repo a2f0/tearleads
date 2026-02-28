@@ -1,6 +1,6 @@
+import type { AppFeature } from '@tearleads/app-builder/types';
 import type { ComponentType } from 'react';
 import type { MenuKeys } from '@/i18n';
-import type { AppFeature } from '@tearleads/app-builder/types';
 
 type IconComponent = ComponentType<{ className?: string }>;
 

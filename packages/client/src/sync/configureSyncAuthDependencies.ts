@@ -1,11 +1,11 @@
-import { LoginForm, RegisterForm } from '@/components/auth';
-import { SessionList } from '@/components/sessions';
-import { useAuth } from '@/contexts/AuthContext';
-import { api } from '@/lib/api';
 import {
   type SyncAuthDependencies,
   setSyncAuthDependencies
 } from '@tearleads/vfs-sync';
+import { LoginForm, RegisterForm } from '@/components/auth';
+import { SessionList } from '@/components/sessions';
+import { useAuth } from '@/contexts/AuthContext';
+import { api } from '@/lib/api';
 
 let configured = false;
 
