@@ -54,7 +54,7 @@
     },
     {
       "name": "no-local-app-builder-vite-plugin-imports",
-      "severity": "warn",
+      "severity": "error",
       "comment": "Packages should consume app-builder vite helpers via package exports instead of local imports into app-builder/src internals.",
       "from": {
         "path": "^packages/(?!app-builder/)[^/]+/(src/.*|vitest\\.config\\.ts|vite\\.config\\.ts)$",
@@ -69,7 +69,7 @@
     },
     {
       "name": "no-prod-to-test-imports",
-      "severity": "warn",
+      "severity": "error",
       "comment": "Production modules must not import test-only modules or test support helpers.",
       "from": {
         "path": "^packages/[^/]+/src",
@@ -81,7 +81,7 @@
     },
     {
       "name": "no-local-cross-package-app-src-imports",
-      "severity": "warn",
+      "severity": "error",
       "comment": "Packages should not traverse into other package app/src internals via relative local imports; use package exports.",
       "from": {
         "path": "^packages/(?!admin/|app-builder/|keychain/|notifications/|vfs-sync/|wallet/)[^/]+/src",
@@ -96,7 +96,7 @@
     },
     {
       "name": "no-website-imports",
-      "severity": "warn",
+      "severity": "error",
       "comment": "Non-website packages should not import website app internals.",
       "from": {
         "path": "^packages/(?!website/)[^/]+/src",
@@ -108,7 +108,7 @@
     },
     {
       "name": "no-chrome-extension-imports",
-      "severity": "warn",
+      "severity": "error",
       "comment": "Non-extension packages should not import chrome-extension app internals.",
       "from": {
         "path": "^packages/(?!chrome-extension/)[^/]+/src",
@@ -120,7 +120,7 @@
     },
     {
       "name": "no-smtp-listener-imports",
-      "severity": "warn",
+      "severity": "error",
       "comment": "Non-smtp-listener packages should not import smtp-listener app internals.",
       "from": {
         "path": "^packages/(?!smtp-listener/)[^/]+/src",
