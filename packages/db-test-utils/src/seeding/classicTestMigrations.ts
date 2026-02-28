@@ -15,6 +15,7 @@ export const classicTestMigrations = [
           id TEXT PRIMARY KEY,
           object_type TEXT NOT NULL,
           owner_id TEXT,
+          organization_id TEXT,
           encrypted_session_key TEXT,
           public_hierarchical_key TEXT,
           encrypted_private_hierarchical_key TEXT,
@@ -74,6 +75,9 @@ export const classicTestMigrations = [
       `);
       await adapter.execute(`
         CREATE INDEX IF NOT EXISTS notes_updated_at_idx ON notes(updated_at)
+      `);
+      await adapter.execute(`
+        CREATE INDEX IF NOT EXISTS vfs_registry_org_idx ON vfs_registry(organization_id)
       `);
 
       await adapter.execute('PRAGMA foreign_keys = ON');
