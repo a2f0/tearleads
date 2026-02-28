@@ -2,7 +2,7 @@ import { defineConfig, mergeConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
-import { createAppConfigPlugin } from '../app-builder/src/vite/createAppConfigPlugin';
+import { createAppConfigPlugin } from '@tearleads/app-builder/vite';
 import { sharedTestConfig } from '../../vitest.shared';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

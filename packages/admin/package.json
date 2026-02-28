@@ -38,6 +38,7 @@
     "sonner": "2.0.7"
   },
   "devDependencies": {
+    "@tearleads/app-builder": "workspace:*",
     "@tearleads/ui": "workspace:*",
     "@tearleads/window-manager": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",

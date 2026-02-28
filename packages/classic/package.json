@@ -26,6 +26,7 @@
     "react-i18next": "16.5.4"
   },
   "devDependencies": {
+    "@tearleads/app-builder": "workspace:*",
     "@tearleads/db": "workspace:*",
     "@tearleads/db-test-utils": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",
