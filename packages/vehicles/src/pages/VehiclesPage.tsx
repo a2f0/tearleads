@@ -11,7 +11,7 @@ export function VehiclesPage({
   backLink,
   children
 }: VehiclesPageProps) {
-  const normalizedChildren = Children.count(children) > 0 ? children : null;
+  const normalizedChildren = Children.toArray(children).length > 0 ? children : null;
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-hidden">
