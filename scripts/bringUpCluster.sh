@@ -12,6 +12,10 @@ RDS_SCRIPTS_DIR="$REPO_ROOT/terraform/stacks/prod/rds/scripts"
 S3_SCRIPTS_DIR="$REPO_ROOT/terraform/stacks/prod/s3/scripts"
 CI_SCRIPTS_DIR="$REPO_ROOT/terraform/stacks/prod/ci-artifacts/scripts"
 
+# shellcheck source=../terraform/scripts/common.sh
+source "$REPO_ROOT/terraform/scripts/common.sh"
+load_secrets_env prod
+
 SKIP_BUILD=false
 SKIP_ROLLOUT=false
 SKIP_MIGRATE=false
@@ -154,6 +158,7 @@ fi
 run_step "Bootstrap prod k8s and deploy manifests" "$K8S_SCRIPTS_DIR/apply02.sh"
 
 if [[ "$SKIP_BUILD" != "true" ]]; then
+  validate_aws_env
   if [[ "$SKIP_WEBSITE" == "true" && -n "$IMAGE_TAG" ]]; then
     run_step "Build and push prod containers" "$REPO_ROOT/scripts/buildContainers.sh" prod --no-website --tag "$IMAGE_TAG"
   elif [[ "$SKIP_WEBSITE" == "true" ]]; then
