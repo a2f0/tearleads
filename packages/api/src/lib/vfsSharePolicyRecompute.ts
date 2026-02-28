@@ -99,7 +99,7 @@ export async function resolveImpactedSharePolicyIds(
   return normalizeIds(result.rows.map((row) => row.policy_id));
 }
 
-export interface RunIncrementalRecomputeOptions
+interface RunIncrementalRecomputeOptions
   extends Omit<CompileVfsSharePoliciesOptions, 'policyIds'> {
   compile?: (
     client: PgQueryable,
@@ -107,7 +107,7 @@ export interface RunIncrementalRecomputeOptions
   ) => Promise<CompileVfsSharePoliciesResult>;
 }
 
-export interface RunIncrementalRecomputeResult {
+interface RunIncrementalRecomputeResult {
   impactedPolicyIds: string[];
   compileResult: CompileVfsSharePoliciesResult | null;
 }
@@ -147,5 +147,3 @@ export async function runIncrementalSharePolicyRecompute(
     compileResult
   };
 }
-
-export type { RecomputeTrigger };

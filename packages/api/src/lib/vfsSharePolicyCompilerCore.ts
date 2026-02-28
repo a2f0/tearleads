@@ -45,7 +45,7 @@ export interface LinkEdge {
   childId: string;
 }
 
-export interface CompiledPolicyDecision {
+interface CompiledPolicyDecision {
   itemId: string;
   principalType: PolicyPrincipalType;
   principalId: string;
@@ -56,7 +56,7 @@ export interface CompiledPolicyDecision {
   precedence: number;
 }
 
-export interface CompileSharePolicyCoreResult {
+interface CompileSharePolicyCoreResult {
   decisions: CompiledPolicyDecision[];
   policyCount: number;
   activePolicyCount: number;

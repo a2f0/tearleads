@@ -10,7 +10,7 @@ type CompileSharePoliciesFn = (
   options: CompileVfsSharePoliciesOptions
 ) => Promise<CompileVfsSharePoliciesResult>;
 
-export interface RepairVfsSharePolicyAclDriftOptions {
+interface RepairVfsSharePolicyAclDriftOptions {
   now?: Date;
   compilerRunId?: string;
   actorId?: string | null;

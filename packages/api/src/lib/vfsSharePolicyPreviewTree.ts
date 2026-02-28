@@ -26,14 +26,14 @@ interface ProvenanceRow {
   policy_id: string | null;
 }
 
-export type SharePolicyPreviewNodeState =
+type SharePolicyPreviewNodeState =
   | 'included'
   | 'excluded'
   | 'denied'
   | 'direct'
   | 'derived';
 
-export interface SharePolicyPreviewNode {
+interface SharePolicyPreviewNode {
   itemId: string;
   objectType: string;
   depth: number;
@@ -43,7 +43,7 @@ export interface SharePolicyPreviewNode {
   sourcePolicyIds: string[];
 }
 
-export interface SharePolicyPreviewSummary {
+interface SharePolicyPreviewSummary {
   totalMatchingNodes: number;
   returnedNodes: number;
   directCount: number;
@@ -53,7 +53,7 @@ export interface SharePolicyPreviewSummary {
   excludedCount: number;
 }
 
-export interface BuildSharePolicyPreviewTreeOptions {
+interface BuildSharePolicyPreviewTreeOptions {
   rootItemId: string;
   principalType: PreviewPrincipalType;
   principalId: string;
@@ -64,7 +64,7 @@ export interface BuildSharePolicyPreviewTreeOptions {
   objectTypes: string[] | null;
 }
 
-export interface BuildSharePolicyPreviewTreeResult {
+interface BuildSharePolicyPreviewTreeResult {
   nodes: SharePolicyPreviewNode[];
   summary: SharePolicyPreviewSummary;
   nextCursor: string | null;
