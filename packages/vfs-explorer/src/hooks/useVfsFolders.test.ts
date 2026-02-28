@@ -271,9 +271,14 @@ describe('useVfsFolders', () => {
     expect(result.current.folders[0]?.children?.[0]?.name).toBe('Child');
   });
 
-  it('falls back to Unnamed Folder when metadata is missing', async () => {
+  it('accepts SQL-resolved unnamed folder labels', async () => {
     const mockFolderRows = [
-      { id: 'folder-1', objectType: 'folder', name: '', createdAt: Date.now() }
+      {
+        id: 'folder-1',
+        objectType: 'folder',
+        name: 'Unnamed Folder',
+        createdAt: Date.now()
+      }
     ];
     const mockLinkRows: { childId: string; parentId: string }[] = [];
     const mockChildCountRows: { parentId: string }[] = [];

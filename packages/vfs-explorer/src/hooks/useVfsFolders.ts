@@ -23,15 +23,6 @@ export interface UseVfsFoldersResult {
 
 const TREE_CONTAINER_TYPES = ['folder', 'playlist', 'emailFolder'] as const;
 
-const UNNAMED_CONTAINER_LABELS: Record<
-  (typeof TREE_CONTAINER_TYPES)[number],
-  string
-> = {
-  folder: 'Unnamed Folder',
-  playlist: 'Unnamed Playlist',
-  emailFolder: 'Unnamed Folder'
-};
-
 export function useVfsFolders(): UseVfsFoldersResult {
   const { databaseState, getDatabase } = useVfsExplorerContext();
   const { isUnlocked, currentInstanceId } = databaseState;
@@ -114,7 +105,7 @@ export function useVfsFolders(): UseVfsFoldersResult {
         nodeMap.set(folder.id, {
           id: folder.id,
           objectType,
-          name: folder.name || UNNAMED_CONTAINER_LABELS[objectType],
+          name: folder.name,
           parentId: parentMap.get(folder.id) || null,
           childCount: childCountMap.get(folder.id) || 0,
           children: []

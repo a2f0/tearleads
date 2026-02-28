@@ -219,8 +219,6 @@ export function VfsTreePanel({
     [selectedFolderId, onFolderSelect]
   );
 
-  const isFolderNode = (node: VfsFolderNode) => node.objectType === 'folder';
-
   const renderFolder = (folder: VfsFolderNode, depth: number) => {
     const isSelected = folder.id === selectedFolderId;
     const isExpanded = expandedFolderIds.has(folder.id);
@@ -332,30 +330,10 @@ export function VfsTreePanel({
           y={contextMenu.y}
           folder={contextMenu.folder}
           onClose={() => setContextMenu(null)}
-          onNewSubfolder={(folder) => {
-            if (isFolderNode(folder)) {
-              setNewSubfolderParent(folder);
-            }
-          }}
-          onRename={(folder) => {
-            if (isFolderNode(folder)) {
-              setRenameDialogFolder(folder);
-            }
-          }}
-          onDelete={(folder) => {
-            if (isFolderNode(folder)) {
-              setDeleteDialogFolder(folder);
-            }
-          }}
-          onShare={
-            onFolderShare
-              ? (folder) => {
-                  if (isFolderNode(folder)) {
-                    onFolderShare(folder);
-                  }
-                }
-              : undefined
-          }
+          onNewSubfolder={setNewSubfolderParent}
+          onRename={setRenameDialogFolder}
+          onDelete={setDeleteDialogFolder}
+          onShare={onFolderShare}
           onPaste={onPaste}
         />
       )}
