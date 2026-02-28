@@ -264,16 +264,7 @@ function computeMaxJsxDepth(node: ts.Node): number {
   let maxDepth = 0;
 
   const visit = (current: ts.Node, depth: number): void => {
-    if (ts.isJsxElement(current)) {
-      const nextDepth = depth + 1;
-      maxDepth = Math.max(maxDepth, nextDepth);
-      for (const child of current.children) {
-        visit(child, nextDepth);
-      }
-      return;
-    }
-
-    if (ts.isJsxFragment(current)) {
+    if (ts.isJsxElement(current) || ts.isJsxFragment(current)) {
       const nextDepth = depth + 1;
       maxDepth = Math.max(maxDepth, nextDepth);
       for (const child of current.children) {
