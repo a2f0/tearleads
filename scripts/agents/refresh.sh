@@ -11,6 +11,7 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 CLIENT_DIR="$REPO_ROOT/packages/client"
+HOST_OS="$(uname -s)"
 
 cd "$REPO_ROOT"
 
@@ -31,13 +32,13 @@ pnpm install
 echo "Building TypeScript packages..."
 pnpm build
 
-# Sync Capacitor web assets to native projects
+# Sync Capacitor web assets to native projects.
+# iOS sync can invoke CocoaPods, so non-macOS hosts should sync Android only.
 echo "Syncing Capacitor..."
 cd "$CLIENT_DIR"
-pnpm cap sync
+if [ "$HOST_OS" = "Darwin" ]; then
+  pnpm cap sync
 
-# CocoaPods/iOS dependency install is only supported on macOS hosts.
-if [ "$(uname -s)" = "Darwin" ]; then
   # Install Ruby gems (for fastlane, cocoapods, etc.)
   echo "Installing Ruby gems..."
   bundle install
@@ -49,6 +50,7 @@ if [ "$(uname -s)" = "Darwin" ]; then
   cd "$CLIENT_DIR/ios/App"
   bundle exec pod install
 else
+  pnpm cap sync android
   echo "Skipping Ruby/CocoaPods install on non-macOS host."
 fi
 
