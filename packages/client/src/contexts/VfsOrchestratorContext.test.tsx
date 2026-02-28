@@ -152,6 +152,37 @@ describe('VfsOrchestratorContext', () => {
       expect(contextValue?.error).toBeNull();
     });
 
+    it('nulls out orchestrator, facade, and keyManager on logout', async () => {
+      let contextValue: ReturnType<typeof useVfsOrchestrator> | null = null;
+      function TestConsumer() {
+        contextValue = useVfsOrchestrator();
+        return <div>Test</div>;
+      }
+      const { rerender } = render(
+        <VfsOrchestratorProvider>
+          <TestConsumer />
+        </VfsOrchestratorProvider>
+      );
+      await waitFor(() => {
+        expect(contextValue?.isReady).toBe(true);
+      });
+      expect(contextValue?.orchestrator).not.toBeNull();
+      expect(contextValue?.secureFacade).not.toBeNull();
+      expect(contextValue?.keyManager).toBe(mockKeyManager);
+      mockUseAuth.mockReturnValue({ user: null, isAuthenticated: false });
+      rerender(
+        <VfsOrchestratorProvider>
+          <TestConsumer />
+        </VfsOrchestratorProvider>
+      );
+      await waitFor(() => {
+        expect(contextValue?.orchestrator).toBeNull();
+      });
+      expect(contextValue?.secureFacade).toBeNull();
+      expect(contextValue?.keyManager).toBeNull();
+      expect(contextValue?.isReady).toBe(false);
+    });
+
     it('does not initialize when user is not authenticated', async () => {
       mockUseAuth.mockReturnValue({
         user: null,

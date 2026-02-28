@@ -203,6 +203,32 @@ describe('SSEContext', () => {
       expect(result.current.connectionState).toBe('connected');
     });
 
+    it('disconnects when user logs out', async () => {
+      const { result } = renderHook(() => useSSE(), {
+        wrapper: autoConnectWrapper
+      });
+
+      await flushAuthLoad();
+
+      await act(async () => {
+        mockSSE.getInstance(0).emit('connected');
+        await vi.advanceTimersByTimeAsync(50);
+      });
+
+      expect(result.current.connectionState).toBe('connected');
+
+      // Simulate logout: clear auth from localStorage and notify
+      await act(async () => {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        window.dispatchEvent(new Event('tearleads_auth_change'));
+        await vi.advanceTimersByTimeAsync(50);
+      });
+
+      expect(result.current.connectionState).toBe('disconnected');
+      expect(mockSSE.getInstance(0).reader.aborted).toBe(true);
+    });
+
     it('does not auto-connect when not authenticated', async () => {
       localStorage.clear();
 

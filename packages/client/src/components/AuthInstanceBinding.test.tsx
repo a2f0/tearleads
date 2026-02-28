@@ -93,6 +93,51 @@ describe('AuthInstanceBinding', () => {
     );
   });
 
+  it('creates a new instance when switching from user-1 to user-2', async () => {
+    // User-1 logs in, current instance is unbound → bind to user-1
+    render(<AuthInstanceBinding />);
+
+    await waitFor(() => {
+      expect(mockBindInstanceToUser).toHaveBeenCalledWith(
+        'instance-current',
+        'user-1'
+      );
+    });
+
+    // Clear mocks and switch to user-2
+    vi.clearAllMocks();
+    mockUseAuth.mockReturnValue({
+      user: { id: 'user-2', email: 'user-2@example.com' },
+      isAuthenticated: true,
+      isLoading: false
+    });
+    mockUseDatabaseContext.mockReturnValue({
+      isLoading: false,
+      currentInstanceId: 'instance-current',
+      switchInstance,
+      createInstance,
+      refreshInstances
+    });
+    // Current instance now bound to user-1
+    mockGetInstanceForUser.mockResolvedValue(null);
+    mockGetInstance.mockResolvedValue({
+      id: 'instance-current',
+      boundUserId: 'user-1'
+    });
+    createInstance.mockResolvedValue('instance-new-2');
+
+    // Force rerender by remounting
+    render(<AuthInstanceBinding />);
+
+    await waitFor(() => {
+      expect(createInstance).toHaveBeenCalledTimes(1);
+    });
+    expect(mockBindInstanceToUser).toHaveBeenCalledWith(
+      'instance-new-2',
+      'user-2'
+    );
+  });
+
   it('bails out when current instance is missing from registry', async () => {
     mockGetInstance.mockResolvedValue(null);
 
