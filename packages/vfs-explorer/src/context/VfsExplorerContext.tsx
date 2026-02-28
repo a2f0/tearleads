@@ -209,6 +209,8 @@ export interface VfsExplorerContextValue {
   vfsApi: VfsApiFunctions;
   /** VFS Share API functions (optional) */
   vfsShareApi?: VfsShareApiFunctions | undefined;
+  /** Optional remote sync trigger for views that need server freshness */
+  syncRemoteState?: (() => Promise<void>) | undefined;
   /** Fallback UI to render when the user is not logged in */
   loginFallback?: ReactNode | undefined;
 }
@@ -225,6 +227,7 @@ export interface VfsExplorerProviderProps {
   featureFlags: FeatureFlagFunctions;
   vfsApi: VfsApiFunctions;
   vfsShareApi?: VfsShareApiFunctions | undefined;
+  syncRemoteState?: (() => Promise<void>) | undefined;
   loginFallback?: ReactNode | undefined;
 }
 
@@ -241,6 +244,7 @@ export function VfsExplorerProvider({
   featureFlags,
   vfsApi,
   vfsShareApi,
+  syncRemoteState,
   loginFallback
 }: VfsExplorerProviderProps) {
   return (
@@ -254,6 +258,7 @@ export function VfsExplorerProvider({
         featureFlags,
         vfsApi,
         vfsShareApi,
+        syncRemoteState,
         loginFallback
       }}
     >

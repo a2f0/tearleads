@@ -2,6 +2,7 @@ import { RemoteReadOrchestrator } from '@tearleads/remote-read-orchestrator';
 import { useCallback, useEffect, useRef } from 'react';
 import { useVfsOrchestratorInstance } from '@/contexts/VfsOrchestratorContext';
 import { useSSE } from '@/sse';
+import { logStore } from '@/stores/logStore';
 
 const CHANNEL_REFRESH_INTERVAL_MS = 15000;
 const MAX_REALTIME_CHANNELS = 500;
@@ -26,6 +27,11 @@ function isSameStringArray(left: string[], right: string[]): boolean {
 
 function isVfsContainerSyncChannel(channel: string): boolean {
   return channel.startsWith('vfs:container:') && channel.endsWith(':sync');
+}
+
+function parseContainerIdFromChannel(channel: string): string | null {
+  const matches = /^vfs:container:(.+):sync$/.exec(channel);
+  return matches?.[1] ?? null;
 }
 
 function buildChannelList(
@@ -94,6 +100,10 @@ export function VfsRealtimeSyncBridge() {
         const retryDelayMs = computeRetryDelayWithJitter(
           retryAttemptRef.current
         );
+        logStore.warn(
+          'VFS CRDT sync failed after SSE trigger; scheduling retry',
+          `attempt=${retryAttemptRef.current + 1}, retryDelayMs=${retryDelayMs}`
+        );
         retryAttemptRef.current += 1;
         retryTimerRef.current = setTimeout(() => {
           retryTimerRef.current = null;
@@ -136,6 +146,13 @@ export function VfsRealtimeSyncBridge() {
       return;
     }
 
+    const containerId = parseContainerIdFromChannel(nextMessage.channel);
+    logStore.info(
+      'VFS SSE cursor bump received; triggering CRDT sync',
+      containerId
+        ? `channel=${nextMessage.channel}, containerId=${containerId}`
+        : `channel=${nextMessage.channel}`
+    );
     scheduleSync();
   }, [lastMessage, orchestrator, scheduleSync]);
 

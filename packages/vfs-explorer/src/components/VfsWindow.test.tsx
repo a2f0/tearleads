@@ -1,7 +1,9 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockSyncRemoteState = vi.fn();
 
 // Mock the context
 vi.mock('../context', () => ({
@@ -89,7 +91,8 @@ vi.mock('../context', () => ({
     },
     vfsApi: {
       register: vi.fn()
-    }
+    },
+    syncRemoteState: () => mockSyncRemoteState()
   }))
 }));
 
@@ -97,16 +100,34 @@ vi.mock('../context', () => ({
 vi.mock('./VfsExplorer', () => ({
   VfsExplorer: ({
     viewMode,
-    refreshToken
+    refreshToken,
+    onFolderSelect
   }: {
     viewMode?: string;
     refreshToken?: number;
+    onFolderSelect?: ((folderId: string | null) => void) | undefined;
   }) => (
-    <div
-      data-testid="vfs-explorer"
-      data-view-mode={viewMode}
-      data-refresh-token={refreshToken}
-    />
+    <div>
+      <button
+        type="button"
+        data-testid="select-shared-by-me"
+        onClick={() => onFolderSelect?.('__shared_by_me__')}
+      >
+        Shared By Me
+      </button>
+      <button
+        type="button"
+        data-testid="select-unfiled"
+        onClick={() => onFolderSelect?.('__unfiled__')}
+      >
+        Unfiled
+      </button>
+      <div
+        data-testid="vfs-explorer"
+        data-view-mode={viewMode}
+        data-refresh-token={refreshToken}
+      />
+    </div>
   )
 }));
 
@@ -134,6 +155,7 @@ describe('VfsWindow', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSyncRemoteState.mockResolvedValue(undefined);
   });
 
   it('renders in FloatingWindow', () => {
@@ -275,5 +297,37 @@ describe('VfsWindow', () => {
       'data-refresh-token',
       '1'
     );
+  });
+
+  it('syncs remote state before refreshing shared listings', async () => {
+    const user = userEvent.setup();
+    render(<VfsWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-shared-by-me'));
+    await user.click(screen.getByRole('menuitem', { name: 'Refresh' }));
+
+    await waitFor(() => {
+      expect(mockSyncRemoteState).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('vfs-explorer')).toHaveAttribute(
+        'data-refresh-token',
+        '1'
+      );
+    });
+  });
+
+  it('does not sync remote state for non-shared folders', async () => {
+    const user = userEvent.setup();
+    render(<VfsWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-unfiled'));
+    await user.click(screen.getByRole('menuitem', { name: 'Refresh' }));
+
+    await waitFor(() => {
+      expect(mockSyncRemoteState).not.toHaveBeenCalled();
+      expect(screen.getByTestId('vfs-explorer')).toHaveAttribute(
+        'data-refresh-token',
+        '1'
+      );
+    });
   });
 });

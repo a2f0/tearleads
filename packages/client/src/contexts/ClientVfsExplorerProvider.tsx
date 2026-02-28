@@ -15,7 +15,7 @@ import {
   DesktopContextMenuSeparator as ContextMenuSeparator,
   DesktopFloatingWindow as FloatingWindow
 } from '@tearleads/window-manager';
-import { type ReactNode, useMemo } from 'react';
+import { type ReactNode, useCallback, useMemo } from 'react';
 import { InlineLogin } from '@/components/auth/InlineLogin';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,7 +32,10 @@ import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
 import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
-import { useVfsKeyManager } from './VfsOrchestratorContext';
+import {
+  useVfsKeyManager,
+  useVfsOrchestratorInstance
+} from './VfsOrchestratorContext';
 
 export function VfsExplorerAboutMenuItem() {
   return (
@@ -66,6 +69,7 @@ export function ClientVfsExplorerProvider({
 }: ClientVfsExplorerProviderProps) {
   const databaseContext = useDatabaseContext();
   const keyManager = useVfsKeyManager();
+  const orchestrator = useVfsOrchestratorInstance();
 
   const databaseState = useMemo(
     () => ({
@@ -169,6 +173,14 @@ export function ClientVfsExplorerProvider({
     [keyManager]
   );
 
+  const syncRemoteState = useCallback(async () => {
+    if (!orchestrator) {
+      return;
+    }
+
+    await orchestrator.syncCrdt();
+  }, [orchestrator]);
+
   return (
     <VfsExplorerProvider
       databaseState={databaseState}
@@ -179,6 +191,7 @@ export function ClientVfsExplorerProvider({
       featureFlags={featureFlags}
       vfsApi={vfsApi}
       vfsShareApi={vfsShareApi}
+      syncRemoteState={syncRemoteState}
       loginFallback={<InlineLogin description="shared items" />}
     >
       {children}
