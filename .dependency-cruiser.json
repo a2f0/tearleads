@@ -54,7 +54,7 @@
     },
     {
       "name": "no-cross-package-non-entrypoint-imports",
-      "severity": "warn",
+      "severity": "error",
       "comment": "Packages should import other packages through public entrypoints, not non-index source internals.",
       "from": {
         "path": "^packages/([^/]+)/src",
