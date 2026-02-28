@@ -1,5 +1,3 @@
-export const SCATTER_DOT_RADIUS = 3;
-
 const CHART_COLOR_VARS = [
   '--chart-1',
   '--chart-2',

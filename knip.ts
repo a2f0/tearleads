@@ -105,6 +105,8 @@ const config: KnipConfig = {
         '@electron/rebuild',
         // Electron-native SQLite binding loaded in desktop runtime and packaging scripts.
         'better-sqlite3-multiple-ciphers',
+        // Resolved as a Vite build entry/chunk dependency outside static source imports.
+        'recharts',
         // Used by scripts/buildWebImageAssets.sh.
         'svgo',
         // Used via CSS @import "tailwindcss"; in client styles.
