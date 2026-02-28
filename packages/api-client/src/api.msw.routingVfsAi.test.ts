@@ -156,6 +156,15 @@ describe('api with msw', () => {
 
     // Search share targets
     await api.vfs.searchShareTargets('test query', 'user');
+    await api.vfs.getSharePolicyPreview({
+      rootItemId: 'item-1',
+      principalType: 'user',
+      principalId: secondUser.userId,
+      limit: 25,
+      maxDepth: 2,
+      q: 'wallet',
+      objectType: ['contact', 'walletItem']
+    });
 
     expect(wasApiRequestMade('POST', '/vfs/keys')).toBe(true);
     expect(wasApiRequestMade('GET', '/vfs/keys/me')).toBe(true);
@@ -172,10 +181,20 @@ describe('api with msw', () => {
     );
     expect(wasApiRequestMade('POST', '/vfs/items/item-1/rekey')).toBe(true);
     expect(wasApiRequestMade('GET', '/vfs/share-targets/search')).toBe(true);
+    expect(wasApiRequestMade('GET', '/vfs/share-policies/preview')).toBe(true);
 
     expectSingleRequestQuery('GET', '/vfs/share-targets/search', {
       q: 'test query',
       type: 'user'
+    });
+    expectSingleRequestQuery('GET', '/vfs/share-policies/preview', {
+      rootItemId: 'item-1',
+      principalType: 'user',
+      principalId: secondUser.userId,
+      limit: '25',
+      maxDepth: '2',
+      q: 'wallet',
+      objectType: 'contact,walletItem'
     });
   });
 

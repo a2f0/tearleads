@@ -154,6 +154,15 @@ describe('api with msw', () => {
 
     // Search share targets
     await api.vfs.searchShareTargets('test query', 'user');
+    await api.vfs.getSharePolicyPreview({
+      rootItemId: 'item-1',
+      principalType: 'user',
+      principalId: secondUser.userId,
+      limit: 25,
+      maxDepth: 2,
+      q: 'wallet',
+      objectType: ['contact', 'walletItem']
+    });
 
     // AI usage (no FK-violating conversationId/messageId)
     await api.ai.recordUsage({
@@ -188,6 +197,7 @@ describe('api with msw', () => {
     );
     expect(wasApiRequestMade('POST', '/vfs/items/item-1/rekey')).toBe(true);
     expect(wasApiRequestMade('GET', '/vfs/share-targets/search')).toBe(true);
+    expect(wasApiRequestMade('GET', '/vfs/share-policies/preview')).toBe(true);
 
     expect(wasApiRequestMade('POST', '/ai/usage')).toBe(true);
     expect(wasApiRequestMade('GET', '/ai/usage')).toBe(true);
@@ -196,6 +206,15 @@ describe('api with msw', () => {
     expectSingleRequestQuery('GET', '/vfs/share-targets/search', {
       q: 'test query',
       type: 'user'
+    });
+    expectSingleRequestQuery('GET', '/vfs/share-policies/preview', {
+      rootItemId: 'item-1',
+      principalType: 'user',
+      principalId: secondUser.userId,
+      limit: '25',
+      maxDepth: '2',
+      q: 'wallet',
+      objectType: 'contact,walletItem'
     });
     expectSingleRequestQuery('GET', '/ai/usage', {
       startDate: '2024-01-01',

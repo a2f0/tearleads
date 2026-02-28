@@ -261,6 +261,50 @@ export interface ShareTargetSearchResponse {
   results: ShareTargetSearchResult[];
 }
 
+export type VfsSharePolicyPreviewState =
+  | 'included'
+  | 'excluded'
+  | 'denied'
+  | 'direct'
+  | 'derived';
+
+export interface VfsSharePolicyPreviewNode {
+  itemId: string;
+  objectType: string;
+  depth: number;
+  path: string;
+  state: VfsSharePolicyPreviewState;
+  effectiveAccessLevel: 'read' | 'write' | 'admin' | null;
+  sourcePolicyIds: string[];
+}
+
+export interface VfsSharePolicyPreviewSummary {
+  totalMatchingNodes: number;
+  returnedNodes: number;
+  directCount: number;
+  derivedCount: number;
+  deniedCount: number;
+  includedCount: number;
+  excludedCount: number;
+}
+
+export interface VfsSharePolicyPreviewRequest {
+  rootItemId: string;
+  principalType: VfsShareType;
+  principalId: string;
+  limit?: number;
+  cursor?: string | null;
+  maxDepth?: number | null;
+  q?: string | null;
+  objectType?: string[] | null;
+}
+
+export interface VfsSharePolicyPreviewResponse {
+  nodes: VfsSharePolicyPreviewNode[];
+  summary: VfsSharePolicyPreviewSummary;
+  nextCursor: string | null;
+}
+
 /**
  * Item shared by the current user with others (outgoing share).
  * Includes the item details plus share metadata about who it was shared with.

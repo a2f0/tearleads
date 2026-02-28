@@ -12,6 +12,7 @@ export type { UseMoveVfsItemResult } from './useMoveVfsItem';
 export { useMoveVfsItem } from './useMoveVfsItem';
 export type { UseRenameVfsFolderResult } from './useRenameVfsFolder';
 export { useRenameVfsFolder } from './useRenameVfsFolder';
+export { useSharePolicyPreview } from './useSharePolicyPreview';
 export { useShareTargetSearch } from './useShareTargetSearch';
 export { useVfsAllItems } from './useVfsAllItems';
 export type {

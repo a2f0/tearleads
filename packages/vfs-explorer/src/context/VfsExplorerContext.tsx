@@ -6,6 +6,8 @@ import type {
   UpdateVfsShareRequest,
   VfsOrgShare,
   VfsShare,
+  VfsSharePolicyPreviewRequest,
+  VfsSharePolicyPreviewResponse,
   VfsSharesResponse,
   VfsShareType
 } from '@tearleads/shared';
@@ -78,6 +80,9 @@ export interface VfsShareApiFunctions {
     query: string,
     type?: VfsShareType
   ) => Promise<ShareTargetSearchResponse>;
+  getSharePolicyPreview?: (
+    request: VfsSharePolicyPreviewRequest
+  ) => Promise<VfsSharePolicyPreviewResponse>;
 }
 
 /**
@@ -102,6 +107,7 @@ export interface ButtonProps {
 
 export interface InputProps {
   type?: string;
+  min?: number | string;
   placeholder?: string;
   value?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;

@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 import { useShareTargetSearch, useVfsShares } from '../hooks';
 import { cn, type DisplayItem } from '../lib';
+import { SharePolicyPreviewPanel } from './SharePolicyPreviewPanel';
 
 interface SharingPanelProps {
   item: DisplayItem;
@@ -320,6 +321,13 @@ export function SharingPanel({
           Add Share
         </Button>
       </div>
+
+      <SharePolicyPreviewPanel
+        itemId={item.id}
+        shareType={shareType}
+        selectedTargetId={selectedTargetId}
+        selectedTargetName={selectedTargetName}
+      />
 
       {/* Current shares */}
       <div className="flex-1 overflow-y-auto">
