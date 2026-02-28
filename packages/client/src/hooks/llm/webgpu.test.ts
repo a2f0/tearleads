@@ -112,5 +112,4 @@ describe('loadLocalModel', () => {
     expect(mockEmitChange).toHaveBeenCalled();
     expect(mockSendRequest).not.toHaveBeenCalled();
   });
-
 });
