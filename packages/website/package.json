@@ -13,15 +13,14 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@astrojs/react": "4.4.2",
     "@tearleads/shared": "workspace:*",
     "@tearleads/ui": "workspace:*",
     "astro": "5.18.0",
-    "lucide-react": "0.575.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@astrojs/react": "4.4.2",
     "@playwright/test": "1.58.2",
     "@tailwindcss/vite": "4.2.1",
     "@testing-library/jest-dom": "6.9.1",
@@ -31,6 +30,7 @@
     "@vitejs/plugin-react": "5.1.4",
     "@vitest/coverage-v8": "4.0.18",
     "jsdom": "28.1.0",
+    "lucide-react": "0.575.0",
     "tailwindcss": "4.2.1",
     "vite": "7.3.1",
     "vitest": "4.0.18",
