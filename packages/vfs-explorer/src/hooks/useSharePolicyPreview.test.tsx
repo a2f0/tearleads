@@ -153,4 +153,164 @@ describe('useSharePolicyPreview', () => {
       objectType: null
     });
   });
+
+  it('walks a deep paginated tree deterministically', async () => {
+    const getSharePolicyPreview = vi
+      .fn()
+      .mockResolvedValueOnce({
+        nodes: [
+          {
+            itemId: 'root-1',
+            objectType: 'contact',
+            depth: 0,
+            path: 'root-1',
+            state: 'direct' as const,
+            effectiveAccessLevel: 'read' as const,
+            sourcePolicyIds: []
+          },
+          {
+            itemId: 'root-1/folder-1',
+            objectType: 'folder',
+            depth: 1,
+            path: 'root-1/folder-1',
+            state: 'derived' as const,
+            effectiveAccessLevel: 'read' as const,
+            sourcePolicyIds: ['policy-1']
+          }
+        ],
+        summary: {
+          totalMatchingNodes: 5,
+          returnedNodes: 2,
+          directCount: 1,
+          derivedCount: 1,
+          deniedCount: 0,
+          includedCount: 2,
+          excludedCount: 0
+        },
+        nextCursor: 'root-1/folder-1'
+      })
+      .mockResolvedValueOnce({
+        nodes: [
+          {
+            itemId: 'root-1/folder-1/wallet-1',
+            objectType: 'walletItem',
+            depth: 2,
+            path: 'root-1/folder-1/wallet-1',
+            state: 'derived' as const,
+            effectiveAccessLevel: 'write' as const,
+            sourcePolicyIds: ['policy-1']
+          },
+          {
+            itemId: 'root-1/folder-1/workout-1',
+            objectType: 'healthWorkoutEntry',
+            depth: 2,
+            path: 'root-1/folder-1/workout-1',
+            state: 'excluded' as const,
+            effectiveAccessLevel: null,
+            sourcePolicyIds: []
+          }
+        ],
+        summary: {
+          totalMatchingNodes: 5,
+          returnedNodes: 2,
+          directCount: 0,
+          derivedCount: 1,
+          deniedCount: 0,
+          includedCount: 1,
+          excludedCount: 1
+        },
+        nextCursor: 'root-1/folder-1/workout-1'
+      })
+      .mockResolvedValueOnce({
+        nodes: [
+          {
+            itemId: 'root-1/folder-1/workout-1/stats-1',
+            objectType: 'healthMetric',
+            depth: 3,
+            path: 'root-1/folder-1/workout-1/stats-1',
+            state: 'excluded' as const,
+            effectiveAccessLevel: null,
+            sourcePolicyIds: []
+          }
+        ],
+        summary: {
+          totalMatchingNodes: 5,
+          returnedNodes: 1,
+          directCount: 0,
+          derivedCount: 0,
+          deniedCount: 0,
+          includedCount: 0,
+          excludedCount: 1
+        },
+        nextCursor: null
+      });
+    const wrapper = createWrapper({
+      vfsShareApi: {
+        getSharePolicyPreview
+      }
+    });
+
+    const { result } = renderHook(
+      () =>
+        useSharePolicyPreview({
+          rootItemId: 'root-1',
+          principalType: 'user',
+          principalId: 'target-1',
+          enabled: true,
+          limit: 2
+        }),
+      { wrapper }
+    );
+
+    await waitFor(() => {
+      expect(result.current.nodes).toHaveLength(2);
+      expect(result.current.hasMore).toBe(true);
+    });
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+
+    await waitFor(() => {
+      expect(result.current.nodes).toHaveLength(4);
+      expect(result.current.hasMore).toBe(true);
+    });
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+
+    await waitFor(() => {
+      expect(result.current.nodes).toHaveLength(5);
+      expect(result.current.hasMore).toBe(false);
+    });
+
+    expect(result.current.nodes.map((node) => node.path)).toEqual([
+      'root-1',
+      'root-1/folder-1',
+      'root-1/folder-1/wallet-1',
+      'root-1/folder-1/workout-1',
+      'root-1/folder-1/workout-1/stats-1'
+    ]);
+    expect(getSharePolicyPreview).toHaveBeenNthCalledWith(2, {
+      rootItemId: 'root-1',
+      principalType: 'user',
+      principalId: 'target-1',
+      limit: 2,
+      cursor: 'root-1/folder-1',
+      maxDepth: null,
+      q: null,
+      objectType: null
+    });
+    expect(getSharePolicyPreview).toHaveBeenNthCalledWith(3, {
+      rootItemId: 'root-1',
+      principalType: 'user',
+      principalId: 'target-1',
+      limit: 2,
+      cursor: 'root-1/folder-1/workout-1',
+      maxDepth: null,
+      q: null,
+      objectType: null
+    });
+  });
 });
