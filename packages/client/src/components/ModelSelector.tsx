@@ -102,7 +102,9 @@ function renderModelDropdown(
           )}
         </div>
         {openRouterModels.length > 0 ? (
-          <div className="mt-2 space-y-1">
+          <div
+            className={`mt-2 ${layout.isCompact ? 'space-y-0.5' : 'space-y-1'}`}
+          >
             <p className={layout.sectionHeaderClasses}>OpenRouter Models</p>
             {renderModelOptions(
               openRouterModels,

@@ -144,10 +144,9 @@ function renderTableRowsStatus(state: TableRowsBodyState, loading: boolean) {
 
 function renderTableRowsData(
   controller: TableRowsController,
-  columns: ColumnInfo[],
   showInlineStatus: boolean
 ) {
-  if (columns.length === 0 || controller.error) {
+  if (controller.columns.length === 0 || controller.error) {
     return null;
   }
 
@@ -166,7 +165,7 @@ function renderTableRowsData(
           totalSize={controller.totalSize}
           virtualItems={controller.virtualItems}
           measureElement={controller.measureElement}
-          getRowKey={(row, index) => getRowKey(row, columns, index)}
+          getRowKey={(row, index) => getRowKey(row, controller.columns, index)}
           loadingMore={controller.loadingMore}
         />
       ) : (
@@ -190,7 +189,7 @@ function renderTableRowsData(
           resizingColumn={controller.resizingColumn}
           onResizeStart={controller.onResizeStart}
           onKeyboardResize={controller.onKeyboardResize}
-          getRowKey={(row, index) => getRowKey(row, columns, index)}
+          getRowKey={(row, index) => getRowKey(row, controller.columns, index)}
           formatCellValue={formatCellValue}
           loadingMore={controller.loadingMore}
         />
@@ -249,9 +248,7 @@ export function TableRowsView({
       />
 
       {statusView}
-      {!statusView
-        ? renderTableRowsData(controller, controller.columns, showInlineStatus)
-        : null}
+      {!statusView ? renderTableRowsData(controller, showInlineStatus) : null}
     </div>
   );
 }
