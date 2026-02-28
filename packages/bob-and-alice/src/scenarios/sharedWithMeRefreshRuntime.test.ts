@@ -2,11 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
 import {
+  type BrowserRuntimeActor,
   createBrowserRuntimeActor,
   queryLocalSharedWithMe,
   refreshLocalStateFromApi,
-  teardownBrowserRuntimeActors,
-  type BrowserRuntimeActor
+  teardownBrowserRuntimeActors
 } from '../harness/browserRuntimeHarness.js';
 import {
   assertPgHasActiveUserShare,

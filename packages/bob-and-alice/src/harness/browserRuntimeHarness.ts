@@ -95,7 +95,9 @@ function parseMillis(value: string | null): number {
   return parsed;
 }
 
-async function fetchAllSyncItems(actor: RuntimeApiActor): Promise<VfsSyncItem[]> {
+async function fetchAllSyncItems(
+  actor: RuntimeApiActor
+): Promise<VfsSyncItem[]> {
   const all: VfsSyncItem[] = [];
   let cursor: string | undefined;
 
@@ -179,10 +181,7 @@ export async function refreshLocalStateFromApi(input: {
 
   const aclByPrincipal = new Map<string, LocalAclRow>();
   for (const item of crdtItems) {
-    if (
-      item.opType !== 'acl_add' &&
-      item.opType !== 'acl_remove'
-    ) {
+    if (item.opType !== 'acl_add' && item.opType !== 'acl_remove') {
       continue;
     }
     if (!item.principalType || !item.principalId) {

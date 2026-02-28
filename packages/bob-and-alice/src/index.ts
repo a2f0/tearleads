@@ -3,17 +3,6 @@ export { ActorHarness } from './harness/actorHarness.js';
 export type { ApiActorDefinition } from './harness/apiScenarioHarness.js';
 export { ApiScenarioHarness } from './harness/apiScenarioHarness.js';
 export type {
-  BrowserRuntimeActor,
-  LocalSharedWithMeRow,
-  RuntimeApiActor
-} from './harness/browserRuntimeHarness.js';
-export {
-  createBrowserRuntimeActor,
-  queryLocalSharedWithMe,
-  refreshLocalStateFromApi,
-  teardownBrowserRuntimeActors
-} from './harness/browserRuntimeHarness.js';
-export type {
   AssertLocalVfsRegistryHasInput,
   AssertServerFeedLengthInput,
   AssertServerHasAclEntryInput,
@@ -26,6 +15,17 @@ export {
   assertServerHasAclEntry,
   assertServerHasLink
 } from './harness/assertions.js';
+export type {
+  BrowserRuntimeActor,
+  LocalSharedWithMeRow,
+  RuntimeApiActor
+} from './harness/browserRuntimeHarness.js';
+export {
+  createBrowserRuntimeActor,
+  queryLocalSharedWithMe,
+  refreshLocalStateFromApi,
+  teardownBrowserRuntimeActors
+} from './harness/browserRuntimeHarness.js';
 export {
   assertPgHasActiveUserShare,
   assertPgHasVfsRegistryItem,
