@@ -13,9 +13,13 @@ load_secrets_env prod
 BACKEND_CONFIG=$(get_backend_config)
 
 validate_aws_env
-validate_hetzner_env
 validate_domain_env
 validate_cloudflare_env
+
+if [[ -z "${TF_VAR_aws_key_pair_name:-}" ]]; then
+  echo "ERROR: Missing required environment variable: TF_VAR_aws_key_pair_name" >&2
+  exit 1
+fi
 
 terraform -chdir="$STACK_DIR" init \
   -backend-config="$BACKEND_CONFIG" \

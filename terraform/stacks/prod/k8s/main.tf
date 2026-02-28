@@ -1,20 +1,156 @@
-# Lookup SSH key for cloud-init user_data
-data "hcloud_ssh_key" "main" {
-  name = var.ssh_key_name
+resource "aws_vpc" "k8s" {
+  cidr_block           = var.vpc_cidr
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
+  tags = {
+    Name        = "tearleads-prod-k8s"
+    Project     = "tearleads"
+    Environment = "prod"
+    Stack       = "k8s"
+  }
 }
 
-module "server" {
-  source = "../../../modules/hetzner-server"
+resource "aws_internet_gateway" "k8s" {
+  vpc_id = aws_vpc.k8s.id
 
-  name        = "k8s-prod-${var.domain}"
-  ssh_key_id  = data.hcloud_ssh_key.main.id
-  server_type = var.server_type
-  location    = var.server_location
+  tags = {
+    Name        = "tearleads-prod-k8s"
+    Project     = "tearleads"
+    Environment = "prod"
+    Stack       = "k8s"
+  }
+}
+
+resource "aws_subnet" "public_a" {
+  vpc_id                  = aws_vpc.k8s.id
+  cidr_block              = var.public_subnet_cidr
+  availability_zone       = "${var.aws_region}a"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name        = "tearleads-prod-k8s-public-a"
+    Project     = "tearleads"
+    Environment = "prod"
+    Stack       = "k8s"
+  }
+}
+
+resource "aws_subnet" "rds_a" {
+  vpc_id            = aws_vpc.k8s.id
+  cidr_block        = var.rds_subnet_a_cidr
+  availability_zone = "${var.aws_region}a"
+
+  tags = {
+    Name        = "tearleads-prod-k8s-rds-a"
+    Project     = "tearleads"
+    Environment = "prod"
+    Stack       = "k8s"
+  }
+}
+
+resource "aws_subnet" "rds_b" {
+  vpc_id            = aws_vpc.k8s.id
+  cidr_block        = var.rds_subnet_b_cidr
+  availability_zone = "${var.aws_region}b"
+
+  tags = {
+    Name        = "tearleads-prod-k8s-rds-b"
+    Project     = "tearleads"
+    Environment = "prod"
+    Stack       = "k8s"
+  }
+}
+
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.k8s.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.k8s.id
+  }
+
+  tags = {
+    Name        = "tearleads-prod-k8s-public"
+    Project     = "tearleads"
+    Environment = "prod"
+    Stack       = "k8s"
+  }
+}
+
+resource "aws_route_table_association" "public_a" {
+  subnet_id      = aws_subnet.public_a.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_security_group" "k8s_server" {
+  name        = "tearleads-prod-k8s-server"
+  description = "Security group for prod k8s EC2 server"
+  vpc_id      = aws_vpc.k8s.id
+
+  ingress {
+    description = "SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = var.allowed_ssh_ips
+  }
+
+  ingress {
+    description = "Kubernetes API"
+    from_port   = 6443
+    to_port     = 6443
+    protocol    = "tcp"
+    cidr_blocks = var.allowed_k8s_api_ips
+  }
+
+  ingress {
+    description = "ICMP"
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name        = "tearleads-prod-k8s-server"
+    Project     = "tearleads"
+    Environment = "prod"
+    Stack       = "k8s"
+  }
+}
+
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"]
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
+resource "aws_instance" "server" {
+  ami                    = data.aws_ami.ubuntu.id
+  instance_type          = var.instance_type
+  subnet_id              = aws_subnet.public_a.id
+  vpc_security_group_ids = [aws_security_group.k8s_server.id]
+  key_name               = var.aws_key_pair_name
 
   user_data = <<-EOF
     #cloud-config
-    # Prevent cloud-init from regenerating ed25519 key (we provide our own)
-    # Allow RSA/ECDSA generation since SSH needs them
     ssh_deletekeys: false
     ssh_genkeytypes: ['rsa', 'ecdsa']
 
@@ -29,19 +165,14 @@ module "server" {
         permissions: '0644'
         encoding: b64
         content: ${base64encode("${chomp(var.ssh_host_public_key)}\n")}
-    users:
-      - name: ${var.server_username}
-        groups: sudo
-        shell: /bin/bash
-        sudo: ALL=(ALL) NOPASSWD:ALL
-        ssh_authorized_keys:
-          - ${data.hcloud_ssh_key.main.public_key}
-    ssh_pwauth: false
-    disable_root: true
 
     runcmd:
-      # Restart SSH to use the persistent host keys written above
       - systemctl restart ssh
+      - if ! id -u ${var.server_username} >/dev/null 2>&1; then useradd -m -s /bin/bash -G sudo ${var.server_username}; fi
+      - cp -r /home/ubuntu/.ssh /home/${var.server_username}/.ssh || true
+      - chown -R ${var.server_username}:${var.server_username} /home/${var.server_username}/.ssh || true
+      - echo '${var.server_username} ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/90-${var.server_username}
+      - chmod 440 /etc/sudoers.d/90-${var.server_username}
       - curl -sfL https://get.k3s.io -o /tmp/install-k3s.sh
       - chmod +x /tmp/install-k3s.sh
       - INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.domain} --tls-san k8s-api.${var.domain}" /tmp/install-k3s.sh
@@ -51,27 +182,11 @@ module "server" {
       - chown -R ${var.server_username}:${var.server_username} /home/${var.server_username}/.kube
   EOF
 
-  create_firewall = true
-  allowed_ssh_ips = var.allowed_ssh_ips
-
-  # Ports 80/443 closed - traffic routes through Cloudflare Tunnel
-  firewall_rules = [
-    {
-      direction  = "in"
-      protocol   = "tcp"
-      port       = "6443"
-      source_ips = var.allowed_k8s_api_ips
-    },
-    {
-      direction  = "in"
-      protocol   = "icmp"
-      source_ips = ["0.0.0.0/0", "::/0"]
-    }
-  ]
-
-  labels = {
-    environment = "prod"
-    stack       = "k8s"
+  tags = {
+    Name        = "k8s-prod-${var.domain}"
+    Project     = "tearleads"
+    Environment = "prod"
+    Stack       = "k8s"
   }
 }
 
@@ -108,30 +223,20 @@ module "tunnel" {
 
 # Direct DNS records for SSH access (not proxied through tunnel)
 resource "cloudflare_record" "k8s_ssh" {
-  for_each = {
-    A    = module.server.ipv4_address
-    AAAA = module.server.ipv6_address
-  }
-
   zone_id = data.cloudflare_zone.production.id
   name    = "k8s-ssh.${var.domain}"
-  type    = each.key
-  content = each.value
+  type    = "A"
+  content = aws_instance.server.public_ip
   proxied = false
   ttl     = 1
 }
 
 # Direct DNS records for Kubernetes API access (not proxied through tunnel)
 resource "cloudflare_record" "k8s_api" {
-  for_each = {
-    A    = module.server.ipv4_address
-    AAAA = module.server.ipv6_address
-  }
-
   zone_id = data.cloudflare_zone.production.id
   name    = "k8s-api.${var.domain}"
-  type    = each.key
-  content = each.value
+  type    = "A"
+  content = aws_instance.server.public_ip
   proxied = false
   ttl     = 1
 }

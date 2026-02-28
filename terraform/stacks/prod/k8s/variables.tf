@@ -1,23 +1,23 @@
-variable "hcloud_token" {
-  description = "Hetzner Cloud API token"
-  type        = string
-  sensitive   = true
-}
-
-variable "ssh_key_name" {
-  description = "Name of existing SSH key in Hetzner"
-  type        = string
-}
-
 variable "domain" {
   description = "Domain name for DNS records (k8s subdomain will be created)"
   type        = string
 }
 
-variable "server_location" {
-  description = "Hetzner server location (hel1, fsn1, nbg1, ash, sin)"
+variable "aws_region" {
+  description = "AWS region for production k8s resources"
   type        = string
-  default     = "hel1"
+  default     = "us-east-1"
+}
+
+variable "aws_key_pair_name" {
+  description = "Existing AWS EC2 key pair name for SSH access"
+  type        = string
+}
+
+variable "instance_type" {
+  description = "EC2 instance type for the k8s server"
+  type        = string
+  default     = "t3.small"
 }
 
 variable "server_username" {
@@ -25,10 +25,28 @@ variable "server_username" {
   type        = string
 }
 
-variable "server_type" {
-  description = "Hetzner server type"
+variable "vpc_cidr" {
+  description = "CIDR block for the prod k8s VPC"
   type        = string
-  default     = "cx23"
+  default     = "10.42.0.0/16"
+}
+
+variable "public_subnet_cidr" {
+  description = "Public subnet CIDR for the k8s EC2 host"
+  type        = string
+  default     = "10.42.1.0/24"
+}
+
+variable "rds_subnet_a_cidr" {
+  description = "Private subnet A CIDR for RDS"
+  type        = string
+  default     = "10.42.10.0/24"
+}
+
+variable "rds_subnet_b_cidr" {
+  description = "Private subnet B CIDR for RDS"
+  type        = string
+  default     = "10.42.11.0/24"
 }
 
 variable "allowed_ssh_ips" {

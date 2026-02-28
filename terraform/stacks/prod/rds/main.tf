@@ -1,4 +1,4 @@
-# Pull k8s server IP from the prod k8s stack
+# Pull network outputs from the prod k8s stack
 data "terraform_remote_state" "k8s" {
   backend = "s3"
 
@@ -9,91 +9,16 @@ data "terraform_remote_state" "k8s" {
   }
 }
 
-# Dedicated VPC for RDS
-resource "aws_vpc" "rds" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_support   = true
-  enable_dns_hostnames = true
-
-  tags = {
-    Name        = "tearleads-prod-rds"
-    Project     = "tearleads"
-    Environment = "prod"
-  }
-}
-
-# Internet gateway (required for publicly accessible RDS)
-resource "aws_internet_gateway" "rds" {
-  vpc_id = aws_vpc.rds.id
-
-  tags = {
-    Name        = "tearleads-prod-rds"
-    Project     = "tearleads"
-    Environment = "prod"
-  }
-}
-
-# Route table with internet access
-resource "aws_route_table" "rds" {
-  vpc_id = aws_vpc.rds.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.rds.id
-  }
-
-  tags = {
-    Name        = "tearleads-prod-rds"
-    Project     = "tearleads"
-    Environment = "prod"
-  }
-}
-
-# Subnets in two AZs (required for DB subnet group)
-resource "aws_subnet" "rds_a" {
-  vpc_id            = aws_vpc.rds.id
-  cidr_block        = "10.0.1.0/24"
-  availability_zone = "us-east-1a"
-
-  tags = {
-    Name        = "tearleads-prod-rds-a"
-    Project     = "tearleads"
-    Environment = "prod"
-  }
-}
-
-resource "aws_subnet" "rds_b" {
-  vpc_id            = aws_vpc.rds.id
-  cidr_block        = "10.0.2.0/24"
-  availability_zone = "us-east-1b"
-
-  tags = {
-    Name        = "tearleads-prod-rds-b"
-    Project     = "tearleads"
-    Environment = "prod"
-  }
-}
-
-resource "aws_route_table_association" "rds_a" {
-  subnet_id      = aws_subnet.rds_a.id
-  route_table_id = aws_route_table.rds.id
-}
-
-resource "aws_route_table_association" "rds_b" {
-  subnet_id      = aws_subnet.rds_b.id
-  route_table_id = aws_route_table.rds.id
-}
-
 module "rds" {
   source = "../../../modules/aws-rds-postgres"
 
   identifier = "tearleads-prod"
-  vpc_id     = aws_vpc.rds.id
-  subnet_ids = [aws_subnet.rds_a.id, aws_subnet.rds_b.id]
+  vpc_id     = data.terraform_remote_state.k8s.outputs.vpc_id
+  subnet_ids = data.terraform_remote_state.k8s.outputs.rds_subnet_ids
 
-  # Allow traffic from the k8s server (fallback to 0.0.0.0 when k8s is already destroyed)
-  allowed_cidr_blocks = ["${try(data.terraform_remote_state.k8s.outputs.server_ip, "0.0.0.0")}/32"]
-  publicly_accessible = true # Required for k8s cluster outside VPC
+  # Restrict RDS access to the k8s server subnet inside the same VPC.
+  allowed_cidr_blocks = [data.terraform_remote_state.k8s.outputs.k8s_subnet_cidr]
+  publicly_accessible = false
 
   # Database config
   database_name   = "tearleads"
@@ -104,8 +29,9 @@ module "rds" {
   instance_class    = "db.t4g.micro"
   allocated_storage = 20
 
-  # Backups
-  backup_retention_period = 7
+  # Faster teardown in pre-alpha: disable automated backups.
+  backup_retention_period      = 0
+  performance_insights_enabled = false
 
   # Protection
   deletion_protection = false

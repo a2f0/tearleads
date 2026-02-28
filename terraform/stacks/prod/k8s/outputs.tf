@@ -1,16 +1,21 @@
 output "server_ip" {
   description = "IPv4 address of the k8s server"
-  value       = module.server.ipv4_address
+  value       = aws_instance.server.public_ip
 }
 
 output "server_ipv6" {
   description = "IPv6 address of the k8s server"
-  value       = module.server.ipv6_address
+  value       = null
+}
+
+output "server_private_ip" {
+  description = "Private IPv4 address of the k8s server"
+  value       = aws_instance.server.private_ip
 }
 
 output "server_status" {
   description = "Status of the server"
-  value       = module.server.status
+  value       = aws_instance.server.instance_state
 }
 
 output "k8s_hostname" {
@@ -52,4 +57,19 @@ output "tunnel_token" {
   description = "Cloudflare tunnel token (for cloudflared deployment)"
   value       = module.tunnel.tunnel_token
   sensitive   = true
+}
+
+output "vpc_id" {
+  description = "VPC ID for the prod k8s stack"
+  value       = aws_vpc.k8s.id
+}
+
+output "k8s_subnet_cidr" {
+  description = "CIDR block of the k8s server subnet"
+  value       = aws_subnet.public_a.cidr_block
+}
+
+output "rds_subnet_ids" {
+  description = "Private subnet IDs used by the prod RDS stack"
+  value       = [aws_subnet.rds_a.id, aws_subnet.rds_b.id]
 }

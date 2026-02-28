@@ -20,8 +20,8 @@ usage() {
 Usage: $0 [options]
 
 One-shot production cluster bring-up with dependency ordering:
-1) ci-artifacts  2) rds  3) s3  4) k8s infra/bootstrap
-5) buildContainers 6) rollout 7) migrate 8) smoke tests
+1) ci-artifacts  2) s3  3) k8s infra  4) rds
+5) k8s bootstrap 6) buildContainers 7) rollout 8) migrate 9) smoke tests
 
 Options:
   --skip-build      Skip container build/push
@@ -102,20 +102,21 @@ run_step() {
 echo "Starting production cluster bring-up..."
 
 run_step "Apply prod ci-artifacts (ECR + CI bucket)" "$CI_SCRIPTS_DIR/apply.sh"
-run_step "Apply prod RDS" "$RDS_SCRIPTS_DIR/apply.sh"
 run_step "Apply prod S3 (bucket + IAM credentials)" "$S3_SCRIPTS_DIR/apply.sh"
 run_step "Apply prod k8s infrastructure" "$K8S_SCRIPTS_DIR/apply01.sh"
+run_step "Apply prod RDS (private in k8s VPC)" "$RDS_SCRIPTS_DIR/apply.sh"
 run_step "Bootstrap prod k8s and deploy manifests" "$K8S_SCRIPTS_DIR/apply02.sh"
 
 if [[ "$SKIP_BUILD" != "true" ]]; then
-  build_cmd=("$REPO_ROOT/scripts/buildContainers.sh" "prod")
-  if [[ "$SKIP_WEBSITE" == "true" ]]; then
-    build_cmd+=("--no-website")
+  if [[ "$SKIP_WEBSITE" == "true" && -n "$IMAGE_TAG" ]]; then
+    run_step "Build and push prod containers" "$REPO_ROOT/scripts/buildContainers.sh" prod --no-website --tag "$IMAGE_TAG"
+  elif [[ "$SKIP_WEBSITE" == "true" ]]; then
+    run_step "Build and push prod containers" "$REPO_ROOT/scripts/buildContainers.sh" prod --no-website
+  elif [[ -n "$IMAGE_TAG" ]]; then
+    run_step "Build and push prod containers" "$REPO_ROOT/scripts/buildContainers.sh" prod --tag "$IMAGE_TAG"
+  else
+    run_step "Build and push prod containers" "$REPO_ROOT/scripts/buildContainers.sh" prod
   fi
-  if [[ -n "$IMAGE_TAG" ]]; then
-    build_cmd+=("--tag" "$IMAGE_TAG")
-  fi
-  run_step "Build and push prod containers" "${build_cmd[@]}"
 fi
 
 if [[ "$SKIP_ROLLOUT" != "true" ]]; then

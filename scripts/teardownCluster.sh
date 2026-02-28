@@ -15,7 +15,7 @@ usage() {
 Usage: $0 [options]
 
 One-shot production cluster teardown with dependency-safe ordering:
-1) k8s  2) rds  3) s3  4) ci-artifacts
+1) rds  2) s3  3) k8s  4) ci-artifacts
 
 Options:
   --skip-ci-artifacts  Keep ci-artifacts stack intact
@@ -64,16 +64,13 @@ run_step() {
   "$@"
 }
 
-DESTROY_ARGS=(-auto-approve)
-
 echo "Starting production cluster teardown..."
-
-run_step "Destroy prod k8s stack" "$K8S_SCRIPTS_DIR/destroy.sh" "${DESTROY_ARGS[@]}"
-run_step "Destroy prod RDS stack" "$RDS_SCRIPTS_DIR/destroy.sh" "${DESTROY_ARGS[@]}"
-run_step "Destroy prod S3 stack" "$S3_SCRIPTS_DIR/destroy.sh" "${DESTROY_ARGS[@]}"
+run_step "Destroy prod RDS stack" "$RDS_SCRIPTS_DIR/destroy.sh" -auto-approve
+run_step "Destroy prod S3 stack" "$S3_SCRIPTS_DIR/destroy.sh" -auto-approve
+run_step "Destroy prod k8s stack" "$K8S_SCRIPTS_DIR/destroy.sh" -auto-approve
 
 if [[ "$SKIP_CI_ARTIFACTS" != "true" ]]; then
-  run_step "Destroy prod ci-artifacts stack" "$CI_SCRIPTS_DIR/destroy.sh" "${DESTROY_ARGS[@]}"
+  run_step "Destroy prod ci-artifacts stack" "$CI_SCRIPTS_DIR/destroy.sh" -auto-approve
 fi
 
 echo ""
