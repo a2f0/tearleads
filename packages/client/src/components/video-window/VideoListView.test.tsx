@@ -159,7 +159,11 @@ describe('VideoListView', () => {
     if (listContainer) {
       fireEvent.contextMenu(listContainer, { target: listContainer });
     }
-    expect(screen.getByText('Upload')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: /upload/i
+      })
+    ).toBeInTheDocument();
   });
 
   it('does not show upload menu when onUpload is not provided', () => {
@@ -170,7 +174,11 @@ describe('VideoListView', () => {
     if (listContainer) {
       fireEvent.contextMenu(listContainer, { target: listContainer });
     }
-    expect(screen.queryByText('Upload')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: /upload/i
+      })
+    ).not.toBeInTheDocument();
   });
 
   it('calls onUpload when Upload menu item is clicked', () => {
@@ -179,7 +187,11 @@ describe('VideoListView', () => {
     if (listContainer) {
       fireEvent.contextMenu(listContainer, { target: listContainer });
     }
-    fireEvent.click(screen.getByText('Upload'));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /upload/i
+      })
+    );
     expect(mockOnUpload).toHaveBeenCalled();
   });
 
@@ -187,7 +199,11 @@ describe('VideoListView', () => {
     render(<VideoListView {...defaultProps} />);
     const videoItem = screen.getByTestId('video-item-video-1');
     fireEvent.contextMenu(videoItem);
-    expect(screen.queryByText('Upload')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: /upload/i
+      })
+    ).not.toBeInTheDocument();
     expect(screen.getByText('Play')).toBeInTheDocument();
   });
 

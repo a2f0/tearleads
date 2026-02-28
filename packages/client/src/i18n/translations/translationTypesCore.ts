@@ -159,6 +159,7 @@ export interface ContextMenuTranslations {
   getInfo: string;
   viewDetails: string;
   download: string;
+  upload: string;
   share: string;
   edit: string;
   delete: string;

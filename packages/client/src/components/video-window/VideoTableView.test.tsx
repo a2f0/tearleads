@@ -219,7 +219,11 @@ describe('VideoTableView', () => {
         target: tableContainer
       });
     }
-    expect(screen.getByText('Upload')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: /upload/i
+      })
+    ).toBeInTheDocument();
   });
 
   it('does not show upload menu when onUpload is not provided', () => {
@@ -230,7 +234,11 @@ describe('VideoTableView', () => {
     if (tableContainer) {
       fireEvent.contextMenu(tableContainer, { target: tableContainer });
     }
-    expect(screen.queryByText('Upload')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: /upload/i
+      })
+    ).not.toBeInTheDocument();
   });
 
   it('calls onUpload when Upload menu item is clicked', () => {
@@ -239,7 +247,11 @@ describe('VideoTableView', () => {
     if (tableContainer) {
       fireEvent.contextMenu(tableContainer, { target: tableContainer });
     }
-    fireEvent.click(screen.getByText('Upload'));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /upload/i
+      })
+    );
     expect(mockOnUpload).toHaveBeenCalled();
   });
 
@@ -249,7 +261,11 @@ describe('VideoTableView', () => {
     if (row) {
       fireEvent.contextMenu(row);
     }
-    expect(screen.queryByText('Upload')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: /upload/i
+      })
+    ).not.toBeInTheDocument();
     expect(screen.getByText('Play')).toBeInTheDocument();
   });
 

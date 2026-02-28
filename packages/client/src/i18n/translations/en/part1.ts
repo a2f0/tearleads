@@ -164,6 +164,7 @@ export const enPart1 = {
     getInfo: 'Get info',
     viewDetails: 'View Details',
     download: 'Download',
+    upload: 'Upload',
     share: 'Share',
     edit: 'Edit',
     delete: 'Delete',

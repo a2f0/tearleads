@@ -6,20 +6,18 @@ import {
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
-  DesktopContextMenu as ContextMenu,
-  DesktopContextMenuItem as ContextMenuItem,
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow
 } from '@tearleads/window-manager';
-import { Film, Info, Play, Trash2, Upload } from 'lucide-react';
 import type { RefObject } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { useVirtualVisibleRange } from '@/hooks/device';
-import { useTypedTranslation } from '@/i18n';
 import { setMediaDragData } from '@/lib/mediaDragData';
 import { formatDate, formatFileSize, getVideoTypeDisplay } from '@/lib/utils';
 import type { VideoOpenOptions, VideoWithThumbnail } from '@/pages/Video';
+import { VideoContextMenus } from './VideoContextMenus';
+import { VideoNameCell } from './VideoNameCell';
 
 const TABLE_ROW_HEIGHT_ESTIMATE = 44;
 
@@ -34,6 +32,29 @@ interface VideoTableViewProps {
   onUpload?: (() => void) | undefined;
 }
 
+const VIDEO_TABLE_COLUMNS: ColumnDef<VideoWithThumbnail>[] = [
+  {
+    id: 'name',
+    header: 'Name',
+    cell: ({ row }) => <VideoNameCell video={row.original} />
+  },
+  {
+    id: 'size',
+    header: 'Size',
+    cell: ({ row }) => formatFileSize(row.original.size)
+  },
+  {
+    id: 'type',
+    header: 'Type',
+    cell: ({ row }) => getVideoTypeDisplay(row.original.mimeType)
+  },
+  {
+    id: 'uploaded',
+    header: 'Uploaded',
+    cell: ({ row }) => formatDate(row.original.uploadDate)
+  }
+];
+
 export function VideoTableView({
   videos,
   tableParentRef,
@@ -44,7 +65,6 @@ export function VideoTableView({
   onDelete,
   onUpload
 }: VideoTableViewProps) {
-  const { t } = useTypedTranslation('contextMenu');
   const [blankSpaceMenu, setBlankSpaceMenu] = useState<{
     x: number;
     y: number;
@@ -55,51 +75,9 @@ export function VideoTableView({
     y: number;
   } | null>(null);
 
-  const tableColumns = useMemo<ColumnDef<VideoWithThumbnail>[]>(
-    () => [
-      {
-        id: 'name',
-        header: 'Name',
-        cell: ({ row }) => {
-          const video = row.original;
-          return (
-            <div className="flex min-w-0 items-center gap-2">
-              {video.thumbnailUrl ? (
-                <img
-                  src={video.thumbnailUrl}
-                  alt=""
-                  className="h-6 w-6 rounded object-cover"
-                />
-              ) : (
-                <Film className="h-4 w-4 text-muted-foreground" />
-              )}
-              <span className="truncate font-medium">{video.name}</span>
-            </div>
-          );
-        }
-      },
-      {
-        id: 'size',
-        header: 'Size',
-        cell: ({ row }) => formatFileSize(row.original.size)
-      },
-      {
-        id: 'type',
-        header: 'Type',
-        cell: ({ row }) => getVideoTypeDisplay(row.original.mimeType)
-      },
-      {
-        id: 'uploaded',
-        header: 'Uploaded',
-        cell: ({ row }) => formatDate(row.original.uploadDate)
-      }
-    ],
-    []
-  );
-
   const table = useReactTable({
     data: videos,
-    columns: tableColumns,
+    columns: VIDEO_TABLE_COLUMNS,
     getCoreRowModel: getCoreRowModel()
   });
 
@@ -262,50 +240,16 @@ export function VideoTableView({
         </table>
       </div>
 
-      {contextMenu && (
-        <ContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onClose={handleCloseContextMenu}
-        >
-          <ContextMenuItem
-            icon={<Play className="h-4 w-4" />}
-            onClick={() => handlePlay(contextMenu.video)}
-          >
-            {t('play')}
-          </ContextMenuItem>
-          <ContextMenuItem
-            icon={<Info className="h-4 w-4" />}
-            onClick={() => handleGetInfo(contextMenu.video)}
-          >
-            {t('getInfo')}
-          </ContextMenuItem>
-          <ContextMenuItem
-            icon={<Trash2 className="h-4 w-4" />}
-            onClick={() => handleDelete(contextMenu.video)}
-          >
-            {t('delete')}
-          </ContextMenuItem>
-        </ContextMenu>
-      )}
-
-      {blankSpaceMenu && onUpload && (
-        <ContextMenu
-          x={blankSpaceMenu.x}
-          y={blankSpaceMenu.y}
-          onClose={() => setBlankSpaceMenu(null)}
-        >
-          <ContextMenuItem
-            icon={<Upload className="h-4 w-4" />}
-            onClick={() => {
-              onUpload();
-              setBlankSpaceMenu(null);
-            }}
-          >
-            Upload
-          </ContextMenuItem>
-        </ContextMenu>
-      )}
+      <VideoContextMenus
+        contextMenu={contextMenu}
+        blankSpaceMenu={blankSpaceMenu}
+        onCloseContextMenu={handleCloseContextMenu}
+        onPlay={handlePlay}
+        onGetInfo={handleGetInfo}
+        onDelete={handleDelete}
+        onUpload={onUpload}
+        onCloseBlankSpaceMenu={() => setBlankSpaceMenu(null)}
+      />
     </>
   );
 }

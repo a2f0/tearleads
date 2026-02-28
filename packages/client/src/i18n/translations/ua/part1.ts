@@ -160,6 +160,7 @@ export const uaPart1 = {
     getInfo: 'Інформація',
     viewDetails: 'Детальніше',
     download: 'Завантажити',
+    upload: 'Завантажити файл',
     share: 'Поділитися',
     edit: 'Редагувати',
     delete: 'Видалити',

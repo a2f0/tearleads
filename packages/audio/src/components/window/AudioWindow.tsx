@@ -67,7 +67,6 @@ export function AudioWindow({
     setRefreshToken((value) => value + 1);
   }, []);
 
-  // Handler for uploading files with optional target playlist override
   const handleUploadFilesToPlaylist = useCallback(
     async (files: File[], targetPlaylistId?: string | null) => {
       const { results, errors } = await uploadMany(files);
@@ -75,7 +74,6 @@ export function AudioWindow({
         console.error(`Failed to upload ${error.fileName}:`, error.message);
       }
 
-      // Use target playlist if provided, otherwise use currently selected playlist
       const playlistToUse = targetPlaylistId ?? selectedPlaylistId;
       if (playlistToUse && playlistToUse !== ALL_AUDIO_ID) {
         await Promise.all(
@@ -99,14 +97,12 @@ export function AudioWindow({
     [uploadMany, selectedPlaylistId, addTrackToPlaylist]
   );
 
-  // Main content area drop zone
   const { isDragging, dropZoneProps } = useDropZone({
     accept: 'audio/*',
     onDrop: handleUploadFilesToPlaylist,
     disabled: !isUnlocked || uploading
   });
 
-  // Handler for dropping files onto a specific playlist in the sidebar
   const handleDropToPlaylist = useCallback(
     async (playlistId: string, files: File[], audioIds?: string[]) => {
       if (audioIds && audioIds.length > 0) {
@@ -121,7 +117,6 @@ export function AudioWindow({
     [addTrackToPlaylist, handleUploadFilesToPlaylist]
   );
 
-  // Wrapper for existing upload patterns (no playlist override)
   const handleUploadFiles = useCallback(
     async (files: File[]) => {
       await handleUploadFilesToPlaylist(files);
@@ -157,19 +152,15 @@ export function AudioWindow({
     setRefreshToken((value) => value + 1);
   }, []);
 
-  // Handler for playlist selection - clears album filter
   const handlePlaylistSelect = useCallback((playlistId: string | null) => {
     setSelectedPlaylistId(playlistId);
-    // Clear album filter when selecting a playlist
     if (playlistId && playlistId !== ALL_AUDIO_ID) {
       setSelectedAlbumId(null);
     }
   }, []);
 
-  // Handler for album selection - resets playlist to show all
   const handleAlbumSelect = useCallback((albumId: string | null) => {
     setSelectedAlbumId(albumId);
-    // Reset playlist to "All Audio" when filtering by album
     if (albumId) {
       setSelectedPlaylistId(ALL_AUDIO_ID);
     }
@@ -180,7 +171,6 @@ export function AudioWindow({
     if (openAudioId) {
       setSelectedTrackId(openAudioId);
     }
-    // Album takes precedence over playlist; validate album ID before setting
     if (openAlbumId && isValidAlbumId(openAlbumId)) {
       setSelectedAlbumId(openAlbumId);
       setSelectedPlaylistId(ALL_AUDIO_ID);
