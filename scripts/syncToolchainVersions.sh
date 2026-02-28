@@ -100,6 +100,16 @@ sync_node() {
     return
   fi
 
+  if ! command -v jq >/dev/null 2>&1; then
+    log "Toolchain sync (node): skipped; jq is not available."
+    return
+  fi
+
+  if ! command -v curl >/dev/null 2>&1; then
+    log "Toolchain sync (node): skipped; curl is not available."
+    return
+  fi
+
   ELECTRON_VERSION=$(jq -r '.devDependencies.electron // .dependencies.electron // empty' "$CLIENT_PKG" 2>/dev/null || true)
   if [ -z "$ELECTRON_VERSION" ]; then
     log "Toolchain sync (node): skipped; Electron version not found in packages/client/package.json."
@@ -173,6 +183,19 @@ sync_android() {
     return
   fi
 
+  if ! command -v curl >/dev/null 2>&1; then
+    log "Toolchain sync (android): skipped; curl is not available."
+    return
+  fi
+  if ! command -v xmllint >/dev/null 2>&1; then
+    log "Toolchain sync (android): skipped; xmllint is not available."
+    return
+  fi
+  if ! command -v rg >/dev/null 2>&1; then
+    log "Toolchain sync (android): skipped; rg is not available."
+    return
+  fi
+
   ANDROID_REPO_XML=$(curl -fsSL https://dl.google.com/android/repository/repository2-1.xml 2>/dev/null || true)
   if [ -z "$ANDROID_REPO_XML" ]; then
     log "Toolchain sync (android): skipped; unable to fetch Android SDK repository metadata."
@@ -238,7 +261,7 @@ sync_android() {
 }
 
 sync_ansible() {
-  TUXEDO_YML="$REPO_ROOT/ansible/playbooks/tuxedo.yml"
+  ANSIBLE_NODE_FILES="$REPO_ROOT/ansible/playbooks/tuxedo.yml $REPO_ROOT/ansible/playbooks/developerLaptop.yml"
 
   if [ -z "$NODE_MAJOR_FOR_ANSIBLE" ]; then
     # Fall back to reading from .nvmrc if sync_node was skipped
@@ -256,13 +279,13 @@ sync_ansible() {
 
   ANSIBLE_FILES_UPDATED=0
 
-  for YML_FILE in $TUXEDO_YML; do
+  for YML_FILE in $ANSIBLE_NODE_FILES; do
     if [ ! -f "$YML_FILE" ]; then
       log "Toolchain sync (ansible): skipped $YML_FILE (file not found)."
       continue
     fi
 
-    CURRENT_ANSIBLE_NODE=$(sed -n 's/^ *nodejs_major_version: *\([0-9]\+\).*/\1/p' "$YML_FILE")
+    CURRENT_ANSIBLE_NODE=$(sed -n 's/^ *nodejs_major_version: *\([0-9][0-9]*\).*/\1/p' "$YML_FILE")
     if [ -z "$CURRENT_ANSIBLE_NODE" ]; then
       log "Toolchain sync (ansible): skipped $YML_FILE (nodejs_major_version not found)."
       continue
@@ -275,7 +298,7 @@ sync_ansible() {
 
     if [ "$APPLY" -eq 1 ]; then
       TMP_FILE=$(mktemp "${TMPDIR:-/tmp}/tearleads-ansible-yml.XXXXXX")
-      sed "s/^\( *nodejs_major_version: \)[0-9]\+/\1$NODE_MAJOR_FOR_ANSIBLE/" "$YML_FILE" > "$TMP_FILE"
+      sed "s/^\( *nodejs_major_version: \)[0-9][0-9]*/\1$NODE_MAJOR_FOR_ANSIBLE/" "$YML_FILE" > "$TMP_FILE"
       mv "$TMP_FILE" "$YML_FILE"
       ANSIBLE_FILES_UPDATED=1
       log "Toolchain sync (ansible): updated $(basename "$YML_FILE") nodejs_major_version=$NODE_MAJOR_FOR_ANSIBLE."

@@ -10,11 +10,12 @@ Update all dependencies in the workspace (especially under `packages/`) and veri
 ## Preflight
 
 - Confirm you are not on `main`; create/switch branches before running updates.
+- `./scripts/updateEverything.sh` now enforces a branch guard and exits on `main`/`master` by default. Override only when intentional: `SKIP_BRANCH_GUARD=1`.
 - Start from a clean `git status` or note existing changes so you do not clobber them.
 - `mise` must be available on PATH; if missing, stop and report the blocker.
 - Run `mise install node` to match `.nvmrc`.
 - Never install or update Node with Homebrew in this workflow.
-- Ensure platform tooling is available (pnpm, bundler, CocoaPods, Android SDK). If something is missing, continue where possible and flag the gap in the final summary.
+- Ensure platform tooling is available (pnpm, bundler, CocoaPods, Android SDK). If optional platform tooling is missing, the script now skips that phase and reports it in a warning summary.
 
 ## Workflow
 
@@ -26,7 +27,7 @@ Use the shared script to perform the standard update flow:
 
 This now includes `mise install node` (hard-fails if `mise` is unavailable) and an automatic toolchain sync step before dependency updates.
 
-Optional toggles (set to `1` as needed): `SKIP_TOOLCHAIN_SYNC`, `SKIP_TOOLCHAIN_NODE`, `SKIP_TOOLCHAIN_ANDROID`, `SKIP_RUBY`, `SKIP_CAP_SYNC`, `SKIP_POD_CLEAN`, `SKIP_MAESTRO`, `SKIP_TESTS`, `SKIP_BUILD`, `SKIP_LINT`, `SKIP_UPDATE`, `SKIP_INSTALL`.
+Optional toggles (set to `1` as needed): `SKIP_BRANCH_GUARD`, `SKIP_TOOLCHAIN_SYNC`, `SKIP_TOOLCHAIN_NODE`, `SKIP_TOOLCHAIN_ANDROID`, `SKIP_RUBY`, `SKIP_CAP_SYNC`, `SKIP_POD_CLEAN`, `SKIP_MAESTRO`, `SKIP_TESTS`, `SKIP_BUILD`, `SKIP_LINT`, `SKIP_UPDATE`, `SKIP_INSTALL`, `UPGRADE_CODEX`.
 
 Additional toolchain controls:
 
@@ -50,8 +51,8 @@ Script exits early on dependency hygiene checks—fix then rerun:
    - `packages/client/android/variables.gradle` `compileSdkVersion`
    - `packages/client/android/variables.gradle` `targetSdkVersion`
 3. **Ansible playbooks**: uses the Node major version from step 1 (or falls back to `.nvmrc`) to align:
-   - `ansible/playbooks/main.yml` `nodejs_major_version`
    - `ansible/playbooks/tuxedo.yml` `nodejs_major_version`
+   - `ansible/playbooks/developerLaptop.yml` `nodejs_major_version`
 
 Guardrails:
 

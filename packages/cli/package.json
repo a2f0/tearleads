@@ -41,7 +41,7 @@
   "devDependencies": {
     "@tearleads/shared": "workspace:*",
     "@types/better-sqlite3": "7.6.13",
-    "@types/node": "25.3.0",
+    "@types/node": "25.3.2",
     "@vitest/coverage-v8": "4.0.18",
     "tsup": "8.5.1",
     "tsx": "4.21.0",
