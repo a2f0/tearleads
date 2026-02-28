@@ -10,8 +10,10 @@ declare global {
   }
 }
 
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Org IDs are TEXT in the DB: standard UUIDs for team orgs,
+// "personal-org-<UUID>" for personal orgs. Validate sanity only.
+const MAX_ORG_ID_LENGTH = 100;
+const ORG_ID_PATTERN = /^[a-zA-Z0-9-]+$/;
 
 const EXEMPT_PATHS = new Set([
   '/ping',
@@ -41,7 +43,7 @@ export async function orgMembershipMiddleware(
     return;
   }
 
-  if (!UUID_REGEX.test(orgId)) {
+  if (orgId.length > MAX_ORG_ID_LENGTH || !ORG_ID_PATTERN.test(orgId)) {
     res.status(400).json({ error: 'Invalid X-Organization-Id format' });
     return;
   }
