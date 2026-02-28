@@ -12,6 +12,13 @@ import { FOOTER_HEIGHT } from '@/constants/layout';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useIsMobile } from '@/hooks/device';
 import { useDraggable } from '@/hooks/dnd';
+import {
+  getMiniPlayerStyle,
+  getOrOpenAudioWindowId,
+  getPreMaximizeDimensions,
+  hasActiveMiniPlayerAudio,
+  shouldShowMiniPlayer
+} from './miniPlayerHelpers';
 
 const MINI_PLAYER_WIDTH = 224; // w-56
 const MINI_PLAYER_HEIGHT = 56; // p-2 (8px) * 2 + h-8 button (32px)
@@ -65,35 +72,13 @@ export function MiniPlayer() {
   }, []);
 
   const handleRestore = useCallback(() => {
-    if (audioWindow) {
-      restoreWindow(audioWindow.id);
-    } else {
-      openWindow('audio');
-    }
+    restoreWindow(getOrOpenAudioWindowId(audioWindow, openWindow));
     setContextMenu(null);
   }, [audioWindow, openWindow, restoreWindow]);
 
   const handleMaximize = useCallback(() => {
-    let windowId: string;
-    if (audioWindow) {
-      windowId = audioWindow.id;
-    } else {
-      windowId = openWindow('audio');
-    }
-
-    let preMaximizeDimensions = audioWindow?.dimensions?.preMaximizeDimensions;
-    if (
-      !preMaximizeDimensions &&
-      audioWindow?.dimensions &&
-      !audioWindow.dimensions.isMaximized
-    ) {
-      preMaximizeDimensions = {
-        width: audioWindow.dimensions.width,
-        height: audioWindow.dimensions.height,
-        x: audioWindow.dimensions.x,
-        y: audioWindow.dimensions.y
-      };
-    }
+    const windowId = getOrOpenAudioWindowId(audioWindow, openWindow);
+    const preMaximizeDimensions = getPreMaximizeDimensions(audioWindow);
 
     updateWindowDimensions(windowId, {
       width: window.innerWidth,
@@ -107,13 +92,9 @@ export function MiniPlayer() {
     setContextMenu(null);
   }, [audioWindow, openWindow, restoreWindow, updateWindowDimensions]);
 
-  // Don't render if no audio context, not playing, on audio pages, or audio window is open
   if (
-    !audio ||
-    !audio.currentTrack ||
-    !audio.isPlaying ||
-    isOnAudioPage ||
-    isAudioWindowVisible
+    !hasActiveMiniPlayerAudio(audio) ||
+    !shouldShowMiniPlayer(audio, isOnAudioPage, isAudioWindowVisible)
   ) {
     return null;
   }
@@ -127,14 +108,7 @@ export function MiniPlayer() {
       <aside
         ref={elementRef}
         className="fixed z-50 flex w-56 items-center gap-2 rounded-md border bg-background p-2 shadow-lg"
-        style={
-          positionReady
-            ? { left: position.left, top: position.top, cursor: 'grab' }
-            : {
-                right: 'max(1rem, env(safe-area-inset-right, 0px))',
-                bottom: '6rem'
-              }
-        }
+        style={getMiniPlayerStyle(positionReady, position)}
         data-testid="mini-player"
         onMouseDown={handleMouseDown}
         onContextMenu={handleContextMenu}
