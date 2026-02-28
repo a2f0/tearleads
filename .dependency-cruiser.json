@@ -1,0 +1,94 @@
+{
+  "$schema": "https://unpkg.com/dependency-cruiser/config.schema.json",
+  "forbidden": [
+    {
+      "name": "no-circular",
+      "severity": "error",
+      "comment": "Disallow circular dependencies in package source trees.",
+      "from": {
+        "path": "^packages/[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "circular": true
+      }
+    },
+    {
+      "name": "no-api-imports",
+      "severity": "error",
+      "comment": "Packages must not depend on api app internals.",
+      "from": {
+        "path": "^packages/(?!api/)[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "path": "^packages/api/src"
+      }
+    },
+    {
+      "name": "no-client-imports",
+      "severity": "warn",
+      "comment": "Shared code should not depend on client app internals.",
+      "from": {
+        "path": "^packages/(?!client/)[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "path": "^packages/client/src"
+      }
+    },
+    {
+      "name": "no-client-local-cross-package-src-imports",
+      "severity": "warn",
+      "comment": "Client code should import other packages via package exports, not relative paths into another package's src tree.",
+      "from": {
+        "path": "^packages/client/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "path": "^packages/(?!client/)[^/]+/src",
+        "dependencyTypes": [
+          "local"
+        ]
+      }
+    },
+    {
+      "name": "no-prod-to-test-imports",
+      "severity": "warn",
+      "comment": "Production modules must not import test-only modules or test support helpers.",
+      "from": {
+        "path": "^packages/[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "path": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/|/testSupport\\.(ts|tsx)$"
+      }
+    }
+  ],
+  "options": {
+    "tsConfig": {
+      "fileName": "tsconfig.json"
+    },
+    "tsPreCompilationDeps": true,
+    "doNotFollow": {
+      "path": "(^|/)node_modules/|(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+    },
+    "enhancedResolveOptions": {
+      "extensions": [
+        ".ts",
+        ".tsx",
+        ".mts",
+        ".js",
+        ".jsx",
+        ".mjs",
+        ".cjs",
+        ".json"
+      ]
+    },
+    "reporterOptions": {
+      "dot": {
+        "collapsePattern": "^packages/[^/]+/src"
+      }
+    }
+  }
+}

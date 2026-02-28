@@ -9,4 +9,4 @@ export {
   PostgresAdmin,
   UsersAdminDetail,
   UsersAdminPage
-} from '../../../../admin/src/pages/admin';
+} from '@tearleads/admin';

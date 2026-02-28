@@ -1,1 +1,1 @@
-export { KeychainWindow } from '../../../../keychain/src/clientEntry';
+export { KeychainWindow } from '@tearleads/keychain';

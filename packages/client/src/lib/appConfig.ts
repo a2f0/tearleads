@@ -1,6 +1,6 @@
 // Import config from virtual module provided by vite-plugin-app-config
 import generatedConfig from 'virtual:app-config';
-import type { AppFeature } from '../../../app-builder/src/types.js';
+import type { AppFeature } from '@tearleads/app-builder/types';
 
 /**
  * App configuration injected at build time via virtual module.
