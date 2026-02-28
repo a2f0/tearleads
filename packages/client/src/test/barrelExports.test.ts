@@ -18,10 +18,6 @@ vi.mock('@/components/contacts/column-mapper/ColumnMapper', () => ({
   ColumnMapper: () => null
 }));
 
-vi.mock('@/components/duration-chart/DurationChart', () => ({
-  DurationChart: () => null
-}));
-
 vi.mock('@/components/notification-center', () => ({
   AnalyticsTab: () => null,
   NotificationCenter: () => null,
@@ -84,7 +80,6 @@ vi.mock('@/pages/opfs/Opfs', () => ({
 }));
 
 import * as columnMapper from '@/components/contacts/column-mapper/index';
-import * as durationChart from '@/components/duration-chart/index';
 import * as notificationCenter from '@/components/notification-center';
 import * as pdf from '@/components/pdf/index';
 import * as backLink from '@/components/ui/back-link/index';
@@ -111,10 +106,6 @@ import * as video from '@/video/index';
 describe('barrel exports', () => {
   it('exports components and utilities from index files', () => {
     expect(columnMapper.ColumnMapper).toBeDefined();
-
-    expect(durationChart.CustomDot).toBeDefined();
-    expect(durationChart.DurationChart).toBeDefined();
-    expect(durationChart.formatDuration).toBeDefined();
 
     expect(notificationCenter.AnalyticsTab).toBeDefined();
     expect(notificationCenter.NotificationCenter).toBeDefined();

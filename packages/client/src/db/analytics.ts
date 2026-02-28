@@ -428,7 +428,4 @@ export async function getDistinctEventTypes(_db: Database): Promise<string[]> {
 }
 
 // Re-export types from analytics-events for convenience
-export {
-  type AnalyticsEventSlug,
-  getEventDisplayName
-} from './analyticsEvents';
+export { type AnalyticsEventSlug } from './analyticsEvents';

@@ -166,17 +166,6 @@ const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
   api_get_ai_usage_summary: 'API Get AI Usage Summary'
 };
 
-/**
- * Get the display name for an event slug.
- * Falls back to the raw slug if not found in the mapping.
- */
-export function getEventDisplayName(slug: string): string {
-  if (Object.hasOwn(EVENT_DISPLAY_NAMES, slug)) {
-    return EVENT_DISPLAY_NAMES[slug as AnalyticsEventSlug];
-  }
-  return slug;
-}
-
 // -----------------------------------------------------------------------------
 // Per-event detail types
 // -----------------------------------------------------------------------------
