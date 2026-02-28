@@ -29,6 +29,7 @@ export * from './aiConversations.js';
 export * from './auth.js';
 // Chat validation helpers
 export * from './chat.js';
+export * from './dialogFocusTrap.js';
 // Media drag-and-drop helpers
 export * from './mediaDragData.js';
 export * from './mlsTypes.js';
