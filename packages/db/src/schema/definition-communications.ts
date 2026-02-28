@@ -15,7 +15,7 @@ export {
   vfsSharePoliciesTable,
   vfsSharePolicyPrincipalsTable,
   vfsSharePolicySelectorsTable
-} from './definition-communications-vfs-policy.js';
+} from './definitionCommunicationsVfsPolicy.js';
 // Re-export from split modules
 export {
   aiConversationsTable,
@@ -24,7 +24,7 @@ export {
 
 import { communicationsEmailTables } from './definition-communications-email.js';
 import { communicationsVfsTables } from './definition-communications-vfs.js';
-import { communicationsVfsPolicyTables } from './definition-communications-vfs-policy.js';
+import { communicationsVfsPolicyTables } from './definitionCommunicationsVfsPolicy.js';
 // Import for combining into communicationsTables
 import { communicationsAiTables } from './definitionCommunicationsAi.js';
 

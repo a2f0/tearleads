@@ -8,7 +8,7 @@ const outputDir = path.resolve(import.meta.dirname, '../src/generated/sqlite');
 const rootOutputPath = path.join(outputDir, 'schema.ts');
 const foundationOutputPath = path.join(outputDir, 'schema-foundation.ts');
 const contentOutputPath = path.join(outputDir, 'schema-content.ts');
-const policyOutputPath = path.join(outputDir, 'schema-policy.ts');
+const policyOutputPath = path.join(outputDir, 'schemaPolicy.ts');
 const runtimeOutputPath = path.join(outputDir, 'schema-runtime.ts');
 
 const foundationNames = [
@@ -190,12 +190,12 @@ function splitGeneratedSqliteSchema(input: string): {
     renderSqliteCoreImport(runtimeCoreImports),
     buildModuleImports(runtimeBody, './schema-foundation.js', foundationNames),
     buildModuleImports(runtimeBody, './schema-content.js', contentNames),
-    buildModuleImports(runtimeBody, './schema-policy.js', policyNames)
+    buildModuleImports(runtimeBody, './schemaPolicy.js', policyNames)
   ]
     .filter((value): value is string => value !== null)
     .join('');
 
-  const root = `import type { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy';\nimport {\n${foundationNames.map((name) => `  ${name},`).join('\n')}\n} from './schema-foundation.js';\nimport {\n${contentNames.map((name) => `  ${name},`).join('\n')}\n} from './schema-content.js';\nimport {\n${policyNames.map((name) => `  ${name},`).join('\n')}\n} from './schema-policy.js';\nimport {\n${runtimeNames.map((name) => `  ${name},`).join('\n')}\n} from './schema-runtime.js';\n\nexport * from './schema-foundation.js';\nexport * from './schema-content.js';\nexport * from './schema-policy.js';\nexport * from './schema-runtime.js';\n\n/**\n * Schema object containing all table definitions.\n */\nexport const schema = {\n${[...foundationNames, ...contentNames, ...policyNames, ...runtimeNames]
+  const root = `import type { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy';\nimport {\n${foundationNames.map((name) => `  ${name},`).join('\n')}\n} from './schema-foundation.js';\nimport {\n${contentNames.map((name) => `  ${name},`).join('\n')}\n} from './schema-content.js';\nimport {\n${policyNames.map((name) => `  ${name},`).join('\n')}\n} from './schemaPolicy.js';\nimport {\n${runtimeNames.map((name) => `  ${name},`).join('\n')}\n} from './schema-runtime.js';\n\nexport * from './schema-foundation.js';\nexport * from './schema-content.js';\nexport * from './schemaPolicy.js';\nexport * from './schema-runtime.js';\n\n/**\n * Schema object containing all table definitions.\n */\nexport const schema = {\n${[...foundationNames, ...contentNames, ...policyNames, ...runtimeNames]
     .map((name) => `  ${name},`)
     .join('\n')}\n};\n\n/**\n * Database type for SQLite with full schema.\n */\nexport type Database = SqliteRemoteDatabase<typeof schema>;\n`;
 

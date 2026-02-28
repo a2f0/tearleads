@@ -8,7 +8,7 @@ const outputDir = path.resolve(import.meta.dirname, '../src/generated/postgresql
 const rootOutputPath = path.join(outputDir, 'schema.ts');
 const foundationOutputPath = path.join(outputDir, 'schema-foundation.ts');
 const contentOutputPath = path.join(outputDir, 'schema-content.ts');
-const policyOutputPath = path.join(outputDir, 'schema-policy.ts');
+const policyOutputPath = path.join(outputDir, 'schemaPolicy.ts');
 const runtimeOutputPath = path.join(outputDir, 'schema-runtime.ts');
 
 const foundationNames = [
@@ -164,13 +164,13 @@ function splitGeneratedPostgresSchema(input: string): {
     renderPgCoreImport(runtimeCoreImports),
     buildModuleImports(runtimeBody, './schema-foundation.js', foundationNames),
     buildModuleImports(runtimeBody, './schema-content.js', contentNames),
-    buildModuleImports(runtimeBody, './schema-policy.js', policyNames)
+    buildModuleImports(runtimeBody, './schemaPolicy.js', policyNames)
   ]
     .filter((value): value is string => value !== null)
     .join('');
 
   const root =
-    "export * from './schema-foundation.js';\nexport * from './schema-content.js';\nexport * from './schema-policy.js';\nexport * from './schema-runtime.js';\n";
+    "export * from './schema-foundation.js';\nexport * from './schema-content.js';\nexport * from './schemaPolicy.js';\nexport * from './schema-runtime.js';\n";
 
   return {
     root,

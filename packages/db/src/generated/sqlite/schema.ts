@@ -41,16 +41,6 @@ import {
   vehicles
 } from './schema-foundation.js';
 import {
-  vfsAclEntries,
-  vfsAclEntryProvenance,
-  vfsItemState,
-  vfsSharePolicies,
-  vfsSharePolicyPrincipals,
-  vfsSharePolicySelectors,
-  vfsSyncChanges,
-  vfsSyncClientState
-} from './schema-policy.js';
-import {
   aiUsage,
   mlsGroupMembers,
   mlsGroupState,
@@ -60,11 +50,21 @@ import {
   mlsWelcomeMessages,
   vfsCrdtOps
 } from './schema-runtime.js';
+import {
+  vfsAclEntries,
+  vfsAclEntryProvenance,
+  vfsItemState,
+  vfsSharePolicies,
+  vfsSharePolicyPrincipals,
+  vfsSharePolicySelectors,
+  vfsSyncChanges,
+  vfsSyncClientState
+} from './schemaPolicy.js';
 
 export * from './schema-content.js';
 export * from './schema-foundation.js';
-export * from './schema-policy.js';
 export * from './schema-runtime.js';
+export * from './schemaPolicy.js';
 
 /**
  * Schema object containing all table definitions.
