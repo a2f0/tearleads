@@ -36,8 +36,7 @@ vi.mock('@/db/orgPreference', () => ({
 }));
 
 vi.mock('@/lib/orgStorage', () => ({
-  setActiveOrganizationId: (...args: unknown[]) =>
-    mockSetStoredOrgId(...args),
+  setActiveOrganizationId: (...args: unknown[]) => mockSetStoredOrgId(...args),
   clearActiveOrganizationId: () => mockClearStoredOrgId()
 }));
 
