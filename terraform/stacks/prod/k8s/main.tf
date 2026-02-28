@@ -11,6 +11,25 @@ resource "aws_vpc" "k8s" {
   }
 }
 
+locals {
+  allowed_ssh_ipv4 = [
+    for cidr in var.allowed_ssh_ips : cidr
+    if length(regexall(":", cidr)) == 0
+  ]
+  allowed_ssh_ipv6 = [
+    for cidr in var.allowed_ssh_ips : cidr
+    if length(regexall(":", cidr)) > 0
+  ]
+  allowed_k8s_api_ipv4 = [
+    for cidr in var.allowed_k8s_api_ips : cidr
+    if length(regexall(":", cidr)) == 0
+  ]
+  allowed_k8s_api_ipv6 = [
+    for cidr in var.allowed_k8s_api_ips : cidr
+    if length(regexall(":", cidr)) > 0
+  ]
+}
+
 resource "aws_internet_gateway" "k8s" {
   vpc_id = aws_vpc.k8s.id
 
@@ -93,7 +112,15 @@ resource "aws_security_group" "k8s_server" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = var.allowed_ssh_ips
+    cidr_blocks = local.allowed_ssh_ipv4
+  }
+
+  ingress {
+    description      = "SSH (IPv6)"
+    from_port        = 22
+    to_port          = 22
+    protocol         = "tcp"
+    ipv6_cidr_blocks = local.allowed_ssh_ipv6
   }
 
   ingress {
@@ -101,7 +128,15 @@ resource "aws_security_group" "k8s_server" {
     from_port   = 6443
     to_port     = 6443
     protocol    = "tcp"
-    cidr_blocks = var.allowed_k8s_api_ips
+    cidr_blocks = local.allowed_k8s_api_ipv4
+  }
+
+  ingress {
+    description      = "Kubernetes API (IPv6)"
+    from_port        = 6443
+    to_port          = 6443
+    protocol         = "tcp"
+    ipv6_cidr_blocks = local.allowed_k8s_api_ipv6
   }
 
   ingress {
@@ -113,10 +148,11 @@ resource "aws_security_group" "k8s_server" {
   }
 
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
   }
 
   tags = {
