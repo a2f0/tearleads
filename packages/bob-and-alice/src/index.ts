@@ -15,6 +15,22 @@ export {
   assertServerHasAclEntry,
   assertServerHasLink
 } from './harness/assertions.js';
+export type {
+  BrowserRuntimeActor,
+  LocalSharedWithMeRow,
+  RuntimeApiActor
+} from './harness/browserRuntimeHarness.js';
+export {
+  createBrowserRuntimeActor,
+  queryLocalSharedWithMe,
+  refreshLocalStateFromApi,
+  teardownBrowserRuntimeActors
+} from './harness/browserRuntimeHarness.js';
+export {
+  assertPgHasActiveUserShare,
+  assertPgHasVfsRegistryItem,
+  assertPgUserOrganizationMembership
+} from './harness/postgresAssertions.js';
 export type { ScenarioHarnessConfig } from './harness/scenarioHarness.js';
 export { ScenarioHarness } from './harness/scenarioHarness.js';
 export { ServerHarness } from './harness/serverHarness.js';

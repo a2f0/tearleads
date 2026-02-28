@@ -1,6 +1,5 @@
 import { WindowControlBar } from '@tearleads/window-manager';
 import { useCallback, useState } from 'react';
-import { SHARED_BY_ME_FOLDER_ID, SHARED_WITH_ME_FOLDER_ID } from '../constants';
 import { useVfsExplorerContext, type WindowDimensions } from '../context';
 import { NewFolderDialog } from './NewFolderDialog';
 import { VfsExplorer, type VfsOpenItem } from './VfsExplorer';
@@ -58,19 +57,15 @@ export function VfsWindow({
   }, []);
 
   const handleRefresh = useCallback(async () => {
-    const shouldSyncRemoteState =
-      selectedFolderId === SHARED_BY_ME_FOLDER_ID ||
-      selectedFolderId === SHARED_WITH_ME_FOLDER_ID;
-
-    if (shouldSyncRemoteState && syncRemoteState) {
+    if (syncRemoteState) {
       try {
         await syncRemoteState();
       } catch (err) {
-        console.error('Failed to sync shared VFS listings:', err);
+        console.error('Failed to sync remote VFS state:', err);
       }
     }
     setInternalRefreshToken((t) => t + 1);
-  }, [selectedFolderId, syncRemoteState]);
+  }, [syncRemoteState]);
 
   return (
     <FloatingWindow
