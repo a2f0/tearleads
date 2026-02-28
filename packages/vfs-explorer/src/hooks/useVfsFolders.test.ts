@@ -170,7 +170,9 @@ describe('useVfsFolders', () => {
       expect(result.current.hasFetched).toBe(true);
     });
 
-    const rootNode = result.current.folders.find((node) => node.id === VFS_ROOT_ID);
+    const rootNode = result.current.folders.find(
+      (node) => node.id === VFS_ROOT_ID
+    );
     expect(rootNode?.children).toHaveLength(1);
     expect(rootNode?.children?.[0]?.id).toBe('email-inbox');
     expect(rootNode?.children?.[0]?.objectType).toBe('emailFolder');
@@ -217,7 +219,9 @@ describe('useVfsFolders', () => {
       expect(result.current.hasFetched).toBe(true);
     });
 
-    const rootNode = result.current.folders.find((node) => node.id === VFS_ROOT_ID);
+    const rootNode = result.current.folders.find(
+      (node) => node.id === VFS_ROOT_ID
+    );
     expect(rootNode?.children).toHaveLength(1);
     expect(rootNode?.children?.[0]?.id).toBe('email-inbox');
     const hasUnlinkedDrafts = rootNode?.children?.some(
@@ -228,8 +232,18 @@ describe('useVfsFolders', () => {
 
   it('builds folder hierarchy from links', async () => {
     const mockFolderRows = [
-      { id: 'parent', objectType: 'folder', name: 'Parent', createdAt: Date.now() },
-      { id: 'child', objectType: 'folder', name: 'Child', createdAt: Date.now() }
+      {
+        id: 'parent',
+        objectType: 'folder',
+        name: 'Parent',
+        createdAt: Date.now()
+      },
+      {
+        id: 'child',
+        objectType: 'folder',
+        name: 'Child',
+        createdAt: Date.now()
+      }
     ];
 
     const mockLinkRows = [{ childId: 'child', parentId: 'parent' }];

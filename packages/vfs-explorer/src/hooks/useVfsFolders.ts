@@ -23,12 +23,14 @@ export interface UseVfsFoldersResult {
 
 const TREE_CONTAINER_TYPES = ['folder', 'playlist', 'emailFolder'] as const;
 
-const UNNAMED_CONTAINER_LABELS: Record<(typeof TREE_CONTAINER_TYPES)[number], string> =
-  {
-    folder: 'Unnamed Folder',
-    playlist: 'Unnamed Playlist',
-    emailFolder: 'Unnamed Folder'
-  };
+const UNNAMED_CONTAINER_LABELS: Record<
+  (typeof TREE_CONTAINER_TYPES)[number],
+  string
+> = {
+  folder: 'Unnamed Folder',
+  playlist: 'Unnamed Playlist',
+  emailFolder: 'Unnamed Folder'
+};
 
 export function useVfsFolders(): UseVfsFoldersResult {
   const { databaseState, getDatabase } = useVfsExplorerContext();
@@ -107,7 +109,8 @@ export function useVfsFolders(): UseVfsFoldersResult {
       // Build flat list of folder nodes
       const nodeMap = new Map<string, VfsFolderNode>();
       for (const folder of folderRows) {
-        const objectType = folder.objectType as (typeof TREE_CONTAINER_TYPES)[number];
+        const objectType =
+          folder.objectType as (typeof TREE_CONTAINER_TYPES)[number];
         nodeMap.set(folder.id, {
           id: folder.id,
           objectType,

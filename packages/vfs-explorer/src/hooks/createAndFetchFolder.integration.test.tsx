@@ -377,7 +377,9 @@ describe('VFS Folder Integration: Create and Fetch', () => {
         );
         expect(vfsRoot?.children).toHaveLength(2);
 
-        const inboxNode = vfsRoot?.children?.find((node) => node.id === inboxId);
+        const inboxNode = vfsRoot?.children?.find(
+          (node) => node.id === inboxId
+        );
         expect(inboxNode?.objectType).toBe('emailFolder');
         expect(inboxNode?.children).toHaveLength(1);
         expect(inboxNode?.children?.[0]?.id).toBe(projectSubfolderId);
