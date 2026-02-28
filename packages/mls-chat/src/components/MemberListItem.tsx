@@ -5,7 +5,7 @@ import { useMlsChatUI, useMlsChatUser } from '../context/index.js';
 interface MemberListItemProps {
   member: MlsGroupMember;
   canManageMembers: boolean;
-  onRemoveMember?: (userId: string) => void;
+  onRemoveMember: ((userId: string) => void) | undefined;
 }
 
 export const MemberListItem: FC<MemberListItemProps> = ({
