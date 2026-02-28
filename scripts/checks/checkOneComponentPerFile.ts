@@ -106,9 +106,8 @@ function collectCandidateFiles(mode: Mode): string[] {
   }
 
   const baseBranch = resolveBaseBranch();
-  // Phase 1: enforce only newly added files in push range.
   return processOutput(
-    runGit(['diff', '--name-only', '--diff-filter=A', `${baseBranch}..HEAD`])
+    runGit(['diff', '--name-only', '--diff-filter=AM', `${baseBranch}..HEAD`])
   );
 }
 
