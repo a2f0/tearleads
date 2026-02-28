@@ -51,6 +51,66 @@ const sseTooltipKeys = {
   disconnected: 'sseDisconnected'
 } as const;
 
+type StartMenuContextMenuState = {
+  x: number;
+  y: number;
+  showLockAction: boolean;
+};
+
+function buildStartMenuContextMenuState(
+  x: number,
+  y: number,
+  showLockAction: boolean
+): StartMenuContextMenuState {
+  return { x, y, showLockAction };
+}
+
+function shouldIgnoreStartBarContextMenu(event: React.MouseEvent<HTMLElement>) {
+  return event.target !== event.currentTarget;
+}
+
+function shouldIgnoreFooterContextMenu(target: EventTarget | null) {
+  return (
+    target instanceof HTMLElement &&
+    target.closest('[data-testid="start-bar"]') !== null
+  );
+}
+
+function closeSidebarOnPointerDown(
+  event: PointerEvent,
+  sidebarRef: React.RefObject<HTMLElement | null>,
+  startButtonRef: React.RefObject<HTMLButtonElement | null>,
+  close: () => void
+) {
+  const target = event.target;
+  if (!(target instanceof Node)) return;
+  if (sidebarRef.current?.contains(target)) return;
+  if (startButtonRef.current?.contains(target)) return;
+  close();
+}
+
+async function lockInstanceIfNeeded(
+  isUnlocked: boolean,
+  lock: (preserveState?: boolean) => Promise<void>
+) {
+  if (!isUnlocked) {
+    return;
+  }
+  await lock(true);
+}
+
+function openSearchDestination(
+  isDesktop: boolean,
+  openWindow: ReturnType<typeof useWindowManagerActions>['openWindow'],
+  navigate: ReturnType<typeof useNavigate>
+) {
+  if (isDesktop) {
+    openWindow('search');
+    return;
+  }
+  navigate('/search');
+}
+
 function App() {
   const { t } = useTranslation('tooltips');
   const sse = useSSEContext();
@@ -62,11 +122,8 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
-  const [startMenuContextMenu, setStartMenuContextMenu] = useState<{
-    x: number;
-    y: number;
-    showLockAction: boolean;
-  } | null>(null);
+  const [startMenuContextMenu, setStartMenuContextMenu] =
+    useState<StartMenuContextMenuState | null>(null);
   const [sseContextMenu, setSseContextMenu] = useState<{
     x: number;
     y: number;
@@ -111,11 +168,9 @@ function App() {
     if (!isSidebarOpen) return;
 
     const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (sidebarRef.current?.contains(target)) return;
-      if (startButtonRef.current?.contains(target)) return;
-      setIsSidebarOpen(false);
+      closeSidebarOnPointerDown(event, sidebarRef, startButtonRef, () =>
+        setIsSidebarOpen(false)
+      );
     };
 
     document.addEventListener('pointerdown', handlePointerDown);
@@ -127,26 +182,22 @@ function App() {
   const handleStartMenuContextMenu = useCallback(
     (event: React.MouseEvent<HTMLElement>) => {
       event.preventDefault();
-      setStartMenuContextMenu({
-        x: event.clientX,
-        y: event.clientY,
-        showLockAction: true
-      });
+      setStartMenuContextMenu(
+        buildStartMenuContextMenuState(event.clientX, event.clientY, true)
+      );
     },
     []
   );
 
   const handleStartBarContextMenu = useCallback(
     (event: React.MouseEvent<HTMLElement>) => {
-      if (event.target !== event.currentTarget) {
+      if (shouldIgnoreStartBarContextMenu(event)) {
         return;
       }
       event.preventDefault();
-      setStartMenuContextMenu({
-        x: event.clientX,
-        y: event.clientY,
-        showLockAction: true
-      });
+      setStartMenuContextMenu(
+        buildStartMenuContextMenuState(event.clientX, event.clientY, true)
+      );
     },
     []
   );
@@ -154,30 +205,22 @@ function App() {
   const handleTaskbarContextMenu = useCallback(
     (event: React.MouseEvent<HTMLElement>) => {
       event.preventDefault();
-      setStartMenuContextMenu({
-        x: event.clientX,
-        y: event.clientY,
-        showLockAction: false
-      });
+      setStartMenuContextMenu(
+        buildStartMenuContextMenuState(event.clientX, event.clientY, false)
+      );
     },
     []
   );
 
   const handleFooterContextMenu = useCallback(
     (event: React.MouseEvent<HTMLElement>) => {
-      const target = event.target;
-      if (
-        target instanceof HTMLElement &&
-        target.closest('[data-testid="start-bar"]')
-      ) {
+      if (shouldIgnoreFooterContextMenu(event.target)) {
         return;
       }
       event.preventDefault();
-      setStartMenuContextMenu({
-        x: event.clientX,
-        y: event.clientY,
-        showLockAction: false
-      });
+      setStartMenuContextMenu(
+        buildStartMenuContextMenuState(event.clientX, event.clientY, false)
+      );
     },
     []
   );
@@ -189,20 +232,14 @@ function App() {
   const handleLockInstance = useCallback(async () => {
     try {
       activateScreensaver();
-      if (isUnlocked) {
-        await lock(true);
-      }
+      await lockInstanceIfNeeded(isUnlocked, lock);
     } finally {
       setStartMenuContextMenu(null);
     }
   }, [activateScreensaver, isUnlocked, lock]);
 
   const handleOpenSearch = useCallback(() => {
-    if (isDesktop) {
-      openWindow('search');
-    } else {
-      navigate('/search');
-    }
+    openSearchDestination(isDesktop, openWindow, navigate);
     setStartMenuContextMenu(null);
   }, [isDesktop, navigate, openWindow]);
 

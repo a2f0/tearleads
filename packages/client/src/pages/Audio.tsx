@@ -4,27 +4,13 @@ import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
 } from '@tearleads/window-manager';
-import {
-  ChevronRight,
-  Info,
-  Loader2,
-  Music,
-  Pause,
-  Play,
-  Trash2
-} from 'lucide-react';
+import { Info, Music, Pause, Play, Trash2 } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAudio } from '@/audio';
-import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
-import { Button } from '@/components/ui/button';
-import { Dropzone } from '@/components/ui/dropzone';
-import { ListRow } from '@/components/ui/ListRow';
 import { RefreshButton } from '@/components/ui/RefreshButton';
-import { UploadProgress } from '@/components/ui/UploadProgress';
-import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { ClientAudioProvider } from '@/contexts/ClientAudioProvider';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
@@ -32,9 +18,14 @@ import { useVirtualVisibleRange } from '@/hooks/device';
 import { useAudioErrorHandler } from '@/hooks/media';
 import { useTypedTranslation } from '@/i18n';
 import { linkAudioToPlaylist } from '@/lib/linkAudioToPlaylist';
-import { setMediaDragData } from '@/lib/mediaDragData';
-import { detectPlatform, formatFileSize } from '@/lib/utils';
-import type { AudioPageProps, AudioWithUrl } from './audio-components/types';
+import { detectPlatform } from '@/lib/utils';
+import {
+  renderAudioContent,
+  type AudioContentHandlers,
+  type AudioContentState,
+  type AudioListVirtualState
+} from './audio-components/AudioPageContent';
+import type { AudioPageProps } from './audio-components/types';
 import { ROW_HEIGHT_ESTIMATE } from './audio-components/types';
 import { useAudioActions } from './audio-components/useAudioActions';
 import { useAudioData } from './audio-components/useAudioData';
@@ -92,6 +83,34 @@ export function AudioPage({
     return platform === 'web' || platform === 'electron';
   }, []);
 
+  const contentState: AudioContentState = {
+    isUnlocked,
+    loading,
+    hasFetched,
+    uploading,
+    uploadProgress,
+    tracks,
+    isDesktopPlatform,
+    error
+  };
+
+  const contentHandlers: AudioContentHandlers = {
+    handleFilesSelected,
+    handlePlayPause,
+    handleNavigateToDetail,
+    handleContextMenu
+  };
+
+  const listVirtualState: AudioListVirtualState = {
+    virtualizer,
+    virtualItems,
+    firstVisible,
+    lastVisible,
+    parentRef,
+    currentTrack,
+    isPlaying
+  };
+
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
@@ -123,52 +142,7 @@ export function AudioPage({
         </div>
       )}
 
-      {isUnlocked &&
-        (loading && !hasFetched ? (
-          <div className="flex items-center justify-center gap-2 rounded-lg border p-8 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            Loading audio...
-          </div>
-        ) : uploading ? (
-          <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <div className="text-center">
-              <p className="font-medium">Uploading...</p>
-            </div>
-            <UploadProgress progress={uploadProgress} />
-          </div>
-        ) : tracks.length === 0 && hasFetched ? (
-          <div className="space-y-4">
-            <Dropzone
-              onFilesSelected={handleFilesSelected}
-              accept="audio/*"
-              multiple={false}
-              disabled={uploading}
-            />
-            {isDesktopPlatform && (
-              <p className="text-center text-muted-foreground text-sm">
-                Drop an audio file here to add it to your library
-              </p>
-            )}
-          </div>
-        ) : (
-          <AudioTrackList
-            tracks={tracks}
-            virtualizer={virtualizer}
-            virtualItems={virtualItems}
-            firstVisible={firstVisible}
-            lastVisible={lastVisible}
-            parentRef={parentRef}
-            currentTrack={currentTrack}
-            isPlaying={isPlaying}
-            isDesktopPlatform={isDesktopPlatform}
-            uploading={uploading}
-            handleFilesSelected={handleFilesSelected}
-            handlePlayPause={handlePlayPause}
-            handleNavigateToDetail={handleNavigateToDetail}
-            handleContextMenu={handleContextMenu}
-          />
-        ))}
+      {renderAudioContent(contentState, contentHandlers, listVirtualState)}
 
       {contextMenu && (
         <ContextMenu
@@ -204,156 +178,6 @@ export function AudioPage({
           </ContextMenuItem>
         </ContextMenu>
       )}
-    </div>
-  );
-}
-
-interface AudioTrackListProps {
-  tracks: AudioWithUrl[];
-  virtualizer: ReturnType<typeof useVirtualizer<HTMLDivElement, Element>>;
-  virtualItems: ReturnType<
-    ReturnType<
-      typeof useVirtualizer<HTMLDivElement, Element>
-    >['getVirtualItems']
-  >;
-  firstVisible: number | null;
-  lastVisible: number | null;
-  parentRef: React.RefObject<HTMLDivElement | null>;
-  currentTrack: { id: string } | null;
-  isPlaying: boolean;
-  isDesktopPlatform: boolean;
-  uploading: boolean;
-  handleFilesSelected: (files: File[]) => void;
-  handlePlayPause: (track: AudioWithUrl) => void;
-  handleNavigateToDetail: (trackId: string) => void;
-  handleContextMenu: (e: React.MouseEvent, track: AudioWithUrl) => void;
-}
-
-function AudioTrackList({
-  tracks,
-  virtualizer,
-  virtualItems,
-  firstVisible,
-  lastVisible,
-  parentRef,
-  currentTrack,
-  isPlaying,
-  isDesktopPlatform,
-  uploading,
-  handleFilesSelected,
-  handlePlayPause,
-  handleNavigateToDetail,
-  handleContextMenu
-}: AudioTrackListProps) {
-  return (
-    <div className="flex min-h-0 flex-1 flex-col space-y-2">
-      <AudioPlayer tracks={tracks} />
-      <VirtualListStatus
-        firstVisible={firstVisible}
-        lastVisible={lastVisible}
-        loadedCount={tracks.length}
-        itemLabel="track"
-      />
-      <div className="flex-1 rounded-lg border">
-        <div ref={parentRef} className="h-full overflow-auto">
-          <div
-            className="relative w-full"
-            style={{ height: `${virtualizer.getTotalSize()}px` }}
-          >
-            {virtualItems.map((virtualItem) => {
-              const track = tracks[virtualItem.index];
-              if (!track) return null;
-
-              const isCurrentTrack = currentTrack?.id === track.id;
-              const isTrackPlaying = isCurrentTrack && isPlaying;
-
-              return (
-                <div
-                  key={track.id}
-                  data-index={virtualItem.index}
-                  ref={virtualizer.measureElement}
-                  className="absolute top-0 left-0 w-full px-1 py-0.5"
-                  style={{
-                    transform: `translateY(${virtualItem.start}px)`
-                  }}
-                >
-                  <ListRow
-                    className={`${
-                      isCurrentTrack ? 'border-primary bg-primary/5' : ''
-                    }`}
-                    data-testid={`audio-track-${track.id}`}
-                    onContextMenu={(e) => handleContextMenu(e, track)}
-                  >
-                    <button
-                      type="button"
-                      onClick={
-                        isDesktopPlatform
-                          ? undefined
-                          : () => handlePlayPause(track)
-                      }
-                      onDoubleClick={
-                        isDesktopPlatform
-                          ? () => handlePlayPause(track)
-                          : undefined
-                      }
-                      className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden text-left"
-                      data-testid={`audio-play-${track.id}`}
-                      draggable
-                      onDragStart={(event) =>
-                        setMediaDragData(event, 'audio', [track.id])
-                      }
-                    >
-                      <div className="relative shrink-0">
-                        {track.thumbnailUrl ? (
-                          <img
-                            src={track.thumbnailUrl}
-                            alt=""
-                            className="h-8 w-8 rounded object-cover"
-                          />
-                        ) : (
-                          <Music className="h-5 w-5 text-muted-foreground" />
-                        )}
-                        {isTrackPlaying && (
-                          <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                            <Pause className="h-2.5 w-2.5" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-sm">
-                          {track.name}
-                        </p>
-                        <p className="text-muted-foreground text-xs">
-                          {formatFileSize(track.size)}
-                        </p>
-                      </div>
-                    </button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0"
-                      onClick={() => handleNavigateToDetail(track.id)}
-                      aria-label="View details"
-                    >
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </ListRow>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-      <Dropzone
-        onFilesSelected={handleFilesSelected}
-        accept="audio/*"
-        multiple={false}
-        disabled={uploading}
-        label="audio files"
-        source="media"
-        compact
-        variant="row"
-      />
     </div>
   );
 }
