@@ -10,7 +10,10 @@ import { contactEmails, contactPhones, contacts } from '@/db/schema';
 import { useContactsExport } from '@/hooks/contacts';
 import { queueItemUpsertAndFlush } from '@/lib/vfsItemSyncWriter';
 import type {
+  ContactEmail,
   ContactFormData,
+  ContactInfo,
+  ContactPhone,
   EmailFormData,
   PhoneFormData,
   UseContactDetailResult
