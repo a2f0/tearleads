@@ -22,7 +22,7 @@
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "peerDependencies": {
-    "@assistant-ui/react": "0.12.11",
+    "@assistant-ui/react": "0.12.14",
     "@tearleads/window-manager": "workspace:*",
     "react": "19.2.4",
     "react-dom": "19.2.4"
@@ -31,11 +31,11 @@
     "lucide-react": "0.575.0"
   },
   "devDependencies": {
-    "@assistant-ui/react": "0.12.11",
+    "@assistant-ui/react": "0.12.14",
     "@tearleads/window-manager": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
-    "@types/node": "25.3.0",
+    "@types/node": "25.3.2",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.4",

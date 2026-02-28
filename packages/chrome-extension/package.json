@@ -12,8 +12,8 @@
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "devDependencies": {
-    "@types/chrome": "0.1.36",
-    "@types/node": "25.3.0",
+    "@types/chrome": "0.1.37",
+    "@types/node": "25.3.2",
     "@vitest/coverage-v8": "4.0.18",
     "cross-env": "10.1.0",
     "jsdom": "28.1.0",

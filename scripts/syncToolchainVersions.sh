@@ -285,7 +285,7 @@ sync_ansible() {
       continue
     fi
 
-    CURRENT_ANSIBLE_NODE=$(sed -n 's/^ *nodejs_major_version: *\([0-9]\+\).*/\1/p' "$YML_FILE")
+    CURRENT_ANSIBLE_NODE=$(sed -n 's/^ *nodejs_major_version: *\([0-9][0-9]*\).*/\1/p' "$YML_FILE")
     if [ -z "$CURRENT_ANSIBLE_NODE" ]; then
       log "Toolchain sync (ansible): skipped $YML_FILE (nodejs_major_version not found)."
       continue
@@ -298,7 +298,7 @@ sync_ansible() {
 
     if [ "$APPLY" -eq 1 ]; then
       TMP_FILE=$(mktemp "${TMPDIR:-/tmp}/tearleads-ansible-yml.XXXXXX")
-      sed "s/^\( *nodejs_major_version: \)[0-9]\+/\1$NODE_MAJOR_FOR_ANSIBLE/" "$YML_FILE" > "$TMP_FILE"
+      sed "s/^\( *nodejs_major_version: \)[0-9][0-9]*/\1$NODE_MAJOR_FOR_ANSIBLE/" "$YML_FILE" > "$TMP_FILE"
       mv "$TMP_FILE" "$YML_FILE"
       ANSIBLE_FILES_UPDATED=1
       log "Toolchain sync (ansible): updated $(basename "$YML_FILE") nodejs_major_version=$NODE_MAJOR_FOR_ANSIBLE."

@@ -48,7 +48,7 @@
   "dependencies": {
     "@tearleads/shared": "workspace:*",
     "drizzle-orm": "0.45.1",
-    "pg": "8.18.0"
+    "pg": "8.19.0"
   },
   "devDependencies": {
     "@types/pg": "8.16.0",
