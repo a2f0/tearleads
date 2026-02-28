@@ -6,7 +6,7 @@ import {
 
 interface QueryCall {
   text: string;
-  values?: unknown[];
+  values?: unknown[] | undefined;
 }
 
 function normalizeSql(text: string): string {
@@ -15,7 +15,11 @@ function normalizeSql(text: string): string {
 
 describe('resolveImpactedSharePolicyIds', () => {
   it('returns normalized id for policy trigger without querying', async () => {
-    const query = vi.fn(async <T>() => ({ rows: [] as T[] }));
+    const calls: QueryCall[] = [];
+    const query = async <T>(text: string, values?: unknown[]) => {
+      calls.push({ text: normalizeSql(text), values });
+      return { rows: [] as T[] };
+    };
 
     const impactedPolicyIds = await resolveImpactedSharePolicyIds(
       { query },
@@ -27,13 +31,13 @@ describe('resolveImpactedSharePolicyIds', () => {
     );
 
     expect(impactedPolicyIds).toEqual(['policy-a']);
-    expect(query).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(0);
   });
 
   it('resolves impacted active policies for metadata changes', async () => {
     const calls: QueryCall[] = [];
     const now = new Date('2026-02-28T18:00:00.000Z');
-    const query = vi.fn(async <T>(text: string, values?: unknown[]) => {
+    const query = async <T>(text: string, values?: unknown[]) => {
       calls.push({ text: normalizeSql(text), values });
       return {
         rows: [
@@ -42,7 +46,7 @@ describe('resolveImpactedSharePolicyIds', () => {
           { policy_id: 'policy-b' }
         ] as T[]
       };
-    });
+    };
 
     const impactedPolicyIds = await resolveImpactedSharePolicyIds(
       { query },
@@ -54,7 +58,7 @@ describe('resolveImpactedSharePolicyIds', () => {
     );
 
     expect(impactedPolicyIds).toEqual(['policy-a', 'policy-b']);
-    expect(query).toHaveBeenCalledTimes(1);
+    expect(calls).toHaveLength(1);
     expect(calls[0]?.text).toContain('WITH RECURSIVE policy_scope');
     expect(calls[0]?.values).toEqual([['item-1'], now]);
   });
@@ -62,10 +66,10 @@ describe('resolveImpactedSharePolicyIds', () => {
   it('uses parent and child ids when recomputing link changes', async () => {
     const calls: QueryCall[] = [];
     const now = new Date('2026-02-28T18:00:00.000Z');
-    const query = vi.fn(async <T>(text: string, values?: unknown[]) => {
+    const query = async <T>(text: string, values?: unknown[]) => {
       calls.push({ text: normalizeSql(text), values });
       return { rows: [] as T[] };
-    });
+    };
 
     const impactedPolicyIds = await resolveImpactedSharePolicyIds(
       { query },
@@ -78,14 +82,14 @@ describe('resolveImpactedSharePolicyIds', () => {
     );
 
     expect(impactedPolicyIds).toEqual([]);
-    expect(query).toHaveBeenCalledTimes(1);
+    expect(calls).toHaveLength(1);
     expect(calls[0]?.values).toEqual([['contact-1', 'wallet-1'], now]);
   });
 });
 
 describe('runIncrementalSharePolicyRecompute', () => {
   it('skips compile when no impacted policies are found', async () => {
-    const query = vi.fn(async <T>() => ({ rows: [] as T[] }));
+    const query = async <T>() => ({ rows: [] as T[] });
     const compile = vi.fn();
 
     const result = await runIncrementalSharePolicyRecompute(
@@ -108,7 +112,7 @@ describe('runIncrementalSharePolicyRecompute', () => {
   });
 
   it('runs scoped compile with normalized impacted policy ids', async () => {
-    const query = vi.fn(async <T>() => {
+    const query = async <T>() => {
       return {
         rows: [
           { policy_id: 'policy-z' },
@@ -116,7 +120,7 @@ describe('runIncrementalSharePolicyRecompute', () => {
           { policy_id: 'policy-z' }
         ] as T[]
       };
-    });
+    };
     const compile = vi.fn(async () => ({
       compilerRunId: 'compile-run',
       policyCount: 2,

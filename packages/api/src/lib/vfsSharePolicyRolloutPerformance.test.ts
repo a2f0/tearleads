@@ -1,5 +1,5 @@
 import { performance } from 'node:perf_hooks';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { compileSharePolicyCore } from './vfsSharePolicyCompilerCore.js';
 import { buildSharePolicyPreviewTree } from './vfsSharePolicyPreviewTree.js';
 
@@ -104,7 +104,7 @@ describe('share policy rollout performance budgets', () => {
         { acl_entry_id: row.id, policy_id: 'policy-b' }
       ]);
 
-    const query = vi.fn(async <T>(text: string, values?: unknown[]) => {
+    const query = async <T>(text: string, values?: unknown[]) => {
       if (text.includes('SELECT item_id, object_type, depth, node_path')) {
         return {
           rows: pagedRows as T[]
@@ -116,8 +116,11 @@ describe('share policy rollout performance budgets', () => {
         };
       }
       if (text.includes('FROM vfs_acl_entries')) {
-        expect(values?.[0]).toBeInstanceOf(Array);
-        expect((values?.[0] as string[]).length).toBe(nodeCount);
+        const itemIds = values?.[0];
+        if (!Array.isArray(itemIds)) {
+          throw new Error('Expected preview ACL lookup item id array');
+        }
+        expect(itemIds).toHaveLength(nodeCount);
         return {
           rows: aclRows as T[]
         };
@@ -128,7 +131,7 @@ describe('share policy rollout performance budgets', () => {
         };
       }
       throw new Error(`Unexpected query in preview perf test: ${text}`);
-    });
+    };
 
     await buildSharePolicyPreviewTree(
       { query },

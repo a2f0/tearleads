@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { VfsSharePolicyPreviewResponse } from '@tearleads/shared';
 import { vi } from 'vitest';
 import {
   type DatabaseState,
@@ -110,19 +111,21 @@ const createMockVfsShareApi = () => ({
   })),
   deleteOrgShare: vi.fn(async () => ({ deleted: true })),
   searchTargets: vi.fn(async () => ({ results: [] })),
-  getSharePolicyPreview: vi.fn(async () => ({
-    nodes: [],
-    summary: {
-      totalMatchingNodes: 0,
-      returnedNodes: 0,
-      directCount: 0,
-      derivedCount: 0,
-      deniedCount: 0,
-      includedCount: 0,
-      excludedCount: 0
-    },
-    nextCursor: null
-  }))
+  getSharePolicyPreview: vi.fn(
+    async (): Promise<VfsSharePolicyPreviewResponse> => ({
+      nodes: [],
+      summary: {
+        totalMatchingNodes: 0,
+        returnedNodes: 0,
+        directCount: 0,
+        derivedCount: 0,
+        deniedCount: 0,
+        includedCount: 0,
+        excludedCount: 0
+      },
+      nextCursor: null
+    })
+  )
 });
 
 export const createMockUI = () => ({

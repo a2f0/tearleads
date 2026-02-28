@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { buildSharePolicyPreviewTree } from './vfsSharePolicyPreviewTree.js';
 
 describe('buildSharePolicyPreviewTree', () => {
   it('returns classified preview nodes with summary and cursor', async () => {
-    const query = vi.fn(async <T>(text: string, values?: unknown[]) => {
+    const query = async <T>(text: string, values?: unknown[]) => {
       if (text.includes('SELECT item_id, object_type, depth, node_path')) {
         expect(values?.[0]).toBe('root-1');
         return {
@@ -67,7 +67,7 @@ describe('buildSharePolicyPreviewTree', () => {
         };
       }
       throw new Error(`Unexpected query in preview test: ${text}`);
-    });
+    };
 
     const result = await buildSharePolicyPreviewTree(
       { query },
@@ -116,7 +116,7 @@ describe('buildSharePolicyPreviewTree', () => {
   });
 
   it('returns excluded node counts when no acl entries match the principal', async () => {
-    const query = vi.fn(async <T>(text: string) => {
+    const query = async <T>(text: string) => {
       if (text.includes('SELECT item_id, object_type, depth, node_path')) {
         return {
           rows: [
@@ -138,7 +138,7 @@ describe('buildSharePolicyPreviewTree', () => {
         return { rows: [] as T[] };
       }
       throw new Error(`Unexpected query in excluded preview test: ${text}`);
-    });
+    };
 
     const result = await buildSharePolicyPreviewTree(
       { query },

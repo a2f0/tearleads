@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { compileVfsSharePolicies } from './vfsSharePolicyCompiler.js';
 
 interface QueryCall {
   text: string;
-  values?: unknown[];
+  values?: unknown[] | undefined;
 }
 
 function normalizeSql(text: string): string {
@@ -12,7 +12,11 @@ function normalizeSql(text: string): string {
 
 describe('compileVfsSharePolicies', () => {
   it('short-circuits when policyIds normalize to an empty set', async () => {
-    const query = vi.fn(async <T>() => ({ rows: [] as T[] }));
+    const calls: QueryCall[] = [];
+    const query = async <T>(text: string, values?: unknown[]) => {
+      calls.push({ text: normalizeSql(text), values });
+      return { rows: [] as T[] };
+    };
 
     const result = await compileVfsSharePolicies(
       { query },
@@ -25,12 +29,12 @@ describe('compileVfsSharePolicies', () => {
     expect(result.policyCount).toBe(0);
     expect(result.decisionsCount).toBe(0);
     expect(result.touchedAclEntryCount).toBe(0);
-    expect(query).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(0);
   });
 
   it('scopes policy loading and stale lookup to provided policy ids', async () => {
     const calls: QueryCall[] = [];
-    const query = vi.fn(async <T>(text: string, values?: unknown[]) => {
+    const query = async <T>(text: string, values?: unknown[]) => {
       calls.push({ text: normalizeSql(text), values });
       if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') {
         return { rows: [] as T[] };
@@ -86,7 +90,7 @@ describe('compileVfsSharePolicies', () => {
         return { rows: [] as T[] };
       }
       throw new Error(`Unexpected query in scoped compile: ${text}`);
-    });
+    };
 
     const result = await compileVfsSharePolicies(
       { query },
@@ -139,8 +143,8 @@ describe('compileVfsSharePolicies', () => {
 
   it('supports deterministic dry-run compilation without writes', async () => {
     const calls: QueryCall[] = [];
-    const query = vi.fn(async <T>(text: string) => {
-      calls.push({ text: normalizeSql(text) });
+    const query = async <T>(text: string, values?: unknown[]) => {
+      calls.push({ text: normalizeSql(text), values });
       if (text.includes('FROM vfs_share_policies')) {
         return {
           rows: [
@@ -198,7 +202,7 @@ describe('compileVfsSharePolicies', () => {
         };
       }
       throw new Error(`Unexpected query in dry run: ${text}`);
-    });
+    };
 
     const result = await compileVfsSharePolicies(
       { query },
@@ -221,7 +225,7 @@ describe('compileVfsSharePolicies', () => {
 
   it('materializes derived ACLs and revokes stale derived entries', async () => {
     const calls: QueryCall[] = [];
-    const query = vi.fn(async <T>(text: string, values?: unknown[]) => {
+    const query = async <T>(text: string, values?: unknown[]) => {
       calls.push({ text: normalizeSql(text), values });
       if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') {
         return { rows: [] as T[] };
@@ -326,7 +330,7 @@ describe('compileVfsSharePolicies', () => {
         return { rows: [] as T[] };
       }
       throw new Error(`Unexpected query in materialization: ${text}`);
-    });
+    };
 
     const result = await compileVfsSharePolicies(
       { query },
@@ -371,7 +375,7 @@ describe('compileVfsSharePolicies', () => {
 
   it('rolls back transactional compile failures', async () => {
     const calls: QueryCall[] = [];
-    const query = vi.fn(async <T>(text: string, values?: unknown[]) => {
+    const query = async <T>(text: string, values?: unknown[]) => {
       calls.push({ text: normalizeSql(text), values });
       if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') {
         return { rows: [] as T[] };
@@ -442,7 +446,7 @@ describe('compileVfsSharePolicies', () => {
         throw new Error('provenance failure');
       }
       throw new Error(`Unexpected query in rollback test: ${text}`);
-    });
+    };
 
     await expect(
       compileVfsSharePolicies(

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { compileVfsSharePolicies } from './vfsSharePolicyCompiler.js';
 import {
   compileSharePolicyCore,
@@ -166,7 +166,7 @@ describe('share policy rollout determinism', () => {
     const aclById = new Map<string, AclEntryRow>();
     const provenanceById = new Map<string, ProvenanceRow>();
 
-    const query = vi.fn(async <T>(text: string, values?: unknown[]) => {
+    const query = async <T>(text: string, values?: unknown[]) => {
       if (
         text === 'BEGIN' ||
         text === 'COMMIT' ||
@@ -303,7 +303,7 @@ describe('share policy rollout determinism', () => {
       }
 
       throw new Error(`Unexpected query in idempotency test: ${text}`);
-    });
+    };
 
     const firstRun = await compileVfsSharePolicies(
       { query },
