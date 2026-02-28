@@ -74,11 +74,11 @@
     },
     {
       "name": "no-cross-package-src-entrypoint-imports",
-      "severity": "warn",
-      "comment": "Packages should import other packages through package roots, not direct src/index entrypoints.",
+      "severity": "error",
+      "comment": "Packages should import other packages through package roots, not direct src/index entrypoints. Existing hotspot packages are temporarily allowlisted for incremental cleanup.",
       "from": {
         "path": "^packages/([^/]+)/src/.*",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "pathNot": "(?:\\.test|\\.spec)\\.(?:ts|tsx)$|/src/test/|/src/__tests__/|^packages/(?:admin|api-client|bob-and-alice|client|compliance|console|help|tee-client)/src/"
       },
       "to": {
         "path": "^packages/[^/]+/src/index\\.(ts|tsx)$",
