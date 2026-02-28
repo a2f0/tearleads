@@ -155,10 +155,8 @@ export function useContactsData(
               eq(contactsTable.organizationId, activeOrganizationId),
               isNull(contactsTable.organizationId)
             )
-          : undefined;
-        const baseCondition = orgFilter
-          ? and(deletedCondition, orgFilter)
-          : deletedCondition;
+          : isNull(contactsTable.organizationId);
+        const baseCondition = and(deletedCondition, orgFilter);
         let whereCondition: SQL | undefined;
 
         if (searchPattern) {

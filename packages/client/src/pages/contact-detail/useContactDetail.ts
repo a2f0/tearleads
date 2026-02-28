@@ -103,7 +103,7 @@ export function useContactDetail(): UseContactDetailResult {
             eq(contacts.organizationId, activeOrganizationId),
             isNull(contacts.organizationId)
           )
-        : undefined;
+        : isNull(contacts.organizationId);
 
       const [contactResult, emailsResult, phonesResult] = await Promise.all([
         db
