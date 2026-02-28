@@ -1,6 +1,12 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 
 type FocusDirection = 'first' | 'last' | 'next' | 'previous';
+const KEY_TO_DIRECTION_MAP: Record<string, FocusDirection> = {
+  ArrowDown: 'next',
+  ArrowUp: 'previous',
+  Home: 'first',
+  End: 'last'
+};
 
 function moveFocus(
   itemRefs: React.MutableRefObject<Array<HTMLButtonElement | null>>,
@@ -50,26 +56,9 @@ export function handleClassicContextMenuKeyDown(
   event: ReactKeyboardEvent<HTMLDivElement>,
   itemRefs: React.MutableRefObject<Array<HTMLButtonElement | null>>
 ): void {
-  if (event.key === 'ArrowDown') {
+  const direction = KEY_TO_DIRECTION_MAP[event.key];
+  if (direction) {
     event.preventDefault();
-    moveFocus(itemRefs, 'next');
-    return;
-  }
-
-  if (event.key === 'ArrowUp') {
-    event.preventDefault();
-    moveFocus(itemRefs, 'previous');
-    return;
-  }
-
-  if (event.key === 'Home') {
-    event.preventDefault();
-    moveFocus(itemRefs, 'first');
-    return;
-  }
-
-  if (event.key === 'End') {
-    event.preventDefault();
-    moveFocus(itemRefs, 'last');
+    moveFocus(itemRefs, direction);
   }
 }

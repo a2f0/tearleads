@@ -1,3 +1,4 @@
+import { handleDropdownMenuKeyboard } from '@tearleads/shared';
 import {
   Children,
   cloneElement,
@@ -12,7 +13,6 @@ import {
   useState
 } from 'react';
 import { createPortal } from 'react-dom';
-import { handleDropdownMenuKeyboard } from './dropdownMenuKeyboard';
 import { getDropdownMenuPositionStyle } from './dropdownMenuPosition';
 
 interface DropdownMenuProps {

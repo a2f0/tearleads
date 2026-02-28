@@ -15,9 +15,8 @@ export function getDropdownMenuPositionStyle({
 
   if (align === 'right') {
     style.right = window.innerWidth - rect.right;
-    return style;
+  } else {
+    style.left = rect.left;
   }
-
-  style.left = rect.left;
   return style;
 }

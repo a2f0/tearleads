@@ -1,6 +1,15 @@
+export interface MenuKeyboardEventLike {
+  key: string;
+  preventDefault: () => void;
+}
+
+export interface MenuKeyboardContainerRefLike {
+  current: HTMLElement | null;
+}
+
 interface DropdownMenuKeyboardArgs {
-  event: React.KeyboardEvent<HTMLDivElement>;
-  menuRef: React.RefObject<HTMLDivElement | null>;
+  event: MenuKeyboardEventLike;
+  menuRef: MenuKeyboardContainerRefLike;
   focusedIndex: number;
   setFocusedIndex: (nextIndex: number) => void;
 }

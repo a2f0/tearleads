@@ -1,3 +1,4 @@
+import { handleDropdownMenuKeyboard } from '@tearleads/shared';
 import {
   Children,
   cloneElement,
@@ -13,7 +14,6 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { DROPDOWN_MENU_Z_INDEX } from '../../constants/zIndex.js';
-import { handleDropdownMenuKeyboard } from './dropdownMenuKeyboard.js';
 
 interface DropdownMenuProps {
   trigger: React.ReactNode;
