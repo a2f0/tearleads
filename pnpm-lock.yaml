@@ -317,9 +317,6 @@ importers:
         specifier: 6.2.8
         version: 6.2.8(openapi-types@12.1.3)
     devDependencies:
-      '@tearleads/db-test-utils':
-        specifier: workspace:*
-        version: link:../db-test-utils
       '@types/cors':
         specifier: 2.8.19
         version: 2.8.19
@@ -1044,6 +1041,9 @@ importers:
       '@tearleads/vfs-explorer':
         specifier: workspace:*
         version: link:../vfs-explorer
+      '@tearleads/wallet':
+        specifier: workspace:*
+        version: link:../wallet
       '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager

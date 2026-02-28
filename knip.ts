@@ -58,8 +58,22 @@ const config: KnipConfig = {
         'electron/main.ts',
         'electron/preload.ts'
       ],
-      // CLI tool used by electron-builder rebuild scripts, not imported in source.
-      ignoreDependencies: ['@electron/rebuild']
+      ignoreDependencies: [
+        // CLI tool used by electron-builder rebuild scripts, not imported in source.
+        '@electron/rebuild',
+        // Electron-native SQLite binding loaded in desktop runtime and packaging scripts.
+        'better-sqlite3-multiple-ciphers',
+        // Used by scripts/buildWebImageAssets.sh.
+        'svgo',
+        // Used via CSS @import "tailwindcss"; in client styles.
+        'tailwindcss'
+      ]
+    },
+    'packages/classic': {
+      ignoreDependencies: [
+        // Test-only support dependency used from files excluded by classic tsconfig.
+        '@tearleads/db-test-utils'
+      ]
     },
     'packages/keychain': {
       entry: ['src/clientEntry.ts']
@@ -69,6 +83,12 @@ const config: KnipConfig = {
     },
     'packages/wallet': {
       entry: ['src/clientEntry.ts']
+    },
+    'packages/website': {
+      ignoreDependencies: [
+        // Used via CSS @import "tailwindcss"; in website styles.
+        'tailwindcss'
+      ]
     }
   }
 };
