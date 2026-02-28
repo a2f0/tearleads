@@ -16,7 +16,8 @@ if (!i18n.isInitialized) {
     },
     react: {
       useSuspense: false
-    }
+    },
+    showSupportNotice: false
   });
 
   initialization.catch((error: unknown) => {
