@@ -139,7 +139,6 @@ export const createViteAliases = (
       dirname,
       '../db/src/generated/sqlite/schema.ts'
     ),
-    '@tearleads/db': path.resolve(dirname, '../db/src/index.ts'),
     '@tearleads/shared/server': path.resolve(
       dirname,
       '../shared/src/server/index.ts'
