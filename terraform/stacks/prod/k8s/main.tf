@@ -142,12 +142,16 @@ data "aws_ami" "ubuntu" {
   }
 }
 
+data "aws_key_pair" "dps_blackbox" {
+  key_name = "dps-blackbox"
+}
+
 resource "aws_instance" "server" {
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = var.instance_type
   subnet_id              = aws_subnet.public_a.id
   vpc_security_group_ids = [aws_security_group.k8s_server.id]
-  key_name               = var.aws_key_pair_name
+  key_name               = data.aws_key_pair.dps_blackbox.key_name
 
   user_data = <<-EOF
     #cloud-config

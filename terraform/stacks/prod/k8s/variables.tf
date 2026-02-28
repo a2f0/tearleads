@@ -9,11 +9,6 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "aws_key_pair_name" {
-  description = "Existing AWS EC2 key pair name for SSH access"
-  type        = string
-}
-
 variable "instance_type" {
   description = "EC2 instance type for the k8s server"
   type        = string
