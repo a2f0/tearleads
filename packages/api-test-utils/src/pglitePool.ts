@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { PGlite } from '@electric-sql/pglite';
+import 'pg';
 import type { Pool as PgPool, QueryResult } from 'pg';
 
 interface PgliteResult {
