@@ -16,9 +16,10 @@ module "rds" {
   vpc_id     = data.terraform_remote_state.k8s.outputs.vpc_id
   subnet_ids = data.terraform_remote_state.k8s.outputs.rds_subnet_ids
 
-  # Restrict RDS access to the k8s server subnet inside the same VPC.
-  allowed_cidr_blocks = [data.terraform_remote_state.k8s.outputs.k8s_subnet_cidr]
-  publicly_accessible = false
+  # Restrict RDS access to the prod k8s server security group.
+  allowed_cidr_blocks        = []
+  allowed_security_group_ids = [data.terraform_remote_state.k8s.outputs.k8s_server_security_group_id]
+  publicly_accessible        = false
 
   # Database config
   database_name   = "tearleads"

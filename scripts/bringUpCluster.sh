@@ -25,6 +25,8 @@ YES=false
 IMAGE_TAG=""
 SCRIPT_START_TS="$(date +%s)"
 TF_APPLY_AUTO_APPROVE=""
+MIGRATE_RETRIES="${MIGRATE_RETRIES:-4}"
+MIGRATE_RETRY_DELAY_SECONDS="${MIGRATE_RETRY_DELAY_SECONDS:-20}"
 
 usage() {
   cat <<EOF
@@ -44,6 +46,10 @@ Options:
   --yes=true        Equivalent to --yes
   --tag <tag>       Image tag for buildContainers (default: latest)
   -h, --help        Show help
+
+Environment:
+  MIGRATE_RETRIES              Migration retry attempts (default: 4)
+  MIGRATE_RETRY_DELAY_SECONDS  Delay between migration retries (default: 20)
 EOF
 }
 
@@ -142,6 +148,31 @@ run_step() {
   echo "<== $label completed in $(format_duration "$step_elapsed")"
 }
 
+run_step_with_retry() {
+  local label="$1"
+  local retries="$2"
+  local delay_seconds="$3"
+  shift 3
+
+  local attempt=1
+  while (( attempt <= retries )); do
+    echo ""
+    echo "Attempt $attempt/$retries: $label"
+    if run_step "$label" "$@"; then
+      return 0
+    fi
+
+    if (( attempt == retries )); then
+      echo "ERROR: $label failed after $retries attempts."
+      return 1
+    fi
+
+    echo "Retrying in ${delay_seconds}s..."
+    sleep "$delay_seconds"
+    ((attempt++))
+  done
+}
+
 echo "Starting production cluster bring-up..."
 
 if [[ -n "$TF_APPLY_AUTO_APPROVE" ]]; then
@@ -178,12 +209,23 @@ if [[ "$SKIP_ROLLOUT" != "true" ]]; then
   fi
 fi
 
+if [[ "$SKIP_SMOKE" != "true" ]]; then
+  run_step_with_retry \
+    "Run prod Postgres smoke test" \
+    "$MIGRATE_RETRIES" \
+    "$MIGRATE_RETRY_DELAY_SECONDS" \
+    "$K8S_SCRIPTS_DIR/smoke-postgres.sh"
+fi
+
 if [[ "$SKIP_MIGRATE" != "true" ]]; then
-  run_step "Run API migrations" "$K8S_SCRIPTS_DIR/migrate.sh"
+  run_step_with_retry \
+    "Run API migrations" \
+    "$MIGRATE_RETRIES" \
+    "$MIGRATE_RETRY_DELAY_SECONDS" \
+    "$K8S_SCRIPTS_DIR/migrate.sh"
 fi
 
 if [[ "$SKIP_SMOKE" != "true" ]]; then
-  run_step "Run prod Postgres smoke test" "$K8S_SCRIPTS_DIR/smoke-postgres.sh"
   run_step "Run prod API smoke test" "$K8S_SCRIPTS_DIR/smoke-api.sh"
 fi
 

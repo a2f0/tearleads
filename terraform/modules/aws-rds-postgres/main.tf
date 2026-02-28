@@ -13,6 +13,17 @@ resource "aws_security_group" "rds" {
     cidr_blocks = var.allowed_cidr_blocks
   }
 
+  dynamic "ingress" {
+    for_each = var.allowed_security_group_ids
+    content {
+      description     = "PostgreSQL from allowed security group"
+      from_port       = 5432
+      to_port         = 5432
+      protocol        = "tcp"
+      security_groups = [ingress.value]
+    }
+  }
+
   egress {
     from_port   = 0
     to_port     = 0

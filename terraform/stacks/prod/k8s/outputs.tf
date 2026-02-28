@@ -73,3 +73,8 @@ output "rds_subnet_ids" {
   description = "Private subnet IDs used by the prod RDS stack"
   value       = [aws_subnet.rds_a.id, aws_subnet.rds_b.id]
 }
+
+output "k8s_server_security_group_id" {
+  description = "Security group ID for the prod k8s EC2 server"
+  value       = aws_security_group.k8s_server.id
+}
