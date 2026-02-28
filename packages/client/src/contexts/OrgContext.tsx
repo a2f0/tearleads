@@ -8,6 +8,8 @@ import {
   useMemo,
   useState
 } from 'react';
+import { isDatabaseInitialized, getDatabase } from '@/db';
+import { runOrgBackfillIfNeeded } from '@/db/orgBackfill';
 import {
   clearActiveOrgForUser,
   getActiveOrgForUser,
@@ -83,6 +85,14 @@ export function OrgProvider({ children }: OrgProviderProps) {
           applyActiveOrg(persistedOrgId);
         } else {
           applyActiveOrg(response.personalOrganizationId);
+        }
+
+        if (isDatabaseInitialized()) {
+          void runOrgBackfillIfNeeded(
+            getDatabase(),
+            userId,
+            response.personalOrganizationId
+          );
         }
       } catch (error) {
         console.error('Failed to fetch organizations:', error);
