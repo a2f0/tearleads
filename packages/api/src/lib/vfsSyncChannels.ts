@@ -14,7 +14,7 @@ export interface VfsCursorBumpMessagePayload extends VfsContainerCursor {
   sourceClientId: string;
 }
 
-export function toVfsContainerSyncChannel(containerId: string): string {
+function toVfsContainerSyncChannel(containerId: string): string {
   return `${VFS_CONTAINER_CHANNEL_PREFIX}${containerId}${VFS_CONTAINER_CHANNEL_SUFFIX}`;
 }
 

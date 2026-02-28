@@ -11,7 +11,7 @@ import type {
 import { parseVfsCrdtLastReconciledWriteIds } from '../protocol/sync-crdt-reconcile.js';
 import { decodeVfsSyncCursor } from '../protocol/sync-cursor.js';
 
-export interface ParsedApiErrorResponse {
+interface ParsedApiErrorResponse {
   message: string;
   code: string | null;
   requestedCursor: string | null;

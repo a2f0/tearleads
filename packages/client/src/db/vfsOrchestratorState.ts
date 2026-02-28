@@ -65,16 +65,3 @@ export async function saveVfsOrchestratorState(
       }
     });
 }
-
-export async function clearVfsOrchestratorState(
-  userId: string,
-  clientId: string
-): Promise<void> {
-  if (!isDatabaseInitialized()) {
-    return;
-  }
-
-  const db = getDatabase();
-  const key = buildStateKey(userId, clientId);
-  await db.delete(userSettings).where(eq(userSettings.key, key));
-}

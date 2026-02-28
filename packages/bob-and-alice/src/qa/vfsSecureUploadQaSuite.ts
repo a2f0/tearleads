@@ -149,7 +149,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
   };
 }
 
-export function formatDuration(ms: number): string {
+function formatDuration(ms: number): string {
   const seconds = (ms / 1000).toFixed(1);
   return `${seconds}s`;
 }
@@ -182,7 +182,7 @@ export function resolveCandidateSha(
   return 'unknown';
 }
 
-export function buildReport(
+function buildReport(
   options: CliOptions,
   candidateSha: string,
   startedAt: Date,
@@ -269,7 +269,7 @@ export function writeReportFile(pathValue: string, content: string): void {
 
 export type CheckExecutor = (check: Check) => Promise<CheckResult>;
 
-export async function runCheck(check: Check): Promise<CheckResult> {
+async function runCheck(check: Check): Promise<CheckResult> {
   const start = Date.now();
   const exitCode = await new Promise<number>((resolveCode) => {
     const child = spawn(check.command, check.args, {

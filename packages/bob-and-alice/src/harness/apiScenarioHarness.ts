@@ -11,7 +11,7 @@ export interface ApiActorDefinition {
   admin?: boolean;
 }
 
-export interface ApiActor {
+interface ApiActor {
   alias: string;
   user: SeededUser;
   fetch(path: string, init?: RequestInit): Promise<Response>;

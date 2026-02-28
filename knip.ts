@@ -34,7 +34,17 @@ const config: KnipConfig = {
     // Exported public API return type expected by consumers.
     'packages/api-client/src/apiRoutes/vfsRoutes.ts': ['types'],
     // Exported interface appears in an inferred cross-module public return type.
-    'packages/vfs-explorer/src/hooks/useVfsAllItems.ts': ['types']
+    'packages/vfs-explorer/src/hooks/useVfsAllItems.ts': ['types'],
+    // Test helper surface for org change event subscription in orgStorage tests.
+    'packages/client/src/lib/orgStorage.ts': ['exports'],
+    // Canonical DB schema pieces intentionally re-exported across definition modules.
+    'packages/db/src/schema/definition-communications-vfs.ts': ['exports'],
+    'packages/db/src/schema/definition-communications.ts': ['exports'],
+    'packages/db/src/schema/definitionCommunicationsAi.ts': ['exports'],
+    // Exported interfaces are part of public signatures for published helpers.
+    'packages/api/src/lib/vfsSyncChannels.ts': ['exports', 'types'],
+    'packages/bob-and-alice/src/qa/vfsSecureUploadQaSuite.ts': ['types'],
+    'packages/db-test-utils/src/seeding/pgScenario.ts': ['types']
   },
   workspaces: {
     '.': {
@@ -58,8 +68,22 @@ const config: KnipConfig = {
         'electron/main.ts',
         'electron/preload.ts'
       ],
-      // CLI tool used by electron-builder rebuild scripts, not imported in source.
-      ignoreDependencies: ['@electron/rebuild']
+      ignoreDependencies: [
+        // CLI tool used by electron-builder rebuild scripts, not imported in source.
+        '@electron/rebuild',
+        // Electron-native SQLite binding loaded in desktop runtime and packaging scripts.
+        'better-sqlite3-multiple-ciphers',
+        // Used by scripts/buildWebImageAssets.sh.
+        'svgo',
+        // Used via CSS @import "tailwindcss"; in client styles.
+        'tailwindcss'
+      ]
+    },
+    'packages/classic': {
+      ignoreDependencies: [
+        // Test-only support dependency used from files excluded by classic tsconfig.
+        '@tearleads/db-test-utils'
+      ]
     },
     'packages/keychain': {
       entry: ['src/clientEntry.ts']
@@ -69,6 +93,12 @@ const config: KnipConfig = {
     },
     'packages/wallet': {
       entry: ['src/clientEntry.ts']
+    },
+    'packages/website': {
+      ignoreDependencies: [
+        // Used via CSS @import "tailwindcss"; in website styles.
+        'tailwindcss'
+      ]
     }
   }
 };

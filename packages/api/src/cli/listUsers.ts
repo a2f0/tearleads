@@ -53,13 +53,13 @@ function parseArgs(argv: string[]): ParsedArgs {
   return { help, json };
 }
 
-export type UserRow = {
+type UserRow = {
   id: string;
   email: string;
   admin: boolean;
 };
 
-export async function getUsers(): Promise<UserRow[]> {
+async function getUsers(): Promise<UserRow[]> {
   const pool = await getPostgresPool();
   const client = await pool.connect();
   try {

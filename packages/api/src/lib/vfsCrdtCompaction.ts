@@ -6,11 +6,11 @@ import {
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MS_PER_HOUR = 60 * 60 * 1000;
 
-export const DEFAULT_VFS_CRDT_HOT_RETENTION_MS = 30 * MS_PER_DAY;
-export const DEFAULT_VFS_CRDT_INACTIVE_CLIENT_WINDOW_MS = 90 * MS_PER_DAY;
-export const DEFAULT_VFS_CRDT_CURSOR_SAFETY_BUFFER_MS = 6 * MS_PER_HOUR;
+const DEFAULT_VFS_CRDT_HOT_RETENTION_MS = 30 * MS_PER_DAY;
+const DEFAULT_VFS_CRDT_INACTIVE_CLIENT_WINDOW_MS = 90 * MS_PER_DAY;
+const DEFAULT_VFS_CRDT_CURSOR_SAFETY_BUFFER_MS = 6 * MS_PER_HOUR;
 export const DEFAULT_VFS_CRDT_CLIENT_PREFIX = 'crdt:';
-export const DEFAULT_VFS_CRDT_STALE_CLIENT_ID_SAMPLE_LIMIT = 50;
+const DEFAULT_VFS_CRDT_STALE_CLIENT_ID_SAMPLE_LIMIT = 50;
 
 interface CursorRow {
   occurred_at: Date | string;
@@ -50,7 +50,7 @@ export interface VfsCrdtCompactionCursor {
   changeId: string;
 }
 
-export interface VfsCrdtCompactionClientState {
+interface VfsCrdtCompactionClientState {
   clientId: string;
   lastReconciledAt: string;
   lastReconciledChangeId: string;

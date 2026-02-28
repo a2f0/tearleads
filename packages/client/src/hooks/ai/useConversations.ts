@@ -34,8 +34,6 @@ import {
   toISOString
 } from './conversationDb';
 
-export { clearConversationKeyCache } from './conversationDb';
-
 interface UseConversationsResult {
   conversations: DecryptedAiConversation[];
   loading: boolean;

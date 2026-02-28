@@ -1,6 +1,6 @@
 import { getPostgresPool } from '../../lib/postgres.js';
 
-export interface UploadedChunk {
+interface UploadedChunk {
   chunkIndex: number;
   isFinal: boolean;
   ciphertextBase64: string;

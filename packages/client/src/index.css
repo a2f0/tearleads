@@ -35,6 +35,7 @@
 @source "../../ui/src";
 @source "../../vehicles/src";
 @source "../../vfs-explorer/src";
+@source "../../wallet/src";
 @source "../../window-manager/src";
 
 :root.square-corners {
