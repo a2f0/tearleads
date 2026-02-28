@@ -14,13 +14,8 @@ const config: KnipConfig = {
   ],
   ignoreBinaries: ['ansible-lint', 'shellcheck', 'playwright'],
   ignore: [
-    // Generated native build artifacts (gitignored but present on disk).
-    'packages/client/ios/App/App/public/**',
-    'packages/client/android/app/src/main/assets/public/**',
     // Test stubs resolved via vitest path alias (`@` → clientCompat); knip cannot follow aliases.
-    'packages/analytics/src/test/clientCompat/**',
-    // Ambient type declarations consumed by Playwright test files.
-    'packages/client/tests/playwright-env.d.ts'
+    'packages/analytics/src/test/clientCompat/**'
   ],
   ignoreIssues: {
     // Consumed from source across package boundaries (admin/client split) via path aliases.
