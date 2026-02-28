@@ -145,33 +145,39 @@ export function TagSidebar({
                   key={tag.id}
                   tag={tag}
                   activeTagId={activeTagId}
-                  editingTagId={editingTagId}
                   searchValue={searchValue}
                   noteCountByTagId={noteCountByTagId}
                   canMoveUp={index > 0}
                   canMoveDown={index < tags.length - 1}
-                  draggedTagId={draggedTagId}
-                  dragArmedTagId={dragArmedTagId}
-                  dropTargetTagId={dropTargetTagId}
-                  lastHoverTagId={lastHoverTagId}
-                  editInputRef={editInputRef}
-                  editValue={editValue}
-                  setEditValue={setEditValue}
+                  dnd={{
+                    draggedTagId,
+                    dragArmedTagId,
+                    dropTargetTagId,
+                    lastHoverTagId,
+                    setDraggedTagId,
+                    setLastHoverTagId,
+                    setDragArmedTagId,
+                    setDropTargetTagId
+                  }}
+                  editing={{
+                    editingTagId,
+                    editInputRef,
+                    editValue,
+                    setEditValue,
+                    handleEditKeyDown,
+                    handleEditBlur,
+                    handleSave,
+                    handleCancel
+                  }}
+                  actions={{
+                    onSelectTag,
+                    onMoveTag,
+                    onReorderTag,
+                    onStartEditTag,
+                    onDeleteTag,
+                    onTagNote
+                  }}
                   setContextMenu={setContextMenu}
-                  setDraggedTagId={setDraggedTagId}
-                  setLastHoverTagId={setLastHoverTagId}
-                  setDragArmedTagId={setDragArmedTagId}
-                  setDropTargetTagId={setDropTargetTagId}
-                  handleEditKeyDown={handleEditKeyDown}
-                  handleEditBlur={handleEditBlur}
-                  handleSave={handleSave}
-                  handleCancel={handleCancel}
-                  onSelectTag={onSelectTag}
-                  onMoveTag={onMoveTag}
-                  onReorderTag={onReorderTag}
-                  onStartEditTag={onStartEditTag}
-                  onDeleteTag={onDeleteTag}
-                  onTagNote={onTagNote}
                 />
               ))}
             </ul>

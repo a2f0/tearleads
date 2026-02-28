@@ -4,28 +4,22 @@ import { highlightText } from '../../lib/highlightText';
 import type { ClassicTag } from '../../lib/types';
 import type { TagContextMenuState } from '../tagSidebarState';
 
-interface TagSidebarTagItemProps {
-  tag: ClassicTag;
-  activeTagId: string | null;
-  editingTagId?: string | null | undefined;
-  searchValue: string;
-  noteCountByTagId: Record<string, number>;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
+interface TagSidebarTagItemDndProps {
   draggedTagId: string | null;
   dragArmedTagId: string | null;
   dropTargetTagId: string | null;
   lastHoverTagId: string | null;
-  editInputRef: React.RefObject<HTMLInputElement | null>;
-  editValue: string;
-  setEditValue: (value: string) => void;
-  setContextMenu: React.Dispatch<
-    React.SetStateAction<TagContextMenuState | null>
-  >;
   setDraggedTagId: (tagId: string | null) => void;
   setLastHoverTagId: (tagId: string | null) => void;
   setDragArmedTagId: (tagId: string | null) => void;
   setDropTargetTagId: (tagId: string | null) => void;
+}
+
+interface TagSidebarTagItemEditingProps {
+  editingTagId?: string | null | undefined;
+  editInputRef: React.RefObject<HTMLInputElement | null>;
+  editValue: string;
+  setEditValue: (value: string) => void;
   handleEditKeyDown: (
     event: React.KeyboardEvent<HTMLInputElement>,
     tagId: string
@@ -33,6 +27,9 @@ interface TagSidebarTagItemProps {
   handleEditBlur: (tagId: string) => void;
   handleSave: (tagId: string) => void;
   handleCancel: () => void;
+}
+
+interface TagSidebarTagItemActionProps {
   onSelectTag: (tagId: string) => void;
   onMoveTag: (tagId: string, direction: 'up' | 'down') => void;
   onReorderTag: (tagId: string, targetTagId: string) => void;
@@ -41,39 +38,63 @@ interface TagSidebarTagItemProps {
   onTagNote?: ((tagId: string, noteId: string) => void) | undefined;
 }
 
+interface TagSidebarTagItemProps {
+  tag: ClassicTag;
+  activeTagId: string | null;
+  searchValue: string;
+  noteCountByTagId: Record<string, number>;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  dnd: TagSidebarTagItemDndProps;
+  editing: TagSidebarTagItemEditingProps;
+  actions: TagSidebarTagItemActionProps;
+  setContextMenu: React.Dispatch<
+    React.SetStateAction<TagContextMenuState | null>
+  >;
+}
+
 export function TagSidebarTagItem({
   tag,
   activeTagId,
-  editingTagId,
   searchValue,
   noteCountByTagId,
   canMoveUp,
   canMoveDown,
-  draggedTagId,
-  dragArmedTagId,
-  dropTargetTagId,
-  lastHoverTagId,
-  editInputRef,
-  editValue,
-  setEditValue,
-  setContextMenu,
-  setDraggedTagId,
-  setLastHoverTagId,
-  setDragArmedTagId,
-  setDropTargetTagId,
-  handleEditKeyDown,
-  handleEditBlur,
-  handleSave,
-  handleCancel,
-  onSelectTag,
-  onMoveTag,
-  onReorderTag,
-  onStartEditTag,
-  onDeleteTag,
-  onTagNote
+  dnd,
+  editing,
+  actions,
+  setContextMenu
 }: TagSidebarTagItemProps) {
   const { t } = useTranslation('classic');
   const isActive = tag.id === activeTagId;
+  const {
+    draggedTagId,
+    dragArmedTagId,
+    dropTargetTagId,
+    lastHoverTagId,
+    setDraggedTagId,
+    setLastHoverTagId,
+    setDragArmedTagId,
+    setDropTargetTagId
+  } = dnd;
+  const {
+    editingTagId,
+    editInputRef,
+    editValue,
+    setEditValue,
+    handleEditKeyDown,
+    handleEditBlur,
+    handleSave,
+    handleCancel
+  } = editing;
+  const {
+    onSelectTag,
+    onMoveTag,
+    onReorderTag,
+    onStartEditTag,
+    onDeleteTag,
+    onTagNote
+  } = actions;
 
   return (
     <li
