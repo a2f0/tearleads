@@ -66,8 +66,7 @@
           "undetermined",
           "npm",
           "npm-dev",
-          "npm-peer",
-          "aliased"
+          "npm-peer"
         ]
       }
     },
