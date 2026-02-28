@@ -1,12 +1,8 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ChevronRight, Music, Pause } from 'lucide-react';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
-import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
-import { ListRow } from '@/components/ui/ListRow';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
-import { setMediaDragData } from '@/lib/mediaDragData';
-import { formatFileSize } from '@/lib/utils';
+import { AudioTrackRow } from './AudioTrackRow';
 import type { AudioWithUrl } from './types';
 
 interface AudioTrackListProps {
@@ -69,77 +65,19 @@ export function AudioTrackList({
               const isTrackPlaying = isCurrentTrack && isPlaying;
 
               return (
-                <div
+                <AudioTrackRow
                   key={track.id}
-                  data-index={virtualItem.index}
-                  ref={virtualizer.measureElement}
-                  className="absolute top-0 left-0 w-full px-1 py-0.5"
-                  style={{
-                    transform: `translateY(${virtualItem.start}px)`
-                  }}
-                >
-                  <ListRow
-                    className={`${
-                      isCurrentTrack ? 'border-primary bg-primary/5' : ''
-                    }`}
-                    data-testid={`audio-track-${track.id}`}
-                    onContextMenu={(event) => handleContextMenu(event, track)}
-                  >
-                    <button
-                      type="button"
-                      onClick={
-                        isDesktopPlatform
-                          ? undefined
-                          : () => handlePlayPause(track)
-                      }
-                      onDoubleClick={
-                        isDesktopPlatform
-                          ? () => handlePlayPause(track)
-                          : undefined
-                      }
-                      className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden text-left"
-                      data-testid={`audio-play-${track.id}`}
-                      draggable
-                      onDragStart={(event) =>
-                        setMediaDragData(event, 'audio', [track.id])
-                      }
-                    >
-                      <div className="relative shrink-0">
-                        {track.thumbnailUrl ? (
-                          <img
-                            src={track.thumbnailUrl}
-                            alt=""
-                            className="h-8 w-8 rounded object-cover"
-                          />
-                        ) : (
-                          <Music className="h-5 w-5 text-muted-foreground" />
-                        )}
-                        {isTrackPlaying ? (
-                          <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                            <Pause className="h-2.5 w-2.5" />
-                          </div>
-                        ) : null}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-sm">
-                          {track.name}
-                        </p>
-                        <p className="text-muted-foreground text-xs">
-                          {formatFileSize(track.size)}
-                        </p>
-                      </div>
-                    </button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0"
-                      onClick={() => handleNavigateToDetail(track.id)}
-                      aria-label="View details"
-                    >
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </ListRow>
-                </div>
+                  track={track}
+                  start={virtualItem.start}
+                  index={virtualItem.index}
+                  measureElement={virtualizer.measureElement}
+                  isCurrentTrack={isCurrentTrack}
+                  isTrackPlaying={isTrackPlaying}
+                  isDesktopPlatform={isDesktopPlatform}
+                  onPlayPause={handlePlayPause}
+                  onNavigateToDetail={handleNavigateToDetail}
+                  onContextMenu={handleContextMenu}
+                />
               );
             })}
           </div>
