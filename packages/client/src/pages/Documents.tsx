@@ -10,6 +10,7 @@ import {
   Trash2,
   Upload
 } from 'lucide-react';
+import type { MouseEvent } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Dropzone } from '@/components/ui/dropzone';
@@ -19,6 +20,7 @@ import { useDatabaseContext } from '@/db/hooks';
 import { useTypedTranslation } from '@/i18n';
 import { DocumentsListView } from './documents/DocumentsListView';
 import { DocumentsTableView } from './documents/DocumentsTableView';
+import type { DocumentWithUrl } from './documents/documentTypes';
 import { useDocumentsActions } from './documents/useDocumentsActions';
 import { useDocumentsData } from './documents/useDocumentsData';
 import { useDocumentsUpload } from './documents/useDocumentsUpload';
@@ -34,6 +36,112 @@ interface DocumentsProps {
   showDropzone?: boolean;
   onUpload?: () => void;
   onOpenAIChat?: () => void;
+}
+
+type DocumentsContentState = {
+  isUnlocked: boolean;
+  error: string | null;
+  loading: boolean;
+  hasFetched: boolean;
+  uploading: boolean;
+  uploadProgress: number;
+  documents: DocumentWithUrl[];
+  isTableView: boolean;
+  showDropzone: boolean;
+};
+
+type DocumentsContentHandlers = {
+  handleFilesSelected: (files: File[]) => void;
+  handleBlankSpaceContextMenu: (event: MouseEvent) => void;
+  handleDocumentClick: (document: DocumentWithUrl) => void;
+  handleContextMenu: (event: MouseEvent, document: DocumentWithUrl) => void;
+  handleDownload: (document: DocumentWithUrl, event?: MouseEvent) => void;
+  handleShare: (document: DocumentWithUrl, event?: MouseEvent) => void;
+};
+
+function renderDocumentsContent(
+  state: DocumentsContentState,
+  handlers: DocumentsContentHandlers,
+  canShare: boolean
+) {
+  if (!state.isUnlocked || state.error) {
+    return null;
+  }
+
+  if (state.loading && !state.hasFetched) {
+    return (
+      <div className="flex items-center justify-center gap-2 rounded-lg border p-8 text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        Loading documents...
+      </div>
+    );
+  }
+
+  if (state.uploading) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="text-center">
+          <p className="font-medium">Uploading...</p>
+        </div>
+        <UploadProgress progress={state.uploadProgress} />
+      </div>
+    );
+  }
+
+  if (state.documents.length === 0 && state.hasFetched) {
+    if (!state.isTableView && state.showDropzone) {
+      return (
+        <Dropzone
+          onFilesSelected={handlers.handleFilesSelected}
+          accept="application/pdf,text/*"
+          multiple={true}
+          disabled={state.uploading}
+          label="PDF or text documents"
+          source="files"
+        />
+      );
+    }
+
+    return (
+      // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty state
+      <div
+        className="rounded-lg border p-8 text-center text-muted-foreground"
+        onContextMenu={handlers.handleBlankSpaceContextMenu}
+      >
+        No documents yet. Use Upload to add documents.
+      </div>
+    );
+  }
+
+  if (state.isTableView) {
+    return (
+      <DocumentsTableView
+        documents={state.documents}
+        canShare={canShare}
+        onDocumentClick={handlers.handleDocumentClick}
+        onContextMenu={handlers.handleContextMenu}
+        onBlankSpaceContextMenu={handlers.handleBlankSpaceContextMenu}
+        onDownload={handlers.handleDownload}
+        onShare={handlers.handleShare}
+      />
+    );
+  }
+
+  return (
+    <DocumentsListView
+      documents={state.documents}
+      canShare={canShare}
+      showDropzone={state.showDropzone}
+      uploading={state.uploading}
+      onDocumentClick={handlers.handleDocumentClick}
+      onContextMenu={handlers.handleContextMenu}
+      onBlankSpaceContextMenu={handlers.handleBlankSpaceContextMenu}
+      onDownload={handlers.handleDownload}
+      onShare={handlers.handleShare}
+      onFilesSelected={handlers.handleFilesSelected}
+    />
+  );
 }
 
 export function Documents({
@@ -89,6 +197,27 @@ export function Documents({
     onOpenAIChat
   );
 
+  const contentState: DocumentsContentState = {
+    isUnlocked,
+    error,
+    loading,
+    hasFetched,
+    uploading,
+    uploadProgress,
+    documents,
+    isTableView,
+    showDropzone
+  };
+
+  const contentHandlers: DocumentsContentHandlers = {
+    handleFilesSelected,
+    handleBlankSpaceContextMenu,
+    handleDocumentClick,
+    handleContextMenu,
+    handleDownload,
+    handleShare
+  };
+
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
@@ -118,64 +247,7 @@ export function Documents({
         </div>
       )}
 
-      {isUnlocked &&
-        !error &&
-        (loading && !hasFetched ? (
-          <div className="flex items-center justify-center gap-2 rounded-lg border p-8 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            Loading documents...
-          </div>
-        ) : uploading ? (
-          <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <div className="text-center">
-              <p className="font-medium">Uploading...</p>
-            </div>
-            <UploadProgress progress={uploadProgress} />
-          </div>
-        ) : documents.length === 0 && hasFetched ? (
-          !isTableView && showDropzone ? (
-            <Dropzone
-              onFilesSelected={handleFilesSelected}
-              accept="application/pdf,text/*"
-              multiple={true}
-              disabled={uploading}
-              label="PDF or text documents"
-              source="files"
-            />
-          ) : (
-            // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty state
-            <div
-              className="rounded-lg border p-8 text-center text-muted-foreground"
-              onContextMenu={handleBlankSpaceContextMenu}
-            >
-              No documents yet. Use Upload to add documents.
-            </div>
-          )
-        ) : isTableView ? (
-          <DocumentsTableView
-            documents={documents}
-            canShare={canShare}
-            onDocumentClick={handleDocumentClick}
-            onContextMenu={handleContextMenu}
-            onBlankSpaceContextMenu={handleBlankSpaceContextMenu}
-            onDownload={handleDownload}
-            onShare={handleShare}
-          />
-        ) : (
-          <DocumentsListView
-            documents={documents}
-            canShare={canShare}
-            showDropzone={showDropzone}
-            uploading={uploading}
-            onDocumentClick={handleDocumentClick}
-            onContextMenu={handleContextMenu}
-            onBlankSpaceContextMenu={handleBlankSpaceContextMenu}
-            onDownload={handleDownload}
-            onShare={handleShare}
-            onFilesSelected={handleFilesSelected}
-          />
-        ))}
+      {renderDocumentsContent(contentState, contentHandlers, canShare)}
 
       {contextMenu && (
         <ContextMenu

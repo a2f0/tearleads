@@ -1,5 +1,6 @@
 import { SETTING_STORAGE_KEYS } from '@tearleads/settings';
 import { Database, Loader2, Trash2 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
@@ -52,6 +53,89 @@ interface LocalStorageProps {
   showBackLink?: boolean;
   backTo?: string;
   backLabel?: string;
+}
+
+type DeleteDialogContent = {
+  title: string;
+  description: ReactNode;
+};
+
+function buildDeleteDialogContent(
+  deleteDialog: DeleteDialogState
+): DeleteDialogContent {
+  if (!deleteDialog) {
+    return { title: '', description: '' };
+  }
+
+  if (deleteDialog.type === 'item') {
+    return {
+      title: 'Delete Item',
+      description: (
+        <p>
+          Are you sure you want to delete <strong>{deleteDialog.key}</strong>?
+        </p>
+      )
+    };
+  }
+
+  return {
+    title: 'Clear All',
+    description: (
+      <p>
+        Are you sure you want to clear localStorage data? App preferences and
+        window layouts will be preserved to keep Tearleads running.
+      </p>
+    )
+  };
+}
+
+function removeEntriesByDialog(
+  deleteDialog: Exclude<DeleteDialogState, null>,
+  entries: StorageEntry[]
+) {
+  if (deleteDialog.type === 'item') {
+    localStorage.removeItem(deleteDialog.key);
+    return entries.filter((entry) => entry.key !== deleteDialog.key);
+  }
+
+  for (const entry of entries) {
+    if (!isProtectedKey(entry.key)) {
+      localStorage.removeItem(entry.key);
+    }
+  }
+  return entries.filter((entry) => isProtectedKey(entry.key));
+}
+
+function renderStorageBody(
+  loading: boolean,
+  entries: StorageEntry[],
+  onDelete: (key: string) => void
+) {
+  if (loading && entries.length === 0) {
+    return (
+      <div className="flex items-center justify-center p-8 text-muted-foreground">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+        Loading localStorage contents...
+      </div>
+    );
+  }
+
+  if (entries.length === 0) {
+    return (
+      <div className="p-8 text-center text-muted-foreground">
+        <Database className="mx-auto h-12 w-12 text-muted-foreground/50" />
+        <p className="mt-4">localStorage is empty.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {entries.map((entry) => (
+        <StorageRow key={entry.key} entry={entry} onDelete={onDelete} />
+      ))}
+    </div>
+  );
 }
 
 export function LocalStorage({
@@ -107,25 +191,9 @@ export function LocalStorage({
 
   const handleConfirmDelete = async () => {
     if (!deleteDialog) return;
-    const currentDialog = deleteDialog;
-    const entriesSnapshot = entries;
 
     try {
-      if (currentDialog.type === 'item') {
-        localStorage.removeItem(currentDialog.key);
-        setEntries((prev) =>
-          prev.filter((entry) => entry.key !== currentDialog.key)
-        );
-      } else {
-        for (const entry of entriesSnapshot) {
-          if (!isProtectedKey(entry.key)) {
-            localStorage.removeItem(entry.key);
-          }
-        }
-        setEntries(
-          entriesSnapshot.filter((entry) => isProtectedKey(entry.key))
-        );
-      }
+      setEntries(removeEntriesByDialog(deleteDialog, entries));
     } catch (err) {
       console.error('Failed to delete:', err);
       setError(err instanceof Error ? err.message : String(err));
@@ -133,32 +201,8 @@ export function LocalStorage({
     }
   };
 
-  const getDeleteDialogContent = () => {
-    if (!deleteDialog) return { title: '', description: '' };
-
-    if (deleteDialog.type === 'item') {
-      return {
-        title: 'Delete Item',
-        description: (
-          <p>
-            Are you sure you want to delete <strong>{deleteDialog.key}</strong>?
-          </p>
-        )
-      };
-    }
-    return {
-      title: 'Clear All',
-      description: (
-        <p>
-          Are you sure you want to clear localStorage data? App preferences and
-          window layouts will be preserved to keep Tearleads running.
-        </p>
-      )
-    };
-  };
-
   const totalSize = getTotalSize(entries);
-  const deleteDialogContent = getDeleteDialogContent();
+  const deleteDialogContent = buildDeleteDialogContent(deleteDialog);
 
   return (
     <div className="space-y-6">
@@ -201,27 +245,7 @@ export function LocalStorage({
       )}
 
       <div className="rounded-lg border">
-        {loading && entries.length === 0 ? (
-          <div className="flex items-center justify-center p-8 text-muted-foreground">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            Loading localStorage contents...
-          </div>
-        ) : entries.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">
-            <Database className="mx-auto h-12 w-12 text-muted-foreground/50" />
-            <p className="mt-4">localStorage is empty.</p>
-          </div>
-        ) : (
-          <div>
-            {entries.map((entry) => (
-              <StorageRow
-                key={entry.key}
-                entry={entry}
-                onDelete={handleDeleteClick}
-              />
-            ))}
-          </div>
-        )}
+        {renderStorageBody(loading, entries, handleDeleteClick)}
       </div>
 
       <ConfirmDialog
