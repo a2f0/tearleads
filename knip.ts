@@ -13,8 +13,8 @@ const config: KnipConfig = {
     'exports',
     'files',
     'nsExports',
-    'types',
     'nsTypes',
+    'types',
     'unlisted',
     'unresolved'
   ],
