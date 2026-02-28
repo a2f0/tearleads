@@ -33,8 +33,8 @@ module "rds" {
   instance_class    = "db.t4g.micro"
   allocated_storage = 20
 
-  # Faster teardown in pre-alpha: disable automated backups.
-  backup_retention_period      = 0
+  # Keep minimal backup retention in prod while still minimizing cost.
+  backup_retention_period      = 1
   performance_insights_enabled = false
 
   # Protection

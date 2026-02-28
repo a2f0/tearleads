@@ -187,30 +187,27 @@ run_step_with_retry() {
 
 echo "Starting production cluster bring-up..."
 
+apply_args=()
 if [[ -n "$TF_APPLY_AUTO_APPROVE" ]]; then
-  run_step "Apply prod ci-artifacts (ECR + CI bucket)" "$CI_SCRIPTS_DIR/apply.sh" "$TF_APPLY_AUTO_APPROVE"
-  run_step "Apply prod S3 (bucket + IAM credentials)" "$S3_SCRIPTS_DIR/apply.sh" "$TF_APPLY_AUTO_APPROVE"
-  run_step "Apply prod k8s infrastructure" "$K8S_SCRIPTS_DIR/apply01.sh" "$TF_APPLY_AUTO_APPROVE"
-  run_step "Apply prod RDS (private in k8s VPC)" "$RDS_SCRIPTS_DIR/apply.sh" "$TF_APPLY_AUTO_APPROVE"
-else
-  run_step "Apply prod ci-artifacts (ECR + CI bucket)" "$CI_SCRIPTS_DIR/apply.sh"
-  run_step "Apply prod S3 (bucket + IAM credentials)" "$S3_SCRIPTS_DIR/apply.sh"
-  run_step "Apply prod k8s infrastructure" "$K8S_SCRIPTS_DIR/apply01.sh"
-  run_step "Apply prod RDS (private in k8s VPC)" "$RDS_SCRIPTS_DIR/apply.sh"
+  apply_args+=("$TF_APPLY_AUTO_APPROVE")
 fi
+
+run_step "Apply prod ci-artifacts (ECR + CI bucket)" "$CI_SCRIPTS_DIR/apply.sh" "${apply_args[@]}"
+run_step "Apply prod S3 (bucket + IAM credentials)" "$S3_SCRIPTS_DIR/apply.sh" "${apply_args[@]}"
+run_step "Apply prod k8s infrastructure" "$K8S_SCRIPTS_DIR/apply01.sh" "${apply_args[@]}"
+run_step "Apply prod RDS (private in k8s VPC)" "$RDS_SCRIPTS_DIR/apply.sh" "${apply_args[@]}"
 run_step "Bootstrap prod k8s and deploy manifests" "$K8S_SCRIPTS_DIR/apply02.sh"
 
 if [[ "$SKIP_BUILD" != "true" ]]; then
   validate_aws_env
-  if [[ "$SKIP_WEBSITE" == "true" && -n "$IMAGE_TAG" ]]; then
-    run_step "Build and push prod containers" "$REPO_ROOT/scripts/buildContainers.sh" prod --no-website --tag "$IMAGE_TAG"
-  elif [[ "$SKIP_WEBSITE" == "true" ]]; then
-    run_step "Build and push prod containers" "$REPO_ROOT/scripts/buildContainers.sh" prod --no-website
-  elif [[ -n "$IMAGE_TAG" ]]; then
-    run_step "Build and push prod containers" "$REPO_ROOT/scripts/buildContainers.sh" prod --tag "$IMAGE_TAG"
-  else
-    run_step "Build and push prod containers" "$REPO_ROOT/scripts/buildContainers.sh" prod
+  build_args=("prod")
+  if [[ "$SKIP_WEBSITE" == "true" ]]; then
+    build_args+=("--no-website")
   fi
+  if [[ -n "$IMAGE_TAG" ]]; then
+    build_args+=("--tag" "$IMAGE_TAG")
+  fi
+  run_step "Build and push prod containers" "$REPO_ROOT/scripts/buildContainers.sh" "${build_args[@]}"
 fi
 
 if [[ "$SKIP_ROLLOUT" != "true" ]]; then

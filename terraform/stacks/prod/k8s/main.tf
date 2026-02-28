@@ -211,8 +211,7 @@ resource "aws_instance" "server" {
     runcmd:
       - systemctl restart ssh
       - if ! id -u ${var.server_username} >/dev/null 2>&1; then useradd -m -s /bin/bash -G sudo ${var.server_username}; fi
-      - cp -r /home/ubuntu/.ssh /home/${var.server_username}/.ssh || true
-      - chown -R ${var.server_username}:${var.server_username} /home/${var.server_username}/.ssh || true
+      - if [ -d /home/ubuntu/.ssh ]; then cp -r /home/ubuntu/.ssh /home/${var.server_username}/.ssh; chown -R ${var.server_username}:${var.server_username} /home/${var.server_username}/.ssh; fi
       - echo '${var.server_username} ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/90-${var.server_username}
       - chmod 440 /etc/sudoers.d/90-${var.server_username}
       - curl -sfL https://get.k3s.io -o /tmp/install-k3s.sh

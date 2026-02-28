@@ -64,6 +64,11 @@ output "vpc_id" {
   value       = aws_vpc.k8s.id
 }
 
+output "k8s_vpc_cidr" {
+  description = "CIDR block of the prod k8s VPC"
+  value       = aws_vpc.k8s.cidr_block
+}
+
 output "k8s_subnet_cidr" {
   description = "CIDR block of the k8s server subnet"
   value       = aws_subnet.public_a.cidr_block
