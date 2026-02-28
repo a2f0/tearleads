@@ -3,8 +3,9 @@
  */
 
 import { ALL_CONTACTS_ID } from '@tearleads/contacts';
-import { and, asc, eq, like, or, type SQL } from 'drizzle-orm';
+import { and, asc, eq, isNull, like, or, type SQL } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useOrg } from '@/contexts/OrgContext';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import {
@@ -37,6 +38,7 @@ export function useContactsData(
   parsedDataExists: boolean
 ): UseContactsDataResult {
   const { isUnlocked, currentInstanceId } = useDatabaseContext();
+  const { activeOrganizationId } = useOrg();
   const [contacts, setContacts] = useState<ContactInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +51,7 @@ export function useContactsData(
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const fetchedForInstanceRef = useRef<string | null>(null);
+  const previousOrgIdRef = useRef<string | null>(activeOrganizationId);
 
   // Debounce search query
   useEffect(() => {
@@ -81,6 +84,14 @@ export function useContactsData(
       searchInputRef.current?.focus();
     }
   }, [isUnlocked, parsedDataExists]);
+
+  // Refetch when active org changes
+  useEffect(() => {
+    if (previousOrgIdRef.current === activeOrganizationId) return;
+    previousOrgIdRef.current = activeOrganizationId;
+    setHasFetched(false);
+    setError(null);
+  }, [activeOrganizationId]);
 
   const fetchContacts = useCallback(
     async (search?: string) => {
@@ -138,7 +149,14 @@ export function useContactsData(
         }
 
         // Build where conditions
-        const baseCondition = eq(contactsTable.deleted, false);
+        const deletedCondition = eq(contactsTable.deleted, false);
+        const orgFilter = activeOrganizationId
+          ? or(
+              eq(contactsTable.organizationId, activeOrganizationId),
+              isNull(contactsTable.organizationId)
+            )
+          : isNull(contactsTable.organizationId);
+        const baseCondition = and(deletedCondition, orgFilter);
         let whereCondition: SQL | undefined;
 
         if (searchPattern) {
@@ -177,7 +195,7 @@ export function useContactsData(
         setLoading(false);
       }
     },
-    [isUnlocked, selectedGroupId]
+    [isUnlocked, selectedGroupId, activeOrganizationId]
   );
 
   // Fetch contacts on initial load, when search query changes, or when instance changes

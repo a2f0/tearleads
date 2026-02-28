@@ -1,7 +1,8 @@
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, or } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useParams } from 'react-router-dom';
+import { useOrg } from '@/contexts/OrgContext';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { runLocalWrite } from '@/db/localWrite';
@@ -14,52 +15,16 @@ import type {
   ContactInfo,
   ContactPhone,
   EmailFormData,
-  PhoneFormData
+  PhoneFormData,
+  UseContactDetailResult
 } from './types';
-
-interface UseContactDetailResult {
-  isUnlocked: boolean;
-  isLoading: boolean;
-  contact: ContactInfo | null;
-  emails: ContactEmail[];
-  phones: ContactPhone[];
-  loading: boolean;
-  error: string | null;
-  isEditing: boolean;
-  formData: ContactFormData | null;
-  emailsForm: EmailFormData[];
-  phonesForm: PhoneFormData[];
-  saving: boolean;
-  exporting: boolean;
-  t: (key: string) => string;
-  handleExport: () => Promise<void>;
-  handleEditClick: () => void;
-  handleCancel: () => void;
-  handleSave: () => Promise<void>;
-  handleFormChange: (field: keyof ContactFormData, value: string) => void;
-  handleEmailChange: (
-    emailId: string,
-    field: keyof EmailFormData,
-    value: string | boolean
-  ) => void;
-  handleEmailPrimaryChange: (emailId: string) => void;
-  handleDeleteEmail: (emailId: string) => void;
-  handleAddEmail: () => void;
-  handlePhoneChange: (
-    phoneId: string,
-    field: keyof PhoneFormData,
-    value: string | boolean
-  ) => void;
-  handlePhonePrimaryChange: (phoneId: string) => void;
-  handleDeletePhone: (phoneId: string) => void;
-  handleAddPhone: () => void;
-}
 
 export function useContactDetail(): UseContactDetailResult {
   const { t } = useTranslation('contacts');
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const { isUnlocked, isLoading } = useDatabaseContext();
+  const { activeOrganizationId } = useOrg();
   const [contact, setContact] = useState<ContactInfo | null>(null);
   const [emails, setEmails] = useState<ContactEmail[]>([]);
   const [phones, setPhones] = useState<ContactPhone[]>([]);
@@ -96,11 +61,20 @@ export function useContactDetail(): UseContactDetailResult {
     try {
       const db = getDatabase();
 
+      const orgFilter = activeOrganizationId
+        ? or(
+            eq(contacts.organizationId, activeOrganizationId),
+            isNull(contacts.organizationId)
+          )
+        : isNull(contacts.organizationId);
+
       const [contactResult, emailsResult, phonesResult] = await Promise.all([
         db
           .select()
           .from(contacts)
-          .where(and(eq(contacts.id, id), eq(contacts.deleted, false)))
+          .where(
+            and(eq(contacts.id, id), eq(contacts.deleted, false), orgFilter)
+          )
           .limit(1),
         db
           .select()
@@ -119,6 +93,9 @@ export function useContactDetail(): UseContactDetailResult {
 
       const foundContact = contactResult[0];
       if (!foundContact) {
+        setContact(null);
+        setEmails([]);
+        setPhones([]);
         setError(t('contactNotFound'));
         return;
       }
@@ -132,7 +109,7 @@ export function useContactDetail(): UseContactDetailResult {
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, id, t]);
+  }, [isUnlocked, id, t, activeOrganizationId]);
 
   useEffect(() => {
     if (isUnlocked && id) {
