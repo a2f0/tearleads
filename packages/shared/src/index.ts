@@ -26,6 +26,7 @@ export * from './account.js';
 export * from './admin.js';
 // AI conversations
 export * from './aiConversations.js';
+export * from './audioPlayback.js';
 export * from './auth.js';
 // Chat validation helpers
 export * from './chat.js';
