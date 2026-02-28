@@ -1,4 +1,4 @@
-import { useVirtualizer } from '@tanstack/react-virtual';
+import type { useVirtualizer } from '@tanstack/react-virtual';
 import { Loader2 } from 'lucide-react';
 import { Dropzone } from '@/components/ui/dropzone';
 import { UploadProgress } from '@/components/ui/UploadProgress';

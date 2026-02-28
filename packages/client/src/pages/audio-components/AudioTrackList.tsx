@@ -1,4 +1,4 @@
-import { useVirtualizer } from '@tanstack/react-virtual';
+import type { useVirtualizer } from '@tanstack/react-virtual';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import { Dropzone } from '@/components/ui/dropzone';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';

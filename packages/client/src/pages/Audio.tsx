@@ -20,10 +20,10 @@ import { useTypedTranslation } from '@/i18n';
 import { linkAudioToPlaylist } from '@/lib/linkAudioToPlaylist';
 import { detectPlatform } from '@/lib/utils';
 import {
-  renderAudioContent,
   type AudioContentHandlers,
   type AudioContentState,
-  type AudioListVirtualState
+  type AudioListVirtualState,
+  renderAudioContent
 } from './audio-components/AudioPageContent';
 import type { AudioPageProps } from './audio-components/types';
 import { ROW_HEIGHT_ESTIMATE } from './audio-components/types';
