@@ -16,8 +16,8 @@ module "rds" {
   vpc_id     = data.terraform_remote_state.k8s.outputs.vpc_id
   subnet_ids = data.terraform_remote_state.k8s.outputs.rds_subnet_ids
 
-  # Restrict RDS access to the prod k8s server security group.
-  allowed_cidr_blocks        = []
+  # Allow pod-network traffic from k3s and node-level traffic from the k8s SG.
+  allowed_cidr_blocks        = [data.terraform_remote_state.k8s.outputs.k8s_pod_cidr]
   allowed_security_group_ids = [data.terraform_remote_state.k8s.outputs.k8s_server_security_group_id]
   publicly_accessible        = false
 

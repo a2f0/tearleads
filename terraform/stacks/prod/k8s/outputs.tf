@@ -78,3 +78,8 @@ output "k8s_server_security_group_id" {
   description = "Security group ID for the prod k8s EC2 server"
   value       = aws_security_group.k8s_server.id
 }
+
+output "k8s_pod_cidr" {
+  description = "Pod CIDR used by k3s/flannel in the prod cluster"
+  value       = "10.42.0.0/16"
+}

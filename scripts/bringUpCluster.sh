@@ -138,14 +138,25 @@ run_step() {
   local step_start_ts
   local step_end_ts
   local step_elapsed
+  local step_status
 
   step_start_ts="$(date +%s)"
   echo ""
   echo "==> $label"
+  set +e
   "$@"
+  step_status=$?
+  set -e
   step_end_ts="$(date +%s)"
   step_elapsed=$((step_end_ts - step_start_ts))
-  echo "<== $label completed in $(format_duration "$step_elapsed")"
+
+  if [[ $step_status -eq 0 ]]; then
+    echo "<== $label completed in $(format_duration "$step_elapsed")"
+  else
+    echo "<== $label failed in $(format_duration "$step_elapsed") (exit: $step_status)"
+  fi
+
+  return $step_status
 }
 
 run_step_with_retry() {
