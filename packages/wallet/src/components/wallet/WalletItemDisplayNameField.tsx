@@ -37,7 +37,9 @@ export function WalletItemDisplayNameField({
 
   return (
     <div className="space-y-2 md:col-span-2">
-      <p className="font-medium text-sm">Display Name</p>
+      <label className="font-medium text-sm" htmlFor="wallet-display-name">
+        Display Name
+      </label>
       <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
         {automaticDisplayName || getWalletItemTypeLabel(form.itemType)}
       </div>
