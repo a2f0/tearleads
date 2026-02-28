@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-ROOT_DIR="$(cd -- "$(dirname -- "$0")/.." && pwd -P)"
+ROOT_DIR="$(cd -- "$(dirname -- "$0")/../.." && pwd -P)"
 API_ENV_LINK_PATH="${ROOT_DIR}/packages/api/.env"
 GARAGE_CREDENTIALS_FILE="${ROOT_DIR}/scripts/garage/.s3-credentials.env"
 
@@ -179,7 +179,7 @@ main() {
   VFS_BLOB_S3_ENDPOINT="${VFS_BLOB_S3_ENDPOINT:-http://127.0.0.1:3900}"
 
   if [ -z "${VFS_BLOB_S3_ACCESS_KEY_ID}" ] || [ -z "${VFS_BLOB_S3_SECRET_ACCESS_KEY}" ]; then
-    echo "Missing Garage S3 credentials. Run pnpm setupLocalGarage first." >&2
+    echo "Missing Garage S3 credentials. Run scripts/garage/setupLocalGarage.sh first." >&2
     exit 1
   fi
 
