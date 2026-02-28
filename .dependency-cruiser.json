@@ -81,7 +81,7 @@
         "pathNot": [
           "(?:\\.test|\\.spec)\\.(?:ts|tsx)$|/src/test/|/src/__tests__/",
           "^packages/admin/src/components/admin-window/(AdminWindow|ComplianceDocView|ComplianceIndex)\\.tsx$",
-          "^packages/bob-and-alice/src/harness/(actorHarness|apiScenarioHarness)\\.ts$",
+          "^packages/bob-and-alice/src/harness/apiScenarioHarness\\.ts$",
           "^packages/client/src/backups/backupsRuntime\\.ts$",
           "^packages/client/src/components/admin-windows/index\\.ts$",
           "^packages/client/src/components/backup-window/index\\.tsx$",
@@ -94,7 +94,6 @@
           "^packages/client/src/components/window-renderer/WindowRenderer\\.tsx$",
           "^packages/client/src/contexts/ClientVfsExplorerProvider\\.tsx$",
           "^packages/client/src/contexts/VfsOrchestratorContext\\.tsx$",
-          "^packages/client/src/db/localWrite\\.ts$",
           "^packages/client/src/db/vfsOrchestratorState\\.ts$",
           "^packages/client/src/lib/vfsItemSyncWriter\\.ts$",
           "^packages/client/src/main\\.tsx$",
