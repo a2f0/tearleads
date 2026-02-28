@@ -32,6 +32,12 @@ describe('compileVfsSharePolicies', () => {
     const calls: QueryCall[] = [];
     const query = vi.fn(async <T>(text: string, values?: unknown[]) => {
       calls.push({ text: normalizeSql(text), values });
+      if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') {
+        return { rows: [] as T[] };
+      }
+      if (text.includes('SELECT pg_advisory_xact_lock')) {
+        return { rows: [] as T[] };
+      }
       if (text.includes('FROM vfs_share_policies')) {
         return {
           rows: [
@@ -120,6 +126,15 @@ describe('compileVfsSharePolicies', () => {
     );
     expect(staleQuery?.text).toContain('AND policy_id = ANY($1::text[])');
     expect(staleQuery?.values).toEqual([['policy-a', 'policy-b']]);
+
+    const lockQuery = calls.find((call) =>
+      call.text.includes('SELECT pg_advisory_xact_lock')
+    );
+    expect(lockQuery?.values).toEqual([
+      'vfs_share_policy_compile:policy-a,policy-b'
+    ]);
+    expect(calls.filter((call) => call.text === 'BEGIN')).toHaveLength(1);
+    expect(calls.filter((call) => call.text === 'COMMIT')).toHaveLength(1);
   });
 
   it('supports deterministic dry-run compilation without writes', async () => {
@@ -208,6 +223,12 @@ describe('compileVfsSharePolicies', () => {
     const calls: QueryCall[] = [];
     const query = vi.fn(async <T>(text: string, values?: unknown[]) => {
       calls.push({ text: normalizeSql(text), values });
+      if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') {
+        return { rows: [] as T[] };
+      }
+      if (text.includes('SELECT pg_advisory_xact_lock')) {
+        return { rows: [] as T[] };
+      }
       if (text.includes('FROM vfs_share_policies')) {
         return {
           rows: [
@@ -295,9 +316,6 @@ describe('compileVfsSharePolicies', () => {
           ] as T[]
         };
       }
-      if (text.includes('DELETE FROM vfs_acl_entry_provenance')) {
-        return { rows: [] as T[] };
-      }
       if (text.includes('INSERT INTO vfs_acl_entry_provenance')) {
         return { rows: [] as T[] };
       }
@@ -323,6 +341,11 @@ describe('compileVfsSharePolicies', () => {
     expect(result.decisionsCount).toBe(2);
     expect(result.touchedAclEntryCount).toBe(2);
     expect(result.staleRevocationCount).toBe(1);
+    expect(calls.filter((call) => call.text === 'BEGIN')).toHaveLength(1);
+    expect(calls.filter((call) => call.text === 'COMMIT')).toHaveLength(1);
+    expect(
+      calls.filter((call) => call.text.includes('SELECT pg_advisory_xact_lock'))
+    ).toHaveLength(1);
     expect(
       calls.filter((call) => call.text.includes('INSERT INTO vfs_acl_entries'))
     ).toHaveLength(2);
@@ -339,5 +362,101 @@ describe('compileVfsSharePolicies', () => {
         call.text.includes('UPDATE vfs_acl_entry_provenance')
       )
     ).toHaveLength(1);
+    expect(
+      calls.filter((call) =>
+        call.text.includes('DELETE FROM vfs_acl_entry_provenance')
+      )
+    ).toHaveLength(0);
+  });
+
+  it('rolls back transactional compile failures', async () => {
+    const calls: QueryCall[] = [];
+    const query = vi.fn(async <T>(text: string, values?: unknown[]) => {
+      calls.push({ text: normalizeSql(text), values });
+      if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') {
+        return { rows: [] as T[] };
+      }
+      if (text.includes('SELECT pg_advisory_xact_lock')) {
+        return { rows: [] as T[] };
+      }
+      if (text.includes('FROM vfs_share_policies')) {
+        return {
+          rows: [
+            {
+              id: 'policy-a',
+              root_item_id: 'root-1',
+              status: 'active',
+              revoked_at: null,
+              expires_at: null
+            }
+          ] as T[]
+        };
+      }
+      if (text.includes('FROM vfs_share_policy_selectors')) {
+        return {
+          rows: [
+            {
+              id: 'selector-a',
+              policy_id: 'policy-a',
+              selector_kind: 'include',
+              match_mode: 'subtree',
+              anchor_item_id: null,
+              max_depth: null,
+              include_root: false,
+              object_types: null,
+              selector_order: 1
+            }
+          ] as T[]
+        };
+      }
+      if (text.includes('FROM vfs_share_policy_principals')) {
+        return {
+          rows: [
+            {
+              id: 'principal-a',
+              policy_id: 'policy-a',
+              principal_type: 'user',
+              principal_id: 'alice',
+              access_level: 'read'
+            }
+          ] as T[]
+        };
+      }
+      if (text.includes('FROM vfs_registry')) {
+        return {
+          rows: [
+            { id: 'root-1', object_type: 'contact' },
+            { id: 'item-1', object_type: 'walletItem' }
+          ] as T[]
+        };
+      }
+      if (text.includes('FROM vfs_links')) {
+        return {
+          rows: [{ parent_id: 'root-1', child_id: 'item-1' }] as T[]
+        };
+      }
+      if (text.includes('INSERT INTO vfs_acl_entries')) {
+        return { rows: [{ id: 'policy-compiled:user:alice:item-1' }] as T[] };
+      }
+      if (text.includes('INSERT INTO vfs_acl_entry_provenance')) {
+        throw new Error('provenance failure');
+      }
+      throw new Error(`Unexpected query in rollback test: ${text}`);
+    });
+
+    await expect(
+      compileVfsSharePolicies(
+        { query },
+        {
+          now: new Date('2026-02-28T17:00:00.000Z'),
+          compilerRunId: 'run-rollback',
+          actorId: 'compiler-user'
+        }
+      )
+    ).rejects.toThrow('provenance failure');
+
+    expect(calls.filter((call) => call.text === 'BEGIN')).toHaveLength(1);
+    expect(calls.filter((call) => call.text === 'ROLLBACK')).toHaveLength(1);
+    expect(calls.filter((call) => call.text === 'COMMIT')).toHaveLength(0);
   });
 });

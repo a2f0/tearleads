@@ -1,7 +1,7 @@
 import {
-  compileVfsSharePolicies,
   type CompileVfsSharePoliciesOptions,
-  type CompileVfsSharePoliciesResult
+  type CompileVfsSharePoliciesResult,
+  compileVfsSharePolicies
 } from './vfsSharePolicyCompiler.js';
 
 interface QueryResultRow<T> {
@@ -34,7 +34,10 @@ interface PolicyIdRow {
 function normalizeIds(ids: string[]): string[] {
   return ids
     .map((value) => value.trim())
-    .filter((value, index, array) => value.length > 0 && array.indexOf(value) === index)
+    .filter(
+      (value, index, array) =>
+        value.length > 0 && array.indexOf(value) === index
+    )
     .sort((left, right) => left.localeCompare(right));
 }
 
