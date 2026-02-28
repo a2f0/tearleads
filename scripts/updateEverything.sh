@@ -252,7 +252,7 @@ if [ "${SKIP_MAESTRO:-0}" -ne 1 ]; then
     fi
   done
   if [ -n "$MAESTRO_MISSING" ]; then
-    warn "missing Maestro prerequisites:${MAESTRO_MISSING}. Skipping Maestro tests."
+    warn "missing Maestro prerequisites:${MAESTRO_MISSING# }. Skipping Maestro tests."
     append_warning "maestro: skipped (missing:${MAESTRO_MISSING# })"
     SKIP_MAESTRO=1
   fi
