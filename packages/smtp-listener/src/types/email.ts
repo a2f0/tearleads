@@ -1,5 +1,3 @@
-import type { InboundMessageIngestor } from './inboundContracts.js';
-
 export interface EmailAddress {
   address: string;
   name?: string;
@@ -29,6 +27,8 @@ export interface SmtpListenerConfig {
    * - `legacy-local-part`: accepts any non-empty local-part.
    */
   recipientAddressing?: 'uuid-local-part' | 'legacy-local-part';
-  inboundIngestor?: InboundMessageIngestor;
+  inboundIngestor?: {
+    ingest(input: { email: StoredEmail; userIds: string[] }): Promise<void>;
+  };
   onEmail?: (email: StoredEmail) => void | Promise<void>;
 }

@@ -1,0 +1,67 @@
+{
+  "$schema": "https://unpkg.com/dependency-cruiser/config.schema.json",
+  "forbidden": [
+    {
+      "name": "no-circular",
+      "severity": "error",
+      "comment": "Disallow circular dependencies in package source trees.",
+      "from": {
+        "path": "^packages/[^/]+/src"
+      },
+      "to": {
+        "circular": true
+      }
+    },
+    {
+      "name": "no-api-imports",
+      "severity": "error",
+      "comment": "Packages must not depend on api app internals.",
+      "from": {
+        "path": "^packages/(?!api/)[^/]+/src"
+      },
+      "to": {
+        "path": "^packages/api/src"
+      }
+    },
+    {
+      "name": "no-client-imports",
+      "severity": "warn",
+      "comment": "Shared code should not depend on client app internals.",
+      "from": {
+        "path": "^packages/(?!client/)[^/]+/src"
+      },
+      "to": {
+        "path": "^packages/client/src"
+      }
+    }
+  ],
+  "options": {
+    "tsConfig": {
+      "fileName": "tsconfig.json"
+    },
+    "tsPreCompilationDeps": true,
+    "doNotFollow": {
+      "path": "(^|/)node_modules/"
+    },
+    "exclude": {
+      "path": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+    },
+    "enhancedResolveOptions": {
+      "extensions": [
+        ".ts",
+        ".tsx",
+        ".mts",
+        ".js",
+        ".jsx",
+        ".mjs",
+        ".cjs",
+        ".json"
+      ]
+    },
+    "reporterOptions": {
+      "dot": {
+        "collapsePattern": "^packages/[^/]+/src"
+      }
+    }
+  }
+}

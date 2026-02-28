@@ -104,6 +104,7 @@ run_step "checkComponentComplexity" ./scripts/checks/checkComponentComplexity.ts
 run_step "checkClientBoundary" ./scripts/checks/checkClientBoundary.sh --from-upstream
 run_step "checkApiBoundary" ./scripts/checks/checkApiBoundary.sh --from-upstream
 run_step "checkPreenEcosystem" ./scripts/checks/preen/checkPreenEcosystem.ts --strict
+run_step "checkDependencyCruiser" ./scripts/checks/checkDependencyCruiser.sh
 run_step "checkCircularImports" ./scripts/checks/checkCircularImports.ts
 run_step "checkTailwindSources" ./scripts/checks/checkTailwindSources.ts
 run_step "lintKnip" pnpm lint:knip

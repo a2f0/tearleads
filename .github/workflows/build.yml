@@ -265,6 +265,9 @@ jobs:
       - name: Check for circular imports
         run: ./scripts/checks/checkCircularImports.ts
 
+      - name: Check dependency graph constraints
+        run: ./scripts/checks/checkDependencyCruiser.sh
+
       - name: Cache SQLite WASM
         uses: actions/cache@v4
         with:

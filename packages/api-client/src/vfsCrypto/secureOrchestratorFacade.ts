@@ -1,6 +1,11 @@
 import type { QueueVfsCrdtLocalOperationInput } from '@tearleads/vfs-sync/vfs';
-import type { VfsBlobRelationKind } from '../vfsBlobNetworkFlusher';
-import type { VfsWriteOrchestrator } from '../vfsWriteOrchestrator';
+import type {
+  VfsBlobAttachRequest,
+  VfsBlobChunkUploadRequest,
+  VfsBlobManifestCommitRequest,
+  VfsBlobRelationKind,
+  VfsBlobStageRequest
+} from '../vfsBlobNetworkFlusher';
 import type {
   QueueEncryptedCrdtOpAndPersistInput,
   StageAttachEncryptedBlobAndPersistInput,
@@ -26,14 +31,17 @@ export interface MapEncryptedCrdtOpToLocalOperationInput {
   encrypted: Awaited<ReturnType<VfsSecureWritePipeline['encryptCrdtOp']>>;
 }
 
-type SecureOrchestratorFacadeWriteOrchestrator = Pick<
-  VfsWriteOrchestrator,
-  | 'queueCrdtLocalOperationAndPersist'
-  | 'queueBlobStageAndPersist'
-  | 'queueBlobChunkAndPersist'
-  | 'queueBlobManifestCommitAndPersist'
-  | 'queueBlobAttachAndPersist'
->;
+interface SecureOrchestratorFacadeWriteOrchestrator {
+  queueCrdtLocalOperationAndPersist(
+    input: QueueVfsCrdtLocalOperationInput
+  ): Promise<unknown>;
+  queueBlobStageAndPersist(input: VfsBlobStageRequest): Promise<unknown>;
+  queueBlobChunkAndPersist(input: VfsBlobChunkUploadRequest): Promise<unknown>;
+  queueBlobManifestCommitAndPersist(
+    input: VfsBlobManifestCommitRequest
+  ): Promise<unknown>;
+  queueBlobAttachAndPersist(input: VfsBlobAttachRequest): Promise<unknown>;
+}
 
 export function createVfsSecureOrchestratorFacade(
   writeOrchestrator: SecureOrchestratorFacadeWriteOrchestrator,
