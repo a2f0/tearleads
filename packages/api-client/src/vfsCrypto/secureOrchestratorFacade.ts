@@ -39,6 +39,7 @@ export interface MapEncryptedCrdtOpToLocalOperationInput {
 }
 
 interface SecureOrchestratorFacadeWriteOrchestrator {
+  // Keep these method signatures aligned with VfsWriteOrchestrator.
   queueCrdtLocalOperationAndPersist(
     input: QueueVfsCrdtLocalOperationInput
   ): Promise<VfsCrdtOperation>;

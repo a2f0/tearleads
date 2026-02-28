@@ -6,7 +6,8 @@
       "severity": "error",
       "comment": "Disallow circular dependencies in package source trees.",
       "from": {
-        "path": "^packages/[^/]+/src"
+        "path": "^packages/[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
       },
       "to": {
         "circular": true
@@ -17,7 +18,8 @@
       "severity": "error",
       "comment": "Packages must not depend on api app internals.",
       "from": {
-        "path": "^packages/(?!api/)[^/]+/src"
+        "path": "^packages/(?!api/)[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
       },
       "to": {
         "path": "^packages/api/src"
@@ -28,7 +30,8 @@
       "severity": "warn",
       "comment": "Shared code should not depend on client app internals.",
       "from": {
-        "path": "^packages/(?!client/)[^/]+/src"
+        "path": "^packages/(?!client/)[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
       },
       "to": {
         "path": "^packages/client/src"
@@ -39,7 +42,8 @@
       "severity": "warn",
       "comment": "Client code should import other packages via package exports, not relative paths into another package's src tree.",
       "from": {
-        "path": "^packages/client/src"
+        "path": "^packages/client/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
       },
       "to": {
         "path": "^packages/(?!client/)[^/]+/src",
@@ -67,10 +71,7 @@
     },
     "tsPreCompilationDeps": true,
     "doNotFollow": {
-      "path": "(^|/)node_modules/"
-    },
-    "exclude": {
-      "path": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      "path": "(^|/)node_modules/|(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
     },
     "enhancedResolveOptions": {
       "extensions": [
