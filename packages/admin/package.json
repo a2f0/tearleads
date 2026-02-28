@@ -29,14 +29,15 @@
     "react-router-dom": "7.13.1"
   },
   "dependencies": {
+    "@tanstack/react-virtual": "3.13.19",
     "@tearleads/backups": "workspace:*",
     "@tearleads/compliance": "workspace:*",
     "@tearleads/shared": "workspace:*",
     "lucide-react": "0.575.0",
+    "react-i18next": "16.5.4",
     "sonner": "2.0.7"
   },
   "devDependencies": {
-    "@tanstack/react-virtual": "3.13.19",
     "@tearleads/ui": "workspace:*",
     "@tearleads/window-manager": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",
@@ -52,7 +53,6 @@
     "jsdom": "28.1.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "react-i18next": "16.5.4",
     "react-router-dom": "7.13.1",
     "typescript": "5.9.3",
     "vitest": "4.0.18",
