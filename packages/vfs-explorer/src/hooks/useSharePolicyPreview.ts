@@ -3,7 +3,7 @@ import type {
   VfsSharePolicyPreviewSummary,
   VfsShareType
 } from '@tearleads/shared';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 
 interface UseSharePolicyPreviewOptions {
@@ -49,6 +49,7 @@ export function useSharePolicyPreview(
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const latestRequestIdRef = useRef(0);
 
   const limit = options.limit ?? 100;
   const search = options.search?.trim() ?? '';
@@ -59,6 +60,8 @@ export function useSharePolicyPreview(
         return;
       }
 
+      const requestId = latestRequestIdRef.current + 1;
+      latestRequestIdRef.current = requestId;
       setLoading(true);
       setError(null);
       try {
@@ -72,16 +75,24 @@ export function useSharePolicyPreview(
           q: search.length > 0 ? search : null,
           objectType: options.objectType ?? null
         });
+        if (requestId !== latestRequestIdRef.current) {
+          return;
+        }
         setNodes((prev) =>
           append ? [...prev, ...response.nodes] : response.nodes
         );
         setSummary(response.summary);
         setNextCursor(response.nextCursor);
       } catch (err) {
+        if (requestId !== latestRequestIdRef.current) {
+          return;
+        }
         console.error('Failed to fetch share policy preview:', err);
         setError('Failed to load preview');
       } finally {
-        setLoading(false);
+        if (requestId === latestRequestIdRef.current) {
+          setLoading(false);
+        }
       }
     },
     [
@@ -113,6 +124,7 @@ export function useSharePolicyPreview(
 
   useEffect(() => {
     if (!options.enabled || !options.principalId || !previewApi) {
+      latestRequestIdRef.current += 1;
       setNodes([]);
       setSummary(EMPTY_SUMMARY);
       setNextCursor(null);

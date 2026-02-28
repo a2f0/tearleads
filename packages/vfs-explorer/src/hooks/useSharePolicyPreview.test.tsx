@@ -3,6 +3,19 @@ import { describe, expect, it, vi } from 'vitest';
 import { createWrapper } from '../test/testUtils';
 import { useSharePolicyPreview } from './useSharePolicyPreview';
 
+interface Deferred<T> {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+}
+
+function createDeferred<T>(): Deferred<T> {
+  let resolve: (value: T) => void = () => {};
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 describe('useSharePolicyPreview', () => {
   it('fetches preview nodes for selected principal', async () => {
     const getSharePolicyPreview = vi.fn(async () => ({
@@ -152,6 +165,150 @@ describe('useSharePolicyPreview', () => {
       q: null,
       objectType: null
     });
+  });
+
+  it('ignores stale responses after principal changes', async () => {
+    const first = createDeferred<{
+      nodes: Array<{
+        itemId: string;
+        objectType: string;
+        depth: number;
+        path: string;
+        state: 'direct';
+        effectiveAccessLevel: 'read';
+        sourcePolicyIds: string[];
+      }>;
+      summary: {
+        totalMatchingNodes: number;
+        returnedNodes: number;
+        directCount: number;
+        derivedCount: number;
+        deniedCount: number;
+        includedCount: number;
+        excludedCount: number;
+      };
+      nextCursor: null;
+    }>();
+    const second = createDeferred<{
+      nodes: Array<{
+        itemId: string;
+        objectType: string;
+        depth: number;
+        path: string;
+        state: 'direct';
+        effectiveAccessLevel: 'read';
+        sourcePolicyIds: string[];
+      }>;
+      summary: {
+        totalMatchingNodes: number;
+        returnedNodes: number;
+        directCount: number;
+        derivedCount: number;
+        deniedCount: number;
+        includedCount: number;
+        excludedCount: number;
+      };
+      nextCursor: null;
+    }>();
+
+    const getSharePolicyPreview = vi
+      .fn()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise);
+    const wrapper = createWrapper({
+      vfsShareApi: {
+        getSharePolicyPreview
+      }
+    });
+
+    const { result, rerender } = renderHook(
+      ({ principalId }: { principalId: string }) =>
+        useSharePolicyPreview({
+          rootItemId: 'root-1',
+          principalType: 'user',
+          principalId,
+          enabled: true
+        }),
+      {
+        wrapper,
+        initialProps: { principalId: 'target-1' }
+      }
+    );
+
+    await waitFor(() => {
+      expect(getSharePolicyPreview).toHaveBeenCalledTimes(1);
+    });
+
+    rerender({ principalId: 'target-2' });
+
+    await waitFor(() => {
+      expect(getSharePolicyPreview).toHaveBeenCalledTimes(2);
+    });
+
+    await act(async () => {
+      second.resolve({
+        nodes: [
+          {
+            itemId: 'root-2',
+            objectType: 'contact',
+            depth: 0,
+            path: 'root-2',
+            state: 'direct',
+            effectiveAccessLevel: 'read',
+            sourcePolicyIds: []
+          }
+        ],
+        summary: {
+          totalMatchingNodes: 1,
+          returnedNodes: 1,
+          directCount: 1,
+          derivedCount: 0,
+          deniedCount: 0,
+          includedCount: 1,
+          excludedCount: 0
+        },
+        nextCursor: null
+      });
+      await second.promise;
+    });
+
+    await waitFor(() => {
+      expect(result.current.nodes).toHaveLength(1);
+      expect(result.current.nodes[0]?.itemId).toBe('root-2');
+    });
+
+    await act(async () => {
+      first.resolve({
+        nodes: [
+          {
+            itemId: 'root-1',
+            objectType: 'contact',
+            depth: 0,
+            path: 'root-1',
+            state: 'direct',
+            effectiveAccessLevel: 'read',
+            sourcePolicyIds: []
+          }
+        ],
+        summary: {
+          totalMatchingNodes: 1,
+          returnedNodes: 1,
+          directCount: 1,
+          derivedCount: 0,
+          deniedCount: 0,
+          includedCount: 1,
+          excludedCount: 0
+        },
+        nextCursor: null
+      });
+      await first.promise;
+    });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+    expect(result.current.nodes).toHaveLength(1);
+    expect(result.current.nodes[0]?.itemId).toBe('root-2');
   });
 
   it('walks a deep paginated tree deterministically', async () => {
