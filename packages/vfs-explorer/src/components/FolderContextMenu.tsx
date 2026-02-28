@@ -49,6 +49,8 @@ export function FolderContextMenu({
   const isFolder = folder.objectType === 'folder';
   const isRootFolder = isFolder && folder.id === VFS_ROOT_ID;
   const canManageFolder = isFolder && !isRootFolder;
+  const canShareContainer =
+    (isFolder || folder.objectType === 'contact') && !isRootFolder;
   const createActionHandler = (action: () => void) => () => {
     action();
     onClose();
@@ -72,7 +74,7 @@ export function FolderContextMenu({
           Rename
         </WindowContextMenuItem>
       )}
-      {canManageFolder && vfsShareApi && onShare && (
+      {canShareContainer && vfsShareApi && onShare && (
         <WindowContextMenuItem
           icon={<Share2 className="h-4 w-4" />}
           onClick={createActionHandler(() => onShare(folder))}

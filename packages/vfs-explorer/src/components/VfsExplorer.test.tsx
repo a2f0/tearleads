@@ -402,5 +402,47 @@ describe('VfsExplorer', () => {
         expect(mockCopyVfsItem.copyItem).not.toHaveBeenCalled();
       });
     });
+
+    it('does not paste a contact container into itself', async () => {
+      mockClipboardState.items = [
+        { id: 'contact-self', objectType: 'contact', name: 'Self Contact' }
+      ];
+      mockClipboardState.operation = 'copy';
+
+      vi.mocked(useVfsFolders).mockReturnValue({
+        folders: [
+          {
+            id: 'contact-self',
+            objectType: 'contact',
+            name: 'Self Contact',
+            parentId: null,
+            childCount: 0,
+            children: []
+          }
+        ],
+        loading: false,
+        error: null,
+        hasFetched: true,
+        refetch: vi.fn()
+      });
+
+      vi.mocked(useVfsFolderContents).mockReturnValue({
+        items: [],
+        loading: false,
+        error: null,
+        hasFetched: true,
+        refetch: vi.fn()
+      });
+
+      render(<VfsExplorer selectedFolderId="contact-self" />);
+
+      const emptyState = screen.getByText('This folder is empty');
+      fireEvent.contextMenu(emptyState);
+      fireEvent.click(screen.getByText('Paste'));
+
+      await waitFor(() => {
+        expect(mockCopyVfsItem.copyItem).not.toHaveBeenCalled();
+      });
+    });
   });
 });

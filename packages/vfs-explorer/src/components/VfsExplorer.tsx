@@ -144,7 +144,7 @@ function VfsExplorerInner({
   const handleFolderShare = useCallback((folder: VfsFolderNode) => {
     setSharingItem({
       id: folder.id,
-      objectType: 'folder',
+      objectType: folder.objectType,
       name: folder.name,
       createdAt: new Date()
     });
@@ -190,7 +190,7 @@ function VfsExplorerInner({
             }
           ];
       const movableItems = draggedItems.filter(
-        (item) => !(item.objectType === 'folder' && item.id === targetFolderId)
+        (item) => item.id !== targetFolderId
       );
       if (movableItems.length === 0) return;
 
@@ -228,8 +228,7 @@ function VfsExplorerInner({
 
       try {
         const itemsToPaste = clipboard.items.filter(
-          (item) =>
-            !(item.objectType === 'folder' && item.id === targetFolderId)
+          (item) => item.id !== targetFolderId
         );
 
         if (itemsToPaste.length === 0) {

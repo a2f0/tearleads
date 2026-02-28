@@ -21,7 +21,14 @@ export interface UseVfsFoldersResult {
   refetch: () => Promise<void>;
 }
 
-const TREE_CONTAINER_TYPES = ['folder', 'playlist', 'emailFolder'] as const;
+const TREE_CONTAINER_TYPES = [
+  'folder',
+  'playlist',
+  'emailFolder',
+  'contact'
+] as const;
+
+const TREE_ROOT_CONTAINER_TYPES = ['folder', 'contact'] as const;
 
 export function useVfsFolders(): UseVfsFoldersResult {
   const { databaseState, getDatabase } = useVfsExplorerContext();
@@ -45,6 +52,7 @@ export function useVfsFolders(): UseVfsFoldersResult {
         CASE ${vfsRegistry.objectType}
           WHEN 'playlist' THEN 'Unnamed Playlist'
           WHEN 'emailFolder' THEN 'Unnamed Folder'
+          WHEN 'contact' THEN 'Unnamed Contact'
           ELSE 'Unnamed Folder'
         END
       )`;
@@ -121,8 +129,12 @@ export function useVfsFolders(): UseVfsFoldersResult {
             parent.children?.push(node);
           }
         } else {
-          // Only folder containers are eligible as top-level tree roots.
-          if (node.objectType === 'folder') {
+          // Contacts and folders can both act as top-level tree roots.
+          if (
+            TREE_ROOT_CONTAINER_TYPES.includes(
+              node.objectType as (typeof TREE_ROOT_CONTAINER_TYPES)[number]
+            )
+          ) {
             rootFolders.push(node);
           }
         }

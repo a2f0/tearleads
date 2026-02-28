@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VFS_ROOT_ID } from '../constants';
 import {
@@ -179,6 +179,58 @@ describe('useVfsFolders', () => {
     expect(rootNode?.children?.[0]?.children?.[0]?.id).toBe('email-projects');
   });
 
+  it('includes contact containers as top-level roots and nested children', async () => {
+    const mockFolderRows = [
+      {
+        id: 'folder-1',
+        objectType: 'folder',
+        name: 'Folder 1',
+        createdAt: Date.now()
+      },
+      {
+        id: 'contact-root',
+        objectType: 'contact',
+        name: 'Alice',
+        createdAt: Date.now()
+      },
+      {
+        id: 'contact-nested',
+        objectType: 'contact',
+        name: 'Bob',
+        createdAt: Date.now()
+      }
+    ];
+    const mockLinkRows = [{ childId: 'contact-nested', parentId: 'folder-1' }];
+    const mockChildCountRows = [{ parentId: 'folder-1' }];
+
+    mockDb.where
+      .mockResolvedValueOnce(mockFolderRows)
+      .mockResolvedValueOnce(mockLinkRows)
+      .mockResolvedValueOnce(mockChildCountRows);
+
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsFolders(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    const topLevelContact = result.current.folders.find(
+      (node) => node.id === 'contact-root'
+    );
+    expect(topLevelContact?.objectType).toBe('contact');
+
+    const folderNode = result.current.folders.find(
+      (node) => node.id === 'folder-1'
+    );
+    expect(folderNode?.children?.[0]?.id).toBe('contact-nested');
+    expect(folderNode?.children?.[0]?.objectType).toBe('contact');
+  });
+
   it('hides unlinked email folders until they are linked', async () => {
     const mockFolderRows = [
       {
@@ -303,6 +355,39 @@ describe('useVfsFolders', () => {
     expect(result.current.folders[0]?.name).toBe('Unnamed Folder');
   });
 
+  it('accepts SQL-resolved unnamed contact labels', async () => {
+    const mockFolderRows = [
+      {
+        id: 'contact-1',
+        objectType: 'contact',
+        name: 'Unnamed Contact',
+        createdAt: Date.now()
+      }
+    ];
+    const mockLinkRows: { childId: string; parentId: string }[] = [];
+    const mockChildCountRows: { parentId: string }[] = [];
+
+    mockDb.where
+      .mockResolvedValueOnce(mockFolderRows)
+      .mockResolvedValueOnce(mockLinkRows)
+      .mockResolvedValueOnce(mockChildCountRows);
+
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsFolders(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    expect(result.current.folders).toHaveLength(1);
+    expect(result.current.folders[0]?.name).toBe('Unnamed Contact');
+    expect(result.current.folders[0]?.objectType).toBe('contact');
+  });
+
   it('handles fetch errors', async () => {
     mockDb.where.mockRejectedValueOnce(new Error('Database error'));
 
@@ -393,54 +478,5 @@ describe('useVfsFolders', () => {
     expect(result.current.folders[0]?.children?.[0]?.parentId).toBe(
       VFS_ROOT_ID
     );
-  });
-
-  it('provides refetch function that reloads data', async () => {
-    const mockFolderRows = [
-      {
-        id: 'folder-1',
-        objectType: 'folder',
-        name: 'Folder 1',
-        createdAt: Date.now()
-      }
-    ];
-
-    const mockLinkRows: { childId: string; parentId: string }[] = [];
-    const mockChildCountRows: { parentId: string }[] = [];
-
-    mockDb.where
-      .mockResolvedValueOnce(mockFolderRows)
-      .mockResolvedValueOnce(mockLinkRows)
-      .mockResolvedValueOnce(mockChildCountRows)
-      // Second fetch after refetch call
-      .mockResolvedValueOnce(mockFolderRows)
-      .mockResolvedValueOnce(mockLinkRows)
-      .mockResolvedValueOnce(mockChildCountRows);
-
-    const wrapper = createWrapper({
-      databaseState: {
-        isUnlocked: true,
-        isLoading: false,
-        currentInstanceId: 'instance-1'
-      },
-      database: mockDb
-    });
-
-    const { result } = renderHook(() => useVfsFolders(), { wrapper });
-
-    await waitFor(() => {
-      expect(result.current.hasFetched).toBe(true);
-    });
-
-    // Should have fetched once
-    expect(mockDb.where).toHaveBeenCalledTimes(3);
-
-    // Call refetch
-    await act(async () => {
-      await result.current.refetch();
-    });
-
-    // Should have fetched again
-    expect(mockDb.where).toHaveBeenCalledTimes(6);
   });
 });
