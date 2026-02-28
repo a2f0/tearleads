@@ -1,7 +1,8 @@
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, or } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useParams } from 'react-router-dom';
+import { useOrg } from '@/contexts/OrgContext';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { runLocalWrite } from '@/db/localWrite';
@@ -60,6 +61,7 @@ export function useContactDetail(): UseContactDetailResult {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const { isUnlocked, isLoading } = useDatabaseContext();
+  const { activeOrganizationId } = useOrg();
   const [contact, setContact] = useState<ContactInfo | null>(null);
   const [emails, setEmails] = useState<ContactEmail[]>([]);
   const [phones, setPhones] = useState<ContactPhone[]>([]);
@@ -96,11 +98,20 @@ export function useContactDetail(): UseContactDetailResult {
     try {
       const db = getDatabase();
 
+      const orgFilter = activeOrganizationId
+        ? or(
+            eq(contacts.organizationId, activeOrganizationId),
+            isNull(contacts.organizationId)
+          )
+        : undefined;
+
       const [contactResult, emailsResult, phonesResult] = await Promise.all([
         db
           .select()
           .from(contacts)
-          .where(and(eq(contacts.id, id), eq(contacts.deleted, false)))
+          .where(
+            and(eq(contacts.id, id), eq(contacts.deleted, false), orgFilter)
+          )
           .limit(1),
         db
           .select()
@@ -132,7 +143,7 @@ export function useContactDetail(): UseContactDetailResult {
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, id, t]);
+  }, [isUnlocked, id, t, activeOrganizationId]);
 
   useEffect(() => {
     if (isUnlocked && id) {
