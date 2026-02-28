@@ -39,6 +39,67 @@ describe('VFS Shares routes (GET/share policy preview)', () => {
     });
   });
 
+  it('returns 400 for unsupported principalType values', async () => {
+    const authHeader = await createAuthHeader();
+
+    const response = await request(app)
+      .get(
+        '/v1/vfs/share-policies/preview?rootItemId=root-1&principalType=device&principalId=target-1'
+      )
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: 'principalType must be user, group, or organization'
+    });
+  });
+
+  it('returns 400 when limit is not a positive integer', async () => {
+    const authHeader = await createAuthHeader();
+
+    const response = await request(app)
+      .get(
+        '/v1/vfs/share-policies/preview?rootItemId=root-1&principalType=user&principalId=target-1&limit=0'
+      )
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: 'limit must be a positive integer'
+    });
+  });
+
+  it('returns 400 when maxDepth is negative', async () => {
+    const authHeader = await createAuthHeader();
+
+    const response = await request(app)
+      .get(
+        '/v1/vfs/share-policies/preview?rootItemId=root-1&principalType=user&principalId=target-1&maxDepth=-1'
+      )
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: 'maxDepth must be a non-negative integer'
+    });
+  });
+
+  it('returns 404 when the requested root item does not exist', async () => {
+    const authHeader = await createAuthHeader();
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+
+    const response = await request(app)
+      .get(
+        '/v1/vfs/share-policies/preview?rootItemId=missing-root&principalType=user&principalId=target-1'
+      )
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({
+      error: 'Root item not found'
+    });
+  });
+
   it('returns 403 when user is not the root item owner', async () => {
     const authHeader = await createAuthHeader();
     mockQuery.mockResolvedValueOnce({
@@ -159,6 +220,40 @@ describe('VFS Shares routes (GET/share policy preview)', () => {
 
     const treeQueryValues = mockQuery.mock.calls[1]?.[1];
     expect(treeQueryValues?.[3]).toEqual(['contact', 'walletItem']);
+  });
+
+  it('clamps large limits and forwards maxDepth to preview traversal', async () => {
+    const authHeader = await createAuthHeader();
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ owner_id: 'user-1', object_type: 'contact' }]
+    });
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    mockQuery.mockResolvedValueOnce({ rows: [{ total_count: '0' }] });
+
+    const response = await request(app)
+      .get(
+        '/v1/vfs/share-policies/preview?rootItemId=root-1&principalType=user&principalId=target-1&limit=999&maxDepth=2'
+      )
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      nodes: [],
+      nextCursor: null,
+      summary: {
+        totalMatchingNodes: 0,
+        returnedNodes: 0,
+        directCount: 0,
+        derivedCount: 0,
+        deniedCount: 0,
+        includedCount: 0,
+        excludedCount: 0
+      }
+    });
+
+    const treeQueryValues = mockQuery.mock.calls[1]?.[1];
+    expect(treeQueryValues?.[1]).toBe(2);
+    expect(treeQueryValues?.[5]).toBe(501);
   });
 
   it('returns 500 on preview query errors', async () => {

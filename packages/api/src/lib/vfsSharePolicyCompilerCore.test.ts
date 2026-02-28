@@ -366,4 +366,72 @@ describe('compileSharePolicyCore', () => {
       }
     ]);
   });
+
+  it('applies one selector to multiple principal types on the same policy', () => {
+    const policies = [activePolicy('policy-a', 'root-1')];
+    const selectors: SharePolicySelectorDefinition[] = [
+      {
+        id: 'sel-root',
+        policyId: 'policy-a',
+        selectorKind: 'include',
+        matchMode: 'exact',
+        anchorItemId: null,
+        maxDepth: null,
+        includeRoot: true,
+        objectTypes: [' ', 'contact'],
+        selectorOrder: 1
+      }
+    ];
+    const principals: SharePolicyPrincipalDefinition[] = [
+      {
+        id: 'principal-user',
+        policyId: 'policy-a',
+        principalType: 'user',
+        principalId: 'alice',
+        accessLevel: 'read'
+      },
+      {
+        id: 'principal-group',
+        policyId: 'policy-a',
+        principalType: 'group',
+        principalId: 'group-1',
+        accessLevel: 'write'
+      }
+    ];
+    const registryItems: RegistryItemType[] = [
+      { id: 'root-1', objectType: 'contact' }
+    ];
+
+    const result = compileSharePolicyCore({
+      policies,
+      selectors,
+      principals,
+      registryItems,
+      links: [],
+      now: NOW
+    });
+
+    expect(result.decisions).toEqual([
+      {
+        itemId: 'root-1',
+        principalType: 'group',
+        principalId: 'group-1',
+        decision: 'allow',
+        accessLevel: 'write',
+        policyId: 'policy-a',
+        selectorId: 'sel-root',
+        precedence: 1
+      },
+      {
+        itemId: 'root-1',
+        principalType: 'user',
+        principalId: 'alice',
+        decision: 'allow',
+        accessLevel: 'read',
+        policyId: 'policy-a',
+        selectorId: 'sel-root',
+        precedence: 1
+      }
+    ]);
+  });
 });

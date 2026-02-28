@@ -34,6 +34,26 @@ describe('resolveImpactedSharePolicyIds', () => {
     expect(calls).toHaveLength(0);
   });
 
+  it('returns empty when metadata trigger normalizes to no item ids', async () => {
+    const calls: QueryCall[] = [];
+    const query = async <T>(text: string, values?: unknown[]) => {
+      calls.push({ text: normalizeSql(text), values });
+      return { rows: [] as T[] };
+    };
+
+    const impactedPolicyIds = await resolveImpactedSharePolicyIds(
+      { query },
+      {
+        kind: 'metadata',
+        itemId: '   '
+      },
+      new Date('2026-02-28T18:00:00.000Z')
+    );
+
+    expect(impactedPolicyIds).toEqual([]);
+    expect(calls).toHaveLength(0);
+  });
+
   it('resolves impacted active policies for metadata changes', async () => {
     const calls: QueryCall[] = [];
     const now = new Date('2026-02-28T18:00:00.000Z');
@@ -163,5 +183,71 @@ describe('runIncrementalSharePolicyRecompute', () => {
         policyIds: ['policy-a', 'policy-z']
       }
     );
+  });
+
+  it('falls back to default compiler options when overrides are omitted', async () => {
+    const calls: QueryCall[] = [];
+    const query = async <T>(text: string, values?: unknown[]) => {
+      calls.push({ text: normalizeSql(text), values });
+      if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') {
+        return { rows: [] as T[] };
+      }
+      if (text.includes('SELECT pg_advisory_xact_lock')) {
+        return { rows: [] as T[] };
+      }
+      if (text.includes('FROM vfs_share_policies')) {
+        return {
+          rows: [
+            {
+              id: 'policy-a',
+              root_item_id: 'root-1',
+              status: 'active',
+              revoked_at: null,
+              expires_at: null
+            }
+          ] as T[]
+        };
+      }
+      if (text.includes('FROM vfs_share_policy_selectors')) {
+        return { rows: [] as T[] };
+      }
+      if (text.includes('FROM vfs_share_policy_principals')) {
+        return { rows: [] as T[] };
+      }
+      if (text.includes('FROM vfs_registry')) {
+        return {
+          rows: [{ id: 'root-1', object_type: 'contact' }] as T[]
+        };
+      }
+      if (text.includes('FROM vfs_links')) {
+        return { rows: [] as T[] };
+      }
+      if (
+        text.includes('SELECT DISTINCT acl_entry_id') &&
+        text.includes('FROM vfs_acl_entry_provenance')
+      ) {
+        return { rows: [] as T[] };
+      }
+      throw new Error(
+        `Unexpected query in default compile fallback test: ${text}`
+      );
+    };
+
+    const result = await runIncrementalSharePolicyRecompute(
+      { query },
+      {
+        kind: 'policy',
+        policyId: ' policy-a '
+      }
+    );
+
+    expect(result.impactedPolicyIds).toEqual(['policy-a']);
+    expect(result.compileResult?.policyCount).toBe(1);
+    expect(result.compileResult?.decisionsCount).toBe(0);
+
+    const lockQuery = calls.find((call) =>
+      call.text.includes('SELECT pg_advisory_xact_lock')
+    );
+    expect(lockQuery?.values).toEqual(['vfs_share_policy_compile:policy-a']);
   });
 });

@@ -27,6 +27,8 @@ type RecomputeTrigger =
       itemId: string;
     };
 
+type ItemScopedRecomputeTrigger = Exclude<RecomputeTrigger, { kind: 'policy' }>;
+
 interface PolicyIdRow {
   policy_id: string;
 }
@@ -41,10 +43,7 @@ function normalizeIds(ids: string[]): string[] {
     .sort((left, right) => left.localeCompare(right));
 }
 
-function itemsFromTrigger(trigger: RecomputeTrigger): string[] {
-  if (trigger.kind === 'policy') {
-    return [];
-  }
+function itemsFromTrigger(trigger: ItemScopedRecomputeTrigger): string[] {
   if (trigger.kind === 'link') {
     return normalizeIds([trigger.parentId, trigger.childId]);
   }

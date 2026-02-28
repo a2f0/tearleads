@@ -62,6 +62,10 @@ describe('buildSharePolicyPreviewTree', () => {
             {
               acl_entry_id: 'policy-compiled:user:target:wallet-1',
               policy_id: 'policy-b'
+            },
+            {
+              acl_entry_id: 'policy-compiled:user:target:wallet-1',
+              policy_id: null
             }
           ] as T[]
         };
@@ -168,5 +172,117 @@ describe('buildSharePolicyPreviewTree', () => {
     ]);
     expect(result.summary.excludedCount).toBe(1);
     expect(result.summary.totalMatchingNodes).toBe(1);
+  });
+
+  it('returns empty node pages when filters remove all tree nodes', async () => {
+    const query = async <T>(text: string, values?: unknown[]) => {
+      if (text.includes('SELECT item_id, object_type, depth, node_path')) {
+        expect(values?.[2]).toBeNull();
+        expect(values?.[3]).toEqual(['walletItem']);
+        return { rows: [] as T[] };
+      }
+      if (text.includes('SELECT COUNT(*)::bigint AS total_count')) {
+        return {
+          rows: [{ total_count: 0 }] as T[]
+        };
+      }
+      throw new Error(`Unexpected query in empty preview test: ${text}`);
+    };
+
+    const result = await buildSharePolicyPreviewTree(
+      { query },
+      {
+        rootItemId: 'root-1',
+        principalType: 'user',
+        principalId: 'target-user',
+        limit: 5,
+        cursor: null,
+        maxDepth: null,
+        search: '   ',
+        objectTypes: ['', 'walletItem', 'walletItem']
+      }
+    );
+
+    expect(result).toEqual({
+      nodes: [],
+      nextCursor: null,
+      summary: {
+        totalMatchingNodes: 0,
+        returnedNodes: 0,
+        directCount: 0,
+        derivedCount: 0,
+        deniedCount: 0,
+        includedCount: 0,
+        excludedCount: 0
+      }
+    });
+  });
+
+  it('classifies unknown acl ids as included state', async () => {
+    const query = async <T>(text: string) => {
+      if (text.includes('SELECT item_id, object_type, depth, node_path')) {
+        return {
+          rows: [
+            {
+              item_id: 'root-1',
+              object_type: 'contact',
+              depth: 0,
+              node_path: 'root-1'
+            }
+          ] as T[]
+        };
+      }
+      if (text.includes('SELECT COUNT(*)::bigint AS total_count')) {
+        return {
+          rows: [{ total_count: 1 }] as T[]
+        };
+      }
+      if (text.includes('FROM vfs_acl_entries')) {
+        return {
+          rows: [
+            {
+              id: 'custom-acl-id',
+              item_id: 'root-1',
+              access_level: 'read',
+              revoked_at: null
+            }
+          ] as T[]
+        };
+      }
+      if (text.includes('FROM vfs_acl_entry_provenance')) {
+        return { rows: [] as T[] };
+      }
+      throw new Error(`Unexpected query in included preview test: ${text}`);
+    };
+
+    const result = await buildSharePolicyPreviewTree(
+      { query },
+      {
+        rootItemId: 'root-1',
+        principalType: 'user',
+        principalId: 'target-user',
+        limit: 10,
+        cursor: null,
+        maxDepth: null,
+        search: null,
+        objectTypes: null
+      }
+    );
+
+    expect(result.nodes).toEqual([
+      {
+        itemId: 'root-1',
+        objectType: 'contact',
+        depth: 0,
+        path: 'root-1',
+        state: 'included',
+        effectiveAccessLevel: 'read',
+        sourcePolicyIds: []
+      }
+    ]);
+    expect(result.summary.includedCount).toBe(1);
+    expect(result.summary.directCount).toBe(0);
+    expect(result.summary.derivedCount).toBe(0);
+    expect(result.summary.deniedCount).toBe(0);
   });
 });
