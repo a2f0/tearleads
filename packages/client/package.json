@@ -101,7 +101,6 @@
     "react-i18next": "16.5.4",
     "react-pdf": "10.4.1",
     "react-router-dom": "7.13.1",
-    "recharts": "3.7.0",
     "sonner": "2.0.7"
   },
   "devDependencies": {
@@ -135,6 +134,7 @@
     "jsdom": "28.1.0",
     "openapi-types": "12.1.3",
     "rollup-plugin-visualizer": "7.0.0",
+    "recharts": "3.7.0",
     "svgo": "4.0.0",
     "tailwindcss": "4.2.1",
     "tsx": "4.21.0",
