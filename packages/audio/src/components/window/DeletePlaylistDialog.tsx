@@ -12,6 +12,39 @@ interface DeletePlaylistDialogProps {
   onPlaylistDeleted?: (playlistId: string) => void;
 }
 
+function handleDialogTabTrap(
+  event: React.KeyboardEvent,
+  dialogRef: React.RefObject<HTMLDivElement | null>
+): void {
+  if (event.key !== 'Tab') {
+    return;
+  }
+
+  const focusableElements = dialogRef.current?.querySelectorAll<HTMLElement>(
+    'button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  );
+  if (!focusableElements || focusableElements.length === 0) {
+    return;
+  }
+
+  const firstElement = focusableElements[0];
+  const lastElement = focusableElements[focusableElements.length - 1];
+  if (!firstElement || !lastElement) {
+    return;
+  }
+
+  if (event.shiftKey && document.activeElement === firstElement) {
+    event.preventDefault();
+    lastElement.focus();
+    return;
+  }
+
+  if (!event.shiftKey && document.activeElement === lastElement) {
+    event.preventDefault();
+    firstElement.focus();
+  }
+}
+
 export function DeletePlaylistDialog({
   open,
   onOpenChange,
@@ -39,27 +72,7 @@ export function DeletePlaylistDialog({
         onOpenChange(false);
         return;
       }
-
-      if (e.key === 'Tab') {
-        const focusableElements =
-          dialogRef.current?.querySelectorAll<HTMLElement>(
-            'button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-          );
-        if (!focusableElements || focusableElements.length === 0) return;
-
-        const firstElement = focusableElements[0];
-        const lastElement = focusableElements[focusableElements.length - 1];
-
-        if (!firstElement || !lastElement) return;
-
-        if (e.shiftKey && document.activeElement === firstElement) {
-          e.preventDefault();
-          lastElement.focus();
-        } else if (!e.shiftKey && document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement.focus();
-        }
-      }
+      handleDialogTabTrap(e, dialogRef);
     },
     [isDeleting, onOpenChange]
   );

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { handleDialogTabTrap } from './dialogFocusTrap';
 import { useVfsExplorerContext } from '../context';
 import { useRenameVfsFolder, type VfsFolderNode } from '../hooks';
 
@@ -43,27 +44,12 @@ export function RenameFolderDialog({
         onOpenChange(false);
         return;
       }
-
-      if (e.key === 'Tab') {
-        const focusableElements =
-          dialogRef.current?.querySelectorAll<HTMLElement>(
-            'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
-          );
-        if (!focusableElements || focusableElements.length === 0) return;
-
-        const firstElement = focusableElements[0];
-        const lastElement = focusableElements[focusableElements.length - 1];
-
-        if (!firstElement || !lastElement) return;
-
-        if (e.shiftKey && document.activeElement === firstElement) {
-          e.preventDefault();
-          lastElement.focus();
-        } else if (!e.shiftKey && document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement.focus();
-        }
-      }
+      handleDialogTabTrap({
+        event: e,
+        containerRef: dialogRef,
+        focusableSelector:
+          'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      });
     },
     [isRenaming, onOpenChange]
   );

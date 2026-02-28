@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { handleDialogTabTrap } from './dialogFocusTrap';
 import { usePhotoAlbums } from './usePhotoAlbums';
 
 interface NewAlbumDialogProps {
@@ -37,27 +38,12 @@ export function NewAlbumDialog({
         onOpenChange(false);
         return;
       }
-
-      if (e.key === 'Tab') {
-        const focusableElements =
-          dialogRef.current?.querySelectorAll<HTMLElement>(
-            'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
-          );
-        if (!focusableElements || focusableElements.length === 0) return;
-
-        const firstElement = focusableElements[0];
-        const lastElement = focusableElements[focusableElements.length - 1];
-
-        if (!firstElement || !lastElement) return;
-
-        if (e.shiftKey && document.activeElement === firstElement) {
-          e.preventDefault();
-          lastElement.focus();
-        } else if (!e.shiftKey && document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement.focus();
-        }
-      }
+      handleDialogTabTrap({
+        event: e,
+        containerRef: dialogRef,
+        focusableSelector:
+          'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      });
     },
     [isCreating, onOpenChange]
   );

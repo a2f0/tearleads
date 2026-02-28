@@ -15,7 +15,13 @@ import {
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { ArrowLeft, CircleHelp } from 'lucide-react';
-import { type ComponentProps, useEffect, useMemo, useState } from 'react';
+import {
+  type ComponentProps,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useState
+} from 'react';
 import { HelpDocumentation } from '../help-links/HelpDocumentation';
 import { HelpLinksGrid } from '../help-links/HelpLinksGrid';
 import { HelpWindowMenuBar } from './HelpWindowMenuBar';
@@ -53,6 +59,80 @@ interface HelpWindowProps {
   initialDimensions?: WindowDimensions | undefined;
   openHelpDocId?: HelpDocId | null | undefined;
   openRequestId?: number | undefined;
+}
+
+interface RenderHelpContentArgs {
+  view: HelpView;
+  openapiSpec: ApiSpec | null;
+  apiDocsLoadFailed: boolean;
+  onSetView: (nextView: HelpView) => void;
+}
+
+function renderHelpContent({
+  view,
+  openapiSpec,
+  apiDocsLoadFailed,
+  onSetView
+}: RenderHelpContentArgs): ReactNode {
+  if (view === 'index') {
+    return (
+      <div className="h-full space-y-6 overflow-auto">
+        <div className="flex items-center gap-3">
+          <CircleHelp className="h-8 w-8 text-muted-foreground" />
+          <h1 className="font-bold text-2xl tracking-tight">Help</h1>
+        </div>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+          <HelpLinksGrid
+            view="topLevel"
+            onApiDocsClick={() => onSetView('api')}
+            onDeveloperClick={() => onSetView('developer')}
+            onLegalClick={() => onSetView('legal')}
+            onDocClick={onSetView}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (view === 'developer' || view === 'legal') {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+          <HelpLinksGrid
+            view={view}
+            onApiDocsClick={() => onSetView('api')}
+            onDeveloperClick={() => onSetView('developer')}
+            onLegalClick={() => onSetView('legal')}
+            onDocClick={onSetView}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (view === 'api') {
+    return (
+      <div className="h-full overflow-auto">
+        {openapiSpec ? (
+          <ApiDocs spec={openapiSpec} />
+        ) : apiDocsLoadFailed ? (
+          <div className="text-danger text-sm">Unable to load API docs.</div>
+        ) : (
+          <div className="text-muted-foreground text-sm">
+            Loading API docs...
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="min-h-0 flex-1">
+        <HelpDocumentation docId={view} />
+      </div>
+    </div>
+  );
 }
 
 export function HelpWindow({
@@ -162,55 +242,12 @@ export function HelpWindow({
           </WindowControlGroup>
         </WindowControlBar>
         <div className="min-h-0 flex-1 p-6">
-          {view === 'index' ? (
-            <div className="h-full space-y-6 overflow-auto">
-              <div className="flex items-center gap-3">
-                <CircleHelp className="h-8 w-8 text-muted-foreground" />
-                <h1 className="font-bold text-2xl tracking-tight">Help</h1>
-              </div>
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
-                <HelpLinksGrid
-                  view="topLevel"
-                  onApiDocsClick={() => setView('api')}
-                  onDeveloperClick={() => setView('developer')}
-                  onLegalClick={() => setView('legal')}
-                  onDocClick={(docId) => setView(docId)}
-                />
-              </div>
-            </div>
-          ) : view === 'developer' || view === 'legal' ? (
-            <div className="space-y-6">
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
-                <HelpLinksGrid
-                  view={view}
-                  onApiDocsClick={() => setView('api')}
-                  onDeveloperClick={() => setView('developer')}
-                  onLegalClick={() => setView('legal')}
-                  onDocClick={(docId) => setView(docId)}
-                />
-              </div>
-            </div>
-          ) : view === 'api' ? (
-            <div className="h-full overflow-auto">
-              {openapiSpec ? (
-                <ApiDocs spec={openapiSpec} />
-              ) : apiDocsLoadFailed ? (
-                <div className="text-danger text-sm">
-                  Unable to load API docs.
-                </div>
-              ) : (
-                <div className="text-muted-foreground text-sm">
-                  Loading API docs...
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex h-full min-h-0 flex-col overflow-hidden">
-              <div className="min-h-0 flex-1">
-                <HelpDocumentation docId={view} />
-              </div>
-            </div>
-          )}
+          {renderHelpContent({
+            view,
+            openapiSpec,
+            apiDocsLoadFailed,
+            onSetView: setView
+          })}
         </div>
       </div>
     </FloatingWindow>
