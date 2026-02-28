@@ -40,7 +40,11 @@ const config: KnipConfig = {
     // Canonical DB schema pieces intentionally re-exported across definition modules.
     'packages/db/src/schema/definition-communications-vfs.ts': ['exports'],
     'packages/db/src/schema/definition-communications.ts': ['exports'],
-    'packages/db/src/schema/definitionCommunicationsAi.ts': ['exports']
+    'packages/db/src/schema/definitionCommunicationsAi.ts': ['exports'],
+    // Exported interfaces are part of public signatures for published helpers.
+    'packages/api/src/lib/vfsSyncChannels.ts': ['exports', 'types'],
+    'packages/bob-and-alice/src/qa/vfsSecureUploadQaSuite.ts': ['types'],
+    'packages/db-test-utils/src/seeding/pgScenario.ts': ['types']
   },
   workspaces: {
     '.': {

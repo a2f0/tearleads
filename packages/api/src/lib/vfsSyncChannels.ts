@@ -3,12 +3,12 @@ import { broadcast } from './broadcast.js';
 const VFS_CONTAINER_CHANNEL_PREFIX = 'vfs:container:';
 const VFS_CONTAINER_CHANNEL_SUFFIX = ':sync';
 
-interface VfsContainerCursor {
+export interface VfsContainerCursor {
   changedAt: string;
   changeId: string;
 }
 
-interface VfsCursorBumpMessagePayload extends VfsContainerCursor {
+export interface VfsCursorBumpMessagePayload extends VfsContainerCursor {
   containerId: string;
   actorId: string;
   sourceClientId: string;
