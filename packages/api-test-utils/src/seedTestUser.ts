@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import type { Pool as PgPool } from 'pg';
 import { createJwt } from './jwt.js';
+import type { PgPool } from './pgTypes.js';
 import type { RedisMockClient } from './redisMock.js';
 
 export interface SeededUser {

@@ -33,14 +33,12 @@
     "@electric-sql/pglite": "0.3.15",
     "@tearleads/db": "workspace:*",
     "@tearleads/shared": "workspace:*",
-    "jsonwebtoken": "9.0.3",
-    "pg": "8.19.0"
+    "jsonwebtoken": "9.0.3"
   },
   "devDependencies": {
     "@types/express": "5.0.6",
     "@types/jsonwebtoken": "9.0.10",
     "@types/node": "25.3.2",
-    "@types/pg": "8.16.0",
     "@vitest/coverage-v8": "4.0.18",
     "cross-env": "10.1.0",
     "typescript": "5.9.3",
