@@ -3,20 +3,20 @@ import type { KnipConfig } from 'knip';
 const config: KnipConfig = {
   $schema: './node_modules/knip/schema.json',
   include: [
-    'files',
+    'binaries',
+    'catalog',
+    'classMembers',
     'dependencies',
     'devDependencies',
+    'duplicates',
+    'enumMembers',
     'exports',
+    'files',
     'nsExports',
-    'classMembers',
     'types',
     'nsTypes',
-    'enumMembers',
-    'duplicates',
     'unlisted',
-    'unresolved',
-    'binaries',
-    'catalog'
+    'unresolved'
   ],
   ignoreBinaries: ['ansible-lint', 'shellcheck', 'playwright'],
   ignoreIssues: {
