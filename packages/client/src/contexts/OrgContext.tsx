@@ -8,7 +8,7 @@ import {
   useMemo,
   useState
 } from 'react';
-import { isDatabaseInitialized, getDatabase } from '@/db';
+import { getDatabase, isDatabaseInitialized } from '@/db';
 import { runOrgBackfillIfNeeded } from '@/db/orgBackfill';
 import {
   clearActiveOrgForUser,
