@@ -30,10 +30,7 @@ type ControllerOptions = {
   currentInstanceId: string | null;
   onStatusTextChange: ((text: string) => void) | undefined;
   onExportCsvChange:
-    | ((
-        handler: (() => Promise<void>) | null,
-        exporting: boolean
-      ) => void)
+    | ((handler: (() => Promise<void>) | null, exporting: boolean) => void)
     | undefined;
 };
 
@@ -97,10 +94,7 @@ type TableRowsBodyState = {
   columns: ColumnInfo[];
 };
 
-function renderTableRowsStatus(
-  state: TableRowsBodyState,
-  loading: boolean
-) {
+function renderTableRowsStatus(state: TableRowsBodyState, loading: boolean) {
   if (!state.tableName) {
     return (
       <div className="rounded-lg border p-8 text-center text-muted-foreground [border-color:var(--soft-border)]">

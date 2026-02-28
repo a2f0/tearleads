@@ -29,7 +29,9 @@ function getSelectorLayout(isCompact: boolean): SelectorLayout {
     sectionHeaderClasses: `px-2 font-medium text-muted-foreground uppercase tracking-wider ${
       isCompact ? 'text-[10px]' : 'text-[11px]'
     }`,
-    triggerPaddingClasses: isCompact ? 'px-2.5 py-0.5 text-xs' : 'px-3 py-1 text-sm',
+    triggerPaddingClasses: isCompact
+      ? 'px-2.5 py-0.5 text-xs'
+      : 'px-3 py-1 text-sm',
     menuSpacingClasses: isCompact ? 'p-1' : 'p-2',
     menuMinWidthClasses: isCompact ? 'mt-1.5 min-w-72' : 'mt-2 min-w-64',
     itemLayout: isCompact ? 'table' : 'list'
@@ -183,9 +185,9 @@ export function ModelSelector({
         disabled={isLoading}
         aria-haspopup="true"
         aria-expanded={isOpen}
-        className={`flex items-center gap-2 rounded-full font-medium transition-colors ${
-          getTriggerStateClasses(modelDisplayName)
-        } ${isLoading ? 'cursor-wait' : 'cursor-pointer'} ${
+        className={`flex items-center gap-2 rounded-full font-medium transition-colors ${getTriggerStateClasses(
+          modelDisplayName
+        )} ${isLoading ? 'cursor-wait' : 'cursor-pointer'} ${
           layout.triggerPaddingClasses
         }`}
       >

@@ -60,10 +60,7 @@ function renderVehicleField({
 }: VehicleFieldProps) {
   return (
     <div className="space-y-1">
-      <label
-        htmlFor={id}
-        className="font-medium text-muted-foreground text-sm"
-      >
+      <label htmlFor={id} className="font-medium text-muted-foreground text-sm">
         {label}
       </label>
       <Input
@@ -142,7 +139,12 @@ function renderVehicleForm(
           >
             Cancel
           </Button>
-          <Button type="button" size="sm" onClick={onSave} disabled={state.isSaving}>
+          <Button
+            type="button"
+            size="sm"
+            onClick={onSave}
+            disabled={state.isSaving}
+          >
             {state.isSaving ? 'Creating...' : 'Create Vehicle'}
           </Button>
         </div>
