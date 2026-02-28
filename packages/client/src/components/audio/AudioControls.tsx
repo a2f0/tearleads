@@ -1,4 +1,13 @@
 import {
+  handleTrackEnd as applyTrackEndBehavior,
+  getRepeatTooltipKey,
+  getTrackIndexById,
+  hasNextTrack,
+  hasPreviousTrack,
+  playNextTrack,
+  playTrackAtIndex
+} from '@tearleads/shared';
+import {
   Pause,
   Play,
   Repeat,
@@ -9,7 +18,7 @@ import {
 } from 'lucide-react';
 import { type CSSProperties, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { type AudioTrack, type RepeatMode, useAudio } from '@/audio';
+import { type AudioTrack, useAudio } from '@/audio';
 import { Button } from '@/components/ui/button';
 
 interface AudioControlsProps {
@@ -41,14 +50,10 @@ export function AudioControls({ tracks }: AudioControlsProps) {
     setOnTrackEnd
   } = useAudio();
 
-  const currentIndex = currentTrack
-    ? tracks.findIndex((t) => t.id === currentTrack.id)
-    : -1;
+  const currentIndex = getTrackIndexById(tracks, currentTrack);
 
-  const hasPrevious = currentIndex > 0;
-  const hasNext =
-    (currentIndex >= 0 && currentIndex < tracks.length - 1) ||
-    (repeatMode === 'all' && tracks.length > 0);
+  const hasPrevious = hasPreviousTrack(currentIndex);
+  const hasNext = hasNextTrack(currentIndex, tracks.length, repeatMode);
 
   const handleSeek = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,45 +67,33 @@ export function AudioControls({ tracks }: AudioControlsProps) {
     seek(0);
   }, [seek]);
 
+  const togglePlayback = isPlaying ? pause : resume;
+
   const handlePlayPause = useCallback(() => {
-    if (isPlaying) {
-      pause();
-    } else {
-      resume();
-    }
-  }, [isPlaying, pause, resume]);
+    togglePlayback();
+  }, [togglePlayback]);
 
   const handlePrevious = useCallback(() => {
-    const prevTrack = tracks[currentIndex - 1];
-    if (prevTrack) {
-      play(prevTrack);
-    }
+    playTrackAtIndex({ tracks, index: currentIndex - 1, play });
   }, [tracks, currentIndex, play]);
 
   const handleNext = useCallback(() => {
-    const nextTrack = tracks[currentIndex + 1];
-    if (nextTrack) {
-      play(nextTrack);
-    } else if (repeatMode === 'all') {
-      // Wrap to first track in repeat-all mode
-      const firstTrack = tracks[0];
-      if (firstTrack) {
-        play(firstTrack);
-      }
-    }
+    playNextTrack({
+      tracks,
+      currentIndex,
+      repeatMode,
+      play
+    });
   }, [tracks, currentIndex, play, repeatMode]);
 
   // Handle track end based on repeat mode
   const handleTrackEnd = useCallback(() => {
-    if (repeatMode === 'one') {
-      // Replay current track
-      seek(0);
-      resume();
-    } else if (repeatMode === 'all') {
-      // Go to next track (will wrap to first)
-      handleNext();
-    }
-    // repeatMode === 'off': do nothing, track just ends
+    applyTrackEndBehavior({
+      repeatMode,
+      seekToStart: () => seek(0),
+      resumePlayback: resume,
+      playNextTrack: handleNext
+    });
   }, [repeatMode, seek, resume, handleNext]);
 
   // Register track end handler
@@ -109,21 +102,7 @@ export function AudioControls({ tracks }: AudioControlsProps) {
     return () => setOnTrackEnd(undefined);
   }, [setOnTrackEnd, handleTrackEnd]);
 
-  const getRepeatTooltip = (mode: RepeatMode): string => {
-    switch (mode) {
-      case 'off':
-        return t('repeatOff');
-      case 'all':
-        return t('repeatAll');
-      case 'one':
-        return t('repeatOne');
-      default: {
-        // Exhaustive check - this should never happen
-        const _exhaustive: never = mode;
-        return _exhaustive;
-      }
-    }
-  };
+  const repeatTooltip = t(getRepeatTooltipKey(repeatMode));
 
   if (!currentTrack) {
     return null;
@@ -215,8 +194,8 @@ export function AudioControls({ tracks }: AudioControlsProps) {
           variant="ghost"
           size="icon"
           onClick={cycleRepeatMode}
-          aria-label={getRepeatTooltip(repeatMode)}
-          title={getRepeatTooltip(repeatMode)}
+          aria-label={repeatTooltip}
+          title={repeatTooltip}
           data-testid="audio-repeat"
           className={repeatMode !== 'off' ? 'text-primary' : undefined}
         >
