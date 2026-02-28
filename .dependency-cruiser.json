@@ -77,7 +77,7 @@
       "severity": "warn",
       "comment": "Packages should import other packages through package roots, not direct src/index entrypoints.",
       "from": {
-        "path": "^packages/([^/]+)/src",
+        "path": "^packages/([^/]+)/src/.*",
         "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
       },
       "to": {
