@@ -81,9 +81,7 @@
         "pathNot": [
           "(?:\\.test|\\.spec)\\.(?:ts|tsx)$|/src/test/|/src/__tests__/",
           "^packages/admin/src/components/admin-window/(AdminWindow|ComplianceDocView|ComplianceIndex)\\.tsx$",
-          "^packages/client/src/backups/backupsRuntime\\.ts$",
           "^packages/client/src/components/admin-windows/index\\.ts$",
-          "^packages/client/src/components/backup-window/index\\.tsx$",
           "^packages/client/src/components/health-window/HealthWindow\\.tsx$",
           "^packages/client/src/components/keychain-window/index\\.ts$",
           "^packages/client/src/components/notification-center/index\\.ts$",
@@ -95,14 +93,9 @@
           "^packages/client/src/contexts/VfsOrchestratorContext\\.tsx$",
           "^packages/client/src/db/vfsOrchestratorState\\.ts$",
           "^packages/client/src/lib/vfsItemSyncWriter\\.ts$",
-          "^packages/client/src/main\\.tsx$",
-          "^packages/client/src/pages/Backups\\.tsx$",
           "^packages/client/src/pages/Health\\.tsx$",
           "^packages/client/src/pages/(admin|analytics|keychain|sync|wallet)/index\\.ts$",
-          "^packages/client/src/sync/configureSyncAuthDependencies\\.ts$",
-          "^packages/compliance/src/pages/compliance/ComplianceDocPage\\.tsx$",
-          "^packages/console/src/components/console-window/ConsoleDocumentation\\.tsx$",
-          "^packages/help/src/components/help-links/HelpDocumentation\\.tsx$"
+          "^packages/client/src/sync/configureSyncAuthDependencies\\.ts$"
         ]
       },
       "to": {
