@@ -13,7 +13,7 @@ declare global {
 // Org IDs are TEXT in the DB: standard UUIDs for team orgs,
 // "personal-org-<UUID>" for personal orgs. Validate sanity only.
 const MAX_ORG_ID_LENGTH = 100;
-const ORG_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
+const ORG_ID_PATTERN = /^[a-zA-Z0-9-]+$/;
 
 const EXEMPT_PATHS = new Set([
   '/ping',

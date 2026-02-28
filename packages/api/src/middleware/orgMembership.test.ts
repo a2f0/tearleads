@@ -124,6 +124,7 @@ describe('orgMembership middleware', () => {
       .set('X-Organization-Id', personalOrgId);
 
     expect(response.status).not.toBe(400);
+    expect(response.status).not.toBe(403);
     consoleError.mockRestore();
   });
 
@@ -154,7 +155,7 @@ describe('orgMembership middleware', () => {
   it('skips validation for auth exempt paths', async () => {
     const response = await request(app)
       .get('/v1/ping')
-      .set('X-Organization-Id', 'any-value');
+      .set('X-Organization-Id', 'org id with spaces!@#');
 
     expect(response.status).toBe(200);
   });
@@ -172,7 +173,7 @@ describe('orgMembership middleware', () => {
     const response = await request(app)
       .get('/v1/admin/context')
       .set('Authorization', adminAuthHeader)
-      .set('X-Organization-Id', 'any-value');
+      .set('X-Organization-Id', 'org id with spaces!@#');
 
     expect(response.status).not.toBe(400);
     consoleError.mockRestore();
