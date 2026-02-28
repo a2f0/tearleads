@@ -36,4 +36,3 @@ export type {
   AppTheme,
   LoadedAppConfig
 } from './types.js';
-export { createAppConfigPlugin } from './vite/createAppConfigPlugin.js';
