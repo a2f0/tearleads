@@ -39,7 +39,7 @@
     },
     {
       "name": "no-client-local-cross-package-src-imports",
-      "severity": "warn",
+      "severity": "error",
       "comment": "Client code should import other packages via package exports, not relative paths into another package's src tree.",
       "from": {
         "path": "^packages/client/src",
