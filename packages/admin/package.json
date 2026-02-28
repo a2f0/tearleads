@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/admin",
-  "version": "0.0.32",
+  "version": "0.0.33",
   "description": "Admin pages and windows for Tearleads",
   "type": "module",
   "main": "src/index.ts",
