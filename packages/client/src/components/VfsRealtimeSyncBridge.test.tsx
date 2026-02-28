@@ -4,6 +4,8 @@ import { VfsRealtimeSyncBridge } from './VfsRealtimeSyncBridge';
 
 const mockUseSSE = vi.fn();
 const mockUseVfsOrchestratorInstance = vi.fn();
+const mockLogInfo = vi.fn();
+const mockLogWarn = vi.fn();
 
 vi.mock('@/sse', () => ({
   useSSE: () => mockUseSSE()
@@ -11,6 +13,13 @@ vi.mock('@/sse', () => ({
 
 vi.mock('@/contexts/VfsOrchestratorContext', () => ({
   useVfsOrchestratorInstance: () => mockUseVfsOrchestratorInstance()
+}));
+
+vi.mock('@/stores/logStore', () => ({
+  logStore: {
+    info: (...args: unknown[]) => mockLogInfo(...args),
+    warn: (...args: unknown[]) => mockLogWarn(...args)
+  }
 }));
 
 function deferred<T>() {
@@ -129,6 +138,10 @@ describe('VfsRealtimeSyncBridge', () => {
 
     await vi.advanceTimersByTimeAsync(200);
     expect(syncCrdt).toHaveBeenCalledTimes(1);
+    expect(mockLogInfo).toHaveBeenCalledWith(
+      'VFS SSE cursor bump received; triggering CRDT sync',
+      expect.stringContaining('channel=vfs:container:item-1:sync')
+    );
   });
 
   it('ignores non-VFS or non-cursor-bump messages', async () => {
@@ -177,6 +190,7 @@ describe('VfsRealtimeSyncBridge', () => {
 
     await vi.advanceTimersByTimeAsync(250);
     expect(syncCrdt).not.toHaveBeenCalled();
+    expect(mockLogInfo).not.toHaveBeenCalled();
   });
 
   it('coalesces cursor-bump syncs while a sync is in flight', async () => {
@@ -292,6 +306,10 @@ describe('VfsRealtimeSyncBridge', () => {
 
     await vi.advanceTimersByTimeAsync(200);
     expect(syncCrdt).toHaveBeenCalledTimes(2);
+    expect(mockLogWarn).toHaveBeenCalledWith(
+      'VFS CRDT sync failed after SSE trigger; scheduling retry',
+      expect.stringContaining('attempt=1')
+    );
     randomSpy.mockRestore();
   });
 });

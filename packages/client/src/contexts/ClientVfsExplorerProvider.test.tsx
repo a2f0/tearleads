@@ -4,6 +4,7 @@ import { ClientVfsExplorerProvider } from './ClientVfsExplorerProvider';
 
 const mockRotateItemKeyEpochAndPersist = vi.fn();
 const mockUseVfsKeyManager = vi.fn();
+const mockUseVfsOrchestratorInstance = vi.fn();
 
 const mockDeleteShare = vi.fn();
 const mockDeleteOrgShare = vi.fn();
@@ -69,7 +70,8 @@ vi.mock('@/lib/api', () => ({
 }));
 
 vi.mock('./VfsOrchestratorContext', () => ({
-  useVfsKeyManager: () => mockUseVfsKeyManager()
+  useVfsKeyManager: () => mockUseVfsKeyManager(),
+  useVfsOrchestratorInstance: () => mockUseVfsOrchestratorInstance()
 }));
 
 describe('ClientVfsExplorerProvider', () => {
@@ -78,6 +80,9 @@ describe('ClientVfsExplorerProvider', () => {
     capturedProviderProps = null;
     mockUseVfsKeyManager.mockReturnValue({
       rotateItemKeyEpoch: vi.fn()
+    });
+    mockUseVfsOrchestratorInstance.mockReturnValue({
+      syncCrdt: vi.fn().mockResolvedValue(undefined)
     });
     mockDeleteShare.mockResolvedValue({ deleted: true });
     mockDeleteOrgShare.mockResolvedValue({ deleted: true });
@@ -189,5 +194,25 @@ describe('ClientVfsExplorerProvider', () => {
       'VFS key manager is not initialized'
     );
     expect(mockRotateItemKeyEpochAndPersist).not.toHaveBeenCalled();
+  });
+
+  it('exposes syncRemoteState that calls orchestrator sync', async () => {
+    const syncCrdt = vi.fn().mockResolvedValue(undefined);
+    mockUseVfsOrchestratorInstance.mockReturnValue({ syncCrdt });
+
+    render(
+      <ClientVfsExplorerProvider>
+        <div>child</div>
+      </ClientVfsExplorerProvider>
+    );
+
+    const syncRemoteState = capturedProviderProps?.['syncRemoteState'];
+
+    expect(typeof syncRemoteState).toBe('function');
+    if (typeof syncRemoteState !== 'function') {
+      throw new Error('Expected syncRemoteState callback');
+    }
+    await syncRemoteState();
+    expect(syncCrdt).toHaveBeenCalledTimes(1);
   });
 });
