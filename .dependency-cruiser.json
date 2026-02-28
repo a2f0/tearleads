@@ -63,6 +63,57 @@
       "to": {
         "path": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/|/testSupport\\.(ts|tsx)$"
       }
+    },
+    {
+      "name": "no-local-cross-package-app-src-imports",
+      "severity": "warn",
+      "comment": "Packages should not traverse into other package app/src internals via relative local imports; use package exports.",
+      "from": {
+        "path": "^packages/(?!admin/|app-builder/|keychain/|notifications/|vfs-sync/|wallet/)[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "path": "^packages/(admin|app-builder|keychain|notifications|vfs-sync|wallet)/src",
+        "dependencyTypes": [
+          "local"
+        ]
+      }
+    },
+    {
+      "name": "no-website-imports",
+      "severity": "warn",
+      "comment": "Non-website packages should not import website app internals.",
+      "from": {
+        "path": "^packages/(?!website/)[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "path": "^packages/website/src"
+      }
+    },
+    {
+      "name": "no-chrome-extension-imports",
+      "severity": "warn",
+      "comment": "Non-extension packages should not import chrome-extension app internals.",
+      "from": {
+        "path": "^packages/(?!chrome-extension/)[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "path": "^packages/chrome-extension/src"
+      }
+    },
+    {
+      "name": "no-smtp-listener-imports",
+      "severity": "warn",
+      "comment": "Non-smtp-listener packages should not import smtp-listener app internals.",
+      "from": {
+        "path": "^packages/(?!smtp-listener/)[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "path": "^packages/smtp-listener/src"
+      }
     }
   ],
   "options": {
