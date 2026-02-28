@@ -17,7 +17,7 @@ import type {
   PhoneFormData
 } from './types';
 
-export interface UseContactDetailResult {
+interface UseContactDetailResult {
   isUnlocked: boolean;
   isLoading: boolean;
   contact: ContactInfo | null;

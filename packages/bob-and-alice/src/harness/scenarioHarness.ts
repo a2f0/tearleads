@@ -2,7 +2,7 @@ import type { WithRealDatabaseOptions } from '@tearleads/db-test-utils';
 import { ActorHarness, type ActorHarnessConfig } from './actorHarness.js';
 import { ServerHarness } from './serverHarness.js';
 
-export interface ScenarioActorDefinition {
+interface ScenarioActorDefinition {
   alias: string;
   userId?: string;
   clientId?: string;

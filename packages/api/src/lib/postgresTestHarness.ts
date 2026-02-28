@@ -6,7 +6,7 @@ vi.mock('node:os', () => ({
   }
 }));
 
-export type PoolConfig = {
+type PoolConfig = {
   connectionString?: string;
   host?: string;
   port?: number;
@@ -21,7 +21,7 @@ export type PoolConfig = {
   connectionTimeoutMillis?: number;
 };
 
-export type PoolInstance = {
+type PoolInstance = {
   config: PoolConfig;
   end: ReturnType<typeof vi.fn>;
   query: ReturnType<typeof vi.fn>;

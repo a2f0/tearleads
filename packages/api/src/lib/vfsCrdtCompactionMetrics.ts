@@ -1,7 +1,7 @@
 import { isRecord } from '@tearleads/shared';
 import type { VfsCrdtCompactionPlan } from './vfsCrdtCompaction.js';
 
-export interface VfsCrdtCompactionRunMetric {
+interface VfsCrdtCompactionRunMetric {
   metricVersion: 1;
   event: 'vfs_crdt_compaction_run';
   occurredAt: string;

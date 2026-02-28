@@ -7,8 +7,6 @@ import {
 } from './pgAccount.js';
 import { buildRevenueCatAppUserId } from './pgAccountHelpers.js';
 
-export type { HarnessSqlClient };
-
 export interface HarnessActorDefinition {
   alias: string;
   email: string;

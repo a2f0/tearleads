@@ -9,22 +9,22 @@ export type Check = {
   args: string[];
 };
 
-export type CheckStatus = 'pass' | 'fail' | 'skipped';
+type CheckStatus = 'pass' | 'fail' | 'skipped';
 
-export type CheckResult = {
+type CheckResult = {
   check: Check;
   status: CheckStatus;
   durationMs: number;
 };
 
-export interface CliOptions {
+interface CliOptions {
   dryRun: boolean;
   continueOnFailure: boolean;
   reportJsonPath: string | null;
   reportMarkdownPath: string | null;
 }
 
-export interface QaSuiteReport {
+interface QaSuiteReport {
   command: string;
   candidateSha: string;
   startedAt: string;
@@ -149,7 +149,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
   };
 }
 
-export function formatDuration(ms: number): string {
+function formatDuration(ms: number): string {
   const seconds = (ms / 1000).toFixed(1);
   return `${seconds}s`;
 }
@@ -182,7 +182,7 @@ export function resolveCandidateSha(
   return 'unknown';
 }
 
-export function buildReport(
+function buildReport(
   options: CliOptions,
   candidateSha: string,
   startedAt: Date,
@@ -267,9 +267,9 @@ export function writeReportFile(pathValue: string, content: string): void {
   writeFileSync(absolute, content, 'utf8');
 }
 
-export type CheckExecutor = (check: Check) => Promise<CheckResult>;
+type CheckExecutor = (check: Check) => Promise<CheckResult>;
 
-export async function runCheck(check: Check): Promise<CheckResult> {
+async function runCheck(check: Check): Promise<CheckResult> {
   const start = Date.now();
   const exitCode = await new Promise<number>((resolveCode) => {
     const child = spawn(check.command, check.args, {
@@ -288,7 +288,7 @@ export async function runCheck(check: Check): Promise<CheckResult> {
   };
 }
 
-export interface RunQaSuiteResult {
+interface RunQaSuiteResult {
   report: QaSuiteReport;
   results: CheckResult[];
 }

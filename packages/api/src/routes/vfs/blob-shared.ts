@@ -116,7 +116,7 @@ export function parseBlobAttachBody(body: unknown): {
   return null;
 }
 
-export interface ParsedBlobChunkBody {
+interface ParsedBlobChunkBody {
   uploadId: string;
   chunkIndex: number;
   isFinal: boolean;
@@ -181,7 +181,7 @@ export function parseBlobChunkBody(body: unknown): ParsedBlobChunkBody | null {
   };
 }
 
-export interface ParsedBlobCommitBody {
+interface ParsedBlobCommitBody {
   uploadId: string;
   keyEpoch: number;
   manifestHash: string;

@@ -44,7 +44,7 @@ export async function runWithRematerializationRecovery<T>(input: {
   }
 }
 
-export function isRematerializationError(
+function isRematerializationError(
   value: unknown
 ): value is VfsCrdtRematerializationRequiredError {
   return (
@@ -53,7 +53,7 @@ export function isRematerializationError(
   );
 }
 
-export function applyRematerializedState(input: {
+function applyRematerializedState(input: {
   userId: string;
   clientId: string;
   stores: RematerializationStores;

@@ -53,12 +53,12 @@ function parseArgs(argv: string[]): ParsedArgs {
   return { help, json };
 }
 
-export type AdminRow = {
+type AdminRow = {
   id: string;
   email: string;
 };
 
-export async function getAdminUsers(): Promise<AdminRow[]> {
+async function getAdminUsers(): Promise<AdminRow[]> {
   const pool = await getPostgresPool();
   const client = await pool.connect();
   try {

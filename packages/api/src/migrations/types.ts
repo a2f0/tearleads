@@ -1,1 +1,1 @@
-export type { Migration, MigrationFn } from '@tearleads/db/migrations';
+export type { Migration } from '@tearleads/db/migrations';
