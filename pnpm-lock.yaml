@@ -12,6 +12,10 @@ overrides:
 importers:
 
   .:
+    dependencies:
+      '@tsconfig/strictest':
+        specifier: 2.0.8
+        version: 2.0.8
     devDependencies:
       '@biomejs/biome':
         specifier: 2.4.4
@@ -31,9 +35,6 @@ importers:
       '@tearleads/api':
         specifier: workspace:*
         version: link:packages/api
-      '@tsconfig/strictest':
-        specifier: 2.0.8
-        version: 2.0.8
       '@types/node':
         specifier: 25.3.2
         version: 25.3.2
