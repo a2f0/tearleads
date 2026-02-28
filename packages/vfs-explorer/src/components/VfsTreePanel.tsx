@@ -4,6 +4,8 @@ import {
   WindowContextMenu,
   WindowSidebarHeader
 } from '@tearleads/window-manager';
+// component-complexity: allow
+// Rationale: orchestrates tree rendering plus folder dialogs/context menu in one sidebar entrypoint.
 import {
   ChevronDown,
   ChevronRight,
@@ -29,7 +31,7 @@ import {
 } from '../constants';
 import { useVfsClipboard } from '../context';
 import { useEnsureVfsRoot, useVfsFolders, type VfsFolderNode } from '../hooks';
-import { cn } from '../lib';
+import { cn, OBJECT_TYPE_COLORS, OBJECT_TYPE_ICONS } from '../lib';
 import { DeleteFolderDialog } from './DeleteFolderDialog';
 import { FolderContextMenu } from './FolderContextMenu';
 import { NewFolderDialog } from './NewFolderDialog';
@@ -222,7 +224,16 @@ export function VfsTreePanel({
     const isExpanded = expandedFolderIds.has(folder.id);
     const hasChildren =
       folder.childCount > 0 || (folder.children && folder.children.length > 0);
-    const FolderIcon = isExpanded ? FolderOpen : Folder;
+    const Icon =
+      folder.objectType === 'folder'
+        ? isExpanded
+          ? FolderOpen
+          : Folder
+        : OBJECT_TYPE_ICONS[folder.objectType];
+    const iconClassName =
+      folder.objectType === 'folder'
+        ? 'text-yellow-600 dark:text-yellow-500'
+        : OBJECT_TYPE_COLORS[folder.objectType];
 
     return (
       <div key={folder.id}>
@@ -264,7 +275,7 @@ export function VfsTreePanel({
                 )
               ) : null}
             </span>
-            <FolderIcon className="h-4 w-4 shrink-0 text-yellow-600 dark:text-yellow-500" />
+            <Icon className={cn('h-4 w-4 shrink-0', iconClassName)} />
             <span className="truncate">{folder.name}</span>
           </button>
         </VfsDroppableFolder>
@@ -319,9 +330,9 @@ export function VfsTreePanel({
           y={contextMenu.y}
           folder={contextMenu.folder}
           onClose={() => setContextMenu(null)}
-          onNewSubfolder={(folder) => setNewSubfolderParent(folder)}
-          onRename={(folder) => setRenameDialogFolder(folder)}
-          onDelete={(folder) => setDeleteDialogFolder(folder)}
+          onNewSubfolder={setNewSubfolderParent}
+          onRename={setRenameDialogFolder}
+          onDelete={setDeleteDialogFolder}
           onShare={onFolderShare}
           onPaste={onPaste}
         />

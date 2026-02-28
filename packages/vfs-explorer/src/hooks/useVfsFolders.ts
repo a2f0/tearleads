@@ -1,10 +1,12 @@
 import { vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { inArray, sql } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
+import type { VfsObjectType } from '../lib/vfsTypes';
 
 export interface VfsFolderNode {
   id: string;
+  objectType: VfsObjectType;
   name: string;
   parentId: string | null;
   children?: VfsFolderNode[];
@@ -18,6 +20,8 @@ export interface UseVfsFoldersResult {
   hasFetched: boolean;
   refetch: () => Promise<void>;
 }
+
+const TREE_CONTAINER_TYPES = ['folder', 'playlist', 'emailFolder'] as const;
 
 export function useVfsFolders(): UseVfsFoldersResult {
   const { databaseState, getDatabase } = useVfsExplorerContext();
@@ -38,16 +42,21 @@ export function useVfsFolders(): UseVfsFoldersResult {
       const db = getDatabase();
       const folderNameExpr = sql<string>`COALESCE(
         NULLIF(${vfsRegistry.encryptedName}, ''),
-        'Unnamed Folder'
+        CASE ${vfsRegistry.objectType}
+          WHEN 'playlist' THEN 'Unnamed Playlist'
+          WHEN 'emailFolder' THEN 'Unnamed Folder'
+          ELSE 'Unnamed Folder'
+        END
       )`;
       const folderRows = await db
         .select({
           id: vfsRegistry.id,
+          objectType: vfsRegistry.objectType,
           name: sql<string>`${folderNameExpr} as "name"`,
           createdAt: vfsRegistry.createdAt
         })
         .from(vfsRegistry)
-        .where(eq(vfsRegistry.objectType, 'folder'));
+        .where(inArray(vfsRegistry.objectType, TREE_CONTAINER_TYPES));
 
       if (folderRows.length === 0) {
         setFolders([]);
@@ -91,9 +100,12 @@ export function useVfsFolders(): UseVfsFoldersResult {
       // Build flat list of folder nodes
       const nodeMap = new Map<string, VfsFolderNode>();
       for (const folder of folderRows) {
+        const objectType =
+          folder.objectType as (typeof TREE_CONTAINER_TYPES)[number];
         nodeMap.set(folder.id, {
           id: folder.id,
-          name: folder.name || 'Unnamed Folder',
+          objectType,
+          name: folder.name,
           parentId: parentMap.get(folder.id) || null,
           childCount: childCountMap.get(folder.id) || 0,
           children: []
@@ -109,8 +121,10 @@ export function useVfsFolders(): UseVfsFoldersResult {
             parent.children?.push(node);
           }
         } else {
-          // Root folder (no parent or parent is not a folder)
-          rootFolders.push(node);
+          // Only folder containers are eligible as top-level tree roots.
+          if (node.objectType === 'folder') {
+            rootFolders.push(node);
+          }
         }
       }
 

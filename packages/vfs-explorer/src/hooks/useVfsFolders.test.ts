@@ -30,8 +30,18 @@ describe('useVfsFolders', () => {
 
   it('fetches folders when unlocked', async () => {
     const mockFolderRows = [
-      { id: 'folder-1', name: 'Folder 1', createdAt: Date.now() },
-      { id: 'folder-2', name: 'Folder 2', createdAt: Date.now() }
+      {
+        id: 'folder-1',
+        objectType: 'folder',
+        name: 'Folder 1',
+        createdAt: Date.now()
+      },
+      {
+        id: 'folder-2',
+        objectType: 'folder',
+        name: 'Folder 2',
+        createdAt: Date.now()
+      }
     ];
 
     const mockLinkRows: { childId: string; parentId: string }[] = [];
@@ -58,10 +68,182 @@ describe('useVfsFolders', () => {
     expect(result.current.folders[1]?.name).toBe('Folder 2');
   });
 
+  it('includes playlist containers only when nested under folders', async () => {
+    const mockFolderRows = [
+      {
+        id: 'folder-1',
+        objectType: 'folder',
+        name: 'Folder 1',
+        createdAt: Date.now()
+      },
+      {
+        id: 'playlist-1',
+        objectType: 'playlist',
+        name: 'Road Trip',
+        createdAt: Date.now()
+      },
+      {
+        id: 'playlist-root',
+        objectType: 'playlist',
+        name: 'Top Level Playlist',
+        createdAt: Date.now()
+      }
+    ];
+    const mockLinkRows = [
+      { childId: 'playlist-1', parentId: 'folder-1' },
+      { childId: 'playlist-root', parentId: VFS_ROOT_ID }
+    ];
+    const mockChildCountRows = [
+      { parentId: 'folder-1' },
+      { parentId: VFS_ROOT_ID }
+    ];
+
+    mockDb.where
+      .mockResolvedValueOnce(mockFolderRows)
+      .mockResolvedValueOnce(mockLinkRows)
+      .mockResolvedValueOnce(mockChildCountRows);
+
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsFolders(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    expect(result.current.folders).toHaveLength(1);
+    expect(result.current.folders[0]?.id).toBe('folder-1');
+    expect(result.current.folders[0]?.children).toHaveLength(1);
+    expect(result.current.folders[0]?.children?.[0]?.id).toBe('playlist-1');
+    expect(result.current.folders[0]?.children?.[0]?.objectType).toBe(
+      'playlist'
+    );
+  });
+
+  it('includes top-level and nested email folders in the tree', async () => {
+    const mockFolderRows = [
+      {
+        id: VFS_ROOT_ID,
+        objectType: 'folder',
+        name: 'VFS Root',
+        createdAt: Date.now()
+      },
+      {
+        id: 'email-inbox',
+        objectType: 'emailFolder',
+        name: 'Inbox',
+        createdAt: Date.now()
+      },
+      {
+        id: 'email-projects',
+        objectType: 'emailFolder',
+        name: 'Projects',
+        createdAt: Date.now()
+      }
+    ];
+
+    const mockLinkRows = [
+      { childId: 'email-inbox', parentId: VFS_ROOT_ID },
+      { childId: 'email-projects', parentId: 'email-inbox' }
+    ];
+    const mockChildCountRows = [
+      { parentId: VFS_ROOT_ID },
+      { parentId: 'email-inbox' }
+    ];
+
+    mockDb.where
+      .mockResolvedValueOnce(mockFolderRows)
+      .mockResolvedValueOnce(mockLinkRows)
+      .mockResolvedValueOnce(mockChildCountRows);
+
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsFolders(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    const rootNode = result.current.folders.find(
+      (node) => node.id === VFS_ROOT_ID
+    );
+    expect(rootNode?.children).toHaveLength(1);
+    expect(rootNode?.children?.[0]?.id).toBe('email-inbox');
+    expect(rootNode?.children?.[0]?.objectType).toBe('emailFolder');
+    expect(rootNode?.children?.[0]?.children?.[0]?.id).toBe('email-projects');
+  });
+
+  it('hides unlinked email folders until they are linked', async () => {
+    const mockFolderRows = [
+      {
+        id: VFS_ROOT_ID,
+        objectType: 'folder',
+        name: 'VFS Root',
+        createdAt: Date.now()
+      },
+      {
+        id: 'email-inbox',
+        objectType: 'emailFolder',
+        name: 'Inbox',
+        createdAt: Date.now()
+      },
+      {
+        id: 'email-drafts',
+        objectType: 'emailFolder',
+        name: 'Drafts',
+        createdAt: Date.now()
+      }
+    ];
+    const mockLinkRows = [{ childId: 'email-inbox', parentId: VFS_ROOT_ID }];
+    const mockChildCountRows = [{ parentId: VFS_ROOT_ID }];
+
+    mockDb.where
+      .mockResolvedValueOnce(mockFolderRows)
+      .mockResolvedValueOnce(mockLinkRows)
+      .mockResolvedValueOnce(mockChildCountRows);
+
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsFolders(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    const rootNode = result.current.folders.find(
+      (node) => node.id === VFS_ROOT_ID
+    );
+    expect(rootNode?.children).toHaveLength(1);
+    expect(rootNode?.children?.[0]?.id).toBe('email-inbox');
+    const hasUnlinkedDrafts = rootNode?.children?.some(
+      (child) => child.id === 'email-drafts'
+    );
+    expect(hasUnlinkedDrafts).toBe(false);
+  });
+
   it('builds folder hierarchy from links', async () => {
     const mockFolderRows = [
-      { id: 'parent', name: 'Parent', createdAt: Date.now() },
-      { id: 'child', name: 'Child', createdAt: Date.now() }
+      {
+        id: 'parent',
+        objectType: 'folder',
+        name: 'Parent',
+        createdAt: Date.now()
+      },
+      {
+        id: 'child',
+        objectType: 'folder',
+        name: 'Child',
+        createdAt: Date.now()
+      }
     ];
 
     const mockLinkRows = [{ childId: 'child', parentId: 'parent' }];
@@ -89,9 +271,14 @@ describe('useVfsFolders', () => {
     expect(result.current.folders[0]?.children?.[0]?.name).toBe('Child');
   });
 
-  it('falls back to Unnamed Folder when metadata is missing', async () => {
+  it('accepts SQL-resolved unnamed folder labels', async () => {
     const mockFolderRows = [
-      { id: 'folder-1', name: '', createdAt: Date.now() }
+      {
+        id: 'folder-1',
+        objectType: 'folder',
+        name: 'Unnamed Folder',
+        createdAt: Date.now()
+      }
     ];
     const mockLinkRows: { childId: string; parentId: string }[] = [];
     const mockChildCountRows: { parentId: string }[] = [];
@@ -162,8 +349,18 @@ describe('useVfsFolders', () => {
 
   it('includes the VFS root in returned folders', async () => {
     const mockFolderRows = [
-      { id: VFS_ROOT_ID, name: 'VFS Root', createdAt: Date.now() },
-      { id: 'folder-1', name: 'My Folder', createdAt: Date.now() }
+      {
+        id: VFS_ROOT_ID,
+        objectType: 'folder',
+        name: 'VFS Root',
+        createdAt: Date.now()
+      },
+      {
+        id: 'folder-1',
+        objectType: 'folder',
+        name: 'My Folder',
+        createdAt: Date.now()
+      }
     ];
 
     // folder-1 is a child of VFS_ROOT
@@ -200,7 +397,12 @@ describe('useVfsFolders', () => {
 
   it('provides refetch function that reloads data', async () => {
     const mockFolderRows = [
-      { id: 'folder-1', name: 'Folder 1', createdAt: Date.now() }
+      {
+        id: 'folder-1',
+        objectType: 'folder',
+        name: 'Folder 1',
+        createdAt: Date.now()
+      }
     ];
 
     const mockLinkRows: { childId: string; parentId: string }[] = [];

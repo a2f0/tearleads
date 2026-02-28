@@ -42,6 +42,7 @@ describe('FolderContextMenu', () => {
     y: 0,
     folder: {
       id: 'folder-1',
+      objectType: 'folder' as const,
       name: 'Folder 1',
       parentId: null,
       childCount: 0,
@@ -83,6 +84,7 @@ describe('FolderContextMenu', () => {
         {...defaultProps}
         folder={{
           id: VFS_ROOT_ID,
+          objectType: 'folder' as const,
           name: 'VFS Root',
           parentId: null,
           childCount: 0,
@@ -98,5 +100,29 @@ describe('FolderContextMenu', () => {
     expect(screen.queryByText('Cut')).not.toBeInTheDocument();
     expect(screen.queryByText('Copy')).not.toBeInTheDocument();
     expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+  });
+
+  it('shows non-folder actions for playlist containers', () => {
+    render(
+      <FolderContextMenu
+        {...defaultProps}
+        folder={{
+          id: 'playlist-1',
+          objectType: 'playlist' as const,
+          name: 'Road Trip',
+          parentId: 'folder-1',
+          childCount: 0,
+          children: []
+        }}
+      />
+    );
+
+    expect(screen.queryByText('New Subfolder')).not.toBeInTheDocument();
+    expect(screen.queryByText('Rename')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sharing')).not.toBeInTheDocument();
+    expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+    expect(screen.getByText('Cut')).toBeInTheDocument();
+    expect(screen.getByText('Copy')).toBeInTheDocument();
+    expect(screen.getByText('Paste')).toBeInTheDocument();
   });
 });

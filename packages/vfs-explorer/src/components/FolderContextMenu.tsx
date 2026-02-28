@@ -43,10 +43,12 @@ export function FolderContextMenu({
 
   const clipboardItem = {
     id: folder.id,
-    objectType: 'folder' as const,
+    objectType: folder.objectType,
     name: folder.name
   };
-  const isRootFolder = folder.id === VFS_ROOT_ID;
+  const isFolder = folder.objectType === 'folder';
+  const isRootFolder = isFolder && folder.id === VFS_ROOT_ID;
+  const canManageFolder = isFolder && !isRootFolder;
   const createActionHandler = (action: () => void) => () => {
     action();
     onClose();
@@ -54,13 +56,15 @@ export function FolderContextMenu({
 
   return (
     <WindowContextMenu x={x} y={y} onClose={onClose}>
-      <WindowContextMenuItem
-        icon={<FolderPlus className="h-4 w-4" />}
-        onClick={createActionHandler(() => onNewSubfolder(folder))}
-      >
-        New Subfolder
-      </WindowContextMenuItem>
-      {!isRootFolder && (
+      {isFolder && (
+        <WindowContextMenuItem
+          icon={<FolderPlus className="h-4 w-4" />}
+          onClick={createActionHandler(() => onNewSubfolder(folder))}
+        >
+          New Subfolder
+        </WindowContextMenuItem>
+      )}
+      {canManageFolder && (
         <WindowContextMenuItem
           icon={<Pencil className="h-4 w-4" />}
           onClick={createActionHandler(() => onRename(folder))}
@@ -68,7 +72,7 @@ export function FolderContextMenu({
           Rename
         </WindowContextMenuItem>
       )}
-      {!isRootFolder && vfsShareApi && onShare && (
+      {canManageFolder && vfsShareApi && onShare && (
         <WindowContextMenuItem
           icon={<Share2 className="h-4 w-4" />}
           onClick={createActionHandler(() => onShare(folder))}
@@ -101,8 +105,8 @@ export function FolderContextMenu({
           Paste
         </WindowContextMenuItem>
       )}
-      {!isRootFolder && <div className="my-1 h-px bg-border" />}
-      {!isRootFolder && (
+      {canManageFolder && <div className="my-1 h-px bg-border" />}
+      {canManageFolder && (
         <WindowContextMenuItem
           icon={<Trash2 className="h-4 w-4" />}
           variant="destructive"
