@@ -362,10 +362,15 @@ The `--headless` flag:
 ### Component Guardrail
 
 - `scripts/checks/checkOneComponentPerFile.ts` enforces one top-level React component per `.tsx` file
+- `scripts/checks/checkComponentComplexity.ts` enforces component complexity thresholds on `.tsx` components:
+  - `lines <= 220`
+  - `jsx-depth <= 6`
+  - `branch-count <= 18`
 - Runs in pre-push via `.husky/pre-push`
 - Uses strict JSX component detection by default (including test/helper `.tsx` files, excluding `.stories.tsx`)
 - Current rollout is **phase 1**: checks newly added `.tsx` files in the push range to avoid blocking incremental legacy cleanup
 - Escape hatch for rare cases: include `one-component-per-file: allow` in the file with a short rationale
+- Escape hatch for complexity exceptions: include `component-complexity: allow` in the file with a short rationale
 
 ### Refactoring
 
