@@ -110,8 +110,7 @@ describe('orgMembership middleware', () => {
     const consoleError = vi
       .spyOn(console, 'error')
       .mockImplementation(() => {});
-    const personalOrgId =
-      'personal-org-550e8400-e29b-41d4-a716-446655440000';
+    const personalOrgId = 'personal-org-550e8400-e29b-41d4-a716-446655440000';
 
     mockGetPostgresPool.mockResolvedValue({
       query: mockQuery.mockResolvedValue({
