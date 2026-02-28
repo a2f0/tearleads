@@ -17,6 +17,7 @@ echo "Press Ctrl+C to cancel, or wait 5 seconds to continue..."
 sleep 5
 
 terraform -chdir="$STACK_DIR" destroy "$@"
+purge_cloudflare_cache_for_hosts "${TF_VAR_domain:-}" "k8s.${TF_VAR_domain:-}" "app.k8s.${TF_VAR_domain:-}"
 
 echo "Removing STAGING_KUBECONFIG_B64 from GitHub Actions secrets..."
 REPO="$(get_github_repo)"

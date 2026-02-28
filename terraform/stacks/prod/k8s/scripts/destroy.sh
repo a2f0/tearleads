@@ -22,3 +22,4 @@ sleep 10
 
 "$SCRIPT_DIR/init.sh"
 terraform -chdir="$STACK_DIR" destroy "$@"
+purge_cloudflare_cache_for_hosts "${TF_VAR_domain:-}" "${TF_VAR_domain:-}" "app.${TF_VAR_domain:-}"
