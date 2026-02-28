@@ -315,7 +315,7 @@ describe('VfsWindow', () => {
     });
   });
 
-  it('does not sync remote state for non-shared folders', async () => {
+  it('syncs remote state for non-shared folders', async () => {
     const user = userEvent.setup();
     render(<VfsWindow {...defaultProps} />);
 
@@ -323,7 +323,7 @@ describe('VfsWindow', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Refresh' }));
 
     await waitFor(() => {
-      expect(mockSyncRemoteState).not.toHaveBeenCalled();
+      expect(mockSyncRemoteState).toHaveBeenCalledTimes(1);
       expect(screen.getByTestId('vfs-explorer')).toHaveAttribute(
         'data-refresh-token',
         '1'
