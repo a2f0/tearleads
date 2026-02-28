@@ -102,7 +102,10 @@
     - name: Add SNAT rule for pod traffic to VPC CIDR
       ansible.builtin.command:
         cmd: iptables -t nat -A POSTROUTING -s {{ k3s_pod_cidr }} -d {{ k8s_vpc_cidr }} -j MASQUERADE
+      register: k3s_pod_snat_apply
       when: k3s_pod_snat_rule.rc != 0
+      changed_when: k3s_pod_snat_apply.rc == 0
+      failed_when: k3s_pod_snat_apply.rc != 0
 
     - name: Copy nginx-ingress manifest to target
       ansible.builtin.copy:

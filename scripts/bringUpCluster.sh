@@ -12,6 +12,7 @@ RDS_SCRIPTS_DIR="$REPO_ROOT/terraform/stacks/prod/rds/scripts"
 S3_SCRIPTS_DIR="$REPO_ROOT/terraform/stacks/prod/s3/scripts"
 CI_SCRIPTS_DIR="$REPO_ROOT/terraform/stacks/prod/ci-artifacts/scripts"
 
+# shellcheck disable=SC1091
 # shellcheck source=../terraform/scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"
 load_secrets_env prod
