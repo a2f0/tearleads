@@ -106,11 +106,45 @@ describe('orgMembership middleware', () => {
     });
   });
 
-  it('returns 400 for invalid UUID format', async () => {
+  it('proceeds with personal org ID format', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    const personalOrgId =
+      'personal-org-550e8400-e29b-41d4-a716-446655440000';
+
+    mockGetPostgresPool.mockResolvedValue({
+      query: mockQuery.mockResolvedValue({
+        rows: [{ organization_id: personalOrgId }]
+      })
+    });
+
     const response = await request(app)
       .get('/v1/auth/organizations')
       .set('Authorization', authHeader)
-      .set('X-Organization-Id', 'not-a-uuid');
+      .set('X-Organization-Id', personalOrgId);
+
+    expect(response.status).not.toBe(400);
+    consoleError.mockRestore();
+  });
+
+  it('returns 400 for invalid org ID format', async () => {
+    const response = await request(app)
+      .get('/v1/auth/organizations')
+      .set('Authorization', authHeader)
+      .set('X-Organization-Id', 'org id with spaces!@#');
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: 'Invalid X-Organization-Id format'
+    });
+  });
+
+  it('returns 400 for overly long org ID', async () => {
+    const response = await request(app)
+      .get('/v1/auth/organizations')
+      .set('Authorization', authHeader)
+      .set('X-Organization-Id', 'a'.repeat(101));
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
@@ -121,7 +155,7 @@ describe('orgMembership middleware', () => {
   it('skips validation for auth exempt paths', async () => {
     const response = await request(app)
       .get('/v1/ping')
-      .set('X-Organization-Id', 'not-a-uuid');
+      .set('X-Organization-Id', 'any-value');
 
     expect(response.status).toBe(200);
   });
@@ -139,9 +173,8 @@ describe('orgMembership middleware', () => {
     const response = await request(app)
       .get('/v1/admin/context')
       .set('Authorization', adminAuthHeader)
-      .set('X-Organization-Id', 'not-a-uuid');
+      .set('X-Organization-Id', 'any-value');
 
-    // Org middleware should skip admin paths — no 400 from org validation
     expect(response.status).not.toBe(400);
     consoleError.mockRestore();
   });
