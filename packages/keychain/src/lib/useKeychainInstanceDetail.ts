@@ -27,6 +27,7 @@ export function useKeychainInstanceDetail({
 
   const fetchInstanceInfo = useCallback(async () => {
     if (!instanceId) {
+      setLoading(false);
       return;
     }
     if (!dependencies) {
