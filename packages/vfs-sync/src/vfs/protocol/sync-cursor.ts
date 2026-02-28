@@ -21,7 +21,8 @@ function encodeBytesToBase64(bytes: Uint8Array): string {
   let index = 0;
 
   while (index < bytes.length) {
-    const byte1 = bytes[index++];
+    const byte1 = bytes[index] ?? 0;
+    index += 1;
     const byte2 = index < bytes.length ? bytes[index++] : undefined;
     const byte3 = index < bytes.length ? bytes[index++] : undefined;
 
@@ -53,10 +54,10 @@ function decodeBase64ToBytes(base64: string): Uint8Array | null {
   let byteIndex = 0;
 
   for (let index = 0; index < base64.length; index += 4) {
-    const char1 = base64[index];
-    const char2 = base64[index + 1];
-    const char3 = base64[index + 2];
-    const char4 = base64[index + 3];
+    const char1 = base64[index] ?? '';
+    const char2 = base64[index + 1] ?? '';
+    const char3 = base64[index + 2] ?? '';
+    const char4 = base64[index + 3] ?? '';
 
     const value1 = chars.indexOf(char1);
     const value2 = chars.indexOf(char2);
