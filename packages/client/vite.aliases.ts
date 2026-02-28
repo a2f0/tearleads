@@ -135,6 +135,7 @@ export const createViteAliases = (
     ),
     '@tearleads/api': path.resolve(dirname, '../api/src/index.ts'),
     '@tearleads/db/package.json': path.resolve(dirname, '../db/package.json'),
+    '@tearleads/db': path.resolve(dirname, '../db/src'),
     '@tearleads/db/sqlite': path.resolve(
       dirname,
       '../db/src/generated/sqlite/schema.ts'
