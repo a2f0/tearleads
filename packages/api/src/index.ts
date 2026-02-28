@@ -36,9 +36,11 @@ const PORT = Number(process.env['PORT']) || 5001;
 
 // Middleware
 app.use(cors());
-if (process.env['NODE_ENV'] !== 'test') {
-  app.use(morgan(process.env['NODE_ENV'] === 'production' ? 'short' : 'dev'));
-}
+app.use(
+  morgan(process.env['NODE_ENV'] === 'production' ? 'short' : 'dev', {
+    skip: () => process.env['NODE_ENV'] === 'test'
+  })
+);
 
 const jsonBodyLimit = process.env['API_JSON_BODY_LIMIT'] ?? '10mb';
 
