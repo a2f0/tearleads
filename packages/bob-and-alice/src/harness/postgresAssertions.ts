@@ -1,4 +1,4 @@
-import { expect } from 'vitest';
+import { strict as assert } from 'node:assert';
 
 interface PgQueryable {
   query<T = Record<string, unknown>>(
@@ -24,7 +24,10 @@ export async function assertPgUserOrganizationMembership(
     [input.userId, input.organizationId]
   );
   const count = Number(result.rows[0]?.count ?? '0');
-  expect(count).toBeGreaterThan(0);
+  assert.ok(
+    count > 0,
+    `Expected membership for user ${input.userId} in organization ${input.organizationId}`
+  );
 }
 
 interface AssertPgHasVfsRegistryItemInput {
@@ -44,7 +47,11 @@ export async function assertPgHasVfsRegistryItem(
     [input.itemId, input.objectType]
   );
   const count = Number(result.rows[0]?.count ?? '0');
-  expect(count).toBe(1);
+  assert.equal(
+    count,
+    1,
+    `Expected one vfs_registry row for item ${input.itemId} with object type ${input.objectType}`
+  );
 }
 
 interface AssertPgHasActiveUserShareInput {
@@ -68,5 +75,9 @@ export async function assertPgHasActiveUserShare(
     [input.itemId, input.targetUserId, input.grantedByUserId]
   );
   const count = Number(result.rows[0]?.count ?? '0');
-  expect(count).toBe(1);
+  assert.equal(
+    count,
+    1,
+    `Expected one active user share for item ${input.itemId}`
+  );
 }

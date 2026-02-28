@@ -21,8 +21,7 @@
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "peerDependencies": {
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react": "19.2.4"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "6.9.1",
