@@ -16,7 +16,7 @@ import {
   getMiniPlayerStyle,
   getOrOpenAudioWindowId,
   getPreMaximizeDimensions,
-  hasActiveMiniPlayerAudio,
+  restoreOrOpenAudioWindow,
   shouldShowMiniPlayer
 } from './miniPlayerHelpers';
 
@@ -72,7 +72,7 @@ export function MiniPlayer() {
   }, []);
 
   const handleRestore = useCallback(() => {
-    restoreWindow(getOrOpenAudioWindowId(audioWindow, openWindow));
+    restoreOrOpenAudioWindow(audioWindow, openWindow, restoreWindow);
     setContextMenu(null);
   }, [audioWindow, openWindow, restoreWindow]);
 
@@ -92,10 +92,7 @@ export function MiniPlayer() {
     setContextMenu(null);
   }, [audioWindow, openWindow, restoreWindow, updateWindowDimensions]);
 
-  if (
-    !hasActiveMiniPlayerAudio(audio) ||
-    !shouldShowMiniPlayer(audio, isOnAudioPage, isAudioWindowVisible)
-  ) {
+  if (!shouldShowMiniPlayer(audio, isOnAudioPage, isAudioWindowVisible)) {
     return null;
   }
 
