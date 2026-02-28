@@ -189,6 +189,7 @@ resource "aws_instance" "server" {
   vpc_security_group_ids      = [aws_security_group.k8s_server.id]
   key_name                    = data.aws_key_pair.dps_blackbox.key_name
   user_data_replace_on_change = true
+  source_dest_check           = false
 
   user_data = <<-EOF
     #cloud-config
