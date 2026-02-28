@@ -13,6 +13,7 @@
     "outDir": "./dist-tests",
     "tsBuildInfoFile": "./dist-tests/.tsbuildinfo"
   },
+  "references": [{ "path": "../local-write-orchestrator" }],
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
