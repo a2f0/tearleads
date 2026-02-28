@@ -1,8 +1,14 @@
-import type { Pool as PgPool } from 'pg';
 import { expect } from 'vitest';
 
+interface PgQueryable {
+  query<T = Record<string, unknown>>(
+    text: string,
+    params?: unknown[]
+  ): Promise<{ rows: T[] }>;
+}
+
 interface AssertPgUserOrganizationMembershipInput {
-  pool: PgPool;
+  pool: PgQueryable;
   userId: string;
   organizationId: string;
 }
@@ -22,7 +28,7 @@ export async function assertPgUserOrganizationMembership(
 }
 
 interface AssertPgHasVfsRegistryItemInput {
-  pool: PgPool;
+  pool: PgQueryable;
   itemId: string;
   objectType: string;
 }
@@ -42,7 +48,7 @@ export async function assertPgHasVfsRegistryItem(
 }
 
 interface AssertPgHasActiveUserShareInput {
-  pool: PgPool;
+  pool: PgQueryable;
   itemId: string;
   targetUserId: string;
   grantedByUserId: string;
