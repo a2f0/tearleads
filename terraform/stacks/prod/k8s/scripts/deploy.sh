@@ -12,6 +12,47 @@ source "$REPO_ROOT/terraform/scripts/common.sh"
 
 load_secrets_env prod
 
+is_placeholder_value() {
+  local value="$1"
+  [[ "$value" =~ ^\$\{[A-Za-z_][A-Za-z0-9_]*\}$ ]]
+}
+
+resolve_s3_credentials_from_terraform() {
+  local access_key="${VFS_BLOB_S3_ACCESS_KEY_ID:-}"
+  local secret_key="${VFS_BLOB_S3_SECRET_ACCESS_KEY:-}"
+
+  local need_access_key="false"
+  local need_secret_key="false"
+
+  if [[ -z "$access_key" ]] || is_placeholder_value "$access_key"; then
+    need_access_key="true"
+  fi
+
+  if [[ -z "$secret_key" ]] || is_placeholder_value "$secret_key"; then
+    need_secret_key="true"
+  fi
+
+  if [[ "$need_access_key" != "true" && "$need_secret_key" != "true" ]]; then
+    return
+  fi
+
+  local s3_stack_dir="$REPO_ROOT/terraform/stacks/prod/s3"
+  local s3_scripts_dir="$s3_stack_dir/scripts"
+
+  echo "Resolving S3 IAM credentials from terraform outputs..."
+  "$s3_scripts_dir/init.sh" >/dev/null
+
+  if [[ "$need_access_key" == "true" ]]; then
+    export VFS_BLOB_S3_ACCESS_KEY_ID
+    VFS_BLOB_S3_ACCESS_KEY_ID="$(terraform -chdir="$s3_stack_dir" output -raw access_key_id)"
+  fi
+
+  if [[ "$need_secret_key" == "true" ]]; then
+    export VFS_BLOB_S3_SECRET_ACCESS_KEY
+    VFS_BLOB_S3_SECRET_ACCESS_KEY="$(terraform -chdir="$s3_stack_dir" output -raw secret_access_key)"
+  fi
+}
+
 require_secret_env_vars() {
   local missing=()
   local required_vars=(
@@ -37,6 +78,7 @@ require_secret_env_vars() {
   fi
 }
 
+resolve_s3_credentials_from_terraform
 require_secret_env_vars
 
 if ! command -v envsubst >/dev/null 2>&1; then
