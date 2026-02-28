@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { handleDialogTabTrap } from './dialogFocusTrap';
 import { useVfsExplorerContext } from '../context';
 import { useRenameVfsFolder, type VfsFolderNode } from '../hooks';
+import { handleDialogTabTrap } from './dialogFocusTrap';
 
 interface RenameFolderDialogProps {
   open: boolean;
