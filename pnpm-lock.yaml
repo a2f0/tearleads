@@ -73,6 +73,9 @@ importers:
 
   packages/admin:
     dependencies:
+      '@tanstack/react-virtual':
+        specifier: 3.13.19
+        version: 3.13.19(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@tearleads/backups':
         specifier: workspace:*
         version: link:../backups
@@ -85,13 +88,13 @@ importers:
       lucide-react:
         specifier: 0.575.0
         version: 0.575.0(react@19.2.4)
+      react-i18next:
+        specifier: 16.5.4
+        version: 16.5.4(i18next@25.8.13(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
       sonner:
         specifier: 2.0.7
         version: 2.0.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
     devDependencies:
-      '@tanstack/react-virtual':
-        specifier: 3.13.19
-        version: 3.13.19(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@tearleads/ui':
         specifier: workspace:*
         version: link:../ui
@@ -137,9 +140,6 @@ importers:
       react-dom:
         specifier: 19.2.4
         version: 19.2.4(react@19.2.4)
-      react-i18next:
-        specifier: 16.5.4
-        version: 16.5.4(i18next@25.8.13(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
       react-router-dom:
         specifier: 7.13.1
         version: 7.13.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -884,6 +884,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@tearleads/shared':
+        specifier: workspace:*
+        version: link:../shared
       better-sqlite3-multiple-ciphers:
         specifier: 12.6.2
         version: 12.6.2
@@ -891,9 +894,6 @@ importers:
         specifier: 14.0.3
         version: 14.0.3
     devDependencies:
-      '@tearleads/shared':
-        specifier: workspace:*
-        version: link:../shared
       '@types/better-sqlite3':
         specifier: 7.6.13
         version: 7.6.13
