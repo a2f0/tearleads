@@ -1,10 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { PGlite } from '@electric-sql/pglite';
-import type {
-  PgPool,
-  PgPoolClient,
-  PgQueryResult
-} from './pgTypes.js';
+import 'pg';
+import type { Pool as PgPool, QueryResult } from 'pg';
 
 interface PgliteResult {
   rows: Record<string, unknown>[];
@@ -29,7 +26,7 @@ function needsSimpleProtocol(sql: string): boolean {
   return semiCount > 1;
 }
 
-function mapResult(raw: PgliteResult): PgQueryResult {
+function mapResult(raw: PgliteResult): QueryResult {
   // PGlite returns affectedRows=0 for SELECT. Use rows.length when
   // affectedRows is absent or zero and rows are present.
   const rowCount =
@@ -59,25 +56,16 @@ class PglitePoolClient extends EventEmitter {
     super();
   }
 
-  async query<T extends Record<string, unknown> = Record<string, unknown>>(
-    text: string,
-    values?: unknown[]
-  ): Promise<PgQueryResult<T>> {
+  async query(text: string, values?: unknown[]): Promise<QueryResult> {
     if (!values?.length && needsSimpleProtocol(text)) {
       await this.pglite.exec(text);
-      return {
-        rows: [] as T[],
-        rowCount: 0,
-        command: '',
-        oid: 0,
-        fields: []
-      };
+      return { rows: [], rowCount: 0, command: '', oid: 0, fields: [] };
     }
     const result = (await this.pglite.query(
       text,
       values
     )) as unknown as PgliteResult;
-    return mapResult(result) as PgQueryResult<T>;
+    return mapResult(result);
   }
 
   release(): void {
@@ -90,28 +78,19 @@ export class PglitePool extends EventEmitter {
     super();
   }
 
-  async query<T extends Record<string, unknown> = Record<string, unknown>>(
-    text: string,
-    values?: unknown[]
-  ): Promise<PgQueryResult<T>> {
+  async query(text: string, values?: unknown[]): Promise<QueryResult> {
     if (!values?.length && needsSimpleProtocol(text)) {
       await this.pglite.exec(text);
-      return {
-        rows: [] as T[],
-        rowCount: 0,
-        command: '',
-        oid: 0,
-        fields: []
-      };
+      return { rows: [], rowCount: 0, command: '', oid: 0, fields: [] };
     }
     const result = (await this.pglite.query(
       text,
       values
     )) as unknown as PgliteResult;
-    return mapResult(result) as PgQueryResult<T>;
+    return mapResult(result);
   }
 
-  async connect(): Promise<PgPoolClient> {
+  async connect(): Promise<PglitePoolClient> {
     return new PglitePoolClient(this.pglite);
   }
 
@@ -127,7 +106,7 @@ export async function createPglitePool(): Promise<{
   exec: (sql: string) => Promise<void>;
 }> {
   const pglite = new PGlite();
-  const pool: PgPool = new PglitePool(pglite);
+  const pool = new PglitePool(pglite) as unknown as PgPool;
   const exec = async (sql: string): Promise<void> => {
     await pglite.exec(sql);
   };

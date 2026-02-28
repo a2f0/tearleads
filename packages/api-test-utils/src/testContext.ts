@@ -8,7 +8,7 @@ import {
 } from '@tearleads/shared/redis';
 import { setPoolOverrideForTesting } from '@tearleads/shared/testing';
 import type { Express } from 'express';
-import type { PgPool } from './pgTypes.js';
+import type { Pool as PgPool } from 'pg';
 import { createPglitePool } from './pglitePool.js';
 import { createRedisMock, type RedisMockClient } from './redisMock.js';
 

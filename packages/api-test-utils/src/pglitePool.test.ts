@@ -1,5 +1,5 @@
+import type { Pool as PgPool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { PgPool } from './pgTypes.js';
 import { createPglitePool } from './pglitePool.js';
 
 describe('PglitePool', () => {
