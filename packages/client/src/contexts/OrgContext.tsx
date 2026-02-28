@@ -14,6 +14,10 @@ import {
   setActiveOrgForUser
 } from '@/db/orgPreference';
 import { api } from '@/lib/api';
+import {
+  clearActiveOrganizationId as clearStoredOrgId,
+  setActiveOrganizationId as setStoredOrgId
+} from '@/lib/orgStorage';
 import { useAuth } from './AuthContext';
 
 interface OrgContextValue {
@@ -35,12 +39,24 @@ export function OrgProvider({ children }: OrgProviderProps) {
   const [activeOrganizationId, setActiveOrgId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const applyActiveOrg = useCallback(
+    (id: string) => {
+      setActiveOrgId(id);
+      setStoredOrgId(id);
+      if (user) {
+        void setActiveOrgForUser(user.id, id);
+      }
+    },
+    [user]
+  );
+
   useEffect(() => {
     if (isAuthLoading) return;
 
     if (!isAuthenticated || !user) {
       setOrganizations([]);
       setActiveOrgId(null);
+      clearStoredOrgId();
       setIsLoading(false);
       return;
     }
@@ -64,16 +80,16 @@ export function OrgProvider({ children }: OrgProviderProps) {
           response.organizations.some((org) => org.id === persistedOrgId);
 
         if (validPersistedOrg) {
-          setActiveOrgId(persistedOrgId);
+          applyActiveOrg(persistedOrgId);
         } else {
-          setActiveOrgId(response.personalOrganizationId);
-          await setActiveOrgForUser(userId, response.personalOrganizationId);
+          applyActiveOrg(response.personalOrganizationId);
         }
       } catch (error) {
         console.error('Failed to fetch organizations:', error);
         if (!cancelled) {
           setOrganizations([]);
           setActiveOrgId(null);
+          clearStoredOrgId();
         }
       } finally {
         if (!cancelled) {
@@ -88,7 +104,7 @@ export function OrgProvider({ children }: OrgProviderProps) {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, isAuthLoading, user]);
+  }, [isAuthenticated, isAuthLoading, user, applyActiveOrg]);
 
   // Clear persisted org on logout
   useEffect(() => {
@@ -103,15 +119,7 @@ export function OrgProvider({ children }: OrgProviderProps) {
     };
   }, [isAuthenticated, isAuthLoading, user]);
 
-  const setActiveOrganizationId = useCallback(
-    (id: string) => {
-      setActiveOrgId(id);
-      if (user) {
-        void setActiveOrgForUser(user.id, id);
-      }
-    },
-    [user]
-  );
+  const setActiveOrganizationId = applyActiveOrg;
 
   const value = useMemo(
     () => ({

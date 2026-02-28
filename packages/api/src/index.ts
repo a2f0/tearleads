@@ -12,6 +12,7 @@ import { closeRedisSubscriberClient } from './lib/redisPubSub.js';
 import { adminAccessMiddleware } from './middleware/adminAccess.js';
 import { adminSessionMiddleware } from './middleware/adminSession.js';
 import { authMiddleware } from './middleware/auth.js';
+import { orgMembershipMiddleware } from './middleware/orgMembership.js';
 import { adminContextRouter } from './routes/admin/context.js';
 import { groupsRouter } from './routes/admin/groups.js';
 import { organizationsRouter } from './routes/admin/organizations.js';
@@ -118,6 +119,7 @@ app.get('/v1/ping', (_req: Request, res: Response) => {
 });
 
 app.use('/v1', authMiddleware);
+app.use('/v1', orgMembershipMiddleware);
 
 // Admin routes
 app.use('/v1/admin/redis', adminSessionMiddleware, redisRouter);
