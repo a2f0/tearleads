@@ -476,9 +476,6 @@ importers:
       lucide-react:
         specifier: 0.575.0
         version: 0.575.0(react@19.2.4)
-      react-router-dom:
-        specifier: 7.13.1
-        version: 7.13.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       tailwind-merge:
         specifier: 3.5.0
         version: 3.5.0
@@ -1301,9 +1298,6 @@ importers:
       '@tearleads/backups':
         specifier: workspace:*
         version: link:../backups
-      '@tearleads/help':
-        specifier: workspace:*
-        version: link:../help
       '@tearleads/terminal':
         specifier: workspace:*
         version: link:../terminal
@@ -1374,9 +1368,6 @@ importers:
       '@tanstack/react-virtual':
         specifier: 3.13.19
         version: 3.13.19(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@tearleads/ui':
-        specifier: workspace:*
-        version: link:../ui
       lucide-react:
         specifier: 0.575.0
         version: 0.575.0(react@19.2.4)
@@ -1887,9 +1878,6 @@ importers:
       lucide-react:
         specifier: 0.575.0
         version: 0.575.0(react@19.2.4)
-      react-i18next:
-        specifier: 16.5.4
-        version: 16.5.4(i18next@25.8.13(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
       react-router-dom:
         specifier: 7.13.1
         version: 7.13.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -2009,12 +1997,6 @@ importers:
       lucide-react:
         specifier: 0.575.0
         version: 0.575.0(react@19.2.4)
-      react-i18next:
-        specifier: 16.5.4
-        version: 16.5.4(i18next@25.8.13(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
-      react-router-dom:
-        specifier: 7.13.1
-        version: 7.13.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
     devDependencies:
       '@tearleads/window-manager':
         specifier: workspace:*
@@ -2460,9 +2442,6 @@ importers:
       '@tearleads/db':
         specifier: workspace:*
         version: link:../db
-      '@tearleads/ui':
-        specifier: workspace:*
-        version: link:../ui
       '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
@@ -2475,12 +2454,6 @@ importers:
       lucide-react:
         specifier: 0.575.0
         version: 0.575.0(react@19.2.4)
-      react-i18next:
-        specifier: 16.5.4
-        version: 16.5.4(i18next@25.8.13(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
-      react-router-dom:
-        specifier: 7.13.1
-        version: 7.13.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       tailwind-merge:
         specifier: 3.5.0
         version: 3.5.0

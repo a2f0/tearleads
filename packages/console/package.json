@@ -22,7 +22,6 @@
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "peerDependencies": {
-    "@tearleads/help": "workspace:*",
     "@tearleads/terminal": "workspace:*",
     "@tearleads/ui": "workspace:*",
     "@tearleads/window-manager": "workspace:*",
