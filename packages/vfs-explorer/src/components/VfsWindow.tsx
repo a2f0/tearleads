@@ -1,9 +1,6 @@
 import { WindowControlBar } from '@tearleads/window-manager';
 import { useCallback, useState } from 'react';
-import {
-  SHARED_BY_ME_FOLDER_ID,
-  SHARED_WITH_ME_FOLDER_ID
-} from '../constants';
+import { SHARED_BY_ME_FOLDER_ID, SHARED_WITH_ME_FOLDER_ID } from '../constants';
 import { useVfsExplorerContext, type WindowDimensions } from '../context';
 import { NewFolderDialog } from './NewFolderDialog';
 import { VfsExplorer, type VfsOpenItem } from './VfsExplorer';
