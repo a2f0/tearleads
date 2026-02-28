@@ -2,6 +2,7 @@
 # Update everything in the repo. Run from anywhere.
 #
 # Optional environment toggles:
+#   SKIP_BRANCH_GUARD=1   Allow running on main/master
 #   SKIP_TOOLCHAIN_SYNC=1   Skip toolchain sync (Node/Electron + Android SDK)
 #   SKIP_TOOLCHAIN_NODE=1   Skip Node/Electron sync inside toolchain sync
 #   SKIP_TOOLCHAIN_ANDROID=1 Skip Android SDK sync inside toolchain sync
@@ -17,7 +18,7 @@
 #   SKIP_LINT=1       Skip pnpm lint:fix + pnpm lint
 #   SKIP_UPDATE=1     Skip pnpm -r update --latest
 #   SKIP_INSTALL=1    Skip pnpm install
-#   SKIP_CODEX_UPGRADE=1 Skip brew upgrade codex on macOS
+#   UPGRADE_CODEX=1   Opt in to brew upgrade codex on macOS
 set -eu
 
 SCRIPT_PATH=$0
@@ -27,6 +28,25 @@ case $SCRIPT_PATH in
 esac
 SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd -P)
+WARNINGS_SUMMARY=""
+
+warn() {
+  echo "Warning: $*" >&2
+}
+
+append_warning() {
+  WARNINGS_SUMMARY="${WARNINGS_SUMMARY}$1
+"
+}
+
+require_command() {
+  CMD_NAME="$1"
+  HELP_TEXT="$2"
+  if ! command -v "$CMD_NAME" >/dev/null 2>&1; then
+    echo "updateEverything: required command '$CMD_NAME' not found. $HELP_TEXT" >&2
+    exit 1
+  fi
+}
 
 ensure_mise_node_runtime() {
   if ! command -v mise >/dev/null 2>&1; then
@@ -43,22 +63,36 @@ ensure_mise_node_runtime() {
 
 cd "$REPO_ROOT"
 
-if [ -n "$(git status --porcelain)" ]; then
-  echo "Warning: working tree is not clean. Continuing anyway." >&2
+require_command git "Install git and rerun."
+require_command jq "Install jq and rerun."
+require_command pnpm "Install pnpm and rerun."
+
+if [ "${SKIP_BRANCH_GUARD:-0}" -ne 1 ]; then
+  CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+  if [ "$CURRENT_BRANCH" = "main" ] || [ "$CURRENT_BRANCH" = "master" ]; then
+    echo "updateEverything: refusing to run on '$CURRENT_BRANCH'. Switch to a feature branch or set SKIP_BRANCH_GUARD=1." >&2
+    exit 1
+  fi
 fi
 
-# Keep Codex CLI current on macOS hosts.
-if [ "${SKIP_CODEX_UPGRADE:-0}" -ne 1 ] && [ "$(uname -s)" = "Darwin" ]; then
+if [ -n "$(git status --porcelain)" ]; then
+  warn "working tree is not clean. Continuing anyway."
+fi
+
+# Keep Codex CLI current on macOS hosts when explicitly requested.
+if [ "${UPGRADE_CODEX:-0}" -eq 1 ] && [ "$(uname -s)" = "Darwin" ]; then
   if command -v brew >/dev/null 2>&1; then
-    brew upgrade codex || echo "Warning: Failed to upgrade codex CLI." >&2
+    brew upgrade codex || warn "Failed to upgrade codex CLI."
   else
-    echo "Warning: Homebrew not found; skipping codex upgrade." >&2
+    warn "Homebrew not found; skipping codex upgrade."
+    append_warning "codex-upgrade: skipped (brew missing)"
   fi
 fi
 
 ensure_mise_node_runtime
 
 if [ "${SKIP_TOOLCHAIN_SYNC:-0}" -ne 1 ]; then
+  require_command curl "Install curl or set SKIP_TOOLCHAIN_SYNC=1."
   TOOLCHAIN_ARGS="--apply --max-android-jump ${TOOLCHAIN_SYNC_MAX_ANDROID_JUMP:-1}"
   if [ "${SKIP_TOOLCHAIN_NODE:-0}" -eq 1 ]; then
     TOOLCHAIN_ARGS="$TOOLCHAIN_ARGS --skip-node"
@@ -146,6 +180,12 @@ if [ "${SKIP_TESTS:-0}" -ne 1 ]; then
   pnpm test
 fi
 
+if [ "${SKIP_RUBY:-0}" -ne 1 ] && ! command -v bundle >/dev/null 2>&1; then
+  warn "bundle not found; skipping Ruby dependency updates."
+  append_warning "ruby: skipped (bundle missing)"
+  SKIP_RUBY=1
+fi
+
 if [ "${SKIP_RUBY:-0}" -ne 1 ]; then
   (cd packages/client && bundle update)
   (cd packages/client && bundle install)
@@ -153,6 +193,12 @@ fi
 
 if [ "${SKIP_CAP_SYNC:-0}" -ne 1 ]; then
   pnpm --filter @tearleads/client cap:sync
+fi
+
+if [ "${SKIP_POD_CLEAN:-0}" -ne 1 ] && ! command -v pod >/dev/null 2>&1; then
+  warn "pod not found; skipping clean pod install."
+  append_warning "pod-clean: skipped (pod missing)"
+  SKIP_POD_CLEAN=1
 fi
 
 # Clean pod install to ensure fresh CocoaPods dependencies.
@@ -199,8 +245,27 @@ if [ -n "$CAPACITOR_MISMATCHES" ]; then
 fi
 
 if [ "${SKIP_MAESTRO:-0}" -ne 1 ]; then
+  MAESTRO_MISSING=""
+  for CMD_NAME in bundle adb emulator xcrun; do
+    if ! command -v "$CMD_NAME" >/dev/null 2>&1; then
+      MAESTRO_MISSING="${MAESTRO_MISSING} $CMD_NAME"
+    fi
+  done
+  if [ -n "$MAESTRO_MISSING" ]; then
+    warn "missing Maestro prerequisites:${MAESTRO_MISSING}. Skipping Maestro tests."
+    append_warning "maestro: skipped (missing:${MAESTRO_MISSING# })"
+    SKIP_MAESTRO=1
+  fi
+fi
+
+if [ "${SKIP_MAESTRO:-0}" -ne 1 ]; then
   "$SCRIPT_DIR/runMaestroIosTests.sh" --headless
   "$SCRIPT_DIR/runMaestroAndroidTests.sh" --headless
 fi
 
-echo "Update-everything script completed. Review warnings/deprecations from command output." >&2
+if [ -n "$WARNINGS_SUMMARY" ]; then
+  echo "Update-everything completed with warnings/skips:" >&2
+  echo "$WARNINGS_SUMMARY" >&2
+else
+  echo "Update-everything script completed. Review warnings/deprecations from command output." >&2
+fi
