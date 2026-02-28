@@ -7,10 +7,15 @@ const config: KnipConfig = {
     'dependencies',
     'devDependencies',
     'exports',
+    'nsExports',
     'types',
+    'nsTypes',
+    'enumMembers',
+    'duplicates',
     'unlisted',
     'unresolved',
-    'binaries'
+    'binaries',
+    'catalog'
   ],
   ignoreBinaries: ['ansible-lint', 'shellcheck', 'playwright'],
   ignore: [

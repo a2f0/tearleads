@@ -15,7 +15,7 @@ const excludedAllTableNames = new Set<string>([
   'vfs_blob_refs'
 ]);
 
-export const allTables: TableDefinition[] = [
+const runtimeTables: TableDefinition[] = [
   ...foundationTables,
   ...collabTables,
   ...communicationsTables.filter(
@@ -24,5 +24,6 @@ export const allTables: TableDefinition[] = [
   ...runtimeAiTables
 ];
 
-export const postgresRuntimeTables: TableDefinition[] = allTables;
-export const sqliteRuntimeTables: TableDefinition[] = allTables;
+export const allTables: TableDefinition[] = [...runtimeTables];
+export const postgresRuntimeTables: TableDefinition[] = [...runtimeTables];
+export const sqliteRuntimeTables: TableDefinition[] = [...runtimeTables];
