@@ -19,6 +19,8 @@ import type { VideoOpenOptions, VideoWithThumbnail } from '@/pages/Video';
 import { VideoContextMenus } from './VideoContextMenus';
 import { VideoNameCell } from './VideoNameCell';
 
+// one-component-per-file: allow
+// Rationale: table column definitions intentionally include JSX cell renderers.
 const TABLE_ROW_HEIGHT_ESTIMATE = 44;
 
 interface VideoTableViewProps {
