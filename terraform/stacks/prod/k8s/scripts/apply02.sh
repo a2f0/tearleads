@@ -101,7 +101,9 @@ if ! command -v ansible-playbook >/dev/null 2>&1; then
 fi
 
 echo "Running Ansible baseline bootstrap..."
-"$REPO_ROOT/ansible/scripts/run-k8s-prod.sh"
+K3S_POD_CIDR="$(terraform -chdir="$STACK_DIR" output -raw k8s_pod_cidr)"
+K8S_VPC_CIDR="$(terraform -chdir="$STACK_DIR" output -raw k8s_vpc_cidr)"
+"$REPO_ROOT/ansible/scripts/run-k8s-prod.sh" "$K3S_POD_CIDR" "$K8S_VPC_CIDR"
 
 check_ecr_repositories
 

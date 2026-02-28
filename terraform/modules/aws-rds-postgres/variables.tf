@@ -16,6 +16,13 @@ variable "subnet_ids" {
 variable "allowed_cidr_blocks" {
   description = "CIDR blocks allowed to connect to RDS"
   type        = list(string)
+  default     = []
+}
+
+variable "allowed_security_group_ids" {
+  description = "Security group IDs allowed to connect to RDS"
+  type        = list(string)
+  default     = []
 }
 
 variable "engine_version" {

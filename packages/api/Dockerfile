@@ -32,6 +32,8 @@ FROM node:22-slim
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+
 # Copy bundled output (server + CLI)
 COPY --from=builder /app/packages/api/dist/server.cjs ./server.cjs
 COPY --from=builder /app/packages/api/dist/apiCli.cjs ./apiCli.cjs
