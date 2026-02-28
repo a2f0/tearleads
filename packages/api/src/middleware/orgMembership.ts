@@ -13,14 +13,16 @@ declare global {
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const EXEMPT_PATHS = new Set([
+  '/ping',
+  '/auth/login',
+  '/auth/register',
+  '/auth/refresh',
+  '/revenuecat/webhooks'
+]);
+
 const isExemptPath = (path: string): boolean => {
-  if (path === '/ping') return true;
-  if (path === '/auth/login') return true;
-  if (path === '/auth/register') return true;
-  if (path === '/auth/refresh') return true;
-  if (path === '/revenuecat/webhooks') return true;
-  if (path.startsWith('/admin/')) return true;
-  return false;
+  return EXEMPT_PATHS.has(path) || path.startsWith('/admin/');
 };
 
 export async function orgMembershipMiddleware(
@@ -46,7 +48,7 @@ export async function orgMembershipMiddleware(
 
   const userId = req.authClaims?.sub;
   if (!userId) {
-    next();
+    res.status(401).json({ error: 'Unauthorized' });
     return;
   }
 
