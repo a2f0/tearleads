@@ -164,6 +164,20 @@ describe('api with msw', () => {
       objectType: ['contact', 'walletItem']
     });
 
+    // Negative preview path: non-container roots should be rejected
+    await api.vfs.register({
+      id: 'item-2',
+      objectType: 'file',
+      encryptedSessionKey: 'encrypted-session-key'
+    });
+    await expect(
+      api.vfs.getSharePolicyPreview({
+        rootItemId: 'item-2',
+        principalType: 'user',
+        principalId: secondUser.userId
+      })
+    ).rejects.toThrow('Root item must be a container object type');
+
     // AI usage (no FK-violating conversationId/messageId)
     await api.ai.recordUsage({
       modelId: 'mistralai/mistral-7b-instruct',
@@ -207,15 +221,24 @@ describe('api with msw', () => {
       q: 'test query',
       type: 'user'
     });
-    expectSingleRequestQuery('GET', '/vfs/share-policies/preview', {
-      rootItemId: 'item-1',
-      principalType: 'user',
-      principalId: secondUser.userId,
-      limit: '25',
-      maxDepth: '2',
-      q: 'wallet',
-      objectType: 'contact,walletItem'
-    });
+    const previewRequests = getRequestsFor('GET', '/vfs/share-policies/preview');
+    expect(previewRequests).toHaveLength(2);
+    expect(previewRequests.map(getRequestQuery)).toEqual([
+      {
+        rootItemId: 'item-1',
+        principalType: 'user',
+        principalId: secondUser.userId,
+        limit: '25',
+        maxDepth: '2',
+        q: 'wallet',
+        objectType: 'contact,walletItem'
+      },
+      {
+        rootItemId: 'item-2',
+        principalType: 'user',
+        principalId: secondUser.userId
+      }
+    ]);
     expectSingleRequestQuery('GET', '/ai/usage', {
       startDate: '2024-01-01',
       endDate: '2024-01-31',
