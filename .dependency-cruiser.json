@@ -73,6 +73,26 @@
       }
     },
     {
+      "name": "no-cross-package-src-entrypoint-imports",
+      "severity": "warn",
+      "comment": "Packages should import other packages through package roots, not direct src/index entrypoints.",
+      "from": {
+        "path": "^packages/([^/]+)/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "path": "^packages/[^/]+/src/index\\.(ts|tsx)$",
+        "pathNot": "^packages/\\1/src/.*",
+        "dependencyTypes": [
+          "undetermined",
+          "npm",
+          "npm-dev",
+          "npm-peer",
+          "aliased"
+        ]
+      }
+    },
+    {
       "name": "no-local-app-builder-vite-plugin-imports",
       "severity": "error",
       "comment": "Packages should consume app-builder vite helpers via package exports instead of local imports into app-builder/src internals.",
