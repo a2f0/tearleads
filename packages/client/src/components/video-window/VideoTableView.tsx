@@ -10,7 +10,7 @@ import {
   WindowTableRow
 } from '@tearleads/window-manager';
 import type { RefObject } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { useVirtualVisibleRange } from '@/hooks/device';
 import { setMediaDragData } from '@/lib/mediaDragData';
@@ -32,6 +32,29 @@ interface VideoTableViewProps {
   onUpload?: (() => void) | undefined;
 }
 
+const VIDEO_TABLE_COLUMNS: ColumnDef<VideoWithThumbnail>[] = [
+  {
+    id: 'name',
+    header: 'Name',
+    cell: ({ row }) => <VideoNameCell video={row.original} />
+  },
+  {
+    id: 'size',
+    header: 'Size',
+    cell: ({ row }) => formatFileSize(row.original.size)
+  },
+  {
+    id: 'type',
+    header: 'Type',
+    cell: ({ row }) => getVideoTypeDisplay(row.original.mimeType)
+  },
+  {
+    id: 'uploaded',
+    header: 'Uploaded',
+    cell: ({ row }) => formatDate(row.original.uploadDate)
+  }
+];
+
 export function VideoTableView({
   videos,
   tableParentRef,
@@ -52,38 +75,9 @@ export function VideoTableView({
     y: number;
   } | null>(null);
 
-  const tableColumns = useMemo<ColumnDef<VideoWithThumbnail>[]>(
-    () => [
-      {
-        id: 'name',
-        header: 'Name',
-        cell: ({ row }) => {
-          const video = row.original;
-          return <VideoNameCell video={video} />;
-        }
-      },
-      {
-        id: 'size',
-        header: 'Size',
-        cell: ({ row }) => formatFileSize(row.original.size)
-      },
-      {
-        id: 'type',
-        header: 'Type',
-        cell: ({ row }) => getVideoTypeDisplay(row.original.mimeType)
-      },
-      {
-        id: 'uploaded',
-        header: 'Uploaded',
-        cell: ({ row }) => formatDate(row.original.uploadDate)
-      }
-    ],
-    []
-  );
-
   const table = useReactTable({
     data: videos,
-    columns: tableColumns,
+    columns: VIDEO_TABLE_COLUMNS,
     getCoreRowModel: getCoreRowModel()
   });
 
