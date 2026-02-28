@@ -102,7 +102,7 @@ describe('api with msw', () => {
     // Register VFS item
     await api.vfs.register({
       id: 'item-1',
-      objectType: 'file',
+      objectType: 'folder',
       encryptedSessionKey: 'encrypted-session-key'
     });
 
