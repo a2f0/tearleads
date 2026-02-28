@@ -11,16 +11,7 @@ type ParsedArgs = {
   reportOnly: boolean;
 };
 
-const EXCLUDED_FILE_PATTERNS = [
-  /\.test\.tsx$/,
-  /\.spec\.tsx$/,
-  /\.stories\.tsx$/
-];
-
-const EXCLUDED_PATH_SEGMENTS = [
-  `${path.sep}__tests__${path.sep}`,
-  `${path.sep}src${path.sep}test${path.sep}`
-];
+const EXCLUDED_FILE_PATTERNS = [/\.stories\.tsx$/];
 
 const ALLOW_DIRECTIVE = 'one-component-per-file: allow';
 
@@ -123,10 +114,6 @@ function collectCandidateFiles(mode: Mode): string[] {
     .filter((line) => line.length > 0);
 }
 
-function isPascalCase(name: string): boolean {
-  return /^[A-Z][A-Za-z0-9]*$/.test(name);
-}
-
 function isExcluded(filePath: string): boolean {
   const normalizedPath = filePath.split('/').join(path.sep);
   if (!normalizedPath.endsWith('.tsx')) {
@@ -135,12 +122,6 @@ function isExcluded(filePath: string): boolean {
 
   for (const pattern of EXCLUDED_FILE_PATTERNS) {
     if (pattern.test(normalizedPath)) {
-      return true;
-    }
-  }
-
-  for (const segment of EXCLUDED_PATH_SEGMENTS) {
-    if (normalizedPath.includes(segment)) {
       return true;
     }
   }
@@ -195,53 +176,43 @@ function initializerContainsComponentJsx(initializer: ts.Expression): boolean {
   return nodeContainsJsx(initializer);
 }
 
-function collectTopLevelComponentNames(sourceFile: ts.SourceFile): string[] {
-  const componentNames: string[] = [];
+function collectComponentNames(sourceFile: ts.SourceFile): string[] {
+  const componentNames = new Set<string>();
 
-  for (const statement of sourceFile.statements) {
-    if (ts.isFunctionDeclaration(statement)) {
-      const functionName = statement.name?.text;
-      if (!functionName || !isPascalCase(functionName) || !statement.body) {
-        continue;
+  const visit = (node: ts.Node): void => {
+    if (ts.isFunctionDeclaration(node)) {
+      const functionName = node.name?.text;
+      if (functionName && node.body && nodeContainsJsx(node.body)) {
+        componentNames.add(functionName);
       }
-
-      if (nodeContainsJsx(statement.body)) {
-        componentNames.push(functionName);
-      }
-      continue;
+      ts.forEachChild(node, visit);
+      return;
     }
 
-    if (ts.isVariableStatement(statement)) {
-      for (const declaration of statement.declarationList.declarations) {
-        if (!ts.isIdentifier(declaration.name)) {
-          continue;
-        }
-
-        const variableName = declaration.name.text;
-        if (!isPascalCase(variableName) || !declaration.initializer) {
-          continue;
-        }
-
-        if (initializerContainsComponentJsx(declaration.initializer)) {
-          componentNames.push(variableName);
+    if (ts.isVariableDeclaration(node)) {
+      if (ts.isIdentifier(node.name) && node.initializer) {
+        if (initializerContainsComponentJsx(node.initializer)) {
+          componentNames.add(node.name.text);
         }
       }
-      continue;
+      ts.forEachChild(node, visit);
+      return;
     }
 
-    if (ts.isClassDeclaration(statement)) {
-      const className = statement.name?.text;
-      if (!className || !isPascalCase(className)) {
-        continue;
+    if (ts.isClassDeclaration(node)) {
+      const className = node.name?.text;
+      if (className && nodeContainsJsx(node)) {
+        componentNames.add(className);
       }
-
-      if (nodeContainsJsx(statement)) {
-        componentNames.push(className);
-      }
+      ts.forEachChild(node, visit);
+      return;
     }
-  }
 
-  return componentNames;
+    ts.forEachChild(node, visit);
+  };
+
+  visit(sourceFile);
+  return Array.from(componentNames);
 }
 
 function main(): void {
@@ -275,7 +246,7 @@ function main(): void {
       ts.ScriptKind.TSX
     );
 
-    const componentNames = collectTopLevelComponentNames(sourceFile);
+    const componentNames = collectComponentNames(sourceFile);
     if (componentNames.length > 1) {
       violations.push({ filePath, names: componentNames });
     }
@@ -300,7 +271,7 @@ function main(): void {
     return;
   }
 
-  console.error('Error: found .tsx files with more than one top-level React component.');
+  console.error('Error: found .tsx files with more than one JSX component declaration.');
   console.error('Rule: keep one component per file and colocate tests/stories next to it.');
   console.error(`Escape hatch: add "${ALLOW_DIRECTIVE}" in the file when absolutely necessary.`);
   console.error('');

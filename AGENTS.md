@@ -363,6 +363,7 @@ The `--headless` flag:
 
 - `scripts/checks/checkOneComponentPerFile.ts` enforces one top-level React component per `.tsx` file
 - Runs in pre-push via `.husky/pre-push`
+- Uses strict JSX component detection by default (including test/helper `.tsx` files, excluding `.stories.tsx`)
 - Current rollout is **phase 1**: checks newly added `.tsx` files in the push range to avoid blocking incremental legacy cleanup
 - Escape hatch for rare cases: include `one-component-per-file: allow` in the file with a short rationale
 
