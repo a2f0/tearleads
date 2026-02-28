@@ -3,20 +3,20 @@
   "version": "0.0.8",
   "description": "Compliance docs browser for Tearleads",
   "type": "module",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./package.json": "./package.json"
   },
   "files": [
-    "src"
+    "dist"
   ],
   "scripts": {
-    "build": "echo \"@tearleads/compliance is source-consumed via Vite aliases\"",
+    "build": "tsc",
     "clean": "rm -rf dist",
     "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
@@ -47,6 +47,7 @@
     "react-dom": "19.2.4",
     "react-router-dom": "7.13.1",
     "typescript": "5.9.3",
+    "vite": "7.3.1",
     "vitest": "4.0.18",
     "vitest-fail-on-console": "0.10.1"
   }

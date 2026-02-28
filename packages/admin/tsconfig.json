@@ -13,9 +13,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@admin/*": ["./src/*"],
-      "@tearleads/compliance": ["../compliance/src/index.ts"],
-      "@tearleads/compliance/package.json": ["../compliance/package.json"]
+      "@admin/*": ["./src/*"]
     },
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },
