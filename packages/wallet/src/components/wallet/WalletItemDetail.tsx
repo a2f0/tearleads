@@ -6,8 +6,8 @@ import type {
   WalletMediaFileOption,
   WalletMediaSide
 } from '../../lib/walletData';
-import { getWalletSubtypeDefinition } from '../../lib/walletSubtypes';
 import { useWalletRuntime } from '../../runtime';
+import { useWalletItemDetailForm } from './useWalletItemDetailForm';
 import { useWalletItemActions } from './useWalletItemActions';
 import { useWalletTracker } from './useWalletTracker';
 import { WalletItemAlerts } from './WalletItemAlerts';
@@ -21,7 +21,6 @@ import {
   detailToForm,
   determineHasCustomDisplayName,
   EMPTY_FORM_STATE,
-  retainSubtypeValues,
   type WalletItemFormState
 } from './walletItemFormUtils';
 
@@ -147,78 +146,20 @@ export function WalletItemDetail({
     void loadDetail();
   }, [isUnlocked, loadDetail, setSuccessMessage]);
 
-  const handleFieldChange = useCallback(
-    (field: keyof WalletItemFormState, value: string) => {
-      setForm((previous) => ({ ...previous, [field]: value }));
-    },
-    []
-  );
-
-  const handleItemTypeChange = useCallback((nextItemType: WalletItemType) => {
-    setCustomDisplayNameEnabled(nextItemType === 'other');
-    setForm((previous) => {
-      const subtypeStillValid = getWalletSubtypeDefinition(
-        nextItemType,
-        previous.itemSubtype
-      );
-      const nextSubtype = subtypeStillValid ? previous.itemSubtype : '';
-      return {
-        ...previous,
-        itemType: nextItemType,
-        itemSubtype: nextSubtype,
-        subtypeFields: retainSubtypeValues(
-          nextItemType,
-          nextSubtype,
-          previous.subtypeFields
-        )
-      };
-    });
-  }, []);
-
-  const handleSubtypeChange = useCallback((nextSubtype: string) => {
-    setForm((previous) => ({
-      ...previous,
-      itemSubtype: nextSubtype,
-      subtypeFields: retainSubtypeValues(
-        previous.itemType,
-        nextSubtype,
-        previous.subtypeFields
-      )
-    }));
-  }, []);
-
-  const handleSubtypeFieldChange = useCallback(
-    (field: string, value: string) => {
-      setForm((previous) => ({
-        ...previous,
-        subtypeFields: { ...previous.subtypeFields, [field]: value }
-      }));
-    },
-    []
-  );
-
-  const openPickerForSide = useCallback((side: WalletMediaSide) => {
-    setPickerSide(side);
-  }, []);
-
-  const clearMediaSide = useCallback(
-    (side: WalletMediaSide) => {
-      handleFieldChange(side === 'front' ? 'frontFileId' : 'backFileId', '');
-    },
-    [handleFieldChange]
-  );
-
-  const handleSelectMedia = useCallback(
-    (fileId: string) => {
-      if (!pickerSide) return;
-      handleFieldChange(
-        pickerSide === 'front' ? 'frontFileId' : 'backFileId',
-        fileId
-      );
-      setPickerSide(null);
-    },
-    [handleFieldChange, pickerSide]
-  );
+  const {
+    handleFieldChange,
+    handleItemTypeChange,
+    handleSubtypeChange,
+    handleSubtypeFieldChange,
+    openPickerForSide,
+    clearMediaSide,
+    handleSelectMedia
+  } = useWalletItemDetailForm({
+    pickerSide,
+    setForm,
+    setCustomDisplayNameEnabled,
+    setPickerSide
+  });
 
   if (!isUnlocked || loadingDetail) {
     return (
