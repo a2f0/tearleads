@@ -366,4 +366,5 @@ describe('compileSharePolicyCore', () => {
       }
     ]);
   });
+
 });

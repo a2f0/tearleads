@@ -1,3 +1,5 @@
+import { VFS_CONTAINER_OBJECT_TYPES } from '@tearleads/shared';
+
 type PolicyStatus = 'draft' | 'active' | 'paused' | 'revoked';
 
 export type PolicySelectorKind = 'include' | 'exclude';
@@ -303,9 +305,14 @@ export function compileSharePolicyCore(input: {
 }): CompileSharePolicyCoreResult {
   const childrenByParent = buildChildrenMap(input.links);
   const itemTypes = buildItemTypeMap(input.registryItems);
+  const containerTypes = new Set<string>(VFS_CONTAINER_OBJECT_TYPES);
   const aggregates = new Map<string, CompiledAggregate>();
   const activePolicies = input.policies
-    .filter((policy) => isPolicyActive(policy, input.now))
+    .filter(
+      (policy) =>
+        isPolicyActive(policy, input.now) &&
+        containerTypes.has(itemTypes.get(policy.rootItemId) ?? '')
+    )
     .slice()
     .sort((left, right) => left.id.localeCompare(right.id));
   const selectorsByPolicy = new Map<string, SharePolicySelectorDefinition[]>();

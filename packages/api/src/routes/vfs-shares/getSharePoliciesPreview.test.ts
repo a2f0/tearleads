@@ -42,7 +42,7 @@ describe('VFS Shares routes (GET/share policy preview)', () => {
   it('returns 403 when user is not the root item owner', async () => {
     const authHeader = await createAuthHeader();
     mockQuery.mockResolvedValueOnce({
-      rows: [{ owner_id: 'different-user' }]
+      rows: [{ owner_id: 'different-user', object_type: 'contact' }]
     });
 
     const response = await request(app)
@@ -60,7 +60,7 @@ describe('VFS Shares routes (GET/share policy preview)', () => {
   it('returns effective preview tree with summary and pagination cursor', async () => {
     const authHeader = await createAuthHeader();
     mockQuery.mockResolvedValueOnce({
-      rows: [{ owner_id: 'user-1' }]
+      rows: [{ owner_id: 'user-1', object_type: 'contact' }]
     });
     mockQuery.mockResolvedValueOnce({
       rows: [
@@ -175,5 +175,23 @@ describe('VFS Shares routes (GET/share policy preview)', () => {
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ error: 'Failed to build share preview' });
     restoreConsole();
+  });
+
+  it('returns 400 when root item is not a supported container type', async () => {
+    const authHeader = await createAuthHeader();
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ owner_id: 'user-1', object_type: 'note' }]
+    });
+
+    const response = await request(app)
+      .get(
+        '/v1/vfs/share-policies/preview?rootItemId=root-1&principalType=user&principalId=target-1'
+      )
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: 'Root item must be a container object type'
+    });
   });
 });

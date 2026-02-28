@@ -31,6 +31,16 @@ export type VfsObjectType =
   | 'contactGroup'
   | 'tag';
 
+export const VFS_CONTAINER_OBJECT_TYPES = [
+  'folder',
+  'emailFolder',
+  'playlist',
+  'contact'
+] as const;
+
+export type VfsContainerObjectType =
+  (typeof VFS_CONTAINER_OBJECT_TYPES)[number];
+
 export interface VfsRegisterRequest {
   id: string;
   objectType: VfsObjectType;

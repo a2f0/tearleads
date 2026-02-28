@@ -1,4 +1,5 @@
 import { vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
+import { VFS_CONTAINER_OBJECT_TYPES } from '@tearleads/shared';
 import { inArray, sql } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
@@ -21,14 +22,7 @@ export interface UseVfsFoldersResult {
   refetch: () => Promise<void>;
 }
 
-const TREE_CONTAINER_TYPES = [
-  'folder',
-  'playlist',
-  'emailFolder',
-  'contact'
-] as const;
-
-const TREE_ROOT_CONTAINER_TYPES = ['folder', 'contact'] as const;
+const TREE_CONTAINER_TYPES = VFS_CONTAINER_OBJECT_TYPES;
 
 export function useVfsFolders(): UseVfsFoldersResult {
   const { databaseState, getDatabase } = useVfsExplorerContext();
@@ -128,15 +122,13 @@ export function useVfsFolders(): UseVfsFoldersResult {
           if (parent) {
             parent.children?.push(node);
           }
-        } else {
-          // Contacts and folders can both act as top-level tree roots.
-          if (
-            TREE_ROOT_CONTAINER_TYPES.includes(
-              node.objectType as (typeof TREE_ROOT_CONTAINER_TYPES)[number]
-            )
-          ) {
-            rootFolders.push(node);
-          }
+        } else if (
+          TREE_CONTAINER_TYPES.includes(
+            node.objectType as (typeof TREE_CONTAINER_TYPES)[number]
+          )
+        ) {
+          // Any supported container type may be a tree root when unlinked.
+          rootFolders.push(node);
         }
       }
 

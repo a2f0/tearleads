@@ -68,7 +68,7 @@ describe('useVfsFolders', () => {
     expect(result.current.folders[1]?.name).toBe('Folder 2');
   });
 
-  it('includes playlist containers only when nested under folders', async () => {
+  it('includes top-level and nested playlist containers in the tree', async () => {
     const mockFolderRows = [
       {
         id: 'folder-1',
@@ -114,13 +114,17 @@ describe('useVfsFolders', () => {
       expect(result.current.hasFetched).toBe(true);
     });
 
-    expect(result.current.folders).toHaveLength(1);
-    expect(result.current.folders[0]?.id).toBe('folder-1');
-    expect(result.current.folders[0]?.children).toHaveLength(1);
-    expect(result.current.folders[0]?.children?.[0]?.id).toBe('playlist-1');
-    expect(result.current.folders[0]?.children?.[0]?.objectType).toBe(
-      'playlist'
+    const nestedPlaylistParent = result.current.folders.find(
+      (node) => node.id === 'folder-1'
     );
+    expect(nestedPlaylistParent?.children).toHaveLength(1);
+    expect(nestedPlaylistParent?.children?.[0]?.id).toBe('playlist-1');
+    expect(nestedPlaylistParent?.children?.[0]?.objectType).toBe('playlist');
+
+    const topLevelPlaylist = result.current.folders.find(
+      (node) => node.id === 'playlist-root'
+    );
+    expect(topLevelPlaylist?.objectType).toBe('playlist');
   });
 
   it('includes top-level and nested email folders in the tree', async () => {
@@ -231,7 +235,7 @@ describe('useVfsFolders', () => {
     expect(folderNode?.children?.[0]?.objectType).toBe('contact');
   });
 
-  it('hides unlinked email folders until they are linked', async () => {
+  it('includes unlinked email folders as top-level roots', async () => {
     const mockFolderRows = [
       {
         id: VFS_ROOT_ID,
@@ -276,10 +280,10 @@ describe('useVfsFolders', () => {
     );
     expect(rootNode?.children).toHaveLength(1);
     expect(rootNode?.children?.[0]?.id).toBe('email-inbox');
-    const hasUnlinkedDrafts = rootNode?.children?.some(
-      (child) => child.id === 'email-drafts'
+    const topLevelDrafts = result.current.folders.find(
+      (node) => node.id === 'email-drafts'
     );
-    expect(hasUnlinkedDrafts).toBe(false);
+    expect(topLevelDrafts?.objectType).toBe('emailFolder');
   });
 
   it('builds folder hierarchy from links', async () => {

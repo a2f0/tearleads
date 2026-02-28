@@ -1,3 +1,4 @@
+import { VFS_CONTAINER_OBJECT_TYPES } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPool } from '../../lib/postgres.js';
 import { buildSharePolicyPreviewTree } from '../../lib/vfsSharePolicyPreviewTree.js';
@@ -14,6 +15,8 @@ interface PreviewQuery {
   q?: string;
   objectType?: string;
 }
+
+const CONTAINER_OBJECT_TYPES = new Set<string>(VFS_CONTAINER_OBJECT_TYPES);
 
 function isPreviewPrincipalType(
   value: string | undefined
@@ -167,9 +170,12 @@ const getSharePoliciesPreviewHandler = async (
 
   try {
     const pool = await getPool('read');
-    const rootRowResult = await pool.query<{ owner_id: string | null }>(
+    const rootRowResult = await pool.query<{
+      owner_id: string | null;
+      object_type: string;
+    }>(
       `
-      SELECT owner_id
+      SELECT owner_id, object_type
       FROM vfs_registry
       WHERE id = $1
       `,
@@ -183,6 +189,12 @@ const getSharePoliciesPreviewHandler = async (
     if (rootRow.owner_id !== claims.sub) {
       res.status(403).json({
         error: 'Not authorized to preview this root container'
+      });
+      return;
+    }
+    if (!CONTAINER_OBJECT_TYPES.has(rootRow.object_type)) {
+      res.status(400).json({
+        error: 'Root item must be a container object type'
       });
       return;
     }
