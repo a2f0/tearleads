@@ -98,7 +98,12 @@ function collectCandidateFiles(mode: Mode): string[] {
   }
 
   if (mode === '--staged') {
-    const output = runGit(['diff', '--name-only', '--diff-filter=AM', '--cached']);
+    const output = runGit([
+      'diff',
+      '--name-only',
+      '--diff-filter=AM',
+      '--cached'
+    ]);
     return output
       .split('\n')
       .map((line) => line.trim())
@@ -107,7 +112,12 @@ function collectCandidateFiles(mode: Mode): string[] {
 
   const baseBranch = resolveBaseBranch();
   // Phase 1: enforce only newly added files in push range.
-  const output = runGit(['diff', '--name-only', '--diff-filter=A', `${baseBranch}..HEAD`]);
+  const output = runGit([
+    'diff',
+    '--name-only',
+    '--diff-filter=A',
+    `${baseBranch}..HEAD`
+  ]);
   return output
     .split('\n')
     .map((line) => line.trim())
@@ -229,7 +239,11 @@ function main(): void {
   const violations: Array<{ filePath: string; names: string[] }> = [];
 
   for (const filePath of candidateFiles) {
-    if (isExcluded(filePath) || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+    if (
+      isExcluded(filePath) ||
+      !fs.existsSync(filePath) ||
+      !fs.statSync(filePath).isFile()
+    ) {
       continue;
     }
 
@@ -271,9 +285,15 @@ function main(): void {
     return;
   }
 
-  console.error('Error: found .tsx files with more than one JSX component declaration.');
-  console.error('Rule: keep one component per file and colocate tests/stories next to it.');
-  console.error(`Escape hatch: add "${ALLOW_DIRECTIVE}" in the file when absolutely necessary.`);
+  console.error(
+    'Error: found .tsx files with more than one JSX component declaration.'
+  );
+  console.error(
+    'Rule: keep one component per file and colocate tests/stories next to it.'
+  );
+  console.error(
+    `Escape hatch: add "${ALLOW_DIRECTIVE}" in the file when absolutely necessary.`
+  );
   console.error('');
 
   for (const violation of violations) {
