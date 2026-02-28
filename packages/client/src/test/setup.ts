@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { createTestContext, type TestContext } from '@tearleads/api-test-utils';
+import type { TestContext } from '@tearleads/api-test-utils';
 import {
   configureForExpressPassthrough,
   getRecordedApiRequests,
@@ -36,6 +36,7 @@ async function ensureRealApiTestContext(): Promise<TestContext> {
   if (testContext) {
     return testContext;
   }
+  const { createTestContext } = await import('@tearleads/api-test-utils');
   testContext = await createTestContext(async () => {
     const api = await import('@tearleads/api');
     return { app: api.app, migrations: api.migrations };
