@@ -1,11 +1,11 @@
 import { Button, RefreshButton } from '@tearleads/ui';
 import { Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { type WalletItemSummary } from '../../lib/walletData';
+import type { WalletItemSummary } from '../../lib/walletData';
 import { useWalletRuntime } from '../../runtime';
 import { InlineUnlock } from '../sqlite/InlineUnlock';
-import { WalletItemsListContent } from './WalletItemsListContent';
 import { useWalletTracker } from './useWalletTracker';
+import { WalletItemsListContent } from './WalletItemsListContent';
 
 interface WalletItemsListProps {
   onOpenItem: (itemId: string) => void;

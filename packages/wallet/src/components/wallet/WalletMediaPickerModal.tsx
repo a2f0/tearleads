@@ -2,8 +2,8 @@ import { Button, Input } from '@tearleads/ui';
 import { Search, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { WalletMediaFileOption } from '../../lib/walletData';
-import { WalletMediaPickerContent } from './WalletMediaPickerContent';
 import { useWalletMediaPreviews } from './useWalletMediaPreviews';
+import { WalletMediaPickerContent } from './WalletMediaPickerContent';
 
 interface WalletMediaPickerModalProps {
   open: boolean;
