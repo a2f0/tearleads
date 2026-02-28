@@ -51,7 +51,6 @@
     "vitest-fail-on-console": "0.10.1"
   },
   "peerDependencies": {
-    "react": "^19.0.0",
-    "vitest": "^4.0.0"
+    "react": "^19.0.0"
   }
 }
