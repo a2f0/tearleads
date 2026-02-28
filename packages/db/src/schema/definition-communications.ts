@@ -9,6 +9,11 @@ export {
   vfsSyncChangesTable,
   vfsSyncClientStateTable
 } from './definition-communications-vfs.js';
+// Re-export from split modules
+export {
+  aiConversationsTable,
+  aiMessagesTable
+} from './definitionCommunicationsAi.js';
 export {
   communicationsVfsPolicyTables,
   vfsAclEntryProvenanceTable,
@@ -16,17 +21,12 @@ export {
   vfsSharePolicyPrincipalsTable,
   vfsSharePolicySelectorsTable
 } from './definitionCommunicationsVfsPolicy.js';
-// Re-export from split modules
-export {
-  aiConversationsTable,
-  aiMessagesTable
-} from './definitionCommunicationsAi.js';
 
 import { communicationsEmailTables } from './definition-communications-email.js';
 import { communicationsVfsTables } from './definition-communications-vfs.js';
-import { communicationsVfsPolicyTables } from './definitionCommunicationsVfsPolicy.js';
 // Import for combining into communicationsTables
 import { communicationsAiTables } from './definitionCommunicationsAi.js';
+import { communicationsVfsPolicyTables } from './definitionCommunicationsVfsPolicy.js';
 
 export const contactGroupsTable: TableDefinition = {
   name: 'contact_groups',

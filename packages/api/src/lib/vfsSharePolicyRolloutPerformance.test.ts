@@ -93,8 +93,7 @@ describe('share policy rollout performance budgets', () => {
           ? `policy-compiled:user:target-user:${row.item_id}`
           : `share:${row.item_id}`,
       item_id: row.item_id,
-      access_level:
-        index % 2 === 0 ? ('write' as const) : ('read' as const),
+      access_level: index % 2 === 0 ? ('write' as const) : ('read' as const),
       revoked_at: index % 3 === 2 ? revokedAt : null
     }));
     const provenanceRows = aclRows

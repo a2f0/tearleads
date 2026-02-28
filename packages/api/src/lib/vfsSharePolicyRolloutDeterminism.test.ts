@@ -257,9 +257,17 @@ describe('share policy rollout determinism', () => {
           id: String(values?.[0]),
           aclEntryId: String(values?.[1]),
           policyId:
-            typeof values?.[2] === 'string' ? values[2] : values?.[2] ? '' : null,
+            typeof values?.[2] === 'string'
+              ? values[2]
+              : values?.[2]
+                ? ''
+                : null,
           selectorId:
-            typeof values?.[3] === 'string' ? values[3] : values?.[3] ? '' : null,
+            typeof values?.[3] === 'string'
+              ? values[3]
+              : values?.[3]
+                ? ''
+                : null,
           decision: values?.[4] === 'deny' ? 'deny' : 'allow',
           precedence: Number(values?.[5] ?? 0),
           compiledAt:
@@ -282,7 +290,8 @@ describe('share policy rollout determinism', () => {
       if (text.includes('UPDATE vfs_acl_entries')) {
         const row = aclById.get(String(values?.[1]));
         if (row) {
-          row.revokedAt = values?.[0] instanceof Date ? values[0] : row.revokedAt;
+          row.revokedAt =
+            values?.[0] instanceof Date ? values[0] : row.revokedAt;
         }
         return { rows: [] as T[] };
       }
