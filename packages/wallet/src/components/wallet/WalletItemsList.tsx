@@ -1,26 +1,16 @@
 import { Button, RefreshButton } from '@tearleads/ui';
-import { CreditCard, Loader2, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  getWalletItemTypeLabel,
-  type WalletItemSummary
-} from '../../lib/walletData';
-import { getWalletSubtypeLabel } from '../../lib/walletSubtypes';
+import { type WalletItemSummary } from '../../lib/walletData';
 import { useWalletRuntime } from '../../runtime';
 import { InlineUnlock } from '../sqlite/InlineUnlock';
+import { WalletItemsListContent } from './WalletItemsListContent';
 import { useWalletTracker } from './useWalletTracker';
 
 interface WalletItemsListProps {
   onOpenItem: (itemId: string) => void;
   onCreateItem: () => void;
   refreshSignal?: number;
-}
-
-function formatExpiryDate(expiresOn: Date | null): string {
-  if (!expiresOn) {
-    return 'No expiry date';
-  }
-  return expiresOn.toLocaleDateString();
 }
 
 export function WalletItemsList({
@@ -91,51 +81,12 @@ export function WalletItemsList({
       )}
 
       <div className="rounded-lg border">
-        {loadingItems && items.length === 0 ? (
-          <div className="flex items-center justify-center gap-2 p-8 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            Loading wallet items...
-          </div>
-        ) : items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 p-8 text-muted-foreground">
-            <CreditCard className="h-8 w-8" />
-            <p>No wallet items yet.</p>
-            <Button variant="outline" onClick={onCreateItem}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add your first item
-            </Button>
-          </div>
-        ) : (
-          <div className="divide-y">
-            {items.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className="w-full px-4 py-3 text-left transition-colors hover:bg-muted/50"
-                onClick={() => onOpenItem(item.id)}
-                data-testid={`wallet-item-${item.id}`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{item.displayName}</p>
-                    <p className="text-muted-foreground text-xs">
-                      {getWalletItemTypeLabel(item.itemType)}
-                      {item.itemSubtype
-                        ? ` • ${getWalletSubtypeLabel(item.itemType, item.itemSubtype) ?? item.itemSubtype}`
-                        : ''}
-                      {item.documentNumberLast4
-                        ? ` • •••• ${item.documentNumberLast4}`
-                        : ''}
-                    </p>
-                  </div>
-                  <p className="text-muted-foreground text-xs">
-                    {formatExpiryDate(item.expiresOn)}
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
+        <WalletItemsListContent
+          items={items}
+          loadingItems={loadingItems}
+          onCreateItem={onCreateItem}
+          onOpenItem={onOpenItem}
+        />
       </div>
     </div>
   );

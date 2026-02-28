@@ -1,11 +1,10 @@
-import { Button } from '@tearleads/ui';
-import { Search } from 'lucide-react';
 import { useMemo } from 'react';
 import type {
   WalletMediaFileOption,
   WalletMediaSide
 } from '../../lib/walletData';
 import { WalletMediaPickerModal } from './WalletMediaPickerModal';
+import { WalletMediaSideCard } from './WalletMediaSideCard';
 import { getPickerTitle } from './walletItemFormUtils';
 
 interface WalletItemMediaSectionProps {
@@ -47,61 +46,20 @@ export function WalletItemMediaSection({
         </p>
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <div className="rounded-lg border p-3">
-            <p className="font-medium text-sm">Front Image</p>
-            <p className="mt-1 truncate text-muted-foreground text-xs">
-              {frontMedia ? frontMedia.name : 'No image linked'}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => onOpenPicker('front')}
-              >
-                <Search className="mr-1 h-3 w-3" />
-                Browse Images
-              </Button>
-              {frontFileId && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onClearMedia('front')}
-                >
-                  Clear
-                </Button>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-lg border p-3">
-            <p className="font-medium text-sm">Back Image</p>
-            <p className="mt-1 truncate text-muted-foreground text-xs">
-              {backMedia ? backMedia.name : 'No image linked'}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => onOpenPicker('back')}
-              >
-                <Search className="mr-1 h-3 w-3" />
-                Browse Images
-              </Button>
-              {backFileId && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onClearMedia('back')}
-                >
-                  Clear
-                </Button>
-              )}
-            </div>
-          </div>
+          <WalletMediaSideCard
+            side="front"
+            selectedFileId={frontFileId}
+            media={frontMedia}
+            onOpenPicker={onOpenPicker}
+            onClearMedia={onClearMedia}
+          />
+          <WalletMediaSideCard
+            side="back"
+            selectedFileId={backFileId}
+            media={backMedia}
+            onOpenPicker={onOpenPicker}
+            onClearMedia={onClearMedia}
+          />
         </div>
       </div>
 
