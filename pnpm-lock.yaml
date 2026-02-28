@@ -972,6 +972,9 @@ importers:
       '@tanstack/react-virtual':
         specifier: 3.13.19
         version: 3.13.19(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tearleads/admin':
+        specifier: workspace:*
+        version: link:../admin
       '@tearleads/ai':
         specifier: workspace:*
         version: link:../ai
@@ -981,6 +984,9 @@ importers:
       '@tearleads/api-client':
         specifier: workspace:*
         version: link:../api-client
+      '@tearleads/app-builder':
+        specifier: workspace:*
+        version: link:../app-builder
       '@tearleads/audio':
         specifier: workspace:*
         version: link:../audio
@@ -1011,6 +1017,9 @@ importers:
       '@tearleads/health':
         specifier: workspace:*
         version: link:../health
+      '@tearleads/keychain':
+        specifier: workspace:*
+        version: link:../keychain
       '@tearleads/local-write-orchestrator':
         specifier: workspace:*
         version: link:../local-write-orchestrator
@@ -1020,6 +1029,9 @@ importers:
       '@tearleads/notes':
         specifier: workspace:*
         version: link:../notes
+      '@tearleads/notifications':
+        specifier: workspace:*
+        version: link:../notifications
       '@tearleads/remote-read-orchestrator':
         specifier: workspace:*
         version: link:../remote-read-orchestrator
@@ -1044,6 +1056,9 @@ importers:
       '@tearleads/vfs-explorer':
         specifier: workspace:*
         version: link:../vfs-explorer
+      '@tearleads/vfs-sync':
+        specifier: workspace:*
+        version: link:../vfs-sync
       '@tearleads/wallet':
         specifier: workspace:*
         version: link:../wallet

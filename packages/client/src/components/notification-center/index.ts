@@ -4,4 +4,4 @@ export {
   NotificationCenter,
   NotificationCenterTrigger,
   notificationStore
-} from '../../../../notifications/src/index';
+} from '@tearleads/notifications';

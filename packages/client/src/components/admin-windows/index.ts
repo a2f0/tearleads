@@ -5,4 +5,4 @@ export {
   AdminRedisWindow,
   AdminUsersWindow,
   AdminWindow
-} from '../../../../admin/src/index';
+} from '@tearleads/admin';

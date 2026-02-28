@@ -5,7 +5,7 @@ import { api } from '@/lib/api';
 import {
   type SyncAuthDependencies,
   setSyncAuthDependencies
-} from '../../../vfs-sync/src';
+} from '@tearleads/vfs-sync';
 
 let configured = false;
 

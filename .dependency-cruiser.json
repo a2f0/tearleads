@@ -33,6 +33,32 @@
       "to": {
         "path": "^packages/client/src"
       }
+    },
+    {
+      "name": "no-client-local-cross-package-src-imports",
+      "severity": "warn",
+      "comment": "Client code should import other packages via package exports, not relative paths into another package's src tree.",
+      "from": {
+        "path": "^packages/client/src"
+      },
+      "to": {
+        "path": "^packages/(?!client/)[^/]+/src",
+        "dependencyTypes": [
+          "local"
+        ]
+      }
+    },
+    {
+      "name": "no-prod-to-test-imports",
+      "severity": "warn",
+      "comment": "Production modules must not import test-only modules or test support helpers.",
+      "from": {
+        "path": "^packages/[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "path": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/|/testSupport\\.(ts|tsx)$"
+      }
     }
   ],
   "options": {
