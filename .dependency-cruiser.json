@@ -27,7 +27,7 @@
     },
     {
       "name": "no-client-imports",
-      "severity": "warn",
+      "severity": "error",
       "comment": "Shared code should not depend on client app internals.",
       "from": {
         "path": "^packages/(?!client/)[^/]+/src",
@@ -47,6 +47,21 @@
       },
       "to": {
         "path": "^packages/(?!client/)[^/]+/src",
+        "dependencyTypes": [
+          "local"
+        ]
+      }
+    },
+    {
+      "name": "no-local-app-builder-vite-plugin-imports",
+      "severity": "warn",
+      "comment": "Packages should consume app-builder vite helpers via package exports instead of local imports into app-builder/src internals.",
+      "from": {
+        "path": "^packages/(?!app-builder/)[^/]+/(src/.*|vitest\\.config\\.ts|vite\\.config\\.ts)$",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "path": "^packages/app-builder/src/vite/createAppConfigPlugin\\.ts$",
         "dependencyTypes": [
           "local"
         ]

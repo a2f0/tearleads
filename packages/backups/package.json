@@ -35,6 +35,7 @@
     "mermaid": "11.12.3"
   },
   "devDependencies": {
+    "@tearleads/app-builder": "workspace:*",
     "@tearleads/ui": "workspace:*",
     "@tearleads/window-manager": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",

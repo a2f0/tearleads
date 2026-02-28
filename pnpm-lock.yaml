@@ -98,6 +98,9 @@ importers:
         specifier: 2.0.7
         version: 2.0.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
     devDependencies:
+      '@tearleads/app-builder':
+        specifier: workspace:*
+        version: link:../app-builder
       '@tearleads/ui':
         specifier: workspace:*
         version: link:../ui
@@ -483,6 +486,9 @@ importers:
         specifier: 3.5.0
         version: 3.5.0
     devDependencies:
+      '@tearleads/app-builder':
+        specifier: workspace:*
+        version: link:../app-builder
       '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
@@ -544,6 +550,9 @@ importers:
         specifier: 11.12.3
         version: 11.12.3
     devDependencies:
+      '@tearleads/app-builder':
+        specifier: workspace:*
+        version: link:../app-builder
       '@tearleads/ui':
         specifier: workspace:*
         version: link:../ui
@@ -833,6 +842,9 @@ importers:
 
   packages/classic:
     devDependencies:
+      '@tearleads/app-builder':
+        specifier: workspace:*
+        version: link:../app-builder
       '@tearleads/db':
         specifier: workspace:*
         version: link:../db
@@ -1662,6 +1674,9 @@ importers:
         specifier: 0.575.0
         version: 0.575.0(react@19.2.4)
     devDependencies:
+      '@tearleads/app-builder':
+        specifier: workspace:*
+        version: link:../app-builder
       '@tearleads/ui':
         specifier: workspace:*
         version: link:../ui
@@ -2120,6 +2135,9 @@ importers:
         specifier: 3.5.0
         version: 3.5.0
     devDependencies:
+      '@tearleads/app-builder':
+        specifier: workspace:*
+        version: link:../app-builder
       '@tearleads/ui':
         specifier: workspace:*
         version: link:../ui
@@ -2546,6 +2564,9 @@ importers:
         specifier: 0.575.0
         version: 0.575.0(react@19.2.4)
     devDependencies:
+      '@tearleads/app-builder':
+        specifier: workspace:*
+        version: link:../app-builder
       '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
