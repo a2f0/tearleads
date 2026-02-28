@@ -26,7 +26,6 @@ export {
   safeValidateAppConfig,
   validateAppConfig
 } from './schema.js';
-export { createAppConfigPlugin } from './vite/createAppConfigPlugin.js';
 export type {
   AppApiConfig,
   AppBundleIds,
@@ -37,3 +36,4 @@ export type {
   AppTheme,
   LoadedAppConfig
 } from './types.js';
+export { createAppConfigPlugin } from './vite/createAppConfigPlugin.js';
