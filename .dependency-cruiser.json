@@ -81,7 +81,6 @@
         "pathNot": [
           "(?:\\.test|\\.spec)\\.(?:ts|tsx)$|/src/test/|/src/__tests__/",
           "^packages/admin/src/components/admin-window/(AdminWindow|ComplianceDocView|ComplianceIndex)\\.tsx$",
-          "^packages/bob-and-alice/src/harness/apiScenarioHarness\\.ts$",
           "^packages/client/src/backups/backupsRuntime\\.ts$",
           "^packages/client/src/components/admin-windows/index\\.ts$",
           "^packages/client/src/components/backup-window/index\\.tsx$",
