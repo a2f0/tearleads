@@ -101,24 +101,14 @@ function collectCandidateFiles(mode: Mode): string[] {
 
   if (mode === '--staged') {
     return processOutput(
-      runGit([
-        'diff',
-        '--name-only',
-        '--diff-filter=AM',
-        '--cached'
-      ])
+      runGit(['diff', '--name-only', '--diff-filter=AM', '--cached'])
     );
   }
 
   const baseBranch = resolveBaseBranch();
   // Phase 1: enforce only newly added files in push range.
   return processOutput(
-    runGit([
-      'diff',
-      '--name-only',
-      '--diff-filter=A',
-      `${baseBranch}..HEAD`
-    ])
+    runGit(['diff', '--name-only', '--diff-filter=A', `${baseBranch}..HEAD`])
   );
 }
 
