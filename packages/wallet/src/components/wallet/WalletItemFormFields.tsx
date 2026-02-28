@@ -15,11 +15,11 @@ import {
   getWalletSubtypeOptions
 } from '../../lib/walletSubtypes';
 import { isWalletItemType } from '../../lib/walletTypes';
+import { WalletItemDisplayNameField } from './WalletItemDisplayNameField';
 import {
   buildAutomaticDisplayName,
   type WalletItemFormState
 } from './walletItemFormUtils';
-import { WalletItemDisplayNameField } from './WalletItemDisplayNameField';
 
 const COUNTRY_OPTIONS = listWalletCountryOptions();
 

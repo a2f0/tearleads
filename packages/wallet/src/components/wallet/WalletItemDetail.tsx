@@ -7,8 +7,8 @@ import type {
   WalletMediaSide
 } from '../../lib/walletData';
 import { useWalletRuntime } from '../../runtime';
-import { useWalletItemDetailForm } from './useWalletItemDetailForm';
 import { useWalletItemActions } from './useWalletItemActions';
+import { useWalletItemDetailForm } from './useWalletItemDetailForm';
 import { useWalletTracker } from './useWalletTracker';
 import { WalletItemAlerts } from './WalletItemAlerts';
 import { WalletItemFormFields } from './WalletItemFormFields';

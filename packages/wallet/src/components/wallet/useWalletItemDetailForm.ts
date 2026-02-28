@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
+import { useCallback } from 'react';
 import type { WalletItemType, WalletMediaSide } from '../../lib/walletData';
 import { getWalletSubtypeDefinition } from '../../lib/walletSubtypes';
 import {
