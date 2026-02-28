@@ -44,7 +44,7 @@ function renderPhotoPickerContent(
   loading: boolean,
   error: string | null,
   photos: PhotoInfo[],
-  onSelect: (photo: PhotoInfo) => void,
+  onSelect: (photo: PhotoInfo) => unknown,
   thumbnailStyle: { width: number; height: number }
 ) {
   if (loading) {
@@ -211,9 +211,7 @@ export function PhotoPicker({ onSelect, onClose }: PhotoPickerProps) {
             loading,
             error,
             photos,
-            (photo) => {
-              void handleSelect(photo);
-            },
+            handleSelect,
             thumbnailStyle
           )}
         </div>

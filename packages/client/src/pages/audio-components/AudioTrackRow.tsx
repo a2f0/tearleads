@@ -32,7 +32,6 @@ export function AudioTrackRow({
 }: AudioTrackRowProps) {
   return (
     <div
-      key={track.id}
       data-index={index}
       ref={measureElement}
       className="absolute top-0 left-0 w-full px-1 py-0.5"
