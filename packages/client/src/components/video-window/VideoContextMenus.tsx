@@ -75,7 +75,7 @@ export function VideoContextMenus({
               onCloseBlankSpaceMenu();
             }}
           >
-            Upload
+            {t('upload')}
           </ContextMenuItem>
         </ContextMenu>
       )}

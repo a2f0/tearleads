@@ -58,7 +58,7 @@ export function VideoListRow({
             ) : (
               <Film className="h-5 w-5 text-muted-foreground" />
             )}
-            <span className="absolute inset-0 inline-flex h-4 w-4 items-center justify-center self-center rounded-full bg-black/50">
+            <span className="absolute inset-0 m-auto inline-flex h-4 w-4 items-center justify-center rounded-full bg-black/50">
               <Play className="h-2 w-2 text-white" />
             </span>
           </div>
