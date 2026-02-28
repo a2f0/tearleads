@@ -105,8 +105,7 @@
           "^packages/client/src/sync/configureSyncAuthDependencies\\.ts$",
           "^packages/compliance/src/pages/compliance/ComplianceDocPage\\.tsx$",
           "^packages/console/src/components/console-window/ConsoleDocumentation\\.tsx$",
-          "^packages/help/src/components/help-links/HelpDocumentation\\.tsx$",
-          "^packages/tee-client/src/(teeApiConsumer|teeClient)\\.ts$"
+          "^packages/help/src/components/help-links/HelpDocumentation\\.tsx$"
         ]
       },
       "to": {
