@@ -26,8 +26,6 @@ const config: KnipConfig = {
     'packages/client/src/i18n/translations/types.ts': ['types'],
     // Imported by notifications package through client alias.
     'packages/client/src/stores/logStore.ts': ['types'],
-    // Public barrel exports consumed across workspace packages.
-    'packages/vfs-explorer/src/components/index.ts': ['exports'],
     // Exported public API return type expected by consumers.
     'packages/api-client/src/apiRoutes/vfsRoutes.ts': ['types'],
     // Exported interface appears in an inferred cross-module public return type.
