@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/api-test-utils",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "API testing utilities with PGlite and Redis mock for integration tests",
   "type": "module",
   "main": "src/index.ts",
