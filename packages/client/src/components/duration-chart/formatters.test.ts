@@ -19,19 +19,19 @@ describe('formatXAxisTick', () => {
   const dateLabelPattern =
     /(\d{1,2}[./-]\d{1,2}([./-]\d{2,4})?|[A-Za-z]{3,}\s+\d{1,2})/;
 
-  it.each(['hour', 'day'] as const)(
-    'uses time formatting for %s filter',
-    (filter) => {
-      const label = formatXAxisTick(timestamp, filter);
-      expect(label).toMatch(timeLabelPattern);
-    }
-  );
+  it.each([
+    'hour',
+    'day'
+  ] as const)('uses time formatting for %s filter', (filter) => {
+    const label = formatXAxisTick(timestamp, filter);
+    expect(label).toMatch(timeLabelPattern);
+  });
 
-  it.each(['week', 'all'] as const)(
-    'uses date formatting for %s filter',
-    (filter) => {
-      const label = formatXAxisTick(timestamp, filter);
-      expect(label).toMatch(dateLabelPattern);
-    }
-  );
+  it.each([
+    'week',
+    'all'
+  ] as const)('uses date formatting for %s filter', (filter) => {
+    const label = formatXAxisTick(timestamp, filter);
+    expect(label).toMatch(dateLabelPattern);
+  });
 });
