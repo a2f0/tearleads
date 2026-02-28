@@ -1,56 +1,17 @@
 import { cn, WindowMenuBar } from '@tearleads/window-manager';
 import { Home, RefreshCw } from 'lucide-react';
-import type { ReactNode } from 'react';
 import { useState } from 'react';
 import {
   HEALTH_DRILLDOWN_CARDS,
   type HealthDrilldownRoute
 } from '../../pages/Health';
+import { MenuDropdown } from './MenuDropdown';
 
 interface HealthWindowMenuBarProps {
   activeRoute: HealthDrilldownRoute | undefined;
   onRouteChange: (route: HealthDrilldownRoute | undefined) => void;
   onRefresh: () => void;
   onClose: () => void;
-}
-
-interface MenuDropdownProps {
-  isOpen: boolean;
-  label: string;
-  minWidthClassName: string;
-  onToggle: () => void;
-  children: ReactNode;
-}
-
-function MenuDropdown({
-  isOpen,
-  label,
-  minWidthClassName,
-  onToggle,
-  children
-}: MenuDropdownProps) {
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        className="rounded px-2 py-1 text-sm hover:bg-accent"
-        onClick={onToggle}
-      >
-        {label}
-      </button>
-      {isOpen ? (
-        <div
-          role="menu"
-          className={cn(
-            'absolute left-0 z-50 mt-1 rounded border bg-popover p-1 shadow-md',
-            minWidthClassName
-          )}
-        >
-          {children}
-        </div>
-      ) : null}
-    </div>
-  );
 }
 
 export function HealthWindowMenuBar({

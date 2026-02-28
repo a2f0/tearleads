@@ -356,6 +356,15 @@ The `--headless` flag:
   ```
 
 - **Colocate tests** - Keep `.test.tsx` files next to their component files
+- **Prefer folder entry points** - Use `index.ts` barrels for external imports and direct file imports within the folder
+- **Split helper components** - If a `.tsx` file contains multiple top-level PascalCase JSX components, extract each extra component into its own `PascalCase.tsx`
+
+### Component Guardrail
+
+- `scripts/checks/checkOneComponentPerFile.ts` enforces one top-level React component per `.tsx` file
+- Runs in pre-push via `.husky/pre-push`
+- Current rollout is **phase 1**: checks newly added `.tsx` files in the push range to avoid blocking incremental legacy cleanup
+- Escape hatch for rare cases: include `one-component-per-file: allow` in the file with a short rationale
 
 ### Refactoring
 
