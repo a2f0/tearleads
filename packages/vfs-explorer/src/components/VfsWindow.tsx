@@ -57,21 +57,19 @@ export function VfsWindow({
     // TODO: Open link item dialog
   }, []);
 
-  const handleRefresh = useCallback(() => {
+  const handleRefresh = useCallback(async () => {
     const shouldSyncRemoteState =
       selectedFolderId === SHARED_BY_ME_FOLDER_ID ||
       selectedFolderId === SHARED_WITH_ME_FOLDER_ID;
 
-    void (async () => {
-      if (shouldSyncRemoteState && syncRemoteState) {
-        try {
-          await syncRemoteState();
-        } catch (err) {
-          console.error('Failed to sync shared VFS listings:', err);
-        }
+    if (shouldSyncRemoteState && syncRemoteState) {
+      try {
+        await syncRemoteState();
+      } catch (err) {
+        console.error('Failed to sync shared VFS listings:', err);
       }
-      setInternalRefreshToken((t) => t + 1);
-    })();
+    }
+    setInternalRefreshToken((t) => t + 1);
   }, [selectedFolderId, syncRemoteState]);
 
   return (
