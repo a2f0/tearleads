@@ -1,7 +1,7 @@
+import { handleDialogTabTrap } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 import { useDeleteVfsFolder, type VfsFolderNode } from '../hooks';
-import { handleDialogTabTrap } from './dialogFocusTrap';
 
 interface DeleteFolderDialogProps {
   open: boolean;

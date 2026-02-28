@@ -1,7 +1,7 @@
+import { handleDialogTabTrap } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { handleDialogTabTrap } from './dialogFocusTrap';
 import { usePhotoAlbums } from './usePhotoAlbums';
 
 interface NewAlbumDialogProps {

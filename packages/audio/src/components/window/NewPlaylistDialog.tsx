@@ -1,6 +1,6 @@
+import { handleDialogTabTrap } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAudioUIContext } from '../../context/AudioUIContext';
-import { handleDialogTabTrap } from './dialogFocusTrap';
 import { useAudioPlaylists } from './useAudioPlaylists';
 
 interface NewPlaylistDialogProps {

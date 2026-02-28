@@ -1,8 +1,16 @@
-import type { RefObject } from 'react';
+export interface KeyboardEventLike {
+  key: string;
+  shiftKey: boolean;
+  preventDefault: () => void;
+}
+
+export interface ElementRefLike<T extends HTMLElement = HTMLElement> {
+  current: T | null;
+}
 
 interface HandleDialogTabTrapArgs {
-  event: React.KeyboardEvent;
-  containerRef: RefObject<HTMLElement | null>;
+  event: KeyboardEventLike;
+  containerRef: ElementRefLike;
   focusableSelector: string;
 }
 

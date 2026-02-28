@@ -1,3 +1,4 @@
+import { handleDialogTabTrap } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type AudioPlaylist,
@@ -10,39 +11,6 @@ interface DeletePlaylistDialogProps {
   playlist: AudioPlaylist | null;
   onDelete: (playlistId: string) => Promise<void>;
   onPlaylistDeleted?: (playlistId: string) => void;
-}
-
-function handleDialogTabTrap(
-  event: React.KeyboardEvent,
-  dialogRef: React.RefObject<HTMLDivElement | null>
-): void {
-  if (event.key !== 'Tab') {
-    return;
-  }
-
-  const focusableElements = dialogRef.current?.querySelectorAll<HTMLElement>(
-    'button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-  );
-  if (!focusableElements || focusableElements.length === 0) {
-    return;
-  }
-
-  const firstElement = focusableElements[0];
-  const lastElement = focusableElements[focusableElements.length - 1];
-  if (!firstElement || !lastElement) {
-    return;
-  }
-
-  if (event.shiftKey && document.activeElement === firstElement) {
-    event.preventDefault();
-    lastElement.focus();
-    return;
-  }
-
-  if (!event.shiftKey && document.activeElement === lastElement) {
-    event.preventDefault();
-    firstElement.focus();
-  }
 }
 
 export function DeletePlaylistDialog({
@@ -72,7 +40,12 @@ export function DeletePlaylistDialog({
         onOpenChange(false);
         return;
       }
-      handleDialogTabTrap(e, dialogRef);
+      handleDialogTabTrap({
+        event: e,
+        containerRef: dialogRef,
+        focusableSelector:
+          'button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      });
     },
     [isDeleting, onOpenChange]
   );
