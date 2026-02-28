@@ -22,7 +22,10 @@ export function TagSidebarVirtualTags({
   const { t } = useTranslation('classic');
 
   return (
-    <ul className="m-0 mb-2 list-none space-y-1 p-0" aria-label={t('virtualTags')}>
+    <ul
+      className="m-0 mb-2 list-none space-y-1 p-0"
+      aria-label={t('virtualTags')}
+    >
       <li
         className={`border px-2 py-0.5 ${activeTagId === null ? 'bg-accent' : 'bg-background'}`}
       >

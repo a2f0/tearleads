@@ -17,7 +17,10 @@ export function TagSidebarDeletedTags({
   }
 
   return (
-    <ul className="m-0 mb-2 list-none space-y-1 p-0" aria-label={t('deletedTags')}>
+    <ul
+      className="m-0 mb-2 list-none space-y-1 p-0"
+      aria-label={t('deletedTags')}
+    >
       <li className="px-2 py-0.5 text-muted-foreground text-xs uppercase tracking-wide">
         {t('deletedTags')} ({deletedTags.length})
       </li>

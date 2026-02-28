@@ -1,6 +1,4 @@
-import {
-  CREATE_CLASSIC_TAG_ARIA_LABEL
-} from '../../lib/constants';
+import { CREATE_CLASSIC_TAG_ARIA_LABEL } from '../../lib/constants';
 
 interface TagSidebarEmptyStateProps {
   canCreateTag: boolean;
@@ -12,9 +10,10 @@ export function TagSidebarEmptyState({
   onCreateTag
 }: TagSidebarEmptyStateProps) {
   if (!canCreateTag) {
-    // biome-ignore lint/a11y/noStaticElementInteractions: blocks context menu only
     return (
-      <div
+      <button
+        type="button"
+        disabled
         className="w-full border border-border border-dashed bg-card px-2 py-0.5"
         onContextMenu={(event) => event.preventDefault()}
       >
@@ -26,7 +25,7 @@ export function TagSidebarEmptyState({
             <span className="block h-4 rounded bg-muted" />
           </div>
         </div>
-      </div>
+      </button>
     );
   }
 

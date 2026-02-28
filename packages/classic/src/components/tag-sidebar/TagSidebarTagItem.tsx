@@ -19,7 +19,9 @@ interface TagSidebarTagItemProps {
   editInputRef: React.RefObject<HTMLInputElement | null>;
   editValue: string;
   setEditValue: (value: string) => void;
-  setContextMenu: React.Dispatch<React.SetStateAction<TagContextMenuState | null>>;
+  setContextMenu: React.Dispatch<
+    React.SetStateAction<TagContextMenuState | null>
+  >;
   setDraggedTagId: (tagId: string | null) => void;
   setLastHoverTagId: (tagId: string | null) => void;
   setDragArmedTagId: (tagId: string | null) => void;

@@ -89,7 +89,10 @@ export function TagSidebar({
     tags.length === 0 && untaggedCount === 0 && deletedTags.length === 0;
 
   return (
-    <aside className="flex w-64 flex-col border-r" aria-label={t('tagsSidebar')}>
+    <aside
+      className="flex w-64 flex-col border-r"
+      aria-label={t('tagsSidebar')}
+    >
       {/* biome-ignore lint/a11y/useSemanticElements: div with role=button required for flexible layout container */}
       <div
         role="button"
@@ -133,7 +136,10 @@ export function TagSidebar({
           )}
 
           {tags.length > 0 && (
-            <ul className="m-0 list-none space-y-1 p-0" aria-label={t('tagList')}>
+            <ul
+              className="m-0 list-none space-y-1 p-0"
+              aria-label={t('tagList')}
+            >
               {tags.map((tag, index) => (
                 <TagSidebarTagItem
                   key={tag.id}
