@@ -160,6 +160,7 @@ export const esPart1 = {
     getInfo: 'Obtener información',
     viewDetails: 'Ver detalles',
     download: 'Descargar',
+    upload: 'Subir',
     share: 'Compartir',
     edit: 'Editar',
     delete: 'Eliminar',

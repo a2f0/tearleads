@@ -160,6 +160,7 @@ export const ptPart1 = {
     getInfo: 'Obter informações',
     viewDetails: 'Ver detalhes',
     download: 'Baixar',
+    upload: 'Enviar',
     share: 'Compartilhar',
     edit: 'Editar',
     delete: 'Excluir',
