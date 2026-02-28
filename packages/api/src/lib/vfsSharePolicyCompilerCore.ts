@@ -127,8 +127,8 @@ function traverseFromAnchor(
   ];
   bestDepth.set(anchorId, 0);
 
-  while (queue.length > 0) {
-    const current = queue.shift();
+  for (let cursor = 0; cursor < queue.length; cursor += 1) {
+    const current = queue[cursor];
     if (!current) {
       continue;
     }
