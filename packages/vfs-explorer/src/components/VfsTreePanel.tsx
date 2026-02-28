@@ -4,6 +4,8 @@ import {
   WindowContextMenu,
   WindowSidebarHeader
 } from '@tearleads/window-manager';
+// component-complexity: allow
+// Rationale: orchestrates tree rendering plus folder dialogs/context menu in one sidebar entrypoint.
 import {
   ChevronDown,
   ChevronRight,
