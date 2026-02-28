@@ -261,6 +261,52 @@ describe('OrgContext', () => {
     consoleSpy.mockRestore();
   });
 
+  it('calls clearActiveOrgForUser on logout', async () => {
+    mockAuthValue = {
+      isAuthenticated: true,
+      isLoading: false,
+      user: { id: 'user-1', email: 'test@example.com' }
+    };
+
+    mockGetOrganizations.mockResolvedValueOnce({
+      organizations: [
+        { id: 'personal-org-1', name: 'Personal', isPersonal: true }
+      ],
+      personalOrganizationId: 'personal-org-1'
+    });
+
+    const { rerender } = render(
+      <OrgProvider>
+        <TestComponent />
+      </OrgProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('org-count')).toHaveTextContent('1');
+    });
+
+    mockClearActiveOrgForUser.mockClear();
+
+    // Simulate logout
+    mockAuthValue = {
+      isAuthenticated: false,
+      isLoading: false,
+      user: null
+    };
+
+    rerender(
+      <OrgProvider>
+        <TestComponent />
+      </OrgProvider>
+    );
+
+    await waitFor(() => {
+      expect(mockClearActiveOrgForUser).toHaveBeenCalledWith('user-1');
+    });
+    expect(screen.getByTestId('org-count')).toHaveTextContent('0');
+    expect(screen.getByTestId('active-org')).toHaveTextContent('none');
+  });
+
   it('shows loading state while auth is loading', () => {
     mockAuthValue = {
       isAuthenticated: false,

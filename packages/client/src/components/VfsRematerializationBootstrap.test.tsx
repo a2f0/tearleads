@@ -32,6 +32,41 @@ describe('VfsRematerializationBootstrap', () => {
     vi.useRealTimers();
   });
 
+  it('does not trigger rematerialization when unauthenticated', async () => {
+    mockUseAuth.mockReturnValue({ isAuthenticated: false });
+
+    render(<VfsRematerializationBootstrap />);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockRematerializeRemoteVfsStateIfNeeded).not.toHaveBeenCalled();
+  });
+
+  it('clears retry timer when auth goes false', async () => {
+    mockRematerializeRemoteVfsStateIfNeeded.mockRejectedValueOnce(
+      new Error('bootstrap failed')
+    );
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => {});
+
+    const { rerender } = render(<VfsRematerializationBootstrap />);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+
+    // Simulate logout before retry fires
+    mockUseAuth.mockReturnValue({ isAuthenticated: false });
+    rerender(<VfsRematerializationBootstrap />);
+
+    // Advance past retry delay — should NOT trigger another call
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+
+    consoleWarnSpy.mockRestore();
+  });
+
   it('retries rematerialization after a failed attempt', async () => {
     mockRematerializeRemoteVfsStateIfNeeded
       .mockRejectedValueOnce(new Error('bootstrap failed'))
