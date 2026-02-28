@@ -6,6 +6,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
 type Mode = '--staged' | '--from-upstream' | '--all';
+type ParsedArgs = {
+  mode: Mode;
+  reportOnly: boolean;
+};
 
 const EXCLUDED_FILE_PATTERNS = [
   /\.test\.tsx$/,
@@ -21,8 +25,32 @@ const EXCLUDED_PATH_SEGMENTS = [
 const ALLOW_DIRECTIVE = 'one-component-per-file: allow';
 
 function usage(): never {
-  console.error('Usage: checkOneComponentPerFile.ts --staged | --from-upstream | --all');
+  console.error(
+    'Usage: checkOneComponentPerFile.ts (--staged | --from-upstream | --all) [--report]'
+  );
   process.exit(2);
+}
+
+function parseArgs(argv: string[]): ParsedArgs {
+  const modeArg = argv[2];
+  const optionalArg = argv[3];
+
+  if (
+    modeArg !== '--staged' &&
+    modeArg !== '--from-upstream' &&
+    modeArg !== '--all'
+  ) {
+    usage();
+  }
+
+  if (optionalArg !== undefined && optionalArg !== '--report') {
+    usage();
+  }
+
+  return {
+    mode: modeArg,
+    reportOnly: optionalArg === '--report'
+  };
 }
 
 function runGit(args: string[]): string {
@@ -217,10 +245,7 @@ function collectTopLevelComponentNames(sourceFile: ts.SourceFile): string[] {
 }
 
 function main(): void {
-  const mode = process.argv[2] as Mode | undefined;
-  if (mode !== '--staged' && mode !== '--from-upstream' && mode !== '--all') {
-    usage();
-  }
+  const { mode, reportOnly } = parseArgs(process.argv);
 
   let candidateFiles: string[];
   try {
@@ -257,6 +282,21 @@ function main(): void {
   }
 
   if (violations.length === 0) {
+    if (reportOnly) {
+      console.log('No one-component-per-file violations found.');
+    }
+    return;
+  }
+
+  if (reportOnly) {
+    console.log(
+      `Found ${violations.length} files with one-component-per-file violations:`
+    );
+    for (const violation of violations) {
+      console.log(
+        `  - ${violation.filePath} (${violation.names.length} components: ${violation.names.join(', ')})`
+      );
+    }
     return;
   }
 
