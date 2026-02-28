@@ -2,7 +2,6 @@
  * Audio playback controls component with seek bar and repeat mode.
  */
 
-import type { RepeatModeValue } from '@tearleads/shared';
 import {
   handleTrackEnd as applyTrackEndBehavior,
   getRepeatTooltipKey,
@@ -60,11 +59,7 @@ export function AudioControls({ tracks }: AudioControlsProps) {
   const currentIndex = getTrackIndexById(tracks, currentTrack);
 
   const hasPrevious = hasPreviousTrack(currentIndex);
-  const hasNext = hasNextTrack(
-    currentIndex,
-    tracks.length,
-    repeatMode as RepeatModeValue
-  );
+  const hasNext = hasNextTrack(currentIndex, tracks.length, repeatMode);
 
   const handleSeek = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,14 +87,14 @@ export function AudioControls({ tracks }: AudioControlsProps) {
     playNextTrack({
       tracks,
       currentIndex,
-      repeatMode: repeatMode as RepeatModeValue,
+      repeatMode,
       play
     });
   }, [tracks, currentIndex, play, repeatMode]);
 
   const handleTrackEnd = useCallback(() => {
     applyTrackEndBehavior({
-      repeatMode: repeatMode as RepeatModeValue,
+      repeatMode,
       seekToStart: () => seek(0),
       resumePlayback: resume,
       playNextTrack: handleNext
@@ -112,7 +107,7 @@ export function AudioControls({ tracks }: AudioControlsProps) {
     return () => setOnTrackEnd(undefined);
   }, [setOnTrackEnd, handleTrackEnd]);
 
-  const repeatTooltip = t(getRepeatTooltipKey(repeatMode as RepeatModeValue));
+  const repeatTooltip = t(getRepeatTooltipKey(repeatMode));
 
   if (!currentTrack) {
     return null;
