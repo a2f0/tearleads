@@ -8,6 +8,7 @@ const config: KnipConfig = {
     'devDependencies',
     'exports',
     'nsExports',
+    'classMembers',
     'types',
     'nsTypes',
     'enumMembers',
@@ -18,10 +19,6 @@ const config: KnipConfig = {
     'catalog'
   ],
   ignoreBinaries: ['ansible-lint', 'shellcheck', 'playwright'],
-  ignore: [
-    // Test stubs resolved via vitest path alias (`@` → clientCompat); knip cannot follow aliases.
-    'packages/analytics/src/test/clientCompat/**'
-  ],
   ignoreIssues: {
     // Consumed from source across package boundaries (admin/client split) via path aliases.
     'packages/client/src/lib/utils.ts': ['exports'],
@@ -44,7 +41,29 @@ const config: KnipConfig = {
     // Exported interfaces are part of public signatures for published helpers.
     'packages/api/src/lib/vfsSyncChannels.ts': ['exports', 'types'],
     'packages/bob-and-alice/src/qa/vfsSecureUploadQaSuite.ts': ['types'],
-    'packages/db-test-utils/src/seeding/pgScenario.ts': ['types']
+    'packages/db-test-utils/src/seeding/pgScenario.ts': ['types'],
+    // Class members are part of exported runtime/test harness APIs.
+    'packages/api-client/src/vfsBlobNetworkFlusher.ts': ['classMembers'],
+    'packages/api-client/src/vfsNetworkFlusher.ts': ['classMembers'],
+    'packages/api-client/src/vfsWriteOrchestrator.ts': ['classMembers'],
+    'packages/bob-and-alice/src/harness/actorHarness.ts': ['classMembers'],
+    'packages/bob-and-alice/src/harness/apiScenarioHarness.ts': [
+      'classMembers'
+    ],
+    'packages/bob-and-alice/src/harness/scenarioHarness.ts': ['classMembers'],
+    'packages/bob-and-alice/src/harness/serverHarness.ts': ['classMembers'],
+    'packages/client/src/components/ui/ErrorBoundary.tsx': ['classMembers'],
+    'packages/client/src/db/adapters/web.adapter.ts': ['classMembers'],
+    'packages/mls-chat/src/lib/mls.ts': ['classMembers'],
+    'packages/mls-chat/src/lib/storage.ts': ['classMembers'],
+    'packages/vfs-sync/src/vfs/access/sync-access-harness.ts': [
+      'classMembers'
+    ],
+    'packages/vfs-sync/src/vfs/blob/sync-blob-commit.ts': ['classMembers'],
+    'packages/vfs-sync/src/vfs/blob/sync-blob-isolation.ts': ['classMembers'],
+    'packages/vfs-sync/src/vfs/client/sync-client-utils.ts': ['classMembers'],
+    'packages/vfs-sync/src/vfs/client/sync-client.ts': ['classMembers'],
+    'packages/vfs-sync/src/vfs/protocol/sync-crdt-types.ts': ['classMembers']
   },
   workspaces: {
     '.': {

@@ -13,6 +13,7 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
+      "@/*": ["./src/test/clientCompat/*"],
       "@analytics/*": ["./src/*"]
     },
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
