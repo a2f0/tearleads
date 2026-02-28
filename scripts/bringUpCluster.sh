@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+if [[ -z "${BASH_VERSION:-}" ]]; then
+  echo "ERROR: This script requires bash. Run with: bash ./scripts/bringUpCluster.sh ..."
+  exit 1
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 K8S_SCRIPTS_DIR="$REPO_ROOT/terraform/stacks/prod/k8s/scripts"
 RDS_SCRIPTS_DIR="$REPO_ROOT/terraform/stacks/prod/rds/scripts"
@@ -14,6 +19,8 @@ SKIP_SMOKE=false
 SKIP_WEBSITE=false
 YES=false
 IMAGE_TAG=""
+SCRIPT_START_TS="$(date +%s)"
+TF_APPLY_AUTO_APPROVE=""
 
 usage() {
   cat <<EOF
@@ -29,7 +36,8 @@ Options:
   --skip-migrate    Skip API migration step
   --skip-smoke      Skip smoke tests
   --skip-website    Skip website image build and rollout
-  --yes             Skip interactive confirmation
+  --yes, -y         Skip interactive confirmation
+  --yes=true        Equivalent to --yes
   --tag <tag>       Image tag for buildContainers (default: latest)
   -h, --help        Show help
 EOF
@@ -61,6 +69,18 @@ while [[ $# -gt 0 ]]; do
       YES=true
       shift
       ;;
+    -y)
+      YES=true
+      shift
+      ;;
+    --yes=true)
+      YES=true
+      shift
+      ;;
+    --yes=false)
+      YES=false
+      shift
+      ;;
     --tag)
       IMAGE_TAG="${2:-}"
       if [[ -z "$IMAGE_TAG" ]]; then
@@ -81,7 +101,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ "$YES" != "true" ]]; then
+if [[ "${YES:-false}" != "true" && "${YES:-0}" != "1" ]]; then
   echo "This will apply production infra, build/push containers, and run rollout + smoke tests."
   echo "Type BRINGUP-PROD to continue:"
   read -r confirmation
@@ -91,20 +111,46 @@ if [[ "$YES" != "true" ]]; then
   fi
 fi
 
+if [[ "${YES:-false}" == "true" || "${YES:-0}" == "1" ]]; then
+  TF_APPLY_AUTO_APPROVE="-auto-approve"
+fi
+
+format_duration() {
+  local total_seconds="$1"
+  local minutes=$((total_seconds / 60))
+  local seconds=$((total_seconds % 60))
+  printf "%dm %02ds" "$minutes" "$seconds"
+}
+
 run_step() {
   local label="$1"
   shift
+  local step_start_ts
+  local step_end_ts
+  local step_elapsed
+
+  step_start_ts="$(date +%s)"
   echo ""
   echo "==> $label"
   "$@"
+  step_end_ts="$(date +%s)"
+  step_elapsed=$((step_end_ts - step_start_ts))
+  echo "<== $label completed in $(format_duration "$step_elapsed")"
 }
 
 echo "Starting production cluster bring-up..."
 
-run_step "Apply prod ci-artifacts (ECR + CI bucket)" "$CI_SCRIPTS_DIR/apply.sh"
-run_step "Apply prod S3 (bucket + IAM credentials)" "$S3_SCRIPTS_DIR/apply.sh"
-run_step "Apply prod k8s infrastructure" "$K8S_SCRIPTS_DIR/apply01.sh"
-run_step "Apply prod RDS (private in k8s VPC)" "$RDS_SCRIPTS_DIR/apply.sh"
+if [[ -n "$TF_APPLY_AUTO_APPROVE" ]]; then
+  run_step "Apply prod ci-artifacts (ECR + CI bucket)" "$CI_SCRIPTS_DIR/apply.sh" "$TF_APPLY_AUTO_APPROVE"
+  run_step "Apply prod S3 (bucket + IAM credentials)" "$S3_SCRIPTS_DIR/apply.sh" "$TF_APPLY_AUTO_APPROVE"
+  run_step "Apply prod k8s infrastructure" "$K8S_SCRIPTS_DIR/apply01.sh" "$TF_APPLY_AUTO_APPROVE"
+  run_step "Apply prod RDS (private in k8s VPC)" "$RDS_SCRIPTS_DIR/apply.sh" "$TF_APPLY_AUTO_APPROVE"
+else
+  run_step "Apply prod ci-artifacts (ECR + CI bucket)" "$CI_SCRIPTS_DIR/apply.sh"
+  run_step "Apply prod S3 (bucket + IAM credentials)" "$S3_SCRIPTS_DIR/apply.sh"
+  run_step "Apply prod k8s infrastructure" "$K8S_SCRIPTS_DIR/apply01.sh"
+  run_step "Apply prod RDS (private in k8s VPC)" "$RDS_SCRIPTS_DIR/apply.sh"
+fi
 run_step "Bootstrap prod k8s and deploy manifests" "$K8S_SCRIPTS_DIR/apply02.sh"
 
 if [[ "$SKIP_BUILD" != "true" ]]; then
@@ -136,5 +182,9 @@ if [[ "$SKIP_SMOKE" != "true" ]]; then
   run_step "Run prod API smoke test" "$K8S_SCRIPTS_DIR/smoke-api.sh"
 fi
 
+SCRIPT_END_TS="$(date +%s)"
+TOTAL_ELAPSED=$((SCRIPT_END_TS - SCRIPT_START_TS))
+
 echo ""
 echo "Production bring-up complete."
+echo "Total elapsed time: $(format_duration "$TOTAL_ELAPSED")"
