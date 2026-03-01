@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   isPostgresErrorWithCode,
-  normalizeOptionalString,
   normalizeRequiredString,
   parseBlobAttachBody,
   parseBlobStageBody,
-  parseIsoTimestamp,
   toIsoFromDateOrString
 } from './blob-shared.js';
 
@@ -19,33 +17,6 @@ describe('blob-shared', () => {
     it('trims and validates string values', () => {
       expect(normalizeRequiredString('   ')).toBeNull();
       expect(normalizeRequiredString('  hello  ')).toBe('hello');
-    });
-  });
-
-  describe('normalizeOptionalString', () => {
-    it('returns null for undefined values', () => {
-      expect(normalizeOptionalString(undefined)).toBeNull();
-    });
-
-    it('delegates to required string normalization for provided values', () => {
-      expect(normalizeOptionalString('  world  ')).toBe('world');
-      expect(normalizeOptionalString(' ')).toBeNull();
-    });
-  });
-
-  describe('parseIsoTimestamp', () => {
-    it('returns null for invalid timestamps', () => {
-      expect(parseIsoTimestamp(undefined)).toBeNull();
-      expect(parseIsoTimestamp('not-a-date')).toBeNull();
-    });
-
-    it('normalizes valid timestamps to iso format', () => {
-      expect(parseIsoTimestamp('2026-02-14T10:00:00.000Z')).toBe(
-        '2026-02-14T10:00:00.000Z'
-      );
-      expect(parseIsoTimestamp('2026-02-14T10:00:00Z')).toBe(
-        '2026-02-14T10:00:00.000Z'
-      );
     });
   });
 

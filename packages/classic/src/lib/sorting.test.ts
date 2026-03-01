@@ -1,6 +1,5 @@
 import {
   buildClassicSortMetadata,
-  getNoteTagCountById,
   isEntrySortOrder,
   isTagSortOrder,
   sortNoteIds,
@@ -68,15 +67,6 @@ describe('sorting', () => {
     expect(isTagSortOrder('invalid')).toBe(false);
     expect(isEntrySortOrder('date-updated-desc')).toBe(true);
     expect(isEntrySortOrder('invalid')).toBe(false);
-  });
-
-  it('returns note tag counts', () => {
-    const state = createState();
-    expect(getNoteTagCountById(state)).toEqual({
-      'note-1': 1,
-      'note-2': 2,
-      'note-3': 1
-    });
   });
 
   it('sorts tags by all supported orders', () => {

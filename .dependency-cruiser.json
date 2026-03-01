@@ -139,11 +139,11 @@
       "severity": "error",
       "comment": "Packages should not traverse into other package app/src internals via relative local imports; use package exports.",
       "from": {
-        "path": "^packages/(?!admin/|app-builder/|keychain/|notifications/|vfs-sync/|wallet/)[^/]+/src",
+        "path": "^packages/(?!admin/|analytics/|app-builder/|audio/|camera/|contacts/|email/|health/|keychain/|notes/|notifications/|photos/|vfs-sync/|wallet/)[^/]+/src",
         "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
       },
       "to": {
-        "path": "^packages/(admin|app-builder|keychain|notifications|vfs-sync|wallet)/src",
+        "path": "^packages/(admin|analytics|app-builder|audio|camera|contacts|email|health|keychain|notes|notifications|photos|vfs-sync|wallet)/src",
         "dependencyTypes": [
           "local"
         ]
@@ -183,6 +183,114 @@
       },
       "to": {
         "path": "^packages/smtp-listener/src"
+      }
+    },
+    {
+      "name": "no-classic-imports",
+      "severity": "error",
+      "comment": "Non-client packages should not import classic app internals.",
+      "from": {
+        "path": "^packages/(?!client/|classic/)[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "path": "^packages/classic/src"
+      }
+    },
+    {
+      "name": "no-cli-imports",
+      "severity": "error",
+      "comment": "Packages should not import CLI app internals.",
+      "from": {
+        "path": "^packages/(?!cli/)[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "path": "^packages/cli/src"
+      }
+    },
+    {
+      "name": "no-tee-api-imports",
+      "severity": "error",
+      "comment": "Non-tee-api packages should not import tee-api app internals.",
+      "from": {
+        "path": "^packages/(?!tee-api/)[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "path": "^packages/tee-api/src"
+      }
+    },
+    {
+      "name": "no-tee-client-imports",
+      "severity": "error",
+      "comment": "Non-tee-client packages should not import tee-client app internals.",
+      "from": {
+        "path": "^packages/(?!tee-client/)[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "path": "^packages/tee-client/src"
+      }
+    },
+    {
+      "name": "no-bob-and-alice-imports",
+      "severity": "error",
+      "comment": "Non-test packages should not import bob-and-alice test harness internals.",
+      "from": {
+        "path": "^packages/(?!bob-and-alice/)[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "path": "^packages/bob-and-alice/src"
+      }
+    },
+    {
+      "name": "no-analytics-imports",
+      "severity": "error",
+      "comment": "Non-client packages should not import analytics window internals.",
+      "from": {
+        "path": "^packages/(?!client/|analytics/)[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "path": "^packages/analytics/src"
+      }
+    },
+    {
+      "name": "no-health-imports",
+      "severity": "error",
+      "comment": "Non-client packages should not import health window internals.",
+      "from": {
+        "path": "^packages/(?!client/|health/)[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "path": "^packages/health/src"
+      }
+    },
+    {
+      "name": "no-client-only-ui-imports",
+      "severity": "error",
+      "comment": "Client-only UI window packages should only be imported by client, not by other packages.",
+      "from": {
+        "path": "^packages/(?!client/|audio/|camera/|contacts/|email/|photos/|notes/)[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "path": "^packages/(audio|camera|contacts|email|photos|notes)/src"
+      }
+    },
+    {
+      "name": "no-console-imports",
+      "severity": "error",
+      "comment": "Non-client packages should not import console window internals.",
+      "from": {
+        "path": "^packages/(?!client/|console/)[^/]+/src",
+        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      },
+      "to": {
+        "path": "^packages/console/src"
       }
     }
   ],

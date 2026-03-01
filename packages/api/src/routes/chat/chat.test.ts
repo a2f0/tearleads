@@ -3,7 +3,6 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
 import { createAuthHeader } from '../../test/auth.js';
-import { OPENROUTER_API_URL } from './postCompletions.js';
 
 const fetchMock = vi.fn<typeof fetch>();
 let previousApiKey: string | undefined;
@@ -70,7 +69,7 @@ describe('Chat Routes', () => {
         throw new Error('Expected fetch to be called');
       }
 
-      expect(call[0]).toBe(OPENROUTER_API_URL);
+      expect(call[0]).toBe('https://openrouter.ai/api/v1/chat/completions');
 
       const requestInit = call[1];
       if (!requestInit || typeof requestInit !== 'object') {

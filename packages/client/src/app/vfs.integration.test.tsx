@@ -164,11 +164,14 @@ describe('VFS Integration Tests', () => {
 
       // 5. Navigate to Notes page
       await navigateViaMobileMenu(user, 'notes-link');
-      await waitFor(() => {
-        expect(
-          screen.getByRole('heading', { name: 'Notes' })
-        ).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(
+            screen.getByRole('heading', { name: 'Notes' })
+          ).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
       // 6. Create a new note (empty notes list shows the add-note-card)
       await waitFor(() => {

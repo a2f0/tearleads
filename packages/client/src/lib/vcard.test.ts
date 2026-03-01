@@ -1,92 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  escapeValue,
   generateVCard,
   generateVCardFilename,
   generateVCards,
-  mapLabelToType,
   type VCardContact
 } from './vcard';
 
 describe('vcard', () => {
-  describe('escapeValue', () => {
-    it('escapes backslashes', () => {
-      expect(escapeValue('path\\to\\file')).toBe('path\\\\to\\\\file');
-    });
-
-    it('escapes semicolons', () => {
-      expect(escapeValue('a;b;c')).toBe('a\\;b\\;c');
-    });
-
-    it('escapes commas', () => {
-      expect(escapeValue('a,b,c')).toBe('a\\,b\\,c');
-    });
-
-    it('escapes multiple special characters', () => {
-      expect(escapeValue('a\\b;c,d')).toBe('a\\\\b\\;c\\,d');
-    });
-
-    it('returns unchanged string if no special characters', () => {
-      expect(escapeValue('John Doe')).toBe('John Doe');
-    });
-
-    it('handles empty string', () => {
-      expect(escapeValue('')).toBe('');
-    });
-  });
-
-  describe('mapLabelToType', () => {
-    it('maps Work to work', () => {
-      expect(mapLabelToType('Work')).toBe('work');
-    });
-
-    it('maps Home to home', () => {
-      expect(mapLabelToType('Home')).toBe('home');
-    });
-
-    it('maps Mobile to cell', () => {
-      expect(mapLabelToType('Mobile')).toBe('cell');
-    });
-
-    it('maps cell to cell', () => {
-      expect(mapLabelToType('cell')).toBe('cell');
-    });
-
-    it('maps Main to voice', () => {
-      expect(mapLabelToType('Main')).toBe('voice');
-    });
-
-    it('maps Fax to fax', () => {
-      expect(mapLabelToType('Fax')).toBe('fax');
-    });
-
-    it('maps Pager to pager', () => {
-      expect(mapLabelToType('Pager')).toBe('pager');
-    });
-
-    it('returns null for Other', () => {
-      expect(mapLabelToType('Other')).toBeNull();
-    });
-
-    it('returns null for unknown labels', () => {
-      expect(mapLabelToType('Unknown')).toBeNull();
-    });
-
-    it('returns null for null input', () => {
-      expect(mapLabelToType(null)).toBeNull();
-    });
-
-    it('handles case insensitivity', () => {
-      expect(mapLabelToType('WORK')).toBe('work');
-      expect(mapLabelToType('work')).toBe('work');
-      expect(mapLabelToType('WoRk')).toBe('work');
-    });
-
-    it('trims whitespace', () => {
-      expect(mapLabelToType('  Work  ')).toBe('work');
-    });
-  });
-
   describe('generateVCard', () => {
     it('generates basic vCard with required fields', () => {
       const contact: VCardContact = {

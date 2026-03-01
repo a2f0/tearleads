@@ -7,7 +7,7 @@ Consistent error handling improves debugging, user experience, and system reliab
 Use the shared error utilities from `@tearleads/client`:
 
 ```typescript
-import { isError, getErrorMessage, toError } from "@/lib/errors";
+import { getErrorMessage, toError } from "@/lib/errors";
 
 // Type-safe error message extraction
 function getErrorMessage(error: unknown): string {

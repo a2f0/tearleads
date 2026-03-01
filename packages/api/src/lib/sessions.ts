@@ -284,7 +284,7 @@ const REFRESH_TOKEN_PREFIX = 'refresh_token';
 const getRefreshTokenKey = (tokenId: string): string =>
   `${REFRESH_TOKEN_PREFIX}:${tokenId}`;
 
-export type RefreshTokenData = {
+type RefreshTokenData = {
   sessionId: string;
   userId: string;
   createdAt: string;
@@ -346,7 +346,7 @@ export async function deleteRefreshToken(tokenId: string): Promise<void> {
   await client.del(key);
 }
 
-export type TokenRotationParams = {
+type TokenRotationParams = {
   oldRefreshTokenId: string;
   oldSessionId: string;
   newSessionId: string;
