@@ -2,7 +2,6 @@ import type { WindowDimensions } from '@tearleads/window-manager';
 import { useCallback, useMemo, useRef } from 'react';
 import { AdminOrganizationsWindow } from '@/components/admin-organizations-window';
 import { AdminUsersWindow } from '@/components/admin-users-window';
-import { AnalyticsWindow } from '@/components/analytics-window';
 import {
   AdminGroupsWindow,
   AdminPostgresWindow,
@@ -10,6 +9,7 @@ import {
   AdminWindow
 } from '@/components/admin-windows';
 import { AIWindow } from '@/components/ai-window';
+import { AnalyticsWindow } from '@/components/analytics-window';
 import { AudioWindow } from '@/components/audio-window';
 import { BackupWindow } from '@/components/backup-window';
 import { BusinessesWindow } from '@/components/businesses-window';

@@ -71,7 +71,9 @@ export function VfsRealtimeSyncBridge() {
   const orchestrator = useVfsOrchestratorInstance();
 
   const connectedChannelsRef = useRef<string[]>([]);
-  const remoteReadOrchestratorRef = useRef(createRemoteReadOrchestrator<void>());
+  const remoteReadOrchestratorRef = useRef(
+    createRemoteReadOrchestrator<void>()
+  );
   const retryAttemptRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

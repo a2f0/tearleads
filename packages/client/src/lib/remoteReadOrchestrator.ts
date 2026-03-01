@@ -288,6 +288,8 @@ interface RemoteReadOrchestratorInstance<Result = unknown> {
   cancelInFlight: (scope?: string) => void;
 }
 
-export function createRemoteReadOrchestrator<Result = unknown>(): RemoteReadOrchestratorInstance<Result> {
+export function createRemoteReadOrchestrator<
+  Result = unknown
+>(): RemoteReadOrchestratorInstance<Result> {
   return new RemoteReadOrchestrator<Result>();
 }
