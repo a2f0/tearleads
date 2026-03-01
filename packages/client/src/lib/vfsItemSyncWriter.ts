@@ -1,7 +1,7 @@
 import type {
   VfsSecureOrchestratorFacade,
   VfsWriteOrchestrator
-} from '@tearleads/api-client';
+} from '@tearleads/api-client/clientEntry';
 import type { VfsObjectType } from '@tearleads/shared';
 import { eq } from 'drizzle-orm';
 import { getDatabase } from '@/db';

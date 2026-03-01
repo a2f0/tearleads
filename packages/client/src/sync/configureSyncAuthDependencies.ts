@@ -1,7 +1,7 @@
 import {
   type SyncAuthDependencies,
   setSyncAuthDependencies
-} from '@tearleads/vfs-sync';
+} from '@tearleads/vfs-sync/clientEntry';
 import { LoginForm, RegisterForm } from '@/components/auth';
 import { SessionList } from '@/components/sessions';
 import { useAuth } from '@/contexts/AuthContext';

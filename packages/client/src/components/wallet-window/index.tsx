@@ -3,7 +3,7 @@ import {
   createWalletTracker,
   type WalletMediaFileOption,
   WalletRuntimeProvider
-} from '@tearleads/wallet';
+} from '@tearleads/wallet/clientEntry';
 import { type ComponentProps, useCallback } from 'react';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';

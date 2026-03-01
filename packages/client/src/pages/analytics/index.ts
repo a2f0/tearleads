@@ -1,1 +1,5 @@
-export { Analytics, AnalyticsWindow, SortIcon } from '@tearleads/analytics';
+export {
+  Analytics,
+  AnalyticsWindow,
+  SortIcon
+} from '@tearleads/analytics/clientEntry';

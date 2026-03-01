@@ -13,7 +13,7 @@ const mockRekeyItem = vi.fn();
 
 let capturedProviderProps: Record<string, unknown> | null = null;
 
-vi.mock('@tearleads/api-client', () => ({
+vi.mock('@tearleads/api-client/clientEntry', () => ({
   rotateItemKeyEpochAndPersist: (...args: unknown[]) =>
     mockRotateItemKeyEpochAndPersist(...args)
 }));

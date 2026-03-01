@@ -20,7 +20,7 @@ const mockRematerializeRemoteVfsStateIfNeeded = vi
   .fn()
   .mockResolvedValue(false);
 
-vi.mock('@tearleads/api-client', () => {
+vi.mock('@tearleads/api-client/clientEntry', () => {
   class MockVfsWriteOrchestrator {
     static lastOptions: unknown;
     static lastInstance: MockVfsWriteOrchestrator | null = null;
@@ -118,7 +118,7 @@ describe('VfsOrchestratorContext persistence', () => {
       expect(mockCreateFacade).toHaveBeenCalled();
     });
 
-    const apiClientModule = await import('@tearleads/api-client');
+    const apiClientModule = await import('@tearleads/api-client/clientEntry');
     const MockVfsWriteOrchestrator = apiClientModule.VfsWriteOrchestrator as {
       lastOptions?: {
         loadState?: () => Promise<unknown>;
@@ -157,7 +157,7 @@ describe('VfsOrchestratorContext persistence', () => {
       expect(mockCreateFacade).toHaveBeenCalled();
     });
 
-    const apiClientModule = await import('@tearleads/api-client');
+    const apiClientModule = await import('@tearleads/api-client/clientEntry');
     const MockVfsWriteOrchestrator = apiClientModule.VfsWriteOrchestrator as {
       lastOptions?: {
         saveState?: (state: { crdt: null; blob: null }) => Promise<void>;
@@ -188,7 +188,7 @@ describe('VfsOrchestratorContext persistence', () => {
       expect(mockCreateFacade).toHaveBeenCalled();
     });
 
-    const apiClientModule = await import('@tearleads/api-client');
+    const apiClientModule = await import('@tearleads/api-client/clientEntry');
     const MockVfsWriteOrchestrator = apiClientModule.VfsWriteOrchestrator as {
       lastInstance: {
         flushAll: ReturnType<typeof vi.fn>;
@@ -218,7 +218,7 @@ describe('VfsOrchestratorContext persistence', () => {
       expect(mockCreateFacade).toHaveBeenCalled();
     });
 
-    const apiClientModule = await import('@tearleads/api-client');
+    const apiClientModule = await import('@tearleads/api-client/clientEntry');
     const lastOptions = Reflect.get(
       apiClientModule.VfsWriteOrchestrator,
       'lastOptions'
