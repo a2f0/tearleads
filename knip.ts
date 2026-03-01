@@ -121,20 +121,11 @@ const config: KnipConfig = {
         '@tearleads/db-test-utils'
       ]
     },
-    'packages/keychain': {
-      entry: ['src/clientEntry.ts']
-    },
     'packages/shared': {
       ignoreDependencies: [
         // Runtime dependency of generated protobuf modules under src/gen.
         '@bufbuild/protobuf'
       ]
-    },
-    'packages/vfs-sync': {
-      entry: ['src/clientEntry.ts']
-    },
-    'packages/wallet': {
-      entry: ['src/clientEntry.ts']
     },
     'packages/website': {
       ignoreDependencies: [
