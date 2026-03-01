@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
 import { cn } from '@tearleads/ui';
+import { useEffect, useState } from 'react';
 import { buildFloatingWindowStyles } from './windowStyles.js';
 
 interface FloatingWindowStyleProps {

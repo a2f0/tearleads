@@ -1,5 +1,7 @@
 // Context providers
 
+// Utilities
+export { cn } from '@tearleads/ui';
 // Components
 export {
   BorderRadiusToggle,
@@ -32,8 +34,6 @@ export {
   useFontEffect,
   useWindowOpacityEffect
 } from './hooks/index.js';
-// Utilities
-export { cn } from '@tearleads/ui';
 export { SettingsPage, type SettingsPageProps } from './pages/index.js';
 // Types
 export type {

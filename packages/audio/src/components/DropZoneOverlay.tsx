@@ -1,5 +1,5 @@
-import { Upload } from 'lucide-react';
 import { cn } from '@tearleads/ui';
+import { Upload } from 'lucide-react';
 
 interface DropZoneOverlayProps {
   /** Whether the overlay should be visible */

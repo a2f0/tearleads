@@ -1,7 +1,8 @@
 // component-complexity: allow — title bar handles window chrome interactions (drag, resize, rename, context menu)
+
+import { cn } from '@tearleads/ui';
 import { Copy, Minus, Pencil, Square, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { cn } from '@tearleads/ui';
 import { WindowContextMenu } from '../WindowContextMenu.js';
 import { WindowContextMenuItem } from '../WindowContextMenuItem.js';
 import type { WindowDimensions } from './types.js';
