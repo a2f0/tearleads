@@ -20,8 +20,7 @@ ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-300s}"
 POD_WAIT_TIMEOUT="${POD_WAIT_TIMEOUT:-180s}"
 LOCAL_PORT_FORWARD_PORT="${LOCAL_PORT_FORWARD_PORT:-3900}"
 
-DB_NAME="tearleads"
-DB_USER="tearleads"
+POSTGRES_LABEL="${POSTGRES_LABEL:-app=postgres}"
 
 # ---------------------------------------------------------------------------
 # Usage guard
@@ -200,13 +199,31 @@ fi
 # ---------------------------------------------------------------------------
 echo ""
 echo "=== Resetting Postgres ==="
-kubectl -n "$NAMESPACE" exec deploy/postgres -- psql -U "$DB_USER" -d postgres -c \
-  "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$DB_NAME' AND pid <> pg_backend_pid();" \
-  >/dev/null 2>&1 || true
-kubectl -n "$NAMESPACE" exec deploy/postgres -- psql -U "$DB_USER" -d postgres -c \
-  "DROP DATABASE IF EXISTS $DB_NAME;"
-kubectl -n "$NAMESPACE" exec deploy/postgres -- psql -U "$DB_USER" -d postgres -c \
-  "CREATE DATABASE $DB_NAME OWNER $DB_USER;"
+
+postgres_pod="$(kubectl -n "$NAMESPACE" get pods -l "$POSTGRES_LABEL" --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+
+if [[ -z "$postgres_pod" ]]; then
+  echo "ERROR: no running Postgres pod found (label $POSTGRES_LABEL)."
+  exit 1
+fi
+
+echo "Using Postgres pod: $postgres_pod"
+
+kubectl -n "$NAMESPACE" exec "$postgres_pod" -c postgres -- sh -c '
+  PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d postgres -c \
+    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '"'"'$POSTGRES_DB'"'"' AND pid <> pg_backend_pid();"
+' >/dev/null 2>&1 || true
+
+kubectl -n "$NAMESPACE" exec "$postgres_pod" -c postgres -- sh -c '
+  PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d postgres -c \
+    "DROP DATABASE IF EXISTS $POSTGRES_DB;"
+'
+
+kubectl -n "$NAMESPACE" exec "$postgres_pod" -c postgres -- sh -c '
+  PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d postgres -c \
+    "CREATE DATABASE $POSTGRES_DB OWNER $POSTGRES_USER;"
+'
+
 echo "Postgres reset complete."
 
 # ---------------------------------------------------------------------------
@@ -234,6 +251,6 @@ echo "========================================"
 echo "  Staging reset complete"
 echo "  - Redis:    FLUSHALL"
 echo "  - S3:       $S3_BUCKET emptied"
-echo "  - Postgres: $DB_NAME dropped and recreated"
+echo "  - Postgres: dropped and recreated"
 echo "  - Migrations applied"
 echo "========================================"
