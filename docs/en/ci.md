@@ -101,7 +101,11 @@ Architecture guardrail summaries:
 ```bash
 pnpm checkDependencyCruiserSummary
 pnpm checkDependencyCruiserSummaryJson
+pnpm checkDependencyCruiserExceptions
+pnpm checkDependencyCruiserExceptionsJson
 pnpm lintKnipStrict
+pnpm checkKnipStrictSummary
+pnpm checkKnipStrictSummaryJson
 ```
 
 ## Notes

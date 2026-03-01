@@ -2,6 +2,7 @@ import fs from 'node:fs';
 
 export interface CliOptions {
   json: boolean;
+  exceptionsOnly: boolean;
   configPath: string;
 }
 
@@ -29,6 +30,11 @@ export interface DependencyCruiserSummaryResult {
   violationsByRule: Record<string, number>;
   violationsBySeverity: Record<string, number>;
   ruleExceptionCounts: RuleExceptionCount[];
+  exceptionTotals: {
+    rulesWithPathNot: number;
+    totalPathNotEntries: number;
+    totalClientFileExceptions: number;
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -48,11 +54,16 @@ function getString(record: Record<string, unknown>, key: string): string {
 export function parseArgs(argv: string[]): CliOptions {
   let configPath = '.dependency-cruiser.json';
   let json = false;
+  let exceptionsOnly = false;
 
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
     if (token === '--json') {
       json = true;
+      continue;
+    }
+    if (token === '--exceptions-only') {
+      exceptionsOnly = true;
       continue;
     }
 
@@ -65,7 +76,7 @@ export function parseArgs(argv: string[]): CliOptions {
     }
   }
 
-  return { json, configPath };
+  return { json, exceptionsOnly, configPath };
 }
 
 function readStdin(): string {
@@ -208,6 +219,19 @@ export function parseDependencyCruiserSummary(
 
   const summary = reportParsed.summary;
   const violations = collectViolations(summary);
+  const ruleExceptionCounts =
+    collectRuleExceptionCountsFromConfig(configParsed);
+
+  let rulesWithPathNot = 0;
+  let totalPathNotEntries = 0;
+  let totalClientFileExceptions = 0;
+  for (const item of ruleExceptionCounts) {
+    if (item.pathNotEntries > 0) {
+      rulesWithPathNot += 1;
+    }
+    totalPathNotEntries += item.pathNotEntries;
+    totalClientFileExceptions += item.clientFileExceptions;
+  }
 
   return {
     totals: {
@@ -221,7 +245,12 @@ export function parseDependencyCruiserSummary(
     },
     violationsByRule: countViolationsByRule(violations),
     violationsBySeverity: countViolationsBySeverity(violations),
-    ruleExceptionCounts: collectRuleExceptionCountsFromConfig(configParsed)
+    ruleExceptionCounts,
+    exceptionTotals: {
+      rulesWithPathNot,
+      totalPathNotEntries,
+      totalClientFileExceptions
+    }
   };
 }
 
@@ -246,6 +275,9 @@ export function renderTextSummary(
   }
 
   lines.push('- Rule exception counts (pathNot entries):');
+  lines.push(
+    `- Exception totals: rulesWithPathNot=${result.exceptionTotals.rulesWithPathNot}, totalPathNotEntries=${result.exceptionTotals.totalPathNotEntries}, totalClientFileExceptions=${result.exceptionTotals.totalClientFileExceptions}`
+  );
   for (const item of result.ruleExceptionCounts) {
     lines.push(
       `  ${item.name}: pathNot=${item.pathNotEntries}, clientFileExceptions=${item.clientFileExceptions}`
@@ -265,8 +297,39 @@ function main(): number {
 
   const result = parseDependencyCruiserSummary(reportParsed, configParsed);
 
+  const resultForExceptionsOnly = {
+    exceptionTotals: result.exceptionTotals,
+    rules: result.ruleExceptionCounts.filter((item) => item.pathNotEntries > 0)
+  };
+
+  if (options.json && options.exceptionsOnly) {
+    process.stdout.write(
+      `${JSON.stringify(resultForExceptionsOnly, null, 2)}\n`
+    );
+    return 0;
+  }
+
   if (options.json) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return 0;
+  }
+
+  if (options.exceptionsOnly) {
+    process.stdout.write(`Dependency Cruiser Exception Summary\n`);
+    process.stdout.write(
+      `- rulesWithPathNot=${result.exceptionTotals.rulesWithPathNot}\n`
+    );
+    process.stdout.write(
+      `- totalPathNotEntries=${result.exceptionTotals.totalPathNotEntries}\n`
+    );
+    process.stdout.write(
+      `- totalClientFileExceptions=${result.exceptionTotals.totalClientFileExceptions}\n`
+    );
+    for (const item of resultForExceptionsOnly.rules) {
+      process.stdout.write(
+        `  ${item.name}: pathNot=${item.pathNotEntries}, clientFileExceptions=${item.clientFileExceptions}\n`
+      );
+    }
     return 0;
   }
 
