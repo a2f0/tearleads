@@ -181,7 +181,6 @@ export function VfsOrchestratorProvider({
     setError(null);
 
     try {
-      // Create the orchestrator
       const newOrchestrator = new VfsWriteOrchestrator(user.id, 'client', {
         crdt: {
           transportOptions: {
@@ -214,24 +213,15 @@ export function VfsOrchestratorProvider({
       });
       await newOrchestrator.hydrateFromPersistence();
 
-      // Create adapters
       const itemKeyStore = createItemKeyStore();
       const userKeyProvider = createUserKeyProvider(() => user);
       const recipientPublicKeyResolver = createRecipientPublicKeyResolver();
 
-      // Create the secure pipeline bundle
       const bundle = createVfsSecurePipelineBundle({
         userKeyProvider,
         itemKeyStore,
         recipientPublicKeyResolver,
         createKeySetupPayload: async (): Promise<VfsKeySetupPayload> => {
-          // Ensure VFS keys are set up (this handles key generation/fetching).
-          // The ensureVfsKeys() function handles the full key setup flow including
-          // server registration. This callback is used by VfsKeyManager for its
-          // internal state tracking, but the actual crypto keys are managed by
-          // the useVfsKeys hook and stored on the server during onboarding.
-          // The empty strings are intentional placeholders as the key manager
-          // doesn't need the actual values - it defers to userKeyProvider.
           await ensureVfsKeys();
           return {
             publicEncryptionKey: '',
@@ -242,7 +232,6 @@ export function VfsOrchestratorProvider({
         }
       });
 
-      // Create the secure facade
       const facade = bundle.createFacade(newOrchestrator, {
         relationKind: 'file'
       });
@@ -274,12 +263,10 @@ export function VfsOrchestratorProvider({
     logBlobFlushOperationTelemetry
   ]);
 
-  // Initialize when user becomes authenticated
   useEffect(() => {
     void initialize();
   }, [initialize]);
 
-  // Clean up on unmount
   useEffect(() => {
     if (!orchestrator || !isAuthenticated) {
       return;
