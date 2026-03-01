@@ -28,6 +28,8 @@ function toUint8Array(data: ArrayBuffer | Uint8Array): Uint8Array {
   return data instanceof Uint8Array ? data : new Uint8Array(data);
 }
 
+const ALBUM_FILTER_CHUNK_SIZE = 10;
+
 export function useAudioTableData({
   selectedPlaylistId,
   selectedAlbumId,
@@ -83,36 +85,50 @@ export function useAudioTableData({
         if (!selectedAlbumName) {
           nextTracks = [];
         } else {
-          const filteredTracks = await Promise.all(
-            tracksWithUrls.map(async (track) => {
-              try {
-                const rawTrackData = await retrieveFile(track.storagePath);
-                const metadata = await extractAudioMetadata(
-                  toUint8Array(rawTrackData),
-                  track.mimeType
-                );
-                const trackAlbumName = normalizeAlbumValue(metadata?.album);
-                if (trackAlbumName !== selectedAlbumName) {
+          const filteredTracks: Array<AudioWithUrl | null> = [];
+          for (
+            let index = 0;
+            index < tracksWithUrls.length;
+            index += ALBUM_FILTER_CHUNK_SIZE
+          ) {
+            const trackChunk = tracksWithUrls.slice(
+              index,
+              index + ALBUM_FILTER_CHUNK_SIZE
+            );
+            const filteredChunk = await Promise.all(
+              trackChunk.map(async (track) => {
+                try {
+                  const rawTrackData = await retrieveFile(track.storagePath);
+                  const metadata = await extractAudioMetadata(
+                    toUint8Array(rawTrackData),
+                    track.mimeType
+                  );
+                  const trackAlbumName = normalizeAlbumValue(metadata?.album);
+                  if (trackAlbumName !== selectedAlbumName) {
+                    return null;
+                  }
+
+                  if (!selectedAlbumArtist) {
+                    return track;
+                  }
+
+                  const trackAlbumArtist = normalizeAlbumValue(
+                    metadata?.albumArtist
+                  );
+                  return trackAlbumArtist === selectedAlbumArtist
+                    ? track
+                    : null;
+                } catch (err) {
+                  logWarn(
+                    'Failed to evaluate track for album filtering',
+                    err instanceof Error ? err.message : String(err)
+                  );
                   return null;
                 }
-
-                if (!selectedAlbumArtist) {
-                  return track;
-                }
-
-                const trackAlbumArtist = normalizeAlbumValue(
-                  metadata?.albumArtist
-                );
-                return trackAlbumArtist === selectedAlbumArtist ? track : null;
-              } catch (err) {
-                logWarn(
-                  'Failed to evaluate track for album filtering',
-                  err instanceof Error ? err.message : String(err)
-                );
-                return null;
-              }
-            })
-          );
+              })
+            );
+            filteredTracks.push(...filteredChunk);
+          }
           nextTracks = filteredTracks.filter(
             (track): track is AudioWithUrl => track !== null
           );
