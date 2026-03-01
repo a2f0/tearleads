@@ -4,7 +4,20 @@
  */
 
 import type { Database } from '@tearleads/db/sqlite';
-import { users, vfsAclEntries, vfsRegistry } from '@tearleads/db/sqlite';
+import {
+  aiConversations,
+  albums,
+  contactGroups,
+  contacts,
+  emails,
+  files,
+  notes,
+  playlists,
+  tags,
+  users,
+  vfsAclEntries,
+  vfsRegistry
+} from '@tearleads/db/sqlite';
 import {
   isVfsSharedByMeQueryRow,
   isVfsSharedWithMeQueryRow,
@@ -111,6 +124,19 @@ function sharePermissionLevelExpr(): SQL<string> {
 function nameCoalesce(): SQL<string> {
   return sql<string>`COALESCE(
     NULLIF(${vfsRegistry.encryptedName}, ''),
+    ${files.name},
+    ${notes.title},
+    CASE
+      WHEN ${contacts.lastName} IS NOT NULL AND ${contacts.lastName} != ''
+        THEN ${contacts.firstName} || ' ' || ${contacts.lastName}
+      ELSE NULLIF(${contacts.firstName}, '')
+    END,
+    ${playlists.encryptedName},
+    ${albums.encryptedName},
+    ${contactGroups.encryptedName},
+    ${tags.encryptedName},
+    ${emails.encryptedSubject},
+    ${aiConversations.encryptedTitle},
     CASE ${vfsRegistry.objectType}
       WHEN 'folder' THEN 'Unnamed Folder'
       WHEN 'file' THEN 'Unnamed File'
@@ -187,6 +213,15 @@ export async function querySharedByMe(
     })
     .from(vfsAclEntries)
     .innerJoin(vfsRegistry, eq(vfsAclEntries.itemId, vfsRegistry.id))
+    .leftJoin(files, eq(files.id, vfsRegistry.id))
+    .leftJoin(notes, eq(notes.id, vfsRegistry.id))
+    .leftJoin(contacts, eq(contacts.id, vfsRegistry.id))
+    .leftJoin(playlists, eq(playlists.id, vfsRegistry.id))
+    .leftJoin(albums, eq(albums.id, vfsRegistry.id))
+    .leftJoin(contactGroups, eq(contactGroups.id, vfsRegistry.id))
+    .leftJoin(tags, eq(tags.id, vfsRegistry.id))
+    .leftJoin(emails, eq(emails.id, vfsRegistry.id))
+    .leftJoin(aiConversations, eq(aiConversations.id, vfsRegistry.id))
     .where(
       and(
         isNull(vfsAclEntries.revokedAt),
@@ -262,6 +297,15 @@ export async function querySharedWithMe(
         sharingUsers,
         sql`${sharingUsers.id} = COALESCE(${vfsAclEntries.grantedBy}, ${vfsRegistry.ownerId})`
       )
+      .leftJoin(files, eq(files.id, vfsRegistry.id))
+      .leftJoin(notes, eq(notes.id, vfsRegistry.id))
+      .leftJoin(contacts, eq(contacts.id, vfsRegistry.id))
+      .leftJoin(playlists, eq(playlists.id, vfsRegistry.id))
+      .leftJoin(albums, eq(albums.id, vfsRegistry.id))
+      .leftJoin(contactGroups, eq(contactGroups.id, vfsRegistry.id))
+      .leftJoin(tags, eq(tags.id, vfsRegistry.id))
+      .leftJoin(emails, eq(emails.id, vfsRegistry.id))
+      .leftJoin(aiConversations, eq(aiConversations.id, vfsRegistry.id))
       .where(
         and(
           eq(vfsAclEntries.principalId, currentUserId),

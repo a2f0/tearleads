@@ -4,16 +4,30 @@
  */
 
 import type { Database } from '@tearleads/db/sqlite';
-import { vfsItemState, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
+import {
+  aiConversations,
+  albums,
+  contactGroups,
+  contacts,
+  emails,
+  files,
+  notes,
+  playlists,
+  tags,
+  vfsItemState,
+  vfsLinks,
+  vfsRegistry
+} from '@tearleads/db/sqlite';
 import type { SQL } from 'drizzle-orm';
 import { and, asc, desc, eq, isNotNull, isNull, ne, sql } from 'drizzle-orm';
 import { VFS_ROOT_ID } from '../constants';
 import type { VfsSortState } from './vfsTypes';
 
 /**
- * COALESCE expression that resolves display names from type-specific tables.
- * Each LEFT JOINed table contributes its name column; only the matching
- * table's column will be non-NULL for a given registry row.
+ * COALESCE expression that resolves display names by checking:
+ * 1. vfs_registry.encrypted_name (canonical, set for folders/renamed items)
+ * 2. Type-specific table columns via LEFT JOINs (files.name, notes.title, etc.)
+ * 3. Fallback placeholder per object type
  *
  * Guardrail: folder names must resolve from `vfs_registry.encrypted_name` only.
  * Do not reintroduce `vfs_folders` fallback reads in explorer query paths.
@@ -21,6 +35,19 @@ import type { VfsSortState } from './vfsTypes';
 function nameCoalesce(): SQL<string> {
   return sql<string>`COALESCE(
     NULLIF(${vfsRegistry.encryptedName}, ''),
+    ${files.name},
+    ${notes.title},
+    CASE
+      WHEN ${contacts.lastName} IS NOT NULL AND ${contacts.lastName} != ''
+        THEN ${contacts.firstName} || ' ' || ${contacts.lastName}
+      ELSE NULLIF(${contacts.firstName}, '')
+    END,
+    ${playlists.encryptedName},
+    ${albums.encryptedName},
+    ${contactGroups.encryptedName},
+    ${tags.encryptedName},
+    ${emails.encryptedSubject},
+    ${aiConversations.encryptedTitle},
     CASE ${vfsRegistry.objectType}
       WHEN 'folder' THEN 'Unnamed Folder'
       WHEN 'emailFolder' THEN 'Unnamed Folder'
@@ -116,6 +143,15 @@ export async function queryFolderContents(
     })
     .from(vfsLinks)
     .innerJoin(vfsRegistry, eq(vfsLinks.childId, vfsRegistry.id))
+    .leftJoin(files, eq(files.id, vfsRegistry.id))
+    .leftJoin(notes, eq(notes.id, vfsRegistry.id))
+    .leftJoin(contacts, eq(contacts.id, vfsRegistry.id))
+    .leftJoin(playlists, eq(playlists.id, vfsRegistry.id))
+    .leftJoin(albums, eq(albums.id, vfsRegistry.id))
+    .leftJoin(contactGroups, eq(contactGroups.id, vfsRegistry.id))
+    .leftJoin(tags, eq(tags.id, vfsRegistry.id))
+    .leftJoin(emails, eq(emails.id, vfsRegistry.id))
+    .leftJoin(aiConversations, eq(aiConversations.id, vfsRegistry.id))
     .where(eq(vfsLinks.parentId, folderId))
     .orderBy(...orderExprs);
 
@@ -142,6 +178,15 @@ export async function queryUnfiledItems(
     })
     .from(vfsRegistry)
     .leftJoin(vfsLinks, eq(vfsRegistry.id, vfsLinks.childId))
+    .leftJoin(files, eq(files.id, vfsRegistry.id))
+    .leftJoin(notes, eq(notes.id, vfsRegistry.id))
+    .leftJoin(contacts, eq(contacts.id, vfsRegistry.id))
+    .leftJoin(playlists, eq(playlists.id, vfsRegistry.id))
+    .leftJoin(albums, eq(albums.id, vfsRegistry.id))
+    .leftJoin(contactGroups, eq(contactGroups.id, vfsRegistry.id))
+    .leftJoin(tags, eq(tags.id, vfsRegistry.id))
+    .leftJoin(emails, eq(emails.id, vfsRegistry.id))
+    .leftJoin(aiConversations, eq(aiConversations.id, vfsRegistry.id))
     .where(and(isNull(vfsLinks.childId), ne(vfsRegistry.id, VFS_ROOT_ID)))
     .orderBy(...orderExprs);
 
@@ -167,6 +212,15 @@ export async function queryAllItems(
       createdAt: vfsRegistry.createdAt
     })
     .from(vfsRegistry)
+    .leftJoin(files, eq(files.id, vfsRegistry.id))
+    .leftJoin(notes, eq(notes.id, vfsRegistry.id))
+    .leftJoin(contacts, eq(contacts.id, vfsRegistry.id))
+    .leftJoin(playlists, eq(playlists.id, vfsRegistry.id))
+    .leftJoin(albums, eq(albums.id, vfsRegistry.id))
+    .leftJoin(contactGroups, eq(contactGroups.id, vfsRegistry.id))
+    .leftJoin(tags, eq(tags.id, vfsRegistry.id))
+    .leftJoin(emails, eq(emails.id, vfsRegistry.id))
+    .leftJoin(aiConversations, eq(aiConversations.id, vfsRegistry.id))
     .where(ne(vfsRegistry.id, VFS_ROOT_ID))
     .orderBy(...orderExprs);
 
@@ -194,6 +248,15 @@ export async function queryDeletedItems(
     })
     .from(vfsRegistry)
     .innerJoin(vfsItemState, eq(vfsRegistry.id, vfsItemState.itemId))
+    .leftJoin(files, eq(files.id, vfsRegistry.id))
+    .leftJoin(notes, eq(notes.id, vfsRegistry.id))
+    .leftJoin(contacts, eq(contacts.id, vfsRegistry.id))
+    .leftJoin(playlists, eq(playlists.id, vfsRegistry.id))
+    .leftJoin(albums, eq(albums.id, vfsRegistry.id))
+    .leftJoin(contactGroups, eq(contactGroups.id, vfsRegistry.id))
+    .leftJoin(tags, eq(tags.id, vfsRegistry.id))
+    .leftJoin(emails, eq(emails.id, vfsRegistry.id))
+    .leftJoin(aiConversations, eq(aiConversations.id, vfsRegistry.id))
     .where(
       and(ne(vfsRegistry.id, VFS_ROOT_ID), isNotNull(vfsItemState.deletedAt))
     )

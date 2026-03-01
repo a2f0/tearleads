@@ -1,6 +1,11 @@
-import { vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
+import {
+  contacts,
+  playlists,
+  vfsLinks,
+  vfsRegistry
+} from '@tearleads/db/sqlite';
 import { VFS_CONTAINER_OBJECT_TYPES } from '@tearleads/shared';
-import { inArray, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 import type { VfsObjectType } from '../lib/vfsTypes';
@@ -43,6 +48,12 @@ export function useVfsFolders(): UseVfsFoldersResult {
       const db = getDatabase();
       const folderNameExpr = sql<string>`COALESCE(
         NULLIF(${vfsRegistry.encryptedName}, ''),
+        ${playlists.encryptedName},
+        CASE
+          WHEN ${contacts.lastName} IS NOT NULL AND ${contacts.lastName} != ''
+            THEN ${contacts.firstName} || ' ' || ${contacts.lastName}
+          ELSE NULLIF(${contacts.firstName}, '')
+        END,
         CASE ${vfsRegistry.objectType}
           WHEN 'playlist' THEN 'Unnamed Playlist'
           WHEN 'emailFolder' THEN 'Unnamed Folder'
@@ -58,6 +69,8 @@ export function useVfsFolders(): UseVfsFoldersResult {
           createdAt: vfsRegistry.createdAt
         })
         .from(vfsRegistry)
+        .leftJoin(playlists, eq(playlists.id, vfsRegistry.id))
+        .leftJoin(contacts, eq(contacts.id, vfsRegistry.id))
         .where(inArray(vfsRegistry.objectType, TREE_CONTAINER_TYPES));
 
       if (folderRows.length === 0) {

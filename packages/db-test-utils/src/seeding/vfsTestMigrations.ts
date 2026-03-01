@@ -116,6 +116,12 @@ export const vfsTestMigrations = [
           encrypted_subject TEXT
         )
       `);
+      await adapter.execute(`
+        CREATE TABLE IF NOT EXISTS ai_conversations (
+          id TEXT PRIMARY KEY,
+          encrypted_title TEXT NOT NULL DEFAULT ''
+        )
+      `);
 
       await adapter.execute('PRAGMA foreign_keys = ON');
     }
