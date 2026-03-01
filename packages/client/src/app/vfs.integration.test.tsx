@@ -36,7 +36,9 @@ function renderApp(initialRoute = '/vfs') {
  * Helper: navigate to SQLite page and set up the database.
  * Returns after the database is unlocked.
  */
-async function setupDatabaseViaSqlitePage(user: ReturnType<typeof userEvent.setup>) {
+async function setupDatabaseViaSqlitePage(
+  user: ReturnType<typeof userEvent.setup>
+) {
   await user.click(screen.getByTestId('mobile-menu-button'));
   const dropdown = screen.getByTestId('mobile-menu-dropdown');
   await user.click(within(dropdown).getByTestId('sqlite-link'));
@@ -83,9 +85,7 @@ describe('VFS Integration Tests', () => {
       expect(
         screen.getByRole('heading', { name: 'VFS Explorer' })
       ).toBeInTheDocument();
-      expect(
-        screen.getByText(/Database is not set up/)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Database is not set up/)).toBeInTheDocument();
 
       const sqliteLink = screen.getByText('SQLite page');
       expect(sqliteLink.closest('a')).toHaveAttribute('href', '/sqlite');
@@ -193,7 +193,7 @@ describe('VFS Integration Tests', () => {
       expect(latestNote).toBeDefined();
 
       await db.insert(vfsRegistry).values({
-        id: latestNote!.id,
+        id: latestNote?.id,
         objectType: 'note',
         ownerId: null,
         encryptedSessionKey: null,
