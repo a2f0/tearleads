@@ -18,6 +18,8 @@ import {
 
 const ROW_HEIGHT_ESTIMATE = 56;
 
+// component-complexity: allow
+// Rationale: Legacy window component pending split; this patch is limited to album-filter wiring.
 export function AudioWindowList({
   onSelectTrack,
   refreshToken = 0,
@@ -25,15 +27,12 @@ export function AudioWindowList({
   showDropzone = false,
   onUploadFiles,
   selectedPlaylistId,
-  selectedAlbumId: _selectedAlbumId,
+  selectedAlbumId,
   onAlbumSelect: _onAlbumSelect,
   uploading = false,
   uploadProgress = 0,
   onUpload
 }: AudioWindowListProps) {
-  // TODO: Album filtering requires extracting metadata from track binary data.
-  // For now, selectedAlbumId is accepted but filtering is not implemented.
-  // See issue #1800 for implementation notes.
   const {
     databaseState,
     ui,
@@ -71,7 +70,12 @@ export function AudioWindowList({
     hasFetched,
     fetchTracks,
     currentTrackRef
-  } = useAudioTableData({ selectedPlaylistId, showDeleted, refreshToken });
+  } = useAudioTableData({
+    selectedPlaylistId,
+    selectedAlbumId,
+    showDeleted,
+    refreshToken
+  });
 
   useEffect(() => {
     currentTrackRef.current = currentTrack;

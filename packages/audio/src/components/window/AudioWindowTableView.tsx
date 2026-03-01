@@ -28,17 +28,16 @@ import {
   useAudioTableSort
 } from './audio-table';
 
+// component-complexity: allow
+// Rationale: Legacy window component pending split; this patch is limited to album-filter wiring.
 export function AudioWindowTableView({
   onSelectTrack,
   refreshToken = 0,
   selectedPlaylistId,
-  selectedAlbumId: _selectedAlbumId,
+  selectedAlbumId,
   onAlbumSelect: _onAlbumSelect,
   showDeleted = false
 }: AudioWindowTableViewProps) {
-  // TODO: Album filtering requires extracting metadata from track binary data.
-  // For now, selectedAlbumId is accepted but filtering is not implemented.
-  // See issue #1800 for implementation notes.
   const {
     databaseState,
     ui,
@@ -66,7 +65,12 @@ export function AudioWindowTableView({
     hasFetched,
     fetchTracks,
     currentTrackRef
-  } = useAudioTableData({ selectedPlaylistId, showDeleted, refreshToken });
+  } = useAudioTableData({
+    selectedPlaylistId,
+    selectedAlbumId,
+    showDeleted,
+    refreshToken
+  });
 
   const {
     sortColumn,
