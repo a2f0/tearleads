@@ -6,7 +6,7 @@
 const REGISTRY_DB_NAME = 'tearleads_instance_registry';
 const REGISTRY_STORE_NAME = 'registry';
 
-export async function openRegistryDB(): Promise<IDBDatabase> {
+async function openRegistryDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(REGISTRY_DB_NAME, 1);
 
