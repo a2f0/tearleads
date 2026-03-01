@@ -1,6 +1,7 @@
-#!/usr/bin/env -S pnpm exec tsx
+#!/usr/bin/env -S node --import tsx
 import { execFileSync } from 'node:child_process';
 import {
+  existsSync,
   readdirSync,
   readFileSync,
   statSync

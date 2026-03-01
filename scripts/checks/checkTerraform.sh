@@ -46,6 +46,61 @@ run_tflint() {
   return 0
 }
 
+run_vault_script_typecheck() {
+  echo "Type-checking Vault TypeScript scripts..."
+  if ! (
+    cd "$REPO_ROOT" &&
+      pnpm exec tsc --pretty false --noEmit \
+        --module NodeNext \
+        --moduleResolution NodeNext \
+        --target ES2022 \
+        --allowImportingTsExtensions \
+        --types node \
+        terraform/stacks/prod/vault/scripts/fetch-secrets.ts \
+        terraform/stacks/prod/vault/scripts/migrate-secrets.ts
+  ); then
+    echo "Error: Vault TypeScript script type-check failed" >&2
+    return 1
+  fi
+  return 0
+}
+
+run_vault_script_smoke_checks() {
+  local scripts_dir="$REPO_ROOT/terraform/stacks/prod/vault/scripts"
+  local script
+  local output
+
+  if [ ! -d "$scripts_dir" ]; then
+    echo "Warning: $scripts_dir does not exist, skipping Vault script smoke checks" >&2
+    return 0
+  fi
+
+  for script in fetch-secrets.ts migrate-secrets.ts; do
+    echo "Smoke-checking $script with --help..."
+    if ! (cd "$scripts_dir" && "./$script" --help >/dev/null); then
+      echo "Error: $script failed when invoked as ./script from $scripts_dir" >&2
+      return 1
+    fi
+  done
+
+  output="$(
+    cd "$scripts_dir" &&
+      ./migrate-secrets.ts --secrets-dir /tmp/tearleads-missing-secrets-dir 2>&1 >/dev/null || true
+  )"
+
+  case "$output" in
+    *"Secrets directory not found:"*)
+      ;;
+    *)
+      echo "Error: migrate-secrets.ts failed with an unexpected error path" >&2
+      echo "$output" >&2
+      return 1
+      ;;
+  esac
+
+  return 0
+}
+
 # Check for required tools
 has_terraform=false
 if check_command "terraform"; then
@@ -81,6 +136,14 @@ for dir in "${TERRAFORM_DIRS[@]}"; do
     fi
   fi
 done
+
+if ! run_vault_script_typecheck; then
+  errors=$((errors + 1))
+fi
+
+if ! run_vault_script_smoke_checks; then
+  errors=$((errors + 1))
+fi
 
 if [ "$errors" -gt 0 ]; then
   echo "Terraform linting failed with $errors error(s)" >&2
