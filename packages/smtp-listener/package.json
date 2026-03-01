@@ -8,7 +8,7 @@
     "dist"
   ],
   "scripts": {
-    "dev": "tsx ../../scripts/lib/killPnpmDev.ts && tsx watch --clear-screen=false src/main.ts",
+    "dev": "sh ../../scripts/lib/runWithDevEnv.sh sh -c 'tsx ../../scripts/lib/killPnpmDev.ts && tsx watch --clear-screen=false src/main.ts'",
     "build": "tsc",
     "build:bundle": "esbuild src/main.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/server.cjs --minify --sourcemap",
     "clean": "rm -rf dist",

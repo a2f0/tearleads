@@ -96,17 +96,21 @@ _api_generate_jwt_secret() {
 
 _api_ensure_env_file() {
   _ensure_link_path="$1"
-  _ensure_example="$2"
+  _ensure_example="${2:-}"
 
   _ensure_env_file="$(_api_resolve_env_file_path "${_ensure_link_path}")"
   mkdir -p "$(dirname "${_ensure_env_file}")"
 
   if [ ! -f "${_ensure_env_file}" ]; then
-    if [ ! -f "${_ensure_example}" ]; then
-      echo "Missing env example at ${_ensure_example}." >&2
-      return 1
+    if [ -n "${_ensure_example}" ]; then
+      if [ ! -f "${_ensure_example}" ]; then
+        echo "Missing env example at ${_ensure_example}." >&2
+        return 1
+      fi
+      cp "${_ensure_example}" "${_ensure_env_file}"
+    else
+      : > "${_ensure_env_file}"
     fi
-    cp "${_ensure_example}" "${_ensure_env_file}"
     chmod 600 "${_ensure_env_file}" 2>/dev/null || true
     echo "Created env file at ${_ensure_env_file}."
   fi
@@ -155,7 +159,7 @@ setup_api_dev_env() {
   api_dir="${REPO_ROOT}/packages/api"
   smtp_dir="${REPO_ROOT}/packages/smtp-listener"
   secrets_env_file="${REPO_ROOT}/.secrets/dev.env"
-  api_env_file="$(_api_ensure_env_file "${api_dir}/.env" "${api_dir}/.env.example")" || return 1
+  api_env_file="$(_api_ensure_env_file "${api_dir}/.env")" || return 1
 
   mkdir -p "$(dirname "${secrets_env_file}")"
   if [ ! -f "${secrets_env_file}" ]; then
@@ -211,7 +215,7 @@ setup_api_dev_env() {
 
   # --- smtp-listener env bootstrap ---
 
-  smtp_env_file="$(_api_ensure_env_file "${smtp_dir}/.env" "${smtp_dir}/.env.example")" || return 1
+  smtp_env_file="$(_api_ensure_env_file "${smtp_dir}/.env")" || return 1
 
   _api_copy_keys_if_unset "${secrets_env_file}" "${smtp_env_file}" \
     VFS_BLOB_STORE_PROVIDER \
