@@ -1042,9 +1042,6 @@ importers:
       '@tearleads/notifications':
         specifier: workspace:*
         version: link:../notifications
-      '@tearleads/remote-read-orchestrator':
-        specifier: workspace:*
-        version: link:../remote-read-orchestrator
       '@tearleads/search':
         specifier: workspace:*
         version: link:../search

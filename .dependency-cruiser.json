@@ -85,7 +85,6 @@
           "^packages/client/src/components/keychain-window/index\\.ts$",
           "^packages/client/src/components/notification-center/index\\.ts$",
           "^packages/client/src/components/sync-window/index\\.ts$",
-          "^packages/client/src/components/VfsRealtimeSyncBridge\\.tsx$",
           "^packages/client/src/components/wallet-window/index\\.tsx$",
           "^packages/client/src/components/window-renderer/WindowRenderer\\.tsx$",
           "^packages/client/src/contexts/ClientVfsExplorerProvider\\.tsx$",
