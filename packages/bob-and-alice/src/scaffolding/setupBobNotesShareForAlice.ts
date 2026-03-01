@@ -92,7 +92,9 @@ function toBase64(value: string): string {
   return Buffer.from(value, 'utf8').toString('base64');
 }
 
-function parseCrdtResults(value: unknown): Array<{ opId: string; status: string }> {
+function parseCrdtResults(
+  value: unknown
+): Array<{ opId: string; status: string }> {
   if (!isRecord(value) || !Array.isArray(value['results'])) {
     throw new Error('Unexpected /vfs/crdt/push response');
   }

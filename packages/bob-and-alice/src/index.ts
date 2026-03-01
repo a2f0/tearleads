@@ -41,7 +41,10 @@ export type {
   AuthenticatedApiActor,
   LoginApiActorInput
 } from './scaffolding/apiActorAuth.js';
-export { ensureVfsKeysExist, loginApiActor } from './scaffolding/apiActorAuth.js';
+export {
+  ensureVfsKeysExist,
+  loginApiActor
+} from './scaffolding/apiActorAuth.js';
 export type {
   JsonApiActor,
   SetupBobNotesShareForAliceInput,

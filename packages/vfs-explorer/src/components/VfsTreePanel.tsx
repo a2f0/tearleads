@@ -119,8 +119,11 @@ export function VfsTreePanel({
   onPaste
 }: VfsTreePanelProps) {
   // Ensure the VFS root exists before loading folders.
-  const { isReady: isRootReady, isCreating: isRootCreating, error: rootError } =
-    useEnsureVfsRoot();
+  const {
+    isReady: isRootReady,
+    isCreating: isRootCreating,
+    error: rootError
+  } = useEnsureVfsRoot();
 
   const { folders, loading, error, refetch } = useVfsFolders();
   const { hasItems } = useVfsClipboard();

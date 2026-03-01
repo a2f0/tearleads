@@ -113,24 +113,28 @@ export async function ensureVfsKeysExist(input: {
   actor: JsonApiActor;
   keyPrefix: string;
 }): Promise<void> {
-  const response = await input.actor.fetchJson('/vfs/keys', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      publicEncryptionKey: `${input.keyPrefix}-public-encryption-key`,
-      publicSigningKey: `${input.keyPrefix}-public-signing-key`,
-      encryptedPrivateKeys: `${input.keyPrefix}-encrypted-private-keys`,
-      argon2Salt: `${input.keyPrefix}-argon2-salt`
+  const response = await input.actor
+    .fetchJson('/vfs/keys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        publicEncryptionKey: `${input.keyPrefix}-public-encryption-key`,
+        publicSigningKey: `${input.keyPrefix}-public-signing-key`,
+        encryptedPrivateKeys: `${input.keyPrefix}-encrypted-private-keys`,
+        argon2Salt: `${input.keyPrefix}-argon2-salt`
+      })
     })
-  }).catch((error: unknown) => {
-    const message =
-      error instanceof Error ? error.message : `Unknown error: ${String(error)}`;
+    .catch((error: unknown) => {
+      const message =
+        error instanceof Error
+          ? error.message
+          : `Unknown error: ${String(error)}`;
 
-    if (message.includes('409')) {
-      return null;
-    }
-    throw error;
-  });
+      if (message.includes('409')) {
+        return null;
+      }
+      throw error;
+    });
 
   if (response !== null && response !== undefined && !isRecord(response)) {
     throw new Error('Unexpected /vfs/keys response');

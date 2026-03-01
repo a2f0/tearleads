@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  setupBobNotesShareForAlice,
-  type JsonApiActor
+  type JsonApiActor,
+  setupBobNotesShareForAlice
 } from './setupBobNotesShareForAlice.js';
 
 interface RequestCall {

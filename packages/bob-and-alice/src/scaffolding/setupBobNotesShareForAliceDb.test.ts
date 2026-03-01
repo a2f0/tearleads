@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  setupBobNotesShareForAliceDb,
-  type DbQueryClient
+  type DbQueryClient,
+  setupBobNotesShareForAliceDb
 } from './setupBobNotesShareForAliceDb.js';
 
 interface Call {

@@ -114,12 +114,12 @@ describe('folder share descendant visibility', () => {
     });
 
     const aliceSyncAfterFolderShare = await listSyncItems(alice);
-    expect(aliceSyncAfterFolderShare.some((item) => item.itemId === folderId)).toBe(
-      true
-    );
-    expect(aliceSyncAfterFolderShare.some((item) => item.itemId === noteId)).toBe(
-      false
-    );
+    expect(
+      aliceSyncAfterFolderShare.some((item) => item.itemId === folderId)
+    ).toBe(true);
+    expect(
+      aliceSyncAfterFolderShare.some((item) => item.itemId === noteId)
+    ).toBe(false);
 
     await bob.fetchJson(`/vfs/items/${encodeURIComponent(noteId)}/shares`, {
       method: 'POST',

@@ -74,8 +74,7 @@ export async function setupBobNotesShareForAliceDb(
   const folderName = input.folderName ?? DEFAULT_FOLDER_NAME;
   const noteName = input.noteName ?? DEFAULT_NOTE_NAME;
   const notePlaintext = input.notePlaintext ?? DEFAULT_NOTE_PLAINTEXT;
-  const shareAccessLevel =
-    input.shareAccessLevel ?? DEFAULT_SHARE_ACCESS_LEVEL;
+  const shareAccessLevel = input.shareAccessLevel ?? DEFAULT_SHARE_ACCESS_LEVEL;
   const nowIso = now().toISOString();
 
   await input.client.query('BEGIN');
