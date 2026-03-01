@@ -19,7 +19,7 @@ export function normalizeRequiredString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-export function normalizeOptionalString(value: unknown): string | null {
+function normalizeOptionalString(value: unknown): string | null {
   if (value === undefined) {
     return null;
   }
@@ -27,7 +27,7 @@ export function normalizeOptionalString(value: unknown): string | null {
   return normalizeRequiredString(value);
 }
 
-export function parseIsoTimestamp(value: unknown): string | null {
+function parseIsoTimestamp(value: unknown): string | null {
   const normalized = normalizeRequiredString(value);
   if (!normalized) {
     return null;

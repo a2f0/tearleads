@@ -6,7 +6,7 @@
  * @param accept - Accept string (e.g., "image/*", "video/*,audio/*", ".iso")
  * @returns true if the file matches the accept criteria
  */
-export function fileMatchesAccept(file: File, accept: string): boolean {
+function fileMatchesAccept(file: File, accept: string): boolean {
   if (!accept || accept.trim() === '') {
     return true;
   }

@@ -119,7 +119,7 @@ function buildTagCountById(state: ClassicState): Record<string, number> {
   return counts;
 }
 
-export function getNoteTagCountById(
+function getNoteTagCountById(
   state: ClassicState
 ): Record<string, number> {
   const counts: Record<string, number> = {};
