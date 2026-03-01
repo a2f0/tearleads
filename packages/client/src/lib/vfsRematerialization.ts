@@ -16,6 +16,10 @@ import {
   vfsRegistry
 } from '@/db/schema';
 import { api } from './api';
+import {
+  resolveMaterializedNoteContent,
+  resolveMaterializedNoteTitle
+} from './vfsRematerializationScrub';
 
 const SYNC_PAGE_LIMIT = 500;
 const INSERT_BATCH_SIZE = 200;
@@ -64,7 +68,6 @@ interface NoteRowState {
   deleted: boolean;
 }
 
-const DEFAULT_MATERIALIZED_NOTE_TITLE = 'Untitled Note';
 const VFS_ROOT_ID = '__vfs_root__';
 
 function chunkArray<T>(values: readonly T[], size: number): T[][] {
@@ -87,57 +90,6 @@ function parseTimestampMs(
     return fallback;
   }
   return parsed;
-}
-
-function resolveMaterializedNoteTitle(
-  encryptedName: string | null | undefined
-): string {
-  if (typeof encryptedName !== 'string') {
-    return DEFAULT_MATERIALIZED_NOTE_TITLE;
-  }
-  const trimmed = encryptedName.trim();
-  return trimmed.length > 0 ? trimmed : DEFAULT_MATERIALIZED_NOTE_TITLE;
-}
-
-function decodeBase64Utf8(value: string): string | null {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return null;
-  }
-
-  const normalized = trimmed.replace(/-/g, '+').replace(/_/g, '/');
-  const missingPadding = normalized.length % 4;
-  const padded =
-    missingPadding === 0
-      ? normalized
-      : `${normalized}${'='.repeat(4 - missingPadding)}`;
-
-  if (typeof globalThis.atob !== 'function') {
-    return null;
-  }
-
-  try {
-    const binary = globalThis.atob(padded);
-    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-    return new TextDecoder().decode(bytes);
-  } catch {
-    return null;
-  }
-}
-
-function resolveMaterializedNoteContent(
-  encryptedPayload: string | null | undefined
-): string {
-  if (typeof encryptedPayload !== 'string') {
-    return '';
-  }
-
-  const decoded = decodeBase64Utf8(encryptedPayload);
-  if (decoded === null) {
-    return '';
-  }
-
-  return decoded;
 }
 
 async function forEachSyncItem(

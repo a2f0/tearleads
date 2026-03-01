@@ -23,7 +23,14 @@ vi.mock('@tearleads/shared', async (importOriginal) => {
     ),
     buildVfsPublicEncryptionKey: vi.fn(() => 'combined-public-key'),
     combinePublicKey: vi.fn(() => 'combined-public-key'),
+    importVfsPrivateKeyPasswordMaterial: vi.fn(async () => ({
+      algorithm: { name: 'PBKDF2' }
+    })),
     decryptVfsPrivateKeysWithPassword: vi.fn(async () => ({
+      x25519PrivateKey: 'dGVzdA==',
+      mlKemPrivateKey: 'dGVzdA=='
+    })),
+    decryptVfsPrivateKeysWithPasswordMaterial: vi.fn(async () => ({
       x25519PrivateKey: 'dGVzdA==',
       mlKemPrivateKey: 'dGVzdA=='
     })),
@@ -34,6 +41,10 @@ vi.mock('@tearleads/shared', async (importOriginal) => {
       })
     ),
     encryptVfsPrivateKeysWithPassword: vi.fn(async () => ({
+      encryptedPrivateKeys: 'ZW5jcnlwdGVk',
+      argon2Salt: 'c2FsdA=='
+    })),
+    encryptVfsPrivateKeysWithPasswordMaterial: vi.fn(async () => ({
       encryptedPrivateKeys: 'ZW5jcnlwdGVk',
       argon2Salt: 'c2FsdA=='
     })),

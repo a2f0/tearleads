@@ -7,10 +7,11 @@ import {
 } from './asymmetric.js';
 import {
   decrypt,
-  deriveKeyFromPassword,
+  deriveKeyFromPasswordMaterial,
   encrypt,
   generateSalt,
-  importKey
+  importKey,
+  importPasswordKeyMaterial
 } from './webCrypto.js';
 
 const PRIVATE_KEYS_AAD = new TextEncoder().encode('tearleads-vfs-keys:v1');
@@ -90,11 +91,28 @@ export async function encryptVfsPrivateKeysWithPassword(
   serialized: SerializedKeyPair,
   password: string
 ): Promise<VfsEncryptedPrivateKeyBundle> {
+  const passwordMaterial = await importVfsPrivateKeyPasswordMaterial(password);
+  return encryptVfsPrivateKeysWithPasswordMaterial(
+    serialized,
+    passwordMaterial
+  );
+}
+
+export async function importVfsPrivateKeyPasswordMaterial(
+  password: string
+): Promise<CryptoKey> {
   if (password.trim().length === 0) {
     throw new Error('password is required');
   }
+  return importPasswordKeyMaterial(password);
+}
+
+export async function encryptVfsPrivateKeysWithPasswordMaterial(
+  serialized: SerializedKeyPair,
+  passwordMaterial: CryptoKey
+): Promise<VfsEncryptedPrivateKeyBundle> {
   const salt = generateSalt();
-  const key = await deriveKeyFromPassword(password, salt);
+  const key = await deriveKeyFromPasswordMaterial(passwordMaterial, salt);
   const plaintext = new TextEncoder().encode(
     JSON.stringify(serializePrivateKeyBundle(serialized))
   );
@@ -121,12 +139,25 @@ export async function decryptVfsPrivateKeysWithPassword(
   x25519PrivateKey: string;
   mlKemPrivateKey: string;
 }> {
-  if (password.trim().length === 0) {
-    throw new Error('password is required');
-  }
+  const passwordMaterial = await importVfsPrivateKeyPasswordMaterial(password);
+  return decryptVfsPrivateKeysWithPasswordMaterial(
+    encryptedPrivateKeysBase64,
+    argon2SaltBase64,
+    passwordMaterial
+  );
+}
+
+export async function decryptVfsPrivateKeysWithPasswordMaterial(
+  encryptedPrivateKeysBase64: string,
+  argon2SaltBase64: string,
+  passwordMaterial: CryptoKey
+): Promise<{
+  x25519PrivateKey: string;
+  mlKemPrivateKey: string;
+}> {
   const salt = fromBase64(argon2SaltBase64);
   const encryptedBlob = fromBase64(encryptedPrivateKeysBase64);
-  const key = await deriveKeyFromPassword(password, salt);
+  const key = await deriveKeyFromPasswordMaterial(passwordMaterial, salt);
   const plaintext = await decrypt(encryptedBlob, key, PRIVATE_KEYS_AAD);
   const parsed = parsePrivateKeyBundle(
     JSON.parse(new TextDecoder().decode(plaintext)) as unknown

@@ -13,9 +13,12 @@ import {
   buildVfsPublicEncryptionKey,
   combineEncapsulation,
   decryptVfsPrivateKeysWithPassword,
+  decryptVfsPrivateKeysWithPasswordMaterial,
   deserializePublicKey,
   encryptVfsPrivateKeysWithPassword,
+  encryptVfsPrivateKeysWithPasswordMaterial,
   generateKeyPair,
+  importVfsPrivateKeyPasswordMaterial,
   type SerializedKeyPair,
   serializeKeyPair,
   splitPublicKey,
@@ -29,7 +32,12 @@ import { api } from '@/lib/api';
 
 // In-memory cache for the decrypted VFS keypair
 let cachedKeyPair: VfsKeyPair | null = null;
-let cachedRecoveryPassword: string | null = null;
+let cachedRecoveryPasswordMaterial: CryptoKey | null = null;
+let cachedRecoveryPasswordMaterialPromise: Promise<CryptoKey> | null = null;
+let recoveryMaterialVersion = 0;
+
+const VFS_RECOVERY_REAUTH_ERROR =
+  'VFS key recovery requires re-authentication. Please log out and log in again.';
 
 function isVfsKeysNotSetupError(error: unknown): boolean {
   if (!(error instanceof Error)) {
@@ -55,15 +63,35 @@ export function clearVfsKeysCache(): void {
 }
 
 /**
- * Set or clear the in-memory recovery password for this session.
+ * Set or clear in-memory recovery key material for this session.
  */
 export function setVfsRecoveryPassword(password: string | null): void {
+  recoveryMaterialVersion += 1;
+  const expectedVersion = recoveryMaterialVersion;
+  cachedRecoveryPasswordMaterial = null;
+  cachedRecoveryPasswordMaterialPromise = null;
+
   if (!password || password.trim().length === 0) {
-    cachedRecoveryPassword = null;
+    clearVfsKeysCache();
     return;
   }
 
-  cachedRecoveryPassword = password;
+  cachedRecoveryPasswordMaterialPromise = importVfsPrivateKeyPasswordMaterial(
+    password
+  )
+    .then((material) => {
+      if (expectedVersion === recoveryMaterialVersion) {
+        cachedRecoveryPasswordMaterial = material;
+      }
+      return material;
+    })
+    .catch((error: unknown) => {
+      if (expectedVersion === recoveryMaterialVersion) {
+        cachedRecoveryPasswordMaterial = null;
+        cachedRecoveryPasswordMaterialPromise = null;
+      }
+      throw error;
+    });
 }
 
 /**
@@ -93,6 +121,18 @@ async function encryptPrivateKeys(
     encryptedBlob: bundle.encryptedPrivateKeys,
     argon2Salt: bundle.argon2Salt
   };
+}
+
+async function requireRecoveryPasswordMaterial(): Promise<CryptoKey> {
+  if (cachedRecoveryPasswordMaterial) {
+    return cachedRecoveryPasswordMaterial;
+  }
+  if (cachedRecoveryPasswordMaterialPromise) {
+    const material = await cachedRecoveryPasswordMaterialPromise;
+    cachedRecoveryPasswordMaterial = material;
+    return material;
+  }
+  throw new Error(VFS_RECOVERY_REAUTH_ERROR);
 }
 
 /**
@@ -127,16 +167,12 @@ async function decryptPrivateKeys(
   x25519PrivateKey: string;
   mlKemPrivateKey: string;
 }> {
-  if (!cachedRecoveryPassword) {
-    throw new Error(
-      'VFS key recovery requires re-authentication. Please log out and log in again.'
-    );
-  }
+  const recoveryMaterial = await requireRecoveryPasswordMaterial();
 
-  return decryptVfsPrivateKeysWithPassword(
+  return decryptVfsPrivateKeysWithPasswordMaterial(
     encryptedBlob,
     argon2Salt,
-    cachedRecoveryPassword
+    recoveryMaterial
   );
 }
 
@@ -144,11 +180,7 @@ async function decryptPrivateKeys(
  * Generate a new VFS keypair, encrypt it, and store on server.
  */
 async function generateAndStoreKeys(): Promise<VfsKeyPair> {
-  if (!cachedRecoveryPassword) {
-    throw new Error(
-      'VFS key recovery requires re-authentication. Please log out and log in again.'
-    );
-  }
+  const recoveryMaterial = await requireRecoveryPasswordMaterial();
 
   // Generate a new keypair
   const keyPair = generateKeyPair();
@@ -156,7 +188,7 @@ async function generateAndStoreKeys(): Promise<VfsKeyPair> {
 
   // Encrypt private keys with PBKDF2-derived key from recovery password.
   const { encryptedPrivateKeys: encryptedBlob, argon2Salt } =
-    await encryptVfsPrivateKeysWithPassword(serialized, cachedRecoveryPassword);
+    await encryptVfsPrivateKeysWithPasswordMaterial(serialized, recoveryMaterial);
 
   // Combine public keys for server storage
   const publicEncryptionKey = buildVfsPublicEncryptionKey(keyPair);
