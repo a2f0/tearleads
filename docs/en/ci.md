@@ -103,6 +103,7 @@ pnpm checkDependencyCruiserSummary
 pnpm checkDependencyCruiserSummaryJson
 pnpm checkDependencyCruiserExceptions
 pnpm checkDependencyCruiserExceptionsJson
+pnpm checkArchitectureGuardrailBudgets
 pnpm lintKnipStrict
 pnpm checkKnipStrictSummary
 pnpm checkKnipStrictSummaryJson

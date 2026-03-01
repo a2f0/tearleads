@@ -56,6 +56,7 @@
     "checkDependencyCruiserSummaryJson": "./scripts/checks/checkDependencyCruiser.sh --summary-json",
     "checkDependencyCruiserExceptions": "./scripts/checks/checkDependencyCruiser.sh --exceptions",
     "checkDependencyCruiserExceptionsJson": "./scripts/checks/checkDependencyCruiser.sh --exceptions-json",
+    "checkArchitectureGuardrailBudgets": "./scripts/checks/checkArchitectureGuardrailBudgets.ts",
     "checkVfsCrdtCompactionMetrics": "./scripts/checks/checkVfsCrdtCompactionMetrics.ts",
     "protoLint": "buf lint proto",
     "protoGenerate": "buf generate proto --template proto/buf.gen.yaml",
