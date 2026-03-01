@@ -1,5 +1,5 @@
 import { configureBackupsRuntime } from '@tearleads/backups';
-import { setKeychainDependencies } from '@tearleads/keychain';
+import { setKeychainDependencies } from '@tearleads/keychain/clientEntry';
 import { ThemeProvider } from '@tearleads/ui';
 import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';

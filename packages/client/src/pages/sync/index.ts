@@ -2,4 +2,4 @@ import { configureSyncAuthDependencies } from '@/sync/configureSyncAuthDependenc
 
 configureSyncAuthDependencies();
 
-export { Sync } from '@tearleads/vfs-sync';
+export { Sync } from '@tearleads/vfs-sync/clientEntry';

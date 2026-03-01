@@ -1,4 +1,4 @@
-import type { KeychainDependencies } from '@tearleads/keychain';
+import type { KeychainDependencies } from '@tearleads/keychain/clientEntry';
 import {
   deleteSessionKeysForInstance,
   getKeyManagerForInstance,

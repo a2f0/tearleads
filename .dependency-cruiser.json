@@ -51,12 +51,12 @@
     {
       "name": "no-cross-package-non-entrypoint-imports",
       "severity": "error",
-      "comment": "Packages should import other packages through public entrypoints, not non-index source internals.",
+      "comment": "Packages should import other packages through public entrypoints, not non-entrypoint source internals.",
       "from": {
         "path": "^packages/([^/]+)/src"
       },
       "to": {
-        "path": "^packages/[^/]+/src/(?!index\\.(ts|tsx)$).*",
+        "path": "^packages/[^/]+/src/(?!(index|clientEntry)\\.(ts|tsx)$).*",
         "pathNot": "^packages/\\1/src/.*",
         "dependencyTypes": [
           "undetermined",
@@ -70,25 +70,19 @@
     {
       "name": "no-cross-package-src-entrypoint-imports",
       "severity": "error",
-      "comment": "Packages should import other packages through package roots, not direct src/index entrypoints. Existing hotspot files are temporarily allowlisted for incremental cleanup.",
+      "comment": "Packages should import other packages through package roots, not direct src/index entrypoints. Remaining hotspot files are allowlisted for incremental cleanup.",
       "from": {
         "path": "^packages/([^/]+)/src/.*",
         "pathNot": [
           "^packages/client/src/components/admin-windows/index\\.ts$",
           "^packages/client/src/components/health-window/HealthWindow\\.tsx$",
-          "^packages/client/src/components/keychain-window/index\\.ts$",
-          "^packages/client/src/keychain/keychainRuntime\\.ts$",
           "^packages/client/src/components/notification-center/index\\.ts$",
-          "^packages/client/src/components/sync-window/index\\.ts$",
-          "^packages/client/src/components/wallet-window/index\\.tsx$",
           "^packages/client/src/contexts/ClientVfsExplorerProvider\\.tsx$",
           "^packages/client/src/contexts/VfsOrchestratorContext\\.tsx$",
           "^packages/client/src/db/vfsOrchestratorState\\.ts$",
           "^packages/client/src/lib/vfsItemSyncWriter\\.ts$",
-          "^packages/client/src/main\\.tsx$",
           "^packages/client/src/pages/Health\\.tsx$",
-          "^packages/client/src/pages/(admin|analytics|keychain|sync|wallet)/index\\.ts$",
-          "^packages/client/src/sync/configureSyncAuthDependencies\\.ts$"
+          "^packages/client/src/pages/(admin|analytics)/index\\.ts$"
         ]
       },
       "to": {

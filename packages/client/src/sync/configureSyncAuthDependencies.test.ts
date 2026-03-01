@@ -13,7 +13,7 @@ describe('configureSyncAuthDependencies', () => {
     const useAuth = vi.fn();
     const ping = vi.fn(async () => ({ emailDomain: 'example.com' }));
 
-    vi.doMock('@tearleads/vfs-sync', () => ({
+    vi.doMock('@tearleads/vfs-sync/clientEntry', () => ({
       setSyncAuthDependencies
     }));
     vi.doMock('@/components/auth', () => ({

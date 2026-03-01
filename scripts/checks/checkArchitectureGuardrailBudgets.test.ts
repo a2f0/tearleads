@@ -90,8 +90,8 @@ test('evaluateGuardrailBudgets detects totals, rule, file, and workspace regress
   const result = evaluateGuardrailBudgets(
     {
       rulesWithPathNot: 2,
-      totalPathNotEntries: 15,
-      totalClientFileExceptions: 15
+      totalPathNotEntries: 9,
+      totalClientFileExceptions: 9
     },
     {
       'no-circular': {
@@ -127,8 +127,8 @@ test('renderGuardrailBudgetSummary includes pass status when within budget', () 
   const result = evaluateGuardrailBudgets(
     {
       rulesWithPathNot: 1,
-      totalPathNotEntries: 15,
-      totalClientFileExceptions: 15
+      totalPathNotEntries: 9,
+      totalClientFileExceptions: 9
     },
     {
       'no-circular': {
@@ -154,6 +154,6 @@ test('renderGuardrailBudgetSummary includes pass status when within budget', () 
   const text = renderGuardrailBudgetSummary(result);
   assert.match(text, /Architecture Guardrail Budget Check/);
   assert.match(text, /Status: pass/);
-  assert.match(text, /dependencyCruiser.totalPathNotEntries: 15\/15/);
+  assert.match(text, /dependencyCruiser.totalPathNotEntries: 9\/9/);
   assert.match(text, /knip.ignoreIssueEntries: 25\/25/);
 });

@@ -103,8 +103,16 @@ export const createViteAliases = (
       dirname,
       '../keychain/package.json'
     ),
+    '@tearleads/keychain/clientEntry': path.resolve(
+      dirname,
+      '../keychain/src/clientEntry.ts'
+    ),
     '@tearleads/keychain': path.resolve(dirname, '../keychain/src/index.ts'),
     '@tearleads/wallet/package.json': path.resolve(dirname, '../wallet/package.json'),
+    '@tearleads/wallet/clientEntry': path.resolve(
+      dirname,
+      '../wallet/src/clientEntry.ts'
+    ),
     '@tearleads/wallet': path.resolve(dirname, '../wallet/src/index.ts'),
     '@tearleads/mls-core/package.json': path.resolve(
       dirname,
@@ -174,6 +182,10 @@ export const createViteAliases = (
     ),
     '@tearleads/settings': path.resolve(dirname, '../settings/src/index.ts'),
     '@tearleads/vfs-sync/package.json': path.resolve(dirname, '../vfs-sync/package.json'),
+    '@tearleads/vfs-sync/clientEntry': path.resolve(
+      dirname,
+      '../vfs-sync/src/clientEntry.ts'
+    ),
     '@tearleads/vfs-sync/vfs': path.resolve(dirname, '../vfs-sync/src/vfs/index.ts'),
     '@tearleads/vfs-sync': path.resolve(dirname, '../vfs-sync/src/index.ts'),
     '@tearleads/terminal/package.json': path.resolve(
