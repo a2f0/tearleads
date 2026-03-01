@@ -8,10 +8,10 @@ This map ties end-to-end encryption policy controls to concrete implementation a
 
 | Sentinel | NIST Control | Status | Description | Implementation Evidence | Test Evidence |
 | --- | --- | --- | --- | --- | --- |
-| `TL-NE2E-001` | SC-8, SC-13, SI-7 | Planned | MLS group encryption with ChaCha20-Poly1305 | [`packages/mls-chat/src/lib/mls.ts`](../../../packages/mls-chat/src/lib/mls.ts) | `pnpm --filter @tearleads/mls-chat test -- --grep "encrypt"` |
-| `TL-NE2E-002` | SC-12, IA-5 | Planned | Ed25519 credential and key package management | [`packages/mls-chat/src/lib/mls.ts`](../../../packages/mls-chat/src/lib/mls.ts) (generateCredential, generateKeyPackage) | `pnpm --filter @tearleads/mls-chat test -- --grep "credential"` |
-| `TL-NE2E-003` | SC-8(1) | Planned | Epoch-based key evolution for forward secrecy | [`packages/mls-chat/src/lib/mls.ts`](../../../packages/mls-chat/src/lib/mls.ts) (processCommit, epoch tracking) | `pnpm --filter @tearleads/mls-chat test -- --grep "epoch"` |
-| `TL-NE2E-004` | SC-28, SC-12 | Implemented | IndexedDB local storage for private keys | [`packages/mls-chat/src/lib/storage.ts`](../../../packages/mls-chat/src/lib/storage.ts) | `pnpm --filter @tearleads/mls-chat test -- --grep "storage"` |
+| `TL-NE2E-001` | SC-8, SC-13, SI-7 | Planned | MLS group encryption with ChaCha20-Poly1305 | [`packages/mls-core/src/mls.ts`](../../../packages/mls-core/src/mls.ts) | `pnpm --filter @tearleads/mls-chat test -- --grep "encrypt"` |
+| `TL-NE2E-002` | SC-12, IA-5 | Planned | Ed25519 credential and key package management | [`packages/mls-core/src/mls.ts`](../../../packages/mls-core/src/mls.ts) (generateCredential, generateKeyPackage) | `pnpm --filter @tearleads/mls-chat test -- --grep "credential"` |
+| `TL-NE2E-003` | SC-8(1) | Planned | Epoch-based key evolution for forward secrecy | [`packages/mls-core/src/mls.ts`](../../../packages/mls-core/src/mls.ts) (processCommit, epoch tracking) | `pnpm --filter @tearleads/mls-chat test -- --grep "epoch"` |
+| `TL-NE2E-004` | SC-28, SC-12 | Implemented | IndexedDB local storage for private keys | [`packages/mls-core/src/storage.ts`](../../../packages/mls-core/src/storage.ts) | `pnpm --filter @tearleads/mls-chat test -- --grep "storage"` |
 
 ## NIST SP 800-53 Rev 5 Control Mapping
 
@@ -48,7 +48,7 @@ This map ties end-to-end encryption policy controls to concrete implementation a
 
 **Implementation:**
 
-- `packages/mls-chat/src/lib/mls.ts` - MLS client with encryption/decryption
+- `packages/mls-core/src/mls.ts` - MLS client with encryption/decryption
 - `packages/mls-chat/src/hooks/useGroupMessages.ts` - React integration
 
 **Cryptographic Configuration (RFC 9420):**
@@ -73,7 +73,7 @@ This map ties end-to-end encryption policy controls to concrete implementation a
 
 **Implementation:**
 
-- `packages/mls-chat/src/lib/mls.ts` - Credential and key package generation
+- `packages/mls-core/src/mls.ts` - Credential and key package generation
 
 **Key Operations:**
 
@@ -96,7 +96,7 @@ This map ties end-to-end encryption policy controls to concrete implementation a
 
 **Implementation:**
 
-- `packages/mls-chat/src/lib/mls.ts` - Epoch management and key evolution
+- `packages/mls-core/src/mls.ts` - Epoch management and key evolution
 
 **Security Properties:**
 
@@ -118,7 +118,7 @@ This map ties end-to-end encryption policy controls to concrete implementation a
 
 **Implementation:**
 
-- `packages/mls-chat/src/lib/storage.ts` - IndexedDB storage layer
+- `packages/mls-core/src/storage.ts` - IndexedDB storage layer
 
 **Storage Schema (IndexedDB `tearleads-mls`):**
 
