@@ -34,10 +34,10 @@ export function ShareDeleteConfirmation({
     >
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium">
+        <div className="font-medium text-sm">
           Remove access for &ldquo;{targetName}&rdquo;?
         </div>
-        <div className="text-xs text-muted-foreground">
+        <div className="text-muted-foreground text-xs">
           They will no longer be able to view this item.
         </div>
         <div className="mt-2 flex gap-2">

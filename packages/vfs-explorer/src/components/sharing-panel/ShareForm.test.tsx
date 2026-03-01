@@ -66,9 +66,7 @@ describe('ShareForm', () => {
   it('switches share type and notifies parent', async () => {
     const onTargetSelected = vi.fn();
     const user = userEvent.setup();
-    render(
-      <ShareForm {...defaultProps} onTargetSelected={onTargetSelected} />
-    );
+    render(<ShareForm {...defaultProps} onTargetSelected={onTargetSelected} />);
 
     await user.click(screen.getByTestId('share-type-group'));
     expect(onTargetSelected).toHaveBeenCalledWith('group', null, '');

@@ -77,8 +77,8 @@ export function SharePermissionSelect({
               >
                 <option.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium">{option.label}</div>
-                  <div className="text-xs text-muted-foreground">
+                  <div className="font-medium text-sm">{option.label}</div>
+                  <div className="text-muted-foreground text-xs">
                     {option.description}
                   </div>
                 </div>

@@ -74,7 +74,11 @@ describe('ShareListItem', () => {
     const user = userEvent.setup();
     const share = makeShare();
     render(
-      <ShareListItem share={share} {...defaultProps} onStartEdit={onStartEdit} />
+      <ShareListItem
+        share={share}
+        {...defaultProps}
+        onStartEdit={onStartEdit}
+      />
     );
 
     await user.click(screen.getByTestId('share-item-menu'));

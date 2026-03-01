@@ -1,2 +1,2 @@
-export type { SharingPanelProps } from './types';
 export { SharingPanel } from './SharingPanel';
+export type { SharingPanelProps } from './types';

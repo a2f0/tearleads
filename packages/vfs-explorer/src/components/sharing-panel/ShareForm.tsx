@@ -11,7 +11,11 @@ import { SHARE_TYPE_ICONS, SHARE_TYPE_LABELS } from './types';
 interface ShareFormProps {
   onShareCreated: () => void;
   onCancel: () => void;
-  onTargetSelected: (shareType: VfsShareType, targetId: string | null, targetName: string) => void;
+  onTargetSelected: (
+    shareType: VfsShareType,
+    targetId: string | null,
+    targetName: string
+  ) => void;
   createShare: (request: {
     shareType: VfsShareType;
     targetId: string;
@@ -99,7 +103,14 @@ export function ShareForm({
     } finally {
       setIsAdding(false);
     }
-  }, [selectedTargetId, shareType, permissionLevel, expiresAt, createShare, onShareCreated]);
+  }, [
+    selectedTargetId,
+    shareType,
+    permissionLevel,
+    expiresAt,
+    createShare,
+    onShareCreated
+  ]);
 
   return (
     <div

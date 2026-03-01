@@ -12,7 +12,11 @@ import {
   sharedByLabel
 } from './sharingUtils';
 import type { DeleteConfirmState, ShareEditState } from './types';
-import { PERMISSION_COLORS, PERMISSION_LABELS, SHARE_TYPE_ICONS } from './types';
+import {
+  PERMISSION_COLORS,
+  PERMISSION_LABELS,
+  SHARE_TYPE_ICONS
+} from './types';
 
 interface ShareListItemProps {
   share: VfsShare;
@@ -20,7 +24,10 @@ interface ShareListItemProps {
   deleteConfirm: DeleteConfirmState | null;
   onStartEdit: (state: ShareEditState) => void;
   onCancelEdit: () => void;
-  onSaveEdit: (shareId: string, request: UpdateVfsShareRequest) => Promise<void>;
+  onSaveEdit: (
+    shareId: string,
+    request: UpdateVfsShareRequest
+  ) => Promise<void>;
   onRequestDelete: (state: DeleteConfirmState) => void;
   onCancelDelete: () => void;
   onConfirmDelete: (shareId: string) => Promise<void>;
@@ -47,7 +54,8 @@ export function ShareListItem({
 
   const Icon = SHARE_TYPE_ICONS[share.shareType];
   const isEditing = editState?.shareId === share.id;
-  const isDeleting = deleteConfirm?.shareId === share.id && !deleteConfirm.isOrg;
+  const isDeleting =
+    deleteConfirm?.shareId === share.id && !deleteConfirm.isOrg;
   const currentUserId = auth.readStoredAuth().user?.id;
 
   useEffect(() => {
@@ -92,12 +100,12 @@ export function ShareListItem({
       >
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <span className="truncate text-sm font-medium">
+          <span className="truncate font-medium text-sm">
             {share.targetName}
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Permission:</span>
+          <span className="text-muted-foreground text-xs">Permission:</span>
           <SharePermissionSelect
             value={editState.permissionLevel}
             onChange={(level) =>
@@ -141,7 +149,7 @@ export function ShareListItem({
       <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm">{share.targetName}</div>
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1 text-muted-foreground text-xs">
           <span>{sharedByLabel(share.createdBy, currentUserId)}</span>
           <span>&middot;</span>
           <span>{formatRelativeTime(share.createdAt)}</span>
@@ -199,7 +207,7 @@ export function ShareListItem({
             </button>
             <button
               type="button"
-              className="flex w-full px-3 py-1.5 text-left text-sm text-destructive hover:bg-accent"
+              className="flex w-full px-3 py-1.5 text-left text-destructive text-sm hover:bg-accent"
               onClick={() => {
                 setMenuOpen(false);
                 onRequestDelete({

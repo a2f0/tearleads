@@ -1,7 +1,4 @@
-import type {
-  UpdateVfsShareRequest,
-  VfsShareType
-} from '@tearleads/shared';
+import type { UpdateVfsShareRequest, VfsShareType } from '@tearleads/shared';
 import { useResizableSidebar } from '@tearleads/window-manager';
 import { Plus, X } from 'lucide-react';
 import { useCallback, useState } from 'react';
@@ -10,7 +7,11 @@ import { useVfsShares } from '../../hooks';
 import { ShareAccessSummary } from './ShareAccessSummary';
 import { ShareForm } from './ShareForm';
 import { ShareList } from './ShareList';
-import type { DeleteConfirmState, ShareEditState, SharingPanelProps } from './types';
+import type {
+  DeleteConfirmState,
+  ShareEditState,
+  SharingPanelProps
+} from './types';
 
 interface FormTarget {
   shareType: VfsShareType;
@@ -40,8 +41,9 @@ export function SharingPanel({
 
   const [showForm, setShowForm] = useState(false);
   const [editingShare, setEditingShare] = useState<ShareEditState | null>(null);
-  const [deleteConfirm, setDeleteConfirm] =
-    useState<DeleteConfirmState | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(
+    null
+  );
   const [formTarget, setFormTarget] = useState<FormTarget>({
     shareType: 'user',
     targetId: null,
@@ -110,7 +112,7 @@ export function SharingPanel({
 
       {/* Header */}
       <div className="flex items-center justify-between border-b px-3 py-2 [border-color:var(--soft-border)]">
-        <span className="font-medium text-sm truncate">
+        <span className="truncate font-medium text-sm">
           Sharing: {item.name}
         </span>
         <Button variant="ghost" size="icon" onClick={onClose}>

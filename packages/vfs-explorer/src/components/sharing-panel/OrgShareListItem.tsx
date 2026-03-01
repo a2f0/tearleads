@@ -4,11 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useVfsExplorerContext } from '../../context';
 import { cn } from '../../lib';
 import { ShareDeleteConfirmation } from './ShareDeleteConfirmation';
-import {
-  formatRelativeTime,
-  isExpired,
-  isExpiringSoon
-} from './sharingUtils';
+import { formatRelativeTime, isExpired, isExpiringSoon } from './sharingUtils';
 import type { DeleteConfirmState } from './types';
 import { PERMISSION_COLORS, PERMISSION_LABELS } from './types';
 
@@ -70,7 +66,7 @@ export function OrgShareListItem({
         <div className="truncate text-sm">
           Shared with {share.targetOrgName}
         </div>
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1 text-muted-foreground text-xs">
           <span>{sharedByText}</span>
           <span>&middot;</span>
           <span>{formatRelativeTime(share.createdAt)}</span>
@@ -113,7 +109,7 @@ export function OrgShareListItem({
           <div className="absolute top-full right-0 z-20 mt-1 w-28 rounded border bg-background shadow-lg">
             <button
               type="button"
-              className="flex w-full px-3 py-1.5 text-left text-sm text-destructive hover:bg-accent"
+              className="flex w-full px-3 py-1.5 text-left text-destructive text-sm hover:bg-accent"
               onClick={() => {
                 setMenuOpen(false);
                 onRequestDelete({

@@ -17,7 +17,10 @@ interface ShareListProps {
   deleteConfirm: DeleteConfirmState | null;
   onStartEdit: (state: ShareEditState) => void;
   onCancelEdit: () => void;
-  onSaveEdit: (shareId: string, request: UpdateVfsShareRequest) => Promise<void>;
+  onSaveEdit: (
+    shareId: string,
+    request: UpdateVfsShareRequest
+  ) => Promise<void>;
   onRequestDelete: (state: DeleteConfirmState) => void;
   onCancelDelete: () => void;
   onConfirmDelete: (shareId: string, isOrg: boolean) => Promise<void>;
@@ -58,8 +61,8 @@ export function ShareList({
         >
           This item hasn&apos;t been shared yet.
           <br />
-          Click <span className="font-medium">Share</span> above to give
-          someone access.
+          Click <span className="font-medium">Share</span> above to give someone
+          access.
         </div>
       )}
 
@@ -75,12 +78,9 @@ export function ShareList({
               <ShareListItem
                 key={share.id}
                 share={share}
-                editState={
-                  editState?.shareId === share.id ? editState : null
-                }
+                editState={editState?.shareId === share.id ? editState : null}
                 deleteConfirm={
-                  deleteConfirm?.shareId === share.id &&
-                  !deleteConfirm.isOrg
+                  deleteConfirm?.shareId === share.id && !deleteConfirm.isOrg
                     ? deleteConfirm
                     : null
                 }
@@ -97,8 +97,7 @@ export function ShareList({
                 key={share.id}
                 share={share}
                 deleteConfirm={
-                  deleteConfirm?.shareId === share.id &&
-                  deleteConfirm.isOrg
+                  deleteConfirm?.shareId === share.id && deleteConfirm.isOrg
                     ? deleteConfirm
                     : null
                 }

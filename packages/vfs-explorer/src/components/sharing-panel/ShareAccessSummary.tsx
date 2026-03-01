@@ -50,7 +50,7 @@ export function ShareAccessSummary({
     >
       <button
         type="button"
-        className="flex w-full items-center gap-1 px-3 py-2 text-left text-xs text-muted-foreground hover:bg-accent/30"
+        className="flex w-full items-center gap-1 px-3 py-2 text-left text-muted-foreground text-xs hover:bg-accent/30"
         onClick={() => setExpanded((prev) => !prev)}
         data-testid="access-details-toggle"
       >

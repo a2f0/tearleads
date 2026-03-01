@@ -14,9 +14,15 @@ describe('SharePermissionSelect', () => {
     render(<SharePermissionSelect value="view" onChange={vi.fn()} />);
 
     await user.click(screen.getByTestId('permission-select-trigger'));
-    expect(screen.getByTestId('permission-select-dropdown')).toBeInTheDocument();
-    expect(screen.getByText('Can view this item and its contents')).toBeInTheDocument();
-    expect(screen.getByText('Can view, edit, and organize this item')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('permission-select-dropdown')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Can view this item and its contents')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Can view, edit, and organize this item')
+    ).toBeInTheDocument();
   });
 
   it('calls onChange with selected value', async () => {
@@ -32,9 +38,7 @@ describe('SharePermissionSelect', () => {
 
   it('does not open when disabled', async () => {
     const user = userEvent.setup();
-    render(
-      <SharePermissionSelect value="view" onChange={vi.fn()} disabled />
-    );
+    render(<SharePermissionSelect value="view" onChange={vi.fn()} disabled />);
 
     await user.click(screen.getByTestId('permission-select-trigger'));
     expect(

@@ -39,16 +39,12 @@ describe('isExpiringSoon', () => {
   });
 
   it('returns true when expiring within 7 days', () => {
-    const inThreeDays = new Date(
-      Date.now() + 3 * 86_400_000
-    ).toISOString();
+    const inThreeDays = new Date(Date.now() + 3 * 86_400_000).toISOString();
     expect(isExpiringSoon(inThreeDays)).toBe(true);
   });
 
   it('returns false when expiring after 7 days', () => {
-    const inTenDays = new Date(
-      Date.now() + 10 * 86_400_000
-    ).toISOString();
+    const inTenDays = new Date(Date.now() + 10 * 86_400_000).toISOString();
     expect(isExpiringSoon(inTenDays)).toBe(false);
   });
 });
