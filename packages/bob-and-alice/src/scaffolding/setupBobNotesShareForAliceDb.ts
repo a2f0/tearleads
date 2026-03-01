@@ -171,6 +171,60 @@ export async function setupBobNotesShareForAliceDb(
     );
 
     await input.client.query(
+      `INSERT INTO vfs_crdt_ops (
+         id,
+         item_id,
+         op_type,
+         actor_id,
+         source_table,
+         source_id,
+         occurred_at,
+         encrypted_payload,
+         key_epoch,
+         encryption_nonce,
+         encryption_aad,
+         encryption_signature
+       )
+       VALUES (
+         $1,
+         $2,
+         'item_upsert',
+         $3,
+         'vfs_item_state',
+         $4,
+         $5::timestamptz,
+         $6,
+         1,
+         $7,
+         $8,
+         $9
+       )
+       ON CONFLICT (id) DO UPDATE SET
+         item_id = EXCLUDED.item_id,
+         op_type = EXCLUDED.op_type,
+         actor_id = EXCLUDED.actor_id,
+         source_table = EXCLUDED.source_table,
+         source_id = EXCLUDED.source_id,
+         occurred_at = EXCLUDED.occurred_at,
+         encrypted_payload = EXCLUDED.encrypted_payload,
+         key_epoch = EXCLUDED.key_epoch,
+         encryption_nonce = EXCLUDED.encryption_nonce,
+         encryption_aad = EXCLUDED.encryption_aad,
+         encryption_signature = EXCLUDED.encryption_signature`,
+      [
+        `crdt:item_upsert:${noteId}`,
+        noteId,
+        bobUserId,
+        `vfs_item_state:${noteId}`,
+        nowIso,
+        encodeBase64(notePlaintext),
+        encodeBase64(`nonce-${idFactory()}`),
+        encodeBase64(`aad-${idFactory()}`),
+        encodeBase64(`sig-${idFactory()}`)
+      ]
+    );
+
+    await input.client.query(
       `INSERT INTO vfs_links (
          id,
          parent_id,

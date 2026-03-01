@@ -85,6 +85,18 @@ describe('setupBobNotesShareForAliceDb', () => {
       Buffer.from('Hello, Alice', 'utf8').toString('base64')
     );
 
+    const noteCrdtUpsertCall = calls.find((call) =>
+      call.text.includes('INSERT INTO vfs_crdt_ops')
+    );
+    expect(noteCrdtUpsertCall?.params?.[0]).toBe(
+      'crdt:item_upsert:note-fixed'
+    );
+    expect(noteCrdtUpsertCall?.params?.[1]).toBe('note-fixed');
+    expect(noteCrdtUpsertCall?.params?.[2]).toBe('bob-user-id');
+    expect(noteCrdtUpsertCall?.params?.[5]).toBe(
+      Buffer.from('Hello, Alice', 'utf8').toString('base64')
+    );
+
     const shareCalls = calls.filter((call) =>
       call.text.includes('INSERT INTO vfs_acl_entries')
     );
