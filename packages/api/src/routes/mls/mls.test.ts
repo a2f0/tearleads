@@ -346,12 +346,12 @@ describe('MLS routes', () => {
         .mockResolvedValueOnce({
           rows: [{ role: 'member', organization_id: 'org-1' }]
         })
-        .mockResolvedValueOnce({
-          rows: [{ current_epoch: 2 }]
-        })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ current_epoch: 2 }] })
         .mockResolvedValueOnce({
           rows: [{ sequence_number: 1, created_at: createdAt }]
         })
+        .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [] })
@@ -383,22 +383,22 @@ describe('MLS routes', () => {
         }
       });
       expect(mockQuery).toHaveBeenNthCalledWith(
-        4,
+        5,
         expect.stringContaining('INSERT INTO vfs_registry'),
         expect.arrayContaining(['org-1'])
       );
       expect(mockQuery).toHaveBeenNthCalledWith(
-        5,
+        6,
         expect.stringContaining('INSERT INTO vfs_item_state'),
         expect.arrayContaining(['ciphertext', 2])
       );
       expect(mockQuery).toHaveBeenNthCalledWith(
-        6,
+        7,
         expect.stringContaining('INSERT INTO vfs_acl_entries'),
         expect.arrayContaining(['group-1'])
       );
       expect(mockQuery).toHaveBeenNthCalledWith(
-        7,
+        8,
         expect.stringContaining('INSERT INTO vfs_crdt_ops'),
         expect.arrayContaining(['user-1', 'ciphertext', 2])
       );
@@ -438,9 +438,9 @@ describe('MLS routes', () => {
         .mockResolvedValueOnce({
           rows: [{ role: 'member', organization_id: 'org-1' }]
         })
-        .mockResolvedValueOnce({
-          rows: [{ current_epoch: 1 }]
-        });
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ current_epoch: 1 }] })
+        .mockResolvedValueOnce({ rows: [] });
 
       const response = await request(app)
         .post('/v1/mls/groups/group-1/messages')
@@ -453,7 +453,7 @@ describe('MLS routes', () => {
 
       expect(response.status).toBe(409);
       expect(response.body).toEqual({ error: 'Epoch mismatch' });
-      expect(mockQuery).toHaveBeenCalledTimes(2);
+      expect(mockQuery).toHaveBeenCalledTimes(4);
     });
     it('rejects non-integer epochs in send-message payloads', async () => {
       const authHeader = await createAuthHeader({
