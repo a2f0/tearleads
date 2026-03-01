@@ -1,3 +1,4 @@
+import type { VfsSharePolicyPreviewResponse } from '@tearleads/shared';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { createWrapper } from '../test/testUtils';
@@ -108,7 +109,7 @@ describe('useSharePolicyPreview', () => {
         nodes: [
           {
             itemId: 'root-1/wallet-1',
-            objectType: 'walletItem',
+            objectType: 'file',
             depth: 1,
             path: 'root-1/wallet-1',
             state: 'derived' as const,
@@ -168,48 +169,8 @@ describe('useSharePolicyPreview', () => {
   });
 
   it('ignores stale responses after principal changes', async () => {
-    const first = createDeferred<{
-      nodes: Array<{
-        itemId: string;
-        objectType: string;
-        depth: number;
-        path: string;
-        state: 'direct';
-        effectiveAccessLevel: 'read';
-        sourcePolicyIds: string[];
-      }>;
-      summary: {
-        totalMatchingNodes: number;
-        returnedNodes: number;
-        directCount: number;
-        derivedCount: number;
-        deniedCount: number;
-        includedCount: number;
-        excludedCount: number;
-      };
-      nextCursor: null;
-    }>();
-    const second = createDeferred<{
-      nodes: Array<{
-        itemId: string;
-        objectType: string;
-        depth: number;
-        path: string;
-        state: 'direct';
-        effectiveAccessLevel: 'read';
-        sourcePolicyIds: string[];
-      }>;
-      summary: {
-        totalMatchingNodes: number;
-        returnedNodes: number;
-        directCount: number;
-        derivedCount: number;
-        deniedCount: number;
-        includedCount: number;
-        excludedCount: number;
-      };
-      nextCursor: null;
-    }>();
+    const first = createDeferred<VfsSharePolicyPreviewResponse>();
+    const second = createDeferred<VfsSharePolicyPreviewResponse>();
 
     const getSharePolicyPreview = vi
       .fn()
@@ -350,7 +311,7 @@ describe('useSharePolicyPreview', () => {
         nodes: [
           {
             itemId: 'root-1/folder-1/wallet-1',
-            objectType: 'walletItem',
+            objectType: 'file',
             depth: 2,
             path: 'root-1/folder-1/wallet-1',
             state: 'derived' as const,
@@ -359,7 +320,7 @@ describe('useSharePolicyPreview', () => {
           },
           {
             itemId: 'root-1/folder-1/workout-1',
-            objectType: 'healthWorkoutEntry',
+            objectType: 'note',
             depth: 2,
             path: 'root-1/folder-1/workout-1',
             state: 'excluded' as const,
@@ -382,7 +343,7 @@ describe('useSharePolicyPreview', () => {
         nodes: [
           {
             itemId: 'root-1/folder-1/workout-1/stats-1',
-            objectType: 'healthMetric',
+            objectType: 'audio',
             depth: 3,
             path: 'root-1/folder-1/workout-1/stats-1',
             state: 'excluded' as const,

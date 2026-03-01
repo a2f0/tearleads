@@ -306,7 +306,7 @@ export interface VfsSharePolicyPreviewRequest {
   cursor?: string | null;
   maxDepth?: number | null;
   q?: string | null;
-  objectType?: VfsObjectType[] | null;
+  objectType?: string[] | null;
 }
 
 export interface VfsSharePolicyPreviewResponse {
