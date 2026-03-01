@@ -3,6 +3,12 @@ import type {
   VfsCrdtOperation,
   VfsCrdtSyncTransport
 } from '@tearleads/vfs-sync/vfs';
+import {
+  encodeVfsCrdtPushResponseProtobuf,
+  encodeVfsCrdtReconcileResponseProtobuf,
+  encodeVfsCrdtSyncResponseProtobuf,
+  encodeVfsSyncCursor
+} from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 function getAuthorizationHeader(init: RequestInit | undefined): string | null {
@@ -61,13 +67,13 @@ describe('vfsNetworkFlusher', () => {
           }
 
           return new Response(
-            JSON.stringify({
+            encodeVfsCrdtPushResponseProtobuf({
               clientId: 'desktop',
               results: [{ opId: 'op-1', status: 'applied' }]
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/json' }
+              headers: { 'Content-Type': 'application/x-protobuf' }
             }
           );
         }
@@ -298,5 +304,117 @@ describe('vfsNetworkFlusher', () => {
     });
     expect(pullCalls).toBe(2);
     expect(onRematerializationRequired).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to server snapshot rematerialization on stale cursor', async () => {
+    let pullCalls = 0;
+    vi.mocked(global.fetch).mockImplementation(
+      async (input: RequestInfo | URL): Promise<Response> => {
+        const url = input.toString();
+
+        if (url.includes('/v1/vfs/crdt/vfs-sync')) {
+          pullCalls += 1;
+          if (pullCalls === 1) {
+            return new Response(
+              JSON.stringify({
+                error:
+                  'CRDT cursor is older than retained history; re-materialization required',
+                code: 'crdt_rematerialization_required',
+                requestedCursor: 'cursor-requested',
+                oldestAvailableCursor: 'cursor-oldest'
+              }),
+              {
+                status: 409,
+                headers: { 'Content-Type': 'application/json' }
+              }
+            );
+          }
+
+          return new Response(
+            encodeVfsCrdtSyncResponseProtobuf({
+              items: [],
+              hasMore: false,
+              nextCursor: null,
+              lastReconciledWriteIds: {}
+            }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/x-protobuf' }
+            }
+          );
+        }
+
+        if (url.includes('/v1/vfs/crdt/reconcile')) {
+          return new Response(
+            encodeVfsCrdtReconcileResponseProtobuf({
+              clientId: 'desktop',
+              cursor: encodeVfsSyncCursor({
+                changedAt: '2026-02-24T12:10:00.000Z',
+                changeId: 'desktop-10'
+              }),
+              lastReconciledWriteIds: { desktop: 10 }
+            }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/x-protobuf' }
+            }
+          );
+        }
+
+        if (url.includes('/v1/vfs/crdt/snapshot?clientId=desktop')) {
+          return new Response(
+            JSON.stringify({
+              replaySnapshot: {
+                acl: [],
+                links: [],
+                cursor: null
+              },
+              reconcileState: {
+                cursor: {
+                  changedAt: '2026-02-24T12:09:59.000Z',
+                  changeId: 'desktop-9'
+                },
+                lastReconciledWriteIds: {
+                  desktop: '9'
+                }
+              },
+              containerClocks: [],
+              snapshotUpdatedAt: '2026-02-24T12:10:00.000Z'
+            }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            }
+          );
+        }
+
+        throw new Error(`Unexpected request URL: ${url}`);
+      }
+    );
+
+    const { VfsApiNetworkFlusher } = await import('./vfsNetworkFlusher');
+    const onRematerializationRequired = vi.fn(async () => null);
+    const flusher = new VfsApiNetworkFlusher('user-1', 'desktop', {
+      transportOptions: {
+        baseUrl: 'http://localhost',
+        apiPrefix: '/v1'
+      },
+      maxRematerializationAttempts: 1,
+      onRematerializationRequired
+    });
+
+    await expect(flusher.sync()).resolves.toEqual({
+      pulledOperations: 0,
+      pullPages: 1
+    });
+    expect(pullCalls).toBe(2);
+    expect(onRematerializationRequired).toHaveBeenCalledTimes(1);
+
+    const snapshotCalls = vi
+      .mocked(global.fetch)
+      .mock.calls.filter(([input]) =>
+        input.toString().includes('/v1/vfs/crdt/snapshot?clientId=desktop')
+      );
+    expect(snapshotCalls).toHaveLength(1);
   });
 });

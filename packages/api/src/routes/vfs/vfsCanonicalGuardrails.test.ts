@@ -54,11 +54,13 @@ describe('API VFS canonical guardrails', () => {
   it('CRDT route runtime paths keep canonical table anchors', () => {
     const syncSource = loadSource('./get-crdt-sync.ts');
     const pushSource = loadSource('./post-crdt-push.ts');
+    const pushApplySource = loadSource('./crdtPushApply.ts');
     const reconcileSource = loadSource('./post-crdt-reconcile.ts');
+    const pushRuntimeSource = `${pushSource}\n${pushApplySource}`;
 
     expect(syncSource).toMatch(/\bvfs_crdt_ops\b/u);
-    expect(pushSource).toMatch(/\bvfs_crdt_ops\b/u);
-    expect(pushSource).toMatch(/\bvfs_registry\b/u);
+    expect(pushRuntimeSource).toMatch(/\bvfs_crdt_ops\b/u);
+    expect(pushRuntimeSource).toMatch(/\bvfs_registry\b/u);
     expect(reconcileSource).toMatch(/\bvfs_sync_client_state\b/u);
   });
 });

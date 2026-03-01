@@ -128,6 +128,22 @@ export {
   reconcileVfsSyncCursor
 } from './protocol/sync-reconcile.js';
 export {
+  decodeVfsCrdtPushRequestProtobuf,
+  decodeVfsCrdtPushResponseProtobuf,
+  decodeVfsCrdtReconcileRequestProtobuf,
+  decodeVfsCrdtReconcileResponseProtobuf,
+  decodeVfsCrdtSyncResponseProtobuf,
+  decodeVfsCrdtSyncSessionRequestProtobuf,
+  decodeVfsCrdtSyncSessionResponseProtobuf,
+  encodeVfsCrdtPushRequestProtobuf,
+  encodeVfsCrdtPushResponseProtobuf,
+  encodeVfsCrdtReconcileRequestProtobuf,
+  encodeVfsCrdtReconcileResponseProtobuf,
+  encodeVfsCrdtSyncResponseProtobuf,
+  encodeVfsCrdtSyncSessionRequestProtobuf,
+  encodeVfsCrdtSyncSessionResponseProtobuf
+} from './protocol/syncProtobuf.js';
+export {
   assertStronglyConsistentVfsSyncRows,
   type BuildVfsSyncQueryInput,
   buildVfsSyncQuery,

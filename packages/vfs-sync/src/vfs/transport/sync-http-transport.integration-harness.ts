@@ -4,20 +4,22 @@ import {
   type InMemoryVfsCrdtSyncServer
 } from '../index.js';
 import type { VfsCrdtOperation } from '../protocol/sync-crdt.js';
-import { parseVfsCrdtLastReconciledWriteIds } from '../protocol/sync-crdt-reconcile.js';
 import {
   decodeVfsSyncCursor,
   encodeVfsSyncCursor
 } from '../protocol/sync-cursor.js';
+import {
+  decodeVfsCrdtPushRequestProtobuf,
+  decodeVfsCrdtReconcileRequestProtobuf,
+  encodeVfsCrdtPushResponseProtobuf,
+  encodeVfsCrdtReconcileResponseProtobuf,
+  encodeVfsCrdtSyncResponseProtobuf
+} from '../protocol/syncProtobuf.js';
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function toRequestUrl(input: RequestInfo | URL): URL {
@@ -32,119 +34,6 @@ function toRequestUrl(input: RequestInfo | URL): URL {
   return new URL(input.url);
 }
 
-function parseJsonBody(body: unknown): unknown {
-  if (typeof body !== 'string') {
-    return null;
-  }
-
-  try {
-    return JSON.parse(body);
-  } catch {
-    return null;
-  }
-}
-
-function parseClientIdFromPushBody(body: unknown): string | null {
-  if (!isRecord(body)) {
-    return null;
-  }
-
-  const clientId = body['clientId'];
-  return typeof clientId === 'string' ? clientId : null;
-}
-
-function parseOperationsFromPushBody(body: unknown) {
-  if (!isRecord(body)) {
-    return null;
-  }
-
-  const operationsValue = body['operations'];
-  if (!Array.isArray(operationsValue)) {
-    return null;
-  }
-
-  const operations: VfsCrdtOperation[] = [];
-  for (const operationValue of operationsValue) {
-    if (!isRecord(operationValue)) {
-      return null;
-    }
-
-    const opId = operationValue['opId'];
-    const opType = operationValue['opType'];
-    const itemId = operationValue['itemId'];
-    const replicaId = operationValue['replicaId'];
-    const writeId = operationValue['writeId'];
-    const occurredAt = operationValue['occurredAt'];
-    if (
-      typeof opId !== 'string' ||
-      typeof opType !== 'string' ||
-      typeof itemId !== 'string' ||
-      typeof replicaId !== 'string' ||
-      typeof writeId !== 'number' ||
-      typeof occurredAt !== 'string'
-    ) {
-      return null;
-    }
-
-    if (
-      opType !== 'acl_add' &&
-      opType !== 'acl_remove' &&
-      opType !== 'link_add' &&
-      opType !== 'link_remove' &&
-      opType !== 'item_upsert' &&
-      opType !== 'item_delete'
-    ) {
-      return null;
-    }
-
-    const operation: VfsCrdtOperation = {
-      opId,
-      opType,
-      itemId,
-      replicaId,
-      writeId,
-      occurredAt
-    };
-
-    const principalType = operationValue['principalType'];
-    if (
-      principalType === 'user' ||
-      principalType === 'group' ||
-      principalType === 'organization'
-    ) {
-      operation.principalType = principalType;
-    }
-
-    const principalId = operationValue['principalId'];
-    if (typeof principalId === 'string') {
-      operation.principalId = principalId;
-    }
-
-    const accessLevel = operationValue['accessLevel'];
-    if (
-      accessLevel === 'read' ||
-      accessLevel === 'write' ||
-      accessLevel === 'admin'
-    ) {
-      operation.accessLevel = accessLevel;
-    }
-
-    const parentId = operationValue['parentId'];
-    if (typeof parentId === 'string') {
-      operation.parentId = parentId;
-    }
-
-    const childId = operationValue['childId'];
-    if (typeof childId === 'string') {
-      operation.childId = childId;
-    }
-
-    operations.push(operation);
-  }
-
-  return operations;
-}
-
 function parsePullLimit(searchParams: URLSearchParams): number {
   const limitRaw = searchParams.get('limit');
   if (!limitRaw) {
@@ -155,43 +44,23 @@ function parsePullLimit(searchParams: URLSearchParams): number {
   return Number.isFinite(parsed) ? parsed : 100;
 }
 
-interface ParsedReconcileBody {
-  clientId: string;
-  cursor: {
-    changedAt: string;
-    changeId: string;
-  };
-  lastReconciledWriteIds: Record<string, number>;
-}
-
-function parseReconcileBody(body: unknown): ParsedReconcileBody | null {
-  if (!isRecord(body)) {
-    return null;
+function toWriteIdRecord(value: unknown): Record<string, number> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return {};
   }
 
-  const clientId = body['clientId'];
-  const cursorRaw = body['cursor'];
-  if (typeof clientId !== 'string' || typeof cursorRaw !== 'string') {
-    return null;
+  const output: Record<string, number> = {};
+  for (const [key, candidate] of Object.entries(value)) {
+    if (
+      typeof candidate === 'number' &&
+      Number.isFinite(candidate) &&
+      Number.isInteger(candidate)
+    ) {
+      output[key] = candidate;
+    }
   }
 
-  const cursor = decodeVfsSyncCursor(cursorRaw);
-  if (!cursor) {
-    return null;
-  }
-
-  const parsedWriteIds = parseVfsCrdtLastReconciledWriteIds(
-    body['lastReconciledWriteIds']
-  );
-  if (!parsedWriteIds.ok) {
-    return null;
-  }
-
-  return {
-    clientId,
-    cursor,
-    lastReconciledWriteIds: parsedWriteIds.value
-  };
+  return output;
 }
 
 interface HttpHarnessDelayConfig {
@@ -201,63 +70,272 @@ interface HttpHarnessDelayConfig {
   pullDelayMs?: number;
 }
 
-interface HttpHarnessPullPayload {
+interface PullPayloadShape {
   items: VfsCrdtSyncItem[];
   hasMore: boolean;
   nextCursor: string | null;
   lastReconciledWriteIds: Record<string, number>;
 }
 
-interface HttpHarnessReconcilePayload {
+interface ReconcilePayloadShape {
   clientId: string;
   cursor: string;
   lastReconciledWriteIds: Record<string, number>;
 }
 
-interface HttpHarnessOptions {
-  delays: HttpHarnessDelayConfig;
-  mutatePullPayload?: (
-    payload: HttpHarnessPullPayload,
-    context: { url: URL }
-  ) => HttpHarnessPullPayload;
-  interceptPullResponse?: (context: {
-    url: URL;
-    cursor: { changedAt: string; changeId: string } | null;
-    limit: number;
-  }) => Response | null;
-  mutateReconcilePayload?: (
-    payload: HttpHarnessReconcilePayload,
-    context: {
-      url: URL;
-      body: ParsedReconcileBody;
-    }
-  ) => HttpHarnessReconcilePayload;
+interface ReconcileMutationContext {
+  body: {
+    clientId: string;
+    cursor: {
+      changedAt: string;
+      changeId: string;
+    };
+    lastReconciledWriteIds: Record<string, number>;
+  };
+}
+
+const VALID_OP_TYPES: VfsCrdtOperation['opType'][] = [
+  'acl_add',
+  'acl_remove',
+  'link_add',
+  'link_remove',
+  'item_upsert',
+  'item_delete'
+];
+const VALID_PRINCIPAL_TYPES: Array<
+  NonNullable<VfsCrdtOperation['principalType']>
+> = ['user', 'group', 'organization'];
+const VALID_ACCESS_LEVELS: Array<NonNullable<VfsCrdtOperation['accessLevel']>> =
+  ['read', 'write', 'admin'];
+
+function asRecord(value: unknown, fieldName: string): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error(`Integration harness failed to parse ${fieldName}`);
+  }
+
+  return value;
+}
+
+function parseRequiredString(value: unknown, fieldName: string): string {
+  if (typeof value !== 'string') {
+    throw new Error(`Integration harness failed to parse ${fieldName}`);
+  }
+
+  return value;
+}
+
+function parseWriteId(value: unknown, fieldName: string): number {
+  if (
+    typeof value !== 'number' ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value < 1
+  ) {
+    throw new Error(`Integration harness failed to parse ${fieldName}`);
+  }
+
+  return value;
+}
+
+function parseOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function parseOpType(value: unknown): VfsCrdtOperation['opType'] {
+  if (
+    typeof value === 'string' &&
+    VALID_OP_TYPES.some((candidate) => candidate === value)
+  ) {
+    return value;
+  }
+
+  throw new Error('Integration harness failed to parse opType');
+}
+
+function parsePrincipalType(
+  value: unknown
+): VfsCrdtOperation['principalType'] | undefined {
+  if (
+    typeof value === 'string' &&
+    VALID_PRINCIPAL_TYPES.some((candidate) => candidate === value)
+  ) {
+    return value;
+  }
+
+  return undefined;
+}
+
+function parseAccessLevel(
+  value: unknown
+): VfsCrdtOperation['accessLevel'] | undefined {
+  if (
+    typeof value === 'string' &&
+    VALID_ACCESS_LEVELS.some((candidate) => candidate === value)
+  ) {
+    return value;
+  }
+
+  return undefined;
+}
+
+function parsePushOperation(value: unknown): VfsCrdtOperation {
+  const operation = asRecord(value, 'push operation');
+  const parsed: VfsCrdtOperation = {
+    opId: parseRequiredString(operation['opId'], 'opId'),
+    opType: parseOpType(operation['opType']),
+    itemId: parseRequiredString(operation['itemId'], 'itemId'),
+    replicaId: parseRequiredString(operation['replicaId'], 'replicaId'),
+    writeId: parseWriteId(operation['writeId'], 'writeId'),
+    occurredAt: parseRequiredString(operation['occurredAt'], 'occurredAt')
+  };
+
+  const principalType = parsePrincipalType(operation['principalType']);
+  if (principalType) {
+    parsed.principalType = principalType;
+  }
+  const principalId = parseOptionalString(operation['principalId']);
+  if (principalId) {
+    parsed.principalId = principalId;
+  }
+  const accessLevel = parseAccessLevel(operation['accessLevel']);
+  if (accessLevel) {
+    parsed.accessLevel = accessLevel;
+  }
+  const parentId = parseOptionalString(operation['parentId']);
+  if (parentId) {
+    parsed.parentId = parentId;
+  }
+  const childId = parseOptionalString(operation['childId']);
+  if (childId) {
+    parsed.childId = childId;
+  }
+  const encryptedPayload = parseOptionalString(operation['encryptedPayload']);
+  if (encryptedPayload) {
+    parsed.encryptedPayload = encryptedPayload;
+  }
+  if (
+    typeof operation['keyEpoch'] === 'number' &&
+    Number.isFinite(operation['keyEpoch']) &&
+    Number.isInteger(operation['keyEpoch']) &&
+    operation['keyEpoch'] >= 1
+  ) {
+    parsed.keyEpoch = operation['keyEpoch'];
+  }
+  const encryptionNonce = parseOptionalString(operation['encryptionNonce']);
+  if (encryptionNonce) {
+    parsed.encryptionNonce = encryptionNonce;
+  }
+  const encryptionAad = parseOptionalString(operation['encryptionAad']);
+  if (encryptionAad) {
+    parsed.encryptionAad = encryptionAad;
+  }
+  const encryptionSignature = parseOptionalString(
+    operation['encryptionSignature']
+  );
+  if (encryptionSignature) {
+    parsed.encryptionSignature = encryptionSignature;
+  }
+
+  return parsed;
+}
+
+function parsePushOperations(value: unknown): VfsCrdtOperation[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((entry) => parsePushOperation(entry));
+}
+
+async function readBlobBytes(blob: Blob): Promise<Uint8Array> {
+  if (typeof blob.arrayBuffer === 'function') {
+    const bodyBuffer = await blob.arrayBuffer();
+    return new Uint8Array(bodyBuffer);
+  }
+
+  if (typeof FileReader !== 'undefined') {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (reader.result instanceof ArrayBuffer) {
+          resolve(new Uint8Array(reader.result));
+          return;
+        }
+        reject(new Error('expected blob reader result to be array buffer'));
+      };
+      reader.onerror = () => {
+        reject(
+          reader.error ??
+            new Error('failed to read integration harness request blob')
+        );
+      };
+      reader.readAsArrayBuffer(blob);
+    });
+  }
+
+  throw new Error('Integration harness expected blob request body bytes');
+}
+
+async function readRequestBytes(
+  init: RequestInit | undefined
+): Promise<Uint8Array> {
+  if (!init || init.body === undefined || init.body === null) {
+    return new Uint8Array();
+  }
+
+  if (init.body instanceof Uint8Array) {
+    return init.body;
+  }
+
+  if (init.body instanceof ArrayBuffer) {
+    return new Uint8Array(init.body);
+  }
+
+  if (init.body instanceof Blob) {
+    return readBlobBytes(init.body);
+  }
+
+  if (ArrayBuffer.isView(init.body)) {
+    return new Uint8Array(
+      init.body.buffer,
+      init.body.byteOffset,
+      init.body.byteLength
+    );
+  }
+
+  const bodyBuffer = await new Response(init.body).arrayBuffer();
+  if (bodyBuffer.byteLength > 0) {
+    return new Uint8Array(bodyBuffer);
+  }
+
+  throw new Error('Integration harness expected protobuf request body bytes');
 }
 
 export function createServerBackedFetch(
   server: InMemoryVfsCrdtSyncServer,
-  options: HttpHarnessOptions
+  options: {
+    delays: HttpHarnessDelayConfig;
+    mutatePullPayload?: (payload: PullPayloadShape) => PullPayloadShape;
+    mutateReconcilePayload?: (
+      payload: ReconcilePayloadShape,
+      context: ReconcileMutationContext
+    ) => ReconcilePayloadShape;
+    interceptPullResponse?: () => Response | null;
+  }
 ): typeof fetch {
-  const {
-    delays,
-    mutatePullPayload,
-    interceptPullResponse,
-    mutateReconcilePayload
-  } = options;
+  const { delays } = options;
   const reconcileStateStore = new InMemoryVfsCrdtClientStateStore();
 
   return async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = toRequestUrl(input);
 
     if (url.pathname === '/v1/vfs/crdt/push' && init?.method === 'POST') {
-      const body = parseJsonBody(init.body);
-      const clientId = parseClientIdFromPushBody(body);
-      const operations = parseOperationsFromPushBody(body);
-      if (!clientId || !operations) {
-        return new Response(JSON.stringify({ error: 'invalid push body' }), {
-          status: 400
-        });
-      }
+      const pushBody = asRecord(
+        decodeVfsCrdtPushRequestProtobuf(await readRequestBytes(init)),
+        'push request'
+      );
+      const clientId = parseRequiredString(pushBody['clientId'], 'clientId');
+      const operations = parsePushOperations(pushBody['operations']);
 
       if (
         clientId === 'desktop' &&
@@ -281,12 +359,16 @@ export function createServerBackedFetch(
       const pushResult = await server.pushOperations({
         operations
       });
+
       return new Response(
-        JSON.stringify({
+        encodeVfsCrdtPushResponseProtobuf({
           clientId,
           results: pushResult.results
         }),
-        { status: 200 }
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/x-protobuf' }
+        }
       );
     }
 
@@ -294,81 +376,113 @@ export function createServerBackedFetch(
       url.pathname === '/v1/vfs/crdt/vfs-sync' &&
       (init?.method ?? 'GET') === 'GET'
     ) {
+      const interceptedResponse = options.interceptPullResponse?.();
+      if (interceptedResponse) {
+        return interceptedResponse;
+      }
+
       if (typeof delays.pullDelayMs === 'number') {
         await wait(delays.pullDelayMs);
       }
 
       const cursorRaw = url.searchParams.get('cursor');
       const decodedCursor = cursorRaw ? decodeVfsSyncCursor(cursorRaw) : null;
-      if (cursorRaw && !decodedCursor) {
-        return new Response(JSON.stringify({ error: 'Invalid cursor' }), {
-          status: 400
-        });
-      }
       const pullLimit = parsePullLimit(url.searchParams);
-      if (interceptPullResponse) {
-        const intercepted = interceptPullResponse({
-          url,
-          cursor: decodedCursor,
-          limit: pullLimit
-        });
-        if (intercepted) {
-          return intercepted;
-        }
-      }
 
       const pullResult = await server.pullOperations({
         cursor: decodedCursor,
         limit: pullLimit
       });
-      const payload: HttpHarnessPullPayload = {
-        items: pullResult.items,
-        hasMore: pullResult.hasMore,
-        nextCursor: pullResult.nextCursor
-          ? encodeVfsSyncCursor(pullResult.nextCursor)
-          : null,
-        lastReconciledWriteIds: pullResult.lastReconciledWriteIds
-      };
-      const finalPayload = mutatePullPayload
-        ? mutatePullPayload(payload, { url })
-        : payload;
 
-      return new Response(JSON.stringify(finalPayload), { status: 200 });
+      const pullPayload = options.mutatePullPayload
+        ? options.mutatePullPayload({
+            items: pullResult.items,
+            hasMore: pullResult.hasMore,
+            nextCursor: pullResult.nextCursor
+              ? encodeVfsSyncCursor(pullResult.nextCursor)
+              : null,
+            lastReconciledWriteIds: pullResult.lastReconciledWriteIds
+          })
+        : {
+            items: pullResult.items,
+            hasMore: pullResult.hasMore,
+            nextCursor: pullResult.nextCursor
+              ? encodeVfsSyncCursor(pullResult.nextCursor)
+              : null,
+            lastReconciledWriteIds: pullResult.lastReconciledWriteIds
+          };
+
+      return new Response(encodeVfsCrdtSyncResponseProtobuf(pullPayload), {
+        status: 200,
+        headers: { 'Content-Type': 'application/x-protobuf' }
+      });
     }
 
     if (
       url.pathname === '/v1/vfs/crdt/reconcile' &&
       (init?.method ?? 'POST') === 'POST'
     ) {
-      const body = parseJsonBody(init.body);
-      const parsedBody = parseReconcileBody(body);
-      if (!parsedBody) {
-        return new Response(
-          JSON.stringify({ error: 'invalid reconcile body' }),
-          {
-            status: 400
-          }
+      const body = asRecord(
+        decodeVfsCrdtReconcileRequestProtobuf(await readRequestBytes(init)),
+        'reconcile request'
+      );
+      const cursorRaw = parseRequiredString(body['cursor'], 'cursor');
+      const cursor = decodeVfsSyncCursor(cursorRaw);
+      if (!cursor)
+        throw new Error(
+          'Integration harness failed to decode cursor in reconcile'
         );
-      }
+
+      const clientId = parseRequiredString(body['clientId'], 'clientId');
+      const lastReconciledWriteIds =
+        typeof body === 'object' &&
+        body !== null &&
+        'lastReconciledWriteIds' in body &&
+        typeof body.lastReconciledWriteIds === 'object' &&
+        body.lastReconciledWriteIds !== null
+          ? toWriteIdRecord(body.lastReconciledWriteIds)
+          : {};
 
       const reconcileResult = reconcileStateStore.reconcile(
         'user-1',
-        parsedBody.clientId,
-        parsedBody.cursor,
-        parsedBody.lastReconciledWriteIds
+        clientId,
+        cursor,
+        lastReconciledWriteIds
       );
-      const payload: HttpHarnessReconcilePayload = {
-        clientId: parsedBody.clientId,
-        cursor: encodeVfsSyncCursor(reconcileResult.state.cursor),
-        lastReconciledWriteIds: reconcileResult.state.lastReconciledWriteIds
-      };
-      const finalPayload = mutateReconcilePayload
-        ? mutateReconcilePayload(payload, {
-            url,
-            body: parsedBody
-          })
-        : payload;
-      return new Response(JSON.stringify(finalPayload), { status: 200 });
+
+      const reconcilePayload = options.mutateReconcilePayload
+        ? options.mutateReconcilePayload(
+            {
+              clientId,
+              cursor: encodeVfsSyncCursor(reconcileResult.state.cursor),
+              lastReconciledWriteIds:
+                reconcileResult.state.lastReconciledWriteIds
+            },
+            {
+              body: {
+                clientId,
+                cursor,
+                lastReconciledWriteIds
+              }
+            }
+          )
+        : {
+            clientId,
+            cursor: encodeVfsSyncCursor(reconcileResult.state.cursor),
+            lastReconciledWriteIds: reconcileResult.state.lastReconciledWriteIds
+          };
+
+      return new Response(
+        encodeVfsCrdtReconcileResponseProtobuf({
+          clientId: reconcilePayload.clientId,
+          cursor: reconcilePayload.cursor,
+          lastReconciledWriteIds: reconcilePayload.lastReconciledWriteIds
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/x-protobuf' }
+        }
+      );
     }
 
     return new Response(JSON.stringify({ error: 'not found' }), {

@@ -1,11 +1,18 @@
 import type { VfsCrdtReconcileResponse } from '@tearleads/shared';
 import {
+  decodeVfsCrdtReconcileRequestProtobuf,
+  encodeVfsCrdtReconcileResponseProtobuf,
   encodeVfsSyncCursor,
   parseVfsCrdtLastReconciledWriteIds,
   parseVfsCrdtReconcilePayload
 } from '@tearleads/vfs-sync/vfs';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
+import {
+  createCrdtProtobufRawBodyParser,
+  decodeCrdtRequestBody,
+  sendCrdtProtobufOrJson
+} from './crdtProtobuf.js';
 
 interface ReconcileRow {
   last_reconciled_at: Date | string;
@@ -82,7 +89,16 @@ const postCrdtReconcileHandler = async (req: Request, res: Response) => {
     return;
   }
 
-  const parsedPayload = parseVfsCrdtReconcilePayload(req.body);
+  const decodedRequestBody = decodeCrdtRequestBody(
+    req,
+    decodeVfsCrdtReconcileRequestProtobuf
+  );
+  if (!decodedRequestBody.ok) {
+    res.status(400).json({ error: decodedRequestBody.error });
+    return;
+  }
+
+  const parsedPayload = parseVfsCrdtReconcilePayload(decodedRequestBody.value);
   if (!parsedPayload.ok) {
     res.status(400).json({ error: parsedPayload.error });
     return;
@@ -159,7 +175,13 @@ const postCrdtReconcileHandler = async (req: Request, res: Response) => {
       lastReconciledWriteIds: parsedLastWriteIds.value
     };
 
-    res.json(response);
+    sendCrdtProtobufOrJson(
+      req,
+      res,
+      200,
+      response,
+      encodeVfsCrdtReconcileResponseProtobuf
+    );
   } catch (error) {
     console.error('Failed to reconcile VFS CRDT cursor:', error);
     res.status(500).json({ error: 'Failed to reconcile CRDT cursor' });
@@ -167,5 +189,9 @@ const postCrdtReconcileHandler = async (req: Request, res: Response) => {
 };
 
 export function registerPostCrdtReconcileRoute(routeRouter: RouterType): void {
-  routeRouter.post('/crdt/reconcile', postCrdtReconcileHandler);
+  routeRouter.post(
+    '/crdt/reconcile',
+    createCrdtProtobufRawBodyParser(),
+    postCrdtReconcileHandler
+  );
 }

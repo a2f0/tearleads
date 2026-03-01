@@ -1,3 +1,7 @@
+import {
+  decodeVfsCrdtPushResponseProtobuf,
+  encodeVfsCrdtPushRequestProtobuf
+} from '@tearleads/vfs-sync/vfs';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createAuthHeader } from '../../test/auth.js';
@@ -21,6 +25,24 @@ async function postCrdtPush(
   }
 
   return requestBuilder.send(payload);
+}
+
+interface BinaryParserResponse {
+  on(event: 'data', listener: (chunk: Buffer | string) => void): void;
+  on(event: 'end', listener: () => void): void;
+}
+
+function binaryParser(
+  res: BinaryParserResponse,
+  callback: (error: Error | null, body: Buffer) => void
+): void {
+  const chunks: Buffer[] = [];
+  res.on('data', (chunk) => {
+    chunks.push(Buffer.from(chunk));
+  });
+  res.on('end', () => {
+    callback(null, Buffer.concat(chunks));
+  });
 }
 
 describe('VFS CRDT push route validation', { timeout: 15_000 }, () => {
@@ -154,6 +176,62 @@ describe('VFS CRDT push route validation', { timeout: 15_000 }, () => {
       clientId: 'desktop',
       results: [{ opId: 'invalid-0', status: 'invalidOp' }]
     });
+  });
+
+  it('accepts protobuf push payloads and emits protobuf responses', async () => {
+    const authHeader = await createAuthHeader();
+    const { app } = await import('../../index.js');
+    mockQuery
+      .mockResolvedValueOnce({}) // BEGIN
+      .mockResolvedValueOnce({}); // COMMIT
+
+    const response = await request(app)
+      .post('/v1/vfs/crdt/push')
+      .set('Authorization', authHeader)
+      .set('Content-Type', 'application/x-protobuf')
+      .set('Accept', 'application/x-protobuf')
+      .buffer(true)
+      .parse(binaryParser)
+      .send(
+        Buffer.from(
+          encodeVfsCrdtPushRequestProtobuf({
+            clientId: 'desktop',
+            operations: [
+              {
+                opId: 'bad-op',
+                opType: 'acl_add',
+                itemId: 'item-1',
+                replicaId: 'desktop',
+                writeId: 1,
+                occurredAt: '2026-02-14T20:00:00.000Z'
+              }
+            ]
+          })
+        )
+      );
+
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toContain(
+      'application/x-protobuf'
+    );
+
+    if (!(response.body instanceof Buffer)) {
+      throw new Error('expected protobuf response body buffer');
+    }
+    const decoded = decodeVfsCrdtPushResponseProtobuf(
+      new Uint8Array(response.body)
+    );
+    if (
+      typeof decoded !== 'object' ||
+      decoded === null ||
+      !('clientId' in decoded) ||
+      !('results' in decoded) ||
+      !Array.isArray(decoded.results)
+    ) {
+      throw new Error('expected protobuf push response payload');
+    }
+    expect(decoded.clientId).toBe('desktop');
+    expect(decoded.results).toEqual([{ opId: 'bad-op', status: 'invalidOp' }]);
   });
 
   it('returns invalidOp for replica mismatch', async () => {

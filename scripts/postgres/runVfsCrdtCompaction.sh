@@ -36,4 +36,8 @@ if [ -n "${VFS_CRDT_COMPACTION_MAX_DELETE_ROWS:-}" ]; then
   set -- "$@" --max-delete-rows "${VFS_CRDT_COMPACTION_MAX_DELETE_ROWS}"
 fi
 
+if [ "${VFS_CRDT_COMPACTION_SKIP_SNAPSHOT_REFRESH:-0}" = "1" ]; then
+  set -- "$@" --skip-snapshot-refresh
+fi
+
 exec pnpm "$@"

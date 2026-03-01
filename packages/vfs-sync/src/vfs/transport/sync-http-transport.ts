@@ -12,6 +12,15 @@ import {
   type VfsSyncCursor
 } from '../protocol/sync-cursor.js';
 import {
+  decodeVfsCrdtPushResponseProtobuf,
+  decodeVfsCrdtReconcileResponseProtobuf,
+  decodeVfsCrdtSyncResponseProtobuf,
+  decodeVfsCrdtSyncSessionResponseProtobuf,
+  encodeVfsCrdtPushRequestProtobuf,
+  encodeVfsCrdtReconcileRequestProtobuf,
+  encodeVfsCrdtSyncSessionRequestProtobuf
+} from '../protocol/syncProtobuf.js';
+import {
   parseApiErrorResponse,
   parseApiPullResponse,
   parseApiPushResponse,
@@ -21,27 +30,7 @@ import {
 
 type FetchImpl = typeof fetch;
 const CRDT_REMATERIALIZATION_REQUIRED_CODE = 'crdt_rematerialization_required';
-
-function normalizeBaseUrl(baseUrl: string): string {
-  const trimmed = baseUrl.trim();
-  if (trimmed.length === 0) {
-    return '';
-  }
-
-  return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
-}
-
-function normalizeApiPrefix(apiPrefix: string): string {
-  const trimmed = apiPrefix.trim();
-  if (trimmed.length === 0) {
-    return '';
-  }
-
-  const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-  return withLeadingSlash.endsWith('/')
-    ? withLeadingSlash.slice(0, -1)
-    : withLeadingSlash;
-}
+const PROTOBUF_CONTENT_TYPE = 'application/x-protobuf';
 
 export interface VfsHttpCrdtSyncTransportOptions {
   baseUrl?: string;
@@ -73,15 +62,17 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     clientId: string;
     operations: VfsCrdtOperation[];
   }): Promise<VfsCrdtSyncPushResponse> {
-    const body = await this.requestJson(
+    const responseBytes = await this.requestBinary(
       '/vfs/crdt/push',
-      {
+      encodeVfsCrdtPushRequestProtobuf({
         clientId: input.clientId,
         operations: input.operations
-      },
+      }),
       undefined
     );
-    const parsed = parseApiPushResponse(body);
+    const parsed = parseApiPushResponse(
+      decodeVfsCrdtPushResponseProtobuf(responseBytes)
+    );
     return {
       results: parsed.results
     };
@@ -99,16 +90,20 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
       query.set('cursor', encodeVfsSyncCursor(input.cursor));
     }
 
-    const body = await this.requestJson('/vfs/crdt/vfs-sync', undefined, query);
-    const parsed = parseApiPullResponse(body);
+    const responseBytes = await this.requestBinary(
+      '/vfs/crdt/vfs-sync',
+      undefined,
+      query
+    );
+    const parsed = parseApiPullResponse(
+      decodeVfsCrdtSyncResponseProtobuf(responseBytes)
+    );
 
-    let nextCursor: VfsSyncCursor | null = null;
-    if (parsed.nextCursor) {
-      const decoded = decodeVfsSyncCursor(parsed.nextCursor);
-      if (!decoded) {
-        throw new Error('transport returned invalid nextCursor');
-      }
-      nextCursor = decoded;
+    const nextCursor = parsed.nextCursor
+      ? decodeVfsSyncCursor(parsed.nextCursor)
+      : null;
+    if (parsed.nextCursor && !nextCursor) {
+      throw new Error('transport returned invalid nextCursor');
     }
 
     return {
@@ -125,22 +120,19 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     cursor: VfsSyncCursor;
     lastReconciledWriteIds: VfsCrdtSyncReconcileResponse['lastReconciledWriteIds'];
   }): Promise<VfsCrdtSyncReconcileResponse> {
-    const body = await this.requestJson(
+    const responseBytes = await this.requestBinary(
       '/vfs/crdt/reconcile',
-      {
+      encodeVfsCrdtReconcileRequestProtobuf({
         clientId: input.clientId,
         cursor: encodeVfsSyncCursor(input.cursor),
         lastReconciledWriteIds: input.lastReconciledWriteIds
-      },
+      }),
       undefined
     );
-    const parsed = parseApiReconcileResponse(body);
+    const parsed = parseApiReconcileResponse(
+      decodeVfsCrdtReconcileResponseProtobuf(responseBytes)
+    );
 
-    /**
-     * Guardrail: response must describe the same client namespace we reconciled.
-     * A mismatch here could merge another client replica's cursor/write clocks
-     * into this local state, which would corrupt monotonic ordering.
-     */
     if (parsed.clientId !== input.clientId) {
       throw new Error(
         'transport returned reconcile response for mismatched clientId'
@@ -158,16 +150,79 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     };
   }
 
-  private async requestJson(
+  async syncSession(input: {
+    userId: string;
+    clientId: string;
+    cursor: VfsSyncCursor;
+    limit: number;
+    operations: VfsCrdtOperation[];
+    lastReconciledWriteIds: VfsCrdtSyncReconcileResponse['lastReconciledWriteIds'];
+    rootId?: string | null;
+  }): Promise<{
+    push: VfsCrdtSyncPushResponse;
+    pull: VfsCrdtSyncPullResponse;
+    reconcile: VfsCrdtSyncReconcileResponse;
+  }> {
+    const responseBytes = await this.requestBinary(
+      '/vfs/crdt/session',
+      encodeVfsCrdtSyncSessionRequestProtobuf({
+        clientId: input.clientId,
+        cursor: encodeVfsSyncCursor(input.cursor),
+        limit: input.limit,
+        operations: input.operations,
+        lastReconciledWriteIds: input.lastReconciledWriteIds,
+        rootId: input.rootId ?? null
+      }),
+      undefined
+    );
+    const parsedSession =
+      decodeVfsCrdtSyncSessionResponseProtobuf(responseBytes);
+    if (
+      typeof parsedSession !== 'object' ||
+      parsedSession === null ||
+      !('push' in parsedSession) ||
+      !('pull' in parsedSession) ||
+      !('reconcile' in parsedSession)
+    ) {
+      throw new Error('transport returned invalid sync session payload');
+    }
+
+    const parsedPush = parseApiPushResponse(parsedSession.push);
+    const parsedPull = parseApiPullResponse(parsedSession.pull);
+    const parsedReconcile = parseApiReconcileResponse(parsedSession.reconcile);
+    const nextCursor = parsedPull.nextCursor
+      ? decodeVfsSyncCursor(parsedPull.nextCursor)
+      : null;
+    if (parsedPull.nextCursor && !nextCursor) {
+      throw new Error('transport returned invalid nextCursor');
+    }
+    const reconcileCursor = decodeVfsSyncCursor(parsedReconcile.cursor);
+    if (!reconcileCursor) {
+      throw new Error('transport returned invalid reconcile cursor');
+    }
+
+    return {
+      push: {
+        results: parsedPush.results
+      },
+      pull: {
+        items: parsedPull.items,
+        hasMore: parsedPull.hasMore,
+        nextCursor,
+        lastReconciledWriteIds: parsedPull.lastReconciledWriteIds
+      },
+      reconcile: {
+        cursor: reconcileCursor,
+        lastReconciledWriteIds: parsedReconcile.lastReconciledWriteIds
+      }
+    };
+  }
+
+  private async requestBinary(
     path: string,
-    body: unknown,
+    body: Uint8Array | undefined,
     query: URLSearchParams | undefined
-  ): Promise<unknown> {
-    /**
-     * Guardrail: every endpoint in this transport is JSON-only. We intentionally
-     * reject non-JSON bodies (including HTML/text error pages) to avoid quietly
-     * accepting proxy or auth-layer failures as valid sync protocol payloads.
-     */
+  ): Promise<Uint8Array> {
     const requestUrl = this.buildUrl(path, query);
     const headers = await this.buildHeaders(body !== undefined);
     const requestInit: RequestInit = {
@@ -175,14 +230,13 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
       headers
     };
     if (body !== undefined) {
-      requestInit.body = JSON.stringify(body);
+      requestInit.body = new Blob([new Uint8Array(body)]);
     }
 
     const response = await this.fetchImpl(requestUrl, requestInit);
 
-    const rawBody = await response.text();
-    const parsedBody = this.parseBody(rawBody);
     if (!response.ok) {
+      const parsedBody = await this.parseErrorBody(response);
       const parsedError = parseApiErrorResponse(response.status, parsedBody);
       if (
         response.status === 409 &&
@@ -198,18 +252,20 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
       throw new Error(parseErrorMessage(response.status, parsedBody));
     }
 
-    return parsedBody;
+    const buffer = await response.arrayBuffer();
+    return new Uint8Array(buffer);
   }
 
-  private parseBody(rawBody: string): unknown {
-    if (rawBody.length === 0) {
+  private async parseErrorBody(response: Response): Promise<unknown> {
+    const rawBody = await response.text();
+    if (rawBody.trim().length === 0) {
       return null;
     }
 
     try {
       return JSON.parse(rawBody);
     } catch {
-      throw new Error('transport returned non-JSON response');
+      return { error: rawBody };
     }
   }
 
@@ -226,13 +282,11 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     return `${base}?${queryString}`;
   }
 
-  private async buildHeaders(
-    includeJsonContentType: boolean
-  ): Promise<Headers> {
+  private async buildHeaders(hasBody: boolean): Promise<Headers> {
     const headers = new Headers();
-    headers.set('Accept', 'application/json');
-    if (includeJsonContentType) {
-      headers.set('Content-Type', 'application/json');
+    headers.set('Accept', PROTOBUF_CONTENT_TYPE);
+    if (hasBody) {
+      headers.set('Content-Type', PROTOBUF_CONTENT_TYPE);
     }
 
     for (const [header, value] of Object.entries(this.headers)) {
@@ -248,4 +302,25 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
 
     return headers;
   }
+}
+
+function normalizeBaseUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim();
+  if (trimmed.length === 0) {
+    return '';
+  }
+
+  return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
+}
+
+function normalizeApiPrefix(apiPrefix: string): string {
+  const trimmed = apiPrefix.trim();
+  if (trimmed.length === 0) {
+    return '';
+  }
+
+  const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return withLeadingSlash.endsWith('/')
+    ? withLeadingSlash.slice(0, -1)
+    : withLeadingSlash;
 }

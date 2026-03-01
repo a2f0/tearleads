@@ -1,3 +1,9 @@
+import {
+  encodeVfsCrdtPushResponseProtobuf,
+  encodeVfsCrdtReconcileResponseProtobuf,
+  encodeVfsCrdtSyncResponseProtobuf,
+  encodeVfsSyncCursor
+} from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('vfsWriteOrchestrator encrypted blob flush', () => {
@@ -30,19 +36,19 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
 
         if (url.endsWith('/v1/vfs/crdt/push')) {
           return new Response(
-            JSON.stringify({
+            encodeVfsCrdtPushResponseProtobuf({
               clientId: 'desktop',
               results: []
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/json' }
+              headers: { 'Content-Type': 'application/x-protobuf' }
             }
           );
         }
         if (url.includes('/v1/vfs/crdt/vfs-sync')) {
           return new Response(
-            JSON.stringify({
+            encodeVfsCrdtSyncResponseProtobuf({
               items: [],
               hasMore: false,
               nextCursor: null,
@@ -50,20 +56,23 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/json' }
+              headers: { 'Content-Type': 'application/x-protobuf' }
             }
           );
         }
         if (url.endsWith('/v1/vfs/crdt/reconcile')) {
           return new Response(
-            JSON.stringify({
+            encodeVfsCrdtReconcileResponseProtobuf({
               clientId: 'desktop',
-              cursor: '2026-02-18T00:00:00.000Z|desktop-1',
+              cursor: encodeVfsSyncCursor({
+                changedAt: '2026-02-18T00:00:00.000Z',
+                changeId: 'desktop-1'
+              }),
               lastReconciledWriteIds: { desktop: 1 }
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/json' }
+              headers: { 'Content-Type': 'application/x-protobuf' }
             }
           );
         }

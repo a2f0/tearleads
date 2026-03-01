@@ -11,10 +11,12 @@ import {
   buildVfsCrdtCompactionRunMetric,
   emitVfsCrdtCompactionRunMetric
 } from '../lib/vfsCrdtCompactionMetrics.js';
+import { refreshVfsCrdtSnapshot } from '../lib/vfsCrdtSnapshots.js';
 
 interface CliOptions {
   execute?: boolean;
   json?: boolean;
+  skipSnapshotRefresh?: boolean;
   hotRetentionDays?: string;
   inactiveClientDays?: string;
   safetyBufferHours?: string;
@@ -154,12 +156,19 @@ export function vfsCrdtCompactionCommand(program: Command): void {
       '--max-delete-rows <rows>',
       'When executing, cap rows deleted in this run'
     )
+    .option(
+      '--skip-snapshot-refresh',
+      'Skip CRDT snapshot refresh after plan/execute'
+    )
     .action(async (options: CliOptions) => {
       let client: PoolClient | null = null;
       const startedAtMs = Date.now();
       let deletedRows = 0;
       let executed = false;
       let hasLoggedMetric = false;
+      let snapshotResult: Awaited<
+        ReturnType<typeof refreshVfsCrdtSnapshot>
+      > | null = null;
       let plan: VfsCrdtCompactionPlan = {
         now: new Date(startedAtMs).toISOString(),
         latestCursor: null,
@@ -197,19 +206,37 @@ export function vfsCrdtCompactionCommand(program: Command): void {
           );
           executed = true;
           await client.query('COMMIT');
+        }
 
-          if (options.json) {
-            console.log(JSON.stringify({ plan, deletedRows }, null, 2));
-          } else {
-            printHumanPlan(plan);
-            console.log(`deletedRows: ${deletedRows}`);
-          }
+        if (!options.skipSnapshotRefresh) {
+          snapshotResult = await refreshVfsCrdtSnapshot(client);
+        }
+
+        if (options.json) {
+          console.log(
+            JSON.stringify(
+              {
+                plan,
+                deletedRows,
+                snapshot: snapshotResult
+              },
+              null,
+              2
+            )
+          );
         } else {
-          if (options.json) {
-            console.log(JSON.stringify({ plan, deletedRows: 0 }, null, 2));
+          printHumanPlan(plan);
+          if (options.execute && plan.cutoffOccurredAt) {
+            console.log(`deletedRows: ${deletedRows}`);
           } else {
-            printHumanPlan(plan);
             console.log('mode: dry-run');
+          }
+          if (snapshotResult) {
+            console.log(
+              `snapshot: scope=${snapshotResult.scope} updatedAt=${snapshotResult.updatedAt} cursor=${snapshotResult.cursor ? `${snapshotResult.cursor.changedAt} | ${snapshotResult.cursor.changeId}` : 'none'} acl=${snapshotResult.aclEntries} links=${snapshotResult.links} containerClocks=${snapshotResult.containerClocks}`
+            );
+          } else {
+            console.log('snapshot: skipped');
           }
         }
 

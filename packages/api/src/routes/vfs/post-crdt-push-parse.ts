@@ -24,7 +24,7 @@ const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = [
 ];
 const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
 
-interface ParsedPushOperation {
+export interface ParsedPushOperation {
   status: 'parsed' | 'invalid';
   opId: string;
   operation?: VfsCrdtPushOperation;

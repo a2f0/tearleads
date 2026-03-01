@@ -185,6 +185,21 @@ export interface VfsCrdtPushResponse {
   results: VfsCrdtPushResult[];
 }
 
+export interface VfsCrdtSyncSessionRequest {
+  clientId: string;
+  cursor: string;
+  limit: number;
+  operations: VfsCrdtPushOperation[];
+  lastReconciledWriteIds?: Record<string, number>;
+  rootId?: string | null;
+}
+
+export interface VfsCrdtSyncSessionResponse {
+  push: VfsCrdtPushResponse;
+  pull: VfsCrdtSyncResponse;
+  reconcile: VfsCrdtReconcileResponse;
+}
+
 // VFS Sharing types
 export type VfsShareType = 'user' | 'group' | 'organization';
 export type VfsPermissionLevel = 'view' | 'edit' | 'download';

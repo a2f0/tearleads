@@ -2522,6 +2522,9 @@ importers:
       lucide-react:
         specifier: 0.575.0
         version: 0.575.0(react@19.2.4)
+      protobufjs:
+        specifier: ^7.5.4
+        version: 7.5.4
     devDependencies:
       '@tearleads/app-builder':
         specifier: workspace:*
