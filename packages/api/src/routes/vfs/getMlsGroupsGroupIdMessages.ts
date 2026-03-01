@@ -105,8 +105,11 @@ const getMlsGroupsGroupIdMessagesHandler = async (
            ops.encrypted_payload AS ciphertext,
            'application'::text AS message_type,
            COALESCE(msg.content_type, 'text/plain'::text) AS content_type,
-           ROW_NUMBER() OVER (
-             ORDER BY ops.occurred_at ASC, ops.id ASC
+           COALESCE(
+             msg.sequence_number,
+             ROW_NUMBER() OVER (
+               ORDER BY ops.occurred_at ASC, ops.id ASC
+             )::integer
            )::integer AS sequence_number,
            ops.occurred_at AS created_at,
            u.email AS sender_email

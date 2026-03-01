@@ -297,7 +297,7 @@ describe('MLS VFS message routes', () => {
         .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [{ current_epoch: 2 }] })
-        .mockResolvedValueOnce({ rows: [{ message_count: '0' }] })
+        .mockResolvedValueOnce({ rows: [{ max_sequence: '0' }] })
         .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [] })

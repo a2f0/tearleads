@@ -28,8 +28,8 @@ interface QueryClient {
   release: () => void;
 }
 
-interface GroupMessageCountRow {
-  message_count: string | number;
+interface GroupMaxSequenceRow {
+  max_sequence: string | number;
 }
 
 function toPositiveInteger(value: string | number): number {
@@ -318,16 +318,14 @@ const postMlsGroupsGroupIdMessagesHandler = async (
         return;
       }
 
-      const messageCountResult = await client.query<GroupMessageCountRow>(
-        `SELECT COALESCE(COUNT(*), 0) AS message_count
-           FROM vfs_crdt_ops
-          WHERE source_table = 'mls_messages'
-            AND op_type = 'item_upsert'
-            AND source_id LIKE $1`,
-        [`mls_message:${groupId}:%`]
+      const maxSequenceResult = await client.query<GroupMaxSequenceRow>(
+        `SELECT COALESCE(MAX(sequence_number), 0) AS max_sequence
+           FROM mls_messages
+          WHERE group_id = $1`,
+        [groupId]
       );
       const nextSequenceNumber =
-        toPositiveInteger(messageCountResult.rows[0]?.message_count ?? 0) + 1;
+        toPositiveInteger(maxSequenceResult.rows[0]?.max_sequence ?? 0) + 1;
 
       const id = randomUUID();
       const occurredAtIso = new Date().toISOString();
