@@ -38,16 +38,16 @@ describe('useAudioTableData', () => {
     });
 
     const fetchAudioFilesWithUrls = vi.fn(async () => [trackA, trackB]);
-    const retrieveFile = vi.fn(async (storagePath: string) =>
-      new Uint8Array(
-        storagePath === '/audio/track-a.mp3' ? [1, 0, 0] : [2, 0, 0]
-      )
+    const retrieveFile = vi.fn(
+      async (storagePath: string) =>
+        new Uint8Array(
+          storagePath === '/audio/track-a.mp3' ? [1, 0, 0] : [2, 0, 0]
+        )
     );
-    const extractAudioMetadata = vi.fn(
-      async (data: Uint8Array) =>
-        data[0] === 1
-          ? makeMetadata({ album: 'Arrival', albumArtist: 'ABBA' })
-          : makeMetadata({ album: 'Other Album', albumArtist: 'Other Artist' })
+    const extractAudioMetadata = vi.fn(async (data: Uint8Array) =>
+      data[0] === 1
+        ? makeMetadata({ album: 'Arrival', albumArtist: 'ABBA' })
+        : makeMetadata({ album: 'Other Album', albumArtist: 'Other Artist' })
     );
 
     const wrapper = createWrapper({
@@ -100,12 +100,21 @@ describe('useAudioTableData', () => {
     });
     const extractAudioMetadata = vi.fn(async (data: Uint8Array) => {
       if (data[0] === 1) {
-        return makeMetadata({ album: 'Greatest Hits', albumArtist: 'Artist A' });
+        return makeMetadata({
+          album: 'Greatest Hits',
+          albumArtist: 'Artist A'
+        });
       }
       if (data[0] === 2) {
-        return makeMetadata({ album: 'Greatest Hits', albumArtist: 'Artist B' });
+        return makeMetadata({
+          album: 'Greatest Hits',
+          albumArtist: 'Artist B'
+        });
       }
-      return makeMetadata({ album: 'Different Album', albumArtist: 'Artist C' });
+      return makeMetadata({
+        album: 'Different Album',
+        albumArtist: 'Artist C'
+      });
     });
 
     const wrapper = createWrapper({
