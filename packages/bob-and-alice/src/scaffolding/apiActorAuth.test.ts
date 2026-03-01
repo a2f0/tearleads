@@ -1,11 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ensureVfsKeysExist, loginApiActor } from './apiActorAuth.js';
 
-function mockFetchResponse(
-  body: unknown,
-  status = 200,
-  ok = true
-): Response {
+function mockFetchResponse(body: unknown, status = 200, ok = true): Response {
   return {
     ok,
     status,
@@ -49,9 +45,11 @@ describe('loginApiActor', () => {
   });
 
   it('throws on login failure', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      mockFetchResponse({ error: 'bad creds' }, 401, false)
-    );
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        mockFetchResponse({ error: 'bad creds' }, 401, false)
+      );
 
     await expect(
       loginApiActor({
@@ -65,9 +63,9 @@ describe('loginApiActor', () => {
   });
 
   it('throws on malformed auth response', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      mockFetchResponse({ unexpected: true })
-    );
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(mockFetchResponse({ unexpected: true }));
 
     await expect(
       loginApiActor({
@@ -161,7 +159,10 @@ describe('ensureVfsKeysExist', () => {
     };
 
     await ensureVfsKeysExist({ actor, keyPrefix: 'test' });
-    expect(actor.fetchJson).toHaveBeenCalledWith('/vfs/keys', expect.any(Object));
+    expect(actor.fetchJson).toHaveBeenCalledWith(
+      '/vfs/keys',
+      expect.any(Object)
+    );
   });
 
   it('ignores 409 conflict errors', async () => {
