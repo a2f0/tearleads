@@ -46,6 +46,7 @@
     "includes": [
       "packages/**/src/**/*.{ts,tsx}",
       "scripts/**/*.{ts,tsx}",
+      "!packages/shared/src/gen/**",
       "!**/dist-tests"
     ],
     "ignoreUnknown": true
