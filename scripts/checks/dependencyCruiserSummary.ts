@@ -1,18 +1,34 @@
 import fs from 'node:fs';
 
-interface CliOptions {
+export interface CliOptions {
   json: boolean;
+  configPath: string;
 }
 
-interface ViolationLike {
+export interface ViolationLike {
   ruleName: string;
   severity: string;
 }
 
-interface RuleExceptionCount {
+export interface RuleExceptionCount {
   name: string;
   pathNotEntries: number;
   clientFileExceptions: number;
+}
+
+export interface DependencyCruiserSummaryResult {
+  totals: {
+    modulesCruised: number;
+    dependenciesCruised: number;
+    errors: number;
+    warnings: number;
+    infos: number;
+    ignored: number;
+    violations: number;
+  };
+  violationsByRule: Record<string, number>;
+  violationsBySeverity: Record<string, number>;
+  ruleExceptionCounts: RuleExceptionCount[];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -29,17 +45,44 @@ function getString(record: Record<string, unknown>, key: string): string {
   return typeof value === 'string' ? value : '';
 }
 
-function parseArgs(argv: string[]): CliOptions {
-  return {
-    json: argv.includes('--json')
-  };
+export function parseArgs(argv: string[]): CliOptions {
+  let configPath = '.dependency-cruiser.json';
+  let json = false;
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const token = argv[i];
+    if (token === '--json') {
+      json = true;
+      continue;
+    }
+
+    if (token === '--config') {
+      const next = argv[i + 1];
+      if (typeof next === 'string' && next.length > 0) {
+        configPath = next;
+        i += 1;
+      }
+    }
+  }
+
+  return { json, configPath };
 }
 
 function readStdin(): string {
   return fs.readFileSync(0, 'utf8');
 }
 
-function collectViolations(summary: Record<string, unknown>): ViolationLike[] {
+function parseJson(input: string, context: string): unknown {
+  try {
+    return JSON.parse(input);
+  } catch {
+    throw new Error(`Invalid JSON input for ${context}`);
+  }
+}
+
+export function collectViolations(
+  summary: Record<string, unknown>
+): ViolationLike[] {
   const result: ViolationLike[] = [];
   const violations = summary.violations;
   if (!Array.isArray(violations)) {
@@ -74,7 +117,7 @@ function collectViolations(summary: Record<string, unknown>): ViolationLike[] {
   return result;
 }
 
-function countViolationsByRule(
+export function countViolationsByRule(
   violations: ViolationLike[]
 ): Record<string, number> {
   const counts: Record<string, number> = {};
@@ -84,7 +127,7 @@ function countViolationsByRule(
   return counts;
 }
 
-function countViolationsBySeverity(
+export function countViolationsBySeverity(
   violations: ViolationLike[]
 ): Record<string, number> {
   const counts: Record<string, number> = {};
@@ -94,9 +137,9 @@ function countViolationsBySeverity(
   return counts;
 }
 
-function collectRuleExceptionCounts(configPath: string): RuleExceptionCount[] {
-  const configRaw = fs.readFileSync(configPath, 'utf8');
-  const configParsed: unknown = JSON.parse(configRaw);
+export function collectRuleExceptionCountsFromConfig(
+  configParsed: unknown
+): RuleExceptionCount[] {
   if (!isRecord(configParsed)) {
     return [];
   }
@@ -153,26 +196,18 @@ function collectRuleExceptionCounts(configPath: string): RuleExceptionCount[] {
   return counts;
 }
 
-function main() {
-  const options = parseArgs(process.argv.slice(2));
-  const rawInput = readStdin();
-  const parsed: unknown = JSON.parse(rawInput);
-
-  if (!isRecord(parsed) || !isRecord(parsed.summary)) {
-    throw new Error(
-      'Unexpected dependency-cruiser JSON format: missing summary'
-    );
+export function parseDependencyCruiserSummary(
+  reportParsed: unknown,
+  configParsed: unknown
+): DependencyCruiserSummaryResult {
+  if (!isRecord(reportParsed) || !isRecord(reportParsed.summary)) {
+    throw new Error('Unexpected dependency-cruiser JSON format: missing summary');
   }
 
-  const summary = parsed.summary;
+  const summary = reportParsed.summary;
   const violations = collectViolations(summary);
-  const violationCountByRule = countViolationsByRule(violations);
-  const violationCountBySeverity = countViolationsBySeverity(violations);
-  const ruleExceptionCounts = collectRuleExceptionCounts(
-    '.dependency-cruiser.json'
-  );
 
-  const result = {
+  return {
     totals: {
       modulesCruised: getNumber(summary, 'totalCruised'),
       dependenciesCruised: getNumber(summary, 'totalDependenciesCruised'),
@@ -182,36 +217,67 @@ function main() {
       ignored: getNumber(summary, 'ignore'),
       violations: violations.length
     },
-    violationsByRule: violationCountByRule,
-    violationsBySeverity: violationCountBySeverity,
-    ruleExceptionCounts
+    violationsByRule: countViolationsByRule(violations),
+    violationsBySeverity: countViolationsBySeverity(violations),
+    ruleExceptionCounts: collectRuleExceptionCountsFromConfig(configParsed)
   };
+}
 
-  if (options.json) {
-    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-    return;
-  }
-
-  process.stdout.write('Dependency Cruiser Summary\n');
-  process.stdout.write(
-    `- Modules cruised: ${result.totals.modulesCruised}\n- Dependencies cruised: ${result.totals.dependenciesCruised}\n- Violations: ${result.totals.violations} (errors=${result.totals.errors}, warnings=${result.totals.warnings})\n`
+export function renderTextSummary(
+  result: DependencyCruiserSummaryResult
+): string {
+  const lines: string[] = [];
+  lines.push('Dependency Cruiser Summary');
+  lines.push(`- Modules cruised: ${result.totals.modulesCruised}`);
+  lines.push(`- Dependencies cruised: ${result.totals.dependenciesCruised}`);
+  lines.push(
+    `- Violations: ${result.totals.violations} (errors=${result.totals.errors}, warnings=${result.totals.warnings})`
   );
 
   if (Object.keys(result.violationsByRule).length === 0) {
-    process.stdout.write('- Violations by rule: none\n');
+    lines.push('- Violations by rule: none');
   } else {
-    process.stdout.write('- Violations by rule:\n');
+    lines.push('- Violations by rule:');
     for (const [ruleName, count] of Object.entries(result.violationsByRule)) {
-      process.stdout.write(`  ${ruleName}: ${count}\n`);
+      lines.push(`  ${ruleName}: ${count}`);
     }
   }
 
-  process.stdout.write('- Rule exception counts (pathNot entries):\n');
+  lines.push('- Rule exception counts (pathNot entries):');
   for (const item of result.ruleExceptionCounts) {
-    process.stdout.write(
-      `  ${item.name}: pathNot=${item.pathNotEntries}, clientFileExceptions=${item.clientFileExceptions}\n`
+    lines.push(
+      `  ${item.name}: pathNot=${item.pathNotEntries}, clientFileExceptions=${item.clientFileExceptions}`
     );
   }
+
+  return `${lines.join('\n')}\n`;
 }
 
-main();
+function main(): number {
+  const options = parseArgs(process.argv.slice(2));
+  const reportRaw = readStdin();
+  const reportParsed = parseJson(reportRaw, 'dependency-cruiser report');
+
+  const configRaw = fs.readFileSync(options.configPath, 'utf8');
+  const configParsed = parseJson(configRaw, options.configPath);
+
+  const result = parseDependencyCruiserSummary(reportParsed, configParsed);
+
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return 0;
+  }
+
+  process.stdout.write(renderTextSummary(result));
+  return 0;
+}
+
+if (import.meta.main) {
+  try {
+    process.exitCode = main();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`${message}\n`);
+    process.exitCode = 1;
+  }
+}
