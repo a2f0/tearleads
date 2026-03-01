@@ -4,6 +4,8 @@ import {
   WindowContextMenu,
   WindowSidebarHeader
 } from '@tearleads/window-manager';
+// one-component-per-file: allow
+// Rationale: tree/item render helpers need local closure state from VfsTreePanel.
 // component-complexity: allow
 // Rationale: orchestrates tree rendering plus folder dialogs/context menu in one sidebar entrypoint.
 import {
