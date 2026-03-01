@@ -13,8 +13,13 @@ import {
   teardownCrdtPushRouteTestEnv
 } from './crdtPushTestSupport.js';
 
+interface BinaryParserResponse {
+  on(event: 'data', listener: (chunk: Buffer | string) => void): void;
+  on(event: 'end', listener: () => void): void;
+}
+
 function binaryParser(
-  res: NodeJS.ReadableStream,
+  res: BinaryParserResponse,
   callback: (error: Error | null, body: Buffer) => void
 ): void {
   const chunks: Buffer[] = [];

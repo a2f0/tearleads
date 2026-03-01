@@ -35,7 +35,6 @@ function encodeBytesToBase64Url(bytes: Uint8Array): string {
 
 function decodeBase64UrlToBytes(base64url: string): Uint8Array | null {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
-  const paddingLength = (4 - (base64url.length % 4)) % 4;
   const outputLength = Math.floor((base64url.length * 3) / 4);
   const bytes = new Uint8Array(outputLength);
   let byteIndex = 0;

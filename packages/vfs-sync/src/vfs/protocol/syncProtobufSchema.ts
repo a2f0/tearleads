@@ -1,5 +1,20 @@
 import protobuf from 'protobufjs';
 
+function createUint64MapField(id: number): protobuf.IField {
+  const field: protobuf.IField = {
+    rule: 'map',
+    type: 'uint64',
+    id
+  };
+  Object.defineProperty(field, 'keyType', {
+    value: 'string',
+    enumerable: true,
+    writable: true,
+    configurable: true
+  });
+  return field;
+}
+
 const MESSAGE_ROOT = protobuf.Root.fromJSON({
   nested: {
     tearleads: {
@@ -52,36 +67,21 @@ const MESSAGE_ROOT = protobuf.Root.fromJSON({
                 items: { rule: 'repeated', type: 'CrdtOperation', id: 1 },
                 hasMore: { type: 'bool', id: 2 },
                 nextCursor: { type: 'string', id: 3 },
-                lastReconciledWriteIds: {
-                  keyType: 'string',
-                  type: 'uint64',
-                  id: 4,
-                  rule: 'map'
-                }
+                lastReconciledWriteIds: createUint64MapField(4)
               }
             },
             ReconcileRequest: {
               fields: {
                 clientId: { type: 'string', id: 1 },
                 cursor: { type: 'string', id: 2 },
-                lastReconciledWriteIds: {
-                  keyType: 'string',
-                  type: 'uint64',
-                  id: 3,
-                  rule: 'map'
-                }
+                lastReconciledWriteIds: createUint64MapField(3)
               }
             },
             ReconcileResponse: {
               fields: {
                 clientId: { type: 'string', id: 1 },
                 cursor: { type: 'string', id: 2 },
-                lastReconciledWriteIds: {
-                  keyType: 'string',
-                  type: 'uint64',
-                  id: 3,
-                  rule: 'map'
-                }
+                lastReconciledWriteIds: createUint64MapField(3)
               }
             },
             SyncSessionRequest: {
@@ -90,12 +90,7 @@ const MESSAGE_ROOT = protobuf.Root.fromJSON({
                 cursor: { type: 'string', id: 2 },
                 limit: { type: 'uint32', id: 3 },
                 operations: { rule: 'repeated', type: 'CrdtOperation', id: 4 },
-                lastReconciledWriteIds: {
-                  keyType: 'string',
-                  type: 'uint64',
-                  id: 5,
-                  rule: 'map'
-                },
+                lastReconciledWriteIds: createUint64MapField(5),
                 rootId: { type: 'string', id: 6 }
               }
             },

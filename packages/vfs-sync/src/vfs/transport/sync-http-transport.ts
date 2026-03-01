@@ -28,9 +28,25 @@ import {
   parseErrorMessage
 } from './sync-http-transport-parser.js';
 
-type FetchImpl = typeof fetch;
+interface BinaryRequestInit extends Omit<RequestInit, 'body'> {
+  body?: BodyInit | Uint8Array | null;
+}
+type FetchImpl = (input: string, init?: BinaryRequestInit) => Promise<Response>;
 const CRDT_REMATERIALIZATION_REQUIRED_CODE = 'crdt_rematerialization_required';
 const PROTOBUF_CONTENT_TYPE = 'application/x-protobuf';
+
+const DEFAULT_FETCH_IMPL: FetchImpl = (input, init) => {
+  const requestInit: RequestInit = {
+    method: init?.method,
+    headers: init?.headers
+  };
+  const body = init?.body;
+  if (body !== undefined) {
+    requestInit.body =
+      body instanceof Uint8Array ? new Blob([new Uint8Array(body)]) : body;
+  }
+  return fetch(input, requestInit);
+};
 
 export interface VfsHttpCrdtSyncTransportOptions {
   baseUrl?: string;
@@ -52,7 +68,7 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
   constructor(options: VfsHttpCrdtSyncTransportOptions = {}) {
     this.baseUrl = normalizeBaseUrl(options.baseUrl ?? '');
     this.apiPrefix = normalizeApiPrefix(options.apiPrefix ?? '/v1');
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    this.fetchImpl = options.fetchImpl ?? DEFAULT_FETCH_IMPL;
     this.getAuthToken = options.getAuthToken ?? null;
     this.headers = options.headers ?? {};
   }
@@ -224,7 +240,7 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
   ): Promise<Uint8Array> {
     const requestUrl = this.buildUrl(path, query);
     const headers = await this.buildHeaders(body !== undefined);
-    const requestInit: RequestInit = {
+    const requestInit: BinaryRequestInit = {
       method: body === undefined ? 'GET' : 'POST',
       headers
     };
