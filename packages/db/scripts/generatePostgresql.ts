@@ -99,7 +99,13 @@ function detectUsedCoreSymbols(
   source: string,
   names: readonly string[]
 ): string[] {
-  return names.filter((name) => new RegExp(`\\b${name}\\b`, 'u').test(source));
+  return names.filter((name) => {
+    if (name === 'primaryKey') {
+      return /(?:^|[^.\w])primaryKey\s*\(/u.test(source);
+    }
+
+    return new RegExp(`\\b${name}\\b`, 'u').test(source);
+  });
 }
 
 function renderPgCoreImport(symbols: readonly string[]): string {
