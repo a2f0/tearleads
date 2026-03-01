@@ -96,6 +96,14 @@ Check for mapping drift between `ciImpact`, required workflows, and workflow fil
 pnpm exec tsx scripts/ciImpact/checkWorkflowDrift.ts
 ```
 
+Architecture guardrail summaries:
+
+```bash
+pnpm checkDependencyCruiserSummary
+pnpm checkDependencyCruiserSummaryJson
+pnpm lintKnipStrict
+```
+
 ## Notes
 
 - If a commit changes only ignored paths (for example docs-only paths configured in workflow triggers), some workflows may not report.
