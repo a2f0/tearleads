@@ -1,18 +1,26 @@
-import type {
-  CreateOrgShareRequest,
-  CreateShareRequest,
-  GetItemSharesRequest,
-  GetSharePolicyPreviewRequest,
-  SearchShareTargetsRequest,
-  ShareIdRequest,
-  UpdateShareRequest
-} from '@tearleads/shared/gen/tearleads/v1/vfs_shares_pb';
 import {
   callLegacyJsonRoute,
   setOptionalPositiveIntQueryParam,
   setOptionalStringQueryParam,
   toJsonBody
 } from './legacyRouteProxy.js';
+
+type GetItemSharesRequest = { itemId: string };
+type CreateShareRequest = { itemId: string; json: string };
+type UpdateShareRequest = { shareId: string; json: string };
+type ShareIdRequest = { shareId: string };
+type CreateOrgShareRequest = { itemId: string; json: string };
+type SearchShareTargetsRequest = { q: string; type: string };
+type GetSharePolicyPreviewRequest = {
+  rootItemId: string;
+  principalType: string;
+  principalId: string;
+  limit: number;
+  cursor: string;
+  maxDepth: number;
+  q: string;
+  objectType: string[];
+};
 
 function encoded(value: string): string {
   return encodeURIComponent(value);

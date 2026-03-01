@@ -1,13 +1,20 @@
-import type {
-  GetUsageRequest,
-  GetUsageSummaryRequest
-} from '@tearleads/shared/gen/tearleads/v1/ai_pb';
 import {
   callLegacyJsonRoute,
   setOptionalPositiveIntQueryParam,
   setOptionalStringQueryParam,
   toJsonBody
 } from './legacyRouteProxy.js';
+
+type GetUsageRequest = {
+  startDate: string;
+  endDate: string;
+  cursor: string;
+  limit: number;
+};
+type GetUsageSummaryRequest = {
+  startDate: string;
+  endDate: string;
+};
 
 export const aiConnectService = {
   recordUsage: async (

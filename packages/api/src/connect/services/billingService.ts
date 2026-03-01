@@ -1,5 +1,6 @@
-import type { GetOrganizationBillingRequest } from '@tearleads/shared/gen/tearleads/v1/billing_pb';
 import { callLegacyJsonRoute } from './legacyRouteProxy.js';
+
+type GetOrganizationBillingRequest = { organizationId: string };
 
 function encoded(value: string): string {
   return encodeURIComponent(value);

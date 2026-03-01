@@ -1,12 +1,3 @@
-import type {
-  BlobIdRequest,
-  EmailIdRequest,
-  GetCrdtSnapshotRequest,
-  GetEmailsRequest,
-  GetSyncRequest,
-  ItemIdJsonRequest,
-  StagingIdJsonRequest
-} from '@tearleads/shared/gen/tearleads/v1/vfs_pb';
 import {
   callLegacyBinaryRoute,
   callLegacyJsonRoute,
@@ -14,6 +5,14 @@ import {
   setOptionalStringQueryParam,
   toJsonBody
 } from './legacyRouteProxy.js';
+
+type BlobIdRequest = { blobId: string };
+type StagingIdJsonRequest = { stagingId: string; json: string };
+type ItemIdJsonRequest = { itemId: string; json: string };
+type GetSyncRequest = { cursor: string; limit: number; rootId: string };
+type GetCrdtSnapshotRequest = { clientId: string };
+type GetEmailsRequest = { offset: number; limit: number };
+type EmailIdRequest = { id: string };
 
 function encoded(value: string): string {
   return encodeURIComponent(value);

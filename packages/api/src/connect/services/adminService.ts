@@ -1,21 +1,27 @@
-import type {
-  GetColumnsRequest,
-  GetRedisKeysRequest,
-  GetRowsRequest,
-  IdJsonRequest,
-  IdRequest,
-  KeyRequest,
-  ListGroupsRequest,
-  ListOrganizationsRequest,
-  ListUsersRequest,
-  RemoveGroupMemberRequest
-} from '@tearleads/shared/gen/tearleads/v1/admin_pb';
 import {
   callLegacyJsonRoute,
   setOptionalPositiveIntQueryParam,
   setOptionalStringQueryParam,
   toJsonBody
 } from './legacyRouteProxy.js';
+
+type GetColumnsRequest = { schema: string; table: string };
+type GetRowsRequest = {
+  schema: string;
+  table: string;
+  limit: number;
+  offset: number;
+  sortColumn: string;
+  sortDirection: string;
+};
+type GetRedisKeysRequest = { cursor: string; limit: number };
+type KeyRequest = { key: string };
+type IdRequest = { id: string };
+type IdJsonRequest = { id: string; json: string };
+type RemoveGroupMemberRequest = { groupId: string; userId: string };
+type ListGroupsRequest = { organizationId: string };
+type ListOrganizationsRequest = { organizationId: string };
+type ListUsersRequest = { organizationId: string };
 
 function encoded(value: string): string {
   return encodeURIComponent(value);

@@ -1,18 +1,25 @@
-import type {
-  AcknowledgeWelcomeRequest,
-  GetGroupMessagesRequest,
-  GroupIdJsonRequest,
-  GroupIdRequest,
-  MlsIdRequest,
-  MlsRemoveGroupMemberRequest,
-  UserIdRequest
-} from '@tearleads/shared/gen/tearleads/v1/mls_pb';
 import {
   callLegacyJsonRoute,
   setOptionalPositiveIntQueryParam,
   setOptionalStringQueryParam,
   toJsonBody
 } from './legacyRouteProxy.js';
+
+type UserIdRequest = { userId: string };
+type MlsIdRequest = { id: string };
+type GroupIdRequest = { groupId: string };
+type GroupIdJsonRequest = { groupId: string; json: string };
+type MlsRemoveGroupMemberRequest = {
+  groupId: string;
+  userId: string;
+  json: string;
+};
+type GetGroupMessagesRequest = {
+  groupId: string;
+  cursor: string;
+  limit: number;
+};
+type AcknowledgeWelcomeRequest = { id: string; json: string };
 
 function encoded(value: string): string {
   return encodeURIComponent(value);
