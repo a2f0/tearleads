@@ -117,16 +117,17 @@ export function AiRequestsAdminPage({
     () => calculateTotals(filteredUsageRows),
     [filteredUsageRows]
   );
-  const resolvedBackLink = backLink ? (
-    backLink
-  ) : showBackLink ? (
-    <BackLink defaultTo="/admin/users" defaultLabel={t('backToUsersAdmin')} />
-  ) : null;
-
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
-        {resolvedBackLink}
+        {backLink ? (
+          backLink
+        ) : showBackLink ? (
+          <BackLink
+            defaultTo="/admin/users"
+            defaultLabel={t('backToUsersAdmin')}
+          />
+        ) : null}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-bold text-2xl tracking-tight">
