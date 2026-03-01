@@ -5,30 +5,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   getErrorMessage,
-  isError,
   toError,
   UnsupportedFileTypeError
 } from './errors';
-
-describe('isError', () => {
-  it('returns true for Error instances', () => {
-    expect(isError(new Error('test'))).toBe(true);
-  });
-
-  it('returns true for Error subclasses', () => {
-    expect(isError(new TypeError('type error'))).toBe(true);
-    expect(isError(new RangeError('range error'))).toBe(true);
-    expect(isError(new UnsupportedFileTypeError('file.bin'))).toBe(true);
-  });
-
-  it('returns false for non-Error values', () => {
-    expect(isError('error string')).toBe(false);
-    expect(isError(123)).toBe(false);
-    expect(isError(null)).toBe(false);
-    expect(isError(undefined)).toBe(false);
-    expect(isError({ message: 'fake error' })).toBe(false);
-  });
-});
 
 describe('getErrorMessage', () => {
   it('returns message from Error instances', () => {
