@@ -1,5 +1,6 @@
 import {
   callLegacyJsonRoute,
+  encoded,
   setOptionalPositiveIntQueryParam,
   setOptionalStringQueryParam,
   toJsonBody
@@ -22,10 +23,6 @@ type RemoveGroupMemberRequest = { groupId: string; userId: string };
 type ListGroupsRequest = { organizationId: string };
 type ListOrganizationsRequest = { organizationId: string };
 type ListUsersRequest = { organizationId: string };
-
-function encoded(value: string): string {
-  return encodeURIComponent(value);
-}
 
 export const adminConnectService = {
   getContext: async (_request: object, context: { requestHeader: Headers }) => {

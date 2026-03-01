@@ -17,12 +17,12 @@ import { vfsConnectService } from './services/vfsService.js';
 import { vfsSharesConnectService } from './services/vfsSharesService.js';
 
 export function registerConnectRoutes(router: ConnectRouter): void {
+  router.service(AdminService, adminConnectService);
+  router.service(AiService, aiConnectService);
   router.service(AuthService, authConnectService);
+  router.service(BillingService, billingConnectService);
+  router.service(ChatService, chatConnectService);
+  router.service(MlsService, mlsConnectService);
   router.service(VfsService, vfsConnectService);
   router.service(VfsSharesService, vfsSharesConnectService);
-  router.service(MlsService, mlsConnectService);
-  router.service(AdminService, adminConnectService);
-  router.service(BillingService, billingConnectService);
-  router.service(AiService, aiConnectService);
-  router.service(ChatService, chatConnectService);
 }

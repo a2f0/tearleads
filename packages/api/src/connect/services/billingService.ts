@@ -1,10 +1,6 @@
-import { callLegacyJsonRoute } from './legacyRouteProxy.js';
+import { callLegacyJsonRoute, encoded } from './legacyRouteProxy.js';
 
 type GetOrganizationBillingRequest = { organizationId: string };
-
-function encoded(value: string): string {
-  return encodeURIComponent(value);
-}
 
 export const billingConnectService = {
   getOrganizationBilling: async (

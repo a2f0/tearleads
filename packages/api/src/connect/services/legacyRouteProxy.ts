@@ -175,6 +175,10 @@ export function toJsonBody(json: string): string {
   return json.trim().length > 0 ? json : '{}';
 }
 
+export function encoded(value: string): string {
+  return encodeURIComponent(value);
+}
+
 export function setOptionalStringQueryParam(
   params: URLSearchParams,
   key: string,

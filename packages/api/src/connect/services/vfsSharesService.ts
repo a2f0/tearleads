@@ -1,5 +1,6 @@
 import {
   callLegacyJsonRoute,
+  encoded,
   setOptionalPositiveIntQueryParam,
   setOptionalStringQueryParam,
   toJsonBody
@@ -21,10 +22,6 @@ type GetSharePolicyPreviewRequest = {
   q: string;
   objectType: string[];
 };
-
-function encoded(value: string): string {
-  return encodeURIComponent(value);
-}
 
 export const vfsSharesConnectService = {
   getItemShares: async (

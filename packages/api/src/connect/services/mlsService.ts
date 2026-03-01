@@ -1,5 +1,6 @@
 import {
   callLegacyJsonRoute,
+  encoded,
   setOptionalPositiveIntQueryParam,
   setOptionalStringQueryParam,
   toJsonBody
@@ -20,10 +21,6 @@ type GetGroupMessagesRequest = {
   limit: number;
 };
 type AcknowledgeWelcomeRequest = { id: string; json: string };
-
-function encoded(value: string): string {
-  return encodeURIComponent(value);
-}
 
 export const mlsConnectService = {
   uploadKeyPackages: async (

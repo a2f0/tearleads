@@ -1,6 +1,7 @@
 import {
   callLegacyBinaryRoute,
   callLegacyJsonRoute,
+  encoded,
   setOptionalPositiveIntQueryParam,
   setOptionalStringQueryParam,
   toJsonBody
@@ -13,10 +14,6 @@ type GetSyncRequest = { cursor: string; limit: number; rootId: string };
 type GetCrdtSnapshotRequest = { clientId: string };
 type GetEmailsRequest = { offset: number; limit: number };
 type EmailIdRequest = { id: string };
-
-function encoded(value: string): string {
-  return encodeURIComponent(value);
-}
 
 function queryFromGetSyncRequest(request: GetSyncRequest): URLSearchParams {
   const params = new URLSearchParams();
