@@ -127,9 +127,12 @@ async function requireRecoveryPasswordMaterial(): Promise<CryptoKey> {
     return cachedRecoveryPasswordMaterial;
   }
   if (cachedRecoveryPasswordMaterialPromise) {
-    const material = await cachedRecoveryPasswordMaterialPromise;
-    cachedRecoveryPasswordMaterial = material;
-    return material;
+    await cachedRecoveryPasswordMaterialPromise;
+    // setVfsRecoveryPassword is the sole writer for cachedRecoveryPasswordMaterial.
+    // If the awaited promise was stale, the cache stays null and we fail closed.
+    if (cachedRecoveryPasswordMaterial) {
+      return cachedRecoveryPasswordMaterial;
+    }
   }
   throw new Error(VFS_RECOVERY_REAUTH_ERROR);
 }

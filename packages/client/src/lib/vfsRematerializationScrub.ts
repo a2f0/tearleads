@@ -1,26 +1,13 @@
 const MAX_MATERIALIZED_NOTE_TITLE_LENGTH = 256;
 const MAX_MATERIALIZED_NOTE_CONTENT_LENGTH = 100_000;
 const DEFAULT_MATERIALIZED_NOTE_TITLE = 'Untitled Note';
+const MATERIALIZED_TEXT_CONTROL_CHARS = new RegExp(
+  '[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]',
+  'g'
+);
 
 function removeAsciiControlCharacters(value: string): string {
-  let scrubbed = '';
-  for (const char of value) {
-    const codePoint = char.codePointAt(0);
-    if (codePoint === undefined) {
-      continue;
-    }
-    const isAsciiControl =
-      (codePoint >= 0x00 && codePoint <= 0x08) ||
-      codePoint === 0x0b ||
-      codePoint === 0x0c ||
-      (codePoint >= 0x0e && codePoint <= 0x1f) ||
-      codePoint === 0x7f;
-    if (isAsciiControl) {
-      continue;
-    }
-    scrubbed += char;
-  }
-  return scrubbed;
+  return value.replace(MATERIALIZED_TEXT_CONTROL_CHARS, '');
 }
 
 function scrubMaterializedText(
