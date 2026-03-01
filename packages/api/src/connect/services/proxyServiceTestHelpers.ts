@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, vi } from 'vitest';
 
-export type TestContext = {
+type TestContext = {
   requestHeader: Headers;
 };
 
