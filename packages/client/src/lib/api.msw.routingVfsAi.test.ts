@@ -100,7 +100,7 @@ describe('api with msw', () => {
     // Register VFS item
     await api.vfs.register({
       id: 'item-1',
-      objectType: 'file',
+      objectType: 'folder',
       encryptedSessionKey: 'encrypted-session-key'
     });
 
@@ -154,6 +154,29 @@ describe('api with msw', () => {
 
     // Search share targets
     await api.vfs.searchShareTargets('test query', 'user');
+    await api.vfs.getSharePolicyPreview({
+      rootItemId: 'item-1',
+      principalType: 'user',
+      principalId: secondUser.userId,
+      limit: 25,
+      maxDepth: 2,
+      q: 'wallet',
+      objectType: ['contact', 'walletItem']
+    });
+
+    // Negative preview path: non-container roots should be rejected
+    await api.vfs.register({
+      id: 'item-2',
+      objectType: 'file',
+      encryptedSessionKey: 'encrypted-session-key'
+    });
+    await expect(
+      api.vfs.getSharePolicyPreview({
+        rootItemId: 'item-2',
+        principalType: 'user',
+        principalId: secondUser.userId
+      })
+    ).rejects.toThrow('Root item must be a container object type');
 
     // AI usage (no FK-violating conversationId/messageId)
     await api.ai.recordUsage({
@@ -188,6 +211,7 @@ describe('api with msw', () => {
     );
     expect(wasApiRequestMade('POST', '/vfs/items/item-1/rekey')).toBe(true);
     expect(wasApiRequestMade('GET', '/vfs/share-targets/search')).toBe(true);
+    expect(wasApiRequestMade('GET', '/vfs/share-policies/preview')).toBe(true);
 
     expect(wasApiRequestMade('POST', '/ai/usage')).toBe(true);
     expect(wasApiRequestMade('GET', '/ai/usage')).toBe(true);
@@ -197,6 +221,27 @@ describe('api with msw', () => {
       q: 'test query',
       type: 'user'
     });
+    const previewRequests = getRequestsFor(
+      'GET',
+      '/vfs/share-policies/preview'
+    );
+    expect(previewRequests).toHaveLength(2);
+    expect(previewRequests.map(getRequestQuery)).toEqual([
+      {
+        rootItemId: 'item-1',
+        principalType: 'user',
+        principalId: secondUser.userId,
+        limit: '25',
+        maxDepth: '2',
+        q: 'wallet',
+        objectType: 'contact,walletItem'
+      },
+      {
+        rootItemId: 'item-2',
+        principalType: 'user',
+        principalId: secondUser.userId
+      }
+    ]);
     expectSingleRequestQuery('GET', '/ai/usage', {
       startDate: '2024-01-01',
       endDate: '2024-01-31',

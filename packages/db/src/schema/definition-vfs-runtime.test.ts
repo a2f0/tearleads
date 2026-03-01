@@ -39,12 +39,16 @@ import {
   usersTable,
   vehiclesTable,
   vfsAclEntriesTable,
+  vfsAclEntryProvenanceTable,
   vfsBlobObjectsTable,
   vfsBlobRefsTable,
   vfsBlobStagingTable,
   vfsCrdtOpsTable,
   vfsLinksTable,
   vfsRegistryTable,
+  vfsSharePoliciesTable,
+  vfsSharePolicyPrincipalsTable,
+  vfsSharePolicySelectorsTable,
   vfsSyncChangesTable,
   vfsSyncClientStateTable
 } from './definition.js';
@@ -167,6 +171,46 @@ describe('vfsSyncClientStateTable', () => {
   });
 });
 
+describe('vfsSharePoliciesTable', () => {
+  it('stores policy headers and lifecycle state', () => {
+    expect(vfsSharePoliciesTable.columns['rootItemId']).toBeDefined();
+    expect(vfsSharePoliciesTable.columns['status']).toBeDefined();
+    expect(vfsSharePoliciesTable.columns['schemaVersion']).toBeDefined();
+    expect(vfsSharePoliciesTable.columns['revokedAt']).toBeDefined();
+  });
+});
+
+describe('vfsSharePolicySelectorsTable', () => {
+  it('stores include/exclude selector metadata', () => {
+    expect(vfsSharePolicySelectorsTable.columns['policyId']).toBeDefined();
+    expect(vfsSharePolicySelectorsTable.columns['selectorKind']).toBeDefined();
+    expect(vfsSharePolicySelectorsTable.columns['matchMode']).toBeDefined();
+    expect(vfsSharePolicySelectorsTable.columns['maxDepth']).toBeDefined();
+    expect(vfsSharePolicySelectorsTable.columns['objectTypes']).toBeDefined();
+  });
+});
+
+describe('vfsSharePolicyPrincipalsTable', () => {
+  it('maps policies to principal targets', () => {
+    expect(vfsSharePolicyPrincipalsTable.columns['policyId']).toBeDefined();
+    expect(
+      vfsSharePolicyPrincipalsTable.columns['principalType']
+    ).toBeDefined();
+    expect(vfsSharePolicyPrincipalsTable.columns['principalId']).toBeDefined();
+    expect(vfsSharePolicyPrincipalsTable.columns['accessLevel']).toBeDefined();
+  });
+});
+
+describe('vfsAclEntryProvenanceTable', () => {
+  it('tracks direct-vs-derived acl entry provenance', () => {
+    expect(vfsAclEntryProvenanceTable.columns['aclEntryId']).toBeDefined();
+    expect(vfsAclEntryProvenanceTable.columns['provenanceType']).toBeDefined();
+    expect(vfsAclEntryProvenanceTable.columns['policyId']).toBeDefined();
+    expect(vfsAclEntryProvenanceTable.columns['selectorId']).toBeDefined();
+    expect(vfsAclEntryProvenanceTable.columns['compiledAt']).toBeDefined();
+  });
+});
+
 describe('vfsBlobObjectsTable', () => {
   it('tracks immutable blob metadata', () => {
     expect(vfsBlobObjectsTable.columns['id']).toBeDefined();
@@ -218,7 +262,7 @@ describe('vfsRegistryTable', () => {
 
 describe('allTables', () => {
   it('contains all canonical tables', () => {
-    expect(allTables).toHaveLength(49);
+    expect(allTables).toHaveLength(53);
   });
 
   it('contains all table definitions', () => {
@@ -254,8 +298,12 @@ describe('allTables', () => {
     expect(allTables).toContain(tagsTable);
     expect(allTables).toContain(emailsTable);
     expect(allTables).toContain(vfsAclEntriesTable);
+    expect(allTables).toContain(vfsAclEntryProvenanceTable);
     expect(allTables).toContain(vfsSyncChangesTable);
     expect(allTables).toContain(vfsSyncClientStateTable);
+    expect(allTables).toContain(vfsSharePoliciesTable);
+    expect(allTables).toContain(vfsSharePolicySelectorsTable);
+    expect(allTables).toContain(vfsSharePolicyPrincipalsTable);
     expect(allTables).not.toContain(vfsBlobObjectsTable);
     expect(allTables).not.toContain(vfsBlobStagingTable);
     expect(allTables).not.toContain(vfsBlobRefsTable);

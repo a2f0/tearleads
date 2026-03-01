@@ -79,6 +79,11 @@ objects through one identity layer.
 
 ## Sharing and Traversal Model
 
+For policy-compiled ACL precedence and deny-wins merge semantics, see
+`docs/en/vfs-share-policy-precedence.md`.
+For rollout correctness/perf gates, see
+`docs/en/vfs-share-policy-rollout-gates.md`.
+
 ### Opening a root
 
 1. Read grants in `vfs_acl_entries`

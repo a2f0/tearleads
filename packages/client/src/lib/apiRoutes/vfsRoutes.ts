@@ -11,6 +11,8 @@ import type {
   VfsRekeyRequest,
   VfsRekeyResponse,
   VfsShare,
+  VfsSharePolicyPreviewRequest,
+  VfsSharePolicyPreviewResponse,
   VfsSharesResponse,
   VfsShareType,
   VfsSyncResponse,
@@ -142,6 +144,37 @@ export const vfsRoutes = {
     return request<ShareTargetSearchResponse>(
       `/vfs/share-targets/search?${params.toString()}`,
       { eventName: 'api_get_vfs_share_targets' }
+    );
+  },
+  getSharePolicyPreview: (requestParams: VfsSharePolicyPreviewRequest) => {
+    const params = new URLSearchParams({
+      rootItemId: requestParams.rootItemId,
+      principalType: requestParams.principalType,
+      principalId: requestParams.principalId
+    });
+    if (requestParams.limit !== undefined) {
+      params.set('limit', String(requestParams.limit));
+    }
+    if (requestParams.cursor) {
+      params.set('cursor', requestParams.cursor);
+    }
+    if (
+      requestParams.maxDepth !== undefined &&
+      requestParams.maxDepth !== null
+    ) {
+      params.set('maxDepth', String(requestParams.maxDepth));
+    }
+    if (requestParams.q) {
+      params.set('q', requestParams.q);
+    }
+    if (requestParams.objectType && requestParams.objectType.length > 0) {
+      params.set('objectType', requestParams.objectType.join(','));
+    }
+    return request<VfsSharePolicyPreviewResponse>(
+      `/vfs/share-policies/preview?${params.toString()}`,
+      {
+        eventName: 'api_get_vfs_share_policy_preview'
+      }
     );
   },
   getBlob: async (blobId: string): Promise<VfsBlobResponse> => {

@@ -1,4 +1,5 @@
 import { vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
+import { VFS_CONTAINER_OBJECT_TYPES } from '@tearleads/shared';
 import { inArray, sql } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
@@ -21,7 +22,7 @@ export interface UseVfsFoldersResult {
   refetch: () => Promise<void>;
 }
 
-const TREE_CONTAINER_TYPES = ['folder', 'playlist', 'emailFolder'] as const;
+const TREE_CONTAINER_TYPES = VFS_CONTAINER_OBJECT_TYPES;
 
 export function useVfsFolders(): UseVfsFoldersResult {
   const { databaseState, getDatabase } = useVfsExplorerContext();
@@ -45,6 +46,7 @@ export function useVfsFolders(): UseVfsFoldersResult {
         CASE ${vfsRegistry.objectType}
           WHEN 'playlist' THEN 'Unnamed Playlist'
           WHEN 'emailFolder' THEN 'Unnamed Folder'
+          WHEN 'contact' THEN 'Unnamed Contact'
           ELSE 'Unnamed Folder'
         END
       )`;
@@ -120,11 +122,13 @@ export function useVfsFolders(): UseVfsFoldersResult {
           if (parent) {
             parent.children?.push(node);
           }
-        } else {
-          // Only folder containers are eligible as top-level tree roots.
-          if (node.objectType === 'folder') {
-            rootFolders.push(node);
-          }
+        } else if (
+          TREE_CONTAINER_TYPES.includes(
+            node.objectType as (typeof TREE_CONTAINER_TYPES)[number]
+          )
+        ) {
+          // Any supported container type may be a tree root when unlinked.
+          rootFolders.push(node);
         }
       }
 

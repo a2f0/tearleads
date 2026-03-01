@@ -161,7 +161,8 @@ export function ClientVfsExplorerProvider({
         }
         return result;
       },
-      searchTargets: api.vfs.searchShareTargets
+      searchTargets: api.vfs.searchShareTargets,
+      getSharePolicyPreview: api.vfs.getSharePolicyPreview
     }),
     [keyManager]
   );

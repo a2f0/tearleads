@@ -31,6 +31,16 @@ export type VfsObjectType =
   | 'contactGroup'
   | 'tag';
 
+export const VFS_CONTAINER_OBJECT_TYPES = [
+  'folder',
+  'emailFolder',
+  'playlist',
+  'contact'
+] as const;
+
+export type VfsContainerObjectType =
+  (typeof VFS_CONTAINER_OBJECT_TYPES)[number];
+
 export interface VfsRegisterRequest {
   id: string;
   objectType: VfsObjectType;
@@ -259,6 +269,50 @@ export interface ShareTargetSearchResult {
 
 export interface ShareTargetSearchResponse {
   results: ShareTargetSearchResult[];
+}
+
+export type VfsSharePolicyPreviewState =
+  | 'included'
+  | 'excluded'
+  | 'denied'
+  | 'direct'
+  | 'derived';
+
+export interface VfsSharePolicyPreviewNode {
+  itemId: string;
+  objectType: VfsObjectType;
+  depth: number;
+  path: string;
+  state: VfsSharePolicyPreviewState;
+  effectiveAccessLevel: VfsAclAccessLevel | null;
+  sourcePolicyIds: string[];
+}
+
+export interface VfsSharePolicyPreviewSummary {
+  totalMatchingNodes: number;
+  returnedNodes: number;
+  directCount: number;
+  derivedCount: number;
+  deniedCount: number;
+  includedCount: number;
+  excludedCount: number;
+}
+
+export interface VfsSharePolicyPreviewRequest {
+  rootItemId: string;
+  principalType: VfsShareType;
+  principalId: string;
+  limit?: number;
+  cursor?: string | null;
+  maxDepth?: number | null;
+  q?: string | null;
+  objectType?: string[] | null;
+}
+
+export interface VfsSharePolicyPreviewResponse {
+  nodes: VfsSharePolicyPreviewNode[];
+  summary: VfsSharePolicyPreviewSummary;
+  nextCursor: string | null;
 }
 
 /**

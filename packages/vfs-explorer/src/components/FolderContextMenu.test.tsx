@@ -125,4 +125,28 @@ describe('FolderContextMenu', () => {
     expect(screen.getByText('Copy')).toBeInTheDocument();
     expect(screen.getByText('Paste')).toBeInTheDocument();
   });
+
+  it('shows sharing for contact containers without folder-management actions', () => {
+    render(
+      <FolderContextMenu
+        {...defaultProps}
+        folder={{
+          id: 'contact-1',
+          objectType: 'contact' as const,
+          name: 'Alice',
+          parentId: null,
+          childCount: 0,
+          children: []
+        }}
+      />
+    );
+
+    expect(screen.queryByText('New Subfolder')).not.toBeInTheDocument();
+    expect(screen.queryByText('Rename')).not.toBeInTheDocument();
+    expect(screen.getByText('Sharing')).toBeInTheDocument();
+    expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+    expect(screen.getByText('Cut')).toBeInTheDocument();
+    expect(screen.getByText('Copy')).toBeInTheDocument();
+    expect(screen.getByText('Paste')).toBeInTheDocument();
+  });
 });

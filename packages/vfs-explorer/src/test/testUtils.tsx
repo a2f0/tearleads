@@ -1,3 +1,4 @@
+import type { VfsSharePolicyPreviewResponse } from '@tearleads/shared';
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
 import {
@@ -68,6 +69,65 @@ const createMockVfsApi = () => ({
   register: vi.fn(async () => {})
 });
 
+const createMockVfsShareApi = () => ({
+  getShares: vi.fn(async () => ({ shares: [], orgShares: [] })),
+  createShare: vi.fn(async () => ({
+    id: 'share-1',
+    itemId: 'item-1',
+    shareType: 'user' as const,
+    targetId: 'target-1',
+    targetName: 'Target',
+    permissionLevel: 'view' as const,
+    createdBy: 'user-1',
+    createdByEmail: 'user-1@example.com',
+    createdAt: new Date().toISOString(),
+    expiresAt: null
+  })),
+  updateShare: vi.fn(async () => ({
+    id: 'share-1',
+    itemId: 'item-1',
+    shareType: 'user' as const,
+    targetId: 'target-1',
+    targetName: 'Target',
+    permissionLevel: 'view' as const,
+    createdBy: 'user-1',
+    createdByEmail: 'user-1@example.com',
+    createdAt: new Date().toISOString(),
+    expiresAt: null
+  })),
+  deleteShare: vi.fn(async () => ({ deleted: true })),
+  createOrgShare: vi.fn(async () => ({
+    id: 'org-share:org-a:org-share-1',
+    sourceOrgId: 'org-a',
+    sourceOrgName: 'Org A',
+    targetOrgId: 'org-b',
+    targetOrgName: 'Org B',
+    itemId: 'item-1',
+    permissionLevel: 'view' as const,
+    createdBy: 'user-1',
+    createdByEmail: 'user-1@example.com',
+    createdAt: new Date().toISOString(),
+    expiresAt: null
+  })),
+  deleteOrgShare: vi.fn(async () => ({ deleted: true })),
+  searchTargets: vi.fn(async () => ({ results: [] })),
+  getSharePolicyPreview: vi.fn(
+    async (): Promise<VfsSharePolicyPreviewResponse> => ({
+      nodes: [],
+      summary: {
+        totalMatchingNodes: 0,
+        returnedNodes: 0,
+        directCount: 0,
+        derivedCount: 0,
+        deniedCount: 0,
+        includedCount: 0,
+        excludedCount: 0
+      },
+      nextCursor: null
+    })
+  )
+});
+
 export const createMockUI = () => ({
   Button: ({ children, ...props }: { children: ReactNode }) => (
     <button {...props}>{children}</button>
@@ -94,6 +154,7 @@ interface MockContextOptions {
   auth?: Partial<ReturnType<typeof createMockAuth>>;
   featureFlags?: Partial<ReturnType<typeof createMockFeatureFlags>>;
   vfsApi?: Partial<ReturnType<typeof createMockVfsApi>>;
+  vfsShareApi?: Partial<ReturnType<typeof createMockVfsShareApi>>;
 }
 
 function createMockContextValue(options: MockContextOptions = {}) {
@@ -124,6 +185,10 @@ function createMockContextValue(options: MockContextOptions = {}) {
     vfsApi: {
       ...createMockVfsApi(),
       ...options.vfsApi
+    },
+    vfsShareApi: {
+      ...createMockVfsShareApi(),
+      ...options.vfsShareApi
     }
   };
 }
@@ -141,6 +206,7 @@ export function createWrapper(options: MockContextOptions = {}) {
         auth={contextValue.auth}
         featureFlags={contextValue.featureFlags}
         vfsApi={contextValue.vfsApi}
+        vfsShareApi={contextValue.vfsShareApi}
       >
         {children}
       </VfsExplorerProvider>

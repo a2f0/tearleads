@@ -16,6 +16,7 @@
  *   list-users        List all user accounts
  *   sync-last-active  Sync lastActiveAt from Redis sessions to PostgreSQL
  *   vfs-crdt-compaction  Plan or execute VFS CRDT log compaction
+ *   vfs-share-policy-repair  Repair policy-derived VFS ACL drift
  *
  * Environment variables:
  *   NODE_ENV - Set to 'production' for production mode
@@ -33,6 +34,7 @@ import { makeAdminCommand } from './cli/makeAdmin.js';
 import { migrateCommand } from './cli/migrate.js';
 import { syncLastActiveCommand } from './cli/syncLastActive.js';
 import { vfsCrdtCompactionCommand } from './cli/vfsCrdtCompaction.js';
+import { vfsSharePolicyRepairCommand } from './cli/vfsSharePolicyRepair.js';
 
 const version = '0.0.1';
 
@@ -50,5 +52,6 @@ listAdminsCommand(program);
 listUsersCommand(program);
 syncLastActiveCommand(program);
 vfsCrdtCompactionCommand(program);
+vfsSharePolicyRepairCommand(program);
 
 program.parse();

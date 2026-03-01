@@ -10,12 +10,8 @@ import {
   playlists,
   tags,
   userKeys,
-  vfsAclEntries,
-  vfsItemState,
   vfsLinks,
   vfsRegistry,
-  vfsSyncChanges,
-  vfsSyncClientState,
   walletItemMedia,
   walletItems
 } from './schema-content.js';
@@ -54,10 +50,21 @@ import {
   mlsWelcomeMessages,
   vfsCrdtOps
 } from './schema-runtime.js';
+import {
+  vfsAclEntries,
+  vfsAclEntryProvenance,
+  vfsItemState,
+  vfsSharePolicies,
+  vfsSharePolicyPrincipals,
+  vfsSharePolicySelectors,
+  vfsSyncChanges,
+  vfsSyncClientState
+} from './schemaPolicy.js';
 
 export * from './schema-content.js';
 export * from './schema-foundation.js';
 export * from './schema-runtime.js';
+export * from './schemaPolicy.js';
 
 /**
  * Schema object containing all table definitions.
@@ -89,7 +96,6 @@ export const schema = {
   userKeys,
   vfsRegistry,
   vfsLinks,
-  vfsItemState,
   playlists,
   albums,
   contactGroups,
@@ -101,7 +107,12 @@ export const schema = {
   emails,
   composedEmails,
   emailAttachments,
+  vfsSharePolicies,
+  vfsSharePolicySelectors,
+  vfsSharePolicyPrincipals,
+  vfsItemState,
   vfsAclEntries,
+  vfsAclEntryProvenance,
   vfsSyncChanges,
   vfsSyncClientState,
   vfsCrdtOps,

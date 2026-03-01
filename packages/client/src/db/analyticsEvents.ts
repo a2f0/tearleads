@@ -1,8 +1,8 @@
 /**
  * Strongly typed analytics event definitions.
  *
- * This file defines all known analytics event slugs, their display names,
- * and typed detail payloads for each event type.
+ * This file defines all known analytics event slugs and typed detail payloads
+ * for each event type.
  */
 
 // All known event slugs (snake_case, stored in DB)
@@ -69,6 +69,7 @@ export type AnalyticsEventSlug =
   | 'api_delete_vfs_org_share'
   | 'api_post_vfs_rekey'
   | 'api_get_vfs_share_targets'
+  | 'api_get_vfs_share_policy_preview'
   // LLM operations
   | 'llm_model_load'
   | 'llm_prompt_text'
@@ -233,52 +234,25 @@ export interface ApiDeleteAuthSessionDetail {
 }
 
 // VFS events
-export interface ApiGetVfsKeysDetail {
-  hasKeys?: boolean;
-}
-export interface ApiGetVfsSyncDetail {
-  pageSize?: number;
-}
-export interface ApiGetVfsCrdtSyncDetail {
-  pageSize?: number;
-}
-export interface ApiPostVfsKeysDetail {
-  created?: boolean;
-}
-export interface ApiPostVfsRegisterDetail {
-  objectType?: string;
-}
-export interface ApiGetVfsSharesDetail {
-  shareCount?: number;
-}
-export interface ApiGetVfsBlobDetail {
-  blobId?: string;
-}
-export interface ApiPostVfsShareDetail {
-  shareType?: string;
-}
-export interface ApiPatchVfsShareDetail {
-  shareId?: string;
-}
-export interface ApiDeleteVfsShareDetail {
-  deleted?: boolean;
-}
-export interface ApiDeleteVfsBlobDetail {
-  deleted?: boolean;
-}
+export type ApiGetVfsKeysDetail = { hasKeys?: boolean };
+export type ApiGetVfsSyncDetail = { pageSize?: number };
+export type ApiGetVfsCrdtSyncDetail = { pageSize?: number };
+export type ApiPostVfsKeysDetail = { created?: boolean };
+export type ApiPostVfsRegisterDetail = { objectType?: string };
+export type ApiGetVfsSharesDetail = { shareCount?: number };
+export type ApiGetVfsBlobDetail = { blobId?: string };
+export type ApiPostVfsShareDetail = { shareType?: string };
+export type ApiPatchVfsShareDetail = { shareId?: string };
+export type ApiDeleteVfsShareDetail = { deleted?: boolean };
+export type ApiDeleteVfsBlobDetail = { deleted?: boolean };
 export interface ApiPostVfsOrgShareDetail {
   sourceOrgId?: string;
   targetOrgId?: string;
 }
-export interface ApiDeleteVfsOrgShareDetail {
-  deleted?: boolean;
-}
-export interface ApiPostVfsRekeyDetail {
-  wrapsApplied?: number;
-}
-export interface ApiGetVfsShareTargetsDetail {
-  resultCount?: number;
-}
+export type ApiDeleteVfsOrgShareDetail = { deleted?: boolean };
+export type ApiPostVfsRekeyDetail = { wrapsApplied?: number };
+export type ApiGetVfsShareTargetsDetail = { resultCount?: number };
+export type ApiGetVfsSharePolicyPreviewDetail = { nodeCount?: number };
 
 // LLM events
 export interface LlmModelLoadDetail {
@@ -387,6 +361,7 @@ export interface EventDetailMap {
   api_delete_vfs_org_share: ApiDeleteVfsOrgShareDetail;
   api_post_vfs_rekey: ApiPostVfsRekeyDetail;
   api_get_vfs_share_targets: ApiGetVfsShareTargetsDetail;
+  api_get_vfs_share_policy_preview: ApiGetVfsSharePolicyPreviewDetail;
   llm_model_load: LlmModelLoadDetail;
   llm_prompt_text: LlmPromptTextDetail;
   llm_prompt_multimodal: LlmPromptMultimodalDetail;
