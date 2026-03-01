@@ -1,14 +1,34 @@
-const MATERIALIZED_TEXT_CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
 const MAX_MATERIALIZED_NOTE_TITLE_LENGTH = 256;
 const MAX_MATERIALIZED_NOTE_CONTENT_LENGTH = 100_000;
 const DEFAULT_MATERIALIZED_NOTE_TITLE = 'Untitled Note';
+
+function removeAsciiControlCharacters(value: string): string {
+  let scrubbed = '';
+  for (const char of value) {
+    const codePoint = char.codePointAt(0);
+    if (codePoint === undefined) {
+      continue;
+    }
+    const isAsciiControl =
+      (codePoint >= 0x00 && codePoint <= 0x08) ||
+      codePoint === 0x0b ||
+      codePoint === 0x0c ||
+      (codePoint >= 0x0e && codePoint <= 0x1f) ||
+      codePoint === 0x7f;
+    if (isAsciiControl) {
+      continue;
+    }
+    scrubbed += char;
+  }
+  return scrubbed;
+}
 
 function scrubMaterializedText(
   value: string,
   maxLength: number,
   trim: boolean
 ): string {
-  const withoutControlChars = value.replace(MATERIALIZED_TEXT_CONTROL_CHARS, '');
+  const withoutControlChars = removeAsciiControlCharacters(value);
   const normalized = trim ? withoutControlChars.trim() : withoutControlChars;
   return normalized.length > maxLength
     ? normalized.slice(0, maxLength)

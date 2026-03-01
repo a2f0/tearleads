@@ -187,7 +187,10 @@ async function generateAndStoreKeys(): Promise<VfsKeyPair> {
 
   // Encrypt private keys with PBKDF2-derived key from recovery password.
   const { encryptedPrivateKeys: encryptedBlob, argon2Salt } =
-    await encryptVfsPrivateKeysWithPasswordMaterial(serialized, recoveryMaterial);
+    await encryptVfsPrivateKeysWithPasswordMaterial(
+      serialized,
+      recoveryMaterial
+    );
 
   // Combine public keys for server storage
   const publicEncryptionKey = buildVfsPublicEncryptionKey(keyPair);
