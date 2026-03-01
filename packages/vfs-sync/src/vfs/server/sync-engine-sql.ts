@@ -1,4 +1,4 @@
-export const VFS_CRDT_SYNC_SQL = `
+export const VFS_SYNC_SQL = `
       WITH principals AS (
         SELECT 'user'::text AS principal_type, $1::text AS principal_id
         UNION ALL
@@ -45,45 +45,51 @@ export const VFS_CRDT_SYNC_SQL = `
           SELECT item_id, access_rank FROM acl_items
         ) candidate
         GROUP BY candidate.item_id
+      ),
+      visible_changes AS (
+        SELECT
+          change_row.id AS change_id,
+          change_row.item_id,
+          change_row.change_type,
+          change_row.changed_at
+        FROM vfs_sync_changes change_row
+        INNER JOIN eligible_items access ON access.item_id = change_row.item_id
+        WHERE (
+          $2::timestamptz IS NULL
+          OR change_row.changed_at > $2::timestamptz
+          OR (
+            change_row.changed_at = $2::timestamptz
+            AND change_row.id > COALESCE($3::text, '')
+          )
+        )
+          AND (
+            $5::text IS NULL
+            OR change_row.item_id = $5::text
+            OR EXISTS (
+              SELECT 1
+              FROM vfs_links link
+              WHERE link.parent_id = $5::text
+                AND link.child_id = change_row.item_id
+            )
+          )
+        ORDER BY change_row.changed_at ASC, change_row.id ASC
+        LIMIT $4::integer
       )
       SELECT
-        ops.id AS op_id,
-        ops.item_id,
-        ops.op_type,
-        ops.principal_type,
-        ops.principal_id,
-        ops.access_level,
-        ops.parent_id,
-        ops.child_id,
-        ops.actor_id,
-        ops.source_table,
-        ops.source_id,
-        ops.occurred_at,
-        ops.encrypted_payload,
-        ops.key_epoch,
-        ops.encryption_nonce,
-        ops.encryption_aad,
-        ops.encryption_signature
-      FROM vfs_crdt_ops ops
-      INNER JOIN eligible_items access ON access.item_id = ops.item_id
-      WHERE (
-          $2::timestamptz IS NULL
-          OR ops.occurred_at > $2::timestamptz
-          OR (
-            ops.occurred_at = $2::timestamptz
-            AND ops.id > COALESCE($3::text, '')
-          )
-        )
-        AND (
-          $5::text IS NULL
-          OR ops.item_id = $5::text
-          OR EXISTS (
-            SELECT 1
-            FROM vfs_links link
-            WHERE link.parent_id = $5::text
-              AND link.child_id = ops.item_id
-          )
-        )
-      ORDER BY ops.occurred_at ASC, ops.id ASC
-      LIMIT $4::integer
+        visible_changes.change_id,
+        visible_changes.item_id,
+        visible_changes.change_type,
+        visible_changes.changed_at,
+        registry.object_type,
+        registry.owner_id,
+        registry.created_at,
+        CASE access.access_rank
+          WHEN 3 THEN 'admin'
+          WHEN 2 THEN 'write'
+          ELSE 'read'
+        END AS access_level
+      FROM visible_changes
+      INNER JOIN eligible_items access ON access.item_id = visible_changes.item_id
+      LEFT JOIN vfs_registry registry ON registry.id = visible_changes.item_id
+      ORDER BY visible_changes.changed_at ASC, visible_changes.change_id ASC
       `;

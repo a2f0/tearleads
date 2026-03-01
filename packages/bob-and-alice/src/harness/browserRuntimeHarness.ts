@@ -34,6 +34,13 @@ export interface LocalSharedWithMeRow {
   sharedByEmail: string;
 }
 
+export interface LocalSharedByMeRow {
+  id: string;
+  shareId: string;
+  targetId: string;
+  permissionLevel: 'view' | 'edit';
+}
+
 const vfsExplorerLocalMigrations: Migration[] = [
   ...vfsTestMigrations,
   {
@@ -135,6 +142,16 @@ async function fetchAllCrdtItems(
   }
 
   return all;
+}
+
+export async function pullRemoteFeedsWithoutLocalHydration(input: {
+  actor: RuntimeApiActor;
+}): Promise<{ syncItems: number; crdtItems: number }> {
+  const [syncItems, crdtItems] = await Promise.all([
+    fetchAllSyncItems(input.actor),
+    fetchAllCrdtItems(input.actor)
+  ]);
+  return { syncItems: syncItems.length, crdtItems: crdtItems.length };
 }
 
 export async function createBrowserRuntimeActor(
@@ -281,5 +298,36 @@ export async function queryLocalSharedWithMe(
     shareId: String(row['share_id']),
     sharedById: String(row['shared_by_id']),
     sharedByEmail: String(row['shared_by_email'])
+  }));
+}
+
+export async function queryLocalSharedByMe(
+  localDb: TestDatabaseContext,
+  currentUserId: string
+): Promise<LocalSharedByMeRow[]> {
+  const result = await localDb.adapter.execute(
+    `SELECT
+       r.id AS id,
+       substr(a.id, 7) AS share_id,
+       a.principal_id AS target_id,
+       CASE
+         WHEN a.access_level = 'read' THEN 'view'
+         ELSE 'edit'
+       END AS permission_level
+     FROM vfs_acl_entries a
+     INNER JOIN vfs_registry r ON r.id = a.item_id
+     WHERE a.granted_by = ?
+       AND a.revoked_at IS NULL
+       AND a.id LIKE 'share:%'
+     ORDER BY COALESCE(r.encrypted_name, '') COLLATE NOCASE, r.id`,
+    [currentUserId]
+  );
+
+  return result.rows.map((row) => ({
+    id: String(row['id']),
+    shareId: String(row['share_id']),
+    targetId: String(row['target_id']),
+    permissionLevel:
+      String(row['permission_level']) === 'view' ? 'view' : 'edit'
   }));
 }
