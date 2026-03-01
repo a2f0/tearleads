@@ -198,3 +198,13 @@ export function setOptionalPositiveIntQueryParam(
     params.set(key, String(Math.floor(value)));
   }
 }
+
+export function setOptionalNonNegativeIntQueryParam(
+  params: URLSearchParams,
+  key: string,
+  value: number
+): void {
+  if (Number.isFinite(value) && value >= 0) {
+    params.set(key, String(Math.floor(value)));
+  }
+}

@@ -1,6 +1,7 @@
 import {
   callLegacyJsonRoute,
   encoded,
+  setOptionalNonNegativeIntQueryParam,
   setOptionalPositiveIntQueryParam,
   setOptionalStringQueryParam,
   toJsonBody
@@ -69,9 +70,7 @@ export const adminConnectService = {
   ) => {
     const query = new URLSearchParams();
     setOptionalPositiveIntQueryParam(query, 'limit', request.limit);
-    if (Number.isFinite(request.offset) && request.offset >= 0) {
-      query.set('offset', String(Math.floor(request.offset)));
-    }
+    setOptionalNonNegativeIntQueryParam(query, 'offset', request.offset);
     setOptionalStringQueryParam(query, 'sortColumn', request.sortColumn);
     setOptionalStringQueryParam(query, 'sortDirection', request.sortDirection);
 

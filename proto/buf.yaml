@@ -4,6 +4,9 @@ modules:
 lint:
   use:
     - STANDARD
+  # These services currently proxy to legacy JSON routes through shared JsonRequest/JsonResponse
+  # envelopes while Connect unary wiring lands. We will replace these ignores once RPC-specific
+  # request/response schemas are introduced.
   ignore_only:
     RPC_REQUEST_RESPONSE_UNIQUE:
       - tearleads/v1/admin.proto

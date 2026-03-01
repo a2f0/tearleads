@@ -320,6 +320,10 @@ describe('vfs proxy services', () => {
     expectLastFetch('http://127.0.0.1:55661/v1/vfs/emails', 'GET');
 
     mockJsonResponse();
+    await vfsConnectService.getEmails({ offset: 0, limit: 0 }, context);
+    expectLastFetch('http://127.0.0.1:55661/v1/vfs/emails?offset=0', 'GET');
+
+    mockJsonResponse();
     await vfsSharesConnectService.getSharePolicyPreview(
       {
         rootItemId: '',

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   callLegacyBinaryRoute,
   callLegacyJsonRoute,
+  setOptionalNonNegativeIntQueryParam,
   setOptionalPositiveIntQueryParam,
   setOptionalStringQueryParam,
   toJsonBody
@@ -307,6 +308,8 @@ describe('legacyRouteProxy', () => {
     setOptionalPositiveIntQueryParam(params, 'limit', 20);
     setOptionalPositiveIntQueryParam(params, 'batch', Number.NaN);
     setOptionalPositiveIntQueryParam(params, 'offset', 0);
+    setOptionalNonNegativeIntQueryParam(params, 'offset0', 0);
+    setOptionalNonNegativeIntQueryParam(params, 'offsetNeg', -1);
 
     expect(params.get('cursor')).toBe('cursor-1');
     expect(params.get('clientId')).toBeNull();
@@ -314,6 +317,8 @@ describe('legacyRouteProxy', () => {
     expect(params.get('limit')).toBe('20');
     expect(params.get('batch')).toBeNull();
     expect(params.get('offset')).toBeNull();
+    expect(params.get('offset0')).toBe('0');
+    expect(params.get('offsetNeg')).toBeNull();
 
     expect(toJsonBody('')).toBe('{}');
     expect(toJsonBody('   ')).toBe('{}');

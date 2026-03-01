@@ -2,6 +2,7 @@ import {
   callLegacyBinaryRoute,
   callLegacyJsonRoute,
   encoded,
+  setOptionalNonNegativeIntQueryParam,
   setOptionalPositiveIntQueryParam,
   setOptionalStringQueryParam,
   toJsonBody
@@ -25,9 +26,7 @@ function queryFromGetSyncRequest(request: GetSyncRequest): URLSearchParams {
 
 function queryFromGetEmailsRequest(request: GetEmailsRequest): URLSearchParams {
   const params = new URLSearchParams();
-  if (Number.isFinite(request.offset) && request.offset >= 0) {
-    params.set('offset', String(Math.floor(request.offset)));
-  }
+  setOptionalNonNegativeIntQueryParam(params, 'offset', request.offset);
   setOptionalPositiveIntQueryParam(params, 'limit', request.limit);
   return params;
 }

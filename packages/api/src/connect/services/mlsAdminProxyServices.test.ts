@@ -388,6 +388,23 @@ describe('mls and admin proxy services', () => {
     );
 
     mockJsonResponse();
+    await adminConnectService.getRows(
+      {
+        schema: 'public',
+        table: 'users',
+        limit: 0,
+        offset: 0,
+        sortColumn: '',
+        sortDirection: ''
+      },
+      context
+    );
+    expectLastFetch(
+      'http://127.0.0.1:55661/v1/admin/postgres/tables/public/users/rows?offset=0',
+      'GET'
+    );
+
+    mockJsonResponse();
     await adminConnectService.getRedisKeys({ cursor: '', limit: 0 }, context);
     expectLastFetch('http://127.0.0.1:55661/v1/admin/redis/keys', 'GET');
 
