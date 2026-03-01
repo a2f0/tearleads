@@ -24,6 +24,15 @@ interface AclRow {
   occurredAtMs: number;
 }
 
+interface PaginatedFeedPage<TItem> {
+  items: TItem[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+const FEED_PAGE_SIZE = 500;
+const MAX_FEED_PAGES = 100;
+
 function parseTimestampMs(value: string | null | undefined): number {
   if (!value) {
     return Date.now();
@@ -35,32 +44,51 @@ function parseTimestampMs(value: string | null | undefined): number {
   return parsed;
 }
 
-async function fetchAllSyncItems(): Promise<VfsSyncItem[]> {
-  const all: VfsSyncItem[] = [];
+async function fetchAllPages<TItem>(
+  fetchPage: (
+    cursor: string | undefined,
+    limit: number
+  ) => Promise<PaginatedFeedPage<TItem>>,
+  feedName: 'sync' | 'crdt'
+): Promise<TItem[]> {
+  const all: TItem[] = [];
   let cursor: string | undefined;
+  let pagesFetched = 0;
+  const seenCursors = new Set<string>();
+
   while (true) {
-    const page = await api.vfs.getSync(cursor, 500);
+    pagesFetched += 1;
+    if (pagesFetched > MAX_FEED_PAGES) {
+      throw new Error(
+        `vfs ${feedName} feed exceeded ${MAX_FEED_PAGES} pages during hydration`
+      );
+    }
+
+    const page = await fetchPage(cursor, FEED_PAGE_SIZE);
     all.push(...page.items);
     if (!page.hasMore || !page.nextCursor) {
       break;
     }
+
+    if (page.nextCursor === cursor || seenCursors.has(page.nextCursor)) {
+      throw new Error(
+        `vfs ${feedName} feed returned a non-advancing cursor: ${page.nextCursor}`
+      );
+    }
+
+    seenCursors.add(page.nextCursor);
     cursor = page.nextCursor;
   }
+
   return all;
 }
 
+async function fetchAllSyncItems(): Promise<VfsSyncItem[]> {
+  return fetchAllPages<VfsSyncItem>(api.vfs.getSync, 'sync');
+}
+
 async function fetchAllCrdtItems(): Promise<VfsCrdtSyncItem[]> {
-  const all: VfsCrdtSyncItem[] = [];
-  let cursor: string | undefined;
-  while (true) {
-    const page = await api.vfs.getCrdtSync(cursor, 500);
-    all.push(...page.items);
-    if (!page.hasMore || !page.nextCursor) {
-      break;
-    }
-    cursor = page.nextCursor;
-  }
-  return all;
+  return fetchAllPages<VfsCrdtSyncItem>(api.vfs.getCrdtSync, 'crdt');
 }
 
 function buildRegistryRows(syncItems: VfsSyncItem[]): {
@@ -144,7 +172,10 @@ export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
 
   const { upserts: registryUpserts, deletes: registryDeletes } =
     buildRegistryRows(syncItems);
-  const aclRows = buildAclRows(crdtItems);
+  const registryIds = new Set(registryUpserts.map((row) => row.id));
+  const aclRows = buildAclRows(crdtItems).filter((row) =>
+    registryIds.has(row.itemId)
+  );
 
   const hasAclEntriesTable = await tableExists('vfs_acl_entries');
   const adapter = getDatabaseAdapter();

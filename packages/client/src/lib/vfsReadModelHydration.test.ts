@@ -361,4 +361,77 @@ describe('vfsReadModelHydration', () => {
       expect.objectContaining({ id: 'share:share-10' })
     ]);
   });
+
+  it('skips ACL rows whose registry item is deleted in sync feed', async () => {
+    mockGetSync.mockResolvedValueOnce({
+      items: [
+        {
+          changeId: 'sync-del-1',
+          itemId: 'item-deleted',
+          changeType: 'delete',
+          changedAt: '2026-03-01T00:04:00.000Z',
+          objectType: null,
+          ownerId: null,
+          createdAt: null,
+          accessLevel: 'read'
+        }
+      ],
+      nextCursor: null,
+      hasMore: false
+    });
+    mockGetCrdtSync.mockResolvedValueOnce({
+      items: [
+        {
+          opId: 'crdt-del-1',
+          itemId: 'item-deleted',
+          opType: 'acl_add',
+          principalType: 'user',
+          principalId: 'bob-id',
+          accessLevel: 'read',
+          parentId: null,
+          childId: null,
+          actorId: 'alice-id',
+          sourceTable: 'vfs_acl_entries',
+          sourceId: 'share:deleted-item-share',
+          occurredAt: '2026-03-01T00:04:01.000Z'
+        }
+      ],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {}
+    });
+
+    await hydrateLocalReadModelFromRemoteFeeds();
+
+    const adapter = getDatabaseAdapter();
+    const aclRows = await adapter.execute(
+      `SELECT id FROM vfs_acl_entries WHERE item_id = ?`,
+      ['item-deleted']
+    );
+    expect(aclRows.rows).toHaveLength(0);
+  });
+
+  it('throws when sync feed cursor does not advance', async () => {
+    mockGetSync
+      .mockResolvedValueOnce({
+        items: [],
+        nextCursor: 'stuck-cursor',
+        hasMore: true
+      })
+      .mockResolvedValueOnce({
+        items: [],
+        nextCursor: 'stuck-cursor',
+        hasMore: true
+      });
+    mockGetCrdtSync.mockResolvedValueOnce({
+      items: [],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {}
+    });
+
+    await expect(hydrateLocalReadModelFromRemoteFeeds()).rejects.toThrow(
+      'vfs sync feed returned a non-advancing cursor: stuck-cursor'
+    );
+  });
 });
