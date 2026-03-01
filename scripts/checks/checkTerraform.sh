@@ -92,8 +92,10 @@ run_vault_script_smoke_checks() {
   rmdir "$missing_dir"
 
   output="$(
-    cd "$scripts_dir" &&
-      ./migrate-secrets.ts --secrets-dir "$missing_dir" 2>&1 >/dev/null || true
+    cd "$scripts_dir"
+    if ! ./migrate-secrets.ts --secrets-dir "$missing_dir" 2>&1 >/dev/null; then
+      :
+    fi
   )"
 
   case "$output" in
