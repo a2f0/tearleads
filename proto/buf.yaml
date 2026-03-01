@@ -4,6 +4,31 @@ modules:
 lint:
   use:
     - STANDARD
+  ignore_only:
+    RPC_REQUEST_RESPONSE_UNIQUE:
+      - tearleads/v1/admin.proto
+      - tearleads/v1/ai.proto
+      - tearleads/v1/billing.proto
+      - tearleads/v1/chat.proto
+      - tearleads/v1/mls.proto
+      - tearleads/v1/vfs.proto
+      - tearleads/v1/vfs_shares.proto
+    RPC_REQUEST_STANDARD_NAME:
+      - tearleads/v1/admin.proto
+      - tearleads/v1/ai.proto
+      - tearleads/v1/billing.proto
+      - tearleads/v1/chat.proto
+      - tearleads/v1/mls.proto
+      - tearleads/v1/vfs.proto
+      - tearleads/v1/vfs_shares.proto
+    RPC_RESPONSE_STANDARD_NAME:
+      - tearleads/v1/admin.proto
+      - tearleads/v1/ai.proto
+      - tearleads/v1/billing.proto
+      - tearleads/v1/chat.proto
+      - tearleads/v1/mls.proto
+      - tearleads/v1/vfs.proto
+      - tearleads/v1/vfs_shares.proto
 breaking:
   use:
     - FILE

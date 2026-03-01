@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package tearleads.v1;
+
+import "tearleads/v1/common.proto";
+
+service AiService {
+  rpc RecordUsage(JsonRequest) returns (JsonResponse);
+  rpc GetUsage(GetUsageRequest) returns (JsonResponse);
+  rpc GetUsageSummary(GetUsageSummaryRequest) returns (JsonResponse);
+}
+
+message GetUsageRequest {
+  string start_date = 1;
+  string end_date = 2;
+  string cursor = 3;
+  int32 limit = 4;
+}
+
+message GetUsageSummaryRequest {
+  string start_date = 1;
+  string end_date = 2;
+}

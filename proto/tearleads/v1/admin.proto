@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+package tearleads.v1;
+
+import "google/protobuf/empty.proto";
+import "tearleads/v1/common.proto";
+
+service AdminService {
+  rpc GetContext(google.protobuf.Empty) returns (JsonResponse);
+  rpc GetPostgresInfo(google.protobuf.Empty) returns (JsonResponse);
+  rpc GetTables(google.protobuf.Empty) returns (JsonResponse);
+  rpc GetColumns(GetColumnsRequest) returns (JsonResponse);
+  rpc GetRows(GetRowsRequest) returns (JsonResponse);
+  rpc GetRedisKeys(GetRedisKeysRequest) returns (JsonResponse);
+  rpc GetRedisValue(KeyRequest) returns (JsonResponse);
+  rpc DeleteRedisKey(KeyRequest) returns (JsonResponse);
+  rpc GetRedisDbSize(google.protobuf.Empty) returns (JsonResponse);
+  rpc ListGroups(ListGroupsRequest) returns (JsonResponse);
+  rpc GetGroup(IdRequest) returns (JsonResponse);
+  rpc CreateGroup(JsonRequest) returns (JsonResponse);
+  rpc UpdateGroup(IdJsonRequest) returns (JsonResponse);
+  rpc DeleteGroup(IdRequest) returns (JsonResponse);
+  rpc GetGroupMembers(IdRequest) returns (JsonResponse);
+  rpc AddGroupMember(IdJsonRequest) returns (JsonResponse);
+  rpc RemoveGroupMember(RemoveGroupMemberRequest) returns (JsonResponse);
+  rpc ListOrganizations(ListOrganizationsRequest) returns (JsonResponse);
+  rpc GetOrganization(IdRequest) returns (JsonResponse);
+  rpc CreateOrganization(JsonRequest) returns (JsonResponse);
+  rpc UpdateOrganization(IdJsonRequest) returns (JsonResponse);
+  rpc DeleteOrganization(IdRequest) returns (JsonResponse);
+  rpc GetOrgUsers(IdRequest) returns (JsonResponse);
+  rpc GetOrgGroups(IdRequest) returns (JsonResponse);
+  rpc ListUsers(ListUsersRequest) returns (JsonResponse);
+  rpc GetUser(IdRequest) returns (JsonResponse);
+  rpc UpdateUser(IdJsonRequest) returns (JsonResponse);
+}
+
+message GetColumnsRequest {
+  string schema = 1;
+  string table = 2;
+}
+
+message GetRowsRequest {
+  string schema = 1;
+  string table = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+  string sort_column = 5;
+  string sort_direction = 6;
+}
+
+message GetRedisKeysRequest {
+  string cursor = 1;
+  int32 limit = 2;
+}
+
+message KeyRequest {
+  string key = 1;
+}
+
+message IdRequest {
+  string id = 1;
+}
+
+message IdJsonRequest {
+  string id = 1;
+  string json = 2;
+}
+
+message RemoveGroupMemberRequest {
+  string group_id = 1;
+  string user_id = 2;
+}
+
+message ListGroupsRequest {
+  string organization_id = 1;
+}
+
+message ListOrganizationsRequest {
+  string organization_id = 1;
+}
+
+message ListUsersRequest {
+  string organization_id = 1;
+}

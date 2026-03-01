@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package tearleads.v1;
+
+import "google/protobuf/empty.proto";
+import "tearleads/v1/common.proto";
+
+service VfsService {
+  rpc GetMyKeys(google.protobuf.Empty) returns (JsonResponse);
+  rpc SetupKeys(JsonRequest) returns (JsonResponse);
+  rpc Register(JsonRequest) returns (JsonResponse);
+  rpc GetBlob(BlobIdRequest) returns (BinaryResponse);
+  rpc DeleteBlob(BlobIdRequest) returns (JsonResponse);
+  rpc StageBlob(JsonRequest) returns (JsonResponse);
+  rpc UploadBlobChunk(StagingIdJsonRequest) returns (JsonResponse);
+  rpc AttachBlob(StagingIdJsonRequest) returns (JsonResponse);
+  rpc AbandonBlob(StagingIdJsonRequest) returns (JsonResponse);
+  rpc CommitBlob(StagingIdJsonRequest) returns (JsonResponse);
+  rpc RekeyItem(ItemIdJsonRequest) returns (JsonResponse);
+  rpc PushCrdtOps(JsonRequest) returns (JsonResponse);
+  rpc ReconcileCrdt(JsonRequest) returns (JsonResponse);
+  rpc ReconcileSync(JsonRequest) returns (JsonResponse);
+  rpc RunCrdtSession(JsonRequest) returns (JsonResponse);
+  rpc GetSync(GetSyncRequest) returns (JsonResponse);
+  rpc GetCrdtSync(GetSyncRequest) returns (JsonResponse);
+  rpc GetCrdtSnapshot(GetCrdtSnapshotRequest) returns (JsonResponse);
+  rpc GetEmails(GetEmailsRequest) returns (JsonResponse);
+  rpc GetEmail(EmailIdRequest) returns (JsonResponse);
+  rpc DeleteEmail(EmailIdRequest) returns (JsonResponse);
+  rpc SendEmail(JsonRequest) returns (JsonResponse);
+}
+
+message BlobIdRequest {
+  string blob_id = 1;
+}
+
+message StagingIdJsonRequest {
+  string staging_id = 1;
+  string json = 2;
+}
+
+message ItemIdJsonRequest {
+  string item_id = 1;
+  string json = 2;
+}
+
+message GetSyncRequest {
+  string cursor = 1;
+  int32 limit = 2;
+  string root_id = 3;
+}
+
+message GetCrdtSnapshotRequest {
+  string client_id = 1;
+}
+
+message GetEmailsRequest {
+  int32 offset = 1;
+  int32 limit = 2;
+}
+
+message EmailIdRequest {
+  string id = 1;
+}
