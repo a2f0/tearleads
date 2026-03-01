@@ -180,9 +180,15 @@ export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
   const hasAclEntriesTable = await tableExists('vfs_acl_entries');
   const adapter = getDatabaseAdapter();
 
-  await adapter.execute('PRAGMA foreign_keys = OFF', []);
-  await adapter.execute('BEGIN', []);
+  let foreignKeysDisabled = false;
+  let transactionStarted = false;
   try {
+    await adapter.execute('PRAGMA foreign_keys = OFF', []);
+    foreignKeysDisabled = true;
+
+    await adapter.execute('BEGIN', []);
+    transactionStarted = true;
+
     for (const row of registryUpserts) {
       await adapter.execute(
         `INSERT INTO vfs_registry (
@@ -240,10 +246,15 @@ export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
     }
 
     await adapter.execute('COMMIT', []);
+    transactionStarted = false;
   } catch (error) {
-    await adapter.execute('ROLLBACK', []);
+    if (transactionStarted) {
+      await adapter.execute('ROLLBACK', []);
+    }
     throw error;
   } finally {
-    await adapter.execute('PRAGMA foreign_keys = ON', []);
+    if (foreignKeysDisabled) {
+      await adapter.execute('PRAGMA foreign_keys = ON', []);
+    }
   }
 }

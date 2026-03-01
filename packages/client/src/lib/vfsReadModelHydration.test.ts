@@ -434,4 +434,38 @@ describe('vfsReadModelHydration', () => {
       'vfs sync feed returned a non-advancing cursor: stuck-cursor'
     );
   });
+
+  it('re-enables foreign keys when transaction begin fails', async () => {
+    mockGetSync.mockResolvedValueOnce({
+      items: [],
+      nextCursor: null,
+      hasMore: false
+    });
+    mockGetCrdtSync.mockResolvedValueOnce({
+      items: [],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {}
+    });
+
+    const adapter = getDatabaseAdapter();
+    const originalExecute = adapter.execute.bind(adapter);
+    const executeSpy = vi
+      .spyOn(adapter, 'execute')
+      .mockImplementation(async (sql: string, params: unknown[]) => {
+        if (sql === 'BEGIN') {
+          throw new Error('begin failed');
+        }
+        return originalExecute(sql, params);
+      });
+
+    await expect(hydrateLocalReadModelFromRemoteFeeds()).rejects.toThrow(
+      'begin failed'
+    );
+
+    expect(
+      executeSpy.mock.calls.some(([sql]) => sql === 'PRAGMA foreign_keys = ON')
+    ).toBe(true);
+    executeSpy.mockRestore();
+  });
 });
