@@ -10,10 +10,6 @@
     nginx_ingress_version: "v1.10.0"
     nginx_ingress_manifest: "{{ playbook_dir }}/../vendor/k8s/nginx-ingress-{{ nginx_ingress_version }}.yaml"
     cert_manager_manifest: "{{ playbook_dir }}/../vendor/k8s/cert-manager-{{ cert_manager_version }}.yaml"
-    nerdctl_version: "1.7.6"
-    nerdctl_checksum: "sha256:0326d6a42dbec5c104ed9d7aa8cbc62727433dbe000cf21cc29d06b22507e0f0"
-    buildkit_version: "0.13.2"
-    buildkit_checksum: "sha256:9cd121931b015f05d7e4337f08272e36a83f69724c40141947eb11246ca0bb9d"
     linux_security_baseline_manage_ufw: false
     linux_security_baseline_ufw_allow_rules: []
     linux_security_baseline_ssh_settings:
@@ -134,116 +130,6 @@
       delay: 30
       changed_when: false
 
-    - name: Download nerdctl tarball
-      ansible.builtin.get_url:
-        # yamllint disable-line rule:line-length
-        url: "https://github.com/containerd/nerdctl/releases/download/v{{ nerdctl_version }}/nerdctl-{{ nerdctl_version }}-linux-amd64.tar.gz"
-        dest: "/tmp/nerdctl-{{ nerdctl_version }}-linux-amd64.tar.gz"
-        checksum: "{{ nerdctl_checksum }}"
-        mode: "0644"
-
-    - name: Install nerdctl for building container images
-      ansible.builtin.unarchive:
-        src: "/tmp/nerdctl-{{ nerdctl_version }}-linux-amd64.tar.gz"
-        dest: /usr/local/bin
-        remote_src: true
-        creates: /usr/local/bin/nerdctl
-
-    - name: Download buildkit tarball
-      ansible.builtin.get_url:
-        # yamllint disable-line rule:line-length
-        url: "https://github.com/moby/buildkit/releases/download/v{{ buildkit_version }}/buildkit-v{{ buildkit_version }}.linux-amd64.tar.gz"
-        dest: "/tmp/buildkit-v{{ buildkit_version }}.linux-amd64.tar.gz"
-        checksum: "{{ buildkit_checksum }}"
-        mode: "0644"
-
-    - name: Create buildkit installation directory
-      ansible.builtin.file:
-        path: /opt/buildkit
-        state: directory
-        mode: "0755"
-
-    - name: Install buildkit for nerdctl
-      ansible.builtin.unarchive:
-        src: "/tmp/buildkit-v{{ buildkit_version }}.linux-amd64.tar.gz"
-        dest: /opt/buildkit
-        remote_src: true
-        extra_opts:
-          - --strip-components=1
-        creates: /opt/buildkit/buildkitd
-
-    - name: Create buildkit symlinks
-      ansible.builtin.file:
-        src: "{{ item.src }}"
-        dest: "{{ item.dest }}"
-        state: link
-      loop:
-        - { src: /opt/buildkit/buildkitd, dest: /usr/local/bin/buildkitd }
-        - { src: /opt/buildkit/buildctl, dest: /usr/local/bin/buildctl }
-
-    - name: Remove existing containerd directory
-      ansible.builtin.file:
-        path: /run/containerd
-        state: absent
-
-    - name: Create containerd socket symlink for nerdctl
-      ansible.builtin.file:
-        src: /run/k3s/containerd
-        dest: /run/containerd
-        state: link
-
-    - name: Create buildkit config directory
-      ansible.builtin.file:
-        path: /etc/buildkit
-        state: directory
-        mode: "0755"
-
-    - name: Create buildkit config for k3s containerd
-      ansible.builtin.copy:
-        dest: /etc/buildkit/buildkitd.toml
-        content: |
-          [worker.containerd]
-            address = "/run/k3s/containerd/containerd.sock"
-            enabled = true
-            namespace = "k8s.io"
-        owner: root
-        group: root
-        mode: "0644"
-      notify: Restart buildkit
-
-    - name: Create buildkit systemd service
-      ansible.builtin.copy:
-        dest: /etc/systemd/system/buildkit.service
-        content: |
-          [Unit]
-          Description=BuildKit
-          After=network.target k3s.service
-
-          [Service]
-          ExecStart=/usr/local/bin/buildkitd --config /etc/buildkit/buildkitd.toml --addr unix:///run/buildkit/buildkitd.sock
-          Restart=always
-          RestartSec=5
-
-          [Install]
-          WantedBy=multi-user.target
-        owner: root
-        group: root
-        mode: "0644"
-      notify: Restart buildkit
-
-    - name: Create buildkit socket directory
-      ansible.builtin.file:
-        path: /run/buildkit
-        state: directory
-        mode: "0755"
-
-    - name: Enable and start buildkit
-      ansible.builtin.systemd:
-        name: buildkit
-        enabled: true
-        state: restarted
-        daemon_reload: true
-
     - name: Display cluster status
       ansible.builtin.shell:
         cmd: |
@@ -269,20 +155,12 @@
       loop:
         - "/tmp/nginx-ingress-{{ nginx_ingress_version }}.yaml"
         - "/tmp/cert-manager-{{ cert_manager_version }}.yaml"
-        - "/tmp/nerdctl-{{ nerdctl_version }}-linux-amd64.tar.gz"
-        - "/tmp/buildkit-v{{ buildkit_version }}.linux-amd64.tar.gz"
 
   handlers:
     - name: Restart k3s
       ansible.builtin.systemd:
         name: k3s
         state: restarted
-
-    - name: Restart buildkit
-      ansible.builtin.systemd:
-        name: buildkit
-        state: restarted
-        daemon_reload: true
 
     - name: Restart sshd
       ansible.builtin.systemd:

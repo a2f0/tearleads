@@ -24,7 +24,7 @@ Key compliance-relevant configurations:
 
 - k3s bootstrap and control-plane readiness checks
 - ingress and certificate manager installation
-- buildkit/nerdctl installation for container build workflows
+- k3s bootstrap for registry-backed image pull workflows
 - deploy-key based GitHub access for automation hosts
 
 ### `terraform/` - Cloud Infrastructure
