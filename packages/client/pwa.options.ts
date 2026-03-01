@@ -23,8 +23,9 @@ export const pwaOptions: Partial<VitePWAOptions> = {
     // Don't include html - navigation is handled by runtimeCaching with NetworkFirst
     globPatterns: ['**/*.{js,mjs,css,ico,png,svg,webmanifest}'],
     // Increase max file size for large JS bundles (e.g., web-llm library ~6MB)
+    // and renderer entry chunks that can exceed 10MB in release builds.
     // Note: LLM models themselves are cached by web-llm at runtime, not by Workbox
-    maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10MB
+    maximumFileSizeToCacheInBytes: 12 * 1024 * 1024, // 12MB
     // Clean up old caches when a new service worker is installed
     cleanupOutdatedCaches: true,
     // Activate new service worker immediately without waiting for tabs to close
