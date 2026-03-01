@@ -52,7 +52,9 @@ describe('MLS VFS message routes', () => {
 
   describe('GET /v1/vfs/mls/groups/:groupId/messages', () => {
     it('returns 401 when unauthenticated', async () => {
-      const response = await request(app).get('/v1/vfs/mls/groups/group-1/messages');
+      const response = await request(app).get(
+        '/v1/vfs/mls/groups/group-1/messages'
+      );
 
       expect(response.status).toBe(401);
       expect(response.body).toEqual({ error: 'Unauthorized' });
@@ -252,7 +254,9 @@ describe('MLS VFS message routes', () => {
 
   describe('POST /v1/vfs/mls/groups/:groupId/messages', () => {
     it('returns 401 when unauthenticated', async () => {
-      const response = await request(app).post('/v1/vfs/mls/groups/group-1/messages');
+      const response = await request(app).post(
+        '/v1/vfs/mls/groups/group-1/messages'
+      );
 
       expect(response.status).toBe(401);
       expect(response.body).toEqual({ error: 'Unauthorized' });

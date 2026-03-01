@@ -70,7 +70,9 @@ describe('MLS VFS message route branch coverage', () => {
     expect(response.body).toEqual({ messages: [], hasMore: false });
     expect(mockQuery).toHaveBeenNthCalledWith(
       2,
-      expect.stringContaining('WHERE ($3::integer IS NULL OR sequence_number < $3::integer)'),
+      expect.stringContaining(
+        'WHERE ($3::integer IS NULL OR sequence_number < $3::integer)'
+      ),
       ['group-1', 'mls_message:group-1:%', 7, 101]
     );
   });
