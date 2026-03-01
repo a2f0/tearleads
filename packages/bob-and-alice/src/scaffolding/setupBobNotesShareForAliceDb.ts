@@ -75,7 +75,13 @@ export async function setupBobNotesShareForAliceDb(
   const noteName = input.noteName ?? DEFAULT_NOTE_NAME;
   const notePlaintext = input.notePlaintext ?? DEFAULT_NOTE_PLAINTEXT;
   const shareAccessLevel = input.shareAccessLevel ?? DEFAULT_SHARE_ACCESS_LEVEL;
-  const nowIso = now().toISOString();
+  const nowDate = now();
+  const nowIso = nowDate.toISOString();
+  // Guardrail: keep scaffolded item_upsert clearly ordered before trigger-emitted
+  // link/ACL ops even when consumers compare occurred_at at millisecond precision.
+  const noteItemUpsertOccurredAtIso = new Date(
+    nowDate.getTime() - 1000
+  ).toISOString();
 
   await input.client.query('BEGIN');
   try {
@@ -216,7 +222,7 @@ export async function setupBobNotesShareForAliceDb(
         noteId,
         bobUserId,
         `vfs_item_state:${noteId}`,
-        nowIso,
+        noteItemUpsertOccurredAtIso,
         encodeBase64(notePlaintext),
         encodeBase64(`nonce-${idFactory()}`),
         encodeBase64(`aad-${idFactory()}`),
