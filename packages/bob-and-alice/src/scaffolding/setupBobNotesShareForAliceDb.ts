@@ -2,19 +2,11 @@ import { randomUUID } from 'node:crypto';
 
 type ShareAccessLevel = 'read' | 'write' | 'admin';
 
-interface QueryResultRow {
-  [key: string]: unknown;
-}
-
-interface QueryResult<T extends QueryResultRow = QueryResultRow> {
-  rows: T[];
-}
-
 export interface DbQueryClient {
-  query<T extends QueryResultRow = QueryResultRow>(
+  query(
     text: string,
     params?: readonly unknown[]
-  ): Promise<QueryResult<T>>;
+  ): Promise<{ rows: Record<string, unknown>[] }>;
 }
 
 export interface SetupBobNotesShareForAliceDbInput {
@@ -88,11 +80,11 @@ export async function setupBobNotesShareForAliceDb(
 
   await input.client.query('BEGIN');
   try {
-    const bobRows = await input.client.query<{ id: unknown }>(
+    const bobRows = await input.client.query(
       `SELECT id FROM users WHERE email = $1 LIMIT 1`,
       [input.bobEmail]
     );
-    const aliceRows = await input.client.query<{ id: unknown }>(
+    const aliceRows = await input.client.query(
       `SELECT id FROM users WHERE email = $1 LIMIT 1`,
       [input.aliceEmail]
     );
@@ -206,7 +198,7 @@ export async function setupBobNotesShareForAliceDb(
     );
 
     const shareId = `share:${idFactory()}`;
-    const shareRows = await input.client.query<{ id: unknown }>(
+    const shareRows = await input.client.query(
       `INSERT INTO vfs_acl_entries (
          id,
          item_id,
@@ -255,7 +247,7 @@ export async function setupBobNotesShareForAliceDb(
       ]
     );
     const noteShareId = `share:${idFactory()}`;
-    const noteShareRows = await input.client.query<{ id: unknown }>(
+    const noteShareRows = await input.client.query(
       `INSERT INTO vfs_acl_entries (
          id,
          item_id,

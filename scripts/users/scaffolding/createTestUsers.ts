@@ -10,6 +10,32 @@ import {
 } from '../../postgres/lib/pool.ts';
 import { allTestUsers, type TestUser } from './testUsers.ts';
 
+interface ExistingUserRow {
+  id: string;
+  personal_organization_id: string | null;
+}
+
+function parseExistingUserRows(
+  rows: Record<string, unknown>[]
+): ExistingUserRow[] {
+  const parsedRows: ExistingUserRow[] = [];
+  for (const row of rows) {
+    const id = row['id'];
+    const personalOrganizationId = row['personal_organization_id'];
+    if (
+      typeof id === 'string' &&
+      (typeof personalOrganizationId === 'string' ||
+        personalOrganizationId === null)
+    ) {
+      parsedRows.push({
+        id,
+        personal_organization_id: personalOrganizationId
+      });
+    }
+  }
+  return parsedRows;
+}
+
 async function createTestUser(
   client: PoolClient,
   user: TestUser
@@ -19,19 +45,17 @@ async function createTestUser(
     user.password
   );
 
-  const existing = await client.query<{
-    id: string;
-    personal_organization_id: string | null;
-  }>(
+  const existing = await client.query(
     `SELECT id, personal_organization_id
        FROM users
       WHERE email = $1
       LIMIT 1`,
     [email]
   );
+  const existingRows = parseExistingUserRows(existing.rows);
 
-  if (existing.rows[0]) {
-    const personalOrganizationId = existing.rows[0].personal_organization_id;
+  if (existingRows[0]) {
+    const personalOrganizationId = existingRows[0].personal_organization_id;
     if (!personalOrganizationId) {
       throw new Error(
         `Existing user ${email} is missing personal_organization_id`
@@ -39,7 +63,7 @@ async function createTestUser(
     }
     console.log(`Skipping ${user.name} (${email}) — account already exists.`);
     return {
-      userId: existing.rows[0].id,
+      userId: existingRows[0].id,
       personalOrganizationId,
       createdVfsOnboardingKeys: false
     };
