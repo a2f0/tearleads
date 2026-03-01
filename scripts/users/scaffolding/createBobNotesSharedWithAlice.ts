@@ -1,109 +1,26 @@
 #!/usr/bin/env -S pnpm exec tsx
-import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import {
-  ensureVfsKeysExist,
-  loginApiActor
-} from '../../../packages/bob-and-alice/src/scaffolding/apiActorAuth.ts';
-import { setupBobNotesShareForAlice } from '../../../packages/bob-and-alice/src/scaffolding/setupBobNotesShareForAlice.ts';
-import { createPool, type PoolClient } from '../../postgres/lib/pool.ts';
+import { setupBobNotesShareForAliceDb } from '../../../packages/bob-and-alice/src/scaffolding/setupBobNotesShareForAliceDb.ts';
+import { createPool } from '../../postgres/lib/pool.ts';
 import { runCreateTestUsers } from './createTestUsers.ts';
 import { alice, bob } from './testUsers.ts';
 
-const DEFAULT_API_BASE_URL = 'http://localhost:5001/v1';
-const VFS_ROOT_ID = 'root';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function parseShareCountForTarget(
-  value: unknown,
-  targetUserId: string
-): number {
-  if (!isRecord(value) || !Array.isArray(value['shares'])) {
-    throw new Error('Unexpected response from /vfs/items/:itemId/shares');
-  }
-
-  return value['shares'].filter((share) => {
-    if (!isRecord(share)) {
-      return false;
-    }
-    return (
-      share['shareType'] === 'user' &&
-      typeof share['targetId'] === 'string' &&
-      share['targetId'] === targetUserId
-    );
-  }).length;
-}
-
 export async function runCreateBobNotesSharedWithAlice(): Promise<void> {
-  const apiBaseUrl = process.env['API_BASE_URL'] ?? DEFAULT_API_BASE_URL;
-
   console.log('Step 1/4: creating or verifying test users...');
   await runCreateTestUsers();
 
-  console.log('Step 2/4: logging in Bob and Alice...');
-  const bobActor = await loginApiActor({
-    baseUrl: apiBaseUrl,
-    email: bob.email,
-    password: bob.password
-  });
-  const aliceActor = await loginApiActor({
-    baseUrl: apiBaseUrl,
-    email: alice.email,
-    password: alice.password
-  });
-
-  console.log('Step 3/4: ensuring VFS keys exist...');
-  await ensureVfsKeysExist({ actor: bobActor, keyPrefix: 'bob' });
-  await ensureVfsKeysExist({ actor: aliceActor, keyPrefix: 'alice' });
-
-  console.log('Step 4/4: creating Bob folder+note and sharing with Alice...');
+  console.log('Step 2/2: creating Bob folder+note and sharing with Alice...');
   const pool = await createPool();
   const client = await pool.connect();
   let setupResult:
-    | Awaited<ReturnType<typeof setupBobNotesShareForAlice>>
+    | Awaited<ReturnType<typeof setupBobNotesShareForAliceDb>>
     | undefined;
 
   try {
-    const ensureRootAndInsertLink = async (
-      dbClient: PoolClient,
-      input: { parentId: string; childId: string }
-    ): Promise<void> => {
-      await dbClient.query(
-        `INSERT INTO vfs_registry (
-           id,
-           object_type,
-           owner_id,
-           encrypted_session_key,
-           encrypted_name,
-           created_at
-         )
-         VALUES ($1, 'folder', NULL, NULL, 'VFS Root', NOW())
-         ON CONFLICT (id) DO NOTHING`,
-        [VFS_ROOT_ID]
-      );
-
-      await dbClient.query(
-        `INSERT INTO vfs_links (
-           id,
-           parent_id,
-           child_id,
-           wrapped_session_key,
-           created_at
-         )
-         VALUES ($1, $2, $3, $4, NOW())
-         ON CONFLICT (parent_id, child_id) DO NOTHING`,
-        [randomUUID(), input.parentId, input.childId, 'scaffolding-link-wrap']
-      );
-    };
-
-    setupResult = await setupBobNotesShareForAlice({
-      bob: bobActor,
-      aliceUserId: aliceActor.userId,
-      rootItemId: VFS_ROOT_ID,
-      createLink: async (input) => ensureRootAndInsertLink(client, input)
+    setupResult = await setupBobNotesShareForAliceDb({
+      client,
+      bobEmail: bob.email,
+      aliceEmail: alice.email
     });
   } finally {
     client.release();
@@ -114,22 +31,14 @@ export async function runCreateBobNotesSharedWithAlice(): Promise<void> {
     throw new Error('Failed to produce setup result');
   }
 
-  const sharesResponse = await bobActor.fetchJson(
-    `/vfs/items/${encodeURIComponent(setupResult.folderId)}/shares`
-  );
-  const matchingShares = parseShareCountForTarget(
-    sharesResponse,
-    aliceActor.userId
-  );
-
   console.log('Done.');
-  console.log(`  API base URL: ${apiBaseUrl}`);
+  console.log('  Mode: DB-only (no API required)');
+  console.log(`  Root ID: ${setupResult.rootItemId}`);
   console.log(`  Folder ID: ${setupResult.folderId}`);
   console.log(`  Note ID: ${setupResult.noteId}`);
-  console.log(`  Share ID: ${setupResult.share.id}`);
-  console.log(`  Bob user ID: ${bobActor.userId}`);
-  console.log(`  Alice user ID: ${aliceActor.userId}`);
-  console.log(`  Bob->Alice shares on folder: ${String(matchingShares)}`);
+  console.log(`  Share ACL ID: ${setupResult.shareAclId}`);
+  console.log(`  Bob user ID: ${setupResult.bobUserId}`);
+  console.log(`  Alice user ID: ${setupResult.aliceUserId}`);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
