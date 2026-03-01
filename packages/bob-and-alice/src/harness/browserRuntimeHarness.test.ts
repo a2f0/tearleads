@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   createBrowserRuntimeActor,
   pullRemoteFeedsWithoutLocalHydration,
@@ -19,51 +19,59 @@ describe('browserRuntimeHarness', () => {
   });
 
   it('throws when sync feed reports hasMore without nextCursor', async () => {
-    const fetchJson = vi
-      .fn<RuntimeApiActor['fetchJson']>()
-      .mockImplementation(async (path: string) => {
+    const actor: RuntimeApiActor = {
+      fetchJson: async (path: string) => {
         if (path.startsWith('/vfs/vfs-sync?')) {
-          return {
-            items: [],
-            hasMore: true,
-            nextCursor: null
-          };
+          return JSON.parse(
+            JSON.stringify({
+              items: [],
+              hasMore: true,
+              nextCursor: null
+            })
+          );
         }
-        return {
-          items: [],
-          hasMore: false,
-          nextCursor: null
-        };
-      });
+        return JSON.parse(
+          JSON.stringify({
+            items: [],
+            hasMore: false,
+            nextCursor: null
+          })
+        );
+      }
+    };
 
     await expect(
       pullRemoteFeedsWithoutLocalHydration({
-        actor: { fetchJson }
+        actor
       })
     ).rejects.toThrow('vfs sync feed reported hasMore without nextCursor');
   });
 
   it('throws when crdt feed reports hasMore without nextCursor', async () => {
-    const fetchJson = vi
-      .fn<RuntimeApiActor['fetchJson']>()
-      .mockImplementation(async (path: string) => {
+    const actor: RuntimeApiActor = {
+      fetchJson: async (path: string) => {
         if (path.startsWith('/vfs/crdt/vfs-sync?')) {
-          return {
-            items: [],
-            hasMore: true,
-            nextCursor: null
-          };
+          return JSON.parse(
+            JSON.stringify({
+              items: [],
+              hasMore: true,
+              nextCursor: null
+            })
+          );
         }
-        return {
-          items: [],
-          hasMore: false,
-          nextCursor: null
-        };
-      });
+        return JSON.parse(
+          JSON.stringify({
+            items: [],
+            hasMore: false,
+            nextCursor: null
+          })
+        );
+      }
+    };
 
     await expect(
       pullRemoteFeedsWithoutLocalHydration({
-        actor: { fetchJson }
+        actor
       })
     ).rejects.toThrow('vfs crdt feed reported hasMore without nextCursor');
   });
