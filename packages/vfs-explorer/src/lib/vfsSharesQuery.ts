@@ -285,9 +285,7 @@ export async function querySharedWithMe(
       (row) => !isVfsSharedWithMeQueryRow(row)
     );
     if (invalidRow) {
-      throw new Error(
-        'Database returned invalid rows for SharedWithMe query'
-      );
+      throw new Error('Database returned invalid rows for SharedWithMe query');
     }
 
     return normalizedRows;

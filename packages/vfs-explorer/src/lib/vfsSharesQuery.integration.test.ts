@@ -252,16 +252,7 @@ describe('vfsSharesQuery integration (real database)', () => {
         await adapter.execute(
           `INSERT INTO vfs_acl_entries (id, item_id, principal_type, principal_id, access_level, granted_by, created_at, updated_at, revoked_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
-          [
-            policyAclId,
-            folderId,
-            'user',
-            targetUserId,
-            'write',
-            null,
-            now,
-            now
-          ]
+          [policyAclId, folderId, 'user', targetUserId, 'write', null, now, now]
         );
 
         const sharedByMe = await querySharedByMe(db, ownerId, {
