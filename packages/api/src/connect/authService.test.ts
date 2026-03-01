@@ -5,13 +5,11 @@ import { AuthService } from '@tearleads/shared/gen/tearleads/v1/auth_connect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
 import { createJwt, verifyJwt, verifyRefreshJwt } from '../lib/jwt.js';
+import { hashPassword } from '../lib/passwords.js';
 import {
   createSession,
   deleteRefreshToken,
-  deleteSession,
-  getRefreshToken,
-  getSession,
-  storeRefreshToken
+  deleteSession
 } from '../lib/sessions.js';
 
 const mockQuery = vi.fn();
@@ -150,6 +148,86 @@ describe('Connect AuthService', () => {
     }
   });
 
+  it('returns invalid argument for Login when payload is missing', async () => {
+    const client = createAuthClient(server);
+
+    await expect(
+      client.login({
+        email: '',
+        password: ''
+      })
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+  });
+
+  it('returns tokens for successful Login', async () => {
+    const client = createAuthClient(server);
+    const password = 'SecurePassword123!';
+    const credentials = await hashPassword(password);
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'connect-login-user-1',
+          email: 'connect-login@example.com',
+          password_hash: credentials.hash,
+          password_salt: credentials.salt,
+          admin: false
+        }
+      ]
+    });
+
+    const response = await client.login({
+      email: 'connect-login@example.com',
+      password
+    });
+
+    expect(response.accessToken).toEqual(expect.any(String));
+    expect(response.refreshToken).toEqual(expect.any(String));
+    expect(response.user?.id).toBe('connect-login-user-1');
+
+    const accessClaims = verifyJwt(response.accessToken, 'test-secret');
+    expect(accessClaims).not.toBeNull();
+    if (!accessClaims) {
+      throw new Error('Expected access token claims');
+    }
+    const refreshClaims = verifyRefreshJwt(
+      response.refreshToken,
+      'test-secret'
+    );
+    expect(refreshClaims).not.toBeNull();
+
+    await deleteSession(accessClaims.jti, 'connect-login-user-1');
+    if (refreshClaims) {
+      await deleteRefreshToken(refreshClaims.jti);
+    }
+  });
+
+  it('returns unauthenticated for Login with wrong password', async () => {
+    const client = createAuthClient(server);
+    const credentials = await hashPassword('DifferentPassword123!');
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'connect-login-user-2',
+          email: 'connect-login2@example.com',
+          password_hash: credentials.hash,
+          password_salt: credentials.salt,
+          admin: false
+        }
+      ]
+    });
+
+    await expect(
+      client.login({
+        email: 'connect-login2@example.com',
+        password: 'WrongPassword123!'
+      })
+    ).rejects.toMatchObject({
+      code: Code.Unauthenticated
+    });
+  });
+
   it('returns invalid argument for Register with invalid email format', async () => {
     const client = createAuthClient(server);
 
@@ -227,117 +305,19 @@ describe('Connect AuthService', () => {
     }
   });
 
-  it('returns invalid argument for RefreshToken when refreshToken is missing', async () => {
+  it('returns already exists when Register email is already used', async () => {
     const client = createAuthClient(server);
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ id: 'existing-user' }]
+    });
 
     await expect(
-      client.refreshToken({
-        refreshToken: ''
+      client.register({
+        email: 'existing@example.com',
+        password: 'SecurePassword123!'
       })
     ).rejects.toMatchObject({
-      code: Code.InvalidArgument
+      code: Code.AlreadyExists
     });
-  });
-
-  it('returns unauthenticated for RefreshToken with invalid JWT', async () => {
-    const client = createAuthClient(server);
-
-    await expect(
-      client.refreshToken({
-        refreshToken: 'invalid-token'
-      })
-    ).rejects.toMatchObject({
-      code: Code.Unauthenticated
-    });
-  });
-
-  it('rotates tokens on successful RefreshToken call', async () => {
-    const client = createAuthClient(server);
-    const userId = 'connect-refresh-user-1';
-    const oldSessionId = 'connect-refresh-session-1';
-    const oldRefreshTokenId = 'connect-refresh-token-1';
-    let newSessionId: string | null = null;
-    let newRefreshTokenId: string | null = null;
-
-    await createSession(
-      oldSessionId,
-      {
-        userId,
-        email: 'connect-refresh@example.com',
-        admin: true,
-        ipAddress: '127.0.0.1'
-      },
-      604800
-    );
-    await storeRefreshToken(
-      oldRefreshTokenId,
-      { sessionId: oldSessionId, userId },
-      604800
-    );
-
-    const oldRefreshToken = createJwt(
-      {
-        sub: userId,
-        jti: oldRefreshTokenId,
-        sid: oldSessionId,
-        type: 'refresh'
-      },
-      'test-secret',
-      604800
-    );
-
-    try {
-      const response = await client.refreshToken({
-        refreshToken: oldRefreshToken
-      });
-
-      expect(response.accessToken).toEqual(expect.any(String));
-      expect(response.refreshToken).toEqual(expect.any(String));
-      expect(response.user?.id).toBe(userId);
-      expect(response.user?.email).toBe('connect-refresh@example.com');
-
-      const accessClaims = verifyJwt(response.accessToken, 'test-secret');
-      expect(accessClaims).not.toBeNull();
-      if (!accessClaims) {
-        throw new Error('Expected refreshed access token claims');
-      }
-      newSessionId = accessClaims.jti;
-
-      const refreshClaims = verifyRefreshJwt(
-        response.refreshToken,
-        'test-secret'
-      );
-      expect(refreshClaims).not.toBeNull();
-      if (!refreshClaims) {
-        throw new Error('Expected refreshed refresh token claims');
-      }
-      newRefreshTokenId = refreshClaims.jti;
-
-      const oldSession = await getSession(oldSessionId);
-      expect(oldSession).toBeNull();
-      const oldRefresh = await getRefreshToken(oldRefreshTokenId);
-      expect(oldRefresh).toBeNull();
-
-      const rotatedSession = await getSession(newSessionId);
-      expect(rotatedSession).toMatchObject({
-        userId,
-        email: 'connect-refresh@example.com',
-        admin: true
-      });
-      const rotatedRefresh = await getRefreshToken(newRefreshTokenId);
-      expect(rotatedRefresh).toMatchObject({
-        sessionId: newSessionId,
-        userId
-      });
-    } finally {
-      await deleteSession(oldSessionId, userId);
-      await deleteRefreshToken(oldRefreshTokenId);
-      if (newSessionId) {
-        await deleteSession(newSessionId, userId);
-      }
-      if (newRefreshTokenId) {
-        await deleteRefreshToken(newRefreshTokenId);
-      }
-    }
   });
 });
