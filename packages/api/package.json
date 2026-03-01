@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/api",
-  "version": "0.0.529",
+  "version": "0.0.530",
   "description": "Express API for Tearleads",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
