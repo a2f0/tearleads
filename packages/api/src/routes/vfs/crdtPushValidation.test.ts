@@ -1,8 +1,8 @@
-import request from 'supertest';
 import {
   decodeVfsCrdtPushResponseProtobuf,
   encodeVfsCrdtPushRequestProtobuf
 } from '@tearleads/vfs-sync/vfs';
+import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createAuthHeader } from '../../test/auth.js';
 import {
@@ -211,7 +211,9 @@ describe('VFS CRDT push route validation', { timeout: 15_000 }, () => {
       );
 
     expect(response.status).toBe(200);
-    expect(response.headers['content-type']).toContain('application/x-protobuf');
+    expect(response.headers['content-type']).toContain(
+      'application/x-protobuf'
+    );
 
     if (!(response.body instanceof Buffer)) {
       throw new Error('expected protobuf response body buffer');

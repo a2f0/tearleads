@@ -1,4 +1,7 @@
-import type { VfsCrdtPushOperation, VfsCrdtPushResult } from '@tearleads/shared';
+import type {
+  VfsCrdtPushOperation,
+  VfsCrdtPushResult
+} from '@tearleads/shared';
 import type { PoolClient } from 'pg';
 import {
   CRDT_CLIENT_PUSH_SOURCE_TABLE,
@@ -161,7 +164,10 @@ export async function applyCrdtPushOperations(input: {
   parsedOperations: ParsedPushOperation[];
 }): Promise<ApplyCrdtPushOperationsResult> {
   const results: VfsCrdtPushResult[] = [];
-  const containerNotifications = new Map<string, VfsContainerCursorNotification>();
+  const containerNotifications = new Map<
+    string,
+    VfsContainerCursorNotification
+  >();
   const validOperations: VfsCrdtPushOperation[] = [];
   for (const entry of input.parsedOperations) {
     if (entry.status === 'parsed' && entry.operation) {
@@ -205,9 +211,10 @@ export async function applyCrdtPushOperations(input: {
       continue;
     }
 
-    await input.client.query('SELECT pg_advisory_xact_lock(hashtext($1::text))', [
-      `vfs_crdt_feed:${input.userId}`
-    ]);
+    await input.client.query(
+      'SELECT pg_advisory_xact_lock(hashtext($1::text))',
+      [`vfs_crdt_feed:${input.userId}`]
+    );
 
     const sourceId = toPushSourceId(input.userId, operation);
     const existing = await input.client.query<ExistingSourceRow>(
@@ -315,7 +322,10 @@ export async function applyCrdtPushOperations(input: {
         input.userId,
         CRDT_CLIENT_PUSH_SOURCE_TABLE,
         sourceId,
-        normalizeCanonicalOccurredAt(operation.occurredAt, maxWriteRow?.max_occurred_at ?? null),
+        normalizeCanonicalOccurredAt(
+          operation.occurredAt,
+          maxWriteRow?.max_occurred_at ?? null
+        ),
         operation.encryptedPayload ?? null,
         operation.keyEpoch ?? null,
         operation.encryptionNonce ?? null,
@@ -328,7 +338,9 @@ export async function applyCrdtPushOperations(input: {
     if (applied) {
       const insertedRow = insertResult.rows?.[0];
       const containerId = resolveContainerId(operation);
-      const changedAt = insertedRow ? toIsoString(insertedRow.occurred_at) : null;
+      const changedAt = insertedRow
+        ? toIsoString(insertedRow.occurred_at)
+        : null;
       const changeId = insertedRow?.id?.trim() ?? '';
       if (containerId && changedAt && changeId.length > 0) {
         const nextNotification: VfsContainerCursorNotification = {

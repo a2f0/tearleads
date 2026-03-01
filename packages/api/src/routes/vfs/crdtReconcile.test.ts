@@ -1,7 +1,7 @@
 import {
   decodeVfsCrdtReconcileResponseProtobuf,
-  encodeVfsCrdtReconcileRequestProtobuf,
   decodeVfsSyncCursor,
+  encodeVfsCrdtReconcileRequestProtobuf,
   encodeVfsSyncCursor
 } from '@tearleads/vfs-sync/vfs';
 import request from 'supertest';
@@ -247,7 +247,9 @@ describe('VFS CRDT reconcile route', () => {
       );
 
     expect(response.status).toBe(200);
-    expect(response.headers['content-type']).toContain('application/x-protobuf');
+    expect(response.headers['content-type']).toContain(
+      'application/x-protobuf'
+    );
 
     if (!(response.body instanceof Buffer)) {
       throw new Error('expected protobuf response body buffer');

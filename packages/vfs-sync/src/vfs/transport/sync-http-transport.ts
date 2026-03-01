@@ -36,10 +36,13 @@ const CRDT_REMATERIALIZATION_REQUIRED_CODE = 'crdt_rematerialization_required';
 const PROTOBUF_CONTENT_TYPE = 'application/x-protobuf';
 
 const DEFAULT_FETCH_IMPL: FetchImpl = (input, init) => {
-  const requestInit: RequestInit = {
-    method: init?.method,
-    headers: init?.headers
-  };
+  const requestInit: RequestInit = {};
+  if (typeof init?.method === 'string') {
+    requestInit.method = init.method;
+  }
+  if (init?.headers !== undefined) {
+    requestInit.headers = init.headers;
+  }
   const body = init?.body;
   if (body !== undefined) {
     requestInit.body =

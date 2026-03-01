@@ -48,7 +48,9 @@ describe('VFS CRDT snapshot route', () => {
   });
 
   it('returns 401 when not authenticated', async () => {
-    const response = await request(app).get('/v1/vfs/crdt/snapshot?clientId=desktop');
+    const response = await request(app).get(
+      '/v1/vfs/crdt/snapshot?clientId=desktop'
+    );
     expect(response.status).toBe(401);
     expect(response.body).toEqual({ error: 'Unauthorized' });
   });

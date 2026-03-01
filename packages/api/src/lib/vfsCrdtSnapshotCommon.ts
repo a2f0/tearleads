@@ -1,7 +1,4 @@
-import type {
-  VfsAclAccessLevel,
-  VfsAclPrincipalType
-} from '@tearleads/shared';
+import type { VfsAclAccessLevel, VfsAclPrincipalType } from '@tearleads/shared';
 import {
   compareVfsSyncCursorOrder,
   type VfsCrdtLastReconciledWriteIds,

@@ -1,13 +1,6 @@
 import {
   type ClientStateRow,
-  type PgQueryable,
-  type ReplicaWriteIdRow,
-  type SnapshotRow,
-  type VisibleItemRow,
-  type VfsCrdtRematerializationSnapshot,
-  type VfsCrdtSnapshotPayload,
   CRDT_CLIENT_PUSH_SOURCE_TABLE,
-  VFS_CRDT_SNAPSHOT_SCOPE,
   cloneCursor,
   cloneWriteIds,
   isAccessLevel,
@@ -16,10 +9,17 @@ import {
   mergeWriteIds,
   normalizeReplicaWriteIds,
   normalizeRequiredString,
+  type PgQueryable,
   parseCursor,
   parseLastReconciledWriteIds,
   parseOccurredAt,
-  pickNewerCursor
+  pickNewerCursor,
+  type ReplicaWriteIdRow,
+  type SnapshotRow,
+  VFS_CRDT_SNAPSHOT_SCOPE,
+  type VfsCrdtRematerializationSnapshot,
+  type VfsCrdtSnapshotPayload,
+  type VisibleItemRow
 } from './vfsCrdtSnapshotCommon.js';
 
 function normalizeSnapshotPayload(
@@ -339,11 +339,9 @@ export async function loadVfsCrdtRematerializationSnapshot(
 }
 
 export {
+  VFS_CRDT_SNAPSHOT_SCOPE,
   type VfsCrdtRematerializationSnapshot,
   type VfsCrdtSnapshotPayload,
-  type VfsCrdtSnapshotRefreshResult,
-  VFS_CRDT_SNAPSHOT_SCOPE
+  type VfsCrdtSnapshotRefreshResult
 } from './vfsCrdtSnapshotCommon.js';
-export {
-  refreshVfsCrdtSnapshot
-} from './vfsCrdtSnapshotRefresh.js';
+export { refreshVfsCrdtSnapshot } from './vfsCrdtSnapshotRefresh.js';

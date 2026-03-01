@@ -14,16 +14,16 @@ import type { Request, Response, Router as RouterType } from 'express';
 import type { PoolClient } from 'pg';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { publishVfsContainerCursorBump } from '../../lib/vfsSyncChannels.js';
-import { applyCrdtPushOperations } from './crdtPushApply.js';
 import {
   createCrdtProtobufRawBodyParser,
   decodeCrdtRequestBody,
   sendCrdtProtobufOrJson
 } from './crdtProtobuf.js';
+import { applyCrdtPushOperations } from './crdtPushApply.js';
 import { CRDT_CLIENT_PUSH_SOURCE_TABLE } from './post-crdt-push-canonical.js';
 import {
-  parsePushPayload,
-  type ParsedPushOperation
+  type ParsedPushOperation,
+  parsePushPayload
 } from './post-crdt-push-parse.js';
 
 interface VfsCrdtReplicaWriteIdRow {
@@ -131,17 +131,19 @@ function parseOptionalRootId(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function parseSessionPayload(body: unknown): {
-  ok: true;
-  value: {
-    clientId: string;
-    parsedOperations: ParsedPushOperation[];
-    cursor: VfsSyncCursor;
-    limit: number;
-    rootId: string | null;
-    lastReconciledWriteIds: Record<string, number>;
-  };
-} | { ok: false; error: string } {
+function parseSessionPayload(body: unknown):
+  | {
+      ok: true;
+      value: {
+        clientId: string;
+        parsedOperations: ParsedPushOperation[];
+        cursor: VfsSyncCursor;
+        limit: number;
+        rootId: string | null;
+        lastReconciledWriteIds: Record<string, number>;
+      };
+    }
+  | { ok: false; error: string } {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) {
     return {
       ok: false,

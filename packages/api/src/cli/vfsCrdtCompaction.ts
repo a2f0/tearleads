@@ -166,9 +166,9 @@ export function vfsCrdtCompactionCommand(program: Command): void {
       let deletedRows = 0;
       let executed = false;
       let hasLoggedMetric = false;
-      let snapshotResult:
-        | Awaited<ReturnType<typeof refreshVfsCrdtSnapshot>>
-        | null = null;
+      let snapshotResult: Awaited<
+        ReturnType<typeof refreshVfsCrdtSnapshot>
+      > | null = null;
       let plan: VfsCrdtCompactionPlan = {
         now: new Date(startedAtMs).toISOString(),
         latestCursor: null,

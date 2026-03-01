@@ -1,4 +1,7 @@
-import { decodeVfsSyncCursor, encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
+import {
+  decodeVfsSyncCursor,
+  encodeVfsSyncCursor
+} from '@tearleads/vfs-sync/vfs';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
@@ -205,7 +208,6 @@ describe('VFS CRDT sync route', () => {
       'user-1'
     ]);
   });
-
 
   it('returns encrypted envelope fields for encrypted CRDT operations', async () => {
     const authHeader = await createAuthHeader();

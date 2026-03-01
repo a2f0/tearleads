@@ -7,12 +7,12 @@ import type { Request, Response, Router as RouterType } from 'express';
 import type { PoolClient } from 'pg';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { publishVfsContainerCursorBump } from '../../lib/vfsSyncChannels.js';
-import { applyCrdtPushOperations } from './crdtPushApply.js';
 import {
   createCrdtProtobufRawBodyParser,
   decodeCrdtRequestBody,
   sendCrdtProtobufOrJson
 } from './crdtProtobuf.js';
+import { applyCrdtPushOperations } from './crdtPushApply.js';
 import { parsePushPayload } from './post-crdt-push-parse.js';
 
 async function rollbackQuietly(client: PoolClient): Promise<void> {

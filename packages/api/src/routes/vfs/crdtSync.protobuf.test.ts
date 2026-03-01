@@ -1,6 +1,4 @@
-import {
-  decodeVfsCrdtSyncResponseProtobuf
-} from '@tearleads/vfs-sync/vfs';
+import { decodeVfsCrdtSyncResponseProtobuf } from '@tearleads/vfs-sync/vfs';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
@@ -105,7 +103,9 @@ describe('VFS CRDT sync protobuf response', () => {
       .parse(binaryParser);
 
     expect(response.status).toBe(200);
-    expect(response.headers['content-type']).toContain('application/x-protobuf');
+    expect(response.headers['content-type']).toContain(
+      'application/x-protobuf'
+    );
 
     if (!(response.body instanceof Buffer)) {
       throw new Error('expected protobuf response body buffer');
