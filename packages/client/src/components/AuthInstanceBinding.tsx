@@ -4,7 +4,8 @@ import { useDatabaseContext } from '@/db/hooks';
 import {
   bindInstanceToUser,
   getInstance,
-  getInstanceForUser
+  getInstanceForUser,
+  updateInstance
 } from '@/db/instanceRegistry';
 
 /**
@@ -53,22 +54,26 @@ export function AuthInstanceBinding() {
           if (boundInstance.id !== currentInstanceId) {
             await switchInstance(boundInstance.id);
           }
+          await updateInstance(boundInstance.id, { name: user.email });
           return;
         }
 
         const currentBoundUserId = currentInstance?.boundUserId ?? null;
         if (!currentBoundUserId) {
           await bindInstanceToUser(currentInstanceId, userId);
+          await updateInstance(currentInstanceId, { name: user.email });
           await refreshInstances();
           return;
         }
 
         if (currentBoundUserId === userId) {
+          await updateInstance(currentInstanceId, { name: user.email });
           return;
         }
 
         const newInstanceId = await createInstance();
         await bindInstanceToUser(newInstanceId, userId);
+        await updateInstance(newInstanceId, { name: user.email });
         await refreshInstances();
       } catch (error) {
         console.error(
