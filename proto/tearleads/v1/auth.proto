@@ -1,0 +1,103 @@
+syntax = "proto3";
+
+package tearleads.v1;
+
+import "tearleads/v1/common.proto";
+
+service AuthService {
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+  rpc GetSessions(GetSessionsRequest) returns (GetSessionsResponse);
+  rpc DeleteSession(DeleteSessionRequest) returns (DeleteSessionResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+  rpc GetOrganizations(GetOrganizationsRequest)
+      returns (GetOrganizationsResponse);
+}
+
+message VfsKeySetup {
+  string public_encryption_key = 1;
+  optional string public_signing_key = 2;
+  string encrypted_private_keys = 3;
+  string argon2_salt = 4;
+}
+
+message AuthUser {
+  string id = 1;
+  string email = 2;
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message RegisterRequest {
+  string email = 1;
+  string password = 2;
+  optional VfsKeySetup vfs_key_setup = 3;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message LoginResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  string token_type = 3;
+  int32 expires_in = 4;
+  int32 refresh_expires_in = 5;
+  AuthUser user = 6;
+}
+
+message RegisterResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  string token_type = 3;
+  int32 expires_in = 4;
+  int32 refresh_expires_in = 5;
+  AuthUser user = 6;
+}
+
+message RefreshTokenResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  string token_type = 3;
+  int32 expires_in = 4;
+  int32 refresh_expires_in = 5;
+  AuthUser user = 6;
+}
+
+message GetSessionsRequest {}
+
+message GetSessionsResponse {
+  repeated SessionSummary sessions = 1;
+}
+
+message DeleteSessionRequest {
+  string session_id = 1;
+}
+
+message DeleteSessionResponse {
+  bool deleted = 1;
+}
+
+message LogoutRequest {}
+
+message LogoutResponse {
+  bool logged_out = 1;
+}
+
+message UserOrganization {
+  string id = 1;
+  string name = 2;
+  bool is_personal = 3;
+}
+
+message GetOrganizationsRequest {}
+
+message GetOrganizationsResponse {
+  repeated UserOrganization organizations = 1;
+  string personal_organization_id = 2;
+}

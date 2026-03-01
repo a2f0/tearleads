@@ -15,6 +15,7 @@ COPY packages/shared/package.json packages/shared/
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # Copy source code
+COPY proto proto
 COPY packages/smtp-listener packages/smtp-listener
 COPY packages/shared packages/shared
 

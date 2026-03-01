@@ -1,4 +1,5 @@
 import type { Server } from 'node:http';
+import { expressConnectMiddleware } from '@connectrpc/connect-express';
 import dbPackageJson from '@tearleads/db/package.json' with { type: 'json' };
 import type { PingData } from '@tearleads/shared';
 import { closeRedisClient } from '@tearleads/shared/redis';
@@ -7,6 +8,8 @@ import dotenv from 'dotenv';
 import express, { type Express, type Request, type Response } from 'express';
 import morgan from 'morgan';
 import packageJson from '../package.json' with { type: 'json' };
+import { authInterceptor } from './connect/interceptors/authInterceptor.js';
+import { registerConnectRoutes } from './connect/router.js';
 import { closePostgresPool } from './lib/postgres.js';
 import { closeRedisSubscriberClient } from './lib/redisPubSub.js';
 import { adminAccessMiddleware } from './middleware/adminAccess.js';
@@ -53,6 +56,14 @@ app.use(
     limit: jsonBodyLimit
   }),
   revenuecatRouter
+);
+
+app.use(
+  expressConnectMiddleware({
+    requestPathPrefix: '/v1/connect',
+    routes: registerConnectRoutes,
+    interceptors: [authInterceptor]
+  })
 );
 
 app.use(

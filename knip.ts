@@ -69,7 +69,18 @@ const config: KnipConfig = {
       ],
       ignoreDependencies: [
         // Invoked via scripts/checks/checkDependencyCruiser.sh.
-        'dependency-cruiser'
+        'dependency-cruiser',
+        // Buf codegen plugins executed by `pnpm protoGenerate`.
+        '@bufbuild/protoc-gen-es',
+        '@connectrpc/protoc-gen-connect-es'
+      ]
+    },
+    'packages/api-client': {
+      ignoreDependencies: [
+        // Added for upcoming Connect client wiring from generated protobuf modules.
+        '@bufbuild/protobuf',
+        '@connectrpc/connect',
+        '@connectrpc/connect-web'
       ]
     },
     'packages/app-builder': {
@@ -112,6 +123,12 @@ const config: KnipConfig = {
     },
     'packages/keychain': {
       entry: ['src/clientEntry.ts']
+    },
+    'packages/shared': {
+      ignoreDependencies: [
+        // Runtime dependency of generated protobuf modules under src/gen.
+        '@bufbuild/protobuf'
+      ]
     },
     'packages/vfs-sync': {
       entry: ['src/clientEntry.ts']

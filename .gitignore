@@ -48,6 +48,7 @@ packages/db-test-utils/sqlite-wasm/
 packages/client/public/assets/sqlite3-opfs-async-proxy.js
 packages/client/.generated/
 packages/client/generated/
+packages/shared/src/gen/
 
 # Downloaded v86 emulator (use scripts/downloadV86.sh to download)
 packages/client/public/v86/

@@ -12,6 +12,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 
 # Copy all workspace packages so new package dependencies are picked up automatically.
 COPY packages packages
+COPY proto proto
 
 # Install dependencies (skip postinstall - source not copied yet)
 RUN pnpm install --frozen-lockfile --ignore-scripts

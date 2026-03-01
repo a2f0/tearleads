@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package tearleads.v1;
+
+import "google/protobuf/timestamp.proto";
+
+message ErrorResponse {
+  string error = 1;
+  optional string code = 2;
+}
+
+message PaginationCursor {
+  string cursor = 1;
+  int32 limit = 2;
+}
+
+message PaginatedResponse {
+  string next_cursor = 1;
+  bool has_more = 2;
+}
+
+message SessionSummary {
+  string id = 1;
+  google.protobuf.Timestamp created_at = 2;
+  optional google.protobuf.Timestamp expires_at = 3;
+  optional google.protobuf.Timestamp last_active_at = 4;
+  bool is_current = 5;
+  bool is_admin = 6;
+  string ip_address = 7;
+}
