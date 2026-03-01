@@ -34,6 +34,7 @@ function getBaseUrl(server: Server): string {
 
 function createAuthClient(server: Server) {
   const transport = createConnectTransport({
+    httpVersion: '1.1',
     baseUrl: `${getBaseUrl(server)}/v1/connect`
   });
   return createPromiseClient(AuthService, transport);
