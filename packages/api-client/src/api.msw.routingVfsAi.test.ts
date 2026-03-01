@@ -279,6 +279,8 @@ describe('api with msw', () => {
       cipherSuite: 3
     });
     const groupId = createGroupResponse.group.id;
+    const addMemberEpoch = createGroupResponse.group.currentEpoch + 1;
+    const removeMemberEpoch = addMemberEpoch + 1;
 
     await api.mls.getGroup(groupId);
     await api.mls.updateGroup(groupId, { name: 'MLS Group Updated' });
@@ -290,7 +292,7 @@ describe('api with msw', () => {
       commit: 'commit-bytes',
       welcome: 'welcome-bytes',
       keyPackageRef: 'kp-ref-add',
-      newEpoch: 1
+      newEpoch: addMemberEpoch
     });
 
     // Get second user's remaining key packages (kp-ref-extra still unconsumed)
@@ -300,14 +302,14 @@ describe('api with msw', () => {
     await api.mls.getGroupMessages(groupId, { cursor: '10', limit: 25 });
     await api.mls.sendGroupMessage(groupId, {
       ciphertext: 'ciphertext',
-      epoch: 1,
+      epoch: addMemberEpoch,
       messageType: 'commit'
     });
 
     // State
     await api.mls.getGroupState(groupId);
     await api.mls.uploadGroupState(groupId, {
-      epoch: 1,
+      epoch: addMemberEpoch,
       encryptedState: 'encrypted-state',
       stateHash: 'state-hash'
     });
@@ -334,15 +336,15 @@ describe('api with msw', () => {
     const welcomeId = 'welcome-for-ack';
     await ctx.pool.query(
       `INSERT INTO mls_welcome_messages (id, group_id, recipient_user_id, key_package_ref, welcome_data, epoch, created_at)
-       VALUES ($1, $2, $3, 'kp-ref-ack', 'welcome-data', 1, NOW())`,
-      [welcomeId, groupId, seededUser.userId]
+       VALUES ($1, $2, $3, 'kp-ref-ack', 'welcome-data', $4, NOW())`,
+      [welcomeId, groupId, seededUser.userId, addMemberEpoch]
     );
     await api.mls.acknowledgeWelcome(welcomeId, { groupId });
 
     // Remove member, leave group, delete key package
     await api.mls.removeGroupMember(groupId, secondUser.userId, {
       commit: 'remove-commit',
-      newEpoch: 2
+      newEpoch: removeMemberEpoch
     });
     await api.mls.leaveGroup(groupId);
     await api.mls.deleteKeyPackage(uploadedKeyPackageId ?? '');
