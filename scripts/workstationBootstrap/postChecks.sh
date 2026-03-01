@@ -106,35 +106,3 @@ bootstrap_api_dev_env() {
     echo "Warning: API env bootstrap failed; continuing." >&2
   fi
 }
-
-bootstrap_local_garage() {
-  setup_garage_script="${REPO_ROOT}/scripts/garage/setupLocalGarage.sh"
-  if [ ! -f "${setup_garage_script}" ]; then
-    return
-  fi
-
-  echo ""
-  echo "--- Local Garage S3 bootstrap ---"
-
-  if ! has_cmd docker; then
-    echo "Docker is not installed. Skipping local Garage bootstrap."
-    echo "Install Docker and run manually: ${setup_garage_script}"
-    return
-  fi
-
-  printf "Bootstrap local Garage S3 for VFS blobs now? [y/N] "
-  read -r answer
-  case "$answer" in
-    [Yy]*)
-      if sh "${setup_garage_script}"; then
-        echo "Local Garage bootstrap complete."
-      else
-        echo "Warning: local Garage bootstrap failed; continuing." >&2
-        echo "Run manually: ${setup_garage_script}" >&2
-      fi
-      ;;
-    *)
-      echo "Skipped. Run manually later: ${setup_garage_script}"
-      ;;
-  esac
-}

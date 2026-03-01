@@ -6,7 +6,7 @@ set -eu
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-for f in root.env staging.env prod.env; do
+for f in root.env staging.env prod.env dev.env; do
   target="$REPO_ROOT/.secrets/$f"
   if [ ! -f "$target" ]; then
     printf 'warning: %s not found, skipping\n' "$target" >&2

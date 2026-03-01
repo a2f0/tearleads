@@ -7,10 +7,6 @@ echo "=== Resetting Postgres ==="
 "$SCRIPT_DIR/postgres/reset.sh" "$@"
 
 echo ""
-echo "=== Resetting Garage ==="
-"$SCRIPT_DIR/garage/reset.sh"
-
-echo ""
 echo "=== Resetting Redis ==="
 "$SCRIPT_DIR/redis/reset.sh"
 

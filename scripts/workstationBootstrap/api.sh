@@ -69,6 +69,17 @@ _api_upsert_env_value() {
   mv "${tmp_file}" "${file_path}"
 }
 
+_api_value_is_empty_or_placeholder() {
+  value="$1"
+  placeholder="$2"
+
+  if [ -z "${value}" ] || [ "${value}" = "${placeholder}" ]; then
+    return 0
+  fi
+
+  return 1
+}
+
 _api_generate_jwt_secret() {
   if command -v openssl >/dev/null 2>&1; then
     openssl rand -hex 32
@@ -103,22 +114,39 @@ _api_ensure_env_file() {
   printf '%s\n' "${_ensure_env_file}"
 }
 
-_api_set_vfs_defaults() {
-  _vfs_env_file="$1"
+_api_copy_keys_if_unset() {
+  _source_file="$1"
+  _target_file="$2"
+  shift 2
+
+  for key in "$@"; do
+    source_value="$(_api_read_env_value "${_source_file}" "${key}" || true)"
+    if [ -z "${source_value}" ]; then
+      continue
+    fi
+    target_value="$(_api_read_env_value "${_target_file}" "${key}" || true)"
+    if [ -z "${target_value}" ]; then
+      _api_upsert_env_value "${_target_file}" "${key}" "${source_value}"
+    fi
+  done
+}
+
+_api_set_defaults_if_unset() {
+  _target_env_file="$1"
 
   while IFS='=' read -r key value; do
     [ -n "${key}" ] || continue
-    current_value="$(_api_read_env_value "${_vfs_env_file}" "${key}" || true)"
+    current_value="$(_api_read_env_value "${_target_env_file}" "${key}" || true)"
     if [ -z "${current_value}" ]; then
-      _api_upsert_env_value "${_vfs_env_file}" "${key}" "${value}"
+      _api_upsert_env_value "${_target_env_file}" "${key}" "${value}"
     fi
   done <<EOF
 VFS_BLOB_STORE_PROVIDER=s3
 VFS_BLOB_S3_BUCKET=vfs-blobs
 VFS_BLOB_S3_REGION=us-east-1
-VFS_BLOB_S3_ENDPOINT=http://127.0.0.1:3900
-VFS_BLOB_S3_ACCESS_KEY_ID=vfs-blob-key
-VFS_BLOB_S3_SECRET_ACCESS_KEY=vfs-blob-secret-local-dev
+VFS_BLOB_S3_ENDPOINT=http://127.0.0.1:4566
+VFS_BLOB_S3_ACCESS_KEY_ID=test
+VFS_BLOB_S3_SECRET_ACCESS_KEY=test
 VFS_BLOB_S3_FORCE_PATH_STYLE=true
 EOF
 }
@@ -127,30 +155,71 @@ setup_api_dev_env() {
   api_dir="${REPO_ROOT}/packages/api"
   smtp_dir="${REPO_ROOT}/packages/smtp-listener"
   secrets_env_file="${REPO_ROOT}/.secrets/dev.env"
-
   api_env_file="$(_api_ensure_env_file "${api_dir}/.env" "${api_dir}/.env.example")" || return 1
 
+  mkdir -p "$(dirname "${secrets_env_file}")"
+  if [ ! -f "${secrets_env_file}" ]; then
+    : > "${secrets_env_file}"
+    chmod 600 "${secrets_env_file}" 2>/dev/null || true
+    echo "Created shared secrets file at ${secrets_env_file}."
+  fi
+
+  _api_set_defaults_if_unset "${secrets_env_file}"
+
+  shared_openrouter_key="$(_api_read_env_value "${secrets_env_file}" "OPENROUTER_API_KEY" || true)"
+  if _api_value_is_empty_or_placeholder "${shared_openrouter_key}" "your-openrouter-api-key"; then
+    _api_upsert_env_value "${secrets_env_file}" "OPENROUTER_API_KEY" "your-openrouter-api-key"
+  fi
+
+  shared_jwt_secret="$(_api_read_env_value "${secrets_env_file}" "JWT_SECRET" || true)"
+  if _api_value_is_empty_or_placeholder "${shared_jwt_secret}" "your-jwt-secret"; then
+    shared_jwt_secret="$(_api_generate_jwt_secret)"
+    _api_upsert_env_value "${secrets_env_file}" "JWT_SECRET" "${shared_jwt_secret}"
+    echo "Initialized JWT_SECRET in ${secrets_env_file}."
+  fi
+
+  shared_jwt_token="$(_api_read_env_value "${secrets_env_file}" "JWT_TOKEN" || true)"
+  if _api_value_is_empty_or_placeholder "${shared_jwt_token}" "your-jwt-secret"; then
+    _api_upsert_env_value "${secrets_env_file}" "JWT_TOKEN" "${shared_jwt_secret}"
+  fi
+
   current_jwt_secret="$(_api_read_env_value "${api_env_file}" "JWT_SECRET" || true)"
-  if [ -z "${current_jwt_secret}" ] || [ "${current_jwt_secret}" = "your-jwt-secret" ]; then
-    generated_jwt_secret="$(_api_generate_jwt_secret)"
-    _api_upsert_env_value "${api_env_file}" "JWT_SECRET" "${generated_jwt_secret}"
-    echo "Initialized JWT_SECRET in ${api_env_file}."
+  if _api_value_is_empty_or_placeholder "${current_jwt_secret}" "your-jwt-secret"; then
+    _api_upsert_env_value "${api_env_file}" "JWT_SECRET" "${shared_jwt_secret}"
+    echo "Initialized JWT_SECRET in ${api_env_file} from .secrets/dev.env."
   fi
 
   current_openrouter_key="$(_api_read_env_value "${api_env_file}" "OPENROUTER_API_KEY" || true)"
-  if [ -z "${current_openrouter_key}" ] || [ "${current_openrouter_key}" = "your-openrouter-api-key" ]; then
+  if _api_value_is_empty_or_placeholder "${current_openrouter_key}" "your-openrouter-api-key"; then
     openrouter_from_secrets="$(_api_read_env_value "${secrets_env_file}" "OPENROUTER_API_KEY" || true)"
-    if [ -n "${openrouter_from_secrets}" ]; then
+    if ! _api_value_is_empty_or_placeholder "${openrouter_from_secrets}" "your-openrouter-api-key"; then
       _api_upsert_env_value "${api_env_file}" "OPENROUTER_API_KEY" "${openrouter_from_secrets}"
       echo "Initialized OPENROUTER_API_KEY from .secrets/dev.env."
     fi
   fi
 
-  _api_set_vfs_defaults "${api_env_file}"
+  # Keep shared dev.env as source-of-truth and fan out to service env files.
+  _api_copy_keys_if_unset "${secrets_env_file}" "${api_env_file}" \
+    VFS_BLOB_STORE_PROVIDER \
+    VFS_BLOB_S3_BUCKET \
+    VFS_BLOB_S3_REGION \
+    VFS_BLOB_S3_ENDPOINT \
+    VFS_BLOB_S3_ACCESS_KEY_ID \
+    VFS_BLOB_S3_SECRET_ACCESS_KEY \
+    VFS_BLOB_S3_FORCE_PATH_STYLE
+  _api_set_defaults_if_unset "${api_env_file}"
 
   # --- smtp-listener env bootstrap ---
 
   smtp_env_file="$(_api_ensure_env_file "${smtp_dir}/.env" "${smtp_dir}/.env.example")" || return 1
 
-  _api_set_vfs_defaults "${smtp_env_file}"
+  _api_copy_keys_if_unset "${secrets_env_file}" "${smtp_env_file}" \
+    VFS_BLOB_STORE_PROVIDER \
+    VFS_BLOB_S3_BUCKET \
+    VFS_BLOB_S3_REGION \
+    VFS_BLOB_S3_ENDPOINT \
+    VFS_BLOB_S3_ACCESS_KEY_ID \
+    VFS_BLOB_S3_SECRET_ACCESS_KEY \
+    VFS_BLOB_S3_FORCE_PATH_STYLE
+  _api_set_defaults_if_unset "${smtp_env_file}"
 }
