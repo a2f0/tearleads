@@ -1,11 +1,20 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig, mergeConfig } from 'vitest/config';
 import { sharedTestConfig } from '../../vitest.shared';
+
+const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default mergeConfig(
   sharedTestConfig,
   defineConfig({
     plugins: [react()],
+    resolve: {
+      alias: {
+        '@tearleads/mls-core': path.resolve(dirname, '../mls-core/src/index.ts')
+      }
+    },
     test: {
       environment: 'jsdom',
       globals: true,

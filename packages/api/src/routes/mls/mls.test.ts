@@ -7,10 +7,15 @@ import { mockConsoleError } from '../../test/consoleMocks.js';
 
 const mockQuery = vi.fn();
 const mockGetPostgresPool = vi.fn();
+const mockBroadcast = vi.fn((_c: string, _m: unknown) => Promise.resolve(1));
 
 vi.mock('../../lib/postgres.js', () => ({
   getPostgresPool: () => mockGetPostgresPool(),
   getPool: () => mockGetPostgresPool()
+}));
+
+vi.mock('../../lib/broadcast.js', () => ({
+  broadcast: (c: string, m: unknown) => mockBroadcast(c, m)
 }));
 
 const sessionStore = new Map<string, string>();
@@ -189,6 +194,7 @@ describe('MLS routes', () => {
         .mockResolvedValueOnce({ rows: [{}] });
       mockClientQuery
         .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({ rows: [{ current_epoch: 1 }] })
         .mockResolvedValueOnce({ rows: [{ count: '1' }] })
         .mockResolvedValueOnce({ rowCount: 0, rows: [] })
         .mockResolvedValueOnce({});
@@ -207,7 +213,7 @@ describe('MLS routes', () => {
       expect(response.status).toBe(409);
       expect(response.body).toEqual({ error: 'Key package not available' });
       expect(mockClientQuery).toHaveBeenNthCalledWith(
-        3,
+        4,
         expect.stringContaining('AND organization_id = $4'),
         ['group-1', 'kp-ref', 'user-2', 'org-1']
       );
@@ -328,6 +334,77 @@ describe('MLS routes', () => {
     });
   });
 
+  describe('POST /v1/mls/groups/:groupId/messages', () => {
+    it('mirrors application messages into VFS tables and CRDT feed', async () => {
+      const authHeader = await createAuthHeader({
+        id: 'user-1',
+        email: 'user-1@example.com'
+      });
+      const createdAt = new Date('2026-03-01T00:00:00.000Z');
+
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ role: 'member', organization_id: 'org-1' }]
+        })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ current_epoch: 2 }] })
+        .mockResolvedValueOnce({
+          rows: [{ sequence_number: 1, created_at: createdAt }]
+        })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/messages')
+        .set('Authorization', authHeader)
+        .send({
+          ciphertext: 'ciphertext',
+          epoch: 2,
+          messageType: 'application',
+          contentType: 'text/plain'
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body).toEqual({
+        message: {
+          id: expect.any(String),
+          groupId: 'group-1',
+          senderUserId: 'user-1',
+          epoch: 2,
+          ciphertext: 'ciphertext',
+          messageType: 'application',
+          contentType: 'text/plain',
+          sequenceNumber: 1,
+          sentAt: createdAt.toISOString(),
+          createdAt: createdAt.toISOString()
+        }
+      });
+      expect(mockQuery).toHaveBeenNthCalledWith(
+        5,
+        expect.stringContaining('INSERT INTO vfs_registry'),
+        expect.arrayContaining(['org-1'])
+      );
+      expect(mockQuery).toHaveBeenNthCalledWith(
+        6,
+        expect.stringContaining('INSERT INTO vfs_item_state'),
+        expect.arrayContaining(['ciphertext', 2])
+      );
+      expect(mockQuery).toHaveBeenNthCalledWith(
+        7,
+        expect.stringContaining('INSERT INTO vfs_acl_entries'),
+        expect.arrayContaining(['group-1'])
+      );
+      expect(mockQuery).toHaveBeenNthCalledWith(
+        8,
+        expect.stringContaining('INSERT INTO vfs_crdt_ops'),
+        expect.arrayContaining(['user-1', 'ciphertext', 2])
+      );
+    });
+  });
+
   describe('POST /v1/mls/welcome-messages/:id/ack', () => {
     it('binds acknowledgements to both recipient and payload groupId', async () => {
       const authHeader = await createAuthHeader({
@@ -350,8 +427,34 @@ describe('MLS routes', () => {
       );
     });
   });
-
   describe('MLS payload validation hardening', () => {
+    it('rejects send-message payloads with stale epochs', async () => {
+      const authHeader = await createAuthHeader({
+        id: 'user-1',
+        email: 'user-1@example.com'
+      });
+
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ role: 'member', organization_id: 'org-1' }]
+        })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ current_epoch: 1 }] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/messages')
+        .set('Authorization', authHeader)
+        .send({
+          ciphertext: 'ciphertext',
+          epoch: 2,
+          messageType: 'application'
+        });
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({ error: 'Epoch mismatch' });
+      expect(mockQuery).toHaveBeenCalledTimes(4);
+    });
     it('rejects non-integer epochs in send-message payloads', async () => {
       const authHeader = await createAuthHeader({
         id: 'user-1',

@@ -1,12 +1,177 @@
 import { randomUUID } from 'node:crypto';
 import type { MlsMessage, SendMlsMessageResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
+import type { QueryResultRow } from 'pg';
 import { broadcast } from '../../lib/broadcast.js';
 import { getPostgresPool } from '../../lib/postgres.js';
 import {
   getActiveMlsGroupMembership,
   parseSendMessagePayload
 } from './shared.js';
+
+interface VfsMirrorInput {
+  messageId: string;
+  groupId: string;
+  senderUserId: string;
+  organizationId: string;
+  ciphertext: string;
+  epoch: number;
+  occurredAtIso: string;
+}
+
+interface QueryClient {
+  query: <T extends QueryResultRow = QueryResultRow>(
+    queryText: string,
+    values?: unknown[]
+  ) => Promise<{ rows: T[]; rowCount: number | null }>;
+  release: () => void;
+}
+
+async function acquireTransactionClient(
+  pool: Awaited<ReturnType<typeof getPostgresPool>>
+): Promise<QueryClient> {
+  if (typeof pool.connect !== 'function') {
+    return {
+      query: <T extends QueryResultRow = QueryResultRow>(
+        queryText: string,
+        values?: unknown[]
+      ) => pool.query<T>(queryText, values),
+      release: () => {}
+    };
+  }
+
+  const client = await pool.connect();
+  return {
+    query: <T extends QueryResultRow = QueryResultRow>(
+      queryText: string,
+      values?: unknown[]
+    ) => client.query<T>(queryText, values),
+    release: () => client.release()
+  };
+}
+
+async function mirrorApplicationMessageToVfs(
+  client: QueryClient,
+  input: VfsMirrorInput
+) {
+  await client.query(
+    `
+    INSERT INTO vfs_registry (
+      id,
+      object_type,
+      owner_id,
+      organization_id,
+      created_at
+    ) VALUES (
+      $1::text,
+      'mlsMessage',
+      NULL,
+      $2::text,
+      $3::timestamptz
+    )
+    ON CONFLICT (id) DO NOTHING
+    `,
+    [input.messageId, input.organizationId, input.occurredAtIso]
+  );
+
+  await client.query(
+    `
+    INSERT INTO vfs_item_state (
+      item_id,
+      encrypted_payload,
+      key_epoch,
+      updated_at,
+      deleted_at
+    ) VALUES (
+      $1::text,
+      $2::text,
+      $3::integer,
+      $4::timestamptz,
+      NULL
+    )
+    ON CONFLICT (item_id) DO UPDATE
+    SET
+      encrypted_payload = EXCLUDED.encrypted_payload,
+      key_epoch = EXCLUDED.key_epoch,
+      updated_at = EXCLUDED.updated_at,
+      deleted_at = NULL
+    `,
+    [input.messageId, input.ciphertext, input.epoch, input.occurredAtIso]
+  );
+
+  await client.query(
+    `
+    INSERT INTO vfs_acl_entries (
+      id,
+      item_id,
+      principal_type,
+      principal_id,
+      access_level,
+      granted_by,
+      created_at,
+      updated_at,
+      revoked_at,
+      expires_at
+    )
+    SELECT
+      vfs_make_event_id('acl'),
+      $1::text,
+      'user',
+      member.user_id,
+      'read',
+      $2::text,
+      $3::timestamptz,
+      $3::timestamptz,
+      NULL,
+      NULL
+    FROM mls_group_members member
+    WHERE member.group_id = $4::text
+      AND member.removed_at IS NULL
+    ON CONFLICT (item_id, principal_type, principal_id) DO UPDATE
+    SET
+      access_level = EXCLUDED.access_level,
+      granted_by = EXCLUDED.granted_by,
+      updated_at = EXCLUDED.updated_at,
+      revoked_at = NULL,
+      expires_at = NULL
+    `,
+    [input.messageId, input.senderUserId, input.occurredAtIso, input.groupId]
+  );
+
+  await client.query(
+    `
+    INSERT INTO vfs_crdt_ops (
+      id,
+      item_id,
+      op_type,
+      actor_id,
+      source_table,
+      source_id,
+      occurred_at,
+      encrypted_payload,
+      key_epoch
+    ) VALUES (
+      vfs_make_event_id('crdt'),
+      $1::text,
+      'item_upsert',
+      $2::text,
+      'mls_messages',
+      $3::text,
+      $4::timestamptz,
+      $5::text,
+      $6::integer
+    )
+    `,
+    [
+      input.messageId,
+      input.senderUserId,
+      `mls_message:${input.groupId}:${input.messageId}`,
+      input.occurredAtIso,
+      input.ciphertext,
+      input.epoch
+    ]
+  );
+}
 
 /**
  * @openapi
@@ -59,55 +224,102 @@ const postGroupsGroupidMessagesHandler = async (
       return;
     }
 
-    // Insert message with atomic sequence number assignment
-    // Uses subquery to avoid race condition on concurrent inserts
-    const id = randomUUID();
-    const result = await pool.query<{
-      sequence_number: number;
-      created_at: Date;
-    }>(
-      `INSERT INTO mls_messages (
-          id, group_id, sender_user_id, epoch, ciphertext, message_type, content_type, sequence_number, created_at
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7,
-          COALESCE((SELECT MAX(sequence_number) FROM mls_messages WHERE group_id = $2), 0) + 1,
-          NOW()
-        )
-        RETURNING sequence_number, created_at`,
-      [
+    const client = await acquireTransactionClient(pool);
+    let message: MlsMessage | null = null;
+    try {
+      await client.query('BEGIN');
+
+      const groupEpochResult = await client.query<{ current_epoch: number }>(
+        `SELECT current_epoch
+           FROM mls_groups
+          WHERE id = $1
+          LIMIT 1
+          FOR SHARE`,
+        [groupId]
+      );
+      const currentEpoch = groupEpochResult.rows[0]?.current_epoch;
+      if (typeof currentEpoch !== 'number') {
+        await client.query('ROLLBACK');
+        res.status(404).json({ error: 'Group not found' });
+        return;
+      }
+      if (payload.epoch !== currentEpoch) {
+        await client.query('ROLLBACK');
+        res.status(409).json({ error: 'Epoch mismatch' });
+        return;
+      }
+
+      const id = randomUUID();
+      const result = await client.query<{
+        sequence_number: number;
+        created_at: Date;
+      }>(
+        `INSERT INTO mls_messages (
+            id, group_id, sender_user_id, epoch, ciphertext, message_type, content_type, sequence_number, created_at
+          ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7,
+            COALESCE((SELECT MAX(sequence_number) FROM mls_messages WHERE group_id = $2), 0) + 1,
+            NOW()
+          )
+          RETURNING sequence_number, created_at`,
+        [
+          id,
+          groupId,
+          claims.sub,
+          payload.epoch,
+          payload.ciphertext,
+          payload.messageType,
+          payload.contentType ?? 'text/plain'
+        ]
+      );
+
+      const row = result.rows[0];
+      if (!row) {
+        throw new Error('Failed to insert message');
+      }
+
+      message = {
         id,
         groupId,
-        claims.sub,
-        payload.epoch,
-        payload.ciphertext,
-        payload.messageType,
-        payload.contentType ?? 'text/plain'
-      ]
-    );
+        senderUserId: claims.sub,
+        epoch: payload.epoch,
+        ciphertext: payload.ciphertext,
+        messageType: payload.messageType,
+        contentType: payload.contentType ?? 'text/plain',
+        sequenceNumber: row.sequence_number,
+        sentAt: row.created_at.toISOString(),
+        createdAt: row.created_at.toISOString()
+      };
 
-    const row = result.rows[0];
-    if (!row) {
-      throw new Error('Failed to insert message');
+      if (payload.messageType === 'application') {
+        await mirrorApplicationMessageToVfs(client, {
+          messageId: id,
+          groupId,
+          senderUserId: claims.sub,
+          organizationId: membership.organizationId,
+          ciphertext: payload.ciphertext,
+          epoch: payload.epoch,
+          occurredAtIso: row.created_at.toISOString()
+        });
+      }
+
+      await client.query('COMMIT');
+    } catch (transactionError) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw transactionError;
+    } finally {
+      client.release();
     }
 
-    const message: MlsMessage = {
-      id,
-      groupId,
-      senderUserId: claims.sub,
-      epoch: payload.epoch,
-      ciphertext: payload.ciphertext,
-      messageType: payload.messageType,
-      contentType: payload.contentType ?? 'text/plain',
-      sequenceNumber: row.sequence_number,
-      sentAt: row.created_at.toISOString(),
-      createdAt: row.created_at.toISOString()
-    };
+    if (!message) {
+      return;
+    }
 
     // Broadcast to group channel
     await broadcast(`mls:group:${groupId}`, {
       type: 'mls:message',
       payload: message,
-      timestamp: row.created_at.toISOString()
+      timestamp: message.createdAt
     });
 
     const response: SendMlsMessageResponse = { message };

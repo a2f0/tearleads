@@ -23,6 +23,8 @@ let mockIsUnlocked = false;
 let mockKeyboardHeight = 0;
 
 vi.mock('@tearleads/ui', () => ({
+  cn: (...classes: Array<string | undefined>) =>
+    classes.filter((value): value is string => Boolean(value)).join(' '),
   Footer: ({
     children,
     connectionIndicator,

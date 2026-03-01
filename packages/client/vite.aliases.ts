@@ -106,6 +106,11 @@ export const createViteAliases = (
     '@tearleads/keychain': path.resolve(dirname, '../keychain/src/index.ts'),
     '@tearleads/wallet/package.json': path.resolve(dirname, '../wallet/package.json'),
     '@tearleads/wallet': path.resolve(dirname, '../wallet/src/index.ts'),
+    '@tearleads/mls-core/package.json': path.resolve(
+      dirname,
+      '../mls-core/package.json'
+    ),
+    '@tearleads/mls-core': path.resolve(dirname, '../mls-core/src/index.ts'),
     '@tearleads/mls-chat/package.json': path.resolve(
       dirname,
       '../mls-chat/package.json'

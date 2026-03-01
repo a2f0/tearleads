@@ -8,8 +8,7 @@ import { MLS_CIPHERSUITES } from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useMlsChatApi } from '../context/index.js';
-import type { ActiveGroup } from '../lib/index.js';
-import type { MlsClient } from '../lib/mls.js';
+import type { ActiveGroup, MlsClient } from '../lib/index.js';
 import {
   recoverMissingGroupState,
   uploadGroupStateSnapshot

@@ -67,6 +67,8 @@
       "@tearleads/vehicles": ["../vehicles/src/index.ts"],
       "@tearleads/vfs-explorer/package.json": ["../vfs-explorer/package.json"],
       "@tearleads/vfs-explorer": ["../vfs-explorer/src/index.ts"],
+      "@tearleads/mls-core/package.json": ["../mls-core/package.json"],
+      "@tearleads/mls-core": ["../mls-core/src/index.ts"],
       "@tearleads/mls-chat/package.json": ["../mls-chat/package.json"],
       "@tearleads/mls-chat": ["../mls-chat/src/index.ts"],
       "@tearleads/msw/package.json": ["../msw/package.json"],
