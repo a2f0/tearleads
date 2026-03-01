@@ -73,15 +73,10 @@ export {
   InMemoryVfsCrdtStateStore,
   reconcileCanonicalVfsCrdtOperations,
   reconcileVfsCrdtOperations,
-  type VfsCrdtAclEntry,
-  type VfsCrdtApplyResult,
-  type VfsCrdtApplyStatus,
-  type VfsCrdtLinkEntry,
   type VfsCrdtOperation,
   type VfsCrdtOpType,
   type VfsCrdtOrderViolationCode,
-  VfsCrdtOrderViolationError,
-  type VfsCrdtSnapshot
+  VfsCrdtOrderViolationError
 } from './protocol/sync-crdt.js';
 export {
   assertStronglyConsistentVfsCrdtRows,

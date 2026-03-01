@@ -6,6 +6,5 @@ export type {
   LocalKeyPackage,
   LocalMlsState,
   MlsCredential,
-  SseConnectionState,
-  SseMessageHandler
+  SseConnectionState
 } from './types.js';
