@@ -106,3 +106,35 @@ bootstrap_api_dev_env() {
     echo "Warning: API env bootstrap failed; continuing." >&2
   fi
 }
+
+bootstrap_local_s3() {
+  setup_s3_script="${REPO_ROOT}/scripts/localstack/setupLocalS3.sh"
+  if [ ! -f "${setup_s3_script}" ]; then
+    return
+  fi
+
+  echo ""
+  echo "--- Local S3 bootstrap ---"
+
+  if ! has_cmd docker; then
+    echo "Docker is not installed. Skipping local S3 bootstrap."
+    echo "Install Docker and run manually: ${setup_s3_script}"
+    return
+  fi
+
+  printf "Bootstrap local S3 for VFS blobs now? [y/N] "
+  read -r answer
+  case "$answer" in
+    [Yy]*)
+      if sh "${setup_s3_script}"; then
+        echo "Local S3 bootstrap complete."
+      else
+        echo "Warning: local S3 bootstrap failed; continuing." >&2
+        echo "Run manually: ${setup_s3_script}" >&2
+      fi
+      ;;
+    *)
+      echo "Skipped. Run manually later: ${setup_s3_script}"
+      ;;
+  esac
+}

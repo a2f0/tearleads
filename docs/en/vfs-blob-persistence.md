@@ -84,8 +84,15 @@ Contract tests are in `packages/api/src/routes/vfs-blobs-persistence-contract.te
 
 ## Local S3 Bootstrap
 
-Use any S3-compatible local backend and point the API to it through `.secrets/dev.env`.
-The workstation bootstrap seeds local defaults for:
+Use the LocalStack helper:
+
+```bash
+sh scripts/localstack/setupLocalS3.sh
+```
+
+This script wraps `.secrets/dev.env`, starts local S3, and creates the `vfs-blobs` bucket.
+
+Defaults seeded into `.secrets/dev.env`:
 
 - `VFS_BLOB_S3_ENDPOINT=http://127.0.0.1:4566`
 - `VFS_BLOB_S3_ACCESS_KEY_ID=test`
@@ -93,4 +100,8 @@ The workstation bootstrap seeds local defaults for:
 - `VFS_BLOB_S3_BUCKET=vfs-blobs`
 - `VFS_BLOB_S3_FORCE_PATH_STYLE=true`
 
-Ensure your local backend is running and that the `vfs-blobs` bucket exists.
+To stop local S3:
+
+```bash
+sh scripts/localstack/stopLocalS3.sh
+```

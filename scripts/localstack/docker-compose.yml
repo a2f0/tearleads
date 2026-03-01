@@ -1,0 +1,12 @@
+services:
+  localstack:
+    image: localstack/localstack:s3-latest
+    restart: unless-stopped
+    environment:
+      SERVICES: s3
+      AWS_DEFAULT_REGION: us-east-1
+      PERSISTENCE: "1"
+    ports:
+      - "4566:4566"
+    volumes:
+      - ./data:/var/lib/localstack
