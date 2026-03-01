@@ -133,7 +133,8 @@ function traverseFromAnchor(
   bestDepth.set(anchorId, 0);
 
   for (let cursor = 0; cursor < queue.length; cursor += 1) {
-    const current = queue[cursor] as { id: string; depth: number };
+    const current = queue[cursor];
+    if (!current) continue;
     const { id, depth } = current;
     if (options.maxDepth !== null && depth > options.maxDepth) {
       continue;
@@ -434,7 +435,8 @@ export function compileSharePolicyCore(input: {
     left.localeCompare(right)
   );
   for (const key of sortedKeys) {
-    const aggregate = aggregates.get(key) as CompiledAggregate;
+    const aggregate = aggregates.get(key);
+    if (!aggregate) continue;
     const decoded = decodeAggregateKey(key);
     if (aggregate.denySource) {
       decisions.push({

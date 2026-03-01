@@ -3,14 +3,7 @@ import {
   type CompileVfsSharePoliciesResult,
   compileVfsSharePolicies
 } from './vfsSharePolicyCompiler.js';
-
-interface QueryResultRow<T> {
-  rows: T[];
-}
-
-interface PgQueryable {
-  query<T>(text: string, values?: unknown[]): Promise<QueryResultRow<T>>;
-}
+import type { PgQueryable } from './vfsSharePolicyCompilerState.js';
 
 type RecomputeTrigger =
   | {

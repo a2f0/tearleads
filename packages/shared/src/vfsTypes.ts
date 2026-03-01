@@ -280,11 +280,11 @@ export type VfsSharePolicyPreviewState =
 
 export interface VfsSharePolicyPreviewNode {
   itemId: string;
-  objectType: string;
+  objectType: VfsObjectType;
   depth: number;
   path: string;
   state: VfsSharePolicyPreviewState;
-  effectiveAccessLevel: 'read' | 'write' | 'admin' | null;
+  effectiveAccessLevel: VfsAclAccessLevel | null;
   sourcePolicyIds: string[];
 }
 
@@ -306,7 +306,7 @@ export interface VfsSharePolicyPreviewRequest {
   cursor?: string | null;
   maxDepth?: number | null;
   q?: string | null;
-  objectType?: string[] | null;
+  objectType?: VfsObjectType[] | null;
 }
 
 export interface VfsSharePolicyPreviewResponse {

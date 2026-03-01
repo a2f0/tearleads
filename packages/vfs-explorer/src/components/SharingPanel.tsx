@@ -243,7 +243,7 @@ export function SharingPanel({
               placeholder={`Search ${SHARE_TYPE_LABELS[shareType].toLowerCase()}s...`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="text-sm"
+              className="text-base"
             />
             {searchLoading && (
               <Loader2 className="absolute top-1/2 right-2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
@@ -282,7 +282,7 @@ export function SharingPanel({
             Permission
           </span>
           <select
-            className="w-full rounded border bg-background px-2 py-1 text-sm"
+            className="w-full rounded border bg-background px-2 py-1 text-base"
             value={permissionLevel}
             onChange={(e) =>
               setPermissionLevel(e.target.value as VfsPermissionLevel)
@@ -305,7 +305,7 @@ export function SharingPanel({
             type="datetime-local"
             value={expiresAt}
             onChange={(e) => setExpiresAt(e.target.value)}
-            className="text-sm"
+            className="text-base"
           />
         </label>
 

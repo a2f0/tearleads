@@ -114,6 +114,10 @@ function toNodeState(
   };
 }
 
+function escapeSearchLikePattern(value: string): string {
+  return value.replace(/[%_\\]/g, '\\$&');
+}
+
 function normalizeSearchPattern(search: string | null): string | null {
   if (!search) {
     return null;
@@ -122,7 +126,7 @@ function normalizeSearchPattern(search: string | null): string | null {
   if (trimmed.length === 0) {
     return null;
   }
-  return `%${trimmed}%`;
+  return `%${escapeSearchLikePattern(trimmed)}%`;
 }
 
 function normalizeObjectTypes(objectTypes: string[] | null): string[] | null {
@@ -203,7 +207,7 @@ export async function buildSharePolicyPreviewTree(
     filtered AS (
       SELECT item_id, object_type, depth, node_path
       FROM tree
-      WHERE ($3::text IS NULL OR LOWER(item_id) LIKE $3 OR LOWER(object_type) LIKE $3)
+      WHERE ($3::text IS NULL OR LOWER(item_id) LIKE $3 ESCAPE '\\' OR LOWER(object_type) LIKE $3 ESCAPE '\\')
         AND ($4::text[] IS NULL OR object_type = ANY($4))
     ),
     total AS (

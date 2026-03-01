@@ -1,5 +1,5 @@
 import type { ShareTargetSearchResult, VfsShareType } from '@tearleads/shared';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 
 interface UseShareTargetSearchResult {
@@ -15,6 +15,7 @@ export function useShareTargetSearch(): UseShareTargetSearchResult {
   const [results, setResults] = useState<ShareTargetSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const latestRequestIdRef = useRef(0);
 
   const search = useCallback(
     async (query: string, type?: VfsShareType): Promise<void> => {
@@ -28,18 +29,24 @@ export function useShareTargetSearch(): UseShareTargetSearchResult {
         return;
       }
 
+      const requestId = latestRequestIdRef.current + 1;
+      latestRequestIdRef.current = requestId;
       setLoading(true);
       setError(null);
 
       try {
         const response = await vfsShareApi.searchTargets(query, type);
+        if (requestId !== latestRequestIdRef.current) return;
         setResults(response.results);
       } catch (err) {
+        if (requestId !== latestRequestIdRef.current) return;
         console.error('Failed to search share targets:', err);
         setError(err instanceof Error ? err.message : String(err));
         setResults([]);
       } finally {
-        setLoading(false);
+        if (requestId === latestRequestIdRef.current) {
+          setLoading(false);
+        }
       }
     },
     [vfsShareApi]
