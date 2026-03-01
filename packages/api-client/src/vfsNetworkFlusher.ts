@@ -101,13 +101,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function parseWriteId(value: unknown): number | null {
-  if (typeof value !== 'number') {
-    return null;
+  if (typeof value === 'number') {
+    if (!Number.isSafeInteger(value) || value < 1) {
+      return null;
+    }
+    return value;
   }
-  if (!Number.isSafeInteger(value) || value < 1) {
-    return null;
+
+  if (typeof value === 'string') {
+    if (!/^[0-9]+$/.test(value)) {
+      return null;
+    }
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isSafeInteger(parsed) && parsed >= 1) {
+      return parsed;
+    }
   }
-  return value;
+
+  return null;
 }
 
 function parseCursor(value: unknown): VfsSyncCursor | null {

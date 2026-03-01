@@ -5,7 +5,9 @@ import type {
 } from '@tearleads/vfs-sync/vfs';
 import {
   encodeVfsCrdtPushResponseProtobuf,
-  encodeVfsCrdtSyncResponseProtobuf
+  encodeVfsCrdtReconcileResponseProtobuf,
+  encodeVfsCrdtSyncResponseProtobuf,
+  encodeVfsSyncCursor
 } from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -342,6 +344,23 @@ describe('vfsNetworkFlusher', () => {
           );
         }
 
+        if (url.includes('/v1/vfs/crdt/reconcile')) {
+          return new Response(
+            encodeVfsCrdtReconcileResponseProtobuf({
+              clientId: 'desktop',
+              cursor: encodeVfsSyncCursor({
+                changedAt: '2026-02-24T12:10:00.000Z',
+                changeId: 'desktop-10'
+              }),
+              lastReconciledWriteIds: { desktop: 10 }
+            }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/x-protobuf' }
+            }
+          );
+        }
+
         if (url.includes('/v1/vfs/crdt/snapshot?clientId=desktop')) {
           return new Response(
             JSON.stringify({
@@ -350,7 +369,15 @@ describe('vfsNetworkFlusher', () => {
                 links: [],
                 cursor: null
               },
-              reconcileState: null,
+              reconcileState: {
+                cursor: {
+                  changedAt: '2026-02-24T12:09:59.000Z',
+                  changeId: 'desktop-9'
+                },
+                lastReconciledWriteIds: {
+                  desktop: '9'
+                }
+              },
               containerClocks: [],
               snapshotUpdatedAt: '2026-02-24T12:10:00.000Z'
             }),

@@ -3,6 +3,7 @@ import type { VfsCrdtRematerializationRequiredError } from '../client/sync-clien
 import { encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
 import {
   decodeVfsCrdtPushRequestProtobuf,
+  decodeVfsCrdtReconcileRequestProtobuf,
   decodeVfsCrdtSyncSessionRequestProtobuf,
   encodeVfsCrdtPushResponseProtobuf,
   encodeVfsCrdtReconcileResponseProtobuf,
@@ -229,6 +230,17 @@ describe('VfsHttpCrdtSyncTransport', () => {
         mobile: 5
       }
     });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const firstCall = fetchMock.mock.calls[0];
+    const requestUrl = firstCall?.[0];
+    expect(requestUrl).toBeTypeOf('string');
+    const parsedRequestUrl = new URL(String(requestUrl));
+    expect(parsedRequestUrl.pathname).toBe('/v1/vfs/crdt/vfs-sync');
+    expect(parsedRequestUrl.searchParams.get('limit')).toBe('25');
+    expect(parsedRequestUrl.searchParams.get('cursor')).toBe(
+      encodeVfsSyncCursor(cursor)
+    );
   });
 
   it('reconciles cursor/write ids through the CRDT reconcile endpoint', async () => {
@@ -279,6 +291,34 @@ describe('VfsHttpCrdtSyncTransport', () => {
         mobile: 3
       }
     });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const firstCall = fetchMock.mock.calls[0];
+    const requestUrl = firstCall?.[0];
+    expect(requestUrl).toBeTypeOf('string');
+    const parsedRequestUrl = new URL(String(requestUrl));
+    expect(parsedRequestUrl.pathname).toBe('/v1/vfs/crdt/reconcile');
+
+    const requestInit = firstCall?.[1];
+    const requestBytes = await readRequestBodyBytes(requestInit?.body);
+    const decodedBody = decodeVfsCrdtReconcileRequestProtobuf(requestBytes);
+    if (
+      typeof decodedBody !== 'object' ||
+      decodedBody === null ||
+      !('clientId' in decodedBody) ||
+      !('cursor' in decodedBody) ||
+      !('lastReconciledWriteIds' in decodedBody)
+    ) {
+      throw new Error('expected reconcile request protobuf payload');
+    }
+    expect(decodedBody.clientId).toBe('desktop');
+    expect(decodedBody.cursor).toBe(
+      encodeVfsSyncCursor({
+        changedAt: '2026-02-14T20:10:04.000Z',
+        changeId: 'desktop-4'
+      })
+    );
+    expect(decodedBody.lastReconciledWriteIds).toEqual({ desktop: 4 });
   });
 
   it('runs unified sync session over protobuf and parses nested results', async () => {

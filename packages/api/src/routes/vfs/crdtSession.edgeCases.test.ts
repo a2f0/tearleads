@@ -75,7 +75,8 @@ describe('VFS CRDT sync session route edge cases', { timeout: 15_000 }, () => {
           { replica_id: 'null-write', max_write_id: null },
           { replica_id: 'fraction', max_write_id: 1.5 },
           { replica_id: 'infinite', max_write_id: Number.POSITIVE_INFINITY },
-          { replica_id: 'low', max_write_id: 0 }
+          { replica_id: 'low', max_write_id: 0 },
+          { replica_id: 'overflow', max_write_id: '9007199254740993' }
         ]
       }) // replica write ids query
       .mockResolvedValueOnce({
@@ -97,7 +98,8 @@ describe('VFS CRDT sync session route edge cases', { timeout: 15_000 }, () => {
         cursor,
         limit: 1,
         operations: [],
-        rootId: 123
+        rootId: 123,
+        lastReconciledWriteIds: { desktop: 10 }
       });
 
     expect(response.status).toBe(200);
@@ -118,6 +120,11 @@ describe('VFS CRDT sync session route edge cases', { timeout: 15_000 }, () => {
       lastReconciledWriteIds: { desktop: 2, mobile: 7 }
     });
     expect(mockQuery.mock.calls[1]?.[1]).toContain(null);
+    const reconcileWriteIdsPayload = mockQuery.mock.calls[3]?.[1]?.[4];
+    expect(JSON.parse(String(reconcileWriteIdsPayload))).toEqual({
+      desktop: 10,
+      mobile: 7
+    });
     expect(mockClientRelease).toHaveBeenCalledTimes(1);
   });
 

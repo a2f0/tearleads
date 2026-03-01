@@ -48,7 +48,7 @@ function normalizeReplicaId(value: unknown): string | null {
 
 function parseWriteId(value: unknown): number | null {
   if (typeof value === 'number') {
-    if (!Number.isFinite(value) || !Number.isInteger(value) || value < 1) {
+    if (!Number.isSafeInteger(value) || value < 1) {
       return null;
     }
 
@@ -59,12 +59,34 @@ function parseWriteId(value: unknown): number | null {
     return null;
   }
 
+  if (!/^[0-9]+$/.test(value)) {
+    return null;
+  }
   const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1) {
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
     return null;
   }
 
   return parsed;
+}
+
+function mergeLastReconciledWriteIds(
+  ...sources: Record<string, number>[]
+): Record<string, number> {
+  const merged = new Map<string, number>();
+  for (const source of sources) {
+    for (const [replicaId, writeId] of Object.entries(source)) {
+      const existing = merged.get(replicaId) ?? 0;
+      if (writeId > existing) {
+        merged.set(replicaId, writeId);
+      }
+    }
+  }
+
+  const sortedEntries = Array.from(merged.entries()).sort((left, right) =>
+    left[0].localeCompare(right[0])
+  );
+  return Object.fromEntries(sortedEntries);
 }
 
 function toLastReconciledWriteIds(
@@ -271,6 +293,13 @@ const postCrdtSessionHandler = async (req: Request, res: Response) => {
         MAX(
           CASE
             WHEN split_part(source_id, ':', 3) ~ '^[0-9]+$'
+              AND (
+                length(split_part(source_id, ':', 3)) < 19
+                OR (
+                  length(split_part(source_id, ':', 3)) = 19
+                  AND split_part(source_id, ':', 3) <= '9223372036854775807'
+                )
+              )
               THEN split_part(source_id, ':', 3)::bigint
             ELSE NULL
           END
@@ -331,10 +360,12 @@ const postCrdtSessionHandler = async (req: Request, res: Response) => {
         toScopedCrdtClientId(parsedPayload.value.clientId),
         reconcileCursor.changedAt,
         reconcileCursor.changeId,
-        JSON.stringify({
-          ...parsedPayload.value.lastReconciledWriteIds,
-          ...pullResponse.lastReconciledWriteIds
-        })
+        JSON.stringify(
+          mergeLastReconciledWriteIds(
+            parsedPayload.value.lastReconciledWriteIds,
+            pullResponse.lastReconciledWriteIds
+          )
+        )
       ]
     );
 
