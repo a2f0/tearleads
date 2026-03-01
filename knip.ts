@@ -45,8 +45,8 @@ const config: KnipConfig = {
     'packages/bob-and-alice/src/harness/serverHarness.ts': ['classMembers'],
     'packages/client/src/components/ui/ErrorBoundary.tsx': ['classMembers'],
     'packages/client/src/db/adapters/web.adapter.ts': ['classMembers'],
-    'packages/mls-chat/src/lib/mls.ts': ['classMembers'],
-    'packages/mls-chat/src/lib/storage.ts': ['classMembers'],
+    'packages/mls-core/src/mls.ts': ['classMembers'],
+    'packages/mls-core/src/storage.ts': ['classMembers'],
     'packages/vfs-sync/src/vfs/access/sync-access-harness.ts': [
       'classMembers'
     ],
