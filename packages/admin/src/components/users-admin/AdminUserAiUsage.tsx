@@ -1,5 +1,5 @@
-import type { AdminUser } from '@tearleads/shared';
 import { formatNumber, formatTimestamp } from '@admin/lib/utils';
+import type { AdminUser } from '@tearleads/shared';
 import { Button } from '@/components/ui/button';
 import { useTypedTranslation } from '@/i18n';
 

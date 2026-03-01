@@ -1,6 +1,6 @@
+import type { AdminKeys } from '@admin/i18n/translations/types';
 import { cn, IconSquare } from '@tearleads/ui';
 import { Database } from 'lucide-react';
-import type { AdminKeys } from '@admin/i18n/translations/types';
 import { useTypedTranslation } from '@/i18n';
 
 const ADMIN_OPTIONS = [
