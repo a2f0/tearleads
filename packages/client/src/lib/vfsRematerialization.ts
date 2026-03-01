@@ -5,10 +5,11 @@ import type {
   VfsObjectType,
   VfsSyncItem
 } from '@tearleads/shared';
-import { sql } from 'drizzle-orm';
+import { ne, sql } from 'drizzle-orm';
 import { getDatabase, getDatabaseAdapter, isDatabaseInitialized } from '@/db';
 import { runLocalWrite } from '@/db/localWrite';
 import {
+  notes,
   vfsAclEntries,
   vfsItemState,
   vfsLinks,
@@ -22,6 +23,7 @@ const INSERT_BATCH_SIZE = 200;
 interface RegistryRowState {
   id: string;
   objectType: VfsObjectType;
+  encryptedName: string | null;
   ownerId: string | null;
   createdAtMs: number;
 }
@@ -52,6 +54,18 @@ interface AclRowState {
   actorId: string | null;
   updatedAtMs: number;
 }
+
+interface NoteRowState {
+  id: string;
+  title: string;
+  content: string;
+  createdAtMs: number;
+  updatedAtMs: number;
+  deleted: boolean;
+}
+
+const DEFAULT_MATERIALIZED_NOTE_TITLE = 'Untitled Note';
+const VFS_ROOT_ID = '__vfs_root__';
 
 function chunkArray<T>(values: readonly T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -130,6 +144,8 @@ function applySyncItemToRegistryState(
   registryById.set(item.itemId, {
     id: item.itemId,
     objectType: item.objectType,
+    encryptedName:
+      typeof item.encryptedName === 'string' ? item.encryptedName : null,
     ownerId: item.ownerId,
     createdAtMs
   });
@@ -181,7 +197,12 @@ function applyCrdtItemToDerivedState(
     if (!item.parentId || !item.childId) {
       return;
     }
-    if (!registryIds.has(item.parentId) || !registryIds.has(item.childId)) {
+    if (!registryIds.has(item.childId)) {
+      return;
+    }
+    const isKnownParent =
+      item.parentId === VFS_ROOT_ID || registryIds.has(item.parentId);
+    if (!isKnownParent) {
       return;
     }
 
@@ -233,6 +254,7 @@ async function isLocalRegistryEmpty(): Promise<boolean> {
   const rows = await db
     .select({ count: sql<number>`count(*)` })
     .from(vfsRegistry)
+    .where(ne(vfsRegistry.id, VFS_ROOT_ID))
     .limit(1);
   return (rows[0]?.count ?? 0) === 0;
 }
@@ -277,6 +299,7 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
   const registryRows = Array.from(registryById.values()).map((entry) => ({
     id: entry.id,
     objectType: entry.objectType,
+    encryptedName: entry.encryptedName,
     ownerId: entry.ownerId,
     createdAt: new Date(entry.createdAtMs)
   }));
@@ -316,11 +339,34 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
     updatedAt: new Date(entry.updatedAtMs),
     deletedAt: entry.deletedAtMs === null ? null : new Date(entry.deletedAtMs)
   }));
+  const itemStateByItemId = new Map(
+    itemStateRows.map((entry) => [
+      entry.itemId,
+      {
+        updatedAtMs: entry.updatedAt.getTime(),
+        deleted: entry.deletedAt !== null
+      }
+    ])
+  );
+  const noteRows = registryRows
+    .filter((entry) => entry.objectType === 'note')
+    .map((entry): NoteRowState => {
+      const itemState = itemStateByItemId.get(entry.id);
+      return {
+        id: entry.id,
+        title: DEFAULT_MATERIALIZED_NOTE_TITLE,
+        content: '',
+        createdAtMs: entry.createdAt.getTime(),
+        updatedAtMs: itemState?.updatedAtMs ?? entry.createdAt.getTime(),
+        deleted: itemState?.deleted ?? false
+      };
+    });
 
   const db = getDatabase();
   const adapter = getDatabaseAdapter();
   const hasItemStateTable = await tableExists('vfs_item_state');
   const hasAclEntriesTable = await tableExists('vfs_acl_entries');
+  const hasNotesTable = await tableExists('notes');
   // Disable FK checks during bulk rebuild — grantedBy may reference users not
   // yet present locally. The server guarantees referential integrity.
   await adapter.execute('PRAGMA foreign_keys = OFF', []);
@@ -333,6 +379,9 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
         }
         if (hasItemStateTable) {
           await tx.delete(vfsItemState);
+        }
+        if (hasNotesTable) {
+          await tx.delete(notes);
         }
         await tx.delete(vfsRegistry);
 
@@ -352,6 +401,22 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
           for (const chunk of chunkArray(aclRows, INSERT_BATCH_SIZE)) {
             if (chunk.length > 0) {
               await tx.insert(vfsAclEntries).values(chunk);
+            }
+          }
+        }
+        if (hasNotesTable) {
+          for (const chunk of chunkArray(noteRows, INSERT_BATCH_SIZE)) {
+            if (chunk.length > 0) {
+              await tx.insert(notes).values(
+                chunk.map((entry) => ({
+                  id: entry.id,
+                  title: entry.title,
+                  content: entry.content,
+                  createdAt: new Date(entry.createdAtMs),
+                  updatedAt: new Date(entry.updatedAtMs),
+                  deleted: entry.deleted
+                }))
+              );
             }
           }
         }

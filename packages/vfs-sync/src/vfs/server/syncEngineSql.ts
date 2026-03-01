@@ -81,6 +81,7 @@ export const VFS_SYNC_SQL = `
         visible_changes.change_type,
         visible_changes.changed_at,
         registry.object_type,
+        registry.encrypted_name,
         registry.owner_id,
         registry.created_at,
         CASE access.access_rank

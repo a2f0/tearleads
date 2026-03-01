@@ -79,6 +79,7 @@ export interface VfsSyncDbRow {
   change_type: string;
   changed_at: Date | string;
   object_type: string | null;
+  encrypted_name?: string | null;
   owner_id: string | null;
   created_at: Date | string | null;
   access_level: string;
@@ -389,7 +390,7 @@ export function mapVfsSyncRows(
     const createdAt =
       row.created_at === null ? null : toIsoString(row.created_at);
 
-    items.push({
+    const item: VfsSyncItem = {
       changeId: row.change_id,
       itemId: row.item_id,
       changeType: normalizeChangeType(row.change_type),
@@ -398,7 +399,11 @@ export function mapVfsSyncRows(
       ownerId: row.owner_id,
       createdAt,
       accessLevel: normalizeAccessLevel(row.access_level)
-    });
+    };
+    if (typeof row.encrypted_name === 'string') {
+      item.encryptedName = row.encrypted_name;
+    }
+    items.push(item);
   }
 
   const lastRow = items.at(-1);

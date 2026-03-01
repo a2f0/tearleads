@@ -37,3 +37,23 @@ export {
 export type { ScenarioHarnessConfig } from './harness/scenarioHarness.js';
 export { ScenarioHarness } from './harness/scenarioHarness.js';
 export { ServerHarness } from './harness/serverHarness.js';
+export type {
+  AuthenticatedApiActor,
+  LoginApiActorInput
+} from './scaffolding/apiActorAuth.js';
+export {
+  ensureVfsKeysExist,
+  loginApiActor
+} from './scaffolding/apiActorAuth.js';
+export type {
+  JsonApiActor,
+  SetupBobNotesShareForAliceInput,
+  SetupBobNotesShareForAliceResult
+} from './scaffolding/setupBobNotesShareForAlice.js';
+export { setupBobNotesShareForAlice } from './scaffolding/setupBobNotesShareForAlice.js';
+export type {
+  DbQueryClient,
+  SetupBobNotesShareForAliceDbInput,
+  SetupBobNotesShareForAliceDbResult
+} from './scaffolding/setupBobNotesShareForAliceDb.js';
+export { setupBobNotesShareForAliceDb } from './scaffolding/setupBobNotesShareForAliceDb.js';

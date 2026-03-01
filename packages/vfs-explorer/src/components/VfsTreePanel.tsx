@@ -4,6 +4,8 @@ import {
   WindowContextMenu,
   WindowSidebarHeader
 } from '@tearleads/window-manager';
+// one-component-per-file: allow
+// Rationale: tree/item render helpers need local closure state from VfsTreePanel.
 // component-complexity: allow
 // Rationale: orchestrates tree rendering plus folder dialogs/context menu in one sidebar entrypoint.
 import {
@@ -20,7 +22,7 @@ import {
   Trash2,
   UserCheck
 } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ALL_ITEMS_FOLDER_ID,
   SHARED_BY_ME_FOLDER_ID,
@@ -116,11 +118,24 @@ export function VfsTreePanel({
   onFolderShare,
   onPaste
 }: VfsTreePanelProps) {
-  // Ensure the VFS root exists before loading folders
-  useEnsureVfsRoot();
+  // Ensure the VFS root exists before loading folders.
+  const {
+    isReady: isRootReady,
+    isCreating: isRootCreating,
+    error: rootError
+  } = useEnsureVfsRoot();
 
   const { folders, loading, error, refetch } = useVfsFolders();
   const { hasItems } = useVfsClipboard();
+  const prevRootReadyRef = useRef(isRootReady);
+
+  useEffect(() => {
+    const wasRootReady = prevRootReadyRef.current;
+    if (!wasRootReady && isRootReady) {
+      refetch();
+    }
+    prevRootReadyRef.current = isRootReady;
+  }, [isRootReady, refetch]);
 
   useSidebarRefetch(refreshToken, refetch);
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(
@@ -145,6 +160,8 @@ export function VfsTreePanel({
   const [newSubfolderParent, setNewSubfolderParent] =
     useState<VfsFolderNode | null>(null);
   const [showNewRootFolderDialog, setShowNewRootFolderDialog] = useState(false);
+  const isLoading = loading || !isRootReady || isRootCreating;
+  const displayError = rootError ?? error;
 
   const toggleExpand = useCallback((folderId: string) => {
     setExpandedFolderIds((prev) => {
@@ -306,17 +323,19 @@ export function VfsTreePanel({
       >
         {VIRTUAL_FOLDERS.map(renderVirtualFolder)}
 
-        {loading && (
+        {isLoading && (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           </div>
         )}
-        {error && (
+        {displayError && (
           <div className="px-2 py-4 text-center text-destructive text-xs">
-            {error}
+            {displayError}
           </div>
         )}
-        {!loading && !error && folders.map((folder) => renderFolder(folder, 0))}
+        {!isLoading &&
+          !displayError &&
+          folders.map((folder) => renderFolder(folder, 0))}
       </div>
       <div
         className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize hover:bg-accent"

@@ -29,6 +29,9 @@ import { parseRegisterPayload } from './shared.js';
  *               encryptedSessionKey:
  *                 type: string
  *                 description: Session key encrypted with user's public key
+ *               encryptedName:
+ *                 type: string
+ *                 description: Optional canonical display name for item metadata
  *             required:
  *               - id
  *               - objectType
@@ -89,10 +92,17 @@ const postRegisterHandler = async (req: Request, res: Response) => {
         object_type,
         owner_id,
         encrypted_session_key,
+        encrypted_name,
         created_at
-      ) VALUES ($1, $2, $3, $4, NOW())
+      ) VALUES ($1, $2, $3, $4, $5, NOW())
       RETURNING created_at`,
-      [payload.id, payload.objectType, claims.sub, payload.encryptedSessionKey]
+      [
+        payload.id,
+        payload.objectType,
+        claims.sub,
+        payload.encryptedSessionKey,
+        payload.encryptedName ?? null
+      ]
     );
 
     const createdAt = result.rows[0]?.created_at;

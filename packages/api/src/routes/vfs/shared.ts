@@ -70,6 +70,7 @@ export function parseRegisterPayload(body: unknown): VfsRegisterRequest | null {
   const id = body['id'];
   const objectType = body['objectType'];
   const encryptedSessionKey = body['encryptedSessionKey'];
+  const encryptedName = body['encryptedName'];
 
   if (
     typeof id !== 'string' ||
@@ -83,9 +84,19 @@ export function parseRegisterPayload(body: unknown): VfsRegisterRequest | null {
     return null;
   }
 
+  if (
+    encryptedName !== undefined &&
+    (typeof encryptedName !== 'string' || encryptedName.trim().length === 0)
+  ) {
+    return null;
+  }
+
   return {
     id: id.trim(),
     objectType,
-    encryptedSessionKey: encryptedSessionKey.trim()
+    encryptedSessionKey: encryptedSessionKey.trim(),
+    ...(typeof encryptedName === 'string'
+      ? { encryptedName: encryptedName.trim() }
+      : {})
   };
 }

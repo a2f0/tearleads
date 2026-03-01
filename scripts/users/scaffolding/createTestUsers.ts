@@ -10,23 +10,63 @@ import {
 } from '../../postgres/lib/pool.ts';
 import { allTestUsers, type TestUser } from './testUsers.ts';
 
+interface ExistingUserRow {
+  id: string;
+  personal_organization_id: string | null;
+}
+
+function parseExistingUserRows(
+  rows: Record<string, unknown>[]
+): ExistingUserRow[] {
+  const parsedRows: ExistingUserRow[] = [];
+  for (const row of rows) {
+    const id = row['id'];
+    const personalOrganizationId = row['personal_organization_id'];
+    if (
+      typeof id === 'string' &&
+      (typeof personalOrganizationId === 'string' ||
+        personalOrganizationId === null)
+    ) {
+      parsedRows.push({
+        id,
+        personal_organization_id: personalOrganizationId
+      });
+    }
+  }
+  return parsedRows;
+}
+
 async function createTestUser(
   client: PoolClient,
   user: TestUser
-): Promise<SeedHarnessAccountResult | null> {
+): Promise<SeedHarnessAccountResult> {
   const { email, password } = buildCreateAccountInput(
     user.email,
     user.password
   );
 
   const existing = await client.query(
-    'SELECT id FROM users WHERE email = $1 LIMIT 1',
+    `SELECT id, personal_organization_id
+       FROM users
+      WHERE email = $1
+      LIMIT 1`,
     [email]
   );
+  const existingRows = parseExistingUserRows(existing.rows);
 
-  if (existing.rows[0]) {
+  if (existingRows[0]) {
+    const personalOrganizationId = existingRows[0].personal_organization_id;
+    if (!personalOrganizationId) {
+      throw new Error(
+        `Existing user ${email} is missing personal_organization_id`
+      );
+    }
     console.log(`Skipping ${user.name} (${email}) — account already exists.`);
-    return null;
+    return {
+      userId: existingRows[0].id,
+      personalOrganizationId,
+      createdVfsOnboardingKeys: false
+    };
   }
 
   const result = await seedHarnessAccount(client, {
@@ -79,7 +119,7 @@ async function crossLinkOrganizations(
   }
 }
 
-async function main(): Promise<void> {
+export async function runCreateTestUsers(): Promise<void> {
   const pool = await createPool();
   const label = buildConnectionLabel(pool);
   const client = await pool.connect();
@@ -90,9 +130,7 @@ async function main(): Promise<void> {
     const results = new Map<string, SeedHarnessAccountResult>();
     for (const user of allTestUsers) {
       const result = await createTestUser(client, user);
-      if (result) {
-        results.set(user.name, result);
-      }
+      results.set(user.name, result);
     }
 
     if (results.size > 1) {
@@ -115,7 +153,7 @@ async function main(): Promise<void> {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  main().catch((error) => {
+  runCreateTestUsers().catch((error) => {
     console.error('Failed to create test users:', error);
     process.exitCode = 1;
   });

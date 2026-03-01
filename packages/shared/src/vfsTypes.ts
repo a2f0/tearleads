@@ -45,6 +45,7 @@ export interface VfsRegisterRequest {
   id: string;
   objectType: VfsObjectType;
   encryptedSessionKey: string;
+  encryptedName?: string;
 }
 
 export interface VfsRegisterResponse {
@@ -63,6 +64,7 @@ export interface VfsSyncItem {
   changeType: VfsSyncChangeType;
   changedAt: string;
   objectType: VfsObjectType | null;
+  encryptedName?: string | null;
   ownerId: string | null;
   createdAt: string | null;
   accessLevel: VfsAclAccessLevel;
