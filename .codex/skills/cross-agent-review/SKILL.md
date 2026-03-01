@@ -62,23 +62,46 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
      "$AGENT_TOOL" solicitCodexReview
      ```
 
-   - If Codex review also fails (or if Codex review was selected first and fails due credits/quota/auth), perform a manual self-review directly in-session:
-     - Inspect the PR diff against base
-     - Review for correctness, regressions, risks, and missing tests
-     - Return concrete findings with file references
+   - If Codex review also fails (or if Codex review was selected first and fails due to credits/quota/auth, or prompt size limits), perform an **in-session file-by-file review** (step 3).
 
    - Only stop immediately for non-credit operational errors (for example: missing PR, missing tool script, malformed args) where fallback is not possible.
 
-3. **Tag the PR with the reviewer**: After a successful review, tag the PR with the agent that performed it:
+3. **In-session file-by-file review** (when external agents are unavailable):
+
+   **CRITICAL: Never compute the full PR diff in a single pass.** Large diffs exceed prompt limits and cause partial/failed reviews. Instead, use `agentTool` to interrogate GitHub and review file-by-file:
+
+   a. Get PR metadata and changed files from GitHub:
+
+      ```bash
+      "$AGENT_TOOL" getPrInfo --fields number,baseRefName,headRefName,files
+      ```
+
+   b. For each changed file in the `files` array, get the per-file diff:
+
+      ```bash
+      git diff <baseRefName>...HEAD -- <file-path>
+      ```
+
+   c. Read each changed file with native file-reading tools to understand full context beyond the diff hunks.
+
+   d. Review each file individually against `REVIEW.md` guidelines:
+      - Flag security issues, type safety violations, and missing tests as high priority
+      - Use severity levels: Blocker, Major, Minor, Suggestion
+      - Be concise: one line per issue with file:line reference
+
+   e. Aggregate findings across all files into the final review output.
+
+4. **Tag the PR with the reviewer**: After a successful review, tag the PR with the agent that performed it:
 
    ```bash
    # Use the agent name that actually performed the review (claude, codex, etc.)
+   # For in-session self-review, use "codex"
    "$AGENT_TOOL" tagPrWithReviewer --reviewer <agent>
    ```
 
    If fallback was used, tag with whichever agent's review succeeded.
 
-4. **Report results**: Output the review results including:
+5. **Report results**: Output the review results including:
    - Which agent performed the review
    - The PR number and branch
    - The review findings
@@ -97,4 +120,5 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
 - Reviews are based on the diff between the PR's base branch and HEAD
 - Claude review derives branch/PR/base from git + GitHub and streams prompt/diff
   via stdin (not argv) to avoid "Argument list too long" failures on large PRs
+- **In-session self-review uses `agentTool getPrInfo --fields files` to get the changed file list from GitHub**, then reviews per-file diffs individually to avoid prompt size limits
 - Error output should be relayed verbatim when fallback is impossible
