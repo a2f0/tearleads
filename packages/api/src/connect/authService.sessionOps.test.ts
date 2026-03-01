@@ -318,20 +318,16 @@ describe('Connect AuthService session operations', () => {
 
       const accessClaims = verifyJwt(response.accessToken, 'test-secret');
       expect(accessClaims).not.toBeNull();
-      if (accessClaims === null) {
-        return;
-      }
-      newSessionId = accessClaims.jti;
+      newSessionId = accessClaims?.jti ?? '';
+      expect(newSessionId).toBeTruthy();
 
       const refreshClaims = verifyRefreshJwt(
         response.refreshToken,
         'test-secret'
       );
       expect(refreshClaims).not.toBeNull();
-      if (refreshClaims === null) {
-        return;
-      }
-      newRefreshTokenId = refreshClaims.jti;
+      newRefreshTokenId = refreshClaims?.jti ?? '';
+      expect(newRefreshTokenId).toBeTruthy();
 
       const oldSession = await getSession(oldSessionId);
       expect(oldSession).toBeNull();
