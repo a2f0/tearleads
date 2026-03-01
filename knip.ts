@@ -24,12 +24,14 @@ const config: KnipConfig = {
     'packages/api-client/src/vfsBlobNetworkFlusher.ts': ['classMembers'],
     'packages/api-client/src/vfsNetworkFlusher.ts': ['classMembers'],
     'packages/api-client/src/vfsWriteOrchestrator.ts': ['classMembers'],
+    'packages/api/src/lib/vfsSyncChannels.ts': ['exports', 'types'],
     'packages/bob-and-alice/src/harness/actorHarness.ts': ['classMembers'],
     'packages/bob-and-alice/src/harness/apiScenarioHarness.ts': [
       'classMembers'
     ],
     'packages/bob-and-alice/src/harness/scenarioHarness.ts': ['classMembers'],
     'packages/bob-and-alice/src/harness/serverHarness.ts': ['classMembers'],
+    'packages/bob-and-alice/src/qa/vfsSecureUploadQaSuite.ts': ['types'],
     'packages/client/src/components/ui/ErrorBoundary.tsx': ['classMembers'],
     'packages/client/src/db/adapters/web.adapter.ts': ['classMembers'],
     'packages/mls-core/src/mls.ts': ['classMembers'],
