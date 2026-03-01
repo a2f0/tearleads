@@ -69,8 +69,8 @@ const DEFAULT_ROOT_ITEM_ID = 'root';
 const DEFAULT_FOLDER_SESSION_KEY = 'bob-folder-session-key';
 const DEFAULT_NOTE_SESSION_KEY = 'bob-note-session-key';
 const DEFAULT_FOLDER_NAME = 'Notes shared with Alice';
-const DEFAULT_NOTE_NAME = 'Shared note for Alice';
-const DEFAULT_NOTE_PLAINTEXT = "Note shared from Bob's VFS";
+const DEFAULT_NOTE_NAME = 'Note for Alice - From Bob';
+const DEFAULT_NOTE_PLAINTEXT = 'Hello, Alice';
 const DEFAULT_PERMISSION_LEVEL: VfsPermissionLevel = 'view';
 const DEFAULT_CLIENT_ID = 'bob-scaffolding';
 

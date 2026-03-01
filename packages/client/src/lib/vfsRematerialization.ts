@@ -89,6 +89,57 @@ function parseTimestampMs(
   return parsed;
 }
 
+function resolveMaterializedNoteTitle(
+  encryptedName: string | null | undefined
+): string {
+  if (typeof encryptedName !== 'string') {
+    return DEFAULT_MATERIALIZED_NOTE_TITLE;
+  }
+  const trimmed = encryptedName.trim();
+  return trimmed.length > 0 ? trimmed : DEFAULT_MATERIALIZED_NOTE_TITLE;
+}
+
+function decodeBase64Utf8(value: string): string | null {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  const normalized = trimmed.replace(/-/g, '+').replace(/_/g, '/');
+  const missingPadding = normalized.length % 4;
+  const padded =
+    missingPadding === 0
+      ? normalized
+      : `${normalized}${'='.repeat(4 - missingPadding)}`;
+
+  if (typeof globalThis.atob !== 'function') {
+    return null;
+  }
+
+  try {
+    const binary = globalThis.atob(padded);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+function resolveMaterializedNoteContent(
+  encryptedPayload: string | null | undefined
+): string {
+  if (typeof encryptedPayload !== 'string') {
+    return '';
+  }
+
+  const decoded = decodeBase64Utf8(encryptedPayload);
+  if (decoded === null) {
+    return '';
+  }
+
+  return decoded;
+}
+
 async function forEachSyncItem(
   onItem: (item: VfsSyncItem) => void | Promise<void>
 ): Promise<void> {
@@ -343,6 +394,7 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
     itemStateRows.map((entry) => [
       entry.itemId,
       {
+        encryptedPayload: entry.encryptedPayload,
         updatedAtMs: entry.updatedAt.getTime(),
         deleted: entry.deletedAt !== null
       }
@@ -354,8 +406,8 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
       const itemState = itemStateByItemId.get(entry.id);
       return {
         id: entry.id,
-        title: DEFAULT_MATERIALIZED_NOTE_TITLE,
-        content: '',
+        title: resolveMaterializedNoteTitle(entry.encryptedName),
+        content: resolveMaterializedNoteContent(itemState?.encryptedPayload),
         createdAtMs: entry.createdAt.getTime(),
         updatedAtMs: itemState?.updatedAtMs ?? entry.createdAt.getTime(),
         deleted: itemState?.deleted ?? false

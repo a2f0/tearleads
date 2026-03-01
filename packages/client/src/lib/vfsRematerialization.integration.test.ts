@@ -129,7 +129,7 @@ describe('vfsRematerialization integration', () => {
           sourceTable: 'vfs_crdt_client_push',
           sourceId: 'source-2',
           occurredAt: '2026-01-01T00:00:02.100Z',
-          encryptedPayload: 'enc-child',
+          encryptedPayload: 'SGVsbG8sIEFsaWNl',
           keyEpoch: 2
         },
         {
@@ -217,7 +217,7 @@ describe('vfsRematerialization integration', () => {
           }),
           expect.objectContaining({
             itemId: 'child-item',
-            encryptedPayload: 'enc-child',
+            encryptedPayload: 'SGVsbG8sIEFsaWNl',
             keyEpoch: 2
           })
         ])
@@ -226,8 +226,8 @@ describe('vfsRematerialization integration', () => {
     expect(noteRows).toEqual([
       expect.objectContaining({
         id: 'child-item',
-        title: 'Untitled Note',
-        content: '',
+        title: 'Shared note for Alice',
+        content: 'Hello, Alice',
         deleted: false
       })
     ]);

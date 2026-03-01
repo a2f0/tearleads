@@ -36,8 +36,8 @@ export interface SetupBobNotesShareForAliceDbResult {
 
 const DEFAULT_ROOT_ITEM_ID = '__vfs_root__';
 const DEFAULT_FOLDER_NAME = 'Notes shared with Alice';
-const DEFAULT_NOTE_NAME = 'Shared note for Alice';
-const DEFAULT_NOTE_PLAINTEXT = "Note shared from Bob's VFS";
+const DEFAULT_NOTE_NAME = 'Note for Alice - From Bob';
+const DEFAULT_NOTE_PLAINTEXT = 'Hello, Alice';
 const DEFAULT_SHARE_ACCESS_LEVEL: ShareAccessLevel = 'read';
 
 function encodeBase64(value: string): string {
@@ -75,7 +75,13 @@ export async function setupBobNotesShareForAliceDb(
   const noteName = input.noteName ?? DEFAULT_NOTE_NAME;
   const notePlaintext = input.notePlaintext ?? DEFAULT_NOTE_PLAINTEXT;
   const shareAccessLevel = input.shareAccessLevel ?? DEFAULT_SHARE_ACCESS_LEVEL;
-  const nowIso = now().toISOString();
+  const nowDate = now();
+  const nowIso = nowDate.toISOString();
+  // Guardrail: keep scaffolded item_upsert clearly ordered before trigger-emitted
+  // link/ACL ops even when consumers compare occurred_at at millisecond precision.
+  const noteItemUpsertOccurredAtIso = new Date(
+    nowDate.getTime() - 1000
+  ).toISOString();
 
   await input.client.query('BEGIN');
   try {
@@ -167,6 +173,60 @@ export async function setupBobNotesShareForAliceDb(
         encodeBase64(`aad-${idFactory()}`),
         encodeBase64(`sig-${idFactory()}`),
         nowIso
+      ]
+    );
+
+    await input.client.query(
+      `INSERT INTO vfs_crdt_ops (
+         id,
+         item_id,
+         op_type,
+         actor_id,
+         source_table,
+         source_id,
+         occurred_at,
+         encrypted_payload,
+         key_epoch,
+         encryption_nonce,
+         encryption_aad,
+         encryption_signature
+       )
+       VALUES (
+         $1,
+         $2,
+         'item_upsert',
+         $3,
+         'vfs_item_state',
+         $4,
+         $5::timestamptz,
+         $6,
+         1,
+         $7,
+         $8,
+         $9
+       )
+       ON CONFLICT (id) DO UPDATE SET
+         item_id = EXCLUDED.item_id,
+         op_type = EXCLUDED.op_type,
+         actor_id = EXCLUDED.actor_id,
+         source_table = EXCLUDED.source_table,
+         source_id = EXCLUDED.source_id,
+         occurred_at = EXCLUDED.occurred_at,
+         encrypted_payload = EXCLUDED.encrypted_payload,
+         key_epoch = EXCLUDED.key_epoch,
+         encryption_nonce = EXCLUDED.encryption_nonce,
+         encryption_aad = EXCLUDED.encryption_aad,
+         encryption_signature = EXCLUDED.encryption_signature`,
+      [
+        `crdt:item_upsert:${noteId}`,
+        noteId,
+        bobUserId,
+        `vfs_item_state:${noteId}`,
+        noteItemUpsertOccurredAtIso,
+        encodeBase64(notePlaintext),
+        encodeBase64(`nonce-${idFactory()}`),
+        encodeBase64(`aad-${idFactory()}`),
+        encodeBase64(`sig-${idFactory()}`)
       ]
     );
 
