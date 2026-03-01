@@ -88,9 +88,7 @@ describe('setupBobNotesShareForAliceDb', () => {
     const noteCrdtUpsertCall = calls.find((call) =>
       call.text.includes('INSERT INTO vfs_crdt_ops')
     );
-    expect(noteCrdtUpsertCall?.params?.[0]).toBe(
-      'crdt:item_upsert:note-fixed'
-    );
+    expect(noteCrdtUpsertCall?.params?.[0]).toBe('crdt:item_upsert:note-fixed');
     expect(noteCrdtUpsertCall?.params?.[1]).toBe('note-fixed');
     expect(noteCrdtUpsertCall?.params?.[2]).toBe('bob-user-id');
     expect(noteCrdtUpsertCall?.params?.[4]).toBe('2026-02-28T23:59:59.000Z');
