@@ -20,8 +20,6 @@ const config: KnipConfig = {
   ],
   ignoreBinaries: ['ansible-lint', 'shellcheck', 'playwright'],
   ignoreIssues: {
-    // Exported return type for public getBlob API needed for .d.ts generation.
-    'packages/api-client/src/apiRoutes/vfsRoutes.ts': ['types'],
     // Class members are part of exported runtime/test harness APIs.
     'packages/api-client/src/vfsBlobNetworkFlusher.ts': ['classMembers'],
     'packages/api-client/src/vfsNetworkFlusher.ts': ['classMembers'],
@@ -36,6 +34,7 @@ const config: KnipConfig = {
     'packages/client/src/db/adapters/web.adapter.ts': ['classMembers'],
     'packages/mls-core/src/mls.ts': ['classMembers'],
     'packages/mls-core/src/storage.ts': ['classMembers'],
+    'packages/vfs-explorer/src/hooks/useVfsAllItems.ts': ['types'],
     'packages/vfs-sync/src/vfs/access/sync-access-harness.ts': [
       'classMembers'
     ],
@@ -62,14 +61,6 @@ const config: KnipConfig = {
         // Buf codegen plugins executed by `pnpm protoGenerate`.
         '@bufbuild/protoc-gen-es',
         '@connectrpc/protoc-gen-connect-es'
-      ]
-    },
-    'packages/api-client': {
-      ignoreDependencies: [
-        // Added for upcoming Connect client wiring from generated protobuf modules.
-        '@bufbuild/protobuf',
-        '@connectrpc/connect',
-        '@connectrpc/connect-web'
       ]
     },
     'packages/app-builder': {
@@ -105,10 +96,7 @@ const config: KnipConfig = {
       ]
     },
     'packages/classic': {
-      ignoreDependencies: [
-        // Test-only support dependency used from files excluded by classic tsconfig.
-        '@tearleads/db-test-utils'
-      ]
+      entry: ['src/test/**/*.ts']
     },
     'packages/shared': {
       ignoreDependencies: [

@@ -8,7 +8,7 @@ import { useVfsExplorerContext } from '../context';
 import { queryAllItems } from '../lib/vfsQuery';
 import type { VfsObjectType, VfsSortState } from '../lib/vfsTypes';
 
-interface VfsAllItem {
+export interface VfsAllItem {
   id: string;
   objectType: VfsObjectType;
   name: string;

@@ -96,12 +96,11 @@ const KNIP_BUDGET: KnipSuppressionTotals = {
   ignoreIssueFiles: 18,
   ignoreIssueEntries: 18,
   ignoreBinaries: 3,
-  workspaceIgnoreDependencyGroups: 6,
-  workspaceIgnoreDependencyEntries: 14
+  workspaceIgnoreDependencyGroups: 4,
+  workspaceIgnoreDependencyEntries: 10
 };
 
 const KNIP_IGNORE_ISSUE_FILE_BUDGET: Record<string, number> = {
-  'packages/api-client/src/apiRoutes/vfsRoutes.ts': 1,
   'packages/api-client/src/vfsBlobNetworkFlusher.ts': 1,
   'packages/api-client/src/vfsNetworkFlusher.ts': 1,
   'packages/api-client/src/vfsWriteOrchestrator.ts': 1,
@@ -113,6 +112,7 @@ const KNIP_IGNORE_ISSUE_FILE_BUDGET: Record<string, number> = {
   'packages/client/src/db/adapters/web.adapter.ts': 1,
   'packages/mls-core/src/mls.ts': 1,
   'packages/mls-core/src/storage.ts': 1,
+  'packages/vfs-explorer/src/hooks/useVfsAllItems.ts': 1,
   'packages/vfs-sync/src/vfs/access/sync-access-harness.ts': 1,
   'packages/vfs-sync/src/vfs/blob/sync-blob-commit.ts': 1,
   'packages/vfs-sync/src/vfs/blob/sync-blob-isolation.ts': 1,
@@ -123,9 +123,7 @@ const KNIP_IGNORE_ISSUE_FILE_BUDGET: Record<string, number> = {
 
 const KNIP_WORKSPACE_IGNORE_DEPENDENCY_BUDGET: Record<string, number> = {
   '.': 3,
-  'packages/api-client': 3,
   'packages/client': 5,
-  'packages/classic': 1,
   'packages/shared': 1,
   'packages/website': 1
 };

@@ -1,5 +1,6 @@
 import { OrganizationScopeSelector } from '@admin/components/admin-scope';
 import { useAdminScope } from '@admin/hooks/useAdminScope';
+import { formatNumber, formatTimestamp } from '@admin/lib/utils';
 import type { AdminUser } from '@tearleads/shared';
 import { BackLink, RefreshButton } from '@tearleads/ui';
 import {
@@ -11,7 +12,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
-import { formatNumber, formatTimestamp } from '@/lib/utils';
 
 interface UsersAdminProps {
   showBackLink?: boolean;
