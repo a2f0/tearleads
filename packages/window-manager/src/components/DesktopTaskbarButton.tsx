@@ -1,6 +1,6 @@
 import { Copy, Minus, Square, X } from 'lucide-react';
 import { useCallback, useState } from 'react';
-import { cn } from '../lib/utils.js';
+import { cn } from '@tearleads/ui';
 import { DesktopContextMenu } from './DesktopContextMenu.js';
 import { DesktopContextMenuItem } from './DesktopContextMenuItem.js';
 

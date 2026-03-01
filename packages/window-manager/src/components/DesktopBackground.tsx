@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { cn } from '../lib/utils.js';
+import { cn } from '@tearleads/ui';
 
 export type DesktopBackgroundPattern =
   | 'solid'

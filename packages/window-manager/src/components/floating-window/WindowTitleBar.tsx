@@ -1,6 +1,6 @@
 import { Copy, Minus, Pencil, Square, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { cn } from '../../lib/utils.js';
+import { cn } from '@tearleads/ui';
 import { WindowContextMenu } from '../WindowContextMenu.js';
 import { WindowContextMenuItem } from '../WindowContextMenuItem.js';
 import type { WindowDimensions } from './types.js';

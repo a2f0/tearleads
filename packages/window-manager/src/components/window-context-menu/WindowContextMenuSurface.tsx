@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { cn } from '../../lib/utils.js';
+import { cn } from '@tearleads/ui';
 
 interface WindowContextMenuSurfaceProps {
   left: number;

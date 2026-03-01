@@ -1,11 +1,4 @@
-import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
 export type WindowPlatform = 'ios' | 'android' | 'web';
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
 
 export function detectPlatform(): WindowPlatform {
   if (typeof navigator === 'undefined') return 'web';

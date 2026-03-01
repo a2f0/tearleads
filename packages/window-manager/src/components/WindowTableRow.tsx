@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { cn } from '../lib/utils.js';
+import { cn } from '@tearleads/ui';
 
 export interface WindowTableRowProps
   extends React.HTMLAttributes<HTMLTableRowElement> {

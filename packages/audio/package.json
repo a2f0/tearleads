@@ -22,6 +22,7 @@
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "peerDependencies": {
+    "@tearleads/ui": "workspace:*",
     "@tearleads/window-manager": "workspace:*",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -30,12 +31,11 @@
   "dependencies": {
     "@tanstack/react-virtual": "3.13.19",
     "@tearleads/shared": "workspace:*",
-    "clsx": "2.1.1",
-    "lucide-react": "0.575.0",
-    "tailwind-merge": "3.5.0"
+    "lucide-react": "0.575.0"
   },
   "devDependencies": {
     "@tearleads/app-builder": "workspace:*",
+    "@tearleads/ui": "workspace:*",
     "@tearleads/window-manager": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",

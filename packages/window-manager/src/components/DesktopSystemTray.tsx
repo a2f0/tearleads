@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
-import { cn } from '../lib/utils.js';
+import { cn } from '@tearleads/ui';
 
 export interface DesktopSystemTrayProps {
   /** Content to render in the system tray */

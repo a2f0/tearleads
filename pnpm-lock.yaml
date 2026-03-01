@@ -474,19 +474,16 @@ importers:
       '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
-      clsx:
-        specifier: 2.1.1
-        version: 2.1.1
       lucide-react:
         specifier: 0.575.0
         version: 0.575.0(react@19.2.4)
-      tailwind-merge:
-        specifier: 3.5.0
-        version: 3.5.0
     devDependencies:
       '@tearleads/app-builder':
         specifier: workspace:*
         version: link:../app-builder
+      '@tearleads/ui':
+        specifier: workspace:*
+        version: link:../ui
       '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
@@ -2111,12 +2108,6 @@ importers:
       class-variance-authority:
         specifier: 0.7.1
         version: 0.7.1
-      clsx:
-        specifier: 2.1.1
-        version: 2.1.1
-      tailwind-merge:
-        specifier: 3.5.0
-        version: 3.5.0
     devDependencies:
       '@tearleads/app-builder':
         specifier: workspace:*
@@ -2461,18 +2452,12 @@ importers:
       '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
-      clsx:
-        specifier: 2.1.1
-        version: 2.1.1
       drizzle-orm:
         specifier: 0.45.1
         version: 0.45.1(@electric-sql/pglite@0.3.15)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(pg@8.18.0)(sql.js@1.14.0)
       lucide-react:
         specifier: 0.575.0
         version: 0.575.0(react@19.2.4)
-      tailwind-merge:
-        specifier: 3.5.0
-        version: 3.5.0
     devDependencies:
       '@tearleads/db-test-utils':
         specifier: workspace:*
@@ -2480,6 +2465,9 @@ importers:
       '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
+      '@tearleads/ui':
+        specifier: workspace:*
+        version: link:../ui
       '@testing-library/jest-dom':
         specifier: 6.9.1
         version: 6.9.1
@@ -2729,16 +2717,13 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: 1.2.8
         version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      clsx:
-        specifier: 2.1.1
-        version: 2.1.1
       lucide-react:
         specifier: 0.575.0
         version: 0.575.0(react@19.2.4)
-      tailwind-merge:
-        specifier: 3.5.0
-        version: 3.5.0
     devDependencies:
+      '@tearleads/ui':
+        specifier: workspace:*
+        version: link:../ui
       '@testing-library/jest-dom':
         specifier: 6.9.1
         version: 6.9.1
