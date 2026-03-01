@@ -19,6 +19,8 @@ import { AppRoutes } from '../AppRoutes';
 import { getDatabase } from '../db';
 import { renderWithDatabase } from '../test/renderWithDatabase';
 
+const LAZY_LOAD_TIMEOUT = 5000;
+
 function renderApp(initialRoute = '/vfs') {
   return renderWithDatabase(
     <Suspense fallback={<div>Loading...</div>}>
@@ -172,7 +174,7 @@ describe('VFS Integration Tests', () => {
             screen.getByRole('heading', { name: 'Notes' })
           ).toBeInTheDocument();
         },
-        { timeout: 5000 }
+        { timeout: LAZY_LOAD_TIMEOUT }
       );
 
       // 6. Create a new note (empty notes list shows the add-note-card)
@@ -180,7 +182,7 @@ describe('VFS Integration Tests', () => {
         () => {
           expect(screen.getByTestId('add-note-card')).toBeInTheDocument();
         },
-        { timeout: 5000 }
+        { timeout: LAZY_LOAD_TIMEOUT }
       );
       await user.click(screen.getByTestId('add-note-card'));
 
@@ -189,7 +191,7 @@ describe('VFS Integration Tests', () => {
         () => {
           expect(screen.getByTestId('note-title')).toBeInTheDocument();
         },
-        { timeout: 5000 }
+        { timeout: LAZY_LOAD_TIMEOUT }
       );
 
       // 8. Register the note in VFS registry (the page-route code path
