@@ -290,7 +290,7 @@ describe('api with msw', () => {
       commit: 'commit-bytes',
       welcome: 'welcome-bytes',
       keyPackageRef: 'kp-ref-add',
-      newEpoch: 2
+      newEpoch: 1
     });
 
     // Get second user's remaining key packages (kp-ref-extra still unconsumed)
@@ -300,14 +300,14 @@ describe('api with msw', () => {
     await api.mls.getGroupMessages(groupId, { cursor: '10', limit: 25 });
     await api.mls.sendGroupMessage(groupId, {
       ciphertext: 'ciphertext',
-      epoch: 2,
-      messageType: 'application'
+      epoch: 1,
+      messageType: 'commit'
     });
 
     // State
     await api.mls.getGroupState(groupId);
     await api.mls.uploadGroupState(groupId, {
-      epoch: 2,
+      epoch: 1,
       encryptedState: 'encrypted-state',
       stateHash: 'state-hash'
     });
@@ -342,7 +342,7 @@ describe('api with msw', () => {
     // Remove member, leave group, delete key package
     await api.mls.removeGroupMember(groupId, secondUser.userId, {
       commit: 'remove-commit',
-      newEpoch: 3
+      newEpoch: 2
     });
     await api.mls.leaveGroup(groupId);
     await api.mls.deleteKeyPackage(uploadedKeyPackageId ?? '');
