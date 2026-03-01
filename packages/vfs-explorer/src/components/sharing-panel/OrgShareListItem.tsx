@@ -1,7 +1,6 @@
 import type { VfsOrgShare } from '@tearleads/shared';
 import { Building2, MoreHorizontal } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useVfsExplorerContext } from '../../context';
 import { cn } from '../../lib';
 import { ShareDeleteConfirmation } from './ShareDeleteConfirmation';
 import { formatRelativeTime, isExpired, isExpiringSoon } from './sharingUtils';
@@ -23,12 +22,10 @@ export function OrgShareListItem({
   onCancelDelete,
   onConfirmDelete
 }: OrgShareListItemProps) {
-  const { auth } = useVfsExplorerContext();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const isDeleting = deleteConfirm?.shareId === share.id && deleteConfirm.isOrg;
-  const currentUserId = auth.readStoredAuth().user?.id;
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -51,10 +48,7 @@ export function OrgShareListItem({
     );
   }
 
-  const sharedByText =
-    currentUserId && share.createdBy === currentUserId
-      ? `From ${share.sourceOrgName}`
-      : `From ${share.sourceOrgName}`;
+  const sharedByText = `From ${share.sourceOrgName}`;
 
   return (
     <div
