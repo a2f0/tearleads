@@ -359,12 +359,12 @@ describe('api with msw', () => {
     expect(wasApiRequestMade('POST', `/mls/groups/${groupId}/members`)).toBe(
       true
     );
-    expect(wasApiRequestMade('GET', `/vfs/mls/groups/${groupId}/messages`)).toBe(
-      true
-    );
-    expect(wasApiRequestMade('POST', `/vfs/mls/groups/${groupId}/messages`)).toBe(
-      true
-    );
+    expect(
+      wasApiRequestMade('GET', `/vfs/mls/groups/${groupId}/messages`)
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', `/vfs/mls/groups/${groupId}/messages`)
+    ).toBe(true);
     expect(wasApiRequestMade('GET', `/mls/groups/${groupId}/state`)).toBe(true);
     expect(wasApiRequestMade('POST', `/mls/groups/${groupId}/state`)).toBe(
       true
