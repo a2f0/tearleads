@@ -166,13 +166,6 @@ describe('AuthInstanceBinding', () => {
     });
     mockGetInstanceForUser.mockResolvedValue(null);
 
-    // currentBoundUserId === userId path
-    mockGetInstance.mockResolvedValue({
-      id: 'instance-current',
-      name: 'old@example.com',
-      boundUserId: 'user-1'
-    });
-
     render(<AuthInstanceBinding />);
 
     await waitFor(() => {
