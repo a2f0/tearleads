@@ -18,6 +18,10 @@
       "types": "./dist/server/index.d.ts",
       "import": "./dist/server/index.js"
     },
+    "./scaffolding": {
+      "types": "./dist/scaffolding/index.d.ts",
+      "import": "./dist/scaffolding/index.js"
+    },
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "import": "./dist/testing/index.js"
