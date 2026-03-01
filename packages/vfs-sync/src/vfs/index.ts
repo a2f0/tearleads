@@ -133,7 +133,7 @@ export {
   encodeVfsCrdtSyncSessionRequestProtobuf,
   encodeVfsCrdtSyncSessionResponseProtobuf,
   encodeVfsCrdtSyncResponseProtobuf
-} from './protocol/sync-protobuf.js';
+} from './protocol/syncProtobuf.js';
 export {
   compareVfsSyncCursorOrder,
   InMemoryVfsSyncClientStateStore,

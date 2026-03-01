@@ -8,7 +8,7 @@ import {
   encodeVfsCrdtReconcileResponseProtobuf,
   encodeVfsCrdtSyncSessionResponseProtobuf,
   encodeVfsCrdtSyncResponseProtobuf
-} from '../protocol/sync-protobuf.js';
+} from '../protocol/syncProtobuf.js';
 import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
 
 describe('VfsHttpCrdtSyncTransport', () => {

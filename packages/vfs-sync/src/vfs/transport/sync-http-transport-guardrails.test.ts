@@ -3,7 +3,7 @@ import { encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
 import {
   encodeVfsCrdtReconcileResponseProtobuf,
   encodeVfsCrdtSyncResponseProtobuf
-} from '../protocol/sync-protobuf.js';
+} from '../protocol/syncProtobuf.js';
 import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
 
 describe('VfsHttpCrdtSyncTransport guardrails', () => {

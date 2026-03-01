@@ -13,7 +13,7 @@ import {
   encodeVfsCrdtPushRequestProtobuf,
   encodeVfsCrdtReconcileRequestProtobuf,
   encodeVfsCrdtSyncSessionRequestProtobuf
-} from '../protocol/sync-protobuf.js';
+} from '../protocol/syncProtobuf.js';
 import type { VfsCrdtOperation } from '../protocol/sync-crdt.js';
 import {
   decodeVfsSyncCursor,

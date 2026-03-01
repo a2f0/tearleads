@@ -18,7 +18,7 @@ import {
   RECONCILE_RESPONSE_TYPE,
   SYNC_SESSION_REQUEST_TYPE,
   SYNC_SESSION_RESPONSE_TYPE
-} from './sync-protobuf-schema.js';
+} from './syncProtobufSchema.js';
 function asRecord(
   value: unknown,
   fieldName: string

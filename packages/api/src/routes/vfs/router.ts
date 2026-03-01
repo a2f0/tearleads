@@ -8,7 +8,7 @@ import { Router, type Router as RouterType } from 'express';
 import { registerDeleteBlobsBlobIdRoute } from './delete-blobs-blobId.js';
 import { registerDeleteEmailsIdRoute } from './delete-emails-id.js';
 import { registerGetBlobsBlobIdRoute } from './get-blobs-blobId.js';
-import { registerGetCrdtSnapshotRoute } from './get-crdt-snapshot.js';
+import { registerGetCrdtSnapshotRoute } from './getCrdtSnapshot.js';
 import { registerGetCrdtSyncRoute } from './get-crdt-sync.js';
 import { registerGetEmailsRoute } from './get-emails.js';
 import { registerGetEmailsIdRoute } from './get-emails-id.js';
@@ -21,7 +21,7 @@ import { registerPostBlobsStageStagingIdChunksRoute } from './post-blobs-stage-s
 import { registerPostBlobsStageStagingIdCommitRoute } from './post-blobs-stage-stagingId-commit.js';
 import { registerPostCrdtPushRoute } from './post-crdt-push.js';
 import { registerPostCrdtReconcileRoute } from './post-crdt-reconcile.js';
-import { registerPostCrdtSessionRoute } from './post-crdt-session.js';
+import { registerPostCrdtSessionRoute } from './postCrdtSession.js';
 import { registerPostItemsItemIdRekeyRoute } from './post-items-itemId-rekey.js';
 import { registerPostSyncReconcileRoute } from './post-sync-reconcile.js';
 import { registerPostEmailsSendRoute } from './postEmailsSend.js';

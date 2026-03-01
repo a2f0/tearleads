@@ -10,7 +10,7 @@ import {
   encodeVfsCrdtPushResponseProtobuf,
   encodeVfsCrdtReconcileResponseProtobuf,
   encodeVfsCrdtSyncResponseProtobuf
-} from '../protocol/sync-protobuf.js';
+} from '../protocol/syncProtobuf.js';
 import {
   decodeVfsSyncCursor,
   encodeVfsSyncCursor
