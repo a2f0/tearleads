@@ -1,3 +1,5 @@
+import type protobuf from 'protobufjs';
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -63,4 +65,17 @@ export function getJsonBody(init: unknown): unknown {
   }
 
   return JSON.parse(rawBody);
+}
+
+export function getProtobufBody(init: unknown, type: protobuf.Type): unknown {
+  if (!isRecord(init)) {
+    return null;
+  }
+
+  const rawBody = init['body'];
+  if (!(rawBody instanceof Uint8Array)) {
+    return null;
+  }
+
+  return type.decode(rawBody).toJSON();
 }

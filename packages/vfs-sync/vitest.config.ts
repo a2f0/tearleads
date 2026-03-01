@@ -42,7 +42,9 @@ export default mergeConfig(
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
-        '@sync': fileURLToPath(new URL('./src', import.meta.url))
+        '@sync': fileURLToPath(new URL('./src', import.meta.url)),
+        // Alias protobufjs to its pre-bundled UMD version to fix Vite resolution issues
+        'protobufjs': 'protobufjs/dist/protobuf.js'
       }
     }
   })

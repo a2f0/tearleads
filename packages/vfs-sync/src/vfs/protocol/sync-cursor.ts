@@ -1,9 +1,3 @@
-interface VfsSyncCursorPayload {
-  version: 1;
-  changedAt: string;
-  changeId: string;
-}
-
 export interface VfsSyncCursor {
   changedAt: string;
   changeId: string;
@@ -14,9 +8,8 @@ function isValidIsoTimestamp(value: string): boolean {
   return Number.isFinite(parsed);
 }
 
-function encodeBytesToBase64(bytes: Uint8Array): string {
-  const chars =
-    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+function encodeBytesToBase64Url(bytes: Uint8Array): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
   let output = '';
   let index = 0;
 
@@ -29,51 +22,44 @@ function encodeBytesToBase64(bytes: Uint8Array): string {
     const chunk = (byte1 << 16) | ((byte2 ?? 0) << 8) | (byte3 ?? 0);
     output += chars[(chunk >> 18) & 63];
     output += chars[(chunk >> 12) & 63];
-    output += byte2 === undefined ? '=' : chars[(chunk >> 6) & 63];
-    output += byte3 === undefined ? '=' : chars[chunk & 63];
+    if (byte2 !== undefined) {
+      output += chars[(chunk >> 6) & 63];
+    }
+    if (byte3 !== undefined) {
+      output += chars[chunk & 63];
+    }
   }
 
   return output;
 }
 
-function decodeBase64ToBytes(base64: string): Uint8Array | null {
-  const chars =
-    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  if (base64.length % 4 !== 0) {
-    return null;
-  }
-
-  const paddingMatches = base64.match(/=+$/);
-  const paddingLength = paddingMatches ? paddingMatches[0].length : 0;
-  if (paddingLength > 2) {
-    return null;
-  }
-
-  const outputLength = (base64.length / 4) * 3 - paddingLength;
+function decodeBase64UrlToBytes(base64url: string): Uint8Array | null {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  const paddingLength = (4 - (base64url.length % 4)) % 4;
+  const outputLength = Math.floor((base64url.length * 3) / 4);
   const bytes = new Uint8Array(outputLength);
   let byteIndex = 0;
 
-  for (let index = 0; index < base64.length; index += 4) {
-    const char1 = base64[index] ?? '';
-    const char2 = base64[index + 1] ?? '';
-    const char3 = base64[index + 2] ?? '';
-    const char4 = base64[index + 3] ?? '';
+  for (let index = 0; index < base64url.length; index += 4) {
+    const char1 = base64url[index] ?? '';
+    const char2 = base64url[index + 1] ?? '';
+    const char3 = base64url[index + 2] ?? '';
+    const char4 = base64url[index + 3] ?? '';
 
     const value1 = chars.indexOf(char1);
     const value2 = chars.indexOf(char2);
-    const value3 = char3 === '=' ? 0 : chars.indexOf(char3);
-    const value4 = char4 === '=' ? 0 : chars.indexOf(char4);
-    if (value1 < 0 || value2 < 0 || value3 < 0 || value4 < 0) {
-      return null;
-    }
+    const value3 = char3 === '' ? 0 : chars.indexOf(char3);
+    const value4 = char4 === '' ? 0 : chars.indexOf(char4);
+
+    if (value1 < 0 || value2 < 0 || value3 < 0 || value4 < 0) return null;
 
     const chunk = (value1 << 18) | (value2 << 12) | (value3 << 6) | value4;
 
     bytes[byteIndex++] = (chunk >> 16) & 255;
-    if (char3 !== '=' && byteIndex < outputLength) {
+    if (char3 !== '' && byteIndex < outputLength) {
       bytes[byteIndex++] = (chunk >> 8) & 255;
     }
-    if (char4 !== '=' && byteIndex < outputLength) {
+    if (char4 !== '' && byteIndex < outputLength) {
       bytes[byteIndex++] = chunk & 255;
     }
   }
@@ -81,82 +67,88 @@ function decodeBase64ToBytes(base64: string): Uint8Array | null {
   return bytes;
 }
 
-function encodeBase64UrlUtf8(input: string): string {
-  const bytes = new TextEncoder().encode(input);
-  return encodeBytesToBase64(bytes)
-    .replaceAll('+', '-')
-    .replaceAll('/', '_')
-    .replace(/=+$/u, '');
+/**
+ * Packs a UUID string into 16 bytes.
+ */
+function uuidToBytes(uuid: string): Uint8Array | null {
+  const hex = uuid.replaceAll('-', '');
+  if (hex.length !== 32) return null;
+  const bytes = new Uint8Array(16);
+  for (let i = 0; i < 16; i++) {
+    bytes[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
 }
 
-function decodeBase64UrlUtf8(input: string): string | null {
-  if (!/^[A-Za-z0-9_-]+$/u.test(input)) {
-    return null;
+/**
+ * Unpacks 16 bytes into a UUID string.
+ */
+function bytesToUuid(bytes: Uint8Array): string {
+  let hex = '';
+  for (let i = 0; i < 16; i++) {
+    hex += bytes[i]!.toString(16).padStart(2, '0');
   }
-
-  const normalized = input.replaceAll('-', '+').replaceAll('_', '/');
-  const remainder = normalized.length % 4;
-  const padded =
-    remainder === 0 ? normalized : `${normalized}${'='.repeat(4 - remainder)}`;
-  const bytes = decodeBase64ToBytes(padded);
-  if (!bytes) {
-    return null;
-  }
-
-  try {
-    return new TextDecoder().decode(bytes);
-  } catch {
-    return null;
-  }
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+/**
+ * Packs a cursor into a compact binary format (Version 2).
+ * [1 byte: version (2)]
+ * [8 bytes: timestamp (Int64 MS, BigEndian)]
+ * [16 bytes: changeId (UUID bytes)]
+ */
 export function encodeVfsSyncCursor(cursor: VfsSyncCursor): string {
-  const payload: VfsSyncCursorPayload = {
-    version: 1,
-    changedAt: cursor.changedAt,
-    changeId: cursor.changeId
-  };
+  const timestamp = Date.parse(cursor.changedAt);
+  const uuidBytes = uuidToBytes(cursor.changeId);
 
-  return encodeBase64UrlUtf8(JSON.stringify(payload));
+  if (!Number.isFinite(timestamp) || !uuidBytes) {
+    // Fallback to V1 JSON encoding if we can't pack it (e.g. non-UUID changeId)
+    const payload = { version: 1, changedAt: cursor.changedAt, changeId: cursor.changeId };
+    return encodeBytesToBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
+  }
+
+  const bytes = new Uint8Array(1 + 8 + 16);
+  bytes[0] = 2; // Version 2
+
+  // Write timestamp as 64-bit BigEndian
+  const view = new DataView(bytes.buffer);
+  view.setBigInt64(1, BigInt(timestamp), false);
+
+  // Write UUID bytes
+  bytes.set(uuidBytes, 9);
+
+  return encodeBytesToBase64Url(bytes);
 }
 
-export function decodeVfsSyncCursor(cursor: string): VfsSyncCursor | null {
+export function decodeVfsSyncCursor(encoded: string): VfsSyncCursor | null {
   try {
-    const decoded = decodeBase64UrlUtf8(cursor);
-    if (!decoded) {
-      return null;
-    }
-    const parsed: unknown = JSON.parse(decoded);
+    const bytes = decodeBase64UrlToBytes(encoded);
+    if (!bytes || bytes.length === 0) return null;
 
-    if (
-      typeof parsed !== 'object' ||
-      parsed === null ||
-      !('version' in parsed) ||
-      !('changedAt' in parsed) ||
-      !('changeId' in parsed)
-    ) {
-      return null;
-    }
+    const version = bytes[0];
 
-    const version = parsed['version'];
-    const changedAt = parsed['changedAt'];
-    const changeId = parsed['changeId'];
-
-    if (
-      version !== 1 ||
-      typeof changedAt !== 'string' ||
-      typeof changeId !== 'string' ||
-      !changedAt.trim() ||
-      !changeId.trim() ||
-      !isValidIsoTimestamp(changedAt)
-    ) {
-      return null;
+    if (version === 2 && bytes.length === 25) {
+      const view = new DataView(bytes.buffer);
+      const timestamp = Number(view.getBigInt64(1, false));
+      const changeId = bytesToUuid(bytes.slice(9, 25));
+      
+      return {
+        changedAt: new Date(timestamp).toISOString(),
+        changeId
+      };
     }
 
-    return {
-      changedAt,
-      changeId
-    };
+    // Fallback to V1 JSON decoding
+    const decoded = new TextDecoder().decode(bytes);
+    const parsed = JSON.parse(decoded);
+    if (parsed.version === 1 && isValidIsoTimestamp(parsed.changedAt)) {
+      return {
+        changedAt: parsed.changedAt,
+        changeId: parsed.changeId
+      };
+    }
+
+    return null;
   } catch {
     return null;
   }

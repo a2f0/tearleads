@@ -20,29 +20,14 @@ export interface VfsFlatteningInventory {
 /** Authoritative inventory of sync-critical table dependencies. */
 export const VFS_SYNC_SCHEMA_DEPENDENCIES: VfsSyncSchemaDependency[] = [
   {
-    tableName: 'user_groups',
+    tableName: 'vfs_effective_visibility',
     domain: 'syncFeed',
-    purpose: 'resolve member group principals for visibility filtering'
-  },
-  {
-    tableName: 'user_organizations',
-    domain: 'syncFeed',
-    purpose: 'resolve member organization principals for visibility filtering'
-  },
-  {
-    tableName: 'vfs_acl_entries',
-    domain: 'syncFeed',
-    purpose: 'compute item visibility and access rank'
+    purpose: 'denormalized item visibility and access rank for users'
   },
   {
     tableName: 'vfs_sync_changes',
     domain: 'syncFeed',
-    purpose: 'cursor-ordered incremental object change feed'
-  },
-  {
-    tableName: 'vfs_links',
-    domain: 'syncFeed',
-    purpose: 'subtree visibility scoping by root item'
+    purpose: 'cursor-ordered incremental object change feed with parent_id optimization'
   },
   {
     tableName: 'vfs_registry',
@@ -50,20 +35,9 @@ export const VFS_SYNC_SCHEMA_DEPENDENCIES: VfsSyncSchemaDependency[] = [
     purpose: 'hydrate object metadata for change items'
   },
   {
-    tableName: 'user_groups',
+    tableName: 'vfs_effective_visibility',
     domain: 'crdtFeed',
-    purpose: 'resolve member group principals for CRDT visibility filtering'
-  },
-  {
-    tableName: 'user_organizations',
-    domain: 'crdtFeed',
-    purpose:
-      'resolve member organization principals for CRDT visibility filtering'
-  },
-  {
-    tableName: 'vfs_acl_entries',
-    domain: 'crdtFeed',
-    purpose: 'compute item visibility for CRDT operation feed'
+    purpose: 'denormalized visibility for CRDT operation feed'
   },
   {
     tableName: 'vfs_crdt_ops',
@@ -74,6 +48,11 @@ export const VFS_SYNC_SCHEMA_DEPENDENCIES: VfsSyncSchemaDependency[] = [
     tableName: 'vfs_links',
     domain: 'crdtFeed',
     purpose: 'subtree visibility scoping by root item'
+  },
+  {
+    tableName: 'vfs_crdt_snapshots',
+    domain: 'crdtFeed',
+    purpose: 'periodically persisted CRDT state snapshots for fast catch-up'
   },
   {
     tableName: 'vfs_registry',
