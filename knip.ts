@@ -104,12 +104,6 @@ const config: KnipConfig = {
         'tailwindcss'
       ]
     },
-    'packages/classic': {
-      ignoreDependencies: [
-        // Test-only support dependency used from files excluded by classic tsconfig.
-        '@tearleads/db-test-utils'
-      ]
-    },
     'packages/keychain': {
       entry: ['src/clientEntry.ts']
     },

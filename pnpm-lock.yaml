@@ -846,9 +846,6 @@ importers:
       '@tearleads/db':
         specifier: workspace:*
         version: link:../db
-      '@tearleads/db-test-utils':
-        specifier: workspace:*
-        version: link:../db-test-utils
       '@testing-library/jest-dom':
         specifier: 6.9.1
         version: 6.9.1
