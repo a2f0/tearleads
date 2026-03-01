@@ -201,7 +201,9 @@ export function parseDependencyCruiserSummary(
   configParsed: unknown
 ): DependencyCruiserSummaryResult {
   if (!isRecord(reportParsed) || !isRecord(reportParsed.summary)) {
-    throw new Error('Unexpected dependency-cruiser JSON format: missing summary');
+    throw new Error(
+      'Unexpected dependency-cruiser JSON format: missing summary'
+    );
   }
 
   const summary = reportParsed.summary;
