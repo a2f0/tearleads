@@ -2,6 +2,7 @@ import '../test/setupIntegration';
 
 import { resetTestKeyManager } from '@tearleads/db-test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as dbModule from '@/db';
 import { getDatabaseAdapter, resetDatabase, setupDatabase } from '@/db';
 import { hydrateLocalReadModelFromRemoteFeeds } from './vfsReadModelHydration';
 
@@ -183,5 +184,66 @@ describe('vfsReadModelHydration', () => {
       ['item-2']
     );
     expect(aclRows.rows).toHaveLength(0);
+  });
+
+  it('ignores acl_add rows with missing access level', async () => {
+    mockGetSync.mockResolvedValueOnce({
+      items: [
+        {
+          changeId: 'sync-3',
+          itemId: 'item-3',
+          changeType: 'upsert',
+          changedAt: '2026-03-01T00:02:00.000Z',
+          objectType: 'folder',
+          ownerId: 'alice-id',
+          createdAt: '2026-03-01T00:02:00.000Z',
+          accessLevel: 'admin'
+        }
+      ],
+      nextCursor: null,
+      hasMore: false
+    });
+    mockGetCrdtSync.mockResolvedValueOnce({
+      items: [
+        {
+          opId: 'crdt-3',
+          itemId: 'item-3',
+          opType: 'acl_add',
+          principalType: 'user',
+          principalId: 'bob-id',
+          accessLevel: null,
+          parentId: null,
+          childId: null,
+          actorId: 'alice-id',
+          sourceTable: 'vfs_acl_entries',
+          sourceId: 'share:missing-access-level',
+          occurredAt: '2026-03-01T00:02:01.000Z'
+        }
+      ],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {}
+    });
+
+    await hydrateLocalReadModelFromRemoteFeeds();
+
+    const adapter = getDatabaseAdapter();
+    const aclRows = await adapter.execute(
+      `SELECT id FROM vfs_acl_entries WHERE item_id = ?`,
+      ['item-3']
+    );
+    expect(aclRows.rows).toHaveLength(0);
+  });
+
+  it('returns early when database is not initialized', async () => {
+    const isDatabaseInitializedSpy = vi
+      .spyOn(dbModule, 'isDatabaseInitialized')
+      .mockReturnValue(false);
+
+    await hydrateLocalReadModelFromRemoteFeeds();
+
+    expect(mockGetSync).not.toHaveBeenCalled();
+    expect(mockGetCrdtSync).not.toHaveBeenCalled();
+    isDatabaseInitializedSpy.mockRestore();
   });
 });
