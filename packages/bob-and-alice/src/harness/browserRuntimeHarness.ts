@@ -116,7 +116,10 @@ async function fetchAllSyncItems(
       `/vfs/vfs-sync?${params.toString()}`
     );
     all.push(...page.items);
-    if (!page.hasMore || !page.nextCursor) break;
+    if (!page.hasMore) break;
+    if (!page.nextCursor) {
+      throw new Error('vfs sync feed reported hasMore without nextCursor');
+    }
     cursor = page.nextCursor;
   }
 
@@ -137,7 +140,10 @@ async function fetchAllCrdtItems(
       `/vfs/crdt/vfs-sync?${params.toString()}`
     );
     all.push(...page.items);
-    if (!page.hasMore || !page.nextCursor) break;
+    if (!page.hasMore) break;
+    if (!page.nextCursor) {
+      throw new Error('vfs crdt feed reported hasMore without nextCursor');
+    }
     cursor = page.nextCursor;
   }
 
@@ -279,16 +285,30 @@ export async function queryLocalSharedWithMe(
   const result = await localDb.adapter.execute(
     `SELECT
        r.id AS id,
-       substr(a.id, 7) AS share_id,
-       COALESCE(a.granted_by, 'unknown') AS shared_by_id,
-       COALESCE(u.email, a.granted_by, 'Unknown') AS shared_by_email
+       CASE
+         WHEN a.id LIKE 'share:%' THEN substr(a.id, 7)
+         ELSE a.id
+       END AS share_id,
+       COALESCE(a.granted_by, r.owner_id, 'unknown') AS shared_by_id,
+       COALESCE(
+         u.email,
+         (
+           SELECT owner_user.email
+           FROM users owner_user
+           WHERE owner_user.id = r.owner_id
+           LIMIT 1
+         ),
+         a.granted_by,
+         r.owner_id,
+         'Unknown'
+       ) AS shared_by_email
      FROM vfs_acl_entries a
      INNER JOIN vfs_registry r ON r.id = a.item_id
      LEFT JOIN users u ON u.id = a.granted_by
      WHERE a.principal_type = 'user'
        AND a.principal_id = ?
        AND a.revoked_at IS NULL
-       AND a.id LIKE 'share:%'
+       AND (a.id LIKE 'share:%' OR a.id LIKE 'policy-compiled:%')
      ORDER BY COALESCE(r.encrypted_name, '') COLLATE NOCASE, r.id`,
     [currentUserId]
   );
@@ -308,7 +328,10 @@ export async function queryLocalSharedByMe(
   const result = await localDb.adapter.execute(
     `SELECT
        r.id AS id,
-       substr(a.id, 7) AS share_id,
+       CASE
+         WHEN a.id LIKE 'share:%' THEN substr(a.id, 7)
+         ELSE a.id
+       END AS share_id,
        a.principal_id AS target_id,
        CASE
          WHEN a.access_level = 'read' THEN 'view'
@@ -316,11 +339,15 @@ export async function queryLocalSharedByMe(
        END AS permission_level
      FROM vfs_acl_entries a
      INNER JOIN vfs_registry r ON r.id = a.item_id
-     WHERE a.granted_by = ?
+     WHERE (
+         (a.id LIKE 'share:%' AND a.granted_by = ?)
+         OR (a.id LIKE 'policy-compiled:%' AND r.owner_id = ?)
+       )
+       AND NOT (a.principal_type = 'user' AND a.principal_id = ?)
        AND a.revoked_at IS NULL
-       AND a.id LIKE 'share:%'
+       AND (a.id LIKE 'share:%' OR a.id LIKE 'policy-compiled:%')
      ORDER BY COALESCE(r.encrypted_name, '') COLLATE NOCASE, r.id`,
-    [currentUserId]
+    [currentUserId, currentUserId, currentUserId]
   );
 
   return result.rows.map((row) => ({
