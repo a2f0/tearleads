@@ -80,7 +80,6 @@
         "path": "^packages/([^/]+)/src/.*",
         "pathNot": [
           "(?:\\.test|\\.spec)\\.(?:ts|tsx)$|/src/test/|/src/__tests__/",
-          "^packages/admin/src/components/admin-window/(AdminWindow|ComplianceDocView|ComplianceIndex)\\.tsx$",
           "^packages/client/src/components/admin-windows/index\\.ts$",
           "^packages/client/src/components/health-window/HealthWindow\\.tsx$",
           "^packages/client/src/components/keychain-window/index\\.ts$",
