@@ -2,6 +2,7 @@ import fs from 'node:fs';
 
 export interface CliOptions {
   json: boolean;
+  exceptionsOnly: boolean;
   configPath: string;
 }
 
@@ -53,11 +54,16 @@ function getString(record: Record<string, unknown>, key: string): string {
 export function parseArgs(argv: string[]): CliOptions {
   let configPath = '.dependency-cruiser.json';
   let json = false;
+  let exceptionsOnly = false;
 
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
     if (token === '--json') {
       json = true;
+      continue;
+    }
+    if (token === '--exceptions-only') {
+      exceptionsOnly = true;
       continue;
     }
 
@@ -70,7 +76,7 @@ export function parseArgs(argv: string[]): CliOptions {
     }
   }
 
-  return { json, configPath };
+  return { json, exceptionsOnly, configPath };
 }
 
 function readStdin(): string {
@@ -290,8 +296,37 @@ function main(): number {
 
   const result = parseDependencyCruiserSummary(reportParsed, configParsed);
 
+  const resultForExceptionsOnly = {
+    exceptionTotals: result.exceptionTotals,
+    rules: result.ruleExceptionCounts.filter((item) => item.pathNotEntries > 0)
+  };
+
+  if (options.json && options.exceptionsOnly) {
+    process.stdout.write(`${JSON.stringify(resultForExceptionsOnly, null, 2)}\n`);
+    return 0;
+  }
+
   if (options.json) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return 0;
+  }
+
+  if (options.exceptionsOnly) {
+    process.stdout.write(`Dependency Cruiser Exception Summary\n`);
+    process.stdout.write(
+      `- rulesWithPathNot=${result.exceptionTotals.rulesWithPathNot}\n`
+    );
+    process.stdout.write(
+      `- totalPathNotEntries=${result.exceptionTotals.totalPathNotEntries}\n`
+    );
+    process.stdout.write(
+      `- totalClientFileExceptions=${result.exceptionTotals.totalClientFileExceptions}\n`
+    );
+    for (const item of resultForExceptionsOnly.rules) {
+      process.stdout.write(
+        `  ${item.name}: pathNot=${item.pathNotEntries}, clientFileExceptions=${item.clientFileExceptions}\n`
+      );
+    }
     return 0;
   }
 

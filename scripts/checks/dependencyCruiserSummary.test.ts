@@ -10,7 +10,15 @@ import {
 test('parseArgs reads json and config options', () => {
   const options = parseArgs(['--json', '--config', 'tmp-config.json']);
   assert.equal(options.json, true);
+  assert.equal(options.exceptionsOnly, false);
   assert.equal(options.configPath, 'tmp-config.json');
+});
+
+test('parseArgs reads exceptions-only option', () => {
+  const options = parseArgs(['--exceptions-only']);
+  assert.equal(options.json, false);
+  assert.equal(options.exceptionsOnly, true);
+  assert.equal(options.configPath, '.dependency-cruiser.json');
 });
 
 test('collectRuleExceptionCountsFromConfig handles string and array pathNot', () => {

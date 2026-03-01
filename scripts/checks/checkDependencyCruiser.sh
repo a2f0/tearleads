@@ -27,4 +27,16 @@ if [ "$MODE" = "--summary-json" ]; then
   exit 0
 fi
 
+if [ "$MODE" = "--exceptions" ]; then
+  pnpm exec depcruise --config .dependency-cruiser.json --output-type json packages \
+    | pnpm exec tsx scripts/checks/dependencyCruiserSummary.ts --exceptions-only
+  exit 0
+fi
+
+if [ "$MODE" = "--exceptions-json" ]; then
+  pnpm exec depcruise --config .dependency-cruiser.json --output-type json packages \
+    | pnpm exec tsx scripts/checks/dependencyCruiserSummary.ts --exceptions-only --json
+  exit 0
+fi
+
 exec pnpm exec depcruise --config .dependency-cruiser.json packages
