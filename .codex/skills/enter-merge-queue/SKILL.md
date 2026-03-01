@@ -259,6 +259,13 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    fi
    ```
 
+   - Tag the PR with whichever agent performed the fallback review:
+
+     ```bash
+     # Use claude or codex depending on which succeeded above
+     ./scripts/agents/tooling/agentTool.ts tagPrWithReviewer --reviewer claude
+     ```
+
    - Set `used_fallback_agent_review = true`
    - Treat this single fallback review as sufficient to get past the review step in the loop (do not block on additional Gemini responses during this session)
    - Any unresolved Gemini threads from before quota exhaustion should be resolved by the agent based on whether the feedback was already addressed in code
@@ -312,6 +319,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
         **Do NOT run `$follow-up-with-gemini` until push is verified.** Replying with "Fixed in commit X" when X is not visible on remote creates confusion.
       - Once push is verified, run `$follow-up-with-gemini` to close threads Gemini has confirmed as addressed.
+      - After Gemini review is successfully addressed, tag the PR: `./scripts/agents/tooling/agentTool.ts tagPrWithReviewer --reviewer gemini`
       - If sentiment indicates Gemini daily quota exhaustion, stop Gemini follow-ups and run the one-time Claude Code fallback review above.
       - **IMPORTANT**: Do not wait for CI completion to resolve review threads. After these sub-skills complete, continue the polling loop - do NOT exit.
 

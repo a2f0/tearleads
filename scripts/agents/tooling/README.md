@@ -27,6 +27,7 @@ Run `--help` for full action and option list:
 - `addLabel` - Add label to PR/issue
 - `approveSkippedChecks` - Create passing check runs for skipped CI
 - `tagPrWithTuxedoInstance` - Tag PR with workspace instance label
+- `tagPrWithReviewer` - Tag PR with reviewer agent label (`reviewed:<agent>`)
 - `runTerraformStackScript` - Run allowlisted Terraform stack scripts (`staging/prod k8s`, `prod vpn`)
 - `runAnsibleBootstrap` - Run allowlisted Ansible bootstrap scripts (`staging-k8s`, `prod-k8s`, `prod-vpn`)
 
@@ -117,6 +118,8 @@ Most GitHub operations are handled via Octokit. `gh` remains a fallback for auth
 ./scripts/agents/tooling/agentTool.ts updatePrBody --number 123 --body-file /tmp/pr-body.md
 ./scripts/agents/tooling/agentTool.ts listDependabotAlerts --state open --severity high,critical --per-page 50
 ./scripts/agents/tooling/agentTool.ts updateDependabotAlert --alert-number 64 --state dismissed --dismissed-reason not_used --dismissed-comment "Not reachable in this app"
+./scripts/agents/tooling/agentTool.ts tagPrWithReviewer --reviewer gemini
+./scripts/agents/tooling/agentTool.ts tagPrWithReviewer --reviewer claude --pr 123
 ./scripts/agents/tooling/agentTool.ts refresh
 ./scripts/agents/tooling/agentTool.ts runTerraformStackScript --stack staging/k8s --script apply01 --yes
 ./scripts/agents/tooling/agentTool.ts runAnsibleBootstrap --target staging-k8s --yes

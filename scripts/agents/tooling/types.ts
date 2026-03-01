@@ -14,6 +14,7 @@ export type ActionName =
   | 'addLabel'
   | 'approveSkippedChecks'
   | 'tagPrWithTuxedoInstance'
+  | 'tagPrWithReviewer'
   | 'getGitContext'
   | 'getDefaultBranch'
   | 'getPrInfo'
@@ -83,6 +84,7 @@ export interface GlobalOptions {
   draft?: boolean;
   json?: boolean;
   pr?: number;
+  reviewer?: string;
   search?: string;
   sourcePr?: number;
   scope?: 'development' | 'runtime';

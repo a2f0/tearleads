@@ -69,7 +69,16 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
 
    - Only stop immediately for non-credit operational errors (for example: missing PR, missing tool script, malformed args) where fallback is not possible.
 
-3. **Report results**: Output the review results including:
+3. **Tag the PR with the reviewer**: After a successful review, tag the PR with the agent that performed it:
+
+   ```bash
+   # Use the agent name that actually performed the review (claude, codex, etc.)
+   "$AGENT_TOOL" tagPrWithReviewer --reviewer <agent>
+   ```
+
+   If fallback was used, tag with whichever agent's review succeeded.
+
+4. **Report results**: Output the review results including:
    - Which agent performed the review
    - The PR number and branch
    - The review findings

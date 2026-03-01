@@ -80,6 +80,11 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     retrySafe: true,
     isInline: true
   },
+  tagPrWithReviewer: {
+    safetyClass: 'safe_write_remote',
+    retrySafe: true,
+    isInline: true
+  },
   getPrInfo: { safetyClass: 'safe_read', retrySafe: true, isInline: true },
   getPrChecks: { safetyClass: 'safe_read', retrySafe: true, isInline: true },
   getRequiredChecksStatus: {

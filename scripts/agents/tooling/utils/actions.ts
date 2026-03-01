@@ -18,6 +18,7 @@ import {
 } from './octokitIssueHandlers.ts';
 import {
   addLabelWithOctokit,
+  tagPrWithReviewerWithOctokit,
   tagPrWithTuxedoInstanceWithOctokit
 } from './octokitLabelHandlers.ts';
 import {
@@ -98,6 +99,11 @@ export async function runInlineAction(
     case 'tagPrWithTuxedoInstance': {
       const context = createGitHubClientContext(repo);
       return tagPrWithTuxedoInstanceWithOctokit(context, options);
+    }
+
+    case 'tagPrWithReviewer': {
+      const context = createGitHubClientContext(repo);
+      return tagPrWithReviewerWithOctokit(context, options);
     }
 
     case 'getPrInfo': {

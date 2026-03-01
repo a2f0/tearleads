@@ -204,3 +204,95 @@ export async function tagPrWithTuxedoInstanceWithOctokit(
     2
   );
 }
+
+const VALID_REVIEWERS = ['gemini', 'claude', 'codex', 'opencode'] as const;
+
+export async function tagPrWithReviewerWithOctokit(
+  context: GitHubClientContext,
+  options: GlobalOptions
+): Promise<string> {
+  const reviewer = requireDefined(options.reviewer, '--reviewer');
+  if (
+    !VALID_REVIEWERS.includes(reviewer as (typeof VALID_REVIEWERS)[number])
+  ) {
+    throw new Error(
+      `Invalid --reviewer '${reviewer}'. Must be one of: ${VALID_REVIEWERS.join(', ')}`
+    );
+  }
+
+  const prNumber = options.pr ?? (await findPrNumberForCurrentBranch(context));
+  const newLabel = `reviewed:${reviewer}`;
+
+  const current = await context.octokit.rest.issues.get({
+    owner: context.owner,
+    repo: context.repo,
+    issue_number: prNumber
+  });
+
+  const currentLabels = getLabelNames(
+    current.data.labels as Array<{ name?: string }>
+  );
+
+  if (currentLabels.includes(newLabel)) {
+    return JSON.stringify(
+      {
+        status: 'already_present',
+        pr: prNumber,
+        label: newLabel,
+        message: `Label '${newLabel}' already present on PR #${prNumber}.`
+      },
+      null,
+      2
+    );
+  }
+
+  try {
+    await context.octokit.rest.issues.getLabel({
+      owner: context.owner,
+      repo: context.repo,
+      name: newLabel
+    });
+  } catch {
+    await context.octokit.rest.issues.createLabel({
+      owner: context.owner,
+      repo: context.repo,
+      name: newLabel,
+      description: `Reviewed by ${reviewer}`,
+      color: '0E8A16'
+    });
+  }
+
+  await context.octokit.rest.issues.addLabels({
+    owner: context.owner,
+    repo: context.repo,
+    issue_number: prNumber,
+    labels: [newLabel]
+  });
+
+  const verify = await context.octokit.rest.issues.get({
+    owner: context.owner,
+    repo: context.repo,
+    issue_number: prNumber
+  });
+
+  const verifyLabels = getLabelNames(
+    verify.data.labels as Array<{ name?: string }>
+  );
+
+  if (!verifyLabels.includes(newLabel)) {
+    throw new Error(
+      `Failed to add label '${newLabel}' to PR #${prNumber}.`
+    );
+  }
+
+  return JSON.stringify(
+    {
+      status: 'tagged',
+      pr: prNumber,
+      label: newLabel,
+      message: `Tagged PR #${prNumber} with '${newLabel}'.`
+    },
+    null,
+    2
+  );
+}
