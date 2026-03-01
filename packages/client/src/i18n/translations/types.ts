@@ -56,7 +56,6 @@ export type I18NextTranslations = {
   health: HealthTranslations;
 } & Record<string, Record<string, TranslationValue>>;
 
-export type AdminKeys = keyof AdminTranslations;
 export type MenuKeys = keyof MenuTranslations;
 
 export type NamespaceKeys = keyof Translations;

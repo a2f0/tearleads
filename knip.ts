@@ -20,19 +20,8 @@ const config: KnipConfig = {
   ],
   ignoreBinaries: ['ansible-lint', 'shellcheck', 'playwright'],
   ignoreIssues: {
-    // Consumed from source across package boundaries (admin/client split) via path aliases.
-    'packages/client/src/lib/utils.ts': ['exports'],
-    // Imported as a type-only contract by admin package via client alias.
-    'packages/client/src/i18n/translations/types.ts': ['types'],
-    // Exported interface appears in an inferred cross-module public return type.
-    'packages/vfs-explorer/src/hooks/useVfsAllItems.ts': ['types'],
-    // Canonical DB schema pieces intentionally re-exported across definition modules.
-    'packages/db/src/schema/definition-communications-vfs.ts': ['exports'],
     // Exported return type for public getBlob API needed for .d.ts generation.
     'packages/api-client/src/apiRoutes/vfsRoutes.ts': ['types'],
-    // Exported interfaces are part of public signatures for published helpers.
-    'packages/api/src/lib/vfsSyncChannels.ts': ['exports', 'types'],
-    'packages/bob-and-alice/src/qa/vfsSecureUploadQaSuite.ts': ['types'],
     // Class members are part of exported runtime/test harness APIs.
     'packages/api-client/src/vfsBlobNetworkFlusher.ts': ['classMembers'],
     'packages/api-client/src/vfsNetworkFlusher.ts': ['classMembers'],

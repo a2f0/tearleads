@@ -96,15 +96,6 @@ interface WebGPUErrorInfo {
   requirement: string;
 }
 
-export function formatTimestamp(timestamp: string | null): string {
-  if (!timestamp) return '\u2014';
-  return formatDate(new Date(timestamp));
-}
-
-export function formatNumber(value: number): string {
-  return new Intl.NumberFormat().format(value);
-}
-
 export function getWebGPUErrorInfo(): WebGPUErrorInfo {
   const platform = detectPlatform();
 

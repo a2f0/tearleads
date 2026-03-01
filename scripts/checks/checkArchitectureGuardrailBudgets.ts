@@ -93,8 +93,8 @@ const DEPENDENCY_CRUISER_RULE_BUDGET: Record<string, RuleExceptionBudget> = {
 };
 
 const KNIP_BUDGET: KnipSuppressionTotals = {
-  ignoreIssueFiles: 24,
-  ignoreIssueEntries: 25,
+  ignoreIssueFiles: 18,
+  ignoreIssueEntries: 18,
   ignoreBinaries: 3,
   workspaceIgnoreDependencyGroups: 6,
   workspaceIgnoreDependencyEntries: 14
@@ -105,20 +105,14 @@ const KNIP_IGNORE_ISSUE_FILE_BUDGET: Record<string, number> = {
   'packages/api-client/src/vfsBlobNetworkFlusher.ts': 1,
   'packages/api-client/src/vfsNetworkFlusher.ts': 1,
   'packages/api-client/src/vfsWriteOrchestrator.ts': 1,
-  'packages/api/src/lib/vfsSyncChannels.ts': 2,
   'packages/bob-and-alice/src/harness/actorHarness.ts': 1,
   'packages/bob-and-alice/src/harness/apiScenarioHarness.ts': 1,
   'packages/bob-and-alice/src/harness/scenarioHarness.ts': 1,
   'packages/bob-and-alice/src/harness/serverHarness.ts': 1,
-  'packages/bob-and-alice/src/qa/vfsSecureUploadQaSuite.ts': 1,
   'packages/client/src/components/ui/ErrorBoundary.tsx': 1,
   'packages/client/src/db/adapters/web.adapter.ts': 1,
-  'packages/client/src/i18n/translations/types.ts': 1,
-  'packages/client/src/lib/utils.ts': 1,
-  'packages/db/src/schema/definition-communications-vfs.ts': 1,
   'packages/mls-core/src/mls.ts': 1,
   'packages/mls-core/src/storage.ts': 1,
-  'packages/vfs-explorer/src/hooks/useVfsAllItems.ts': 1,
   'packages/vfs-sync/src/vfs/access/sync-access-harness.ts': 1,
   'packages/vfs-sync/src/vfs/blob/sync-blob-commit.ts': 1,
   'packages/vfs-sync/src/vfs/blob/sync-blob-isolation.ts': 1,
