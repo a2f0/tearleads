@@ -27,6 +27,7 @@ import {
 import type { SQL } from 'drizzle-orm';
 import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
+import { nameCoalesce } from './vfsNameSql';
 import type { VfsSortState } from './vfsTypes';
 
 const SHARE_ACL_ID_PREFIX = 'share:';
@@ -112,49 +113,6 @@ function sharePermissionLevelExpr(): SQL<string> {
     WHEN ${vfsAclEntries.accessLevel} = 'read' THEN 'view'
     ELSE 'edit'
   END`;
-}
-
-/**
- * COALESCE expression that resolves display names from type-specific tables.
- * Mirrors the implementation in vfsQuery.ts.
- *
- * Guardrail: shared folder names are canonicalized to `vfs_registry` and must
- * not read from `vfs_folders`.
- */
-function nameCoalesce(): SQL<string> {
-  return sql<string>`COALESCE(
-    NULLIF(${vfsRegistry.encryptedName}, ''),
-    ${files.name},
-    ${notes.title},
-    CASE
-      WHEN ${contacts.lastName} IS NOT NULL AND ${contacts.lastName} != ''
-        THEN ${contacts.firstName} || ' ' || ${contacts.lastName}
-      ELSE NULLIF(${contacts.firstName}, '')
-    END,
-    ${playlists.encryptedName},
-    ${albums.encryptedName},
-    ${contactGroups.encryptedName},
-    ${tags.encryptedName},
-    ${emails.encryptedSubject},
-    ${aiConversations.encryptedTitle},
-    CASE ${vfsRegistry.objectType}
-      WHEN 'folder' THEN 'Unnamed Folder'
-      WHEN 'file' THEN 'Unnamed File'
-      WHEN 'blob' THEN 'Unnamed Blob'
-      WHEN 'photo' THEN 'Unnamed Photo'
-      WHEN 'audio' THEN 'Unnamed Audio'
-      WHEN 'video' THEN 'Unnamed Video'
-      WHEN 'contact' THEN 'Unnamed Contact'
-      WHEN 'note' THEN 'Untitled Note'
-      WHEN 'playlist' THEN 'Unnamed Playlist'
-      WHEN 'album' THEN 'Unnamed Album'
-      WHEN 'contactGroup' THEN 'Unnamed Group'
-      WHEN 'tag' THEN 'Unnamed Tag'
-      WHEN 'email' THEN '(No Subject)'
-      WHEN 'conversation' THEN 'Untitled Conversation'
-      ELSE 'Unknown'
-    END
-  )`;
 }
 
 /**

@@ -8,6 +8,7 @@ import { VFS_CONTAINER_OBJECT_TYPES } from '@tearleads/shared';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
+import { contactNameSql } from '../lib/vfsNameSql';
 import type { VfsObjectType } from '../lib/vfsTypes';
 
 export interface VfsFolderNode {
@@ -49,11 +50,7 @@ export function useVfsFolders(): UseVfsFoldersResult {
       const folderNameExpr = sql<string>`COALESCE(
         NULLIF(${vfsRegistry.encryptedName}, ''),
         ${playlists.encryptedName},
-        CASE
-          WHEN ${contacts.lastName} IS NOT NULL AND ${contacts.lastName} != ''
-            THEN ${contacts.firstName} || ' ' || ${contacts.lastName}
-          ELSE NULLIF(${contacts.firstName}, '')
-        END,
+        ${contactNameSql()},
         CASE ${vfsRegistry.objectType}
           WHEN 'playlist' THEN 'Unnamed Playlist'
           WHEN 'emailFolder' THEN 'Unnamed Folder'

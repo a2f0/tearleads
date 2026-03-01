@@ -17,6 +17,7 @@ import {
   vfsRegistry
 } from '@tearleads/db/sqlite';
 import { eq, inArray, sql } from 'drizzle-orm';
+import { nameCoalesce } from './vfsNameSql';
 import type { VfsRegistryRow } from './vfsTypes';
 
 /**
@@ -49,41 +50,11 @@ export async function fetchItemNames(
     return nameMap;
   }
 
+  const nameExpr = nameCoalesce();
   const rows = await db
     .select({
       id: vfsRegistry.id,
-      name: sql<string>`COALESCE(
-        NULLIF(${vfsRegistry.encryptedName}, ''),
-        ${files.name},
-        ${notes.title},
-        CASE
-          WHEN ${contacts.lastName} IS NOT NULL AND ${contacts.lastName} != ''
-            THEN ${contacts.firstName} || ' ' || ${contacts.lastName}
-          ELSE NULLIF(${contacts.firstName}, '')
-        END,
-        ${playlists.encryptedName},
-        ${albums.encryptedName},
-        ${contactGroups.encryptedName},
-        ${tags.encryptedName},
-        ${emails.encryptedSubject},
-        ${aiConversations.encryptedTitle},
-        CASE ${vfsRegistry.objectType}
-          WHEN 'folder' THEN 'Unnamed Folder'
-          WHEN 'file' THEN 'Unnamed File'
-          WHEN 'photo' THEN 'Unnamed Photo'
-          WHEN 'audio' THEN 'Unnamed Audio'
-          WHEN 'video' THEN 'Unnamed Video'
-          WHEN 'contact' THEN 'Unnamed Contact'
-          WHEN 'note' THEN 'Untitled Note'
-          WHEN 'playlist' THEN 'Unnamed Playlist'
-          WHEN 'album' THEN 'Unnamed Album'
-          WHEN 'contactGroup' THEN 'Unnamed Group'
-          WHEN 'tag' THEN 'Unnamed Tag'
-          WHEN 'email' THEN '(No Subject)'
-          WHEN 'conversation' THEN 'Untitled Conversation'
-          ELSE 'Unknown'
-        END
-      ) as "name"`
+      name: sql<string>`${nameExpr} as "name"`
     })
     .from(vfsRegistry)
     .leftJoin(files, eq(files.id, vfsRegistry.id))
