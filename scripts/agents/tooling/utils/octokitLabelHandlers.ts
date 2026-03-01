@@ -212,9 +212,7 @@ export async function tagPrWithReviewerWithOctokit(
   options: GlobalOptions
 ): Promise<string> {
   const reviewer = requireDefined(options.reviewer, '--reviewer');
-  if (
-    !VALID_REVIEWERS.includes(reviewer as (typeof VALID_REVIEWERS)[number])
-  ) {
+  if (!VALID_REVIEWERS.includes(reviewer as (typeof VALID_REVIEWERS)[number])) {
     throw new Error(
       `Invalid --reviewer '${reviewer}'. Must be one of: ${VALID_REVIEWERS.join(', ')}`
     );
@@ -280,9 +278,7 @@ export async function tagPrWithReviewerWithOctokit(
   );
 
   if (!verifyLabels.includes(newLabel)) {
-    throw new Error(
-      `Failed to add label '${newLabel}' to PR #${prNumber}.`
-    );
+    throw new Error(`Failed to add label '${newLabel}' to PR #${prNumber}.`);
   }
 
   return JSON.stringify(
