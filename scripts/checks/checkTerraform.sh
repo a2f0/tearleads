@@ -48,6 +48,10 @@ run_tflint() {
 
 run_vault_script_typecheck() {
   echo "Type-checking Vault TypeScript scripts..."
+  local scripts_to_check=(
+    "terraform/stacks/prod/vault/scripts/fetch-secrets.ts"
+    "terraform/stacks/prod/vault/scripts/migrate-secrets.ts"
+  )
   if ! (
     cd "$REPO_ROOT" &&
       pnpm exec tsc --pretty false --noEmit \
@@ -56,8 +60,7 @@ run_vault_script_typecheck() {
         --target ES2022 \
         --allowImportingTsExtensions \
         --types node \
-        terraform/stacks/prod/vault/scripts/fetch-secrets.ts \
-        terraform/stacks/prod/vault/scripts/migrate-secrets.ts
+        "${scripts_to_check[@]}"
   ); then
     echo "Error: Vault TypeScript script type-check failed" >&2
     return 1
@@ -67,7 +70,9 @@ run_vault_script_typecheck() {
 
 run_vault_script_smoke_checks() {
   local scripts_dir="$REPO_ROOT/terraform/stacks/prod/vault/scripts"
+  local scripts_to_check=("fetch-secrets.ts" "migrate-secrets.ts")
   local script
+  local missing_dir
   local output
 
   if [ ! -d "$scripts_dir" ]; then
@@ -75,7 +80,7 @@ run_vault_script_smoke_checks() {
     return 0
   fi
 
-  for script in fetch-secrets.ts migrate-secrets.ts; do
+  for script in "${scripts_to_check[@]}"; do
     echo "Smoke-checking $script with --help..."
     if ! (cd "$scripts_dir" && "./$script" --help >/dev/null); then
       echo "Error: $script failed when invoked as ./script from $scripts_dir" >&2
@@ -83,9 +88,12 @@ run_vault_script_smoke_checks() {
     fi
   done
 
+  missing_dir="$(mktemp -d /tmp/tearleads-missing-secrets-dir-XXXXXX)"
+  rmdir "$missing_dir"
+
   output="$(
     cd "$scripts_dir" &&
-      ./migrate-secrets.ts --secrets-dir /tmp/tearleads-missing-secrets-dir 2>&1 >/dev/null || true
+      ./migrate-secrets.ts --secrets-dir "$missing_dir" 2>&1 >/dev/null || true
   )"
 
   case "$output" in
