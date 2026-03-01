@@ -2,11 +2,7 @@ import '../test/setupIntegration';
 
 import { resetTestKeyManager } from '@tearleads/db-test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  getDatabaseAdapter,
-  resetDatabase,
-  setupDatabase
-} from '@/db';
+import { getDatabaseAdapter, resetDatabase, setupDatabase } from '@/db';
 import { hydrateLocalReadModelFromRemoteFeeds } from './vfsReadModelHydration';
 
 const mockGetSync = vi.fn();

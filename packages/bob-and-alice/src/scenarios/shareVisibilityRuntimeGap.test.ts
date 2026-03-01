@@ -114,7 +114,9 @@ describe('share visibility runtime gap', () => {
       }
     );
 
-    const alicePull = await pullRemoteFeedsWithoutLocalHydration({ actor: alice });
+    const alicePull = await pullRemoteFeedsWithoutLocalHydration({
+      actor: alice
+    });
     const bobPull = await pullRemoteFeedsWithoutLocalHydration({ actor: bob });
     expect(alicePull.syncItems).toBeGreaterThan(0);
     expect(alicePull.crdtItems).toBeGreaterThan(0);
