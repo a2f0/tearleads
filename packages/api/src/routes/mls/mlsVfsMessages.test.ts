@@ -295,8 +295,10 @@ describe('MLS VFS message routes', () => {
           rows: [{ role: 'member', organization_id: 'org-1' }]
         })
         .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [{ current_epoch: 2 }] })
         .mockResolvedValueOnce({ rows: [{ message_count: '0' }] })
+        .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [] })
@@ -329,22 +331,27 @@ describe('MLS VFS message routes', () => {
         }
       });
       expect(mockQuery).toHaveBeenNthCalledWith(
-        5,
+        6,
+        expect.stringContaining('INSERT INTO mls_messages'),
+        expect.arrayContaining(['group-1', 'ciphertext', 'text/plain'])
+      );
+      expect(mockQuery).toHaveBeenNthCalledWith(
+        7,
         expect.stringContaining('INSERT INTO vfs_registry'),
         expect.any(Array)
       );
       expect(mockQuery).toHaveBeenNthCalledWith(
-        6,
+        8,
         expect.stringContaining('INSERT INTO vfs_item_state'),
         expect.arrayContaining(['ciphertext', 2])
       );
       expect(mockQuery).toHaveBeenNthCalledWith(
-        7,
+        9,
         expect.stringContaining('INSERT INTO vfs_acl_entries'),
         expect.arrayContaining(['group-1'])
       );
       expect(mockQuery).toHaveBeenNthCalledWith(
-        8,
+        10,
         expect.stringContaining('INSERT INTO vfs_crdt_ops'),
         expect.arrayContaining(['user-1', 'ciphertext', 2])
       );
@@ -361,6 +368,7 @@ describe('MLS VFS message routes', () => {
           rows: [{ role: 'member', organization_id: 'org-1' }]
         })
         .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [{ current_epoch: 1 }] })
         .mockResolvedValueOnce({ rows: [] });
 
@@ -375,7 +383,7 @@ describe('MLS VFS message routes', () => {
 
       expect(response.status).toBe(409);
       expect(response.body).toEqual({ error: 'Epoch mismatch' });
-      expect(mockQuery).toHaveBeenCalledTimes(4);
+      expect(mockQuery).toHaveBeenCalledTimes(5);
     });
 
     it('returns 404 when target group no longer exists', async () => {
@@ -388,6 +396,7 @@ describe('MLS VFS message routes', () => {
         .mockResolvedValueOnce({
           rows: [{ role: 'member', organization_id: 'org-1' }]
         })
+        .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [] });
@@ -460,6 +469,7 @@ describe('MLS VFS message routes', () => {
         .mockResolvedValueOnce({
           rows: [{ role: 'member', organization_id: 'org-1' }]
         })
+        .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [{ current_epoch: 2 }] })
         .mockRejectedValueOnce(new Error('count failed'))

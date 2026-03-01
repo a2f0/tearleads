@@ -100,6 +100,7 @@ describe('MLS VFS message route branch coverage', () => {
     mockClientQuery
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
 
     const response = await request(app)

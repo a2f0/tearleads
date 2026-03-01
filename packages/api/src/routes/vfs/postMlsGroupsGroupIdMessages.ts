@@ -14,6 +14,7 @@ interface VfsMirrorInput {
   groupId: string;
   senderUserId: string;
   ciphertext: string;
+  contentType: string;
   epoch: number;
   occurredAtIso: string;
   sequenceNumber: number;
@@ -73,6 +74,49 @@ async function persistApplicationMessageToVfs(
   client: QueryClient,
   input: VfsMirrorInput
 ): Promise<void> {
+  await client.query(
+    `
+    INSERT INTO mls_messages (
+      id,
+      group_id,
+      sender_user_id,
+      epoch,
+      ciphertext,
+      message_type,
+      content_type,
+      sequence_number,
+      created_at
+    ) VALUES (
+      $1::text,
+      $2::text,
+      $3::text,
+      $4::integer,
+      $5::text,
+      'application',
+      $6::text,
+      $7::integer,
+      $8::timestamptz
+    )
+    ON CONFLICT (id) DO UPDATE
+    SET
+      epoch = EXCLUDED.epoch,
+      ciphertext = EXCLUDED.ciphertext,
+      content_type = EXCLUDED.content_type,
+      sequence_number = EXCLUDED.sequence_number,
+      created_at = EXCLUDED.created_at
+    `,
+    [
+      input.messageId,
+      input.groupId,
+      input.senderUserId,
+      input.epoch,
+      input.ciphertext,
+      input.contentType,
+      input.sequenceNumber,
+      input.occurredAtIso
+    ]
+  );
+
   await client.query(
     `
     INSERT INTO vfs_registry (
@@ -250,6 +294,9 @@ const postMlsGroupsGroupIdMessagesHandler = async (
     let message: MlsMessage | null = null;
     try {
       await client.query('BEGIN');
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1::text))', [
+        groupId
+      ]);
 
       const groupEpochResult = await client.query<{ current_epoch: number }>(
         `SELECT current_epoch
@@ -284,12 +331,14 @@ const postMlsGroupsGroupIdMessagesHandler = async (
 
       const id = randomUUID();
       const occurredAtIso = new Date().toISOString();
+      const contentType = payload.contentType ?? 'text/plain';
 
       await persistApplicationMessageToVfs(client, {
         messageId: id,
         groupId,
         senderUserId: claims.sub,
         ciphertext: payload.ciphertext,
+        contentType,
         epoch: payload.epoch,
         occurredAtIso,
         sequenceNumber: nextSequenceNumber
@@ -302,7 +351,7 @@ const postMlsGroupsGroupIdMessagesHandler = async (
         epoch: payload.epoch,
         ciphertext: payload.ciphertext,
         messageType: payload.messageType,
-        contentType: payload.contentType ?? 'text/plain',
+        contentType,
         sequenceNumber: nextSequenceNumber,
         sentAt: occurredAtIso,
         createdAt: occurredAtIso

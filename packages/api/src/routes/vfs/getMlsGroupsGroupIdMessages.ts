@@ -104,7 +104,7 @@ const getMlsGroupsGroupIdMessagesHandler = async (
            COALESCE(ops.key_epoch, 0) AS epoch,
            ops.encrypted_payload AS ciphertext,
            'application'::text AS message_type,
-           'text/plain'::text AS content_type,
+           COALESCE(msg.content_type, 'text/plain'::text) AS content_type,
            ROW_NUMBER() OVER (
              ORDER BY ops.occurred_at ASC, ops.id ASC
            )::integer AS sequence_number,
@@ -112,6 +112,7 @@ const getMlsGroupsGroupIdMessagesHandler = async (
            u.email AS sender_email
          FROM vfs_crdt_ops ops
          LEFT JOIN users u ON u.id = ops.actor_id
+         LEFT JOIN mls_messages msg ON msg.id = ops.item_id
          WHERE ops.source_table = 'mls_messages'
            AND ops.op_type = 'item_upsert'
            AND ops.encrypted_payload IS NOT NULL
