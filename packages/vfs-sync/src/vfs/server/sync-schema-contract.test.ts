@@ -64,8 +64,8 @@ describe('sync schema contract', () => {
       'vfs_sync_changes'
     ]);
     
-    // CRDT feed optimized to use denormalized visibility and link check
-    // Note: vfs_crdt_snapshots and vfs_registry hydration are planned next steps
+    // CRDT feed optimized to use denormalized visibility and link check.
+    // Snapshot tables are used by rematerialization routes, not hot-log pulls.
     expect(extractSqlTableReferences(crdtQuery.text)).toEqual([
       'vfs_crdt_ops',
       'vfs_effective_visibility',
