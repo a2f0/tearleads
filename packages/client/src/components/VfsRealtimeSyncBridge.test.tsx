@@ -94,6 +94,30 @@ describe('VfsRealtimeSyncBridge', () => {
     ]);
   });
 
+  it('does not reconnect when computed channels have not changed', async () => {
+    const connect = vi.fn();
+    mockUseSSE.mockReturnValue({
+      connect,
+      lastMessage: null
+    });
+    mockUseVfsOrchestratorInstance.mockReturnValue({
+      crdt: {
+        listChangedContainers: vi.fn(() => ({
+          items: [{ containerId: 'item-1' }],
+          hasMore: false,
+          nextCursor: null
+        }))
+      },
+      syncCrdt: vi.fn()
+    });
+
+    render(<VfsRealtimeSyncBridge />);
+    expect(connect).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(15000);
+    expect(connect).toHaveBeenCalledTimes(1);
+  });
+
   it('triggers debounced sync on VFS cursor-bump messages', async () => {
     const connect = vi.fn();
     const syncCrdt = vi.fn().mockResolvedValue(undefined);
@@ -310,6 +334,50 @@ describe('VfsRealtimeSyncBridge', () => {
       'VFS CRDT sync failed after SSE trigger; scheduling retry',
       expect.stringContaining('attempt=1')
     );
+    randomSpy.mockRestore();
+  });
+
+  it('clears pending retry timer on unmount', async () => {
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+    const connect = vi.fn();
+    const syncCrdt = vi.fn().mockRejectedValue(new Error('sync failed'));
+    const sseState = {
+      connect,
+      lastMessage: null as {
+        channel: string;
+        message: { type: string; payload: unknown; timestamp: string };
+      } | null
+    };
+
+    mockUseSSE.mockImplementation(() => sseState);
+    mockUseVfsOrchestratorInstance.mockReturnValue({
+      crdt: {
+        listChangedContainers: vi.fn(() => ({
+          items: [{ containerId: 'item-1' }],
+          hasMore: false,
+          nextCursor: null
+        }))
+      },
+      syncCrdt
+    });
+
+    const { rerender, unmount } = render(<VfsRealtimeSyncBridge />);
+    sseState.lastMessage = {
+      channel: 'vfs:container:item-1:sync',
+      message: {
+        type: 'vfs:cursor-bump',
+        payload: {},
+        timestamp: new Date().toISOString()
+      }
+    };
+    rerender(<VfsRealtimeSyncBridge />);
+
+    await vi.advanceTimersByTimeAsync(200);
+    expect(syncCrdt).toHaveBeenCalledTimes(1);
+
+    unmount();
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(syncCrdt).toHaveBeenCalledTimes(1);
     randomSpy.mockRestore();
   });
 });
