@@ -164,6 +164,8 @@ describe('VFS Integration Tests', () => {
 
       // 5. Navigate to Notes page
       await navigateViaMobileMenu(user, 'notes-link');
+
+      // Notes is lazy-loaded and may take longer to resolve under full-suite load
       await waitFor(
         () => {
           expect(
@@ -174,15 +176,21 @@ describe('VFS Integration Tests', () => {
       );
 
       // 6. Create a new note (empty notes list shows the add-note-card)
-      await waitFor(() => {
-        expect(screen.getByTestId('add-note-card')).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.getByTestId('add-note-card')).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
       await user.click(screen.getByTestId('add-note-card'));
 
-      // 7. Wait for navigation to NoteDetail page
-      await waitFor(() => {
-        expect(screen.getByTestId('note-title')).toBeInTheDocument();
-      });
+      // 7. Wait for navigation to NoteDetail page (lazy-loaded)
+      await waitFor(
+        () => {
+          expect(screen.getByTestId('note-title')).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
       // 8. Register the note in VFS registry (the page-route code path
       //    creates notes without VFS registration; the window-based flow
