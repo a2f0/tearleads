@@ -12,6 +12,7 @@ import { registerGetCrdtSyncRoute } from './get-crdt-sync.js';
 import { registerGetEmailsRoute } from './get-emails.js';
 import { registerGetEmailsIdRoute } from './get-emails-id.js';
 import { registerGetSyncRoute } from './get-sync.js';
+import { registerGetMlsGroupsGroupIdMessagesRoute } from './getMlsGroupsGroupIdMessages.js';
 import { registerGetCrdtSnapshotRoute } from './getCrdtSnapshot.js';
 import { registerGetKeysMeRoute } from './getKeysMe.js';
 import { registerPostBlobsStageRoute } from './post-blobs-stage.js';
@@ -25,6 +26,7 @@ import { registerPostItemsItemIdRekeyRoute } from './post-items-itemId-rekey.js'
 import { registerPostSyncReconcileRoute } from './post-sync-reconcile.js';
 import { registerPostCrdtSessionRoute } from './postCrdtSession.js';
 import { registerPostEmailsSendRoute } from './postEmailsSend.js';
+import { registerPostMlsGroupsGroupIdMessagesRoute } from './postMlsGroupsGroupIdMessages.js';
 import { registerPostKeysRoute } from './postKeys.js';
 import { registerPostRegisterRoute } from './postRegister.js';
 
@@ -42,8 +44,10 @@ registerGetBlobsBlobIdRoute(vfsRouter);
 registerDeleteBlobsBlobIdRoute(vfsRouter);
 registerGetEmailsRoute(vfsRouter);
 registerGetEmailsIdRoute(vfsRouter);
+registerGetMlsGroupsGroupIdMessagesRoute(vfsRouter);
 registerDeleteEmailsIdRoute(vfsRouter);
 registerPostEmailsSendRoute(vfsRouter);
+registerPostMlsGroupsGroupIdMessagesRoute(vfsRouter);
 registerPostCrdtSessionRoute(vfsRouter);
 registerPostCrdtPushRoute(vfsRouter);
 registerPostCrdtReconcileRoute(vfsRouter);

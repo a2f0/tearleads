@@ -303,7 +303,7 @@ describe('api with msw', () => {
     await api.mls.sendGroupMessage(groupId, {
       ciphertext: 'ciphertext',
       epoch: addMemberEpoch,
-      messageType: 'commit'
+      messageType: 'application'
     });
 
     // State
@@ -359,10 +359,10 @@ describe('api with msw', () => {
     expect(wasApiRequestMade('POST', `/mls/groups/${groupId}/members`)).toBe(
       true
     );
-    expect(wasApiRequestMade('GET', `/mls/groups/${groupId}/messages`)).toBe(
+    expect(wasApiRequestMade('GET', `/vfs/mls/groups/${groupId}/messages`)).toBe(
       true
     );
-    expect(wasApiRequestMade('POST', `/mls/groups/${groupId}/messages`)).toBe(
+    expect(wasApiRequestMade('POST', `/vfs/mls/groups/${groupId}/messages`)).toBe(
       true
     );
     expect(wasApiRequestMade('GET', `/mls/groups/${groupId}/state`)).toBe(true);
@@ -389,7 +389,7 @@ describe('api with msw', () => {
       wasApiRequestMade('DELETE', `/mls/key-packages/${uploadedKeyPackageId}`)
     ).toBe(true);
 
-    expectSingleRequestQuery('GET', `/mls/groups/${groupId}/messages`, {
+    expectSingleRequestQuery('GET', `/vfs/mls/groups/${groupId}/messages`, {
       cursor: '10',
       limit: '25'
     });

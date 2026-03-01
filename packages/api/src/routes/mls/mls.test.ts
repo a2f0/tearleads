@@ -298,7 +298,7 @@ describe('MLS routes', () => {
     });
   });
 
-  describe('GET /v1/mls/groups/:groupId/messages', () => {
+  describe('GET /v1/vfs/mls/groups/:groupId/messages', () => {
     it('returns 400 for non-positive limit values', async () => {
       const authHeader = await createAuthHeader({
         id: 'user-1',
@@ -306,7 +306,7 @@ describe('MLS routes', () => {
       });
 
       const response = await request(app)
-        .get('/v1/mls/groups/group-1/messages?limit=0')
+        .get('/v1/vfs/mls/groups/group-1/messages?limit=0')
         .set('Authorization', authHeader);
 
       expect(response.status).toBe(400);
@@ -323,7 +323,7 @@ describe('MLS routes', () => {
       });
 
       const response = await request(app)
-        .get('/v1/mls/groups/group-1/messages?cursor=not-a-number')
+        .get('/v1/vfs/mls/groups/group-1/messages?cursor=not-a-number')
         .set('Authorization', authHeader);
 
       expect(response.status).toBe(400);
@@ -334,13 +334,12 @@ describe('MLS routes', () => {
     });
   });
 
-  describe('POST /v1/mls/groups/:groupId/messages', () => {
+  describe('POST /v1/vfs/mls/groups/:groupId/messages', () => {
     it('mirrors application messages into VFS tables and CRDT feed', async () => {
       const authHeader = await createAuthHeader({
         id: 'user-1',
         email: 'user-1@example.com'
       });
-      const createdAt = new Date('2026-03-01T00:00:00.000Z');
 
       mockQuery
         .mockResolvedValueOnce({
@@ -348,9 +347,7 @@ describe('MLS routes', () => {
         })
         .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [{ current_epoch: 2 }] })
-        .mockResolvedValueOnce({
-          rows: [{ sequence_number: 1, created_at: createdAt }]
-        })
+        .mockResolvedValueOnce({ rows: [{ message_count: '0' }] })
         .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [] })
@@ -358,7 +355,7 @@ describe('MLS routes', () => {
         .mockResolvedValueOnce({ rows: [] });
 
       const response = await request(app)
-        .post('/v1/mls/groups/group-1/messages')
+        .post('/v1/vfs/mls/groups/group-1/messages')
         .set('Authorization', authHeader)
         .send({
           ciphertext: 'ciphertext',
@@ -378,14 +375,14 @@ describe('MLS routes', () => {
           messageType: 'application',
           contentType: 'text/plain',
           sequenceNumber: 1,
-          sentAt: createdAt.toISOString(),
-          createdAt: createdAt.toISOString()
+          sentAt: expect.any(String),
+          createdAt: expect.any(String)
         }
       });
       expect(mockQuery).toHaveBeenNthCalledWith(
         5,
         expect.stringContaining('INSERT INTO vfs_registry'),
-        expect.arrayContaining(['org-1'])
+        expect.any(Array)
       );
       expect(mockQuery).toHaveBeenNthCalledWith(
         6,
@@ -443,7 +440,7 @@ describe('MLS routes', () => {
         .mockResolvedValueOnce({ rows: [] });
 
       const response = await request(app)
-        .post('/v1/mls/groups/group-1/messages')
+        .post('/v1/vfs/mls/groups/group-1/messages')
         .set('Authorization', authHeader)
         .send({
           ciphertext: 'ciphertext',
@@ -462,7 +459,7 @@ describe('MLS routes', () => {
       });
 
       const response = await request(app)
-        .post('/v1/mls/groups/group-1/messages')
+        .post('/v1/vfs/mls/groups/group-1/messages')
         .set('Authorization', authHeader)
         .send({
           ciphertext: 'ciphertext',

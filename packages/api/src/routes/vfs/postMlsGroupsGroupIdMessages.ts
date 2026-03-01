@@ -7,16 +7,16 @@ import { getPostgresPool } from '../../lib/postgres.js';
 import {
   getActiveMlsGroupMembership,
   parseSendMessagePayload
-} from './shared.js';
+} from '../mls/shared.js';
 
 interface VfsMirrorInput {
   messageId: string;
   groupId: string;
   senderUserId: string;
-  organizationId: string;
   ciphertext: string;
   epoch: number;
   occurredAtIso: string;
+  sequenceNumber: number;
 }
 
 interface QueryClient {
@@ -25,6 +25,25 @@ interface QueryClient {
     values?: unknown[]
   ) => Promise<{ rows: T[]; rowCount: number | null }>;
   release: () => void;
+}
+
+interface GroupMessageCountRow {
+  message_count: string | number;
+}
+
+function toPositiveInteger(value: string | number): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(0, Math.floor(value));
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isFinite(parsed)) {
+      return Math.max(0, parsed);
+    }
+  }
+
+  return 0;
 }
 
 async function acquireTransactionClient(
@@ -50,28 +69,26 @@ async function acquireTransactionClient(
   };
 }
 
-async function mirrorApplicationMessageToVfs(
+async function persistApplicationMessageToVfs(
   client: QueryClient,
   input: VfsMirrorInput
-) {
+): Promise<void> {
   await client.query(
     `
     INSERT INTO vfs_registry (
       id,
       object_type,
       owner_id,
-      organization_id,
       created_at
     ) VALUES (
       $1::text,
       'mlsMessage',
       NULL,
-      $2::text,
-      $3::timestamptz
+      $2::timestamptz
     )
     ON CONFLICT (id) DO NOTHING
     `,
-    [input.messageId, input.organizationId, input.occurredAtIso]
+    [input.messageId, input.occurredAtIso]
   );
 
   await client.query(
@@ -165,7 +182,7 @@ async function mirrorApplicationMessageToVfs(
     [
       input.messageId,
       input.senderUserId,
-      `mls_message:${input.groupId}:${input.messageId}`,
+      `mls_message:${input.groupId}:${input.sequenceNumber}:${input.messageId}`,
       input.occurredAtIso,
       input.ciphertext,
       input.epoch
@@ -175,11 +192,11 @@ async function mirrorApplicationMessageToVfs(
 
 /**
  * @openapi
- * /mls/groups/{groupId}/messages:
+ * /vfs/mls/groups/{groupId}/messages:
  *   post:
- *     summary: Send encrypted message to MLS group
+ *     summary: Store an MLS application message in VFS
  *     tags:
- *       - MLS
+ *       - VFS
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -190,9 +207,9 @@ async function mirrorApplicationMessageToVfs(
  *           type: string
  *     responses:
  *       201:
- *         description: Message sent
+ *         description: Message stored
  */
-const postGroupsGroupidMessagesHandler = async (
+const postMlsGroupsGroupIdMessagesHandler = async (
   req: Request,
   res: Response
 ) => {
@@ -215,6 +232,11 @@ const postGroupsGroupidMessagesHandler = async (
     return;
   }
 
+  if (payload.messageType !== 'application') {
+    res.status(400).json({ error: 'Only application messages are supported' });
+    return;
+  }
+
   try {
     const pool = await getPostgresPool();
 
@@ -234,7 +256,7 @@ const postGroupsGroupidMessagesHandler = async (
            FROM mls_groups
           WHERE id = $1
           LIMIT 1
-          FOR SHARE`,
+          FOR UPDATE`,
         [groupId]
       );
       const currentEpoch = groupEpochResult.rows[0]?.current_epoch;
@@ -249,34 +271,29 @@ const postGroupsGroupidMessagesHandler = async (
         return;
       }
 
-      const id = randomUUID();
-      const result = await client.query<{
-        sequence_number: number;
-        created_at: Date;
-      }>(
-        `INSERT INTO mls_messages (
-            id, group_id, sender_user_id, epoch, ciphertext, message_type, content_type, sequence_number, created_at
-          ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7,
-            COALESCE((SELECT MAX(sequence_number) FROM mls_messages WHERE group_id = $2), 0) + 1,
-            NOW()
-          )
-          RETURNING sequence_number, created_at`,
-        [
-          id,
-          groupId,
-          claims.sub,
-          payload.epoch,
-          payload.ciphertext,
-          payload.messageType,
-          payload.contentType ?? 'text/plain'
-        ]
+      const messageCountResult = await client.query<GroupMessageCountRow>(
+        `SELECT COALESCE(COUNT(*), 0) AS message_count
+           FROM vfs_crdt_ops
+          WHERE source_table = 'mls_messages'
+            AND op_type = 'item_upsert'
+            AND source_id LIKE $1`,
+        [`mls_message:${groupId}:%`]
       );
+      const nextSequenceNumber =
+        toPositiveInteger(messageCountResult.rows[0]?.message_count ?? 0) + 1;
 
-      const row = result.rows[0];
-      if (!row) {
-        throw new Error('Failed to insert message');
-      }
+      const id = randomUUID();
+      const occurredAtIso = new Date().toISOString();
+
+      await persistApplicationMessageToVfs(client, {
+        messageId: id,
+        groupId,
+        senderUserId: claims.sub,
+        ciphertext: payload.ciphertext,
+        epoch: payload.epoch,
+        occurredAtIso,
+        sequenceNumber: nextSequenceNumber
+      });
 
       message = {
         id,
@@ -286,22 +303,10 @@ const postGroupsGroupidMessagesHandler = async (
         ciphertext: payload.ciphertext,
         messageType: payload.messageType,
         contentType: payload.contentType ?? 'text/plain',
-        sequenceNumber: row.sequence_number,
-        sentAt: row.created_at.toISOString(),
-        createdAt: row.created_at.toISOString()
+        sequenceNumber: nextSequenceNumber,
+        sentAt: occurredAtIso,
+        createdAt: occurredAtIso
       };
-
-      if (payload.messageType === 'application') {
-        await mirrorApplicationMessageToVfs(client, {
-          messageId: id,
-          groupId,
-          senderUserId: claims.sub,
-          organizationId: membership.organizationId,
-          ciphertext: payload.ciphertext,
-          epoch: payload.epoch,
-          occurredAtIso: row.created_at.toISOString()
-        });
-      }
 
       await client.query('COMMIT');
     } catch (transactionError) {
@@ -315,7 +320,6 @@ const postGroupsGroupidMessagesHandler = async (
       return;
     }
 
-    // Broadcast to group channel
     await broadcast(`mls:group:${groupId}`, {
       type: 'mls:message',
       payload: message,
@@ -325,16 +329,16 @@ const postGroupsGroupidMessagesHandler = async (
     const response: SendMlsMessageResponse = { message };
     res.status(201).json(response);
   } catch (error) {
-    console.error('Failed to send message:', error);
+    console.error('Failed to store VFS-backed MLS message:', error);
     res.status(500).json({ error: 'Failed to send message' });
   }
 };
 
-export function registerPostGroupsGroupidMessagesRoute(
+export function registerPostMlsGroupsGroupIdMessagesRoute(
   routeRouter: RouterType
 ): void {
   routeRouter.post(
-    '/groups/:groupId/messages',
-    postGroupsGroupidMessagesHandler
+    '/mls/groups/:groupId/messages',
+    postMlsGroupsGroupIdMessagesHandler
   );
 }

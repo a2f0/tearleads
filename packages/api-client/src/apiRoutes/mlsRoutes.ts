@@ -107,7 +107,7 @@ export const mlsRoutes = {
     if (options?.limit) params.set('limit', String(options.limit));
     const query = params.toString();
     return request<MlsMessagesResponse>(
-      `/mls/groups/${encodeURIComponent(groupId)}/messages${query ? `?${query}` : ''}`,
+      `/vfs/mls/groups/${encodeURIComponent(groupId)}/messages${query ? `?${query}` : ''}`,
       {
         eventName: 'api_get_mls_group_messages'
       }
@@ -115,7 +115,7 @@ export const mlsRoutes = {
   },
   sendGroupMessage: (groupId: string, data: SendMlsMessageRequest) =>
     request<SendMlsMessageResponse>(
-      `/mls/groups/${encodeURIComponent(groupId)}/messages`,
+      `/vfs/mls/groups/${encodeURIComponent(groupId)}/messages`,
       {
         fetchOptions: {
           method: 'POST',

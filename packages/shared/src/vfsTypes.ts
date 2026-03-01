@@ -22,6 +22,7 @@ export type VfsObjectType =
   | 'contact'
   | 'note'
   | 'email'
+  | 'mlsMessage'
   | 'conversation'
   // Collections
   | 'folder'

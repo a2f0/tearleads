@@ -55,7 +55,7 @@ describe('api with msw', () => {
       { method: 'GET', pathname: '/mls/groups' },
       { method: 'GET', pathname: '/mls/groups/group-1' },
       { method: 'GET', pathname: '/mls/groups/group-1/members' },
-      { method: 'GET', pathname: '/mls/groups/group-1/messages' },
+      { method: 'GET', pathname: '/vfs/mls/groups/group-1/messages' },
       { method: 'GET', pathname: '/mls/groups/group-1/state' },
       { method: 'GET', pathname: '/mls/key-packages/me' },
       { method: 'GET', pathname: '/mls/key-packages/user-1' },
@@ -78,7 +78,7 @@ describe('api with msw', () => {
       },
       {
         method: 'POST',
-        pathname: '/mls/groups/group-1/messages',
+        pathname: '/vfs/mls/groups/group-1/messages',
         init: {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ encryptedMessage: 'message' })

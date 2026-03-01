@@ -4,16 +4,29 @@ import type {
   MlsMessageType
 } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
-import { getPool } from '../../lib/postgres.js';
-import { getActiveMlsGroupMembership } from './shared.js';
+import { getPostgresPool } from '../../lib/postgres.js';
+import { getActiveMlsGroupMembership } from '../mls/shared.js';
+
+interface GroupMessageRow {
+  id: string;
+  group_id: string;
+  sender_user_id: string | null;
+  epoch: number;
+  ciphertext: string;
+  message_type: string;
+  content_type: string;
+  sequence_number: number;
+  created_at: Date | string;
+  sender_email: string | null;
+}
 
 /**
  * @openapi
- * /mls/groups/{groupId}/messages:
+ * /vfs/mls/groups/{groupId}/messages:
  *   get:
- *     summary: Get message history for MLS group
+ *     summary: Get MLS application message history from VFS
  *     tags:
- *       - MLS
+ *       - VFS
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -35,7 +48,10 @@ import { getActiveMlsGroupMembership } from './shared.js';
  *       200:
  *         description: Message history
  */
-const getGroupsGroupidMessagesHandler = async (req: Request, res: Response) => {
+const getMlsGroupsGroupIdMessagesHandler = async (
+  req: Request,
+  res: Response
+) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -72,49 +88,62 @@ const getGroupsGroupidMessagesHandler = async (req: Request, res: Response) => {
   }
 
   try {
-    const pool = await getPool('read');
-
     const membership = await getActiveMlsGroupMembership(groupId, claims.sub);
     if (!membership) {
       res.status(403).json({ error: 'Not a member of this group' });
       return;
     }
 
-    // Get messages with sender email
-    let query = `SELECT m.id, m.group_id, m.sender_user_id, m.epoch, m.ciphertext,
-                          m.message_type, m.content_type, m.sequence_number, m.created_at,
-                          u.email as sender_email
-                   FROM mls_messages m
-                   LEFT JOIN users u ON u.id = m.sender_user_id
-                   WHERE m.group_id = $1`;
-    const params: unknown[] = [groupId];
-
-    if (cursor !== null) {
-      query += ` AND m.sequence_number < $2`;
-      params.push(cursor);
-    }
-
-    query += ` ORDER BY m.sequence_number DESC LIMIT $${params.length + 1}`;
-    params.push(limit + 1);
-
-    const result = await pool.query<{
-      id: string;
-      group_id: string;
-      sender_user_id: string;
-      epoch: number;
-      ciphertext: string;
-      message_type: string;
-      content_type: string;
-      sequence_number: number;
-      created_at: Date;
-      sender_email: string | null;
-    }>(query, params);
+    const pool = await getPostgresPool();
+    const result = await pool.query<GroupMessageRow>(
+      `WITH group_messages AS (
+         SELECT
+           ops.item_id AS id,
+           $1::text AS group_id,
+           ops.actor_id AS sender_user_id,
+           COALESCE(ops.key_epoch, 0) AS epoch,
+           ops.encrypted_payload AS ciphertext,
+           'application'::text AS message_type,
+           'text/plain'::text AS content_type,
+           ROW_NUMBER() OVER (
+             ORDER BY ops.occurred_at ASC, ops.id ASC
+           )::integer AS sequence_number,
+           ops.occurred_at AS created_at,
+           u.email AS sender_email
+         FROM vfs_crdt_ops ops
+         LEFT JOIN users u ON u.id = ops.actor_id
+         WHERE ops.source_table = 'mls_messages'
+           AND ops.op_type = 'item_upsert'
+           AND ops.encrypted_payload IS NOT NULL
+           AND ops.source_id LIKE $2::text
+       )
+       SELECT
+         id,
+         group_id,
+         sender_user_id,
+         epoch,
+         ciphertext,
+         message_type,
+         content_type,
+         sequence_number,
+         created_at,
+         sender_email
+       FROM group_messages
+       WHERE ($3::integer IS NULL OR sequence_number < $3::integer)
+       ORDER BY sequence_number DESC
+       LIMIT $4::integer`,
+      [groupId, `mls_message:${groupId}:%`, cursor, limit + 1]
+    );
 
     const hasMore = result.rows.length > limit;
     const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
 
     const messages: MlsMessage[] = rows.map((row) => {
-      const createdAtStr = row.created_at.toISOString();
+      const createdAt =
+        row.created_at instanceof Date
+          ? row.created_at
+          : new Date(row.created_at);
+      const createdAtStr = createdAt.toISOString();
       const msg: MlsMessage = {
         id: row.id,
         groupId: row.group_id,
@@ -134,7 +163,7 @@ const getGroupsGroupidMessagesHandler = async (req: Request, res: Response) => {
     });
 
     const response: MlsMessagesResponse = {
-      messages: messages.reverse(), // Return in chronological order
+      messages: messages.reverse(),
       hasMore
     };
     if (hasMore && rows.length > 0) {
@@ -146,13 +175,16 @@ const getGroupsGroupidMessagesHandler = async (req: Request, res: Response) => {
 
     res.json(response);
   } catch (error) {
-    console.error('Failed to get messages:', error);
+    console.error('Failed to get VFS-backed MLS messages:', error);
     res.status(500).json({ error: 'Failed to get messages' });
   }
 };
 
-export function registerGetGroupsGroupidMessagesRoute(
+export function registerGetMlsGroupsGroupIdMessagesRoute(
   routeRouter: RouterType
 ): void {
-  routeRouter.get('/groups/:groupId/messages', getGroupsGroupidMessagesHandler);
+  routeRouter.get(
+    '/mls/groups/:groupId/messages',
+    getMlsGroupsGroupIdMessagesHandler
+  );
 }
