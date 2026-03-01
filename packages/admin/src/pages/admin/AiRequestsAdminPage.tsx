@@ -42,6 +42,7 @@ function calculateTotals(usageRows: AiUsage[]): AiUsageTotals {
   );
 }
 
+// component-complexity: allow - legacy admin page pending split into smaller views.
 export function AiRequestsAdminPage({
   showBackLink = true,
   backLink,

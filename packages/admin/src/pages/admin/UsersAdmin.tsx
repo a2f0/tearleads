@@ -19,6 +19,7 @@ interface UsersAdminProps {
   onViewAiRequests?: (() => void) | undefined;
 }
 
+// component-complexity: allow - legacy admin table page pending split into smaller views.
 export function UsersAdmin({
   showBackLink = true,
   onUserSelect,
