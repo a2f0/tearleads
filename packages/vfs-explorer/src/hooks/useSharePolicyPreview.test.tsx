@@ -19,15 +19,15 @@ function createDeferred<T>(): Deferred<T> {
 
 describe('useSharePolicyPreview', () => {
   it('fetches preview nodes for selected principal', async () => {
-    const getSharePolicyPreview = vi.fn(async () => ({
+    const mockResponse: VfsSharePolicyPreviewResponse = {
       nodes: [
         {
           itemId: 'root-1',
           objectType: 'contact',
           depth: 0,
           path: 'root-1',
-          state: 'direct' as const,
-          effectiveAccessLevel: 'read' as const,
+          state: 'direct',
+          effectiveAccessLevel: 'read',
           sourcePolicyIds: []
         }
       ],
@@ -41,7 +41,8 @@ describe('useSharePolicyPreview', () => {
         excludedCount: 0
       },
       nextCursor: null
-    }));
+    };
+    const getSharePolicyPreview = vi.fn(async () => mockResponse);
     const wrapper = createWrapper({
       vfsShareApi: {
         getSharePolicyPreview
@@ -80,54 +81,56 @@ describe('useSharePolicyPreview', () => {
   });
 
   it('appends additional nodes when loading next page', async () => {
+    const page1: VfsSharePolicyPreviewResponse = {
+      nodes: [
+        {
+          itemId: 'root-1',
+          objectType: 'contact',
+          depth: 0,
+          path: 'root-1',
+          state: 'direct',
+          effectiveAccessLevel: 'read',
+          sourcePolicyIds: []
+        }
+      ],
+      summary: {
+        totalMatchingNodes: 2,
+        returnedNodes: 1,
+        directCount: 1,
+        derivedCount: 0,
+        deniedCount: 0,
+        includedCount: 1,
+        excludedCount: 0
+      },
+      nextCursor: 'root-1'
+    };
+    const page2: VfsSharePolicyPreviewResponse = {
+      nodes: [
+        {
+          itemId: 'root-1/wallet-1',
+          objectType: 'file',
+          depth: 1,
+          path: 'root-1/wallet-1',
+          state: 'derived',
+          effectiveAccessLevel: 'write',
+          sourcePolicyIds: ['policy-1']
+        }
+      ],
+      summary: {
+        totalMatchingNodes: 2,
+        returnedNodes: 1,
+        directCount: 0,
+        derivedCount: 1,
+        deniedCount: 0,
+        includedCount: 1,
+        excludedCount: 0
+      },
+      nextCursor: null
+    };
     const getSharePolicyPreview = vi
       .fn()
-      .mockResolvedValueOnce({
-        nodes: [
-          {
-            itemId: 'root-1',
-            objectType: 'contact',
-            depth: 0,
-            path: 'root-1',
-            state: 'direct' as const,
-            effectiveAccessLevel: 'read' as const,
-            sourcePolicyIds: []
-          }
-        ],
-        summary: {
-          totalMatchingNodes: 2,
-          returnedNodes: 1,
-          directCount: 1,
-          derivedCount: 0,
-          deniedCount: 0,
-          includedCount: 1,
-          excludedCount: 0
-        },
-        nextCursor: 'root-1'
-      })
-      .mockResolvedValueOnce({
-        nodes: [
-          {
-            itemId: 'root-1/wallet-1',
-            objectType: 'file',
-            depth: 1,
-            path: 'root-1/wallet-1',
-            state: 'derived' as const,
-            effectiveAccessLevel: 'write' as const,
-            sourcePolicyIds: ['policy-1']
-          }
-        ],
-        summary: {
-          totalMatchingNodes: 2,
-          returnedNodes: 1,
-          directCount: 0,
-          derivedCount: 1,
-          deniedCount: 0,
-          includedCount: 1,
-          excludedCount: 0
-        },
-        nextCursor: null
-      });
+      .mockResolvedValueOnce(page1)
+      .mockResolvedValueOnce(page2);
     const wrapper = createWrapper({
       vfsShareApi: {
         getSharePolicyPreview
@@ -273,95 +276,98 @@ describe('useSharePolicyPreview', () => {
   });
 
   it('walks a deep paginated tree deterministically', async () => {
+    const treePage1: VfsSharePolicyPreviewResponse = {
+      nodes: [
+        {
+          itemId: 'root-1',
+          objectType: 'contact',
+          depth: 0,
+          path: 'root-1',
+          state: 'direct',
+          effectiveAccessLevel: 'read',
+          sourcePolicyIds: []
+        },
+        {
+          itemId: 'root-1/folder-1',
+          objectType: 'folder',
+          depth: 1,
+          path: 'root-1/folder-1',
+          state: 'derived',
+          effectiveAccessLevel: 'read',
+          sourcePolicyIds: ['policy-1']
+        }
+      ],
+      summary: {
+        totalMatchingNodes: 5,
+        returnedNodes: 2,
+        directCount: 1,
+        derivedCount: 1,
+        deniedCount: 0,
+        includedCount: 2,
+        excludedCount: 0
+      },
+      nextCursor: 'root-1/folder-1'
+    };
+    const treePage2: VfsSharePolicyPreviewResponse = {
+      nodes: [
+        {
+          itemId: 'root-1/folder-1/wallet-1',
+          objectType: 'file',
+          depth: 2,
+          path: 'root-1/folder-1/wallet-1',
+          state: 'derived',
+          effectiveAccessLevel: 'write',
+          sourcePolicyIds: ['policy-1']
+        },
+        {
+          itemId: 'root-1/folder-1/workout-1',
+          objectType: 'note',
+          depth: 2,
+          path: 'root-1/folder-1/workout-1',
+          state: 'excluded',
+          effectiveAccessLevel: null,
+          sourcePolicyIds: []
+        }
+      ],
+      summary: {
+        totalMatchingNodes: 5,
+        returnedNodes: 2,
+        directCount: 0,
+        derivedCount: 1,
+        deniedCount: 0,
+        includedCount: 1,
+        excludedCount: 1
+      },
+      nextCursor: 'root-1/folder-1/workout-1'
+    };
+    const treePage3: VfsSharePolicyPreviewResponse = {
+      nodes: [
+        {
+          itemId: 'root-1/folder-1/workout-1/stats-1',
+          objectType: 'audio',
+          depth: 3,
+          path: 'root-1/folder-1/workout-1/stats-1',
+          state: 'excluded',
+          effectiveAccessLevel: null,
+          sourcePolicyIds: []
+        }
+      ],
+      summary: {
+        totalMatchingNodes: 5,
+        returnedNodes: 1,
+        directCount: 0,
+        derivedCount: 0,
+        deniedCount: 0,
+        includedCount: 0,
+        excludedCount: 1
+      },
+      nextCursor: null
+    };
     const getSharePolicyPreview = vi
       .fn()
-      .mockResolvedValueOnce({
-        nodes: [
-          {
-            itemId: 'root-1',
-            objectType: 'contact',
-            depth: 0,
-            path: 'root-1',
-            state: 'direct' as const,
-            effectiveAccessLevel: 'read' as const,
-            sourcePolicyIds: []
-          },
-          {
-            itemId: 'root-1/folder-1',
-            objectType: 'folder',
-            depth: 1,
-            path: 'root-1/folder-1',
-            state: 'derived' as const,
-            effectiveAccessLevel: 'read' as const,
-            sourcePolicyIds: ['policy-1']
-          }
-        ],
-        summary: {
-          totalMatchingNodes: 5,
-          returnedNodes: 2,
-          directCount: 1,
-          derivedCount: 1,
-          deniedCount: 0,
-          includedCount: 2,
-          excludedCount: 0
-        },
-        nextCursor: 'root-1/folder-1'
-      })
-      .mockResolvedValueOnce({
-        nodes: [
-          {
-            itemId: 'root-1/folder-1/wallet-1',
-            objectType: 'file',
-            depth: 2,
-            path: 'root-1/folder-1/wallet-1',
-            state: 'derived' as const,
-            effectiveAccessLevel: 'write' as const,
-            sourcePolicyIds: ['policy-1']
-          },
-          {
-            itemId: 'root-1/folder-1/workout-1',
-            objectType: 'note',
-            depth: 2,
-            path: 'root-1/folder-1/workout-1',
-            state: 'excluded' as const,
-            effectiveAccessLevel: null,
-            sourcePolicyIds: []
-          }
-        ],
-        summary: {
-          totalMatchingNodes: 5,
-          returnedNodes: 2,
-          directCount: 0,
-          derivedCount: 1,
-          deniedCount: 0,
-          includedCount: 1,
-          excludedCount: 1
-        },
-        nextCursor: 'root-1/folder-1/workout-1'
-      })
-      .mockResolvedValueOnce({
-        nodes: [
-          {
-            itemId: 'root-1/folder-1/workout-1/stats-1',
-            objectType: 'audio',
-            depth: 3,
-            path: 'root-1/folder-1/workout-1/stats-1',
-            state: 'excluded' as const,
-            effectiveAccessLevel: null,
-            sourcePolicyIds: []
-          }
-        ],
-        summary: {
-          totalMatchingNodes: 5,
-          returnedNodes: 1,
-          directCount: 0,
-          derivedCount: 0,
-          deniedCount: 0,
-          includedCount: 0,
-          excludedCount: 1
-        },
-        nextCursor: null
-      });
+      .mockResolvedValueOnce(treePage1)
+      .mockResolvedValueOnce(treePage2)
+      .mockResolvedValueOnce(treePage3);
     const wrapper = createWrapper({
       vfsShareApi: {
         getSharePolicyPreview
