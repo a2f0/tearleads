@@ -7,10 +7,15 @@ import { mockConsoleError } from '../../test/consoleMocks.js';
 
 const mockQuery = vi.fn();
 const mockGetPostgresPool = vi.fn();
+const mockBroadcast = vi.fn(() => Promise.resolve());
 
 vi.mock('../../lib/postgres.js', () => ({
   getPostgresPool: () => mockGetPostgresPool(),
   getPool: () => mockGetPostgresPool()
+}));
+
+vi.mock('../../lib/broadcast.js', () => ({
+  broadcast: (...args: unknown[]) => mockBroadcast(...args)
 }));
 
 const sessionStore = new Map<string, string>();
@@ -329,6 +334,77 @@ describe('MLS routes', () => {
     });
   });
 
+  describe('POST /v1/mls/groups/:groupId/messages', () => {
+    it('mirrors application messages into VFS tables and CRDT feed', async () => {
+      const authHeader = await createAuthHeader({
+        id: 'user-1',
+        email: 'user-1@example.com'
+      });
+      const createdAt = new Date('2026-03-01T00:00:00.000Z');
+
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ role: 'member', organization_id: 'org-1' }]
+        })
+        .mockResolvedValueOnce({
+          rows: [{ current_epoch: 2 }]
+        })
+        .mockResolvedValueOnce({
+          rows: [{ sequence_number: 1, created_at: createdAt }]
+        })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/messages')
+        .set('Authorization', authHeader)
+        .send({
+          ciphertext: 'ciphertext',
+          epoch: 2,
+          messageType: 'application',
+          contentType: 'text/plain'
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body).toEqual({
+        message: {
+          id: expect.any(String),
+          groupId: 'group-1',
+          senderUserId: 'user-1',
+          epoch: 2,
+          ciphertext: 'ciphertext',
+          messageType: 'application',
+          contentType: 'text/plain',
+          sequenceNumber: 1,
+          sentAt: createdAt.toISOString(),
+          createdAt: createdAt.toISOString()
+        }
+      });
+      expect(mockQuery).toHaveBeenNthCalledWith(
+        4,
+        expect.stringContaining('INSERT INTO vfs_registry'),
+        expect.arrayContaining(['org-1'])
+      );
+      expect(mockQuery).toHaveBeenNthCalledWith(
+        5,
+        expect.stringContaining('INSERT INTO vfs_item_state'),
+        expect.arrayContaining(['ciphertext', 2])
+      );
+      expect(mockQuery).toHaveBeenNthCalledWith(
+        6,
+        expect.stringContaining('INSERT INTO vfs_acl_entries'),
+        expect.arrayContaining(['group-1'])
+      );
+      expect(mockQuery).toHaveBeenNthCalledWith(
+        7,
+        expect.stringContaining('INSERT INTO vfs_crdt_ops'),
+        expect.arrayContaining(['user-1', 'ciphertext', 2])
+      );
+    });
+  });
+
   describe('POST /v1/mls/welcome-messages/:id/ack', () => {
     it('binds acknowledgements to both recipient and payload groupId', async () => {
       const authHeader = await createAuthHeader({
@@ -351,7 +427,6 @@ describe('MLS routes', () => {
       );
     });
   });
-
   describe('MLS payload validation hardening', () => {
     it('rejects send-message payloads with stale epochs', async () => {
       const authHeader = await createAuthHeader({
@@ -380,7 +455,6 @@ describe('MLS routes', () => {
       expect(response.body).toEqual({ error: 'Epoch mismatch' });
       expect(mockQuery).toHaveBeenCalledTimes(2);
     });
-
     it('rejects non-integer epochs in send-message payloads', async () => {
       const authHeader = await createAuthHeader({
         id: 'user-1',

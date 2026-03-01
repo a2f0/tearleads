@@ -8,6 +8,148 @@ import {
   parseSendMessagePayload
 } from './shared.js';
 
+interface VfsMirrorInput {
+  messageId: string;
+  groupId: string;
+  senderUserId: string;
+  organizationId: string;
+  ciphertext: string;
+  epoch: number;
+  occurredAtIso: string;
+}
+
+async function mirrorApplicationMessageToVfs(input: VfsMirrorInput) {
+  const pool = await getPostgresPool();
+
+  await pool.query(
+    `
+    INSERT INTO vfs_registry (
+      id,
+      object_type,
+      owner_id,
+      organization_id,
+      created_at
+    ) VALUES (
+      $1::text,
+      'mlsMessage',
+      NULL,
+      $2::text,
+      $3::timestamptz
+    )
+    ON CONFLICT (id) DO NOTHING
+    `,
+    [input.messageId, input.organizationId, input.occurredAtIso]
+  );
+
+  await pool.query(
+    `
+    INSERT INTO vfs_item_state (
+      item_id,
+      encrypted_payload,
+      key_epoch,
+      updated_at,
+      deleted_at
+    ) VALUES (
+      $1::text,
+      $2::text,
+      $3::integer,
+      $4::timestamptz,
+      NULL
+    )
+    ON CONFLICT (item_id) DO UPDATE
+    SET
+      encrypted_payload = EXCLUDED.encrypted_payload,
+      key_epoch = EXCLUDED.key_epoch,
+      updated_at = EXCLUDED.updated_at,
+      deleted_at = NULL
+    `,
+    [
+      input.messageId,
+      input.ciphertext,
+      input.epoch,
+      input.occurredAtIso
+    ]
+  );
+
+  await pool.query(
+    `
+    INSERT INTO vfs_acl_entries (
+      id,
+      item_id,
+      principal_type,
+      principal_id,
+      access_level,
+      granted_by,
+      created_at,
+      updated_at,
+      revoked_at,
+      expires_at
+    )
+    SELECT
+      vfs_make_event_id('acl'),
+      $1::text,
+      'user',
+      member.user_id,
+      'read',
+      $2::text,
+      $3::timestamptz,
+      $3::timestamptz,
+      NULL,
+      NULL
+    FROM mls_group_members member
+    WHERE member.group_id = $4::text
+      AND member.removed_at IS NULL
+    ON CONFLICT (item_id, principal_type, principal_id) DO UPDATE
+    SET
+      access_level = EXCLUDED.access_level,
+      granted_by = EXCLUDED.granted_by,
+      updated_at = EXCLUDED.updated_at,
+      revoked_at = NULL,
+      expires_at = NULL
+    `,
+    [
+      input.messageId,
+      input.senderUserId,
+      input.occurredAtIso,
+      input.groupId
+    ]
+  );
+
+  await pool.query(
+    `
+    INSERT INTO vfs_crdt_ops (
+      id,
+      item_id,
+      op_type,
+      actor_id,
+      source_table,
+      source_id,
+      occurred_at,
+      encrypted_payload,
+      key_epoch
+    ) VALUES (
+      vfs_make_event_id('crdt'),
+      $1::text,
+      'item_upsert',
+      $2::text,
+      'mls_messages',
+      $3::text,
+      $4::timestamptz,
+      $5::text,
+      $6::integer
+    )
+    `,
+    [
+      input.messageId,
+      input.senderUserId,
+      `mls_message:${input.groupId}:${input.messageId}`,
+      input.occurredAtIso,
+      input.ciphertext,
+      input.epoch
+    ]
+  );
+}
+
 /**
  * @openapi
  * /mls/groups/{groupId}/messages:
@@ -119,6 +261,25 @@ const postGroupsGroupidMessagesHandler = async (
       sentAt: row.created_at.toISOString(),
       createdAt: row.created_at.toISOString()
     };
+
+    if (payload.messageType === 'application') {
+      try {
+        await mirrorApplicationMessageToVfs({
+          messageId: id,
+          groupId,
+          senderUserId: claims.sub,
+          organizationId: membership.organizationId,
+          ciphertext: payload.ciphertext,
+          epoch: payload.epoch,
+          occurredAtIso: row.created_at.toISOString()
+        });
+      } catch (mirrorError) {
+        console.warn(
+          `Failed to mirror MLS message ${id} for group ${groupId} into VFS:`,
+          mirrorError
+        );
+      }
+    }
 
     // Broadcast to group channel
     await broadcast(`mls:group:${groupId}`, {
