@@ -68,6 +68,9 @@ export default mergeConfig(
         '@tearleads/shared/testing': fileURLToPath(
           new URL('../shared/src/testing/index.ts', import.meta.url)
         ),
+        '@tearleads/shared/gen': fileURLToPath(
+          new URL('../shared/src/gen', import.meta.url)
+        ),
         '@tearleads/shared': fileURLToPath(
           new URL('../shared/src/index.ts', import.meta.url)
         ),
