@@ -12,7 +12,6 @@
 import {
   buildVfsPublicEncryptionKey,
   combineEncapsulation,
-  decryptVfsPrivateKeysWithPassword,
   decryptVfsPrivateKeysWithPasswordMaterial,
   deserializePublicKey,
   encryptVfsPrivateKeysWithPassword,
