@@ -67,4 +67,3 @@ export type SseConnectionState =
   | 'connected'
   | 'disconnected'
   | 'error';
-

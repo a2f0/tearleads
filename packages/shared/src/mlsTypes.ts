@@ -194,4 +194,3 @@ export interface UploadMlsStateResponse {
 export interface MlsGroupStateResponse {
   state: MlsGroupState | null;
 }
-
