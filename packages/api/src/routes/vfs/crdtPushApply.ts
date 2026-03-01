@@ -12,6 +12,7 @@ import {
   toReplicaPrefix
 } from './post-crdt-push-canonical.js';
 import type { ParsedPushOperation } from './post-crdt-push-parse.js';
+import { toIsoString } from './crdtRouteHelpers.js';
 
 interface ItemOwnerRow {
   id: string;
@@ -36,19 +37,6 @@ interface VfsContainerCursorNotification {
 interface ApplyCrdtPushOperationsResult {
   results: VfsCrdtPushResult[];
   notifications: VfsContainerCursorNotification[];
-}
-
-function toIsoString(value: Date | string): string | null {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-
-  const parsedMs = Date.parse(value);
-  if (!Number.isFinite(parsedMs)) {
-    return null;
-  }
-
-  return new Date(parsedMs).toISOString();
 }
 
 function compareCursor(

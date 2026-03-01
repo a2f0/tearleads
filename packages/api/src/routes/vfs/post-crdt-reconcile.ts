@@ -13,6 +13,7 @@ import {
   decodeCrdtRequestBody,
   sendCrdtProtobufOrJson
 } from './crdtProtobuf.js';
+import { toIsoString } from './crdtRouteHelpers.js';
 
 interface ReconcileRow {
   last_reconciled_at: Date | string;
@@ -21,19 +22,6 @@ interface ReconcileRow {
 }
 
 const CRDT_CLIENT_NAMESPACE = 'crdt';
-
-function toIsoString(value: Date | string): string | null {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) {
-    return null;
-  }
-
-  return new Date(parsed).toISOString();
-}
 
 /**
  * Guardrail: persist CRDT cursor state under a feed-specific namespace so

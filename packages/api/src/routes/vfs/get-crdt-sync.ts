@@ -11,6 +11,10 @@ import {
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { sendCrdtProtobufOrJson } from './crdtProtobuf.js';
+import {
+  toLastReconciledWriteIds,
+  type VfsCrdtReplicaWriteIdRow
+} from './crdtRouteHelpers.js';
 
 const CRDT_CLIENT_PUSH_SOURCE_TABLE = 'vfs_crdt_client_push';
 const CRDT_REMATERIALIZATION_REQUIRED_CODE = 'crdt_rematerialization_required';
@@ -18,65 +22,6 @@ const CRDT_REMATERIALIZATION_REQUIRED_CODE = 'crdt_rematerialization_required';
 interface CursorBoundaryRow {
   occurred_at: Date | string;
   id: string;
-}
-
-interface VfsCrdtReplicaWriteIdRow {
-  replica_id: string | null;
-  max_write_id: string | number | null;
-}
-
-function normalizeReplicaId(value: unknown): string | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function parseWriteId(value: unknown): number | null {
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value) || !Number.isInteger(value) || value < 1) {
-      return null;
-    }
-
-    return value;
-  }
-
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1) {
-    return null;
-  }
-
-  return parsed;
-}
-
-function toLastReconciledWriteIds(
-  rows: VfsCrdtReplicaWriteIdRow[]
-): Record<string, number> {
-  /**
-   * Guardrail: return a deterministic, sanitized replica clock map.
-   * - drop malformed rows (blank replica, non-numeric write ids)
-   * - keep only positive integers
-   * - sort keys to keep payload stable for downstream snapshot comparisons
-   */
-  const entries: Array<[string, number]> = [];
-  for (const row of rows) {
-    const replicaId = normalizeReplicaId(row.replica_id);
-    const writeId = parseWriteId(row.max_write_id);
-    if (!replicaId || writeId === null) {
-      continue;
-    }
-
-    entries.push([replicaId, writeId]);
-  }
-
-  entries.sort((left, right) => left[0].localeCompare(right[0]));
-  return Object.fromEntries(entries);
 }
 
 function compareCursor(left: VfsSyncCursor, right: VfsSyncCursor): number {
