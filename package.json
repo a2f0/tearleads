@@ -57,6 +57,9 @@
     "checkDependencyCruiserExceptions": "./scripts/checks/checkDependencyCruiser.sh --exceptions",
     "checkDependencyCruiserExceptionsJson": "./scripts/checks/checkDependencyCruiser.sh --exceptions-json",
     "checkVfsCrdtCompactionMetrics": "./scripts/checks/checkVfsCrdtCompactionMetrics.ts",
+    "protoLint": "buf lint proto",
+    "protoGenerate": "buf generate proto --template proto/buf.gen.yaml",
+    "protoBreaking": "buf breaking proto --against '.git#branch=main,subdir=proto'",
     "format": "biome format --write .",
     "generatePreenDocs": "./scripts/preen/generatePreenDocs.sh",
     "prepare": "husky"
@@ -72,10 +75,13 @@
     "@tsconfig/strictest": "2.0.8"
   },
   "devDependencies": {
+    "@bufbuild/buf": "1.66.0",
+    "@bufbuild/protoc-gen-es": "1.10.1",
     "@biomejs/biome": "2.4.4",
     "@commitlint/cli": "20.4.2",
     "@commitlint/config-conventional": "20.4.2",
     "@commitlint/types": "20.4.0",
+    "@connectrpc/protoc-gen-connect-es": "1.7.0",
     "@octokit/rest": "22.0.1",
     "@tearleads/api": "workspace:*",
     "@types/node": "25.3.2",

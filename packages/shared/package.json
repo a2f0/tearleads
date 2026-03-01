@@ -10,6 +10,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./gen/*": {
+      "types": "./dist/gen/*.d.ts",
+      "import": "./dist/gen/*.js"
+    },
     "./redis": {
       "types": "./dist/redis/index.d.ts",
       "import": "./dist/redis/index.js"
@@ -32,7 +36,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc && pnpm generateLicenses",
+    "build": "pnpm -w protoGenerate && tsc && pnpm generateLicenses",
     "clean": "rm -rf dist",
     "generateLicenses": "tsx scripts/generateLicenses.ts",
     "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
@@ -47,6 +51,7 @@
   "author": "",
   "license": "UNLICENSED",
   "dependencies": {
+    "@bufbuild/protobuf": "1.10.1",
     "@noble/ciphers": "2.1.1",
     "@noble/curves": "2.0.1",
     "@noble/hashes": "2.0.1",

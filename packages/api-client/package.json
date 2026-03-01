@@ -26,6 +26,9 @@
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "dependencies": {
+    "@bufbuild/protobuf": "1.10.1",
+    "@connectrpc/connect": "1.7.0",
+    "@connectrpc/connect-web": "1.7.0",
     "@tearleads/local-write-orchestrator": "workspace:*",
     "@tearleads/shared": "workspace:*",
     "@tearleads/vfs-sync": "workspace:*"
