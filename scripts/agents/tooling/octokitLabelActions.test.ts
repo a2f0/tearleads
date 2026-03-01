@@ -1,10 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createContext } from './testOctokitContext.ts';
-import {
-  tagPrWithReviewerWithOctokit,
-  tagPrWithTuxedoInstanceWithOctokit
-} from './utils/octokitLabelHandlers.ts';
+import { tagPrWithReviewerWithOctokit } from './utils/octokitLabelHandlers.ts';
 
 test('tagPrWithReviewer adds reviewed:gemini label', async () => {
   let labelAdded = false;
