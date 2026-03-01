@@ -10,7 +10,7 @@ import {
   encodeVfsSyncCursor,
   type VfsSyncCursor
 } from '../protocol/sync-cursor.js';
-import { VFS_SYNC_SQL } from './sync-engine-sql.js';
+import { VFS_SYNC_SQL } from './syncEngineSql.js';
 
 const DEFAULT_SYNC_LIMIT = 100;
 const MAX_SYNC_LIMIT = 500;
