@@ -17,11 +17,14 @@ export {
 } from './harness/assertions.js';
 export type {
   BrowserRuntimeActor,
+  LocalSharedByMeRow,
   LocalSharedWithMeRow,
   RuntimeApiActor
 } from './harness/browserRuntimeHarness.js';
 export {
   createBrowserRuntimeActor,
+  pullRemoteFeedsWithoutLocalHydration,
+  queryLocalSharedByMe,
   queryLocalSharedWithMe,
   refreshLocalStateFromApi,
   teardownBrowserRuntimeActors

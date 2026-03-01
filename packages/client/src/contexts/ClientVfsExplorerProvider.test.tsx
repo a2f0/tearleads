@@ -5,6 +5,7 @@ import { ClientVfsExplorerProvider } from './ClientVfsExplorerProvider';
 const mockRotateItemKeyEpochAndPersist = vi.fn();
 const mockUseVfsKeyManager = vi.fn();
 const mockUseVfsOrchestratorInstance = vi.fn();
+const mockHydrateLocalReadModelFromRemoteFeeds = vi.fn();
 
 const mockDeleteShare = vi.fn();
 const mockDeleteOrgShare = vi.fn();
@@ -54,6 +55,11 @@ vi.mock('@/lib/featureFlags', () => ({
   getFeatureFlagValue: vi.fn(() => false)
 }));
 
+vi.mock('@/lib/vfsReadModelHydration', () => ({
+  hydrateLocalReadModelFromRemoteFeeds: () =>
+    mockHydrateLocalReadModelFromRemoteFeeds()
+}));
+
 vi.mock('@/lib/api', () => ({
   api: {
     vfs: {
@@ -90,6 +96,7 @@ describe('ClientVfsExplorerProvider', () => {
       newEpoch: 2,
       wraps: []
     });
+    mockHydrateLocalReadModelFromRemoteFeeds.mockResolvedValue(undefined);
   });
 
   it('rekeys item after user share revoke', async () => {
@@ -196,7 +203,7 @@ describe('ClientVfsExplorerProvider', () => {
     expect(mockRotateItemKeyEpochAndPersist).not.toHaveBeenCalled();
   });
 
-  it('exposes syncRemoteState that calls orchestrator sync', async () => {
+  it('exposes syncRemoteState that syncs remote and hydrates local read model', async () => {
     const syncCrdt = vi.fn().mockResolvedValue(undefined);
     mockUseVfsOrchestratorInstance.mockReturnValue({ syncCrdt });
 
@@ -214,5 +221,24 @@ describe('ClientVfsExplorerProvider', () => {
     }
     await syncRemoteState();
     expect(syncCrdt).toHaveBeenCalledTimes(1);
+    expect(mockHydrateLocalReadModelFromRemoteFeeds).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips syncRemoteState hydration when orchestrator is unavailable', async () => {
+    mockUseVfsOrchestratorInstance.mockReturnValue(null);
+
+    render(
+      <ClientVfsExplorerProvider>
+        <div>child</div>
+      </ClientVfsExplorerProvider>
+    );
+
+    const syncRemoteState = capturedProviderProps?.['syncRemoteState'];
+    if (typeof syncRemoteState !== 'function') {
+      throw new Error('Expected syncRemoteState callback');
+    }
+
+    await syncRemoteState();
+    expect(mockHydrateLocalReadModelFromRemoteFeeds).not.toHaveBeenCalled();
   });
 });

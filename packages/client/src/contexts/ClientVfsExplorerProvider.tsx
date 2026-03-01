@@ -8,7 +8,6 @@ import {
   VfsExplorerProvider,
   type VfsExplorerUIComponents
 } from '@tearleads/vfs-explorer';
-import vfsExplorerPackageJson from '@tearleads/vfs-explorer/package.json';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem,
@@ -24,7 +23,6 @@ import {
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
@@ -32,19 +30,14 @@ import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
 import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
+import { hydrateLocalReadModelFromRemoteFeeds } from '@/lib/vfsReadModelHydration';
+import { VfsExplorerAboutMenuItem } from './VfsExplorerAboutMenuItem';
 import {
   useVfsKeyManager,
   useVfsOrchestratorInstance
 } from './VfsOrchestratorContext';
 
-export function VfsExplorerAboutMenuItem() {
-  return (
-    <AboutMenuItem
-      appName="VFS Explorer"
-      version={vfsExplorerPackageJson.version}
-    />
-  );
-}
+export { VfsExplorerAboutMenuItem } from './VfsExplorerAboutMenuItem';
 
 const vfsExplorerUIComponents: VfsExplorerUIComponents = {
   AboutMenuItem: VfsExplorerAboutMenuItem,
@@ -179,6 +172,7 @@ export function ClientVfsExplorerProvider({
     }
 
     await orchestrator.syncCrdt();
+    await hydrateLocalReadModelFromRemoteFeeds();
   }, [orchestrator]);
 
   return (
