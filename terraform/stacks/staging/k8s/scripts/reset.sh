@@ -74,6 +74,14 @@ get_secret_key_or_fail() {
   printf '%s' "$encoded" | decode_base64
 }
 
+script_start="$(date +%s)"
+
+elapsed_since() {
+  local start="$1"
+  local secs=$(( $(date +%s) - start ))
+  printf '%ds' "$secs"
+}
+
 cleanup() {
   if [[ -n "${s3_reset_pod:-}" ]]; then
     kubectl -n "$NAMESPACE" delete pod "$s3_reset_pod" --ignore-not-found >/dev/null 2>&1 || true
@@ -88,24 +96,27 @@ trap cleanup EXIT
 # 1. Scale down deployments
 # ---------------------------------------------------------------------------
 echo "=== Scaling down api and smtp-listener ==="
+step_start="$(date +%s)"
 kubectl -n "$NAMESPACE" scale deployment/api deployment/smtp-listener --replicas=0
 kubectl -n "$NAMESPACE" rollout status deployment/api --timeout="$ROLLOUT_TIMEOUT"
 kubectl -n "$NAMESPACE" rollout status deployment/smtp-listener --timeout="$ROLLOUT_TIMEOUT"
-echo "Scale-down complete."
+echo "Scale-down complete. ($(elapsed_since "$step_start"))"
 
 # ---------------------------------------------------------------------------
 # 2. Reset Redis
 # ---------------------------------------------------------------------------
 echo ""
 echo "=== Resetting Redis ==="
+step_start="$(date +%s)"
 kubectl -n "$NAMESPACE" exec deploy/redis -- redis-cli FLUSHALL
-echo "Redis reset complete."
+echo "Redis reset complete. ($(elapsed_since "$step_start"))"
 
 # ---------------------------------------------------------------------------
 # 3. Reset S3 (Garage)
 # ---------------------------------------------------------------------------
 echo ""
 echo "=== Resetting S3 (bucket: $S3_BUCKET) ==="
+step_start="$(date +%s)"
 
 access_key="$(get_secret_key_or_fail VFS_BLOB_S3_ACCESS_KEY_ID)"
 secret_key="$(get_secret_key_or_fail VFS_BLOB_S3_SECRET_ACCESS_KEY)"
@@ -185,10 +196,10 @@ s3_rc=0
 run_s3_reset_in_cluster || s3_rc=$?
 
 if [[ "$s3_rc" -eq 0 ]]; then
-  echo "S3 reset complete."
+  echo "S3 reset complete. ($(elapsed_since "$step_start"))"
 elif [[ "$s3_rc" -eq 2 ]]; then
   run_s3_reset_local_fallback
-  echo "S3 reset complete."
+  echo "S3 reset complete. ($(elapsed_since "$step_start"))"
 else
   echo "ERROR: S3 reset failed."
   exit 1
@@ -199,6 +210,7 @@ fi
 # ---------------------------------------------------------------------------
 echo ""
 echo "=== Resetting Postgres ==="
+step_start="$(date +%s)"
 
 postgres_pod="$(kubectl -n "$NAMESPACE" get pods -l "$POSTGRES_LABEL" --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
 
@@ -224,31 +236,55 @@ kubectl -n "$NAMESPACE" exec "$postgres_pod" -c postgres -- sh -c '
     "CREATE DATABASE $POSTGRES_DB OWNER $POSTGRES_USER;"
 '
 
-echo "Postgres reset complete."
+echo "Postgres reset complete. ($(elapsed_since "$step_start"))"
 
 # ---------------------------------------------------------------------------
 # 5. Scale up deployments
 # ---------------------------------------------------------------------------
 echo ""
 echo "=== Scaling up api and smtp-listener ==="
+step_start="$(date +%s)"
 kubectl -n "$NAMESPACE" scale deployment/api deployment/smtp-listener --replicas=1
-kubectl -n "$NAMESPACE" rollout status deployment/api --timeout="$ROLLOUT_TIMEOUT"
-kubectl -n "$NAMESPACE" rollout status deployment/smtp-listener --timeout="$ROLLOUT_TIMEOUT"
-echo "Scale-up complete."
+
+rollout_failures=0
+
+rollout_start="$(date +%s)"
+if kubectl -n "$NAMESPACE" rollout status deployment/api --timeout="$ROLLOUT_TIMEOUT"; then
+  echo "  api ready ($(elapsed_since "$rollout_start"))"
+else
+  echo "  WARNING: api rollout did not complete ($(elapsed_since "$rollout_start"))"
+  rollout_failures=$((rollout_failures + 1))
+fi
+
+rollout_start="$(date +%s)"
+if kubectl -n "$NAMESPACE" rollout status deployment/smtp-listener --timeout="$ROLLOUT_TIMEOUT"; then
+  echo "  smtp-listener ready ($(elapsed_since "$rollout_start"))"
+else
+  echo "  WARNING: smtp-listener rollout did not complete ($(elapsed_since "$rollout_start"))"
+  rollout_failures=$((rollout_failures + 1))
+fi
+
+if [[ "$rollout_failures" -gt 0 ]]; then
+  echo "Scale-up finished with $rollout_failures warning(s). ($(elapsed_since "$step_start"))"
+else
+  echo "Scale-up complete. ($(elapsed_since "$step_start"))"
+fi
 
 # ---------------------------------------------------------------------------
 # 6. Run migrations
 # ---------------------------------------------------------------------------
 echo ""
 echo "=== Running database migrations ==="
+step_start="$(date +%s)"
 "$SCRIPT_DIR/migrate.sh"
+echo "Migrations complete. ($(elapsed_since "$step_start"))"
 
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 echo ""
 echo "========================================"
-echo "  Staging reset complete"
+echo "  Staging reset complete ($(elapsed_since "$script_start") total)"
 echo "  - Redis:    FLUSHALL"
 echo "  - S3:       $S3_BUCKET emptied"
 echo "  - Postgres: dropped and recreated"
