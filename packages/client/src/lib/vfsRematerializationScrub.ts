@@ -1,6 +1,7 @@
 const MAX_MATERIALIZED_NOTE_TITLE_LENGTH = 256;
 const MAX_MATERIALIZED_NOTE_CONTENT_LENGTH = 100_000;
 const DEFAULT_MATERIALIZED_NOTE_TITLE = 'Untitled Note';
+// biome-ignore lint/complexity/useRegexLiterals: Constructor form avoids noControlCharactersInRegex errors for control-byte ranges.
 const MATERIALIZED_TEXT_CONTROL_CHARS = new RegExp(
   '[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]',
   'g'

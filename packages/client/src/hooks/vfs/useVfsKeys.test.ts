@@ -1,3 +1,4 @@
+import { importVfsPrivateKeyPasswordMaterial } from '@tearleads/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearVfsKeysCache,
@@ -11,7 +12,6 @@ import {
   setVfsRecoveryPassword,
   wrapSessionKey
 } from './useVfsKeys';
-import { importVfsPrivateKeyPasswordMaterial } from '@tearleads/shared';
 
 // Mock @tearleads/shared crypto functions
 vi.mock('@tearleads/shared', async (importOriginal) => {
