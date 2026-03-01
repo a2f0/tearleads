@@ -57,8 +57,6 @@ describe('v029 migration', () => {
 
   it('has correct version and description', () => {
     expect(v029.version).toBe(29);
-    expect(v029.description).toBe(
-      'Add AI conversations and messages tables'
-    );
+    expect(v029.description).toBe('Add AI conversations and messages tables');
   });
 });
