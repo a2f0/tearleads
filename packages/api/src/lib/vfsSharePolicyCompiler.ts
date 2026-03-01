@@ -135,6 +135,15 @@ export async function compileVfsSharePolicies(
             granted_by = EXCLUDED.granted_by,
             updated_at = EXCLUDED.updated_at,
             revoked_at = EXCLUDED.revoked_at
+          WHERE (
+            EXCLUDED.revoked_at IS NOT NULL
+            OR vfs_acl_entries.revoked_at IS NOT NULL
+            OR NOT EXISTS (
+              SELECT 1 FROM vfs_acl_entry_provenance p
+              WHERE p.acl_entry_id = vfs_acl_entries.id
+                AND p.provenance_type = 'direct'
+            )
+          )
           RETURNING id
           `,
           [
@@ -226,6 +235,11 @@ export async function compileVfsSharePolicies(
           UPDATE vfs_acl_entries
           SET revoked_at = $1, updated_at = $1
           WHERE id = ANY($2::text[])
+            AND NOT EXISTS (
+              SELECT 1 FROM vfs_acl_entry_provenance p
+              WHERE p.acl_entry_id = vfs_acl_entries.id
+                AND p.provenance_type = 'direct'
+            )
           `,
           [now, staleAclEntryIds]
         );
