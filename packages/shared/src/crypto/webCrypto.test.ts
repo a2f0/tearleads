@@ -3,6 +3,7 @@ import {
   decrypt,
   decryptString,
   deriveKeyFromPassword,
+  deriveKeyFromPasswordMaterial,
   encrypt,
   encryptString,
   exportKey,
@@ -12,6 +13,7 @@ import {
   generateSalt,
   generateWrappingKey,
   importKey,
+  importPasswordKeyMaterial,
   importWrappingKey,
   secureZero,
   unwrapKey,
@@ -89,6 +91,32 @@ describe('web-crypto', () => {
       const exported2 = await exportKey(key2);
 
       expect(exported1).not.toEqual(exported2);
+    });
+  });
+
+  describe('password key material', () => {
+    it('imports password key material and derives a key', async () => {
+      const salt = generateSalt();
+      const passwordMaterial = await importPasswordKeyMaterial('test-password');
+      const key = await deriveKeyFromPasswordMaterial(passwordMaterial, salt);
+
+      expect(key).toBeDefined();
+      expect(key.type).toBe('secret');
+      expect(key.algorithm.name).toBe('AES-GCM');
+    });
+
+    it('derives the same key from password material and direct password path', async () => {
+      const salt = generateSalt();
+      const passwordMaterial = await importPasswordKeyMaterial('test-password');
+      const fromMaterial = await deriveKeyFromPasswordMaterial(
+        passwordMaterial,
+        salt
+      );
+      const fromPassword = await deriveKeyFromPassword('test-password', salt);
+
+      const fromMaterialBytes = await exportKey(fromMaterial);
+      const fromPasswordBytes = await exportKey(fromPassword);
+      expect(fromMaterialBytes).toEqual(fromPasswordBytes);
     });
   });
 

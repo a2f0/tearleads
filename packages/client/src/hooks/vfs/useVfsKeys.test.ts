@@ -1,3 +1,4 @@
+import { importVfsPrivateKeyPasswordMaterial } from '@tearleads/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearVfsKeysCache,
@@ -23,7 +24,14 @@ vi.mock('@tearleads/shared', async (importOriginal) => {
     ),
     buildVfsPublicEncryptionKey: vi.fn(() => 'combined-public-key'),
     combinePublicKey: vi.fn(() => 'combined-public-key'),
+    importVfsPrivateKeyPasswordMaterial: vi.fn(async () => ({
+      algorithm: { name: 'PBKDF2' }
+    })),
     decryptVfsPrivateKeysWithPassword: vi.fn(async () => ({
+      x25519PrivateKey: 'dGVzdA==',
+      mlKemPrivateKey: 'dGVzdA=='
+    })),
+    decryptVfsPrivateKeysWithPasswordMaterial: vi.fn(async () => ({
       x25519PrivateKey: 'dGVzdA==',
       mlKemPrivateKey: 'dGVzdA=='
     })),
@@ -34,6 +42,10 @@ vi.mock('@tearleads/shared', async (importOriginal) => {
       })
     ),
     encryptVfsPrivateKeysWithPassword: vi.fn(async () => ({
+      encryptedPrivateKeys: 'ZW5jcnlwdGVk',
+      argon2Salt: 'c2FsdA=='
+    })),
+    encryptVfsPrivateKeysWithPasswordMaterial: vi.fn(async () => ({
       encryptedPrivateKeys: 'ZW5jcnlwdGVk',
       argon2Salt: 'c2FsdA=='
     })),
@@ -219,6 +231,30 @@ describe('useVfsKeys', () => {
       vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('404'));
       setVfsRecoveryPassword(null);
 
+      await expect(ensureVfsKeys()).rejects.toThrow(
+        'VFS key recovery requires re-authentication'
+      );
+    });
+
+    it('fails closed when a pending recovery material promise becomes stale', async () => {
+      let resolveMaterial:
+        | ((value: { algorithm: { name: string } }) => void)
+        | undefined;
+      const pendingMaterial = new Promise<{ algorithm: { name: string } }>(
+        (resolve) => {
+          resolveMaterial = resolve;
+        }
+      );
+      vi.mocked(importVfsPrivateKeyPasswordMaterial).mockReturnValueOnce(
+        pendingMaterial
+      );
+
+      setVfsRecoveryPassword('pending-password');
+      setVfsRecoveryPassword(null);
+      resolveMaterial?.({ algorithm: { name: 'PBKDF2' } });
+      await Promise.resolve();
+
+      vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('404'));
       await expect(ensureVfsKeys()).rejects.toThrow(
         'VFS key recovery requires re-authentication'
       );

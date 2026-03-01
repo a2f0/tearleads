@@ -7,9 +7,12 @@ import {
 import {
   buildVfsPublicEncryptionKey,
   decryptVfsPrivateKeysWithPassword,
+  decryptVfsPrivateKeysWithPasswordMaterial,
   decryptVfsPrivateKeysWithRawKey,
   encryptVfsPrivateKeysWithPassword,
+  encryptVfsPrivateKeysWithPasswordMaterial,
   encryptVfsPrivateKeysWithRawKey,
+  importVfsPrivateKeyPasswordMaterial,
   reconstructVfsKeyPair
 } from './vfsKeyBundles.js';
 import { generateRandomKey } from './webCrypto.js';
@@ -27,6 +30,26 @@ describe('vfs key bundles', () => {
       bundle.encryptedPrivateKeys,
       bundle.argon2Salt,
       'test-password'
+    );
+
+    expect(privateKeys.x25519PrivateKey).toBe(serialized.x25519PrivateKey);
+    expect(privateKeys.mlKemPrivateKey).toBe(serialized.mlKemPrivateKey);
+  });
+
+  it('encrypts and decrypts private keys with imported password material', async () => {
+    const keyPair = generateKeyPair();
+    const serialized = serializeKeyPair(keyPair);
+    const passwordMaterial =
+      await importVfsPrivateKeyPasswordMaterial('test-password');
+    const bundle = await encryptVfsPrivateKeysWithPasswordMaterial(
+      serialized,
+      passwordMaterial
+    );
+
+    const privateKeys = await decryptVfsPrivateKeysWithPasswordMaterial(
+      bundle.encryptedPrivateKeys,
+      bundle.argon2Salt,
+      passwordMaterial
     );
 
     expect(privateKeys.x25519PrivateKey).toBe(serialized.x25519PrivateKey);

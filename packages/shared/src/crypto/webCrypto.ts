@@ -35,23 +35,33 @@ export async function generateRandomKey(): Promise<Uint8Array> {
 }
 
 /**
- * Derive an encryption key from a password using PBKDF2.
+ * Import password bytes as non-extractable PBKDF2 key material.
  */
-export async function deriveKeyFromPassword(
-  password: string,
+export async function importPasswordKeyMaterial(
+  password: string
+): Promise<CryptoKey> {
+  const passwordBytes = new TextEncoder().encode(password);
+  try {
+    assertPlainArrayBuffer(passwordBytes);
+    return await crypto.subtle.importKey(
+      'raw',
+      passwordBytes,
+      'PBKDF2',
+      false,
+      ['deriveBits', 'deriveKey']
+    );
+  } finally {
+    secureZero(passwordBytes);
+  }
+}
+
+/**
+ * Derive an encryption key from imported password material using PBKDF2.
+ */
+export async function deriveKeyFromPasswordMaterial(
+  keyMaterial: CryptoKey,
   salt: Uint8Array
 ): Promise<CryptoKey> {
-  const encoder = new TextEncoder();
-  const passwordBuffer = encoder.encode(password);
-
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    passwordBuffer,
-    'PBKDF2',
-    false,
-    ['deriveBits', 'deriveKey']
-  );
-
   assertPlainArrayBuffer(salt);
 
   return crypto.subtle.deriveKey(
@@ -66,6 +76,17 @@ export async function deriveKeyFromPassword(
     true,
     ['encrypt', 'decrypt']
   );
+}
+
+/**
+ * Derive an encryption key from a password using PBKDF2.
+ */
+export async function deriveKeyFromPassword(
+  password: string,
+  salt: Uint8Array
+): Promise<CryptoKey> {
+  const keyMaterial = await importPasswordKeyMaterial(password);
+  return deriveKeyFromPasswordMaterial(keyMaterial, salt);
 }
 
 /**
