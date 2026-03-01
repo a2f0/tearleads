@@ -1,7 +1,5 @@
 import type {
-  VfsOrgShare,
   VfsPermissionLevel,
-  VfsShare,
   VfsShareType
 } from '@tearleads/shared';
 import type { LucideIcon } from 'lucide-react';
@@ -38,7 +36,7 @@ export const SHARE_TYPE_LABELS: Record<VfsShareType, string> = {
   organization: 'Org'
 };
 
-export interface PermissionOption {
+interface PermissionOption {
   value: VfsPermissionLevel;
   label: string;
   description: string;
@@ -98,5 +96,3 @@ export const FRIENDLY_STATE_COLORS: Record<string, string> = {
   excluded: 'bg-muted text-muted-foreground'
 };
 
-export type ShareItem = VfsShare;
-export type OrgShareItem = VfsOrgShare;
