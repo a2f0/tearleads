@@ -5,7 +5,7 @@ import type {
   VfsObjectType,
   VfsSyncItem
 } from '@tearleads/shared';
-import { sql } from 'drizzle-orm';
+import { ne, sql } from 'drizzle-orm';
 import { getDatabase, getDatabaseAdapter, isDatabaseInitialized } from '@/db';
 import { runLocalWrite } from '@/db/localWrite';
 import {
@@ -254,6 +254,7 @@ async function isLocalRegistryEmpty(): Promise<boolean> {
   const rows = await db
     .select({ count: sql<number>`count(*)` })
     .from(vfsRegistry)
+    .where(ne(vfsRegistry.id, VFS_ROOT_ID))
     .limit(1);
   return (rows[0]?.count ?? 0) === 0;
 }
