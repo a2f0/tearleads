@@ -51,8 +51,7 @@ export type {
   LocalKeyPackage,
   LocalMlsState,
   MlsCredential,
-  SseConnectionState,
-  SseMessageHandler
+  SseConnectionState
 } from './lib/index.js';
 // MLS client (for advanced usage)
 export { MlsClient, MlsStorage } from './lib/index.js';

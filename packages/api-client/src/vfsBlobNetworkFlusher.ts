@@ -46,11 +46,9 @@ import {
 export type {
   VfsBlobAbandonQueueOperation,
   VfsBlobAbandonRequest,
-  VfsBlobAbandonResponse,
   VfsBlobAttachConsistency,
   VfsBlobAttachQueueOperation,
   VfsBlobAttachRequest,
-  VfsBlobAttachResponse,
   VfsBlobChunkQueueOperation,
   VfsBlobChunkUploadRequest,
   VfsBlobCommitQueueOperation,
@@ -64,8 +62,7 @@ export type {
   VfsBlobNetworkRetryPolicy,
   VfsBlobRelationKind,
   VfsBlobStageQueueOperation,
-  VfsBlobStageRequest,
-  VfsBlobStageResponse
+  VfsBlobStageRequest
 } from './vfsBlobNetworkFlusherTypes';
 
 export class VfsBlobNetworkFlusher {

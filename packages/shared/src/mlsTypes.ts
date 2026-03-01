@@ -194,17 +194,3 @@ export interface UploadMlsStateResponse {
 export interface MlsGroupStateResponse {
   state: MlsGroupState | null;
 }
-
-/** SSE message types for MLS real-time */
-export type MlsSseMessageType =
-  | 'mls:message'
-  | 'mls:commit'
-  | 'mls:welcome'
-  | 'mls:member_added'
-  | 'mls:member_removed';
-
-export interface MlsSsePayload {
-  type: MlsSseMessageType;
-  groupId: string;
-  data: MlsMessage | MlsWelcomeMessage | MlsGroupMember;
-}

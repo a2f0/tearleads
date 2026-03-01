@@ -16,14 +16,6 @@ export interface VfsBlobStageRequest {
   encryption?: VfsBlobStageEncryptionMetadata;
 }
 
-export interface VfsBlobStageResponse {
-  stagingId: string;
-  blobId: string;
-  status: 'staged';
-  stagedAt: string;
-  expiresAt: string;
-}
-
 export interface VfsBlobAttachConsistency {
   clientId: string;
   requiredCursor: VfsSyncCursor;
@@ -37,24 +29,8 @@ export interface VfsBlobAttachRequest {
   consistency?: VfsBlobAttachConsistency;
 }
 
-export interface VfsBlobAttachResponse {
-  attached: true;
-  stagingId: string;
-  blobId: string;
-  itemId: string;
-  relationKind: VfsBlobRelationKind;
-  refId: string;
-  attachedAt: string;
-}
-
 export interface VfsBlobAbandonRequest {
   stagingId: string;
-}
-
-export interface VfsBlobAbandonResponse {
-  abandoned: true;
-  stagingId: string;
-  status: 'abandoned';
 }
 
 export interface VfsBlobChunkUploadRequest {

@@ -67,8 +67,3 @@ export type SseConnectionState =
   | 'connected'
   | 'disconnected'
   | 'error';
-
-/**
- * Callback for SSE messages
- */
-export type SseMessageHandler = (event: MessageEvent) => void;
