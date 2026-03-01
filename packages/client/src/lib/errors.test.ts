@@ -3,11 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  getErrorMessage,
-  toError,
-  UnsupportedFileTypeError
-} from './errors';
+import { getErrorMessage, toError, UnsupportedFileTypeError } from './errors';
 
 describe('getErrorMessage', () => {
   it('returns message from Error instances', () => {
