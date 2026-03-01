@@ -114,13 +114,15 @@ test('evaluateGuardrailBudgets detects totals, rule, file, and workspace regress
     }
   );
 
-  assert.equal(result.violations.length, 6);
+  assert.equal(result.violations.length, 8);
   assert.deepEqual(result.violations.map((violation) => violation.key).sort(), [
     'dependencyCruiser.rules.no-circular.pathNotEntries',
     'dependencyCruiser.rulesWithPathNot',
     'dependencyCruiser.totalClientFileExceptions',
     'dependencyCruiser.totalPathNotEntries',
     'knip.ignoreIssues.packages/client/src/lib/utils.ts',
+    'knip.workspaceIgnoreDependencyEntries',
+    'knip.workspaceIgnoreDependencyGroups',
     'knip.workspaces.packages/client.ignoreDependencies'
   ]);
 });
@@ -142,8 +144,8 @@ test('renderGuardrailBudgetSummary includes pass status when within budget', () 
       ignoreIssueFiles: 24,
       ignoreIssueEntries: 25,
       ignoreBinaries: 3,
-      workspaceIgnoreDependencyGroups: 4,
-      workspaceIgnoreDependencyEntries: 8
+      workspaceIgnoreDependencyGroups: 3,
+      workspaceIgnoreDependencyEntries: 7
     },
     {
       'packages/client/src/lib/utils.ts': 1
