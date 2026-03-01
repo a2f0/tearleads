@@ -27,7 +27,7 @@ main() {
   prompt_tailscale_auth
   try_fetch_secrets
   bootstrap_api_dev_env
-  bootstrap_local_garage
+  bootstrap_local_s3
 
   echo ""
   echo "==> Bootstrap complete!"
@@ -52,7 +52,7 @@ main() {
     echo "     (installs Neovim 0.10+, Node.js, ripgrep, fd, uv, Claude Code, Codex, Gemini CLI, etc.)"
   else
     echo "  1. Run Ansible:    ansible-playbook ansible/playbooks/developerWorkstation.yml"
-    echo "  2. Optional local S3: sh scripts/garage/setupLocalGarage.sh"
+    echo "  2. Optional local S3: sh scripts/localstack/setupLocalS3.sh"
     echo "  3. Run tuxedo playbook (remote host): ansible-playbook ansible/playbooks/tuxedo.yml"
     echo "     (installs Neovim 0.10+, Node.js, ripgrep, fd, uv, Claude Code, Codex, Gemini CLI, etc.)"
   fi

@@ -107,34 +107,34 @@ bootstrap_api_dev_env() {
   fi
 }
 
-bootstrap_local_garage() {
-  setup_garage_script="${REPO_ROOT}/scripts/garage/setupLocalGarage.sh"
-  if [ ! -f "${setup_garage_script}" ]; then
+bootstrap_local_s3() {
+  setup_s3_script="${REPO_ROOT}/scripts/localstack/setupLocalS3.sh"
+  if [ ! -f "${setup_s3_script}" ]; then
     return
   fi
 
   echo ""
-  echo "--- Local Garage S3 bootstrap ---"
+  echo "--- Local S3 bootstrap ---"
 
   if ! has_cmd docker; then
-    echo "Docker is not installed. Skipping local Garage bootstrap."
-    echo "Install Docker and run manually: ${setup_garage_script}"
+    echo "Docker is not installed. Skipping local S3 bootstrap."
+    echo "Install Docker and run manually: ${setup_s3_script}"
     return
   fi
 
-  printf "Bootstrap local Garage S3 for VFS blobs now? [y/N] "
+  printf "Bootstrap local S3 for VFS blobs now? [y/N] "
   read -r answer
   case "$answer" in
     [Yy]*)
-      if sh "${setup_garage_script}"; then
-        echo "Local Garage bootstrap complete."
+      if sh "${setup_s3_script}"; then
+        echo "Local S3 bootstrap complete."
       else
-        echo "Warning: local Garage bootstrap failed; continuing." >&2
-        echo "Run manually: ${setup_garage_script}" >&2
+        echo "Warning: local S3 bootstrap failed; continuing." >&2
+        echo "Run manually: ${setup_s3_script}" >&2
       fi
       ;;
     *)
-      echo "Skipped. Run manually later: ${setup_garage_script}"
+      echo "Skipped. Run manually later: ${setup_s3_script}"
       ;;
   esac
 }

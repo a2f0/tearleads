@@ -6,9 +6,11 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd -P)"
 echo "=== Resetting Postgres ==="
 "$SCRIPT_DIR/postgres/reset.sh" "$@"
 
-echo ""
-echo "=== Resetting Garage ==="
-"$SCRIPT_DIR/garage/reset.sh"
+if [ -f "$SCRIPT_DIR/localstack/reset.sh" ]; then
+  echo ""
+  echo "=== Resetting Local S3 ==="
+  "$SCRIPT_DIR/localstack/reset.sh"
+fi
 
 echo ""
 echo "=== Resetting Redis ==="
