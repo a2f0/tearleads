@@ -51,9 +51,3 @@ export type {
   SetupBobNotesShareForAliceResult
 } from './scaffolding/setupBobNotesShareForAlice.js';
 export { setupBobNotesShareForAlice } from './scaffolding/setupBobNotesShareForAlice.js';
-export type {
-  DbQueryClient,
-  SetupBobNotesShareForAliceDbInput,
-  SetupBobNotesShareForAliceDbResult
-} from './scaffolding/setupBobNotesShareForAliceDb.js';
-export { setupBobNotesShareForAliceDb } from './scaffolding/setupBobNotesShareForAliceDb.js';

@@ -10,10 +10,12 @@
  * Commands:
  *   migrate           Run database migrations
  *   create-account    Create an account in the database
+ *   create-test-users Create Bob and Alice test users
  *   delete-account    Delete an account from the database
  *   make-admin        Grant admin privileges to an existing account
  *   list-admins       List accounts with admin privileges
  *   list-users        List all user accounts
+ *   setup-bob-notes-share  Create test users and Bob->Alice VFS note sharing
  *   sync-last-active  Sync lastActiveAt from Redis sessions to PostgreSQL
  *   vfs-crdt-compaction  Plan or execute VFS CRDT log compaction
  *   vfs-share-policy-repair  Repair policy-derived VFS ACL drift
@@ -27,11 +29,13 @@
 
 import { program } from 'commander';
 import { createAccountCommand } from './cli/createAccount.js';
+import { createTestUsersCommand } from './cli/createTestUsers.js';
 import { deleteAccountCommand } from './cli/deleteAccount.js';
 import { listAdminsCommand } from './cli/listAdmins.js';
 import { listUsersCommand } from './cli/listUsers.js';
 import { makeAdminCommand } from './cli/makeAdmin.js';
 import { migrateCommand } from './cli/migrate.js';
+import { setupBobNotesShareCommand } from './cli/setupBobNotesShare.js';
 import { syncLastActiveCommand } from './cli/syncLastActive.js';
 import { vfsCrdtCompactionCommand } from './cli/vfsCrdtCompaction.js';
 import { vfsSharePolicyRepairCommand } from './cli/vfsSharePolicyRepair.js';
@@ -46,10 +50,12 @@ program
 // Register commands
 migrateCommand(program);
 createAccountCommand(program);
+createTestUsersCommand(program);
 deleteAccountCommand(program);
 makeAdminCommand(program);
 listAdminsCommand(program);
 listUsersCommand(program);
+setupBobNotesShareCommand(program);
 syncLastActiveCommand(program);
 vfsCrdtCompactionCommand(program);
 vfsSharePolicyRepairCommand(program);
