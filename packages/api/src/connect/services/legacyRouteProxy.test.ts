@@ -189,7 +189,10 @@ describe('legacyRouteProxy', () => {
   });
 
   it('uses configured base url and trims trailing slashes', async () => {
-    vi.stubEnv('CONNECT_LEGACY_BASE_URL', 'https://legacy.example.test/custom///');
+    vi.stubEnv(
+      'CONNECT_LEGACY_BASE_URL',
+      'https://legacy.example.test/custom///'
+    );
     fetchMock.mockResolvedValueOnce(
       new Response('{"ok":true}', {
         status: 200,
@@ -276,7 +279,9 @@ describe('legacyRouteProxy', () => {
   });
 
   it('returns binary payloads without content type when header is absent', async () => {
-    fetchMock.mockResolvedValueOnce(new Response(new Uint8Array([8, 9]), { status: 200 }));
+    fetchMock.mockResolvedValueOnce(
+      new Response(new Uint8Array([8, 9]), { status: 200 })
+    );
 
     const context: MockContext = {
       requestHeader: new Headers({
@@ -316,7 +321,9 @@ describe('legacyRouteProxy', () => {
   });
 
   it('uses structured fallback for empty and non-standard error payloads', async () => {
-    fetchMock.mockResolvedValueOnce(new Response('{"message":"denied"}', { status: 400 }));
+    fetchMock.mockResolvedValueOnce(
+      new Response('{"message":"denied"}', { status: 400 })
+    );
     fetchMock.mockResolvedValueOnce(new Response('', { status: 404 }));
 
     const context: MockContext = {
@@ -354,7 +361,9 @@ describe('legacyRouteProxy', () => {
         throw error;
       }
       expect(error.code).toBe(Code.NotFound);
-      expect(error.message).toContain('Legacy route proxy failed with status 404');
+      expect(error.message).toContain(
+        'Legacy route proxy failed with status 404'
+      );
     }
   });
 

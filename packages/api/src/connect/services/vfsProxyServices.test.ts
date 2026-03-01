@@ -291,7 +291,9 @@ describe('vfs proxy services', () => {
   it('omits optional query params for empty values in vfs and shares services', async () => {
     const context = createTestContext();
 
-    fetchMock.mockResolvedValueOnce(new Response(new Uint8Array([10]), { status: 200 }));
+    fetchMock.mockResolvedValueOnce(
+      new Response(new Uint8Array([10]), { status: 200 })
+    );
     const blobResponse = await vfsConnectService.getBlob(
       { blobId: 'blob-no-content-type' },
       context
@@ -303,7 +305,10 @@ describe('vfs proxy services', () => {
     );
 
     mockJsonResponse();
-    await vfsConnectService.getSync({ cursor: '', limit: 0, rootId: '  ' }, context);
+    await vfsConnectService.getSync(
+      { cursor: '', limit: 0, rootId: '  ' },
+      context
+    );
     expectLastFetch('http://127.0.0.1:55661/v1/vfs/vfs-sync', 'GET');
 
     mockJsonResponse();
@@ -328,6 +333,9 @@ describe('vfs proxy services', () => {
       },
       context
     );
-    expectLastFetch('http://127.0.0.1:55661/v1/vfs/share-policies/preview', 'GET');
+    expectLastFetch(
+      'http://127.0.0.1:55661/v1/vfs/share-policies/preview',
+      'GET'
+    );
   });
 });
