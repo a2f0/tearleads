@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/vfs-sync",
-  "version": "0.0.37",
+  "version": "0.0.38",
   "description": "Sync pages and window for Tearleads",
   "type": "module",
   "main": "src/index.ts",
