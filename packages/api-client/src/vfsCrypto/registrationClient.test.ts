@@ -74,4 +74,42 @@ describe('vfs registration client', () => {
     expect(registerCall?.objectType).toBe('file');
     expect(registerCall?.encryptedSessionKey).toMatch(/\./);
   });
+
+  it('generates a new session key when one is not provided', async () => {
+    const serverKeys = createServerKeys();
+    const publicParts = serverKeys.publicEncryptionKey.split('.');
+    vi.mocked(ensureVfsOnboardingKeys).mockResolvedValueOnce({
+      created: false,
+      publicKey: {
+        x25519PublicKey: publicParts[0] ?? '',
+        mlKemPublicKey: publicParts[1] ?? ''
+      },
+      serverKeys
+    });
+    const registerResponse: VfsRegisterResponse = {
+      id: 'item-2',
+      createdAt: '2026-02-20T00:00:00.000Z'
+    };
+    const apiClient = {
+      getMyKeys: vi.fn(async () => serverKeys),
+      setupKeys: vi.fn(async () => ({ created: false })),
+      register: vi.fn(async () => registerResponse)
+    };
+
+    const result = await registerVfsItemWithOnboarding({
+      password: 'password',
+      id: 'item-2',
+      objectType: 'folder',
+      apiClient
+    });
+
+    expect(result.createdKeys).toBe(false);
+    expect(result.registerResponse).toEqual(registerResponse);
+    expect(result.sessionKey).toHaveLength(32);
+    expect(apiClient.register).toHaveBeenCalledTimes(1);
+    const registerCall = apiClient.register.mock.calls[0]?.[0];
+    expect(registerCall?.id).toBe('item-2');
+    expect(registerCall?.objectType).toBe('folder');
+    expect(registerCall?.encryptedSessionKey).toMatch(/\./);
+  });
 });

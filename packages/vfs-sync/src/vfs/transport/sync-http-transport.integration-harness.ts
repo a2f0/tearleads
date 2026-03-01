@@ -247,7 +247,38 @@ function parsePushOperations(value: unknown): VfsCrdtOperation[] {
   return value.map((entry) => parsePushOperation(entry));
 }
 
-function readRequestBytes(init: RequestInit | undefined): Uint8Array {
+async function readBlobBytes(blob: Blob): Promise<Uint8Array> {
+  if (typeof blob.arrayBuffer === 'function') {
+    const bodyBuffer = await blob.arrayBuffer();
+    return new Uint8Array(bodyBuffer);
+  }
+
+  if (typeof FileReader !== 'undefined') {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (reader.result instanceof ArrayBuffer) {
+          resolve(new Uint8Array(reader.result));
+          return;
+        }
+        reject(new Error('expected blob reader result to be array buffer'));
+      };
+      reader.onerror = () => {
+        reject(
+          reader.error ??
+            new Error('failed to read integration harness request blob')
+        );
+      };
+      reader.readAsArrayBuffer(blob);
+    });
+  }
+
+  throw new Error('Integration harness expected blob request body bytes');
+}
+
+async function readRequestBytes(
+  init: RequestInit | undefined
+): Promise<Uint8Array> {
   if (!init || init.body === undefined || init.body === null) {
     return new Uint8Array();
   }
@@ -258,6 +289,23 @@ function readRequestBytes(init: RequestInit | undefined): Uint8Array {
 
   if (init.body instanceof ArrayBuffer) {
     return new Uint8Array(init.body);
+  }
+
+  if (init.body instanceof Blob) {
+    return readBlobBytes(init.body);
+  }
+
+  if (ArrayBuffer.isView(init.body)) {
+    return new Uint8Array(
+      init.body.buffer,
+      init.body.byteOffset,
+      init.body.byteLength
+    );
+  }
+
+  const bodyBuffer = await new Response(init.body).arrayBuffer();
+  if (bodyBuffer.byteLength > 0) {
+    return new Uint8Array(bodyBuffer);
   }
 
   throw new Error('Integration harness expected protobuf request body bytes');
@@ -283,7 +331,7 @@ export function createServerBackedFetch(
 
     if (url.pathname === '/v1/vfs/crdt/push' && init?.method === 'POST') {
       const pushBody = asRecord(
-        decodeVfsCrdtPushRequestProtobuf(readRequestBytes(init)),
+        decodeVfsCrdtPushRequestProtobuf(await readRequestBytes(init)),
         'push request'
       );
       const clientId = parseRequiredString(pushBody['clientId'], 'clientId');
@@ -375,7 +423,7 @@ export function createServerBackedFetch(
       (init?.method ?? 'POST') === 'POST'
     ) {
       const body = asRecord(
-        decodeVfsCrdtReconcileRequestProtobuf(readRequestBytes(init)),
+        decodeVfsCrdtReconcileRequestProtobuf(await readRequestBytes(init)),
         'reconcile request'
       );
       const cursorRaw = parseRequiredString(body['cursor'], 'cursor');

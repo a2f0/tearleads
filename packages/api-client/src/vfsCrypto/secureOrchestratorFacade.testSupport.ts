@@ -20,6 +20,13 @@ async function readPushBodyBytes(
     );
   }
 
+  if (init?.body instanceof Blob) {
+    const bodyBuffer = await init.body.arrayBuffer();
+    if (bodyBuffer.byteLength > 0) {
+      return new Uint8Array(bodyBuffer);
+    }
+  }
+
   if (input instanceof Request) {
     const cloned = input.clone();
     const bodyBuffer = await cloned.arrayBuffer();

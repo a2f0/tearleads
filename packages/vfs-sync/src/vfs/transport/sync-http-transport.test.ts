@@ -11,6 +11,32 @@ import {
 } from '../protocol/syncProtobuf.js';
 import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
 
+async function readBlobBytes(blob: Blob): Promise<Uint8Array> {
+  if (typeof blob.arrayBuffer === 'function') {
+    const buffer = await blob.arrayBuffer();
+    return new Uint8Array(buffer);
+  }
+
+  if (typeof FileReader !== 'undefined') {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (reader.result instanceof ArrayBuffer) {
+          resolve(new Uint8Array(reader.result));
+          return;
+        }
+        reject(new Error('expected blob reader result to be array buffer'));
+      };
+      reader.onerror = () => {
+        reject(reader.error ?? new Error('failed to read blob request body'));
+      };
+      reader.readAsArrayBuffer(blob);
+    });
+  }
+
+  throw new Error('expected blob request body to expose readable bytes');
+}
+
 async function readRequestBodyBytes(
   body: BodyInit | null | undefined
 ): Promise<Uint8Array> {
@@ -21,10 +47,20 @@ async function readRequestBodyBytes(
     return new Uint8Array(body);
   }
   if (body instanceof Blob) {
-    const buffer = await body.arrayBuffer();
-    return new Uint8Array(buffer);
+    return readBlobBytes(body);
   }
-  throw new Error('expected request body to be protobuf bytes');
+  if (body && ArrayBuffer.isView(body)) {
+    return new Uint8Array(body.buffer, body.byteOffset, body.byteLength);
+  }
+  if (body === null || body === undefined) {
+    throw new Error('expected request body to be protobuf bytes');
+  }
+
+  const buffer = await new Response(body).arrayBuffer();
+  if (buffer.byteLength === 0) {
+    throw new Error('expected request body to be protobuf bytes');
+  }
+  return new Uint8Array(buffer);
 }
 
 describe('VfsHttpCrdtSyncTransport', () => {
