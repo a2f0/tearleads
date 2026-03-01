@@ -20,6 +20,7 @@
       "@tearleads/admin": ["../admin/src/index.ts"],
       "@tearleads/admin/clientEntry": ["../admin/src/clientEntry.ts"],
       "@tearleads/analytics/clientEntry": ["../analytics/src/clientEntry.ts"],
+      "@tearleads/api-client/clientEntry": ["../api-client/src/clientEntry.ts"],
       "@tearleads/audio/package.json": ["../audio/package.json"],
       "@tearleads/audio": ["../audio/src/index.ts"],
       "@tearleads/backups/package.json": ["../backups/package.json"],

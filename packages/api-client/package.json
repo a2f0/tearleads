@@ -10,6 +10,10 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts"
     },
+    "./clientEntry": {
+      "types": "./src/clientEntry.ts",
+      "import": "./src/clientEntry.ts"
+    },
     "./authStorage": {
       "types": "./src/authStorage.ts",
       "import": "./src/authStorage.ts"

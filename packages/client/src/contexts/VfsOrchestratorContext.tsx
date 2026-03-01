@@ -11,7 +11,7 @@ import {
   type VfsKeySetupPayload,
   type VfsSecureOrchestratorFacade,
   VfsWriteOrchestrator
-} from '@tearleads/api-client';
+} from '@tearleads/api-client/clientEntry';
 import type { ReactNode } from 'react';
 import {
   createContext,

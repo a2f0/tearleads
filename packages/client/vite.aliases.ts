@@ -136,6 +136,10 @@ export const createViteAliases = (
       '../mls-chat/package.json'
     ),
     '@tearleads/mls-chat': path.resolve(dirname, '../mls-chat/src/index.ts'),
+    '@tearleads/api-client/clientEntry': path.resolve(
+      dirname,
+      '../api-client/src/clientEntry.ts'
+    ),
     '@tearleads/api-test-utils': path.resolve(
       dirname,
       '../api-test-utils/src/index.ts'

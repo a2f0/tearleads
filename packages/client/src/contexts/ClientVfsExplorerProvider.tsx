@@ -3,7 +3,7 @@
  * to the @tearleads/vfs-explorer package components.
  */
 
-import { rotateItemKeyEpochAndPersist } from '@tearleads/api-client';
+import { rotateItemKeyEpochAndPersist } from '@tearleads/api-client/clientEntry';
 import {
   VfsExplorerProvider,
   type VfsExplorerUIComponents

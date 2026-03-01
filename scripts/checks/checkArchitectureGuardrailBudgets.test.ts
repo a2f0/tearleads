@@ -114,10 +114,12 @@ test('evaluateGuardrailBudgets detects totals, rule, file, and workspace regress
     }
   );
 
-  assert.equal(result.violations.length, 4);
+  assert.equal(result.violations.length, 6);
   assert.deepEqual(result.violations.map((violation) => violation.key).sort(), [
     'dependencyCruiser.rules.no-circular.pathNotEntries',
     'dependencyCruiser.rulesWithPathNot',
+    'dependencyCruiser.totalClientFileExceptions',
+    'dependencyCruiser.totalPathNotEntries',
     'knip.ignoreIssues.packages/client/src/lib/utils.ts',
     'knip.workspaces.packages/client.ignoreDependencies'
   ]);
@@ -126,9 +128,9 @@ test('evaluateGuardrailBudgets detects totals, rule, file, and workspace regress
 test('renderGuardrailBudgetSummary includes pass status when within budget', () => {
   const result = evaluateGuardrailBudgets(
     {
-      rulesWithPathNot: 1,
-      totalPathNotEntries: 4,
-      totalClientFileExceptions: 4
+      rulesWithPathNot: 0,
+      totalPathNotEntries: 0,
+      totalClientFileExceptions: 0
     },
     {
       'no-circular': {
@@ -154,6 +156,6 @@ test('renderGuardrailBudgetSummary includes pass status when within budget', () 
   const text = renderGuardrailBudgetSummary(result);
   assert.match(text, /Architecture Guardrail Budget Check/);
   assert.match(text, /Status: pass/);
-  assert.match(text, /dependencyCruiser.totalPathNotEntries: 4\/4/);
+  assert.match(text, /dependencyCruiser.totalPathNotEntries: 0\/0/);
   assert.match(text, /knip.ignoreIssueEntries: 25\/25/);
 });

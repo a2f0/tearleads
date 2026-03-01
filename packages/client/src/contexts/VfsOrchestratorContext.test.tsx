@@ -33,7 +33,7 @@ const mockLoadVfsOrchestratorState = vi.fn();
 const mockSaveVfsOrchestratorState = vi.fn();
 
 // Mock dependencies
-vi.mock('@tearleads/api-client', () => {
+vi.mock('@tearleads/api-client/clientEntry', () => {
   const MockVfsWriteOrchestrator = class {
     mockOrchestrator = true;
     static lastOptions: unknown;
@@ -277,7 +277,7 @@ describe('VfsOrchestratorContext', () => {
         expect(mockCreateFacade).toHaveBeenCalled();
       });
 
-      const apiClientModule = await import('@tearleads/api-client');
+      const apiClientModule = await import('@tearleads/api-client/clientEntry');
       const MockVfsWriteOrchestrator = apiClientModule.VfsWriteOrchestrator as {
         lastOptions?: {
           blob?: {
@@ -337,7 +337,7 @@ describe('VfsOrchestratorContext', () => {
         expect(mockCreateFacade).toHaveBeenCalled();
       });
 
-      const apiClientModule = await import('@tearleads/api-client');
+      const apiClientModule = await import('@tearleads/api-client/clientEntry');
       const MockVfsWriteOrchestrator = apiClientModule.VfsWriteOrchestrator as {
         lastOptions?: {
           crdt?: {

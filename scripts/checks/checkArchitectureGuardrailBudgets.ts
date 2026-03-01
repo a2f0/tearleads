@@ -39,9 +39,9 @@ export interface GuardrailBudgetResult {
 }
 
 const DEPENDENCY_CRUISER_BUDGET: DependencyCruiserExceptionTotals = {
-  rulesWithPathNot: 1,
-  totalPathNotEntries: 4,
-  totalClientFileExceptions: 4
+  rulesWithPathNot: 0,
+  totalPathNotEntries: 0,
+  totalClientFileExceptions: 0
 };
 
 const DEPENDENCY_CRUISER_RULE_BUDGET: Record<string, RuleExceptionBudget> = {
@@ -57,8 +57,8 @@ const DEPENDENCY_CRUISER_RULE_BUDGET: Record<string, RuleExceptionBudget> = {
     clientFileExceptions: 0
   },
   'no-cross-package-src-entrypoint-imports': {
-    pathNotEntries: 4,
-    clientFileExceptions: 4
+    pathNotEntries: 0,
+    clientFileExceptions: 0
   },
   'no-local-app-builder-vite-plugin-imports': {
     pathNotEntries: 0,

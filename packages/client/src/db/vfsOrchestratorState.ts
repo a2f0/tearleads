@@ -1,4 +1,4 @@
-import type { VfsWriteOrchestratorPersistedState } from '@tearleads/api-client';
+import type { VfsWriteOrchestratorPersistedState } from '@tearleads/api-client/clientEntry';
 import { eq } from 'drizzle-orm';
 import { getDatabase, isDatabaseInitialized } from '@/db';
 import { userSettings } from '@/db/schema';
