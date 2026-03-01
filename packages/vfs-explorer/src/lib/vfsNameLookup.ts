@@ -4,8 +4,20 @@
  */
 
 import type { Database } from '@tearleads/db/sqlite';
-import { vfsRegistry } from '@tearleads/db/sqlite';
-import { inArray, sql } from 'drizzle-orm';
+import {
+  aiConversations,
+  albums,
+  contactGroups,
+  contacts,
+  emails,
+  files,
+  notes,
+  playlists,
+  tags,
+  vfsRegistry
+} from '@tearleads/db/sqlite';
+import { eq, inArray, sql } from 'drizzle-orm';
+import { nameCoalesce } from './vfsNameSql';
 import type { VfsRegistryRow } from './vfsTypes';
 
 /**
@@ -38,29 +50,22 @@ export async function fetchItemNames(
     return nameMap;
   }
 
+  const nameExpr = nameCoalesce();
   const rows = await db
     .select({
       id: vfsRegistry.id,
-      name: sql<string>`COALESCE(
-        NULLIF(${vfsRegistry.encryptedName}, ''),
-        CASE ${vfsRegistry.objectType}
-          WHEN 'folder' THEN 'Unnamed Folder'
-          WHEN 'file' THEN 'Unnamed File'
-          WHEN 'photo' THEN 'Unnamed Photo'
-          WHEN 'audio' THEN 'Unnamed Audio'
-          WHEN 'video' THEN 'Unnamed Video'
-          WHEN 'contact' THEN 'Unnamed Contact'
-          WHEN 'note' THEN 'Untitled Note'
-          WHEN 'playlist' THEN 'Unnamed Playlist'
-          WHEN 'album' THEN 'Unnamed Album'
-          WHEN 'contactGroup' THEN 'Unnamed Group'
-          WHEN 'tag' THEN 'Unnamed Tag'
-          WHEN 'email' THEN '(No Subject)'
-          ELSE 'Unknown'
-        END
-      ) as "name"`
+      name: sql<string>`${nameExpr} as "name"`
     })
     .from(vfsRegistry)
+    .leftJoin(files, eq(files.id, vfsRegistry.id))
+    .leftJoin(notes, eq(notes.id, vfsRegistry.id))
+    .leftJoin(contacts, eq(contacts.id, vfsRegistry.id))
+    .leftJoin(playlists, eq(playlists.id, vfsRegistry.id))
+    .leftJoin(albums, eq(albums.id, vfsRegistry.id))
+    .leftJoin(contactGroups, eq(contactGroups.id, vfsRegistry.id))
+    .leftJoin(tags, eq(tags.id, vfsRegistry.id))
+    .leftJoin(emails, eq(emails.id, vfsRegistry.id))
+    .leftJoin(aiConversations, eq(aiConversations.id, vfsRegistry.id))
     .where(inArray(vfsRegistry.id, ids));
 
   for (const row of rows) {

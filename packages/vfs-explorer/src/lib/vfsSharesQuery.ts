@@ -4,7 +4,20 @@
  */
 
 import type { Database } from '@tearleads/db/sqlite';
-import { users, vfsAclEntries, vfsRegistry } from '@tearleads/db/sqlite';
+import {
+  aiConversations,
+  albums,
+  contactGroups,
+  contacts,
+  emails,
+  files,
+  notes,
+  playlists,
+  tags,
+  users,
+  vfsAclEntries,
+  vfsRegistry
+} from '@tearleads/db/sqlite';
 import {
   isVfsSharedByMeQueryRow,
   isVfsSharedWithMeQueryRow,
@@ -14,6 +27,7 @@ import {
 import type { SQL } from 'drizzle-orm';
 import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
+import { nameCoalesce } from './vfsNameSql';
 import type { VfsSortState } from './vfsTypes';
 
 const SHARE_ACL_ID_PREFIX = 'share:';
@@ -102,36 +116,6 @@ function sharePermissionLevelExpr(): SQL<string> {
 }
 
 /**
- * COALESCE expression that resolves display names from type-specific tables.
- * Mirrors the implementation in vfsQuery.ts.
- *
- * Guardrail: shared folder names are canonicalized to `vfs_registry` and must
- * not read from `vfs_folders`.
- */
-function nameCoalesce(): SQL<string> {
-  return sql<string>`COALESCE(
-    NULLIF(${vfsRegistry.encryptedName}, ''),
-    CASE ${vfsRegistry.objectType}
-      WHEN 'folder' THEN 'Unnamed Folder'
-      WHEN 'file' THEN 'Unnamed File'
-      WHEN 'blob' THEN 'Unnamed Blob'
-      WHEN 'photo' THEN 'Unnamed Photo'
-      WHEN 'audio' THEN 'Unnamed Audio'
-      WHEN 'video' THEN 'Unnamed Video'
-      WHEN 'contact' THEN 'Unnamed Contact'
-      WHEN 'note' THEN 'Untitled Note'
-      WHEN 'playlist' THEN 'Unnamed Playlist'
-      WHEN 'album' THEN 'Unnamed Album'
-      WHEN 'contactGroup' THEN 'Unnamed Group'
-      WHEN 'tag' THEN 'Unnamed Tag'
-      WHEN 'email' THEN '(No Subject)'
-      WHEN 'conversation' THEN 'Untitled Conversation'
-      ELSE 'Unknown'
-    END
-  )`;
-}
-
-/**
  * Builds ORDER BY expressions based on the current sort state.
  * Default: alphabetical by name.
  */
@@ -187,6 +171,15 @@ export async function querySharedByMe(
     })
     .from(vfsAclEntries)
     .innerJoin(vfsRegistry, eq(vfsAclEntries.itemId, vfsRegistry.id))
+    .leftJoin(files, eq(files.id, vfsRegistry.id))
+    .leftJoin(notes, eq(notes.id, vfsRegistry.id))
+    .leftJoin(contacts, eq(contacts.id, vfsRegistry.id))
+    .leftJoin(playlists, eq(playlists.id, vfsRegistry.id))
+    .leftJoin(albums, eq(albums.id, vfsRegistry.id))
+    .leftJoin(contactGroups, eq(contactGroups.id, vfsRegistry.id))
+    .leftJoin(tags, eq(tags.id, vfsRegistry.id))
+    .leftJoin(emails, eq(emails.id, vfsRegistry.id))
+    .leftJoin(aiConversations, eq(aiConversations.id, vfsRegistry.id))
     .where(
       and(
         isNull(vfsAclEntries.revokedAt),
@@ -262,6 +255,15 @@ export async function querySharedWithMe(
         sharingUsers,
         sql`${sharingUsers.id} = COALESCE(${vfsAclEntries.grantedBy}, ${vfsRegistry.ownerId})`
       )
+      .leftJoin(files, eq(files.id, vfsRegistry.id))
+      .leftJoin(notes, eq(notes.id, vfsRegistry.id))
+      .leftJoin(contacts, eq(contacts.id, vfsRegistry.id))
+      .leftJoin(playlists, eq(playlists.id, vfsRegistry.id))
+      .leftJoin(albums, eq(albums.id, vfsRegistry.id))
+      .leftJoin(contactGroups, eq(contactGroups.id, vfsRegistry.id))
+      .leftJoin(tags, eq(tags.id, vfsRegistry.id))
+      .leftJoin(emails, eq(emails.id, vfsRegistry.id))
+      .leftJoin(aiConversations, eq(aiConversations.id, vfsRegistry.id))
       .where(
         and(
           eq(vfsAclEntries.principalId, currentUserId),
