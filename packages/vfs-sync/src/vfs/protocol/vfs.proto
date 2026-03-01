@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package tearleads.vfs;
+
+message CrdtOperation {
+  string opId = 1;
+  string opType = 2;
+  string itemId = 3;
+  string replicaId = 4;
+  uint64 writeId = 5;
+  string occurredAt = 6;
+  string principalId = 7;
+  string principalType = 8;
+  string accessLevel = 9;
+  string parentId = 10;
+  string childId = 11;
+  string actorId = 12;
+  string sourceTable = 13;
+  string sourceId = 14;
+  string encryptedPayload = 15;
+  uint32 keyEpoch = 16;
+  string encryptionNonce = 17;
+  string encryptionAad = 18;
+  string encryptionSignature = 19;
+}
+
+message PushRequest {
+  string clientId = 1;
+  repeated CrdtOperation operations = 2;
+}
+
+message PushResult {
+  string opId = 1;
+  string status = 2;
+}
+
+message PushResponse {
+  string clientId = 1;
+  repeated PushResult results = 2;
+}
+
+message PullResponse {
+  repeated CrdtOperation items = 1;
+  bool hasMore = 2;
+  string nextCursor = 3;
+  map<string, uint64> lastReconciledWriteIds = 4;
+}
+
+message ReconcileRequest {
+  string clientId = 1;
+  string cursor = 2;
+  map<string, uint64> lastReconciledWriteIds = 3;
+}
+
+message ReconcileResponse {
+  string clientId = 1;
+  string cursor = 2;
+  map<string, uint64> lastReconciledWriteIds = 3;
+}
+
+message SyncSessionRequest {
+  string clientId = 1;
+  string cursor = 2;
+  uint32 limit = 3;
+  repeated CrdtOperation operations = 4;
+  map<string, uint64> lastReconciledWriteIds = 5;
+  string rootId = 6;
+}
+
+message SyncSessionResponse {
+  PushResponse push = 1;
+  PullResponse pull = 2;
+  ReconcileResponse reconcile = 3;
+}

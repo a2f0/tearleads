@@ -14,12 +14,42 @@ import { createServerBackedFetch } from './sync-http-transport.integration-harne
 describe('VfsHttpCrdtSyncTransport integration guardrails', () => {
   it('fails closed when reconcile acknowledgement regresses cursor frontier', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
+    await server.pushOperations({
+      operations: [
+        {
+          opId: 'seed-cursor',
+          opType: 'acl_add',
+          itemId: 'item-1',
+          replicaId: 'desktop',
+          writeId: 1,
+          occurredAt: '2026-02-14T20:00:00.000Z',
+          principalType: 'user',
+          principalId: 'user-1',
+          accessLevel: 'admin'
+        }
+      ]
+    });
+
+    const healthyFetch = createServerBackedFetch(server, {
+      delays: {}
+    });
+    const seedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'mobile',
+      new VfsHttpCrdtSyncTransport({
+        baseUrl: 'http://api.local',
+        fetchImpl: healthyFetch
+      })
+    );
+    await seedClient.sync();
+    const persistedState = seedClient.exportState();
+
     const fetchImpl = createServerBackedFetch(server, {
       delays: {},
       mutateReconcilePayload: (payload) => {
         return {
           ...payload,
-          cur: encodeVfsSyncCursor({
+          cursor: encodeVfsSyncCursor({
             changedAt: '2000-01-01T00:00:00.000Z',
             changeId: 'regressed-op'
           })
@@ -32,11 +62,8 @@ describe('VfsHttpCrdtSyncTransport integration guardrails', () => {
       fetchImpl
     });
 
-    const client = new VfsBackgroundSyncClient({
-      userId: 'user-1',
-      clientId: 'mobile',
-      transport
-    });
+    const client = new VfsBackgroundSyncClient('user-1', 'mobile', transport);
+    client.hydrateState(persistedState);
 
     const baseline = captureExportedSyncClientState(client);
 
@@ -67,11 +94,25 @@ describe('VfsHttpCrdtSyncTransport integration guardrails', () => {
     });
 
     const fetchImpl = createServerBackedFetch(server, {
+      delays: {}
+    });
+    const seedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'mobile',
+      new VfsHttpCrdtSyncTransport({
+        baseUrl: 'http://api.local',
+        fetchImpl
+      })
+    );
+    await seedClient.sync();
+    const persistedState = seedClient.exportState();
+
+    const regressedFetch = createServerBackedFetch(server, {
       delays: {},
       mutateReconcilePayload: (payload) => {
         return {
           ...payload,
-          w: {
+          lastReconciledWriteIds: {
             desktop: 1 // Regressed from 10
           }
         };
@@ -80,14 +121,11 @@ describe('VfsHttpCrdtSyncTransport integration guardrails', () => {
 
     const transport = new VfsHttpCrdtSyncTransport({
       baseUrl: 'http://api.local',
-      fetchImpl
+      fetchImpl: regressedFetch
     });
 
-    const client = new VfsBackgroundSyncClient({
-      userId: 'user-1',
-      clientId: 'mobile',
-      transport
-    });
+    const client = new VfsBackgroundSyncClient('user-1', 'mobile', transport);
+    client.hydrateState(persistedState);
 
     const baseline = captureExportedSyncClientState(client);
 
@@ -98,7 +136,7 @@ describe('VfsHttpCrdtSyncTransport integration guardrails', () => {
     expectExportedSyncClientStateUnchanged({ client, before: baseline });
   });
 
-  it('fails closed when sync replay payload drifts to malformed link rows', async () => {
+  it('fails closed when pull payload cursor drifts from page tail', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
     await server.pushOperations({
       operations: [
@@ -118,12 +156,13 @@ describe('VfsHttpCrdtSyncTransport integration guardrails', () => {
     const fetchImpl = createServerBackedFetch(server, {
       delays: {},
       mutatePullPayload: (payload) => {
-        const item = payload.i[0];
-        if (item) {
-          // Field 10 is childId, 2 is itemId. Force mismatch.
-          item[10] = 'mismatched-child';
-        }
-        return payload;
+        return {
+          ...payload,
+          nextCursor: encodeVfsSyncCursor({
+            changedAt: '1999-01-01T00:00:00.000Z',
+            changeId: 'cursor-regression'
+          })
+        };
       }
     });
 
@@ -132,16 +171,12 @@ describe('VfsHttpCrdtSyncTransport integration guardrails', () => {
       fetchImpl
     });
 
-    const client = new VfsBackgroundSyncClient({
-      userId: 'user-1',
-      clientId: 'mobile',
-      transport
-    });
+    const client = new VfsBackgroundSyncClient('user-1', 'mobile', transport);
 
-    await expect(client.sync()).rejects.toThrowError(/invalid link payload/);
-    expect(client.snapshot()).toEqual({
-      acl: [],
-      links: []
-    });
+    await expect(client.sync()).rejects.toThrowError(
+      /nextCursor that does not match pull page tail/
+    );
+    expect(client.snapshot().acl).toEqual([]);
+    expect(client.snapshot().links).toEqual([]);
   });
 });

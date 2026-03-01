@@ -3,6 +3,7 @@ import type {
   VfsCrdtOperation,
   VfsCrdtSyncTransport
 } from '@tearleads/vfs-sync/vfs';
+import { encodeVfsCrdtPushResponseProtobuf } from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 function getAuthorizationHeader(init: RequestInit | undefined): string | null {
@@ -61,13 +62,13 @@ describe('vfsNetworkFlusher', () => {
           }
 
           return new Response(
-            JSON.stringify({
+            encodeVfsCrdtPushResponseProtobuf({
               clientId: 'desktop',
               results: [{ opId: 'op-1', status: 'applied' }]
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/json' }
+              headers: { 'Content-Type': 'application/x-protobuf' }
             }
           );
         }

@@ -211,6 +211,12 @@ export interface VfsCrdtSyncReconcileResponse {
   lastReconciledWriteIds: VfsCrdtLastReconciledWriteIds;
 }
 
+export interface VfsCrdtSyncSessionResponse {
+  push: VfsCrdtSyncPushResponse;
+  pull: VfsCrdtSyncPullResponse;
+  reconcile: VfsCrdtSyncReconcileResponse;
+}
+
 export type VfsSyncGuardrailViolationCode =
   | 'staleWriteRecoveryExhausted'
   | 'pullPageInvariantViolation'
@@ -246,6 +252,15 @@ export interface VfsCrdtSyncTransport {
     cursor: VfsSyncCursor;
     lastReconciledWriteIds: VfsCrdtLastReconciledWriteIds;
   }): Promise<VfsCrdtSyncReconcileResponse>;
+  syncSession?(input: {
+    userId: string;
+    clientId: string;
+    cursor: VfsSyncCursor;
+    limit: number;
+    operations: VfsCrdtOperation[];
+    lastReconciledWriteIds: VfsCrdtLastReconciledWriteIds;
+    rootId?: string | null;
+  }): Promise<VfsCrdtSyncSessionResponse>;
 }
 
 export class VfsCrdtSyncPushRejectedError extends Error {

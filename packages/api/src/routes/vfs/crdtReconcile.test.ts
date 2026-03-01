@@ -1,4 +1,6 @@
 import {
+  decodeVfsCrdtReconcileResponseProtobuf,
+  encodeVfsCrdtReconcileRequestProtobuf,
   decodeVfsSyncCursor,
   encodeVfsSyncCursor
 } from '@tearleads/vfs-sync/vfs';
@@ -37,6 +39,19 @@ vi.mock('@tearleads/shared/redis', () => ({
   getRedisSubscriberOverride: () => mockRedisClient,
   setRedisSubscriberOverrideForTesting: vi.fn()
 }));
+
+function binaryParser(
+  res: NodeJS.ReadableStream,
+  callback: (error: Error | null, body: Buffer) => void
+): void {
+  const chunks: Buffer[] = [];
+  res.on('data', (chunk) => {
+    chunks.push(Buffer.from(chunk));
+  });
+  res.on('end', () => {
+    callback(null, Buffer.concat(chunks));
+  });
+}
 
 describe('VFS CRDT reconcile route', () => {
   beforeEach(() => {
@@ -188,6 +203,72 @@ describe('VFS CRDT reconcile route', () => {
       'op-10',
       '{"desktop":10,"mobile":3}'
     ]);
+  });
+
+  it('accepts protobuf reconcile payloads and emits protobuf responses', async () => {
+    const authHeader = await createAuthHeader();
+    const incomingCursor = encodeVfsSyncCursor({
+      changedAt: '2026-02-14T00:00:00.000Z',
+      changeId: 'op-10'
+    });
+
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          last_reconciled_at: new Date('2026-02-14T00:00:00.000Z'),
+          last_reconciled_change_id: 'op-10',
+          last_reconciled_write_ids: {
+            desktop: 10
+          }
+        }
+      ]
+    });
+
+    const response = await request(app)
+      .post('/v1/vfs/crdt/reconcile')
+      .set('Authorization', authHeader)
+      .set('Content-Type', 'application/x-protobuf')
+      .set('Accept', 'application/x-protobuf')
+      .buffer(true)
+      .parse(binaryParser)
+      .send(
+        Buffer.from(
+          encodeVfsCrdtReconcileRequestProtobuf({
+            clientId: 'desktop',
+            cursor: incomingCursor,
+            lastReconciledWriteIds: { desktop: 10 }
+          })
+        )
+      );
+
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toContain('application/x-protobuf');
+
+    if (!(response.body instanceof Buffer)) {
+      throw new Error('expected protobuf response body buffer');
+    }
+    const decoded = decodeVfsCrdtReconcileResponseProtobuf(
+      new Uint8Array(response.body)
+    );
+    if (
+      typeof decoded !== 'object' ||
+      decoded === null ||
+      !('clientId' in decoded) ||
+      !('cursor' in decoded) ||
+      !('lastReconciledWriteIds' in decoded)
+    ) {
+      throw new Error('expected protobuf reconcile response payload');
+    }
+    if (typeof decoded.cursor !== 'string') {
+      throw new Error('expected protobuf reconcile cursor string');
+    }
+
+    expect(decoded.clientId).toBe('desktop');
+    expect(decodeVfsSyncCursor(decoded.cursor)).toEqual({
+      changedAt: '2026-02-14T00:00:00.000Z',
+      changeId: 'op-10'
+    });
+    expect(decoded.lastReconciledWriteIds).toEqual({ desktop: 10 });
   });
 
   it('keeps monotonic cursor when stale write arrives', async () => {

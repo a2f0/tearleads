@@ -119,6 +119,22 @@ export {
   type VfsSyncCursor
 } from './protocol/sync-cursor.js';
 export {
+  decodeVfsCrdtPushRequestProtobuf,
+  decodeVfsCrdtPushResponseProtobuf,
+  decodeVfsCrdtReconcileRequestProtobuf,
+  decodeVfsCrdtReconcileResponseProtobuf,
+  decodeVfsCrdtSyncSessionRequestProtobuf,
+  decodeVfsCrdtSyncSessionResponseProtobuf,
+  decodeVfsCrdtSyncResponseProtobuf,
+  encodeVfsCrdtPushRequestProtobuf,
+  encodeVfsCrdtPushResponseProtobuf,
+  encodeVfsCrdtReconcileRequestProtobuf,
+  encodeVfsCrdtReconcileResponseProtobuf,
+  encodeVfsCrdtSyncSessionRequestProtobuf,
+  encodeVfsCrdtSyncSessionResponseProtobuf,
+  encodeVfsCrdtSyncResponseProtobuf
+} from './protocol/sync-protobuf.js';
+export {
   compareVfsSyncCursorOrder,
   InMemoryVfsSyncClientStateStore,
   type ParsedVfsSyncReconcilePayload,

@@ -1,6 +1,7 @@
 import type { VfsCrdtSyncResponse } from '@tearleads/shared';
 import {
   buildVfsCrdtSyncQuery,
+  encodeVfsCrdtSyncResponseProtobuf,
   encodeVfsSyncCursor,
   mapVfsCrdtSyncRows,
   parseVfsCrdtSyncQuery,
@@ -9,6 +10,7 @@ import {
 } from '@tearleads/vfs-sync/vfs';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
+import { sendCrdtProtobufOrJson } from './crdtProtobuf.js';
 
 const CRDT_CLIENT_PUSH_SOURCE_TABLE = 'vfs_crdt_client_push';
 const CRDT_REMATERIALIZATION_REQUIRED_CODE = 'crdt_rematerialization_required';
@@ -301,7 +303,13 @@ const getCrdtSyncHandler = async (req: Request, res: Response) => {
       parsedQuery.value.limit,
       toLastReconciledWriteIds(replicaWriteIdsResult.rows)
     );
-    res.json(response);
+    sendCrdtProtobufOrJson(
+      req,
+      res,
+      200,
+      response,
+      encodeVfsCrdtSyncResponseProtobuf
+    );
   } catch (error) {
     console.error('Failed to sync VFS CRDT operations:', error);
     res.status(500).json({ error: 'Failed to sync VFS CRDT operations' });
