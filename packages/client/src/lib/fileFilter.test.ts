@@ -91,9 +91,9 @@ describe('file-filter', () => {
 
       it('matches extension in mixed list', () => {
         const file = createMockFile('linux.iso', 'application/x-iso9660-image');
-        expect(
-          matchesSingle(file, '.iso,application/x-iso9660-image')
-        ).toBe(true);
+        expect(matchesSingle(file, '.iso,application/x-iso9660-image')).toBe(
+          true
+        );
       });
 
       it('handles spaces after commas', () => {

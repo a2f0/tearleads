@@ -119,9 +119,7 @@ function buildTagCountById(state: ClassicState): Record<string, number> {
   return counts;
 }
 
-function getNoteTagCountById(
-  state: ClassicState
-): Record<string, number> {
+function getNoteTagCountById(state: ClassicState): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const noteId of Object.keys(state.notesById)) {
     counts[noteId] = 0;
