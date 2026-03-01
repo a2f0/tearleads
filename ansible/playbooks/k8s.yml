@@ -7,9 +7,12 @@
   vars:
     ansible_python_interpreter: /usr/bin/python3
     cert_manager_version: "v1.14.4"
+    cert_manager_url: "https://github.com/cert-manager/cert-manager/releases/download/{{ cert_manager_version }}/cert-manager.yaml"
+    cert_manager_checksum: "sha256:fcaaf51002a56a59f65b64ca2da021a93a51733c21a8e8478e7263c00eff7cd0"
     nginx_ingress_version: "v1.10.0"
-    nginx_ingress_manifest: "{{ playbook_dir }}/../vendor/k8s/nginx-ingress-{{ nginx_ingress_version }}.yaml"
-    cert_manager_manifest: "{{ playbook_dir }}/../vendor/k8s/cert-manager-{{ cert_manager_version }}.yaml"
+    nginx_ingress_base: "https://raw.githubusercontent.com/kubernetes/ingress-nginx"
+    nginx_ingress_url: "{{ nginx_ingress_base }}/controller-{{ nginx_ingress_version }}/deploy/static/provider/cloud/deploy.yaml"
+    nginx_ingress_checksum: "sha256:d3cce94986e23cdd6016d76a2ef6beb41856ed143b1aa956edf2d59b66fbe4f7"
     linux_security_baseline_manage_ufw: false
     linux_security_baseline_ufw_allow_rules: []
     linux_security_baseline_ssh_settings:
@@ -103,10 +106,11 @@
       changed_when: k3s_pod_snat_apply.rc == 0
       failed_when: k3s_pod_snat_apply.rc != 0
 
-    - name: Copy nginx-ingress manifest to target
-      ansible.builtin.copy:
-        src: "{{ nginx_ingress_manifest }}"
+    - name: Download nginx-ingress manifest
+      ansible.builtin.get_url:
+        url: "{{ nginx_ingress_url }}"
         dest: "/tmp/nginx-ingress-{{ nginx_ingress_version }}.yaml"
+        checksum: "{{ nginx_ingress_checksum }}"
         mode: "0644"
 
     - name: Install nginx-ingress controller
@@ -125,10 +129,11 @@
       delay: 30
       changed_when: false
 
-    - name: Copy cert-manager manifest to target
-      ansible.builtin.copy:
-        src: "{{ cert_manager_manifest }}"
+    - name: Download cert-manager manifest
+      ansible.builtin.get_url:
+        url: "{{ cert_manager_url }}"
         dest: "/tmp/cert-manager-{{ cert_manager_version }}.yaml"
+        checksum: "{{ cert_manager_checksum }}"
         mode: "0644"
 
     - name: Install cert-manager
