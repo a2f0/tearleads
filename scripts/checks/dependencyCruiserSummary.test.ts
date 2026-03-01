@@ -77,6 +77,9 @@ test('parseDependencyCruiserSummary aggregates totals and violations', () => {
   assert.equal(parsed.violationsByRule['no-cross-package'], 2);
   assert.equal(parsed.violationsBySeverity.warn, 2);
   assert.equal(parsed.ruleExceptionCounts[0]?.clientFileExceptions, 1);
+  assert.equal(parsed.exceptionTotals.rulesWithPathNot, 1);
+  assert.equal(parsed.exceptionTotals.totalPathNotEntries, 1);
+  assert.equal(parsed.exceptionTotals.totalClientFileExceptions, 1);
 });
 
 test('renderTextSummary renders expected sections', () => {
@@ -98,10 +101,16 @@ test('renderTextSummary renders expected sections', () => {
         pathNotEntries: 14,
         clientFileExceptions: 13
       }
-    ]
+    ],
+    exceptionTotals: {
+      rulesWithPathNot: 1,
+      totalPathNotEntries: 14,
+      totalClientFileExceptions: 13
+    }
   });
 
   assert.match(text, /Dependency Cruiser Summary/);
   assert.match(text, /Violations by rule: none/);
+  assert.match(text, /Exception totals: rulesWithPathNot=1/);
   assert.match(text, /no-cross-package-src-entrypoint-imports/);
 });

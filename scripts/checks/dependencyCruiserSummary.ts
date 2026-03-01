@@ -29,6 +29,11 @@ export interface DependencyCruiserSummaryResult {
   violationsByRule: Record<string, number>;
   violationsBySeverity: Record<string, number>;
   ruleExceptionCounts: RuleExceptionCount[];
+  exceptionTotals: {
+    rulesWithPathNot: number;
+    totalPathNotEntries: number;
+    totalClientFileExceptions: number;
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -208,6 +213,18 @@ export function parseDependencyCruiserSummary(
 
   const summary = reportParsed.summary;
   const violations = collectViolations(summary);
+  const ruleExceptionCounts = collectRuleExceptionCountsFromConfig(configParsed);
+
+  let rulesWithPathNot = 0;
+  let totalPathNotEntries = 0;
+  let totalClientFileExceptions = 0;
+  for (const item of ruleExceptionCounts) {
+    if (item.pathNotEntries > 0) {
+      rulesWithPathNot += 1;
+    }
+    totalPathNotEntries += item.pathNotEntries;
+    totalClientFileExceptions += item.clientFileExceptions;
+  }
 
   return {
     totals: {
@@ -221,7 +238,12 @@ export function parseDependencyCruiserSummary(
     },
     violationsByRule: countViolationsByRule(violations),
     violationsBySeverity: countViolationsBySeverity(violations),
-    ruleExceptionCounts: collectRuleExceptionCountsFromConfig(configParsed)
+    ruleExceptionCounts,
+    exceptionTotals: {
+      rulesWithPathNot,
+      totalPathNotEntries,
+      totalClientFileExceptions
+    }
   };
 }
 
@@ -246,6 +268,9 @@ export function renderTextSummary(
   }
 
   lines.push('- Rule exception counts (pathNot entries):');
+  lines.push(
+    `- Exception totals: rulesWithPathNot=${result.exceptionTotals.rulesWithPathNot}, totalPathNotEntries=${result.exceptionTotals.totalPathNotEntries}, totalClientFileExceptions=${result.exceptionTotals.totalClientFileExceptions}`
+  );
   for (const item of result.ruleExceptionCounts) {
     lines.push(
       `  ${item.name}: pathNot=${item.pathNotEntries}, clientFileExceptions=${item.clientFileExceptions}`
