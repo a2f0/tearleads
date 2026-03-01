@@ -27,7 +27,8 @@ export const VFS_SYNC_SCHEMA_DEPENDENCIES: VfsSyncSchemaDependency[] = [
   {
     tableName: 'vfs_sync_changes',
     domain: 'syncFeed',
-    purpose: 'cursor-ordered incremental object change feed with parent_id optimization'
+    purpose:
+      'cursor-ordered incremental object change feed with parent_id optimization'
   },
   {
     tableName: 'vfs_registry',

@@ -1,6 +1,6 @@
 /**
  * VFS Sync SQL (Optimized)
- * 
+ *
  * Invariants:
  * 1. visibility is pre-materialized in vfs_effective_visibility (denormalized).
  * 2. vfs_sync_changes includes parent_id to optimize scoped sync feeds.

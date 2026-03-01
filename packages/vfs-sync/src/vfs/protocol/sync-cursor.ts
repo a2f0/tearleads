@@ -9,7 +9,8 @@ function isValidIsoTimestamp(value: string): boolean {
 }
 
 function encodeBytesToBase64Url(bytes: Uint8Array): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  const chars =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
   let output = '';
   let index = 0;
 
@@ -34,7 +35,8 @@ function encodeBytesToBase64Url(bytes: Uint8Array): string {
 }
 
 function decodeBase64UrlToBytes(base64url: string): Uint8Array | null {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  const chars =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
   const outputLength = Math.floor((base64url.length * 3) / 4);
   const bytes = new Uint8Array(outputLength);
   let byteIndex = 0;
@@ -85,7 +87,11 @@ function uuidToBytes(uuid: string): Uint8Array | null {
 function bytesToUuid(bytes: Uint8Array): string {
   let hex = '';
   for (let i = 0; i < 16; i++) {
-    hex += bytes[i]!.toString(16).padStart(2, '0');
+    const byte = bytes[i];
+    if (byte === undefined) {
+      return '';
+    }
+    hex += byte.toString(16).padStart(2, '0');
   }
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
@@ -102,8 +108,14 @@ export function encodeVfsSyncCursor(cursor: VfsSyncCursor): string {
 
   if (!Number.isFinite(timestamp) || !uuidBytes) {
     // Fallback to V1 JSON encoding if we can't pack it (e.g. non-UUID changeId)
-    const payload = { version: 1, changedAt: cursor.changedAt, changeId: cursor.changeId };
-    return encodeBytesToBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
+    const payload = {
+      version: 1,
+      changedAt: cursor.changedAt,
+      changeId: cursor.changeId
+    };
+    return encodeBytesToBase64Url(
+      new TextEncoder().encode(JSON.stringify(payload))
+    );
   }
 
   const bytes = new Uint8Array(1 + 8 + 16);
@@ -130,7 +142,7 @@ export function decodeVfsSyncCursor(encoded: string): VfsSyncCursor | null {
       const view = new DataView(bytes.buffer);
       const timestamp = Number(view.getBigInt64(1, false));
       const changeId = bytesToUuid(bytes.slice(9, 25));
-      
+
       return {
         changedAt: new Date(timestamp).toISOString(),
         changeId

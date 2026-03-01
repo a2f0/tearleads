@@ -34,7 +34,10 @@ export function asRecord(
   return value;
 }
 
-export function normalizeRequiredString(value: unknown, fieldName: string): string {
+export function normalizeRequiredString(
+  value: unknown,
+  fieldName: string
+): string {
   if (typeof value !== 'string') {
     throw new Error(`invalid protobuf payload field: ${fieldName}`);
   }
@@ -242,7 +245,9 @@ export function decodePushOperation(value: unknown): Record<string, unknown> {
   if (childId !== undefined) {
     decoded['childId'] = childId;
   }
-  const encryptedPayload = normalizeOptionalString(operation['encryptedPayload']);
+  const encryptedPayload = normalizeOptionalString(
+    operation['encryptedPayload']
+  );
   if (encryptedPayload !== undefined) {
     decoded['encryptedPayload'] = encryptedPayload;
   }
@@ -279,11 +284,16 @@ export function decodeSyncItem(value: unknown): Record<string, unknown> {
     parentId: normalizeOptionalNullableString(operation['parentId']),
     childId: normalizeOptionalNullableString(operation['childId']),
     actorId: normalizeOptionalNullableString(operation['actorId']),
-    sourceTable: normalizeRequiredString(operation['sourceTable'], 'sourceTable'),
+    sourceTable: normalizeRequiredString(
+      operation['sourceTable'],
+      'sourceTable'
+    ),
     sourceId: normalizeRequiredString(operation['sourceId'], 'sourceId'),
     occurredAt: normalizeRequiredString(operation['occurredAt'], 'occurredAt')
   };
-  const encryptedPayload = normalizeOptionalString(operation['encryptedPayload']);
+  const encryptedPayload = normalizeOptionalString(
+    operation['encryptedPayload']
+  );
   if (encryptedPayload !== undefined) {
     decoded['encryptedPayload'] = encryptedPayload;
   }

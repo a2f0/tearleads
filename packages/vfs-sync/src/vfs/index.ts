@@ -119,22 +119,6 @@ export {
   type VfsSyncCursor
 } from './protocol/sync-cursor.js';
 export {
-  decodeVfsCrdtPushRequestProtobuf,
-  decodeVfsCrdtPushResponseProtobuf,
-  decodeVfsCrdtReconcileRequestProtobuf,
-  decodeVfsCrdtReconcileResponseProtobuf,
-  decodeVfsCrdtSyncSessionRequestProtobuf,
-  decodeVfsCrdtSyncSessionResponseProtobuf,
-  decodeVfsCrdtSyncResponseProtobuf,
-  encodeVfsCrdtPushRequestProtobuf,
-  encodeVfsCrdtPushResponseProtobuf,
-  encodeVfsCrdtReconcileRequestProtobuf,
-  encodeVfsCrdtReconcileResponseProtobuf,
-  encodeVfsCrdtSyncSessionRequestProtobuf,
-  encodeVfsCrdtSyncSessionResponseProtobuf,
-  encodeVfsCrdtSyncResponseProtobuf
-} from './protocol/syncProtobuf.js';
-export {
   compareVfsSyncCursorOrder,
   InMemoryVfsSyncClientStateStore,
   type ParsedVfsSyncReconcilePayload,
@@ -143,6 +127,22 @@ export {
   type ReconcileVfsSyncCursorResult,
   reconcileVfsSyncCursor
 } from './protocol/sync-reconcile.js';
+export {
+  decodeVfsCrdtPushRequestProtobuf,
+  decodeVfsCrdtPushResponseProtobuf,
+  decodeVfsCrdtReconcileRequestProtobuf,
+  decodeVfsCrdtReconcileResponseProtobuf,
+  decodeVfsCrdtSyncResponseProtobuf,
+  decodeVfsCrdtSyncSessionRequestProtobuf,
+  decodeVfsCrdtSyncSessionResponseProtobuf,
+  encodeVfsCrdtPushRequestProtobuf,
+  encodeVfsCrdtPushResponseProtobuf,
+  encodeVfsCrdtReconcileRequestProtobuf,
+  encodeVfsCrdtReconcileResponseProtobuf,
+  encodeVfsCrdtSyncResponseProtobuf,
+  encodeVfsCrdtSyncSessionRequestProtobuf,
+  encodeVfsCrdtSyncSessionResponseProtobuf
+} from './protocol/syncProtobuf.js';
 export {
   assertStronglyConsistentVfsSyncRows,
   type BuildVfsSyncQueryInput,

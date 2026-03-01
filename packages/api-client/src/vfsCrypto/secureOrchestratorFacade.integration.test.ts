@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   encodeVfsCrdtPushResponseProtobuf,
   encodeVfsCrdtReconcileResponseProtobuf,
   encodeVfsCrdtSyncResponseProtobuf,
   encodeVfsSyncCursor
 } from '@tearleads/vfs-sync/vfs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createVfsSecureOrchestratorFacade } from './secureOrchestratorFacade';
 import { recordSecureFacadeRequestBody } from './secureOrchestratorFacade.testSupport';
 

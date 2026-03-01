@@ -28,20 +28,6 @@ function extractSqlLiteralsFromSource(source: string): string[] {
   return sqlLiterals;
 }
 
-function extractShareReadReferences(sqlLiterals: string[]): string[] {
-  return Array.from(
-    new Set(
-      sqlLiterals
-        .filter((sql) => /\bSELECT\b/i.test(sql))
-        .flatMap((sql) => extractSqlTableReferences(sql))
-        .filter(
-          (tableName) =>
-            tableName === 'vfs_shares' || tableName === 'org_shares'
-        )
-    )
-  ).sort((left, right) => left.localeCompare(right));
-}
-
 describe('sync schema contract', () => {
   it('covers SQL table references in sync and CRDT feed query builders', () => {
     const syncQuery = buildVfsSyncQuery({
@@ -63,7 +49,7 @@ describe('sync schema contract', () => {
       'vfs_registry',
       'vfs_sync_changes'
     ]);
-    
+
     // CRDT feed optimized to use denormalized visibility and link check.
     // Snapshot tables are used by rematerialization routes, not hot-log pulls.
     expect(extractSqlTableReferences(crdtQuery.text)).toEqual([
@@ -78,15 +64,20 @@ describe('sync schema contract', () => {
 
   it('covers API CRDT route SQL references used for push/pull/reconcile', () => {
     const syncPackageRoot = join(import.meta.dirname, '../../..');
-    
+
     const tryRead = (path: string) => {
-      try { return readFileSync(resolve(syncPackageRoot, path), 'utf8'); }
-      catch { return ''; }
+      try {
+        return readFileSync(resolve(syncPackageRoot, path), 'utf8');
+      } catch {
+        return '';
+      }
     };
 
     const postPushSource = tryRead('../api/src/routes/vfs/post-crdt-push.ts');
     const getSyncSource = tryRead('../api/src/routes/vfs/get-crdt-sync.ts');
-    const postReconcileSource = tryRead('../api/src/routes/vfs/post-crdt-reconcile.ts');
+    const postReconcileSource = tryRead(
+      '../api/src/routes/vfs/post-crdt-reconcile.ts'
+    );
 
     const routeSql = [
       ...extractSqlLiteralsFromSource(postPushSource),
@@ -99,9 +90,15 @@ describe('sync schema contract', () => {
 
     if (routeReferences.length > 0) {
       expect(
-        routeReferences.every((tableName) =>
-          VFS_SYNC_FLATTENED_TARGET_TABLES.includes(tableName) || 
-          ['user_groups', 'user_organizations', 'vfs_acl_entries', 'vfs_links'].includes(tableName)
+        routeReferences.every(
+          (tableName) =>
+            VFS_SYNC_FLATTENED_TARGET_TABLES.includes(tableName) ||
+            [
+              'user_groups',
+              'user_organizations',
+              'vfs_acl_entries',
+              'vfs_links'
+            ].includes(tableName)
         )
       ).toBe(true);
     }
@@ -109,15 +106,24 @@ describe('sync schema contract', () => {
 
   it('keeps blob stage/attach routes off blob staging tables', () => {
     const syncPackageRoot = join(import.meta.dirname, '../../..');
-    
+
     const tryRead = (path: string) => {
-      try { return readFileSync(resolve(syncPackageRoot, path), 'utf8'); }
-      catch { return ''; }
+      try {
+        return readFileSync(resolve(syncPackageRoot, path), 'utf8');
+      } catch {
+        return '';
+      }
     };
 
-    const postBlobStageSource = tryRead('../api/src/routes/vfs/post-blobs-stage.ts');
-    const postBlobAttachSource = tryRead('../api/src/routes/vfs/post-blobs-stage-stagingId-attach.ts');
-    const postBlobAbandonSource = tryRead('../api/src/routes/vfs/post-blobs-stage-stagingId-abandon.ts');
+    const postBlobStageSource = tryRead(
+      '../api/src/routes/vfs/post-blobs-stage.ts'
+    );
+    const postBlobAttachSource = tryRead(
+      '../api/src/routes/vfs/post-blobs-stage-stagingId-attach.ts'
+    );
+    const postBlobAbandonSource = tryRead(
+      '../api/src/routes/vfs/post-blobs-stage-stagingId-abandon.ts'
+    );
 
     const routeSql = [
       ...extractSqlLiteralsFromSource(postBlobStageSource),
@@ -136,10 +142,13 @@ describe('sync schema contract', () => {
 
   it('remains compatible with generated Postgres schema', () => {
     const syncPackageRoot = join(import.meta.dirname, '../../..');
-    
+
     const tryRead = (path: string) => {
-      try { return readFileSync(resolve(syncPackageRoot, path), 'utf8'); }
-      catch { return ''; }
+      try {
+        return readFileSync(resolve(syncPackageRoot, path), 'utf8');
+      } catch {
+        return '';
+      }
     };
 
     const generatedSchemaSource = [
@@ -151,7 +160,7 @@ describe('sync schema contract', () => {
     ]
       .map((relativePath) => tryRead(relativePath))
       .join('\n');
-      
+
     if (generatedSchemaSource.trim().length > 0) {
       const generatedTables = extractPostgresTableNamesFromDrizzleSchema(
         generatedSchemaSource
@@ -166,10 +175,13 @@ describe('sync schema contract', () => {
 
   it('remains compatible with generated SQLite schema', () => {
     const syncPackageRoot = join(import.meta.dirname, '../../..');
-    
+
     const tryRead = (path: string) => {
-      try { return readFileSync(resolve(syncPackageRoot, path), 'utf8'); }
-      catch { return ''; }
+      try {
+        return readFileSync(resolve(syncPackageRoot, path), 'utf8');
+      } catch {
+        return '';
+      }
     };
 
     const generatedSchemaSource = [
@@ -181,7 +193,7 @@ describe('sync schema contract', () => {
     ]
       .map((relativePath) => tryRead(relativePath))
       .join('\n');
-      
+
     if (generatedSchemaSource.trim().length > 0) {
       const generatedTables = extractSqliteTableNamesFromDrizzleSchema(
         generatedSchemaSource

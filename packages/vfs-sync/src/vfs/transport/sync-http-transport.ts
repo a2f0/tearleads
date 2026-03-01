@@ -5,21 +5,21 @@ import type {
   VfsCrdtSyncTransport
 } from '../client/sync-client.js';
 import { VfsCrdtRematerializationRequiredError } from '../client/sync-client-utils.js';
-import {
-  decodeVfsCrdtPushResponseProtobuf,
-  decodeVfsCrdtReconcileResponseProtobuf,
-  decodeVfsCrdtSyncSessionResponseProtobuf,
-  decodeVfsCrdtSyncResponseProtobuf,
-  encodeVfsCrdtPushRequestProtobuf,
-  encodeVfsCrdtReconcileRequestProtobuf,
-  encodeVfsCrdtSyncSessionRequestProtobuf
-} from '../protocol/syncProtobuf.js';
 import type { VfsCrdtOperation } from '../protocol/sync-crdt.js';
 import {
   decodeVfsSyncCursor,
   encodeVfsSyncCursor,
   type VfsSyncCursor
 } from '../protocol/sync-cursor.js';
+import {
+  decodeVfsCrdtPushResponseProtobuf,
+  decodeVfsCrdtReconcileResponseProtobuf,
+  decodeVfsCrdtSyncResponseProtobuf,
+  decodeVfsCrdtSyncSessionResponseProtobuf,
+  encodeVfsCrdtPushRequestProtobuf,
+  encodeVfsCrdtReconcileRequestProtobuf,
+  encodeVfsCrdtSyncSessionRequestProtobuf
+} from '../protocol/syncProtobuf.js';
 import {
   parseApiErrorResponse,
   parseApiPullResponse,
@@ -28,28 +28,9 @@ import {
   parseErrorMessage
 } from './sync-http-transport-parser.js';
 
-interface BinaryRequestInit extends Omit<RequestInit, 'body'> {
-  body?: BodyInit | Uint8Array | null;
-}
-type FetchImpl = (input: string, init?: BinaryRequestInit) => Promise<Response>;
+type FetchImpl = typeof fetch;
 const CRDT_REMATERIALIZATION_REQUIRED_CODE = 'crdt_rematerialization_required';
 const PROTOBUF_CONTENT_TYPE = 'application/x-protobuf';
-
-const DEFAULT_FETCH_IMPL: FetchImpl = (input, init) => {
-  const requestInit: RequestInit = {};
-  if (typeof init?.method === 'string') {
-    requestInit.method = init.method;
-  }
-  if (init?.headers !== undefined) {
-    requestInit.headers = init.headers;
-  }
-  const body = init?.body;
-  if (body !== undefined) {
-    requestInit.body =
-      body instanceof Uint8Array ? new Blob([new Uint8Array(body)]) : body;
-  }
-  return fetch(input, requestInit);
-};
 
 export interface VfsHttpCrdtSyncTransportOptions {
   baseUrl?: string;
@@ -71,7 +52,7 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
   constructor(options: VfsHttpCrdtSyncTransportOptions = {}) {
     this.baseUrl = normalizeBaseUrl(options.baseUrl ?? '');
     this.apiPrefix = normalizeApiPrefix(options.apiPrefix ?? '/v1');
-    this.fetchImpl = options.fetchImpl ?? DEFAULT_FETCH_IMPL;
+    this.fetchImpl = options.fetchImpl ?? fetch;
     this.getAuthToken = options.getAuthToken ?? null;
     this.headers = options.headers ?? {};
   }
@@ -194,7 +175,8 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
       }),
       undefined
     );
-    const parsedSession = decodeVfsCrdtSyncSessionResponseProtobuf(responseBytes);
+    const parsedSession =
+      decodeVfsCrdtSyncSessionResponseProtobuf(responseBytes);
     if (
       typeof parsedSession !== 'object' ||
       parsedSession === null ||
@@ -243,12 +225,12 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
   ): Promise<Uint8Array> {
     const requestUrl = this.buildUrl(path, query);
     const headers = await this.buildHeaders(body !== undefined);
-    const requestInit: BinaryRequestInit = {
+    const requestInit: RequestInit = {
       method: body === undefined ? 'GET' : 'POST',
       headers
     };
     if (body !== undefined) {
-      requestInit.body = body;
+      requestInit.body = new Blob([new Uint8Array(body)]);
     }
 
     const response = await this.fetchImpl(requestUrl, requestInit);
@@ -300,9 +282,7 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     return `${base}?${queryString}`;
   }
 
-  private async buildHeaders(
-    hasBody: boolean
-  ): Promise<Headers> {
+  private async buildHeaders(hasBody: boolean): Promise<Headers> {
     const headers = new Headers();
     headers.set('Accept', PROTOBUF_CONTENT_TYPE);
     if (hasBody) {

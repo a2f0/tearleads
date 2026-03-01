@@ -1,11 +1,11 @@
 import { generateKeyPair, type VfsKeyPair } from '@tearleads/shared';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   encodeVfsCrdtPushResponseProtobuf,
   encodeVfsCrdtReconcileResponseProtobuf,
   encodeVfsCrdtSyncResponseProtobuf,
   encodeVfsSyncCursor
 } from '@tearleads/vfs-sync/vfs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   ItemKeyRecord,
   ItemKeyStore,

@@ -3,20 +3,11 @@ import type {
   VfsCrdtPushResponse,
   VfsCrdtReconcileRequest,
   VfsCrdtReconcileResponse,
+  VfsCrdtSyncResponse,
   VfsCrdtSyncSessionRequest,
-  VfsCrdtSyncSessionResponse,
-  VfsCrdtSyncResponse
+  VfsCrdtSyncSessionResponse
 } from '@tearleads/shared';
 import type protobuf from 'protobufjs';
-import {
-  PULL_RESPONSE_TYPE,
-  PUSH_REQUEST_TYPE,
-  PUSH_RESPONSE_TYPE,
-  RECONCILE_REQUEST_TYPE,
-  RECONCILE_RESPONSE_TYPE,
-  SYNC_SESSION_REQUEST_TYPE,
-  SYNC_SESSION_RESPONSE_TYPE
-} from './syncProtobufSchema.js';
 import {
   asRecord,
   decodePushOperation,
@@ -27,6 +18,15 @@ import {
   normalizeWriteIdMap,
   toOperationPayload
 } from './syncProtobufNormalization.js';
+import {
+  PULL_RESPONSE_TYPE,
+  PUSH_REQUEST_TYPE,
+  PUSH_RESPONSE_TYPE,
+  RECONCILE_REQUEST_TYPE,
+  RECONCILE_RESPONSE_TYPE,
+  SYNC_SESSION_REQUEST_TYPE,
+  SYNC_SESSION_RESPONSE_TYPE
+} from './syncProtobufSchema.js';
 
 function toObject(
   type: protobuf.Type,
@@ -44,7 +44,10 @@ function toObject(
     'message'
   );
 }
-function encode(type: protobuf.Type, payload: Record<string, unknown>): Uint8Array {
+function encode(
+  type: protobuf.Type,
+  payload: Record<string, unknown>
+): Uint8Array {
   const verified = type.verify(payload);
   if (verified) {
     throw new Error(`invalid protobuf payload: ${verified}`);
@@ -57,12 +60,12 @@ export function encodeVfsCrdtPushRequestProtobuf(
 ): Uint8Array {
   return encode(PUSH_REQUEST_TYPE, {
     clientId: request.clientId,
-    operations: request.operations.map((operation) => toOperationPayload(operation))
+    operations: request.operations.map((operation) =>
+      toOperationPayload(operation)
+    )
   });
 }
-export function decodeVfsCrdtPushRequestProtobuf(
-  bytes: Uint8Array
-): unknown {
+export function decodeVfsCrdtPushRequestProtobuf(bytes: Uint8Array): unknown {
   const payload = toObject(PUSH_REQUEST_TYPE, bytes);
   const operations = Array.isArray(payload['operations'])
     ? payload['operations'].map((operation) => decodePushOperation(operation))
@@ -83,11 +86,11 @@ export function encodeVfsCrdtPushResponseProtobuf(
     }))
   });
 }
-export function decodeVfsCrdtPushResponseProtobuf(
-  bytes: Uint8Array
-): unknown {
+export function decodeVfsCrdtPushResponseProtobuf(bytes: Uint8Array): unknown {
   const payload = toObject(PUSH_RESPONSE_TYPE, bytes);
-  const rawResults = Array.isArray(payload['results']) ? payload['results'] : [];
+  const rawResults = Array.isArray(payload['results'])
+    ? payload['results']
+    : [];
   return {
     clientId: normalizeRequiredString(payload['clientId'], 'clientId'),
     results: rawResults.map((entry) => {
@@ -109,9 +112,7 @@ export function encodeVfsCrdtSyncResponseProtobuf(
     lastReconciledWriteIds: response.lastReconciledWriteIds
   });
 }
-export function decodeVfsCrdtSyncResponseProtobuf(
-  bytes: Uint8Array
-): unknown {
+export function decodeVfsCrdtSyncResponseProtobuf(bytes: Uint8Array): unknown {
   const payload = toObject(PULL_RESPONSE_TYPE, bytes);
   const rawItems = Array.isArray(payload['items']) ? payload['items'] : [];
   const nextCursor = normalizeOptionalString(payload['nextCursor']) ?? null;
@@ -141,7 +142,9 @@ export function decodeVfsCrdtReconcileRequestProtobuf(
   return {
     clientId: normalizeRequiredString(payload['clientId'], 'clientId'),
     cursor: normalizeRequiredString(payload['cursor'], 'cursor'),
-    lastReconciledWriteIds: normalizeWriteIdMap(payload['lastReconciledWriteIds'])
+    lastReconciledWriteIds: normalizeWriteIdMap(
+      payload['lastReconciledWriteIds']
+    )
   };
 }
 export function encodeVfsCrdtReconcileResponseProtobuf(
@@ -160,7 +163,9 @@ export function decodeVfsCrdtReconcileResponseProtobuf(
   return {
     clientId: normalizeRequiredString(payload['clientId'], 'clientId'),
     cursor: normalizeRequiredString(payload['cursor'], 'cursor'),
-    lastReconciledWriteIds: normalizeWriteIdMap(payload['lastReconciledWriteIds'])
+    lastReconciledWriteIds: normalizeWriteIdMap(
+      payload['lastReconciledWriteIds']
+    )
   };
 }
 export function encodeVfsCrdtSyncSessionRequestProtobuf(
@@ -170,7 +175,9 @@ export function encodeVfsCrdtSyncSessionRequestProtobuf(
     clientId: request.clientId,
     cursor: request.cursor,
     limit: request.limit,
-    operations: request.operations.map((operation) => toOperationPayload(operation)),
+    operations: request.operations.map((operation) =>
+      toOperationPayload(operation)
+    ),
     lastReconciledWriteIds: request.lastReconciledWriteIds ?? {},
     rootId: request.rootId ?? ''
   });
@@ -186,7 +193,9 @@ export function decodeVfsCrdtSyncSessionRequestProtobuf(
     operations: Array.isArray(payload['operations'])
       ? payload['operations'].map((operation) => decodePushOperation(operation))
       : [],
-    lastReconciledWriteIds: normalizeWriteIdMap(payload['lastReconciledWriteIds']),
+    lastReconciledWriteIds: normalizeWriteIdMap(
+      payload['lastReconciledWriteIds']
+    ),
     rootId: normalizeOptionalString(payload['rootId']) ?? null
   };
 }
@@ -243,7 +252,9 @@ export function decodeVfsCrdtSyncSessionResponseProtobuf(
       hasMore: pull['hasMore'] === true,
       nextCursor:
         pullNextCursor && pullNextCursor.length > 0 ? pullNextCursor : null,
-      lastReconciledWriteIds: normalizeWriteIdMap(pull['lastReconciledWriteIds'])
+      lastReconciledWriteIds: normalizeWriteIdMap(
+        pull['lastReconciledWriteIds']
+      )
     },
     reconcile: {
       clientId: normalizeRequiredString(

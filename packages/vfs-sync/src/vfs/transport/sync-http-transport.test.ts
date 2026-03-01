@@ -6,32 +6,46 @@ import {
   decodeVfsCrdtSyncSessionRequestProtobuf,
   encodeVfsCrdtPushResponseProtobuf,
   encodeVfsCrdtReconcileResponseProtobuf,
-  encodeVfsCrdtSyncSessionResponseProtobuf,
-  encodeVfsCrdtSyncResponseProtobuf
+  encodeVfsCrdtSyncResponseProtobuf,
+  encodeVfsCrdtSyncSessionResponseProtobuf
 } from '../protocol/syncProtobuf.js';
 import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
 
+async function readRequestBodyBytes(
+  body: BodyInit | null | undefined
+): Promise<Uint8Array> {
+  if (body instanceof Uint8Array) {
+    return body;
+  }
+  if (body instanceof ArrayBuffer) {
+    return new Uint8Array(body);
+  }
+  if (body instanceof Blob) {
+    const buffer = await body.arrayBuffer();
+    return new Uint8Array(buffer);
+  }
+  throw new Error('expected request body to be protobuf bytes');
+}
+
 describe('VfsHttpCrdtSyncTransport', () => {
   it('pushes operations to the CRDT push endpoint with auth headers', async () => {
-    const fetchMock = vi.fn(
-      async () => {
-        return new Response(
-          encodeVfsCrdtPushResponseProtobuf({
-            clientId: 'desktop',
-            results: [
-              {
-                opId: 'desktop-1',
-                status: 'applied'
-              }
-            ]
-          }),
-          {
-            status: 200,
-            headers: { 'Content-Type': 'application/x-protobuf' }
-          }
-        );
-      }
-    );
+    const fetchMock = vi.fn(async () => {
+      return new Response(
+        encodeVfsCrdtPushResponseProtobuf({
+          clientId: 'desktop',
+          results: [
+            {
+              opId: 'desktop-1',
+              status: 'applied'
+            }
+          ]
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/x-protobuf' }
+        }
+      );
+    });
 
     const transport = new VfsHttpCrdtSyncTransport({
       baseUrl: 'https://sync.example.com',
@@ -72,10 +86,8 @@ describe('VfsHttpCrdtSyncTransport', () => {
     expect(requestUrl).toBe('https://sync.example.com/v1/vfs/crdt/push');
 
     const requestInit = firstCall?.[1];
-    if (!(requestInit?.body instanceof Uint8Array)) {
-      throw new Error('expected push request body to be protobuf bytes');
-    }
-    const decodedBody = decodeVfsCrdtPushRequestProtobuf(requestInit.body);
+    const requestBytes = await readRequestBodyBytes(requestInit?.body);
+    const decodedBody = decodeVfsCrdtPushRequestProtobuf(requestBytes);
     if (
       typeof decodedBody !== 'object' ||
       decodedBody === null ||
@@ -109,40 +121,38 @@ describe('VfsHttpCrdtSyncTransport', () => {
       changeId: 'desktop-2'
     });
 
-    const fetchMock = vi.fn(
-      async () => {
-        return new Response(
-          encodeVfsCrdtSyncResponseProtobuf({
-            items: [
-              {
-                opId: 'desktop-2',
-                itemId: 'item-1',
-                opType: 'acl_add',
-                principalType: 'group',
-                principalId: 'group-1',
-                accessLevel: 'write',
-                parentId: null,
-                childId: null,
-                actorId: 'user-1',
-                sourceTable: 'vfs_crdt_client_push',
-                sourceId: 'user-1:desktop:2:desktop-2',
-                occurredAt: '2026-02-14T20:10:01.000Z'
-              }
-            ],
-            nextCursor,
-            hasMore: true,
-            lastReconciledWriteIds: {
-              desktop: 2,
-              mobile: 5
+    const fetchMock = vi.fn(async () => {
+      return new Response(
+        encodeVfsCrdtSyncResponseProtobuf({
+          items: [
+            {
+              opId: 'desktop-2',
+              itemId: 'item-1',
+              opType: 'acl_add',
+              principalType: 'group',
+              principalId: 'group-1',
+              accessLevel: 'write',
+              parentId: null,
+              childId: null,
+              actorId: 'user-1',
+              sourceTable: 'vfs_crdt_client_push',
+              sourceId: 'user-1:desktop:2:desktop-2',
+              occurredAt: '2026-02-14T20:10:01.000Z'
             }
-          }),
-          {
-            status: 200,
-            headers: { 'Content-Type': 'application/x-protobuf' }
+          ],
+          nextCursor,
+          hasMore: true,
+          lastReconciledWriteIds: {
+            desktop: 2,
+            mobile: 5
           }
-        );
-      }
-    );
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/x-protobuf' }
+        }
+      );
+    });
 
     const transport = new VfsHttpCrdtSyncTransport({
       baseUrl: 'https://sync.example.com',
@@ -186,27 +196,25 @@ describe('VfsHttpCrdtSyncTransport', () => {
   });
 
   it('reconciles cursor/write ids through the CRDT reconcile endpoint', async () => {
-    const fetchMock = vi.fn(
-      async () => {
-        return new Response(
-          encodeVfsCrdtReconcileResponseProtobuf({
-            clientId: 'desktop',
-            cursor: encodeVfsSyncCursor({
-              changedAt: '2026-02-14T20:10:05.000Z',
-              changeId: 'desktop-5'
-            }),
-            lastReconciledWriteIds: {
-              desktop: 5,
-              mobile: 3
-            }
+    const fetchMock = vi.fn(async () => {
+      return new Response(
+        encodeVfsCrdtReconcileResponseProtobuf({
+          clientId: 'desktop',
+          cursor: encodeVfsSyncCursor({
+            changedAt: '2026-02-14T20:10:05.000Z',
+            changeId: 'desktop-5'
           }),
-          {
-            status: 200,
-            headers: { 'Content-Type': 'application/x-protobuf' }
+          lastReconciledWriteIds: {
+            desktop: 5,
+            mobile: 3
           }
-        );
-      }
-    );
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/x-protobuf' }
+        }
+      );
+    });
 
     const transport = new VfsHttpCrdtSyncTransport({
       baseUrl: 'https://sync.example.com',
@@ -347,10 +355,8 @@ describe('VfsHttpCrdtSyncTransport', () => {
     const requestUrl = firstCall?.[0];
     expect(requestUrl).toBe('https://sync.example.com/v1/vfs/crdt/session');
     const requestInit = firstCall?.[1];
-    if (!(requestInit?.body instanceof Uint8Array)) {
-      throw new Error('expected sync session request body to be protobuf bytes');
-    }
-    const decodedBody = decodeVfsCrdtSyncSessionRequestProtobuf(requestInit.body);
+    const requestBytes = await readRequestBodyBytes(requestInit?.body);
+    const decodedBody = decodeVfsCrdtSyncSessionRequestProtobuf(requestBytes);
     if (
       typeof decodedBody !== 'object' ||
       decodedBody === null ||

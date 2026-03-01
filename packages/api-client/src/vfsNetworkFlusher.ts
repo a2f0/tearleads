@@ -1,3 +1,4 @@
+import type { VfsAclAccessLevel, VfsAclPrincipalType } from '@tearleads/shared';
 import {
   type QueueVfsCrdtLocalOperationInput,
   VfsBackgroundSyncClient,
@@ -12,7 +13,6 @@ import {
   type VfsHttpCrdtSyncTransportOptions,
   type VfsSyncCursor
 } from '@tearleads/vfs-sync/vfs';
-import type { VfsAclAccessLevel, VfsAclPrincipalType } from '@tearleads/shared';
 import { fetchWithAuthRefresh } from './vfsAuthFetch';
 
 export interface VfsApiCrdtTransportOptions
@@ -143,7 +143,9 @@ function parseLastReconciledWriteIds(
   return Object.fromEntries(entries);
 }
 
-function parseServerRematerializedState(value: unknown): VfsRematerializedState | null {
+function parseServerRematerializedState(
+  value: unknown
+): VfsRematerializedState | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -365,29 +367,24 @@ export class VfsApiNetworkFlusher {
       userHandler: options.onRematerializationRequired
     });
 
-    this.client = new VfsBackgroundSyncClient(
-      userId,
-      clientId,
-      transport,
-      {
-        ...(options.pullLimit !== undefined && {
-          pullLimit: options.pullLimit
-        }),
-        ...(options.now !== undefined && { now: options.now }),
-        ...(options.maxRematerializationAttempts !== undefined && {
-          maxRematerializationAttempts: options.maxRematerializationAttempts
-        }),
-        ...(onRematerializationRequired !== undefined && {
-          onRematerializationRequired
-        }),
-        ...(options.onBackgroundError !== undefined && {
-          onBackgroundError: options.onBackgroundError
-        }),
-        ...(options.onGuardrailViolation !== undefined && {
-          onGuardrailViolation: options.onGuardrailViolation
-        })
-      }
-    );
+    this.client = new VfsBackgroundSyncClient(userId, clientId, transport, {
+      ...(options.pullLimit !== undefined && {
+        pullLimit: options.pullLimit
+      }),
+      ...(options.now !== undefined && { now: options.now }),
+      ...(options.maxRematerializationAttempts !== undefined && {
+        maxRematerializationAttempts: options.maxRematerializationAttempts
+      }),
+      ...(onRematerializationRequired !== undefined && {
+        onRematerializationRequired
+      }),
+      ...(options.onBackgroundError !== undefined && {
+        onBackgroundError: options.onBackgroundError
+      }),
+      ...(options.onGuardrailViolation !== undefined && {
+        onGuardrailViolation: options.onGuardrailViolation
+      })
+    });
     this.saveState = options.saveState ?? null;
     this.loadState = options.loadState ?? null;
   }

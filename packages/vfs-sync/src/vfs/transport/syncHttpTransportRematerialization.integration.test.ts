@@ -56,15 +56,10 @@ describe('VfsHttpCrdtSyncTransport rematerialization integration', () => {
       fetchImpl
     });
 
-    const client = new VfsBackgroundSyncClient(
-      'user-1',
-      'mobile',
-      transport,
-      {
-        onRematerializationRequired,
-        onGuardrailViolation: guardrailCollector.onGuardrailViolation
-      }
-    );
+    const client = new VfsBackgroundSyncClient('user-1', 'mobile', transport, {
+      onRematerializationRequired,
+      onGuardrailViolation: guardrailCollector.onGuardrailViolation
+    });
 
     await client.sync();
 
@@ -99,12 +94,9 @@ describe('VfsHttpCrdtSyncTransport rematerialization integration', () => {
       fetchImpl
     });
 
-    const client = new VfsBackgroundSyncClient(
-      'user-1',
-      'mobile',
-      transport,
-      { onRematerializationRequired }
-    );
+    const client = new VfsBackgroundSyncClient('user-1', 'mobile', transport, {
+      onRematerializationRequired
+    });
 
     await expect(client.sync()).rejects.toThrow(/persistent stale cursor/);
 

@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   encodeVfsCrdtPushResponseProtobuf,
   encodeVfsCrdtReconcileResponseProtobuf,
   encodeVfsCrdtSyncResponseProtobuf,
   encodeVfsSyncCursor
 } from '@tearleads/vfs-sync/vfs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('vfsWriteOrchestrator encrypted blob flush', () => {
   const originalFetch = global.fetch;

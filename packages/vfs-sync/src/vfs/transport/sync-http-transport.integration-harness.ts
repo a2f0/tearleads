@@ -5,16 +5,16 @@ import {
 } from '../index.js';
 import type { VfsCrdtOperation } from '../protocol/sync-crdt.js';
 import {
+  decodeVfsSyncCursor,
+  encodeVfsSyncCursor
+} from '../protocol/sync-cursor.js';
+import {
   decodeVfsCrdtPushRequestProtobuf,
   decodeVfsCrdtReconcileRequestProtobuf,
   encodeVfsCrdtPushResponseProtobuf,
   encodeVfsCrdtReconcileResponseProtobuf,
   encodeVfsCrdtSyncResponseProtobuf
 } from '../protocol/syncProtobuf.js';
-import {
-  decodeVfsSyncCursor,
-  encodeVfsSyncCursor
-} from '../protocol/sync-cursor.js';
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -289,13 +289,22 @@ export function createServerBackedFetch(
       const clientId = parseRequiredString(pushBody['clientId'], 'clientId');
       const operations = parsePushOperations(pushBody['operations']);
 
-      if (clientId === 'desktop' && typeof delays.desktopPushDelayMs === 'number') {
+      if (
+        clientId === 'desktop' &&
+        typeof delays.desktopPushDelayMs === 'number'
+      ) {
         await wait(delays.desktopPushDelayMs);
       }
-      if (clientId === 'mobile' && typeof delays.mobilePushDelayMs === 'number') {
+      if (
+        clientId === 'mobile' &&
+        typeof delays.mobilePushDelayMs === 'number'
+      ) {
         await wait(delays.mobilePushDelayMs);
       }
-      if (clientId === 'tablet' && typeof delays.tabletPushDelayMs === 'number') {
+      if (
+        clientId === 'tablet' &&
+        typeof delays.tabletPushDelayMs === 'number'
+      ) {
         await wait(delays.tabletPushDelayMs);
       }
 
@@ -315,7 +324,10 @@ export function createServerBackedFetch(
       );
     }
 
-    if (url.pathname === '/v1/vfs/crdt/vfs-sync' && (init?.method ?? 'GET') === 'GET') {
+    if (
+      url.pathname === '/v1/vfs/crdt/vfs-sync' &&
+      (init?.method ?? 'GET') === 'GET'
+    ) {
       const interceptedResponse = options.interceptPullResponse?.();
       if (interceptedResponse) {
         return interceptedResponse;
@@ -358,14 +370,20 @@ export function createServerBackedFetch(
       });
     }
 
-    if (url.pathname === '/v1/vfs/crdt/reconcile' && (init?.method ?? 'POST') === 'POST') {
+    if (
+      url.pathname === '/v1/vfs/crdt/reconcile' &&
+      (init?.method ?? 'POST') === 'POST'
+    ) {
       const body = asRecord(
         decodeVfsCrdtReconcileRequestProtobuf(readRequestBytes(init)),
         'reconcile request'
       );
       const cursorRaw = parseRequiredString(body['cursor'], 'cursor');
       const cursor = decodeVfsSyncCursor(cursorRaw);
-      if (!cursor) throw new Error('Integration harness failed to decode cursor in reconcile');
+      if (!cursor)
+        throw new Error(
+          'Integration harness failed to decode cursor in reconcile'
+        );
 
       const clientId = parseRequiredString(body['clientId'], 'clientId');
       const lastReconciledWriteIds =
@@ -389,7 +407,8 @@ export function createServerBackedFetch(
             {
               clientId,
               cursor: encodeVfsSyncCursor(reconcileResult.state.cursor),
-              lastReconciledWriteIds: reconcileResult.state.lastReconciledWriteIds
+              lastReconciledWriteIds:
+                reconcileResult.state.lastReconciledWriteIds
             },
             {
               body: {
@@ -418,6 +437,8 @@ export function createServerBackedFetch(
       );
     }
 
-    return new Response(JSON.stringify({ error: 'not found' }), { status: 404 });
+    return new Response(JSON.stringify({ error: 'not found' }), {
+      status: 404
+    });
   };
 }
