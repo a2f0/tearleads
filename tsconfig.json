@@ -50,6 +50,7 @@
     { "path": "./packages/db-test-utils/tsconfig.test.json" },
     { "path": "./packages/msw" },
     { "path": "./packages/msw/tsconfig.test.json" },
+    { "path": "./packages/mls-core" },
     { "path": "./packages/mls-chat" },
     { "path": "./packages/bob-and-alice" },
     { "path": "./packages/bob-and-alice/tsconfig.test.json" },
