@@ -478,5 +478,4 @@ describe('vfsRematerialization integration', () => {
     );
     await expect(foreignKeysEnabled()).resolves.toBe(true);
   });
-
 });
