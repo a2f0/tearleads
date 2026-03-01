@@ -1,6 +1,7 @@
 import '../test/setupIntegration';
 
 import {
+  notes,
   vfsAclEntries,
   vfsItemState,
   vfsLinks,
@@ -76,6 +77,7 @@ describe('vfsRematerialization integration', () => {
           changeType: 'upsert',
           changedAt: '2026-01-01T00:00:01.000Z',
           objectType: 'folder',
+          encryptedName: 'Root Item',
           ownerId: 'user-1',
           createdAt: '2026-01-01T00:00:00.000Z',
           accessLevel: 'admin'
@@ -86,6 +88,7 @@ describe('vfsRematerialization integration', () => {
           changeType: 'upsert',
           changedAt: '2026-01-01T00:00:02.000Z',
           objectType: 'note',
+          encryptedName: 'Shared note for Alice',
           ownerId: 'user-1',
           createdAt: '2026-01-01T00:00:02.000Z',
           accessLevel: 'admin'
@@ -168,8 +171,21 @@ describe('vfsRematerialization integration', () => {
     const db = getDatabase();
     const registryRows = await db.select().from(vfsRegistry);
     const linkRows = await db.select().from(vfsLinks);
+    const noteRows = await db.select().from(notes);
 
     expect(registryRows).toHaveLength(2);
+    expect(registryRows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'root-item',
+          encryptedName: 'Root Item'
+        }),
+        expect.objectContaining({
+          id: 'child-item',
+          encryptedName: 'Shared note for Alice'
+        })
+      ])
+    );
     expect(linkRows).toEqual([
       expect.objectContaining({
         id: 'link:root-item:child-item',
@@ -207,6 +223,70 @@ describe('vfsRematerialization integration', () => {
         ])
       );
     }
+    expect(noteRows).toEqual([
+      expect.objectContaining({
+        id: 'child-item',
+        title: 'Untitled Note',
+        content: '',
+        deleted: false
+      })
+    ]);
+  });
+
+  it('retains links to __vfs_root__ even when root is not in synced registry rows', async () => {
+    mockGetSync.mockResolvedValueOnce({
+      items: [
+        {
+          changeId: 'change-10',
+          itemId: 'folder-item',
+          changeType: 'upsert',
+          changedAt: '2026-01-01T01:00:01.000Z',
+          objectType: 'folder',
+          encryptedName: 'Notes shared with Alice',
+          ownerId: 'user-1',
+          createdAt: '2026-01-01T01:00:00.000Z',
+          accessLevel: 'admin'
+        }
+      ],
+      nextCursor: null,
+      hasMore: false
+    });
+
+    mockGetCrdtSync.mockResolvedValueOnce({
+      items: [
+        {
+          opId: 'op-root-link',
+          itemId: 'folder-item',
+          opType: 'link_add',
+          principalType: null,
+          principalId: null,
+          accessLevel: null,
+          parentId: '__vfs_root__',
+          childId: 'folder-item',
+          actorId: 'user-1',
+          sourceTable: 'vfs_links',
+          sourceId: 'source-root-link',
+          occurredAt: '2026-01-01T01:00:02.000Z'
+        }
+      ],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {}
+    });
+
+    await expect(rematerializeRemoteVfsStateIfNeeded()).resolves.toBe(true);
+
+    const db = getDatabase();
+    const linkRows = await db.select().from(vfsLinks);
+    expect(linkRows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'link:__vfs_root__:folder-item',
+          parentId: '__vfs_root__',
+          childId: 'folder-item'
+        })
+      ])
+    );
   });
 
   it('skips rematerialization when local registry already contains data', async () => {
@@ -355,6 +435,7 @@ describe('vfsRematerialization integration', () => {
 
     const db = getDatabase();
     const registryRows = await db.select().from(vfsRegistry);
+    const noteRows = await db.select().from(notes);
     expect(registryRows).toEqual([
       expect.objectContaining({
         id: 'root-item',
@@ -362,6 +443,7 @@ describe('vfsRematerialization integration', () => {
         ownerId: 'user-2'
       })
     ]);
+    expect(noteRows).toHaveLength(0);
   });
 
   it('re-enables foreign key enforcement when rematerialization fails mid-write', async () => {
