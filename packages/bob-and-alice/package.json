@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/bob-and-alice",
-  "version": "0.0.18",
+  "version": "0.0.19",
   "private": true,
   "description": "End-to-end integration tests simulating multi-user CRDT sync",
   "type": "module",
