@@ -29,6 +29,7 @@ import { v025 } from './v025';
 import { v026 } from './v026';
 import { v027 } from './v027';
 import { v028 } from './v028';
+import { v029 } from './v029';
 
 /**
  * All migrations in order. Add new migrations to this array.
@@ -62,7 +63,8 @@ export const migrations: Migration[] = [
   v025,
   v026,
   v027,
-  v028
+  v028,
+  v029
 ];
 
 /**
