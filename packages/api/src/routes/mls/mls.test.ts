@@ -320,4 +320,28 @@ describe('MLS routes', () => {
       );
     });
   });
+
+  describe('MLS payload validation hardening', () => {
+    it('rejects oversized key package uploads', async () => {
+      const authHeader = await createAuthHeader({
+        id: 'user-1',
+        email: 'user-1@example.com'
+      });
+
+      const oversizedBatch = Array.from({ length: 101 }, (_, index) => ({
+        keyPackageData: `kp-data-${index}`,
+        keyPackageRef: `kp-ref-${index}`,
+        cipherSuite: MLS_CIPHERSUITES.X25519_CHACHA20_SHA256_ED25519
+      }));
+
+      const response = await request(app)
+        .post('/v1/mls/key-packages')
+        .set('Authorization', authHeader)
+        .send({ keyPackages: oversizedBatch });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: 'Invalid key packages payload' });
+      expect(mockQuery).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -1,4 +1,3 @@
-import { MLS_CIPHERSUITES } from '@tearleads/shared';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
@@ -52,6 +51,14 @@ describe('MLS VFS message routes', () => {
   });
 
   describe('GET /v1/vfs/mls/groups/:groupId/messages', () => {
+    it('returns 401 when unauthenticated', async () => {
+      const response = await request(app).get('/v1/vfs/mls/groups/group-1/messages');
+
+      expect(response.status).toBe(401);
+      expect(response.body).toEqual({ error: 'Unauthorized' });
+      expect(mockQuery).not.toHaveBeenCalled();
+    });
+
     it('returns 400 for non-positive limit values', async () => {
       const authHeader = await createAuthHeader({
         id: 'user-1',
@@ -153,9 +160,126 @@ describe('MLS VFS message routes', () => {
         hasMore: false
       });
     });
+
+    it('returns cursor when additional pages are available', async () => {
+      const authHeader = await createAuthHeader({
+        id: 'user-1',
+        email: 'user-1@example.com'
+      });
+
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ role: 'member', organization_id: 'org-1' }]
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'msg-2',
+              group_id: 'group-1',
+              sender_user_id: 'user-2',
+              epoch: 3,
+              ciphertext: 'ciphertext-2',
+              message_type: 'application',
+              content_type: 'text/plain',
+              sequence_number: 2,
+              created_at: new Date('2026-03-01T00:00:01.000Z'),
+              sender_email: null
+            },
+            {
+              id: 'msg-1',
+              group_id: 'group-1',
+              sender_user_id: 'user-2',
+              epoch: 3,
+              ciphertext: 'ciphertext-1',
+              message_type: 'application',
+              content_type: 'text/plain',
+              sequence_number: 1,
+              created_at: new Date('2026-03-01T00:00:00.000Z'),
+              sender_email: null
+            }
+          ]
+        });
+
+      const response = await request(app)
+        .get('/v1/vfs/mls/groups/group-1/messages?limit=1')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        messages: [
+          {
+            id: 'msg-2',
+            groupId: 'group-1',
+            senderUserId: 'user-2',
+            epoch: 3,
+            ciphertext: 'ciphertext-2',
+            messageType: 'application',
+            contentType: 'text/plain',
+            sequenceNumber: 2,
+            sentAt: '2026-03-01T00:00:01.000Z',
+            createdAt: '2026-03-01T00:00:01.000Z'
+          }
+        ],
+        hasMore: true,
+        cursor: '2'
+      });
+    });
+
+    it('returns 500 when message query fails', async () => {
+      const authHeader = await createAuthHeader({
+        id: 'user-1',
+        email: 'user-1@example.com'
+      });
+
+      const restoreConsoleError = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ role: 'member', organization_id: 'org-1' }]
+        })
+        .mockRejectedValueOnce(new Error('query failed'));
+
+      const response = await request(app)
+        .get('/v1/vfs/mls/groups/group-1/messages')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'Failed to get messages' });
+      restoreConsoleError.mockRestore();
+    });
   });
 
   describe('POST /v1/vfs/mls/groups/:groupId/messages', () => {
+    it('returns 401 when unauthenticated', async () => {
+      const response = await request(app).post('/v1/vfs/mls/groups/group-1/messages');
+
+      expect(response.status).toBe(401);
+      expect(response.body).toEqual({ error: 'Unauthorized' });
+      expect(mockQuery).not.toHaveBeenCalled();
+    });
+
+    it('returns 403 when user is not an active group member', async () => {
+      const authHeader = await createAuthHeader({
+        id: 'user-1',
+        email: 'user-1@example.com'
+      });
+
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .post('/v1/vfs/mls/groups/group-1/messages')
+        .set('Authorization', authHeader)
+        .send({
+          ciphertext: 'ciphertext',
+          epoch: 2,
+          messageType: 'application'
+        });
+
+      expect(response.status).toBe(403);
+      expect(response.body).toEqual({ error: 'Not a member of this group' });
+    });
+
     it('mirrors application messages into VFS tables and CRDT feed', async () => {
       const authHeader = await createAuthHeader({
         id: 'user-1',
@@ -250,6 +374,33 @@ describe('MLS VFS message routes', () => {
       expect(mockQuery).toHaveBeenCalledTimes(4);
     });
 
+    it('returns 404 when target group no longer exists', async () => {
+      const authHeader = await createAuthHeader({
+        id: 'user-1',
+        email: 'user-1@example.com'
+      });
+
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ role: 'member', organization_id: 'org-1' }]
+        })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .post('/v1/vfs/mls/groups/group-1/messages')
+        .set('Authorization', authHeader)
+        .send({
+          ciphertext: 'ciphertext',
+          epoch: 2,
+          messageType: 'application'
+        });
+
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: 'Group not found' });
+    });
+
     it('rejects non-integer epochs in send-message payloads', async () => {
       const authHeader = await createAuthHeader({
         id: 'user-1',
@@ -291,29 +442,37 @@ describe('MLS VFS message routes', () => {
       });
       expect(mockQuery).not.toHaveBeenCalled();
     });
-  });
 
-  describe('MLS payload validation hardening', () => {
-    it('rejects oversized key package uploads', async () => {
+    it('returns 500 when transaction writes fail', async () => {
       const authHeader = await createAuthHeader({
         id: 'user-1',
         email: 'user-1@example.com'
       });
 
-      const oversizedBatch = Array.from({ length: 101 }, (_, index) => ({
-        keyPackageData: `kp-data-${index}`,
-        keyPackageRef: `kp-ref-${index}`,
-        cipherSuite: MLS_CIPHERSUITES.X25519_CHACHA20_SHA256_ED25519
-      }));
+      const restoreConsoleError = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ role: 'member', organization_id: 'org-1' }]
+        })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ current_epoch: 2 }] })
+        .mockRejectedValueOnce(new Error('count failed'))
+        .mockResolvedValueOnce({ rows: [] });
 
       const response = await request(app)
-        .post('/v1/mls/key-packages')
+        .post('/v1/vfs/mls/groups/group-1/messages')
         .set('Authorization', authHeader)
-        .send({ keyPackages: oversizedBatch });
+        .send({
+          ciphertext: 'ciphertext',
+          epoch: 2,
+          messageType: 'application'
+        });
 
-      expect(response.status).toBe(400);
-      expect(response.body).toEqual({ error: 'Invalid key packages payload' });
-      expect(mockQuery).not.toHaveBeenCalled();
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'Failed to send message' });
+      restoreConsoleError.mockRestore();
     });
   });
 });
