@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/compliance",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "Compliance docs browser for Tearleads",
   "type": "module",
   "main": "dist/index.js",
