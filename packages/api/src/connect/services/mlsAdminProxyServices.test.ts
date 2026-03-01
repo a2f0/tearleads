@@ -366,4 +366,33 @@ describe('mls and admin proxy services', () => {
       expectLastFetch(testCase.url, testCase.method, testCase.body);
     }
   });
+
+  it('omits optional admin query params when values are empty', async () => {
+    const context = createTestContext();
+
+    mockJsonResponse();
+    await adminConnectService.getRows(
+      {
+        schema: 'public',
+        table: 'users',
+        limit: 0,
+        offset: -1,
+        sortColumn: '',
+        sortDirection: ' '
+      },
+      context
+    );
+    expectLastFetch(
+      'http://127.0.0.1:55661/v1/admin/postgres/tables/public/users/rows',
+      'GET'
+    );
+
+    mockJsonResponse();
+    await adminConnectService.getRedisKeys({ cursor: '', limit: 0 }, context);
+    expectLastFetch('http://127.0.0.1:55661/v1/admin/redis/keys', 'GET');
+
+    mockJsonResponse();
+    await adminConnectService.listGroups({ organizationId: '' }, context);
+    expectLastFetch('http://127.0.0.1:55661/v1/admin/groups', 'GET');
+  });
 });

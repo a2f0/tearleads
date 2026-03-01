@@ -287,4 +287,47 @@ describe('vfs proxy services', () => {
       expectLastFetch(testCase.url, testCase.method, testCase.body);
     }
   });
+
+  it('omits optional query params for empty values in vfs and shares services', async () => {
+    const context = createTestContext();
+
+    fetchMock.mockResolvedValueOnce(new Response(new Uint8Array([10]), { status: 200 }));
+    const blobResponse = await vfsConnectService.getBlob(
+      { blobId: 'blob-no-content-type' },
+      context
+    );
+    expect(blobResponse.contentType).toBeUndefined();
+    expectLastFetch(
+      'http://127.0.0.1:55661/v1/vfs/blobs/blob-no-content-type',
+      'GET'
+    );
+
+    mockJsonResponse();
+    await vfsConnectService.getSync({ cursor: '', limit: 0, rootId: '  ' }, context);
+    expectLastFetch('http://127.0.0.1:55661/v1/vfs/vfs-sync', 'GET');
+
+    mockJsonResponse();
+    await vfsConnectService.getCrdtSnapshot({ clientId: '' }, context);
+    expectLastFetch('http://127.0.0.1:55661/v1/vfs/crdt/snapshot', 'GET');
+
+    mockJsonResponse();
+    await vfsConnectService.getEmails({ offset: -1, limit: 0 }, context);
+    expectLastFetch('http://127.0.0.1:55661/v1/vfs/emails', 'GET');
+
+    mockJsonResponse();
+    await vfsSharesConnectService.getSharePolicyPreview(
+      {
+        rootItemId: '',
+        principalType: '',
+        principalId: '',
+        limit: 0,
+        cursor: ' ',
+        maxDepth: 0,
+        q: '',
+        objectType: []
+      },
+      context
+    );
+    expectLastFetch('http://127.0.0.1:55661/v1/vfs/share-policies/preview', 'GET');
+  });
 });
