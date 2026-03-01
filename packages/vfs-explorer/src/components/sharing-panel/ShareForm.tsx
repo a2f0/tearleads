@@ -1,10 +1,11 @@
 import type { VfsPermissionLevel, VfsShareType } from '@tearleads/shared';
-import { Calendar, Loader2, X } from 'lucide-react';
+import { Calendar, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useVfsExplorerContext } from '../../context';
 import { useShareTargetSearch } from '../../hooks';
 import { cn } from '../../lib';
 import { SharePermissionSelect } from './SharePermissionSelect';
+import { ShareTargetPicker } from './ShareTargetPicker';
 import { SHARE_TYPE_ICONS, SHARE_TYPE_LABELS } from './types';
 
 interface ShareFormProps {
@@ -98,14 +99,7 @@ export function ShareForm({
     } finally {
       setIsAdding(false);
     }
-  }, [
-    selectedTargetId,
-    shareType,
-    permissionLevel,
-    expiresAt,
-    createShare,
-    onShareCreated
-  ]);
+  }, [selectedTargetId, shareType, permissionLevel, expiresAt, createShare, onShareCreated]);
 
   return (
     <div
@@ -136,65 +130,18 @@ export function ShareForm({
         })}
       </div>
 
-      {/* Target search */}
-      {selectedTargetId ? (
-        <div className="flex items-center gap-2 rounded border bg-muted/50 px-2 py-1">
-          {(() => {
-            const SelectedIcon = SHARE_TYPE_ICONS[shareType];
-            return (
-              <SelectedIcon className="h-4 w-4 text-muted-foreground" />
-            );
-          })()}
-          <span className="flex-1 truncate text-sm">{selectedTargetName}</span>
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-foreground"
-            onClick={handleClearTarget}
-          >
-            <X className="h-3 w-3" />
-          </button>
-        </div>
-      ) : (
-        <div className="relative">
-          <Input
-            type="text"
-            placeholder={`Search ${SHARE_TYPE_LABELS[shareType].toLowerCase()}s...`}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="text-base"
-            data-testid="share-target-search"
-          />
-          {searchLoading && (
-            <Loader2 className="absolute top-1/2 right-2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-          )}
-          {searchResults.length > 0 && (
-            <div className="absolute top-full right-0 left-0 z-10 mt-1 max-h-40 overflow-y-auto rounded border bg-background shadow-lg">
-              {searchResults.map((result) => {
-                const ResultIcon = SHARE_TYPE_ICONS[result.type];
-                return (
-                  <button
-                    key={result.id}
-                    type="button"
-                    className="flex w-full items-center gap-2 px-2 py-1.5 text-left hover:bg-accent"
-                    onClick={() => handleSelectTarget(result.id, result.name)}
-                    data-testid="share-target-result"
-                  >
-                    <ResultIcon className="h-4 w-4 text-muted-foreground" />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm">{result.name}</div>
-                      {result.description && (
-                        <div className="truncate text-muted-foreground text-xs">
-                          {result.description}
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+      <ShareTargetPicker
+        Input={Input}
+        shareType={shareType}
+        selectedTargetId={selectedTargetId}
+        selectedTargetName={selectedTargetName}
+        searchQuery={searchQuery}
+        searchResults={searchResults}
+        searchLoading={searchLoading}
+        onSearchQueryChange={setSearchQuery}
+        onSelectTarget={handleSelectTarget}
+        onClearTarget={handleClearTarget}
+      />
 
       {/* Permission selector */}
       <div>
