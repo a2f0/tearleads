@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  type BrowserRuntimeActor,
   createBrowserRuntimeActor,
   pullRemoteFeedsWithoutLocalHydration,
   queryLocalSharedByMe,
   queryLocalSharedWithMe,
-  teardownBrowserRuntimeActors,
-  type BrowserRuntimeActor,
-  type RuntimeApiActor
+  type RuntimeApiActor,
+  teardownBrowserRuntimeActors
 } from './browserRuntimeHarness.js';
 
 describe('browserRuntimeHarness', () => {
@@ -122,7 +122,10 @@ describe('browserRuntimeHarness', () => {
       ]
     );
 
-    const sharedByMe = await queryLocalSharedByMe(runtimeActor.localDb, 'owner-id');
+    const sharedByMe = await queryLocalSharedByMe(
+      runtimeActor.localDb,
+      'owner-id'
+    );
     expect(sharedByMe).toEqual([
       {
         id: 'item-1',
