@@ -251,13 +251,17 @@ export async function tagPrWithReviewerWithOctokit(
       name: newLabel
     });
   } catch {
-    await context.octokit.rest.issues.createLabel({
-      owner: context.owner,
-      repo: context.repo,
-      name: newLabel,
-      description: `Reviewed by ${reviewer}`,
-      color: '0E8A16'
-    });
+    try {
+      await context.octokit.rest.issues.createLabel({
+        owner: context.owner,
+        repo: context.repo,
+        name: newLabel,
+        description: `Reviewed by ${reviewer}`,
+        color: '0E8A16'
+      });
+    } catch {
+      // Label may have been created concurrently by another agent
+    }
   }
 
   await context.octokit.rest.issues.addLabels({
