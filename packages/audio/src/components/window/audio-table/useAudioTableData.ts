@@ -7,17 +7,30 @@ import {
   type AudioWithUrl,
   useAudioUIContext
 } from '../../../context/AudioUIContext';
+import { parseAlbumId } from '../../../lib/albumUtils';
 import { ALL_AUDIO_ID } from '../AudioPlaylistsSidebar';
 import type { SortColumn, SortDirection } from './types';
 
 interface UseAudioTableDataOptions {
   selectedPlaylistId?: string | null | undefined;
+  selectedAlbumId?: string | null | undefined;
   showDeleted?: boolean | undefined;
   refreshToken?: number | undefined;
 }
 
+function normalizeAlbumValue(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const normalized = value.trim().toLocaleLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function toUint8Array(data: ArrayBuffer | Uint8Array): Uint8Array {
+  return data instanceof Uint8Array ? data : new Uint8Array(data);
+}
+
 export function useAudioTableData({
   selectedPlaylistId,
+  selectedAlbumId,
   showDeleted = false,
   refreshToken = 0
 }: UseAudioTableDataOptions) {
@@ -25,7 +38,10 @@ export function useAudioTableData({
     databaseState,
     fetchAudioFilesWithUrls,
     getTrackIdsInPlaylist,
-    logError
+    logError,
+    logWarn,
+    retrieveFile,
+    extractAudioMetadata
   } = useAudioUIContext();
   const { isUnlocked, currentInstanceId } = databaseState;
 
@@ -57,7 +73,53 @@ export function useAudioTableData({
         trackIds ?? undefined,
         showDeleted
       );
-      setTracks(tracksWithUrls);
+
+      let nextTracks = tracksWithUrls;
+      if (selectedAlbumId) {
+        const selectedAlbum = parseAlbumId(selectedAlbumId);
+        const selectedAlbumName = normalizeAlbumValue(selectedAlbum?.name);
+        const selectedAlbumArtist = normalizeAlbumValue(selectedAlbum?.artist);
+
+        if (!selectedAlbumName) {
+          nextTracks = [];
+        } else {
+          const filteredTracks = await Promise.all(
+            tracksWithUrls.map(async (track) => {
+              try {
+                const rawTrackData = await retrieveFile(track.storagePath);
+                const metadata = await extractAudioMetadata(
+                  toUint8Array(rawTrackData),
+                  track.mimeType
+                );
+                const trackAlbumName = normalizeAlbumValue(metadata?.album);
+                if (trackAlbumName !== selectedAlbumName) {
+                  return null;
+                }
+
+                if (!selectedAlbumArtist) {
+                  return track;
+                }
+
+                const trackAlbumArtist = normalizeAlbumValue(
+                  metadata?.albumArtist
+                );
+                return trackAlbumArtist === selectedAlbumArtist ? track : null;
+              } catch (err) {
+                logWarn(
+                  'Failed to evaluate track for album filtering',
+                  err instanceof Error ? err.message : String(err)
+                );
+                return null;
+              }
+            })
+          );
+          nextTracks = filteredTracks.filter(
+            (track): track is AudioWithUrl => track !== null
+          );
+        }
+      }
+
+      setTracks(nextTracks);
       setHasFetched(true);
     } catch (err) {
       logError('Failed to fetch tracks', String(err));
@@ -70,7 +132,11 @@ export function useAudioTableData({
     fetchAudioFilesWithUrls,
     getTrackIdsInPlaylist,
     isUnlocked,
+    extractAudioMetadata,
     logError,
+    logWarn,
+    retrieveFile,
+    selectedAlbumId,
     selectedPlaylistId,
     showDeleted
   ]);
@@ -78,7 +144,9 @@ export function useAudioTableData({
   const fetchedForFilterRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const filterKey = selectedPlaylistId ?? ALL_AUDIO_ID;
+    const playlistFilterKey = selectedPlaylistId ?? ALL_AUDIO_ID;
+    const albumFilterKey = selectedAlbumId ?? 'all-albums';
+    const filterKey = `${playlistFilterKey}:${albumFilterKey}`;
     const fetchKey = `${currentInstanceId ?? 'none'}:${filterKey}:${showDeleted ? 'all' : 'active'}`;
 
     const needsFetch =
@@ -119,6 +187,7 @@ export function useAudioTableData({
     hasFetched,
     isUnlocked,
     loading,
+    selectedAlbumId,
     selectedPlaylistId,
     showDeleted,
     tracks
