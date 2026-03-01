@@ -32,10 +32,13 @@ _api_read_env_value() {
   fi
 
   awk -v key="${key}" '
-    BEGIN { pattern = "^[[:space:]]*(export[[:space:]]+)?" key "=" }
+    BEGIN {
+      pattern = "^[[:space:]]*(export[[:space:]]+)?" key "[[:space:]]*="
+    }
     $0 ~ pattern {
       line = $0
-      sub("^[^=]*=", "", line)
+      sub(/^[[:space:]]*(export[[:space:]]+)?/, "", line)
+      sub("^" key "[[:space:]]*=", "", line)
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
       if (line ~ /^".*"$/ || line ~ /^\047.*\047$/) {
         line = substr(line, 2, length(line) - 2)

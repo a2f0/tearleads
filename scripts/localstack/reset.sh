@@ -65,7 +65,7 @@ run_aws_cli() {
     -e AWS_ACCESS_KEY_ID="${VFS_BLOB_S3_ACCESS_KEY_ID}" \
     -e AWS_SECRET_ACCESS_KEY="${VFS_BLOB_S3_SECRET_ACCESS_KEY}" \
     -e AWS_DEFAULT_REGION="${VFS_BLOB_S3_REGION}" \
-    amazon/aws-cli:latest \
+    amazon/aws-cli:2.15.40 \
     --endpoint-url "${docker_endpoint}" "$@"
 }
 
