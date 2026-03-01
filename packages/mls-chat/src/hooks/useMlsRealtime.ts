@@ -9,8 +9,7 @@ import { isRecord } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useMlsChatApi } from '../context/index.js';
-import type { SseConnectionState } from '../lib/index.js';
-import type { MlsClient } from '../lib/index.js';
+import type { MlsClient, SseConnectionState } from '../lib/index.js';
 import { uploadGroupStateSnapshot } from './groupStateSync.js';
 
 interface UseMlsRealtimeResult {

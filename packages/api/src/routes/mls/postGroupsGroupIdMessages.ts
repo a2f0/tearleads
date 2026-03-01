@@ -63,12 +63,7 @@ async function mirrorApplicationMessageToVfs(input: VfsMirrorInput) {
       updated_at = EXCLUDED.updated_at,
       deleted_at = NULL
     `,
-    [
-      input.messageId,
-      input.ciphertext,
-      input.epoch,
-      input.occurredAtIso
-    ]
+    [input.messageId, input.ciphertext, input.epoch, input.occurredAtIso]
   );
 
   await pool.query(
@@ -107,12 +102,7 @@ async function mirrorApplicationMessageToVfs(input: VfsMirrorInput) {
       revoked_at = NULL,
       expires_at = NULL
     `,
-    [
-      input.messageId,
-      input.senderUserId,
-      input.occurredAtIso,
-      input.groupId
-    ]
+    [input.messageId, input.senderUserId, input.occurredAtIso, input.groupId]
   );
 
   await pool.query(

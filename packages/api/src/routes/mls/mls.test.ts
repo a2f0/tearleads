@@ -7,7 +7,7 @@ import { mockConsoleError } from '../../test/consoleMocks.js';
 
 const mockQuery = vi.fn();
 const mockGetPostgresPool = vi.fn();
-const mockBroadcast = vi.fn((_channel: string, _message: unknown) => Promise.resolve(1));
+const mockBroadcast = vi.fn((_c: string, _m: unknown) => Promise.resolve(1));
 
 vi.mock('../../lib/postgres.js', () => ({
   getPostgresPool: () => mockGetPostgresPool(),
@@ -15,7 +15,7 @@ vi.mock('../../lib/postgres.js', () => ({
 }));
 
 vi.mock('../../lib/broadcast.js', () => ({
-  broadcast: (channel: string, message: unknown) => mockBroadcast(channel, message)
+  broadcast: (c: string, m: unknown) => mockBroadcast(c, m)
 }));
 
 const sessionStore = new Map<string, string>();
