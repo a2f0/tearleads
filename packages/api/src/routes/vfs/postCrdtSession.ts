@@ -19,12 +19,12 @@ import {
   decodeCrdtRequestBody,
   sendCrdtProtobufOrJson
 } from './crdtProtobuf.js';
+import { applyCrdtPushOperations } from './crdtPushApply.js';
 import {
   toIsoString,
   toLastReconciledWriteIds,
   type VfsCrdtReplicaWriteIdRow
 } from './crdtRouteHelpers.js';
-import { applyCrdtPushOperations } from './crdtPushApply.js';
 import { CRDT_CLIENT_PUSH_SOURCE_TABLE } from './post-crdt-push-canonical.js';
 import {
   type ParsedPushOperation,

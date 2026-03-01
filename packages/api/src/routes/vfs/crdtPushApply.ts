@@ -3,6 +3,7 @@ import type {
   VfsCrdtPushResult
 } from '@tearleads/shared';
 import type { PoolClient } from 'pg';
+import { toIsoString } from './crdtRouteHelpers.js';
 import {
   CRDT_CLIENT_PUSH_SOURCE_TABLE,
   type MaxWriteIdRow,
@@ -12,7 +13,6 @@ import {
   toReplicaPrefix
 } from './post-crdt-push-canonical.js';
 import type { ParsedPushOperation } from './post-crdt-push-parse.js';
-import { toIsoString } from './crdtRouteHelpers.js';
 
 interface ItemOwnerRow {
   id: string;
