@@ -32,4 +32,28 @@ describe('vfsRematerializationScrub', () => {
       'HelloWorld'
     );
   });
+
+  it('returns empty content when atob is unavailable', () => {
+    const originalAtob = globalThis.atob;
+    Object.defineProperty(globalThis, 'atob', {
+      configurable: true,
+      writable: true,
+      value: undefined
+    });
+    expect(resolveMaterializedNoteContent('SGVsbG8=')).toBe('');
+    Object.defineProperty(globalThis, 'atob', {
+      configurable: true,
+      writable: true,
+      value: originalAtob
+    });
+  });
+
+  it('truncates overly long materialized values', () => {
+    const longTitle = ` ${'T'.repeat(300)} `;
+    expect(resolveMaterializedNoteTitle(longTitle).length).toBe(256);
+
+    const longContent = 'A'.repeat(100_001);
+    const encoded = btoa(longContent);
+    expect(resolveMaterializedNoteContent(encoded).length).toBe(100_000);
+  });
 });

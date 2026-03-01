@@ -11,6 +11,7 @@ import {
   setVfsRecoveryPassword,
   wrapSessionKey
 } from './useVfsKeys';
+import { importVfsPrivateKeyPasswordMaterial } from '@tearleads/shared';
 
 // Mock @tearleads/shared crypto functions
 vi.mock('@tearleads/shared', async (importOriginal) => {
@@ -230,6 +231,30 @@ describe('useVfsKeys', () => {
       vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('404'));
       setVfsRecoveryPassword(null);
 
+      await expect(ensureVfsKeys()).rejects.toThrow(
+        'VFS key recovery requires re-authentication'
+      );
+    });
+
+    it('fails closed when a pending recovery material promise becomes stale', async () => {
+      let resolveMaterial:
+        | ((value: { algorithm: { name: string } }) => void)
+        | undefined;
+      const pendingMaterial = new Promise<{ algorithm: { name: string } }>(
+        (resolve) => {
+          resolveMaterial = resolve;
+        }
+      );
+      vi.mocked(importVfsPrivateKeyPasswordMaterial).mockReturnValueOnce(
+        pendingMaterial
+      );
+
+      setVfsRecoveryPassword('pending-password');
+      setVfsRecoveryPassword(null);
+      resolveMaterial?.({ algorithm: { name: 'PBKDF2' } });
+      await Promise.resolve();
+
+      vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('404'));
       await expect(ensureVfsKeys()).rejects.toThrow(
         'VFS key recovery requires re-authentication'
       );
