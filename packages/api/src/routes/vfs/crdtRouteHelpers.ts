@@ -40,6 +40,12 @@ function parseWriteId(value: unknown): number | null {
 export function toLastReconciledWriteIds(
   rows: VfsCrdtReplicaWriteIdRow[]
 ): Record<string, number> {
+  /**
+   * Guardrail: return a deterministic, sanitized replica clock map.
+   * - drop malformed rows (blank replica, non-numeric write ids)
+   * - keep only positive integers
+   * - sort keys to keep payload stable for downstream snapshot comparisons
+   */
   const entries: Array<[string, number]> = [];
   for (const row of rows) {
     const replicaId = normalizeReplicaId(row.replica_id);
