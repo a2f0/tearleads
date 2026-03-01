@@ -120,7 +120,12 @@ async function loadOldestAccessibleCursor(
       FROM user_organizations uo
       WHERE uo.user_id = $1
     ),
-    eligible_items AS (
+    owner_items AS (
+      SELECT registry.id AS item_id
+      FROM vfs_registry registry
+      WHERE registry.owner_id = $1
+    ),
+    acl_items AS (
       SELECT
         entry.item_id
       FROM vfs_acl_entries entry
@@ -130,6 +135,11 @@ async function loadOldestAccessibleCursor(
       WHERE entry.revoked_at IS NULL
         AND (entry.expires_at IS NULL OR entry.expires_at > NOW())
       GROUP BY entry.item_id
+    ),
+    eligible_items AS (
+      SELECT item_id FROM owner_items
+      UNION
+      SELECT item_id FROM acl_items
     )
     SELECT ops.occurred_at, ops.id
     FROM vfs_crdt_ops ops

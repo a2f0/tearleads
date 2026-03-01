@@ -13,11 +13,15 @@ import {
 } from '@tearleads/shared';
 import type { SQL } from 'drizzle-orm';
 import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/sqlite-core';
 import type { VfsSortState } from './vfsTypes';
 
 const SHARE_ACL_ID_PREFIX = 'share:';
 const SHARE_ACL_ID_LIKE = `${SHARE_ACL_ID_PREFIX}%`;
 const SHARE_ACL_ID_SQLITE_SUBSTR_START = SHARE_ACL_ID_PREFIX.length + 1;
+const POLICY_COMPILED_ACL_ID_PREFIX = 'policy-compiled:';
+const POLICY_COMPILED_ACL_ID_LIKE = `${POLICY_COMPILED_ACL_ID_PREFIX}%`;
+const sharingUsers = alias(users, 'sharing_users');
 
 function isMissingSqliteTableError(
   error: unknown,
@@ -78,7 +82,11 @@ function toDateOrFallback(value: unknown, fallback: Date): Date {
 
 function shareIdExpr(): SQL<string> {
   // SQLite substr() uses 1-based indexing.
-  return sql<string>`substr(${vfsAclEntries.id}, ${SHARE_ACL_ID_SQLITE_SUBSTR_START})`;
+  return sql<string>`CASE
+    WHEN ${vfsAclEntries.id} LIKE ${SHARE_ACL_ID_LIKE}
+      THEN substr(${vfsAclEntries.id}, ${SHARE_ACL_ID_SQLITE_SUBSTR_START})
+    ELSE ${vfsAclEntries.id}
+  END`;
 }
 
 function sharePermissionLevelExpr(): SQL<string> {
@@ -181,9 +189,21 @@ export async function querySharedByMe(
     .innerJoin(vfsRegistry, eq(vfsAclEntries.itemId, vfsRegistry.id))
     .where(
       and(
-        eq(vfsAclEntries.grantedBy, currentUserId),
         isNull(vfsAclEntries.revokedAt),
-        sql`${vfsAclEntries.id} LIKE ${SHARE_ACL_ID_LIKE}`
+        sql<boolean>`(
+          (
+            ${vfsAclEntries.id} LIKE ${SHARE_ACL_ID_LIKE}
+            AND ${vfsAclEntries.grantedBy} = ${currentUserId}
+          )
+          OR (
+            ${vfsAclEntries.id} LIKE ${POLICY_COMPILED_ACL_ID_LIKE}
+            AND ${vfsRegistry.ownerId} = ${currentUserId}
+          )
+        )`,
+        sql<boolean>`NOT (
+          ${vfsAclEntries.principalType} = 'user'
+          AND ${vfsAclEntries.principalId} = ${currentUserId}
+        )`
       )
     )
     .orderBy(...orderExprs);
@@ -202,8 +222,8 @@ export async function querySharedByMe(
 
 /**
  * Query items that have been shared with the current user.
- * Currently only supports direct user shares (shareType = 'user').
- * Group and organization shares would require additional joins.
+ * Supports direct shares plus policy-derived ACL rows targeting this user.
+ * Group and organization resolution still requires membership joins.
  */
 export async function querySharedWithMe(
   db: Database,
@@ -224,8 +244,13 @@ export async function querySharedWithMe(
         name: sql<string>`${nameExpr} as "name"`,
         createdAt: vfsRegistry.createdAt,
         shareId: sql<string>`${canonicalShareIdExpr} as "shareId"`,
-        sharedById: sql<string>`COALESCE(${vfsAclEntries.grantedBy}, 'unknown') as "sharedById"`,
-        sharedByEmail: sql<string>`COALESCE(${users.email}, ${vfsAclEntries.grantedBy}, 'Unknown') as "sharedByEmail"`,
+        sharedById: sql<string>`COALESCE(${vfsAclEntries.grantedBy}, ${vfsRegistry.ownerId}, 'unknown') as "sharedById"`,
+        sharedByEmail: sql<string>`COALESCE(
+          ${sharingUsers.email},
+          ${vfsAclEntries.grantedBy},
+          ${vfsRegistry.ownerId},
+          'Unknown'
+        ) as "sharedByEmail"`,
         shareType: vfsAclEntries.principalType,
         permissionLevel: sql<string>`${permissionLevelExpr} as "permissionLevel"`,
         sharedAt: sql<Date>`${vfsAclEntries.createdAt} as "sharedAt"`,
@@ -233,13 +258,19 @@ export async function querySharedWithMe(
       })
       .from(vfsAclEntries)
       .innerJoin(vfsRegistry, eq(vfsAclEntries.itemId, vfsRegistry.id))
-      .leftJoin(users, eq(vfsAclEntries.grantedBy, users.id))
+      .leftJoin(
+        sharingUsers,
+        sql`${sharingUsers.id} = COALESCE(${vfsAclEntries.grantedBy}, ${vfsRegistry.ownerId})`
+      )
       .where(
         and(
           eq(vfsAclEntries.principalId, currentUserId),
           eq(vfsAclEntries.principalType, 'user'),
           isNull(vfsAclEntries.revokedAt),
-          sql`${vfsAclEntries.id} LIKE ${SHARE_ACL_ID_LIKE}`
+          sql<boolean>`(
+            ${vfsAclEntries.id} LIKE ${SHARE_ACL_ID_LIKE}
+            OR ${vfsAclEntries.id} LIKE ${POLICY_COMPILED_ACL_ID_LIKE}
+          )`
         )
       )
       .orderBy(...orderExprs);
@@ -250,7 +281,10 @@ export async function querySharedWithMe(
       expiresAt: toDateOrNull(row.expiresAt)
     }));
 
-    if (!normalizedRows.every(isVfsSharedWithMeQueryRow)) {
+    const invalidRow = normalizedRows.find(
+      (row) => !isVfsSharedWithMeQueryRow(row)
+    );
+    if (invalidRow) {
       throw new Error('Database returned invalid rows for SharedWithMe query');
     }
 

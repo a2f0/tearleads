@@ -66,8 +66,13 @@ async function fetchAllPages<TItem>(
 
     const page = await fetchPage(cursor, FEED_PAGE_SIZE);
     all.push(...page.items);
-    if (!page.hasMore || !page.nextCursor) {
+    if (!page.hasMore) {
       break;
+    }
+    if (!page.nextCursor) {
+      throw new Error(
+        `vfs ${feedName} feed reported hasMore without nextCursor`
+      );
     }
 
     if (page.nextCursor === cursor || seenCursors.has(page.nextCursor)) {

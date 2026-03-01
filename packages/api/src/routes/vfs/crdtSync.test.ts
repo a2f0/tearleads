@@ -70,7 +70,6 @@ describe('VFS CRDT sync route', () => {
 
   it('returns 400 when cursor is invalid', async () => {
     const authHeader = await createAuthHeader();
-
     const response = await request(app)
       .get('/v1/vfs/crdt/vfs-sync?cursor=totally-invalid')
       .set('Authorization', authHeader);
@@ -113,6 +112,10 @@ describe('VFS CRDT sync route', () => {
       })
     });
     expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(String(mockQuery.mock.calls[0]?.[0])).toContain('owner_items');
+    expect(String(mockQuery.mock.calls[0]?.[0])).toContain(
+      'FROM vfs_registry registry'
+    );
   });
 
   it('returns a cursor-paginated CRDT operation page', async () => {
@@ -465,7 +468,6 @@ describe('VFS CRDT sync route', () => {
     const restoreConsole = mockConsoleError();
     const authHeader = await createAuthHeader();
     mockQuery.mockRejectedValueOnce(new Error('Database failure'));
-
     const response = await request(app)
       .get('/v1/vfs/crdt/vfs-sync')
       .set('Authorization', authHeader);
@@ -485,7 +487,6 @@ describe('VFS CRDT sync route', () => {
         rows: []
       })
       .mockRejectedValueOnce(new Error('Replica write-id query failed'));
-
     const response = await request(app)
       .get('/v1/vfs/crdt/vfs-sync')
       .set('Authorization', authHeader);

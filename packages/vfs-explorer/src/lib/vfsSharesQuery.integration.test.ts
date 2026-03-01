@@ -230,4 +230,53 @@ describe('vfsSharesQuery integration (real database)', () => {
       { migrations: vfsAclEnabledMigrations }
     );
   });
+
+  it('includes policy-derived ACL rows in shared-by-me and shared-with-me', async () => {
+    await withRealDatabase(
+      async ({ db, adapter }) => {
+        const ownerId = 'policy-owner';
+        const ownerEmail = 'owner@example.com';
+        const targetUserId = 'policy-target';
+        const now = Date.now();
+        const folderId = crypto.randomUUID();
+        const policyAclId = `policy-compiled:user:${targetUserId}:${folderId}`;
+
+        await adapter.execute(
+          `INSERT INTO users (id, email) VALUES (?, ?), (?, ?)`,
+          [ownerId, ownerEmail, targetUserId, 'target@example.com']
+        );
+        await adapter.execute(
+          `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at) VALUES (?, ?, ?, ?, ?)`,
+          [folderId, 'folder', ownerId, 'Policy Shared Folder', now]
+        );
+        await adapter.execute(
+          `INSERT INTO vfs_acl_entries (id, item_id, principal_type, principal_id, access_level, granted_by, created_at, updated_at, revoked_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+          [policyAclId, folderId, 'user', targetUserId, 'write', null, now, now]
+        );
+
+        const sharedByMe = await querySharedByMe(db, ownerId, {
+          column: null,
+          direction: null
+        });
+        expect(sharedByMe).toHaveLength(1);
+        expect(sharedByMe[0]?.id).toBe(folderId);
+        expect(sharedByMe[0]?.shareId).toBe(policyAclId);
+        expect(sharedByMe[0]?.targetId).toBe(targetUserId);
+        expect(sharedByMe[0]?.permissionLevel).toBe('edit');
+
+        const sharedWithMe = await querySharedWithMe(db, targetUserId, {
+          column: null,
+          direction: null
+        });
+        expect(sharedWithMe).toHaveLength(1);
+        expect(sharedWithMe[0]?.id).toBe(folderId);
+        expect(sharedWithMe[0]?.shareId).toBe(policyAclId);
+        expect(sharedWithMe[0]?.sharedById).toBe(ownerId);
+        expect(sharedWithMe[0]?.sharedByEmail).toBe(ownerEmail);
+        expect(sharedWithMe[0]?.permissionLevel).toBe('edit');
+      },
+      { migrations: vfsAclEnabledMigrations }
+    );
+  });
 });
