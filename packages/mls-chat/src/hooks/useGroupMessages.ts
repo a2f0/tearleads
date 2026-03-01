@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useMlsChatApi, useMlsChatUser } from '../context/index.js';
 import type { DecryptedMessage } from '../lib/index.js';
-import type { MlsClient } from '../lib/mls.js';
+import type { MlsClient } from '../lib/index.js';
 
 interface UseGroupMessagesResult {
   messages: DecryptedMessage[];

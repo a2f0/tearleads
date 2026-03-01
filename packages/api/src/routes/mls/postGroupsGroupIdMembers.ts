@@ -83,6 +83,24 @@ const postGroupsGroupidMembersHandler = async (req: Request, res: Response) => {
     try {
       await client.query('BEGIN');
 
+      const epochResult = await client.query<{ current_epoch: number }>(
+        `SELECT current_epoch FROM mls_groups WHERE id = $1 FOR UPDATE`,
+        [groupId]
+      );
+      const currentEpoch = epochResult.rows[0]?.current_epoch;
+      if (typeof currentEpoch !== 'number') {
+        await client.query('ROLLBACK');
+        res.status(404).json({ error: 'Group not found' });
+        return;
+      }
+
+      const expectedEpoch = currentEpoch + 1;
+      if (payload.newEpoch !== expectedEpoch) {
+        await client.query('ROLLBACK');
+        res.status(409).json({ error: 'Epoch mismatch' });
+        return;
+      }
+
       // Get current member count for leaf index
       const countResult = await client.query<{ count: string }>(
         `SELECT COUNT(*) as count FROM mls_group_members WHERE group_id = $1`,

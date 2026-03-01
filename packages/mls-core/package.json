@@ -1,7 +1,7 @@
 {
-  "name": "@tearleads/mls-chat",
-  "version": "0.0.21",
-  "description": "MLS (RFC 9420) end-to-end encrypted chat for Tearleads",
+  "name": "@tearleads/mls-core",
+  "version": "0.0.1",
+  "description": "Core MLS (RFC 9420) client and storage primitives",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -16,7 +16,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "pnpm --filter @tearleads/mls-core build && tsc",
+    "build": "tsc",
     "clean": "rm -rf dist",
     "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
@@ -30,24 +30,13 @@
   ],
   "author": "",
   "license": "UNLICENSED",
-  "peerDependencies": {
-    "react": "19.2.4"
-  },
   "dependencies": {
-    "@tearleads/mls-core": "workspace:*",
-    "@tearleads/shared": "workspace:*"
+    "idb": "8.0.3"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "6.9.1",
-    "@testing-library/react": "16.3.2",
-    "@testing-library/user-event": "14.6.1",
-    "@types/react": "19.2.14",
-    "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "5.1.4",
     "@vitest/coverage-v8": "4.0.18",
-    "jsdom": "28.1.0",
+    "cross-env": "10.1.0",
     "typescript": "5.9.3",
-    "vitest": "4.0.18",
-    "vitest-fail-on-console": "0.10.1"
+    "vitest": "4.0.18"
   }
 }

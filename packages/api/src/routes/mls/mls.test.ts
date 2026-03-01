@@ -189,6 +189,7 @@ describe('MLS routes', () => {
         .mockResolvedValueOnce({ rows: [{}] });
       mockClientQuery
         .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({ rows: [{ current_epoch: 1 }] })
         .mockResolvedValueOnce({ rows: [{ count: '1' }] })
         .mockResolvedValueOnce({ rowCount: 0, rows: [] })
         .mockResolvedValueOnce({});
@@ -207,7 +208,7 @@ describe('MLS routes', () => {
       expect(response.status).toBe(409);
       expect(response.body).toEqual({ error: 'Key package not available' });
       expect(mockClientQuery).toHaveBeenNthCalledWith(
-        3,
+        4,
         expect.stringContaining('AND organization_id = $4'),
         ['group-1', 'kp-ref', 'user-2', 'org-1']
       );
@@ -352,6 +353,34 @@ describe('MLS routes', () => {
   });
 
   describe('MLS payload validation hardening', () => {
+    it('rejects send-message payloads with stale epochs', async () => {
+      const authHeader = await createAuthHeader({
+        id: 'user-1',
+        email: 'user-1@example.com'
+      });
+
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ role: 'member', organization_id: 'org-1' }]
+        })
+        .mockResolvedValueOnce({
+          rows: [{ current_epoch: 1 }]
+        });
+
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/messages')
+        .set('Authorization', authHeader)
+        .send({
+          ciphertext: 'ciphertext',
+          epoch: 2,
+          messageType: 'application'
+        });
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({ error: 'Epoch mismatch' });
+      expect(mockQuery).toHaveBeenCalledTimes(2);
+    });
+
     it('rejects non-integer epochs in send-message payloads', async () => {
       const authHeader = await createAuthHeader({
         id: 'user-1',

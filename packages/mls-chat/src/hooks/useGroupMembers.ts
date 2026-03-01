@@ -7,7 +7,7 @@ import type { MlsGroupMember, MlsKeyPackage } from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useMlsChatApi } from '../context/index.js';
-import type { MlsClient } from '../lib/mls.js';
+import type { MlsClient } from '../lib/index.js';
 import { uploadGroupStateSnapshot } from './groupStateSync.js';
 
 interface UseGroupMembersResult {

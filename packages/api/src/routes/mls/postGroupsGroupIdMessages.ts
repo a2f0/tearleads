@@ -59,6 +59,23 @@ const postGroupsGroupidMessagesHandler = async (
       return;
     }
 
+    const groupEpochResult = await pool.query<{ current_epoch: number }>(
+      `SELECT current_epoch
+         FROM mls_groups
+        WHERE id = $1
+        LIMIT 1`,
+      [groupId]
+    );
+    const currentEpoch = groupEpochResult.rows[0]?.current_epoch;
+    if (typeof currentEpoch !== 'number') {
+      res.status(404).json({ error: 'Group not found' });
+      return;
+    }
+    if (payload.epoch !== currentEpoch) {
+      res.status(409).json({ error: 'Epoch mismatch' });
+      return;
+    }
+
     // Insert message with atomic sequence number assignment
     // Uses subquery to avoid race condition on concurrent inserts
     const id = randomUUID();

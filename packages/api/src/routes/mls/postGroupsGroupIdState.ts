@@ -55,6 +55,23 @@ const postGroupsGroupidStateHandler = async (req: Request, res: Response) => {
       return;
     }
 
+    const groupEpochResult = await pool.query<{ current_epoch: number }>(
+      `SELECT current_epoch
+         FROM mls_groups
+        WHERE id = $1
+        LIMIT 1`,
+      [groupId]
+    );
+    const currentEpoch = groupEpochResult.rows[0]?.current_epoch;
+    if (typeof currentEpoch !== 'number') {
+      res.status(404).json({ error: 'Group not found' });
+      return;
+    }
+    if (payload.epoch > currentEpoch) {
+      res.status(409).json({ error: 'State epoch is ahead of group epoch' });
+      return;
+    }
+
     // Upsert state (replace if same epoch or older)
     const id = randomUUID();
     const result = await pool.query<{ id: string; created_at: Date }>(
