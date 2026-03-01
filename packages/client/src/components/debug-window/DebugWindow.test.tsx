@@ -55,6 +55,8 @@ vi.mock('@tearleads/window-manager', async (importOriginal) => {
 });
 
 vi.mock('@tearleads/ui', () => ({
+  cn: (...classes: Array<string | undefined>) =>
+    classes.filter((value): value is string => Boolean(value)).join(' '),
   IconSquare: ({
     label,
     onClick,
