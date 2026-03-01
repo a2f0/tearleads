@@ -9,11 +9,6 @@ export {
   vfsSyncChangesTable,
   vfsSyncClientStateTable
 } from './definition-communications-vfs.js';
-// Re-export from split modules
-export {
-  aiConversationsTable,
-  aiMessagesTable
-} from './definitionCommunicationsAi.js';
 export {
   communicationsVfsPolicyTables,
   vfsAclEntryProvenanceTable,

@@ -47,8 +47,6 @@
       "@tearleads/help": ["../help/src/index.ts"],
       "@tearleads/local-write-orchestrator/package.json": ["../local-write-orchestrator/package.json"],
       "@tearleads/local-write-orchestrator": ["../local-write-orchestrator/src/index.ts"],
-      "@tearleads/remote-read-orchestrator/package.json": ["../remote-read-orchestrator/package.json"],
-      "@tearleads/remote-read-orchestrator": ["../remote-read-orchestrator/src/index.ts"],
       "@tearleads/keychain/package.json": ["../keychain/package.json"],
       "@tearleads/keychain": ["../keychain/src/index.ts"],
       "@tearleads/wallet/package.json": ["../wallet/package.json"],

@@ -5,7 +5,7 @@
 
 export type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
-export interface LogEntry {
+interface LogEntry {
   id: string;
   timestamp: Date;
   level: LogLevel;

@@ -24,15 +24,12 @@ const config: KnipConfig = {
     'packages/client/src/lib/utils.ts': ['exports'],
     // Imported as a type-only contract by admin package via client alias.
     'packages/client/src/i18n/translations/types.ts': ['types'],
-    // Imported by notifications package through client alias.
-    'packages/client/src/stores/logStore.ts': ['types'],
     // Exported public API return type expected by consumers.
     'packages/api-client/src/apiRoutes/vfsRoutes.ts': ['types'],
     // Exported interface appears in an inferred cross-module public return type.
     'packages/vfs-explorer/src/hooks/useVfsAllItems.ts': ['types'],
     // Canonical DB schema pieces intentionally re-exported across definition modules.
     'packages/db/src/schema/definition-communications-vfs.ts': ['exports'],
-    'packages/db/src/schema/definitionCommunicationsAi.ts': ['exports'],
     // Exported interfaces are part of public signatures for published helpers.
     'packages/api/src/lib/vfsSyncChannels.ts': ['exports', 'types'],
     'packages/bob-and-alice/src/qa/vfsSecureUploadQaSuite.ts': ['types'],

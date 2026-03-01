@@ -1,6 +1,6 @@
-import { RemoteReadOrchestrator } from '@tearleads/remote-read-orchestrator';
 import { useCallback, useEffect, useRef } from 'react';
 import { useVfsOrchestratorInstance } from '@/contexts/VfsOrchestratorContext';
+import { createRemoteReadOrchestrator } from '@/lib/remoteReadOrchestrator';
 import { useSSE } from '@/sse';
 import { logStore } from '@/stores/logStore';
 
@@ -71,7 +71,9 @@ export function VfsRealtimeSyncBridge() {
   const orchestrator = useVfsOrchestratorInstance();
 
   const connectedChannelsRef = useRef<string[]>([]);
-  const remoteReadOrchestratorRef = useRef(new RemoteReadOrchestrator<void>());
+  const remoteReadOrchestratorRef = useRef(
+    createRemoteReadOrchestrator<void>()
+  );
   const retryAttemptRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

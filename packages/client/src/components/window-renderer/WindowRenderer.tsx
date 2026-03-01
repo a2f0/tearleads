@@ -1,7 +1,5 @@
-import { AnalyticsWindow } from '@tearleads/analytics';
 import type { WindowDimensions } from '@tearleads/window-manager';
-import type { ComponentType } from 'react';
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { AdminOrganizationsWindow } from '@/components/admin-organizations-window';
 import { AdminUsersWindow } from '@/components/admin-users-window';
 import {
@@ -11,6 +9,7 @@ import {
   AdminWindow
 } from '@/components/admin-windows';
 import { AIWindow } from '@/components/ai-window';
+import { AnalyticsWindow } from '@/components/analytics-window';
 import { AudioWindow } from '@/components/audio-window';
 import { BackupWindow } from '@/components/backup-window';
 import { BusinessesWindow } from '@/components/businesses-window';
@@ -43,102 +42,16 @@ import { VehiclesWindow } from '@/components/vehicles-window';
 import { VfsWindow } from '@/components/vfs-window';
 import { VideoWindow } from '@/components/video-window';
 import { WalletWindow } from '@/components/wallet-window';
-import type {
-  WindowInstance,
-  WindowType
-} from '@/contexts/WindowManagerContext';
+import type { WindowType } from '@/contexts/WindowManagerContext';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
+import { MemoizedWindow } from './MemoizedWindow';
+import type { WindowComponentConfig } from './windowRendererTypes';
 
 // AGENT GUARDRAIL: When adding a new window type entry here, ensure parity with:
 // - WindowManagerContext.tsx WindowType union
 // - Home.tsx PATH_TO_WINDOW_TYPE mapping
 // - Sidebar.tsx WINDOW_PATHS mapping
 // Each window component should mirror its corresponding route's functionality.
-interface WindowComponentProps {
-  id: string;
-  onClose: () => void;
-  onMinimize: (dimensions: WindowDimensions) => void;
-  onDimensionsChange?: (dimensions: WindowDimensions) => void;
-  onRename?: (title: string) => void;
-  onFocus: () => void;
-  zIndex: number;
-  initialDimensions?: WindowDimensions;
-}
-
-interface WindowComponentConfig {
-  Component: ComponentType<WindowComponentProps>;
-  getInitialDimensions?: (
-    window: WindowInstance
-  ) => WindowDimensions | undefined;
-}
-
-const defaultInitialDimensions = (window: WindowInstance) => window.dimensions;
-
-interface MemoizedWindowProps {
-  window: WindowInstance;
-  config: WindowComponentConfig;
-  onClose: (id: string) => void;
-  onMinimize: (id: string, dimensions: WindowDimensions) => void;
-  onDimensionsChange: (
-    type: WindowType,
-    id: string,
-    dimensions: WindowDimensions
-  ) => void;
-  onRename: (id: string, title: string) => void;
-  onFocus: (id: string) => void;
-}
-
-const MemoizedWindow = memo(function MemoizedWindow({
-  window,
-  config,
-  onClose,
-  onMinimize,
-  onDimensionsChange,
-  onRename,
-  onFocus
-}: MemoizedWindowProps) {
-  const WindowComponent = config.Component;
-  const resolvedInitialDimensions =
-    config.getInitialDimensions?.(window) ?? defaultInitialDimensions(window);
-
-  const handleClose = useCallback(
-    () => onClose(window.id),
-    [onClose, window.id]
-  );
-  const handleMinimize = useCallback(
-    (dimensions: WindowDimensions) => onMinimize(window.id, dimensions),
-    [onMinimize, window.id]
-  );
-  const handleDimensionsChange = useCallback(
-    (dimensions: WindowDimensions) =>
-      onDimensionsChange(window.type, window.id, dimensions),
-    [onDimensionsChange, window.type, window.id]
-  );
-  const handleRename = useCallback(
-    (title: string) => onRename(window.id, title),
-    [onRename, window.id]
-  );
-  const handleFocus = useCallback(
-    () => onFocus(window.id),
-    [onFocus, window.id]
-  );
-
-  return (
-    <WindowComponent
-      id={window.id}
-      onClose={handleClose}
-      onMinimize={handleMinimize}
-      onDimensionsChange={handleDimensionsChange}
-      onRename={handleRename}
-      onFocus={handleFocus}
-      zIndex={window.zIndex}
-      {...(resolvedInitialDimensions && {
-        initialDimensions: resolvedInitialDimensions
-      })}
-    />
-  );
-});
-
 const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
   notes: { Component: NotesWindow },
   console: { Component: ConsoleWindow },

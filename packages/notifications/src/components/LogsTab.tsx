@@ -2,7 +2,9 @@ import { cn } from '@tearleads/ui';
 import { Copy, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { type LogEntry, logStore } from '@/stores/logStore';
+import { logStore } from '@/stores/logStore';
+
+type LogEntry = ReturnType<typeof logStore.getRecentLogs>[number];
 
 const LEVEL_COLORS: Record<string, string> = {
   error: 'text-destructive',

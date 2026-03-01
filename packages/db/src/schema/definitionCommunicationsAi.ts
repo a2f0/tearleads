@@ -4,7 +4,7 @@ import type { TableDefinition } from './types.js';
  * AI conversations - extends vfs_registry for conversation-type items.
  * Stores encrypted conversation metadata as a VFS object.
  */
-export const aiConversationsTable: TableDefinition = {
+const aiConversationsTable: TableDefinition = {
   name: 'ai_conversations',
   propertyName: 'aiConversations',
   comment:
@@ -54,7 +54,7 @@ export const aiConversationsTable: TableDefinition = {
  * Child table of ai_conversations, not a VFS item itself.
  * Messages are materialized locally from the CRDT encrypted payload.
  */
-export const aiMessagesTable: TableDefinition = {
+const aiMessagesTable: TableDefinition = {
   name: 'ai_messages',
   propertyName: 'aiMessages',
   comment:
