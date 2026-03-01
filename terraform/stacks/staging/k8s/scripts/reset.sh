@@ -137,7 +137,7 @@ run_s3_reset_in_cluster() {
     --env="S3_BUCKET=$S3_BUCKET" \
     --command -- sh -c '
 set -eu
-aws --endpoint-url "$S3_ENDPOINT" s3 rm "s3://$S3_BUCKET/" --recursive 2>/dev/null || true
+aws --endpoint-url "$S3_ENDPOINT" s3 rm "s3://$S3_BUCKET/" --recursive
 echo "S3 bucket $S3_BUCKET emptied."
 ' >/dev/null
 
@@ -187,7 +187,7 @@ run_s3_reset_local_fallback() {
   local local_endpoint="http://127.0.0.1:$LOCAL_PORT_FORWARD_PORT"
 
   AWS_ACCESS_KEY_ID="$access_key" AWS_SECRET_ACCESS_KEY="$secret_key" AWS_DEFAULT_REGION="$AWS_REGION" \
-    aws --endpoint-url "$local_endpoint" s3 rm "s3://$S3_BUCKET/" --recursive 2>/dev/null || true
+    aws --endpoint-url "$local_endpoint" s3 rm "s3://$S3_BUCKET/" --recursive
 
   echo "S3 bucket $S3_BUCKET emptied via local fallback."
 }
