@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package tearleads.v1;
+
+import "tearleads/v1/common.proto";
+
+service BillingService {
+  rpc GetOrganizationBilling(GetOrganizationBillingRequest)
+      returns (JsonResponse);
+}
+
+message GetOrganizationBillingRequest {
+  string organization_id = 1;
+}

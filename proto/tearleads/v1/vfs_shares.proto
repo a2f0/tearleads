@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package tearleads.v1;
+
+import "tearleads/v1/common.proto";
+
+service VfsSharesService {
+  rpc GetItemShares(GetItemSharesRequest) returns (JsonResponse);
+  rpc CreateShare(CreateShareRequest) returns (JsonResponse);
+  rpc UpdateShare(UpdateShareRequest) returns (JsonResponse);
+  rpc DeleteShare(ShareIdRequest) returns (JsonResponse);
+  rpc CreateOrgShare(CreateOrgShareRequest) returns (JsonResponse);
+  rpc DeleteOrgShare(ShareIdRequest) returns (JsonResponse);
+  rpc SearchShareTargets(SearchShareTargetsRequest) returns (JsonResponse);
+  rpc GetSharePolicyPreview(GetSharePolicyPreviewRequest)
+      returns (JsonResponse);
+}
+
+message GetItemSharesRequest {
+  string item_id = 1;
+}
+
+message CreateShareRequest {
+  string item_id = 1;
+  string json = 2;
+}
+
+message UpdateShareRequest {
+  string share_id = 1;
+  string json = 2;
+}
+
+message ShareIdRequest {
+  string share_id = 1;
+}
+
+message CreateOrgShareRequest {
+  string item_id = 1;
+  string json = 2;
+}
+
+message SearchShareTargetsRequest {
+  string q = 1;
+  string type = 2;
+}
+
+message GetSharePolicyPreviewRequest {
+  string root_item_id = 1;
+  string principal_type = 2;
+  string principal_id = 3;
+  int32 limit = 4;
+  string cursor = 5;
+  int32 max_depth = 6;
+  string q = 7;
+  repeated string object_type = 8;
+}

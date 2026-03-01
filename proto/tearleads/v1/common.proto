@@ -19,6 +19,19 @@ message PaginatedResponse {
   bool has_more = 2;
 }
 
+message JsonRequest {
+  string json = 1;
+}
+
+message JsonResponse {
+  string json = 1;
+}
+
+message BinaryResponse {
+  bytes data = 1;
+  optional string content_type = 2;
+}
+
 message SessionSummary {
   string id = 1;
   google.protobuf.Timestamp created_at = 2;

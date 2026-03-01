@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package tearleads.v1;
+
+import "google/protobuf/empty.proto";
+import "tearleads/v1/common.proto";
+
+service MlsService {
+  rpc UploadKeyPackages(JsonRequest) returns (JsonResponse);
+  rpc GetMyKeyPackages(google.protobuf.Empty) returns (JsonResponse);
+  rpc GetUserKeyPackages(UserIdRequest) returns (JsonResponse);
+  rpc DeleteKeyPackage(MlsIdRequest) returns (JsonResponse);
+  rpc CreateGroup(JsonRequest) returns (JsonResponse);
+  rpc ListGroups(google.protobuf.Empty) returns (JsonResponse);
+  rpc GetGroup(GroupIdRequest) returns (JsonResponse);
+  rpc UpdateGroup(GroupIdJsonRequest) returns (JsonResponse);
+  rpc DeleteGroup(GroupIdRequest) returns (JsonResponse);
+  rpc AddGroupMember(GroupIdJsonRequest) returns (JsonResponse);
+  rpc GetGroupMembers(GroupIdRequest) returns (JsonResponse);
+  rpc RemoveGroupMember(MlsRemoveGroupMemberRequest) returns (JsonResponse);
+  rpc SendGroupMessage(GroupIdJsonRequest) returns (JsonResponse);
+  rpc GetGroupMessages(GetGroupMessagesRequest) returns (JsonResponse);
+  rpc GetGroupState(GroupIdRequest) returns (JsonResponse);
+  rpc UploadGroupState(GroupIdJsonRequest) returns (JsonResponse);
+  rpc GetWelcomeMessages(google.protobuf.Empty) returns (JsonResponse);
+  rpc AcknowledgeWelcome(AcknowledgeWelcomeRequest) returns (JsonResponse);
+}
+
+message UserIdRequest {
+  string user_id = 1;
+}
+
+message MlsIdRequest {
+  string id = 1;
+}
+
+message GroupIdRequest {
+  string group_id = 1;
+}
+
+message GroupIdJsonRequest {
+  string group_id = 1;
+  string json = 2;
+}
+
+message MlsRemoveGroupMemberRequest {
+  string group_id = 1;
+  string user_id = 2;
+  string json = 3;
+}
+
+message GetGroupMessagesRequest {
+  string group_id = 1;
+  string cursor = 2;
+  int32 limit = 3;
+}
+
+message AcknowledgeWelcomeRequest {
+  string id = 1;
+  string json = 2;
+}
