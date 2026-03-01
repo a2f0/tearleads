@@ -36,8 +36,8 @@ export interface SetupBobNotesShareForAliceDbResult {
 
 const DEFAULT_ROOT_ITEM_ID = '__vfs_root__';
 const DEFAULT_FOLDER_NAME = 'Notes shared with Alice';
-const DEFAULT_NOTE_NAME = 'Shared note for Alice';
-const DEFAULT_NOTE_PLAINTEXT = "Note shared from Bob's VFS";
+const DEFAULT_NOTE_NAME = 'Note for Alice - From Bob';
+const DEFAULT_NOTE_PLAINTEXT = 'Hello, Alice';
 const DEFAULT_SHARE_ACCESS_LEVEL: ShareAccessLevel = 'read';
 
 function encodeBase64(value: string): string {

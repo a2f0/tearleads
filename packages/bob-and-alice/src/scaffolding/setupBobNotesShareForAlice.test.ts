@@ -138,7 +138,7 @@ describe('setupBobNotesShareForAlice', () => {
       id: 'note-note-suffix',
       objectType: 'note',
       encryptedSessionKey: 'bob-note-session-key',
-      encryptedName: 'Shared note for Alice'
+      encryptedName: 'Note for Alice - From Bob'
     });
 
     const pushBody = JSON.parse(calls[2]?.bodyText ?? '');

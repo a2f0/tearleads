@@ -71,6 +71,20 @@ describe('setupBobNotesShareForAliceDb', () => {
     );
     expect(rootInsertCall?.params?.[0]).toBe('__vfs_root__');
 
+    const noteInsertCall = calls.find(
+      (call) =>
+        call.text.includes('INSERT INTO vfs_registry') &&
+        call.text.includes("VALUES ($1, 'note', $2, $3, $4, $5::timestamptz)")
+    );
+    expect(noteInsertCall?.params?.[3]).toBe('Note for Alice - From Bob');
+
+    const noteStateCall = calls.find((call) =>
+      call.text.includes('INSERT INTO vfs_item_state')
+    );
+    expect(noteStateCall?.params?.[1]).toBe(
+      Buffer.from('Hello, Alice', 'utf8').toString('base64')
+    );
+
     const shareCalls = calls.filter((call) =>
       call.text.includes('INSERT INTO vfs_acl_entries')
     );
