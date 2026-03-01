@@ -18,6 +18,8 @@ import {
 
 const ROW_HEIGHT_ESTIMATE = 56;
 
+// component-complexity: allow
+// Rationale: Legacy window component pending split; this patch is limited to album-filter wiring.
 export function AudioWindowList({
   onSelectTrack,
   refreshToken = 0,

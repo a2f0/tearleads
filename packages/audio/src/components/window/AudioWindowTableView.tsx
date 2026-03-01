@@ -28,6 +28,8 @@ import {
   useAudioTableSort
 } from './audio-table';
 
+// component-complexity: allow
+// Rationale: Legacy window component pending split; this patch is limited to album-filter wiring.
 export function AudioWindowTableView({
   onSelectTrack,
   refreshToken = 0,
