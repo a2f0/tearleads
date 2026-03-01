@@ -32,6 +32,7 @@ import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
 import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
+import { hydrateLocalReadModelFromRemoteFeeds } from '@/lib/vfsReadModelHydration';
 import {
   useVfsKeyManager,
   useVfsOrchestratorInstance
@@ -179,6 +180,7 @@ export function ClientVfsExplorerProvider({
     }
 
     await orchestrator.syncCrdt();
+    await hydrateLocalReadModelFromRemoteFeeds();
   }, [orchestrator]);
 
   return (
