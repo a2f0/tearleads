@@ -59,10 +59,13 @@ export function parseKnipIssues(parsed: unknown): KnipIssue[] {
       continue;
     }
 
-    const severity = typeof issue.severity === 'string' ? issue.severity : 'unknown';
-    const workspace = typeof issue.workspace === 'string' ? issue.workspace : 'unknown';
+    const severity =
+      typeof issue.severity === 'string' ? issue.severity : 'unknown';
+    const workspace =
+      typeof issue.workspace === 'string' ? issue.workspace : 'unknown';
     const file = typeof issue.file === 'string' ? issue.file : 'unknown';
-    const issueType = typeof issue.issueType === 'string' ? issue.issueType : 'unknown';
+    const issueType =
+      typeof issue.issueType === 'string' ? issue.issueType : 'unknown';
 
     issues.push({ severity, workspace, file, issueType });
   }

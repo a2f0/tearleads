@@ -219,7 +219,8 @@ export function parseDependencyCruiserSummary(
 
   const summary = reportParsed.summary;
   const violations = collectViolations(summary);
-  const ruleExceptionCounts = collectRuleExceptionCountsFromConfig(configParsed);
+  const ruleExceptionCounts =
+    collectRuleExceptionCountsFromConfig(configParsed);
 
   let rulesWithPathNot = 0;
   let totalPathNotEntries = 0;
@@ -302,7 +303,9 @@ function main(): number {
   };
 
   if (options.json && options.exceptionsOnly) {
-    process.stdout.write(`${JSON.stringify(resultForExceptionsOnly, null, 2)}\n`);
+    process.stdout.write(
+      `${JSON.stringify(resultForExceptionsOnly, null, 2)}\n`
+    );
     return 0;
   }
 
