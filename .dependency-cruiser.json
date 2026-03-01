@@ -74,15 +74,10 @@
       "from": {
         "path": "^packages/([^/]+)/src/.*",
         "pathNot": [
-          "^packages/client/src/components/admin-windows/index\\.ts$",
-          "^packages/client/src/components/health-window/HealthWindow\\.tsx$",
-          "^packages/client/src/components/notification-center/index\\.ts$",
           "^packages/client/src/contexts/ClientVfsExplorerProvider\\.tsx$",
           "^packages/client/src/contexts/VfsOrchestratorContext\\.tsx$",
           "^packages/client/src/db/vfsOrchestratorState\\.ts$",
-          "^packages/client/src/lib/vfsItemSyncWriter\\.ts$",
-          "^packages/client/src/pages/Health\\.tsx$",
-          "^packages/client/src/pages/(admin|analytics)/index\\.ts$"
+          "^packages/client/src/lib/vfsItemSyncWriter\\.ts$"
         ]
       },
       "to": {

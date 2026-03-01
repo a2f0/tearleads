@@ -2,7 +2,7 @@ import {
   HealthWindow as BaseHealthWindow,
   createHealthTracker,
   HealthRuntimeProvider
-} from '@tearleads/health';
+} from '@tearleads/health/clientEntry';
 import { type ComponentProps, useCallback } from 'react';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';

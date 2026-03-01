@@ -53,7 +53,15 @@ export const createViteAliases = (
     '@tearleads/vehicles': path.resolve(dirname, '../vehicles/src/index.ts'),
     // Workspace packages aliased to source for HMR
     '@tearleads/admin/package.json': path.resolve(dirname, '../admin/package.json'),
+    '@tearleads/admin/clientEntry': path.resolve(
+      dirname,
+      '../admin/src/clientEntry.ts'
+    ),
     '@tearleads/admin': path.resolve(dirname, '../admin/src/index.ts'),
+    '@tearleads/analytics/clientEntry': path.resolve(
+      dirname,
+      '../analytics/src/clientEntry.ts'
+    ),
     '@tearleads/audio/package.json': path.resolve(dirname, '../audio/package.json'),
     '@tearleads/audio': path.resolve(dirname, '../audio/src/index.ts'),
     '@tearleads/backups/package.json': path.resolve(
@@ -88,6 +96,10 @@ export const createViteAliases = (
     '@tearleads/email/package.json': path.resolve(dirname, '../email/package.json'),
     '@tearleads/email': path.resolve(dirname, '../email/src/index.ts'),
     '@tearleads/health/package.json': path.resolve(dirname, '../health/package.json'),
+    '@tearleads/health/clientEntry': path.resolve(
+      dirname,
+      '../health/src/clientEntry.ts'
+    ),
     '@tearleads/health': path.resolve(dirname, '../health/src/index.ts'),
     '@tearleads/help/package.json': path.resolve(dirname, '../help/package.json'),
     '@tearleads/help': path.resolve(dirname, '../help/src/index.ts'),
@@ -165,6 +177,10 @@ export const createViteAliases = (
     '@tearleads/notifications/package.json': path.resolve(
       dirname,
       '../notifications/package.json'
+    ),
+    '@tearleads/notifications/clientEntry': path.resolve(
+      dirname,
+      '../notifications/src/clientEntry.ts'
     ),
     '@tearleads/notifications/stores': path.resolve(
       dirname,
