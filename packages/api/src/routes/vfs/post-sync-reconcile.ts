@@ -5,23 +5,11 @@ import {
 } from '@tearleads/vfs-sync/vfs';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
+import { toIsoString } from './crdtRouteHelpers.js';
 
 interface ReconcileRow {
   last_reconciled_at: Date | string;
   last_reconciled_change_id: string;
-}
-
-function toIsoString(value: Date | string): string | null {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) {
-    return null;
-  }
-
-  return new Date(parsed).toISOString();
 }
 
 /**

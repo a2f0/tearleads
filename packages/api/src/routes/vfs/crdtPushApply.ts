@@ -3,6 +3,7 @@ import type {
   VfsCrdtPushResult
 } from '@tearleads/shared';
 import type { PoolClient } from 'pg';
+import { toIsoString } from './crdtRouteHelpers.js';
 import {
   CRDT_CLIENT_PUSH_SOURCE_TABLE,
   type MaxWriteIdRow,
@@ -36,19 +37,6 @@ interface VfsContainerCursorNotification {
 interface ApplyCrdtPushOperationsResult {
   results: VfsCrdtPushResult[];
   notifications: VfsContainerCursorNotification[];
-}
-
-function toIsoString(value: Date | string): string | null {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-
-  const parsedMs = Date.parse(value);
-  if (!Number.isFinite(parsedMs)) {
-    return null;
-  }
-
-  return new Date(parsedMs).toISOString();
 }
 
 function compareCursor(
