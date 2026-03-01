@@ -39,57 +39,57 @@ export interface GuardrailBudgetResult {
 }
 
 const DEPENDENCY_CRUISER_BUDGET: DependencyCruiserExceptionTotals = {
-  rulesWithPathNot: 30,
-  totalPathNotEntries: 45,
+  rulesWithPathNot: 1,
+  totalPathNotEntries: 15,
   totalClientFileExceptions: 15
 };
 
 const DEPENDENCY_CRUISER_RULE_BUDGET: Record<string, RuleExceptionBudget> = {
-  'no-circular': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-api-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-client-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
+  'no-circular': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-api-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-client-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
   'no-client-local-cross-package-src-imports': {
-    pathNotEntries: 1,
+    pathNotEntries: 0,
     clientFileExceptions: 0
   },
   'no-cross-package-non-entrypoint-imports': {
-    pathNotEntries: 1,
+    pathNotEntries: 0,
     clientFileExceptions: 0
   },
   'no-cross-package-src-entrypoint-imports': {
-    pathNotEntries: 16,
+    pathNotEntries: 15,
     clientFileExceptions: 15
   },
   'no-local-app-builder-vite-plugin-imports': {
-    pathNotEntries: 1,
+    pathNotEntries: 0,
     clientFileExceptions: 0
   },
-  'no-prod-to-test-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
+  'no-prod-to-test-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
   'no-local-cross-package-app-src-imports': {
-    pathNotEntries: 1,
+    pathNotEntries: 0,
     clientFileExceptions: 0
   },
-  'no-website-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-chrome-extension-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-smtp-listener-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-classic-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-cli-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-tee-api-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-tee-client-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-bob-and-alice-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-analytics-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-health-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-client-only-ui-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-console-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-ai-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-businesses-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-calendar-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-mls-chat-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-search-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-settings-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-terminal-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-vfs-explorer-imports': { pathNotEntries: 1, clientFileExceptions: 0 },
-  'no-window-manager-imports': { pathNotEntries: 1, clientFileExceptions: 0 }
+  'no-website-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-chrome-extension-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-smtp-listener-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-classic-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-cli-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-tee-api-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-tee-client-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-bob-and-alice-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-analytics-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-health-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-client-only-ui-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-console-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-ai-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-businesses-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-calendar-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-mls-chat-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-search-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-settings-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-terminal-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-vfs-explorer-imports': { pathNotEntries: 0, clientFileExceptions: 0 },
+  'no-window-manager-imports': { pathNotEntries: 0, clientFileExceptions: 0 }
 };
 
 const KNIP_BUDGET: KnipSuppressionTotals = {

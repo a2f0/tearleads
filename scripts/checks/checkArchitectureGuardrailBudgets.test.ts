@@ -89,13 +89,13 @@ test('parseKnip suppression counters include per-file and per-workspace maps', (
 test('evaluateGuardrailBudgets detects totals, rule, file, and workspace regressions', () => {
   const result = evaluateGuardrailBudgets(
     {
-      rulesWithPathNot: 31,
-      totalPathNotEntries: 45,
+      rulesWithPathNot: 2,
+      totalPathNotEntries: 15,
       totalClientFileExceptions: 15
     },
     {
       'no-circular': {
-        pathNotEntries: 2,
+        pathNotEntries: 1,
         clientFileExceptions: 0
       }
     },
@@ -126,13 +126,13 @@ test('evaluateGuardrailBudgets detects totals, rule, file, and workspace regress
 test('renderGuardrailBudgetSummary includes pass status when within budget', () => {
   const result = evaluateGuardrailBudgets(
     {
-      rulesWithPathNot: 30,
-      totalPathNotEntries: 45,
+      rulesWithPathNot: 1,
+      totalPathNotEntries: 15,
       totalClientFileExceptions: 15
     },
     {
       'no-circular': {
-        pathNotEntries: 1,
+        pathNotEntries: 0,
         clientFileExceptions: 0
       }
     },
@@ -154,6 +154,6 @@ test('renderGuardrailBudgetSummary includes pass status when within budget', () 
   const text = renderGuardrailBudgetSummary(result);
   assert.match(text, /Architecture Guardrail Budget Check/);
   assert.match(text, /Status: pass/);
-  assert.match(text, /dependencyCruiser.totalPathNotEntries: 45\/45/);
+  assert.match(text, /dependencyCruiser.totalPathNotEntries: 15\/15/);
   assert.match(text, /knip.ignoreIssueEntries: 25\/25/);
 });

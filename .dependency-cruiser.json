@@ -6,8 +6,7 @@
       "severity": "error",
       "comment": "Disallow circular dependencies in package source trees.",
       "from": {
-        "path": "^packages/[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/[^/]+/src"
       },
       "to": {
         "circular": true
@@ -18,8 +17,7 @@
       "severity": "error",
       "comment": "Packages must not depend on api app internals.",
       "from": {
-        "path": "^packages/(?!api/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!api/)[^/]+/src"
       },
       "to": {
         "path": "^packages/api/src"
@@ -30,8 +28,7 @@
       "severity": "error",
       "comment": "Shared code should not depend on client app internals.",
       "from": {
-        "path": "^packages/(?!client/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!client/)[^/]+/src"
       },
       "to": {
         "path": "^packages/client/src"
@@ -42,8 +39,7 @@
       "severity": "error",
       "comment": "Client code should import other packages via package exports, not relative paths into another package's src tree.",
       "from": {
-        "path": "^packages/client/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/client/src"
       },
       "to": {
         "path": "^packages/(?!client/)[^/]+/src",
@@ -57,8 +53,7 @@
       "severity": "error",
       "comment": "Packages should import other packages through public entrypoints, not non-index source internals.",
       "from": {
-        "path": "^packages/([^/]+)/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/([^/]+)/src"
       },
       "to": {
         "path": "^packages/[^/]+/src/(?!index\\.(ts|tsx)$).*",
@@ -79,7 +74,6 @@
       "from": {
         "path": "^packages/([^/]+)/src/.*",
         "pathNot": [
-          "(?:\\.test|\\.spec)\\.(?:ts|tsx)$|/src/test/|/src/__tests__/",
           "^packages/client/src/components/admin-windows/index\\.ts$",
           "^packages/client/src/components/health-window/HealthWindow\\.tsx$",
           "^packages/client/src/components/keychain-window/index\\.ts$",
@@ -114,8 +108,7 @@
       "severity": "error",
       "comment": "Packages should consume app-builder vite helpers via package exports instead of local imports into app-builder/src internals.",
       "from": {
-        "path": "^packages/(?!app-builder/)[^/]+/(src/.*|vitest\\.config\\.ts|vite\\.config\\.ts)$",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!app-builder/)[^/]+/(src/.*|vitest\\.config\\.ts|vite\\.config\\.ts)$"
       },
       "to": {
         "path": "^packages/app-builder/src/vite/createAppConfigPlugin\\.ts$",
@@ -129,8 +122,7 @@
       "severity": "error",
       "comment": "Production modules must not import test-only modules or test support helpers.",
       "from": {
-        "path": "^packages/[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/[^/]+/src"
       },
       "to": {
         "path": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/|/testSupport\\.(ts|tsx)$"
@@ -141,8 +133,7 @@
       "severity": "error",
       "comment": "Packages should not traverse into other package app/src internals via relative local imports; use package exports.",
       "from": {
-        "path": "^packages/(?!admin/|ai/|analytics/|app-builder/|audio/|businesses/|calendar/|camera/|contacts/|email/|health/|keychain/|mls-chat/|notes/|notifications/|photos/|search/|settings/|terminal/|vfs-explorer/|vfs-sync/|wallet/|window-manager/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!admin/|ai/|analytics/|app-builder/|audio/|businesses/|calendar/|camera/|contacts/|email/|health/|keychain/|mls-chat/|notes/|notifications/|photos/|search/|settings/|terminal/|vfs-explorer/|vfs-sync/|wallet/|window-manager/)[^/]+/src"
       },
       "to": {
         "path": "^packages/(admin|ai|analytics|app-builder|audio|businesses|calendar|camera|contacts|email|health|keychain|mls-chat|notes|notifications|photos|search|settings|terminal|vfs-explorer|vfs-sync|wallet|window-manager)/src",
@@ -156,8 +147,7 @@
       "severity": "error",
       "comment": "Non-website packages should not import website app internals.",
       "from": {
-        "path": "^packages/(?!website/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!website/)[^/]+/src"
       },
       "to": {
         "path": "^packages/website/src"
@@ -168,8 +158,7 @@
       "severity": "error",
       "comment": "Non-extension packages should not import chrome-extension app internals.",
       "from": {
-        "path": "^packages/(?!chrome-extension/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!chrome-extension/)[^/]+/src"
       },
       "to": {
         "path": "^packages/chrome-extension/src"
@@ -180,8 +169,7 @@
       "severity": "error",
       "comment": "Non-smtp-listener packages should not import smtp-listener app internals.",
       "from": {
-        "path": "^packages/(?!smtp-listener/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!smtp-listener/)[^/]+/src"
       },
       "to": {
         "path": "^packages/smtp-listener/src"
@@ -192,8 +180,7 @@
       "severity": "error",
       "comment": "Non-client packages should not import classic app internals.",
       "from": {
-        "path": "^packages/(?!client/|classic/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!client/|classic/)[^/]+/src"
       },
       "to": {
         "path": "^packages/classic/src"
@@ -204,8 +191,7 @@
       "severity": "error",
       "comment": "Packages should not import CLI app internals.",
       "from": {
-        "path": "^packages/(?!cli/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!cli/)[^/]+/src"
       },
       "to": {
         "path": "^packages/cli/src"
@@ -216,8 +202,7 @@
       "severity": "error",
       "comment": "Non-tee-api packages should not import tee-api app internals.",
       "from": {
-        "path": "^packages/(?!tee-api/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!tee-api/)[^/]+/src"
       },
       "to": {
         "path": "^packages/tee-api/src"
@@ -228,8 +213,7 @@
       "severity": "error",
       "comment": "Non-tee-client packages should not import tee-client app internals.",
       "from": {
-        "path": "^packages/(?!tee-client/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!tee-client/)[^/]+/src"
       },
       "to": {
         "path": "^packages/tee-client/src"
@@ -240,8 +224,7 @@
       "severity": "error",
       "comment": "Non-test packages should not import bob-and-alice test harness internals.",
       "from": {
-        "path": "^packages/(?!bob-and-alice/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!bob-and-alice/)[^/]+/src"
       },
       "to": {
         "path": "^packages/bob-and-alice/src"
@@ -252,8 +235,7 @@
       "severity": "error",
       "comment": "Non-client packages should not import analytics window internals.",
       "from": {
-        "path": "^packages/(?!client/|analytics/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!client/|analytics/)[^/]+/src"
       },
       "to": {
         "path": "^packages/analytics/src"
@@ -264,8 +246,7 @@
       "severity": "error",
       "comment": "Non-client packages should not import health window internals.",
       "from": {
-        "path": "^packages/(?!client/|health/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!client/|health/)[^/]+/src"
       },
       "to": {
         "path": "^packages/health/src"
@@ -276,8 +257,7 @@
       "severity": "error",
       "comment": "Client-only UI window packages should only be imported by client, not by other packages.",
       "from": {
-        "path": "^packages/(?!client/|audio/|camera/|contacts/|email/|help/|notes/|photos/|vehicles/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!client/|audio/|camera/|contacts/|email/|help/|notes/|photos/|vehicles/)[^/]+/src"
       },
       "to": {
         "path": "^packages/(audio|camera|contacts|email|help|notes|photos|vehicles)/src"
@@ -288,8 +268,7 @@
       "severity": "error",
       "comment": "Non-client packages should not import console window internals.",
       "from": {
-        "path": "^packages/(?!client/|console/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!client/|console/)[^/]+/src"
       },
       "to": {
         "path": "^packages/console/src"
@@ -300,8 +279,7 @@
       "severity": "error",
       "comment": "Non-client packages should not import ai window internals.",
       "from": {
-        "path": "^packages/(?!client/|ai/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!client/|ai/)[^/]+/src"
       },
       "to": {
         "path": "^packages/ai/src"
@@ -312,8 +290,7 @@
       "severity": "error",
       "comment": "Non-client packages should not import businesses window internals.",
       "from": {
-        "path": "^packages/(?!client/|businesses/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!client/|businesses/)[^/]+/src"
       },
       "to": {
         "path": "^packages/businesses/src"
@@ -324,8 +301,7 @@
       "severity": "error",
       "comment": "Non-client packages should not import calendar window internals.",
       "from": {
-        "path": "^packages/(?!client/|calendar/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!client/|calendar/)[^/]+/src"
       },
       "to": {
         "path": "^packages/calendar/src"
@@ -336,8 +312,7 @@
       "severity": "error",
       "comment": "Non-client packages should not import mls-chat window internals.",
       "from": {
-        "path": "^packages/(?!client/|mls-chat/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!client/|mls-chat/)[^/]+/src"
       },
       "to": {
         "path": "^packages/mls-chat/src"
@@ -348,8 +323,7 @@
       "severity": "error",
       "comment": "Non-client packages should not import search window internals.",
       "from": {
-        "path": "^packages/(?!client/|search/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!client/|search/)[^/]+/src"
       },
       "to": {
         "path": "^packages/search/src"
@@ -360,8 +334,7 @@
       "severity": "error",
       "comment": "Non-client packages should not import settings window internals.",
       "from": {
-        "path": "^packages/(?!client/|settings/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!client/|settings/)[^/]+/src"
       },
       "to": {
         "path": "^packages/settings/src"
@@ -372,8 +345,7 @@
       "severity": "error",
       "comment": "Non-client packages should not import terminal window internals.",
       "from": {
-        "path": "^packages/(?!client/|console/|terminal/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!client/|console/|terminal/)[^/]+/src"
       },
       "to": {
         "path": "^packages/terminal/src"
@@ -384,8 +356,7 @@
       "severity": "error",
       "comment": "Non-client packages should not import vfs-explorer window internals.",
       "from": {
-        "path": "^packages/(?!client/|vfs-explorer/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!client/|vfs-explorer/)[^/]+/src"
       },
       "to": {
         "path": "^packages/vfs-explorer/src"
@@ -396,8 +367,7 @@
       "severity": "error",
       "comment": "Non-client packages should not import window-manager internals.",
       "from": {
-        "path": "^packages/(?!client/|window-manager/)[^/]+/src",
-        "pathNot": "(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+        "path": "^packages/(?!client/|window-manager/)[^/]+/src"
       },
       "to": {
         "path": "^packages/window-manager/src"
