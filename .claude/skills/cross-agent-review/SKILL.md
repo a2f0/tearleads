@@ -83,7 +83,7 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
       git diff <baseRefName>...HEAD -- <file-path>
       ```
 
-   c. Read each changed file with the Read tool to understand full context beyond the diff hunks.
+   c. For added or modified files, read the file with the Read tool to understand the full context. Deleted files do not need to be read.
 
    d. Review each file individually against `REVIEW.md` guidelines:
       - Flag security issues, type safety violations, and missing tests as high priority
