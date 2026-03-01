@@ -57,6 +57,8 @@ export type {
   VfsBlobNetworkFlusherOptions,
   VfsBlobNetworkFlusherPersistedState,
   VfsBlobNetworkOperation,
+  VfsBlobNetworkOperationResultEvent,
+  VfsBlobNetworkRetryEvent,
   VfsBlobNetworkRetryPolicy,
   VfsBlobRelationKind,
   VfsBlobStageQueueOperation,
