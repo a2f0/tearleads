@@ -37,6 +37,7 @@ export async function runCreateBobNotesSharedWithAlice(): Promise<void> {
   console.log(`  Folder ID: ${setupResult.folderId}`);
   console.log(`  Note ID: ${setupResult.noteId}`);
   console.log(`  Share ACL ID: ${setupResult.shareAclId}`);
+  console.log(`  Note share ACL ID: ${setupResult.noteShareAclId}`);
   console.log(`  Bob user ID: ${setupResult.bobUserId}`);
   console.log(`  Alice user ID: ${setupResult.aliceUserId}`);
 }

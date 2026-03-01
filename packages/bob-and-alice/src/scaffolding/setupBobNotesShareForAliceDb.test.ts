@@ -59,7 +59,8 @@ describe('setupBobNotesShareForAliceDb', () => {
       rootItemId: '__vfs_root__',
       folderId: 'folder-fixed',
       noteId: 'note-fixed',
-      shareAclId: 'share:stored-share-id'
+      shareAclId: 'share:stored-share-id',
+      noteShareAclId: 'share:stored-share-id'
     });
 
     expect(calls[0]?.text).toBe('BEGIN');
@@ -70,13 +71,16 @@ describe('setupBobNotesShareForAliceDb', () => {
     );
     expect(rootInsertCall?.params?.[0]).toBe('__vfs_root__');
 
-    const folderShareCall = calls.find((call) =>
+    const shareCalls = calls.filter((call) =>
       call.text.includes('INSERT INTO vfs_acl_entries')
     );
-    expect(folderShareCall).toBeDefined();
-    expect(folderShareCall?.params?.[1]).toBe('folder-fixed');
-    expect(folderShareCall?.params?.[2]).toBe('alice-user-id');
-    expect(folderShareCall?.params?.[3]).toBe('read');
+    expect(shareCalls).toHaveLength(2);
+    expect(shareCalls[0]?.params?.[1]).toBe('folder-fixed');
+    expect(shareCalls[0]?.params?.[2]).toBe('alice-user-id');
+    expect(shareCalls[0]?.params?.[3]).toBe('read');
+    expect(shareCalls[1]?.params?.[1]).toBe('note-fixed');
+    expect(shareCalls[1]?.params?.[2]).toBe('alice-user-id');
+    expect(shareCalls[1]?.params?.[3]).toBe('read');
   });
 
   it('rolls back transaction on failure', async () => {

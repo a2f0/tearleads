@@ -39,6 +39,7 @@ export interface SetupBobNotesShareForAliceDbResult {
   folderId: string;
   noteId: string;
   shareAclId: string;
+  noteShareAclId: string;
 }
 
 const DEFAULT_ROOT_ITEM_ID = '__vfs_root__';
@@ -253,6 +254,55 @@ export async function setupBobNotesShareForAliceDb(
         nowIso
       ]
     );
+    const noteShareId = `share:${idFactory()}`;
+    const noteShareRows = await input.client.query<{ id: unknown }>(
+      `INSERT INTO vfs_acl_entries (
+         id,
+         item_id,
+         principal_type,
+         principal_id,
+         access_level,
+         wrapped_session_key,
+         key_epoch,
+         granted_by,
+         created_at,
+         updated_at,
+         expires_at,
+         revoked_at
+       )
+       VALUES (
+         $1,
+         $2,
+         'user',
+         $3,
+         $4,
+         $5,
+         1,
+         $6,
+         $7::timestamptz,
+         $7::timestamptz,
+         NULL,
+         NULL
+       )
+       ON CONFLICT (item_id, principal_type, principal_id) DO UPDATE SET
+         access_level = EXCLUDED.access_level,
+         wrapped_session_key = EXCLUDED.wrapped_session_key,
+         key_epoch = EXCLUDED.key_epoch,
+         granted_by = EXCLUDED.granted_by,
+         updated_at = EXCLUDED.updated_at,
+         expires_at = NULL,
+         revoked_at = NULL
+       RETURNING id`,
+      [
+        noteShareId,
+        noteId,
+        aliceUserId,
+        shareAccessLevel,
+        'scaffolding-share-wrap',
+        bobUserId,
+        nowIso
+      ]
+    );
 
     await input.client.query('COMMIT');
 
@@ -262,7 +312,8 @@ export async function setupBobNotesShareForAliceDb(
       rootItemId,
       folderId,
       noteId,
-      shareAclId: readRequiredAclId(shareRows.rows)
+      shareAclId: readRequiredAclId(shareRows.rows),
+      noteShareAclId: readRequiredAclId(noteShareRows.rows)
     };
   } catch (error) {
     await input.client.query('ROLLBACK');
