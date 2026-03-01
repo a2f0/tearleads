@@ -246,4 +246,119 @@ describe('vfsReadModelHydration', () => {
     expect(mockGetCrdtSync).not.toHaveBeenCalled();
     isDatabaseInitializedSpy.mockRestore();
   });
+
+  it('hydrates across paginated feeds and ignores non-ACL CRDT ops', async () => {
+    mockGetSync
+      .mockResolvedValueOnce({
+        items: [
+          {
+            changeId: 'sync-10',
+            itemId: 'item-10',
+            changeType: 'upsert',
+            changedAt: '2026-03-01T00:03:00.000Z',
+            objectType: 'folder',
+            ownerId: 'alice-id',
+            createdAt: '2026-03-01T00:03:00.000Z',
+            accessLevel: 'admin'
+          }
+        ],
+        nextCursor: 'sync-cursor-1',
+        hasMore: true
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            changeId: 'sync-11',
+            itemId: 'item-11',
+            changeType: 'upsert',
+            changedAt: '2026-03-01T00:03:01.000Z',
+            objectType: 'folder',
+            ownerId: 'alice-id',
+            createdAt: '2026-03-01T00:03:01.000Z',
+            accessLevel: 'admin'
+          }
+        ],
+        nextCursor: null,
+        hasMore: false
+      });
+    mockGetCrdtSync
+      .mockResolvedValueOnce({
+        items: [
+          {
+            opId: 'crdt-10',
+            itemId: 'item-10',
+            opType: 'item_upsert',
+            principalType: null,
+            principalId: null,
+            accessLevel: null,
+            parentId: null,
+            childId: null,
+            actorId: 'alice-id',
+            sourceTable: 'vfs_crdt_ops',
+            sourceId: 'crdt-10',
+            occurredAt: '2026-03-01T00:03:02.000Z'
+          },
+          {
+            opId: 'crdt-11',
+            itemId: 'item-10',
+            opType: 'acl_add',
+            principalType: 'user',
+            principalId: 'bob-id',
+            accessLevel: 'read',
+            parentId: null,
+            childId: null,
+            actorId: 'alice-id',
+            sourceTable: 'vfs_acl_entries',
+            sourceId: 'share:share-10',
+            occurredAt: '2026-03-01T00:03:03.000Z'
+          }
+        ],
+        nextCursor: 'crdt-cursor-1',
+        hasMore: true,
+        lastReconciledWriteIds: {}
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            opId: 'crdt-12',
+            itemId: 'item-11',
+            opType: 'acl_add',
+            principalType: null,
+            principalId: 'bob-id',
+            accessLevel: 'read',
+            parentId: null,
+            childId: null,
+            actorId: 'alice-id',
+            sourceTable: 'vfs_acl_entries',
+            sourceId: 'share:share-11',
+            occurredAt: '2026-03-01T00:03:04.000Z'
+          }
+        ],
+        nextCursor: null,
+        hasMore: false,
+        lastReconciledWriteIds: {}
+      });
+
+    await hydrateLocalReadModelFromRemoteFeeds();
+
+    expect(mockGetSync).toHaveBeenNthCalledWith(1, undefined, 500);
+    expect(mockGetSync).toHaveBeenNthCalledWith(2, 'sync-cursor-1', 500);
+    expect(mockGetCrdtSync).toHaveBeenNthCalledWith(1, undefined, 500);
+    expect(mockGetCrdtSync).toHaveBeenNthCalledWith(2, 'crdt-cursor-1', 500);
+
+    const adapter = getDatabaseAdapter();
+    const registryRows = await adapter.execute(
+      `SELECT id FROM vfs_registry WHERE id IN (?, ?) ORDER BY id`,
+      ['item-10', 'item-11']
+    );
+    expect(registryRows.rows).toHaveLength(2);
+
+    const aclRows = await adapter.execute(
+      `SELECT id FROM vfs_acl_entries WHERE item_id IN (?, ?) ORDER BY id`,
+      ['item-10', 'item-11']
+    );
+    expect(aclRows.rows).toEqual([
+      expect.objectContaining({ id: 'share:share-10' })
+    ]);
+  });
 });
