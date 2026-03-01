@@ -1,10 +1,7 @@
 #!/usr/bin/env -S pnpm exec tsx
 import { pathToFileURL } from 'node:url';
 import { createTestUsersDb } from '../../../packages/shared/src/scaffolding/createTestUsersDb.ts';
-import {
-  buildConnectionLabel,
-  createPool
-} from '../../postgres/lib/pool.ts';
+import { buildConnectionLabel, createPool } from '../../postgres/lib/pool.ts';
 
 export async function runCreateTestUsers(): Promise<void> {
   const pool = await createPool();

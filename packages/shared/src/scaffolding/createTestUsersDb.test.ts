@@ -4,10 +4,7 @@ import { createTestUsersDb } from './createTestUsersDb.js';
 
 vi.mock('../seedAccount.js', () => ({
   seedHarnessAccount: vi.fn(
-    async (
-      _client: HarnessSqlClient,
-      input: { email: string }
-    ) => {
+    async (_client: HarnessSqlClient, input: { email: string }) => {
       const userId =
         input.email === 'bob@tearleads.com' ? 'bob-user-id' : 'alice-user-id';
       const orgId = `personal-org-${userId}`;
@@ -120,9 +117,7 @@ describe('createTestUsersDb', () => {
         }
         if (text.includes('SELECT id, personal_organization_id')) {
           return {
-            rows: [
-              { id: 'user-missing-org', personal_organization_id: null }
-            ]
+            rows: [{ id: 'user-missing-org', personal_organization_id: null }]
           };
         }
         return { rows: [] };

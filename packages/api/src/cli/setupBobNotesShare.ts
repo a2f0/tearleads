@@ -1,10 +1,10 @@
-import type { Command } from 'commander';
 import {
   alice,
   bob,
   createTestUsersDb,
   setupBobNotesShareForAliceDb
 } from '@tearleads/shared/scaffolding';
+import type { Command } from 'commander';
 import { buildPostgresConnectionLabel } from '../lib/cliPostgres.js';
 import { closePostgresPool, getPostgresPool } from '../lib/postgres.js';
 
@@ -48,9 +48,7 @@ async function runSetupBobNotesShare(): Promise<void> {
 export function setupBobNotesShareCommand(program: Command): void {
   program
     .command('setup-bob-notes-share')
-    .description(
-      'Create test users and set up Bob->Alice VFS note sharing'
-    )
+    .description('Create test users and set up Bob->Alice VFS note sharing')
     .action(async () => {
       let exitCode = 0;
       try {

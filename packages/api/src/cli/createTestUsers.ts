@@ -1,5 +1,5 @@
-import type { Command } from 'commander';
 import { createTestUsersDb } from '@tearleads/shared/scaffolding';
+import type { Command } from 'commander';
 import { buildPostgresConnectionLabel } from '../lib/cliPostgres.js';
 import { closePostgresPool, getPostgresPool } from '../lib/postgres.js';
 
