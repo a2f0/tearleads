@@ -20,7 +20,7 @@ describe('mlsRoutes', () => {
     await mlsRoutes.getGroupMessages('group-1');
 
     const routePath = requestMock.mock.calls[0]?.[0];
-    expect(routePath).toBe('/mls/groups/group-1/messages');
+    expect(routePath).toBe('/vfs/mls/groups/group-1/messages');
   });
 
   it('builds group messages route with cursor and limit query params', async () => {
@@ -31,7 +31,7 @@ describe('mlsRoutes', () => {
 
     const routePath = requestMock.mock.calls[0]?.[0];
     expect(routePath).toBe(
-      '/mls/groups/group%202/messages?cursor=cursor-5&limit=50'
+      '/vfs/mls/groups/group%202/messages?cursor=cursor-5&limit=50'
     );
   });
 });

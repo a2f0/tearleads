@@ -13,6 +13,7 @@ const VALID_OBJECT_TYPES: VfsObjectType[] = [
   'contact',
   'note',
   'email',
+  'mlsMessage',
   'conversation',
   'folder',
   'playlist',
