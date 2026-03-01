@@ -37,6 +37,8 @@ import {
   useVfsOrchestratorInstance
 } from './VfsOrchestratorContext';
 
+export { VfsExplorerAboutMenuItem } from './VfsExplorerAboutMenuItem';
+
 const vfsExplorerUIComponents: VfsExplorerUIComponents = {
   AboutMenuItem: VfsExplorerAboutMenuItem,
   Button,
