@@ -41,7 +41,8 @@ export async function getSessionsHandler(
         };
       })
     };
-  } catch {
+  } catch (error) {
+    console.error('Failed to list sessions', error);
     throw new ConnectError('Failed to list sessions', Code.Internal);
   }
 }
@@ -77,6 +78,7 @@ export async function deleteSessionHandler(
     if (error instanceof ConnectError) {
       throw error;
     }
+    console.error('Failed to delete session', error);
     throw new ConnectError('Failed to delete session', Code.Internal);
   }
 }
@@ -91,7 +93,8 @@ export async function logout(_request: LogoutRequest, context: HandlerContext) {
     return {
       loggedOut: true
     };
-  } catch {
+  } catch (error) {
+    console.error('Failed to logout session', error);
     throw new ConnectError('Failed to logout', Code.Internal);
   }
 }
@@ -147,6 +150,7 @@ export async function getOrganizations(
     if (error instanceof ConnectError) {
       throw error;
     }
+    console.error('Failed to list organizations', error);
     throw new ConnectError('Failed to list organizations', Code.Internal);
   }
 }

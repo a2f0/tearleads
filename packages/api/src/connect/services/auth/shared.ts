@@ -38,7 +38,16 @@ export function getAuthContextOrThrow(context: {
   return authContext;
 }
 
-export function toRequiredTimestamp(value: string): Timestamp {
+export function toRequiredTimestamp(
+  value: string | null | undefined
+): Timestamp {
+  if (!value) {
+    throw new ConnectError(
+      'A required timestamp value is missing',
+      Code.Internal
+    );
+  }
+
   const parsedMs = Date.parse(value);
   if (!Number.isFinite(parsedMs)) {
     throw new ConnectError('Invalid session timestamp', Code.Internal);
@@ -46,7 +55,13 @@ export function toRequiredTimestamp(value: string): Timestamp {
   return Timestamp.fromDate(new Date(parsedMs));
 }
 
-export function toOptionalTimestamp(value: string): Timestamp | undefined {
+export function toOptionalTimestamp(
+  value: string | null | undefined
+): Timestamp | undefined {
+  if (!value) {
+    return undefined;
+  }
+
   const parsedMs = Date.parse(value);
   if (!Number.isFinite(parsedMs)) {
     return undefined;

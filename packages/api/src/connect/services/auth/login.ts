@@ -110,6 +110,7 @@ export async function login(request: LoginRequest, context: HandlerContext) {
     if (error instanceof ConnectError) {
       throw error;
     }
+    console.error('Failed to authenticate login request', error);
     throw new ConnectError('Failed to authenticate', Code.Internal);
   }
 }

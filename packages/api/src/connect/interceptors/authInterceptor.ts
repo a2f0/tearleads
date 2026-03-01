@@ -55,13 +55,16 @@ export const authInterceptor: Interceptor = (next) => async (req) => {
       session
     });
 
-    void updateSessionActivity(claims.jti);
+    void updateSessionActivity(claims.jti).catch((error: unknown) => {
+      console.error('Failed to update session activity', error);
+    });
 
     return next(req);
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
     }
+    console.error('Failed to authenticate request', error);
     throw new ConnectError('Failed to authenticate', Code.Internal);
   }
 };

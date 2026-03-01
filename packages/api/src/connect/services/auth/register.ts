@@ -245,6 +245,7 @@ export async function register(
     if (error instanceof ConnectError) {
       throw error;
     }
+    console.error('Failed to register user', error);
     throw new ConnectError('Failed to register', Code.Internal);
   }
 }

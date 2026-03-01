@@ -100,6 +100,7 @@ export async function refreshToken(
     if (error instanceof ConnectError) {
       throw error;
     }
+    console.error('Failed to refresh token', error);
     throw new ConnectError('Failed to refresh token', Code.Internal);
   }
 }
