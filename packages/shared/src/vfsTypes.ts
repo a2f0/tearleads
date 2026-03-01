@@ -45,6 +45,7 @@ export interface VfsRegisterRequest {
   id: string;
   objectType: VfsObjectType;
   encryptedSessionKey: string;
+  encryptedName?: string;
 }
 
 export interface VfsRegisterResponse {

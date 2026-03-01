@@ -1,14 +1,17 @@
 #!/usr/bin/env -S pnpm exec tsx
+import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import {
   ensureVfsKeysExist,
   loginApiActor
 } from '../../../packages/bob-and-alice/src/scaffolding/apiActorAuth.ts';
 import { setupBobNotesShareForAlice } from '../../../packages/bob-and-alice/src/scaffolding/setupBobNotesShareForAlice.ts';
+import { createPool, type PoolClient } from '../../postgres/lib/pool.ts';
 import { runCreateTestUsers } from './createTestUsers.ts';
 import { alice, bob } from './testUsers.ts';
 
 const DEFAULT_API_BASE_URL = 'http://localhost:5001/v1';
+const VFS_ROOT_ID = 'root';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -57,10 +60,59 @@ export async function runCreateBobNotesSharedWithAlice(): Promise<void> {
   await ensureVfsKeysExist({ actor: aliceActor, keyPrefix: 'alice' });
 
   console.log('Step 4/4: creating Bob folder+note and sharing with Alice...');
-  const setupResult = await setupBobNotesShareForAlice({
-    bob: bobActor,
-    aliceUserId: aliceActor.userId
-  });
+  const pool = await createPool();
+  const client = await pool.connect();
+  let setupResult:
+    | Awaited<ReturnType<typeof setupBobNotesShareForAlice>>
+    | undefined;
+
+  try {
+    const ensureRootAndInsertLink = async (
+      dbClient: PoolClient,
+      input: { parentId: string; childId: string }
+    ): Promise<void> => {
+      await dbClient.query(
+        `INSERT INTO vfs_registry (
+           id,
+           object_type,
+           owner_id,
+           encrypted_session_key,
+           encrypted_name,
+           created_at
+         )
+         VALUES ($1, 'folder', NULL, NULL, 'VFS Root', NOW())
+         ON CONFLICT (id) DO NOTHING`,
+        [VFS_ROOT_ID]
+      );
+
+      await dbClient.query(
+        `INSERT INTO vfs_links (
+           id,
+           parent_id,
+           child_id,
+           wrapped_session_key,
+           created_at
+         )
+         VALUES ($1, $2, $3, $4, NOW())
+         ON CONFLICT (parent_id, child_id) DO NOTHING`,
+        [randomUUID(), input.parentId, input.childId, 'scaffolding-link-wrap']
+      );
+    };
+
+    setupResult = await setupBobNotesShareForAlice({
+      bob: bobActor,
+      aliceUserId: aliceActor.userId,
+      rootItemId: VFS_ROOT_ID,
+      createLink: async (input) => ensureRootAndInsertLink(client, input)
+    });
+  } finally {
+    client.release();
+    await pool.end();
+  }
+
+  if (!setupResult) {
+    throw new Error('Failed to produce setup result');
+  }
 
   const sharesResponse = await bobActor.fetchJson(
     `/vfs/items/${encodeURIComponent(setupResult.folderId)}/shares`

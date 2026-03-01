@@ -10,6 +10,11 @@ interface RequestCall {
   bodyText: string;
 }
 
+interface LinkCall {
+  parentId: string;
+  childId: string;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -71,15 +76,14 @@ function createMockBobActor(calls: RequestCall[]): JsonApiActor {
 describe('setupBobNotesShareForAlice', () => {
   it('registers folder+note, links under root, and shares folder to Alice', async () => {
     const calls: RequestCall[] = [];
+    const linkCalls: LinkCall[] = [];
     const idValues = [
       'folder-suffix',
       'note-suffix',
       'upsert-op',
       'nonce-id',
       'aad-id',
-      'sig-id',
-      'root-link-op',
-      'note-link-op'
+      'sig-id'
     ];
     let idIndex = 0;
     const idFactory = (): string => {
@@ -95,6 +99,9 @@ describe('setupBobNotesShareForAlice', () => {
     const result = await setupBobNotesShareForAlice({
       bob,
       aliceUserId: 'alice-user-id',
+      createLink: async (link) => {
+        linkCalls.push(link);
+      },
       idFactory,
       now: () => new Date('2026-03-01T00:00:00.000Z'),
       rootItemId: 'root'
@@ -103,7 +110,14 @@ describe('setupBobNotesShareForAlice', () => {
     expect(result.folderId).toBe('folder-folder-suffix');
     expect(result.noteId).toBe('note-note-suffix');
     expect(result.share.targetId).toBe('alice-user-id');
-    expect(result.crdtResults).toHaveLength(3);
+    expect(result.crdtResults).toHaveLength(1);
+    expect(linkCalls).toEqual([
+      { parentId: 'root', childId: 'folder-folder-suffix' },
+      {
+        parentId: 'folder-folder-suffix',
+        childId: 'note-note-suffix'
+      }
+    ]);
 
     expect(calls).toHaveLength(4);
     expect(calls[0]?.path).toBe('/vfs/register');
@@ -115,14 +129,16 @@ describe('setupBobNotesShareForAlice', () => {
     expect(firstRegisterBody).toEqual({
       id: 'folder-folder-suffix',
       objectType: 'folder',
-      encryptedSessionKey: 'bob-folder-session-key'
+      encryptedSessionKey: 'bob-folder-session-key',
+      encryptedName: 'Notes shared with Alice'
     });
 
     const secondRegisterBody = JSON.parse(calls[1]?.bodyText ?? '');
     expect(secondRegisterBody).toEqual({
       id: 'note-note-suffix',
       objectType: 'note',
-      encryptedSessionKey: 'bob-note-session-key'
+      encryptedSessionKey: 'bob-note-session-key',
+      encryptedName: 'Shared note for Alice'
     });
 
     const pushBody = JSON.parse(calls[2]?.bodyText ?? '');
@@ -130,29 +146,13 @@ describe('setupBobNotesShareForAlice', () => {
       throw new Error('Unexpected push body in test');
     }
     expect(pushBody['clientId']).toBe('bob-scaffolding');
-    expect(pushBody['operations']).toHaveLength(3);
+    expect(pushBody['operations']).toHaveLength(1);
     expect(pushBody['operations'][0]).toMatchObject({
       opId: 'op-upsert-op',
       opType: 'item_upsert',
       itemId: 'note-note-suffix',
       replicaId: 'bob-scaffolding',
       writeId: 1
-    });
-    expect(pushBody['operations'][1]).toMatchObject({
-      opId: 'op-root-link-op',
-      opType: 'link_add',
-      itemId: 'folder-folder-suffix',
-      parentId: 'root',
-      childId: 'folder-folder-suffix',
-      writeId: 2
-    });
-    expect(pushBody['operations'][2]).toMatchObject({
-      opId: 'op-note-link-op',
-      opType: 'link_add',
-      itemId: 'note-note-suffix',
-      parentId: 'folder-folder-suffix',
-      childId: 'note-note-suffix',
-      writeId: 3
     });
 
     const shareBody = JSON.parse(calls[3]?.bodyText ?? '');

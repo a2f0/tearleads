@@ -62,6 +62,22 @@ describe('VFS routes (register)', () => {
       expect(response.status).toBe(400);
     });
 
+    it('returns 400 when encryptedName is blank', async () => {
+      const authHeader = await createAuthHeader();
+
+      const response = await request(app)
+        .post('/v1/vfs/register')
+        .set('Authorization', authHeader)
+        .send({
+          id: 'file-id',
+          objectType: 'folder',
+          encryptedSessionKey: 'blob',
+          encryptedName: '   '
+        });
+
+      expect(response.status).toBe(400);
+    });
+
     it('returns 409 when item already registered', async () => {
       const authHeader = await createAuthHeader();
       mockQuery.mockResolvedValueOnce({ rows: [{ id: 1 }] }); // existing item

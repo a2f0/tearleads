@@ -43,9 +43,12 @@ export interface JsonApiActor {
 export interface SetupBobNotesShareForAliceInput {
   bob: JsonApiActor;
   aliceUserId: string;
+  createLink: (input: { parentId: string; childId: string }) => Promise<void>;
   rootItemId?: string;
   folderId?: string;
   noteId?: string;
+  folderName?: string;
+  noteName?: string;
   folderSessionKey?: string;
   noteSessionKey?: string;
   notePlaintext?: string;
@@ -65,6 +68,8 @@ export interface SetupBobNotesShareForAliceResult {
 const DEFAULT_ROOT_ITEM_ID = 'root';
 const DEFAULT_FOLDER_SESSION_KEY = 'bob-folder-session-key';
 const DEFAULT_NOTE_SESSION_KEY = 'bob-note-session-key';
+const DEFAULT_FOLDER_NAME = 'Notes shared with Alice';
+const DEFAULT_NOTE_NAME = 'Shared note for Alice';
 const DEFAULT_NOTE_PLAINTEXT = "Note shared from Bob's VFS";
 const DEFAULT_PERMISSION_LEVEL: VfsPermissionLevel = 'view';
 const DEFAULT_CLIENT_ID = 'bob-scaffolding';
@@ -154,6 +159,8 @@ export async function setupBobNotesShareForAlice(
   const folderId = input.folderId ?? `folder-${idFactory()}`;
   const noteId = input.noteId ?? `note-${idFactory()}`;
   const rootItemId = input.rootItemId ?? DEFAULT_ROOT_ITEM_ID;
+  const folderName = input.folderName ?? DEFAULT_FOLDER_NAME;
+  const noteName = input.noteName ?? DEFAULT_NOTE_NAME;
   const folderSessionKey = input.folderSessionKey ?? DEFAULT_FOLDER_SESSION_KEY;
   const noteSessionKey = input.noteSessionKey ?? DEFAULT_NOTE_SESSION_KEY;
   const notePlaintext = input.notePlaintext ?? DEFAULT_NOTE_PLAINTEXT;
@@ -166,7 +173,8 @@ export async function setupBobNotesShareForAlice(
     body: JSON.stringify({
       id: folderId,
       objectType: 'folder',
-      encryptedSessionKey: folderSessionKey
+      encryptedSessionKey: folderSessionKey,
+      encryptedName: folderName
     })
   });
 
@@ -176,7 +184,8 @@ export async function setupBobNotesShareForAlice(
     body: JSON.stringify({
       id: noteId,
       objectType: 'note',
-      encryptedSessionKey: noteSessionKey
+      encryptedSessionKey: noteSessionKey,
+      encryptedName: noteName
     })
   });
 
@@ -193,28 +202,17 @@ export async function setupBobNotesShareForAlice(
       encryptionNonce: toBase64(`nonce-${idFactory()}`),
       encryptionAad: toBase64(`aad-${idFactory()}`),
       encryptionSignature: toBase64(`sig-${idFactory()}`)
-    },
-    {
-      opId: `op-${idFactory()}`,
-      opType: 'link_add',
-      itemId: folderId,
-      replicaId: clientId,
-      writeId: 2,
-      occurredAt: buildOccurredAt(now, 1),
-      parentId: rootItemId,
-      childId: folderId
-    },
-    {
-      opId: `op-${idFactory()}`,
-      opType: 'link_add',
-      itemId: noteId,
-      replicaId: clientId,
-      writeId: 3,
-      occurredAt: buildOccurredAt(now, 2),
-      parentId: folderId,
-      childId: noteId
     }
   ];
+
+  await input.createLink({
+    parentId: rootItemId,
+    childId: folderId
+  });
+  await input.createLink({
+    parentId: folderId,
+    childId: noteId
+  });
 
   const pushResponse = await input.bob.fetchJson('/vfs/crdt/push', {
     method: 'POST',
