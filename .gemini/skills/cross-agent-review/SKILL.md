@@ -56,7 +56,14 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
 
    If the command fails, report the error to the user and stop.
 
-3. **Report results**: Output the review results including:
+3. **Tag the PR with the reviewer**: After a successful review, tag the PR with the agent that performed it:
+
+   ```bash
+   # Use the agent name that actually performed the review (claude, codex, etc.)
+   "$AGENT_TOOL" tagPrWithReviewer --reviewer <agent>
+   ```
+
+4. **Report results**: Output the review results including:
    - Which agent performed the review
    - The PR number and branch
    - The review findings

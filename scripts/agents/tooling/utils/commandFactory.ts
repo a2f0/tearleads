@@ -83,6 +83,16 @@ export function createActionCommand(actionName: ActionName): Command {
           parsePositiveInt(v, '--pr')
         );
         break;
+      case 'tagPrWithReviewer':
+        cmd
+          .requiredOption(
+            '--reviewer <name>',
+            'Reviewer agent (gemini, claude, codex, opencode)'
+          )
+          .option('--pr <n>', 'PR number (auto-detected if omitted)', (v) =>
+            parsePositiveInt(v, '--pr')
+          );
+        break;
       case 'getPrInfo':
         cmd.option('--fields <list>', 'Comma-separated fields');
         break;

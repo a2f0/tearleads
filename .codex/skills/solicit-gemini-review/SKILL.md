@@ -47,7 +47,20 @@ Request a fresh review from Gemini Code Assist on the current PR.
      fi
      ```
 
+   - Tag the PR with whichever agent performed the fallback review:
+
+     ```bash
+     # Use claude or codex depending on which succeeded above
+     ./scripts/agents/tooling/agentTool.ts tagPrWithReviewer --reviewer claude
+     ```
+
    - Report that Gemini quota was exhausted and that fallback review was run (Claude first, Codex if Claude failed)
+
+   If Gemini reviewed successfully (no quota issue), tag the PR with Gemini:
+
+   ```bash
+   ./scripts/agents/tooling/agentTool.ts tagPrWithReviewer --reviewer gemini
+   ```
 
 5. **Report**: Output a summary of Gemini's review (or fallback review if Gemini quota was exhausted) and any specific comments.
 

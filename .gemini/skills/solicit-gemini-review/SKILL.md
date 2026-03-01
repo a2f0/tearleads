@@ -45,7 +45,19 @@ Request a fresh review from Gemini Code Assist on the current PR.
      ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
      ```
 
+   - Tag the PR with the fallback reviewer:
+
+     ```bash
+     ./scripts/agents/tooling/agentTool.ts tagPrWithReviewer --reviewer claude
+     ```
+
    - Report that Gemini quota was exhausted and Claude Code was used instead
+
+   If Gemini reviewed successfully (no quota issue), tag the PR with Gemini:
+
+   ```bash
+   ./scripts/agents/tooling/agentTool.ts tagPrWithReviewer --reviewer gemini
+   ```
 
 5. **Report**: Output a summary of Gemini's review (or Claude Code review if fallback was used) and any specific comments.
 
