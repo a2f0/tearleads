@@ -3,7 +3,7 @@ export interface VfsCrdtReplicaWriteIdRow {
   max_write_id: string | number | null;
 }
 
-export function normalizeReplicaId(value: unknown): string | null {
+function normalizeReplicaId(value: unknown): string | null {
   if (typeof value !== 'string') {
     return null;
   }
@@ -12,7 +12,7 @@ export function normalizeReplicaId(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-export function parseWriteId(value: unknown): number | null {
+function parseWriteId(value: unknown): number | null {
   if (typeof value === 'number') {
     if (!Number.isSafeInteger(value) || value < 1) {
       return null;
