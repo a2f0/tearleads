@@ -95,6 +95,14 @@ describe('connect auth shared helpers', () => {
     );
   });
 
+  it('handles missing timestamp inputs safely', () => {
+    expect(toOptionalTimestamp(undefined)).toBeUndefined();
+    expect(toOptionalTimestamp(null)).toBeUndefined();
+
+    expect(() => toRequiredTimestamp(undefined)).toThrowError(ConnectError);
+    expect(() => toRequiredTimestamp(null)).toThrowError(ConnectError);
+  });
+
   it('parses required session id and rejects empty values', () => {
     expect(
       parseRequiredSessionId(new DeleteSessionRequest({ sessionId: 'abc123' }))
