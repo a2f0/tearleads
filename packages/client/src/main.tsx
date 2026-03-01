@@ -1,4 +1,5 @@
 import { configureBackupsRuntime } from '@tearleads/backups';
+import { setKeychainDependencies } from '@tearleads/keychain';
 import { ThemeProvider } from '@tearleads/ui';
 import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
@@ -27,6 +28,7 @@ import { VfsOrchestratorProvider } from './contexts/VfsOrchestratorContext';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
 import { ClientSettingsProvider, DatabaseProvider } from './db/hooks';
 import { i18n } from './i18n';
+import { clientKeychainDependencies } from './keychain/keychainRuntime';
 import { installConsoleErrorCapture } from './lib/consoleErrorCapture';
 import { SearchProvider } from './search';
 import { SSEProvider } from './sse';
@@ -68,6 +70,7 @@ window.addEventListener('error', (event: ErrorEvent) => {
 
 installConsoleErrorCapture();
 configureBackupsRuntime(clientBackupsRuntime);
+setKeychainDependencies(clientKeychainDependencies);
 
 const rootElement = document.getElementById('root');
 if (rootElement) {
