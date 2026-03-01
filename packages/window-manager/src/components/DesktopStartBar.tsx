@@ -1,5 +1,5 @@
+import { cn } from '@tearleads/ui';
 import type { ReactNode } from 'react';
-import { cn } from '../lib/utils.js';
 
 export interface DesktopStartBarProps {
   /** Content to render in the start bar (typically DesktopStartButton and DesktopTaskbar) */

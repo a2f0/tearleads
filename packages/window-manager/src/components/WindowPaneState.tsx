@@ -1,4 +1,4 @@
-import { cn } from '../lib/utils.js';
+import { cn } from '@tearleads/ui';
 
 type WindowPaneStateTone = 'default' | 'error';
 type WindowPaneStateLayout = 'inline' | 'stack';

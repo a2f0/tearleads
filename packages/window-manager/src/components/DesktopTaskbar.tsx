@@ -1,6 +1,6 @@
+import { cn } from '@tearleads/ui';
 import type { ReactNode } from 'react';
 import { useCallback } from 'react';
-import { cn } from '../lib/utils.js';
 import { DesktopTaskbarButton } from './DesktopTaskbarButton.js';
 import type { WindowDimensions } from './FloatingWindow.js';
 

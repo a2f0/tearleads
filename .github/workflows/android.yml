@@ -175,13 +175,13 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/api build
 
-      - name: Build window-manager
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm --filter @tearleads/window-manager build
-
       - name: Build UI
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/ui build
+
+      - name: Build window-manager
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
+        run: pnpm --filter @tearleads/window-manager build
 
       - name: Build notes
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}

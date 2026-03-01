@@ -1,6 +1,6 @@
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
+import { cn } from '@tearleads/ui';
 import type { MouseEventHandler } from 'react';
-import { cn } from '../lib/utils.js';
 
 type ConnectionState = 'connected' | 'connecting' | 'disconnected';
 

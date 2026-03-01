@@ -1,5 +1,7 @@
+// one-component-per-file: allow
+
+import { cn } from '@tearleads/ui';
 import type { ReactNode } from 'react';
-import { cn } from '../lib/utils.js';
 
 export type DesktopBackgroundPattern =
   | 'solid'

@@ -21,16 +21,16 @@
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "peerDependencies": {
+    "@tearleads/ui": "workspace:*",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "dependencies": {
     "@radix-ui/react-tooltip": "1.2.8",
-    "clsx": "2.1.1",
-    "lucide-react": "0.575.0",
-    "tailwind-merge": "3.5.0"
+    "lucide-react": "0.575.0"
   },
   "devDependencies": {
+    "@tearleads/ui": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
     "@testing-library/user-event": "14.6.1",

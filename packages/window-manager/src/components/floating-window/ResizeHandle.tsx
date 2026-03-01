@@ -1,5 +1,5 @@
+import { cn } from '@tearleads/ui';
 import type { Corner } from '../../hooks/useFloatingWindow.js';
-import { cn } from '../../lib/utils.js';
 import { BORDER_CLASSES, POSITION_CLASSES } from './constants.js';
 
 interface ResizeHandleProps {

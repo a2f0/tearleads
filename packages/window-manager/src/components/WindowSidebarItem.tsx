@@ -1,4 +1,4 @@
-import { cn } from '../lib/utils.js';
+import { cn } from '@tearleads/ui';
 
 export interface WindowSidebarItemProps {
   label: string;

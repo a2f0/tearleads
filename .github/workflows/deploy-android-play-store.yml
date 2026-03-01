@@ -126,11 +126,11 @@ jobs:
       - name: Build API (for OpenAPI spec)
         run: pnpm --filter @tearleads/api build
 
-      - name: Build window-manager
-        run: pnpm --filter @tearleads/window-manager build
-
       - name: Build UI
         run: pnpm --filter @tearleads/ui build
+
+      - name: Build window-manager
+        run: pnpm --filter @tearleads/window-manager build
 
       - name: Build notes
         run: pnpm --filter @tearleads/notes build

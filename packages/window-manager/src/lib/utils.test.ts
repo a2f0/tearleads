@@ -1,5 +1,6 @@
+import { cn } from '@tearleads/ui';
 import { describe, expect, it, vi } from 'vitest';
-import { cn, detectPlatform, generateUniqueId } from './utils.js';
+import { detectPlatform, generateUniqueId } from './utils.js';
 
 describe('utils', () => {
   it('merges class names', () => {
