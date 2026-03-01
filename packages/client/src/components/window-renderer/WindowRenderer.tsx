@@ -1,9 +1,9 @@
-import { AnalyticsWindow } from '@tearleads/analytics';
 import type { WindowDimensions } from '@tearleads/window-manager';
 import type { ComponentType } from 'react';
 import { memo, useCallback, useMemo, useRef } from 'react';
 import { AdminOrganizationsWindow } from '@/components/admin-organizations-window';
 import { AdminUsersWindow } from '@/components/admin-users-window';
+import { AnalyticsWindow } from '@/components/analytics-window';
 import {
   AdminGroupsWindow,
   AdminPostgresWindow,
