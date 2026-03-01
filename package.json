@@ -52,6 +52,8 @@
     "checkDependencyCruiser": "./scripts/checks/checkDependencyCruiser.sh",
     "checkDependencyCruiserSummary": "./scripts/checks/checkDependencyCruiser.sh --summary",
     "checkDependencyCruiserSummaryJson": "./scripts/checks/checkDependencyCruiser.sh --summary-json",
+    "checkDependencyCruiserExceptions": "./scripts/checks/checkDependencyCruiser.sh --exceptions",
+    "checkDependencyCruiserExceptionsJson": "./scripts/checks/checkDependencyCruiser.sh --exceptions-json",
     "checkVfsCrdtCompactionMetrics": "./scripts/checks/checkVfsCrdtCompactionMetrics.ts",
     "format": "biome format --write .",
     "generatePreenDocs": "./scripts/preen/generatePreenDocs.sh",
