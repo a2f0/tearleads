@@ -146,7 +146,7 @@ async function loadContainerClockRows(client: PgQueryable) {
   return containerClocks;
 }
 
-export async function buildVfsCrdtSnapshotPayload(
+async function buildVfsCrdtSnapshotPayload(
   client: PgQueryable
 ): Promise<VfsCrdtSnapshotPayload> {
   const latestCursor = await loadLatestCursor(client);

@@ -4,7 +4,7 @@ import express, {
   type Response
 } from 'express';
 
-export const CRDT_PROTOBUF_CONTENT_TYPE = 'application/x-protobuf';
+const CRDT_PROTOBUF_CONTENT_TYPE = 'application/x-protobuf';
 
 function hasContentTypeToken(headerValue: string, token: string): boolean {
   return headerValue
@@ -13,7 +13,7 @@ function hasContentTypeToken(headerValue: string, token: string): boolean {
     .some((part) => part.includes(token.toLowerCase()));
 }
 
-export function isCrdtProtobufRequest(request: Request): boolean {
+function isCrdtProtobufRequest(request: Request): boolean {
   const headerValue = request.header('content-type');
   if (typeof headerValue !== 'string') {
     return false;
@@ -22,7 +22,7 @@ export function isCrdtProtobufRequest(request: Request): boolean {
   return hasContentTypeToken(headerValue, CRDT_PROTOBUF_CONTENT_TYPE);
 }
 
-export function wantsCrdtProtobufResponse(request: Request): boolean {
+function wantsCrdtProtobufResponse(request: Request): boolean {
   if (isCrdtProtobufRequest(request)) {
     return true;
   }
@@ -35,7 +35,7 @@ export function wantsCrdtProtobufResponse(request: Request): boolean {
   return hasContentTypeToken(acceptHeader, CRDT_PROTOBUF_CONTENT_TYPE);
 }
 
-export function readCrdtProtobufBody(request: Request): Uint8Array | null {
+function readCrdtProtobufBody(request: Request): Uint8Array | null {
   if (request.body instanceof Buffer) {
     return new Uint8Array(request.body);
   }

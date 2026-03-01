@@ -345,6 +345,5 @@ export {
   VFS_CRDT_SNAPSHOT_SCOPE
 } from './vfsCrdtSnapshotCommon.js';
 export {
-  buildVfsCrdtSnapshotPayload,
   refreshVfsCrdtSnapshot
 } from './vfsCrdtSnapshotRefresh.js';

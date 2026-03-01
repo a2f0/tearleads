@@ -24,13 +24,13 @@ interface InsertedCrdtOpRow {
   occurred_at: Date | string;
 }
 
-export interface VfsContainerCursorNotification {
+interface VfsContainerCursorNotification {
   containerId: string;
   changedAt: string;
   changeId: string;
 }
 
-export interface ApplyCrdtPushOperationsResult {
+interface ApplyCrdtPushOperationsResult {
   results: VfsCrdtPushResult[];
   notifications: VfsContainerCursorNotification[];
 }

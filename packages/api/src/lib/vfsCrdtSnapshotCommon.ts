@@ -168,7 +168,7 @@ export function isAccessLevel(value: unknown): value is VfsAclAccessLevel {
   return value === 'read' || value === 'write' || value === 'admin';
 }
 
-export function parseWriteId(value: unknown): number | null {
+function parseWriteId(value: unknown): number | null {
   if (typeof value === 'number') {
     if (!Number.isInteger(value) || !Number.isFinite(value) || value < 1) {
       return null;

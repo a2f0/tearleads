@@ -2556,9 +2556,6 @@ importers:
       '@tearleads/app-builder':
         specifier: workspace:*
         version: link:../app-builder
-      '@tearleads/msw':
-        specifier: workspace:*
-        version: link:../msw
       '@testing-library/jest-dom':
         specifier: 6.6.3
         version: 6.6.3

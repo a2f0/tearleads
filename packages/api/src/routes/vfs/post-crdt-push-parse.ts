@@ -30,12 +30,12 @@ export interface ParsedPushOperation {
   operation?: VfsCrdtPushOperation;
 }
 
-export interface ParsedPushPayload {
+interface ParsedPushPayload {
   clientId: string;
   operations: ParsedPushOperation[];
 }
 
-export type ParsePushPayloadResult =
+type ParsePushPayloadResult =
   | { ok: true; value: ParsedPushPayload }
   | { ok: false; error: string };
 
