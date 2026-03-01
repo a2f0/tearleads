@@ -70,7 +70,8 @@ describe('sync schema contract', () => {
       'user_organizations',
       'vfs_acl_entries',
       'vfs_crdt_ops',
-      'vfs_links'
+      'vfs_links',
+      'vfs_registry'
     ]);
 
     expect(isSqlReferenceSubsetOfFlattenedContract(syncQuery.text)).toBe(true);
