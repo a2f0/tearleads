@@ -1,3 +1,4 @@
+// one-component-per-file: allow
 import type { ReactNode } from 'react';
 import { cn } from '@tearleads/ui';
 
