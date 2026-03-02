@@ -20,7 +20,7 @@ type NotificationStreamClientFactory = (
   connectBaseUrl: string
 ) => NotificationStreamClient;
 
-export interface OpenNotificationEventStreamOptions {
+interface OpenNotificationEventStreamOptions {
   apiBaseUrl: string;
   channels: string[];
   token?: string | null;
