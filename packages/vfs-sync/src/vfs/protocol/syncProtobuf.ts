@@ -28,7 +28,7 @@ import {
   SYNC_SESSION_RESPONSE_TYPE
 } from './syncProtobufSchema.js';
 
-export interface SyncProtobufEncodingOptions {
+interface SyncProtobufEncodingOptions {
   includeLegacyEnvelopeStrings?: boolean;
 }
 
