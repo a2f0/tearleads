@@ -2,7 +2,7 @@ import { type BroadcastMessage, isRecord } from '@tearleads/shared';
 import { getPostgresPool } from './postgres.js';
 import { parseVfsContainerIdFromSyncChannel } from './vfsSyncChannels.js';
 
-export const DEFAULT_NOTIFICATION_CHANNEL = 'broadcast';
+const DEFAULT_NOTIFICATION_CHANNEL = 'broadcast';
 
 const MLS_USER_CHANNEL_PREFIX = 'mls:user:';
 const MLS_GROUP_CHANNEL_PREFIX = 'mls:group:';
