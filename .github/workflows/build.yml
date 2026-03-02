@@ -335,7 +335,7 @@ jobs:
         run: pnpm build
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-dist
           path: |
@@ -410,7 +410,7 @@ jobs:
         run: pnpm --filter @tearleads/${{ matrix.package }} test:coverage
 
       - name: Upload Coverage Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-${{ matrix.package }}
           path: packages/${{ matrix.package }}/coverage/
@@ -452,7 +452,7 @@ jobs:
         run: pnpm test:coverage
 
       - name: Upload Coverage Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-tuxedo
           path: tuxedo/tests/coverage/
@@ -499,7 +499,7 @@ jobs:
           fi
 
       - name: Upload Combined Coverage Reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-reports
           path: |
