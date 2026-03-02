@@ -9,6 +9,7 @@ import express, { type Express, type Request, type Response } from 'express';
 import morgan from 'morgan';
 import packageJson from '../package.json' with { type: 'json' };
 import { authInterceptor } from './connect/interceptors/authInterceptor.js';
+import { getLegacyRoutePrefix } from './connect/legacyRoutePrefix.js';
 import { registerConnectRoutes } from './connect/router.js';
 import { closePostgresPool } from './lib/postgres.js';
 import { closeRedisSubscriberClient } from './lib/redisPubSub.js';
@@ -36,6 +37,7 @@ dotenv.config({ quiet: true });
 const app: Express = express();
 
 const PORT = Number(process.env['PORT']) || 5001;
+const LEGACY_ROUTE_PREFIX = getLegacyRoutePrefix();
 
 // Middleware
 app.use(cors());
@@ -132,35 +134,59 @@ app.get('/v1/ping', (_req: Request, res: Response) => {
   res.status(200).json(pingData);
 });
 
-app.use('/v1', authMiddleware);
-app.use('/v1', orgMembershipMiddleware);
+app.use(LEGACY_ROUTE_PREFIX, authMiddleware);
+app.use(LEGACY_ROUTE_PREFIX, orgMembershipMiddleware);
 
 // Admin routes
-app.use('/v1/admin/redis', adminSessionMiddleware, redisRouter);
-app.use('/v1/admin/postgres', adminSessionMiddleware, postgresRouter);
-app.use('/v1/admin/context', adminAccessMiddleware, adminContextRouter);
-app.use('/v1/admin/groups', adminAccessMiddleware, groupsRouter);
-app.use('/v1/admin/organizations', adminAccessMiddleware, organizationsRouter);
-app.use('/v1/admin/users', adminAccessMiddleware, usersRouter);
+app.use(
+  `${LEGACY_ROUTE_PREFIX}/admin/redis`,
+  adminSessionMiddleware,
+  redisRouter
+);
+app.use(
+  `${LEGACY_ROUTE_PREFIX}/admin/postgres`,
+  adminSessionMiddleware,
+  postgresRouter
+);
+app.use(
+  `${LEGACY_ROUTE_PREFIX}/admin/context`,
+  adminAccessMiddleware,
+  adminContextRouter
+);
+app.use(
+  `${LEGACY_ROUTE_PREFIX}/admin/groups`,
+  adminAccessMiddleware,
+  groupsRouter
+);
+app.use(
+  `${LEGACY_ROUTE_PREFIX}/admin/organizations`,
+  adminAccessMiddleware,
+  organizationsRouter
+);
+app.use(
+  `${LEGACY_ROUTE_PREFIX}/admin/users`,
+  adminAccessMiddleware,
+  usersRouter
+);
 
 // Auth routes
-app.use('/v1/auth', authRouter);
+app.use(`${LEGACY_ROUTE_PREFIX}/auth`, authRouter);
 
 // Billing routes
-app.use('/v1/billing', billingRouter);
+app.use(`${LEGACY_ROUTE_PREFIX}/billing`, billingRouter);
 
 // Chat completion route
-app.use('/v1/chat', chatRouter);
+app.use(`${LEGACY_ROUTE_PREFIX}/chat`, chatRouter);
 
 // AI conversations and usage tracking
-app.use('/v1/ai', aiConversationsRouter);
+app.use(`${LEGACY_ROUTE_PREFIX}/ai`, aiConversationsRouter);
 
 // VFS routes
-app.use('/v1/vfs', vfsRouter);
-app.use('/v1/vfs', vfsSharesRouter);
+app.use(`${LEGACY_ROUTE_PREFIX}/vfs`, vfsRouter);
+app.use(`${LEGACY_ROUTE_PREFIX}/vfs`, vfsSharesRouter);
 
 // MLS routes
-app.use('/v1/mls', mlsRouter);
+app.use(`${LEGACY_ROUTE_PREFIX}/mls`, mlsRouter);
 
 // 404 handler
 app.use((_req: Request, res: Response) => {

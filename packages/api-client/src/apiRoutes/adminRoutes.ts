@@ -24,6 +24,10 @@ import type {
   UpdateGroupRequest,
   UpdateOrganizationRequest
 } from '@tearleads/shared';
+import {
+  createConnectJsonPostInit,
+  parseConnectJsonString
+} from '@tearleads/shared';
 import { request } from '../apiCore';
 
 const ADMIN_CONNECT_BASE_PATH = '/connect/tearleads.v1.AdminService';
@@ -34,25 +38,6 @@ interface ConnectJsonEnvelopeResponse {
 
 type RequestEventName = Parameters<typeof request>[1]['eventName'];
 
-function jsonPost(body: unknown): RequestInit {
-  return {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  };
-}
-
-function parseConnectJson<T>(json: unknown): T {
-  if (typeof json !== 'string') {
-    return JSON.parse('{}');
-  }
-  const trimmed = json.trim();
-  if (trimmed.length === 0) {
-    return JSON.parse('{}');
-  }
-  return JSON.parse(trimmed);
-}
-
 function requestAdminJson<TResponse>(
   methodName: string,
   requestBody: Record<string, unknown>,
@@ -61,10 +46,10 @@ function requestAdminJson<TResponse>(
   return request<ConnectJsonEnvelopeResponse>(
     `${ADMIN_CONNECT_BASE_PATH}/${methodName}`,
     {
-      fetchOptions: jsonPost(requestBody),
+      fetchOptions: createConnectJsonPostInit(requestBody),
       eventName
     }
-  ).then((response) => parseConnectJson<TResponse>(response?.json));
+  ).then((response) => parseConnectJsonString<TResponse>(response?.json));
 }
 
 export const adminRoutes = {

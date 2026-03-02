@@ -1,4 +1,9 @@
-import type { VfsAclAccessLevel, VfsAclPrincipalType } from '@tearleads/shared';
+import {
+  isPlainRecord,
+  parseConnectJsonEnvelopeBody,
+  type VfsAclAccessLevel,
+  type VfsAclPrincipalType
+} from '@tearleads/shared';
 import {
   type QueueVfsCrdtLocalOperationInput,
   VfsBackgroundSyncClient,
@@ -97,10 +102,6 @@ function isAccessLevel(value: unknown): value is VfsAclAccessLevel {
   return value === 'read' || value === 'write' || value === 'admin';
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
 function parseWriteId(value: unknown): number | null {
   if (typeof value === 'number') {
     if (!Number.isSafeInteger(value) || value < 1) {
@@ -123,7 +124,7 @@ function parseWriteId(value: unknown): number | null {
 }
 
 function parseCursor(value: unknown): VfsSyncCursor | null {
-  if (!isRecord(value)) {
+  if (!isPlainRecord(value)) {
     return null;
   }
   const changedAt = normalizeTimestamp(value['changedAt']);
@@ -137,7 +138,7 @@ function parseCursor(value: unknown): VfsSyncCursor | null {
 function parseLastReconciledWriteIds(
   value: unknown
 ): Record<string, number> | null {
-  if (!isRecord(value)) {
+  if (!isPlainRecord(value)) {
     return null;
   }
 
@@ -158,14 +159,17 @@ function parseLastReconciledWriteIds(
 function parseServerRematerializedState(
   value: unknown
 ): VfsRematerializedState | null {
-  if (!isRecord(value)) {
+  if (!isPlainRecord(value)) {
     return null;
   }
 
   const replaySnapshotValue = value['replaySnapshot'];
   const reconcileStateValue = value['reconcileState'];
   const containerClocksValue = value['containerClocks'];
-  if (!isRecord(replaySnapshotValue) || !Array.isArray(containerClocksValue)) {
+  if (
+    !isPlainRecord(replaySnapshotValue) ||
+    !Array.isArray(containerClocksValue)
+  ) {
     return null;
   }
 
@@ -178,7 +182,7 @@ function parseServerRematerializedState(
 
   const replayAcl: VfsRematerializedState['replaySnapshot']['acl'] = [];
   for (const entry of replayAclValue) {
-    if (!isRecord(entry)) {
+    if (!isPlainRecord(entry)) {
       continue;
     }
     const itemId = normalizeRequiredString(entry['itemId']);
@@ -202,7 +206,7 @@ function parseServerRematerializedState(
 
   const replayLinks: VfsRematerializedState['replaySnapshot']['links'] = [];
   for (const entry of replayLinksValue) {
-    if (!isRecord(entry)) {
+    if (!isPlainRecord(entry)) {
       continue;
     }
     const parentId = normalizeRequiredString(entry['parentId']);
@@ -218,7 +222,7 @@ function parseServerRematerializedState(
 
   const containerClocks: VfsRematerializedState['containerClocks'] = [];
   for (const entry of containerClocksValue) {
-    if (!isRecord(entry)) {
+    if (!isPlainRecord(entry)) {
       continue;
     }
     const containerId = normalizeRequiredString(entry['containerId']);
@@ -236,7 +240,7 @@ function parseServerRematerializedState(
 
   let reconcileState: VfsRematerializedState['reconcileState'] = null;
   if (reconcileStateValue !== null && reconcileStateValue !== undefined) {
-    if (!isRecord(reconcileStateValue)) {
+    if (!isPlainRecord(reconcileStateValue)) {
       return null;
     }
     const cursor = parseCursor(reconcileStateValue['cursor']);
@@ -293,7 +297,7 @@ async function fetchServerRematerializedState(input: {
     );
   }
 
-  const responseBody = parseConnectJsonEnvelope(
+  const responseBody = parseConnectJsonEnvelopeBody(
     (await response.json()) as unknown
   );
   const parsedState = parseServerRematerializedState(responseBody);
@@ -302,17 +306,6 @@ async function fetchServerRematerializedState(input: {
   }
 
   return parsedState;
-}
-
-function parseConnectJsonEnvelope(body: unknown): unknown {
-  if (!isRecord(body) || typeof body['json'] !== 'string') {
-    return body;
-  }
-  const rawJson = body['json'].trim();
-  if (rawJson.length === 0) {
-    return {};
-  }
-  return JSON.parse(rawJson);
 }
 
 function buildRematerializationHandler(input: {

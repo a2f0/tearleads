@@ -7,17 +7,15 @@ import { Database, Eye, EyeOff, Fingerprint, Loader2 } from 'lucide-react';
 import {
   type ChangeEvent,
   type FormEvent,
-  type MouseEvent,
   useCallback,
   useEffect,
   useState
 } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { isBiometricAvailable } from '@/db/crypto/keyManager';
 import { useDatabaseContext } from '@/db/hooks';
-import { useIsMobile } from '@/hooks/device';
+import { useDesktopWindowLinkHandler } from '@/hooks/window';
 import { getErrorMessage } from '@/lib/errors';
 import { detectPlatform } from '@/lib/utils';
 
@@ -32,9 +30,8 @@ interface InlineUnlockProps {
 export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
   const { isSetUp, unlock, restoreSession, hasPersistedSession } =
     useDatabaseContext();
-  const windowManagerActions = useWindowManagerActions();
-  const isMobileScreen = useIsMobile();
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const handleSqliteLinkClick = useDesktopWindowLinkHandler('sqlite');
+  const handleSyncLinkClick = useDesktopWindowLinkHandler('sync');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -52,51 +49,6 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
       });
     }
   }, []);
-
-  useEffect(() => {
-    if (
-      typeof window === 'undefined' ||
-      typeof window.matchMedia !== 'function'
-    ) {
-      return;
-    }
-
-    const pointerQuery = window.matchMedia('(pointer: coarse)');
-    const updateTouchState = () => {
-      const hasTouch = pointerQuery.matches || navigator.maxTouchPoints > 0;
-      setIsTouchDevice(hasTouch);
-    };
-
-    updateTouchState();
-    pointerQuery.addEventListener('change', updateTouchState);
-    return () => {
-      pointerQuery.removeEventListener('change', updateTouchState);
-    };
-  }, []);
-
-  const isDesktopMode = !isMobileScreen && !isTouchDevice;
-
-  const handleSqliteLinkClick = useCallback(
-    (event: MouseEvent<HTMLAnchorElement>) => {
-      if (!isDesktopMode) {
-        return;
-      }
-      event.preventDefault();
-      windowManagerActions.openWindow('sqlite');
-    },
-    [isDesktopMode, windowManagerActions]
-  );
-
-  const handleSyncLinkClick = useCallback(
-    (event: MouseEvent<HTMLAnchorElement>) => {
-      if (!isDesktopMode) {
-        return;
-      }
-      event.preventDefault();
-      windowManagerActions.openWindow('sync');
-    },
-    [isDesktopMode, windowManagerActions]
-  );
 
   const getBiometricLabel = useCallback(() => {
     switch (biometryType) {

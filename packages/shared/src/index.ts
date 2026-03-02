@@ -30,6 +30,7 @@ export * from './audioPlayback.js';
 export * from './auth.js';
 // Chat validation helpers
 export * from './chat.js';
+export * from './connectJson.js';
 export * from './dialogFocusTrap.js';
 export * from './dropdownMenuKeyboard.js';
 // Media drag-and-drop helpers

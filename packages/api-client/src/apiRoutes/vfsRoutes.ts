@@ -18,6 +18,10 @@ import type {
   VfsSyncResponse,
   VfsUserKeysResponse
 } from '@tearleads/shared';
+import {
+  createConnectJsonPostInit,
+  parseConnectJsonString
+} from '@tearleads/shared';
 import { request } from '../apiCore';
 
 const VFS_CONNECT_BASE_PATH = '/connect/tearleads.v1.VfsService';
@@ -39,25 +43,6 @@ interface VfsBlobResponse {
   contentType: string | null;
 }
 
-function jsonPost(body: unknown): RequestInit {
-  return {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  };
-}
-
-function parseConnectJson<T>(json: unknown): T {
-  if (typeof json !== 'string') {
-    return JSON.parse('{}');
-  }
-  const trimmed = json.trim();
-  if (trimmed.length === 0) {
-    return JSON.parse('{}');
-  }
-  return JSON.parse(trimmed);
-}
-
 function requestVfsJson<TResponse>(
   methodName: string,
   requestBody: Record<string, unknown>,
@@ -66,10 +51,10 @@ function requestVfsJson<TResponse>(
   return request<ConnectJsonEnvelopeResponse>(
     `${VFS_CONNECT_BASE_PATH}/${methodName}`,
     {
-      fetchOptions: jsonPost(requestBody),
+      fetchOptions: createConnectJsonPostInit(requestBody),
       eventName
     }
-  ).then((response) => parseConnectJson<TResponse>(response?.json));
+  ).then((response) => parseConnectJsonString<TResponse>(response?.json));
 }
 
 function requestVfsSharesJson<TResponse>(
@@ -80,10 +65,10 @@ function requestVfsSharesJson<TResponse>(
   return request<ConnectJsonEnvelopeResponse>(
     `${VFS_SHARES_CONNECT_BASE_PATH}/${methodName}`,
     {
-      fetchOptions: jsonPost(requestBody),
+      fetchOptions: createConnectJsonPostInit(requestBody),
       eventName
     }
-  ).then((response) => parseConnectJson<TResponse>(response?.json));
+  ).then((response) => parseConnectJsonString<TResponse>(response?.json));
 }
 
 function decodeBlobData(data: string | number[] | undefined): Uint8Array {
@@ -241,7 +226,7 @@ export const vfsRoutes = {
     const response = await request<ConnectBlobResponse>(
       `${VFS_CONNECT_BASE_PATH}/GetBlob`,
       {
-        fetchOptions: jsonPost({ blobId }),
+        fetchOptions: createConnectJsonPostInit({ blobId }),
         eventName: 'api_get_vfs_blob'
       }
     );
