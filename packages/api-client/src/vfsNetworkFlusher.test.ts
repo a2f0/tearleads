@@ -41,9 +41,9 @@ describe('vfsNetworkFlusher', () => {
 
     let pushAttempt = 0;
     vi.mocked(global.fetch).mockImplementation(
-      async (input: RequestInfo | URL): Promise<Response> => {
+      async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
         const url = input.toString();
-        if (url.endsWith('/auth/refresh')) {
+        if (url.endsWith('/connect/tearleads.v1.AuthService/RefreshToken')) {
           return new Response(
             JSON.stringify({
               accessToken: 'fresh-access-token',
@@ -309,7 +309,7 @@ describe('vfsNetworkFlusher', () => {
   it('falls back to server snapshot rematerialization on stale cursor', async () => {
     let pullCalls = 0;
     vi.mocked(global.fetch).mockImplementation(
-      async (input: RequestInfo | URL): Promise<Response> => {
+      async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
         const url = input.toString();
 
         if (url.includes('/v1/vfs/crdt/vfs-sync')) {
@@ -361,25 +361,34 @@ describe('vfsNetworkFlusher', () => {
           );
         }
 
-        if (url.includes('/v1/vfs/crdt/snapshot?clientId=desktop')) {
+        if (
+          url.includes('/v1/connect/tearleads.v1.VfsService/GetCrdtSnapshot')
+        ) {
+          const parsedBody =
+            typeof init?.body === 'string'
+              ? (JSON.parse(init.body) as { clientId?: unknown })
+              : {};
+          expect(parsedBody.clientId).toBe('desktop');
           return new Response(
             JSON.stringify({
-              replaySnapshot: {
-                acl: [],
-                links: [],
-                cursor: null
-              },
-              reconcileState: {
-                cursor: {
-                  changedAt: '2026-02-24T12:09:59.000Z',
-                  changeId: 'desktop-9'
+              json: JSON.stringify({
+                replaySnapshot: {
+                  acl: [],
+                  links: [],
+                  cursor: null
                 },
-                lastReconciledWriteIds: {
-                  desktop: '9'
-                }
-              },
-              containerClocks: [],
-              snapshotUpdatedAt: '2026-02-24T12:10:00.000Z'
+                reconcileState: {
+                  cursor: {
+                    changedAt: '2026-02-24T12:09:59.000Z',
+                    changeId: 'desktop-9'
+                  },
+                  lastReconciledWriteIds: {
+                    desktop: '9'
+                  }
+                },
+                containerClocks: [],
+                snapshotUpdatedAt: '2026-02-24T12:10:00.000Z'
+              })
             }),
             {
               status: 200,
@@ -413,7 +422,9 @@ describe('vfsNetworkFlusher', () => {
     const snapshotCalls = vi
       .mocked(global.fetch)
       .mock.calls.filter(([input]) =>
-        input.toString().includes('/v1/vfs/crdt/snapshot?clientId=desktop')
+        input
+          .toString()
+          .includes('/v1/connect/tearleads.v1.VfsService/GetCrdtSnapshot')
       );
     expect(snapshotCalls).toHaveLength(1);
   });

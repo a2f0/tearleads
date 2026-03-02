@@ -9,6 +9,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 describe('vfsWriteOrchestrator encrypted blob flush', () => {
   const originalFetch = global.fetch;
 
+  const parseJsonEnvelope = (body: unknown): Record<string, unknown> => {
+    if (
+      typeof body !== 'object' ||
+      body === null ||
+      Array.isArray(body) ||
+      typeof (body as { json?: unknown }).json !== 'string'
+    ) {
+      return {};
+    }
+
+    return JSON.parse((body as { json: string }).json) as Record<string, unknown>;
+  };
+
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
@@ -93,8 +106,7 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
         }
       },
       blob: {
-        baseUrl: 'http://localhost',
-        apiPrefix: '/v1'
+        baseUrl: 'http://localhost'
       }
     });
 
@@ -167,9 +179,11 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
     });
 
     expect(
-      observedRequests.find((request) =>
-        request.url.endsWith('/v1/vfs/blobs/stage')
-      )?.body
+      parseJsonEnvelope(
+        observedRequests.find((request) =>
+          request.url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')
+        )?.body
+      )
     ).toEqual(
       expect.objectContaining({
         stagingId: 'stage-enc-1',
@@ -181,9 +195,18 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
       })
     );
     expect(
-      observedRequests.find((request) =>
-        request.url.endsWith('/v1/vfs/blobs/stage/stage-enc-1/chunks')
-      )?.body
+      parseJsonEnvelope(
+        observedRequests.find((request) => {
+          if (
+            !request.url.endsWith(
+              '/connect/tearleads.v1.VfsService/UploadBlobChunk'
+            )
+          ) {
+            return false;
+          }
+          return parseJsonEnvelope(request.body).chunkIndex === 0;
+        })?.body
+      )
     ).toEqual(
       expect.objectContaining({
         uploadId: 'upload-1',
@@ -191,9 +214,11 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
       })
     );
     expect(
-      observedRequests.find((request) =>
-        request.url.endsWith('/v1/vfs/blobs/stage/stage-enc-1/commit')
-      )?.body
+      parseJsonEnvelope(
+        observedRequests.find((request) =>
+          request.url.endsWith('/connect/tearleads.v1.VfsService/CommitBlob')
+        )?.body
+      )
     ).toEqual(
       expect.objectContaining({
         uploadId: 'upload-1',
@@ -202,9 +227,11 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
       })
     );
     expect(
-      observedRequests.find((request) =>
-        request.url.endsWith('/v1/vfs/blobs/stage/stage-enc-1/attach')
-      )?.body
+      parseJsonEnvelope(
+        observedRequests.find((request) =>
+          request.url.endsWith('/connect/tearleads.v1.VfsService/AttachBlob')
+        )?.body
+      )
     ).toEqual(
       expect.objectContaining({
         itemId: 'item-1',

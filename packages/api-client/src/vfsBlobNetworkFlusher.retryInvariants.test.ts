@@ -6,6 +6,23 @@ interface ObservedRequest {
   body: unknown;
 }
 
+function parseNestedJsonBody(body: unknown): Record<string, unknown> {
+  if (
+    typeof body !== 'object' ||
+    body === null ||
+    Array.isArray(body) ||
+    typeof (body as { json?: unknown }).json !== 'string'
+  ) {
+    return {};
+  }
+
+  try {
+    return JSON.parse((body as { json: string }).json) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -66,8 +83,9 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
             : {};
         observedRequests.push({ url, body });
 
-        if (url.endsWith('/v1/vfs/blobs/stage/stage-1/chunks')) {
-          const chunkIndex = body['chunkIndex'];
+        if (url.endsWith('/connect/tearleads.v1.VfsService/UploadBlobChunk')) {
+          const parsedBody = parseNestedJsonBody(body);
+          const chunkIndex = parsedBody['chunkIndex'];
           if (chunkIndex === 2 && !failedChunk2) {
             failedChunk2 = true;
             return jsonResponse({ error: 'Service unavailable' }, 503);
@@ -81,7 +99,6 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     const { VfsBlobNetworkFlusher } = await import('./vfsBlobNetworkFlusher');
     const flusher = new VfsBlobNetworkFlusher({
       baseUrl: 'http://localhost',
-      apiPrefix: '/v1',
       saveState,
       retryPolicy: { maxAttempts: 1 }
     });
@@ -134,8 +151,7 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     ]);
 
     const resumed = new VfsBlobNetworkFlusher({
-      baseUrl: 'http://localhost',
-      apiPrefix: '/v1'
+      baseUrl: 'http://localhost'
     });
     resumed.hydrateState(lastPersisted);
 
@@ -145,20 +161,20 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     });
 
     const chunkCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/v1/vfs/blobs/stage/stage-1/chunks')
+      request.url.endsWith('/connect/tearleads.v1.VfsService/UploadBlobChunk')
     );
     const chunkIndices = chunkCalls
-      .map((request) => (request.body as { chunkIndex?: unknown }).chunkIndex)
+      .map((request) => parseNestedJsonBody(request.body)['chunkIndex'])
       .filter((value): value is number => Number.isInteger(value));
     expect(chunkIndices).toEqual([0, 1, 2, 2, 3]);
 
     const commitCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/v1/vfs/blobs/stage/stage-1/commit')
+      request.url.endsWith('/connect/tearleads.v1.VfsService/CommitBlob')
     );
     expect(commitCalls).toHaveLength(1);
 
     const attachCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/v1/vfs/blobs/stage/stage-1/attach')
+      request.url.endsWith('/connect/tearleads.v1.VfsService/AttachBlob')
     );
     expect(attachCalls).toHaveLength(1);
   });
@@ -178,7 +194,10 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
         observedRequests.push({ url, body });
 
         if (
-          url.endsWith('/v1/vfs/blobs/stage/stage-2/commit') &&
+          url.endsWith('/connect/tearleads.v1.VfsService/CommitBlob') &&
+          body !== null &&
+          typeof body === 'object' &&
+          (body as { stagingId?: unknown }).stagingId === 'stage-2' &&
           failCommitOnce
         ) {
           failCommitOnce = false;
@@ -192,7 +211,6 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     const { VfsBlobNetworkFlusher } = await import('./vfsBlobNetworkFlusher');
     const flusher = new VfsBlobNetworkFlusher({
       baseUrl: 'http://localhost',
-      apiPrefix: '/v1',
       retryPolicy: { maxAttempts: 1 }
     });
     flusher.queueStage({
@@ -240,16 +258,16 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     });
 
     const stageCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/v1/vfs/blobs/stage')
+      request.url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')
     );
     const chunkCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/v1/vfs/blobs/stage/stage-2/chunks')
+      request.url.endsWith('/connect/tearleads.v1.VfsService/UploadBlobChunk')
     );
     const commitCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/v1/vfs/blobs/stage/stage-2/commit')
+      request.url.endsWith('/connect/tearleads.v1.VfsService/CommitBlob')
     );
     const attachCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/v1/vfs/blobs/stage/stage-2/attach')
+      request.url.endsWith('/connect/tearleads.v1.VfsService/AttachBlob')
     );
 
     expect(stageCalls).toHaveLength(1);
@@ -266,7 +284,7 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     vi.mocked(global.fetch).mockImplementation(
       async (input: RequestInfo | URL): Promise<Response> => {
         const url = input.toString();
-        if (url.endsWith('/v1/vfs/blobs/stage')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')) {
           stageAttempts += 1;
           if (stageAttempts < 3) {
             return jsonResponse({ error: 'Service unavailable' }, 503);
@@ -279,7 +297,6 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     const { VfsBlobNetworkFlusher } = await import('./vfsBlobNetworkFlusher');
     const flusher = new VfsBlobNetworkFlusher({
       baseUrl: 'http://localhost',
-      apiPrefix: '/v1',
       retrySleep,
       onRetry,
       onOperationResult,
@@ -330,17 +347,23 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
 
     let networkAttempts = 0;
     vi.mocked(global.fetch).mockImplementation(
-      async (input: RequestInfo | URL): Promise<Response> => {
+      async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
         const url = input.toString();
-        if (url.endsWith('/v1/vfs/blobs/stage')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')) {
           networkAttempts += 1;
           if (networkAttempts === 1) {
             throw new TypeError('network down');
           }
         }
 
-        if (url.endsWith('/v1/vfs/blobs/stage/stage-no-retry/attach')) {
-          return jsonResponse({ error: 'Already attached' }, 409);
+        if (url.endsWith('/connect/tearleads.v1.VfsService/AttachBlob')) {
+          const body =
+            typeof init?.body === 'string'
+              ? (JSON.parse(init.body) as { stagingId?: unknown })
+              : {};
+          if (body.stagingId === 'stage-no-retry') {
+            return jsonResponse({ error: 'Already attached' }, 409);
+          }
         }
         return jsonResponse({ ok: true });
       }
@@ -349,7 +372,6 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     const { VfsBlobNetworkFlusher } = await import('./vfsBlobNetworkFlusher');
     const flusher = new VfsBlobNetworkFlusher({
       baseUrl: 'http://localhost',
-      apiPrefix: '/v1',
       retrySleep,
       retryPolicy: {
         maxAttempts: 3,

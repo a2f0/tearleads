@@ -194,14 +194,16 @@ describe('vfsWriteOrchestrator', () => {
             }
           );
         }
-        if (url.endsWith('/v1/vfs/blobs/stage')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')) {
           return new Response(
             JSON.stringify({
-              stagingId: 'stage-1',
-              blobId: 'blob-1',
-              status: 'staged',
-              stagedAt: '2026-02-18T00:00:00.000Z',
-              expiresAt: '2026-02-18T01:00:00.000Z'
+              json: JSON.stringify({
+                stagingId: 'stage-1',
+                blobId: 'blob-1',
+                status: 'staged',
+                stagedAt: '2026-02-18T00:00:00.000Z',
+                expiresAt: '2026-02-18T01:00:00.000Z'
+              })
             }),
             {
               status: 201,
@@ -230,8 +232,7 @@ describe('vfsWriteOrchestrator', () => {
         }
       },
       blob: {
-        baseUrl: 'http://localhost',
-        apiPrefix: '/v1'
+        baseUrl: 'http://localhost'
       },
       saveState
     });

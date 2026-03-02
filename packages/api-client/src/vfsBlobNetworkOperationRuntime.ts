@@ -26,16 +26,20 @@ interface ExecuteBlobOperationContext {
   headers: Record<string, string>;
 }
 
+const VFS_CONNECT_BASE_PATH = '/connect/tearleads.v1.VfsService';
+
 export async function executeBlobNetworkOperation(
   context: ExecuteBlobOperationContext,
   operation: VfsBlobNetworkOperation
 ): Promise<void> {
   if (operation.kind === 'stage') {
-    await requestJson(context, '/vfs/blobs/stage', {
-      stagingId: operation.payload.stagingId,
-      blobId: operation.payload.blobId,
-      expiresAt: operation.payload.expiresAt,
-      encryption: operation.payload.encryption
+    await requestConnectJson(context, 'StageBlob', {
+      json: JSON.stringify({
+        stagingId: operation.payload.stagingId,
+        blobId: operation.payload.blobId,
+        expiresAt: operation.payload.expiresAt,
+        encryption: operation.payload.encryption
+      })
     });
     return;
   }
@@ -55,19 +59,17 @@ export async function executeBlobNetworkOperation(
       };
     }
 
-    await requestJson(
-      context,
-      `/vfs/blobs/stage/${encodeURIComponent(operation.payload.stagingId)}/attach`,
-      body
-    );
+    await requestConnectJson(context, 'AttachBlob', {
+      stagingId: operation.payload.stagingId,
+      json: JSON.stringify(body)
+    });
     return;
   }
 
   if (operation.kind === 'chunk') {
-    await requestJson(
-      context,
-      `/vfs/blobs/stage/${encodeURIComponent(operation.payload.stagingId)}/chunks`,
-      {
+    await requestConnectJson(context, 'UploadBlobChunk', {
+      stagingId: operation.payload.stagingId,
+      json: JSON.stringify({
         uploadId: operation.payload.uploadId,
         chunkIndex: operation.payload.chunkIndex,
         isFinal: operation.payload.isFinal,
@@ -76,16 +78,15 @@ export async function executeBlobNetworkOperation(
         ciphertextBase64: operation.payload.ciphertextBase64,
         plaintextLength: operation.payload.plaintextLength,
         ciphertextLength: operation.payload.ciphertextLength
-      }
-    );
+      })
+    });
     return;
   }
 
   if (operation.kind === 'commit') {
-    await requestJson(
-      context,
-      `/vfs/blobs/stage/${encodeURIComponent(operation.payload.stagingId)}/commit`,
-      {
+    await requestConnectJson(context, 'CommitBlob', {
+      stagingId: operation.payload.stagingId,
+      json: JSON.stringify({
         uploadId: operation.payload.uploadId,
         keyEpoch: operation.payload.keyEpoch,
         manifestHash: operation.payload.manifestHash,
@@ -93,16 +94,15 @@ export async function executeBlobNetworkOperation(
         chunkCount: operation.payload.chunkCount,
         totalPlaintextBytes: operation.payload.totalPlaintextBytes,
         totalCiphertextBytes: operation.payload.totalCiphertextBytes
-      }
-    );
+      })
+    });
     return;
   }
 
-  await requestJson(
-    context,
-    `/vfs/blobs/stage/${encodeURIComponent(operation.payload.stagingId)}/abandon`,
-    {}
-  );
+  await requestConnectJson(context, 'AbandonBlob', {
+    stagingId: operation.payload.stagingId,
+    json: JSON.stringify({})
+  });
 }
 
 export function normalizeBlobNetworkOperation(
@@ -295,12 +295,12 @@ export function isManifestCommitSizeShapeValid(
   return totalCiphertextBytes > 0;
 }
 
-async function requestJson(
+async function requestConnectJson(
   context: ExecuteBlobOperationContext,
-  path: string,
+  methodName: string,
   body: unknown
 ): Promise<unknown> {
-  const url = buildUrl(context.baseUrl, context.apiPrefix, path);
+  const url = buildConnectUrl(context.baseUrl, context.apiPrefix, methodName);
   const headers = new Headers();
   headers.set('Accept', 'application/json');
   headers.set('Content-Type', 'application/json');
@@ -324,7 +324,7 @@ async function requestJson(
     throw error;
   }
 
-  return parsedBody;
+  return parseConnectJsonEnvelopeBody(parsedBody);
 }
 
 function parseBody(rawBody: string): unknown {
@@ -339,11 +339,35 @@ function parseBody(rawBody: string): unknown {
   }
 }
 
-function buildUrl(baseUrl: string, apiPrefix: string, path: string): string {
+function parseConnectJsonEnvelopeBody(body: unknown): unknown {
+  if (!isRecord(body) || typeof body['json'] !== 'string') {
+    return body;
+  }
+
+  const rawJson = body['json'].trim();
+  if (rawJson.length === 0) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(rawJson);
+  } catch {
+    throw new Error('transport returned invalid connect json envelope');
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function buildConnectUrl(
+  baseUrl: string,
+  apiPrefix: string,
+  methodName: string
+): string {
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   const normalizedPrefix = normalizeApiPrefix(apiPrefix);
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  const pathname = `${normalizedPrefix}${normalizedPath}`;
+  const pathname = `${normalizedPrefix}${VFS_CONNECT_BASE_PATH}/${methodName}`;
   return normalizedBaseUrl.length > 0
     ? `${normalizedBaseUrl}${pathname}`
     : pathname;

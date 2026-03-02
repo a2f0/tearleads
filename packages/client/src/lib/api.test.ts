@@ -42,7 +42,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
       vi.mocked(global.fetch).mockImplementation(
         async (input: RequestInfo | URL) => {
           const url = input.toString();
-          if (url.endsWith('/auth/refresh')) {
+          if (url.endsWith('/connect/tearleads.v1.AuthService/RefreshToken')) {
             return refreshPromise;
           }
           throw new Error(`Unexpected request: ${url}`);
@@ -104,7 +104,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
             return new Response(null, { status: 401 });
           }
 
-          if (url.endsWith('/auth/refresh')) {
+          if (url.endsWith('/connect/tearleads.v1.AuthService/RefreshToken')) {
             return refreshPromise;
           }
 
@@ -146,7 +146,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
         vi
           .mocked(global.fetch)
           .mock.calls.filter(([input]) =>
-            input.toString().endsWith('/auth/refresh')
+            input.toString().endsWith('/connect/tearleads.v1.AuthService/RefreshToken')
           )
       ).toHaveLength(1);
     });
@@ -199,7 +199,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
           if (url.endsWith('/ping')) {
             return new Response(null, { status: 401 });
           }
-          if (url.endsWith('/auth/refresh')) {
+          if (url.endsWith('/connect/tearleads.v1.AuthService/RefreshToken')) {
             return new Response(
               JSON.stringify({
                 accessToken: 'new-token',

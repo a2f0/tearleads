@@ -16,22 +16,30 @@ describe('mlsRoutes', () => {
     requestMock.mockResolvedValue({});
   });
 
-  it('builds group messages route without query params when options are omitted', async () => {
+  it('routes group messages through Connect without optional fields', async () => {
     await mlsRoutes.getGroupMessages('group-1');
 
-    const routePath = requestMock.mock.calls[0]?.[0];
-    expect(routePath).toBe('/vfs/mls/groups/group-1/messages');
+    const [routePath, params] = requestMock.mock.calls[0] ?? [];
+    expect(routePath).toBe('/connect/tearleads.v1.MlsService/GetGroupMessages');
+    expect(params?.fetchOptions?.method).toBe('POST');
+    expect(params?.fetchOptions?.body).toBe(JSON.stringify({ groupId: 'group-1' }));
   });
 
-  it('builds group messages route with cursor and limit query params', async () => {
+  it('routes group messages through Connect with cursor and limit', async () => {
     await mlsRoutes.getGroupMessages('group 2', {
       cursor: 'cursor-5',
       limit: 50
     });
 
-    const routePath = requestMock.mock.calls[0]?.[0];
-    expect(routePath).toBe(
-      '/vfs/mls/groups/group%202/messages?cursor=cursor-5&limit=50'
+    const [routePath, params] = requestMock.mock.calls[0] ?? [];
+    expect(routePath).toBe('/connect/tearleads.v1.MlsService/GetGroupMessages');
+    expect(params?.fetchOptions?.method).toBe('POST');
+    expect(params?.fetchOptions?.body).toBe(
+      JSON.stringify({
+        groupId: 'group 2',
+        cursor: 'cursor-5',
+        limit: 50
+      })
     );
   });
 });

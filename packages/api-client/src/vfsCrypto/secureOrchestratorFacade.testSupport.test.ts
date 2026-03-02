@@ -98,7 +98,7 @@ describe('recordSecureFacadeRequestBody', () => {
   });
 
   it('records JSON string bodies for non-push routes and ignores non-string bodies', async () => {
-    const url = 'https://example.test/v1/vfs/blobs/stage';
+    const url = 'https://example.test/connect/tearleads.v1.VfsService/StageBlob';
     const requests: Array<{ url: string; body: unknown }> = [];
 
     await recordSecureFacadeRequestBody(requests, url, url, {

@@ -26,24 +26,72 @@ import type {
 } from '@tearleads/shared';
 import { request } from '../apiCore';
 
+const ADMIN_CONNECT_BASE_PATH = '/connect/tearleads.v1.AdminService';
+
+interface ConnectJsonEnvelopeResponse {
+  json: string;
+}
+
+type RequestEventName = Parameters<typeof request>[1]['eventName'];
+
+function jsonPost(body: unknown): RequestInit {
+  return {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  };
+}
+
+function parseConnectJson<T>(json: unknown): T {
+  if (typeof json !== 'string') {
+    return JSON.parse('{}');
+  }
+  const trimmed = json.trim();
+  if (trimmed.length === 0) {
+    return JSON.parse('{}');
+  }
+  return JSON.parse(trimmed);
+}
+
+function requestAdminJson<TResponse>(
+  methodName: string,
+  requestBody: Record<string, unknown>,
+  eventName: RequestEventName
+): Promise<TResponse> {
+  return request<ConnectJsonEnvelopeResponse>(
+    `${ADMIN_CONNECT_BASE_PATH}/${methodName}`,
+    {
+      fetchOptions: jsonPost(requestBody),
+      eventName
+    }
+  ).then((response) => parseConnectJson<TResponse>(response?.json));
+}
+
 export const adminRoutes = {
   getContext: () =>
-    request<AdminAccessContextResponse>('/admin/context', {
-      eventName: 'api_get_admin_organizations'
-    }),
+    requestAdminJson<AdminAccessContextResponse>(
+      'GetContext',
+      {},
+      'api_get_admin_organizations'
+    ),
   postgres: {
     getInfo: () =>
-      request<PostgresAdminInfoResponse>('/admin/postgres/info', {
-        eventName: 'api_get_admin_postgres_info'
-      }),
+      requestAdminJson<PostgresAdminInfoResponse>(
+        'GetPostgresInfo',
+        {},
+        'api_get_admin_postgres_info'
+      ),
     getTables: () =>
-      request<PostgresTablesResponse>('/admin/postgres/tables', {
-        eventName: 'api_get_admin_postgres_tables'
-      }),
+      requestAdminJson<PostgresTablesResponse>(
+        'GetTables',
+        {},
+        'api_get_admin_postgres_tables'
+      ),
     getColumns: (schema: string, table: string) =>
-      request<PostgresColumnsResponse>(
-        `/admin/postgres/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/columns`,
-        { eventName: 'api_get_admin_postgres_columns' }
+      requestAdminJson<PostgresColumnsResponse>(
+        'GetColumns',
+        { schema, table },
+        'api_get_admin_postgres_columns'
       ),
     getRows: (
       schema: string,
@@ -55,207 +103,177 @@ export const adminRoutes = {
         sortDirection?: 'asc' | 'desc';
       }
     ) => {
-      const params = new URLSearchParams();
-      if (options?.limit) params.set('limit', String(options.limit));
-      if (options?.offset) params.set('offset', String(options.offset));
-      if (options?.sortColumn) params.set('sortColumn', options.sortColumn);
-      if (options?.sortDirection)
-        params.set('sortDirection', options.sortDirection);
-      const query = params.toString();
-      return request<PostgresRowsResponse>(
-        `/admin/postgres/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/rows${query ? `?${query}` : ''}`,
-        { eventName: 'api_get_admin_postgres_rows' }
+      const requestBody: Record<string, unknown> = { schema, table };
+      if (options?.limit) requestBody['limit'] = options.limit;
+      if (options?.offset) requestBody['offset'] = options.offset;
+      if (options?.sortColumn) requestBody['sortColumn'] = options.sortColumn;
+      if (options?.sortDirection) {
+        requestBody['sortDirection'] = options.sortDirection;
+      }
+      return requestAdminJson<PostgresRowsResponse>(
+        'GetRows',
+        requestBody,
+        'api_get_admin_postgres_rows'
       );
     }
   },
   redis: {
     getKeys: (cursor?: string, limit?: number) => {
-      const params = new URLSearchParams();
-      if (cursor) params.set('cursor', cursor);
-      if (limit) params.set('limit', String(limit));
-      const query = params.toString();
-      return request<RedisKeysResponse>(
-        `/admin/redis/keys${query ? `?${query}` : ''}`,
-        { eventName: 'api_get_admin_redis_keys' }
+      const requestBody: Record<string, unknown> = {};
+      if (cursor) requestBody['cursor'] = cursor;
+      if (limit) requestBody['limit'] = limit;
+      return requestAdminJson<RedisKeysResponse>(
+        'GetRedisKeys',
+        requestBody,
+        'api_get_admin_redis_keys'
       );
     },
     getValue: (key: string) =>
-      request<RedisKeyValueResponse>(
-        `/admin/redis/keys/${encodeURIComponent(key)}`,
-        { eventName: 'api_get_admin_redis_key' }
+      requestAdminJson<RedisKeyValueResponse>(
+        'GetRedisValue',
+        { key },
+        'api_get_admin_redis_key'
       ),
     deleteKey: (key: string) =>
-      request<{ deleted: boolean }>(
-        `/admin/redis/keys/${encodeURIComponent(key)}`,
-        {
-          fetchOptions: { method: 'DELETE' },
-          eventName: 'api_delete_admin_redis_key'
-        }
+      requestAdminJson<{ deleted: boolean }>(
+        'DeleteRedisKey',
+        { key },
+        'api_delete_admin_redis_key'
       ),
     getDbSize: () =>
-      request<{ count: number }>('/admin/redis/dbsize', {
-        eventName: 'api_get_admin_redis_dbsize'
-      })
+      requestAdminJson<{ count: number }>(
+        'GetRedisDbSize',
+        {},
+        'api_get_admin_redis_dbsize'
+      )
   },
   groups: {
     list: (options?: { organizationId?: string }) => {
-      const params = new URLSearchParams();
+      const requestBody: Record<string, unknown> = {};
       if (options?.organizationId) {
-        params.set('organizationId', options.organizationId);
+        requestBody['organizationId'] = options.organizationId;
       }
-      const query = params.toString();
-      return request<GroupsListResponse>(
-        `/admin/groups${query ? `?${query}` : ''}`,
-        {
-          eventName: 'api_get_admin_groups'
-        }
+      return requestAdminJson<GroupsListResponse>(
+        'ListGroups',
+        requestBody,
+        'api_get_admin_groups'
       );
     },
     get: (id: string) =>
-      request<GroupDetailResponse>(`/admin/groups/${encodeURIComponent(id)}`, {
-        eventName: 'api_get_admin_group'
-      }),
+      requestAdminJson<GroupDetailResponse>(
+        'GetGroup',
+        { id },
+        'api_get_admin_group'
+      ),
     create: (data: CreateGroupRequest) =>
-      request<{ group: Group }>('/admin/groups', {
-        fetchOptions: {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        },
-        eventName: 'api_post_admin_group'
-      }),
+      requestAdminJson<{ group: Group }>(
+        'CreateGroup',
+        { json: JSON.stringify(data) },
+        'api_post_admin_group'
+      ),
     update: (id: string, data: UpdateGroupRequest) =>
-      request<{ group: Group }>(`/admin/groups/${encodeURIComponent(id)}`, {
-        fetchOptions: {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        },
-        eventName: 'api_put_admin_group'
-      }),
+      requestAdminJson<{ group: Group }>(
+        'UpdateGroup',
+        { id, json: JSON.stringify(data) },
+        'api_put_admin_group'
+      ),
     delete: (id: string) =>
-      request<{ deleted: boolean }>(`/admin/groups/${encodeURIComponent(id)}`, {
-        fetchOptions: { method: 'DELETE' },
-        eventName: 'api_delete_admin_group'
-      }),
+      requestAdminJson<{ deleted: boolean }>(
+        'DeleteGroup',
+        { id },
+        'api_delete_admin_group'
+      ),
     getMembers: (id: string) =>
-      request<GroupMembersResponse>(
-        `/admin/groups/${encodeURIComponent(id)}/members`,
-        {
-          eventName: 'api_get_admin_group_members'
-        }
+      requestAdminJson<GroupMembersResponse>(
+        'GetGroupMembers',
+        { id },
+        'api_get_admin_group_members'
       ),
     addMember: (groupId: string, userId: string) =>
-      request<{ added: boolean }>(
-        `/admin/groups/${encodeURIComponent(groupId)}/members`,
-        {
-          fetchOptions: {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId })
-          },
-          eventName: 'api_post_admin_group_member'
-        }
+      requestAdminJson<{ added: boolean }>(
+        'AddGroupMember',
+        { id: groupId, json: JSON.stringify({ userId }) },
+        'api_post_admin_group_member'
       ),
     removeMember: (groupId: string, userId: string) =>
-      request<{ removed: boolean }>(
-        `/admin/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(userId)}`,
-        {
-          fetchOptions: { method: 'DELETE' },
-          eventName: 'api_delete_admin_group_member'
-        }
+      requestAdminJson<{ removed: boolean }>(
+        'RemoveGroupMember',
+        { groupId, userId },
+        'api_delete_admin_group_member'
       )
   },
   organizations: {
     list: (options?: { organizationId?: string }) => {
-      const params = new URLSearchParams();
+      const requestBody: Record<string, unknown> = {};
       if (options?.organizationId) {
-        params.set('organizationId', options.organizationId);
+        requestBody['organizationId'] = options.organizationId;
       }
-      const query = params.toString();
-      return request<OrganizationsListResponse>(
-        `/admin/organizations${query ? `?${query}` : ''}`,
-        {
-          eventName: 'api_get_admin_organizations'
-        }
+      return requestAdminJson<OrganizationsListResponse>(
+        'ListOrganizations',
+        requestBody,
+        'api_get_admin_organizations'
       );
     },
     get: (id: string) =>
-      request<OrganizationResponse>(
-        `/admin/organizations/${encodeURIComponent(id)}`,
-        {
-          eventName: 'api_get_admin_organization'
-        }
+      requestAdminJson<OrganizationResponse>(
+        'GetOrganization',
+        { id },
+        'api_get_admin_organization'
       ),
     getUsers: (id: string) =>
-      request<OrganizationUsersResponse>(
-        `/admin/organizations/${encodeURIComponent(id)}/users`,
-        { eventName: 'api_get_admin_organization_users' }
+      requestAdminJson<OrganizationUsersResponse>(
+        'GetOrgUsers',
+        { id },
+        'api_get_admin_organization_users'
       ),
     getGroups: (id: string) =>
-      request<OrganizationGroupsResponse>(
-        `/admin/organizations/${encodeURIComponent(id)}/groups`,
-        { eventName: 'api_get_admin_organization_groups' }
+      requestAdminJson<OrganizationGroupsResponse>(
+        'GetOrgGroups',
+        { id },
+        'api_get_admin_organization_groups'
       ),
     create: (data: CreateOrganizationRequest) =>
-      request<{ organization: Organization }>('/admin/organizations', {
-        fetchOptions: {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        },
-        eventName: 'api_post_admin_organization'
-      }),
+      requestAdminJson<{ organization: Organization }>(
+        'CreateOrganization',
+        { json: JSON.stringify(data) },
+        'api_post_admin_organization'
+      ),
     update: (id: string, data: UpdateOrganizationRequest) =>
-      request<{ organization: Organization }>(
-        `/admin/organizations/${encodeURIComponent(id)}`,
-        {
-          fetchOptions: {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-          },
-          eventName: 'api_put_admin_organization'
-        }
+      requestAdminJson<{ organization: Organization }>(
+        'UpdateOrganization',
+        { id, json: JSON.stringify(data) },
+        'api_put_admin_organization'
       ),
     delete: (id: string) =>
-      request<{ deleted: boolean }>(
-        `/admin/organizations/${encodeURIComponent(id)}`,
-        {
-          fetchOptions: { method: 'DELETE' },
-          eventName: 'api_delete_admin_organization'
-        }
+      requestAdminJson<{ deleted: boolean }>(
+        'DeleteOrganization',
+        { id },
+        'api_delete_admin_organization'
       )
   },
   users: {
     list: (options?: { organizationId?: string }) => {
-      const params = new URLSearchParams();
+      const requestBody: Record<string, unknown> = {};
       if (options?.organizationId) {
-        params.set('organizationId', options.organizationId);
+        requestBody['organizationId'] = options.organizationId;
       }
-      const query = params.toString();
-      return request<AdminUsersResponse>(
-        `/admin/users${query ? `?${query}` : ''}`,
-        {
-          eventName: 'api_get_admin_users'
-        }
+      return requestAdminJson<AdminUsersResponse>(
+        'ListUsers',
+        requestBody,
+        'api_get_admin_users'
       );
     },
     get: (id: string) =>
-      request<AdminUserResponse>(`/admin/users/${encodeURIComponent(id)}`, {
-        eventName: 'api_get_admin_user'
-      }),
+      requestAdminJson<AdminUserResponse>(
+        'GetUser',
+        { id },
+        'api_get_admin_user'
+      ),
     update: (id: string, data: AdminUserUpdatePayload) =>
-      request<AdminUserUpdateResponse>(
-        `/admin/users/${encodeURIComponent(id)}`,
-        {
-          fetchOptions: {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-          },
-          eventName: 'api_patch_admin_user'
-        }
+      requestAdminJson<AdminUserUpdateResponse>(
+        'UpdateUser',
+        { id, json: JSON.stringify(data) },
+        'api_patch_admin_user'
       )
   }
 };

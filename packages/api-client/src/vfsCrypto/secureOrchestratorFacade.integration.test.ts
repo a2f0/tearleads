@@ -93,8 +93,7 @@ describe('secureOrchestratorFacade integration', () => {
         }
       },
       blob: {
-        baseUrl: 'http://localhost',
-        apiPrefix: '/v1'
+        baseUrl: 'http://localhost'
       }
     });
 
@@ -173,27 +172,28 @@ describe('secureOrchestratorFacade integration', () => {
     });
 
     expect(
-      requests.some((request) => request.url.endsWith('/v1/vfs/blobs/stage'))
-    ).toBe(true);
-    expect(
-      requests.some(
-        (request) =>
-          request.url.includes('/v1/vfs/blobs/stage/') &&
-          request.url.endsWith('/chunks')
+      requests.some((request) =>
+        request.url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')
       )
     ).toBe(true);
     expect(
       requests.some(
         (request) =>
-          request.url.includes('/v1/vfs/blobs/stage/') &&
-          request.url.endsWith('/commit')
+          request.url.endsWith(
+            '/connect/tearleads.v1.VfsService/UploadBlobChunk'
+          )
       )
     ).toBe(true);
     expect(
       requests.some(
         (request) =>
-          request.url.includes('/v1/vfs/blobs/stage/') &&
-          request.url.endsWith('/attach')
+          request.url.endsWith('/connect/tearleads.v1.VfsService/CommitBlob')
+      )
+    ).toBe(true);
+    expect(
+      requests.some(
+        (request) =>
+          request.url.endsWith('/connect/tearleads.v1.VfsService/AttachBlob')
       )
     ).toBe(true);
   });
@@ -267,8 +267,7 @@ describe('secureOrchestratorFacade integration', () => {
         }
       },
       blob: {
-        baseUrl: 'http://localhost',
-        apiPrefix: '/v1'
+        baseUrl: 'http://localhost'
       }
     });
 
@@ -403,8 +402,7 @@ describe('secureOrchestratorFacade integration', () => {
         }
       },
       blob: {
-        baseUrl: 'http://localhost',
-        apiPrefix: '/v1'
+        baseUrl: 'http://localhost'
       }
     });
 

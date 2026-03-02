@@ -71,6 +71,13 @@ function getObjectField(value: unknown, key: string): unknown {
   return value[key];
 }
 
+function parseConnectJsonBody(value: unknown): Record<string, unknown> {
+  if (!isRecord(value) || typeof value['json'] !== 'string') {
+    return {};
+  }
+  return JSON.parse(value['json']) as Record<string, unknown>;
+}
+
 describe('secureWritePipelineFactory flush integration', () => {
   const originalFetch = global.fetch;
 
@@ -170,8 +177,7 @@ describe('secureWritePipelineFactory flush integration', () => {
         transportOptions: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
       },
       blob: {
-        baseUrl: 'http://localhost',
-        apiPrefix: '/v1'
+        baseUrl: 'http://localhost'
       }
     });
 
@@ -208,11 +214,11 @@ describe('secureWritePipelineFactory flush integration', () => {
     });
 
     const chunkRequests = requests.filter((request) =>
-      request.url.endsWith('/chunks')
+      request.url.endsWith('/connect/tearleads.v1.VfsService/UploadBlobChunk')
     );
     expect(chunkRequests.length).toBeGreaterThan(0);
 
-    const firstChunkBody = chunkRequests[0]?.body;
+    const firstChunkBody = parseConnectJsonBody(chunkRequests[0]?.body);
     const chunkIndex = getObjectField(firstChunkBody, 'chunkIndex');
     const ciphertextBase64 = getObjectField(firstChunkBody, 'ciphertextBase64');
 
@@ -224,14 +230,20 @@ describe('secureWritePipelineFactory flush integration', () => {
     expect(ciphertextBase64).not.toContain('full pipeline flush integration');
 
     expect(
-      requests.some((request) => request.url.endsWith('/v1/vfs/blobs/stage'))
+      requests.some((request) =>
+        request.url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')
+      )
     ).toBe(true);
-    expect(requests.some((request) => request.url.endsWith('/commit'))).toBe(
-      true
-    );
-    expect(requests.some((request) => request.url.endsWith('/attach'))).toBe(
-      true
-    );
+    expect(
+      requests.some((request) =>
+        request.url.endsWith('/connect/tearleads.v1.VfsService/CommitBlob')
+      )
+    ).toBe(true);
+    expect(
+      requests.some((request) =>
+        request.url.endsWith('/connect/tearleads.v1.VfsService/AttachBlob')
+      )
+    ).toBe(true);
   });
 
   it('flushes multi-chunk encrypted payload with contiguous chunk indices', async () => {
@@ -314,8 +326,7 @@ describe('secureWritePipelineFactory flush integration', () => {
         transportOptions: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
       },
       blob: {
-        baseUrl: 'http://localhost',
-        apiPrefix: '/v1'
+        baseUrl: 'http://localhost'
       }
     });
 
@@ -339,12 +350,12 @@ describe('secureWritePipelineFactory flush integration', () => {
     await orchestrator.flushAll();
 
     const chunkRequests = requests.filter((request) =>
-      request.url.endsWith('/chunks')
+      request.url.endsWith('/connect/tearleads.v1.VfsService/UploadBlobChunk')
     );
     expect(chunkRequests).toHaveLength(stageResult.manifest.chunkCount);
 
     for (let index = 0; index < chunkRequests.length; index += 1) {
-      const body = chunkRequests[index]?.body;
+      const body = parseConnectJsonBody(chunkRequests[index]?.body);
       expect(getObjectField(body, 'chunkIndex')).toBe(index);
       expect(getObjectField(body, 'uploadId')).toBeTruthy();
     }

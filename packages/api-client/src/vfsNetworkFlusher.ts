@@ -18,7 +18,8 @@ import { fetchWithAuthRefresh } from './vfsAuthFetch';
 export interface VfsApiCrdtTransportOptions
   extends Omit<VfsHttpCrdtSyncTransportOptions, 'fetchImpl' | 'getAuthToken'> {}
 
-const DEFAULT_API_PREFIX = '/v1';
+const DEFAULT_API_PREFIX = '';
+const VFS_CONNECT_BASE_PATH = '/connect/tearleads.v1.VfsService';
 
 interface VfsRematerializedState {
   replaySnapshot: {
@@ -273,15 +274,14 @@ async function fetchServerRematerializedState(input: {
   apiPrefix: string | undefined;
   clientId: string;
 }): Promise<VfsRematerializedState | null> {
-  const params = new URLSearchParams();
-  params.set('clientId', input.clientId);
-
-  const requestUrl = `${normalizeBaseUrl(input.baseUrl)}${normalizeApiPrefix(input.apiPrefix)}/vfs/crdt/snapshot?${params.toString()}`;
+  const requestUrl = `${normalizeBaseUrl(input.baseUrl)}${normalizeApiPrefix(input.apiPrefix)}${VFS_CONNECT_BASE_PATH}/GetCrdtSnapshot`;
   const response = await fetchWithAuthRefresh(fetch, requestUrl, {
-    method: 'GET',
+    method: 'POST',
     headers: {
-      Accept: 'application/json'
-    }
+      Accept: 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ clientId: input.clientId })
   });
 
   if (response.status === 404) {
@@ -293,13 +293,26 @@ async function fetchServerRematerializedState(input: {
     );
   }
 
-  const responseBody: unknown = await response.json();
+  const responseBody = parseConnectJsonEnvelope(
+    (await response.json()) as unknown
+  );
   const parsedState = parseServerRematerializedState(responseBody);
   if (!parsedState) {
     throw new Error('Server returned invalid CRDT rematerialization snapshot');
   }
 
   return parsedState;
+}
+
+function parseConnectJsonEnvelope(body: unknown): unknown {
+  if (!isRecord(body) || typeof body['json'] !== 'string') {
+    return body;
+  }
+  const rawJson = body['json'].trim();
+  if (rawJson.length === 0) {
+    return {};
+  }
+  return JSON.parse(rawJson);
 }
 
 function buildRematerializationHandler(input: {
