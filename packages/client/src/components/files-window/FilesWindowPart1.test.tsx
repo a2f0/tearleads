@@ -448,4 +448,23 @@ describe('FilesWindow', () => {
       screen.queryByTestId('files-window-control-refresh')
     ).not.toBeInTheDocument();
   });
+
+  it('disables drop zone when database is locked', () => {
+    mockUseDatabaseContext.mockReturnValue({
+      isUnlocked: false,
+      isLoading: false
+    });
+    render(<FilesWindow {...defaultProps} />);
+
+    const dropZone = screen.getByTestId('files-content').parentElement;
+    if (!dropZone) throw new Error('Drop zone not found');
+
+    const file = new File(['test'], 'test.txt', { type: 'text/plain' });
+
+    fireEvent.drop(dropZone, {
+      dataTransfer: { files: [file] }
+    });
+
+    expect(mockUploadFiles).not.toHaveBeenCalled();
+  });
 });
