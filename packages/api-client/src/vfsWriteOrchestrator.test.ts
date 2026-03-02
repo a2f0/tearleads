@@ -142,66 +142,69 @@ describe('vfsWriteOrchestrator', () => {
   });
 
   it('flushes both queues and persists final state', async () => {
-    const {
-      encodeVfsCrdtPushResponseProtobuf,
-      encodeVfsCrdtReconcileResponseProtobuf,
-      encodeVfsCrdtSyncResponseProtobuf,
-      encodeVfsSyncCursor
-    } = await import('@tearleads/vfs-sync/vfs');
+    const { encodeVfsSyncCursor } = await import('@tearleads/vfs-sync/vfs');
 
     vi.mocked(global.fetch).mockImplementation(
       async (input: RequestInfo | URL): Promise<Response> => {
         const url = input.toString();
-        if (url.endsWith('/v1/vfs/crdt/push')) {
-          return new Response(
-            encodeVfsCrdtPushResponseProtobuf({
-              clientId: 'desktop',
-              results: [{ opId: 'desktop-1', status: 'applied' }]
-            }),
-            {
-              status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
-            }
-          );
-        }
-        if (url.includes('/v1/vfs/crdt/vfs-sync')) {
-          return new Response(
-            encodeVfsCrdtSyncResponseProtobuf({
-              items: [],
-              hasMore: false,
-              nextCursor: null,
-              lastReconciledWriteIds: {}
-            }),
-            {
-              status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
-            }
-          );
-        }
-        if (url.endsWith('/v1/vfs/crdt/reconcile')) {
-          return new Response(
-            encodeVfsCrdtReconcileResponseProtobuf({
-              clientId: 'desktop',
-              cursor: encodeVfsSyncCursor({
-                changedAt: '2026-02-18T00:00:00.000Z',
-                changeId: 'desktop-1'
-              }),
-              lastReconciledWriteIds: { desktop: 1 }
-            }),
-            {
-              status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
-            }
-          );
-        }
-        if (url.endsWith('/v1/vfs/blobs/stage')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
           return new Response(
             JSON.stringify({
-              stagingId: 'stage-1',
-              blobId: 'blob-1',
-              status: 'staged',
-              stagedAt: '2026-02-18T00:00:00.000Z',
-              expiresAt: '2026-02-18T01:00:00.000Z'
+              json: JSON.stringify({
+                clientId: 'desktop',
+                results: [{ opId: 'desktop-1', status: 'applied' }]
+              })
+            }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            }
+          );
+        }
+        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
+          return new Response(
+            JSON.stringify({
+              json: JSON.stringify({
+                items: [],
+                hasMore: false,
+                nextCursor: null,
+                lastReconciledWriteIds: {}
+              })
+            }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            }
+          );
+        }
+        if (url.endsWith('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
+          return new Response(
+            JSON.stringify({
+              json: JSON.stringify({
+                clientId: 'desktop',
+                cursor: encodeVfsSyncCursor({
+                  changedAt: '2026-02-18T00:00:00.000Z',
+                  changeId: 'desktop-1'
+                }),
+                lastReconciledWriteIds: { desktop: 1 }
+              })
+            }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            }
+          );
+        }
+        if (url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')) {
+          return new Response(
+            JSON.stringify({
+              json: JSON.stringify({
+                stagingId: 'stage-1',
+                blobId: 'blob-1',
+                status: 'staged',
+                stagedAt: '2026-02-18T00:00:00.000Z',
+                expiresAt: '2026-02-18T01:00:00.000Z'
+              })
             }),
             {
               status: 201,
@@ -226,12 +229,11 @@ describe('vfsWriteOrchestrator', () => {
       crdt: {
         transportOptions: {
           baseUrl: 'http://localhost',
-          apiPrefix: '/v1'
+          apiPrefix: ''
         }
       },
       blob: {
-        baseUrl: 'http://localhost',
-        apiPrefix: '/v1'
+        baseUrl: 'http://localhost'
       },
       saveState
     });

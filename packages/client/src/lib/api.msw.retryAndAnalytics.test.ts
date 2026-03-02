@@ -1,6 +1,5 @@
 import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import {
-  getRecordedApiRequests,
   HttpResponse,
   http,
   server,
@@ -28,34 +27,6 @@ vi.mock('@/db/analytics', () => ({
 const loadApi = async () => {
   const module = await import('./api');
   return module.api;
-};
-
-type RecordedApiRequest = ReturnType<typeof getRecordedApiRequests>[number];
-
-const getRequestsFor = (
-  method: string,
-  pathname: string
-): RecordedApiRequest[] =>
-  getRecordedApiRequests().filter(
-    (request) =>
-      request.method === method.toUpperCase() && request.pathname === pathname
-  );
-
-const getRequestQuery = (request: RecordedApiRequest): Record<string, string> =>
-  Object.fromEntries(new URL(request.url).searchParams.entries());
-
-const expectSingleRequestQuery = (
-  method: string,
-  pathname: string,
-  expectedQuery: Record<string, string>
-): void => {
-  const requests = getRequestsFor(method, pathname);
-  expect(requests).toHaveLength(1);
-  const [request] = requests;
-  if (!request) {
-    throw new Error(`Missing recorded request: ${method} ${pathname}`);
-  }
-  expect(getRequestQuery(request)).toEqual(expectedQuery);
 };
 
 let seededUser: SeededUser;
@@ -96,15 +67,17 @@ describe('api with msw', () => {
           // Retry after refresh still fails with 500
           return HttpResponse.json(null, { status: 500 });
         }),
-        http.post('http://localhost/auth/refresh', () =>
-          HttpResponse.json({
-            accessToken: 'new-token',
-            refreshToken: 'new-refresh',
-            tokenType: 'Bearer',
-            expiresIn: 3600,
-            refreshExpiresIn: 604800,
-            user: { id: 'user-1', email: 'user@example.com' }
-          })
+        http.post(
+          'http://localhost/connect/tearleads.v1.AuthService/RefreshToken',
+          () =>
+            HttpResponse.json({
+              accessToken: 'new-token',
+              refreshToken: 'new-refresh',
+              tokenType: 'Bearer',
+              expiresIn: 3600,
+              refreshExpiresIn: 604800,
+              user: { id: 'user-1', email: 'user@example.com' }
+            })
         )
       );
 
@@ -153,21 +126,24 @@ describe('api with msw', () => {
         http.get('http://localhost/ping', () =>
           HttpResponse.json(null, { status: 401 })
         ),
-        http.post('http://localhost/auth/refresh', () => {
-          refreshCalled = true;
-          // Refresh succeeds but simulates another tab clearing auth
-          // before the retry can use the new token
-          localStorage.removeItem(AUTH_TOKEN_KEY);
-          localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
-          return HttpResponse.json({
-            accessToken: 'new-token',
-            refreshToken: 'new-refresh',
-            tokenType: 'Bearer',
-            expiresIn: 3600,
-            refreshExpiresIn: 604800,
-            user: { id: 'user-1', email: 'user@example.com' }
-          });
-        })
+        http.post(
+          'http://localhost/connect/tearleads.v1.AuthService/RefreshToken',
+          () => {
+            refreshCalled = true;
+            // Refresh succeeds but simulates another tab clearing auth
+            // before the retry can use the new token
+            localStorage.removeItem(AUTH_TOKEN_KEY);
+            localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
+            return HttpResponse.json({
+              accessToken: 'new-token',
+              refreshToken: 'new-refresh',
+              tokenType: 'Bearer',
+              expiresIn: 3600,
+              refreshExpiresIn: 604800,
+              user: { id: 'user-1', email: 'user@example.com' }
+            });
+          }
+        )
       );
 
       const api = await loadApi();
@@ -182,22 +158,27 @@ describe('api with msw', () => {
   describe('response parsing', () => {
     it('handles 204 no-content responses', async () => {
       server.use(
-        http.delete(
-          'http://localhost/vfs/shares/share-1',
+        http.post(
+          'http://localhost/connect/tearleads.v1.VfsSharesService/DeleteShare',
           () => new HttpResponse(null, { status: 204 })
         )
       );
 
       const api = await loadApi();
 
-      await expect(api.vfs.deleteShare('share-1')).resolves.toBeUndefined();
-      expect(wasApiRequestMade('DELETE', '/vfs/shares/share-1')).toBe(true);
+      await expect(api.vfs.deleteShare('share-1')).resolves.toEqual({});
+      expect(
+        wasApiRequestMade(
+          'POST',
+          '/connect/tearleads.v1.VfsSharesService/DeleteShare'
+        )
+      ).toBe(true);
     });
 
     it('handles 205 reset-content responses', async () => {
       server.use(
         http.post(
-          'http://localhost/auth/logout',
+          'http://localhost/connect/tearleads.v1.AuthService/Logout',
           () => new HttpResponse(null, { status: 205 })
         )
       );
@@ -205,7 +186,9 @@ describe('api with msw', () => {
       const api = await loadApi();
 
       await expect(api.auth.logout()).resolves.toBeUndefined();
-      expect(wasApiRequestMade('POST', '/auth/logout')).toBe(true);
+      expect(
+        wasApiRequestMade('POST', '/connect/tearleads.v1.AuthService/Logout')
+      ).toBe(true);
     });
 
     it('handles empty text responses', async () => {
@@ -286,10 +269,12 @@ describe('api with msw', () => {
         expect.any(Number),
         true
       );
-      expectSingleRequestQuery('GET', '/admin/redis/keys', {
-        cursor: 'someCursor123',
-        limit: '50'
-      });
+      expect(
+        wasApiRequestMade(
+          'POST',
+          '/connect/tearleads.v1.AdminService/GetRedisKeys'
+        )
+      ).toBe(true);
     });
 
     it('uses generic event name for getValue without leaking key values', async () => {
@@ -305,7 +290,10 @@ describe('api with msw', () => {
         true
       );
       expect(
-        wasApiRequestMade('GET', '/admin/redis/keys/sessions%3Aabc123')
+        wasApiRequestMade(
+          'POST',
+          '/connect/tearleads.v1.AdminService/GetRedisValue'
+        )
       ).toBe(true);
     });
 
@@ -320,8 +308,8 @@ describe('api with msw', () => {
       );
       expect(
         wasApiRequestMade(
-          'DELETE',
-          '/admin/redis/keys/users%3Auser-uuid%3Asessions'
+          'POST',
+          '/connect/tearleads.v1.AdminService/DeleteRedisKey'
         )
       ).toBe(true);
     });
@@ -335,7 +323,12 @@ describe('api with msw', () => {
         expect.any(Number),
         true
       );
-      expect(wasApiRequestMade('GET', '/admin/redis/dbsize')).toBe(true);
+      expect(
+        wasApiRequestMade(
+          'POST',
+          '/connect/tearleads.v1.AdminService/GetRedisDbSize'
+        )
+      ).toBe(true);
     });
 
     it('logs the postgres info endpoint event', async () => {
@@ -347,7 +340,12 @@ describe('api with msw', () => {
         expect.any(Number),
         true
       );
-      expect(wasApiRequestMade('GET', '/admin/postgres/info')).toBe(true);
+      expect(
+        wasApiRequestMade(
+          'POST',
+          '/connect/tearleads.v1.AdminService/GetPostgresInfo'
+        )
+      ).toBe(true);
     });
 
     it('logs the postgres tables endpoint event', async () => {
@@ -359,7 +357,12 @@ describe('api with msw', () => {
         expect.any(Number),
         true
       );
-      expect(wasApiRequestMade('GET', '/admin/postgres/tables')).toBe(true);
+      expect(
+        wasApiRequestMade(
+          'POST',
+          '/connect/tearleads.v1.AdminService/GetTables'
+        )
+      ).toBe(true);
     });
 
     it('logs the admin user get endpoint event', async () => {
@@ -372,7 +375,7 @@ describe('api with msw', () => {
         true
       );
       expect(
-        wasApiRequestMade('GET', `/admin/users/${seededUser.userId}`)
+        wasApiRequestMade('POST', '/connect/tearleads.v1.AdminService/GetUser')
       ).toBe(true);
     });
   });

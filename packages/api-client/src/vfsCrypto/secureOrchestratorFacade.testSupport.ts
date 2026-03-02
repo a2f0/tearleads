@@ -1,37 +1,40 @@
-import { decodeVfsCrdtPushRequestProtobuf } from '@tearleads/vfs-sync/vfs';
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
-async function readPushBodyBytes(
+function parseBody(bodyText: string): unknown {
+  if (bodyText.trim().length === 0) {
+    return null;
+  }
+  return JSON.parse(bodyText);
+}
+
+function parseConnectJsonEnvelope(payload: unknown): unknown {
+  if (!isRecord(payload) || typeof payload['json'] !== 'string') {
+    return payload;
+  }
+
+  const rawJson = payload['json'];
+  if (rawJson.trim().length === 0) {
+    return {};
+  }
+
+  return JSON.parse(rawJson);
+}
+
+async function readPushBody(
   input: RequestInfo | URL,
   init: RequestInit | undefined
-): Promise<Uint8Array | null> {
-  if (init?.body instanceof Uint8Array) {
-    return init.body;
-  }
-
-  if (init?.body instanceof ArrayBuffer) {
-    return new Uint8Array(init.body);
-  }
-
-  if (init?.body && ArrayBuffer.isView(init.body)) {
-    return new Uint8Array(
-      init.body.buffer,
-      init.body.byteOffset,
-      init.body.byteLength
-    );
-  }
-
-  if (init?.body instanceof Blob) {
-    const bodyBuffer = await init.body.arrayBuffer();
-    if (bodyBuffer.byteLength > 0) {
-      return new Uint8Array(bodyBuffer);
-    }
+): Promise<unknown> {
+  if (typeof init?.body === 'string') {
+    return parseConnectJsonEnvelope(parseBody(init.body));
   }
 
   if (input instanceof Request) {
     const cloned = input.clone();
-    const bodyBuffer = await cloned.arrayBuffer();
-    if (bodyBuffer.byteLength > 0) {
-      return new Uint8Array(bodyBuffer);
+    const bodyText = await cloned.text();
+    if (bodyText.trim().length > 0) {
+      return parseConnectJsonEnvelope(parseBody(bodyText));
     }
   }
 
@@ -44,12 +47,12 @@ export async function recordSecureFacadeRequestBody(
   input: RequestInfo | URL,
   init: RequestInit | undefined
 ): Promise<void> {
-  if (url.endsWith('/v1/vfs/crdt/push')) {
-    const pushBytes = await readPushBodyBytes(input, init);
-    if (pushBytes) {
+  if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
+    const pushBody = await readPushBody(input, init);
+    if (pushBody) {
       requests.push({
         url,
-        body: decodeVfsCrdtPushRequestProtobuf(pushBytes)
+        body: pushBody
       });
       return;
     }

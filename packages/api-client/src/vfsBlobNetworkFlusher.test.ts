@@ -5,13 +5,10 @@ function getAuthorizationHeader(init: RequestInit | undefined): string | null {
   if (!init || !init.headers) {
     return null;
   }
-
   return new Headers(init.headers).get('Authorization');
 }
-
 describe('vfsBlobNetworkFlusher', () => {
   const originalFetch = global.fetch;
-
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
@@ -19,21 +16,18 @@ describe('vfsBlobNetworkFlusher', () => {
     global.fetch = vi.fn();
     localStorage.clear();
   });
-
   afterEach(() => {
     vi.unstubAllEnvs();
     global.fetch = originalFetch;
   });
-
   it('retries stage request after token refresh on 401', async () => {
     localStorage.setItem('auth_token', 'stale-access-token');
     localStorage.setItem('auth_refresh_token', 'refresh-token');
-
     let stageAttempts = 0;
     vi.mocked(global.fetch).mockImplementation(
       async (input: RequestInfo | URL): Promise<Response> => {
         const url = input.toString();
-        if (url.endsWith('/auth/refresh')) {
+        if (url.endsWith('/connect/tearleads.v1.AuthService/RefreshToken')) {
           return new Response(
             JSON.stringify({
               accessToken: 'fresh-access-token',
@@ -49,8 +43,7 @@ describe('vfsBlobNetworkFlusher', () => {
             }
           );
         }
-
-        if (url.endsWith('/v1/vfs/blobs/stage')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')) {
           stageAttempts += 1;
           if (stageAttempts === 1) {
             return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -58,7 +51,6 @@ describe('vfsBlobNetworkFlusher', () => {
               headers: { 'Content-Type': 'application/json' }
             });
           }
-
           return new Response(
             JSON.stringify({
               stagingId: 'stage-1',
@@ -73,34 +65,28 @@ describe('vfsBlobNetworkFlusher', () => {
             }
           );
         }
-
         throw new Error(`Unexpected request URL: ${url}`);
       }
     );
-
     const { VfsBlobNetworkFlusher } = await import('./vfsBlobNetworkFlusher');
     const flusher = new VfsBlobNetworkFlusher({
-      baseUrl: 'http://localhost',
-      apiPrefix: '/v1'
+      baseUrl: 'http://localhost'
     });
     flusher.queueStage({
       stagingId: 'stage-1',
       blobId: 'blob-1',
       expiresAt: '2026-02-18T01:00:00.000Z'
     });
-
     await expect(flusher.flush()).resolves.toEqual({
       processedOperations: 1,
       pendingOperations: 0
     });
-
     const stageCalls = vi
       .mocked(global.fetch)
       .mock.calls.filter(([input]) =>
-        input.toString().endsWith('/v1/vfs/blobs/stage')
+        input.toString().endsWith('/connect/tearleads.v1.VfsService/StageBlob')
       );
     expect(stageCalls).toHaveLength(2);
-
     const firstStageCall = stageCalls[0];
     if (!firstStageCall) {
       throw new Error('expected first stage call');
@@ -109,7 +95,6 @@ describe('vfsBlobNetworkFlusher', () => {
     if (!secondStageCall) {
       throw new Error('expected second stage call');
     }
-
     expect(getAuthorizationHeader(firstStageCall[1])).toBe(
       'Bearer stale-access-token'
     );
@@ -117,7 +102,6 @@ describe('vfsBlobNetworkFlusher', () => {
       'Bearer fresh-access-token'
     );
   });
-
   it('flushes queued stage/attach/abandon operations and persists state', async () => {
     const saveState = vi.fn(
       async (state: VfsBlobNetworkFlusherPersistedState) => state
@@ -125,7 +109,7 @@ describe('vfsBlobNetworkFlusher', () => {
     vi.mocked(global.fetch).mockImplementation(
       async (input: RequestInfo | URL): Promise<Response> => {
         const url = input.toString();
-        if (url.endsWith('/v1/vfs/blobs/stage')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')) {
           return new Response(
             JSON.stringify({
               stagingId: 'stage-1',
@@ -140,7 +124,7 @@ describe('vfsBlobNetworkFlusher', () => {
             }
           );
         }
-        if (url.endsWith('/v1/vfs/blobs/stage/stage-1/attach')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/AttachBlob')) {
           return new Response(
             JSON.stringify({
               attached: true,
@@ -157,7 +141,7 @@ describe('vfsBlobNetworkFlusher', () => {
             }
           );
         }
-        if (url.endsWith('/v1/vfs/blobs/stage/stage-1/abandon')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/AbandonBlob')) {
           return new Response(
             JSON.stringify({
               abandoned: true,
@@ -170,17 +154,14 @@ describe('vfsBlobNetworkFlusher', () => {
             }
           );
         }
-
         throw new Error(`Unexpected request URL: ${url}`);
       }
     );
-
     const { VfsBlobNetworkFlusher } = await import('./vfsBlobNetworkFlusher');
     const flusher = new VfsBlobNetworkFlusher({
       baseUrl: 'http://localhost',
       saveState
     });
-
     await flusher.queueStageAndPersist({
       stagingId: 'stage-1',
       blobId: 'blob-1',
@@ -194,7 +175,6 @@ describe('vfsBlobNetworkFlusher', () => {
     await flusher.queueAbandonAndPersist({
       stagingId: 'stage-1'
     });
-
     expect(flusher.queuedOperations()).toHaveLength(3);
     await expect(flusher.flush()).resolves.toEqual({
       processedOperations: 3,
@@ -203,7 +183,6 @@ describe('vfsBlobNetworkFlusher', () => {
     expect(flusher.queuedOperations()).toHaveLength(0);
     expect(saveState).toHaveBeenCalled();
   });
-
   it('flushes queued chunk upload and manifest commit operations', async () => {
     const requestBodies: Array<{ url: string; body: unknown }> = [];
     vi.mocked(global.fetch).mockImplementation(
@@ -221,11 +200,9 @@ describe('vfsBlobNetworkFlusher', () => {
         });
       }
     );
-
     const { VfsBlobNetworkFlusher } = await import('./vfsBlobNetworkFlusher');
     const flusher = new VfsBlobNetworkFlusher({
-      baseUrl: 'http://localhost',
-      apiPrefix: '/v1'
+      baseUrl: 'http://localhost'
     });
     flusher.queueChunk({
       stagingId: 'stage-1',
@@ -248,19 +225,26 @@ describe('vfsBlobNetworkFlusher', () => {
       totalPlaintextBytes: 1024,
       totalCiphertextBytes: 1088
     });
-
     await expect(flusher.flush()).resolves.toEqual({
       processedOperations: 2,
       pendingOperations: 0
     });
-
     const chunkCall = requestBodies.find((entry) =>
-      entry.url.endsWith('/v1/vfs/blobs/stage/stage-1/chunks')
+      entry.url.endsWith('/connect/tearleads.v1.VfsService/UploadBlobChunk')
     );
     const commitCall = requestBodies.find((entry) =>
-      entry.url.endsWith('/v1/vfs/blobs/stage/stage-1/commit')
+      entry.url.endsWith('/connect/tearleads.v1.VfsService/CommitBlob')
     );
     expect(chunkCall?.body).toEqual(
+      expect.objectContaining({
+        stagingId: 'stage-1'
+      })
+    );
+    expect(
+      JSON.parse(
+        String((chunkCall?.body as { json?: string } | undefined)?.json ?? '{}')
+      )
+    ).toEqual(
       expect.objectContaining({
         uploadId: 'upload-1',
         chunkIndex: 0,
@@ -270,6 +254,17 @@ describe('vfsBlobNetworkFlusher', () => {
     );
     expect(commitCall?.body).toEqual(
       expect.objectContaining({
+        stagingId: 'stage-1'
+      })
+    );
+    expect(
+      JSON.parse(
+        String(
+          (commitCall?.body as { json?: string } | undefined)?.json ?? '{}'
+        )
+      )
+    ).toEqual(
+      expect.objectContaining({
         uploadId: 'upload-1',
         keyEpoch: 3,
         manifestHash: 'manifest-hash-1',
@@ -277,7 +272,6 @@ describe('vfsBlobNetworkFlusher', () => {
       })
     );
   });
-
   it('hydrates queued operations from persistence callback', async () => {
     const { VfsBlobNetworkFlusher } = await import('./vfsBlobNetworkFlusher');
     const source = new VfsBlobNetworkFlusher();
@@ -287,14 +281,12 @@ describe('vfsBlobNetworkFlusher', () => {
       expiresAt: '2026-02-18T01:00:00.000Z'
     });
     const persisted = source.exportState();
-
     const target = new VfsBlobNetworkFlusher({
       loadState: async () => persisted
     });
     await expect(target.hydrateFromPersistence()).resolves.toBe(true);
     expect(target.queuedOperations()).toHaveLength(1);
   });
-
   it('persists and forwards stage encryption metadata', async () => {
     const requestBodies: unknown[] = [];
     vi.mocked(global.fetch).mockImplementation(
@@ -305,7 +297,6 @@ describe('vfsBlobNetworkFlusher', () => {
         if (typeof init?.body === 'string') {
           requestBodies.push(JSON.parse(init.body));
         }
-
         return new Response(
           JSON.stringify({
             stagingId: 'stage-1',
@@ -321,11 +312,9 @@ describe('vfsBlobNetworkFlusher', () => {
         );
       }
     );
-
     const { VfsBlobNetworkFlusher } = await import('./vfsBlobNetworkFlusher');
     const source = new VfsBlobNetworkFlusher({
-      baseUrl: 'http://localhost',
-      apiPrefix: '/v1'
+      baseUrl: 'http://localhost'
     });
     source.queueStage({
       stagingId: 'stage-1',
@@ -345,18 +334,17 @@ describe('vfsBlobNetworkFlusher', () => {
         }
       }
     });
-
     const hydrated = new VfsBlobNetworkFlusher({
-      baseUrl: 'http://localhost',
-      apiPrefix: '/v1'
+      baseUrl: 'http://localhost'
     });
     hydrated.hydrateState(source.exportState());
     await expect(hydrated.flush()).resolves.toEqual({
       processedOperations: 1,
       pendingOperations: 0
     });
-
-    const stageBody = requestBodies[0];
+    const stageBody = JSON.parse(
+      String((requestBodies[0] as { json?: string } | undefined)?.json ?? '{}')
+    );
     expect(stageBody).toEqual(
       expect.objectContaining({
         encryption: expect.objectContaining({
@@ -373,11 +361,9 @@ describe('vfsBlobNetworkFlusher', () => {
       })
     );
   });
-
   it('validates queue inputs and hydration payloads', async () => {
     const { VfsBlobNetworkFlusher } = await import('./vfsBlobNetworkFlusher');
     const flusher = new VfsBlobNetworkFlusher();
-
     expect(() =>
       flusher.queueStage({ blobId: '', expiresAt: '2026-02-18T01:00:00.000Z' })
     ).toThrow(/blobId is required/);
@@ -445,13 +431,11 @@ describe('vfsBlobNetworkFlusher', () => {
         totalCiphertextBytes: 1
       })
     ).toThrow(/manifest commit payload is invalid/);
-
     const invalidOperationState = JSON.parse('{"pendingOperations":[{}]}');
     expect(() => flusher.hydrateState(invalidOperationState)).toThrow(
       /operation\.operationId is required/
     );
   });
-
   it('handles non-json responses and invalid queue operation kinds', async () => {
     vi.mocked(global.fetch).mockResolvedValue(
       new Response('not-json', { status: 200 })
@@ -465,7 +449,6 @@ describe('vfsBlobNetworkFlusher', () => {
       blobId: 'blob-1',
       expiresAt: '2026-02-18T01:00:00.000Z'
     });
-
     await expect(flusher.flush()).rejects.toThrow(
       /transport returned non-JSON response/
     );

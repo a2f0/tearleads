@@ -1,10 +1,5 @@
 import { generateKeyPair, type VfsKeyPair } from '@tearleads/shared';
-import {
-  encodeVfsCrdtPushResponseProtobuf,
-  encodeVfsCrdtReconcileResponseProtobuf,
-  encodeVfsCrdtSyncResponseProtobuf,
-  encodeVfsSyncCursor
-} from '@tearleads/vfs-sync/vfs';
+import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   ItemKeyRecord,
@@ -71,6 +66,18 @@ function getObjectField(value: unknown, key: string): unknown {
   return value[key];
 }
 
+function parseConnectJsonBody(value: unknown): Record<string, unknown> {
+  if (!isRecord(value) || typeof value['json'] !== 'string') {
+    return {};
+  }
+  const parsed = JSON.parse(value['json']);
+  return isRecord(parsed) ? parsed : {};
+}
+
+function connectJsonEnvelope(payload: unknown): string {
+  return JSON.stringify({ json: JSON.stringify(payload) });
+}
+
 describe('secureWritePipelineFactory flush integration', () => {
   const originalFetch = global.fetch;
 
@@ -101,22 +108,22 @@ describe('secureWritePipelineFactory flush integration', () => {
           requests.push({ url, body: JSON.parse(init.body) });
         }
 
-        if (url.endsWith('/v1/vfs/crdt/push')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
           return new Response(
-            encodeVfsCrdtPushResponseProtobuf({
+            connectJsonEnvelope({
               clientId: 'desktop',
               results: []
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
 
-        if (url.includes('/v1/vfs/crdt/vfs-sync')) {
+        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
           return new Response(
-            encodeVfsCrdtSyncResponseProtobuf({
+            connectJsonEnvelope({
               items: [],
               hasMore: false,
               nextCursor: null,
@@ -124,14 +131,14 @@ describe('secureWritePipelineFactory flush integration', () => {
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
 
-        if (url.endsWith('/v1/vfs/crdt/reconcile')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
           return new Response(
-            encodeVfsCrdtReconcileResponseProtobuf({
+            connectJsonEnvelope({
               clientId: 'desktop',
               cursor: encodeVfsSyncCursor({
                 changedAt: '2026-02-20T00:00:00.000Z',
@@ -141,7 +148,7 @@ describe('secureWritePipelineFactory flush integration', () => {
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
@@ -167,11 +174,10 @@ describe('secureWritePipelineFactory flush integration', () => {
     const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');
     const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
       crdt: {
-        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '' }
       },
       blob: {
-        baseUrl: 'http://localhost',
-        apiPrefix: '/v1'
+        baseUrl: 'http://localhost'
       }
     });
 
@@ -208,11 +214,11 @@ describe('secureWritePipelineFactory flush integration', () => {
     });
 
     const chunkRequests = requests.filter((request) =>
-      request.url.endsWith('/chunks')
+      request.url.endsWith('/connect/tearleads.v1.VfsService/UploadBlobChunk')
     );
     expect(chunkRequests.length).toBeGreaterThan(0);
 
-    const firstChunkBody = chunkRequests[0]?.body;
+    const firstChunkBody = parseConnectJsonBody(chunkRequests[0]?.body);
     const chunkIndex = getObjectField(firstChunkBody, 'chunkIndex');
     const ciphertextBase64 = getObjectField(firstChunkBody, 'ciphertextBase64');
 
@@ -224,14 +230,20 @@ describe('secureWritePipelineFactory flush integration', () => {
     expect(ciphertextBase64).not.toContain('full pipeline flush integration');
 
     expect(
-      requests.some((request) => request.url.endsWith('/v1/vfs/blobs/stage'))
+      requests.some((request) =>
+        request.url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')
+      )
     ).toBe(true);
-    expect(requests.some((request) => request.url.endsWith('/commit'))).toBe(
-      true
-    );
-    expect(requests.some((request) => request.url.endsWith('/attach'))).toBe(
-      true
-    );
+    expect(
+      requests.some((request) =>
+        request.url.endsWith('/connect/tearleads.v1.VfsService/CommitBlob')
+      )
+    ).toBe(true);
+    expect(
+      requests.some((request) =>
+        request.url.endsWith('/connect/tearleads.v1.VfsService/AttachBlob')
+      )
+    ).toBe(true);
   });
 
   it('flushes multi-chunk encrypted payload with contiguous chunk indices', async () => {
@@ -244,22 +256,22 @@ describe('secureWritePipelineFactory flush integration', () => {
           requests.push({ url, body: JSON.parse(init.body) });
         }
 
-        if (url.endsWith('/v1/vfs/crdt/push')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
           return new Response(
-            encodeVfsCrdtPushResponseProtobuf({
+            connectJsonEnvelope({
               clientId: 'desktop',
               results: []
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
 
-        if (url.includes('/v1/vfs/crdt/vfs-sync')) {
+        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
           return new Response(
-            encodeVfsCrdtSyncResponseProtobuf({
+            connectJsonEnvelope({
               items: [],
               hasMore: false,
               nextCursor: null,
@@ -267,14 +279,14 @@ describe('secureWritePipelineFactory flush integration', () => {
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
 
-        if (url.endsWith('/v1/vfs/crdt/reconcile')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
           return new Response(
-            encodeVfsCrdtReconcileResponseProtobuf({
+            connectJsonEnvelope({
               clientId: 'desktop',
               cursor: encodeVfsSyncCursor({
                 changedAt: '2026-02-20T00:00:00.000Z',
@@ -284,7 +296,7 @@ describe('secureWritePipelineFactory flush integration', () => {
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
@@ -311,11 +323,10 @@ describe('secureWritePipelineFactory flush integration', () => {
     const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');
     const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
       crdt: {
-        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '' }
       },
       blob: {
-        baseUrl: 'http://localhost',
-        apiPrefix: '/v1'
+        baseUrl: 'http://localhost'
       }
     });
 
@@ -339,12 +350,12 @@ describe('secureWritePipelineFactory flush integration', () => {
     await orchestrator.flushAll();
 
     const chunkRequests = requests.filter((request) =>
-      request.url.endsWith('/chunks')
+      request.url.endsWith('/connect/tearleads.v1.VfsService/UploadBlobChunk')
     );
     expect(chunkRequests).toHaveLength(stageResult.manifest.chunkCount);
 
     for (let index = 0; index < chunkRequests.length; index += 1) {
-      const body = chunkRequests[index]?.body;
+      const body = parseConnectJsonBody(chunkRequests[index]?.body);
       expect(getObjectField(body, 'chunkIndex')).toBe(index);
       expect(getObjectField(body, 'uploadId')).toBeTruthy();
     }

@@ -1,13 +1,25 @@
-import {
-  encodeVfsCrdtPushResponseProtobuf,
-  encodeVfsCrdtReconcileResponseProtobuf,
-  encodeVfsCrdtSyncResponseProtobuf,
-  encodeVfsSyncCursor
-} from '@tearleads/vfs-sync/vfs';
+import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('vfsWriteOrchestrator encrypted blob flush', () => {
   const originalFetch = global.fetch;
+
+  const isRecord = (value: unknown): value is Record<string, unknown> => {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+  };
+
+  const connectJsonEnvelope = (payload: unknown): string => {
+    return JSON.stringify({ json: JSON.stringify(payload) });
+  };
+
+  const parseJsonEnvelope = (body: unknown): Record<string, unknown> => {
+    if (!isRecord(body) || typeof body['json'] !== 'string') {
+      return {};
+    }
+
+    const parsed = JSON.parse(body['json']);
+    return isRecord(parsed) ? parsed : {};
+  };
 
   beforeEach(() => {
     vi.resetModules();
@@ -34,21 +46,21 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
           observedRequests.push({ url, body: JSON.parse(init.body) });
         }
 
-        if (url.endsWith('/v1/vfs/crdt/push')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
           return new Response(
-            encodeVfsCrdtPushResponseProtobuf({
+            connectJsonEnvelope({
               clientId: 'desktop',
               results: []
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
-        if (url.includes('/v1/vfs/crdt/vfs-sync')) {
+        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
           return new Response(
-            encodeVfsCrdtSyncResponseProtobuf({
+            connectJsonEnvelope({
               items: [],
               hasMore: false,
               nextCursor: null,
@@ -56,13 +68,13 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
-        if (url.endsWith('/v1/vfs/crdt/reconcile')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
           return new Response(
-            encodeVfsCrdtReconcileResponseProtobuf({
+            connectJsonEnvelope({
               clientId: 'desktop',
               cursor: encodeVfsSyncCursor({
                 changedAt: '2026-02-18T00:00:00.000Z',
@@ -72,7 +84,7 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
@@ -89,12 +101,11 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
       crdt: {
         transportOptions: {
           baseUrl: 'http://localhost',
-          apiPrefix: '/v1'
+          apiPrefix: ''
         }
       },
       blob: {
-        baseUrl: 'http://localhost',
-        apiPrefix: '/v1'
+        baseUrl: 'http://localhost'
       }
     });
 
@@ -167,9 +178,11 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
     });
 
     expect(
-      observedRequests.find((request) =>
-        request.url.endsWith('/v1/vfs/blobs/stage')
-      )?.body
+      parseJsonEnvelope(
+        observedRequests.find((request) =>
+          request.url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')
+        )?.body
+      )
     ).toEqual(
       expect.objectContaining({
         stagingId: 'stage-enc-1',
@@ -181,9 +194,18 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
       })
     );
     expect(
-      observedRequests.find((request) =>
-        request.url.endsWith('/v1/vfs/blobs/stage/stage-enc-1/chunks')
-      )?.body
+      parseJsonEnvelope(
+        observedRequests.find((request) => {
+          if (
+            !request.url.endsWith(
+              '/connect/tearleads.v1.VfsService/UploadBlobChunk'
+            )
+          ) {
+            return false;
+          }
+          return parseJsonEnvelope(request.body).chunkIndex === 0;
+        })?.body
+      )
     ).toEqual(
       expect.objectContaining({
         uploadId: 'upload-1',
@@ -191,9 +213,11 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
       })
     );
     expect(
-      observedRequests.find((request) =>
-        request.url.endsWith('/v1/vfs/blobs/stage/stage-enc-1/commit')
-      )?.body
+      parseJsonEnvelope(
+        observedRequests.find((request) =>
+          request.url.endsWith('/connect/tearleads.v1.VfsService/CommitBlob')
+        )?.body
+      )
     ).toEqual(
       expect.objectContaining({
         uploadId: 'upload-1',
@@ -202,9 +226,11 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
       })
     );
     expect(
-      observedRequests.find((request) =>
-        request.url.endsWith('/v1/vfs/blobs/stage/stage-enc-1/attach')
-      )?.body
+      parseJsonEnvelope(
+        observedRequests.find((request) =>
+          request.url.endsWith('/connect/tearleads.v1.VfsService/AttachBlob')
+        )?.body
+      )
     ).toEqual(
       expect.objectContaining({
         itemId: 'item-1',

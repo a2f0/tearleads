@@ -28,8 +28,23 @@ import type {
 
 const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 
+const ADMIN_CONNECT_BASE_PATH = '/connect/tearleads.v1.AdminService';
+const AI_CONNECT_BASE_PATH = '/connect/tearleads.v1.AiService';
+
 interface RequestParams {
   fetchOptions?: RequestInit;
+}
+
+interface ConnectJsonEnvelopeResponse {
+  json: string;
+}
+
+function jsonPost(body: unknown): RequestInit {
+  return {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  };
 }
 
 async function request<T>(
@@ -58,9 +73,14 @@ async function request<T>(
     const contentType = response.headers.get('content-type')?.toLowerCase();
     if (contentType?.includes('application/json')) {
       try {
-        const body = (await response.json()) as { error?: string };
+        const body = (await response.json()) as {
+          error?: string;
+          message?: string;
+        };
         if (body.error) {
           message = body.error;
+        } else if (body.message) {
+          message = body.message;
         }
       } catch {
         // ignore JSON parse failures
@@ -81,17 +101,52 @@ async function request<T>(
   return JSON.parse(text) as T;
 }
 
+function parseConnectJson<T>(json: unknown): T {
+  if (typeof json !== 'string') {
+    return JSON.parse('{}');
+  }
+  const trimmed = json.trim();
+  if (trimmed.length === 0) {
+    return JSON.parse('{}');
+  }
+  return JSON.parse(trimmed);
+}
+
+function requestAdminJson<T>(
+  methodName: string,
+  requestBody: Record<string, unknown>
+): Promise<T> {
+  return request<ConnectJsonEnvelopeResponse>(
+    `${ADMIN_CONNECT_BASE_PATH}/${methodName}`,
+    {
+      fetchOptions: jsonPost(requestBody)
+    }
+  ).then((response) => parseConnectJson<T>(response?.json));
+}
+
+function requestAi<T>(
+  methodName: string,
+  requestBody: Record<string, unknown>
+): Promise<T> {
+  return request<T>(`${AI_CONNECT_BASE_PATH}/${methodName}`, {
+    fetchOptions: jsonPost(requestBody)
+  });
+}
+
 export const api = {
   admin: {
-    getContext: () => request<AdminAccessContextResponse>('/admin/context'),
+    getContext: () =>
+      requestAdminJson<AdminAccessContextResponse>('GetContext', {}),
     postgres: {
-      getInfo: () => request<PostgresAdminInfoResponse>('/admin/postgres/info'),
+      getInfo: () =>
+        requestAdminJson<PostgresAdminInfoResponse>('GetPostgresInfo', {}),
       getTables: () =>
-        request<PostgresTablesResponse>('/admin/postgres/tables'),
+        requestAdminJson<PostgresTablesResponse>('GetTables', {}),
       getColumns: (schema: string, table: string) =>
-        request<PostgresColumnsResponse>(
-          `/admin/postgres/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/columns`
-        ),
+        requestAdminJson<PostgresColumnsResponse>('GetColumns', {
+          schema,
+          table
+        }),
       getRows: (
         schema: string,
         table: string,
@@ -102,169 +157,107 @@ export const api = {
           sortDirection?: 'asc' | 'desc';
         }
       ) => {
-        const params = new URLSearchParams();
-        if (options?.limit) params.set('limit', String(options.limit));
-        if (options?.offset) params.set('offset', String(options.offset));
-        if (options?.sortColumn) params.set('sortColumn', options.sortColumn);
-        if (options?.sortDirection)
-          params.set('sortDirection', options.sortDirection);
-        const query = params.toString();
-        return request<PostgresRowsResponse>(
-          `/admin/postgres/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/rows${query ? `?${query}` : ''}`
-        );
+        const requestBody: Record<string, unknown> = { schema, table };
+        if (options?.limit) requestBody['limit'] = options.limit;
+        if (options?.offset) requestBody['offset'] = options.offset;
+        if (options?.sortColumn) requestBody['sortColumn'] = options.sortColumn;
+        if (options?.sortDirection) {
+          requestBody['sortDirection'] = options.sortDirection;
+        }
+        return requestAdminJson<PostgresRowsResponse>('GetRows', requestBody);
       }
     },
     redis: {
       getKeys: (cursor?: string, limit?: number) => {
-        const params = new URLSearchParams();
-        if (cursor) params.set('cursor', cursor);
-        if (limit) params.set('limit', String(limit));
-        const query = params.toString();
-        return request<RedisKeysResponse>(
-          `/admin/redis/keys${query ? `?${query}` : ''}`
-        );
+        const requestBody: Record<string, unknown> = {};
+        if (cursor) requestBody['cursor'] = cursor;
+        if (limit) requestBody['limit'] = limit;
+        return requestAdminJson<RedisKeysResponse>('GetRedisKeys', requestBody);
       },
       getValue: (key: string) =>
-        request<RedisKeyValueResponse>(
-          `/admin/redis/keys/${encodeURIComponent(key)}`
-        ),
+        requestAdminJson<RedisKeyValueResponse>('GetRedisValue', { key }),
       deleteKey: (key: string) =>
-        request<{ deleted: boolean }>(
-          `/admin/redis/keys/${encodeURIComponent(key)}`,
-          {
-            fetchOptions: { method: 'DELETE' }
-          }
-        ),
-      getDbSize: () => request<{ count: number }>('/admin/redis/dbsize')
+        requestAdminJson<{ deleted: boolean }>('DeleteRedisKey', { key }),
+      getDbSize: () => requestAdminJson<{ count: number }>('GetRedisDbSize', {})
     },
     groups: {
       list: (options?: { organizationId?: string }) => {
-        const params = new URLSearchParams();
-        if (options?.organizationId)
-          params.set('organizationId', options.organizationId);
-        const query = params.toString();
-        return request<GroupsListResponse>(
-          `/admin/groups${query ? `?${query}` : ''}`
-        );
+        const requestBody: Record<string, unknown> = {};
+        if (options?.organizationId) {
+          requestBody['organizationId'] = options.organizationId;
+        }
+        return requestAdminJson<GroupsListResponse>('ListGroups', requestBody);
       },
       get: (id: string) =>
-        request<GroupDetailResponse>(`/admin/groups/${encodeURIComponent(id)}`),
+        requestAdminJson<GroupDetailResponse>('GetGroup', { id }),
       create: (data: CreateGroupRequest) =>
-        request<{ group: Group }>('/admin/groups', {
-          fetchOptions: {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-          }
+        requestAdminJson<{ group: Group }>('CreateGroup', {
+          json: JSON.stringify(data)
         }),
       update: (id: string, data: UpdateGroupRequest) =>
-        request<{ group: Group }>(`/admin/groups/${encodeURIComponent(id)}`, {
-          fetchOptions: {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-          }
+        requestAdminJson<{ group: Group }>('UpdateGroup', {
+          id,
+          json: JSON.stringify(data)
         }),
       delete: (id: string) =>
-        request<{ deleted: boolean }>(
-          `/admin/groups/${encodeURIComponent(id)}`,
-          {
-            fetchOptions: { method: 'DELETE' }
-          }
-        ),
+        requestAdminJson<{ deleted: boolean }>('DeleteGroup', { id }),
       getMembers: (id: string) =>
-        request<GroupMembersResponse>(
-          `/admin/groups/${encodeURIComponent(id)}/members`
-        ),
+        requestAdminJson<GroupMembersResponse>('GetGroupMembers', { id }),
       addMember: (groupId: string, userId: string) =>
-        request<{ added: boolean }>(
-          `/admin/groups/${encodeURIComponent(groupId)}/members`,
-          {
-            fetchOptions: {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userId })
-            }
-          }
-        ),
+        requestAdminJson<{ added: boolean }>('AddGroupMember', {
+          id: groupId,
+          json: JSON.stringify({ userId })
+        }),
       removeMember: (groupId: string, userId: string) =>
-        request<{ removed: boolean }>(
-          `/admin/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(userId)}`,
-          { fetchOptions: { method: 'DELETE' } }
-        )
+        requestAdminJson<{ removed: boolean }>('RemoveGroupMember', {
+          groupId,
+          userId
+        })
     },
     organizations: {
       list: (options?: { organizationId?: string }) => {
-        const params = new URLSearchParams();
-        if (options?.organizationId)
-          params.set('organizationId', options.organizationId);
-        const query = params.toString();
-        return request<OrganizationsListResponse>(
-          `/admin/organizations${query ? `?${query}` : ''}`
+        const requestBody: Record<string, unknown> = {};
+        if (options?.organizationId) {
+          requestBody['organizationId'] = options.organizationId;
+        }
+        return requestAdminJson<OrganizationsListResponse>(
+          'ListOrganizations',
+          requestBody
         );
       },
       get: (id: string) =>
-        request<OrganizationResponse>(
-          `/admin/organizations/${encodeURIComponent(id)}`
-        ),
+        requestAdminJson<OrganizationResponse>('GetOrganization', { id }),
       getUsers: (id: string) =>
-        request<OrganizationUsersResponse>(
-          `/admin/organizations/${encodeURIComponent(id)}/users`
-        ),
+        requestAdminJson<OrganizationUsersResponse>('GetOrgUsers', { id }),
       getGroups: (id: string) =>
-        request<OrganizationGroupsResponse>(
-          `/admin/organizations/${encodeURIComponent(id)}/groups`
-        ),
+        requestAdminJson<OrganizationGroupsResponse>('GetOrgGroups', { id }),
       create: (data: CreateOrganizationRequest) =>
-        request<{ organization: Organization }>('/admin/organizations', {
-          fetchOptions: {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-          }
+        requestAdminJson<{ organization: Organization }>('CreateOrganization', {
+          json: JSON.stringify(data)
         }),
       update: (id: string, data: UpdateOrganizationRequest) =>
-        request<{ organization: Organization }>(
-          `/admin/organizations/${encodeURIComponent(id)}`,
-          {
-            fetchOptions: {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(data)
-            }
-          }
-        ),
+        requestAdminJson<{ organization: Organization }>('UpdateOrganization', {
+          id,
+          json: JSON.stringify(data)
+        }),
       delete: (id: string) =>
-        request<{ deleted: boolean }>(
-          `/admin/organizations/${encodeURIComponent(id)}`,
-          {
-            fetchOptions: { method: 'DELETE' }
-          }
-        )
+        requestAdminJson<{ deleted: boolean }>('DeleteOrganization', { id })
     },
     users: {
       list: (options?: { organizationId?: string }) => {
-        const params = new URLSearchParams();
-        if (options?.organizationId)
-          params.set('organizationId', options.organizationId);
-        const query = params.toString();
-        return request<AdminUsersResponse>(
-          `/admin/users${query ? `?${query}` : ''}`
-        );
+        const requestBody: Record<string, unknown> = {};
+        if (options?.organizationId) {
+          requestBody['organizationId'] = options.organizationId;
+        }
+        return requestAdminJson<AdminUsersResponse>('ListUsers', requestBody);
       },
       get: (id: string) =>
-        request<AdminUserResponse>(`/admin/users/${encodeURIComponent(id)}`),
+        requestAdminJson<AdminUserResponse>('GetUser', { id }),
       update: (id: string, data: AdminUserUpdatePayload) =>
-        request<AdminUserUpdateResponse>(
-          `/admin/users/${encodeURIComponent(id)}`,
-          {
-            fetchOptions: {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(data)
-            }
-          }
-        )
+        requestAdminJson<AdminUserUpdateResponse>('UpdateUser', {
+          id,
+          json: JSON.stringify(data)
+        })
     }
   },
   ai: {
@@ -273,16 +266,6 @@ export const api = {
       endDate?: string;
       cursor?: string;
       limit?: number;
-    }) => {
-      const params = new URLSearchParams();
-      if (options?.startDate) params.set('startDate', options.startDate);
-      if (options?.endDate) params.set('endDate', options.endDate);
-      if (options?.cursor) params.set('cursor', options.cursor);
-      if (options?.limit) params.set('limit', String(options.limit));
-      const query = params.toString();
-      return request<AiUsageListResponse>(
-        `/ai/usage${query ? `?${query}` : ''}`
-      );
-    }
+    }) => requestAi<AiUsageListResponse>('GetUsage', options ?? {})
   }
 };

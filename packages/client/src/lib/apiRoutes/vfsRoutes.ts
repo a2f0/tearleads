@@ -18,196 +18,249 @@ import type {
   VfsSyncResponse,
   VfsUserKeysResponse
 } from '@tearleads/shared';
-import { request, requestResponse } from '../apiCore';
+import { request } from '../apiCore';
+
+const VFS_CONNECT_BASE_PATH = '/connect/tearleads.v1.VfsService';
+const VFS_SHARES_CONNECT_BASE_PATH = '/connect/tearleads.v1.VfsSharesService';
+
+interface ConnectJsonEnvelopeResponse {
+  json: string;
+}
+
+interface ConnectBlobResponse {
+  data?: string | number[];
+  contentType?: string;
+}
+
+type RequestEventName = Parameters<typeof request>[1]['eventName'];
 
 interface VfsBlobResponse {
   data: Uint8Array;
   contentType: string | null;
 }
 
+function jsonPost(body: unknown): RequestInit {
+  return {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  };
+}
+
+function parseConnectJson<T>(json: unknown): T {
+  if (typeof json !== 'string') {
+    return JSON.parse('{}');
+  }
+  const trimmed = json.trim();
+  if (trimmed.length === 0) {
+    return JSON.parse('{}');
+  }
+  return JSON.parse(trimmed);
+}
+
+function requestVfsJson<TResponse>(
+  methodName: string,
+  requestBody: Record<string, unknown>,
+  eventName: RequestEventName
+): Promise<TResponse> {
+  return request<ConnectJsonEnvelopeResponse>(
+    `${VFS_CONNECT_BASE_PATH}/${methodName}`,
+    {
+      fetchOptions: jsonPost(requestBody),
+      eventName
+    }
+  ).then((response) => parseConnectJson<TResponse>(response?.json));
+}
+
+function requestVfsSharesJson<TResponse>(
+  methodName: string,
+  requestBody: Record<string, unknown>,
+  eventName: RequestEventName
+): Promise<TResponse> {
+  return request<ConnectJsonEnvelopeResponse>(
+    `${VFS_SHARES_CONNECT_BASE_PATH}/${methodName}`,
+    {
+      fetchOptions: jsonPost(requestBody),
+      eventName
+    }
+  ).then((response) => parseConnectJson<TResponse>(response?.json));
+}
+
+function decodeBlobData(data: string | number[] | undefined): Uint8Array {
+  if (Array.isArray(data)) {
+    return new Uint8Array(data);
+  }
+  if (typeof data !== 'string' || data.length === 0) {
+    return new Uint8Array();
+  }
+  if (typeof atob !== 'function') {
+    throw new Error('Unable to decode blob payload');
+  }
+
+  const binary = atob(data);
+  const decoded = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    decoded[i] = binary.charCodeAt(i);
+  }
+  return decoded;
+}
+
 export const vfsRoutes = {
   getMyKeys: () =>
-    request<VfsUserKeysResponse>('/vfs/keys/me', {
-      eventName: 'api_get_vfs_keys'
-    }),
+    requestVfsJson<VfsUserKeysResponse>('GetMyKeys', {}, 'api_get_vfs_keys'),
   getSync: (cursor?: string, limit = 500) => {
-    const params = new URLSearchParams();
-    params.set('limit', String(limit));
+    const requestBody: Record<string, unknown> = { limit };
     if (cursor) {
-      params.set('cursor', cursor);
+      requestBody['cursor'] = cursor;
     }
-    return request<VfsSyncResponse>(`/vfs/vfs-sync?${params.toString()}`, {
-      eventName: 'api_get_vfs_sync'
-    });
+    return requestVfsJson<VfsSyncResponse>(
+      'GetSync',
+      requestBody,
+      'api_get_vfs_sync'
+    );
   },
   getCrdtSync: (cursor?: string, limit = 500) => {
-    const params = new URLSearchParams();
-    params.set('limit', String(limit));
+    const requestBody: Record<string, unknown> = { limit };
     if (cursor) {
-      params.set('cursor', cursor);
+      requestBody['cursor'] = cursor;
     }
-    return request<VfsCrdtSyncResponse>(
-      `/vfs/crdt/vfs-sync?${params.toString()}`,
-      {
-        eventName: 'api_get_vfs_crdt_sync'
-      }
+    return requestVfsJson<VfsCrdtSyncResponse>(
+      'GetCrdtSync',
+      requestBody,
+      'api_get_vfs_crdt_sync'
     );
   },
   setupKeys: (data: VfsKeySetupRequest) =>
-    request<{ created: boolean }>('/vfs/keys', {
-      fetchOptions: {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      },
-      eventName: 'api_post_vfs_keys'
-    }),
+    requestVfsJson<{ created: boolean }>(
+      'SetupKeys',
+      { json: JSON.stringify(data) },
+      'api_post_vfs_keys'
+    ),
   register: (data: VfsRegisterRequest) =>
-    request<VfsRegisterResponse>('/vfs/register', {
-      fetchOptions: {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      },
-      eventName: 'api_post_vfs_register'
-    }),
+    requestVfsJson<VfsRegisterResponse>(
+      'Register',
+      { json: JSON.stringify(data) },
+      'api_post_vfs_register'
+    ),
   getShares: (itemId: string) =>
-    request<VfsSharesResponse>(
-      `/vfs/items/${encodeURIComponent(itemId)}/shares`,
-      {
-        eventName: 'api_get_vfs_shares'
-      }
+    requestVfsSharesJson<VfsSharesResponse>(
+      'GetItemShares',
+      { itemId },
+      'api_get_vfs_shares'
     ),
   createShare: (data: CreateVfsShareRequest) =>
-    request<{ share: VfsShare }>(
-      `/vfs/items/${encodeURIComponent(data.itemId)}/shares`,
+    requestVfsSharesJson<{ share: VfsShare }>(
+      'CreateShare',
       {
-        fetchOptions: {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            shareType: data.shareType,
-            targetId: data.targetId,
-            permissionLevel: data.permissionLevel,
-            expiresAt: data.expiresAt,
-            wrappedKey: data.wrappedKey
-          })
-        },
-        eventName: 'api_post_vfs_share'
-      }
-    ).then((r) => r.share),
-  updateShare: (shareId: string, data: UpdateVfsShareRequest) =>
-    request<{ share: VfsShare }>(`/vfs/shares/${encodeURIComponent(shareId)}`, {
-      fetchOptions: {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        itemId: data.itemId,
+        json: JSON.stringify({
+          shareType: data.shareType,
+          targetId: data.targetId,
+          permissionLevel: data.permissionLevel,
+          expiresAt: data.expiresAt,
+          wrappedKey: data.wrappedKey
+        })
       },
-      eventName: 'api_patch_vfs_share'
-    }).then((r) => r.share),
+      'api_post_vfs_share'
+    ).then((response) => response.share),
+  updateShare: (shareId: string, data: UpdateVfsShareRequest) =>
+    requestVfsSharesJson<{ share: VfsShare }>(
+      'UpdateShare',
+      { shareId, json: JSON.stringify(data) },
+      'api_patch_vfs_share'
+    ).then((response) => response.share),
   deleteShare: (shareId: string) =>
-    request<{ deleted: boolean }>(
-      `/vfs/shares/${encodeURIComponent(shareId)}`,
-      {
-        fetchOptions: { method: 'DELETE' },
-        eventName: 'api_delete_vfs_share'
-      }
+    requestVfsSharesJson<{ deleted: boolean }>(
+      'DeleteShare',
+      { shareId },
+      'api_delete_vfs_share'
     ),
   createOrgShare: (data: CreateOrgShareRequest) =>
-    request<{ orgShare: VfsOrgShare }>(
-      `/vfs/items/${encodeURIComponent(data.itemId)}/org-shares`,
+    requestVfsSharesJson<{ orgShare: VfsOrgShare }>(
+      'CreateOrgShare',
       {
-        fetchOptions: {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sourceOrgId: data.sourceOrgId,
-            targetOrgId: data.targetOrgId,
-            permissionLevel: data.permissionLevel,
-            expiresAt: data.expiresAt
-          })
-        },
-        eventName: 'api_post_vfs_org_share'
-      }
-    ).then((r) => r.orgShare),
+        itemId: data.itemId,
+        json: JSON.stringify({
+          sourceOrgId: data.sourceOrgId,
+          targetOrgId: data.targetOrgId,
+          permissionLevel: data.permissionLevel,
+          expiresAt: data.expiresAt
+        })
+      },
+      'api_post_vfs_org_share'
+    ).then((response) => response.orgShare),
   deleteOrgShare: (shareId: string) =>
-    request<{ deleted: boolean }>(
-      `/vfs/org-shares/${encodeURIComponent(shareId)}`,
-      {
-        fetchOptions: { method: 'DELETE' },
-        eventName: 'api_delete_vfs_org_share'
-      }
+    requestVfsSharesJson<{ deleted: boolean }>(
+      'DeleteOrgShare',
+      { shareId },
+      'api_delete_vfs_org_share'
     ),
   searchShareTargets: (query: string, type?: VfsShareType) => {
-    const params = new URLSearchParams({ q: query });
-    if (type) params.set('type', type);
-    return request<ShareTargetSearchResponse>(
-      `/vfs/share-targets/search?${params.toString()}`,
-      { eventName: 'api_get_vfs_share_targets' }
+    const requestBody: Record<string, unknown> = { q: query };
+    if (type) {
+      requestBody['type'] = type;
+    }
+    return requestVfsSharesJson<ShareTargetSearchResponse>(
+      'SearchShareTargets',
+      requestBody,
+      'api_get_vfs_share_targets'
     );
   },
   getSharePolicyPreview: (requestParams: VfsSharePolicyPreviewRequest) => {
-    const params = new URLSearchParams({
+    const requestBody: Record<string, unknown> = {
       rootItemId: requestParams.rootItemId,
       principalType: requestParams.principalType,
       principalId: requestParams.principalId
-    });
+    };
     if (requestParams.limit !== undefined) {
-      params.set('limit', String(requestParams.limit));
+      requestBody['limit'] = requestParams.limit;
     }
     if (requestParams.cursor) {
-      params.set('cursor', requestParams.cursor);
+      requestBody['cursor'] = requestParams.cursor;
     }
     if (
       requestParams.maxDepth !== undefined &&
       requestParams.maxDepth !== null
     ) {
-      params.set('maxDepth', String(requestParams.maxDepth));
+      requestBody['maxDepth'] = requestParams.maxDepth;
     }
     if (requestParams.q) {
-      params.set('q', requestParams.q);
+      requestBody['q'] = requestParams.q;
     }
     if (requestParams.objectType && requestParams.objectType.length > 0) {
-      params.set('objectType', requestParams.objectType.join(','));
+      requestBody['objectType'] = requestParams.objectType;
     }
-    return request<VfsSharePolicyPreviewResponse>(
-      `/vfs/share-policies/preview?${params.toString()}`,
-      {
-        eventName: 'api_get_vfs_share_policy_preview'
-      }
+
+    return requestVfsSharesJson<VfsSharePolicyPreviewResponse>(
+      'GetSharePolicyPreview',
+      requestBody,
+      'api_get_vfs_share_policy_preview'
     );
   },
   getBlob: async (blobId: string): Promise<VfsBlobResponse> => {
-    const response = await requestResponse(
-      `/vfs/blobs/${encodeURIComponent(blobId)}`,
+    const response = await request<ConnectBlobResponse>(
+      `${VFS_CONNECT_BASE_PATH}/GetBlob`,
       {
+        fetchOptions: jsonPost({ blobId }),
         eventName: 'api_get_vfs_blob'
       }
     );
-    const data = new Uint8Array(await response.arrayBuffer());
+
     return {
-      data,
-      contentType: response.headers.get('content-type')
+      data: decodeBlobData(response.data),
+      contentType: response.contentType ?? null
     };
   },
   deleteBlob: (blobId: string) =>
-    request<{ deleted: boolean; blobId: string }>(
-      `/vfs/blobs/${encodeURIComponent(blobId)}`,
-      {
-        fetchOptions: { method: 'DELETE' },
-        eventName: 'api_delete_vfs_blob'
-      }
+    requestVfsJson<{ deleted: boolean; blobId: string }>(
+      'DeleteBlob',
+      { blobId },
+      'api_delete_vfs_blob'
     ),
   rekeyItem: (itemId: string, data: VfsRekeyRequest) =>
-    request<VfsRekeyResponse>(
-      `/vfs/items/${encodeURIComponent(itemId)}/rekey`,
-      {
-        fetchOptions: {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        },
-        eventName: 'api_post_vfs_rekey'
-      }
+    requestVfsJson<VfsRekeyResponse>(
+      'RekeyItem',
+      { itemId, json: JSON.stringify(data) },
+      'api_post_vfs_rekey'
     )
 };

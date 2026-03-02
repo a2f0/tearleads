@@ -385,9 +385,16 @@ export function parseApiReconcileResponse(
   };
 }
 
-export function parseErrorMessage(status: number, body: unknown): string {
+function parseErrorMessage(status: number, body: unknown): string {
   if (isRecord(body) && typeof body['error'] === 'string') {
     const normalized = body['error'].trim();
+    if (normalized.length > 0) {
+      return normalized;
+    }
+  }
+
+  if (isRecord(body) && typeof body['message'] === 'string') {
+    const normalized = body['message'].trim();
     if (normalized.length > 0) {
       return normalized;
     }

@@ -13,6 +13,8 @@ import {
 import { isJwtExpired } from './jwt';
 
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
+const AUTH_CONNECT_REFRESH_PATH =
+  '/connect/tearleads.v1.AuthService/RefreshToken';
 
 type RefreshOutcome = 'success' | 'rejected' | 'transient';
 
@@ -41,11 +43,14 @@ async function executeTokenRefresh(
   let receivedValidRefreshResponse = false;
 
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken })
-    });
+    const response = await fetch(
+      `${API_BASE_URL}${AUTH_CONNECT_REFRESH_PATH}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken })
+      }
+    );
 
     if (response.status === 401 || response.status === 403) {
       // Permanent failure - token is invalid or session was destroyed
@@ -183,9 +188,15 @@ async function getErrorMessageFromResponse(
   defaultMessage: string
 ): Promise<string> {
   try {
-    const data = (await response.json()) as { error?: string };
+    const data = (await response.json()) as {
+      error?: string;
+      message?: string;
+    };
     if (typeof data.error === 'string' && data.error.length > 0) {
       return data.error;
+    }
+    if (typeof data.message === 'string' && data.message.length > 0) {
+      return data.message;
     }
   } catch {
     // Ignore parsing errors and fall back to the default message
@@ -211,7 +222,7 @@ export async function request<T>(
   return JSON.parse(text) as T;
 }
 
-export async function requestResponse(
+async function requestResponse(
   endpoint: string,
   params: RequestParams
 ): Promise<Response> {

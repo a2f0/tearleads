@@ -12,25 +12,17 @@ import {
   type VfsSyncCursor
 } from '../protocol/sync-cursor.js';
 import {
-  decodeVfsCrdtPushResponseProtobuf,
-  decodeVfsCrdtReconcileResponseProtobuf,
-  decodeVfsCrdtSyncResponseProtobuf,
-  decodeVfsCrdtSyncSessionResponseProtobuf,
-  encodeVfsCrdtPushRequestProtobuf,
-  encodeVfsCrdtReconcileRequestProtobuf,
-  encodeVfsCrdtSyncSessionRequestProtobuf
-} from '../protocol/syncProtobuf.js';
-import {
   parseApiErrorResponse,
   parseApiPullResponse,
   parseApiPushResponse,
-  parseApiReconcileResponse,
-  parseErrorMessage
+  parseApiReconcileResponse
 } from './sync-http-transport-parser.js';
 
 type FetchImpl = typeof fetch;
 const CRDT_REMATERIALIZATION_REQUIRED_CODE = 'crdt_rematerialization_required';
-const PROTOBUF_CONTENT_TYPE = 'application/x-protobuf';
+const CONNECT_ALREADY_EXISTS_CODE = 'already_exists';
+const JSON_CONTENT_TYPE = 'application/json';
+const VFS_CONNECT_BASE_PATH = '/connect/tearleads.v1.VfsService';
 
 export interface VfsHttpCrdtSyncTransportOptions {
   baseUrl?: string;
@@ -51,7 +43,7 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
 
   constructor(options: VfsHttpCrdtSyncTransportOptions = {}) {
     this.baseUrl = normalizeBaseUrl(options.baseUrl ?? '');
-    this.apiPrefix = normalizeApiPrefix(options.apiPrefix ?? '/v1');
+    this.apiPrefix = normalizeApiPrefix(options.apiPrefix ?? '');
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.getAuthToken = options.getAuthToken ?? null;
     this.headers = options.headers ?? {};
@@ -62,16 +54,13 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     clientId: string;
     operations: VfsCrdtOperation[];
   }): Promise<VfsCrdtSyncPushResponse> {
-    const responseBytes = await this.requestBinary(
-      '/vfs/crdt/push',
-      encodeVfsCrdtPushRequestProtobuf({
-        clientId: input.clientId,
-        operations: input.operations
-      }),
-      undefined
-    );
     const parsed = parseApiPushResponse(
-      decodeVfsCrdtPushResponseProtobuf(responseBytes)
+      await this.requestConnectJson('PushCrdtOps', {
+        json: JSON.stringify({
+          clientId: input.clientId,
+          operations: input.operations
+        })
+      })
     );
     return {
       results: parsed.results
@@ -84,19 +73,15 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     cursor: VfsSyncCursor | null;
     limit: number;
   }): Promise<VfsCrdtSyncPullResponse> {
-    const query = new URLSearchParams();
-    query.set('limit', String(input.limit));
+    const requestBody: Record<string, unknown> = {
+      limit: input.limit
+    };
     if (input.cursor) {
-      query.set('cursor', encodeVfsSyncCursor(input.cursor));
+      requestBody['cursor'] = encodeVfsSyncCursor(input.cursor);
     }
 
-    const responseBytes = await this.requestBinary(
-      '/vfs/crdt/vfs-sync',
-      undefined,
-      query
-    );
     const parsed = parseApiPullResponse(
-      decodeVfsCrdtSyncResponseProtobuf(responseBytes)
+      await this.requestConnectJson('GetCrdtSync', requestBody)
     );
 
     const nextCursor = parsed.nextCursor
@@ -120,17 +105,14 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     cursor: VfsSyncCursor;
     lastReconciledWriteIds: VfsCrdtSyncReconcileResponse['lastReconciledWriteIds'];
   }): Promise<VfsCrdtSyncReconcileResponse> {
-    const responseBytes = await this.requestBinary(
-      '/vfs/crdt/reconcile',
-      encodeVfsCrdtReconcileRequestProtobuf({
-        clientId: input.clientId,
-        cursor: encodeVfsSyncCursor(input.cursor),
-        lastReconciledWriteIds: input.lastReconciledWriteIds
-      }),
-      undefined
-    );
     const parsed = parseApiReconcileResponse(
-      decodeVfsCrdtReconcileResponseProtobuf(responseBytes)
+      await this.requestConnectJson('ReconcileCrdt', {
+        json: JSON.stringify({
+          clientId: input.clientId,
+          cursor: encodeVfsSyncCursor(input.cursor),
+          lastReconciledWriteIds: input.lastReconciledWriteIds
+        })
+      })
     );
 
     if (parsed.clientId !== input.clientId) {
@@ -163,23 +145,19 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     pull: VfsCrdtSyncPullResponse;
     reconcile: VfsCrdtSyncReconcileResponse;
   }> {
-    const responseBytes = await this.requestBinary(
-      '/vfs/crdt/session',
-      encodeVfsCrdtSyncSessionRequestProtobuf({
+    const parsedSession = await this.requestConnectJson('RunCrdtSession', {
+      json: JSON.stringify({
         clientId: input.clientId,
         cursor: encodeVfsSyncCursor(input.cursor),
         limit: input.limit,
         operations: input.operations,
         lastReconciledWriteIds: input.lastReconciledWriteIds,
         rootId: input.rootId ?? null
-      }),
-      undefined
-    );
-    const parsedSession =
-      decodeVfsCrdtSyncSessionResponseProtobuf(responseBytes);
+      })
+    });
+
     if (
-      typeof parsedSession !== 'object' ||
-      parsedSession === null ||
+      !isRecord(parsedSession) ||
       !('push' in parsedSession) ||
       !('pull' in parsedSession) ||
       !('reconcile' in parsedSession)
@@ -187,15 +165,19 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
       throw new Error('transport returned invalid sync session payload');
     }
 
-    const parsedPush = parseApiPushResponse(parsedSession.push);
-    const parsedPull = parseApiPullResponse(parsedSession.pull);
-    const parsedReconcile = parseApiReconcileResponse(parsedSession.reconcile);
+    const parsedPush = parseApiPushResponse(parsedSession['push']);
+    const parsedPull = parseApiPullResponse(parsedSession['pull']);
+    const parsedReconcile = parseApiReconcileResponse(
+      parsedSession['reconcile']
+    );
+
     const nextCursor = parsedPull.nextCursor
       ? decodeVfsSyncCursor(parsedPull.nextCursor)
       : null;
     if (parsedPull.nextCursor && !nextCursor) {
       throw new Error('transport returned invalid nextCursor');
     }
+
     const reconcileCursor = decodeVfsSyncCursor(parsedReconcile.cursor);
     if (!reconcileCursor) {
       throw new Error('transport returned invalid reconcile cursor');
@@ -218,30 +200,31 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     };
   }
 
-  private async requestBinary(
-    path: string,
-    body: Uint8Array | undefined,
-    query: URLSearchParams | undefined
-  ): Promise<Uint8Array> {
-    const requestUrl = this.buildUrl(path, query);
-    const headers = await this.buildHeaders(body !== undefined);
-    const requestInit: RequestInit = {
-      method: body === undefined ? 'GET' : 'POST',
-      headers
-    };
-    if (body !== undefined) {
-      requestInit.body = new Blob([new Uint8Array(body)]);
-    }
+  private async requestConnectJson(
+    methodName: string,
+    body: Record<string, unknown>
+  ): Promise<unknown> {
+    const requestUrl = this.buildUrl(methodName);
+    const headers = await this.buildHeaders();
 
-    const response = await this.fetchImpl(requestUrl, requestInit);
+    const response = await this.fetchImpl(requestUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body)
+    });
+
+    const parsedBody = await this.parseJsonBody(response);
 
     if (!response.ok) {
-      const parsedBody = await this.parseErrorBody(response);
       const parsedError = parseApiErrorResponse(response.status, parsedBody);
-      if (
+      const normalizedMessage = parsedError.message.toLowerCase();
+      const isRematerializationError =
         response.status === 409 &&
-        parsedError.code === CRDT_REMATERIALIZATION_REQUIRED_CODE
-      ) {
+        (parsedError.code === CRDT_REMATERIALIZATION_REQUIRED_CODE ||
+          (parsedError.code === CONNECT_ALREADY_EXISTS_CODE &&
+            normalizedMessage.includes('rematerialization')));
+
+      if (isRematerializationError) {
         throw new VfsCrdtRematerializationRequiredError({
           message: parsedError.message,
           requestedCursor: parsedError.requestedCursor,
@@ -249,14 +232,13 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
         });
       }
 
-      throw new Error(parseErrorMessage(response.status, parsedBody));
+      throw new Error(parsedError.message);
     }
 
-    const buffer = await response.arrayBuffer();
-    return new Uint8Array(buffer);
+    return parseConnectJsonEnvelopeBody(parsedBody);
   }
 
-  private async parseErrorBody(response: Response): Promise<unknown> {
+  private async parseJsonBody(response: Response): Promise<unknown> {
     const rawBody = await response.text();
     if (rawBody.trim().length === 0) {
       return null;
@@ -269,25 +251,15 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     }
   }
 
-  private buildUrl(path: string, query: URLSearchParams | undefined): string {
-    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-    const pathname = `${this.apiPrefix}${normalizedPath}`;
-    const base =
-      this.baseUrl.length > 0 ? `${this.baseUrl}${pathname}` : pathname;
-    const queryString = query?.toString();
-    if (!queryString) {
-      return base;
-    }
-
-    return `${base}?${queryString}`;
+  private buildUrl(methodName: string): string {
+    const pathname = `${this.apiPrefix}${VFS_CONNECT_BASE_PATH}/${methodName}`;
+    return this.baseUrl.length > 0 ? `${this.baseUrl}${pathname}` : pathname;
   }
 
-  private async buildHeaders(hasBody: boolean): Promise<Headers> {
+  private async buildHeaders(): Promise<Headers> {
     const headers = new Headers();
-    headers.set('Accept', PROTOBUF_CONTENT_TYPE);
-    if (hasBody) {
-      headers.set('Content-Type', PROTOBUF_CONTENT_TYPE);
-    }
+    headers.set('Accept', JSON_CONTENT_TYPE);
+    headers.set('Content-Type', JSON_CONTENT_TYPE);
 
     for (const [header, value] of Object.entries(this.headers)) {
       headers.set(header, value);
@@ -323,4 +295,25 @@ function normalizeApiPrefix(apiPrefix: string): string {
   return withLeadingSlash.endsWith('/')
     ? withLeadingSlash.slice(0, -1)
     : withLeadingSlash;
+}
+
+function parseConnectJsonEnvelopeBody(body: unknown): unknown {
+  if (!isRecord(body) || typeof body['json'] !== 'string') {
+    return body;
+  }
+
+  const rawJson = body['json'].trim();
+  if (rawJson.length === 0) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(rawJson);
+  } catch {
+    throw new Error('transport returned invalid connect json envelope');
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

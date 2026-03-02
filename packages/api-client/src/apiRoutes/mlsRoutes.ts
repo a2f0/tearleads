@@ -28,161 +28,166 @@ interface AckMlsWelcomeResponse {
   acknowledged: boolean;
 }
 
+interface ConnectJsonEnvelopeResponse {
+  json: string;
+}
+
+type RequestEventName = Parameters<typeof request>[1]['eventName'];
+
+const MLS_CONNECT_BASE_PATH = '/connect/tearleads.v1.MlsService';
+
+function jsonPost(body: unknown): RequestInit {
+  return {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  };
+}
+
+function parseConnectJson<T>(json: unknown): T {
+  if (typeof json !== 'string') {
+    return JSON.parse('{}');
+  }
+  const trimmed = json.trim();
+  if (trimmed.length === 0) {
+    return JSON.parse('{}');
+  }
+  return JSON.parse(trimmed);
+}
+
+function requestMlsJson<TResponse>(
+  methodName: string,
+  requestBody: Record<string, unknown>,
+  eventName: RequestEventName
+): Promise<TResponse> {
+  return request<ConnectJsonEnvelopeResponse>(
+    `${MLS_CONNECT_BASE_PATH}/${methodName}`,
+    {
+      fetchOptions: jsonPost(requestBody),
+      eventName
+    }
+  ).then((response) => parseConnectJson<TResponse>(response?.json));
+}
+
 export const mlsRoutes = {
   listGroups: () =>
-    request<MlsGroupsResponse>('/mls/groups', {
-      eventName: 'api_get_mls_groups'
-    }),
+    requestMlsJson<MlsGroupsResponse>('ListGroups', {}, 'api_get_mls_groups'),
   getGroup: (groupId: string) =>
-    request<MlsGroupResponse>(`/mls/groups/${encodeURIComponent(groupId)}`, {
-      eventName: 'api_get_mls_group'
-    }),
+    requestMlsJson<MlsGroupResponse>(
+      'GetGroup',
+      { groupId },
+      'api_get_mls_group'
+    ),
   createGroup: (data: CreateMlsGroupRequest) =>
-    request<CreateMlsGroupResponse>('/mls/groups', {
-      fetchOptions: {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      },
-      eventName: 'api_post_mls_group'
-    }),
+    requestMlsJson<CreateMlsGroupResponse>(
+      'CreateGroup',
+      { json: JSON.stringify(data) },
+      'api_post_mls_group'
+    ),
   updateGroup: (groupId: string, data: UpdateMlsGroupRequest) =>
-    request<UpdateMlsGroupResponse>(
-      `/mls/groups/${encodeURIComponent(groupId)}`,
-      {
-        fetchOptions: {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        },
-        eventName: 'api_patch_mls_group'
-      }
+    requestMlsJson<UpdateMlsGroupResponse>(
+      'UpdateGroup',
+      { groupId, json: JSON.stringify(data) },
+      'api_patch_mls_group'
     ),
   leaveGroup: (groupId: string) =>
-    request<void>(`/mls/groups/${encodeURIComponent(groupId)}`, {
-      fetchOptions: { method: 'DELETE' },
-      eventName: 'api_delete_mls_group'
-    }),
+    requestMlsJson<unknown>(
+      'DeleteGroup',
+      { groupId },
+      'api_delete_mls_group'
+    ).then(() => undefined),
   getGroupMembers: (groupId: string) =>
-    request<MlsGroupMembersResponse>(
-      `/mls/groups/${encodeURIComponent(groupId)}/members`,
-      {
-        eventName: 'api_get_mls_group_members'
-      }
+    requestMlsJson<MlsGroupMembersResponse>(
+      'GetGroupMembers',
+      { groupId },
+      'api_get_mls_group_members'
     ),
   addGroupMember: (groupId: string, data: AddMlsMemberRequest) =>
-    request<AddMlsMemberResponse>(
-      `/mls/groups/${encodeURIComponent(groupId)}/members`,
-      {
-        fetchOptions: {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        },
-        eventName: 'api_post_mls_group_member'
-      }
+    requestMlsJson<AddMlsMemberResponse>(
+      'AddGroupMember',
+      { groupId, json: JSON.stringify(data) },
+      'api_post_mls_group_member'
     ),
   removeGroupMember: (
     groupId: string,
     userId: string,
     data: RemoveMlsMemberRequest
   ) =>
-    request<void>(
-      `/mls/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(userId)}`,
-      {
-        fetchOptions: {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        },
-        eventName: 'api_delete_mls_group_member'
-      }
-    ),
+    requestMlsJson<unknown>(
+      'RemoveGroupMember',
+      { groupId, userId, json: JSON.stringify(data) },
+      'api_delete_mls_group_member'
+    ).then(() => undefined),
   getGroupMessages: (
     groupId: string,
     options?: { cursor?: string; limit?: number }
   ) => {
-    const params = new URLSearchParams();
-    if (options?.cursor) params.set('cursor', options.cursor);
-    if (options?.limit) params.set('limit', String(options.limit));
-    const query = params.toString();
-    return request<MlsMessagesResponse>(
-      `/vfs/mls/groups/${encodeURIComponent(groupId)}/messages${query ? `?${query}` : ''}`,
-      {
-        eventName: 'api_get_mls_group_messages'
-      }
+    const requestBody: Record<string, unknown> = { groupId };
+    if (options?.cursor) {
+      requestBody['cursor'] = options.cursor;
+    }
+    if (options?.limit) {
+      requestBody['limit'] = options.limit;
+    }
+
+    return requestMlsJson<MlsMessagesResponse>(
+      'GetGroupMessages',
+      requestBody,
+      'api_get_mls_group_messages'
     );
   },
   sendGroupMessage: (groupId: string, data: SendMlsMessageRequest) =>
-    request<SendMlsMessageResponse>(
-      `/vfs/mls/groups/${encodeURIComponent(groupId)}/messages`,
-      {
-        fetchOptions: {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        },
-        eventName: 'api_post_mls_group_message'
-      }
+    requestMlsJson<SendMlsMessageResponse>(
+      'SendGroupMessage',
+      { groupId, json: JSON.stringify(data) },
+      'api_post_mls_group_message'
     ),
   getGroupState: (groupId: string) =>
-    request<MlsGroupStateResponse>(
-      `/mls/groups/${encodeURIComponent(groupId)}/state`,
-      {
-        eventName: 'api_get_mls_group_state'
-      }
+    requestMlsJson<MlsGroupStateResponse>(
+      'GetGroupState',
+      { groupId },
+      'api_get_mls_group_state'
     ),
   uploadGroupState: (groupId: string, data: UploadMlsStateRequest) =>
-    request<UploadMlsStateResponse>(
-      `/mls/groups/${encodeURIComponent(groupId)}/state`,
-      {
-        fetchOptions: {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        },
-        eventName: 'api_post_mls_group_state'
-      }
+    requestMlsJson<UploadMlsStateResponse>(
+      'UploadGroupState',
+      { groupId, json: JSON.stringify(data) },
+      'api_post_mls_group_state'
     ),
   getMyKeyPackages: () =>
-    request<MlsKeyPackagesResponse>('/mls/key-packages/me', {
-      eventName: 'api_get_mls_key_packages_me'
-    }),
+    requestMlsJson<MlsKeyPackagesResponse>(
+      'GetMyKeyPackages',
+      {},
+      'api_get_mls_key_packages_me'
+    ),
   getUserKeyPackages: (userId: string) =>
-    request<MlsKeyPackagesResponse>(
-      `/mls/key-packages/${encodeURIComponent(userId)}`,
-      {
-        eventName: 'api_get_mls_key_packages_user'
-      }
+    requestMlsJson<MlsKeyPackagesResponse>(
+      'GetUserKeyPackages',
+      { userId },
+      'api_get_mls_key_packages_user'
     ),
   uploadKeyPackages: (data: UploadMlsKeyPackagesRequest) =>
-    request<UploadMlsKeyPackagesResponse>('/mls/key-packages', {
-      fetchOptions: {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      },
-      eventName: 'api_post_mls_key_packages'
-    }),
+    requestMlsJson<UploadMlsKeyPackagesResponse>(
+      'UploadKeyPackages',
+      { json: JSON.stringify(data) },
+      'api_post_mls_key_packages'
+    ),
   deleteKeyPackage: (id: string) =>
-    request<void>(`/mls/key-packages/${encodeURIComponent(id)}`, {
-      fetchOptions: { method: 'DELETE' },
-      eventName: 'api_delete_mls_key_package'
-    }),
+    requestMlsJson<unknown>(
+      'DeleteKeyPackage',
+      { id },
+      'api_delete_mls_key_package'
+    ).then(() => undefined),
   getWelcomeMessages: () =>
-    request<MlsWelcomeMessagesResponse>('/mls/welcome-messages', {
-      eventName: 'api_get_mls_welcome_messages'
-    }),
+    requestMlsJson<MlsWelcomeMessagesResponse>(
+      'GetWelcomeMessages',
+      {},
+      'api_get_mls_welcome_messages'
+    ),
   acknowledgeWelcome: (id: string, data: AckMlsWelcomeRequest) =>
-    request<AckMlsWelcomeResponse>(
-      `/mls/welcome-messages/${encodeURIComponent(id)}/ack`,
-      {
-        fetchOptions: {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        },
-        eventName: 'api_post_mls_welcome_ack'
-      }
+    requestMlsJson<AckMlsWelcomeResponse>(
+      'AcknowledgeWelcome',
+      { id, json: JSON.stringify(data) },
+      'api_post_mls_welcome_ack'
     )
 };

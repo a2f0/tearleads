@@ -85,7 +85,7 @@ class VfsBlobNetworkFlusherImpl {
 
   constructor(options: VfsBlobNetworkFlusherOptions = {}) {
     this.baseUrl = normalizeBaseUrl(options.baseUrl ?? '');
-    this.apiPrefix = normalizeApiPrefix(options.apiPrefix ?? '/v1');
+    this.apiPrefix = normalizeApiPrefix(options.apiPrefix ?? '');
     this.headers = options.headers ?? {};
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.saveState = options.saveState ?? null;

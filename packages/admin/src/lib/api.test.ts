@@ -65,10 +65,10 @@ describe('admin api client', () => {
 
   it('handles empty successful responses', async () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
-    await expect(apiClient.admin.redis.deleteKey('k')).resolves.toBeUndefined();
+    await expect(apiClient.admin.redis.deleteKey('k')).resolves.toEqual({});
 
     fetchMock.mockResolvedValueOnce(new Response('', { status: 200 }));
-    await expect(apiClient.admin.redis.getDbSize()).resolves.toBeUndefined();
+    await expect(apiClient.admin.redis.getDbSize()).resolves.toEqual({});
   });
 
   it('calls all admin endpoint helpers with expected URL shape and method', async () => {
@@ -148,37 +148,38 @@ describe('admin api client', () => {
     const urls = fetchMock.mock.calls.map(([url]) => String(url));
     expect(
       urls.some((url) =>
-        url.includes('/admin/postgres/tables/public/users/columns')
+        url.includes('/connect/tearleads.v1.AdminService/GetColumns')
       )
     ).toBe(true);
     expect(
-      urls.some((url) => url.includes('/admin/redis/keys?cursor=1&limit=50'))
-    ).toBe(true);
-    expect(
-      urls.some((url) => url.includes('/admin/groups?organizationId=org-1'))
-    ).toBe(true);
-    expect(
       urls.some((url) =>
-        url.includes('/admin/organizations?organizationId=org-1')
+        url.includes('/connect/tearleads.v1.AdminService/GetRedisKeys')
       )
     ).toBe(true);
     expect(
-      urls.some((url) => url.includes('/admin/users?organizationId=org-1'))
+      urls.some((url) =>
+        url.includes('/connect/tearleads.v1.AdminService/ListGroups')
+      )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes(
-          '/ai/usage?startDate=2024-01-01&endDate=2024-01-31&cursor=2&limit=25'
-        )
+        url.includes('/connect/tearleads.v1.AdminService/ListOrganizations')
+      )
+    ).toBe(true);
+    expect(
+      urls.some((url) =>
+        url.includes('/connect/tearleads.v1.AdminService/ListUsers')
+      )
+    ).toBe(true);
+    expect(
+      urls.some((url) =>
+        url.includes('/connect/tearleads.v1.AiService/GetUsage')
       )
     ).toBe(true);
 
     const methods = fetchMock.mock.calls.map(
       ([, init]) => init?.method ?? 'GET'
     );
-    expect(methods).toContain('POST');
-    expect(methods).toContain('PUT');
-    expect(methods).toContain('PATCH');
-    expect(methods).toContain('DELETE');
+    expect(methods.every((method) => method === 'POST')).toBe(true);
   });
 });

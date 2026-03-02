@@ -110,11 +110,13 @@ describe('api with msw', () => {
 
     it('extracts error message from response body', async () => {
       server.use(
-        http.post('http://localhost/auth/register', () =>
-          HttpResponse.json(
-            { error: 'Email already registered' },
-            { status: 409 }
-          )
+        http.post(
+          'http://localhost/connect/tearleads.v1.AuthService/Register',
+          () =>
+            HttpResponse.json(
+              { error: 'Email already registered' },
+              { status: 409 }
+            )
         )
       );
 
@@ -123,7 +125,9 @@ describe('api with msw', () => {
       await expect(
         api.auth.register('existing@example.com', 'password123')
       ).rejects.toThrow('Email already registered');
-      expect(wasApiRequestMade('POST', '/auth/register')).toBe(true);
+      expect(
+        wasApiRequestMade('POST', '/connect/tearleads.v1.AuthService/Register')
+      ).toBe(true);
     });
   });
 
@@ -166,8 +170,9 @@ describe('api with msw', () => {
         http.get('http://localhost/ping', () =>
           HttpResponse.json(null, { status: 401 })
         ),
-        http.post('http://localhost/auth/refresh', () =>
-          HttpResponse.json(null, { status: 500 })
+        http.post(
+          'http://localhost/connect/tearleads.v1.AuthService/RefreshToken',
+          () => HttpResponse.json(null, { status: 500 })
         )
       );
 
@@ -181,7 +186,12 @@ describe('api with msw', () => {
       const { getAuthError } = await loadAuthStorage();
       expect(getAuthError()).toBeNull();
       expect(wasApiRequestMade('GET', '/ping')).toBe(true);
-      expect(wasApiRequestMade('POST', '/auth/refresh')).toBe(true);
+      expect(
+        wasApiRequestMade(
+          'POST',
+          '/connect/tearleads.v1.AuthService/RefreshToken'
+        )
+      ).toBe(true);
     });
 
     it('adds Authorization header when auth token is stored', async () => {
@@ -234,14 +244,22 @@ describe('api with msw', () => {
       await expect(tryRefreshToken()).resolves.toBe(true);
       expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBeTruthy();
       expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBeTruthy();
-      expect(wasApiRequestMade('POST', '/auth/refresh')).toBe(true);
+      expect(
+        wasApiRequestMade(
+          'POST',
+          '/connect/tearleads.v1.AuthService/RefreshToken'
+        )
+      ).toBe(true);
     });
 
     it('returns false when refresh throws network error', async () => {
       localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'refresh-token');
 
       server.use(
-        http.post('http://localhost/auth/refresh', () => HttpResponse.error())
+        http.post(
+          'http://localhost/connect/tearleads.v1.AuthService/RefreshToken',
+          () => HttpResponse.error()
+        )
       );
 
       const consoleErrorSpy = vi
@@ -251,7 +269,12 @@ describe('api with msw', () => {
       const { tryRefreshToken } = await import('./api');
 
       await expect(tryRefreshToken()).resolves.toBe(false);
-      expect(wasApiRequestMade('POST', '/auth/refresh')).toBe(true);
+      expect(
+        wasApiRequestMade(
+          'POST',
+          '/connect/tearleads.v1.AuthService/RefreshToken'
+        )
+      ).toBe(true);
       expect(consoleErrorSpy).toHaveBeenCalled();
 
       consoleErrorSpy.mockRestore();
@@ -264,8 +287,9 @@ describe('api with msw', () => {
       localStorage.setItem(AUTH_TOKEN_KEY, 'access-token');
 
       server.use(
-        http.post('http://localhost/auth/refresh', () =>
-          HttpResponse.json(null, { status: 500 })
+        http.post(
+          'http://localhost/connect/tearleads.v1.AuthService/RefreshToken',
+          () => HttpResponse.json(null, { status: 500 })
         )
       );
 
@@ -275,7 +299,12 @@ describe('api with msw', () => {
       expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBe(
         validRefreshToken
       );
-      expect(wasApiRequestMade('POST', '/auth/refresh')).toBe(true);
+      expect(
+        wasApiRequestMade(
+          'POST',
+          '/connect/tearleads.v1.AuthService/RefreshToken'
+        )
+      ).toBe(true);
     });
 
     it('returns false when API_BASE_URL is not set during refresh', async () => {

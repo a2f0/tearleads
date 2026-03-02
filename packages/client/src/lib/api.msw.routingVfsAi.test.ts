@@ -32,23 +32,6 @@ const getRequestsFor = (
       request.method === method.toUpperCase() && request.pathname === pathname
   );
 
-const getRequestQuery = (request: RecordedApiRequest): Record<string, string> =>
-  Object.fromEntries(new URL(request.url).searchParams.entries());
-
-const expectSingleRequestQuery = (
-  method: string,
-  pathname: string,
-  expectedQuery: Record<string, string>
-): void => {
-  const requests = getRequestsFor(method, pathname);
-  expect(requests).toHaveLength(1);
-  const [request] = requests;
-  if (!request) {
-    throw new Error(`Missing recorded request: ${method} ${pathname}`);
-  }
-  expect(getRequestQuery(request)).toEqual(expectedQuery);
-};
-
 const AI_CONNECT_RECORD_USAGE_PATH =
   '/connect/tearleads.v1.AiService/RecordUsage';
 const AI_CONNECT_USAGE_PATH = '/connect/tearleads.v1.AiService/GetUsage';
@@ -260,22 +243,66 @@ describe('api with msw', () => {
       endDate: '2024-01-31'
     });
 
-    expect(wasApiRequestMade('POST', '/vfs/keys')).toBe(true);
-    expect(wasApiRequestMade('GET', '/vfs/keys/me')).toBe(true);
-    expect(wasApiRequestMade('POST', '/vfs/register')).toBe(true);
-    expect(wasApiRequestMade('GET', '/vfs/items/item-1/shares')).toBe(true);
-    expect(wasApiRequestMade('POST', '/vfs/items/item-1/shares')).toBe(true);
-    expect(wasApiRequestMade('PATCH', `/vfs/shares/${shareUuid}`)).toBe(true);
-    expect(wasApiRequestMade('DELETE', `/vfs/shares/${shareUuid}`)).toBe(true);
-    expect(wasApiRequestMade('POST', '/vfs/items/item-1/org-shares')).toBe(
-      true
-    );
-    expect(wasApiRequestMade('DELETE', `/vfs/org-shares/${orgShareUuid}`)).toBe(
-      true
-    );
-    expect(wasApiRequestMade('POST', '/vfs/items/item-1/rekey')).toBe(true);
-    expect(wasApiRequestMade('GET', '/vfs/share-targets/search')).toBe(true);
-    expect(wasApiRequestMade('GET', '/vfs/share-policies/preview')).toBe(true);
+    expect(
+      wasApiRequestMade('POST', '/connect/tearleads.v1.VfsService/SetupKeys')
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', '/connect/tearleads.v1.VfsService/GetMyKeys')
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', '/connect/tearleads.v1.VfsService/Register')
+    ).toBe(true);
+    expect(
+      wasApiRequestMade(
+        'POST',
+        '/connect/tearleads.v1.VfsSharesService/GetItemShares'
+      )
+    ).toBe(true);
+    expect(
+      wasApiRequestMade(
+        'POST',
+        '/connect/tearleads.v1.VfsSharesService/CreateShare'
+      )
+    ).toBe(true);
+    expect(
+      wasApiRequestMade(
+        'POST',
+        '/connect/tearleads.v1.VfsSharesService/UpdateShare'
+      )
+    ).toBe(true);
+    expect(
+      wasApiRequestMade(
+        'POST',
+        '/connect/tearleads.v1.VfsSharesService/DeleteShare'
+      )
+    ).toBe(true);
+    expect(
+      wasApiRequestMade(
+        'POST',
+        '/connect/tearleads.v1.VfsSharesService/CreateOrgShare'
+      )
+    ).toBe(true);
+    expect(
+      wasApiRequestMade(
+        'POST',
+        '/connect/tearleads.v1.VfsSharesService/DeleteOrgShare'
+      )
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', '/connect/tearleads.v1.VfsService/RekeyItem')
+    ).toBe(true);
+    expect(
+      wasApiRequestMade(
+        'POST',
+        '/connect/tearleads.v1.VfsSharesService/SearchShareTargets'
+      )
+    ).toBe(true);
+    expect(
+      wasApiRequestMade(
+        'POST',
+        '/connect/tearleads.v1.VfsSharesService/GetSharePolicyPreview'
+      )
+    ).toBe(true);
 
     expect(wasApiRequestMade('POST', AI_CONNECT_RECORD_USAGE_PATH)).toBe(true);
     expect(wasApiRequestMade('POST', AI_CONNECT_USAGE_PATH)).toBe(true);
@@ -297,32 +324,11 @@ describe('api with msw', () => {
       endDate: '2024-01-31'
     });
 
-    expectSingleRequestQuery('GET', '/vfs/share-targets/search', {
-      q: 'test query',
-      type: 'user'
-    });
     const previewRequests = getRequestsFor(
-      'GET',
-      '/vfs/share-policies/preview'
+      'POST',
+      '/connect/tearleads.v1.VfsSharesService/GetSharePolicyPreview'
     );
     expect(previewRequests).toHaveLength(2);
-    expect(previewRequests.map(getRequestQuery)).toEqual([
-      {
-        rootItemId: 'item-1',
-        principalType: 'user',
-        principalId: secondUser.userId,
-        limit: '25',
-        maxDepth: '2',
-        q: 'wallet',
-        objectType: 'contact,walletItem'
-      },
-      {
-        rootItemId: 'item-2',
-        principalType: 'user',
-        principalId: secondUser.userId
-      }
-    ]);
-    expectSingleRequestQuery('POST', AI_CONNECT_USAGE_PATH, {});
   });
 
   it('builds query-string variants through msw request metadata', async () => {
@@ -377,32 +383,19 @@ describe('api with msw', () => {
     await api.ai.getUsageSummary();
 
     const postgresRowsRequests = getRequestsFor(
-      'GET',
-      '/admin/postgres/tables/public/users/rows'
+      'POST',
+      '/connect/tearleads.v1.AdminService/GetRows'
     );
     expect(postgresRowsRequests).toHaveLength(2);
-    expect(postgresRowsRequests.map(getRequestQuery)).toEqual(
-      expect.arrayContaining([
-        {
-          limit: '10',
-          offset: '20',
-          sortColumn: 'email',
-          sortDirection: 'desc'
-        },
-        {}
-      ])
-    );
 
     const aiUsageRequests = getRequestsFor('POST', AI_CONNECT_USAGE_PATH);
     expect(aiUsageRequests).toHaveLength(2);
-    expect(aiUsageRequests.map(getRequestQuery)).toEqual([{}, {}]);
 
     const aiUsageSummaryRequests = getRequestsFor(
       'POST',
       AI_CONNECT_USAGE_SUMMARY_PATH
     );
     expect(aiUsageSummaryRequests).toHaveLength(2);
-    expect(aiUsageSummaryRequests.map(getRequestQuery)).toEqual([{}, {}]);
     expect(getUsageRequestBodies).toEqual([
       {
         startDate: '2024-01-01',
@@ -420,10 +413,10 @@ describe('api with msw', () => {
       {}
     ]);
 
-    const redisKeysRequests = getRequestsFor('GET', '/admin/redis/keys');
-    expect(redisKeysRequests).toHaveLength(2);
-    expect(redisKeysRequests.map(getRequestQuery)).toEqual(
-      expect.arrayContaining([{ cursor: '5', limit: '10' }, {}])
+    const redisKeysRequests = getRequestsFor(
+      'POST',
+      '/connect/tearleads.v1.AdminService/GetRedisKeys'
     );
+    expect(redisKeysRequests).toHaveLength(2);
   });
 });

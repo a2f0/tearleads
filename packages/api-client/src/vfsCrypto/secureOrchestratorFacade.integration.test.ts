@@ -1,12 +1,11 @@
-import {
-  encodeVfsCrdtPushResponseProtobuf,
-  encodeVfsCrdtReconcileResponseProtobuf,
-  encodeVfsCrdtSyncResponseProtobuf,
-  encodeVfsSyncCursor
-} from '@tearleads/vfs-sync/vfs';
+import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createVfsSecureOrchestratorFacade } from './secureOrchestratorFacade';
 import { recordSecureFacadeRequestBody } from './secureOrchestratorFacade.testSupport';
+
+function connectJsonEnvelope(payload: unknown): string {
+  return JSON.stringify({ json: JSON.stringify(payload) });
+}
 
 describe('secureOrchestratorFacade integration', () => {
   const originalFetch = global.fetch;
@@ -34,21 +33,21 @@ describe('secureOrchestratorFacade integration', () => {
         const url = input.toString();
         await recordSecureFacadeRequestBody(requests, url, input, init);
 
-        if (url.endsWith('/v1/vfs/crdt/push')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
           return new Response(
-            encodeVfsCrdtPushResponseProtobuf({
+            connectJsonEnvelope({
               clientId: 'desktop',
               results: []
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
-        if (url.includes('/v1/vfs/crdt/vfs-sync')) {
+        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
           return new Response(
-            encodeVfsCrdtSyncResponseProtobuf({
+            connectJsonEnvelope({
               items: [],
               hasMore: false,
               nextCursor: null,
@@ -56,13 +55,13 @@ describe('secureOrchestratorFacade integration', () => {
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
-        if (url.endsWith('/v1/vfs/crdt/reconcile')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
           return new Response(
-            encodeVfsCrdtReconcileResponseProtobuf({
+            connectJsonEnvelope({
               clientId: 'desktop',
               cursor: encodeVfsSyncCursor({
                 changedAt: '2026-02-18T00:00:00.000Z',
@@ -72,7 +71,7 @@ describe('secureOrchestratorFacade integration', () => {
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
@@ -89,12 +88,11 @@ describe('secureOrchestratorFacade integration', () => {
       crdt: {
         transportOptions: {
           baseUrl: 'http://localhost',
-          apiPrefix: '/v1'
+          apiPrefix: ''
         }
       },
       blob: {
-        baseUrl: 'http://localhost',
-        apiPrefix: '/v1'
+        baseUrl: 'http://localhost'
       }
     });
 
@@ -173,27 +171,23 @@ describe('secureOrchestratorFacade integration', () => {
     });
 
     expect(
-      requests.some((request) => request.url.endsWith('/v1/vfs/blobs/stage'))
-    ).toBe(true);
-    expect(
-      requests.some(
-        (request) =>
-          request.url.includes('/v1/vfs/blobs/stage/') &&
-          request.url.endsWith('/chunks')
+      requests.some((request) =>
+        request.url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')
       )
     ).toBe(true);
     expect(
-      requests.some(
-        (request) =>
-          request.url.includes('/v1/vfs/blobs/stage/') &&
-          request.url.endsWith('/commit')
+      requests.some((request) =>
+        request.url.endsWith('/connect/tearleads.v1.VfsService/UploadBlobChunk')
       )
     ).toBe(true);
     expect(
-      requests.some(
-        (request) =>
-          request.url.includes('/v1/vfs/blobs/stage/') &&
-          request.url.endsWith('/attach')
+      requests.some((request) =>
+        request.url.endsWith('/connect/tearleads.v1.VfsService/CommitBlob')
+      )
+    ).toBe(true);
+    expect(
+      requests.some((request) =>
+        request.url.endsWith('/connect/tearleads.v1.VfsService/AttachBlob')
       )
     ).toBe(true);
   });
@@ -208,21 +202,21 @@ describe('secureOrchestratorFacade integration', () => {
         const url = input.toString();
         await recordSecureFacadeRequestBody(requests, url, input, init);
 
-        if (url.endsWith('/v1/vfs/crdt/push')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
           return new Response(
-            encodeVfsCrdtPushResponseProtobuf({
+            connectJsonEnvelope({
               clientId: 'desktop',
               results: [{ opId: 'desktop-1', status: 'applied' }]
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
-        if (url.includes('/v1/vfs/crdt/vfs-sync')) {
+        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
           return new Response(
-            encodeVfsCrdtSyncResponseProtobuf({
+            connectJsonEnvelope({
               items: [],
               hasMore: false,
               nextCursor: null,
@@ -230,13 +224,13 @@ describe('secureOrchestratorFacade integration', () => {
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
-        if (url.endsWith('/v1/vfs/crdt/reconcile')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
           return new Response(
-            encodeVfsCrdtReconcileResponseProtobuf({
+            connectJsonEnvelope({
               clientId: 'desktop',
               cursor: encodeVfsSyncCursor({
                 changedAt: '2026-02-19T00:00:00.000Z',
@@ -246,7 +240,7 @@ describe('secureOrchestratorFacade integration', () => {
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
@@ -263,12 +257,11 @@ describe('secureOrchestratorFacade integration', () => {
       crdt: {
         transportOptions: {
           baseUrl: 'http://localhost',
-          apiPrefix: '/v1'
+          apiPrefix: ''
         }
       },
       blob: {
-        baseUrl: 'http://localhost',
-        apiPrefix: '/v1'
+        baseUrl: 'http://localhost'
       }
     });
 
@@ -315,7 +308,9 @@ describe('secureOrchestratorFacade integration', () => {
     });
 
     const pushRequest = requests.find((request) => {
-      return request.url.endsWith('/v1/vfs/crdt/push');
+      return request.url.endsWith(
+        '/connect/tearleads.v1.VfsService/PushCrdtOps'
+      );
     });
     expect(pushRequest).toBeDefined();
 
@@ -344,21 +339,21 @@ describe('secureOrchestratorFacade integration', () => {
         const url = input.toString();
         await recordSecureFacadeRequestBody(requests, url, input, init);
 
-        if (url.endsWith('/v1/vfs/crdt/push')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
           return new Response(
-            encodeVfsCrdtPushResponseProtobuf({
+            connectJsonEnvelope({
               clientId: 'desktop',
               results: [{ opId: 'desktop-1', status: 'applied' }]
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
-        if (url.includes('/v1/vfs/crdt/vfs-sync')) {
+        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
           return new Response(
-            encodeVfsCrdtSyncResponseProtobuf({
+            connectJsonEnvelope({
               items: [],
               hasMore: false,
               nextCursor: null,
@@ -366,13 +361,13 @@ describe('secureOrchestratorFacade integration', () => {
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
-        if (url.endsWith('/v1/vfs/crdt/reconcile')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
           return new Response(
-            encodeVfsCrdtReconcileResponseProtobuf({
+            connectJsonEnvelope({
               clientId: 'desktop',
               cursor: encodeVfsSyncCursor({
                 changedAt: '2026-02-19T00:00:00.000Z',
@@ -382,7 +377,7 @@ describe('secureOrchestratorFacade integration', () => {
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
@@ -399,12 +394,11 @@ describe('secureOrchestratorFacade integration', () => {
       crdt: {
         transportOptions: {
           baseUrl: 'http://localhost',
-          apiPrefix: '/v1'
+          apiPrefix: ''
         }
       },
       blob: {
-        baseUrl: 'http://localhost',
-        apiPrefix: '/v1'
+        baseUrl: 'http://localhost'
       }
     });
 
@@ -444,12 +438,20 @@ describe('secureOrchestratorFacade integration', () => {
     });
 
     const pushRequest = requests.find((request) =>
-      request.url.endsWith('/v1/vfs/crdt/push')
+      request.url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')
     );
     expect(pushRequest).toBeDefined();
 
-    const pushedOp = (pushRequest?.body as { operations: unknown[] })
-      .operations[0];
+    if (
+      !pushRequest ||
+      typeof pushRequest.body !== 'object' ||
+      pushRequest.body === null ||
+      !('operations' in pushRequest.body) ||
+      !Array.isArray(pushRequest.body['operations'])
+    ) {
+      throw new Error('expected push request body operations');
+    }
+    const pushedOp = pushRequest.body['operations'][0];
     expect(pushedOp).toEqual(
       expect.objectContaining({
         opType: 'link_add',

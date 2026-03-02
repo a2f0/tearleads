@@ -1,74 +1,55 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { VfsCrdtRematerializationRequiredError } from '../client/sync-client-utils.js';
 import { encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
-import {
-  decodeVfsCrdtPushRequestProtobuf,
-  decodeVfsCrdtReconcileRequestProtobuf,
-  decodeVfsCrdtSyncSessionRequestProtobuf,
-  encodeVfsCrdtPushResponseProtobuf,
-  encodeVfsCrdtReconcileResponseProtobuf,
-  encodeVfsCrdtSyncResponseProtobuf,
-  encodeVfsCrdtSyncSessionResponseProtobuf
-} from '../protocol/syncProtobuf.js';
 import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
 
-async function readBlobBytes(blob: Blob): Promise<Uint8Array> {
-  if (typeof blob.arrayBuffer === 'function') {
-    const buffer = await blob.arrayBuffer();
-    return new Uint8Array(buffer);
+async function readRequestJson(
+  input: unknown,
+  init: RequestInit | undefined
+): Promise<unknown> {
+  if (typeof init?.body === 'string') {
+    return JSON.parse(init.body);
   }
 
-  if (typeof FileReader !== 'undefined') {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (reader.result instanceof ArrayBuffer) {
-          resolve(new Uint8Array(reader.result));
-          return;
-        }
-        reject(new Error('expected blob reader result to be array buffer'));
-      };
-      reader.onerror = () => {
-        reject(reader.error ?? new Error('failed to read blob request body'));
-      };
-      reader.readAsArrayBuffer(blob);
-    });
+  if (input instanceof Request) {
+    const text = await input.clone().text();
+    if (text.trim().length > 0) {
+      return JSON.parse(text);
+    }
   }
 
-  throw new Error('expected blob request body to expose readable bytes');
+  throw new Error('expected request body to be JSON');
 }
 
-async function readRequestBodyBytes(
-  body: BodyInit | null | undefined
-): Promise<Uint8Array> {
-  if (body instanceof Uint8Array) {
-    return body;
+function connectJsonEnvelope(payload: unknown): string {
+  return JSON.stringify({ json: JSON.stringify(payload) });
+}
+
+function asRecord(value: unknown, fieldName: string): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error(`expected ${fieldName} to be an object`);
   }
-  if (body instanceof ArrayBuffer) {
-    return new Uint8Array(body);
-  }
-  if (body instanceof Blob) {
-    return readBlobBytes(body);
-  }
-  if (body && ArrayBuffer.isView(body)) {
-    return new Uint8Array(body.buffer, body.byteOffset, body.byteLength);
-  }
-  if (body === null || body === undefined) {
-    throw new Error('expected request body to be protobuf bytes');
+  return value;
+}
+
+function parseConnectEnvelopeBody(
+  body: unknown,
+  fieldName: string
+): Record<string, unknown> {
+  const parsedBody = asRecord(body, fieldName);
+  const encodedPayload = parsedBody['json'];
+  if (typeof encodedPayload !== 'string') {
+    throw new Error(`expected ${fieldName}.json to be a string`);
   }
 
-  const buffer = await new Response(body).arrayBuffer();
-  if (buffer.byteLength === 0) {
-    throw new Error('expected request body to be protobuf bytes');
-  }
-  return new Uint8Array(buffer);
+  return asRecord(JSON.parse(encodedPayload), `${fieldName}.json`);
 }
 
 describe('VfsHttpCrdtSyncTransport', () => {
-  it('pushes operations to the CRDT push endpoint with auth headers', async () => {
+  it('pushes operations to Connect CRDT endpoint with auth headers', async () => {
     const fetchMock = vi.fn(async () => {
       return new Response(
-        encodeVfsCrdtPushResponseProtobuf({
+        connectJsonEnvelope({
           clientId: 'desktop',
           results: [
             {
@@ -79,7 +60,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
         }),
         {
           status: 200,
-          headers: { 'Content-Type': 'application/x-protobuf' }
+          headers: { 'Content-Type': 'application/json' }
         }
       );
     });
@@ -120,32 +101,28 @@ describe('VfsHttpCrdtSyncTransport', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const firstCall = fetchMock.mock.calls[0];
     const requestUrl = firstCall?.[0];
-    expect(requestUrl).toBe('https://sync.example.com/v1/vfs/crdt/push');
+    expect(requestUrl).toBe(
+      'https://sync.example.com/connect/tearleads.v1.VfsService/PushCrdtOps'
+    );
 
     const requestInit = firstCall?.[1];
-    const requestBytes = await readRequestBodyBytes(requestInit?.body);
-    const decodedBody = decodeVfsCrdtPushRequestProtobuf(requestBytes);
-    if (
-      typeof decodedBody !== 'object' ||
-      decodedBody === null ||
-      !('clientId' in decodedBody) ||
-      !('operations' in decodedBody)
-    ) {
-      throw new Error('expected push request protobuf payload');
+    const decodedBody = parseConnectEnvelopeBody(
+      await readRequestJson(requestUrl, requestInit),
+      'push request'
+    );
+    expect(decodedBody['clientId']).toBe('desktop');
+    const operations = decodedBody['operations'];
+    if (!Array.isArray(operations)) {
+      throw new Error('expected push request operations');
     }
-    expect(decodedBody.clientId).toBe('desktop');
-    if (!Array.isArray(decodedBody.operations)) {
-      throw new Error('expected push request operations array');
-    }
-    expect(decodedBody.operations[0]).toEqual(
+    expect(operations[0]).toEqual(
       expect.objectContaining({ opId: 'desktop-1' })
     );
-    expect(new Headers(requestInit?.headers).get('Accept')).toBe(
-      'application/x-protobuf'
-    );
-    expect(new Headers(requestInit?.headers).get('Content-Type')).toBe(
-      'application/x-protobuf'
-    );
+
+    const requestHeaders = new Headers(requestInit?.headers);
+    expect(requestHeaders.get('Accept')).toBe('application/json');
+    expect(requestHeaders.get('Content-Type')).toBe('application/json');
+    expect(requestHeaders.get('Authorization')).toBe('Bearer token-1');
   });
 
   it('pulls operations, decodes cursor, and includes replica write ids', async () => {
@@ -160,7 +137,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
 
     const fetchMock = vi.fn(async () => {
       return new Response(
-        encodeVfsCrdtSyncResponseProtobuf({
+        connectJsonEnvelope({
           items: [
             {
               opId: 'desktop-2',
@@ -186,7 +163,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
         }),
         {
           status: 200,
-          headers: { 'Content-Type': 'application/x-protobuf' }
+          headers: { 'Content-Type': 'application/json' }
         }
       );
     });
@@ -236,17 +213,23 @@ describe('VfsHttpCrdtSyncTransport', () => {
     const requestUrl = firstCall?.[0];
     expect(requestUrl).toBeTypeOf('string');
     const parsedRequestUrl = new URL(String(requestUrl));
-    expect(parsedRequestUrl.pathname).toBe('/v1/vfs/crdt/vfs-sync');
-    expect(parsedRequestUrl.searchParams.get('limit')).toBe('25');
-    expect(parsedRequestUrl.searchParams.get('cursor')).toBe(
-      encodeVfsSyncCursor(cursor)
+    expect(parsedRequestUrl.pathname).toBe(
+      '/connect/tearleads.v1.VfsService/GetCrdtSync'
     );
+
+    const requestInit = firstCall?.[1];
+    const requestBody = asRecord(
+      await readRequestJson(requestUrl, requestInit),
+      'pull request'
+    );
+    expect(requestBody['limit']).toBe(25);
+    expect(requestBody['cursor']).toBe(encodeVfsSyncCursor(cursor));
   });
 
-  it('reconciles cursor/write ids through the CRDT reconcile endpoint', async () => {
+  it('reconciles cursor/write ids through Connect CRDT endpoint', async () => {
     const fetchMock = vi.fn(async () => {
       return new Response(
-        encodeVfsCrdtReconcileResponseProtobuf({
+        connectJsonEnvelope({
           clientId: 'desktop',
           cursor: encodeVfsSyncCursor({
             changedAt: '2026-02-14T20:10:05.000Z',
@@ -259,7 +242,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
         }),
         {
           status: 200,
-          headers: { 'Content-Type': 'application/x-protobuf' }
+          headers: { 'Content-Type': 'application/json' }
         }
       );
     });
@@ -297,35 +280,31 @@ describe('VfsHttpCrdtSyncTransport', () => {
     const requestUrl = firstCall?.[0];
     expect(requestUrl).toBeTypeOf('string');
     const parsedRequestUrl = new URL(String(requestUrl));
-    expect(parsedRequestUrl.pathname).toBe('/v1/vfs/crdt/reconcile');
+    expect(parsedRequestUrl.pathname).toBe(
+      '/connect/tearleads.v1.VfsService/ReconcileCrdt'
+    );
 
     const requestInit = firstCall?.[1];
-    const requestBytes = await readRequestBodyBytes(requestInit?.body);
-    const decodedBody = decodeVfsCrdtReconcileRequestProtobuf(requestBytes);
-    if (
-      typeof decodedBody !== 'object' ||
-      decodedBody === null ||
-      !('clientId' in decodedBody) ||
-      !('cursor' in decodedBody) ||
-      !('lastReconciledWriteIds' in decodedBody)
-    ) {
-      throw new Error('expected reconcile request protobuf payload');
-    }
-    expect(decodedBody.clientId).toBe('desktop');
-    expect(decodedBody.cursor).toBe(
+    const decodedBody = parseConnectEnvelopeBody(
+      await readRequestJson(requestUrl, requestInit),
+      'reconcile request'
+    );
+
+    expect(decodedBody['clientId']).toBe('desktop');
+    expect(decodedBody['cursor']).toBe(
       encodeVfsSyncCursor({
         changedAt: '2026-02-14T20:10:04.000Z',
         changeId: 'desktop-4'
       })
     );
-    expect(decodedBody.lastReconciledWriteIds).toEqual({ desktop: 4 });
+    expect(decodedBody['lastReconciledWriteIds']).toEqual({ desktop: 4 });
   });
 
-  it('runs unified sync session over protobuf and parses nested results', async () => {
+  it('runs unified sync session over Connect and parses nested results', async () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(
-          encodeVfsCrdtSyncSessionResponseProtobuf({
+          connectJsonEnvelope({
             push: {
               clientId: 'desktop',
               results: [{ opId: 'desktop-6', status: 'applied' }]
@@ -365,10 +344,11 @@ describe('VfsHttpCrdtSyncTransport', () => {
           }),
           {
             status: 200,
-            headers: { 'Content-Type': 'application/x-protobuf' }
+            headers: { 'Content-Type': 'application/json' }
           }
         )
     );
+
     const transport = new VfsHttpCrdtSyncTransport({
       baseUrl: 'https://sync.example.com',
       fetchImpl: fetchMock
@@ -429,19 +409,24 @@ describe('VfsHttpCrdtSyncTransport', () => {
 
     const firstCall = fetchMock.mock.calls[0];
     const requestUrl = firstCall?.[0];
-    expect(requestUrl).toBe('https://sync.example.com/v1/vfs/crdt/session');
+    expect(requestUrl).toBe(
+      'https://sync.example.com/connect/tearleads.v1.VfsService/RunCrdtSession'
+    );
+
     const requestInit = firstCall?.[1];
-    const requestBytes = await readRequestBodyBytes(requestInit?.body);
-    const decodedBody = decodeVfsCrdtSyncSessionRequestProtobuf(requestBytes);
-    if (
-      typeof decodedBody !== 'object' ||
-      decodedBody === null ||
-      !('clientId' in decodedBody) ||
-      !('operations' in decodedBody)
-    ) {
-      throw new Error('expected sync session protobuf payload');
-    }
-    expect(decodedBody.clientId).toBe('desktop');
+    const decodedBody = parseConnectEnvelopeBody(
+      await readRequestJson(requestUrl, requestInit),
+      'session request'
+    );
+
+    expect(decodedBody['clientId']).toBe('desktop');
+    expect(decodedBody['operations']).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          opId: 'desktop-6'
+        })
+      ])
+    );
   });
 
   it('throws typed rematerialization error for 409 stale-cursor responses', async () => {
