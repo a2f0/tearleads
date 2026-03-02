@@ -236,9 +236,7 @@ export async function getGroupMembersDirect(
     if (!firstRow) {
       throw new ConnectError('Group not found', Code.NotFound);
     }
-    const organizationId = getRequiredOrganizationId(
-      firstRow.organization_id
-    );
+    const organizationId = getRequiredOrganizationId(firstRow.organization_id);
     if (!canAccessOrganization(authorization, organizationId)) {
       throw new ConnectError('Forbidden', Code.PermissionDenied);
     }
