@@ -5,6 +5,10 @@
  */
 
 import { User } from 'lucide-react';
+import { type MouseEvent, useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
+import { useIsMobile } from '@/hooks/device';
 import { LoginForm } from './LoginForm';
 
 interface InlineLoginProps {
@@ -15,19 +19,72 @@ interface InlineLoginProps {
 export function InlineLogin({
   description = 'this feature'
 }: InlineLoginProps) {
+  const windowManagerActions = useWindowManagerActions();
+  const isMobileScreen = useIsMobile();
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+
+  useEffect(() => {
+    if (
+      typeof window === 'undefined' ||
+      typeof window.matchMedia !== 'function'
+    ) {
+      return;
+    }
+
+    const pointerQuery = window.matchMedia('(pointer: coarse)');
+    const updateTouchState = () => {
+      const hasTouch = pointerQuery.matches || navigator.maxTouchPoints > 0;
+      setIsTouchDevice(hasTouch);
+    };
+
+    updateTouchState();
+    pointerQuery.addEventListener('change', updateTouchState);
+    return () => {
+      pointerQuery.removeEventListener('change', updateTouchState);
+    };
+  }, []);
+
+  const isDesktopMode = !isMobileScreen && !isTouchDevice;
+
+  const handleSyncLinkClick = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>) => {
+      if (!isDesktopMode) {
+        return;
+      }
+      event.preventDefault();
+      windowManagerActions.openWindow('sync');
+    },
+    [isDesktopMode, windowManagerActions]
+  );
+
   return (
-    <div data-testid="inline-login">
-      <div className="mb-4 text-center">
-        <User className="mx-auto h-12 w-12 text-muted-foreground/50" />
-        <p className="mt-4 text-muted-foreground">
-          Sign in required to access {description}.
-        </p>
+    <div
+      className="rounded-lg border bg-background p-8 text-center [border-color:var(--soft-border)]"
+      data-testid="inline-login"
+    >
+      <User className="mx-auto h-12 w-12 text-muted-foreground/50" />
+      <p className="mt-4 text-muted-foreground">
+        Sign in required to access {description}.
+      </p>
+
+      <div className="mx-auto mt-6 max-w-xs">
+        <LoginForm
+          title="Sign In"
+          description={`Please sign in to continue to ${description}`}
+          borderless
+        />
       </div>
 
-      <LoginForm
-        title="Sign In"
-        description={`Please sign in to continue to ${description}`}
-      />
+      <p className="mt-4 text-center text-muted-foreground text-sm">
+        Don&apos;t have an account?{' '}
+        <Link
+          to="/sync"
+          onClick={handleSyncLinkClick}
+          className="font-medium text-primary hover:underline"
+        >
+          Create one
+        </Link>
+      </p>
     </div>
   );
 }

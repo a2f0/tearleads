@@ -19,6 +19,7 @@ export interface AuthState {
 export interface LoginFormProps {
   title: string;
   description: string;
+  borderless?: boolean | undefined;
   switchModeCta?:
     | {
         prompt: string;
@@ -32,6 +33,7 @@ export interface RegisterFormProps {
   title: string;
   description: string;
   emailDomain?: string | undefined;
+  borderless?: boolean | undefined;
   switchModeCta?:
     | {
         prompt: string;

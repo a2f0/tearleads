@@ -1,8 +1,10 @@
+// component-complexity: allow — pre-existing depth from authenticated token display
 import { BackLink, Button } from '@tearleads/ui';
 import { LogOut, Mail } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getSyncAuthDependencies } from '../../lib/authDependencies';
+import { SyncLoginCard } from './SyncLoginCard';
 
 type AuthMode = 'login' | 'register';
 
@@ -198,29 +200,15 @@ export function Sync({ showBackLink = true }: SyncProps) {
         <BackLink defaultTo="/" defaultLabel="Back to Home" />
       ) : null}
 
-      <div className="w-full max-w-md">
-        {authMode === 'login' ? (
-          <LoginForm
-            title={t('login')}
-            description={t('loginDescription')}
-            switchModeCta={{
-              prompt: t('noAccount'),
-              actionLabel: t('createOne'),
-              onAction: () => setAuthMode('register')
-            }}
-          />
-        ) : (
-          <RegisterForm
-            title={t('createAccount')}
-            description={t('createAccountDescription')}
-            emailDomain={emailDomain ?? undefined}
-            switchModeCta={{
-              prompt: t('hasAccount'),
-              actionLabel: t('signIn'),
-              onAction: () => setAuthMode('login')
-            }}
-          />
-        )}
+      <div className="w-full max-w-xs">
+        <SyncLoginCard
+          authMode={authMode}
+          setAuthMode={setAuthMode}
+          emailDomain={emailDomain}
+          LoginForm={LoginForm}
+          RegisterForm={RegisterForm}
+          t={t}
+        />
       </div>
     </div>
   );

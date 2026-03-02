@@ -25,6 +25,8 @@ interface LoginFormProps {
   title?: string;
   /** Description text displayed below the title */
   description?: string;
+  /** Remove outer border/padding so the form can be embedded in another card */
+  borderless?: boolean | undefined;
   /** Optional CTA to switch auth modes (e.g., create account) */
   switchModeCta?:
     | {
@@ -38,6 +40,7 @@ interface LoginFormProps {
 export function LoginForm({
   title = 'Login',
   description = 'Sign in to continue',
+  borderless,
   switchModeCta
 }: LoginFormProps) {
   const id = useId();
@@ -85,7 +88,7 @@ export function LoginForm({
   );
 
   return (
-    <div className="rounded-lg border p-4">
+    <div className={borderless ? '' : 'rounded-lg border p-4'}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <p className="font-medium">{title}</p>

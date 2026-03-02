@@ -31,6 +31,8 @@ interface RegisterFormProps {
   description?: string | undefined;
   /** Allowed email domain hint (e.g., "example.com") */
   emailDomain?: string | undefined;
+  /** Remove outer border/padding so the form can be embedded in another card */
+  borderless?: boolean | undefined;
   /** Optional CTA to switch auth modes (e.g., sign in) */
   switchModeCta?:
     | {
@@ -45,6 +47,7 @@ export function RegisterForm({
   title = 'Create Account',
   description = 'Register for a new account',
   emailDomain,
+  borderless,
   switchModeCta
 }: RegisterFormProps) {
   const id = useId();
@@ -120,7 +123,7 @@ export function RegisterForm({
     confirmPassword.length > 0;
 
   return (
-    <div className="rounded-lg border p-4">
+    <div className={borderless ? '' : 'rounded-lg border p-4'}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <p className="font-medium">{title}</p>

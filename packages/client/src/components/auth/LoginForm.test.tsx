@@ -232,6 +232,22 @@ describe('LoginForm', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders with border by default', () => {
+    const { container } = render(<LoginForm />);
+
+    const wrapper = container.firstElementChild;
+    expect(wrapper?.className).toContain('rounded-lg');
+    expect(wrapper?.className).toContain('border');
+  });
+
+  it('renders without border when borderless is true', () => {
+    const { container } = render(<LoginForm borderless />);
+
+    const wrapper = container.firstElementChild;
+    expect(wrapper?.className).not.toContain('rounded-lg');
+    expect(wrapper?.className).not.toContain('border');
+  });
+
   it('renders switch mode CTA and calls onAction', async () => {
     const user = userEvent.setup();
     const onAction = vi.fn();
