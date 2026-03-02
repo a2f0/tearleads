@@ -12,12 +12,12 @@ jobs:
       should-run: ${{ steps.impact.outputs.should-run }}
       impact-json: ${{ steps.impact.outputs.impact-json }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
 
@@ -64,13 +64,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
@@ -79,7 +79,7 @@ jobs:
         run: pnpm install
 
       - name: Cache SQLite WASM
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             packages/client/src/workers/sqlite-wasm
@@ -104,7 +104,7 @@ jobs:
           VITE_API_URL: https://localhost:8443/v1
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: web-e2e-build
           path: |
@@ -124,7 +124,7 @@ jobs:
       matrix:
         shard: [1, 2]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Capture runner hardware specs
         run: |
@@ -158,7 +158,7 @@ jobs:
         uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
@@ -167,7 +167,7 @@ jobs:
         run: pnpm install
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: web-e2e-build
           path: packages
@@ -251,7 +251,7 @@ jobs:
         run: echo "version=$(pnpm --filter @tearleads/client exec playwright --version)" >> $GITHUB_OUTPUT
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
@@ -269,7 +269,7 @@ jobs:
           PW_FULLY_PARALLEL: 'true'
 
       - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: playwright-report-shard-${{ matrix.shard }}
@@ -277,7 +277,7 @@ jobs:
           retention-days: 30
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: playwright-results-shard-${{ matrix.shard }}
@@ -293,13 +293,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
@@ -308,7 +308,7 @@ jobs:
         run: pnpm install
 
       - name: Download all shard reports
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: playwright-report-shard-*
           path: shard-reports
@@ -357,7 +357,7 @@ jobs:
           fi
 
       - name: Upload merged Playwright report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: packages/client/playwright-report/

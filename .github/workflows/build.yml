@@ -20,12 +20,12 @@ jobs:
       test-packages: ${{ steps.impact.outputs.test-packages }}
       test-should-run: ${{ steps.impact.outputs.test-should-run }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
 
@@ -90,13 +90,13 @@ jobs:
         run: |
           echo "::notice::No code changes detected that impact this job - reporting success"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
@@ -114,7 +114,7 @@ jobs:
 
       - name: Setup Python
         if: matrix.lint-type == 'ansible'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version-file: '.python-version'
           cache: 'pip'
@@ -126,7 +126,7 @@ jobs:
 
       - name: Cache Ansible collections
         if: matrix.lint-type == 'ansible'
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.ansible/collections
           key: ansible-collections-${{ hashFiles('ansible/requirements.yml', 'terraform/stacks/staging/tee/ansible/requirements.yml', 'terraform/stacks/prod/tee/ansible/requirements.yml') }}
@@ -170,14 +170,14 @@ jobs:
 
       - name: Setup Terraform
         if: matrix.lint-type == 'terraform'
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ steps.terraform-version.outputs.version }}
           terraform_wrapper: false
 
       - name: Setup TFLint
         if: matrix.lint-type == 'terraform'
-        uses: terraform-linters/setup-tflint@v4
+        uses: terraform-linters/setup-tflint@v6
 
       - name: Init TFLint plugins
         if: matrix.lint-type == 'terraform'
@@ -206,7 +206,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Check for binary files
         run: ./scripts/checks/checkBinaryFiles.sh --from-upstream
@@ -242,7 +242,7 @@ jobs:
     runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -250,7 +250,7 @@ jobs:
         uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
@@ -305,7 +305,7 @@ jobs:
         run: ./scripts/checks/checkGithubActions.sh --all
 
       - name: Cache SQLite WASM
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             packages/client/src/workers/sqlite-wasm
@@ -335,7 +335,7 @@ jobs:
         run: pnpm build
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-dist
           path: |
@@ -354,13 +354,13 @@ jobs:
       matrix:
         package: ${{ fromJson(needs.detect-impact.outputs.test-packages) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
@@ -382,13 +382,13 @@ jobs:
         run: pnpm install
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: build-dist
           path: packages
 
       - name: Cache SQLite WASM
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             packages/client/src/workers/sqlite-wasm
@@ -410,7 +410,7 @@ jobs:
         run: pnpm --filter @tearleads/${{ matrix.package }} test:coverage
 
       - name: Upload Coverage Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-${{ matrix.package }}
           path: packages/${{ matrix.package }}/coverage/
@@ -423,13 +423,13 @@ jobs:
     runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
@@ -452,7 +452,7 @@ jobs:
         run: pnpm test:coverage
 
       - name: Upload Coverage Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-tuxedo
           path: tuxedo/tests/coverage/
@@ -465,15 +465,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
 
       - name: Download all coverage artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: coverage-*
           path: coverage-reports
@@ -499,7 +499,7 @@ jobs:
           fi
 
       - name: Upload Combined Coverage Reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-reports
           path: |
