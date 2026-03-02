@@ -63,31 +63,6 @@ export TF_VAR_tearleads_version_bumper_installation_id='110805914'
 export TF_VAR_tearleads_version_bumper_app_slug='tearleads-version-bumper'
 ```
 
-## Dependabot secrets
-
-By default, Dependabot PRs cannot access repository secrets. This causes Android build/test failures on Dependabot branches because the keystore is unavailable.
-
-Pass secrets to Dependabot via the `dependabot_secrets` variable (a `map(string)`):
-
-```bash
-export TF_VAR_dependabot_secrets='{
-  "ANDROID_KEYSTORE_BASE64": "...",
-  "ANDROID_KEYSTORE_STORE_PASS": "...",
-  "ANDROID_KEYSTORE_KEY_PASS": "..."
-}'
-```
-
-Or in `terraform.tfvars`:
-
-```hcl
-dependabot_secrets = {
-  ANDROID_KEYSTORE_BASE64    = "..."
-  ANDROID_KEYSTORE_STORE_PASS = "..."
-  ANDROID_KEYSTORE_KEY_PASS   = "..."
-}
-```
-
-### Resources managed
+### Resource managed
 
 - `github_app_installation_repository.merge_signing` (optional)
-- `github_dependabot_secret.this["..."]` (one per entry in `dependabot_secrets`)

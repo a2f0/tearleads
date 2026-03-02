@@ -75,10 +75,3 @@ variable "tearleads_version_bumper_app_slug" {
   default     = null
   nullable    = true
 }
-
-variable "dependabot_secrets" {
-  description = "Map of secret names to values to expose to Dependabot workflows"
-  type        = map(string)
-  default     = {}
-  sensitive   = true
-}
