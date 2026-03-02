@@ -17,11 +17,9 @@ import {
   runTimedVfsCrdtQuery,
   type VfsCrdtQueryMetrics
 } from '../../lib/vfsCrdtPerformanceMetrics.js';
+import { loadReplicaWriteIdRows } from '../../lib/vfsCrdtReplicaWriteIds.js';
 import { sendCrdtProtobufOrJson } from './crdtProtobuf.js';
-import {
-  toLastReconciledWriteIds,
-  type VfsCrdtReplicaWriteIdRow
-} from './crdtRouteHelpers.js';
+import { toLastReconciledWriteIds } from './crdtRouteHelpers.js';
 
 const CRDT_REMATERIALIZATION_REQUIRED_CODE = 'crdt_rematerialization_required';
 
@@ -251,17 +249,9 @@ const getCrdtSyncHandler = async (req: Request, res: Response) => {
     const replicaWriteIdsResult = await runTimedVfsCrdtQuery(
       'replica_write_ids',
       queryMetrics,
-      () =>
-        pool.query<VfsCrdtReplicaWriteIdRow>(
-          `
-      SELECT
-        replica_id,
-        max_write_id
-      FROM vfs_crdt_replica_heads
-      WHERE actor_id = $1::text
-      `,
-          [claims.sub]
-        )
+      async () => ({
+        rows: await loadReplicaWriteIdRows(pool, claims.sub)
+      })
     );
 
     const response: VfsCrdtSyncResponse = mapVfsCrdtSyncRows(

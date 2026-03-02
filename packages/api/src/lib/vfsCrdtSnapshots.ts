@@ -1,3 +1,4 @@
+import { loadReplicaWriteIdRows } from './vfsCrdtReplicaWriteIds.js';
 import {
   type ClientStateRow,
   cloneCursor,
@@ -13,7 +14,6 @@ import {
   parseLastReconciledWriteIds,
   parseOccurredAt,
   pickNewerCursor,
-  type ReplicaWriteIdRow,
   type SnapshotRow,
   VFS_CRDT_SNAPSHOT_SCOPE,
   type VfsCrdtRematerializationSnapshot,
@@ -245,22 +245,13 @@ async function loadClientReconcileState(
     ? parseLastReconciledWriteIds(clientStateRow.last_reconciled_write_ids)
     : {};
 
-  const replicaWriteIdsResult = await client.query<ReplicaWriteIdRow>(
-    `
-    SELECT
-      replica_id,
-      max_write_id
-    FROM vfs_crdt_replica_heads
-    WHERE actor_id = $1::text
-    `,
-    [userId]
-  );
+  const replicaWriteIdsRows = await loadReplicaWriteIdRows(client, userId);
 
   return {
     cursor: clientStateCursor,
     lastReconciledWriteIds: mergeWriteIds(
       clientStateWriteIds,
-      normalizeReplicaWriteIds(replicaWriteIdsResult.rows)
+      normalizeReplicaWriteIds(replicaWriteIdsRows)
     )
   };
 }

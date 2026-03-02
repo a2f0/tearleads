@@ -4,7 +4,7 @@ import {
   encodeVfsSyncCursor
 } from '@tearleads/vfs-sync/vfs';
 import request from 'supertest';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAuthHeader } from '../../test/auth.js';
 import { mockConsoleError } from '../../test/consoleMocks.js';
 import {
@@ -204,6 +204,54 @@ describe('VFS CRDT sync session route', { timeout: 15_000 }, () => {
       cursor,
       lastReconciledWriteIds: { desktop: 1 }
     });
+  });
+
+  it('uses legacy replica write-id scan when replica-head reads are disabled', async () => {
+    vi.stubEnv('VFS_CRDT_REPLICA_HEADS_READS', 'false');
+    const { app } = await import('../../index.js');
+    const authHeader = await createAuthHeader();
+    const cursor = encodeVfsSyncCursor({
+      changedAt: '2026-02-14T20:10:00.000Z',
+      changeId: 'desktop-1'
+    });
+
+    mockQuery
+      .mockResolvedValueOnce({}) // BEGIN
+      .mockResolvedValueOnce({ rows: [] }) // pull query
+      .mockResolvedValueOnce({
+        rows: [{ replica_id: 'desktop', max_write_id: '4' }]
+      }) // replica write ids query
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            last_reconciled_at: new Date('2026-02-14T20:10:00.000Z'),
+            last_reconciled_change_id: 'desktop-1',
+            last_reconciled_write_ids: { desktop: 4 }
+          }
+        ]
+      }) // reconcile upsert
+      .mockResolvedValueOnce({}); // COMMIT
+
+    const response = await request(app)
+      .post('/v1/vfs/crdt/session')
+      .set('Authorization', authHeader)
+      .send({
+        clientId: 'desktop',
+        cursor,
+        limit: 10,
+        operations: []
+      });
+
+    expect(response.status).toBe(200);
+    expect(mockQuery).toHaveBeenCalledTimes(5);
+    expect(String(mockQuery.mock.calls[2]?.[0])).toContain('FROM vfs_crdt_ops');
+    expect(String(mockQuery.mock.calls[2]?.[0])).toContain(
+      'split_part(source_id'
+    );
+    expect(mockQuery.mock.calls[2]?.[1]).toEqual([
+      'vfs_crdt_client_push',
+      'user-1'
+    ]);
   });
 
   it('returns 400 when string limit is not parseable', async () => {
