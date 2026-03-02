@@ -1,16 +1,16 @@
+import { Readable } from 'node:stream';
+import type { Response as SupertestResponse } from 'supertest';
 import type { RouteMethod } from '../connect/services/legacyRouteProxyTypes.js';
 
 type BinaryParser = (
-  response: unknown,
+  response: {
+    on(event: 'data', listener: (chunk: Buffer | string) => void): void;
+    on(event: 'end', listener: () => void): void;
+  },
   callback: (error: Error | null, body: Buffer) => void
 ) => void;
 
-type CompatResponse = {
-  status: number;
-  body: unknown;
-  headers: Record<string, string>;
-  text: string;
-};
+type CompatResponse = Pick<SupertestResponse, 'status' | 'body' | 'headers' | 'text'>;
 
 class CompatRequestBuilder implements PromiseLike<CompatResponse> {
   private readonly headers = new Headers();
@@ -180,22 +180,12 @@ function parseJsonIfPossible(value: string): unknown {
 
 function parseBinaryBody(parser: BinaryParser, buffer: Buffer): Buffer {
   let parsed = buffer;
-  parser(
-    {
-      on(event: 'data' | 'end', listener: (chunk?: Buffer) => void) {
-        if (event === 'data') {
-          listener(buffer);
-          return;
-        }
-        listener();
-      }
-    },
-    (error, body) => {
-      if (!error) {
-        parsed = body;
-      }
+  const readable = Readable.from(buffer);
+  parser(readable, (error, body) => {
+    if (!error) {
+      parsed = body;
     }
-  );
+  });
   return parsed;
 }
 
