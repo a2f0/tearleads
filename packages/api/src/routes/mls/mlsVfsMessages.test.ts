@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
 import { createAuthHeader } from '../../test/auth.js';
 import * as mlsShared from './shared.js';
+
 const mockQuery = vi.fn();
 const mockGetPostgresPool = vi.fn();
 const mockBroadcast = vi.fn((_c: string, _m: unknown) => Promise.resolve(1));
