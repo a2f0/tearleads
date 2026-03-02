@@ -68,27 +68,39 @@ RUN echo 'server { \
     location = /sw.js { \
         try_files $uri =404; \
         add_header Cache-Control "no-cache, no-store, must-revalidate"; \
+        add_header Cross-Origin-Opener-Policy "same-origin" always; \
+        add_header Cross-Origin-Embedder-Policy "require-corp" always; \
     } \
     location ~* ^/(manifest\\.webmanifest|registerSW\\.js)$ { \
         try_files $uri =404; \
         add_header Cache-Control "no-cache"; \
+        add_header Cross-Origin-Opener-Policy "same-origin" always; \
+        add_header Cross-Origin-Embedder-Policy "require-corp" always; \
     } \
     location = /sqlite { \
         try_files /index.html =404; \
         add_header Cache-Control "no-cache"; \
+        add_header Cross-Origin-Opener-Policy "same-origin" always; \
+        add_header Cross-Origin-Embedder-Policy "require-corp" always; \
     } \
     location ~* ^/sqlite/.*\\.(wasm|js)$ { \
         try_files $uri =404; \
         add_header Cache-Control "public, immutable"; \
+        add_header Cross-Origin-Opener-Policy "same-origin" always; \
+        add_header Cross-Origin-Embedder-Policy "require-corp" always; \
     } \
     location ^~ /assets/ { \
         try_files $uri =404; \
         expires 1y; \
         add_header Cache-Control "public, immutable"; \
+        add_header Cross-Origin-Opener-Policy "same-origin" always; \
+        add_header Cross-Origin-Embedder-Policy "require-corp" always; \
     } \
     location / { \
         try_files $uri $uri/ /index.html; \
         add_header Cache-Control "no-cache"; \
+        add_header Cross-Origin-Opener-Policy "same-origin" always; \
+        add_header Cross-Origin-Embedder-Policy "require-corp" always; \
     } \
 }' > /etc/nginx/conf.d/default.conf
 
