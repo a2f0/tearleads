@@ -53,6 +53,76 @@ interface LinkRow {
   child_id: string;
 }
 
+function collectRootItemIds(rows: PolicyRow[]): string[] {
+  const uniqueRootIds = new Set<string>();
+  for (const row of rows) {
+    if (row.root_item_id.length === 0) {
+      continue;
+    }
+    uniqueRootIds.add(row.root_item_id);
+  }
+  return Array.from(uniqueRootIds).sort((left, right) =>
+    left.localeCompare(right)
+  );
+}
+
+async function loadScopedGraphRows(
+  client: PgQueryable,
+  rootItemIds: string[]
+): Promise<{ registryRows: RegistryRow[]; linkRows: LinkRow[] }> {
+  if (rootItemIds.length === 0) {
+    return { registryRows: [], linkRows: [] };
+  }
+
+  const linkRows = await client.query<LinkRow>(
+    `
+    WITH RECURSIVE reachable(item_id) AS (
+      SELECT DISTINCT roots.root_id
+      FROM UNNEST($1::text[]) AS roots(root_id)
+      UNION
+      SELECT links.child_id
+      FROM vfs_links links
+      JOIN reachable
+        ON reachable.item_id = links.parent_id
+    )
+    SELECT
+      links.parent_id,
+      links.child_id
+    FROM vfs_links links
+    JOIN reachable parent_reachable
+      ON parent_reachable.item_id = links.parent_id
+    JOIN reachable child_reachable
+      ON child_reachable.item_id = links.child_id
+  `,
+    [rootItemIds]
+  );
+
+  const scopedItemIds = new Set<string>(rootItemIds);
+  for (const row of linkRows.rows) {
+    scopedItemIds.add(row.parent_id);
+    scopedItemIds.add(row.child_id);
+  }
+  const sortedScopedItemIds = Array.from(scopedItemIds).sort((left, right) =>
+    left.localeCompare(right)
+  );
+  if (sortedScopedItemIds.length === 0) {
+    return { registryRows: [], linkRows: linkRows.rows };
+  }
+
+  const registryRows = await client.query<RegistryRow>(
+    `
+    SELECT
+      id,
+      object_type
+    FROM vfs_registry
+    WHERE id = ANY($1::text[])
+  `,
+    [sortedScopedItemIds]
+  );
+
+  return { registryRows: registryRows.rows, linkRows: linkRows.rows };
+}
+
 function toDateOrNull(value: Date | string | null): Date | null {
   if (value === null) {
     return null;
@@ -168,90 +238,80 @@ export async function loadSharePolicyState(
   registryItems: RegistryItemType[];
   links: LinkEdge[];
 }> {
-  const [policyRows, selectorRows, principalRows, registryRows, linkRows] =
-    await Promise.all([
-      policyIds
-        ? client.query<PolicyRow>(
-            `
-            SELECT id, root_item_id, status, revoked_at, expires_at
-            FROM vfs_share_policies
-            WHERE id = ANY($1::text[])
-          `,
-            [policyIds]
-          )
-        : client.query<PolicyRow>(
-            `
-            SELECT id, root_item_id, status, revoked_at, expires_at
-            FROM vfs_share_policies
+  const [policyRows, selectorRows, principalRows] = await Promise.all([
+    policyIds
+      ? client.query<PolicyRow>(
           `
-          ),
-      policyIds
-        ? client.query<SelectorRow>(
-            `
-            SELECT
-              id,
-              policy_id,
-              selector_kind,
-              match_mode,
-              anchor_item_id,
-              max_depth,
-              include_root,
-              object_types,
-              selector_order
-            FROM vfs_share_policy_selectors
-            WHERE policy_id = ANY($1::text[])
-          `,
-            [policyIds]
-          )
-        : client.query<SelectorRow>(
-            `
-            SELECT
-              id,
-              policy_id,
-              selector_kind,
-              match_mode,
-              anchor_item_id,
-              max_depth,
-              include_root,
-              object_types,
-              selector_order
-            FROM vfs_share_policy_selectors
+          SELECT id, root_item_id, status, revoked_at, expires_at
+          FROM vfs_share_policies
+          WHERE id = ANY($1::text[])
+        `,
+          [policyIds]
+        )
+      : client.query<PolicyRow>(
           `
-          ),
-      policyIds
-        ? client.query<PrincipalRow>(
-            `
-            SELECT id, policy_id, principal_type, principal_id, access_level
-            FROM vfs_share_policy_principals
-            WHERE policy_id = ANY($1::text[])
-          `,
-            [policyIds]
-          )
-        : client.query<PrincipalRow>(
-            `
-            SELECT id, policy_id, principal_type, principal_id, access_level
-            FROM vfs_share_policy_principals
-          `
-          ),
-      client.query<RegistryRow>(
+          SELECT id, root_item_id, status, revoked_at, expires_at
+          FROM vfs_share_policies
         `
-        SELECT id, object_type
-        FROM vfs_registry
-      `
-      ),
-      client.query<LinkRow>(
+        ),
+    policyIds
+      ? client.query<SelectorRow>(
+          `
+          SELECT
+            id,
+            policy_id,
+            selector_kind,
+            match_mode,
+            anchor_item_id,
+            max_depth,
+            include_root,
+            object_types,
+            selector_order
+          FROM vfs_share_policy_selectors
+          WHERE policy_id = ANY($1::text[])
+        `,
+          [policyIds]
+        )
+      : client.query<SelectorRow>(
+          `
+          SELECT
+            id,
+            policy_id,
+            selector_kind,
+            match_mode,
+            anchor_item_id,
+            max_depth,
+            include_root,
+            object_types,
+            selector_order
+          FROM vfs_share_policy_selectors
         `
-        SELECT parent_id, child_id
-        FROM vfs_links
-      `
-      )
-    ]);
+        ),
+    policyIds
+      ? client.query<PrincipalRow>(
+          `
+          SELECT id, policy_id, principal_type, principal_id, access_level
+          FROM vfs_share_policy_principals
+          WHERE policy_id = ANY($1::text[])
+        `,
+          [policyIds]
+        )
+      : client.query<PrincipalRow>(
+          `
+          SELECT id, policy_id, principal_type, principal_id, access_level
+          FROM vfs_share_policy_principals
+        `
+        )
+  ]);
+
+  const rootItemIds = collectRootItemIds(policyRows.rows);
+  const scopedGraphRows = await loadScopedGraphRows(client, rootItemIds);
 
   return {
     policies: mapPolicies(policyRows.rows),
     selectors: mapSelectors(selectorRows.rows),
     principals: mapPrincipals(principalRows.rows),
-    registryItems: mapRegistry(registryRows.rows),
-    links: mapLinks(linkRows.rows)
+    registryItems: mapRegistry(scopedGraphRows.registryRows),
+    links: mapLinks(scopedGraphRows.linkRows)
   };
 }

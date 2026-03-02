@@ -125,6 +125,18 @@ describe('compileVfsSharePolicies', () => {
     expect(principalQuery?.text).toContain('WHERE policy_id = ANY($1::text[])');
     expect(principalQuery?.values).toEqual([['policy-a', 'policy-b']]);
 
+    const scopedLinkQuery = calls.find((call) =>
+      call.text.includes('WITH RECURSIVE reachable')
+    );
+    expect(scopedLinkQuery?.text).toContain('FROM vfs_links');
+    expect(scopedLinkQuery?.values).toEqual([['root-1']]);
+
+    const scopedRegistryQuery = calls.find((call) =>
+      call.text.includes('FROM vfs_registry')
+    );
+    expect(scopedRegistryQuery?.text).toContain('WHERE id = ANY($1::text[])');
+    expect(scopedRegistryQuery?.values).toEqual([['root-1']]);
+
     const staleQuery = calls.find((call) =>
       call.text.includes('SELECT DISTINCT acl_entry_id')
     );
