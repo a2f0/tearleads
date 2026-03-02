@@ -45,24 +45,30 @@ vi.mock('./legacyRouteProxy.js', async () => {
 });
 
 vi.mock('./adminDirectContext.js', () => ({
-  getContextDirect: (...args: unknown[]) => getContextDirectMock(...args)
+  getContextDirect: (request: unknown, context: unknown) =>
+    getContextDirectMock(request, context)
 }));
 
 vi.mock('./adminDirectPostgres.js', () => ({
-  getColumnsDirect: (...args: unknown[]) => getColumnsDirectMock(...args),
-  getPostgresInfoDirect: (...args: unknown[]) =>
-    getPostgresInfoDirectMock(...args),
-  getRowsDirect: (...args: unknown[]) => getRowsDirectMock(...args),
-  getTablesDirect: (...args: unknown[]) => getTablesDirectMock(...args)
+  getColumnsDirect: (request: unknown, context: unknown) =>
+    getColumnsDirectMock(request, context),
+  getPostgresInfoDirect: (request: unknown, context: unknown) =>
+    getPostgresInfoDirectMock(request, context),
+  getRowsDirect: (request: unknown, context: unknown) =>
+    getRowsDirectMock(request, context),
+  getTablesDirect: (request: unknown, context: unknown) =>
+    getTablesDirectMock(request, context)
 }));
 
 vi.mock('./adminDirectRedis.js', () => ({
-  deleteRedisKeyDirect: (...args: unknown[]) =>
-    deleteRedisKeyDirectMock(...args),
-  getRedisDbSizeDirect: (...args: unknown[]) =>
-    getRedisDbSizeDirectMock(...args),
-  getRedisKeysDirect: (...args: unknown[]) => getRedisKeysDirectMock(...args),
-  getRedisValueDirect: (...args: unknown[]) => getRedisValueDirectMock(...args)
+  deleteRedisKeyDirect: (request: unknown, context: unknown) =>
+    deleteRedisKeyDirectMock(request, context),
+  getRedisDbSizeDirect: (request: unknown, context: unknown) =>
+    getRedisDbSizeDirectMock(request, context),
+  getRedisKeysDirect: (request: unknown, context: unknown) =>
+    getRedisKeysDirectMock(request, context),
+  getRedisValueDirect: (request: unknown, context: unknown) =>
+    getRedisValueDirectMock(request, context)
 }));
 
 import { adminConnectService } from './adminService.js';

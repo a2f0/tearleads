@@ -28,9 +28,13 @@ import { getContextDirect } from './adminDirectContext.js';
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function parseJson(json: string): Record<string, unknown> {
   const parsed: unknown = JSON.parse(json);
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+  if (!isRecord(parsed)) {
     throw new Error('Expected object JSON response');
   }
   return parsed;
