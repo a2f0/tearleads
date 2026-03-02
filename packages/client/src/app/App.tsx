@@ -1,3 +1,4 @@
+// component-complexity: allow -- app shell intentionally centralizes routing, taskbar, and lock UX wiring.
 import { Footer } from '@tearleads/ui';
 import logo from '@tearleads/ui/logo.svg';
 import {

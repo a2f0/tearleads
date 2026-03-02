@@ -1,3 +1,4 @@
+// component-complexity: allow -- provider manages multi-instance setup/unlock/restore lifecycle across platforms.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   clearSessionActive,

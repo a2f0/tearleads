@@ -1,3 +1,4 @@
+// component-complexity: allow -- auth state, token lifecycle, and DB password handoff are coordinated here.
 import type { AuthUser, VfsKeySetupRequest } from '@tearleads/shared';
 import type { ReactNode } from 'react';
 import {

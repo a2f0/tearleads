@@ -1,3 +1,4 @@
+// component-complexity: allow -- debug harness keeps platform-specific DB recovery/unlock flows in one place.
 /**
  * Database testing component for the SQLite page.
  * Provides UI for testing database operations across all platforms.
