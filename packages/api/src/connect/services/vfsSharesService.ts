@@ -1,13 +1,13 @@
 import {
-  createShareDirect,
-  updateShareDirect
-} from './vfsSharesDirectMutations.js';
-import {
   deleteOrgShareDirect,
   deleteShareDirect,
   getSharePolicyPreviewDirect,
   searchShareTargetsDirect
 } from './vfsSharesDirectHandlers.js';
+import {
+  createShareDirect,
+  updateShareDirect
+} from './vfsSharesDirectMutations.js';
 import { createOrgShareDirect } from './vfsSharesDirectOrgMutations.js';
 import { getItemSharesDirect } from './vfsSharesDirectQueries.js';
 

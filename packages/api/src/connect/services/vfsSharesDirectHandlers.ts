@@ -5,8 +5,7 @@ import {
   VFS_CONTAINER_OBJECT_TYPES,
   type VfsShareType
 } from '@tearleads/shared';
-import { getPool } from '../../lib/postgres.js';
-import { getPostgresPool } from '../../lib/postgres.js';
+import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { buildSharePolicyPreviewTree } from '../../lib/vfsSharePolicyPreviewTree.js';
 import {
   isValidShareType,
@@ -32,9 +31,7 @@ function encoded(value: string): string {
   return encodeURIComponent(value);
 }
 
-function isPreviewPrincipalType(
-  value: string
-): value is PreviewPrincipalType {
+function isPreviewPrincipalType(value: string): value is PreviewPrincipalType {
   return value === 'user' || value === 'group' || value === 'organization';
 }
 
@@ -121,7 +118,10 @@ export async function deleteShareDirect(
 
   try {
     const pool = await getPostgresPool();
-    const authContext = await loadShareAuthorizationContext(pool, request.shareId);
+    const authContext = await loadShareAuthorizationContext(
+      pool,
+      request.shareId
+    );
     if (!authContext) {
       throw new ConnectError('Share not found', Code.NotFound);
     }
@@ -277,7 +277,10 @@ export async function searchShareTargetsDirect(
       }
     }
 
-    if ((!filterType || filterType === 'organization') && userOrgIds.length > 0) {
+    if (
+      (!filterType || filterType === 'organization') &&
+      userOrgIds.length > 0
+    ) {
       const orgsResult = await pool.query<{
         id: string;
         name: string;

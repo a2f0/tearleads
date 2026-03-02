@@ -127,8 +127,7 @@ describe('vfsSharesConnectService', () => {
     const response = await vfsSharesConnectService.createOrgShare(
       {
         itemId: 'item-2',
-        json:
-          '{"sourceOrgId":"org-1","targetOrgId":"org-2","permissionLevel":"view"}'
+        json: '{"sourceOrgId":"org-1","targetOrgId":"org-2","permissionLevel":"view"}'
       },
       context
     );
@@ -248,8 +247,7 @@ describe('vfsSharesConnectService', () => {
     const response = await vfsSharesConnectService.createShare(
       {
         itemId: 'item-1',
-        json:
-          '{"shareType":"user","targetId":"user-2","permissionLevel":"view"}'
+        json: '{"shareType":"user","targetId":"user-2","permissionLevel":"view"}'
       },
       context
     );
