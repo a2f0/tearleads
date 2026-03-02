@@ -74,7 +74,10 @@ function assertSuccess(result: RouteExecutionResult): void {
     return;
   }
 
-  throw new ConnectError(errorMessageFromResult(result), toConnectCode(result.status));
+  throw new ConnectError(
+    errorMessageFromResult(result),
+    toConnectCode(result.status)
+  );
 }
 
 function toJsonText(body: unknown): string {

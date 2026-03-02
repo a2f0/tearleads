@@ -19,7 +19,7 @@ function createAdapterResponse(
   responseHeaders: Map<string, string>
 ): AdapterResponse {
   let statusCode = 200;
-  let body: unknown = undefined;
+  let body: unknown;
   let headersSent = false;
 
   const setHeaderValue = (name: string, value: unknown) => {

@@ -5,8 +5,8 @@ import { postgresRouter } from '../../routes/admin/postgres.js';
 import { redisRouter } from '../../routes/admin/redis.js';
 import { usersRouter } from '../../routes/admin/users.js';
 import { mlsRouter } from '../../routes/mls/router.js';
-import { vfsSharesRouter } from '../../routes/vfs-shares/router.js';
 import { vfsRouter } from '../../routes/vfs/router.js';
+import { vfsSharesRouter } from '../../routes/vfs-shares/router.js';
 import type {
   RequestQuery,
   RouteDefinition,

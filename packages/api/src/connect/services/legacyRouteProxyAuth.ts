@@ -1,19 +1,22 @@
 import { verifyJwt } from '../../lib/jwt.js';
 import { getPostgresPool } from '../../lib/postgres.js';
+import type { SessionData } from '../../lib/sessions.js';
 import { getSession, updateSessionActivity } from '../../lib/sessions.js';
 import type {
   AdminAccessResult,
   AuthResult,
   OrganizationMembershipResult
 } from './legacyRouteProxyTypes.js';
-import type { SessionData } from '../../lib/sessions.js';
 
 const AUTH_HEADER_PREFIX = 'Bearer ';
 const MAX_ORG_ID_LENGTH = 100;
 const ORG_ID_PATTERN = /^[a-zA-Z0-9-]+$/u;
 
 function extractBearerToken(authorizationHeader: string | null): string | null {
-  if (!authorizationHeader || !authorizationHeader.startsWith(AUTH_HEADER_PREFIX)) {
+  if (
+    !authorizationHeader ||
+    !authorizationHeader.startsWith(AUTH_HEADER_PREFIX)
+  ) {
     return null;
   }
 
@@ -21,7 +24,9 @@ function extractBearerToken(authorizationHeader: string | null): string | null {
   return token.length > 0 ? token : null;
 }
 
-export async function authenticate(requestHeaders: Headers): Promise<AuthResult> {
+export async function authenticate(
+  requestHeaders: Headers
+): Promise<AuthResult> {
   const token = extractBearerToken(requestHeaders.get('authorization'));
   if (!token) {
     return { ok: false, status: 401, error: 'Unauthorized' };
