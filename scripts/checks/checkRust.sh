@@ -79,3 +79,4 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --all-targets --all-features
 cargo llvm-cov --package tearleads-api-v2 --lib --tests --ignore-filename-regex 'main\.rs$' --fail-under-lines 100 --summary-only
+cargo llvm-cov --package tearleads-api-v2-ping-wasm --lib --tests --fail-under-lines 100 --summary-only

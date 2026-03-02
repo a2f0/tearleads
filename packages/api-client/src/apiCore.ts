@@ -222,6 +222,23 @@ export async function request<T>(
   return JSON.parse(text) as T;
 }
 
+function resolveRequestUrl(endpoint: string): string {
+  if (!API_BASE_URL) {
+    throw new Error('VITE_API_URL environment variable is not set');
+  }
+
+  if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+    return endpoint;
+  }
+
+  if (endpoint.startsWith('/v2/')) {
+    const apiBaseUrl = new URL(API_BASE_URL);
+    return `${apiBaseUrl.origin}${endpoint}`;
+  }
+
+  return `${API_BASE_URL}${endpoint}`;
+}
+
 async function requestResponse(
   endpoint: string,
   params: RequestParams
@@ -232,6 +249,7 @@ async function requestResponse(
     throw new Error('VITE_API_URL environment variable is not set');
   }
 
+  const requestUrl = resolveRequestUrl(endpoint);
   const startTime = performance.now();
   let success = false;
 
@@ -242,7 +260,7 @@ async function requestResponse(
       headers.set('Authorization', authHeaderValue);
     }
 
-    let response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    let response = await fetch(requestUrl, {
       ...fetchOptions,
       headers
     });
@@ -263,7 +281,7 @@ async function requestResponse(
           retryHeaders.set('Authorization', retryAuthHeaderValue);
         }
 
-        response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        response = await fetch(requestUrl, {
           ...fetchOptions,
           headers: retryHeaders
         });

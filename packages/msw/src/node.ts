@@ -1,3 +1,4 @@
+import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { createExpressPassthroughHandlers } from './passthroughHandlers.js';
 
@@ -56,7 +57,15 @@ export function configureForExpressPassthrough(
   port: number,
   pathPrefix = '/v1'
 ): void {
+  const base = baseUrl.replace(/\/$/, '');
   server.resetHandlers(
+    http.get(`${base}/v2/ping`, () =>
+      HttpResponse.json({
+        status: 'ok',
+        service: 'api-v2',
+        version: '0.1.0-test'
+      })
+    ),
     ...createExpressPassthroughHandlers(baseUrl, port, pathPrefix)
   );
 }

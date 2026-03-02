@@ -1,13 +1,12 @@
 # `tearleads-api-v2`
 
-Rust V2 API service (Axum), starting with `/ping`.
+Rust V2 API service (Axum), starting with versioned routes.
 
 ## Endpoints
 
-- `GET /ping`
 - `GET /v2/ping`
 
-Both return:
+Returns:
 
 ```json
 {

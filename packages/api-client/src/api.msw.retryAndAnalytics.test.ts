@@ -60,7 +60,7 @@ describe('api with msw', () => {
 
       let pingAttempt = 0;
       server.use(
-        http.get('http://localhost/ping', ({ request }) => {
+        http.get('http://localhost/v2/ping', ({ request }) => {
           pingAttempt += 1;
           const authHeader = request.headers.get('authorization');
           if (pingAttempt === 1 && authHeader === 'Bearer stale-token') {
@@ -100,7 +100,7 @@ describe('api with msw', () => {
       // No refresh token set
 
       server.use(
-        http.get('http://localhost/ping', () =>
+        http.get('http://localhost/v2/ping', () =>
           HttpResponse.json(null, { status: 401 })
         )
       );
@@ -125,7 +125,7 @@ describe('api with msw', () => {
 
       let refreshCalled = false;
       server.use(
-        http.get('http://localhost/ping', () =>
+        http.get('http://localhost/v2/ping', () =>
           HttpResponse.json(null, { status: 401 })
         ),
         http.post(
@@ -196,7 +196,7 @@ describe('api with msw', () => {
     it('handles empty text responses', async () => {
       server.use(
         http.get(
-          'http://localhost/ping',
+          'http://localhost/v2/ping',
           () =>
             new HttpResponse('', {
               status: 200,
@@ -207,8 +207,10 @@ describe('api with msw', () => {
 
       const api = await loadApi();
 
-      await expect(api.ping.get()).resolves.toBeUndefined();
-      expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+      await expect(api.ping.get()).rejects.toThrow(
+        'Invalid v2 ping response payload'
+      );
+      expect(wasApiRequestMade('GET', '/v2/ping')).toBe(true);
     });
   });
 
@@ -242,12 +244,12 @@ describe('api with msw', () => {
         expect.any(Number),
         true
       );
-      expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+      expect(wasApiRequestMade('GET', '/v2/ping')).toBe(true);
     });
 
     it('logs success=false for failed requests', async () => {
       server.use(
-        http.get('http://localhost/ping', () =>
+        http.get('http://localhost/v2/ping', () =>
           HttpResponse.json(null, { status: 500 })
         )
       );

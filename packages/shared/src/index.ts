@@ -51,8 +51,9 @@ export * from './vfsTypes.js';
 
 // Types
 export interface PingData {
+  status: 'ok';
+  service: 'api-v2';
   version: string;
-  dbVersion: string;
   emailDomain?: string;
 }
 

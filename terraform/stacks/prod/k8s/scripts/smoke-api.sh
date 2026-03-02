@@ -67,7 +67,7 @@ phase_in_cluster_api() {
   response="$(kubectl -n "$NAMESPACE" exec "$api_pod" -c api -- \
     node -e "
       const http = require('http');
-      http.get('http://localhost:5001/v1/ping', res => {
+      http.get('http://localhost:5001/healthz', res => {
         let d = '';
         res.on('data', c => d += c);
         res.on('end', () => {
@@ -81,18 +81,18 @@ phase_in_cluster_api() {
     " 2>/dev/null || true)"
 
   if [[ -n "$response" ]]; then
-    pass "API pod $api_pod responded to /v1/ping ($response)"
+    pass "API pod $api_pod responded to /healthz ($response)"
     return 0
   fi
 
-  fail "API pod $api_pod did not respond to /v1/ping"
+  fail "API pod $api_pod did not respond to /healthz"
 }
 
 phase_external_api() {
   echo ""
   echo "Phase 2: External API health check"
 
-  local url="https://api.$PROD_DOMAIN/v1/ping"
+  local url="https://api.$PROD_DOMAIN/healthz"
   local attempt=1
 
   while (( attempt <= CURL_RETRIES )); do

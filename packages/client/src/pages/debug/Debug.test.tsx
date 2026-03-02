@@ -76,7 +76,11 @@ async function renderDebug(props?: DebugProps) {
 describe('Debug', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockPingGet.mockResolvedValue({ version: '1.0.0' });
+    mockPingGet.mockResolvedValue({
+      status: 'ok',
+      service: 'api-v2',
+      version: '1.0.0'
+    });
   });
 
   describe('page rendering', () => {
@@ -273,7 +277,11 @@ describe('Debug', () => {
       expect(screen.getByText('1.0.0')).toBeInTheDocument();
 
       mockPingGet.mockClear();
-      mockPingGet.mockResolvedValue({ version: '1.0.1' });
+      mockPingGet.mockResolvedValue({
+        status: 'ok',
+        service: 'api-v2',
+        version: '1.0.1'
+      });
 
       await user.click(screen.getByRole('button', { name: 'Refresh' }));
 
