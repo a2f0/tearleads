@@ -164,7 +164,6 @@ describe('VFS blob stage retry outcomes', () => {
         rows: [{ id: 'stage-1', staged_by: 'user-1', status: 'staged' }]
       }) // SELECT #1
       .mockResolvedValueOnce({ rowCount: 1 }) // UPDATE #1
-      .mockResolvedValueOnce({}) // DELETE staged chunk rows #1
       .mockResolvedValueOnce({}) // COMMIT #1
       .mockResolvedValueOnce({}) // BEGIN #2
       .mockResolvedValueOnce({
@@ -204,7 +203,6 @@ describe('VFS blob stage retry outcomes', () => {
         rows: [{ id: 'stage-1', staged_by: 'user-1', status: 'staged' }]
       }) // SELECT #1
       .mockResolvedValueOnce({ rowCount: 1 }) // UPDATE #1
-      .mockResolvedValueOnce({}) // DELETE staged chunk rows #1
       .mockResolvedValueOnce({}) // COMMIT #1
       .mockResolvedValueOnce({}) // BEGIN #2
       .mockResolvedValueOnce({

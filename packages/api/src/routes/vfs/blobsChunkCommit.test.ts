@@ -41,26 +41,17 @@ describe('VFS routes (blob chunk + commit)', () => {
 
     mockQuery
       .mockResolvedValueOnce({
-        rows: [{ staged_by: 'user-1', status: 'staged' }]
-      })
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({
-        rows: [{ blob_id: 'blob-1', staged_by: 'user-1', status: 'staged' }]
-      })
-      .mockResolvedValueOnce({
         rows: [
           {
-            visible_children: {
-              chunkIndex: 0,
-              isFinal: true,
-              ciphertextBase64: 'Y2lwaGVydGV4dA==',
-              plaintextLength: 10,
-              ciphertextLength: 10
-            }
+            staged_by: 'user-1',
+            status: 'staged',
+            expires_at: '2099-02-14T11:00:00.000Z'
           }
         ]
+      })
+      .mockResolvedValueOnce({
+        rows: [{ blob_id: 'blob-1', staged_by: 'user-1', status: 'staged' }]
       });
-    mockQuery.mockResolvedValueOnce({});
 
     mockPersistVfsBlobData.mockResolvedValue({
       bucket: 'bucket',
@@ -123,7 +114,6 @@ describe('VFS routes (blob chunk + commit)', () => {
     mockQuery.mockResolvedValueOnce({
       rows: [{ blob_id: 'blob-1', staged_by: 'user-1', status: 'staged' }]
     });
-    mockQuery.mockResolvedValueOnce({ rows: [] });
 
     const response = await request(app)
       .post('/v1/vfs/blobs/stage/stage-1/commit')
