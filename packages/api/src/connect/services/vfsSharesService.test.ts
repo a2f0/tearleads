@@ -6,6 +6,8 @@ const {
   buildSharePolicyPreviewTreeMock,
   callRouteJsonHandlerMock,
   getPoolMock,
+  loadOrgShareAuthorizationContextMock,
+  loadShareAuthorizationContextMock,
   queryMock,
   resolveOrganizationMembershipMock
 } = vi.hoisted(() => ({
@@ -13,6 +15,8 @@ const {
   buildSharePolicyPreviewTreeMock: vi.fn(),
   callRouteJsonHandlerMock: vi.fn<(options: unknown) => Promise<string>>(),
   getPoolMock: vi.fn(),
+  loadOrgShareAuthorizationContextMock: vi.fn(),
+  loadShareAuthorizationContextMock: vi.fn(),
   queryMock: vi.fn(),
   resolveOrganizationMembershipMock: vi.fn()
 }));
@@ -35,13 +39,28 @@ vi.mock('./legacyRouteProxyAuth.js', () => ({
 }));
 
 vi.mock('../../lib/postgres.js', () => ({
-  getPool: (...args: unknown[]) => getPoolMock(...args)
+  getPool: (...args: unknown[]) => getPoolMock(...args),
+  getPostgresPool: (...args: unknown[]) => getPoolMock(...args)
 }));
 
 vi.mock('../../lib/vfsSharePolicyPreviewTree.js', () => ({
   buildSharePolicyPreviewTree: (...args: unknown[]) =>
     buildSharePolicyPreviewTreeMock(...args)
 }));
+
+vi.mock('../../routes/vfs-shares/shared.js', async () => {
+  const actual = await vi.importActual<
+    typeof import('../../routes/vfs-shares/shared.js')
+  >('../../routes/vfs-shares/shared.js');
+
+  return {
+    ...actual,
+    loadShareAuthorizationContext: (...args: unknown[]) =>
+      loadShareAuthorizationContextMock(...args),
+    loadOrgShareAuthorizationContext: (...args: unknown[]) =>
+      loadOrgShareAuthorizationContextMock(...args)
+  };
+});
 
 import { vfsSharesConnectService } from './vfsSharesService.js';
 
@@ -121,6 +140,14 @@ describe('vfsSharesConnectService', () => {
       ok: true,
       organizationId: null
     });
+    loadShareAuthorizationContextMock.mockResolvedValue({
+      ownerId: 'user-1',
+      aclId: 'share:share-1'
+    });
+    loadOrgShareAuthorizationContextMock.mockResolvedValue({
+      ownerId: 'user-1',
+      aclId: 'org-share:org-1:share-1'
+    });
   });
 
   it('routes vfs shares handlers to the expected route handlers', async () => {
@@ -140,43 +167,6 @@ describe('vfsSharesConnectService', () => {
       },
       {
         call: () =>
-          vfsSharesConnectService.createShare(
-            {
-              itemId: 'item-1',
-              json: '{"targetId":"u1"}'
-            },
-            context
-          ),
-        method: 'POST',
-        path: '/vfs/items/item-1/shares',
-        jsonBody: '{"targetId":"u1"}'
-      },
-      {
-        call: () =>
-          vfsSharesConnectService.updateShare(
-            {
-              shareId: 'share-1',
-              json: '{"permissionLevel":"view"}'
-            },
-            context
-          ),
-        method: 'PATCH',
-        path: '/vfs/shares/share-1',
-        jsonBody: '{"permissionLevel":"view"}'
-      },
-      {
-        call: () =>
-          vfsSharesConnectService.deleteShare(
-            {
-              shareId: 'share-2'
-            },
-            context
-          ),
-        method: 'DELETE',
-        path: '/vfs/shares/share-2'
-      },
-      {
-        call: () =>
           vfsSharesConnectService.createOrgShare(
             {
               itemId: 'item-2',
@@ -187,17 +177,6 @@ describe('vfsSharesConnectService', () => {
         method: 'POST',
         path: '/vfs/items/item-2/org-shares',
         jsonBody: '{"targetOrgId":"org-2"}'
-      },
-      {
-        call: () =>
-          vfsSharesConnectService.deleteOrgShare(
-            {
-              shareId: 'org-share-1'
-            },
-            context
-          ),
-        method: 'DELETE',
-        path: '/vfs/org-shares/org-share-1'
       }
     ];
 
@@ -206,6 +185,136 @@ describe('vfsSharesConnectService', () => {
       expect(response).toEqual({ json: '{"ok":true}' });
       expectLastJsonCall(context, testCase);
     }
+  });
+
+  it('creates shares directly without proxy forwarding', async () => {
+    const context = createContext();
+    const createdAt = new Date('2026-03-02T16:05:00.000Z');
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [{ id: 'item-1', owner_id: 'user-1' }]
+      })
+      .mockResolvedValueOnce({
+        rows: [{ email: 'target@example.com' }]
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            acl_id: 'share:share-1',
+            item_id: 'item-1',
+            share_type: 'user',
+            target_id: 'user-2',
+            access_level: 'read',
+            created_by: 'user-1',
+            created_at: createdAt,
+            expires_at: null
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        rows: [{ email: 'creator@example.com' }]
+      });
+
+    const response = await vfsSharesConnectService.createShare(
+      {
+        itemId: 'item-1',
+        json:
+          '{"shareType":"user","targetId":"user-2","permissionLevel":"view"}'
+      },
+      context
+    );
+
+    const payload: unknown = JSON.parse(response.json);
+    if (!isUnknownRecord(payload)) {
+      throw new Error('Expected object payload');
+    }
+    const share = payload['share'];
+    if (!isUnknownRecord(share)) {
+      throw new Error('Expected share payload');
+    }
+    expect(share['id']).toBe('share-1');
+    expect(share['targetName']).toBe('target@example.com');
+    expect(share['createdByEmail']).toBe('creator@example.com');
+    expect(callRouteJsonHandlerMock).not.toHaveBeenCalled();
+  });
+
+  it('returns invalid argument when create-share payload is malformed', async () => {
+    const context = createContext();
+
+    await expect(
+      vfsSharesConnectService.createShare(
+        {
+          itemId: 'item-1',
+          json: '{}'
+        },
+        context
+      )
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+  });
+
+  it('updates user shares directly without proxy forwarding', async () => {
+    const context = createContext();
+    const createdAt = new Date('2026-03-02T16:00:00.000Z');
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            acl_id: 'share:share-1',
+            item_id: 'item-1',
+            share_type: 'user',
+            target_id: 'user-2',
+            access_level: 'read',
+            created_by: 'creator-1',
+            created_at: createdAt,
+            expires_at: null
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        rows: [{ email: 'target@example.com' }]
+      })
+      .mockResolvedValueOnce({
+        rows: [{ email: 'creator@example.com' }]
+      });
+
+    const response = await vfsSharesConnectService.updateShare(
+      {
+        shareId: 'share-1',
+        json: '{"permissionLevel":"view"}'
+      },
+      context
+    );
+
+    const payload: unknown = JSON.parse(response.json);
+    if (!isUnknownRecord(payload)) {
+      throw new Error('Expected object payload');
+    }
+    const share = payload['share'];
+    if (!isUnknownRecord(share)) {
+      throw new Error('Expected share payload');
+    }
+    expect(share['id']).toBe('share-1');
+    expect(share['targetName']).toBe('target@example.com');
+    expect(share['createdByEmail']).toBe('creator@example.com');
+    expect(callRouteJsonHandlerMock).not.toHaveBeenCalled();
+  });
+
+  it('returns invalid argument when update payload has no fields', async () => {
+    const context = createContext();
+
+    await expect(
+      vfsSharesConnectService.updateShare(
+        {
+          shareId: 'share-1',
+          json: '{}'
+        },
+        context
+      )
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
   });
 
   it('searches share targets directly without proxy forwarding', async () => {
@@ -239,6 +348,42 @@ describe('vfsSharesConnectService', () => {
       'user-1'
     );
     expect(getPoolMock).toHaveBeenCalledWith('read');
+  });
+
+  it('deletes user shares directly without proxy forwarding', async () => {
+    const context = createContext();
+    queryMock.mockResolvedValueOnce({ rowCount: 1 });
+
+    const response = await vfsSharesConnectService.deleteShare(
+      {
+        shareId: 'share-1'
+      },
+      context
+    );
+
+    expect(response).toEqual({
+      json: JSON.stringify({ deleted: true })
+    });
+    expect(callRouteJsonHandlerMock).not.toHaveBeenCalled();
+    expect(loadShareAuthorizationContextMock).toHaveBeenCalled();
+  });
+
+  it('deletes org shares directly without proxy forwarding', async () => {
+    const context = createContext();
+    queryMock.mockResolvedValueOnce({ rowCount: 1 });
+
+    const response = await vfsSharesConnectService.deleteOrgShare(
+      {
+        shareId: 'org-share-1'
+      },
+      context
+    );
+
+    expect(response).toEqual({
+      json: JSON.stringify({ deleted: true })
+    });
+    expect(callRouteJsonHandlerMock).not.toHaveBeenCalled();
+    expect(loadOrgShareAuthorizationContextMock).toHaveBeenCalled();
   });
 
   it('returns invalid argument for empty share-target search query', async () => {
