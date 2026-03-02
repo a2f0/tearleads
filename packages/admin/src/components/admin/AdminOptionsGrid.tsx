@@ -1,7 +1,7 @@
+import type { AdminKeys } from '@admin/i18n/translations/types';
 import { cn, IconSquare } from '@tearleads/ui';
 import { Database } from 'lucide-react';
 import { useTypedTranslation } from '@/i18n';
-import type { AdminKeys } from '@/i18n/translations/types';
 
 const ADMIN_OPTIONS = [
   { id: 'redis', labelKey: 'redis' },

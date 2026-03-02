@@ -399,15 +399,6 @@ importers:
 
   packages/api-client:
     dependencies:
-      '@bufbuild/protobuf':
-        specifier: 1.10.1
-        version: 1.10.1
-      '@connectrpc/connect':
-        specifier: 1.7.0
-        version: 1.7.0(@bufbuild/protobuf@1.10.1)
-      '@connectrpc/connect-web':
-        specifier: 1.7.0
-        version: 1.7.0(@bufbuild/protobuf@1.10.1)(@connectrpc/connect@1.7.0(@bufbuild/protobuf@1.10.1))
       '@tearleads/local-write-orchestrator':
         specifier: workspace:*
         version: link:../local-write-orchestrator
@@ -3906,12 +3897,6 @@ packages:
   '@connectrpc/connect-node@1.7.0':
     resolution: {integrity: sha512-6vaPIkG/NyhxlYgytLoR9KYbPhczEboFB2OYWkA9qvUz1K7efXfeGrlRxoLtpa+r8VxyIOw73w5ktNe743nD+A==}
     engines: {node: '>=16.0.0'}
-    peerDependencies:
-      '@bufbuild/protobuf': ^1.10.0
-      '@connectrpc/connect': 1.7.0
-
-  '@connectrpc/connect-web@1.7.0':
-    resolution: {integrity: sha512-qyP0YOnUPRWwCc/VfsoydMJvkb7EyUPr2q9sHgBuJzbADjiqck1gKH5V5ZPzPhTLBvmz5UvG+wiZ5sMRQHU1MQ==}
     peerDependencies:
       '@bufbuild/protobuf': ^1.10.0
       '@connectrpc/connect': 1.7.0
@@ -13698,11 +13683,6 @@ snapshots:
       '@bufbuild/protobuf': 1.10.1
       '@connectrpc/connect': 1.7.0(@bufbuild/protobuf@1.10.1)
       undici: 5.29.0
-
-  '@connectrpc/connect-web@1.7.0(@bufbuild/protobuf@1.10.1)(@connectrpc/connect@1.7.0(@bufbuild/protobuf@1.10.1))':
-    dependencies:
-      '@bufbuild/protobuf': 1.10.1
-      '@connectrpc/connect': 1.7.0(@bufbuild/protobuf@1.10.1)
 
   '@connectrpc/connect@1.7.0(@bufbuild/protobuf@1.10.1)':
     dependencies:

@@ -93,11 +93,11 @@ const DEPENDENCY_CRUISER_RULE_BUDGET: Record<string, RuleExceptionBudget> = {
 };
 
 const KNIP_BUDGET: KnipSuppressionTotals = {
-  ignoreIssueFiles: 24,
-  ignoreIssueEntries: 25,
+  ignoreIssueFiles: 21,
+  ignoreIssueEntries: 22,
   ignoreBinaries: 3,
-  workspaceIgnoreDependencyGroups: 6,
-  workspaceIgnoreDependencyEntries: 14
+  workspaceIgnoreDependencyGroups: 4,
+  workspaceIgnoreDependencyEntries: 10
 };
 
 const KNIP_IGNORE_ISSUE_FILE_BUDGET: Record<string, number> = {
@@ -113,9 +113,6 @@ const KNIP_IGNORE_ISSUE_FILE_BUDGET: Record<string, number> = {
   'packages/bob-and-alice/src/qa/vfsSecureUploadQaSuite.ts': 1,
   'packages/client/src/components/ui/ErrorBoundary.tsx': 1,
   'packages/client/src/db/adapters/web.adapter.ts': 1,
-  'packages/client/src/i18n/translations/types.ts': 1,
-  'packages/client/src/lib/utils.ts': 1,
-  'packages/db/src/schema/definition-communications-vfs.ts': 1,
   'packages/mls-core/src/mls.ts': 1,
   'packages/mls-core/src/storage.ts': 1,
   'packages/vfs-explorer/src/hooks/useVfsAllItems.ts': 1,
@@ -129,9 +126,7 @@ const KNIP_IGNORE_ISSUE_FILE_BUDGET: Record<string, number> = {
 
 const KNIP_WORKSPACE_IGNORE_DEPENDENCY_BUDGET: Record<string, number> = {
   '.': 3,
-  'packages/api-client': 3,
   'packages/client': 5,
-  'packages/classic': 1,
   'packages/shared': 1,
   'packages/website': 1
 };
