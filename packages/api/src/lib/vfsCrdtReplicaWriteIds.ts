@@ -12,21 +12,11 @@ function parseReplicaHeadsReadFlag(rawValue: string | undefined): boolean {
   }
 
   const normalized = rawValue.trim().toLowerCase();
-  if (
-    normalized === '1' ||
-    normalized === 'true' ||
-    normalized === 'yes' ||
-    normalized === 'on'
-  ) {
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
     return true;
   }
 
-  if (
-    normalized === '0' ||
-    normalized === 'false' ||
-    normalized === 'no' ||
-    normalized === 'off'
-  ) {
+  if (['0', 'false', 'no', 'off'].includes(normalized)) {
     return false;
   }
 
