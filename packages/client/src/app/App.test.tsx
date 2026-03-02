@@ -481,5 +481,19 @@ describe('App', () => {
       promptSpy.mockRestore();
       vi.unstubAllGlobals();
     });
+
+    it('locks even when deferred lookup fails', async () => {
+      const user = userEvent.setup();
+      mockIsUnlocked = true;
+      mockIsAuthenticated = false;
+      mockCurrentInstanceId = 'instance-1';
+      mockGetInstance.mockRejectedValue(new Error('lookup failed'));
+      renderApp();
+      fireEvent.contextMenu(screen.getByTestId('start-button'));
+      await user.click(screen.getByText('Lock Instance'));
+      expect(mockGetInstance).toHaveBeenCalledWith('instance-1');
+      expect(mockSetDatabasePassword).not.toHaveBeenCalled();
+      await waitFor(() => expect(mockLock).toHaveBeenCalledWith(true));
+    });
   });
 });
