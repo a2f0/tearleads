@@ -56,7 +56,9 @@ describe('window lifecycle refresh chaos', () => {
   const runtimeActors: BrowserRuntimeActor[] = [];
 
   afterEach(async () => {
-    await teardownBrowserRuntimeActors(runtimeActors.splice(0, runtimeActors.length));
+    await teardownBrowserRuntimeActors(
+      runtimeActors.splice(0, runtimeActors.length)
+    );
     if (harness) {
       await harness.teardown();
       harness = null;
@@ -207,7 +209,10 @@ describe('window lifecycle refresh chaos', () => {
       activeShares.delete(itemId);
     }
 
-    async function verifyBobWindow(round: number, reopenPass: number): Promise<void> {
+    async function verifyBobWindow(
+      round: number,
+      reopenPass: number
+    ): Promise<void> {
       const runtime = await openRuntime(
         `bob-chaos-${String(round)}-${String(reopenPass)}`
       );
@@ -218,7 +223,10 @@ describe('window lifecycle refresh chaos', () => {
           knownUsers
         });
 
-        const rows = await queryLocalSharedWithMe(runtime.localDb, bob.user.userId);
+        const rows = await queryLocalSharedWithMe(
+          runtime.localDb,
+          bob.user.userId
+        );
         const actualItemIds = rows.map((row) => row.id).sort();
         const expectedItemIds = [...activeShares.keys()].sort();
         expect(actualItemIds).toEqual(expectedItemIds);
@@ -240,7 +248,10 @@ describe('window lifecycle refresh chaos', () => {
           knownUsers
         });
 
-        const rows = await queryLocalSharedByMe(runtime.localDb, alice.user.userId);
+        const rows = await queryLocalSharedByMe(
+          runtime.localDb,
+          alice.user.userId
+        );
         const expectedByItem = new Map(
           [...activeShares.entries()].map(([itemId, share]) => [
             itemId,
@@ -268,7 +279,9 @@ describe('window lifecycle refresh chaos', () => {
     for (let round = 0; round < 20; round += 1) {
       const operationVariant = nextInt(random, 0, 4);
       const sharedItemIds = [...activeShares.keys()];
-      const unsharedItemIds = allItemIds.filter((itemId) => !activeShares.has(itemId));
+      const unsharedItemIds = allItemIds.filter(
+        (itemId) => !activeShares.has(itemId)
+      );
 
       if (operationVariant === 0) {
         const itemId = await registerItem();

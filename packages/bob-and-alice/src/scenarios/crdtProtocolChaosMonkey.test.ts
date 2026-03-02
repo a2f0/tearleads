@@ -120,7 +120,11 @@ describe('CRDT protocol chaos monkey', () => {
       'chaos-item-5',
       'chaos-item-6'
     ] as const;
-    const parentIds = ['chaos-root', 'chaos-folder-a', 'chaos-folder-b'] as const;
+    const parentIds = [
+      'chaos-root',
+      'chaos-folder-a',
+      'chaos-folder-b'
+    ] as const;
     const principals = [
       { principalType: 'user', principalId: 'user-chaos' },
       { principalType: 'user', principalId: 'user-chaos-peer' },
@@ -251,14 +255,18 @@ describe('CRDT protocol chaos monkey', () => {
       expect(snapshot.lastReconciledWriteIds).toEqual(
         baselineSnapshot.lastReconciledWriteIds
       );
-      expect(snapshot.containerClocks).toEqual(baselineSnapshot.containerClocks);
+      expect(snapshot.containerClocks).toEqual(
+        baselineSnapshot.containerClocks
+      );
       expect(snapshot.lastReconciledWriteIds).toEqual(
         serverSnapshot.lastReconciledWriteIds
       );
 
       const replicaWriteId =
         serverSnapshot.lastReconciledWriteIds[actor.clientId] ?? 0;
-      expect(snapshot.nextLocalWriteId).toBeGreaterThanOrEqual(replicaWriteId + 1);
+      expect(snapshot.nextLocalWriteId).toBeGreaterThanOrEqual(
+        replicaWriteId + 1
+      );
     }
   });
 });
