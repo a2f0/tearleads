@@ -18,7 +18,7 @@ import {
   useVfsTrashItems,
   useVfsUnfiledItems
 } from '../../hooks';
-import type { VfsSortState } from '../../lib';
+import type { VfsItemBase, VfsSortState } from '../../lib/vfsTypes';
 
 interface UseVfsDetailsPanelDataOptions {
   folderId: string | null;
@@ -26,11 +26,23 @@ interface UseVfsDetailsPanelDataOptions {
   refreshToken?: number | undefined;
 }
 
+interface UseVfsDetailsPanelDataResult {
+  items: VfsItemBase[];
+  loading: boolean;
+  error: string | null;
+  isUnfiled: boolean;
+  isAllItems: boolean;
+  isSharedByMe: boolean;
+  isSharedWithMe: boolean;
+  isTrash: boolean;
+  isVirtualFolder: boolean;
+}
+
 export function useVfsDetailsPanelData({
   folderId,
   sort,
   refreshToken
-}: UseVfsDetailsPanelDataOptions) {
+}: UseVfsDetailsPanelDataOptions): UseVfsDetailsPanelDataResult {
   // Virtual folder detection
   const isUnfiled = folderId === UNFILED_FOLDER_ID || folderId === null;
   const isAllItems = folderId === ALL_ITEMS_FOLDER_ID;
