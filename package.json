@@ -103,6 +103,8 @@
   "pnpm": {
     "overrides": {
       "@esbuild-kit/core-utils>esbuild": ">=0.25.0",
+      "@rollup/plugin-terser>serialize-javascript": "7.0.3",
+      "electron-builder-squirrel-windows>app-builder-lib": "26.8.1",
       "pg": "8.18.0",
       "sql.js": "1.14.0"
     }
