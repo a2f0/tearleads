@@ -28,6 +28,11 @@ describe('repairVfsSharePolicyAclDrift', () => {
         compilerRunId: 'run-apply',
         actorId: 'system',
         lockKey: 'custom-lock',
+        maxExpandedMatchCount: 100,
+        maxDecisionCount: 50,
+        lockTimeoutMs: 1500,
+        statementTimeoutMs: 2500,
+        emitMetrics: false,
         compile
       }
     );
@@ -43,7 +48,12 @@ describe('repairVfsSharePolicyAclDrift', () => {
         actorId: 'system',
         dryRun: false,
         transactional: true,
-        lockKey: 'custom-lock'
+        lockKey: 'custom-lock',
+        maxExpandedMatchCount: 100,
+        maxDecisionCount: 50,
+        lockTimeoutMs: 1500,
+        statementTimeoutMs: 2500,
+        emitMetrics: false
       }
     );
   });

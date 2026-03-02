@@ -171,6 +171,8 @@ describe('share policy rollout determinism', () => {
         text === 'BEGIN' ||
         text === 'COMMIT' ||
         text === 'ROLLBACK' ||
+        text.includes('SET LOCAL lock_timeout') ||
+        text.includes('SET LOCAL statement_timeout') ||
         text.includes('SELECT pg_advisory_xact_lock')
       ) {
         return { rows: [] as T[] };

@@ -9,6 +9,26 @@ import {
 interface CliOptions {
   dryRun?: boolean;
   json?: boolean;
+  maxExpandedMatchCount?: string;
+  maxDecisionCount?: string;
+  lockTimeoutMs?: string;
+  statementTimeoutMs?: string;
+  emitMetrics?: boolean;
+}
+
+function parseNonNegativeIntegerOption(
+  rawValue: string | undefined,
+  optionName: string
+): number | undefined {
+  if (rawValue === undefined) {
+    return undefined;
+  }
+
+  const parsedValue = Number(rawValue);
+  if (!Number.isInteger(parsedValue) || parsedValue < 0) {
+    throw new Error(`${optionName} must be a non-negative integer`);
+  }
+  return parsedValue;
 }
 
 function printHumanResult(result: RepairVfsSharePolicyAclDriftResult): void {
@@ -38,15 +58,70 @@ export function vfsSharePolicyRepairCommand(program: Command): void {
     )
     .option('--dry-run', 'Compute drift repair plan without writing ACL rows')
     .option('--json', 'Print machine-readable JSON output')
+    .option(
+      '--max-expanded-match-count <count>',
+      'Guardrail upper bound for expanded policy matches'
+    )
+    .option(
+      '--max-decision-count <count>',
+      'Guardrail upper bound for compiled decisions'
+    )
+    .option(
+      '--lock-timeout-ms <ms>',
+      'Transaction-local lock timeout for compile queries'
+    )
+    .option(
+      '--statement-timeout-ms <ms>',
+      'Transaction-local statement timeout for compile queries'
+    )
+    .option('--emit-metrics', 'Force-emit structured compiler run metrics')
     .action(async (options: CliOptions) => {
       let client: PoolClient | null = null;
       try {
         const pool = await getPostgresPool();
         client = await pool.connect();
 
-        const result = await repairVfsSharePolicyAclDrift(client, {
+        const maxExpandedMatchCount = parseNonNegativeIntegerOption(
+          options.maxExpandedMatchCount,
+          'max-expanded-match-count'
+        );
+        const maxDecisionCount = parseNonNegativeIntegerOption(
+          options.maxDecisionCount,
+          'max-decision-count'
+        );
+        const lockTimeoutMs = parseNonNegativeIntegerOption(
+          options.lockTimeoutMs,
+          'lock-timeout-ms'
+        );
+        const statementTimeoutMs = parseNonNegativeIntegerOption(
+          options.statementTimeoutMs,
+          'statement-timeout-ms'
+        );
+        const repairOptions: NonNullable<
+          Parameters<typeof repairVfsSharePolicyAclDrift>[1]
+        > = {
           dryRun: options.dryRun ?? false
-        });
+        };
+        if (maxExpandedMatchCount !== undefined) {
+          repairOptions.maxExpandedMatchCount = maxExpandedMatchCount;
+        }
+        if (maxDecisionCount !== undefined) {
+          repairOptions.maxDecisionCount = maxDecisionCount;
+        }
+        if (lockTimeoutMs !== undefined) {
+          repairOptions.lockTimeoutMs = lockTimeoutMs;
+        }
+        if (statementTimeoutMs !== undefined) {
+          repairOptions.statementTimeoutMs = statementTimeoutMs;
+        }
+        if (options.emitMetrics !== undefined) {
+          repairOptions.emitMetrics = options.emitMetrics;
+        }
+
+        const result = await repairVfsSharePolicyAclDrift(
+          client,
+          repairOptions
+        );
         if (options.json) {
           console.log(JSON.stringify(result, null, 2));
         } else {

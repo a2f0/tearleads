@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   type CompileVfsSharePoliciesMetrics,
   compileVfsSharePolicies
@@ -17,6 +17,12 @@ function createSingleDecisionQuery(calls: QueryCall[]) {
   return async <T>(text: string, values?: unknown[]) => {
     calls.push({ text: normalizeSql(text), values });
     if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') {
+      return { rows: [] as T[] };
+    }
+    if (
+      text.includes('SET LOCAL lock_timeout') ||
+      text.includes('SET LOCAL statement_timeout')
+    ) {
       return { rows: [] as T[] };
     }
     if (text.includes('SELECT pg_advisory_xact_lock')) {
@@ -204,5 +210,59 @@ describe('compileVfsSharePolicies guardrails and metrics', () => {
     );
 
     expect(calls).toHaveLength(0);
+  });
+
+  it('uses environment guardrail limits when overrides are omitted', async () => {
+    const previousValue =
+      process.env['VFS_SHARE_POLICY_COMPILER_MAX_DECISION_COUNT'];
+    process.env['VFS_SHARE_POLICY_COMPILER_MAX_DECISION_COUNT'] = '0';
+    try {
+      const calls: QueryCall[] = [];
+      const query = createSingleDecisionQuery(calls);
+
+      await expect(
+        compileVfsSharePolicies(
+          { query },
+          {
+            now: new Date('2026-03-01T00:00:00.000Z'),
+            compilerRunId: 'run-env-guardrail',
+            dryRun: true
+          }
+        )
+      ).rejects.toThrow('maxDecisionCount');
+    } finally {
+      if (previousValue === undefined) {
+        delete process.env['VFS_SHARE_POLICY_COMPILER_MAX_DECISION_COUNT'];
+      } else {
+        process.env['VFS_SHARE_POLICY_COMPILER_MAX_DECISION_COUNT'] =
+          previousValue;
+      }
+    }
+  });
+
+  it('emits structured run telemetry when explicitly enabled', async () => {
+    const calls: QueryCall[] = [];
+    const query = createSingleDecisionQuery(calls);
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+
+    try {
+      await compileVfsSharePolicies(
+        { query },
+        {
+          now: new Date('2026-03-01T00:00:00.000Z'),
+          compilerRunId: 'run-telemetry',
+          dryRun: true,
+          emitMetrics: true
+        }
+      );
+
+      expect(infoSpy).toHaveBeenCalledTimes(1);
+      const payload = infoSpy.mock.calls[0]?.[0];
+      expect(payload).toContain('"event":"vfs_share_policy_compile_run"');
+      expect(payload).toContain('"compilerRunId":"run-telemetry"');
+      expect(payload).toContain('"success":true');
+    } finally {
+      infoSpy.mockRestore();
+    }
   });
 });

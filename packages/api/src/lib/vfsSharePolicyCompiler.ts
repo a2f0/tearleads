@@ -1,6 +1,11 @@
 import { compileSharePolicyCore } from './vfsSharePolicyCompilerCore.js';
 import { materializeCompiledDecisions } from './vfsSharePolicyCompilerMaterialization.js';
 import {
+  buildVfsSharePolicyCompilerRunMetric,
+  emitVfsSharePolicyCompilerRunMetric,
+  shouldEmitVfsSharePolicyCompilerMetrics
+} from './vfsSharePolicyCompilerObservability.js';
+import {
   buildCompileLockKey,
   loadSharePolicyState,
   normalizePolicyIds,
@@ -13,6 +18,8 @@ interface DerivedAclRow {
 
 const DEFAULT_MAX_EXPANDED_MATCH_COUNT = 500_000;
 const DEFAULT_MAX_DECISION_COUNT = 250_000;
+const DEFAULT_LOCK_TIMEOUT_MS = 5_000;
+const DEFAULT_STATEMENT_TIMEOUT_MS = 120_000;
 
 function createCompilerRunId(now: Date): string {
   return `policy-compile:${now.toISOString()}:${crypto.randomUUID()}`;
@@ -30,6 +37,42 @@ function normalizeGuardrailLimit(
   return Math.floor(resolved);
 }
 
+function parseNonNegativeIntegerEnv(
+  envName: string,
+  optionName: string
+): number | undefined {
+  const rawValue = process.env[envName];
+  if (rawValue === undefined || rawValue.trim().length === 0) {
+    return undefined;
+  }
+  const parsedValue = Number(rawValue);
+  if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+    throw new Error(
+      `${envName} must be a non-negative finite number for ${optionName}`
+    );
+  }
+  return Math.floor(parsedValue);
+}
+
+function resolveLimitWithEnv(input: {
+  provided: number | undefined;
+  envName: string;
+  fallback: number;
+  optionName: string;
+}): number {
+  const envValue = parseNonNegativeIntegerEnv(input.envName, input.optionName);
+  const resolvedValue = input.provided ?? envValue;
+  return normalizeGuardrailLimit(
+    resolvedValue,
+    input.fallback,
+    input.optionName
+  );
+}
+
+function isNonNegativeFiniteNumber(value: number): value is number {
+  return Number.isFinite(value) && value >= 0;
+}
+
 export interface CompileVfsSharePoliciesOptions {
   now?: Date;
   compilerRunId?: string;
@@ -40,6 +83,9 @@ export interface CompileVfsSharePoliciesOptions {
   lockKey?: string;
   maxExpandedMatchCount?: number;
   maxDecisionCount?: number;
+  lockTimeoutMs?: number;
+  statementTimeoutMs?: number;
+  emitMetrics?: boolean;
   onMetrics?: (metrics: CompileVfsSharePoliciesMetrics) => void;
 }
 
@@ -76,16 +122,6 @@ export async function compileVfsSharePolicies(
   const actorId = options.actorId ?? null;
   const dryRun = options.dryRun ?? false;
   const transactional = options.transactional ?? !dryRun;
-  const maxExpandedMatchCount = normalizeGuardrailLimit(
-    options.maxExpandedMatchCount,
-    DEFAULT_MAX_EXPANDED_MATCH_COUNT,
-    'maxExpandedMatchCount'
-  );
-  const maxDecisionCount = normalizeGuardrailLimit(
-    options.maxDecisionCount,
-    DEFAULT_MAX_DECISION_COUNT,
-    'maxDecisionCount'
-  );
   const policyIds = normalizePolicyIds(options.policyIds);
   if (policyIds && policyIds.length === 0) {
     return {
@@ -100,20 +136,75 @@ export async function compileVfsSharePolicies(
       staleRevocationCount: 0
     };
   }
+  const maxExpandedMatchCount = resolveLimitWithEnv({
+    provided: options.maxExpandedMatchCount,
+    envName: 'VFS_SHARE_POLICY_COMPILER_MAX_EXPANDED_MATCH_COUNT',
+    fallback: DEFAULT_MAX_EXPANDED_MATCH_COUNT,
+    optionName: 'maxExpandedMatchCount'
+  });
+  const maxDecisionCount = resolveLimitWithEnv({
+    provided: options.maxDecisionCount,
+    envName: 'VFS_SHARE_POLICY_COMPILER_MAX_DECISION_COUNT',
+    fallback: DEFAULT_MAX_DECISION_COUNT,
+    optionName: 'maxDecisionCount'
+  });
+  const lockTimeoutMs = resolveLimitWithEnv({
+    provided: options.lockTimeoutMs,
+    envName: 'VFS_SHARE_POLICY_COMPILER_LOCK_TIMEOUT_MS',
+    fallback: DEFAULT_LOCK_TIMEOUT_MS,
+    optionName: 'lockTimeoutMs'
+  });
+  const statementTimeoutMs = resolveLimitWithEnv({
+    provided: options.statementTimeoutMs,
+    envName: 'VFS_SHARE_POLICY_COMPILER_STATEMENT_TIMEOUT_MS',
+    fallback: DEFAULT_STATEMENT_TIMEOUT_MS,
+    optionName: 'statementTimeoutMs'
+  });
+  const emitMetrics = shouldEmitVfsSharePolicyCompilerMetrics(
+    options.emitMetrics
+  );
   const lockKey = buildCompileLockKey(policyIds, options.lockKey);
+
+  let loadStateMs = 0;
+  let compileCoreMs = 0;
+  let materializeMs = 0;
+  let staleRevocationMs = 0;
+  let policyCount = 0;
+  let activePolicyCount = 0;
+  let selectorCount = 0;
+  let principalCount = 0;
+  let expandedMatchCount = 0;
+  let decisionsCount = 0;
+  let touchedAclEntryCount = 0;
+  let staleRevocationCount = 0;
+
   let inTransaction = false;
   try {
     const loadStateStartedAtMs = Date.now();
     if (transactional) {
       await client.query('BEGIN');
       inTransaction = true;
+      if (!isNonNegativeFiniteNumber(lockTimeoutMs)) {
+        throw new Error('lockTimeoutMs must be a non-negative finite number');
+      }
+      if (!isNonNegativeFiniteNumber(statementTimeoutMs)) {
+        throw new Error(
+          'statementTimeoutMs must be a non-negative finite number'
+        );
+      }
+      await client.query(
+        `SET LOCAL lock_timeout = '${String(lockTimeoutMs)}ms'`
+      );
+      await client.query(
+        `SET LOCAL statement_timeout = '${String(statementTimeoutMs)}ms'`
+      );
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1::text))', [
         lockKey
       ]);
     }
 
     const state = await loadSharePolicyState(client, policyIds);
-    const loadStateMs = Date.now() - loadStateStartedAtMs;
+    loadStateMs = Date.now() - loadStateStartedAtMs;
 
     const compileCoreStartedAtMs = Date.now();
     const compiled = compileSharePolicyCore({
@@ -124,7 +215,13 @@ export async function compileVfsSharePolicies(
       links: state.links,
       now
     });
-    const compileCoreMs = Date.now() - compileCoreStartedAtMs;
+    compileCoreMs = Date.now() - compileCoreStartedAtMs;
+    policyCount = compiled.policyCount;
+    activePolicyCount = compiled.activePolicyCount;
+    selectorCount = compiled.selectorCount;
+    principalCount = compiled.principalCount;
+    expandedMatchCount = compiled.expandedMatchCount;
+    decisionsCount = compiled.decisions.length;
 
     if (compiled.expandedMatchCount > maxExpandedMatchCount) {
       throw new Error(
@@ -138,8 +235,6 @@ export async function compileVfsSharePolicies(
     }
 
     let result: CompileVfsSharePoliciesResult;
-    let materializeMs = 0;
-    let staleRevocationMs = 0;
     if (dryRun) {
       result = {
         compilerRunId,
@@ -162,6 +257,7 @@ export async function compileVfsSharePolicies(
         compilerRunId
       );
       materializeMs = Date.now() - materializeStartedAtMs;
+      touchedAclEntryCount = touchedAclEntryIds.size;
 
       const staleRevocationStartedAtMs = Date.now();
       const existingDerived = policyIds
@@ -217,7 +313,7 @@ export async function compileVfsSharePolicies(
           [now, compilerRunId, staleAclEntryIds]
         );
       }
-      const staleRevocationCount = staleAclEntryIds.length;
+      staleRevocationCount = staleAclEntryIds.length;
       staleRevocationMs = Date.now() - staleRevocationStartedAtMs;
 
       result = {
@@ -228,7 +324,7 @@ export async function compileVfsSharePolicies(
         principalCount: compiled.principalCount,
         expandedMatchCount: compiled.expandedMatchCount,
         decisionsCount: compiled.decisions.length,
-        touchedAclEntryCount: touchedAclEntryIds.size,
+        touchedAclEntryCount,
         staleRevocationCount
       };
     }
@@ -239,7 +335,7 @@ export async function compileVfsSharePolicies(
     }
 
     const totalMs = Date.now() - startedAtMs;
-    options.onMetrics?.({
+    const metrics: CompileVfsSharePoliciesMetrics = {
       ...result,
       dryRun,
       transactional,
@@ -248,7 +344,40 @@ export async function compileVfsSharePolicies(
       materializeMs,
       staleRevocationMs,
       totalMs
-    });
+    };
+    options.onMetrics?.(metrics);
+    if (emitMetrics) {
+      emitVfsSharePolicyCompilerRunMetric(
+        buildVfsSharePolicyCompilerRunMetric({
+          compilerRunId,
+          success: true,
+          dryRun,
+          transactional,
+          policyFilterCount: policyIds?.length ?? 0,
+          maxExpandedMatchCount,
+          maxDecisionCount,
+          lockTimeoutMs,
+          statementTimeoutMs,
+          counts: {
+            policyCount: metrics.policyCount,
+            activePolicyCount: metrics.activePolicyCount,
+            selectorCount: metrics.selectorCount,
+            principalCount: metrics.principalCount,
+            expandedMatchCount: metrics.expandedMatchCount,
+            decisionsCount: metrics.decisionsCount,
+            touchedAclEntryCount: metrics.touchedAclEntryCount,
+            staleRevocationCount: metrics.staleRevocationCount
+          },
+          durations: {
+            loadStateMs: metrics.loadStateMs,
+            compileCoreMs: metrics.compileCoreMs,
+            materializeMs: metrics.materializeMs,
+            staleRevocationMs: metrics.staleRevocationMs,
+            totalMs: metrics.totalMs
+          }
+        })
+      );
+    }
     return result;
   } catch (error) {
     if (inTransaction) {
@@ -257,6 +386,39 @@ export async function compileVfsSharePolicies(
       } catch {
         // no-op: preserve original compiler failure
       }
+    }
+    if (emitMetrics) {
+      emitVfsSharePolicyCompilerRunMetric(
+        buildVfsSharePolicyCompilerRunMetric({
+          compilerRunId,
+          success: false,
+          dryRun,
+          transactional,
+          policyFilterCount: policyIds?.length ?? 0,
+          maxExpandedMatchCount,
+          maxDecisionCount,
+          lockTimeoutMs,
+          statementTimeoutMs,
+          counts: {
+            policyCount,
+            activePolicyCount,
+            selectorCount,
+            principalCount,
+            expandedMatchCount,
+            decisionsCount,
+            touchedAclEntryCount,
+            staleRevocationCount
+          },
+          durations: {
+            loadStateMs,
+            compileCoreMs,
+            materializeMs,
+            staleRevocationMs,
+            totalMs: Date.now() - startedAtMs
+          },
+          error
+        })
+      );
     }
     throw error;
   }

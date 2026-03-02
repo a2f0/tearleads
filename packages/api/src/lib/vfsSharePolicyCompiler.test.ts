@@ -39,6 +39,12 @@ describe('compileVfsSharePolicies', () => {
       if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') {
         return { rows: [] as T[] };
       }
+      if (
+        text.includes('SET LOCAL lock_timeout') ||
+        text.includes('SET LOCAL statement_timeout')
+      ) {
+        return { rows: [] as T[] };
+      }
       if (text.includes('SELECT pg_advisory_xact_lock')) {
         return { rows: [] as T[] };
       }
@@ -146,9 +152,21 @@ describe('compileVfsSharePolicies', () => {
     const lockQuery = calls.find((call) =>
       call.text.includes('SELECT pg_advisory_xact_lock')
     );
+    const lockTimeoutQuery = calls.find((call) =>
+      call.text.includes('SET LOCAL lock_timeout')
+    );
+    const statementTimeoutQuery = calls.find((call) =>
+      call.text.includes('SET LOCAL statement_timeout')
+    );
     expect(lockQuery?.values).toEqual([
       'vfs_share_policy_compile:policy-a,policy-b'
     ]);
+    expect(lockTimeoutQuery?.text).toContain(
+      "SET LOCAL lock_timeout = '5000ms'"
+    );
+    expect(statementTimeoutQuery?.text).toContain(
+      "SET LOCAL statement_timeout = '120000ms'"
+    );
     expect(calls.filter((call) => call.text === 'BEGIN')).toHaveLength(1);
     expect(calls.filter((call) => call.text === 'COMMIT')).toHaveLength(1);
   });
@@ -242,6 +260,12 @@ describe('compileVfsSharePolicies', () => {
       if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') {
         return { rows: [] as T[] };
       }
+      if (
+        text.includes('SET LOCAL lock_timeout') ||
+        text.includes('SET LOCAL statement_timeout')
+      ) {
+        return { rows: [] as T[] };
+      }
       if (text.includes('SELECT pg_advisory_xact_lock')) {
         return { rows: [] as T[] };
       }
@@ -324,5 +348,103 @@ describe('compileVfsSharePolicies', () => {
     expect(calls.filter((call) => call.text === 'BEGIN')).toHaveLength(1);
     expect(calls.filter((call) => call.text === 'ROLLBACK')).toHaveLength(1);
     expect(calls.filter((call) => call.text === 'COMMIT')).toHaveLength(0);
+  });
+
+  it('prefers explicit timeout options over environment defaults', async () => {
+    const previousLockTimeout =
+      process.env['VFS_SHARE_POLICY_COMPILER_LOCK_TIMEOUT_MS'];
+    const previousStatementTimeout =
+      process.env['VFS_SHARE_POLICY_COMPILER_STATEMENT_TIMEOUT_MS'];
+    process.env['VFS_SHARE_POLICY_COMPILER_LOCK_TIMEOUT_MS'] = '9000';
+    process.env['VFS_SHARE_POLICY_COMPILER_STATEMENT_TIMEOUT_MS'] = '45000';
+
+    try {
+      const calls: QueryCall[] = [];
+      const query = async <T>(text: string, values?: unknown[]) => {
+        calls.push({ text: normalizeSql(text), values });
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') {
+          return { rows: [] as T[] };
+        }
+        if (
+          text.includes('SET LOCAL lock_timeout') ||
+          text.includes('SET LOCAL statement_timeout')
+        ) {
+          return { rows: [] as T[] };
+        }
+        if (text.includes('SELECT pg_advisory_xact_lock')) {
+          return { rows: [] as T[] };
+        }
+        if (text.includes('FROM vfs_share_policies')) {
+          return {
+            rows: [
+              {
+                id: 'policy-a',
+                root_item_id: 'root-1',
+                status: 'active',
+                revoked_at: null,
+                expires_at: null
+              }
+            ] as T[]
+          };
+        }
+        if (text.includes('FROM vfs_share_policy_selectors')) {
+          return { rows: [] as T[] };
+        }
+        if (text.includes('FROM vfs_share_policy_principals')) {
+          return { rows: [] as T[] };
+        }
+        if (text.includes('FROM vfs_registry')) {
+          return {
+            rows: [{ id: 'root-1', object_type: 'contact' }] as T[]
+          };
+        }
+        if (text.includes('FROM vfs_links')) {
+          return { rows: [] as T[] };
+        }
+        if (
+          text.includes('SELECT DISTINCT acl_entry_id') &&
+          text.includes('FROM vfs_acl_entry_provenance')
+        ) {
+          return { rows: [] as T[] };
+        }
+        throw new Error(`Unexpected query in timeout override test: ${text}`);
+      };
+
+      await compileVfsSharePolicies(
+        { query },
+        {
+          now: new Date('2026-02-28T17:00:00.000Z'),
+          compilerRunId: 'run-timeout-override',
+          lockTimeoutMs: 1234,
+          statementTimeoutMs: 5678
+        }
+      );
+
+      const lockTimeoutQuery = calls.find((call) =>
+        call.text.includes('SET LOCAL lock_timeout')
+      );
+      const statementTimeoutQuery = calls.find((call) =>
+        call.text.includes('SET LOCAL statement_timeout')
+      );
+      expect(lockTimeoutQuery?.text).toContain(
+        "SET LOCAL lock_timeout = '1234ms'"
+      );
+      expect(statementTimeoutQuery?.text).toContain(
+        "SET LOCAL statement_timeout = '5678ms'"
+      );
+    } finally {
+      if (previousLockTimeout === undefined) {
+        delete process.env['VFS_SHARE_POLICY_COMPILER_LOCK_TIMEOUT_MS'];
+      } else {
+        process.env['VFS_SHARE_POLICY_COMPILER_LOCK_TIMEOUT_MS'] =
+          previousLockTimeout;
+      }
+      if (previousStatementTimeout === undefined) {
+        delete process.env['VFS_SHARE_POLICY_COMPILER_STATEMENT_TIMEOUT_MS'];
+      } else {
+        process.env['VFS_SHARE_POLICY_COMPILER_STATEMENT_TIMEOUT_MS'] =
+          previousStatementTimeout;
+      }
+    }
   });
 });
