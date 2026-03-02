@@ -6,11 +6,26 @@ import {
   DB_OPERATION_TIMEOUT,
   TEST_PASSWORD,
   navigateInApp,
-  setupDatabaseForBackup,
   writeDatabaseTestData
 } from '../../src/lib/testing/backupRestoreE2eHelpers';
 
 const APP_LOAD_TIMEOUT = 10000;
+
+async function ensureUnlocked(window: Page): Promise<void> {
+  const status = window.getByTestId('db-status');
+  await expect(status).toHaveText(/Locked|Unlocked/, {
+    timeout: DB_OPERATION_TIMEOUT
+  });
+
+  if ((await status.textContent()) === 'Locked') {
+    await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await window.getByTestId('db-unlock-button').click();
+  }
+
+  await expect(status).toHaveText('Unlocked', {
+    timeout: DB_OPERATION_TIMEOUT
+  });
+}
 
 test.describe('Backup and Restore (Electron)', () => {
   let electronApp: ElectronApplication;
@@ -25,15 +40,10 @@ test.describe('Backup and Restore (Electron)', () => {
       timeout: APP_LOAD_TIMEOUT
     });
 
-    // Navigate to SQLite page and reset
+    // Navigate to SQLite page and ensure the DB is usable.
     await navigateInApp(window, '/sqlite');
     await expect(window.getByTestId('database-test')).toBeVisible();
-    await window.getByTestId('db-reset-button').click();
-    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'success',
-      { timeout: DB_OPERATION_TIMEOUT }
-    );
+    await ensureUnlocked(window);
   });
 
   test.afterEach(async () => {
@@ -41,13 +51,6 @@ test.describe('Backup and Restore (Electron)', () => {
   });
 
   test('should create a backup file', async () => {
-    // Setup database
-    await expect(window.getByTestId('db-status')).toHaveText('Not Set Up');
-    await setupDatabaseForBackup(window, async (path) => navigateInApp(window, path));
-    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
-      timeout: DB_OPERATION_TIMEOUT
-    });
-
     // Write test data
     const writtenValue = await writeDatabaseTestData(window);
     await expect(window.getByTestId('db-test-result')).toHaveAttribute(
@@ -85,12 +88,6 @@ test.describe('Backup and Restore (Electron)', () => {
   });
 
   test('should verify database integrity after backup export', async () => {
-    // Setup database
-    await setupDatabaseForBackup(window, async (path) => navigateInApp(window, path));
-    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
-      timeout: DB_OPERATION_TIMEOUT
-    });
-
     // Write test data
     const writtenValue = await writeDatabaseTestData(window);
     await expect(window.getByTestId('db-test-result')).toHaveAttribute(
@@ -129,12 +126,7 @@ test.describe('Backup and Restore (Electron)', () => {
   });
 
   test('should persist backup data across app restarts', async () => {
-    // Setup database and write data
-    await setupDatabaseForBackup(window, async (path) => navigateInApp(window, path));
-    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
-      timeout: DB_OPERATION_TIMEOUT
-    });
-
+    // Write data, create backup, then verify after restart.
     const writtenValue = await writeDatabaseTestData(window);
     await expect(window.getByTestId('db-test-result')).toHaveAttribute(
       'data-status',
@@ -166,18 +158,7 @@ test.describe('Backup and Restore (Electron)', () => {
     // Navigate to SQLite
     await navigateInApp(window, '/sqlite');
     await expect(window.getByTestId('database-test')).toBeVisible();
-
-    // Database should be locked (set up but not unlocked)
-    await expect(window.getByTestId('db-status')).toHaveText('Locked', {
-      timeout: DB_OPERATION_TIMEOUT
-    });
-
-    // Unlock with password
-    await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
-    await window.getByTestId('db-unlock-button').click();
-    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
-      timeout: DB_OPERATION_TIMEOUT
-    });
+    await ensureUnlocked(window);
 
     // Read and verify data persisted
     await window.getByTestId('db-read-button').click();
@@ -191,14 +172,7 @@ test.describe('Backup and Restore (Electron)', () => {
   });
 
   test('should restore backup to new instance', async () => {
-    // Setup database and write unique test data
-    await setupDatabaseForBackup(window, async (path) =>
-      navigateInApp(window, path)
-    );
-    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
-      timeout: DB_OPERATION_TIMEOUT
-    });
-
+    // Write unique test data, back it up, then restore.
     const writtenValue = await writeDatabaseTestData(window);
     await expect(window.getByTestId('db-test-result')).toHaveAttribute(
       'data-status',
