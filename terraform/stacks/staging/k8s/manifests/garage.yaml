@@ -366,7 +366,7 @@ spec:
 
               echo "Creating desktop-downloads bucket..."
               DD_BUCKET_RESP="$(retry_api_post "CreateBucket (desktop-downloads)" "/v2/CreateBucket" '{"globalAlias":"desktop-downloads"}')"
-              DD_BUCKET_ID="$(printf '%s' "$DD_BUCKET_RESP" | tr -d '[:space:]' | awk -F'"' '/"id":/ {print $4; exit}')"
+              DD_BUCKET_ID="$(printf '%s' "$DD_BUCKET_RESP" | tr -d '[:space:]' | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')"
 
               if [ -z "$DD_BUCKET_ID" ]; then
                 echo "ERROR: Could not parse bucket ID from CreateBucket response (desktop-downloads)."
