@@ -8,7 +8,12 @@ const DEPCRUISE_ARGS_BASE = [
   '--config',
   '.dependency-cruiser.json'
 ];
-const DEPCRUISE_JSON_ARGS = [...DEPCRUISE_ARGS_BASE, '--output-type', 'json', 'packages'];
+const DEPCRUISE_JSON_ARGS = [
+  ...DEPCRUISE_ARGS_BASE,
+  '--output-type',
+  'json',
+  'packages'
+];
 const MODE = process.argv.find((arg) => arg.startsWith('--')) ?? '';
 
 interface SpawnResult {
@@ -41,11 +46,20 @@ function runSummary(summaryArgs: string[]): number {
     return depCruise.status;
   }
 
-  const summary = spawnSync('pnpm', ['exec', 'tsx', 'scripts/checks/dependencyCruiserSummary.ts', ...summaryArgs], {
-    encoding: 'utf8',
-    input: depCruise.stdout,
-    stdio: ['pipe', 'pipe', 'inherit']
-  });
+  const summary = spawnSync(
+    'pnpm',
+    [
+      'exec',
+      'tsx',
+      'scripts/checks/dependencyCruiserSummary.ts',
+      ...summaryArgs
+    ],
+    {
+      encoding: 'utf8',
+      input: depCruise.stdout,
+      stdio: ['pipe', 'pipe', 'inherit']
+    }
+  );
 
   if ((summary.stdout ?? '').length > 0) {
     process.stdout.write(summary.stdout ?? '');
@@ -55,11 +69,25 @@ function runSummary(summaryArgs: string[]): number {
 
 function main(): void {
   if (MODE === '--json') {
-    process.exit(runPnpmWithInheritedStdio([...DEPCRUISE_ARGS_BASE, '--output-type', 'json', 'packages']));
+    process.exit(
+      runPnpmWithInheritedStdio([
+        ...DEPCRUISE_ARGS_BASE,
+        '--output-type',
+        'json',
+        'packages'
+      ])
+    );
   }
 
   if (MODE === '--dot') {
-    process.exit(runPnpmWithInheritedStdio([...DEPCRUISE_ARGS_BASE, '--output-type', 'dot', 'packages']));
+    process.exit(
+      runPnpmWithInheritedStdio([
+        ...DEPCRUISE_ARGS_BASE,
+        '--output-type',
+        'dot',
+        'packages'
+      ])
+    );
   }
 
   if (MODE === '--summary') {
