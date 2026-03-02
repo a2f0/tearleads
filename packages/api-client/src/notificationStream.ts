@@ -1,10 +1,7 @@
 import { type CallOptions, createClient } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-web';
 import { NotificationService } from '@tearleads/shared/gen/tearleads/v1/notifications_pb';
-import {
-  normalizeBearerToken,
-  toConnectBaseUrl
-} from './connectUtils';
+import { normalizeBearerToken, toConnectBaseUrl } from './connectUtils';
 
 type NotificationStreamCallOptions = Pick<CallOptions, 'headers' | 'signal'>;
 

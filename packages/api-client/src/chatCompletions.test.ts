@@ -19,11 +19,11 @@ describe('openChatCompletions', () => {
         json: '{"choices":[{"message":{"content":"Remote reply"}}]}'
       })
     );
-    const createClient = vi.fn<(connectBaseUrl: string) => MockCompletionsClient>(
-      (_connectBaseUrl) => ({
-        postCompletions
-      })
-    );
+    const createClient = vi.fn<
+      (connectBaseUrl: string) => MockCompletionsClient
+    >((_connectBaseUrl) => ({
+      postCompletions
+    }));
     const abortController = new AbortController();
 
     const payload = await openChatCompletions({
@@ -65,11 +65,11 @@ describe('openChatCompletions', () => {
         json: '{"ok":true}'
       })
     );
-    const createClient = vi.fn<(connectBaseUrl: string) => MockCompletionsClient>(
-      () => ({
-        postCompletions
-      })
-    );
+    const createClient = vi.fn<
+      (connectBaseUrl: string) => MockCompletionsClient
+    >(() => ({
+      postCompletions
+    }));
 
     await openChatCompletions({
       apiBaseUrl: 'http://localhost:5001/v1/connect',
@@ -88,11 +88,11 @@ describe('openChatCompletions', () => {
         json: '{"ok":true}'
       })
     );
-    const createClient = vi.fn<(connectBaseUrl: string) => MockCompletionsClient>(
-      () => ({
-        postCompletions
-      })
-    );
+    const createClient = vi.fn<
+      (connectBaseUrl: string) => MockCompletionsClient
+    >(() => ({
+      postCompletions
+    }));
 
     await openChatCompletions({
       apiBaseUrl: 'http://localhost:5001/v1',
@@ -100,10 +100,7 @@ describe('openChatCompletions', () => {
       createClient
     });
 
-    expect(postCompletions).toHaveBeenCalledWith(
-      { json: '{}' },
-      {}
-    );
+    expect(postCompletions).toHaveBeenCalledWith({ json: '{}' }, {});
   });
 
   it('returns an empty object for blank response payloads', async () => {
@@ -112,11 +109,11 @@ describe('openChatCompletions', () => {
         json: '   '
       })
     );
-    const createClient = vi.fn<(connectBaseUrl: string) => MockCompletionsClient>(
-      () => ({
-        postCompletions
-      })
-    );
+    const createClient = vi.fn<
+      (connectBaseUrl: string) => MockCompletionsClient
+    >(() => ({
+      postCompletions
+    }));
 
     const payload = await openChatCompletions({
       apiBaseUrl: 'http://localhost:5001/v1',
@@ -133,11 +130,11 @@ describe('openChatCompletions', () => {
         json: 'not-json'
       })
     );
-    const createClient = vi.fn<(connectBaseUrl: string) => MockCompletionsClient>(
-      () => ({
-        postCompletions
-      })
-    );
+    const createClient = vi.fn<
+      (connectBaseUrl: string) => MockCompletionsClient
+    >(() => ({
+      postCompletions
+    }));
 
     await expect(
       openChatCompletions({
