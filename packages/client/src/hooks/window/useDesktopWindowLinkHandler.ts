@@ -1,7 +1,7 @@
 import { type MouseEvent, useCallback, useEffect, useState } from 'react';
 import {
-  type WindowType,
-  useWindowManagerActions
+  useWindowManagerActions,
+  type WindowType
 } from '@/contexts/WindowManagerContext';
 import { useIsMobile } from '@/hooks/device';
 

@@ -21,7 +21,9 @@ export function parseConnectJsonString<T>(json: unknown): T {
   return parseJsonObject(trimmed);
 }
 
-export function isPlainRecord(value: unknown): value is Record<string, unknown> {
+export function isPlainRecord(
+  value: unknown
+): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
