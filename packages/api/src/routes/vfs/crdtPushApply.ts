@@ -449,11 +449,7 @@ export async function applyCrdtPushOperations(input: {
       const insertedOccurredAt =
         insertedRow?.occurred_at ?? canonicalOccurredAt;
       maxOccurredAt = pickNewerOccurredAt(maxOccurredAt, insertedOccurredAt);
-      const nextWriteHead = Math.max(
-        replicaWriteHeads.get(operation.replicaId) ?? 0,
-        operation.writeId
-      );
-      replicaWriteHeads.set(operation.replicaId, nextWriteHead);
+      replicaWriteHeads.set(operation.replicaId, operation.writeId);
       await upsertReplicaHead(
         runQuery,
         input.userId,
