@@ -61,7 +61,10 @@ describe('DeferredLockPasswordDialog', () => {
     const user = userEvent.setup();
     const { onSubmit } = renderDialog();
 
-    await user.type(screen.getByTestId('deferred-lock-password-input'), ' pass ');
+    await user.type(
+      screen.getByTestId('deferred-lock-password-input'),
+      ' pass '
+    );
     await user.click(screen.getByTestId('deferred-lock-password-submit'));
 
     expect(onSubmit).toHaveBeenCalledWith('pass');
