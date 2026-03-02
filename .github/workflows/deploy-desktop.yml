@@ -213,3 +213,67 @@ jobs:
             # List version directories (exclude latest symlink), sort by version, keep newest 5
             ls -d 0.* 2>/dev/null | sort -V | head -n -5 | xargs -r rm -rf
           '
+
+  publish-staging-downloads:
+    name: Publish Staging Desktop Downloads
+    runs-on: ubuntu-latest
+    needs: deploy
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Resolve CI version
+        id: ci_version
+        run: |
+          ./scripts/applyCiVersionFromSha.sh \
+            --source-sha "${{ github.sha }}" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Resolve app version
+        run: |
+          APP_VERSION="${{ steps.ci_version.outputs.client_version }}"
+          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+
+      - name: Download desktop artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: desktop-*
+          path: downloads
+
+      - name: Install AWS CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y awscli
+
+      - name: Upload to staging S3 (Garage)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DESKTOP_DOWNLOADS_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DESKTOP_DOWNLOADS_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          S3_ENDPOINT: https://pkgs.${{ secrets.DEPLOY_DOMAIN_STAGING }}
+        run: |
+          aws --endpoint-url "$S3_ENDPOINT" s3 sync \
+            downloads/ "s3://desktop-downloads/desktop/${APP_VERSION}/"
+          aws --endpoint-url "$S3_ENDPOINT" s3 sync \
+            downloads/ "s3://desktop-downloads/desktop/latest/"
+
+      - name: Cleanup old staging versions (keep last 5)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DESKTOP_DOWNLOADS_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DESKTOP_DOWNLOADS_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          S3_ENDPOINT: https://pkgs.${{ secrets.DEPLOY_DOMAIN_STAGING }}
+        run: |
+          VERSIONS=$(aws --endpoint-url "$S3_ENDPOINT" s3 ls s3://desktop-downloads/desktop/ \
+            | awk '{print $NF}' | sed 's|/$||' | grep -v '^latest$' | sort -V)
+          COUNT=$(echo "$VERSIONS" | wc -l)
+          if [ "$COUNT" -gt 5 ]; then
+            TO_DELETE=$(echo "$VERSIONS" | head -n $((COUNT - 5)))
+            for v in $TO_DELETE; do
+              echo "Removing old staging version: $v"
+              aws --endpoint-url "$S3_ENDPOINT" s3 rm --recursive "s3://desktop-downloads/desktop/$v/"
+            done
+          fi

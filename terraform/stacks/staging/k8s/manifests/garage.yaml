@@ -230,6 +230,18 @@ spec:
                 secretKeyRef:
                   name: tearleads-secrets
                   key: VFS_BLOB_S3_SECRET_ACCESS_KEY
+            - name: DESKTOP_DOWNLOADS_S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: DESKTOP_DOWNLOADS_S3_ACCESS_KEY_ID
+            - name: DESKTOP_DOWNLOADS_S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: DESKTOP_DOWNLOADS_S3_SECRET_ACCESS_KEY
+            - name: STAGING_DOMAIN
+              value: "DOMAIN_PLACEHOLDER"
           command:
             - sh
             - -c
@@ -346,6 +358,37 @@ spec:
               echo "Granting bucket permissions..."
               retry_api_post "AllowBucketKey" "/v2/AllowBucketKey" \
                 "{\"bucketId\":\"$BUCKET_ID\",\"accessKeyId\":\"$VFS_BLOB_S3_ACCESS_KEY_ID\",\"permissions\":{\"read\":true,\"write\":true,\"owner\":true}}" >/dev/null
+
+              # --- desktop-downloads bucket ---
+              echo "Importing desktop-downloads access key..."
+              retry_api_post "ImportKey (desktop-downloads)" "/v2/ImportKey" \
+                "{\"accessKeyId\":\"$DESKTOP_DOWNLOADS_S3_ACCESS_KEY_ID\",\"secretAccessKey\":\"$DESKTOP_DOWNLOADS_S3_SECRET_ACCESS_KEY\",\"name\":\"desktop-downloads-key\"}" >/dev/null
+
+              echo "Creating desktop-downloads bucket..."
+              DD_BUCKET_RESP="$(retry_api_post "CreateBucket (desktop-downloads)" "/v2/CreateBucket" '{"globalAlias":"desktop-downloads"}')"
+              DD_BUCKET_ID="$(printf '%s' "$DD_BUCKET_RESP" | tr -d '[:space:]' | awk -F'"' '/"id":/ {print $4; exit}')"
+
+              if [ -z "$DD_BUCKET_ID" ]; then
+                echo "ERROR: Could not parse bucket ID from CreateBucket response (desktop-downloads)."
+                echo "$DD_BUCKET_RESP"
+                exit 1
+              fi
+
+              echo "Desktop-downloads bucket ID: $DD_BUCKET_ID"
+
+              echo "Granting desktop-downloads bucket permissions..."
+              retry_api_post "AllowBucketKey (desktop-downloads)" "/v2/AllowBucketKey" \
+                "{\"bucketId\":\"$DD_BUCKET_ID\",\"accessKeyId\":\"$DESKTOP_DOWNLOADS_S3_ACCESS_KEY_ID\",\"permissions\":{\"read\":true,\"write\":true,\"owner\":true}}" >/dev/null
+
+              echo "Adding domain alias for desktop-downloads..."
+              retry_api_post "PutBucketGlobalAlias (desktop-downloads)" "/v2/PutBucketGlobalAlias?id=$DD_BUCKET_ID&alias=desktop-downloads" '{}' >/dev/null
+
+              echo "Adding website domain alias download.$STAGING_DOMAIN..."
+              retry_api_post "PutBucketLocalAlias (desktop-downloads)" "/v2/PutBucketLocalAlias?id=$DD_BUCKET_ID&accessKeyId=$DESKTOP_DOWNLOADS_S3_ACCESS_KEY_ID&alias=download.$STAGING_DOMAIN" '{}' >/dev/null
+
+              echo "Enabling website access for desktop-downloads..."
+              retry_api_post "UpdateBucket (desktop-downloads)" "/v2/UpdateBucket" \
+                "{\"id\":\"$DD_BUCKET_ID\",\"websiteAccess\":{\"enabled\":true,\"indexDocument\":\"index.html\",\"errorDocument\":\"error.html\"}}" >/dev/null
 
               echo "Garage setup complete"
       volumes:

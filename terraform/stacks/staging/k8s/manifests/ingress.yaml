@@ -13,6 +13,7 @@ spec:
         - DOMAIN_PLACEHOLDER
         - app.DOMAIN_PLACEHOLDER
         - api.DOMAIN_PLACEHOLDER
+        - download.DOMAIN_PLACEHOLDER
       secretName: tearleads-tls
   rules:
     # Website at root domain: example.com
@@ -48,3 +49,40 @@ spec:
                 name: api
                 port:
                   number: 5001
+    # Desktop downloads (Garage web endpoint): download.example.com
+    - host: download.DOMAIN_PLACEHOLDER
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: garage
+                port:
+                  number: 3902
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: garage-s3-ingress
+  namespace: tearleads
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "500m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - pkgs.DOMAIN_PLACEHOLDER
+      secretName: garage-s3-tls
+  rules:
+    - host: pkgs.DOMAIN_PLACEHOLDER
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: garage
+                port:
+                  number: 3900
