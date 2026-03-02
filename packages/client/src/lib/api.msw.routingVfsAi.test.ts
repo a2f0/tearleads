@@ -43,6 +43,12 @@ const expectSingleRequestQuery = (
   expect(getRequestQuery(request)).toEqual(expectedQuery);
 };
 
+const AI_CONNECT_RECORD_USAGE_PATH =
+  '/connect/tearleads.v1.AiService/RecordUsage';
+const AI_CONNECT_USAGE_PATH = '/connect/tearleads.v1.AiService/GetUsage';
+const AI_CONNECT_USAGE_SUMMARY_PATH =
+  '/connect/tearleads.v1.AiService/GetUsageSummary';
+
 let seededUser: SeededUser;
 
 describe('api with msw', () => {
@@ -213,9 +219,11 @@ describe('api with msw', () => {
     expect(wasApiRequestMade('GET', '/vfs/share-targets/search')).toBe(true);
     expect(wasApiRequestMade('GET', '/vfs/share-policies/preview')).toBe(true);
 
-    expect(wasApiRequestMade('POST', '/ai/usage')).toBe(true);
-    expect(wasApiRequestMade('GET', '/ai/usage')).toBe(true);
-    expect(wasApiRequestMade('GET', '/ai/usage/summary')).toBe(true);
+    expect(wasApiRequestMade('POST', AI_CONNECT_RECORD_USAGE_PATH)).toBe(true);
+    expect(wasApiRequestMade('POST', AI_CONNECT_USAGE_PATH)).toBe(true);
+    expect(wasApiRequestMade('POST', AI_CONNECT_USAGE_SUMMARY_PATH)).toBe(
+      true
+    );
 
     expectSingleRequestQuery('GET', '/vfs/share-targets/search', {
       q: 'test query',
@@ -242,12 +250,7 @@ describe('api with msw', () => {
         principalId: secondUser.userId
       }
     ]);
-    expectSingleRequestQuery('GET', '/ai/usage', {
-      startDate: '2024-01-01',
-      endDate: '2024-01-31',
-      cursor: '2025-01-01T00:00:00.000Z',
-      limit: '10'
-    });
+    expectSingleRequestQuery('POST', AI_CONNECT_USAGE_PATH, {});
   });
 
   it('builds query-string variants through msw request metadata', async () => {
@@ -295,31 +298,16 @@ describe('api with msw', () => {
       ])
     );
 
-    const aiUsageRequests = getRequestsFor('GET', '/ai/usage');
+    const aiUsageRequests = getRequestsFor('POST', AI_CONNECT_USAGE_PATH);
     expect(aiUsageRequests).toHaveLength(2);
-    expect(aiUsageRequests.map(getRequestQuery)).toEqual(
-      expect.arrayContaining([
-        {
-          startDate: '2024-01-01',
-          endDate: '2024-01-31',
-          cursor: '2025-01-01T00:00:00.000Z',
-          limit: '25'
-        },
-        {}
-      ])
-    );
+    expect(aiUsageRequests.map(getRequestQuery)).toEqual([{}, {}]);
 
-    const aiUsageSummaryRequests = getRequestsFor('GET', '/ai/usage/summary');
-    expect(aiUsageSummaryRequests).toHaveLength(2);
-    expect(aiUsageSummaryRequests.map(getRequestQuery)).toEqual(
-      expect.arrayContaining([
-        {
-          startDate: '2024-01-01',
-          endDate: '2024-01-31'
-        },
-        {}
-      ])
+    const aiUsageSummaryRequests = getRequestsFor(
+      'POST',
+      AI_CONNECT_USAGE_SUMMARY_PATH
     );
+    expect(aiUsageSummaryRequests).toHaveLength(2);
+    expect(aiUsageSummaryRequests.map(getRequestQuery)).toEqual([{}, {}]);
 
     const redisKeysRequests = getRequestsFor('GET', '/admin/redis/keys');
     expect(redisKeysRequests).toHaveLength(2);
