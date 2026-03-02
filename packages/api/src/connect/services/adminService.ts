@@ -39,36 +39,26 @@ type ListUsersRequest = { organizationId: string };
 export const adminConnectService = {
   getContext: (request: object, context: { requestHeader: Headers }) =>
     getContextDirect(request, context),
-  getPostgresInfo: async (
-    request: object,
-    context: { requestHeader: Headers }
-  ) => getPostgresInfoDirect(request, context),
+  getPostgresInfo: (request: object, context: { requestHeader: Headers }) =>
+    getPostgresInfoDirect(request, context),
   getTables: (request: object, context: { requestHeader: Headers }) =>
     getTablesDirect(request, context),
-  getColumns: async (
+  getColumns: (
     request: GetColumnsRequest,
     context: { requestHeader: Headers }
   ) => getColumnsDirect(request, context),
-  getRows: async (
-    request: GetRowsRequest,
-    context: { requestHeader: Headers }
-  ) => getRowsDirect(request, context),
-  getRedisKeys: async (
+  getRows: (request: GetRowsRequest, context: { requestHeader: Headers }) =>
+    getRowsDirect(request, context),
+  getRedisKeys: (
     request: GetRedisKeysRequest,
     context: { requestHeader: Headers }
   ) => getRedisKeysDirect(request, context),
-  getRedisValue: async (
-    request: KeyRequest,
-    context: { requestHeader: Headers }
-  ) => getRedisValueDirect(request, context),
-  deleteRedisKey: async (
-    request: KeyRequest,
-    context: { requestHeader: Headers }
-  ) => deleteRedisKeyDirect(request, context),
-  getRedisDbSize: async (
-    request: object,
-    context: { requestHeader: Headers }
-  ) => getRedisDbSizeDirect(request, context),
+  getRedisValue: (request: KeyRequest, context: { requestHeader: Headers }) =>
+    getRedisValueDirect(request, context),
+  deleteRedisKey: (request: KeyRequest, context: { requestHeader: Headers }) =>
+    deleteRedisKeyDirect(request, context),
+  getRedisDbSize: (request: object, context: { requestHeader: Headers }) =>
+    getRedisDbSizeDirect(request, context),
   listGroups: async (
     request: ListGroupsRequest,
     context: { requestHeader: Headers }

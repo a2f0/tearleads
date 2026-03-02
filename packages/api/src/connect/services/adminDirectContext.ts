@@ -17,17 +17,19 @@ async function loadOrganizationsForRoot(): Promise<AdminScopeOrganization[]> {
 }
 
 async function loadOrganizationsForOrgAdmin(
-  userId: string
+  organizationIds: string[]
 ): Promise<AdminScopeOrganization[]> {
+  if (organizationIds.length === 0) {
+    return [];
+  }
+
   const pool = await getPool('read');
   const result = await pool.query<{ id: string; name: string }>(
-    `SELECT o.id, o.name
-       FROM user_organizations uo
-       INNER JOIN organizations o ON o.id = uo.organization_id
-       WHERE uo.user_id = $1
-         AND uo.is_admin = TRUE
-       ORDER BY o.name`,
-    [userId]
+    `SELECT id, name
+       FROM organizations
+       WHERE id = ANY($1::text[])
+       ORDER BY name`,
+    [organizationIds]
   );
   return result.rows.map((row) => ({ id: row.id, name: row.name }));
 }
@@ -44,7 +46,9 @@ export async function getContextDirect(
   try {
     const organizations = authorization.adminAccess.isRootAdmin
       ? await loadOrganizationsForRoot()
-      : await loadOrganizationsForOrgAdmin(authorization.sub);
+      : await loadOrganizationsForOrgAdmin(
+          authorization.adminAccess.organizationIds
+        );
 
     const response: AdminAccessContextResponse = {
       isRootAdmin: authorization.adminAccess.isRootAdmin,
