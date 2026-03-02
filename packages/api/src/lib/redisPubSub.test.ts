@@ -23,6 +23,20 @@ describe('Redis PubSub Client', () => {
   });
 
   describe('getRedisSubscriberClient', () => {
+    it('returns override subscriber when provided', async () => {
+      const { createClient } = await import('redis');
+      const { getRedisSubscriberClient, setRedisSubscriberOverrideForTesting } =
+        await import('./redisPubSub.js');
+      const overrideClient = createClient();
+      setRedisSubscriberOverrideForTesting(overrideClient);
+
+      const client = await getRedisSubscriberClient();
+
+      expect(client).toBe(overrideClient);
+      expect(mockConnect).not.toHaveBeenCalled();
+      setRedisSubscriberOverrideForTesting(null);
+    });
+
     it('creates a new subscriber client on first call', async () => {
       const { getRedisSubscriberClient } = await import('./redisPubSub.js');
       mockConnect.mockResolvedValue(undefined);
