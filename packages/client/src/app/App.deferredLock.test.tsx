@@ -339,6 +339,29 @@ describe('App deferred lock flow', () => {
     });
   });
 
+  it('locks immediately when instance is not deferred', async () => {
+    const user = userEvent.setup();
+    mockIsUnlocked = true;
+    mockIsAuthenticated = false;
+    mockCurrentInstanceId = 'instance-1';
+    mockInstances = [{ id: 'instance-1', passwordDeferred: false }];
+    mockGetInstance.mockResolvedValue({ passwordDeferred: false });
+
+    renderApp();
+
+    fireEvent.contextMenu(screen.getByTestId('start-button'));
+    await user.click(screen.getByText('Lock Instance'));
+
+    expect(mockGetInstance).toHaveBeenCalledWith('instance-1');
+    expect(
+      screen.queryByTestId('deferred-lock-password-dialog')
+    ).not.toBeInTheDocument();
+    expect(mockSetDatabasePassword).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mockLock).toHaveBeenCalledWith(true);
+    });
+  });
+
   it('falls back to instance registry deferred flag before locking', async () => {
     const user = userEvent.setup();
     mockIsUnlocked = true;
