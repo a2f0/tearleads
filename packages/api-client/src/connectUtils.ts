@@ -1,4 +1,4 @@
-export function normalizeApiBaseUrl(apiBaseUrl: string): string {
+function normalizeApiBaseUrl(apiBaseUrl: string): string {
   const trimmed = apiBaseUrl.trim();
   if (trimmed.length === 0) {
     throw new Error('apiBaseUrl is required');
