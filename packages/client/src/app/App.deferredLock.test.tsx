@@ -309,7 +309,9 @@ describe('App deferred lock flow', () => {
     await waitFor(() => {
       expect(
         screen.getByTestId('deferred-lock-password-error')
-      ).toHaveTextContent('Could not save your database password. Please try again.');
+      ).toHaveTextContent(
+        'Could not save your database password. Please try again.'
+      );
     });
     expect(mockLock).not.toHaveBeenCalled();
   });
