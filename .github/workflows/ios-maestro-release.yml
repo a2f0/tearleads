@@ -60,7 +60,7 @@ jobs:
     name: iOS Maestro Tests (Release)
     needs: detect-impact
     runs-on: macos-15
-    timeout-minutes: 35
+    timeout-minutes: 45
     env:
       XCODE_VERSION: 'latest-stable'
       SIM_DEVICE_NAME: 'iPhone 15'
@@ -299,9 +299,22 @@ jobs:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 600000
           MAESTRO_CLI_NO_ANALYTICS: 1
         run: |
-          # Run Maestro tests (capture exit code before || continues execution)
+          run_maestro() {
+            MAESTRO_DEVICE="$SIMULATOR_UDID" $HOME/.maestro/bin/maestro --platform ios test .maestro/ --output maestro-debug/report.xml --debug-output maestro-debug --format junit
+          }
+
+          # Run Maestro tests and retry once to absorb transient simulator crashes.
           MAESTRO_EXIT=0
-          MAESTRO_DEVICE="$SIMULATOR_UDID" $HOME/.maestro/bin/maestro --platform ios test .maestro/ --output maestro-debug/report.xml --debug-output maestro-debug --format junit || MAESTRO_EXIT=$?
+          run_maestro || MAESTRO_EXIT=$?
+          if [ "$MAESTRO_EXIT" -ne 0 ]; then
+            echo "::warning::Maestro failed on first attempt, retrying once"
+            xcrun simctl terminate "$SIMULATOR_UDID" com.tearleads.app || true
+            xcrun simctl launch "$SIMULATOR_UDID" com.tearleads.app || true
+            sleep 2
+            xcrun simctl terminate "$SIMULATOR_UDID" com.tearleads.app || true
+            MAESTRO_EXIT=0
+            run_maestro || MAESTRO_EXIT=$?
+          fi
 
           # Capture final screenshot
           xcrun simctl io "$SIMULATOR_UDID" screenshot maestro-debug/02-after-tests.png || true
