@@ -364,21 +364,21 @@ describe('App', () => {
       expect(screen.queryByText('Open Search')).not.toBeInTheDocument();
     });
 
-    it('locks instance when lock action is clicked and database is unlocked', async () => {
+    it('does not lock instance when database is already locked', async () => {
       const user = userEvent.setup();
-      mockIsUnlocked = true;
+      mockIsUnlocked = false;
 
       renderApp();
 
       fireEvent.contextMenu(screen.getByTestId('start-button'));
       await user.click(screen.getByText('Lock Instance'));
 
-      expect(mockLock).toHaveBeenCalledWith(true);
+      expect(mockLock).not.toHaveBeenCalled();
     });
 
     it('requires password before locking deferred signed-out instance', async () => {
       const user = userEvent.setup();
-      const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('');
+      vi.stubGlobal('prompt', undefined);
       mockIsUnlocked = true;
       mockIsAuthenticated = false;
       mockCurrentInstanceId = 'instance-1';
@@ -397,7 +397,7 @@ describe('App', () => {
       expect(mockSetDatabasePassword).not.toHaveBeenCalled();
       expect(mockLock).not.toHaveBeenCalled();
 
-      promptSpy.mockRestore();
+      vi.unstubAllGlobals();
     });
 
     it('saves password and locks deferred signed-out instance', async () => {
