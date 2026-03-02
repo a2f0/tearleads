@@ -31,6 +31,7 @@ import {
   decodeCrdtRequestBody,
   sendCrdtProtobufOrJson
 } from './crdtProtobuf.js';
+import { shouldIncludeLegacyCrdtProtobufEnvelopeStrings } from './crdtProtobufEnvelopeOptions.js';
 import { applyCrdtPushOperations } from './crdtPushApply.js';
 import { toIsoString, toLastReconciledWriteIds } from './crdtRouteHelpers.js';
 import {
@@ -354,12 +355,11 @@ const postCrdtSessionHandler = async (req: Request, res: Response) => {
         lastReconciledWriteIds: parsedLastWriteIds.value
       }
     };
-    sendCrdtProtobufOrJson(
-      req,
-      res,
-      200,
-      response,
-      encodeVfsCrdtSyncSessionResponseProtobuf
+    sendCrdtProtobufOrJson(req, res, 200, response, (payload) =>
+      encodeVfsCrdtSyncSessionResponseProtobuf(payload, {
+        includeLegacyEnvelopeStrings:
+          shouldIncludeLegacyCrdtProtobufEnvelopeStrings()
+      })
     );
 
     emitVfsCrdtRoutePerfMetric({

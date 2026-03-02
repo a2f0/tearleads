@@ -8,6 +8,7 @@ import {
   getActiveMlsGroupMembership,
   parseSendMessagePayload
 } from '../mls/shared.js';
+import { serializeEnvelopeField } from './crdtEnvelopeStorage.js';
 
 interface VfsMirrorInput {
   messageId: string;
@@ -78,6 +79,8 @@ async function persistApplicationMessageToVfs(
   client: QueryClient,
   input: VfsMirrorInput
 ): Promise<void> {
+  const ciphertext = serializeEnvelopeField(input.ciphertext);
+
   await client.query(
     `
     INSERT INTO vfs_registry (
@@ -171,6 +174,7 @@ async function persistApplicationMessageToVfs(
       source_id,
       occurred_at,
       encrypted_payload,
+      encrypted_payload_bytes,
       key_epoch
     ) VALUES (
       vfs_make_event_id('crdt'),
@@ -181,7 +185,8 @@ async function persistApplicationMessageToVfs(
       $3::text,
       $4::timestamptz,
       $5::text,
-      $6::integer
+      $6::bytea,
+      $7::integer
     )
     `,
     [
@@ -189,7 +194,8 @@ async function persistApplicationMessageToVfs(
       input.senderUserId,
       `mls_message:${input.groupId}:${input.sequenceNumber}:${input.messageId}:${encodeContentTypeForSourceId(input.contentType)}`,
       input.occurredAtIso,
-      input.ciphertext,
+      ciphertext.text,
+      ciphertext.bytes,
       input.epoch
     ]
   );
