@@ -21,6 +21,10 @@ function connectChatPayload(payload: unknown): { json: string } {
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function extractErrorMessage(payload: unknown): string | null {
   if (!payload || typeof payload !== 'object') {
     return null;
@@ -57,51 +61,120 @@ describe('msw handlers', () => {
   });
 
   it('mocks admin redis endpoints', async () => {
-    const authHeaders = { Authorization: `Bearer ${seededUser.accessToken}` };
+    const authHeaders = {
+      Authorization: `Bearer ${seededUser.accessToken}`,
+      'Content-Type': 'application/json'
+    };
     const ctx = getSharedTestContext();
     await ctx.redis.set('user:1', 'test-value');
 
-    const keysResponse = await fetch('http://localhost/admin/redis/keys', {
-      headers: authHeaders
-    });
-    const keysPayload = await keysResponse.json();
+    const keysResponse = await fetch(
+      'http://localhost/connect/tearleads.v1.AdminService/GetRedisKeys',
+      {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ cursor: '', limit: 100 })
+      }
+    );
+    const keysWirePayload = await keysResponse.json();
+    if (
+      !isRecord(keysWirePayload) ||
+      typeof keysWirePayload['json'] !== 'string'
+    ) {
+      throw new Error('Expected connect JSON payload');
+    }
+    const keysPayload = JSON.parse(keysWirePayload['json']);
 
-    expect(wasApiRequestMade('GET', '/admin/redis/keys')).toBe(true);
+    expect(
+      wasApiRequestMade(
+        'POST',
+        '/connect/tearleads.v1.AdminService/GetRedisKeys'
+      )
+    ).toBe(true);
     expect(keysPayload).toHaveProperty('keys');
     expect(keysPayload).toHaveProperty('cursor');
     expect(Array.isArray(keysPayload.keys)).toBe(true);
 
     const keyResponse = await fetch(
-      'http://localhost/admin/redis/keys/user%3A1',
-      { headers: authHeaders }
+      'http://localhost/connect/tearleads.v1.AdminService/GetRedisValue',
+      {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ key: 'user:1' })
+      }
     );
-    const keyPayload = await keyResponse.json();
+    const keyWirePayload = await keyResponse.json();
+    if (
+      !isRecord(keyWirePayload) ||
+      typeof keyWirePayload['json'] !== 'string'
+    ) {
+      throw new Error('Expected connect JSON payload');
+    }
+    const keyPayload = JSON.parse(keyWirePayload['json']);
 
-    expect(wasApiRequestMade('GET', '/admin/redis/keys/user%3A1')).toBe(true);
+    expect(
+      wasApiRequestMade(
+        'POST',
+        '/connect/tearleads.v1.AdminService/GetRedisValue'
+      )
+    ).toBe(true);
     expect(keyPayload).toHaveProperty('key', 'user:1');
     expect(keyPayload).toHaveProperty('value', 'test-value');
   });
 
   it('mocks admin postgres endpoints', async () => {
-    const authHeaders = { Authorization: `Bearer ${seededUser.accessToken}` };
+    const authHeaders = {
+      Authorization: `Bearer ${seededUser.accessToken}`,
+      'Content-Type': 'application/json'
+    };
 
-    const infoResponse = await fetch('http://localhost/admin/postgres/info', {
-      headers: authHeaders
-    });
-    const infoPayload = await infoResponse.json();
+    const infoResponse = await fetch(
+      'http://localhost/connect/tearleads.v1.AdminService/GetPostgresInfo',
+      {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({})
+      }
+    );
+    const infoWirePayload = await infoResponse.json();
+    if (
+      !isRecord(infoWirePayload) ||
+      typeof infoWirePayload['json'] !== 'string'
+    ) {
+      throw new Error('Expected connect JSON payload');
+    }
+    const infoPayload = JSON.parse(infoWirePayload['json']);
 
-    expect(wasApiRequestMade('GET', '/admin/postgres/info')).toBe(true);
+    expect(
+      wasApiRequestMade(
+        'POST',
+        '/connect/tearleads.v1.AdminService/GetPostgresInfo'
+      )
+    ).toBe(true);
     expect(infoPayload).toHaveProperty('status', 'ok');
     expect(infoPayload).toHaveProperty('info');
     expect(infoPayload).toHaveProperty('serverVersion');
 
     const tablesResponse = await fetch(
-      'http://localhost/admin/postgres/tables',
-      { headers: authHeaders }
+      'http://localhost/connect/tearleads.v1.AdminService/GetTables',
+      {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({})
+      }
     );
-    const tablesPayload = await tablesResponse.json();
+    const tablesWirePayload = await tablesResponse.json();
+    if (
+      !isRecord(tablesWirePayload) ||
+      typeof tablesWirePayload['json'] !== 'string'
+    ) {
+      throw new Error('Expected connect JSON payload');
+    }
+    const tablesPayload = JSON.parse(tablesWirePayload['json']);
 
-    expect(wasApiRequestMade('GET', '/admin/postgres/tables')).toBe(true);
+    expect(
+      wasApiRequestMade('POST', '/connect/tearleads.v1.AdminService/GetTables')
+    ).toBe(true);
     expect(tablesPayload).toHaveProperty('tables');
     expect(Array.isArray(tablesPayload.tables)).toBe(true);
   });
