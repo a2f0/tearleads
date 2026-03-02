@@ -7,9 +7,10 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 
 # Configuration
 AWS_REGION="${AWS_REGION:-us-east-1}"
-AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text)}"
-ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-}"
+ECR_REGISTRY=""
 DOCKER_BUILD_PLATFORM="${DOCKER_BUILD_PLATFORM:-linux/amd64}"
+PARALLEL="${PARALLEL:-false}"
 
 usage() {
   echo "Usage: $0 <environment> [options]"
@@ -25,12 +26,13 @@ usage() {
   echo "  --website-only  Only build the website container"
   echo "  --no-smtp       Skip building the SMTP listener container"
   echo "  --no-website    Skip building the website container"
+  echo "  --parallel      Build selected containers in parallel"
   echo "  --no-push       Build only, don't push to ECR"
   echo "  --tag TAG       Use specific tag (default: latest)"
   echo ""
   echo "Environment variables:"
   echo "  AWS_REGION      AWS region (default: us-east-1)"
-  echo "  AWS_ACCOUNT_ID  AWS account ID (auto-detected if not set)"
+  echo "  AWS_ACCOUNT_ID  AWS account ID (auto-detected when pushing)"
   echo "  VITE_API_URL    API URL for client build (required for client)"
   exit 1
 }
@@ -93,6 +95,10 @@ while [[ $# -gt 0 ]]; do
       BUILD_WEBSITE=false
       shift
       ;;
+    --parallel)
+      PARALLEL=true
+      shift
+      ;;
     --no-push)
       PUSH=false
       shift
@@ -107,6 +113,18 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# Resolve AWS account ID after parsing options so usage/help paths do not require AWS calls.
+if [[ -z "$AWS_ACCOUNT_ID" ]]; then
+  if [[ "$PUSH" == "true" ]]; then
+    AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+  else
+    # --no-push builds do not require live AWS credentials; use a deterministic local tag prefix.
+    AWS_ACCOUNT_ID="000000000000"
+  fi
+fi
+
+ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
 # Set ECR repo names based on environment
 API_REPO="tearleads-${ENV}/api"
@@ -124,6 +142,7 @@ echo "Build SMTP Listener: $BUILD_SMTP"
 echo "Build Website: $BUILD_WEBSITE"
 echo "Push to ECR: $PUSH"
 echo "Docker Platform: $DOCKER_BUILD_PLATFORM"
+echo "Parallel Build: $PARALLEL"
 echo ""
 
 # Login to ECR
@@ -136,20 +155,50 @@ fi
 
 cd "$REPO_ROOT"
 
-# Build API
-if [[ "$BUILD_API" == "true" ]]; then
-  echo "=== Building API container ==="
+build_and_push_image() {
+  local image_name="$1"
+  local dockerfile="$2"
+  local image_tag="$3"
+  shift 3
+
+  echo "=== Building ${image_name} container ==="
   docker build \
     --platform "$DOCKER_BUILD_PLATFORM" \
-    -f packages/api/Dockerfile \
-    -t "${ECR_REGISTRY}/${API_REPO}:${TAG}" \
+    -f "$dockerfile" \
+    "$@" \
+    -t "$image_tag" \
     .
 
   if [[ "$PUSH" == "true" ]]; then
-    echo "=== Pushing API container ==="
-    docker push "${ECR_REGISTRY}/${API_REPO}:${TAG}"
+    echo "=== Pushing ${image_name} container ==="
+    docker push "$image_tag"
   fi
   echo ""
+}
+
+declare -a BUILD_PIDS=()
+declare -a BUILD_NAMES=()
+
+run_or_queue_build() {
+  local display_name="$1"
+  shift
+
+  if [[ "$PARALLEL" == "true" ]]; then
+    build_and_push_image "$display_name" "$@" &
+    BUILD_PIDS+=("$!")
+    BUILD_NAMES+=("$display_name")
+    return
+  fi
+
+  build_and_push_image "$display_name" "$@"
+}
+
+# Build API
+if [[ "$BUILD_API" == "true" ]]; then
+  run_or_queue_build \
+    "API" \
+    packages/api/Dockerfile \
+    "${ECR_REGISTRY}/${API_REPO}:${TAG}"
 fi
 
 # Build Client
@@ -164,51 +213,43 @@ if [[ "$BUILD_CLIENT" == "true" ]]; then
     echo "Note: VITE_API_URL not set, using default: $VITE_API_URL"
   fi
 
-  echo "=== Building Client container ==="
-  docker build \
-    --platform "$DOCKER_BUILD_PLATFORM" \
-    -f packages/client/Dockerfile \
-    --build-arg VITE_API_URL="$VITE_API_URL" \
-    -t "${ECR_REGISTRY}/${CLIENT_REPO}:${TAG}" \
-    .
-
-  if [[ "$PUSH" == "true" ]]; then
-    echo "=== Pushing Client container ==="
-    docker push "${ECR_REGISTRY}/${CLIENT_REPO}:${TAG}"
-  fi
-  echo ""
+  run_or_queue_build \
+    "Client" \
+    packages/client/Dockerfile \
+    "${ECR_REGISTRY}/${CLIENT_REPO}:${TAG}" \
+    --build-arg VITE_API_URL="$VITE_API_URL"
 fi
 
 # Build SMTP listener
 if [[ "$BUILD_SMTP" == "true" ]]; then
-  echo "=== Building SMTP listener container ==="
-  docker build \
-    --platform "$DOCKER_BUILD_PLATFORM" \
-    -f packages/smtp-listener/Dockerfile \
-    -t "${ECR_REGISTRY}/${SMTP_REPO}:${TAG}" \
-    .
-
-  if [[ "$PUSH" == "true" ]]; then
-    echo "=== Pushing SMTP listener container ==="
-    docker push "${ECR_REGISTRY}/${SMTP_REPO}:${TAG}"
-  fi
-  echo ""
+  run_or_queue_build \
+    "SMTP listener" \
+    packages/smtp-listener/Dockerfile \
+    "${ECR_REGISTRY}/${SMTP_REPO}:${TAG}"
 fi
 
 # Build Website
 if [[ "$BUILD_WEBSITE" == "true" ]]; then
-  echo "=== Building Website container ==="
-  docker build \
-    --platform "$DOCKER_BUILD_PLATFORM" \
-    -f packages/website/Dockerfile \
-    -t "${ECR_REGISTRY}/${WEBSITE_REPO}:${TAG}" \
-    .
+  run_or_queue_build \
+    "Website" \
+    packages/website/Dockerfile \
+    "${ECR_REGISTRY}/${WEBSITE_REPO}:${TAG}"
+fi
 
-  if [[ "$PUSH" == "true" ]]; then
-    echo "=== Pushing Website container ==="
-    docker push "${ECR_REGISTRY}/${WEBSITE_REPO}:${TAG}"
+if [[ "$PARALLEL" == "true" && "${#BUILD_PIDS[@]}" -gt 0 ]]; then
+  failures=0
+
+  for i in "${!BUILD_PIDS[@]}"; do
+    if ! wait "${BUILD_PIDS[$i]}"; then
+      echo "ERROR: ${BUILD_NAMES[$i]} container build failed"
+      failures=$((failures + 1))
+    fi
+  done
+
+  if [[ "$failures" -gt 0 ]]; then
+    echo "Build failed for $failures container(s)."
+    exit 1
   fi
-  echo ""
 fi
 
 echo "=== Build complete ==="

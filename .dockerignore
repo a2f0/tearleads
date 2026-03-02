@@ -1,0 +1,33 @@
+# Local dependencies and caches.
+node_modules
+**/node_modules
+.pnpm-store
+.npm
+
+# Build/test artifacts.
+coverage
+**/coverage
+dist
+**/dist
+*.log
+
+# VCS and local agent/editor state.
+.git
+.github
+.claude
+.codex
+.gemini
+.vscode
+.ansible
+
+# Local-only symlinks/secrets payloads.
+.secrets
+.test_files
+
+# Infrastructure folders are not needed by image builds.
+terraform
+ansible
+tuxedo
+
+# OS clutter.
+.DS_Store
