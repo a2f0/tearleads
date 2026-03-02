@@ -333,7 +333,7 @@ spec:
               # Create bucket — idempotent (returns existing bucket id).
               echo "Creating bucket..."
               BUCKET_RESP="$(retry_api_post "CreateBucket" "/v2/CreateBucket" '{"globalAlias":"vfs-blobs"}')"
-              BUCKET_ID="$(printf '%s' "$BUCKET_RESP" | tr -d '[:space:]' | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')"
+              BUCKET_ID="$(printf '%s' "$BUCKET_RESP" | tr -d '[:space:]' | awk -F'"' '/"id":/ {print $4; exit}')"
 
               if [ -z "$BUCKET_ID" ]; then
                 echo "ERROR: Could not parse bucket ID from CreateBucket response."
