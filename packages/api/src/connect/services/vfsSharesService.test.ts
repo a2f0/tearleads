@@ -1,7 +1,20 @@
+import { Code } from '@connectrpc/connect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { callRouteJsonHandlerMock } = vi.hoisted(() => ({
-  callRouteJsonHandlerMock: vi.fn<(options: unknown) => Promise<string>>()
+const {
+  authenticateMock,
+  buildSharePolicyPreviewTreeMock,
+  callRouteJsonHandlerMock,
+  getPoolMock,
+  queryMock,
+  resolveOrganizationMembershipMock
+} = vi.hoisted(() => ({
+  authenticateMock: vi.fn(),
+  buildSharePolicyPreviewTreeMock: vi.fn(),
+  callRouteJsonHandlerMock: vi.fn<(options: unknown) => Promise<string>>(),
+  getPoolMock: vi.fn(),
+  queryMock: vi.fn(),
+  resolveOrganizationMembershipMock: vi.fn()
 }));
 
 vi.mock('./legacyRouteProxy.js', async () => {
@@ -14,6 +27,21 @@ vi.mock('./legacyRouteProxy.js', async () => {
     callRouteJsonHandler: callRouteJsonHandlerMock
   };
 });
+
+vi.mock('./legacyRouteProxyAuth.js', () => ({
+  authenticate: (...args: unknown[]) => authenticateMock(...args),
+  resolveOrganizationMembership: (...args: unknown[]) =>
+    resolveOrganizationMembershipMock(...args)
+}));
+
+vi.mock('../../lib/postgres.js', () => ({
+  getPool: (...args: unknown[]) => getPoolMock(...args)
+}));
+
+vi.mock('../../lib/vfsSharePolicyPreviewTree.js', () => ({
+  buildSharePolicyPreviewTree: (...args: unknown[]) =>
+    buildSharePolicyPreviewTreeMock(...args)
+}));
 
 import { vfsSharesConnectService } from './vfsSharesService.js';
 
@@ -74,8 +102,25 @@ function expectLastJsonCall(
 
 describe('vfsSharesConnectService', () => {
   beforeEach(() => {
-    callRouteJsonHandlerMock.mockReset();
+    vi.clearAllMocks();
     callRouteJsonHandlerMock.mockResolvedValue('{"ok":true}');
+    queryMock.mockReset();
+    getPoolMock.mockResolvedValue({
+      query: queryMock
+    });
+    authenticateMock.mockResolvedValue({
+      ok: true,
+      claims: {
+        sub: 'user-1'
+      },
+      session: {
+        userId: 'user-1'
+      }
+    });
+    resolveOrganizationMembershipMock.mockResolvedValue({
+      ok: true,
+      organizationId: null
+    });
   });
 
   it('routes vfs shares handlers to the expected route handlers', async () => {
@@ -153,39 +198,6 @@ describe('vfsSharesConnectService', () => {
           ),
         method: 'DELETE',
         path: '/vfs/org-shares/org-share-1'
-      },
-      {
-        call: () =>
-          vfsSharesConnectService.searchShareTargets(
-            {
-              q: 'ali',
-              type: 'user'
-            },
-            context
-          ),
-        method: 'GET',
-        path: '/vfs/share-targets/search',
-        query: 'q=ali&type=user'
-      },
-      {
-        call: () =>
-          vfsSharesConnectService.getSharePolicyPreview(
-            {
-              rootItemId: 'root-1',
-              principalType: 'user',
-              principalId: 'user-1',
-              limit: 50,
-              cursor: 'cur-1',
-              maxDepth: 4,
-              q: 'note',
-              objectType: ['folder', 'note']
-            },
-            context
-          ),
-        method: 'GET',
-        path: '/vfs/share-policies/preview',
-        query:
-          'rootItemId=root-1&principalType=user&principalId=user-1&limit=50&cursor=cur-1&maxDepth=4&q=note&objectType=folder%2Cnote'
       }
     ];
 
@@ -196,26 +208,134 @@ describe('vfsSharesConnectService', () => {
     }
   });
 
-  it('omits optional query params for empty values', async () => {
+  it('searches share targets directly without proxy forwarding', async () => {
     const context = createContext();
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [{ organization_id: 'org-1' }]
+      })
+      .mockResolvedValueOnce({
+        rows: [{ id: 'user-2', email: 'alice@example.com' }]
+      });
+
+    const response = await vfsSharesConnectService.searchShareTargets(
+      {
+        q: 'ali',
+        type: 'user'
+      },
+      context
+    );
+
+    expect(response).toEqual({
+      json: JSON.stringify({
+        results: [{ id: 'user-2', type: 'user', name: 'alice@example.com' }]
+      })
+    });
+    expect(callRouteJsonHandlerMock).not.toHaveBeenCalled();
+    expect(authenticateMock).toHaveBeenCalledWith(context.requestHeader);
+    expect(resolveOrganizationMembershipMock).toHaveBeenCalledWith(
+      '/vfs/share-targets/search',
+      context.requestHeader,
+      'user-1'
+    );
+    expect(getPoolMock).toHaveBeenCalledWith('read');
+  });
+
+  it('returns invalid argument for empty share-target search query', async () => {
+    const context = createContext();
+
+    await expect(
+      vfsSharesConnectService.searchShareTargets(
+        {
+          q: '   ',
+          type: ''
+        },
+        context
+      )
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+  });
+
+  it('builds share-policy preview directly without proxy forwarding', async () => {
+    const context = createContext();
+    queryMock.mockResolvedValueOnce({
+      rows: [{ owner_id: 'user-1', object_type: 'folder' }]
+    });
+    buildSharePolicyPreviewTreeMock.mockResolvedValue({
+      rows: [{ itemId: 'root-1' }],
+      nextCursor: null
+    });
+
+    const response = await vfsSharesConnectService.getSharePolicyPreview(
+      {
+        rootItemId: 'root-1',
+        principalType: 'user',
+        principalId: 'user-2',
+        limit: 50,
+        cursor: 'cursor-1',
+        maxDepth: 4,
+        q: 'note',
+        objectType: ['folder', 'note']
+      },
+      context
+    );
+
+    expect(response).toEqual({
+      json: JSON.stringify({
+        rows: [{ itemId: 'root-1' }],
+        nextCursor: null
+      })
+    });
+    expect(callRouteJsonHandlerMock).not.toHaveBeenCalled();
+    expect(buildSharePolicyPreviewTreeMock).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        rootItemId: 'root-1',
+        principalType: 'user',
+        principalId: 'user-2',
+        limit: 50,
+        cursor: 'cursor-1',
+        maxDepth: 4,
+        search: 'note',
+        objectTypes: ['folder', 'note']
+      }
+    );
+  });
+
+  it('uses preview defaults when limit/maxDepth/cursor/search are empty-ish', async () => {
+    const context = createContext();
+    queryMock.mockResolvedValueOnce({
+      rows: [{ owner_id: 'user-1', object_type: 'folder' }]
+    });
+    buildSharePolicyPreviewTreeMock.mockResolvedValue({});
 
     await vfsSharesConnectService.getSharePolicyPreview(
       {
-        rootItemId: '',
-        principalType: '',
-        principalId: '',
+        rootItemId: 'root-1',
+        principalType: 'user',
+        principalId: 'user-2',
         limit: 0,
         cursor: ' ',
         maxDepth: 0,
-        q: '',
+        q: ' ',
         objectType: []
       },
       context
     );
 
-    expectLastJsonCall(context, {
-      method: 'GET',
-      path: '/vfs/share-policies/preview'
-    });
+    expect(buildSharePolicyPreviewTreeMock).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        rootItemId: 'root-1',
+        principalType: 'user',
+        principalId: 'user-2',
+        limit: 100,
+        cursor: null,
+        maxDepth: 50,
+        search: null,
+        objectTypes: null
+      }
+    );
   });
 });
