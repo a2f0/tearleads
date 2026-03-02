@@ -25,7 +25,7 @@ export function CameraReview({
         />
       </div>
 
-      <div className="flex items-center justify-center gap-4">
+      <div className="flex shrink-0 items-center justify-center gap-4">
         <button
           type="button"
           onClick={onRetake}

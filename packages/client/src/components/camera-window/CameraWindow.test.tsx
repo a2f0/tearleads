@@ -2,9 +2,26 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@tearleads/camera', () => ({
-  CameraWindow: ({ id }: { id: string }) => (
-    <div data-testid="camera-window-base" data-id={id} />
+  CameraWindow: ({
+    id,
+    initialPhotos
+  }: {
+    id: string;
+    initialPhotos?: unknown[];
+  }) => (
+    <div
+      data-testid="camera-window-base"
+      data-id={id}
+      data-initial-photos={JSON.stringify(initialPhotos ?? [])}
+    />
   )
+}));
+
+vi.mock('./useCameraPhotoRoll', () => ({
+  useCameraPhotoRoll: () => ({
+    photos: [{ id: 'roll-1', thumbnailUrl: 'blob:roll-1' }],
+    loading: false
+  })
 }));
 
 vi.mock('../photos-window/usePhotoAlbums', () => ({
@@ -39,5 +56,25 @@ describe('CameraWindow', () => {
       'data-id',
       'camera-window-1'
     );
+  });
+
+  it('passes photo roll photos as initialPhotos', () => {
+    render(
+      <CameraWindow
+        id="camera-window-2"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={100}
+      />
+    );
+
+    const element = screen.getByTestId('camera-window-base');
+    const initialPhotos = JSON.parse(
+      element.getAttribute('data-initial-photos') ?? '[]'
+    );
+    expect(initialPhotos).toEqual([
+      { id: 'roll-1', thumbnailUrl: 'blob:roll-1' }
+    ]);
   });
 });

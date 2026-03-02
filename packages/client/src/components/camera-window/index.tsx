@@ -3,6 +3,7 @@ import type { WindowDimensions } from '@tearleads/window-manager';
 import { useCallback } from 'react';
 import { usePhotoAlbums } from '@/components/photos-window/usePhotoAlbums';
 import { useFileUpload } from '@/hooks/vfs';
+import { useCameraPhotoRoll } from './useCameraPhotoRoll';
 
 interface CameraWindowProps {
   id: string;
@@ -41,6 +42,7 @@ export function CameraWindow({
 }: CameraWindowProps) {
   const { uploadFile } = useFileUpload();
   const { addPhotoToAlbum, getPhotoRollAlbum } = usePhotoAlbums();
+  const { photos } = useCameraPhotoRoll();
 
   const handlePhotoAccepted = useCallback(
     async (dataUrl: string) => {
@@ -72,6 +74,7 @@ export function CameraWindow({
       zIndex={zIndex}
       initialDimensions={initialDimensions}
       onPhotoAccepted={handlePhotoAccepted}
+      initialPhotos={photos}
     />
   );
 }
