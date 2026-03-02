@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 interface StartMenuContextMenuState {
   x: number;
@@ -72,12 +72,22 @@ export function useStartMenuContextMenu() {
     setContextMenu(null);
   }, []);
 
-  return {
-    contextMenu,
-    close,
-    handleStartMenuContextMenu,
-    handleStartBarContextMenu,
-    handleTaskbarContextMenu,
-    handleFooterContextMenu
-  };
+  return useMemo(
+    () => ({
+      contextMenu,
+      close,
+      handleStartMenuContextMenu,
+      handleStartBarContextMenu,
+      handleTaskbarContextMenu,
+      handleFooterContextMenu
+    }),
+    [
+      contextMenu,
+      close,
+      handleStartMenuContextMenu,
+      handleStartBarContextMenu,
+      handleTaskbarContextMenu,
+      handleFooterContextMenu
+    ]
+  );
 }
