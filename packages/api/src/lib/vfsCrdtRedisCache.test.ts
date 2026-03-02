@@ -12,7 +12,7 @@ import {
 const redisStore = new Map<string, string>();
 const mockRedisClient = {
   get: vi.fn((key: string) => Promise.resolve(redisStore.get(key) ?? null)),
-  set: vi.fn((key: string, value: string) => {
+  set: vi.fn((key: string, value: string, _options?: { EX?: number }) => {
     redisStore.set(key, value);
     return Promise.resolve('OK');
   }),
