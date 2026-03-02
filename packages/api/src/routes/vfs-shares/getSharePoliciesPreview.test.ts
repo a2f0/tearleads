@@ -84,6 +84,41 @@ describe('VFS Shares routes (GET/share policy preview)', () => {
     });
   });
 
+  it('returns 400 when objectType values are excessively long', async () => {
+    const authHeader = await createAuthHeader();
+    const longObjectType = 'x'.repeat(65);
+
+    const response = await request(app)
+      .get(
+        `/v1/vfs/share-policies/preview?rootItemId=root-1&principalType=user&principalId=target-1&objectType=${longObjectType}`
+      )
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: 'objectType values must be 64 characters or fewer'
+    });
+  });
+
+  it('returns 400 when objectType filter list exceeds limits', async () => {
+    const authHeader = await createAuthHeader();
+    const tooManyObjectTypes = Array.from(
+      { length: 26 },
+      (_, index) => `type${index}`
+    ).join(',');
+
+    const response = await request(app)
+      .get(
+        `/v1/vfs/share-policies/preview?rootItemId=root-1&principalType=user&principalId=target-1&objectType=${tooManyObjectTypes}`
+      )
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: 'objectType supports at most 25 values'
+    });
+  });
+
   it('returns 404 when the requested root item does not exist', async () => {
     const authHeader = await createAuthHeader();
     mockQuery.mockResolvedValueOnce({ rows: [] });

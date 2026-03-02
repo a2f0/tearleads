@@ -18,6 +18,8 @@ interface PreviewQuery {
 
 const CONTAINER_OBJECT_TYPES = new Set<string>(VFS_CONTAINER_OBJECT_TYPES);
 const DEFAULT_PREVIEW_MAX_DEPTH = 50;
+const MAX_OBJECT_TYPE_FILTERS = 25;
+const MAX_OBJECT_TYPE_LENGTH = 64;
 
 function isPreviewPrincipalType(
   value: string | undefined
@@ -51,13 +53,23 @@ function parseObjectTypes(raw: string | undefined): string[] | null {
   if (!raw) {
     return null;
   }
-  return raw
-    .split(',')
-    .map((value) => value.trim())
-    .filter(
-      (value, index, array) =>
-        value.length > 0 && array.indexOf(value) === index
-    );
+  const uniqueValues = new Set<string>();
+  for (const part of raw.split(',')) {
+    const value = part.trim();
+    if (value.length === 0) {
+      continue;
+    }
+    if (value.length > MAX_OBJECT_TYPE_LENGTH) {
+      throw new Error('objectType values must be 64 characters or fewer');
+    }
+    uniqueValues.add(value);
+    if (uniqueValues.size > MAX_OBJECT_TYPE_FILTERS) {
+      throw new Error(
+        `objectType supports at most ${MAX_OBJECT_TYPE_FILTERS} values`
+      );
+    }
+  }
+  return uniqueValues.size > 0 ? Array.from(uniqueValues) : null;
 }
 
 /**
@@ -160,9 +172,11 @@ const getSharePoliciesPreviewHandler = async (
 
   let limit: number;
   let maxDepth: number;
+  let objectTypes: string[] | null;
   try {
     limit = parsePositiveLimit(req.query.limit);
     maxDepth = parseMaxDepth(req.query.maxDepth);
+    objectTypes = parseObjectTypes(req.query.objectType);
   } catch (error) {
     res.status(400).json({
       error: error instanceof Error ? error.message : 'Invalid query'
@@ -209,7 +223,7 @@ const getSharePoliciesPreviewHandler = async (
       cursor: req.query.cursor ?? null,
       maxDepth,
       search: req.query.q ?? null,
-      objectTypes: parseObjectTypes(req.query.objectType)
+      objectTypes
     });
     res.json(preview);
   } catch (error) {

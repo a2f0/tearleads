@@ -1,10 +1,9 @@
-import type { VfsShareType } from '@tearleads/shared';
-import { ChevronDown, ChevronRight, Loader2, RefreshCcw } from 'lucide-react';
-import { useState } from 'react';
-import { useVfsExplorerContext } from '../../context';
+import type { VfsObjectType, VfsShareType } from '@tearleads/shared';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useSharePolicyPreview } from '../../hooks';
-import { cn } from '../../lib';
-import { FRIENDLY_STATE_COLORS, FRIENDLY_STATE_LABELS } from './types';
+import { ShareAccessSummaryFilters } from './ShareAccessSummaryFilters';
+import { ShareAccessSummaryResults } from './ShareAccessSummaryResults';
 
 interface ShareAccessSummaryProps {
   itemId: string;
@@ -19,11 +18,26 @@ export function ShareAccessSummary({
   selectedTargetId,
   selectedTargetName
 }: ShareAccessSummaryProps) {
-  const {
-    ui: { Button, Input }
-  } = useVfsExplorerContext();
   const [expanded, setExpanded] = useState(false);
   const [search, setSearch] = useState('');
+  const [maxDepth, setMaxDepth] = useState<number | null>(null);
+  const [selectedObjectTypes, setSelectedObjectTypes] = useState<
+    VfsObjectType[]
+  >([]);
+  const previousTargetIdRef = useRef<string | null>(selectedTargetId);
+
+  useEffect(() => {
+    if (previousTargetIdRef.current === selectedTargetId) {
+      return;
+    }
+    previousTargetIdRef.current = selectedTargetId;
+    setSearch('');
+    setMaxDepth(null);
+    setSelectedObjectTypes([]);
+  }, [selectedTargetId]);
+
+  const objectTypeFilter =
+    selectedObjectTypes.length > 0 ? selectedObjectTypes : null;
 
   const preview = useSharePolicyPreview({
     rootItemId: itemId,
@@ -31,6 +45,8 @@ export function ShareAccessSummary({
     principalId: selectedTargetId,
     limit: 50,
     search,
+    maxDepth,
+    objectType: objectTypeFilter,
     enabled: selectedTargetId !== null && expanded
   });
 
@@ -42,6 +58,20 @@ export function ShareAccessSummary({
     preview.summary.includedCount;
   const noAccessCount =
     preview.summary.deniedCount + preview.summary.excludedCount;
+
+  const toggleObjectTypeFilter = (objectType: VfsObjectType) => {
+    setSelectedObjectTypes((previous) =>
+      previous.includes(objectType)
+        ? previous.filter((value) => value !== objectType)
+        : [...previous, objectType]
+    );
+  };
+
+  const clearAllFilters = () => {
+    setSearch('');
+    setMaxDepth(null);
+    setSelectedObjectTypes([]);
+  };
 
   return (
     <div
@@ -77,74 +107,25 @@ export function ShareAccessSummary({
             <span className="font-medium">{selectedTargetName}</span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Input
-              type="text"
-              placeholder="Search items..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 text-base"
-            />
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={preview.loading}
-              onClick={() => void preview.refetch()}
-            >
-              {preview.loading ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <RefreshCcw className="h-3 w-3" />
-              )}
-            </Button>
-          </div>
+          <ShareAccessSummaryFilters
+            search={search}
+            onSearchChange={setSearch}
+            loading={preview.loading}
+            onRefetch={() => void preview.refetch()}
+            maxDepth={maxDepth}
+            onMaxDepthChange={setMaxDepth}
+            selectedObjectTypes={selectedObjectTypes}
+            onToggleObjectType={toggleObjectTypeFilter}
+            onClearFilters={clearAllFilters}
+          />
 
-          {preview.error && (
-            <div className="text-destructive text-xs">{preview.error}</div>
-          )}
-
-          <div className="max-h-48 space-y-1 overflow-y-auto rounded border p-1">
-            {preview.nodes.length === 0 && !preview.loading && (
-              <div className="px-2 py-1 text-muted-foreground text-xs">
-                No items in preview scope.
-              </div>
-            )}
-            {preview.loading && preview.nodes.length === 0 && (
-              <div className="flex items-center justify-center py-2">
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              </div>
-            )}
-            {preview.nodes.map((node) => (
-              <div
-                key={node.path}
-                className="rounded border bg-muted/10 px-2 py-1 text-xs"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="truncate">{node.path}</div>
-                  <span
-                    className={cn(
-                      'shrink-0 rounded px-1.5 py-0.5 font-medium',
-                      FRIENDLY_STATE_COLORS[node.state]
-                    )}
-                  >
-                    {FRIENDLY_STATE_LABELS[node.state] ?? node.state}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {preview.hasMore && (
-            <Button
-              className="w-full"
-              size="sm"
-              variant="outline"
-              disabled={preview.loading}
-              onClick={() => void preview.loadMore()}
-            >
-              Load More
-            </Button>
-          )}
+          <ShareAccessSummaryResults
+            nodes={preview.nodes}
+            loading={preview.loading}
+            error={preview.error}
+            hasMore={preview.hasMore}
+            onLoadMore={() => void preview.loadMore()}
+          />
         </div>
       )}
     </div>

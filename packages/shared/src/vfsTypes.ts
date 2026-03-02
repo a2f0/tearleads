@@ -13,24 +13,27 @@ export interface VfsKeySetupRequest {
   argon2Salt: string;
 }
 
-export type VfsObjectType =
+export const VFS_OBJECT_TYPES = [
   // Entities
-  | 'file'
-  | 'photo'
-  | 'audio'
-  | 'video'
-  | 'contact'
-  | 'note'
-  | 'email'
-  | 'mlsMessage'
-  | 'conversation'
+  'file',
+  'photo',
+  'audio',
+  'video',
+  'contact',
+  'note',
+  'email',
+  'mlsMessage',
+  'conversation',
   // Collections
-  | 'folder'
-  | 'emailFolder'
-  | 'playlist'
-  | 'album'
-  | 'contactGroup'
-  | 'tag';
+  'folder',
+  'emailFolder',
+  'playlist',
+  'album',
+  'contactGroup',
+  'tag'
+] as const;
+
+export type VfsObjectType = (typeof VFS_OBJECT_TYPES)[number];
 
 export const VFS_CONTAINER_OBJECT_TYPES = [
   'folder',

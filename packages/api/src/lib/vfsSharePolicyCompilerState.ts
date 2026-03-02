@@ -131,13 +131,17 @@ export function normalizePolicyIds(
   if (!policyIds) {
     return null;
   }
-  const normalized = policyIds
-    .map((value) => value.trim())
-    .filter(
-      (value, index, array) =>
-        value.length > 0 && array.indexOf(value) === index
-    )
-    .sort((left, right) => left.localeCompare(right));
+  const uniqueValues = new Set<string>();
+  for (const rawValue of policyIds) {
+    const trimmedValue = rawValue.trim();
+    if (trimmedValue.length === 0) {
+      continue;
+    }
+    uniqueValues.add(trimmedValue);
+  }
+  const normalized = Array.from(uniqueValues).sort((left, right) =>
+    left.localeCompare(right)
+  );
   return normalized;
 }
 
