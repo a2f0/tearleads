@@ -98,6 +98,19 @@ describe('Debug', () => {
       ).not.toBeInTheDocument();
     });
 
+    it('renders a back link when showBackLink is true', async () => {
+      await renderDebug({
+        showBackLink: true,
+        backTo: '/settings',
+        backLabel: 'Back to settings'
+      });
+
+      const backLink = screen.getByTestId('back-link');
+      expect(backLink).toBeInTheDocument();
+      expect(backLink).toHaveAttribute('href', '/settings');
+      expect(backLink).toHaveTextContent('Back to settings');
+    });
+
     it('renders system info section with all device and environment info', async () => {
       await renderDebug();
 
