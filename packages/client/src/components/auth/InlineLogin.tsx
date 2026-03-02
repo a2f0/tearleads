@@ -5,7 +5,7 @@
  */
 
 import { User } from 'lucide-react';
-import { type MouseEvent, useCallback } from 'react';
+import { type MouseEvent, useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useIsMobile } from '@/hooks/device';
@@ -21,16 +21,40 @@ export function InlineLogin({
 }: InlineLoginProps) {
   const windowManagerActions = useWindowManagerActions();
   const isMobileScreen = useIsMobile();
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+
+  useEffect(() => {
+    if (
+      typeof window === 'undefined' ||
+      typeof window.matchMedia !== 'function'
+    ) {
+      return;
+    }
+
+    const pointerQuery = window.matchMedia('(pointer: coarse)');
+    const updateTouchState = () => {
+      const hasTouch = pointerQuery.matches || navigator.maxTouchPoints > 0;
+      setIsTouchDevice(hasTouch);
+    };
+
+    updateTouchState();
+    pointerQuery.addEventListener('change', updateTouchState);
+    return () => {
+      pointerQuery.removeEventListener('change', updateTouchState);
+    };
+  }, []);
+
+  const isDesktopMode = !isMobileScreen && !isTouchDevice;
 
   const handleSyncLinkClick = useCallback(
     (event: MouseEvent<HTMLAnchorElement>) => {
-      if (isMobileScreen) {
+      if (!isDesktopMode) {
         return;
       }
       event.preventDefault();
       windowManagerActions.openWindow('sync');
     },
-    [isMobileScreen, windowManagerActions]
+    [isDesktopMode, windowManagerActions]
   );
 
   return (
