@@ -34,8 +34,8 @@
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "dependencies": {
-    "@connectrpc/connect": "1.7.0",
-    "@connectrpc/connect-web": "1.7.0",
+    "@connectrpc/connect": "2.1.1",
+    "@connectrpc/connect-web": "2.1.1",
     "@tearleads/local-write-orchestrator": "workspace:*",
     "@tearleads/shared": "workspace:*",
     "@tearleads/vfs-sync": "workspace:*"

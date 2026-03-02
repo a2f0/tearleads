@@ -40,7 +40,7 @@
     "@tearleads/shared": "workspace:*",
     "@tearleads/ui": "workspace:*",
     "lucide-react": "0.575.0",
-    "protobufjs": "^7.5.4"
+    "protobufjs": "^8.0.0"
   },
   "devDependencies": {
     "@tearleads/app-builder": "workspace:*",
