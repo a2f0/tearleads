@@ -19,6 +19,7 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # Copy scripts needed for setup
 COPY scripts/downloadSqliteWasm.sh scripts/
+COPY scripts/lib scripts/lib
 
 # Download SQLite WASM files (gitignored, must be downloaded)
 RUN scripts/downloadSqliteWasm.sh
