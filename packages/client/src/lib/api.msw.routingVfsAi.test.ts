@@ -221,9 +221,7 @@ describe('api with msw', () => {
 
     expect(wasApiRequestMade('POST', AI_CONNECT_RECORD_USAGE_PATH)).toBe(true);
     expect(wasApiRequestMade('POST', AI_CONNECT_USAGE_PATH)).toBe(true);
-    expect(wasApiRequestMade('POST', AI_CONNECT_USAGE_SUMMARY_PATH)).toBe(
-      true
-    );
+    expect(wasApiRequestMade('POST', AI_CONNECT_USAGE_SUMMARY_PATH)).toBe(true);
 
     expectSingleRequestQuery('GET', '/vfs/share-targets/search', {
       q: 'test query',
