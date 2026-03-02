@@ -161,7 +161,9 @@ describe('compileVfsSharePolicies', () => {
     expect(lockQuery?.values).toEqual([
       'vfs_share_policy_compile:policy-a,policy-b'
     ]);
-    expect(lockTimeoutQuery?.text).toContain("SET LOCAL lock_timeout = '5000ms'");
+    expect(lockTimeoutQuery?.text).toContain(
+      "SET LOCAL lock_timeout = '5000ms'"
+    );
     expect(statementTimeoutQuery?.text).toContain(
       "SET LOCAL statement_timeout = '120000ms'"
     );

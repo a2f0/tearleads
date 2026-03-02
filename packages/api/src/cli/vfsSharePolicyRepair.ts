@@ -118,7 +118,10 @@ export function vfsSharePolicyRepairCommand(program: Command): void {
           repairOptions.emitMetrics = options.emitMetrics;
         }
 
-        const result = await repairVfsSharePolicyAclDrift(client, repairOptions);
+        const result = await repairVfsSharePolicyAclDrift(
+          client,
+          repairOptions
+        );
         if (options.json) {
           console.log(JSON.stringify(result, null, 2));
         } else {

@@ -143,7 +143,10 @@ describe('compileVfsSharePolicies concurrency', () => {
 
     harness.releaseFirstPolicyQuery();
 
-    const [firstResult, secondResult] = await Promise.all([firstRun, secondRun]);
+    const [firstResult, secondResult] = await Promise.all([
+      firstRun,
+      secondRun
+    ]);
     expect(firstResult.compilerRunId).toBe('run-1');
     expect(secondResult.compilerRunId).toBe('run-2');
 

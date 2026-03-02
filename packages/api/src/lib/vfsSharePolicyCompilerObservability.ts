@@ -94,14 +94,26 @@ export function buildVfsSharePolicyCompilerRunMetric(
     activePolicyCount: Math.max(0, Math.trunc(input.counts.activePolicyCount)),
     selectorCount: Math.max(0, Math.trunc(input.counts.selectorCount)),
     principalCount: Math.max(0, Math.trunc(input.counts.principalCount)),
-    expandedMatchCount: Math.max(0, Math.trunc(input.counts.expandedMatchCount)),
+    expandedMatchCount: Math.max(
+      0,
+      Math.trunc(input.counts.expandedMatchCount)
+    ),
     decisionsCount: Math.max(0, Math.trunc(input.counts.decisionsCount)),
-    touchedAclEntryCount: Math.max(0, Math.trunc(input.counts.touchedAclEntryCount)),
-    staleRevocationCount: Math.max(0, Math.trunc(input.counts.staleRevocationCount)),
+    touchedAclEntryCount: Math.max(
+      0,
+      Math.trunc(input.counts.touchedAclEntryCount)
+    ),
+    staleRevocationCount: Math.max(
+      0,
+      Math.trunc(input.counts.staleRevocationCount)
+    ),
     loadStateMs: Math.max(0, Math.trunc(input.durations.loadStateMs)),
     compileCoreMs: Math.max(0, Math.trunc(input.durations.compileCoreMs)),
     materializeMs: Math.max(0, Math.trunc(input.durations.materializeMs)),
-    staleRevocationMs: Math.max(0, Math.trunc(input.durations.staleRevocationMs)),
+    staleRevocationMs: Math.max(
+      0,
+      Math.trunc(input.durations.staleRevocationMs)
+    ),
     totalMs: Math.max(0, Math.trunc(input.durations.totalMs))
   };
 }

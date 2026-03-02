@@ -139,12 +139,15 @@ describe('vfsSharePolicyCompilerObservability', () => {
     emitVfsSharePolicyCompilerRunMetric(metric);
 
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy.mock.calls[0]?.[0]).toContain('"event":"vfs_share_policy_compile_run"');
+    expect(spy.mock.calls[0]?.[0]).toContain(
+      '"event":"vfs_share_policy_compile_run"'
+    );
     spy.mockRestore();
   });
 
   it('resolves emit settings from options and env', () => {
-    const originalEnvValue = process.env['VFS_SHARE_POLICY_COMPILER_EMIT_METRICS'];
+    const originalEnvValue =
+      process.env['VFS_SHARE_POLICY_COMPILER_EMIT_METRICS'];
     const originalNodeEnv = process.env['NODE_ENV'];
     try {
       process.env['NODE_ENV'] = 'test';
@@ -158,9 +161,7 @@ describe('vfsSharePolicyCompilerObservability', () => {
       expect(shouldEmitVfsSharePolicyCompilerMetrics(undefined)).toBe(false);
 
       process.env['VFS_SHARE_POLICY_COMPILER_EMIT_METRICS'] = 'sometimes';
-      expect(() =>
-        shouldEmitVfsSharePolicyCompilerMetrics(undefined)
-      ).toThrow(
+      expect(() => shouldEmitVfsSharePolicyCompilerMetrics(undefined)).toThrow(
         'VFS_SHARE_POLICY_COMPILER_EMIT_METRICS must be one of: true, false, 1, 0'
       );
 
@@ -170,7 +171,8 @@ describe('vfsSharePolicyCompilerObservability', () => {
       if (originalEnvValue === undefined) {
         delete process.env['VFS_SHARE_POLICY_COMPILER_EMIT_METRICS'];
       } else {
-        process.env['VFS_SHARE_POLICY_COMPILER_EMIT_METRICS'] = originalEnvValue;
+        process.env['VFS_SHARE_POLICY_COMPILER_EMIT_METRICS'] =
+          originalEnvValue;
       }
       if (originalNodeEnv === undefined) {
         delete process.env['NODE_ENV'];
