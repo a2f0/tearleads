@@ -238,6 +238,11 @@ jobs:
         env:
           CI: true
           APP_DISPLAY_NAME: ${{ steps.config.outputs.display_name }}
+          # upload_to_testflight reads account context from Appfile. Without these,
+          # Fastlane resolves an empty account ("''") and cannot find the app.
+          APPLE_ID: ${{ secrets[format('{0}_APPLE_ID', env.APP_ID)] || secrets.APPLE_ID }}
+          TEAM_ID: ${{ secrets[format('{0}_TEAM_ID', env.APP_ID)] || secrets.TEAM_ID }}
+          ITC_TEAM_ID: ${{ secrets[format('{0}_ITC_TEAM_ID', env.APP_ID)] || secrets.ITC_TEAM_ID }}
           APP_STORE_CONNECT_KEY_ID: ${{ secrets[format('{0}_APP_STORE_CONNECT_KEY_ID', env.APP_ID)] || secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets[format('{0}_APP_STORE_CONNECT_ISSUER_ID', env.APP_ID)] || secrets.APP_STORE_CONNECT_ISSUER_ID }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}

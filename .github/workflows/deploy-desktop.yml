@@ -7,7 +7,9 @@ jobs:
   deploy:
     name: Deploy Desktop (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    # Desktop packaging now exceeds 20 minutes on hosted runners after repo growth.
+    # Raising this prevents all OS matrix jobs from being cancelled mid-package.
+    timeout-minutes: 45
     env:
       DESKTOP_APP_IDENTIFIER: com.tearleads.app
     strategy:
