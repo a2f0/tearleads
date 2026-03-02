@@ -1,4 +1,5 @@
-import { DropdownMenu, DropdownMenuItem } from '@tearleads/ui';
+import backupsPackageJson from '@tearleads/backups/package.json';
+import { AboutMenuItem, DropdownMenu, DropdownMenuItem } from '@tearleads/ui';
 import { WindowMenuBar } from '@tearleads/window-manager';
 
 interface BackupWindowMenuBarProps {
@@ -24,6 +25,7 @@ export function BackupWindowMenuBar({
         <DropdownMenuItem onClick={onOpenDocumentation}>
           Documentation
         </DropdownMenuItem>
+        <AboutMenuItem appName="Backups" version={backupsPackageJson.version} />
       </DropdownMenu>
     </WindowMenuBar>
   );

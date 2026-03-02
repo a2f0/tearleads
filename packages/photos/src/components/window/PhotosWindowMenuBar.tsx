@@ -40,7 +40,8 @@ export function PhotosWindowMenuBar({
     DropdownMenu,
     DropdownMenuItem,
     DropdownMenuSeparator,
-    WindowOptionsMenuItem
+    WindowOptionsMenuItem,
+    AboutMenuItem
   } = ui;
 
   return (
@@ -106,6 +107,9 @@ export function PhotosWindowMenuBar({
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <WindowOptionsMenuItem />
+      </DropdownMenu>
+      <DropdownMenu trigger="Help">
+        <AboutMenuItem />
       </DropdownMenu>
     </WindowMenuBar>
   );

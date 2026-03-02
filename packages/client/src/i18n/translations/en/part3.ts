@@ -25,7 +25,8 @@ export const enPart3 = {
     // Menu bar
     file: 'File',
     close: 'Close',
-    view: 'View'
+    view: 'View',
+    help: 'Help'
   },
 
   debug: {

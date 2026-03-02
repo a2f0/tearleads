@@ -225,6 +225,7 @@ export interface SyncTranslations {
   file: string;
   close: string;
   view: string;
+  help: string;
 }
 
 export interface AdminTranslations {

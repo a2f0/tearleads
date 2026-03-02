@@ -1,6 +1,8 @@
+import photosPackageJson from '@tearleads/photos/package.json';
 import { ThemeProvider } from '@tearleads/ui';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { EmailAboutMenuItem } from './ClientEmailProvider';
 import { NotesAboutMenuItem } from './ClientNotesProvider';
 import { VfsExplorerAboutMenuItem } from './ClientVfsExplorerProvider';
@@ -21,6 +23,14 @@ vi.mock('@tearleads/vfs-explorer/package.json', () => ({
   default: { version: '0.0.8' }
 }));
 
+vi.mock('@tearleads/photos/package.json', () => ({
+  default: { version: '0.0.10' }
+}));
+
+function PhotosAboutMenuItem() {
+  return <AboutMenuItem appName="Photos" version={photosPackageJson.version} />;
+}
+
 const testCases = [
   {
     name: 'Email',
@@ -36,6 +46,11 @@ const testCases = [
     name: 'VFS Explorer',
     Component: VfsExplorerAboutMenuItem,
     expectedVersion: '0.0.8'
+  },
+  {
+    name: 'Photos',
+    Component: PhotosAboutMenuItem,
+    expectedVersion: '0.0.10'
   }
 ];
 
