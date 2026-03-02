@@ -69,11 +69,30 @@ export type VfsCrdtOrderViolationCode =
 
 export class VfsCrdtOrderViolationError extends Error {
   constructor(
-    _code: VfsCrdtOrderViolationCode,
-    _operationIndex: number,
+    code: VfsCrdtOrderViolationCode,
+    operationIndex: number,
     message: string
   ) {
     super(message);
     this.name = 'VfsCrdtOrderViolationError';
+    Object.defineProperties(this, {
+      code: {
+        value: code,
+        enumerable: true,
+        configurable: false,
+        writable: false
+      },
+      operationIndex: {
+        value: operationIndex,
+        enumerable: true,
+        configurable: false,
+        writable: false
+      }
+    });
   }
+}
+
+export interface VfsCrdtOrderViolationError {
+  readonly code: VfsCrdtOrderViolationCode;
+  readonly operationIndex: number;
 }

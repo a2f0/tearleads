@@ -264,12 +264,18 @@ export interface VfsCrdtSyncTransport {
 }
 
 export class VfsCrdtSyncPushRejectedError extends Error {
-  constructor(_results: VfsCrdtSyncPushResult[]) {
+  constructor(results: VfsCrdtSyncPushResult[]) {
     super('push rejected one or more operations');
     this.name = 'VfsCrdtSyncPushRejectedError';
+    Object.defineProperty(this, 'rejectedResults', {
+      value: results,
+      enumerable: true,
+      configurable: false,
+      writable: false
+    });
   }
 }
-
+export interface VfsCrdtSyncPushRejectedError { readonly rejectedResults: VfsCrdtSyncPushResult[]; }
 export class VfsCrdtRematerializationRequiredError extends Error {
   readonly code: 'crdt_rematerialization_required';
   readonly requestedCursor: string | null;
