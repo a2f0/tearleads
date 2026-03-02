@@ -1,3 +1,4 @@
+import { parseConnectJsonEnvelopeBody } from '@tearleads/shared';
 import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import {
   fetchWithAuthRefresh,
@@ -337,27 +338,6 @@ function parseBody(rawBody: string): unknown {
   } catch {
     throw new Error('transport returned non-JSON response');
   }
-}
-
-function parseConnectJsonEnvelopeBody(body: unknown): unknown {
-  if (!isRecord(body) || typeof body['json'] !== 'string') {
-    return body;
-  }
-
-  const rawJson = body['json'].trim();
-  if (rawJson.length === 0) {
-    return {};
-  }
-
-  try {
-    return JSON.parse(rawJson);
-  } catch {
-    throw new Error('transport returned invalid connect json envelope');
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function buildConnectUrl(

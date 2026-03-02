@@ -68,6 +68,7 @@ export function HelpWindow({
   const [openapiSpec, setOpenapiSpec] = useState<OpenAPIV3.Document | null>(
     null
   );
+  const [isLoadingApiDocs, setIsLoadingApiDocs] = useState(true);
   const openRequest = useWindowOpenRequest('help');
 
   useEffect(() => {
@@ -83,7 +84,13 @@ export function HelpWindow({
         if (isOpenApiDocument(spec)) {
           setOpenapiSpec(spec);
         }
-      } catch {}
+      } catch {
+        // OpenAPI may be disabled in Connect-only deployments.
+      } finally {
+        if (!cancelled) {
+          setIsLoadingApiDocs(false);
+        }
+      }
     })();
 
     return () => {
@@ -173,9 +180,13 @@ export function HelpWindow({
             <div className="h-full overflow-auto">
               {openapiSpec ? (
                 <ApiDocs spec={openapiSpec} />
-              ) : (
+              ) : isLoadingApiDocs ? (
                 <div className="text-muted-foreground text-sm">
                   Loading API docs...
+                </div>
+              ) : (
+                <div className="text-muted-foreground text-sm">
+                  API docs are unavailable in this environment.
                 </div>
               )}
             </div>

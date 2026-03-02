@@ -4,11 +4,10 @@
  */
 
 import { Database } from 'lucide-react';
-import { type MouseEvent, useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useDatabaseContext } from '@/db/hooks';
-import { useIsMobile } from '@/hooks/device';
+import { useDesktopWindowLinkHandler } from '@/hooks/window';
 import { UnlockForm } from './UnlockForm';
 
 interface InlineUnlockProps {
@@ -19,56 +18,10 @@ interface InlineUnlockProps {
 export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
   const { isSetUp, unlock, restoreSession, hasPersistedSession } =
     useDatabaseContext();
-  const windowManagerActions = useWindowManagerActions();
-  const isMobileScreen = useIsMobile();
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const handleSqliteLinkClick = useDesktopWindowLinkHandler('sqlite');
+  const handleSyncLinkClick = useDesktopWindowLinkHandler('sync');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (
-      typeof window === 'undefined' ||
-      typeof window.matchMedia !== 'function'
-    ) {
-      return;
-    }
-
-    const pointerQuery = window.matchMedia('(pointer: coarse)');
-    const updateTouchState = () => {
-      const hasTouch = pointerQuery.matches || navigator.maxTouchPoints > 0;
-      setIsTouchDevice(hasTouch);
-    };
-
-    updateTouchState();
-    pointerQuery.addEventListener('change', updateTouchState);
-    return () => {
-      pointerQuery.removeEventListener('change', updateTouchState);
-    };
-  }, []);
-
-  const isDesktopMode = !isMobileScreen && !isTouchDevice;
-
-  const handleSqliteLinkClick = useCallback(
-    (event: MouseEvent<HTMLAnchorElement>) => {
-      if (!isDesktopMode) {
-        return;
-      }
-      event.preventDefault();
-      windowManagerActions.openWindow('sqlite');
-    },
-    [isDesktopMode, windowManagerActions]
-  );
-
-  const handleSyncLinkClick = useCallback(
-    (event: MouseEvent<HTMLAnchorElement>) => {
-      if (!isDesktopMode) {
-        return;
-      }
-      event.preventDefault();
-      windowManagerActions.openWindow('sync');
-    },
-    [isDesktopMode, windowManagerActions]
-  );
 
   if (!isSetUp) {
     return (

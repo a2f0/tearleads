@@ -1,4 +1,5 @@
 import { Code, ConnectError } from '@connectrpc/connect';
+import { getLegacyRoutePrefix } from '../legacyRoutePrefix.js';
 
 type LegacyHandlerContext = {
   requestHeader: Headers;
@@ -65,15 +66,16 @@ function getLegacyBaseUrl(context: LegacyHandlerContext): string {
     return configured.replace(/\/+$/u, '');
   }
 
+  const routePrefix = getLegacyRoutePrefix();
   if (process.env['NODE_ENV'] === 'test') {
     const host = context.requestHeader.get('host');
     if (host && host.trim().length > 0) {
-      return `http://${host}/v1`;
+      return `http://${host}${routePrefix}`;
     }
   }
 
   const port = process.env['PORT'] ?? '5001';
-  return `http://127.0.0.1:${port}/v1`;
+  return `http://127.0.0.1:${port}${routePrefix}`;
 }
 
 function createForwardHeaders(
