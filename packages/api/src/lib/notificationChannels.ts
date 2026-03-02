@@ -65,7 +65,9 @@ async function filterAuthorizedVfsContainerIds(
   return new Set(
     result.rows
       .map((row) => row.item_id?.trim())
-      .filter((itemId): itemId is string => itemId !== undefined && itemId !== '')
+      .filter(
+        (itemId): itemId is string => itemId !== undefined && itemId !== ''
+      )
   );
 }
 
@@ -136,7 +138,9 @@ export async function filterAuthorizedChannels(
   return authorized;
 }
 
-export function parseBroadcastMessage(message: string): BroadcastMessage | null {
+export function parseBroadcastMessage(
+  message: string
+): BroadcastMessage | null {
   try {
     const parsed = JSON.parse(message);
     return isBroadcastMessage(parsed) ? parsed : null;

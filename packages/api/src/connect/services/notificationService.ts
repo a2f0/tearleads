@@ -1,8 +1,4 @@
-import {
-  Code,
-  ConnectError,
-  type HandlerContext
-} from '@connectrpc/connect';
+import { Code, ConnectError, type HandlerContext } from '@connectrpc/connect';
 import type { BroadcastMessage } from '@tearleads/shared';
 import type { SubscribeRequest } from '@tearleads/shared/gen/tearleads/v1/notifications_pb';
 import {
