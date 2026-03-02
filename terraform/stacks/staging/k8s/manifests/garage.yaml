@@ -234,49 +234,118 @@ spec:
             - sh
             - -c
             - |
-              set -e
+              set -eu
               ADMIN="http://garage:3903"
               AUTH="Authorization: Bearer $GARAGE_ADMIN_TOKEN"
 
-              # Best-effort helper: succeed even if the call returns an HTTP error
-              api_post_ok() {
+              api_get() {
+                local path="$1"
+                wget -q -O - --header="$AUTH" "$ADMIN$path"
+              }
+
+              api_post() {
                 local path="$1" body="$2"
                 wget -q -O - --header="$AUTH" --header="Content-Type: application/json" \
-                  --post-data="$body" "$ADMIN$path" 2>&1 || true
+                  --post-data="$body" "$ADMIN$path"
+              }
+
+              retry_api_post() {
+                local description="$1" path="$2" body="$3"
+                local attempt=1
+                local max_attempts=10
+                local response=""
+
+                while [ "$attempt" -le "$max_attempts" ]; do
+                  if response="$(api_post "$path" "$body" 2>&1)"; then
+                    printf '%s' "$response"
+                    return 0
+                  fi
+
+                  echo "$description failed (attempt $attempt/$max_attempts): $response"
+                  sleep 2
+                  attempt=$((attempt + 1))
+                done
+
+                echo "ERROR: $description failed after $max_attempts attempts."
+                return 1
+              }
+
+              wait_for_layout_ready() {
+                local attempt=1
+                local max_attempts=30
+
+                while [ "$attempt" -le "$max_attempts" ]; do
+                  if api_get "/v2/ListKeys" >/dev/null 2>&1; then
+                    return 0
+                  fi
+
+                  echo "Garage layout not ready yet (attempt $attempt/$max_attempts); waiting..."
+                  sleep 2
+                  attempt=$((attempt + 1))
+                done
+
+                echo "ERROR: Garage layout did not become ready in time."
+                return 1
               }
 
               # Get node ID from cluster status
-              STATUS=$(wget -q -O - --header="$AUTH" "$ADMIN/v2/GetClusterStatus")
-              NODE_ID=$(echo "$STATUS" | sed -n 's/.*"nodes":\[{"id":"\([^"]*\)".*/\1/p')
+              STATUS="$(api_get "/v2/GetClusterStatus")"
+              STATUS_COMPACT="$(printf '%s' "$STATUS" | tr -d '[:space:]')"
+              NODE_ID="$(printf '%s' "$STATUS_COMPACT" | sed -n 's/.*"nodes":\[{"id":"\([^"]*\)".*/\1/p')"
+              LAYOUT_VERSION="$(printf '%s' "$STATUS_COMPACT" | sed -n 's/.*"layoutVersion":\([0-9][0-9]*\).*/\1/p')"
+
+              if [ -z "$NODE_ID" ]; then
+                echo "ERROR: Could not determine Garage node ID from cluster status."
+                echo "$STATUS"
+                exit 1
+              fi
+
+              if [ -z "$LAYOUT_VERSION" ]; then
+                echo "ERROR: Could not determine Garage layout version from cluster status."
+                echo "$STATUS"
+                exit 1
+              fi
+
               echo "Node ID: $NODE_ID"
+              echo "Current layout version: $LAYOUT_VERSION"
 
-              # Assign layout to node (1GB, zone dc1) — idempotent
-              echo "Assigning layout..."
-              api_post_ok "/v2/UpdateClusterLayout" \
-                "{\"roles\":[{\"id\":\"$NODE_ID\",\"zone\":\"dc1\",\"capacity\":1000000000,\"tags\":[]}]}"
+              # Configure layout when the node has no active role yet.
+              if printf '%s' "$STATUS_COMPACT" | grep -q '"role":null'; then
+                APPLY_VERSION=$((LAYOUT_VERSION + 1))
+                echo "Assigning layout..."
+                retry_api_post "UpdateClusterLayout" "/v2/UpdateClusterLayout" \
+                  "{\"roles\":[{\"id\":\"$NODE_ID\",\"zone\":\"dc1\",\"capacity\":1000000000,\"tags\":[]}]}" >/dev/null
 
-              # Apply layout — may fail if already applied at this version
-              echo "Applying layout..."
-              api_post_ok "/v2/ApplyClusterLayout" '{"version":1}'
+                echo "Applying layout version $APPLY_VERSION..."
+                retry_api_post "ApplyClusterLayout" "/v2/ApplyClusterLayout" \
+                  "{\"version\":$APPLY_VERSION}" >/dev/null
+              else
+                echo "Layout already configured; skipping layout assignment."
+              fi
 
-              # Import access key — idempotent (re-imports existing GK-format key)
+              wait_for_layout_ready
+
+              # Import access key — idempotent (re-imports existing key id).
               echo "Importing access key..."
-              api_post_ok "/v2/ImportKey" \
-                "{\"accessKeyId\":\"$VFS_BLOB_S3_ACCESS_KEY_ID\",\"secretAccessKey\":\"$VFS_BLOB_S3_SECRET_ACCESS_KEY\",\"name\":\"vfs-blob-key\"}"
-              echo ""
+              retry_api_post "ImportKey" "/v2/ImportKey" \
+                "{\"accessKeyId\":\"$VFS_BLOB_S3_ACCESS_KEY_ID\",\"secretAccessKey\":\"$VFS_BLOB_S3_SECRET_ACCESS_KEY\",\"name\":\"vfs-blob-key\"}" >/dev/null
 
-              # Create bucket — idempotent (returns existing bucket)
+              # Create bucket — idempotent (returns existing bucket id).
               echo "Creating bucket..."
-              BUCKET_RESP=$(api_post_ok "/v2/CreateBucket" '{"globalAlias":"vfs-blobs"}')
-              BUCKET_ID=$(echo "$BUCKET_RESP" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+              BUCKET_RESP="$(retry_api_post "CreateBucket" "/v2/CreateBucket" '{"globalAlias":"vfs-blobs"}')"
+              BUCKET_ID="$(printf '%s' "$BUCKET_RESP" | tr -d '[:space:]' | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')"
+
+              if [ -z "$BUCKET_ID" ]; then
+                echo "ERROR: Could not parse bucket ID from CreateBucket response."
+                echo "$BUCKET_RESP"
+                exit 1
+              fi
+
               echo "Bucket ID: $BUCKET_ID"
 
-              # Grant permissions
-              if [ -n "$BUCKET_ID" ]; then
-                echo "Granting bucket permissions..."
-                api_post_ok "/v2/AllowBucketKey" \
-                  "{\"bucketId\":\"$BUCKET_ID\",\"accessKeyId\":\"$VFS_BLOB_S3_ACCESS_KEY_ID\",\"permissions\":{\"read\":true,\"write\":true,\"owner\":true}}"
-              fi
+              echo "Granting bucket permissions..."
+              retry_api_post "AllowBucketKey" "/v2/AllowBucketKey" \
+                "{\"bucketId\":\"$BUCKET_ID\",\"accessKeyId\":\"$VFS_BLOB_S3_ACCESS_KEY_ID\",\"permissions\":{\"read\":true,\"write\":true,\"owner\":true}}" >/dev/null
 
               echo "Garage setup complete"
       volumes:

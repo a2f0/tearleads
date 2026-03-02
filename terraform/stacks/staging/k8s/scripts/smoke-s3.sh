@@ -68,6 +68,30 @@ get_secret_key_or_fail() {
   printf '%s' "$encoded" | decode_base64
 }
 
+assert_s3_secret_sync_with_env() {
+  if [[ -n "${VFS_BLOB_S3_ACCESS_KEY_ID:-}" && "${VFS_BLOB_S3_ACCESS_KEY_ID}" != "$access_key" ]]; then
+    echo "ERROR: Kubernetes secret $SECRET_NAME has a different VFS_BLOB_S3_ACCESS_KEY_ID than .secrets/staging.env."
+    echo "Re-apply rendered secrets and retry:"
+    echo "  $SCRIPT_DIR/deploy.sh"
+    exit 1
+  fi
+
+  if [[ -n "${VFS_BLOB_S3_SECRET_ACCESS_KEY:-}" && "${VFS_BLOB_S3_SECRET_ACCESS_KEY}" != "$secret_key" ]]; then
+    echo "ERROR: Kubernetes secret $SECRET_NAME has a different VFS_BLOB_S3_SECRET_ACCESS_KEY than .secrets/staging.env."
+    echo "Re-apply rendered secrets and retry:"
+    echo "  $SCRIPT_DIR/deploy.sh"
+    exit 1
+  fi
+}
+
+print_missing_garage_key_hint() {
+  echo "Garage does not recognize the configured S3 access key."
+  echo "Re-run Garage bootstrap and wait for it to complete:"
+  echo "  kubectl -n $NAMESPACE delete job garage-setup --ignore-not-found"
+  echo "  kubectl -n $NAMESPACE apply -f \"$SCRIPT_DIR/../manifests/garage.yaml\""
+  echo "  kubectl -n $NAMESPACE wait --for=condition=complete job/garage-setup --timeout=180s"
+}
+
 require_kubeconfig_and_kubectl() {
   if [[ ! -f "$KUBECONFIG_FILE" ]]; then
     echo "ERROR: Kubeconfig not found at $KUBECONFIG_FILE"
@@ -120,6 +144,8 @@ check_placeholder_secrets_or_fail() {
     echo "  envsubst < terraform/stacks/staging/k8s/manifests/secrets.yaml | kubectl apply -f -"
     exit 1
   fi
+
+  assert_s3_secret_sync_with_env
 }
 
 run_in_cluster_smoke() {
@@ -203,8 +229,17 @@ run_local_fallback_smoke() {
 
   printf '%s' "$payload" > /tmp/s3-smoke-in.txt
 
-  AWS_ACCESS_KEY_ID="$access_key" AWS_SECRET_ACCESS_KEY="$secret_key" AWS_DEFAULT_REGION="$AWS_REGION" \
-    aws --endpoint-url "$local_endpoint" s3api put-object --bucket "$S3_BUCKET" --key "$key" --body /tmp/s3-smoke-in.txt >/dev/null
+  local put_output=""
+  if ! put_output="$(
+    AWS_ACCESS_KEY_ID="$access_key" AWS_SECRET_ACCESS_KEY="$secret_key" AWS_DEFAULT_REGION="$AWS_REGION" \
+      aws --endpoint-url "$local_endpoint" s3api put-object --bucket "$S3_BUCKET" --key "$key" --body /tmp/s3-smoke-in.txt 2>&1
+  )"; then
+    echo "$put_output"
+    if grep -qi "No such key" <<< "$put_output"; then
+      print_missing_garage_key_hint
+    fi
+    exit 1
+  fi
 
   AWS_ACCESS_KEY_ID="$access_key" AWS_SECRET_ACCESS_KEY="$secret_key" AWS_DEFAULT_REGION="$AWS_REGION" \
     aws --endpoint-url "$local_endpoint" s3api get-object --bucket "$S3_BUCKET" --key "$key" /tmp/s3-smoke-out.txt >/dev/null
