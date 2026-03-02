@@ -4,23 +4,11 @@
  */
 
 import { Database, Eye, EyeOff, Fingerprint, Loader2 } from 'lucide-react';
-import {
-  type ChangeEvent,
-  type FormEvent,
-  useCallback,
-  useEffect,
-  useState
-} from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { isBiometricAvailable } from '@/db/crypto/keyManager';
 import { useDatabaseContext } from '@/db/hooks';
 import { useDesktopWindowLinkHandler } from '@/hooks/window';
-import { getErrorMessage } from '@/lib/errors';
-import { detectPlatform } from '@/lib/utils';
-
-const platform = detectPlatform();
-const isMobile = platform === 'ios' || platform === 'android';
+import { useInlineUnlockController } from './useInlineUnlockController';
 
 interface InlineUnlockProps {
   /** Description of what will be accessible after unlocking */
@@ -32,95 +20,19 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
     useDatabaseContext();
   const handleSqliteLinkClick = useDesktopWindowLinkHandler('sqlite');
   const handleSyncLinkClick = useDesktopWindowLinkHandler('sync');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [persistUnlock, setPersistUnlock] = useState(false);
-  const [biometryType, setBiometryType] = useState<string | null>(null);
-
-  // Check biometric availability on mobile
-  useEffect(() => {
-    if (isMobile) {
-      isBiometricAvailable().then((result) => {
-        if (result.isAvailable && result.biometryType) {
-          setBiometryType(result.biometryType);
-        }
-      });
-    }
-  }, []);
-
-  const getBiometricLabel = useCallback(() => {
-    switch (biometryType) {
-      case 'faceId':
-        return 'Face ID';
-      case 'touchId':
-        return 'Touch ID';
-      case 'fingerprint':
-        return 'Fingerprint';
-      case 'iris':
-        return 'Iris';
-      default:
-        return 'Biometric';
-    }
-  }, [biometryType]);
-
-  const handlePasswordChange = useCallback(
-    (e: ChangeEvent<HTMLInputElement>) => {
-      setPassword(e.target.value);
-      setError(null);
-    },
-    []
-  );
-
-  const handleTogglePassword = useCallback(() => {
-    setShowPassword((prev) => !prev);
-  }, []);
-
-  const handlePersistChange = useCallback(
-    (e: ChangeEvent<HTMLInputElement>) => {
-      setPersistUnlock(e.target.checked);
-    },
-    []
-  );
-
-  const handleUnlock = useCallback(
-    async (e: FormEvent) => {
-      e.preventDefault();
-      if (!password) return;
-
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const success = await unlock(password, persistUnlock);
-        if (!success) {
-          setError('Wrong password');
-        }
-      } catch (err) {
-        setError(getErrorMessage(err));
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [password, persistUnlock, unlock]
-  );
-
-  const handleRestoreSession = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const success = await restoreSession();
-      if (!success) {
-        setError('Failed to restore session');
-      }
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [restoreSession]);
+  const {
+    password,
+    showPassword,
+    isLoading,
+    error,
+    persistUnlock,
+    biometricLabel,
+    handlePasswordChange,
+    handleTogglePassword,
+    handlePersistChange,
+    handleUnlock,
+    handleRestoreSession
+  } = useInlineUnlockController({ unlock, restoreSession });
 
   if (!isSetUp) {
     return (
@@ -200,9 +112,7 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
             className="h-5 w-5 rounded border border-input"
           />
           <span>
-            {isMobile && biometryType
-              ? `Remember with ${getBiometricLabel()}`
-              : 'Keep unlocked'}
+            {biometricLabel ? `Remember with ${biometricLabel}` : 'Keep unlocked'}
           </span>
         </label>
 
@@ -233,10 +143,10 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
               disabled={isLoading}
               data-testid="inline-unlock-restore"
             >
-              {isMobile && biometryType ? (
+              {biometricLabel ? (
                 <>
                   <Fingerprint className="mr-1 h-4 w-4" />
-                  {getBiometricLabel()}
+                  {biometricLabel}
                 </>
               ) : (
                 'Restore Session'
