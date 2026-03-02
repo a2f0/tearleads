@@ -17,7 +17,8 @@ vi.mock('../../lib/postgres.js', () => ({
 
 type RedisValue = string | Set<string>;
 const sessionStore = new Map<string, RedisValue>();
-const mockRedisClient = {
+export const mockRedisStore = sessionStore;
+export const mockRedisClient = {
   get: vi.fn((key: string) => {
     const value = sessionStore.get(key);
     return Promise.resolve(typeof value === 'string' ? value : null);
