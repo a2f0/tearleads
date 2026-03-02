@@ -1,3 +1,4 @@
+import { performance } from 'node:perf_hooks';
 import type { VfsCrdtPushResponse } from '@tearleads/shared';
 import {
   decodeVfsCrdtPushRequestProtobuf,
@@ -6,6 +7,12 @@ import {
 import type { Request, Response, Router as RouterType } from 'express';
 import type { PoolClient } from 'pg';
 import { getPostgresPool } from '../../lib/postgres.js';
+import {
+  createVfsCrdtQueryMetrics,
+  emitVfsCrdtRoutePerfMetric,
+  mergeVfsCrdtQueryMetrics,
+  runTimedVfsCrdtQuery
+} from '../../lib/vfsCrdtPerformanceMetrics.js';
 import { publishVfsContainerCursorBump } from '../../lib/vfsSyncChannels.js';
 import {
   createCrdtProtobufRawBodyParser,
@@ -84,10 +91,15 @@ const postCrdtPushHandler = async (req: Request, res: Response) => {
 
   const pool = await getPostgresPool();
   const client = await pool.connect();
+  const routeQueryMetrics = createVfsCrdtQueryMetrics();
+  const routeStartedAtMs = performance.now();
+  let pushQueryMetrics: ReturnType<typeof createVfsCrdtQueryMetrics> | null = null;
   let inTransaction = false;
 
   try {
-    await client.query('BEGIN');
+    await runTimedVfsCrdtQuery('begin', routeQueryMetrics, () =>
+      client.query('BEGIN')
+    );
     inTransaction = true;
 
     const pushResult = await applyCrdtPushOperations({
@@ -95,8 +107,11 @@ const postCrdtPushHandler = async (req: Request, res: Response) => {
       userId: claims.sub,
       parsedOperations: parsedPayload.value.operations
     });
+    pushQueryMetrics = pushResult.queryMetrics;
 
-    await client.query('COMMIT');
+    await runTimedVfsCrdtQuery('commit', routeQueryMetrics, () =>
+      client.query('COMMIT')
+    );
     inTransaction = false;
 
     const response: VfsCrdtPushResponse = {
@@ -128,10 +143,33 @@ const postCrdtPushHandler = async (req: Request, res: Response) => {
       response,
       encodeVfsCrdtPushResponseProtobuf
     );
+
+    emitVfsCrdtRoutePerfMetric({
+      route: 'push',
+      success: true,
+      durationMs: performance.now() - routeStartedAtMs,
+      queryMetrics: mergeVfsCrdtQueryMetrics(
+        routeQueryMetrics,
+        pushResult.queryMetrics
+      ),
+      operationCount: parsedPayload.value.operations.length,
+      resultCount: pushResult.results.length
+    });
   } catch (error) {
     if (inTransaction) {
       await rollbackQuietly(client);
     }
+
+    emitVfsCrdtRoutePerfMetric({
+      route: 'push',
+      success: false,
+      durationMs: performance.now() - routeStartedAtMs,
+      queryMetrics: pushQueryMetrics
+        ? mergeVfsCrdtQueryMetrics(routeQueryMetrics, pushQueryMetrics)
+        : routeQueryMetrics,
+      operationCount: parsedPayload.value.operations.length,
+      error
+    });
 
     console.error('Failed to push VFS CRDT operations:', error);
     res.status(500).json({ error: 'Failed to push CRDT operations' });

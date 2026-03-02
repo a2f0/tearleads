@@ -1,3 +1,4 @@
+import { performance } from 'node:perf_hooks';
 import type { VfsCrdtSyncResponse } from '@tearleads/shared';
 import {
   buildVfsCrdtSyncQuery,
@@ -10,13 +11,18 @@ import {
 } from '@tearleads/vfs-sync/vfs';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
+import {
+  createVfsCrdtQueryMetrics,
+  emitVfsCrdtRoutePerfMetric,
+  runTimedVfsCrdtQuery,
+  type VfsCrdtQueryMetrics
+} from '../../lib/vfsCrdtPerformanceMetrics.js';
 import { sendCrdtProtobufOrJson } from './crdtProtobuf.js';
 import {
   toLastReconciledWriteIds,
   type VfsCrdtReplicaWriteIdRow
 } from './crdtRouteHelpers.js';
 
-const CRDT_CLIENT_PUSH_SOURCE_TABLE = 'vfs_crdt_client_push';
 const CRDT_REMATERIALIZATION_REQUIRED_CODE = 'crdt_rematerialization_required';
 
 interface CursorBoundaryRow {
@@ -52,10 +58,10 @@ function parseOccurredAtMs(value: Date | string): number | null {
 async function loadOldestAccessibleCursor(
   pool: { query<T>(text: string, values?: unknown[]): Promise<{ rows: T[] }> },
   userId: string,
-  rootId: string | null
+  rootId: string | null,
+  queryMetrics?: VfsCrdtQueryMetrics
 ): Promise<VfsSyncCursor | null> {
-  const result = await pool.query<CursorBoundaryRow>(
-    `
+  const queryText = `
     WITH principals AS (
       SELECT 'user'::text AS principal_type, $1::text AS principal_id
       UNION ALL
@@ -103,9 +109,14 @@ async function loadOldestAccessibleCursor(
       )
     ORDER BY ops.occurred_at ASC, ops.id ASC
     LIMIT 1
-    `,
-    [userId, rootId]
-  );
+    `;
+  const queryValues = [userId, rootId];
+
+  const result = queryMetrics
+    ? await runTimedVfsCrdtQuery('oldest_accessible_cursor', queryMetrics, () =>
+        pool.query<CursorBoundaryRow>(queryText, queryValues)
+      )
+    : await pool.query<CursorBoundaryRow>(queryText, queryValues);
 
   const row = result.rows[0];
   if (!row) {
@@ -188,13 +199,16 @@ const getCrdtSyncHandler = async (req: Request, res: Response) => {
     return;
   }
 
+  const queryMetrics = createVfsCrdtQueryMetrics();
+  const routeStartedAtMs = performance.now();
   try {
     const pool = await getPostgresPool();
     if (parsedQuery.value.cursor) {
       const oldestAccessibleCursor = await loadOldestAccessibleCursor(
         pool,
         claims.sub,
-        parsedQuery.value.rootId
+        parsedQuery.value.rootId,
+        queryMetrics
       );
       if (
         oldestAccessibleCursor &&
@@ -207,6 +221,14 @@ const getCrdtSyncHandler = async (req: Request, res: Response) => {
           requestedCursor: encodeVfsSyncCursor(parsedQuery.value.cursor),
           oldestAvailableCursor: encodeVfsSyncCursor(oldestAccessibleCursor)
         });
+        emitVfsCrdtRoutePerfMetric({
+          route: 'pull',
+          success: true,
+          durationMs: performance.now() - routeStartedAtMs,
+          queryMetrics,
+          operationCount: parsedQuery.value.limit,
+          resultCount: 0
+        });
         return;
       }
     }
@@ -218,29 +240,28 @@ const getCrdtSyncHandler = async (req: Request, res: Response) => {
       rootId: parsedQuery.value.rootId
     });
 
-    const result = await pool.query<VfsCrdtSyncDbRow>(query.text, query.values);
+    const result = await runTimedVfsCrdtQuery('pull_page', queryMetrics, () =>
+      pool.query<VfsCrdtSyncDbRow>(query.text, query.values)
+    );
     /**
      * Guardrail: include per-replica max write IDs in every pull response.
      * This allows clients to enforce monotonic stale-write recovery even when
      * the current pull page is empty (cursor-only checkpoint advancement).
      */
-    const replicaWriteIdsResult = await pool.query<VfsCrdtReplicaWriteIdRow>(
-      `
+    const replicaWriteIdsResult = await runTimedVfsCrdtQuery(
+      'replica_write_ids',
+      queryMetrics,
+      () =>
+        pool.query<VfsCrdtReplicaWriteIdRow>(
+          `
       SELECT
-        split_part(source_id, ':', 2) AS replica_id,
-        MAX(
-          CASE
-            WHEN split_part(source_id, ':', 3) ~ '^[0-9]+$'
-              THEN split_part(source_id, ':', 3)::bigint
-            ELSE NULL
-          END
-        ) AS max_write_id
-      FROM vfs_crdt_ops
-      WHERE source_table = $1
-        AND actor_id = $2
-      GROUP BY split_part(source_id, ':', 2)
+        replica_id,
+        max_write_id
+      FROM vfs_crdt_replica_heads
+      WHERE actor_id = $1::text
       `,
-      [CRDT_CLIENT_PUSH_SOURCE_TABLE, claims.sub]
+          [claims.sub]
+        )
     );
 
     const response: VfsCrdtSyncResponse = mapVfsCrdtSyncRows(
@@ -255,7 +276,24 @@ const getCrdtSyncHandler = async (req: Request, res: Response) => {
       response,
       encodeVfsCrdtSyncResponseProtobuf
     );
+
+    emitVfsCrdtRoutePerfMetric({
+      route: 'pull',
+      success: true,
+      durationMs: performance.now() - routeStartedAtMs,
+      queryMetrics,
+      operationCount: parsedQuery.value.limit,
+      resultCount: response.items.length
+    });
   } catch (error) {
+    emitVfsCrdtRoutePerfMetric({
+      route: 'pull',
+      success: false,
+      durationMs: performance.now() - routeStartedAtMs,
+      queryMetrics,
+      operationCount: parsedQuery.value.limit,
+      error
+    });
     console.error('Failed to sync VFS CRDT operations:', error);
     res.status(500).json({ error: 'Failed to sync VFS CRDT operations' });
   }

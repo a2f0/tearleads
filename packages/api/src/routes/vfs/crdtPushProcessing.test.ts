@@ -40,12 +40,13 @@ describe('VFS CRDT push route processing', { timeout: 15_000 }, () => {
         rows: [{ id: 'item-1', owner_id: 'user-1' }]
       }) // owner lookup
       .mockResolvedValueOnce({}) // advisory lock
+      .mockResolvedValueOnce({ rows: [] }) // replica heads
       .mockResolvedValueOnce({ rows: [] }) // existing source
-      .mockResolvedValueOnce({ rows: [{ max_write_id: 0 }] }) // max write
       .mockResolvedValueOnce({
         rowCount: 1,
         rows: [{ id: 'crdt-op-1', occurred_at: '2026-02-14T20:00:00.000Z' }]
       }) // INSERT
+      .mockResolvedValueOnce({}) // replica head upsert
       .mockResolvedValueOnce({}); // COMMIT
 
     const response = await postCrdtPush(buildValidPushPayload(), authHeader);
@@ -55,8 +56,8 @@ describe('VFS CRDT push route processing', { timeout: 15_000 }, () => {
       clientId: 'desktop',
       results: [{ opId: 'desktop-1', status: 'applied' }]
     });
-    expect(mockQuery.mock.calls[3]?.[0]).toContain('WHERE source_table = $1');
-    expect(mockQuery.mock.calls[4]?.[0]).toContain('MAX(occurred_at)');
+    expect(mockQuery.mock.calls[3]?.[0]).toContain('FROM vfs_crdt_replica_heads');
+    expect(mockQuery.mock.calls[4]?.[0]).toContain('WHERE source_table = $1');
     expect(mockRedisPublish).toHaveBeenCalledWith(
       'vfs:container:item-1:sync',
       expect.stringContaining('"type":"vfs:cursor-bump"')
@@ -79,12 +80,13 @@ describe('VFS CRDT push route processing', { timeout: 15_000 }, () => {
         rows: [{ id: 'item-1', owner_id: 'user-1' }]
       }) // owner lookup
       .mockResolvedValueOnce({}) // advisory lock
+      .mockResolvedValueOnce({ rows: [] }) // replica heads
       .mockResolvedValueOnce({ rows: [] }) // existing source
-      .mockResolvedValueOnce({ rows: [{ max_write_id: 0 }] }) // max write
       .mockResolvedValueOnce({
         rowCount: 1,
         rows: [{ id: 'crdt-op-1', occurred_at: '2026-02-14T20:00:00.000Z' }]
       }) // INSERT
+      .mockResolvedValueOnce({}) // replica head upsert
       .mockResolvedValueOnce({}); // COMMIT
 
     const response = await postCrdtPush(buildValidPushPayload(), authHeader);
@@ -106,16 +108,18 @@ describe('VFS CRDT push route processing', { timeout: 15_000 }, () => {
         rows: [{ id: 'item-1', owner_id: 'user-1' }]
       }) // owner lookup
       .mockResolvedValueOnce({}) // advisory lock
-      .mockResolvedValueOnce({ rows: [] }) // existing source
       .mockResolvedValueOnce({
         rows: [
           {
+            replica_id: 'desktop',
             max_write_id: 0,
             max_occurred_at: new Date('2026-02-14T20:00:05.000Z')
           }
         ]
-      }) // max write + max occurred_at
+      }) // replica heads + max occurred_at
+      .mockResolvedValueOnce({ rows: [] }) // existing source
       .mockResolvedValueOnce({ rowCount: 1 }) // INSERT
+      .mockResolvedValueOnce({}) // replica head upsert
       .mockResolvedValueOnce({}); // COMMIT
 
     const response = await postCrdtPush(buildValidPushPayload(), authHeader);
@@ -137,6 +141,15 @@ describe('VFS CRDT push route processing', { timeout: 15_000 }, () => {
         rows: [{ id: 'item-1', owner_id: 'user-1' }]
       }) // owner lookup
       .mockResolvedValueOnce({}) // advisory lock
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            replica_id: 'desktop',
+            max_write_id: 1,
+            max_occurred_at: '2026-02-14T20:00:00.000Z'
+          }
+        ]
+      }) // replica heads
       .mockResolvedValueOnce({ rows: [{ id: 'crdt-row-1' }] }) // existing source
       .mockResolvedValueOnce({}); // COMMIT
 
@@ -158,8 +171,10 @@ describe('VFS CRDT push route processing', { timeout: 15_000 }, () => {
         rows: [{ id: 'item-1', owner_id: 'user-1' }]
       }) // owner lookup
       .mockResolvedValueOnce({}) // advisory lock
+      .mockResolvedValueOnce({
+        rows: [{ replica_id: 'desktop', max_write_id: 5, max_occurred_at: null }]
+      }) // replica heads
       .mockResolvedValueOnce({ rows: [] }) // existing source
-      .mockResolvedValueOnce({ rows: [{ max_write_id: 5 }] }) // max write
       .mockResolvedValueOnce({}); // COMMIT
 
     const response = await postCrdtPush(buildValidPushPayload(), authHeader);
@@ -180,9 +195,12 @@ describe('VFS CRDT push route processing', { timeout: 15_000 }, () => {
         rows: [{ id: 'item-1', owner_id: 'user-1' }]
       }) // owner lookup
       .mockResolvedValueOnce({}) // advisory lock
+      .mockResolvedValueOnce({
+        rows: [{ replica_id: 'desktop', max_write_id: '2', max_occurred_at: null }]
+      }) // replica heads (string max_write_id)
       .mockResolvedValueOnce({ rows: [] }) // existing source
-      .mockResolvedValueOnce({ rows: [{ max_write_id: '2' }] }) // max write (string)
       .mockResolvedValueOnce({ rowCount: 1 }) // INSERT
+      .mockResolvedValueOnce({}) // replica head upsert
       .mockResolvedValueOnce({}); // COMMIT
 
     const response = await postCrdtPush(
@@ -213,9 +231,12 @@ describe('VFS CRDT push route processing', { timeout: 15_000 }, () => {
         rows: [{ id: 'item-1', owner_id: 'user-1' }]
       }) // owner lookup
       .mockResolvedValueOnce({}) // advisory lock
+      .mockResolvedValueOnce({
+        rows: [{ replica_id: 'desktop', max_write_id: 'nope', max_occurred_at: null }]
+      }) // replica heads (invalid max_write_id)
       .mockResolvedValueOnce({ rows: [] }) // existing source
-      .mockResolvedValueOnce({ rows: [{ max_write_id: 'nope' }] }) // max write (invalid string)
       .mockResolvedValueOnce({ rowCount: 1 }) // INSERT
+      .mockResolvedValueOnce({}) // replica head upsert
       .mockResolvedValueOnce({}); // COMMIT
 
     const response = await postCrdtPush(buildValidPushPayload(), authHeader);
@@ -235,8 +256,10 @@ describe('VFS CRDT push route processing', { timeout: 15_000 }, () => {
         rows: [{ id: 'item-1', owner_id: 'user-1' }]
       }) // owner lookup
       .mockResolvedValueOnce({}) // advisory lock
+      .mockResolvedValueOnce({
+        rows: [{ replica_id: 'desktop', max_write_id: null, max_occurred_at: null }]
+      }) // replica heads (null max_write_id)
       .mockResolvedValueOnce({ rows: [] }) // existing source
-      .mockResolvedValueOnce({ rows: [{ max_write_id: null }] }) // max write (null)
       .mockResolvedValueOnce({ rowCount: 0 }) // INSERT
       .mockResolvedValueOnce({}); // COMMIT
 
@@ -257,9 +280,10 @@ describe('VFS CRDT push route processing', { timeout: 15_000 }, () => {
         rows: [{ id: 'item-1', owner_id: 'user-1' }]
       }) // owner lookup
       .mockResolvedValueOnce({}) // advisory lock
+      .mockResolvedValueOnce({ rows: [] }) // replica heads
       .mockResolvedValueOnce({ rows: [] }) // existing source
-      .mockResolvedValueOnce({ rows: [{ max_write_id: 0 }] }) // max write
       .mockResolvedValueOnce({ rowCount: 1 }) // INSERT
+      .mockResolvedValueOnce({}) // replica head upsert
       .mockResolvedValueOnce({}); // COMMIT
 
     const response = await postCrdtPush(
@@ -283,9 +307,10 @@ describe('VFS CRDT push route processing', { timeout: 15_000 }, () => {
         rows: [{ id: 'item-1', owner_id: 'user-1' }]
       }) // owner lookup
       .mockResolvedValueOnce({}) // advisory lock
+      .mockResolvedValueOnce({ rows: [] }) // replica heads
       .mockResolvedValueOnce({ rows: [] }) // existing source
-      .mockResolvedValueOnce({ rows: [{ max_write_id: 0 }] }) // max write
       .mockResolvedValueOnce({ rowCount: 1 }) // INSERT
+      .mockResolvedValueOnce({}) // replica head upsert
       .mockResolvedValueOnce({}); // COMMIT
 
     const response = await postCrdtPush(
@@ -320,9 +345,9 @@ describe('VFS CRDT push route processing', { timeout: 15_000 }, () => {
         }
       ]
     });
-    expect(mockQuery).toHaveBeenCalledTimes(7);
+    expect(mockQuery).toHaveBeenCalledTimes(8);
     expect(mockQuery.mock.calls[0]?.[0]).toBe('BEGIN');
-    expect(mockQuery.mock.calls[6]?.[0]).toBe('COMMIT');
+    expect(mockQuery.mock.calls[7]?.[0]).toBe('COMMIT');
   });
 
   it('returns invalidOp when item is missing or not owned', async () => {
@@ -352,9 +377,10 @@ describe('VFS CRDT push route processing', { timeout: 15_000 }, () => {
         rows: [{ id: 'item-1', owner_id: 'user-1' }]
       }) // owner lookup
       .mockResolvedValueOnce({}) // advisory lock
+      .mockResolvedValueOnce({ rows: [] }) // replica heads
       .mockResolvedValueOnce({ rows: [] }) // existing source
-      .mockResolvedValueOnce({ rows: [{ max_write_id: 0 }] }) // max write
       .mockResolvedValueOnce({ rowCount: 1 }) // INSERT crdt op
+      .mockResolvedValueOnce({}) // replica head upsert
       .mockResolvedValueOnce({}) // UPSERT vfs_item_state
       .mockResolvedValueOnce({}) // vfs_emit_sync_change
       .mockResolvedValueOnce({}); // COMMIT
@@ -386,10 +412,10 @@ describe('VFS CRDT push route processing', { timeout: 15_000 }, () => {
       clientId: 'desktop',
       results: [{ opId: 'desktop-item-upsert-1', status: 'applied' }]
     });
-    expect(mockQuery.mock.calls[6]?.[0]).toContain(
+    expect(mockQuery.mock.calls[7]?.[0]).toContain(
       'INSERT INTO vfs_item_state'
     );
-    expect(mockQuery.mock.calls[7]?.[0]).toContain('vfs_emit_sync_change');
+    expect(mockQuery.mock.calls[8]?.[0]).toContain('vfs_emit_sync_change');
   });
 
   it('rolls back and returns 500 on push processing error', async () => {

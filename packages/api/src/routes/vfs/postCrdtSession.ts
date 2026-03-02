@@ -1,3 +1,4 @@
+import { performance } from 'node:perf_hooks';
 import type { VfsCrdtSyncSessionResponse } from '@tearleads/shared';
 import {
   buildVfsCrdtSyncQuery,
@@ -13,6 +14,13 @@ import {
 import type { Request, Response, Router as RouterType } from 'express';
 import type { PoolClient } from 'pg';
 import { getPostgresPool } from '../../lib/postgres.js';
+import {
+  createVfsCrdtQueryMetrics,
+  emitVfsCrdtRoutePerfMetric,
+  mergeVfsCrdtQueryMetrics,
+  runTimedVfsCrdtQuery,
+  type VfsCrdtQueryMetrics
+} from '../../lib/vfsCrdtPerformanceMetrics.js';
 import { publishVfsContainerCursorBump } from '../../lib/vfsSyncChannels.js';
 import {
   createCrdtProtobufRawBodyParser,
@@ -25,7 +33,6 @@ import {
   toLastReconciledWriteIds,
   type VfsCrdtReplicaWriteIdRow
 } from './crdtRouteHelpers.js';
-import { CRDT_CLIENT_PUSH_SOURCE_TABLE } from './post-crdt-push-canonical.js';
 import {
   type ParsedPushOperation,
   parsePushPayload
@@ -199,10 +206,15 @@ const postCrdtSessionHandler = async (req: Request, res: Response) => {
 
   const pool = await getPostgresPool();
   const client = await pool.connect();
+  const routeQueryMetrics = createVfsCrdtQueryMetrics();
+  const routeStartedAtMs = performance.now();
+  let pushQueryMetrics: VfsCrdtQueryMetrics | null = null;
   let inTransaction = false;
 
   try {
-    await client.query('BEGIN');
+    await runTimedVfsCrdtQuery('begin', routeQueryMetrics, () =>
+      client.query('BEGIN')
+    );
     inTransaction = true;
 
     const pushResult = await applyCrdtPushOperations({
@@ -210,6 +222,7 @@ const postCrdtSessionHandler = async (req: Request, res: Response) => {
       userId: claims.sub,
       parsedOperations: parsedPayload.value.parsedOperations
     });
+    pushQueryMetrics = pushResult.queryMetrics;
 
     const syncQuery = buildVfsCrdtSyncQuery({
       userId: claims.sub,
@@ -217,35 +230,24 @@ const postCrdtSessionHandler = async (req: Request, res: Response) => {
       cursor: parsedPayload.value.cursor,
       rootId: parsedPayload.value.rootId
     });
-    const pullRows = await client.query<VfsCrdtSyncDbRow>(
-      syncQuery.text,
-      syncQuery.values
+    const pullRows = await runTimedVfsCrdtQuery('pull_page', routeQueryMetrics, () =>
+      client.query<VfsCrdtSyncDbRow>(syncQuery.text, syncQuery.values)
     );
 
-    const replicaWriteIdsResult = await client.query<VfsCrdtReplicaWriteIdRow>(
-      `
+    const replicaWriteIdsResult = await runTimedVfsCrdtQuery(
+      'replica_write_ids',
+      routeQueryMetrics,
+      () =>
+        client.query<VfsCrdtReplicaWriteIdRow>(
+          `
       SELECT
-        split_part(source_id, ':', 2) AS replica_id,
-        MAX(
-          CASE
-            WHEN split_part(source_id, ':', 3) ~ '^[0-9]+$'
-              AND (
-                length(split_part(source_id, ':', 3)) < 19
-                OR (
-                  length(split_part(source_id, ':', 3)) = 19
-                  AND split_part(source_id, ':', 3) <= '9223372036854775807'
-                )
-              )
-              THEN split_part(source_id, ':', 3)::bigint
-            ELSE NULL
-          END
-        ) AS max_write_id
-      FROM vfs_crdt_ops
-      WHERE source_table = $1
-        AND actor_id = $2
-      GROUP BY split_part(source_id, ':', 2)
+        replica_id,
+        max_write_id
+      FROM vfs_crdt_replica_heads
+      WHERE actor_id = $1::text
       `,
-      [CRDT_CLIENT_PUSH_SOURCE_TABLE, claims.sub]
+          [claims.sub]
+        )
     );
 
     const pullResponse = mapVfsCrdtSyncRows(
@@ -258,8 +260,9 @@ const postCrdtSessionHandler = async (req: Request, res: Response) => {
       ? decodeVfsSyncCursor(pullResponse.nextCursor)
       : null;
     const reconcileCursor = nextCursor ?? parsedPayload.value.cursor;
-    const result = await client.query<ReconcileRow>(
-      `
+    const result = await runTimedVfsCrdtQuery('reconcile_upsert', routeQueryMetrics, () =>
+      client.query<ReconcileRow>(
+        `
       INSERT INTO vfs_sync_client_state (
         user_id,
         client_id,
@@ -291,18 +294,19 @@ const postCrdtSessionHandler = async (req: Request, res: Response) => {
         updated_at = NOW()
       RETURNING last_reconciled_at, last_reconciled_change_id, last_reconciled_write_ids
       `,
-      [
-        claims.sub,
-        toScopedCrdtClientId(parsedPayload.value.clientId),
-        reconcileCursor.changedAt,
-        reconcileCursor.changeId,
-        JSON.stringify(
-          mergeLastReconciledWriteIds(
-            parsedPayload.value.lastReconciledWriteIds,
-            pullResponse.lastReconciledWriteIds
+        [
+          claims.sub,
+          toScopedCrdtClientId(parsedPayload.value.clientId),
+          reconcileCursor.changedAt,
+          reconcileCursor.changeId,
+          JSON.stringify(
+            mergeLastReconciledWriteIds(
+              parsedPayload.value.lastReconciledWriteIds,
+              pullResponse.lastReconciledWriteIds
+            )
           )
-        )
-      ]
+        ]
+      )
     );
 
     const row = result.rows[0];
@@ -315,7 +319,9 @@ const postCrdtSessionHandler = async (req: Request, res: Response) => {
       throw new Error('Failed to reconcile CRDT cursor');
     }
 
-    await client.query('COMMIT');
+    await runTimedVfsCrdtQuery('commit', routeQueryMetrics, () =>
+      client.query('COMMIT')
+    );
     inTransaction = false;
 
     for (const notification of pushResult.notifications) {
@@ -357,10 +363,33 @@ const postCrdtSessionHandler = async (req: Request, res: Response) => {
       response,
       encodeVfsCrdtSyncSessionResponseProtobuf
     );
+
+    emitVfsCrdtRoutePerfMetric({
+      route: 'session',
+      success: true,
+      durationMs: performance.now() - routeStartedAtMs,
+      queryMetrics: mergeVfsCrdtQueryMetrics(
+        routeQueryMetrics,
+        pushQueryMetrics ?? createVfsCrdtQueryMetrics()
+      ),
+      operationCount: parsedPayload.value.parsedOperations.length,
+      resultCount: response.pull.items.length
+    });
   } catch (error) {
     if (inTransaction) {
       await rollbackQuietly(client);
     }
+
+    emitVfsCrdtRoutePerfMetric({
+      route: 'session',
+      success: false,
+      durationMs: performance.now() - routeStartedAtMs,
+      queryMetrics: pushQueryMetrics
+        ? mergeVfsCrdtQueryMetrics(routeQueryMetrics, pushQueryMetrics)
+        : routeQueryMetrics,
+      operationCount: parsedPayload.value.parsedOperations.length,
+      error
+    });
     console.error('Failed to run VFS CRDT session:', error);
     res.status(500).json({ error: 'Failed to run CRDT sync session' });
   } finally {
