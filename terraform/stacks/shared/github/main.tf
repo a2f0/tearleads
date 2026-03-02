@@ -67,6 +67,9 @@ resource "github_branch_protection" "main" {
     strict = false
     contexts = [
       "build",
+      "CodeQL",
+      "Dependency Review",
+      "Secret Scan",
       "Android Instrumented Tests",
       "Android Maestro Tests (Release)",
       "iOS Maestro Tests (Release)",
@@ -144,6 +147,15 @@ resource "github_repository_ruleset" "main" {
 
       required_check {
         context = "build"
+      }
+      required_check {
+        context = "CodeQL"
+      }
+      required_check {
+        context = "Dependency Review"
+      }
+      required_check {
+        context = "Secret Scan"
       }
       required_check {
         context = "Android Instrumented Tests"
