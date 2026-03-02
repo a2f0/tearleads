@@ -12,7 +12,7 @@ export interface VfsCrdtQueryMetrics {
   rowCountByLabel: Record<string, number>;
 }
 
-export type VfsCrdtPerfRoute =
+type VfsCrdtPerfRoute =
   | 'push'
   | 'pull'
   | 'session'
