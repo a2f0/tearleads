@@ -275,7 +275,7 @@ export class VfsCrdtSyncPushRejectedError extends Error {
     });
   }
 }
-export interface VfsCrdtSyncPushRejectedError { readonly rejectedResults: VfsCrdtSyncPushResult[]; }
+
 export class VfsCrdtRematerializationRequiredError extends Error {
   readonly code: 'crdt_rematerialization_required';
   readonly requestedCursor: string | null;

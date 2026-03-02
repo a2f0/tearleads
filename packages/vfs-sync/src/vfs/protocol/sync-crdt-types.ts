@@ -91,8 +91,3 @@ export class VfsCrdtOrderViolationError extends Error {
     });
   }
 }
-
-export interface VfsCrdtOrderViolationError {
-  readonly code: VfsCrdtOrderViolationCode;
-  readonly operationIndex: number;
-}
