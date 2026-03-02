@@ -1,4 +1,9 @@
-import type { VfsCrdtSyncItem, VfsCrdtSyncResponse, VfsSyncItem, VfsSyncResponse } from '@tearleads/shared';
+import type {
+  VfsCrdtSyncItem,
+  VfsCrdtSyncResponse,
+  VfsSyncItem,
+  VfsSyncResponse
+} from '@tearleads/shared';
 import { setupBobNotesShareForAliceDb } from '@tearleads/shared/scaffolding';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
