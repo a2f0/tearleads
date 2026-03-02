@@ -28,6 +28,10 @@ import {
   SYNC_SESSION_RESPONSE_TYPE
 } from './syncProtobufSchema.js';
 
+export interface SyncProtobufEncodingOptions {
+  includeLegacyEnvelopeStrings?: boolean;
+}
+
 function toObject(
   type: protobuf.Type,
   bytes: Uint8Array
@@ -56,12 +60,13 @@ function encode(
 }
 
 export function encodeVfsCrdtPushRequestProtobuf(
-  request: VfsCrdtPushRequest
+  request: VfsCrdtPushRequest,
+  options: SyncProtobufEncodingOptions = {}
 ): Uint8Array {
   return encode(PUSH_REQUEST_TYPE, {
     clientId: request.clientId,
     operations: request.operations.map((operation) =>
-      toOperationPayload(operation)
+      toOperationPayload(operation, options)
     )
   });
 }
@@ -103,10 +108,11 @@ export function decodeVfsCrdtPushResponseProtobuf(bytes: Uint8Array): unknown {
   };
 }
 export function encodeVfsCrdtSyncResponseProtobuf(
-  response: VfsCrdtSyncResponse
+  response: VfsCrdtSyncResponse,
+  options: SyncProtobufEncodingOptions = {}
 ): Uint8Array {
   return encode(PULL_RESPONSE_TYPE, {
-    items: response.items.map((item) => toOperationPayload(item)),
+    items: response.items.map((item) => toOperationPayload(item, options)),
     hasMore: response.hasMore,
     nextCursor: response.nextCursor ?? '',
     lastReconciledWriteIds: response.lastReconciledWriteIds
@@ -169,14 +175,15 @@ export function decodeVfsCrdtReconcileResponseProtobuf(
   };
 }
 export function encodeVfsCrdtSyncSessionRequestProtobuf(
-  request: VfsCrdtSyncSessionRequest
+  request: VfsCrdtSyncSessionRequest,
+  options: SyncProtobufEncodingOptions = {}
 ): Uint8Array {
   return encode(SYNC_SESSION_REQUEST_TYPE, {
     clientId: request.clientId,
     cursor: request.cursor,
     limit: request.limit,
     operations: request.operations.map((operation) =>
-      toOperationPayload(operation)
+      toOperationPayload(operation, options)
     ),
     lastReconciledWriteIds: request.lastReconciledWriteIds ?? {},
     rootId: request.rootId ?? ''
@@ -200,7 +207,8 @@ export function decodeVfsCrdtSyncSessionRequestProtobuf(
   };
 }
 export function encodeVfsCrdtSyncSessionResponseProtobuf(
-  response: VfsCrdtSyncSessionResponse
+  response: VfsCrdtSyncSessionResponse,
+  options: SyncProtobufEncodingOptions = {}
 ): Uint8Array {
   return encode(SYNC_SESSION_RESPONSE_TYPE, {
     push: {
@@ -211,7 +219,9 @@ export function encodeVfsCrdtSyncSessionResponseProtobuf(
       }))
     },
     pull: {
-      items: response.pull.items.map((item) => toOperationPayload(item)),
+      items: response.pull.items.map((item) =>
+        toOperationPayload(item, options)
+      ),
       hasMore: response.pull.hasMore,
       nextCursor: response.pull.nextCursor ?? '',
       lastReconciledWriteIds: response.pull.lastReconciledWriteIds

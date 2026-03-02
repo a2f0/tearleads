@@ -117,7 +117,11 @@ const getMlsGroupsGroupIdMessagesHandler = async (
            $1::text AS group_id,
            ops.actor_id AS sender_user_id,
            COALESCE(ops.key_epoch, 0) AS epoch,
-           ops.encrypted_payload AS ciphertext,
+           CASE
+             WHEN ops.encrypted_payload_bytes IS NOT NULL
+               THEN encode(ops.encrypted_payload_bytes, 'base64')
+             ELSE ops.encrypted_payload
+           END AS ciphertext,
            NULLIF(split_part(ops.source_id, ':', 5), '') AS encoded_content_type,
            legacy.content_type AS legacy_content_type,
            CASE
@@ -132,7 +136,10 @@ const getMlsGroupsGroupIdMessagesHandler = async (
          LEFT JOIN mls_messages legacy ON legacy.id = ops.item_id
          WHERE ops.source_table IN ('mls_messages', 'mls_message')
            AND ops.op_type = 'item_upsert'
-           AND ops.encrypted_payload IS NOT NULL
+           AND (
+             ops.encrypted_payload_bytes IS NOT NULL
+             OR ops.encrypted_payload IS NOT NULL
+           )
            AND ops.source_id LIKE $2::text
        )
        SELECT

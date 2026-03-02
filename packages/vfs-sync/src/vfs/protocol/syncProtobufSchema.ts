@@ -41,7 +41,11 @@ const MESSAGE_ROOT = protobuf.Root.fromJSON({
                 keyEpoch: { type: 'uint32', id: 16 },
                 encryptionNonce: { type: 'string', id: 17 },
                 encryptionAad: { type: 'string', id: 18 },
-                encryptionSignature: { type: 'string', id: 19 }
+                encryptionSignature: { type: 'string', id: 19 },
+                encryptedPayloadBytes: { type: 'bytes', id: 20 },
+                encryptionNonceBytes: { type: 'bytes', id: 21 },
+                encryptionAadBytes: { type: 'bytes', id: 22 },
+                encryptionSignatureBytes: { type: 'bytes', id: 23 }
               }
             },
             PushRequest: {

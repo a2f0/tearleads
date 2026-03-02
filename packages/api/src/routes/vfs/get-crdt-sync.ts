@@ -24,6 +24,7 @@ import {
 } from '../../lib/vfsCrdtRedisCache.js';
 import { loadReplicaWriteIdRows } from '../../lib/vfsCrdtReplicaWriteIds.js';
 import { sendCrdtProtobufOrJson } from './crdtProtobuf.js';
+import { shouldIncludeLegacyCrdtProtobufEnvelopeStrings } from './crdtProtobufEnvelopeOptions.js';
 import { toLastReconciledWriteIds } from './crdtRouteHelpers.js';
 
 const CRDT_REMATERIALIZATION_REQUIRED_CODE = 'crdt_rematerialization_required';
@@ -282,12 +283,11 @@ const getCrdtSyncHandler = async (req: Request, res: Response) => {
       parsedQuery.value.limit,
       toLastReconciledWriteIds(replicaWriteIdsResult.rows)
     );
-    sendCrdtProtobufOrJson(
-      req,
-      res,
-      200,
-      response,
-      encodeVfsCrdtSyncResponseProtobuf
+    sendCrdtProtobufOrJson(req, res, 200, response, (payload) =>
+      encodeVfsCrdtSyncResponseProtobuf(payload, {
+        includeLegacyEnvelopeStrings:
+          shouldIncludeLegacyCrdtProtobufEnvelopeStrings()
+      })
     );
 
     emitVfsCrdtRoutePerfMetric({

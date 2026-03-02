@@ -22,6 +22,10 @@ message CrdtOperation {
   string encryptionNonce = 17;
   string encryptionAad = 18;
   string encryptionSignature = 19;
+  bytes encryptedPayloadBytes = 20;
+  bytes encryptionNonceBytes = 21;
+  bytes encryptionAadBytes = 22;
+  bytes encryptionSignatureBytes = 23;
 }
 
 message PushRequest {
