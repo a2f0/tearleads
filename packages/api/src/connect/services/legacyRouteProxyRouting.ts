@@ -6,7 +6,6 @@ import { redisRouter } from '../../routes/admin/redis.js';
 import { usersRouter } from '../../routes/admin/users.js';
 import { mlsRouter } from '../../routes/mls/router.js';
 import { vfsRouter } from '../../routes/vfs/router.js';
-import { vfsSharesRouter } from '../../routes/vfs-shares/router.js';
 import type {
   RequestQuery,
   RouteDefinition,
@@ -177,8 +176,7 @@ const routeDefinitions: RouteDefinition[] = [
   ...collectRoutes('/admin/postgres', postgresRouter),
   ...collectRoutes('/admin/redis', redisRouter),
   ...collectRoutes('/mls', mlsRouter),
-  ...collectRoutes('/vfs', vfsRouter),
-  ...collectRoutes('/vfs', vfsSharesRouter)
+  ...collectRoutes('/vfs', vfsRouter)
 ];
 
 function splitPath(path: string): string[] {

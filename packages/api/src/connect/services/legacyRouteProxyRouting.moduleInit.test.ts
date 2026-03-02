@@ -100,9 +100,6 @@ describe('legacyRouteProxyRouting module initialization', () => {
     vi.doMock('../../routes/vfs/router.js', () => ({
       vfsRouter: emptyRouter
     }));
-    vi.doMock('../../routes/vfs-shares/router.js', () => ({
-      vfsSharesRouter: emptyRouter
-    }));
 
     const routing = await import('./legacyRouteProxyRouting.js');
 
