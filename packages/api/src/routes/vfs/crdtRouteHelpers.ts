@@ -1,4 +1,4 @@
-export interface VfsCrdtReplicaWriteIdRow {
+interface VfsCrdtReplicaWriteIdRow {
   replica_id: string | null;
   max_write_id: string | number | null;
 }
