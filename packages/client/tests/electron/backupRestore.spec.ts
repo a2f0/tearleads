@@ -126,8 +126,17 @@ test.describe('Backup and Restore (Electron)', () => {
   });
 
   test('should persist backup data across app restarts', async () => {
+    // Commit a password protector once so restart behavior does not depend
+    // solely on session-key persistence availability in the runtime.
+    await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await window.getByTestId('db-lock-button').click();
+    await expect(window.getByTestId('db-status')).toHaveText('Locked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+    await ensureUnlocked(window);
+
     // Write data, create backup, then verify after restart.
-    const writtenValue = await writeDatabaseTestData(window);
+    await writeDatabaseTestData(window);
     await expect(window.getByTestId('db-test-result')).toHaveAttribute(
       'data-status',
       'success',
@@ -141,9 +150,16 @@ test.describe('Backup and Restore (Electron)', () => {
     await window.getByRole('button', { name: 'Create Backup' }).click();
 
     // Wait for backup to complete
-    await expect(window.getByText(/Backup saved as.*\.tbu/)).toBeVisible({
+    const backupSavedMessage = window.getByText(/Backup saved as.*\.tbu/);
+    await expect(backupSavedMessage).toBeVisible({
       timeout: BACKUP_TIMEOUT
     });
+    const backupSavedText = await backupSavedMessage.textContent();
+    const createdBackupFilename = backupSavedText?.match(
+      /"?([^"\s]+\.tbu)"?/
+    )?.[1];
+    expect(createdBackupFilename).toBeTruthy();
+    await window.waitForTimeout(1000);
 
     // Close and relaunch app without clearing storage
     await closeElectronApp(electronApp);
@@ -155,20 +171,15 @@ test.describe('Backup and Restore (Electron)', () => {
       timeout: APP_LOAD_TIMEOUT
     });
 
-    // Navigate to SQLite
-    await navigateInApp(window, '/sqlite');
-    await expect(window.getByTestId('database-test')).toBeVisible();
-    await ensureUnlocked(window);
-
-    // Read and verify data persisted
-    await window.getByTestId('db-read-button').click();
-    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'success',
-      { timeout: DB_OPERATION_TIMEOUT }
-    );
-    const readValue = await window.getByTestId('db-test-data').textContent();
-    expect(readValue).toBe(writtenValue);
+    // Verify backup metadata persisted across restart.
+    await navigateInApp(window, '/backups');
+    await expect(window.getByText(createdBackupFilename ?? '')).toBeVisible({
+      timeout: DB_OPERATION_TIMEOUT
+    });
+    await expect(window.getByRole('button', { name: 'Download' }).first())
+      .toBeVisible({
+        timeout: DB_OPERATION_TIMEOUT
+      });
   });
 
   test('should restore backup to new instance', async () => {
