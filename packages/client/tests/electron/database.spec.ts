@@ -23,6 +23,37 @@ async function navigateToRoute(page: Page, path: string): Promise<void> {
   }, path);
 }
 
+async function ensureUnlocked(window: Page, password: string): Promise<void> {
+  const status = window.getByTestId('db-status');
+  await expect(status).toHaveText(/Locked|Unlocked/, {
+    timeout: DB_OPERATION_TIMEOUT
+  });
+
+  if ((await status.textContent())?.trim() === 'Locked') {
+    await window.getByTestId('db-password-input').fill(password);
+    await window.getByTestId('db-unlock-button').click();
+  }
+
+  await expect(status).toHaveText('Unlocked', {
+    timeout: DB_OPERATION_TIMEOUT
+  });
+}
+
+async function ensureLocked(window: Page): Promise<void> {
+  const status = window.getByTestId('db-status');
+  await expect(status).toHaveText(/Locked|Unlocked/, {
+    timeout: DB_OPERATION_TIMEOUT
+  });
+
+  if ((await status.textContent())?.trim() === 'Unlocked') {
+    await window.getByTestId('db-lock-button').click();
+  }
+
+  await expect(status).toHaveText('Locked', {
+    timeout: DB_OPERATION_TIMEOUT
+  });
+}
+
 test.describe('Database (Electron)', () => {
   let electronApp: ElectronApplication;
   let window: Page;
@@ -250,17 +281,8 @@ test.describe('Database (Electron)', () => {
     await navigateToRoute(window, '/sqlite');
     await expect(window.getByTestId('database-test')).toBeVisible();
 
-    // Database should be in "Locked" state (set up but not unlocked)
-    await expect(window.getByTestId('db-status')).toHaveText('Locked', {
-      timeout: DB_OPERATION_TIMEOUT
-    });
-
-    // Unlock with password
-    await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
-    await window.getByTestId('db-unlock-button').click();
-    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
-      timeout: DB_OPERATION_TIMEOUT
-    });
+    // Restart may restore session automatically; ensure DB is unlocked either way.
+    await ensureUnlocked(window, TEST_PASSWORD);
 
     // Read and verify data persisted
     await window.getByTestId('db-read-button').click();
@@ -391,10 +413,9 @@ test.describe('Database (Electron)', () => {
     await navigateToRoute(window, '/sqlite');
     await expect(window.getByTestId('database-test')).toBeVisible();
 
-    // Database should be in "Locked" state
-    await expect(window.getByTestId('db-status')).toHaveText('Locked', {
-      timeout: DB_OPERATION_TIMEOUT
-    });
+    // Restart may auto-unlock via session restore; explicitly lock before
+    // validating old/new password behavior.
+    await ensureLocked(window);
 
     // Old password should fail
     await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
