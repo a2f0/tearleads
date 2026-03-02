@@ -72,9 +72,9 @@ describe('secureOrchestratorFacade checkpoint fields', () => {
     const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');
     const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
       crdt: {
-        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '' }
       },
-      blob: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+      blob: { baseUrl: 'http://localhost', apiPrefix: '' }
     });
     orchestrator.queueBlobStageAndPersist = queueBlobStageAndPersist;
 
@@ -145,9 +145,9 @@ describe('secureOrchestratorFacade checkpoint fields', () => {
     const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');
     const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
       crdt: {
-        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '' }
       },
-      blob: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+      blob: { baseUrl: 'http://localhost', apiPrefix: '' }
     });
     orchestrator.queueBlobStageAndPersist = queueBlobStageAndPersist;
 
@@ -221,9 +221,9 @@ describe('secureOrchestratorFacade checkpoint fields', () => {
     const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');
     const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
       crdt: {
-        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '' }
       },
-      blob: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+      blob: { baseUrl: 'http://localhost', apiPrefix: '' }
     });
     orchestrator.queueBlobStageAndPersist = queueBlobStageAndPersist;
 
@@ -298,9 +298,9 @@ describe('secureOrchestratorFacade checkpoint fields', () => {
     const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');
     const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
       crdt: {
-        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '' }
       },
-      blob: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+      blob: { baseUrl: 'http://localhost', apiPrefix: '' }
     });
     orchestrator.queueBlobStageAndPersist = queueBlobStageAndPersist;
     orchestrator.queueBlobChunkAndPersist = vi.fn(async (input) => {
@@ -385,9 +385,9 @@ describe('secureOrchestratorFacade checkpoint fields', () => {
     const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');
     const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
       crdt: {
-        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '' }
       },
-      blob: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+      blob: { baseUrl: 'http://localhost', apiPrefix: '' }
     });
     orchestrator.queueBlobStageAndPersist = queueBlobStageAndPersist;
 

@@ -1,18 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
 import { encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
-import {
-  encodeVfsCrdtReconcileResponseProtobuf,
-  encodeVfsCrdtSyncResponseProtobuf
-} from '../protocol/syncProtobuf.js';
 import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
+
+function connectJsonEnvelope(payload: unknown): string {
+  return JSON.stringify({ json: JSON.stringify(payload) });
+}
 
 describe('VfsHttpCrdtSyncTransport guardrails', () => {
   it('fails closed when push response shape is invalid', async () => {
     const fetchMock = vi.fn(
       async () =>
-        new Response(new Uint8Array([8, 1]), {
+        new Response(connectJsonEnvelope({ bad: true }), {
           status: 200,
-          headers: { 'Content-Type': 'application/x-protobuf' }
+          headers: { 'Content-Type': 'application/json' }
         })
     );
 
@@ -27,14 +27,14 @@ describe('VfsHttpCrdtSyncTransport guardrails', () => {
         clientId: 'desktop',
         operations: []
       })
-    ).rejects.toThrowError(/index out of range|invalid push response/);
+    ).rejects.toThrowError(/invalid clientId/);
   });
 
   it('fails closed when reconcile response references another client', async () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(
-          encodeVfsCrdtReconcileResponseProtobuf({
+          connectJsonEnvelope({
             clientId: 'wrong-client',
             cursor: encodeVfsSyncCursor({
               changedAt: '2026-02-14T20:00:00.000Z',
@@ -44,7 +44,7 @@ describe('VfsHttpCrdtSyncTransport guardrails', () => {
           }),
           {
             status: 200,
-            headers: { 'Content-Type': 'application/x-protobuf' }
+            headers: { 'Content-Type': 'application/json' }
           }
         )
     );
@@ -71,7 +71,7 @@ describe('VfsHttpCrdtSyncTransport guardrails', () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(
-          encodeVfsCrdtSyncResponseProtobuf({
+          connectJsonEnvelope({
             items: [],
             nextCursor: 'not-a-valid-base64-json-cursor',
             hasMore: false,
@@ -79,7 +79,7 @@ describe('VfsHttpCrdtSyncTransport guardrails', () => {
           }),
           {
             status: 200,
-            headers: { 'Content-Type': 'application/x-protobuf' }
+            headers: { 'Content-Type': 'application/json' }
           }
         )
     );
@@ -103,7 +103,7 @@ describe('VfsHttpCrdtSyncTransport guardrails', () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(
-          encodeVfsCrdtSyncResponseProtobuf({
+          connectJsonEnvelope({
             items: [],
             nextCursor: null,
             hasMore: false,
@@ -114,7 +114,7 @@ describe('VfsHttpCrdtSyncTransport guardrails', () => {
           }),
           {
             status: 200,
-            headers: { 'Content-Type': 'application/x-protobuf' }
+            headers: { 'Content-Type': 'application/json' }
           }
         )
     );

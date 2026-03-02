@@ -3,12 +3,7 @@ import type {
   VfsCrdtOperation,
   VfsCrdtSyncTransport
 } from '@tearleads/vfs-sync/vfs';
-import {
-  encodeVfsCrdtPushResponseProtobuf,
-  encodeVfsCrdtReconcileResponseProtobuf,
-  encodeVfsCrdtSyncResponseProtobuf,
-  encodeVfsSyncCursor
-} from '@tearleads/vfs-sync/vfs';
+import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 function getAuthorizationHeader(init: RequestInit | undefined): string | null {
@@ -17,6 +12,10 @@ function getAuthorizationHeader(init: RequestInit | undefined): string | null {
   }
 
   return new Headers(init.headers).get('Authorization');
+}
+
+function connectJsonEnvelope(payload: unknown): string {
+  return JSON.stringify({ json: JSON.stringify(payload) });
 }
 
 describe('vfsNetworkFlusher', () => {
@@ -60,20 +59,20 @@ describe('vfsNetworkFlusher', () => {
           );
         }
 
-        if (url.endsWith('/v1/vfs/crdt/push')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
           pushAttempt += 1;
           if (pushAttempt === 1) {
             return new Response(null, { status: 401 });
           }
 
           return new Response(
-            encodeVfsCrdtPushResponseProtobuf({
+            connectJsonEnvelope({
               clientId: 'desktop',
               results: [{ opId: 'op-1', status: 'applied' }]
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
@@ -85,7 +84,7 @@ describe('vfsNetworkFlusher', () => {
     const { createVfsApiCrdtTransport } = await import('./vfsNetworkFlusher');
     const transport = createVfsApiCrdtTransport({
       baseUrl: 'http://localhost',
-      apiPrefix: '/v1'
+      apiPrefix: ''
     });
 
     await expect(
@@ -112,7 +111,9 @@ describe('vfsNetworkFlusher', () => {
     const pushCalls = vi
       .mocked(global.fetch)
       .mock.calls.filter(([input]) =>
-        input.toString().endsWith('/v1/vfs/crdt/push')
+        input
+          .toString()
+          .endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')
       );
     expect(pushCalls).toHaveLength(2);
 
@@ -315,7 +316,7 @@ describe('vfsNetworkFlusher', () => {
       ): Promise<Response> => {
         const url = input.toString();
 
-        if (url.includes('/v1/vfs/crdt/vfs-sync')) {
+        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
           pullCalls += 1;
           if (pullCalls === 1) {
             return new Response(
@@ -334,7 +335,7 @@ describe('vfsNetworkFlusher', () => {
           }
 
           return new Response(
-            encodeVfsCrdtSyncResponseProtobuf({
+            connectJsonEnvelope({
               items: [],
               hasMore: false,
               nextCursor: null,
@@ -342,14 +343,14 @@ describe('vfsNetworkFlusher', () => {
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
 
-        if (url.includes('/v1/vfs/crdt/reconcile')) {
+        if (url.includes('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
           return new Response(
-            encodeVfsCrdtReconcileResponseProtobuf({
+            connectJsonEnvelope({
               clientId: 'desktop',
               cursor: encodeVfsSyncCursor({
                 changedAt: '2026-02-24T12:10:00.000Z',
@@ -359,19 +360,24 @@ describe('vfsNetworkFlusher', () => {
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
 
-        if (
-          url.includes('/v1/connect/tearleads.v1.VfsService/GetCrdtSnapshot')
-        ) {
-          const parsedBody =
-            typeof init?.body === 'string'
-              ? (JSON.parse(init.body) as { clientId?: unknown })
-              : {};
-          expect(parsedBody.clientId).toBe('desktop');
+        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSnapshot')) {
+          let clientId: unknown = undefined;
+          if (typeof init?.body === 'string') {
+            const parsedBody = JSON.parse(init.body);
+            if (
+              typeof parsedBody === 'object' &&
+              parsedBody !== null &&
+              'clientId' in parsedBody
+            ) {
+              clientId = parsedBody['clientId'];
+            }
+          }
+          expect(clientId).toBe('desktop');
           return new Response(
             JSON.stringify({
               json: JSON.stringify({
@@ -409,7 +415,7 @@ describe('vfsNetworkFlusher', () => {
     const flusher = new VfsApiNetworkFlusher('user-1', 'desktop', {
       transportOptions: {
         baseUrl: 'http://localhost',
-        apiPrefix: '/v1'
+        apiPrefix: ''
       },
       maxRematerializationAttempts: 1,
       onRematerializationRequired
@@ -427,7 +433,7 @@ describe('vfsNetworkFlusher', () => {
       .mock.calls.filter(([input]) =>
         input
           .toString()
-          .includes('/v1/connect/tearleads.v1.VfsService/GetCrdtSnapshot')
+          .includes('/connect/tearleads.v1.VfsService/GetCrdtSnapshot')
       );
     expect(snapshotCalls).toHaveLength(1);
   });

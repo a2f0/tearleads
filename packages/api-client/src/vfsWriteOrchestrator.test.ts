@@ -142,55 +142,56 @@ describe('vfsWriteOrchestrator', () => {
   });
 
   it('flushes both queues and persists final state', async () => {
-    const {
-      encodeVfsCrdtPushResponseProtobuf,
-      encodeVfsCrdtReconcileResponseProtobuf,
-      encodeVfsCrdtSyncResponseProtobuf,
-      encodeVfsSyncCursor
-    } = await import('@tearleads/vfs-sync/vfs');
+    const { encodeVfsSyncCursor } = await import('@tearleads/vfs-sync/vfs');
 
     vi.mocked(global.fetch).mockImplementation(
       async (input: RequestInfo | URL): Promise<Response> => {
         const url = input.toString();
-        if (url.endsWith('/v1/vfs/crdt/push')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
           return new Response(
-            encodeVfsCrdtPushResponseProtobuf({
-              clientId: 'desktop',
-              results: [{ opId: 'desktop-1', status: 'applied' }]
+            JSON.stringify({
+              json: JSON.stringify({
+                clientId: 'desktop',
+                results: [{ opId: 'desktop-1', status: 'applied' }]
+              })
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
-        if (url.includes('/v1/vfs/crdt/vfs-sync')) {
+        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
           return new Response(
-            encodeVfsCrdtSyncResponseProtobuf({
-              items: [],
-              hasMore: false,
-              nextCursor: null,
-              lastReconciledWriteIds: {}
+            JSON.stringify({
+              json: JSON.stringify({
+                items: [],
+                hasMore: false,
+                nextCursor: null,
+                lastReconciledWriteIds: {}
+              })
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
-        if (url.endsWith('/v1/vfs/crdt/reconcile')) {
+        if (url.endsWith('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
           return new Response(
-            encodeVfsCrdtReconcileResponseProtobuf({
-              clientId: 'desktop',
-              cursor: encodeVfsSyncCursor({
-                changedAt: '2026-02-18T00:00:00.000Z',
-                changeId: 'desktop-1'
-              }),
-              lastReconciledWriteIds: { desktop: 1 }
+            JSON.stringify({
+              json: JSON.stringify({
+                clientId: 'desktop',
+                cursor: encodeVfsSyncCursor({
+                  changedAt: '2026-02-18T00:00:00.000Z',
+                  changeId: 'desktop-1'
+                }),
+                lastReconciledWriteIds: { desktop: 1 }
+              })
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/x-protobuf' }
+              headers: { 'Content-Type': 'application/json' }
             }
           );
         }
@@ -228,7 +229,7 @@ describe('vfsWriteOrchestrator', () => {
       crdt: {
         transportOptions: {
           baseUrl: 'http://localhost',
-          apiPrefix: '/v1'
+          apiPrefix: ''
         }
       },
       blob: {

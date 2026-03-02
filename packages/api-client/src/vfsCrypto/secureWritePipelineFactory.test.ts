@@ -77,9 +77,9 @@ describe('createVfsSecurePipelineBundle', () => {
     const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');
     const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
       crdt: {
-        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '' }
       },
-      blob: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+      blob: { baseUrl: 'http://localhost', apiPrefix: '' }
     });
 
     const facade = bundle.createFacade(orchestrator, { relationKind: 'file' });
@@ -136,9 +136,9 @@ describe('createVfsSecurePipelineBundle', () => {
     const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');
     const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
       crdt: {
-        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '' }
       },
-      blob: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+      blob: { baseUrl: 'http://localhost', apiPrefix: '' }
     });
 
     const facade = bundle.createFacade(orchestrator);
@@ -183,9 +183,9 @@ describe('createVfsSecurePipelineBundle', () => {
     const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');
     const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
       crdt: {
-        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '' }
       },
-      blob: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+      blob: { baseUrl: 'http://localhost', apiPrefix: '' }
     });
 
     const facade = bundle.createFacade(orchestrator);
@@ -249,9 +249,9 @@ describe('createVfsSecurePipelineBundle', () => {
     const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');
     const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
       crdt: {
-        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '' }
       },
-      blob: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+      blob: { baseUrl: 'http://localhost', apiPrefix: '' }
     });
 
     const facade = bundle.createFacade(orchestrator);
@@ -323,9 +323,9 @@ describe('createVfsSecurePipelineBundle', () => {
     const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');
     const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
       crdt: {
-        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '' }
       },
-      blob: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+      blob: { baseUrl: 'http://localhost', apiPrefix: '' }
     });
 
     const facade = bundle.createFacade(orchestrator);
@@ -405,9 +405,9 @@ describe('createVfsSecurePipelineBundle', () => {
     const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');
     const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
       crdt: {
-        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '' }
       },
-      blob: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+      blob: { baseUrl: 'http://localhost', apiPrefix: '' }
     });
 
     const facade = bundle.createFacade(orchestrator);

@@ -8,13 +8,6 @@ import {
   decodeVfsSyncCursor,
   encodeVfsSyncCursor
 } from '../protocol/sync-cursor.js';
-import {
-  decodeVfsCrdtPushRequestProtobuf,
-  decodeVfsCrdtReconcileRequestProtobuf,
-  encodeVfsCrdtPushResponseProtobuf,
-  encodeVfsCrdtReconcileResponseProtobuf,
-  encodeVfsCrdtSyncResponseProtobuf
-} from '../protocol/syncProtobuf.js';
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -34,14 +27,19 @@ function toRequestUrl(input: RequestInfo | URL): URL {
   return new URL(input.url);
 }
 
-function parsePullLimit(searchParams: URLSearchParams): number {
-  const limitRaw = searchParams.get('limit');
-  if (!limitRaw) {
-    return 100;
+function parsePullLimit(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return Math.floor(value);
   }
 
-  const parsed = Number.parseInt(limitRaw, 10);
-  return Number.isFinite(parsed) ? parsed : 100;
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  return 100;
 }
 
 function toWriteIdRecord(value: unknown): Record<string, number> {
@@ -107,6 +105,7 @@ const VALID_PRINCIPAL_TYPES: Array<
 > = ['user', 'group', 'organization'];
 const VALID_ACCESS_LEVELS: Array<NonNullable<VfsCrdtOperation['accessLevel']>> =
   ['read', 'write', 'admin'];
+const VFS_CONNECT_BASE_PATH = '/connect/tearleads.v1.VfsService';
 
 function asRecord(value: unknown, fieldName: string): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -247,68 +246,42 @@ function parsePushOperations(value: unknown): VfsCrdtOperation[] {
   return value.map((entry) => parsePushOperation(entry));
 }
 
-async function readBlobBytes(blob: Blob): Promise<Uint8Array> {
-  if (typeof blob.arrayBuffer === 'function') {
-    const bodyBuffer = await blob.arrayBuffer();
-    return new Uint8Array(bodyBuffer);
+async function readRequestJson(
+  init: RequestInit | undefined
+): Promise<Record<string, unknown>> {
+  if (!init || init.body === undefined || init.body === null) {
+    return {};
   }
 
-  if (typeof FileReader !== 'undefined') {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (reader.result instanceof ArrayBuffer) {
-          resolve(new Uint8Array(reader.result));
-          return;
-        }
-        reject(new Error('expected blob reader result to be array buffer'));
-      };
-      reader.onerror = () => {
-        reject(
-          reader.error ??
-            new Error('failed to read integration harness request blob')
-        );
-      };
-      reader.readAsArrayBuffer(blob);
-    });
+  if (typeof init.body === 'string') {
+    return asRecord(JSON.parse(init.body), 'request body');
   }
 
-  throw new Error('Integration harness expected blob request body bytes');
+  const rawBody = await new Response(init.body).text();
+  if (rawBody.trim().length === 0) {
+    return {};
+  }
+
+  return asRecord(JSON.parse(rawBody), 'request body');
 }
 
-async function readRequestBytes(
-  init: RequestInit | undefined
-): Promise<Uint8Array> {
-  if (!init || init.body === undefined || init.body === null) {
-    return new Uint8Array();
+function parseConnectJsonPayload(
+  requestBody: Record<string, unknown>,
+  fieldName: string
+): Record<string, unknown> {
+  const encodedPayload = requestBody['json'];
+  if (typeof encodedPayload !== 'string') {
+    throw new Error(`Integration harness failed to parse ${fieldName}`);
   }
 
-  if (init.body instanceof Uint8Array) {
-    return init.body;
-  }
+  return asRecord(JSON.parse(encodedPayload), fieldName);
+}
 
-  if (init.body instanceof ArrayBuffer) {
-    return new Uint8Array(init.body);
-  }
-
-  if (init.body instanceof Blob) {
-    return readBlobBytes(init.body);
-  }
-
-  if (ArrayBuffer.isView(init.body)) {
-    return new Uint8Array(
-      init.body.buffer,
-      init.body.byteOffset,
-      init.body.byteLength
-    );
-  }
-
-  const bodyBuffer = await new Response(init.body).arrayBuffer();
-  if (bodyBuffer.byteLength > 0) {
-    return new Uint8Array(bodyBuffer);
-  }
-
-  throw new Error('Integration harness expected protobuf request body bytes');
+function connectJsonResponse(payload: unknown): Response {
+  return new Response(JSON.stringify({ json: JSON.stringify(payload) }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
 }
 
 export function createServerBackedFetch(
@@ -329,11 +302,13 @@ export function createServerBackedFetch(
   return async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = toRequestUrl(input);
 
-    if (url.pathname === '/v1/vfs/crdt/push' && init?.method === 'POST') {
-      const pushBody = asRecord(
-        decodeVfsCrdtPushRequestProtobuf(await readRequestBytes(init)),
-        'push request'
-      );
+    if (
+      url.pathname === `${VFS_CONNECT_BASE_PATH}/PushCrdtOps` &&
+      init?.method === 'POST'
+    ) {
+      const requestBody = await readRequestJson(init);
+      const pushBody = parseConnectJsonPayload(requestBody, 'push request');
+
       const clientId = parseRequiredString(pushBody['clientId'], 'clientId');
       const operations = parsePushOperations(pushBody['operations']);
 
@@ -360,21 +335,15 @@ export function createServerBackedFetch(
         operations
       });
 
-      return new Response(
-        encodeVfsCrdtPushResponseProtobuf({
-          clientId,
-          results: pushResult.results
-        }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/x-protobuf' }
-        }
-      );
+      return connectJsonResponse({
+        clientId,
+        results: pushResult.results
+      });
     }
 
     if (
-      url.pathname === '/v1/vfs/crdt/vfs-sync' &&
-      (init?.method ?? 'GET') === 'GET'
+      url.pathname === `${VFS_CONNECT_BASE_PATH}/GetCrdtSync` &&
+      (init?.method ?? 'POST') === 'POST'
     ) {
       const interceptedResponse = options.interceptPullResponse?.();
       if (interceptedResponse) {
@@ -385,9 +354,10 @@ export function createServerBackedFetch(
         await wait(delays.pullDelayMs);
       }
 
-      const cursorRaw = url.searchParams.get('cursor');
+      const requestBody = await readRequestJson(init);
+      const cursorRaw = parseOptionalString(requestBody['cursor']);
       const decodedCursor = cursorRaw ? decodeVfsSyncCursor(cursorRaw) : null;
-      const pullLimit = parsePullLimit(url.searchParams);
+      const pullLimit = parsePullLimit(requestBody['limit']);
 
       const pullResult = await server.pullOperations({
         cursor: decodedCursor,
@@ -412,20 +382,16 @@ export function createServerBackedFetch(
             lastReconciledWriteIds: pullResult.lastReconciledWriteIds
           };
 
-      return new Response(encodeVfsCrdtSyncResponseProtobuf(pullPayload), {
-        status: 200,
-        headers: { 'Content-Type': 'application/x-protobuf' }
-      });
+      return connectJsonResponse(pullPayload);
     }
 
     if (
-      url.pathname === '/v1/vfs/crdt/reconcile' &&
+      url.pathname === `${VFS_CONNECT_BASE_PATH}/ReconcileCrdt` &&
       (init?.method ?? 'POST') === 'POST'
     ) {
-      const body = asRecord(
-        decodeVfsCrdtReconcileRequestProtobuf(await readRequestBytes(init)),
-        'reconcile request'
-      );
+      const requestBody = await readRequestJson(init);
+      const body = parseConnectJsonPayload(requestBody, 'reconcile request');
+
       const cursorRaw = parseRequiredString(body['cursor'], 'cursor');
       const cursor = decodeVfsSyncCursor(cursorRaw);
       if (!cursor)
@@ -438,9 +404,9 @@ export function createServerBackedFetch(
         typeof body === 'object' &&
         body !== null &&
         'lastReconciledWriteIds' in body &&
-        typeof body.lastReconciledWriteIds === 'object' &&
-        body.lastReconciledWriteIds !== null
-          ? toWriteIdRecord(body.lastReconciledWriteIds)
+        typeof body['lastReconciledWriteIds'] === 'object' &&
+        body['lastReconciledWriteIds'] !== null
+          ? toWriteIdRecord(body['lastReconciledWriteIds'])
           : {};
 
       const reconcileResult = reconcileStateStore.reconcile(
@@ -472,17 +438,7 @@ export function createServerBackedFetch(
             lastReconciledWriteIds: reconcileResult.state.lastReconciledWriteIds
           };
 
-      return new Response(
-        encodeVfsCrdtReconcileResponseProtobuf({
-          clientId: reconcilePayload.clientId,
-          cursor: reconcilePayload.cursor,
-          lastReconciledWriteIds: reconcilePayload.lastReconciledWriteIds
-        }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/x-protobuf' }
-        }
-      );
+      return connectJsonResponse(reconcilePayload);
     }
 
     return new Response(JSON.stringify({ error: 'not found' }), {

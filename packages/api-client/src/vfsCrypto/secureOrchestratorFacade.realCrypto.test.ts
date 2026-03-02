@@ -142,7 +142,7 @@ describe('secureOrchestratorFacade with real crypto', () => {
         _init?: RequestInit
       ): Promise<Response> => {
         const url = input.toString();
-        if (url.includes('/v1/vfs/crdt')) {
+        if (url.includes('/connect/tearleads.v1.VfsService/')) {
           return new Response(
             JSON.stringify({
               clientId: 'desktop',
@@ -176,9 +176,9 @@ describe('secureOrchestratorFacade with real crypto', () => {
     const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');
     const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
       crdt: {
-        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '' }
       },
-      blob: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+      blob: { baseUrl: 'http://localhost', apiPrefix: '' }
     });
 
     const facade = createVfsSecureOrchestratorFacade(orchestrator, pipeline, {
@@ -235,9 +235,9 @@ describe('secureOrchestratorFacade with real crypto', () => {
     const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');
     const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
       crdt: {
-        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '' }
       },
-      blob: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+      blob: { baseUrl: 'http://localhost', apiPrefix: '' }
     });
 
     const facade = createVfsSecureOrchestratorFacadeWithRuntime(
@@ -328,9 +328,9 @@ describe('secureOrchestratorFacade with real crypto', () => {
     const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');
     const orchestrator = new VfsWriteOrchestrator('user-1', 'desktop', {
       crdt: {
-        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+        transportOptions: { baseUrl: 'http://localhost', apiPrefix: '' }
       },
-      blob: { baseUrl: 'http://localhost', apiPrefix: '/v1' }
+      blob: { baseUrl: 'http://localhost', apiPrefix: '' }
     });
 
     const facade = bundle.createFacade(orchestrator, { relationKind: 'file' });
