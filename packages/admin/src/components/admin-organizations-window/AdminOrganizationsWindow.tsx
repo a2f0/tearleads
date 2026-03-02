@@ -106,18 +106,6 @@ export function AdminOrganizationsWindow({
     return null;
   })();
 
-  const controls = backControl ? (
-    <WindowControlGroup>
-      <WindowControlButton
-        icon={<ArrowLeft className="h-3 w-3" />}
-        onClick={backControl.onClick}
-        data-testid={backControl.testId}
-      >
-        {backControl.label}
-      </WindowControlButton>
-    </WindowControlGroup>
-  ) : null;
-
   return (
     <FloatingWindow
       id={id}
@@ -135,7 +123,23 @@ export function AdminOrganizationsWindow({
       minHeight={420}
     >
       <div className="flex h-full flex-col">
-        <AdminWindowMenuBar onClose={onClose} controls={controls} />
+        <AdminWindowMenuBar
+          onClose={onClose}
+          controls={
+            backControl ? (
+              <WindowControlGroup>
+                <WindowControlButton
+                  icon={<ArrowLeft className="h-3 w-3" />}
+                  onClick={backControl.onClick}
+                  data-testid={backControl.testId}
+                >
+                  {backControl.label}
+                </WindowControlButton>
+              </WindowControlGroup>
+            ) : undefined
+          }
+          hideControlBar={!isUnlocked}
+        />
         <div className="flex-1 overflow-auto p-3">
           {isAuthLoading ? (
             <div
