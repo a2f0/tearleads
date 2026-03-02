@@ -105,7 +105,7 @@ describe('mls and admin proxy services', () => {
             { groupId: 'group-7', json: '{"ciphertext":"x"}' },
             context
           ),
-        url: 'http://127.0.0.1:55661/v1/mls/groups/group-7/messages',
+        url: 'http://127.0.0.1:55661/v1/vfs/mls/groups/group-7/messages',
         method: 'POST',
         body: '{"ciphertext":"x"}'
       },
@@ -115,7 +115,7 @@ describe('mls and admin proxy services', () => {
             { groupId: 'group-8', cursor: 'c-1', limit: 20 },
             context
           ),
-        url: 'http://127.0.0.1:55661/v1/mls/groups/group-8/messages?cursor=c-1&limit=20',
+        url: 'http://127.0.0.1:55661/v1/vfs/mls/groups/group-8/messages?cursor=c-1&limit=20',
         method: 'GET'
       },
       {
