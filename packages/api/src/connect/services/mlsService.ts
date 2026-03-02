@@ -1,5 +1,5 @@
 import {
-  callLegacyJsonRoute,
+  callRouteJsonHandler,
   encoded,
   setOptionalPositiveIntQueryParam,
   setOptionalStringQueryParam,
@@ -27,7 +27,7 @@ export const mlsConnectService = {
     request: { json: string },
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: '/mls/key-packages',
@@ -39,7 +39,7 @@ export const mlsConnectService = {
     _request: object,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: '/mls/key-packages/me'
@@ -50,7 +50,7 @@ export const mlsConnectService = {
     request: UserIdRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: `/mls/key-packages/${encoded(request.userId)}`
@@ -61,7 +61,7 @@ export const mlsConnectService = {
     request: MlsIdRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'DELETE',
       path: `/mls/key-packages/${encoded(request.id)}`
@@ -72,7 +72,7 @@ export const mlsConnectService = {
     request: { json: string },
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: '/mls/groups',
@@ -81,7 +81,7 @@ export const mlsConnectService = {
     return { json };
   },
   listGroups: async (_request: object, context: { requestHeader: Headers }) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: '/mls/groups'
@@ -92,7 +92,7 @@ export const mlsConnectService = {
     request: GroupIdRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: `/mls/groups/${encoded(request.groupId)}`
@@ -103,7 +103,7 @@ export const mlsConnectService = {
     request: GroupIdJsonRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'PATCH',
       path: `/mls/groups/${encoded(request.groupId)}`,
@@ -115,7 +115,7 @@ export const mlsConnectService = {
     request: GroupIdRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'DELETE',
       path: `/mls/groups/${encoded(request.groupId)}`
@@ -126,7 +126,7 @@ export const mlsConnectService = {
     request: GroupIdJsonRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: `/mls/groups/${encoded(request.groupId)}/members`,
@@ -138,7 +138,7 @@ export const mlsConnectService = {
     request: GroupIdRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: `/mls/groups/${encoded(request.groupId)}/members`
@@ -149,7 +149,7 @@ export const mlsConnectService = {
     request: MlsRemoveGroupMemberRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'DELETE',
       path: `/mls/groups/${encoded(request.groupId)}/members/${encoded(request.userId)}`,
@@ -161,7 +161,7 @@ export const mlsConnectService = {
     request: GroupIdJsonRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: `/vfs/mls/groups/${encoded(request.groupId)}/messages`,
@@ -176,7 +176,7 @@ export const mlsConnectService = {
     const query = new URLSearchParams();
     setOptionalStringQueryParam(query, 'cursor', request.cursor);
     setOptionalPositiveIntQueryParam(query, 'limit', request.limit);
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: `/vfs/mls/groups/${encoded(request.groupId)}/messages`,
@@ -188,7 +188,7 @@ export const mlsConnectService = {
     request: GroupIdRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: `/mls/groups/${encoded(request.groupId)}/state`
@@ -199,7 +199,7 @@ export const mlsConnectService = {
     request: GroupIdJsonRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: `/mls/groups/${encoded(request.groupId)}/state`,
@@ -211,7 +211,7 @@ export const mlsConnectService = {
     _request: object,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: '/mls/welcome-messages'
@@ -222,7 +222,7 @@ export const mlsConnectService = {
     request: AcknowledgeWelcomeRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: `/mls/welcome-messages/${encoded(request.id)}/ack`,

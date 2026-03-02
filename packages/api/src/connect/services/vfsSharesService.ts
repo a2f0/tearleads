@@ -1,5 +1,5 @@
 import {
-  callLegacyJsonRoute,
+  callRouteJsonHandler,
   encoded,
   setOptionalPositiveIntQueryParam,
   setOptionalStringQueryParam,
@@ -28,7 +28,7 @@ export const vfsSharesConnectService = {
     request: GetItemSharesRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: `/vfs/items/${encoded(request.itemId)}/shares`
@@ -39,7 +39,7 @@ export const vfsSharesConnectService = {
     request: CreateShareRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: `/vfs/items/${encoded(request.itemId)}/shares`,
@@ -51,7 +51,7 @@ export const vfsSharesConnectService = {
     request: UpdateShareRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'PATCH',
       path: `/vfs/shares/${encoded(request.shareId)}`,
@@ -63,7 +63,7 @@ export const vfsSharesConnectService = {
     request: ShareIdRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'DELETE',
       path: `/vfs/shares/${encoded(request.shareId)}`
@@ -74,7 +74,7 @@ export const vfsSharesConnectService = {
     request: CreateOrgShareRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: `/vfs/items/${encoded(request.itemId)}/org-shares`,
@@ -86,7 +86,7 @@ export const vfsSharesConnectService = {
     request: ShareIdRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'DELETE',
       path: `/vfs/org-shares/${encoded(request.shareId)}`
@@ -100,7 +100,7 @@ export const vfsSharesConnectService = {
     const query = new URLSearchParams();
     setOptionalStringQueryParam(query, 'q', request.q);
     setOptionalStringQueryParam(query, 'type', request.type);
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: '/vfs/share-targets/search',
@@ -124,7 +124,7 @@ export const vfsSharesConnectService = {
       query.set('objectType', request.objectType.join(','));
     }
 
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: '/vfs/share-policies/preview',

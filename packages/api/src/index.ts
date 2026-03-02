@@ -9,36 +9,16 @@ import express, { type Express, type Request, type Response } from 'express';
 import morgan from 'morgan';
 import packageJson from '../package.json' with { type: 'json' };
 import { authInterceptor } from './connect/interceptors/authInterceptor.js';
-import { getLegacyRoutePrefix } from './connect/legacyRoutePrefix.js';
 import { registerConnectRoutes } from './connect/router.js';
 import { closePostgresPool } from './lib/postgres.js';
 import { closeRedisSubscriberClient } from './lib/redisPubSub.js';
-import { adminAccessMiddleware } from './middleware/adminAccess.js';
-import { adminSessionMiddleware } from './middleware/adminSession.js';
-import { authMiddleware } from './middleware/auth.js';
-import { legacyRouteRateLimitMiddleware } from './middleware/legacyRouteRateLimit.js';
-import { orgMembershipMiddleware } from './middleware/orgMembership.js';
-import { adminContextRouter } from './routes/admin/context.js';
-import { groupsRouter } from './routes/admin/groups.js';
-import { organizationsRouter } from './routes/admin/organizations.js';
-import { postgresRouter } from './routes/admin/postgres.js';
-import { redisRouter } from './routes/admin/redis.js';
-import { usersRouter } from './routes/admin/users.js';
-import { aiConversationsRouter } from './routes/ai-conversations/router.js';
-import { authRouter } from './routes/auth/router.js';
-import { billingRouter } from './routes/billing/router.js';
-import { chatRouter } from './routes/chat/router.js';
-import { mlsRouter } from './routes/mls/router.js';
 import { revenuecatRouter } from './routes/revenuecat/router.js';
-import { vfsRouter } from './routes/vfs/router.js';
-import { vfsSharesRouter } from './routes/vfs-shares/router.js';
 
 dotenv.config({ quiet: true });
 
 const app: Express = express();
 
 const PORT = Number(process.env['PORT']) || 5001;
-const LEGACY_ROUTE_PREFIX = getLegacyRoutePrefix();
 
 // Middleware
 app.use(cors());
@@ -134,61 +114,6 @@ app.get('/v1/ping', (_req: Request, res: Response) => {
   };
   res.status(200).json(pingData);
 });
-
-app.use(LEGACY_ROUTE_PREFIX, legacyRouteRateLimitMiddleware);
-app.use(LEGACY_ROUTE_PREFIX, authMiddleware);
-app.use(LEGACY_ROUTE_PREFIX, orgMembershipMiddleware);
-
-// Admin routes
-app.use(
-  `${LEGACY_ROUTE_PREFIX}/admin/redis`,
-  adminSessionMiddleware,
-  redisRouter
-);
-app.use(
-  `${LEGACY_ROUTE_PREFIX}/admin/postgres`,
-  adminSessionMiddleware,
-  postgresRouter
-);
-app.use(
-  `${LEGACY_ROUTE_PREFIX}/admin/context`,
-  adminAccessMiddleware,
-  adminContextRouter
-);
-app.use(
-  `${LEGACY_ROUTE_PREFIX}/admin/groups`,
-  adminAccessMiddleware,
-  groupsRouter
-);
-app.use(
-  `${LEGACY_ROUTE_PREFIX}/admin/organizations`,
-  adminAccessMiddleware,
-  organizationsRouter
-);
-app.use(
-  `${LEGACY_ROUTE_PREFIX}/admin/users`,
-  adminAccessMiddleware,
-  usersRouter
-);
-
-// Auth routes
-app.use(`${LEGACY_ROUTE_PREFIX}/auth`, authRouter);
-
-// Billing routes
-app.use(`${LEGACY_ROUTE_PREFIX}/billing`, billingRouter);
-
-// Chat completion route
-app.use(`${LEGACY_ROUTE_PREFIX}/chat`, chatRouter);
-
-// AI conversations and usage tracking
-app.use(`${LEGACY_ROUTE_PREFIX}/ai`, aiConversationsRouter);
-
-// VFS routes
-app.use(`${LEGACY_ROUTE_PREFIX}/vfs`, vfsRouter);
-app.use(`${LEGACY_ROUTE_PREFIX}/vfs`, vfsSharesRouter);
-
-// MLS routes
-app.use(`${LEGACY_ROUTE_PREFIX}/mls`, mlsRouter);
 
 // 404 handler
 app.use((_req: Request, res: Response) => {
