@@ -192,6 +192,10 @@ function main(): void {
   }
   process.stdout.write('\n');
 
+  const sortScript = resolve(repoRoot, 'scripts/sortSecrets.sh');
+  process.stdout.write('==> Sorting secret env files before migration\n');
+  execFileSync(sortScript, { cwd: repoRoot, stdio: 'inherit' });
+
   let newCount = 0;
   let updatedCount = 0;
   let unchangedCount = 0;
