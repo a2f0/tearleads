@@ -5,6 +5,8 @@ WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY crates/api-v2/Cargo.toml crates/api-v2/Cargo.toml
 COPY crates/api-v2/src crates/api-v2/src
+COPY crates/api-v2-ping-wasm/Cargo.toml crates/api-v2-ping-wasm/Cargo.toml
+COPY crates/api-v2-ping-wasm/src crates/api-v2-ping-wasm/src
 
 RUN cargo build --release --package tearleads-api-v2
 
