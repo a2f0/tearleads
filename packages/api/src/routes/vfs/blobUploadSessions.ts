@@ -159,15 +159,14 @@ async function deleteBlobUploadSessionWithClient(input: {
   });
 
   if (chunkIndexes) {
-    for (const chunkIndex of chunkIndexes) {
-      await client.del(
-        toChunkKey({
-          stagingId: input.stagingId,
-          uploadId: input.uploadId,
-          chunkIndex
-        })
-      );
-    }
+    const chunkKeys = chunkIndexes.map((chunkIndex) =>
+      toChunkKey({
+        stagingId: input.stagingId,
+        uploadId: input.uploadId,
+        chunkIndex
+      })
+    );
+    await client.del(chunkKeys);
   }
 
   await client.del(
@@ -240,17 +239,22 @@ export async function getBlobUploadChunks(input: {
   }
 
   const client = await getRedisClient();
+  const chunkKeys = chunkIndexes.map((chunkIndex) =>
+    toChunkKey({
+      stagingId: input.stagingId,
+      uploadId: input.uploadId,
+      chunkIndex
+    })
+  );
+  const rawChunks = await client.mGet(chunkKeys);
+  if (!Array.isArray(rawChunks) || rawChunks.length !== chunkIndexes.length) {
+    return null;
+  }
+
   const chunks: UploadedChunk[] = [];
-
-  for (const chunkIndex of chunkIndexes) {
-    const rawChunk = await client.get(
-      toChunkKey({
-        stagingId: input.stagingId,
-        uploadId: input.uploadId,
-        chunkIndex
-      })
-    );
-
+  for (let index = 0; index < chunkIndexes.length; index += 1) {
+    const chunkIndex = chunkIndexes[index];
+    const rawChunk = rawChunks[index];
     if (!rawChunk) {
       return null;
     }

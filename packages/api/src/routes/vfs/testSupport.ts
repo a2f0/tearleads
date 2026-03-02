@@ -27,9 +27,24 @@ export const mockRedisClient = {
     sessionStore.set(key, value);
     return Promise.resolve('OK');
   }),
-  del: vi.fn((key: string) => {
-    const existed = sessionStore.delete(key);
-    return Promise.resolve(existed ? 1 : 0);
+  del: vi.fn((keyOrKeys: string | string[]) => {
+    const keys = Array.isArray(keyOrKeys) ? keyOrKeys : [keyOrKeys];
+    let deletedCount = 0;
+
+    for (const key of keys) {
+      if (sessionStore.delete(key)) {
+        deletedCount += 1;
+      }
+    }
+
+    return Promise.resolve(deletedCount);
+  }),
+  mGet: vi.fn((keys: string[]) => {
+    const values = keys.map((key) => {
+      const value = sessionStore.get(key);
+      return typeof value === 'string' ? value : null;
+    });
+    return Promise.resolve(values);
   }),
   sAdd: vi.fn((key: string, members: string | string[]) => {
     const existing = sessionStore.get(key);
