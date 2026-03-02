@@ -33,7 +33,7 @@ type RecordUsageInput = {
   usagePayload: UsagePayload;
 };
 
-export type ChatCompletionsResult = {
+type ChatCompletionsResult = {
   status: number;
   payload: unknown;
 };
