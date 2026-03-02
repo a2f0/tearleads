@@ -137,6 +137,30 @@ export async function runIncrementalSharePolicyRecompute(
   if (options.compilerRunId !== undefined) {
     compileOptions.compilerRunId = options.compilerRunId;
   }
+  if (options.transactional !== undefined) {
+    compileOptions.transactional = options.transactional;
+  }
+  if (options.lockKey !== undefined) {
+    compileOptions.lockKey = options.lockKey;
+  }
+  if (options.maxExpandedMatchCount !== undefined) {
+    compileOptions.maxExpandedMatchCount = options.maxExpandedMatchCount;
+  }
+  if (options.maxDecisionCount !== undefined) {
+    compileOptions.maxDecisionCount = options.maxDecisionCount;
+  }
+  if (options.lockTimeoutMs !== undefined) {
+    compileOptions.lockTimeoutMs = options.lockTimeoutMs;
+  }
+  if (options.statementTimeoutMs !== undefined) {
+    compileOptions.statementTimeoutMs = options.statementTimeoutMs;
+  }
+  if (options.emitMetrics !== undefined) {
+    compileOptions.emitMetrics = options.emitMetrics;
+  }
+  if (options.onMetrics !== undefined) {
+    compileOptions.onMetrics = options.onMetrics;
+  }
   const compileResult = await compileFn(client, compileOptions);
 
   return {

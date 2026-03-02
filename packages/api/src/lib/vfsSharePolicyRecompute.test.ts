@@ -166,6 +166,13 @@ describe('runIncrementalSharePolicyRecompute', () => {
         compilerRunId: 'run-1',
         actorId: 'system',
         dryRun: true,
+        transactional: false,
+        lockKey: 'recompute-lock',
+        maxExpandedMatchCount: 100,
+        maxDecisionCount: 60,
+        lockTimeoutMs: 2000,
+        statementTimeoutMs: 3000,
+        emitMetrics: false,
         compile
       }
     );
@@ -180,6 +187,13 @@ describe('runIncrementalSharePolicyRecompute', () => {
         compilerRunId: 'run-1',
         actorId: 'system',
         dryRun: true,
+        transactional: false,
+        lockKey: 'recompute-lock',
+        maxExpandedMatchCount: 100,
+        maxDecisionCount: 60,
+        lockTimeoutMs: 2000,
+        statementTimeoutMs: 3000,
+        emitMetrics: false,
         policyIds: ['policy-a', 'policy-z']
       }
     );
@@ -190,6 +204,12 @@ describe('runIncrementalSharePolicyRecompute', () => {
     const query = async <T>(text: string, values?: unknown[]) => {
       calls.push({ text: normalizeSql(text), values });
       if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') {
+        return { rows: [] as T[] };
+      }
+      if (
+        text.includes('SET LOCAL lock_timeout') ||
+        text.includes('SET LOCAL statement_timeout')
+      ) {
         return { rows: [] as T[] };
       }
       if (text.includes('SELECT pg_advisory_xact_lock')) {

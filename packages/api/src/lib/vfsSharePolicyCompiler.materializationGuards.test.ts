@@ -18,6 +18,12 @@ describe('compileVfsSharePolicies (materialization guards)', () => {
       if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') {
         return { rows: [] as T[] };
       }
+      if (
+        text.includes('SET LOCAL lock_timeout') ||
+        text.includes('SET LOCAL statement_timeout')
+      ) {
+        return { rows: [] as T[] };
+      }
       if (text.includes('SELECT pg_advisory_xact_lock')) {
         return { rows: [] as T[] };
       }
@@ -123,6 +129,12 @@ describe('compileVfsSharePolicies (materialization guards)', () => {
   it('throws when ACL upsert returns no row without direct-provenance protection', async () => {
     const query = async <T>(text: string) => {
       if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') {
+        return { rows: [] as T[] };
+      }
+      if (
+        text.includes('SET LOCAL lock_timeout') ||
+        text.includes('SET LOCAL statement_timeout')
+      ) {
         return { rows: [] as T[] };
       }
       if (text.includes('SELECT pg_advisory_xact_lock')) {

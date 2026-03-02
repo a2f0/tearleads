@@ -18,6 +18,12 @@ describe('compileVfsSharePolicies (materialization)', () => {
       if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') {
         return { rows: [] as T[] };
       }
+      if (
+        text.includes('SET LOCAL lock_timeout') ||
+        text.includes('SET LOCAL statement_timeout')
+      ) {
+        return { rows: [] as T[] };
+      }
       if (text.includes('SELECT pg_advisory_xact_lock')) {
         return { rows: [] as T[] };
       }
@@ -168,6 +174,12 @@ describe('compileVfsSharePolicies (materialization)', () => {
       if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') {
         return { rows: [] as T[] };
       }
+      if (
+        text.includes('SET LOCAL lock_timeout') ||
+        text.includes('SET LOCAL statement_timeout')
+      ) {
+        return { rows: [] as T[] };
+      }
       if (text.includes('SELECT pg_advisory_xact_lock')) {
         return { rows: [] as T[] };
       }
@@ -263,6 +275,12 @@ describe('compileVfsSharePolicies (materialization)', () => {
     const query = async <T>(text: string, values?: unknown[]) => {
       calls.push({ text: normalizeSql(text), values });
       if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') {
+        return { rows: [] as T[] };
+      }
+      if (
+        text.includes('SET LOCAL lock_timeout') ||
+        text.includes('SET LOCAL statement_timeout')
+      ) {
         return { rows: [] as T[] };
       }
       if (text.includes('SELECT pg_advisory_xact_lock')) {

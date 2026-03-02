@@ -24,6 +24,12 @@ describe('compileVfsSharePolicies (materialization batch)', () => {
       if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') {
         return { rows: [] as T[] };
       }
+      if (
+        text.includes('SET LOCAL lock_timeout') ||
+        text.includes('SET LOCAL statement_timeout')
+      ) {
+        return { rows: [] as T[] };
+      }
       if (text.includes('SELECT pg_advisory_xact_lock')) {
         return { rows: [] as T[] };
       }
