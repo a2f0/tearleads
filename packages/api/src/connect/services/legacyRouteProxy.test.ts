@@ -1,5 +1,6 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { REVENUECAT_SIGNATURE_HEADER } from '../../lib/revenuecat.js';
 import {
   callLegacyBinaryRoute,
   callLegacyJsonRoute,
@@ -92,7 +93,7 @@ describe('legacyRouteProxy', () => {
       path: '/revenuecat/webhooks',
       jsonBody: '{"event":{"id":"evt-1"}}',
       extraHeaders: {
-        'x-revenuecat-signature': 'sig-1',
+        [REVENUECAT_SIGNATURE_HEADER]: 'sig-1',
         'x-extra-empty': '  '
       }
     });
@@ -103,7 +104,7 @@ describe('legacyRouteProxy', () => {
     if (!(headers instanceof Headers)) {
       throw new Error('Expected request headers');
     }
-    expect(headers.get('x-revenuecat-signature')).toBe('sig-1');
+    expect(headers.get(REVENUECAT_SIGNATURE_HEADER)).toBe('sig-1');
     expect(headers.get('x-extra-empty')).toBeNull();
   });
 

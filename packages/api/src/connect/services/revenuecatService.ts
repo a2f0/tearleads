@@ -1,6 +1,6 @@
+import type { HandleWebhookRequest } from '@tearleads/shared/gen/tearleads/v1/revenuecat_pb';
+import { REVENUECAT_SIGNATURE_HEADER } from '../../lib/revenuecat.js';
 import { callLegacyJsonRoute, toJsonBody } from './legacyRouteProxy.js';
-
-type HandleWebhookRequest = { json: string; signature: string };
 
 export const revenuecatConnectService = {
   handleWebhook: async (
@@ -13,7 +13,7 @@ export const revenuecatConnectService = {
       path: '/revenuecat/webhooks',
       jsonBody: toJsonBody(request.json),
       extraHeaders: {
-        'x-revenuecat-signature': request.signature
+        [REVENUECAT_SIGNATURE_HEADER]: request.signature
       }
     });
     return { json };

@@ -1,4 +1,6 @@
+import { HandleWebhookRequest } from '@tearleads/shared/gen/tearleads/v1/revenuecat_pb';
 import { describe, it } from 'vitest';
+import { REVENUECAT_SIGNATURE_HEADER } from '../../lib/revenuecat.js';
 import { aiConnectService } from './aiService.js';
 import { billingConnectService } from './billingService.js';
 import { chatConnectService } from './chatService.js';
@@ -70,27 +72,33 @@ describe('auxiliary proxy services', () => {
       {
         call: () =>
           revenuecatConnectService.handleWebhook(
-            { json: '{"event":{"id":"evt-1"}}', signature: 'sig-1' },
+            new HandleWebhookRequest({
+              json: '{"event":{"id":"evt-1"}}',
+              signature: 'sig-1'
+            }),
             context
           ),
         url: 'http://127.0.0.1:55661/v1/revenuecat/webhooks',
         method: 'POST',
         body: '{"event":{"id":"evt-1"}}',
         expectedHeaders: {
-          'x-revenuecat-signature': 'sig-1'
+          [REVENUECAT_SIGNATURE_HEADER]: 'sig-1'
         }
       },
       {
         call: () =>
           revenuecatConnectService.handleWebhook(
-            { json: '{"event":{"id":"evt-2"}}', signature: '  ' },
+            new HandleWebhookRequest({
+              json: '{"event":{"id":"evt-2"}}',
+              signature: '  '
+            }),
             context
           ),
         url: 'http://127.0.0.1:55661/v1/revenuecat/webhooks',
         method: 'POST',
         body: '{"event":{"id":"evt-2"}}',
         expectedHeaders: {
-          'x-revenuecat-signature': null
+          [REVENUECAT_SIGNATURE_HEADER]: null
         }
       }
     ];
