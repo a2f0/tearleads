@@ -2,7 +2,7 @@
 set -e
 
 # Build web image assets from SVG source
-# Requires: ImageMagick (brew install imagemagick), svgo (pnpm add -D svgo)
+# Requires: ImageMagick (brew install imagemagick), pnpm
 
 # Timing helper
 start_time=$(date +%s)
@@ -36,15 +36,10 @@ else
     exit 1
 fi
 
-# Check for svgo
-check_svgo() {
-    if command -v svgo > /dev/null 2>&1; then
-        SVGO_CMD="svgo"
-    elif [ -x "$CLIENT_DIR/node_modules/.bin/svgo" ]; then
-        SVGO_CMD="$CLIENT_DIR/node_modules/.bin/svgo"
-    else
-        echo "Error: svgo is required." >&2
-        echo "  Run: pnpm --filter @tearleads/client add -D svgo" >&2
+# Check for pnpm (used to run the typed SVG optimizer helper)
+check_pnpm() {
+    if ! command -v pnpm > /dev/null 2>&1; then
+        echo "Error: pnpm is required." >&2
         exit 1
     fi
 }
@@ -55,7 +50,7 @@ if [ ! -f "$SVG_SOURCE" ]; then
     exit 1
 fi
 
-check_svgo
+check_pnpm
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
@@ -78,7 +73,7 @@ generate_svg_favicon() {
 
     # Copy and optimize SVG for use as favicon
     cp "$SVG_SOURCE" "$OUTPUT_DIR/favicon.svg"
-    $SVGO_CMD --quiet "$OUTPUT_DIR/favicon.svg"
+    pnpm --dir "$CLIENT_DIR" exec tsx scripts/optimizeSvg.ts "$OUTPUT_DIR/favicon.svg"
 
     size=$(wc -c < "$OUTPUT_DIR/favicon.svg" | tr -d ' ')
     echo "  Created favicon.svg (${size}B)"
