@@ -177,23 +177,18 @@ describe('secureOrchestratorFacade integration', () => {
       )
     ).toBe(true);
     expect(
-      requests.some(
-        (request) =>
-          request.url.endsWith(
-            '/connect/tearleads.v1.VfsService/UploadBlobChunk'
-          )
+      requests.some((request) =>
+        request.url.endsWith('/connect/tearleads.v1.VfsService/UploadBlobChunk')
       )
     ).toBe(true);
     expect(
-      requests.some(
-        (request) =>
-          request.url.endsWith('/connect/tearleads.v1.VfsService/CommitBlob')
+      requests.some((request) =>
+        request.url.endsWith('/connect/tearleads.v1.VfsService/CommitBlob')
       )
     ).toBe(true);
     expect(
-      requests.some(
-        (request) =>
-          request.url.endsWith('/connect/tearleads.v1.VfsService/AttachBlob')
+      requests.some((request) =>
+        request.url.endsWith('/connect/tearleads.v1.VfsService/AttachBlob')
       )
     ).toBe(true);
   });

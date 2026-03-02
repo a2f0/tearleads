@@ -146,7 +146,9 @@ describe('api edge cases requiring direct fetch mocking', () => {
         vi
           .mocked(global.fetch)
           .mock.calls.filter(([input]) =>
-            input.toString().endsWith('/connect/tearleads.v1.AuthService/RefreshToken')
+            input
+              .toString()
+              .endsWith('/connect/tearleads.v1.AuthService/RefreshToken')
           )
       ).toHaveLength(1);
     });

@@ -67,15 +67,17 @@ describe('api with msw', () => {
           // Retry after refresh still fails with 500
           return HttpResponse.json(null, { status: 500 });
         }),
-        http.post('http://localhost/connect/tearleads.v1.AuthService/RefreshToken', () =>
-          HttpResponse.json({
-            accessToken: 'new-token',
-            refreshToken: 'new-refresh',
-            tokenType: 'Bearer',
-            expiresIn: 3600,
-            refreshExpiresIn: 604800,
-            user: { id: 'user-1', email: 'user@example.com' }
-          })
+        http.post(
+          'http://localhost/connect/tearleads.v1.AuthService/RefreshToken',
+          () =>
+            HttpResponse.json({
+              accessToken: 'new-token',
+              refreshToken: 'new-refresh',
+              tokenType: 'Bearer',
+              expiresIn: 3600,
+              refreshExpiresIn: 604800,
+              user: { id: 'user-1', email: 'user@example.com' }
+            })
         )
       );
 
@@ -124,21 +126,24 @@ describe('api with msw', () => {
         http.get('http://localhost/ping', () =>
           HttpResponse.json(null, { status: 401 })
         ),
-        http.post('http://localhost/connect/tearleads.v1.AuthService/RefreshToken', () => {
-          refreshCalled = true;
-          // Refresh succeeds but simulates another tab clearing auth
-          // before the retry can use the new token
-          localStorage.removeItem(AUTH_TOKEN_KEY);
-          localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
-          return HttpResponse.json({
-            accessToken: 'new-token',
-            refreshToken: 'new-refresh',
-            tokenType: 'Bearer',
-            expiresIn: 3600,
-            refreshExpiresIn: 604800,
-            user: { id: 'user-1', email: 'user@example.com' }
-          });
-        })
+        http.post(
+          'http://localhost/connect/tearleads.v1.AuthService/RefreshToken',
+          () => {
+            refreshCalled = true;
+            // Refresh succeeds but simulates another tab clearing auth
+            // before the retry can use the new token
+            localStorage.removeItem(AUTH_TOKEN_KEY);
+            localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
+            return HttpResponse.json({
+              accessToken: 'new-token',
+              refreshToken: 'new-refresh',
+              tokenType: 'Bearer',
+              expiresIn: 3600,
+              refreshExpiresIn: 604800,
+              user: { id: 'user-1', email: 'user@example.com' }
+            });
+          }
+        )
       );
 
       const api = await loadApi();
@@ -181,7 +186,9 @@ describe('api with msw', () => {
       const api = await loadApi();
 
       await expect(api.auth.logout()).resolves.toBeUndefined();
-      expect(wasApiRequestMade('POST', '/connect/tearleads.v1.AuthService/Logout')).toBe(true);
+      expect(
+        wasApiRequestMade('POST', '/connect/tearleads.v1.AuthService/Logout')
+      ).toBe(true);
     });
 
     it('handles empty text responses', async () => {
@@ -351,7 +358,10 @@ describe('api with msw', () => {
         true
       );
       expect(
-        wasApiRequestMade('POST', '/connect/tearleads.v1.AdminService/GetTables')
+        wasApiRequestMade(
+          'POST',
+          '/connect/tearleads.v1.AdminService/GetTables'
+        )
       ).toBe(true);
     });
 
