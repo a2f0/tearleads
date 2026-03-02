@@ -269,3 +269,136 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build release APK
+        if: steps.check_build.outputs.skip != 'true'
+        run: bundle exec fastlane android build_release
+        working-directory: packages/client
+        env:
+          CI: true
+
+      - name: Upload APK artifact
+        if: steps.check_build.outputs.skip != 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-apk
+          path: packages/client/android/app/build/outputs/apk/release/app-release.apk
+
+  publish-downloads:
+    name: Publish Android Downloads
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: ${{ needs.deploy.result == 'success' }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Resolve CI version
+        id: ci_version
+        run: |
+          ./scripts/applyCiVersionFromSha.sh \
+            --source-sha "${{ github.sha }}" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Resolve app version
+        run: |
+          APP_VERSION="${{ steps.ci_version.outputs.client_version }}"
+          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+
+      - name: Download APK artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: android-apk
+          path: downloads
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy.key
+          chmod 600 ~/.ssh/deploy.key
+          ssh-keyscan -H download.${{ secrets.DEPLOY_DOMAIN_PROD }} >> ~/.ssh/known_hosts
+
+      - name: Upload downloads
+        run: |
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@download.${{ secrets.DEPLOY_DOMAIN_PROD }} \
+            "mkdir -p /var/www/downloads/android/${APP_VERSION}"
+          rsync -avz -e "ssh -i ~/.ssh/deploy.key" \
+            downloads/ ${{ secrets.DEPLOY_USER }}@download.${{ secrets.DEPLOY_DOMAIN_PROD }}:/var/www/downloads/android/${APP_VERSION}/
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@download.${{ secrets.DEPLOY_DOMAIN_PROD }} \
+            "ln -sfn /var/www/downloads/android/${APP_VERSION} /var/www/downloads/android/latest"
+
+      - name: Cleanup old versions (keep last 3)
+        run: |
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@download.${{ secrets.DEPLOY_DOMAIN_PROD }} '
+            cd /var/www/downloads/android
+            # List version directories (exclude latest symlink), sort by version, keep newest 3
+            ls -d 0.* 2>/dev/null | sort -V | head -n -3 | xargs -r rm -rf
+          '
+
+  publish-staging-downloads:
+    name: Publish Staging Android Downloads
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: ${{ needs.deploy.result == 'success' }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Resolve CI version
+        id: ci_version
+        run: |
+          ./scripts/applyCiVersionFromSha.sh \
+            --source-sha "${{ github.sha }}" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Resolve app version
+        run: |
+          APP_VERSION="${{ steps.ci_version.outputs.client_version }}"
+          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+
+      - name: Download APK artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: android-apk
+          path: downloads
+
+      - name: Install AWS CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y awscli
+
+      - name: Upload to staging S3 (Garage)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DESKTOP_DOWNLOADS_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DESKTOP_DOWNLOADS_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          S3_ENDPOINT: https://pkgs.${{ secrets.DEPLOY_DOMAIN_STAGING }}
+        run: |
+          aws --endpoint-url "$S3_ENDPOINT" s3 sync \
+            downloads/ "s3://desktop-downloads/android/${APP_VERSION}/"
+          aws --endpoint-url "$S3_ENDPOINT" s3 sync \
+            downloads/ "s3://desktop-downloads/android/latest/"
+
+      - name: Cleanup old staging versions (keep last 3)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DESKTOP_DOWNLOADS_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DESKTOP_DOWNLOADS_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          S3_ENDPOINT: https://pkgs.${{ secrets.DEPLOY_DOMAIN_STAGING }}
+        run: |
+          VERSIONS=$(aws --endpoint-url "$S3_ENDPOINT" s3 ls s3://desktop-downloads/android/ \
+            | awk '{print $NF}' | sed 's|/$||' | grep -v '^latest$' | sort -V)
+          COUNT=$(echo "$VERSIONS" | wc -l)
+          if [ "$COUNT" -gt 3 ]; then
+            TO_DELETE=$(echo "$VERSIONS" | head -n $((COUNT - 3)))
+            for v in $TO_DELETE; do
+              echo "Removing old staging version: $v"
+              aws --endpoint-url "$S3_ENDPOINT" s3 rm --recursive "s3://desktop-downloads/android/$v/"
+            done
+          fi
