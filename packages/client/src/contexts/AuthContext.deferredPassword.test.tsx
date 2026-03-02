@@ -40,7 +40,8 @@ vi.mock('@/db/instanceRegistry', () => ({
 }));
 
 function LoginHarness() {
-  const { isLoading, isAuthenticated, login } = useAuth();
+  const { isLoading, isAuthenticated, login, getTokenTimeRemaining } =
+    useAuth();
 
   if (isLoading) {
     return <div>Loading...</div>;
@@ -55,6 +56,7 @@ function LoginHarness() {
       <div data-testid="auth-status">
         {isAuthenticated ? 'authenticated' : 'not authenticated'}
       </div>
+      <div data-testid="token-remaining">{String(getTokenTimeRemaining())}</div>
       <button type="button" onClick={handleLogin}>
         Login
       </button>
