@@ -54,14 +54,11 @@ const config: KnipConfig = {
         'electron-builder.config.ts',
         'electron/main.ts',
         'electron/preload.ts',
+        'electron/sqlite/**/*.ts',
         // CSS import graph includes @import "tailwindcss".
         'src/index.css'
       ],
       ignoreDependencies: [
-        // Electron-native SQLite binding loaded in desktop runtime and packaging scripts.
-        'better-sqlite3-multiple-ciphers',
-        // Resolved as a Vite build entry/chunk dependency outside static source imports.
-        'recharts',
         // Used by scripts/buildWebImageAssets.sh.
         'svgo'
       ]
