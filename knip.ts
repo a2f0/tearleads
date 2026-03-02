@@ -56,7 +56,9 @@ const config: KnipConfig = {
         'electron.vite.config.ts',
         'electron-builder.config.ts',
         'electron/main.ts',
-        'electron/preload.ts'
+        'electron/preload.ts',
+        // CSS import graph includes @import "tailwindcss".
+        'src/index.css'
       ],
       ignoreDependencies: [
         // Electron-native SQLite binding loaded in desktop runtime and packaging scripts.
@@ -64,9 +66,7 @@ const config: KnipConfig = {
         // Resolved as a Vite build entry/chunk dependency outside static source imports.
         'recharts',
         // Used by scripts/buildWebImageAssets.sh.
-        'svgo',
-        // Used via CSS @import "tailwindcss"; in client styles.
-        'tailwindcss'
+        'svgo'
       ]
     },
     'packages/classic': {
@@ -79,9 +79,9 @@ const config: KnipConfig = {
       entry: ['src/**/*.test.ts']
     },
     'packages/website': {
-      ignoreDependencies: [
-        // Used via CSS @import "tailwindcss"; in website styles.
-        'tailwindcss'
+      entry: [
+        // CSS import graph includes @import "tailwindcss".
+        'src/styles/global.css'
       ]
     }
   }
