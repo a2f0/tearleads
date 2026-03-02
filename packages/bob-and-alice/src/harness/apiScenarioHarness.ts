@@ -83,10 +83,6 @@ export class ApiScenarioHarness {
     return a;
   }
 
-  actors(): ApiActor[] {
-    return [...this.actorMap.values()];
-  }
-
   async teardown(): Promise<void> {
     await this.ctx.teardown();
   }

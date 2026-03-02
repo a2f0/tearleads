@@ -264,12 +264,9 @@ export interface VfsCrdtSyncTransport {
 }
 
 export class VfsCrdtSyncPushRejectedError extends Error {
-  readonly rejectedResults: VfsCrdtSyncPushResult[];
-
-  constructor(results: VfsCrdtSyncPushResult[]) {
+  constructor(_results: VfsCrdtSyncPushResult[]) {
     super('push rejected one or more operations');
     this.name = 'VfsCrdtSyncPushRejectedError';
-    this.rejectedResults = results;
   }
 }
 

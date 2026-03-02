@@ -26,12 +26,12 @@ vi.mock('./electron.adapter', () => {
 
 vi.mock('./web.adapter', () => {
   return {
-    WebAdapter: class {
-      initialize = vi.fn();
-      close = vi.fn();
-      isOpen = vi.fn();
-      execute = vi.fn();
-    }
+    createWebAdapter: () => ({
+      initialize: vi.fn(),
+      close: vi.fn(),
+      isOpen: vi.fn(),
+      execute: vi.fn()
+    })
   };
 });
 

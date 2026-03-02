@@ -6,7 +6,6 @@ import {
 import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
 import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
 import {
-  type AbandonVfsBlobInput,
   type AttachVfsBlobInput,
   InMemoryVfsBlobCommitStore,
   type StageVfsBlobInput,
@@ -67,10 +66,6 @@ export class InMemoryVfsBlobIsolationStore {
 
   stage(input: StageVfsBlobInput) {
     return this.blobStore.stage(input);
-  }
-
-  abandon(input: AbandonVfsBlobInput) {
-    return this.blobStore.abandon(input);
   }
 
   reconcileClient(

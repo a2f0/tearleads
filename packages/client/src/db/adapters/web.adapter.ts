@@ -55,7 +55,7 @@ function isNumberArray(value: unknown): value is number[] {
   );
 }
 
-export class WebAdapter implements DatabaseAdapter {
+class WebAdapter implements DatabaseAdapter {
   private worker: Worker | null = null;
   private pending = new Map<string, PendingRequest>();
   private isReady = false;
@@ -350,4 +350,8 @@ export class WebAdapter implements DatabaseAdapter {
       }
     }
   }
+}
+
+export function createWebAdapter(): DatabaseAdapter {
+  return new WebAdapter();
 }

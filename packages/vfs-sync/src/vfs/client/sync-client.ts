@@ -173,9 +173,7 @@ export class VfsBackgroundSyncClient {
           }
         : null,
       containerClocks: this.containerClockStore.snapshot(),
-      pendingOperations: this.pendingOperations.map((operation) => ({
-        ...operation
-      })),
+      pendingOperations: this.queuedOperations(),
       nextLocalWriteId: this.nextLocalWriteId
     };
   }

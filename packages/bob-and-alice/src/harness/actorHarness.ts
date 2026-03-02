@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import type { Database } from '@tearleads/db/sqlite';
 import {
   createTestDatabase,
   type TestDatabaseContext,
@@ -8,7 +7,6 @@ import {
 } from '@tearleads/db-test-utils';
 import { LocalWriteOrchestrator } from '@tearleads/local-write-orchestrator';
 import {
-  InMemoryVfsCrdtFeedReplayStore,
   InMemoryVfsCrdtSyncTransport,
   type ListVfsContainerClockChangesResult,
   type QueueVfsCrdtLocalOperationInput,
@@ -38,7 +36,6 @@ export class ActorHarness {
   private readonly server: ServerHarness;
   private readonly transport: InMemoryVfsCrdtSyncTransport;
   readonly syncClient: VfsBackgroundSyncClient;
-  readonly feedReplayStore: InMemoryVfsCrdtFeedReplayStore;
   readonly writeOrchestrator: LocalWriteOrchestrator;
   readonly keyManager: TestKeyManager;
 
@@ -60,7 +57,6 @@ export class ActorHarness {
       syncOptions
     );
 
-    this.feedReplayStore = new InMemoryVfsCrdtFeedReplayStore();
     this.writeOrchestrator = new LocalWriteOrchestrator();
     this.keyManager = new TestKeyManager();
     this.keyManager.setIsSetUp(true);
@@ -70,20 +66,6 @@ export class ActorHarness {
     const actor = new ActorHarness(config);
     actor.dbContext = await createTestDatabase(config.databaseOptions);
     return actor;
-  }
-
-  get db(): Database {
-    if (!this.dbContext) {
-      throw new Error(`Actor "${this.alias}" database not initialized`);
-    }
-    return this.dbContext.db;
-  }
-
-  get adapter(): TestDatabaseContext['adapter'] {
-    if (!this.dbContext) {
-      throw new Error(`Actor "${this.alias}" database not initialized`);
-    }
-    return this.dbContext.adapter;
   }
 
   queueCrdtOp(input: QueueVfsCrdtLocalOperationInput): VfsCrdtOperation {

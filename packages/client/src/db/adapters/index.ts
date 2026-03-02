@@ -14,7 +14,7 @@ import {
   getPlatformInfo,
   type PlatformInfo
 } from './types';
-import { WebAdapter } from './web.adapter';
+import { createWebAdapter } from './web.adapter';
 
 // Note: NodeAdapter is intentionally NOT exported here.
 // It uses Node.js-only modules (fs, os, path, better-sqlite3-multiple-ciphers)
@@ -45,7 +45,7 @@ export async function createAdapter(
       return new CapacitorAdapter();
 
     case 'web':
-      return new WebAdapter();
+      return createWebAdapter();
 
     default:
       // The 'node' platform should use direct import of NodeAdapter, not this factory.
