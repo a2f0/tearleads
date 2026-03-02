@@ -104,7 +104,7 @@ export const vfsAclEntriesTable: TableDefinition = {
  * Canonical encrypted state for VFS items.
  * Stores latest encrypted payload snapshot for non-blob content.
  */
-export const vfsItemStateTable: TableDefinition = {
+const vfsItemStateTable: TableDefinition = {
   name: 'vfs_item_state',
   propertyName: 'vfsItemState',
   comment:

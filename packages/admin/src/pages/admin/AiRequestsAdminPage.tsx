@@ -1,3 +1,4 @@
+import { formatNumber, formatTimestamp } from '@admin/lib/utils';
 import type { AiUsage } from '@tearleads/shared';
 import { BackLink, RefreshButton } from '@tearleads/ui';
 import { Loader2 } from 'lucide-react';
@@ -8,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
-import { formatNumber, formatTimestamp } from '@/lib/utils';
 
 const PAGE_SIZE = 100;
 
@@ -42,6 +42,7 @@ function calculateTotals(usageRows: AiUsage[]): AiUsageTotals {
   );
 }
 
+// component-complexity: allow - legacy admin page pending split into smaller views.
 export function AiRequestsAdminPage({
   showBackLink = true,
   backLink,
@@ -117,16 +118,17 @@ export function AiRequestsAdminPage({
     () => calculateTotals(filteredUsageRows),
     [filteredUsageRows]
   );
-  const resolvedBackLink = backLink ? (
-    backLink
-  ) : showBackLink ? (
-    <BackLink defaultTo="/admin/users" defaultLabel={t('backToUsersAdmin')} />
-  ) : null;
-
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
-        {resolvedBackLink}
+        {backLink ? (
+          backLink
+        ) : showBackLink ? (
+          <BackLink
+            defaultTo="/admin/users"
+            defaultLabel={t('backToUsersAdmin')}
+          />
+        ) : null}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-bold text-2xl tracking-tight">
