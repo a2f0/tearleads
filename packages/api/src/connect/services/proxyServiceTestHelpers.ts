@@ -39,7 +39,12 @@ export function useProxyFetchMock() {
     );
   }
 
-  function expectLastFetch(url: string, method: string, body?: string): void {
+  function expectLastFetch(
+    url: string,
+    method: string,
+    body?: string,
+    expectedHeaders: Record<string, string | null> = {}
+  ): void {
     const [actualUrl, init] = fetchMock.mock.calls.at(-1) ?? [];
     expect(actualUrl).toBe(url);
     expect(init?.method).toBe(method);
@@ -55,6 +60,10 @@ export function useProxyFetchMock() {
     if (body !== undefined) {
       expect(init?.body).toBe(body);
       expect(headers.get('content-type')).toBe('application/json');
+    }
+
+    for (const [headerName, headerValue] of Object.entries(expectedHeaders)) {
+      expect(headers.get(headerName)).toBe(headerValue);
     }
   }
 

@@ -10,6 +10,7 @@ interface LegacyCallOptions {
   path: string;
   query?: URLSearchParams;
   jsonBody?: string;
+  extraHeaders?: Record<string, string>;
 }
 
 interface LegacyBinaryResponse {
@@ -75,7 +76,10 @@ function getLegacyBaseUrl(context: LegacyHandlerContext): string {
   return `http://127.0.0.1:${port}/v1`;
 }
 
-function createForwardHeaders(context: LegacyHandlerContext): Headers {
+function createForwardHeaders(
+  context: LegacyHandlerContext,
+  extraHeaders: Record<string, string> | undefined
+): Headers {
   const headers = new Headers();
 
   const authorization = context.requestHeader.get('authorization');
@@ -86,6 +90,12 @@ function createForwardHeaders(context: LegacyHandlerContext): Headers {
   const organizationId = context.requestHeader.get('x-organization-id');
   if (organizationId && organizationId.trim().length > 0) {
     headers.set('x-organization-id', organizationId);
+  }
+
+  for (const [headerName, headerValue] of Object.entries(extraHeaders ?? {})) {
+    if (headerValue.trim().length > 0) {
+      headers.set(headerName, headerValue);
+    }
   }
 
   return headers;
@@ -114,11 +124,11 @@ async function responseErrorMessage(response: Response): Promise<string> {
 }
 
 async function callLegacyRoute(options: LegacyCallOptions): Promise<Response> {
-  const { context, method, path, query, jsonBody } = options;
+  const { context, method, path, query, jsonBody, extraHeaders } = options;
   const queryString = query && query.toString().length > 0 ? `?${query}` : '';
   const url = `${getLegacyBaseUrl(context)}${path}${queryString}`;
 
-  const headers = createForwardHeaders(context);
+  const headers = createForwardHeaders(context, extraHeaders);
   const init: RequestInit = {
     method,
     headers
