@@ -35,6 +35,18 @@ describe('Sync', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('renders user icon in unauthenticated card', async () => {
+    renderSync();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Email')).toBeInTheDocument();
+    });
+
+    const card = document.querySelector('.rounded-lg.border.bg-background');
+    expect(card).toBeInTheDocument();
+    expect(card?.querySelector('svg')).toBeInTheDocument();
+  });
+
   it('shows back link by default', async () => {
     renderSync();
 

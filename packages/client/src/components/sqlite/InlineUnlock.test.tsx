@@ -1,3 +1,4 @@
+// one-component-per-file: allow
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -20,7 +21,6 @@ function renderWithRoutes() {
   );
 }
 
-// Mock the database context
 const mockUseDatabaseContext = vi.fn();
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
@@ -36,13 +36,11 @@ vi.mock('@/hooks/device', () => ({
   useIsMobile: () => mockUseIsMobile()
 }));
 
-// Mock isBiometricAvailable from key-manager
 const mockIsBiometricAvailable = vi.fn();
 vi.mock('@/db/crypto/keyManager', () => ({
   isBiometricAvailable: () => mockIsBiometricAvailable()
 }));
 
-// Mock detectPlatform to return 'web' while preserving other exports
 vi.mock('@/lib/utils', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/utils')>();
   return {
@@ -93,7 +91,6 @@ describe('InlineUnlock', () => {
       restoreSession: mockRestoreSession
     });
   });
-
   describe('when database is not set up', () => {
     beforeEach(() => {
       mockUseDatabaseContext.mockReturnValue({
@@ -218,6 +215,36 @@ describe('InlineUnlock', () => {
       renderWithRoutes();
 
       await user.click(screen.getByRole('link', { name: 'Sign in' }));
+      expect(mockOpenWindow).not.toHaveBeenCalled();
+      expect(await screen.findByTestId('sync-page')).toBeInTheDocument();
+    });
+
+    it('renders "Create one" link', () => {
+      renderWithRouter(<InlineUnlock />);
+
+      expect(
+        screen.getByText("Don't have an account?", { exact: false })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('link', { name: 'Create one' })
+      ).toBeInTheDocument();
+    });
+
+    it('opens Sync floating window when "Create one" is clicked in desktop mode', async () => {
+      const user = userEvent.setup();
+      renderWithRoutes();
+
+      await user.click(screen.getByRole('link', { name: 'Create one' }));
+      expect(mockOpenWindow).toHaveBeenCalledWith('sync');
+      expect(screen.queryByTestId('sync-page')).not.toBeInTheDocument();
+    });
+
+    it('navigates to /sync when "Create one" is clicked on mobile', async () => {
+      const user = userEvent.setup();
+      mockUseIsMobile.mockReturnValue(true);
+      renderWithRoutes();
+
+      await user.click(screen.getByRole('link', { name: 'Create one' }));
       expect(mockOpenWindow).not.toHaveBeenCalled();
       expect(await screen.findByTestId('sync-page')).toBeInTheDocument();
     });
@@ -409,11 +436,24 @@ describe('InlineUnlock', () => {
         );
       });
     });
-  });
 
+    it('shows error when restoreSession throws an exception', async () => {
+      mockRestoreSession.mockRejectedValue(new Error('Session expired'));
+
+      const user = userEvent.setup();
+      renderWithRouter(<InlineUnlock />);
+
+      await user.click(screen.getByTestId('inline-unlock-restore'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('inline-unlock-error')).toHaveTextContent(
+          'Session expired'
+        );
+      });
+    });
+  });
   describe('loading states', () => {
     let resolveUnlock: (value: boolean) => void;
-
     beforeEach(() => {
       const unlockPromise = new Promise<boolean>((resolve) => {
         resolveUnlock = resolve;
@@ -456,34 +496,4 @@ describe('InlineUnlock', () => {
       });
     });
   });
-
-  describe('restore session error handling', () => {
-    it('shows error when restoreSession throws an exception', async () => {
-      mockRestoreSession.mockRejectedValue(new Error('Session expired'));
-      mockUseDatabaseContext.mockReturnValue({
-        isSetUp: true,
-        isUnlocked: false,
-        hasPersistedSession: true,
-        unlock: mockUnlock,
-        restoreSession: mockRestoreSession
-      });
-
-      const user = userEvent.setup();
-      renderWithRouter(<InlineUnlock />);
-
-      await user.click(screen.getByTestId('inline-unlock-restore'));
-
-      await waitFor(() => {
-        expect(screen.getByTestId('inline-unlock-error')).toHaveTextContent(
-          'Session expired'
-        );
-      });
-    });
-  });
 });
-
-// Note: Mobile biometric flows (lines 40-46, 49-62 in InlineUnlock.tsx) are hard to
-// test because the platform is determined at module load time with `detectPlatform()`.
-// Testing these would require completely reloading the module with different mocks,
-// which adds complexity. The getBiometricLabel function and biometric availability
-// check are integration-tested on actual mobile devices.
