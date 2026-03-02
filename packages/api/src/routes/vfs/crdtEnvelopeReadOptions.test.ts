@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { shouldReadEnvelopeBytea } from './crdtEnvelopeReadOptions.js';
-
-const ENVELOPE_BYTEA_READS_FLAG = 'VFS_CRDT_ENVELOPE_BYTEA_READS';
+import {
+  ENVELOPE_BYTEA_READS_FLAG,
+  shouldReadEnvelopeBytea
+} from './crdtEnvelopeReadOptions.js';
 
 describe('crdtEnvelopeReadOptions', () => {
   afterEach(() => {
