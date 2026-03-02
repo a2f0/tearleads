@@ -1,2 +1,2 @@
-export * from './usePreserveWindowState';
 export * from './useDesktopWindowLinkHandler';
+export * from './usePreserveWindowState';

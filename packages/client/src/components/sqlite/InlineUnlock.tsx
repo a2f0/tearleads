@@ -112,7 +112,9 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
             className="h-5 w-5 rounded border border-input"
           />
           <span>
-            {biometricLabel ? `Remember with ${biometricLabel}` : 'Keep unlocked'}
+            {biometricLabel
+              ? `Remember with ${biometricLabel}`
+              : 'Keep unlocked'}
           </span>
         </label>
 

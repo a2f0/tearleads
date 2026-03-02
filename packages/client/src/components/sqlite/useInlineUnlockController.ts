@@ -1,7 +1,13 @@
+import {
+  type ChangeEvent,
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useState
+} from 'react';
 import { isBiometricAvailable } from '@/db/crypto/keyManager';
 import { getErrorMessage } from '@/lib/errors';
 import { detectPlatform } from '@/lib/utils';
-import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 
 const platform = detectPlatform();
 const isMobile = platform === 'ios' || platform === 'android';
