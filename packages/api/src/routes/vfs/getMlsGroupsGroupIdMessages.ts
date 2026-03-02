@@ -1,8 +1,4 @@
-import type {
-  MlsMessage,
-  MlsMessagesResponse,
-  MlsMessageType
-} from '@tearleads/shared';
+import type { MlsMessage, MlsMessagesResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { getActiveMlsGroupMembership } from '../mls/shared.js';
@@ -13,11 +9,25 @@ interface GroupMessageRow {
   sender_user_id: string | null;
   epoch: number;
   ciphertext: string;
-  message_type: string;
-  content_type: string;
+  encoded_content_type: string | null;
   sequence_number: number;
   created_at: Date | string;
   sender_email: string | null;
+}
+
+function decodeContentTypeFromSourceId(
+  encodedContentType: string | null
+): string {
+  if (!encodedContentType) {
+    return 'text/plain';
+  }
+
+  try {
+    const decoded = decodeURIComponent(encodedContentType);
+    return decoded.trim() === '' ? 'text/plain' : decoded;
+  } catch {
+    return 'text/plain';
+  }
 }
 
 /**
@@ -103,20 +113,19 @@ const getMlsGroupsGroupIdMessagesHandler = async (
            ops.actor_id AS sender_user_id,
            COALESCE(ops.key_epoch, 0) AS epoch,
            ops.encrypted_payload AS ciphertext,
-           'application'::text AS message_type,
-           COALESCE(msg.content_type, 'text/plain'::text) AS content_type,
-           COALESCE(
-             msg.sequence_number,
-             ROW_NUMBER() OVER (
+           NULLIF(split_part(ops.source_id, ':', 5), '') AS encoded_content_type,
+           CASE
+             WHEN split_part(ops.source_id, ':', 3) ~ '^[0-9]+$'
+             THEN split_part(ops.source_id, ':', 3)::integer
+             ELSE ROW_NUMBER() OVER (
                ORDER BY ops.occurred_at ASC, ops.id ASC
              )::integer
-           )::integer AS sequence_number,
+           END AS sequence_number,
            ops.occurred_at AS created_at,
            u.email AS sender_email
          FROM vfs_crdt_ops ops
          LEFT JOIN users u ON u.id = ops.actor_id
-         LEFT JOIN mls_messages msg ON msg.id = ops.item_id
-         WHERE ops.source_table = 'mls_messages'
+         WHERE ops.source_table IN ('mls_messages', 'mls_message')
            AND ops.op_type = 'item_upsert'
            AND ops.encrypted_payload IS NOT NULL
            AND ops.source_id LIKE $2::text
@@ -127,8 +136,7 @@ const getMlsGroupsGroupIdMessagesHandler = async (
          sender_user_id,
          epoch,
          ciphertext,
-         message_type,
-         content_type,
+         encoded_content_type,
          sequence_number,
          created_at,
          sender_email
@@ -154,8 +162,8 @@ const getMlsGroupsGroupIdMessagesHandler = async (
         senderUserId: row.sender_user_id,
         epoch: row.epoch,
         ciphertext: row.ciphertext,
-        messageType: row.message_type as MlsMessageType,
-        contentType: row.content_type,
+        messageType: 'application',
+        contentType: decodeContentTypeFromSourceId(row.encoded_content_type),
         sequenceNumber: row.sequence_number,
         sentAt: createdAtStr,
         createdAt: createdAtStr

@@ -164,7 +164,7 @@ export const mlsConnectService = {
     const json = await callLegacyJsonRoute({
       context,
       method: 'POST',
-      path: `/mls/groups/${encoded(request.groupId)}/messages`,
+      path: `/vfs/mls/groups/${encoded(request.groupId)}/messages`,
       jsonBody: toJsonBody(request.json)
     });
     return { json };
@@ -179,7 +179,7 @@ export const mlsConnectService = {
     const json = await callLegacyJsonRoute({
       context,
       method: 'GET',
-      path: `/mls/groups/${encoded(request.groupId)}/messages`,
+      path: `/vfs/mls/groups/${encoded(request.groupId)}/messages`,
       query
     });
     return { json };
