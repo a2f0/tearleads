@@ -358,7 +358,7 @@ export interface VfsApiNetworkFlusherOptions
   loadState?: LoadStateCallback;
 }
 
-export class VfsApiNetworkFlusher {
+class VfsApiNetworkFlusherImpl {
   private readonly client: VfsBackgroundSyncClient;
   private readonly saveState: PersistStateCallback | null;
   private readonly loadState: LoadStateCallback | null;
@@ -480,3 +480,6 @@ export class VfsApiNetworkFlusher {
     await this.persistState();
   }
 }
+
+export type VfsApiNetworkFlusher = VfsApiNetworkFlusherImpl;
+export const VfsApiNetworkFlusher = VfsApiNetworkFlusherImpl;

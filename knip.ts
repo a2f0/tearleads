@@ -19,14 +19,7 @@ const config: KnipConfig = {
     'unresolved'
   ],
   ignoreBinaries: ['ansible-lint', 'shellcheck', 'playwright'],
-  ignoreIssues: {
-    // Class members are part of exported runtime/test harness APIs.
-    'packages/api-client/src/vfsBlobNetworkFlusher.ts': ['classMembers'],
-    'packages/api-client/src/vfsNetworkFlusher.ts': ['classMembers'],
-    'packages/api-client/src/vfsWriteOrchestrator.ts': ['classMembers'],
-    'packages/client/src/components/ui/ErrorBoundary.tsx': ['classMembers'],
-    'packages/mls-core/src/mls.ts': ['classMembers'],
-  },
+  ignoreIssues: {},
   workspaces: {
     '.': {
       entry: [

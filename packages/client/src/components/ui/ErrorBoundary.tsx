@@ -1,5 +1,11 @@
 import { X } from 'lucide-react';
-import { Component, createRef, type ReactNode, type RefObject } from 'react';
+import {
+  Component,
+  createRef,
+  type ReactElement,
+  type ReactNode,
+  type RefObject
+} from 'react';
 import { logStore } from '@/stores/logStore';
 
 interface Props {
@@ -18,7 +24,7 @@ interface ErrorBoundaryHandle {
 export const errorBoundaryRef: RefObject<ErrorBoundaryHandle | null> =
   createRef();
 
-export class ErrorBoundary extends Component<Props, State> {
+class ErrorBoundaryRoot extends Component<Props, State> {
   private readonly handle: ErrorBoundaryHandle;
 
   constructor(props: Props) {
@@ -78,4 +84,8 @@ export class ErrorBoundary extends Component<Props, State> {
       </>
     );
   }
+}
+
+export function ErrorBoundary(props: Props): ReactElement {
+  return <ErrorBoundaryRoot>{props.children}</ErrorBoundaryRoot>;
 }
