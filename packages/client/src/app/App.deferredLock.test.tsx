@@ -214,9 +214,9 @@ describe('App deferred lock flow', () => {
     await screen.findByTestId('deferred-lock-password-dialog');
     await user.click(screen.getByTestId('deferred-lock-password-submit'));
 
-    expect(screen.getByTestId('deferred-lock-password-error')).toHaveTextContent(
-      'Enter a password to continue.'
-    );
+    expect(
+      screen.getByTestId('deferred-lock-password-error')
+    ).toHaveTextContent('Enter a password to continue.');
     expect(mockSetDatabasePassword).not.toHaveBeenCalled();
     expect(mockLock).not.toHaveBeenCalled();
   });
@@ -276,9 +276,9 @@ describe('App deferred lock flow', () => {
     await user.click(screen.getByTestId('deferred-lock-password-submit'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('deferred-lock-password-error')).toHaveTextContent(
-        'Could not save your database password. Please try again.'
-      );
+      expect(
+        screen.getByTestId('deferred-lock-password-error')
+      ).toHaveTextContent('Could not save your database password. Please try again.');
     });
     expect(mockNotificationWarning).not.toHaveBeenCalled();
     expect(mockLock).not.toHaveBeenCalled();

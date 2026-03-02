@@ -197,8 +197,6 @@ function App() {
     isAuthenticated,
     isUnlocked,
     lock,
-    setDeferredLockErrorMessage,
-    setIsDeferredLockDialogOpen,
     startMenu
   ]);
 
