@@ -12,7 +12,7 @@ This map ties vendor management policy controls to HIPAA Security Rule requireme
 | `TL-VENDOR-004` | Let's Encrypt controls | 164.312(e)(1) | [`terraform/stacks/staging/k8s/main.tf`](../../../terraform/stacks/staging/k8s/main.tf) |
 | `TL-VENDOR-005` | GitHub controls | 164.312(a)(1), 164.308(a)(4) | [`.github/workflows/`](../../../.github/workflows) |
 | `TL-VENDOR-006` | RevenueCat controls | 164.312(e)(1), 164.312(c)(1) | [`packages/api/src/lib/revenuecat.ts`](../../../packages/api/src/lib/revenuecat.ts) |
-| `TL-VENDOR-007` | OpenRouter controls | 164.312(e)(1) | [`packages/api/src/routes/chat/postCompletions.ts`](../../../packages/api/src/routes/chat/postCompletions.ts) |
+| `TL-VENDOR-007` | OpenRouter controls | 164.312(e)(1) | [`packages/api/src/connect/services/chatService.ts`](../../../packages/api/src/connect/services/chatService.ts) |
 | `TL-VENDOR-008` | Anthropic controls | 164.308(b)(1) | [`CLAUDE.md`](../../../CLAUDE.md) |
 | `TL-VENDOR-009` | OpenAI controls | 164.308(b)(1) | [`AGENTS.md`](../../../AGENTS.md) |
 | `TL-VENDOR-010` | Google controls | 164.308(b)(1) | [`.gemini/INSTRUCTIONS.md`](../../../.gemini/INSTRUCTIONS.md) |
@@ -79,7 +79,7 @@ This map ties vendor management policy controls to HIPAA Security Rule requireme
 | --- | --- | --- |
 | `terraform/stacks/staging/k8s/main.tf` | Let's Encrypt | TLS certificates |
 | `packages/api/src/lib/revenuecat.ts` | RevenueCat | HTTPS webhook |
-| `packages/api/src/routes/chat/postCompletions.ts` | OpenRouter | HTTPS API |
+| `packages/api/src/connect/services/chatService.ts` | OpenRouter | HTTPS API |
 
 ## Evidence Collection
 
