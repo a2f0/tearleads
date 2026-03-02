@@ -1,7 +1,7 @@
 import type { Server } from 'node:http';
-import { Code, createPromiseClient } from '@connectrpc/connect';
+import { Code, createClient } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-node';
-import { AuthService } from '@tearleads/shared/gen/tearleads/v1/auth_connect';
+import { AuthService } from '@tearleads/shared/gen/tearleads/v1/auth_pb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
 import { createJwt, verifyJwt, verifyRefreshJwt } from '../lib/jwt.js';
@@ -37,7 +37,7 @@ function createAuthClient(server: Server) {
     httpVersion: '1.1',
     baseUrl: `${getBaseUrl(server)}/v1/connect`
   });
-  return createPromiseClient(AuthService, transport);
+  return createClient(AuthService, transport);
 }
 
 function startServer(): Promise<Server> {

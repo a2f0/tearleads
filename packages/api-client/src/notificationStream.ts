@@ -1,19 +1,18 @@
-import { createPromiseClient } from '@connectrpc/connect';
+import { type CallOptions, createClient } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-web';
-import { NotificationService } from '@tearleads/shared/gen/tearleads/v1/notifications_connect';
-import type { SubscribeResponse } from '@tearleads/shared/gen/tearleads/v1/notifications_pb';
-import { SubscribeRequest } from '@tearleads/shared/gen/tearleads/v1/notifications_pb';
+import { NotificationService } from '@tearleads/shared/gen/tearleads/v1/notifications_pb';
 
-interface NotificationStreamCallOptions {
-  headers?: HeadersInit;
-  signal?: AbortSignal;
+type NotificationStreamCallOptions = Pick<CallOptions, 'headers' | 'signal'>;
+
+interface NotificationStreamResponse {
+  json: string;
 }
 
 interface NotificationStreamClient {
   subscribe(
-    request: SubscribeRequest,
+    request: { channels: string[] },
     options?: NotificationStreamCallOptions
-  ): AsyncIterable<SubscribeResponse>;
+  ): AsyncIterable<NotificationStreamResponse>;
 }
 
 type NotificationStreamClientFactory = (
@@ -66,7 +65,7 @@ function normalizeToken(token: string | null | undefined): string | null {
 function createNotificationStreamClient(
   connectBaseUrl: string
 ): NotificationStreamClient {
-  return createPromiseClient(
+  return createClient(
     NotificationService,
     createConnectTransport({ baseUrl: connectBaseUrl })
   );
@@ -90,7 +89,9 @@ function toCallOptions(
   };
 }
 
-function readResponsePayload(response: SubscribeResponse): string | null {
+function readResponsePayload(
+  response: NotificationStreamResponse
+): string | null {
   const payload = response.json.trim();
   if (payload.length === 0) {
     return null;
@@ -105,7 +106,7 @@ export async function* openNotificationEventStream(
   const createClient = options.createClient ?? createNotificationStreamClient;
   const token = normalizeToken(options.token);
   const client = createClient(connectBaseUrl);
-  const request = new SubscribeRequest({ channels: options.channels });
+  const request = { channels: options.channels };
   const stream = client.subscribe(
     request,
     toCallOptions(options.signal, token)

@@ -1,14 +1,15 @@
+import { create } from '@bufbuild/protobuf';
 import {
   Code,
   ConnectError,
   createContextValues,
   createHandlerContext
 } from '@connectrpc/connect';
-import { AiService } from '@tearleads/shared/gen/tearleads/v1/ai_connect';
 import {
-  GetUsageRequest,
-  GetUsageSummaryRequest,
-  RecordUsageRequest
+  AiService,
+  GetUsageRequestSchema,
+  GetUsageSummaryRequestSchema,
+  RecordUsageRequestSchema
 } from '@tearleads/shared/gen/tearleads/v1/ai_pb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CONNECT_AUTH_CONTEXT_KEY } from '../context.js';
@@ -23,9 +24,9 @@ vi.mock('../../lib/postgres.js', () => ({
   getPostgresPool: () => mockGetPostgresPool()
 }));
 
-function createAuthContext(
-  method: (typeof AiService.methods)[keyof typeof AiService.methods]
-) {
+type AiMethod = (typeof AiService.method)[keyof typeof AiService.method];
+
+function createAuthContext(method: AiMethod) {
   const contextValues = createContextValues();
   contextValues.set(CONNECT_AUTH_CONTEXT_KEY, {
     claims: {
@@ -53,9 +54,7 @@ function createAuthContext(
   });
 }
 
-function createUnauthenticatedContext(
-  method: (typeof AiService.methods)[keyof typeof AiService.methods]
-) {
+function createUnauthenticatedContext(method: AiMethod) {
   return createHandlerContext({
     service: AiService,
     method,
@@ -76,8 +75,8 @@ describe('aiConnectService', () => {
   it('returns unauthenticated when auth context is missing', async () => {
     await expect(
       aiConnectService.getUsage(
-        new GetUsageRequest(),
-        createUnauthenticatedContext(AiService.methods.getUsage)
+        create(GetUsageRequestSchema, {}),
+        createUnauthenticatedContext(AiService.method.getUsage)
       )
     ).rejects.toMatchObject({
       code: Code.Unauthenticated
@@ -107,7 +106,7 @@ describe('aiConnectService', () => {
       });
 
     const response = await aiConnectService.recordUsage(
-      new RecordUsageRequest({
+      create(RecordUsageRequestSchema, {
         conversationId: '  ',
         messageId: '\t',
         modelId: 'gpt-4',
@@ -116,7 +115,7 @@ describe('aiConnectService', () => {
         totalTokens: 15,
         openrouterRequestId: ' '
       }),
-      createAuthContext(AiService.methods.recordUsage)
+      createAuthContext(AiService.method.recordUsage)
     );
 
     expect(response.usage?.id).toBe('usage-1');
@@ -148,13 +147,13 @@ describe('aiConnectService', () => {
   it('returns invalid argument when modelId is missing', async () => {
     await expect(
       aiConnectService.recordUsage(
-        new RecordUsageRequest({
+        create(RecordUsageRequestSchema, {
           modelId: '   ',
           promptTokens: 1,
           completionTokens: 1,
           totalTokens: 2
         }),
-        createAuthContext(AiService.methods.recordUsage)
+        createAuthContext(AiService.method.recordUsage)
       )
     ).rejects.toMatchObject({
       code: Code.InvalidArgument
@@ -168,13 +167,13 @@ describe('aiConnectService', () => {
 
     await expect(
       aiConnectService.recordUsage(
-        new RecordUsageRequest({
+        create(RecordUsageRequestSchema, {
           modelId: 'gpt-4',
           promptTokens: 1,
           completionTokens: 1,
           totalTokens: 2
         }),
-        createAuthContext(AiService.methods.recordUsage)
+        createAuthContext(AiService.method.recordUsage)
       )
     ).rejects.toMatchObject({
       code: Code.Internal
@@ -190,13 +189,13 @@ describe('aiConnectService', () => {
     try {
       await expect(
         aiConnectService.recordUsage(
-          new RecordUsageRequest({
+          create(RecordUsageRequestSchema, {
             modelId: 'gpt-4',
             promptTokens: 1,
             completionTokens: 1,
             totalTokens: 2
           }),
-          createAuthContext(AiService.methods.recordUsage)
+          createAuthContext(AiService.method.recordUsage)
         )
       ).rejects.toMatchObject({
         code: Code.Internal
@@ -255,13 +254,13 @@ describe('aiConnectService', () => {
       });
 
     const response = await aiConnectService.getUsage(
-      new GetUsageRequest({
+      create(GetUsageRequestSchema, {
         startDate: '2026-03-01',
         endDate: '2026-03-31',
         cursor: '2026-03-02T12:00:00.000Z',
         limit: 1
       }),
-      createAuthContext(AiService.methods.getUsage)
+      createAuthContext(AiService.method.getUsage)
     );
 
     expect(response.usage).toHaveLength(1);
@@ -315,11 +314,11 @@ describe('aiConnectService', () => {
       });
 
     const response = await aiConnectService.getUsageSummary(
-      new GetUsageSummaryRequest({
+      create(GetUsageSummaryRequestSchema, {
         startDate: '2026-03-01',
         endDate: '2026-03-31'
       }),
-      createAuthContext(AiService.methods.getUsageSummary)
+      createAuthContext(AiService.method.getUsageSummary)
     );
 
     expect(response.summary?.totalTokens).toBe(150);
@@ -334,8 +333,8 @@ describe('aiConnectService', () => {
     try {
       await expect(
         aiConnectService.getUsage(
-          new GetUsageRequest(),
-          createAuthContext(AiService.methods.getUsage)
+          create(GetUsageRequestSchema, {}),
+          createAuthContext(AiService.method.getUsage)
         )
       ).rejects.toMatchObject({
         code: Code.Internal
@@ -352,8 +351,8 @@ describe('aiConnectService', () => {
 
     await expect(
       aiConnectService.getUsage(
-        new GetUsageRequest(),
-        createAuthContext(AiService.methods.getUsage)
+        create(GetUsageRequestSchema, {}),
+        createAuthContext(AiService.method.getUsage)
       )
     ).rejects.toMatchObject({
       code: Code.PermissionDenied
@@ -367,8 +366,8 @@ describe('aiConnectService', () => {
     try {
       await expect(
         aiConnectService.getUsageSummary(
-          new GetUsageSummaryRequest(),
-          createAuthContext(AiService.methods.getUsageSummary)
+          create(GetUsageSummaryRequestSchema, {}),
+          createAuthContext(AiService.method.getUsageSummary)
         )
       ).rejects.toMatchObject({
         code: Code.Internal
@@ -385,8 +384,8 @@ describe('aiConnectService', () => {
 
     await expect(
       aiConnectService.getUsageSummary(
-        new GetUsageSummaryRequest(),
-        createAuthContext(AiService.methods.getUsageSummary)
+        create(GetUsageSummaryRequestSchema, {}),
+        createAuthContext(AiService.method.getUsageSummary)
       )
     ).rejects.toMatchObject({
       code: Code.PermissionDenied

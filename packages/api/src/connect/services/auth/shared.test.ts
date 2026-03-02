@@ -1,5 +1,6 @@
+import { create } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
-import { DeleteSessionRequest } from '@tearleads/shared/gen/tearleads/v1/auth_pb';
+import { DeleteSessionRequestSchema } from '@tearleads/shared/gen/tearleads/v1/auth_pb';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ConnectAuthContext } from '../../context.js';
 import {
@@ -105,11 +106,15 @@ describe('connect auth shared helpers', () => {
 
   it('parses required session id and rejects empty values', () => {
     expect(
-      parseRequiredSessionId(new DeleteSessionRequest({ sessionId: 'abc123' }))
+      parseRequiredSessionId(
+        create(DeleteSessionRequestSchema, { sessionId: 'abc123' })
+      )
     ).toBe('abc123');
 
     try {
-      parseRequiredSessionId(new DeleteSessionRequest({ sessionId: '   ' }));
+      parseRequiredSessionId(
+        create(DeleteSessionRequestSchema, { sessionId: '   ' })
+      );
       throw new Error('Expected ConnectError');
     } catch (error) {
       expect(error).toBeInstanceOf(ConnectError);

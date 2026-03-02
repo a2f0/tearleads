@@ -1,10 +1,13 @@
+import { create } from '@bufbuild/protobuf';
 import {
   Code,
   createContextValues,
   createHandlerContext
 } from '@connectrpc/connect';
-import { BillingService } from '@tearleads/shared/gen/tearleads/v1/billing_connect';
-import { GetOrganizationBillingRequest } from '@tearleads/shared/gen/tearleads/v1/billing_pb';
+import {
+  BillingService,
+  GetOrganizationBillingRequestSchema
+} from '@tearleads/shared/gen/tearleads/v1/billing_pb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CONNECT_AUTH_CONTEXT_KEY } from '../context.js';
 import { billingConnectService } from './billingService.js';
@@ -36,7 +39,7 @@ function createAuthContext() {
 
   return createHandlerContext({
     service: BillingService,
-    method: BillingService.methods.getOrganizationBilling,
+    method: BillingService.method.getOrganizationBilling,
     protocolName: 'connect',
     requestMethod: 'POST',
     url: 'http://localhost/v1/connect/tearleads.v1.BillingService/GetOrganizationBilling',
@@ -47,7 +50,7 @@ function createAuthContext() {
 function createUnauthenticatedContext() {
   return createHandlerContext({
     service: BillingService,
-    method: BillingService.methods.getOrganizationBilling,
+    method: BillingService.method.getOrganizationBilling,
     protocolName: 'connect',
     requestMethod: 'POST',
     url: 'http://localhost/v1/connect/tearleads.v1.BillingService/GetOrganizationBilling'
@@ -63,7 +66,9 @@ describe('billingConnectService', () => {
   it('returns unauthenticated when auth context is missing', async () => {
     await expect(
       billingConnectService.getOrganizationBilling(
-        new GetOrganizationBillingRequest({ organizationId: 'org-1' }),
+        create(GetOrganizationBillingRequestSchema, {
+          organizationId: 'org-1'
+        }),
         createUnauthenticatedContext()
       )
     ).rejects.toMatchObject({
@@ -74,7 +79,7 @@ describe('billingConnectService', () => {
   it('returns invalid argument for blank organization id', async () => {
     await expect(
       billingConnectService.getOrganizationBilling(
-        new GetOrganizationBillingRequest({ organizationId: '   ' }),
+        create(GetOrganizationBillingRequestSchema, { organizationId: '   ' }),
         createAuthContext()
       )
     ).rejects.toMatchObject({
@@ -87,7 +92,9 @@ describe('billingConnectService', () => {
 
     await expect(
       billingConnectService.getOrganizationBilling(
-        new GetOrganizationBillingRequest({ organizationId: 'org-1' }),
+        create(GetOrganizationBillingRequestSchema, {
+          organizationId: 'org-1'
+        }),
         createAuthContext()
       )
     ).rejects.toMatchObject({
@@ -102,7 +109,9 @@ describe('billingConnectService', () => {
 
     await expect(
       billingConnectService.getOrganizationBilling(
-        new GetOrganizationBillingRequest({ organizationId: 'org-1' }),
+        create(GetOrganizationBillingRequestSchema, {
+          organizationId: 'org-1'
+        }),
         createAuthContext()
       )
     ).rejects.toMatchObject({
@@ -132,7 +141,7 @@ describe('billingConnectService', () => {
       });
 
     const response = await billingConnectService.getOrganizationBilling(
-      new GetOrganizationBillingRequest({ organizationId: 'org-1' }),
+      create(GetOrganizationBillingRequestSchema, { organizationId: 'org-1' }),
       createAuthContext()
     );
 
@@ -172,7 +181,7 @@ describe('billingConnectService', () => {
       });
 
     const response = await billingConnectService.getOrganizationBilling(
-      new GetOrganizationBillingRequest({ organizationId: 'org-1' }),
+      create(GetOrganizationBillingRequestSchema, { organizationId: 'org-1' }),
       createAuthContext()
     );
 
@@ -192,7 +201,9 @@ describe('billingConnectService', () => {
     try {
       await expect(
         billingConnectService.getOrganizationBilling(
-          new GetOrganizationBillingRequest({ organizationId: 'org-1' }),
+          create(GetOrganizationBillingRequestSchema, {
+            organizationId: 'org-1'
+          }),
           createAuthContext()
         )
       ).rejects.toMatchObject({

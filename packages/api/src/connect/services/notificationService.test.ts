@@ -1,10 +1,13 @@
+import { create } from '@bufbuild/protobuf';
 import {
   Code,
   createContextValues,
   createHandlerContext
 } from '@connectrpc/connect';
-import { NotificationService } from '@tearleads/shared/gen/tearleads/v1/notifications_connect';
-import { SubscribeRequest } from '@tearleads/shared/gen/tearleads/v1/notifications_pb';
+import {
+  NotificationService,
+  SubscribeRequestSchema
+} from '@tearleads/shared/gen/tearleads/v1/notifications_pb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CONNECT_AUTH_CONTEXT_KEY } from '../context.js';
 import { notificationConnectService } from './notificationService.js';
@@ -67,7 +70,7 @@ function createAuthContext(userId = 'user-1') {
 
   return createHandlerContext({
     service: NotificationService,
-    method: NotificationService.methods.subscribe,
+    method: NotificationService.method.subscribe,
     protocolName: 'connect',
     requestMethod: 'POST',
     url: 'http://localhost/v1/connect/tearleads.v1.NotificationService/Subscribe',
@@ -78,7 +81,7 @@ function createAuthContext(userId = 'user-1') {
 function createContextWithoutAuth() {
   return createHandlerContext({
     service: NotificationService,
-    method: NotificationService.methods.subscribe,
+    method: NotificationService.method.subscribe,
     protocolName: 'connect',
     requestMethod: 'POST',
     url: 'http://localhost/v1/connect/tearleads.v1.NotificationService/Subscribe'
@@ -115,7 +118,7 @@ describe('notificationConnectService', () => {
   it('returns unauthenticated when auth context is missing', async () => {
     const context = createContextWithoutAuth();
     const stream = notificationConnectService.subscribe(
-      new SubscribeRequest(),
+      create(SubscribeRequestSchema, {}),
       context
     );
     const iterator = stream[Symbol.asyncIterator]();
@@ -128,7 +131,7 @@ describe('notificationConnectService', () => {
   it('streams connected + message events for authorized channels', async () => {
     const context = createAuthContext('user-1');
     const stream = notificationConnectService.subscribe(
-      new SubscribeRequest({
+      create(SubscribeRequestSchema, {
         channels: ['broadcast']
       }),
       context
@@ -191,7 +194,7 @@ describe('notificationConnectService', () => {
   it('returns permission denied when all requested channels are unauthorized', async () => {
     const context = createAuthContext('user-1');
     const stream = notificationConnectService.subscribe(
-      new SubscribeRequest({
+      create(SubscribeRequestSchema, {
         channels: ['mls:user:other-user']
       }),
       context
@@ -206,7 +209,7 @@ describe('notificationConnectService', () => {
   it('skips invalid pubsub payloads that cannot be parsed', async () => {
     const context = createAuthContext('user-1');
     const stream = notificationConnectService.subscribe(
-      new SubscribeRequest({
+      create(SubscribeRequestSchema, {
         channels: ['broadcast']
       }),
       context
@@ -239,7 +242,7 @@ describe('notificationConnectService', () => {
     try {
       const context = createAuthContext('user-1');
       const stream = notificationConnectService.subscribe(
-        new SubscribeRequest({
+        create(SubscribeRequestSchema, {
           channels: ['broadcast']
         }),
         context
@@ -281,7 +284,7 @@ describe('notificationConnectService', () => {
     try {
       const context = createAuthContext('user-1');
       const stream = notificationConnectService.subscribe(
-        new SubscribeRequest({
+        create(SubscribeRequestSchema, {
           channels: ['broadcast']
         }),
         context

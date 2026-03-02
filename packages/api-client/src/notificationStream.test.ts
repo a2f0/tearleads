@@ -1,28 +1,23 @@
-import {
-  SubscribeRequest,
-  SubscribeResponse
-} from '@tearleads/shared/gen/tearleads/v1/notifications_pb';
 import { describe, expect, it, vi } from 'vitest';
 import { openNotificationEventStream } from './notificationStream';
 
-interface MockStreamClientCallOptions {
-  headers?: HeadersInit;
-  signal?: AbortSignal;
+interface MockStreamResponse {
+  json: string;
 }
 
 interface MockStreamClient {
   subscribe: (
-    request: SubscribeRequest,
-    options?: MockStreamClientCallOptions
-  ) => AsyncIterable<SubscribeResponse>;
+    request: { channels: string[] },
+    options?: { headers?: HeadersInit; signal?: AbortSignal }
+  ) => AsyncIterable<MockStreamResponse>;
 }
 
 function createAsyncResponseStream(
   payloads: readonly string[]
-): AsyncGenerator<SubscribeResponse> {
+): AsyncGenerator<MockStreamResponse> {
   return (async function* () {
     for (const payload of payloads) {
-      yield new SubscribeResponse({ json: payload });
+      yield { json: payload };
     }
   })();
 }
@@ -62,8 +57,7 @@ describe('openNotificationEventStream', () => {
 
     const request = firstCall[0];
     const options = firstCall[1];
-    expect(request).toBeInstanceOf(SubscribeRequest);
-    expect(request.channels).toEqual(['broadcast']);
+    expect(request).toMatchObject({ channels: ['broadcast'] });
     expect(options).toEqual({
       headers: { Authorization: 'Bearer test-token' },
       signal: abortController.signal
