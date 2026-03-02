@@ -1,10 +1,13 @@
 import { getRedisClient } from '@tearleads/shared/redis';
 import type { VfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import {
+  normalizeReplicaWriteIdRow,
+  normalizeReplicaWriteIdRowFromUnknown,
+  parseCachedCursorValue
+} from './vfsCrdtCacheNormalizers.js';
+import {
   cloneCursor,
   isRecord,
-  normalizeRequiredString,
-  parseCursor,
   type ReplicaWriteIdRow
 } from './vfsCrdtSnapshotCommon.js';
 
@@ -118,24 +121,6 @@ export async function bumpVfsCrdtCompactionEpoch(): Promise<boolean> {
   }
 }
 
-function parseCachedCursor(value: unknown): VfsSyncCursor | null {
-  if (value === null) {
-    return null;
-  }
-
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  const changedAt = normalizeRequiredString(value['changedAt']);
-  const changeId = normalizeRequiredString(value['changeId']);
-  if (!changedAt || !changeId) {
-    return null;
-  }
-
-  return parseCursor(changedAt, changeId);
-}
-
 export async function readOldestAccessibleCursorCache(input: {
   compactionEpoch: string;
   userId: string;
@@ -161,7 +146,7 @@ export async function readOldestAccessibleCursorCache(input: {
       return undefined;
     }
 
-    const cursor = parseCachedCursor(parsed['cursor']);
+    const cursor = parseCachedCursorValue(parsed['cursor']);
     if (parsed['cursor'] !== null && !cursor) {
       return undefined;
     }
@@ -199,35 +184,12 @@ function sanitizeReplicaWriteIdRows(
   const sanitized: ReplicaWriteIdRow[] = [];
 
   for (const row of rows) {
-    const replicaId = normalizeRequiredString(row.replica_id);
-
-    let maxWriteId: string | number | null = null;
-    if (row.max_write_id === null || row.max_write_id === undefined) {
-      maxWriteId = null;
-    } else if (typeof row.max_write_id === 'number') {
-      if (
-        Number.isFinite(row.max_write_id) &&
-        Number.isInteger(row.max_write_id)
-      ) {
-        maxWriteId = row.max_write_id;
-      }
-    } else if (typeof row.max_write_id === 'string') {
-      const trimmed = row.max_write_id.trim();
-      maxWriteId = trimmed.length > 0 ? trimmed : null;
-    }
-
-    if (
-      row.max_write_id !== null &&
-      row.max_write_id !== undefined &&
-      maxWriteId === null
-    ) {
+    const normalizedRow = normalizeReplicaWriteIdRow(row);
+    if (!normalizedRow) {
       continue;
     }
 
-    sanitized.push({
-      replica_id: replicaId,
-      max_write_id: maxWriteId
-    });
+    sanitized.push(normalizedRow);
   }
 
   sanitized.sort((left, right) => {
@@ -248,33 +210,12 @@ function parseCachedReplicaWriteIdRows(
 
   const rows: ReplicaWriteIdRow[] = [];
   for (const entry of value) {
-    if (!isRecord(entry)) {
+    const normalizedRow = normalizeReplicaWriteIdRowFromUnknown(entry);
+    if (!normalizedRow) {
       continue;
     }
 
-    const replicaId = normalizeRequiredString(entry['replica_id']);
-
-    const rawMaxWriteId = entry['max_write_id'];
-    let maxWriteId: string | number | null = null;
-    if (rawMaxWriteId === null || rawMaxWriteId === undefined) {
-      maxWriteId = null;
-    } else if (
-      typeof rawMaxWriteId === 'number' &&
-      Number.isFinite(rawMaxWriteId) &&
-      Number.isInteger(rawMaxWriteId)
-    ) {
-      maxWriteId = rawMaxWriteId;
-    } else if (typeof rawMaxWriteId === 'string') {
-      const trimmed = rawMaxWriteId.trim();
-      maxWriteId = trimmed.length > 0 ? trimmed : null;
-    } else {
-      continue;
-    }
-
-    rows.push({
-      replica_id: replicaId,
-      max_write_id: maxWriteId
-    });
+    rows.push(normalizedRow);
   }
 
   rows.sort((left, right) => {

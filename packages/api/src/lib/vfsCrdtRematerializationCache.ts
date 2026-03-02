@@ -1,11 +1,11 @@
 import { getRedisClient } from '@tearleads/shared/redis';
+import { parseCachedCursorValue } from './vfsCrdtCacheNormalizers.js';
 import {
   cloneCursor,
   isAccessLevel,
   isPrincipalType,
   isRecord,
   normalizeRequiredString,
-  parseCursor,
   parseOccurredAt,
   type VfsCrdtSnapshotPayload,
   type VfsCrdtSnapshotReplayPayload
@@ -57,24 +57,6 @@ function buildRematerializationSnapshotCacheKey(input: {
     encodeCachePart(input.clientId),
     encodeCachePart(input.snapshotUpdatedAt)
   ].join(':');
-}
-
-function parseCachedCursor(value: unknown) {
-  if (value === null) {
-    return null;
-  }
-
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  const changedAt = normalizeRequiredString(value['changedAt']);
-  const changeId = normalizeRequiredString(value['changeId']);
-  if (!changedAt || !changeId) {
-    return null;
-  }
-
-  return parseCursor(changedAt, changeId);
 }
 
 function parseCachedReplaySnapshot(
@@ -135,7 +117,7 @@ function parseCachedReplaySnapshot(
     });
   }
 
-  const cursor = parseCachedCursor(value['cursor']);
+  const cursor = parseCachedCursorValue(value['cursor']);
   if (value['cursor'] !== null && value['cursor'] !== undefined && !cursor) {
     return null;
   }
