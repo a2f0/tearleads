@@ -25,15 +25,12 @@ const config: KnipConfig = {
       entry: [
         'scripts/*.ts',
         'scripts/agents/**/*.ts',
+        'scripts/checks/checkDependencyCruiser.ts',
         'scripts/ciImpact/**/*.ts',
         'scripts/costModel/**/*.ts',
         'scripts/lib/**/*.ts',
         'scripts/preen/**/*.ts',
         'scripts/tooling/scriptTool.ts'
-      ],
-      ignoreDependencies: [
-        // Invoked via scripts/checks/checkDependencyCruiser.sh.
-        'dependency-cruiser'
       ]
     },
     'packages/app-builder': {
