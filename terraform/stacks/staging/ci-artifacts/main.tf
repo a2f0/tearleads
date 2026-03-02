@@ -34,7 +34,7 @@ module "ci_artifacts" {
     "tearleads-staging/smtp-listener",
     "tearleads-staging/website",
   ]
-  ecr_lifecycle_max_images = 20
+  ecr_lifecycle_max_images = 5
 
   create_github_actions_role       = true
   github_actions_repository        = var.github_actions_repository
