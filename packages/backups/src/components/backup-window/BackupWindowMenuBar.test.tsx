@@ -3,6 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { BackupWindowMenuBar } from './BackupWindowMenuBar';
 
+vi.mock('@tearleads/backups/package.json', () => ({
+  default: { version: '1.2.3' }
+}));
+
 describe('BackupWindowMenuBar', () => {
   it('renders menu triggers', () => {
     render(
@@ -53,5 +57,18 @@ describe('BackupWindowMenuBar', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Documentation' }));
 
     expect(onOpenDocumentation).toHaveBeenCalled();
+  });
+
+  it('opens About dialog from Help menu with version', async () => {
+    const user = userEvent.setup();
+    render(
+      <BackupWindowMenuBar onClose={vi.fn()} onOpenDocumentation={vi.fn()} />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Help' }));
+    await user.click(screen.getByRole('menuitem', { name: 'About' }));
+
+    expect(screen.getByText('About Backups')).toBeInTheDocument();
+    expect(screen.getByTestId('about-version')).toHaveTextContent('1.2.3');
   });
 });

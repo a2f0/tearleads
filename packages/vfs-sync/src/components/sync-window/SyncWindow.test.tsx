@@ -4,6 +4,10 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { SyncWindow } from './SyncWindow';
 
+vi.mock('@tearleads/vfs-sync/package.json', () => ({
+  default: { version: '0.0.42' }
+}));
+
 // Mock FloatingWindow
 vi.mock('@tearleads/window-manager', async (importOriginal) => {
   const actual =
@@ -105,10 +109,11 @@ describe('SyncWindow', () => {
     );
   });
 
-  it('renders menu bar with File and View menus', () => {
+  it('renders menu bar with File, View, and Help menus', () => {
     render(<SyncWindow {...defaultProps} />);
     expect(screen.getByRole('button', { name: 'File' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Help' })).toBeInTheDocument();
   });
 
   it('calls onClose from File menu Close option', async () => {

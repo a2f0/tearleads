@@ -20,7 +20,8 @@ vi.mock('react-i18next', () => ({
         logout: 'Logout',
         file: 'File',
         view: 'View',
-        close: 'Close'
+        close: 'Close',
+        help: 'Help'
       };
       let translated = translations[key] ?? key;
       if (options?.time !== undefined) {

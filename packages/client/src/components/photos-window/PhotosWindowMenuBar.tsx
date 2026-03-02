@@ -1,3 +1,4 @@
+import photosPackageJson from '@tearleads/photos/package.json';
 import { WindowMenuBar } from '@tearleads/window-manager';
 import {
   Eye,
@@ -13,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
+import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 
 export type ViewMode = 'list' | 'table' | 'thumbnail';
@@ -103,6 +105,9 @@ export function PhotosWindowMenuBar({
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <WindowOptionsMenuItem />
+      </DropdownMenu>
+      <DropdownMenu trigger="Help">
+        <AboutMenuItem appName="Photos" version={photosPackageJson.version} />
       </DropdownMenu>
     </WindowMenuBar>
   );

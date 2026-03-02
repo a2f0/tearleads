@@ -4,6 +4,10 @@ import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { PhotosWindowMenuBar } from './PhotosWindowMenuBar';
 
+vi.mock('@tearleads/photos/package.json', () => ({
+  default: { version: '0.0.10' }
+}));
+
 describe('PhotosWindowMenuBar', () => {
   const defaultProps = {
     viewMode: 'list',
@@ -25,6 +29,11 @@ describe('PhotosWindowMenuBar', () => {
   it('renders View menu trigger', () => {
     render(<PhotosWindowMenuBar {...defaultProps} />);
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+  });
+
+  it('renders Help menu trigger', () => {
+    render(<PhotosWindowMenuBar {...defaultProps} />);
+    expect(screen.getByRole('button', { name: 'Help' })).toBeInTheDocument();
   });
 
   it('shows Upload, Refresh, and Close options in File menu', async () => {
@@ -174,5 +183,16 @@ describe('PhotosWindowMenuBar', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Show Deleted' }));
 
     expect(onShowDeletedChange).toHaveBeenCalledWith(true);
+  });
+
+  it('opens About dialog from Help menu with version', async () => {
+    const user = userEvent.setup();
+    render(<PhotosWindowMenuBar {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: 'Help' }));
+    await user.click(screen.getByRole('menuitem', { name: 'About' }));
+
+    expect(screen.getByText('About Photos')).toBeInTheDocument();
+    expect(screen.getByTestId('about-version')).toHaveTextContent('0.0.10');
   });
 });

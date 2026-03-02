@@ -26,7 +26,8 @@ export const uaPart3 = {
     // Menu bar
     file: 'Файл',
     close: 'Закрити',
-    view: 'Вигляд'
+    view: 'Вигляд',
+    help: 'Допомога'
   },
 
   debug: {

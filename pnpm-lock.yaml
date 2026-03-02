@@ -1065,6 +1065,9 @@ importers:
       '@tearleads/notifications':
         specifier: workspace:*
         version: link:../notifications
+      '@tearleads/photos':
+        specifier: workspace:*
+        version: link:../photos
       '@tearleads/search':
         specifier: workspace:*
         version: link:../search

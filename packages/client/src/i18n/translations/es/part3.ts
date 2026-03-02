@@ -28,7 +28,8 @@ export const esPart3 = {
     // Menu bar
     file: 'Archivo',
     close: 'Cerrar',
-    view: 'Ver'
+    view: 'Ver',
+    help: 'Ayuda'
   },
 
   debug: {

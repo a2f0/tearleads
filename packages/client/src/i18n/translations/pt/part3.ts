@@ -28,7 +28,8 @@ export const ptPart3 = {
     // Menu bar
     file: 'Arquivo',
     close: 'Fechar',
-    view: 'Visualizar'
+    view: 'Visualizar',
+    help: 'Ajuda'
   },
 
   debug: {
