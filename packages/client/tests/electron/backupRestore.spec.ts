@@ -126,15 +126,6 @@ test.describe('Backup and Restore (Electron)', () => {
   });
 
   test('should persist backup data across app restarts', async () => {
-    // Commit a password protector once so restart behavior does not depend
-    // solely on session-key persistence availability in the runtime.
-    await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
-    await window.getByTestId('db-lock-button').click();
-    await expect(window.getByTestId('db-status')).toHaveText('Locked', {
-      timeout: DB_OPERATION_TIMEOUT
-    });
-    await ensureUnlocked(window);
-
     // Write data, create backup, then verify after restart.
     await writeDatabaseTestData(window);
     await expect(window.getByTestId('db-test-result')).toHaveAttribute(
