@@ -230,10 +230,17 @@ fi
 
 # Build Website
 if [[ "$BUILD_WEBSITE" == "true" ]]; then
+  if [[ "$ENV" == "prod" ]]; then
+    WEBSITE_NOINDEX="false"
+  else
+    WEBSITE_NOINDEX="true"
+  fi
+
   run_or_queue_build \
     "Website" \
     packages/website/Dockerfile \
-    "${ECR_REGISTRY}/${WEBSITE_REPO}:${TAG}"
+    "${ECR_REGISTRY}/${WEBSITE_REPO}:${TAG}" \
+    --build-arg PUBLIC_NOINDEX="$WEBSITE_NOINDEX"
 fi
 
 if [[ "$PARALLEL" == "true" && "${#BUILD_PIDS[@]}" -gt 0 ]]; then
