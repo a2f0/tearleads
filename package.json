@@ -85,7 +85,7 @@
     "@connectrpc/protoc-gen-connect-es": "1.7.0",
     "@octokit/rest": "22.0.1",
     "@tearleads/api": "workspace:*",
-    "@types/node": "25.3.2",
+    "@types/node": "25.3.3",
     "@vitest/coverage-v8": "4.0.18",
     "commander": "14.0.3",
     "concurrently": "9.2.1",
@@ -105,7 +105,7 @@
       "@esbuild-kit/core-utils>esbuild": ">=0.25.0",
       "@rollup/plugin-terser>serialize-javascript": "7.0.3",
       "electron-builder-squirrel-windows>app-builder-lib": "26.8.1",
-      "pg": "8.18.0",
+      "pg": "8.19.0",
       "sql.js": "1.14.0"
     }
   }
