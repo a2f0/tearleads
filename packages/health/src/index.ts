@@ -28,5 +28,6 @@ export {
   type HealthRuntimeContextValue,
   HealthRuntimeProvider,
   type HealthRuntimeProviderProps,
+  type InlineUnlockProps,
   useHealthRuntime
 } from './runtime';

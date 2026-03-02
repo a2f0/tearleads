@@ -1,7 +1,7 @@
 import type { CreateWeightReadingInput } from '@tearleads/health';
 import { Loader2 } from 'lucide-react';
 import { useCallback } from 'react';
-import { InlineUnlock } from '../../sqlite/InlineUnlock';
+import { useHealthRuntime } from '../../../runtime';
 import { useWeightData } from './useWeightData';
 import { WeightForm } from './WeightForm';
 import { WeightTable } from './WeightTable';
@@ -11,6 +11,7 @@ interface WeightDetailProps {
 }
 
 export function WeightDetail({ refreshToken = 0 }: WeightDetailProps) {
+  const { InlineUnlock } = useHealthRuntime();
   const { readings, loading, error, hasFetched, isUnlocked, addReading } =
     useWeightData({ refreshToken });
 

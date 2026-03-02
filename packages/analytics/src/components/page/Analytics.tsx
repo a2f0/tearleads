@@ -1,8 +1,8 @@
+// component-complexity: allow — virtualised analytics table with pagination, sorting, filtering is inherently stateful; splitting tracked in backlog
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnalyticsEventsPanel } from './AnalyticsEventsPanel';
 import { AnalyticsFiltersSummaryPanel } from './AnalyticsFiltersSummaryPanel';
-import { AnalyticsInlineUnlock } from './AnalyticsInlineUnlock';
 import { AnalyticsPageHeader } from './AnalyticsPageHeader';
 import {
   clearEvents,
@@ -12,6 +12,7 @@ import {
   getEventCount,
   getEventStats,
   getEvents,
+  InlineUnlock,
   useDatabaseContext
 } from './analyticsRuntime';
 import type {
@@ -432,9 +433,7 @@ export function Analytics({
         </div>
       )}
 
-      {!isLoading && !isUnlocked && (
-        <AnalyticsInlineUnlock description="analytics" />
-      )}
+      {!isLoading && !isUnlocked && <InlineUnlock description="analytics" />}
 
       {error && (
         <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
