@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/photos",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Photo management components for Tearleads",
   "type": "module",
   "main": "dist/index.js",
