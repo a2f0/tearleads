@@ -172,7 +172,7 @@ export function CalendarWindow({
           showBirthdaysFromContacts={showBirthdaysFromContacts}
           onShowBirthdaysFromContactsChange={setShowBirthdaysFromContacts}
         />
-        <WindowControlBar>{null}</WindowControlBar>
+        {isUnlocked && <WindowControlBar>{null}</WindowControlBar>}
         {isDatabaseLoading ? (
           <div className="flex flex-1 items-center justify-center rounded-lg border p-8 text-center text-muted-foreground">
             Loading database...

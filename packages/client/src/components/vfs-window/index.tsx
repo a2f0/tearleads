@@ -2,7 +2,6 @@ import type { VfsOpenItem } from '@tearleads/vfs-explorer';
 import { VfsWindow as VfsWindowBase } from '@tearleads/vfs-explorer';
 import {
   DesktopFloatingWindow as FloatingWindow,
-  WindowControlBar,
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { useCallback } from 'react';
@@ -146,7 +145,6 @@ export function VfsWindow({
         minHeight={400}
       >
         <div className="flex h-full flex-col">
-          <WindowControlBar>{null}</WindowControlBar>
           {isDatabaseLoading && (
             <div className="flex flex-1 items-center justify-center rounded-lg border p-8 text-center text-muted-foreground">
               Loading database...

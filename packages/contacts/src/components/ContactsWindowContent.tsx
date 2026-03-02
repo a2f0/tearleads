@@ -53,7 +53,7 @@ export function ContactsWindowContent({
         isNewContactDisabled={isNewContactDisabled}
         isImportDisabled={isImportDisabled}
       />
-      {controlBar}
+      {isUnlocked && controlBar}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {isUnlocked && (
           <ContactsGroupsSidebar

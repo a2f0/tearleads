@@ -10,11 +10,13 @@ import { useTypedTranslation } from '@/i18n';
 interface AdminWindowMenuBarProps {
   onClose: () => void;
   controls?: ReactNode;
+  hideControlBar?: boolean;
 }
 
 export function AdminWindowMenuBar({
   onClose,
-  controls
+  controls,
+  hideControlBar = false
 }: AdminWindowMenuBarProps) {
   const { t } = useTypedTranslation('admin');
   return (
@@ -27,9 +29,11 @@ export function AdminWindowMenuBar({
           <WindowOptionsMenuItem />
         </DropdownMenu>
       </WindowMenuBar>
-      <WindowControlBar>
-        <div data-testid="admin-window-controls">{controls}</div>
-      </WindowControlBar>
+      {!hideControlBar && (
+        <WindowControlBar>
+          <div data-testid="admin-window-controls">{controls}</div>
+        </WindowControlBar>
+      )}
     </div>
   );
 }
