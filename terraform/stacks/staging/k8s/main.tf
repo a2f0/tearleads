@@ -121,15 +121,15 @@ module "tunnel" {
 
   ingress_rules = [
     {
-      hostname = "k8s.${var.domain}"
+      hostname = "${var.domain}"
       service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
     },
     {
-      hostname = "app.k8s.${var.domain}"
+      hostname = "app.${var.domain}"
       service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
     },
     {
-      hostname = "api.k8s.${var.domain}"
+      hostname = "api.${var.domain}"
       service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
     }
   ]
@@ -137,9 +137,9 @@ module "tunnel" {
 
 locals {
   ingress_hostnames = [
-    "k8s.${var.domain}",
-    "app.k8s.${var.domain}",
-    "api.k8s.${var.domain}"
+    "${var.domain}",
+    "app.${var.domain}",
+    "api.${var.domain}"
   ]
 }
 

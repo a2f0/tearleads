@@ -206,7 +206,7 @@ if [[ "$BUILD_CLIENT" == "true" ]]; then
   # Determine API URL based on environment
   if [[ -z "${VITE_API_URL:-}" ]]; then
     if [[ "$ENV" == "staging" ]]; then
-      VITE_API_URL="https://api.k8s.${TF_VAR_domain:-tearleads.dev}/v1"
+      VITE_API_URL="https://api.${TF_VAR_domain:-tearleads.dev}/v1"
     else
       VITE_API_URL="https://api.${TF_VAR_domain:-tearleads.com}/v1"
     fi
