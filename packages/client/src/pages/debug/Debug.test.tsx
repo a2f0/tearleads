@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ComponentProps, ReactNode } from 'react';
+import { createElement, type ComponentProps, type ReactNode } from 'react';
 import { Component } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -50,18 +50,14 @@ class TestErrorBoundary extends Component<
 
   override render() {
     if (this.state.hasError) {
-      return <div>Boundary Error</div>;
+      return createElement('div', null, 'Boundary Error');
     }
     return this.props.children;
   }
 }
 
 function renderDebugRaw(props?: DebugProps) {
-  return render(
-    <MemoryRouter>
-      <Debug {...props} />
-    </MemoryRouter>
-  );
+  return render(createElement(Debug, props), { wrapper: MemoryRouter });
 }
 
 async function renderDebug(props?: DebugProps) {
