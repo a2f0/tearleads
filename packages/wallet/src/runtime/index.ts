@@ -1,4 +1,5 @@
 export {
+  type InlineUnlockProps,
   useWalletRuntime,
   type WalletRuntimeContextValue,
   WalletRuntimeProvider,
