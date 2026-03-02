@@ -201,7 +201,8 @@ describe('VFS CRDT sync route', () => {
       null,
       null,
       2,
-      'root-123'
+      'root-123',
+      true
     ]);
     expect(mockQuery.mock.calls[1]?.[1]).toEqual(['user-1']);
   });

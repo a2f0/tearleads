@@ -23,6 +23,7 @@ import {
   writeOldestAccessibleCursorCache
 } from '../../lib/vfsCrdtRedisCache.js';
 import { loadReplicaWriteIdRows } from '../../lib/vfsCrdtReplicaWriteIds.js';
+import { shouldReadEnvelopeBytea } from './crdtEnvelopeReadOptions.js';
 import { sendCrdtProtobufOrJson } from './crdtProtobuf.js';
 import { shouldIncludeLegacyCrdtProtobufEnvelopeStrings } from './crdtProtobufEnvelopeOptions.js';
 import { toLastReconciledWriteIds } from './crdtRouteHelpers.js';
@@ -259,7 +260,8 @@ const getCrdtSyncHandler = async (req: Request, res: Response) => {
       userId: claims.sub,
       limit: parsedQuery.value.limit,
       cursor: parsedQuery.value.cursor,
-      rootId: parsedQuery.value.rootId
+      rootId: parsedQuery.value.rootId,
+      includeEnvelopeByteaReads: shouldReadEnvelopeBytea()
     });
 
     const result = await runTimedVfsCrdtQuery('pull_page', queryMetrics, () =>

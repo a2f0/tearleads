@@ -73,7 +73,35 @@ describe('MLS VFS message route branch coverage', () => {
       expect.stringContaining(
         'AND ($3::integer IS NULL OR sequence_number < $3::integer)'
       ),
-      ['group-1', 'mls_message:group-1:%', 7, 101]
+      ['group-1', 'mls_message:group-1:%', 7, 101, true]
+    );
+  });
+
+  it('uses legacy text envelope read path when bytea reads are disabled', async () => {
+    const authHeader = await createAuthHeader({
+      id: 'user-1',
+      email: 'user-1@example.com'
+    });
+    vi.stubEnv('VFS_CRDT_ENVELOPE_BYTEA_READS', 'false');
+
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [{ role: 'member', organization_id: 'org-1' }]
+      })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const response = await request(app)
+      .get('/v1/vfs/mls/groups/group-1/messages?cursor=7&limit=250')
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ messages: [], hasMore: false });
+    expect(mockQuery).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining(
+        'WHEN $5::boolean AND ops.encrypted_payload_bytes IS NOT NULL'
+      ),
+      ['group-1', 'mls_message:group-1:%', 7, 101, false]
     );
   });
 

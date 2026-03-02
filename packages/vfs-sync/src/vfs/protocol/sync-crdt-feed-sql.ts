@@ -14,23 +14,23 @@ export const VFS_CRDT_SYNC_SQL = `
           ops.source_id,
           ops.occurred_at,
           CASE
-            WHEN ops.encrypted_payload_bytes IS NOT NULL
+            WHEN $6::boolean AND ops.encrypted_payload_bytes IS NOT NULL
               THEN encode(ops.encrypted_payload_bytes, 'base64')
             ELSE ops.encrypted_payload
           END AS encrypted_payload,
           ops.key_epoch,
           CASE
-            WHEN ops.encryption_nonce_bytes IS NOT NULL
+            WHEN $6::boolean AND ops.encryption_nonce_bytes IS NOT NULL
               THEN encode(ops.encryption_nonce_bytes, 'base64')
             ELSE ops.encryption_nonce
           END AS encryption_nonce,
           CASE
-            WHEN ops.encryption_aad_bytes IS NOT NULL
+            WHEN $6::boolean AND ops.encryption_aad_bytes IS NOT NULL
               THEN encode(ops.encryption_aad_bytes, 'base64')
             ELSE ops.encryption_aad
           END AS encryption_aad,
           CASE
-            WHEN ops.encryption_signature_bytes IS NOT NULL
+            WHEN $6::boolean AND ops.encryption_signature_bytes IS NOT NULL
               THEN encode(ops.encryption_signature_bytes, 'base64')
             ELSE ops.encryption_signature
           END AS encryption_signature

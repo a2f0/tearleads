@@ -2,6 +2,7 @@ import type { MlsMessage, MlsMessagesResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { getActiveMlsGroupMembership } from '../mls/shared.js';
+import { shouldReadEnvelopeBytea } from './crdtEnvelopeReadOptions.js';
 
 interface GroupMessageRow {
   id: string;
@@ -110,6 +111,7 @@ const getMlsGroupsGroupIdMessagesHandler = async (
     }
 
     const pool = await getPostgresPool();
+    const includeEnvelopeByteaReads = shouldReadEnvelopeBytea();
     const result = await pool.query<GroupMessageRow>(
       `WITH group_messages AS (
          SELECT
@@ -118,7 +120,7 @@ const getMlsGroupsGroupIdMessagesHandler = async (
            ops.actor_id AS sender_user_id,
            COALESCE(ops.key_epoch, 0) AS epoch,
            CASE
-             WHEN ops.encrypted_payload_bytes IS NOT NULL
+             WHEN $5::boolean AND ops.encrypted_payload_bytes IS NOT NULL
                THEN encode(ops.encrypted_payload_bytes, 'base64')
              ELSE ops.encrypted_payload
            END AS ciphertext,
@@ -158,7 +160,13 @@ const getMlsGroupsGroupIdMessagesHandler = async (
          AND ($3::integer IS NULL OR sequence_number < $3::integer)
        ORDER BY sequence_number DESC
        LIMIT $4::integer`,
-      [groupId, `mls_message:${groupId}:%`, cursor, limit + 1]
+      [
+        groupId,
+        `mls_message:${groupId}:%`,
+        cursor,
+        limit + 1,
+        includeEnvelopeByteaReads
+      ]
     );
 
     const hasMore = result.rows.length > limit;

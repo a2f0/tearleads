@@ -26,6 +26,7 @@ import {
   loadReplicaWriteIdRows
 } from '../../lib/vfsCrdtReplicaWriteIds.js';
 import { publishVfsContainerCursorBump } from '../../lib/vfsSyncChannels.js';
+import { shouldReadEnvelopeBytea } from './crdtEnvelopeReadOptions.js';
 import {
   createCrdtProtobufRawBodyParser,
   decodeCrdtRequestBody,
@@ -229,7 +230,8 @@ const postCrdtSessionHandler = async (req: Request, res: Response) => {
       userId: claims.sub,
       limit: parsedPayload.value.limit,
       cursor: parsedPayload.value.cursor,
-      rootId: parsedPayload.value.rootId
+      rootId: parsedPayload.value.rootId,
+      includeEnvelopeByteaReads: shouldReadEnvelopeBytea()
     });
     const pullRows = await runTimedVfsCrdtQuery(
       'pull_page',

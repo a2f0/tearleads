@@ -61,9 +61,22 @@ describe('buildVfsCrdtSyncQuery', () => {
       '2026-02-14T00:00:00.000Z',
       'op-1',
       26,
-      'root-1'
+      'root-1',
+      true
     ]);
     expect(query.text).toContain('ORDER BY ops.occurred_at ASC, ops.id ASC');
+  });
+
+  it('supports toggling envelope bytea reads off for rollback', () => {
+    const query = buildVfsCrdtSyncQuery({
+      userId: 'user-1',
+      limit: 25,
+      cursor: null,
+      rootId: null,
+      includeEnvelopeByteaReads: false
+    });
+
+    expect(query.values).toEqual(['user-1', null, null, 26, null, false]);
   });
 });
 
