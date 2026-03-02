@@ -47,6 +47,10 @@ function toPositiveInteger(value: string | number): number {
   return 0;
 }
 
+function encodeContentTypeForSourceId(contentType: string): string {
+  return encodeURIComponent(contentType);
+}
+
 async function acquireTransactionClient(
   pool: Awaited<ReturnType<typeof getPostgresPool>>
 ): Promise<QueryClient> {
@@ -74,49 +78,6 @@ async function persistApplicationMessageToVfs(
   client: QueryClient,
   input: VfsMirrorInput
 ): Promise<void> {
-  await client.query(
-    `
-    INSERT INTO mls_messages (
-      id,
-      group_id,
-      sender_user_id,
-      epoch,
-      ciphertext,
-      message_type,
-      content_type,
-      sequence_number,
-      created_at
-    ) VALUES (
-      $1::text,
-      $2::text,
-      $3::text,
-      $4::integer,
-      $5::text,
-      'application',
-      $6::text,
-      $7::integer,
-      $8::timestamptz
-    )
-    ON CONFLICT (id) DO UPDATE
-    SET
-      epoch = EXCLUDED.epoch,
-      ciphertext = EXCLUDED.ciphertext,
-      content_type = EXCLUDED.content_type,
-      sequence_number = EXCLUDED.sequence_number,
-      created_at = EXCLUDED.created_at
-    `,
-    [
-      input.messageId,
-      input.groupId,
-      input.senderUserId,
-      input.epoch,
-      input.ciphertext,
-      input.contentType,
-      input.sequenceNumber,
-      input.occurredAtIso
-    ]
-  );
-
   await client.query(
     `
     INSERT INTO vfs_registry (
@@ -216,7 +177,7 @@ async function persistApplicationMessageToVfs(
       $1::text,
       'item_upsert',
       $2::text,
-      'mls_messages',
+      'mls_message',
       $3::text,
       $4::timestamptz,
       $5::text,
@@ -226,7 +187,7 @@ async function persistApplicationMessageToVfs(
     [
       input.messageId,
       input.senderUserId,
-      `mls_message:${input.groupId}:${input.sequenceNumber}:${input.messageId}`,
+      `mls_message:${input.groupId}:${input.sequenceNumber}:${input.messageId}:${encodeContentTypeForSourceId(input.contentType)}`,
       input.occurredAtIso,
       input.ciphertext,
       input.epoch
@@ -319,10 +280,21 @@ const postMlsGroupsGroupIdMessagesHandler = async (
       }
 
       const maxSequenceResult = await client.query<GroupMaxSequenceRow>(
-        `SELECT COALESCE(MAX(sequence_number), 0) AS max_sequence
-           FROM mls_messages
-          WHERE group_id = $1`,
-        [groupId]
+        `SELECT COALESCE(
+                 MAX(
+                   CASE
+                     WHEN split_part(source_id, ':', 3) ~ '^[0-9]+$'
+                     THEN split_part(source_id, ':', 3)::integer
+                     ELSE 0
+                   END
+                 ),
+                 0
+               ) AS max_sequence
+           FROM vfs_crdt_ops
+          WHERE op_type = 'item_upsert'
+            AND source_id LIKE $1::text
+            AND source_table IN ('mls_messages', 'mls_message')`,
+        [`mls_message:${groupId}:%`]
       );
       const nextSequenceNumber =
         toPositiveInteger(maxSequenceResult.rows[0]?.max_sequence ?? 0) + 1;

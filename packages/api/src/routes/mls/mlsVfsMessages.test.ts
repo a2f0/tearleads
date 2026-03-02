@@ -2,20 +2,17 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
 import { createAuthHeader } from '../../test/auth.js';
-
+import * as mlsShared from './shared.js';
 const mockQuery = vi.fn();
 const mockGetPostgresPool = vi.fn();
 const mockBroadcast = vi.fn((_c: string, _m: unknown) => Promise.resolve(1));
-
 vi.mock('../../lib/postgres.js', () => ({
   getPostgresPool: () => mockGetPostgresPool(),
   getPool: () => mockGetPostgresPool()
 }));
-
 vi.mock('../../lib/broadcast.js', () => ({
   broadcast: (c: string, m: unknown) => mockBroadcast(c, m)
 }));
-
 const sessionStore = new Map<string, string>();
 const mockRedisClient = {
   get: vi.fn((key: string) => Promise.resolve(sessionStore.get(key) ?? null)),
@@ -31,13 +28,11 @@ const mockRedisClient = {
   sRem: vi.fn(() => Promise.resolve(1)),
   expire: vi.fn(() => Promise.resolve(1))
 };
-
 vi.mock('@tearleads/shared/redis', () => ({
   getRedisClient: () => Promise.resolve(mockRedisClient),
   getRedisSubscriberOverride: () => mockRedisClient,
   setRedisSubscriberOverrideForTesting: vi.fn()
 }));
-
 describe('MLS VFS message routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -129,8 +124,7 @@ describe('MLS VFS message routes', () => {
               sender_user_id: 'user-2',
               epoch: 3,
               ciphertext: 'ciphertext',
-              message_type: 'application',
-              content_type: 'text/plain',
+              encoded_content_type: 'text%2Fplain',
               sequence_number: 10,
               created_at: new Date('2026-03-01T00:00:00.000Z'),
               sender_email: 'user-2@example.com'
@@ -181,8 +175,7 @@ describe('MLS VFS message routes', () => {
               sender_user_id: 'user-2',
               epoch: 3,
               ciphertext: 'ciphertext-2',
-              message_type: 'application',
-              content_type: 'text/plain',
+              encoded_content_type: 'text%2Fplain',
               sequence_number: 2,
               created_at: new Date('2026-03-01T00:00:01.000Z'),
               sender_email: null
@@ -193,8 +186,7 @@ describe('MLS VFS message routes', () => {
               sender_user_id: 'user-2',
               epoch: 3,
               ciphertext: 'ciphertext-1',
-              message_type: 'application',
-              content_type: 'text/plain',
+              encoded_content_type: 'text%2Fplain',
               sequence_number: 1,
               created_at: new Date('2026-03-01T00:00:00.000Z'),
               sender_email: null
@@ -332,26 +324,21 @@ describe('MLS VFS message routes', () => {
       });
       expect(mockQuery).toHaveBeenNthCalledWith(
         6,
-        expect.stringContaining('INSERT INTO mls_messages'),
-        expect.arrayContaining(['group-1', 'ciphertext', 'text/plain'])
-      );
-      expect(mockQuery).toHaveBeenNthCalledWith(
-        7,
         expect.stringContaining('INSERT INTO vfs_registry'),
         expect.any(Array)
       );
       expect(mockQuery).toHaveBeenNthCalledWith(
-        8,
+        7,
         expect.stringContaining('INSERT INTO vfs_item_state'),
         expect.arrayContaining(['ciphertext', 2])
       );
       expect(mockQuery).toHaveBeenNthCalledWith(
-        9,
+        8,
         expect.stringContaining('INSERT INTO vfs_acl_entries'),
         expect.arrayContaining(['group-1'])
       );
       expect(mockQuery).toHaveBeenNthCalledWith(
-        10,
+        9,
         expect.stringContaining('INSERT INTO vfs_crdt_ops'),
         expect.arrayContaining(['user-1', 'ciphertext', 2])
       );
@@ -363,27 +350,34 @@ describe('MLS VFS message routes', () => {
         email: 'user-1@example.com'
       });
 
-      mockQuery
-        .mockResolvedValueOnce({
-          rows: [{ role: 'member', organization_id: 'org-1' }]
-        })
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [{ current_epoch: 1 }] })
-        .mockResolvedValueOnce({ rows: [] });
-
-      const response = await request(app)
-        .post('/v1/vfs/mls/groups/group-1/messages')
-        .set('Authorization', authHeader)
-        .send({
-          ciphertext: 'ciphertext',
-          epoch: 2,
-          messageType: 'application'
+      const membershipSpy = vi
+        .spyOn(mlsShared, 'getActiveMlsGroupMembership')
+        .mockResolvedValue({
+          role: 'member',
+          organizationId: 'org-1'
         });
+      mockQuery.mockImplementation((queryText: string) => {
+        if (queryText.includes('SELECT current_epoch')) {
+          return Promise.resolve({ rows: [{ current_epoch: 1 }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
 
-      expect(response.status).toBe(409);
-      expect(response.body).toEqual({ error: 'Epoch mismatch' });
-      expect(mockQuery).toHaveBeenCalledTimes(5);
+      try {
+        const response = await request(app)
+          .post('/v1/vfs/mls/groups/group-1/messages')
+          .set('Authorization', authHeader)
+          .send({
+            ciphertext: 'ciphertext',
+            epoch: 2,
+            messageType: 'application'
+          });
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error: 'Epoch mismatch' });
+      } finally {
+        membershipSpy.mockRestore();
+      }
     });
 
     it('returns 404 when target group no longer exists', async () => {
@@ -392,14 +386,17 @@ describe('MLS VFS message routes', () => {
         email: 'user-1@example.com'
       });
 
-      mockQuery
-        .mockResolvedValueOnce({
-          rows: [{ role: 'member', organization_id: 'org-1' }]
-        })
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [] });
+      mockQuery.mockImplementation((queryText: string) => {
+        if (queryText.includes('FROM mls_group_members m')) {
+          return Promise.resolve({
+            rows: [{ role: 'member', organization_id: 'org-1' }]
+          });
+        }
+        if (queryText.includes('SELECT current_epoch')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
 
       const response = await request(app)
         .post('/v1/vfs/mls/groups/group-1/messages')
@@ -465,15 +462,23 @@ describe('MLS VFS message routes', () => {
       const restoreConsoleError = vi
         .spyOn(console, 'error')
         .mockImplementation(() => {});
-      mockQuery
-        .mockResolvedValueOnce({
-          rows: [{ role: 'member', organization_id: 'org-1' }]
-        })
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [{ current_epoch: 2 }] })
-        .mockRejectedValueOnce(new Error('count failed'))
-        .mockResolvedValueOnce({ rows: [] });
+      mockQuery.mockImplementation((queryText: string) => {
+        if (queryText.includes('FROM mls_group_members m')) {
+          return Promise.resolve({
+            rows: [{ role: 'member', organization_id: 'org-1' }]
+          });
+        }
+        if (queryText.includes('SELECT current_epoch')) {
+          return Promise.resolve({ rows: [{ current_epoch: 2 }] });
+        }
+        if (
+          queryText.includes('FROM vfs_crdt_ops') &&
+          queryText.includes('MAX(')
+        ) {
+          return Promise.reject(new Error('count failed'));
+        }
+        return Promise.resolve({ rows: [] });
+      });
 
       const response = await request(app)
         .post('/v1/vfs/mls/groups/group-1/messages')
