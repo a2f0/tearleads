@@ -117,8 +117,12 @@ function App() {
       if (isUnlocked) {
         let requiresPasswordBeforeLock = false;
         if (!isAuthenticated && currentInstanceId) {
-          const instance = await getInstance(currentInstanceId);
-          requiresPasswordBeforeLock = instance?.passwordDeferred === true;
+          try {
+            const instance = await getInstance(currentInstanceId);
+            requiresPasswordBeforeLock = instance?.passwordDeferred === true;
+          } catch {
+            requiresPasswordBeforeLock = false;
+          }
         }
 
         if (requiresPasswordBeforeLock && currentInstanceId) {
