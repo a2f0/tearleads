@@ -129,6 +129,22 @@ describe('revenuecatConnectService', () => {
     expect(mockQuery).not.toHaveBeenCalled();
   });
 
+  it('treats empty json input as an invalid payload', async () => {
+    const emptyPayload = '{}';
+
+    await expect(
+      revenuecatConnectService.handleWebhook(
+        new HandleWebhookRequest({
+          json: '   ',
+          signature: signPayload(emptyPayload, webhookSecret)
+        })
+      )
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+    expect(mockQuery).not.toHaveBeenCalled();
+  });
+
   it('maps missing webhook secret to internal connect errors', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.unstubAllEnvs();

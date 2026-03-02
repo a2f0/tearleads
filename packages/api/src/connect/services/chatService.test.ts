@@ -136,6 +136,19 @@ describe('chatConnectService', () => {
     });
   });
 
+  it('returns invalid argument for malformed json payload', async () => {
+    await expect(
+      chatConnectService.postCompletions(
+        new JsonRequest({
+          json: '{'
+        }),
+        createAuthContext(ChatService.methods.postCompletions)
+      )
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+  });
+
   it('returns unauthenticated when auth context is missing', async () => {
     await expect(
       chatConnectService.postCompletions(
