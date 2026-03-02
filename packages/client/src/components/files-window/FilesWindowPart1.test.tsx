@@ -4,8 +4,16 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FilesWindow } from './FilesWindow';
 
+const { mockUseDatabaseContext } = vi.hoisted(() => ({
+  mockUseDatabaseContext: vi.fn()
+}));
+
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowOpenRequest: () => undefined
+}));
+
+vi.mock('@/db/hooks', () => ({
+  useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
 // Mock FloatingWindow
@@ -226,6 +234,10 @@ describe('FilesWindow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUploadFiles.mockClear();
+    mockUseDatabaseContext.mockReturnValue({
+      isUnlocked: true,
+      isLoading: false
+    });
   });
 
   it('renders in FloatingWindow', () => {
@@ -421,5 +433,38 @@ describe('FilesWindow', () => {
 
     // Should not throw an error with empty file list
     expect(fileInput.value).toBe('');
+  });
+
+  it('hides control bar when database is locked', () => {
+    mockUseDatabaseContext.mockReturnValue({
+      isUnlocked: false,
+      isLoading: false
+    });
+    render(<FilesWindow {...defaultProps} />);
+    expect(
+      screen.queryByTestId('files-window-control-upload')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('files-window-control-refresh')
+    ).not.toBeInTheDocument();
+  });
+
+  it('disables drop zone when database is locked', () => {
+    mockUseDatabaseContext.mockReturnValue({
+      isUnlocked: false,
+      isLoading: false
+    });
+    render(<FilesWindow {...defaultProps} />);
+
+    const dropZone = screen.getByTestId('files-content').parentElement;
+    if (!dropZone) throw new Error('Drop zone not found');
+
+    const file = new File(['test'], 'test.txt', { type: 'text/plain' });
+
+    fireEvent.drop(dropZone, {
+      dataTransfer: { files: [file] }
+    });
+
+    expect(mockUploadFiles).not.toHaveBeenCalled();
   });
 });

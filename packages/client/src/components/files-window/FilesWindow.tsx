@@ -11,6 +11,7 @@ import { ArrowLeft, RefreshCw, Upload } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DropZoneOverlay } from '@/components/ui/drop-zone-overlay';
 import { useWindowOpenRequest } from '@/contexts/WindowManagerContext';
+import { useDatabaseContext } from '@/db/hooks';
 import { useDropZone } from '@/hooks/dnd';
 import type { FilesWindowContentRef } from './FilesWindowContent';
 import { FilesWindowContent } from './FilesWindowContent';
@@ -40,6 +41,7 @@ export function FilesWindow({
   zIndex,
   initialDimensions
 }: FilesWindowProps) {
+  const { isUnlocked } = useDatabaseContext();
   const openRequest = useWindowOpenRequest('files');
   const [showDeleted, setShowDeleted] = useState(false);
   const [showDropzone, setShowDropzone] = useState(false);
@@ -68,7 +70,7 @@ export function FilesWindow({
   // Main content area drop zone (accepts all file types)
   const { isDragging, dropZoneProps } = useDropZone({
     onDrop: handleUploadFiles,
-    disabled: uploadInProgress
+    disabled: !isUnlocked || uploadInProgress
   });
 
   const handleFileInputChange = useCallback(
@@ -135,38 +137,40 @@ export function FilesWindow({
           onUpload={handleUpload}
           onClose={onClose}
         />
-        <WindowControlBar>
-          <WindowControlGroup>
-            {selectedFileId ? (
-              <WindowControlButton
-                icon={<ArrowLeft className="h-3 w-3" />}
-                onClick={handleBack}
-                data-testid="files-window-control-back"
-              >
-                Back
-              </WindowControlButton>
-            ) : (
-              <>
+        {isUnlocked && (
+          <WindowControlBar>
+            <WindowControlGroup>
+              {selectedFileId ? (
                 <WindowControlButton
-                  icon={<Upload className="h-3 w-3" />}
-                  onClick={handleUpload}
-                  disabled={uploadInProgress}
-                  data-testid="files-window-control-upload"
+                  icon={<ArrowLeft className="h-3 w-3" />}
+                  onClick={handleBack}
+                  data-testid="files-window-control-back"
                 >
-                  Upload
+                  Back
                 </WindowControlButton>
-                <WindowControlButton
-                  icon={<RefreshCw className="h-3 w-3" />}
-                  onClick={handleRefresh}
-                  disabled={uploadInProgress}
-                  data-testid="files-window-control-refresh"
-                >
-                  Refresh
-                </WindowControlButton>
-              </>
-            )}
-          </WindowControlGroup>
-        </WindowControlBar>
+              ) : (
+                <>
+                  <WindowControlButton
+                    icon={<Upload className="h-3 w-3" />}
+                    onClick={handleUpload}
+                    disabled={uploadInProgress}
+                    data-testid="files-window-control-upload"
+                  >
+                    Upload
+                  </WindowControlButton>
+                  <WindowControlButton
+                    icon={<RefreshCw className="h-3 w-3" />}
+                    onClick={handleRefresh}
+                    disabled={uploadInProgress}
+                    data-testid="files-window-control-refresh"
+                  >
+                    Refresh
+                  </WindowControlButton>
+                </>
+              )}
+            </WindowControlGroup>
+          </WindowControlBar>
+        )}
         <div className="relative flex-1 overflow-hidden" {...dropZoneProps}>
           {selectedFileId ? (
             <FilesWindowDetail
