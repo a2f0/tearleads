@@ -3,7 +3,7 @@
  *
  * Invariants:
  * 1. visibility is pre-materialized in vfs_effective_visibility (denormalized).
- * 2. vfs_sync_changes includes parent_id to optimize scoped sync feeds.
+ * 2. vfs_sync_changes includes root_id to optimize scoped sync feeds.
  * 3. ordering is deterministic (changed_at, id).
  */
 export const VFS_SYNC_SQL = `
@@ -29,7 +29,7 @@ export const VFS_SYNC_SQL = `
         AND (
           $5::text IS NULL
           OR change_row.item_id = $5::text
-          OR change_row.parent_id = $5::text
+          OR change_row.root_id = $5::text
         )
         ORDER BY change_row.changed_at ASC, change_row.id ASC
         LIMIT $4::integer
