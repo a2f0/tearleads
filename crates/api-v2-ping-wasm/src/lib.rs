@@ -18,6 +18,7 @@ pub struct PingData {
     pub version: String,
 }
 
+#[cfg(any(test, target_arch = "wasm32"))]
 fn parse_v2_ping_json_inner(payload_json: &str) -> Result<PingData, String> {
     let payload: PingData = serde_json::from_str(payload_json)
         .map_err(|error| format!("invalid v2 ping payload JSON: {error}"))?;
@@ -25,6 +26,7 @@ fn parse_v2_ping_json_inner(payload_json: &str) -> Result<PingData, String> {
     Ok(payload)
 }
 
+#[cfg(any(test, target_arch = "wasm32"))]
 fn validate_payload(payload: &PingData) -> Result<(), String> {
     if payload.status != "ok" {
         return Err("invalid v2 ping status".to_owned());
