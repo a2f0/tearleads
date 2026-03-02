@@ -1,6 +1,10 @@
 import { type CallOptions, createClient } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-web';
 import { NotificationService } from '@tearleads/shared/gen/tearleads/v1/notifications_pb';
+import {
+  normalizeBearerToken,
+  toConnectBaseUrl
+} from './connectUtils';
 
 type NotificationStreamCallOptions = Pick<CallOptions, 'headers' | 'signal'>;
 
@@ -25,41 +29,6 @@ interface OpenNotificationEventStreamOptions {
   token?: string | null;
   signal?: AbortSignal;
   createClient?: NotificationStreamClientFactory;
-}
-
-function normalizeApiBaseUrl(apiBaseUrl: string): string {
-  const trimmed = apiBaseUrl.trim();
-  if (trimmed.length === 0) {
-    throw new Error('apiBaseUrl is required');
-  }
-
-  if (trimmed.endsWith('/')) {
-    return trimmed.slice(0, -1);
-  }
-  return trimmed;
-}
-
-function toConnectBaseUrl(apiBaseUrl: string): string {
-  const normalizedApiBaseUrl = normalizeApiBaseUrl(apiBaseUrl);
-  if (normalizedApiBaseUrl.endsWith('/connect')) {
-    return normalizedApiBaseUrl;
-  }
-  return `${normalizedApiBaseUrl}/connect`;
-}
-
-function normalizeToken(token: string | null | undefined): string | null {
-  if (!token) {
-    return null;
-  }
-  const trimmed = token.trim();
-  if (trimmed.length === 0) {
-    return null;
-  }
-  if (!trimmed.startsWith('Bearer ')) {
-    return trimmed;
-  }
-  const withoutPrefix = trimmed.slice('Bearer '.length).trim();
-  return withoutPrefix.length > 0 ? withoutPrefix : null;
 }
 
 function createNotificationStreamClient(
@@ -104,7 +73,7 @@ export async function* openNotificationEventStream(
 ): AsyncGenerator<string> {
   const connectBaseUrl = toConnectBaseUrl(options.apiBaseUrl);
   const createClient = options.createClient ?? createNotificationStreamClient;
-  const token = normalizeToken(options.token);
+  const token = normalizeBearerToken(options.token);
   const client = createClient(connectBaseUrl);
   const request = { channels: options.channels };
   const stream = client.subscribe(

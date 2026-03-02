@@ -5,10 +5,16 @@ import {
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const mockOpenChatCompletions = vi.fn();
+
 // Mock the worker
 const mockPostMessage = vi.fn();
 
 vi.mock('../workers/llmWorker.ts', () => ({}));
+
+vi.mock('@tearleads/api-client/chatCompletions', () => ({
+  openChatCompletions: (...args: unknown[]) => mockOpenChatCompletions(...args)
+}));
 
 // Mock Worker constructor
 class MockWorker {
@@ -46,6 +52,16 @@ describe('useLLM OpenRouter models', () => {
     vi.clearAllMocks();
     vi.stubGlobal('Worker', MockWorker);
     localStorage.removeItem('auth_token');
+    mockOpenChatCompletions.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            content: 'Remote reply'
+          }
+        }
+      ]
+    });
     // Mock WebGPU
     vi.stubGlobal('navigator', {
       gpu: {
@@ -59,6 +75,7 @@ describe('useLLM OpenRouter models', () => {
   afterEach(() => {
     vi.resetModules();
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   const getVisionOpenRouterModelId = () => {
@@ -81,7 +98,6 @@ describe('useLLM OpenRouter models', () => {
     expect(result.current.loadedModel).toBe(DEFAULT_OPENROUTER_MODEL_ID);
     expect(result.current.modelType).toBe('chat');
     expect(mockPostMessage).not.toHaveBeenCalled();
-    vi.unstubAllEnvs();
   });
 
   it('loads OpenRouter vision models as vision type', async () => {
@@ -97,27 +113,10 @@ describe('useLLM OpenRouter models', () => {
 
     expect(result.current.loadedModel).toBe(visionModelId);
     expect(result.current.modelType).toBe('vision');
-    vi.unstubAllEnvs();
   });
 
-  it('generates responses via the OpenRouter API', async () => {
+  it('generates responses via the OpenRouter Connect endpoint', async () => {
     vi.stubEnv('VITE_API_URL', 'http://localhost');
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          choices: [
-            {
-              message: {
-                role: 'assistant',
-                content: 'Remote reply'
-              }
-            }
-          ]
-        }),
-        { status: 200 }
-      )
-    );
-    vi.stubGlobal('fetch', mockFetch);
 
     const { useLLM } = await import('./llm');
     const { result } = renderHook(() => useLLM());
@@ -135,38 +134,24 @@ describe('useLLM OpenRouter models', () => {
     });
 
     expect(onToken).toHaveBeenCalledWith('Remote reply');
-    expect(mockFetch).toHaveBeenCalledWith(
-      'http://localhost/chat/completions',
+    expect(mockOpenChatCompletions).toHaveBeenCalledTimes(1);
+    expect(mockOpenChatCompletions).toHaveBeenCalledWith(
       expect.objectContaining({
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        apiBaseUrl: 'http://localhost',
+        token: null,
+        body: expect.objectContaining({
+          model: DEFAULT_OPENROUTER_MODEL_ID,
+          messages: [{ role: 'user', content: 'Hello' }],
+          tools: expect.any(Array),
+          tool_choice: 'auto'
+        })
       })
     );
-    vi.unstubAllGlobals();
-    vi.unstubAllEnvs();
   });
 
   it('includes the auth header when available for OpenRouter requests', async () => {
     vi.stubEnv('VITE_API_URL', 'http://localhost');
     localStorage.setItem('auth_token', 'test-token');
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          choices: [
-            {
-              message: {
-                role: 'assistant',
-                content: 'Remote reply'
-              }
-            }
-          ]
-        }),
-        { status: 200 }
-      )
-    );
-    vi.stubGlobal('fetch', mockFetch);
 
     const { useLLM } = await import('./llm');
     const { result } = renderHook(() => useLLM());
@@ -184,39 +169,27 @@ describe('useLLM OpenRouter models', () => {
     });
 
     expect(onToken).toHaveBeenCalledWith('Remote reply');
-    expect(mockFetch).toHaveBeenCalledWith(
-      'http://localhost/chat/completions',
+    expect(mockOpenChatCompletions).toHaveBeenCalledTimes(1);
+    expect(mockOpenChatCompletions).toHaveBeenCalledWith(
       expect.objectContaining({
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer test-token'
-        }
+        token: 'Bearer test-token'
       })
     );
     localStorage.removeItem('auth_token');
-    vi.unstubAllGlobals();
-    vi.unstubAllEnvs();
   });
 
   it('sends image attachments for OpenRouter vision models', async () => {
     vi.stubEnv('VITE_API_URL', 'http://localhost');
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          choices: [
-            {
-              message: {
-                role: 'assistant',
-                content: 'Vision reply'
-              }
-            }
-          ]
-        }),
-        { status: 200 }
-      )
-    );
-    vi.stubGlobal('fetch', mockFetch);
+    mockOpenChatCompletions.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            content: 'Vision reply'
+          }
+        }
+      ]
+    });
 
     const { useLLM } = await import('./llm');
     const { result } = renderHook(() => useLLM());
@@ -237,66 +210,33 @@ describe('useLLM OpenRouter models', () => {
     });
 
     expect(onToken).toHaveBeenCalledWith('Vision reply');
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-
-    const call = mockFetch.mock.calls[0];
-    if (!call) {
-      throw new Error('Expected fetch to be called');
-    }
-
-    const requestInit = call[1];
-    if (!requestInit || typeof requestInit !== 'object') {
-      throw new Error('Expected fetch options to be provided');
-    }
-
-    const body = requestInit.body;
-    if (typeof body !== 'string') {
-      throw new Error('Expected request body to be a string');
-    }
-
-    const parsedBody = JSON.parse(body);
-    expect(parsedBody).toMatchObject({
-      model: visionModelId,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: 'What is in this image?' },
+    expect(mockOpenChatCompletions).toHaveBeenCalledTimes(1);
+    expect(mockOpenChatCompletions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.objectContaining({
+          model: visionModelId,
+          messages: [
             {
-              type: 'image_url',
-              image_url: { url: 'data:image/png;base64,test-image' }
+              role: 'user',
+              content: [
+                { type: 'text', text: 'What is in this image?' },
+                {
+                  type: 'image_url',
+                  image_url: { url: 'data:image/png;base64,test-image' }
+                }
+              ]
             }
-          ]
-        }
-      ]
-    });
-    // Tool calling should also be included for OpenRouter
-    expect(parsedBody.tools).toBeDefined();
-    expect(parsedBody.tool_choice).toBe('auto');
-
-    vi.unstubAllGlobals();
-    vi.unstubAllEnvs();
+          ],
+          tools: expect.any(Array),
+          tool_choice: 'auto'
+        })
+      })
+    );
   });
 
   it('logs OpenRouter API errors in dev', async () => {
     vi.stubEnv('VITE_API_URL', 'http://localhost');
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          error: {
-            message: 'Boom'
-          }
-        }),
-        {
-          status: 500,
-          statusText: 'Internal Server Error',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      )
-    );
-    vi.stubGlobal('fetch', mockFetch);
+    mockOpenChatCompletions.mockRejectedValue(new Error('API error: 500 Boom'));
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const { useLLM } = await import('./llm');
@@ -314,20 +254,9 @@ describe('useLLM OpenRouter models', () => {
 
     expect(consoleSpy).toHaveBeenCalledWith(
       'OpenRouter chat API error',
-      expect.objectContaining({
-        status: 500,
-        statusText: 'Internal Server Error',
-        url: 'http://localhost/chat/completions',
-        body: {
-          error: {
-            message: 'Boom'
-          }
-        }
-      })
+      expect.any(Error)
     );
 
     consoleSpy.mockRestore();
-    vi.unstubAllGlobals();
-    vi.unstubAllEnvs();
   });
 });
