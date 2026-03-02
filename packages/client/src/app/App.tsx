@@ -5,10 +5,9 @@ import {
   DesktopContextMenuItem,
   DesktopStartBar,
   DesktopStartButton,
-  DesktopSystemTray,
-  WindowConnectionIndicator
+  DesktopSystemTray
 } from '@tearleads/window-manager';
-import { Info, Lock, Search } from 'lucide-react';
+import { Lock, Search } from 'lucide-react';
 import {
   lazy,
   Suspense,
@@ -17,7 +16,6 @@ import {
   useRef,
   useState
 } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 const NotificationCenterTrigger = lazy(() =>
@@ -33,27 +31,19 @@ import { RuntimeLanguagePicker } from '../components/language-picker';
 import { MobileMenu } from '../components/MobileMenu';
 import { SettingsButton } from '../components/SettingsButton';
 import { Sidebar } from '../components/Sidebar';
-import { SSEConnectionDialog } from '../components/SSEConnectionDialog';
 import { useScreensaver } from '../components/screensaver';
 import { Taskbar } from '../components/taskbar';
 import { DesktopBackground } from '../components/ui/desktop-background';
 import { FOOTER_HEIGHT } from '../constants/layout';
 import { useWindowManagerActions } from '../contexts/WindowManagerContext';
 import { useDatabaseContext } from '../db/hooks';
-import { useSSEContext } from '../sse';
+import { SSESystemTrayItems } from './SSESystemTrayItems';
+import { useStartMenuContextMenu } from './useStartMenuContextMenu';
 
 /** Extra padding to add when keyboard is open (matches pb-16 = 4rem = 64px) */
 const KEYBOARD_EXTRA_PADDING = 64;
 
-const sseTooltipKeys = {
-  connected: 'sseConnected',
-  connecting: 'sseConnecting',
-  disconnected: 'sseDisconnected'
-} as const;
-
 function App() {
-  const { t } = useTranslation('tooltips');
-  const sse = useSSEContext();
   const location = useLocation();
   const navigate = useNavigate();
   const pathname = location.pathname;
@@ -62,16 +52,7 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
-  const [startMenuContextMenu, setStartMenuContextMenu] = useState<{
-    x: number;
-    y: number;
-    showLockAction: boolean;
-  } | null>(null);
-  const [sseContextMenu, setSseContextMenu] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
-  const [isSseDialogOpen, setIsSseDialogOpen] = useState(false);
+  const startMenu = useStartMenuContextMenu();
   const sidebarRef = useRef<HTMLElement | null>(null);
   const startButtonRef = useRef<HTMLButtonElement | null>(null);
   const keyboardHeight = useKeyboardHeight();
@@ -124,68 +105,6 @@ function App() {
     };
   }, [isSidebarOpen]);
 
-  const handleStartMenuContextMenu = useCallback(
-    (event: React.MouseEvent<HTMLElement>) => {
-      event.preventDefault();
-      setStartMenuContextMenu({
-        x: event.clientX,
-        y: event.clientY,
-        showLockAction: true
-      });
-    },
-    []
-  );
-
-  const handleStartBarContextMenu = useCallback(
-    (event: React.MouseEvent<HTMLElement>) => {
-      if (event.target !== event.currentTarget) {
-        return;
-      }
-      event.preventDefault();
-      setStartMenuContextMenu({
-        x: event.clientX,
-        y: event.clientY,
-        showLockAction: true
-      });
-    },
-    []
-  );
-
-  const handleTaskbarContextMenu = useCallback(
-    (event: React.MouseEvent<HTMLElement>) => {
-      event.preventDefault();
-      setStartMenuContextMenu({
-        x: event.clientX,
-        y: event.clientY,
-        showLockAction: false
-      });
-    },
-    []
-  );
-
-  const handleFooterContextMenu = useCallback(
-    (event: React.MouseEvent<HTMLElement>) => {
-      const target = event.target;
-      if (
-        target instanceof HTMLElement &&
-        target.closest('[data-testid="start-bar"]')
-      ) {
-        return;
-      }
-      event.preventDefault();
-      setStartMenuContextMenu({
-        x: event.clientX,
-        y: event.clientY,
-        showLockAction: false
-      });
-    },
-    []
-  );
-
-  const handleCloseStartMenuContextMenu = useCallback(() => {
-    setStartMenuContextMenu(null);
-  }, []);
-
   const handleLockInstance = useCallback(async () => {
     try {
       activateScreensaver();
@@ -193,9 +112,9 @@ function App() {
         await lock(true);
       }
     } finally {
-      setStartMenuContextMenu(null);
+      startMenu.close();
     }
-  }, [activateScreensaver, isUnlocked, lock]);
+  }, [activateScreensaver, isUnlocked, lock, startMenu]);
 
   const handleOpenSearch = useCallback(() => {
     if (isDesktop) {
@@ -203,29 +122,8 @@ function App() {
     } else {
       navigate('/search');
     }
-    setStartMenuContextMenu(null);
-  }, [isDesktop, navigate, openWindow]);
-
-  const handleSseContextMenu = useCallback(
-    (event: React.MouseEvent<HTMLButtonElement>) => {
-      event.preventDefault();
-      setSseContextMenu({ x: event.clientX, y: event.clientY });
-    },
-    []
-  );
-
-  const handleCloseSseContextMenu = useCallback(() => {
-    setSseContextMenu(null);
-  }, []);
-
-  const handleShowConnectionDetails = useCallback(() => {
-    setIsSseDialogOpen(true);
-    setSseContextMenu(null);
-  }, []);
-
-  const handleCloseSseDialog = useCallback(() => {
-    setIsSseDialogOpen(false);
-  }, []);
+    startMenu.close();
+  }, [isDesktop, navigate, openWindow, startMenu]);
 
   return (
     <div
@@ -264,28 +162,28 @@ function App() {
       </div>
       <Footer
         version={undefined}
-        onContextMenu={handleFooterContextMenu}
+        onContextMenu={startMenu.handleFooterContextMenu}
         leftAction={
-          <DesktopStartBar onContextMenu={handleStartBarContextMenu}>
+          <DesktopStartBar onContextMenu={startMenu.handleStartBarContextMenu}>
             <div className="hidden items-center lg:flex lg:w-[calc(16rem-1cm)]">
               <DesktopStartButton
                 logoSrc={logo}
                 isOpen={isSidebarOpen}
                 onClick={() => setIsSidebarOpen((prev) => !prev)}
-                onContextMenu={handleStartMenuContextMenu}
+                onContextMenu={startMenu.handleStartMenuContextMenu}
                 ref={startButtonRef}
               />
             </div>
-            <Taskbar onContextMenu={handleTaskbarContextMenu} />
+            <Taskbar onContextMenu={startMenu.handleTaskbarContextMenu} />
           </DesktopStartBar>
         }
         copyrightText=""
       />
-      {startMenuContextMenu && (
+      {startMenu.contextMenu && (
         <DesktopContextMenu
-          x={startMenuContextMenu.x}
-          y={startMenuContextMenu.y}
-          onClose={handleCloseStartMenuContextMenu}
+          x={startMenu.contextMenu.x}
+          y={startMenu.contextMenu.y}
+          onClose={startMenu.close}
         >
           <DesktopContextMenuItem
             icon={<Search className="h-4 w-4" />}
@@ -293,7 +191,7 @@ function App() {
           >
             Open Search
           </DesktopContextMenuItem>
-          {startMenuContextMenu.showLockAction && (
+          {startMenu.contextMenu.showLockAction && (
             <DesktopContextMenuItem
               icon={<Lock className="h-4 w-4" />}
               onClick={handleLockInstance}
@@ -305,40 +203,12 @@ function App() {
       )}
       <DesktopSystemTray footerHeight={FOOTER_HEIGHT}>
         <RuntimeLanguagePicker />
-        {sse && (
-          <WindowConnectionIndicator
-            state={sse.connectionState}
-            tooltip={t(sseTooltipKeys[sse.connectionState])}
-            onClick={handleShowConnectionDetails}
-            onContextMenu={handleSseContextMenu}
-          />
-        )}
+        <SSESystemTrayItems />
         <Suspense fallback={null}>
           <NotificationCenterTrigger />
         </Suspense>
       </DesktopSystemTray>
       <MiniPlayer />
-      {sseContextMenu && (
-        <DesktopContextMenu
-          x={sseContextMenu.x}
-          y={sseContextMenu.y}
-          onClose={handleCloseSseContextMenu}
-        >
-          <DesktopContextMenuItem
-            icon={<Info className="h-4 w-4" />}
-            onClick={handleShowConnectionDetails}
-          >
-            Connection Details
-          </DesktopContextMenuItem>
-        </DesktopContextMenu>
-      )}
-      {sse && (
-        <SSEConnectionDialog
-          isOpen={isSseDialogOpen}
-          onClose={handleCloseSseDialog}
-          connectionState={sse.connectionState}
-        />
-      )}
     </div>
   );
 }
