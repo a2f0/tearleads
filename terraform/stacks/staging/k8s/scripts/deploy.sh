@@ -57,7 +57,7 @@ export KUBECONFIG
 
 if [[ -z "$STAGING_DOMAIN" ]]; then
   K8S_HOSTNAME=$(terraform -chdir="$STACK_DIR" output -raw k8s_hostname 2>/dev/null || true)
-  STAGING_DOMAIN="${K8S_HOSTNAME#k8s.}"
+  STAGING_DOMAIN="$K8S_HOSTNAME"
 fi
 
 if [[ -z "$STAGING_DOMAIN" ]]; then
