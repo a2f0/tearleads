@@ -318,6 +318,7 @@ export function compileSharePolicyCore(input: {
   const itemTypes = buildItemTypeMap(input.registryItems);
   const containerTypes = new Set<string>(VFS_CONTAINER_OBJECT_TYPES);
   const aggregates = new Map<string, CompiledAggregate>();
+  const rootScopeCache = new Map<string, Set<string>>();
   const activePolicies = input.policies
     .filter(
       (policy) =>
@@ -367,11 +368,19 @@ export function compileSharePolicyCore(input: {
     if (policySelectors.length === 0 || policyPrincipals.length === 0) {
       continue;
     }
-    const rootScope = traverseFromAnchor(policy.rootItemId, childrenByParent, {
-      includeRoot: true,
-      minDepth: 0,
-      maxDepth: null
-    });
+    const rootScope = (() => {
+      const cached = rootScopeCache.get(policy.rootItemId);
+      if (cached) {
+        return cached;
+      }
+      const computed = traverseFromAnchor(policy.rootItemId, childrenByParent, {
+        includeRoot: true,
+        minDepth: 0,
+        maxDepth: null
+      });
+      rootScopeCache.set(policy.rootItemId, computed);
+      return computed;
+    })();
 
     for (const selector of policySelectors) {
       const matches = evaluateSelectorMatches(
@@ -381,10 +390,7 @@ export function compileSharePolicyCore(input: {
         itemTypes,
         rootScope
       );
-      const matchedItemIds = Array.from(matches).sort((left, right) =>
-        left.localeCompare(right)
-      );
-      expandedMatchCount += matchedItemIds.length;
+      expandedMatchCount += matches.size;
 
       for (const principal of policyPrincipals) {
         const source: CompiledSource = {
@@ -392,7 +398,7 @@ export function compileSharePolicyCore(input: {
           selectorId: selector.id,
           selectorOrder: selector.selectorOrder
         };
-        for (const itemId of matchedItemIds) {
+        for (const itemId of matches) {
           const key = aggregateKey(
             itemId,
             principal.principalType,

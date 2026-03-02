@@ -133,13 +133,17 @@ function normalizeObjectTypes(objectTypes: string[] | null): string[] | null {
   if (!objectTypes) {
     return null;
   }
-  const normalized = objectTypes
-    .map((value) => value.trim())
-    .filter(
-      (value, index, array) =>
-        value.length > 0 && array.indexOf(value) === index
-    )
-    .sort((left, right) => left.localeCompare(right));
+  const uniqueValues = new Set<string>();
+  for (const rawValue of objectTypes) {
+    const trimmedValue = rawValue.trim();
+    if (trimmedValue.length === 0) {
+      continue;
+    }
+    uniqueValues.add(trimmedValue);
+  }
+  const normalized = Array.from(uniqueValues).sort((left, right) =>
+    left.localeCompare(right)
+  );
   return normalized.length > 0 ? normalized : null;
 }
 

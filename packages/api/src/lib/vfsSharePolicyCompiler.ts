@@ -164,7 +164,10 @@ export async function compileVfsSharePolicies(
 
         const aclEntryId = upsertResult.rows[0]?.id;
         if (!aclEntryId) {
-          throw new Error('Failed to materialize ACL decision');
+          // Guardrail: this can happen when an ON CONFLICT row is protected
+          // by direct provenance and policy compilation is not allowed to
+          // overwrite it (e.g., non-revoked allow decision).
+          continue;
         }
         touchedAclEntryIds.add(aclEntryId);
 

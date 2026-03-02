@@ -51,13 +51,15 @@ function parseObjectTypes(raw: string | undefined): string[] | null {
   if (!raw) {
     return null;
   }
-  return raw
-    .split(',')
-    .map((value) => value.trim())
-    .filter(
-      (value, index, array) =>
-        value.length > 0 && array.indexOf(value) === index
-    );
+  const uniqueValues = new Set<string>();
+  for (const part of raw.split(',')) {
+    const value = part.trim();
+    if (value.length === 0) {
+      continue;
+    }
+    uniqueValues.add(value);
+  }
+  return uniqueValues.size > 0 ? Array.from(uniqueValues) : null;
 }
 
 /**
@@ -160,9 +162,11 @@ const getSharePoliciesPreviewHandler = async (
 
   let limit: number;
   let maxDepth: number;
+  let objectTypes: string[] | null;
   try {
     limit = parsePositiveLimit(req.query.limit);
     maxDepth = parseMaxDepth(req.query.maxDepth);
+    objectTypes = parseObjectTypes(req.query.objectType);
   } catch (error) {
     res.status(400).json({
       error: error instanceof Error ? error.message : 'Invalid query'
@@ -209,7 +213,7 @@ const getSharePoliciesPreviewHandler = async (
       cursor: req.query.cursor ?? null,
       maxDepth,
       search: req.query.q ?? null,
-      objectTypes: parseObjectTypes(req.query.objectType)
+      objectTypes
     });
     res.json(preview);
   } catch (error) {
