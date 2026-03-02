@@ -1,11 +1,12 @@
+import { create } from '@bufbuild/protobuf';
 import {
   Code,
   createContextValues,
   createHandlerContext
 } from '@connectrpc/connect';
 import { DEFAULT_OPENROUTER_MODEL_ID, isRecord } from '@tearleads/shared';
-import { ChatService } from '@tearleads/shared/gen/tearleads/v1/chat_connect';
-import { JsonRequest } from '@tearleads/shared/gen/tearleads/v1/common_pb';
+import { ChatService } from '@tearleads/shared/gen/tearleads/v1/chat_pb';
+import { JsonRequestSchema } from '@tearleads/shared/gen/tearleads/v1/common_pb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CONNECT_AUTH_CONTEXT_KEY } from '../context.js';
 import { chatConnectService } from './chatService.js';
@@ -13,7 +14,7 @@ import { chatConnectService } from './chatService.js';
 const fetchMock = vi.fn<typeof fetch>();
 
 function createAuthContext(
-  method: (typeof ChatService.methods)[keyof typeof ChatService.methods]
+  method: (typeof ChatService.method)[keyof typeof ChatService.method]
 ) {
   const contextValues = createContextValues();
   contextValues.set(CONNECT_AUTH_CONTEXT_KEY, {
@@ -43,7 +44,7 @@ function createAuthContext(
 }
 
 function createUnauthenticatedContext(
-  method: (typeof ChatService.methods)[keyof typeof ChatService.methods]
+  method: (typeof ChatService.method)[keyof typeof ChatService.method]
 ) {
   return createHandlerContext({
     service: ChatService,
@@ -85,12 +86,12 @@ describe('chatConnectService', () => {
     );
 
     const response = await chatConnectService.postCompletions(
-      new JsonRequest({
+      create(JsonRequestSchema, {
         json: JSON.stringify({
           messages: [{ role: 'user', content: 'Hello' }]
         })
       }),
-      createAuthContext(ChatService.methods.postCompletions)
+      createAuthContext(ChatService.method.postCompletions)
     );
 
     expect(JSON.parse(response.json)).toEqual({
@@ -126,10 +127,10 @@ describe('chatConnectService', () => {
   it('returns invalid argument for invalid payload', async () => {
     await expect(
       chatConnectService.postCompletions(
-        new JsonRequest({
+        create(JsonRequestSchema, {
           json: JSON.stringify({ messages: [] })
         }),
-        createAuthContext(ChatService.methods.postCompletions)
+        createAuthContext(ChatService.method.postCompletions)
       )
     ).rejects.toMatchObject({
       code: Code.InvalidArgument
@@ -139,10 +140,10 @@ describe('chatConnectService', () => {
   it('returns invalid argument for malformed json payload', async () => {
     await expect(
       chatConnectService.postCompletions(
-        new JsonRequest({
+        create(JsonRequestSchema, {
           json: '{'
         }),
-        createAuthContext(ChatService.methods.postCompletions)
+        createAuthContext(ChatService.method.postCompletions)
       )
     ).rejects.toMatchObject({
       code: Code.InvalidArgument
@@ -152,12 +153,12 @@ describe('chatConnectService', () => {
   it('returns unauthenticated when auth context is missing', async () => {
     await expect(
       chatConnectService.postCompletions(
-        new JsonRequest({
+        create(JsonRequestSchema, {
           json: JSON.stringify({
             messages: [{ role: 'user', content: 'Hello' }]
           })
         }),
-        createUnauthenticatedContext(ChatService.methods.postCompletions)
+        createUnauthenticatedContext(ChatService.method.postCompletions)
       )
     ).rejects.toMatchObject({
       code: Code.Unauthenticated
@@ -169,12 +170,12 @@ describe('chatConnectService', () => {
 
     await expect(
       chatConnectService.postCompletions(
-        new JsonRequest({
+        create(JsonRequestSchema, {
           json: JSON.stringify({
             messages: [{ role: 'user', content: 'Hello' }]
           })
         }),
-        createAuthContext(ChatService.methods.postCompletions)
+        createAuthContext(ChatService.method.postCompletions)
       )
     ).rejects.toMatchObject({
       code: Code.Internal
@@ -190,12 +191,12 @@ describe('chatConnectService', () => {
 
     await expect(
       chatConnectService.postCompletions(
-        new JsonRequest({
+        create(JsonRequestSchema, {
           json: JSON.stringify({
             messages: [{ role: 'user', content: 'Hello' }]
           })
         }),
-        createAuthContext(ChatService.methods.postCompletions)
+        createAuthContext(ChatService.method.postCompletions)
       )
     ).rejects.toMatchObject({
       code: Code.Unauthenticated
@@ -209,12 +210,12 @@ describe('chatConnectService', () => {
     try {
       await expect(
         chatConnectService.postCompletions(
-          new JsonRequest({
+          create(JsonRequestSchema, {
             json: JSON.stringify({
               messages: [{ role: 'user', content: 'Hello' }]
             })
           }),
-          createAuthContext(ChatService.methods.postCompletions)
+          createAuthContext(ChatService.method.postCompletions)
         )
       ).rejects.toMatchObject({
         code: Code.Internal

@@ -1,4 +1,4 @@
-import { Timestamp } from '@bufbuild/protobuf';
+import { type Timestamp, timestampFromDate } from '@bufbuild/protobuf/wkt';
 import { Code, ConnectError } from '@connectrpc/connect';
 import type { DeleteSessionRequest } from '@tearleads/shared/gen/tearleads/v1/auth_pb';
 import type { ConnectAuthContext } from '../../context.js';
@@ -52,7 +52,7 @@ export function toRequiredTimestamp(
   if (!Number.isFinite(parsedMs)) {
     throw new ConnectError('Invalid session timestamp', Code.Internal);
   }
-  return Timestamp.fromDate(new Date(parsedMs));
+  return timestampFromDate(new Date(parsedMs));
 }
 
 export function toOptionalTimestamp(
@@ -66,7 +66,7 @@ export function toOptionalTimestamp(
   if (!Number.isFinite(parsedMs)) {
     return undefined;
   }
-  return Timestamp.fromDate(new Date(parsedMs));
+  return timestampFromDate(new Date(parsedMs));
 }
 
 export function parseRequiredSessionId(request: DeleteSessionRequest): string {

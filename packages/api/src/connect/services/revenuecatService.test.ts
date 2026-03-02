@@ -1,6 +1,7 @@
 import { createHmac } from 'node:crypto';
+import { create } from '@bufbuild/protobuf';
 import { Code } from '@connectrpc/connect';
-import { HandleWebhookRequest } from '@tearleads/shared/gen/tearleads/v1/revenuecat_pb';
+import { HandleWebhookRequestSchema } from '@tearleads/shared/gen/tearleads/v1/revenuecat_pb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { revenuecatConnectService } from './revenuecatService.js';
 
@@ -52,7 +53,7 @@ describe('revenuecatConnectService', () => {
     });
 
     const response = await revenuecatConnectService.handleWebhook(
-      new HandleWebhookRequest({
+      create(HandleWebhookRequestSchema, {
         json: body,
         signature: signPayload(body, webhookSecret)
       })
@@ -93,7 +94,7 @@ describe('revenuecatConnectService', () => {
     });
 
     const response = await revenuecatConnectService.handleWebhook(
-      new HandleWebhookRequest({
+      create(HandleWebhookRequestSchema, {
         json: body,
         signature: signPayload(body, webhookSecret)
       })
@@ -118,7 +119,7 @@ describe('revenuecatConnectService', () => {
 
     await expect(
       revenuecatConnectService.handleWebhook(
-        new HandleWebhookRequest({
+        create(HandleWebhookRequestSchema, {
           json: body,
           signature: '  '
         })
@@ -134,7 +135,7 @@ describe('revenuecatConnectService', () => {
 
     await expect(
       revenuecatConnectService.handleWebhook(
-        new HandleWebhookRequest({
+        create(HandleWebhookRequestSchema, {
           json: '   ',
           signature: signPayload(emptyPayload, webhookSecret)
         })
@@ -161,7 +162,7 @@ describe('revenuecatConnectService', () => {
     try {
       await expect(
         revenuecatConnectService.handleWebhook(
-          new HandleWebhookRequest({
+          create(HandleWebhookRequestSchema, {
             json: body,
             signature: signPayload(body, webhookSecret)
           })

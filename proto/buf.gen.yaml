@@ -4,7 +4,9 @@ plugins:
     out: packages/shared/src/gen
     opt:
       - target=ts
+      - import_extension=js
   - local: protoc-gen-connect-es
     out: packages/shared/src/gen
     opt:
       - target=ts
+      - import_extension=.js
