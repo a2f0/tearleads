@@ -1,13 +1,27 @@
 import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUTH_TOKEN_KEY } from '@/lib/authStorage';
 import { getSharedTestContext } from '@/test/testContext';
 
 const mockLogApiEvent = vi.fn();
+const { authState } = vi.hoisted(() => ({
+  authState: { token: '' }
+}));
+
 vi.mock('@/db/analytics', () => ({
   logApiEvent: (...args: unknown[]) => mockLogApiEvent(...args)
 }));
+vi.mock('@/lib/authStorage', async () => {
+  const actual =
+    await vi.importActual<typeof import('@/lib/authStorage')>(
+      '@/lib/authStorage'
+    );
+  return {
+    ...actual,
+    getAuthHeaderValue: () =>
+      authState.token.length > 0 ? `Bearer ${authState.token}` : null
+  };
+});
 
 const loadApi = async () => {
   const module = await import('./api');
@@ -25,7 +39,7 @@ describe('api with msw admin routing', () => {
 
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
-    localStorage.setItem(AUTH_TOKEN_KEY, seededUser.accessToken);
+    authState.token = seededUser.accessToken;
 
     mockLogApiEvent.mockResolvedValue(undefined);
   });

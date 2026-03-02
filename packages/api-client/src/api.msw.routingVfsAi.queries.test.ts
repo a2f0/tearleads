@@ -1,7 +1,6 @@
 import { seedTestUser } from '@tearleads/api-test-utils';
 import { getRecordedApiRequests } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUTH_TOKEN_KEY } from './authStorage';
 import {
   AI_CONNECT_USAGE_PATH,
   AI_CONNECT_USAGE_SUMMARY_PATH,
@@ -10,6 +9,19 @@ import {
 import { getSharedTestContext } from './test/testContext';
 
 const mockLogApiEvent = vi.fn();
+const { authState } = vi.hoisted(() => ({
+  authState: { token: '' }
+}));
+
+vi.mock('./authStorage', async () => {
+  const actual =
+    await vi.importActual<typeof import('./authStorage')>('./authStorage');
+  return {
+    ...actual,
+    getAuthHeaderValue: () =>
+      authState.token.length > 0 ? `Bearer ${authState.token}` : null
+  };
+});
 
 const loadApi = async () => {
   const module = await import('./api');
@@ -36,7 +48,7 @@ describe('api with msw vfs/ai query metadata', () => {
 
     const ctx = getSharedTestContext();
     const seededUser = await seedTestUser(ctx, { admin: true });
-    localStorage.setItem(AUTH_TOKEN_KEY, seededUser.accessToken);
+    authState.token = seededUser.accessToken;
 
     mockLogApiEvent.mockResolvedValue(undefined);
     const { setApiEventLogger } = await import('./apiLogger');
