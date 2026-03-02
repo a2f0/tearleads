@@ -1,14 +1,11 @@
 import express from 'express';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  legacyRouteRateLimitMiddleware,
-  resetLegacyRouteRateLimitBuckets
-} from './legacyRouteRateLimit.js';
+import { createLegacyRouteRateLimitMiddleware } from './legacyRouteRateLimit.js';
 
 function createTestApp() {
   const app = express();
-  app.use(legacyRouteRateLimitMiddleware);
+  app.use(createLegacyRouteRateLimitMiddleware());
   app.get('/limited', (_request, response) => {
     response.status(200).json({ ok: true });
   });
@@ -23,13 +20,11 @@ describe('legacyRouteRateLimitMiddleware', () => {
     vi.stubEnv('VITEST', 'false');
     vi.stubEnv('LEGACY_ROUTE_RATE_LIMIT_WINDOW_MS', '1000');
     vi.stubEnv('LEGACY_ROUTE_RATE_LIMIT_MAX_REQUESTS', '2');
-    resetLegacyRouteRateLimitBuckets();
   });
 
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllEnvs();
-    resetLegacyRouteRateLimitBuckets();
   });
 
   it('allows requests within the rate limit window', async () => {
