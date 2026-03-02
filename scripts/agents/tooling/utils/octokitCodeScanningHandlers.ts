@@ -3,6 +3,8 @@ import type { GitHubClientContext } from './githubClient.ts';
 
 type CodeScanningAlert =
   RestEndpointMethodTypes['codeScanning']['getAlert']['response']['data'];
+type CodeScanningAlertSummary =
+  RestEndpointMethodTypes['codeScanning']['listAlertsForRepo']['response']['data'][number];
 
 type CodeScanningUpdateState = 'open' | 'dismissed';
 type CodeScanningListState = 'open' | 'dismissed' | 'fixed';
@@ -112,11 +114,27 @@ function parseCodeScanningDismissedReason(
 }
 
 function normalizeCodeScanningAlert(
-  alert: CodeScanningAlert
+  alert: CodeScanningAlert | CodeScanningAlertSummary
 ): Record<string, unknown> {
   const effectiveState =
     alert.state ?? alert.most_recent_instance.state ?? null;
   const location = alert.most_recent_instance.location;
+  const ruleSecuritySeverity =
+    'security_severity_level' in alert.rule
+      ? alert.rule.security_severity_level
+      : null;
+  const ruleDescription =
+    'description' in alert.rule ? alert.rule.description : null;
+  const toolGuid = 'guid' in alert.tool ? alert.tool.guid : null;
+  const toolVersion = 'version' in alert.tool ? alert.tool.version : null;
+  const analysisKey =
+    'analysis_key' in alert.most_recent_instance
+      ? alert.most_recent_instance.analysis_key
+      : null;
+  const category =
+    'category' in alert.most_recent_instance
+      ? alert.most_recent_instance.category
+      : null;
 
   return {
     number: alert.number,
@@ -125,19 +143,19 @@ function normalizeCodeScanningAlert(
     rule: {
       id: alert.rule.id,
       severity: alert.rule.severity ?? null,
-      security_severity_level: alert.rule.security_severity_level ?? null,
-      description: alert.rule.description ?? null
+      security_severity_level: ruleSecuritySeverity,
+      description: ruleDescription
     },
     tool: {
       name: alert.tool.name,
-      guid: alert.tool.guid ?? null,
-      version: alert.tool.version ?? null
+      guid: toolGuid,
+      version: toolVersion
     },
     most_recent_instance: {
       ref: alert.most_recent_instance.ref,
       state: alert.most_recent_instance.state,
-      analysis_key: alert.most_recent_instance.analysis_key,
-      category: alert.most_recent_instance.category,
+      analysis_key: analysisKey,
+      category,
       location: {
         path: location?.path ?? null,
         start_line: location?.start_line ?? null,
@@ -233,21 +251,6 @@ export async function updateCodeScanningAlertWithOctokit(
   const dismissedReason = parseCodeScanningDismissedReason(
     input.dismissedReason
   );
-  if (state === 'dismissed' && dismissedReason === undefined) {
-    throw new Error(
-      'updateCodeScanningAlert requires --dismissed-reason when --state dismissed'
-    );
-  }
-  if (state === 'open' && input.dismissedReason !== undefined) {
-    throw new Error(
-      'updateCodeScanningAlert does not accept --dismissed-reason when --state open'
-    );
-  }
-  if (state === 'open' && input.dismissedComment !== undefined) {
-    throw new Error(
-      'updateCodeScanningAlert does not accept --dismissed-comment when --state open'
-    );
-  }
 
   const request: Parameters<
     typeof context.octokit.rest.codeScanning.updateAlert

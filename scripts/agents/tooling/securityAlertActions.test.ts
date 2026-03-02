@@ -172,21 +172,6 @@ test('updateCodeScanningAlertWithOctokit sends dismiss payload', async () => {
   assert.equal(parsed.dismissed_reason, 'false positive');
 });
 
-test('updateCodeScanningAlertWithOctokit validates dismiss reason', async () => {
-  const context = createContext(() => ({
-    status: 404,
-    body: { message: 'not found' }
-  }));
-
-  await assert.rejects(
-    updateCodeScanningAlertWithOctokit(context, {
-      alertNumber: 117,
-      state: 'dismissed'
-    }),
-    /requires --dismissed-reason/
-  );
-});
-
 test('listSecretScanningAlertsWithOctokit returns normalized alerts', async () => {
   const context = createContext((url) => {
     if (url.includes('/repos/a2f0/tearleads/secret-scanning/alerts')) {
@@ -256,19 +241,4 @@ test('updateSecretScanningAlertWithOctokit sends resolved payload', async () => 
 
   assert.equal(parsed.state, 'resolved');
   assert.equal(parsed.resolution, 'revoked');
-});
-
-test('updateSecretScanningAlertWithOctokit validates resolution', async () => {
-  const context = createContext(() => ({
-    status: 404,
-    body: { message: 'not found' }
-  }));
-
-  await assert.rejects(
-    updateSecretScanningAlertWithOctokit(context, {
-      alertNumber: 22,
-      state: 'resolved'
-    }),
-    /requires --resolution/
-  );
 });

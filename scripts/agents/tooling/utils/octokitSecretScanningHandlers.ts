@@ -185,21 +185,6 @@ export async function updateSecretScanningAlertWithOctokit(
   }
 
   const resolution = parseSecretScanningResolution(input.resolution);
-  if (state === 'resolved' && resolution === undefined) {
-    throw new Error(
-      'updateSecretScanningAlert requires --resolution when --state resolved'
-    );
-  }
-  if (state === 'open' && input.resolution !== undefined) {
-    throw new Error(
-      'updateSecretScanningAlert does not accept --resolution when --state open'
-    );
-  }
-  if (state === 'open' && input.resolutionComment !== undefined) {
-    throw new Error(
-      'updateSecretScanningAlert does not accept --resolution-comment when --state open'
-    );
-  }
 
   const request: Parameters<
     typeof context.octokit.rest.secretScanning.updateAlert
