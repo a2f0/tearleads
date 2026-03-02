@@ -209,6 +209,10 @@ describe('validateAndPruneOrphanedInstances', () => {
 
     mockIDBStore.set(`tearleads_db_salt_valid-instance`, [1, 2, 3]);
     mockIDBStore.set(`tearleads_db_kcv_valid-instance`, 'kcv');
+    mockIDBStore.set(
+      `tearleads_db_password_wrapped_key_valid-instance`,
+      [1, 2, 3]
+    );
     mockIDBStore.set(`tearleads_db_salt_orphan-instance`, [1, 2, 3]);
 
     const result = await validateAndPruneOrphanedInstances(

@@ -1,4 +1,10 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -18,8 +24,15 @@ type FooterProps = {
 const mockUseAppVersion = vi.fn();
 const mockOpenWindow = vi.fn();
 const mockLock = vi.fn();
+const mockSetDatabasePassword = vi.fn();
+const mockGetInstance = vi.fn();
+const mockUpdateInstance = vi.fn();
+const mockNotificationWarning = vi.fn();
 let mockIsUnlocked = false;
+let mockIsAuthenticated = false;
 let mockKeyboardHeight = 0;
+let mockCurrentInstanceId: string | null = null;
+let mockInstances: Array<{ id: string; passwordDeferred?: boolean }> = [];
 
 vi.mock('@tearleads/ui', () => ({
   cn: (...classes: Array<string | undefined>) =>
@@ -107,7 +120,30 @@ vi.mock('../components/ui/desktop-background', () => ({
 vi.mock('../db/hooks', () => ({
   useDatabaseContext: () => ({
     isUnlocked: mockIsUnlocked,
-    lock: mockLock
+    lock: mockLock,
+    currentInstanceId: mockCurrentInstanceId,
+    instances: mockInstances
+  })
+}));
+
+vi.mock('../db', () => ({
+  setDatabasePassword: (...args: unknown[]) => mockSetDatabasePassword(...args)
+}));
+
+vi.mock('../db/instanceRegistry', () => ({
+  getInstance: (...args: unknown[]) => mockGetInstance(...args),
+  updateInstance: (...args: unknown[]) => mockUpdateInstance(...args)
+}));
+
+vi.mock('../stores/notificationStore', () => ({
+  notificationStore: {
+    warning: (...args: unknown[]) => mockNotificationWarning(...args)
+  }
+}));
+
+vi.mock('../contexts/AuthContext', () => ({
+  useOptionalAuth: () => ({
+    isAuthenticated: mockIsAuthenticated
   })
 }));
 
@@ -150,8 +186,18 @@ describe('App', () => {
     mockUseAppVersion.mockReturnValue('1.2.3');
     mockOpenWindow.mockReset();
     mockLock.mockReset();
+    mockSetDatabasePassword.mockReset();
+    mockSetDatabasePassword.mockResolvedValue(true);
+    mockGetInstance.mockReset();
+    mockGetInstance.mockResolvedValue(null);
+    mockUpdateInstance.mockReset();
+    mockUpdateInstance.mockResolvedValue(undefined);
+    mockNotificationWarning.mockReset();
     mockIsUnlocked = false;
+    mockIsAuthenticated = false;
     mockKeyboardHeight = 0;
+    mockCurrentInstanceId = null;
+    mockInstances = [];
   });
 
   it('renders SSESystemTrayItems in the system tray', () => {
@@ -318,16 +364,136 @@ describe('App', () => {
       expect(screen.queryByText('Open Search')).not.toBeInTheDocument();
     });
 
-    it('locks instance when lock action is clicked and database is unlocked', async () => {
+    it('does not lock instance when database is already locked', async () => {
       const user = userEvent.setup();
-      mockIsUnlocked = true;
+      mockIsUnlocked = false;
 
       renderApp();
 
       fireEvent.contextMenu(screen.getByTestId('start-button'));
       await user.click(screen.getByText('Lock Instance'));
 
+      expect(mockLock).not.toHaveBeenCalled();
+    });
+
+    it('requires password before locking deferred signed-out instance', async () => {
+      const user = userEvent.setup();
+      vi.stubGlobal('prompt', undefined);
+      mockIsUnlocked = true;
+      mockIsAuthenticated = false;
+      mockCurrentInstanceId = 'instance-1';
+      mockInstances = [{ id: 'instance-1', passwordDeferred: true }];
+      mockGetInstance.mockResolvedValue({ passwordDeferred: true });
+
+      renderApp();
+
+      fireEvent.contextMenu(screen.getByTestId('start-button'));
+      await user.click(screen.getByText('Lock Instance'));
+
+      expect(mockNotificationWarning).toHaveBeenCalledWith(
+        'Password Required',
+        'Set a database password to lock this instance while signed out.'
+      );
+      expect(mockSetDatabasePassword).not.toHaveBeenCalled();
+      expect(mockLock).not.toHaveBeenCalled();
+
+      vi.unstubAllGlobals();
+    });
+
+    it('saves password and locks deferred signed-out instance', async () => {
+      const user = userEvent.setup();
+      const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('new-pass');
+      mockIsUnlocked = true;
+      mockIsAuthenticated = false;
+      mockCurrentInstanceId = 'instance-1';
+      mockInstances = [{ id: 'instance-1', passwordDeferred: true }];
+      mockGetInstance.mockResolvedValue({ passwordDeferred: true });
+
+      renderApp();
+
+      fireEvent.contextMenu(screen.getByTestId('start-button'));
+      await user.click(screen.getByText('Lock Instance'));
+
+      await waitFor(() => {
+        expect(mockSetDatabasePassword).toHaveBeenCalledWith(
+          'new-pass',
+          'instance-1'
+        );
+      });
+      expect(mockUpdateInstance).toHaveBeenCalledWith('instance-1', {
+        passwordDeferred: false
+      });
       expect(mockLock).toHaveBeenCalledWith(true);
+
+      promptSpy.mockRestore();
+    });
+
+    it('shows warning when deferred password save fails', async () => {
+      const user = userEvent.setup();
+      const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('new-pass');
+      mockIsUnlocked = true;
+      mockIsAuthenticated = false;
+      mockCurrentInstanceId = 'instance-1';
+      mockInstances = [{ id: 'instance-1', passwordDeferred: true }];
+      mockSetDatabasePassword.mockResolvedValue(false);
+      mockGetInstance.mockResolvedValue({ passwordDeferred: true });
+
+      renderApp();
+
+      fireEvent.contextMenu(screen.getByTestId('start-button'));
+      await user.click(screen.getByText('Lock Instance'));
+
+      await waitFor(() => {
+        expect(mockNotificationWarning).toHaveBeenCalledWith(
+          'Password Not Saved',
+          'Could not save your database password. Please try again.'
+        );
+      });
+      expect(mockLock).not.toHaveBeenCalled();
+
+      promptSpy.mockRestore();
+    });
+
+    it('falls back to instance registry deferred flag before locking', async () => {
+      const user = userEvent.setup();
+      const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('new-pass');
+      vi.stubGlobal('indexedDB', {});
+      mockIsUnlocked = true;
+      mockIsAuthenticated = false;
+      mockCurrentInstanceId = 'instance-1';
+      mockInstances = [];
+      mockGetInstance.mockResolvedValue({ passwordDeferred: true });
+
+      renderApp();
+
+      fireEvent.contextMenu(screen.getByTestId('start-button'));
+      await user.click(screen.getByText('Lock Instance'));
+
+      await waitFor(() => {
+        expect(mockGetInstance).toHaveBeenCalledWith('instance-1');
+      });
+      expect(mockSetDatabasePassword).toHaveBeenCalledWith(
+        'new-pass',
+        'instance-1'
+      );
+      expect(mockLock).toHaveBeenCalledWith(true);
+
+      promptSpy.mockRestore();
+      vi.unstubAllGlobals();
+    });
+
+    it('locks even when deferred lookup fails', async () => {
+      const user = userEvent.setup();
+      mockIsUnlocked = true;
+      mockIsAuthenticated = false;
+      mockCurrentInstanceId = 'instance-1';
+      mockGetInstance.mockRejectedValue(new Error('lookup failed'));
+      renderApp();
+      fireEvent.contextMenu(screen.getByTestId('start-button'));
+      await user.click(screen.getByText('Lock Instance'));
+      expect(mockGetInstance).toHaveBeenCalledWith('instance-1');
+      expect(mockSetDatabasePassword).not.toHaveBeenCalled();
+      await waitFor(() => expect(mockLock).toHaveBeenCalledWith(true));
     });
   });
 });

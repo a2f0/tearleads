@@ -4,6 +4,7 @@ import { clearOriginStorage } from '../testUtils';
 
 // Use dbTest for tests that require database setup
 const dbTest = test;
+const TEST_PASSWORD = 'testpassword123';
 
 // Helper to open sidebar via Start button
 async function openSidebar(page: Page) {
@@ -112,6 +113,27 @@ async function setupAndUnlockDatabase(page: Page, password = 'testpassword123') 
   });
 }
 
+async function lockDatabase(page: Page, password = TEST_PASSWORD) {
+  await navigateTo(page, 'SQLite');
+  await expect(page.getByTestId('db-status')).not.toHaveText('Loading...', {
+    timeout: 10000
+  });
+
+  const status = await page.getByTestId('db-status').textContent();
+  if (status === 'Not Set Up') {
+    await setupAndUnlockDatabase(page, password);
+    return lockDatabase(page, password);
+  } else if (status === 'Locked') {
+    return;
+  }
+
+  await page.getByTestId('db-password-input').fill(password);
+  await page.getByTestId('db-lock-button').click();
+  await expect(page.getByTestId('db-status')).toContainText('Locked', {
+    timeout: 10000
+  });
+}
+
 test.describe('Tables page', () => {
   test.beforeEach(async ({ page }) => {
     await clearOriginStorage(page);
@@ -130,15 +152,13 @@ test.describe('Tables page', () => {
   test('should show inline unlock when database is not unlocked', async ({
     page
   }) => {
+    await lockDatabase(page);
     await navigateTo(page, 'Tables');
 
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
     // Should show inline unlock component
     await expect(page.getByTestId('inline-unlock')).toBeVisible();
-    // Database may be "not set up" (never initialized) or "locked" (set up but not unlocked)
-    await expect(
-      page.getByText(/Database is (locked|not set up)/)
-    ).toBeVisible();
+    await expect(page.getByText(/Database is locked/i)).toBeVisible();
   });
 
   dbTest('should show tables list when database is unlocked', async ({
@@ -179,7 +199,9 @@ test.describe('Tables page', () => {
     await refreshButton.click();
 
     // Tables should still be visible after refresh
-    await expect(page.getByText('user_settings')).toBeVisible();
+    await expect(page.getByRole('link', { name: /user_settings/i })).toBeVisible({
+      timeout: 10000
+    });
   });
 
   dbTest('should navigate to table rows view and display file data', async ({

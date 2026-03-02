@@ -1,3 +1,4 @@
+// component-complexity: allow -- debug harness keeps platform-specific DB recovery/unlock flows in one place.
 /**
  * Database testing component for the SQLite page.
  * Provides UI for testing database operations across all platforms.
@@ -5,9 +6,11 @@
 
 import type { ChangeEvent, FormEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getDatabaseAdapter } from '@/db';
+import { useOptionalAuth } from '@/contexts/AuthContext';
+import { getDatabaseAdapter, setDatabasePassword } from '@/db';
 import { isBiometricAvailable } from '@/db/crypto/keyManager';
 import { useDatabaseContext } from '@/db/hooks';
+import { getInstance, updateInstance } from '@/db/instanceRegistry';
 import { useOnInstanceChange } from '@/hooks/app';
 import { getErrorMessage } from '@/lib/errors';
 import { detectPlatform } from '@/lib/utils';
@@ -43,8 +46,11 @@ export function DatabaseTest() {
     clearPersistedSession,
     lock,
     reset,
-    changePassword
+    changePassword,
+    refreshInstances
   } = useDatabaseContext();
+  const auth = useOptionalAuth();
+  const isAuthenticated = auth?.isAuthenticated ?? false;
 
   const [password, setPassword] = useState('testpassword123');
   const [newPassword, setNewPassword] = useState('');
@@ -227,6 +233,38 @@ export function DatabaseTest() {
     async (clearSession = false) => {
       setTestResult({ status: 'running', message: 'Locking database...' });
       try {
+        const instance = currentInstanceId
+          ? await getInstance(currentInstanceId)
+          : null;
+        const isDeferredPasswordInstance = instance?.passwordDeferred === true;
+
+        if (
+          isUnlocked &&
+          !isAuthenticated &&
+          currentInstanceId &&
+          isDeferredPasswordInstance
+        ) {
+          if (!password.trim()) {
+            setTestResult({
+              status: 'error',
+              message: 'Set a password before locking this deferred instance'
+            });
+            return;
+          }
+
+          const saved = await setDatabasePassword(password, currentInstanceId);
+          if (!saved) {
+            setTestResult({
+              status: 'error',
+              message: 'Could not save password before lock'
+            });
+            return;
+          }
+
+          await updateInstance(currentInstanceId, { passwordDeferred: false });
+          await refreshInstances();
+        }
+
         await lock(clearSession);
         const sessionMsg = clearSession ? ' (session cleared)' : '';
         setTestResult({
@@ -241,7 +279,14 @@ export function DatabaseTest() {
         });
       }
     },
-    [lock]
+    [
+      currentInstanceId,
+      isAuthenticated,
+      isUnlocked,
+      lock,
+      password,
+      refreshInstances
+    ]
   );
 
   const handleReset = useCallback(async () => {

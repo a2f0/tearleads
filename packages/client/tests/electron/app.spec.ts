@@ -63,48 +63,23 @@ test.describe('Electron App', () => {
     ).toBeVisible({timeout: APP_LOAD_TIMEOUT});
   });
 
-  test('should show inline unlock on tables page when database not unlocked', async () => {
+  test('should auto-init tables page without inline unlock', async () => {
     // Navigate via URL for testing page behavior
     await navigateToRoute(window, '/sqlite/tables');
 
-    // Should show inline unlock component
-    await expect(window.getByTestId('inline-unlock')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
-    // Database may be "not set up" (never initialized) or "locked" (set up but not unlocked)
     await expect(
-      window.getByText(/Database is (locked|not set up)/)
+      window.getByRole('heading', {name: 'Tables'})
     ).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+    await expect(window.getByTestId('inline-unlock')).toHaveCount(0);
   });
 
-  test('should show tables list after database is unlocked', async () => {
-    // Navigate to SQLite page via URL
-    await navigateToRoute(window, '/sqlite');
-    await expect(window.getByTestId('database-test')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
-
-    // Reset and wait for reset to complete
-    await window.getByTestId('db-reset-button').click();
-    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'success',
-      {timeout: DB_OPERATION_TIMEOUT}
-    );
-    await expect(window.getByTestId('db-status')).toContainText('Not Set Up', {timeout: APP_LOAD_TIMEOUT});
-
-    // Setup database and wait for setup to complete
-    await window.getByTestId('db-password-input').fill('testpassword123');
-    await window.getByTestId('db-setup-button').click();
-    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'success',
-      {timeout: DB_OPERATION_TIMEOUT}
-    );
-    await expect(window.getByTestId('db-status')).toContainText('Unlocked', {timeout: APP_LOAD_TIMEOUT});
-
-    // Navigate to tables page via URL
+  test('should show tables list after auto-init', async () => {
     await navigateToRoute(window, '/sqlite/tables');
     await expect(window.getByRole('heading', {name: 'Tables'})).toBeVisible();
 
-    // Should show tables
-    await expect(window.getByText('user_settings')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+    await expect(window.getByText('user_settings')).toBeVisible({
+      timeout: DB_OPERATION_TIMEOUT
+    });
     await expect(window.getByText('schema_migrations')).toBeVisible();
   });
 });

@@ -1,3 +1,4 @@
+// component-complexity: allow -- auth state, token lifecycle, and DB password handoff are coordinated here.
 import type { AuthUser, VfsKeySetupRequest } from '@tearleads/shared';
 import type { ReactNode } from 'react';
 import {
@@ -8,6 +9,11 @@ import {
   useMemo,
   useState
 } from 'react';
+import {
+  getCurrentInstanceId as getCurrentDatabaseInstanceId,
+  setDatabasePassword
+} from '@/db';
+import { getInstance, updateInstance } from '@/db/instanceRegistry';
 import {
   createVfsKeySetupPayloadForOnboarding,
   setVfsRecoveryPassword
@@ -26,6 +32,7 @@ import {
   storeAuth
 } from '@/lib/authStorage';
 import { getJwtExpiration, getJwtTimeRemaining } from '@/lib/jwt';
+import { notificationStore } from '@/stores/notificationStore';
 
 const REFRESH_THRESHOLD_MS = 60 * 1000; // Refresh if expiring within 60 seconds
 const REFRESH_POLL_INTERVAL_MS = 30 * 1000;
@@ -59,6 +66,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [token, setToken] = useState<string | null>(null);
   const [authError, setAuthErrorState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const configureDeferredDatabasePassword = useCallback(
+    async (password: string) => {
+      try {
+        const instanceId = getCurrentDatabaseInstanceId();
+        if (!instanceId) {
+          return;
+        }
+
+        const instance = await getInstance(instanceId);
+        if (!instance?.passwordDeferred) {
+          return;
+        }
+
+        const saved = await setDatabasePassword(password, instanceId);
+        if (!saved) {
+          notificationStore.warning(
+            'Database Password Not Set',
+            'Your account is signed in, but database password setup failed. Set it manually before locking while signed out.'
+          );
+          console.warn(
+            'Skipping deferred DB password setup because no active key was available'
+          );
+          return;
+        }
+
+        await updateInstance(instanceId, { passwordDeferred: false });
+      } catch (error) {
+        notificationStore.warning(
+          'Database Password Setup Failed',
+          'Could not complete deferred database password setup. Set it manually before locking while signed out.'
+        );
+        console.warn(
+          'Failed to configure deferred DB password from auth:',
+          error
+        );
+      }
+    },
+    []
+  );
 
   const syncFromStorage = useCallback(() => {
     const { token: savedToken, user: savedUser } = readStoredAuth();
@@ -161,19 +208,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [isLoading, refreshIfNeeded, token]);
 
   // Errors propagate to caller for handling (e.g., Sync component catches and displays)
-  const login = useCallback(async (email: string, password: string) => {
-    clearAuthError();
-    const response = await api.auth.login(email, password);
-    setVfsRecoveryPassword(password);
+  const login = useCallback(
+    async (email: string, password: string) => {
+      clearAuthError();
+      const response = await api.auth.login(email, password);
+      setVfsRecoveryPassword(password);
 
-    // Store in state
-    setToken(response.accessToken);
-    setUser(response.user);
-    setAuthErrorState(null);
+      // Store in state
+      setToken(response.accessToken);
+      setUser(response.user);
+      setAuthErrorState(null);
 
-    // Persist to localStorage
-    storeAuth(response.accessToken, response.refreshToken, response.user);
-  }, []);
+      // Persist to localStorage
+      storeAuth(response.accessToken, response.refreshToken, response.user);
+      await configureDeferredDatabasePassword(password);
+    },
+    [configureDeferredDatabasePassword]
+  );
 
   const register = useCallback(
     async (
@@ -202,8 +253,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // Persist to localStorage
       storeAuth(response.accessToken, response.refreshToken, response.user);
+      await configureDeferredDatabasePassword(password);
     },
-    []
+    [configureDeferredDatabasePassword]
   );
 
   const logout = useCallback(async () => {

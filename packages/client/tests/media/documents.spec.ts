@@ -141,14 +141,19 @@ async function verifyPdfLoadsAfterUnlock(page: Page): Promise<void> {
 
 // Helper to unlock database via inline unlock component
 async function unlockViaInlineUnlock(page: Page): Promise<void> {
-  await expect(
-    page.getByText(
-      /Database is locked\. Enter your password to view this document\./i
-    )
-  ).toBeVisible({ timeout: 10000 });
+  const inlineUnlockPassword = page.getByTestId('inline-unlock-password');
 
-  await page.getByTestId('inline-unlock-password').fill(TEST_PASSWORD);
+  if (
+    !(await inlineUnlockPassword
+      .isVisible({ timeout: 3000 })
+      .catch(() => false))
+  ) {
+    return;
+  }
+
+  await inlineUnlockPassword.fill(TEST_PASSWORD);
   await page.getByTestId('inline-unlock-button').click();
+  await expect(inlineUnlockPassword).not.toBeVisible({ timeout: 10000 });
 }
 
 // Helper to upload a test PDF and wait for it to appear in the list

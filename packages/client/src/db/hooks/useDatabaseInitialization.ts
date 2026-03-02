@@ -6,6 +6,7 @@ import { notificationStore } from '@/stores/notificationStore';
 import { validateAndPruneOrphanedInstances } from '../crypto/keyManager';
 import type { Database } from '../index';
 import {
+  autoInitializeDatabase,
   hasPersistedSession,
   isDatabaseSetUp,
   restoreDatabaseSession
@@ -16,7 +17,8 @@ import {
   getInstances,
   initializeRegistry,
   setActiveInstanceId,
-  touchInstance
+  touchInstance,
+  updateInstance
 } from '../instanceRegistry';
 
 interface InitializeDatabaseStateOptions {
@@ -128,6 +130,15 @@ export async function initializeAndRestoreDatabaseState({
         hadActiveSession,
         hasShownRecoveryNotification
       );
+    } else {
+      const database = await autoInitializeDatabase(activeInstance.id);
+      setDb(database);
+      setIsSetUp(true);
+      setHasPersisted(true);
+      markSessionActive();
+      await updateInstance(activeInstance.id, { passwordDeferred: true });
+      setInstances(await getInstances());
+      await touchInstance(activeInstance.id);
     }
   } catch (err) {
     setError(toError(err));

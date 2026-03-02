@@ -40,6 +40,19 @@ const sqlite = {
   setKeyCheckValue: (kcv: string, instanceId: string): Promise<void> => {
     return ipcRenderer.invoke('sqlite:setKeyCheckValue', kcv, instanceId);
   },
+  getPasswordWrappedKey: (instanceId: string): Promise<number[] | null> => {
+    return ipcRenderer.invoke('sqlite:getPasswordWrappedKey', instanceId);
+  },
+  setPasswordWrappedKey: (
+    wrappedKey: number[],
+    instanceId: string
+  ): Promise<void> => {
+    return ipcRenderer.invoke(
+      'sqlite:setPasswordWrappedKey',
+      wrappedKey,
+      instanceId
+    );
+  },
   clearKeyStorage: (instanceId: string): Promise<void> => {
     return ipcRenderer.invoke('sqlite:clearKeyStorage', instanceId);
   },

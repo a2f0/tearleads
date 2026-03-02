@@ -1,9 +1,11 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect, test } from '../fixtures';
+import { clearOriginStorage } from '../testUtils';
 
 
 // Use dbTest for tests that require database setup
 const dbTest = test;
+const TEST_PASSWORD = 'testpassword123';
 
 // Helper to open sidebar via Start button
 async function openSidebar(page: Page) {
@@ -106,6 +108,60 @@ async function navigateTo(page: Page, linkName: string) {
   await expect(sidebar).not.toBeVisible({ timeout: 5000 });
 }
 
+async function ensureDatabaseUnlocked(page: Page, password = TEST_PASSWORD) {
+  await navigateTo(page, 'SQLite');
+  await expect(page.getByTestId('db-status')).not.toHaveText('Loading...', {
+    timeout: 10000
+  });
+
+  const status = await page.getByTestId('db-status').textContent();
+  if (status === 'Unlocked') {
+    return;
+  }
+
+  await page.getByTestId('db-password-input').fill(password);
+  if (status === 'Locked') {
+    await page.getByTestId('db-unlock-button').click();
+  } else {
+    await page.getByTestId('db-setup-button').click();
+  }
+
+  const statusAfterAction = await page
+    .getByTestId('db-status')
+    .textContent()
+    .catch(() => '');
+  if (statusAfterAction !== 'Unlocked' && status !== 'Locked') {
+    const testResult = page.getByTestId('db-test-result');
+    const resultText = (await testResult.textContent().catch(() => '')) ?? '';
+    if (resultText.includes('Database already initialized for this instance')) {
+      await page.getByTestId('db-reset-button').click();
+      await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
+        timeout: 10000
+      });
+      await page.getByTestId('db-password-input').fill(password);
+      await page.getByTestId('db-setup-button').click();
+    }
+  }
+
+  await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+    timeout: 10000
+  });
+}
+
+async function lockDatabase(page: Page, password = TEST_PASSWORD) {
+  await ensureDatabaseUnlocked(page, password);
+  await page.getByTestId('db-password-input').fill(password);
+  const lockClearSessionButton = page.getByTestId('db-lock-clear-session-button');
+  if (await lockClearSessionButton.isVisible().catch(() => false)) {
+    await lockClearSessionButton.click();
+  } else {
+    await page.getByTestId('db-lock-button').click();
+  }
+  await expect(page.getByTestId('db-status')).toContainText('Locked', {
+    timeout: 10000
+  });
+}
+
 test.describe('Dropzone', () => {
   // Minimal valid PNG (1x1 transparent pixel) for file type detection
   const pngMagicBytes = Buffer.from([
@@ -120,26 +176,22 @@ test.describe('Dropzone', () => {
   ]);
 
   test.beforeEach(async ({ page }) => {
+    await clearOriginStorage(page);
     await page.goto('/files');
   });
 
   test('should display inline unlock when database is not unlocked', async ({ page }) => {
+    await lockDatabase(page);
+    await navigateTo(page, 'Files');
+
     // When database is not unlocked, dropzone should be hidden and inline unlock shown
     await expect(page.getByTestId('dropzone')).not.toBeVisible();
     await expect(page.getByTestId('inline-unlock')).toBeVisible();
-    // Database may be "not set up" (never initialized) or "locked" (set up but not unlocked)
-    await expect(
-      page.getByText(/Database is (locked|not set up)/)
-    ).toBeVisible();
+    await expect(page.getByText(/Database is locked/i)).toBeVisible();
   });
 
   dbTest('should display the dropzone when database is unlocked', async ({ page }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    await ensureDatabaseUnlocked(page);
 
     // Go to Files page
     await navigateTo(page, 'Files');
@@ -153,12 +205,7 @@ test.describe('Dropzone', () => {
   dbTest('should open file picker when dropzone is clicked (unlocked)', async ({
     page
   }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    await ensureDatabaseUnlocked(page);
 
     // Go to Files page
     await navigateTo(page, 'Files');
@@ -178,12 +225,7 @@ test.describe('Dropzone', () => {
   });
 
   dbTest('should accept files via file input', async ({ page }) => {
-    // First unlock the database (dropzone is hidden when locked)
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    await ensureDatabaseUnlocked(page);
 
     // Go to Files page
     await navigateTo(page, 'Files');
@@ -204,12 +246,7 @@ test.describe('Dropzone', () => {
   dbTest('should show dragging state on dragover (unlocked)', async ({
     page
   }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    await ensureDatabaseUnlocked(page);
 
     // Go to Files page
     await navigateTo(page, 'Files');
@@ -230,12 +267,7 @@ test.describe('Dropzone', () => {
   dbTest('should remove dragging state on dragleave (unlocked)', async ({
     page
   }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    await ensureDatabaseUnlocked(page);
 
     // Go to Files page
     await navigateTo(page, 'Files');
@@ -254,12 +286,7 @@ test.describe('Dropzone', () => {
   });
 
   dbTest('should upload file and show completion status', async ({ page }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    await ensureDatabaseUnlocked(page);
 
     // Go to Files page
     await navigateTo(page, 'Files');
@@ -279,12 +306,7 @@ test.describe('Dropzone', () => {
   });
 
   dbTest('should display formatted file size during upload', async ({ page }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    await ensureDatabaseUnlocked(page);
 
     // Go to Files page
     await navigateTo(page, 'Files');
@@ -304,12 +326,7 @@ test.describe('Dropzone', () => {
   });
 
   dbTest('should upload multiple files', async ({ page }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    await ensureDatabaseUnlocked(page);
 
     // Go to Files page
     await navigateTo(page, 'Files');
@@ -334,12 +351,7 @@ test.describe('Dropzone', () => {
   });
 
   dbTest('should show files in list after upload', async ({ page }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    await ensureDatabaseUnlocked(page);
 
     // Go to Files page
     await navigateTo(page, 'Files');

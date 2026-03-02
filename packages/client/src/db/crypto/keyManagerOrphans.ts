@@ -8,7 +8,7 @@ import * as nativeSecureStorage from './nativeSecureStorage';
 interface OrphanCleanupResult {
   /** Instance IDs that had Keystore entries but no registry entry */
   orphanedKeystoreEntries: string[];
-  /** Instance IDs that were in registry but had no valid salt/KCV */
+  /** Instance IDs that were in registry but had no valid unlock material */
   orphanedRegistryEntries: string[];
   /** Whether any cleanup was performed */
   cleaned: boolean;
@@ -20,7 +20,7 @@ interface OrphanCleanupResult {
  * This function detects two types of orphans:
  * 1. Keystore entries without corresponding registry entries
  *    (e.g., Android Keystore surviving app uninstall)
- * 2. Registry entries without valid salt/KCV
+ * 2. Registry entries without valid unlock material
  *    (e.g., incomplete setup or corrupted state)
  *
  * Should be called during app initialization to clean up stale state.
@@ -68,16 +68,22 @@ export async function validateAndPruneOrphanedInstances(
       }
     }
 
-    // Check for registry entries without valid salt/KCV
+    // Check for registry entries without valid unlock material.
     for (const instanceId of registryInstanceIds) {
       const storage = await getStorageAdapter(instanceId);
-      const salt = await storage.getSalt();
-      const kcv = await storage.getKeyCheckValue();
+      const [salt, kcv, wrappedPasswordKey, sessionKeys] = await Promise.all([
+        storage.getSalt(),
+        storage.getKeyCheckValue(),
+        storage.getPasswordWrappedKey(),
+        storage.hasSessionKeys()
+      ]);
 
-      // If no salt exists, this is an orphaned registry entry
-      // (salt is created during setup, so no salt means setup never completed
-      // or the key storage was cleared without clearing the registry)
-      if (!salt || !kcv) {
+      const hasPasswordProtector =
+        salt !== null && kcv !== null && wrappedPasswordKey !== null;
+      const hasSessionUnlock =
+        sessionKeys.wrappingKey && sessionKeys.wrappedKey;
+
+      if (!hasPasswordProtector && !hasSessionUnlock) {
         result.orphanedRegistryEntries.push(instanceId);
         // Clean up any partial key storage
         await storage.clear();

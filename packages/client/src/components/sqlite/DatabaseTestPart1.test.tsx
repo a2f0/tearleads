@@ -5,6 +5,8 @@ import { DatabaseTest } from './DatabaseTest';
 
 const mockUseDatabaseContext = vi.fn();
 const mockGetDatabaseAdapter = vi.fn();
+const mockGetInstance = vi.fn();
+const mockUpdateInstance = vi.fn();
 let _capturedInstanceChangeCallback: (() => void) | null = null;
 
 vi.mock('@/db/hooks', () => ({
@@ -13,6 +15,11 @@ vi.mock('@/db/hooks', () => ({
 
 vi.mock('@/db', () => ({
   getDatabaseAdapter: () => mockGetDatabaseAdapter()
+}));
+
+vi.mock('@/db/instanceRegistry', () => ({
+  getInstance: (...args: unknown[]) => mockGetInstance(...args),
+  updateInstance: (...args: unknown[]) => mockUpdateInstance(...args)
 }));
 
 vi.mock('@/hooks/app', () => ({
@@ -29,6 +36,8 @@ describe('DatabaseTest', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.restoreAllMocks();
+    mockGetInstance.mockResolvedValue(null);
+    mockUpdateInstance.mockResolvedValue(undefined);
   });
 
   function setupMockContext(overrides = {}) {

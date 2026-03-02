@@ -1,8 +1,4 @@
-/**
- * React hooks for database access.
- * Supports multi-instance with instance switching.
- */
-
+// component-complexity: allow -- provider manages multi-instance setup/unlock/restore lifecycle across platforms.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   clearSessionActive,
@@ -14,6 +10,7 @@ import { toError } from '@/lib/errors';
 import { deleteFileStorageForInstance } from '@/storage/opfs';
 import type { Database } from '../index';
 import {
+  autoInitializeDatabase,
   changePassword,
   clearPersistedSession,
   closeDatabase,
@@ -33,7 +30,8 @@ import {
   deleteInstanceFromRegistry,
   getInstances,
   setActiveInstanceId,
-  touchInstance
+  touchInstance,
+  updateInstance
 } from '../instanceRegistry';
 import { DatabaseContext } from './useDatabaseContext';
 import { initializeAndRestoreDatabaseState } from './useDatabaseInitialization';
@@ -44,10 +42,6 @@ import type {
 
 export { useDatabaseContext } from './useDatabaseContext';
 
-/**
- * Provider component for database access.
- * Supports multi-instance with instance switching.
- */
 export function DatabaseProvider({ children }: DatabaseProviderProps) {
   const [db, setDb] = useState<Database | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -55,7 +49,6 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
   const [isSetUp, setIsSetUp] = useState(false);
   const [hasPersisted, setHasPersisted] = useState(false);
 
-  // Multi-instance state
   const [currentInstanceId, setCurrentInstanceId] = useState<string | null>(
     null
   );
@@ -64,10 +57,8 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
   );
   const [instances, setInstances] = useState<InstanceMetadata[]>([]);
 
-  // Track if we've shown the recovery toast (to avoid duplicates)
   const hasShownRecoveryNotification = useRef(false);
 
-  // Initialize registry and check for active instance on mount
   useEffect(() => {
     async function initializeAndRestore() {
       const hadActiveSession = wasSessionActive();
@@ -107,6 +98,10 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
         const database = await setupDatabase(password, currentInstanceId);
         setDb(database);
         setIsSetUp(true);
+        await persistDatabaseSession(currentInstanceId);
+        setHasPersisted(true);
+        await updateInstance(currentInstanceId, { passwordDeferred: false });
+        setInstances(await getInstances());
         markSessionActive();
         await touchInstance(currentInstanceId);
         return true;
@@ -172,7 +167,6 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
         await touchInstance(currentInstanceId);
         return true;
       }
-      // No persisted session or restoration failed
       setHasPersisted(false);
       return false;
     } catch (err) {
@@ -218,7 +212,6 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       try {
         await closeDatabase();
         setDb(null);
-        // Clear session active flag when user explicitly locks
         clearSessionActive();
 
         if (clearSessionFlag && currentInstanceId) {
@@ -273,7 +266,6 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       setIsLoading(true);
       try {
         await importDatabase(data);
-        // Clear db state - user will need to unlock again with same password
         setDb(null);
       } catch (err) {
         setError(toError(err));
@@ -285,32 +277,30 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
     []
   );
 
-  // Multi-instance methods
-
   const createInstance = useCallback(async (): Promise<string> => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // Close current database if open
       if (db) {
         await closeDatabase();
         setDb(null);
       }
 
-      // Create new instance in registry
       const newInstance = await createRegistryInstance();
 
-      // Update state
       await setActiveInstanceId(newInstance.id);
       setCurrentInstanceId(newInstance.id);
       setCurrentInstanceName(newInstance.name);
       emitInstanceChange(newInstance.id);
-      setIsSetUp(false);
-      setHasPersisted(false);
-
-      // Refresh instances list
+      const database = await autoInitializeDatabase(newInstance.id);
+      setDb(database);
+      setIsSetUp(true);
+      setHasPersisted(true);
+      await updateInstance(newInstance.id, { passwordDeferred: true });
       await refreshInstances();
+      markSessionActive();
+      await touchInstance(newInstance.id);
 
       return newInstance.id;
     } catch (err) {
@@ -324,23 +314,20 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
   const switchInstance = useCallback(
     async (targetInstanceId: string): Promise<boolean> => {
       if (targetInstanceId === currentInstanceId) {
-        return true; // Already on this instance
+        return true;
       }
 
       setIsLoading(true);
       setError(null);
 
       try {
-        // Close current database if open
         if (db) {
           await closeDatabase();
           setDb(null);
         }
 
-        // Update active instance in registry
         await setActiveInstanceId(targetInstanceId);
 
-        // Find instance metadata
         const allInstances = await getInstances();
         const targetInstance = allInstances.find(
           (i) => i.id === targetInstanceId
@@ -350,13 +337,11 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
           throw new Error(`Instance not found: ${targetInstanceId}`);
         }
 
-        // Update state
         setCurrentInstanceId(targetInstanceId);
         setCurrentInstanceName(targetInstance.name);
         emitInstanceChange(targetInstanceId);
         setInstances(allInstances);
 
-        // Check setup status and persisted session for target instance
         const [setup, persisted] = await Promise.all([
           isDatabaseSetUp(targetInstanceId),
           hasPersistedSession(targetInstanceId)
@@ -364,22 +349,33 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
         setIsSetUp(setup);
         setHasPersisted(persisted);
 
-        // Try session restore if available
         if (persisted) {
           const database = await restoreDatabaseSession(targetInstanceId);
           if (database) {
             setDb(database);
+            markSessionActive();
             await touchInstance(targetInstanceId);
             setIsLoading(false);
             return true;
           }
-          // Session restore failed
           setHasPersisted(false);
         }
 
+        if (!setup) {
+          const database = await autoInitializeDatabase(targetInstanceId);
+          setDb(database);
+          setIsSetUp(true);
+          setHasPersisted(true);
+          await updateInstance(targetInstanceId, { passwordDeferred: true });
+          setInstances(await getInstances());
+          markSessionActive();
+          await touchInstance(targetInstanceId);
+          setIsLoading(false);
+          return true;
+        }
+
         setIsLoading(false);
-        // Return true if set up (needs unlock), false if not set up (needs setup)
-        return setup;
+        return true;
       } catch (err) {
         setError(toError(err));
         setIsLoading(false);
@@ -397,32 +393,23 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       try {
         const allInstances = await getInstances();
 
-        // Can't delete the last instance
         if (allInstances.length <= 1) {
           throw new Error('Cannot delete the last instance');
         }
 
-        // If deleting current instance, switch to another first
         if (instanceId === currentInstanceId) {
           const otherInstance = allInstances.find((i) => i.id !== instanceId);
           if (otherInstance) {
-            // switchInstance returns false if target isn't set up yet, which is
-            // fine when deleting - we just need to switch away from the deleted one.
-            // Actual errors throw and are caught by the try/catch block.
             await switchInstance(otherInstance.id);
           }
         }
 
-        // Delete database and key storage
         await resetDatabase(instanceId);
 
-        // Delete file storage
         await deleteFileStorageForInstance(instanceId);
 
-        // Remove from registry
         await deleteInstanceFromRegistry(instanceId);
 
-        // Refresh instances list
         await refreshInstances();
       } catch (err) {
         setError(toError(err));

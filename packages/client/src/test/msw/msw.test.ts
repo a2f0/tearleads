@@ -14,15 +14,12 @@ let seededUser: SeededUser;
 const CHAT_COMPLETIONS_CONNECT_PATH =
   '/connect/tearleads.v1.ChatService/PostCompletions';
 const CHAT_COMPLETIONS_CONNECT_URL = `http://localhost${CHAT_COMPLETIONS_CONNECT_PATH}`;
+const ADMIN_CONNECT_PATH_PREFIX = '/connect/tearleads.v1.AdminService';
 
 function connectChatPayload(payload: unknown): { json: string } {
   return {
     json: JSON.stringify(payload)
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function extractErrorMessage(payload: unknown): string | null {
@@ -39,6 +36,40 @@ function extractErrorMessage(payload: unknown): string | null {
   }
 
   return null;
+}
+
+function parseConnectJsonPayload(payload: unknown): unknown {
+  if (!payload || typeof payload !== 'object' || !('json' in payload)) {
+    throw new Error('Expected connect response payload with json field');
+  }
+
+  const jsonPayload = payload.json;
+  if (typeof jsonPayload !== 'string') {
+    throw new Error('Expected connect json field to be a string');
+  }
+
+  return JSON.parse(jsonPayload);
+}
+
+async function postAdminConnectRequest(
+  method: string,
+  accessToken: string,
+  payload: unknown = {}
+): Promise<unknown> {
+  const response = await fetch(
+    `http://localhost${ADMIN_CONNECT_PATH_PREFIX}/${method}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`
+      },
+      body: JSON.stringify(payload)
+    }
+  );
+
+  expect(response.ok).toBe(true);
+  return parseConnectJsonPayload(await response.json());
 }
 
 beforeEach(async () => {
@@ -61,29 +92,17 @@ describe('msw handlers', () => {
   });
 
   it('mocks admin redis endpoints', async () => {
-    const authHeaders = {
-      Authorization: `Bearer ${seededUser.accessToken}`,
-      'Content-Type': 'application/json'
-    };
     const ctx = getSharedTestContext();
     await ctx.redis.set('user:1', 'test-value');
 
-    const keysResponse = await fetch(
-      'http://localhost/connect/tearleads.v1.AdminService/GetRedisKeys',
+    const keysPayload = await postAdminConnectRequest(
+      'GetRedisKeys',
+      seededUser.accessToken,
       {
-        method: 'POST',
-        headers: authHeaders,
-        body: JSON.stringify({ cursor: '', limit: 100 })
+        cursor: '0',
+        limit: 50
       }
     );
-    const keysWirePayload = await keysResponse.json();
-    if (
-      !isRecord(keysWirePayload) ||
-      typeof keysWirePayload['json'] !== 'string'
-    ) {
-      throw new Error('Expected connect JSON payload');
-    }
-    const keysPayload = JSON.parse(keysWirePayload['json']);
 
     expect(
       wasApiRequestMade(
@@ -93,24 +112,21 @@ describe('msw handlers', () => {
     ).toBe(true);
     expect(keysPayload).toHaveProperty('keys');
     expect(keysPayload).toHaveProperty('cursor');
-    expect(Array.isArray(keysPayload.keys)).toBe(true);
+    expect(
+      Array.isArray(
+        typeof keysPayload === 'object' && keysPayload && 'keys' in keysPayload
+          ? keysPayload.keys
+          : null
+      )
+    ).toBe(true);
 
-    const keyResponse = await fetch(
-      'http://localhost/connect/tearleads.v1.AdminService/GetRedisValue',
+    const keyPayload = await postAdminConnectRequest(
+      'GetRedisValue',
+      seededUser.accessToken,
       {
-        method: 'POST',
-        headers: authHeaders,
-        body: JSON.stringify({ key: 'user:1' })
+        key: 'user:1'
       }
     );
-    const keyWirePayload = await keyResponse.json();
-    if (
-      !isRecord(keyWirePayload) ||
-      typeof keyWirePayload['json'] !== 'string'
-    ) {
-      throw new Error('Expected connect JSON payload');
-    }
-    const keyPayload = JSON.parse(keyWirePayload['json']);
 
     expect(
       wasApiRequestMade(
@@ -123,28 +139,10 @@ describe('msw handlers', () => {
   });
 
   it('mocks admin postgres endpoints', async () => {
-    const authHeaders = {
-      Authorization: `Bearer ${seededUser.accessToken}`,
-      'Content-Type': 'application/json'
-    };
-
-    const infoResponse = await fetch(
-      'http://localhost/connect/tearleads.v1.AdminService/GetPostgresInfo',
-      {
-        method: 'POST',
-        headers: authHeaders,
-        body: JSON.stringify({})
-      }
+    const infoPayload = await postAdminConnectRequest(
+      'GetPostgresInfo',
+      seededUser.accessToken
     );
-    const infoWirePayload = await infoResponse.json();
-    if (
-      !isRecord(infoWirePayload) ||
-      typeof infoWirePayload['json'] !== 'string'
-    ) {
-      throw new Error('Expected connect JSON payload');
-    }
-    const infoPayload = JSON.parse(infoWirePayload['json']);
-
     expect(
       wasApiRequestMade(
         'POST',
@@ -155,28 +153,24 @@ describe('msw handlers', () => {
     expect(infoPayload).toHaveProperty('info');
     expect(infoPayload).toHaveProperty('serverVersion');
 
-    const tablesResponse = await fetch(
-      'http://localhost/connect/tearleads.v1.AdminService/GetTables',
-      {
-        method: 'POST',
-        headers: authHeaders,
-        body: JSON.stringify({})
-      }
+    const tablesPayload = await postAdminConnectRequest(
+      'GetTables',
+      seededUser.accessToken
     );
-    const tablesWirePayload = await tablesResponse.json();
-    if (
-      !isRecord(tablesWirePayload) ||
-      typeof tablesWirePayload['json'] !== 'string'
-    ) {
-      throw new Error('Expected connect JSON payload');
-    }
-    const tablesPayload = JSON.parse(tablesWirePayload['json']);
 
     expect(
       wasApiRequestMade('POST', '/connect/tearleads.v1.AdminService/GetTables')
     ).toBe(true);
     expect(tablesPayload).toHaveProperty('tables');
-    expect(Array.isArray(tablesPayload.tables)).toBe(true);
+    expect(
+      Array.isArray(
+        typeof tablesPayload === 'object' &&
+          tablesPayload &&
+          'tables' in tablesPayload
+          ? tablesPayload.tables
+          : null
+      )
+    ).toBe(true);
   });
 
   it('mocks chat completions', async () => {

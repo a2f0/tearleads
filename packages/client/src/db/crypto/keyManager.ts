@@ -5,9 +5,11 @@
  */
 
 import {
+  decrypt,
   deriveKeyFromPassword,
-  exportKey,
+  encrypt,
   generateExtractableWrappingKey,
+  generateRandomKey,
   generateSalt,
   generateWrappingKey,
   importKey,
@@ -51,8 +53,40 @@ export class KeyManager {
    */
   async hasExistingKey(): Promise<boolean> {
     if (!this.storage) await this.initialize();
-    const salt = await this.storage?.getSalt();
-    return salt !== null;
+    const [hasPasswordProtector, hasSession] = await Promise.all([
+      this.hasPasswordProtector(),
+      this.hasPersistedSession()
+    ]);
+    return hasPasswordProtector || hasSession;
+  }
+
+  /**
+   * Check if password-based unlock metadata exists.
+   */
+  async hasPasswordProtector(): Promise<boolean> {
+    if (!this.storage) await this.initialize();
+
+    const [salt, kcv, wrappedKey] = await Promise.all([
+      this.storage?.getSalt(),
+      this.storage?.getKeyCheckValue(),
+      this.storage?.getPasswordWrappedKey()
+    ]);
+
+    if (salt && kcv && wrappedKey) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Set up a new encryption key without a user password.
+   * Used for deferred-password auto-initialization.
+   */
+  async setupAutoKey(): Promise<Uint8Array> {
+    const keyBytes = await generateRandomKey();
+    this.currentKey = keyBytes;
+    return keyBytes;
   }
 
   /**
@@ -60,20 +94,32 @@ export class KeyManager {
    * Should only be called for new databases.
    */
   async setupNewKey(password: string): Promise<Uint8Array> {
+    const keyBytes = await this.setupAutoKey();
+    await this.setPasswordForCurrentKey(password);
+    return keyBytes;
+  }
+
+  /**
+   * Add or replace the password protector for the current database key.
+   * The database key itself does not change (no DB rekey).
+   */
+  async setPasswordForCurrentKey(password: string): Promise<void> {
+    if (!this.currentKey) {
+      throw new Error('No current key available. Unlock database first.');
+    }
+    if (!password.trim()) {
+      throw new Error('Password is required');
+    }
     if (!this.storage) await this.initialize();
 
     const salt = generateSalt();
-    const key = await deriveKeyFromPassword(password, salt);
-    const keyBytes = await exportKey(key);
-
-    // Create a key check value for password verification
-    const kcv = await this.createKeyCheckValue(keyBytes);
+    const passwordKey = await deriveKeyFromPassword(password, salt);
+    const wrappedKey = await encrypt(this.currentKey, passwordKey);
+    const kcv = await this.createKeyCheckValue(this.currentKey);
 
     await this.storage?.setSalt(salt);
     await this.storage?.setKeyCheckValue(kcv);
-
-    this.currentKey = keyBytes;
-    return keyBytes;
+    await this.storage?.setPasswordWrappedKey(wrappedKey);
   }
 
   /**
@@ -88,20 +134,28 @@ export class KeyManager {
       throw new Error('No existing key found. Use setupNewKey instead.');
     }
 
-    const key = await deriveKeyFromPassword(password, salt);
-    const keyBytes = await exportKey(key);
-
-    // Verify the key check value
+    const wrappedKey = await this.storage?.getPasswordWrappedKey();
     const storedKcv = await this.storage?.getKeyCheckValue();
-    const computedKcv = await this.createKeyCheckValue(keyBytes);
 
-    if (storedKcv !== computedKcv) {
-      secureZero(keyBytes);
-      return null; // Wrong password
+    if (!wrappedKey || !storedKcv) {
+      return null;
     }
 
-    this.currentKey = keyBytes;
-    return keyBytes;
+    try {
+      const passwordKey = await deriveKeyFromPassword(password, salt);
+      const keyBytes = await decrypt(wrappedKey, passwordKey);
+      const computedKcv = await this.createKeyCheckValue(keyBytes);
+
+      if (storedKcv !== computedKcv) {
+        secureZero(keyBytes);
+        return null;
+      }
+
+      this.currentKey = keyBytes;
+      return keyBytes;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -112,22 +166,20 @@ export class KeyManager {
     oldPassword: string,
     newPassword: string
   ): Promise<{ oldKey: Uint8Array; newKey: Uint8Array } | null> {
-    // First verify old password
     const oldKey = await this.unlockWithPassword(oldPassword);
-    if (!oldKey) return null;
+    if (!oldKey) {
+      return null;
+    }
 
-    // Generate new salt and key
-    const newSalt = generateSalt();
-    const newCryptoKey = await deriveKeyFromPassword(newPassword, newSalt);
-    const newKey = await exportKey(newCryptoKey);
-    const newKcv = await this.createKeyCheckValue(newKey);
+    // In deferred-password mode, changing password re-wraps the same DB key.
+    // No DB rekey is needed because currentKey stays unchanged.
+    const stableKey = new Uint8Array(oldKey);
+    await this.setPasswordForCurrentKey(newPassword);
 
-    await this.storage?.setSalt(newSalt);
-    await this.storage?.setKeyCheckValue(newKcv);
-
-    this.currentKey = newKey;
-
-    return { oldKey, newKey };
+    return {
+      oldKey: stableKey,
+      newKey: new Uint8Array(stableKey)
+    };
   }
 
   /**

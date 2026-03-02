@@ -1,9 +1,3 @@
-/**
- * Database initialization and factory.
- * Provides a unified API for SQLite across all platforms.
- * Supports multi-instance with namespaced database files.
- */
-
 import type { Database } from '@tearleads/db/sqlite';
 import { schema } from '@tearleads/db/sqlite';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
@@ -28,23 +22,14 @@ export { getDatabase, getDatabaseAdapter, isDatabaseInitialized };
 let platformInfoCache: PlatformInfo | null = null;
 let currentInstanceId: string | null = null;
 
-/**
- * Get the database name for an instance.
- */
 function getDatabaseName(instanceId: string): string {
   return `tearleads-${instanceId}`;
 }
 
-/**
- * Get the current instance ID.
- */
 export function getCurrentInstanceId(): string | null {
   return currentInstanceId;
 }
 
-/**
- * Get the current platform info.
- */
 export function getCurrentPlatform(): PlatformInfo {
   if (!platformInfoCache) {
     platformInfoCache = getPlatformInfo();
@@ -52,21 +37,11 @@ export function getCurrentPlatform(): PlatformInfo {
   return platformInfoCache;
 }
 
-/**
- * Check if the database has been set up (has an encryption key).
- * @param instanceId The instance to check
- */
 export async function isDatabaseSetUp(instanceId: string): Promise<boolean> {
   const keyManager = getKeyManagerForInstance(instanceId);
   return keyManager.hasExistingKey();
 }
 
-/**
- * Set up a new database with a password.
- * Creates the encryption key and initializes the database.
- * @param password The encryption password
- * @param instanceId The instance ID to set up
- */
 export async function setupDatabase(
   password: string,
   instanceId: string
@@ -76,14 +51,12 @@ export async function setupDatabase(
     throw new Error('Database already initialized for this instance');
   }
 
-  // Close existing database if switching instances
   if (dbInstance && currentInstanceId !== instanceId) {
     await closeDatabase();
   }
 
   const startTime = performance.now();
 
-  // Set current instance
   currentInstanceId = instanceId;
   setCurrentInstanceId(instanceId);
 
@@ -92,14 +65,35 @@ export async function setupDatabase(
 
   const db = await initializeDatabaseWithKey(encryptionKey, instanceId);
 
-  // Log the setup event
   const durationMs = performance.now() - startTime;
   try {
     await logEvent(db, 'db_setup', durationMs, true);
   } catch (err) {
-    // Don't let logging errors affect the main operation
     console.warn('Failed to log db_setup analytics event:', err);
   }
+
+  return db;
+}
+
+export async function autoInitializeDatabase(
+  instanceId: string
+): Promise<Database> {
+  const dbInstance = _getDatabaseInstance();
+  if (dbInstance && currentInstanceId === instanceId) {
+    return dbInstance;
+  }
+
+  if (dbInstance && currentInstanceId !== instanceId) {
+    await closeDatabase();
+  }
+
+  currentInstanceId = instanceId;
+  setCurrentInstanceId(instanceId);
+
+  const keyManager = getKeyManagerForInstance(instanceId);
+  const encryptionKey = await keyManager.setupAutoKey();
+  const db = await initializeDatabaseWithKey(encryptionKey, instanceId);
+  await keyManager.persistSession();
 
   return db;
 }
@@ -109,13 +103,6 @@ interface UnlockResult {
   sessionPersisted: boolean;
 }
 
-/**
- * Unlock an existing database with a password.
- * @param password The encryption password
- * @param instanceId The instance ID to unlock
- * @param persistSession If true, persist the key for session restoration on reload (web only)
- * @returns Object with db instance and whether session was persisted, or null if wrong password
- */
 export async function unlockDatabase(
   password: string,
   instanceId: string,
@@ -131,35 +118,30 @@ export async function unlockDatabase(
     };
   }
 
-  // Close existing database if switching instances
   if (dbInstance && currentInstanceId !== instanceId) {
     await closeDatabase();
   }
 
   const startTime = performance.now();
 
-  // Set current instance
   currentInstanceId = instanceId;
   setCurrentInstanceId(instanceId);
 
   const encryptionKey = await keyManager.unlockWithPassword(password);
 
   if (!encryptionKey) {
-    return null; // Wrong password
+    return null;
   }
 
   const db = await initializeDatabaseWithKey(encryptionKey, instanceId);
 
-  // Log the unlock event
   const durationMs = performance.now() - startTime;
   try {
     await logEvent(db, 'db_unlock', durationMs, true);
   } catch (err) {
-    // Don't let logging errors affect the main operation
     console.warn('Failed to log db_unlock analytics event:', err);
   }
 
-  // Persist session if requested (web only)
   let sessionPersisted = false;
   if (persistSession) {
     sessionPersisted = await keyManager.persistSession();
@@ -253,6 +235,37 @@ export async function clearPersistedSession(instanceId: string): Promise<void> {
 }
 
 /**
+ * Set a password protector for the currently active database key.
+ * Returns false when no active key is available.
+ */
+export async function setDatabasePassword(
+  password: string,
+  instanceId: string
+): Promise<boolean> {
+  const normalizedPassword = password.trim();
+  if (!normalizedPassword) {
+    return false;
+  }
+
+  const keyManager = getKeyManagerForInstance(instanceId);
+  let currentKey = keyManager.getCurrentKey();
+  if (!currentKey) {
+    const restored = await keyManager.restoreSession();
+    if (!restored) {
+      return false;
+    }
+    currentKey = restored;
+  }
+
+  if (!currentKey) {
+    return false;
+  }
+
+  await keyManager.setPasswordForCurrentKey(normalizedPassword);
+  return true;
+}
+
+/**
  * Initialize the database with an encryption key.
  * @param encryptionKey The encryption key
  * @param instanceId The instance ID for database naming
@@ -331,9 +344,14 @@ export async function changePassword(
     return false; // Wrong old password
   }
 
-  // Re-key the database with the new key
-  // Pass oldKey for Capacitor which requires both keys for changeEncryptionSecret
-  await adapterInstance.rekeyDatabase(keys.newKey, keys.oldKey);
+  const shouldRekey =
+    keys.oldKey.length !== keys.newKey.length ||
+    keys.oldKey.some((value, index) => value !== keys.newKey[index]);
+
+  if (shouldRekey) {
+    // Pass oldKey for Capacitor which requires both keys for changeEncryptionSecret
+    await adapterInstance.rekeyDatabase(keys.newKey, keys.oldKey);
+  }
 
   // Log the password change event
   const durationMs = performance.now() - startTime;

@@ -36,6 +36,7 @@ const encodePassword = (password: string) => {
 // Shared crypto mock factory - use in vi.mock('@tearleads/shared', ...)
 export const createSharedMock = () => ({
   generateSalt: vi.fn(() => new Uint8Array(32).fill(1)),
+  generateRandomKey: vi.fn(async () => new Uint8Array(32).fill(9)),
   deriveKeyFromPassword: vi.fn(async (password: string) => {
     const key = createMockCryptoKey();
     passwordByKey.set(key, password);
@@ -52,6 +53,28 @@ export const createSharedMock = () => ({
     const key = createMockCryptoKey();
     keyBytesByKey.set(key, keyBytes);
     return key;
+  }),
+  encrypt: vi.fn(async (data: Uint8Array, key: CryptoKey) => {
+    const password =
+      typeof key === 'object' && key !== null
+        ? (passwordByKey.get(key) ?? 'default')
+        : 'default';
+    const marker = encodePassword(password)[0] ?? 0;
+    const payload = new Uint8Array(data.length + 1);
+    payload[0] = marker;
+    payload.set(data, 1);
+    return payload;
+  }),
+  decrypt: vi.fn(async (data: Uint8Array, key: CryptoKey) => {
+    const password =
+      typeof key === 'object' && key !== null
+        ? (passwordByKey.get(key) ?? 'default')
+        : 'default';
+    const marker = encodePassword(password)[0] ?? 0;
+    if (data[0] !== marker) {
+      throw new Error('Invalid password');
+    }
+    return data.slice(1);
   }),
   secureZero: vi.fn(),
   generateWrappingKey: vi.fn(async () => createMockCryptoKey()),

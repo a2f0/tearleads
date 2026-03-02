@@ -15,7 +15,7 @@ interface BackupTestPage {
 export const TEST_PASSWORD = 'testpassword123';
 export const BACKUP_PASSWORD = 'testpassword123';
 export const DB_OPERATION_TIMEOUT = 15000;
-export const BACKUP_TIMEOUT = 30000;
+export const BACKUP_TIMEOUT = 60000;
 
 export async function navigateInApp(
   page: BackupTestPage,

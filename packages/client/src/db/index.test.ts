@@ -333,8 +333,14 @@ describe('Database API', () => {
       expect(result).toBe(false);
     });
 
-    it('rekeys database on successful password change', async () => {
+    it('rekeys database when key material changes', async () => {
       await setupDatabase('password', TEST_INSTANCE_ID);
+      const oldKey = new Uint8Array([1, 2, 3, 4]);
+      const newKey = new Uint8Array([5, 6, 7, 8]);
+      mockKeyManager.changePassword.mockResolvedValueOnce({
+        oldKey,
+        newKey
+      });
 
       const result = await changePassword('oldpassword', 'newpassword');
 
@@ -343,7 +349,36 @@ describe('Database API', () => {
         'oldpassword',
         'newpassword'
       );
-      expect(mockAdapter.rekeyDatabase).toHaveBeenCalled();
+      expect(mockAdapter.rekeyDatabase).toHaveBeenCalledWith(newKey, oldKey);
+    });
+
+    it('rekeys database when key lengths differ', async () => {
+      await setupDatabase('password', TEST_INSTANCE_ID);
+      const oldKey = new Uint8Array([1, 2, 3, 4]);
+      const newKey = new Uint8Array([1, 2, 3, 4, 5]);
+      mockKeyManager.changePassword.mockResolvedValueOnce({
+        oldKey,
+        newKey
+      });
+
+      const result = await changePassword('oldpassword', 'newpassword');
+
+      expect(result).toBe(true);
+      expect(mockAdapter.rekeyDatabase).toHaveBeenCalledWith(newKey, oldKey);
+    });
+
+    it('skips rekey when key material is unchanged', async () => {
+      await setupDatabase('password', TEST_INSTANCE_ID);
+      const sameKey = new Uint8Array([9, 9, 9, 9]);
+      mockKeyManager.changePassword.mockResolvedValueOnce({
+        oldKey: sameKey,
+        newKey: new Uint8Array([9, 9, 9, 9])
+      });
+
+      const result = await changePassword('oldpassword', 'newpassword');
+
+      expect(result).toBe(true);
+      expect(mockAdapter.rekeyDatabase).not.toHaveBeenCalled();
     });
   });
 

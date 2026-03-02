@@ -10,8 +10,10 @@ import { app, safeStorage } from 'electron';
 
 const SALT_PREFIX = '.salt';
 const KCV_PREFIX = '.kcv';
+const PASSWORD_WRAPPED_KEY_PREFIX = '.password_wrapped_key';
 const WRAPPING_KEY_PREFIX = '.wrapping_key';
 const WRAPPED_KEY_PREFIX = '.wrapped_key';
+const PLAINTEXT_FALLBACK_PREFIX = 'plain:';
 
 function getStoragePath(filename: string): string {
   return path.join(app.getPath('userData'), filename);
@@ -29,6 +31,10 @@ function getWrappingKeyFilename(instanceId: string): string {
   return `${WRAPPING_KEY_PREFIX}_${instanceId}`;
 }
 
+function getPasswordWrappedKeyFilename(instanceId: string): string {
+  return `${PASSWORD_WRAPPED_KEY_PREFIX}_${instanceId}`;
+}
+
 function getWrappedKeyFilename(instanceId: string): string {
   return `${WRAPPED_KEY_PREFIX}_${instanceId}`;
 }
@@ -44,31 +50,58 @@ export function secureZeroBuffer(buffer: Buffer): void {
  * Helper to store encrypted data using safeStorage.
  */
 function storeEncryptedData(data: number[], filename: string): void {
-  if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('Secure storage is not available on this system');
-  }
   const keyPath = getStoragePath(filename);
   const buffer = Buffer.from(data);
-  const encrypted = safeStorage.encryptString(buffer.toString('base64'));
+  const base64 = buffer.toString('base64');
   secureZeroBuffer(buffer);
-  fs.writeFileSync(keyPath, encrypted);
+
+  if (safeStorage.isEncryptionAvailable()) {
+    const encrypted = safeStorage.encryptString(base64);
+    fs.writeFileSync(keyPath, encrypted);
+    return;
+  }
+
+  // Fallback for environments without safeStorage (e.g. CI Linux keyring).
+  fs.writeFileSync(
+    keyPath,
+    `${PLAINTEXT_FALLBACK_PREFIX}${base64}`,
+    'utf8'
+  );
+}
+
+function decodePlaintextFallback(content: string): number[] | null {
+  if (!content.startsWith(PLAINTEXT_FALLBACK_PREFIX)) {
+    return null;
+  }
+  const base64 = content.slice(PLAINTEXT_FALLBACK_PREFIX.length);
+  const buffer = Buffer.from(base64, 'base64');
+  const result = Array.from(buffer);
+  secureZeroBuffer(buffer);
+  return result;
 }
 
 /**
  * Helper to retrieve encrypted data using safeStorage.
  */
 function getEncryptedData(filename: string): number[] | null {
-  if (!safeStorage.isEncryptionAvailable()) {
-    return null;
-  }
   const keyPath = getStoragePath(filename);
   try {
-    const encrypted = fs.readFileSync(keyPath);
-    const decrypted = safeStorage.decryptString(encrypted);
-    const buffer = Buffer.from(decrypted, 'base64');
-    const result = Array.from(buffer);
-    secureZeroBuffer(buffer);
-    return result;
+    const stored = fs.readFileSync(keyPath);
+
+    if (safeStorage.isEncryptionAvailable()) {
+      try {
+        const decrypted = safeStorage.decryptString(stored);
+        const buffer = Buffer.from(decrypted, 'base64');
+        const result = Array.from(buffer);
+        secureZeroBuffer(buffer);
+        return result;
+      } catch {
+        // Fall back when data was previously persisted without safeStorage.
+        return decodePlaintextFallback(stored.toString('utf8'));
+      }
+    }
+
+    return decodePlaintextFallback(stored.toString('utf8'));
   } catch (error: unknown) {
     // It's normal for the file not to exist. Only log other errors.
     const code = getErrorCode(error);
@@ -115,9 +148,24 @@ export function getKeyCheckValue(instanceId: string): string | null {
 export function clearKeyStorage(instanceId: string): void {
   const saltPath = getStoragePath(getSaltFilename(instanceId));
   const kcvPath = getStoragePath(getKcvFilename(instanceId));
+  const passwordWrappedKeyPath = getStoragePath(
+    getPasswordWrappedKeyFilename(instanceId)
+  );
 
   fs.rmSync(saltPath, { force: true });
   fs.rmSync(kcvPath, { force: true });
+  fs.rmSync(passwordWrappedKeyPath, { force: true });
+}
+
+export function storePasswordWrappedKey(
+  wrappedKey: number[],
+  instanceId: string
+): void {
+  storeEncryptedData(wrappedKey, getPasswordWrappedKeyFilename(instanceId));
+}
+
+export function getPasswordWrappedKey(instanceId: string): number[] | null {
+  return getEncryptedData(getPasswordWrappedKeyFilename(instanceId));
 }
 
 // Session persistence operations using safeStorage

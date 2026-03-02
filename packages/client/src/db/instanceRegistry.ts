@@ -36,6 +36,7 @@ export interface InstanceMetadata {
   createdAt: number;
   lastAccessedAt: number;
   boundUserId?: string | null;
+  passwordDeferred?: boolean;
 }
 
 interface RegistryData {
@@ -164,7 +165,8 @@ export async function createInstance(): Promise<InstanceMetadata> {
     id: crypto.randomUUID(),
     name: generateInstanceName(instances),
     createdAt: now,
-    lastAccessedAt: now
+    lastAccessedAt: now,
+    passwordDeferred: true
   };
 
   instances.push(newInstance);
@@ -179,7 +181,10 @@ export async function createInstance(): Promise<InstanceMetadata> {
 export async function updateInstance(
   instanceId: string,
   updates: Partial<
-    Pick<InstanceMetadata, 'name' | 'lastAccessedAt' | 'boundUserId'>
+    Pick<
+      InstanceMetadata,
+      'name' | 'lastAccessedAt' | 'boundUserId' | 'passwordDeferred'
+    >
   >
 ): Promise<void> {
   const instances = await getInstances();
@@ -198,7 +203,11 @@ export async function updateInstance(
     boundUserId:
       updates.boundUserId === undefined
         ? (existingInstance.boundUserId ?? null)
-        : updates.boundUserId
+        : updates.boundUserId,
+    passwordDeferred:
+      updates.passwordDeferred === undefined
+        ? (existingInstance.passwordDeferred ?? false)
+        : updates.passwordDeferred
   };
   await setInStore(REGISTRY_KEY, instances);
 }
@@ -418,7 +427,8 @@ async function initializeTestInstance(
       id: testInstanceId,
       name: `Test Worker ${testInstanceId.replace('test-worker-', '')}`,
       createdAt: now,
-      lastAccessedAt: now
+      lastAccessedAt: now,
+      passwordDeferred: true
     };
     instances.push(testInstance);
     await setInStore(REGISTRY_KEY, instances);
