@@ -4,8 +4,39 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 15
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
     groups:
+      protobuf-ecosystem:
+        patterns:
+          - '@connectrpc/*'
+          - '@bufbuild/*'
+          - 'protobufjs'
+      capacitor:
+        patterns:
+          - '@capacitor/*'
+          - '@capacitor-community/*'
+          - '@capawesome/*'
+          - '@capgo/*'
+      electron:
+        patterns:
+          - 'electron*'
+          - '@electron*'
+      testing:
+        patterns:
+          - '@testing-library/*'
+          - 'vitest*'
+          - '@vitest/*'
+          - 'jsdom'
+      types:
+        patterns:
+          - '@types/*'
+      npm-major:
+        patterns:
+          - '*'
+        update-types:
+          - major
       npm-minor-patch:
         patterns:
           - '*'
@@ -17,40 +48,98 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    groups:
+      all-actions:
+        patterns:
+          - '*'
 
   - package-ecosystem: bundler
     directory: /packages/client
     schedule:
       interval: weekly
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    groups:
+      ruby-tools:
+        patterns:
+          - '*'
 
   - package-ecosystem: pip
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    groups:
+      ansible:
+        patterns:
+          - '*'
 
   - package-ecosystem: docker
     directory: /packages/api
     schedule:
       interval: weekly
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+    ignore:
+      - dependency-name: node
+        update-types:
+          - 'version-update:semver-major'
+    groups:
+      node-images:
+        patterns:
+          - '*'
 
   - package-ecosystem: docker
     directory: /packages/client
     schedule:
       interval: weekly
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+    ignore:
+      - dependency-name: node
+        update-types:
+          - 'version-update:semver-major'
+    groups:
+      node-images:
+        patterns:
+          - '*'
 
   - package-ecosystem: docker
     directory: /packages/smtp-listener
     schedule:
       interval: weekly
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+    ignore:
+      - dependency-name: node
+        update-types:
+          - 'version-update:semver-major'
+    groups:
+      node-images:
+        patterns:
+          - '*'
 
   - package-ecosystem: docker
     directory: /packages/website
     schedule:
       interval: weekly
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+    ignore:
+      - dependency-name: node
+        update-types:
+          - 'version-update:semver-major'
+    groups:
+      node-images:
+        patterns:
+          - '*'
