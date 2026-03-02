@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package tearleads.v1;
+
+service NotificationService {
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+}
+
+message SubscribeRequest {
+  repeated string channels = 1;
+}
+
+message SubscribeResponse {
+  string json = 1;
+}
