@@ -2,17 +2,10 @@ import type { ComponentType, ReactNode } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 import type { WalletMediaFileOption } from '../lib/walletData';
 import type { WalletTracker } from '../lib/walletTracker';
+import { DefaultInlineUnlock } from './DefaultInlineUnlock';
 
 export interface InlineUnlockProps {
   description?: string;
-}
-
-function DefaultInlineUnlock({ description }: InlineUnlockProps) {
-  return (
-    <div className="rounded-md border border-dashed p-4 text-muted-foreground text-sm">
-      Unlock your database to use {description}.
-    </div>
-  );
 }
 
 export interface WalletRuntimeContextValue {
