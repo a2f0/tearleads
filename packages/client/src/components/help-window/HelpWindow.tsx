@@ -75,7 +75,7 @@ export function HelpWindow({
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch('/v1/openapi.json');
+        const response = await fetch('/openapi.json');
         if (!response.ok || cancelled) {
           return;
         }
