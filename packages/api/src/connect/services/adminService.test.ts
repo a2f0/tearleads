@@ -5,11 +5,14 @@ const {
   deleteRedisKeyDirectMock,
   getColumnsDirectMock,
   getContextDirectMock,
+  getGroupDirectMock,
+  getGroupMembersDirectMock,
   getPostgresInfoDirectMock,
   getRedisDbSizeDirectMock,
   getRedisKeysDirectMock,
   getRedisValueDirectMock,
   getRowsDirectMock,
+  listGroupsDirectMock,
   getTablesDirectMock
 } = vi.hoisted(() => ({
   callRouteJsonHandlerMock: vi.fn<(options: unknown) => Promise<string>>(),
@@ -18,6 +21,10 @@ const {
   getColumnsDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   getContextDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  getGroupDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  getGroupMembersDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   getPostgresInfoDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
@@ -28,6 +35,8 @@ const {
   getRedisValueDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   getRowsDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  listGroupsDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   getTablesDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>()
@@ -47,6 +56,15 @@ vi.mock('./legacyRouteProxy.js', async () => {
 vi.mock('./adminDirectContext.js', () => ({
   getContextDirect: (request: unknown, context: unknown) =>
     getContextDirectMock(request, context)
+}));
+
+vi.mock('./adminDirectGroups.js', () => ({
+  getGroupDirect: (request: unknown, context: unknown) =>
+    getGroupDirectMock(request, context),
+  getGroupMembersDirect: (request: unknown, context: unknown) =>
+    getGroupMembersDirectMock(request, context),
+  listGroupsDirect: (request: unknown, context: unknown) =>
+    listGroupsDirectMock(request, context)
 }));
 
 vi.mock('./adminDirectPostgres.js', () => ({
@@ -144,27 +162,33 @@ describe('adminConnectService', () => {
     callRouteJsonHandlerMock.mockResolvedValue('{"ok":true}');
 
     getContextDirectMock.mockReset();
+    getGroupDirectMock.mockReset();
+    getGroupMembersDirectMock.mockReset();
     getPostgresInfoDirectMock.mockReset();
     getTablesDirectMock.mockReset();
     getColumnsDirectMock.mockReset();
     getRowsDirectMock.mockReset();
+    listGroupsDirectMock.mockReset();
     getRedisKeysDirectMock.mockReset();
     getRedisValueDirectMock.mockReset();
     deleteRedisKeyDirectMock.mockReset();
     getRedisDbSizeDirectMock.mockReset();
 
     getContextDirectMock.mockResolvedValue({ json: '{"ok":true}' });
+    getGroupDirectMock.mockResolvedValue({ json: '{"ok":true}' });
+    getGroupMembersDirectMock.mockResolvedValue({ json: '{"ok":true}' });
     getPostgresInfoDirectMock.mockResolvedValue({ json: '{"ok":true}' });
     getTablesDirectMock.mockResolvedValue({ json: '{"ok":true}' });
     getColumnsDirectMock.mockResolvedValue({ json: '{"ok":true}' });
     getRowsDirectMock.mockResolvedValue({ json: '{"ok":true}' });
+    listGroupsDirectMock.mockResolvedValue({ json: '{"ok":true}' });
     getRedisKeysDirectMock.mockResolvedValue({ json: '{"ok":true}' });
     getRedisValueDirectMock.mockResolvedValue({ json: '{"ok":true}' });
     deleteRedisKeyDirectMock.mockResolvedValue({ json: '{"ok":true}' });
     getRedisDbSizeDirectMock.mockResolvedValue({ json: '{"ok":true}' });
   });
 
-  it('delegates context/postgres/redis methods to direct handlers', async () => {
+  it('delegates direct admin methods to direct handlers', async () => {
     const context = createContext();
     const getColumnsRequest = { schema: 'public', table: 'users' };
     const getRowsRequest = {
@@ -181,6 +205,9 @@ describe('adminConnectService', () => {
     };
     const getRedisValueRequest = { key: 'session:1' };
     const deleteRedisKeyRequest = { key: 'session:2' };
+    const listGroupsRequest = { organizationId: 'org-1' };
+    const getGroupRequest = { id: 'group-1' };
+    const getGroupMembersRequest = { id: 'group-2' };
 
     const cases: DirectCallCase[] = [
       {
@@ -230,6 +257,22 @@ describe('adminConnectService', () => {
         call: () => adminConnectService.getRedisDbSize({}, context),
         expectedRequest: {},
         mock: getRedisDbSizeDirectMock
+      },
+      {
+        call: () => adminConnectService.listGroups(listGroupsRequest, context),
+        expectedRequest: listGroupsRequest,
+        mock: listGroupsDirectMock
+      },
+      {
+        call: () => adminConnectService.getGroup(getGroupRequest, context),
+        expectedRequest: getGroupRequest,
+        mock: getGroupDirectMock
+      },
+      {
+        call: () =>
+          adminConnectService.getGroupMembers(getGroupMembersRequest, context),
+        expectedRequest: getGroupMembersRequest,
+        mock: getGroupMembersDirectMock
       }
     ];
 
@@ -255,18 +298,6 @@ describe('adminConnectService', () => {
     const cases: JsonCallCase[] = [
       {
         call: () =>
-          adminConnectService.listGroups({ organizationId: 'org-1' }, context),
-        method: 'GET',
-        path: '/admin/groups',
-        query: 'organizationId=org-1'
-      },
-      {
-        call: () => adminConnectService.getGroup({ id: 'group-1' }, context),
-        method: 'GET',
-        path: '/admin/groups/group-1'
-      },
-      {
-        call: () =>
           adminConnectService.createGroup({ json: '{"name":"x"}' }, context),
         method: 'POST',
         path: '/admin/groups',
@@ -289,12 +320,6 @@ describe('adminConnectService', () => {
         call: () => adminConnectService.deleteGroup({ id: 'group-3' }, context),
         method: 'DELETE',
         path: '/admin/groups/group-3'
-      },
-      {
-        call: () =>
-          adminConnectService.getGroupMembers({ id: 'group-4' }, context),
-        method: 'GET',
-        path: '/admin/groups/group-4/members'
       },
       {
         call: () =>
@@ -419,16 +444,13 @@ describe('adminConnectService', () => {
     }
 
     expect(getContextDirectMock).not.toHaveBeenCalled();
+    expect(listGroupsDirectMock).not.toHaveBeenCalled();
+    expect(getGroupDirectMock).not.toHaveBeenCalled();
+    expect(getGroupMembersDirectMock).not.toHaveBeenCalled();
   });
 
-  it('omits optional query params for legacy admin list endpoints', async () => {
+  it('omits optional query params for remaining legacy admin list endpoints', async () => {
     const context = createContext();
-
-    await adminConnectService.listGroups({ organizationId: '' }, context);
-    expectLastJsonCall(context, {
-      method: 'GET',
-      path: '/admin/groups'
-    });
 
     await adminConnectService.listOrganizations(
       {

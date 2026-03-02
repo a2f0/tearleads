@@ -1,5 +1,10 @@
 import { getContextDirect } from './adminDirectContext.js';
 import {
+  getGroupDirect,
+  getGroupMembersDirect,
+  listGroupsDirect
+} from './adminDirectGroups.js';
+import {
   getColumnsDirect,
   getPostgresInfoDirect,
   getRowsDirect,
@@ -32,7 +37,6 @@ type KeyRequest = { key: string };
 type IdRequest = { id: string };
 type IdJsonRequest = { id: string; json: string };
 type RemoveGroupMemberRequest = { groupId: string; userId: string };
-type ListGroupsRequest = { organizationId: string };
 type ListOrganizationsRequest = { organizationId: string };
 type ListUsersRequest = { organizationId: string };
 
@@ -59,32 +63,8 @@ export const adminConnectService = {
     deleteRedisKeyDirect(request, context),
   getRedisDbSize: (request: object, context: { requestHeader: Headers }) =>
     getRedisDbSizeDirect(request, context),
-  listGroups: async (
-    request: ListGroupsRequest,
-    context: { requestHeader: Headers }
-  ) => {
-    const query = new URLSearchParams();
-    setOptionalStringQueryParam(
-      query,
-      'organizationId',
-      request.organizationId
-    );
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: '/admin/groups',
-      query
-    });
-    return { json };
-  },
-  getGroup: async (request: IdRequest, context: { requestHeader: Headers }) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: `/admin/groups/${encoded(request.id)}`
-    });
-    return { json };
-  },
+  listGroups: listGroupsDirect,
+  getGroup: getGroupDirect,
   createGroup: async (
     request: { json: string },
     context: { requestHeader: Headers }
@@ -120,17 +100,7 @@ export const adminConnectService = {
     });
     return { json };
   },
-  getGroupMembers: async (
-    request: IdRequest,
-    context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: `/admin/groups/${encoded(request.id)}/members`
-    });
-    return { json };
-  },
+  getGroupMembers: getGroupMembersDirect,
   addGroupMember: async (
     request: IdJsonRequest,
     context: { requestHeader: Headers }
