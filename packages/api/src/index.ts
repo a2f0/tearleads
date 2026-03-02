@@ -12,6 +12,7 @@ import { authInterceptor } from './connect/interceptors/authInterceptor.js';
 import { registerConnectRoutes } from './connect/router.js';
 import { closePostgresPool } from './lib/postgres.js';
 import { closeRedisSubscriberClient } from './lib/redisPubSub.js';
+import { connectRouteRateLimitMiddleware } from './middleware/connectRouteRateLimit.js';
 import { revenuecatRouter } from './routes/revenuecat/router.js';
 
 dotenv.config({ quiet: true });
@@ -39,6 +40,8 @@ app.use(
   }),
   revenuecatRouter
 );
+
+app.use('/v1/connect', connectRouteRateLimitMiddleware);
 
 app.use(
   expressConnectMiddleware({

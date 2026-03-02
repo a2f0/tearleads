@@ -80,7 +80,7 @@ function createAdapterResponse(
 export async function executeRoute(
   options: LegacyCallOptions
 ): Promise<RouteExecutionResult> {
-  const { context, method, path, query, jsonBody } = options;
+  const { context, method, path, query, jsonBody, binaryBody } = options;
 
   const match = findRoute(method, path);
   if (!match) {
@@ -126,12 +126,15 @@ export async function executeRoute(
     };
   }
 
-  const parsedJsonBody = parseJsonBody(jsonBody);
-  if (!parsedJsonBody.ok) {
+  const parsedBody =
+    binaryBody === undefined
+      ? parseJsonBody(jsonBody)
+      : { ok: true as const, value: binaryBody };
+  if (!parsedBody.ok) {
     return {
       status: 400,
       body: {
-        error: parsedJsonBody.error
+        error: parsedBody.error
       }
     };
   }
@@ -142,7 +145,7 @@ export async function executeRoute(
     path,
     params: match.params,
     query: buildRequestQuery(query),
-    body: parsedJsonBody.value,
+    body: parsedBody.value,
     authClaims: authResult.claims,
     session: authResult.session,
     ...(organizationResult.organizationId

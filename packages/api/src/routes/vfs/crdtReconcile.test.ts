@@ -210,7 +210,7 @@ describe('VFS CRDT reconcile route', () => {
     ]);
   });
 
-  it.skip('accepts protobuf reconcile payloads and emits protobuf responses', async () => {
+  it('accepts protobuf reconcile payloads and emits protobuf responses', async () => {
     const authHeader = await createAuthHeader();
     const incomingCursor = encodeVfsSyncCursor({
       changedAt: '2026-02-14T00:00:00.000Z',

@@ -76,6 +76,7 @@ class CompatRequestBuilder implements PromiseLike<CompatResponse> {
     const isJsonBody = contentType.includes('application/json');
 
     let jsonBody: string | undefined;
+    let binaryBody: Uint8Array | undefined;
     if (this.payload === undefined) {
       jsonBody = undefined;
     } else if (typeof this.payload === 'string') {
@@ -85,6 +86,7 @@ class CompatRequestBuilder implements PromiseLike<CompatResponse> {
       Buffer.isBuffer(this.payload)
     ) {
       jsonBody = undefined;
+      binaryBody = new Uint8Array(this.payload);
     } else {
       jsonBody = JSON.stringify(this.payload);
     }
@@ -94,7 +96,8 @@ class CompatRequestBuilder implements PromiseLike<CompatResponse> {
       method: this.method,
       path: routePath,
       query: this.queryParams,
-      ...(jsonBody !== undefined ? { jsonBody } : {})
+      ...(jsonBody !== undefined ? { jsonBody } : {}),
+      ...(binaryBody !== undefined ? { binaryBody } : {})
     });
 
     const headers: Record<string, string> = {};

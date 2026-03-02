@@ -11,6 +11,7 @@ export interface LegacyCallOptions {
   path: string;
   query?: URLSearchParams;
   jsonBody?: string;
+  binaryBody?: Uint8Array;
   extraHeaders?: Record<string, string>;
 }
 

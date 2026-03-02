@@ -291,7 +291,7 @@ describe('VFS CRDT sync session route', { timeout: 15_000 }, () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it.skip('accepts protobuf payloads and emits protobuf session responses', async () => {
+  it('accepts protobuf payloads and emits protobuf session responses', async () => {
     const { app } = await import('../../index.js');
     const authHeader = await createAuthHeader();
     const cursor = encodeVfsSyncCursor({

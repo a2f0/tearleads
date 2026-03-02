@@ -13,6 +13,10 @@ function isUnknownRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function isUint8Array(value: unknown): value is Uint8Array {
+  return value instanceof Uint8Array;
+}
+
 describe('connectCompatRequest', () => {
   it('normalizes /v1 route prefixes and forwards query params', async () => {
     executeRouteMock.mockResolvedValueOnce({
@@ -113,6 +117,11 @@ describe('connectCompatRequest', () => {
     }
     optionsRecord = options;
     expect(optionsRecord['jsonBody']).toBeUndefined();
+    const binaryBody = optionsRecord['binaryBody'];
+    if (!isUint8Array(binaryBody)) {
+      throw new Error('Expected binaryBody Uint8Array');
+    }
+    expect(Array.from(binaryBody)).toEqual([1, 2, 3]);
 
     await request({}).post('/v1/mls/groups').send({ name: 'group' });
 

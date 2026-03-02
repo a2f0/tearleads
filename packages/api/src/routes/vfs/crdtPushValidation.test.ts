@@ -178,7 +178,7 @@ describe('VFS CRDT push route validation', { timeout: 15_000 }, () => {
     });
   });
 
-  it.skip('accepts protobuf push payloads and emits protobuf responses', async () => {
+  it('accepts protobuf push payloads and emits protobuf responses', async () => {
     const authHeader = await createAuthHeader();
     const { app } = await import('../../index.js');
     mockQuery
