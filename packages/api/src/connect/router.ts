@@ -5,6 +5,7 @@ import { AuthService } from '@tearleads/shared/gen/tearleads/v1/auth_connect';
 import { BillingService } from '@tearleads/shared/gen/tearleads/v1/billing_connect';
 import { ChatService } from '@tearleads/shared/gen/tearleads/v1/chat_connect';
 import { MlsService } from '@tearleads/shared/gen/tearleads/v1/mls_connect';
+import { RevenuecatService } from '@tearleads/shared/gen/tearleads/v1/revenuecat_connect';
 import { VfsService } from '@tearleads/shared/gen/tearleads/v1/vfs_connect';
 import { VfsSharesService } from '@tearleads/shared/gen/tearleads/v1/vfs_shares_connect';
 import { adminConnectService } from './services/adminService.js';
@@ -13,6 +14,7 @@ import { authConnectService } from './services/authService.js';
 import { billingConnectService } from './services/billingService.js';
 import { chatConnectService } from './services/chatService.js';
 import { mlsConnectService } from './services/mlsService.js';
+import { revenuecatConnectService } from './services/revenuecatService.js';
 import { vfsConnectService } from './services/vfsService.js';
 import { vfsSharesConnectService } from './services/vfsSharesService.js';
 
@@ -23,6 +25,7 @@ export function registerConnectRoutes(router: ConnectRouter): void {
   router.service(BillingService, billingConnectService);
   router.service(ChatService, chatConnectService);
   router.service(MlsService, mlsConnectService);
+  router.service(RevenuecatService, revenuecatConnectService);
   router.service(VfsService, vfsConnectService);
   router.service(VfsSharesService, vfsSharesConnectService);
 }

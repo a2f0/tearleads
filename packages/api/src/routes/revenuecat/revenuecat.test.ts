@@ -2,6 +2,7 @@ import { createHmac } from 'node:crypto';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
+import { REVENUECAT_SIGNATURE_HEADER } from '../../lib/revenuecat.js';
 
 const mockQuery = vi.fn();
 const mockGetPostgresPool = vi.fn();
@@ -53,7 +54,7 @@ describe('RevenueCat webhook routes', () => {
     const response = await request(app)
       .post('/v1/revenuecat/webhooks')
       .set('Content-Type', 'application/json')
-      .set('x-revenuecat-signature', signPayload(body, webhookSecret))
+      .set(REVENUECAT_SIGNATURE_HEADER, signPayload(body, webhookSecret))
       .send(body);
 
     expect(response.status).toBe(200);
@@ -91,7 +92,7 @@ describe('RevenueCat webhook routes', () => {
     const response = await request(app)
       .post('/v1/revenuecat/webhooks')
       .set('Content-Type', 'application/json')
-      .set('x-revenuecat-signature', signPayload(body, webhookSecret))
+      .set(REVENUECAT_SIGNATURE_HEADER, signPayload(body, webhookSecret))
       .send(body);
 
     expect(response.status).toBe(200);
@@ -118,7 +119,7 @@ describe('RevenueCat webhook routes', () => {
     const response = await request(app)
       .post('/v1/revenuecat/webhooks')
       .set('Content-Type', 'application/json')
-      .set('x-revenuecat-signature', signPayload(body, webhookSecret))
+      .set(REVENUECAT_SIGNATURE_HEADER, signPayload(body, webhookSecret))
       .send(body);
 
     expect(response.status).toBe(200);
@@ -152,7 +153,7 @@ describe('RevenueCat webhook routes', () => {
     const response = await request(app)
       .post('/v1/revenuecat/webhooks')
       .set('Content-Type', 'application/json')
-      .set('x-revenuecat-signature', signPayload(body, webhookSecret))
+      .set(REVENUECAT_SIGNATURE_HEADER, signPayload(body, webhookSecret))
       .send(body);
 
     expect(response.status).toBe(200);
@@ -187,7 +188,7 @@ describe('RevenueCat webhook routes', () => {
     const response = await request(app)
       .post('/v1/revenuecat/webhooks')
       .set('Content-Type', 'application/json')
-      .set('x-revenuecat-signature', signPayload(body, webhookSecret))
+      .set(REVENUECAT_SIGNATURE_HEADER, signPayload(body, webhookSecret))
       .send(body);
 
     expect(response.status).toBe(200);
@@ -222,7 +223,7 @@ describe('RevenueCat webhook routes', () => {
     const response = await request(app)
       .post('/v1/revenuecat/webhooks')
       .set('Content-Type', 'application/json')
-      .set('x-revenuecat-signature', signPayload(body, webhookSecret))
+      .set(REVENUECAT_SIGNATURE_HEADER, signPayload(body, webhookSecret))
       .send(body);
 
     expect(response.status).toBe(200);
@@ -240,7 +241,7 @@ describe('RevenueCat webhook routes', () => {
     const response = await request(app)
       .post('/v1/revenuecat/webhooks')
       .set('Content-Type', 'application/json')
-      .set('x-revenuecat-signature', 'invalid')
+      .set(REVENUECAT_SIGNATURE_HEADER, 'invalid')
       .send('{}');
 
     expect(response.status).toBe(401);
@@ -258,7 +259,7 @@ describe('RevenueCat webhook routes', () => {
     const response = await request(app)
       .post('/v1/revenuecat/webhooks')
       .set('Content-Type', 'application/json')
-      .set('x-revenuecat-signature', signPayload(body, webhookSecret))
+      .set(REVENUECAT_SIGNATURE_HEADER, signPayload(body, webhookSecret))
       .send(body);
 
     expect(response.status).toBe(400);
@@ -291,7 +292,7 @@ describe('RevenueCat webhook routes', () => {
     const response = await request(app)
       .post('/v1/revenuecat/webhooks')
       .set('Content-Type', 'application/json')
-      .set('x-revenuecat-signature', signPayload(body, webhookSecret))
+      .set(REVENUECAT_SIGNATURE_HEADER, signPayload(body, webhookSecret))
       .send(body);
 
     expect(response.status).toBe(500);
@@ -319,7 +320,7 @@ describe('RevenueCat webhook routes', () => {
     const response = await request(app)
       .post('/v1/revenuecat/webhooks')
       .set('Content-Type', 'application/json')
-      .set('x-revenuecat-signature', signPayload(body, webhookSecret))
+      .set(REVENUECAT_SIGNATURE_HEADER, signPayload(body, webhookSecret))
       .send(body);
 
     expect(response.status).toBe(500);
@@ -348,7 +349,7 @@ describe('RevenueCat webhook routes', () => {
     const response = await request(app)
       .post('/v1/revenuecat/webhooks')
       .set('Content-Type', 'application/json')
-      .set('x-revenuecat-signature', signPayload(body, webhookSecret))
+      .set(REVENUECAT_SIGNATURE_HEADER, signPayload(body, webhookSecret))
       .send(body);
 
     expect(response.status).toBe(500);
@@ -379,7 +380,7 @@ describe('RevenueCat webhook routes', () => {
     const response = await request(app)
       .post('/v1/revenuecat/webhooks')
       .set('Content-Type', 'application/json')
-      .set('x-revenuecat-signature', signPayload(body, webhookSecret))
+      .set(REVENUECAT_SIGNATURE_HEADER, signPayload(body, webhookSecret))
       .send(body);
 
     expect(response.status).toBe(200);

@@ -6,6 +6,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 
 const REVENUECAT_APP_USER_PREFIX = 'org:';
 const HEX_REGEX = /^[a-fA-F0-9]+$/;
+export const REVENUECAT_SIGNATURE_HEADER = 'x-revenuecat-signature';
 
 export type BillingEntitlementStatus =
   | 'inactive'
