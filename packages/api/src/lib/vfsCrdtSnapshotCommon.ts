@@ -5,7 +5,6 @@ import {
   type VfsSyncCursor
 } from '@tearleads/vfs-sync/vfs';
 
-export const CRDT_CLIENT_PUSH_SOURCE_TABLE = 'vfs_crdt_client_push';
 export const VFS_CRDT_SNAPSHOT_SCOPE = 'global';
 
 export interface QueryResultRow<T> {

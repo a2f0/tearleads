@@ -2,15 +2,19 @@ import type {
   VfsCrdtPushOperation,
   VfsCrdtPushResult
 } from '@tearleads/shared';
-import type { PoolClient } from 'pg';
+import type { PoolClient, QueryResult, QueryResultRow } from 'pg';
+import {
+  createVfsCrdtQueryMetrics,
+  runTimedVfsCrdtQuery,
+  type VfsCrdtQueryMetrics
+} from '../../lib/vfsCrdtPerformanceMetrics.js';
 import { toIsoString } from './crdtRouteHelpers.js';
 import {
   CRDT_CLIENT_PUSH_SOURCE_TABLE,
   type MaxWriteIdRow,
   normalizeCanonicalOccurredAt,
   parseMaxWriteId,
-  toPushSourceId,
-  toReplicaPrefix
+  toPushSourceId
 } from './post-crdt-push-canonical.js';
 import type { ParsedPushOperation } from './post-crdt-push-parse.js';
 
@@ -18,25 +22,26 @@ interface ItemOwnerRow {
   id: string;
   owner_id: string | null;
 }
-
 interface ExistingSourceRow {
   id: string;
+  occurred_at: Date | string;
 }
-
+interface ReplicaWriteHeadRow extends MaxWriteIdRow {
+  replica_id: string | null;
+}
 interface InsertedCrdtOpRow {
   id: string;
   occurred_at: Date | string;
 }
-
 interface VfsContainerCursorNotification {
   containerId: string;
   changedAt: string;
   changeId: string;
 }
-
 interface ApplyCrdtPushOperationsResult {
   results: VfsCrdtPushResult[];
   notifications: VfsContainerCursorNotification[];
+  queryMetrics: VfsCrdtQueryMetrics;
 }
 
 function compareCursor(
@@ -51,7 +56,6 @@ function compareCursor(
   if (leftMs > rightMs) {
     return 1;
   }
-
   return left.changeId.localeCompare(right.changeId);
 }
 
@@ -60,18 +64,90 @@ function resolveContainerId(operation: VfsCrdtPushOperation): string | null {
     const parentId = operation.parentId?.trim();
     return parentId && parentId.length > 0 ? parentId : null;
   }
-
   const itemId = operation.itemId.trim();
   return itemId.length > 0 ? itemId : null;
 }
 
+function normalizeReplicaId(value: string | null): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function pickNewerOccurredAt(
+  current: string | null,
+  candidate: Date | string | null
+): string | null {
+  if (!candidate) {
+    return current;
+  }
+  const candidateIso = toIsoString(candidate);
+  if (!candidateIso) {
+    return current;
+  }
+  if (!current) {
+    return candidateIso;
+  }
+  return Date.parse(candidateIso) > Date.parse(current)
+    ? candidateIso
+    : current;
+}
+
+type TimedQueryRunner = <T extends QueryResultRow>(
+  label: string,
+  text: string,
+  values?: unknown[]
+) => Promise<QueryResult<T>>;
+
+async function upsertReplicaHead(
+  runQuery: TimedQueryRunner,
+  actorId: string,
+  replicaId: string,
+  writeId: number,
+  occurredAt: Date | string
+): Promise<void> {
+  await runQuery(
+    'replica_head_upsert',
+    `
+    INSERT INTO vfs_crdt_replica_heads (
+      actor_id,
+      replica_id,
+      max_write_id,
+      max_occurred_at,
+      updated_at
+    ) VALUES (
+      $1::text,
+      $2::text,
+      $3::bigint,
+      $4::timestamptz,
+      NOW()
+    )
+    ON CONFLICT (actor_id, replica_id) DO UPDATE
+    SET
+      max_write_id = GREATEST(
+        vfs_crdt_replica_heads.max_write_id,
+        EXCLUDED.max_write_id
+      ),
+      max_occurred_at = GREATEST(
+        vfs_crdt_replica_heads.max_occurred_at,
+        EXCLUDED.max_occurred_at
+      ),
+      updated_at = NOW()
+    `,
+    [actorId, replicaId, writeId, occurredAt]
+  );
+}
+
 async function applyCanonicalItemOperation(
-  client: PoolClient,
+  runQuery: TimedQueryRunner,
   actorId: string,
   operation: VfsCrdtPushOperation
 ): Promise<void> {
   if (operation.opType === 'item_upsert') {
-    await client.query(
+    await runQuery(
+      'canonical_item_upsert',
       `
       INSERT INTO vfs_item_state (
         item_id,
@@ -112,7 +188,8 @@ async function applyCanonicalItemOperation(
       ]
     );
 
-    await client.query(
+    await runQuery(
+      'canonical_sync_change_upsert',
       `SELECT vfs_emit_sync_change($1::text, 'upsert', $2::text, NULL)`,
       [operation.itemId, actorId]
     );
@@ -120,7 +197,8 @@ async function applyCanonicalItemOperation(
   }
 
   if (operation.opType === 'item_delete') {
-    await client.query(
+    await runQuery(
+      'canonical_item_delete',
       `
       INSERT INTO vfs_item_state (
         item_id,
@@ -139,7 +217,8 @@ async function applyCanonicalItemOperation(
       [operation.itemId]
     );
 
-    await client.query(
+    await runQuery(
+      'canonical_sync_change_delete',
       `SELECT vfs_emit_sync_change($1::text, 'delete', $2::text, NULL)`,
       [operation.itemId, actorId]
     );
@@ -151,6 +230,16 @@ export async function applyCrdtPushOperations(input: {
   userId: string;
   parsedOperations: ParsedPushOperation[];
 }): Promise<ApplyCrdtPushOperationsResult> {
+  const queryMetrics = createVfsCrdtQueryMetrics();
+  const runQuery: TimedQueryRunner = async <T extends QueryResultRow>(
+    label: string,
+    text: string,
+    values?: unknown[]
+  ) =>
+    runTimedVfsCrdtQuery(label, queryMetrics, () =>
+      input.client.query<T>(text, values)
+    );
+
   const results: VfsCrdtPushResult[] = [];
   const containerNotifications = new Map<
     string,
@@ -168,7 +257,8 @@ export async function applyCrdtPushOperations(input: {
     const uniqueItemIds = Array.from(
       new Set(validOperations.map((operation) => operation.itemId))
     );
-    const itemRows = await input.client.query<ItemOwnerRow>(
+    const itemRows = await runQuery<ItemOwnerRow>(
+      'owner_lookup',
       `
       SELECT id, owner_id
       FROM vfs_registry
@@ -178,6 +268,50 @@ export async function applyCrdtPushOperations(input: {
     );
     for (const row of itemRows.rows) {
       ownerByItemId.set(row.id, row.owner_id);
+    }
+  }
+
+  const hasOwnedValidOperation = input.parsedOperations.some(
+    (entry) =>
+      entry.status === 'parsed' &&
+      !!entry.operation &&
+      ownerByItemId.get(entry.operation.itemId) === input.userId
+  );
+
+  const replicaWriteHeads = new Map<string, number>();
+  let maxOccurredAt: string | null = null;
+
+  if (hasOwnedValidOperation) {
+    await runQuery(
+      'advisory_lock',
+      'SELECT pg_advisory_xact_lock(hashtext($1::text))',
+      [`vfs_crdt_feed:${input.userId}`]
+    );
+
+    const replicaHeadResult = await runQuery<ReplicaWriteHeadRow>(
+      'replica_heads_lookup',
+      `
+      SELECT
+        replica_id,
+        max_write_id,
+        max_occurred_at
+      FROM vfs_crdt_replica_heads
+      WHERE actor_id = $1::text
+      `,
+      [input.userId]
+    );
+
+    for (const row of replicaHeadResult.rows) {
+      const replicaId = normalizeReplicaId(row.replica_id);
+      if (!replicaId) {
+        continue;
+      }
+
+      const maxWriteId = parseMaxWriteId(row);
+      if (maxWriteId > 0) {
+        replicaWriteHeads.set(replicaId, maxWriteId);
+      }
+      maxOccurredAt = pickNewerOccurredAt(maxOccurredAt, row.max_occurred_at);
     }
   }
 
@@ -199,15 +333,11 @@ export async function applyCrdtPushOperations(input: {
       continue;
     }
 
-    await input.client.query(
-      'SELECT pg_advisory_xact_lock(hashtext($1::text))',
-      [`vfs_crdt_feed:${input.userId}`]
-    );
-
     const sourceId = toPushSourceId(input.userId, operation);
-    const existing = await input.client.query<ExistingSourceRow>(
+    const existing = await runQuery<ExistingSourceRow>(
+      'existing_source_lookup',
       `
-      SELECT id
+      SELECT id, occurred_at
       FROM vfs_crdt_ops
       WHERE source_table = $1
         AND source_id = $2
@@ -216,6 +346,21 @@ export async function applyCrdtPushOperations(input: {
       [CRDT_CLIENT_PUSH_SOURCE_TABLE, sourceId]
     );
     if (existing.rows[0]) {
+      const existingOccurredAt = existing.rows[0].occurred_at;
+      const existingReplicaWriteId =
+        replicaWriteHeads.get(operation.replicaId) ?? 0;
+      if (operation.writeId > existingReplicaWriteId) {
+        replicaWriteHeads.set(operation.replicaId, operation.writeId);
+        maxOccurredAt = pickNewerOccurredAt(maxOccurredAt, existingOccurredAt);
+        await upsertReplicaHead(
+          runQuery,
+          input.userId,
+          operation.replicaId,
+          operation.writeId,
+          existingOccurredAt
+        );
+      }
+
       results.push({
         opId: operation.opId,
         status: 'alreadyApplied'
@@ -223,34 +368,8 @@ export async function applyCrdtPushOperations(input: {
       continue;
     }
 
-    const maxWriteResult = await input.client.query<MaxWriteIdRow>(
-      `
-      SELECT
-        COALESCE(
-          MAX(
-            CASE
-              WHEN position($3 in source_id) = 1
-                AND NULLIF(split_part(source_id, ':', 3), '') ~ '^[0-9]+$'
-                THEN split_part(source_id, ':', 3)::bigint
-              ELSE NULL
-            END
-          ),
-          0
-        ) AS max_write_id,
-        MAX(occurred_at) AS max_occurred_at
-      FROM vfs_crdt_ops
-      WHERE source_table = $1
-        AND actor_id = $2
-      `,
-      [
-        CRDT_CLIENT_PUSH_SOURCE_TABLE,
-        input.userId,
-        toReplicaPrefix(input.userId, operation.replicaId)
-      ]
-    );
-
-    const maxWriteRow = maxWriteResult.rows[0];
-    if (operation.writeId <= parseMaxWriteId(maxWriteRow)) {
+    const maxWriteId = replicaWriteHeads.get(operation.replicaId) ?? 0;
+    if (operation.writeId <= maxWriteId) {
       results.push({
         opId: operation.opId,
         status: 'staleWriteId'
@@ -258,7 +377,12 @@ export async function applyCrdtPushOperations(input: {
       continue;
     }
 
-    const insertResult = await input.client.query<InsertedCrdtOpRow>(
+    const canonicalOccurredAt = normalizeCanonicalOccurredAt(
+      operation.occurredAt,
+      maxOccurredAt
+    );
+    const insertResult = await runQuery<InsertedCrdtOpRow>(
+      'insert_crdt_op',
       `
       INSERT INTO vfs_crdt_ops (
         id,
@@ -310,10 +434,7 @@ export async function applyCrdtPushOperations(input: {
         input.userId,
         CRDT_CLIENT_PUSH_SOURCE_TABLE,
         sourceId,
-        normalizeCanonicalOccurredAt(
-          operation.occurredAt,
-          maxWriteRow?.max_occurred_at ?? null
-        ),
+        canonicalOccurredAt,
         operation.encryptedPayload ?? null,
         operation.keyEpoch ?? null,
         operation.encryptionNonce ?? null,
@@ -325,6 +446,18 @@ export async function applyCrdtPushOperations(input: {
     const applied = (insertResult.rowCount ?? 0) > 0;
     if (applied) {
       const insertedRow = insertResult.rows?.[0];
+      const insertedOccurredAt =
+        insertedRow?.occurred_at ?? canonicalOccurredAt;
+      maxOccurredAt = pickNewerOccurredAt(maxOccurredAt, insertedOccurredAt);
+      replicaWriteHeads.set(operation.replicaId, operation.writeId);
+      await upsertReplicaHead(
+        runQuery,
+        input.userId,
+        operation.replicaId,
+        operation.writeId,
+        insertedOccurredAt
+      );
+
       const containerId = resolveContainerId(operation);
       const changedAt = insertedRow
         ? toIsoString(insertedRow.occurred_at)
@@ -345,7 +478,7 @@ export async function applyCrdtPushOperations(input: {
         }
       }
 
-      await applyCanonicalItemOperation(input.client, input.userId, operation);
+      await applyCanonicalItemOperation(runQuery, input.userId, operation);
     }
 
     results.push({
@@ -356,6 +489,7 @@ export async function applyCrdtPushOperations(input: {
 
   return {
     results,
-    notifications: Array.from(containerNotifications.values())
+    notifications: Array.from(containerNotifications.values()),
+    queryMetrics
   };
 }

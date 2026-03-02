@@ -1,6 +1,5 @@
 import {
   type ClientStateRow,
-  CRDT_CLIENT_PUSH_SOURCE_TABLE,
   cloneCursor,
   cloneWriteIds,
   isAccessLevel,
@@ -249,20 +248,12 @@ async function loadClientReconcileState(
   const replicaWriteIdsResult = await client.query<ReplicaWriteIdRow>(
     `
     SELECT
-      split_part(source_id, ':', 2) AS replica_id,
-      MAX(
-        CASE
-          WHEN split_part(source_id, ':', 3) ~ '^[0-9]+$'
-            THEN split_part(source_id, ':', 3)::bigint
-          ELSE NULL
-        END
-      ) AS max_write_id
-    FROM vfs_crdt_ops
-    WHERE source_table = $1
-      AND actor_id = $2
-    GROUP BY split_part(source_id, ':', 2)
+      replica_id,
+      max_write_id
+    FROM vfs_crdt_replica_heads
+    WHERE actor_id = $1::text
     `,
-    [CRDT_CLIENT_PUSH_SOURCE_TABLE, userId]
+    [userId]
   );
 
   return {

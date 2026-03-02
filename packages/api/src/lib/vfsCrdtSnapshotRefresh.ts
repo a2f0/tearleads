@@ -1,3 +1,10 @@
+import { performance } from 'node:perf_hooks';
+import {
+  createVfsCrdtQueryMetrics,
+  emitVfsCrdtRoutePerfMetric,
+  runTimedVfsCrdtQuery,
+  type VfsCrdtQueryMetrics
+} from './vfsCrdtPerformanceMetrics.js';
 import {
   type AclSnapshotRow,
   type ContainerClockRow,
@@ -16,14 +23,40 @@ import {
   type VfsCrdtSnapshotRefreshResult
 } from './vfsCrdtSnapshotCommon.js';
 
-async function loadLatestCursor(client: PgQueryable) {
-  const result = await client.query<CursorRow>(
-    `
+async function runSnapshotQuery<T>(
+  client: PgQueryable,
+  label: string,
+  queryMetrics: VfsCrdtQueryMetrics | undefined,
+  query: {
+    text: string;
+    values?: unknown[];
+  }
+): Promise<{ rows: T[] }> {
+  if (!queryMetrics) {
+    return client.query<T>(query.text, query.values);
+  }
+
+  return runTimedVfsCrdtQuery(label, queryMetrics, () =>
+    client.query<T>(query.text, query.values)
+  );
+}
+
+async function loadLatestCursor(
+  client: PgQueryable,
+  queryMetrics?: VfsCrdtQueryMetrics
+) {
+  const result = await runSnapshotQuery<CursorRow>(
+    client,
+    'snapshot_load_latest_cursor',
+    queryMetrics,
+    {
+      text: `
     SELECT occurred_at, id
     FROM vfs_crdt_ops
     ORDER BY occurred_at DESC, id DESC
     LIMIT 1
     `
+    }
   );
   const row = result.rows[0];
   if (!row) {
@@ -33,9 +66,16 @@ async function loadLatestCursor(client: PgQueryable) {
   return parseCursor(row.occurred_at, row.id);
 }
 
-async function loadAclSnapshotRows(client: PgQueryable) {
-  const result = await client.query<AclSnapshotRow>(
-    `
+async function loadAclSnapshotRows(
+  client: PgQueryable,
+  queryMetrics?: VfsCrdtQueryMetrics
+) {
+  const result = await runSnapshotQuery<AclSnapshotRow>(
+    client,
+    'snapshot_load_acl_rows',
+    queryMetrics,
+    {
+      text: `
     SELECT
       item_id,
       principal_type,
@@ -46,6 +86,7 @@ async function loadAclSnapshotRows(client: PgQueryable) {
       AND (expires_at IS NULL OR expires_at > NOW())
     ORDER BY item_id ASC, principal_type ASC, principal_id ASC
     `
+    }
   );
 
   const acl: VfsCrdtSnapshotPayload['replaySnapshot']['acl'] = [];
@@ -72,13 +113,21 @@ async function loadAclSnapshotRows(client: PgQueryable) {
   return acl;
 }
 
-async function loadLinkSnapshotRows(client: PgQueryable) {
-  const result = await client.query<LinkSnapshotRow>(
-    `
+async function loadLinkSnapshotRows(
+  client: PgQueryable,
+  queryMetrics?: VfsCrdtQueryMetrics
+) {
+  const result = await runSnapshotQuery<LinkSnapshotRow>(
+    client,
+    'snapshot_load_link_rows',
+    queryMetrics,
+    {
+      text: `
     SELECT parent_id, child_id
     FROM vfs_links
     ORDER BY parent_id ASC, child_id ASC
     `
+    }
   );
 
   const links: VfsCrdtSnapshotPayload['replaySnapshot']['links'] = [];
@@ -97,9 +146,16 @@ async function loadLinkSnapshotRows(client: PgQueryable) {
   return links;
 }
 
-async function loadContainerClockRows(client: PgQueryable) {
-  const result = await client.query<ContainerClockRow>(
-    `
+async function loadContainerClockRows(
+  client: PgQueryable,
+  queryMetrics?: VfsCrdtQueryMetrics
+) {
+  const result = await runSnapshotQuery<ContainerClockRow>(
+    client,
+    'snapshot_load_container_clocks',
+    queryMetrics,
+    {
+      text: `
     WITH scoped_ops AS (
       SELECT
         CASE
@@ -126,6 +182,7 @@ async function loadContainerClockRows(client: PgQueryable) {
     FROM latest_per_container
     ORDER BY changed_at ASC, change_id ASC, container_id ASC
     `
+    }
   );
 
   const containerClocks: VfsCrdtSnapshotPayload['containerClocks'] = [];
@@ -147,12 +204,13 @@ async function loadContainerClockRows(client: PgQueryable) {
 }
 
 async function buildVfsCrdtSnapshotPayload(
-  client: PgQueryable
+  client: PgQueryable,
+  queryMetrics?: VfsCrdtQueryMetrics
 ): Promise<VfsCrdtSnapshotPayload> {
-  const latestCursor = await loadLatestCursor(client);
-  const acl = await loadAclSnapshotRows(client);
-  const links = await loadLinkSnapshotRows(client);
-  const containerClocks = await loadContainerClockRows(client);
+  const latestCursor = await loadLatestCursor(client, queryMetrics);
+  const acl = await loadAclSnapshotRows(client, queryMetrics);
+  const links = await loadLinkSnapshotRows(client, queryMetrics);
+  const containerClocks = await loadContainerClockRows(client, queryMetrics);
 
   return {
     replaySnapshot: {
@@ -168,11 +226,19 @@ export async function refreshVfsCrdtSnapshot(
   client: PgQueryable,
   scope: string = VFS_CRDT_SNAPSHOT_SCOPE
 ): Promise<VfsCrdtSnapshotRefreshResult> {
-  const payload = await buildVfsCrdtSnapshotPayload(client);
-  const cursor = payload.replaySnapshot.cursor;
+  const queryMetrics = createVfsCrdtQueryMetrics();
+  const startedAtMs = performance.now();
 
-  const upsertResult = await client.query<SnapshotUpdatedAtRow>(
-    `
+  try {
+    const payload = await buildVfsCrdtSnapshotPayload(client, queryMetrics);
+    const cursor = payload.replaySnapshot.cursor;
+
+    const upsertResult = await runSnapshotQuery<SnapshotUpdatedAtRow>(
+      client,
+      'snapshot_upsert',
+      queryMetrics,
+      {
+        text: `
     INSERT INTO vfs_crdt_snapshots (
       scope,
       snapshot_version,
@@ -199,24 +265,49 @@ export async function refreshVfsCrdtSnapshot(
       updated_at = EXCLUDED.updated_at
     RETURNING updated_at
     `,
-    [
+        values: [
+          scope,
+          JSON.stringify(payload),
+          cursor?.changedAt ?? null,
+          cursor?.changeId ?? null
+        ]
+      }
+    );
+
+    const updatedAt =
+      parseOccurredAt(upsertResult.rows[0]?.updated_at ?? null) ??
+      new Date().toISOString();
+
+    const refreshResult: VfsCrdtSnapshotRefreshResult = {
       scope,
-      JSON.stringify(payload),
-      cursor?.changedAt ?? null,
-      cursor?.changeId ?? null
-    ]
-  );
+      updatedAt,
+      cursor: cursor ? cloneCursor(cursor) : null,
+      aclEntries: payload.replaySnapshot.acl.length,
+      links: payload.replaySnapshot.links.length,
+      containerClocks: payload.containerClocks.length
+    };
 
-  const updatedAt =
-    parseOccurredAt(upsertResult.rows[0]?.updated_at ?? null) ??
-    new Date().toISOString();
+    emitVfsCrdtRoutePerfMetric({
+      route: 'snapshot_refresh',
+      success: true,
+      durationMs: performance.now() - startedAtMs,
+      queryMetrics,
+      operationCount:
+        refreshResult.aclEntries +
+        refreshResult.links +
+        refreshResult.containerClocks,
+      resultCount: 1
+    });
 
-  return {
-    scope,
-    updatedAt,
-    cursor: cursor ? cloneCursor(cursor) : null,
-    aclEntries: payload.replaySnapshot.acl.length,
-    links: payload.replaySnapshot.links.length,
-    containerClocks: payload.containerClocks.length
-  };
+    return refreshResult;
+  } catch (error) {
+    emitVfsCrdtRoutePerfMetric({
+      route: 'snapshot_refresh',
+      success: false,
+      durationMs: performance.now() - startedAtMs,
+      queryMetrics,
+      error
+    });
+    throw error;
+  }
 }
