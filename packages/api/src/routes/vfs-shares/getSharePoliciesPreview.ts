@@ -18,6 +18,8 @@ interface PreviewQuery {
 
 const CONTAINER_OBJECT_TYPES = new Set<string>(VFS_CONTAINER_OBJECT_TYPES);
 const DEFAULT_PREVIEW_MAX_DEPTH = 50;
+const MAX_OBJECT_TYPE_FILTERS = 25;
+const MAX_OBJECT_TYPE_LENGTH = 64;
 
 function isPreviewPrincipalType(
   value: string | undefined
@@ -57,7 +59,15 @@ function parseObjectTypes(raw: string | undefined): string[] | null {
     if (value.length === 0) {
       continue;
     }
+    if (value.length > MAX_OBJECT_TYPE_LENGTH) {
+      throw new Error('objectType values must be 64 characters or fewer');
+    }
     uniqueValues.add(value);
+    if (uniqueValues.size > MAX_OBJECT_TYPE_FILTERS) {
+      throw new Error(
+        `objectType supports at most ${MAX_OBJECT_TYPE_FILTERS} values`
+      );
+    }
   }
   return uniqueValues.size > 0 ? Array.from(uniqueValues) : null;
 }

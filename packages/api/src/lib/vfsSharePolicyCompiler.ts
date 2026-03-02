@@ -1,7 +1,5 @@
-import {
-  compileSharePolicyCore,
-  type PolicyPrincipalType
-} from './vfsSharePolicyCompilerCore.js';
+import { compileSharePolicyCore } from './vfsSharePolicyCompilerCore.js';
+import { materializeCompiledDecisions } from './vfsSharePolicyCompilerMaterialization.js';
 import {
   buildCompileLockKey,
   loadSharePolicyState,
@@ -9,24 +7,8 @@ import {
   type PgQueryable
 } from './vfsSharePolicyCompilerState.js';
 
-interface AclUpsertRow {
-  id: string;
-}
-
 interface DerivedAclRow {
   acl_entry_id: string;
-}
-
-function buildCompiledAclId(
-  itemId: string,
-  principalType: PolicyPrincipalType,
-  principalId: string
-): string {
-  return `policy-compiled:${principalType}:${principalId}:${itemId}`;
-}
-
-function buildDerivedProvenanceId(aclEntryId: string): string {
-  return `policy-derived:${aclEntryId}`;
 }
 
 function createCompilerRunId(now: Date): string {
@@ -114,101 +96,13 @@ export async function compileVfsSharePolicies(
         staleRevocationCount: 0
       };
     } else {
-      const touchedAclEntryIds = new Set<string>();
-      for (const decision of compiled.decisions) {
-        const upsertResult = await client.query<AclUpsertRow>(
-          `
-          INSERT INTO vfs_acl_entries (
-            id,
-            item_id,
-            principal_type,
-            principal_id,
-            access_level,
-            granted_by,
-            created_at,
-            updated_at,
-            revoked_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8)
-          ON CONFLICT (item_id, principal_type, principal_id)
-          DO UPDATE SET
-            access_level = EXCLUDED.access_level,
-            granted_by = EXCLUDED.granted_by,
-            updated_at = EXCLUDED.updated_at,
-            revoked_at = EXCLUDED.revoked_at
-          WHERE (
-            EXCLUDED.revoked_at IS NOT NULL
-            OR vfs_acl_entries.revoked_at IS NOT NULL
-            OR NOT EXISTS (
-              SELECT 1 FROM vfs_acl_entry_provenance p
-              WHERE p.acl_entry_id = vfs_acl_entries.id
-                AND p.provenance_type = 'direct'
-            )
-          )
-          RETURNING id
-          `,
-          [
-            buildCompiledAclId(
-              decision.itemId,
-              decision.principalType,
-              decision.principalId
-            ),
-            decision.itemId,
-            decision.principalType,
-            decision.principalId,
-            decision.accessLevel,
-            actorId,
-            now,
-            decision.decision === 'deny' ? now : null
-          ]
-        );
-
-        const aclEntryId = upsertResult.rows[0]?.id;
-        if (!aclEntryId) {
-          // Guardrail: this can happen when an ON CONFLICT row is protected
-          // by direct provenance and policy compilation is not allowed to
-          // overwrite it (e.g., non-revoked allow decision).
-          continue;
-        }
-        touchedAclEntryIds.add(aclEntryId);
-
-        await client.query(
-          `
-          INSERT INTO vfs_acl_entry_provenance (
-            id,
-            acl_entry_id,
-            provenance_type,
-            policy_id,
-            selector_id,
-            decision,
-            precedence,
-            compiled_at,
-            compiler_run_id,
-            created_at,
-            updated_at
-          ) VALUES ($1, $2, 'derivedPolicy', $3, $4, $5, $6, $7, $8, $7, $7)
-          ON CONFLICT (id)
-          DO UPDATE SET
-            acl_entry_id = EXCLUDED.acl_entry_id,
-            policy_id = EXCLUDED.policy_id,
-            selector_id = EXCLUDED.selector_id,
-            decision = EXCLUDED.decision,
-            precedence = EXCLUDED.precedence,
-            compiled_at = EXCLUDED.compiled_at,
-            compiler_run_id = EXCLUDED.compiler_run_id,
-            updated_at = EXCLUDED.updated_at
-          `,
-          [
-            buildDerivedProvenanceId(aclEntryId),
-            aclEntryId,
-            decision.policyId,
-            decision.selectorId,
-            decision.decision,
-            decision.precedence,
-            now,
-            compilerRunId
-          ]
-        );
-      }
+      const touchedAclEntryIds = await materializeCompiledDecisions(
+        client,
+        compiled.decisions,
+        actorId,
+        now,
+        compilerRunId
+      );
 
       const existingDerived = policyIds
         ? await client.query<DerivedAclRow>(
