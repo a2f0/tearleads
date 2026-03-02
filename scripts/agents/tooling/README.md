@@ -59,6 +59,12 @@ Run `--help` for full action and option list:
 - `listDependabotAlerts` - List Dependabot alerts with optional filters
 - `getDependabotAlert` - Fetch Dependabot alert details by alert number
 - `updateDependabotAlert` - Reopen or dismiss a Dependabot alert
+- `listCodeScanningAlerts` - List code scanning alerts with optional filters
+- `getCodeScanningAlert` - Fetch code scanning alert details by alert number
+- `updateCodeScanningAlert` - Reopen or dismiss a code scanning alert
+- `listSecretScanningAlerts` - List secret scanning alerts with optional filters
+- `getSecretScanningAlert` - Fetch secret scanning alert details by alert number
+- `updateSecretScanningAlert` - Reopen or resolve a secret scanning alert
 - `runPreen` - Run stateful preen discovery (`aggressive` default, supports `--passive`)
 - `issueTemplate` - Print standard issue body template
 - `createIssue` - Create user-requested/deferred-fix issues with dedupe checks
@@ -118,6 +124,10 @@ Most GitHub operations are handled via Octokit. `gh` remains a fallback for auth
 ./scripts/agents/tooling/agentTool.ts updatePrBody --number 123 --body-file /tmp/pr-body.md
 ./scripts/agents/tooling/agentTool.ts listDependabotAlerts --state open --severity high,critical --per-page 50
 ./scripts/agents/tooling/agentTool.ts updateDependabotAlert --alert-number 64 --state dismissed --dismissed-reason not_used --dismissed-comment "Not reachable in this app"
+./scripts/agents/tooling/agentTool.ts listCodeScanningAlerts --state open --tool-name CodeQL --per-page 50
+./scripts/agents/tooling/agentTool.ts updateCodeScanningAlert --alert-number 117 --state dismissed --dismissed-reason false_positive --dismissed-comment "Documented false positive"
+./scripts/agents/tooling/agentTool.ts listSecretScanningAlerts --state open --per-page 50
+./scripts/agents/tooling/agentTool.ts updateSecretScanningAlert --alert-number 19 --state resolved --resolution revoked --resolution-comment "Token revoked and rotated"
 ./scripts/agents/tooling/agentTool.ts tagPrWithReviewer --reviewer gemini
 ./scripts/agents/tooling/agentTool.ts tagPrWithReviewer --reviewer claude --pr 123
 ./scripts/agents/tooling/agentTool.ts refresh

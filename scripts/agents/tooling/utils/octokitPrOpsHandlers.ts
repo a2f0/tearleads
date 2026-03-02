@@ -20,6 +20,22 @@ function toPrState(pull: PullItem): string {
   return pull.state.toUpperCase();
 }
 
+type FindPrState = 'open' | 'merged' | 'closed' | 'all';
+
+function parseFindPrState(value: string): FindPrState {
+  if (
+    value === 'open' ||
+    value === 'merged' ||
+    value === 'closed' ||
+    value === 'all'
+  ) {
+    return value;
+  }
+  throw new Error(
+    'findPrForBranch --state must be "open", "merged", "closed", or "all"'
+  );
+}
+
 async function findPullByBranch(
   context: GitHubClientContext,
   branch: string
@@ -75,21 +91,22 @@ export async function enableAutoMergeWithOctokit(
 export async function findPrForBranchWithOctokit(
   context: GitHubClientContext,
   branch: string,
-  state: 'open' | 'merged' | 'closed' | 'all'
+  state: string
 ): Promise<string> {
+  const targetState = parseFindPrState(state);
   const response = await context.octokit.rest.pulls.list({
     owner: context.owner,
     repo: context.repo,
     head: `${context.owner}:${branch}`,
-    state: state === 'merged' ? 'closed' : state,
+    state: targetState === 'merged' ? 'closed' : targetState,
     per_page: 30
   });
 
   const match = response.data.find((pull) => {
-    if (state === 'merged') {
+    if (targetState === 'merged') {
       return pull.merged_at !== null;
     }
-    if (state === 'closed') {
+    if (targetState === 'closed') {
       return pull.merged_at === null;
     }
     return true;

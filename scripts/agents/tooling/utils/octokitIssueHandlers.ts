@@ -5,9 +5,18 @@ type IssueState = 'open' | 'closed' | 'all';
 type ListForRepoItem =
   RestEndpointMethodTypes['issues']['listForRepo']['response']['data'][number];
 
-function resolveIssueState(
-  state: 'open' | 'merged' | 'closed' | 'all' | undefined
-): IssueState {
+function resolveIssueState(state: string | undefined): IssueState {
+  if (
+    state !== undefined &&
+    state !== 'open' &&
+    state !== 'merged' &&
+    state !== 'closed' &&
+    state !== 'all'
+  ) {
+    throw new Error(
+      'listDeferredFixIssues --state must be "open", "merged", "closed", or "all"'
+    );
+  }
   if (state === 'closed' || state === 'all') {
     return state;
   }
@@ -94,7 +103,7 @@ export async function createIssueWithOctokit(
 
 export async function listDeferredFixIssuesWithOctokit(
   context: GitHubClientContext,
-  state: 'open' | 'merged' | 'closed' | 'all' | undefined,
+  state: string | undefined,
   limit: number | undefined
 ): Promise<string> {
   const targetState = resolveIssueState(state);

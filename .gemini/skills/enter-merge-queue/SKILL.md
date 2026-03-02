@@ -1,6 +1,6 @@
 ---
 name: enter-merge-queue
-description: Guarantee a PR merges by handling CI, addressing Gemini review feedback, enabling auto-merge, and waiting until the PR is merged. Use when you are asked to babysit a PR through the merge queue, resolve CI failures, handle Gemini review threads, or monitor a PR until merge.
+description: Guarantee a PR merges by handling CI, addressing Gemini/Copilot/GitHub Advanced Security feedback, enabling auto-merge, and waiting until the PR is merged. Use when you are asked to babysit a PR through the merge queue, resolve CI failures, handle bot review threads, or monitor a PR until merge.
 ---
 
 # Enter Merge Queue
@@ -35,6 +35,8 @@ Track the following state during execution:
 - `gemini_can_review`: Boolean, starts `true`. Set to `false` if PR contains only non-code files. Allows skipping Gemini checks entirely.
 - `gemini_quota_exhausted`: Boolean, starts `false`. Set to `true` when Gemini reports its daily quota limit.
 - `used_fallback_agent_review`: Boolean, starts `false`. Set to `true` after running one fallback review via Claude Code.
+- `copilot_review_seen`: Boolean, starts `false`. Set to `true` when unresolved Copilot review threads are detected.
+- `ghas_alerts_blocking_merge`: Array of `{thread_id, kind, alert_number, state}` for unresolved GitHub Advanced Security findings linked from review comments.
 - `associated_issue_number`: Number or null. The issue number associated with this PR (either extracted from PR body or newly created). All PRs should have an associated issue that gets marked `needs-qa` after merge.
 - `is_rollup_pr`: Boolean, starts `false`. Set to `true` if base branch is not `main`/`master`. Roll-up PRs must wait for their base PR to merge first.
 - `base_pr_number`: Number or null. For roll-up PRs, the PR number associated with the base branch.
@@ -80,6 +82,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    - Ignore files: `.gitignore`, `.dockerignore`
 
    Note: Gemini CAN review `.json`, `.yaml`, `.yml`, and other config files - don't skip these.
+   Note: Continue checking Copilot and GitHub Advanced Security threads even when Gemini is skipped.
 
    **Issue tracking (if applicable)**: If a PR has an associated issue, it gets marked `needs-qa` after merge. Issues are NOT created automatically - only when the user explicitly requests one. Do NOT create separate "QA: ..." issues.
 
@@ -167,7 +170,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    - If `state` is `MERGED`: Exit loop and proceed to step 5
    - If `mergeStateStatus` is `BEHIND`: Continue waiting unless a rebase is explicitly needed for another reason
-   - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Wait for CI and address Gemini feedback (step 4e)
+   - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Wait for CI and address review/security feedback (step 4e)
    - If `mergeStateStatus` is `CLEAN`: Enable auto-merge (step 4f)
 
    ### 4d. Update from base branch (rebase)
@@ -267,6 +270,59 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    - Treat this single fallback review as sufficient to get past the review step in the loop (do not block on additional Gemini responses during this session)
    - Any unresolved Gemini threads from before quota exhaustion should be resolved by the agent based on whether the feedback was already addressed in code
 
+   #### Copilot review handling
+
+   Copilot PR review comments are authored by a GitHub App (typically `copilot-pull-request-reviewer[bot]`).
+
+   **Important limitation**: Copilot does not consume replies in existing review threads. Do not wait for Copilot acknowledgment after posting a reply.
+
+   Workflow:
+   - Fetch unresolved threads once per poll: `./scripts/agents/tooling/agentTool.ts getReviewThreads --number "$PR_NUMBER" --unresolved-only`
+   - Identify Copilot threads by latest comment author login (`copilot-pull-request-reviewer[bot]`, `github-copilot[bot]`, or `copilot[bot]`)
+   - Apply the requested fix (or document why no change is needed), then resolve the thread directly:
+
+     ```bash
+     ./scripts/agents/tooling/agentTool.ts resolveThread --thread-id <thread_node_id>
+     ```
+
+   - Optional: add an in-thread reply for human reviewers, but do not block on Copilot follow-up.
+
+   #### GitHub Advanced Security (GHAS) handling
+
+   GHAS review comments are authored by `github-advanced-security` and usually include links like:
+   - `/security/code-scanning/<alert-number>`
+   - `/security/dependabot/<alert-number>`
+   - `/security/secret-scanning/<alert-number>`
+
+   For each unresolved GHAS thread:
+
+   1. Extract alert type and number from the comment body link.
+   2. Query current alert status:
+
+      ```bash
+      ./scripts/agents/tooling/agentTool.ts getCodeScanningAlert --alert-number <n>
+      ./scripts/agents/tooling/agentTool.ts getDependabotAlert --alert-number <n>
+      ./scripts/agents/tooling/agentTool.ts getSecretScanningAlert --alert-number <n>
+      ```
+
+   3. If the alert is still open:
+      - Prefer code/config fixes first, push, and let CI/security scans re-evaluate.
+      - If dismissal/resolution is justified, close via API with rationale:
+
+        ```bash
+        ./scripts/agents/tooling/agentTool.ts updateCodeScanningAlert --alert-number <n> --state dismissed --dismissed-reason <false_positive|wont_fix|used_in_tests> --dismissed-comment "<reason>"
+        ./scripts/agents/tooling/agentTool.ts updateDependabotAlert --alert-number <n> --state dismissed --dismissed-reason <fix_started|inaccurate|no_bandwidth|not_used|tolerable_risk> --dismissed-comment "<reason>"
+        ./scripts/agents/tooling/agentTool.ts updateSecretScanningAlert --alert-number <n> --state resolved --resolution <false_positive|wont_fix|revoked|used_in_tests|pattern_edited|pattern_deleted> --resolution-comment "<reason>"
+        ```
+
+   4. Re-check alert state; once it is no longer open (fixed/dismissed/resolved as applicable), resolve the PR thread:
+
+      ```bash
+      ./scripts/agents/tooling/agentTool.ts resolveThread --thread-id <thread_node_id>
+      ```
+
+   5. If no alert link is present, do not guess. Ask the user before dismissing.
+
    #### Job-level CI polling (early failure detection)
 
    **Important**: Monitor CI and review state continuously to avoid waiting on stale assumptions.
@@ -320,7 +376,13 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
       - If sentiment indicates Gemini daily quota exhaustion, stop Gemini follow-ups and run the one-time Claude Code fallback review above.
       - **IMPORTANT**: Do not wait for CI completion to resolve review threads. After these sub-skills complete, continue the polling loop - do NOT exit.
 
-   3. **Check individual job statuses** (in priority order):
+   3. **Handle Copilot and GHAS threads**:
+      - Fetch unresolved threads once: `./scripts/agents/tooling/agentTool.ts getReviewThreads --number "$PR_NUMBER" --unresolved-only`
+      - Copilot threads: apply fixes and resolve directly; do not wait for Copilot replies.
+      - GHAS threads: inspect linked alert IDs and close out alerts with `get*/update*Alert` actions before resolving each thread.
+      - Keep `ghas_alerts_blocking_merge` current. If any linked alert is still open, continue the loop and do not treat review as complete.
+
+   4. **Check individual job statuses** (in priority order):
 
       For each job:
       - If `status="completed"` AND `conclusion="success"`:
@@ -339,7 +401,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
             - Log: "Cancelled obsolete workflow. New CI starting."
             - Break out of job loop (new workflow will start, pick it up next poll)
 
-   4. **Check overall workflow status**:
+   5. **Check overall workflow status**:
       - If ALL jobs completed AND ALL succeeded → continue to step 4f
       - If ANY jobs still running → wait (with jitter) and repeat from step 4e.1
 
@@ -420,6 +482,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    2. Store the new issue number as `deferred_fix_issue_number`
 
    **IMPORTANT**: Only create deferred fix issues for items explicitly deferred. Do NOT create issues for feedback that was addressed on-the-fly during the PR review cycle.
+   **Security close-out**: GHAS items are closed via alert state updates (not by creating/closing GitHub issues). Keep user-requested issues open for QA verification per repo policy.
 
 5. **Report success**: Confirm the PR was merged and provide a summary:
    - Show the PR URL
@@ -430,10 +493,14 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 ## Opening GitHub Issues
 
 Create issues for problems that shouldn't block the PR (flaky tests, infrastructure issues, tech debt). Use labels: `flaky-test`, `ci`, `bug`, `enhancement`. Don't let issue creation block the merge - create it and continue.
+Do not open separate issues for GHAS alerts that can be fixed or dismissed in-place via the alert APIs.
 
 ## Resolving Conversation Threads
 
-All threads must be resolved before merge, and close-out should happen continuously during CI polling rather than after CI completion. Use `/follow-up-with-gemini` after each `/address-gemini-feedback` pass to resolve confirmed threads in-loop.
+All threads must be resolved before merge, and close-out should happen continuously during CI polling rather than after CI completion.
+- Gemini threads: use `/follow-up-with-gemini` after each `/address-gemini-feedback` pass.
+- Copilot threads: resolve directly after the code change; do not wait for Copilot to reply.
+- GHAS threads: resolve only after the linked alert is no longer open (fixed/dismissed/resolved).
 
 ## Token Efficiency (CRITICAL - ENFORCE STRICTLY)
 
@@ -507,6 +574,9 @@ pnpm lint
 - Gemini confirmation detection: positive phrases ("looks good", "lgtm", etc.) WITHOUT negative qualifiers ("but", "however", "still")
 - Only resolve threads after explicit Gemini confirmation
 - If Gemini hits daily quota, run one Claude Code fallback review and treat it as sufficient for the review step
+- Copilot review comments are not conversational; use them as static feedback and resolve after addressing.
+- GHAS findings are backed by security alerts. Close out the alert state first, then resolve the PR thread.
+- GHAS alerts are not GitHub issues. Do not auto-close issues; keep the `needs-qa` labeling policy.
 - **Roll-up PRs**: PRs targeting a non-main branch wait for their base PR to merge first. Once merged, GitHub auto-retargets to main and the roll-up continues normally.
 
 ## Keeping PR Description Updated

@@ -39,6 +39,12 @@ export type ActionName =
   | 'listDependabotAlerts'
   | 'getDependabotAlert'
   | 'updateDependabotAlert'
+  | 'listCodeScanningAlerts'
+  | 'getCodeScanningAlert'
+  | 'updateCodeScanningAlert'
+  | 'listSecretScanningAlerts'
+  | 'getSecretScanningAlert'
+  | 'updateSecretScanningAlert'
   | 'runPreen'
   | 'runTerraformStackScript'
   | 'runAnsibleBootstrap'
@@ -74,7 +80,7 @@ export interface GlobalOptions {
   artifact?: string;
   dest?: string;
   branch?: string;
-  state?: 'open' | 'merged' | 'closed' | 'all';
+  state?: string;
   mode?: 'aggressive' | 'full' | 'single' | 'security' | 'audit';
   passive?: boolean;
   pollTimeout?: number;
@@ -103,13 +109,13 @@ export interface GlobalOptions {
   sort?: string;
   direction?: 'asc' | 'desc';
   perPage?: number;
-  dismissedReason?:
-    | 'fix_started'
-    | 'inaccurate'
-    | 'no_bandwidth'
-    | 'not_used'
-    | 'tolerable_risk';
+  dismissedReason?: string;
   dismissedComment?: string;
+  toolName?: string;
+  ref?: string;
+  secretType?: string;
+  resolution?: string;
+  resolutionComment?: string;
   stack?: string;
   script?: string;
   target?: string;
