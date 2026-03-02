@@ -60,7 +60,13 @@ export function WalletRuntimeProvider({
       loadMediaPreview,
       InlineUnlock
     }),
-    [isUnlocked, currentInstanceId, createTracker, loadMediaPreview, InlineUnlock]
+    [
+      isUnlocked,
+      currentInstanceId,
+      createTracker,
+      loadMediaPreview,
+      InlineUnlock
+    ]
   );
 
   return (
