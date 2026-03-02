@@ -21,6 +21,7 @@ import {
   runTimedVfsCrdtQuery,
   type VfsCrdtQueryMetrics
 } from '../../lib/vfsCrdtPerformanceMetrics.js';
+import { loadReplicaWriteIdRows } from '../../lib/vfsCrdtReplicaWriteIds.js';
 import { publishVfsContainerCursorBump } from '../../lib/vfsSyncChannels.js';
 import {
   createCrdtProtobufRawBodyParser,
@@ -28,11 +29,7 @@ import {
   sendCrdtProtobufOrJson
 } from './crdtProtobuf.js';
 import { applyCrdtPushOperations } from './crdtPushApply.js';
-import {
-  toIsoString,
-  toLastReconciledWriteIds,
-  type VfsCrdtReplicaWriteIdRow
-} from './crdtRouteHelpers.js';
+import { toIsoString, toLastReconciledWriteIds } from './crdtRouteHelpers.js';
 import {
   type ParsedPushOperation,
   parsePushPayload
@@ -239,17 +236,9 @@ const postCrdtSessionHandler = async (req: Request, res: Response) => {
     const replicaWriteIdsResult = await runTimedVfsCrdtQuery(
       'replica_write_ids',
       routeQueryMetrics,
-      () =>
-        client.query<VfsCrdtReplicaWriteIdRow>(
-          `
-      SELECT
-        replica_id,
-        max_write_id
-      FROM vfs_crdt_replica_heads
-      WHERE actor_id = $1::text
-      `,
-          [claims.sub]
-        )
+      async () => ({
+        rows: await loadReplicaWriteIdRows(client, claims.sub)
+      })
     );
 
     const pullResponse = mapVfsCrdtSyncRows(
