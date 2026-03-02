@@ -11,6 +11,7 @@ import {
   buildVfsCrdtCompactionRunMetric,
   emitVfsCrdtCompactionRunMetric
 } from '../lib/vfsCrdtCompactionMetrics.js';
+import { bumpVfsCrdtCompactionEpoch } from '../lib/vfsCrdtRedisCache.js';
 import { refreshVfsCrdtSnapshot } from '../lib/vfsCrdtSnapshots.js';
 
 interface CliOptions {
@@ -206,6 +207,14 @@ export function vfsCrdtCompactionCommand(program: Command): void {
           );
           executed = true;
           await client.query('COMMIT');
+          if (deletedRows > 0) {
+            const bumpedEpoch = await bumpVfsCrdtCompactionEpoch();
+            if (!bumpedEpoch) {
+              console.error(
+                'Failed to bump VFS CRDT compaction epoch cache key; stale oldest-cursor cache entries may persist until TTL expiry.'
+              );
+            }
+          }
         }
 
         if (!options.skipSnapshotRefresh) {

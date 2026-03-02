@@ -17,16 +17,17 @@ vi.mock('../../lib/postgres.js', () => ({
 
 const sessionStore = new Map<string, string>();
 export const mockRedisPublish: Mock = vi.fn(() => Promise.resolve(1));
+export const mockRedisDel: Mock = vi.fn((key: string) => {
+  sessionStore.delete(key);
+  return Promise.resolve(1);
+});
 const mockRedisClient = {
   get: vi.fn((key: string) => Promise.resolve(sessionStore.get(key) ?? null)),
   set: vi.fn((key: string, value: string) => {
     sessionStore.set(key, value);
     return Promise.resolve('OK');
   }),
-  del: vi.fn((key: string) => {
-    sessionStore.delete(key);
-    return Promise.resolve(1);
-  }),
+  del: mockRedisDel,
   sAdd: vi.fn(() => Promise.resolve(1)),
   sRem: vi.fn(() => Promise.resolve(1)),
   expire: vi.fn(() => Promise.resolve(1)),

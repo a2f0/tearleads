@@ -17,6 +17,11 @@ import {
   runTimedVfsCrdtQuery,
   type VfsCrdtQueryMetrics
 } from '../../lib/vfsCrdtPerformanceMetrics.js';
+import {
+  getVfsCrdtCompactionEpoch,
+  readOldestAccessibleCursorCache,
+  writeOldestAccessibleCursorCache
+} from '../../lib/vfsCrdtRedisCache.js';
 import { loadReplicaWriteIdRows } from '../../lib/vfsCrdtReplicaWriteIds.js';
 import { sendCrdtProtobufOrJson } from './crdtProtobuf.js';
 import { toLastReconciledWriteIds } from './crdtRouteHelpers.js';
@@ -202,12 +207,30 @@ const getCrdtSyncHandler = async (req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
     if (parsedQuery.value.cursor) {
-      const oldestAccessibleCursor = await loadOldestAccessibleCursor(
-        pool,
-        claims.sub,
-        parsedQuery.value.rootId,
-        queryMetrics
-      );
+      const compactionEpoch = await getVfsCrdtCompactionEpoch();
+      const cachedOldestAccessibleCursor =
+        await readOldestAccessibleCursorCache({
+          compactionEpoch,
+          userId: claims.sub,
+          rootId: parsedQuery.value.rootId
+        });
+      const oldestAccessibleCursor =
+        cachedOldestAccessibleCursor !== undefined
+          ? cachedOldestAccessibleCursor
+          : await loadOldestAccessibleCursor(
+              pool,
+              claims.sub,
+              parsedQuery.value.rootId,
+              queryMetrics
+            );
+      if (cachedOldestAccessibleCursor === undefined) {
+        await writeOldestAccessibleCursorCache({
+          compactionEpoch,
+          userId: claims.sub,
+          rootId: parsedQuery.value.rootId,
+          cursor: oldestAccessibleCursor
+        });
+      }
       if (
         oldestAccessibleCursor &&
         compareCursor(parsedQuery.value.cursor, oldestAccessibleCursor) < 0

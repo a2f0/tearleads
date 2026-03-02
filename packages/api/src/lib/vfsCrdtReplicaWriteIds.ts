@@ -1,3 +1,9 @@
+import {
+  invalidateReplicaWriteIdRowsCache,
+  type ReplicaWriteIdCacheMode,
+  readReplicaWriteIdRowsCache,
+  writeReplicaWriteIdRowsCache
+} from './vfsCrdtRedisCache.js';
 import type {
   PgQueryable,
   ReplicaWriteIdRow
@@ -26,6 +32,10 @@ function parseReplicaHeadsReadFlag(rawValue: string | undefined): boolean {
 
 export function areReplicaHeadReadsEnabled(): boolean {
   return parseReplicaHeadsReadFlag(process.env[REPLICA_HEADS_READ_FLAG]);
+}
+
+function getCacheMode(): ReplicaWriteIdCacheMode {
+  return areReplicaHeadReadsEnabled() ? 'heads' : 'legacy';
 }
 
 async function loadReplicaWriteIdsFromReplicaHeads(
@@ -81,8 +91,26 @@ export async function loadReplicaWriteIdRows(
   client: PgQueryable,
   userId: string
 ): Promise<ReplicaWriteIdRow[]> {
-  if (areReplicaHeadReadsEnabled()) {
-    return loadReplicaWriteIdsFromReplicaHeads(client, userId);
+  const mode = getCacheMode();
+  const cachedRows = await readReplicaWriteIdRowsCache({ userId, mode });
+  if (cachedRows !== undefined) {
+    return cachedRows;
   }
-  return loadReplicaWriteIdsFromLegacyOps(client, userId);
+
+  const rows =
+    mode === 'heads'
+      ? await loadReplicaWriteIdsFromReplicaHeads(client, userId)
+      : await loadReplicaWriteIdsFromLegacyOps(client, userId);
+  await writeReplicaWriteIdRowsCache({
+    userId,
+    mode,
+    rows
+  });
+  return rows;
+}
+
+export async function invalidateReplicaWriteIdRowsForUser(
+  userId: string
+): Promise<void> {
+  await invalidateReplicaWriteIdRowsCache(userId);
 }

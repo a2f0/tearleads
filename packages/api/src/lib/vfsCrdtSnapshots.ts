@@ -1,3 +1,7 @@
+import {
+  readRematerializationSnapshotCache,
+  writeRematerializationSnapshotCache
+} from './vfsCrdtRematerializationCache.js';
 import { loadReplicaWriteIdRows } from './vfsCrdtReplicaWriteIds.js';
 import {
   type ClientStateRow,
@@ -264,31 +268,58 @@ export async function loadVfsCrdtRematerializationSnapshot(
     scope?: string;
   }
 ): Promise<VfsCrdtRematerializationSnapshot | null> {
-  const snapshot = await loadPersistedSnapshot(
-    client,
-    input.scope ?? VFS_CRDT_SNAPSHOT_SCOPE
-  );
+  const scope = input.scope ?? VFS_CRDT_SNAPSHOT_SCOPE;
+  const snapshot = await loadPersistedSnapshot(client, scope);
   if (!snapshot) {
     return null;
   }
 
-  const visibleItemIds = await loadVisibleItemIds(client, input.userId);
+  const cachedFilteredSnapshot = await readRematerializationSnapshotCache({
+    scope,
+    userId: input.userId,
+    clientId: input.clientId,
+    snapshotUpdatedAt: snapshot.updatedAt
+  });
 
-  const filteredReplaySnapshot: VfsCrdtSnapshotPayload['replaySnapshot'] = {
-    acl: snapshot.payload.replaySnapshot.acl.filter((entry) =>
-      visibleItemIds.has(entry.itemId)
-    ),
-    links: snapshot.payload.replaySnapshot.links.filter((entry) =>
-      visibleItemIds.has(entry.childId)
-    ),
-    cursor: snapshot.payload.replaySnapshot.cursor
-      ? cloneCursor(snapshot.payload.replaySnapshot.cursor)
-      : null
-  };
-
-  const filteredContainerClocks = snapshot.payload.containerClocks.filter(
-    (entry) => visibleItemIds.has(entry.containerId)
-  );
+  const filteredSnapshot = cachedFilteredSnapshot
+    ? {
+        replaySnapshot: cachedFilteredSnapshot.replaySnapshot,
+        containerClocks: cachedFilteredSnapshot.containerClocks
+      }
+    : await (async (): Promise<{
+        replaySnapshot: VfsCrdtSnapshotPayload['replaySnapshot'];
+        containerClocks: VfsCrdtSnapshotPayload['containerClocks'];
+      }> => {
+        const visibleItemIds = await loadVisibleItemIds(client, input.userId);
+        const replaySnapshot: VfsCrdtSnapshotPayload['replaySnapshot'] = {
+          acl: snapshot.payload.replaySnapshot.acl.filter((entry) =>
+            visibleItemIds.has(entry.itemId)
+          ),
+          links: snapshot.payload.replaySnapshot.links.filter((entry) =>
+            visibleItemIds.has(entry.childId)
+          ),
+          cursor: snapshot.payload.replaySnapshot.cursor
+            ? cloneCursor(snapshot.payload.replaySnapshot.cursor)
+            : null
+        };
+        const containerClocks = snapshot.payload.containerClocks.filter(
+          (entry) => visibleItemIds.has(entry.containerId)
+        );
+        await writeRematerializationSnapshotCache({
+          scope,
+          userId: input.userId,
+          clientId: input.clientId,
+          snapshotUpdatedAt: snapshot.updatedAt,
+          snapshot: {
+            replaySnapshot,
+            containerClocks
+          }
+        });
+        return {
+          replaySnapshot,
+          containerClocks
+        };
+      })();
 
   const clientReconcileState = await loadClientReconcileState(
     client,
@@ -297,12 +328,12 @@ export async function loadVfsCrdtRematerializationSnapshot(
   );
 
   const reconcileCursor = pickNewerCursor(
-    filteredReplaySnapshot.cursor,
+    filteredSnapshot.replaySnapshot.cursor,
     clientReconcileState.cursor
   );
 
   return {
-    replaySnapshot: filteredReplaySnapshot,
+    replaySnapshot: filteredSnapshot.replaySnapshot,
     reconcileState: reconcileCursor
       ? {
           cursor: reconcileCursor,
@@ -311,7 +342,7 @@ export async function loadVfsCrdtRematerializationSnapshot(
           )
         }
       : null,
-    containerClocks: filteredContainerClocks.map((entry) => ({
+    containerClocks: filteredSnapshot.containerClocks.map((entry) => ({
       containerId: entry.containerId,
       changedAt: entry.changedAt,
       changeId: entry.changeId

@@ -21,7 +21,10 @@ import {
   runTimedVfsCrdtQuery,
   type VfsCrdtQueryMetrics
 } from '../../lib/vfsCrdtPerformanceMetrics.js';
-import { loadReplicaWriteIdRows } from '../../lib/vfsCrdtReplicaWriteIds.js';
+import {
+  invalidateReplicaWriteIdRowsForUser,
+  loadReplicaWriteIdRows
+} from '../../lib/vfsCrdtReplicaWriteIds.js';
 import { publishVfsContainerCursorBump } from '../../lib/vfsSyncChannels.js';
 import {
   createCrdtProtobufRawBodyParser,
@@ -317,6 +320,7 @@ const postCrdtSessionHandler = async (req: Request, res: Response) => {
       client.query('COMMIT')
     );
     inTransaction = false;
+    await invalidateReplicaWriteIdRowsForUser(claims.sub);
 
     for (const notification of pushResult.notifications) {
       try {

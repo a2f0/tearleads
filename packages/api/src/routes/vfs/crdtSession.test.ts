@@ -10,6 +10,7 @@ import { mockConsoleError } from '../../test/consoleMocks.js';
 import {
   mockClientRelease,
   mockQuery,
+  mockRedisDel,
   setupCrdtPushRouteTestEnv,
   teardownCrdtPushRouteTestEnv
 } from './crdtPushTestSupport.js';
@@ -199,6 +200,12 @@ describe('VFS CRDT sync session route', { timeout: 15_000 }, () => {
       clientId: 'desktop',
       results: []
     });
+    expect(mockRedisDel).toHaveBeenCalledWith(
+      'vfs:crdt:replicaWriteIds:heads:user-1'
+    );
+    expect(mockRedisDel).toHaveBeenCalledWith(
+      'vfs:crdt:replicaWriteIds:legacy:user-1'
+    );
     expect(response.body.reconcile).toEqual({
       clientId: 'desktop',
       cursor,
