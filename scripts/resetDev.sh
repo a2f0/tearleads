@@ -17,4 +17,8 @@ echo "=== Resetting Redis ==="
 "$SCRIPT_DIR/redis/reset.sh"
 
 echo ""
-echo "Full reset complete."
+echo "=== Scaffolding test data ==="
+"$SCRIPT_DIR/users/scaffolding/createBobNotesSharedWithAlice.ts"
+
+echo ""
+echo "Full dev reset complete."
