@@ -18,7 +18,7 @@ const config: KnipConfig = {
     'unlisted',
     'unresolved'
   ],
-  ignoreBinaries: ['ansible-lint', 'buf', 'shellcheck', 'playwright'],
+  ignoreBinaries: ['ansible-lint', 'shellcheck', 'playwright'],
   ignoreIssues: {},
   workspaces: {
     '.': {
@@ -32,8 +32,6 @@ const config: KnipConfig = {
         'scripts/tooling/scriptTool.ts'
       ],
       ignoreDependencies: [
-        // Buf CLI used by protoLint, protoGenerate, protoBreaking scripts.
-        '@bufbuild/buf',
         // Invoked via scripts/checks/checkDependencyCruiser.sh.
         'dependency-cruiser',
         // Buf codegen plugins executed by `pnpm protoGenerate`.

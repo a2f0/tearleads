@@ -95,15 +95,15 @@ const DEPENDENCY_CRUISER_RULE_BUDGET: Record<string, RuleExceptionBudget> = {
 const KNIP_BUDGET: KnipSuppressionTotals = {
   ignoreIssueFiles: 0,
   ignoreIssueEntries: 0,
-  ignoreBinaries: 4,
+  ignoreBinaries: 3,
   workspaceIgnoreDependencyGroups: 4,
-  workspaceIgnoreDependencyEntries: 11
+  workspaceIgnoreDependencyEntries: 10
 };
 
 const KNIP_IGNORE_ISSUE_FILE_BUDGET: Record<string, number> = {};
 
 const KNIP_WORKSPACE_IGNORE_DEPENDENCY_BUDGET: Record<string, number> = {
-  '.': 4,
+  '.': 3,
   'packages/client': 5,
   'packages/shared': 1,
   'packages/website': 1
