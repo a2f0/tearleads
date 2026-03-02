@@ -6,6 +6,7 @@ import { upsertBlobUploadChunk } from './blobUploadSessions.js';
 interface BlobStagingRow {
   staged_by: string | null;
   status: string;
+  expires_at: string | null;
 }
 
 const postBlobsStageStagingIdChunksHandler = async (
@@ -35,6 +36,7 @@ const postBlobsStageStagingIdChunksHandler = async (
     `
     SELECT
       stage_registry.owner_id AS staged_by,
+      stage_link.visible_children::jsonb->>'expiresAt' AS expires_at,
       CASE stage_link.wrapped_session_key
         WHEN 'blob-stage:staged' THEN 'staged'
         WHEN 'blob-stage:attached' THEN 'attached'
@@ -69,6 +71,7 @@ const postBlobsStageStagingIdChunksHandler = async (
   await upsertBlobUploadChunk({
     stagingId,
     uploadId: payload.uploadId,
+    expiresAt: stagedRow.expires_at,
     chunk: {
       chunkIndex: payload.chunkIndex,
       isFinal: payload.isFinal,

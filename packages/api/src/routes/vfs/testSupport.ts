@@ -15,19 +15,50 @@ vi.mock('../../lib/postgres.js', () => ({
   getPool: () => mockGetPostgresPool()
 }));
 
-const sessionStore = new Map<string, string>();
+type RedisValue = string | Set<string>;
+const sessionStore = new Map<string, RedisValue>();
 const mockRedisClient = {
-  get: vi.fn((key: string) => Promise.resolve(sessionStore.get(key) ?? null)),
+  get: vi.fn((key: string) => {
+    const value = sessionStore.get(key);
+    return Promise.resolve(typeof value === 'string' ? value : null);
+  }),
   set: vi.fn((key: string, value: string) => {
     sessionStore.set(key, value);
     return Promise.resolve('OK');
   }),
   del: vi.fn((key: string) => {
-    sessionStore.delete(key);
-    return Promise.resolve(1);
+    const existed = sessionStore.delete(key);
+    return Promise.resolve(existed ? 1 : 0);
   }),
-  sAdd: vi.fn(() => Promise.resolve(1)),
-  sRem: vi.fn(() => Promise.resolve(1)),
+  sAdd: vi.fn((key: string, members: string | string[]) => {
+    const existing = sessionStore.get(key);
+    const set = existing instanceof Set ? existing : new Set<string>();
+    const sizeBefore = set.size;
+    const values = Array.isArray(members) ? members : [members];
+    for (const value of values) {
+      set.add(value);
+    }
+    sessionStore.set(key, set);
+    return Promise.resolve(set.size - sizeBefore);
+  }),
+  sRem: vi.fn((key: string, member: string) => {
+    const existing = sessionStore.get(key);
+    if (!(existing instanceof Set)) {
+      return Promise.resolve(0);
+    }
+    const deleted = existing.delete(member);
+    if (existing.size === 0) {
+      sessionStore.delete(key);
+    }
+    return Promise.resolve(deleted ? 1 : 0);
+  }),
+  sMembers: vi.fn((key: string) => {
+    const existing = sessionStore.get(key);
+    if (!(existing instanceof Set)) {
+      return Promise.resolve([]);
+    }
+    return Promise.resolve(Array.from(existing));
+  }),
   expire: vi.fn(() => Promise.resolve(1))
 };
 
