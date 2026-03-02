@@ -211,9 +211,6 @@ async function importContacts(page: Page, csvContent: string) {
 }
 
 test.describe('Contacts page', () => {
-  // Timeout for waiting for contacts list to refresh after import
-  const CONTACT_REFRESH_TIMEOUT = 5000;
-
   test.beforeEach(async ({ page }) => {
     await clearOriginStorage(page);
     await page.goto('/');
