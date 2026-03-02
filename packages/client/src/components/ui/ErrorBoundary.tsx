@@ -18,7 +18,7 @@ interface ErrorBoundaryHandle {
 export const errorBoundaryRef: RefObject<ErrorBoundaryHandle | null> =
   createRef();
 
-export class ErrorBoundary extends Component<Props, State> {
+class ErrorBoundaryRoot extends Component<Props, State> {
   private readonly handle: ErrorBoundaryHandle;
 
   constructor(props: Props) {
@@ -79,3 +79,6 @@ export class ErrorBoundary extends Component<Props, State> {
     );
   }
 }
+
+export type ErrorBoundary = ErrorBoundaryRoot;
+export const ErrorBoundary = ErrorBoundaryRoot;

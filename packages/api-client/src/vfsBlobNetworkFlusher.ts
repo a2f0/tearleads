@@ -65,7 +65,7 @@ export type {
   VfsBlobStageRequest
 } from './vfsBlobNetworkFlusherTypes';
 
-export class VfsBlobNetworkFlusher {
+class VfsBlobNetworkFlusherImpl {
   private readonly baseUrl: string;
   private readonly apiPrefix: string;
   private readonly headers: Record<string, string>;
@@ -473,3 +473,6 @@ export class VfsBlobNetworkFlusher {
     }
   }
 }
+
+export type VfsBlobNetworkFlusher = VfsBlobNetworkFlusherImpl;
+export const VfsBlobNetworkFlusher = VfsBlobNetworkFlusherImpl;

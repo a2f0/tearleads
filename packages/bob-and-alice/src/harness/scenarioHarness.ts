@@ -65,10 +65,6 @@ export class ScenarioHarness {
     return found;
   }
 
-  actors(): ActorHarness[] {
-    return [...this.actorMap.values()];
-  }
-
   nextTimestamp(): string {
     return this.nowFactory.next().toISOString();
   }

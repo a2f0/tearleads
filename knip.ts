@@ -19,34 +19,7 @@ const config: KnipConfig = {
     'unresolved'
   ],
   ignoreBinaries: ['ansible-lint', 'shellcheck', 'playwright'],
-  ignoreIssues: {
-    // Class members are part of exported runtime/test harness APIs.
-    'packages/api-client/src/apiRoutes/vfsRoutes.ts': ['types'],
-    'packages/api-client/src/vfsBlobNetworkFlusher.ts': ['classMembers'],
-    'packages/api-client/src/vfsNetworkFlusher.ts': ['classMembers'],
-    'packages/api-client/src/vfsWriteOrchestrator.ts': ['classMembers'],
-    'packages/api/src/lib/vfsSyncChannels.ts': ['exports', 'types'],
-    'packages/bob-and-alice/src/harness/actorHarness.ts': ['classMembers'],
-    'packages/bob-and-alice/src/harness/apiScenarioHarness.ts': [
-      'classMembers'
-    ],
-    'packages/bob-and-alice/src/harness/scenarioHarness.ts': ['classMembers'],
-    'packages/bob-and-alice/src/harness/serverHarness.ts': ['classMembers'],
-    'packages/bob-and-alice/src/qa/vfsSecureUploadQaSuite.ts': ['types'],
-    'packages/client/src/components/ui/ErrorBoundary.tsx': ['classMembers'],
-    'packages/client/src/db/adapters/web.adapter.ts': ['classMembers'],
-    'packages/mls-core/src/mls.ts': ['classMembers'],
-    'packages/mls-core/src/storage.ts': ['classMembers'],
-    'packages/vfs-explorer/src/hooks/useVfsAllItems.ts': ['types'],
-    'packages/vfs-sync/src/vfs/access/sync-access-harness.ts': [
-      'classMembers'
-    ],
-    'packages/vfs-sync/src/vfs/blob/sync-blob-commit.ts': ['classMembers'],
-    'packages/vfs-sync/src/vfs/blob/sync-blob-isolation.ts': ['classMembers'],
-    'packages/vfs-sync/src/vfs/client/sync-client-utils.ts': ['classMembers'],
-    'packages/vfs-sync/src/vfs/client/sync-client.ts': ['classMembers'],
-    'packages/vfs-sync/src/vfs/protocol/sync-crdt-types.ts': ['classMembers']
-  },
+  ignoreIssues: {},
   workspaces: {
     '.': {
       entry: [
@@ -74,6 +47,9 @@ const config: KnipConfig = {
     },
     'packages/api-test-utils': {
       entry: ['src/**/*.test.ts']
+    },
+    'packages/bob-and-alice': {
+      entry: ['src/scenarios/**/*.test.ts', 'src/qa/**/*.test.ts']
     },
     'packages/db-test-utils': {
       entry: ['src/**/*.test.ts', 'src/**/*.test.tsx']
@@ -106,6 +82,9 @@ const config: KnipConfig = {
         // Runtime dependency of generated protobuf modules under src/gen.
         '@bufbuild/protobuf'
       ]
+    },
+    'packages/vfs-sync': {
+      entry: ['src/**/*.test.ts']
     },
     'packages/website': {
       ignoreDependencies: [

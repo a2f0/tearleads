@@ -49,7 +49,7 @@ interface GroupState {
   serialized: Uint8Array;
 }
 
-export class MlsClient {
+class MlsClientImpl {
   private storage: MlsStorage;
   private groupStates: Map<string, GroupState> = new Map();
   private credential: MlsCredential | null = null;
@@ -448,3 +448,6 @@ export class MlsClient {
     this.credential = null;
   }
 }
+
+export type MlsClient = MlsClientImpl;
+export const MlsClient = MlsClientImpl;

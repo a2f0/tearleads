@@ -91,21 +91,11 @@ export class MlsStorage {
     await db.put('credentials', credential);
   }
 
-  async deleteCredential(userId: string): Promise<void> {
-    const db = await this.getDb();
-    await db.delete('credentials', userId);
-  }
-
   // Key package operations
 
   async getKeyPackage(ref: string): Promise<LocalKeyPackage | undefined> {
     const db = await this.getDb();
     return db.get('keyPackages', ref);
-  }
-
-  async getAllKeyPackages(): Promise<LocalKeyPackage[]> {
-    const db = await this.getDb();
-    return db.getAllFromIndex('keyPackages', 'byCreatedAt');
   }
 
   async saveKeyPackage(keyPackage: LocalKeyPackage): Promise<void> {
@@ -118,17 +108,7 @@ export class MlsStorage {
     await db.delete('keyPackages', ref);
   }
 
-  async clearKeyPackages(): Promise<void> {
-    const db = await this.getDb();
-    await db.clear('keyPackages');
-  }
-
   // Group state operations
-
-  async getGroupState(groupId: string): Promise<LocalMlsState | undefined> {
-    const db = await this.getDb();
-    return db.get('groupStates', groupId);
-  }
 
   async getAllGroupStates(): Promise<LocalMlsState[]> {
     const db = await this.getDb();
@@ -143,22 +123,6 @@ export class MlsStorage {
   async deleteGroupState(groupId: string): Promise<void> {
     const db = await this.getDb();
     await db.delete('groupStates', groupId);
-  }
-
-  async clearGroupStates(): Promise<void> {
-    const db = await this.getDb();
-    await db.clear('groupStates');
-  }
-
-  // Clear all data
-
-  async clearAll(): Promise<void> {
-    const db = await this.getDb();
-    await Promise.all([
-      db.clear('credentials'),
-      db.clear('keyPackages'),
-      db.clear('groupStates')
-    ]);
   }
 
   // Close connection

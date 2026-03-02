@@ -1,8 +1,5 @@
 import type { VfsCrdtSyncItem } from '../protocol/sync-crdt-feed.js';
-import {
-  InMemoryVfsCrdtFeedReplayStore,
-  type VfsCrdtFeedReplaySnapshot
-} from '../protocol/sync-crdt-feed-replay.js';
+import { InMemoryVfsCrdtFeedReplayStore } from '../protocol/sync-crdt-feed-replay.js';
 import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
 import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
 import {
@@ -53,10 +50,6 @@ export class InMemoryVfsAccessHarness {
 
   applyCrdtPage(items: VfsCrdtSyncItem[]): void {
     this.crdtReplayStore.applyPage(items);
-  }
-
-  getCrdtSnapshot(): VfsCrdtFeedReplaySnapshot {
-    return this.crdtReplayStore.snapshot();
   }
 
   replaceMembershipSnapshot(

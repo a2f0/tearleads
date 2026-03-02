@@ -9,22 +9,22 @@ export type Check = {
   args: string[];
 };
 
-export type CheckStatus = 'pass' | 'fail' | 'skipped';
+type CheckStatus = 'pass' | 'fail' | 'skipped';
 
-export type CheckResult = {
+type CheckResult = {
   check: Check;
   status: CheckStatus;
   durationMs: number;
 };
 
-export interface CliOptions {
+interface CliOptions {
   dryRun: boolean;
   continueOnFailure: boolean;
   reportJsonPath: string | null;
   reportMarkdownPath: string | null;
 }
 
-export interface QaSuiteReport {
+interface QaSuiteReport {
   command: string;
   candidateSha: string;
   startedAt: string;
@@ -267,7 +267,7 @@ export function writeReportFile(pathValue: string, content: string): void {
   writeFileSync(absolute, content, 'utf8');
 }
 
-export type CheckExecutor = (check: Check) => Promise<CheckResult>;
+type CheckExecutor = (check: Check) => Promise<CheckResult>;
 
 async function runCheck(check: Check): Promise<CheckResult> {
   const start = Date.now();
@@ -288,7 +288,7 @@ async function runCheck(check: Check): Promise<CheckResult> {
   };
 }
 
-export interface RunQaSuiteResult {
+interface RunQaSuiteResult {
   report: QaSuiteReport;
   results: CheckResult[];
 }

@@ -68,9 +68,6 @@ export type VfsCrdtOrderViolationCode =
   | 'nonMonotonicReplicaWriteId';
 
 export class VfsCrdtOrderViolationError extends Error {
-  readonly code: VfsCrdtOrderViolationCode;
-  readonly operationIndex: number;
-
   constructor(
     code: VfsCrdtOrderViolationCode,
     operationIndex: number,
@@ -78,7 +75,19 @@ export class VfsCrdtOrderViolationError extends Error {
   ) {
     super(message);
     this.name = 'VfsCrdtOrderViolationError';
-    this.code = code;
-    this.operationIndex = operationIndex;
+    Object.defineProperties(this, {
+      code: {
+        value: code,
+        enumerable: true,
+        configurable: false,
+        writable: false
+      },
+      operationIndex: {
+        value: operationIndex,
+        enumerable: true,
+        configurable: false,
+        writable: false
+      }
+    });
   }
 }

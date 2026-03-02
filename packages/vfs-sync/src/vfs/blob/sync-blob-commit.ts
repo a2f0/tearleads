@@ -339,13 +339,4 @@ export class InMemoryVfsBlobCommitStore {
 
     return cloneRecord(record);
   }
-
-  snapshot(): VfsBlobStageRecord[] {
-    const values = Array.from(this.records.values()).map((record) =>
-      cloneRecord(record)
-    );
-
-    values.sort((left, right) => left.stagingId.localeCompare(right.stagingId));
-    return values;
-  }
 }

@@ -24,7 +24,6 @@
   },
   "dependencies": {
     "@tearleads/api-test-utils": "workspace:*",
-    "@tearleads/db": "workspace:*",
     "@tearleads/db-test-utils": "workspace:*",
     "@tearleads/local-write-orchestrator": "workspace:*",
     "@tearleads/shared": "workspace:*",

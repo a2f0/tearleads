@@ -82,7 +82,7 @@ export interface VfsWriteOrchestratorFlushResult {
   blob: VfsBlobNetworkFlusherFlushResult;
 }
 
-export class VfsWriteOrchestrator {
+class VfsWriteOrchestratorImpl {
   readonly crdt: VfsApiNetworkFlusher;
   readonly blob: VfsBlobNetworkFlusher;
   private readonly saveStateCallback: PersistStateCallback | null;
@@ -299,6 +299,9 @@ export class VfsWriteOrchestrator {
     );
   }
 }
+
+export type VfsWriteOrchestrator = VfsWriteOrchestratorImpl;
+export const VfsWriteOrchestrator = VfsWriteOrchestratorImpl;
 
 export interface LocalWriteQueue {
   enqueue<T>(
