@@ -1,5 +1,11 @@
 import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
-import { getRecordedApiRequests, wasApiRequestMade } from '@tearleads/msw/node';
+import {
+  getRecordedApiRequests,
+  HttpResponse,
+  http,
+  server,
+  wasApiRequestMade
+} from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_TOKEN_KEY } from '@/lib/authStorage';
 import { getSharedTestContext } from '@/test/testContext';
@@ -43,6 +49,23 @@ const expectSingleRequestQuery = (
   expect(getRequestQuery(request)).toEqual(expectedQuery);
 };
 
+const AI_CONNECT_RECORD_USAGE_PATH =
+  '/connect/tearleads.v1.AiService/RecordUsage';
+const AI_CONNECT_USAGE_PATH = '/connect/tearleads.v1.AiService/GetUsage';
+const AI_CONNECT_USAGE_SUMMARY_PATH =
+  '/connect/tearleads.v1.AiService/GetUsageSummary';
+const CONNECT_BASE_URL = 'http://localhost';
+const DEFAULT_USAGE_SUMMARY = {
+  totalPromptTokens: 0,
+  totalCompletionTokens: 0,
+  totalTokens: 0,
+  requestCount: 0,
+  periodStart: '2024-01-01T00:00:00.000Z',
+  periodEnd: '2024-01-01T00:00:00.000Z'
+};
+
+const toConnectUrl = (path: string): string => `${CONNECT_BASE_URL}${path}`;
+
 let seededUser: SeededUser;
 
 describe('api with msw', () => {
@@ -63,6 +86,9 @@ describe('api with msw', () => {
 
   it('routes vfs and ai requests through msw', async () => {
     const ctx = getSharedTestContext();
+    let recordUsageRequestBody: unknown;
+    let getUsageRequestBody: unknown;
+    let getUsageSummaryRequestBody: unknown;
 
     // Create second user in a shared org for share operations
     const secondUser = await seedTestUser(ctx);
@@ -87,6 +113,44 @@ describe('api with msw', () => {
     );
 
     const api = await loadApi();
+
+    server.use(
+      http.post(
+        toConnectUrl(AI_CONNECT_RECORD_USAGE_PATH),
+        async ({ request }) => {
+          recordUsageRequestBody = await request.json();
+          return HttpResponse.json({
+            usage: {
+              id: 'usage-1',
+              userId: seededUser.userId,
+              modelId: 'mistralai/mistral-7b-instruct',
+              promptTokens: 10,
+              completionTokens: 5,
+              totalTokens: 15,
+              createdAt: '2024-01-01T00:00:00.000Z'
+            }
+          });
+        }
+      ),
+      http.post(toConnectUrl(AI_CONNECT_USAGE_PATH), async ({ request }) => {
+        getUsageRequestBody = await request.json();
+        return HttpResponse.json({
+          usage: [],
+          summary: DEFAULT_USAGE_SUMMARY,
+          hasMore: false
+        });
+      }),
+      http.post(
+        toConnectUrl(AI_CONNECT_USAGE_SUMMARY_PATH),
+        async ({ request }) => {
+          getUsageSummaryRequestBody = await request.json();
+          return HttpResponse.json({
+            summary: DEFAULT_USAGE_SUMMARY,
+            byModel: {}
+          });
+        }
+      )
+    );
 
     // Setup keys first (real API returns 404 if keys don't exist)
     await api.vfs.setupKeys({
@@ -213,9 +277,25 @@ describe('api with msw', () => {
     expect(wasApiRequestMade('GET', '/vfs/share-targets/search')).toBe(true);
     expect(wasApiRequestMade('GET', '/vfs/share-policies/preview')).toBe(true);
 
-    expect(wasApiRequestMade('POST', '/ai/usage')).toBe(true);
-    expect(wasApiRequestMade('GET', '/ai/usage')).toBe(true);
-    expect(wasApiRequestMade('GET', '/ai/usage/summary')).toBe(true);
+    expect(wasApiRequestMade('POST', AI_CONNECT_RECORD_USAGE_PATH)).toBe(true);
+    expect(wasApiRequestMade('POST', AI_CONNECT_USAGE_PATH)).toBe(true);
+    expect(wasApiRequestMade('POST', AI_CONNECT_USAGE_SUMMARY_PATH)).toBe(true);
+    expect(recordUsageRequestBody).toEqual({
+      modelId: 'mistralai/mistral-7b-instruct',
+      promptTokens: 10,
+      completionTokens: 5,
+      totalTokens: 15
+    });
+    expect(getUsageRequestBody).toEqual({
+      startDate: '2024-01-01',
+      endDate: '2024-01-31',
+      cursor: '2025-01-01T00:00:00.000Z',
+      limit: 10
+    });
+    expect(getUsageSummaryRequestBody).toEqual({
+      startDate: '2024-01-01',
+      endDate: '2024-01-31'
+    });
 
     expectSingleRequestQuery('GET', '/vfs/share-targets/search', {
       q: 'test query',
@@ -242,16 +322,34 @@ describe('api with msw', () => {
         principalId: secondUser.userId
       }
     ]);
-    expectSingleRequestQuery('GET', '/ai/usage', {
-      startDate: '2024-01-01',
-      endDate: '2024-01-31',
-      cursor: '2025-01-01T00:00:00.000Z',
-      limit: '10'
-    });
+    expectSingleRequestQuery('POST', AI_CONNECT_USAGE_PATH, {});
   });
 
   it('builds query-string variants through msw request metadata', async () => {
     const api = await loadApi();
+    const getUsageRequestBodies: unknown[] = [];
+    const getUsageSummaryRequestBodies: unknown[] = [];
+
+    server.use(
+      http.post(toConnectUrl(AI_CONNECT_USAGE_PATH), async ({ request }) => {
+        getUsageRequestBodies.push(await request.json());
+        return HttpResponse.json({
+          usage: [],
+          summary: DEFAULT_USAGE_SUMMARY,
+          hasMore: false
+        });
+      }),
+      http.post(
+        toConnectUrl(AI_CONNECT_USAGE_SUMMARY_PATH),
+        async ({ request }) => {
+          getUsageSummaryRequestBodies.push(await request.json());
+          return HttpResponse.json({
+            summary: DEFAULT_USAGE_SUMMARY,
+            byModel: {}
+          });
+        }
+      )
+    );
 
     await api.admin.postgres.getRows('public', 'users', {
       limit: 10,
@@ -295,31 +393,32 @@ describe('api with msw', () => {
       ])
     );
 
-    const aiUsageRequests = getRequestsFor('GET', '/ai/usage');
+    const aiUsageRequests = getRequestsFor('POST', AI_CONNECT_USAGE_PATH);
     expect(aiUsageRequests).toHaveLength(2);
-    expect(aiUsageRequests.map(getRequestQuery)).toEqual(
-      expect.arrayContaining([
-        {
-          startDate: '2024-01-01',
-          endDate: '2024-01-31',
-          cursor: '2025-01-01T00:00:00.000Z',
-          limit: '25'
-        },
-        {}
-      ])
-    );
+    expect(aiUsageRequests.map(getRequestQuery)).toEqual([{}, {}]);
 
-    const aiUsageSummaryRequests = getRequestsFor('GET', '/ai/usage/summary');
-    expect(aiUsageSummaryRequests).toHaveLength(2);
-    expect(aiUsageSummaryRequests.map(getRequestQuery)).toEqual(
-      expect.arrayContaining([
-        {
-          startDate: '2024-01-01',
-          endDate: '2024-01-31'
-        },
-        {}
-      ])
+    const aiUsageSummaryRequests = getRequestsFor(
+      'POST',
+      AI_CONNECT_USAGE_SUMMARY_PATH
     );
+    expect(aiUsageSummaryRequests).toHaveLength(2);
+    expect(aiUsageSummaryRequests.map(getRequestQuery)).toEqual([{}, {}]);
+    expect(getUsageRequestBodies).toEqual([
+      {
+        startDate: '2024-01-01',
+        endDate: '2024-01-31',
+        cursor: '2025-01-01T00:00:00.000Z',
+        limit: 25
+      },
+      {}
+    ]);
+    expect(getUsageSummaryRequestBodies).toEqual([
+      {
+        startDate: '2024-01-01',
+        endDate: '2024-01-31'
+      },
+      {}
+    ]);
 
     const redisKeysRequests = getRequestsFor('GET', '/admin/redis/keys');
     expect(redisKeysRequests).toHaveLength(2);

@@ -2,6 +2,13 @@ import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { getRecordedApiRequests, wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_TOKEN_KEY } from './authStorage';
+import {
+  AI_CONNECT_RECORD_USAGE_PATH,
+  AI_CONNECT_USAGE_PATH,
+  AI_CONNECT_USAGE_SUMMARY_PATH,
+  installAiUsageConnectSeriesCapture,
+  installAiUsageConnectSingleCapture
+} from './test/aiConnectTestUtils';
 import { getSharedTestContext } from './test/testContext';
 
 const mockLogApiEvent = vi.fn();
@@ -220,6 +227,7 @@ describe('api with msw', () => {
 
   it('routes ai usage requests through msw', async () => {
     const api = await loadApi();
+    const capture = installAiUsageConnectSingleCapture(seededUser.userId);
 
     await api.ai.recordUsage({
       modelId: 'mistralai/mistral-7b-instruct',
@@ -238,15 +246,25 @@ describe('api with msw', () => {
       endDate: '2024-01-31'
     });
 
-    expect(wasApiRequestMade('POST', '/ai/usage')).toBe(true);
-    expect(wasApiRequestMade('GET', '/ai/usage')).toBe(true);
-    expect(wasApiRequestMade('GET', '/ai/usage/summary')).toBe(true);
-
-    expectSingleRequestQuery('GET', '/ai/usage', {
+    expect(wasApiRequestMade('POST', AI_CONNECT_RECORD_USAGE_PATH)).toBe(true);
+    expect(wasApiRequestMade('POST', AI_CONNECT_USAGE_PATH)).toBe(true);
+    expect(wasApiRequestMade('POST', AI_CONNECT_USAGE_SUMMARY_PATH)).toBe(true);
+    expectSingleRequestQuery('POST', AI_CONNECT_USAGE_PATH, {});
+    expect(capture.recordUsageRequestBody).toEqual({
+      modelId: 'mistralai/mistral-7b-instruct',
+      promptTokens: 10,
+      completionTokens: 5,
+      totalTokens: 15
+    });
+    expect(capture.getUsageRequestBody).toEqual({
       startDate: '2024-01-01',
       endDate: '2024-01-31',
       cursor: '2025-01-01T00:00:00.000Z',
-      limit: '10'
+      limit: 10
+    });
+    expect(capture.getUsageSummaryRequestBody).toEqual({
+      startDate: '2024-01-01',
+      endDate: '2024-01-31'
     });
   });
 
@@ -397,6 +415,7 @@ describe('api with msw', () => {
 
   it('builds query-string variants through msw request metadata', async () => {
     const api = await loadApi();
+    const capture = installAiUsageConnectSeriesCapture();
 
     await api.admin.postgres.getRows('public', 'users', {
       limit: 10,
@@ -440,31 +459,32 @@ describe('api with msw', () => {
       ])
     );
 
-    const aiUsageRequests = getRequestsFor('GET', '/ai/usage');
+    const aiUsageRequests = getRequestsFor('POST', AI_CONNECT_USAGE_PATH);
     expect(aiUsageRequests).toHaveLength(2);
-    expect(aiUsageRequests.map(getRequestQuery)).toEqual(
-      expect.arrayContaining([
-        {
-          startDate: '2024-01-01',
-          endDate: '2024-01-31',
-          cursor: '2025-01-01T00:00:00.000Z',
-          limit: '25'
-        },
-        {}
-      ])
-    );
+    expect(aiUsageRequests.map(getRequestQuery)).toEqual([{}, {}]);
 
-    const aiUsageSummaryRequests = getRequestsFor('GET', '/ai/usage/summary');
-    expect(aiUsageSummaryRequests).toHaveLength(2);
-    expect(aiUsageSummaryRequests.map(getRequestQuery)).toEqual(
-      expect.arrayContaining([
-        {
-          startDate: '2024-01-01',
-          endDate: '2024-01-31'
-        },
-        {}
-      ])
+    const aiUsageSummaryRequests = getRequestsFor(
+      'POST',
+      AI_CONNECT_USAGE_SUMMARY_PATH
     );
+    expect(aiUsageSummaryRequests).toHaveLength(2);
+    expect(aiUsageSummaryRequests.map(getRequestQuery)).toEqual([{}, {}]);
+    expect(capture.getUsageRequestBodies).toEqual([
+      {
+        startDate: '2024-01-01',
+        endDate: '2024-01-31',
+        cursor: '2025-01-01T00:00:00.000Z',
+        limit: 25
+      },
+      {}
+    ]);
+    expect(capture.getUsageSummaryRequestBodies).toEqual([
+      {
+        startDate: '2024-01-01',
+        endDate: '2024-01-31'
+      },
+      {}
+    ]);
 
     const redisKeysRequests = getRequestsFor('GET', '/admin/redis/keys');
     expect(redisKeysRequests).toHaveLength(2);

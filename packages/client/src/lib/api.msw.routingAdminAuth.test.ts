@@ -149,7 +149,12 @@ describe('api with msw', () => {
     expect(wasApiRequestMade('POST', '/v1/auth/login')).toBe(true);
     expect(wasApiRequestMade('GET', '/v1/admin/redis/dbsize')).toBe(true);
     expect(wasApiRequestMade('GET', '/v1/vfs/keys/me')).toBe(true);
-    expect(wasApiRequestMade('GET', '/v1/ai/usage/summary')).toBe(true);
+    expect(
+      wasApiRequestMade(
+        'POST',
+        '/v1/connect/tearleads.v1.AiService/GetUsageSummary'
+      )
+    ).toBe(true);
   });
 
   it('retries auth requests after refresh and records request order', async () => {
