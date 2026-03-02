@@ -18,6 +18,10 @@
       "types": "./src/authStorage.ts",
       "import": "./src/authStorage.ts"
     },
+    "./notificationStream": {
+      "types": "./src/notificationStreamEntry.ts",
+      "import": "./src/notificationStreamEntry.ts"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -30,6 +34,8 @@
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "dependencies": {
+    "@connectrpc/connect": "1.7.0",
+    "@connectrpc/connect-web": "1.7.0",
     "@tearleads/local-write-orchestrator": "workspace:*",
     "@tearleads/shared": "workspace:*",
     "@tearleads/vfs-sync": "workspace:*"

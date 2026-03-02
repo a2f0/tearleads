@@ -1,3 +1,4 @@
+export { openNotificationEventStream } from './notificationStream';
 export {
   createVfsSecurePipelineBundle,
   rotateItemKeyEpochAndPersist,

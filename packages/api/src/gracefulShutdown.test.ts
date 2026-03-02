@@ -16,20 +16,11 @@ vi.mock('./lib/postgres.js', () => ({
   closePostgresPool: vi.fn().mockResolvedValue(undefined)
 }));
 
-vi.mock('./routes/sse/router.js', async () => {
-  const { Router } = await import('express');
-  return {
-    closeAllSSEConnections: vi.fn(),
-    sseRouter: Router()
-  };
-});
-
 // Import after mocking
 const { gracefulShutdown, resetShutdownState } = await import('./index.js');
 const { closeRedisClient } = await import('@tearleads/shared/redis');
 const { closeRedisSubscriberClient } = await import('./lib/redisPubSub.js');
 const { closePostgresPool } = await import('./lib/postgres.js');
-const { closeAllSSEConnections } = await import('./routes/sse/router.js');
 
 describe('gracefulShutdown', () => {
   let mockServer: Server;
@@ -71,12 +62,6 @@ describe('gracefulShutdown', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith(
       '\nSIGTERM received, starting graceful shutdown...'
     );
-  });
-
-  it('closes all SSE connections', async () => {
-    await gracefulShutdown(mockServer, 'SIGTERM');
-
-    expect(closeAllSSEConnections).toHaveBeenCalled();
   });
 
   it('closes the HTTP server', async () => {
