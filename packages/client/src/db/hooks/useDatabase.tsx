@@ -167,8 +167,8 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
         await touchInstance(currentInstanceId);
         return true;
       }
-          setHasPersisted(false);
-          return false;
+      setHasPersisted(false);
+      return false;
     } catch (err) {
       setError(toError(err));
       setHasPersisted(false);

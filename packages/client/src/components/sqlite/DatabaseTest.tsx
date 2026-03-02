@@ -6,6 +6,7 @@
 
 import type { ChangeEvent, FormEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useOptionalAuth } from '@/contexts/AuthContext';
 import { getDatabaseAdapter, setDatabasePassword } from '@/db';
 import { isBiometricAvailable } from '@/db/crypto/keyManager';
 import { useDatabaseContext } from '@/db/hooks';
@@ -13,7 +14,6 @@ import { updateInstance } from '@/db/instanceRegistry';
 import { useOnInstanceChange } from '@/hooks/app';
 import { getErrorMessage } from '@/lib/errors';
 import { detectPlatform } from '@/lib/utils';
-import { useOptionalAuth } from '@/contexts/AuthContext';
 import { DatabaseTestControls } from './DatabaseTestControls';
 
 async function copyToClipboard(text: string): Promise<boolean> {

@@ -10,14 +10,14 @@ import {
   useState
 } from 'react';
 import {
-  createVfsKeySetupPayloadForOnboarding,
-  setVfsRecoveryPassword
-} from '@/hooks/vfs';
-import {
   getCurrentInstanceId as getCurrentDatabaseInstanceId,
   setDatabasePassword
 } from '@/db';
 import { getInstance, updateInstance } from '@/db/instanceRegistry';
+import {
+  createVfsKeySetupPayloadForOnboarding,
+  setVfsRecoveryPassword
+} from '@/hooks/vfs';
 import { api, tryRefreshToken } from '@/lib/api';
 import {
   AUTH_REFRESH_TOKEN_KEY,
@@ -89,7 +89,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         await updateInstance(instanceId, { passwordDeferred: false });
       } catch (error) {
-        console.warn('Failed to configure deferred DB password from auth:', error);
+        console.warn(
+          'Failed to configure deferred DB password from auth:',
+          error
+        );
       }
     },
     []
@@ -196,20 +199,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [isLoading, refreshIfNeeded, token]);
 
   // Errors propagate to caller for handling (e.g., Sync component catches and displays)
-  const login = useCallback(async (email: string, password: string) => {
-    clearAuthError();
-    const response = await api.auth.login(email, password);
-    setVfsRecoveryPassword(password);
+  const login = useCallback(
+    async (email: string, password: string) => {
+      clearAuthError();
+      const response = await api.auth.login(email, password);
+      setVfsRecoveryPassword(password);
 
-    // Store in state
-    setToken(response.accessToken);
-    setUser(response.user);
-    setAuthErrorState(null);
+      // Store in state
+      setToken(response.accessToken);
+      setUser(response.user);
+      setAuthErrorState(null);
 
-    // Persist to localStorage
-    storeAuth(response.accessToken, response.refreshToken, response.user);
-    await configureDeferredDatabasePassword(password);
-  }, [configureDeferredDatabasePassword]);
+      // Persist to localStorage
+      storeAuth(response.accessToken, response.refreshToken, response.user);
+      await configureDeferredDatabasePassword(password);
+    },
+    [configureDeferredDatabasePassword]
+  );
 
   const register = useCallback(
     async (

@@ -65,10 +65,12 @@ describe('KeyManager', () => {
 
   describe('setupNewKey', () => {
     it('generates random key and wraps it with password-derived key', async () => {
-      const { generateRandomKey, generateSalt, deriveKeyFromPassword, encrypt } =
-        await import(
-        '@tearleads/shared'
-      );
+      const {
+        generateRandomKey,
+        generateSalt,
+        deriveKeyFromPassword,
+        encrypt
+      } = await import('@tearleads/shared');
 
       const key = await keyManager.setupNewKey('testpassword');
 

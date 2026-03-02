@@ -80,7 +80,8 @@ export async function validateAndPruneOrphanedInstances(
 
       const hasPasswordProtector =
         salt !== null && kcv !== null && wrappedPasswordKey !== null;
-      const hasSessionUnlock = sessionKeys.wrappingKey && sessionKeys.wrappedKey;
+      const hasSessionUnlock =
+        sessionKeys.wrappingKey && sessionKeys.wrappedKey;
 
       if (!hasPasswordProtector && !hasSessionUnlock) {
         result.orphanedRegistryEntries.push(instanceId);
