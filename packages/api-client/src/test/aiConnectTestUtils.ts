@@ -18,13 +18,13 @@ const DEFAULT_USAGE_SUMMARY = {
 
 const toConnectUrl = (path: string): string => `${CONNECT_BASE_URL}${path}`;
 
-export interface SingleAiUsageCapture {
+interface SingleAiUsageCapture {
   recordUsageRequestBody?: unknown;
   getUsageRequestBody?: unknown;
   getUsageSummaryRequestBody?: unknown;
 }
 
-export interface SeriesAiUsageCapture {
+interface SeriesAiUsageCapture {
   getUsageRequestBodies: unknown[];
   getUsageSummaryRequestBodies: unknown[];
 }
