@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { app } from './index.js';
 
 describe('API', () => {
@@ -15,6 +15,26 @@ describe('API', () => {
       expect(response.body.version).toMatch(/^\d+\.\d+\.\d+$/);
       expect(response.body.dbVersion).toMatch(/^\d+\.\d+\.\d+$/);
     });
+
+    it('includes emailDomain when SMTP_RECIPIENT_DOMAINS is configured', async () => {
+      const original = process.env['SMTP_RECIPIENT_DOMAINS'];
+      process.env['SMTP_RECIPIENT_DOMAINS'] =
+        'alpha.example.com,beta.example.com';
+
+      try {
+        const response = await request(app).get('/v1/ping');
+        expect(response.status).toBe(200);
+        expect(response.body).toMatchObject({
+          emailDomain: 'alpha.example.com'
+        });
+      } finally {
+        if (original === undefined) {
+          delete process.env['SMTP_RECIPIENT_DOMAINS'];
+        } else {
+          process.env['SMTP_RECIPIENT_DOMAINS'] = original;
+        }
+      }
+    });
   });
 
   describe('404 handler', () => {
@@ -24,5 +44,30 @@ describe('API', () => {
       expect(response.status).toBe(404);
       expect(response.body).toEqual({ error: 'Not found' });
     });
+  });
+
+  it('loads with explicit PORT env and exports app in test mode', async () => {
+    const originalPort = process.env['PORT'];
+    const originalNodeEnv = process.env['NODE_ENV'];
+    process.env['PORT'] = '4321';
+    process.env['NODE_ENV'] = 'test';
+
+    try {
+      vi.resetModules();
+      const mod = await import('./index.js');
+      expect(mod.app).toBeDefined();
+    } finally {
+      if (originalPort === undefined) {
+        delete process.env['PORT'];
+      } else {
+        process.env['PORT'] = originalPort;
+      }
+      if (originalNodeEnv === undefined) {
+        delete process.env['NODE_ENV'];
+      } else {
+        process.env['NODE_ENV'] = originalNodeEnv;
+      }
+      vi.resetModules();
+    }
   });
 });
