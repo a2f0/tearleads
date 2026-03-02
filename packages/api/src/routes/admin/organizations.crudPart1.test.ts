@@ -1,8 +1,8 @@
 import express from 'express';
-import request from '../../test/connectCompatRequest.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
 import { createAuthHeader } from '../../test/auth.js';
+import request from '../../test/connectCompatRequest.js';
 import { getRootHandler } from './organizations/getRoot.js';
 
 const mockQuery = vi.fn();

@@ -10,7 +10,10 @@ type BinaryParser = (
   callback: (error: Error | null, body: Buffer) => void
 ) => void;
 
-type CompatResponse = Pick<SupertestResponse, 'status' | 'body' | 'headers' | 'text'>;
+type CompatResponse = Pick<
+  SupertestResponse,
+  'status' | 'body' | 'headers' | 'text'
+>;
 
 class CompatRequestBuilder implements PromiseLike<CompatResponse> {
   private readonly headers = new Headers();
@@ -49,13 +52,12 @@ class CompatRequestBuilder implements PromiseLike<CompatResponse> {
     return this;
   }
 
+  // biome-ignore lint/suspicious/noThenProperty: enables await request(...).get(...).set(...) parity with supertest.
   then<TResult1 = CompatResponse, TResult2 = never>(
     onfulfilled?:
       | ((value: CompatResponse) => TResult1 | PromiseLike<TResult1>)
       | null,
-    onrejected?:
-      | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
-      | null
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
   ): Promise<TResult1 | TResult2> {
     return this.execute().then(onfulfilled, onrejected);
   }
@@ -78,7 +80,10 @@ class CompatRequestBuilder implements PromiseLike<CompatResponse> {
       jsonBody = undefined;
     } else if (typeof this.payload === 'string') {
       jsonBody = isJsonBody ? this.payload : undefined;
-    } else if (this.payload instanceof Uint8Array || Buffer.isBuffer(this.payload)) {
+    } else if (
+      this.payload instanceof Uint8Array ||
+      Buffer.isBuffer(this.payload)
+    ) {
       jsonBody = undefined;
     } else {
       jsonBody = JSON.stringify(this.payload);
@@ -101,7 +106,9 @@ class CompatRequestBuilder implements PromiseLike<CompatResponse> {
       const buffer = Buffer.from(result.body);
       return {
         status: result.status,
-        body: this.binaryParser ? parseBinaryBody(this.binaryParser, buffer) : buffer,
+        body: this.binaryParser
+          ? parseBinaryBody(this.binaryParser, buffer)
+          : buffer,
         headers,
         text: buffer.toString('utf8')
       };

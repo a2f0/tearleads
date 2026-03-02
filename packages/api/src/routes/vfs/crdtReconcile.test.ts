@@ -4,10 +4,10 @@ import {
   encodeVfsCrdtReconcileRequestProtobuf,
   encodeVfsSyncCursor
 } from '@tearleads/vfs-sync/vfs';
-import request from '../../test/connectCompatRequest.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
 import { createAuthHeader } from '../../test/auth.js';
+import request from '../../test/connectCompatRequest.js';
 import { mockConsoleError } from '../../test/consoleMocks.js';
 
 const mockQuery = vi.fn();
@@ -210,9 +210,7 @@ describe('VFS CRDT reconcile route', () => {
     ]);
   });
 
-  it.skip(
-    'accepts protobuf reconcile payloads and emits protobuf responses',
-    async () => {
+  it.skip('accepts protobuf reconcile payloads and emits protobuf responses', async () => {
     const authHeader = await createAuthHeader();
     const incomingCursor = encodeVfsSyncCursor({
       changedAt: '2026-02-14T00:00:00.000Z',
@@ -278,8 +276,7 @@ describe('VFS CRDT reconcile route', () => {
       changeId: 'op-10'
     });
     expect(decoded.lastReconciledWriteIds).toEqual({ desktop: 10 });
-    }
-  );
+  });
 
   it('keeps monotonic cursor when stale write arrives', async () => {
     const authHeader = await createAuthHeader();

@@ -2,9 +2,9 @@ import {
   decodeVfsCrdtPushResponseProtobuf,
   encodeVfsCrdtPushRequestProtobuf
 } from '@tearleads/vfs-sync/vfs';
-import request from '../../test/connectCompatRequest.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createAuthHeader } from '../../test/auth.js';
+import request from '../../test/connectCompatRequest.js';
 import {
   buildLinkPushPayload,
   buildValidPushPayload,

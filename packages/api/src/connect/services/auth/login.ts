@@ -7,10 +7,11 @@ import { getPostgresPool } from '../../../lib/postgres.js';
 import { createSession, storeRefreshToken } from '../../../lib/sessions.js';
 import {
   ACCESS_TOKEN_TTL_SECONDS,
+  getClientIpFromHeaders,
+  getJwtSecretOrThrow,
   parseAuthPayload,
   REFRESH_TOKEN_TTL_SECONDS
 } from './shared.js';
-import { getClientIpFromHeaders, getJwtSecretOrThrow } from './shared.js';
 
 export async function login(request: LoginRequest, context: HandlerContext) {
   const payload = parseAuthPayload({

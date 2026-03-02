@@ -14,13 +14,14 @@ import {
   ACCESS_TOKEN_TTL_SECONDS,
   EMAIL_REGEX,
   getAllowedEmailDomains,
+  getClientIpFromHeaders,
+  getJwtSecretOrThrow,
   MIN_PASSWORD_LENGTH,
   PASSWORD_COMPLEXITY_ERROR,
   parseRegisterPayload,
   passwordMeetsComplexity,
   REFRESH_TOKEN_TTL_SECONDS
 } from './shared.js';
-import { getClientIpFromHeaders, getJwtSecretOrThrow } from './shared.js';
 
 export async function register(
   request: RegisterRequest,

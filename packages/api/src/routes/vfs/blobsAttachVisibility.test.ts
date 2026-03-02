@@ -1,9 +1,9 @@
 import './testSupport.js';
 import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
-import request from '../../test/connectCompatRequest.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { app } from '../../index.js';
 import { createAuthHeader } from '../../test/auth.js';
+import request from '../../test/connectCompatRequest.js';
 import { mockConsoleError } from '../../test/consoleMocks.js';
 import {
   mockClientRelease,
