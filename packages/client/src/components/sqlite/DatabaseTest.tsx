@@ -39,7 +39,7 @@ export function DatabaseTest() {
     isUnlocked,
     hasPersistedSession,
     currentInstanceId,
-    instances,
+    instances = [],
     setup,
     unlock,
     restoreSession,

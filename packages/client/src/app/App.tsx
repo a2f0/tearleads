@@ -61,7 +61,7 @@ function App() {
   const sidebarRef = useRef<HTMLElement | null>(null);
   const startButtonRef = useRef<HTMLButtonElement | null>(null);
   const keyboardHeight = useKeyboardHeight();
-  const { isUnlocked, lock, currentInstanceId, instances } =
+  const { isUnlocked, lock, currentInstanceId, instances = [] } =
     useDatabaseContext();
   const auth = useOptionalAuth();
   const isAuthenticated = auth?.isAuthenticated ?? false;
