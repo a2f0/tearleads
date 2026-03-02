@@ -38,6 +38,7 @@ Use the `buildContainers.sh` script to build and push images to ECR:
 | `--smtp-only` | Only build the SMTP listener container |
 | `--website-only` | Only build the website container |
 | `--no-smtp` | Skip building the SMTP listener container |
+| `--parallel` | Build selected containers in parallel |
 | `--no-push` | Build locally without pushing to ECR |
 | `--tag TAG` | Use a specific tag (default: `latest`) |
 
@@ -52,6 +53,9 @@ Use the `buildContainers.sh` script to build and push images to ECR:
 
 # Build locally without pushing (for testing)
 ./scripts/buildContainers.sh staging --no-push
+
+# Build selected containers in parallel
+./scripts/buildContainers.sh staging --parallel
 ```
 
 ### Environment Variables
@@ -59,7 +63,8 @@ Use the `buildContainers.sh` script to build and push images to ECR:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `AWS_REGION` | AWS region for ECR | `us-east-1` |
-| `AWS_ACCOUNT_ID` | AWS account ID | Auto-detected |
+| `AWS_ACCOUNT_ID` | AWS account ID | Auto-detected when pushing |
+| `PARALLEL` | Enable parallel builds (`true`/`false`) | `false` |
 | `VITE_API_URL` | API URL for client build | Based on environment domain |
 
 ## Setting Up ECR Authentication in Kubernetes
