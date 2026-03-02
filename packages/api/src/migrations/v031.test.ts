@@ -27,7 +27,10 @@ describe('v031 migration', () => {
   it('does not replace a non-view vfs_effective_visibility relation', async () => {
     const pool = createMockPool(
       new Map([
-        ['FROM pg_class c', { rows: [{ relkind: 'm' }], rowCount: 1 }]
+        [
+          'FROM pg_class c',
+          { rows: [{ version: null, relkind: 'm' }], rowCount: 1 }
+        ]
       ])
     );
 
