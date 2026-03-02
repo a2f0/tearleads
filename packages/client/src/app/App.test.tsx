@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { MouseEventHandler, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
@@ -15,7 +15,6 @@ type FooterProps = {
   copyrightText?: string;
 };
 
-const mockUseSSEContext = vi.fn();
 const mockUseAppVersion = vi.fn();
 const mockOpenWindow = vi.fn();
 const mockLock = vi.fn();
@@ -47,22 +46,7 @@ vi.mock('@tearleads/window-manager', async (importOriginal) => {
     await importOriginal<typeof import('@tearleads/window-manager')>();
 
   return {
-    ...actual,
-    WindowConnectionIndicator: ({
-      state,
-      onContextMenu
-    }: {
-      state: string;
-      onContextMenu?: MouseEventHandler<HTMLButtonElement>;
-    }) => (
-      <button
-        type="button"
-        data-testid="connection-indicator"
-        onContextMenu={onContextMenu}
-      >
-        {state}
-      </button>
-    )
+    ...actual
   };
 });
 
@@ -102,24 +86,6 @@ vi.mock('../components/screensaver', () => ({
 
 vi.mock('../components/SettingsButton', () => ({
   SettingsButton: () => <div data-testid="settings-button" />
-}));
-
-vi.mock('../components/SSEConnectionDialog', () => ({
-  SSEConnectionDialog: ({
-    isOpen,
-    onClose
-  }: {
-    isOpen: boolean;
-    onClose: () => void;
-    connectionState: string;
-  }) =>
-    isOpen ? (
-      <div data-testid="sse-connection-dialog">
-        <button type="button" onClick={onClose}>
-          Close
-        </button>
-      </div>
-    ) : null
 }));
 
 vi.mock('../components/Sidebar', () => ({
@@ -162,8 +128,8 @@ vi.mock('../hooks/ui', () => ({
   useKeyboardHeight: () => mockKeyboardHeight
 }));
 
-vi.mock('../sse', () => ({
-  useSSEContext: () => mockUseSSEContext()
+vi.mock('./SSESystemTrayItems', () => ({
+  SSESystemTrayItems: () => <div data-testid="sse-system-tray-items" />
 }));
 
 function renderApp() {
@@ -188,31 +154,16 @@ describe('App', () => {
     mockKeyboardHeight = 0;
   });
 
-  it('hides the connection indicator without SSE', () => {
-    mockUseSSEContext.mockReturnValue(null);
-
+  it('renders SSESystemTrayItems in the system tray', () => {
     renderApp();
 
-    expect(screen.queryByTestId('connection-indicator')).toBeNull();
-  });
-
-  it('shows the connection indicator when SSE is available', () => {
-    mockUseSSEContext.mockReturnValue({ connectionState: 'connected' });
-
-    renderApp();
-
-    expect(screen.getByTestId('connection-indicator')).toHaveTextContent(
-      'connected'
-    );
+    expect(screen.getByTestId('sse-system-tray-items')).toBeInTheDocument();
   });
 
   it('renders NotificationCenterTrigger outside the header', async () => {
-    mockUseSSEContext.mockReturnValue(null);
-
     renderApp();
 
     const header = screen.getByRole('banner');
-    // NotificationCenterTrigger is lazy-loaded, so we need to wait for it
     const notificationCenterTrigger = await screen.findByTestId(
       'notification-center-trigger'
     );
@@ -241,7 +192,6 @@ describe('App', () => {
       } as MediaQueryList;
     });
 
-    mockUseSSEContext.mockReturnValue(null);
     renderApp();
 
     const mobileListener = mediaListeners[0];
@@ -255,8 +205,6 @@ describe('App', () => {
   });
 
   it('renders taskbar in the footer', () => {
-    mockUseSSEContext.mockReturnValue(null);
-
     renderApp();
 
     const footer = screen.getByRole('contentinfo');
@@ -265,7 +213,6 @@ describe('App', () => {
   });
 
   it('adds keyboard offset padding when keyboard height is present', () => {
-    mockUseSSEContext.mockReturnValue(null);
     mockKeyboardHeight = 100;
 
     renderApp();
@@ -275,21 +222,8 @@ describe('App', () => {
     });
   });
 
-  it('renders the connection indicator outside the footer', () => {
-    mockUseSSEContext.mockReturnValue({ connectionState: 'connected' });
-
-    renderApp();
-
-    const footer = screen.getByRole('contentinfo');
-    const indicator = screen.getByTestId('connection-indicator');
-    expect(indicator).toBeInTheDocument();
-    expect(footer).not.toContainElement(indicator);
-  });
-
   describe('Start menu context menu', () => {
     it('shows context menu on right-click of start button', () => {
-      mockUseSSEContext.mockReturnValue(null);
-
       renderApp();
 
       const startButton = screen.getByTestId('start-button');
@@ -300,8 +234,6 @@ describe('App', () => {
     });
 
     it('shows context menu on right-click of start bar', () => {
-      mockUseSSEContext.mockReturnValue(null);
-
       renderApp();
 
       const startBar = screen.getByTestId('start-bar');
@@ -312,8 +244,6 @@ describe('App', () => {
     });
 
     it('closes context menu when pressing Escape', () => {
-      mockUseSSEContext.mockReturnValue(null);
-
       renderApp();
 
       const startButton = screen.getByTestId('start-button');
@@ -329,8 +259,6 @@ describe('App', () => {
     });
 
     it('shows search-only context menu on right-click of footer area', () => {
-      mockUseSSEContext.mockReturnValue(null);
-
       renderApp();
 
       const footer = screen.getByRole('contentinfo');
@@ -342,7 +270,6 @@ describe('App', () => {
 
     it('navigates to search on mobile when Open Search is clicked', async () => {
       const user = userEvent.setup();
-      mockUseSSEContext.mockReturnValue(null);
       vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => {
         const isMobileQuery = query === '(max-width: 1023px)';
         return {
@@ -368,7 +295,6 @@ describe('App', () => {
 
     it('opens search window on desktop when Open Search is clicked', async () => {
       const user = userEvent.setup();
-      mockUseSSEContext.mockReturnValue(null);
       vi.spyOn(window, 'matchMedia').mockImplementation(
         (query: string) =>
           ({
@@ -394,7 +320,6 @@ describe('App', () => {
 
     it('locks instance when lock action is clicked and database is unlocked', async () => {
       const user = userEvent.setup();
-      mockUseSSEContext.mockReturnValue(null);
       mockIsUnlocked = true;
 
       renderApp();
@@ -403,67 +328,6 @@ describe('App', () => {
       await user.click(screen.getByText('Lock Instance'));
 
       expect(mockLock).toHaveBeenCalledWith(true);
-    });
-  });
-
-  describe('SSE context menu', () => {
-    beforeEach(() => {
-      mockUseSSEContext.mockReturnValue({ connectionState: 'connected' });
-      renderApp();
-    });
-
-    function openContextMenu() {
-      fireEvent.contextMenu(screen.getByTestId('connection-indicator'));
-    }
-
-    it('shows context menu on right-click of connection indicator', () => {
-      openContextMenu();
-
-      expect(screen.getByText('Connection Details')).toBeInTheDocument();
-    });
-
-    it('opens SSE connection dialog when clicking Connection Details', async () => {
-      const user = userEvent.setup();
-
-      openContextMenu();
-
-      await user.click(screen.getByText('Connection Details'));
-
-      expect(screen.getByTestId('sse-connection-dialog')).toBeInTheDocument();
-    });
-
-    it('closes context menu when clicking Connection Details', async () => {
-      const user = userEvent.setup();
-
-      openContextMenu();
-
-      await user.click(screen.getByText('Connection Details'));
-
-      expect(screen.queryByText('Connection Details')).not.toBeInTheDocument();
-    });
-
-    it('closes context menu when pressing Escape', () => {
-      openContextMenu();
-
-      expect(screen.getByText('Connection Details')).toBeInTheDocument();
-
-      fireEvent.keyDown(document, { key: 'Escape' });
-
-      expect(screen.queryByText('Connection Details')).not.toBeInTheDocument();
-    });
-
-    it('closes SSE connection dialog when onClose is called', async () => {
-      const user = userEvent.setup();
-
-      openContextMenu();
-
-      await user.click(screen.getByText('Connection Details'));
-      expect(screen.getByTestId('sse-connection-dialog')).toBeInTheDocument();
-
-      await user.click(screen.getByRole('button', { name: /close/i }));
-      expect(
-        screen.queryByTestId('sse-connection-dialog')
-      ).not.toBeInTheDocument();
     });
   });
 });
