@@ -126,7 +126,7 @@ jobs:
 
       - name: Cache Ansible collections
         if: matrix.lint-type == 'ansible'
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.ansible/collections
           key: ansible-collections-${{ hashFiles('ansible/requirements.yml', 'terraform/stacks/staging/tee/ansible/requirements.yml', 'terraform/stacks/prod/tee/ansible/requirements.yml') }}
@@ -305,7 +305,7 @@ jobs:
         run: ./scripts/checks/checkGithubActions.sh --all
 
       - name: Cache SQLite WASM
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             packages/client/src/workers/sqlite-wasm
@@ -388,7 +388,7 @@ jobs:
           path: packages
 
       - name: Cache SQLite WASM
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             packages/client/src/workers/sqlite-wasm
