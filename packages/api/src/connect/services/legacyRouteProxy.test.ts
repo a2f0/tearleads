@@ -1,5 +1,6 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { REVENUECAT_SIGNATURE_HEADER } from '../../lib/revenuecat.js';
 import {
   callLegacyBinaryRoute,
   callLegacyJsonRoute,
@@ -68,6 +69,43 @@ describe('legacyRouteProxy', () => {
     }
     expect(headers.get('authorization')).toBe('Bearer token-1');
     expect(headers.get('x-organization-id')).toBe('org-1');
+  });
+
+  it('forwards non-empty extra headers to legacy routes', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response('{"ok":true}', {
+        status: 200,
+        headers: {
+          'content-type': 'application/json'
+        }
+      })
+    );
+
+    const context: MockContext = {
+      requestHeader: new Headers({
+        host: '127.0.0.1:55120'
+      })
+    };
+
+    await callLegacyJsonRoute({
+      context,
+      method: 'POST',
+      path: '/revenuecat/webhooks',
+      jsonBody: '{"event":{"id":"evt-1"}}',
+      extraHeaders: {
+        [REVENUECAT_SIGNATURE_HEADER]: 'sig-1',
+        'x-extra-empty': '  '
+      }
+    });
+
+    const [, init] = fetchMock.mock.calls[0] ?? [];
+    const headers = init?.headers;
+    expect(headers).toBeInstanceOf(Headers);
+    if (!(headers instanceof Headers)) {
+      throw new Error('Expected request headers');
+    }
+    expect(headers.get(REVENUECAT_SIGNATURE_HEADER)).toBe('sig-1');
+    expect(headers.get('x-extra-empty')).toBeNull();
   });
 
   it('returns empty json object text for empty successful response bodies', async () => {

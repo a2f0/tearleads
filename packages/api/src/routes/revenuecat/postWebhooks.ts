@@ -16,12 +16,12 @@ import {
   parseRevenueCatAppUserId,
   parseRevenueCatEventPayload,
   parseUnixMillisTimestamp,
+  REVENUECAT_SIGNATURE_HEADER,
   validateRevenueCatReplayWindow,
   verifyRevenueCatWebhookSignature
 } from '../../lib/revenuecat.js';
 import { recordRevenueCatWebhookMetric } from '../../lib/revenuecatObservability.js';
 
-const SIGNATURE_HEADER = 'x-revenuecat-signature';
 const REPLAY_MAX_AGE_SECONDS_ENV = 'REVENUECAT_WEBHOOK_MAX_AGE_SECONDS';
 const REPLAY_MAX_FUTURE_SKEW_SECONDS_ENV =
   'REVENUECAT_WEBHOOK_MAX_FUTURE_SKEW_SECONDS';
@@ -206,7 +206,7 @@ const postWebhooksHandler = async (
     return;
   }
 
-  const signature = req.get(SIGNATURE_HEADER);
+  const signature = req.get(REVENUECAT_SIGNATURE_HEADER);
   if (!verifyRevenueCatWebhookSignature(req.body, signature, webhookSecret)) {
     emitMetric('invalid_signature', {
       reason: 'signature_verification_failed'

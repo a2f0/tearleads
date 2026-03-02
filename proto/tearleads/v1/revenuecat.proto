@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package tearleads.v1;
+
+service RevenuecatService {
+  rpc HandleWebhook(HandleWebhookRequest) returns (HandleWebhookResponse);
+}
+
+message HandleWebhookRequest {
+  string json = 1;
+  string signature = 2;
+}
+
+message HandleWebhookResponse {
+  string json = 1;
+}
