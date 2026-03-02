@@ -12,7 +12,7 @@ This map ties vendor management policy controls to concrete implementation and e
 | `TL-VENDOR-004` | Let's Encrypt vendor controls | [`terraform/stacks/staging/k8s/main.tf`](../../../terraform/stacks/staging/k8s/main.tf) (certbot tasks) | Certificate transparency logs |
 | `TL-VENDOR-005` | GitHub vendor controls | [`.github/workflows/`](../../../.github/workflows), repository settings | GitHub audit log |
 | `TL-VENDOR-006` | RevenueCat vendor controls | [`packages/api/src/lib/revenuecat.ts`](../../../packages/api/src/lib/revenuecat.ts), [`packages/api/src/routes/revenuecat/`](../../../packages/api/src/routes/revenuecat) | Webhook test suite |
-| `TL-VENDOR-007` | OpenRouter vendor controls | [`packages/api/src/routes/chat/postCompletions.ts`](../../../packages/api/src/routes/chat/postCompletions.ts) | API usage logs |
+| `TL-VENDOR-007` | OpenRouter vendor controls | [`packages/api/src/connect/services/chatService.ts`](../../../packages/api/src/connect/services/chatService.ts) | API usage logs |
 | `TL-VENDOR-008` | Anthropic vendor controls | [`CLAUDE.md`](../../../CLAUDE.md), [`.claude/skills/`](../../../.claude/skills) | Development session logs |
 | `TL-VENDOR-009` | OpenAI vendor controls | [`AGENTS.md`](../../../AGENTS.md), [`.codex/skills/`](../../../.codex/skills) | Development session logs |
 | `TL-VENDOR-010` | Google Gemini vendor controls | [`.gemini/INSTRUCTIONS.md`](../../../.gemini/INSTRUCTIONS.md) | PR review comments |
@@ -61,7 +61,7 @@ This map ties vendor management policy controls to concrete implementation and e
 
 | File | Control | Description |
 | --- | --- | --- |
-| `packages/api/src/routes/chat/postCompletions.ts` | API integration | Authenticated API calls |
+| `packages/api/src/connect/services/chatService.ts` | API integration | Authenticated API calls |
 | `packages/api/.env.example` | Secret management | API key configuration |
 
 ### AI Development Tools (`TL-VENDOR-008`, `TL-VENDOR-009`, `TL-VENDOR-010`)

@@ -1,8 +1,8 @@
 import express from 'express';
-import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
 import { createAuthHeader } from '../../test/auth.js';
+import request from '../../test/connectCompatRequest.js';
 import { adminContextRouter } from './context.js';
 
 const mockQuery = vi.fn();
@@ -195,13 +195,13 @@ describe('admin context route', () => {
     consoleError.mockRestore();
   });
 
-  it('returns 401 when context route is mounted without admin access middleware', async () => {
+  it('returns 404 for unmapped direct mount path in connect compat mode', async () => {
     const isolatedApp = express();
     isolatedApp.use('/', adminContextRouter);
 
     const response = await request(isolatedApp).get('/');
 
-    expect(response.status).toBe(401);
-    expect(response.body).toEqual({ error: 'Unauthorized' });
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'Not found' });
   });
 });

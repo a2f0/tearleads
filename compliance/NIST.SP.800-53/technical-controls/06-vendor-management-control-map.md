@@ -12,7 +12,7 @@ This map ties vendor management policy controls to NIST SP 800-53 requirements a
 | `TL-VENDOR-004` | Let's Encrypt controls | SC-8, SC-13 | [`terraform/stacks/staging/k8s/main.tf`](../../../terraform/stacks/staging/k8s/main.tf) |
 | `TL-VENDOR-005` | GitHub controls | SA-9, CM-3 | [`.github/workflows/`](../../../.github/workflows) |
 | `TL-VENDOR-006` | RevenueCat controls | SA-9, SC-8 | [`packages/api/src/lib/revenuecat.ts`](../../../packages/api/src/lib/revenuecat.ts) |
-| `TL-VENDOR-007` | OpenRouter controls | SA-9, SC-8 | [`packages/api/src/routes/chat/postCompletions.ts`](../../../packages/api/src/routes/chat/postCompletions.ts) |
+| `TL-VENDOR-007` | OpenRouter controls | SA-9, SC-8 | [`packages/api/src/connect/services/chatService.ts`](../../../packages/api/src/connect/services/chatService.ts) |
 | `TL-VENDOR-008` | Anthropic controls | SA-9 | [`CLAUDE.md`](../../../CLAUDE.md) |
 | `TL-VENDOR-009` | OpenAI controls | SA-9 | [`AGENTS.md`](../../../AGENTS.md) |
 | `TL-VENDOR-010` | Google controls | SA-9 | [`.gemini/INSTRUCTIONS.md`](../../../.gemini/INSTRUCTIONS.md) |
@@ -70,7 +70,7 @@ This map ties vendor management policy controls to NIST SP 800-53 requirements a
 | File | Vendor | Controls |
 | --- | --- | --- |
 | `packages/api/src/lib/revenuecat.ts` | RevenueCat | Webhook integrity |
-| `packages/api/src/routes/chat/postCompletions.ts` | OpenRouter | API security |
+| `packages/api/src/connect/services/chatService.ts` | OpenRouter | API security |
 | `.github/workflows/` | GitHub | CI/CD security |
 
 ### Development Tool Vendors (SA-9)

@@ -14,14 +14,14 @@ function parsePositiveInt(value: string | undefined, fallback: number): number {
 
 function getWindowMs(): number {
   return parsePositiveInt(
-    process.env['LEGACY_ROUTE_RATE_LIMIT_WINDOW_MS'],
+    process.env['CONNECT_ROUTE_RATE_LIMIT_WINDOW_MS'],
     DEFAULT_WINDOW_MS
   );
 }
 
 function getMaxRequests(): number {
   return parsePositiveInt(
-    process.env['LEGACY_ROUTE_RATE_LIMIT_MAX_REQUESTS'],
+    process.env['CONNECT_ROUTE_RATE_LIMIT_MAX_REQUESTS'],
     DEFAULT_MAX_REQUESTS
   );
 }
@@ -30,7 +30,7 @@ function isTestRuntime(): boolean {
   return process.env['NODE_ENV'] === 'test' || process.env['VITEST'] === 'true';
 }
 
-export function createLegacyRouteRateLimitMiddleware() {
+export function createConnectRouteRateLimitMiddleware() {
   return rateLimit({
     windowMs: getWindowMs(),
     limit: getMaxRequests(),
@@ -43,5 +43,5 @@ export function createLegacyRouteRateLimitMiddleware() {
   });
 }
 
-export const legacyRouteRateLimitMiddleware =
-  createLegacyRouteRateLimitMiddleware();
+export const connectRouteRateLimitMiddleware =
+  createConnectRouteRateLimitMiddleware();

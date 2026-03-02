@@ -1,345 +1,317 @@
 import { Code, ConnectError } from '@connectrpc/connect';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { REVENUECAT_SIGNATURE_HEADER } from '../../lib/revenuecat.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  callLegacyBinaryRoute,
-  callLegacyJsonRoute,
+  callRouteBinaryHandler,
+  callRouteJsonHandler,
+  encoded,
   setOptionalNonNegativeIntQueryParam,
   setOptionalPositiveIntQueryParam,
   setOptionalStringQueryParam,
   toJsonBody
 } from './legacyRouteProxy.js';
+import { executeRoute } from './legacyRouteProxyExecution.js';
 
-type MockContext = {
-  requestHeader: Headers;
-};
+const { executeRouteMock } = vi.hoisted(() => ({
+  executeRouteMock: vi.fn<(options: unknown) => Promise<unknown>>()
+}));
+
+vi.mock('./legacyRouteProxyExecution.js', () => ({
+  executeRoute: executeRouteMock
+}));
+
+function createContext() {
+  return {
+    requestHeader: new Headers({
+      authorization: 'Bearer token-1',
+      'x-organization-id': 'org-1'
+    })
+  };
+}
 
 describe('legacyRouteProxy', () => {
-  const fetchMock = vi.fn<typeof fetch>();
-
   beforeEach(() => {
-    vi.stubGlobal('fetch', fetchMock);
-    vi.stubEnv('NODE_ENV', 'test');
-    vi.clearAllMocks();
+    executeRouteMock.mockReset();
   });
 
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    vi.unstubAllGlobals();
-  });
-
-  it('forwards auth/org headers and query params for json calls', async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response('{"ok":true}', {
-        status: 200,
-        headers: {
-          'content-type': 'application/json'
-        }
-      })
-    );
-
-    const query = new URLSearchParams();
-    query.set('limit', '20');
-
-    const context: MockContext = {
-      requestHeader: new Headers({
-        authorization: 'Bearer token-1',
-        'x-organization-id': 'org-1',
-        host: '127.0.0.1:55111'
-      })
-    };
-
-    const result = await callLegacyJsonRoute({
-      context,
-      method: 'GET',
-      path: '/vfs/vfs-sync',
-      query
+  it('returns route handler json bodies on success', async () => {
+    const context = createContext();
+    executeRouteMock.mockResolvedValueOnce({
+      status: 200,
+      body: '{"ok":true}'
     });
 
-    expect(result).toBe('{"ok":true}');
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0] ?? [];
-    expect(url).toBe('http://127.0.0.1:55111/v1/vfs/vfs-sync?limit=20');
-    expect(init?.method).toBe('GET');
-
-    const headers = init?.headers;
-    expect(headers).toBeInstanceOf(Headers);
-    if (!(headers instanceof Headers)) {
-      throw new Error('Expected request headers');
-    }
-    expect(headers.get('authorization')).toBe('Bearer token-1');
-    expect(headers.get('x-organization-id')).toBe('org-1');
-  });
-
-  it('forwards non-empty extra headers to legacy routes', async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response('{"ok":true}', {
-        status: 200,
-        headers: {
-          'content-type': 'application/json'
-        }
-      })
-    );
-
-    const context: MockContext = {
-      requestHeader: new Headers({
-        host: '127.0.0.1:55120'
-      })
-    };
-
-    await callLegacyJsonRoute({
-      context,
-      method: 'POST',
-      path: '/revenuecat/webhooks',
-      jsonBody: '{"event":{"id":"evt-1"}}',
-      extraHeaders: {
-        [REVENUECAT_SIGNATURE_HEADER]: 'sig-1',
-        'x-extra-empty': '  '
-      }
-    });
-
-    const [, init] = fetchMock.mock.calls[0] ?? [];
-    const headers = init?.headers;
-    expect(headers).toBeInstanceOf(Headers);
-    if (!(headers instanceof Headers)) {
-      throw new Error('Expected request headers');
-    }
-    expect(headers.get(REVENUECAT_SIGNATURE_HEADER)).toBe('sig-1');
-    expect(headers.get('x-extra-empty')).toBeNull();
-  });
-
-  it('returns empty json object text for empty successful response bodies', async () => {
-    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
-
-    const context: MockContext = {
-      requestHeader: new Headers({
-        host: '127.0.0.1:55112'
-      })
-    };
-
-    const result = await callLegacyJsonRoute({
-      context,
-      method: 'DELETE',
-      path: '/mls/key-packages/key-1'
-    });
-
-    expect(result).toBe('{}');
-  });
-
-  it('returns empty json object text for reset content and whitespace bodies', async () => {
-    fetchMock.mockResolvedValueOnce(new Response(null, { status: 205 }));
-    fetchMock.mockResolvedValueOnce(new Response('   ', { status: 200 }));
-
-    const context: MockContext = {
-      requestHeader: new Headers({
-        host: '127.0.0.1:55116'
-      })
-    };
-
-    const resetContentResult = await callLegacyJsonRoute({
-      context,
-      method: 'POST',
-      path: '/chat/completions',
-      jsonBody: '{"messages":[]}'
-    });
-    const whitespaceResult = await callLegacyJsonRoute({
+    const result = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: '/admin/context'
     });
 
-    expect(resetContentResult).toBe('{}');
-    expect(whitespaceResult).toBe('{}');
+    expect(result).toBe('{"ok":true}');
+    expect(executeRoute).toHaveBeenCalledWith({
+      context,
+      method: 'GET',
+      path: '/admin/context'
+    });
   });
 
-  it('maps HTTP 401 errors to unauthenticated connect errors', async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response('{"error":"Unauthorized"}', {
-        status: 401,
-        headers: {
-          'content-type': 'application/json'
-        }
-      })
-    );
+  it('normalizes successful empty json payloads', async () => {
+    const context = createContext();
 
-    const context: MockContext = {
-      requestHeader: new Headers({
-        host: '127.0.0.1:55113'
-      })
-    };
+    executeRouteMock.mockResolvedValueOnce({
+      status: 204,
+      body: undefined
+    });
+    executeRouteMock.mockResolvedValueOnce({
+      status: 205,
+      body: null
+    });
+    executeRouteMock.mockResolvedValueOnce({
+      status: 200,
+      body: ' '
+    });
+    executeRouteMock.mockResolvedValueOnce({
+      status: 200,
+      body: new Uint8Array([])
+    });
 
-    try {
-      await callLegacyJsonRoute({
+    await expect(
+      callRouteJsonHandler({
+        context,
+        method: 'DELETE',
+        path: '/vfs/blobs/blob-1'
+      })
+    ).resolves.toBe('{}');
+
+    await expect(
+      callRouteJsonHandler({
+        context,
+        method: 'POST',
+        path: '/chat/completions'
+      })
+    ).resolves.toBe('{}');
+
+    await expect(
+      callRouteJsonHandler({
         context,
         method: 'GET',
         path: '/admin/context'
-      });
-      throw new Error('Expected unauthenticated error');
-    } catch (error) {
-      expect(error).toBeInstanceOf(ConnectError);
-      if (!(error instanceof ConnectError)) {
-        throw error;
-      }
-      expect(error.code).toBe(Code.Unauthenticated);
-      expect(error.message).toContain('Unauthorized');
-    }
+      })
+    ).resolves.toBe('{}');
+
+    await expect(
+      callRouteJsonHandler({
+        context,
+        method: 'GET',
+        path: '/admin/context'
+      })
+    ).resolves.toBe('{}');
+
+    executeRouteMock.mockResolvedValueOnce({
+      status: 200,
+      body: undefined
+    });
+
+    await expect(
+      callRouteJsonHandler({
+        context,
+        method: 'GET',
+        path: '/admin/context'
+      })
+    ).resolves.toBe('{}');
   });
 
-  it('maps additional HTTP status codes to expected connect error codes', async () => {
-    const cases = [
-      { status: 400, expectedCode: Code.InvalidArgument },
-      { status: 403, expectedCode: Code.PermissionDenied },
-      { status: 404, expectedCode: Code.NotFound },
-      { status: 409, expectedCode: Code.AlreadyExists },
-      { status: 412, expectedCode: Code.FailedPrecondition },
-      { status: 429, expectedCode: Code.ResourceExhausted },
-      { status: 501, expectedCode: Code.Unimplemented },
-      { status: 503, expectedCode: Code.Unavailable },
-      { status: 504, expectedCode: Code.DeadlineExceeded },
-      { status: 500, expectedCode: Code.Internal },
-      { status: 418, expectedCode: Code.Unknown }
+  it('serializes non-string json payloads', async () => {
+    const context = createContext();
+
+    executeRouteMock.mockResolvedValueOnce({
+      status: 200,
+      body: {
+        items: ['a', 'b']
+      }
+    });
+
+    const result = await callRouteJsonHandler({
+      context,
+      method: 'GET',
+      path: '/mls/welcome-messages'
+    });
+
+    expect(result).toBe('{"items":["a","b"]}');
+  });
+
+  it('maps route handler status codes to connect error codes', async () => {
+    const context = createContext();
+
+    const statusCases = [
+      { status: 400, code: Code.InvalidArgument },
+      { status: 401, code: Code.Unauthenticated },
+      { status: 403, code: Code.PermissionDenied },
+      { status: 404, code: Code.NotFound },
+      { status: 409, code: Code.AlreadyExists },
+      { status: 412, code: Code.FailedPrecondition },
+      { status: 429, code: Code.ResourceExhausted },
+      { status: 501, code: Code.Unimplemented },
+      { status: 503, code: Code.Unavailable },
+      { status: 504, code: Code.DeadlineExceeded },
+      { status: 500, code: Code.Internal },
+      { status: 418, code: Code.Unknown }
     ];
 
-    const context: MockContext = {
-      requestHeader: new Headers({
-        host: '127.0.0.1:55117'
-      })
-    };
+    for (const testCase of statusCases) {
+      executeRouteMock.mockResolvedValueOnce({
+        status: testCase.status,
+        body: `status-${testCase.status}`
+      });
 
-    for (const testCase of cases) {
-      fetchMock.mockResolvedValueOnce(
-        new Response(`status-${testCase.status}`, { status: testCase.status })
-      );
       try {
-        await callLegacyJsonRoute({
+        await callRouteJsonHandler({
           context,
           method: 'GET',
           path: '/admin/context'
         });
-        throw new Error(`Expected ${testCase.status} to throw`);
+        throw new Error('Expected callRouteJsonHandler to throw');
       } catch (error) {
         expect(error).toBeInstanceOf(ConnectError);
         if (!(error instanceof ConnectError)) {
           throw error;
         }
-        expect(error.code).toBe(testCase.expectedCode);
+
+        expect(error.code).toBe(testCase.code);
+        expect(error.message).toContain(`status-${testCase.status}`);
       }
     }
   });
 
-  it('uses configured base url and trims trailing slashes', async () => {
-    vi.stubEnv(
-      'CONNECT_LEGACY_BASE_URL',
-      'https://legacy.example.test/custom///'
-    );
-    fetchMock.mockResolvedValueOnce(
-      new Response('{"ok":true}', {
-        status: 200,
-        headers: {
-          'content-type': 'application/json'
-        }
-      })
-    );
+  it('uses structured fallback error messages when payload is not a string', async () => {
+    const context = createContext();
 
-    const context: MockContext = {
-      requestHeader: new Headers({
-        authorization: '   ',
-        'x-organization-id': ''
-      })
-    };
-
-    await callLegacyJsonRoute({
-      context,
-      method: 'GET',
-      path: '/vfs/keys/me'
+    executeRouteMock.mockResolvedValueOnce({
+      status: 400,
+      body: { error: 'bad-input' }
+    });
+    executeRouteMock.mockResolvedValueOnce({
+      status: 400,
+      body: { message: 'denied' }
+    });
+    executeRouteMock.mockResolvedValueOnce({
+      status: 400,
+      body: {}
     });
 
-    const [url, init] = fetchMock.mock.calls[0] ?? [];
-    expect(url).toBe('https://legacy.example.test/custom/vfs/keys/me');
-    const headers = init?.headers;
-    expect(headers).toBeInstanceOf(Headers);
-    if (!(headers instanceof Headers)) {
-      throw new Error('Expected request headers');
+    const errorMessages = [
+      'bad-input',
+      'denied',
+      'Route handler failed with status 400'
+    ];
+
+    for (const expectedMessage of errorMessages) {
+      try {
+        await callRouteJsonHandler({
+          context,
+          method: 'GET',
+          path: '/admin/context'
+        });
+        throw new Error('Expected callRouteJsonHandler to throw');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ConnectError);
+        if (!(error instanceof ConnectError)) {
+          throw error;
+        }
+
+        expect(error.code).toBe(Code.InvalidArgument);
+        expect(error.message).toContain(expectedMessage);
+      }
     }
-    expect(headers.get('authorization')).toBeNull();
-    expect(headers.get('x-organization-id')).toBeNull();
   });
 
-  it('uses localhost port fallback when test host header is absent', async () => {
-    vi.stubEnv('PORT', '55999');
-    fetchMock.mockResolvedValueOnce(
-      new Response('{"ok":true}', {
-        status: 200,
-        headers: {
-          'content-type': 'application/json'
-        }
-      })
-    );
+  it('returns binary payloads and content type from route handlers', async () => {
+    const context = createContext();
 
-    const context: MockContext = {
-      requestHeader: new Headers()
-    };
-
-    await callLegacyJsonRoute({
-      context,
-      method: 'GET',
-      path: '/vfs/vfs-sync'
+    executeRouteMock.mockResolvedValueOnce({
+      status: 200,
+      body: new Uint8Array([1, 2, 3]),
+      contentType: 'application/octet-stream'
     });
 
-    const [url] = fetchMock.mock.calls[0] ?? [];
-    expect(url).toBe('http://127.0.0.1:55999/v1/vfs/vfs-sync');
-  });
-
-  it('returns binary payloads and content type for binary calls', async () => {
-    const bytes = new Uint8Array([1, 2, 3, 4]);
-    fetchMock.mockResolvedValueOnce(
-      new Response(bytes, {
-        status: 200,
-        headers: {
-          'content-type': 'application/octet-stream'
-        }
-      })
-    );
-
-    const context: MockContext = {
-      requestHeader: new Headers({
-        host: '127.0.0.1:55114'
-      })
-    };
-
-    const result = await callLegacyBinaryRoute({
+    const result = await callRouteBinaryHandler({
       context,
       method: 'GET',
       path: '/vfs/blobs/blob-1'
     });
 
-    expect(Array.from(result.data)).toEqual([1, 2, 3, 4]);
+    expect(Array.from(result.data)).toEqual([1, 2, 3]);
     expect(result.contentType).toBe('application/octet-stream');
   });
 
-  it('returns binary payloads without content type when header is absent', async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response(new Uint8Array([8, 9]), { status: 200 })
-    );
+  it('normalizes non-uint8 binary payloads', async () => {
+    const context = createContext();
 
-    const context: MockContext = {
-      requestHeader: new Headers({
-        host: '127.0.0.1:55118'
-      })
-    };
+    executeRouteMock.mockResolvedValueOnce({
+      status: 200,
+      body: 'abc'
+    });
+    executeRouteMock.mockResolvedValueOnce({
+      status: 200,
+      body: [5.9, 6.1]
+    });
+    executeRouteMock.mockResolvedValueOnce({
+      status: 200,
+      body: {
+        ignored: true
+      }
+    });
 
-    const result = await callLegacyBinaryRoute({
+    const stringResult = await callRouteBinaryHandler({
       context,
       method: 'GET',
       path: '/vfs/blobs/blob-2'
     });
+    expect(Array.from(stringResult.data)).toEqual([97, 98, 99]);
 
-    expect(Array.from(result.data)).toEqual([8, 9]);
-    expect(result.contentType).toBeUndefined();
+    const arrayResult = await callRouteBinaryHandler({
+      context,
+      method: 'GET',
+      path: '/vfs/blobs/blob-3'
+    });
+    expect(Array.from(arrayResult.data)).toEqual([5, 6]);
+
+    const emptyResult = await callRouteBinaryHandler({
+      context,
+      method: 'GET',
+      path: '/vfs/blobs/blob-4'
+    });
+    expect(Array.from(emptyResult.data)).toEqual([]);
+
+    executeRouteMock.mockResolvedValueOnce({
+      status: 400,
+      body: []
+    });
+    await expect(
+      callRouteJsonHandler({
+        context,
+        method: 'GET',
+        path: '/admin/context'
+      })
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+
+    executeRouteMock.mockResolvedValueOnce({
+      status: 200,
+      body: () => 'not-serializable'
+    });
+    await expect(
+      callRouteJsonHandler({
+        context,
+        method: 'GET',
+        path: '/admin/context'
+      })
+    ).resolves.toBe('{}');
   });
 
-  it('normalizes utility helpers', () => {
+  it('normalizes helper utility behavior', () => {
     const params = new URLSearchParams();
+
     setOptionalStringQueryParam(params, 'cursor', 'cursor-1');
     setOptionalStringQueryParam(params, 'clientId', '   ');
     setOptionalStringQueryParam(params, 'rootId', '');
@@ -361,82 +333,6 @@ describe('legacyRouteProxy', () => {
     expect(toJsonBody('')).toBe('{}');
     expect(toJsonBody('   ')).toBe('{}');
     expect(toJsonBody(' {"a":1} ')).toBe(' {"a":1} ');
-  });
-
-  it('uses structured fallback for empty and non-standard error payloads', async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response('{"message":"denied"}', { status: 400 })
-    );
-    fetchMock.mockResolvedValueOnce(new Response('', { status: 404 }));
-
-    const context: MockContext = {
-      requestHeader: new Headers({
-        host: '127.0.0.1:55119'
-      })
-    };
-
-    try {
-      await callLegacyJsonRoute({
-        context,
-        method: 'GET',
-        path: '/admin/context'
-      });
-      throw new Error('Expected invalid argument error');
-    } catch (error) {
-      expect(error).toBeInstanceOf(ConnectError);
-      if (!(error instanceof ConnectError)) {
-        throw error;
-      }
-      expect(error.code).toBe(Code.InvalidArgument);
-      expect(error.message).toContain('{"message":"denied"}');
-    }
-
-    try {
-      await callLegacyJsonRoute({
-        context,
-        method: 'GET',
-        path: '/admin/context'
-      });
-      throw new Error('Expected not found error');
-    } catch (error) {
-      expect(error).toBeInstanceOf(ConnectError);
-      if (!(error instanceof ConnectError)) {
-        throw error;
-      }
-      expect(error.code).toBe(Code.NotFound);
-      expect(error.message).toContain(
-        'Legacy route proxy failed with status 404'
-      );
-    }
-  });
-
-  it('surfaces fallback errors when network calls fail', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
-    fetchMock.mockRejectedValueOnce(new Error('connect ECONNREFUSED'));
-
-    const context: MockContext = {
-      requestHeader: new Headers({
-        host: '127.0.0.1:55115'
-      })
-    };
-
-    try {
-      await callLegacyJsonRoute({
-        context,
-        method: 'GET',
-        path: '/vfs/vfs-sync'
-      });
-      throw new Error('Expected route call to fail');
-    } catch (error) {
-      expect(error).toBeInstanceOf(ConnectError);
-      if (!(error instanceof ConnectError)) {
-        throw error;
-      }
-      expect(error.code).toBe(Code.Unavailable);
-    } finally {
-      consoleErrorSpy.mockRestore();
-    }
+    expect(encoded('a/b c')).toBe('a%2Fb%20c');
   });
 });

@@ -4,9 +4,13 @@ import { DeleteSessionRequestSchema } from '@tearleads/shared/gen/tearleads/v1/a
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ConnectAuthContext } from '../../context.js';
 import {
+  getAllowedEmailDomains,
   getAuthContextOrThrow,
   getClientIpFromHeaders,
   getJwtSecretOrThrow,
+  parseAuthPayload,
+  parseRefreshPayload,
+  parseRegisterPayload,
   parseRequiredSessionId,
   toOptionalTimestamp,
   toRequiredTimestamp
@@ -122,5 +126,172 @@ describe('connect auth shared helpers', () => {
         expect(error.code).toBe(Code.InvalidArgument);
       }
     }
+  });
+
+  it('parses auth payloads with normalization and validation', () => {
+    expect(parseAuthPayload(null)).toBeNull();
+    expect(parseAuthPayload({})).toBeNull();
+    expect(
+      parseAuthPayload({
+        email: 'user@example.com',
+        password: 123
+      })
+    ).toBeNull();
+    expect(
+      parseAuthPayload({
+        email: '   ',
+        password: 'pass'
+      })
+    ).toBeNull();
+    expect(
+      parseAuthPayload({
+        email: 'User@Example.COM ',
+        password: '  secret  '
+      })
+    ).toEqual({
+      email: 'user@example.com',
+      password: 'secret'
+    });
+  });
+
+  it('parses register payloads and validates optional VFS key setup', () => {
+    expect(parseRegisterPayload(null)).toEqual({
+      ok: false,
+      error: 'INVALID_AUTH_PAYLOAD'
+    });
+
+    expect(parseRegisterPayload({ email: 'x@example.com' })).toEqual({
+      ok: false,
+      error: 'INVALID_AUTH_PAYLOAD'
+    });
+
+    expect(
+      parseRegisterPayload({
+        email: 'User@Example.COM',
+        password: ' secret '
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        email: 'user@example.com',
+        password: 'secret'
+      }
+    });
+
+    expect(
+      parseRegisterPayload({
+        email: 'User@Example.COM',
+        password: ' secret ',
+        vfsKeySetup: null
+      })
+    ).toEqual({
+      ok: false,
+      error: 'INVALID_VFS_KEY_SETUP'
+    });
+
+    expect(
+      parseRegisterPayload({
+        email: 'User@Example.COM',
+        password: ' secret ',
+        vfsKeySetup: {
+          publicEncryptionKey: ' ',
+          encryptedPrivateKeys: 'enc',
+          argon2Salt: 'salt'
+        }
+      })
+    ).toEqual({
+      ok: false,
+      error: 'INVALID_VFS_KEY_SETUP'
+    });
+
+    expect(
+      parseRegisterPayload({
+        email: 'User@Example.COM',
+        password: ' secret ',
+        vfsKeySetup: {
+          publicEncryptionKey: 'enc-pub',
+          publicSigningKey: 123,
+          encryptedPrivateKeys: 'enc-private',
+          argon2Salt: 'salt'
+        }
+      })
+    ).toEqual({
+      ok: false,
+      error: 'INVALID_VFS_KEY_SETUP'
+    });
+
+    expect(
+      parseRegisterPayload({
+        email: 'User@Example.COM',
+        password: ' secret ',
+        vfsKeySetup: {
+          publicEncryptionKey: ' enc-pub ',
+          encryptedPrivateKeys: ' enc-private ',
+          argon2Salt: ' salt ',
+          publicSigningKey: ' sign '
+        }
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        email: 'user@example.com',
+        password: 'secret',
+        vfsKeySetup: {
+          publicEncryptionKey: 'enc-pub',
+          encryptedPrivateKeys: 'enc-private',
+          argon2Salt: 'salt',
+          publicSigningKey: 'sign'
+        }
+      }
+    });
+
+    expect(
+      parseRegisterPayload({
+        email: 'User@Example.COM',
+        password: ' secret ',
+        vfsKeySetup: {
+          publicEncryptionKey: ' enc-pub ',
+          encryptedPrivateKeys: ' enc-private ',
+          argon2Salt: ' salt '
+        }
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        email: 'user@example.com',
+        password: 'secret',
+        vfsKeySetup: {
+          publicEncryptionKey: 'enc-pub',
+          encryptedPrivateKeys: 'enc-private',
+          argon2Salt: 'salt',
+          publicSigningKey: ''
+        }
+      }
+    });
+  });
+
+  it('parses refresh payloads and allowed email domains', () => {
+    expect(parseRefreshPayload(null)).toBeNull();
+    expect(parseRefreshPayload({})).toBeNull();
+    expect(parseRefreshPayload({ refreshToken: '' })).toBeNull();
+    expect(parseRefreshPayload({ refreshToken: ' token-1 ' })).toEqual({
+      refreshToken: 'token-1'
+    });
+
+    vi.stubEnv('SMTP_RECIPIENT_DOMAINS', ' example.com, TEST.org ,, foo.net ');
+    expect(getAllowedEmailDomains()).toEqual([
+      'example.com',
+      'test.org',
+      'foo.net'
+    ]);
+  });
+
+  it('falls back to x-real-ip when x-forwarded-for first value is blank', () => {
+    const headers = new Headers({
+      'x-forwarded-for': ', 198.51.100.22',
+      'x-real-ip': '198.51.100.77'
+    });
+
+    expect(getClientIpFromHeaders(headers)).toBe('198.51.100.77');
   });
 });

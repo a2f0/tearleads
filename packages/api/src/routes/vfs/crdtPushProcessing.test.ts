@@ -1,6 +1,6 @@
-import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createAuthHeader } from '../../test/auth.js';
+import request from '../../test/connectCompatRequest.js';
 import { mockConsoleError } from '../../test/consoleMocks.js';
 import {
   buildLinkPushPayload,

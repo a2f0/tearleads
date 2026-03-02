@@ -2,9 +2,9 @@ import {
   decodeVfsCrdtPushResponseProtobuf,
   encodeVfsCrdtPushRequestProtobuf
 } from '@tearleads/vfs-sync/vfs';
-import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createAuthHeader } from '../../test/auth.js';
+import request from '../../test/connectCompatRequest.js';
 import {
   buildLinkPushPayload,
   buildValidPushPayload,
@@ -81,7 +81,7 @@ describe('VFS CRDT push route validation', { timeout: 15_000 }, () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      error: 'clientId and operations are required'
+      error: 'clientId must be non-empty, <=128 chars, and must not contain ":"'
     });
   });
 

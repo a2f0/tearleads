@@ -1,6 +1,6 @@
 import {
-  callLegacyBinaryRoute,
-  callLegacyJsonRoute,
+  callRouteBinaryHandler,
+  callRouteJsonHandler,
   encoded,
   setOptionalNonNegativeIntQueryParam,
   setOptionalPositiveIntQueryParam,
@@ -37,7 +37,7 @@ function stagingPathSuffix(request: StagingIdJsonRequest): string {
 
 export const vfsConnectService = {
   getMyKeys: async (_request: object, context: { requestHeader: Headers }) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: '/vfs/keys/me'
@@ -48,7 +48,7 @@ export const vfsConnectService = {
     request: { json: string },
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: '/vfs/keys',
@@ -60,7 +60,7 @@ export const vfsConnectService = {
     request: { json: string },
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: '/vfs/register',
@@ -72,7 +72,7 @@ export const vfsConnectService = {
     request: BlobIdRequest,
     context: { requestHeader: Headers }
   ) => {
-    const response = await callLegacyBinaryRoute({
+    const response = await callRouteBinaryHandler({
       context,
       method: 'GET',
       path: `/vfs/blobs/${encoded(request.blobId)}`
@@ -87,7 +87,7 @@ export const vfsConnectService = {
     request: BlobIdRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'DELETE',
       path: `/vfs/blobs/${encoded(request.blobId)}`
@@ -98,7 +98,7 @@ export const vfsConnectService = {
     request: { json: string },
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: '/vfs/blobs/stage',
@@ -110,7 +110,7 @@ export const vfsConnectService = {
     request: StagingIdJsonRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: `${stagingPathSuffix(request)}/chunks`,
@@ -122,7 +122,7 @@ export const vfsConnectService = {
     request: StagingIdJsonRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: `${stagingPathSuffix(request)}/attach`,
@@ -134,7 +134,7 @@ export const vfsConnectService = {
     request: StagingIdJsonRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: `${stagingPathSuffix(request)}/abandon`,
@@ -146,7 +146,7 @@ export const vfsConnectService = {
     request: StagingIdJsonRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: `${stagingPathSuffix(request)}/commit`,
@@ -158,7 +158,7 @@ export const vfsConnectService = {
     request: ItemIdJsonRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: `/vfs/items/${encoded(request.itemId)}/rekey`,
@@ -170,7 +170,7 @@ export const vfsConnectService = {
     request: { json: string },
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: '/vfs/crdt/push',
@@ -182,7 +182,7 @@ export const vfsConnectService = {
     request: { json: string },
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: '/vfs/crdt/reconcile',
@@ -194,7 +194,7 @@ export const vfsConnectService = {
     request: { json: string },
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: '/vfs/sync/reconcile',
@@ -206,7 +206,7 @@ export const vfsConnectService = {
     request: { json: string },
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: '/vfs/crdt/session',
@@ -218,7 +218,7 @@ export const vfsConnectService = {
     request: GetSyncRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: '/vfs/vfs-sync',
@@ -230,7 +230,7 @@ export const vfsConnectService = {
     request: GetSyncRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: '/vfs/crdt/vfs-sync',
@@ -244,7 +244,7 @@ export const vfsConnectService = {
   ) => {
     const query = new URLSearchParams();
     setOptionalStringQueryParam(query, 'clientId', request.clientId);
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: '/vfs/crdt/snapshot',
@@ -256,7 +256,7 @@ export const vfsConnectService = {
     request: GetEmailsRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: '/vfs/emails',
@@ -268,7 +268,7 @@ export const vfsConnectService = {
     request: EmailIdRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: `/vfs/emails/${encoded(request.id)}`
@@ -279,7 +279,7 @@ export const vfsConnectService = {
     request: EmailIdRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'DELETE',
       path: `/vfs/emails/${encoded(request.id)}`
@@ -290,7 +290,7 @@ export const vfsConnectService = {
     request: { json: string },
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: '/vfs/emails/send',

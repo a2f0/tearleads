@@ -1,27 +1,11 @@
 import { Code, ConnectError } from '@connectrpc/connect';
-import { getLegacyRoutePrefix } from '../legacyRoutePrefix.js';
-
-type LegacyHandlerContext = {
-  requestHeader: Headers;
-};
-
-interface LegacyCallOptions {
-  context: LegacyHandlerContext;
-  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  path: string;
-  query?: URLSearchParams;
-  jsonBody?: string;
-  extraHeaders?: Record<string, string>;
-}
-
-interface LegacyBinaryResponse {
-  data: Uint8Array;
-  contentType?: string;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+import { executeRoute } from './legacyRouteProxyExecution.js';
+import { isRouteErrorBodyRecord } from './legacyRouteProxyRouting.js';
+import type {
+  LegacyBinaryResponse,
+  LegacyCallOptions,
+  RouteExecutionResult
+} from './legacyRouteProxyTypes.js';
 
 function toConnectCode(status: number): Code {
   if (status === 400) {
@@ -60,126 +44,106 @@ function toConnectCode(status: number): Code {
   return Code.Unknown;
 }
 
-function getLegacyBaseUrl(context: LegacyHandlerContext): string {
-  const configured = process.env['CONNECT_LEGACY_BASE_URL'];
-  if (configured && configured.trim().length > 0) {
-    return configured.replace(/\/+$/u, '');
+function errorMessageFromResult(result: RouteExecutionResult): string {
+  const fallback = `Route handler failed with status ${result.status}`;
+  const responseBody = result.body;
+
+  if (typeof responseBody === 'string' && responseBody.trim().length > 0) {
+    return responseBody;
   }
 
-  const routePrefix = getLegacyRoutePrefix();
-  if (process.env['NODE_ENV'] === 'test') {
-    const host = context.requestHeader.get('host');
-    if (host && host.trim().length > 0) {
-      return `http://${host}${routePrefix}`;
-    }
-  }
-
-  const port = process.env['PORT'] ?? '5001';
-  return `http://127.0.0.1:${port}${routePrefix}`;
-}
-
-function createForwardHeaders(
-  context: LegacyHandlerContext,
-  extraHeaders: Record<string, string> | undefined
-): Headers {
-  const headers = new Headers();
-
-  const authorization = context.requestHeader.get('authorization');
-  if (authorization && authorization.trim().length > 0) {
-    headers.set('authorization', authorization);
-  }
-
-  const organizationId = context.requestHeader.get('x-organization-id');
-  if (organizationId && organizationId.trim().length > 0) {
-    headers.set('x-organization-id', organizationId);
-  }
-
-  for (const [headerName, headerValue] of Object.entries(extraHeaders ?? {})) {
-    if (headerValue.trim().length > 0) {
-      headers.set(headerName, headerValue);
-    }
-  }
-
-  return headers;
-}
-
-async function responseErrorMessage(response: Response): Promise<string> {
-  const fallback = `Legacy route proxy failed with status ${response.status}`;
-  const bodyText = await response.text();
-  if (bodyText.trim().length === 0) {
+  if (!isRouteErrorBodyRecord(responseBody)) {
     return fallback;
   }
 
-  try {
-    const parsed: unknown = JSON.parse(bodyText);
-    if (isRecord(parsed)) {
-      const message = parsed['error'];
-      if (typeof message === 'string' && message.trim().length > 0) {
-        return message;
-      }
-    }
-  } catch {
-    // If the response body is not JSON, fall back to raw text below.
+  const errorMessage = responseBody['error'];
+  if (typeof errorMessage === 'string' && errorMessage.trim().length > 0) {
+    return errorMessage;
   }
 
-  return bodyText;
+  const message = responseBody['message'];
+  if (typeof message === 'string' && message.trim().length > 0) {
+    return message;
+  }
+
+  return fallback;
 }
 
-async function callLegacyRoute(options: LegacyCallOptions): Promise<Response> {
-  const { context, method, path, query, jsonBody, extraHeaders } = options;
-  const queryString = query && query.toString().length > 0 ? `?${query}` : '';
-  const url = `${getLegacyBaseUrl(context)}${path}${queryString}`;
-
-  const headers = createForwardHeaders(context, extraHeaders);
-  const init: RequestInit = {
-    method,
-    headers
-  };
-
-  if (jsonBody !== undefined) {
-    headers.set('content-type', 'application/json');
-    init.body = jsonBody;
+function assertSuccess(result: RouteExecutionResult): void {
+  if (result.status >= 200 && result.status < 300) {
+    return;
   }
 
-  let response: Response;
-  try {
-    response = await fetch(url, init);
-  } catch (error) {
-    console.error('Legacy route proxy network failure', error);
-    throw new ConnectError('Failed to call legacy route', Code.Unavailable);
-  }
-
-  if (!response.ok) {
-    throw new ConnectError(
-      await responseErrorMessage(response),
-      toConnectCode(response.status)
-    );
-  }
-
-  return response;
+  throw new ConnectError(
+    errorMessageFromResult(result),
+    toConnectCode(result.status)
+  );
 }
 
-export async function callLegacyJsonRoute(
-  options: LegacyCallOptions
-): Promise<string> {
-  const response = await callLegacyRoute(options);
-  if (response.status === 204 || response.status === 205) {
+function toJsonText(body: unknown): string {
+  if (body === undefined || body === null) {
     return '{}';
   }
 
-  const text = await response.text();
-  return text.trim().length > 0 ? text : '{}';
+  if (typeof body === 'string') {
+    return body.trim().length > 0 ? body : '{}';
+  }
+
+  if (body instanceof Uint8Array) {
+    const decoded = new TextDecoder().decode(body);
+    return decoded.trim().length > 0 ? decoded : '{}';
+  }
+
+  const serialized = JSON.stringify(body);
+  if (typeof serialized === 'string' && serialized.trim().length > 0) {
+    return serialized;
+  }
+
+  return '{}';
 }
 
-export async function callLegacyBinaryRoute(
+function toBinaryData(body: unknown): Uint8Array {
+  if (body instanceof Uint8Array) {
+    return body;
+  }
+
+  if (typeof body === 'string') {
+    return new TextEncoder().encode(body);
+  }
+
+  if (
+    Array.isArray(body) &&
+    body.every((entry) => typeof entry === 'number' && Number.isFinite(entry))
+  ) {
+    return new Uint8Array(body.map((entry) => Math.trunc(entry)));
+  }
+
+  return new Uint8Array();
+}
+
+export async function callRouteJsonHandler(
+  options: LegacyCallOptions
+): Promise<string> {
+  const result = await executeRoute(options);
+  assertSuccess(result);
+
+  if (result.status === 204 || result.status === 205) {
+    return '{}';
+  }
+
+  return toJsonText(result.body);
+}
+
+export async function callRouteBinaryHandler(
   options: LegacyCallOptions
 ): Promise<LegacyBinaryResponse> {
-  const response = await callLegacyRoute(options);
-  const data = new Uint8Array(await response.arrayBuffer());
-  const contentType = response.headers.get('content-type') ?? undefined;
+  const result = await executeRoute(options);
+  assertSuccess(result);
+
+  const data = toBinaryData(result.body);
   return {
     data,
-    ...(contentType ? { contentType } : {})
+    ...(result.contentType ? { contentType: result.contentType } : {})
   };
 }
 

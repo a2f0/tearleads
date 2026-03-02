@@ -1,5 +1,5 @@
 import {
-  callLegacyJsonRoute,
+  callRouteJsonHandler,
   encoded,
   setOptionalNonNegativeIntQueryParam,
   setOptionalPositiveIntQueryParam,
@@ -27,7 +27,7 @@ type ListUsersRequest = { organizationId: string };
 
 export const adminConnectService = {
   getContext: async (_request: object, context: { requestHeader: Headers }) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: '/admin/context'
@@ -38,7 +38,7 @@ export const adminConnectService = {
     _request: object,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: '/admin/postgres/info'
@@ -46,7 +46,7 @@ export const adminConnectService = {
     return { json };
   },
   getTables: async (_request: object, context: { requestHeader: Headers }) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: '/admin/postgres/tables'
@@ -57,7 +57,7 @@ export const adminConnectService = {
     request: GetColumnsRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: `/admin/postgres/tables/${encoded(request.schema)}/${encoded(request.table)}/columns`
@@ -74,7 +74,7 @@ export const adminConnectService = {
     setOptionalStringQueryParam(query, 'sortColumn', request.sortColumn);
     setOptionalStringQueryParam(query, 'sortDirection', request.sortDirection);
 
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: `/admin/postgres/tables/${encoded(request.schema)}/${encoded(request.table)}/rows`,
@@ -89,7 +89,7 @@ export const adminConnectService = {
     const query = new URLSearchParams();
     setOptionalStringQueryParam(query, 'cursor', request.cursor);
     setOptionalPositiveIntQueryParam(query, 'limit', request.limit);
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: '/admin/redis/keys',
@@ -101,7 +101,7 @@ export const adminConnectService = {
     request: KeyRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: `/admin/redis/keys/${encoded(request.key)}`
@@ -112,7 +112,7 @@ export const adminConnectService = {
     request: KeyRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'DELETE',
       path: `/admin/redis/keys/${encoded(request.key)}`
@@ -123,7 +123,7 @@ export const adminConnectService = {
     _request: object,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: '/admin/redis/dbsize'
@@ -140,7 +140,7 @@ export const adminConnectService = {
       'organizationId',
       request.organizationId
     );
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: '/admin/groups',
@@ -149,7 +149,7 @@ export const adminConnectService = {
     return { json };
   },
   getGroup: async (request: IdRequest, context: { requestHeader: Headers }) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: `/admin/groups/${encoded(request.id)}`
@@ -160,7 +160,7 @@ export const adminConnectService = {
     request: { json: string },
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: '/admin/groups',
@@ -172,7 +172,7 @@ export const adminConnectService = {
     request: IdJsonRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'PUT',
       path: `/admin/groups/${encoded(request.id)}`,
@@ -184,7 +184,7 @@ export const adminConnectService = {
     request: IdRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'DELETE',
       path: `/admin/groups/${encoded(request.id)}`
@@ -195,7 +195,7 @@ export const adminConnectService = {
     request: IdRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: `/admin/groups/${encoded(request.id)}/members`
@@ -206,7 +206,7 @@ export const adminConnectService = {
     request: IdJsonRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: `/admin/groups/${encoded(request.id)}/members`,
@@ -218,7 +218,7 @@ export const adminConnectService = {
     request: RemoveGroupMemberRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'DELETE',
       path: `/admin/groups/${encoded(request.groupId)}/members/${encoded(request.userId)}`
@@ -235,7 +235,7 @@ export const adminConnectService = {
       'organizationId',
       request.organizationId
     );
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: '/admin/organizations',
@@ -247,7 +247,7 @@ export const adminConnectService = {
     request: IdRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: `/admin/organizations/${encoded(request.id)}`
@@ -258,7 +258,7 @@ export const adminConnectService = {
     request: { json: string },
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'POST',
       path: '/admin/organizations',
@@ -270,7 +270,7 @@ export const adminConnectService = {
     request: IdJsonRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'PUT',
       path: `/admin/organizations/${encoded(request.id)}`,
@@ -282,7 +282,7 @@ export const adminConnectService = {
     request: IdRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'DELETE',
       path: `/admin/organizations/${encoded(request.id)}`
@@ -293,7 +293,7 @@ export const adminConnectService = {
     request: IdRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: `/admin/organizations/${encoded(request.id)}/users`
@@ -304,7 +304,7 @@ export const adminConnectService = {
     request: IdRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: `/admin/organizations/${encoded(request.id)}/groups`
@@ -321,7 +321,7 @@ export const adminConnectService = {
       'organizationId',
       request.organizationId
     );
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: '/admin/users',
@@ -330,7 +330,7 @@ export const adminConnectService = {
     return { json };
   },
   getUser: async (request: IdRequest, context: { requestHeader: Headers }) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'GET',
       path: `/admin/users/${encoded(request.id)}`
@@ -341,7 +341,7 @@ export const adminConnectService = {
     request: IdJsonRequest,
     context: { requestHeader: Headers }
   ) => {
-    const json = await callLegacyJsonRoute({
+    const json = await callRouteJsonHandler({
       context,
       method: 'PATCH',
       path: `/admin/users/${encoded(request.id)}`,

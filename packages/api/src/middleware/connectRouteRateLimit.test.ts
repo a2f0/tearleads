@@ -1,25 +1,25 @@
 import express from 'express';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createLegacyRouteRateLimitMiddleware } from './legacyRouteRateLimit.js';
+import { createConnectRouteRateLimitMiddleware } from './connectRouteRateLimit.js';
 
 function createTestApp() {
   const app = express();
-  app.use(createLegacyRouteRateLimitMiddleware());
+  app.use(createConnectRouteRateLimitMiddleware());
   app.get('/limited', (_request, response) => {
     response.status(200).json({ ok: true });
   });
   return app;
 }
 
-describe('legacyRouteRateLimitMiddleware', () => {
+describe('connectRouteRateLimitMiddleware', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-02T00:00:00.000Z'));
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('VITEST', 'false');
-    vi.stubEnv('LEGACY_ROUTE_RATE_LIMIT_WINDOW_MS', '1000');
-    vi.stubEnv('LEGACY_ROUTE_RATE_LIMIT_MAX_REQUESTS', '2');
+    vi.stubEnv('CONNECT_ROUTE_RATE_LIMIT_WINDOW_MS', '1000');
+    vi.stubEnv('CONNECT_ROUTE_RATE_LIMIT_MAX_REQUESTS', '2');
   });
 
   afterEach(() => {
@@ -27,7 +27,7 @@ describe('legacyRouteRateLimitMiddleware', () => {
     vi.unstubAllEnvs();
   });
 
-  it('allows requests within the rate limit window', async () => {
+  it('allows requests within the configured window', async () => {
     const app = createTestApp();
 
     const first = await request(app).get('/limited');
@@ -48,7 +48,7 @@ describe('legacyRouteRateLimitMiddleware', () => {
     expect(third.body).toEqual({ error: 'Too many requests' });
   });
 
-  it('resets counters after the configured window elapses', async () => {
+  it('resets counters after the window elapses', async () => {
     const app = createTestApp();
 
     await request(app).get('/limited');

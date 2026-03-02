@@ -10,10 +10,11 @@ import {
 } from '../../../lib/sessions.js';
 import {
   ACCESS_TOKEN_TTL_SECONDS,
+  getClientIpFromHeaders,
+  getJwtSecretOrThrow,
   parseRefreshPayload,
   REFRESH_TOKEN_TTL_SECONDS
-} from '../../../routes/auth/shared.js';
-import { getClientIpFromHeaders, getJwtSecretOrThrow } from './shared.js';
+} from './shared.js';
 
 export async function refreshToken(
   request: RefreshTokenRequest,

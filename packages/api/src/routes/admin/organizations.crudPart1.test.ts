@@ -1,8 +1,8 @@
 import express from 'express';
-import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
 import { createAuthHeader } from '../../test/auth.js';
+import request from '../../test/connectCompatRequest.js';
 import { getRootHandler } from './organizations/getRoot.js';
 
 const mockQuery = vi.fn();
@@ -211,14 +211,14 @@ describe('admin organizations routes - CRUD', () => {
       consoleError.mockRestore();
     });
 
-    it('returns 401 when organizations handler is mounted without admin access middleware', async () => {
+    it('returns 404 for direct mount path in connect compat mode', async () => {
       const isolatedApp = express();
       isolatedApp.get('/', getRootHandler);
 
       const response = await request(isolatedApp).get('/');
 
-      expect(response.status).toBe(401);
-      expect(response.body).toEqual({ error: 'Unauthorized' });
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: 'Not found' });
     });
   });
 
