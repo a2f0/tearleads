@@ -23,7 +23,7 @@ export const mockRedisClient = {
     const value = sessionStore.get(key);
     return Promise.resolve(typeof value === 'string' ? value : null);
   }),
-  set: vi.fn((key: string, value: string) => {
+  set: vi.fn((key: string, value: string, _options?: { EX?: number }) => {
     sessionStore.set(key, value);
     return Promise.resolve('OK');
   }),
@@ -60,7 +60,7 @@ export const mockRedisClient = {
     }
     return Promise.resolve(Array.from(existing));
   }),
-  expire: vi.fn(() => Promise.resolve(1))
+  expire: vi.fn((_key: string, _seconds: number) => Promise.resolve(1))
 };
 
 vi.mock('@tearleads/shared/redis', () => ({
