@@ -1,7 +1,7 @@
 import type { CreateExerciseInput } from '@tearleads/health';
 import { Loader2 } from 'lucide-react';
 import { useCallback } from 'react';
-import { InlineUnlock } from '../../sqlite/InlineUnlock';
+import { useHealthRuntime } from '../../../runtime';
 import { ExerciseForm } from './ExerciseForm';
 import { ExerciseList } from './ExerciseList';
 import { useExerciseData } from './useExerciseData';
@@ -11,6 +11,7 @@ interface ExerciseDetailProps {
 }
 
 export function ExerciseDetail({ refreshToken = 0 }: ExerciseDetailProps) {
+  const { InlineUnlock } = useHealthRuntime();
   const {
     parentExercises,
     hierarchy,

@@ -2,7 +2,6 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnalyticsEventsPanel } from './AnalyticsEventsPanel';
 import { AnalyticsFiltersSummaryPanel } from './AnalyticsFiltersSummaryPanel';
-import { AnalyticsInlineUnlock } from './AnalyticsInlineUnlock';
 import { AnalyticsPageHeader } from './AnalyticsPageHeader';
 import {
   clearEvents,
@@ -12,6 +11,7 @@ import {
   getEventCount,
   getEventStats,
   getEvents,
+  InlineUnlock,
   useDatabaseContext
 } from './analyticsRuntime';
 import type {
@@ -433,7 +433,7 @@ export function Analytics({
       )}
 
       {!isLoading && !isUnlocked && (
-        <AnalyticsInlineUnlock description="analytics" />
+        <InlineUnlock description="analytics" />
       )}
 
       {error && (

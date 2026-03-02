@@ -10,10 +10,12 @@ vi.mock('./useExerciseData', () => ({
   useExerciseData: () => mockUseExerciseData()
 }));
 
-vi.mock('../../sqlite/InlineUnlock', () => ({
-  InlineUnlock: ({ description }: { description: string }) => (
-    <div data-testid="inline-unlock">Unlock to view {description}</div>
-  )
+vi.mock('../../../runtime', () => ({
+  useHealthRuntime: () => ({
+    InlineUnlock: ({ description }: { description: string }) => (
+      <div data-testid="inline-unlock">Unlock to view {description}</div>
+    )
+  })
 }));
 
 const mockParentExercises = [

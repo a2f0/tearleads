@@ -1,4 +1,5 @@
 import { exportTableAsCsv } from '@/components/sqlite/exportTableCsv';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { getDatabase } from '@/db';
 import {
   clearEvents,
@@ -17,5 +18,6 @@ export {
   getEventCount,
   getEventStats,
   getEvents,
+  InlineUnlock,
   useDatabaseContext
 };

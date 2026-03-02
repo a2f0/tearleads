@@ -1,7 +1,7 @@
 import type { CreateWorkoutEntryInput } from '@tearleads/health';
 import { Loader2 } from 'lucide-react';
 import { useCallback } from 'react';
-import { InlineUnlock } from '../../sqlite/InlineUnlock';
+import { useHealthRuntime } from '../../../runtime';
 import { useWorkoutData } from './useWorkoutData';
 import { WorkoutForm } from './WorkoutForm';
 import { WorkoutTable } from './WorkoutTable';
@@ -11,6 +11,7 @@ interface WorkoutDetailProps {
 }
 
 export function WorkoutDetail({ refreshToken = 0 }: WorkoutDetailProps) {
+  const { InlineUnlock } = useHealthRuntime();
   const {
     entries,
     exercises,

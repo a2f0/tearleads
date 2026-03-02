@@ -4,6 +4,7 @@ import {
   HealthRuntimeProvider
 } from '@tearleads/health/clientEntry';
 import { type ComponentProps, useCallback } from 'react';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 
@@ -20,6 +21,7 @@ export function HealthWindow(props: HealthWindowProps) {
     <HealthRuntimeProvider
       isUnlocked={isUnlocked}
       createTracker={createTracker}
+      InlineUnlock={InlineUnlock}
     >
       <BaseHealthWindow {...props} />
     </HealthRuntimeProvider>

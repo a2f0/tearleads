@@ -12,15 +12,11 @@ vi.mock('./useWorkoutData', () => ({
   useWorkoutData: () => mockUseWorkoutData()
 }));
 
-vi.mock('../../sqlite/InlineUnlock', () => ({
-  InlineUnlock: ({ description }: { description: string }) => (
-    <div data-testid="inline-unlock">Unlock to view {description}</div>
-  )
-}));
-
-vi.mock('@/contexts/WindowManagerContext', () => ({
-  useWindowManagerActions: () => ({
-    openWindow: vi.fn()
+vi.mock('../../../runtime', () => ({
+  useHealthRuntime: () => ({
+    InlineUnlock: ({ description }: { description: string }) => (
+      <div data-testid="inline-unlock">Unlock to view {description}</div>
+    )
   })
 }));
 

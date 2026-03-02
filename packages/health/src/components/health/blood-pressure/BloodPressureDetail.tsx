@@ -1,7 +1,7 @@
 import type { CreateBloodPressureReadingInput } from '@tearleads/health';
 import { Loader2 } from 'lucide-react';
 import { useCallback } from 'react';
-import { InlineUnlock } from '../../sqlite/InlineUnlock';
+import { useHealthRuntime } from '../../../runtime';
 import { BloodPressureForm } from './BloodPressureForm';
 import { BloodPressureTable } from './BloodPressureTable';
 import { useBloodPressureData } from './useBloodPressureData';
@@ -13,6 +13,7 @@ interface BloodPressureDetailProps {
 export function BloodPressureDetail({
   refreshToken = 0
 }: BloodPressureDetailProps) {
+  const { InlineUnlock } = useHealthRuntime();
   const { readings, loading, error, hasFetched, isUnlocked, addReading } =
     useBloodPressureData({ refreshToken });
 
