@@ -17,11 +17,11 @@ const rootDir = join(__dirname, '..');
 const result = spawnSync(
   'tokei',
   ['--output', 'json', '--sort', 'code', ...process.argv.slice(2)],
-  { cwd: rootDir, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }
+  { cwd: rootDir, encoding: 'utf8', maxBuffer: 10 * 1_024 * 1_024 }
 );
 
 if (result.error) {
-  if (result.error.message.includes('ENOENT')) {
+  if ((result.error as NodeJS.ErrnoException).code === 'ENOENT') {
     console.error('Error: tokei is not installed');
     console.error('Install with: brew install tokei');
   } else {
