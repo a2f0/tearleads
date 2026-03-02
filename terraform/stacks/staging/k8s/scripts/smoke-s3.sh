@@ -25,6 +25,9 @@ POD_WAIT_TIMEOUT="${POD_WAIT_TIMEOUT:-180s}"
 REQUIRE_SETUP_JOB_COMPLETE="${REQUIRE_SETUP_JOB_COMPLETE:-false}"
 LOCAL_PORT_FORWARD_PORT="${LOCAL_PORT_FORWARD_PORT:-3900}"
 
+# shellcheck source=./s3-helpers.sh
+source "$SCRIPT_DIR/s3-helpers.sh"
+
 smoke_pod="s3-smoke-$(date +%s)"
 in_cluster_failure_reason=""
 
@@ -36,36 +39,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-decode_base64() {
-  if base64 --decode >/dev/null 2>&1 <<< "QQ=="; then
-    base64 --decode
-    return 0
-  fi
-
-  if base64 -d >/dev/null 2>&1 <<< "QQ=="; then
-    base64 -d
-    return 0
-  fi
-
-  base64 -D
-}
-
 is_placeholder() {
   local value="$1"
   [[ "$value" =~ ^\$\{[A-Za-z_][A-Za-z0-9_]*\}$ ]]
-}
-
-get_secret_key_or_fail() {
-  local key="$1"
-  local encoded
-  encoded="$(kubectl -n "$NAMESPACE" get secret "$SECRET_NAME" -o "jsonpath={.data.$key}" 2>/dev/null || true)"
-
-  if [[ -z "$encoded" ]]; then
-    echo "ERROR: Missing key $key in secret $SECRET_NAME."
-    exit 1
-  fi
-
-  printf '%s' "$encoded" | decode_base64
 }
 
 require_kubeconfig_and_kubectl() {
@@ -120,6 +96,8 @@ check_placeholder_secrets_or_fail() {
     echo "  envsubst < terraform/stacks/staging/k8s/manifests/secrets.yaml | kubectl apply -f -"
     exit 1
   fi
+
+  assert_s3_secret_sync_with_env
 }
 
 run_in_cluster_smoke() {
@@ -203,8 +181,17 @@ run_local_fallback_smoke() {
 
   printf '%s' "$payload" > /tmp/s3-smoke-in.txt
 
-  AWS_ACCESS_KEY_ID="$access_key" AWS_SECRET_ACCESS_KEY="$secret_key" AWS_DEFAULT_REGION="$AWS_REGION" \
-    aws --endpoint-url "$local_endpoint" s3api put-object --bucket "$S3_BUCKET" --key "$key" --body /tmp/s3-smoke-in.txt >/dev/null
+  local put_output=""
+  if ! put_output="$(
+    AWS_ACCESS_KEY_ID="$access_key" AWS_SECRET_ACCESS_KEY="$secret_key" AWS_DEFAULT_REGION="$AWS_REGION" \
+      aws --endpoint-url "$local_endpoint" s3api put-object --bucket "$S3_BUCKET" --key "$key" --body /tmp/s3-smoke-in.txt 2>&1
+  )"; then
+    echo "$put_output"
+    if grep -qi "No such key" <<< "$put_output"; then
+      print_missing_garage_key_hint
+    fi
+    exit 1
+  fi
 
   AWS_ACCESS_KEY_ID="$access_key" AWS_SECRET_ACCESS_KEY="$secret_key" AWS_DEFAULT_REGION="$AWS_REGION" \
     aws --endpoint-url "$local_endpoint" s3api get-object --bucket "$S3_BUCKET" --key "$key" /tmp/s3-smoke-out.txt >/dev/null

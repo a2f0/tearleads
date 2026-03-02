@@ -22,6 +22,9 @@ LOCAL_PORT_FORWARD_PORT="${LOCAL_PORT_FORWARD_PORT:-3900}"
 
 POSTGRES_LABEL="${POSTGRES_LABEL:-app=postgres}"
 
+# shellcheck source=./s3-helpers.sh
+source "$SCRIPT_DIR/s3-helpers.sh"
+
 # ---------------------------------------------------------------------------
 # Usage guard
 # ---------------------------------------------------------------------------
@@ -43,36 +46,6 @@ if [[ ! -f "$KUBECONFIG_FILE" ]]; then
 fi
 
 export KUBECONFIG="$KUBECONFIG_FILE"
-
-# ---------------------------------------------------------------------------
-# Helpers (reused from smoke-s3.sh)
-# ---------------------------------------------------------------------------
-decode_base64() {
-  if base64 --decode >/dev/null 2>&1 <<< "QQ=="; then
-    base64 --decode
-    return 0
-  fi
-
-  if base64 -d >/dev/null 2>&1 <<< "QQ=="; then
-    base64 -d
-    return 0
-  fi
-
-  base64 -D
-}
-
-get_secret_key_or_fail() {
-  local key="$1"
-  local encoded
-  encoded="$(kubectl -n "$NAMESPACE" get secret "$SECRET_NAME" -o "jsonpath={.data.$key}" 2>/dev/null || true)"
-
-  if [[ -z "$encoded" ]]; then
-    echo "ERROR: Missing key $key in secret $SECRET_NAME."
-    exit 1
-  fi
-
-  printf '%s' "$encoded" | decode_base64
-}
 
 script_start="$(date +%s)"
 
@@ -120,6 +93,7 @@ step_start="$(date +%s)"
 
 access_key="$(get_secret_key_or_fail VFS_BLOB_S3_ACCESS_KEY_ID)"
 secret_key="$(get_secret_key_or_fail VFS_BLOB_S3_SECRET_ACCESS_KEY)"
+assert_s3_secret_sync_with_env "Re-apply rendered secrets before reset:"
 
 s3_reset_pod="s3-reset-$(date +%s)"
 POD_WAIT_TIMEOUT_SECONDS="$(( ${POD_WAIT_TIMEOUT%s} ))"
@@ -186,8 +160,17 @@ run_s3_reset_local_fallback() {
 
   local local_endpoint="http://127.0.0.1:$LOCAL_PORT_FORWARD_PORT"
 
-  AWS_ACCESS_KEY_ID="$access_key" AWS_SECRET_ACCESS_KEY="$secret_key" AWS_DEFAULT_REGION="$AWS_REGION" \
-    aws --endpoint-url "$local_endpoint" s3 rm "s3://$S3_BUCKET/" --recursive
+  local rm_output=""
+  if ! rm_output="$(
+    AWS_ACCESS_KEY_ID="$access_key" AWS_SECRET_ACCESS_KEY="$secret_key" AWS_DEFAULT_REGION="$AWS_REGION" \
+      aws --endpoint-url "$local_endpoint" s3 rm "s3://$S3_BUCKET/" --recursive 2>&1
+  )"; then
+    echo "$rm_output"
+    if grep -qi "No such key" <<< "$rm_output"; then
+      print_missing_garage_key_hint
+    fi
+    exit 1
+  fi
 
   echo "S3 bucket $S3_BUCKET emptied via local fallback."
 }
