@@ -5,6 +5,7 @@ import {
   WalletRuntimeProvider
 } from '@tearleads/wallet/clientEntry';
 import { type ComponentProps, useCallback } from 'react';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 
@@ -28,6 +29,7 @@ export function WalletWindow(props: WalletWindowProps) {
       currentInstanceId={currentInstanceId}
       createTracker={createTracker}
       loadMediaPreview={loadMediaPreview}
+      InlineUnlock={InlineUnlock}
     >
       <BaseWalletWindow {...props} />
     </WalletRuntimeProvider>

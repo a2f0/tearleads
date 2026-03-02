@@ -13,6 +13,7 @@ export {
 } from './lib/walletTracker';
 export { Wallet, WalletDetail, WalletNewItem } from './pages/wallet';
 export {
+  type InlineUnlockProps,
   useWalletRuntime,
   type WalletRuntimeContextValue,
   WalletRuntimeProvider,

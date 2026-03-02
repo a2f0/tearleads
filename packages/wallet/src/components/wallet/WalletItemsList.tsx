@@ -3,7 +3,6 @@ import { Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import type { WalletItemSummary } from '../../lib/walletData';
 import { useWalletRuntime } from '../../runtime';
-import { InlineUnlock } from '../sqlite/InlineUnlock';
 import { useWalletTracker } from './useWalletTracker';
 import { WalletItemsListContent } from './WalletItemsListContent';
 
@@ -18,7 +17,7 @@ export function WalletItemsList({
   onCreateItem,
   refreshSignal = 0
 }: WalletItemsListProps) {
-  const { isUnlocked } = useWalletRuntime();
+  const { isUnlocked, InlineUnlock } = useWalletRuntime();
   const tracker = useWalletTracker();
   const [items, setItems] = useState<WalletItemSummary[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);

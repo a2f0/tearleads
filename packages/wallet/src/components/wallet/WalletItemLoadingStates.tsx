@@ -1,5 +1,5 @@
 import { Loader2 } from 'lucide-react';
-import { InlineUnlock } from '../sqlite/InlineUnlock';
+import { useWalletRuntime } from '../../runtime';
 
 interface WalletItemLoadingStatesProps {
   isUnlocked: boolean;
@@ -10,6 +10,8 @@ export function WalletItemLoadingStates({
   isUnlocked,
   loadingDetail
 }: WalletItemLoadingStatesProps): React.ReactElement | null {
+  const { InlineUnlock } = useWalletRuntime();
+
   if (!isUnlocked) {
     return <InlineUnlock description="this wallet item" />;
   }

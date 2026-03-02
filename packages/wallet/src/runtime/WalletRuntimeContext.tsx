@@ -1,7 +1,12 @@
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 import type { WalletMediaFileOption } from '../lib/walletData';
 import type { WalletTracker } from '../lib/walletTracker';
+import { DefaultInlineUnlock } from './DefaultInlineUnlock';
+
+export interface InlineUnlockProps {
+  description?: string;
+}
 
 export interface WalletRuntimeContextValue {
   isUnlocked: boolean;
@@ -11,6 +16,7 @@ export interface WalletRuntimeContextValue {
     file: WalletMediaFileOption,
     instanceId: string | null
   ) => Promise<string | null>;
+  InlineUnlock: ComponentType<InlineUnlockProps>;
 }
 
 const defaultContext: WalletRuntimeContextValue = {
@@ -19,7 +25,8 @@ const defaultContext: WalletRuntimeContextValue = {
   createTracker: () => {
     throw new Error('WalletRuntimeProvider is required');
   },
-  loadMediaPreview: async () => null
+  loadMediaPreview: async () => null,
+  InlineUnlock: DefaultInlineUnlock
 };
 
 const WalletRuntimeContext =
@@ -34,6 +41,7 @@ export interface WalletRuntimeProviderProps {
     file: WalletMediaFileOption,
     instanceId: string | null
   ) => Promise<string | null>;
+  InlineUnlock?: ComponentType<InlineUnlockProps>;
 }
 
 export function WalletRuntimeProvider({
@@ -41,11 +49,24 @@ export function WalletRuntimeProvider({
   isUnlocked,
   currentInstanceId,
   createTracker,
-  loadMediaPreview
+  loadMediaPreview,
+  InlineUnlock = DefaultInlineUnlock
 }: WalletRuntimeProviderProps) {
   const value = useMemo(
-    () => ({ isUnlocked, currentInstanceId, createTracker, loadMediaPreview }),
-    [isUnlocked, currentInstanceId, createTracker, loadMediaPreview]
+    () => ({
+      isUnlocked,
+      currentInstanceId,
+      createTracker,
+      loadMediaPreview,
+      InlineUnlock
+    }),
+    [
+      isUnlocked,
+      currentInstanceId,
+      createTracker,
+      loadMediaPreview,
+      InlineUnlock
+    ]
   );
 
   return (
