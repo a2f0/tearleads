@@ -286,6 +286,57 @@ describe('App deferred lock flow', () => {
     expect(mockLock).not.toHaveBeenCalled();
   });
 
+  it('shows inline error when deferred password save throws', async () => {
+    const user = userEvent.setup();
+    mockIsUnlocked = true;
+    mockIsAuthenticated = false;
+    mockCurrentInstanceId = 'instance-1';
+    mockInstances = [{ id: 'instance-1', passwordDeferred: true }];
+    mockSetDatabasePassword.mockRejectedValue(new Error('save failed'));
+    mockGetInstance.mockResolvedValue({ passwordDeferred: true });
+
+    renderApp();
+
+    fireEvent.contextMenu(screen.getByTestId('start-button'));
+    await user.click(screen.getByText('Lock Instance'));
+    await screen.findByTestId('deferred-lock-password-dialog');
+    await user.type(
+      screen.getByTestId('deferred-lock-password-input'),
+      'new-pass'
+    );
+    await user.click(screen.getByTestId('deferred-lock-password-submit'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('deferred-lock-password-error')
+      ).toHaveTextContent('Could not save your database password. Please try again.');
+    });
+    expect(mockLock).not.toHaveBeenCalled();
+  });
+
+  it('locks immediately for authenticated users', async () => {
+    const user = userEvent.setup();
+    mockIsUnlocked = true;
+    mockIsAuthenticated = true;
+    mockCurrentInstanceId = 'instance-1';
+    mockInstances = [{ id: 'instance-1', passwordDeferred: true }];
+    mockGetInstance.mockResolvedValue({ passwordDeferred: true });
+
+    renderApp();
+
+    fireEvent.contextMenu(screen.getByTestId('start-button'));
+    await user.click(screen.getByText('Lock Instance'));
+
+    expect(
+      screen.queryByTestId('deferred-lock-password-dialog')
+    ).not.toBeInTheDocument();
+    expect(mockGetInstance).not.toHaveBeenCalled();
+    expect(mockSetDatabasePassword).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mockLock).toHaveBeenCalledWith(true);
+    });
+  });
+
   it('falls back to instance registry deferred flag before locking', async () => {
     const user = userEvent.setup();
     mockIsUnlocked = true;
