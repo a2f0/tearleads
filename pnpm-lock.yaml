@@ -296,17 +296,17 @@ importers:
         specifier: 3.1000.0
         version: 3.1000.0
       '@bufbuild/protobuf':
-        specifier: 1.10.1
-        version: 1.10.1
+        specifier: 2.11.0
+        version: 2.11.0
       '@connectrpc/connect':
         specifier: 1.7.0
-        version: 1.7.0(@bufbuild/protobuf@1.10.1)
+        version: 1.7.0(@bufbuild/protobuf@2.11.0)
       '@connectrpc/connect-express':
         specifier: 1.7.0
-        version: 1.7.0(@bufbuild/protobuf@1.10.1)(@connectrpc/connect-node@1.7.0(@bufbuild/protobuf@1.10.1)(@connectrpc/connect@1.7.0(@bufbuild/protobuf@1.10.1)))(@connectrpc/connect@1.7.0(@bufbuild/protobuf@1.10.1))
+        version: 1.7.0(@bufbuild/protobuf@2.11.0)(@connectrpc/connect-node@1.7.0(@bufbuild/protobuf@2.11.0)(@connectrpc/connect@1.7.0(@bufbuild/protobuf@2.11.0)))(@connectrpc/connect@1.7.0(@bufbuild/protobuf@2.11.0))
       '@connectrpc/connect-node':
         specifier: 1.7.0
-        version: 1.7.0(@bufbuild/protobuf@1.10.1)(@connectrpc/connect@1.7.0(@bufbuild/protobuf@1.10.1))
+        version: 1.7.0(@bufbuild/protobuf@2.11.0)(@connectrpc/connect@1.7.0(@bufbuild/protobuf@2.11.0))
       '@tearleads/db':
         specifier: workspace:*
         version: link:../db
@@ -2212,8 +2212,8 @@ importers:
   packages/shared:
     dependencies:
       '@bufbuild/protobuf':
-        specifier: 1.10.1
-        version: 1.10.1
+        specifier: 2.11.0
+        version: 2.11.0
       '@noble/ciphers':
         specifier: 2.1.1
         version: 2.1.1
@@ -3724,6 +3724,9 @@ packages:
 
   '@bufbuild/protobuf@1.10.1':
     resolution: {integrity: sha512-wJ8ReQbHxsAfXhrf9ixl0aYbZorRuOWpBNzm8pL8ftmSxQx/wnJD5Eg861NwJU/czy2VXFIebCeZnZrI9rktIQ==}
+
+  '@bufbuild/protobuf@2.11.0':
+    resolution: {integrity: sha512-sBXGT13cpmPR5BMgHE6UEEfEaShh5Ror6rfN3yEK5si7QVrtZg8LEPQb0VVhiLRUslD2yLnXtnRzG035J/mZXQ==}
 
   '@bufbuild/protoc-gen-es@1.10.1':
     resolution: {integrity: sha512-YADugbvibIdZSb0NGf5OF87IyKTuMvMFZ7vMHgm6pL1SCfDwJ/ZRianTdrPG9hq/gOipK+NwHmXBViyS3J7nxA==}
@@ -13253,6 +13256,8 @@ snapshots:
 
   '@bufbuild/protobuf@1.10.1': {}
 
+  '@bufbuild/protobuf@2.11.0': {}
+
   '@bufbuild/protoc-gen-es@1.10.1(@bufbuild/protobuf@1.10.1)':
     dependencies:
       '@bufbuild/protoplugin': 1.10.1
@@ -13470,21 +13475,26 @@ snapshots:
       conventional-commits-parser: 6.2.1
       picocolors: 1.1.1
 
-  '@connectrpc/connect-express@1.7.0(@bufbuild/protobuf@1.10.1)(@connectrpc/connect-node@1.7.0(@bufbuild/protobuf@1.10.1)(@connectrpc/connect@1.7.0(@bufbuild/protobuf@1.10.1)))(@connectrpc/connect@1.7.0(@bufbuild/protobuf@1.10.1))':
+  '@connectrpc/connect-express@1.7.0(@bufbuild/protobuf@2.11.0)(@connectrpc/connect-node@1.7.0(@bufbuild/protobuf@2.11.0)(@connectrpc/connect@1.7.0(@bufbuild/protobuf@2.11.0)))(@connectrpc/connect@1.7.0(@bufbuild/protobuf@2.11.0))':
     dependencies:
-      '@bufbuild/protobuf': 1.10.1
-      '@connectrpc/connect': 1.7.0(@bufbuild/protobuf@1.10.1)
-      '@connectrpc/connect-node': 1.7.0(@bufbuild/protobuf@1.10.1)(@connectrpc/connect@1.7.0(@bufbuild/protobuf@1.10.1))
+      '@bufbuild/protobuf': 2.11.0
+      '@connectrpc/connect': 1.7.0(@bufbuild/protobuf@2.11.0)
+      '@connectrpc/connect-node': 1.7.0(@bufbuild/protobuf@2.11.0)(@connectrpc/connect@1.7.0(@bufbuild/protobuf@2.11.0))
 
-  '@connectrpc/connect-node@1.7.0(@bufbuild/protobuf@1.10.1)(@connectrpc/connect@1.7.0(@bufbuild/protobuf@1.10.1))':
+  '@connectrpc/connect-node@1.7.0(@bufbuild/protobuf@2.11.0)(@connectrpc/connect@1.7.0(@bufbuild/protobuf@2.11.0))':
     dependencies:
-      '@bufbuild/protobuf': 1.10.1
-      '@connectrpc/connect': 1.7.0(@bufbuild/protobuf@1.10.1)
+      '@bufbuild/protobuf': 2.11.0
+      '@connectrpc/connect': 1.7.0(@bufbuild/protobuf@2.11.0)
       undici: 5.29.0
 
   '@connectrpc/connect@1.7.0(@bufbuild/protobuf@1.10.1)':
     dependencies:
       '@bufbuild/protobuf': 1.10.1
+    optional: true
+
+  '@connectrpc/connect@1.7.0(@bufbuild/protobuf@2.11.0)':
+    dependencies:
+      '@bufbuild/protobuf': 2.11.0
 
   '@connectrpc/protoc-gen-connect-es@1.7.0(@bufbuild/protoc-gen-es@1.10.1(@bufbuild/protobuf@1.10.1))(@connectrpc/connect@1.7.0(@bufbuild/protobuf@1.10.1))':
     dependencies:
