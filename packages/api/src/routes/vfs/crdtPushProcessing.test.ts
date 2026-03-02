@@ -7,6 +7,7 @@ import {
   buildValidPushPayload,
   mockClientRelease,
   mockQuery,
+  mockRedisDel,
   mockRedisPublish,
   setupCrdtPushRouteTestEnv,
   teardownCrdtPushRouteTestEnv
@@ -67,6 +68,12 @@ describe('VFS CRDT push route processing', { timeout: 15_000 }, () => {
     expect(mockRedisPublish).toHaveBeenCalledWith(
       'vfs:container:item-1:sync',
       expect.stringContaining('"changeId":"crdt-op-1"')
+    );
+    expect(mockRedisDel).toHaveBeenCalledWith(
+      'vfs:crdt:replicaWriteIds:heads:user-1'
+    );
+    expect(mockRedisDel).toHaveBeenCalledWith(
+      'vfs:crdt:replicaWriteIds:legacy:user-1'
     );
     expect(mockClientRelease).toHaveBeenCalledTimes(1);
   });
