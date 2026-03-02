@@ -59,10 +59,11 @@ jobs:
   ios-maestro-release:
     name: iOS Maestro Tests (Release)
     needs: detect-impact
-    runs-on: macos-latest
+    runs-on: macos-15
     timeout-minutes: 35
     env:
       XCODE_VERSION: 'latest-stable'
+      SIM_DEVICE_NAME: 'iPhone 15'
 
     steps:
       - name: Report no impact detected
@@ -204,7 +205,7 @@ jobs:
 
       - name: Install ImageMagick
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: brew install imagemagick
+        run: HOMEBREW_NO_AUTO_UPDATE=1 brew install imagemagick
 
       - name: Generate iOS images
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
@@ -226,7 +227,9 @@ jobs:
 
       - name: Install Maestro
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: curl -Ls "https://get.maestro.mobile.dev" | bash
+        run: |
+          ./packages/client/scripts/downloadMaestro.sh
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
       - name: Boot iOS simulator
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
@@ -236,6 +239,13 @@ jobs:
         run: |
           echo "Available simulators:"
           xcrun simctl list devices available | head -20
+
+          # Keep keyboard behavior deterministic for Maestro keyboard flows.
+          defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
+
+          # Reduce resource contention from pre-booted/leftover devices.
+          xcrun simctl shutdown all || true
+          xcrun simctl delete unavailable || true
 
           TARGET_NAME="${SIM_DEVICE_NAME:-iPhone 15}"
           DEVICE=$(xcrun simctl list devices available | grep "$TARGET_NAME" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
@@ -287,10 +297,11 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 600000
+          MAESTRO_CLI_NO_ANALYTICS: 1
         run: |
           # Run Maestro tests (capture exit code before || continues execution)
           MAESTRO_EXIT=0
-          $HOME/.maestro/bin/maestro test .maestro/ --output maestro-debug/report.xml --debug-output maestro-debug --format junit || MAESTRO_EXIT=$?
+          MAESTRO_DEVICE="$SIMULATOR_UDID" $HOME/.maestro/bin/maestro --platform ios test .maestro/ --output maestro-debug/report.xml --debug-output maestro-debug --format junit || MAESTRO_EXIT=$?
 
           # Capture final screenshot
           xcrun simctl io "$SIMULATOR_UDID" screenshot maestro-debug/02-after-tests.png || true
