@@ -27,12 +27,8 @@ async function loadPingWasmBindings(): Promise<PingWasmBindings | null> {
     return pingWasmBindingsPromise;
   }
 
-  pingWasmBindingsPromise = import(
-    /* @vite-ignore */ PING_WASM_MODULE_PATH
-  )
-    .then((module: unknown) =>
-      isPingWasmBindings(module) ? module : null
-    )
+  pingWasmBindingsPromise = import(/* @vite-ignore */ PING_WASM_MODULE_PATH)
+    .then((module: unknown) => (isPingWasmBindings(module) ? module : null))
     .catch(() => null);
 
   return pingWasmBindingsPromise;

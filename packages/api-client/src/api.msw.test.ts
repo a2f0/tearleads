@@ -89,7 +89,9 @@ describe('api with msw', () => {
     });
 
     it('handles network errors', async () => {
-      server.use(http.get('http://localhost/v2/ping', () => HttpResponse.error()));
+      server.use(
+        http.get('http://localhost/v2/ping', () => HttpResponse.error())
+      );
 
       const api = await loadApi();
 

@@ -1,7 +1,11 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { createElement, type ComponentProps, type ReactNode } from 'react';
-import { Component } from 'react';
+import {
+  Component,
+  type ComponentProps,
+  createElement,
+  type ReactNode
+} from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/consoleMocks';
