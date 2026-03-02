@@ -40,12 +40,7 @@ function parseOptionalString(value: string | undefined): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function parseCodeScanningUpdateState(
-  value: string | undefined
-): CodeScanningUpdateState | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
+function parseCodeScanningUpdateState(value: string): CodeScanningUpdateState {
   if (value === 'open' || value === 'dismissed') {
     return value;
   }
@@ -93,7 +88,7 @@ function parseCodeScanningDirection(
   throw new Error('--direction must be "asc" or "desc"');
 }
 
-function parseCodeScanningDismissedReason(
+function normalizeCodeScanningDismissedReason(
   value: string | undefined
 ): CodeScanningDismissedReason | undefined {
   if (value === undefined) {
@@ -108,9 +103,7 @@ function parseCodeScanningDismissedReason(
   if (value === 'used_in_tests' || value === 'used in tests') {
     return 'used in tests';
   }
-  throw new Error(
-    '--dismissed-reason must be one of "false_positive", "wont_fix", or "used_in_tests"'
-  );
+  return undefined;
 }
 
 function normalizeCodeScanningAlert(
@@ -123,18 +116,11 @@ function normalizeCodeScanningAlert(
     'security_severity_level' in alert.rule
       ? alert.rule.security_severity_level
       : null;
-  const ruleDescription =
-    'description' in alert.rule ? alert.rule.description : null;
-  const toolGuid = 'guid' in alert.tool ? alert.tool.guid : null;
-  const toolVersion = 'version' in alert.tool ? alert.tool.version : null;
-  const analysisKey =
-    'analysis_key' in alert.most_recent_instance
-      ? alert.most_recent_instance.analysis_key
-      : null;
-  const category =
-    'category' in alert.most_recent_instance
-      ? alert.most_recent_instance.category
-      : null;
+  const ruleDescription = alert.rule.description;
+  const toolGuid = alert.tool.guid;
+  const toolVersion = alert.tool.version;
+  const analysisKey = alert.most_recent_instance.analysis_key;
+  const category = alert.most_recent_instance.category;
 
   return {
     number: alert.number,
@@ -244,11 +230,7 @@ export async function updateCodeScanningAlertWithOctokit(
   input: UpdateCodeScanningAlertInput
 ): Promise<string> {
   const state = parseCodeScanningUpdateState(input.state);
-  if (state === undefined) {
-    throw new Error('updateCodeScanningAlert requires --state');
-  }
-
-  const dismissedReason = parseCodeScanningDismissedReason(
+  const dismissedReason = normalizeCodeScanningDismissedReason(
     input.dismissedReason
   );
 

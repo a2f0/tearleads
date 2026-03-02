@@ -37,12 +37,7 @@ function parseOptionalString(value: string | undefined): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function parseSecretScanningState(
-  value: string | undefined
-): SecretScanningState | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
+function parseSecretScanningState(value: string): SecretScanningState {
   if (value === 'open' || value === 'resolved') {
     return value;
   }
@@ -124,7 +119,9 @@ export async function listSecretScanningAlertsWithOctokit(
     repo: context.repo
   };
 
-  const state = parseSecretScanningState(input.state);
+  const stateValue = parseOptionalString(input.state);
+  const state =
+    stateValue === undefined ? undefined : parseSecretScanningState(stateValue);
   const secretType = parseOptionalString(input.secretType);
   const resolution = parseSecretScanningResolution(input.resolution);
   const sort = parseSecretScanningSort(input.sort);
@@ -180,10 +177,6 @@ export async function updateSecretScanningAlertWithOctokit(
   input: UpdateSecretScanningAlertInput
 ): Promise<string> {
   const state = parseSecretScanningState(input.state);
-  if (state === undefined) {
-    throw new Error('updateSecretScanningAlert requires --state');
-  }
-
   const resolution = parseSecretScanningResolution(input.resolution);
 
   const request: Parameters<

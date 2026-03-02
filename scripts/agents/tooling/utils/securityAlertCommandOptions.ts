@@ -126,7 +126,7 @@ function parseSecretScanningResolution(value: string): string {
   );
 }
 
-export function applyDependabotCommandOptions(
+export function applySecurityAlertCommandOptions(
   actionName: ActionName,
   cmd: Command
 ): boolean {

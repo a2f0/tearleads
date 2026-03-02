@@ -2,7 +2,6 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { runWithTimeout } from '../../../tooling/lib/cliShared.ts';
 import type { ActionConfig, ActionName, GlobalOptions } from '../types.ts';
-import { runDependabotAction } from './dependabotActions.ts';
 import { createGitHubClientContext } from './githubClient.ts';
 import { getGitContext, requireDefined } from './helpers.ts';
 import {
@@ -59,6 +58,7 @@ import {
   rerunWorkflowWithOctokit
 } from './octokitWorkflowHandlers.ts';
 import { handleVerifyBranchPush } from './prWorkflowHandlers.ts';
+import { runSecurityAlertAction } from './securityAlertActions.ts';
 
 export async function runInlineAction(
   action: ActionName,
@@ -67,9 +67,13 @@ export async function runInlineAction(
   timeoutMs: number,
   repoRoot: string
 ): Promise<string> {
-  const dependabotResult = await runDependabotAction(action, repo, options);
-  if (dependabotResult !== null) {
-    return dependabotResult;
+  const securityAlertResult = await runSecurityAlertAction(
+    action,
+    repo,
+    options
+  );
+  if (securityAlertResult !== null) {
+    return securityAlertResult;
   }
 
   switch (action) {

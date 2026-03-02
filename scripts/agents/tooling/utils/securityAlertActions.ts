@@ -16,7 +16,7 @@ import {
   updateSecretScanningAlertWithOctokit
 } from './octokitSecretScanningHandlers.ts';
 
-export async function runDependabotAction(
+export async function runSecurityAlertAction(
   action: ActionName,
   repo: string,
   options: GlobalOptions
