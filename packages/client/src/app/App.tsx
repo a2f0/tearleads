@@ -41,7 +41,7 @@ import { useWindowManagerActions } from '../contexts/WindowManagerContext';
 import { setDatabasePassword } from '../db';
 import { useDatabaseContext } from '../db/hooks';
 import { getInstance, updateInstance } from '../db/instanceRegistry';
-import { notificationStore } from '../stores/notificationStore';
+import { DeferredLockPasswordDialog } from './DeferredLockPasswordDialog';
 import { SSESystemTrayItems } from './SSESystemTrayItems';
 import { useStartMenuContextMenu } from './useStartMenuContextMenu';
 
@@ -64,6 +64,12 @@ function App() {
   const { isUnlocked, lock, currentInstanceId } = useDatabaseContext();
   const auth = useOptionalAuth();
   const isAuthenticated = auth?.isAuthenticated ?? false;
+  const [isDeferredLockDialogOpen, setIsDeferredLockDialogOpen] =
+    useState(false);
+  const [isDeferredLockSaving, setIsDeferredLockSaving] = useState(false);
+  const [deferredLockErrorMessage, setDeferredLockErrorMessage] = useState<
+    string | null
+  >(null);
   const { activate: activateScreensaver } = useScreensaver();
   const isDesktop = !isMobile && !isTouchDevice;
 
@@ -112,6 +118,54 @@ function App() {
     };
   }, [isSidebarOpen]);
 
+  const handleDeferredLockDialogOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open && isDeferredLockSaving) {
+        return;
+      }
+      setIsDeferredLockDialogOpen(open);
+      if (!open) {
+        setDeferredLockErrorMessage(null);
+      }
+    },
+    [isDeferredLockSaving]
+  );
+
+  const handleSubmitDeferredLockPassword = useCallback(
+    async (password: string) => {
+      if (!currentInstanceId) {
+        setDeferredLockErrorMessage(
+          'Could not determine the active database instance.'
+        );
+        return;
+      }
+
+      setIsDeferredLockSaving(true);
+      setDeferredLockErrorMessage(null);
+      try {
+        const saved = await setDatabasePassword(password, currentInstanceId);
+        if (!saved) {
+          setDeferredLockErrorMessage(
+            'Could not save your database password. Please try again.'
+          );
+          return;
+        }
+
+        await updateInstance(currentInstanceId, { passwordDeferred: false });
+        setIsDeferredLockDialogOpen(false);
+        activateScreensaver();
+        await lock(true);
+      } catch {
+        setDeferredLockErrorMessage(
+          'Could not save your database password. Please try again.'
+        );
+      } finally {
+        setIsDeferredLockSaving(false);
+      }
+    },
+    [activateScreensaver, currentInstanceId, lock]
+  );
+
   const handleLockInstance = useCallback(async () => {
     try {
       if (isUnlocked) {
@@ -126,30 +180,9 @@ function App() {
         }
 
         if (requiresPasswordBeforeLock && currentInstanceId) {
-          const password =
-            typeof window.prompt === 'function'
-              ? window.prompt(
-                  'Set a database password before locking this instance'
-                )
-              : null;
-
-          if (!password || !password.trim()) {
-            notificationStore.warning(
-              'Password Required',
-              'Set a database password to lock this instance while signed out.'
-            );
-            return;
-          }
-
-          const saved = await setDatabasePassword(password, currentInstanceId);
-          if (!saved) {
-            notificationStore.warning(
-              'Password Not Saved',
-              'Could not save your database password. Please try again.'
-            );
-            return;
-          }
-          await updateInstance(currentInstanceId, { passwordDeferred: false });
+          setDeferredLockErrorMessage(null);
+          setIsDeferredLockDialogOpen(true);
+          return;
         }
 
         activateScreensaver();
@@ -164,6 +197,8 @@ function App() {
     isAuthenticated,
     isUnlocked,
     lock,
+    setDeferredLockErrorMessage,
+    setIsDeferredLockDialogOpen,
     startMenu
   ]);
 
@@ -259,6 +294,13 @@ function App() {
           <NotificationCenterTrigger />
         </Suspense>
       </DesktopSystemTray>
+      <DeferredLockPasswordDialog
+        open={isDeferredLockDialogOpen}
+        isSaving={isDeferredLockSaving}
+        errorMessage={deferredLockErrorMessage}
+        onOpenChange={handleDeferredLockDialogOpenChange}
+        onSubmit={handleSubmitDeferredLockPassword}
+      />
       <MiniPlayer />
     </div>
   );

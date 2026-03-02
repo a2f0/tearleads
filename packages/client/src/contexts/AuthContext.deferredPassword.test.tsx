@@ -123,6 +123,40 @@ describe('AuthContext deferred password setup', () => {
     expect(mockSetVfsRecoveryPassword).toHaveBeenCalledWith('password123');
   });
 
+  it('retries deferred password setup and succeeds before warning', async () => {
+    const user = userEvent.setup();
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockSetDatabasePassword
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+
+    render(
+      <AuthProvider>
+        <LoginHarness />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent(
+        'not authenticated'
+      );
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Login' }));
+
+    await waitFor(() => {
+      expect(mockSetDatabasePassword).toHaveBeenCalledTimes(3);
+    });
+    expect(mockUpdateInstance).toHaveBeenCalledWith('instance-1', {
+      passwordDeferred: false
+    });
+    expect(mockNotificationWarning).not.toHaveBeenCalled();
+    expect(consoleWarn).not.toHaveBeenCalled();
+
+    consoleWarn.mockRestore();
+  });
+
   it('skips deferred password setup when instance is not deferred', async () => {
     const user = userEvent.setup();
     mockGetInstance.mockResolvedValue({
@@ -174,11 +208,23 @@ describe('AuthContext deferred password setup', () => {
     await user.click(screen.getByRole('button', { name: 'Login' }));
 
     await waitFor(() => {
-      expect(mockSetDatabasePassword).toHaveBeenCalledWith(
-        'password123',
-        'instance-1'
-      );
+      expect(mockSetDatabasePassword).toHaveBeenCalledTimes(3);
     });
+    expect(mockSetDatabasePassword).toHaveBeenNthCalledWith(
+      1,
+      'password123',
+      'instance-1'
+    );
+    expect(mockSetDatabasePassword).toHaveBeenNthCalledWith(
+      2,
+      'password123',
+      'instance-1'
+    );
+    expect(mockSetDatabasePassword).toHaveBeenNthCalledWith(
+      3,
+      'password123',
+      'instance-1'
+    );
     expect(consoleWarn).toHaveBeenCalledWith(
       'Skipping deferred DB password setup because no active key was available'
     );
