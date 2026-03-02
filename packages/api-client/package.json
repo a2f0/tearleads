@@ -22,6 +22,10 @@
       "types": "./src/notificationStreamEntry.ts",
       "import": "./src/notificationStreamEntry.ts"
     },
+    "./chatCompletions": {
+      "types": "./src/chatCompletionsEntry.ts",
+      "import": "./src/chatCompletionsEntry.ts"
+    },
     "./package.json": "./package.json"
   },
   "files": [

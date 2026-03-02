@@ -9,7 +9,7 @@ import {
   isToolCallingEnabled,
   toolDefinitions
 } from '@/ai/tools';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, openChatCompletions } from '@/lib/api';
 import { getAuthHeaderValue } from '@/lib/authStorage';
 import { logLLMAnalytics } from './analytics';
 import type {
@@ -24,47 +24,6 @@ import type {
 } from './types';
 
 const DEV_ERROR_LOGGING = import.meta.env.DEV;
-
-async function readErrorBody(response: Response): Promise<unknown> {
-  const contentType = response.headers.get('content-type') ?? '';
-  if (contentType.includes('application/json')) {
-    try {
-      return await response.json();
-    } catch {
-      return null;
-    }
-  }
-
-  try {
-    return await response.text();
-  } catch {
-    return null;
-  }
-}
-
-function getErrorDetail(body: unknown): string | null {
-  if (typeof body === 'string') {
-    const trimmed = body.trim();
-    return trimmed ? trimmed : null;
-  }
-
-  if (isRecord(body)) {
-    if (typeof body['message'] === 'string') {
-      return body['message'];
-    }
-    if (typeof body['error'] === 'string') {
-      return body['error'];
-    }
-    if (
-      isRecord(body['error']) &&
-      typeof body['error']['message'] === 'string'
-    ) {
-      return body['error']['message'];
-    }
-  }
-
-  return null;
-}
 
 function extractOpenRouterResponse(payload: unknown): OpenRouterResponse {
   if (!isRecord(payload)) {
@@ -169,7 +128,6 @@ export async function generateWithOpenRouter(
   }
 
   const start = performance.now();
-  const requestUrl = `${API_BASE_URL}/chat/completions`;
   let loggedApiError = false;
 
   try {
@@ -180,12 +138,6 @@ export async function generateWithOpenRouter(
     );
 
     const authHeader = getAuthHeaderValue();
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
-    };
-    if (authHeader) {
-      headers['Authorization'] = authHeader;
-    }
 
     // Tool calling loop - max 5 iterations to prevent infinite loops
     const maxToolIterations = 5;
@@ -206,29 +158,21 @@ export async function generateWithOpenRouter(
         requestBody['tool_choice'] = 'auto';
       }
 
-      const response = await fetch(requestUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(requestBody)
-      });
-
-      if (!response.ok) {
-        const errorBody = await readErrorBody(response);
+      let payload: unknown;
+      try {
+        payload = await openChatCompletions({
+          apiBaseUrl: API_BASE_URL,
+          body: requestBody,
+          token: authHeader
+        });
+      } catch (error) {
         if (DEV_ERROR_LOGGING) {
-          console.error('OpenRouter chat API error', {
-            status: response.status,
-            statusText: response.statusText,
-            url: requestUrl,
-            body: errorBody
-          });
+          console.error('OpenRouter chat API error', error);
         }
         loggedApiError = true;
-        const detail = getErrorDetail(errorBody);
-        const detailSuffix = detail ? ` ${detail}` : '';
-        throw new Error(`API error: ${response.status}${detailSuffix}`);
+        throw error;
       }
 
-      const payload = await response.json();
       const { content, toolCalls } = extractOpenRouterResponse(payload);
 
       // If there are tool calls, execute them and continue the loop

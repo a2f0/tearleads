@@ -11,6 +11,31 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSharedTestContext } from '../testContext';
 
 let seededUser: SeededUser;
+const CHAT_COMPLETIONS_CONNECT_PATH =
+  '/connect/tearleads.v1.ChatService/PostCompletions';
+const CHAT_COMPLETIONS_CONNECT_URL = `http://localhost${CHAT_COMPLETIONS_CONNECT_PATH}`;
+
+function connectChatPayload(payload: unknown): { json: string } {
+  return {
+    json: JSON.stringify(payload)
+  };
+}
+
+function extractErrorMessage(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  if ('message' in payload && typeof payload.message === 'string') {
+    return payload.message;
+  }
+
+  if ('error' in payload && typeof payload.error === 'string') {
+    return payload.error;
+  }
+
+  return null;
+}
 
 beforeEach(async () => {
   vi.resetModules();
@@ -84,37 +109,60 @@ describe('msw handlers', () => {
   it('mocks chat completions', async () => {
     // Chat completions proxy to OpenRouter (external), so use server.use() override
     server.use(
-      http.post('http://localhost/chat/completions', () =>
-        HttpResponse.json({
-          id: 'chatcmpl-test',
-          model: DEFAULT_OPENROUTER_MODEL_ID,
-          choices: [
-            {
-              message: {
-                role: 'assistant',
-                content: 'Mock reply'
+      http.post(CHAT_COMPLETIONS_CONNECT_URL, () =>
+        HttpResponse.json(
+          connectChatPayload({
+            id: 'chatcmpl-test',
+            model: DEFAULT_OPENROUTER_MODEL_ID,
+            choices: [
+              {
+                message: {
+                  role: 'assistant',
+                  content: 'Mock reply'
+                }
               }
-            }
-          ]
-        })
+            ]
+          })
+        )
       )
     );
 
-    const response = await fetch('http://localhost/chat/completions', {
+    const response = await fetch(CHAT_COMPLETIONS_CONNECT_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${seededUser.accessToken}`
       },
       body: JSON.stringify({
-        model: DEFAULT_OPENROUTER_MODEL_ID,
-        messages: [{ role: 'user', content: 'Hello' }]
+        json: JSON.stringify({
+          model: DEFAULT_OPENROUTER_MODEL_ID,
+          messages: [{ role: 'user', content: 'Hello' }]
+        })
       })
     });
 
     expect(response.ok).toBe(true);
-    expect(wasApiRequestMade('POST', '/chat/completions')).toBe(true);
-    await expect(response.json()).resolves.toEqual({
+    expect(wasApiRequestMade('POST', CHAT_COMPLETIONS_CONNECT_PATH)).toBe(true);
+    const wirePayload = await response.json();
+    expect(wirePayload).toEqual(
+      connectChatPayload({
+        id: 'chatcmpl-test',
+        model: DEFAULT_OPENROUTER_MODEL_ID,
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: 'Mock reply'
+            }
+          }
+        ]
+      })
+    );
+    expect(typeof wirePayload.json).toBe('string');
+    if (typeof wirePayload.json !== 'string') {
+      throw new Error('Expected connect payload json string');
+    }
+    expect(JSON.parse(wirePayload.json)).toEqual({
       id: 'chatcmpl-test',
       model: DEFAULT_OPENROUTER_MODEL_ID,
       choices: [
@@ -129,40 +177,46 @@ describe('msw handlers', () => {
   });
 
   it('returns validation errors for chat completions', async () => {
-    const response = await fetch('http://localhost/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${seededUser.accessToken}`
-      },
-      body: JSON.stringify({ messages: [] })
-    });
-
-    expect(response.status).toBe(400);
-    expect(wasApiRequestMade('POST', '/chat/completions')).toBe(true);
-    await expect(response.json()).resolves.toEqual({
-      error: 'messages must be a non-empty array'
-    });
-  });
-
-  it('returns model validation errors for chat completions', async () => {
-    const response = await fetch('http://localhost/chat/completions', {
+    const response = await fetch(CHAT_COMPLETIONS_CONNECT_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${seededUser.accessToken}`
       },
       body: JSON.stringify({
-        model: 'unknown/model',
-        messages: [{ role: 'user', content: 'Hello' }]
+        json: JSON.stringify({ messages: [] })
       })
     });
 
     expect(response.status).toBe(400);
-    expect(wasApiRequestMade('POST', '/chat/completions')).toBe(true);
-    await expect(response.json()).resolves.toEqual({
-      error: 'model must be a supported OpenRouter chat model'
+    expect(wasApiRequestMade('POST', CHAT_COMPLETIONS_CONNECT_PATH)).toBe(true);
+    const payload = await response.json();
+    expect(extractErrorMessage(payload)).toContain(
+      'messages must be a non-empty array'
+    );
+  });
+
+  it('returns model validation errors for chat completions', async () => {
+    const response = await fetch(CHAT_COMPLETIONS_CONNECT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${seededUser.accessToken}`
+      },
+      body: JSON.stringify({
+        json: JSON.stringify({
+          model: 'unknown/model',
+          messages: [{ role: 'user', content: 'Hello' }]
+        })
+      })
     });
+
+    expect(response.status).toBe(400);
+    expect(wasApiRequestMade('POST', CHAT_COMPLETIONS_CONNECT_PATH)).toBe(true);
+    const payload = await response.json();
+    expect(extractErrorMessage(payload)).toContain(
+      'model must be a supported OpenRouter chat model'
+    );
   });
 
   it('records request metadata for debugging parity', async () => {
