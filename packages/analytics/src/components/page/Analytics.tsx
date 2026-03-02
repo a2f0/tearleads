@@ -433,9 +433,7 @@ export function Analytics({
         </div>
       )}
 
-      {!isLoading && !isUnlocked && (
-        <InlineUnlock description="analytics" />
-      )}
+      {!isLoading && !isUnlocked && <InlineUnlock description="analytics" />}
 
       {error && (
         <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
