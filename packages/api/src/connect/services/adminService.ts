@@ -37,7 +37,6 @@ type KeyRequest = { key: string };
 type IdRequest = { id: string };
 type IdJsonRequest = { id: string; json: string };
 type RemoveGroupMemberRequest = { groupId: string; userId: string };
-type ListGroupsRequest = { organizationId: string };
 type ListOrganizationsRequest = { organizationId: string };
 type ListUsersRequest = { organizationId: string };
 
@@ -64,12 +63,8 @@ export const adminConnectService = {
     deleteRedisKeyDirect(request, context),
   getRedisDbSize: (request: object, context: { requestHeader: Headers }) =>
     getRedisDbSizeDirect(request, context),
-  listGroups: async (
-    request: ListGroupsRequest,
-    context: { requestHeader: Headers }
-  ) => listGroupsDirect(request, context),
-  getGroup: (request: IdRequest, context: { requestHeader: Headers }) =>
-    getGroupDirect(request, context),
+  listGroups: listGroupsDirect,
+  getGroup: getGroupDirect,
   createGroup: async (
     request: { json: string },
     context: { requestHeader: Headers }
@@ -105,10 +100,7 @@ export const adminConnectService = {
     });
     return { json };
   },
-  getGroupMembers: async (
-    request: IdRequest,
-    context: { requestHeader: Headers }
-  ) => getGroupMembersDirect(request, context),
+  getGroupMembers: getGroupMembersDirect,
   addGroupMember: async (
     request: IdJsonRequest,
     context: { requestHeader: Headers }

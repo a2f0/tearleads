@@ -123,10 +123,20 @@ describe('adminDirectGroups', () => {
 
   it('lists groups scoped to requested organization when accessible', async () => {
     queryMock.mockResolvedValueOnce({
-      rows: []
+      rows: [
+        {
+          id: 'group-2',
+          organization_id: 'org-1',
+          name: 'Support',
+          description: 'On-call',
+          created_at: new Date('2026-03-02T00:30:00.000Z'),
+          updated_at: new Date('2026-03-02T00:45:00.000Z'),
+          member_count: '1'
+        }
+      ]
     });
 
-    await listGroupsDirect(
+    const response = await listGroupsDirect(
       {
         organizationId: 'org-1'
       },
@@ -134,6 +144,20 @@ describe('adminDirectGroups', () => {
         requestHeader: new Headers()
       }
     );
+
+    expect(parseJson(response.json)).toEqual({
+      groups: [
+        {
+          id: 'group-2',
+          organizationId: 'org-1',
+          name: 'Support',
+          description: 'On-call',
+          createdAt: '2026-03-02T00:30:00.000Z',
+          updatedAt: '2026-03-02T00:45:00.000Z',
+          memberCount: 1
+        }
+      ]
+    });
 
     const call = queryMock.mock.calls.at(-1);
     if (!call) {
@@ -280,7 +304,14 @@ describe('adminDirectGroups', () => {
 
   it('returns forbidden for inaccessible group members', async () => {
     queryMock.mockResolvedValueOnce({
-      rows: [{ organization_id: 'org-2' }]
+      rows: [
+        {
+          organization_id: 'org-2',
+          user_id: null,
+          email: null,
+          joined_at: null
+        }
+      ]
     });
 
     await expect(
@@ -298,19 +329,16 @@ describe('adminDirectGroups', () => {
   });
 
   it('returns group members when access is allowed', async () => {
-    queryMock
-      .mockResolvedValueOnce({
-        rows: [{ organization_id: 'org-1' }]
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            user_id: 'user-2',
-            email: 'user2@example.com',
-            joined_at: new Date('2026-03-02T01:00:00.000Z')
-          }
-        ]
-      });
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          organization_id: 'org-1',
+          user_id: 'user-2',
+          email: 'user2@example.com',
+          joined_at: new Date('2026-03-02T01:00:00.000Z')
+        }
+      ]
+    });
 
     const response = await getGroupMembersDirect(
       {

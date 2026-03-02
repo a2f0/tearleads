@@ -9,7 +9,6 @@ import { getPool } from '../../lib/postgres.js';
 import {
   type GroupMemberRow,
   type GroupRow,
-  getGroupOrganizationId,
   mapGroupMemberRow,
   mapGroupRow
 } from '../../routes/admin/groups/shared.js';
@@ -70,47 +69,36 @@ export async function listGroupsDirect(
       member_count: string;
     };
 
-    let result: { rows: GroupsListRow[] };
-    if (
-      authorization.adminAccess.isRootAdmin &&
-      requestedOrganizationId === null
-    ) {
-      result = await pool.query<GroupsListRow>(`
-        SELECT
-          g.id,
-          g.organization_id,
-          g.name,
-          g.description,
-          g.created_at,
-          g.updated_at,
-          COUNT(ug.user_id)::text AS member_count
-        FROM groups g
-        LEFT JOIN user_groups ug ON ug.group_id = g.id
-        GROUP BY g.id
-        ORDER BY g.name
-      `);
-    } else {
+    const isRootWithoutOrgFilter =
+      authorization.adminAccess.isRootAdmin && requestedOrganizationId === null;
+    const queryParts = [
+      `SELECT
+         g.id,
+         g.organization_id,
+         g.name,
+         g.description,
+         g.created_at,
+         g.updated_at,
+         COUNT(ug.user_id)::text AS member_count
+       FROM groups g
+       LEFT JOIN user_groups ug ON ug.group_id = g.id`
+    ];
+    const queryParams: unknown[] = [];
+
+    if (!isRootWithoutOrgFilter) {
       const scopedOrganizationIds =
         requestedOrganizationId !== null
           ? [requestedOrganizationId]
           : authorization.adminAccess.organizationIds;
-      result = await pool.query<GroupsListRow>(
-        `SELECT
-           g.id,
-           g.organization_id,
-           g.name,
-           g.description,
-           g.created_at,
-           g.updated_at,
-           COUNT(ug.user_id)::text AS member_count
-         FROM groups g
-         LEFT JOIN user_groups ug ON ug.group_id = g.id
-         WHERE g.organization_id = ANY($1::text[])
-         GROUP BY g.id
-         ORDER BY g.name`,
-        [scopedOrganizationIds]
-      );
+      queryParts.push('WHERE g.organization_id = ANY($1::text[])');
+      queryParams.push(scopedOrganizationIds);
     }
+
+    queryParts.push('GROUP BY g.id', 'ORDER BY g.name');
+    const result = await pool.query<GroupsListRow>(
+      queryParts.join('\n'),
+      queryParams
+    );
 
     const groups: GroupWithMemberCount[] = result.rows.map((row) => ({
       id: row.id,
@@ -190,7 +178,27 @@ export async function getGroupMembersDirect(
 
   try {
     const pool = await getPool('read');
-    const organizationId = await getGroupOrganizationId(pool, request.id);
+    type GroupWithMemberRow = {
+      organization_id: string;
+      user_id: string | null;
+      email: string | null;
+      joined_at: Date | null;
+    };
+
+    const result = await pool.query<GroupWithMemberRow>(
+      `SELECT g.organization_id, ug.user_id, u.email, ug.joined_at
+         FROM groups g
+         LEFT JOIN user_groups ug ON ug.group_id = g.id
+         LEFT JOIN users u ON u.id = ug.user_id
+         WHERE g.id = $1
+         ORDER BY ug.joined_at`,
+      [request.id]
+    );
+
+    if (result.rows.length === 0) {
+      throw new ConnectError('Group not found', Code.NotFound);
+    }
+    const organizationId = result.rows[0]?.organization_id;
     if (!organizationId) {
       throw new ConnectError('Group not found', Code.NotFound);
     }
@@ -198,16 +206,26 @@ export async function getGroupMembersDirect(
       throw new ConnectError('Forbidden', Code.PermissionDenied);
     }
 
-    const membersResult = await pool.query<GroupMemberRow>(
-      `SELECT ug.user_id, u.email, ug.joined_at
-         FROM user_groups ug
-         JOIN users u ON u.id = ug.user_id
-         WHERE ug.group_id = $1
-         ORDER BY ug.joined_at`,
-      [request.id]
-    );
+    const members: GroupMemberRow[] = result.rows
+      .filter(
+        (
+          row
+        ): row is {
+          organization_id: string;
+          user_id: string;
+          email: string;
+          joined_at: Date;
+        } =>
+          row.user_id !== null && row.email !== null && row.joined_at !== null
+      )
+      .map((row) => ({
+        user_id: row.user_id,
+        email: row.email,
+        joined_at: row.joined_at
+      }));
+
     const response: GroupMembersResponse = {
-      members: membersResult.rows.map(mapGroupMemberRow)
+      members: members.map(mapGroupMemberRow)
     };
     return { json: JSON.stringify(response) };
   } catch (error) {
