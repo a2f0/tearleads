@@ -18,6 +18,7 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # Copy source code
 COPY proto proto
+COPY scripts/lib scripts/lib
 COPY packages/api packages/api
 COPY packages/shared packages/shared
 COPY packages/db packages/db

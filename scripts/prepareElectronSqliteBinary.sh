@@ -46,7 +46,8 @@ process.stdout.write(value);
 
 ELECTRON_VERSION="$(get_pkg_version "pkg.devDependencies.electron" "Missing devDependencies.electron in packages/client/package.json")"
 SQLITE_VERSION="$(get_pkg_version "pkg.dependencies['better-sqlite3-multiple-ciphers']" "Missing dependencies.better-sqlite3-multiple-ciphers in packages/client/package.json")"
-REBUILD_VERSION="$(get_pkg_version "pkg.devDependencies['@electron/rebuild']" "Missing devDependencies.@electron/rebuild in packages/client/package.json")"
+# Pinned rebuild tool version for isolated temporary workspace installs.
+REBUILD_VERSION="4.0.3"
 PLATFORM="$(node -p "process.platform")"
 ARCH="$(node -p "process.arch")"
 NODE_VERSION="$(node -p "process.version")"
