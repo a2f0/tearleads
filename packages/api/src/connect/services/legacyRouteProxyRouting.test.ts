@@ -18,6 +18,9 @@ describe('legacyRouteProxyRouting', () => {
 
     const registerRouteMatch = findRoute('POST', '/vfs/register');
     expect(registerRouteMatch).not.toBeNull();
+
+    const crdtSyncRouteMatch = findRoute('GET', '/vfs/crdt/vfs-sync');
+    expect(crdtSyncRouteMatch).not.toBeNull();
   });
 
   it('returns null for method/path combinations that do not match', () => {
