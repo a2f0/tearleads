@@ -183,6 +183,36 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     retrySafe: true,
     isInline: true
   },
+  listCodeScanningAlerts: {
+    safetyClass: 'safe_read',
+    retrySafe: true,
+    isInline: true
+  },
+  getCodeScanningAlert: {
+    safetyClass: 'safe_read',
+    retrySafe: true,
+    isInline: true
+  },
+  updateCodeScanningAlert: {
+    safetyClass: 'safe_write_remote',
+    retrySafe: true,
+    isInline: true
+  },
+  listSecretScanningAlerts: {
+    safetyClass: 'safe_read',
+    retrySafe: true,
+    isInline: true
+  },
+  getSecretScanningAlert: {
+    safetyClass: 'safe_read',
+    retrySafe: true,
+    isInline: true
+  },
+  updateSecretScanningAlert: {
+    safetyClass: 'safe_write_remote',
+    retrySafe: true,
+    isInline: true
+  },
   runPreen: {
     safetyClass: 'safe_write_local',
     retrySafe: false,

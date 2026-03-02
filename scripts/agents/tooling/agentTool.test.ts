@@ -90,6 +90,40 @@ test('updateDependabotAlert rejects dismissed reason for open state', () => {
   );
 });
 
+test('updateCodeScanningAlert requires dismissed reason for dismissed state', () => {
+  const result = runAgentTool([
+    'updateCodeScanningAlert',
+    '--alert-number',
+    '117',
+    '--state',
+    'dismissed'
+  ]);
+
+  assert.equal(result.status, 1);
+  const combinedOutput = `${result.stdout}\n${result.stderr}`;
+  assert.match(
+    combinedOutput,
+    /updateCodeScanningAlert requires --dismissed-reason when --state dismissed/
+  );
+});
+
+test('updateSecretScanningAlert requires resolution for resolved state', () => {
+  const result = runAgentTool([
+    'updateSecretScanningAlert',
+    '--alert-number',
+    '22',
+    '--state',
+    'resolved'
+  ]);
+
+  assert.equal(result.status, 1);
+  const combinedOutput = `${result.stdout}\n${result.stderr}`;
+  assert.match(
+    combinedOutput,
+    /updateSecretScanningAlert requires --resolution when --state resolved/
+  );
+});
+
 test('verifyBranchPush reports synced branch heads', (t) => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agenttool-sync-'));
   t.after(() => {

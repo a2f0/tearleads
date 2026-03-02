@@ -9,11 +9,11 @@ import {
 import type { ActionName, GlobalOptions, JsonOutput } from '../types.ts';
 import { ACTION_CONFIG, AGENTS_DIR_PATH } from './actionConfig.ts';
 import { runDelegatedAction, runInlineAction } from './actions.ts';
-import { applyDependabotCommandOptions } from './dependabotCommandOptions.ts';
 import { getRepo, isShaLike } from './helpers.ts';
 import { applyInfraCommandOptions } from './infraCommandOptions.ts';
 import { applyIssueCommandOptions } from './issueCommandOptions.ts';
 import { applyPrWorkflowCommandOptions } from './prWorkflowCommandOptions.ts';
+import { applySecurityAlertCommandOptions } from './securityAlertCommandOptions.ts';
 
 export { ACTION_NAMES } from './actionConfig.ts';
 
@@ -33,7 +33,7 @@ export function createActionCommand(actionName: ActionName): Command {
     applyInfraCommandOptions(actionName, cmd) ||
     applyPrWorkflowCommandOptions(actionName, cmd) ||
     applyIssueCommandOptions(actionName, cmd) ||
-    applyDependabotCommandOptions(actionName, cmd)
+    applySecurityAlertCommandOptions(actionName, cmd)
   ) {
     // Action-specific options were applied in helper.
   } else {
