@@ -499,6 +499,7 @@ Do not open separate issues for GHAS alerts that can be fixed or dismissed in-pl
 ## Resolving Conversation Threads
 
 All threads must be resolved before merge, and close-out should happen continuously during CI polling rather than after CI completion.
+
 - Gemini threads: use `$follow-up-with-gemini` after each `$address-gemini-feedback` pass.
 - Copilot threads: resolve directly after the code change; do not wait for Copilot to reply.
 - GHAS threads: resolve only after the linked alert is no longer open (fixed/dismissed/resolved).
