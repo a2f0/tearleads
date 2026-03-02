@@ -184,7 +184,10 @@ describe('vfsRoutes', () => {
     expect(Array.from(emptyBlob.data)).toEqual([]);
     expect(emptyBlob.contentType).toBeNull();
 
-    requestMock.mockResolvedValueOnce({ data: 'QQ==', contentType: 'text/plain' });
+    requestMock.mockResolvedValueOnce({
+      data: 'QQ==',
+      contentType: 'text/plain'
+    });
     vi.stubGlobal('atob', undefined);
 
     await expect(vfsRoutes.getBlob('blob-error')).rejects.toThrow(
@@ -204,6 +207,8 @@ describe('vfsRoutes', () => {
 
     const [path, params] = requestMock.mock.calls[0] ?? [];
     expect(path).toBe('/connect/tearleads.v1.VfsService/DeleteBlob');
-    expect(params?.fetchOptions?.body).toBe(JSON.stringify({ blobId: 'blob-1' }));
+    expect(params?.fetchOptions?.body).toBe(
+      JSON.stringify({ blobId: 'blob-1' })
+    );
   });
 });

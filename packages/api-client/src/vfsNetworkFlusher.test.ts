@@ -366,7 +366,7 @@ describe('vfsNetworkFlusher', () => {
         }
 
         if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSnapshot')) {
-          let clientId: unknown = undefined;
+          let clientId: unknown;
           if (typeof init?.body === 'string') {
             const parsedBody = JSON.parse(init.body);
             if (
