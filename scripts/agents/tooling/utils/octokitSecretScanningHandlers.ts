@@ -9,9 +9,7 @@ type SecretScanningResolution =
   | 'false_positive'
   | 'wont_fix'
   | 'revoked'
-  | 'used_in_tests'
-  | 'pattern_edited'
-  | 'pattern_deleted';
+  | 'used_in_tests';
 type SecretScanningSort = 'created' | 'updated';
 type SecretScanningDirection = 'asc' | 'desc';
 
@@ -85,14 +83,12 @@ function parseSecretScanningResolution(
     value === 'false_positive' ||
     value === 'wont_fix' ||
     value === 'revoked' ||
-    value === 'used_in_tests' ||
-    value === 'pattern_edited' ||
-    value === 'pattern_deleted'
+    value === 'used_in_tests'
   ) {
     return value;
   }
   throw new Error(
-    '--resolution must be one of "false_positive", "wont_fix", "revoked", "used_in_tests", "pattern_edited", or "pattern_deleted"'
+    '--resolution must be one of "false_positive", "wont_fix", "revoked", or "used_in_tests"'
   );
 }
 

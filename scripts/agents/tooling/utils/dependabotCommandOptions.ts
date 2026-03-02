@@ -117,14 +117,12 @@ function parseSecretScanningResolution(value: string): string {
     value === 'false_positive' ||
     value === 'wont_fix' ||
     value === 'revoked' ||
-    value === 'used_in_tests' ||
-    value === 'pattern_edited' ||
-    value === 'pattern_deleted'
+    value === 'used_in_tests'
   ) {
     return value;
   }
   throw new InvalidArgumentError(
-    '--resolution must be one of "false_positive", "wont_fix", "revoked", "used_in_tests", "pattern_edited", "pattern_deleted"'
+    '--resolution must be one of "false_positive", "wont_fix", "revoked", "used_in_tests"'
   );
 }
 

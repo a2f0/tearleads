@@ -312,7 +312,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
         ```bash
         ./scripts/agents/tooling/agentTool.ts updateCodeScanningAlert --alert-number <n> --state dismissed --dismissed-reason <false_positive|wont_fix|used_in_tests> --dismissed-comment "<reason>"
         ./scripts/agents/tooling/agentTool.ts updateDependabotAlert --alert-number <n> --state dismissed --dismissed-reason <fix_started|inaccurate|no_bandwidth|not_used|tolerable_risk> --dismissed-comment "<reason>"
-        ./scripts/agents/tooling/agentTool.ts updateSecretScanningAlert --alert-number <n> --state resolved --resolution <false_positive|wont_fix|revoked|used_in_tests|pattern_edited|pattern_deleted> --resolution-comment "<reason>"
+        ./scripts/agents/tooling/agentTool.ts updateSecretScanningAlert --alert-number <n> --state resolved --resolution <false_positive|wont_fix|revoked|used_in_tests> --resolution-comment "<reason>"
         ```
 
    4. Re-check alert state; once it is no longer open (fixed/dismissed/resolved as applicable), resolve the PR thread:

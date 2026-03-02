@@ -5,6 +5,7 @@ type CodeScanningAlert =
   RestEndpointMethodTypes['codeScanning']['getAlert']['response']['data'];
 
 type CodeScanningUpdateState = 'open' | 'dismissed';
+type CodeScanningListState = 'open' | 'dismissed' | 'fixed';
 type CodeScanningDismissedReason =
   | 'false positive'
   | "won't fix"
@@ -51,7 +52,7 @@ function parseCodeScanningUpdateState(
 
 function parseCodeScanningListState(
   value: string | undefined
-): string | undefined {
+): CodeScanningListState | undefined {
   const candidate = parseOptionalString(value);
   if (candidate === undefined) {
     return undefined;
@@ -115,6 +116,7 @@ function normalizeCodeScanningAlert(
 ): Record<string, unknown> {
   const effectiveState =
     alert.state ?? alert.most_recent_instance.state ?? null;
+  const location = alert.most_recent_instance.location;
 
   return {
     number: alert.number,
@@ -137,9 +139,9 @@ function normalizeCodeScanningAlert(
       analysis_key: alert.most_recent_instance.analysis_key,
       category: alert.most_recent_instance.category,
       location: {
-        path: alert.most_recent_instance.location.path,
-        start_line: alert.most_recent_instance.location.start_line ?? null,
-        end_line: alert.most_recent_instance.location.end_line ?? null
+        path: location?.path ?? null,
+        start_line: location?.start_line ?? null,
+        end_line: location?.end_line ?? null
       }
     },
     html_url: alert.html_url,
