@@ -50,7 +50,9 @@ const managedSecretNames = [
   'DEPLOY_DOMAIN_STAGING',
   'DEPLOY_USER',
   'TAILSCALE_GITHUB_OAUTH_CLIENT_ID',
-  'TAILSCALE_GITHUB_OAUTH_CLIENT_SECRET'
+  'TAILSCALE_GITHUB_OAUTH_CLIENT_SECRET',
+  'DESKTOP_DOWNLOADS_S3_ACCESS_KEY_ID',
+  'DESKTOP_DOWNLOADS_S3_SECRET_ACCESS_KEY'
 ] as const;
 
 const dependabotSecretNames = new Set([
@@ -216,6 +218,14 @@ function main(): void {
     '.secrets/prod.env',
     'OPENROUTER_API_KEY'
   );
+  const desktopDownloadsS3AccessKeyId = readEnvValue(
+    '.secrets/staging.env',
+    'DESKTOP_DOWNLOADS_S3_ACCESS_KEY_ID'
+  );
+  const desktopDownloadsS3SecretAccessKey = readEnvValue(
+    '.secrets/staging.env',
+    'DESKTOP_DOWNLOADS_S3_SECRET_ACCESS_KEY'
+  );
 
   const p8File = `.secrets/AuthKey_${env.APP_STORE_CONNECT_KEY_ID}.p8`;
   const keystoreFile = '.secrets/tearleads-release.keystore';
@@ -290,6 +300,14 @@ function main(): void {
     {
       name: 'TAILSCALE_GITHUB_OAUTH_CLIENT_SECRET',
       value: env.TAILSCALE_GITHUB_OAUTH_CLIENT_SECRET
+    },
+    {
+      name: 'DESKTOP_DOWNLOADS_S3_ACCESS_KEY_ID',
+      value: desktopDownloadsS3AccessKeyId
+    },
+    {
+      name: 'DESKTOP_DOWNLOADS_S3_SECRET_ACCESS_KEY',
+      value: desktopDownloadsS3SecretAccessKey
     }
   ];
 

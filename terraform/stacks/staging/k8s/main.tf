@@ -131,6 +131,14 @@ module "tunnel" {
     {
       hostname = "api.${var.domain}"
       service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
+    },
+    {
+      hostname = "download.${var.domain}"
+      service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
+    },
+    {
+      hostname = "pkgs.${var.domain}"
+      service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
     }
   ]
 }
@@ -139,7 +147,9 @@ locals {
   ingress_hostnames = [
     "${var.domain}",
     "app.${var.domain}",
-    "api.${var.domain}"
+    "api.${var.domain}",
+    "download.${var.domain}",
+    "pkgs.${var.domain}"
   ]
 }
 
