@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ShareAccessSummary } from './ShareAccessSummary';
 
-const mockUseSharePolicyPreview = vi.fn(() => ({
+const mockUseSharePolicyPreview = vi.fn((_: unknown) => ({
   nodes: [],
   summary: {
     totalMatchingNodes: 0,
@@ -39,8 +39,8 @@ vi.mock('../../context', () => ({
 }));
 
 vi.mock('../../hooks', () => ({
-  useSharePolicyPreview: (...args: unknown[]) =>
-    mockUseSharePolicyPreview(...args)
+  useSharePolicyPreview: (options: unknown) =>
+    mockUseSharePolicyPreview(options)
 }));
 
 describe('ShareAccessSummary', () => {
