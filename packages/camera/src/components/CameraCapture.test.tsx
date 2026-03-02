@@ -160,4 +160,82 @@ describe('CameraCapture', () => {
 
     expect(stopTrack).toHaveBeenCalledTimes(1);
   });
+
+  it('renders initialPhotos in the photo roll grid', async () => {
+    const stopTrack = vi.fn();
+    const stream = {
+      getTracks: () => [{ stop: stopTrack }]
+    } as unknown as MediaStream;
+    const getUserMedia = vi.fn().mockResolvedValue(stream);
+    setMockMediaDevices(getUserMedia);
+
+    const initialPhotos = [
+      { id: 'photo-1', thumbnailUrl: 'blob:photo-1' },
+      { id: 'photo-2', thumbnailUrl: 'blob:photo-2' }
+    ];
+
+    render(<CameraCapture initialPhotos={initialPhotos} />);
+
+    await waitFor(() => {
+      expect(getUserMedia).toHaveBeenCalledTimes(1);
+    });
+
+    expect(screen.getByAltText('Capture 1')).toHaveAttribute(
+      'src',
+      'blob:photo-1'
+    );
+    expect(screen.getByAltText('Capture 2')).toHaveAttribute(
+      'src',
+      'blob:photo-2'
+    );
+  });
+
+  it('clears only session captures, not initialPhotos', async () => {
+    const stopTrack = vi.fn();
+    const stream = {
+      getTracks: () => [{ stop: stopTrack }]
+    } as unknown as MediaStream;
+    const getUserMedia = vi.fn().mockResolvedValue(stream);
+    setMockMediaDevices(getUserMedia);
+
+    const initialPhotos = [{ id: 'photo-1', thumbnailUrl: 'blob:photo-1' }];
+
+    render(<CameraCapture initialPhotos={initialPhotos} />);
+
+    await waitFor(() => {
+      expect(getUserMedia).toHaveBeenCalledTimes(1);
+    });
+
+    const video = screen.getByTestId('camera-video');
+    Object.defineProperty(video, 'videoWidth', {
+      configurable: true,
+      value: 1280
+    });
+    Object.defineProperty(video, 'videoHeight', {
+      configurable: true,
+      value: 720
+    });
+
+    // Capture and accept a new photo
+    fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
+    expect(await screen.findByTestId('camera-review')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+
+    // Should have 2 captures now (1 new + 1 initial)
+    await waitFor(() => {
+      expect(screen.getByAltText('Capture 1')).toBeInTheDocument();
+      expect(screen.getByAltText('Capture 2')).toBeInTheDocument();
+    });
+
+    // Clear Captures should only remove session captures
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Captures' }));
+
+    await waitFor(() => {
+      expect(screen.getByAltText('Capture 1')).toHaveAttribute(
+        'src',
+        'blob:photo-1'
+      );
+      expect(screen.queryByAltText('Capture 2')).not.toBeInTheDocument();
+    });
+  });
 });

@@ -1,37 +1,35 @@
-import { Camera, CameraOff, RotateCcw, Trash2 } from 'lucide-react';
+import { CameraOff } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CameraCaptureControls } from './CameraCaptureControls';
+import { CameraPhotoRollGrid } from './CameraPhotoRollGrid';
 import { CameraReview } from './CameraReview';
+import { useCameraStream } from './useCameraStream';
 
-type CameraStatus = 'idle' | 'starting' | 'ready' | 'blocked' | 'error';
+export interface CameraPhotoRollItem {
+  id: string;
+  thumbnailUrl: string;
+}
 
-const PERMISSION_DENIED_ERROR = 'NotAllowedError';
+interface CaptureEntry {
+  id: string;
+  thumbnailUrl: string;
+  isNew: boolean;
+}
 
 export interface CameraCaptureProps {
   maxCaptures?: number | undefined;
   onPhotoAccepted?: ((dataUrl: string) => void) | undefined;
-}
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.name === PERMISSION_DENIED_ERROR) {
-    return 'Camera permission was denied. Enable camera access and try again.';
-  }
-
-  return 'Unable to access the camera. Check device permissions and availability.';
+  initialPhotos?: CameraPhotoRollItem[] | undefined;
 }
 
 export function CameraCapture({
   maxCaptures = 20,
-  onPhotoAccepted
+  onPhotoAccepted,
+  initialPhotos
 }: CameraCaptureProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const captureIdRef = useRef(0);
-  const [status, setStatus] = useState<CameraStatus>('idle');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [captures, setCaptures] = useState<
-    Array<{ id: string; dataUrl: string }>
-  >([]);
+  const seededRef = useRef(false);
+  const [captures, setCaptures] = useState<CaptureEntry[]>([]);
   const [reviewingCapture, setReviewingCapture] = useState<{
     id: string;
     dataUrl: string;
@@ -40,108 +38,38 @@ export function CameraCapture({
     'environment'
   );
 
-  const stopCamera = useCallback(() => {
-    const current = streamRef.current;
-    if (!current) {
-      return;
-    }
-
-    for (const track of current.getTracks()) {
-      track.stop();
-    }
-
-    streamRef.current = null;
-
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-  }, []);
-
-  const startCamera = useCallback(async () => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setStatus('error');
-      setErrorMessage('Camera access is not supported in this browser.');
-      return;
-    }
-
-    stopCamera();
-    setStatus('starting');
-    setErrorMessage(null);
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          facingMode
-        }
-      });
-
-      streamRef.current = stream;
-
-      if (videoRef.current) {
-        const video = videoRef.current;
-        video.srcObject = stream;
-
-        await new Promise<void>((resolve) => {
-          const handleLoaded = () => {
-            video.removeEventListener('loadedmetadata', handleLoaded);
-            resolve();
-          };
-          if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
-            resolve();
-          } else {
-            video.addEventListener('loadedmetadata', handleLoaded);
-          }
-        });
-
-        await video.play();
-      }
-
-      setStatus('ready');
-    } catch (error) {
-      stopCamera();
-      setStatus(
-        error instanceof Error && error.name === PERMISSION_DENIED_ERROR
-          ? 'blocked'
-          : 'error'
-      );
-      setErrorMessage(getErrorMessage(error));
-    }
-  }, [facingMode, stopCamera]);
+  const {
+    videoRef,
+    canvasRef,
+    status,
+    errorMessage,
+    startCamera,
+    captureFrame
+  } = useCameraStream(facingMode);
 
   useEffect(() => {
-    void startCamera();
-    return stopCamera;
-  }, [startCamera, stopCamera]);
+    if (seededRef.current || !initialPhotos || initialPhotos.length === 0) {
+      return;
+    }
+    seededRef.current = true;
+    setCaptures((prev) => {
+      const existingIds = new Set(prev.map((c) => c.id));
+      const newEntries = initialPhotos
+        .filter((p) => !existingIds.has(p.id))
+        .map((p) => ({ id: p.id, thumbnailUrl: p.thumbnailUrl, isNew: false }));
+      return [...prev, ...newEntries];
+    });
+  }, [initialPhotos]);
 
   const handleCapture = useCallback(() => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-
-    if (!video || !canvas || video.videoWidth <= 0 || video.videoHeight <= 0) {
-      setErrorMessage('Camera stream is not ready. Try again in a moment.');
-      return;
-    }
-
-    const context = canvas.getContext('2d');
-    if (!context) {
-      setErrorMessage('Unable to initialize capture canvas.');
-      return;
-    }
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const captureData = canvas.toDataURL('image/jpeg', 0.92);
+    const dataUrl = captureFrame();
+    if (!dataUrl) return;
 
     const captureId = `capture-${Date.now()}-${captureIdRef.current}`;
     captureIdRef.current += 1;
 
-    // Show review screen instead of adding directly to captures
-    setReviewingCapture({ id: captureId, dataUrl: captureData });
-    setErrorMessage(null);
-  }, []);
+    setReviewingCapture({ id: captureId, dataUrl });
+  }, [captureFrame]);
 
   const handleRetake = useCallback(() => {
     setReviewingCapture(null);
@@ -149,21 +77,23 @@ export function CameraCapture({
 
   const handleAccept = useCallback(() => {
     if (reviewingCapture) {
-      // Add to captures list
       setCaptures((previous) =>
         [
-          { id: reviewingCapture.id, dataUrl: reviewingCapture.dataUrl },
+          {
+            id: reviewingCapture.id,
+            thumbnailUrl: reviewingCapture.dataUrl,
+            isNew: true
+          },
           ...previous
         ].slice(0, maxCaptures)
       );
-      // Notify parent if callback provided
       onPhotoAccepted?.(reviewingCapture.dataUrl);
     }
     setReviewingCapture(null);
   }, [reviewingCapture, maxCaptures, onPhotoAccepted]);
 
   const handleClearCaptures = useCallback(() => {
-    setCaptures([]);
+    setCaptures((prev) => prev.filter((c) => !c.isNew));
   }, []);
 
   const handleToggleCamera = useCallback(() => {
@@ -173,9 +103,8 @@ export function CameraCapture({
   }, []);
 
   const canCapture = status === 'ready';
-  const hasCaptures = captures.length > 0;
+  const hasNewCaptures = captures.some((c) => c.isNew);
 
-  // Show review screen when a capture is being reviewed
   if (reviewingCapture) {
     return (
       <CameraReview
@@ -221,60 +150,17 @@ export function CameraCapture({
         </p>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={handleCapture}
-          disabled={!canCapture}
-          className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <Camera className="h-4 w-4" />
-          Capture
-        </button>
-        <button
-          type="button"
-          onClick={() => void startCamera()}
-          disabled={status === 'starting'}
-          className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          Restart Camera
-        </button>
-        <button
-          type="button"
-          onClick={handleToggleCamera}
-          disabled={status === 'starting'}
-          className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <RotateCcw className="h-4 w-4" />
-          Switch Camera
-        </button>
-        <button
-          type="button"
-          onClick={handleClearCaptures}
-          disabled={!hasCaptures}
-          className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <Trash2 className="h-4 w-4" />
-          Clear Captures
-        </button>
-      </div>
+      <CameraCaptureControls
+        canCapture={canCapture}
+        isStarting={status === 'starting'}
+        hasNewCaptures={hasNewCaptures}
+        onCapture={handleCapture}
+        onRestart={() => void startCamera()}
+        onToggleCamera={handleToggleCamera}
+        onClearCaptures={handleClearCaptures}
+      />
 
-      <div className="grid max-h-44 grid-cols-4 gap-2 overflow-y-auto rounded border p-2">
-        {captures.length === 0 && (
-          <p className="col-span-full text-muted-foreground text-xs">
-            Captures appear here. This list is ready for a multi-page scanner
-            flow in the next iteration.
-          </p>
-        )}
-        {captures.map((capture, index) => (
-          <img
-            key={capture.id}
-            src={capture.dataUrl}
-            alt={`Capture ${index + 1}`}
-            className="h-20 w-full rounded border object-cover"
-          />
-        ))}
-      </div>
+      <CameraPhotoRollGrid captures={captures} />
 
       <canvas ref={canvasRef} className="hidden" />
     </section>

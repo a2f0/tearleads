@@ -3,7 +3,7 @@ import {
   WindowControlBar,
   type WindowDimensions
 } from '@tearleads/window-manager';
-import { CameraCapture } from './CameraCapture';
+import { CameraCapture, type CameraPhotoRollItem } from './CameraCapture';
 
 const DEFAULT_WIDTH = 840;
 const DEFAULT_HEIGHT = 620;
@@ -20,6 +20,7 @@ export interface CameraWindowProps {
   zIndex: number;
   initialDimensions?: WindowDimensions | undefined;
   onPhotoAccepted?: ((dataUrl: string) => void) | undefined;
+  initialPhotos?: CameraPhotoRollItem[] | undefined;
 }
 
 export function CameraWindow({
@@ -31,7 +32,8 @@ export function CameraWindow({
   onFocus,
   zIndex,
   initialDimensions,
-  onPhotoAccepted
+  onPhotoAccepted,
+  initialPhotos
 }: CameraWindowProps) {
   return (
     <FloatingWindow
@@ -51,8 +53,11 @@ export function CameraWindow({
     >
       <div className="flex h-full min-h-0 flex-col">
         <WindowControlBar>{null}</WindowControlBar>
-        <div className="min-h-0 flex-1 p-3">
-          <CameraCapture onPhotoAccepted={onPhotoAccepted} />
+        <div className="flex min-h-0 flex-1 flex-col p-3">
+          <CameraCapture
+            onPhotoAccepted={onPhotoAccepted}
+            initialPhotos={initialPhotos}
+          />
         </div>
       </div>
     </FloatingWindow>
