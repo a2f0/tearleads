@@ -89,38 +89,40 @@ export function PhotosWindowContentArea({
         showDropzone={showDropzone}
         onShowDropzoneChange={onShowDropzoneChange}
       />
-      <WindowControlBar>
-        <WindowControlGroup>
-          {selectedPhotoId ? (
-            <WindowControlButton
-              icon={<ArrowLeft className="h-3 w-3" />}
-              onClick={onBack}
-              data-testid="photos-window-control-back"
-            >
-              Back
-            </WindowControlButton>
-          ) : (
-            <>
+      {isUnlocked && (
+        <WindowControlBar>
+          <WindowControlGroup>
+            {selectedPhotoId ? (
               <WindowControlButton
-                icon={<Upload className="h-3 w-3" />}
-                onClick={onUpload}
-                disabled={uploading}
-                data-testid="photos-window-control-upload"
+                icon={<ArrowLeft className="h-3 w-3" />}
+                onClick={onBack}
+                data-testid="photos-window-control-back"
               >
-                Upload
+                Back
               </WindowControlButton>
-              <WindowControlButton
-                icon={<RefreshCw className="h-3 w-3" />}
-                onClick={onRefresh}
-                disabled={uploading}
-                data-testid="photos-window-control-refresh"
-              >
-                Refresh
-              </WindowControlButton>
-            </>
-          )}
-        </WindowControlGroup>
-      </WindowControlBar>
+            ) : (
+              <>
+                <WindowControlButton
+                  icon={<Upload className="h-3 w-3" />}
+                  onClick={onUpload}
+                  disabled={uploading}
+                  data-testid="photos-window-control-upload"
+                >
+                  Upload
+                </WindowControlButton>
+                <WindowControlButton
+                  icon={<RefreshCw className="h-3 w-3" />}
+                  onClick={onRefresh}
+                  disabled={uploading}
+                  data-testid="photos-window-control-refresh"
+                >
+                  Refresh
+                </WindowControlButton>
+              </>
+            )}
+          </WindowControlGroup>
+        </WindowControlBar>
+      )}
       <div className="flex flex-1 overflow-hidden">
         {isUnlocked && (
           <PhotosAlbumsSidebar

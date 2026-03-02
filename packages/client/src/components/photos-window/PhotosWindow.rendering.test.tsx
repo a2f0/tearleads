@@ -353,6 +353,20 @@ describe('PhotosWindow rendering', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('hides control bar when database is locked', () => {
+    mockUseDatabaseContext.mockReturnValue({
+      isUnlocked: false,
+      isLoading: false
+    });
+    render(<PhotosWindow {...defaultProps} />);
+    expect(
+      screen.queryByTestId('photos-window-control-upload')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('photos-window-control-refresh')
+    ).not.toBeInTheDocument();
+  });
+
   it('toggles showDropzone from the menu', async () => {
     const user = userEvent.setup();
     render(<PhotosWindow {...defaultProps} />);

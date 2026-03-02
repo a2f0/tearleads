@@ -9,6 +9,10 @@ vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowOpenRequest: () => undefined
 }));
 
+vi.mock('@/db/hooks', () => ({
+  useDatabaseContext: () => ({ isUnlocked: true, isLoading: false })
+}));
+
 // Mock FloatingWindow
 vi.mock('@tearleads/window-manager', async (importOriginal) => {
   const actual =
