@@ -1,3 +1,4 @@
+import { isPlainRecord, parseConnectJsonEnvelopeBody } from '@tearleads/shared';
 import type {
   VfsCrdtSyncPullResponse,
   VfsCrdtSyncPushResponse,
@@ -157,7 +158,7 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     });
 
     if (
-      !isRecord(parsedSession) ||
+      !isPlainRecord(parsedSession) ||
       !('push' in parsedSession) ||
       !('pull' in parsedSession) ||
       !('reconcile' in parsedSession)
@@ -295,25 +296,4 @@ function normalizeApiPrefix(apiPrefix: string): string {
   return withLeadingSlash.endsWith('/')
     ? withLeadingSlash.slice(0, -1)
     : withLeadingSlash;
-}
-
-function parseConnectJsonEnvelopeBody(body: unknown): unknown {
-  if (!isRecord(body) || typeof body['json'] !== 'string') {
-    return body;
-  }
-
-  const rawJson = body['json'].trim();
-  if (rawJson.length === 0) {
-    return {};
-  }
-
-  try {
-    return JSON.parse(rawJson);
-  } catch {
-    throw new Error('transport returned invalid connect json envelope');
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

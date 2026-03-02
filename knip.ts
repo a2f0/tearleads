@@ -36,9 +36,6 @@ const config: KnipConfig = {
     'packages/app-builder': {
       entry: ['apps/*/config.ts']
     },
-    'packages/api': {
-      entry: ['src/openapi.ts']
-    },
     'packages/api-test-utils': {
       entry: ['src/**/*.test.ts']
     },

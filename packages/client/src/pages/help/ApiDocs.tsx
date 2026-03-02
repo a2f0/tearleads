@@ -12,6 +12,7 @@ export function ApiDocsPage() {
   const [openapiSpec, setOpenapiSpec] = useState<OpenAPIV3.Document | null>(
     null
   );
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -26,7 +27,13 @@ export function ApiDocsPage() {
         if (isOpenApiDocument(spec)) {
           setOpenapiSpec(spec);
         }
-      } catch {}
+      } catch {
+        // OpenAPI may be disabled in Connect-only deployments.
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
     })();
 
     return () => {
@@ -46,8 +53,12 @@ export function ApiDocsPage() {
 
       {openapiSpec ? (
         <ApiDocs spec={openapiSpec} />
-      ) : (
+      ) : isLoading ? (
         <div className="text-muted-foreground text-sm">Loading API docs...</div>
+      ) : (
+        <div className="text-muted-foreground text-sm">
+          API docs are unavailable in this environment.
+        </div>
       )}
     </div>
   );

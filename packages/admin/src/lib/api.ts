@@ -25,6 +25,10 @@ import type {
   UpdateGroupRequest,
   UpdateOrganizationRequest
 } from '@tearleads/shared';
+import {
+  createConnectJsonPostInit,
+  parseConnectJsonString
+} from '@tearleads/shared';
 
 const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 
@@ -37,14 +41,6 @@ interface RequestParams {
 
 interface ConnectJsonEnvelopeResponse {
   json: string;
-}
-
-function jsonPost(body: unknown): RequestInit {
-  return {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  };
 }
 
 async function request<T>(
@@ -101,17 +97,6 @@ async function request<T>(
   return JSON.parse(text) as T;
 }
 
-function parseConnectJson<T>(json: unknown): T {
-  if (typeof json !== 'string') {
-    return JSON.parse('{}');
-  }
-  const trimmed = json.trim();
-  if (trimmed.length === 0) {
-    return JSON.parse('{}');
-  }
-  return JSON.parse(trimmed);
-}
-
 function requestAdminJson<T>(
   methodName: string,
   requestBody: Record<string, unknown>
@@ -119,9 +104,9 @@ function requestAdminJson<T>(
   return request<ConnectJsonEnvelopeResponse>(
     `${ADMIN_CONNECT_BASE_PATH}/${methodName}`,
     {
-      fetchOptions: jsonPost(requestBody)
+      fetchOptions: createConnectJsonPostInit(requestBody)
     }
-  ).then((response) => parseConnectJson<T>(response?.json));
+  ).then((response) => parseConnectJsonString<T>(response?.json));
 }
 
 function requestAi<T>(
@@ -129,7 +114,7 @@ function requestAi<T>(
   requestBody: Record<string, unknown>
 ): Promise<T> {
   return request<T>(`${AI_CONNECT_BASE_PATH}/${methodName}`, {
-    fetchOptions: jsonPost(requestBody)
+    fetchOptions: createConnectJsonPostInit(requestBody)
   });
 }
 
