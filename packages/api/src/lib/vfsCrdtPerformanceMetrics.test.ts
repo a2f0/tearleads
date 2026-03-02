@@ -23,10 +23,14 @@ describe('vfsCrdtPerformanceMetrics', () => {
 
   it('records query duration + row count on success', async () => {
     const metrics = createVfsCrdtQueryMetrics();
-    const result = await runTimedVfsCrdtQuery('pull_page', metrics, async () => ({
-      rowCount: 2,
-      rows: [{ id: 1 }, { id: 2 }]
-    }));
+    const result = await runTimedVfsCrdtQuery(
+      'pull_page',
+      metrics,
+      async () => ({
+        rowCount: 2,
+        rows: [{ id: 1 }, { id: 2 }]
+      })
+    );
 
     expect(result.rowCount).toBe(2);
     expect(metrics.count).toBe(1);
