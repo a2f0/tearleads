@@ -164,11 +164,9 @@ export const notificationConnectService = {
         await awaitQueuedEvent(queue, context.signal, (handler) => {
           wakeupHandler = handler;
         });
-        while (queue.length > 0) {
-          const next = queue.shift();
-          if (next) {
-            yield next;
-          }
+        const batch = queue.splice(0);
+        for (const event of batch) {
+          yield event;
         }
       }
     } catch (error) {

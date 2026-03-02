@@ -7,25 +7,35 @@ const DEFAULT_NOTIFICATION_CHANNEL = 'broadcast';
 const MLS_USER_CHANNEL_PREFIX = 'mls:user:';
 const MLS_GROUP_CHANNEL_PREFIX = 'mls:group:';
 
-async function isUserMemberOfGroup(
+async function getAuthorizedGroupIdsForUser(
   userId: string,
-  groupId: string
-): Promise<boolean> {
+  groupIds: readonly string[]
+): Promise<Set<string>> {
+  if (groupIds.length === 0) {
+    return new Set<string>();
+  }
+
   const pool = await getPostgresPool();
-  const result = await pool.query(
-    `SELECT 1
+  const result = await pool.query<{ group_id: string }>(
+    `SELECT m.group_id
        FROM mls_group_members m
        INNER JOIN mls_groups g ON g.id = m.group_id
        INNER JOIN user_organizations uo
                ON uo.organization_id = g.organization_id
               AND uo.user_id = $2
-      WHERE m.group_id = $1
+      WHERE m.group_id = ANY($1::text[])
         AND m.user_id = $2
-        AND m.removed_at IS NULL
-     LIMIT 1`,
-    [groupId, userId]
+        AND m.removed_at IS NULL`,
+    [groupIds, userId]
   );
-  return result.rows.length > 0;
+
+  return new Set(
+    result.rows
+      .map((row) => row.group_id?.trim())
+      .filter(
+        (groupId): groupId is string => groupId !== undefined && groupId !== ''
+      )
+  );
 }
 
 async function filterAuthorizedVfsContainerIds(
@@ -91,20 +101,33 @@ export async function filterAuthorizedChannels(
 ): Promise<string[]> {
   const authorized: string[] = [];
   const knownVfsContainerIds = new Set<string>();
+  const mlsGroupIds = new Set<string>();
+
   for (const channel of channels) {
     const containerId = parseVfsContainerIdFromSyncChannel(channel);
     if (containerId) {
       knownVfsContainerIds.add(containerId);
     }
+
+    if (channel.startsWith(MLS_GROUP_CHANNEL_PREFIX)) {
+      const groupId = channel.slice(MLS_GROUP_CHANNEL_PREFIX.length);
+      if (groupId.length > 0) {
+        mlsGroupIds.add(groupId);
+      }
+    }
   }
 
-  const authorizedVfsContainerIds =
+  const [authorizedVfsContainerIds, authorizedMlsGroupIds] = await Promise.all([
     knownVfsContainerIds.size > 0
-      ? await filterAuthorizedVfsContainerIds(
+      ? filterAuthorizedVfsContainerIds(
           Array.from(knownVfsContainerIds),
           userId
         )
-      : new Set<string>();
+      : Promise.resolve(new Set<string>()),
+    mlsGroupIds.size > 0
+      ? getAuthorizedGroupIdsForUser(userId, Array.from(mlsGroupIds))
+      : Promise.resolve(new Set<string>())
+  ]);
 
   for (const channel of channels) {
     if (channel === DEFAULT_NOTIFICATION_CHANNEL) {
@@ -122,8 +145,7 @@ export async function filterAuthorizedChannels(
 
     if (channel.startsWith(MLS_GROUP_CHANNEL_PREFIX)) {
       const groupId = channel.slice(MLS_GROUP_CHANNEL_PREFIX.length);
-      const isMember = await isUserMemberOfGroup(userId, groupId);
-      if (isMember) {
+      if (authorizedMlsGroupIds.has(groupId)) {
         authorized.push(channel);
       }
       continue;
