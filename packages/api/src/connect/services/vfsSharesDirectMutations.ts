@@ -49,7 +49,10 @@ export async function updateShareDirect(
 
   try {
     const pool = await getPostgresPool();
-    const authContext = await loadShareAuthorizationContext(pool, request.shareId);
+    const authContext = await loadShareAuthorizationContext(
+      pool,
+      request.shareId
+    );
     if (!authContext) {
       throw new ConnectError('Share not found', Code.NotFound);
     }
