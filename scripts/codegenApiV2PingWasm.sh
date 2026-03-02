@@ -50,7 +50,7 @@ fi
 for output_dir in "${OUTPUT_DIRS[@]}"; do
   rm -rf "$output_dir"
   mkdir -p "$output_dir"
-  echo "Generating bindings in ${output_dir#$REPO_ROOT/}..."
+  echo "Generating bindings in ${output_dir#"$REPO_ROOT"/}..."
   wasm-bindgen \
     "$WASM_INPUT" \
     --target bundler \
