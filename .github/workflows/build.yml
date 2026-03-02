@@ -83,7 +83,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lint-type: [biome, scripts, markdown, rubocop, ansible, terraform, audit]
+        lint-type: [biome, scripts, markdown, rubocop, ansible, terraform, knip, audit]
     steps:
       - name: Report no impact detected
         if: ${{ github.event_name != 'workflow_dispatch' && needs.detect-impact.outputs.should-run != 'true' }}
@@ -187,9 +187,17 @@ jobs:
         if: matrix.lint-type == 'terraform'
         run: ./scripts/checks/checkTerraform.sh
 
-      - name: Audit dependencies
+      - name: Lint knip
+        if: matrix.lint-type == 'knip'
+        run: pnpm lint:knip
+
+      - name: Audit production dependencies
         if: matrix.lint-type == 'audit'
-        run: pnpm audit --audit-level critical
+        run: pnpm audit --prod --audit-level high
+
+      - name: Audit full dependency graph (informational)
+        if: matrix.lint-type == 'audit'
+        run: pnpm audit --audit-level high || true
 
   # Check for binary/JS files and verify guardrails
   guardrails:
@@ -206,6 +214,9 @@ jobs:
       - name: Check for plain JavaScript files
         run: ./scripts/checks/checkJs.sh --from-upstream
 
+      - name: Check file limits
+        run: ./scripts/checks/checkFileLimits.sh --from-upstream
+
       - name: Check TypeScript file naming
         run: ./scripts/checks/checkFileNames.sh --from-upstream
 
@@ -221,6 +232,9 @@ jobs:
       - name: Verify file guardrails
         run: ./scripts/verifyFileGuardrails.sh
 
+      - name: Check sentinel markdown links
+        run: ./scripts/checks/checkSentinelMarkdownLinks.sh --all
+
   # Typecheck and build (sequential dependency)
   typecheck-build:
     needs: [detect-impact, guardrails]
@@ -229,6 +243,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -241,6 +257,11 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
+
+      - name: Install actionlint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash \
+            | bash -s -- latest /usr/local/bin
 
       - name: Run impacted ciImpact script tests
         run: |
@@ -271,6 +292,18 @@ jobs:
       - name: Check architecture guardrail budgets
         run: ./scripts/checks/checkArchitectureGuardrailBudgets.ts
 
+      - name: Check one component per file
+        run: ./scripts/checks/checkOneComponentPerFile.ts --from-upstream
+
+      - name: Check component complexity
+        run: ./scripts/checks/checkComponentComplexity.ts --from-upstream
+
+      - name: Check Tailwind sources
+        run: ./scripts/checks/checkTailwindSources.ts
+
+      - name: Check GitHub Actions workflows
+        run: ./scripts/checks/checkGithubActions.sh --all
+
       - name: Cache SQLite WASM
         uses: actions/cache@v4
         with:
@@ -294,6 +327,9 @@ jobs:
 
       - name: Type check
         run: pnpm exec tsc -b
+
+      - name: Enforce TypeScript incremental builds
+        run: pnpm enforceTypeScriptIncrementalBuilds
 
       - name: Build
         run: pnpm build
