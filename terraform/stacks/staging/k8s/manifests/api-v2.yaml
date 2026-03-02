@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-v2
+  namespace: tearleads
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-v2
+  template:
+    metadata:
+      labels:
+        app: api-v2
+    spec:
+      imagePullSecrets:
+        - name: ecr-registry
+      containers:
+        - name: api-v2
+          image: 956489103522.dkr.ecr.us-east-1.amazonaws.com/tearleads-staging/api-v2:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5002
+          env:
+            - name: PORT
+              value: "5002"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          readinessProbe:
+            httpGet:
+              path: /v2/ping
+              port: 5002
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /v2/ping
+              port: 5002
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-v2
+  namespace: tearleads
+spec:
+  selector:
+    app: api-v2
+  ports:
+    - port: 5002
+      targetPort: 5002

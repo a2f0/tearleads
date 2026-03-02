@@ -74,6 +74,7 @@ The zone uses `prevent_destroy`, so `terraform destroy` will not remove it.
 | `garage.yaml` | Garage S3-compatible object storage for VFS blobs |
 | `smtp-listener.yaml` | SMTP listener deployment and service |
 | `api.yaml` | API server deployment |
+| `api-v2.yaml` | Rust API v2 deployment and service (`/v2/*`) |
 | `client.yaml` | Web client deployment |
 | `website.yaml` | Marketing website deployment |
 | `cloudflared.yaml` | Cloudflare Tunnel connector deployment |
@@ -146,6 +147,7 @@ Images are pulled from ECR. See [Container Deployments](../../../docs/container-
 
 # Restart deployments to pull new images
 kubectl rollout restart deployment/api deployment/client deployment/smtp-listener deployment/website -n tearleads
+kubectl rollout restart deployment/api-v2 -n tearleads
 ```
 
 ## Database

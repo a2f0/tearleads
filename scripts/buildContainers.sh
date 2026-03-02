@@ -21,9 +21,11 @@ usage() {
   echo ""
   echo "Options:"
   echo "  --api-only      Only build the API container"
+  echo "  --api-v2-only   Only build the API v2 container"
   echo "  --client-only   Only build the client container"
   echo "  --smtp-only     Only build the SMTP listener container"
   echo "  --website-only  Only build the website container"
+  echo "  --no-api-v2     Skip building the API v2 container"
   echo "  --no-smtp       Skip building the SMTP listener container"
   echo "  --no-website    Skip building the website container"
   echo "  --parallel      Build selected containers in parallel"
@@ -51,6 +53,10 @@ fi
 
 # Parse options
 BUILD_API=true
+BUILD_API_V2=false
+if [[ "$ENV" == "staging" ]]; then
+  BUILD_API_V2=true
+fi
 BUILD_CLIENT=true
 BUILD_SMTP=false
 if [[ "$ENV" == "staging" ]]; then
@@ -63,19 +69,30 @@ TAG="latest"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --api-only)
+      BUILD_API_V2=false
       BUILD_CLIENT=false
       BUILD_SMTP=false
       BUILD_WEBSITE=false
       shift
       ;;
+    --api-v2-only)
+      BUILD_API=false
+      BUILD_CLIENT=false
+      BUILD_SMTP=false
+      BUILD_WEBSITE=false
+      BUILD_API_V2=true
+      shift
+      ;;
     --client-only)
       BUILD_API=false
+      BUILD_API_V2=false
       BUILD_SMTP=false
       BUILD_WEBSITE=false
       shift
       ;;
     --smtp-only)
       BUILD_API=false
+      BUILD_API_V2=false
       BUILD_CLIENT=false
       BUILD_WEBSITE=false
       BUILD_SMTP=true
@@ -83,8 +100,13 @@ while [[ $# -gt 0 ]]; do
       ;;
     --website-only)
       BUILD_API=false
+      BUILD_API_V2=false
       BUILD_CLIENT=false
       BUILD_SMTP=false
+      shift
+      ;;
+    --no-api-v2)
+      BUILD_API_V2=false
       shift
       ;;
     --no-smtp)
@@ -128,6 +150,7 @@ ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
 # Set ECR repo names based on environment
 API_REPO="tearleads-${ENV}/api"
+API_V2_REPO="tearleads-${ENV}/api-v2"
 CLIENT_REPO="tearleads-${ENV}/client"
 SMTP_REPO="tearleads-${ENV}/smtp-listener"
 WEBSITE_REPO="tearleads-${ENV}/website"
@@ -137,6 +160,7 @@ echo "Environment: $ENV"
 echo "ECR Registry: $ECR_REGISTRY"
 echo "Tag: $TAG"
 echo "Build API: $BUILD_API"
+echo "Build API V2: $BUILD_API_V2"
 echo "Build Client: $BUILD_CLIENT"
 echo "Build SMTP Listener: $BUILD_SMTP"
 echo "Build Website: $BUILD_WEBSITE"
@@ -199,6 +223,14 @@ if [[ "$BUILD_API" == "true" ]]; then
     "API" \
     packages/api/Dockerfile \
     "${ECR_REGISTRY}/${API_REPO}:${TAG}"
+fi
+
+# Build API v2
+if [[ "$BUILD_API_V2" == "true" ]]; then
+  run_or_queue_build \
+    "API v2" \
+    crates/api-v2/Dockerfile \
+    "${ECR_REGISTRY}/${API_V2_REPO}:${TAG}"
 fi
 
 # Build Client

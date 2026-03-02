@@ -80,6 +80,14 @@ updates:
         patterns:
           - '*'
 
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+
   - package-ecosystem: docker
     directory: /packages/api
     schedule:
@@ -93,6 +101,18 @@ updates:
           - 'version-update:semver-major'
     groups:
       node-images:
+        patterns:
+          - '*'
+
+  - package-ecosystem: docker
+    directory: /crates/api-v2
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+    groups:
+      rust-images:
         patterns:
           - '*'
 

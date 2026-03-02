@@ -40,6 +40,10 @@ npm-debug.log*
 .tmp-sqlite-wasm/
 .astro/
 
+# Rust
+target/
+**/*.profraw
+
 # Downloaded SQLite WASM (use scripts/downloadSqliteWasm.sh to download)
 # These are generated artifacts - run the script after git clone or when updating SQLite version
 packages/client/src/workers/sqlite-wasm/

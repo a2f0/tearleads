@@ -89,6 +89,12 @@ jobs:
             --docker-username=AWS \
             --docker-password="${ECR_TOKEN}"
 
+      - name: Ensure API v2 manifests are applied
+        run: |
+          set -eu
+          kubectl apply -f terraform/stacks/staging/k8s/manifests/api-v2.yaml
+          sed "s|DOMAIN_PLACEHOLDER|${TF_VAR_domain}|g" terraform/stacks/staging/k8s/manifests/ingress.yaml | kubectl apply -f -
+
       - name: Pin deployments to published image tag
         run: |
           set -eu
@@ -98,6 +104,9 @@ jobs:
 
           kubectl set image deployment/api \
             api="${ECR_REGISTRY}/tearleads-staging/api:${IMAGE_TAG}" \
+            -n tearleads
+          kubectl set image deployment/api-v2 \
+            api-v2="${ECR_REGISTRY}/tearleads-staging/api-v2:${IMAGE_TAG}" \
             -n tearleads
           kubectl set image deployment/client \
             client="${ECR_REGISTRY}/tearleads-staging/client:${IMAGE_TAG}" \
@@ -112,8 +121,9 @@ jobs:
       - name: Rollout staging deployments
         run: |
           set -eu
-          kubectl rollout restart deployment/api deployment/client deployment/website deployment/smtp-listener -n tearleads
+          kubectl rollout restart deployment/api deployment/api-v2 deployment/client deployment/website deployment/smtp-listener -n tearleads
           kubectl rollout status deployment/api -n tearleads --timeout=300s
+          kubectl rollout status deployment/api-v2 -n tearleads --timeout=300s
           kubectl rollout status deployment/client -n tearleads --timeout=300s
           kubectl rollout status deployment/website -n tearleads --timeout=300s
           kubectl rollout status deployment/smtp-listener -n tearleads --timeout=300s

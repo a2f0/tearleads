@@ -24,7 +24,7 @@ fi
 
 export KUBECONFIG="$KUBECONFIG_FILE"
 
-deployments=("deployment/api" "deployment/client" "deployment/smtp-listener")
+deployments=("deployment/api" "deployment/api-v2" "deployment/client" "deployment/smtp-listener")
 if [[ "$SKIP_WEBSITE" != "true" ]]; then
   deployments+=("deployment/website")
 fi

@@ -10,6 +10,8 @@ BYTE_LIMIT=20000
 # are often automatically generated or contain large meta-logic descriptions.
 IGNORE_PATTERNS=(
   "^pnpm-lock\.yaml$"
+  # Rust lockfile for executable crates; cannot be meaningfully split
+  "^Cargo\.lock$"
   "^ansible/vendor/"
   "^package\.json$"
   "^pnpm-workspace\.yaml$"
