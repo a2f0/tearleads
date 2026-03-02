@@ -58,6 +58,7 @@ require_secret_env_vars() {
   local required_vars=(
     "JWT_SECRET"
     "OPENROUTER_API_KEY"
+    "POSTGRES_DATABASE"
     "POSTGRES_PASSWORD"
     "VFS_BLOB_S3_ACCESS_KEY_ID"
     "VFS_BLOB_S3_SECRET_ACCESS_KEY"

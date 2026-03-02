@@ -10,7 +10,7 @@ data:
   POSTGRES_HOST: "${POSTGRES_HOST}"
   POSTGRES_PORT: "5432"
   POSTGRES_USER: "postgres"
-  POSTGRES_DATABASE: "tearleads"
+  POSTGRES_DATABASE: "${POSTGRES_DATABASE}"
   POSTGRES_SSL: "1"
   REDIS_URL: "redis://redis:6379"
   # VFS Blob Storage (AWS S3)

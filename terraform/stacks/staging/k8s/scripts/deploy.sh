@@ -23,6 +23,7 @@ require_secret_env_vars() {
   local required_vars=(
     "JWT_SECRET"
     "OPENROUTER_API_KEY"
+    "POSTGRES_DATABASE"
     "POSTGRES_PASSWORD"
     "GARAGE_RPC_SECRET"
     "GARAGE_ADMIN_TOKEN"
@@ -82,9 +83,11 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 RENDERED_INGRESS="$TMP_DIR/ingress.yaml"
 RENDERED_ISSUER="$TMP_DIR/cert-manager-issuer.yaml"
 RENDERED_SECRETS="$TMP_DIR/secrets.yaml"
+RENDERED_CONFIGMAP="$TMP_DIR/configmap.yaml"
 sed "s/DOMAIN_PLACEHOLDER/$STAGING_DOMAIN/g" "$MANIFESTS_DIR/ingress.yaml" > "$RENDERED_INGRESS"
 sed "s|REPLACE_WITH_YOUR_EMAIL|$ESCAPED_LETSENCRYPT_EMAIL|g" "$MANIFESTS_DIR/cert-manager-issuer.yaml" > "$RENDERED_ISSUER"
 envsubst < "$MANIFESTS_DIR/secrets.yaml" > "$RENDERED_SECRETS"
+envsubst < "$MANIFESTS_DIR/configmap.yaml" > "$RENDERED_CONFIGMAP"
 
 echo "Deploying manifests from $MANIFESTS_DIR..."
 
@@ -94,8 +97,9 @@ if [[ "$USE_KUSTOMIZE" == "true" ]]; then
     exit 1
   fi
 
-  echo "Applying secrets manifest directly (outside kustomize)."
+  echo "Applying secrets and configmap directly (outside kustomize)."
   kubectl apply -f "$RENDERED_SECRETS"
+  kubectl apply -f "$RENDERED_CONFIGMAP"
 
   echo "Applying core resources via kustomize overlay: $KUSTOMIZE_OVERLAY"
   kubectl apply -k "$KUSTOMIZE_OVERLAY"
@@ -103,7 +107,7 @@ else
   # Apply manifests in order
   kubectl apply -f "$MANIFESTS_DIR/namespace.yaml"
   kubectl apply -f "$RENDERED_SECRETS"
-  kubectl apply -f "$MANIFESTS_DIR/configmap.yaml"
+  kubectl apply -f "$RENDERED_CONFIGMAP"
   kubectl apply -f "$MANIFESTS_DIR/postgres.yaml"
   kubectl apply -f "$MANIFESTS_DIR/postgres-replica.yaml"
   kubectl apply -f "$MANIFESTS_DIR/redis.yaml"
