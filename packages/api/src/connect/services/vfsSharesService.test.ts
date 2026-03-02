@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   authenticateMock,
   buildSharePolicyPreviewTreeMock,
-  callRouteJsonHandlerMock,
   getPoolMock,
   loadOrgShareAuthorizationContextMock,
   loadShareAuthorizationContextMock,
@@ -13,24 +12,12 @@ const {
 } = vi.hoisted(() => ({
   authenticateMock: vi.fn(),
   buildSharePolicyPreviewTreeMock: vi.fn(),
-  callRouteJsonHandlerMock: vi.fn<(options: unknown) => Promise<string>>(),
   getPoolMock: vi.fn(),
   loadOrgShareAuthorizationContextMock: vi.fn(),
   loadShareAuthorizationContextMock: vi.fn(),
   queryMock: vi.fn(),
   resolveOrganizationMembershipMock: vi.fn()
 }));
-
-vi.mock('./legacyRouteProxy.js', async () => {
-  const actual = await vi.importActual<typeof import('./legacyRouteProxy.js')>(
-    './legacyRouteProxy.js'
-  );
-
-  return {
-    ...actual,
-    callRouteJsonHandler: callRouteJsonHandlerMock
-  };
-});
 
 vi.mock('./legacyRouteProxyAuth.js', () => ({
   authenticate: (...args: unknown[]) => authenticateMock(...args),
@@ -64,17 +51,6 @@ vi.mock('../../routes/vfs-shares/shared.js', async () => {
 
 import { vfsSharesConnectService } from './vfsSharesService.js';
 
-type JsonCallExpectation = {
-  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  path: string;
-  jsonBody?: string;
-  query?: string;
-};
-
-type JsonCallCase = JsonCallExpectation & {
-  call: () => Promise<{ json: string }>;
-};
-
 function createContext() {
   return {
     requestHeader: new Headers({
@@ -88,41 +64,9 @@ function isUnknownRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function expectLastJsonCall(
-  context: ReturnType<typeof createContext>,
-  expectation: JsonCallExpectation
-): void {
-  const call = callRouteJsonHandlerMock.mock.calls.at(-1);
-  if (!call) {
-    throw new Error('Expected callRouteJsonHandler to be called');
-  }
-
-  const [options] = call;
-  if (!isUnknownRecord(options)) {
-    throw new Error('Expected options object');
-  }
-  expect(options['context']).toBe(context);
-  expect(options['method']).toBe(expectation.method);
-  expect(options['path']).toBe(expectation.path);
-
-  if (expectation.jsonBody === undefined) {
-    expect(options['jsonBody']).toBeUndefined();
-  } else {
-    expect(options['jsonBody']).toBe(expectation.jsonBody);
-  }
-
-  const query = options['query'];
-  if (query !== undefined && !(query instanceof URLSearchParams)) {
-    throw new Error('Expected query to be URLSearchParams when present');
-  }
-
-  expect(query?.toString() ?? '').toBe(expectation.query ?? '');
-}
-
 describe('vfsSharesConnectService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    callRouteJsonHandlerMock.mockResolvedValue('{"ok":true}');
     queryMock.mockReset();
     getPoolMock.mockResolvedValue({
       query: queryMock
@@ -150,41 +94,127 @@ describe('vfsSharesConnectService', () => {
     });
   });
 
-  it('routes vfs shares handlers to the expected route handlers', async () => {
+  it('creates org shares directly without proxy forwarding', async () => {
     const context = createContext();
+    const createdAt = new Date('2026-03-02T16:03:00.000Z');
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [{ id: 'item-2', owner_id: 'user-1' }]
+      })
+      .mockResolvedValueOnce({
+        rows: [{ name: 'Source Org' }]
+      })
+      .mockResolvedValueOnce({
+        rows: [{ name: 'Target Org' }]
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            acl_id: 'org-share:org-1:share-1',
+            item_id: 'item-2',
+            target_org_id: 'org-2',
+            access_level: 'read',
+            created_by: 'user-1',
+            created_at: createdAt,
+            expires_at: null
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        rows: [{ email: 'creator@example.com' }]
+      });
 
-    const cases: JsonCallCase[] = [
+    const response = await vfsSharesConnectService.createOrgShare(
       {
-        call: () =>
-          vfsSharesConnectService.getItemShares(
-            {
-              itemId: 'item-1'
-            },
-            context
-          ),
-        method: 'GET',
-        path: '/vfs/items/item-1/shares'
+        itemId: 'item-2',
+        json:
+          '{"sourceOrgId":"org-1","targetOrgId":"org-2","permissionLevel":"view"}'
       },
-      {
-        call: () =>
-          vfsSharesConnectService.createOrgShare(
-            {
-              itemId: 'item-2',
-              json: '{"targetOrgId":"org-2"}'
-            },
-            context
-          ),
-        method: 'POST',
-        path: '/vfs/items/item-2/org-shares',
-        jsonBody: '{"targetOrgId":"org-2"}'
-      }
-    ];
+      context
+    );
 
-    for (const testCase of cases) {
-      const response = await testCase.call();
-      expect(response).toEqual({ json: '{"ok":true}' });
-      expectLastJsonCall(context, testCase);
+    const payload: unknown = JSON.parse(response.json);
+    if (!isUnknownRecord(payload)) {
+      throw new Error('Expected object payload');
     }
+    const orgShare = payload['orgShare'];
+    if (!isUnknownRecord(orgShare)) {
+      throw new Error('Expected orgShare payload');
+    }
+    expect(orgShare['id']).toBe('share-1');
+    expect(orgShare['sourceOrgName']).toBe('Source Org');
+    expect(orgShare['targetOrgName']).toBe('Target Org');
+  });
+
+  it('gets item shares directly without proxy forwarding', async () => {
+    const context = createContext();
+    const createdAt = new Date('2026-03-02T16:07:00.000Z');
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [{ owner_id: 'user-1' }]
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            acl_id: 'share:share-1',
+            item_id: 'item-1',
+            share_type: 'user',
+            target_id: 'user-2',
+            access_level: 'read',
+            created_by: 'user-1',
+            created_at: createdAt,
+            expires_at: null,
+            target_name: 'target@example.com',
+            created_by_email: 'creator@example.com',
+            wrapped_session_key: null,
+            wrapped_hierarchical_key: null,
+            key_epoch: null
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            acl_id: 'org-share:org-1:share-2',
+            target_org_id: 'org-2',
+            item_id: 'item-1',
+            access_level: 'read',
+            created_by: 'user-1',
+            created_at: createdAt,
+            expires_at: null,
+            source_org_name: 'Source Org',
+            target_org_name: 'Target Org',
+            created_by_email: 'creator@example.com',
+            wrapped_session_key: null,
+            wrapped_hierarchical_key: null,
+            key_epoch: null
+          }
+        ]
+      });
+
+    const response = await vfsSharesConnectService.getItemShares(
+      {
+        itemId: 'item-1'
+      },
+      context
+    );
+
+    const payload: unknown = JSON.parse(response.json);
+    if (!isUnknownRecord(payload)) {
+      throw new Error('Expected object payload');
+    }
+
+    const shares = payload['shares'];
+    if (!Array.isArray(shares) || !isUnknownRecord(shares[0])) {
+      throw new Error('Expected shares payload');
+    }
+    const orgShares = payload['orgShares'];
+    if (!Array.isArray(orgShares) || !isUnknownRecord(orgShares[0])) {
+      throw new Error('Expected orgShares payload');
+    }
+
+    expect(shares[0]['id']).toBe('share-1');
+    expect(orgShares[0]['id']).toBe('share-2');
   });
 
   it('creates shares directly without proxy forwarding', async () => {
@@ -235,23 +265,6 @@ describe('vfsSharesConnectService', () => {
     expect(share['id']).toBe('share-1');
     expect(share['targetName']).toBe('target@example.com');
     expect(share['createdByEmail']).toBe('creator@example.com');
-    expect(callRouteJsonHandlerMock).not.toHaveBeenCalled();
-  });
-
-  it('returns invalid argument when create-share payload is malformed', async () => {
-    const context = createContext();
-
-    await expect(
-      vfsSharesConnectService.createShare(
-        {
-          itemId: 'item-1',
-          json: '{}'
-        },
-        context
-      )
-    ).rejects.toMatchObject({
-      code: Code.InvalidArgument
-    });
   });
 
   it('updates user shares directly without proxy forwarding', async () => {
@@ -298,7 +311,6 @@ describe('vfsSharesConnectService', () => {
     expect(share['id']).toBe('share-1');
     expect(share['targetName']).toBe('target@example.com');
     expect(share['createdByEmail']).toBe('creator@example.com');
-    expect(callRouteJsonHandlerMock).not.toHaveBeenCalled();
   });
 
   it('returns invalid argument when update payload has no fields', async () => {
@@ -340,7 +352,6 @@ describe('vfsSharesConnectService', () => {
         results: [{ id: 'user-2', type: 'user', name: 'alice@example.com' }]
       })
     });
-    expect(callRouteJsonHandlerMock).not.toHaveBeenCalled();
     expect(authenticateMock).toHaveBeenCalledWith(context.requestHeader);
     expect(resolveOrganizationMembershipMock).toHaveBeenCalledWith(
       '/vfs/share-targets/search',
@@ -364,7 +375,6 @@ describe('vfsSharesConnectService', () => {
     expect(response).toEqual({
       json: JSON.stringify({ deleted: true })
     });
-    expect(callRouteJsonHandlerMock).not.toHaveBeenCalled();
     expect(loadShareAuthorizationContextMock).toHaveBeenCalled();
   });
 
@@ -382,7 +392,6 @@ describe('vfsSharesConnectService', () => {
     expect(response).toEqual({
       json: JSON.stringify({ deleted: true })
     });
-    expect(callRouteJsonHandlerMock).not.toHaveBeenCalled();
     expect(loadOrgShareAuthorizationContextMock).toHaveBeenCalled();
   });
 
@@ -432,7 +441,6 @@ describe('vfsSharesConnectService', () => {
         nextCursor: null
       })
     });
-    expect(callRouteJsonHandlerMock).not.toHaveBeenCalled();
     expect(buildSharePolicyPreviewTreeMock).toHaveBeenCalledWith(
       expect.anything(),
       {

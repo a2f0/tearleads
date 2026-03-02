@@ -1,9 +1,4 @@
 import {
-  callRouteJsonHandler,
-  encoded,
-  toJsonBody
-} from './legacyRouteProxy.js';
-import {
   createShareDirect,
   updateShareDirect
 } from './vfsSharesDirectMutations.js';
@@ -13,6 +8,8 @@ import {
   getSharePolicyPreviewDirect,
   searchShareTargetsDirect
 } from './vfsSharesDirectHandlers.js';
+import { createOrgShareDirect } from './vfsSharesDirectOrgMutations.js';
+import { getItemSharesDirect } from './vfsSharesDirectQueries.js';
 
 type GetItemSharesRequest = { itemId: string };
 type CreateShareRequest = { itemId: string; json: string };
@@ -35,14 +32,7 @@ export const vfsSharesConnectService = {
   getItemShares: async (
     request: GetItemSharesRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: `/vfs/items/${encoded(request.itemId)}/shares`
-    });
-    return { json };
-  },
+  ) => getItemSharesDirect(request, context),
   createShare: async (
     request: CreateShareRequest,
     context: { requestHeader: Headers }
@@ -56,15 +46,7 @@ export const vfsSharesConnectService = {
   createOrgShare: async (
     request: CreateOrgShareRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: `/vfs/items/${encoded(request.itemId)}/org-shares`,
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
+  ) => createOrgShareDirect(request, context),
   deleteOrgShare: (
     request: ShareIdRequest,
     context: { requestHeader: Headers }
