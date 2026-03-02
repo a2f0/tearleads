@@ -87,6 +87,10 @@ updates:
     open-pull-requests-limit: 3
     labels:
       - dependencies
+    ignore:
+      - dependency-name: node
+        update-types:
+          - 'version-update:semver-major'
     groups:
       node-images:
         patterns:
@@ -99,6 +103,10 @@ updates:
     open-pull-requests-limit: 3
     labels:
       - dependencies
+    ignore:
+      - dependency-name: node
+        update-types:
+          - 'version-update:semver-major'
     groups:
       node-images:
         patterns:
@@ -111,6 +119,10 @@ updates:
     open-pull-requests-limit: 3
     labels:
       - dependencies
+    ignore:
+      - dependency-name: node
+        update-types:
+          - 'version-update:semver-major'
     groups:
       node-images:
         patterns:
@@ -123,6 +135,10 @@ updates:
     open-pull-requests-limit: 3
     labels:
       - dependencies
+    ignore:
+      - dependency-name: node
+        update-types:
+          - 'version-update:semver-major'
     groups:
       node-images:
         patterns:
