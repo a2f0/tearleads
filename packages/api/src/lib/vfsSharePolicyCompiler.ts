@@ -69,6 +69,10 @@ function resolveLimitWithEnv(input: {
   );
 }
 
+function isNonNegativeFiniteNumber(value: number): value is number {
+  return Number.isFinite(value) && value >= 0;
+}
+
 export interface CompileVfsSharePoliciesOptions {
   now?: Date;
   compilerRunId?: string;
@@ -180,6 +184,14 @@ export async function compileVfsSharePolicies(
     if (transactional) {
       await client.query('BEGIN');
       inTransaction = true;
+      if (!isNonNegativeFiniteNumber(lockTimeoutMs)) {
+        throw new Error('lockTimeoutMs must be a non-negative finite number');
+      }
+      if (!isNonNegativeFiniteNumber(statementTimeoutMs)) {
+        throw new Error(
+          'statementTimeoutMs must be a non-negative finite number'
+        );
+      }
       await client.query(
         `SET LOCAL lock_timeout = '${String(lockTimeoutMs)}ms'`
       );
