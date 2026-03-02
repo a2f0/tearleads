@@ -28,7 +28,7 @@ jobs:
       head_sha: ${{ steps.compute.outputs.head_sha }}
       required_workflows: ${{ steps.compute.outputs.required_workflows }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 

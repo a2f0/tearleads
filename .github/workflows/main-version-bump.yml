@@ -23,7 +23,7 @@ jobs:
       MERGE_SIGNING_APP_ID: ${{ secrets.MERGE_SIGNING_APP_ID }}
       MERGE_SIGNING_APP_PRIVATE_KEY: ${{ secrets.MERGE_SIGNING_APP_PRIVATE_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: main
           fetch-depth: 0

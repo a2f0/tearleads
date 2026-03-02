@@ -11,7 +11,7 @@ jobs:
       should-deploy: ${{ steps.decide.outputs.should-deploy }}
       impact-json: ${{ steps.decide.outputs.impact-json }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -57,7 +57,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4

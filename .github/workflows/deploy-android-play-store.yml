@@ -13,7 +13,7 @@ jobs:
       should-deploy: ${{ steps.decide.outputs.should-deploy }}
       impact-json: ${{ steps.decide.outputs.impact-json }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ github.sha }}
@@ -81,7 +81,7 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ github.sha }}
