@@ -1,4 +1,12 @@
-import type { PolicyPrincipalType } from './vfsSharePolicyCompilerCore.js';
+import {
+  assertDirectProtectedSkips,
+  buildCompiledAclId,
+  buildDerivedProvenanceId,
+  buildMaterializationKey,
+  isDecisionDirectProtected,
+  isPolicyPrincipalType
+} from './vfsSharePolicyCompilerMaterializationHelpers.js';
+import type { CompiledDecisionInput } from './vfsSharePolicyCompilerMaterializationTypes.js';
 import type { PgQueryable } from './vfsSharePolicyCompilerState.js';
 
 interface AclUpsertRow {
@@ -7,45 +15,12 @@ interface AclUpsertRow {
 
 interface AclUpsertMaterializedRow extends AclUpsertRow {
   item_id: string;
-  principal_type: PolicyPrincipalType;
+  principal_type: string;
   principal_id: string;
 }
 
-interface CompiledDecisionInput {
-  itemId: string;
-  principalType: PolicyPrincipalType;
-  principalId: string;
-  decision: 'allow' | 'deny';
-  accessLevel: 'read' | 'write' | 'admin';
-  policyId: string;
-  selectorId: string;
-  precedence: number;
-}
-
 const BATCH_MATERIALIZATION_THRESHOLD = 50;
-const MATERIALIZATION_KEY_SEPARATOR = '\u0000';
-
-function buildCompiledAclId(
-  itemId: string,
-  principalType: PolicyPrincipalType,
-  principalId: string
-): string {
-  return `policy-compiled:${principalType}:${principalId}:${itemId}`;
-}
-
-function buildDerivedProvenanceId(aclEntryId: string): string {
-  return `policy-derived:${aclEntryId}`;
-}
-
-function buildMaterializationKey(
-  itemId: string,
-  principalType: PolicyPrincipalType,
-  principalId: string
-): string {
-  return [itemId, principalType, principalId].join(
-    MATERIALIZATION_KEY_SEPARATOR
-  );
-}
+const MATERIALIZATION_BATCH_SIZE = 500;
 
 async function materializeDecisionsOneByOne(
   client: PgQueryable,
@@ -104,9 +79,10 @@ async function materializeDecisionsOneByOne(
 
     const aclEntryId = upsertResult.rows[0]?.id;
     if (!aclEntryId) {
-      // Guardrail: this can happen when an ON CONFLICT row is protected
-      // by direct provenance and policy compilation is not allowed to
-      // overwrite it (e.g., non-revoked allow decision).
+      const directProtected = await isDecisionDirectProtected(client, decision);
+      if (!directProtected) {
+        throw new Error('Failed to materialize ACL decision');
+      }
       continue;
     }
     touchedAclEntryIds.add(aclEntryId);
@@ -267,6 +243,7 @@ async function materializeDecisionsInBatch(
   );
 
   const touchedAclEntryIds = new Set<string>();
+  const touchedDecisionKeys = new Set<string>();
   const provenanceIds: string[] = [];
   const provenanceAclEntryIds: string[] = [];
   const provenancePolicyIds: string[] = [];
@@ -275,10 +252,17 @@ async function materializeDecisionsInBatch(
   const provenancePrecedences: number[] = [];
 
   for (const row of upsertResult.rows) {
+    if (!isPolicyPrincipalType(row.principal_type)) {
+      throw new Error('Failed to materialize ACL decision');
+    }
     touchedAclEntryIds.add(row.id);
-    const decision = decisionByKey.get(
-      buildMaterializationKey(row.item_id, row.principal_type, row.principal_id)
+    const decisionKey = buildMaterializationKey(
+      row.item_id,
+      row.principal_type,
+      row.principal_id
     );
+    touchedDecisionKeys.add(decisionKey);
+    const decision = decisionByKey.get(decisionKey);
     if (!decision) {
       continue;
     }
@@ -289,6 +273,16 @@ async function materializeDecisionsInBatch(
     provenanceDecisions.push(decision.decision);
     provenancePrecedences.push(decision.precedence);
   }
+
+  const skippedDecisions = decisions.filter((decision) => {
+    const key = buildMaterializationKey(
+      decision.itemId,
+      decision.principalType,
+      decision.principalId
+    );
+    return !touchedDecisionKeys.has(key);
+  });
+  await assertDirectProtectedSkips(client, skippedDecisions);
 
   if (provenanceIds.length > 0) {
     await client.query(
@@ -367,19 +361,36 @@ export async function materializeCompiledDecisions(
   now: Date,
   compilerRunId: string
 ): Promise<Set<string>> {
-  return decisions.length >= BATCH_MATERIALIZATION_THRESHOLD
-    ? materializeDecisionsInBatch(
-        client,
-        decisions,
-        actorId,
-        now,
-        compilerRunId
-      )
-    : materializeDecisionsOneByOne(
-        client,
-        decisions,
-        actorId,
-        now,
-        compilerRunId
-      );
+  if (decisions.length < BATCH_MATERIALIZATION_THRESHOLD) {
+    return materializeDecisionsOneByOne(
+      client,
+      decisions,
+      actorId,
+      now,
+      compilerRunId
+    );
+  }
+
+  const touchedAclEntryIds = new Set<string>();
+  for (
+    let cursor = 0;
+    cursor < decisions.length;
+    cursor += MATERIALIZATION_BATCH_SIZE
+  ) {
+    const decisionChunk = decisions.slice(
+      cursor,
+      cursor + MATERIALIZATION_BATCH_SIZE
+    );
+    const chunkTouchedAclEntryIds = await materializeDecisionsInBatch(
+      client,
+      decisionChunk,
+      actorId,
+      now,
+      compilerRunId
+    );
+    for (const aclEntryId of chunkTouchedAclEntryIds) {
+      touchedAclEntryIds.add(aclEntryId);
+    }
+  }
+  return touchedAclEntryIds;
 }
