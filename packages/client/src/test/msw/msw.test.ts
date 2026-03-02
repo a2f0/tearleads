@@ -14,6 +14,8 @@ let seededUser: SeededUser;
 const CHAT_COMPLETIONS_CONNECT_PATH =
   '/connect/tearleads.v1.ChatService/PostCompletions';
 const CHAT_COMPLETIONS_CONNECT_URL = `http://localhost${CHAT_COMPLETIONS_CONNECT_PATH}`;
+// Keep this test on Connect admin paths because API runtime now serves admin
+// functionality via /v1/connect and no longer mounts legacy /admin/* routes.
 const ADMIN_CONNECT_PATH_PREFIX = '/connect/tearleads.v1.AdminService';
 
 function connectChatPayload(payload: unknown): { json: string } {
@@ -287,12 +289,10 @@ describe('msw handlers', () => {
   });
 
   it('records request metadata for debugging parity', async () => {
-    const authHeaders = { Authorization: `Bearer ${seededUser.accessToken}` };
-
-    await fetch('http://localhost/ping', { headers: authHeaders });
-    await fetch('http://localhost/admin/redis/dbsize', {
-      headers: authHeaders
+    await fetch('http://localhost/ping', {
+      headers: { Authorization: `Bearer ${seededUser.accessToken}` }
     });
+    await postAdminConnectRequest('GetRedisDbSize', seededUser.accessToken);
 
     // Filter out internal bypass requests (forwarded to Express on a random port)
     const recordedRequests = getRecordedApiRequests().filter((r) =>
@@ -305,9 +305,9 @@ describe('msw handlers', () => {
         url: 'http://localhost/ping'
       },
       {
-        method: 'GET',
-        pathname: '/admin/redis/dbsize',
-        url: 'http://localhost/admin/redis/dbsize'
+        method: 'POST',
+        pathname: '/connect/tearleads.v1.AdminService/GetRedisDbSize',
+        url: 'http://localhost/connect/tearleads.v1.AdminService/GetRedisDbSize'
       }
     ]);
   });
