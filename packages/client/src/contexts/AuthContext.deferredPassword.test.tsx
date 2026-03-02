@@ -211,4 +211,32 @@ describe('AuthContext deferred password setup', () => {
 
     consoleWarn.mockRestore();
   });
+
+  it('skips deferred setup when no active instance is selected', async () => {
+    const user = userEvent.setup();
+    mockGetCurrentDatabaseInstanceId.mockReturnValue(null);
+
+    render(
+      <AuthProvider>
+        <LoginHarness />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent(
+        'not authenticated'
+      );
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Login' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent(
+        'authenticated'
+      );
+    });
+
+    expect(mockSetDatabasePassword).not.toHaveBeenCalled();
+    expect(mockUpdateInstance).not.toHaveBeenCalled();
+  });
 });
