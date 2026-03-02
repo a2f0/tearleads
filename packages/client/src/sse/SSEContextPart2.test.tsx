@@ -10,6 +10,8 @@ import {
   type OpenNotificationStreamOptions
 } from './SSEContextTestSupport';
 
+// one-component-per-file: allow -- test-only provider wrappers for renderHook scenarios.
+
 const mockApiModule = vi.hoisted(() => ({
   API_BASE_URL: 'http://localhost:5001/v1',
   tryRefreshToken: () => mockTryRefreshToken(),
