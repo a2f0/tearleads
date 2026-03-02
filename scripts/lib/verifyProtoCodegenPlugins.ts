@@ -21,7 +21,9 @@ function hasExpectedBinary(
   pkgJsonPath: string,
   expectedBinary: string
 ): boolean {
-  const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf8')) as PackageJsonWithBin;
+  const pkgJson = JSON.parse(
+    readFileSync(pkgJsonPath, 'utf8')
+  ) as PackageJsonWithBin;
 
   if (typeof pkgJson.bin === 'string') {
     if (typeof pkgJson.name !== 'string' || pkgJson.name.length === 0) {
@@ -49,7 +51,9 @@ if (!hasExpectedBinary(protocGenEsPackageJsonPath, 'protoc-gen-es')) {
 const protocGenConnectPackageJsonPath = require.resolve(
   '@connectrpc/protoc-gen-connect-es/package.json'
 );
-if (!hasExpectedBinary(protocGenConnectPackageJsonPath, 'protoc-gen-connect-es')) {
+if (
+  !hasExpectedBinary(protocGenConnectPackageJsonPath, 'protoc-gen-connect-es')
+) {
   throw new Error(
     '@connectrpc/protoc-gen-connect-es is installed but missing expected binary protoc-gen-connect-es'
   );
