@@ -1,5 +1,5 @@
 # Build stage
-FROM node:22-slim AS builder
+FROM node:25-slim AS builder
 
 WORKDIR /app
 
@@ -24,7 +24,7 @@ RUN pnpm --filter @tearleads/shared build && \
     pnpm --filter @tearleads/smtp-listener build:bundle
 
 # Production stage
-FROM node:22-slim
+FROM node:25-slim
 
 WORKDIR /app
 
