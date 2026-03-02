@@ -1,3 +1,4 @@
+import { loadReplicaWriteIdRows } from './vfsCrdtReplicaWriteIds.js';
 import {
   type ClientStateRow,
   cloneCursor,
@@ -19,7 +20,6 @@ import {
   type VfsCrdtSnapshotPayload,
   type VisibleItemRow
 } from './vfsCrdtSnapshotCommon.js';
-import { loadReplicaWriteIdRows } from './vfsCrdtReplicaWriteIds.js';
 
 function normalizeSnapshotPayload(
   value: unknown
