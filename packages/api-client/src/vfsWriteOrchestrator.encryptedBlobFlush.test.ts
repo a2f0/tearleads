@@ -19,7 +19,10 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
       return {};
     }
 
-    return JSON.parse((body as { json: string }).json) as Record<string, unknown>;
+    return JSON.parse((body as { json: string }).json) as Record<
+      string,
+      unknown
+    >;
   };
 
   beforeEach(() => {

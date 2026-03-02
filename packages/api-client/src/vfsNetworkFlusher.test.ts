@@ -41,7 +41,7 @@ describe('vfsNetworkFlusher', () => {
 
     let pushAttempt = 0;
     vi.mocked(global.fetch).mockImplementation(
-      async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      async (input: RequestInfo | URL): Promise<Response> => {
         const url = input.toString();
         if (url.endsWith('/connect/tearleads.v1.AuthService/RefreshToken')) {
           return new Response(
@@ -309,7 +309,10 @@ describe('vfsNetworkFlusher', () => {
   it('falls back to server snapshot rematerialization on stale cursor', async () => {
     let pullCalls = 0;
     vi.mocked(global.fetch).mockImplementation(
-      async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      async (
+        input: RequestInfo | URL,
+        init?: RequestInit
+      ): Promise<Response> => {
         const url = input.toString();
 
         if (url.includes('/v1/vfs/crdt/vfs-sync')) {

@@ -22,7 +22,9 @@ describe('mlsRoutes', () => {
     const [routePath, params] = requestMock.mock.calls[0] ?? [];
     expect(routePath).toBe('/connect/tearleads.v1.MlsService/GetGroupMessages');
     expect(params?.fetchOptions?.method).toBe('POST');
-    expect(params?.fetchOptions?.body).toBe(JSON.stringify({ groupId: 'group-1' }));
+    expect(params?.fetchOptions?.body).toBe(
+      JSON.stringify({ groupId: 'group-1' })
+    );
   });
 
   it('routes group messages through Connect with cursor and limit', async () => {

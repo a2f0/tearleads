@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { VfsBlobNetworkFlusherPersistedState } from './vfsBlobNetworkFlusher';
+
 function getAuthorizationHeader(init: RequestInit | undefined): string | null {
   if (!init || !init.headers) {
     return null;
@@ -83,9 +84,7 @@ describe('vfsBlobNetworkFlusher', () => {
     const stageCalls = vi
       .mocked(global.fetch)
       .mock.calls.filter(([input]) =>
-        input
-          .toString()
-          .endsWith('/connect/tearleads.v1.VfsService/StageBlob')
+        input.toString().endsWith('/connect/tearleads.v1.VfsService/StageBlob')
       );
     expect(stageCalls).toHaveLength(2);
     const firstStageCall = stageCalls[0];
@@ -243,9 +242,7 @@ describe('vfsBlobNetworkFlusher', () => {
     );
     expect(
       JSON.parse(
-        String(
-          (chunkCall?.body as { json?: string } | undefined)?.json ?? '{}'
-        )
+        String((chunkCall?.body as { json?: string } | undefined)?.json ?? '{}')
       )
     ).toEqual(
       expect.objectContaining({

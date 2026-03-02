@@ -66,7 +66,9 @@ describe('vfsRoutes', () => {
     expect(defaultPath).toBe(
       '/connect/tearleads.v1.VfsSharesService/SearchShareTargets'
     );
-    expect(defaultParams?.fetchOptions?.body).toBe(JSON.stringify({ q: 'alice' }));
+    expect(defaultParams?.fetchOptions?.body).toBe(
+      JSON.stringify({ q: 'alice' })
+    );
 
     expect(typedPath).toBe(
       '/connect/tearleads.v1.VfsSharesService/SearchShareTargets'

@@ -73,7 +73,10 @@ async function request<T>(
     const contentType = response.headers.get('content-type')?.toLowerCase();
     if (contentType?.includes('application/json')) {
       try {
-        const body = (await response.json()) as { error?: string; message?: string };
+        const body = (await response.json()) as {
+          error?: string;
+          message?: string;
+        };
         if (body.error) {
           message = body.error;
         } else if (body.message) {
@@ -132,7 +135,8 @@ function requestAi<T>(
 
 export const api = {
   admin: {
-    getContext: () => requestAdminJson<AdminAccessContextResponse>('GetContext', {}),
+    getContext: () =>
+      requestAdminJson<AdminAccessContextResponse>('GetContext', {}),
     postgres: {
       getInfo: () =>
         requestAdminJson<PostgresAdminInfoResponse>('GetPostgresInfo', {}),
@@ -174,8 +178,7 @@ export const api = {
         requestAdminJson<RedisKeyValueResponse>('GetRedisValue', { key }),
       deleteKey: (key: string) =>
         requestAdminJson<{ deleted: boolean }>('DeleteRedisKey', { key }),
-      getDbSize: () =>
-        requestAdminJson<{ count: number }>('GetRedisDbSize', {})
+      getDbSize: () => requestAdminJson<{ count: number }>('GetRedisDbSize', {})
     },
     groups: {
       list: (options?: { organizationId?: string }) => {

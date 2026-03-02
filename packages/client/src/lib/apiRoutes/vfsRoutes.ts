@@ -107,11 +107,7 @@ function decodeBlobData(data: string | number[] | undefined): Uint8Array {
 
 export const vfsRoutes = {
   getMyKeys: () =>
-    requestVfsJson<VfsUserKeysResponse>(
-      'GetMyKeys',
-      {},
-      'api_get_vfs_keys'
-    ),
+    requestVfsJson<VfsUserKeysResponse>('GetMyKeys', {}, 'api_get_vfs_keys'),
   getSync: (cursor?: string, limit = 500) => {
     const requestBody: Record<string, unknown> = { limit };
     if (cursor) {

@@ -17,7 +17,10 @@ function parseNestedJsonBody(body: unknown): Record<string, unknown> {
   }
 
   try {
-    return JSON.parse((body as { json: string }).json) as Record<string, unknown>;
+    return JSON.parse((body as { json: string }).json) as Record<
+      string,
+      unknown
+    >;
   } catch {
     return {};
   }
@@ -347,7 +350,10 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
 
     let networkAttempts = 0;
     vi.mocked(global.fetch).mockImplementation(
-      async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      async (
+        input: RequestInfo | URL,
+        init?: RequestInit
+      ): Promise<Response> => {
         const url = input.toString();
         if (url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')) {
           networkAttempts += 1;

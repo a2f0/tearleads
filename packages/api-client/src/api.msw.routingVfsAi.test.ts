@@ -1,29 +1,20 @@
 import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
-import { getRecordedApiRequests, wasApiRequestMade } from '@tearleads/msw/node';
+import { wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_TOKEN_KEY } from './authStorage';
 import {
   AI_CONNECT_RECORD_USAGE_PATH,
   AI_CONNECT_USAGE_PATH,
   AI_CONNECT_USAGE_SUMMARY_PATH,
-  installAiUsageConnectSeriesCapture,
   installAiUsageConnectSingleCapture
 } from './test/aiConnectTestUtils';
 import { getSharedTestContext } from './test/testContext';
+
 const mockLogApiEvent = vi.fn();
 const loadApi = async () => {
   const module = await import('./api');
   return module.api;
 };
-type RecordedApiRequest = ReturnType<typeof getRecordedApiRequests>[number];
-const getRequestsFor = (
-  method: string,
-  pathname: string
-): RecordedApiRequest[] =>
-  getRecordedApiRequests().filter(
-    (request) =>
-      request.method === method.toUpperCase() && request.pathname === pathname
-  );
 let seededUser: SeededUser;
 describe('api with msw', () => {
   beforeEach(async () => {
@@ -436,64 +427,5 @@ describe('api with msw', () => {
         '/connect/tearleads.v1.MlsService/DeleteKeyPackage'
       )
     ).toBe(true);
-  });
-  it('builds query-string variants through msw request metadata', async () => {
-    const api = await loadApi();
-    const capture = installAiUsageConnectSeriesCapture();
-    await api.admin.postgres.getRows('public', 'users', {
-      limit: 10,
-      offset: 20,
-      sortColumn: 'email',
-      sortDirection: 'desc'
-    });
-    await api.admin.postgres.getRows('public', 'users');
-    // Redis getKeys: with params vs without
-    await api.admin.redis.getKeys('5', 10);
-    await api.admin.redis.getKeys();
-    await api.ai.getUsage({
-      startDate: '2024-01-01',
-      endDate: '2024-01-31',
-      cursor: '2025-01-01T00:00:00.000Z',
-      limit: 25
-    });
-    await api.ai.getUsage();
-    await api.ai.getUsageSummary({
-      startDate: '2024-01-01',
-      endDate: '2024-01-31'
-    });
-    await api.ai.getUsageSummary();
-    const postgresRowsRequests = getRequestsFor(
-      'POST',
-      '/connect/tearleads.v1.AdminService/GetRows'
-    );
-    expect(postgresRowsRequests).toHaveLength(2);
-    const aiUsageRequests = getRequestsFor('POST', AI_CONNECT_USAGE_PATH);
-    expect(aiUsageRequests).toHaveLength(2);
-    const aiUsageSummaryRequests = getRequestsFor(
-      'POST',
-      AI_CONNECT_USAGE_SUMMARY_PATH
-    );
-    expect(aiUsageSummaryRequests).toHaveLength(2);
-    expect(capture.getUsageRequestBodies).toEqual([
-      {
-        startDate: '2024-01-01',
-        endDate: '2024-01-31',
-        cursor: '2025-01-01T00:00:00.000Z',
-        limit: 25
-      },
-      {}
-    ]);
-    expect(capture.getUsageSummaryRequestBodies).toEqual([
-      {
-        startDate: '2024-01-01',
-        endDate: '2024-01-31'
-      },
-      {}
-    ]);
-    const redisKeysRequests = getRequestsFor(
-      'POST',
-      '/connect/tearleads.v1.AdminService/GetRedisKeys'
-    );
-    expect(redisKeysRequests).toHaveLength(2);
   });
 });

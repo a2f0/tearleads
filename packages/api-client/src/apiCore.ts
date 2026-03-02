@@ -13,7 +13,8 @@ import {
 import { isJwtExpired } from './jwt';
 
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
-const AUTH_CONNECT_REFRESH_PATH = '/connect/tearleads.v1.AuthService/RefreshToken';
+const AUTH_CONNECT_REFRESH_PATH =
+  '/connect/tearleads.v1.AuthService/RefreshToken';
 
 type RefreshOutcome = 'success' | 'rejected' | 'transient';
 
@@ -42,11 +43,14 @@ async function executeTokenRefresh(
   let receivedValidRefreshResponse = false;
 
   try {
-    const response = await fetch(`${API_BASE_URL}${AUTH_CONNECT_REFRESH_PATH}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken })
-    });
+    const response = await fetch(
+      `${API_BASE_URL}${AUTH_CONNECT_REFRESH_PATH}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken })
+      }
+    );
 
     if (response.status === 401 || response.status === 403) {
       // Permanent failure - token is invalid or session was destroyed
