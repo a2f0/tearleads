@@ -15,7 +15,7 @@ output "server_status" {
 
 output "k8s_hostname" {
   description = "K8s cluster hostname"
-  value       = "${var.domain}"
+  value       = var.domain
 }
 
 output "k8s_api_hostname" {
