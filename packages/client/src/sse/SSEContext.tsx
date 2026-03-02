@@ -91,6 +91,7 @@ export function SSEProvider({
   autoConnect = true,
   channels = ['broadcast']
 }: SSEProviderProps) {
+  // component-complexity: allow -- stream auth, reconnect, and lifecycle paths are intentionally centralized.
   const { isAuthenticated, isLoading, token } = useAuth();
   const [connectionState, setConnectionState] =
     useState<SSEConnectionState>('disconnected');
