@@ -29,7 +29,7 @@ interface QueryClient {
 }
 
 interface GroupMaxSequenceRow {
-  max_sequence: string | number;
+  sequence_number: string | number | null;
 }
 
 function toPositiveInteger(value: string | number): number {
@@ -280,24 +280,28 @@ const postMlsGroupsGroupIdMessagesHandler = async (
       }
 
       const maxSequenceResult = await client.query<GroupMaxSequenceRow>(
-        `SELECT COALESCE(
-                 MAX(
-                   CASE
-                     WHEN split_part(source_id, ':', 3) ~ '^[0-9]+$'
-                     THEN split_part(source_id, ':', 3)::integer
-                     ELSE 0
-                   END
-                 ),
-                 0
-               ) AS max_sequence
+        `SELECT
+           CASE
+             WHEN split_part(source_id, ':', 3) ~ '^[0-9]+$'
+             THEN split_part(source_id, ':', 3)::integer
+             ELSE NULL
+           END AS sequence_number
            FROM vfs_crdt_ops
           WHERE op_type = 'item_upsert'
-            AND source_id LIKE $1::text
-            AND source_table IN ('mls_messages', 'mls_message')`,
-        [`mls_message:${groupId}:%`]
+            AND source_table IN ('mls_messages', 'mls_message')
+            AND split_part(source_id, ':', 1) = 'mls_message'
+            AND split_part(source_id, ':', 2) = $1::text
+          ORDER BY
+            CASE
+              WHEN split_part(source_id, ':', 3) ~ '^[0-9]+$'
+              THEN split_part(source_id, ':', 3)::integer
+              ELSE NULL
+            END DESC NULLS LAST
+          LIMIT 1`,
+        [groupId]
       );
       const nextSequenceNumber =
-        toPositiveInteger(maxSequenceResult.rows[0]?.max_sequence ?? 0) + 1;
+        toPositiveInteger(maxSequenceResult.rows[0]?.sequence_number ?? 0) + 1;
 
       const id = randomUUID();
       const occurredAtIso = new Date().toISOString();

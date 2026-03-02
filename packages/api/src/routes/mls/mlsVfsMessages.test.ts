@@ -474,7 +474,7 @@ describe('MLS VFS message routes', () => {
         }
         if (
           queryText.includes('FROM vfs_crdt_ops') &&
-          queryText.includes('MAX(')
+          queryText.includes("split_part(source_id, ':', 2)")
         ) {
           return Promise.reject(new Error('count failed'));
         }

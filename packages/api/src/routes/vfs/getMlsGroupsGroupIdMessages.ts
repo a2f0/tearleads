@@ -10,16 +10,21 @@ interface GroupMessageRow {
   epoch: number;
   ciphertext: string;
   encoded_content_type: string | null;
+  legacy_content_type: string | null;
   sequence_number: number;
   created_at: Date | string;
   sender_email: string | null;
 }
 
 function decodeContentTypeFromSourceId(
-  encodedContentType: string | null
+  encodedContentType: string | null,
+  fallbackContentType: string | null
 ): string {
   if (!encodedContentType) {
-    return 'text/plain';
+    if (!fallbackContentType || fallbackContentType.trim() === '') {
+      return 'text/plain';
+    }
+    return fallbackContentType;
   }
 
   try {
@@ -114,17 +119,17 @@ const getMlsGroupsGroupIdMessagesHandler = async (
            COALESCE(ops.key_epoch, 0) AS epoch,
            ops.encrypted_payload AS ciphertext,
            NULLIF(split_part(ops.source_id, ':', 5), '') AS encoded_content_type,
+           legacy.content_type AS legacy_content_type,
            CASE
              WHEN split_part(ops.source_id, ':', 3) ~ '^[0-9]+$'
              THEN split_part(ops.source_id, ':', 3)::integer
-             ELSE ROW_NUMBER() OVER (
-               ORDER BY ops.occurred_at ASC, ops.id ASC
-             )::integer
-           END AS sequence_number,
+             ELSE legacy.sequence_number
+           END::integer AS sequence_number,
            ops.occurred_at AS created_at,
            u.email AS sender_email
          FROM vfs_crdt_ops ops
          LEFT JOIN users u ON u.id = ops.actor_id
+         LEFT JOIN mls_messages legacy ON legacy.id = ops.item_id
          WHERE ops.source_table IN ('mls_messages', 'mls_message')
            AND ops.op_type = 'item_upsert'
            AND ops.encrypted_payload IS NOT NULL
@@ -137,11 +142,13 @@ const getMlsGroupsGroupIdMessagesHandler = async (
          epoch,
          ciphertext,
          encoded_content_type,
+         legacy_content_type,
          sequence_number,
          created_at,
          sender_email
        FROM group_messages
-       WHERE ($3::integer IS NULL OR sequence_number < $3::integer)
+       WHERE sequence_number IS NOT NULL
+         AND ($3::integer IS NULL OR sequence_number < $3::integer)
        ORDER BY sequence_number DESC
        LIMIT $4::integer`,
       [groupId, `mls_message:${groupId}:%`, cursor, limit + 1]
@@ -163,7 +170,10 @@ const getMlsGroupsGroupIdMessagesHandler = async (
         epoch: row.epoch,
         ciphertext: row.ciphertext,
         messageType: 'application',
-        contentType: decodeContentTypeFromSourceId(row.encoded_content_type),
+        contentType: decodeContentTypeFromSourceId(
+          row.encoded_content_type,
+          row.legacy_content_type
+        ),
         sequenceNumber: row.sequence_number,
         sentAt: createdAtStr,
         createdAt: createdAtStr
