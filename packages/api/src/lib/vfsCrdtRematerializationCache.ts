@@ -38,12 +38,12 @@ function encodeCachePart(value: string): string {
   return encodeURIComponent(value);
 }
 
-export interface CachedRematerializationSnapshot {
+interface CachedRematerializationSnapshot {
   replaySnapshot: VfsCrdtSnapshotReplayPayload;
   containerClocks: VfsCrdtSnapshotPayload['containerClocks'];
 }
 
-export function buildRematerializationSnapshotCacheKey(input: {
+function buildRematerializationSnapshotCacheKey(input: {
   scope: string;
   userId: string;
   clientId: string;

@@ -69,7 +69,7 @@ interface CachedOldestCursorEnvelope {
   cursor: VfsSyncCursor | null;
 }
 
-export function buildOldestAccessibleCursorCacheKey(input: {
+function buildOldestAccessibleCursorCacheKey(input: {
   compactionEpoch: string;
   userId: string;
   rootId: string | null;
@@ -83,7 +83,7 @@ export function buildOldestAccessibleCursorCacheKey(input: {
   ].join(':');
 }
 
-export function buildReplicaWriteIdsCacheKey(input: {
+function buildReplicaWriteIdsCacheKey(input: {
   userId: string;
   mode: ReplicaWriteIdCacheMode;
 }): string {
