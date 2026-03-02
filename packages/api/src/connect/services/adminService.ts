@@ -1,8 +1,19 @@
+import { getContextDirect } from './adminDirectContext.js';
+import {
+  getColumnsDirect,
+  getPostgresInfoDirect,
+  getRowsDirect,
+  getTablesDirect
+} from './adminDirectPostgres.js';
+import {
+  deleteRedisKeyDirect,
+  getRedisDbSizeDirect,
+  getRedisKeysDirect,
+  getRedisValueDirect
+} from './adminDirectRedis.js';
 import {
   callRouteJsonHandler,
   encoded,
-  setOptionalNonNegativeIntQueryParam,
-  setOptionalPositiveIntQueryParam,
   setOptionalStringQueryParam,
   toJsonBody
 } from './legacyRouteProxy.js';
@@ -26,110 +37,38 @@ type ListOrganizationsRequest = { organizationId: string };
 type ListUsersRequest = { organizationId: string };
 
 export const adminConnectService = {
-  getContext: async (_request: object, context: { requestHeader: Headers }) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: '/admin/context'
-    });
-    return { json };
-  },
+  getContext: (request: object, context: { requestHeader: Headers }) =>
+    getContextDirect(request, context),
   getPostgresInfo: async (
-    _request: object,
+    request: object,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: '/admin/postgres/info'
-    });
-    return { json };
-  },
-  getTables: async (_request: object, context: { requestHeader: Headers }) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: '/admin/postgres/tables'
-    });
-    return { json };
-  },
+  ) => getPostgresInfoDirect(request, context),
+  getTables: (request: object, context: { requestHeader: Headers }) =>
+    getTablesDirect(request, context),
   getColumns: async (
     request: GetColumnsRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: `/admin/postgres/tables/${encoded(request.schema)}/${encoded(request.table)}/columns`
-    });
-    return { json };
-  },
+  ) => getColumnsDirect(request, context),
   getRows: async (
     request: GetRowsRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const query = new URLSearchParams();
-    setOptionalPositiveIntQueryParam(query, 'limit', request.limit);
-    setOptionalNonNegativeIntQueryParam(query, 'offset', request.offset);
-    setOptionalStringQueryParam(query, 'sortColumn', request.sortColumn);
-    setOptionalStringQueryParam(query, 'sortDirection', request.sortDirection);
-
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: `/admin/postgres/tables/${encoded(request.schema)}/${encoded(request.table)}/rows`,
-      query
-    });
-    return { json };
-  },
+  ) => getRowsDirect(request, context),
   getRedisKeys: async (
     request: GetRedisKeysRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const query = new URLSearchParams();
-    setOptionalStringQueryParam(query, 'cursor', request.cursor);
-    setOptionalPositiveIntQueryParam(query, 'limit', request.limit);
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: '/admin/redis/keys',
-      query
-    });
-    return { json };
-  },
+  ) => getRedisKeysDirect(request, context),
   getRedisValue: async (
     request: KeyRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: `/admin/redis/keys/${encoded(request.key)}`
-    });
-    return { json };
-  },
+  ) => getRedisValueDirect(request, context),
   deleteRedisKey: async (
     request: KeyRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'DELETE',
-      path: `/admin/redis/keys/${encoded(request.key)}`
-    });
-    return { json };
-  },
+  ) => deleteRedisKeyDirect(request, context),
   getRedisDbSize: async (
-    _request: object,
+    request: object,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: '/admin/redis/dbsize'
-    });
-    return { json };
-  },
+  ) => getRedisDbSizeDirect(request, context),
   listGroups: async (
     request: ListGroupsRequest,
     context: { requestHeader: Headers }
