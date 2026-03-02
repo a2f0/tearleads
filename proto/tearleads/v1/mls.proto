@@ -2,45 +2,123 @@ syntax = "proto3";
 
 package tearleads.v1;
 
-import "google/protobuf/empty.proto";
-import "tearleads/v1/common.proto";
-
 service MlsService {
-  rpc UploadKeyPackages(JsonRequest) returns (JsonResponse);
-  rpc GetMyKeyPackages(google.protobuf.Empty) returns (JsonResponse);
-  rpc GetUserKeyPackages(UserIdRequest) returns (JsonResponse);
-  rpc DeleteKeyPackage(MlsIdRequest) returns (JsonResponse);
-  rpc CreateGroup(JsonRequest) returns (JsonResponse);
-  rpc ListGroups(google.protobuf.Empty) returns (JsonResponse);
-  rpc GetGroup(GroupIdRequest) returns (JsonResponse);
-  rpc UpdateGroup(GroupIdJsonRequest) returns (JsonResponse);
-  rpc DeleteGroup(GroupIdRequest) returns (JsonResponse);
-  rpc AddGroupMember(GroupIdJsonRequest) returns (JsonResponse);
-  rpc GetGroupMembers(GroupIdRequest) returns (JsonResponse);
-  rpc RemoveGroupMember(MlsRemoveGroupMemberRequest) returns (JsonResponse);
-  rpc SendGroupMessage(GroupIdJsonRequest) returns (JsonResponse);
-  rpc GetGroupMessages(GetGroupMessagesRequest) returns (JsonResponse);
-  rpc GetGroupState(GroupIdRequest) returns (JsonResponse);
-  rpc UploadGroupState(GroupIdJsonRequest) returns (JsonResponse);
-  rpc GetWelcomeMessages(google.protobuf.Empty) returns (JsonResponse);
-  rpc AcknowledgeWelcome(AcknowledgeWelcomeRequest) returns (JsonResponse);
+  rpc UploadKeyPackages(MlsUploadKeyPackagesRequest)
+      returns (MlsUploadKeyPackagesResponse);
+  rpc GetMyKeyPackages(MlsGetMyKeyPackagesRequest)
+      returns (MlsGetMyKeyPackagesResponse);
+  rpc GetUserKeyPackages(MlsGetUserKeyPackagesRequest)
+      returns (MlsGetUserKeyPackagesResponse);
+  rpc DeleteKeyPackage(MlsDeleteKeyPackageRequest)
+      returns (MlsDeleteKeyPackageResponse);
+  rpc CreateGroup(MlsCreateGroupRequest) returns (MlsCreateGroupResponse);
+  rpc ListGroups(MlsListGroupsRequest) returns (MlsListGroupsResponse);
+  rpc GetGroup(MlsGetGroupRequest) returns (MlsGetGroupResponse);
+  rpc UpdateGroup(MlsUpdateGroupRequest) returns (MlsUpdateGroupResponse);
+  rpc DeleteGroup(MlsDeleteGroupRequest) returns (MlsDeleteGroupResponse);
+  rpc AddGroupMember(MlsAddGroupMemberRequest)
+      returns (MlsAddGroupMemberResponse);
+  rpc GetGroupMembers(MlsGetGroupMembersRequest)
+      returns (MlsGetGroupMembersResponse);
+  rpc RemoveGroupMember(MlsRemoveGroupMemberRequest)
+      returns (MlsRemoveGroupMemberResponse);
+  rpc SendGroupMessage(MlsSendGroupMessageRequest)
+      returns (MlsSendGroupMessageResponse);
+  rpc GetGroupMessages(MlsGetGroupMessagesRequest)
+      returns (MlsGetGroupMessagesResponse);
+  rpc GetGroupState(MlsGetGroupStateRequest) returns (MlsGetGroupStateResponse);
+  rpc UploadGroupState(MlsUploadGroupStateRequest)
+      returns (MlsUploadGroupStateResponse);
+  rpc GetWelcomeMessages(MlsGetWelcomeMessagesRequest)
+      returns (MlsGetWelcomeMessagesResponse);
+  rpc AcknowledgeWelcome(MlsAcknowledgeWelcomeRequest)
+      returns (MlsAcknowledgeWelcomeResponse);
 }
 
-message UserIdRequest {
+message MlsUploadKeyPackagesRequest {
+  string json = 1;
+}
+
+message MlsUploadKeyPackagesResponse {
+  string json = 1;
+}
+
+message MlsGetMyKeyPackagesRequest {}
+
+message MlsGetMyKeyPackagesResponse {
+  string json = 1;
+}
+
+message MlsGetUserKeyPackagesRequest {
   string user_id = 1;
 }
 
-message MlsIdRequest {
+message MlsGetUserKeyPackagesResponse {
+  string json = 1;
+}
+
+message MlsDeleteKeyPackageRequest {
   string id = 1;
 }
 
-message GroupIdRequest {
+message MlsDeleteKeyPackageResponse {
+  string json = 1;
+}
+
+message MlsCreateGroupRequest {
+  string json = 1;
+}
+
+message MlsCreateGroupResponse {
+  string json = 1;
+}
+
+message MlsListGroupsRequest {}
+
+message MlsListGroupsResponse {
+  string json = 1;
+}
+
+message MlsGetGroupRequest {
   string group_id = 1;
 }
 
-message GroupIdJsonRequest {
+message MlsGetGroupResponse {
+  string json = 1;
+}
+
+message MlsUpdateGroupRequest {
   string group_id = 1;
   string json = 2;
+}
+
+message MlsUpdateGroupResponse {
+  string json = 1;
+}
+
+message MlsDeleteGroupRequest {
+  string group_id = 1;
+}
+
+message MlsDeleteGroupResponse {
+  string json = 1;
+}
+
+message MlsAddGroupMemberRequest {
+  string group_id = 1;
+  string json = 2;
+}
+
+message MlsAddGroupMemberResponse {
+  string json = 1;
+}
+
+message MlsGetGroupMembersRequest {
+  string group_id = 1;
+}
+
+message MlsGetGroupMembersResponse {
+  string json = 1;
 }
 
 message MlsRemoveGroupMemberRequest {
@@ -49,13 +127,57 @@ message MlsRemoveGroupMemberRequest {
   string json = 3;
 }
 
-message GetGroupMessagesRequest {
+message MlsRemoveGroupMemberResponse {
+  string json = 1;
+}
+
+message MlsSendGroupMessageRequest {
+  string group_id = 1;
+  string json = 2;
+}
+
+message MlsSendGroupMessageResponse {
+  string json = 1;
+}
+
+message MlsGetGroupMessagesRequest {
   string group_id = 1;
   string cursor = 2;
   int32 limit = 3;
 }
 
-message AcknowledgeWelcomeRequest {
+message MlsGetGroupMessagesResponse {
+  string json = 1;
+}
+
+message MlsGetGroupStateRequest {
+  string group_id = 1;
+}
+
+message MlsGetGroupStateResponse {
+  string json = 1;
+}
+
+message MlsUploadGroupStateRequest {
+  string group_id = 1;
+  string json = 2;
+}
+
+message MlsUploadGroupStateResponse {
+  string json = 1;
+}
+
+message MlsGetWelcomeMessagesRequest {}
+
+message MlsGetWelcomeMessagesResponse {
+  string json = 1;
+}
+
+message MlsAcknowledgeWelcomeRequest {
   string id = 1;
   string json = 2;
+}
+
+message MlsAcknowledgeWelcomeResponse {
+  string json = 1;
 }

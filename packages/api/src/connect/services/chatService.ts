@@ -1,5 +1,5 @@
 import { Code, ConnectError, type HandlerContext } from '@connectrpc/connect';
-import type { JsonRequest } from '@tearleads/shared/gen/tearleads/v1/common_pb';
+import type { ChatPostCompletionsRequest } from '@tearleads/shared/gen/tearleads/v1/chat_pb';
 import { createChatCompletion } from '../../lib/chatCompletions.js';
 import { getRequiredConnectAuthContext } from '../context.js';
 import {
@@ -22,7 +22,10 @@ function toJsonResponsePayload(payload: unknown): string {
 }
 
 export const chatConnectService = {
-  postCompletions: async (request: JsonRequest, context: HandlerContext) => {
+  postCompletions: async (
+    request: ChatPostCompletionsRequest,
+    context: HandlerContext
+  ) => {
     const authContext = getRequiredConnectAuthContext(context);
     if (!authContext) {
       throw new ConnectError('Unauthorized', Code.Unauthenticated);
