@@ -214,6 +214,15 @@ resource "github_app_installation_repository" "merge_signing" {
   repository      = github_repository.main.name
 }
 
+# Dependabot secrets — expose selected repo secrets to Dependabot PRs
+resource "github_dependabot_secret" "this" {
+  for_each = var.dependabot_secrets
+
+  repository      = github_repository.main.name
+  secret_name     = each.key
+  plaintext_value = each.value
+}
+
 # Shared account-global GitHub Actions OIDC provider.
 resource "aws_iam_openid_connect_provider" "github_actions" {
   url = "https://token.actions.githubusercontent.com"
