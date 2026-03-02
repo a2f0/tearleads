@@ -1,7 +1,5 @@
 import type { VfsCrdtSyncItem } from '../protocol/sync-crdt-feed.js';
-import {
-  InMemoryVfsCrdtFeedReplayStore
-} from '../protocol/sync-crdt-feed-replay.js';
+import { InMemoryVfsCrdtFeedReplayStore } from '../protocol/sync-crdt-feed-replay.js';
 import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
 import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
 import {

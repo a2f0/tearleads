@@ -1,10 +1,5 @@
 import { X } from 'lucide-react';
-import {
-  Component,
-  createRef,
-  type ReactNode,
-  type RefObject
-} from 'react';
+import { Component, createRef, type ReactNode, type RefObject } from 'react';
 import { logStore } from '@/stores/logStore';
 
 interface Props {

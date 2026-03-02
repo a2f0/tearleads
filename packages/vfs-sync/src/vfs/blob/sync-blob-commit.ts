@@ -339,5 +339,4 @@ export class InMemoryVfsBlobCommitStore {
 
     return cloneRecord(record);
   }
-
 }
