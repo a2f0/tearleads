@@ -59,7 +59,7 @@
     "checkArchitectureGuardrailBudgets": "./scripts/checks/checkArchitectureGuardrailBudgets.ts",
     "checkVfsCrdtCompactionMetrics": "./scripts/checks/checkVfsCrdtCompactionMetrics.ts",
     "protoLint": "buf lint proto",
-    "protoGenerate": "buf generate proto --template proto/buf.gen.yaml",
+    "protoGenerate": "tsx scripts/lib/verifyProtoCodegenPlugins.ts && buf generate proto --template proto/buf.gen.yaml",
     "protoBreaking": "buf breaking proto --against '.git#branch=main,subdir=proto'",
     "format": "biome format --write .",
     "generatePreenDocs": "./scripts/preen/generatePreenDocs.sh",

@@ -33,10 +33,7 @@ const config: KnipConfig = {
       ],
       ignoreDependencies: [
         // Invoked via scripts/checks/checkDependencyCruiser.sh.
-        'dependency-cruiser',
-        // Buf codegen plugins executed by `pnpm protoGenerate`.
-        '@bufbuild/protoc-gen-es',
-        '@connectrpc/protoc-gen-connect-es'
+        'dependency-cruiser'
       ]
     },
     'packages/app-builder': {
@@ -62,8 +59,6 @@ const config: KnipConfig = {
         'electron/preload.ts'
       ],
       ignoreDependencies: [
-        // CLI tool used by electron-builder rebuild scripts, not imported in source.
-        '@electron/rebuild',
         // Electron-native SQLite binding loaded in desktop runtime and packaging scripts.
         'better-sqlite3-multiple-ciphers',
         // Resolved as a Vite build entry/chunk dependency outside static source imports.
@@ -78,10 +73,7 @@ const config: KnipConfig = {
       entry: ['src/test/**/*.ts']
     },
     'packages/shared': {
-      ignoreDependencies: [
-        // Runtime dependency of generated protobuf modules under src/gen.
-        '@bufbuild/protobuf'
-      ]
+      entry: ['src/gen/**/*.ts']
     },
     'packages/vfs-sync': {
       entry: ['src/**/*.test.ts']

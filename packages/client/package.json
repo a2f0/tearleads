@@ -109,7 +109,6 @@
     "@capacitor/ios": "8.1.0",
     "@electron-toolkit/preload": "3.0.2",
     "@electron-toolkit/utils": "4.0.0",
-    "@electron/rebuild": "4.0.3",
     "@playwright/test": "1.58.2",
     "@tailwindcss/vite": "4.2.1",
     "@tearleads/api-test-utils": "workspace:*",
