@@ -19,11 +19,13 @@ import {
   clearKeyStorage,
   clearSession,
   getKeyCheckValue,
+  getPasswordWrappedKey,
   getSalt,
   getWrappedKey,
   getWrappingKey,
   hasSession,
   storeKeyCheckValue,
+  storePasswordWrappedKey,
   storeSalt,
   storeWrappedKey,
   storeWrappingKey
@@ -93,6 +95,20 @@ export function registerSqliteHandlers(): void {
   ipcMain.handle('sqlite:setKeyCheckValue', (_event, kcv: string, instanceId: string) => {
     storeKeyCheckValue(kcv, instanceId);
   });
+
+  ipcMain.handle(
+    'sqlite:getPasswordWrappedKey',
+    (_event, instanceId: string) => {
+      return getPasswordWrappedKey(instanceId);
+    }
+  );
+
+  ipcMain.handle(
+    'sqlite:setPasswordWrappedKey',
+    (_event, wrappedKey: number[], instanceId: string) => {
+      storePasswordWrappedKey(wrappedKey, instanceId);
+    }
+  );
 
   ipcMain.handle('sqlite:clearKeyStorage', (_event, instanceId: string) => {
     clearKeyStorage(instanceId);

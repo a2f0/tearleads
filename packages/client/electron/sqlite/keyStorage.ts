@@ -10,6 +10,7 @@ import { app, safeStorage } from 'electron';
 
 const SALT_PREFIX = '.salt';
 const KCV_PREFIX = '.kcv';
+const PASSWORD_WRAPPED_KEY_PREFIX = '.password_wrapped_key';
 const WRAPPING_KEY_PREFIX = '.wrapping_key';
 const WRAPPED_KEY_PREFIX = '.wrapped_key';
 
@@ -27,6 +28,10 @@ function getKcvFilename(instanceId: string): string {
 
 function getWrappingKeyFilename(instanceId: string): string {
   return `${WRAPPING_KEY_PREFIX}_${instanceId}`;
+}
+
+function getPasswordWrappedKeyFilename(instanceId: string): string {
+  return `${PASSWORD_WRAPPED_KEY_PREFIX}_${instanceId}`;
 }
 
 function getWrappedKeyFilename(instanceId: string): string {
@@ -115,9 +120,24 @@ export function getKeyCheckValue(instanceId: string): string | null {
 export function clearKeyStorage(instanceId: string): void {
   const saltPath = getStoragePath(getSaltFilename(instanceId));
   const kcvPath = getStoragePath(getKcvFilename(instanceId));
+  const passwordWrappedKeyPath = getStoragePath(
+    getPasswordWrappedKeyFilename(instanceId)
+  );
 
   fs.rmSync(saltPath, { force: true });
   fs.rmSync(kcvPath, { force: true });
+  fs.rmSync(passwordWrappedKeyPath, { force: true });
+}
+
+export function storePasswordWrappedKey(
+  wrappedKey: number[],
+  instanceId: string
+): void {
+  storeEncryptedData(wrappedKey, getPasswordWrappedKeyFilename(instanceId));
+}
+
+export function getPasswordWrappedKey(instanceId: string): number[] | null {
+  return getEncryptedData(getPasswordWrappedKeyFilename(instanceId));
 }
 
 // Session persistence operations using safeStorage

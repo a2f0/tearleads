@@ -5,6 +5,8 @@ import { DatabaseTest } from './DatabaseTest';
 
 const mockUseDatabaseContext = vi.fn();
 const mockGetDatabaseAdapter = vi.fn();
+const mockSetDatabasePassword = vi.fn();
+const mockUpdateInstance = vi.fn();
 let capturedInstanceChangeCallback: (() => void) | null = null;
 
 vi.mock('@/db/hooks', () => ({
@@ -12,7 +14,12 @@ vi.mock('@/db/hooks', () => ({
 }));
 
 vi.mock('@/db', () => ({
-  getDatabaseAdapter: () => mockGetDatabaseAdapter()
+  getDatabaseAdapter: () => mockGetDatabaseAdapter(),
+  setDatabasePassword: (...args: unknown[]) => mockSetDatabasePassword(...args)
+}));
+
+vi.mock('@/db/instanceRegistry', () => ({
+  updateInstance: (...args: unknown[]) => mockUpdateInstance(...args)
 }));
 
 vi.mock('@/hooks/app', () => ({
@@ -24,6 +31,10 @@ vi.mock('@/hooks/app', () => ({
 vi.mock('@/lib/utils', () => ({
   cn: (...args: string[]) => args.filter(Boolean).join(' '),
   detectPlatform: () => 'web'
+}));
+
+vi.mock('@/contexts/AuthContext', () => ({
+  useOptionalAuth: () => null
 }));
 describe('DatabaseTest', () => {
   beforeEach(() => {
@@ -37,6 +48,8 @@ describe('DatabaseTest', () => {
       isSetUp: true,
       isUnlocked: false,
       hasPersistedSession: false,
+      currentInstanceId: null,
+      instances: [],
       setup: vi.fn(),
       unlock: vi.fn(),
       persistSession: vi.fn(),
@@ -44,7 +57,8 @@ describe('DatabaseTest', () => {
       lock: vi.fn(),
       reset: vi.fn(),
       changePassword: vi.fn(),
-      restoreSession: vi.fn()
+      restoreSession: vi.fn(),
+      refreshInstances: vi.fn()
     };
     mockUseDatabaseContext.mockReturnValue({ ...defaults, ...overrides });
     return { ...defaults, ...overrides };

@@ -256,10 +256,9 @@ test.describe('Files Route Instance Switching', () => {
     // Create new instance (should switch to it automatically)
     await createNewInstanceFromAnyPage(page);
 
-    // Wait for the InlineUnlock component to appear (new instance not set up)
-    // The text shows "Database is not set up" for new instances
+    // New instances are auto-initialized; files page should refresh to empty state.
     await expect(
-      page.getByText('Database is not set up')
+      page.getByText('No files found. Drop or select files above to upload.')
     ).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
 
     // Set up the new instance via SQLite page
@@ -302,12 +301,7 @@ test.describe('Files Route Instance Switching', () => {
     await expect(instancesAfterCreate).toHaveCount(2, { timeout: DB_OPERATION_TIMEOUT });
     await page.keyboard.press('Escape');
 
-    // New instance is not set up, so we need to set it up via SQLite page
-    await expect(
-      page.getByText('Database is not set up')
-    ).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
-
-    // Use in-app navigation for second instance to preserve React state
+    // Use in-app navigation for second instance and ensure database is ready.
     await setupDatabaseOnSqlitePage(page, true);
 
     // Checkpoint: verify 2 instances AFTER setupDatabaseOnSqlitePage
@@ -377,11 +371,7 @@ test.describe('Files Route Instance Switching', () => {
     // Create second instance
     await createNewInstanceFromAnyPage(page);
 
-    // New instance is not set up, so we need to set it up via SQLite page
-    await expect(
-      page.getByText('Database is not set up')
-    ).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
-    // Use in-app navigation to preserve React state during setup
+    // Use in-app navigation to preserve React state and ensure setup readiness
     await setupDatabaseOnSqlitePage(page, true);
     await navigateToPage(page, 'Files');
 
@@ -407,19 +397,8 @@ test.describe('Files Route Instance Switching', () => {
       timeout: DB_OPERATION_TIMEOUT
     });
 
-    // Wait for the locked state (first instance should be locked)
-    const inlineUnlock = page.getByTestId('inline-unlock');
-    await expect(inlineUnlock).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
-
-    // Unlock the first instance's database
-    const inlineUnlockPassword = page.getByTestId('inline-unlock-password');
-    await inlineUnlockPassword.fill(TEST_PASSWORD);
-    await page.getByTestId('inline-unlock-button').click();
-
-    // Wait for unlock to complete
-    await expect(inlineUnlockPassword).not.toBeVisible({
-      timeout: DB_OPERATION_TIMEOUT
-    });
+    // Instance may already be auto-restored; unlock only if needed.
+    await unlockIfNeeded(page);
 
     // Force refresh to ensure files are loaded
     await forceRefreshFiles(page);

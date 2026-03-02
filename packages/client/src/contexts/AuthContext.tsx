@@ -12,6 +12,11 @@ import {
   createVfsKeySetupPayloadForOnboarding,
   setVfsRecoveryPassword
 } from '@/hooks/vfs';
+import {
+  getCurrentInstanceId as getCurrentDatabaseInstanceId,
+  setDatabasePassword
+} from '@/db';
+import { getInstance, updateInstance } from '@/db/instanceRegistry';
 import { api, tryRefreshToken } from '@/lib/api';
 import {
   AUTH_REFRESH_TOKEN_KEY,
@@ -59,6 +64,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [token, setToken] = useState<string | null>(null);
   const [authError, setAuthErrorState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const configureDeferredDatabasePassword = useCallback(
+    async (password: string) => {
+      try {
+        const instanceId = getCurrentDatabaseInstanceId();
+        if (!instanceId) {
+          return;
+        }
+
+        const instance = await getInstance(instanceId);
+        if (!instance?.passwordDeferred) {
+          return;
+        }
+
+        const saved = await setDatabasePassword(password, instanceId);
+        if (!saved) {
+          console.warn(
+            'Skipping deferred DB password setup because no active key was available'
+          );
+          return;
+        }
+
+        await updateInstance(instanceId, { passwordDeferred: false });
+      } catch (error) {
+        console.warn('Failed to configure deferred DB password from auth:', error);
+      }
+    },
+    []
+  );
 
   const syncFromStorage = useCallback(() => {
     const { token: savedToken, user: savedUser } = readStoredAuth();
@@ -173,7 +207,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // Persist to localStorage
     storeAuth(response.accessToken, response.refreshToken, response.user);
-  }, []);
+    await configureDeferredDatabasePassword(password);
+  }, [configureDeferredDatabasePassword]);
 
   const register = useCallback(
     async (
@@ -202,8 +237,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // Persist to localStorage
       storeAuth(response.accessToken, response.refreshToken, response.user);
+      await configureDeferredDatabasePassword(password);
     },
-    []
+    [configureDeferredDatabasePassword]
   );
 
   const logout = useCallback(async () => {

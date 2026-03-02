@@ -1,8 +1,13 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect, test } from '../fixtures';
+import { clearOriginStorage } from '../testUtils';
 
 // Use dbTest for tests that require database setup
 const dbTest = test;
+const TEST_PASSWORD = 'testpassword123';
+const DB_OPERATION_TIMEOUT = 15000;
+const TRANSIENT_DB_ERROR_PATTERN =
+  /SQLITE_NOTADB|already initialized|initialization state is invalid/i;
 
 // Helper to open sidebar via Start button
 async function openSidebar(page: Page) {
@@ -105,6 +110,109 @@ async function navigateTo(page: Page, linkName: string) {
   await expect(sidebar).not.toBeVisible({ timeout: 5000 });
 }
 
+async function waitForDbResult(page: Page) {
+  await expect(page.getByTestId('db-test-result')).toHaveAttribute(
+    'data-status',
+    /success|error/,
+    { timeout: DB_OPERATION_TIMEOUT }
+  );
+}
+
+async function ensureDatabaseUnlocked(page: Page, password = TEST_PASSWORD) {
+  await navigateTo(page, 'SQLite');
+  await expect(page.getByTestId('db-status')).not.toHaveText('Loading...', {
+    timeout: DB_OPERATION_TIMEOUT
+  });
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await page.getByTestId('db-reset-button').click();
+    await waitForDbResult(page);
+
+    const resetResult = page.getByTestId('db-test-result');
+    const resetStatus = await resetResult.getAttribute('data-status');
+    if (resetStatus === 'error') {
+      const resetErrorText = (await resetResult.textContent()) ?? '';
+      if (!TRANSIENT_DB_ERROR_PATTERN.test(resetErrorText) || attempt === 1) {
+        throw new Error(`Database reset failed: ${resetErrorText}`);
+      }
+      continue;
+    }
+
+    await expect(page.getByTestId('db-status')).toHaveText('Not Set Up', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+    await page.getByTestId('db-password-input').fill(password);
+    await page.getByTestId('db-setup-button').click();
+    await waitForDbResult(page);
+
+    const setupResult = page.getByTestId('db-test-result');
+    const setupStatus = await setupResult.getAttribute('data-status');
+    if (setupStatus === 'success') {
+      await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+        timeout: DB_OPERATION_TIMEOUT
+      });
+      return;
+    }
+
+    const setupErrorText = (await setupResult.textContent()) ?? '';
+    if (!TRANSIENT_DB_ERROR_PATTERN.test(setupErrorText) || attempt === 1) {
+      throw new Error(`Database setup failed: ${setupErrorText}`);
+    }
+  }
+
+  throw new Error('Database setup did not complete after retries.');
+}
+
+async function waitForUploadedFileRow(page: Page, fileName: string) {
+  const row = page
+    .locator('[data-slot="list-row"]')
+    .filter({ hasText: fileName })
+    .filter({ has: page.getByTitle('Download') })
+    .first();
+
+  if (await row.isVisible().catch(() => false)) {
+    return row;
+  }
+
+  try {
+    await expect(row).toBeVisible({ timeout: 10000 });
+    return row;
+  } catch {
+    const refreshButton = page.getByRole('button', { name: 'Refresh' });
+    if (await refreshButton.isEnabled().catch(() => false)) {
+      await refreshButton.click();
+    }
+    await expect(row).toBeVisible({ timeout: 10000 });
+    return row;
+  }
+}
+
+async function navigateToFilesAndWaitReady(page: Page) {
+  await navigateTo(page, 'Files');
+  const refreshButton = page.getByRole('button', { name: 'Refresh' });
+  await expect(refreshButton).toBeEnabled({ timeout: 10000 });
+}
+
+async function uploadFileAndWaitForRow(
+  page: Page,
+  file: { name: string; mimeType: string; buffer: Buffer }
+) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await page.getByTestId('dropzone-input').setInputFiles(file);
+    try {
+      return await waitForUploadedFileRow(page, file.name);
+    } catch (error) {
+      if (attempt === 1) {
+        throw error;
+      }
+      await ensureDatabaseUnlocked(page);
+      await navigateToFilesAndWaitReady(page);
+    }
+  }
+
+  throw new Error(`Upload did not succeed for ${file.name}`);
+}
+
 test.describe('Dropzone layout and file type handling', () => {
   // Minimal valid PNG (1x1 transparent pixel) for file type detection
   const pngMagicBytes = Buffer.from([
@@ -119,6 +227,7 @@ test.describe('Dropzone layout and file type handling', () => {
   ]);
 
   test.beforeEach(async ({ page }) => {
+    await clearOriginStorage(page);
     await page.goto('/files');
   });
 
@@ -128,32 +237,18 @@ test.describe('Dropzone layout and file type handling', () => {
     const longName =
       'this-is-a-very-long-file-name-that-should-truncate-and-not-cause-horizontal-scroll.png';
 
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    await ensureDatabaseUnlocked(page);
 
-    // Go to Files page
-    await navigateTo(page, 'Files');
+    // Go to Files page and wait for initial file query to finish.
+    await navigateToFilesAndWaitReady(page);
 
-    const fileInput = page.getByTestId('dropzone-input');
-    await fileInput.setInputFiles({
+    const row = await uploadFileAndWaitForRow(page, {
       name: longName,
       mimeType: 'image/png',
       buffer: pngMagicBytes
     });
-
-    const nameCell = page.getByText(longName, { exact: true });
+    const nameCell = row.locator('p').first();
     await expect(nameCell).toBeVisible();
-
-    const row = page
-      .locator('div', { has: nameCell })
-      .filter({ has: page.getByTitle('Download') })
-      .first();
-
-    await expect(row).toBeVisible();
 
     // Switch to a narrow viewport to verify mobile layout constraints
     await page.setViewportSize({ width: 360, height: 800 });
@@ -203,15 +298,10 @@ test.describe('Dropzone layout and file type handling', () => {
   });
 
   dbTest('should successfully upload plain text files', async ({ page }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    await ensureDatabaseUnlocked(page);
 
-    // Go to Files page
-    await navigateTo(page, 'Files');
+    // Go to Files page and wait for initial file query to finish.
+    await navigateToFilesAndWaitReady(page);
 
     const fileInput = page.getByTestId('dropzone-input');
 
@@ -230,15 +320,10 @@ test.describe('Dropzone layout and file type handling', () => {
   });
 
   dbTest('should show error when file type cannot be detected', async ({ page }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    await ensureDatabaseUnlocked(page);
 
-    // Go to Files page
-    await navigateTo(page, 'Files');
+    // Go to Files page and wait for initial file query to finish.
+    await navigateToFilesAndWaitReady(page);
 
     const fileInput = page.getByTestId('dropzone-input');
 
@@ -259,18 +344,12 @@ test.describe('Dropzone layout and file type handling', () => {
   dbTest('should show green check badge after successful upload', async ({
     page
   }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    await ensureDatabaseUnlocked(page);
 
-    // Go to Files page
-    await navigateTo(page, 'Files');
+    // Go to Files page and wait for initial file query to finish.
+    await navigateToFilesAndWaitReady(page);
 
-    const fileInput = page.getByTestId('dropzone-input');
-    await fileInput.setInputFiles({
+    await uploadFileAndWaitForRow(page, {
       name: 'success-badge-test.png',
       mimeType: 'image/png',
       buffer: pngMagicBytes

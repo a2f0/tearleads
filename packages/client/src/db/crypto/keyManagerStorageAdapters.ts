@@ -2,15 +2,12 @@ import { exportWrappingKey, importWrappingKey } from '@tearleads/shared';
 import { detectPlatform } from '@/lib/utils';
 import * as nativeSecureStorage from './nativeSecureStorage';
 
-// Base storage key prefixes - instanceId is appended
 const SALT_STORAGE_PREFIX = 'tearleads_db_salt';
 const KEY_CHECK_VALUE_PREFIX = 'tearleads_db_kcv';
+const PASSWORD_WRAPPED_KEY_PREFIX = 'tearleads_db_password_wrapped_key';
 const WRAPPING_KEY_STORAGE_PREFIX = 'tearleads_session_wrapping_key';
 const WRAPPED_KEY_STORAGE_PREFIX = 'tearleads_session_wrapped_key';
 
-/**
- * Get namespaced storage key for an instance.
- */
 function getStorageKey(prefix: string, instanceId: string): string {
   return `${prefix}_${instanceId}`;
 }
@@ -21,6 +18,8 @@ export interface KeyStorageAdapter {
   setSalt(salt: Uint8Array): Promise<void>;
   getKeyCheckValue(): Promise<string | null>;
   setKeyCheckValue(kcv: string): Promise<void>;
+  getPasswordWrappedKey(): Promise<Uint8Array | null>;
+  setPasswordWrappedKey(wrappedKey: Uint8Array): Promise<void>;
   clear(): Promise<void>;
   // Session persistence (web only)
   getWrappingKey(): Promise<CryptoKey | null>;
@@ -32,9 +31,6 @@ export interface KeyStorageAdapter {
   hasSessionKeys(): Promise<{ wrappingKey: boolean; wrappedKey: boolean }>;
 }
 
-/**
- * Get the storage adapter based on platform.
- */
 export async function getStorageAdapter(
   instanceId: string
 ): Promise<KeyStorageAdapter> {
@@ -51,9 +47,6 @@ export async function getStorageAdapter(
   }
 }
 
-/**
- * Web storage adapter using IndexedDB.
- */
 class WebKeyStorage implements KeyStorageAdapter {
   private dbName = 'tearleads_key_storage';
   private storeName = 'keys';
@@ -62,6 +55,7 @@ class WebKeyStorage implements KeyStorageAdapter {
   // Namespaced storage keys
   private saltKey: string;
   private kcvKey: string;
+  private passwordWrappedKey: string;
   private wrappingKeyKey: string;
   private wrappedKeyKey: string;
 
@@ -69,6 +63,10 @@ class WebKeyStorage implements KeyStorageAdapter {
     this.instanceId = instanceId;
     this.saltKey = getStorageKey(SALT_STORAGE_PREFIX, instanceId);
     this.kcvKey = getStorageKey(KEY_CHECK_VALUE_PREFIX, instanceId);
+    this.passwordWrappedKey = getStorageKey(
+      PASSWORD_WRAPPED_KEY_PREFIX,
+      instanceId
+    );
     this.wrappingKeyKey = getStorageKey(
       WRAPPING_KEY_STORAGE_PREFIX,
       instanceId
@@ -189,11 +187,20 @@ class WebKeyStorage implements KeyStorageAdapter {
     await this.set(this.kcvKey, kcv);
   }
 
+  async getPasswordWrappedKey(): Promise<Uint8Array | null> {
+    const stored = await this.get<number[]>(this.passwordWrappedKey);
+    return stored ? new Uint8Array(stored) : null;
+  }
+
+  async setPasswordWrappedKey(wrappedKey: Uint8Array): Promise<void> {
+    await this.set(this.passwordWrappedKey, Array.from(wrappedKey));
+  }
+
   async clear(): Promise<void> {
-    // Delete only keys for this instance, not all keys
     await Promise.all([
       this.deleteKey(this.saltKey),
       this.deleteKey(this.kcvKey),
+      this.deleteKey(this.passwordWrappedKey),
       this.deleteKey(this.wrappingKeyKey),
       this.deleteKey(this.wrappedKeyKey)
     ]);
@@ -217,7 +224,6 @@ class WebKeyStorage implements KeyStorageAdapter {
   }
 
   async clearSession(): Promise<void> {
-    // Delete only session-related keys for this instance
     await Promise.all([
       this.deleteKey(this.wrappingKeyKey),
       this.deleteKey(this.wrappedKeyKey)
@@ -237,11 +243,6 @@ class WebKeyStorage implements KeyStorageAdapter {
   }
 }
 
-/**
- * Electron storage adapter using safeStorage API via IPC.
- * Session persistence uses extractable wrapping keys stored via main process
- * with Electron's safeStorage API (OS-level encryption).
- */
 class ElectronKeyStorage implements KeyStorageAdapter {
   public instanceId: string;
 
@@ -280,6 +281,19 @@ class ElectronKeyStorage implements KeyStorageAdapter {
     }
   }
 
+  async getPasswordWrappedKey(): Promise<Uint8Array | null> {
+    const api = this.getApi();
+    if (!api?.getPasswordWrappedKey) return null;
+    const stored = await api.getPasswordWrappedKey(this.instanceId);
+    return stored ? new Uint8Array(stored) : null;
+  }
+
+  async setPasswordWrappedKey(wrappedKey: Uint8Array): Promise<void> {
+    const api = this.getApi();
+    if (!api?.setPasswordWrappedKey) return;
+    await api.setPasswordWrappedKey(Array.from(wrappedKey), this.instanceId);
+  }
+
   async clear(): Promise<void> {
     const api = this.getApi();
     if (api?.clearKeyStorage) {
@@ -289,10 +303,6 @@ class ElectronKeyStorage implements KeyStorageAdapter {
     await this.clearSession();
   }
 
-  /**
-   * Get the wrapping key from Electron's secure storage.
-   * The key is stored as extractable bytes and imported back to a CryptoKey.
-   */
   async getWrappingKey(): Promise<CryptoKey | null> {
     const api = this.getApi();
     if (!api?.getWrappingKey) return null;
@@ -307,10 +317,6 @@ class ElectronKeyStorage implements KeyStorageAdapter {
     }
   }
 
-  /**
-   * Store the wrapping key in Electron's secure storage.
-   * The key is exported to bytes and stored via IPC.
-   */
   async setWrappingKey(key: CryptoKey): Promise<void> {
     const api = this.getApi();
     if (!api?.setWrappingKey) return;
@@ -319,9 +325,6 @@ class ElectronKeyStorage implements KeyStorageAdapter {
     await api.setWrappingKey(Array.from(keyBytes), this.instanceId);
   }
 
-  /**
-   * Get the wrapped key from Electron's secure storage.
-   */
   async getWrappedKey(): Promise<Uint8Array | null> {
     const api = this.getApi();
     if (!api?.getWrappedKey) return null;
@@ -335,9 +338,6 @@ class ElectronKeyStorage implements KeyStorageAdapter {
     }
   }
 
-  /**
-   * Store the wrapped key in Electron's secure storage.
-   */
   async setWrappedKey(wrappedKey: Uint8Array): Promise<void> {
     const api = this.getApi();
     if (!api?.setWrappedKey) return;
@@ -345,9 +345,6 @@ class ElectronKeyStorage implements KeyStorageAdapter {
     await api.setWrappedKey(Array.from(wrappedKey), this.instanceId);
   }
 
-  /**
-   * Clear session data from Electron's secure storage.
-   */
   async clearSession(): Promise<void> {
     const api = this.getApi();
     if (api?.clearSession) {
@@ -355,9 +352,6 @@ class ElectronKeyStorage implements KeyStorageAdapter {
     }
   }
 
-  /**
-   * Check if session keys exist via hasSession IPC.
-   */
   async hasSessionKeys(): Promise<{
     wrappingKey: boolean;
     wrappedKey: boolean;
@@ -371,19 +365,8 @@ class ElectronKeyStorage implements KeyStorageAdapter {
   }
 }
 
-/**
- * Capacitor storage adapter for iOS and Android.
- * Uses IndexedDB for salt/KCV (don't need biometric protection).
- * Uses native Keychain/Keystore for session keys (secure storage).
- *
- * Note: iOS Keychain and Android Keystore provide secure storage by default.
- * We don't require biometric verification for key retrieval during auto-restore
- * because biometric checks can silently fail during app cold start (plugin not ready).
- * The Keychain/Keystore security is sufficient for session persistence.
- */
 class CapacitorKeyStorage implements KeyStorageAdapter {
   public instanceId: string;
-  // Use IndexedDB for salt and KCV - they don't need biometric protection
   private storage: WebKeyStorage;
 
   constructor(instanceId: string) {
@@ -407,15 +390,19 @@ class CapacitorKeyStorage implements KeyStorageAdapter {
     return this.storage.setKeyCheckValue(kcv);
   }
 
+  async getPasswordWrappedKey(): Promise<Uint8Array | null> {
+    return this.storage.getPasswordWrappedKey();
+  }
+
+  async setPasswordWrappedKey(wrappedKey: Uint8Array): Promise<void> {
+    return this.storage.setPasswordWrappedKey(wrappedKey);
+  }
+
   async clear(): Promise<void> {
     await this.storage.clear();
     await nativeSecureStorage.clearSession(this.instanceId);
   }
 
-  /**
-   * Get the wrapping key from native secure storage.
-   * On mobile, we store an extractable wrapping key in Keychain/Keystore.
-   */
   async getWrappingKey(): Promise<CryptoKey | null> {
     try {
       const keyBytes = await nativeSecureStorage.retrieveWrappingKeyBytes(
@@ -429,10 +416,6 @@ class CapacitorKeyStorage implements KeyStorageAdapter {
     }
   }
 
-  /**
-   * Store the wrapping key in native secure storage.
-   * On mobile, we export the key to bytes and store in Keychain/Keystore.
-   */
   async setWrappingKey(key: CryptoKey): Promise<void> {
     const keyBytes = await exportWrappingKey(key);
     const success = await nativeSecureStorage.storeWrappingKeyBytes(
@@ -444,11 +427,6 @@ class CapacitorKeyStorage implements KeyStorageAdapter {
     }
   }
 
-  /**
-   * Get the wrapped key from native secure storage.
-   * Does not require biometric - the Keychain/Keystore security is sufficient.
-   * Biometric checks can fail silently during cold start when the plugin isn't ready.
-   */
   async getWrappedKey(): Promise<Uint8Array | null> {
     try {
       return nativeSecureStorage.retrieveWrappedKey(this.instanceId, {
@@ -460,9 +438,6 @@ class CapacitorKeyStorage implements KeyStorageAdapter {
     }
   }
 
-  /**
-   * Store the wrapped key in native secure storage.
-   */
   async setWrappedKey(wrappedKey: Uint8Array): Promise<void> {
     const success = await nativeSecureStorage.storeWrappedKey(
       this.instanceId,
@@ -473,22 +448,15 @@ class CapacitorKeyStorage implements KeyStorageAdapter {
     }
   }
 
-  /**
-   * Clear session data from native secure storage.
-   */
   async clearSession(): Promise<void> {
     await nativeSecureStorage.clearSession(this.instanceId);
   }
 
-  /**
-   * Check if session keys exist without triggering biometric.
-   */
   async hasSessionKeys(): Promise<{
     wrappingKey: boolean;
     wrappedKey: boolean;
   }> {
     const hasSession = await nativeSecureStorage.hasSession(this.instanceId);
-    // If hasSession returns true, both wrapping and wrapped keys exist
     return {
       wrappingKey: hasSession,
       wrappedKey: hasSession

@@ -35,8 +35,12 @@ import { useScreensaver } from '../components/screensaver';
 import { Taskbar } from '../components/taskbar';
 import { DesktopBackground } from '../components/ui/desktop-background';
 import { FOOTER_HEIGHT } from '../constants/layout';
+import { useOptionalAuth } from '../contexts/AuthContext';
 import { useWindowManagerActions } from '../contexts/WindowManagerContext';
+import { setDatabasePassword } from '../db';
 import { useDatabaseContext } from '../db/hooks';
+import { getInstance, updateInstance } from '../db/instanceRegistry';
+import { notificationStore } from '../stores/notificationStore';
 import { SSESystemTrayItems } from './SSESystemTrayItems';
 import { useStartMenuContextMenu } from './useStartMenuContextMenu';
 
@@ -56,9 +60,14 @@ function App() {
   const sidebarRef = useRef<HTMLElement | null>(null);
   const startButtonRef = useRef<HTMLButtonElement | null>(null);
   const keyboardHeight = useKeyboardHeight();
-  const { isUnlocked, lock } = useDatabaseContext();
+  const { isUnlocked, lock, currentInstanceId, instances } = useDatabaseContext();
+  const auth = useOptionalAuth();
+  const isAuthenticated = auth?.isAuthenticated ?? false;
   const { activate: activateScreensaver } = useScreensaver();
   const isDesktop = !isMobile && !isTouchDevice;
+  const isPasswordDeferredInContext =
+    instances.find((instance) => instance.id === currentInstanceId)
+      ?.passwordDeferred === true;
 
   useEffect(() => {
     if (pathname) {
@@ -107,14 +116,58 @@ function App() {
 
   const handleLockInstance = useCallback(async () => {
     try {
-      activateScreensaver();
       if (isUnlocked) {
+        let requiresPasswordBeforeLock = false;
+        if (!isAuthenticated && currentInstanceId) {
+          requiresPasswordBeforeLock = isPasswordDeferredInContext;
+          if (!requiresPasswordBeforeLock && typeof indexedDB !== 'undefined') {
+            const instance = await getInstance(currentInstanceId);
+            requiresPasswordBeforeLock = instance?.passwordDeferred === true;
+          }
+        }
+
+        if (requiresPasswordBeforeLock && currentInstanceId) {
+          const password =
+            typeof window.prompt === 'function'
+              ? window.prompt(
+                  'Set a database password before locking this instance'
+                )
+              : null;
+
+          if (!password || !password.trim()) {
+            notificationStore.warning(
+              'Password Required',
+              'Set a database password to lock this instance while signed out.'
+            );
+            return;
+          }
+
+          const saved = await setDatabasePassword(password, currentInstanceId);
+          if (!saved) {
+            notificationStore.warning(
+              'Password Not Saved',
+              'Could not save your database password. Please try again.'
+            );
+            return;
+          }
+          await updateInstance(currentInstanceId, { passwordDeferred: false });
+        }
+
+        activateScreensaver();
         await lock(true);
       }
     } finally {
       startMenu.close();
     }
-  }, [activateScreensaver, isUnlocked, lock, startMenu]);
+  }, [
+    activateScreensaver,
+    currentInstanceId,
+    isAuthenticated,
+    isPasswordDeferredInContext,
+    isUnlocked,
+    lock,
+    startMenu
+  ]);
 
   const handleOpenSearch = useCallback(() => {
     if (isDesktop) {

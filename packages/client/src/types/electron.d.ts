@@ -20,6 +20,11 @@ export interface ElectronSqliteApi {
   setSalt: (salt: number[], instanceId: string) => Promise<void>;
   getKeyCheckValue: (instanceId: string) => Promise<string | null>;
   setKeyCheckValue: (kcv: string, instanceId: string) => Promise<void>;
+  getPasswordWrappedKey?: (instanceId: string) => Promise<number[] | null>;
+  setPasswordWrappedKey?: (
+    wrappedKey: number[],
+    instanceId: string
+  ) => Promise<void>;
   clearKeyStorage: (instanceId: string) => Promise<void>;
   // Session persistence operations
   getWrappingKey: (instanceId: string) => Promise<number[] | null>;

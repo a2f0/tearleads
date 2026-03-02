@@ -51,27 +51,34 @@ describe('KeyManager', () => {
       expect(result).toBe(false);
     });
 
-    it('returns true when salt exists', async () => {
+    it('returns true when password-protector metadata exists', async () => {
       mockIDBStore.set(`tearleads_db_salt_${TEST_INSTANCE_ID}`, [1, 2, 3]);
+      mockIDBStore.set(`tearleads_db_kcv_${TEST_INSTANCE_ID}`, 'kcv');
+      mockIDBStore.set(
+        `tearleads_db_password_wrapped_key_${TEST_INSTANCE_ID}`,
+        [9, 9, 9]
+      );
       const result = await keyManager.hasExistingKey();
       expect(result).toBe(true);
     });
   });
 
   describe('setupNewKey', () => {
-    it('generates salt and derives key from password', async () => {
-      const { generateSalt, deriveKeyFromPassword, exportKey } = await import(
+    it('generates random key and wraps it with password-derived key', async () => {
+      const { generateRandomKey, generateSalt, deriveKeyFromPassword, encrypt } =
+        await import(
         '@tearleads/shared'
       );
 
       const key = await keyManager.setupNewKey('testpassword');
 
+      expect(generateRandomKey).toHaveBeenCalled();
       expect(generateSalt).toHaveBeenCalled();
       expect(deriveKeyFromPassword).toHaveBeenCalledWith(
         'testpassword',
         expect.any(Uint8Array)
       );
-      expect(exportKey).toHaveBeenCalled();
+      expect(encrypt).toHaveBeenCalled();
       expect(key).toBeInstanceOf(Uint8Array);
     });
 
