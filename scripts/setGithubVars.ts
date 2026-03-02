@@ -53,6 +53,12 @@ const managedSecretNames = [
   'TAILSCALE_GITHUB_OAUTH_CLIENT_SECRET'
 ] as const;
 
+const dependabotSecretNames = new Set([
+  'ANDROID_KEYSTORE_BASE64',
+  'ANDROID_KEYSTORE_STORE_PASS',
+  'ANDROID_KEYSTORE_KEY_PASS'
+]);
+
 const optionalGithubVars = [
   'AWS_STAGING_ECR_ROLE_ARN',
   'AWS_PROD_ECR_ROLE_ARN'
@@ -145,9 +151,14 @@ function setGithubValue(
   type: 'secret' | 'variable',
   repo: string,
   name: string,
-  value: string
+  value: string,
+  app?: 'dependabot'
 ): void {
-  execFileSync('gh', [type, 'set', name, '-R', repo, '--body', value], {
+  const args = [type, 'set', name, '-R', repo, '--body', value];
+  if (app) {
+    args.push('--app', app);
+  }
+  execFileSync('gh', args, {
     stdio: ['ignore', 'inherit', 'inherit']
   });
 }
@@ -284,6 +295,18 @@ function main(): void {
 
   for (const secret of secrets) {
     setGithubValue('secret', env.GITHUB_REPO, secret.name, secret.value);
+  }
+
+  for (const secret of secrets) {
+    if (dependabotSecretNames.has(secret.name)) {
+      setGithubValue(
+        'secret',
+        env.GITHUB_REPO,
+        secret.name,
+        secret.value,
+        'dependabot'
+      );
+    }
   }
 
   for (const variableName of optionalGithubVars) {
