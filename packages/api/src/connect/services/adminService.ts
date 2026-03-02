@@ -1,5 +1,10 @@
 import { getContextDirect } from './adminDirectContext.js';
 import {
+  getGroupDirect,
+  getGroupMembersDirect,
+  listGroupsDirect
+} from './adminDirectGroups.js';
+import {
   getColumnsDirect,
   getPostgresInfoDirect,
   getRowsDirect,
@@ -62,29 +67,9 @@ export const adminConnectService = {
   listGroups: async (
     request: ListGroupsRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const query = new URLSearchParams();
-    setOptionalStringQueryParam(
-      query,
-      'organizationId',
-      request.organizationId
-    );
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: '/admin/groups',
-      query
-    });
-    return { json };
-  },
-  getGroup: async (request: IdRequest, context: { requestHeader: Headers }) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: `/admin/groups/${encoded(request.id)}`
-    });
-    return { json };
-  },
+  ) => listGroupsDirect(request, context),
+  getGroup: (request: IdRequest, context: { requestHeader: Headers }) =>
+    getGroupDirect(request, context),
   createGroup: async (
     request: { json: string },
     context: { requestHeader: Headers }
@@ -123,14 +108,7 @@ export const adminConnectService = {
   getGroupMembers: async (
     request: IdRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: `/admin/groups/${encoded(request.id)}/members`
-    });
-    return { json };
-  },
+  ) => getGroupMembersDirect(request, context),
   addGroupMember: async (
     request: IdJsonRequest,
     context: { requestHeader: Headers }
