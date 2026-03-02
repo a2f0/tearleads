@@ -47,6 +47,27 @@ function getRequiredOrganizationId(organizationId: string): string {
   return normalizedOrganizationId;
 }
 
+type GroupMemberCandidate = {
+  user_id: string | null;
+  email: string | null;
+  joined_at: Date | null;
+};
+
+function toGroupMemberRows<T extends GroupMemberCandidate>(
+  rows: T[]
+): GroupMemberRow[] {
+  return rows
+    .filter(
+      (row): row is T & { user_id: string; email: string; joined_at: Date } =>
+        row.user_id !== null && row.email !== null && row.joined_at !== null
+    )
+    .map(({ user_id, email, joined_at }) => ({
+      user_id,
+      email,
+      joined_at
+    }));
+}
+
 export async function listGroupsDirect(
   request: ListGroupsRequest,
   context: { requestHeader: Headers }
@@ -173,22 +194,7 @@ export async function getGroupDirect(
       throw new ConnectError('Forbidden', Code.PermissionDenied);
     }
 
-    const members: GroupMemberRow[] = result.rows
-      .filter(
-        (
-          row
-        ): row is GroupWithMemberRow & {
-          user_id: string;
-          email: string;
-          joined_at: Date;
-        } =>
-          row.user_id !== null && row.email !== null && row.joined_at !== null
-      )
-      .map((row) => ({
-        user_id: row.user_id,
-        email: row.email,
-        joined_at: row.joined_at
-      }));
+    const members = toGroupMemberRows(result.rows);
 
     const response: GroupDetailResponse = {
       group: mapGroupRow(groupRow),
@@ -241,23 +247,7 @@ export async function getGroupMembersDirect(
       throw new ConnectError('Forbidden', Code.PermissionDenied);
     }
 
-    const members: GroupMemberRow[] = result.rows
-      .filter(
-        (
-          row
-        ): row is {
-          organization_id: string;
-          user_id: string;
-          email: string;
-          joined_at: Date;
-        } =>
-          row.user_id !== null && row.email !== null && row.joined_at !== null
-      )
-      .map((row) => ({
-        user_id: row.user_id,
-        email: row.email,
-        joined_at: row.joined_at
-      }));
+    const members = toGroupMemberRows(result.rows);
 
     const response: GroupMembersResponse = {
       members: members.map(mapGroupMemberRow)
