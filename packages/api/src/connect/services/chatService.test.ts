@@ -5,8 +5,10 @@ import {
   createHandlerContext
 } from '@connectrpc/connect';
 import { DEFAULT_OPENROUTER_MODEL_ID, isRecord } from '@tearleads/shared';
-import { ChatService } from '@tearleads/shared/gen/tearleads/v1/chat_pb';
-import { JsonRequestSchema } from '@tearleads/shared/gen/tearleads/v1/common_pb';
+import {
+  ChatPostCompletionsRequestSchema,
+  ChatService
+} from '@tearleads/shared/gen/tearleads/v1/chat_pb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CONNECT_AUTH_CONTEXT_KEY } from '../context.js';
 import { chatConnectService } from './chatService.js';
@@ -86,7 +88,7 @@ describe('chatConnectService', () => {
     );
 
     const response = await chatConnectService.postCompletions(
-      create(JsonRequestSchema, {
+      create(ChatPostCompletionsRequestSchema, {
         json: JSON.stringify({
           messages: [{ role: 'user', content: 'Hello' }]
         })
@@ -127,7 +129,7 @@ describe('chatConnectService', () => {
   it('returns invalid argument for invalid payload', async () => {
     await expect(
       chatConnectService.postCompletions(
-        create(JsonRequestSchema, {
+        create(ChatPostCompletionsRequestSchema, {
           json: JSON.stringify({ messages: [] })
         }),
         createAuthContext(ChatService.method.postCompletions)
@@ -140,7 +142,7 @@ describe('chatConnectService', () => {
   it('returns invalid argument for malformed json payload', async () => {
     await expect(
       chatConnectService.postCompletions(
-        create(JsonRequestSchema, {
+        create(ChatPostCompletionsRequestSchema, {
           json: '{'
         }),
         createAuthContext(ChatService.method.postCompletions)
@@ -153,7 +155,7 @@ describe('chatConnectService', () => {
   it('returns unauthenticated when auth context is missing', async () => {
     await expect(
       chatConnectService.postCompletions(
-        create(JsonRequestSchema, {
+        create(ChatPostCompletionsRequestSchema, {
           json: JSON.stringify({
             messages: [{ role: 'user', content: 'Hello' }]
           })
@@ -170,7 +172,7 @@ describe('chatConnectService', () => {
 
     await expect(
       chatConnectService.postCompletions(
-        create(JsonRequestSchema, {
+        create(ChatPostCompletionsRequestSchema, {
           json: JSON.stringify({
             messages: [{ role: 'user', content: 'Hello' }]
           })
@@ -191,7 +193,7 @@ describe('chatConnectService', () => {
 
     await expect(
       chatConnectService.postCompletions(
-        create(JsonRequestSchema, {
+        create(ChatPostCompletionsRequestSchema, {
           json: JSON.stringify({
             messages: [{ role: 'user', content: 'Hello' }]
           })
@@ -210,7 +212,7 @@ describe('chatConnectService', () => {
     try {
       await expect(
         chatConnectService.postCompletions(
-          create(JsonRequestSchema, {
+          create(ChatPostCompletionsRequestSchema, {
             json: JSON.stringify({
               messages: [{ role: 'user', content: 'Hello' }]
             })

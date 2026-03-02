@@ -2,45 +2,77 @@ syntax = "proto3";
 
 package tearleads.v1;
 
-import "google/protobuf/empty.proto";
-import "tearleads/v1/common.proto";
-
 service AdminService {
-  rpc GetContext(google.protobuf.Empty) returns (JsonResponse);
-  rpc GetPostgresInfo(google.protobuf.Empty) returns (JsonResponse);
-  rpc GetTables(google.protobuf.Empty) returns (JsonResponse);
-  rpc GetColumns(GetColumnsRequest) returns (JsonResponse);
-  rpc GetRows(GetRowsRequest) returns (JsonResponse);
-  rpc GetRedisKeys(GetRedisKeysRequest) returns (JsonResponse);
-  rpc GetRedisValue(KeyRequest) returns (JsonResponse);
-  rpc DeleteRedisKey(KeyRequest) returns (JsonResponse);
-  rpc GetRedisDbSize(google.protobuf.Empty) returns (JsonResponse);
-  rpc ListGroups(ListGroupsRequest) returns (JsonResponse);
-  rpc GetGroup(IdRequest) returns (JsonResponse);
-  rpc CreateGroup(JsonRequest) returns (JsonResponse);
-  rpc UpdateGroup(IdJsonRequest) returns (JsonResponse);
-  rpc DeleteGroup(IdRequest) returns (JsonResponse);
-  rpc GetGroupMembers(IdRequest) returns (JsonResponse);
-  rpc AddGroupMember(IdJsonRequest) returns (JsonResponse);
-  rpc RemoveGroupMember(RemoveGroupMemberRequest) returns (JsonResponse);
-  rpc ListOrganizations(ListOrganizationsRequest) returns (JsonResponse);
-  rpc GetOrganization(IdRequest) returns (JsonResponse);
-  rpc CreateOrganization(JsonRequest) returns (JsonResponse);
-  rpc UpdateOrganization(IdJsonRequest) returns (JsonResponse);
-  rpc DeleteOrganization(IdRequest) returns (JsonResponse);
-  rpc GetOrgUsers(IdRequest) returns (JsonResponse);
-  rpc GetOrgGroups(IdRequest) returns (JsonResponse);
-  rpc ListUsers(ListUsersRequest) returns (JsonResponse);
-  rpc GetUser(IdRequest) returns (JsonResponse);
-  rpc UpdateUser(IdJsonRequest) returns (JsonResponse);
+  rpc GetContext(AdminGetContextRequest) returns (AdminGetContextResponse);
+  rpc GetPostgresInfo(AdminGetPostgresInfoRequest)
+      returns (AdminGetPostgresInfoResponse);
+  rpc GetTables(AdminGetTablesRequest) returns (AdminGetTablesResponse);
+  rpc GetColumns(AdminGetColumnsRequest) returns (AdminGetColumnsResponse);
+  rpc GetRows(AdminGetRowsRequest) returns (AdminGetRowsResponse);
+  rpc GetRedisKeys(AdminGetRedisKeysRequest) returns (AdminGetRedisKeysResponse);
+  rpc GetRedisValue(AdminGetRedisValueRequest)
+      returns (AdminGetRedisValueResponse);
+  rpc DeleteRedisKey(AdminDeleteRedisKeyRequest)
+      returns (AdminDeleteRedisKeyResponse);
+  rpc GetRedisDbSize(AdminGetRedisDbSizeRequest)
+      returns (AdminGetRedisDbSizeResponse);
+  rpc ListGroups(AdminListGroupsRequest) returns (AdminListGroupsResponse);
+  rpc GetGroup(AdminGetGroupRequest) returns (AdminGetGroupResponse);
+  rpc CreateGroup(AdminCreateGroupRequest) returns (AdminCreateGroupResponse);
+  rpc UpdateGroup(AdminUpdateGroupRequest) returns (AdminUpdateGroupResponse);
+  rpc DeleteGroup(AdminDeleteGroupRequest) returns (AdminDeleteGroupResponse);
+  rpc GetGroupMembers(AdminGetGroupMembersRequest)
+      returns (AdminGetGroupMembersResponse);
+  rpc AddGroupMember(AdminAddGroupMemberRequest)
+      returns (AdminAddGroupMemberResponse);
+  rpc RemoveGroupMember(AdminRemoveGroupMemberRequest)
+      returns (AdminRemoveGroupMemberResponse);
+  rpc ListOrganizations(AdminListOrganizationsRequest)
+      returns (AdminListOrganizationsResponse);
+  rpc GetOrganization(AdminGetOrganizationRequest)
+      returns (AdminGetOrganizationResponse);
+  rpc CreateOrganization(AdminCreateOrganizationRequest)
+      returns (AdminCreateOrganizationResponse);
+  rpc UpdateOrganization(AdminUpdateOrganizationRequest)
+      returns (AdminUpdateOrganizationResponse);
+  rpc DeleteOrganization(AdminDeleteOrganizationRequest)
+      returns (AdminDeleteOrganizationResponse);
+  rpc GetOrgUsers(AdminGetOrgUsersRequest) returns (AdminGetOrgUsersResponse);
+  rpc GetOrgGroups(AdminGetOrgGroupsRequest)
+      returns (AdminGetOrgGroupsResponse);
+  rpc ListUsers(AdminListUsersRequest) returns (AdminListUsersResponse);
+  rpc GetUser(AdminGetUserRequest) returns (AdminGetUserResponse);
+  rpc UpdateUser(AdminUpdateUserRequest) returns (AdminUpdateUserResponse);
 }
 
-message GetColumnsRequest {
+message AdminGetContextRequest {}
+
+message AdminGetContextResponse {
+  string json = 1;
+}
+
+message AdminGetPostgresInfoRequest {}
+
+message AdminGetPostgresInfoResponse {
+  string json = 1;
+}
+
+message AdminGetTablesRequest {}
+
+message AdminGetTablesResponse {
+  string json = 1;
+}
+
+message AdminGetColumnsRequest {
   string schema = 1;
   string table = 2;
 }
 
-message GetRowsRequest {
+message AdminGetColumnsResponse {
+  string json = 1;
+}
+
+message AdminGetRowsRequest {
   string schema = 1;
   string table = 2;
   int32 limit = 3;
@@ -49,37 +81,186 @@ message GetRowsRequest {
   string sort_direction = 6;
 }
 
-message GetRedisKeysRequest {
+message AdminGetRowsResponse {
+  string json = 1;
+}
+
+message AdminGetRedisKeysRequest {
   string cursor = 1;
   int32 limit = 2;
 }
 
-message KeyRequest {
+message AdminGetRedisKeysResponse {
+  string json = 1;
+}
+
+message AdminGetRedisValueRequest {
   string key = 1;
 }
 
-message IdRequest {
+message AdminGetRedisValueResponse {
+  string json = 1;
+}
+
+message AdminDeleteRedisKeyRequest {
+  string key = 1;
+}
+
+message AdminDeleteRedisKeyResponse {
+  string json = 1;
+}
+
+message AdminGetRedisDbSizeRequest {}
+
+message AdminGetRedisDbSizeResponse {
+  string json = 1;
+}
+
+message AdminListGroupsRequest {
+  string organization_id = 1;
+}
+
+message AdminListGroupsResponse {
+  string json = 1;
+}
+
+message AdminGetGroupRequest {
   string id = 1;
 }
 
-message IdJsonRequest {
+message AdminGetGroupResponse {
+  string json = 1;
+}
+
+message AdminCreateGroupRequest {
+  string json = 1;
+}
+
+message AdminCreateGroupResponse {
+  string json = 1;
+}
+
+message AdminUpdateGroupRequest {
   string id = 1;
   string json = 2;
 }
 
-message RemoveGroupMemberRequest {
+message AdminUpdateGroupResponse {
+  string json = 1;
+}
+
+message AdminDeleteGroupRequest {
+  string id = 1;
+}
+
+message AdminDeleteGroupResponse {
+  string json = 1;
+}
+
+message AdminGetGroupMembersRequest {
+  string id = 1;
+}
+
+message AdminGetGroupMembersResponse {
+  string json = 1;
+}
+
+message AdminAddGroupMemberRequest {
+  string id = 1;
+  string json = 2;
+}
+
+message AdminAddGroupMemberResponse {
+  string json = 1;
+}
+
+message AdminRemoveGroupMemberRequest {
   string group_id = 1;
   string user_id = 2;
 }
 
-message ListGroupsRequest {
+message AdminRemoveGroupMemberResponse {
+  string json = 1;
+}
+
+message AdminListOrganizationsRequest {
   string organization_id = 1;
 }
 
-message ListOrganizationsRequest {
+message AdminListOrganizationsResponse {
+  string json = 1;
+}
+
+message AdminGetOrganizationRequest {
+  string id = 1;
+}
+
+message AdminGetOrganizationResponse {
+  string json = 1;
+}
+
+message AdminCreateOrganizationRequest {
+  string json = 1;
+}
+
+message AdminCreateOrganizationResponse {
+  string json = 1;
+}
+
+message AdminUpdateOrganizationRequest {
+  string id = 1;
+  string json = 2;
+}
+
+message AdminUpdateOrganizationResponse {
+  string json = 1;
+}
+
+message AdminDeleteOrganizationRequest {
+  string id = 1;
+}
+
+message AdminDeleteOrganizationResponse {
+  string json = 1;
+}
+
+message AdminGetOrgUsersRequest {
+  string id = 1;
+}
+
+message AdminGetOrgUsersResponse {
+  string json = 1;
+}
+
+message AdminGetOrgGroupsRequest {
+  string id = 1;
+}
+
+message AdminGetOrgGroupsResponse {
+  string json = 1;
+}
+
+message AdminListUsersRequest {
   string organization_id = 1;
 }
 
-message ListUsersRequest {
-  string organization_id = 1;
+message AdminListUsersResponse {
+  string json = 1;
+}
+
+message AdminGetUserRequest {
+  string id = 1;
+}
+
+message AdminGetUserResponse {
+  string json = 1;
+}
+
+message AdminUpdateUserRequest {
+  string id = 1;
+  string json = 2;
+}
+
+message AdminUpdateUserResponse {
+  string json = 1;
 }

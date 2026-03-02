@@ -2,49 +2,86 @@ syntax = "proto3";
 
 package tearleads.v1;
 
-import "tearleads/v1/common.proto";
-
 service VfsSharesService {
-  rpc GetItemShares(GetItemSharesRequest) returns (JsonResponse);
-  rpc CreateShare(CreateShareRequest) returns (JsonResponse);
-  rpc UpdateShare(UpdateShareRequest) returns (JsonResponse);
-  rpc DeleteShare(ShareIdRequest) returns (JsonResponse);
-  rpc CreateOrgShare(CreateOrgShareRequest) returns (JsonResponse);
-  rpc DeleteOrgShare(ShareIdRequest) returns (JsonResponse);
-  rpc SearchShareTargets(SearchShareTargetsRequest) returns (JsonResponse);
-  rpc GetSharePolicyPreview(GetSharePolicyPreviewRequest)
-      returns (JsonResponse);
+  rpc GetItemShares(VfsSharesGetItemSharesRequest)
+      returns (VfsSharesGetItemSharesResponse);
+  rpc CreateShare(VfsSharesCreateShareRequest)
+      returns (VfsSharesCreateShareResponse);
+  rpc UpdateShare(VfsSharesUpdateShareRequest)
+      returns (VfsSharesUpdateShareResponse);
+  rpc DeleteShare(VfsSharesDeleteShareRequest)
+      returns (VfsSharesDeleteShareResponse);
+  rpc CreateOrgShare(VfsSharesCreateOrgShareRequest)
+      returns (VfsSharesCreateOrgShareResponse);
+  rpc DeleteOrgShare(VfsSharesDeleteOrgShareRequest)
+      returns (VfsSharesDeleteOrgShareResponse);
+  rpc SearchShareTargets(VfsSharesSearchShareTargetsRequest)
+      returns (VfsSharesSearchShareTargetsResponse);
+  rpc GetSharePolicyPreview(VfsSharesGetSharePolicyPreviewRequest)
+      returns (VfsSharesGetSharePolicyPreviewResponse);
 }
 
-message GetItemSharesRequest {
+message VfsSharesGetItemSharesRequest {
   string item_id = 1;
 }
 
-message CreateShareRequest {
+message VfsSharesGetItemSharesResponse {
+  string json = 1;
+}
+
+message VfsSharesCreateShareRequest {
   string item_id = 1;
   string json = 2;
 }
 
-message UpdateShareRequest {
+message VfsSharesCreateShareResponse {
+  string json = 1;
+}
+
+message VfsSharesUpdateShareRequest {
   string share_id = 1;
   string json = 2;
 }
 
-message ShareIdRequest {
+message VfsSharesUpdateShareResponse {
+  string json = 1;
+}
+
+message VfsSharesDeleteShareRequest {
   string share_id = 1;
 }
 
-message CreateOrgShareRequest {
+message VfsSharesDeleteShareResponse {
+  string json = 1;
+}
+
+message VfsSharesCreateOrgShareRequest {
   string item_id = 1;
   string json = 2;
 }
 
-message SearchShareTargetsRequest {
+message VfsSharesCreateOrgShareResponse {
+  string json = 1;
+}
+
+message VfsSharesDeleteOrgShareRequest {
+  string share_id = 1;
+}
+
+message VfsSharesDeleteOrgShareResponse {
+  string json = 1;
+}
+
+message VfsSharesSearchShareTargetsRequest {
   string q = 1;
   string type = 2;
 }
 
-message GetSharePolicyPreviewRequest {
+message VfsSharesSearchShareTargetsResponse {
+  string json = 1;
+}
+
+message VfsSharesGetSharePolicyPreviewRequest {
   string root_item_id = 1;
   string principal_type = 2;
   string principal_id = 3;
@@ -53,4 +90,8 @@ message GetSharePolicyPreviewRequest {
   int32 max_depth = 6;
   string q = 7;
   repeated string object_type = 8;
+}
+
+message VfsSharesGetSharePolicyPreviewResponse {
+  string json = 1;
 }

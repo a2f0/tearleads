@@ -2,63 +2,217 @@ syntax = "proto3";
 
 package tearleads.v1;
 
-import "google/protobuf/empty.proto";
-import "tearleads/v1/common.proto";
-
 service VfsService {
-  rpc GetMyKeys(google.protobuf.Empty) returns (JsonResponse);
-  rpc SetupKeys(JsonRequest) returns (JsonResponse);
-  rpc Register(JsonRequest) returns (JsonResponse);
-  rpc GetBlob(BlobIdRequest) returns (BinaryResponse);
-  rpc DeleteBlob(BlobIdRequest) returns (JsonResponse);
-  rpc StageBlob(JsonRequest) returns (JsonResponse);
-  rpc UploadBlobChunk(StagingIdJsonRequest) returns (JsonResponse);
-  rpc AttachBlob(StagingIdJsonRequest) returns (JsonResponse);
-  rpc AbandonBlob(StagingIdJsonRequest) returns (JsonResponse);
-  rpc CommitBlob(StagingIdJsonRequest) returns (JsonResponse);
-  rpc RekeyItem(ItemIdJsonRequest) returns (JsonResponse);
-  rpc PushCrdtOps(JsonRequest) returns (JsonResponse);
-  rpc ReconcileCrdt(JsonRequest) returns (JsonResponse);
-  rpc ReconcileSync(JsonRequest) returns (JsonResponse);
-  rpc RunCrdtSession(JsonRequest) returns (JsonResponse);
-  rpc GetSync(GetSyncRequest) returns (JsonResponse);
-  rpc GetCrdtSync(GetSyncRequest) returns (JsonResponse);
-  rpc GetCrdtSnapshot(GetCrdtSnapshotRequest) returns (JsonResponse);
-  rpc GetEmails(GetEmailsRequest) returns (JsonResponse);
-  rpc GetEmail(EmailIdRequest) returns (JsonResponse);
-  rpc DeleteEmail(EmailIdRequest) returns (JsonResponse);
-  rpc SendEmail(JsonRequest) returns (JsonResponse);
+  rpc GetMyKeys(VfsGetMyKeysRequest) returns (VfsGetMyKeysResponse);
+  rpc SetupKeys(VfsSetupKeysRequest) returns (VfsSetupKeysResponse);
+  rpc Register(VfsRegisterRequest) returns (VfsRegisterResponse);
+  rpc GetBlob(VfsGetBlobRequest) returns (VfsGetBlobResponse);
+  rpc DeleteBlob(VfsDeleteBlobRequest) returns (VfsDeleteBlobResponse);
+  rpc StageBlob(VfsStageBlobRequest) returns (VfsStageBlobResponse);
+  rpc UploadBlobChunk(VfsUploadBlobChunkRequest)
+      returns (VfsUploadBlobChunkResponse);
+  rpc AttachBlob(VfsAttachBlobRequest) returns (VfsAttachBlobResponse);
+  rpc AbandonBlob(VfsAbandonBlobRequest) returns (VfsAbandonBlobResponse);
+  rpc CommitBlob(VfsCommitBlobRequest) returns (VfsCommitBlobResponse);
+  rpc RekeyItem(VfsRekeyItemRequest) returns (VfsRekeyItemResponse);
+  rpc PushCrdtOps(VfsPushCrdtOpsRequest) returns (VfsPushCrdtOpsResponse);
+  rpc ReconcileCrdt(VfsReconcileCrdtRequest)
+      returns (VfsReconcileCrdtResponse);
+  rpc ReconcileSync(VfsReconcileSyncRequest)
+      returns (VfsReconcileSyncResponse);
+  rpc RunCrdtSession(VfsRunCrdtSessionRequest)
+      returns (VfsRunCrdtSessionResponse);
+  rpc GetSync(VfsGetSyncRequest) returns (VfsGetSyncResponse);
+  rpc GetCrdtSync(VfsGetCrdtSyncRequest) returns (VfsGetCrdtSyncResponse);
+  rpc GetCrdtSnapshot(VfsGetCrdtSnapshotRequest)
+      returns (VfsGetCrdtSnapshotResponse);
+  rpc GetEmails(VfsGetEmailsRequest) returns (VfsGetEmailsResponse);
+  rpc GetEmail(VfsGetEmailRequest) returns (VfsGetEmailResponse);
+  rpc DeleteEmail(VfsDeleteEmailRequest) returns (VfsDeleteEmailResponse);
+  rpc SendEmail(VfsSendEmailRequest) returns (VfsSendEmailResponse);
 }
 
-message BlobIdRequest {
+message VfsGetMyKeysRequest {}
+
+message VfsGetMyKeysResponse {
+  string json = 1;
+}
+
+message VfsSetupKeysRequest {
+  string json = 1;
+}
+
+message VfsSetupKeysResponse {
+  string json = 1;
+}
+
+message VfsRegisterRequest {
+  string json = 1;
+}
+
+message VfsRegisterResponse {
+  string json = 1;
+}
+
+message VfsGetBlobRequest {
   string blob_id = 1;
 }
 
-message StagingIdJsonRequest {
+message VfsGetBlobResponse {
+  bytes data = 1;
+  optional string content_type = 2;
+}
+
+message VfsDeleteBlobRequest {
+  string blob_id = 1;
+}
+
+message VfsDeleteBlobResponse {
+  string json = 1;
+}
+
+message VfsStageBlobRequest {
+  string json = 1;
+}
+
+message VfsStageBlobResponse {
+  string json = 1;
+}
+
+message VfsUploadBlobChunkRequest {
   string staging_id = 1;
   string json = 2;
 }
 
-message ItemIdJsonRequest {
+message VfsUploadBlobChunkResponse {
+  string json = 1;
+}
+
+message VfsAttachBlobRequest {
+  string staging_id = 1;
+  string json = 2;
+}
+
+message VfsAttachBlobResponse {
+  string json = 1;
+}
+
+message VfsAbandonBlobRequest {
+  string staging_id = 1;
+  string json = 2;
+}
+
+message VfsAbandonBlobResponse {
+  string json = 1;
+}
+
+message VfsCommitBlobRequest {
+  string staging_id = 1;
+  string json = 2;
+}
+
+message VfsCommitBlobResponse {
+  string json = 1;
+}
+
+message VfsRekeyItemRequest {
   string item_id = 1;
   string json = 2;
 }
 
-message GetSyncRequest {
+message VfsRekeyItemResponse {
+  string json = 1;
+}
+
+message VfsPushCrdtOpsRequest {
+  string json = 1;
+}
+
+message VfsPushCrdtOpsResponse {
+  string json = 1;
+}
+
+message VfsReconcileCrdtRequest {
+  string json = 1;
+}
+
+message VfsReconcileCrdtResponse {
+  string json = 1;
+}
+
+message VfsReconcileSyncRequest {
+  string json = 1;
+}
+
+message VfsReconcileSyncResponse {
+  string json = 1;
+}
+
+message VfsRunCrdtSessionRequest {
+  string json = 1;
+}
+
+message VfsRunCrdtSessionResponse {
+  string json = 1;
+}
+
+message VfsGetSyncRequest {
   string cursor = 1;
   int32 limit = 2;
   string root_id = 3;
 }
 
-message GetCrdtSnapshotRequest {
+message VfsGetSyncResponse {
+  string json = 1;
+}
+
+message VfsGetCrdtSyncRequest {
+  string cursor = 1;
+  int32 limit = 2;
+  string root_id = 3;
+}
+
+message VfsGetCrdtSyncResponse {
+  string json = 1;
+}
+
+message VfsGetCrdtSnapshotRequest {
   string client_id = 1;
 }
 
-message GetEmailsRequest {
+message VfsGetCrdtSnapshotResponse {
+  string json = 1;
+}
+
+message VfsGetEmailsRequest {
   int32 offset = 1;
   int32 limit = 2;
 }
 
-message EmailIdRequest {
+message VfsGetEmailsResponse {
+  string json = 1;
+}
+
+message VfsGetEmailRequest {
   string id = 1;
+}
+
+message VfsGetEmailResponse {
+  string json = 1;
+}
+
+message VfsDeleteEmailRequest {
+  string id = 1;
+}
+
+message VfsDeleteEmailResponse {
+  string json = 1;
+}
+
+message VfsSendEmailRequest {
+  string json = 1;
+}
+
+message VfsSendEmailResponse {
+  string json = 1;
 }
