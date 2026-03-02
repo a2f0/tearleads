@@ -12,6 +12,6 @@ for f in root.env staging.env prod.env dev.env; do
     printf 'warning: %s not found, skipping\n' "$target" >&2
     continue
   fi
-  sorted="$(sort "$target")"
+  sorted="$(LC_ALL=C sort "$target")"
   printf '%s\n' "$sorted" > "$target"
 done
