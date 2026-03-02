@@ -12,12 +12,12 @@ jobs:
       should-run: ${{ steps.impact.outputs.should-run }}
       impact-json: ${{ steps.impact.outputs.impact-json }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
 
@@ -70,7 +70,7 @@ jobs:
           echo "## Electron E2E Tests Skipped" >> "$GITHUB_STEP_SUMMARY"
           echo "No code changes detected that require this job to run." >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
 
       - name: Capture runner hardware specs
@@ -107,7 +107,7 @@ jobs:
 
       - name: Setup Node.js
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
@@ -122,7 +122,7 @@ jobs:
 
       - name: Cache SQLite WASM
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             packages/client/src/workers/sqlite-wasm
@@ -276,7 +276,7 @@ jobs:
           fi
 
       - name: Upload Electron test artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') }}
         with:
           name: electron-e2e-artifacts

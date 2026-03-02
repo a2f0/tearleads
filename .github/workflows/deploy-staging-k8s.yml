@@ -19,7 +19,7 @@ jobs:
       TF_VAR_domain: ${{ secrets.DEPLOY_DOMAIN_STAGING }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
@@ -42,7 +42,7 @@ jobs:
         run: ./scripts/buildContainers.sh staging --tag "${GITHUB_SHA}"
 
       - name: Connect to Tailscale
-        uses: tailscale/github-action@v3
+        uses: tailscale/github-action@v4
         with:
           oauth-client-id: ${{ secrets.TAILSCALE_GITHUB_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TAILSCALE_GITHUB_OAUTH_CLIENT_SECRET }}
