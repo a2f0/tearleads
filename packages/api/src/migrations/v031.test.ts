@@ -49,4 +49,30 @@ describe('v031 migration', () => {
       'CREATE OR REPLACE VIEW "vfs_effective_visibility" AS'
     );
   });
+
+  it('replaces an existing view definition when relation kind is view', async () => {
+    const pool = createMockPool(
+      new Map([
+        [
+          'FROM pg_class c',
+          { rows: [{ version: null, relkind: 'v' }], rowCount: 1 }
+        ]
+      ])
+    );
+
+    const v031 = migrations.find(
+      (migration: Migration) => migration.version === 31
+    );
+    if (!v031) {
+      throw new Error('v031 migration not found');
+    }
+
+    await v031.up(pool);
+
+    const queries = pool.queries.join('\n');
+    expect(queries).toContain(`WHERE c.relname = 'vfs_effective_visibility'`);
+    expect(queries).toContain(
+      'CREATE OR REPLACE VIEW "vfs_effective_visibility" AS'
+    );
+  });
 });
