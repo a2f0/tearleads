@@ -32,6 +32,10 @@ COPY docs docs
 # Install Playwright browsers for Mermaid rendering
 RUN npm install -g playwright && playwright install chromium --with-deps
 
+# Accept build arg for noindex meta tag (true = block indexing, false = allow)
+ARG PUBLIC_NOINDEX=true
+ENV PUBLIC_NOINDEX=$PUBLIC_NOINDEX
+
 # Build dependencies and generate OpenAPI spec for /docs page
 RUN pnpm --filter @tearleads/shared build && \
     pnpm --filter @tearleads/db build && \

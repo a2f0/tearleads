@@ -24,7 +24,9 @@ const hreflangUrls = supportedLanguages.map((hrefLang) => ({
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="robots" content="noindex, nofollow" />
+    {import.meta.env.PUBLIC_NOINDEX === 'true' && (
+      <meta name="robots" content="noindex, nofollow" />
+    )}
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     {hreflangUrls.map(({ lang: hrefLang, href }) => (
       <link rel="alternate" hreflang={hrefLang} href={href} />
