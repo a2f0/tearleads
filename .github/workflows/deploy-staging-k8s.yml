@@ -105,11 +105,15 @@ jobs:
           kubectl set image deployment/website \
             website="${ECR_REGISTRY}/tearleads-staging/website:${IMAGE_TAG}" \
             -n tearleads
+          kubectl set image deployment/smtp-listener \
+            smtp-listener="${ECR_REGISTRY}/tearleads-staging/smtp-listener:${IMAGE_TAG}" \
+            -n tearleads
 
       - name: Rollout staging deployments
         run: |
           set -eu
-          kubectl rollout restart deployment/api deployment/client deployment/website -n tearleads
+          kubectl rollout restart deployment/api deployment/client deployment/website deployment/smtp-listener -n tearleads
           kubectl rollout status deployment/api -n tearleads --timeout=300s
           kubectl rollout status deployment/client -n tearleads --timeout=300s
           kubectl rollout status deployment/website -n tearleads --timeout=300s
+          kubectl rollout status deployment/smtp-listener -n tearleads --timeout=300s
