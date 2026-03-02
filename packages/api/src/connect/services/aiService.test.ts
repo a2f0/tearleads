@@ -1,5 +1,6 @@
 import {
   Code,
+  ConnectError,
   createContextValues,
   createHandlerContext
 } from '@connectrpc/connect';
@@ -180,6 +181,31 @@ describe('aiConnectService', () => {
     });
   });
 
+  it('returns internal when usage insert query fails', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ organization_id: 'org-1' }] })
+      .mockRejectedValueOnce(new Error('db down'));
+
+    try {
+      await expect(
+        aiConnectService.recordUsage(
+          new RecordUsageRequest({
+            modelId: 'gpt-4',
+            promptTokens: 1,
+            completionTokens: 1,
+            totalTokens: 2
+          }),
+          createAuthContext(AiService.methods.recordUsage)
+        )
+      ).rejects.toMatchObject({
+        code: Code.Internal
+      });
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
   it('lists usage with filters and cursor pagination', async () => {
     const rowOneTime = new Date('2026-03-02T11:00:00.000Z');
     const rowTwoTime = new Date('2026-03-02T10:00:00.000Z');
@@ -317,5 +343,53 @@ describe('aiConnectService', () => {
     } finally {
       consoleSpy.mockRestore();
     }
+  });
+
+  it('rethrows connect errors from getUsage', async () => {
+    mockQuery.mockRejectedValueOnce(
+      new ConnectError('forbidden', Code.PermissionDenied)
+    );
+
+    await expect(
+      aiConnectService.getUsage(
+        new GetUsageRequest(),
+        createAuthContext(AiService.methods.getUsage)
+      )
+    ).rejects.toMatchObject({
+      code: Code.PermissionDenied
+    });
+  });
+
+  it('returns internal when usage summary query fails', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockQuery.mockRejectedValueOnce(new Error('db down'));
+
+    try {
+      await expect(
+        aiConnectService.getUsageSummary(
+          new GetUsageSummaryRequest(),
+          createAuthContext(AiService.methods.getUsageSummary)
+        )
+      ).rejects.toMatchObject({
+        code: Code.Internal
+      });
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
+  it('rethrows connect errors from getUsageSummary', async () => {
+    mockQuery.mockRejectedValueOnce(
+      new ConnectError('forbidden', Code.PermissionDenied)
+    );
+
+    await expect(
+      aiConnectService.getUsageSummary(
+        new GetUsageSummaryRequest(),
+        createAuthContext(AiService.methods.getUsageSummary)
+      )
+    ).rejects.toMatchObject({
+      code: Code.PermissionDenied
+    });
   });
 });

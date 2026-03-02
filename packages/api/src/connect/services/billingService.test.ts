@@ -150,6 +150,41 @@ describe('billingConnectService', () => {
     });
   });
 
+  it('omits nullable billing fields when they are null', async () => {
+    const now = new Date('2026-03-02T12:00:00.000Z');
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ organization_id: 'org-1' }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            organization_id: 'org-1',
+            revenuecat_app_user_id: 'org:org-1',
+            entitlement_status: 'inactive',
+            active_product_id: null,
+            period_ends_at: null,
+            will_renew: null,
+            last_webhook_event_id: null,
+            last_webhook_at: null,
+            created_at: now,
+            updated_at: now
+          }
+        ]
+      });
+
+    const response = await billingConnectService.getOrganizationBilling(
+      new GetOrganizationBillingRequest({ organizationId: 'org-1' }),
+      createAuthContext()
+    );
+
+    expect(response.billingAccount).toEqual({
+      organizationId: 'org-1',
+      revenuecatAppUserId: 'org:org-1',
+      entitlementStatus: 'inactive',
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString()
+    });
+  });
+
   it('returns internal when query fails', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockQuery.mockRejectedValueOnce(new Error('db down'));
