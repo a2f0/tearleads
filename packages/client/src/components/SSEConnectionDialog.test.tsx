@@ -65,7 +65,9 @@ describe('SSEConnectionDialog', () => {
         connectionState="connected"
       />
     );
-    expect(screen.getByText('/sse')).toBeInTheDocument();
+    expect(
+      screen.getByText('/connect/tearleads.v1.NotificationService/Subscribe')
+    ).toBeInTheDocument();
   });
 
   it('calls onClose when close button is clicked', async () => {

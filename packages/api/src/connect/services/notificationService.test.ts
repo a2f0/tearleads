@@ -202,4 +202,100 @@ describe('notificationConnectService', () => {
       code: Code.PermissionDenied
     });
   });
+
+  it('skips invalid pubsub payloads that cannot be parsed', async () => {
+    const context = createAuthContext('user-1');
+    const stream = notificationConnectService.subscribe(
+      new SubscribeRequest({
+        channels: ['broadcast']
+      }),
+      context
+    );
+    const iterator = stream[Symbol.asyncIterator]();
+
+    await iterator.next();
+
+    const nextEventPromise = iterator.next();
+    await vi.waitFor(() => {
+      expect(mockSubscribe).toHaveBeenCalledWith(
+        'broadcast',
+        expect.any(Function)
+      );
+    });
+    const handler = subscribedHandlers.get('broadcast');
+    if (!handler) {
+      throw new Error('Expected broadcast subscription handler');
+    }
+
+    handler('not-json', 'broadcast');
+    context.abort();
+
+    const result = await nextEventPromise;
+    expect(result.done).toBe(true);
+  });
+
+  it('emits keepalive events for active subscriptions', async () => {
+    vi.useFakeTimers();
+    try {
+      const context = createAuthContext('user-1');
+      const stream = notificationConnectService.subscribe(
+        new SubscribeRequest({
+          channels: ['broadcast']
+        }),
+        context
+      );
+      const iterator = stream[Symbol.asyncIterator]();
+
+      await iterator.next();
+      const keepaliveResultPromise = iterator.next();
+
+      await vi.waitFor(() => {
+        expect(mockSubscribe).toHaveBeenCalledWith(
+          'broadcast',
+          expect.any(Function)
+        );
+      });
+
+      await vi.advanceTimersByTimeAsync(30000);
+
+      const keepaliveResult = await keepaliveResultPromise;
+      expect(keepaliveResult.done).toBe(false);
+      if (keepaliveResult.done) {
+        throw new Error('Expected keepalive event');
+      }
+      expect(JSON.parse(keepaliveResult.value.json)).toEqual({
+        event: 'keepalive'
+      });
+
+      context.abort();
+      await iterator.next();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('returns unavailable when redis subscription setup fails', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockConnect.mockRejectedValueOnce(new Error('redis unavailable'));
+
+    try {
+      const context = createAuthContext('user-1');
+      const stream = notificationConnectService.subscribe(
+        new SubscribeRequest({
+          channels: ['broadcast']
+        }),
+        context
+      );
+      const iterator = stream[Symbol.asyncIterator]();
+
+      const connected = await iterator.next();
+      expect(connected.done).toBe(false);
+
+      await expect(iterator.next()).rejects.toMatchObject({
+        code: Code.Unavailable
+      });
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
 });

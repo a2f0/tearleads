@@ -2,13 +2,21 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SSEProvider, useSSE, useSSEContext } from './SSEContext';
+import {
+  createMockFetch,
+  mockIsJwtExpired,
+  mockSSE,
+  mockTryRefreshToken,
+  type OpenNotificationStreamOptions
+} from './SSEContextTestSupport';
 
-const mockTryRefreshToken = vi.fn().mockResolvedValue(false);
-const mockIsJwtExpired = vi.fn().mockReturnValue(false);
+// one-component-per-file: allow -- test-only provider wrappers for renderHook scenarios.
 
 const mockApiModule = vi.hoisted(() => ({
   API_BASE_URL: 'http://localhost:5001/v1',
-  tryRefreshToken: () => mockTryRefreshToken()
+  tryRefreshToken: () => mockTryRefreshToken(),
+  openNotificationEventStream: (options: OpenNotificationStreamOptions) =>
+    mockSSE.openNotificationEventStream(options)
 }));
 
 vi.mock('@/lib/api', () => mockApiModule);
@@ -19,114 +27,6 @@ vi.mock('@/lib/jwt', async (importOriginal) => {
     isJwtExpired: (token: string) => mockIsJwtExpired(token)
   };
 });
-
-interface MockReader {
-  chunks: string[];
-  chunkIndex: number;
-  aborted: boolean;
-  read: () => Promise<{ done: boolean; value?: Uint8Array }>;
-}
-
-interface MockSSEConnection {
-  reader: MockReader;
-  abortController: AbortController;
-  emit: (event: string, data?: string) => void;
-  close: () => void;
-}
-
-const mockSSE = {
-  connections: [] as MockSSEConnection[],
-  fetchMock: null as ReturnType<typeof vi.fn> | null,
-
-  reset() {
-    mockSSE.connections = [];
-  },
-
-  createConnection(): MockSSEConnection {
-    const encoder = new TextEncoder();
-    const abortController = new AbortController();
-
-    const reader: MockReader = {
-      chunks: [],
-      chunkIndex: 0,
-      aborted: false,
-      read: async function () {
-        if (this.aborted) {
-          return { done: true };
-        }
-
-        // Wait for chunks to be added
-        while (this.chunkIndex >= this.chunks.length && !this.aborted) {
-          await new Promise((resolve) => setTimeout(resolve, 10));
-        }
-
-        if (this.aborted) {
-          return { done: true };
-        }
-
-        const chunk = this.chunks[this.chunkIndex];
-        this.chunkIndex++;
-        return { done: false, value: encoder.encode(chunk) };
-      }
-    };
-
-    const connection: MockSSEConnection = {
-      reader,
-      abortController,
-      emit: (event: string, data = '') => {
-        let chunk = `event: ${event}\n`;
-        if (data) {
-          chunk += `data: ${data}\n`;
-        }
-        chunk += '\n';
-        reader.chunks.push(chunk);
-      },
-      close: () => {
-        reader.aborted = true;
-      }
-    };
-
-    mockSSE.connections.push(connection);
-    return connection;
-  },
-
-  getInstance(index: number): MockSSEConnection {
-    const connection = mockSSE.connections[index];
-    if (!connection) {
-      throw new Error(`MockSSEConnection instance ${index} not found`);
-    }
-    return connection;
-  },
-
-  getLastInstance(): MockSSEConnection {
-    const connection = mockSSE.connections[mockSSE.connections.length - 1];
-    if (!connection) {
-      throw new Error('No MockSSEConnection instances');
-    }
-    return connection;
-  }
-};
-
-function createMockFetch() {
-  return vi.fn().mockImplementation((_url: string, options?: RequestInit) => {
-    const connection = mockSSE.createConnection();
-
-    // Handle abort signal
-    if (options?.signal) {
-      options.signal.addEventListener('abort', () => {
-        connection.close();
-      });
-    }
-
-    return Promise.resolve({
-      ok: true,
-      body: {
-        getReader: () => connection.reader
-      }
-    });
-  });
-}
-
 describe('SSEContext token refresh and channels', () => {
   beforeEach(() => {
     vi.clearAllMocks();

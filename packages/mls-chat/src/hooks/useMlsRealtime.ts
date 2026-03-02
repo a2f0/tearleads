@@ -1,9 +1,9 @@
 /**
- * Hook for MLS real-time message delivery via SSE.
+ * Hook for MLS real-time message delivery via Connect notifications streaming.
  * Subscribes to group channels and handles incoming messages.
- * Uses fetch + ReadableStream for header-based auth (more secure than query params).
  */
 
+import { openNotificationEventStream } from '@tearleads/api-client/notificationStream';
 import type { MlsMessage, MlsMessageType } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -17,11 +17,6 @@ interface UseMlsRealtimeResult {
   subscribe: (groupId: string) => void;
   unsubscribe: (groupId: string) => void;
   subscribedGroups: Set<string>;
-}
-
-interface SSEEvent {
-  event: string;
-  data: string;
 }
 
 /** Parsed SSE message envelope */
@@ -39,6 +34,47 @@ interface CommitPayload {
 /** Global message handler registry type */
 type MlsMessageHandlerRegistry = Map<string, (msg: MlsMessage) => void>;
 
+interface NotificationStreamEnvelope {
+  event: string;
+}
+
+interface NotificationStreamMessageEnvelope extends NotificationStreamEnvelope {
+  channel: string;
+  message: unknown;
+}
+
+function isNotificationStreamEnvelope(
+  value: unknown
+): value is NotificationStreamEnvelope {
+  return isRecord(value) && typeof value['event'] === 'string';
+}
+
+function isNotificationStreamMessageEnvelope(
+  value: unknown
+): value is NotificationStreamMessageEnvelope {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    isNotificationStreamEnvelope(value) &&
+    value['event'] === 'message' &&
+    typeof value['channel'] === 'string' &&
+    'message' in value
+  );
+}
+
+function normalizeToken(authHeaderValue: string | null | undefined): string {
+  if (!authHeaderValue) {
+    return '';
+  }
+  const trimmed = authHeaderValue.trim();
+  if (trimmed.startsWith('Bearer ')) {
+    return trimmed.slice('Bearer '.length).trim();
+  }
+  return trimmed;
+}
+
 /** Type guard for SSE message envelope */
 function isSseMessageEnvelope(value: unknown): value is SseMessageEnvelope {
   return isRecord(value) && typeof value['type'] === 'string';
@@ -53,7 +89,7 @@ const VALID_MESSAGE_TYPES: MlsMessageType[] = [
 function isValidMessageType(value: unknown): value is MlsMessageType {
   return (
     typeof value === 'string' &&
-    VALID_MESSAGE_TYPES.includes(value as MlsMessageType)
+    VALID_MESSAGE_TYPES.some((messageType) => messageType === value)
   );
 }
 
@@ -84,45 +120,6 @@ function isCommitPayload(value: unknown): value is CommitPayload {
   );
 }
 
-function parseSSEEvents(chunk: string, buffer: string): [SSEEvent[], string] {
-  const combined = buffer + chunk;
-  const events: SSEEvent[] = [];
-  const blocks = combined.split('\n\n');
-
-  // Last block may be incomplete
-  const remaining = blocks.pop() ?? '';
-
-  for (const block of blocks) {
-    if (!block.trim()) continue;
-
-    let eventType = 'message';
-    const dataParts: string[] = [];
-
-    for (const line of block.split('\n')) {
-      if (line.startsWith('event:')) {
-        eventType = line.slice(6).trim();
-      } else if (line.startsWith('data:')) {
-        // SSE spec: strip only a single leading space from the value
-        let value = line.slice(5);
-        if (value.startsWith(' ')) {
-          value = value.slice(1);
-        }
-        dataParts.push(value);
-      }
-      // Ignore comments (lines starting with :) and other fields
-    }
-
-    // SSE spec: multiple data lines are joined with newlines
-    const data = dataParts.join('\n');
-
-    if (data || eventType !== 'message') {
-      events.push({ event: eventType, data });
-    }
-  }
-
-  return [events, remaining];
-}
-
 export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
   const { apiBaseUrl, getAuthHeader } = useMlsChatApi();
 
@@ -150,15 +147,11 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
 
     setConnectionState('connecting');
 
-    // Build channel list for SSE subscription
-    const channels = Array.from(subscribedGroups)
-      .map((id) => `mls:group:${id}`)
-      .join(',');
-
-    const url = new URL(`${apiBaseUrl}/sse`);
-    url.searchParams.set('channels', channels);
-
+    const channels = Array.from(subscribedGroups).map(
+      (id) => `mls:group:${id}`
+    );
     const authValue = getAuthHeader?.();
+    const token = normalizeToken(authValue);
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
@@ -179,108 +172,97 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
 
     const startStream = async () => {
       try {
-        const headers: HeadersInit = {};
-        if (authValue) {
-          headers['Authorization'] = authValue.startsWith('Bearer ')
-            ? authValue
-            : `Bearer ${authValue}`;
-        }
-
-        const response = await fetch(url.toString(), {
-          headers,
+        for await (const payload of openNotificationEventStream({
+          apiBaseUrl,
+          channels,
+          token,
           signal: abortController.signal
-        });
-
-        if (!response.ok) {
-          handleError(false);
-          return;
-        }
-
-        setConnectionState('connected');
-        reconnectAttemptRef.current = 0;
-
-        const reader = response.body?.getReader();
-        if (!reader) {
-          handleError(false);
-          return;
-        }
-
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            handleError(abortController.signal.aborted);
-            break;
+        })) {
+          let parsedPayload: unknown;
+          try {
+            parsedPayload = JSON.parse(payload);
+          } catch {
+            continue;
           }
 
-          const chunk = decoder.decode(value, { stream: true });
-          const [events, remaining] = parseSSEEvents(chunk, buffer);
-          buffer = remaining;
+          if (!isNotificationStreamEnvelope(parsedPayload)) {
+            continue;
+          }
 
-          for (const { data } of events) {
-            try {
-              const parsed: unknown = JSON.parse(data);
+          if (parsedPayload.event === 'connected') {
+            setConnectionState('connected');
+            reconnectAttemptRef.current = 0;
+            continue;
+          }
 
-              if (!isSseMessageEnvelope(parsed)) {
-                continue;
-              }
+          if (!isNotificationStreamMessageEnvelope(parsedPayload)) {
+            continue;
+          }
 
-              if (parsed.type === 'mls:message') {
-                if (!isMlsMessage(parsed.payload)) {
-                  continue;
-                }
-                const message = parsed.payload;
+          const messageEnvelope = parsedPayload.message;
+          if (!isSseMessageEnvelope(messageEnvelope)) {
+            continue;
+          }
 
-                // Dispatch to message handler if registered
-                const handlers = (
-                  globalThis as {
-                    __mlsMessageHandler?: MlsMessageHandlerRegistry;
-                  }
-                ).__mlsMessageHandler;
-
-                if (handlers?.has(message.groupId)) {
-                  handlers.get(message.groupId)?.(message);
-                }
-              } else if (parsed.type === 'mls:commit') {
-                // Handle commit messages (epoch updates)
-                if (!isCommitPayload(parsed.payload)) {
-                  continue;
-                }
-                const { groupId, commit } = parsed.payload;
-
-                if (client?.hasGroup(groupId)) {
-                  const commitBytes = Uint8Array.from(atob(commit), (c) =>
-                    c.charCodeAt(0)
-                  );
-                  client
-                    .processCommit(groupId, commitBytes)
-                    .then(async () => {
-                      try {
-                        await uploadGroupStateSnapshot({
-                          groupId,
-                          client,
-                          apiBaseUrl,
-                          getAuthHeader
-                        });
-                      } catch (uploadError) {
-                        console.warn(
-                          `Failed to upload MLS state for group ${groupId}:`,
-                          uploadError
-                        );
-                      }
-                    })
-                    .catch(() => {
-                      // Commit processing failed - may need state refresh
-                    });
-                }
-              }
-            } catch {
-              // Ignore malformed messages
+          if (messageEnvelope.type === 'mls:message') {
+            if (!isMlsMessage(messageEnvelope.payload)) {
+              continue;
             }
+            const message = messageEnvelope.payload;
+
+            // Dispatch to message handler if registered
+            const handlers = (
+              globalThis as {
+                __mlsMessageHandler?: MlsMessageHandlerRegistry;
+              }
+            ).__mlsMessageHandler;
+
+            if (handlers?.has(message.groupId)) {
+              handlers.get(message.groupId)?.(message);
+            }
+            continue;
           }
+
+          if (messageEnvelope.type !== 'mls:commit') {
+            continue;
+          }
+
+          // Handle commit messages (epoch updates)
+          if (!isCommitPayload(messageEnvelope.payload)) {
+            continue;
+          }
+          const { groupId, commit } = messageEnvelope.payload;
+
+          if (!client?.hasGroup(groupId)) {
+            continue;
+          }
+
+          const commitBytes = Uint8Array.from(atob(commit), (c) =>
+            c.charCodeAt(0)
+          );
+          client
+            .processCommit(groupId, commitBytes)
+            .then(async () => {
+              try {
+                await uploadGroupStateSnapshot({
+                  groupId,
+                  client,
+                  apiBaseUrl,
+                  getAuthHeader
+                });
+              } catch (uploadError) {
+                console.warn(
+                  `Failed to upload MLS state for group ${groupId}:`,
+                  uploadError
+                );
+              }
+            })
+            .catch(() => {
+              // Commit processing failed - may need state refresh
+            });
         }
+
+        handleError(abortController.signal.aborted);
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
           return;

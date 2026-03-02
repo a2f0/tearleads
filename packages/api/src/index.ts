@@ -28,7 +28,6 @@ import { billingRouter } from './routes/billing/router.js';
 import { chatRouter } from './routes/chat/router.js';
 import { mlsRouter } from './routes/mls/router.js';
 import { revenuecatRouter } from './routes/revenuecat/router.js';
-import { closeAllSSEConnections, sseRouter } from './routes/sse/router.js';
 import { vfsRouter } from './routes/vfs/router.js';
 import { vfsSharesRouter } from './routes/vfs-shares/router.js';
 
@@ -156,9 +155,6 @@ app.use('/v1/chat', chatRouter);
 // AI conversations and usage tracking
 app.use('/v1/ai', aiConversationsRouter);
 
-// SSE route
-app.use('/v1/sse', sseRouter);
-
 // VFS routes
 app.use('/v1/vfs', vfsRouter);
 app.use('/v1/vfs', vfsSharesRouter);
@@ -201,8 +197,6 @@ export async function gracefulShutdown(
     console.error('Graceful shutdown timed out, forcing exit');
     process.exit(1);
   }, 10000);
-
-  closeAllSSEConnections();
 
   server.close(async () => {
     console.log('HTTP server closed');
