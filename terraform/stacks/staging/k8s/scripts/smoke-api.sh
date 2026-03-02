@@ -38,7 +38,7 @@ resolve_staging_domain() {
   if [[ -z "$STAGING_DOMAIN" ]]; then
     local k8s_hostname
     k8s_hostname=$(terraform -chdir="$STACK_DIR" output -raw k8s_hostname 2>/dev/null || true)
-    STAGING_DOMAIN="${k8s_hostname#k8s.}"
+    STAGING_DOMAIN="$k8s_hostname"
   fi
 
   if [[ -z "$STAGING_DOMAIN" ]]; then
@@ -57,8 +57,8 @@ phase_dns() {
   echo ""
   echo "Phase 1: DNS resolution"
 
-  local api_host="api.k8s.$STAGING_DOMAIN"
-  local app_host="app.k8s.$STAGING_DOMAIN"
+  local api_host="api.$STAGING_DOMAIN"
+  local app_host="app.$STAGING_DOMAIN"
 
   if ! command -v dig >/dev/null 2>&1 && ! command -v host >/dev/null 2>&1; then
     echo "  SKIP: neither dig nor host found; skipping DNS check."
@@ -126,7 +126,7 @@ phase_external_api() {
   echo ""
   echo "Phase 3: External API health check"
 
-  local url="https://api.k8s.$STAGING_DOMAIN/v1/ping"
+  local url="https://api.$STAGING_DOMAIN/v1/ping"
   local attempt=1
 
   while (( attempt <= CURL_RETRIES )); do
@@ -154,10 +154,10 @@ phase_client_api_url() {
     return 1
   fi
 
-  local expected_api_url="https://api.k8s.$STAGING_DOMAIN/v1"
+  local expected_api_url="https://api.$STAGING_DOMAIN/v1"
 
   # Search broadly for any https://api.<something> URL baked into JS assets.
-  # This catches both correct (api.k8s.domain/v1) and incorrect values.
+  # This catches both correct (api.domain/v1) and incorrect values.
   local baked_url
   baked_url="$(kubectl -n "$NAMESPACE" exec "$client_pod" -c client -- \
     grep -roh 'https\?://api\.[a-zA-Z0-9._/-]*' /usr/share/nginx/html/assets/ 2>/dev/null \
@@ -176,7 +176,7 @@ phase_external_client() {
   echo ""
   echo "Phase 5: External client reachability"
 
-  local url="https://app.k8s.$STAGING_DOMAIN/"
+  local url="https://app.$STAGING_DOMAIN/"
   local attempt=1
 
   while (( attempt <= CURL_RETRIES )); do
@@ -199,8 +199,8 @@ resolve_staging_domain
 
 echo "API smoke test for staging K8s deployment"
 echo "  Domain:    $STAGING_DOMAIN"
-echo "  API host:  api.k8s.$STAGING_DOMAIN"
-echo "  App host:  app.k8s.$STAGING_DOMAIN"
+echo "  API host:  api.$STAGING_DOMAIN"
+echo "  App host:  app.$STAGING_DOMAIN"
 echo "  Namespace: $NAMESPACE"
 echo "  Kubeconfig: $KUBECONFIG"
 
