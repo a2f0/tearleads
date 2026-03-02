@@ -63,16 +63,14 @@ test.describe('Electron App', () => {
     ).toBeVisible({timeout: APP_LOAD_TIMEOUT});
   });
 
-  test('should show inline unlock on tables page when database not unlocked', async () => {
+  test('should auto-init tables page without inline unlock', async () => {
     // Navigate via URL for testing page behavior
     await navigateToRoute(window, '/sqlite/tables');
 
-    // Should show inline unlock component
-    await expect(window.getByTestId('inline-unlock')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
-    // Database may be "not set up" (never initialized) or "locked" (set up but not unlocked)
     await expect(
-      window.getByText(/Database is (locked|not set up)/)
+      window.getByRole('heading', {name: 'Tables'})
     ).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+    await expect(window.getByTestId('inline-unlock')).toHaveCount(0);
   });
 
   test('should show tables list after database is unlocked', async () => {
