@@ -133,7 +133,7 @@ describe('SSE Routes', () => {
 
     it('subscribes to authorized channels', async () => {
       // Mock group membership check - user-1 is member of group-1
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 1 }] });
+      mockQuery.mockResolvedValueOnce({ rows: [{ group_id: 'group-1' }] });
 
       const response = await request(app)
         .get('/v1/sse?channels=mls:user:user-1,mls:group:group-1')
@@ -256,7 +256,7 @@ describe('SSE Routes', () => {
 
     it('cleans up subscriptions on close', async () => {
       // Mock group membership check - user-1 is member of group-1
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 1 }] });
+      mockQuery.mockResolvedValueOnce({ rows: [{ group_id: 'group-1' }] });
 
       await request(app)
         .get('/v1/sse?channels=mls:user:user-1,mls:group:group-1')
