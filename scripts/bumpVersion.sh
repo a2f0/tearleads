@@ -293,8 +293,8 @@ if [ "$CLIENT_CHANGED" = "true" ] && [ -n "$CLIENT_NEW_VERSION" ] && [ -f "$RELE
              "windows": { "arch": "x64", "ext": "exe" },
              "linux": { "arch": "x64", "ext": "AppImage" }
            }
-         }] + .releases' "$RELEASES_FILE" > "$TMP_FILE" && mv "$TMP_FILE" "$RELEASES_FILE"
-      printf "  %-16s: %s\n" "releases" "added $CLIENT_NEW_VERSION to releases.json"
+         }] + .releases | .releases = .releases[:3]' "$RELEASES_FILE" > "$TMP_FILE" && mv "$TMP_FILE" "$RELEASES_FILE"
+      printf "  %-16s: %s\n" "releases" "added $CLIENT_NEW_VERSION to releases.json (kept last 3)"
     fi
   fi
 fi
