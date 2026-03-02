@@ -2,7 +2,6 @@ import { X } from 'lucide-react';
 import {
   Component,
   createRef,
-  type ReactElement,
   type ReactNode,
   type RefObject
 } from 'react';
@@ -86,6 +85,5 @@ class ErrorBoundaryRoot extends Component<Props, State> {
   }
 }
 
-export function ErrorBoundary(props: Props): ReactElement {
-  return <ErrorBoundaryRoot>{props.children}</ErrorBoundaryRoot>;
-}
+export type ErrorBoundary = ErrorBoundaryRoot;
+export const ErrorBoundary = ErrorBoundaryRoot;
