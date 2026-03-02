@@ -55,12 +55,9 @@ const config: KnipConfig = {
         'electron/main.ts',
         'electron/preload.ts',
         'electron/sqlite/**/*.ts',
+        'scripts/optimizeSvg.ts',
         // CSS import graph includes @import "tailwindcss".
         'src/index.css'
-      ],
-      ignoreDependencies: [
-        // Used by scripts/buildWebImageAssets.sh.
-        'svgo'
       ]
     },
     'packages/classic': {
