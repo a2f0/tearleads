@@ -11,7 +11,7 @@ interface AclUpsertMaterializedRow extends AclUpsertRow {
   principal_id: string;
 }
 
-export interface CompiledDecisionInput {
+interface CompiledDecisionInput {
   itemId: string;
   principalType: PolicyPrincipalType;
   principalId: string;
