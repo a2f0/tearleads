@@ -19,7 +19,7 @@ import {
   parseRegisterPayload,
   passwordMeetsComplexity,
   REFRESH_TOKEN_TTL_SECONDS
-} from '../../../routes/auth/shared.js';
+} from './shared.js';
 import { getClientIpFromHeaders, getJwtSecretOrThrow } from './shared.js';
 
 export async function register(
