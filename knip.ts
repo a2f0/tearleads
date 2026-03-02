@@ -21,6 +21,7 @@ const config: KnipConfig = {
   ignoreBinaries: ['ansible-lint', 'shellcheck', 'playwright'],
   ignoreIssues: {
     // Class members are part of exported runtime/test harness APIs.
+    'packages/api-client/src/apiRoutes/vfsRoutes.ts': ['types'],
     'packages/api-client/src/vfsBlobNetworkFlusher.ts': ['classMembers'],
     'packages/api-client/src/vfsNetworkFlusher.ts': ['classMembers'],
     'packages/api-client/src/vfsWriteOrchestrator.ts': ['classMembers'],

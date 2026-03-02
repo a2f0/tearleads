@@ -20,7 +20,7 @@ import type {
 } from '@tearleads/shared';
 import { request, requestResponse } from '../apiCore';
 
-interface VfsBlobResponse {
+export interface VfsBlobResponse {
   data: Uint8Array;
   contentType: string | null;
 }

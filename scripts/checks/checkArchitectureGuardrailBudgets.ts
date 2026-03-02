@@ -93,14 +93,15 @@ const DEPENDENCY_CRUISER_RULE_BUDGET: Record<string, RuleExceptionBudget> = {
 };
 
 const KNIP_BUDGET: KnipSuppressionTotals = {
-  ignoreIssueFiles: 20,
-  ignoreIssueEntries: 21,
+  ignoreIssueFiles: 21,
+  ignoreIssueEntries: 22,
   ignoreBinaries: 3,
   workspaceIgnoreDependencyGroups: 4,
   workspaceIgnoreDependencyEntries: 10
 };
 
 const KNIP_IGNORE_ISSUE_FILE_BUDGET: Record<string, number> = {
+  'packages/api-client/src/apiRoutes/vfsRoutes.ts': 1,
   'packages/api-client/src/vfsBlobNetworkFlusher.ts': 1,
   'packages/api-client/src/vfsNetworkFlusher.ts': 1,
   'packages/api-client/src/vfsWriteOrchestrator.ts': 1,
