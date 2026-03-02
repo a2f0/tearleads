@@ -1,4 +1,5 @@
 #!/usr/bin/env -S pnpm exec tsx
+// Keep an explicit import so knip can detect real dependency-cruiser usage.
 import 'dependency-cruiser';
 import { spawnSync } from 'node:child_process';
 
@@ -14,7 +15,13 @@ const DEPCRUISE_JSON_ARGS = [
   'json',
   'packages'
 ];
-const MODE = process.argv.find((arg) => arg.startsWith('--')) ?? '';
+const CAPTURE_MAX_BUFFER_BYTES = 50 * 1024 * 1024;
+const DASH_DASH_INDEX = process.argv.indexOf('--');
+const USER_ARGS =
+  DASH_DASH_INDEX >= 0
+    ? process.argv.slice(DASH_DASH_INDEX + 1)
+    : process.argv.slice(2);
+const MODE = USER_ARGS.find((arg) => arg.startsWith('--')) ?? '';
 
 interface SpawnResult {
   status: number;
@@ -24,7 +31,8 @@ interface SpawnResult {
 function runPnpmWithCapturedStdout(args: string[]): SpawnResult {
   const result = spawnSync('pnpm', args, {
     encoding: 'utf8',
-    stdio: ['inherit', 'pipe', 'inherit']
+    stdio: ['inherit', 'pipe', 'inherit'],
+    maxBuffer: CAPTURE_MAX_BUFFER_BYTES
   });
   return {
     status: result.status ?? 1,
@@ -39,10 +47,7 @@ function runPnpmWithInheritedStdio(args: string[]): number {
 
 function runSummary(summaryArgs: string[]): number {
   const depCruise = runPnpmWithCapturedStdout(DEPCRUISE_JSON_ARGS);
-  if (depCruise.status !== 0) {
-    if (depCruise.stdout.length > 0) {
-      process.stdout.write(depCruise.stdout);
-    }
+  if (depCruise.status !== 0 && depCruise.stdout.length === 0) {
     return depCruise.status;
   }
 
@@ -57,7 +62,8 @@ function runSummary(summaryArgs: string[]): number {
     {
       encoding: 'utf8',
       input: depCruise.stdout,
-      stdio: ['pipe', 'pipe', 'inherit']
+      stdio: ['pipe', 'pipe', 'inherit'],
+      maxBuffer: CAPTURE_MAX_BUFFER_BYTES
     }
   );
 
