@@ -32,6 +32,7 @@ import {
   storeAuth
 } from '@/lib/authStorage';
 import { getJwtExpiration, getJwtTimeRemaining } from '@/lib/jwt';
+import { notificationStore } from '@/stores/notificationStore';
 
 const REFRESH_THRESHOLD_MS = 60 * 1000; // Refresh if expiring within 60 seconds
 const REFRESH_POLL_INTERVAL_MS = 30 * 1000;
@@ -81,6 +82,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         const saved = await setDatabasePassword(password, instanceId);
         if (!saved) {
+          notificationStore.warning(
+            'Database Password Not Set',
+            'Your account is signed in, but database password setup failed. Set it manually before locking while signed out.'
+          );
           console.warn(
             'Skipping deferred DB password setup because no active key was available'
           );
@@ -89,6 +94,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         await updateInstance(instanceId, { passwordDeferred: false });
       } catch (error) {
+        notificationStore.warning(
+          'Database Password Setup Failed',
+          'Could not complete deferred database password setup. Set it manually before locking while signed out.'
+        );
         console.warn(
           'Failed to configure deferred DB password from auth:',
           error

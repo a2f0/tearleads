@@ -10,6 +10,7 @@ const mockGetCurrentDatabaseInstanceId = vi.fn();
 const mockSetDatabasePassword = vi.fn();
 const mockGetInstance = vi.fn();
 const mockUpdateInstance = vi.fn();
+const mockNotificationWarning = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -37,6 +38,12 @@ vi.mock('@/db', () => ({
 vi.mock('@/db/instanceRegistry', () => ({
   getInstance: (...args: unknown[]) => mockGetInstance(...args),
   updateInstance: (...args: unknown[]) => mockUpdateInstance(...args)
+}));
+
+vi.mock('@/stores/notificationStore', () => ({
+  notificationStore: {
+    warning: (...args: unknown[]) => mockNotificationWarning(...args)
+  }
 }));
 
 function LoginHarness() {
@@ -84,6 +91,7 @@ describe('AuthContext deferred password setup', () => {
     });
     mockSetDatabasePassword.mockResolvedValue(true);
     mockUpdateInstance.mockResolvedValue(undefined);
+    mockNotificationWarning.mockReset();
   });
 
   it('sets deferred database password on login for deferred instance', async () => {
@@ -174,6 +182,10 @@ describe('AuthContext deferred password setup', () => {
     expect(consoleWarn).toHaveBeenCalledWith(
       'Skipping deferred DB password setup because no active key was available'
     );
+    expect(mockNotificationWarning).toHaveBeenCalledWith(
+      'Database Password Not Set',
+      'Your account is signed in, but database password setup failed. Set it manually before locking while signed out.'
+    );
     expect(mockUpdateInstance).not.toHaveBeenCalled();
 
     consoleWarn.mockRestore();
@@ -207,6 +219,10 @@ describe('AuthContext deferred password setup', () => {
     expect(consoleWarn).toHaveBeenCalledWith(
       'Failed to configure deferred DB password from auth:',
       expect.any(Error)
+    );
+    expect(mockNotificationWarning).toHaveBeenCalledWith(
+      'Database Password Setup Failed',
+      'Could not complete deferred database password setup. Set it manually before locking while signed out.'
     );
     expect(mockSetDatabasePassword).not.toHaveBeenCalled();
     expect(mockUpdateInstance).not.toHaveBeenCalled();

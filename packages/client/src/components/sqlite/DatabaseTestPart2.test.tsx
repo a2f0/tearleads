@@ -6,6 +6,7 @@ import { DatabaseTest } from './DatabaseTest';
 const mockUseDatabaseContext = vi.fn();
 const mockGetDatabaseAdapter = vi.fn();
 const mockSetDatabasePassword = vi.fn();
+const mockGetInstance = vi.fn();
 const mockUpdateInstance = vi.fn();
 let _capturedInstanceChangeCallback: (() => void) | null = null;
 
@@ -19,6 +20,7 @@ vi.mock('@/db', () => ({
 }));
 
 vi.mock('@/db/instanceRegistry', () => ({
+  getInstance: (...args: unknown[]) => mockGetInstance(...args),
   updateInstance: (...args: unknown[]) => mockUpdateInstance(...args)
 }));
 
@@ -40,6 +42,7 @@ describe('DatabaseTest', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.restoreAllMocks();
+    mockGetInstance.mockResolvedValue(null);
   });
 
   function setupMockContext(overrides = {}) {
@@ -390,6 +393,10 @@ describe('DatabaseTest', () => {
       const lock = vi.fn().mockResolvedValue(undefined);
       const refreshInstances = vi.fn().mockResolvedValue(undefined);
       mockSetDatabasePassword.mockResolvedValue(true);
+      mockGetInstance.mockResolvedValue({
+        id: 'instance-1',
+        passwordDeferred: true
+      });
 
       setupMockContext({
         isSetUp: true,

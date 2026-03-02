@@ -61,19 +61,11 @@ function App() {
   const sidebarRef = useRef<HTMLElement | null>(null);
   const startButtonRef = useRef<HTMLButtonElement | null>(null);
   const keyboardHeight = useKeyboardHeight();
-  const {
-    isUnlocked,
-    lock,
-    currentInstanceId,
-    instances = []
-  } = useDatabaseContext();
+  const { isUnlocked, lock, currentInstanceId } = useDatabaseContext();
   const auth = useOptionalAuth();
   const isAuthenticated = auth?.isAuthenticated ?? false;
   const { activate: activateScreensaver } = useScreensaver();
   const isDesktop = !isMobile && !isTouchDevice;
-  const isPasswordDeferredInContext =
-    instances.find((instance) => instance.id === currentInstanceId)
-      ?.passwordDeferred === true;
 
   useEffect(() => {
     if (pathname) {
@@ -125,11 +117,8 @@ function App() {
       if (isUnlocked) {
         let requiresPasswordBeforeLock = false;
         if (!isAuthenticated && currentInstanceId) {
-          requiresPasswordBeforeLock = isPasswordDeferredInContext;
-          if (!requiresPasswordBeforeLock && typeof indexedDB !== 'undefined') {
-            const instance = await getInstance(currentInstanceId);
-            requiresPasswordBeforeLock = instance?.passwordDeferred === true;
-          }
+          const instance = await getInstance(currentInstanceId);
+          requiresPasswordBeforeLock = instance?.passwordDeferred === true;
         }
 
         if (requiresPasswordBeforeLock && currentInstanceId) {
@@ -169,7 +158,6 @@ function App() {
     activateScreensaver,
     currentInstanceId,
     isAuthenticated,
-    isPasswordDeferredInContext,
     isUnlocked,
     lock,
     startMenu

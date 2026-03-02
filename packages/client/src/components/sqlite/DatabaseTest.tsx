@@ -10,7 +10,7 @@ import { useOptionalAuth } from '@/contexts/AuthContext';
 import { getDatabaseAdapter, setDatabasePassword } from '@/db';
 import { isBiometricAvailable } from '@/db/crypto/keyManager';
 import { useDatabaseContext } from '@/db/hooks';
-import { updateInstance } from '@/db/instanceRegistry';
+import { getInstance, updateInstance } from '@/db/instanceRegistry';
 import { useOnInstanceChange } from '@/hooks/app';
 import { getErrorMessage } from '@/lib/errors';
 import { detectPlatform } from '@/lib/utils';
@@ -39,7 +39,6 @@ export function DatabaseTest() {
     isUnlocked,
     hasPersistedSession,
     currentInstanceId,
-    instances = [],
     setup,
     unlock,
     restoreSession,
@@ -234,9 +233,10 @@ export function DatabaseTest() {
     async (clearSession = false) => {
       setTestResult({ status: 'running', message: 'Locking database...' });
       try {
-        const isDeferredPasswordInstance =
-          instances.find((instance) => instance.id === currentInstanceId)
-            ?.passwordDeferred === true;
+        const instance = currentInstanceId
+          ? await getInstance(currentInstanceId)
+          : null;
+        const isDeferredPasswordInstance = instance?.passwordDeferred === true;
 
         if (
           isUnlocked &&
@@ -281,7 +281,6 @@ export function DatabaseTest() {
     },
     [
       currentInstanceId,
-      instances,
       isAuthenticated,
       isUnlocked,
       lock,

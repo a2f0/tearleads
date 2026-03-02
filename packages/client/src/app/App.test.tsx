@@ -383,6 +383,7 @@ describe('App', () => {
       mockIsAuthenticated = false;
       mockCurrentInstanceId = 'instance-1';
       mockInstances = [{ id: 'instance-1', passwordDeferred: true }];
+      mockGetInstance.mockResolvedValue({ passwordDeferred: true });
 
       renderApp();
 
@@ -406,6 +407,7 @@ describe('App', () => {
       mockIsAuthenticated = false;
       mockCurrentInstanceId = 'instance-1';
       mockInstances = [{ id: 'instance-1', passwordDeferred: true }];
+      mockGetInstance.mockResolvedValue({ passwordDeferred: true });
 
       renderApp();
 
@@ -434,6 +436,7 @@ describe('App', () => {
       mockCurrentInstanceId = 'instance-1';
       mockInstances = [{ id: 'instance-1', passwordDeferred: true }];
       mockSetDatabasePassword.mockResolvedValue(false);
+      mockGetInstance.mockResolvedValue({ passwordDeferred: true });
 
       renderApp();
 
