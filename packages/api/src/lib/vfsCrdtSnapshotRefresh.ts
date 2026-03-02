@@ -1,5 +1,11 @@
 import { performance } from 'node:perf_hooks';
 import {
+  createVfsCrdtQueryMetrics,
+  emitVfsCrdtRoutePerfMetric,
+  runTimedVfsCrdtQuery,
+  type VfsCrdtQueryMetrics
+} from './vfsCrdtPerformanceMetrics.js';
+import {
   type AclSnapshotRow,
   type ContainerClockRow,
   type CursorRow,
@@ -16,12 +22,6 @@ import {
   type VfsCrdtSnapshotPayload,
   type VfsCrdtSnapshotRefreshResult
 } from './vfsCrdtSnapshotCommon.js';
-import {
-  createVfsCrdtQueryMetrics,
-  emitVfsCrdtRoutePerfMetric,
-  runTimedVfsCrdtQuery,
-  type VfsCrdtQueryMetrics
-} from './vfsCrdtPerformanceMetrics.js';
 
 async function runSnapshotQuery<T>(
   client: PgQueryable,

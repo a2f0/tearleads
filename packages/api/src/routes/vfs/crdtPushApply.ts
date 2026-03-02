@@ -90,7 +90,9 @@ function pickNewerOccurredAt(
   if (!current) {
     return candidateIso;
   }
-  return Date.parse(candidateIso) > Date.parse(current) ? candidateIso : current;
+  return Date.parse(candidateIso) > Date.parse(current)
+    ? candidateIso
+    : current;
 }
 
 type TimedQueryRunner = <T extends QueryResultRow>(
@@ -444,12 +446,14 @@ export async function applyCrdtPushOperations(input: {
     const applied = (insertResult.rowCount ?? 0) > 0;
     if (applied) {
       const insertedRow = insertResult.rows?.[0];
-      const insertedOccurredAt = insertedRow?.occurred_at ?? canonicalOccurredAt;
+      const insertedOccurredAt =
+        insertedRow?.occurred_at ?? canonicalOccurredAt;
       maxOccurredAt = pickNewerOccurredAt(maxOccurredAt, insertedOccurredAt);
-      replicaWriteHeads.set(
-        operation.replicaId,
-        Math.max(replicaWriteHeads.get(operation.replicaId) ?? 0, operation.writeId)
+      const nextWriteHead = Math.max(
+        replicaWriteHeads.get(operation.replicaId) ?? 0,
+        operation.writeId
       );
+      replicaWriteHeads.set(operation.replicaId, nextWriteHead);
       await upsertReplicaHead(
         runQuery,
         input.userId,

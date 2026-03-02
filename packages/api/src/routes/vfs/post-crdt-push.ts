@@ -93,7 +93,8 @@ const postCrdtPushHandler = async (req: Request, res: Response) => {
   const client = await pool.connect();
   const routeQueryMetrics = createVfsCrdtQueryMetrics();
   const routeStartedAtMs = performance.now();
-  let pushQueryMetrics: ReturnType<typeof createVfsCrdtQueryMetrics> | null = null;
+  let pushQueryMetrics: ReturnType<typeof createVfsCrdtQueryMetrics> | null =
+    null;
   let inTransaction = false;
 
   try {

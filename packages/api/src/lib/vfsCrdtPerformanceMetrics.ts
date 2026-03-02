@@ -12,11 +12,7 @@ export interface VfsCrdtQueryMetrics {
   rowCountByLabel: Record<string, number>;
 }
 
-type VfsCrdtPerfRoute =
-  | 'push'
-  | 'pull'
-  | 'session'
-  | 'snapshot_refresh';
+type VfsCrdtPerfRoute = 'push' | 'pull' | 'session' | 'snapshot_refresh';
 
 interface BuildVfsCrdtRoutePerfMetricInput {
   route: VfsCrdtPerfRoute;
@@ -69,9 +65,7 @@ function parseMetricEnv(value: string | undefined): boolean {
     return false;
   }
 
-  throw new Error(
-    'VFS_CRDT_PERF_METRICS must be one of: true, false, 1, 0'
-  );
+  throw new Error('VFS_CRDT_PERF_METRICS must be one of: true, false, 1, 0');
 }
 
 function toNonNegativeInteger(value: number | undefined): number | null {
@@ -214,7 +208,10 @@ export function emitVfsCrdtRoutePerfMetric(
   try {
     metricsEnabled = parseMetricEnv(process.env['VFS_CRDT_PERF_METRICS']);
   } catch (error) {
-    console.error('Invalid VFS_CRDT_PERF_METRICS value; skipping metric', error);
+    console.error(
+      'Invalid VFS_CRDT_PERF_METRICS value; skipping metric',
+      error
+    );
     return;
   }
 

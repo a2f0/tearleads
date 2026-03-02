@@ -203,9 +203,7 @@ describe('VFS CRDT sync route', () => {
       2,
       'root-123'
     ]);
-    expect(mockQuery.mock.calls[1]?.[1]).toEqual([
-      'user-1'
-    ]);
+    expect(mockQuery.mock.calls[1]?.[1]).toEqual(['user-1']);
   });
 
   it('returns encrypted envelope fields for encrypted CRDT operations', async () => {

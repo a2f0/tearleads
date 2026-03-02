@@ -16,7 +16,9 @@ describe('v033 migration', () => {
     await v033.up(pool);
 
     const queries = pool.queries.join('\n');
-    expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_crdt_replica_heads"');
+    expect(queries).toContain(
+      'CREATE TABLE IF NOT EXISTS "vfs_crdt_replica_heads"'
+    );
     expect(queries).toContain(
       'vfs_crdt_replica_heads_max_write_positive_check'
     );
@@ -26,6 +28,8 @@ describe('v033 migration', () => {
     expect(queries).toContain('INSERT INTO vfs_crdt_replica_heads');
     expect(queries).toContain('FROM vfs_crdt_ops ops');
     expect(queries).toContain("ops.source_table = 'vfs_crdt_client_push'");
-    expect(queries).toContain('ON CONFLICT (actor_id, replica_id) DO UPDATE SET');
+    expect(queries).toContain(
+      'ON CONFLICT (actor_id, replica_id) DO UPDATE SET'
+    );
   });
 });

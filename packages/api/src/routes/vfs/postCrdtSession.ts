@@ -230,8 +230,10 @@ const postCrdtSessionHandler = async (req: Request, res: Response) => {
       cursor: parsedPayload.value.cursor,
       rootId: parsedPayload.value.rootId
     });
-    const pullRows = await runTimedVfsCrdtQuery('pull_page', routeQueryMetrics, () =>
-      client.query<VfsCrdtSyncDbRow>(syncQuery.text, syncQuery.values)
+    const pullRows = await runTimedVfsCrdtQuery(
+      'pull_page',
+      routeQueryMetrics,
+      () => client.query<VfsCrdtSyncDbRow>(syncQuery.text, syncQuery.values)
     );
 
     const replicaWriteIdsResult = await runTimedVfsCrdtQuery(
@@ -260,9 +262,12 @@ const postCrdtSessionHandler = async (req: Request, res: Response) => {
       ? decodeVfsSyncCursor(pullResponse.nextCursor)
       : null;
     const reconcileCursor = nextCursor ?? parsedPayload.value.cursor;
-    const result = await runTimedVfsCrdtQuery('reconcile_upsert', routeQueryMetrics, () =>
-      client.query<ReconcileRow>(
-        `
+    const result = await runTimedVfsCrdtQuery(
+      'reconcile_upsert',
+      routeQueryMetrics,
+      () =>
+        client.query<ReconcileRow>(
+          `
       INSERT INTO vfs_sync_client_state (
         user_id,
         client_id,
@@ -294,19 +299,19 @@ const postCrdtSessionHandler = async (req: Request, res: Response) => {
         updated_at = NOW()
       RETURNING last_reconciled_at, last_reconciled_change_id, last_reconciled_write_ids
       `,
-        [
-          claims.sub,
-          toScopedCrdtClientId(parsedPayload.value.clientId),
-          reconcileCursor.changedAt,
-          reconcileCursor.changeId,
-          JSON.stringify(
-            mergeLastReconciledWriteIds(
-              parsedPayload.value.lastReconciledWriteIds,
-              pullResponse.lastReconciledWriteIds
+          [
+            claims.sub,
+            toScopedCrdtClientId(parsedPayload.value.clientId),
+            reconcileCursor.changedAt,
+            reconcileCursor.changeId,
+            JSON.stringify(
+              mergeLastReconciledWriteIds(
+                parsedPayload.value.lastReconciledWriteIds,
+                pullResponse.lastReconciledWriteIds
+              )
             )
-          )
-        ]
-      )
+          ]
+        )
     );
 
     const row = result.rows[0];
