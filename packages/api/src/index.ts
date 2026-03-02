@@ -16,6 +16,7 @@ import { closeRedisSubscriberClient } from './lib/redisPubSub.js';
 import { adminAccessMiddleware } from './middleware/adminAccess.js';
 import { adminSessionMiddleware } from './middleware/adminSession.js';
 import { authMiddleware } from './middleware/auth.js';
+import { legacyRouteRateLimitMiddleware } from './middleware/legacyRouteRateLimit.js';
 import { orgMembershipMiddleware } from './middleware/orgMembership.js';
 import { adminContextRouter } from './routes/admin/context.js';
 import { groupsRouter } from './routes/admin/groups.js';
@@ -134,6 +135,7 @@ app.get('/v1/ping', (_req: Request, res: Response) => {
   res.status(200).json(pingData);
 });
 
+app.use(LEGACY_ROUTE_PREFIX, legacyRouteRateLimitMiddleware);
 app.use(LEGACY_ROUTE_PREFIX, authMiddleware);
 app.use(LEGACY_ROUTE_PREFIX, orgMembershipMiddleware);
 
