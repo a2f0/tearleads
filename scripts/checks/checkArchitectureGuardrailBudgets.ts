@@ -96,14 +96,13 @@ const KNIP_BUDGET: KnipSuppressionTotals = {
   ignoreIssueFiles: 0,
   ignoreIssueEntries: 0,
   ignoreBinaries: 3,
-  workspaceIgnoreDependencyGroups: 2,
-  workspaceIgnoreDependencyEntries: 4
+  workspaceIgnoreDependencyGroups: 1,
+  workspaceIgnoreDependencyEntries: 3
 };
 
 const KNIP_IGNORE_ISSUE_FILE_BUDGET: Record<string, number> = {};
 
 const KNIP_WORKSPACE_IGNORE_DEPENDENCY_BUDGET: Record<string, number> = {
-  '.': 1,
   'packages/client': 3
 };
 
