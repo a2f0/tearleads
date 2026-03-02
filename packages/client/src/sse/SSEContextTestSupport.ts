@@ -29,6 +29,19 @@ interface MockSSEEvent {
   data: string;
 }
 
+interface MockFetchResponse {
+  ok: boolean;
+  body?: {
+    getReader: () => MockReader;
+  };
+}
+
+type FetchMock = ReturnType<
+  typeof vi.fn<
+    (url: string, options?: RequestInit) => Promise<MockFetchResponse>
+  >
+>;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -95,7 +108,7 @@ function toNotificationPayload(event: string, data: string): string {
 
 export const mockSSE = {
   connections: [] as MockSSEConnection[],
-  fetchMock: null as ReturnType<typeof vi.fn> | null,
+  fetchMock: null as FetchMock | null,
 
   reset() {
     mockSSE.connections = [];
@@ -183,10 +196,11 @@ export const mockSSE = {
     }
 
     return (async function* () {
-      const response = await fetchMock(url, {
+      const requestOptions: RequestInit = {
         headers,
-        signal: options.signal
-      });
+        ...(options.signal ? { signal: options.signal } : {})
+      };
+      const response = await fetchMock(url, requestOptions);
 
       if (!response.ok) {
         return;
@@ -218,21 +232,23 @@ export const mockSSE = {
   }
 };
 
-export function createMockFetch(): ReturnType<typeof vi.fn> {
-  return vi.fn().mockImplementation((_url: string, options?: RequestInit) => {
-    const connection = mockSSE.createConnection();
+export function createMockFetch(): FetchMock {
+  return vi
+    .fn<(url: string, options?: RequestInit) => Promise<MockFetchResponse>>()
+    .mockImplementation((_url: string, options?: RequestInit) => {
+      const connection = mockSSE.createConnection();
 
-    if (options?.signal) {
-      options.signal.addEventListener('abort', () => {
-        connection.close();
-      });
-    }
-
-    return Promise.resolve({
-      ok: true,
-      body: {
-        getReader: () => connection.reader
+      if (options?.signal) {
+        options.signal.addEventListener('abort', () => {
+          connection.close();
+        });
       }
+
+      return Promise.resolve({
+        ok: true,
+        body: {
+          getReader: () => connection.reader
+        }
+      });
     });
-  });
 }
