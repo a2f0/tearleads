@@ -118,7 +118,9 @@ describe('chatConnectService', () => {
       throw new Error('Expected JSON object request body');
     }
     expect(parsedBody['model']).toBe(DEFAULT_OPENROUTER_MODEL_ID);
-    expect(parsedBody['messages']).toEqual([{ role: 'user', content: 'Hello' }]);
+    expect(parsedBody['messages']).toEqual([
+      { role: 'user', content: 'Hello' }
+    ]);
   });
 
   it('returns invalid argument for invalid payload', async () => {
@@ -168,7 +170,9 @@ describe('chatConnectService', () => {
 
   it('maps upstream auth failures to unauthenticated connect errors', async () => {
     fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ error: 'Invalid API key' }), { status: 401 })
+      new Response(JSON.stringify({ error: 'Invalid API key' }), {
+        status: 401
+      })
     );
 
     await expect(
@@ -186,9 +190,7 @@ describe('chatConnectService', () => {
   });
 
   it('maps network failures to internal connect errors', async () => {
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     fetchMock.mockRejectedValue(new Error('network down'));
 
     try {

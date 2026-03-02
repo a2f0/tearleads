@@ -1,7 +1,10 @@
 import { ConnectError } from '@connectrpc/connect';
 import type { HandleWebhookRequest } from '@tearleads/shared/gen/tearleads/v1/revenuecat_pb';
 import { handleRevenueCatWebhook } from '../../lib/revenuecatWebhook.js';
-import { errorMessageFromPayload, toConnectCode } from './httpStatusToConnectCode.js';
+import {
+  errorMessageFromPayload,
+  toConnectCode
+} from './httpStatusToConnectCode.js';
 
 function normalizeJsonBody(json: string): string {
   return json.trim().length > 0 ? json : '{}';

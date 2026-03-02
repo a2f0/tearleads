@@ -2,7 +2,10 @@ import { Code, ConnectError, type HandlerContext } from '@connectrpc/connect';
 import type { JsonRequest } from '@tearleads/shared/gen/tearleads/v1/common_pb';
 import { createChatCompletion } from '../../lib/chatCompletions.js';
 import { getRequiredConnectAuthContext } from '../context.js';
-import { errorMessageFromPayload, toConnectCode } from './httpStatusToConnectCode.js';
+import {
+  errorMessageFromPayload,
+  toConnectCode
+} from './httpStatusToConnectCode.js';
 
 function parseJsonRequestBody(json: string): unknown {
   const body = json.trim().length > 0 ? json : '{}';

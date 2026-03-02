@@ -101,7 +101,8 @@ function extractUsagePayload(payload: unknown): UsagePayload | null {
     promptTokens,
     completionTokens,
     totalTokens,
-    openrouterRequestId: typeof payload['id'] === 'string' ? payload['id'] : null
+    openrouterRequestId:
+      typeof payload['id'] === 'string' ? payload['id'] : null
   };
 }
 

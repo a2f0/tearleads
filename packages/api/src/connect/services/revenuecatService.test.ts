@@ -130,9 +130,7 @@ describe('revenuecatConnectService', () => {
   });
 
   it('maps missing webhook secret to internal connect errors', async () => {
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.unstubAllEnvs();
 
     const body = JSON.stringify({
