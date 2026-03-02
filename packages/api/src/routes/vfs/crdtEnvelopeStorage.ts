@@ -1,24 +1,7 @@
+import { parseBooleanEnv } from './parseBooleanEnv.js';
+
 const ENVELOPE_BYTEA_WRITES_FLAG = 'VFS_CRDT_ENVELOPE_BYTEA_WRITES';
 const ENVELOPE_DUAL_TEXT_WRITES_FLAG = 'VFS_CRDT_ENVELOPE_DUAL_WRITE_TEXT';
-
-function parseBooleanEnv(
-  value: string | undefined,
-  defaultValue: boolean
-): boolean {
-  if (value === undefined) {
-    return defaultValue;
-  }
-
-  const normalized = value.trim().toLowerCase();
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
-    return true;
-  }
-  if (['0', 'false', 'no', 'off'].includes(normalized)) {
-    return false;
-  }
-
-  return defaultValue;
-}
 
 function shouldWriteEnvelopeBytea(): boolean {
   return parseBooleanEnv(process.env[ENVELOPE_BYTEA_WRITES_FLAG], true);
