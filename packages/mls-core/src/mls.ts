@@ -1,23 +1,21 @@
 /**
  * MLS client wrapper.
  *
- * This is currently a placeholder implementation that provides the interface
- * that components expect. The encryption is simulated but not MLS-compliant.
+ * This implementation still uses placeholder TypeScript protocol behavior for
+ * group/message operations. Rust/WASM backend loading is wired in, but the
+ * backend currently reports itself as non-production until RFC 9420 primitives
+ * are implemented in follow-up slices.
  *
- * TODO: Integrate ts-mls library for real RFC 9420 MLS encryption.
- * The ciphersuite to use: MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519
- *
- * ts-mls integration requires:
- * - generateKeyPackage(credential, capabilities, lifetime, extensions, cipherSuite)
- * - createGroup(context, groupId, keyPackage, privateKeyPackage)
- * - joinGroup(context, welcome, keyPackage, privateKeys, ratchetTree?)
- * - createCommit(state, proposals)
- * - createApplicationMessage(context, state, message)
- * - processMessage(context, state, message)
+ * TODO: Route group/message operations to Rust/WASM backend once RFC 9420
+ * primitives are implemented.
  */
 
 import { MlsStorage } from './storage.js';
 import type { LocalKeyPackage, LocalMlsState, MlsCredential } from './types.js';
+import {
+  resolveMlsBackendStatus,
+  type MlsBackendStatus
+} from './mlsWasmBackend.js';
 
 // Standard ciphersuite: MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519
 export const MLS_CIPHERSUITE_NAME =
@@ -54,6 +52,14 @@ class MlsClientImpl {
   private groupStates: Map<string, GroupState> = new Map();
   private credential: MlsCredential | null = null;
   private userId: string;
+  private backendStatus: MlsBackendStatus = {
+    backend: 'placeholder',
+    wasmModuleLoaded: false,
+    backendName: 'typescript-placeholder',
+    backendVersion: null,
+    productionReady: false,
+    reason: 'MLS backend status not initialized yet.'
+  };
 
   constructor(userId: string, storage?: MlsStorage) {
     this.userId = userId;
@@ -62,6 +68,12 @@ class MlsClientImpl {
 
   async init(): Promise<void> {
     await this.storage.init();
+
+    this.backendStatus = await resolveMlsBackendStatus();
+
+    if (!this.backendStatus.productionReady) {
+      console.warn(`[mls-core] ${this.backendStatus.reason}`);
+    }
 
     // Load existing credential if available
     const storedCredential = await this.storage.getCredential(this.userId);
@@ -361,6 +373,13 @@ class MlsClientImpl {
   }
 
   /**
+   * Return active MLS backend status.
+   */
+  getBackendStatus(): MlsBackendStatus {
+    return this.backendStatus;
+  }
+
+  /**
    * Generate a base64 MLS group ID for server persistence.
    */
   generateGroupIdMls(): string {
@@ -451,3 +470,4 @@ class MlsClientImpl {
 
 export type MlsClient = MlsClientImpl;
 export const MlsClient = MlsClientImpl;
+export type { MlsBackendStatus };

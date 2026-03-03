@@ -9,3 +9,4 @@ export type {
   LocalMlsState,
   MlsCredential
 } from './types.js';
+export type { MlsBackendStatus } from './mls.js';
