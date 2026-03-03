@@ -21,8 +21,8 @@ import {
 import { getMyKeysDirect, setupKeysDirect } from './vfsDirectKeys.js';
 import { registerDirect, rekeyItemDirect } from './vfsDirectRegistry.js';
 import {
-  getCrdtSyncDirect,
   getCrdtSnapshotDirect,
+  getCrdtSyncDirect,
   getSyncDirect,
   reconcileSyncDirect
 } from './vfsDirectSync.js';

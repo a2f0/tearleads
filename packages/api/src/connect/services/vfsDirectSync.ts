@@ -240,13 +240,12 @@ export async function getCrdtSyncDirect(
     const pool = await getPostgresPool();
     if (parsedQuery.value.cursor) {
       const compactionEpoch = await getVfsCrdtCompactionEpoch();
-      const cachedOldestAccessibleCursor = await readOldestAccessibleCursorCache(
-        {
+      const cachedOldestAccessibleCursor =
+        await readOldestAccessibleCursorCache({
           compactionEpoch,
           userId: claims.sub,
           rootId: parsedQuery.value.rootId
-        }
-      );
+        });
       const oldestAccessibleCursor =
         cachedOldestAccessibleCursor !== undefined
           ? cachedOldestAccessibleCursor

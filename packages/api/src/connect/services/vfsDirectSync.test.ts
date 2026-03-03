@@ -49,12 +49,14 @@ vi.mock('../../routes/vfs/crdtEnvelopeReadOptions.js', () => ({
 vi.mock('./vfsDirectAuth.js', () => ({
   requireVfsClaims: (...args: unknown[]) => requireVfsClaimsMock(...args)
 }));
+
 import {
-  getCrdtSyncDirect,
   getCrdtSnapshotDirect,
+  getCrdtSyncDirect,
   getSyncDirect,
   reconcileSyncDirect
 } from './vfsDirectSync.js';
+
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
 function parseJson(json: string): unknown {
