@@ -2,10 +2,12 @@
  * Message composer for MLS chat.
  * Input field with send button for encrypted messages.
  */
-import type { FC, FormEvent, KeyboardEvent, ReactElement } from 'react';
+import type { FC, FormEvent, KeyboardEvent } from 'react';
 import { useCallback, useState } from 'react';
 
 import { useMlsChatUI } from '../context/index.js';
+import { MlsComposerLockIcon } from './MlsComposerLockIcon.js';
+import { MlsComposerSendIcon } from './MlsComposerSendIcon.js';
 
 interface MlsComposerProps {
   onSend: (message: string) => Promise<void>;
@@ -74,55 +76,15 @@ export const MlsComposer: FC<MlsComposerProps> = ({
           {isSending ? (
             <span className="h-4 w-4 animate-spin">...</span>
           ) : (
-            <SendIcon />
+            <MlsComposerSendIcon />
           )}
         </Button>
       </div>
       <div className="mt-2 flex items-center gap-1 text-muted-foreground text-xs">
-        <LockIcon />
+        <MlsComposerLockIcon />
         <span>MLS mode (experimental)</span>
       </div>
       <input type="hidden" onKeyDown={handleKeyDown} />
     </form>
   );
 };
-
-function SendIcon(): ReactElement {
-  return (
-    <svg
-      aria-hidden="true"
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m22 2-7 20-4-9-9-4Z" />
-      <path d="M22 2 11 13" />
-    </svg>
-  );
-}
-
-function LockIcon(): ReactElement {
-  return (
-    <svg
-      aria-hidden="true"
-      xmlns="http://www.w3.org/2000/svg"
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-    </svg>
-  );
-}
