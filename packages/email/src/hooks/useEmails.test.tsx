@@ -26,6 +26,11 @@ const mockEmails = [
   }
 ];
 
+const defaultGetEmailsRequestBody = JSON.stringify({
+  offset: 0,
+  limit: 50
+});
+
 describe('useEmails', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -76,6 +81,26 @@ describe('useEmails', () => {
     expect(result.current.error).toBe(null);
   });
 
+  it('reads emails from Connect json envelope responses', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        json: JSON.stringify({ emails: mockEmails })
+      })
+    });
+
+    const { result } = renderHook(() => useEmails(), {
+      wrapper: createWrapper()
+    });
+
+    await act(async () => {
+      await result.current.fetchEmails();
+    });
+
+    expect(result.current.emails).toEqual(mockEmails);
+    expect(result.current.error).toBe(null);
+  });
+
   it('sets loading state during fetch', async () => {
     let resolvePromise: ((value: unknown) => void) | undefined;
     const promise = new Promise((resolve) => {
@@ -110,7 +135,8 @@ describe('useEmails', () => {
   it('handles fetch error', async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: false,
-      statusText: 'Internal Server Error'
+      statusText: 'Internal Server Error',
+      json: async () => ({})
     });
     const consoleSpy = mockConsoleError();
 
@@ -154,11 +180,32 @@ describe('useEmails', () => {
     );
   });
 
+  it('uses response error body when status text is empty', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      statusText: '',
+      json: async () => ({ error: 'Not found' })
+    });
+    mockConsoleError();
+
+    const { result } = renderHook(() => useEmails(), {
+      wrapper: createWrapper()
+    });
+
+    await act(async () => {
+      await result.current.fetchEmails();
+    });
+
+    expect(result.current.error).toBe('Failed to fetch emails: Not found');
+  });
+
   it('clears error on new fetch', async () => {
     (global.fetch as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({
         ok: false,
-        statusText: 'Error'
+        statusText: 'Error',
+        json: async () => ({})
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -199,8 +246,12 @@ describe('useEmails', () => {
     });
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://custom-api.com/v1/vfs/emails',
-      {}
+      'http://custom-api.com/v1/connect/tearleads.v1.VfsService/GetEmails',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: defaultGetEmailsRequestBody
+      }
     );
   });
 
@@ -219,8 +270,15 @@ describe('useEmails', () => {
     });
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://localhost:5001/v1/vfs/emails',
-      { headers: { Authorization: 'Bearer token123' } }
+      'http://localhost:5001/v1/connect/tearleads.v1.VfsService/GetEmails',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer token123'
+        },
+        body: defaultGetEmailsRequestBody
+      }
     );
   });
 
@@ -239,8 +297,12 @@ describe('useEmails', () => {
     });
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://localhost:5001/v1/vfs/emails',
-      {}
+      'http://localhost:5001/v1/connect/tearleads.v1.VfsService/GetEmails',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: defaultGetEmailsRequestBody
+      }
     );
   });
 
