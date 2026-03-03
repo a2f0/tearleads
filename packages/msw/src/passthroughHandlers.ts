@@ -1,5 +1,9 @@
 import { bypass, HttpResponse, http } from 'msw';
 
+type RequestInitWithDuplex = RequestInit & {
+  duplex?: 'half';
+};
+
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -17,21 +21,19 @@ export function createExpressPassthroughHandlers(
       if (pathPrefix && !pathname.startsWith(pathPrefix)) {
         pathname = pathPrefix + pathname;
       }
-      const target = new URL(
-        pathname + original.search,
-        `http://localhost:${String(targetPort)}`
-      );
+      const normalizedPathname = `/${pathname.replace(/^\/+/, '')}`;
+      const target = new URL(`http://localhost:${String(targetPort)}`);
+      target.pathname = normalizedPathname;
+      target.search = original.search;
 
+      const proxiedRequestInit: RequestInitWithDuplex = {
+        method: request.method,
+        headers: request.headers,
+        body: request.body,
+        duplex: 'half'
+      };
       const response = await fetch(
-        bypass(
-          new Request(target, {
-            method: request.method,
-            headers: request.headers,
-            body: request.body,
-            // @ts-expect-error -- duplex is needed for streaming request bodies
-            duplex: 'half'
-          })
-        )
+        bypass(new Request(target, proxiedRequestInit))
       );
 
       return new HttpResponse(await response.arrayBuffer(), {

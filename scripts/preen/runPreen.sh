@@ -162,7 +162,7 @@ analyze_history() {
 run_discovery() {
   case "$1" in
     preen-typescript)
-      rg -n --glob '*.{ts,tsx}' ': any|: any\[\]|<any>|as any|@ts-ignore|@ts-expect-error' . | head -20
+      rg -n --glob '*.{ts,tsx}' ': any|: any\[\]|<any>|as any|@ts-ignore|@ts-expect-error' . | head -20 || true
       ;;
     preen-split-react-components)
       find . -name '*.tsx' -not -path '*/node_modules/*' -not -path '*/.next/*' -not -path '*/dist/*' -exec wc -l {} \; 2>/dev/null | awk '$1 > 300' | sort -rn | head -20
@@ -172,7 +172,7 @@ run_discovery() {
       gh issue list -R "$REPO" --label 'deferred' --state open --limit 20 2>/dev/null || true
       ;;
     preen-optimize-test-execution)
-      pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD | head -40
+      pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD | head -40 || true
       ;;
     preen-database-performance)
       rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\s*\([^)]*\)\s*\{.{0,400}?await\s+[^\n;]*db\.(select|query|execute)' packages | head -40 || true
@@ -180,7 +180,7 @@ run_discovery() {
       rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'withRealDatabase\(|createTestDatabase\(' packages | head -40 || true
       ;;
     preen-api-security)
-      rg -n --glob '*.ts' 'router\.(get|post|put|patch|delete)|authClaims|req\.session|pool\.query|client\.query' packages/api/src/routes | head -40
+      rg -n --glob '*.ts' 'router\.(get|post|put|patch|delete)|authClaims|req\.session|pool\.query|client\.query' packages/api/src/routes | head -40 || true
       ;;
     preen-dependency-security)
       pnpm audit --prod --audit-level high --json 2>/dev/null | head -40 || true
@@ -192,8 +192,8 @@ run_discovery() {
       rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'retry|retries|flaky|TODO.*flaky' packages . | head -30 || true
       ;;
     preen-msw-parity)
-      ./scripts/checks/checkMswParity.ts
-      ./scripts/checks/checkMswParity.ts --json | head -40
+      ./scripts/checks/checkMswParity.ts || true
+      ./scripts/checks/checkMswParity.ts --json | head -40 || true
       ;;
     preen-skill-tooling)
       ./scripts/checks/preen/checkPreenEcosystem.ts --summary
@@ -208,7 +208,7 @@ run_discovery() {
         echo "Procedures: $(ls compliance/$fw/procedures/*.md 2>/dev/null | wc -l | tr -d ' ')"
         echo "Controls: $(ls compliance/$fw/technical-controls/*.md 2>/dev/null | wc -l | tr -d ' ')"
       done
-      find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' | xargs -I{} basename {} | grep -v '^[0-9][0-9]-' | head -10
+      find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' | xargs -I{} basename {} | grep -v '^[0-9][0-9]-' | head -10 || true
       ;;
     preen-package-docs)
       echo '=== Packages missing README ==='
@@ -222,9 +222,9 @@ run_discovery() {
       ;;
     preen-review-instructions)
       echo '=== REVIEW.md sections ==='
-      rg '^##' REVIEW.md | head -20
+      rg '^##' REVIEW.md | head -20 || true
       echo '=== Gemini sections ==='
-      rg '^##' .gemini/INSTRUCTIONS.md | head -20
+      rg '^##' .gemini/INSTRUCTIONS.md | head -20 || true
       echo '=== Section comparison ==='
       echo "REVIEW.md: $(rg '^## ' REVIEW.md | wc -l | tr -d ' ')"
       echo "Gemini: $(rg '^## ' .gemini/INSTRUCTIONS.md | wc -l | tr -d ' ')"
@@ -234,11 +234,11 @@ run_discovery() {
       find packages -path '*/i18n/translations/*.ts' -not -name 'types.ts' -not -name 'index.ts' | head -20
       echo '=== Key Count by Language ==='
       for lang in en es ua pt; do
-        count=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/${lang}.ts 2>/dev/null | wc -l | tr -d ' ')
+        count=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/${lang}.ts 2>/dev/null | wc -l | tr -d ' ' || echo 0)
         echo "${lang}: ${count} keys"
       done
       echo '=== Potential Hardcoded Strings ==='
-      rg -n --glob '*.tsx' '>\s*[A-Z][a-z]+(\s+[a-z]+)*\s*<' packages | rg -v 'test\.' | head -20
+      rg -n --glob '*.tsx' '>\s*[A-Z][a-z]+(\s+[a-z]+)*\s*<' packages | rg -v 'test\.' | head -20 || true
       ;;
     preen-docs-internationalization)
       echo '=== Translation Coverage ==='
@@ -255,12 +255,12 @@ run_discovery() {
       done
       ;;
     preen-window-consistency)
-      rg -n --glob '*.tsx' 'lastRefreshTokenRef|lastRefreshToken' packages | rg -v 'window-manager' | head -20
-      rg -n --glob '*.tsx' 'dragOverId.*useState|setDragOver.*Id' packages | rg -v 'window-manager' | head -20
-      rg -n --glob '*.tsx' 'cursor-col-resize.*onMouseDown|handleResize.*MouseEvent' packages | rg -v 'window-manager' | head -20
+      rg -n --glob '*.tsx' 'lastRefreshTokenRef|lastRefreshToken' packages | rg -v 'window-manager' | head -20 || true
+      rg -n --glob '*.tsx' 'dragOverId.*useState|setDragOver.*Id' packages | rg -v 'window-manager' | head -20 || true
+      rg -n --glob '*.tsx' 'cursor-col-resize.*onMouseDown|handleResize.*MouseEvent' packages | rg -v 'window-manager' | head -20 || true
       ;;
     preen-file-limits)
-      ./scripts/checks/checkFileLimits.sh --all 2>&1 | head -40
+      ./scripts/checks/checkFileLimits.sh --all 2>&1 | head -40 || true
       ;;
     preen-knip)
       pnpm exec knip --config knip.ts --use-tsconfig-files --reporter compact | head -80 || true
@@ -271,7 +271,7 @@ run_discovery() {
 metric_count() {
   case "$1" in
     preen-typescript)
-      rg -n --glob '*.{ts,tsx}' ': any|: any\[\]|<any>|as any|@ts-ignore|@ts-expect-error' . | wc -l
+      rg -n --glob '*.{ts,tsx}' ': any|: any\[\]|<any>|as any|@ts-ignore|@ts-expect-error' . | wc -l || true
       ;;
     preen-split-react-components)
       find . -name '*.tsx' -not -path '*/node_modules/*' -not -path '*/.next/*' -not -path '*/dist/*' -exec wc -l {} \; 2>/dev/null | awk '$1 > 300' | wc -l
@@ -284,10 +284,10 @@ metric_count() {
       pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD 2>/dev/null | jq '.warnings | length' 2>/dev/null || echo 0
       ;;
     preen-database-performance)
-      rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\s*\([^)]*\)\s*\{.{0,400}?await\s+[^\n;]*db\.(select|query|execute)' packages | wc -l
+      rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\s*\([^)]*\)\s*\{.{0,400}?await\s+[^\n;]*db\.(select|query|execute)' packages | wc -l || true
       ;;
     preen-api-security)
-      rg -L --glob '*.ts' 'authClaims|req\.session' packages/api/src/routes | rg -v 'index\.ts|shared\.ts|test\.' | wc -l
+      rg -L --glob '*.ts' 'authClaims|req\.session' packages/api/src/routes | rg -v 'index\.ts|shared\.ts|test\.' | wc -l || true
       ;;
     preen-dependency-security)
       AUDIT_COUNT=$(pnpm audit --prod --audit-level high --json 2>/dev/null | jq '[.. | objects | .severity? // empty | select(. == "high" or . == "critical")] | length' 2>/dev/null || echo 0)
@@ -295,7 +295,7 @@ metric_count() {
       echo $((AUDIT_COUNT + DEPENDABOT_COUNT))
       ;;
     preen-test-flakiness)
-      rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\(|waitForTimeout\(|sleep\(|retry|retries|flaky|TODO.*flaky' packages . | wc -l
+      rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\(|waitForTimeout\(|sleep\(|retry|retries|flaky|TODO.*flaky' packages . | wc -l || true
       ;;
     preen-msw-parity)
       ./scripts/checks/checkMswParity.ts --json | jq '.missingRouteCount + .lowConfidenceRouteCount'
@@ -336,13 +336,13 @@ metric_count() {
       echo $GAPS
       ;;
     preen-i18n)
-      EN_KEYS=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/en.ts 2>/dev/null | wc -l | tr -d ' ')
+      EN_KEYS=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/en.ts 2>/dev/null | wc -l | tr -d ' ' || echo 0)
       GAPS=0
       for lang in es ua pt; do
-        LANG_KEYS=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/${lang}.ts 2>/dev/null | wc -l | tr -d ' ')
+        LANG_KEYS=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/${lang}.ts 2>/dev/null | wc -l | tr -d ' ' || echo 0)
         [ "$LANG_KEYS" -lt "$EN_KEYS" ] && GAPS=$((GAPS + EN_KEYS - LANG_KEYS))
       done
-      HARDCODED=$(rg -c --glob '*.tsx' '>\s*[A-Z][a-z]+(\s+[a-z]+)*\s*<' packages 2>/dev/null | rg -v 'test\.' | awk -F: '{sum+=$2} END {print sum+0}')
+      HARDCODED=$(rg -c --glob '*.tsx' '>\s*[A-Z][a-z]+(\s+[a-z]+)*\s*<' packages 2>/dev/null | rg -v 'test\.' | awk -F: '{sum+=$2} END {print sum+0}' || echo 0)
       echo $((GAPS + HARDCODED))
       ;;
     preen-docs-internationalization)
@@ -355,13 +355,13 @@ metric_count() {
       echo $GAPS
       ;;
     preen-window-consistency)
-      MANUAL_REFRESH=$(rg -c --glob '*.tsx' 'lastRefreshTokenRef|lastRefreshToken' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$NF} END {print sum+0}')
-      MANUAL_DRAG=$(rg -c --glob '*.tsx' 'dragOverId.*useState|setDragOver.*Id' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$NF} END {print sum+0}')
-      MANUAL_RESIZE=$(rg -c --glob '*.tsx' 'cursor-col-resize.*onMouseDown|handleResize.*MouseEvent' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$NF} END {print sum+0}')
+      MANUAL_REFRESH=$(rg -c --glob '*.tsx' 'lastRefreshTokenRef|lastRefreshToken' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$NF} END {print sum+0}' || echo 0)
+      MANUAL_DRAG=$(rg -c --glob '*.tsx' 'dragOverId.*useState|setDragOver.*Id' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$NF} END {print sum+0}' || echo 0)
+      MANUAL_RESIZE=$(rg -c --glob '*.tsx' 'cursor-col-resize.*onMouseDown|handleResize.*MouseEvent' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$NF} END {print sum+0}' || echo 0)
       echo $((MANUAL_REFRESH + MANUAL_DRAG + MANUAL_RESIZE))
       ;;
     preen-file-limits)
-      ./scripts/checks/checkFileLimits.sh --all 2>&1 | grep '^  - ' | wc -l
+      ./scripts/checks/checkFileLimits.sh --all 2>&1 | grep '^  - ' | wc -l || true
       ;;
     preen-knip)
       KNIP_JSON=$(mktemp)
