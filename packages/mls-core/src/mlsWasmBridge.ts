@@ -9,27 +9,27 @@ interface GroupMemberMetadata {
   leafIndex: number;
 }
 
-export interface GroupStateMetadata {
+interface GroupStateMetadata {
   groupId: string;
   epoch: number;
   selfUserId: string;
   members: GroupMemberMetadata[];
 }
 
-export interface GeneratedCredential {
+interface GeneratedCredential {
   credentialBundle: Uint8Array;
   privateKey: Uint8Array;
   createdAtMs: number;
 }
 
-export interface GeneratedKeyPackage {
+interface GeneratedKeyPackage {
   keyPackage: Uint8Array;
   keyPackageRef: string;
   privateKey: Uint8Array;
   createdAtMs: number;
 }
 
-export interface AddMemberResult {
+interface AddMemberResult {
   state: Uint8Array;
   commit: Uint8Array;
   welcome: Uint8Array;
@@ -37,19 +37,19 @@ export interface AddMemberResult {
   newEpoch: number;
 }
 
-export interface RemoveMemberResult {
+interface RemoveMemberResult {
   state: Uint8Array;
   commit: Uint8Array;
   newEpoch: number;
 }
 
-export interface DecryptResult {
+interface DecryptResult {
   senderId: string;
   plaintext: Uint8Array;
   authenticatedData: Uint8Array;
 }
 
-export interface ImportStateResult {
+interface ImportStateResult {
   state: Uint8Array;
   epoch: number;
 }
