@@ -16,6 +16,9 @@ const loadApi = async () => {
   return module.api;
 };
 let seededUser: SeededUser;
+const MLS_ENCRYPTED_STATE_BASE64 = 'ZW5jcnlwdGVkLXN0YXRl';
+const MLS_ENCRYPTED_STATE_HASH = 'BYJJibhXa6PncspNXaXcAsA/+vjQTtFT2YV2g8l3a+0=';
+
 describe('api with msw', () => {
   beforeEach(async () => {
     vi.resetModules();
@@ -306,8 +309,8 @@ describe('api with msw', () => {
     await api.mls.getGroupState(groupId);
     await api.mls.uploadGroupState(groupId, {
       epoch: addMemberEpoch,
-      encryptedState: 'ZW5jcnlwdGVkLXN0YXRl',
-      stateHash: 'state-hash'
+      encryptedState: MLS_ENCRYPTED_STATE_BASE64,
+      stateHash: MLS_ENCRYPTED_STATE_HASH
     });
     // Key packages
     await api.mls.getMyKeyPackages();
