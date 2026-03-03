@@ -1,8 +1,10 @@
+import { OPENAPI_JSON_PATH } from '@tearleads/ui';
 import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiDocsLoader } from './ApiDocsLoader';
 
 vi.mock('@tearleads/ui', () => ({
+  OPENAPI_JSON_PATH: '/openapi.json',
   ApiDocs: ({ spec }: { spec: { info: { title: string } } }) => (
     <div data-testid="api-docs">{spec.info.title}</div>
   )
@@ -42,6 +44,7 @@ describe('ApiDocsLoader', () => {
 
     render(<ApiDocsLoader />);
 
+    expect(fetch).toHaveBeenCalledWith(OPENAPI_JSON_PATH);
     expect(await screen.findByTestId('api-docs')).toHaveTextContent(
       'Website API Docs'
     );
