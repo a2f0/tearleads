@@ -29,16 +29,10 @@ This stack provisions a k3s Kubernetes cluster on Hetzner Cloud for the staging 
 | `scripts/apply02-bootstrap-cluster.sh` | Step 2: Fetch kubeconfig, run Ansible baseline bootstrap, and deploy manifests |
 | `scripts/apply03-build-images.sh` | Step 3: Build and push staging container images to ECR |
 | `scripts/apply04-rollout-containers.sh` | Step 4: Roll out deployments, run migrations, and smoke tests |
-| `scripts/apply.sh` | Run steps 1-4 in sequence |
+| `scripts/apply.sh` | Run steps 1-4 in sequence (`apply01-terraform` → `apply02-bootstrap-cluster` → `apply03-build-images` → `apply04-rollout-containers`) |
 | `scripts/destroy.sh` | Destroy infrastructure |
-| `scripts/kubeconfig.sh` | Fetch kubeconfig from server |
-| `scripts/setup-ecr-secret.sh` | Create ECR pull secret for container registry |
-| `scripts/deploy.sh` | Apply all Kubernetes manifests |
-| `scripts/update.sh` | Update server packages via Ansible |
-| `scripts/smoke-s3.sh` | Verify Garage-backed S3 storage with in-cluster put/get/delete |
-| `scripts/smoke-smtp.sh` | Verify SMTP listener accepts mail and persists it to Redis |
-| `scripts/dump-api-env.sh` | Inspect API pod environment variable visibility (names by default, `--show-values` for full values) |
-| `scripts/vfs-crdt-compaction.sh` | Manage VFS CRDT compaction CronJob (status, enable/disable, suspend/resume, run-once, logs) |
+
+See [`scripts/README.md`](scripts/README.md) for the full list of all scripts (smoke tests, debugging, utilities, etc.).
 
 ## Quick Start
 

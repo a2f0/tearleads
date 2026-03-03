@@ -35,6 +35,7 @@ These scripts run the full cluster provisioning in four ordered steps. Run them 
 | `migrate.sh` | Run database migrations via the API pod CLI |
 | `reset.sh` | Reset staging data: flush Redis, empty S3 bucket, drop/recreate Postgres DB, re-run migrations. Requires `--yes` flag |
 | `setup-ecr-secret.sh` | Create or refresh the ECR docker-registry pull secret (expires after 12h) |
+| `vfs-crdt-compaction.sh` | Manage VFS CRDT compaction CronJob (status, enable/disable, suspend/resume, run-once, logs) |
 
 ## Smoke Tests
 
