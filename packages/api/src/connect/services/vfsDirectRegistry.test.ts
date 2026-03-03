@@ -94,15 +94,13 @@ describe('vfsDirectRegistry', () => {
   });
 
   it('returns registration metadata when insert succeeds', async () => {
-    queryMock
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            created_at: new Date('2026-03-03T00:00:00.000Z')
-          }
-        ]
-      });
+    queryMock.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({
+      rows: [
+        {
+          created_at: new Date('2026-03-03T00:00:00.000Z')
+        }
+      ]
+    });
 
     const response = await registerDirect(
       {

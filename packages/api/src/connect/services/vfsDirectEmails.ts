@@ -3,8 +3,8 @@ import { Code, ConnectError } from '@connectrpc/connect';
 import { type EmailAttachment, sendEmail } from '../../lib/emailSender.js';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { deleteVfsBlobByStorageKey } from '../../lib/vfsBlobStore.js';
-import { encoded, isRecord, parseJsonBody } from './vfsDirectJson.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
+import { encoded, isRecord, parseJsonBody } from './vfsDirectJson.js';
 
 type GetEmailsRequest = { offset: number; limit: number };
 type EmailIdRequest = { id: string };
@@ -55,7 +55,10 @@ function parseSendRequestPayload(body: unknown): SendRequestPayload {
 
   const to = toStringArray(body['to']);
   if (to.length === 0) {
-    throw new ConnectError('At least one recipient is required', Code.InvalidArgument);
+    throw new ConnectError(
+      'At least one recipient is required',
+      Code.InvalidArgument
+    );
   }
 
   const subjectValue = body['subject'];
@@ -73,13 +76,19 @@ function parseSendRequestPayload(body: unknown): SendRequestPayload {
   let attachments: SendAttachmentRequest[] | undefined;
   if (attachmentsValue !== undefined) {
     if (!Array.isArray(attachmentsValue)) {
-      throw new ConnectError('attachments must be an array', Code.InvalidArgument);
+      throw new ConnectError(
+        'attachments must be an array',
+        Code.InvalidArgument
+      );
     }
 
     const parsedAttachments: SendAttachmentRequest[] = [];
     for (const attachmentValue of attachmentsValue) {
       if (!isRecord(attachmentValue)) {
-        throw new ConnectError('Invalid attachment payload', Code.InvalidArgument);
+        throw new ConnectError(
+          'Invalid attachment payload',
+          Code.InvalidArgument
+        );
       }
 
       const fileName = attachmentValue['fileName'];
@@ -91,7 +100,10 @@ function parseSendRequestPayload(body: unknown): SendRequestPayload {
         typeof mimeType !== 'string' ||
         typeof content !== 'string'
       ) {
-        throw new ConnectError('Invalid attachment payload', Code.InvalidArgument);
+        throw new ConnectError(
+          'Invalid attachment payload',
+          Code.InvalidArgument
+        );
       }
 
       parsedAttachments.push({
@@ -316,7 +328,8 @@ export async function deleteEmailDirect(
           [emailRow.storage_key]
         );
 
-        const remainingCount = parseInt(remainingItems.rows[0]?.count ?? '0', 10) || 0;
+        const remainingCount =
+          parseInt(remainingItems.rows[0]?.count ?? '0', 10) || 0;
         if (remainingCount === 0) {
           orphanedStorageKey = emailRow.storage_key;
         }
@@ -341,7 +354,10 @@ export async function deleteEmailDirect(
       try {
         await deleteVfsBlobByStorageKey({ storageKey: orphanedStorageKey });
       } catch (blobDeleteError) {
-        console.error('Failed to delete orphaned inbound email blob:', blobDeleteError);
+        console.error(
+          'Failed to delete orphaned inbound email blob:',
+          blobDeleteError
+        );
       }
     }
 
@@ -367,13 +383,12 @@ export async function sendEmailDirect(
   try {
     const payload = parseSendRequestPayload(parseJsonBody(request.json));
 
-    const emailAttachments: EmailAttachment[] | undefined = payload.attachments?.map(
-      (attachment) => ({
+    const emailAttachments: EmailAttachment[] | undefined =
+      payload.attachments?.map((attachment) => ({
         filename: attachment.fileName,
         content: Buffer.from(attachment.content, 'base64'),
         contentType: attachment.mimeType
-      })
-    );
+      }));
 
     const result = await sendEmail({
       to: payload.to,
@@ -385,7 +400,10 @@ export async function sendEmailDirect(
     });
 
     if (!result.success) {
-      throw new ConnectError(result.error ?? 'Failed to send email', Code.Internal);
+      throw new ConnectError(
+        result.error ?? 'Failed to send email',
+        Code.Internal
+      );
     }
 
     return {

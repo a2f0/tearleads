@@ -2,8 +2,8 @@ import { Code, ConnectError } from '@connectrpc/connect';
 import type { VfsUserKeysResponse } from '@tearleads/shared';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { parseKeySetupPayload } from '../../routes/vfs/shared.js';
-import { parseJsonBody } from './vfsDirectJson.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
+import { parseJsonBody } from './vfsDirectJson.js';
 
 type JsonRequest = { json: string };
 
@@ -73,9 +73,10 @@ export async function setupKeysDirect(
   try {
     const pool = await getPostgresPool();
 
-    const existing = await pool.query('SELECT 1 FROM user_keys WHERE user_id = $1', [
-      claims.sub
-    ]);
+    const existing = await pool.query(
+      'SELECT 1 FROM user_keys WHERE user_id = $1',
+      [claims.sub]
+    );
     if (existing.rows.length > 0) {
       throw new ConnectError(
         'VFS keys already exist for this user',

@@ -1,10 +1,12 @@
 import { Code } from '@connectrpc/connect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { authenticateMock, resolveOrganizationMembershipMock } = vi.hoisted(() => ({
-  authenticateMock: vi.fn(),
-  resolveOrganizationMembershipMock: vi.fn()
-}));
+const { authenticateMock, resolveOrganizationMembershipMock } = vi.hoisted(
+  () => ({
+    authenticateMock: vi.fn(),
+    resolveOrganizationMembershipMock: vi.fn()
+  })
+);
 
 vi.mock('./legacyRouteProxyAuth.js', () => ({
   authenticate: (...args: unknown[]) => authenticateMock(...args),

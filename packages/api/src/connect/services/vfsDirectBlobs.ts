@@ -6,8 +6,8 @@ import {
   isPostgresErrorWithCode,
   normalizeRequiredString
 } from '../../routes/vfs/blob-shared.js';
-import { encoded } from './vfsDirectJson.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
+import { encoded } from './vfsDirectJson.js';
 
 type BlobIdRequest = { blobId: string };
 
@@ -159,7 +159,10 @@ export async function deleteBlobDirect(
       [blobId]
     );
     if ((deleted.rowCount ?? 0) < 1) {
-      throw new ConnectError('Failed to delete blob registry row', Code.Internal);
+      throw new ConnectError(
+        'Failed to delete blob registry row',
+        Code.Internal
+      );
     }
 
     await deleteVfsBlobData({ blobId });

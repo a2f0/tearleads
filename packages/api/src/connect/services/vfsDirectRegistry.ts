@@ -2,8 +2,8 @@ import { Code, ConnectError } from '@connectrpc/connect';
 import type { VfsRekeyRequest, VfsRekeyResponse } from '@tearleads/shared';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { parseRegisterPayload } from '../../routes/vfs/shared.js';
-import { encoded, isRecord, parseJsonBody } from './vfsDirectJson.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
+import { encoded, isRecord, parseJsonBody } from './vfsDirectJson.js';
 
 type JsonRequest = { json: string };
 type ItemIdJsonRequest = { itemId: string; json: string };
@@ -99,11 +99,15 @@ export async function registerDirect(
   try {
     const pool = await getPostgresPool();
 
-    const existing = await pool.query('SELECT 1 FROM vfs_registry WHERE id = $1', [
-      payload.id
-    ]);
+    const existing = await pool.query(
+      'SELECT 1 FROM vfs_registry WHERE id = $1',
+      [payload.id]
+    );
     if (existing.rows.length > 0) {
-      throw new ConnectError('Item already registered in VFS', Code.AlreadyExists);
+      throw new ConnectError(
+        'Item already registered in VFS',
+        Code.AlreadyExists
+      );
     }
 
     const result = await pool.query<{ created_at: Date }>(
@@ -129,7 +133,9 @@ export async function registerDirect(
     return {
       json: JSON.stringify({
         id: payload.id,
-        createdAt: createdAt ? createdAt.toISOString() : new Date().toISOString()
+        createdAt: createdAt
+          ? createdAt.toISOString()
+          : new Date().toISOString()
       })
     };
   } catch (error) {
@@ -261,7 +267,10 @@ export async function rekeyItemDirect(
         try {
           await client.query('ROLLBACK');
         } catch (rollbackError) {
-          console.error('Failed to rollback VFS rekey transaction:', rollbackError);
+          console.error(
+            'Failed to rollback VFS rekey transaction:',
+            rollbackError
+          );
         }
       }
       throw transactionError;

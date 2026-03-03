@@ -11,8 +11,8 @@ import {
 import { getPostgresPool } from '../../lib/postgres.js';
 import { loadVfsCrdtRematerializationSnapshot } from '../../lib/vfsCrdtSnapshots.js';
 import { toIsoString } from '../../routes/vfs/crdtRouteHelpers.js';
-import { parseJsonBody } from './vfsDirectJson.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
+import { parseJsonBody } from './vfsDirectJson.js';
 
 type GetSyncRequest = { cursor: string; limit: number; rootId: string };
 type GetCrdtSnapshotRequest = { clientId: string };
@@ -88,7 +88,10 @@ export async function getCrdtSnapshotDirect(
   request: GetCrdtSnapshotRequest,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
-  const claims = await requireVfsClaims('/vfs/crdt/snapshot', context.requestHeader);
+  const claims = await requireVfsClaims(
+    '/vfs/crdt/snapshot',
+    context.requestHeader
+  );
 
   const clientId = normalizeRequiredClientId(request.clientId);
   if (!clientId) {
@@ -126,15 +129,23 @@ export async function reconcileSyncDirect(
   request: JsonRequest,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
-  const claims = await requireVfsClaims('/vfs/sync/reconcile', context.requestHeader);
+  const claims = await requireVfsClaims(
+    '/vfs/sync/reconcile',
+    context.requestHeader
+  );
 
-  const parsedPayload = parseVfsSyncReconcilePayload(parseJsonBody(request.json));
+  const parsedPayload = parseVfsSyncReconcilePayload(
+    parseJsonBody(request.json)
+  );
   if (!parsedPayload.ok) {
     throw new ConnectError(parsedPayload.error, Code.InvalidArgument);
   }
 
   if (parsedPayload.value.clientId.includes(':')) {
-    throw new ConnectError('clientId must not contain ":"', Code.InvalidArgument);
+    throw new ConnectError(
+      'clientId must not contain ":"',
+      Code.InvalidArgument
+    );
   }
 
   try {

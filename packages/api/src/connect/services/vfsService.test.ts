@@ -233,7 +233,9 @@ describe('vfsConnectService', () => {
     const getEmailsRequest = { offset: 5, limit: 25 };
     const getEmailRequest = { id: 'email-1' };
     const deleteEmailRequest = { id: 'email-2' };
-    const sendEmailRequest = { json: '{"to":["a@example.com"],"subject":"Hi","body":"Hello"}' };
+    const sendEmailRequest = {
+      json: '{"to":["a@example.com"],"subject":"Hi","body":"Hello"}'
+    };
     const reconcileSyncRequest = {
       json: '{"clientId":"client-1","cursor":"MjAyNi0wMy0wM1QwMDowMDowMC4wMDBafGNoYW5nZS0x"}'
     };
@@ -276,7 +278,8 @@ describe('vfsConnectService', () => {
         mock: getCrdtSnapshotDirectMock
       },
       {
-        call: () => vfsConnectService.reconcileSync(reconcileSyncRequest, context),
+        call: () =>
+          vfsConnectService.reconcileSync(reconcileSyncRequest, context),
         expectedRequest: reconcileSyncRequest,
         mock: reconcileSyncDirectMock
       },
@@ -305,10 +308,16 @@ describe('vfsConnectService', () => {
     for (const testCase of directCases) {
       const response = await testCase.call();
       expect(response).toEqual({ json: '{"ok":true}' });
-      expect(testCase.mock).toHaveBeenCalledWith(testCase.expectedRequest, context);
+      expect(testCase.mock).toHaveBeenCalledWith(
+        testCase.expectedRequest,
+        context
+      );
     }
 
-    const getBlobResponse = await vfsConnectService.getBlob(getBlobRequest, context);
+    const getBlobResponse = await vfsConnectService.getBlob(
+      getBlobRequest,
+      context
+    );
     expect(getBlobResponse).toEqual({
       data: new Uint8Array([7, 8, 9]),
       contentType: 'application/octet-stream'
