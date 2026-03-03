@@ -26,7 +26,16 @@ function decodeBase64Bytes(value: string): Uint8Array | null {
       : `${normalized}${'='.repeat(4 - missingPadding)}`;
 
   try {
-    return Uint8Array.from(Buffer.from(padded, 'base64'));
+    const bytes = Uint8Array.from(Buffer.from(padded, 'base64'));
+    if (bytes.length === 0) {
+      return null;
+    }
+    const roundTripBase64 = Buffer.from(bytes).toString('base64');
+    const stripPadding = (input: string): string => input.replace(/=+$/g, '');
+    if (stripPadding(roundTripBase64) !== stripPadding(padded)) {
+      return null;
+    }
+    return bytes;
   } catch {
     return null;
   }
@@ -103,23 +112,21 @@ export async function materializeScaffoldEncryptedNames(
     keyRows.rows.map((row) => [row.id, row.encrypted_session_key])
   );
 
-  const normalizedRows: VfsSyncDbRow[] = [];
-  for (const row of rows) {
-    const decryptedName = await decryptScaffoldEncryptedName(
-      row.encrypted_name,
-      keyByItemId.get(row.item_id)
-    );
+  return Promise.all(
+    rows.map(async (row) => {
+      const decryptedName = await decryptScaffoldEncryptedName(
+        row.encrypted_name,
+        keyByItemId.get(row.item_id)
+      );
 
-    if (decryptedName === null) {
-      normalizedRows.push(row);
-      continue;
-    }
+      if (decryptedName === null) {
+        return row;
+      }
 
-    normalizedRows.push({
-      ...row,
-      encrypted_name: decryptedName
-    });
-  }
-
-  return normalizedRows;
+      return {
+        ...row,
+        encrypted_name: decryptedName
+      };
+    })
+  );
 }
