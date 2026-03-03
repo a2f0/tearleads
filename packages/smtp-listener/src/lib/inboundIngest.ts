@@ -41,7 +41,8 @@ function parseUserIdFromAddress(address: string): string | null {
 
 function resolveRecipients(
   email: StoredEmail,
-  userIds: string[]
+  userIds: string[],
+  keyRecords: Map<string, { organizationId: string }>
 ): ResolvedInboundRecipient[] {
   const resolved: ResolvedInboundRecipient[] = [];
   for (const userId of userIds) {
@@ -53,9 +54,14 @@ function resolveRecipients(
         break;
       }
     }
+    const keyRecord = keyRecords.get(userId);
+    if (!keyRecord) {
+      throw new Error(`Missing recipient key for user ${userId}`);
+    }
     resolved.push({
       userId,
-      address: matchedAddress
+      address: matchedAddress,
+      organizationId: keyRecord.organizationId
     });
   }
   return resolved;
@@ -133,9 +139,13 @@ export class DefaultInboundMessageIngestor implements InboundMessageIngestor {
       return;
     }
 
-    const recipients = resolveRecipients(input.email, input.userIds);
     const keyRecords = await this.keyLookup.getPublicEncryptionKeys(
       input.userIds
+    );
+    const recipients = resolveRecipients(
+      input.email,
+      input.userIds,
+      keyRecords
     );
 
     const dek = randomBytes(32);

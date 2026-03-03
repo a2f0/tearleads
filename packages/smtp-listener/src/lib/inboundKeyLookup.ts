@@ -7,6 +7,7 @@ import { getPostgresPool } from './postgres.js';
 interface UserKeyRow {
   user_id: string;
   public_encryption_key: string;
+  personal_organization_id: string;
 }
 
 export class PostgresInboundRecipientKeyLookup
@@ -22,9 +23,10 @@ export class PostgresInboundRecipientKeyLookup
     const dedupedUserIds = Array.from(new Set(userIds));
     const pool = await getPostgresPool();
     const result = await pool.query<UserKeyRow>(
-      `SELECT user_id, public_encryption_key
-       FROM user_keys
-       WHERE user_id = ANY($1::text[])`,
+      `SELECT uk.user_id, uk.public_encryption_key, u.personal_organization_id
+       FROM user_keys uk
+       JOIN users u ON u.id = uk.user_id
+       WHERE uk.user_id = ANY($1::text[])`,
       [dedupedUserIds]
     );
 
@@ -35,7 +37,8 @@ export class PostgresInboundRecipientKeyLookup
       }
       map.set(row.user_id, {
         userId: row.user_id,
-        publicEncryptionKey: row.public_encryption_key
+        publicEncryptionKey: row.public_encryption_key,
+        organizationId: row.personal_organization_id
       });
     }
     return map;

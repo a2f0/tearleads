@@ -52,7 +52,8 @@ function buildRecipients(): ResolvedInboundRecipient[] {
   return [
     {
       userId: 'user-1',
-      address: 'user-1@test.com'
+      address: 'user-1@test.com',
+      organizationId: 'personal-org-user-1'
     }
   ];
 }
@@ -112,7 +113,7 @@ describe('PostgresInboundVfsEmailRepository', () => {
     );
     expect(clientQueryMock).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO vfs_registry ('),
-      ['email-inbox:user-1', 'user-1']
+      ['email-inbox:user-1', 'user-1', 'personal-org-user-1']
     );
     expect(clientQueryMock).toHaveBeenCalledWith('COMMIT');
     expect(clientQueryMock).not.toHaveBeenCalledWith('ROLLBACK');
@@ -141,7 +142,7 @@ describe('PostgresInboundVfsEmailRepository', () => {
 
     expect(clientQueryMock).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO vfs_registry ('),
-      ['email-inbox:user-1', 'user-1']
+      ['email-inbox:user-1', 'user-1', 'personal-org-user-1']
     );
     expect(clientQueryMock).toHaveBeenCalledWith('COMMIT');
     expect(releaseMock).toHaveBeenCalledOnce();

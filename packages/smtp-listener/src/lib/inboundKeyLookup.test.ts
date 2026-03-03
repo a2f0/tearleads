@@ -34,15 +34,18 @@ describe('PostgresInboundRecipientKeyLookup', () => {
       rows: [
         {
           user_id: 'user-1',
-          public_encryption_key: 'pub-1'
+          public_encryption_key: 'pub-1',
+          personal_organization_id: 'personal-org-user-1'
         },
         {
           user_id: 'user-2',
-          public_encryption_key: ''
+          public_encryption_key: '',
+          personal_organization_id: 'personal-org-user-2'
         },
         {
           user_id: '',
-          public_encryption_key: 'pub-3'
+          public_encryption_key: 'pub-3',
+          personal_organization_id: 'personal-org-3'
         }
       ]
     });
@@ -69,7 +72,8 @@ describe('PostgresInboundRecipientKeyLookup', () => {
           'user-1',
           {
             userId: 'user-1',
-            publicEncryptionKey: 'pub-1'
+            publicEncryptionKey: 'pub-1',
+            organizationId: 'personal-org-user-1'
           }
         ]
       ])
