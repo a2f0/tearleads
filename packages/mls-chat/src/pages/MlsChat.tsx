@@ -137,7 +137,7 @@ export const MlsChat: FC<MlsChatProps> = ({ className = '' }) => {
           ) : (
             <div>
               <p className="mb-4 text-muted-foreground">
-                Generate your MLS credentials to initialize experimental chat.
+                Generate your MLS credentials to initialize secure group chat.
               </p>
               <button
                 type="button"

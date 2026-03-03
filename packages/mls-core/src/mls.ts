@@ -1,19 +1,29 @@
 /**
  * MLS client wrapper.
  *
- * This implementation still uses placeholder TypeScript protocol behavior for
- * group/message operations. Rust/WASM backend loading is wired in, but the
- * backend currently reports itself as non-production until RFC 9420 primitives
- * are implemented in follow-up slices.
- *
- * TODO: Route group/message operations to Rust/WASM backend once RFC 9420
- * primitives are implemented.
+ * All group, commit, and application-message primitives are delegated to the
+ * Rust/WASM backend. The TypeScript layer handles persistence and orchestration.
  */
 
 import {
   type MlsBackendStatus,
   resolveMlsBackendStatus
 } from './mlsWasmBackend.js';
+import {
+  membersToLeafIndexMap,
+  wasmAddMember,
+  wasmCreateGroup,
+  wasmDecryptMessage,
+  wasmEncryptMessage,
+  wasmExportGroupState,
+  wasmGenerateCredential,
+  wasmGenerateKeyPackage,
+  wasmGroupStateMetadata,
+  wasmImportGroupState,
+  wasmJoinGroup,
+  wasmProcessCommit,
+  wasmRemoveMember
+} from './mlsWasmBridge.js';
 import { MlsStorage } from './storage.js';
 import type { LocalKeyPackage, LocalMlsState, MlsCredential } from './types.js';
 
@@ -75,392 +85,280 @@ class MlsClientImpl {
       console.warn(`[mls-core] ${this.backendStatus.reason}`);
     }
 
-    // Load existing credential if available
     const storedCredential = await this.storage.getCredential(this.userId);
     if (storedCredential) {
       this.credential = storedCredential;
     }
 
-    // Load existing group states
     const groupStates = await this.storage.getAllGroupStates();
     for (const state of groupStates) {
       try {
-        const groupState = this.deserializeGroupState(state.serializedState);
-        this.groupStates.set(state.groupId, groupState);
+        await this.installSerializedGroupState(
+          state.groupId,
+          state.serializedState,
+          true
+        );
       } catch {
-        // Skip corrupted states
         await this.storage.deleteGroupState(state.groupId);
       }
     }
   }
 
-  /**
-   * Generate a new MLS credential for this user.
-   */
   async generateCredential(): Promise<MlsCredential> {
-    // Generate credential with user identity
-    const credentialBundle = new TextEncoder().encode(this.userId);
-    const privateKey = new Uint8Array(32);
-    crypto.getRandomValues(privateKey);
+    this.assertBackendReady();
 
-    const mlsCredential: MlsCredential = {
-      credentialBundle,
-      privateKey,
+    const result = await wasmGenerateCredential(this.userId);
+
+    const credential: MlsCredential = {
+      credentialBundle: result.credentialBundle,
+      privateKey: result.privateKey,
       userId: this.userId,
-      createdAt: Date.now()
+      createdAt: result.createdAtMs
     };
 
-    await this.storage.saveCredential(mlsCredential);
-    this.credential = mlsCredential;
+    await this.storage.saveCredential(credential);
+    this.credential = credential;
 
-    return mlsCredential;
+    return credential;
   }
 
-  /**
-   * Generate a new key package for uploading to the server.
-   */
   async generateKeyPackage(): Promise<KeyPackageWithRef> {
+    this.assertBackendReady();
+
     if (!this.credential) {
       throw new Error(
         'No credential available. Call generateCredential first.'
       );
     }
 
-    // Generate key package (placeholder - would use ts-mls in production)
-    const keyPackage = new Uint8Array(128);
-    const privateKey = new Uint8Array(32);
-    const refBytes = new Uint8Array(32);
-
-    crypto.getRandomValues(keyPackage);
-    crypto.getRandomValues(privateKey);
-    crypto.getRandomValues(refBytes);
-
-    const ref = this.bytesToHex(refBytes);
+    const result = await wasmGenerateKeyPackage(
+      this.credential.credentialBundle,
+      this.credential.privateKey
+    );
 
     const localKeyPackage: LocalKeyPackage = {
-      ref,
-      keyPackage,
-      privateKey,
-      createdAt: Date.now()
+      ref: result.keyPackageRef,
+      keyPackage: result.keyPackage,
+      privateKey: result.privateKey,
+      createdAt: result.createdAtMs
     };
 
     await this.storage.saveKeyPackage(localKeyPackage);
 
     return {
-      ref,
-      keyPackageBytes: keyPackage
+      ref: result.keyPackageRef,
+      keyPackageBytes: result.keyPackage
     };
   }
 
-  /**
-   * Create a new MLS group.
-   */
   async createGroup(groupId: string): Promise<Uint8Array> {
-    if (!this.credential) {
-      throw new Error(
-        'No credential available. Call generateCredential first.'
-      );
-    }
+    this.assertBackendReady();
+    const credential = this.requireCredential();
 
-    const groupState: GroupState = {
+    const state = await wasmCreateGroup(
       groupId,
-      epoch: 0,
-      members: new Map([[this.userId, 0]]),
-      serialized: new Uint8Array(64)
-    };
+      credential.credentialBundle,
+      credential.privateKey
+    );
 
-    crypto.getRandomValues(groupState.serialized);
-
-    this.groupStates.set(groupId, groupState);
-    await this.saveGroupState(groupId, groupState);
-
-    return groupState.serialized;
+    await this.installSerializedGroupState(groupId, state, true);
+    return state;
   }
 
-  /**
-   * Join a group using a Welcome message.
-   */
   async joinGroup(
     groupId: string,
-    _welcomeBytes: Uint8Array,
+    welcomeBytes: Uint8Array,
     keyPackageRef: string
   ): Promise<void> {
+    this.assertBackendReady();
+    const credential = this.requireCredential();
+
     const localKeyPackage = await this.storage.getKeyPackage(keyPackageRef);
     if (!localKeyPackage) {
       throw new Error(`Key package not found: ${keyPackageRef}`);
     }
 
-    const groupState: GroupState = {
+    const state = await wasmJoinGroup(
       groupId,
-      epoch: 1,
-      members: new Map([[this.userId, 0]]),
-      serialized: new Uint8Array(64)
-    };
+      welcomeBytes,
+      keyPackageRef,
+      localKeyPackage.privateKey,
+      credential.credentialBundle,
+      credential.privateKey
+    );
 
-    crypto.getRandomValues(groupState.serialized);
-
-    this.groupStates.set(groupId, groupState);
-    await this.saveGroupState(groupId, groupState);
-
-    // Remove consumed key package
+    await this.installSerializedGroupState(groupId, state, true);
     await this.storage.deleteKeyPackage(keyPackageRef);
   }
 
-  /**
-   * Add a member to a group.
-   */
   async addMember(
     groupId: string,
-    _memberKeyPackageBytes: Uint8Array
+    memberKeyPackageBytes: Uint8Array
   ): Promise<CommitResult> {
-    const groupState = this.groupStates.get(groupId);
-    if (!groupState) {
-      throw new Error(`Group not found: ${groupId}`);
-    }
+    this.assertBackendReady();
+    const groupState = this.requireGroupState(groupId);
 
-    // Update epoch
-    groupState.epoch++;
+    const result = await wasmAddMember(
+      groupState.serialized,
+      memberKeyPackageBytes
+    );
 
-    // Generate placeholder commit and welcome
-    const commit = new Uint8Array(64);
-    const welcome = new Uint8Array(128);
-    const groupInfo = new Uint8Array(64);
-
-    crypto.getRandomValues(commit);
-    crypto.getRandomValues(welcome);
-    crypto.getRandomValues(groupInfo);
-
-    await this.saveGroupState(groupId, groupState);
+    await this.installSerializedGroupState(groupId, result.state, true);
 
     return {
-      commit,
-      welcome,
-      groupInfo,
-      newEpoch: groupState.epoch
+      commit: result.commit,
+      welcome: result.welcome,
+      groupInfo: result.groupInfo,
+      newEpoch: result.newEpoch
     };
   }
 
-  /**
-   * Remove a member from a group.
-   */
-  async removeMember(
-    groupId: string,
-    _leafIndex: number
-  ): Promise<CommitResult> {
-    const groupState = this.groupStates.get(groupId);
-    if (!groupState) {
-      throw new Error(`Group not found: ${groupId}`);
-    }
+  async removeMember(groupId: string, leafIndex: number): Promise<CommitResult> {
+    this.assertBackendReady();
+    const groupState = this.requireGroupState(groupId);
 
-    // Update epoch
-    groupState.epoch++;
+    const result = await wasmRemoveMember(groupState.serialized, leafIndex);
 
-    // Generate placeholder commit
-    const commit = new Uint8Array(64);
-    crypto.getRandomValues(commit);
+    await this.installSerializedGroupState(groupId, result.state, true);
 
-    await this.saveGroupState(groupId, groupState);
-
-    return { commit, newEpoch: groupState.epoch };
+    return {
+      commit: result.commit,
+      newEpoch: result.newEpoch
+    };
   }
 
-  /**
-   * Process a commit message received from another member.
-   */
-  async processCommit(
-    groupId: string,
-    _commitBytes: Uint8Array
-  ): Promise<void> {
-    const groupState = this.groupStates.get(groupId);
-    if (!groupState) {
-      throw new Error(`Group not found: ${groupId}`);
-    }
+  async processCommit(groupId: string, commitBytes: Uint8Array): Promise<void> {
+    this.assertBackendReady();
+    const groupState = this.requireGroupState(groupId);
 
-    // Update epoch
-    groupState.epoch++;
-    await this.saveGroupState(groupId, groupState);
+    const updatedState = await wasmProcessCommit(groupState.serialized, commitBytes);
+    await this.installSerializedGroupState(groupId, updatedState, true);
   }
 
-  /**
-   * Encrypt a message for a group.
-   * Note: This is a placeholder - production would use ts-mls AEAD encryption.
-   */
   async encryptMessage(
     groupId: string,
     plaintext: Uint8Array
   ): Promise<Uint8Array> {
-    const groupState = this.groupStates.get(groupId);
-    if (!groupState) {
-      throw new Error(`Group not found: ${groupId}`);
-    }
+    this.assertBackendReady();
+    const groupState = this.requireGroupState(groupId);
 
-    // Placeholder: encode with a header containing metadata
-    // Real implementation would use MLS AEAD encryption
-    const header = new TextEncoder().encode(`MLS:${groupId}:${this.userId}:`);
-    const ciphertext = new Uint8Array(header.length + plaintext.length);
-    ciphertext.set(header, 0);
-    ciphertext.set(plaintext, header.length);
-
-    return ciphertext;
+    return wasmEncryptMessage(groupState.serialized, plaintext);
   }
 
-  /**
-   * Decrypt a message from a group.
-   * Note: This is a placeholder - production would use ts-mls AEAD decryption.
-   */
   async decryptMessage(
     groupId: string,
     ciphertext: Uint8Array
   ): Promise<DecryptedContent> {
-    const groupState = this.groupStates.get(groupId);
-    if (!groupState) {
-      throw new Error(`Group not found: ${groupId}`);
-    }
+    this.assertBackendReady();
+    const groupState = this.requireGroupState(groupId);
 
-    // Placeholder: decode the format we used in encryptMessage
-    const text = new TextDecoder().decode(ciphertext);
-    const parts = text.split(':');
+    const result = await wasmDecryptMessage(groupState.serialized, ciphertext);
 
-    const senderId = parts[2];
-    if (parts.length >= 3 && parts[0] === 'MLS' && senderId) {
-      const plaintext = new TextEncoder().encode(parts.slice(3).join(':'));
-
-      return {
-        senderId,
-        plaintext,
-        authenticatedData: new Uint8Array(0)
-      };
-    }
-
-    // Fallback for messages we can't parse
     return {
-      senderId: 'unknown',
-      plaintext: ciphertext,
-      authenticatedData: new Uint8Array(0)
+      senderId: result.senderId,
+      plaintext: result.plaintext,
+      authenticatedData: result.authenticatedData
     };
   }
 
-  /**
-   * Export group state for multi-device sync.
-   */
   async exportGroupState(groupId: string): Promise<Uint8Array> {
-    const groupState = this.groupStates.get(groupId);
-    if (!groupState) {
-      throw new Error(`Group not found: ${groupId}`);
-    }
-
-    return this.serializeGroupState(groupState);
+    this.assertBackendReady();
+    const groupState = this.requireGroupState(groupId);
+    return wasmExportGroupState(groupState.serialized);
   }
 
-  /**
-   * Import group state from another device.
-   */
   async importGroupState(
     groupId: string,
     serializedState: Uint8Array
   ): Promise<void> {
-    const groupState = this.deserializeGroupState(serializedState);
-    groupState.groupId = groupId;
-    this.groupStates.set(groupId, groupState);
-    await this.saveGroupState(groupId, groupState);
+    this.assertBackendReady();
+
+    const normalized = await wasmImportGroupState(groupId, serializedState);
+    await this.installSerializedGroupState(groupId, normalized.state, true);
   }
 
-  /**
-   * Get the current epoch for a group.
-   */
   getGroupEpoch(groupId: string): number | undefined {
     return this.groupStates.get(groupId)?.epoch;
   }
 
-  /**
-   * Return active MLS backend status.
-   */
   getBackendStatus(): MlsBackendStatus {
     return this.backendStatus;
   }
 
-  /**
-   * Generate a base64 MLS group ID for server persistence.
-   */
   generateGroupIdMls(): string {
     const bytes = new Uint8Array(16);
     crypto.getRandomValues(bytes);
     return this.bytesToBase64(bytes);
   }
 
-  /**
-   * Check if we have state for a group.
-   */
   hasGroup(groupId: string): boolean {
     return this.groupStates.has(groupId);
   }
 
-  /**
-   * Leave a group (delete local state).
-   */
   async leaveGroup(groupId: string): Promise<void> {
     this.groupStates.delete(groupId);
     await this.storage.deleteGroupState(groupId);
   }
 
-  // Private helpers
+  private requireCredential(): MlsCredential {
+    if (!this.credential) {
+      throw new Error('No credential available. Call generateCredential first.');
+    }
+    return this.credential;
+  }
 
-  private async saveGroupState(
+  private assertBackendReady(): void {
+    if (!this.backendStatus.productionReady) {
+      throw new Error(
+        `MLS Rust/WASM backend is not ready: ${this.backendStatus.reason}`
+      );
+    }
+  }
+
+  private requireGroupState(groupId: string): GroupState {
+    const groupState = this.groupStates.get(groupId);
+    if (!groupState) {
+      throw new Error(`Group not found: ${groupId}`);
+    }
+    return groupState;
+  }
+
+  private async installSerializedGroupState(
     groupId: string,
-    groupState: GroupState
+    serializedState: Uint8Array,
+    persist: boolean
   ): Promise<void> {
-    const serialized = this.serializeGroupState(groupState);
-    const localState: LocalMlsState = {
+    const metadata = await wasmGroupStateMetadata(serializedState);
+    if (metadata.groupId !== groupId) {
+      throw new Error(
+        `Serialized state group mismatch: expected ${groupId}, got ${metadata.groupId}`
+      );
+    }
+
+    const groupState: GroupState = {
       groupId,
-      serializedState: serialized,
-      epoch: groupState.epoch,
-      updatedAt: Date.now()
-    };
-    await this.storage.saveGroupState(localState);
-  }
-
-  private serializeGroupState(groupState: GroupState): Uint8Array {
-    const json = JSON.stringify({
-      groupId: groupState.groupId,
-      epoch: groupState.epoch,
-      members: Array.from(groupState.members.entries()),
-      serialized: Array.from(groupState.serialized),
-      ciphersuite: MLS_CIPHERSUITE_ID
-    });
-    return new TextEncoder().encode(json);
-  }
-
-  private deserializeGroupState(bytes: Uint8Array): GroupState {
-    const json = new TextDecoder().decode(bytes);
-    const data = JSON.parse(json) as {
-      groupId: string;
-      epoch: number;
-      members: Array<[string, number]>;
-      serialized: number[];
-      ciphersuite?: number;
+      epoch: metadata.epoch,
+      members: membersToLeafIndexMap(metadata),
+      serialized: serializedState
     };
 
-    return {
-      groupId: data.groupId,
-      epoch: data.epoch,
-      members: new Map(data.members),
-      serialized: new Uint8Array(data.serialized)
-    };
-  }
+    this.groupStates.set(groupId, groupState);
 
-  private bytesToHex(bytes: Uint8Array): string {
-    return Array.from(bytes)
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
+    if (persist) {
+      const localState: LocalMlsState = {
+        groupId,
+        serializedState,
+        epoch: metadata.epoch,
+        updatedAt: Date.now()
+      };
+      await this.storage.saveGroupState(localState);
+    }
   }
 
   private bytesToBase64(bytes: Uint8Array): string {
     return btoa(String.fromCharCode.apply(null, Array.from(bytes)));
   }
 
-  /**
-   * Clean up resources.
-   */
   close(): void {
     this.storage.close();
     this.groupStates.clear();

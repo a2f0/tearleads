@@ -2,7 +2,7 @@
  * @tearleads/mls-chat
  *
  * MLS (RFC 9420) chat UI package backed by @tearleads/mls-core.
- * NOTE: Cryptography is currently placeholder-only until Rust MLS integration lands.
+ * Cryptographic primitives are backed by the Rust/WASM MLS backend in @tearleads/mls-core.
  */
 
 // Components

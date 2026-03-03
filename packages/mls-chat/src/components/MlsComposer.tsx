@@ -82,7 +82,7 @@ export const MlsComposer: FC<MlsComposerProps> = ({
       </div>
       <div className="mt-2 flex items-center gap-1 text-muted-foreground text-xs">
         <MlsComposerLockIcon />
-        <span>MLS mode (experimental)</span>
+        <span>MLS mode (authenticated)</span>
       </div>
       <input type="hidden" onKeyDown={handleKeyDown} />
     </form>

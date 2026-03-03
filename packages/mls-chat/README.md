@@ -2,7 +2,7 @@
 
 Group chat UI and client workflows for Messaging Layer Security (MLS) style flows in Tearleads.
 
-> **Implementation Status**: This package currently provides a placeholder MLS protocol interface. It is not RFC 9420-compliant today. Production-grade cryptography is planned for a future Rust/WASM MLS backend integration in `@tearleads/mls-core`.
+> **Implementation Status**: This package is backed by Rust/WASM MLS primitives from `@tearleads/mls-core` for credential/key-package flows, commit processing, authenticated message encryption/decryption, and validated state materialization.
 
 ## Overview
 
@@ -171,11 +171,11 @@ MLS state is persisted in IndexedDB (`tearleads-mls` database):
 | `keyPackages` | ref | Unused key packages for group invitations |
 | `groupStates` | groupId | Serialized MLS group state and epoch |
 
-### Security Model (Current State)
+### Security Model
 
-- **Protocol shape only** - API and UI flows mirror MLS concepts, but cryptographic operations are placeholder.
-- **Not production-ready crypto** - Current implementation does not provide RFC 9420 guarantees such as forward secrecy or post-compromise security.
-- **Epoch tracking present** - Group operations track epoch values for migration to a production MLS backend.
+- **Rust/WASM-backed primitives** - Core MLS operations are executed in the Rust backend consumed through wasm bindings.
+- **Authenticated sender metadata** - Message decryption resolves sender identity from authenticated MLS metadata, not transport metadata.
+- **Epoch-based state handling** - Group state transitions and snapshot import/export are validated before local materialization.
 
 ## Development
 
