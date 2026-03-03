@@ -13,32 +13,16 @@ import {
   parseRemoveMemberPayload
 } from '../../routes/mls/shared.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
+import {
+  encoded,
+  parseJsonBody,
+  toIsoString,
+  toMlsGroupRole
+} from './mlsDirectCommon.js';
 
 type GroupIdRequest = { groupId: string };
 type AddMemberRequest = { groupId: string; json: string };
 type RemoveMemberRequest = { groupId: string; userId: string; json: string };
-
-function parseJsonBody(json: string): unknown {
-  const normalized = json.trim().length > 0 ? json : '{}';
-
-  try {
-    return JSON.parse(normalized);
-  } catch {
-    throw new ConnectError('Invalid JSON body', Code.InvalidArgument);
-  }
-}
-
-function encoded(value: string): string {
-  return encodeURIComponent(value);
-}
-
-function toIsoString(value: Date | string): string {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-
-  return value;
-}
 
 export async function addGroupMemberDirect(
   request: AddMemberRequest,
@@ -309,7 +293,7 @@ export async function getGroupMembersDirect(
       userId: row.user_id,
       email: row.email,
       leafIndex: row.leaf_index,
-      role: row.role as 'admin' | 'member',
+      role: toMlsGroupRole(row.role),
       joinedAt: toIsoString(row.joined_at),
       joinedAtEpoch: row.joined_at_epoch
     }));

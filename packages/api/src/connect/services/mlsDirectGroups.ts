@@ -15,31 +15,15 @@ import {
   toSafeCipherSuite
 } from '../../routes/mls/shared.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
+import {
+  encoded,
+  parseJsonBody,
+  toIsoString,
+  toMlsGroupRole
+} from './mlsDirectCommon.js';
 
 type GroupIdRequest = { groupId: string };
 type GroupIdJsonRequest = { groupId: string; json: string };
-
-function parseJsonBody(json: string): unknown {
-  const normalized = json.trim().length > 0 ? json : '{}';
-
-  try {
-    return JSON.parse(normalized);
-  } catch {
-    throw new ConnectError('Invalid JSON body', Code.InvalidArgument);
-  }
-}
-
-function encoded(value: string): string {
-  return encodeURIComponent(value);
-}
-
-function toIsoString(value: Date | string): string {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-
-  return value;
-}
 
 export async function createGroupDirect(
   request: { json: string },
@@ -201,7 +185,7 @@ export async function listGroupsDirect(
       createdAt: toIsoString(row.created_at),
       updatedAt: toIsoString(row.updated_at),
       memberCount: parseInt(row.member_count, 10),
-      role: row.role as 'admin' | 'member'
+      role: toMlsGroupRole(row.role)
     }));
 
     const response: MlsGroupsResponse = { groups };
@@ -296,7 +280,7 @@ export async function getGroupDirect(
       userId: memberRow.user_id,
       email: memberRow.email,
       leafIndex: memberRow.leaf_index,
-      role: memberRow.role as 'admin' | 'member',
+      role: toMlsGroupRole(memberRow.role),
       joinedAt: toIsoString(memberRow.joined_at),
       joinedAtEpoch: memberRow.joined_at_epoch
     }));

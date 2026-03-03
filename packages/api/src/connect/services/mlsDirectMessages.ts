@@ -13,6 +13,7 @@ import {
 } from '../../routes/mls/shared.js';
 import { shouldReadEnvelopeBytea } from '../../routes/vfs/crdtEnvelopeReadOptions.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
+import { encoded, parseJsonBody } from './mlsDirectCommon.js';
 import {
   acquireTransactionClient,
   decodeContentTypeFromSourceId,
@@ -25,20 +26,6 @@ import {
 
 type GroupIdJsonRequest = { groupId: string; json: string };
 type GroupMessagesRequest = { groupId: string; cursor: string; limit: number };
-
-function parseJsonBody(json: string): unknown {
-  const normalized = json.trim().length > 0 ? json : '{}';
-
-  try {
-    return JSON.parse(normalized);
-  } catch {
-    throw new ConnectError('Invalid JSON body', Code.InvalidArgument);
-  }
-}
-
-function encoded(value: string): string {
-  return encodeURIComponent(value);
-}
 
 export async function sendGroupMessageDirect(
   request: GroupIdJsonRequest,
@@ -297,7 +284,7 @@ export async function getGroupMessagesDirect(
       const message: MlsMessage = {
         id: row.id,
         groupId: row.group_id,
-        senderUserId: row.sender_user_id,
+        senderUserId: row.sender_user_id ?? '',
         epoch: row.epoch,
         ciphertext: row.ciphertext,
         messageType: 'application',

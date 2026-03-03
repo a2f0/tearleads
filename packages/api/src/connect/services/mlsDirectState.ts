@@ -5,69 +5,17 @@ import type {
   MlsGroupStateResponse,
   UploadMlsStateResponse
 } from '@tearleads/shared';
-import type { QueryResultRow } from 'pg';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import {
   getActiveMlsGroupMembership,
   parseUploadStatePayload
 } from '../../routes/mls/shared.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
+import { encoded, parseJsonBody, toIsoString } from './mlsDirectCommon.js';
+import { acquireTransactionClient } from './mlsDirectMessagesShared.js';
 
 type GroupIdRequest = { groupId: string };
 type GroupIdJsonRequest = { groupId: string; json: string };
-
-interface QueryClient {
-  query: <T extends QueryResultRow = QueryResultRow>(
-    queryText: string,
-    values?: unknown[]
-  ) => Promise<{ rows: T[]; rowCount: number | null }>;
-  release: () => void;
-}
-
-function parseJsonBody(json: string): unknown {
-  const normalized = json.trim().length > 0 ? json : '{}';
-
-  try {
-    return JSON.parse(normalized);
-  } catch {
-    throw new ConnectError('Invalid JSON body', Code.InvalidArgument);
-  }
-}
-
-function encoded(value: string): string {
-  return encodeURIComponent(value);
-}
-
-function toIsoString(value: Date | string): string {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-
-  return value;
-}
-
-async function acquireTransactionClient(
-  pool: Awaited<ReturnType<typeof getPostgresPool>>
-): Promise<QueryClient> {
-  if (typeof pool.connect !== 'function') {
-    return {
-      query: <T extends QueryResultRow = QueryResultRow>(
-        queryText: string,
-        values?: unknown[]
-      ) => pool.query<T>(queryText, values),
-      release: () => {}
-    };
-  }
-
-  const client = await pool.connect();
-  return {
-    query: <T extends QueryResultRow = QueryResultRow>(
-      queryText: string,
-      values?: unknown[]
-    ) => client.query<T>(queryText, values),
-    release: () => client.release()
-  };
-}
 
 export async function uploadGroupStateDirect(
   request: GroupIdJsonRequest,
