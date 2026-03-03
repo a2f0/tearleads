@@ -19,9 +19,13 @@ const {
   requireMlsClaimsMock: vi.fn()
 }));
 
-vi.mock('node:crypto', () => ({
-  randomUUID: (...args: unknown[]) => randomUuidMock(...args)
-}));
+vi.mock('node:crypto', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:crypto')>();
+  return {
+    ...actual,
+    randomUUID: (...args: unknown[]) => randomUuidMock(...args)
+  };
+});
 
 vi.mock('../../lib/postgres.js', () => ({
   getPool: (...args: unknown[]) => getPoolMock(...args),
@@ -57,6 +61,9 @@ function parseJson(json: string): Record<string, unknown> {
   return parsed;
 }
 
+const STATE_BYTES_BASE64 = 'c3RhdGUtYnl0ZXM=';
+const STATE_BYTES_HASH = 'wAEDKaM8s6FdpeNW0sAr8nS7ZQCBwhZ0F3ClXnVBabQ=';
+
 describe('mlsDirectState', () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
@@ -73,8 +80,8 @@ describe('mlsDirectState', () => {
     });
     parseUploadStatePayloadMock.mockReturnValue({
       epoch: 2,
-      encryptedState: 'cipher-state',
-      stateHash: 'hash-1'
+      encryptedState: STATE_BYTES_BASE64,
+      stateHash: STATE_BYTES_HASH
     });
     randomUuidMock.mockReturnValue('state-1');
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -118,8 +125,8 @@ describe('mlsDirectState', () => {
         id: 'state-1',
         groupId: 'group-1',
         epoch: 2,
-        encryptedState: 'cipher-state',
-        stateHash: 'hash-1',
+        encryptedState: STATE_BYTES_BASE64,
+        stateHash: STATE_BYTES_HASH,
         createdAt: '2026-03-03T03:10:00.000Z'
       }
     });
@@ -228,6 +235,36 @@ describe('mlsDirectState', () => {
     ).rejects.toMatchObject({ code: Code.Internal });
   });
 
+  it('rejects upload when encryptedState is not valid base64', async () => {
+    parseUploadStatePayloadMock.mockReturnValueOnce({
+      epoch: 2,
+      encryptedState: 'not valid base64',
+      stateHash: STATE_BYTES_HASH
+    });
+
+    await expect(
+      uploadGroupStateDirect(
+        { groupId: 'group-1', json: '{"epoch":2}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.InvalidArgument });
+  });
+
+  it('rejects upload when stateHash does not match encryptedState bytes', async () => {
+    parseUploadStatePayloadMock.mockReturnValueOnce({
+      epoch: 2,
+      encryptedState: STATE_BYTES_BASE64,
+      stateHash: 'invalid-hash'
+    });
+
+    await expect(
+      uploadGroupStateDirect(
+        { groupId: 'group-1', json: '{"epoch":2}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.InvalidArgument });
+  });
+
   it('returns null state when no snapshot exists', async () => {
     queryMock.mockResolvedValueOnce({ rows: [] });
 
@@ -246,8 +283,8 @@ describe('mlsDirectState', () => {
           id: 'state-2',
           group_id: 'group-1',
           epoch: 2,
-          encrypted_state: 'cipher-state',
-          state_hash: 'hash-1',
+          encrypted_state: STATE_BYTES_BASE64,
+          state_hash: STATE_BYTES_HASH,
           created_at: new Date('2026-03-03T03:12:00.000Z')
         }
       ]
@@ -263,11 +300,33 @@ describe('mlsDirectState', () => {
         id: 'state-2',
         groupId: 'group-1',
         epoch: 2,
-        encryptedState: 'cipher-state',
-        stateHash: 'hash-1',
+        encryptedState: STATE_BYTES_BASE64,
+        stateHash: STATE_BYTES_HASH,
         createdAt: '2026-03-03T03:12:00.000Z'
       }
     });
+  });
+
+  it('rejects getGroupState when stored state hash is invalid', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'state-2',
+          group_id: 'group-1',
+          epoch: 2,
+          encrypted_state: STATE_BYTES_BASE64,
+          state_hash: 'invalid-hash',
+          created_at: new Date('2026-03-03T03:12:00.000Z')
+        }
+      ]
+    });
+
+    await expect(
+      getGroupStateDirect(
+        { groupId: 'group-1' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.Internal });
   });
 
   it('rejects getGroupState for non-members', async () => {

@@ -2,7 +2,7 @@
  * Full page MLS chat component.
  * Combines group list, chat window, and member management.
  */
-import type { FC, ReactElement } from 'react';
+import type { FC } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
@@ -21,6 +21,7 @@ import {
   useMlsRealtime,
   useWelcomeMessages
 } from '../hooks/index.js';
+import { MlsChatCloseIcon } from './MlsChatCloseIcon.js';
 
 interface MlsChatProps {
   className?: string;
@@ -136,7 +137,7 @@ export const MlsChat: FC<MlsChatProps> = ({ className = '' }) => {
           ) : (
             <div>
               <p className="mb-4 text-muted-foreground">
-                Generate your MLS credentials to start chatting securely.
+                Generate your MLS credentials to initialize experimental chat.
               </p>
               <button
                 type="button"
@@ -214,7 +215,7 @@ export const MlsChat: FC<MlsChatProps> = ({ className = '' }) => {
               onClick={() => setShowMembers(false)}
               className="text-muted-foreground hover:text-foreground"
             >
-              <CloseIcon />
+              <MlsChatCloseIcon />
             </button>
           </div>
           <MemberList
@@ -229,23 +230,3 @@ export const MlsChat: FC<MlsChatProps> = ({ className = '' }) => {
     </div>
   );
 };
-
-function CloseIcon(): ReactElement {
-  return (
-    <svg
-      aria-hidden="true"
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
-    </svg>
-  );
-}

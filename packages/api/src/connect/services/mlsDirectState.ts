@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
 import type {
   MlsGroupState,
@@ -17,6 +17,31 @@ import {
 type GroupIdRequest = { groupId: string };
 type GroupIdJsonRequest = { groupId: string; json: string };
 
+function decodeBase64Strict(value: string): Uint8Array | null {
+  const normalized = value.replace(/\s+/g, '');
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  const decoded = Buffer.from(normalized, 'base64');
+  if (decoded.length === 0) {
+    return null;
+  }
+
+  if (
+    decoded.toString('base64').replace(/=+$/u, '') !==
+    normalized.replace(/=+$/u, '')
+  ) {
+    return null;
+  }
+
+  return decoded;
+}
+
+function sha256Base64(data: Uint8Array): string {
+  return createHash('sha256').update(data).digest('base64');
+}
+
 export async function uploadGroupStateDirect(
   request: GroupIdJsonRequest,
   context: { requestHeader: Headers }
@@ -34,6 +59,19 @@ export async function uploadGroupStateDirect(
   const payload = parseUploadStatePayload(parseJsonBody(request.json));
   if (!payload) {
     throw new ConnectError('Invalid state payload', Code.InvalidArgument);
+  }
+
+  const decodedState = decodeBase64Strict(payload.encryptedState);
+  if (!decodedState) {
+    throw new ConnectError(
+      'Invalid encryptedState base64 payload',
+      Code.InvalidArgument
+    );
+  }
+
+  const computedStateHash = sha256Base64(decodedState);
+  if (computedStateHash !== payload.stateHash) {
+    throw new ConnectError('State hash mismatch', Code.InvalidArgument);
   }
 
   try {
@@ -191,6 +229,18 @@ export async function getGroupStateDirect(
     if (!row) {
       const response: MlsGroupStateResponse = { state: null };
       return { json: JSON.stringify(response) };
+    }
+
+    const decodedState = decodeBase64Strict(row.encrypted_state);
+    if (!decodedState) {
+      throw new ConnectError(
+        'Stored MLS state is not valid base64',
+        Code.Internal
+      );
+    }
+    const computedStateHash = sha256Base64(decodedState);
+    if (computedStateHash !== row.state_hash) {
+      throw new ConnectError('Stored MLS state hash mismatch', Code.Internal);
     }
 
     const state: MlsGroupState = {

@@ -31,7 +31,13 @@ function bytesToBase64(data: Uint8Array): string {
 }
 
 function base64ToBytes(base64: string): Uint8Array {
-  return Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+  const normalized = base64.trim();
+  const binary = atob(normalized);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  if (bytesToBase64(bytes) !== normalized) {
+    throw new Error('Invalid base64-encoded MLS group state');
+  }
+  return bytes;
 }
 
 async function sha256Base64(data: Uint8Array): Promise<string> {
@@ -74,6 +80,12 @@ export async function recoverMissingGroupState(input: {
   }
 
   const serializedState = base64ToBytes(payload.state.encryptedState);
+  const expectedStateHash = await sha256Base64(serializedState);
+  if (expectedStateHash !== payload.state.stateHash) {
+    throw new Error(
+      `MLS group state hash mismatch for ${input.groupId}: expected ${payload.state.stateHash}, got ${expectedStateHash}`
+    );
+  }
   await input.client.importGroupState(input.groupId, serializedState);
   return true;
 }

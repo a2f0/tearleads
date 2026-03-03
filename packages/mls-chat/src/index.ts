@@ -1,8 +1,8 @@
 /**
  * @tearleads/mls-chat
  *
- * TypeScript MLS (RFC 9420) encrypted group chat package.
- * Uses ts-mls library with X-Wing hybrid post-quantum ciphersuite.
+ * MLS (RFC 9420) chat UI package backed by @tearleads/mls-core.
+ * NOTE: Cryptography is currently placeholder-only until Rust MLS integration lands.
  */
 
 // Components

@@ -2,6 +2,8 @@
 
 Core MLS (RFC 9420) client and storage primitives used by Tearleads.
 
+> **Implementation Status**: Placeholder protocol surface only. Current implementation is not RFC 9420-compliant and does not provide production-grade MLS cryptography yet.
+
 ## Installation
 
 This package is part of the Tearleads monorepo and is not published independently.
