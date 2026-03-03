@@ -29,7 +29,7 @@ vi.mock('../../lib/vfsBlobStore.js', () => ({
   persistVfsBlobData: (...args: unknown[]) => persistVfsBlobDataMock(...args)
 }));
 
-vi.mock('../../routes/vfs/blobUploadSessions.js', () => ({
+vi.mock('./vfsDirectBlobUploadSessions.js', () => ({
   upsertBlobUploadChunk: (...args: unknown[]) =>
     upsertBlobUploadChunkMock(...args)
 }));

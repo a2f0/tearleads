@@ -42,12 +42,12 @@ vi.mock('../../lib/vfsSyncChannels.js', () => ({
     publishVfsContainerCursorBumpMock(...args)
 }));
 
-vi.mock('../../routes/vfs/crdtEnvelopeReadOptions.js', () => ({
+vi.mock('./vfsDirectCrdtEnvelopeReadOptions.js', () => ({
   shouldReadEnvelopeBytea: (...args: unknown[]) =>
     shouldReadEnvelopeByteaMock(...args)
 }));
 
-vi.mock('../../routes/vfs/crdtPushApply.js', () => ({
+vi.mock('./vfsDirectCrdtPushApply.js', () => ({
   applyCrdtPushOperations: (...args: unknown[]) =>
     applyCrdtPushOperationsMock(...args)
 }));

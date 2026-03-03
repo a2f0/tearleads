@@ -1,7 +1,7 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import type { VfsRekeyRequest, VfsRekeyResponse } from '@tearleads/shared';
 import { getPostgresPool } from '../../lib/postgres.js';
-import { parseRegisterPayload } from '../../routes/vfs/shared.js';
+import { parseRegisterPayload } from './vfsDirectShared.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import { encoded, isRecord, parseJsonBody } from './vfsDirectJson.js';
 

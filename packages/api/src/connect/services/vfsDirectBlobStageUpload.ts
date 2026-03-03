@@ -8,8 +8,8 @@ import {
   parseBlobChunkBody,
   parseBlobStageBody,
   toIsoFromDateOrString
-} from '../../routes/vfs/blob-shared.js';
-import { upsertBlobUploadChunk } from '../../routes/vfs/blobUploadSessions.js';
+} from './vfsDirectBlobShared.js';
+import { upsertBlobUploadChunk } from './vfsDirectBlobUploadSessions.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import { encoded, parseJsonBody } from './vfsDirectJson.js';
 

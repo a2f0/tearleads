@@ -7,7 +7,7 @@ import type {
 } from '@tearleads/shared';
 import { broadcast } from '../../lib/broadcast.js';
 import { getPostgresPool } from '../../lib/postgres.js';
-import { shouldReadEnvelopeBytea } from '../../routes/vfs/crdtEnvelopeReadOptions.js';
+import { shouldReadEnvelopeBytea } from './vfsDirectCrdtEnvelopeReadOptions.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
 import { encoded, parseJsonBody } from './mlsDirectCommon.js';
 import {

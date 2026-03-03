@@ -42,12 +42,12 @@ vi.mock('./mlsDirectShared.js', () => ({
     parseSendMessagePayloadMock(...args)
 }));
 
-vi.mock('../../routes/vfs/crdtEnvelopeReadOptions.js', () => ({
+vi.mock('./vfsDirectCrdtEnvelopeReadOptions.js', () => ({
   shouldReadEnvelopeBytea: (...args: unknown[]) =>
     shouldReadEnvelopeByteaMock(...args)
 }));
 
-vi.mock('../../routes/vfs/crdtEnvelopeStorage.js', () => ({
+vi.mock('./vfsDirectCrdtEnvelopeStorage.js', () => ({
   serializeEnvelopeField: (...args: unknown[]) =>
     serializeEnvelopeFieldMock(...args)
 }));

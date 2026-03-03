@@ -16,16 +16,16 @@ import {
   loadReplicaWriteIdRows
 } from '../../lib/vfsCrdtReplicaWriteIds.js';
 import { publishVfsContainerCursorBump } from '../../lib/vfsSyncChannels.js';
-import { shouldReadEnvelopeBytea } from '../../routes/vfs/crdtEnvelopeReadOptions.js';
-import { applyCrdtPushOperations } from '../../routes/vfs/crdtPushApply.js';
+import { shouldReadEnvelopeBytea } from './vfsDirectCrdtEnvelopeReadOptions.js';
+import { applyCrdtPushOperations } from './vfsDirectCrdtPushApply.js';
 import {
   toIsoString,
   toLastReconciledWriteIds
-} from '../../routes/vfs/crdtRouteHelpers.js';
+} from './vfsDirectCrdtRouteHelpers.js';
 import {
   type ParsedPushOperation,
   parsePushPayload
-} from '../../routes/vfs/post-crdt-push-parse.js';
+} from './vfsDirectCrdtPushParse.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import { isRecord, parseJsonBody } from './vfsDirectJson.js';
 

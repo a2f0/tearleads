@@ -11,7 +11,7 @@ import {
   normalizeRequiredString,
   parseBlobAttachBody,
   toIsoFromDateOrString
-} from '../../routes/vfs/blob-shared.js';
+} from './vfsDirectBlobShared.js';
 import {
   dominatesLastWriteIds,
   parseBlobAttachConsistency,
@@ -19,7 +19,7 @@ import {
   parseBlobLinkRelationKindFromSessionKey,
   toBlobLinkSessionKey,
   toScopedCrdtClientId
-} from '../../routes/vfs/post-blobs-stage-stagingId-attach-helpers.js';
+} from './vfsDirectBlobAttachHelpers.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import type { StagingIdJsonRequest } from './vfsDirectBlobStageUpload.js';
 import { encoded, parseJsonBody } from './vfsDirectJson.js';

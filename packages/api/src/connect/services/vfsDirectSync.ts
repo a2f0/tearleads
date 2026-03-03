@@ -24,11 +24,11 @@ import {
 } from '../../lib/vfsCrdtRedisCache.js';
 import { loadReplicaWriteIdRows } from '../../lib/vfsCrdtReplicaWriteIds.js';
 import { loadVfsCrdtRematerializationSnapshot } from '../../lib/vfsCrdtSnapshots.js';
-import { shouldReadEnvelopeBytea } from '../../routes/vfs/crdtEnvelopeReadOptions.js';
+import { shouldReadEnvelopeBytea } from './vfsDirectCrdtEnvelopeReadOptions.js';
 import {
   toIsoString,
   toLastReconciledWriteIds
-} from '../../routes/vfs/crdtRouteHelpers.js';
+} from './vfsDirectCrdtRouteHelpers.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import { parseJsonBody } from './vfsDirectJson.js';
 

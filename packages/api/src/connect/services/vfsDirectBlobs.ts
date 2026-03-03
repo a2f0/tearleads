@@ -5,7 +5,7 @@ import { deleteVfsBlobData, readVfsBlobData } from '../../lib/vfsBlobStore.js';
 import {
   isPostgresErrorWithCode,
   normalizeRequiredString
-} from '../../routes/vfs/blob-shared.js';
+} from './vfsDirectBlobShared.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import { encoded } from './vfsDirectJson.js';
 

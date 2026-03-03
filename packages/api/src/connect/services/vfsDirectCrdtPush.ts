@@ -4,8 +4,8 @@ import type { PoolClient } from 'pg';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { invalidateReplicaWriteIdRowsForUser } from '../../lib/vfsCrdtReplicaWriteIds.js';
 import { publishVfsContainerCursorBump } from '../../lib/vfsSyncChannels.js';
-import { applyCrdtPushOperations } from '../../routes/vfs/crdtPushApply.js';
-import { parsePushPayload } from '../../routes/vfs/post-crdt-push-parse.js';
+import { applyCrdtPushOperations } from './vfsDirectCrdtPushApply.js';
+import { parsePushPayload } from './vfsDirectCrdtPushParse.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import { parseJsonBody } from './vfsDirectJson.js';
 

@@ -4,7 +4,7 @@ const { serializeEnvelopeFieldMock } = vi.hoisted(() => ({
   serializeEnvelopeFieldMock: vi.fn()
 }));
 
-vi.mock('../../routes/vfs/crdtEnvelopeStorage.js', () => ({
+vi.mock('./vfsDirectCrdtEnvelopeStorage.js', () => ({
   serializeEnvelopeField: (...args: unknown[]) =>
     serializeEnvelopeFieldMock(...args)
 }));

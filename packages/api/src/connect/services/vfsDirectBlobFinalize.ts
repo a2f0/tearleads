@@ -5,12 +5,12 @@ import { persistVfsBlobData } from '../../lib/vfsBlobStore.js';
 import {
   normalizeRequiredString,
   parseBlobCommitBody
-} from '../../routes/vfs/blob-shared.js';
+} from './vfsDirectBlobShared.js';
 import {
   deleteBlobUploadSession,
   deleteBlobUploadSessionsForStaging,
   getBlobUploadChunks
-} from '../../routes/vfs/blobUploadSessions.js';
+} from './vfsDirectBlobUploadSessions.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import type { StagingIdJsonRequest } from './vfsDirectBlobStageUpload.js';
 import { encoded, parseJsonBody } from './vfsDirectJson.js';
