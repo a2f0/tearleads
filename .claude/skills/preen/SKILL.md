@@ -19,7 +19,7 @@ Before running, verify skill parity, command syntax, and registry drift:
 1. Run ecosystem checks:
 
 ```bash
-./scripts/checkPreenEcosystem.sh --summary
+./scripts/checks/preen/checkPreenEcosystem.ts --summary
 ```
 
 1. Ensure top-level preen docs are generated from registry:
@@ -32,7 +32,7 @@ If checks fail, STOP and sync before running preen:
 
 ```bash
 ./scripts/preen/generatePreenDocs.sh
-./scripts/checkPreenEcosystem.sh --strict
+./scripts/checks/preen/checkPreenEcosystem.ts --strict
 ```
 
 ## Preen Skills Registry
@@ -364,14 +364,14 @@ run_discovery() {
         packages . | head -30 || true
       ;;
     preen-msw-parity)
-      ./scripts/preen/checkMswParity.ts
-      ./scripts/preen/checkMswParity.ts --json | head -40
+      ./scripts/checks/checkMswParity.ts
+      ./scripts/checks/checkMswParity.ts --json | head -40
       ;;
     preen-skill-tooling)
-      ./scripts/checkPreenEcosystem.sh --summary
+      ./scripts/checks/preen/checkPreenEcosystem.ts --summary
       ;;
     preen-skill-parity)
-      ./scripts/checkSkillParity.sh --summary
+      ./scripts/checks/skills/checkSkillParity.sh --summary
       ;;
     preen-compliance-docs)
       for fw in HIPAA NIST.SP.800-53 SOC2; do
@@ -482,13 +482,13 @@ metric_count() {
       rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\(|waitForTimeout\(|sleep\(|retry|retries|flaky|TODO.*flaky' packages . | wc -l
       ;;
     preen-msw-parity)
-      ./scripts/preen/checkMswParity.ts --json | jq '.missingRouteCount + .lowConfidenceRouteCount'
+      ./scripts/checks/checkMswParity.ts --json | jq '.missingRouteCount + .lowConfidenceRouteCount'
       ;;
     preen-skill-tooling)
-      ./scripts/checkPreenEcosystem.sh --count-issues
+      ./scripts/checks/preen/checkPreenEcosystem.ts --count-issues
       ;;
     preen-skill-parity)
-      ./scripts/checkSkillParity.sh --count-issues
+      ./scripts/checks/skills/checkSkillParity.sh --count-issues
       ;;
     preen-compliance-docs)
       gaps=0
@@ -883,7 +883,7 @@ Always regenerate from registry after structural changes:
 
 ```bash
 ./scripts/preen/generatePreenDocs.sh
-./scripts/checkPreenEcosystem.sh --strict
+./scripts/checks/preen/checkPreenEcosystem.ts --strict
 ```
 
 ## Guardrails

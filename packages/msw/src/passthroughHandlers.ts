@@ -1,5 +1,9 @@
 import { bypass, HttpResponse, http } from 'msw';
 
+type RequestInitWithDuplex = RequestInit & {
+  duplex?: 'half';
+};
+
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -28,9 +32,8 @@ export function createExpressPassthroughHandlers(
             method: request.method,
             headers: request.headers,
             body: request.body,
-            // @ts-expect-error -- duplex is needed for streaming request bodies
             duplex: 'half'
-          })
+          } satisfies RequestInitWithDuplex)
         )
       );
 
