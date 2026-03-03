@@ -31,6 +31,7 @@ import {
   toLastReconciledWriteIds
 } from './vfsDirectCrdtRouteHelpers.js';
 import { parseJsonBody } from './vfsDirectJson.js';
+import { materializeScaffoldEncryptedNames } from './vfsDirectScaffoldDecrypt.js';
 
 type GetSyncRequest = { cursor: string; limit: number; rootId: string };
 type GetCrdtSnapshotRequest = { clientId: string };
@@ -208,9 +209,10 @@ export async function getSyncDirect(
       rootId: parsedQuery.value.rootId
     });
     const result = await pool.query<VfsSyncDbRow>(query.text, query.values);
+    const rows = await materializeScaffoldEncryptedNames(pool, result.rows);
 
     return {
-      json: JSON.stringify(mapVfsSyncRows(result.rows, parsedQuery.value.limit))
+      json: JSON.stringify(mapVfsSyncRows(rows, parsedQuery.value.limit))
     };
   } catch (error) {
     if (error instanceof ConnectError) {

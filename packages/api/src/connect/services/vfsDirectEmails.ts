@@ -34,6 +34,53 @@ interface SendRequestPayload {
   attachments?: SendAttachmentRequest[];
 }
 
+function decodeBase64Utf8(value: string): string | null {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  const normalized = trimmed.replace(/-/g, '+').replace(/_/g, '/');
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(normalized)) {
+    return null;
+  }
+
+  const missingPadding = normalized.length % 4;
+  const padded =
+    missingPadding === 0
+      ? normalized
+      : `${normalized}${'='.repeat(4 - missingPadding)}`;
+
+  let bytes: Uint8Array | null = null;
+  try {
+    bytes = Uint8Array.from(Buffer.from(padded, 'base64'));
+    if (bytes.length === 0) {
+      return null;
+    }
+    const roundTripBase64 = Buffer.from(bytes).toString('base64');
+    const stripPadding = (input: string) => input.replace(/=+$/g, '');
+    if (stripPadding(roundTripBase64) !== stripPadding(padded)) {
+      return null;
+    }
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return null;
+  } finally {
+    bytes?.fill(0);
+  }
+}
+
+function decodeMaybeBase64Utf8(value: string | null | undefined): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return decodeBase64Utf8(value) ?? value;
+}
+
+function decodeRecipientList(value: unknown): string[] {
+  return toStringArray(value).map((entry) => decodeMaybeBase64Utf8(entry));
+}
+
 function toStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -179,9 +226,9 @@ export async function getEmailsDirect(
 
     const emails: EmailListItem[] = rows.rows.map((row) => ({
       id: row.id,
-      from: row.encrypted_from ?? '',
-      to: toStringArray(row.encrypted_to),
-      subject: row.encrypted_subject ?? '',
+      from: decodeMaybeBase64Utf8(row.encrypted_from),
+      to: decodeRecipientList(row.encrypted_to),
+      subject: decodeMaybeBase64Utf8(row.encrypted_subject),
       receivedAt: row.received_at,
       size: row.ciphertext_size ?? 0
     }));
@@ -248,9 +295,9 @@ export async function getEmailDirect(
     return {
       json: JSON.stringify({
         id: row.id,
-        from: row.encrypted_from ?? '',
-        to: toStringArray(row.encrypted_to),
-        subject: row.encrypted_subject ?? '',
+        from: decodeMaybeBase64Utf8(row.encrypted_from),
+        to: decodeRecipientList(row.encrypted_to),
+        subject: decodeMaybeBase64Utf8(row.encrypted_subject),
         receivedAt: row.received_at,
         size: row.ciphertext_size ?? 0,
         rawData: '',

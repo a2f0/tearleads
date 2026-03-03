@@ -97,9 +97,9 @@ describe('vfsDirectEmails', () => {
         rows: [
           {
             id: 'email-1',
-            encrypted_from: 'from-1',
-            encrypted_to: ['to-1', 123],
-            encrypted_subject: 'subject-1',
+            encrypted_from: 'c3lzdGVtQHRlYXJsZWFkcy5jb20=',
+            encrypted_to: ['Ym9iQHRlc3QubG9jYWw=', 123],
+            encrypted_subject: 'V2VsY29tZSB0byBUZWFybGVhZHM=',
             received_at: '2026-03-03T00:00:00.000Z',
             ciphertext_size: 42
           }
@@ -120,9 +120,9 @@ describe('vfsDirectEmails', () => {
       emails: [
         {
           id: 'email-1',
-          from: 'from-1',
-          to: ['to-1'],
-          subject: 'subject-1',
+          from: 'system@tearleads.com',
+          to: ['bob@test.local'],
+          subject: 'Welcome to Tearleads',
           receivedAt: '2026-03-03T00:00:00.000Z',
           size: 42
         }
