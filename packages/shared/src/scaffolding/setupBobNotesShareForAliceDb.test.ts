@@ -111,7 +111,9 @@ describe('setupBobNotesShareForAliceDb', () => {
     expect(noteInsertCall?.params?.[3]).toBe(
       'wrapped:Note for Alice - From Bob'
     );
-    expect(noteInsertCall?.params?.[4]).toBe('cipher:Note for Alice - From Bob');
+    expect(noteInsertCall?.params?.[4]).toBe(
+      'cipher:Note for Alice - From Bob'
+    );
 
     const noteStateCall = calls.find((call) =>
       call.text.includes('INSERT INTO vfs_item_state')

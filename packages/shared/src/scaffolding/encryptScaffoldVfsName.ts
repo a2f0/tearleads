@@ -26,7 +26,7 @@ export interface EncryptScaffoldVfsNameResult {
 }
 
 function readOptionalPublicEncryptionKey(
-  rows: Array<Record<string, unknown>>,
+  rows: Array<Record<string, unknown>>
 ): string | null {
   const publicEncryptionKey = rows[0]?.['public_encryption_key'];
   if (typeof publicEncryptionKey !== 'string') {

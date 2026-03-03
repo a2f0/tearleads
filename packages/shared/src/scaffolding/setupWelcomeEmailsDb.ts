@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
-  encryptScaffoldVfsName,
-  type EncryptScaffoldVfsNameResult
+  type EncryptScaffoldVfsNameResult,
+  encryptScaffoldVfsName
 } from './encryptScaffoldVfsName.js';
 import type { DbQueryClient } from './setupBobNotesShareForAliceDb.js';
 import { hasVfsRegistryOrganizationId } from './vfsRegistrySchema.js';
