@@ -12,6 +12,15 @@ import {
   listGroupsDirect
 } from './adminDirectGroups.js';
 import {
+  createOrganizationDirect,
+  deleteOrganizationDirect,
+  getOrganizationDirect,
+  getOrganizationGroupsDirect,
+  getOrganizationUsersDirect,
+  listOrganizationsDirect,
+  updateOrganizationDirect
+} from './adminDirectOrganizations.js';
+import {
   getColumnsDirect,
   getPostgresInfoDirect,
   getRowsDirect,
@@ -24,11 +33,10 @@ import {
   getRedisValueDirect
 } from './adminDirectRedis.js';
 import {
-  callRouteJsonHandler,
-  encoded,
-  setOptionalStringQueryParam,
-  toJsonBody
-} from './legacyRouteProxy.js';
+  getUserDirect,
+  listUsersDirect,
+  updateUserDirect
+} from './adminDirectUsers.js';
 
 type GetColumnsRequest = { schema: string; table: string };
 type GetRowsRequest = {
@@ -43,8 +51,8 @@ type GetRedisKeysRequest = { cursor: string; limit: number };
 type KeyRequest = { key: string };
 type IdRequest = { id: string };
 type IdJsonRequest = { id: string; json: string };
-type ListOrganizationsRequest = { organizationId: string };
-type ListUsersRequest = { organizationId: string };
+type OrganizationListRequest = { organizationId: string };
+type UserListRequest = { organizationId: string };
 
 export const adminConnectService = {
   getContext: (request: object, context: { requestHeader: Headers }) =>
@@ -77,128 +85,32 @@ export const adminConnectService = {
   getGroupMembers: getGroupMembersDirect,
   addGroupMember: addGroupMemberDirect,
   removeGroupMember: removeGroupMemberDirect,
-  listOrganizations: async (
-    request: ListOrganizationsRequest,
+  listOrganizations: (
+    request: OrganizationListRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const query = new URLSearchParams();
-    setOptionalStringQueryParam(
-      query,
-      'organizationId',
-      request.organizationId
-    );
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: '/admin/organizations',
-      query
-    });
-    return { json };
-  },
-  getOrganization: async (
-    request: IdRequest,
-    context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: `/admin/organizations/${encoded(request.id)}`
-    });
-    return { json };
-  },
-  createOrganization: async (
+  ) => listOrganizationsDirect(request, context),
+  getOrganization: (request: IdRequest, context: { requestHeader: Headers }) =>
+    getOrganizationDirect(request, context),
+  createOrganization: (
     request: { json: string },
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: '/admin/organizations',
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
-  updateOrganization: async (
+  ) => createOrganizationDirect(request, context),
+  updateOrganization: (
     request: IdJsonRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'PUT',
-      path: `/admin/organizations/${encoded(request.id)}`,
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
-  deleteOrganization: async (
-    request: IdRequest,
-    context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'DELETE',
-      path: `/admin/organizations/${encoded(request.id)}`
-    });
-    return { json };
-  },
-  getOrgUsers: async (
-    request: IdRequest,
-    context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: `/admin/organizations/${encoded(request.id)}/users`
-    });
-    return { json };
-  },
-  getOrgGroups: async (
-    request: IdRequest,
-    context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: `/admin/organizations/${encoded(request.id)}/groups`
-    });
-    return { json };
-  },
-  listUsers: async (
-    request: ListUsersRequest,
-    context: { requestHeader: Headers }
-  ) => {
-    const query = new URLSearchParams();
-    setOptionalStringQueryParam(
-      query,
-      'organizationId',
-      request.organizationId
-    );
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: '/admin/users',
-      query
-    });
-    return { json };
-  },
-  getUser: async (request: IdRequest, context: { requestHeader: Headers }) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: `/admin/users/${encoded(request.id)}`
-    });
-    return { json };
-  },
-  updateUser: async (
+  ) => updateOrganizationDirect(request, context),
+  deleteOrganization: (request: IdRequest, context: { requestHeader: Headers }) =>
+    deleteOrganizationDirect(request, context),
+  getOrgUsers: (request: IdRequest, context: { requestHeader: Headers }) =>
+    getOrganizationUsersDirect(request, context),
+  getOrgGroups: (request: IdRequest, context: { requestHeader: Headers }) =>
+    getOrganizationGroupsDirect(request, context),
+  listUsers: (request: UserListRequest, context: { requestHeader: Headers }) =>
+    listUsersDirect(request, context),
+  getUser: (request: IdRequest, context: { requestHeader: Headers }) =>
+    getUserDirect(request, context),
+  updateUser: (
     request: IdJsonRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'PATCH',
-      path: `/admin/users/${encoded(request.id)}`,
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  }
+  ) => updateUserDirect(request, context)
 };
