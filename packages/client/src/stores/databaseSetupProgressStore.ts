@@ -54,5 +54,4 @@ class DatabaseSetupProgressStore {
   }
 }
 
-export type { SetupStep };
 export const databaseSetupProgressStore = new DatabaseSetupProgressStore();
