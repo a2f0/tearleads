@@ -21,10 +21,10 @@ export function createExpressPassthroughHandlers(
       if (pathPrefix && !pathname.startsWith(pathPrefix)) {
         pathname = pathPrefix + pathname;
       }
-      const target = new URL(
-        pathname + original.search,
-        `http://localhost:${String(targetPort)}`
-      );
+      const normalizedPathname = `/${pathname.replace(/^\/+/, '')}`;
+      const target = new URL(`http://localhost:${String(targetPort)}`);
+      target.pathname = normalizedPathname;
+      target.search = original.search;
 
       const proxiedRequestInit: RequestInitWithDuplex = {
         method: request.method,
