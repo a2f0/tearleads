@@ -376,10 +376,50 @@ test_inner_tmux_cmd_returns_empty_when_disabled() {
     assert_eq "" "$cmd"
 }
 
+test_irc_window_gets_inner_tmux() {
+    TMUX_IRC_CALLS="$TEMP_DIR/tmux.irc.calls"
+    export TMUX_IRC_CALLS
+    cat <<'EOF' > "$TEMP_DIR/bin/tmux"
+#!/bin/sh
+if [ "$1" = "has-session" ]; then
+    exit 1
+fi
+echo "$@" >> "$TMUX_IRC_CALLS"
+exit 0
+EOF
+    chmod +x "$TEMP_DIR/bin/tmux"
+
+    PATH="$TEMP_DIR/bin:$PATH_BACKUP"
+    USE_INNER_TMUX=true
+    CONFIG_DIR="/tmp/tux/config"
+    BASE_DIR="$TEMP_DIR/tmux-irc-base"
+    WORKSPACE_PREFIX="tearleads"
+    WORKSPACE_START=2
+    SHARED_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-shared"
+    MAIN_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-main"
+    DASHBOARD_DIR="$BASE_DIR/${WORKSPACE_PREFIX}"
+    NUM_WORKSPACES=2
+    SESSION_NAME="tuxedo"
+    TMUX_CONF="/tmp/tmux.conf"
+    EDITOR="true"
+    sync_all_titles() {
+        echo "sync-all" >> "$TMUX_IRC_CALLS"
+    }
+    tuxedo_attach_or_create
+    tmux_irc_calls=$(cat "$TMUX_IRC_CALLS")
+    # IRC window should get inner tmux with TUXEDO_INNER_CONF
+    assert_contains "$tmux_irc_calls" "new-window -t tuxedo: -c $HOME -n irc -e TUXEDO_INNER_CONF="
+    # IRC window inner tmux should use tux-irc session name
+    assert_contains "$tmux_irc_calls" "new-session -A -s tux-irc"
+
+    PATH="$PATH_BACKUP"
+}
+
 test_inner_tmux_setup_editor_skips_when_disabled
 test_inner_tmux_cmd_returns_command_when_enabled
 test_inner_tmux_cmd_returns_empty_when_disabled
 test_inner_tmux_cmd_with_workdir_passes_env
 test_workspace_path_includes_scripts_dirs
+test_irc_window_gets_inner_tmux
 
 echo "OK"
