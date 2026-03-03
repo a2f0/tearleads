@@ -1,13 +1,19 @@
 import { Code } from '@connectrpc/connect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getPoolMock, queryMock, requireScopedAdminAccessMock } = vi.hoisted(
-  () => ({
-    getPoolMock: vi.fn(),
-    queryMock: vi.fn(),
-    requireScopedAdminAccessMock: vi.fn()
-  })
-);
+const {
+  connectMock,
+  getPoolMock,
+  queryMock,
+  releaseMock,
+  requireScopedAdminAccessMock
+} = vi.hoisted(() => ({
+  connectMock: vi.fn(),
+  getPoolMock: vi.fn(),
+  queryMock: vi.fn(),
+  releaseMock: vi.fn(),
+  requireScopedAdminAccessMock: vi.fn()
+}));
 
 vi.mock('../../lib/postgres.js', () => ({
   getPool: (...args: unknown[]) => getPoolMock(...args)
@@ -49,12 +55,19 @@ function parseJson(json: string): Record<string, unknown> {
 describe('adminDirectGroupMutations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    connectMock.mockReset();
     queryMock.mockReset();
     getPoolMock.mockReset();
+    releaseMock.mockReset();
     requireScopedAdminAccessMock.mockReset();
 
+    connectMock.mockResolvedValue({
+      query: queryMock,
+      release: releaseMock
+    });
     getPoolMock.mockResolvedValue({
-      query: queryMock
+      query: queryMock,
+      connect: connectMock
     });
     requireScopedAdminAccessMock.mockResolvedValue({
       sub: 'admin-1',
@@ -287,6 +300,15 @@ describe('adminDirectGroupMutations', () => {
       })
       .mockResolvedValueOnce({
         rowCount: 1
+      })
+      .mockResolvedValueOnce({
+        rowCount: 1
+      })
+      .mockResolvedValueOnce({
+        rowCount: 1
+      })
+      .mockResolvedValueOnce({
+        rowCount: 1
       });
 
     const response = await addGroupMemberDirect(
@@ -339,9 +361,15 @@ describe('adminDirectGroupMutations', () => {
       .mockResolvedValueOnce({
         rowCount: 1
       })
+      .mockResolvedValueOnce({
+        rowCount: 1
+      })
       .mockRejectedValueOnce(
         new Error('duplicate key value violates unique constraint')
-      );
+      )
+      .mockResolvedValueOnce({
+        rowCount: 1
+      });
 
     await expect(
       addGroupMemberDirect(

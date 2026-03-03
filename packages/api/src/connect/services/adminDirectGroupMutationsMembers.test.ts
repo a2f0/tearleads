@@ -1,13 +1,19 @@
 import { Code } from '@connectrpc/connect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getPoolMock, queryMock, requireScopedAdminAccessMock } = vi.hoisted(
-  () => ({
-    getPoolMock: vi.fn(),
-    queryMock: vi.fn(),
-    requireScopedAdminAccessMock: vi.fn()
-  })
-);
+const {
+  connectMock,
+  getPoolMock,
+  queryMock,
+  releaseMock,
+  requireScopedAdminAccessMock
+} = vi.hoisted(() => ({
+  connectMock: vi.fn(),
+  getPoolMock: vi.fn(),
+  queryMock: vi.fn(),
+  releaseMock: vi.fn(),
+  requireScopedAdminAccessMock: vi.fn()
+}));
 
 vi.mock('../../lib/postgres.js', () => ({
   getPool: (...args: unknown[]) => getPoolMock(...args)
@@ -34,12 +40,19 @@ let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 describe('adminDirectGroupMutations member errors', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    connectMock.mockReset();
     queryMock.mockReset();
     getPoolMock.mockReset();
+    releaseMock.mockReset();
     requireScopedAdminAccessMock.mockReset();
 
+    connectMock.mockResolvedValue({
+      query: queryMock,
+      release: releaseMock
+    });
     getPoolMock.mockResolvedValue({
-      query: queryMock
+      query: queryMock,
+      connect: connectMock
     });
     requireScopedAdminAccessMock.mockResolvedValue({
       sub: 'admin-1',
@@ -140,7 +153,16 @@ describe('adminDirectGroupMutations member errors', () => {
       .mockResolvedValueOnce({
         rowCount: 1
       })
-      .mockRejectedValueOnce('boom');
+      .mockResolvedValueOnce({
+        rowCount: 1
+      })
+      .mockResolvedValueOnce({
+        rowCount: 1
+      })
+      .mockRejectedValueOnce('boom')
+      .mockResolvedValueOnce({
+        rowCount: 1
+      });
 
     await expect(
       addGroupMemberDirect(
@@ -168,7 +190,16 @@ describe('adminDirectGroupMutations member errors', () => {
       .mockResolvedValueOnce({
         rowCount: 1
       })
-      .mockRejectedValueOnce(new Error('database error'));
+      .mockResolvedValueOnce({
+        rowCount: 1
+      })
+      .mockResolvedValueOnce({
+        rowCount: 1
+      })
+      .mockRejectedValueOnce(new Error('database error'))
+      .mockResolvedValueOnce({
+        rowCount: 1
+      });
 
     await expect(
       addGroupMemberDirect(

@@ -129,10 +129,7 @@ export async function createGroupDirect(
     if (isDuplicateConstraintError(error)) {
       throw new ConnectError('Group name already exists', Code.AlreadyExists);
     }
-    throw new ConnectError(
-      error instanceof Error ? error.message : 'Failed to create group',
-      Code.Internal
-    );
+    throw new ConnectError('Failed to create group', Code.Internal);
   }
 }
 
@@ -230,10 +227,7 @@ export async function updateGroupDirect(
     if (isDuplicateConstraintError(error)) {
       throw new ConnectError('Group name already exists', Code.AlreadyExists);
     }
-    throw new ConnectError(
-      error instanceof Error ? error.message : 'Failed to update group',
-      Code.Internal
-    );
+    throw new ConnectError('Failed to update group', Code.Internal);
   }
 }
 
@@ -269,10 +263,7 @@ export async function deleteGroupDirect(
       throw error;
     }
     console.error('Groups error:', error);
-    throw new ConnectError(
-      error instanceof Error ? error.message : 'Failed to delete group',
-      Code.Internal
-    );
+    throw new ConnectError('Failed to delete group', Code.Internal);
   }
 }
 
@@ -309,17 +300,31 @@ export async function addGroupMemberDirect(
     }
 
     const now = new Date();
-    await pool.query(
-      `INSERT INTO user_organizations (user_id, organization_id, joined_at)
-         VALUES ($1, $2, $3)
-         ON CONFLICT DO NOTHING`,
-      [userId, organizationId, now]
-    );
-    await pool.query(
-      `INSERT INTO user_groups (user_id, group_id, joined_at)
-         VALUES ($1, $2, $3)`,
-      [userId, request.id, now]
-    );
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `INSERT INTO user_organizations (user_id, organization_id, joined_at)
+           VALUES ($1, $2, $3)
+           ON CONFLICT DO NOTHING`,
+        [userId, organizationId, now]
+      );
+      await client.query(
+        `INSERT INTO user_groups (user_id, group_id, joined_at)
+           VALUES ($1, $2, $3)`,
+        [userId, request.id, now]
+      );
+      await client.query('COMMIT');
+    } catch (error) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('Groups rollback error:', rollbackError);
+      }
+      throw error;
+    } finally {
+      client.release();
+    }
 
     return {
       json: JSON.stringify({ added: true })
@@ -335,10 +340,7 @@ export async function addGroupMemberDirect(
         Code.AlreadyExists
       );
     }
-    throw new ConnectError(
-      error instanceof Error ? error.message : 'Failed to add member',
-      Code.Internal
-    );
+    throw new ConnectError('Failed to add member', Code.Internal);
   }
 }
 
@@ -375,9 +377,6 @@ export async function removeGroupMemberDirect(
       throw error;
     }
     console.error('Groups error:', error);
-    throw new ConnectError(
-      error instanceof Error ? error.message : 'Failed to remove member',
-      Code.Internal
-    );
+    throw new ConnectError('Failed to remove member', Code.Internal);
   }
 }
