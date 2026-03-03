@@ -125,7 +125,9 @@ describe('api request context headers', () => {
   });
 
   it('rejects VFS write requests without declared organization header', async () => {
-    const { request, resetApiRequestHeadersProvider } = await import('./apiCore');
+    const { request, resetApiRequestHeadersProvider } = await import(
+      './apiCore'
+    );
     resetApiRequestHeadersProvider();
 
     await expect(
@@ -156,7 +158,9 @@ describe('api request context headers', () => {
       }
     );
 
-    const { request, resetApiRequestHeadersProvider } = await import('./apiCore');
+    const { request, resetApiRequestHeadersProvider } = await import(
+      './apiCore'
+    );
     resetApiRequestHeadersProvider();
 
     await expect(

@@ -349,5 +349,4 @@ describe('api edge cases requiring direct fetch mocking', () => {
       expect(localStorage.getItem('auth_refresh_token')).toBe(validToken);
     });
   });
-
 });
