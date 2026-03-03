@@ -95,6 +95,7 @@ describe('mlsDirectShared', () => {
       })
     ).toEqual({ name: 'Next', description: 'updated' });
 
+    expect(parseUpdateGroupPayload({ name: '   ' })).toBeNull();
     expect(parseUpdateGroupPayload({})).toBeNull();
   });
 
