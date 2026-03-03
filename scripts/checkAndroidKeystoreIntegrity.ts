@@ -11,7 +11,7 @@ interface IntegrityOptions {
   source: SourceType;
   filePath?: string;
   base64EnvName?: string;
-  keyAlias?: string;
+  keyAlias: string;
   keyAliasEnvName?: string;
   storePassEnvName: string;
   keyPassEnvName: string;
@@ -150,16 +150,25 @@ function parseArgs(argv: string[]): IntegrityOptions {
     throw new Error('--base64-env is required when --source env is used.');
   }
 
-  return {
+  const options: IntegrityOptions = {
     source,
-    filePath,
-    base64EnvName,
     keyAlias,
-    keyAliasEnvName,
     storePassEnvName,
     keyPassEnvName,
     context
   };
+
+  if (filePath !== undefined) {
+    options.filePath = filePath;
+  }
+  if (base64EnvName !== undefined) {
+    options.base64EnvName = base64EnvName;
+  }
+  if (keyAliasEnvName !== undefined) {
+    options.keyAliasEnvName = keyAliasEnvName;
+  }
+
+  return options;
 }
 
 function requireNonEmptyEnv(
@@ -194,7 +203,7 @@ function resolveKeyAlias(options: IntegrityOptions): string {
     ).trim();
   }
 
-  return options.keyAlias ?? 'tearleads';
+  return options.keyAlias;
 }
 
 function runFileValidation(

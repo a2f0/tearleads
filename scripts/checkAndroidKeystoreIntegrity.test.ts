@@ -20,6 +20,14 @@ function runIntegrityCheck(
   });
 }
 
+function stdoutText(result: ReturnType<typeof spawnSync>): string {
+  return typeof result.stdout === 'string' ? result.stdout : '';
+}
+
+function stderrText(result: ReturnType<typeof spawnSync>): string {
+  return typeof result.stderr === 'string' ? result.stderr : '';
+}
+
 function createFakeKeytool(tempDir: string): string {
   const fakeBinDir = path.join(tempDir, 'bin');
   fs.mkdirSync(fakeBinDir);
@@ -48,7 +56,7 @@ test('fails when source argument is missing', () => {
   const result = runIntegrityCheck([], {});
 
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /--source is required\./);
+  assert.match(stderrText(result), /--source is required\./);
 });
 
 test('fails with dependabot hint when base64 env is empty', () => {
@@ -71,8 +79,8 @@ test('fails with dependabot hint when base64 env is empty', () => {
   );
 
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /Dependabot-triggered workflow/);
-  assert.match(result.stderr, /TEST_KEYSTORE is empty/);
+  assert.match(stderrText(result), /Dependabot-triggered workflow/);
+  assert.match(stderrText(result), /TEST_KEYSTORE is empty/);
 });
 
 test('fails when a flag value is omitted', () => {
@@ -93,7 +101,7 @@ test('fails when a flag value is omitted', () => {
   );
 
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /Missing value for --base64-env/);
+  assert.match(stderrText(result), /Missing value for --base64-env/);
 });
 
 test('env validation trims alias from env and validates successfully', (t) => {
@@ -134,12 +142,18 @@ test('env validation trims alias from env and validates successfully', (t) => {
     }
   );
 
-  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-  assert.match(result.stdout, /alias 'custom-alias'/);
+  assert.equal(
+    result.status,
+    0,
+    `${stdoutText(result)}\n${stderrText(result)}`
+  );
+  assert.match(stdoutText(result), /alias 'custom-alias'/);
 
   const invocations = fs.readFileSync(logPath, 'utf8').trim().split('\n');
   assert.equal(invocations.length, 1);
-  assert.match(invocations[0], /-alias custom-alias/);
+  const firstInvocation = invocations[0];
+  assert.ok(firstInvocation);
+  assert.match(firstInvocation, /-alias custom-alias/);
 });
 
 test('invalid base64 fails before keytool invocation', (t) => {
@@ -174,7 +188,7 @@ test('invalid base64 fails before keytool invocation', (t) => {
   );
 
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /invalid base64 payload/);
+  assert.match(stderrText(result), /invalid base64 payload/);
   assert.equal(fs.existsSync(logPath), false);
 });
 
@@ -213,7 +227,11 @@ test('file validation performs base64 round-trip validation', (t) => {
     }
   );
 
-  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  assert.equal(
+    result.status,
+    0,
+    `${stdoutText(result)}\n${stderrText(result)}`
+  );
   const invocations = fs.readFileSync(logPath, 'utf8').trim().split('\n');
   assert.equal(invocations.length, 2);
 });
