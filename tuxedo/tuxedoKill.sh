@@ -75,7 +75,9 @@ if [ "$INSIDE_TUXEDO" = true ]; then
     # Write a temporary kill script so the background process's command line
     # does not contain the nvim pattern (pkill -f would otherwise match and
     # kill the background process itself).
-    KILL_SCRIPT=$(mktemp /tmp/tuxedo-kill-XXXXXX.sh)
+    KILL_SCRIPT=$(mktemp /tmp/tuxedo-kill-XXXXXX)
+    mv "$KILL_SCRIPT" "${KILL_SCRIPT}.sh"
+    KILL_SCRIPT="${KILL_SCRIPT}.sh"
     cat > "$KILL_SCRIPT" <<KILLEOF
 #!/bin/sh
 sleep 0.3
