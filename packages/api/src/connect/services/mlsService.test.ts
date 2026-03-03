@@ -1,7 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { callRouteJsonHandlerMock } = vi.hoisted(() => ({
-  callRouteJsonHandlerMock: vi.fn<(options: unknown) => Promise<string>>()
+const {
+  acknowledgeWelcomeDirectMock,
+  callRouteJsonHandlerMock,
+  deleteKeyPackageDirectMock,
+  getMyKeyPackagesDirectMock,
+  getUserKeyPackagesDirectMock,
+  getWelcomeMessagesDirectMock,
+  uploadKeyPackagesDirectMock
+} = vi.hoisted(() => ({
+  acknowledgeWelcomeDirectMock: vi.fn(),
+  callRouteJsonHandlerMock: vi.fn<(options: unknown) => Promise<string>>(),
+  deleteKeyPackageDirectMock: vi.fn(),
+  getMyKeyPackagesDirectMock: vi.fn(),
+  getUserKeyPackagesDirectMock: vi.fn(),
+  getWelcomeMessagesDirectMock: vi.fn(),
+  uploadKeyPackagesDirectMock: vi.fn()
 }));
 
 vi.mock('./legacyRouteProxy.js', async () => {
@@ -14,6 +28,24 @@ vi.mock('./legacyRouteProxy.js', async () => {
     callRouteJsonHandler: callRouteJsonHandlerMock
   };
 });
+
+vi.mock('./mlsDirectKeyPackages.js', () => ({
+  uploadKeyPackagesDirect: (...args: unknown[]) =>
+    uploadKeyPackagesDirectMock(...args),
+  getMyKeyPackagesDirect: (...args: unknown[]) =>
+    getMyKeyPackagesDirectMock(...args),
+  getUserKeyPackagesDirect: (...args: unknown[]) =>
+    getUserKeyPackagesDirectMock(...args),
+  deleteKeyPackageDirect: (...args: unknown[]) =>
+    deleteKeyPackageDirectMock(...args)
+}));
+
+vi.mock('./mlsDirectWelcomeMessages.js', () => ({
+  getWelcomeMessagesDirect: (...args: unknown[]) =>
+    getWelcomeMessagesDirectMock(...args),
+  acknowledgeWelcomeDirect: (...args: unknown[]) =>
+    acknowledgeWelcomeDirectMock(...args)
+}));
 
 import { mlsConnectService } from './mlsService.js';
 
@@ -75,52 +107,80 @@ function expectLastJsonCall(
 describe('mlsConnectService', () => {
   beforeEach(() => {
     callRouteJsonHandlerMock.mockReset();
+    uploadKeyPackagesDirectMock.mockReset();
+    getMyKeyPackagesDirectMock.mockReset();
+    getUserKeyPackagesDirectMock.mockReset();
+    deleteKeyPackageDirectMock.mockReset();
+    getWelcomeMessagesDirectMock.mockReset();
+    acknowledgeWelcomeDirectMock.mockReset();
+
     callRouteJsonHandlerMock.mockResolvedValue('{"ok":true}');
+    uploadKeyPackagesDirectMock.mockResolvedValue({ json: '{"direct":true}' });
+    getMyKeyPackagesDirectMock.mockResolvedValue({ json: '{"direct":true}' });
+    getUserKeyPackagesDirectMock.mockResolvedValue({ json: '{"direct":true}' });
+    deleteKeyPackageDirectMock.mockResolvedValue({ json: '{"direct":true}' });
+    getWelcomeMessagesDirectMock.mockResolvedValue({ json: '{"direct":true}' });
+    acknowledgeWelcomeDirectMock.mockResolvedValue({ json: '{"direct":true}' });
   });
 
-  it('routes mls handlers to the expected route handlers', async () => {
+  it('delegates key package and welcome methods to direct modules', async () => {
+    const context = createContext();
+
+    await expect(
+      mlsConnectService.uploadKeyPackages(
+        { json: '{"keyPackages":[]}' },
+        context
+      )
+    ).resolves.toEqual({ json: '{"direct":true}' });
+    expect(uploadKeyPackagesDirectMock).toHaveBeenCalledWith(
+      { json: '{"keyPackages":[]}' },
+      context
+    );
+
+    await expect(
+      mlsConnectService.getMyKeyPackages({}, context)
+    ).resolves.toEqual({ json: '{"direct":true}' });
+    expect(getMyKeyPackagesDirectMock).toHaveBeenCalledWith({}, context);
+
+    await expect(
+      mlsConnectService.getUserKeyPackages({ userId: 'user-1' }, context)
+    ).resolves.toEqual({ json: '{"direct":true}' });
+    expect(getUserKeyPackagesDirectMock).toHaveBeenCalledWith(
+      { userId: 'user-1' },
+      context
+    );
+
+    await expect(
+      mlsConnectService.deleteKeyPackage({ id: 'pkg-1' }, context)
+    ).resolves.toEqual({ json: '{"direct":true}' });
+    expect(deleteKeyPackageDirectMock).toHaveBeenCalledWith(
+      { id: 'pkg-1' },
+      context
+    );
+
+    await expect(
+      mlsConnectService.getWelcomeMessages({}, context)
+    ).resolves.toEqual({ json: '{"direct":true}' });
+    expect(getWelcomeMessagesDirectMock).toHaveBeenCalledWith({}, context);
+
+    await expect(
+      mlsConnectService.acknowledgeWelcome(
+        { id: 'welcome-1', json: '{"groupId":"g"}' },
+        context
+      )
+    ).resolves.toEqual({ json: '{"direct":true}' });
+    expect(acknowledgeWelcomeDirectMock).toHaveBeenCalledWith(
+      { id: 'welcome-1', json: '{"groupId":"g"}' },
+      context
+    );
+
+    expect(callRouteJsonHandlerMock).not.toHaveBeenCalled();
+  });
+
+  it('routes remaining mls methods to legacy route handlers', async () => {
     const context = createContext();
 
     const cases: JsonCallCase[] = [
-      {
-        call: () =>
-          mlsConnectService.uploadKeyPackages(
-            {
-              json: '{"keyPackages":[]}'
-            },
-            context
-          ),
-        method: 'POST',
-        path: '/mls/key-packages',
-        jsonBody: '{"keyPackages":[]}'
-      },
-      {
-        call: () => mlsConnectService.getMyKeyPackages({}, context),
-        method: 'GET',
-        path: '/mls/key-packages/me'
-      },
-      {
-        call: () =>
-          mlsConnectService.getUserKeyPackages(
-            {
-              userId: 'user-1'
-            },
-            context
-          ),
-        method: 'GET',
-        path: '/mls/key-packages/user-1'
-      },
-      {
-        call: () =>
-          mlsConnectService.deleteKeyPackage(
-            {
-              id: 'pkg-1'
-            },
-            context
-          ),
-        method: 'DELETE',
-        path: '/mls/key-packages/pkg-1'
-      },
       {
         call: () =>
           mlsConnectService.createGroup(
@@ -261,24 +321,6 @@ describe('mlsConnectService', () => {
         method: 'POST',
         path: '/mls/groups/group-10/state',
         jsonBody: '{"epoch":3}'
-      },
-      {
-        call: () => mlsConnectService.getWelcomeMessages({}, context),
-        method: 'GET',
-        path: '/mls/welcome-messages'
-      },
-      {
-        call: () =>
-          mlsConnectService.acknowledgeWelcome(
-            {
-              id: 'welcome-1',
-              json: '{"groupId":"g"}'
-            },
-            context
-          ),
-        method: 'POST',
-        path: '/mls/welcome-messages/welcome-1/ack',
-        jsonBody: '{"groupId":"g"}'
       }
     ];
 

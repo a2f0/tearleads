@@ -5,6 +5,16 @@ import {
   setOptionalStringQueryParam,
   toJsonBody
 } from './legacyRouteProxy.js';
+import {
+  deleteKeyPackageDirect,
+  getMyKeyPackagesDirect,
+  getUserKeyPackagesDirect,
+  uploadKeyPackagesDirect
+} from './mlsDirectKeyPackages.js';
+import {
+  acknowledgeWelcomeDirect,
+  getWelcomeMessagesDirect
+} from './mlsDirectWelcomeMessages.js';
 
 type UserIdRequest = { userId: string };
 type MlsIdRequest = { id: string };
@@ -26,48 +36,19 @@ export const mlsConnectService = {
   uploadKeyPackages: async (
     request: { json: string },
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: '/mls/key-packages',
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
+  ) => uploadKeyPackagesDirect(request, context),
   getMyKeyPackages: async (
     _request: object,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: '/mls/key-packages/me'
-    });
-    return { json };
-  },
+  ) => getMyKeyPackagesDirect({}, context),
   getUserKeyPackages: async (
     request: UserIdRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: `/mls/key-packages/${encoded(request.userId)}`
-    });
-    return { json };
-  },
+  ) => getUserKeyPackagesDirect(request, context),
   deleteKeyPackage: async (
     request: MlsIdRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'DELETE',
-      path: `/mls/key-packages/${encoded(request.id)}`
-    });
-    return { json };
-  },
+  ) => deleteKeyPackageDirect(request, context),
   createGroup: async (
     request: { json: string },
     context: { requestHeader: Headers }
@@ -210,24 +191,9 @@ export const mlsConnectService = {
   getWelcomeMessages: async (
     _request: object,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: '/mls/welcome-messages'
-    });
-    return { json };
-  },
+  ) => getWelcomeMessagesDirect({}, context),
   acknowledgeWelcome: async (
     request: AcknowledgeWelcomeRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: `/mls/welcome-messages/${encoded(request.id)}/ack`,
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  }
+  ) => acknowledgeWelcomeDirect(request, context)
 };
