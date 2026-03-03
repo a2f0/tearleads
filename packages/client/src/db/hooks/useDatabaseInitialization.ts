@@ -1,6 +1,7 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { emitInstanceChange } from '@/hooks/app';
 import { toError } from '@/lib/errors';
+import { databaseSetupProgressStore } from '@/stores/databaseSetupProgressStore';
 import { logStore } from '@/stores/logStore';
 import { notificationStore } from '@/stores/notificationStore';
 import { validateAndPruneOrphanedInstances } from '../crypto/keyManager';
@@ -61,10 +62,14 @@ export async function initializeAndRestoreDatabaseState({
   setIsSetUp,
   markSessionActive
 }: InitializeDatabaseStateOptions): Promise<void> {
+  databaseSetupProgressStore.start();
+
   try {
+    databaseSetupProgressStore.update('Preparing instance registry...', 10);
     let activeInstance = await initializeRegistry();
     let allInstances = await getInstances();
 
+    databaseSetupProgressStore.update('Validating database instances...', 25);
     const cleanupResult = await validateAndPruneOrphanedInstances(
       allInstances.map((i) => i.id),
       deleteInstanceFromRegistry
@@ -105,6 +110,7 @@ export async function initializeAndRestoreDatabaseState({
     setCurrentInstanceName(activeInstance.name);
     emitInstanceChange(activeInstance.id);
 
+    databaseSetupProgressStore.update('Checking database state...', 40);
     const [setup, persisted] = await Promise.all([
       isDatabaseSetUp(activeInstance.id),
       hasPersistedSession(activeInstance.id)
@@ -113,8 +119,10 @@ export async function initializeAndRestoreDatabaseState({
     setHasPersisted(persisted);
 
     if (persisted) {
+      databaseSetupProgressStore.update('Restoring database session...', 55);
       const database = await restoreDatabaseSession(activeInstance.id);
       if (database) {
+        databaseSetupProgressStore.update('Ready', 100);
         setDb(database);
         markSessionActive();
         await touchInstance(activeInstance.id);
@@ -131,7 +139,9 @@ export async function initializeAndRestoreDatabaseState({
         hasShownRecoveryNotification
       );
     } else {
+      databaseSetupProgressStore.update('Loading database engine...', 55);
       const database = await autoInitializeDatabase(activeInstance.id);
+      databaseSetupProgressStore.update('Ready', 100);
       setDb(database);
       setIsSetUp(true);
       setHasPersisted(true);
@@ -143,6 +153,7 @@ export async function initializeAndRestoreDatabaseState({
   } catch (err) {
     setError(toError(err));
   } finally {
+    databaseSetupProgressStore.finish();
     setIsLoading(false);
   }
 }

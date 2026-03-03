@@ -1,6 +1,7 @@
 import type { Database } from '@tearleads/db/sqlite';
 import { schema } from '@tearleads/db/sqlite';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
+import { databaseSetupProgressStore } from '@/stores/databaseSetupProgressStore';
 import type { PlatformInfo } from './adapters';
 import { createAdapter, getPlatformInfo } from './adapters';
 import { logEvent } from './analytics';
@@ -276,6 +277,8 @@ async function initializeDatabaseWithKey(
 ): Promise<Database> {
   const platformInfo = getCurrentPlatform();
 
+  databaseSetupProgressStore.update('Opening encrypted database...', 70);
+
   // Reuse existing adapter if available (keeps worker/WASM memory alive on web)
   const adapter = _getAdapterInstance() ?? (await createAdapter(platformInfo));
 
@@ -294,6 +297,8 @@ async function initializeDatabaseWithKey(
   const connection = adapter.getConnection();
   const db = drizzle(connection, { schema });
   _setDatabaseInstance(db);
+
+  databaseSetupProgressStore.update('Running database migrations...', 85);
 
   // Run migrations
   await runMigrations(adapter);
