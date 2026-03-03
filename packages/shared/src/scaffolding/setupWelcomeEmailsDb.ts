@@ -111,7 +111,7 @@ async function insertEmailForUser(
      )
      VALUES ($1, $2, $3, $4, $5::timestamptz)
      ON CONFLICT (parent_id, child_id) DO NOTHING`,
-    [randomUUID(), inboxFolderId, emailItemId, 'scaffolding-link-wrap', nowIso]
+    [idFactory(), inboxFolderId, emailItemId, 'scaffolding-link-wrap', nowIso]
   );
 
   await client.query(
