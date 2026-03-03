@@ -22,3 +22,4 @@ export KUBECONFIG="$KUBECONFIG_FILE"
 
 kubectl -n "$NAMESPACE" exec deploy/api -c api -- node apiCli.cjs migrate
 kubectl -n "$NAMESPACE" exec deploy/api -c api -- node apiCli.cjs setup-bob-notes-share
+kubectl -n "$NAMESPACE" exec deploy/api -c api -- node apiCli.cjs make-admin --email bob@tearleads.com

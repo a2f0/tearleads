@@ -57,6 +57,12 @@ async function createTestUser(
         `Existing user ${email} is missing personal_organization_id`
       );
     }
+    if (user.admin) {
+      await client.query('UPDATE users SET admin = TRUE WHERE id = $1', [
+        existingRows[0].id
+      ]);
+      console.log(`Ensured ${user.name} (${email}) has admin privileges.`);
+    }
     console.log(`Skipping ${user.name} (${email}) — account already exists.`);
     return {
       userId: existingRows[0].id,
@@ -68,7 +74,7 @@ async function createTestUser(
   const result = await seedHarnessAccount(client, {
     email,
     password,
-    admin: false,
+    admin: user.admin ?? false,
     emailConfirmed: false,
     includeVfsOnboardingKeys: true
   });
