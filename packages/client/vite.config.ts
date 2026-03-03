@@ -57,6 +57,10 @@ export default defineConfig(({ mode }) => ({
   },
   assetsInclude: ['**/*.wasm'],
   build: {
+    // Known optional/lazy chunks (markdown editor + syntax/highlight graph libs)
+    // legitimately exceed Vite's default 500 kB warning threshold.
+    // Keep a higher threshold so warnings signal real regressions.
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
         manualChunks: {
