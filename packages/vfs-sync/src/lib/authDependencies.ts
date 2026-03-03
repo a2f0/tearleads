@@ -18,7 +18,7 @@ export interface AuthState {
 
 export interface LoginFormProps {
   title: string;
-  description: string;
+  description?: string;
   borderless?: boolean | undefined;
   switchModeCta?:
     | {
