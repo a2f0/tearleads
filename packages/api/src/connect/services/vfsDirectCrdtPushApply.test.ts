@@ -9,14 +9,11 @@ function createOperation(
 ): VfsCrdtPushOperation {
   return {
     opId: 'op-1',
-    opType: 'acl_add',
+    opType: 'item_delete',
     itemId: 'item-1',
     replicaId: 'desktop',
     writeId: 1,
     occurredAt: '2026-02-16T00:00:00.000Z',
-    principalType: 'group',
-    principalId: 'group-1',
-    accessLevel: 'read',
     ...overrides
   };
 }
