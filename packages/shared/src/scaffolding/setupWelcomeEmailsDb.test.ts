@@ -43,7 +43,8 @@ describe('setupWelcomeEmailsDb', () => {
       now: () => new Date('2026-03-01T00:00:00.000Z')
     });
 
-    // idFactory calls: id-1 (bob email item), id-2 (bob acl), id-3 (alice email item), id-4 (alice acl)
+    // idFactory calls: id-1 (bob email), id-2 (bob link), id-3 (bob acl),
+    //                  id-4 (alice email), id-5 (alice link), id-6 (alice acl)
     expect(result).toEqual({
       bob: {
         userId: 'bob-user-id',
@@ -53,7 +54,7 @@ describe('setupWelcomeEmailsDb', () => {
       alice: {
         userId: 'alice-user-id',
         inboxFolderId: 'email-inbox:alice-user-id',
-        emailItemId: 'email:id-3'
+        emailItemId: 'email:id-4'
       }
     });
 
@@ -81,7 +82,7 @@ describe('setupWelcomeEmailsDb', () => {
     expect(emailRegistryInserts).toHaveLength(2);
     expect(emailRegistryInserts[0]?.params?.[0]).toBe('email:id-1');
     expect(emailRegistryInserts[0]?.params?.[1]).toBe('bob-user-id');
-    expect(emailRegistryInserts[1]?.params?.[0]).toBe('email:id-3');
+    expect(emailRegistryInserts[1]?.params?.[0]).toBe('email:id-4');
     expect(emailRegistryInserts[1]?.params?.[1]).toBe('alice-user-id');
 
     const emailInserts = calls.filter((call) =>
@@ -110,7 +111,7 @@ describe('setupWelcomeEmailsDb', () => {
     expect(linkInserts[0]?.params?.[1]).toBe('email-inbox:bob-user-id');
     expect(linkInserts[0]?.params?.[2]).toBe('email:id-1');
     expect(linkInserts[1]?.params?.[1]).toBe('email-inbox:alice-user-id');
-    expect(linkInserts[1]?.params?.[2]).toBe('email:id-3');
+    expect(linkInserts[1]?.params?.[2]).toBe('email:id-4');
 
     const aclInserts = calls.filter((call) =>
       call.text.includes('INSERT INTO vfs_acl_entries')
@@ -118,7 +119,7 @@ describe('setupWelcomeEmailsDb', () => {
     expect(aclInserts).toHaveLength(2);
     expect(aclInserts[0]?.params?.[1]).toBe('email:id-1');
     expect(aclInserts[0]?.params?.[2]).toBe('bob-user-id');
-    expect(aclInserts[1]?.params?.[1]).toBe('email:id-3');
+    expect(aclInserts[1]?.params?.[1]).toBe('email:id-4');
     expect(aclInserts[1]?.params?.[2]).toBe('alice-user-id');
   });
 
