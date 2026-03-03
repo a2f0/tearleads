@@ -72,60 +72,25 @@ describe('legacyRouteProxyRouting module initialization', () => {
   it('handles mixed router stacks and unsupported route metadata', async () => {
     vi.resetModules();
 
-    vi.doMock('../../routes/admin/context.js', () => ({
-      adminContextRouter: null
-    }));
-    vi.doMock('../../routes/admin/groups.js', () => ({
-      groupsRouter: { stack: 'not-an-array' }
-    }));
-
     const mixedRouter = createMixedRouter();
-    vi.doMock('../../routes/admin/organizations.js', () => ({
-      organizationsRouter: mixedRouter
-    }));
-
-    const emptyRouter = { stack: [] };
-    vi.doMock('../../routes/admin/postgres.js', () => ({
-      postgresRouter: emptyRouter
-    }));
-    vi.doMock('../../routes/admin/redis.js', () => ({
-      redisRouter: emptyRouter
-    }));
-    vi.doMock('../../routes/admin/users.js', () => ({
-      usersRouter: emptyRouter
-    }));
-    vi.doMock('../../routes/mls/router.js', () => ({
-      mlsRouter: emptyRouter
-    }));
     vi.doMock('../../routes/vfs/router.js', () => ({
-      vfsRouter: emptyRouter
-    }));
-    vi.doMock('../../routes/vfs-shares/router.js', () => ({
-      vfsSharesRouter: emptyRouter
+      vfsRouter: mixedRouter
     }));
 
     const routing = await import('./legacyRouteProxyRouting.js');
 
-    expect(
-      routing.findRoute('GET', '/admin/organizations/relative')
-    ).not.toBeNull();
-    expect(
-      routing.findRoute('POST', '/admin/organizations/relative')
-    ).not.toBeNull();
-    expect(routing.findRoute('GET', '/admin/organizations')).not.toBeNull();
+    expect(routing.findRoute('GET', '/vfs/relative')).not.toBeNull();
+    expect(routing.findRoute('POST', '/vfs/relative')).not.toBeNull();
+    expect(routing.findRoute('GET', '/vfs')).not.toBeNull();
 
-    const decoded = routing.findRoute('GET', '/admin/organizations/a%2Fb');
+    const decoded = routing.findRoute('GET', '/vfs/a%2Fb');
     expect(decoded).not.toBeNull();
     if (!decoded) {
       throw new Error('Expected dynamic route match');
     }
     expect(decoded.params).toEqual({ id: 'a/b' });
 
-    expect(
-      routing.findRoute('GET', '/admin/organizations/%E0%A4%A')
-    ).toBeNull();
-    expect(
-      routing.findRoute('GET', '/admin/organizations/bad-param/value')
-    ).toBeNull();
+    expect(routing.findRoute('GET', '/vfs/%E0%A4%A')).toBeNull();
+    expect(routing.findRoute('GET', '/vfs/bad-param/value')).toBeNull();
   });
 });

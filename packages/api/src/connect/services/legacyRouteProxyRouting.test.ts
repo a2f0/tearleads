@@ -8,13 +8,13 @@ import {
 
 describe('legacyRouteProxyRouting', () => {
   it('finds routes and decodes path params', () => {
-    const userRouteMatch = findRoute('GET', '/admin/users/user%2F1');
-    expect(userRouteMatch).not.toBeNull();
-    if (!userRouteMatch) {
-      throw new Error('Expected admin users route to match');
+    const blobRouteMatch = findRoute('GET', '/vfs/blobs/blob%2F1');
+    expect(blobRouteMatch).not.toBeNull();
+    if (!blobRouteMatch) {
+      throw new Error('Expected vfs blob route to match');
     }
 
-    expect(userRouteMatch.params).toEqual({ id: 'user/1' });
+    expect(blobRouteMatch.params).toEqual({ blobId: 'blob/1' });
 
     const registerRouteMatch = findRoute('POST', '/vfs/register');
     expect(registerRouteMatch).not.toBeNull();
@@ -24,10 +24,10 @@ describe('legacyRouteProxyRouting', () => {
   });
 
   it('returns null for method/path combinations that do not match', () => {
-    expect(findRoute('POST', '/admin/users/user-1')).toBeNull();
+    expect(findRoute('POST', '/vfs/blobs/blob-1')).toBeNull();
     expect(findRoute('GET', '/no/such/route')).toBeNull();
-    expect(findRoute('GET', '/admin/groups//members')).toBeNull();
-    expect(findRoute('GET', '/admin/users/%E0%A4%A')).toBeNull();
+    expect(findRoute('GET', '/vfs/blobs//chunks')).toBeNull();
+    expect(findRoute('GET', '/vfs/blobs/%E0%A4%A')).toBeNull();
   });
 
   it('builds request query objects with repeated keys', () => {
