@@ -17,6 +17,7 @@ tuxedo_init() {
     SESSION_NAME="tuxedo"
     OPEN_PRS_WINDOW_NAME="${TUXEDO_OPEN_PRS_WINDOW_NAME:-open-prs}"
     CLOSED_PRS_WINDOW_NAME="${TUXEDO_CLOSED_PRS_WINDOW_NAME:-closed-prs}"
+    IRC_WINDOW_NAME="${TUXEDO_IRC_WINDOW_NAME:-irc}"
     SHARED_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-shared"
     MAIN_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-main"
     # Directory for PR dashboards (uses main workspace as canonical repo)
@@ -241,6 +242,9 @@ tuxedo_attach_or_create() {
     dashboard_path=$(workspace_path "$DASHBOARD_DIR")
     tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$DASHBOARD_DIR" -n "$OPEN_PRS_WINDOW_NAME" -e "PATH=$dashboard_path" -e "TUXEDO_WORKSPACE=$DASHBOARD_DIR"
     tmux new-window -t "$SESSION_NAME:" -c "$DASHBOARD_DIR" -n "$CLOSED_PRS_WINDOW_NAME" -e "PATH=$dashboard_path" -e "TUXEDO_WORKSPACE=$DASHBOARD_DIR"
+
+    # IRC tab (plain terminal, between PRs and workspace tabs)
+    tmux new-window -t "$SESSION_NAME:" -c "$HOME" -n "$IRC_WINDOW_NAME"
 
     # Collect inner tmux session names for editor setup later
     inner_sessions_for_editor=""
