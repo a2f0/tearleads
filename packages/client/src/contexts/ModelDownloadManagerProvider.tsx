@@ -161,8 +161,8 @@ export function ModelDownloadManagerProvider({
         : typeof error === 'string'
           ? error
           : 'Model download failed';
-    const rejectionError = new Error(message);
     for (const waiter of waiters) {
+      const rejectionError = new Error(message, { cause: error });
       waiter.reject(rejectionError);
     }
   }, []);
