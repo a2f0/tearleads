@@ -1,3 +1,4 @@
+// one-component-per-file: allow -- window keeps small inline JSX control fragments local for navigation state.
 import { AdminWindowMenuBar } from '@admin/components/admin-window/AdminWindowMenuBar';
 import { GroupDetailPage } from '@admin/pages/admin/GroupDetailPage';
 import { GroupsAdmin } from '@admin/pages/admin/GroupsAdmin';

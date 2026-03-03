@@ -1,3 +1,4 @@
+// one-component-per-file: allow -- wrapper keeps inline lock/login fallback JSX selection local.
 import type { WindowDimensions } from '@tearleads/window-manager';
 import { useMemo } from 'react';
 import { AdminGroupsWindow as AdminGroupsWindowBase } from '@/components/admin-windows';

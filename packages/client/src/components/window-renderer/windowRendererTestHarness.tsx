@@ -1,3 +1,4 @@
+// one-component-per-file: allow -- test harness intentionally defines local JSX helpers/mocks in one file.
 import { render } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';

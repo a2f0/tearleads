@@ -1,3 +1,4 @@
+// one-component-per-file: allow -- window keeps small inline JSX control fragments local for navigation state.
 import { PostgresTableRowsView } from '@admin/components/admin-postgres/PostgresTableRowsView';
 import { AdminWindowMenuBar } from '@admin/components/admin-window/AdminWindowMenuBar';
 import { PostgresAdmin } from '@admin/pages/admin/PostgresAdmin';
