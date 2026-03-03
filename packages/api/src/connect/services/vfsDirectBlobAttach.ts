@@ -142,8 +142,6 @@ export async function attachBlobDirect(
     }
 
     if (stagedRow.organization_id !== claims.organizationId) {
-      await client.query('ROLLBACK');
-      inTransaction = false;
       throw new ConnectError('Forbidden', Code.PermissionDenied);
     }
 
