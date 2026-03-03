@@ -213,7 +213,10 @@ class MlsClientImpl {
     };
   }
 
-  async removeMember(groupId: string, leafIndex: number): Promise<CommitResult> {
+  async removeMember(
+    groupId: string,
+    leafIndex: number
+  ): Promise<CommitResult> {
     this.assertBackendReady();
     const groupState = this.requireGroupState(groupId);
 
@@ -231,7 +234,10 @@ class MlsClientImpl {
     this.assertBackendReady();
     const groupState = this.requireGroupState(groupId);
 
-    const updatedState = await wasmProcessCommit(groupState.serialized, commitBytes);
+    const updatedState = await wasmProcessCommit(
+      groupState.serialized,
+      commitBytes
+    );
     await this.installSerializedGroupState(groupId, updatedState, true);
   }
 
@@ -302,7 +308,9 @@ class MlsClientImpl {
 
   private requireCredential(): MlsCredential {
     if (!this.credential) {
-      throw new Error('No credential available. Call generateCredential first.');
+      throw new Error(
+        'No credential available. Call generateCredential first.'
+      );
     }
     return this.credential;
   }

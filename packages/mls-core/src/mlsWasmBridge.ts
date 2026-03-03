@@ -214,7 +214,11 @@ export async function wasmCreateGroup(
   credentialPrivateKey: Uint8Array
 ): Promise<Uint8Array> {
   const bindings = await loadMlsWasmPrimitiveBindings();
-  return bindings.mls_create_group(groupId, credentialBundle, credentialPrivateKey);
+  return bindings.mls_create_group(
+    groupId,
+    credentialBundle,
+    credentialPrivateKey
+  );
 }
 
 export async function wasmJoinGroup(
@@ -258,7 +262,9 @@ export async function wasmRemoveMember(
   leafIndex: number
 ): Promise<RemoveMemberResult> {
   const bindings = await loadMlsWasmPrimitiveBindings();
-  return parseRemoveMemberResult(bindings.mls_remove_member(stateBytes, leafIndex));
+  return parseRemoveMemberResult(
+    bindings.mls_remove_member(stateBytes, leafIndex)
+  );
 }
 
 export async function wasmProcessCommit(
@@ -282,7 +288,9 @@ export async function wasmDecryptMessage(
   ciphertext: Uint8Array
 ): Promise<DecryptResult> {
   const bindings = await loadMlsWasmPrimitiveBindings();
-  return parseDecryptResult(bindings.mls_decrypt_message(stateBytes, ciphertext));
+  return parseDecryptResult(
+    bindings.mls_decrypt_message(stateBytes, ciphertext)
+  );
 }
 
 export async function wasmExportGroupState(
@@ -297,7 +305,9 @@ export async function wasmImportGroupState(
   stateBytes: Uint8Array
 ): Promise<ImportStateResult> {
   const bindings = await loadMlsWasmPrimitiveBindings();
-  return parseImportStateResult(bindings.mls_import_group_state(groupId, stateBytes));
+  return parseImportStateResult(
+    bindings.mls_import_group_state(groupId, stateBytes)
+  );
 }
 
 export function membersToLeafIndexMap(
