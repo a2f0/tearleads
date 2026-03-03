@@ -46,7 +46,7 @@ collect_files() {
 has_rust_changes() {
   local path
   for path in "$@"; do
-    if [[ "$path" == Cargo.toml || "$path" == Cargo.lock || "$path" == rust-toolchain.toml || "$path" == .cargo/* || "$path" == crates/* ]]; then
+    if [[ "$path" == Cargo.toml || "$path" == Cargo.lock || "$path" == rust-toolchain.toml || "$path" == clippy.toml || "$path" == rustfmt.toml || "$path" == deny.toml || "$path" == .cargo/* || "$path" == crates/* ]]; then
       return 0
     fi
   done
@@ -75,8 +75,22 @@ if ! cargo llvm-cov --version >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! cargo deny --version >/dev/null 2>&1; then
+  echo "Error: cargo-deny is required for supply-chain security checks." >&2
+  echo "Install it with: cargo install cargo-deny" >&2
+  exit 1
+fi
+
+if ! cargo machete --version >/dev/null 2>&1; then
+  echo "Error: cargo-machete is required for unused dependency detection." >&2
+  echo "Install it with: cargo install cargo-machete" >&2
+  exit 1
+fi
+
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo deny check
+cargo machete
 cargo test --workspace --all-targets --all-features
 cargo llvm-cov --package tearleads-api-v2 --lib --tests --ignore-filename-regex 'main\.rs$' --fail-under-lines 100 --summary-only
 cargo llvm-cov --package tearleads-api-v2-ping-wasm --lib --tests --fail-under-lines 100 --summary-only

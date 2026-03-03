@@ -1,0 +1,7 @@
+# rustfmt configuration (stable options only)
+# https://rust-lang.github.io/rustfmt/
+
+edition = "2024"
+tab_spaces = 4
+max_width = 100
+use_field_init_shorthand = true
