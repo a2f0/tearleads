@@ -1,5 +1,15 @@
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
+import { REVENUECAT_SIGNATURE_HEADER } from './lib/revenuecat.js';
+
+const { handleRevenueCatWebhookMock } = vi.hoisted(() => ({
+  handleRevenueCatWebhookMock: vi.fn()
+}));
+
+vi.mock('./lib/revenuecatWebhook.js', () => ({
+  handleRevenueCatWebhook: handleRevenueCatWebhookMock
+}));
+
 import { app } from './index.js';
 
 describe('API', () => {
@@ -25,6 +35,34 @@ describe('API', () => {
 
       expect(response.status).toBe(404);
       expect(response.body).toEqual({ error: 'Not found' });
+    });
+  });
+
+  describe('POST /v1/revenuecat/webhooks', () => {
+    it('uses raw body webhook handler', async () => {
+      handleRevenueCatWebhookMock.mockResolvedValueOnce({
+        status: 200,
+        payload: { ok: true }
+      });
+
+      const webhookBody = '{"event":"test"}';
+      const response = await request(app)
+        .post('/v1/revenuecat/webhooks')
+        .set('Content-Type', 'application/json')
+        .set(REVENUECAT_SIGNATURE_HEADER, 'rc-signature')
+        .send(webhookBody);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ ok: true });
+      expect(handleRevenueCatWebhookMock).toHaveBeenCalledTimes(1);
+
+      const firstCall = handleRevenueCatWebhookMock.mock.calls[0];
+      expect(firstCall).toBeDefined();
+      const payloadArg = firstCall?.[0];
+      expect(payloadArg).toBeDefined();
+      expect(payloadArg?.signature).toBe('rc-signature');
+      expect(Buffer.isBuffer(payloadArg?.rawBody)).toBe(true);
+      expect(payloadArg?.rawBody.toString()).toBe(webhookBody);
     });
   });
 

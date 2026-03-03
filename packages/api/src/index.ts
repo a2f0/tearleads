@@ -7,10 +7,10 @@ import express, { type Express, type Request, type Response } from 'express';
 import morgan from 'morgan';
 import { authInterceptor } from './connect/interceptors/authInterceptor.js';
 import { registerConnectRoutes } from './connect/router.js';
+import { postRevenuecatWebhooks } from './http/revenuecatWebhookRoute.js';
 import { closePostgresPool } from './lib/postgres.js';
 import { closeRedisSubscriberClient } from './lib/redisPubSub.js';
 import { connectRouteRateLimitMiddleware } from './middleware/connectRouteRateLimit.js';
-import { revenuecatRouter } from './routes/revenuecat/router.js';
 
 dotenv.config({ quiet: true });
 
@@ -29,13 +29,13 @@ app.use(
 const jsonBodyLimit = process.env['API_JSON_BODY_LIMIT'] ?? '10mb';
 
 // RevenueCat webhook route needs raw body for signature verification.
-app.use(
-  '/v1/revenuecat',
+app.post(
+  '/v1/revenuecat/webhooks',
   express.raw({
     type: 'application/json',
     limit: jsonBodyLimit
   }),
-  revenuecatRouter
+  postRevenuecatWebhooks
 );
 
 app.use('/v1/connect', connectRouteRateLimitMiddleware);
