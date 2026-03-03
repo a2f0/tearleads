@@ -51,7 +51,7 @@ interface ApplyCrdtPushOperationsResult {
 }
 
 export async function applyCrdtPushOperations(input: {
-  client: PoolClient;
+  client: Pick<PoolClient, 'query'>;
   userId: string;
   parsedOperations: ParsedPushOperation[];
 }): Promise<ApplyCrdtPushOperationsResult> {
