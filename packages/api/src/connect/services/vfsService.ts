@@ -1,10 +1,19 @@
 import {
   callRouteJsonHandler,
-  encoded,
   setOptionalPositiveIntQueryParam,
   setOptionalStringQueryParam,
   toJsonBody
 } from './legacyRouteProxy.js';
+import { attachBlobDirect } from './vfsDirectBlobAttach.js';
+import {
+  abandonBlobDirect,
+  commitBlobDirect
+} from './vfsDirectBlobFinalize.js';
+import {
+  type StagingIdJsonRequest,
+  stageBlobDirect,
+  uploadBlobChunkDirect
+} from './vfsDirectBlobStageUpload.js';
 import { deleteBlobDirect, getBlobDirect } from './vfsDirectBlobs.js';
 import {
   deleteEmailDirect,
@@ -21,7 +30,6 @@ import {
 } from './vfsDirectSync.js';
 
 type BlobIdRequest = { blobId: string };
-type StagingIdJsonRequest = { stagingId: string; json: string };
 type ItemIdJsonRequest = { itemId: string; json: string };
 type GetSyncRequest = { cursor: string; limit: number; rootId: string };
 type GetCrdtSnapshotRequest = { clientId: string };
@@ -34,10 +42,6 @@ function queryFromGetSyncRequest(request: GetSyncRequest): URLSearchParams {
   setOptionalPositiveIntQueryParam(params, 'limit', request.limit);
   setOptionalStringQueryParam(params, 'rootId', request.rootId);
   return params;
-}
-
-function stagingPathSuffix(request: StagingIdJsonRequest): string {
-  return `/vfs/blobs/stage/${encoded(request.stagingId)}`;
 }
 
 export const vfsConnectService = {
@@ -62,63 +66,23 @@ export const vfsConnectService = {
   stageBlob: async (
     request: { json: string },
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: '/vfs/blobs/stage',
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
+  ) => stageBlobDirect(request, context),
   uploadBlobChunk: async (
     request: StagingIdJsonRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: `${stagingPathSuffix(request)}/chunks`,
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
+  ) => uploadBlobChunkDirect(request, context),
   attachBlob: async (
     request: StagingIdJsonRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: `${stagingPathSuffix(request)}/attach`,
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
+  ) => attachBlobDirect(request, context),
   abandonBlob: async (
     request: StagingIdJsonRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: `${stagingPathSuffix(request)}/abandon`,
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
+  ) => abandonBlobDirect(request, context),
   commitBlob: async (
     request: StagingIdJsonRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: `${stagingPathSuffix(request)}/commit`,
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
+  ) => commitBlobDirect(request, context),
   rekeyItem: async (
     request: ItemIdJsonRequest,
     context: { requestHeader: Headers }
