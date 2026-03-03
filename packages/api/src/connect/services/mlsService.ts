@@ -1,16 +1,29 @@
 import {
-  callRouteJsonHandler,
-  encoded,
-  setOptionalPositiveIntQueryParam,
-  setOptionalStringQueryParam,
-  toJsonBody
-} from './legacyRouteProxy.js';
+  createGroupDirect,
+  deleteGroupDirect,
+  getGroupDirect,
+  listGroupsDirect,
+  updateGroupDirect
+} from './mlsDirectGroups.js';
+import {
+  addGroupMemberDirect,
+  getGroupMembersDirect,
+  removeGroupMemberDirect
+} from './mlsDirectGroupMembers.js';
 import {
   deleteKeyPackageDirect,
   getMyKeyPackagesDirect,
   getUserKeyPackagesDirect,
   uploadKeyPackagesDirect
 } from './mlsDirectKeyPackages.js';
+import {
+  getGroupMessagesDirect,
+  sendGroupMessageDirect
+} from './mlsDirectMessages.js';
+import {
+  getGroupStateDirect,
+  uploadGroupStateDirect
+} from './mlsDirectState.js';
 import {
   acknowledgeWelcomeDirect,
   getWelcomeMessagesDirect
@@ -52,142 +65,49 @@ export const mlsConnectService = {
   createGroup: async (
     request: { json: string },
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: '/mls/groups',
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
-  listGroups: async (_request: object, context: { requestHeader: Headers }) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: '/mls/groups'
-    });
-    return { json };
-  },
+  ) => createGroupDirect(request, context),
+  listGroups: async (_request: object, context: { requestHeader: Headers }) =>
+    listGroupsDirect({}, context),
   getGroup: async (
     request: GroupIdRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: `/mls/groups/${encoded(request.groupId)}`
-    });
-    return { json };
-  },
+  ) => getGroupDirect(request, context),
   updateGroup: async (
     request: GroupIdJsonRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'PATCH',
-      path: `/mls/groups/${encoded(request.groupId)}`,
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
+  ) => updateGroupDirect(request, context),
   deleteGroup: async (
     request: GroupIdRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'DELETE',
-      path: `/mls/groups/${encoded(request.groupId)}`
-    });
-    return { json };
-  },
+  ) => deleteGroupDirect(request, context),
   addGroupMember: async (
     request: GroupIdJsonRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: `/mls/groups/${encoded(request.groupId)}/members`,
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
+  ) => addGroupMemberDirect(request, context),
   getGroupMembers: async (
     request: GroupIdRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: `/mls/groups/${encoded(request.groupId)}/members`
-    });
-    return { json };
-  },
+  ) => getGroupMembersDirect(request, context),
   removeGroupMember: async (
     request: MlsRemoveGroupMemberRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'DELETE',
-      path: `/mls/groups/${encoded(request.groupId)}/members/${encoded(request.userId)}`,
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
+  ) => removeGroupMemberDirect(request, context),
   sendGroupMessage: async (
     request: GroupIdJsonRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: `/vfs/mls/groups/${encoded(request.groupId)}/messages`,
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
+  ) => sendGroupMessageDirect(request, context),
   getGroupMessages: async (
     request: GetGroupMessagesRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const query = new URLSearchParams();
-    setOptionalStringQueryParam(query, 'cursor', request.cursor);
-    setOptionalPositiveIntQueryParam(query, 'limit', request.limit);
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: `/vfs/mls/groups/${encoded(request.groupId)}/messages`,
-      query
-    });
-    return { json };
-  },
+  ) => getGroupMessagesDirect(request, context),
   getGroupState: async (
     request: GroupIdRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: `/mls/groups/${encoded(request.groupId)}/state`
-    });
-    return { json };
-  },
+  ) => getGroupStateDirect(request, context),
   uploadGroupState: async (
     request: GroupIdJsonRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: `/mls/groups/${encoded(request.groupId)}/state`,
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
+  ) => uploadGroupStateDirect(request, context),
   getWelcomeMessages: async (
     _request: object,
     context: { requestHeader: Headers }
