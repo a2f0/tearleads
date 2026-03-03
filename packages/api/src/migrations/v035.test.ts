@@ -1,20 +1,26 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { createMockPool, migrations } from './index-test-support.js';
 import type { Migration } from './types.js';
 
 describe('v035 migration', () => {
-  it('drops all legacy standalone content tables', async () => {
-    const pool = createMockPool(new Map());
+  let pool: ReturnType<typeof createMockPool>;
+  const v035 = migrations.find(
+    (migration: Migration) => migration.version === 35
+  );
 
-    const v035 = migrations.find(
-      (migration: Migration) => migration.version === 35
-    );
+  beforeEach(async () => {
     if (!v035) {
       throw new Error('v035 migration not found');
     }
-
+    pool = createMockPool(new Map());
     await v035.up(pool);
+  });
 
+  it('finds the v035 migration', () => {
+    expect(v035).toBeDefined();
+  });
+
+  it('drops all legacy standalone content tables', () => {
     const queries = pool.queries.join('\n');
 
     expect(queries).toContain('DROP TABLE IF EXISTS "contact_phones"');
@@ -27,18 +33,7 @@ describe('v035 migration', () => {
     expect(queries).toContain('DROP TABLE IF EXISTS "user_settings"');
   });
 
-  it('drops child tables before parent tables', async () => {
-    const pool = createMockPool(new Map());
-
-    const v035 = migrations.find(
-      (migration: Migration) => migration.version === 35
-    );
-    if (!v035) {
-      throw new Error('v035 migration not found');
-    }
-
-    await v035.up(pool);
-
+  it('drops child tables before parent tables', () => {
     const phonesIdx = pool.queries.findIndex((q) =>
       q.includes('"contact_phones"')
     );
