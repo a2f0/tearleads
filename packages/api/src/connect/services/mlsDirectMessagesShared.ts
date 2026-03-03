@@ -1,5 +1,4 @@
 import type { QueryResultRow } from 'pg';
-import type { getPostgresPool } from '../../lib/postgres.js';
 import { serializeEnvelopeField } from '../../routes/vfs/crdtEnvelopeStorage.js';
 
 export interface VfsMirrorInput {
@@ -19,6 +18,20 @@ export interface QueryClient {
     values?: unknown[]
   ) => Promise<{ rows: T[]; rowCount: number | null }>;
   release: () => void;
+}
+
+interface TransactionPool {
+  query: <T extends QueryResultRow = QueryResultRow>(
+    queryText: string,
+    values?: unknown[]
+  ) => Promise<{ rows: T[]; rowCount: number | null }>;
+  connect?: () => Promise<{
+    query: <T extends QueryResultRow = QueryResultRow>(
+      queryText: string,
+      values?: unknown[]
+    ) => Promise<{ rows: T[]; rowCount: number | null }>;
+    release: () => void;
+  }>;
 }
 
 export interface GroupMaxSequenceRow {
@@ -86,7 +99,7 @@ export function toIsoString(value: Date | string): string {
 }
 
 export async function acquireTransactionClient(
-  pool: Awaited<ReturnType<typeof getPostgresPool>>
+  pool: TransactionPool
 ): Promise<QueryClient> {
   if (typeof pool.connect !== 'function') {
     return {
