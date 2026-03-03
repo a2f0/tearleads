@@ -9,7 +9,7 @@ interface ConnectJsonEnvelopeResponse {
   json?: unknown;
 }
 
-export interface ConnectJsonApiActor {
+interface ConnectJsonApiActor {
   fetchJson<T = unknown>(path: string, init?: RequestInit): Promise<T>;
 }
 
