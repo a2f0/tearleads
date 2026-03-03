@@ -9,6 +9,7 @@ import {
   useAIUIContext
 } from './AIUIContext';
 
+// one-component-per-file: allow - test fixture object uses JSX inline mocks
 const mockLlmState: LLMState = {
   loadedModel: null,
   modelType: null,
