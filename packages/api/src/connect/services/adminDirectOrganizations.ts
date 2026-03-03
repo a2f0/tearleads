@@ -4,8 +4,8 @@ import type {
   CreateOrganizationRequest,
   OrganizationGroupsResponse,
   OrganizationResponse,
-  OrganizationUsersResponse,
   OrganizationsListResponse,
+  OrganizationUsersResponse,
   UpdateOrganizationRequest
 } from '@tearleads/shared';
 import { buildRevenueCatAppUserId } from '../../lib/billing.js';
@@ -38,7 +38,9 @@ function canAccessOrganization(
   );
 }
 
-function normalizeOptionalOrganizationId(organizationId: string): string | null {
+function normalizeOptionalOrganizationId(
+  organizationId: string
+): string | null {
   const trimmed = organizationId.trim();
   return trimmed.length > 0 ? trimmed : null;
 }
@@ -70,9 +72,7 @@ function isDuplicateConstraintError(error: unknown): boolean {
   return typeof code === 'string' && code === '23505';
 }
 
-async function ensureOrganizationExists(
-  organizationId: string
-): Promise<void> {
+async function ensureOrganizationExists(organizationId: string): Promise<void> {
   const pool = await getPool('read');
   const result = await pool.query<{ id: string }>(
     'SELECT id FROM organizations WHERE id = $1',
@@ -185,7 +185,9 @@ export async function createOrganizationDirect(
   ensureRootAdmin(authorization);
 
   const parsed = parseJsonBody(request.json);
-  const payload: Partial<CreateOrganizationRequest> = isRecord(parsed) ? parsed : {};
+  const payload: Partial<CreateOrganizationRequest> = isRecord(parsed)
+    ? parsed
+    : {};
   const { name, description } = payload;
   if (typeof name !== 'string' || name.trim() === '') {
     throw new ConnectError('Name is required', Code.InvalidArgument);
@@ -240,7 +242,10 @@ export async function createOrganizationDirect(
     }
     console.error('Organizations error:', error);
     if (isDuplicateConstraintError(error)) {
-      throw new ConnectError('Organization name already exists', Code.AlreadyExists);
+      throw new ConnectError(
+        'Organization name already exists',
+        Code.AlreadyExists
+      );
     }
     throw new ConnectError('Failed to create organization', Code.Internal);
   }
@@ -257,7 +262,9 @@ export async function updateOrganizationDirect(
   ensureRootAdmin(authorization);
 
   const parsed = parseJsonBody(request.json);
-  const payload: Partial<UpdateOrganizationRequest> = isRecord(parsed) ? parsed : {};
+  const payload: Partial<UpdateOrganizationRequest> = isRecord(parsed)
+    ? parsed
+    : {};
   const { name, description } = payload;
 
   try {
@@ -312,7 +319,10 @@ export async function updateOrganizationDirect(
     }
     console.error('Organizations error:', error);
     if (isDuplicateConstraintError(error)) {
-      throw new ConnectError('Organization name already exists', Code.AlreadyExists);
+      throw new ConnectError(
+        'Organization name already exists',
+        Code.AlreadyExists
+      );
     }
     throw new ConnectError('Failed to update organization', Code.Internal);
   }
@@ -379,7 +389,11 @@ export async function getOrganizationUsersDirect(
   try {
     await ensureOrganizationExists(request.id);
     const pool = await getPool('read');
-    const result = await pool.query<{ id: string; email: string; joined_at: Date }>(
+    const result = await pool.query<{
+      id: string;
+      email: string;
+      joined_at: Date;
+    }>(
       `SELECT u.id, u.email, uo.joined_at
          FROM users u
          INNER JOIN user_organizations uo ON uo.user_id = u.id
@@ -449,6 +463,9 @@ export async function getOrganizationGroupsDirect(
       throw error;
     }
     console.error('Organizations error:', error);
-    throw new ConnectError('Failed to fetch organization groups', Code.Internal);
+    throw new ConnectError(
+      'Failed to fetch organization groups',
+      Code.Internal
+    );
   }
 }

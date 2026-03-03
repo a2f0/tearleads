@@ -99,8 +99,10 @@ export const adminConnectService = {
     request: IdJsonRequest,
     context: { requestHeader: Headers }
   ) => updateOrganizationDirect(request, context),
-  deleteOrganization: (request: IdRequest, context: { requestHeader: Headers }) =>
-    deleteOrganizationDirect(request, context),
+  deleteOrganization: (
+    request: IdRequest,
+    context: { requestHeader: Headers }
+  ) => deleteOrganizationDirect(request, context),
   getOrgUsers: (request: IdRequest, context: { requestHeader: Headers }) =>
     getOrganizationUsersDirect(request, context),
   getOrgGroups: (request: IdRequest, context: { requestHeader: Headers }) =>
@@ -109,8 +111,6 @@ export const adminConnectService = {
     listUsersDirect(request, context),
   getUser: (request: IdRequest, context: { requestHeader: Headers }) =>
     getUserDirect(request, context),
-  updateUser: (
-    request: IdJsonRequest,
-    context: { requestHeader: Headers }
-  ) => updateUserDirect(request, context)
+  updateUser: (request: IdJsonRequest, context: { requestHeader: Headers }) =>
+    updateUserDirect(request, context)
 };

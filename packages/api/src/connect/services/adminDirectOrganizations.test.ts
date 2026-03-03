@@ -207,9 +207,12 @@ describe('adminDirectOrganizations', () => {
       }
     });
     queryMock.mockRejectedValueOnce(
-      Object.assign(new Error('duplicate key value violates unique constraint'), {
-        code: '23505'
-      })
+      Object.assign(
+        new Error('duplicate key value violates unique constraint'),
+        {
+          code: '23505'
+        }
+      )
     );
 
     await expect(

@@ -35,7 +35,9 @@ function canAccessOrganization(
   );
 }
 
-function normalizeOptionalOrganizationId(organizationId: string): string | null {
+function normalizeOptionalOrganizationId(
+  organizationId: string
+): string | null {
   const trimmed = organizationId.trim();
   return trimmed.length > 0 ? trimmed : null;
 }
@@ -169,10 +171,9 @@ export async function getUserDirect(
 
   try {
     const pool = await getPool('read');
-    const result =
-      authorization.adminAccess.isRootAdmin
-        ? await pool.query<UserRow>(
-            `SELECT
+    const result = authorization.adminAccess.isRootAdmin
+      ? await pool.query<UserRow>(
+          `SELECT
                u.id,
                u.email,
                u.email_confirmed,
@@ -192,10 +193,10 @@ export async function getUserDirect(
              LEFT JOIN user_credentials uc ON uc.user_id = u.id
              WHERE u.id = $1
              GROUP BY u.id`,
-            [request.id]
-          )
-        : await pool.query<UserRow>(
-            `SELECT
+          [request.id]
+        )
+      : await pool.query<UserRow>(
+          `SELECT
                u.id,
                u.email,
                u.email_confirmed,
@@ -223,8 +224,8 @@ export async function getUserDirect(
                    AND uof.organization_id = ANY($2::text[])
                )
              GROUP BY u.id`,
-            [request.id, authorization.adminAccess.organizationIds]
-          );
+          [request.id, authorization.adminAccess.organizationIds]
+        );
 
     const user = result.rows[0];
     if (!user) {
@@ -365,7 +366,10 @@ export async function updateUserDirect(
       if (!personalOrganizationId) {
         await pool.query('ROLLBACK');
         transactionStarted = false;
-        throw new ConnectError('User personal organization is missing', Code.Internal);
+        throw new ConnectError(
+          'User personal organization is missing',
+          Code.Internal
+        );
       }
 
       const organizationIds = Array.from(

@@ -329,17 +329,20 @@ describe('adminConnectService', () => {
         mock: getGroupMembersDirectMock
       },
       {
-        call: () => adminConnectService.createGroup(createGroupRequest, context),
+        call: () =>
+          adminConnectService.createGroup(createGroupRequest, context),
         expectedRequest: createGroupRequest,
         mock: createGroupDirectMock
       },
       {
-        call: () => adminConnectService.updateGroup(updateGroupRequest, context),
+        call: () =>
+          adminConnectService.updateGroup(updateGroupRequest, context),
         expectedRequest: updateGroupRequest,
         mock: updateGroupDirectMock
       },
       {
-        call: () => adminConnectService.deleteGroup(deleteGroupRequest, context),
+        call: () =>
+          adminConnectService.deleteGroup(deleteGroupRequest, context),
         expectedRequest: deleteGroupRequest,
         mock: deleteGroupDirectMock
       },
@@ -351,13 +354,19 @@ describe('adminConnectService', () => {
       },
       {
         call: () =>
-          adminConnectService.removeGroupMember(removeGroupMemberRequest, context),
+          adminConnectService.removeGroupMember(
+            removeGroupMemberRequest,
+            context
+          ),
         expectedRequest: removeGroupMemberRequest,
         mock: removeGroupMemberDirectMock
       },
       {
         call: () =>
-          adminConnectService.listOrganizations(listOrganizationsRequest, context),
+          adminConnectService.listOrganizations(
+            listOrganizationsRequest,
+            context
+          ),
         expectedRequest: listOrganizationsRequest,
         mock: listOrganizationsDirectMock
       },
@@ -369,30 +378,43 @@ describe('adminConnectService', () => {
       },
       {
         call: () =>
-          adminConnectService.createOrganization(createOrganizationRequest, context),
+          adminConnectService.createOrganization(
+            createOrganizationRequest,
+            context
+          ),
         expectedRequest: createOrganizationRequest,
         mock: createOrganizationDirectMock
       },
       {
         call: () =>
-          adminConnectService.updateOrganization(updateOrganizationRequest, context),
+          adminConnectService.updateOrganization(
+            updateOrganizationRequest,
+            context
+          ),
         expectedRequest: updateOrganizationRequest,
         mock: updateOrganizationDirectMock
       },
       {
         call: () =>
-          adminConnectService.deleteOrganization(deleteOrganizationRequest, context),
+          adminConnectService.deleteOrganization(
+            deleteOrganizationRequest,
+            context
+          ),
         expectedRequest: deleteOrganizationRequest,
         mock: deleteOrganizationDirectMock
       },
       {
-        call: () => adminConnectService.getOrgUsers(getOrganizationUsersRequest, context),
+        call: () =>
+          adminConnectService.getOrgUsers(getOrganizationUsersRequest, context),
         expectedRequest: getOrganizationUsersRequest,
         mock: getOrganizationUsersDirectMock
       },
       {
         call: () =>
-          adminConnectService.getOrgGroups(getOrganizationGroupsRequest, context),
+          adminConnectService.getOrgGroups(
+            getOrganizationGroupsRequest,
+            context
+          ),
         expectedRequest: getOrganizationGroupsRequest,
         mock: getOrganizationGroupsDirectMock
       },
