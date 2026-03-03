@@ -244,7 +244,7 @@ tuxedo_attach_or_create() {
     tmux new-window -t "$SESSION_NAME:" -c "$DASHBOARD_DIR" -n "$CLOSED_PRS_WINDOW_NAME" -e "PATH=$dashboard_path" -e "TUXEDO_WORKSPACE=$DASHBOARD_DIR"
 
     # IRC tab (plain terminal, between PRs and workspace tabs)
-    tmux new-window -t "$SESSION_NAME:" -n "$IRC_WINDOW_NAME"
+    tmux new-window -t "$SESSION_NAME:" -c "$HOME" -n "$IRC_WINDOW_NAME"
 
     # Collect inner tmux session names for editor setup later
     inner_sessions_for_editor=""
