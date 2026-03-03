@@ -88,13 +88,12 @@ export async function getTablesDirect(
       SELECT
         n.nspname AS schema,
         c.relname AS name,
-        COALESCE(s.n_live_tup, 0) AS row_count,
+        GREATEST(c.reltuples, 0)::bigint AS row_count,
         pg_total_relation_size(c.oid) AS total_bytes,
         pg_relation_size(c.oid) AS table_bytes,
         pg_indexes_size(c.oid) AS index_bytes
       FROM pg_class c
       JOIN pg_namespace n ON n.oid = c.relnamespace
-      LEFT JOIN pg_stat_user_tables s ON s.relid = c.oid
       WHERE c.relkind IN ('r', 'p')
         AND n.nspname NOT IN ('pg_catalog', 'information_schema')
       ORDER BY n.nspname, c.relname
