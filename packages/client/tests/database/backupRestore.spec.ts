@@ -40,14 +40,14 @@ test.describe('Backup and Restore', () => {
     await navigateInApp(page, '/backups', true);
 
     // Wait for backup form to be visible
-    const passwordInput = page.getByLabel('Password', { exact: true });
+    const passwordInput = page.getByTestId('backup-password-input');
     await expect(passwordInput).toBeVisible({
       timeout: 10000
     });
 
     // Fill in backup password
     await passwordInput.fill(BACKUP_PASSWORD);
-    await page.getByLabel('Confirm', { exact: true }).fill(BACKUP_PASSWORD);
+    await page.getByTestId('backup-confirm-password-input').fill(BACKUP_PASSWORD);
 
     // Keep backup scope limited to DB data for deterministic web e2e runtime.
     const includeBlobsCheckbox = page.getByRole('checkbox', {
@@ -107,8 +107,8 @@ test.describe('Backup and Restore', () => {
 
     // Navigate to backups and create backup
     await navigateInApp(page, '/backups', true);
-    await page.getByLabel('Password', { exact: true }).fill(BACKUP_PASSWORD);
-    await page.getByLabel('Confirm', { exact: true }).fill(BACKUP_PASSWORD);
+    await page.getByTestId('backup-password-input').fill(BACKUP_PASSWORD);
+    await page.getByTestId('backup-confirm-password-input').fill(BACKUP_PASSWORD);
     const includeBlobsCheckbox = page.getByRole('checkbox', {
       name: /include files/i
     });
@@ -157,11 +157,11 @@ test.describe('Backup and Restore', () => {
     await navigateInApp(page, '/backups', true);
 
     // Fill in backup form
-    await expect(page.getByLabel('Password', { exact: true })).toBeVisible({
+    await expect(page.getByTestId('backup-password-input')).toBeVisible({
       timeout: 10000
     });
-    await page.getByLabel('Password', { exact: true }).fill(BACKUP_PASSWORD);
-    await page.getByLabel('Confirm', { exact: true }).fill(BACKUP_PASSWORD);
+    await page.getByTestId('backup-password-input').fill(BACKUP_PASSWORD);
+    await page.getByTestId('backup-confirm-password-input').fill(BACKUP_PASSWORD);
 
     // Attempt to create backup with locked database
     await page.getByRole('button', { name: 'Create Backup' }).click();

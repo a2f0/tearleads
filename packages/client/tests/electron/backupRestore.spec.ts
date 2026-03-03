@@ -62,14 +62,14 @@ test.describe('Backup and Restore (Electron)', () => {
 
     // Navigate to backups page
     await navigateInApp(window, '/backups');
-    const passwordInput = window.getByLabel('Password');
+    const passwordInput = window.getByTestId('backup-password-input');
     await expect(passwordInput).toBeVisible({
       timeout: 10000
     });
 
     // Fill in backup password
     await passwordInput.fill(BACKUP_PASSWORD);
-    await window.getByLabel('Confirm').fill(BACKUP_PASSWORD);
+    await window.getByTestId('backup-confirm-password-input').fill(BACKUP_PASSWORD);
 
     // Click Create Backup
     await window.getByRole('button', { name: 'Create Backup' }).click();
@@ -98,8 +98,8 @@ test.describe('Backup and Restore (Electron)', () => {
 
     // Navigate to backups and create backup
     await navigateInApp(window, '/backups');
-    await window.getByLabel('Password').fill(BACKUP_PASSWORD);
-    await window.getByLabel('Confirm').fill(BACKUP_PASSWORD);
+    await window.getByTestId('backup-password-input').fill(BACKUP_PASSWORD);
+    await window.getByTestId('backup-confirm-password-input').fill(BACKUP_PASSWORD);
     await window.getByRole('button', { name: 'Create Backup' }).click();
 
     // Wait for backup to complete
@@ -136,8 +136,8 @@ test.describe('Backup and Restore (Electron)', () => {
 
     // Create backup
     await navigateInApp(window, '/backups');
-    await window.getByLabel('Password').fill(BACKUP_PASSWORD);
-    await window.getByLabel('Confirm').fill(BACKUP_PASSWORD);
+    await window.getByTestId('backup-password-input').fill(BACKUP_PASSWORD);
+    await window.getByTestId('backup-confirm-password-input').fill(BACKUP_PASSWORD);
     await window.getByRole('button', { name: 'Create Backup' }).click();
 
     // Wait for backup to complete
@@ -185,8 +185,8 @@ test.describe('Backup and Restore (Electron)', () => {
 
     // Navigate to backups and create backup
     await navigateInApp(window, '/backups');
-    await window.getByLabel('Password').fill(BACKUP_PASSWORD);
-    await window.getByLabel('Confirm').fill(BACKUP_PASSWORD);
+    await window.getByTestId('backup-password-input').fill(BACKUP_PASSWORD);
+    await window.getByTestId('backup-confirm-password-input').fill(BACKUP_PASSWORD);
     await window.getByRole('button', { name: 'Create Backup' }).click();
 
     // Wait for backup to complete
