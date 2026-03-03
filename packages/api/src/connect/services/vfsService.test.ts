@@ -12,6 +12,9 @@ const {
   getEmailDirectMock,
   getEmailsDirectMock,
   getMyKeysDirectMock,
+  pushCrdtOpsDirectMock,
+  reconcileCrdtDirectMock,
+  runCrdtSessionDirectMock,
   stageBlobDirectMock,
   getSyncDirectMock,
   rekeyItemDirectMock,
@@ -47,6 +50,12 @@ const {
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   getMyKeysDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  pushCrdtOpsDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  reconcileCrdtDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  runCrdtSessionDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   stageBlobDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   getSyncDirectMock:
@@ -64,7 +73,6 @@ const {
   uploadBlobChunkDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>()
 }));
-
 vi.mock('./legacyRouteProxy.js', async () => {
   const actual = await vi.importActual<typeof import('./legacyRouteProxy.js')>(
     './legacyRouteProxy.js'
@@ -75,33 +83,28 @@ vi.mock('./legacyRouteProxy.js', async () => {
     callRouteJsonHandler: callRouteJsonHandlerMock
   };
 });
-
 vi.mock('./vfsDirectBlobs.js', () => ({
   deleteBlobDirect: (request: unknown, context: unknown) =>
     deleteBlobDirectMock(request, context),
   getBlobDirect: (request: unknown, context: unknown) =>
     getBlobDirectMock(request, context)
 }));
-
 vi.mock('./vfsDirectBlobAttach.js', () => ({
   attachBlobDirect: (request: unknown, context: unknown) =>
     attachBlobDirectMock(request, context)
 }));
-
 vi.mock('./vfsDirectBlobFinalize.js', () => ({
   abandonBlobDirect: (request: unknown, context: unknown) =>
     abandonBlobDirectMock(request, context),
   commitBlobDirect: (request: unknown, context: unknown) =>
     commitBlobDirectMock(request, context)
 }));
-
 vi.mock('./vfsDirectBlobStageUpload.js', () => ({
   stageBlobDirect: (request: unknown, context: unknown) =>
     stageBlobDirectMock(request, context),
   uploadBlobChunkDirect: (request: unknown, context: unknown) =>
     uploadBlobChunkDirectMock(request, context)
 }));
-
 vi.mock('./vfsDirectEmails.js', () => ({
   deleteEmailDirect: (request: unknown, context: unknown) =>
     deleteEmailDirectMock(request, context),
@@ -112,21 +115,30 @@ vi.mock('./vfsDirectEmails.js', () => ({
   sendEmailDirect: (request: unknown, context: unknown) =>
     sendEmailDirectMock(request, context)
 }));
-
 vi.mock('./vfsDirectKeys.js', () => ({
   getMyKeysDirect: (request: unknown, context: unknown) =>
     getMyKeysDirectMock(request, context),
   setupKeysDirect: (request: unknown, context: unknown) =>
     setupKeysDirectMock(request, context)
 }));
-
+vi.mock('./vfsDirectCrdtPush.js', () => ({
+  pushCrdtOpsDirect: (request: unknown, context: unknown) =>
+    pushCrdtOpsDirectMock(request, context)
+}));
+vi.mock('./vfsDirectCrdtReconcile.js', () => ({
+  reconcileCrdtDirect: (request: unknown, context: unknown) =>
+    reconcileCrdtDirectMock(request, context)
+}));
+vi.mock('./vfsDirectCrdtSession.js', () => ({
+  runCrdtSessionDirect: (request: unknown, context: unknown) =>
+    runCrdtSessionDirectMock(request, context)
+}));
 vi.mock('./vfsDirectRegistry.js', () => ({
   registerDirect: (request: unknown, context: unknown) =>
     registerDirectMock(request, context),
   rekeyItemDirect: (request: unknown, context: unknown) =>
     rekeyItemDirectMock(request, context)
 }));
-
 vi.mock('./vfsDirectSync.js', () => ({
   getCrdtSnapshotDirect: (request: unknown, context: unknown) =>
     getCrdtSnapshotDirectMock(request, context),
@@ -218,6 +230,9 @@ function resetDirectJsonMocks(): DirectJsonMock[] {
     getEmailDirectMock,
     getEmailsDirectMock,
     getMyKeysDirectMock,
+    pushCrdtOpsDirectMock,
+    reconcileCrdtDirectMock,
+    runCrdtSessionDirectMock,
     stageBlobDirectMock,
     getSyncDirectMock,
     rekeyItemDirectMock,
@@ -297,6 +312,15 @@ describe('vfsConnectService', () => {
     const reconcileSyncRequest = {
       json: '{"clientId":"client-1","cursor":"MjAyNi0wMy0wM1QwMDowMDowMC4wMDBafGNoYW5nZS0x"}'
     };
+    const pushCrdtOpsRequest = {
+      json: '{"clientId":"client-1","operations":[]}'
+    };
+    const reconcileCrdtRequest = {
+      json: '{"clientId":"client-1","cursor":"MjAyNi0wMy0wM1QwMDowMDowMC4wMDBafGNoYW5nZS0x","lastReconciledWriteIds":{}}'
+    };
+    const runCrdtSessionRequest = {
+      json: '{"clientId":"client-1","operations":[],"cursor":"MjAyNi0wMy0wM1QwMDowMDowMC4wMDBafGNoYW5nZS0x","limit":10}'
+    };
 
     const directCases: DirectJsonCallCase[] = [
       {
@@ -368,6 +392,23 @@ describe('vfsConnectService', () => {
         mock: reconcileSyncDirectMock
       },
       {
+        call: () => vfsConnectService.pushCrdtOps(pushCrdtOpsRequest, context),
+        expectedRequest: pushCrdtOpsRequest,
+        mock: pushCrdtOpsDirectMock
+      },
+      {
+        call: () =>
+          vfsConnectService.reconcileCrdt(reconcileCrdtRequest, context),
+        expectedRequest: reconcileCrdtRequest,
+        mock: reconcileCrdtDirectMock
+      },
+      {
+        call: () =>
+          vfsConnectService.runCrdtSession(runCrdtSessionRequest, context),
+        expectedRequest: runCrdtSessionRequest,
+        mock: runCrdtSessionDirectMock
+      },
+      {
         call: () => vfsConnectService.getEmails(getEmailsRequest, context),
         expectedRequest: getEmailsRequest,
         mock: getEmailsDirectMock
@@ -411,62 +452,27 @@ describe('vfsConnectService', () => {
     expect(callRouteJsonHandlerMock).not.toHaveBeenCalled();
   });
 
-  it('routes remaining CRDT methods through legacy route handlers', async () => {
+  it('routes getCrdtSync through legacy route handler', async () => {
     const context = createContext();
 
-    const cases: JsonCallCase[] = [
-      {
-        call: () =>
-          vfsConnectService.pushCrdtOps({ json: '{"ops":[]}' }, context),
-        method: 'POST',
-        path: '/vfs/crdt/push',
-        jsonBody: '{"ops":[]}'
-      },
-      {
-        call: () =>
-          vfsConnectService.reconcileCrdt(
-            {
-              json: '{"cursor":"c"}'
-            },
-            context
-          ),
-        method: 'POST',
-        path: '/vfs/crdt/reconcile',
-        jsonBody: '{"cursor":"c"}'
-      },
-      {
-        call: () =>
-          vfsConnectService.runCrdtSession(
-            {
-              json: '{"clientId":"m"}'
-            },
-            context
-          ),
-        method: 'POST',
-        path: '/vfs/crdt/session',
-        jsonBody: '{"clientId":"m"}'
-      },
-      {
-        call: () =>
-          vfsConnectService.getCrdtSync(
-            {
-              cursor: 'crdt-cursor',
-              limit: 12,
-              rootId: ''
-            },
-            context
-          ),
-        method: 'GET',
-        path: '/vfs/crdt/vfs-sync',
-        query: 'cursor=crdt-cursor&limit=12'
-      }
-    ];
+    const testCase: JsonCallCase = {
+      call: () =>
+        vfsConnectService.getCrdtSync(
+          {
+            cursor: 'crdt-cursor',
+            limit: 12,
+            rootId: ''
+          },
+          context
+        ),
+      method: 'GET',
+      path: '/vfs/crdt/vfs-sync',
+      query: 'cursor=crdt-cursor&limit=12'
+    };
 
-    for (const testCase of cases) {
-      const response = await testCase.call();
-      expect(response).toEqual({ json: '{"ok":true}' });
-      expectLastJsonCall(context, testCase);
-    }
+    const response = await testCase.call();
+    expect(response).toEqual({ json: '{"ok":true}' });
+    expectLastJsonCall(context, testCase);
   });
 
   it('omits optional query params for empty getCrdtSync values', async () => {
