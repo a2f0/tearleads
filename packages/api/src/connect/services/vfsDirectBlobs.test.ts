@@ -107,6 +107,23 @@ describe('vfsDirectBlobs', () => {
     });
   });
 
+  it('rejects getBlob when blobId is blank', async () => {
+    await expect(
+      getBlobDirect(
+        {
+          blobId: '  '
+        },
+        {
+          requestHeader: new Headers()
+        }
+      )
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+
+    expect(requireVfsClaimsMock).not.toHaveBeenCalled();
+  });
+
   it('returns not found when blob registry row does not exist', async () => {
     poolQueryMock.mockResolvedValueOnce({ rows: [] });
 
@@ -121,6 +138,30 @@ describe('vfsDirectBlobs', () => {
       )
     ).rejects.toMatchObject({
       code: Code.NotFound
+    });
+  });
+
+  it('returns AlreadyExists when object id is not a file blob', async () => {
+    poolQueryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          object_type: 'email',
+          owner_id: 'user-1'
+        }
+      ]
+    });
+
+    await expect(
+      getBlobDirect(
+        {
+          blobId: 'blob-1'
+        },
+        {
+          requestHeader: new Headers()
+        }
+      )
+    ).rejects.toMatchObject({
+      code: Code.AlreadyExists
     });
   });
 
@@ -145,6 +186,50 @@ describe('vfsDirectBlobs', () => {
       )
     ).rejects.toMatchObject({
       code: Code.PermissionDenied
+    });
+  });
+
+  it('maps foreign key storage failures to NotFound', async () => {
+    poolQueryMock.mockRejectedValueOnce({
+      code: '23503'
+    });
+
+    await expect(
+      getBlobDirect(
+        {
+          blobId: 'blob-1'
+        },
+        {
+          requestHeader: new Headers()
+        }
+      )
+    ).rejects.toMatchObject({
+      code: Code.NotFound
+    });
+  });
+
+  it('returns Internal when blob read fails unexpectedly', async () => {
+    poolQueryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          object_type: 'file',
+          owner_id: 'user-1'
+        }
+      ]
+    });
+    readVfsBlobDataMock.mockRejectedValueOnce(new Error('blob read failed'));
+
+    await expect(
+      getBlobDirect(
+        {
+          blobId: 'blob-1'
+        },
+        {
+          requestHeader: new Headers()
+        }
+      )
+    ).rejects.toMatchObject({
+      code: Code.Internal
     });
   });
 
@@ -182,6 +267,97 @@ describe('vfsDirectBlobs', () => {
     expect(clientReleaseMock).toHaveBeenCalled();
   });
 
+  it('rejects deleteBlob when blobId is blank', async () => {
+    await expect(
+      deleteBlobDirect(
+        {
+          blobId: '  '
+        },
+        {
+          requestHeader: new Headers()
+        }
+      )
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+  });
+
+  it('returns NotFound when delete target is missing', async () => {
+    clientQueryMock
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await expect(
+      deleteBlobDirect(
+        {
+          blobId: 'blob-missing'
+        },
+        {
+          requestHeader: new Headers()
+        }
+      )
+    ).rejects.toMatchObject({
+      code: Code.NotFound
+    });
+  });
+
+  it('returns permission denied when delete caller is not owner', async () => {
+    clientQueryMock
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            object_type: 'file',
+            owner_id: 'user-2'
+          }
+        ]
+      })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await expect(
+      deleteBlobDirect(
+        {
+          blobId: 'blob-1'
+        },
+        {
+          requestHeader: new Headers()
+        }
+      )
+    ).rejects.toMatchObject({
+      code: Code.PermissionDenied
+    });
+  });
+
+  it('returns Internal when delete query removes no rows', async () => {
+    clientQueryMock
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            object_type: 'file',
+            owner_id: 'user-1'
+          }
+        ]
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rowCount: 0 })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await expect(
+      deleteBlobDirect(
+        {
+          blobId: 'blob-1'
+        },
+        {
+          requestHeader: new Headers()
+        }
+      )
+    ).rejects.toMatchObject({
+      code: Code.Internal
+    });
+  });
+
   it('returns AlreadyExists when blob is attached', async () => {
     clientQueryMock
       .mockResolvedValueOnce({ rows: [] })
@@ -211,5 +387,36 @@ describe('vfsDirectBlobs', () => {
 
     expect(deleteVfsBlobDataMock).not.toHaveBeenCalled();
     expect(clientReleaseMock).toHaveBeenCalled();
+  });
+
+  it('returns Internal when delete storage cleanup throws', async () => {
+    clientQueryMock
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            object_type: 'file',
+            owner_id: 'user-1'
+          }
+        ]
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+    deleteVfsBlobDataMock.mockRejectedValueOnce(new Error('delete failed'));
+
+    await expect(
+      deleteBlobDirect(
+        {
+          blobId: 'blob-5'
+        },
+        {
+          requestHeader: new Headers()
+        }
+      )
+    ).rejects.toMatchObject({
+      code: Code.Internal
+    });
   });
 });

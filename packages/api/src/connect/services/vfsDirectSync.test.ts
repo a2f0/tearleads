@@ -103,6 +103,48 @@ describe('vfsDirectSync', () => {
     });
   });
 
+  it('maps getSync query failures to Internal', async () => {
+    queryMock.mockRejectedValueOnce(new Error('db unavailable'));
+
+    await expect(
+      getSyncDirect(
+        {
+          cursor: '',
+          limit: 10,
+          rootId: ''
+        },
+        {
+          requestHeader: new Headers()
+        }
+      )
+    ).rejects.toMatchObject({
+      code: Code.Internal
+    });
+  });
+
+  it('normalizes empty getSync values before parsing', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: []
+    });
+
+    const response = await getSyncDirect(
+      {
+        cursor: ' ',
+        limit: -10,
+        rootId: ' '
+      },
+      {
+        requestHeader: new Headers()
+      }
+    );
+
+    expect(parseJson(response.json)).toEqual({
+      items: [],
+      nextCursor: null,
+      hasMore: false
+    });
+  });
+
   it('rejects getCrdtSnapshot when clientId is invalid', async () => {
     await expect(
       getCrdtSnapshotDirect(
@@ -135,6 +177,25 @@ describe('vfsDirectSync', () => {
     });
   });
 
+  it('returns snapshot payload when one exists', async () => {
+    loadVfsCrdtRematerializationSnapshotMock.mockResolvedValueOnce({
+      snapshot: 'payload'
+    });
+
+    const response = await getCrdtSnapshotDirect(
+      {
+        clientId: 'client-1'
+      },
+      {
+        requestHeader: new Headers()
+      }
+    );
+
+    expect(parseJson(response.json)).toEqual({
+      snapshot: 'payload'
+    });
+  });
+
   it('rejects reconcileSync when payload is invalid', async () => {
     await expect(
       reconcileSyncDirect(
@@ -150,6 +211,55 @@ describe('vfsDirectSync', () => {
     });
 
     expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects reconcileSync when clientId contains a colon', async () => {
+    const cursor = encodeVfsSyncCursor({
+      changedAt: '2026-03-03T00:00:00.000Z',
+      changeId: 'change-1'
+    });
+
+    await expect(
+      reconcileSyncDirect(
+        {
+          json: JSON.stringify({
+            clientId: 'bad:client',
+            cursor
+          })
+        },
+        {
+          requestHeader: new Headers()
+        }
+      )
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+  });
+
+  it('returns Internal when reconcile does not return row data', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: []
+    });
+    const inputCursor = encodeVfsSyncCursor({
+      changedAt: '2026-03-03T00:00:00.000Z',
+      changeId: 'change-1'
+    });
+
+    await expect(
+      reconcileSyncDirect(
+        {
+          json: JSON.stringify({
+            clientId: 'client-1',
+            cursor: inputCursor
+          })
+        },
+        {
+          requestHeader: new Headers()
+        }
+      )
+    ).rejects.toMatchObject({
+      code: Code.Internal
+    });
   });
 
   it('stores reconcile cursor and returns encoded cursor', async () => {
@@ -185,6 +295,30 @@ describe('vfsDirectSync', () => {
         changedAt: '2026-03-03T00:00:00.000Z',
         changeId: 'change-2'
       })
+    });
+  });
+
+  it('maps reconcile query failures to Internal', async () => {
+    queryMock.mockRejectedValueOnce(new Error('db write failed'));
+    const inputCursor = encodeVfsSyncCursor({
+      changedAt: '2026-03-03T00:00:00.000Z',
+      changeId: 'change-1'
+    });
+
+    await expect(
+      reconcileSyncDirect(
+        {
+          json: JSON.stringify({
+            clientId: 'client-1',
+            cursor: inputCursor
+          })
+        },
+        {
+          requestHeader: new Headers()
+        }
+      )
+    ).rejects.toMatchObject({
+      code: Code.Internal
     });
   });
 });
