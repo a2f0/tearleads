@@ -67,12 +67,14 @@ const createMockOpenRequest = (): MockOpenRequest => ({
   onupgradeneeded: null
 });
 
+const openMock = vi.fn(() => {
+  const request = createMockOpenRequest();
+  setTimeout(() => request.onsuccess?.(), 0);
+  return request;
+});
+
 vi.stubGlobal('indexedDB', {
-  open: vi.fn(() => {
-    const request = createMockOpenRequest();
-    setTimeout(() => request.onsuccess?.(), 0);
-    return request;
-  })
+  open: openMock
 });
 
 describe('registryStore', () => {
@@ -99,5 +101,37 @@ describe('registryStore', () => {
 
     const result = await getFromStore<string>('key');
     expect(result).toBe('second');
+  });
+
+  it('creates the registry object store during db upgrade when missing', async () => {
+    mockDB.objectStoreNames.contains.mockReturnValueOnce(false);
+    openMock.mockImplementationOnce(() => {
+      const request = createMockOpenRequest();
+      setTimeout(() => {
+        request.onupgradeneeded?.();
+        request.onsuccess?.();
+      }, 0);
+      return request;
+    });
+
+    await setInStore('upgraded', 'value');
+
+    expect(mockDB.createObjectStore).toHaveBeenCalledWith('registry');
+  });
+
+  it('skips creating the object store during db upgrade when it exists', async () => {
+    mockDB.objectStoreNames.contains.mockReturnValueOnce(true);
+    openMock.mockImplementationOnce(() => {
+      const request = createMockOpenRequest();
+      setTimeout(() => {
+        request.onupgradeneeded?.();
+        request.onsuccess?.();
+      }, 0);
+      return request;
+    });
+
+    await setInStore('existing', 'value');
+
+    expect(mockDB.createObjectStore).not.toHaveBeenCalled();
   });
 });

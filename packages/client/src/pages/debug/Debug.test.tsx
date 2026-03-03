@@ -1,7 +1,11 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ComponentProps, ReactNode } from 'react';
-import { Component } from 'react';
+import {
+  Component,
+  type ComponentProps,
+  createElement,
+  type ReactNode
+} from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/consoleMocks';
@@ -50,18 +54,14 @@ class TestErrorBoundary extends Component<
 
   override render() {
     if (this.state.hasError) {
-      return <div>Boundary Error</div>;
+      return createElement('div', null, 'Boundary Error');
     }
     return this.props.children;
   }
 }
 
 function renderDebugRaw(props?: DebugProps) {
-  return render(
-    <MemoryRouter>
-      <Debug {...props} />
-    </MemoryRouter>
-  );
+  return render(createElement(Debug, props), { wrapper: MemoryRouter });
 }
 
 async function renderDebug(props?: DebugProps) {
@@ -76,7 +76,11 @@ async function renderDebug(props?: DebugProps) {
 describe('Debug', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockPingGet.mockResolvedValue({ version: '1.0.0' });
+    mockPingGet.mockResolvedValue({
+      status: 'ok',
+      service: 'api-v2',
+      version: '1.0.0'
+    });
   });
 
   describe('page rendering', () => {
@@ -92,6 +96,19 @@ describe('Debug', () => {
       expect(
         screen.queryByRole('heading', { name: 'Debug' })
       ).not.toBeInTheDocument();
+    });
+
+    it('renders a back link when showBackLink is true', async () => {
+      await renderDebug({
+        showBackLink: true,
+        backTo: '/settings',
+        backLabel: 'Back to settings'
+      });
+
+      const backLink = screen.getByTestId('back-link');
+      expect(backLink).toBeInTheDocument();
+      expect(backLink).toHaveAttribute('href', '/settings');
+      expect(backLink).toHaveTextContent('Back to settings');
     });
 
     it('renders system info section with all device and environment info', async () => {
@@ -273,7 +290,11 @@ describe('Debug', () => {
       expect(screen.getByText('1.0.0')).toBeInTheDocument();
 
       mockPingGet.mockClear();
-      mockPingGet.mockResolvedValue({ version: '1.0.1' });
+      mockPingGet.mockResolvedValue({
+        status: 'ok',
+        service: 'api-v2',
+        version: '1.0.1'
+      });
 
       await user.click(screen.getByRole('button', { name: 'Refresh' }));
 

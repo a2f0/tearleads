@@ -2,7 +2,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
-  API_INDEX_FILE,
   API_ROUTE_REGEX,
   API_ROUTES_DIR,
   type ApiRoute,
@@ -173,12 +172,6 @@ const loadApiRoutes = async (): Promise<ApiRoute[]> => {
       match = regex.exec(content);
     }
   }
-
-  routes.push({
-    method: 'GET',
-    path: '/v1/ping',
-    source: path.relative(ROOT_DIR, API_INDEX_FILE)
-  });
 
   const deduped = new Map<string, ApiRoute>();
   for (const route of routes) {

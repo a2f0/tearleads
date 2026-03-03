@@ -62,7 +62,7 @@ describe('api with msw', () => {
   describe('error handling', () => {
     it('throws error when response is not ok', async () => {
       server.use(
-        http.get('http://localhost/ping', () =>
+        http.get('http://localhost/v2/ping', () =>
           HttpResponse.json(null, { status: 500 })
         )
       );
@@ -70,12 +70,12 @@ describe('api with msw', () => {
       const api = await loadApi();
 
       await expect(api.ping.get()).rejects.toThrow('API error: 500');
-      expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+      expect(wasApiRequestMade('GET', '/v2/ping')).toBe(true);
     });
 
     it('handles 404 errors', async () => {
       server.use(
-        http.get('http://localhost/ping', () =>
+        http.get('http://localhost/v2/ping', () =>
           HttpResponse.json(null, { status: 404 })
         )
       );
@@ -83,21 +83,23 @@ describe('api with msw', () => {
       const api = await loadApi();
 
       await expect(api.ping.get()).rejects.toThrow('API error: 404');
-      expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+      expect(wasApiRequestMade('GET', '/v2/ping')).toBe(true);
     });
 
     it('handles network errors', async () => {
-      server.use(http.get('http://localhost/ping', () => HttpResponse.error()));
+      server.use(
+        http.get('http://localhost/v2/ping', () => HttpResponse.error())
+      );
 
       const api = await loadApi();
 
       await expect(api.ping.get()).rejects.toThrow();
-      expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+      expect(wasApiRequestMade('GET', '/v2/ping')).toBe(true);
     });
 
     it('uses default message when error body has no error field', async () => {
       server.use(
-        http.get('http://localhost/ping', () =>
+        http.get('http://localhost/v2/ping', () =>
           HttpResponse.json({}, { status: 400 })
         )
       );
@@ -105,7 +107,7 @@ describe('api with msw', () => {
       const api = await loadApi();
 
       await expect(api.ping.get()).rejects.toThrow('API error: 400');
-      expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+      expect(wasApiRequestMade('GET', '/v2/ping')).toBe(true);
     });
 
     it('extracts error message from response body', async () => {
@@ -134,7 +136,7 @@ describe('api with msw', () => {
   describe('session expiry handling', () => {
     it('clears stored auth and reports session expiry when response is 401', async () => {
       server.use(
-        http.get('http://localhost/ping', () =>
+        http.get('http://localhost/v2/ping', () =>
           HttpResponse.json(null, { status: 401 })
         )
       );
@@ -153,7 +155,7 @@ describe('api with msw', () => {
 
       const { getAuthError } = await loadAuthStorage();
       expect(getAuthError()).toBe('Session expired. Please sign in again.');
-      expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+      expect(wasApiRequestMade('GET', '/v2/ping')).toBe(true);
     });
 
     it('does not clear auth when refresh fails but token still exists in storage', async () => {
@@ -167,7 +169,7 @@ describe('api with msw', () => {
       );
 
       server.use(
-        http.get('http://localhost/ping', () =>
+        http.get('http://localhost/v2/ping', () =>
           HttpResponse.json(null, { status: 401 })
         ),
         http.post(
@@ -185,7 +187,7 @@ describe('api with msw', () => {
 
       const { getAuthError } = await loadAuthStorage();
       expect(getAuthError()).toBeNull();
-      expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+      expect(wasApiRequestMade('GET', '/v2/ping')).toBe(true);
       expect(
         wasApiRequestMade(
           'POST',
@@ -201,8 +203,8 @@ describe('api with msw', () => {
       await api.ping.get();
 
       const requests = getRecordedApiRequests();
-      expect(requests[0]?.url).toBe('http://localhost/ping');
-      expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+      expect(requests[0]?.url).toBe('http://localhost/v2/ping');
+      expect(wasApiRequestMade('GET', '/v2/ping')).toBe(true);
     });
 
     it('does not override existing Authorization header', async () => {
@@ -210,11 +212,11 @@ describe('api with msw', () => {
       localStorage.setItem(AUTH_TOKEN_KEY, 'stored-token');
 
       // Use fetch directly with custom Authorization header
-      const response = await fetch('http://localhost/ping', {
+      const response = await fetch('http://localhost/v2/ping', {
         headers: { Authorization: 'Bearer custom-token' }
       });
       expect(response.ok).toBe(true);
-      expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+      expect(wasApiRequestMade('GET', '/v2/ping')).toBe(true);
     });
   });
 

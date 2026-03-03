@@ -29,11 +29,12 @@ module "ci_artifacts" {
   # Container registries
   ecr_repositories = [
     "tearleads-staging/api",
+    "tearleads-staging/api-v2",
     "tearleads-staging/client",
     "tearleads-staging/smtp-listener",
     "tearleads-staging/website",
   ]
-  ecr_lifecycle_max_images = 20
+  ecr_lifecycle_max_images = 5
 
   create_github_actions_role       = true
   github_actions_repository        = var.github_actions_repository

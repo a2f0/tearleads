@@ -82,18 +82,19 @@ beforeEach(async () => {
 
 describe('msw handlers', () => {
   it('mocks the ping endpoint', async () => {
-    const response = await fetch('http://localhost/ping', {
+    const response = await fetch('http://localhost/v2/ping', {
       headers: { Authorization: `Bearer ${seededUser.accessToken}` }
     });
 
     expect(response.ok).toBe(true);
-    expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+    expect(wasApiRequestMade('GET', '/v2/ping')).toBe(true);
     const payload = await response.json();
+    expect(payload).toHaveProperty('status', 'ok');
+    expect(payload).toHaveProperty('service', 'api-v2');
     expect(payload).toHaveProperty('version');
-    expect(payload).toHaveProperty('dbVersion');
   });
 
-  it('mocks admin redis endpoints', async () => {
+  it('mocks admin redis connect endpoints', async () => {
     const ctx = getSharedTestContext();
     await ctx.redis.set('user:1', 'test-value');
 
@@ -140,7 +141,32 @@ describe('msw handlers', () => {
     expect(keyPayload).toHaveProperty('value', 'test-value');
   });
 
-  it('mocks admin postgres endpoints', async () => {
+  it('returns not found for deprecated admin redis rest endpoints', async () => {
+    const authHeaders = { Authorization: `Bearer ${seededUser.accessToken}` };
+    const ctx = getSharedTestContext();
+    await ctx.redis.set('user:1', 'test-value');
+
+    const keysResponse = await fetch('http://localhost/admin/redis/keys', {
+      headers: authHeaders
+    });
+    const keysPayload = await keysResponse.json();
+
+    expect(wasApiRequestMade('GET', '/admin/redis/keys')).toBe(true);
+    expect(keysResponse.status).toBe(404);
+    expect(keysPayload).toEqual({ error: 'Not found' });
+
+    const keyResponse = await fetch(
+      'http://localhost/admin/redis/keys/user%3A1',
+      { headers: authHeaders }
+    );
+    const keyPayload = await keyResponse.json();
+
+    expect(wasApiRequestMade('GET', '/admin/redis/keys/user%3A1')).toBe(true);
+    expect(keyResponse.status).toBe(404);
+    expect(keyPayload).toEqual({ error: 'Not found' });
+  });
+
+  it('mocks admin postgres connect endpoints', async () => {
     const infoPayload = await postAdminConnectRequest(
       'GetPostgresInfo',
       seededUser.accessToken
@@ -173,6 +199,29 @@ describe('msw handlers', () => {
           : null
       )
     ).toBe(true);
+  });
+
+  it('returns not found for deprecated admin postgres rest endpoints', async () => {
+    const authHeaders = { Authorization: `Bearer ${seededUser.accessToken}` };
+
+    const infoResponse = await fetch('http://localhost/admin/postgres/info', {
+      headers: authHeaders
+    });
+    const infoPayload = await infoResponse.json();
+
+    expect(wasApiRequestMade('GET', '/admin/postgres/info')).toBe(true);
+    expect(infoResponse.status).toBe(404);
+    expect(infoPayload).toEqual({ error: 'Not found' });
+
+    const tablesResponse = await fetch(
+      'http://localhost/admin/postgres/tables',
+      { headers: authHeaders }
+    );
+    const tablesPayload = await tablesResponse.json();
+
+    expect(wasApiRequestMade('GET', '/admin/postgres/tables')).toBe(true);
+    expect(tablesResponse.status).toBe(404);
+    expect(tablesPayload).toEqual({ error: 'Not found' });
   });
 
   it('mocks chat completions', async () => {
@@ -289,9 +338,9 @@ describe('msw handlers', () => {
   });
 
   it('records request metadata for debugging parity', async () => {
-    await fetch('http://localhost/ping', {
-      headers: { Authorization: `Bearer ${seededUser.accessToken}` }
-    });
+    const authHeaders = { Authorization: `Bearer ${seededUser.accessToken}` };
+
+    await fetch('http://localhost/v2/ping', { headers: authHeaders });
     await postAdminConnectRequest('GetRedisDbSize', seededUser.accessToken);
 
     // Filter out internal bypass requests (forwarded to Express on a random port)
@@ -301,8 +350,8 @@ describe('msw handlers', () => {
     expect(recordedRequests).toEqual([
       {
         method: 'GET',
-        pathname: '/ping',
-        url: 'http://localhost/ping'
+        pathname: '/v2/ping',
+        url: 'http://localhost/v2/ping'
       },
       {
         method: 'POST',

@@ -19,6 +19,13 @@ setApiEventLogger(logApiEvent);
 const ping = await api.ping.get();
 ```
 
+`api.ping.get()` targets `GET /v2/ping` and validates the payload with generated
+WASM bindings when available. Generate bindings with:
+
+```bash
+pnpm codegenApiV2PingWasm
+```
+
 ```ts
 import { isLoggedIn, readStoredAuth } from '@tearleads/api-client/authStorage';
 ```

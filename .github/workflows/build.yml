@@ -83,7 +83,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lint-type: [biome, scripts, markdown, rubocop, ansible, terraform, knip, audit]
+        lint-type: [biome, scripts, markdown, rubocop, ansible, terraform, knip, audit, rust]
     steps:
       - name: Report no impact detected
         if: ${{ github.event_name != 'workflow_dispatch' && needs.detect-impact.outputs.should-run != 'true' }}
@@ -103,6 +103,16 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
+
+      - name: Setup Rust toolchain
+        if: matrix.lint-type == 'rust'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy, llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        if: matrix.lint-type == 'rust'
+        uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Setup Ruby
         if: matrix.lint-type == 'rubocop'
@@ -198,6 +208,10 @@ jobs:
       - name: Audit full dependency graph (informational)
         if: matrix.lint-type == 'audit'
         run: pnpm audit --audit-level high || true
+
+      - name: Lint Rust
+        if: matrix.lint-type == 'rust'
+        run: ./scripts/checks/checkRust.sh --all
 
   # Check for binary/JS files and verify guardrails
   guardrails:

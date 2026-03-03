@@ -8,8 +8,10 @@ import {
 } from './node.js';
 
 const testHandlers = [
-  http.get('http://localhost/ping', () => HttpResponse.json({ ok: true })),
-  http.get('http://localhost/v1/ping', () => HttpResponse.json({ ok: true })),
+  http.get('http://localhost/v2/ping', () => HttpResponse.json({ ok: true })),
+  http.get('http://localhost/v1/v2/ping', () =>
+    HttpResponse.json({ ok: true })
+  ),
   http.get('http://localhost/admin/redis/dbsize', () =>
     HttpResponse.json({ dbsize: 0 })
   )
@@ -31,8 +33,8 @@ describe('msw node server', () => {
   });
 
   it('supports handlers with and without /v1 prefix', async () => {
-    const pingResponse = await fetch('http://localhost/ping');
-    const pingV1Response = await fetch('http://localhost/v1/ping');
+    const pingResponse = await fetch('http://localhost/v2/ping');
+    const pingV1Response = await fetch('http://localhost/v1/v2/ping');
 
     expect(pingResponse.ok).toBe(true);
     expect(pingV1Response.ok).toBe(true);

@@ -3,41 +3,23 @@ import { describe, expect, it, vi } from 'vitest';
 import { app } from './index.js';
 
 describe('API', () => {
-  describe('GET /v1/ping', () => {
-    it('should return version with 200 status', async () => {
-      const response = await request(app).get('/v1/ping');
+  describe('GET /healthz', () => {
+    it('returns ok status', async () => {
+      const response = await request(app).get('/healthz');
 
       expect(response.status).toBe(200);
-      expect(response.body).toMatchObject({
-        version: expect.any(String),
-        dbVersion: expect.any(String)
-      });
-      expect(response.body.version).toMatch(/^\d+\.\d+\.\d+$/);
-      expect(response.body.dbVersion).toMatch(/^\d+\.\d+\.\d+$/);
-    });
-
-    it('includes emailDomain when SMTP_RECIPIENT_DOMAINS is configured', async () => {
-      const original = process.env['SMTP_RECIPIENT_DOMAINS'];
-      process.env['SMTP_RECIPIENT_DOMAINS'] =
-        'alpha.example.com,beta.example.com';
-
-      try {
-        const response = await request(app).get('/v1/ping');
-        expect(response.status).toBe(200);
-        expect(response.body).toMatchObject({
-          emailDomain: 'alpha.example.com'
-        });
-      } finally {
-        if (original === undefined) {
-          delete process.env['SMTP_RECIPIENT_DOMAINS'];
-        } else {
-          process.env['SMTP_RECIPIENT_DOMAINS'] = original;
-        }
-      }
+      expect(response.body).toEqual({ status: 'ok' });
     });
   });
 
   describe('404 handler', () => {
+    it('should return 404 for removed v1 ping route', async () => {
+      const response = await request(app).get('/v1/ping');
+
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: 'Not found' });
+    });
+
     it('should return 404 for unknown routes', async () => {
       const response = await request(app).get('/unknown-route');
 

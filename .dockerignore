@@ -9,6 +9,8 @@ coverage
 **/coverage
 dist
 **/dist
+target
+**/target
 *.log
 
 # VCS and local agent/editor state.

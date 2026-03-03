@@ -32,7 +32,7 @@ module "ci_artifacts" {
     "tearleads-prod/client",
     "tearleads-prod/website",
   ]
-  ecr_lifecycle_max_images = 50 # Keep more images in prod
+  ecr_lifecycle_max_images = 5
 
   create_github_actions_role       = true
   github_actions_repository        = var.github_actions_repository

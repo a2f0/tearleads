@@ -43,4 +43,5 @@ pnpm start
 
 ## API Endpoints
 
-- `GET /v1/ping` - Health check endpoint
+- `GET /healthz` - Node API container health check
+- v1 ping has been removed. Client ping now uses `@tearleads/api-v2` at `GET /v2/ping`.

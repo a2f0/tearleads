@@ -1,13 +1,10 @@
 import type { Server } from 'node:http';
 import { expressConnectMiddleware } from '@connectrpc/connect-express';
-import dbPackageJson from '@tearleads/db/package.json' with { type: 'json' };
-import type { PingData } from '@tearleads/shared';
 import { closeRedisClient } from '@tearleads/shared/redis';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express, { type Express, type Request, type Response } from 'express';
 import morgan from 'morgan';
-import packageJson from '../package.json' with { type: 'json' };
 import { authInterceptor } from './connect/interceptors/authInterceptor.js';
 import { registerConnectRoutes } from './connect/router.js';
 import { closePostgresPool } from './lib/postgres.js';
@@ -61,24 +58,6 @@ app.use(
  * @openapi
  * components:
  *   schemas:
- *     PingData:
- *       type: object
- *       properties:
- *         version:
- *           type: string
- *           description: Current API version
- *           example: "0.0.74"
- *         dbVersion:
- *           type: string
- *           description: Current database schema version
- *           example: "0.0.1"
- *         emailDomain:
- *           type: string
- *           description: Domain for user email addresses (first from SMTP_RECIPIENT_DOMAINS)
- *           example: "email.example.com"
- *       required:
- *         - version
- *         - dbVersion
  *     Error:
  *       type: object
  *       properties:
@@ -88,34 +67,8 @@ app.use(
  *       required:
  *         - error
  */
-
-/**
- * @openapi
- * /ping:
- *   get:
- *     summary: Health check endpoint
- *     description: Returns the current API version
- *     tags:
- *       - Health
- *     responses:
- *       200:
- *         description: Successful response
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/PingData'
- */
-app.get('/v1/ping', (_req: Request, res: Response) => {
-  const emailDomains = (process.env['SMTP_RECIPIENT_DOMAINS'] ?? '')
-    .split(',')
-    .map((d) => d.trim())
-    .filter((d) => d.length > 0);
-  const pingData: PingData = {
-    version: packageJson.version,
-    dbVersion: dbPackageJson.version,
-    ...(emailDomains[0] ? { emailDomain: emailDomains[0] } : {})
-  };
-  res.status(200).json(pingData);
+app.get('/healthz', (_req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok' });
 });
 
 // 404 handler

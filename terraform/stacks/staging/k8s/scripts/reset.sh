@@ -68,10 +68,11 @@ trap cleanup EXIT
 # ---------------------------------------------------------------------------
 # 1. Scale down deployments
 # ---------------------------------------------------------------------------
-echo "=== Scaling down api and smtp-listener ==="
+echo "=== Scaling down api, api-v2, and smtp-listener ==="
 step_start="$(date +%s)"
-kubectl -n "$NAMESPACE" scale deployment/api deployment/smtp-listener --replicas=0
+kubectl -n "$NAMESPACE" scale deployment/api deployment/api-v2 deployment/smtp-listener --replicas=0
 kubectl -n "$NAMESPACE" rollout status deployment/api --timeout="$ROLLOUT_TIMEOUT"
+kubectl -n "$NAMESPACE" rollout status deployment/api-v2 --timeout="$ROLLOUT_TIMEOUT"
 kubectl -n "$NAMESPACE" rollout status deployment/smtp-listener --timeout="$ROLLOUT_TIMEOUT"
 echo "Scale-down complete. ($(elapsed_since "$step_start"))"
 
@@ -225,9 +226,9 @@ echo "Postgres reset complete. ($(elapsed_since "$step_start"))"
 # 5. Scale up deployments
 # ---------------------------------------------------------------------------
 echo ""
-echo "=== Scaling up api and smtp-listener ==="
+echo "=== Scaling up api, api-v2, and smtp-listener ==="
 step_start="$(date +%s)"
-kubectl -n "$NAMESPACE" scale deployment/api deployment/smtp-listener --replicas=1
+kubectl -n "$NAMESPACE" scale deployment/api deployment/api-v2 deployment/smtp-listener --replicas=1
 
 rollout_failures=0
 
@@ -236,6 +237,14 @@ if kubectl -n "$NAMESPACE" rollout status deployment/api --timeout="$ROLLOUT_TIM
   echo "  api ready ($(elapsed_since "$rollout_start"))"
 else
   echo "  WARNING: api rollout did not complete ($(elapsed_since "$rollout_start"))"
+  rollout_failures=$((rollout_failures + 1))
+fi
+
+rollout_start="$(date +%s)"
+if kubectl -n "$NAMESPACE" rollout status deployment/api-v2 --timeout="$ROLLOUT_TIMEOUT"; then
+  echo "  api-v2 ready ($(elapsed_since "$rollout_start"))"
+else
+  echo "  WARNING: api-v2 rollout did not complete ($(elapsed_since "$rollout_start"))"
   rollout_failures=$((rollout_failures + 1))
 fi
 

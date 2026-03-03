@@ -51,6 +51,23 @@ resolve_staging_domain() {
 pass() { echo "  PASS: $1"; }
 fail() { echo "  FAIL: $1"; return 1; }
 
+wait_for_external_endpoint() {
+  local url="$1"
+  local attempt=1
+
+  while (( attempt <= CURL_RETRIES )); do
+    if curl -sf --max-time "$CURL_TIMEOUT" "$url" >/dev/null 2>&1; then
+      pass "$url reachable (attempt $attempt)"
+      return 0
+    fi
+    echo "  attempt $attempt/$CURL_RETRIES failed, retrying in ${CURL_RETRY_DELAY}s..."
+    sleep "$CURL_RETRY_DELAY"
+    ((attempt++))
+  done
+
+  fail "$url unreachable after $CURL_RETRIES attempts"
+}
+
 # --- phases -----------------------------------------------------------------
 
 phase_dns() {
@@ -102,7 +119,7 @@ phase_in_cluster_api() {
   response="$(kubectl -n "$NAMESPACE" exec "$api_pod" -c api -- \
     node -e "
       const http = require('http');
-      http.get('http://localhost:5001/v1/ping', res => {
+      http.get('http://localhost:5001/healthz', res => {
         let d = '';
         res.on('data', c => d += c);
         res.on('end', () => {
@@ -116,9 +133,9 @@ phase_in_cluster_api() {
     " 2>/dev/null || true)"
 
   if [[ -n "$response" ]]; then
-    pass "API pod $api_pod responded to /v1/ping ($response)"
+    pass "API pod $api_pod responded to /healthz ($response)"
   else
-    fail "API pod $api_pod did not respond to /v1/ping"
+    fail "API pod $api_pod did not respond to /healthz"
   fi
 }
 
@@ -126,25 +143,54 @@ phase_external_api() {
   echo ""
   echo "Phase 3: External API health check"
 
-  local url="https://api.$STAGING_DOMAIN/v1/ping"
-  local attempt=1
+  wait_for_external_endpoint "https://api.$STAGING_DOMAIN/healthz"
+}
 
-  while (( attempt <= CURL_RETRIES )); do
-    if curl -sf --max-time "$CURL_TIMEOUT" "$url" >/dev/null 2>&1; then
-      pass "$url reachable (attempt $attempt)"
-      return 0
-    fi
-    echo "  attempt $attempt/$CURL_RETRIES failed, retrying in ${CURL_RETRY_DELAY}s..."
-    sleep "$CURL_RETRY_DELAY"
-    ((attempt++))
-  done
+phase_in_cluster_api_v2() {
+  echo ""
+  echo "Phase 4: In-cluster API v2 health check"
 
-  fail "$url unreachable after $CURL_RETRIES attempts"
+  local api_v2_pod
+  api_v2_pod="$(kubectl -n "$NAMESPACE" get pods -l app=api-v2 --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+
+  if [[ -z "$api_v2_pod" ]]; then
+    fail "no running API v2 pod found (label app=api-v2)"
+    return 1
+  fi
+
+  local local_port
+  local_port="$((35000 + RANDOM % 1000))"
+  local port_forward_log
+  port_forward_log="$(mktemp)"
+  kubectl -n "$NAMESPACE" port-forward "pod/$api_v2_pod" "${local_port}:5002" >"$port_forward_log" 2>&1 &
+  local port_forward_pid="$!"
+  sleep 2
+
+  local response=""
+  local ok=true
+  if response="$(curl -sf --max-time "$CURL_TIMEOUT" "http://127.0.0.1:${local_port}/v2/ping" 2>/dev/null)"; then
+    pass "API v2 pod $api_v2_pod responded to /v2/ping ($response)"
+  else
+    fail "API v2 pod $api_v2_pod did not respond to /v2/ping" || ok=false
+  fi
+
+  kill "$port_forward_pid" >/dev/null 2>&1 || true
+  wait "$port_forward_pid" >/dev/null 2>&1 || true
+  rm -f "$port_forward_log"
+
+  $ok
+}
+
+phase_external_api_v2() {
+  echo ""
+  echo "Phase 5: External API v2 health check"
+
+  wait_for_external_endpoint "https://api.$STAGING_DOMAIN/v2/ping"
 }
 
 phase_client_api_url() {
   echo ""
-  echo "Phase 4: Client baked-in API URL verification"
+  echo "Phase 6: Client baked-in API URL verification"
 
   local client_pod
   client_pod="$(kubectl -n "$NAMESPACE" get pods -l app=client --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
@@ -174,22 +220,9 @@ phase_client_api_url() {
 
 phase_external_client() {
   echo ""
-  echo "Phase 5: External client reachability"
+  echo "Phase 7: External client reachability"
 
-  local url="https://app.$STAGING_DOMAIN/"
-  local attempt=1
-
-  while (( attempt <= CURL_RETRIES )); do
-    if curl -sf --max-time "$CURL_TIMEOUT" "$url" >/dev/null 2>&1; then
-      pass "$url reachable (attempt $attempt)"
-      return 0
-    fi
-    echo "  attempt $attempt/$CURL_RETRIES failed, retrying in ${CURL_RETRY_DELAY}s..."
-    sleep "$CURL_RETRY_DELAY"
-    ((attempt++))
-  done
-
-  fail "$url unreachable after $CURL_RETRIES attempts"
+  wait_for_external_endpoint "https://app.$STAGING_DOMAIN/"
 }
 
 # --- main -------------------------------------------------------------------
@@ -209,6 +242,8 @@ failures=0
 phase_dns              || failures=$((failures + 1))
 phase_in_cluster_api   || failures=$((failures + 1))
 phase_external_api     || failures=$((failures + 1))
+phase_in_cluster_api_v2 || failures=$((failures + 1))
+phase_external_api_v2  || failures=$((failures + 1))
 phase_client_api_url   || failures=$((failures + 1))
 phase_external_client  || failures=$((failures + 1))
 

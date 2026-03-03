@@ -59,13 +59,13 @@ spec:
               cpu: "500m"
           readinessProbe:
             httpGet:
-              path: /v1/ping
+              path: /healthz
               port: 5001
             initialDelaySeconds: 10
             periodSeconds: 5
           livenessProbe:
             httpGet:
-              path: /v1/ping
+              path: /healthz
               port: 5001
             initialDelaySeconds: 30
             periodSeconds: 10

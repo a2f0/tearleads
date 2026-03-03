@@ -15,8 +15,9 @@ vi.mock('@/lib/api', () => ({
 import { api } from '@/lib/api';
 
 const mockPingData = {
-  version: '0.0.2',
-  dbVersion: '0.0.1'
+  status: 'ok',
+  service: 'api-v2',
+  version: '0.0.2'
 };
 
 describe('DebugMenu', () => {

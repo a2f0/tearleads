@@ -1,0 +1,3 @@
+[workspace]
+members = ["crates/api-v2", "crates/api-v2-ping-wasm"]
+resolver = "2"

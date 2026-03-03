@@ -8,7 +8,7 @@ Container images are stored in AWS ECR (Elastic Container Registry) with separat
 
 | Environment | Repository Prefix | Images |
 |-------------|-------------------|--------|
-| Staging | `tearleads-staging/` | api, client, smtp-listener, website |
+| Staging | `tearleads-staging/` | api, api-v2, client, smtp-listener, website |
 | Production | `tearleads-prod/` | api, client, website |
 
 ## Prerequisites
@@ -34,9 +34,11 @@ Use the `buildContainers.sh` script to build and push images to ECR:
 | Option | Description |
 |--------|-------------|
 | `--api-only` | Only build the API container |
+| `--api-v2-only` | Only build the API v2 container |
 | `--client-only` | Only build the client container |
 | `--smtp-only` | Only build the SMTP listener container |
 | `--website-only` | Only build the website container |
+| `--no-api-v2` | Skip building the API v2 container |
 | `--no-smtp` | Skip building the SMTP listener container |
 | `--parallel` | Build selected containers in parallel |
 | `--no-push` | Build locally without pushing to ECR |
@@ -127,6 +129,7 @@ kubectl apply -f terraform/stacks/staging/k8s/manifests/
 
 # Or apply specific deployments
 kubectl apply -f terraform/stacks/staging/k8s/manifests/api.yaml
+kubectl apply -f terraform/stacks/staging/k8s/manifests/api-v2.yaml
 kubectl apply -f terraform/stacks/staging/k8s/manifests/client.yaml
 kubectl apply -f terraform/stacks/staging/k8s/manifests/smtp-listener.yaml
 kubectl apply -f terraform/stacks/staging/k8s/manifests/website.yaml
@@ -138,6 +141,7 @@ To trigger a rolling update with the latest image:
 
 ```bash
 kubectl rollout restart deployment/api -n tearleads
+kubectl rollout restart deployment/api-v2 -n tearleads
 kubectl rollout restart deployment/client -n tearleads
 kubectl rollout restart deployment/smtp-listener -n tearleads
 kubectl rollout restart deployment/website -n tearleads

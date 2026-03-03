@@ -91,15 +91,22 @@ describe('api edge cases requiring direct fetch mocking', () => {
       vi.mocked(global.fetch).mockImplementation(
         async (input: RequestInfo | URL, init?: RequestInit) => {
           const url = input.toString();
-          if (url.endsWith('/ping')) {
+          if (url.endsWith('/v2/ping')) {
             const authHeader = init?.headers
               ? new Headers(init.headers).get('Authorization')
               : null;
             if (authHeader === 'Bearer new-token') {
-              return new Response(JSON.stringify({ version: '1.0.0' }), {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' }
-              });
+              return new Response(
+                JSON.stringify({
+                  status: 'ok',
+                  service: 'api-v2',
+                  version: '1.0.0'
+                }),
+                {
+                  status: 200,
+                  headers: { 'Content-Type': 'application/json' }
+                }
+              );
             }
             return new Response(null, { status: 401 });
           }
@@ -139,8 +146,8 @@ describe('api edge cases requiring direct fetch mocking', () => {
       );
 
       await expect(Promise.all([first, second])).resolves.toEqual([
-        { version: '1.0.0' },
-        { version: '1.0.0' }
+        { status: 'ok', service: 'api-v2', version: '1.0.0' },
+        { status: 'ok', service: 'api-v2', version: '1.0.0' }
       ]);
       expect(
         vi
@@ -198,7 +205,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
       vi.mocked(global.fetch).mockImplementation(
         async (input: RequestInfo | URL) => {
           const url = input.toString();
-          if (url.endsWith('/ping')) {
+          if (url.endsWith('/v2/ping')) {
             return new Response(null, { status: 401 });
           }
           if (url.endsWith('/connect/tearleads.v1.AuthService/RefreshToken')) {

@@ -10,6 +10,7 @@ resources:
   - garage.yaml
   - smtp-listener.yaml
   - api.yaml
+  - api-v2.yaml
   - client.yaml
   - website.yaml
   - cloudflared.yaml
