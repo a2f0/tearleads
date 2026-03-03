@@ -99,7 +99,7 @@ async function loadOldestAccessibleCursor(
       UNION
       SELECT item_id FROM acl_items
     )
-    SELECT ops.occurred_at, ops.id
+    SELECT date_trunc('milliseconds', ops.occurred_at) AS occurred_at, ops.id
     FROM vfs_crdt_ops ops
     INNER JOIN eligible_items access ON access.item_id = ops.item_id
     WHERE (
@@ -112,7 +112,7 @@ async function loadOldestAccessibleCursor(
             AND link.child_id = ops.item_id
         )
       )
-    ORDER BY ops.occurred_at ASC, ops.id ASC
+    ORDER BY date_trunc('milliseconds', ops.occurred_at) ASC, ops.id ASC
     LIMIT 1
     `;
   const queryValues = [userId, rootId];

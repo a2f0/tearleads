@@ -9,6 +9,10 @@ import {
   teardownBrowserRuntimeActors
 } from './browserRuntimeHarness.js';
 
+function toGenericValue<T>(value: unknown): T {
+  return JSON.parse(JSON.stringify(value));
+}
+
 describe('browserRuntimeHarness', () => {
   const actors: BrowserRuntimeActor[] = [];
 
@@ -20,23 +24,23 @@ describe('browserRuntimeHarness', () => {
 
   it('throws when sync feed reports hasMore without nextCursor', async () => {
     const actor: RuntimeApiActor = {
-      fetchJson: async (path: string) => {
-        if (path.startsWith('/vfs/vfs-sync?')) {
-          return JSON.parse(
-            JSON.stringify({
+      fetchJson: async <T>(path: string) => {
+        if (path.endsWith('/connect/tearleads.v1.VfsService/GetSync')) {
+          return toGenericValue<T>({
+            json: JSON.stringify({
               items: [],
               hasMore: true,
               nextCursor: null
             })
-          );
+          });
         }
-        return JSON.parse(
-          JSON.stringify({
+        return toGenericValue<T>({
+          json: JSON.stringify({
             items: [],
             hasMore: false,
             nextCursor: null
           })
-        );
+        });
       }
     };
 
@@ -49,23 +53,23 @@ describe('browserRuntimeHarness', () => {
 
   it('throws when crdt feed reports hasMore without nextCursor', async () => {
     const actor: RuntimeApiActor = {
-      fetchJson: async (path: string) => {
-        if (path.startsWith('/vfs/crdt/vfs-sync?')) {
-          return JSON.parse(
-            JSON.stringify({
+      fetchJson: async <T>(path: string) => {
+        if (path.endsWith('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
+          return toGenericValue<T>({
+            json: JSON.stringify({
               items: [],
               hasMore: true,
               nextCursor: null
             })
-          );
+          });
         }
-        return JSON.parse(
-          JSON.stringify({
+        return toGenericValue<T>({
+          json: JSON.stringify({
             items: [],
             hasMore: false,
             nextCursor: null
           })
-        );
+        });
       }
     };
 

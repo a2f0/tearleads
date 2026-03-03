@@ -7,6 +7,7 @@ import type {
 import { setupBobNotesShareForAliceDb } from '@tearleads/shared/scaffolding';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
+import { fetchVfsConnectJson } from '../harness/vfsConnectClient.js';
 
 const getApiDeps = async () => {
   const api = await import('@tearleads/api');
@@ -20,15 +21,14 @@ async function fetchAllSyncItems(
   let cursor: string | undefined;
 
   while (true) {
-    const params = new URLSearchParams();
-    params.set('limit', '500');
-    if (cursor) {
-      params.set('cursor', cursor);
-    }
-
-    const page = await actor.fetchJson<VfsSyncResponse>(
-      `/vfs/vfs-sync?${params.toString()}`
-    );
+    const page = await fetchVfsConnectJson<VfsSyncResponse>({
+      actor,
+      methodName: 'GetSync',
+      requestBody: {
+        limit: 500,
+        cursor
+      }
+    });
     all.push(...page.items);
 
     if (!page.hasMore) {
@@ -50,15 +50,14 @@ async function fetchAllCrdtItems(
   let cursor: string | undefined;
 
   while (true) {
-    const params = new URLSearchParams();
-    params.set('limit', '500');
-    if (cursor) {
-      params.set('cursor', cursor);
-    }
-
-    const page = await actor.fetchJson<VfsCrdtSyncResponse>(
-      `/vfs/crdt/vfs-sync?${params.toString()}`
-    );
+    const page = await fetchVfsConnectJson<VfsCrdtSyncResponse>({
+      actor,
+      methodName: 'GetCrdtSync',
+      requestBody: {
+        limit: 500,
+        cursor
+      }
+    });
     all.push(...page.items);
 
     if (!page.hasMore) {

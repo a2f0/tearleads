@@ -5,6 +5,14 @@ import {
   type TestContext,
   type TestContextDeps
 } from '@tearleads/api-test-utils';
+import { createConnectJsonPostInit } from '@tearleads/shared';
+import {
+  adaptConnectResponse,
+  type ConnectRouteMapping,
+  mapLegacyPathToConnect,
+  mergeHeaders,
+  resolveDirectApiPath
+} from './apiScenarioConnectCompat.js';
 
 export interface ApiActorDefinition {
   alias: string;
@@ -16,6 +24,10 @@ interface ApiActor {
   user: SeededUser;
   fetch(path: string, init?: RequestInit): Promise<Response>;
   fetchJson<T = unknown>(path: string, init?: RequestInit): Promise<T>;
+}
+
+function parseJson<T>(text: string): T {
+  return JSON.parse(text);
 }
 
 export class ApiScenarioHarness {
@@ -36,19 +48,31 @@ export class ApiScenarioHarness {
 
     for (const def of actorDefs) {
       const user = await seedTestUser(ctx, { admin: def.admin ?? false });
-      const baseUrl = `http://localhost:${String(ctx.port)}/v1`;
+      const baseUrl = `http://localhost:${String(ctx.port)}`;
 
       const actorFetch = (
         path: string,
         init?: RequestInit
-      ): Promise<Response> =>
-        fetch(`${baseUrl}${path}`, {
+      ): Promise<Response> => {
+        const connectMapping: ConnectRouteMapping | null =
+          mapLegacyPathToConnect(path, init);
+        if (connectMapping) {
+          const connectInit = createConnectJsonPostInit(connectMapping.body);
+          const connectHeaders = mergeHeaders(
+            user.accessToken,
+            connectInit.headers
+          );
+          return fetch(`${baseUrl}${connectMapping.path}`, {
+            ...connectInit,
+            headers: connectHeaders
+          }).then((response) => adaptConnectResponse(response, connectMapping));
+        }
+
+        return fetch(`${baseUrl}${resolveDirectApiPath(path)}`, {
           ...init,
-          headers: {
-            Authorization: `Bearer ${user.accessToken}`,
-            ...init?.headers
-          }
+          headers: mergeHeaders(user.accessToken, init?.headers)
         });
+      };
 
       const actorFetchJson = async <T = unknown>(
         path: string,
@@ -62,8 +86,10 @@ export class ApiScenarioHarness {
           );
         }
         const text = await response.text();
-        if (!text) return undefined as T;
-        return JSON.parse(text) as T;
+        if (text.trim().length === 0) {
+          return parseJson<T>('{}');
+        }
+        return parseJson<T>(text);
       };
 
       actorMap.set(def.alias, {
