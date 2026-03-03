@@ -5,6 +5,7 @@ import { emails, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
 import type { VfsCrdtSyncResponse, VfsSyncResponse } from '@tearleads/shared';
 import { screen, waitFor } from '@testing-library/react';
 import { eq } from 'drizzle-orm';
+import { createElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getDatabase } from '@/db';
 import { clearStoredAuth, storeAuth } from '@/lib/authStorage';
@@ -142,7 +143,7 @@ describe('DB scaffolding plaintext render integration', () => {
       '@/lib/vfsRematerialization'
     );
 
-    const vfsRender = await renderWithDatabase(<VfsPage />, {
+    const vfsRender = await renderWithDatabase(createElement(VfsPage), {
       beforeRender: async () => {
         const localDb = getDatabase();
         await localDb.delete(vfsLinks);
@@ -176,7 +177,7 @@ describe('DB scaffolding plaintext render integration', () => {
 
     vfsRender.unmount();
 
-    const emailRender = await renderWithDatabase(<EmailPage />);
+    const emailRender = await renderWithDatabase(createElement(EmailPage));
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Email' })).toBeInTheDocument();
