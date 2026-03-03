@@ -51,21 +51,22 @@ describe('DB scaffolding plaintext render integration', () => {
       client.release();
     }
 
-    const postgresFolder = await ctx.pool.query<{ encrypted_name: string | null }>(
-      `SELECT encrypted_name FROM vfs_registry WHERE id = $1`,
-      [seededShare.folderId]
-    );
-    const postgresInboxFolder = await ctx.pool.query<{ encrypted_name: string | null }>(
-      `SELECT encrypted_name FROM vfs_registry WHERE id = $1`,
-      [seededEmails.bob.inboxFolderId]
-    );
+    const postgresFolder = await ctx.pool.query<{
+      encrypted_name: string | null;
+    }>(`SELECT encrypted_name FROM vfs_registry WHERE id = $1`, [
+      seededShare.folderId
+    ]);
+    const postgresInboxFolder = await ctx.pool.query<{
+      encrypted_name: string | null;
+    }>(`SELECT encrypted_name FROM vfs_registry WHERE id = $1`, [
+      seededEmails.bob.inboxFolderId
+    ]);
     const postgresEmail = await ctx.pool.query<{
       encrypted_subject: string | null;
       encrypted_from: string | null;
-    }>(
-      `SELECT encrypted_subject, encrypted_from FROM emails WHERE id = $1`,
-      [seededEmails.bob.emailItemId]
-    );
+    }>(`SELECT encrypted_subject, encrypted_from FROM emails WHERE id = $1`, [
+      seededEmails.bob.emailItemId
+    ]);
 
     const folderCiphertext = postgresFolder.rows[0]?.encrypted_name;
     const inboxCiphertext = postgresInboxFolder.rows[0]?.encrypted_name;
@@ -154,9 +155,13 @@ describe('DB scaffolding plaintext render integration', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'VFS Explorer' })).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: 'VFS Explorer' })
+      ).toBeInTheDocument();
       expect(screen.getByText('Notes shared with Alice')).toBeInTheDocument();
-      expect(screen.queryByText(folderCiphertext ?? '')).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(folderCiphertext ?? '')
+      ).not.toBeInTheDocument();
     });
 
     const db = getDatabase();
@@ -180,12 +185,18 @@ describe('DB scaffolding plaintext render integration', () => {
     const emailRender = await renderWithDatabase(createElement(EmailPage));
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Email' })).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: 'Email' })
+      ).toBeInTheDocument();
       expect(screen.getByText('Inbox')).toBeInTheDocument();
       expect(screen.getByText('Welcome to Tearleads')).toBeInTheDocument();
-      expect(screen.getByText('From: system@tearleads.com')).toBeInTheDocument();
+      expect(
+        screen.getByText('From: system@tearleads.com')
+      ).toBeInTheDocument();
       expect(screen.queryByText(inboxCiphertext ?? '')).not.toBeInTheDocument();
-      expect(screen.queryByText(subjectCiphertext ?? '')).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(subjectCiphertext ?? '')
+      ).not.toBeInTheDocument();
     });
 
     const localEmailSubject = await db

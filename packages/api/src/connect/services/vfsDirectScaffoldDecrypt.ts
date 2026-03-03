@@ -36,7 +36,10 @@ async function decryptScaffoldEncryptedName(
   encryptedName: string | null | undefined,
   encryptedSessionKey: string | null | undefined
 ): Promise<string | null> {
-  if (typeof encryptedName !== 'string' || typeof encryptedSessionKey !== 'string') {
+  if (
+    typeof encryptedName !== 'string' ||
+    typeof encryptedSessionKey !== 'string'
+  ) {
     return null;
   }
 
