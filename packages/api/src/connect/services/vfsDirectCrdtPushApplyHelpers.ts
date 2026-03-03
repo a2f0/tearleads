@@ -34,14 +34,6 @@ export function resolveContainerId(
   return itemId.length > 0 ? itemId : null;
 }
 
-export function normalizeReplicaId(value: string | null): string | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
 export function pickNewerOccurredAt(
   current: string | null,
   candidate: Date | string | null

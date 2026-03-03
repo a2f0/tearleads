@@ -1,15 +1,8 @@
+import { normalizeRequiredString } from './vfsDirectBlobShared.js';
+
 interface VfsCrdtReplicaWriteIdRow {
   replica_id: string | null;
   max_write_id: string | number | null;
-}
-
-function normalizeReplicaId(value: unknown): string | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
 }
 
 function parseWriteId(value: unknown): number | null {
@@ -48,7 +41,7 @@ export function toLastReconciledWriteIds(
    */
   const entries: Array<[string, number]> = [];
   for (const row of rows) {
-    const replicaId = normalizeReplicaId(row.replica_id);
+    const replicaId = normalizeRequiredString(row.replica_id);
     const writeId = parseWriteId(row.max_write_id);
     if (!replicaId || writeId === null) {
       continue;

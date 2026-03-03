@@ -8,11 +8,11 @@ import {
   runTimedVfsCrdtQuery,
   type VfsCrdtQueryMetrics
 } from '../../lib/vfsCrdtPerformanceMetrics.js';
+import { normalizeRequiredString } from './vfsDirectBlobShared.js';
 import { serializeEnvelopeField } from './vfsDirectCrdtEnvelopeStorage.js';
 import {
   applyCanonicalItemOperation,
   compareCursor,
-  normalizeReplicaId,
   pickNewerOccurredAt,
   resolveContainerId,
   type TimedQueryRunner,
@@ -127,7 +127,7 @@ export async function applyCrdtPushOperations(input: {
     );
 
     for (const row of replicaHeadResult.rows) {
-      const replicaId = normalizeReplicaId(row.replica_id);
+      const replicaId = normalizeRequiredString(row.replica_id);
       if (!replicaId) {
         continue;
       }
