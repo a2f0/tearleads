@@ -4,15 +4,11 @@ import type {
   PostgresColumnInfo,
   PostgresColumnsResponse,
   PostgresRowsResponse,
-  PostgresTableInfo,
   PostgresTablesResponse
 } from '@tearleads/shared';
 import { getPool, getPostgresConnectionInfo } from '../../lib/postgres.js';
 import { requireAdminSession } from './adminDirectAuth.js';
-import {
-  coerceNumber,
-  type PostgresTableRow
-} from './adminDirectPostgresShared.js';
+import { queryTableMetadata } from './adminDirectPostgresShared.js';
 
 type GetColumnsRequest = { schema: string; table: string };
 type GetRowsRequest = {
@@ -77,38 +73,7 @@ export async function getTablesDirect(
 
   try {
     const pool = await getPool('read');
-    const result = await pool.query<{
-      schema: string;
-      name: string;
-      row_count: number | string;
-      total_bytes: number | string;
-      table_bytes: number | string;
-      index_bytes: number | string;
-    }>(`
-      SELECT
-        n.nspname AS schema,
-        c.relname AS name,
-        GREATEST(c.reltuples, 0)::bigint AS row_count,
-        pg_total_relation_size(c.oid) AS total_bytes,
-        pg_relation_size(c.oid) AS table_bytes,
-        pg_indexes_size(c.oid) AS index_bytes
-      FROM pg_class c
-      JOIN pg_namespace n ON n.oid = c.relnamespace
-      WHERE c.relkind IN ('r', 'p')
-        AND n.nspname NOT IN ('pg_catalog', 'information_schema')
-      ORDER BY n.nspname, c.relname
-    `);
-
-    const tables: PostgresTableInfo[] = result.rows.map(
-      (row: PostgresTableRow) => ({
-        schema: row.schema,
-        name: row.name,
-        rowCount: coerceNumber(row.row_count),
-        totalBytes: coerceNumber(row.total_bytes),
-        tableBytes: coerceNumber(row.table_bytes),
-        indexBytes: coerceNumber(row.index_bytes)
-      })
-    );
+    const tables = await queryTableMetadata(pool);
     const response: PostgresTablesResponse = { tables };
     return { json: JSON.stringify(response) };
   } catch (error) {
