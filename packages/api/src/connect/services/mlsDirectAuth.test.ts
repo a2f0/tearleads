@@ -8,7 +8,7 @@ const { authenticateMock, resolveOrganizationMembershipMock } = vi.hoisted(
   })
 );
 
-vi.mock('./legacyRouteProxyAuth.js', () => ({
+vi.mock('./connectRequestAuth.js', () => ({
   authenticate: (...args: unknown[]) => authenticateMock(...args),
   resolveOrganizationMembership: (...args: unknown[]) =>
     resolveOrganizationMembershipMock(...args)

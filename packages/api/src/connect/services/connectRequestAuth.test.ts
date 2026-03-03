@@ -3,7 +3,7 @@ import {
   authenticate,
   resolveAdminAccess,
   resolveOrganizationMembership
-} from './legacyRouteProxyAuth.js';
+} from './connectRequestAuth.js';
 
 const {
   getPostgresPoolMock,
@@ -65,7 +65,7 @@ function createSession(userId = 'user-1', admin = false) {
   };
 }
 
-describe('legacyRouteProxyAuth', () => {
+describe('connectRequestAuth', () => {
   let originalJwtSecret: string | undefined;
 
   beforeEach(() => {

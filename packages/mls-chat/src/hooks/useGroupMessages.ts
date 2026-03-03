@@ -97,7 +97,7 @@ export function useGroupMessages(
         }
 
         const response = await fetch(
-          `${apiBaseUrl}/vfs/mls/groups/${groupId}/messages?${params}`,
+          `${apiBaseUrl}/mls/groups/${groupId}/messages?${params}`,
           { headers }
         );
 
@@ -160,7 +160,7 @@ export function useGroupMessages(
         }
 
         const response = await fetch(
-          `${apiBaseUrl}/vfs/mls/groups/${groupId}/messages`,
+          `${apiBaseUrl}/mls/groups/${groupId}/messages`,
           {
             method: 'POST',
             headers,

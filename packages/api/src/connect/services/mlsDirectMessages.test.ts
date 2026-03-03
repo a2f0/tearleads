@@ -134,6 +134,10 @@ describe('mlsDirectMessages', () => {
       { requestHeader: new Headers() }
     );
 
+    expect(requireMlsClaimsMock).toHaveBeenCalledWith(
+      '/mls/groups/group-1/messages',
+      expect.any(Headers)
+    );
     expect(parseJson(response.json)).toMatchObject({
       message: {
         id: 'message-1',
@@ -303,6 +307,10 @@ describe('mlsDirectMessages', () => {
       { requestHeader: new Headers() }
     );
 
+    expect(requireMlsClaimsMock).toHaveBeenCalledWith(
+      '/mls/groups/group-1/messages',
+      expect.any(Headers)
+    );
     expect(parseJson(response.json)).toEqual({
       messages: [
         {

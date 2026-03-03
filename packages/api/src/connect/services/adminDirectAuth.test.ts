@@ -6,7 +6,7 @@ const { authenticateMock, resolveAdminAccessMock } = vi.hoisted(() => ({
   resolveAdminAccessMock: vi.fn()
 }));
 
-vi.mock('./legacyRouteProxyAuth.js', () => ({
+vi.mock('./connectRequestAuth.js', () => ({
   authenticate: (...args: unknown[]) => authenticateMock(...args),
   resolveAdminAccess: (...args: unknown[]) => resolveAdminAccessMock(...args)
 }));

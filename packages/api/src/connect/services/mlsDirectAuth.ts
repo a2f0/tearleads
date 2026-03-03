@@ -3,7 +3,7 @@ import { toConnectCode } from './httpStatusToConnectCode.js';
 import {
   authenticate,
   resolveOrganizationMembership
-} from './legacyRouteProxyAuth.js';
+} from './connectRequestAuth.js';
 
 export async function requireMlsClaims(
   path: string,
