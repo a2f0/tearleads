@@ -18,7 +18,7 @@ SKIP_SMTP_SMOKE="${SKIP_SMTP_SMOKE:-false}"
 
 if [[ ! -f "$KUBECONFIG_FILE" ]]; then
   echo "ERROR: Kubeconfig not found at $KUBECONFIG_FILE"
-  echo "Run $SCRIPT_DIR/apply02.sh first (or set KUBECONFIG)."
+  echo "Run $SCRIPT_DIR/apply02-bootstrap-cluster.sh first (or set KUBECONFIG)."
   exit 1
 fi
 

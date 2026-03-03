@@ -18,25 +18,25 @@ TOTAL_START=$SECONDS
 
 STEP_START=$SECONDS
 echo "Step 1/4: Applying Terraform infrastructure..."
-"$SCRIPT_DIR/apply01.sh" "$@"
+"$SCRIPT_DIR/apply01-terraform.sh" "$@"
 echo "  Step 1/4 completed in $(format_duration $((SECONDS - STEP_START)))"
 
 echo ""
 STEP_START=$SECONDS
 echo "Step 2/4: Running baseline bootstrap and deploying manifests..."
-"$SCRIPT_DIR/apply02.sh"
+"$SCRIPT_DIR/apply02-bootstrap-cluster.sh"
 echo "  Step 2/4 completed in $(format_duration $((SECONDS - STEP_START)))"
 
 echo ""
 STEP_START=$SECONDS
 echo "Step 3/4: Building container images..."
-"$SCRIPT_DIR/apply03.sh"
+"$SCRIPT_DIR/apply03-build-images.sh"
 echo "  Step 3/4 completed in $(format_duration $((SECONDS - STEP_START)))"
 
 echo ""
 STEP_START=$SECONDS
 echo "Step 4/4: Deploying containers..."
-"$SCRIPT_DIR/apply04.sh"
+"$SCRIPT_DIR/apply04-rollout-containers.sh"
 echo "  Step 4/4 completed in $(format_duration $((SECONDS - STEP_START)))"
 
 echo ""
