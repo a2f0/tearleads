@@ -1,3 +1,14 @@
 [workspace]
 members = ["crates/api-v2", "crates/api-v2-ping-wasm"]
 resolver = "2"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "deny"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+todo = "deny"
+unimplemented = "deny"

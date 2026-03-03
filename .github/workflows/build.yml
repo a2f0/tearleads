@@ -114,6 +114,14 @@ jobs:
         if: matrix.lint-type == 'rust'
         uses: taiki-e/install-action@cargo-llvm-cov
 
+      - name: Install cargo-deny
+        if: matrix.lint-type == 'rust'
+        uses: taiki-e/install-action@cargo-deny
+
+      - name: Install cargo-machete
+        if: matrix.lint-type == 'rust'
+        uses: taiki-e/install-action@cargo-machete
+
       - name: Setup Ruby
         if: matrix.lint-type == 'rubocop'
         uses: ruby/setup-ruby@v1
