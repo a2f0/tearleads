@@ -218,6 +218,49 @@ export function useGroupMembers(
     }
   }, [groupId, client, fetchMembers]);
 
+  useEffect(() => {
+    if (!groupId) {
+      return;
+    }
+
+    const registryKey = '__mlsMembershipHandler';
+    const existingRegistry = Reflect.get(globalThis, registryKey);
+    const handlerRegistry =
+      existingRegistry instanceof Map
+        ? existingRegistry
+        : new Map<string, Set<() => void>>();
+
+    if (!(existingRegistry instanceof Map)) {
+      Reflect.set(globalThis, registryKey, handlerRegistry);
+    }
+
+    const refreshHandler = () => {
+      void fetchMembers();
+    };
+
+    const existingHandlers = handlerRegistry.get(groupId);
+    const groupHandlers =
+      existingHandlers instanceof Set
+        ? existingHandlers
+        : new Set<() => void>();
+
+    if (!(existingHandlers instanceof Set)) {
+      handlerRegistry.set(groupId, groupHandlers);
+    }
+
+    groupHandlers.add(refreshHandler);
+
+    return () => {
+      groupHandlers.delete(refreshHandler);
+      if (groupHandlers.size === 0) {
+        handlerRegistry.delete(groupId);
+      }
+      if (handlerRegistry.size === 0) {
+        Reflect.deleteProperty(globalThis, registryKey);
+      }
+    };
+  }, [groupId, fetchMembers]);
+
   return {
     members,
     isLoading,

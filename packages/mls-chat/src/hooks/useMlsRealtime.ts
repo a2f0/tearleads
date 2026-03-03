@@ -8,9 +8,12 @@ import type { MlsMessage, MlsMessageType } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useMlsChatApi } from '../context/index.js';
+import { useMlsChatApi, useMlsChatUser } from '../context/index.js';
 import type { MlsClient, SseConnectionState } from '../lib/index.js';
-import { uploadGroupStateSnapshot } from './groupStateSync.js';
+import {
+  recoverMissingGroupState,
+  uploadGroupStateSnapshot
+} from './groupStateSync.js';
 
 interface UseMlsRealtimeResult {
   connectionState: SseConnectionState;
@@ -25,14 +28,16 @@ interface SseMessageEnvelope {
   payload: unknown;
 }
 
-/** Commit message payload from SSE */
-interface CommitPayload {
+/** Group membership event payload from SSE */
+interface GroupMembershipPayload {
   groupId: string;
-  commit: string;
 }
 
-/** Global message handler registry type */
-type MlsMessageHandlerRegistry = Map<string, (msg: MlsMessage) => void>;
+/** Welcome event payload from SSE */
+interface WelcomePayload {
+  groupId: string;
+  welcomeId: string;
+}
 
 interface NotificationStreamEnvelope {
   event: string;
@@ -111,17 +116,85 @@ function isMlsMessage(value: unknown): value is MlsMessage {
   );
 }
 
-/** Type guard for commit message payload */
-function isCommitPayload(value: unknown): value is CommitPayload {
+function isGroupMembershipPayload(
+  value: unknown
+): value is GroupMembershipPayload {
+  return isRecord(value) && typeof value['groupId'] === 'string';
+}
+
+function isWelcomePayload(value: unknown): value is WelcomePayload {
   return (
     isRecord(value) &&
     typeof value['groupId'] === 'string' &&
-    typeof value['commit'] === 'string'
+    typeof value['welcomeId'] === 'string'
   );
+}
+
+function decodeBase64Bytes(value: string): Uint8Array | null {
+  try {
+    return Uint8Array.from(atob(value), (character) => character.charCodeAt(0));
+  } catch {
+    return null;
+  }
+}
+
+function dispatchRealtimeMessage(groupId: string, message: MlsMessage): void {
+  const handlers = Reflect.get(globalThis, '__mlsMessageHandler');
+  if (!(handlers instanceof Map)) {
+    return;
+  }
+
+  const handler = handlers.get(groupId);
+  if (typeof handler === 'function') {
+    handler(message);
+  }
+}
+
+function notifyMembershipChange(groupId: string): void {
+  const handlers = Reflect.get(globalThis, '__mlsMembershipHandler');
+  if (!(handlers instanceof Map)) {
+    return;
+  }
+
+  const groupHandlers = handlers.get(groupId);
+  if (groupHandlers instanceof Set) {
+    for (const handler of groupHandlers) {
+      if (typeof handler === 'function') {
+        handler();
+      }
+    }
+    return;
+  }
+
+  if (typeof groupHandlers === 'function') {
+    groupHandlers();
+  }
+}
+
+function triggerWelcomeRefresh(): void {
+  const handler = Reflect.get(globalThis, '__mlsWelcomeRefreshHandler');
+  if (handler instanceof Set) {
+    for (const refreshHandler of handler) {
+      if (typeof refreshHandler !== 'function') {
+        continue;
+      }
+      void Promise.resolve(refreshHandler()).catch((error) => {
+        console.warn('[mls-chat] Failed to refresh welcome messages', error);
+      });
+    }
+    return;
+  }
+
+  if (typeof handler === 'function') {
+    void Promise.resolve(handler()).catch((error) => {
+      console.warn('[mls-chat] Failed to refresh welcome messages', error);
+    });
+  }
 }
 
 export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
   const { apiBaseUrl, getAuthHeader } = useMlsChatApi();
+  const { userId } = useMlsChatUser();
 
   const [connectionState, setConnectionState] =
     useState<SseConnectionState>('disconnected');
@@ -140,16 +213,17 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
       abortControllerRef.current.abort();
     }
 
-    if (subscribedGroups.size === 0) {
+    if (!client) {
       setConnectionState('disconnected');
       return;
     }
 
     setConnectionState('connecting');
 
-    const channels = Array.from(subscribedGroups).map(
-      (id) => `mls:group:${id}`
+    const groupChannels = Array.from(subscribedGroups).map(
+      (groupId) => `mls:group:${groupId}`
     );
+    const channels = [`mls:user:${userId}`, ...groupChannels];
     const authValue = getAuthHeader?.();
     const token = normalizeToken(authValue);
     const abortController = new AbortController();
@@ -208,58 +282,85 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
             if (!isMlsMessage(messageEnvelope.payload)) {
               continue;
             }
+
             const message = messageEnvelope.payload;
-
-            // Dispatch to message handler if registered
-            const handlers = (
-              globalThis as {
-                __mlsMessageHandler?: MlsMessageHandlerRegistry;
-              }
-            ).__mlsMessageHandler;
-
-            if (handlers?.has(message.groupId)) {
-              handlers.get(message.groupId)?.(message);
+            if (message.messageType === 'application') {
+              dispatchRealtimeMessage(message.groupId, message);
+              continue;
             }
-            continue;
-          }
 
-          if (messageEnvelope.type !== 'mls:commit') {
-            continue;
-          }
+            if (
+              message.messageType !== 'commit' ||
+              !client.hasGroup(message.groupId) ||
+              message.senderUserId === userId
+            ) {
+              continue;
+            }
 
-          // Handle commit messages (epoch updates)
-          if (!isCommitPayload(messageEnvelope.payload)) {
-            continue;
-          }
-          const { groupId, commit } = messageEnvelope.payload;
+            const commitBytes = decodeBase64Bytes(message.ciphertext);
+            if (!commitBytes) {
+              continue;
+            }
 
-          if (!client?.hasGroup(groupId)) {
-            continue;
-          }
-
-          const commitBytes = Uint8Array.from(atob(commit), (c) =>
-            c.charCodeAt(0)
-          );
-          client
-            .processCommit(groupId, commitBytes)
-            .then(async () => {
-              try {
-                await uploadGroupStateSnapshot({
-                  groupId,
-                  client,
-                  apiBaseUrl,
-                  getAuthHeader
-                });
-              } catch (uploadError) {
+            client
+              .processCommit(message.groupId, commitBytes)
+              .then(async () => {
+                try {
+                  await uploadGroupStateSnapshot({
+                    groupId: message.groupId,
+                    client,
+                    apiBaseUrl,
+                    getAuthHeader
+                  });
+                } catch (uploadError) {
+                  console.warn(
+                    `Failed to upload MLS state for group ${message.groupId}:`,
+                    uploadError
+                  );
+                }
+              })
+              .catch((error) => {
                 console.warn(
-                  `Failed to upload MLS state for group ${groupId}:`,
-                  uploadError
+                  `[mls-chat] Failed to process commit for group ${message.groupId}. Local state may require recovery.`,
+                  error
                 );
-              }
-            })
-            .catch(() => {
-              // Commit processing failed - may need state refresh
-            });
+                void (async () => {
+                  try {
+                    await client.leaveGroup(message.groupId);
+                    await recoverMissingGroupState({
+                      groupId: message.groupId,
+                      client,
+                      apiBaseUrl,
+                      getAuthHeader
+                    });
+                  } catch (recoveryError) {
+                    console.warn(
+                      `[mls-chat] Failed to recover commit state for group ${message.groupId}.`,
+                      recoveryError
+                    );
+                  }
+                })();
+              });
+            continue;
+          }
+
+          if (
+            messageEnvelope.type === 'mls:member_added' ||
+            messageEnvelope.type === 'mls:member_removed'
+          ) {
+            if (!isGroupMembershipPayload(messageEnvelope.payload)) {
+              continue;
+            }
+            notifyMembershipChange(messageEnvelope.payload.groupId);
+            continue;
+          }
+
+          if (messageEnvelope.type === 'mls:welcome') {
+            if (!isWelcomePayload(messageEnvelope.payload)) {
+              continue;
+            }
+            triggerWelcomeRefresh();
+          }
         }
 
         handleError(abortController.signal.aborted);
@@ -272,7 +373,7 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
     };
 
     void startStream();
-  }, [apiBaseUrl, getAuthHeader, subscribedGroups, client]);
+  }, [apiBaseUrl, getAuthHeader, subscribedGroups, client, userId]);
 
   const subscribe = useCallback((groupId: string) => {
     setSubscribedGroups((prev) => {
