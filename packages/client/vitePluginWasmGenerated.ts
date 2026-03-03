@@ -29,7 +29,7 @@ export function wasmGeneratedGuard(): Plugin {
         res.setHeader('Content-Type', 'application/javascript');
         res.statusCode = 200;
         res.end(
-          `throw new Error('WASM bindings not found at ${urlPath}. Run: pnpm codegenWasm');`
+          `throw new Error(${JSON.stringify(`WASM bindings not found at ${urlPath}. Run: pnpm codegenWasm`)});`
         );
       });
     }
