@@ -151,11 +151,11 @@ Do not start the next slice until merge is confirmed.
 ## Phase 5: Post-Merge Update
 
 1. Refresh workspace (normally handled by `$enter-merge-queue`).
-1. Confirm current branch is `main` and clean.
-1. Append merged PR metadata to `completed_slices`.
-1. Increment `iteration`.
-1. Re-run Phase 1 recon against latest code.
-1. Immediately continue to Phase 2 selection unless `status` is `complete` or `blocked`.
+2. Confirm current branch is `main` and clean.
+3. Append merged PR metadata to `completed_slices`.
+4. Increment `iteration`.
+5. Re-run Phase 1 recon against latest code.
+6. Immediately continue to Phase 2 selection unless `status` is `complete` or `blocked`.
 
 Repeat Phases 2-5 until done.
 
@@ -164,10 +164,10 @@ Repeat Phases 2-5 until done.
 Treat this as a long-lived control loop, not a one-shot workflow.
 
 1. Enter loop with `status=running`.
-1. Execute phases continuously across multiple slices.
-1. After each merged PR, update/report state and continue loop immediately.
-1. Do not pause for "next?" confirmation after successful iterations.
-1. Exit only when state is set to `complete` or `blocked`.
+2. Execute phases continuously across multiple slices.
+3. After each merged PR, update/report state and continue loop immediately.
+4. Do not pause for "next?" confirmation after successful iterations.
+5. Exit only when state is set to `complete` or `blocked`.
 
 Never terminate solely because:
 
