@@ -176,7 +176,7 @@ describe('DeferredLockPasswordDialog', () => {
       .spyOn(document, 'activeElement', 'get')
       .mockReturnValue(svgActiveElement);
 
-    const svgRender = render(
+    const { rerender: rerenderSvg } = render(
       <DeferredLockPasswordDialog
         open
         isSaving={false}
@@ -187,7 +187,7 @@ describe('DeferredLockPasswordDialog', () => {
     );
 
     expect(() => {
-      svgRender.rerender(
+      rerenderSvg(
         <DeferredLockPasswordDialog
           open={false}
           isSaving={false}
