@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ModelDownloadManagerProvider } from '@/contexts/ModelDownloadManagerProvider';
 import { Models } from './Models';
 import { ModelsContent } from './ModelsContent';
 
@@ -52,21 +53,9 @@ import { useLLM } from '@/hooks/llm';
 function renderModels() {
   return render(
     <MemoryRouter>
-      <Models />
-    </MemoryRouter>
-  );
-}
-
-function renderModelsContent(
-  showBackLink = true,
-  viewMode?: 'cards' | 'table'
-) {
-  return render(
-    <MemoryRouter>
-      <ModelsContent
-        showBackLink={showBackLink}
-        {...(viewMode ? { viewMode } : {})}
-      />
+      <ModelDownloadManagerProvider>
+        <Models />
+      </ModelDownloadManagerProvider>
     </MemoryRouter>
   );
 }
@@ -74,6 +63,7 @@ function renderModelsContent(
 describe('Models', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     mockIsWebGPUSupported.mockResolvedValue(true);
     Object.defineProperty(window, 'caches', {
       value: {
@@ -95,6 +85,7 @@ describe('Models', () => {
   });
 
   afterEach(() => {
+    localStorage.clear();
     // Clean up WebGPU mock
     Object.defineProperty(navigator, 'gpu', {
       value: undefined,
@@ -128,7 +119,13 @@ describe('Models', () => {
     });
 
     it('renders the table view when enabled', async () => {
-      renderModelsContent(true, 'table');
+      render(
+        <MemoryRouter>
+          <ModelDownloadManagerProvider>
+            <ModelsContent showBackLink viewMode="table" />
+          </ModelDownloadManagerProvider>
+        </MemoryRouter>
+      );
 
       await waitFor(() => {
         expect(
@@ -146,7 +143,13 @@ describe('Models', () => {
     });
 
     it('hides back link when disabled', async () => {
-      renderModelsContent(false);
+      render(
+        <MemoryRouter>
+          <ModelDownloadManagerProvider>
+            <ModelsContent showBackLink={false} />
+          </ModelDownloadManagerProvider>
+        </MemoryRouter>
+      );
 
       await waitFor(() => {
         expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();

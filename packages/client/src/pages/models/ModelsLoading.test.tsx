@@ -2,6 +2,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ModelDownloadManagerProvider } from '@/contexts/ModelDownloadManagerProvider';
 import { Models } from './Models';
 
 // Mock WebGPU API
@@ -51,7 +52,9 @@ import { useLLM } from '@/hooks/llm';
 function renderModels() {
   return render(
     <MemoryRouter>
-      <Models />
+      <ModelDownloadManagerProvider>
+        <Models />
+      </ModelDownloadManagerProvider>
     </MemoryRouter>
   );
 }
@@ -59,6 +62,7 @@ function renderModels() {
 describe('model loading', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     mockIsWebGPUSupported.mockResolvedValue(true);
     Object.defineProperty(window, 'caches', {
       value: {
@@ -80,6 +84,7 @@ describe('model loading', () => {
   });
 
   afterEach(() => {
+    localStorage.clear();
     // Clean up WebGPU mock
     Object.defineProperty(navigator, 'gpu', {
       value: undefined,
@@ -168,7 +173,9 @@ describe('model loading', () => {
     const user = userEvent.setup();
     const { rerender } = render(
       <MemoryRouter>
-        <Models />
+        <ModelDownloadManagerProvider>
+          <Models />
+        </ModelDownloadManagerProvider>
       </MemoryRouter>
     );
 
@@ -202,7 +209,9 @@ describe('model loading', () => {
 
       rerender(
         <MemoryRouter>
-          <Models />
+          <ModelDownloadManagerProvider>
+            <Models />
+          </ModelDownloadManagerProvider>
         </MemoryRouter>
       );
     });

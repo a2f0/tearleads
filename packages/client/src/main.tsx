@@ -23,6 +23,7 @@ import { VfsRealtimeSyncBridge } from './components/VfsRealtimeSyncBridge';
 import { VfsRematerializationBootstrap } from './components/VfsRematerializationBootstrap';
 import { LazyWindowRenderer } from './components/window-renderer';
 import { AuthProvider } from './contexts/AuthContext';
+import { ModelDownloadManagerProvider } from './contexts/ModelDownloadManagerProvider';
 import { OrgProvider } from './contexts/OrgContext';
 import { VfsOrchestratorProvider } from './contexts/VfsOrchestratorContext';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
@@ -98,18 +99,20 @@ if (rootElement) {
                                 <SSEProvider>
                                   <VfsRealtimeSyncBridge />
                                   <WindowManagerProvider>
-                                    <BrowserRouter>
-                                      <Suspense
-                                        fallback={
-                                          <div className="p-8 text-center text-muted-foreground">
-                                            Loading...
-                                          </div>
-                                        }
-                                      >
-                                        <AppRoutes />
-                                      </Suspense>
-                                      <LazyWindowRenderer />
-                                    </BrowserRouter>
+                                    <ModelDownloadManagerProvider>
+                                      <BrowserRouter>
+                                        <Suspense
+                                          fallback={
+                                            <div className="p-8 text-center text-muted-foreground">
+                                              Loading...
+                                            </div>
+                                          }
+                                        >
+                                          <AppRoutes />
+                                        </Suspense>
+                                        <LazyWindowRenderer />
+                                      </BrowserRouter>
+                                    </ModelDownloadManagerProvider>
                                   </WindowManagerProvider>
                                 </SSEProvider>
                               </VfsOrchestratorProvider>

@@ -1,14 +1,15 @@
 import { isOpenRouterModelId } from '@tearleads/shared';
-import { Bot, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
+import { useModelDownloadManager } from '@/contexts/ModelDownloadManagerProvider';
 import { useLLM } from '@/hooks/ai';
 import { OPENROUTER_MODELS, RECOMMENDED_MODELS } from '@/lib/models';
-import { getWebGPUErrorInfo } from '@/lib/utils';
 import { ModelCard, type ModelStatus } from './ModelCard';
 import { ModelsTableView } from './ModelsTableView';
 import { OpenRouterModelsSection } from './OpenRouterModelsSection';
+import { UnsupportedWebGpuView } from './UnsupportedWebGpuView';
 import { type WebGPUInfo, WebGPUInfoPanel } from './WebGPUInfoPanel';
 
 const TRANSFORMERS_CACHE_NAME = 'transformers-cache';
@@ -113,64 +114,14 @@ function getCurrentModelStatus(
   modelId: string,
   loadedModel: string | null,
   loadingModelId: string | null,
+  queuedModelIds: string[],
   cachedModels: Record<string, boolean>
 ): ModelStatus {
   if (loadedModel === modelId) return 'loaded';
   if (loadingModelId === modelId) return 'downloading';
+  if (queuedModelIds.includes(modelId)) return 'queued';
   if (cachedModels[modelId]) return 'cached';
   return 'not_downloaded';
-}
-
-function renderUnsupportedWebGpuView(
-  isTableView: boolean,
-  showBackLink: boolean,
-  loadedModel: string | null,
-  loadingModelId: string | null,
-  loadProgress: ReturnType<typeof useLLM>['loadProgress'],
-  getModelStatus: (modelId: string) => ModelStatus,
-  onLoad: (modelId: string) => Promise<void>,
-  onUnload: () => Promise<void>,
-  onDelete: (modelId: string) => Promise<void>
-) {
-  const errorInfo = getWebGPUErrorInfo();
-  return (
-    <div className={isTableView ? 'space-y-4' : 'space-y-6'}>
-      <div className="space-y-2">
-        {showBackLink ? (
-          <BackLink defaultTo="/" defaultLabel="Back to Home" />
-        ) : null}
-        <h1 className="font-bold text-2xl tracking-tight">Models</h1>
-      </div>
-      <div className="rounded-lg border border-destructive bg-destructive/10 p-8 text-center">
-        <Bot className="mx-auto h-12 w-12 text-destructive" />
-        <h2 className="mt-4 font-semibold text-lg">{errorInfo.title}</h2>
-        <p className="mt-2 text-muted-foreground">{errorInfo.message}</p>
-        <p className="mt-2 text-muted-foreground text-sm">
-          {errorInfo.requirement}
-        </p>
-      </div>
-      {isTableView ? (
-        <ModelsTableView
-          recommendedModels={[]}
-          openRouterModels={OPENROUTER_MODELS}
-          loadedModel={loadedModel}
-          loadingModelId={loadingModelId}
-          loadProgress={loadProgress}
-          getModelStatus={getModelStatus}
-          onLoad={onLoad}
-          onUnload={onUnload}
-          onDelete={onDelete}
-        />
-      ) : (
-        <OpenRouterModelsSection
-          loadedModel={loadedModel}
-          loadingModelId={loadingModelId}
-          onLoad={onLoad}
-          onUnload={onUnload}
-        />
-      )}
-    </div>
-  );
 }
 
 export function ModelsContent({
@@ -179,17 +130,21 @@ export function ModelsContent({
 }: ModelsContentProps) {
   const {
     loadedModel,
-    loadProgress,
     error,
-    loadModel,
     unloadModel,
     isWebGPUSupported,
     previouslyLoadedModel
   } = useLLM();
+  const {
+    downloadingModelId,
+    queuedModelIds,
+    isDownloading,
+    downloadProgress,
+    downloadModel
+  } = useModelDownloadManager();
 
   const [webGPUSupported, setWebGPUSupported] = useState<boolean | null>(null);
   const [webGPUInfo, setWebGPUInfo] = useState<WebGPUInfo | null>(null);
-  const [loadingModelId, setLoadingModelId] = useState<string | null>(null);
   const [cachedModels, setCachedModels] = useState<Record<string, boolean>>({});
 
   // Check WebGPU support and get adapter info on mount
@@ -206,20 +161,13 @@ export function ModelsContent({
 
   const handleLoad = useCallback(
     async (modelId: string) => {
-      setLoadingModelId(modelId);
-      try {
-        await loadModel(modelId);
-        if (!isOpenRouterModelId(modelId)) {
-          // Mark the model as cached after successful load
-          setCachedModels((prev) => ({ ...prev, [modelId]: true }));
-        }
-      } finally {
-        setLoadingModelId((currentId) =>
-          currentId === modelId ? null : currentId
-        );
+      await downloadModel(modelId);
+      if (!isOpenRouterModelId(modelId)) {
+        // Mark the model as cached after successful load
+        setCachedModels((prev) => ({ ...prev, [modelId]: true }));
       }
     },
-    [loadModel]
+    [downloadModel]
   );
 
   const handleUnload = useCallback(async () => {
@@ -237,7 +185,8 @@ export function ModelsContent({
     return getCurrentModelStatus(
       modelId,
       loadedModel,
-      loadingModelId,
+      downloadingModelId,
+      queuedModelIds,
       cachedModels
     );
   };
@@ -245,16 +194,18 @@ export function ModelsContent({
   const isTableView = viewMode === 'table';
 
   if (webGPUSupported === false) {
-    return renderUnsupportedWebGpuView(
-      isTableView,
-      showBackLink,
-      loadedModel,
-      loadingModelId,
-      loadProgress,
-      getModelStatus,
-      handleLoad,
-      handleUnload,
-      handleDelete
+    return (
+      <UnsupportedWebGpuView
+        isTableView={isTableView}
+        showBackLink={showBackLink}
+        loadedModel={loadedModel}
+        loadingModelId={downloadingModelId}
+        loadProgress={downloadProgress}
+        getModelStatus={getModelStatus}
+        onLoad={handleLoad}
+        onUnload={handleUnload}
+        onDelete={handleDelete}
+      />
     );
   }
 
@@ -278,7 +229,7 @@ export function ModelsContent({
         </div>
       )}
 
-      {previouslyLoadedModel && !loadedModel && !loadingModelId && (
+      {previouslyLoadedModel && !loadedModel && !isDownloading && (
         <div className="rounded-lg border border-info/30 bg-info/5 p-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -305,8 +256,8 @@ export function ModelsContent({
           recommendedModels={RECOMMENDED_MODELS}
           openRouterModels={OPENROUTER_MODELS}
           loadedModel={loadedModel}
-          loadingModelId={loadingModelId}
-          loadProgress={loadProgress}
+          loadingModelId={downloadingModelId}
+          loadProgress={downloadProgress}
           getModelStatus={getModelStatus}
           onLoad={handleLoad}
           onUnload={handleUnload}
@@ -323,23 +274,28 @@ export function ModelsContent({
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            {RECOMMENDED_MODELS.map((model) => (
-              <ModelCard
-                key={model.id}
-                model={model}
-                status={getModelStatus(model.id)}
-                loadProgress={loadingModelId === model.id ? loadProgress : null}
-                disabled={loadingModelId !== null}
-                onLoad={() => handleLoad(model.id)}
-                onUnload={handleUnload}
-                onDelete={() => handleDelete(model.id)}
-              />
-            ))}
+            {RECOMMENDED_MODELS.map((model) => {
+              const status = getModelStatus(model.id);
+              return (
+                <ModelCard
+                  key={model.id}
+                  model={model}
+                  status={status}
+                  loadProgress={
+                    downloadingModelId === model.id ? downloadProgress : null
+                  }
+                  disabled={status === 'downloading' || status === 'queued'}
+                  onLoad={() => handleLoad(model.id)}
+                  onUnload={handleUnload}
+                  onDelete={() => handleDelete(model.id)}
+                />
+              );
+            })}
           </div>
 
           <OpenRouterModelsSection
             loadedModel={loadedModel}
-            loadingModelId={loadingModelId}
+            loadingModelId={downloadingModelId}
             onLoad={handleLoad}
             onUnload={handleUnload}
           />

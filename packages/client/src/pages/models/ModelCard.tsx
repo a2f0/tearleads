@@ -1,7 +1,9 @@
+// component-complexity: allow -- card intentionally keeps all model status variants and related action states together.
 import { isOpenRouterModelId } from '@tearleads/shared';
 import {
   Bot,
   Check,
+  Clock3,
   Download,
   Eye,
   Loader2,
@@ -15,6 +17,7 @@ import type { ModelInfo } from '@/lib/models';
 export type ModelStatus =
   | 'not_downloaded'
   | 'cached'
+  | 'queued'
   | 'downloading'
   | 'loaded';
 
@@ -40,6 +43,7 @@ export function ModelCard({
   const isRemote = isOpenRouterModelId(model.id);
   const isLoaded = status === 'loaded';
   const isDownloading = !isRemote && status === 'downloading';
+  const isQueued = !isRemote && status === 'queued';
   const isCached = !isRemote && status === 'cached';
 
   return (
@@ -92,6 +96,12 @@ export function ModelCard({
               Downloaded
             </span>
           )}
+          {isQueued && (
+            <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 font-medium text-primary text-xs">
+              <Clock3 className="h-3 w-3" />
+              Queued
+            </span>
+          )}
         </div>
       </div>
 
@@ -122,6 +132,11 @@ export function ModelCard({
           <Button variant="outline" size="sm" disabled>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             Loading...
+          </Button>
+        ) : isQueued ? (
+          <Button variant="outline" size="sm" disabled>
+            <Clock3 className="mr-2 h-4 w-4" />
+            Queued...
           </Button>
         ) : isCached ? (
           <>
