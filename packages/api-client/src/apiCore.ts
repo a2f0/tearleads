@@ -327,15 +327,9 @@ function parseConnectRoute(
     return null;
   }
 
-  const serviceName = segments[1];
-  const methodName = segments[2];
-  if (!serviceName || !methodName) {
-    return null;
-  }
-
   return {
-    serviceName,
-    methodName
+    serviceName: segments[1],
+    methodName: segments[2]
   };
 }
 
