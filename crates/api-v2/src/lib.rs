@@ -9,13 +9,10 @@ use tower_http::trace::TraceLayer;
 pub use ping::PingResponse;
 use ping::ping;
 
-/// Builds the API v2 HTTP router.
-pub fn app() -> Router {
-    let origins = std::env::var("ALLOWED_ORIGINS").unwrap_or_default();
-    app_with_origins(&origins)
-}
-
-/// Builds the router with an explicit origins string (for testing).
+/// Builds the router with the given comma-separated allowed origins.
+///
+/// When `origins` is empty, all origins are allowed (local development).
+/// Otherwise only the listed origins are accepted.
 pub fn app_with_origins(origins: &str) -> Router {
     Router::new()
         .route("/v2/ping", get(ping))
@@ -23,10 +20,6 @@ pub fn app_with_origins(origins: &str) -> Router {
         .layer(TraceLayer::new_for_http())
 }
 
-/// Builds the CORS layer from a comma-separated origins string.
-///
-/// When the string is empty, all origins are allowed (local development).
-/// Otherwise only the listed origins are accepted.
 fn cors_layer(origins: &str) -> CorsLayer {
     if origins.is_empty() {
         return CorsLayer::permissive();

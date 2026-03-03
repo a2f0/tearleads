@@ -11,13 +11,14 @@ const DEFAULT_PORT: u16 = 5002;
 async fn main() -> std::io::Result<()> {
     initialize_tracing();
 
+    let origins = env::var("ALLOWED_ORIGINS").unwrap_or_default();
     let port = read_port();
     let address = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = TcpListener::bind(address).await?;
 
     tracing::info!("api-v2 listening on http://{address}");
 
-    axum::serve(listener, tearleads_api_v2::app()).await
+    axum::serve(listener, tearleads_api_v2::app_with_origins(&origins)).await
 }
 
 fn read_port() -> u16 {
