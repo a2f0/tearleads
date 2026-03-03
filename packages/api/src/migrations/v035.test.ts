@@ -45,9 +45,7 @@ describe('v035 migration', () => {
     const emailsIdx = pool.queries.findIndex((q) =>
       q.includes('"contact_emails"')
     );
-    const contactsIdx = pool.queries.findIndex((q) =>
-      q.includes('"contacts"')
-    );
+    const contactsIdx = pool.queries.findIndex((q) => q.includes('"contacts"'));
 
     expect(phonesIdx).toBeLessThan(contactsIdx);
     expect(emailsIdx).toBeLessThan(contactsIdx);
