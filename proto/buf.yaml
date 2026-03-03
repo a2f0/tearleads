@@ -4,8 +4,8 @@ modules:
 lint:
   use:
     - STANDARD
-  # Message names are service-prefixed because all proto files share package
-  # tearleads.v1 and protobuf symbols must be globally unique within a package.
+  # Message names are service-prefixed because these files share package scope
+  # and protobuf symbols must be globally unique within each package.
   ignore_only:
     RPC_REQUEST_STANDARD_NAME:
       - tearleads/v1/admin.proto
@@ -13,12 +13,14 @@ lint:
       - tearleads/v1/mls.proto
       - tearleads/v1/vfs.proto
       - tearleads/v1/vfs_shares.proto
+      - tearleads/v2/mls.proto
     RPC_RESPONSE_STANDARD_NAME:
       - tearleads/v1/admin.proto
       - tearleads/v1/chat.proto
       - tearleads/v1/mls.proto
       - tearleads/v1/vfs.proto
       - tearleads/v1/vfs_shares.proto
+      - tearleads/v2/mls.proto
 breaking:
   use:
     - FILE
