@@ -24,6 +24,8 @@ spec:
           env:
             - name: PORT
               value: "5002"
+            - name: ALLOWED_ORIGINS
+              value: "https://DOMAIN_PLACEHOLDER,https://app.DOMAIN_PLACEHOLDER"
           resources:
             requests:
               memory: "64Mi"
