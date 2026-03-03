@@ -4,7 +4,6 @@ import { organizationsRouter } from '../../routes/admin/organizations.js';
 import { postgresRouter } from '../../routes/admin/postgres.js';
 import { redisRouter } from '../../routes/admin/redis.js';
 import { usersRouter } from '../../routes/admin/users.js';
-import { mlsRouter } from '../../routes/mls/router.js';
 import { vfsRouter } from '../../routes/vfs/router.js';
 import { vfsSharesRouter } from '../../routes/vfs-shares/router.js';
 import type {
@@ -176,7 +175,6 @@ const routeDefinitions: RouteDefinition[] = [
   ...collectRoutes('/admin/users', usersRouter),
   ...collectRoutes('/admin/postgres', postgresRouter),
   ...collectRoutes('/admin/redis', redisRouter),
-  ...collectRoutes('/mls', mlsRouter),
   ...collectRoutes('/vfs', vfsRouter),
   ...collectRoutes('/vfs', vfsSharesRouter)
 ];
