@@ -6,7 +6,9 @@ describe('v036 migration', () => {
   let pool: ReturnType<typeof createMockPool>;
 
   function getV036Migration(): Migration {
-    const v036 = migrations.find((migration: Migration) => migration.version === 36);
+    const v036 = migrations.find(
+      (migration: Migration) => migration.version === 36
+    );
     if (!v036) {
       throw new Error('v036 migration not found');
     }
@@ -24,14 +26,18 @@ describe('v036 migration', () => {
 
     const queries = pool.queries.join('\n');
     expect(queries).toContain('ALTER TABLE "vfs_registry"');
-    expect(queries).toContain('ADD COLUMN IF NOT EXISTS "organization_id" TEXT');
+    expect(queries).toContain(
+      'ADD COLUMN IF NOT EXISTS "organization_id" TEXT'
+    );
     expect(queries).toContain(
       'SET "organization_id" = users.personal_organization_id'
     );
     expect(queries).toContain('FROM "mls_messages" AS messages');
     expect(queries).toContain('FROM vfs_acl_entries');
     expect(queries).toContain('ALTER COLUMN "organization_id" SET NOT NULL');
-    expect(queries).toContain('CREATE INDEX IF NOT EXISTS "vfs_registry_org_idx"');
+    expect(queries).toContain(
+      'CREATE INDEX IF NOT EXISTS "vfs_registry_org_idx"'
+    );
   });
 
   it('fails when unscoped rows remain after backfill', async () => {
