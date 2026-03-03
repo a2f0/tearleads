@@ -1,4 +1,4 @@
-import { ApiDocs } from '@tearleads/ui';
+import { ApiDocs, OPENAPI_JSON_PATH } from '@tearleads/ui';
 import { type ComponentProps, useEffect, useState } from 'react';
 
 type ApiSpec = ComponentProps<typeof ApiDocs>['spec'];
@@ -15,7 +15,7 @@ export function ApiDocsLoader() {
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch('/openapi.json');
+        const response = await fetch(OPENAPI_JSON_PATH);
         if (cancelled) {
           return;
         }

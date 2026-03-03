@@ -54,6 +54,7 @@ export {
   type AboutMenuItemProps,
   WindowOptionsMenuItem
 } from './components/window-menu/index.js';
+export { OPENAPI_JSON_PATH } from './constants/apiPaths.js';
 
 // Context
 export {

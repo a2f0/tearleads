@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { OPENAPI_JSON_PATH } from '@tearleads/ui';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiDocsPage } from './ApiDocs.js';
@@ -61,7 +62,7 @@ describe('ApiDocsPage', () => {
       </MemoryRouter>
     );
 
-    expect(fetch).toHaveBeenCalledWith('/openapi.json');
+    expect(fetch).toHaveBeenCalledWith(OPENAPI_JSON_PATH);
     expect(await screen.findByText('Client Docs')).toBeInTheDocument();
     expect(await screen.findByText('Ping')).toBeInTheDocument();
   });

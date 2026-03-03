@@ -1,4 +1,4 @@
-import { ApiDocs, BackLink } from '@tearleads/ui';
+import { ApiDocs, BackLink, OPENAPI_JSON_PATH } from '@tearleads/ui';
 import { FileText } from 'lucide-react';
 import { type ComponentProps, useEffect, useState } from 'react';
 
@@ -16,7 +16,7 @@ export function ApiDocsPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch('/openapi.json');
+        const response = await fetch(OPENAPI_JSON_PATH);
         if (cancelled) {
           return;
         }
