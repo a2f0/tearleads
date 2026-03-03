@@ -14,6 +14,13 @@ import { requireMlsClaims } from './mlsDirectAuth.js';
 
 type UserIdRequest = { userId: string };
 type MlsIdRequest = { id: string };
+type UploadInsertRow = {
+  id: string;
+  key_package_data: string;
+  key_package_ref: string;
+  cipher_suite: number;
+  created_at: Date | string;
+};
 
 function encoded(value: string): string {
   return encodeURIComponent(value);
@@ -53,40 +60,57 @@ export async function uploadKeyPackagesDirect(
 
   try {
     const pool = await getPostgresPool();
-    const uploadedPackages: MlsKeyPackage[] = [];
+    const ids = payload.keyPackages.map(() => randomUUID());
+    const keyPackageData = payload.keyPackages.map(
+      (keyPackage) => keyPackage.keyPackageData
+    );
+    const keyPackageRef = payload.keyPackages.map(
+      (keyPackage) => keyPackage.keyPackageRef
+    );
+    const cipherSuites = payload.keyPackages.map(
+      (keyPackage) => keyPackage.cipherSuite
+    );
 
-    for (const keyPackage of payload.keyPackages) {
-      const id = randomUUID();
-      const result = await pool.query<{ created_at: Date | string }>(
-        `INSERT INTO mls_key_packages (
-          id, user_id, key_package_data, key_package_ref, cipher_suite, created_at
-        ) VALUES ($1, $2, $3, $4, $5, NOW())
-        ON CONFLICT (key_package_ref) DO NOTHING
-        RETURNING created_at`,
-        [
-          id,
-          claims.sub,
-          keyPackage.keyPackageData,
-          keyPackage.keyPackageRef,
-          keyPackage.cipherSuite
-        ]
-      );
+    const result = await pool.query<UploadInsertRow>(
+      `WITH payload AS (
+         SELECT *
+           FROM unnest(
+             $1::uuid[],
+             $2::text[],
+             $3::text[],
+             $4::integer[]
+           ) AS t(id, key_package_data, key_package_ref, cipher_suite)
+       )
+       INSERT INTO mls_key_packages (
+         id,
+         user_id,
+         key_package_data,
+         key_package_ref,
+         cipher_suite,
+         created_at
+       )
+       SELECT
+         payload.id,
+         $5,
+         payload.key_package_data,
+         payload.key_package_ref,
+         payload.cipher_suite,
+         NOW()
+       FROM payload
+       ON CONFLICT (key_package_ref) DO NOTHING
+       RETURNING id, key_package_data, key_package_ref, cipher_suite, created_at`,
+      [ids, keyPackageData, keyPackageRef, cipherSuites, claims.sub]
+    );
 
-      const createdAt = result.rows[0]?.created_at;
-      if (!createdAt) {
-        continue;
-      }
-
-      uploadedPackages.push({
-        id,
-        userId: claims.sub,
-        keyPackageData: keyPackage.keyPackageData,
-        keyPackageRef: keyPackage.keyPackageRef,
-        cipherSuite: keyPackage.cipherSuite,
-        createdAt: toIsoString(createdAt),
-        consumed: false
-      });
-    }
+    const uploadedPackages: MlsKeyPackage[] = result.rows.map((row) => ({
+      id: row.id,
+      userId: claims.sub,
+      keyPackageData: row.key_package_data,
+      keyPackageRef: row.key_package_ref,
+      cipherSuite: toSafeCipherSuite(row.cipher_suite),
+      createdAt: toIsoString(row.created_at),
+      consumed: false
+    }));
 
     const response: UploadMlsKeyPackagesResponse = {
       keyPackages: uploadedPackages
