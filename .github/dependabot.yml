@@ -4,9 +4,24 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 10
+    versioning-strategy: increase-if-necessary
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 3
+      semver-major-days: 14
+      semver-minor-days: 7
     labels:
       - dependencies
+    ignore:
+      - dependency-name: '@connectrpc/*'
+        update-types:
+          - 'version-update:semver-major'
+      - dependency-name: '@bufbuild/*'
+        update-types:
+          - 'version-update:semver-major'
+      - dependency-name: 'protobufjs'
+        update-types:
+          - 'version-update:semver-major'
     groups:
       protobuf-ecosystem:
         patterns:
@@ -32,17 +47,6 @@ updates:
       types:
         patterns:
           - '@types/*'
-      npm-major:
-        patterns:
-          - '*'
-        update-types:
-          - major
-      npm-minor-patch:
-        patterns:
-          - '*'
-        update-types:
-          - minor
-          - patch
 
   - package-ecosystem: github-actions
     directory: /
@@ -59,7 +63,7 @@ updates:
   - package-ecosystem: bundler
     directory: /packages/client
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 5
     labels:
       - dependencies
@@ -71,7 +75,7 @@ updates:
   - package-ecosystem: pip
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 5
     labels:
       - dependencies
@@ -91,7 +95,7 @@ updates:
   - package-ecosystem: docker
     directory: /packages/api
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 3
     labels:
       - dependencies
@@ -119,7 +123,7 @@ updates:
   - package-ecosystem: docker
     directory: /packages/client
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 3
     labels:
       - dependencies
@@ -135,7 +139,7 @@ updates:
   - package-ecosystem: docker
     directory: /packages/smtp-listener
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 3
     labels:
       - dependencies
@@ -151,7 +155,7 @@ updates:
   - package-ecosystem: docker
     directory: /packages/website
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 3
     labels:
       - dependencies
