@@ -39,6 +39,35 @@ function normalizeOrganizationId(organizationId: string): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function getRequiredOrganizationId(organizationId: string): string {
+  const normalizedOrganizationId = normalizeOrganizationId(organizationId);
+  if (normalizedOrganizationId === null) {
+    throw new ConnectError('Invalid group organization', Code.Internal);
+  }
+  return normalizedOrganizationId;
+}
+
+type GroupMemberCandidate = {
+  user_id: string | null;
+  email: string | null;
+  joined_at: Date | null;
+};
+
+function toGroupMemberRows<T extends GroupMemberCandidate>(
+  rows: T[]
+): GroupMemberRow[] {
+  return rows
+    .filter(
+      (row): row is T & { user_id: string; email: string; joined_at: Date } =>
+        row.user_id !== null && row.email !== null && row.joined_at !== null
+    )
+    .map(({ user_id, email, joined_at }) => ({
+      user_id,
+      email,
+      joined_at
+    }));
+}
+
 export async function listGroupsDirect(
   request: ListGroupsRequest,
   context: { requestHeader: Headers }
@@ -131,31 +160,45 @@ export async function getGroupDirect(
 
   try {
     const pool = await getPool('read');
-    const groupResult = await pool.query<GroupRow>(
-      'SELECT id, organization_id, name, description, created_at, updated_at FROM groups WHERE id = $1',
-      [request.id]
-    );
+    type GroupWithMemberRow = GroupRow & {
+      user_id: string | null;
+      email: string | null;
+      joined_at: Date | null;
+    };
 
-    const groupRow = groupResult.rows[0];
-    if (!groupRow) {
-      throw new ConnectError('Group not found', Code.NotFound);
-    }
-    if (!canAccessOrganization(authorization, groupRow.organization_id)) {
-      throw new ConnectError('Forbidden', Code.PermissionDenied);
-    }
-
-    const membersResult = await pool.query<GroupMemberRow>(
-      `SELECT ug.user_id, u.email, ug.joined_at
-       FROM user_groups ug
-       JOIN users u ON u.id = ug.user_id
-       WHERE ug.group_id = $1
+    const result = await pool.query<GroupWithMemberRow>(
+      `SELECT
+         g.id,
+         g.organization_id,
+         g.name,
+         g.description,
+         g.created_at,
+         g.updated_at,
+         ug.user_id,
+         u.email,
+         ug.joined_at
+       FROM groups g
+       LEFT JOIN user_groups ug ON ug.group_id = g.id
+       LEFT JOIN users u ON u.id = ug.user_id
+       WHERE g.id = $1
        ORDER BY ug.joined_at`,
       [request.id]
     );
 
+    const groupRow = result.rows[0];
+    if (!groupRow) {
+      throw new ConnectError('Group not found', Code.NotFound);
+    }
+    const organizationId = getRequiredOrganizationId(groupRow.organization_id);
+    if (!canAccessOrganization(authorization, organizationId)) {
+      throw new ConnectError('Forbidden', Code.PermissionDenied);
+    }
+
+    const members = toGroupMemberRows(result.rows);
+
     const response: GroupDetailResponse = {
       group: mapGroupRow(groupRow),
-      members: membersResult.rows.map(mapGroupMemberRow)
+      members: members.map(mapGroupMemberRow)
     };
     return { json: JSON.stringify(response) };
   } catch (error) {
@@ -195,34 +238,16 @@ export async function getGroupMembersDirect(
       [request.id]
     );
 
-    if (result.rows.length === 0) {
+    const firstRow = result.rows[0];
+    if (!firstRow) {
       throw new ConnectError('Group not found', Code.NotFound);
     }
-    const organizationId = result.rows[0]?.organization_id;
-    if (!organizationId) {
-      throw new ConnectError('Group not found', Code.NotFound);
-    }
+    const organizationId = getRequiredOrganizationId(firstRow.organization_id);
     if (!canAccessOrganization(authorization, organizationId)) {
       throw new ConnectError('Forbidden', Code.PermissionDenied);
     }
 
-    const members: GroupMemberRow[] = result.rows
-      .filter(
-        (
-          row
-        ): row is {
-          organization_id: string;
-          user_id: string;
-          email: string;
-          joined_at: Date;
-        } =>
-          row.user_id !== null && row.email !== null && row.joined_at !== null
-      )
-      .map((row) => ({
-        user_id: row.user_id,
-        email: row.email,
-        joined_at: row.joined_at
-      }));
+    const members = toGroupMemberRows(result.rows);
 
     const response: GroupMembersResponse = {
       members: members.map(mapGroupMemberRow)

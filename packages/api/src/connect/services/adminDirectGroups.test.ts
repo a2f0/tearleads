@@ -212,7 +212,10 @@ describe('adminDirectGroups', () => {
           name: 'Ops',
           description: null,
           created_at: new Date(),
-          updated_at: new Date()
+          updated_at: new Date(),
+          user_id: null,
+          email: null,
+          joined_at: null
         }
       ]
     });
@@ -232,28 +235,21 @@ describe('adminDirectGroups', () => {
   });
 
   it('returns group details with members', async () => {
-    queryMock
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            id: 'group-1',
-            organization_id: 'org-1',
-            name: 'Engineering',
-            description: 'Core team',
-            created_at: new Date('2026-03-02T00:00:00.000Z'),
-            updated_at: new Date('2026-03-02T00:10:00.000Z')
-          }
-        ]
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            user_id: 'user-1',
-            email: 'user1@example.com',
-            joined_at: new Date('2026-03-02T00:20:00.000Z')
-          }
-        ]
-      });
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'group-1',
+          organization_id: 'org-1',
+          name: 'Engineering',
+          description: 'Core team',
+          created_at: new Date('2026-03-02T00:00:00.000Z'),
+          updated_at: new Date('2026-03-02T00:10:00.000Z'),
+          user_id: 'user-1',
+          email: 'user1@example.com',
+          joined_at: new Date('2026-03-02T00:20:00.000Z')
+        }
+      ]
+    });
 
     const response = await getGroupDirect(
       {
@@ -280,6 +276,38 @@ describe('adminDirectGroups', () => {
           joinedAt: '2026-03-02T00:20:00.000Z'
         }
       ]
+    });
+    expect(queryMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns internal when group organization id is invalid', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'group-1',
+          organization_id: '   ',
+          name: 'Engineering',
+          description: null,
+          created_at: new Date('2026-03-02T00:00:00.000Z'),
+          updated_at: new Date('2026-03-02T00:10:00.000Z'),
+          user_id: null,
+          email: null,
+          joined_at: null
+        }
+      ]
+    });
+
+    await expect(
+      getGroupDirect(
+        {
+          id: 'group-1'
+        },
+        {
+          requestHeader: new Headers()
+        }
+      )
+    ).rejects.toMatchObject({
+      code: Code.Internal
     });
   });
 
