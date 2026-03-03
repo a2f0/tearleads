@@ -55,7 +55,7 @@ export function SSEConnectionDialog({
         data-testid="sse-dialog-backdrop"
       />
       <div
-        className="fixed top-1/2 left-1/2 z-50 w-80 max-w-[90vw] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background p-4 shadow-lg"
+        className="fixed top-1/2 left-1/2 z-50 w-[28rem] max-w-[90vw] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background p-4 shadow-lg"
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
@@ -76,21 +76,21 @@ export function SSEConnectionDialog({
           </button>
         </div>
         <dl className="space-y-3 text-sm">
-          <div className="flex justify-between">
-            <dt className="text-muted-foreground">Status</dt>
+          <div className="flex justify-between gap-4">
+            <dt className="shrink-0 text-muted-foreground">Status</dt>
             <dd className={cn('font-medium', stateColors[connectionState])}>
               {stateLabels[connectionState]}
             </dd>
           </div>
-          <div className="flex justify-between">
-            <dt className="text-muted-foreground">Server</dt>
+          <div className="flex justify-between gap-4">
+            <dt className="shrink-0 text-muted-foreground">Server</dt>
             <dd className="truncate font-mono text-xs">
               {API_BASE_URL || 'Not configured'}
             </dd>
           </div>
-          <div className="flex justify-between">
-            <dt className="text-muted-foreground">Endpoint</dt>
-            <dd className="font-mono text-xs">
+          <div className="flex justify-between gap-4">
+            <dt className="shrink-0 text-muted-foreground">Endpoint</dt>
+            <dd className="truncate font-mono text-xs">
               /connect/tearleads.v1.NotificationService/Subscribe
             </dd>
           </div>
