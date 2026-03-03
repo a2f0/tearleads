@@ -1,3 +1,4 @@
+// component-complexity: allow -- card intentionally keeps all model status variants and related action states together.
 import { isOpenRouterModelId } from '@tearleads/shared';
 import {
   Bot,

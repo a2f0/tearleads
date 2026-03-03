@@ -1,3 +1,4 @@
+// component-complexity: allow -- compact table view intentionally centralizes status and action rendering across model sections.
 import { isOpenRouterModelId } from '@tearleads/shared';
 import {
   WINDOW_TABLE_TYPOGRAPHY,

@@ -1,3 +1,4 @@
+// component-complexity: allow -- provider coordinates persisted queue, runner lifecycle, and waiter resolution in one place.
 import { isOpenRouterModelId } from '@tearleads/shared';
 import {
   createContext,
