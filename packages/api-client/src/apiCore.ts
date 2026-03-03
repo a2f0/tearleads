@@ -346,9 +346,9 @@ function requiresDeclaredOrganizationHeader(endpoint: string): boolean {
   }
 
   return (
-    REQUIRE_DECLARED_ORGANIZATION_BY_SERVICE
-      .get(connectRoute.serviceName)
-      ?.has(connectRoute.methodName) === true
+    REQUIRE_DECLARED_ORGANIZATION_BY_SERVICE.get(connectRoute.serviceName)?.has(
+      connectRoute.methodName
+    ) === true
   );
 }
 

@@ -101,8 +101,9 @@ describe('orgStorage', () => {
     const listener = vi.fn();
     const unsubscribe = freshModule.onOrgChange(listener);
 
-    expect(() => freshModule.setActiveOrganizationId('org-no-window')).not
-      .toThrow();
+    expect(() =>
+      freshModule.setActiveOrganizationId('org-no-window')
+    ).not.toThrow();
     expect(() => unsubscribe()).not.toThrow();
     expect(listener).not.toHaveBeenCalled();
   });
