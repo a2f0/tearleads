@@ -30,17 +30,24 @@ async function loadPingWasmBindings(): Promise<PingWasmBindings | null> {
 
   pingWasmBindingsPromise = import(/* @vite-ignore */ PING_WASM_MODULE_PATH)
     .then(async (module: unknown) => {
-      if (!isPingWasmBindings(module)) {
-        return null;
-      }
-      if (module.default) {
-        await module.default();
-      }
-      return module;
+      return processWasmModule(module);
     })
     .catch(() => null);
 
   return pingWasmBindingsPromise;
+}
+
+/** Validate and initialize a loaded WASM module. Exported for testing. */
+export async function processWasmModule(
+  module: unknown
+): Promise<PingWasmBindings | null> {
+  if (!isPingWasmBindings(module)) {
+    return null;
+  }
+  if (module.default) {
+    await module.default();
+  }
+  return module;
 }
 
 function isPingData(value: unknown): value is PingData {
