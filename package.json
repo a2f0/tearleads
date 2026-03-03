@@ -63,7 +63,10 @@
     "protoBreaking": "buf breaking proto --against '.git#branch=main,subdir=proto'",
     "format": "biome format --write .",
     "generatePreenDocs": "./scripts/preen/generatePreenDocs.sh",
-    "prepare": "husky"
+    "prepare": "husky",
+    "qaVfsCrdtRolloutTestSuite": "tsx packages/bob-and-alice/src/qa/runVfsCrdtRolloutQaSuite.ts",
+    "qaVfsCrdtRolloutTestEvidence": "tsx packages/bob-and-alice/src/qa/runVfsCrdtRolloutQaSuite.ts --continue-on-failure --report-json coverage/qa/vfsCrdtRolloutQaSuite.json --report-markdown coverage/qa/vfsCrdtRolloutQaSuite.md",
+    "testVfsCrdtRolloutQaSuite": "pnpm --filter @tearleads/bob-and-alice test -- src/qa/vfsCrdtRolloutQaSuite.test.ts"
   },
   "repository": {
     "type": "git",
