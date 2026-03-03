@@ -1,6 +1,4 @@
-import {
-  parseConnectJsonEnvelopeBody
-} from '@tearleads/shared';
+import { parseConnectJsonEnvelopeBody } from '@tearleads/shared';
 import {
   setupBobNotesShareForAliceDb,
   setupWelcomeEmailsDb

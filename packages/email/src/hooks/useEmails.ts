@@ -124,17 +124,14 @@ export function useEmails() {
         ...(authHeader ? { Authorization: authHeader } : {})
       };
 
-      const response = await fetch(
-        `${apiBaseUrl}${GET_EMAILS_CONNECT_PATH}`,
-        {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            offset: 0,
-            limit: DEFAULT_GET_EMAILS_LIMIT
-          })
-        }
-      );
+      const response = await fetch(`${apiBaseUrl}${GET_EMAILS_CONNECT_PATH}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          offset: 0,
+          limit: DEFAULT_GET_EMAILS_LIMIT
+        })
+      });
       if (!response.ok) {
         const detail = await getFetchErrorDetail(response);
         throw new Error(`Failed to fetch emails: ${detail}`);
