@@ -42,6 +42,7 @@ describe('ApiDocsLoader', () => {
 
     render(<ApiDocsLoader />);
 
+    expect(fetch).toHaveBeenCalledWith('/openapi.json');
     expect(await screen.findByTestId('api-docs')).toHaveTextContent(
       'Website API Docs'
     );

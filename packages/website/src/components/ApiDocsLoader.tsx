@@ -15,7 +15,7 @@ export function ApiDocsLoader() {
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch('/v1/openapi.json');
+        const response = await fetch('/openapi.json');
         if (cancelled) {
           return;
         }

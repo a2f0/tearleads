@@ -61,6 +61,7 @@ describe('ApiDocsPage', () => {
       </MemoryRouter>
     );
 
+    expect(fetch).toHaveBeenCalledWith('/openapi.json');
     expect(await screen.findByText('Client Docs')).toBeInTheDocument();
     expect(await screen.findByText('Ping')).toBeInTheDocument();
   });
