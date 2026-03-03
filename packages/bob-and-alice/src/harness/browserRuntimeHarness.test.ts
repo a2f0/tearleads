@@ -9,6 +9,10 @@ import {
   teardownBrowserRuntimeActors
 } from './browserRuntimeHarness.js';
 
+function toGenericValue<T>(value: unknown): T {
+  return JSON.parse(JSON.stringify(value));
+}
+
 describe('browserRuntimeHarness', () => {
   const actors: BrowserRuntimeActor[] = [];
 
@@ -20,23 +24,23 @@ describe('browserRuntimeHarness', () => {
 
   it('throws when sync feed reports hasMore without nextCursor', async () => {
     const actor: RuntimeApiActor = {
-      fetchJson: async (path: string) => {
+      fetchJson: async <T>(path: string) => {
         if (path.endsWith('/connect/tearleads.v1.VfsService/GetSync')) {
-          return {
+          return toGenericValue<T>({
             json: JSON.stringify({
               items: [],
               hasMore: true,
               nextCursor: null
             })
-          };
+          });
         }
-        return {
+        return toGenericValue<T>({
           json: JSON.stringify({
             items: [],
             hasMore: false,
             nextCursor: null
           })
-        };
+        });
       }
     };
 
@@ -49,23 +53,23 @@ describe('browserRuntimeHarness', () => {
 
   it('throws when crdt feed reports hasMore without nextCursor', async () => {
     const actor: RuntimeApiActor = {
-      fetchJson: async (path: string) => {
+      fetchJson: async <T>(path: string) => {
         if (path.endsWith('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
-          return {
+          return toGenericValue<T>({
             json: JSON.stringify({
               items: [],
               hasMore: true,
               nextCursor: null
             })
-          };
+          });
         }
-        return {
+        return toGenericValue<T>({
           json: JSON.stringify({
             items: [],
             hasMore: false,
             nextCursor: null
           })
-        };
+        });
       }
     };
 
