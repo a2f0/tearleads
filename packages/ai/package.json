@@ -28,7 +28,7 @@
     "react-dom": "19.2.4"
   },
   "dependencies": {
-    "lucide-react": "0.575.0"
+    "lucide-react": "0.576.0"
   },
   "devDependencies": {
     "@assistant-ui/react": "0.12.14",

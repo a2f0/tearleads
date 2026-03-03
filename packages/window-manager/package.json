@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "@radix-ui/react-tooltip": "1.2.8",
-    "lucide-react": "0.575.0"
+    "lucide-react": "0.576.0"
   },
   "devDependencies": {
     "@tearleads/ui": "workspace:*",

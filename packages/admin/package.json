@@ -37,7 +37,7 @@
     "@tearleads/backups": "workspace:*",
     "@tearleads/compliance": "workspace:*",
     "@tearleads/shared": "workspace:*",
-    "lucide-react": "0.575.0",
+    "lucide-react": "0.576.0",
     "react-i18next": "16.5.4",
     "sonner": "2.0.7"
   },

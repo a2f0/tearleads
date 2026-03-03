@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "clsx": "2.1.1",
-    "lucide-react": "0.575.0",
+    "lucide-react": "0.576.0",
     "rrule": "2.8.1"
   },
   "devDependencies": {

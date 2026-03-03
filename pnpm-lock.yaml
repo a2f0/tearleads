@@ -101,8 +101,8 @@ importers:
         specifier: workspace:*
         version: link:../shared
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
       react-i18next:
         specifier: 16.5.4
         version: 16.5.4(i18next@25.8.13(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
@@ -174,8 +174,8 @@ importers:
   packages/ai:
     dependencies:
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
     devDependencies:
       '@assistant-ui/react':
         specifier: 0.12.14
@@ -229,8 +229,8 @@ importers:
         specifier: 3.13.19
         version: 3.13.19(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
       recharts:
         specifier: 3.7.0
         version: 3.7.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react-is@17.0.2)(react@19.2.4)(redux@5.0.1)
@@ -498,8 +498,8 @@ importers:
         specifier: workspace:*
         version: link:../shared
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
     devDependencies:
       '@tearleads/app-builder':
         specifier: workspace:*
@@ -562,8 +562,8 @@ importers:
         specifier: 4.0.11
         version: 4.0.11(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
       mermaid:
         specifier: 11.12.3
         version: 11.12.3
@@ -672,8 +672,8 @@ importers:
         specifier: workspace:*
         version: link:../window-manager
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
     devDependencies:
       '@testing-library/jest-dom':
         specifier: 6.9.1
@@ -724,8 +724,8 @@ importers:
         specifier: 2.1.1
         version: 2.1.1
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
       rrule:
         specifier: 2.8.1
         version: 2.8.1
@@ -779,8 +779,8 @@ importers:
   packages/camera:
     dependencies:
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
     devDependencies:
       '@tearleads/window-manager':
         specifier: workspace:*
@@ -1114,8 +1114,8 @@ importers:
         specifier: 8.2.1
         version: 8.2.1
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
       mermaid:
         specifier: 11.12.3
         version: 11.12.3
@@ -1262,8 +1262,8 @@ importers:
         specifier: workspace:*
         version: link:../backups
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
     devDependencies:
       '@tearleads/ui':
         specifier: workspace:*
@@ -1329,8 +1329,8 @@ importers:
         specifier: workspace:*
         version: link:../terminal
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
     devDependencies:
       '@tearleads/ui':
         specifier: workspace:*
@@ -1396,8 +1396,8 @@ importers:
         specifier: 3.13.19
         version: 3.13.19(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
       papaparse:
         specifier: 5.5.3
         version: 5.5.3
@@ -1555,8 +1555,8 @@ importers:
         specifier: 0.45.1
         version: 0.45.1(@electric-sql/pglite@0.3.15)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(pg@8.18.0)(sql.js@1.14.0)
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
     devDependencies:
       '@tearleads/db':
         specifier: workspace:*
@@ -1610,8 +1610,8 @@ importers:
   packages/health:
     dependencies:
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
       react-i18next:
         specifier: 16.5.4
         version: 16.5.4(i18next@25.8.13(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
@@ -1677,8 +1677,8 @@ importers:
         specifier: workspace:*
         version: link:../backups
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
     devDependencies:
       '@tearleads/app-builder':
         specifier: workspace:*
@@ -1747,8 +1747,8 @@ importers:
         specifier: workspace:*
         version: link:../ui
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
     devDependencies:
       '@tearleads/window-manager':
         specifier: workspace:*
@@ -1931,8 +1931,8 @@ importers:
         specifier: 0.45.1
         version: 0.45.1(@electric-sql/pglite@0.3.15)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(pg@8.18.0)(sql.js@1.14.0)
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
       react-router-dom:
         specifier: 7.13.1
         version: 7.13.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -1983,8 +1983,8 @@ importers:
   packages/notifications:
     dependencies:
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
     devDependencies:
       '@tearleads/ui':
         specifier: workspace:*
@@ -2050,8 +2050,8 @@ importers:
         specifier: 3.13.19
         version: 3.13.19(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
     devDependencies:
       '@tearleads/window-manager':
         specifier: workspace:*
@@ -2404,8 +2404,8 @@ importers:
         specifier: 2.1.1
         version: 2.1.1
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
       tailwind-merge:
         specifier: 3.5.0
         version: 3.5.0
@@ -2501,8 +2501,8 @@ importers:
         specifier: 0.45.1
         version: 0.45.1(@electric-sql/pglite@0.3.15)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(pg@8.18.0)(sql.js@1.14.0)
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
     devDependencies:
       '@tearleads/db-test-utils':
         specifier: workspace:*
@@ -2565,8 +2565,8 @@ importers:
         specifier: workspace:*
         version: link:../ui
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
       protobufjs:
         specifier: ^8.0.0
         version: 8.0.0
@@ -2641,8 +2641,8 @@ importers:
         specifier: 0.45.1
         version: 0.45.1(@electric-sql/pglite@0.3.15)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(pg@8.18.0)(sql.js@1.14.0)
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
     devDependencies:
       '@tearleads/db':
         specifier: workspace:*
@@ -2745,8 +2745,8 @@ importers:
         specifier: 28.1.0
         version: 28.1.0(@noble/hashes@2.0.1)
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
       tailwindcss:
         specifier: 4.2.1
         version: 4.2.1
@@ -2766,8 +2766,8 @@ importers:
         specifier: 1.2.8
         version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       lucide-react:
-        specifier: 0.575.0
-        version: 0.575.0(react@19.2.4)
+        specifier: 0.576.0
+        version: 0.576.0(react@19.2.4)
     devDependencies:
       '@tearleads/ui':
         specifier: workspace:*
@@ -9205,8 +9205,8 @@ packages:
     resolution: {integrity: sha512-Jo6dJ04CmSjuznwJSS3pUeWmd/H0ffTlkXXgwZi+eq1UCmqQwCh+eLsYOYCwY991i2Fah4h1BEMCx4qThGbsiA==}
     engines: {node: '>=10'}
 
-  lucide-react@0.575.0:
-    resolution: {integrity: sha512-VuXgKZrk0uiDlWjGGXmKV6MSk9Yy4l10qgVvzGn2AWBx1Ylt0iBexKOAoA6I7JO3m+M9oeovJd3yYENfkUbOeg==}
+  lucide-react@0.576.0:
+    resolution: {integrity: sha512-koNxU14BXrxUfZQ9cUaP0ES1uyPZKYDjk31FQZB6dQ/x+tXk979sVAn9ppZ/pVeJJyOxVM8j1E+8QEuSc02Vug==}
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
@@ -19114,7 +19114,7 @@ snapshots:
     dependencies:
       yallist: 4.0.0
 
-  lucide-react@0.575.0(react@19.2.4):
+  lucide-react@0.576.0(react@19.2.4):
     dependencies:
       react: 19.2.4
 
