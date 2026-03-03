@@ -45,22 +45,23 @@ ensure_kubectl_context() {
     exit 1
   fi
 
-  export KUBECONFIG="$KUBECONFIG_FILE"
-}
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "ERROR: jq is required." >&2
+    exit 1
+  fi
 
-json_escape() {
-  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+  export KUBECONFIG="$KUBECONFIG_FILE"
 }
 
 patch_config_value() {
   local key="$1"
   local value="$2"
-  local escaped_value
-  escaped_value="$(json_escape "$value")"
+  local patch_json
+  patch_json="$(jq -n --arg key "$key" --arg value "$value" '{data: {($key): $value}}')"
 
   kubectl -n "$NAMESPACE" patch configmap "$CONFIGMAP_NAME" \
     --type merge \
-    -p "{\"data\":{\"$key\":\"$escaped_value\"}}" >/dev/null
+    -p "$patch_json" >/dev/null
 }
 
 show_config() {
@@ -119,12 +120,12 @@ set_max_delete_rows() {
 
 set_schedule() {
   local schedule="$1"
-  local escaped_schedule
-  escaped_schedule="$(json_escape "$schedule")"
+  local patch_json
+  patch_json="$(jq -n --arg schedule "$schedule" '{spec: {schedule: $schedule}}')"
 
   kubectl -n "$NAMESPACE" patch cronjob "$CRONJOB_NAME" \
     --type merge \
-    -p "{\"spec\":{\"schedule\":\"$escaped_schedule\"}}" >/dev/null
+    -p "$patch_json" >/dev/null
   echo "Set $CRONJOB_NAME schedule=$schedule"
 }
 

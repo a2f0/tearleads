@@ -106,23 +106,21 @@ Check scheduler status + effective config:
 
 ```sh
 ./terraform/stacks/staging/k8s/scripts/vfs-crdt-compaction.sh status
-./terraform/stacks/prod/k8s/scripts/vfs-crdt-compaction.sh status
+# (use the prod script path for production)
 ```
 
 Enable execution after dry-run validation:
 
 ```sh
 ./terraform/stacks/staging/k8s/scripts/vfs-crdt-compaction.sh enable
-# or
-./terraform/stacks/prod/k8s/scripts/vfs-crdt-compaction.sh enable
+# (use the prod script path for production)
 ```
 
 Run once immediately (without waiting for next schedule):
 
 ```sh
 ./terraform/stacks/staging/k8s/scripts/vfs-crdt-compaction.sh run-once
-# or
-./terraform/stacks/prod/k8s/scripts/vfs-crdt-compaction.sh run-once
+# (use the prod script path for production)
 ```
 
 Pause/resume the scheduler:
