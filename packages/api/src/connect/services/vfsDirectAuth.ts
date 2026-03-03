@@ -1,10 +1,10 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import { getPostgresPool } from '../../lib/postgres.js';
-import { toConnectCode } from './httpStatusToConnectCode.js';
 import {
   authenticate,
   resolveOrganizationMembership
 } from './connectRequestAuth.js';
+import { toConnectCode } from './httpStatusToConnectCode.js';
 
 async function resolveRequiredOrganizationId(
   userId: string,
