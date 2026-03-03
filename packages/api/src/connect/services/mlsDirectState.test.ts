@@ -1,5 +1,5 @@
 import { Code } from '@connectrpc/connect';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   getPoolMock,
@@ -58,6 +58,8 @@ function parseJson(json: string): Record<string, unknown> {
 }
 
 describe('mlsDirectState', () => {
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
+
   beforeEach(() => {
     vi.clearAllMocks();
     queryMock.mockReset();
@@ -75,6 +77,12 @@ describe('mlsDirectState', () => {
       stateHash: 'hash-1'
     });
     randomUuidMock.mockReturnValue('state-1');
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleErrorSpy?.mockRestore();
+    consoleErrorSpy = null;
   });
 
   it('uploads group state snapshots', async () => {
@@ -84,7 +92,10 @@ describe('mlsDirectState', () => {
       .mockResolvedValueOnce({ rows: [{ current_epoch: 2 }] })
       .mockResolvedValueOnce({
         rows: [
-          { id: 'state-1', created_at: new Date('2026-03-03T03:10:00.000Z') }
+          {
+            id: 'state-1',
+            created_at: new Date('2026-03-03T03:10:00.000Z')
+          }
         ]
       })
       .mockResolvedValueOnce({});
@@ -125,6 +136,98 @@ describe('mlsDirectState', () => {
     ).rejects.toMatchObject({ code: Code.InvalidArgument });
   });
 
+  it('rejects upload for non-members', async () => {
+    getActiveMlsGroupMembershipMock.mockResolvedValueOnce(null);
+
+    await expect(
+      uploadGroupStateDirect(
+        { groupId: 'group-1', json: '{"epoch":2}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.PermissionDenied });
+  });
+
+  it('rejects upload when group is missing', async () => {
+    const clientQueryMock = vi
+      .fn()
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({});
+
+    getPostgresPoolMock.mockResolvedValue({
+      query: queryMock,
+      connect: vi.fn().mockResolvedValue({
+        query: clientQueryMock,
+        release: vi.fn()
+      })
+    });
+
+    await expect(
+      uploadGroupStateDirect(
+        { groupId: 'group-1', json: '{"epoch":2}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.NotFound });
+  });
+
+  it('rejects upload when payload epoch is ahead of group epoch', async () => {
+    const clientQueryMock = vi
+      .fn()
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ current_epoch: 1 }] })
+      .mockResolvedValueOnce({});
+
+    getPostgresPoolMock.mockResolvedValue({
+      query: queryMock,
+      connect: vi.fn().mockResolvedValue({
+        query: clientQueryMock,
+        release: vi.fn()
+      })
+    });
+
+    await expect(
+      uploadGroupStateDirect(
+        { groupId: 'group-1', json: '{"epoch":2}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.AlreadyExists });
+  });
+
+  it('rejects upload when newer state already exists', async () => {
+    const clientQueryMock = vi
+      .fn()
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ current_epoch: 2 }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({});
+
+    getPostgresPoolMock.mockResolvedValue({
+      query: queryMock,
+      connect: vi.fn().mockResolvedValue({
+        query: clientQueryMock,
+        release: vi.fn()
+      })
+    });
+
+    await expect(
+      uploadGroupStateDirect(
+        { groupId: 'group-1', json: '{"epoch":2}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.AlreadyExists });
+  });
+
+  it('maps upload failures to internal', async () => {
+    getPostgresPoolMock.mockRejectedValueOnce(new Error('db failed'));
+
+    await expect(
+      uploadGroupStateDirect(
+        { groupId: 'group-1', json: '{"epoch":2}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.Internal });
+  });
+
   it('returns null state when no snapshot exists', async () => {
     queryMock.mockResolvedValueOnce({ rows: [] });
 
@@ -136,6 +239,37 @@ describe('mlsDirectState', () => {
     expect(parseJson(response.json)).toEqual({ state: null });
   });
 
+  it('returns latest group state when available', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'state-2',
+          group_id: 'group-1',
+          epoch: 2,
+          encrypted_state: 'cipher-state',
+          state_hash: 'hash-1',
+          created_at: new Date('2026-03-03T03:12:00.000Z')
+        }
+      ]
+    });
+
+    const response = await getGroupStateDirect(
+      { groupId: 'group-1' },
+      { requestHeader: new Headers() }
+    );
+
+    expect(parseJson(response.json)).toEqual({
+      state: {
+        id: 'state-2',
+        groupId: 'group-1',
+        epoch: 2,
+        encryptedState: 'cipher-state',
+        stateHash: 'hash-1',
+        createdAt: '2026-03-03T03:12:00.000Z'
+      }
+    });
+  });
+
   it('rejects getGroupState for non-members', async () => {
     getActiveMlsGroupMembershipMock.mockResolvedValueOnce(null);
 
@@ -145,5 +279,16 @@ describe('mlsDirectState', () => {
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.PermissionDenied });
+  });
+
+  it('maps getGroupState failures to internal', async () => {
+    queryMock.mockRejectedValueOnce(new Error('query failed'));
+
+    await expect(
+      getGroupStateDirect(
+        { groupId: 'group-1' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.Internal });
   });
 });

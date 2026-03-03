@@ -1,5 +1,5 @@
 import { Code } from '@connectrpc/connect';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   broadcastMock,
@@ -75,6 +75,8 @@ function parseJson(json: string): Record<string, unknown> {
 }
 
 describe('mlsDirectMessages', () => {
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
+
   beforeEach(() => {
     vi.clearAllMocks();
     queryMock.mockReset();
@@ -98,6 +100,12 @@ describe('mlsDirectMessages', () => {
     });
     shouldReadEnvelopeByteaMock.mockReturnValue(false);
     broadcastMock.mockResolvedValue(undefined);
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleErrorSpy?.mockRestore();
+    consoleErrorSpy = null;
   });
 
   it('sends an MLS message and mirrors it into VFS CRDT storage', async () => {
@@ -143,6 +151,17 @@ describe('mlsDirectMessages', () => {
     );
   });
 
+  it('rejects invalid send payloads', async () => {
+    parseSendMessagePayloadMock.mockReturnValueOnce(null);
+
+    await expect(
+      sendGroupMessageDirect(
+        { groupId: 'group-1', json: '{}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.InvalidArgument });
+  });
+
   it('rejects unsupported message types', async () => {
     parseSendMessagePayloadMock.mockReturnValueOnce({
       ciphertext: 'ciphertext-1',
@@ -159,6 +178,76 @@ describe('mlsDirectMessages', () => {
     ).rejects.toMatchObject({ code: Code.InvalidArgument });
   });
 
+  it('rejects send when caller is not a group member', async () => {
+    getActiveMlsGroupMembershipMock.mockResolvedValueOnce(null);
+
+    await expect(
+      sendGroupMessageDirect(
+        { groupId: 'group-1', json: '{"ciphertext":"x"}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.PermissionDenied });
+  });
+
+  it('rejects send when group is missing', async () => {
+    const clientQueryMock = vi
+      .fn()
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({});
+
+    getPostgresPoolMock.mockResolvedValue({
+      query: queryMock,
+      connect: vi.fn().mockResolvedValue({
+        query: clientQueryMock,
+        release: vi.fn()
+      })
+    });
+
+    await expect(
+      sendGroupMessageDirect(
+        { groupId: 'group-1', json: '{"ciphertext":"x"}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.NotFound });
+  });
+
+  it('rejects send when epoch mismatches current group epoch', async () => {
+    const clientQueryMock = vi
+      .fn()
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ current_epoch: 1 }] })
+      .mockResolvedValueOnce({});
+
+    getPostgresPoolMock.mockResolvedValue({
+      query: queryMock,
+      connect: vi.fn().mockResolvedValue({
+        query: clientQueryMock,
+        release: vi.fn()
+      })
+    });
+
+    await expect(
+      sendGroupMessageDirect(
+        { groupId: 'group-1', json: '{"ciphertext":"x"}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.AlreadyExists });
+  });
+
+  it('maps send failures to internal', async () => {
+    getPostgresPoolMock.mockRejectedValueOnce(new Error('db failed'));
+
+    await expect(
+      sendGroupMessageDirect(
+        { groupId: 'group-1', json: '{"ciphertext":"x"}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.Internal });
+  });
+
   it('rejects invalid cursors when listing messages', async () => {
     await expect(
       getGroupMessagesDirect(
@@ -166,6 +255,17 @@ describe('mlsDirectMessages', () => {
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.InvalidArgument });
+  });
+
+  it('rejects getGroupMessages when caller is not a member', async () => {
+    getActiveMlsGroupMembershipMock.mockResolvedValueOnce(null);
+
+    await expect(
+      getGroupMessagesDirect(
+        { groupId: 'group-1', cursor: '', limit: 20 },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.PermissionDenied });
   });
 
   it('lists messages with pagination metadata', async () => {
@@ -222,5 +322,58 @@ describe('mlsDirectMessages', () => {
       hasMore: true,
       cursor: '3'
     });
+  });
+
+  it('uses legacy content type fallback when source encoding is missing', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'message-1',
+          group_id: 'group-1',
+          sender_user_id: 'user-1',
+          epoch: 2,
+          ciphertext: 'cipher-1',
+          encoded_content_type: null,
+          legacy_content_type: 'text/custom',
+          sequence_number: 1,
+          created_at: new Date('2026-03-03T03:13:00.000Z'),
+          sender_email: null
+        }
+      ]
+    });
+
+    const response = await getGroupMessagesDirect(
+      { groupId: 'group-1', cursor: '', limit: 20 },
+      { requestHeader: new Headers() }
+    );
+
+    expect(parseJson(response.json)).toEqual({
+      messages: [
+        {
+          id: 'message-1',
+          groupId: 'group-1',
+          senderUserId: 'user-1',
+          epoch: 2,
+          ciphertext: 'cipher-1',
+          messageType: 'application',
+          contentType: 'text/custom',
+          sequenceNumber: 1,
+          sentAt: '2026-03-03T03:13:00.000Z',
+          createdAt: '2026-03-03T03:13:00.000Z'
+        }
+      ],
+      hasMore: false
+    });
+  });
+
+  it('maps getGroupMessages failures to internal', async () => {
+    queryMock.mockRejectedValueOnce(new Error('query failed'));
+
+    await expect(
+      getGroupMessagesDirect(
+        { groupId: 'group-1', cursor: '', limit: 20 },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.Internal });
   });
 });

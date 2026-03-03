@@ -1,5 +1,5 @@
 import { Code } from '@connectrpc/connect';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   broadcastMock,
@@ -69,6 +69,8 @@ function parseJson(json: string): Record<string, unknown> {
 }
 
 describe('mlsDirectGroupMembers', () => {
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
+
   beforeEach(() => {
     vi.clearAllMocks();
     queryMock.mockReset();
@@ -95,6 +97,12 @@ describe('mlsDirectGroupMembers', () => {
       .mockReturnValueOnce('welcome-1')
       .mockReturnValueOnce('commit-1');
     broadcastMock.mockResolvedValue(undefined);
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleErrorSpy?.mockRestore();
+    consoleErrorSpy = null;
   });
 
   it('adds a member and emits group/user broadcasts', async () => {
@@ -139,8 +147,59 @@ describe('mlsDirectGroupMembers', () => {
     expect(broadcastMock).toHaveBeenCalledTimes(2);
   });
 
+  it('rejects addGroupMember when payload is invalid', async () => {
+    parseAddMemberPayloadMock.mockReturnValueOnce(null);
+
+    await expect(
+      addGroupMemberDirect(
+        { groupId: 'group-1', json: '{}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.InvalidArgument });
+  });
+
+  it('rejects addGroupMember when caller is not a member', async () => {
+    getActiveMlsGroupMembershipMock.mockResolvedValueOnce(null);
+
+    await expect(
+      addGroupMemberDirect(
+        { groupId: 'group-1', json: '{"userId":"member-user"}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.PermissionDenied });
+  });
+
+  it('rejects addGroupMember for non-admin members', async () => {
+    getActiveMlsGroupMembershipMock.mockResolvedValueOnce({
+      role: 'member',
+      organizationId: 'org-1'
+    });
+
+    await expect(
+      addGroupMemberDirect(
+        { groupId: 'group-1', json: '{"userId":"member-user"}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.PermissionDenied });
+  });
+
+  it('rejects addGroupMember when target user is outside org', async () => {
+    getPostgresPoolMock.mockResolvedValue({
+      query: queryMock,
+      connect: vi.fn()
+    });
+    queryMock.mockResolvedValueOnce({ rows: [] });
+
+    await expect(
+      addGroupMemberDirect(
+        { groupId: 'group-1', json: '{"userId":"member-user"}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.NotFound });
+  });
+
   it('rejects addGroupMember when epoch does not match', async () => {
-    parseAddMemberPayloadMock.mockReturnValue({
+    parseAddMemberPayloadMock.mockReturnValueOnce({
       userId: 'member-user',
       commit: 'commit-data',
       welcome: 'welcome-data',
@@ -172,6 +231,77 @@ describe('mlsDirectGroupMembers', () => {
     ).rejects.toMatchObject({ code: Code.AlreadyExists });
   });
 
+  it('rejects addGroupMember when key package is unavailable', async () => {
+    const clientQueryMock = vi
+      .fn()
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ current_epoch: 1 }] })
+      .mockResolvedValueOnce({ rows: [{ count: '5' }] })
+      .mockResolvedValueOnce({ rowCount: 0 })
+      .mockResolvedValueOnce({});
+
+    getPostgresPoolMock.mockResolvedValue({
+      query: queryMock,
+      connect: vi.fn().mockResolvedValue({
+        query: clientQueryMock,
+        release: vi.fn()
+      })
+    });
+
+    queryMock.mockResolvedValueOnce({ rows: [{}] });
+
+    await expect(
+      addGroupMemberDirect(
+        { groupId: 'group-1', json: '{"userId":"member-user"}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.AlreadyExists });
+  });
+
+  it('maps addGroupMember failures to internal', async () => {
+    getPostgresPoolMock.mockRejectedValueOnce(new Error('db failed'));
+
+    await expect(
+      addGroupMemberDirect(
+        { groupId: 'group-1', json: '{"userId":"member-user"}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.Internal });
+  });
+
+  it('returns group members', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          user_id: 'user-1',
+          email: 'user-1@example.com',
+          leaf_index: 0,
+          role: 'admin',
+          joined_at: new Date('2026-03-03T03:00:00.000Z'),
+          joined_at_epoch: 0
+        }
+      ]
+    });
+
+    const response = await getGroupMembersDirect(
+      { groupId: 'group-1' },
+      { requestHeader: new Headers() }
+    );
+
+    expect(parseJson(response.json)).toEqual({
+      members: [
+        {
+          userId: 'user-1',
+          email: 'user-1@example.com',
+          leafIndex: 0,
+          role: 'admin',
+          joinedAt: '2026-03-03T03:00:00.000Z',
+          joinedAtEpoch: 0
+        }
+      ]
+    });
+  });
+
   it('rejects getGroupMembers when caller is not a member', async () => {
     getActiveMlsGroupMembershipMock.mockResolvedValueOnce(null);
 
@@ -181,6 +311,100 @@ describe('mlsDirectGroupMembers', () => {
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.PermissionDenied });
+  });
+
+  it('maps getGroupMembers failures to internal', async () => {
+    queryMock.mockRejectedValueOnce(new Error('read failed'));
+
+    await expect(
+      getGroupMembersDirect(
+        { groupId: 'group-1' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.Internal });
+  });
+
+  it('rejects removeGroupMember for invalid payloads', async () => {
+    parseRemoveMemberPayloadMock.mockReturnValueOnce(null);
+
+    await expect(
+      removeGroupMemberDirect(
+        { groupId: 'group-1', userId: 'member-user', json: '{}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.InvalidArgument });
+  });
+
+  it('rejects removeGroupMember when caller is not a member', async () => {
+    getActiveMlsGroupMembershipMock.mockResolvedValueOnce(null);
+
+    await expect(
+      removeGroupMemberDirect(
+        { groupId: 'group-1', userId: 'member-user', json: '{"newEpoch":3}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.PermissionDenied });
+  });
+
+  it('rejects removeGroupMember for non-admin members', async () => {
+    getActiveMlsGroupMembershipMock.mockResolvedValueOnce({
+      role: 'member',
+      organizationId: 'org-1'
+    });
+
+    await expect(
+      removeGroupMemberDirect(
+        { groupId: 'group-1', userId: 'member-user', json: '{"newEpoch":3}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.PermissionDenied });
+  });
+
+  it('rejects removeGroupMember when group is missing', async () => {
+    const clientQueryMock = vi
+      .fn()
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({});
+
+    getPostgresPoolMock.mockResolvedValue({
+      query: queryMock,
+      connect: vi.fn().mockResolvedValue({
+        query: clientQueryMock,
+        release: vi.fn()
+      })
+    });
+
+    await expect(
+      removeGroupMemberDirect(
+        { groupId: 'group-1', userId: 'member-user', json: '{"newEpoch":3}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.NotFound });
+  });
+
+  it('rejects removeGroupMember when member is missing', async () => {
+    const clientQueryMock = vi
+      .fn()
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ current_epoch: 2 }] })
+      .mockResolvedValueOnce({ rowCount: 0 })
+      .mockResolvedValueOnce({});
+
+    getPostgresPoolMock.mockResolvedValue({
+      query: queryMock,
+      connect: vi.fn().mockResolvedValue({
+        query: clientQueryMock,
+        release: vi.fn()
+      })
+    });
+
+    await expect(
+      removeGroupMemberDirect(
+        { groupId: 'group-1', userId: 'member-user', json: '{"newEpoch":3}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.NotFound });
   });
 
   it('removes a group member and emits removal broadcast', async () => {
@@ -214,5 +438,16 @@ describe('mlsDirectGroupMembers', () => {
       'mls:group:group-1',
       expect.objectContaining({ type: 'mls:member_removed' })
     );
+  });
+
+  it('maps removeGroupMember failures to internal', async () => {
+    getPostgresPoolMock.mockRejectedValueOnce(new Error('db failed'));
+
+    await expect(
+      removeGroupMemberDirect(
+        { groupId: 'group-1', userId: 'member-user', json: '{"newEpoch":3}' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.Internal });
   });
 });
