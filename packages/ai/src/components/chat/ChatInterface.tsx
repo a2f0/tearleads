@@ -24,10 +24,16 @@ export function ChatInterface() {
     () =>
       createLLMAdapter(llm.generate, {
         canPersist: () => {
-          return Boolean(conversations.currentId) && !conversations.messagesLoading;
+          return (
+            Boolean(conversations.currentId) && !conversations.messagesLoading
+          );
         },
         onUserMessage: async (content: string) => {
-          await conversations.addMessage('user', content, llm.loadedModel ?? undefined);
+          await conversations.addMessage(
+            'user',
+            content,
+            llm.loadedModel ?? undefined
+          );
         },
         onAssistantMessage: async (content: string) => {
           await conversations.addMessage(

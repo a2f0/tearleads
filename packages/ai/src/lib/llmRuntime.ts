@@ -62,7 +62,9 @@ export function createLLMAdapter(
             .join('') || ''
       }));
 
-      const canPersist = persistence?.canPersist ? persistence.canPersist() : true;
+      const canPersist = persistence?.canPersist
+        ? persistence.canPersist()
+        : true;
       const latestUserMessage = [...messages]
         .reverse()
         .find((message) => message.role === 'user');
@@ -180,7 +182,10 @@ export function createLLMAdapter(
             await persistence.onAssistantMessage(textContent);
             persistedAssistantMessageIds.add(assistantMessageKey);
           } catch (persistError) {
-            console.error('Failed to persist assistant AI message:', persistError);
+            console.error(
+              'Failed to persist assistant AI message:',
+              persistError
+            );
           }
         }
       }

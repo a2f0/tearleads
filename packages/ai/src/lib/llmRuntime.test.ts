@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createLLMAdapter } from './llmRuntime';
 
-type AdapterRunOptions = Parameters<ReturnType<typeof createLLMAdapter>['run']>[0];
+type AdapterRunOptions = Parameters<
+  ReturnType<typeof createLLMAdapter>['run']
+>[0];
 
 function createRunOptions(params: {
   userMessageId: string;
