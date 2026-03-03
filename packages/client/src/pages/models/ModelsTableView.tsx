@@ -3,7 +3,7 @@ import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow
 } from '@tearleads/window-manager';
-import { Download, Loader2, Play, Square, Trash2 } from 'lucide-react';
+import { Clock3, Download, Loader2, Play, Square, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { ModelInfo } from '@/lib/models';
 import type { ModelStatus } from './ModelCard';
@@ -26,6 +26,8 @@ function getStatusLabel(status: ModelStatus, isRemote: boolean): string {
       return 'Loaded';
     case 'cached':
       return 'Downloaded';
+    case 'queued':
+      return 'Queued';
     case 'downloading':
       return 'Downloading';
     case 'not_downloaded':
@@ -39,6 +41,8 @@ function getStatusStyles(status: ModelStatus): string {
       return 'bg-success/10 text-success';
     case 'cached':
       return 'bg-info/10 text-info';
+    case 'queued':
+      return 'bg-primary/10 text-primary';
     case 'downloading':
       return 'bg-primary/10 text-primary';
     case 'not_downloaded':
@@ -119,6 +123,7 @@ export function ModelsTableView({
                     const status = section.getStatus(model);
                     const isLoaded = status === 'loaded';
                     const isCached = !isRemote && status === 'cached';
+                    const isQueued = !isRemote && status === 'queued';
                     const isDownloading = !isRemote && status === 'downloading';
                     const hasProgress =
                       isDownloading &&
@@ -126,7 +131,7 @@ export function ModelsTableView({
                       loadProgress !== null;
                     const progressValue = loadProgress?.progress ?? 0;
                     const progressText = loadProgress?.text ?? '';
-                    const isBusy = loadingModelId !== null;
+                    const isBusy = isDownloading || isQueued;
 
                     return (
                       <WindowTableRow
@@ -208,6 +213,15 @@ export function ModelsTableView({
                                 aria-label="Loading"
                               >
                                 <Loader2 className="h-3 w-3 animate-spin" />
+                              </Button>
+                            ) : isQueued ? (
+                              <Button
+                                variant="outline"
+                                size="icon-sm"
+                                disabled
+                                aria-label="Queued"
+                              >
+                                <Clock3 className="h-3 w-3" />
                               </Button>
                             ) : isCached ? (
                               <>

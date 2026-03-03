@@ -114,10 +114,12 @@ function getCurrentModelStatus(
   modelId: string,
   loadedModel: string | null,
   loadingModelId: string | null,
+  queuedModelIds: string[],
   cachedModels: Record<string, boolean>
 ): ModelStatus {
   if (loadedModel === modelId) return 'loaded';
   if (loadingModelId === modelId) return 'downloading';
+  if (queuedModelIds.includes(modelId)) return 'queued';
   if (cachedModels[modelId]) return 'cached';
   return 'not_downloaded';
 }
@@ -187,6 +189,7 @@ export function ModelsContent({
   } = useLLM();
   const {
     downloadingModelId,
+    queuedModelIds,
     isDownloading,
     downloadProgress,
     downloadModel
@@ -235,6 +238,7 @@ export function ModelsContent({
       modelId,
       loadedModel,
       downloadingModelId,
+      queuedModelIds,
       cachedModels
     );
   };
@@ -320,20 +324,23 @@ export function ModelsContent({
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            {RECOMMENDED_MODELS.map((model) => (
-              <ModelCard
-                key={model.id}
-                model={model}
-                status={getModelStatus(model.id)}
-                loadProgress={
-                  downloadingModelId === model.id ? downloadProgress : null
-                }
-                disabled={isDownloading}
-                onLoad={() => handleLoad(model.id)}
-                onUnload={handleUnload}
-                onDelete={() => handleDelete(model.id)}
-              />
-            ))}
+            {RECOMMENDED_MODELS.map((model) => {
+              const status = getModelStatus(model.id);
+              return (
+                <ModelCard
+                  key={model.id}
+                  model={model}
+                  status={status}
+                  loadProgress={
+                    downloadingModelId === model.id ? downloadProgress : null
+                  }
+                  disabled={status === 'downloading' || status === 'queued'}
+                  onLoad={() => handleLoad(model.id)}
+                  onUnload={handleUnload}
+                  onDelete={() => handleDelete(model.id)}
+                />
+              );
+            })}
           </div>
 
           <OpenRouterModelsSection
