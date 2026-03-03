@@ -48,18 +48,20 @@ const uiComponents: MlsChatUIComponents = {
   )
 };
 
-function Wrapper({ children }: { children: ReactNode }) {
-  return (
-    <MlsChatProvider
-      apiBaseUrl="http://localhost:3000"
-      getAuthHeader={() => 'Bearer token'}
-      userId="test-user-id"
-      userEmail="test@example.com"
-      ui={uiComponents}
-    >
-      {children}
-    </MlsChatProvider>
-  );
+function createWrapper() {
+  return function TestWrapper({ children }: { children: ReactNode }) {
+    return (
+      <MlsChatProvider
+        apiBaseUrl="http://localhost:3000"
+        getAuthHeader={() => 'Bearer token'}
+        userId="test-user-id"
+        userEmail="test@example.com"
+        ui={uiComponents}
+      >
+        {children}
+      </MlsChatProvider>
+    );
+  };
 }
 
 function createAbortError(): Error {
@@ -133,7 +135,7 @@ describe('useMlsRealtime', () => {
 
     const client = new MlsClient('test-user-id');
     const { result, unmount } = renderHook(() => useMlsRealtime(client), {
-      wrapper: Wrapper
+      wrapper: createWrapper()
     });
 
     act(() => {
@@ -195,7 +197,7 @@ describe('useMlsRealtime', () => {
       .mockResolvedValue(undefined);
 
     const { result, unmount } = renderHook(() => useMlsRealtime(client), {
-      wrapper: Wrapper
+      wrapper: createWrapper()
     });
 
     act(() => {
@@ -265,7 +267,7 @@ describe('useMlsRealtime', () => {
       .mockResolvedValue(undefined);
 
     const { result, unmount } = renderHook(() => useMlsRealtime(client), {
-      wrapper: Wrapper
+      wrapper: createWrapper()
     });
 
     act(() => {
@@ -318,7 +320,7 @@ describe('useMlsRealtime', () => {
 
     const client = new MlsClient('test-user-id');
     renderHook(() => useMlsRealtime(client), {
-      wrapper: Wrapper
+      wrapper: createWrapper()
     });
 
     await waitFor(() => {
@@ -342,7 +344,7 @@ describe('MLS hook refresh registration', () => {
 
     const client = new MlsClient('test-user-id');
     renderHook(() => useGroupMembers('group-1', client), {
-      wrapper: Wrapper
+      wrapper: createWrapper()
     });
 
     await waitFor(() => {
@@ -380,7 +382,7 @@ describe('MLS hook refresh registration', () => {
 
     const client = new MlsClient('test-user-id');
     renderHook(() => useWelcomeMessages(client), {
-      wrapper: Wrapper
+      wrapper: createWrapper()
     });
 
     await waitFor(() => {
