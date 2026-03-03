@@ -318,24 +318,14 @@ function parseConnectRoute(
   endpoint: string
 ): { serviceName: string; methodName: string } | null {
   const requestPath = toRequestPath(endpoint);
-  if (!requestPath.startsWith('/connect/')) {
-    return null;
-  }
-
-  const segments = requestPath.split('/').filter((segment) => segment.length);
-  if (segments.length !== 3 || segments[0] !== 'connect') {
-    return null;
-  }
-
-  const serviceName = segments[1];
-  const methodName = segments[2];
-  if (serviceName === undefined || methodName === undefined) {
+  const match = /^\/connect\/([^/]+)\/([^/]+)$/u.exec(requestPath);
+  if (!match) {
     return null;
   }
 
   return {
-    serviceName,
-    methodName
+    serviceName: match[1],
+    methodName: match[2]
   };
 }
 
