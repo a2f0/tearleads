@@ -13,7 +13,10 @@ describe('chatAttachments', () => {
       status: 200,
       headers: { 'content-type': 'text/plain' }
     });
-    vi.stubGlobal('fetch', vi.fn(async () => response));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => response)
+    );
 
     await expect(objectUrlToDataUrl('blob:test')).resolves.toMatch(
       /^data:text\/plain;base64,/
@@ -22,7 +25,10 @@ describe('chatAttachments', () => {
 
   it('throws when object URL fetch fails', async () => {
     const response = new Response('missing', { status: 404 });
-    vi.stubGlobal('fetch', vi.fn(async () => response));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => response)
+    );
 
     await expect(objectUrlToDataUrl('blob:missing')).rejects.toThrow(
       'Failed to load object URL: 404'
