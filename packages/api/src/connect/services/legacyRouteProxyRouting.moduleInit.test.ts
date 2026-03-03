@@ -94,7 +94,9 @@ describe('legacyRouteProxyRouting module initialization', () => {
     const routingWithMalformedStack = await import(
       './legacyRouteProxyRouting.js'
     );
-    expect(routingWithMalformedStack.findRoute('GET', '/vfs/keys/me')).toBeNull();
+    expect(
+      routingWithMalformedStack.findRoute('GET', '/vfs/keys/me')
+    ).toBeNull();
   });
 
   it('handles mixed router stacks and unsupported route metadata', async () => {
