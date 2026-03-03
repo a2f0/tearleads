@@ -3,6 +3,7 @@ import { Bot, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
+import { useModelDownloadManager } from '@/contexts/ModelDownloadManagerProvider';
 import { useLLM } from '@/hooks/ai';
 import { OPENROUTER_MODELS, RECOMMENDED_MODELS } from '@/lib/models';
 import { getWebGPUErrorInfo } from '@/lib/utils';
@@ -179,17 +180,20 @@ export function ModelsContent({
 }: ModelsContentProps) {
   const {
     loadedModel,
-    loadProgress,
     error,
-    loadModel,
     unloadModel,
     isWebGPUSupported,
     previouslyLoadedModel
   } = useLLM();
+  const {
+    downloadingModelId,
+    isDownloading,
+    downloadProgress,
+    downloadModel
+  } = useModelDownloadManager();
 
   const [webGPUSupported, setWebGPUSupported] = useState<boolean | null>(null);
   const [webGPUInfo, setWebGPUInfo] = useState<WebGPUInfo | null>(null);
-  const [loadingModelId, setLoadingModelId] = useState<string | null>(null);
   const [cachedModels, setCachedModels] = useState<Record<string, boolean>>({});
 
   // Check WebGPU support and get adapter info on mount
@@ -206,20 +210,13 @@ export function ModelsContent({
 
   const handleLoad = useCallback(
     async (modelId: string) => {
-      setLoadingModelId(modelId);
-      try {
-        await loadModel(modelId);
-        if (!isOpenRouterModelId(modelId)) {
-          // Mark the model as cached after successful load
-          setCachedModels((prev) => ({ ...prev, [modelId]: true }));
-        }
-      } finally {
-        setLoadingModelId((currentId) =>
-          currentId === modelId ? null : currentId
-        );
+      await downloadModel(modelId);
+      if (!isOpenRouterModelId(modelId)) {
+        // Mark the model as cached after successful load
+        setCachedModels((prev) => ({ ...prev, [modelId]: true }));
       }
     },
-    [loadModel]
+    [downloadModel]
   );
 
   const handleUnload = useCallback(async () => {
@@ -237,7 +234,7 @@ export function ModelsContent({
     return getCurrentModelStatus(
       modelId,
       loadedModel,
-      loadingModelId,
+      downloadingModelId,
       cachedModels
     );
   };
@@ -249,8 +246,8 @@ export function ModelsContent({
       isTableView,
       showBackLink,
       loadedModel,
-      loadingModelId,
-      loadProgress,
+      downloadingModelId,
+      downloadProgress,
       getModelStatus,
       handleLoad,
       handleUnload,
@@ -278,7 +275,7 @@ export function ModelsContent({
         </div>
       )}
 
-      {previouslyLoadedModel && !loadedModel && !loadingModelId && (
+      {previouslyLoadedModel && !loadedModel && !isDownloading && (
         <div className="rounded-lg border border-info/30 bg-info/5 p-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -305,8 +302,8 @@ export function ModelsContent({
           recommendedModels={RECOMMENDED_MODELS}
           openRouterModels={OPENROUTER_MODELS}
           loadedModel={loadedModel}
-          loadingModelId={loadingModelId}
-          loadProgress={loadProgress}
+          loadingModelId={downloadingModelId}
+          loadProgress={downloadProgress}
           getModelStatus={getModelStatus}
           onLoad={handleLoad}
           onUnload={handleUnload}
@@ -328,8 +325,10 @@ export function ModelsContent({
                 key={model.id}
                 model={model}
                 status={getModelStatus(model.id)}
-                loadProgress={loadingModelId === model.id ? loadProgress : null}
-                disabled={loadingModelId !== null}
+                loadProgress={
+                  downloadingModelId === model.id ? downloadProgress : null
+                }
+                disabled={isDownloading}
                 onLoad={() => handleLoad(model.id)}
                 onUnload={handleUnload}
                 onDelete={() => handleDelete(model.id)}
@@ -339,7 +338,7 @@ export function ModelsContent({
 
           <OpenRouterModelsSection
             loadedModel={loadedModel}
-            loadingModelId={loadingModelId}
+            loadingModelId={downloadingModelId}
             onLoad={handleLoad}
             onUnload={handleUnload}
           />
