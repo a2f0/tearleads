@@ -184,35 +184,6 @@ export function VfsDetailsPanel({
     setEmptySpaceContextMenu(null);
   };
 
-  const renderEmptySpaceContextMenu = () => {
-    if (!emptySpaceContextMenu) return null;
-    return (
-      <WindowContextMenu
-        x={emptySpaceContextMenu.x}
-        y={emptySpaceContextMenu.y}
-        onClose={() => setEmptySpaceContextMenu(null)}
-      >
-        {onUpload && folderId && (
-          <WindowContextMenuItem
-            icon={<Upload className="h-4 w-4" />}
-            onClick={createEmptySpaceActionHandler(() => onUpload(folderId))}
-            data-testid="vfs-upload-context-menu-item"
-          >
-            Upload
-          </WindowContextMenuItem>
-        )}
-        {hasItems && onPaste && folderId && (
-          <WindowContextMenuItem
-            icon={<Clipboard className="h-4 w-4" />}
-            onClick={createEmptySpaceActionHandler(() => onPaste(folderId))}
-          >
-            Paste
-          </WindowContextMenuItem>
-        )}
-      </WindowContextMenu>
-    );
-  };
-
   const getRangeSelection = useCallback(
     (anchorId: string, itemId: string) => {
       const anchorIndex = items.findIndex((item) => item.id === anchorId);
@@ -328,17 +299,6 @@ export function VfsDetailsPanel({
     );
   }
 
-  const renderSortIcon = (column: VfsSortColumn) => {
-    if (sort.column === column) {
-      return sort.direction === 'asc' ? (
-        <ArrowUp className="h-3 w-3" />
-      ) : (
-        <ArrowDown className="h-3 w-3" />
-      );
-    }
-    return <ArrowUpDown className="h-3 w-3 opacity-50" />;
-  };
-
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex items-center border-b px-3 py-2">
@@ -364,7 +324,15 @@ export function VfsDetailsPanel({
                     className="inline-flex items-center gap-1 hover:text-foreground"
                   >
                     Name
-                    {renderSortIcon('name')}
+                    {sort.column === 'name' ? (
+                      sort.direction === 'asc' ? (
+                        <ArrowUp className="h-3 w-3" />
+                      ) : (
+                        <ArrowDown className="h-3 w-3" />
+                      )
+                    ) : (
+                      <ArrowUpDown className="h-3 w-3 opacity-50" />
+                    )}
                   </button>
                 </th>
                 <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
@@ -374,7 +342,15 @@ export function VfsDetailsPanel({
                     className="inline-flex items-center gap-1 hover:text-foreground"
                   >
                     Type
-                    {renderSortIcon('objectType')}
+                    {sort.column === 'objectType' ? (
+                      sort.direction === 'asc' ? (
+                        <ArrowUp className="h-3 w-3" />
+                      ) : (
+                        <ArrowDown className="h-3 w-3" />
+                      )
+                    ) : (
+                      <ArrowUpDown className="h-3 w-3 opacity-50" />
+                    )}
                   </button>
                 </th>
                 <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
@@ -384,7 +360,15 @@ export function VfsDetailsPanel({
                     className="inline-flex items-center gap-1 hover:text-foreground"
                   >
                     Created
-                    {renderSortIcon('createdAt')}
+                    {sort.column === 'createdAt' ? (
+                      sort.direction === 'asc' ? (
+                        <ArrowUp className="h-3 w-3" />
+                      ) : (
+                        <ArrowDown className="h-3 w-3" />
+                      )
+                    ) : (
+                      <ArrowUpDown className="h-3 w-3 opacity-50" />
+                    )}
                   </button>
                 </th>
                 <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
@@ -483,7 +467,31 @@ export function VfsDetailsPanel({
           }
         />
       )}
-      {renderEmptySpaceContextMenu()}
+      {emptySpaceContextMenu && (
+        <WindowContextMenu
+          x={emptySpaceContextMenu.x}
+          y={emptySpaceContextMenu.y}
+          onClose={() => setEmptySpaceContextMenu(null)}
+        >
+          {onUpload && folderId && (
+            <WindowContextMenuItem
+              icon={<Upload className="h-4 w-4" />}
+              onClick={createEmptySpaceActionHandler(() => onUpload(folderId))}
+              data-testid="vfs-upload-context-menu-item"
+            >
+              Upload
+            </WindowContextMenuItem>
+          )}
+          {hasItems && onPaste && folderId && (
+            <WindowContextMenuItem
+              icon={<Clipboard className="h-4 w-4" />}
+              onClick={createEmptySpaceActionHandler(() => onPaste(folderId))}
+            >
+              Paste
+            </WindowContextMenuItem>
+          )}
+        </WindowContextMenu>
+      )}
     </div>
   );
 }
