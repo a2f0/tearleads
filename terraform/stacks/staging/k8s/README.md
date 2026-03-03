@@ -25,10 +25,11 @@ This stack provisions a k3s Kubernetes cluster on Hetzner Cloud for the staging 
 |--------|-------------|
 | `scripts/init.sh` | Initialize Terraform |
 | `scripts/plan.sh` | Preview infrastructure changes |
-| `scripts/apply01.sh` | Step 1: Apply Terraform infrastructure changes |
-| `scripts/apply02.sh` | Step 2: Fetch kubeconfig, run Ansible baseline bootstrap, and deploy manifests |
-| `scripts/apply03.sh` | Step 3: Build/push staging images and roll deployments |
-| `scripts/apply.sh` | Run steps 1-3 in sequence (`apply01` → `apply02` → `apply03`) |
+| `scripts/apply01-terraform.sh` | Step 1: Apply Terraform infrastructure changes |
+| `scripts/apply02-bootstrap-cluster.sh` | Step 2: Fetch kubeconfig, run Ansible baseline bootstrap, and deploy manifests |
+| `scripts/apply03-build-images.sh` | Step 3: Build and push staging container images to ECR |
+| `scripts/apply04-rollout-containers.sh` | Step 4: Roll out deployments, run migrations, and smoke tests |
+| `scripts/apply.sh` | Run steps 1-4 in sequence |
 | `scripts/destroy.sh` | Destroy infrastructure |
 | `scripts/kubeconfig.sh` | Fetch kubeconfig from server |
 | `scripts/setup-ecr-secret.sh` | Create ECR pull secret for container registry |
@@ -46,13 +47,16 @@ This stack provisions a k3s Kubernetes cluster on Hetzner Cloud for the staging 
 ./scripts/init.sh
 
 # 2. Create the cluster infrastructure
-./scripts/apply01.sh
+./scripts/apply01-terraform.sh
 
 # 3. Run baseline bootstrap (Ansible) and deploy manifests
-./scripts/apply02.sh
+./scripts/apply02-bootstrap-cluster.sh
 
-# 4. Build/push images and rollout app deployments
-./scripts/apply03.sh
+# 4. Build and push container images
+./scripts/apply03-build-images.sh
+
+# 5. Roll out deployments
+./scripts/apply04-rollout-containers.sh
 ```
 
 ### Cloudflare Zone
