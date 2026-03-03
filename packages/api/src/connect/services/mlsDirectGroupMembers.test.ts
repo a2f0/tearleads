@@ -114,7 +114,14 @@ describe('mlsDirectGroupMembers', () => {
       .mockResolvedValueOnce({ rowCount: 1 })
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            sequence_number: 9,
+            created_at: new Date('2026-03-03T06:00:00.000Z')
+          }
+        ]
+      })
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({});
 
@@ -144,7 +151,18 @@ describe('mlsDirectGroupMembers', () => {
         joinedAtEpoch: 2
       }
     });
-    expect(broadcastMock).toHaveBeenCalledTimes(2);
+    expect(broadcastMock).toHaveBeenCalledTimes(3);
+    expect(broadcastMock).toHaveBeenCalledWith(
+      'mls:group:group-1',
+      expect.objectContaining({
+        type: 'mls:message',
+        payload: expect.objectContaining({
+          messageType: 'commit',
+          sequenceNumber: 9,
+          contentType: 'application/mls-commit'
+        })
+      })
+    );
   });
 
   it('rejects addGroupMember when payload is invalid', async () => {
@@ -415,7 +433,14 @@ describe('mlsDirectGroupMembers', () => {
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({ rows: [{ current_epoch: 2 }] })
       .mockResolvedValueOnce({ rowCount: 1 })
-      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            sequence_number: 12,
+            created_at: new Date('2026-03-03T06:05:00.000Z')
+          }
+        ]
+      })
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({});
 
@@ -433,7 +458,18 @@ describe('mlsDirectGroupMembers', () => {
     );
 
     expect(response).toEqual({ json: '{}' });
-    expect(broadcastMock).toHaveBeenCalledTimes(1);
+    expect(broadcastMock).toHaveBeenCalledTimes(2);
+    expect(broadcastMock).toHaveBeenCalledWith(
+      'mls:group:group-1',
+      expect.objectContaining({
+        type: 'mls:message',
+        payload: expect.objectContaining({
+          messageType: 'commit',
+          sequenceNumber: 12,
+          contentType: 'application/mls-commit'
+        })
+      })
+    );
     expect(broadcastMock).toHaveBeenCalledWith(
       'mls:group:group-1',
       expect.objectContaining({ type: 'mls:member_removed' })

@@ -137,6 +137,18 @@ export function useWelcomeMessages(
     }
   }, [client, fetchWelcomeMessages]);
 
+  useEffect(() => {
+    const handlerKey = '__mlsWelcomeRefreshHandler';
+    Reflect.set(globalThis, handlerKey, fetchWelcomeMessages);
+
+    return () => {
+      const currentHandler = Reflect.get(globalThis, handlerKey);
+      if (currentHandler === fetchWelcomeMessages) {
+        Reflect.deleteProperty(globalThis, handlerKey);
+      }
+    };
+  }, [fetchWelcomeMessages]);
+
   return {
     welcomeMessages,
     isLoading,

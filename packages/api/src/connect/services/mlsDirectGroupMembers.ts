@@ -3,11 +3,13 @@ import { Code, ConnectError } from '@connectrpc/connect';
 import type {
   AddMlsMemberResponse,
   MlsGroupMember,
+  MlsMessage,
   MlsGroupMembersResponse
 } from '@tearleads/shared';
 import { broadcast } from '../../lib/broadcast.js';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
+import { insertCommitMessage } from './mlsDirectCommitMessages.js';
 import {
   encoded,
   parseJsonBody,
@@ -78,6 +80,7 @@ export async function addGroupMemberDirect(
     let inTransaction = false;
     let welcomeId = '';
     let leafIndex = 0;
+    let commitMessage: MlsMessage | null = null;
     const now = new Date();
 
     try {
@@ -168,28 +171,14 @@ export async function addGroupMemberDirect(
       );
 
       const commitId = randomUUID();
-      await client.query(
-        `INSERT INTO mls_messages (
-           id,
-           group_id,
-           sender_user_id,
-           epoch,
-           ciphertext,
-           message_type,
-           sequence_number,
-           created_at
-         ) VALUES (
-           $1,
-           $2,
-           $3,
-           $4,
-           $5,
-           'commit',
-           COALESCE((SELECT MAX(sequence_number) FROM mls_messages WHERE group_id = $2), 0) + 1,
-           NOW()
-         )`,
-        [commitId, groupId, claims.sub, payload.newEpoch, payload.commit]
-      );
+      commitMessage = await insertCommitMessage({
+        client,
+        commitId,
+        groupId,
+        senderUserId: claims.sub,
+        epoch: payload.newEpoch,
+        commitCiphertext: payload.commit
+      });
 
       await client.query(
         `UPDATE mls_groups
@@ -209,6 +198,15 @@ export async function addGroupMemberDirect(
     } finally {
       client.release();
     }
+    if (!commitMessage) {
+      throw new ConnectError('Failed to persist commit message', Code.Internal);
+    }
+
+    await broadcast(`mls:group:${groupId}`, {
+      type: 'mls:message',
+      payload: commitMessage,
+      timestamp: commitMessage.createdAt
+    });
 
     const userResult = await pool.query<{ email: string }>(
       `SELECT email FROM users WHERE id = $1`,
@@ -357,6 +355,7 @@ export async function removeGroupMemberDirect(
 
     const client = await pool.connect();
     let inTransaction = false;
+    let commitMessage: MlsMessage | null = null;
 
     try {
       await client.query('BEGIN');
@@ -392,28 +391,14 @@ export async function removeGroupMemberDirect(
       }
 
       const commitId = randomUUID();
-      await client.query(
-        `INSERT INTO mls_messages (
-           id,
-           group_id,
-           sender_user_id,
-           epoch,
-           ciphertext,
-           message_type,
-           sequence_number,
-           created_at
-         ) VALUES (
-           $1,
-           $2,
-           $3,
-           $4,
-           $5,
-           'commit',
-           COALESCE((SELECT MAX(sequence_number) FROM mls_messages WHERE group_id = $2), 0) + 1,
-           NOW()
-         )`,
-        [commitId, groupId, claims.sub, payload.newEpoch, payload.commit]
-      );
+      commitMessage = await insertCommitMessage({
+        client,
+        commitId,
+        groupId,
+        senderUserId: claims.sub,
+        epoch: payload.newEpoch,
+        commitCiphertext: payload.commit
+      });
 
       await client.query(
         `UPDATE mls_groups
@@ -433,11 +418,20 @@ export async function removeGroupMemberDirect(
     } finally {
       client.release();
     }
+    if (!commitMessage) {
+      throw new ConnectError('Failed to persist commit message', Code.Internal);
+    }
+
+    await broadcast(`mls:group:${groupId}`, {
+      type: 'mls:message',
+      payload: commitMessage,
+      timestamp: commitMessage.createdAt
+    });
 
     await broadcast(`mls:group:${groupId}`, {
       type: 'mls:member_removed',
       payload: { groupId, userId },
-      timestamp: new Date().toISOString()
+      timestamp: commitMessage.createdAt
     });
 
     return { json: '{}' };
