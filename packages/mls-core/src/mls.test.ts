@@ -17,4 +17,14 @@ describe('MlsClient', () => {
     expect(client).toBeInstanceOf(MlsClient);
     client.close();
   });
+
+  it('starts in placeholder backend mode before init', () => {
+    const client = new MlsClient('user-123');
+    const status = client.getBackendStatus();
+
+    expect(status.backend).toBe('placeholder');
+    expect(status.productionReady).toBe(false);
+
+    client.close();
+  });
 });

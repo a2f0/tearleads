@@ -2,7 +2,7 @@
 
 Core MLS (RFC 9420) client and storage primitives used by Tearleads.
 
-> **Implementation Status**: Placeholder protocol surface only. Current implementation is not RFC 9420-compliant and does not provide production-grade MLS cryptography yet.
+> **Implementation Status**: Rust/WASM backend scaffold is wired in, but RFC 9420 primitive operations are still placeholder and not production-ready yet.
 
 ## Installation
 
@@ -31,6 +31,9 @@ const keyPackage = await client.generateKeyPackage();
 ## Development
 
 ```bash
+# Generate Rust/WASM bindings (writes to packages/mls-core/.generated/)
+pnpm codegenWasm
+
 # Build
 pnpm --filter @tearleads/mls-core build
 
@@ -40,3 +43,7 @@ pnpm --filter @tearleads/mls-core test
 # Test with coverage
 pnpm --filter @tearleads/mls-core test:coverage
 ```
+
+Generated MLS Rust/WASM bindings are loaded from:
+
+- `packages/mls-core/.generated/mlsCoreWasm/tearleads_mls_core_wasm.js`

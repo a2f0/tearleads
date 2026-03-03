@@ -1,5 +1,9 @@
 [workspace]
-members = ["crates/api-v2", "crates/api-v2-ping-wasm"]
+members = [
+  "crates/api-v2",
+  "crates/api-v2-ping-wasm",
+  "crates/mls-core-wasm"
+]
 resolver = "2"
 
 [workspace.lints.rust]

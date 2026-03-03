@@ -1,3 +1,4 @@
+export type { MlsBackendStatus } from './mls.js';
 export {
   MLS_CIPHERSUITE_ID,
   MLS_CIPHERSUITE_NAME,

@@ -78,6 +78,7 @@ for dir in "${CRATE_DIRS[@]}"; do
     "$REPO_ROOT/packages/api-client/.generated/$camel_name"
     "$REPO_ROOT/packages/client/.generated/$camel_name"
     "$REPO_ROOT/packages/client/public/.generated/$camel_name"
+    "$REPO_ROOT/packages/mls-core/.generated/$camel_name"
   )
 
   for output_dir in "${OUTPUT_DIRS[@]}"; do
