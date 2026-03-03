@@ -110,22 +110,34 @@ export function ClientAIProvider({
       loading: conversations.loading,
       error: conversations.error,
       currentId: conversations.currentConversationId,
+      currentMessages: conversations.currentMessages.map((message) => ({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        modelId: message.modelId,
+        createdAt: message.createdAt
+      })),
+      messagesLoading: conversations.messagesLoading,
       select: conversations.selectConversation,
       create: async () => {
         return await conversations.createConversation();
       },
       rename: conversations.renameConversation,
-      delete: conversations.deleteConversation
+      delete: conversations.deleteConversation,
+      addMessage: conversations.addMessage
     }),
     [
       conversations.conversations,
       conversations.loading,
       conversations.error,
       conversations.currentConversationId,
+      conversations.currentMessages,
+      conversations.messagesLoading,
       conversations.selectConversation,
       conversations.createConversation,
       conversations.renameConversation,
-      conversations.deleteConversation
+      conversations.deleteConversation,
+      conversations.addMessage
     ]
   );
 

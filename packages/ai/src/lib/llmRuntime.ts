@@ -5,6 +5,12 @@ import type {
   GenerateFunction
 } from '../context';
 
+interface LLMAdapterPersistenceOptions {
+  onUserMessage?: (content: string) => Promise<void>;
+  onAssistantMessage?: (content: string) => Promise<void>;
+  canPersist?: () => boolean;
+}
+
 // Store for the current attached image (base64 data URL)
 let attachedImage: string | null = null;
 
@@ -35,9 +41,15 @@ export function clearAttachedImage(): void {
  * Creates a ChatModelAdapter that bridges assistant-ui with our LLM worker.
  * This adapter enables streaming chat completions from local LLM inference.
  */
-export function createLLMAdapter(generate: GenerateFunction): ChatModelAdapter {
+export function createLLMAdapter(
+  generate: GenerateFunction,
+  persistence?: LLMAdapterPersistenceOptions
+): ChatModelAdapter {
+  const persistedUserMessageIds = new Set<string>();
+  const persistedAssistantMessageIds = new Set<string>();
+
   return {
-    async *run({ messages, abortSignal }) {
+    async *run({ messages, abortSignal, unstable_assistantMessageId }) {
       // Map assistant-ui message format to our ChatMessage format
       const formattedMessages: ChatMessage[] = messages.map((m) => ({
         role: m.role,
@@ -49,6 +61,33 @@ export function createLLMAdapter(generate: GenerateFunction): ChatModelAdapter {
             .map((c) => c.text)
             .join('') || ''
       }));
+
+      const canPersist = persistence?.canPersist ? persistence.canPersist() : true;
+      const latestUserMessage = [...messages]
+        .reverse()
+        .find((message) => message.role === 'user');
+      const latestUserMessageText =
+        latestUserMessage?.content
+          .filter((part): part is { type: 'text'; text: string } => {
+            return part.type === 'text';
+          })
+          .map((part) => part.text)
+          .join('') ?? '';
+
+      if (
+        canPersist &&
+        persistence?.onUserMessage &&
+        latestUserMessage?.id &&
+        latestUserMessageText.length > 0 &&
+        !persistedUserMessageIds.has(latestUserMessage.id)
+      ) {
+        try {
+          await persistence.onUserMessage(latestUserMessageText);
+          persistedUserMessageIds.add(latestUserMessage.id);
+        } catch (error) {
+          console.error('Failed to persist user AI message:', error);
+        }
+      }
 
       // Capture and clear the attached image
       const imageToSend = attachedImage;
@@ -125,6 +164,25 @@ export function createLLMAdapter(generate: GenerateFunction): ChatModelAdapter {
       // Rethrow any errors
       if (error) {
         throw error;
+      }
+
+      if (
+        canPersist &&
+        persistence?.onAssistantMessage &&
+        textContent.trim().length > 0
+      ) {
+        const assistantMessageKey =
+          unstable_assistantMessageId ??
+          `assistant:${latestUserMessage?.id ?? 'unknown'}:${textContent.length}`;
+
+        if (!persistedAssistantMessageIds.has(assistantMessageKey)) {
+          try {
+            await persistence.onAssistantMessage(textContent);
+            persistedAssistantMessageIds.add(assistantMessageKey);
+          } catch (persistError) {
+            console.error('Failed to persist assistant AI message:', persistError);
+          }
+        }
       }
     }
   };

@@ -24,10 +24,13 @@ const mockConversationsState: ConversationsState = {
   loading: false,
   error: null,
   currentId: null,
+  currentMessages: [],
+  messagesLoading: false,
   select: vi.fn(),
   create: vi.fn(),
   rename: vi.fn(),
-  delete: vi.fn()
+  delete: vi.fn(),
+  addMessage: vi.fn()
 };
 
 const mockImageAttachment: ImageAttachmentOps = {

@@ -243,9 +243,7 @@ export function useConversations(): UseConversationsResult {
       }
 
       setError(null);
-      setCurrentConversationId(id);
       setMessagesLoading(true);
-      setCurrentMessages([]);
 
       try {
         const db = getDatabase();
@@ -287,6 +285,7 @@ export function useConversations(): UseConversationsResult {
         }
 
         if (mountedRef.current) {
+          setCurrentConversationId(id);
           setCurrentMessages(decryptedMessages);
           setCurrentSessionKey(sessionKey);
           setError(null);
@@ -296,8 +295,6 @@ export function useConversations(): UseConversationsResult {
           setError(
             err instanceof Error ? err.message : 'Failed to load conversation'
           );
-          setCurrentMessages([]);
-          setCurrentSessionKey(null);
         }
       } finally {
         if (mountedRef.current) {
@@ -392,8 +389,12 @@ export function useConversations(): UseConversationsResult {
       const messageId = crypto.randomUUID();
       const now = new Date();
 
-      const currentCount = currentMessages.length;
-      const sequenceNumber = currentCount + 1;
+      const latestSequenceRows = await getDatabase()
+        .select({ sequenceNumber: aiMessages.sequenceNumber })
+        .from(aiMessages)
+        .where(eq(aiMessages.conversationId, currentConversationId))
+        .orderBy(desc(aiMessages.sequenceNumber));
+      const sequenceNumber = (latestSequenceRows[0]?.sequenceNumber ?? 0) + 1;
 
       await runLocalWrite(async () => {
         const db = getDatabase();
@@ -464,7 +465,7 @@ export function useConversations(): UseConversationsResult {
         )
       );
     },
-    [currentConversationId, currentSessionKey, currentMessages.length]
+    [currentConversationId, currentSessionKey]
   );
 
   const clearCurrentConversation = useCallback(() => {
