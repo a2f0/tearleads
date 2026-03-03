@@ -2,7 +2,7 @@
 
 Core MLS (RFC 9420) client and storage primitives used by Tearleads.
 
-> **Implementation Status**: Rust/WASM backend scaffold is wired in, but RFC 9420 primitive operations are still placeholder and not production-ready yet.
+> **Implementation Status**: Rust/WASM primitives are active for credential, key package, group lifecycle, commit processing, authenticated application message encryption/decryption, and validated state export/import flows.
 
 ## Installation
 
