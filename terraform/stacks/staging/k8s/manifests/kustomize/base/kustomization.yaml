@@ -11,6 +11,7 @@ resources:
   - smtp-listener.yaml
   - api.yaml
   - api-v2.yaml
+  - vfs-crdt-compaction-cronjob.yaml
   - client.yaml
   - website.yaml
   - cloudflared.yaml
