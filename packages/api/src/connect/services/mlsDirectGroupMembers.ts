@@ -3,8 +3,8 @@ import { Code, ConnectError } from '@connectrpc/connect';
 import type {
   AddMlsMemberResponse,
   MlsGroupMember,
-  MlsMessage,
-  MlsGroupMembersResponse
+  MlsGroupMembersResponse,
+  MlsMessage
 } from '@tearleads/shared';
 import { broadcast } from '../../lib/broadcast.js';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';

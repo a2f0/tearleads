@@ -361,9 +361,11 @@ describe('useMlsRealtime', () => {
 
 describe('MLS hook refresh registration', () => {
   it('refreshes group members when membership realtime handler runs', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ members: [] }), { status: 200 })
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ members: [] }), { status: 200 })
+      );
     vi.stubGlobal('fetch', fetchMock);
 
     const client = new MlsClient('test-user-id');
@@ -409,9 +411,11 @@ describe('MLS hook refresh registration', () => {
   });
 
   it('refreshes welcome messages when welcome realtime handler runs', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ welcomes: [] }), { status: 200 })
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ welcomes: [] }), { status: 200 })
+      );
     vi.stubGlobal('fetch', fetchMock);
 
     const client = new MlsClient('test-user-id');
@@ -433,7 +437,10 @@ describe('MLS hook refresh registration', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
-    const refreshHandler = Reflect.get(globalThis, '__mlsWelcomeRefreshHandler');
+    const refreshHandler = Reflect.get(
+      globalThis,
+      '__mlsWelcomeRefreshHandler'
+    );
     expect(typeof refreshHandler).toBe('function');
     if (typeof refreshHandler !== 'function') {
       throw new Error('missing welcome refresh handler');
