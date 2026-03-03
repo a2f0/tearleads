@@ -210,13 +210,13 @@ export const MlsChat: FC<MlsChatProps> = ({ className = '' }) => {
         <div className="w-64 flex-shrink-0 border-l">
           <div className="flex items-center justify-between border-b p-4">
             <h3 className="font-medium">Members</h3>
-              <button
-                type="button"
-                onClick={() => setShowMembers(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <MlsChatCloseIcon />
-              </button>
+            <button
+              type="button"
+              onClick={() => setShowMembers(false)}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <MlsChatCloseIcon />
+            </button>
           </div>
           <MemberList
             members={members}
