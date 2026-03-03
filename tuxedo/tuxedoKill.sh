@@ -72,23 +72,31 @@ fi
 if [ "$INSIDE_TUXEDO" = true ]; then
     echo "Killing tuxedo (from within)..."
 
-    # Detach all kills into a background process so this script's shell
-    # can exit before the sessions that host it are destroyed.
-    nohup sh -c "
-        sleep 0.2
+    # Write a temporary kill script so the background process's command line
+    # does not contain the nvim pattern (pkill -f would otherwise match and
+    # kill the background process itself).
+    KILL_SCRIPT=$(mktemp /tmp/tuxedo-kill-XXXXXX.sh)
+    cat > "$KILL_SCRIPT" <<KILLEOF
+#!/bin/sh
+sleep 0.3
+# Kill neovim processes
+if command -v pkill >/dev/null 2>&1; then
+    pkill -f 'nvim.*$SCRIPT_DIR/config/neovim.lua' 2>/dev/null || true
+fi
+# Kill inner tmux server
+tmux -L '$INNER_TMUX_SOCKET' kill-server 2>/dev/null || true
+# Kill outer tmux session (TMUX= targets default socket)
+TMUX= tmux kill-session -t '$SESSION_NAME' 2>/dev/null || true
+rm -f '$KILL_SCRIPT'
+KILLEOF
+    chmod +x "$KILL_SCRIPT"
 
-        # Kill neovim processes
-        if command -v pkill >/dev/null 2>&1; then
-            pkill -f 'nvim.*$SCRIPT_DIR/config/neovim.lua' 2>/dev/null || true
-        fi
-
-        # Kill inner tmux server (all sessions on the tuxedo-inner socket)
-        tmux -L '$INNER_TMUX_SOCKET' kill-server 2>/dev/null || true
-
-        # Kill outer tmux session on the default socket.
-        # TMUX= ensures we reach the default server, not tuxedo-inner.
-        TMUX= tmux kill-session -t '$SESSION_NAME' 2>/dev/null || true
-    " >/dev/null 2>&1 &
+    # Run fully detached so killing tmux sessions cannot tear it down.
+    if command -v setsid >/dev/null 2>&1; then
+        setsid "$KILL_SCRIPT" </dev/null >/dev/null 2>&1 &
+    else
+        nohup "$KILL_SCRIPT" </dev/null >/dev/null 2>&1 &
+    fi
 else
     # Not inside tuxedo — safe to kill everything directly.
 
