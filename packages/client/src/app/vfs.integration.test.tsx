@@ -22,6 +22,7 @@ import { renderWithDatabase } from '../test/renderWithDatabase';
 // Coverage-mode CI runs can delay lazy route resolution; keep waits generous
 // so integration assertions don't race against Suspense fallback rendering.
 const LAZY_LOAD_TIMEOUT = 15000;
+const SLOW_FLOW_TEST_TIMEOUT = 30000;
 
 function renderApp(initialRoute = '/vfs') {
   return renderWithDatabase(
@@ -258,6 +259,6 @@ describe('VFS Integration Tests', () => {
       expect(
         screen.queryByText('No items in registry')
       ).not.toBeInTheDocument();
-    });
+    }, SLOW_FLOW_TEST_TIMEOUT);
   });
 });
