@@ -37,11 +37,12 @@ export const chatConnectService = {
     });
 
     if (result.status < 200 || result.status >= 300) {
+      const fallback =
+        result.status === 401
+          ? 'OpenRouter denied authentication — check your API key'
+          : `Chat completion failed with status ${result.status}`;
       throw new ConnectError(
-        errorMessageFromPayload(
-          result.payload,
-          `Chat completion failed with status ${result.status}`
-        ),
+        errorMessageFromPayload(result.payload, fallback),
         toConnectCode(result.status)
       );
     }
