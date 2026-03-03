@@ -11,6 +11,7 @@ import type {
   InboundMessageIngestor,
   InboundRecipientKeyLookup,
   InboundVfsEmailRepository,
+  RecipientKeyRecord,
   ResolvedInboundRecipient,
   WrappedRecipientKeyEnvelope
 } from '../types/inboundContracts.js';
@@ -39,12 +40,17 @@ function parseUserIdFromAddress(address: string): string | null {
   return normalized.slice(0, atIndex);
 }
 
+interface ResolvedRecipientWithKey {
+  recipient: ResolvedInboundRecipient;
+  publicEncryptionKey: string;
+}
+
 function resolveRecipients(
   email: StoredEmail,
   userIds: string[],
-  keyRecords: Map<string, { organizationId: string }>
-): ResolvedInboundRecipient[] {
-  const resolved: ResolvedInboundRecipient[] = [];
+  keyRecords: Map<string, RecipientKeyRecord>
+): ResolvedRecipientWithKey[] {
+  const resolved: ResolvedRecipientWithKey[] = [];
   for (const userId of userIds) {
     let matchedAddress = `${userId}@unknown`;
     for (const recipient of email.envelope.rcptTo) {
@@ -59,9 +65,12 @@ function resolveRecipients(
       throw new Error(`Missing recipient key for user ${userId}`);
     }
     resolved.push({
-      userId,
-      address: matchedAddress,
-      organizationId: keyRecord.organizationId
+      recipient: {
+        userId,
+        address: matchedAddress,
+        organizationId: keyRecord.organizationId
+      },
+      publicEncryptionKey: keyRecord.publicEncryptionKey
     });
   }
   return resolved;
@@ -100,23 +109,18 @@ function toBase64(data: Uint8Array): string {
 
 function wrapDekForRecipients(input: {
   dek: Uint8Array;
-  recipientUserIds: string[];
-  publicEncryptionKeyByUserId: Map<string, { publicEncryptionKey: string }>;
+  recipientKeys: Array<{ userId: string; publicEncryptionKey: string }>;
 }): WrappedRecipientKeyEnvelope[] {
   const wrapped: WrappedRecipientKeyEnvelope[] = [];
-  for (const userId of input.recipientUserIds) {
-    const keyRecord = input.publicEncryptionKeyByUserId.get(userId);
-    if (!keyRecord) {
-      throw new Error(`Missing recipient key for user ${userId}`);
-    }
+  for (const entry of input.recipientKeys) {
     const publicKey = deserializePublicKey(
-      splitPublicKey(keyRecord.publicEncryptionKey)
+      splitPublicKey(entry.publicEncryptionKey)
     );
     const wrappedDek = combineEncapsulation(
       wrapKeyForRecipient(input.dek, publicKey)
     );
     wrapped.push({
-      userId,
+      userId: entry.userId,
       wrappedDek,
       keyAlgorithm: 'x25519-mlkem768-hybrid-v1'
     });
@@ -142,11 +146,12 @@ export class DefaultInboundMessageIngestor implements InboundMessageIngestor {
     const keyRecords = await this.keyLookup.getPublicEncryptionKeys(
       input.userIds
     );
-    const recipients = resolveRecipients(
+    const resolvedWithKeys = resolveRecipients(
       input.email,
       input.userIds,
       keyRecords
     );
+    const recipients = resolvedWithKeys.map((r) => r.recipient);
 
     const dek = randomBytes(32);
     try {
@@ -161,8 +166,10 @@ export class DefaultInboundMessageIngestor implements InboundMessageIngestor {
       });
       const wrappedRecipientKeys = wrapDekForRecipients({
         dek,
-        recipientUserIds: input.userIds,
-        publicEncryptionKeyByUserId: keyRecords
+        recipientKeys: resolvedWithKeys.map((r) => ({
+          userId: r.recipient.userId,
+          publicEncryptionKey: r.publicEncryptionKey
+        }))
       });
 
       const subject = extractSubject(input.email.rawData);
