@@ -1,11 +1,7 @@
 // one-component-per-file: allow -- wrapper keeps inline lock/login fallback JSX selection local.
 import type { WindowDimensions } from '@tearleads/window-manager';
-import { useMemo } from 'react';
 import { AdminGroupsWindow as AdminGroupsWindowBase } from '@/components/admin-windows';
-import { InlineLogin } from '@/components/auth/InlineLogin';
-import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { useAuth } from '@/contexts/AuthContext';
-import { useDatabaseContext } from '@/db/hooks';
+import { useAdminWindowAuthGate } from '@/components/admin-windows/useAdminWindowAuthGate';
 
 interface AdminGroupsWindowProps {
   id: string;
@@ -28,22 +24,8 @@ export function AdminGroupsWindow({
   zIndex,
   initialDimensions
 }: AdminGroupsWindowProps) {
-  const { isUnlocked: isDatabaseUnlocked, isLoading: isDatabaseLoading } =
-    useDatabaseContext();
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
-
-  const isFullyUnlocked = isDatabaseUnlocked && isAuthenticated;
-  const isLoading = isDatabaseLoading || isAuthLoading;
-
-  const lockedFallback = useMemo(() => {
-    if (!isDatabaseUnlocked) {
-      return <InlineUnlock description="Groups Admin" />;
-    }
-    if (!isAuthenticated) {
-      return <InlineLogin description="Groups Admin" />;
-    }
-    return null;
-  }, [isDatabaseUnlocked, isAuthenticated]);
+  const { isUnlocked, isAuthLoading, lockedFallback } =
+    useAdminWindowAuthGate('Groups Admin');
 
   return (
     <AdminGroupsWindowBase
@@ -55,8 +37,8 @@ export function AdminGroupsWindow({
       onFocus={onFocus}
       zIndex={zIndex}
       initialDimensions={initialDimensions}
-      isUnlocked={isFullyUnlocked}
-      isAuthLoading={isLoading}
+      isUnlocked={isUnlocked}
+      isAuthLoading={isAuthLoading}
       lockedFallback={lockedFallback}
     />
   );

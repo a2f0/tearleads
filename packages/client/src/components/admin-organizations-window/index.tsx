@@ -1,10 +1,6 @@
 import type { WindowDimensions } from '@tearleads/window-manager';
-import { useMemo } from 'react';
 import { AdminOrganizationsWindow as AdminOrganizationsWindowBase } from '@/components/admin-windows';
-import { InlineLogin } from '@/components/auth/InlineLogin';
-import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { useAuth } from '@/contexts/AuthContext';
-import { useDatabaseContext } from '@/db/hooks';
+import { useAdminWindowAuthGate } from '@/components/admin-windows/useAdminWindowAuthGate';
 
 interface AdminOrganizationsWindowProps {
   id: string;
@@ -27,22 +23,9 @@ export function AdminOrganizationsWindow({
   zIndex,
   initialDimensions
 }: AdminOrganizationsWindowProps) {
-  const { isUnlocked: isDatabaseUnlocked, isLoading: isDatabaseLoading } =
-    useDatabaseContext();
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
-
-  const isFullyUnlocked = isDatabaseUnlocked && isAuthenticated;
-  const isLoading = isDatabaseLoading || isAuthLoading;
-
-  const lockedFallback = useMemo(() => {
-    if (!isDatabaseUnlocked) {
-      return <InlineUnlock description="Organizations Admin" />;
-    }
-    if (!isAuthenticated) {
-      return <InlineLogin description="Organizations Admin" />;
-    }
-    return null;
-  }, [isDatabaseUnlocked, isAuthenticated]);
+  const { isUnlocked, isAuthLoading, lockedFallback } = useAdminWindowAuthGate(
+    'Organizations Admin'
+  );
 
   return (
     <AdminOrganizationsWindowBase
@@ -54,8 +37,8 @@ export function AdminOrganizationsWindow({
       onFocus={onFocus}
       zIndex={zIndex}
       initialDimensions={initialDimensions}
-      isUnlocked={isFullyUnlocked}
-      isAuthLoading={isLoading}
+      isUnlocked={isUnlocked}
+      isAuthLoading={isAuthLoading}
       lockedFallback={lockedFallback}
     />
   );

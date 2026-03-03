@@ -1,10 +1,6 @@
 import type { WindowDimensions } from '@tearleads/window-manager';
-import { useMemo } from 'react';
 import { AdminUsersWindow as AdminUsersWindowBase } from '@/components/admin-windows';
-import { InlineLogin } from '@/components/auth/InlineLogin';
-import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { useAuth } from '@/contexts/AuthContext';
-import { useDatabaseContext } from '@/db/hooks';
+import { useAdminWindowAuthGate } from '@/components/admin-windows/useAdminWindowAuthGate';
 
 interface AdminUsersWindowProps {
   id: string;
@@ -27,25 +23,8 @@ export function AdminUsersWindow({
   zIndex,
   initialDimensions
 }: AdminUsersWindowProps) {
-  const { isUnlocked: isDatabaseUnlocked, isLoading: isDatabaseLoading } =
-    useDatabaseContext();
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
-
-  // Users Admin requires both database unlock AND authentication
-  // Show unlock first, then login (unlock is required to store auth tokens)
-  const isFullyUnlocked = isDatabaseUnlocked && isAuthenticated;
-  const isLoading = isDatabaseLoading || isAuthLoading;
-
-  // Determine appropriate fallback based on which condition is not met
-  const lockedFallback = useMemo(() => {
-    if (!isDatabaseUnlocked) {
-      return <InlineUnlock description="Users Admin" />;
-    }
-    if (!isAuthenticated) {
-      return <InlineLogin description="Users Admin" />;
-    }
-    return null;
-  }, [isDatabaseUnlocked, isAuthenticated]);
+  const { isUnlocked, isAuthLoading, lockedFallback } =
+    useAdminWindowAuthGate('Users Admin');
 
   return (
     <AdminUsersWindowBase
@@ -57,8 +36,8 @@ export function AdminUsersWindow({
       onFocus={onFocus}
       zIndex={zIndex}
       initialDimensions={initialDimensions}
-      isUnlocked={isFullyUnlocked}
-      isAuthLoading={isLoading}
+      isUnlocked={isUnlocked}
+      isAuthLoading={isAuthLoading}
       lockedFallback={lockedFallback}
     />
   );
