@@ -30,6 +30,18 @@ let seededUser: SeededUser;
 describe('api with msw', () => {
   beforeEach(async () => {
     vi.resetModules();
+    vi.doMock('./pingWasmImport', () => ({
+      importPingWasmModule: () =>
+        Promise.resolve({
+          v2_ping_path: () => '/v2/ping',
+          parse_v2_ping_value: (payload: unknown) => {
+            if (typeof payload !== 'object' || payload === null) {
+              throw new Error('Invalid v2 ping response payload');
+            }
+            return payload;
+          }
+        })
+    }));
     vi.clearAllMocks();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
