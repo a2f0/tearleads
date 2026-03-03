@@ -9,6 +9,7 @@ import {
   useAIUIContext
 } from './AIUIContext';
 
+// one-component-per-file: allow - test fixture object uses JSX inline mocks
 const mockLlmState: LLMState = {
   loadedModel: null,
   modelType: null,
@@ -24,10 +25,13 @@ const mockConversationsState: ConversationsState = {
   loading: false,
   error: null,
   currentId: null,
+  currentMessages: [],
+  messagesLoading: false,
   select: vi.fn(),
   create: vi.fn(),
   rename: vi.fn(),
-  delete: vi.fn()
+  delete: vi.fn(),
+  addMessage: vi.fn()
 };
 
 const mockImageAttachment: ImageAttachmentOps = {

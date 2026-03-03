@@ -202,20 +202,16 @@ describe('useConversations mutations', () => {
 
     it('adds a message to the current conversation', async () => {
       const convRow = [{ encryptedTitle: 'enc-title', modelId: null }];
-      let selectCallCount = 0;
       const selectImpl = vi.fn().mockImplementation(() => ({
         from: vi.fn().mockImplementation(() => ({
           innerJoin: vi.fn().mockReturnValue({
             orderBy: vi.fn().mockResolvedValue([])
           }),
           where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockImplementation(() => {
-              selectCallCount++;
-              if (selectCallCount <= 1)
-                return Promise.resolve([{ encryptedSessionKey: 'esk' }]);
-              return Promise.resolve(convRow);
-            }),
-            orderBy: vi.fn().mockResolvedValue([])
+            limit: vi.fn().mockResolvedValue(convRow),
+            orderBy: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([])
+            })
           })
         }))
       }));

@@ -5,12 +5,53 @@ import { createLLMAdapter } from '../../lib';
 import { Thread } from './Thread';
 
 export function ChatInterface() {
-  const { llm, selectPhoto, imageAttachment } = useAIUIContext();
+  const { llm, conversations, selectPhoto, imageAttachment } = useAIUIContext();
   const isVisionModel =
     llm.modelType === 'vision' || llm.modelType === 'paligemma';
 
-  const adapter = useMemo(() => createLLMAdapter(llm.generate), [llm.generate]);
-  const runtime = useLocalRuntime(adapter);
+  const initialMessages = useMemo(
+    () =>
+      conversations.currentMessages.map((message) => ({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        createdAt: new Date(message.createdAt)
+      })),
+    [conversations.currentMessages]
+  );
+
+  const adapter = useMemo(
+    () =>
+      createLLMAdapter(llm.generate, {
+        canPersist: () => {
+          return (
+            Boolean(conversations.currentId) && !conversations.messagesLoading
+          );
+        },
+        onUserMessage: async (content: string) => {
+          await conversations.addMessage(
+            'user',
+            content,
+            llm.loadedModel ?? undefined
+          );
+        },
+        onAssistantMessage: async (content: string) => {
+          await conversations.addMessage(
+            'assistant',
+            content,
+            llm.loadedModel ?? undefined
+          );
+        }
+      }),
+    [
+      llm.generate,
+      llm.loadedModel,
+      conversations.currentId,
+      conversations.messagesLoading,
+      conversations.addMessage
+    ]
+  );
+  const runtime = useLocalRuntime(adapter, { initialMessages });
   const [attachedImage, setAttachedImageState] = useState<string | null>(null);
 
   const handleAttachImage = useCallback(async () => {

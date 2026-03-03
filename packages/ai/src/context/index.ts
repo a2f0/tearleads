@@ -9,6 +9,7 @@ export {
   type ConversationsState,
   type DatabaseState,
   type DecryptedConversation,
+  type DecryptedConversationMessage,
   type DropdownMenuItemProps,
   type DropdownMenuProps,
   type DropdownMenuSeparatorProps,

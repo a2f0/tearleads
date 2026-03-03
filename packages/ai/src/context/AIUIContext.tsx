@@ -74,6 +74,17 @@ export interface DecryptedConversation {
 }
 
 /**
+ * Decrypted message for a selected conversation
+ */
+export interface DecryptedConversationMessage {
+  id: string;
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+  modelId: string | null;
+  createdAt: string;
+}
+
+/**
  * Conversations state and operations
  */
 export interface ConversationsState {
@@ -81,10 +92,17 @@ export interface ConversationsState {
   loading: boolean;
   error: string | null;
   currentId: string | null;
+  currentMessages: DecryptedConversationMessage[];
+  messagesLoading: boolean;
   select: (id: string | null) => Promise<void>;
   create: () => Promise<string>;
   rename: (id: string, title: string) => Promise<void>;
   delete: (id: string) => Promise<void>;
+  addMessage: (
+    role: 'user' | 'assistant',
+    content: string,
+    modelId?: string
+  ) => Promise<void>;
 }
 
 /**
