@@ -9,7 +9,7 @@ const DeferredWindowRenderer = lazy(() =>
 
 export function LazyWindowRenderer() {
   const { windows } = useWindowManager();
-  const hasVisibleWindows = windows.some((window) => !window.isMinimized);
+  const hasVisibleWindows = windows.some((win) => !win.isMinimized);
 
   if (!hasVisibleWindows) {
     return null;
