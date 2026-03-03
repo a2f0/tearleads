@@ -146,6 +146,13 @@ Files must stay below 500 lines and 20,000 bytes. When the guardrail trips, spli
 - Use TypeScript files (`.ts`, `.tsx`) instead.
 - JavaScript guardrails run in `pre-push` and CI via `scripts/checks/checkJs.sh`.
 
+## Rust Unsafe Code Policy (CRITICAL)
+
+- `unsafe_code = "forbid"` is set at the workspace level in `Cargo.toml`. **Never downgrade, remove, or override this lint.**
+- Do not add `#[allow(unsafe_code)]`, `#[deny(unsafe_code)]`, or any attribute that weakens the `forbid` level.
+- Do not add `unsafe` blocks, `unsafe fn`, `unsafe trait`, or `unsafe impl` to any crate.
+- If a dependency requires unsafe, wrap it in a dedicated crate and justify the exception in the PR.
+
 ## Circular Imports Policy
 
 - Do not introduce circular import cycles between modules.
