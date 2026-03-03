@@ -161,7 +161,9 @@ function collectRoutes(prefix: string, router: unknown): RouteDefinition[] {
   return routes;
 }
 
-const routeDefinitions: RouteDefinition[] = [...collectRoutes('/vfs', vfsRouter)];
+const routeDefinitions: RouteDefinition[] = [
+  ...collectRoutes('/vfs', vfsRouter)
+];
 
 function splitPath(path: string): string[] {
   const normalized = path.replace(/^\/+|\/+$/gu, '');

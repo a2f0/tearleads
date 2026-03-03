@@ -46,10 +46,10 @@ describe('admin users shared', () => {
       ]
     });
 
-    const result = await getUserAccounting(
-      { query } as never,
-      ['user-1', 'user-2']
-    );
+    const result = await getUserAccounting({ query } as never, [
+      'user-1',
+      'user-2'
+    ]);
 
     expect(result['user-1']).toEqual({
       totalPromptTokens: 11,
