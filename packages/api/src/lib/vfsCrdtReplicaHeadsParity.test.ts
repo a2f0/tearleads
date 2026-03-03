@@ -152,4 +152,23 @@ describe('checkVfsCrdtReplicaHeadsParity', () => {
     ).rejects.toThrow('sampleLimit must be a non-negative integer');
     expect(query).not.toHaveBeenCalled();
   });
+
+  it('fails fast when count values exceed safe integer range', async () => {
+    const query = vi.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          checked_pair_count: '9007199254740992',
+          mismatch_count: '0',
+          missing_head_count: '0',
+          stale_head_count: '0',
+          write_id_mismatch_count: '0',
+          occurred_at_mismatch_count: '0'
+        }
+      ]
+    });
+
+    await expect(checkVfsCrdtReplicaHeadsParity({ query })).rejects.toThrow(
+      'CRDT parity count exceeds Number.MAX_SAFE_INTEGER'
+    );
+  });
 });

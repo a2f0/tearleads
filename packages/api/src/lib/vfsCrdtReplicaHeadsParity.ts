@@ -1,7 +1,12 @@
 import { type PgQueryable, parseOccurredAt } from './vfsCrdtSnapshotCommon.js';
+import {
+  VFS_CRDT_CLIENT_PUSH_SOURCE_TABLE,
+  VFS_CRDT_SOURCE_ID_REPLICA_ID_SQL,
+  VFS_CRDT_SOURCE_ID_SAFE_WRITE_ID_SQL
+} from './vfsCrdtSqlFragments.js';
 
-const CRDT_CLIENT_PUSH_SOURCE_TABLE = 'vfs_crdt_client_push';
 export const DEFAULT_VFS_CRDT_REPLICA_HEADS_PARITY_SAMPLE_LIMIT = 100;
+const MAX_SAFE_INTEGER_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
 
 export type VfsCrdtReplicaHeadsParityMismatchReason =
   | 'missing_head'
@@ -55,25 +60,14 @@ const PARITY_COMPARISON_CTE = `
 WITH expected AS (
   SELECT
     actor_id,
-    split_part(source_id, ':', 2) AS replica_id,
+    ${VFS_CRDT_SOURCE_ID_REPLICA_ID_SQL} AS replica_id,
     MAX(
-      CASE
-        WHEN split_part(source_id, ':', 3) ~ '^[0-9]+$'
-          AND (
-            length(split_part(source_id, ':', 3)) < 19
-            OR (
-              length(split_part(source_id, ':', 3)) = 19
-              AND split_part(source_id, ':', 3) <= '9223372036854775807'
-            )
-          )
-          THEN split_part(source_id, ':', 3)::bigint
-        ELSE NULL
-      END
+      ${VFS_CRDT_SOURCE_ID_SAFE_WRITE_ID_SQL}
     ) AS max_write_id,
     MAX(occurred_at) AS max_occurred_at
   FROM vfs_crdt_ops
   WHERE source_table = $1::text
-  GROUP BY actor_id, split_part(source_id, ':', 2)
+  GROUP BY actor_id, ${VFS_CRDT_SOURCE_ID_REPLICA_ID_SQL}
 ),
 joined AS (
   SELECT
@@ -102,21 +96,39 @@ function parseSampleLimit(rawValue: number): number {
   return rawValue;
 }
 
+function parseCountBigInt(value: string): number {
+  const normalized = value.trim();
+  if (!/^\d+$/u.test(normalized)) {
+    return 0;
+  }
+
+  const parsed = BigInt(normalized);
+  if (parsed > MAX_SAFE_INTEGER_BIGINT) {
+    throw new Error(
+      'CRDT parity count exceeds Number.MAX_SAFE_INTEGER; precision would be lost.'
+    );
+  }
+
+  return Number(parsed);
+}
+
 function toNonNegativeInteger(
   value: number | string | null | undefined
 ): number {
   if (typeof value === 'number') {
-    if (!Number.isFinite(value) || value < 0) {
+    if (
+      !Number.isFinite(value) ||
+      value < 0 ||
+      !Number.isInteger(value) ||
+      !Number.isSafeInteger(value)
+    ) {
       return 0;
     }
-    return Math.trunc(value);
+    return value;
   }
 
   if (typeof value === 'string') {
-    const parsed = Number(value);
-    if (Number.isInteger(parsed) && Number.isFinite(parsed) && parsed >= 0) {
-      return parsed;
-    }
+    return parseCountBigInt(value);
   }
 
   return 0;
@@ -245,7 +257,7 @@ export async function checkVfsCrdtReplicaHeadsParity(
       ) AS occurred_at_mismatch_count
     FROM joined
     `,
-      [CRDT_CLIENT_PUSH_SOURCE_TABLE]
+      [VFS_CRDT_CLIENT_PUSH_SOURCE_TABLE]
     );
 
   const countsRow = countQueryResult.rows[0];
@@ -278,7 +290,7 @@ export async function checkVfsCrdtReplicaHeadsParity(
         ORDER BY actor_id ASC, replica_id ASC
         LIMIT $2::integer
         `,
-        [CRDT_CLIENT_PUSH_SOURCE_TABLE, sampleLimit]
+        [VFS_CRDT_CLIENT_PUSH_SOURCE_TABLE, sampleLimit]
       );
     mismatches = mismatchQueryResult.rows.map(mapMismatchRow);
   }
