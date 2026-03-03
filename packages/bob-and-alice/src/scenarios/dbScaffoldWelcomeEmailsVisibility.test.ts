@@ -2,11 +2,9 @@ import {
   parseConnectJsonEnvelopeBody
 } from '@tearleads/shared';
 import {
-  setupBobNotesShareForAliceDb
-} from '../../../shared/src/scaffolding/setupBobNotesShareForAliceDb.ts';
-import {
+  setupBobNotesShareForAliceDb,
   setupWelcomeEmailsDb
-} from '../../../shared/src/scaffolding/setupWelcomeEmailsDb.ts';
+} from '@tearleads/shared/scaffolding';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
 
