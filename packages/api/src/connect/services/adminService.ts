@@ -1,5 +1,12 @@
 import { getContextDirect } from './adminDirectContext.js';
 import {
+  addGroupMemberDirect,
+  createGroupDirect,
+  deleteGroupDirect,
+  removeGroupMemberDirect,
+  updateGroupDirect
+} from './adminDirectGroupMutations.js';
+import {
   getGroupDirect,
   getGroupMembersDirect,
   listGroupsDirect
@@ -36,7 +43,6 @@ type GetRedisKeysRequest = { cursor: string; limit: number };
 type KeyRequest = { key: string };
 type IdRequest = { id: string };
 type IdJsonRequest = { id: string; json: string };
-type RemoveGroupMemberRequest = { groupId: string; userId: string };
 type ListOrganizationsRequest = { organizationId: string };
 type ListUsersRequest = { organizationId: string };
 
@@ -65,65 +71,12 @@ export const adminConnectService = {
     getRedisDbSizeDirect(request, context),
   listGroups: listGroupsDirect,
   getGroup: getGroupDirect,
-  createGroup: async (
-    request: { json: string },
-    context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: '/admin/groups',
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
-  updateGroup: async (
-    request: IdJsonRequest,
-    context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'PUT',
-      path: `/admin/groups/${encoded(request.id)}`,
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
-  deleteGroup: async (
-    request: IdRequest,
-    context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'DELETE',
-      path: `/admin/groups/${encoded(request.id)}`
-    });
-    return { json };
-  },
+  createGroup: createGroupDirect,
+  updateGroup: updateGroupDirect,
+  deleteGroup: deleteGroupDirect,
   getGroupMembers: getGroupMembersDirect,
-  addGroupMember: async (
-    request: IdJsonRequest,
-    context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: `/admin/groups/${encoded(request.id)}/members`,
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
-  removeGroupMember: async (
-    request: RemoveGroupMemberRequest,
-    context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'DELETE',
-      path: `/admin/groups/${encoded(request.groupId)}/members/${encoded(request.userId)}`
-    });
-    return { json };
-  },
+  addGroupMember: addGroupMemberDirect,
+  removeGroupMember: removeGroupMemberDirect,
   listOrganizations: async (
     request: ListOrganizationsRequest,
     context: { requestHeader: Headers }
