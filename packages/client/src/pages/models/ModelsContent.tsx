@@ -1,15 +1,15 @@
 import { isOpenRouterModelId } from '@tearleads/shared';
-import { Bot, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { useModelDownloadManager } from '@/contexts/ModelDownloadManagerProvider';
 import { useLLM } from '@/hooks/ai';
 import { OPENROUTER_MODELS, RECOMMENDED_MODELS } from '@/lib/models';
-import { getWebGPUErrorInfo } from '@/lib/utils';
 import { ModelCard, type ModelStatus } from './ModelCard';
 import { ModelsTableView } from './ModelsTableView';
 import { OpenRouterModelsSection } from './OpenRouterModelsSection';
+import { UnsupportedWebGpuView } from './UnsupportedWebGpuView';
 import { type WebGPUInfo, WebGPUInfoPanel } from './WebGPUInfoPanel';
 
 const TRANSFORMERS_CACHE_NAME = 'transformers-cache';
@@ -124,58 +124,6 @@ function getCurrentModelStatus(
   return 'not_downloaded';
 }
 
-function renderUnsupportedWebGpuView(
-  isTableView: boolean,
-  showBackLink: boolean,
-  loadedModel: string | null,
-  loadingModelId: string | null,
-  loadProgress: ReturnType<typeof useLLM>['loadProgress'],
-  getModelStatus: (modelId: string) => ModelStatus,
-  onLoad: (modelId: string) => Promise<void>,
-  onUnload: () => Promise<void>,
-  onDelete: (modelId: string) => Promise<void>
-) {
-  const errorInfo = getWebGPUErrorInfo();
-  return (
-    <div className={isTableView ? 'space-y-4' : 'space-y-6'}>
-      <div className="space-y-2">
-        {showBackLink ? (
-          <BackLink defaultTo="/" defaultLabel="Back to Home" />
-        ) : null}
-        <h1 className="font-bold text-2xl tracking-tight">Models</h1>
-      </div>
-      <div className="rounded-lg border border-destructive bg-destructive/10 p-8 text-center">
-        <Bot className="mx-auto h-12 w-12 text-destructive" />
-        <h2 className="mt-4 font-semibold text-lg">{errorInfo.title}</h2>
-        <p className="mt-2 text-muted-foreground">{errorInfo.message}</p>
-        <p className="mt-2 text-muted-foreground text-sm">
-          {errorInfo.requirement}
-        </p>
-      </div>
-      {isTableView ? (
-        <ModelsTableView
-          recommendedModels={[]}
-          openRouterModels={OPENROUTER_MODELS}
-          loadedModel={loadedModel}
-          loadingModelId={loadingModelId}
-          loadProgress={loadProgress}
-          getModelStatus={getModelStatus}
-          onLoad={onLoad}
-          onUnload={onUnload}
-          onDelete={onDelete}
-        />
-      ) : (
-        <OpenRouterModelsSection
-          loadedModel={loadedModel}
-          loadingModelId={loadingModelId}
-          onLoad={onLoad}
-          onUnload={onUnload}
-        />
-      )}
-    </div>
-  );
-}
-
 export function ModelsContent({
   showBackLink = true,
   viewMode = 'cards'
@@ -246,16 +194,18 @@ export function ModelsContent({
   const isTableView = viewMode === 'table';
 
   if (webGPUSupported === false) {
-    return renderUnsupportedWebGpuView(
-      isTableView,
-      showBackLink,
-      loadedModel,
-      downloadingModelId,
-      downloadProgress,
-      getModelStatus,
-      handleLoad,
-      handleUnload,
-      handleDelete
+    return (
+      <UnsupportedWebGpuView
+        isTableView={isTableView}
+        showBackLink={showBackLink}
+        loadedModel={loadedModel}
+        loadingModelId={downloadingModelId}
+        loadProgress={downloadProgress}
+        getModelStatus={getModelStatus}
+        onLoad={handleLoad}
+        onUnload={handleUnload}
+        onDelete={handleDelete}
+      />
     );
   }
 

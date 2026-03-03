@@ -60,22 +60,6 @@ function renderModels() {
   );
 }
 
-function renderModelsContent(
-  showBackLink = true,
-  viewMode?: 'cards' | 'table'
-) {
-  return render(
-    <MemoryRouter>
-      <ModelDownloadManagerProvider>
-        <ModelsContent
-          showBackLink={showBackLink}
-          {...(viewMode ? { viewMode } : {})}
-        />
-      </ModelDownloadManagerProvider>
-    </MemoryRouter>
-  );
-}
-
 describe('Models', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -135,7 +119,13 @@ describe('Models', () => {
     });
 
     it('renders the table view when enabled', async () => {
-      renderModelsContent(true, 'table');
+      render(
+        <MemoryRouter>
+          <ModelDownloadManagerProvider>
+            <ModelsContent showBackLink viewMode="table" />
+          </ModelDownloadManagerProvider>
+        </MemoryRouter>
+      );
 
       await waitFor(() => {
         expect(
@@ -153,7 +143,13 @@ describe('Models', () => {
     });
 
     it('hides back link when disabled', async () => {
-      renderModelsContent(false);
+      render(
+        <MemoryRouter>
+          <ModelDownloadManagerProvider>
+            <ModelsContent showBackLink={false} />
+          </ModelDownloadManagerProvider>
+        </MemoryRouter>
+      );
 
       await waitFor(() => {
         expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
