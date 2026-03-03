@@ -393,7 +393,8 @@ export function useConversations(): UseConversationsResult {
         .select({ sequenceNumber: aiMessages.sequenceNumber })
         .from(aiMessages)
         .where(eq(aiMessages.conversationId, currentConversationId))
-        .orderBy(desc(aiMessages.sequenceNumber));
+        .orderBy(desc(aiMessages.sequenceNumber))
+        .limit(1);
       const sequenceNumber = (latestSequenceRows[0]?.sequenceNumber ?? 0) + 1;
 
       await runLocalWrite(async () => {

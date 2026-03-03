@@ -11,6 +11,22 @@ interface LLMAdapterPersistenceOptions {
   canPersist?: () => boolean;
 }
 
+interface ContentPartWithType {
+  type: string;
+}
+
+interface TextContentPart extends ContentPartWithType {
+  type: 'text';
+  text: string;
+}
+
+function extractTextContent(content: readonly ContentPartWithType[]): string {
+  return content
+    .filter((part): part is TextContentPart => part.type === 'text')
+    .map((part) => part.text)
+    .join('');
+}
+
 // Store for the current attached image (base64 data URL)
 let attachedImage: string | null = null;
 
@@ -53,13 +69,7 @@ export function createLLMAdapter(
       // Map assistant-ui message format to our ChatMessage format
       const formattedMessages: ChatMessage[] = messages.map((m) => ({
         role: m.role,
-        content:
-          m.content
-            .filter(
-              (c): c is { type: 'text'; text: string } => c.type === 'text'
-            )
-            .map((c) => c.text)
-            .join('') || ''
+        content: extractTextContent(m.content)
       }));
 
       const canPersist = persistence?.canPersist
@@ -68,13 +78,9 @@ export function createLLMAdapter(
       const latestUserMessage = [...messages]
         .reverse()
         .find((message) => message.role === 'user');
-      const latestUserMessageText =
-        latestUserMessage?.content
-          .filter((part): part is { type: 'text'; text: string } => {
-            return part.type === 'text';
-          })
-          .map((part) => part.text)
-          .join('') ?? '';
+      const latestUserMessageText = latestUserMessage
+        ? extractTextContent(latestUserMessage.content)
+        : '';
 
       if (
         canPersist &&
