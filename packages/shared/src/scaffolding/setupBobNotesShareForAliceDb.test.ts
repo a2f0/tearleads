@@ -94,24 +94,26 @@ describe('setupBobNotesShareForAliceDb', () => {
     expect(calls[0]?.text).toBe('BEGIN');
     expect(calls[calls.length - 1]?.text).toBe('COMMIT');
 
-    const rootInsertCall = calls.find((call) =>
-      call.text.includes("VALUES ($1, 'folder', NULL, $2, NULL, 'VFS Root'")
+    const rootInsertCall = calls.find(
+      (call) =>
+        call.text.includes('INSERT INTO vfs_registry') &&
+        call.params?.[0] === '__vfs_root__'
     );
     expect(rootInsertCall?.params?.[0]).toBe('__vfs_root__');
-    expect(rootInsertCall?.params?.[1]).toBe('bob-org-id');
+    expect(rootInsertCall?.params?.[1]).toBe('folder');
+    expect(rootInsertCall?.params?.[3]).toBe('bob-org-id');
 
     const noteInsertCall = calls.find(
       (call) =>
         call.text.includes('INSERT INTO vfs_registry') &&
-        call.text.includes(
-          "VALUES ($1, 'note', $2, $3, $4, $5, $6::timestamptz)"
-        )
+        call.params?.[0] === 'note-fixed'
     );
-    expect(noteInsertCall?.params?.[2]).toBe('bob-org-id');
-    expect(noteInsertCall?.params?.[3]).toBe(
+    expect(noteInsertCall?.params?.[1]).toBe('note');
+    expect(noteInsertCall?.params?.[3]).toBe('bob-org-id');
+    expect(noteInsertCall?.params?.[4]).toBe(
       'wrapped:Note for Alice - From Bob'
     );
-    expect(noteInsertCall?.params?.[4]).toBe(
+    expect(noteInsertCall?.params?.[5]).toBe(
       'cipher:Note for Alice - From Bob'
     );
 

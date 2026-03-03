@@ -83,6 +83,84 @@ function readRequiredAclId(rows: Array<{ id?: unknown }>): string {
   return aclId;
 }
 
+interface InsertVfsRootInput {
+  client: DbQueryClient;
+  rootItemId: string;
+  organizationId: string;
+  hasOrganizationIdColumn: boolean;
+  nowIso: string;
+}
+
+async function insertVfsRoot(input: InsertVfsRootInput): Promise<void> {
+  const columns = ['id', 'object_type', 'owner_id'];
+  const params: unknown[] = [input.rootItemId, 'folder', null];
+
+  if (input.hasOrganizationIdColumn) {
+    columns.push('organization_id');
+    params.push(input.organizationId);
+  }
+
+  columns.push('encrypted_session_key', 'encrypted_name', 'created_at');
+  params.push(null, 'VFS Root', input.nowIso);
+
+  const placeholders = params
+    .map((_value, index) => `$${index + 1}`)
+    .join(', ');
+  await input.client.query(
+    `INSERT INTO vfs_registry (${columns.join(', ')})
+     VALUES (${placeholders})
+     ON CONFLICT (id) DO NOTHING`,
+    params
+  );
+}
+
+interface UpsertVfsRegistryItemInput {
+  client: DbQueryClient;
+  itemId: string;
+  objectType: 'folder' | 'note';
+  ownerId: string;
+  organizationId: string;
+  hasOrganizationIdColumn: boolean;
+  encryptedSessionKey: string;
+  encryptedName: string;
+  nowIso: string;
+}
+
+async function upsertVfsRegistryItem(
+  input: UpsertVfsRegistryItemInput
+): Promise<void> {
+  const columns = ['id', 'object_type', 'owner_id'];
+  const params: unknown[] = [input.itemId, input.objectType, input.ownerId];
+  const updateAssignments = [
+    'object_type = EXCLUDED.object_type',
+    'owner_id = EXCLUDED.owner_id'
+  ];
+
+  if (input.hasOrganizationIdColumn) {
+    columns.push('organization_id');
+    params.push(input.organizationId);
+    updateAssignments.push('organization_id = EXCLUDED.organization_id');
+  }
+
+  columns.push('encrypted_session_key', 'encrypted_name', 'created_at');
+  params.push(input.encryptedSessionKey, input.encryptedName, input.nowIso);
+  updateAssignments.push(
+    'encrypted_session_key = EXCLUDED.encrypted_session_key',
+    'encrypted_name = EXCLUDED.encrypted_name'
+  );
+
+  const placeholders = params
+    .map((_value, index) => `$${index + 1}`)
+    .join(', ');
+  await input.client.query(
+    `INSERT INTO vfs_registry (${columns.join(', ')})
+     VALUES (${placeholders})
+     ON CONFLICT (id) DO UPDATE SET
+       ${updateAssignments.join(', ')}`,
+    params
+  );
+}
+
 export async function setupBobNotesShareForAliceDb(
   input: SetupBobNotesShareForAliceDbInput
 ): Promise<SetupBobNotesShareForAliceDbResult> {
@@ -132,138 +210,37 @@ export async function setupBobNotesShareForAliceDb(
       plaintextName: noteName
     });
 
-    if (hasOrganizationIdColumn) {
-      await input.client.query(
-        `INSERT INTO vfs_registry (
-           id,
-           object_type,
-           owner_id,
-           organization_id,
-           encrypted_session_key,
-           encrypted_name,
-           created_at
-         )
-         VALUES ($1, 'folder', NULL, $2, NULL, 'VFS Root', $3::timestamptz)
-         ON CONFLICT (id) DO NOTHING`,
-        [rootItemId, bobIdentity.organizationId, nowIso]
-      );
+    await insertVfsRoot({
+      client: input.client,
+      rootItemId,
+      organizationId: bobIdentity.organizationId,
+      hasOrganizationIdColumn,
+      nowIso
+    });
 
-      await input.client.query(
-        `INSERT INTO vfs_registry (
-           id,
-           object_type,
-           owner_id,
-           organization_id,
-           encrypted_session_key,
-           encrypted_name,
-           created_at
-         )
-         VALUES ($1, 'folder', $2, $3, $4, $5, $6::timestamptz)
-         ON CONFLICT (id) DO UPDATE SET
-           object_type = EXCLUDED.object_type,
-           owner_id = EXCLUDED.owner_id,
-           organization_id = EXCLUDED.organization_id,
-           encrypted_session_key = EXCLUDED.encrypted_session_key,
-           encrypted_name = EXCLUDED.encrypted_name`,
-        [
-          folderId,
-          bobUserId,
-          bobIdentity.organizationId,
-          encryptedFolder.encryptedSessionKey,
-          encryptedFolder.encryptedName,
-          nowIso
-        ]
-      );
+    await upsertVfsRegistryItem({
+      client: input.client,
+      itemId: folderId,
+      objectType: 'folder',
+      ownerId: bobUserId,
+      organizationId: bobIdentity.organizationId,
+      hasOrganizationIdColumn,
+      encryptedSessionKey: encryptedFolder.encryptedSessionKey,
+      encryptedName: encryptedFolder.encryptedName,
+      nowIso
+    });
 
-      await input.client.query(
-        `INSERT INTO vfs_registry (
-           id,
-           object_type,
-           owner_id,
-           organization_id,
-           encrypted_session_key,
-           encrypted_name,
-           created_at
-         )
-         VALUES ($1, 'note', $2, $3, $4, $5, $6::timestamptz)
-         ON CONFLICT (id) DO UPDATE SET
-           object_type = EXCLUDED.object_type,
-           owner_id = EXCLUDED.owner_id,
-           organization_id = EXCLUDED.organization_id,
-           encrypted_session_key = EXCLUDED.encrypted_session_key,
-           encrypted_name = EXCLUDED.encrypted_name`,
-        [
-          noteId,
-          bobUserId,
-          bobIdentity.organizationId,
-          encryptedNote.encryptedSessionKey,
-          encryptedNote.encryptedName,
-          nowIso
-        ]
-      );
-    } else {
-      await input.client.query(
-        `INSERT INTO vfs_registry (
-           id,
-           object_type,
-           owner_id,
-           encrypted_session_key,
-           encrypted_name,
-           created_at
-         )
-         VALUES ($1, 'folder', NULL, NULL, 'VFS Root', $2::timestamptz)
-         ON CONFLICT (id) DO NOTHING`,
-        [rootItemId, nowIso]
-      );
-
-      await input.client.query(
-        `INSERT INTO vfs_registry (
-           id,
-           object_type,
-           owner_id,
-           encrypted_session_key,
-           encrypted_name,
-           created_at
-         )
-         VALUES ($1, 'folder', $2, $3, $4, $5::timestamptz)
-         ON CONFLICT (id) DO UPDATE SET
-           object_type = EXCLUDED.object_type,
-           owner_id = EXCLUDED.owner_id,
-           encrypted_session_key = EXCLUDED.encrypted_session_key,
-           encrypted_name = EXCLUDED.encrypted_name`,
-        [
-          folderId,
-          bobUserId,
-          encryptedFolder.encryptedSessionKey,
-          encryptedFolder.encryptedName,
-          nowIso
-        ]
-      );
-
-      await input.client.query(
-        `INSERT INTO vfs_registry (
-           id,
-           object_type,
-           owner_id,
-           encrypted_session_key,
-           encrypted_name,
-           created_at
-         )
-         VALUES ($1, 'note', $2, $3, $4, $5::timestamptz)
-         ON CONFLICT (id) DO UPDATE SET
-           object_type = EXCLUDED.object_type,
-           owner_id = EXCLUDED.owner_id,
-           encrypted_session_key = EXCLUDED.encrypted_session_key,
-           encrypted_name = EXCLUDED.encrypted_name`,
-        [
-          noteId,
-          bobUserId,
-          encryptedNote.encryptedSessionKey,
-          encryptedNote.encryptedName,
-          nowIso
-        ]
-      );
-    }
+    await upsertVfsRegistryItem({
+      client: input.client,
+      itemId: noteId,
+      objectType: 'note',
+      ownerId: bobUserId,
+      organizationId: bobIdentity.organizationId,
+      hasOrganizationIdColumn,
+      encryptedSessionKey: encryptedNote.encryptedSessionKey,
+      encryptedName: encryptedNote.encryptedName,
+      nowIso
+    });
 
     await input.client.query(
       `INSERT INTO vfs_item_state (

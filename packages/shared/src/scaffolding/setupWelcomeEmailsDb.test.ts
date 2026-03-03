@@ -92,34 +92,34 @@ describe('setupWelcomeEmailsDb', () => {
     const inboxFolderInserts = calls.filter(
       (call) =>
         call.text.includes('INSERT INTO vfs_registry') &&
-        call.text.includes("'emailFolder'")
+        call.params?.[1] === 'emailFolder'
     );
     expect(inboxFolderInserts).toHaveLength(2);
     expect(inboxFolderInserts[0]?.params?.[0]).toBe('email-inbox:bob-user-id');
-    expect(inboxFolderInserts[0]?.params?.[1]).toBe('bob-user-id');
-    expect(inboxFolderInserts[0]?.params?.[2]).toBe('bob-org-id');
-    expect(inboxFolderInserts[0]?.params?.[3]).toBe('wrapped:Inbox');
-    expect(inboxFolderInserts[0]?.params?.[4]).toBe('cipher:Inbox');
+    expect(inboxFolderInserts[0]?.params?.[2]).toBe('bob-user-id');
+    expect(inboxFolderInserts[0]?.params?.[3]).toBe('bob-org-id');
+    expect(inboxFolderInserts[0]?.params?.[4]).toBe('wrapped:Inbox');
+    expect(inboxFolderInserts[0]?.params?.[5]).toBe('cipher:Inbox');
     expect(inboxFolderInserts[1]?.params?.[0]).toBe(
       'email-inbox:alice-user-id'
     );
-    expect(inboxFolderInserts[1]?.params?.[1]).toBe('alice-user-id');
-    expect(inboxFolderInserts[1]?.params?.[2]).toBe('alice-org-id');
-    expect(inboxFolderInserts[1]?.params?.[3]).toBe('wrapped:Inbox');
-    expect(inboxFolderInserts[1]?.params?.[4]).toBe('cipher:Inbox');
+    expect(inboxFolderInserts[1]?.params?.[2]).toBe('alice-user-id');
+    expect(inboxFolderInserts[1]?.params?.[3]).toBe('alice-org-id');
+    expect(inboxFolderInserts[1]?.params?.[4]).toBe('wrapped:Inbox');
+    expect(inboxFolderInserts[1]?.params?.[5]).toBe('cipher:Inbox');
 
     const emailRegistryInserts = calls.filter(
       (call) =>
         call.text.includes('INSERT INTO vfs_registry') &&
-        call.text.includes("'email'")
+        call.params?.[1] === 'email'
     );
     expect(emailRegistryInserts).toHaveLength(2);
     expect(emailRegistryInserts[0]?.params?.[0]).toBe('email:id-1');
-    expect(emailRegistryInserts[0]?.params?.[1]).toBe('bob-user-id');
-    expect(emailRegistryInserts[0]?.params?.[2]).toBe('bob-org-id');
+    expect(emailRegistryInserts[0]?.params?.[2]).toBe('bob-user-id');
+    expect(emailRegistryInserts[0]?.params?.[3]).toBe('bob-org-id');
     expect(emailRegistryInserts[1]?.params?.[0]).toBe('email:id-4');
-    expect(emailRegistryInserts[1]?.params?.[1]).toBe('alice-user-id');
-    expect(emailRegistryInserts[1]?.params?.[2]).toBe('alice-org-id');
+    expect(emailRegistryInserts[1]?.params?.[2]).toBe('alice-user-id');
+    expect(emailRegistryInserts[1]?.params?.[3]).toBe('alice-org-id');
 
     const emailInserts = calls.filter((call) =>
       call.text.includes('INSERT INTO emails')

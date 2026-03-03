@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import {
   combineEncapsulation,
   deserializePublicKey,
@@ -51,7 +50,7 @@ export async function encryptScaffoldVfsName(
   );
   const publicEncryptionKey = readOptionalPublicEncryptionKey(keyRows.rows);
 
-  const sessionKey = randomBytes(32);
+  const sessionKey = crypto.getRandomValues(new Uint8Array(32));
   try {
     const encryptedSessionKey = publicEncryptionKey
       ? combineEncapsulation(
