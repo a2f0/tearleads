@@ -18,8 +18,8 @@ import { ArrowLeft } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   type ApiSpec,
-  type HelpView,
   getHelpWindowTitle,
+  type HelpView,
   HelpWindowContent
 } from './HelpWindowContent';
 import { HelpWindowMenuBar } from './HelpWindowMenuBar';
