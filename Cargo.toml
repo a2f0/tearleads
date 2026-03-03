@@ -3,6 +3,7 @@ members = ["crates/api-v2", "crates/api-v2-ping-wasm"]
 resolver = "2"
 
 [workspace.lints.rust]
+# CRITICAL: Never downgrade or remove. No unsafe code is permitted in this workspace.
 unsafe_code = "forbid"
 missing_docs = "deny"
 
