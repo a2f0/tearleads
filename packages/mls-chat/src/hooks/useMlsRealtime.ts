@@ -293,8 +293,11 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
                   );
                 }
               })
-              .catch(() => {
-                // Commit processing failed - may need state refresh
+              .catch((error) => {
+                console.warn(
+                  `[mls-chat] Failed to process commit for group ${message.groupId}. Local state may require recovery.`,
+                  error
+                );
               });
             continue;
           }
