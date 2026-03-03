@@ -19,7 +19,6 @@ import {
   upsertReplicaHead,
   type VfsContainerCursorNotification
 } from './vfsDirectCrdtPushApplyHelpers.js';
-import { toIsoString } from './vfsDirectCrdtRouteHelpers.js';
 import {
   CRDT_CLIENT_PUSH_SOURCE_TABLE,
   type MaxWriteIdRow,
@@ -28,6 +27,7 @@ import {
   toPushSourceId
 } from './vfsDirectCrdtPushCanonical.js';
 import type { ParsedPushOperation } from './vfsDirectCrdtPushParse.js';
+import { toIsoString } from './vfsDirectCrdtRouteHelpers.js';
 
 interface ItemOwnerRow {
   id: string;

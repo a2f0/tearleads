@@ -24,12 +24,12 @@ import {
 } from '../../lib/vfsCrdtRedisCache.js';
 import { loadReplicaWriteIdRows } from '../../lib/vfsCrdtReplicaWriteIds.js';
 import { loadVfsCrdtRematerializationSnapshot } from '../../lib/vfsCrdtSnapshots.js';
+import { requireVfsClaims } from './vfsDirectAuth.js';
 import { shouldReadEnvelopeBytea } from './vfsDirectCrdtEnvelopeReadOptions.js';
 import {
   toIsoString,
   toLastReconciledWriteIds
 } from './vfsDirectCrdtRouteHelpers.js';
-import { requireVfsClaims } from './vfsDirectAuth.js';
 import { parseJsonBody } from './vfsDirectJson.js';
 
 type GetSyncRequest = { cursor: string; limit: number; rootId: string };

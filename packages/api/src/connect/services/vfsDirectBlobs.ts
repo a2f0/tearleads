@@ -2,11 +2,11 @@ import { Code, ConnectError } from '@connectrpc/connect';
 import type { PoolClient } from 'pg';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { deleteVfsBlobData, readVfsBlobData } from '../../lib/vfsBlobStore.js';
+import { requireVfsClaims } from './vfsDirectAuth.js';
 import {
   isPostgresErrorWithCode,
   normalizeRequiredString
 } from './vfsDirectBlobShared.js';
-import { requireVfsClaims } from './vfsDirectAuth.js';
 import { encoded } from './vfsDirectJson.js';
 
 type BlobIdRequest = { blobId: string };
