@@ -7,6 +7,8 @@ COPY crates/api-v2/Cargo.toml crates/api-v2/Cargo.toml
 COPY crates/api-v2/src crates/api-v2/src
 COPY crates/api-v2-ping-wasm/Cargo.toml crates/api-v2-ping-wasm/Cargo.toml
 COPY crates/api-v2-ping-wasm/src crates/api-v2-ping-wasm/src
+COPY crates/mls-core-wasm/Cargo.toml crates/mls-core-wasm/Cargo.toml
+COPY crates/mls-core-wasm/src crates/mls-core-wasm/src
 
 RUN cargo build --release --package tearleads-api-v2
 
