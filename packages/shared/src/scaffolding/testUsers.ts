@@ -2,12 +2,14 @@ export type TestUser = {
   name: string;
   email: string;
   password: string;
+  admin?: boolean;
 };
 
 export const bob: TestUser = {
   name: 'Bob',
   email: 'bob@tearleads.com',
-  password: 'test'
+  password: 'test',
+  admin: true
 };
 
 export const alice: TestUser = {
