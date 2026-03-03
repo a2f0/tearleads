@@ -3,6 +3,17 @@ set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
+format_duration() {
+  local total_seconds=$1
+  local minutes=$((total_seconds / 60))
+  local seconds=$((total_seconds % 60))
+  if [ "$minutes" -gt 0 ]; then
+    printf "%dm %ds" "$minutes" "$seconds"
+  else
+    printf "%ds" "$seconds"
+  fi
+}
+
 NAMESPACE="${NAMESPACE:-tearleads}"
 KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config-staging-k8s}"
 LOCAL_PG_PORT="${LOCAL_PG_PORT:-15432}"
@@ -38,13 +49,17 @@ trap cleanup EXIT
 # ---------------------------------------------------------------------------
 # 1. Run staging K8s reset
 # ---------------------------------------------------------------------------
+TOTAL_START=$SECONDS
+STEP_START=$SECONDS
 echo "=== Step 1/2: Resetting staging K8s environment ==="
 "$REPO_ROOT/terraform/stacks/staging/k8s/scripts/reset.sh" --yes
+echo "  Step 1/2 completed in $(format_duration $((SECONDS - STEP_START)))"
 
 # ---------------------------------------------------------------------------
 # 2. Scaffold test data via port-forward
 # ---------------------------------------------------------------------------
 echo ""
+STEP_START=$SECONDS
 echo "=== Step 2/2: Scaffolding test data ==="
 
 export KUBECONFIG="$KUBECONFIG_FILE"
@@ -68,8 +83,9 @@ export DATABASE_URL="postgresql://$PG_USER:$PG_PASS@127.0.0.1:$LOCAL_PG_PORT/$PG
 
 echo "Running createBobNotesSharedWithAlice..."
 "$REPO_ROOT/scripts/users/scaffolding/createBobNotesSharedWithAlice.ts"
+echo "  Step 2/2 completed in $(format_duration $((SECONDS - STEP_START)))"
 
 echo ""
 echo "========================================"
-echo "  Staging reset + scaffold complete"
+echo "  Staging reset + scaffold complete in $(format_duration $((SECONDS - TOTAL_START)))"
 echo "========================================"
