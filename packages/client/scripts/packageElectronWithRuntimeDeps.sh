@@ -4,8 +4,22 @@ set -eu
 SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname "$0")" && pwd)"
 CLIENT_DIR="$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd)"
 STAGING_DIR="$(mktemp -d "${TMPDIR:-/tmp}/tearleads-electron-pack.XXXXXX")"
+# Pass the package.json path as a CLI argument rather than embedding $CLIENT_DIR
+# inside a node -e string. On Windows, MSYS2/Git Bash pwd returns POSIX paths
+# (e.g. /d/a/repo). MSYS2 auto-converts CLI arguments to native Windows paths
+# for native executables, but does NOT convert paths embedded inside string
+# literals in -e expressions. This caused Node.js to resolve /d/a/... as
+# D:\d\a\... instead of D:\a\..., producing an ENOENT error.
 ELECTRON_VERSION="$(
-  node -e "const fs = require('node:fs'); const p = '$CLIENT_DIR/package.json'; const pkg = JSON.parse(fs.readFileSync(p, 'utf8')); process.stdout.write(pkg.devDependencies?.electron ?? '');"
+  node - "$CLIENT_DIR/package.json" <<'NODE'
+const fs = require('node:fs');
+const packageJsonPath = process.argv[2];
+if (!packageJsonPath) {
+  throw new Error('Expected package.json path argument.');
+}
+const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+process.stdout.write(pkg.devDependencies?.electron ?? '');
+NODE
 )"
 
 cleanup() {
