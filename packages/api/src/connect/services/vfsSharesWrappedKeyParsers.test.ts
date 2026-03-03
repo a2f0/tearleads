@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   parseOrgWrappedKeyPayload,
   parseWrappedKeyPayload
-} from './wrappedKeyParsers.js';
+} from './vfsSharesWrappedKeyParsers.js';
 
 describe('wrappedKeyParsers', () => {
   it('parses and normalizes wrapped key payloads', () => {

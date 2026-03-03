@@ -13,7 +13,7 @@ import { getPool } from '../../lib/postgres.js';
 import {
   mapOrganizationRow,
   type OrganizationRow
-} from '../../routes/admin/organizations/shared.js';
+} from './adminDirectOrganizationsShared.js';
 import {
   requireScopedAdminAccess,
   type ScopedAdminAccess

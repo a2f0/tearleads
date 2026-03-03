@@ -11,7 +11,7 @@ import { getPool, getPostgresConnectionInfo } from '../../lib/postgres.js';
 import {
   coerceNumber,
   type PostgresTableRow
-} from '../../routes/admin/postgres/shared.js';
+} from './adminDirectPostgresShared.js';
 import { requireAdminSession } from './adminDirectAuth.js';
 
 type GetColumnsRequest = { schema: string; table: string };

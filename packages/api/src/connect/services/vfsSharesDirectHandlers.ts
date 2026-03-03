@@ -11,7 +11,7 @@ import {
   isValidShareType,
   loadOrgShareAuthorizationContext,
   loadShareAuthorizationContext
-} from '../../routes/vfs-shares/shared.js';
+} from './vfsSharesDirectShared.js';
 import { toConnectCode } from './httpStatusToConnectCode.js';
 import {
   authenticate,

@@ -11,7 +11,7 @@ import {
   mapUserRow,
   parseUserUpdatePayload,
   type UserRow
-} from '../../routes/admin/users/shared.js';
+} from './adminDirectUsersShared.js';
 import {
   requireScopedAdminAccess,
   type ScopedAdminAccess

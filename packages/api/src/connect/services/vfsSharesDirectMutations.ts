@@ -11,7 +11,7 @@ import {
   parseCreateSharePayload,
   parseUpdateSharePayload,
   type VfsAclAccessLevel
-} from '../../routes/vfs-shares/shared.js';
+} from './vfsSharesDirectShared.js';
 import { requireVfsSharesClaims } from './vfsSharesDirectHandlers.js';
 
 function parseJsonBody(json: string): unknown {

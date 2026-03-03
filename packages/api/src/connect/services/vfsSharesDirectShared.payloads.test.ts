@@ -3,7 +3,7 @@ import {
   parseCreateOrgSharePayload,
   parseCreateSharePayload,
   parseUpdateSharePayload
-} from './shared.js';
+} from './vfsSharesDirectShared.js';
 
 describe('vfs-shares shared payload parsing', () => {
   it('parses create share payloads with normalized values', () => {

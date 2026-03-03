@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { coerceNumber } from './shared.js';
+import { coerceNumber } from './adminDirectPostgresShared.js';
 
 describe('admin postgres shared', () => {
   it('returns finite numbers as-is', () => {

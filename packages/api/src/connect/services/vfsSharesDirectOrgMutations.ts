@@ -10,7 +10,7 @@ import {
   mapSharePermissionLevelToAclAccessLevel,
   parseCreateOrgSharePayload,
   type VfsAclAccessLevel
-} from '../../routes/vfs-shares/shared.js';
+} from './vfsSharesDirectShared.js';
 import { requireVfsSharesClaims } from './vfsSharesDirectHandlers.js';
 
 function encoded(value: string): string {

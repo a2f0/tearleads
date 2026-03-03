@@ -11,7 +11,7 @@ import {
   type GroupRow,
   getGroupOrganizationId,
   mapGroupRow
-} from '../../routes/admin/groups/shared.js';
+} from './adminDirectGroupsShared.js';
 import {
   requireScopedAdminAccess,
   type ScopedAdminAccess

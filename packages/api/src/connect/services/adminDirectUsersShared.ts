@@ -4,7 +4,7 @@ import type {
   AdminUserUpdatePayload
 } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
-import type { getPostgresPool } from '../../../lib/postgres.js';
+import type { getPostgresPool } from '../../lib/postgres.js';
 
 export type UserRow = {
   id: string;

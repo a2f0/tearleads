@@ -28,10 +28,10 @@ vi.mock('./vfsSharesDirectHandlers.js', async () => {
   };
 });
 
-vi.mock('../../routes/vfs-shares/shared.js', async () => {
+vi.mock('./vfsSharesDirectShared.js', async () => {
   const actual = await vi.importActual<
-    typeof import('../../routes/vfs-shares/shared.js')
-  >('../../routes/vfs-shares/shared.js');
+    typeof import('./vfsSharesDirectShared.js')
+  >('./vfsSharesDirectShared.js');
   return {
     ...actual,
     loadShareAuthorizationContext: (...args: unknown[]) =>
