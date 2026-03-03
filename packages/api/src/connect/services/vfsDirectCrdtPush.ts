@@ -1,0 +1,96 @@
+import { Code, ConnectError } from '@connectrpc/connect';
+import type { VfsCrdtPushResponse } from '@tearleads/shared';
+import type { PoolClient } from 'pg';
+import { getPostgresPool } from '../../lib/postgres.js';
+import { invalidateReplicaWriteIdRowsForUser } from '../../lib/vfsCrdtReplicaWriteIds.js';
+import { publishVfsContainerCursorBump } from '../../lib/vfsSyncChannels.js';
+import { applyCrdtPushOperations } from '../../routes/vfs/crdtPushApply.js';
+import { parsePushPayload } from '../../routes/vfs/post-crdt-push-parse.js';
+import { requireVfsClaims } from './vfsDirectAuth.js';
+import { parseJsonBody } from './vfsDirectJson.js';
+
+interface JsonRequest {
+  json: string;
+}
+
+async function rollbackQuietly(client: PoolClient): Promise<void> {
+  try {
+    await client.query('ROLLBACK');
+  } catch {
+    // no-op
+  }
+}
+
+export async function pushCrdtOpsDirect(
+  request: JsonRequest,
+  context: { requestHeader: Headers }
+): Promise<{ json: string }> {
+  const claims = await requireVfsClaims(
+    '/vfs/crdt/push',
+    context.requestHeader
+  );
+
+  const parsedPayload = parsePushPayload(parseJsonBody(request.json));
+  if (!parsedPayload.ok) {
+    throw new ConnectError(parsedPayload.error, Code.InvalidArgument);
+  }
+
+  const pool = await getPostgresPool();
+  const client = await pool.connect();
+  let inTransaction = false;
+
+  try {
+    await client.query('BEGIN');
+    inTransaction = true;
+
+    const pushResult = await applyCrdtPushOperations({
+      client,
+      userId: claims.sub,
+      parsedOperations: parsedPayload.value.operations
+    });
+
+    await client.query('COMMIT');
+    inTransaction = false;
+
+    await invalidateReplicaWriteIdRowsForUser(claims.sub);
+
+    for (const notification of pushResult.notifications) {
+      try {
+        await publishVfsContainerCursorBump({
+          containerId: notification.containerId,
+          changedAt: notification.changedAt,
+          changeId: notification.changeId,
+          actorId: claims.sub,
+          sourceClientId: parsedPayload.value.clientId
+        });
+      } catch (publishError) {
+        console.error('Failed to publish VFS container cursor bump:', {
+          containerId: notification.containerId,
+          error: publishError
+        });
+      }
+    }
+
+    const response: VfsCrdtPushResponse = {
+      clientId: parsedPayload.value.clientId,
+      results: pushResult.results
+    };
+
+    return {
+      json: JSON.stringify(response)
+    };
+  } catch (error) {
+    if (inTransaction) {
+      await rollbackQuietly(client);
+    }
+
+    if (error instanceof ConnectError) {
+      throw error;
+    }
+
+    console.error('Failed to push VFS CRDT operations:', error);
+    throw new ConnectError('Failed to push CRDT operations', Code.Internal);
+  } finally {
+    client.release();
+  }
+}

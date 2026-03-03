@@ -1,8 +1,7 @@
 import {
   callRouteJsonHandler,
   setOptionalPositiveIntQueryParam,
-  setOptionalStringQueryParam,
-  toJsonBody
+  setOptionalStringQueryParam
 } from './legacyRouteProxy.js';
 import { attachBlobDirect } from './vfsDirectBlobAttach.js';
 import {
@@ -15,6 +14,9 @@ import {
   uploadBlobChunkDirect
 } from './vfsDirectBlobStageUpload.js';
 import { deleteBlobDirect, getBlobDirect } from './vfsDirectBlobs.js';
+import { pushCrdtOpsDirect } from './vfsDirectCrdtPush.js';
+import { reconcileCrdtDirect } from './vfsDirectCrdtReconcile.js';
+import { runCrdtSessionDirect } from './vfsDirectCrdtSession.js';
 import {
   deleteEmailDirect,
   getEmailDirect,
@@ -90,27 +92,11 @@ export const vfsConnectService = {
   pushCrdtOps: async (
     request: { json: string },
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: '/vfs/crdt/push',
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
+  ) => pushCrdtOpsDirect(request, context),
   reconcileCrdt: async (
     request: { json: string },
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: '/vfs/crdt/reconcile',
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
+  ) => reconcileCrdtDirect(request, context),
   reconcileSync: async (
     request: { json: string },
     context: { requestHeader: Headers }
@@ -118,15 +104,7 @@ export const vfsConnectService = {
   runCrdtSession: async (
     request: { json: string },
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: '/vfs/crdt/session',
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
+  ) => runCrdtSessionDirect(request, context),
   getSync: async (
     request: GetSyncRequest,
     context: { requestHeader: Headers }
