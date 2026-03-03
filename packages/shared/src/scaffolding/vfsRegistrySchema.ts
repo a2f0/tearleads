@@ -8,13 +8,10 @@ interface DbQueryClient {
 export async function hasVfsRegistryOrganizationId(
   client: DbQueryClient
 ): Promise<boolean> {
-  const result = await client.query(
-    `SELECT 1
-       FROM information_schema.columns
-      WHERE table_schema = ANY(current_schemas(false))
-        AND table_name = 'vfs_registry'
-        AND column_name = 'organization_id'
-      LIMIT 1`
-  );
-  return result.rows.length > 0;
+  try {
+    await client.query(`SELECT organization_id FROM vfs_registry LIMIT 0`);
+    return true;
+  } catch {
+    return false;
+  }
 }

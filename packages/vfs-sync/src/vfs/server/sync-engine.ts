@@ -26,6 +26,7 @@ const VALID_OBJECT_TYPES: VfsObjectType[] = [
   'mlsMessage',
   'conversation',
   'folder',
+  'emailFolder',
   'playlist',
   'album',
   'contactGroup',
