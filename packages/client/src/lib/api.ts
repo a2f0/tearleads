@@ -5,9 +5,7 @@ import { getActiveOrganizationId } from '@/lib/orgStorage';
 export { openChatCompletions } from '@tearleads/api-client/chatCompletions';
 export { openNotificationEventStream } from '@tearleads/api-client/notificationStream';
 
-function readOptionalExport<TValue>(
-  getter: () => TValue
-): TValue | undefined {
+function readOptionalExport<TValue>(getter: () => TValue): TValue | undefined {
   try {
     return getter();
   } catch {
@@ -23,7 +21,10 @@ const setApiRequestHeadersProvider = readOptionalExport(
 );
 const logApiEvent = readOptionalExport(() => analytics.logApiEvent);
 
-if (typeof setApiEventLogger === 'function' && typeof logApiEvent === 'function') {
+if (
+  typeof setApiEventLogger === 'function' &&
+  typeof logApiEvent === 'function'
+) {
   setApiEventLogger(logApiEvent);
 }
 

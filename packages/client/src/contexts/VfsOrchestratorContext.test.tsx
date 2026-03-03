@@ -34,10 +34,9 @@ const mockSaveVfsOrchestratorState = vi.fn();
 
 // Mock dependencies
 vi.mock('@tearleads/api-client/clientEntry', async () => {
-  const actual =
-    await vi.importActual<typeof import('@tearleads/api-client/clientEntry')>(
-      '@tearleads/api-client/clientEntry'
-    );
+  const actual = await vi.importActual<
+    typeof import('@tearleads/api-client/clientEntry')
+  >('@tearleads/api-client/clientEntry');
   const MockVfsWriteOrchestrator = class {
     mockOrchestrator = true;
     static lastOptions: unknown;
