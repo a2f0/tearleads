@@ -149,8 +149,8 @@ vi.mock('./SSESystemTrayItems', () => ({
   SSESystemTrayItems: () => <div data-testid="sse-system-tray-items" />
 }));
 
-function renderApp() {
-  return render(
+function buildAppTree() {
+  return (
     <MemoryRouter initialEntries={['/']}>
       <Routes>
         <Route path="/" element={<App />}>
@@ -159,6 +159,10 @@ function renderApp() {
       </Routes>
     </MemoryRouter>
   );
+}
+
+function renderApp() {
+  return render(buildAppTree());
 }
 
 describe('App deferred lock flow', () => {
@@ -313,6 +317,36 @@ describe('App deferred lock flow', () => {
         'Could not save your database password. Please try again.'
       );
     });
+    expect(mockLock).not.toHaveBeenCalled();
+  });
+
+  it('shows inline error when active instance disappears during submit', async () => {
+    const user = userEvent.setup();
+    mockIsUnlocked = true;
+    mockIsAuthenticated = false;
+    mockCurrentInstanceId = 'instance-1';
+    mockInstances = [{ id: 'instance-1', passwordDeferred: true }];
+    mockGetInstance.mockResolvedValue({ passwordDeferred: true });
+
+    const view = renderApp();
+
+    fireEvent.contextMenu(screen.getByTestId('start-button'));
+    await user.click(screen.getByText('Lock Instance'));
+    await screen.findByTestId('deferred-lock-password-dialog');
+
+    mockCurrentInstanceId = null;
+    view.rerender(buildAppTree());
+
+    await user.type(
+      screen.getByTestId('deferred-lock-password-input'),
+      'new-pass'
+    );
+    await user.click(screen.getByTestId('deferred-lock-password-submit'));
+
+    expect(
+      screen.getByTestId('deferred-lock-password-error')
+    ).toHaveTextContent('Could not determine the active database instance.');
+    expect(mockSetDatabasePassword).not.toHaveBeenCalled();
     expect(mockLock).not.toHaveBeenCalled();
   });
 
