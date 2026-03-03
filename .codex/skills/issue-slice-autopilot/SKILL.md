@@ -22,7 +22,9 @@ This skill is for long-running tasks where one giant PR is too risky. It repeate
 - Prefer the largest independent slice that has clear done criteria.
 - Do not leave a slice half-shipped; either finish it or skip it for now.
 - After each merged PR, re-evaluate the issue from current `main`.
-- Stop only when issue completion criteria are met, or progress is blocked.
+- A single merged slice is never a completion signal by itself.
+- After reporting an iteration result, immediately continue to the next selection step in the same invocation.
+- Stop only when issue completion criteria are met, or progress is explicitly blocked.
 
 ## State (Required)
 
@@ -42,6 +44,8 @@ State shape:
   "issue_number": 2540,
   "repo": "owner/repo",
   "iteration": 0,
+  "status": "running",
+  "resume_phase": "recon",
   "completed_slices": [],
   "skipped_slices": [],
   "active_pr": null,
@@ -51,7 +55,13 @@ State shape:
 }
 ```
 
-Update this file at the end of each major phase.
+Update this file at the end of each major phase. If the process restarts, reload this file and resume from `resume_phase` instead of starting over or exiting.
+
+`status` meanings:
+
+- `running`: normal loop execution; continue without user prompts.
+- `blocked`: one blocked condition has been hit; stop and report blocker.
+- `complete`: completion criteria have all been met; stop and report final outcome.
 
 ## Phase 1: Issue Recon
 
@@ -111,7 +121,7 @@ Selection rules:
 
 1. Pick the highest scoring remaining slice.
 
-If no non-overlapping slice exists, set `blocked_reason` and stop.
+If no non-overlapping slice exists, set `status=blocked`, set `blocked_reason`, persist state, and stop.
 
 ## Phase 3: Implement Slice
 
@@ -141,12 +151,30 @@ Do not start the next slice until merge is confirmed.
 ## Phase 5: Post-Merge Update
 
 1. Refresh workspace (normally handled by `$enter-merge-queue`).
-1. Confirm current branch is `main` and clean.
-1. Append merged PR metadata to `completed_slices`.
-1. Increment `iteration`.
-1. Re-run Phase 1 recon against latest code.
+2. Confirm current branch is `main` and clean.
+3. Append merged PR metadata to `completed_slices`.
+4. Increment `iteration`.
+5. Re-run Phase 1 recon against latest code.
+6. Immediately continue to Phase 2 selection unless `status` is `complete` or `blocked`.
 
 Repeat Phases 2-5 until done.
+
+## Loop Control (Mandatory)
+
+Treat this as a long-lived control loop, not a one-shot workflow.
+
+1. Enter loop with `status=running`.
+2. Execute phases continuously across multiple slices.
+3. After each merged PR, update/report state and continue loop immediately.
+4. Do not pause for "next?" confirmation after successful iterations.
+5. Exit only when state is set to `complete` or `blocked`.
+
+Never terminate solely because:
+
+- one iteration finished successfully,
+- one PR merged successfully,
+- a progress report was emitted,
+- the issue still has remaining non-overlapping slices.
 
 ## Completion Conditions
 
@@ -156,6 +184,8 @@ Mark complete when all are true:
 - No remaining runtime references to removed legacy paths/proxy helpers (except explicitly allowed exceptions).
 - Required builds/tests pass for touched packages.
 - No additional non-overlapping high-value slice remains.
+
+When complete, set `status=complete`, persist state, and then stop.
 
 ## Blocked Conditions
 
@@ -173,6 +203,8 @@ Stop and report when any occurs:
 - Do not reply to review threads referencing unpushed commits.
 - Do not skip validation gates to keep momentum.
 - Do not use auto-close keywords in PR bodies.
+- Do not end the skill after one successful slice while backlog remains.
+- Do not treat per-iteration output as a stop boundary.
 
 ## Recommended Loop Skeleton
 
@@ -185,6 +217,8 @@ WHILE NOT COMPLETE:
   RUN $commit-and-push
   RUN $enter-merge-queue
   REFRESH + UPDATE STATE
+  IF BLOCKED: EXIT BLOCKED
+  IF COMPLETE: EXIT COMPLETE
 FINAL ISSUE COMPLETION REPORT
 ```
 
@@ -208,6 +242,8 @@ For each slice, report:
 - PR number/URL,
 - merge result,
 - remaining backlog.
+
+Iteration reports are progress checkpoints only. Emitting them must not end the run while `status=running`.
 
 At final completion, report:
 
