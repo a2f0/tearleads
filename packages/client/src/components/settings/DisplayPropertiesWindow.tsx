@@ -30,10 +30,10 @@ export function DisplayPropertiesWindow({
       title="Display Properties"
       onClose={() => onOpenChange(false)}
       fitContent
-      defaultWidth={440}
-      defaultHeight={420}
-      minWidth={360}
-      minHeight={320}
+      defaultWidth={680}
+      defaultHeight={460}
+      minWidth={500}
+      minHeight={360}
       maxWidthPercent={0.9}
       maxHeightPercent={0.9}
       zIndex={1000}
