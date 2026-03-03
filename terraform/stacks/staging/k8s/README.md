@@ -37,6 +37,7 @@ This stack provisions a k3s Kubernetes cluster on Hetzner Cloud for the staging 
 | `scripts/smoke-s3.sh` | Verify Garage-backed S3 storage with in-cluster put/get/delete |
 | `scripts/smoke-smtp.sh` | Verify SMTP listener accepts mail and persists it to Redis |
 | `scripts/dump-api-env.sh` | Inspect API pod environment variable visibility (names by default, `--show-values` for full values) |
+| `scripts/vfs-crdt-compaction.sh` | Manage VFS CRDT compaction CronJob (status, enable/disable, suspend/resume, run-once, logs) |
 
 ## Quick Start
 
@@ -75,6 +76,7 @@ The zone uses `prevent_destroy`, so `terraform destroy` will not remove it.
 | `smtp-listener.yaml` | SMTP listener deployment and service |
 | `api.yaml` | API server deployment |
 | `api-v2.yaml` | Rust API v2 deployment and service (`/v2/*`) |
+| `vfs-crdt-compaction-cronjob.yaml` | Scheduled VFS CRDT compaction planner/executor |
 | `client.yaml` | Web client deployment |
 | `website.yaml` | Marketing website deployment |
 | `cloudflared.yaml` | Cloudflare Tunnel connector deployment |

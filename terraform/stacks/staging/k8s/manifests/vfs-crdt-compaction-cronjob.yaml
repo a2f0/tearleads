@@ -1,0 +1,75 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vfs-crdt-compaction
+  namespace: tearleads
+spec:
+  schedule: "*/30 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 4
+  failedJobsHistoryLimit: 4
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          imagePullSecrets:
+            - name: ecr-registry
+          containers:
+            - name: vfs-crdt-compaction
+              image: 956489103522.dkr.ecr.us-east-1.amazonaws.com/tearleads-staging/api:latest
+              imagePullPolicy: Always
+              envFrom:
+                - configMapRef:
+                    name: tearleads-config
+              env:
+                - name: POSTGRES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: tearleads-secrets
+                      key: POSTGRES_PASSWORD
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  set -- vfs-crdt-compaction --json
+
+                  if [ "${VFS_CRDT_COMPACTION_EXECUTE:-0}" = "1" ]; then
+                    set -- "$@" --execute
+                  fi
+
+                  if [ -n "${VFS_CRDT_COMPACTION_HOT_RETENTION_DAYS:-}" ]; then
+                    set -- "$@" --hot-retention-days "$VFS_CRDT_COMPACTION_HOT_RETENTION_DAYS"
+                  fi
+
+                  if [ -n "${VFS_CRDT_COMPACTION_INACTIVE_CLIENT_DAYS:-}" ]; then
+                    set -- "$@" --inactive-client-days "$VFS_CRDT_COMPACTION_INACTIVE_CLIENT_DAYS"
+                  fi
+
+                  if [ -n "${VFS_CRDT_COMPACTION_SAFETY_BUFFER_HOURS:-}" ]; then
+                    set -- "$@" --safety-buffer-hours "$VFS_CRDT_COMPACTION_SAFETY_BUFFER_HOURS"
+                  fi
+
+                  if [ -n "${VFS_CRDT_COMPACTION_CLIENT_PREFIX:-}" ]; then
+                    set -- "$@" --client-prefix "$VFS_CRDT_COMPACTION_CLIENT_PREFIX"
+                  fi
+
+                  if [ -n "${VFS_CRDT_COMPACTION_MAX_DELETE_ROWS:-}" ]; then
+                    set -- "$@" --max-delete-rows "$VFS_CRDT_COMPACTION_MAX_DELETE_ROWS"
+                  fi
+
+                  if [ "${VFS_CRDT_COMPACTION_SKIP_SNAPSHOT_REFRESH:-0}" = "1" ]; then
+                    set -- "$@" --skip-snapshot-refresh
+                  fi
+
+                  exec node apiCli.cjs "$@"
+              resources:
+                requests:
+                  memory: "128Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"

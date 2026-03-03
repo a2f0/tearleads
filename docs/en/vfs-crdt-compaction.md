@@ -65,8 +65,12 @@ Implemented in API lib:
   - emits structured JSON run metric event `vfs_crdt_compaction_run`.
 - `scripts/postgres/runVfsCrdtCompaction.sh`
   - cron/worker wrapper around the CLI with env-driven options.
+- Kubernetes scheduler manifests:
+  - `terraform/stacks/staging/k8s/manifests/vfs-crdt-compaction-cronjob.yaml`
+  - `terraform/stacks/prod/k8s/manifests/vfs-crdt-compaction-cronjob.yaml`
+  - wired via `terraform/stacks/*/k8s/scripts/deploy.sh`.
 
-This is the planning/execution primitive; orchestration (scheduled job, metrics, and rollback controls) is the next slice.
+This provides planning/execution plus in-cluster scheduling.
 
 ### Stale cursor contract
 
@@ -85,9 +89,64 @@ This is the planning/execution primitive; orchestration (scheduled job, metrics,
      - `vfs_sync_guardrail_violation_total{stage,code,signature}`
      - `vfs_sync_rematerialization_required_total{code="crdt_rematerialization_required",signature="pull:pullRematerializationRequired"}`
 3. Enable delete execution in limited batches (for example `--max-delete-rows 1000`).
-4. Add periodic scheduler once metrics stabilize.
+4. Keep scheduler enabled and tune retention windows based on rematerialization behavior.
 
-## Scheduler wrapper usage
+## Kubernetes scheduler (staging/prod)
+
+The cluster scheduler runs as CronJob `vfs-crdt-compaction` every 30 minutes.
+
+Default config ships in dry-run mode (`VFS_CRDT_COMPACTION_EXECUTE=0`) so rollout can start with planning metrics only.
+
+Use the stack helper scripts:
+
+- Staging: `terraform/stacks/staging/k8s/scripts/vfs-crdt-compaction.sh`
+- Production: `terraform/stacks/prod/k8s/scripts/vfs-crdt-compaction.sh`
+
+Check scheduler status + effective config:
+
+```sh
+./terraform/stacks/staging/k8s/scripts/vfs-crdt-compaction.sh status
+# (use the prod script path for production)
+```
+
+Enable execution after dry-run validation:
+
+```sh
+./terraform/stacks/staging/k8s/scripts/vfs-crdt-compaction.sh enable
+# (use the prod script path for production)
+```
+
+Run once immediately (without waiting for next schedule):
+
+```sh
+./terraform/stacks/staging/k8s/scripts/vfs-crdt-compaction.sh run-once
+# (use the prod script path for production)
+```
+
+Pause/resume the scheduler:
+
+```sh
+./terraform/stacks/staging/k8s/scripts/vfs-crdt-compaction.sh suspend
+./terraform/stacks/staging/k8s/scripts/vfs-crdt-compaction.sh resume
+# (use the prod script path for production)
+```
+
+Inspect run logs/metrics:
+
+```sh
+./terraform/stacks/staging/k8s/scripts/vfs-crdt-compaction.sh logs --since=24h
+./terraform/stacks/staging/k8s/scripts/vfs-crdt-compaction.sh logs -f
+# (use the prod script path for production)
+```
+
+Tune bounded-delete size:
+
+```sh
+./terraform/stacks/staging/k8s/scripts/vfs-crdt-compaction.sh set-max-delete-rows 1000
+# (use the prod script path for production)
+```
+
+## Local wrapper usage
 
 Run once (dry-run by default):
 
