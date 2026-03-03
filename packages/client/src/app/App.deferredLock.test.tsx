@@ -446,6 +446,29 @@ describe('App deferred lock flow', () => {
     expect(mockLock).toHaveBeenCalledWith(true);
   });
 
+  it('dismisses dialog and clears error when cancel is clicked', async () => {
+    const user = userEvent.setup();
+    mockIsUnlocked = true;
+    mockIsAuthenticated = false;
+    mockCurrentInstanceId = 'instance-1';
+    mockInstances = [{ id: 'instance-1', passwordDeferred: true }];
+    mockGetInstance.mockResolvedValue({ passwordDeferred: true });
+
+    renderApp();
+
+    fireEvent.contextMenu(screen.getByTestId('start-button'));
+    await user.click(screen.getByText('Lock Instance'));
+    await screen.findByTestId('deferred-lock-password-dialog');
+
+    await user.click(screen.getByTestId('deferred-lock-password-cancel'));
+
+    expect(
+      screen.queryByTestId('deferred-lock-password-dialog')
+    ).not.toBeInTheDocument();
+    expect(mockSetDatabasePassword).not.toHaveBeenCalled();
+    expect(mockLock).not.toHaveBeenCalled();
+  });
+
   it('locks even when deferred lookup fails', async () => {
     const user = userEvent.setup();
     mockIsUnlocked = true;
