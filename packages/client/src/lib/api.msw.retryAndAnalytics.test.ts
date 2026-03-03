@@ -242,6 +242,19 @@ describe('api with msw', () => {
 
       expect(API_BASE_URL).toBe('http://test-api.com');
     });
+
+    it('loads api module when analytics logger export is unavailable', async () => {
+      vi.doMock('@/db/analytics', () => ({}));
+
+      try {
+        const { API_BASE_URL } = await import('./api');
+        expect(API_BASE_URL).toBe('http://localhost');
+      } finally {
+        vi.doMock('@/db/analytics', () => ({
+          logApiEvent: (...args: unknown[]) => mockLogApiEvent(...args)
+        }));
+      }
+    });
   });
 
   describe('analytics event logging', () => {
