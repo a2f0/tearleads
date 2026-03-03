@@ -50,19 +50,17 @@ for arg in "$@"; do
     esac
 done
 
-# Detect if we're running inside the tuxedo session tree (outer or inner tmux).
-# $TMUX points to the innermost tmux server, so when inside tuxedo:
-#   - It may reference the "tuxedo-inner" socket (inner tmux), or
-#   - It may reference the default socket with session "tuxedo" (outer tmux)
-# Either way, killing sessions we're inside of will terminate this script.
+# When $TMUX is set, bare tmux commands route to the socket in $TMUX (which
+# may be tuxedo-inner). We need bare "tmux" to reach the default socket where
+# the outer "tuxedo" session lives. Use TMUX= to unset it for outer commands.
+# tmux -L explicitly targets a named socket regardless of $TMUX.
+
+# Detect if we're running inside the tuxedo session tree.
 INSIDE_TUXEDO=false
 if [ "$HAS_TMUX" = "true" ] && [ -n "${TMUX:-}" ]; then
-    # Check if $TMUX references the inner tmux socket
     case "$TMUX" in
         *tuxedo-inner*) INSIDE_TUXEDO=true ;;
     esac
-
-    # Also check if we're directly in the outer tuxedo session
     if [ "$INSIDE_TUXEDO" = false ]; then
         current_session=$(tmux display-message -p '#{session_name}' 2>/dev/null || true)
         if [ "$current_session" = "$SESSION_NAME" ]; then
@@ -72,12 +70,10 @@ if [ "$HAS_TMUX" = "true" ] && [ -n "${TMUX:-}" ]; then
 fi
 
 if [ "$INSIDE_TUXEDO" = true ]; then
-    # We're inside tuxedo. Killing inner tmux or the outer session will
-    # terminate our own shell. Detach all kills into a single background
-    # process so the script can exit before the sessions die.
     echo "Killing tuxedo (from within)..."
 
-    # Build the kill script that runs detached from this shell.
+    # Detach all kills into a background process so this script's shell
+    # can exit before the sessions that host it are destroyed.
     nohup sh -c "
         sleep 0.2
 
@@ -86,11 +82,12 @@ if [ "$INSIDE_TUXEDO" = true ]; then
             pkill -f 'nvim.*$SCRIPT_DIR/config/neovim.lua' 2>/dev/null || true
         fi
 
-        # Kill inner tmux server (all sessions on the socket at once)
+        # Kill inner tmux server (all sessions on the tuxedo-inner socket)
         tmux -L '$INNER_TMUX_SOCKET' kill-server 2>/dev/null || true
 
-        # Kill outer tmux session
-        tmux kill-session -t '$SESSION_NAME' 2>/dev/null || true
+        # Kill outer tmux session on the default socket.
+        # TMUX= ensures we reach the default server, not tuxedo-inner.
+        TMUX= tmux kill-session -t '$SESSION_NAME' 2>/dev/null || true
     " >/dev/null 2>&1 &
 else
     # Not inside tuxedo — safe to kill everything directly.
@@ -121,10 +118,10 @@ else
         fi
     fi
 
-    # Kill outer tmux session
+    # Kill outer tmux session (TMUX= to ensure default socket)
     if [ "$HAS_TMUX" = "true" ]; then
-        if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-            tmux kill-session -t "$SESSION_NAME"
+        if TMUX= tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+            TMUX= tmux kill-session -t "$SESSION_NAME"
             echo "Killed tmux session: $SESSION_NAME"
         else
             echo "No tmux session '$SESSION_NAME' found"
