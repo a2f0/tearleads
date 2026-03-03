@@ -104,7 +104,9 @@ function getInitialQueueModelIds(): string[] {
     return persistedQueue;
   }
 
-  const queueWithoutActive = persistedQueue.filter((id) => id !== activeModelId);
+  const queueWithoutActive = persistedQueue.filter(
+    (id) => id !== activeModelId
+  );
   return [activeModelId, ...queueWithoutActive];
 }
 
@@ -139,34 +141,31 @@ export function ModelDownloadManagerProvider({
     });
   }, []);
 
-  const settleJobWaiters = useCallback(
-    (modelId: string, error?: unknown) => {
-      const waiters = jobWaitersRef.current.get(modelId);
-      if (!waiters || waiters.length === 0) {
-        return;
-      }
-      jobWaitersRef.current.delete(modelId);
+  const settleJobWaiters = useCallback((modelId: string, error?: unknown) => {
+    const waiters = jobWaitersRef.current.get(modelId);
+    if (!waiters || waiters.length === 0) {
+      return;
+    }
+    jobWaitersRef.current.delete(modelId);
 
-      if (!error) {
-        for (const waiter of waiters) {
-          waiter.resolve();
-        }
-        return;
-      }
-
-      const message =
-        error instanceof Error
-          ? error.message
-          : typeof error === 'string'
-            ? error
-            : 'Model download failed';
-      const rejectionError = new Error(message);
+    if (!error) {
       for (const waiter of waiters) {
-        waiter.reject(rejectionError);
+        waiter.resolve();
       }
-    },
-    []
-  );
+      return;
+    }
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === 'string'
+          ? error
+          : 'Model download failed';
+    const rejectionError = new Error(message);
+    for (const waiter of waiters) {
+      waiter.reject(rejectionError);
+    }
+  }, []);
 
   const enqueueModelId = useCallback((modelId: string) => {
     const isRunning = runningModelIdRef.current === modelId;
@@ -253,7 +252,11 @@ export function ModelDownloadManagerProvider({
         return;
       }
 
-      if (loadedModel === modelId && !isLoading && runningModelIdRef.current === null) {
+      if (
+        loadedModel === modelId &&
+        !isLoading &&
+        runningModelIdRef.current === null
+      ) {
         return;
       }
 
@@ -266,7 +269,14 @@ export function ModelDownloadManagerProvider({
       void runQueue();
       return promise;
     },
-    [appendJobWaiter, enqueueModelId, isLoading, loadModel, loadedModel, runQueue]
+    [
+      appendJobWaiter,
+      enqueueModelId,
+      isLoading,
+      loadModel,
+      loadedModel,
+      runQueue
+    ]
   );
 
   const queuedModelIds = useMemo(() => {
