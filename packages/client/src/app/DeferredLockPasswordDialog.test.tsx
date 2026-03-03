@@ -70,6 +70,18 @@ describe('DeferredLockPasswordDialog', () => {
     expect(onSubmit).toHaveBeenCalledWith('pass');
   });
 
+  it('submits when enter is pressed in the password input', async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderDialog();
+
+    await user.type(
+      screen.getByTestId('deferred-lock-password-input'),
+      ' pass{Enter}'
+    );
+
+    expect(onSubmit).toHaveBeenCalledWith('pass');
+  });
+
   it('shows external error message', () => {
     renderDialog({ errorMessage: 'Could not save password' });
 

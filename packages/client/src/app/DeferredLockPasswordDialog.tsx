@@ -73,16 +73,21 @@ export function DeferredLockPasswordDialog({
     [handleCancel]
   );
 
-  const handleSubmit = useCallback(async () => {
-    const normalizedPassword = password.trim();
-    if (!normalizedPassword) {
-      setLocalError('Enter a password to continue.');
-      return;
-    }
+  const handleSubmit = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
 
-    setLocalError(null);
-    await onSubmit(normalizedPassword);
-  }, [onSubmit, password]);
+      const normalizedPassword = password.trim();
+      if (!normalizedPassword) {
+        setLocalError('Enter a password to continue.');
+        return;
+      }
+
+      setLocalError(null);
+      await onSubmit(normalizedPassword);
+    },
+    [onSubmit, password]
+  );
 
   if (!open) {
     return null;
@@ -117,7 +122,12 @@ export function DeferredLockPasswordDialog({
           This instance is using deferred password setup. Create a password now
           so it can be locked while signed out.
         </p>
-        <div className="mt-4">
+        <form
+          className="mt-4"
+          onSubmit={(event) => {
+            void handleSubmit(event);
+          }}
+        >
           <label
             htmlFor="deferred-lock-password-input"
             className="mb-2 block font-medium text-sm"
@@ -142,24 +152,25 @@ export function DeferredLockPasswordDialog({
               {localError ?? errorMessage}
             </p>
           )}
-        </div>
-        <div className="mt-6 flex justify-end gap-3">
-          <Button
-            variant="outline"
-            onClick={handleCancel}
-            disabled={isSaving}
-            data-testid="deferred-lock-password-cancel"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={isSaving}
-            data-testid="deferred-lock-password-submit"
-          >
-            {isSaving ? 'Saving...' : 'Save and Lock'}
-          </Button>
-        </div>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancel}
+              disabled={isSaving}
+              data-testid="deferred-lock-password-cancel"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={isSaving}
+              data-testid="deferred-lock-password-submit"
+            >
+              {isSaving ? 'Saving...' : 'Save and Lock'}
+            </Button>
+          </div>
+        </form>
       </div>
     </div>,
     document.body
