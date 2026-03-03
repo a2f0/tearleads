@@ -10,12 +10,12 @@
  * primitives are implemented.
  */
 
+import {
+  type MlsBackendStatus,
+  resolveMlsBackendStatus
+} from './mlsWasmBackend.js';
 import { MlsStorage } from './storage.js';
 import type { LocalKeyPackage, LocalMlsState, MlsCredential } from './types.js';
-import {
-  resolveMlsBackendStatus,
-  type MlsBackendStatus
-} from './mlsWasmBackend.js';
 
 // Standard ciphersuite: MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519
 export const MLS_CIPHERSUITE_NAME =
