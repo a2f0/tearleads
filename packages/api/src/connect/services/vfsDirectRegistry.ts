@@ -115,15 +115,17 @@ export async function registerDirect(
         id,
         object_type,
         owner_id,
+        organization_id,
         encrypted_session_key,
         encrypted_name,
         created_at
-      ) VALUES ($1, $2, $3, $4, $5, NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
       RETURNING created_at`,
       [
         payload.id,
         payload.objectType,
         claims.sub,
+        claims.organizationId,
         payload.encryptedSessionKey,
         payload.encryptedName ?? null
       ]

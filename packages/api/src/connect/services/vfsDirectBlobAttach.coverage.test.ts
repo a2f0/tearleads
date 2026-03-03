@@ -52,7 +52,8 @@ describe('vfsDirectBlobAttach coverage', () => {
       connect: connectMock
     });
     requireVfsClaimsMock.mockResolvedValue({
-      sub: 'user-1'
+      sub: 'user-1',
+      organizationId: 'org-1'
     });
 
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -71,6 +72,7 @@ describe('vfsDirectBlobAttach coverage', () => {
           {
             blob_id: '',
             staged_by: 'user-1',
+            organization_id: 'org-1',
             status: 'staged',
             expires_at: '2099-01-01T00:00:00.000Z'
           }
@@ -101,6 +103,7 @@ describe('vfsDirectBlobAttach coverage', () => {
           {
             blob_id: 'blob-1',
             staged_by: 'user-2',
+            organization_id: 'org-1',
             status: 'staged',
             expires_at: '2099-01-01T00:00:00.000Z'
           }
@@ -131,6 +134,7 @@ describe('vfsDirectBlobAttach coverage', () => {
           {
             blob_id: 'blob-1',
             staged_by: 'user-1',
+            organization_id: 'org-1',
             status: 'staged',
             expires_at: '2000-01-01T00:00:00.000Z'
           }
@@ -161,6 +165,7 @@ describe('vfsDirectBlobAttach coverage', () => {
           {
             blob_id: 'blob-1',
             staged_by: 'user-1',
+            organization_id: 'org-1',
             status: 'staged',
             expires_at: '2099-01-01T00:00:00.000Z'
           }
@@ -192,6 +197,7 @@ describe('vfsDirectBlobAttach coverage', () => {
           {
             blob_id: 'blob-1',
             staged_by: 'user-1',
+            organization_id: 'org-1',
             status: 'staged',
             expires_at: '2099-01-01T00:00:00.000Z'
           }
@@ -235,6 +241,7 @@ describe('vfsDirectBlobAttach coverage', () => {
           {
             blob_id: 'blob-1',
             staged_by: 'user-1',
+            organization_id: 'org-1',
             status: 'staged',
             expires_at: '2099-01-01T00:00:00.000Z'
           }
@@ -251,7 +258,7 @@ describe('vfsDirectBlobAttach coverage', () => {
       })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
-        rows: [{ object_type: 'file' }]
+        rows: [{ object_type: 'file', organization_id: 'org-1' }]
       })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({

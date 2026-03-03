@@ -90,6 +90,7 @@ describe('mlsDirectMessagesShared', () => {
       {
         messageId: 'message-1',
         groupId: 'group-1',
+        organizationId: 'org-1',
         senderUserId: 'user-1',
         ciphertext: 'ciphertext-value',
         contentType: 'text/plain',
