@@ -171,4 +171,51 @@ describe('checkVfsCrdtReplicaHeadsParity', () => {
       'CRDT parity count exceeds Number.MAX_SAFE_INTEGER'
     );
   });
+
+  it('defensively normalizes malformed mismatch sample rows', async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            checked_pair_count: '2',
+            mismatch_count: '2',
+            missing_head_count: '0',
+            stale_head_count: '0',
+            write_id_mismatch_count: '0',
+            occurred_at_mismatch_count: '2'
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            actor_id: 'actor-5',
+            replica_id: 'tablet',
+            expected_max_write_id: true,
+            actual_max_write_id: true,
+            expected_max_occurred_at: '2026-03-01T04:00:00.000Z',
+            actual_max_occurred_at: '2026-03-01T04:00:00.000Z'
+          },
+          {
+            actor_id: 'actor-6',
+            replica_id: 'tablet',
+            expected_max_write_id: null,
+            actual_max_write_id: null,
+            expected_max_occurred_at: '2026-03-01T05:00:00.000Z',
+            actual_max_occurred_at: null
+          }
+        ]
+      });
+
+    const result = await checkVfsCrdtReplicaHeadsParity(
+      { query },
+      { sampleLimit: 10 }
+    );
+
+    expect(result.mismatches[0]?.expectedMaxWriteId).toBeNull();
+    expect(result.mismatches[0]?.actualMaxWriteId).toBeNull();
+    expect(result.mismatches[0]?.reason).toBe('unknown');
+    expect(result.mismatches[1]?.reason).toBe('occurred_at');
+  });
 });
