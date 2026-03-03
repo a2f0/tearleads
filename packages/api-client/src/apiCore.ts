@@ -322,10 +322,11 @@ function parseConnectRoute(
   if (!match) {
     return null;
   }
+  const [, serviceName = '', methodName = ''] = match;
 
   return {
-    serviceName: match[1],
-    methodName: match[2]
+    serviceName,
+    methodName
   };
 }
 
