@@ -6,6 +6,7 @@ import {
   markSessionActive,
   wasSessionActive
 } from '@/hooks/app';
+import { DatabaseSetupOverlay } from '@/components/DatabaseSetupOverlay';
 import { toError } from '@/lib/errors';
 import { deleteFileStorageForInstance } from '@/storage/opfs';
 import type { Database } from '../index';
@@ -476,6 +477,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
   return (
     <DatabaseContext.Provider value={value}>
       {children}
+      <DatabaseSetupOverlay />
     </DatabaseContext.Provider>
   );
 }
