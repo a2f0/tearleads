@@ -17,13 +17,27 @@ function createMockClient(): {
   const client: DbQueryClient = {
     query: vi.fn(async (text: string, params?: readonly unknown[]) => {
       calls.push({ text, params });
-      if (text.includes('SELECT id FROM users WHERE email = $1')) {
+      if (text.includes('FROM users WHERE email = $1')) {
         const email = params?.[0];
         if (email === 'bob@tearleads.com') {
-          return { rows: [{ id: 'bob-user-id' }] };
+          return {
+            rows: [
+              {
+                id: 'bob-user-id',
+                personal_organization_id: 'bob-org-id'
+              }
+            ]
+          };
         }
         if (email === 'alice@tearleads.com') {
-          return { rows: [{ id: 'alice-user-id' }] };
+          return {
+            rows: [
+              {
+                id: 'alice-user-id',
+                personal_organization_id: 'alice-org-id'
+              }
+            ]
+          };
         }
         return { rows: [] };
       }
@@ -39,10 +53,24 @@ function createMockClient(): {
 describe('setupBobNotesShareForAliceDb', () => {
   it('creates root/folder/note links and share ACL inside one transaction', async () => {
     const { calls, client } = createMockClient();
+    const encryptVfsName = vi.fn(
+      async ({
+        plaintextName
+      }: {
+        client: DbQueryClient;
+        ownerUserId: string;
+        plaintextName: string;
+      }) => ({
+        encryptedSessionKey: `wrapped:${plaintextName}`,
+        encryptedName: `cipher:${plaintextName}`
+      })
+    );
     const result = await setupBobNotesShareForAliceDb({
       client,
       bobEmail: 'bob@tearleads.com',
       aliceEmail: 'alice@tearleads.com',
+      encryptVfsName,
+      hasOrganizationIdColumn: true,
       folderId: 'folder-fixed',
       noteId: 'note-fixed',
       idFactory: (() => {
@@ -66,17 +94,28 @@ describe('setupBobNotesShareForAliceDb', () => {
     expect(calls[0]?.text).toBe('BEGIN');
     expect(calls[calls.length - 1]?.text).toBe('COMMIT');
 
-    const rootInsertCall = calls.find((call) =>
-      call.text.includes("VALUES ($1, 'folder', NULL, NULL, 'VFS Root'")
+    const rootInsertCall = calls.find(
+      (call) =>
+        call.text.includes('INSERT INTO vfs_registry') &&
+        call.params?.[0] === '__vfs_root__'
     );
     expect(rootInsertCall?.params?.[0]).toBe('__vfs_root__');
+    expect(rootInsertCall?.params?.[1]).toBe('folder');
+    expect(rootInsertCall?.params?.[3]).toBe('bob-org-id');
 
     const noteInsertCall = calls.find(
       (call) =>
         call.text.includes('INSERT INTO vfs_registry') &&
-        call.text.includes("VALUES ($1, 'note', $2, $3, $4, $5::timestamptz)")
+        call.params?.[0] === 'note-fixed'
     );
-    expect(noteInsertCall?.params?.[3]).toBe('Note for Alice - From Bob');
+    expect(noteInsertCall?.params?.[1]).toBe('note');
+    expect(noteInsertCall?.params?.[3]).toBe('bob-org-id');
+    expect(noteInsertCall?.params?.[4]).toBe(
+      'wrapped:Note for Alice - From Bob'
+    );
+    expect(noteInsertCall?.params?.[5]).toBe(
+      'cipher:Note for Alice - From Bob'
+    );
 
     const noteStateCall = calls.find((call) =>
       call.text.includes('INSERT INTO vfs_item_state')
@@ -106,6 +145,8 @@ describe('setupBobNotesShareForAliceDb', () => {
     expect(shareCalls[1]?.params?.[1]).toBe('note-fixed');
     expect(shareCalls[1]?.params?.[2]).toBe('alice-user-id');
     expect(shareCalls[1]?.params?.[3]).toBe('read');
+
+    expect(encryptVfsName).toHaveBeenCalledTimes(2);
   });
 
   it('rolls back transaction on failure', async () => {
@@ -116,7 +157,7 @@ describe('setupBobNotesShareForAliceDb', () => {
         if (text === 'BEGIN' || text === 'ROLLBACK') {
           return { rows: [] };
         }
-        if (text.includes('SELECT id FROM users WHERE email = $1')) {
+        if (text.includes('FROM users WHERE email = $1')) {
           return { rows: [] };
         }
         return { rows: [] };

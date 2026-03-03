@@ -1,4 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import {
+  type EncryptScaffoldVfsNameResult,
+  encryptScaffoldVfsName
+} from './encryptScaffoldVfsName.js';
+import { hasVfsRegistryOrganizationId } from './vfsRegistrySchema.js';
 
 type ShareAccessLevel = 'read' | 'write' | 'admin';
 
@@ -20,6 +25,12 @@ export interface SetupBobNotesShareForAliceDbInput {
   noteName?: string;
   notePlaintext?: string;
   shareAccessLevel?: ShareAccessLevel;
+  encryptVfsName?: (input: {
+    client: DbQueryClient;
+    ownerUserId: string;
+    plaintextName: string;
+  }) => Promise<EncryptScaffoldVfsNameResult>;
+  hasOrganizationIdColumn?: boolean;
   idFactory?: () => string;
   now?: () => Date;
 }
@@ -45,14 +56,23 @@ function encodeBase64(value: string): string {
 }
 
 function readRequiredUserId(
-  rows: Array<{ id?: unknown }>,
+  rows: Array<{ id?: unknown; personal_organization_id?: unknown }>,
   email: string
-): string {
+): { userId: string; organizationId: string } {
   const userId = rows[0]?.id;
-  if (typeof userId !== 'string' || userId.length === 0) {
+  const organizationId = rows[0]?.personal_organization_id;
+  if (
+    typeof userId !== 'string' ||
+    userId.length === 0 ||
+    typeof organizationId !== 'string' ||
+    organizationId.length === 0
+  ) {
     throw new Error(`Could not resolve user id for ${email}`);
   }
-  return userId;
+  return {
+    userId,
+    organizationId
+  };
 }
 
 function readRequiredAclId(rows: Array<{ id?: unknown }>): string {
@@ -61,6 +81,84 @@ function readRequiredAclId(rows: Array<{ id?: unknown }>): string {
     throw new Error('Failed to create or update share ACL row');
   }
   return aclId;
+}
+
+interface InsertVfsRootInput {
+  client: DbQueryClient;
+  rootItemId: string;
+  organizationId: string;
+  hasOrganizationIdColumn: boolean;
+  nowIso: string;
+}
+
+async function insertVfsRoot(input: InsertVfsRootInput): Promise<void> {
+  const columns = ['id', 'object_type', 'owner_id'];
+  const params: unknown[] = [input.rootItemId, 'folder', null];
+
+  if (input.hasOrganizationIdColumn) {
+    columns.push('organization_id');
+    params.push(input.organizationId);
+  }
+
+  columns.push('encrypted_session_key', 'encrypted_name', 'created_at');
+  params.push(null, 'VFS Root', input.nowIso);
+
+  const placeholders = params
+    .map((_value, index) => `$${index + 1}`)
+    .join(', ');
+  await input.client.query(
+    `INSERT INTO vfs_registry (${columns.join(', ')})
+     VALUES (${placeholders})
+     ON CONFLICT (id) DO NOTHING`,
+    params
+  );
+}
+
+interface UpsertVfsRegistryItemInput {
+  client: DbQueryClient;
+  itemId: string;
+  objectType: 'folder' | 'note';
+  ownerId: string;
+  organizationId: string;
+  hasOrganizationIdColumn: boolean;
+  encryptedSessionKey: string;
+  encryptedName: string;
+  nowIso: string;
+}
+
+async function upsertVfsRegistryItem(
+  input: UpsertVfsRegistryItemInput
+): Promise<void> {
+  const columns = ['id', 'object_type', 'owner_id'];
+  const params: unknown[] = [input.itemId, input.objectType, input.ownerId];
+  const updateAssignments = [
+    'object_type = EXCLUDED.object_type',
+    'owner_id = EXCLUDED.owner_id'
+  ];
+
+  if (input.hasOrganizationIdColumn) {
+    columns.push('organization_id');
+    params.push(input.organizationId);
+    updateAssignments.push('organization_id = EXCLUDED.organization_id');
+  }
+
+  columns.push('encrypted_session_key', 'encrypted_name', 'created_at');
+  params.push(input.encryptedSessionKey, input.encryptedName, input.nowIso);
+  updateAssignments.push(
+    'encrypted_session_key = EXCLUDED.encrypted_session_key',
+    'encrypted_name = EXCLUDED.encrypted_name'
+  );
+
+  const placeholders = params
+    .map((_value, index) => `$${index + 1}`)
+    .join(', ');
+  await input.client.query(
+    `INSERT INTO vfs_registry (${columns.join(', ')})
+     VALUES (${placeholders})
+     ON CONFLICT (id) DO UPDATE SET
+       ${updateAssignments.join(', ')}`,
+    params
+  );
 }
 
 export async function setupBobNotesShareForAliceDb(
@@ -75,6 +173,7 @@ export async function setupBobNotesShareForAliceDb(
   const noteName = input.noteName ?? DEFAULT_NOTE_NAME;
   const notePlaintext = input.notePlaintext ?? DEFAULT_NOTE_PLAINTEXT;
   const shareAccessLevel = input.shareAccessLevel ?? DEFAULT_SHARE_ACCESS_LEVEL;
+  const encryptVfsName = input.encryptVfsName ?? encryptScaffoldVfsName;
   const nowDate = now();
   const nowIso = nowDate.toISOString();
   // Guardrail: keep scaffolded item_upsert clearly ordered before trigger-emitted
@@ -85,66 +184,63 @@ export async function setupBobNotesShareForAliceDb(
 
   await input.client.query('BEGIN');
   try {
+    const hasOrganizationIdColumn =
+      input.hasOrganizationIdColumn ??
+      (await hasVfsRegistryOrganizationId(input.client));
     const bobRows = await input.client.query(
-      `SELECT id FROM users WHERE email = $1 LIMIT 1`,
+      `SELECT id, personal_organization_id FROM users WHERE email = $1 LIMIT 1`,
       [input.bobEmail]
     );
     const aliceRows = await input.client.query(
-      `SELECT id FROM users WHERE email = $1 LIMIT 1`,
+      `SELECT id, personal_organization_id FROM users WHERE email = $1 LIMIT 1`,
       [input.aliceEmail]
     );
-    const bobUserId = readRequiredUserId(bobRows.rows, input.bobEmail);
-    const aliceUserId = readRequiredUserId(aliceRows.rows, input.aliceEmail);
+    const bobIdentity = readRequiredUserId(bobRows.rows, input.bobEmail);
+    const aliceIdentity = readRequiredUserId(aliceRows.rows, input.aliceEmail);
+    const bobUserId = bobIdentity.userId;
+    const aliceUserId = aliceIdentity.userId;
+    const encryptedFolder = await encryptVfsName({
+      client: input.client,
+      ownerUserId: bobUserId,
+      plaintextName: folderName
+    });
+    const encryptedNote = await encryptVfsName({
+      client: input.client,
+      ownerUserId: bobUserId,
+      plaintextName: noteName
+    });
 
-    await input.client.query(
-      `INSERT INTO vfs_registry (
-         id,
-         object_type,
-         owner_id,
-         encrypted_session_key,
-         encrypted_name,
-         created_at
-       )
-       VALUES ($1, 'folder', NULL, NULL, 'VFS Root', $2::timestamptz)
-       ON CONFLICT (id) DO NOTHING`,
-      [rootItemId, nowIso]
-    );
+    await insertVfsRoot({
+      client: input.client,
+      rootItemId,
+      organizationId: bobIdentity.organizationId,
+      hasOrganizationIdColumn,
+      nowIso
+    });
 
-    await input.client.query(
-      `INSERT INTO vfs_registry (
-         id,
-         object_type,
-         owner_id,
-         encrypted_session_key,
-         encrypted_name,
-         created_at
-       )
-       VALUES ($1, 'folder', $2, $3, $4, $5::timestamptz)
-       ON CONFLICT (id) DO UPDATE SET
-         object_type = EXCLUDED.object_type,
-         owner_id = EXCLUDED.owner_id,
-         encrypted_session_key = EXCLUDED.encrypted_session_key,
-         encrypted_name = EXCLUDED.encrypted_name`,
-      [folderId, bobUserId, 'bob-folder-session-key', folderName, nowIso]
-    );
+    await upsertVfsRegistryItem({
+      client: input.client,
+      itemId: folderId,
+      objectType: 'folder',
+      ownerId: bobUserId,
+      organizationId: bobIdentity.organizationId,
+      hasOrganizationIdColumn,
+      encryptedSessionKey: encryptedFolder.encryptedSessionKey,
+      encryptedName: encryptedFolder.encryptedName,
+      nowIso
+    });
 
-    await input.client.query(
-      `INSERT INTO vfs_registry (
-         id,
-         object_type,
-         owner_id,
-         encrypted_session_key,
-         encrypted_name,
-         created_at
-       )
-       VALUES ($1, 'note', $2, $3, $4, $5::timestamptz)
-       ON CONFLICT (id) DO UPDATE SET
-         object_type = EXCLUDED.object_type,
-         owner_id = EXCLUDED.owner_id,
-         encrypted_session_key = EXCLUDED.encrypted_session_key,
-         encrypted_name = EXCLUDED.encrypted_name`,
-      [noteId, bobUserId, 'bob-note-session-key', noteName, nowIso]
-    );
+    await upsertVfsRegistryItem({
+      client: input.client,
+      itemId: noteId,
+      objectType: 'note',
+      ownerId: bobUserId,
+      organizationId: bobIdentity.organizationId,
+      hasOrganizationIdColumn,
+      encryptedSessionKey: encryptedNote.encryptedSessionKey,
+      encryptedName: encryptedNote.encryptedName,
+      nowIso
+    });
 
     await input.client.query(
       `INSERT INTO vfs_item_state (

@@ -1,11 +1,21 @@
 import { randomUUID } from 'node:crypto';
-
+import {
+  type EncryptScaffoldVfsNameResult,
+  encryptScaffoldVfsName
+} from './encryptScaffoldVfsName.js';
 import type { DbQueryClient } from './setupBobNotesShareForAliceDb.js';
+import { hasVfsRegistryOrganizationId } from './vfsRegistrySchema.js';
 
 export interface SetupWelcomeEmailsDbInput {
   client: DbQueryClient;
   bobEmail: string;
   aliceEmail: string;
+  encryptVfsName?: (input: {
+    client: DbQueryClient;
+    ownerUserId: string;
+    plaintextName: string;
+  }) => Promise<EncryptScaffoldVfsNameResult>;
+  hasOrganizationIdColumn?: boolean;
   idFactory?: () => string;
   now?: () => Date;
 }
@@ -30,49 +40,110 @@ function encodeBase64(value: string): string {
 }
 
 function readRequiredUserId(
-  rows: Array<{ id?: unknown }>,
+  rows: Array<{ id?: unknown; personal_organization_id?: unknown }>,
   email: string
-): string {
+): { userId: string; organizationId: string } {
   const userId = rows[0]?.id;
-  if (typeof userId !== 'string' || userId.length === 0) {
+  const organizationId = rows[0]?.personal_organization_id;
+  if (
+    typeof userId !== 'string' ||
+    userId.length === 0 ||
+    typeof organizationId !== 'string' ||
+    organizationId.length === 0
+  ) {
     throw new Error(`Could not resolve user id for ${email}`);
   }
-  return userId;
+  return {
+    userId,
+    organizationId
+  };
 }
 
 async function insertEmailForUser(
   client: DbQueryClient,
   userId: string,
+  organizationId: string,
   userEmail: string,
   inboxFolderId: string,
   emailItemId: string,
   idFactory: () => string,
-  nowIso: string
+  nowIso: string,
+  hasOrganizationIdColumn: boolean,
+  encryptVfsName: (input: {
+    client: DbQueryClient;
+    ownerUserId: string;
+    plaintextName: string;
+  }) => Promise<EncryptScaffoldVfsNameResult>
 ): Promise<void> {
+  const encryptedInboxName = await encryptVfsName({
+    client,
+    ownerUserId: userId,
+    plaintextName: 'Inbox'
+  });
+
+  const folderColumns = [
+    'id',
+    'object_type',
+    'owner_id',
+    'encrypted_session_key',
+    'encrypted_name',
+    'created_at'
+  ];
+  const folderParams: unknown[] = [
+    inboxFolderId,
+    'emailFolder',
+    userId,
+    encryptedInboxName.encryptedSessionKey,
+    encryptedInboxName.encryptedName,
+    nowIso
+  ];
+  const folderUpdateAssignments = [
+    'encrypted_session_key = EXCLUDED.encrypted_session_key',
+    'encrypted_name = EXCLUDED.encrypted_name'
+  ];
+  if (hasOrganizationIdColumn) {
+    folderColumns.splice(3, 0, 'organization_id');
+    folderParams.splice(3, 0, organizationId);
+    folderUpdateAssignments.unshift(
+      'organization_id = EXCLUDED.organization_id'
+    );
+  }
+  const folderPlaceholders = folderParams
+    .map((_value, index) => `$${index + 1}`)
+    .join(', ');
   await client.query(
-    `INSERT INTO vfs_registry (
-       id,
-       object_type,
-       owner_id,
-       encrypted_name,
-       created_at
-     )
-     VALUES ($1, 'emailFolder', $2, 'Inbox', $3::timestamptz)
-     ON CONFLICT (id) DO UPDATE
-     SET encrypted_name = 'Inbox'`,
-    [inboxFolderId, userId, nowIso]
+    `INSERT INTO vfs_registry (${folderColumns.join(', ')})
+     VALUES (${folderPlaceholders})
+     ON CONFLICT (id) DO UPDATE SET
+       ${folderUpdateAssignments.join(', ')}`,
+    folderParams
   );
 
+  const emailColumns = [
+    'id',
+    'object_type',
+    'owner_id',
+    'encrypted_session_key',
+    'created_at'
+  ];
+  const emailParams: unknown[] = [
+    emailItemId,
+    'email',
+    userId,
+    'scaffolding-email-session-key',
+    nowIso
+  ];
+  if (hasOrganizationIdColumn) {
+    emailColumns.splice(3, 0, 'organization_id');
+    emailParams.splice(3, 0, organizationId);
+  }
+  const emailPlaceholders = emailParams
+    .map((_value, index) => `$${index + 1}`)
+    .join(', ');
   await client.query(
-    `INSERT INTO vfs_registry (
-       id,
-       object_type,
-       owner_id,
-       encrypted_session_key,
-       created_at
-     )
-     VALUES ($1, 'email', $2, $3, $4::timestamptz)`,
-    [emailItemId, userId, 'scaffolding-email-session-key', nowIso]
+    `INSERT INTO vfs_registry (${emailColumns.join(', ')})
+     VALUES (${emailPlaceholders})`,
+    emailParams
   );
 
   await client.query(
@@ -154,31 +225,40 @@ export async function setupWelcomeEmailsDb(
 ): Promise<SetupWelcomeEmailsDbResult> {
   const idFactory = input.idFactory ?? randomUUID;
   const now = input.now ?? (() => new Date());
+  const encryptVfsName = input.encryptVfsName ?? encryptScaffoldVfsName;
   const nowIso = now().toISOString();
 
   await input.client.query('BEGIN');
   try {
+    const hasOrganizationIdColumn =
+      input.hasOrganizationIdColumn ??
+      (await hasVfsRegistryOrganizationId(input.client));
     const bobRows = await input.client.query(
-      `SELECT id FROM users WHERE email = $1 LIMIT 1`,
+      `SELECT id, personal_organization_id FROM users WHERE email = $1 LIMIT 1`,
       [input.bobEmail]
     );
     const aliceRows = await input.client.query(
-      `SELECT id FROM users WHERE email = $1 LIMIT 1`,
+      `SELECT id, personal_organization_id FROM users WHERE email = $1 LIMIT 1`,
       [input.aliceEmail]
     );
-    const bobUserId = readRequiredUserId(bobRows.rows, input.bobEmail);
-    const aliceUserId = readRequiredUserId(aliceRows.rows, input.aliceEmail);
+    const bobIdentity = readRequiredUserId(bobRows.rows, input.bobEmail);
+    const aliceIdentity = readRequiredUserId(aliceRows.rows, input.aliceEmail);
+    const bobUserId = bobIdentity.userId;
+    const aliceUserId = aliceIdentity.userId;
 
     const bobInboxId = `email-inbox:${bobUserId}`;
     const bobEmailItemId = `email:${idFactory()}`;
     await insertEmailForUser(
       input.client,
       bobUserId,
+      bobIdentity.organizationId,
       input.bobEmail,
       bobInboxId,
       bobEmailItemId,
       idFactory,
-      nowIso
+      nowIso,
+      hasOrganizationIdColumn,
+      encryptVfsName
     );
 
     const aliceInboxId = `email-inbox:${aliceUserId}`;
@@ -186,11 +266,14 @@ export async function setupWelcomeEmailsDb(
     await insertEmailForUser(
       input.client,
       aliceUserId,
+      aliceIdentity.organizationId,
       input.aliceEmail,
       aliceInboxId,
       aliceEmailItemId,
       idFactory,
-      nowIso
+      nowIso,
+      hasOrganizationIdColumn,
+      encryptVfsName
     );
 
     await input.client.query('COMMIT');
