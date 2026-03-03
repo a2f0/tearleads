@@ -10,10 +10,10 @@ Drive a complex issue to completion across multiple PRs with minimal or no user 
 This skill is for long-running tasks where one giant PR is too risky. It repeatedly:
 
 1. selects the largest sane slice with no overlap with in-flight work,
-2. implements and validates the slice,
-3. runs `$commit-and-push`,
-4. runs `$enter-merge-queue` until merged,
-5. refreshes state and repeats.
+1. implements and validates the slice,
+1. runs `$commit-and-push`,
+1. runs `$enter-merge-queue` until merged,
+1. refreshes state and repeats.
 
 ## Core Rules
 
@@ -133,18 +133,18 @@ If coverage or quality gates fail, add tests before commit. Do not lower thresho
 After implementation is complete and local validation passes:
 
 1. Invoke `$commit-and-push`.
-2. Invoke `$enter-merge-queue`.
-3. Wait for merge completion (handled by `$enter-merge-queue`).
+1. Invoke `$enter-merge-queue`.
+1. Wait for merge completion (handled by `$enter-merge-queue`).
 
 Do not start the next slice until merge is confirmed.
 
 ## Phase 5: Post-Merge Update
 
 1. Refresh workspace (normally handled by `$enter-merge-queue`).
-2. Confirm current branch is `main` and clean.
-3. Append merged PR metadata to `completed_slices`.
-4. Increment `iteration`.
-5. Re-run Phase 1 recon against latest code.
+1. Confirm current branch is `main` and clean.
+1. Append merged PR metadata to `completed_slices`.
+1. Increment `iteration`.
+1. Re-run Phase 1 recon against latest code.
 
 Repeat Phases 2-5 until done.
 
@@ -193,9 +193,9 @@ FINAL ISSUE COMPLETION REPORT
 For #2540-like migrations, prefer this order:
 
 1. Remaining deproxy service slices with strongest boundaries.
-2. Legacy routing/unmount deletion once deproxy dependencies are removed.
-3. Client wrapper/type migration cleanup.
-4. Final dependency removals and dead-code deletion.
+1. Legacy routing/unmount deletion once deproxy dependencies are removed.
+1. Client wrapper/type migration cleanup.
+1. Final dependency removals and dead-code deletion.
 
 Always re-check overlap against currently open PRs before each slice.
 

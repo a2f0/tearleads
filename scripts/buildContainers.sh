@@ -235,6 +235,10 @@ fi
 
 # Build Client
 if [[ "$BUILD_CLIENT" == "true" ]]; then
+  echo "=== Generating WASM bindings for client ==="
+  "$SCRIPT_DIR/codegenWasm.sh"
+  echo ""
+
   # Determine API URL based on environment
   if [[ -z "${VITE_API_URL:-}" ]]; then
     if [[ "$ENV" == "staging" ]]; then

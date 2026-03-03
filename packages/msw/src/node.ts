@@ -14,6 +14,9 @@ export const server = setupServer();
 
 server.events.on('request:start', ({ request }) => {
   const url = new URL(request.url);
+  if (url.pathname.endsWith('.wasm')) {
+    return;
+  }
   recordedApiRequests.push({
     method: request.method.toUpperCase(),
     pathname: url.pathname,
