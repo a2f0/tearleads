@@ -54,7 +54,7 @@ This map ties vendor management policy controls to concrete implementation and e
 | File | Control | Description |
 | --- | --- | --- |
 | `packages/api/src/lib/revenuecat.ts` | Webhook verification | HMAC-SHA256 signature validation |
-| `packages/api/src/routes/revenuecat/postWebhooks.ts` | Event processing | Idempotent webhook handling |
+| `packages/api/src/http/revenuecatWebhookRoute.ts` | Event processing | Idempotent webhook handling |
 | `packages/db/src/schema/definition.ts` | Data storage | Billing tables with audit trail |
 
 ### OpenRouter (`TL-VENDOR-007`)
