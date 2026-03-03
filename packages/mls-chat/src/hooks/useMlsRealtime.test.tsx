@@ -48,22 +48,6 @@ const uiComponents: MlsChatUIComponents = {
   )
 };
 
-function createWrapper() {
-  return function TestWrapper({ children }: { children: ReactNode }) {
-    return (
-      <MlsChatProvider
-        apiBaseUrl="http://localhost:3000"
-        getAuthHeader={() => 'Bearer token'}
-        userId="test-user-id"
-        userEmail="test@example.com"
-        ui={uiComponents}
-      >
-        {children}
-      </MlsChatProvider>
-    );
-  };
-}
-
 function createAbortError(): Error {
   const error = new Error('aborted');
   error.name = 'AbortError';
@@ -135,7 +119,17 @@ describe('useMlsRealtime', () => {
 
     const client = new MlsClient('test-user-id');
     const { result, unmount } = renderHook(() => useMlsRealtime(client), {
-      wrapper: createWrapper()
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <MlsChatProvider
+          apiBaseUrl="http://localhost:3000"
+          getAuthHeader={() => 'Bearer token'}
+          userId="test-user-id"
+          userEmail="test@example.com"
+          ui={uiComponents}
+        >
+          {children}
+        </MlsChatProvider>
+      )
     });
 
     act(() => {
@@ -197,7 +191,17 @@ describe('useMlsRealtime', () => {
       .mockResolvedValue(undefined);
 
     const { result, unmount } = renderHook(() => useMlsRealtime(client), {
-      wrapper: createWrapper()
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <MlsChatProvider
+          apiBaseUrl="http://localhost:3000"
+          getAuthHeader={() => 'Bearer token'}
+          userId="test-user-id"
+          userEmail="test@example.com"
+          ui={uiComponents}
+        >
+          {children}
+        </MlsChatProvider>
+      )
     });
 
     act(() => {
@@ -267,7 +271,17 @@ describe('useMlsRealtime', () => {
       .mockResolvedValue(undefined);
 
     const { result, unmount } = renderHook(() => useMlsRealtime(client), {
-      wrapper: createWrapper()
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <MlsChatProvider
+          apiBaseUrl="http://localhost:3000"
+          getAuthHeader={() => 'Bearer token'}
+          userId="test-user-id"
+          userEmail="test@example.com"
+          ui={uiComponents}
+        >
+          {children}
+        </MlsChatProvider>
+      )
     });
 
     act(() => {
@@ -320,7 +334,17 @@ describe('useMlsRealtime', () => {
 
     const client = new MlsClient('test-user-id');
     renderHook(() => useMlsRealtime(client), {
-      wrapper: createWrapper()
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <MlsChatProvider
+          apiBaseUrl="http://localhost:3000"
+          getAuthHeader={() => 'Bearer token'}
+          userId="test-user-id"
+          userEmail="test@example.com"
+          ui={uiComponents}
+        >
+          {children}
+        </MlsChatProvider>
+      )
     });
 
     await waitFor(() => {
@@ -344,7 +368,17 @@ describe('MLS hook refresh registration', () => {
 
     const client = new MlsClient('test-user-id');
     renderHook(() => useGroupMembers('group-1', client), {
-      wrapper: createWrapper()
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <MlsChatProvider
+          apiBaseUrl="http://localhost:3000"
+          getAuthHeader={() => 'Bearer token'}
+          userId="test-user-id"
+          userEmail="test@example.com"
+          ui={uiComponents}
+        >
+          {children}
+        </MlsChatProvider>
+      )
     });
 
     await waitFor(() => {
@@ -382,7 +416,17 @@ describe('MLS hook refresh registration', () => {
 
     const client = new MlsClient('test-user-id');
     renderHook(() => useWelcomeMessages(client), {
-      wrapper: createWrapper()
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <MlsChatProvider
+          apiBaseUrl="http://localhost:3000"
+          getAuthHeader={() => 'Bearer token'}
+          userId="test-user-id"
+          userEmail="test@example.com"
+          ui={uiComponents}
+        >
+          {children}
+        </MlsChatProvider>
+      )
     });
 
     await waitFor(() => {
