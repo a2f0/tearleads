@@ -39,7 +39,10 @@ vi.mock('./mlsDirectAuth.js', () => ({
   requireMlsClaims: (...args: unknown[]) => requireMlsClaimsMock(...args)
 }));
 
-import { getGroupStateDirect, uploadGroupStateDirect } from './mlsDirectState.js';
+import {
+  getGroupStateDirect,
+  uploadGroupStateDirect
+} from './mlsDirectState.js';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -80,7 +83,9 @@ describe('mlsDirectState', () => {
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({ rows: [{ current_epoch: 2 }] })
       .mockResolvedValueOnce({
-        rows: [{ id: 'state-1', created_at: new Date('2026-03-03T03:10:00.000Z') }]
+        rows: [
+          { id: 'state-1', created_at: new Date('2026-03-03T03:10:00.000Z') }
+        ]
       })
       .mockResolvedValueOnce({});
 

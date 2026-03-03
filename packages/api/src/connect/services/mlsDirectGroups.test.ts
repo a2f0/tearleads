@@ -148,7 +148,10 @@ describe('mlsDirectGroups', () => {
       ]
     });
 
-    const response = await listGroupsDirect({}, { requestHeader: new Headers() });
+    const response = await listGroupsDirect(
+      {},
+      { requestHeader: new Headers() }
+    );
 
     expect(parseJson(response.json)).toEqual({
       groups: [
@@ -173,10 +176,7 @@ describe('mlsDirectGroups', () => {
     getActiveMlsGroupMembershipMock.mockResolvedValueOnce(null);
 
     await expect(
-      getGroupDirect(
-        { groupId: 'group-1' },
-        { requestHeader: new Headers() }
-      )
+      getGroupDirect({ groupId: 'group-1' }, { requestHeader: new Headers() })
     ).rejects.toMatchObject({ code: Code.PermissionDenied });
   });
 

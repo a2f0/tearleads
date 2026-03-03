@@ -93,7 +93,10 @@ export async function uploadGroupStateDirect(
 
     const membership = await getActiveMlsGroupMembership(groupId, claims.sub);
     if (!membership) {
-      throw new ConnectError('Not a member of this group', Code.PermissionDenied);
+      throw new ConnectError(
+        'Not a member of this group',
+        Code.PermissionDenied
+      );
     }
 
     const client = await acquireTransactionClient(pool);
@@ -116,11 +119,17 @@ export async function uploadGroupStateDirect(
       }
 
       if (payload.epoch > currentEpoch) {
-        throw new ConnectError('State epoch is ahead of group epoch', Code.AlreadyExists);
+        throw new ConnectError(
+          'State epoch is ahead of group epoch',
+          Code.AlreadyExists
+        );
       }
 
       const id = randomUUID();
-      const result = await client.query<{ id: string; created_at: Date | string }>(
+      const result = await client.query<{
+        id: string;
+        created_at: Date | string;
+      }>(
         `INSERT INTO mls_group_state (
            id,
            group_id,
@@ -208,7 +217,10 @@ export async function getGroupStateDirect(
 
     const membership = await getActiveMlsGroupMembership(groupId, claims.sub);
     if (!membership) {
-      throw new ConnectError('Not a member of this group', Code.PermissionDenied);
+      throw new ConnectError(
+        'Not a member of this group',
+        Code.PermissionDenied
+      );
     }
 
     const result = await pool.query<{

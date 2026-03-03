@@ -1,15 +1,15 @@
 import {
+  addGroupMemberDirect,
+  getGroupMembersDirect,
+  removeGroupMemberDirect
+} from './mlsDirectGroupMembers.js';
+import {
   createGroupDirect,
   deleteGroupDirect,
   getGroupDirect,
   listGroupsDirect,
   updateGroupDirect
 } from './mlsDirectGroups.js';
-import {
-  addGroupMemberDirect,
-  getGroupMembersDirect,
-  removeGroupMemberDirect
-} from './mlsDirectGroupMembers.js';
 import {
   deleteKeyPackageDirect,
   getMyKeyPackagesDirect,

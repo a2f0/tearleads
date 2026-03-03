@@ -64,7 +64,10 @@ export async function addGroupMemberDirect(
 
     const membership = await getActiveMlsGroupMembership(groupId, claims.sub);
     if (!membership) {
-      throw new ConnectError('Not a member of this group', Code.PermissionDenied);
+      throw new ConnectError(
+        'Not a member of this group',
+        Code.PermissionDenied
+      );
     }
 
     if (membership.role !== 'admin') {
@@ -280,7 +283,10 @@ export async function getGroupMembersDirect(
 
     const membership = await getActiveMlsGroupMembership(groupId, claims.sub);
     if (!membership) {
-      throw new ConnectError('Not a member of this group', Code.PermissionDenied);
+      throw new ConnectError(
+        'Not a member of this group',
+        Code.PermissionDenied
+      );
     }
 
     const result = await pool.query<{
@@ -352,7 +358,10 @@ export async function removeGroupMemberDirect(
 
     const membership = await getActiveMlsGroupMembership(groupId, claims.sub);
     if (!membership) {
-      throw new ConnectError('Not a member of this group', Code.PermissionDenied);
+      throw new ConnectError(
+        'Not a member of this group',
+        Code.PermissionDenied
+      );
     }
 
     if (membership.role !== 'admin') {

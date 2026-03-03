@@ -71,7 +71,10 @@ export async function sendGroupMessageDirect(
 
     const membership = await getActiveMlsGroupMembership(groupId, claims.sub);
     if (!membership) {
-      throw new ConnectError('Not a member of this group', Code.PermissionDenied);
+      throw new ConnectError(
+        'Not a member of this group',
+        Code.PermissionDenied
+      );
     }
 
     const client = await acquireTransactionClient(pool);
@@ -220,7 +223,10 @@ export async function getGroupMessagesDirect(
   try {
     const membership = await getActiveMlsGroupMembership(groupId, claims.sub);
     if (!membership) {
-      throw new ConnectError('Not a member of this group', Code.PermissionDenied);
+      throw new ConnectError(
+        'Not a member of this group',
+        Code.PermissionDenied
+      );
     }
 
     const pool = await getPostgresPool();

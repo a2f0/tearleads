@@ -60,7 +60,8 @@ vi.mock('./mlsDirectGroups.js', () => ({
 }));
 
 vi.mock('./mlsDirectGroupMembers.js', () => ({
-  addGroupMemberDirect: (...args: unknown[]) => addGroupMemberDirectMock(...args),
+  addGroupMemberDirect: (...args: unknown[]) =>
+    addGroupMemberDirectMock(...args),
   getGroupMembersDirect: (...args: unknown[]) =>
     getGroupMembersDirectMock(...args),
   removeGroupMemberDirect: (...args: unknown[]) =>

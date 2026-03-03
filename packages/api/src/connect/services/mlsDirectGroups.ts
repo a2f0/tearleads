@@ -68,7 +68,10 @@ export async function createGroupDirect(
 
     const organizationId = organizationResult.rows[0]?.personal_organization_id;
     if (!organizationId) {
-      throw new ConnectError('No organization found for user', Code.PermissionDenied);
+      throw new ConnectError(
+        'No organization found for user',
+        Code.PermissionDenied
+      );
     }
 
     const client = await pool.connect();
@@ -232,7 +235,10 @@ export async function getGroupDirect(
 
     const membership = await getActiveMlsGroupMembership(groupId, claims.sub);
     if (!membership) {
-      throw new ConnectError('Not a member of this group', Code.PermissionDenied);
+      throw new ConnectError(
+        'Not a member of this group',
+        Code.PermissionDenied
+      );
     }
 
     const groupResult = await pool.query<{
@@ -334,7 +340,10 @@ export async function updateGroupDirect(
 
     const membership = await getActiveMlsGroupMembership(groupId, claims.sub);
     if (!membership) {
-      throw new ConnectError('Not a member of this group', Code.PermissionDenied);
+      throw new ConnectError(
+        'Not a member of this group',
+        Code.PermissionDenied
+      );
     }
 
     if (membership.role !== 'admin') {
@@ -430,7 +439,10 @@ export async function deleteGroupDirect(
 
     const membership = await getActiveMlsGroupMembership(groupId, claims.sub);
     if (!membership) {
-      throw new ConnectError('Not a member of this group', Code.PermissionDenied);
+      throw new ConnectError(
+        'Not a member of this group',
+        Code.PermissionDenied
+      );
     }
 
     await pool.query(

@@ -1,5 +1,5 @@
 import type { QueryResultRow } from 'pg';
-import { getPostgresPool } from '../../lib/postgres.js';
+import type { getPostgresPool } from '../../lib/postgres.js';
 import { serializeEnvelopeField } from '../../routes/vfs/crdtEnvelopeStorage.js';
 
 export interface VfsMirrorInput {
