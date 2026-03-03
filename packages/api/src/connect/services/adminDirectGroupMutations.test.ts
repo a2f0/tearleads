@@ -167,7 +167,12 @@ describe('adminDirectGroupMutations', () => {
         rows: [{ id: 'org-1' }]
       })
       .mockRejectedValueOnce(
-        new Error('duplicate key value violates unique constraint')
+        Object.assign(
+          new Error('duplicate key value violates unique constraint'),
+          {
+            code: '23505'
+          }
+        )
       );
 
     await expect(
@@ -365,7 +370,12 @@ describe('adminDirectGroupMutations', () => {
         rowCount: 1
       })
       .mockRejectedValueOnce(
-        new Error('duplicate key value violates unique constraint')
+        Object.assign(
+          new Error('duplicate key value violates unique constraint'),
+          {
+            code: '23505'
+          }
+        )
       )
       .mockResolvedValueOnce({
         rowCount: 1

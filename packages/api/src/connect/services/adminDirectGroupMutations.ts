@@ -50,10 +50,11 @@ function parseJsonBody(json: string): unknown {
 }
 
 function isDuplicateConstraintError(error: unknown): error is Error {
-  return (
-    error instanceof Error &&
-    error.message.includes('duplicate key value violates unique constraint')
-  );
+  if (!isRecord(error)) {
+    return false;
+  }
+  const code = error['code'];
+  return typeof code === 'string' && code === '23505';
 }
 
 async function ensureOrganizationExists(

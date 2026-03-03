@@ -299,7 +299,12 @@ describe('adminDirectGroupMutations error branches', () => {
         rows: [{ organization_id: 'org-1' }]
       })
       .mockRejectedValueOnce(
-        new Error('duplicate key value violates unique constraint')
+        Object.assign(
+          new Error('duplicate key value violates unique constraint'),
+          {
+            code: '23505'
+          }
+        )
       );
 
     await expect(
