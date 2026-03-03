@@ -243,8 +243,13 @@ tuxedo_attach_or_create() {
     tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$DASHBOARD_DIR" -n "$OPEN_PRS_WINDOW_NAME" -e "PATH=$dashboard_path" -e "TUXEDO_WORKSPACE=$DASHBOARD_DIR"
     tmux new-window -t "$SESSION_NAME:" -c "$DASHBOARD_DIR" -n "$CLOSED_PRS_WINDOW_NAME" -e "PATH=$dashboard_path" -e "TUXEDO_WORKSPACE=$DASHBOARD_DIR"
 
-    # IRC tab (plain terminal, between PRs and workspace tabs)
-    tmux new-window -t "$SESSION_NAME:" -c "$HOME" -n "$IRC_WINDOW_NAME"
+    # IRC tab (nested tmux for mouse selection/scrolling, between PRs and workspace tabs)
+    inner_irc=$(inner_tmux_cmd tux-irc "$HOME")
+    if [ -n "$inner_irc" ]; then
+        tmux new-window -t "$SESSION_NAME:" -c "$HOME" -n "$IRC_WINDOW_NAME" -e "TUXEDO_INNER_CONF=$CONFIG_DIR/tmux-inner.conf" "$inner_irc"
+    else
+        tmux new-window -t "$SESSION_NAME:" -c "$HOME" -n "$IRC_WINDOW_NAME"
+    fi
 
     # Collect inner tmux session names for editor setup later
     inner_sessions_for_editor=""

@@ -7,7 +7,10 @@
 
 set -eu
 
-echo "Killing tmux server (screen sessions will survive)..."
+echo "Killing inner tmux server (tuxedo-inner socket)..."
+tmux -L tuxedo-inner kill-server 2>/dev/null || true
+
+echo "Killing outer tmux server..."
 tmux kill-server 2>/dev/null || true
 
 echo "Restarting tuxedo..."
