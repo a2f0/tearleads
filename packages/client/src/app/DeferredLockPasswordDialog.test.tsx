@@ -104,4 +104,100 @@ describe('DeferredLockPasswordDialog', () => {
     expect(screen.getByTestId('deferred-lock-password-submit')).toBeDisabled();
     expect(onOpenChange).not.toHaveBeenCalled();
   });
+
+  it('restores focus to previous element when still attached', () => {
+    const trigger = document.createElement('button');
+    document.body.append(trigger);
+    trigger.focus();
+
+    const onOpenChange = vi.fn();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const { rerender } = render(
+      <DeferredLockPasswordDialog
+        open
+        isSaving={false}
+        errorMessage={null}
+        onOpenChange={onOpenChange}
+        onSubmit={onSubmit}
+      />
+    );
+
+    rerender(
+      <DeferredLockPasswordDialog
+        open={false}
+        isSaving={false}
+        errorMessage={null}
+        onOpenChange={onOpenChange}
+        onSubmit={onSubmit}
+      />
+    );
+
+    expect(document.activeElement).toBe(trigger);
+    trigger.remove();
+  });
+
+  it('skips restoring focus for detached or non-html active elements', () => {
+    const trigger = document.createElement('button');
+    document.body.append(trigger);
+    trigger.focus();
+
+    const onOpenChange = vi.fn();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const { rerender, unmount } = render(
+      <DeferredLockPasswordDialog
+        open
+        isSaving={false}
+        errorMessage={null}
+        onOpenChange={onOpenChange}
+        onSubmit={onSubmit}
+      />
+    );
+
+    trigger.remove();
+    expect(() => {
+      rerender(
+        <DeferredLockPasswordDialog
+          open={false}
+          isSaving={false}
+          errorMessage={null}
+          onOpenChange={onOpenChange}
+          onSubmit={onSubmit}
+        />
+      );
+    }).not.toThrow();
+
+    unmount();
+
+    const svgActiveElement = document.createElementNS(
+      'http://www.w3.org/2000/svg',
+      'svg'
+    );
+    const activeElementSpy = vi
+      .spyOn(document, 'activeElement', 'get')
+      .mockReturnValue(svgActiveElement);
+
+    const svgRender = render(
+      <DeferredLockPasswordDialog
+        open
+        isSaving={false}
+        errorMessage={null}
+        onOpenChange={onOpenChange}
+        onSubmit={onSubmit}
+      />
+    );
+
+    expect(() => {
+      svgRender.rerender(
+        <DeferredLockPasswordDialog
+          open={false}
+          isSaving={false}
+          errorMessage={null}
+          onOpenChange={onOpenChange}
+          onSubmit={onSubmit}
+        />
+      );
+    }).not.toThrow();
+
+    activeElementSpy.mockRestore();
+  });
 });

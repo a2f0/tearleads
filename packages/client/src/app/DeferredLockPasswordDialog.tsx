@@ -33,13 +33,19 @@ export function DeferredLockPasswordDialog({
 
     setPassword('');
     setLocalError(null);
-    previousActiveElement.current = document.activeElement as HTMLElement;
+    previousActiveElement.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     inputRef.current?.focus();
   }, [open]);
 
   useEffect(() => {
     if (!open) {
-      previousActiveElement.current?.focus();
+      const previousElement = previousActiveElement.current;
+      if (previousElement && document.body.contains(previousElement)) {
+        previousElement.focus();
+      }
     }
   }, [open]);
 
