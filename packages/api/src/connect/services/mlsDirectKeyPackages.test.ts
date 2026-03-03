@@ -72,19 +72,34 @@ describe('mlsDirectKeyPackages', () => {
 
   it('uploads key packages and skips conflicts', async () => {
     randomUuidMock.mockReturnValueOnce('kp-1').mockReturnValueOnce('kp-2');
-    queryMock
-      .mockResolvedValueOnce({
-        rows: [{ created_at: new Date('2026-03-03T03:00:00.000Z') }]
-      })
-      .mockResolvedValueOnce({
-        rows: []
-      });
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'kp-1',
+          key_package_data: 'data-1',
+          key_package_ref: 'ref-1',
+          cipher_suite: 1,
+          created_at: new Date('2026-03-03T03:00:00.000Z')
+        }
+      ]
+    });
 
     const response = await uploadKeyPackagesDirect(
       {
         json: '{"keyPackages":[{"keyPackageData":"data-1","keyPackageRef":"ref-1","cipherSuite":1},{"keyPackageData":"data-2","keyPackageRef":"ref-2","cipherSuite":1}]}'
       },
       { requestHeader: new Headers() }
+    );
+
+    expect(queryMock).toHaveBeenCalledWith(
+      expect.stringContaining('FROM unnest('),
+      [
+        ['kp-1', 'kp-2'],
+        ['data-1', 'data-2'],
+        ['ref-1', 'ref-2'],
+        [1, 1],
+        'user-1'
+      ]
     );
 
     expect(parseJson(response.json)).toEqual({
@@ -224,6 +239,19 @@ describe('mlsDirectKeyPackages', () => {
         }
       ]
     });
+  });
+
+  it('maps getUserKeyPackages failures to internal', async () => {
+    queryMock.mockRejectedValueOnce(new Error('query failed'));
+
+    await expect(
+      getUserKeyPackagesDirect(
+        {
+          userId: 'user-2'
+        },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.Internal });
   });
 
   it('deletes key packages owned by the caller', async () => {
