@@ -1,6 +1,6 @@
+import { Loader2 } from 'lucide-react';
 import { useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import { Loader2 } from 'lucide-react';
 import { zIndex } from '@/constants/zIndex';
 import { databaseSetupProgressStore } from '@/stores/databaseSetupProgressStore';
 
@@ -27,7 +27,7 @@ export function DatabaseSetupOverlay() {
     >
       <div className="flex w-full max-w-sm flex-col items-center gap-4 px-6">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <p className="text-center text-sm text-muted-foreground">
+        <p className="text-center text-muted-foreground text-sm">
           {step.label}
         </p>
         <div className="w-full">
@@ -44,7 +44,7 @@ export function DatabaseSetupOverlay() {
               style={{ width: `${clampedProgress}%` }}
             />
           </div>
-          <p className="mt-1 text-center text-xs text-muted-foreground">
+          <p className="mt-1 text-center text-muted-foreground text-xs">
             {clampedProgress}%
           </p>
         </div>

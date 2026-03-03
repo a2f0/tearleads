@@ -1,8 +1,8 @@
 import type { Database } from '@tearleads/db/sqlite';
 import { schema } from '@tearleads/db/sqlite';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
-import type { PlatformInfo } from './adapters';
 import { databaseSetupProgressStore } from '@/stores/databaseSetupProgressStore';
+import type { PlatformInfo } from './adapters';
 import { createAdapter, getPlatformInfo } from './adapters';
 import { logEvent } from './analytics';
 import { getKeyManagerForInstance, setCurrentInstanceId } from './crypto';

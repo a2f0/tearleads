@@ -1,12 +1,12 @@
 // component-complexity: allow -- provider manages multi-instance setup/unlock/restore lifecycle across platforms.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DatabaseSetupOverlay } from '@/components/DatabaseSetupOverlay';
 import {
   clearSessionActive,
   emitInstanceChange,
   markSessionActive,
   wasSessionActive
 } from '@/hooks/app';
-import { DatabaseSetupOverlay } from '@/components/DatabaseSetupOverlay';
 import { toError } from '@/lib/errors';
 import { deleteFileStorageForInstance } from '@/storage/opfs';
 import type { Database } from '../index';
