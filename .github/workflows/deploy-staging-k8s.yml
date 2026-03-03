@@ -92,7 +92,7 @@ jobs:
       - name: Ensure API v2 manifests are applied
         run: |
           set -eu
-          kubectl apply -f terraform/stacks/staging/k8s/manifests/api-v2.yaml
+          sed "s|DOMAIN_PLACEHOLDER|${TF_VAR_domain}|g" terraform/stacks/staging/k8s/manifests/api-v2.yaml | kubectl apply -f -
           sed "s|DOMAIN_PLACEHOLDER|${TF_VAR_domain}|g" terraform/stacks/staging/k8s/manifests/ingress.yaml | kubectl apply -f -
 
       - name: Pin deployments to published image tag
