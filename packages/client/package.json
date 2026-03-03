@@ -30,9 +30,9 @@
     "electron:dev": "pnpm electron:prepare-sqlite && cross-env DOTENV_CONFIG_QUIET=true electron-vite dev",
     "electron:build": "pnpm electron:prepare-sqlite && cross-env DOTENV_CONFIG_QUIET=true electron-vite build",
     "electron:preview": "pnpm electron:prepare-sqlite && cross-env DOTENV_CONFIG_QUIET=true electron-vite preview",
-    "electron:pack": "pnpm electron:build && electron-builder --config electron-builder.config.ts",
-    "electron:dist": "pnpm electron:build && electron-builder --config electron-builder.config.ts --publish=never",
-    "electron:dist:unsigned": "pnpm electron:build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config electron-builder.config.ts --publish=never",
+    "electron:pack": "pnpm electron:build && sh scripts/packageElectronWithRuntimeDeps.sh",
+    "electron:dist": "pnpm electron:build && sh scripts/packageElectronWithRuntimeDeps.sh --publish=never",
+    "electron:dist:unsigned": "pnpm electron:build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false sh scripts/packageElectronWithRuntimeDeps.sh --publish=never",
     "electron:test": "pnpm electron:build && playwright test --config=playwright.electron.config.ts",
     "electron:test:headed": "pnpm electron:build && HEADED=true playwright test --config=playwright.electron.config.ts",
     "electron:test:ui": "pnpm electron:build && playwright test --config=playwright.electron.config.ts --ui"

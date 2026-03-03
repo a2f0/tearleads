@@ -2,12 +2,12 @@
  * Core database operations for Electron SQLite.
  */
 
-import { isRecord } from '@tearleads/shared';
 import fs from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
 import Database from 'better-sqlite3-multiple-ciphers';
 import { resolveSqliteNativeBindingPath } from './nativeBinding';
+import { isRecord } from './runtimeTypeGuards';
 import type { InitializeConfig, QueryResult } from './types';
 import { secureZeroBuffer } from './keyStorage';
 

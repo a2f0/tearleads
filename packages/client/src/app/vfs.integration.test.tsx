@@ -19,7 +19,9 @@ import { AppRoutes } from '../AppRoutes';
 import { getDatabase } from '../db';
 import { renderWithDatabase } from '../test/renderWithDatabase';
 
-const LAZY_LOAD_TIMEOUT = 5000;
+// Coverage-mode CI runs can delay lazy route resolution; keep waits generous
+// so integration assertions don't race against Suspense fallback rendering.
+const LAZY_LOAD_TIMEOUT = 15000;
 
 function renderApp(initialRoute = '/vfs') {
   return renderWithDatabase(
@@ -71,6 +73,15 @@ async function navigateViaMobileMenu(
   await user.click(within(dropdown).getByTestId(testId));
 }
 
+async function waitForInlineUnlock(): Promise<void> {
+  await waitFor(
+    () => {
+      expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
+    },
+    { timeout: LAZY_LOAD_TIMEOUT }
+  );
+}
+
 describe('VFS Integration Tests', () => {
   beforeEach(() => {
     resetTestKeyManager();
@@ -80,9 +91,7 @@ describe('VFS Integration Tests', () => {
     it('shows database not set up state with link to SQLite page', async () => {
       await renderApp();
 
-      await waitFor(() => {
-        expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
-      });
+      await waitForInlineUnlock();
 
       expect(
         screen.getByRole('heading', { name: 'VFS Explorer' })
@@ -111,9 +120,7 @@ describe('VFS Integration Tests', () => {
       await renderApp();
 
       // 1. VFS shows "not set up" message
-      await waitFor(() => {
-        expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
-      });
+      await waitForInlineUnlock();
       expect(screen.getByText(/Database is not set up/)).toBeInTheDocument();
 
       // 2-5. Navigate to SQLite and set up the database
@@ -142,9 +149,7 @@ describe('VFS Integration Tests', () => {
       await renderApp();
 
       // 1. Set up the database
-      await waitFor(() => {
-        expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
-      });
+      await waitForInlineUnlock();
       await setupDatabaseViaSqlitePage(user);
 
       // 2. Navigate to VFS
@@ -187,10 +192,9 @@ describe('VFS Integration Tests', () => {
       await user.click(screen.getByTestId('add-note-card'));
 
       // 7. Wait for navigation to NoteDetail page (lazy-loaded)
-      await waitFor(
-        () => {
-          expect(screen.getByTestId('note-title')).toBeInTheDocument();
-        },
+      await screen.findByTestId(
+        'note-title',
+        {},
         { timeout: LAZY_LOAD_TIMEOUT }
       );
 

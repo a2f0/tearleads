@@ -3,10 +3,10 @@
  * Handles salt, key check value, and session persistence using safeStorage.
  */
 
-import { getErrorCode } from '@tearleads/shared';
 import fs from 'node:fs';
 import path from 'node:path';
 import { app, safeStorage } from 'electron';
+import { getErrorCode } from './runtimeTypeGuards';
 
 const SALT_PREFIX = '.salt';
 const KCV_PREFIX = '.kcv';
