@@ -26,15 +26,14 @@ export function createExpressPassthroughHandlers(
         `http://localhost:${String(targetPort)}`
       );
 
+      const proxiedRequestInit: RequestInitWithDuplex = {
+        method: request.method,
+        headers: request.headers,
+        body: request.body,
+        duplex: 'half'
+      };
       const response = await fetch(
-        bypass(
-          new Request(target, {
-            method: request.method,
-            headers: request.headers,
-            body: request.body,
-            duplex: 'half'
-          } satisfies RequestInitWithDuplex)
-        )
+        bypass(new Request(target, proxiedRequestInit))
       );
 
       return new HttpResponse(await response.arrayBuffer(), {
