@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as mlsShared from '../../connect/services/mlsDirectShared.js';
 import { app } from '../../index.js';
 import { createAuthHeader } from '../../test/auth.js';
 import request from '../../test/connectCompatRequest.js';
-import * as mlsShared from './shared.js';
 
 const mockQuery = vi.fn();
 const mockGetPostgresPool = vi.fn();

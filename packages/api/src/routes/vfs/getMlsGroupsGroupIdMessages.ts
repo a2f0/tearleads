@@ -1,7 +1,7 @@
 import type { MlsMessage, MlsMessagesResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
+import { getActiveMlsGroupMembership } from '../../connect/services/mlsDirectShared.js';
 import { getPostgresPool } from '../../lib/postgres.js';
-import { getActiveMlsGroupMembership } from '../mls/shared.js';
 import { shouldReadEnvelopeBytea } from './crdtEnvelopeReadOptions.js';
 
 interface GroupMessageRow {

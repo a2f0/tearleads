@@ -8,12 +8,6 @@ import type {
   MlsGroupsResponse
 } from '@tearleads/shared';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
-import {
-  getActiveMlsGroupMembership,
-  parseCreateGroupPayload,
-  parseUpdateGroupPayload,
-  toSafeCipherSuite
-} from '../../routes/mls/shared.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
 import {
   encoded,
@@ -21,6 +15,12 @@ import {
   toIsoString,
   toMlsGroupRole
 } from './mlsDirectCommon.js';
+import {
+  getActiveMlsGroupMembership,
+  parseCreateGroupPayload,
+  parseUpdateGroupPayload,
+  toSafeCipherSuite
+} from './mlsDirectShared.js';
 
 type GroupIdRequest = { groupId: string };
 type GroupIdJsonRequest = { groupId: string; json: string };

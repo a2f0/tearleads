@@ -167,7 +167,11 @@ export function parseUpdateGroupPayload(
   const description = body['description'];
 
   const result: UpdateMlsGroupRequest = {};
-  if (typeof name === 'string') result.name = name.trim();
+  if (typeof name === 'string') {
+    const trimmedName = name.trim();
+    if (!trimmedName) return null;
+    result.name = trimmedName;
+  }
   if (typeof description === 'string') result.description = description.trim();
 
   if (Object.keys(result).length === 0) return null;

@@ -4,8 +4,8 @@ import type {
   MlsWelcomeMessagesResponse
 } from '@tearleads/shared';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
-import { parseAckWelcomePayload } from '../../routes/mls/shared.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
+import { parseAckWelcomePayload } from './mlsDirectShared.js';
 
 type AckWelcomeRequest = { id: string; json: string };
 

@@ -2,12 +2,12 @@ import { randomUUID } from 'node:crypto';
 import type { MlsMessage, SendMlsMessageResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import type { QueryResultRow } from 'pg';
-import { broadcast } from '../../lib/broadcast.js';
-import { getPostgresPool } from '../../lib/postgres.js';
 import {
   getActiveMlsGroupMembership,
   parseSendMessagePayload
-} from '../mls/shared.js';
+} from '../../connect/services/mlsDirectShared.js';
+import { broadcast } from '../../lib/broadcast.js';
+import { getPostgresPool } from '../../lib/postgres.js';
 import { serializeEnvelopeField } from './crdtEnvelopeStorage.js';
 
 interface VfsMirrorInput {
