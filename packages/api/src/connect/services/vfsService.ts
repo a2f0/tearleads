@@ -1,8 +1,3 @@
-import {
-  callRouteJsonHandler,
-  setOptionalPositiveIntQueryParam,
-  setOptionalStringQueryParam
-} from './legacyRouteProxy.js';
 import { attachBlobDirect } from './vfsDirectBlobAttach.js';
 import {
   abandonBlobDirect,
@@ -27,6 +22,7 @@ import { getMyKeysDirect, setupKeysDirect } from './vfsDirectKeys.js';
 import { registerDirect, rekeyItemDirect } from './vfsDirectRegistry.js';
 import {
   getCrdtSnapshotDirect,
+  getCrdtSyncDirect,
   getSyncDirect,
   reconcileSyncDirect
 } from './vfsDirectSync.js';
@@ -37,14 +33,6 @@ type GetSyncRequest = { cursor: string; limit: number; rootId: string };
 type GetCrdtSnapshotRequest = { clientId: string };
 type GetEmailsRequest = { offset: number; limit: number };
 type EmailIdRequest = { id: string };
-
-function queryFromGetSyncRequest(request: GetSyncRequest): URLSearchParams {
-  const params = new URLSearchParams();
-  setOptionalStringQueryParam(params, 'cursor', request.cursor);
-  setOptionalPositiveIntQueryParam(params, 'limit', request.limit);
-  setOptionalStringQueryParam(params, 'rootId', request.rootId);
-  return params;
-}
 
 export const vfsConnectService = {
   getMyKeys: async (_request: object, context: { requestHeader: Headers }) =>
@@ -112,15 +100,7 @@ export const vfsConnectService = {
   getCrdtSync: async (
     request: GetSyncRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: '/vfs/crdt/vfs-sync',
-      query: queryFromGetSyncRequest(request)
-    });
-    return { json };
-  },
+  ) => getCrdtSyncDirect(request, context),
   getCrdtSnapshot: async (
     request: GetCrdtSnapshotRequest,
     context: { requestHeader: Headers }

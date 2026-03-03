@@ -3,9 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   abandonBlobDirectMock,
   attachBlobDirectMock,
-  callRouteJsonHandlerMock,
   commitBlobDirectMock,
   deleteBlobDirectMock,
+  getCrdtSyncDirectMock,
   deleteEmailDirectMock,
   getBlobDirectMock,
   getCrdtSnapshotDirectMock,
@@ -28,10 +28,11 @@ const {
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   attachBlobDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
-  callRouteJsonHandlerMock: vi.fn<(options: unknown) => Promise<string>>(),
   commitBlobDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   deleteBlobDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  getCrdtSyncDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   deleteEmailDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
@@ -73,16 +74,6 @@ const {
   uploadBlobChunkDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>()
 }));
-vi.mock('./legacyRouteProxy.js', async () => {
-  const actual = await vi.importActual<typeof import('./legacyRouteProxy.js')>(
-    './legacyRouteProxy.js'
-  );
-
-  return {
-    ...actual,
-    callRouteJsonHandler: callRouteJsonHandlerMock
-  };
-});
 vi.mock('./vfsDirectBlobs.js', () => ({
   deleteBlobDirect: (request: unknown, context: unknown) =>
     deleteBlobDirectMock(request, context),
@@ -140,6 +131,8 @@ vi.mock('./vfsDirectRegistry.js', () => ({
     rekeyItemDirectMock(request, context)
 }));
 vi.mock('./vfsDirectSync.js', () => ({
+  getCrdtSyncDirect: (request: unknown, context: unknown) =>
+    getCrdtSyncDirectMock(request, context),
   getCrdtSnapshotDirect: (request: unknown, context: unknown) =>
     getCrdtSnapshotDirectMock(request, context),
   getSyncDirect: (request: unknown, context: unknown) =>
@@ -149,17 +142,6 @@ vi.mock('./vfsDirectSync.js', () => ({
 }));
 
 import { vfsConnectService } from './vfsService.js';
-
-type JsonCallExpectation = {
-  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  path: string;
-  jsonBody?: string;
-  query?: string;
-};
-
-type JsonCallCase = JsonCallExpectation & {
-  call: () => Promise<{ json: string }>;
-};
 
 type DirectJsonMock = {
   mockReset: () => void;
@@ -184,46 +166,12 @@ function createContext() {
   };
 }
 
-function isUnknownRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function expectLastJsonCall(
-  context: ReturnType<typeof createContext>,
-  expectation: JsonCallExpectation
-): void {
-  const call = callRouteJsonHandlerMock.mock.calls.at(-1);
-  if (!call) {
-    throw new Error('Expected callRouteJsonHandler to be called');
-  }
-
-  const [options] = call;
-  if (!isUnknownRecord(options)) {
-    throw new Error('Expected options object');
-  }
-  expect(options['context']).toBe(context);
-  expect(options['method']).toBe(expectation.method);
-  expect(options['path']).toBe(expectation.path);
-
-  if (expectation.jsonBody === undefined) {
-    expect(options['jsonBody']).toBeUndefined();
-  } else {
-    expect(options['jsonBody']).toBe(expectation.jsonBody);
-  }
-
-  const query = options['query'];
-  if (query !== undefined && !(query instanceof URLSearchParams)) {
-    throw new Error('Expected query to be URLSearchParams when present');
-  }
-
-  expect(query?.toString() ?? '').toBe(expectation.query ?? '');
-}
-
 function resetDirectJsonMocks(): DirectJsonMock[] {
   return [
     abandonBlobDirectMock,
     attachBlobDirectMock,
     commitBlobDirectMock,
+    getCrdtSyncDirectMock,
     deleteBlobDirectMock,
     deleteEmailDirectMock,
     getCrdtSnapshotDirectMock,
@@ -247,9 +195,6 @@ function resetDirectJsonMocks(): DirectJsonMock[] {
 describe('vfsConnectService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
-    callRouteJsonHandlerMock.mockReset();
-    callRouteJsonHandlerMock.mockResolvedValue('{"ok":true}');
 
     getBlobDirectMock.mockReset();
     getBlobDirectMock.mockResolvedValue({
@@ -300,6 +245,11 @@ describe('vfsConnectService', () => {
     const getSyncRequest = {
       cursor: 'sync-cursor',
       limit: 20,
+      rootId: 'root-1'
+    };
+    const getCrdtSyncRequest = {
+      cursor: 'crdt-cursor',
+      limit: 12,
       rootId: 'root-1'
     };
     const getCrdtSnapshotRequest = { clientId: 'desktop-1' };
@@ -380,6 +330,11 @@ describe('vfsConnectService', () => {
         mock: getSyncDirectMock
       },
       {
+        call: () => vfsConnectService.getCrdtSync(getCrdtSyncRequest, context),
+        expectedRequest: getCrdtSyncRequest,
+        mock: getCrdtSyncDirectMock
+      },
+      {
         call: () =>
           vfsConnectService.getCrdtSnapshot(getCrdtSnapshotRequest, context),
         expectedRequest: getCrdtSnapshotRequest,
@@ -448,48 +403,5 @@ describe('vfsConnectService', () => {
       contentType: 'application/octet-stream'
     });
     expect(getBlobDirectMock).toHaveBeenCalledWith(getBlobRequest, context);
-
-    expect(callRouteJsonHandlerMock).not.toHaveBeenCalled();
-  });
-
-  it('routes getCrdtSync through legacy route handler', async () => {
-    const context = createContext();
-
-    const testCase: JsonCallCase = {
-      call: () =>
-        vfsConnectService.getCrdtSync(
-          {
-            cursor: 'crdt-cursor',
-            limit: 12,
-            rootId: ''
-          },
-          context
-        ),
-      method: 'GET',
-      path: '/vfs/crdt/vfs-sync',
-      query: 'cursor=crdt-cursor&limit=12'
-    };
-
-    const response = await testCase.call();
-    expect(response).toEqual({ json: '{"ok":true}' });
-    expectLastJsonCall(context, testCase);
-  });
-
-  it('omits optional query params for empty getCrdtSync values', async () => {
-    const context = createContext();
-
-    await vfsConnectService.getCrdtSync(
-      {
-        cursor: '',
-        limit: 0,
-        rootId: ' '
-      },
-      context
-    );
-
-    expectLastJsonCall(context, {
-      method: 'GET',
-      path: '/vfs/crdt/vfs-sync'
-    });
   });
 });

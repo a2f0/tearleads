@@ -62,7 +62,7 @@ REPO=$(./scripts/agents/tooling/agentTool.ts getRepo)
 gh issue view "$ISSUE_NUMBER" -R "$REPO" --json number,title,body,state,url
 ```
 
-2. Build non-overlap context from open PRs:
+1. Build non-overlap context from open PRs:
 
 ```bash
 gh pr list -R "$REPO" --state open --json number,title,headRefName
@@ -74,13 +74,14 @@ For each open PR, collect changed files:
 gh pr view <pr> -R "$REPO" --json files --jq '.files[].path'
 ```
 
-3. Collect prior merged work linked to the issue (for dedupe):
+1. Collect prior merged work linked to the issue (for dedupe):
 
 ```bash
 gh pr list -R "$REPO" --state merged --search "#${ISSUE_NUMBER} in:body" --json number,title,mergedAt
 ```
 
-4. Convert issue requirements into a slice backlog. Each slice needs:
+1. Convert issue requirements into a slice backlog. Each slice needs:
+
 - `name`
 - `scope`
 - `candidate_files`
@@ -100,13 +101,15 @@ score = size + independence + impact - overlap_risk - migration_risk
 Selection rules:
 
 1. Exclude slices whose `candidate_files` overlap with any open PR files.
-2. Exclude slices with unclear done criteria.
-3. Prefer slices that:
+1. Exclude slices with unclear done criteria.
+1. Prefer slices that:
+
 - remove legacy paths/endpoints,
 - remove proxy layers,
 - remove obsolete dependencies,
 - unlock later deletions.
-4. Pick the highest scoring remaining slice.
+
+1. Pick the highest scoring remaining slice.
 
 If no non-overlapping slice exists, set `blocked_reason` and stop.
 
@@ -119,9 +122,9 @@ git checkout main >/dev/null
 git pull --ff-only >/dev/null
 ```
 
-2. Create implementation branch for this slice.
-3. Implement fully with tests.
-4. Run focused validation first, then broader required checks.
+1. Create implementation branch for this slice.
+1. Implement fully with tests.
+1. Run focused validation first, then broader required checks.
 
 If coverage or quality gates fail, add tests before commit. Do not lower thresholds.
 
