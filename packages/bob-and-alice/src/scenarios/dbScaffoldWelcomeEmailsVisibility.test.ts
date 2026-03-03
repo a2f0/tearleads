@@ -20,17 +20,10 @@ function readEmailIds(payload: unknown): string[] {
     return [];
   }
 
-  const ids: string[] = [];
-  for (const entry of emailsValue) {
-    if (!isRecord(entry)) {
-      continue;
-    }
-    const id = entry['id'];
-    if (typeof id === 'string' && id.length > 0) {
-      ids.push(id);
-    }
-  }
-  return ids;
+  return emailsValue
+    .filter(isRecord)
+    .map((entry) => entry['id'])
+    .filter((id): id is string => typeof id === 'string' && id.length > 0);
 }
 
 async function fetchEmailIdsFromConnect(
