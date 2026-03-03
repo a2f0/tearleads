@@ -33,6 +33,7 @@
     "electron:pack": "pnpm electron:build && sh scripts/packageElectronWithRuntimeDeps.sh",
     "electron:dist": "pnpm electron:build && sh scripts/packageElectronWithRuntimeDeps.sh --publish=never",
     "electron:dist:unsigned": "pnpm electron:build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false sh scripts/packageElectronWithRuntimeDeps.sh --publish=never",
+    "screenshots": "playwright test --config=playwright.screenshots.config.ts",
     "electron:test": "pnpm electron:build && playwright test --config=playwright.electron.config.ts",
     "electron:test:headed": "pnpm electron:build && HEADED=true playwright test --config=playwright.electron.config.ts",
     "electron:test:ui": "pnpm electron:build && playwright test --config=playwright.electron.config.ts --ui"
