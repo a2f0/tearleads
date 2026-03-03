@@ -123,11 +123,13 @@ describe('AdminRedisWindow (client wrapper)', () => {
     const lastCall =
       mockAdminRedisWindowBase.mock.calls[
         mockAdminRedisWindowBase.mock.calls.length - 1
-      ];
+    ];
     expect(lastCall).toBeDefined();
     const callArgs = lastCall?.[0] as { lockedFallback: React.ReactElement };
     const { container } = render(callArgs.lockedFallback);
-    expect(container.querySelector('[data-testid="inline-login"]')).toBeTruthy();
+    expect(
+      container.querySelector('[data-testid="inline-login"]')
+    ).toBeTruthy();
     expect(
       container.querySelector('[data-testid="inline-login"]')?.textContent
     ).toBe('Redis Admin');

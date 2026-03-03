@@ -123,11 +123,13 @@ describe('AdminPostgresWindow (client wrapper)', () => {
     const lastCall =
       mockAdminPostgresWindowBase.mock.calls[
         mockAdminPostgresWindowBase.mock.calls.length - 1
-      ];
+    ];
     expect(lastCall).toBeDefined();
     const callArgs = lastCall?.[0] as { lockedFallback: React.ReactElement };
     const { container } = render(callArgs.lockedFallback);
-    expect(container.querySelector('[data-testid="inline-login"]')).toBeTruthy();
+    expect(
+      container.querySelector('[data-testid="inline-login"]')
+    ).toBeTruthy();
     expect(
       container.querySelector('[data-testid="inline-login"]')?.textContent
     ).toBe('Postgres Admin');
