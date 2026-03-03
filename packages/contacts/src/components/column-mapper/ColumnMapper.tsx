@@ -239,9 +239,9 @@ export function ColumnMapper({
                       </tr>
                     </thead>
                     <tbody>
-                      {data.rows.slice(0, 3).map((row, index) => (
+                      {data.rows.slice(0, 3).map((row) => (
                         <WindowTableRow
-                          key={`${index}-${row.join('|')}`}
+                          key={row.join('|')}
                           className="cursor-default border-t border-b-0 hover:bg-transparent"
                         >
                           {mappedFields.map((field) => {

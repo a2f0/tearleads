@@ -67,31 +67,29 @@ describe('Calendar', () => {
     expect(screen.getByText('00:00')).toBeInTheDocument();
   });
 
-  it(
-    'routes to day view when a year day is clicked',
-    { timeout: 10000 },
-    () => {
-      render(<Calendar />);
+  it('routes to day view when a year day is clicked', {
+    timeout: 10000
+  }, () => {
+    render(<Calendar />);
 
-      fireEvent.click(screen.getByRole('tab', { name: 'Year' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Year' }));
 
-      const yearDayButtons = screen.getAllByRole('button', {
-        name: /Open day view for/
-      });
-      const yearDayButton = yearDayButtons[0];
-      if (!yearDayButton) {
-        throw new Error('Expected at least one year day button');
-      }
-
-      fireEvent.click(yearDayButton);
-
-      expect(screen.getByRole('tab', { name: 'Day' })).toHaveAttribute(
-        'aria-selected',
-        'true'
-      );
-      expect(screen.getByText('00:00')).toBeInTheDocument();
+    const yearDayButtons = screen.getAllByRole('button', {
+      name: /Open day view for/
+    });
+    const yearDayButton = yearDayButtons[0];
+    if (!yearDayButton) {
+      throw new Error('Expected at least one year day button');
     }
-  );
+
+    fireEvent.click(yearDayButton);
+
+    expect(screen.getByRole('tab', { name: 'Day' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(screen.getByText('00:00')).toBeInTheDocument();
+  });
 
   it('highlights work hours differently in day view', () => {
     render(<Calendar />);
@@ -109,30 +107,26 @@ describe('Calendar', () => {
     expect(postWorkHourQuarter).toHaveClass('bg-muted/40');
   });
 
-  it(
-    'routes to month view when a year month is clicked',
-    { timeout: 10000 },
-    () => {
-      render(<Calendar />);
+  it('routes to month view when a year month is clicked', {
+    timeout: 10000
+  }, () => {
+    render(<Calendar />);
 
-      fireEvent.click(screen.getByRole('tab', { name: 'Year' }));
-      const year = new Date().getFullYear();
+    fireEvent.click(screen.getByRole('tab', { name: 'Year' }));
+    const year = new Date().getFullYear();
 
-      fireEvent.click(
-        screen.getByRole('button', {
-          name: `Open month view for January ${year}`
-        })
-      );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: `Open month view for January ${year}`
+      })
+    );
 
-      expect(screen.getByRole('tab', { name: 'Month' })).toHaveAttribute(
-        'aria-selected',
-        'true'
-      );
-      expect(
-        screen.getByText(new RegExp(`January ${year}`))
-      ).toBeInTheDocument();
-    }
-  );
+    expect(screen.getByRole('tab', { name: 'Month' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(screen.getByText(new RegExp(`January ${year}`))).toBeInTheDocument();
+  });
 
   it('emits sidebar blank-space context menu coordinates', () => {
     const onSidebarContextMenuRequest = vi.fn();
@@ -252,28 +246,24 @@ describe('Calendar', () => {
     expect(screen.getByText(currentMonthLabel)).toBeInTheDocument();
   });
 
-  it(
-    'navigates year view with previous and next controls',
-    { timeout: 20000 },
-    () => {
-      render(<Calendar />);
+  it('navigates year view with previous and next controls', {
+    timeout: 20000
+  }, () => {
+    render(<Calendar />);
 
-      const currentYear = new Date().getFullYear();
+    const currentYear = new Date().getFullYear();
 
-      fireEvent.click(screen.getByRole('tab', { name: 'Year' }));
-      expect(screen.getByText(String(currentYear))).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: 'Year' }));
+    expect(screen.getByText(String(currentYear))).toBeInTheDocument();
 
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Go to next period' })
-      );
-      expect(screen.getByText(String(currentYear + 1))).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Go to next period' }));
+    expect(screen.getByText(String(currentYear + 1))).toBeInTheDocument();
 
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Go to previous period' })
-      );
-      expect(screen.getByText(String(currentYear))).toBeInTheDocument();
-    }
-  );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Go to previous period' })
+    );
+    expect(screen.getByText(String(currentYear))).toBeInTheDocument();
+  });
 
   it('displays day events for active calendar', () => {
     const selectedDate = new Date();
