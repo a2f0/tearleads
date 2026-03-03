@@ -37,7 +37,7 @@ export async function sendGroupMessageDirect(
   }
 
   const claims = await requireMlsClaims(
-    `/vfs/mls/groups/${encoded(groupId)}/messages`,
+    `/mls/groups/${encoded(groupId)}/messages`,
     context.requestHeader
   );
 
@@ -184,7 +184,7 @@ export async function getGroupMessagesDirect(
   }
 
   const claims = await requireMlsClaims(
-    `/vfs/mls/groups/${encoded(groupId)}/messages`,
+    `/mls/groups/${encoded(groupId)}/messages`,
     context.requestHeader
   );
 

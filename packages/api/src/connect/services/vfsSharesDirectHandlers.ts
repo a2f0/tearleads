@@ -7,11 +7,11 @@ import {
 } from '@tearleads/shared';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { buildSharePolicyPreviewTree } from '../../lib/vfsSharePolicyPreviewTree.js';
-import { toConnectCode } from './httpStatusToConnectCode.js';
 import {
   authenticate,
   resolveOrganizationMembership
-} from './legacyRouteProxyAuth.js';
+} from './connectRequestAuth.js';
+import { toConnectCode } from './httpStatusToConnectCode.js';
 import {
   isValidShareType,
   loadOrgShareAuthorizationContext,

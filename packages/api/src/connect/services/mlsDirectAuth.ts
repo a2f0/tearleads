@@ -1,9 +1,9 @@
 import { ConnectError } from '@connectrpc/connect';
-import { toConnectCode } from './httpStatusToConnectCode.js';
 import {
   authenticate,
   resolveOrganizationMembership
-} from './legacyRouteProxyAuth.js';
+} from './connectRequestAuth.js';
+import { toConnectCode } from './httpStatusToConnectCode.js';
 
 export async function requireMlsClaims(
   path: string,

@@ -1,7 +1,7 @@
 import { Code, ConnectError } from '@connectrpc/connect';
+import { authenticate, resolveAdminAccess } from './connectRequestAuth.js';
+import type { AdminAccessContext } from './connectRequestAuthTypes.js';
 import { toConnectCode } from './httpStatusToConnectCode.js';
-import { authenticate, resolveAdminAccess } from './legacyRouteProxyAuth.js';
-import type { AdminAccessContext } from './legacyRouteProxyTypes.js';
 
 export type ScopedAdminAccess = {
   sub: string;

@@ -6,7 +6,7 @@ import type {
   AdminAccessResult,
   AuthResult,
   OrganizationMembershipResult
-} from './legacyRouteProxyTypes.js';
+} from './connectRequestAuthTypes.js';
 
 const AUTH_HEADER_PREFIX = 'Bearer ';
 const MAX_ORG_ID_LENGTH = 100;
