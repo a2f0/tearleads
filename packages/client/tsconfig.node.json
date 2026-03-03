@@ -14,6 +14,7 @@
     "vite.aliases.ts",
     "vitest.config.ts",
     "vite-plugin-app-config.ts",
+    "vitePluginWasmGenerated.ts",
     "electron.vite.config.ts",
     "pwa.options.ts",
     "package.json"
