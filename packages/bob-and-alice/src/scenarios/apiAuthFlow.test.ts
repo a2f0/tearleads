@@ -36,10 +36,11 @@ describe('API auth flow', () => {
       getApiDeps
     );
     const alice = harness.actor('alice');
-    const baseUrl = `http://localhost:${String(harness.ctx.port)}/v1`;
+    const connectBaseUrl = `http://localhost:${String(harness.ctx.port)}/v1/connect/tearleads.v1.AuthService`;
+    const apiBaseUrl = `http://localhost:${String(harness.ctx.port)}`;
 
     // Register a brand-new user (goes through real bcrypt hashing)
-    const registerResponse = await fetch(`${baseUrl}/auth/register`, {
+    const registerResponse = await fetch(`${connectBaseUrl}/Register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -56,7 +57,7 @@ describe('API auth flow', () => {
     expect(registerBody.user.email).toBe('newuser@test.local');
 
     // Login with the newly registered user
-    const loginResponse = await fetch(`${baseUrl}/auth/login`, {
+    const loginResponse = await fetch(`${connectBaseUrl}/Login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -74,7 +75,7 @@ describe('API auth flow', () => {
     const { accessToken, refreshToken } = loginBody;
 
     // Refresh the token
-    const refreshResponse = await fetch(`${baseUrl}/auth/refresh`, {
+    const refreshResponse = await fetch(`${connectBaseUrl}/RefreshToken`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -90,8 +91,13 @@ describe('API auth flow', () => {
     expect(refreshBody.accessToken).not.toBe(accessToken);
 
     // List sessions using the new access token
-    const sessionsResponse = await fetch(`${baseUrl}/auth/sessions`, {
-      headers: { Authorization: `Bearer ${refreshBody.accessToken}` }
+    const sessionsResponse = await fetch(`${connectBaseUrl}/GetSessions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${refreshBody.accessToken}`
+      },
+      body: JSON.stringify({})
     });
 
     expect(sessionsResponse.status).toBe(200);
@@ -99,26 +105,36 @@ describe('API auth flow', () => {
     expect(sessionsBody.sessions.length).toBeGreaterThanOrEqual(1);
 
     // Logout
-    const logoutResponse = await fetch(`${baseUrl}/auth/logout`, {
+    const logoutResponse = await fetch(`${connectBaseUrl}/Logout`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${refreshBody.accessToken}` }
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${refreshBody.accessToken}`
+      },
+      body: JSON.stringify({})
     });
 
     expect(logoutResponse.status).toBe(200);
     const logoutBody = (await logoutResponse.json()) as LogoutResponse;
     expect(logoutBody.loggedOut).toBe(true);
 
-    // Verify the seeded user's auth also works via the harness
-    const pingResponse = await alice.fetchJson<{ version: string }>('/ping');
-    expect(pingResponse).toHaveProperty('version');
+    // Verify the seeded user's auth still works via the harness
+    const sessionsViaHarness = await alice.fetchJson<SessionsResponse>(
+      '/auth/sessions'
+    );
+    expect(sessionsViaHarness.sessions.length).toBeGreaterThanOrEqual(1);
+
+    const healthResponse = await fetch(`${apiBaseUrl}/healthz`);
+    expect(healthResponse.status).toBe(200);
+    expect(await healthResponse.json()).toEqual({ status: 'ok' });
   });
 
   it('rejects login with wrong password', async () => {
     harness = await ApiScenarioHarness.create([{ alias: 'alice' }], getApiDeps);
-    const baseUrl = `http://localhost:${String(harness.ctx.port)}/v1`;
+    const baseUrl = `http://localhost:${String(harness.ctx.port)}/v1/connect/tearleads.v1.AuthService`;
 
     // Register a user first
-    await fetch(`${baseUrl}/auth/register`, {
+    await fetch(`${baseUrl}/Register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -128,7 +144,7 @@ describe('API auth flow', () => {
     });
 
     // Try to login with wrong password
-    const loginResponse = await fetch(`${baseUrl}/auth/login`, {
+    const loginResponse = await fetch(`${baseUrl}/Login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -142,10 +158,10 @@ describe('API auth flow', () => {
 
   it('rejects duplicate registration', async () => {
     harness = await ApiScenarioHarness.create([{ alias: 'alice' }], getApiDeps);
-    const baseUrl = `http://localhost:${String(harness.ctx.port)}/v1`;
+    const baseUrl = `http://localhost:${String(harness.ctx.port)}/v1/connect/tearleads.v1.AuthService`;
 
     // Register first user
-    const firstResponse = await fetch(`${baseUrl}/auth/register`, {
+    const firstResponse = await fetch(`${baseUrl}/Register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -156,7 +172,7 @@ describe('API auth flow', () => {
     expect(firstResponse.status).toBe(200);
 
     // Try to register with same email
-    const dupeResponse = await fetch(`${baseUrl}/auth/register`, {
+    const dupeResponse = await fetch(`${baseUrl}/Register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
