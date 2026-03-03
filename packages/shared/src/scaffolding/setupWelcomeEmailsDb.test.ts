@@ -66,9 +66,7 @@ describe('setupWelcomeEmailsDb', () => {
         call.text.includes("'emailFolder'")
     );
     expect(inboxFolderInserts).toHaveLength(2);
-    expect(inboxFolderInserts[0]?.params?.[0]).toBe(
-      'email-inbox:bob-user-id'
-    );
+    expect(inboxFolderInserts[0]?.params?.[0]).toBe('email-inbox:bob-user-id');
     expect(inboxFolderInserts[0]?.params?.[1]).toBe('bob-user-id');
     expect(inboxFolderInserts[1]?.params?.[0]).toBe(
       'email-inbox:alice-user-id'
@@ -90,8 +88,13 @@ describe('setupWelcomeEmailsDb', () => {
       call.text.includes('INSERT INTO emails')
     );
     expect(emailInserts).toHaveLength(2);
-    const expectedSubject = Buffer.from('Welcome to Tearleads', 'utf8').toString('base64');
-    const expectedFrom = Buffer.from('system@tearleads.com', 'utf8').toString('base64');
+    const expectedSubject = Buffer.from(
+      'Welcome to Tearleads',
+      'utf8'
+    ).toString('base64');
+    const expectedFrom = Buffer.from('system@tearleads.com', 'utf8').toString(
+      'base64'
+    );
     expect(emailInserts[0]?.params?.[1]).toBe(expectedSubject);
     expect(emailInserts[0]?.params?.[2]).toBe(expectedFrom);
     expect(emailInserts[0]?.params?.[5]).toBe(
