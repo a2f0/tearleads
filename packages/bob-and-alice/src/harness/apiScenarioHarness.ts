@@ -54,10 +54,8 @@ export class ApiScenarioHarness {
         path: string,
         init?: RequestInit
       ): Promise<Response> => {
-        const connectMapping: ConnectRouteMapping | null = mapLegacyPathToConnect(
-          path,
-          init
-        );
+        const connectMapping: ConnectRouteMapping | null =
+          mapLegacyPathToConnect(path, init);
         if (connectMapping) {
           const connectInit = createConnectJsonPostInit(connectMapping.body);
           const connectHeaders = mergeHeaders(

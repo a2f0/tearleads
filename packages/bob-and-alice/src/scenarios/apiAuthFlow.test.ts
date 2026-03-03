@@ -119,9 +119,8 @@ describe('API auth flow', () => {
     expect(logoutBody.loggedOut).toBe(true);
 
     // Verify the seeded user's auth still works via the harness
-    const sessionsViaHarness = await alice.fetchJson<SessionsResponse>(
-      '/auth/sessions'
-    );
+    const sessionsViaHarness =
+      await alice.fetchJson<SessionsResponse>('/auth/sessions');
     expect(sessionsViaHarness.sessions.length).toBeGreaterThanOrEqual(1);
 
     const healthResponse = await fetch(`${apiBaseUrl}/healthz`);

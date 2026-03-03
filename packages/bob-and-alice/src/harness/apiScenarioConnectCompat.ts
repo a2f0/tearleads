@@ -58,7 +58,9 @@ function parseOptionalInt(value: string | null): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function buildGetUsageBody(searchParams: URLSearchParams): Record<string, unknown> {
+function buildGetUsageBody(
+  searchParams: URLSearchParams
+): Record<string, unknown> {
   const body: Record<string, unknown> = {};
   const startDate = searchParams.get('startDate');
   const endDate = searchParams.get('endDate');
@@ -71,7 +73,9 @@ function buildGetUsageBody(searchParams: URLSearchParams): Record<string, unknow
   return body;
 }
 
-function buildGetSyncBody(searchParams: URLSearchParams): Record<string, unknown> {
+function buildGetSyncBody(
+  searchParams: URLSearchParams
+): Record<string, unknown> {
   const body: Record<string, unknown> = {};
   const cursor = searchParams.get('cursor');
   const limit = parseOptionalInt(searchParams.get('limit'));
@@ -247,9 +251,7 @@ export function mapLegacyPathToConnect(
     return {
       path: `${VFS_SERVICE_PATH}/AbandonBlob`,
       body: {
-        stagingId: encodedSegment(
-          requiredMatchGroup(blobStageAbandonMatch, 1)
-        ),
+        stagingId: encodedSegment(requiredMatchGroup(blobStageAbandonMatch, 1)),
         json: jsonBodyText
       },
       unwrapJsonEnvelope: true
