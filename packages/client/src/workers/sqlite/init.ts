@@ -205,10 +205,26 @@ export async function initializeDatabase(
         'Database file appears corrupted or has wrong key, attempting to delete and recreate...'
       );
 
+      // Save state before closeDatabase() clears it. closeDatabase() nulls
+      // encryptionKey and currentDbFilename for security (clearing sensitive data
+      // on normal close). But we need both values for the retry: openDatabase()
+      // checks them and throws "Database initialization state is invalid" if
+      // either is null. This bug surfaces when OPFS files survive a browser
+      // "clear browsing data" but the encryption key storage (IndexedDB /
+      // localStorage) is wiped — the stale file can't be decrypted with the
+      // new key, triggering SQLITE_NOTADB.
+      const savedKey = encryptionKey;
+      const savedFilename = currentDbFilename;
+
       // Close any partially-opened database to release handles before deleting
       if (db) {
         closeDatabase();
       }
+
+      // Restore the state that closeDatabase() cleared so the retry can
+      // re-open with the same key and filename.
+      encryptionKey = savedKey;
+      currentDbFilename = savedFilename;
 
       // Delete the corrupted file from OPFS
       try {
