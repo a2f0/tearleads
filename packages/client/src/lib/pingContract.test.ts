@@ -75,15 +75,22 @@ describe('pingContract', () => {
     await expect(getV2PingEndpoint()).rejects.toThrow('endpoint lookup failed');
   });
 
-  it('throws when WASM module is missing', async () => {
+  it('falls back when WASM module is missing', async () => {
     vi.doMock('./pingWasmImport', () => ({
       importPingWasmModule: () =>
-        Promise.reject(new Error('Cannot find WASM module'))
+        Promise.reject(
+          Object.assign(new Error('Cannot find module'), {
+            code: 'ERR_MODULE_NOT_FOUND'
+          })
+        )
     }));
 
-    const { getV2PingEndpoint } = await loadPingContract();
+    const { getV2PingEndpoint, parseV2PingData } = await loadPingContract();
 
-    await expect(getV2PingEndpoint()).rejects.toThrow();
+    await expect(getV2PingEndpoint()).resolves.toBe('/v2/ping');
+    await expect(parseV2PingData(validPingPayload)).resolves.toEqual(
+      validPingPayload
+    );
   });
 
   it('throws with helpful message when WASM module shape is invalid', async () => {

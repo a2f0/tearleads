@@ -87,7 +87,13 @@ export async function registerDirect(
   request: JsonRequest,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
-  const claims = await requireVfsClaims('/vfs/register', context.requestHeader);
+  const claims = await requireVfsClaims(
+    '/vfs/register',
+    context.requestHeader,
+    {
+      requireDeclaredOrganization: true
+    }
+  );
   const payload = parseRegisterPayload(parseJsonBody(request.json));
   if (!payload) {
     throw new ConnectError(
@@ -161,7 +167,8 @@ export async function rekeyItemDirect(
 
   const claims = await requireVfsClaims(
     `/vfs/items/${encoded(itemId)}/rekey`,
-    context.requestHeader
+    context.requestHeader,
+    { requireDeclaredOrganization: true }
   );
 
   const payload = parseRekeyPayload(parseJsonBody(request.json));

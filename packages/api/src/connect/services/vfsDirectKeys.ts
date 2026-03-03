@@ -61,7 +61,9 @@ export async function setupKeysDirect(
   request: JsonRequest,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
-  const claims = await requireVfsClaims('/vfs/keys', context.requestHeader);
+  const claims = await requireVfsClaims('/vfs/keys', context.requestHeader, {
+    requireDeclaredOrganization: true
+  });
   const payload = parseKeySetupPayload(parseJsonBody(request.json));
   if (!payload) {
     throw new ConnectError(

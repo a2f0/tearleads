@@ -34,8 +34,10 @@ describe('api edge cases requiring direct fetch mocking', () => {
     localStorage.removeItem('auth_refresh_lock');
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     global.fetch = originalFetch;
+    const { resetApiRequestHeadersProvider } = await import('./api');
+    resetApiRequestHeadersProvider();
   });
 
   describe('concurrent refresh deduplication', () => {

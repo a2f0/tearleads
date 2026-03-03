@@ -30,7 +30,8 @@ export async function reconcileCrdtDirect(
 ): Promise<{ json: string }> {
   const claims = await requireVfsClaims(
     '/vfs/crdt/reconcile',
-    context.requestHeader
+    context.requestHeader,
+    { requireDeclaredOrganization: true }
   );
 
   const parsedPayload = parseVfsCrdtReconcilePayload(

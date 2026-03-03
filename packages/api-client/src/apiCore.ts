@@ -15,6 +15,42 @@ import { isJwtExpired } from './jwt';
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 const AUTH_CONNECT_REFRESH_PATH =
   '/connect/tearleads.v1.AuthService/RefreshToken';
+const ORGANIZATION_HEADER_NAME = 'X-Organization-Id';
+const REQUIRE_DECLARED_ORGANIZATION_BY_SERVICE = new Map<
+  string,
+  ReadonlySet<string>
+>([
+  [
+    'tearleads.v1.VfsService',
+    new Set([
+      'SetupKeys',
+      'Register',
+      'DeleteBlob',
+      'StageBlob',
+      'UploadBlobChunk',
+      'AttachBlob',
+      'AbandonBlob',
+      'CommitBlob',
+      'RekeyItem',
+      'PushCrdtOps',
+      'ReconcileCrdt',
+      'ReconcileSync',
+      'RunCrdtSession',
+      'DeleteEmail',
+      'SendEmail'
+    ])
+  ],
+  [
+    'tearleads.v1.VfsSharesService',
+    new Set([
+      'CreateShare',
+      'UpdateShare',
+      'DeleteShare',
+      'CreateOrgShare',
+      'DeleteOrgShare'
+    ])
+  ]
+]);
 
 type RefreshOutcome = 'success' | 'rejected' | 'transient';
 
@@ -25,6 +61,20 @@ interface RefreshAttemptResult {
 }
 
 let refreshPromise: Promise<RefreshAttemptResult> | null = null;
+
+type ApiRequestHeadersProvider = () => HeadersInit | undefined;
+
+let apiRequestHeadersProvider: ApiRequestHeadersProvider = () => undefined;
+
+export function setApiRequestHeadersProvider(
+  provider: ApiRequestHeadersProvider
+): void {
+  apiRequestHeadersProvider = provider;
+}
+
+export function resetApiRequestHeadersProvider(): void {
+  apiRequestHeadersProvider = () => undefined;
+}
 
 /**
  * Core token refresh logic. Makes a single refresh request to the server.
@@ -239,6 +289,74 @@ function resolveRequestUrl(endpoint: string): string {
   return `${API_BASE_URL}${endpoint}`;
 }
 
+function applyContextHeaders(headers: Headers): void {
+  const providedHeaders = apiRequestHeadersProvider();
+  if (!providedHeaders) {
+    return;
+  }
+
+  for (const [name, value] of new Headers(providedHeaders).entries()) {
+    if (!headers.has(name)) {
+      headers.set(name, value);
+    }
+  }
+}
+
+function toRequestPath(endpoint: string): string {
+  if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+    try {
+      return new URL(endpoint).pathname;
+    } catch {
+      return endpoint;
+    }
+  }
+
+  return endpoint;
+}
+
+function parseConnectRoute(
+  endpoint: string
+): { serviceName: string; methodName: string } | null {
+  const requestPath = toRequestPath(endpoint);
+  const match = /^\/connect\/([^/]+)\/([^/]+)$/u.exec(requestPath);
+  if (!match) {
+    return null;
+  }
+  const [, serviceName = '', methodName = ''] = match;
+
+  return {
+    serviceName,
+    methodName
+  };
+}
+
+function requiresDeclaredOrganizationHeader(endpoint: string): boolean {
+  const connectRoute = parseConnectRoute(endpoint);
+  if (!connectRoute) {
+    return false;
+  }
+
+  return (
+    REQUIRE_DECLARED_ORGANIZATION_BY_SERVICE.get(connectRoute.serviceName)?.has(
+      connectRoute.methodName
+    ) === true
+  );
+}
+
+function assertDeclaredOrganizationHeader(
+  endpoint: string,
+  headers: Headers
+): void {
+  if (requiresDeclaredOrganizationHeader(endpoint)) {
+    const organizationId = headers.get(ORGANIZATION_HEADER_NAME);
+    if (organizationId === null || organizationId.trim().length === 0) {
+      throw new Error(
+        'X-Organization-Id header is required for VFS write requests'
+      );
+    }
+  }
+}
+
 async function requestResponse(
   endpoint: string,
   params: RequestParams
@@ -259,6 +377,8 @@ async function requestResponse(
     if (authHeaderValue !== null && !headers.has('Authorization')) {
       headers.set('Authorization', authHeaderValue);
     }
+    applyContextHeaders(headers);
+    assertDeclaredOrganizationHeader(endpoint, headers);
 
     let response = await fetch(requestUrl, {
       ...fetchOptions,
@@ -280,6 +400,8 @@ async function requestResponse(
         if (!retryHeaders.has('Authorization')) {
           retryHeaders.set('Authorization', retryAuthHeaderValue);
         }
+        applyContextHeaders(retryHeaders);
+        assertDeclaredOrganizationHeader(endpoint, retryHeaders);
 
         response = await fetch(requestUrl, {
           ...fetchOptions,

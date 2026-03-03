@@ -171,22 +171,32 @@ describe('api with msw', () => {
 
   describe('response parsing', () => {
     it('handles 204 no-content responses', async () => {
-      server.use(
-        http.post(
-          'http://localhost/connect/tearleads.v1.VfsSharesService/DeleteShare',
-          () => new HttpResponse(null, { status: 204 })
-        )
-      );
+      const { setApiRequestHeadersProvider, resetApiRequestHeadersProvider } =
+        await import('./apiCore');
+      setApiRequestHeadersProvider(() => ({
+        'X-Organization-Id': seededUser.organizationId
+      }));
 
-      const api = await loadApi();
+      try {
+        server.use(
+          http.post(
+            'http://localhost/connect/tearleads.v1.VfsSharesService/DeleteShare',
+            () => new HttpResponse(null, { status: 204 })
+          )
+        );
 
-      await expect(api.vfs.deleteShare('share-1')).resolves.toEqual({});
-      expect(
-        wasApiRequestMade(
-          'POST',
-          '/connect/tearleads.v1.VfsSharesService/DeleteShare'
-        )
-      ).toBe(true);
+        const api = await loadApi();
+
+        await expect(api.vfs.deleteShare('share-1')).resolves.toEqual({});
+        expect(
+          wasApiRequestMade(
+            'POST',
+            '/connect/tearleads.v1.VfsSharesService/DeleteShare'
+          )
+        ).toBe(true);
+      } finally {
+        resetApiRequestHeadersProvider();
+      }
     });
 
     it('handles 205 reset-content responses', async () => {

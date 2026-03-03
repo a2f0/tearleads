@@ -1,3 +1,11 @@
+export {
+  API_BASE_URL,
+  api,
+  resetApiRequestHeadersProvider,
+  setApiEventLogger,
+  setApiRequestHeadersProvider,
+  tryRefreshToken
+} from './api';
 export { openNotificationEventStream } from './notificationStream';
 export {
   createVfsSecurePipelineBundle,

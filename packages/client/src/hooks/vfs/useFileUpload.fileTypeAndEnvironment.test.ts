@@ -40,7 +40,8 @@ vi.mock('@/lib/thumbnail', () => ({
 }));
 
 vi.mock('@/db/analytics', () => ({
-  logEvent: vi.fn()
+  logEvent: vi.fn(),
+  logApiEvent: vi.fn()
 }));
 
 vi.mock('@/storage/opfs', () => ({

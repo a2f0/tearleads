@@ -60,10 +60,14 @@ describe('api with msw', () => {
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
     localStorage.setItem(AUTH_TOKEN_KEY, seededUser.accessToken);
+    const { setActiveOrganizationId } = await import('@/lib/orgStorage');
+    setActiveOrganizationId(seededUser.organizationId);
     mockLogApiEvent.mockResolvedValue(undefined);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    const { clearActiveOrganizationId } = await import('@/lib/orgStorage');
+    clearActiveOrganizationId();
     vi.unstubAllEnvs();
   });
 

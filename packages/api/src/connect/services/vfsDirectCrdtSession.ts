@@ -184,7 +184,8 @@ export async function runCrdtSessionDirect(
 ): Promise<{ json: string }> {
   const claims = await requireVfsClaims(
     '/vfs/crdt/session',
-    context.requestHeader
+    context.requestHeader,
+    { requireDeclaredOrganization: true }
   );
 
   const parsedPayload = parseSessionPayload(parseJsonBody(request.json));
