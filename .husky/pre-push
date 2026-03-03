@@ -110,6 +110,7 @@ run_step "checkArchitectureGuardrailBudgets" ./scripts/checks/checkArchitectureG
 run_step "checkCircularImports" ./scripts/checks/checkCircularImports.ts
 run_step "checkTailwindSources" ./scripts/checks/checkTailwindSources.ts
 run_step "lintKnip" pnpm lint:knip
+run_step "lintMarkdown" pnpm lint:md
 run_step "checkGitHubActions" ./scripts/checks/checkGithubActions.sh --from-upstream
 run_step "checkTerraform" ./scripts/checks/checkTerraform.sh
 run_step "typecheckSolutionBuild" pnpm exec tsc -b
