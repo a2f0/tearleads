@@ -6,8 +6,8 @@ import {
   compareCursor,
   pickNewerOccurredAt,
   resolveContainerId,
-  upsertReplicaHead,
-  type TimedQueryRunner
+  type TimedQueryRunner,
+  upsertReplicaHead
 } from './vfsDirectCrdtPushApplyHelpers.js';
 
 function createOperation(
@@ -34,7 +34,9 @@ function createEmptyQueryResult<T extends QueryResultRow>(): QueryResult<T> {
   };
 }
 
-function createRecordingQueryRunner(recorder: Array<{ label: string }>): TimedQueryRunner {
+function createRecordingQueryRunner(
+  recorder: Array<{ label: string }>
+): TimedQueryRunner {
   return async <T extends QueryResultRow>(
     label: string,
     _text: string,
@@ -117,9 +119,9 @@ describe('vfsDirectCrdtPushApplyHelpers', () => {
     });
 
     it('prefers the newer timestamp', () => {
-      expect(
-        pickNewerOccurredAt(null, '2026-02-16T00:00:00.000Z')
-      ).toBe('2026-02-16T00:00:00.000Z');
+      expect(pickNewerOccurredAt(null, '2026-02-16T00:00:00.000Z')).toBe(
+        '2026-02-16T00:00:00.000Z'
+      );
       expect(
         pickNewerOccurredAt(
           '2026-02-16T00:00:00.000Z',

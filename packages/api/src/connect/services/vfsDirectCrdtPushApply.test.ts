@@ -137,7 +137,9 @@ describe('vfsDirectCrdtPushApply', () => {
       parsedOperations: [createParsedOperation(createOperation({ writeId: 3 }))]
     });
 
-    expect(result.results).toEqual([{ opId: 'op-1', status: 'alreadyApplied' }]);
+    expect(result.results).toEqual([
+      { opId: 'op-1', status: 'alreadyApplied' }
+    ]);
     expect(String(queryMock.mock.calls[4]?.[0])).toContain(
       'INSERT INTO vfs_crdt_replica_heads'
     );
@@ -174,7 +176,9 @@ describe('vfsDirectCrdtPushApply', () => {
       parsedOperations: [createParsedOperation(createOperation({ writeId: 7 }))]
     });
 
-    expect(result.results).toEqual([{ opId: 'op-1', status: 'alreadyApplied' }]);
+    expect(result.results).toEqual([
+      { opId: 'op-1', status: 'alreadyApplied' }
+    ]);
     expect(queryMock).toHaveBeenCalledTimes(4);
   });
 
@@ -238,7 +242,9 @@ describe('vfsDirectCrdtPushApply', () => {
     expect(insertValues[16]).toBeInstanceOf(Buffer);
 
     expect(String(queryMock.mock.calls[6]?.[0])).toContain('vfs_item_state');
-    expect(String(queryMock.mock.calls[7]?.[0])).toContain('vfs_emit_sync_change');
+    expect(String(queryMock.mock.calls[7]?.[0])).toContain(
+      'vfs_emit_sync_change'
+    );
   });
 
   it('returns outdatedOp when insert does not affect any rows', async () => {
