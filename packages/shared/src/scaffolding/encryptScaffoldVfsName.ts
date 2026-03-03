@@ -14,7 +14,7 @@ interface DbQueryClient {
   ): Promise<{ rows: Record<string, unknown>[] }>;
 }
 
-export interface EncryptScaffoldVfsNameInput {
+interface EncryptScaffoldVfsNameInput {
   client: DbQueryClient;
   ownerUserId: string;
   plaintextName: string;
