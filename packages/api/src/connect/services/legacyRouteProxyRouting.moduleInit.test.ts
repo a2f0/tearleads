@@ -38,6 +38,13 @@ function createMixedRouter() {
       },
       {
         route: {
+          path: '/bad//segment',
+          methods: { get: true },
+          stack: [{ handle: handler }]
+        }
+      },
+      {
+        route: {
           path: '/bad-param/:',
           methods: { get: true },
           stack: [{ handle: handler }]
@@ -69,6 +76,27 @@ function createMixedRouter() {
 }
 
 describe('legacyRouteProxyRouting module initialization', () => {
+  it('handles non-router and malformed stack inputs', async () => {
+    vi.resetModules();
+
+    vi.doMock('../../routes/vfs/router.js', () => ({
+      vfsRouter: null
+    }));
+
+    const routingWithNullRouter = await import('./legacyRouteProxyRouting.js');
+    expect(routingWithNullRouter.findRoute('GET', '/vfs/keys/me')).toBeNull();
+
+    vi.resetModules();
+    vi.doMock('../../routes/vfs/router.js', () => ({
+      vfsRouter: { stack: 'not-an-array' }
+    }));
+
+    const routingWithMalformedStack = await import(
+      './legacyRouteProxyRouting.js'
+    );
+    expect(routingWithMalformedStack.findRoute('GET', '/vfs/keys/me')).toBeNull();
+  });
+
   it('handles mixed router stacks and unsupported route metadata', async () => {
     vi.resetModules();
 
@@ -91,6 +119,8 @@ describe('legacyRouteProxyRouting module initialization', () => {
     expect(decoded.params).toEqual({ id: 'a/b' });
 
     expect(routing.findRoute('GET', '/vfs/%E0%A4%A')).toBeNull();
+    expect(routing.findRoute('GET', '/')).toBeNull();
+    expect(routing.findRoute('GET', '/vfs/bad//segment')).toBeNull();
     expect(routing.findRoute('GET', '/vfs/bad-param/value')).toBeNull();
   });
 });
