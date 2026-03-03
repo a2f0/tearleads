@@ -71,9 +71,7 @@ describe('VfsSyncStateContext', () => {
       })
     );
 
-    const { result, rerender } = renderHook(() => useVfsSyncState(), {
-      wrapper
-    });
+    const { result } = renderHook(() => useVfsSyncState(), { wrapper });
 
     await waitFor(() => {
       expect(result.current.globalCursor).toEqual({
@@ -106,9 +104,7 @@ describe('VfsSyncStateContext', () => {
       })
     );
 
-    const { result, rerender } = renderHook(() => useVfsSyncState(), {
-      wrapper
-    });
+    const { result } = renderHook(() => useVfsSyncState(), { wrapper });
 
     await waitFor(() => {
       expect(result.current.updatedAtMs).not.toBeNull();
