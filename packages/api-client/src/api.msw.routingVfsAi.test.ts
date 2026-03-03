@@ -306,7 +306,7 @@ describe('api with msw', () => {
     await api.mls.getGroupState(groupId);
     await api.mls.uploadGroupState(groupId, {
       epoch: addMemberEpoch,
-      encryptedState: 'encrypted-state',
+      encryptedState: 'ZW5jcnlwdGVkLXN0YXRl',
       stateHash: 'state-hash'
     });
     // Key packages
