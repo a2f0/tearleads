@@ -1,3 +1,4 @@
+// component-complexity: allow — drag-and-drop mapping UI requires nested JSX
 import {
   DndContext,
   type DragEndEvent,
