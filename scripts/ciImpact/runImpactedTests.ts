@@ -252,6 +252,7 @@ function uniqueSorted(values: string[]): string[] {
 
 function isTestOnlyPath(filePath: string): boolean {
   return (
+    /(^|\/)src\/qa\//.test(filePath) ||
     /(^|\/)__tests__(\/|$)/.test(filePath) ||
     /\.(test|spec)\.[cm]?[jt]sx?$/.test(filePath)
   );

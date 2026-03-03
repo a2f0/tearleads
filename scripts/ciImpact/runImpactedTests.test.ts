@@ -126,6 +126,21 @@ test('runImpactedTests dry-run skips coverage for test-only package changes', ()
   assert.equal(Reflect.get(parsed, 'fullRun'), false);
 });
 
+test('runImpactedTests dry-run skips coverage for qa helper changes', () => {
+  const result = runImpactedTests([
+    '--files',
+    'packages/bob-and-alice/src/qa/vfsCrdtRolloutQaSuite.ts',
+    '--dry-run',
+    '--print-targets-json'
+  ]);
+  assert.equal(result.status, 0, stderrText(result));
+
+  const stdout = stdoutText(result);
+  const parsed = JSON.parse(stdout);
+  assert.deepEqual(Reflect.get(parsed, 'targets'), []);
+  assert.equal(Reflect.get(parsed, 'fullRun'), false);
+});
+
 test('runImpactedTests dry-run includes cli coverage when cli changes', () => {
   const result = runImpactedTests([
     '--files',
