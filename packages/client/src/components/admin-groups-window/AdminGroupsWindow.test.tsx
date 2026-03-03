@@ -123,7 +123,7 @@ describe('AdminGroupsWindow (client wrapper)', () => {
     const lastCall =
       mockAdminGroupsWindowBase.mock.calls[
         mockAdminGroupsWindowBase.mock.calls.length - 1
-    ];
+      ];
     expect(lastCall).toBeDefined();
     const callArgs = lastCall?.[0] as { lockedFallback: React.ReactElement };
     const { container } = render(callArgs.lockedFallback);
