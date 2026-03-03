@@ -2,6 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   callRouteJsonHandlerMock,
+  createGroupDirectMock,
+  updateGroupDirectMock,
+  deleteGroupDirectMock,
+  addGroupMemberDirectMock,
+  removeGroupMemberDirectMock,
   deleteRedisKeyDirectMock,
   getColumnsDirectMock,
   getContextDirectMock,
@@ -16,6 +21,16 @@ const {
   getTablesDirectMock
 } = vi.hoisted(() => ({
   callRouteJsonHandlerMock: vi.fn<(options: unknown) => Promise<string>>(),
+  createGroupDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  updateGroupDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  deleteGroupDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  addGroupMemberDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  removeGroupMemberDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   deleteRedisKeyDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   getColumnsDirectMock:
@@ -56,6 +71,19 @@ vi.mock('./legacyRouteProxy.js', async () => {
 vi.mock('./adminDirectContext.js', () => ({
   getContextDirect: (request: unknown, context: unknown) =>
     getContextDirectMock(request, context)
+}));
+
+vi.mock('./adminDirectGroupMutations.js', () => ({
+  addGroupMemberDirect: (request: unknown, context: unknown) =>
+    addGroupMemberDirectMock(request, context),
+  createGroupDirect: (request: unknown, context: unknown) =>
+    createGroupDirectMock(request, context),
+  deleteGroupDirect: (request: unknown, context: unknown) =>
+    deleteGroupDirectMock(request, context),
+  removeGroupMemberDirect: (request: unknown, context: unknown) =>
+    removeGroupMemberDirectMock(request, context),
+  updateGroupDirect: (request: unknown, context: unknown) =>
+    updateGroupDirectMock(request, context)
 }));
 
 vi.mock('./adminDirectGroups.js', () => ({
@@ -162,6 +190,11 @@ describe('adminConnectService', () => {
     callRouteJsonHandlerMock.mockResolvedValue('{"ok":true}');
 
     getContextDirectMock.mockReset();
+    createGroupDirectMock.mockReset();
+    updateGroupDirectMock.mockReset();
+    deleteGroupDirectMock.mockReset();
+    addGroupMemberDirectMock.mockReset();
+    removeGroupMemberDirectMock.mockReset();
     getGroupDirectMock.mockReset();
     getGroupMembersDirectMock.mockReset();
     getPostgresInfoDirectMock.mockReset();
@@ -175,6 +208,11 @@ describe('adminConnectService', () => {
     getRedisDbSizeDirectMock.mockReset();
 
     getContextDirectMock.mockResolvedValue({ json: '{"ok":true}' });
+    createGroupDirectMock.mockResolvedValue({ json: '{"ok":true}' });
+    updateGroupDirectMock.mockResolvedValue({ json: '{"ok":true}' });
+    deleteGroupDirectMock.mockResolvedValue({ json: '{"ok":true}' });
+    addGroupMemberDirectMock.mockResolvedValue({ json: '{"ok":true}' });
+    removeGroupMemberDirectMock.mockResolvedValue({ json: '{"ok":true}' });
     getGroupDirectMock.mockResolvedValue({ json: '{"ok":true}' });
     getGroupMembersDirectMock.mockResolvedValue({ json: '{"ok":true}' });
     getPostgresInfoDirectMock.mockResolvedValue({ json: '{"ok":true}' });
@@ -208,6 +246,11 @@ describe('adminConnectService', () => {
     const listGroupsRequest = { organizationId: 'org-1' };
     const getGroupRequest = { id: 'group-1' };
     const getGroupMembersRequest = { id: 'group-2' };
+    const createGroupRequest = { json: '{"name":"x"}' };
+    const updateGroupRequest = { id: 'group-2', json: '{"name":"y"}' };
+    const deleteGroupRequest = { id: 'group-3' };
+    const addGroupMemberRequest = { id: 'group-5', json: '{"userId":"u1"}' };
+    const removeGroupMemberRequest = { groupId: 'group-6', userId: 'u2' };
 
     const cases: DirectCallCase[] = [
       {
@@ -273,6 +316,39 @@ describe('adminConnectService', () => {
           adminConnectService.getGroupMembers(getGroupMembersRequest, context),
         expectedRequest: getGroupMembersRequest,
         mock: getGroupMembersDirectMock
+      },
+      {
+        call: () =>
+          adminConnectService.createGroup(createGroupRequest, context),
+        expectedRequest: createGroupRequest,
+        mock: createGroupDirectMock
+      },
+      {
+        call: () =>
+          adminConnectService.updateGroup(updateGroupRequest, context),
+        expectedRequest: updateGroupRequest,
+        mock: updateGroupDirectMock
+      },
+      {
+        call: () =>
+          adminConnectService.deleteGroup(deleteGroupRequest, context),
+        expectedRequest: deleteGroupRequest,
+        mock: deleteGroupDirectMock
+      },
+      {
+        call: () =>
+          adminConnectService.addGroupMember(addGroupMemberRequest, context),
+        expectedRequest: addGroupMemberRequest,
+        mock: addGroupMemberDirectMock
+      },
+      {
+        call: () =>
+          adminConnectService.removeGroupMember(
+            removeGroupMemberRequest,
+            context
+          ),
+        expectedRequest: removeGroupMemberRequest,
+        mock: removeGroupMemberDirectMock
       }
     ];
 
@@ -296,56 +372,6 @@ describe('adminConnectService', () => {
     const context = createContext();
 
     const cases: JsonCallCase[] = [
-      {
-        call: () =>
-          adminConnectService.createGroup({ json: '{"name":"x"}' }, context),
-        method: 'POST',
-        path: '/admin/groups',
-        jsonBody: '{"name":"x"}'
-      },
-      {
-        call: () =>
-          adminConnectService.updateGroup(
-            {
-              id: 'group-2',
-              json: '{"name":"y"}'
-            },
-            context
-          ),
-        method: 'PUT',
-        path: '/admin/groups/group-2',
-        jsonBody: '{"name":"y"}'
-      },
-      {
-        call: () => adminConnectService.deleteGroup({ id: 'group-3' }, context),
-        method: 'DELETE',
-        path: '/admin/groups/group-3'
-      },
-      {
-        call: () =>
-          adminConnectService.addGroupMember(
-            {
-              id: 'group-5',
-              json: '{"userId":"u1"}'
-            },
-            context
-          ),
-        method: 'POST',
-        path: '/admin/groups/group-5/members',
-        jsonBody: '{"userId":"u1"}'
-      },
-      {
-        call: () =>
-          adminConnectService.removeGroupMember(
-            {
-              groupId: 'group-6',
-              userId: 'u2'
-            },
-            context
-          ),
-        method: 'DELETE',
-        path: '/admin/groups/group-6/members/u2'
-      },
       {
         call: () =>
           adminConnectService.listOrganizations(
