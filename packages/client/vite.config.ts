@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => ({
     __APP_VERSION__: JSON.stringify(packageJson.version),
     // Default API URL for development mode
     ...(mode === 'development' && {
-      'import.meta.env.VITE_API_URL': JSON.stringify('http://localhost:5001/v1')
+      'import.meta.env.VITE_API_URL': JSON.stringify('http://localhost:3000/v1')
     })
   },
   plugins: [
@@ -46,6 +46,16 @@ export default defineConfig(({ mode }) => ({
       // Required for SharedArrayBuffer (used by some WASM implementations)
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Embedder-Policy': 'require-corp'
+    },
+    proxy: {
+      '/v1': {
+        target: 'http://localhost:5001',
+        changeOrigin: true
+      },
+      '/v2': {
+        target: 'http://localhost:5002',
+        changeOrigin: true
+      }
     }
   },
   worker: {
