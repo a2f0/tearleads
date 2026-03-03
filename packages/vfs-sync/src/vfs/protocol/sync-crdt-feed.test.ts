@@ -64,7 +64,15 @@ describe('buildVfsCrdtSyncQuery', () => {
       'root-1',
       true
     ]);
-    expect(query.text).toContain('ORDER BY ops.occurred_at ASC, ops.id ASC');
+    expect(query.text).toContain(
+      "ORDER BY date_trunc('milliseconds', ops.occurred_at) ASC, ops.id ASC"
+    );
+    expect(query.text).toContain(
+      "date_trunc('milliseconds', ops.occurred_at) > $2::timestamptz"
+    );
+    expect(query.text).toContain(
+      "date_trunc('milliseconds', ops.occurred_at) AS occurred_at"
+    );
   });
 
   it('supports toggling envelope bytea reads off for rollback', () => {

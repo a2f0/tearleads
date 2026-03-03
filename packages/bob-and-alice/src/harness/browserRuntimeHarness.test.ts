@@ -21,22 +21,22 @@ describe('browserRuntimeHarness', () => {
   it('throws when sync feed reports hasMore without nextCursor', async () => {
     const actor: RuntimeApiActor = {
       fetchJson: async (path: string) => {
-        if (path.startsWith('/vfs/vfs-sync?')) {
-          return JSON.parse(
-            JSON.stringify({
+        if (path.endsWith('/connect/tearleads.v1.VfsService/GetSync')) {
+          return {
+            json: JSON.stringify({
               items: [],
               hasMore: true,
               nextCursor: null
             })
-          );
+          };
         }
-        return JSON.parse(
-          JSON.stringify({
+        return {
+          json: JSON.stringify({
             items: [],
             hasMore: false,
             nextCursor: null
           })
-        );
+        };
       }
     };
 
@@ -50,22 +50,22 @@ describe('browserRuntimeHarness', () => {
   it('throws when crdt feed reports hasMore without nextCursor', async () => {
     const actor: RuntimeApiActor = {
       fetchJson: async (path: string) => {
-        if (path.startsWith('/vfs/crdt/vfs-sync?')) {
-          return JSON.parse(
-            JSON.stringify({
+        if (path.endsWith('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
+          return {
+            json: JSON.stringify({
               items: [],
               hasMore: true,
               nextCursor: null
             })
-          );
+          };
         }
-        return JSON.parse(
-          JSON.stringify({
+        return {
+          json: JSON.stringify({
             items: [],
             hasMore: false,
             nextCursor: null
           })
-        );
+        };
       }
     };
 
