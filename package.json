@@ -86,7 +86,7 @@
   "devDependencies": {
     "@bufbuild/buf": "1.66.0",
     "@bufbuild/protoc-gen-es": "2.11.0",
-    "@biomejs/biome": "2.4.4",
+    "@biomejs/biome": "2.4.5",
     "@commitlint/cli": "20.4.2",
     "@commitlint/config-conventional": "20.4.2",
     "@commitlint/types": "20.4.0",
