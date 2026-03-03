@@ -4,7 +4,7 @@ import {
   setApiEventLogger,
   setApiRequestHeadersProvider,
   tryRefreshToken
-} from '@tearleads/api-client';
+} from '@tearleads/api-client/clientEntry';
 import { logApiEvent } from '@/db/analytics';
 import { getActiveOrganizationId } from '@/lib/orgStorage';
 
