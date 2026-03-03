@@ -5,7 +5,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   readEnvValueFromFile,
-  validateAndroidKeystore
+  validateAndroidKeystore,
+  validateAndroidKeystoreBase64
 } from './lib/androidKeystore.ts';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -258,6 +259,15 @@ function main(): void {
   const appStoreConnectApiKey = readFileSync(p8File).toString('base64');
   const deploySshKey = readFileSync(deployKeyFile, 'utf8');
   const androidKeystoreBase64 = readFileSync(keystoreFile).toString('base64');
+  validateAndroidKeystoreBase64(
+    androidKeystoreBase64,
+    {
+      keyAlias: 'tearleads',
+      keyPassword: env.ANDROID_KEYSTORE_KEY_PASS,
+      storePassword: env.ANDROID_KEYSTORE_STORE_PASS
+    },
+    `Android keystore base64 validation for ${keystoreFile}`
+  );
   const googlePlayServiceAccountJsonBase64 =
     readFileSync(googlePlayJsonFile).toString('base64');
 

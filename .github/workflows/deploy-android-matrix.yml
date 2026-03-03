@@ -115,6 +115,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Validate Android keystore secrets (fail fast)
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets[format('{0}_ANDROID_KEYSTORE_BASE64', env.APP_ID)] || secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_STORE_PASS: ${{ secrets[format('{0}_ANDROID_KEYSTORE_STORE_PASS', env.APP_ID)] || secrets.ANDROID_KEYSTORE_STORE_PASS }}
+          ANDROID_KEYSTORE_KEY_PASS: ${{ secrets[format('{0}_ANDROID_KEYSTORE_KEY_PASS', env.APP_ID)] || secrets.ANDROID_KEYSTORE_KEY_PASS }}
+          ANDROID_KEY_ALIAS: ${{ secrets[format('{0}_ANDROID_KEY_ALIAS', env.APP_ID)] || env.APP_ID }}
+        run: |
+          pnpm exec tsx scripts/checkAndroidKeystoreIntegrity.ts \
+            --source env \
+            --base64-env ANDROID_KEYSTORE_BASE64 \
+            --store-pass-env ANDROID_KEYSTORE_STORE_PASS \
+            --key-pass-env ANDROID_KEYSTORE_KEY_PASS \
+            --key-alias-env ANDROID_KEY_ALIAS \
+            --context "Deploy Android matrix keystore secrets for ${APP_ID}"
+
       - name: Generate app configs
         run: |
           cd packages/app-builder

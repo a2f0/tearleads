@@ -64,11 +64,12 @@ const FULL_RUN_EXACT_EXCEPTIONS: ReadonlyArray<string> = [
   '.github/workflows/build.yml'
 ];
 const CI_IMPACT_SCRIPT_TEST_REGEX =
-  /^(?:scripts\/ciImpact\/|scripts\/agents\/tooling\/)/;
+  /^(?:scripts\/ciImpact\/|scripts\/agents\/tooling\/|scripts\/checkAndroidKeystoreIntegrity(?:\.test)?\.ts$|scripts\/lib\/androidKeystore\.ts$|scripts\/setGithubVars\.ts$)/;
 const CI_IMPACT_SCRIPT_TEST_FILES: ReadonlyArray<string> = [
   'scripts/ciImpact/ciImpact.test.ts',
   'scripts/ciImpact/requiredWorkflows.test.ts',
-  'scripts/agents/tooling/agentTool.test.ts'
+  'scripts/agents/tooling/agentTool.test.ts',
+  'scripts/checkAndroidKeystoreIntegrity.test.ts'
 ];
 
 function parseArgs(argv: string[]): CliArgs {
