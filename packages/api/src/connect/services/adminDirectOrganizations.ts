@@ -11,13 +11,13 @@ import type {
 import { buildRevenueCatAppUserId } from '../../lib/billing.js';
 import { getPool } from '../../lib/postgres.js';
 import {
-  mapOrganizationRow,
-  type OrganizationRow
-} from '../../routes/admin/organizations/shared.js';
-import {
   requireScopedAdminAccess,
   type ScopedAdminAccess
 } from './adminDirectAuth.js';
+import {
+  mapOrganizationRow,
+  type OrganizationRow
+} from './adminDirectOrganizationsShared.js';
 
 type IdRequest = { id: string };
 type JsonRequest = { json: string };

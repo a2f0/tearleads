@@ -6,16 +6,16 @@ import {
   getLatestLastActiveByUserIds
 } from '../../lib/sessions.js';
 import {
+  requireScopedAdminAccess,
+  type ScopedAdminAccess
+} from './adminDirectAuth.js';
+import {
   emptyAccounting,
   getUserAccounting,
   mapUserRow,
   parseUserUpdatePayload,
   type UserRow
-} from '../../routes/admin/users/shared.js';
-import {
-  requireScopedAdminAccess,
-  type ScopedAdminAccess
-} from './adminDirectAuth.js';
+} from './adminDirectUsersShared.js';
 
 type IdRequest = { id: string };
 type IdJsonRequest = { id: string; json: string };

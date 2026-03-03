@@ -10,7 +10,7 @@ import {
   mapAclAccessLevelToSharePermissionLevel,
   mapSharePermissionLevelToAclAccessLevel,
   parseCreateOrgSharePayload
-} from './shared.js';
+} from './vfsSharesDirectShared.js';
 
 describe('vfs share acl mapping', () => {
   it('maps view permission to read access', () => {

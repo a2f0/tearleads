@@ -8,11 +8,11 @@ import type {
   PostgresTablesResponse
 } from '@tearleads/shared';
 import { getPool, getPostgresConnectionInfo } from '../../lib/postgres.js';
+import { requireAdminSession } from './adminDirectAuth.js';
 import {
   coerceNumber,
   type PostgresTableRow
-} from '../../routes/admin/postgres/shared.js';
-import { requireAdminSession } from './adminDirectAuth.js';
+} from './adminDirectPostgresShared.js';
 
 type GetColumnsRequest = { schema: string; table: string };
 type GetRowsRequest = {

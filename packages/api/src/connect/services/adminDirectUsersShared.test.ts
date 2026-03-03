@@ -3,7 +3,7 @@ import {
   getUserAccounting,
   mapUserRow,
   parseUserUpdatePayload
-} from './shared.js';
+} from './adminDirectUsersShared.js';
 
 describe('admin users shared', () => {
   it('maps user rows with sensible defaults', () => {

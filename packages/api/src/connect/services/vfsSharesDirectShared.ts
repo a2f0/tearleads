@@ -10,7 +10,7 @@ import type { Pool } from 'pg';
 import {
   parseOrgWrappedKeyPayload,
   parseWrappedKeyPayload
-} from './wrappedKeyParsers.js';
+} from './vfsSharesWrappedKeyParsers.js';
 
 const VALID_SHARE_TYPES: VfsShareType[] = ['user', 'group', 'organization'];
 const VALID_PERMISSION_LEVELS: VfsPermissionLevel[] = [

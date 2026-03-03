@@ -9,14 +9,14 @@ import type {
 } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
 import { getPool } from '../../lib/postgres.js';
+import { requireVfsSharesClaims } from './vfsSharesDirectHandlers.js';
 import {
   extractOrgShareIdFromAclId,
   extractShareIdFromAclId,
   extractSourceOrgIdFromOrgShareAclId,
   mapAclAccessLevelToSharePermissionLevel,
   type VfsAclAccessLevel
-} from '../../routes/vfs-shares/shared.js';
-import { requireVfsSharesClaims } from './vfsSharesDirectHandlers.js';
+} from './vfsSharesDirectShared.js';
 
 function encoded(value: string): string {
   return encodeURIComponent(value);
