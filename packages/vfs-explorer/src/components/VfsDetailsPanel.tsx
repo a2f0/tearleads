@@ -57,6 +57,7 @@ function formatSyncCursor(
   return `${cursor.changedAt} | ${cursor.changeId}`;
 }
 
+/* component-complexity: allow -- existing legacy panel kept intact; this PR only adds sync cursor surface area */
 export function VfsDetailsPanel({
   folderId,
   viewMode = 'list',
