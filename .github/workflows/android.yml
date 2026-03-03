@@ -151,6 +151,21 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm install
 
+      - name: Validate Android keystore secrets (fail fast)
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_STORE_PASS }}
+          ANDROID_KEYSTORE_KEY_PASS: ${{ secrets.ANDROID_KEYSTORE_KEY_PASS }}
+        run: |
+          pnpm exec tsx scripts/checkAndroidKeystoreIntegrity.ts \
+            --source env \
+            --base64-env ANDROID_KEYSTORE_BASE64 \
+            --store-pass-env ANDROID_KEYSTORE_STORE_PASS \
+            --key-pass-env ANDROID_KEYSTORE_KEY_PASS \
+            --key-alias tearleads \
+            --context "Android Instrumented Tests keystore secrets"
+
       - name: Cache SQLite WASM
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: actions/cache@v5

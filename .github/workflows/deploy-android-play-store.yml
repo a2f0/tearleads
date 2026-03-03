@@ -115,6 +115,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Validate Android keystore secrets (fail fast)
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_STORE_PASS }}
+          ANDROID_KEYSTORE_KEY_PASS: ${{ secrets.ANDROID_KEYSTORE_KEY_PASS }}
+        run: |
+          pnpm exec tsx scripts/checkAndroidKeystoreIntegrity.ts \
+            --source env \
+            --base64-env ANDROID_KEYSTORE_BASE64 \
+            --store-pass-env ANDROID_KEYSTORE_STORE_PASS \
+            --key-pass-env ANDROID_KEYSTORE_KEY_PASS \
+            --key-alias tearleads \
+            --context "Deploy Android Play Store keystore secrets"
+
       - name: Download SQLite WASM
         run: ./scripts/downloadSqliteWasm.sh
 
