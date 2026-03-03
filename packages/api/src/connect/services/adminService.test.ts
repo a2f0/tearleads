@@ -1,35 +1,43 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
-  callRouteJsonHandlerMock,
-  createGroupDirectMock,
-  updateGroupDirectMock,
-  deleteGroupDirectMock,
   addGroupMemberDirectMock,
-  removeGroupMemberDirectMock,
+  createGroupDirectMock,
+  createOrganizationDirectMock,
+  deleteGroupDirectMock,
+  deleteOrganizationDirectMock,
   deleteRedisKeyDirectMock,
   getColumnsDirectMock,
   getContextDirectMock,
   getGroupDirectMock,
   getGroupMembersDirectMock,
+  getOrganizationDirectMock,
+  getOrganizationGroupsDirectMock,
+  getOrganizationUsersDirectMock,
   getPostgresInfoDirectMock,
   getRedisDbSizeDirectMock,
   getRedisKeysDirectMock,
   getRedisValueDirectMock,
   getRowsDirectMock,
+  getTablesDirectMock,
+  getUserDirectMock,
   listGroupsDirectMock,
-  getTablesDirectMock
+  listOrganizationsDirectMock,
+  listUsersDirectMock,
+  removeGroupMemberDirectMock,
+  updateGroupDirectMock,
+  updateOrganizationDirectMock,
+  updateUserDirectMock
 } = vi.hoisted(() => ({
-  callRouteJsonHandlerMock: vi.fn<(options: unknown) => Promise<string>>(),
+  addGroupMemberDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   createGroupDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
-  updateGroupDirectMock:
+  createOrganizationDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   deleteGroupDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
-  addGroupMemberDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
-  removeGroupMemberDirectMock:
+  deleteOrganizationDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   deleteRedisKeyDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
@@ -41,6 +49,12 @@ const {
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   getGroupMembersDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  getOrganizationDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  getOrganizationGroupsDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  getOrganizationUsersDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   getPostgresInfoDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   getRedisDbSizeDirectMock:
@@ -51,22 +65,25 @@ const {
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   getRowsDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  getTablesDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  getUserDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   listGroupsDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
-  getTablesDirectMock:
+  listOrganizationsDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  listUsersDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  removeGroupMemberDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  updateGroupDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  updateOrganizationDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  updateUserDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>()
 }));
-
-vi.mock('./legacyRouteProxy.js', async () => {
-  const actual = await vi.importActual<typeof import('./legacyRouteProxy.js')>(
-    './legacyRouteProxy.js'
-  );
-
-  return {
-    ...actual,
-    callRouteJsonHandler: callRouteJsonHandlerMock
-  };
-});
 
 vi.mock('./adminDirectContext.js', () => ({
   getContextDirect: (request: unknown, context: unknown) =>
@@ -95,6 +112,23 @@ vi.mock('./adminDirectGroups.js', () => ({
     listGroupsDirectMock(request, context)
 }));
 
+vi.mock('./adminDirectOrganizations.js', () => ({
+  createOrganizationDirect: (request: unknown, context: unknown) =>
+    createOrganizationDirectMock(request, context),
+  deleteOrganizationDirect: (request: unknown, context: unknown) =>
+    deleteOrganizationDirectMock(request, context),
+  getOrganizationDirect: (request: unknown, context: unknown) =>
+    getOrganizationDirectMock(request, context),
+  getOrganizationGroupsDirect: (request: unknown, context: unknown) =>
+    getOrganizationGroupsDirectMock(request, context),
+  getOrganizationUsersDirect: (request: unknown, context: unknown) =>
+    getOrganizationUsersDirectMock(request, context),
+  listOrganizationsDirect: (request: unknown, context: unknown) =>
+    listOrganizationsDirectMock(request, context),
+  updateOrganizationDirect: (request: unknown, context: unknown) =>
+    updateOrganizationDirectMock(request, context)
+}));
+
 vi.mock('./adminDirectPostgres.js', () => ({
   getColumnsDirect: (request: unknown, context: unknown) =>
     getColumnsDirectMock(request, context),
@@ -117,27 +151,29 @@ vi.mock('./adminDirectRedis.js', () => ({
     getRedisValueDirectMock(request, context)
 }));
 
+vi.mock('./adminDirectUsers.js', () => ({
+  getUserDirect: (request: unknown, context: unknown) =>
+    getUserDirectMock(request, context),
+  listUsersDirect: (request: unknown, context: unknown) =>
+    listUsersDirectMock(request, context),
+  updateUserDirect: (request: unknown, context: unknown) =>
+    updateUserDirectMock(request, context)
+}));
+
 import { adminConnectService } from './adminService.js';
 
-type JsonCallExpectation = {
-  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  path: string;
-  jsonBody?: string;
-  query?: string;
-};
-
-type JsonCallCase = JsonCallExpectation & {
-  call: () => Promise<{ json: string }>;
+type DelegationMock = {
+  mockReset: () => void;
+  mockResolvedValue: (value: { json: string }) => void;
+  mock: {
+    calls: unknown[][];
+  };
 };
 
 type DirectCallCase = {
   call: () => Promise<{ json: string }>;
   expectedRequest: unknown;
-  mock: {
-    mock: {
-      calls: unknown[][];
-    };
-  };
+  mock: DelegationMock;
 };
 
 function createContext() {
@@ -149,84 +185,49 @@ function createContext() {
   };
 }
 
-function isUnknownRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function expectLastJsonCall(
-  context: ReturnType<typeof createContext>,
-  expectation: JsonCallExpectation
-): void {
-  const call = callRouteJsonHandlerMock.mock.calls.at(-1);
-  if (!call) {
-    throw new Error('Expected callRouteJsonHandler to be called');
-  }
-
-  const [options] = call;
-  if (!isUnknownRecord(options)) {
-    throw new Error('Expected options object');
-  }
-  expect(options['context']).toBe(context);
-  expect(options['method']).toBe(expectation.method);
-  expect(options['path']).toBe(expectation.path);
-
-  if (expectation.jsonBody === undefined) {
-    expect(options['jsonBody']).toBeUndefined();
-  } else {
-    expect(options['jsonBody']).toBe(expectation.jsonBody);
-  }
-
-  const query = options['query'];
-  if (query !== undefined && !(query instanceof URLSearchParams)) {
-    throw new Error('Expected query to be URLSearchParams when present');
-  }
-
-  expect(query?.toString() ?? '').toBe(expectation.query ?? '');
+function getDelegationMocks(): DelegationMock[] {
+  return [
+    addGroupMemberDirectMock,
+    createGroupDirectMock,
+    createOrganizationDirectMock,
+    deleteGroupDirectMock,
+    deleteOrganizationDirectMock,
+    deleteRedisKeyDirectMock,
+    getColumnsDirectMock,
+    getContextDirectMock,
+    getGroupDirectMock,
+    getGroupMembersDirectMock,
+    getOrganizationDirectMock,
+    getOrganizationGroupsDirectMock,
+    getOrganizationUsersDirectMock,
+    getPostgresInfoDirectMock,
+    getRedisDbSizeDirectMock,
+    getRedisKeysDirectMock,
+    getRedisValueDirectMock,
+    getRowsDirectMock,
+    getTablesDirectMock,
+    getUserDirectMock,
+    listGroupsDirectMock,
+    listOrganizationsDirectMock,
+    listUsersDirectMock,
+    removeGroupMemberDirectMock,
+    updateGroupDirectMock,
+    updateOrganizationDirectMock,
+    updateUserDirectMock
+  ];
 }
 
 describe('adminConnectService', () => {
   beforeEach(() => {
-    callRouteJsonHandlerMock.mockReset();
-    callRouteJsonHandlerMock.mockResolvedValue('{"ok":true}');
+    vi.clearAllMocks();
 
-    getContextDirectMock.mockReset();
-    createGroupDirectMock.mockReset();
-    updateGroupDirectMock.mockReset();
-    deleteGroupDirectMock.mockReset();
-    addGroupMemberDirectMock.mockReset();
-    removeGroupMemberDirectMock.mockReset();
-    getGroupDirectMock.mockReset();
-    getGroupMembersDirectMock.mockReset();
-    getPostgresInfoDirectMock.mockReset();
-    getTablesDirectMock.mockReset();
-    getColumnsDirectMock.mockReset();
-    getRowsDirectMock.mockReset();
-    listGroupsDirectMock.mockReset();
-    getRedisKeysDirectMock.mockReset();
-    getRedisValueDirectMock.mockReset();
-    deleteRedisKeyDirectMock.mockReset();
-    getRedisDbSizeDirectMock.mockReset();
-
-    getContextDirectMock.mockResolvedValue({ json: '{"ok":true}' });
-    createGroupDirectMock.mockResolvedValue({ json: '{"ok":true}' });
-    updateGroupDirectMock.mockResolvedValue({ json: '{"ok":true}' });
-    deleteGroupDirectMock.mockResolvedValue({ json: '{"ok":true}' });
-    addGroupMemberDirectMock.mockResolvedValue({ json: '{"ok":true}' });
-    removeGroupMemberDirectMock.mockResolvedValue({ json: '{"ok":true}' });
-    getGroupDirectMock.mockResolvedValue({ json: '{"ok":true}' });
-    getGroupMembersDirectMock.mockResolvedValue({ json: '{"ok":true}' });
-    getPostgresInfoDirectMock.mockResolvedValue({ json: '{"ok":true}' });
-    getTablesDirectMock.mockResolvedValue({ json: '{"ok":true}' });
-    getColumnsDirectMock.mockResolvedValue({ json: '{"ok":true}' });
-    getRowsDirectMock.mockResolvedValue({ json: '{"ok":true}' });
-    listGroupsDirectMock.mockResolvedValue({ json: '{"ok":true}' });
-    getRedisKeysDirectMock.mockResolvedValue({ json: '{"ok":true}' });
-    getRedisValueDirectMock.mockResolvedValue({ json: '{"ok":true}' });
-    deleteRedisKeyDirectMock.mockResolvedValue({ json: '{"ok":true}' });
-    getRedisDbSizeDirectMock.mockResolvedValue({ json: '{"ok":true}' });
+    for (const delegationMock of getDelegationMocks()) {
+      delegationMock.mockReset();
+      delegationMock.mockResolvedValue({ json: '{"ok":true}' });
+    }
   });
 
-  it('delegates direct admin methods to direct handlers', async () => {
+  it('delegates admin methods to direct handlers', async () => {
     const context = createContext();
     const getColumnsRequest = { schema: 'public', table: 'users' };
     const getRowsRequest = {
@@ -251,6 +252,16 @@ describe('adminConnectService', () => {
     const deleteGroupRequest = { id: 'group-3' };
     const addGroupMemberRequest = { id: 'group-5', json: '{"userId":"u1"}' };
     const removeGroupMemberRequest = { groupId: 'group-6', userId: 'u2' };
+    const listOrganizationsRequest = { organizationId: 'org-2' };
+    const getOrganizationRequest = { id: 'org-3' };
+    const createOrganizationRequest = { json: '{"name":"Org"}' };
+    const updateOrganizationRequest = { id: 'org-4', json: '{"name":"Org 4"}' };
+    const deleteOrganizationRequest = { id: 'org-5' };
+    const getOrganizationUsersRequest = { id: 'org-6' };
+    const getOrganizationGroupsRequest = { id: 'org-7' };
+    const listUsersRequest = { organizationId: 'org-8' };
+    const getUserRequest = { id: 'user-9' };
+    const updateUserRequest = { id: 'user-10', json: '{"disabled":true}' };
 
     const cases: DirectCallCase[] = [
       {
@@ -349,6 +360,78 @@ describe('adminConnectService', () => {
           ),
         expectedRequest: removeGroupMemberRequest,
         mock: removeGroupMemberDirectMock
+      },
+      {
+        call: () =>
+          adminConnectService.listOrganizations(
+            listOrganizationsRequest,
+            context
+          ),
+        expectedRequest: listOrganizationsRequest,
+        mock: listOrganizationsDirectMock
+      },
+      {
+        call: () =>
+          adminConnectService.getOrganization(getOrganizationRequest, context),
+        expectedRequest: getOrganizationRequest,
+        mock: getOrganizationDirectMock
+      },
+      {
+        call: () =>
+          adminConnectService.createOrganization(
+            createOrganizationRequest,
+            context
+          ),
+        expectedRequest: createOrganizationRequest,
+        mock: createOrganizationDirectMock
+      },
+      {
+        call: () =>
+          adminConnectService.updateOrganization(
+            updateOrganizationRequest,
+            context
+          ),
+        expectedRequest: updateOrganizationRequest,
+        mock: updateOrganizationDirectMock
+      },
+      {
+        call: () =>
+          adminConnectService.deleteOrganization(
+            deleteOrganizationRequest,
+            context
+          ),
+        expectedRequest: deleteOrganizationRequest,
+        mock: deleteOrganizationDirectMock
+      },
+      {
+        call: () =>
+          adminConnectService.getOrgUsers(getOrganizationUsersRequest, context),
+        expectedRequest: getOrganizationUsersRequest,
+        mock: getOrganizationUsersDirectMock
+      },
+      {
+        call: () =>
+          adminConnectService.getOrgGroups(
+            getOrganizationGroupsRequest,
+            context
+          ),
+        expectedRequest: getOrganizationGroupsRequest,
+        mock: getOrganizationGroupsDirectMock
+      },
+      {
+        call: () => adminConnectService.listUsers(listUsersRequest, context),
+        expectedRequest: listUsersRequest,
+        mock: listUsersDirectMock
+      },
+      {
+        call: () => adminConnectService.getUser(getUserRequest, context),
+        expectedRequest: getUserRequest,
+        mock: getUserDirectMock
+      },
+      {
+        call: () => adminConnectService.updateUser(updateUserRequest, context),
+        expectedRequest: updateUserRequest,
+        mock: updateUserDirectMock
       }
     ];
 
@@ -364,135 +447,5 @@ describe('adminConnectService', () => {
       expect(request).toEqual(testCase.expectedRequest);
       expect(receivedContext).toBe(context);
     }
-
-    expect(callRouteJsonHandlerMock).not.toHaveBeenCalled();
-  });
-
-  it('routes remaining admin handlers to legacy route proxy handlers', async () => {
-    const context = createContext();
-
-    const cases: JsonCallCase[] = [
-      {
-        call: () =>
-          adminConnectService.listOrganizations(
-            {
-              organizationId: 'org-2'
-            },
-            context
-          ),
-        method: 'GET',
-        path: '/admin/organizations',
-        query: 'organizationId=org-2'
-      },
-      {
-        call: () =>
-          adminConnectService.getOrganization(
-            {
-              id: 'org-3'
-            },
-            context
-          ),
-        method: 'GET',
-        path: '/admin/organizations/org-3'
-      },
-      {
-        call: () =>
-          adminConnectService.createOrganization(
-            {
-              json: '{"name":"Org"}'
-            },
-            context
-          ),
-        method: 'POST',
-        path: '/admin/organizations',
-        jsonBody: '{"name":"Org"}'
-      },
-      {
-        call: () =>
-          adminConnectService.updateOrganization(
-            {
-              id: 'org-4',
-              json: '{"name":"Org 4"}'
-            },
-            context
-          ),
-        method: 'PUT',
-        path: '/admin/organizations/org-4',
-        jsonBody: '{"name":"Org 4"}'
-      },
-      {
-        call: () =>
-          adminConnectService.deleteOrganization({ id: 'org-5' }, context),
-        method: 'DELETE',
-        path: '/admin/organizations/org-5'
-      },
-      {
-        call: () => adminConnectService.getOrgUsers({ id: 'org-6' }, context),
-        method: 'GET',
-        path: '/admin/organizations/org-6/users'
-      },
-      {
-        call: () => adminConnectService.getOrgGroups({ id: 'org-7' }, context),
-        method: 'GET',
-        path: '/admin/organizations/org-7/groups'
-      },
-      {
-        call: () =>
-          adminConnectService.listUsers({ organizationId: 'org-8' }, context),
-        method: 'GET',
-        path: '/admin/users',
-        query: 'organizationId=org-8'
-      },
-      {
-        call: () => adminConnectService.getUser({ id: 'user-9' }, context),
-        method: 'GET',
-        path: '/admin/users/user-9'
-      },
-      {
-        call: () =>
-          adminConnectService.updateUser(
-            {
-              id: 'user-10',
-              json: '{"disabled":true}'
-            },
-            context
-          ),
-        method: 'PATCH',
-        path: '/admin/users/user-10',
-        jsonBody: '{"disabled":true}'
-      }
-    ];
-
-    for (const testCase of cases) {
-      const response = await testCase.call();
-      expect(response).toEqual({ json: '{"ok":true}' });
-      expectLastJsonCall(context, testCase);
-    }
-
-    expect(getContextDirectMock).not.toHaveBeenCalled();
-    expect(listGroupsDirectMock).not.toHaveBeenCalled();
-    expect(getGroupDirectMock).not.toHaveBeenCalled();
-    expect(getGroupMembersDirectMock).not.toHaveBeenCalled();
-  });
-
-  it('omits optional query params for remaining legacy admin list endpoints', async () => {
-    const context = createContext();
-
-    await adminConnectService.listOrganizations(
-      {
-        organizationId: ' '
-      },
-      context
-    );
-    expectLastJsonCall(context, {
-      method: 'GET',
-      path: '/admin/organizations'
-    });
-
-    await adminConnectService.listUsers({ organizationId: '' }, context);
-    expectLastJsonCall(context, {
-      method: 'GET',
-      path: '/admin/users'
-    });
   });
 });
