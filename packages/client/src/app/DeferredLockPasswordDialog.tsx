@@ -68,12 +68,6 @@ export function DeferredLockPasswordDialog({
   );
 
   const handleSubmit = useCallback(async () => {
-    // Defensive guard: submit is disabled during saves, but keep this fallback.
-    /* c8 ignore next 3 */
-    if (isSaving) {
-      return;
-    }
-
     const normalizedPassword = password.trim();
     if (!normalizedPassword) {
       setLocalError('Enter a password to continue.');
@@ -82,7 +76,7 @@ export function DeferredLockPasswordDialog({
 
     setLocalError(null);
     await onSubmit(normalizedPassword);
-  }, [isSaving, onSubmit, password]);
+  }, [onSubmit, password]);
 
   if (!open) {
     return null;
