@@ -7,10 +7,6 @@ import type {
 } from '@tearleads/shared';
 import { broadcast } from '../../lib/broadcast.js';
 import { getPostgresPool } from '../../lib/postgres.js';
-import {
-  getActiveMlsGroupMembership,
-  parseSendMessagePayload
-} from '../../routes/mls/shared.js';
 import { shouldReadEnvelopeBytea } from '../../routes/vfs/crdtEnvelopeReadOptions.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
 import { encoded, parseJsonBody } from './mlsDirectCommon.js';
@@ -23,6 +19,10 @@ import {
   toIsoString,
   toPositiveInteger
 } from './mlsDirectMessagesShared.js';
+import {
+  getActiveMlsGroupMembership,
+  parseSendMessagePayload
+} from './mlsDirectShared.js';
 
 type GroupIdJsonRequest = { groupId: string; json: string };
 type GroupMessagesRequest = { groupId: string; cursor: string; limit: number };

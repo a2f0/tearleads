@@ -6,11 +6,11 @@ import type {
   UploadMlsKeyPackagesResponse
 } from '@tearleads/shared';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
+import { requireMlsClaims } from './mlsDirectAuth.js';
 import {
   parseUploadKeyPackagesPayload,
   toSafeCipherSuite
-} from '../../routes/mls/shared.js';
-import { requireMlsClaims } from './mlsDirectAuth.js';
+} from './mlsDirectShared.js';
 
 type UserIdRequest = { userId: string };
 type MlsIdRequest = { id: string };

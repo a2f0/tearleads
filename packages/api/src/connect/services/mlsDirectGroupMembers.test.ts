@@ -36,7 +36,7 @@ vi.mock('../../lib/postgres.js', () => ({
   getPostgresPool: (...args: unknown[]) => getPostgresPoolMock(...args)
 }));
 
-vi.mock('../../routes/mls/shared.js', () => ({
+vi.mock('./mlsDirectShared.js', () => ({
   getActiveMlsGroupMembership: (...args: unknown[]) =>
     getActiveMlsGroupMembershipMock(...args),
   parseAddMemberPayload: (...args: unknown[]) =>

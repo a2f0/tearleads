@@ -6,13 +6,13 @@ import type {
   UploadMlsStateResponse
 } from '@tearleads/shared';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
-import {
-  getActiveMlsGroupMembership,
-  parseUploadStatePayload
-} from '../../routes/mls/shared.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
 import { encoded, parseJsonBody, toIsoString } from './mlsDirectCommon.js';
 import { acquireTransactionClient } from './mlsDirectMessagesShared.js';
+import {
+  getActiveMlsGroupMembership,
+  parseUploadStatePayload
+} from './mlsDirectShared.js';
 
 type GroupIdRequest = { groupId: string };
 type GroupIdJsonRequest = { groupId: string; json: string };
