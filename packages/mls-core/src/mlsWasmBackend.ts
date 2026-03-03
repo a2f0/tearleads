@@ -33,21 +33,24 @@ let mlsWasmBindingsPromise: Promise<MlsWasmBindings> | null = null;
 function assertMlsWasmBindings(
   module: unknown
 ): asserts module is MlsWasmBindings {
-  if (
-    typeof module !== 'object' ||
-    module === null ||
-    typeof (module as Record<string, unknown>)['mls_backend_name'] !==
-      'function' ||
-    typeof (module as Record<string, unknown>)['mls_backend_version'] !==
-      'function' ||
-    typeof (module as Record<string, unknown>)['mls_backend_ready'] !==
-      'function' ||
-    typeof (module as Record<string, unknown>)['mls_backend_notice'] !==
-      'function'
-  ) {
-    throw new Error(
-      'WASM module does not export expected MLS bindings. Run: pnpm codegenWasm'
-    );
+  if (typeof module !== 'object' || module === null) {
+    throw new Error('WASM module is not an object. Run: pnpm codegenWasm');
+  }
+
+  const requiredFunctions = [
+    'mls_backend_name',
+    'mls_backend_version',
+    'mls_backend_ready',
+    'mls_backend_notice'
+  ] as const;
+
+  for (const functionName of requiredFunctions) {
+    const candidate = Reflect.get(module, functionName);
+    if (typeof candidate !== 'function') {
+      throw new Error(
+        `WASM module is missing function '${functionName}'. Run: pnpm codegenWasm`
+      );
+    }
   }
 }
 
