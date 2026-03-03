@@ -33,7 +33,6 @@ export function SyncLoginCard({
         {authMode === 'login' ? (
           <LoginForm
             title={t('login')}
-            description={t('loginDescription')}
             borderless
             switchModeCta={{
               prompt: t('noAccount'),
