@@ -68,6 +68,8 @@ export function DeferredLockPasswordDialog({
   );
 
   const handleSubmit = useCallback(async () => {
+    // Defensive guard: submit is disabled during saves, but keep this fallback.
+    /* c8 ignore next 3 */
     if (isSaving) {
       return;
     }
