@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
-import { WindowRenderer } from './components/window-renderer';
+import { LazyWindowRenderer } from './components/window-renderer';
 
 const renderSpy = vi.hoisted(() => vi.fn());
 
@@ -18,8 +18,8 @@ vi.mock('./lib/consoleErrorCapture', () => ({
 function analyzeTree(node: React.ReactNode) {
   const result = {
     hasBrowserRouter: false,
-    hasWindowRenderer: false,
-    hasWindowRendererInRouter: false
+    hasLazyWindowRenderer: false,
+    hasLazyWindowRendererInRouter: false
   };
 
   const visit = (current: React.ReactNode, inRouter: boolean) => {
@@ -36,9 +36,9 @@ function analyzeTree(node: React.ReactNode) {
     const nextInRouter = inRouter || isRouter;
 
     if (isRouter) result.hasBrowserRouter = true;
-    if (current.type === WindowRenderer) {
-      result.hasWindowRenderer = true;
-      if (nextInRouter) result.hasWindowRendererInRouter = true;
+    if (current.type === LazyWindowRenderer) {
+      result.hasLazyWindowRenderer = true;
+      if (nextInRouter) result.hasLazyWindowRendererInRouter = true;
     }
 
     visit(
@@ -53,7 +53,7 @@ function analyzeTree(node: React.ReactNode) {
 }
 
 describe('main', () => {
-  it('keeps WindowRenderer inside BrowserRouter for router hook access', async () => {
+  it('keeps LazyWindowRenderer inside BrowserRouter for router hook access', async () => {
     document.body.innerHTML = '<div id="root"></div>';
     renderSpy.mockClear();
 
@@ -64,9 +64,9 @@ describe('main', () => {
     const result = analyzeTree(rootElement);
 
     expect(result.hasBrowserRouter).toBe(true);
-    expect(result.hasWindowRenderer).toBe(true);
-    // WindowRenderer must be inside BrowserRouter so window components
+    expect(result.hasLazyWindowRenderer).toBe(true);
+    // LazyWindowRenderer must be inside BrowserRouter so window components
     // can use router hooks like useNavigate (e.g., ClientNotesProvider)
-    expect(result.hasWindowRendererInRouter).toBe(true);
+    expect(result.hasLazyWindowRendererInRouter).toBe(true);
   });
 });
