@@ -102,21 +102,21 @@ if (rootElement) {
                                     <VfsRealtimeSyncBridge />
                                     <WindowManagerProvider>
                                       <ModelDownloadManagerProvider>
-                                      <BrowserRouter>
-                                        <Suspense
-                                          fallback={
-                                            <div className="p-8 text-center text-muted-foreground">
-                                              Loading...
-                                            </div>
-                                          }
-                                        >
-                                          <AppRoutes />
-                                        </Suspense>
-                                        <LazyWindowRenderer />
-                                      </BrowserRouter>
-                                    </ModelDownloadManagerProvider>
-                                  </WindowManagerProvider>
-                                </SSEProvider>
+                                        <BrowserRouter>
+                                          <Suspense
+                                            fallback={
+                                              <div className="p-8 text-center text-muted-foreground">
+                                                Loading...
+                                              </div>
+                                            }
+                                          >
+                                            <AppRoutes />
+                                          </Suspense>
+                                          <LazyWindowRenderer />
+                                        </BrowserRouter>
+                                      </ModelDownloadManagerProvider>
+                                    </WindowManagerProvider>
+                                  </SSEProvider>
                                 </VfsSyncStateProvider>
                               </VfsOrchestratorProvider>
                             </OrgProvider>
