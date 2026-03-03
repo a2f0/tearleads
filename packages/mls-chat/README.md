@@ -1,15 +1,15 @@
 # @tearleads/mls-chat
 
-End-to-end encrypted group chat for Tearleads using the Messaging Layer Security (MLS) protocol ([RFC 9420](https://datatracker.ietf.org/doc/rfc9420/)).
+Group chat UI and client workflows for Messaging Layer Security (MLS) style flows in Tearleads.
 
-> **Implementation Status**: This package currently provides a placeholder implementation with the MLS protocol interface. Full RFC 9420 compliance with production-grade cryptography is planned for a future release via ts-mls library integration.
+> **Implementation Status**: This package currently provides a placeholder MLS protocol interface. It is not RFC 9420-compliant today. Production-grade cryptography is planned for a future Rust/WASM MLS backend integration in `@tearleads/mls-core`.
 
 ## Overview
 
-MLS provides forward secrecy and post-compromise security for group messaging. This package provides the client-side MLS protocol interface with:
+This package provides the client-side MLS protocol interface and UI integration with:
 
 - **Group key management** - Create, join, and leave encrypted groups
-- **Message encryption** - Encrypt/decrypt messages with group keys
+- **Message crypto hooks** - Encrypt/decrypt interface for group messages
 - **Member management** - Add/remove members with automatic key rotation
 - **Local state persistence** - IndexedDB storage for credentials and group states
 - **Real-time updates** - SSE-based message delivery
@@ -171,12 +171,11 @@ MLS state is persisted in IndexedDB (`tearleads-mls` database):
 | `keyPackages` | ref | Unused key packages for group invitations |
 | `groupStates` | groupId | Serialized MLS group state and epoch |
 
-### Security Model
+### Security Model (Current State)
 
-- **Private keys never leave the client** - All encryption happens locally
-- **Forward secrecy** - Compromising current keys doesn't expose past messages
-- **Post-compromise security** - Key rotation limits exposure from compromise
-- **Epoch tracking** - Each group operation increments the epoch for key evolution
+- **Protocol shape only** - API and UI flows mirror MLS concepts, but cryptographic operations are placeholder.
+- **Not production-ready crypto** - Current implementation does not provide RFC 9420 guarantees such as forward secrecy or post-compromise security.
+- **Epoch tracking present** - Group operations track epoch values for migration to a production MLS backend.
 
 ## Development
 

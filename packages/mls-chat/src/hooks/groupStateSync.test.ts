@@ -33,6 +33,8 @@ describe('groupStateSync', () => {
     const client = createClient();
     client.hasGroup.mockReturnValue(false);
     client.importGroupState.mockResolvedValue(undefined);
+    const serializedState = 'serialized-state';
+    const stateHash = 'X/wnNsA+qEvj1bbVUIls8zjTa/wKOz17TEK532YZY1U=';
     vi.stubGlobal(
       'fetch',
       vi.fn(
@@ -43,8 +45,8 @@ describe('groupStateSync', () => {
                 id: 'state-1',
                 groupId: 'group-1',
                 epoch: 4,
-                encryptedState: btoa('serialized-state'),
-                stateHash: 'hash-1',
+                encryptedState: btoa(serializedState),
+                stateHash,
                 createdAt: new Date().toISOString()
               }
             })
@@ -67,8 +69,42 @@ describe('groupStateSync', () => {
       | undefined;
     expect(importedBytes).toBeDefined();
     expect(Array.from(importedBytes ?? new Uint8Array())).toEqual(
-      Array.from(new TextEncoder().encode('serialized-state'))
+      Array.from(new TextEncoder().encode(serializedState))
     );
+  });
+
+  it('rejects recovered state when the state hash does not match', async () => {
+    const client = createClient();
+    client.hasGroup.mockReturnValue(false);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              state: {
+                id: 'state-1',
+                groupId: 'group-1',
+                epoch: 4,
+                encryptedState: btoa('serialized-state'),
+                stateHash: 'invalid-state-hash',
+                createdAt: new Date().toISOString()
+              }
+            })
+          )
+      )
+    );
+
+    await expect(
+      recoverMissingGroupState({
+        groupId: 'group-1',
+        client,
+        apiBaseUrl: 'http://localhost/v1',
+        getAuthHeader: undefined
+      })
+    ).rejects.toThrow('MLS group state hash mismatch');
+
+    expect(client.importGroupState).not.toHaveBeenCalled();
   });
 
   it('returns false when server has no snapshot', async () => {
@@ -119,6 +155,6 @@ describe('groupStateSync', () => {
     };
     expect(body.epoch).toBe(7);
     expect(body.encryptedState).toBeDefined();
-    expect(body.stateHash).toBeDefined();
+    expect(body.stateHash).toBe('wAEDKaM8s6FdpeNW0sAr8nS7ZQCBwhZ0F3ClXnVBabQ=');
   });
 });
