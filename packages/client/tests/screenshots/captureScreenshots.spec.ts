@@ -1,5 +1,5 @@
-import * as path from 'node:path';
 import { test } from '@playwright/test';
+import * as path from 'node:path';
 
 interface Screen {
   route: string;
@@ -7,6 +7,7 @@ interface Screen {
   skip?: boolean;
 }
 
+// Keep in sync with app routes in src/app/AppRoutes.tsx
 const SCREENS: Screen[] = [
   { route: '/', name: 'home' },
   { route: '/contacts', name: 'contacts' },
@@ -65,11 +66,10 @@ for (const screen of SCREENS) {
     await page.waitForSelector('[data-testid="app-container"]', {
       timeout: 10000,
     });
-    // Brief settle for any remaining layout shifts
-    await page.waitForTimeout(500);
+    await page.waitForLoadState('networkidle');
 
     const project = testInfo.project.name; // 'mobile' or 'browser'
-    const repoRoot = path.resolve(process.cwd(), '..', '..');
+    const repoRoot = testInfo.config.metadata['repoRoot'] as string;
     const screenshotPath = path.join(
       repoRoot,
       '.screenshots',

@@ -1,3 +1,4 @@
+import * as path from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 
 const baseURL = process.env.BASE_URL || 'http://localhost:3000';
@@ -14,6 +15,9 @@ export default defineConfig({
   maxFailures: 1,
   reporter: [['list']],
   timeout: 30000,
+  metadata: {
+    repoRoot: path.resolve(__dirname, '..', '..'),
+  },
   use: {
     baseURL,
   },
