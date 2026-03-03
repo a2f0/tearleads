@@ -38,5 +38,18 @@ jobs:
           role-to-assume: ${{ vars.AWS_STAGING_ECR_ROLE_ARN }}
           role-session-name: github-actions-staging-ecr
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.93.0"
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-bindgen-cli
+        run: |
+          set -eu
+          WASM_BINDGEN_VERSION=$(grep -A1 'name = "wasm-bindgen"' Cargo.lock | grep version | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "Installing wasm-bindgen-cli@${WASM_BINDGEN_VERSION}"
+          cargo install wasm-bindgen-cli --version "$WASM_BINDGEN_VERSION" --locked
+
       - name: Build and push staging images
         run: ./scripts/buildContainers.sh staging --tag "${GITHUB_SHA}"
