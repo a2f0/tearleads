@@ -162,9 +162,9 @@ vi.mock('./SSESystemTrayItems', () => ({
   SSESystemTrayItems: () => <div data-testid="sse-system-tray-items" />
 }));
 
-function renderApp() {
+function renderApp(initialEntry = '/') {
   return render(
-    <MemoryRouter initialEntries={['/']}>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
         <Route path="/" element={<App />}>
           <Route index element={<div data-testid="outlet" />} />
@@ -198,6 +198,13 @@ describe('App', () => {
     renderApp();
 
     expect(screen.getByTestId('sse-system-tray-items')).toBeInTheDocument();
+  });
+
+  it('does not render desktop background off home route', () => {
+    renderApp('/search');
+
+    expect(screen.queryByTestId('desktop-background')).not.toBeInTheDocument();
+    expect(screen.getByTestId('search-page')).toBeInTheDocument();
   });
 
   it('renders NotificationCenterTrigger outside the header', async () => {
