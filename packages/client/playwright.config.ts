@@ -26,7 +26,7 @@ const workers = isCI
  */
 export default defineConfig({
   testDir: './tests',
-  testIgnore: ['**/electron/**'],
+  testIgnore: ['**/electron/**', '**/screenshots/**'],
   // Each worker has isolated OPFS via addInitScript (see tests/fixtures.ts)
   // Set PW_FULLY_PARALLEL=true to also run tests within files in parallel
   fullyParallel,
