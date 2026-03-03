@@ -10,7 +10,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useMlsChatApi, useMlsChatUser } from '../context/index.js';
 import type { MlsClient, SseConnectionState } from '../lib/index.js';
-import { uploadGroupStateSnapshot } from './groupStateSync.js';
+import {
+  recoverMissingGroupState,
+  uploadGroupStateSnapshot
+} from './groupStateSync.js';
 
 interface UseMlsRealtimeResult {
   connectionState: SseConnectionState;
@@ -153,16 +156,39 @@ function notifyMembershipChange(groupId: string): void {
     return;
   }
 
-  const handler = handlers.get(groupId);
-  if (typeof handler === 'function') {
-    handler();
+  const groupHandlers = handlers.get(groupId);
+  if (groupHandlers instanceof Set) {
+    for (const handler of groupHandlers) {
+      if (typeof handler === 'function') {
+        handler();
+      }
+    }
+    return;
+  }
+
+  if (typeof groupHandlers === 'function') {
+    groupHandlers();
   }
 }
 
 function triggerWelcomeRefresh(): void {
   const handler = Reflect.get(globalThis, '__mlsWelcomeRefreshHandler');
+  if (handler instanceof Set) {
+    for (const refreshHandler of handler) {
+      if (typeof refreshHandler !== 'function') {
+        continue;
+      }
+      void Promise.resolve(refreshHandler()).catch((error) => {
+        console.warn('[mls-chat] Failed to refresh welcome messages', error);
+      });
+    }
+    return;
+  }
+
   if (typeof handler === 'function') {
-    void Promise.resolve(handler());
+    void Promise.resolve(handler()).catch((error) => {
+      console.warn('[mls-chat] Failed to refresh welcome messages', error);
+    });
   }
 }
 
@@ -298,6 +324,22 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
                   `[mls-chat] Failed to process commit for group ${message.groupId}. Local state may require recovery.`,
                   error
                 );
+                void (async () => {
+                  try {
+                    await client.leaveGroup(message.groupId);
+                    await recoverMissingGroupState({
+                      groupId: message.groupId,
+                      client,
+                      apiBaseUrl,
+                      getAuthHeader
+                    });
+                  } catch (recoveryError) {
+                    console.warn(
+                      `[mls-chat] Failed to recover commit state for group ${message.groupId}.`,
+                      recoveryError
+                    );
+                  }
+                })();
               });
             continue;
           }

@@ -228,18 +228,33 @@ export function useGroupMembers(
     const handlerRegistry =
       existingRegistry instanceof Map
         ? existingRegistry
-        : new Map<string, () => void>();
+        : new Map<string, Set<() => void>>();
 
     if (!(existingRegistry instanceof Map)) {
       Reflect.set(globalThis, registryKey, handlerRegistry);
     }
 
-    handlerRegistry.set(groupId, () => {
+    const refreshHandler = () => {
       void fetchMembers();
-    });
+    };
+
+    const existingHandlers = handlerRegistry.get(groupId);
+    const groupHandlers =
+      existingHandlers instanceof Set
+        ? existingHandlers
+        : new Set<() => void>();
+
+    if (!(existingHandlers instanceof Set)) {
+      handlerRegistry.set(groupId, groupHandlers);
+    }
+
+    groupHandlers.add(refreshHandler);
 
     return () => {
-      handlerRegistry.delete(groupId);
+      groupHandlers.delete(refreshHandler);
+      if (groupHandlers.size === 0) {
+        handlerRegistry.delete(groupId);
+      }
       if (handlerRegistry.size === 0) {
         Reflect.deleteProperty(globalThis, registryKey);
       }

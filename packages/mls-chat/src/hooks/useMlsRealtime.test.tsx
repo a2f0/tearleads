@@ -1,5 +1,4 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const { openNotificationEventStreamMock, uploadGroupStateSnapshotMock } =
@@ -18,35 +17,11 @@ vi.mock('./groupStateSync.js', () => ({
     uploadGroupStateSnapshotMock(...args)
 }));
 
-import { MlsChatProvider, type MlsChatUIComponents } from '../context/index.js';
 import { MlsClient } from '../lib/index.js';
 import { useGroupMembers } from './useGroupMembers.js';
+import { createMlsHookWrapper } from './useMlsHookTestWrapper.js';
 import { useMlsRealtime } from './useMlsRealtime.js';
 import { useWelcomeMessages } from './useWelcomeMessages.js';
-
-const uiComponents: MlsChatUIComponents = {
-  Button: ({ children, onClick }) => (
-    <button type="button" onClick={onClick}>
-      {children}
-    </button>
-  ),
-  Input: ({ value, onChange }) => (
-    <input value={value} onChange={(event) => onChange(event.target.value)} />
-  ),
-  Avatar: ({ userId }) => <div>{userId}</div>,
-  ScrollArea: ({ children }) => <div>{children}</div>,
-  DropdownMenu: ({ trigger, children }) => (
-    <div>
-      {trigger}
-      {children}
-    </div>
-  ),
-  DropdownMenuItem: ({ children, onClick }) => (
-    <button type="button" onClick={onClick}>
-      {children}
-    </button>
-  )
-};
 
 function createAbortError(): Error {
   const error = new Error('aborted');
@@ -119,17 +94,7 @@ describe('useMlsRealtime', () => {
 
     const client = new MlsClient('test-user-id');
     const { result, unmount } = renderHook(() => useMlsRealtime(client), {
-      wrapper: ({ children }: { children: ReactNode }) => (
-        <MlsChatProvider
-          apiBaseUrl="http://localhost:3000"
-          getAuthHeader={() => 'Bearer token'}
-          userId="test-user-id"
-          userEmail="test@example.com"
-          ui={uiComponents}
-        >
-          {children}
-        </MlsChatProvider>
-      )
+      wrapper: createMlsHookWrapper()
     });
 
     act(() => {
@@ -191,17 +156,7 @@ describe('useMlsRealtime', () => {
       .mockResolvedValue(undefined);
 
     const { result, unmount } = renderHook(() => useMlsRealtime(client), {
-      wrapper: ({ children }: { children: ReactNode }) => (
-        <MlsChatProvider
-          apiBaseUrl="http://localhost:3000"
-          getAuthHeader={() => 'Bearer token'}
-          userId="test-user-id"
-          userEmail="test@example.com"
-          ui={uiComponents}
-        >
-          {children}
-        </MlsChatProvider>
-      )
+      wrapper: createMlsHookWrapper()
     });
 
     act(() => {
@@ -271,17 +226,64 @@ describe('useMlsRealtime', () => {
       .mockResolvedValue(undefined);
 
     const { result, unmount } = renderHook(() => useMlsRealtime(client), {
-      wrapper: ({ children }: { children: ReactNode }) => (
-        <MlsChatProvider
-          apiBaseUrl="http://localhost:3000"
-          getAuthHeader={() => 'Bearer token'}
-          userId="test-user-id"
-          userEmail="test@example.com"
-          ui={uiComponents}
-        >
-          {children}
-        </MlsChatProvider>
-      )
+      wrapper: createMlsHookWrapper()
+    });
+
+    act(() => {
+      result.current.subscribe('group-1');
+    });
+
+    await waitFor(() => {
+      expect(openNotificationEventStreamMock).toHaveBeenCalledTimes(2);
+    });
+
+    expect(processCommitSpy).not.toHaveBeenCalled();
+    expect(uploadGroupStateSnapshotMock).not.toHaveBeenCalled();
+
+    unmount();
+    client.close();
+  });
+
+  it('skips commit processing when local group state is missing', async () => {
+    let callCount = 0;
+    openNotificationEventStreamMock.mockImplementation(() => {
+      callCount += 1;
+      if (callCount === 1) {
+        return streamFromEnvelopes([{ event: 'connected' }]);
+      }
+
+      return streamFromEnvelopes([
+        { event: 'connected' },
+        {
+          event: 'message',
+          channel: 'mls:group:group-1',
+          message: {
+            type: 'mls:message',
+            payload: {
+              id: 'commit-3',
+              groupId: 'group-1',
+              senderUserId: 'other-user',
+              epoch: 5,
+              ciphertext: commitCiphertext([30, 31, 32]),
+              messageType: 'commit',
+              contentType: 'application/mls-commit',
+              sequenceNumber: 11,
+              sentAt: '2026-03-03T06:22:00.000Z',
+              createdAt: '2026-03-03T06:22:00.000Z'
+            }
+          }
+        }
+      ]);
+    });
+
+    const client = new MlsClient('test-user-id');
+    vi.spyOn(client, 'hasGroup').mockReturnValue(false);
+    const processCommitSpy = vi
+      .spyOn(client, 'processCommit')
+      .mockResolvedValue(undefined);
+
+    const { result, unmount } = renderHook(() => useMlsRealtime(client), {
+      wrapper: createMlsHookWrapper()
     });
 
     act(() => {
@@ -334,17 +336,7 @@ describe('useMlsRealtime', () => {
 
     const client = new MlsClient('test-user-id');
     renderHook(() => useMlsRealtime(client), {
-      wrapper: ({ children }: { children: ReactNode }) => (
-        <MlsChatProvider
-          apiBaseUrl="http://localhost:3000"
-          getAuthHeader={() => 'Bearer token'}
-          userId="test-user-id"
-          userEmail="test@example.com"
-          ui={uiComponents}
-        >
-          {children}
-        </MlsChatProvider>
-      )
+      wrapper: createMlsHookWrapper()
     });
 
     await waitFor(() => {
@@ -370,17 +362,7 @@ describe('MLS hook refresh registration', () => {
 
     const client = new MlsClient('test-user-id');
     renderHook(() => useGroupMembers('group-1', client), {
-      wrapper: ({ children }: { children: ReactNode }) => (
-        <MlsChatProvider
-          apiBaseUrl="http://localhost:3000"
-          getAuthHeader={() => 'Bearer token'}
-          userId="test-user-id"
-          userEmail="test@example.com"
-          ui={uiComponents}
-        >
-          {children}
-        </MlsChatProvider>
-      )
+      wrapper: createMlsHookWrapper()
     });
 
     await waitFor(() => {
@@ -393,7 +375,13 @@ describe('MLS hook refresh registration', () => {
       throw new Error('missing membership handler registry');
     }
 
-    const refreshHandler = handlerRegistry.get('group-1');
+    const groupHandlers = handlerRegistry.get('group-1');
+    expect(groupHandlers).toBeInstanceOf(Set);
+    if (!(groupHandlers instanceof Set)) {
+      throw new Error('missing membership refresh handler set');
+    }
+
+    const refreshHandler = Array.from(groupHandlers)[0];
     expect(typeof refreshHandler).toBe('function');
     if (typeof refreshHandler !== 'function') {
       throw new Error('missing membership refresh handler');
@@ -420,27 +408,23 @@ describe('MLS hook refresh registration', () => {
 
     const client = new MlsClient('test-user-id');
     renderHook(() => useWelcomeMessages(client), {
-      wrapper: ({ children }: { children: ReactNode }) => (
-        <MlsChatProvider
-          apiBaseUrl="http://localhost:3000"
-          getAuthHeader={() => 'Bearer token'}
-          userId="test-user-id"
-          userEmail="test@example.com"
-          ui={uiComponents}
-        >
-          {children}
-        </MlsChatProvider>
-      )
+      wrapper: createMlsHookWrapper()
     });
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
-    const refreshHandler = Reflect.get(
+    const refreshHandlers = Reflect.get(
       globalThis,
       '__mlsWelcomeRefreshHandler'
     );
+    expect(refreshHandlers).toBeInstanceOf(Set);
+    if (!(refreshHandlers instanceof Set)) {
+      throw new Error('missing welcome refresh handler set');
+    }
+
+    const refreshHandler = Array.from(refreshHandlers)[0];
     expect(typeof refreshHandler).toBe('function');
     if (typeof refreshHandler !== 'function') {
       throw new Error('missing welcome refresh handler');

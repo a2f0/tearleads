@@ -139,11 +139,22 @@ export function useWelcomeMessages(
 
   useEffect(() => {
     const handlerKey = '__mlsWelcomeRefreshHandler';
-    Reflect.set(globalThis, handlerKey, fetchWelcomeMessages);
+    const existingHandlers = Reflect.get(globalThis, handlerKey);
+    const refreshHandlers =
+      existingHandlers instanceof Set
+        ? existingHandlers
+        : new Set<() => Promise<void>>();
+
+    if (!(existingHandlers instanceof Set)) {
+      Reflect.set(globalThis, handlerKey, refreshHandlers);
+    }
+
+    const refreshHandler = () => fetchWelcomeMessages();
+    refreshHandlers.add(refreshHandler);
 
     return () => {
-      const currentHandler = Reflect.get(globalThis, handlerKey);
-      if (currentHandler === fetchWelcomeMessages) {
+      refreshHandlers.delete(refreshHandler);
+      if (refreshHandlers.size === 0) {
         Reflect.deleteProperty(globalThis, handlerKey);
       }
     };
