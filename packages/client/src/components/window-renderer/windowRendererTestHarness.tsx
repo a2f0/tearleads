@@ -279,19 +279,25 @@ vi.mock('@/components/debug-window', () => ({
   })
 }));
 
-vi.mock('@/components/admin-window', () => ({
+vi.mock('@/components/admin-windows', () => ({
   AdminWindow: createMockWindowComponent({
     testIdPrefix: 'admin-window',
     minimizeDimensions: { x: 0, y: 0, width: 700, height: 600 }
-  }),
+  })
+}));
+vi.mock('@/components/admin-redis-window', () => ({
   AdminRedisWindow: createMockWindowComponent({
     testIdPrefix: 'admin-redis-window',
     minimizeDimensions: { x: 0, y: 0, width: 700, height: 600 }
-  }),
+  })
+}));
+vi.mock('@/components/admin-postgres-window', () => ({
   AdminPostgresWindow: createMockWindowComponent({
     testIdPrefix: 'admin-postgres-window',
     minimizeDimensions: { x: 0, y: 0, width: 700, height: 600 }
-  }),
+  })
+}));
+vi.mock('@/components/admin-groups-window', () => ({
   AdminGroupsWindow: createMockWindowComponent({
     testIdPrefix: 'admin-groups-window',
     minimizeDimensions: { x: 0, y: 0, width: 700, height: 600 }

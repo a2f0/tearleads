@@ -1,13 +1,11 @@
 import type { WindowDimensions } from '@tearleads/window-manager';
 import { useCallback, useMemo, useRef } from 'react';
+import { AdminGroupsWindow } from '@/components/admin-groups-window';
 import { AdminOrganizationsWindow } from '@/components/admin-organizations-window';
+import { AdminPostgresWindow } from '@/components/admin-postgres-window';
+import { AdminRedisWindow } from '@/components/admin-redis-window';
 import { AdminUsersWindow } from '@/components/admin-users-window';
-import {
-  AdminGroupsWindow,
-  AdminPostgresWindow,
-  AdminRedisWindow,
-  AdminWindow
-} from '@/components/admin-windows';
+import { AdminWindow } from '@/components/admin-windows';
 import { AIWindow } from '@/components/ai-window';
 import { AnalyticsWindow } from '@/components/analytics-window';
 import { AudioWindow } from '@/components/audio-window';
