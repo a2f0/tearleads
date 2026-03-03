@@ -11,7 +11,7 @@ export async function hasVfsRegistryOrganizationId(
   const result = await client.query(
     `SELECT 1
        FROM information_schema.columns
-      WHERE table_schema = current_schema()
+      WHERE table_schema = ANY(current_schemas(false))
         AND table_name = 'vfs_registry'
         AND column_name = 'organization_id'
       LIMIT 1`
