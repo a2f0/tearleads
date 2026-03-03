@@ -123,4 +123,61 @@ describe('AdminRedisWindow', () => {
 
     expect(onClose).toHaveBeenCalled();
   });
+
+  describe('auth gating', () => {
+    it('shows loading state when isAuthLoading is true', () => {
+      render(<AdminRedisWindow {...defaultProps} isAuthLoading={true} />);
+      expect(
+        screen.getByTestId('admin-redis-window-loading')
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByTestId('admin-redis-content')
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows locked fallback when isUnlocked is false', () => {
+      render(
+        <AdminRedisWindow
+          {...defaultProps}
+          isUnlocked={false}
+          lockedFallback={<div data-testid="locked-fallback">Unlock</div>}
+        />
+      );
+      expect(
+        screen.getByTestId('admin-redis-window-locked')
+      ).toBeInTheDocument();
+      expect(screen.getByTestId('locked-fallback')).toBeInTheDocument();
+      expect(
+        screen.queryByTestId('admin-redis-content')
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows content when isUnlocked is true (default)', () => {
+      render(<AdminRedisWindow {...defaultProps} />);
+      expect(screen.getByTestId('admin-redis-content')).toBeInTheDocument();
+      expect(
+        screen.queryByTestId('admin-redis-window-loading')
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId('admin-redis-window-locked')
+      ).not.toBeInTheDocument();
+    });
+
+    it('prioritizes loading state over locked state', () => {
+      render(
+        <AdminRedisWindow
+          {...defaultProps}
+          isAuthLoading={true}
+          isUnlocked={false}
+          lockedFallback={<div data-testid="locked-fallback">Unlock</div>}
+        />
+      );
+      expect(
+        screen.getByTestId('admin-redis-window-loading')
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByTestId('admin-redis-window-locked')
+      ).not.toBeInTheDocument();
+    });
+  });
 });

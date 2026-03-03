@@ -1,8 +1,9 @@
+// one-component-per-file: allow -- wrapper keeps inline lock/login fallback JSX selection local.
 import type { WindowDimensions } from '@tearleads/window-manager';
-import { AdminOrganizationsWindow as AdminOrganizationsWindowBase } from '@/components/admin-windows';
+import { AdminRedisWindow as AdminRedisWindowBase } from '@/components/admin-windows';
 import { useAdminWindowAuthGate } from '@/components/admin-windows/useAdminWindowAuthGate';
 
-interface AdminOrganizationsWindowProps {
+interface AdminRedisWindowProps {
   id: string;
   onClose: () => void;
   onMinimize: (dimensions: WindowDimensions) => void;
@@ -13,7 +14,7 @@ interface AdminOrganizationsWindowProps {
   initialDimensions?: WindowDimensions;
 }
 
-export function AdminOrganizationsWindow({
+export function AdminRedisWindow({
   id,
   onClose,
   onMinimize,
@@ -22,13 +23,12 @@ export function AdminOrganizationsWindow({
   onFocus,
   zIndex,
   initialDimensions
-}: AdminOrganizationsWindowProps) {
-  const { isUnlocked, isAuthLoading, lockedFallback } = useAdminWindowAuthGate(
-    'Organizations Admin'
-  );
+}: AdminRedisWindowProps) {
+  const { isUnlocked, isAuthLoading, lockedFallback } =
+    useAdminWindowAuthGate('Redis Admin');
 
   return (
-    <AdminOrganizationsWindowBase
+    <AdminRedisWindowBase
       id={id}
       onClose={onClose}
       onMinimize={onMinimize}

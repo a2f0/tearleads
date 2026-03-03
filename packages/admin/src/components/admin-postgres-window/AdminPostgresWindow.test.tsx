@@ -217,4 +217,61 @@ describe('AdminPostgresWindow', () => {
       screen.queryByRole('menuitem', { name: 'Compact' })
     ).not.toBeInTheDocument();
   });
+
+  describe('auth gating', () => {
+    it('shows loading state when isAuthLoading is true', () => {
+      render(<AdminPostgresWindow {...defaultProps} isAuthLoading={true} />);
+      expect(
+        screen.getByTestId('admin-postgres-window-loading')
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByTestId('postgres-admin-content')
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows locked fallback when isUnlocked is false', () => {
+      render(
+        <AdminPostgresWindow
+          {...defaultProps}
+          isUnlocked={false}
+          lockedFallback={<div data-testid="locked-fallback">Unlock</div>}
+        />
+      );
+      expect(
+        screen.getByTestId('admin-postgres-window-locked')
+      ).toBeInTheDocument();
+      expect(screen.getByTestId('locked-fallback')).toBeInTheDocument();
+      expect(
+        screen.queryByTestId('postgres-admin-content')
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows content when isUnlocked is true (default)', () => {
+      render(<AdminPostgresWindow {...defaultProps} />);
+      expect(screen.getByTestId('postgres-admin-content')).toBeInTheDocument();
+      expect(
+        screen.queryByTestId('admin-postgres-window-loading')
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId('admin-postgres-window-locked')
+      ).not.toBeInTheDocument();
+    });
+
+    it('prioritizes loading state over locked state', () => {
+      render(
+        <AdminPostgresWindow
+          {...defaultProps}
+          isAuthLoading={true}
+          isUnlocked={false}
+          lockedFallback={<div data-testid="locked-fallback">Unlock</div>}
+        />
+      );
+      expect(
+        screen.getByTestId('admin-postgres-window-loading')
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByTestId('admin-postgres-window-locked')
+      ).not.toBeInTheDocument();
+    });
+  });
 });
