@@ -1,12 +1,24 @@
 import {
-  callRouteBinaryHandler,
   callRouteJsonHandler,
   encoded,
-  setOptionalNonNegativeIntQueryParam,
   setOptionalPositiveIntQueryParam,
   setOptionalStringQueryParam,
   toJsonBody
 } from './legacyRouteProxy.js';
+import { deleteBlobDirect, getBlobDirect } from './vfsDirectBlobs.js';
+import {
+  deleteEmailDirect,
+  getEmailDirect,
+  getEmailsDirect,
+  sendEmailDirect
+} from './vfsDirectEmails.js';
+import { getMyKeysDirect, setupKeysDirect } from './vfsDirectKeys.js';
+import { registerDirect, rekeyItemDirect } from './vfsDirectRegistry.js';
+import {
+  getCrdtSnapshotDirect,
+  getSyncDirect,
+  reconcileSyncDirect
+} from './vfsDirectSync.js';
 
 type BlobIdRequest = { blobId: string };
 type StagingIdJsonRequest = { stagingId: string; json: string };
@@ -24,76 +36,29 @@ function queryFromGetSyncRequest(request: GetSyncRequest): URLSearchParams {
   return params;
 }
 
-function queryFromGetEmailsRequest(request: GetEmailsRequest): URLSearchParams {
-  const params = new URLSearchParams();
-  setOptionalNonNegativeIntQueryParam(params, 'offset', request.offset);
-  setOptionalPositiveIntQueryParam(params, 'limit', request.limit);
-  return params;
-}
-
 function stagingPathSuffix(request: StagingIdJsonRequest): string {
   return `/vfs/blobs/stage/${encoded(request.stagingId)}`;
 }
 
 export const vfsConnectService = {
-  getMyKeys: async (_request: object, context: { requestHeader: Headers }) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: '/vfs/keys/me'
-    });
-    return { json };
-  },
+  getMyKeys: async (_request: object, context: { requestHeader: Headers }) =>
+    getMyKeysDirect({}, context),
   setupKeys: async (
     request: { json: string },
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: '/vfs/keys',
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
+  ) => setupKeysDirect(request, context),
   register: async (
     request: { json: string },
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: '/vfs/register',
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
+  ) => registerDirect(request, context),
   getBlob: async (
     request: BlobIdRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const response = await callRouteBinaryHandler({
-      context,
-      method: 'GET',
-      path: `/vfs/blobs/${encoded(request.blobId)}`
-    });
-    const data = new Uint8Array(response.data);
-    return {
-      data,
-      ...(response.contentType ? { contentType: response.contentType } : {})
-    };
-  },
+  ) => getBlobDirect(request, context),
   deleteBlob: async (
     request: BlobIdRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'DELETE',
-      path: `/vfs/blobs/${encoded(request.blobId)}`
-    });
-    return { json };
-  },
+  ) => deleteBlobDirect(request, context),
   stageBlob: async (
     request: { json: string },
     context: { requestHeader: Headers }
@@ -157,15 +122,7 @@ export const vfsConnectService = {
   rekeyItem: async (
     request: ItemIdJsonRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: `/vfs/items/${encoded(request.itemId)}/rekey`,
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
+  ) => rekeyItemDirect(request, context),
   pushCrdtOps: async (
     request: { json: string },
     context: { requestHeader: Headers }
@@ -193,15 +150,7 @@ export const vfsConnectService = {
   reconcileSync: async (
     request: { json: string },
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: '/vfs/sync/reconcile',
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  },
+  ) => reconcileSyncDirect(request, context),
   runCrdtSession: async (
     request: { json: string },
     context: { requestHeader: Headers }
@@ -217,15 +166,7 @@ export const vfsConnectService = {
   getSync: async (
     request: GetSyncRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: '/vfs/vfs-sync',
-      query: queryFromGetSyncRequest(request)
-    });
-    return { json };
-  },
+  ) => getSyncDirect(request, context),
   getCrdtSync: async (
     request: GetSyncRequest,
     context: { requestHeader: Headers }
@@ -241,61 +182,21 @@ export const vfsConnectService = {
   getCrdtSnapshot: async (
     request: GetCrdtSnapshotRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const query = new URLSearchParams();
-    setOptionalStringQueryParam(query, 'clientId', request.clientId);
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: '/vfs/crdt/snapshot',
-      query
-    });
-    return { json };
-  },
+  ) => getCrdtSnapshotDirect(request, context),
   getEmails: async (
     request: GetEmailsRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: '/vfs/emails',
-      query: queryFromGetEmailsRequest(request)
-    });
-    return { json };
-  },
+  ) => getEmailsDirect(request, context),
   getEmail: async (
     request: EmailIdRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'GET',
-      path: `/vfs/emails/${encoded(request.id)}`
-    });
-    return { json };
-  },
+  ) => getEmailDirect(request, context),
   deleteEmail: async (
     request: EmailIdRequest,
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'DELETE',
-      path: `/vfs/emails/${encoded(request.id)}`
-    });
-    return { json };
-  },
+  ) => deleteEmailDirect(request, context),
   sendEmail: async (
     request: { json: string },
     context: { requestHeader: Headers }
-  ) => {
-    const json = await callRouteJsonHandler({
-      context,
-      method: 'POST',
-      path: '/vfs/emails/send',
-      jsonBody: toJsonBody(request.json)
-    });
-    return { json };
-  }
+  ) => sendEmailDirect(request, context)
 };

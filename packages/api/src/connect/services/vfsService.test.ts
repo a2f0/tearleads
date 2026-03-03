@@ -1,16 +1,54 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { callRouteBinaryHandlerMock, callRouteJsonHandlerMock } = vi.hoisted(
-  () => ({
-    callRouteJsonHandlerMock: vi.fn<(options: unknown) => Promise<string>>(),
-    callRouteBinaryHandlerMock:
-      vi.fn<
-        (
-          options: unknown
-        ) => Promise<{ data: Uint8Array; contentType?: string }>
-      >()
-  })
-);
+const {
+  callRouteJsonHandlerMock,
+  deleteBlobDirectMock,
+  deleteEmailDirectMock,
+  getBlobDirectMock,
+  getCrdtSnapshotDirectMock,
+  getEmailDirectMock,
+  getEmailsDirectMock,
+  getMyKeysDirectMock,
+  getSyncDirectMock,
+  rekeyItemDirectMock,
+  reconcileSyncDirectMock,
+  registerDirectMock,
+  sendEmailDirectMock,
+  setupKeysDirectMock
+} = vi.hoisted(() => ({
+  callRouteJsonHandlerMock: vi.fn<(options: unknown) => Promise<string>>(),
+  deleteBlobDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  deleteEmailDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  getBlobDirectMock:
+    vi.fn<
+      (
+        request: unknown,
+        context: unknown
+      ) => Promise<{ data: Uint8Array; contentType?: string }>
+    >(),
+  getCrdtSnapshotDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  getEmailDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  getEmailsDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  getMyKeysDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  getSyncDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  rekeyItemDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  reconcileSyncDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  registerDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  sendEmailDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  setupKeysDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>()
+}));
 
 vi.mock('./legacyRouteProxy.js', async () => {
   const actual = await vi.importActual<typeof import('./legacyRouteProxy.js')>(
@@ -19,10 +57,50 @@ vi.mock('./legacyRouteProxy.js', async () => {
 
   return {
     ...actual,
-    callRouteJsonHandler: callRouteJsonHandlerMock,
-    callRouteBinaryHandler: callRouteBinaryHandlerMock
+    callRouteJsonHandler: callRouteJsonHandlerMock
   };
 });
+
+vi.mock('./vfsDirectBlobs.js', () => ({
+  deleteBlobDirect: (request: unknown, context: unknown) =>
+    deleteBlobDirectMock(request, context),
+  getBlobDirect: (request: unknown, context: unknown) =>
+    getBlobDirectMock(request, context)
+}));
+
+vi.mock('./vfsDirectEmails.js', () => ({
+  deleteEmailDirect: (request: unknown, context: unknown) =>
+    deleteEmailDirectMock(request, context),
+  getEmailDirect: (request: unknown, context: unknown) =>
+    getEmailDirectMock(request, context),
+  getEmailsDirect: (request: unknown, context: unknown) =>
+    getEmailsDirectMock(request, context),
+  sendEmailDirect: (request: unknown, context: unknown) =>
+    sendEmailDirectMock(request, context)
+}));
+
+vi.mock('./vfsDirectKeys.js', () => ({
+  getMyKeysDirect: (request: unknown, context: unknown) =>
+    getMyKeysDirectMock(request, context),
+  setupKeysDirect: (request: unknown, context: unknown) =>
+    setupKeysDirectMock(request, context)
+}));
+
+vi.mock('./vfsDirectRegistry.js', () => ({
+  registerDirect: (request: unknown, context: unknown) =>
+    registerDirectMock(request, context),
+  rekeyItemDirect: (request: unknown, context: unknown) =>
+    rekeyItemDirectMock(request, context)
+}));
+
+vi.mock('./vfsDirectSync.js', () => ({
+  getCrdtSnapshotDirect: (request: unknown, context: unknown) =>
+    getCrdtSnapshotDirectMock(request, context),
+  getSyncDirect: (request: unknown, context: unknown) =>
+    getSyncDirectMock(request, context),
+  reconcileSyncDirect: (request: unknown, context: unknown) =>
+    reconcileSyncDirectMock(request, context)
+}));
 
 import { vfsConnectService } from './vfsService.js';
 
@@ -37,9 +115,18 @@ type JsonCallCase = JsonCallExpectation & {
   call: () => Promise<{ json: string }>;
 };
 
-type BinaryCallExpectation = {
-  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  path: string;
+type DirectJsonMock = {
+  mockReset: () => void;
+  mockResolvedValue: (value: { json: string }) => void;
+  mock: {
+    calls: unknown[][];
+  };
+};
+
+type DirectJsonCallCase = {
+  call: () => Promise<{ json: string }>;
+  expectedRequest: unknown;
+  mock: DirectJsonMock;
 };
 
 function createContext() {
@@ -86,105 +173,155 @@ function expectLastJsonCall(
   expect(query?.toString() ?? '').toBe(expectation.query ?? '');
 }
 
-function expectLastBinaryCall(
-  context: ReturnType<typeof createContext>,
-  expectation: BinaryCallExpectation
-): void {
-  const call = callRouteBinaryHandlerMock.mock.calls.at(-1);
-  if (!call) {
-    throw new Error('Expected callRouteBinaryHandler to be called');
-  }
-
-  const [options] = call;
-  expect(options).toEqual({
-    context,
-    method: expectation.method,
-    path: expectation.path
-  });
+function resetDirectJsonMocks(): DirectJsonMock[] {
+  return [
+    deleteBlobDirectMock,
+    deleteEmailDirectMock,
+    getCrdtSnapshotDirectMock,
+    getEmailDirectMock,
+    getEmailsDirectMock,
+    getMyKeysDirectMock,
+    getSyncDirectMock,
+    rekeyItemDirectMock,
+    reconcileSyncDirectMock,
+    registerDirectMock,
+    sendEmailDirectMock,
+    setupKeysDirectMock
+  ];
 }
 
 describe('vfsConnectService', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
+
     callRouteJsonHandlerMock.mockReset();
-    callRouteBinaryHandlerMock.mockReset();
     callRouteJsonHandlerMock.mockResolvedValue('{"ok":true}');
-    callRouteBinaryHandlerMock.mockResolvedValue({
-      data: new Uint8Array([7, 8, 9]),
-      contentType: 'application/octet-stream'
-    });
-  });
 
-  it('routes blob reads through the binary handler', async () => {
-    const context = createContext();
-
-    const response = await vfsConnectService.getBlob(
-      {
-        blobId: 'blob/1'
-      },
-      context
-    );
-
-    expect(response).toEqual({
+    getBlobDirectMock.mockReset();
+    getBlobDirectMock.mockResolvedValue({
       data: new Uint8Array([7, 8, 9]),
       contentType: 'application/octet-stream'
     });
 
-    expectLastBinaryCall(context, {
-      method: 'GET',
-      path: '/vfs/blobs/blob%2F1'
-    });
+    for (const mock of resetDirectJsonMocks()) {
+      mock.mockReset();
+      mock.mockResolvedValue({ json: '{"ok":true}' });
+    }
   });
 
-  it('omits content type when binary response does not provide one', async () => {
-    const context = createContext();
-    callRouteBinaryHandlerMock.mockResolvedValueOnce({
-      data: new Uint8Array([10])
-    });
-
-    const response = await vfsConnectService.getBlob(
-      {
-        blobId: 'blob-no-content-type'
-      },
-      context
-    );
-
-    expect(response).toEqual({
-      data: new Uint8Array([10])
-    });
-
-    expectLastBinaryCall(context, {
-      method: 'GET',
-      path: '/vfs/blobs/blob-no-content-type'
-    });
-  });
-
-  it('routes vfs json handlers to the expected route handlers', async () => {
+  it('delegates direct methods to vfs direct handlers', async () => {
     const context = createContext();
 
-    const cases: JsonCallCase[] = [
+    const getBlobRequest = { blobId: 'blob/1' };
+    const setupKeysRequest = {
+      json: '{"publicEncryptionKey":"e","publicSigningKey":"s","encryptedPrivateKeys":"p","argon2Salt":"salt"}'
+    };
+    const registerRequest = {
+      json: '{"id":"item-1","objectType":"file","encryptedSessionKey":"enc"}'
+    };
+    const deleteBlobRequest = { blobId: 'blob-2' };
+    const rekeyItemRequest = {
+      itemId: 'item-1',
+      json: '{"reason":"manual","newEpoch":2,"wrappedKeys":[]}'
+    };
+    const getSyncRequest = {
+      cursor: 'sync-cursor',
+      limit: 20,
+      rootId: 'root-1'
+    };
+    const getCrdtSnapshotRequest = { clientId: 'desktop-1' };
+    const getEmailsRequest = { offset: 5, limit: 25 };
+    const getEmailRequest = { id: 'email-1' };
+    const deleteEmailRequest = { id: 'email-2' };
+    const sendEmailRequest = { json: '{"to":["a@example.com"],"subject":"Hi","body":"Hello"}' };
+    const reconcileSyncRequest = {
+      json: '{"clientId":"client-1","cursor":"MjAyNi0wMy0wM1QwMDowMDowMC4wMDBafGNoYW5nZS0x"}'
+    };
+
+    const directCases: DirectJsonCallCase[] = [
       {
         call: () => vfsConnectService.getMyKeys({}, context),
-        method: 'GET',
-        path: '/vfs/keys/me'
+        expectedRequest: {},
+        mock: getMyKeysDirectMock
       },
       {
-        call: () => vfsConnectService.setupKeys({ json: '{"k":1}' }, context),
-        method: 'POST',
-        path: '/vfs/keys',
-        jsonBody: '{"k":1}'
+        call: () => vfsConnectService.setupKeys(setupKeysRequest, context),
+        expectedRequest: setupKeysRequest,
+        mock: setupKeysDirectMock
+      },
+      {
+        call: () => vfsConnectService.register(registerRequest, context),
+        expectedRequest: registerRequest,
+        mock: registerDirectMock
+      },
+      {
+        call: () => vfsConnectService.deleteBlob(deleteBlobRequest, context),
+        expectedRequest: deleteBlobRequest,
+        mock: deleteBlobDirectMock
+      },
+      {
+        call: () => vfsConnectService.rekeyItem(rekeyItemRequest, context),
+        expectedRequest: rekeyItemRequest,
+        mock: rekeyItemDirectMock
+      },
+      {
+        call: () => vfsConnectService.getSync(getSyncRequest, context),
+        expectedRequest: getSyncRequest,
+        mock: getSyncDirectMock
       },
       {
         call: () =>
-          vfsConnectService.register({ json: '{"id":"i1"}' }, context),
-        method: 'POST',
-        path: '/vfs/register',
-        jsonBody: '{"id":"i1"}'
+          vfsConnectService.getCrdtSnapshot(getCrdtSnapshotRequest, context),
+        expectedRequest: getCrdtSnapshotRequest,
+        mock: getCrdtSnapshotDirectMock
       },
       {
-        call: () => vfsConnectService.deleteBlob({ blobId: 'blob-1' }, context),
-        method: 'DELETE',
-        path: '/vfs/blobs/blob-1'
+        call: () => vfsConnectService.reconcileSync(reconcileSyncRequest, context),
+        expectedRequest: reconcileSyncRequest,
+        mock: reconcileSyncDirectMock
       },
+      {
+        call: () => vfsConnectService.getEmails(getEmailsRequest, context),
+        expectedRequest: getEmailsRequest,
+        mock: getEmailsDirectMock
+      },
+      {
+        call: () => vfsConnectService.getEmail(getEmailRequest, context),
+        expectedRequest: getEmailRequest,
+        mock: getEmailDirectMock
+      },
+      {
+        call: () => vfsConnectService.deleteEmail(deleteEmailRequest, context),
+        expectedRequest: deleteEmailRequest,
+        mock: deleteEmailDirectMock
+      },
+      {
+        call: () => vfsConnectService.sendEmail(sendEmailRequest, context),
+        expectedRequest: sendEmailRequest,
+        mock: sendEmailDirectMock
+      }
+    ];
+
+    for (const testCase of directCases) {
+      const response = await testCase.call();
+      expect(response).toEqual({ json: '{"ok":true}' });
+      expect(testCase.mock).toHaveBeenCalledWith(testCase.expectedRequest, context);
+    }
+
+    const getBlobResponse = await vfsConnectService.getBlob(getBlobRequest, context);
+    expect(getBlobResponse).toEqual({
+      data: new Uint8Array([7, 8, 9]),
+      contentType: 'application/octet-stream'
+    });
+    expect(getBlobDirectMock).toHaveBeenCalledWith(getBlobRequest, context);
+
+    expect(callRouteJsonHandlerMock).not.toHaveBeenCalled();
+  });
+
+  it('routes remaining vfs methods through legacy route handlers', async () => {
+    const context = createContext();
+
+    const cases: JsonCallCase[] = [
       {
         call: () =>
           vfsConnectService.stageBlob({ json: '{"blobId":"b1"}' }, context),
@@ -246,19 +383,6 @@ describe('vfsConnectService', () => {
       },
       {
         call: () =>
-          vfsConnectService.rekeyItem(
-            {
-              itemId: 'item-1',
-              json: '{"encryptedSessionKey":"x"}'
-            },
-            context
-          ),
-        method: 'POST',
-        path: '/vfs/items/item-1/rekey',
-        jsonBody: '{"encryptedSessionKey":"x"}'
-      },
-      {
-        call: () =>
           vfsConnectService.pushCrdtOps({ json: '{"ops":[]}' }, context),
         method: 'POST',
         path: '/vfs/crdt/push',
@@ -278,18 +402,6 @@ describe('vfsConnectService', () => {
       },
       {
         call: () =>
-          vfsConnectService.reconcileSync(
-            {
-              json: '{"cursor":"s"}'
-            },
-            context
-          ),
-        method: 'POST',
-        path: '/vfs/sync/reconcile',
-        jsonBody: '{"cursor":"s"}'
-      },
-      {
-        call: () =>
           vfsConnectService.runCrdtSession(
             {
               json: '{"clientId":"m"}'
@@ -299,20 +411,6 @@ describe('vfsConnectService', () => {
         method: 'POST',
         path: '/vfs/crdt/session',
         jsonBody: '{"clientId":"m"}'
-      },
-      {
-        call: () =>
-          vfsConnectService.getSync(
-            {
-              cursor: 'sync-cursor',
-              limit: 25,
-              rootId: 'root-1'
-            },
-            context
-          ),
-        method: 'GET',
-        path: '/vfs/vfs-sync',
-        query: 'cursor=sync-cursor&limit=25&rootId=root-1'
       },
       {
         call: () =>
@@ -327,53 +425,6 @@ describe('vfsConnectService', () => {
         method: 'GET',
         path: '/vfs/crdt/vfs-sync',
         query: 'cursor=crdt-cursor&limit=12'
-      },
-      {
-        call: () =>
-          vfsConnectService.getCrdtSnapshot(
-            {
-              clientId: 'desktop'
-            },
-            context
-          ),
-        method: 'GET',
-        path: '/vfs/crdt/snapshot',
-        query: 'clientId=desktop'
-      },
-      {
-        call: () =>
-          vfsConnectService.getEmails(
-            {
-              offset: 10,
-              limit: 30
-            },
-            context
-          ),
-        method: 'GET',
-        path: '/vfs/emails',
-        query: 'offset=10&limit=30'
-      },
-      {
-        call: () => vfsConnectService.getEmail({ id: 'email-1' }, context),
-        method: 'GET',
-        path: '/vfs/emails/email-1'
-      },
-      {
-        call: () => vfsConnectService.deleteEmail({ id: 'email-2' }, context),
-        method: 'DELETE',
-        path: '/vfs/emails/email-2'
-      },
-      {
-        call: () =>
-          vfsConnectService.sendEmail(
-            {
-              json: '{"to":["a@example.com"]}'
-            },
-            context
-          ),
-        method: 'POST',
-        path: '/vfs/emails/send',
-        jsonBody: '{"to":["a@example.com"]}'
       }
     ];
 
@@ -384,10 +435,10 @@ describe('vfsConnectService', () => {
     }
   });
 
-  it('omits optional query params for empty values', async () => {
+  it('omits optional query params for empty getCrdtSync values', async () => {
     const context = createContext();
 
-    await vfsConnectService.getSync(
+    await vfsConnectService.getCrdtSync(
       {
         cursor: '',
         limit: 0,
@@ -395,45 +446,10 @@ describe('vfsConnectService', () => {
       },
       context
     );
-    expectLastJsonCall(context, {
-      method: 'GET',
-      path: '/vfs/vfs-sync'
-    });
 
-    await vfsConnectService.getCrdtSnapshot(
-      {
-        clientId: ''
-      },
-      context
-    );
     expectLastJsonCall(context, {
       method: 'GET',
-      path: '/vfs/crdt/snapshot'
-    });
-
-    await vfsConnectService.getEmails(
-      {
-        offset: -1,
-        limit: 0
-      },
-      context
-    );
-    expectLastJsonCall(context, {
-      method: 'GET',
-      path: '/vfs/emails'
-    });
-
-    await vfsConnectService.getEmails(
-      {
-        offset: 0,
-        limit: 0
-      },
-      context
-    );
-    expectLastJsonCall(context, {
-      method: 'GET',
-      path: '/vfs/emails',
-      query: 'offset=0'
+      path: '/vfs/crdt/vfs-sync'
     });
   });
 });
