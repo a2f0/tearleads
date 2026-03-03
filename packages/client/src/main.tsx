@@ -26,6 +26,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { ModelDownloadManagerProvider } from './contexts/ModelDownloadManagerProvider';
 import { OrgProvider } from './contexts/OrgContext';
 import { VfsOrchestratorProvider } from './contexts/VfsOrchestratorContext';
+import { VfsSyncStateProvider } from './contexts/VfsSyncStateContext';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
 import { ClientSettingsProvider, DatabaseProvider } from './db/hooks';
 import { i18n } from './i18n';
@@ -95,26 +96,28 @@ if (rootElement) {
                             <AuthInstanceBinding />
                             <OrgProvider>
                               <VfsOrchestratorProvider>
-                                <VfsRematerializationBootstrap />
-                                <SSEProvider>
-                                  <VfsRealtimeSyncBridge />
-                                  <WindowManagerProvider>
-                                    <ModelDownloadManagerProvider>
-                                      <BrowserRouter>
-                                        <Suspense
-                                          fallback={
-                                            <div className="p-8 text-center text-muted-foreground">
-                                              Loading...
-                                            </div>
-                                          }
-                                        >
-                                          <AppRoutes />
-                                        </Suspense>
-                                        <LazyWindowRenderer />
-                                      </BrowserRouter>
-                                    </ModelDownloadManagerProvider>
-                                  </WindowManagerProvider>
-                                </SSEProvider>
+                                <VfsSyncStateProvider>
+                                  <VfsRematerializationBootstrap />
+                                  <SSEProvider>
+                                    <VfsRealtimeSyncBridge />
+                                    <WindowManagerProvider>
+                                      <ModelDownloadManagerProvider>
+                                        <BrowserRouter>
+                                          <Suspense
+                                            fallback={
+                                              <div className="p-8 text-center text-muted-foreground">
+                                                Loading...
+                                              </div>
+                                            }
+                                          >
+                                            <AppRoutes />
+                                          </Suspense>
+                                          <LazyWindowRenderer />
+                                        </BrowserRouter>
+                                      </ModelDownloadManagerProvider>
+                                    </WindowManagerProvider>
+                                  </SSEProvider>
+                                </VfsSyncStateProvider>
                               </VfsOrchestratorProvider>
                             </OrgProvider>
                           </AuthProvider>

@@ -39,6 +39,7 @@ export type {
   VfsExplorerContextValue,
   VfsExplorerProviderProps,
   VfsExplorerUIComponents,
+  VfsItemSyncCursor,
   VfsKeyFunctions,
   WindowDimensions,
   WindowOptionsMenuItemProps
@@ -47,6 +48,7 @@ export {
   useDatabaseState,
   useVfsExplorerContext,
   useVfsExplorerUI,
+  useVfsSyncCursor,
   VfsExplorerProvider
 } from './context';
 export type {

@@ -43,6 +43,19 @@ export type { VfsItem, VfsObjectType };
 
 const DEFAULT_SORT: VfsSortState = { column: null, direction: null };
 
+function formatSyncCursor(
+  cursor: {
+    changedAt: string;
+    changeId: string;
+  } | null
+): string {
+  if (!cursor) {
+    return '—';
+  }
+  return `${cursor.changedAt} | ${cursor.changeId}`;
+}
+
+/* component-complexity: allow -- existing legacy panel kept intact; this PR only adds sync cursor surface area */
 export function VfsDetailsPanel({
   folderId,
   viewMode = 'list',
@@ -60,7 +73,7 @@ export function VfsDetailsPanel({
   onUpload
 }: VfsDetailsPanelProps) {
   const { hasItems } = useVfsClipboard();
-  const { loginFallback } = useVfsExplorerContext();
+  const { loginFallback, getItemSyncCursor } = useVfsExplorerContext();
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [emptySpaceContextMenu, setEmptySpaceContextMenu] =
     useState<EmptySpaceContextMenuState | null>(null);
@@ -168,35 +181,6 @@ export function VfsDetailsPanel({
   const createEmptySpaceActionHandler = (action: () => void) => () => {
     action();
     setEmptySpaceContextMenu(null);
-  };
-
-  const renderEmptySpaceContextMenu = () => {
-    if (!emptySpaceContextMenu) return null;
-    return (
-      <WindowContextMenu
-        x={emptySpaceContextMenu.x}
-        y={emptySpaceContextMenu.y}
-        onClose={() => setEmptySpaceContextMenu(null)}
-      >
-        {onUpload && folderId && (
-          <WindowContextMenuItem
-            icon={<Upload className="h-4 w-4" />}
-            onClick={createEmptySpaceActionHandler(() => onUpload(folderId))}
-            data-testid="vfs-upload-context-menu-item"
-          >
-            Upload
-          </WindowContextMenuItem>
-        )}
-        {hasItems && onPaste && folderId && (
-          <WindowContextMenuItem
-            icon={<Clipboard className="h-4 w-4" />}
-            onClick={createEmptySpaceActionHandler(() => onPaste(folderId))}
-          >
-            Paste
-          </WindowContextMenuItem>
-        )}
-      </WindowContextMenu>
-    );
   };
 
   const getRangeSelection = useCallback(
@@ -314,17 +298,6 @@ export function VfsDetailsPanel({
     );
   }
 
-  const renderSortIcon = (column: VfsSortColumn) => {
-    if (sort.column === column) {
-      return sort.direction === 'asc' ? (
-        <ArrowUp className="h-3 w-3" />
-      ) : (
-        <ArrowDown className="h-3 w-3" />
-      );
-    }
-    return <ArrowUpDown className="h-3 w-3 opacity-50" />;
-  };
-
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex items-center border-b px-3 py-2">
@@ -350,7 +323,15 @@ export function VfsDetailsPanel({
                     className="inline-flex items-center gap-1 hover:text-foreground"
                   >
                     Name
-                    {renderSortIcon('name')}
+                    {sort.column === 'name' ? (
+                      sort.direction === 'asc' ? (
+                        <ArrowUp className="h-3 w-3" />
+                      ) : (
+                        <ArrowDown className="h-3 w-3" />
+                      )
+                    ) : (
+                      <ArrowUpDown className="h-3 w-3 opacity-50" />
+                    )}
                   </button>
                 </th>
                 <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
@@ -360,7 +341,15 @@ export function VfsDetailsPanel({
                     className="inline-flex items-center gap-1 hover:text-foreground"
                   >
                     Type
-                    {renderSortIcon('objectType')}
+                    {sort.column === 'objectType' ? (
+                      sort.direction === 'asc' ? (
+                        <ArrowUp className="h-3 w-3" />
+                      ) : (
+                        <ArrowDown className="h-3 w-3" />
+                      )
+                    ) : (
+                      <ArrowUpDown className="h-3 w-3 opacity-50" />
+                    )}
                   </button>
                 </th>
                 <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
@@ -370,8 +359,19 @@ export function VfsDetailsPanel({
                     className="inline-flex items-center gap-1 hover:text-foreground"
                   >
                     Created
-                    {renderSortIcon('createdAt')}
+                    {sort.column === 'createdAt' ? (
+                      sort.direction === 'asc' ? (
+                        <ArrowUp className="h-3 w-3" />
+                      ) : (
+                        <ArrowDown className="h-3 w-3" />
+                      )
+                    ) : (
+                      <ArrowUpDown className="h-3 w-3 opacity-50" />
+                    )}
                   </button>
+                </th>
+                <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                  Sync Cursor
                 </th>
               </tr>
             </thead>
@@ -380,6 +380,9 @@ export function VfsDetailsPanel({
                 const Icon = OBJECT_TYPE_ICONS[item.objectType];
                 const colorClass = OBJECT_TYPE_COLORS[item.objectType];
                 const isSelected = selectedItemIds.includes(item.id);
+                const syncCursor = getItemSyncCursor
+                  ? getItemSyncCursor(item.id)
+                  : null;
                 return (
                   <VfsDraggableItem
                     key={item.id}
@@ -405,6 +408,11 @@ export function VfsDetailsPanel({
                     <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
                       <span className="text-muted-foreground text-xs">
                         {item.createdAt.toLocaleDateString()}
+                      </span>
+                    </td>
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
+                      <span className="font-mono text-muted-foreground text-xs">
+                        {formatSyncCursor(syncCursor)}
                       </span>
                     </td>
                   </VfsDraggableItem>
@@ -458,7 +466,31 @@ export function VfsDetailsPanel({
           }
         />
       )}
-      {renderEmptySpaceContextMenu()}
+      {emptySpaceContextMenu && (
+        <WindowContextMenu
+          x={emptySpaceContextMenu.x}
+          y={emptySpaceContextMenu.y}
+          onClose={() => setEmptySpaceContextMenu(null)}
+        >
+          {onUpload && folderId && (
+            <WindowContextMenuItem
+              icon={<Upload className="h-4 w-4" />}
+              onClick={createEmptySpaceActionHandler(() => onUpload(folderId))}
+              data-testid="vfs-upload-context-menu-item"
+            >
+              Upload
+            </WindowContextMenuItem>
+          )}
+          {hasItems && onPaste && folderId && (
+            <WindowContextMenuItem
+              icon={<Clipboard className="h-4 w-4" />}
+              onClick={createEmptySpaceActionHandler(() => onPaste(folderId))}
+            >
+              Paste
+            </WindowContextMenuItem>
+          )}
+        </WindowContextMenu>
+      )}
     </div>
   );
 }

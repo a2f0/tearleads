@@ -36,6 +36,7 @@ import {
   useVfsKeyManager,
   useVfsOrchestratorInstance
 } from './VfsOrchestratorContext';
+import { useVfsSyncState } from './VfsSyncStateContext';
 
 export { VfsExplorerAboutMenuItem } from './VfsExplorerAboutMenuItem';
 
@@ -63,6 +64,7 @@ export function ClientVfsExplorerProvider({
   const databaseContext = useDatabaseContext();
   const keyManager = useVfsKeyManager();
   const orchestrator = useVfsOrchestratorInstance();
+  const { getItemCursor, refresh: refreshSyncState } = useVfsSyncState();
 
   const databaseState = useMemo(
     () => ({
@@ -174,7 +176,15 @@ export function ClientVfsExplorerProvider({
 
     await orchestrator.syncCrdt();
     await hydrateLocalReadModelFromRemoteFeeds();
-  }, [orchestrator]);
+    refreshSyncState();
+  }, [orchestrator, refreshSyncState]);
+
+  const getItemSyncCursor = useCallback(
+    (itemId: string) => {
+      return getItemCursor(itemId);
+    },
+    [getItemCursor]
+  );
 
   return (
     <VfsExplorerProvider
@@ -187,6 +197,7 @@ export function ClientVfsExplorerProvider({
       vfsApi={vfsApi}
       vfsShareApi={vfsShareApi}
       syncRemoteState={syncRemoteState}
+      getItemSyncCursor={getItemSyncCursor}
       loginFallback={<InlineLogin description="shared items" />}
     >
       {children}

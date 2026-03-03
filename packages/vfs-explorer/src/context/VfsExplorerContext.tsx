@@ -86,6 +86,14 @@ export interface VfsShareApiFunctions {
 }
 
 /**
+ * Sync cursor metadata for an item/container.
+ */
+export interface VfsItemSyncCursor {
+  changedAt: string;
+  changeId: string;
+}
+
+/**
  * UI component props interfaces
  */
 export interface ButtonProps {
@@ -217,6 +225,10 @@ export interface VfsExplorerContextValue {
   vfsShareApi?: VfsShareApiFunctions | undefined;
   /** Optional remote sync trigger for views that need server freshness */
   syncRemoteState?: (() => Promise<void>) | undefined;
+  /** Optional lookup for latest sync cursor by item/container ID */
+  getItemSyncCursor?:
+    | ((itemId: string) => VfsItemSyncCursor | null)
+    | undefined;
   /** Fallback UI to render when the user is not logged in */
   loginFallback?: ReactNode | undefined;
 }
@@ -234,6 +246,9 @@ export interface VfsExplorerProviderProps {
   vfsApi: VfsApiFunctions;
   vfsShareApi?: VfsShareApiFunctions | undefined;
   syncRemoteState?: (() => Promise<void>) | undefined;
+  getItemSyncCursor?:
+    | ((itemId: string) => VfsItemSyncCursor | null)
+    | undefined;
   loginFallback?: ReactNode | undefined;
 }
 
@@ -251,6 +266,7 @@ export function VfsExplorerProvider({
   vfsApi,
   vfsShareApi,
   syncRemoteState,
+  getItemSyncCursor,
   loginFallback
 }: VfsExplorerProviderProps) {
   return (
@@ -265,6 +281,7 @@ export function VfsExplorerProvider({
         vfsApi,
         vfsShareApi,
         syncRemoteState,
+        getItemSyncCursor,
         loginFallback
       }}
     >
@@ -301,4 +318,18 @@ export function useDatabaseState(): DatabaseState {
 export function useVfsExplorerUI(): VfsExplorerUIComponents {
   const { ui } = useVfsExplorerContext();
   return ui;
+}
+
+/**
+ * Hook to retrieve the latest sync cursor for an item/container.
+ */
+export function useVfsSyncCursor(
+  itemId: string | null | undefined
+): VfsItemSyncCursor | null {
+  const { getItemSyncCursor } = useVfsExplorerContext();
+  if (!getItemSyncCursor || !itemId) {
+    return null;
+  }
+
+  return getItemSyncCursor(itemId);
 }
