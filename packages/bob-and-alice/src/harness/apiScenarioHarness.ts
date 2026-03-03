@@ -8,6 +8,7 @@ import {
 import { createConnectJsonPostInit } from '@tearleads/shared';
 import {
   adaptConnectResponse,
+  type ConnectRouteMapping,
   mapLegacyPathToConnect,
   mergeHeaders,
   resolveDirectApiPath
@@ -53,7 +54,10 @@ export class ApiScenarioHarness {
         path: string,
         init?: RequestInit
       ): Promise<Response> => {
-        const connectMapping = mapLegacyPathToConnect(path, init);
+        const connectMapping: ConnectRouteMapping | null = mapLegacyPathToConnect(
+          path,
+          init
+        );
         if (connectMapping) {
           const connectInit = createConnectJsonPostInit(connectMapping.body);
           const connectHeaders = mergeHeaders(
