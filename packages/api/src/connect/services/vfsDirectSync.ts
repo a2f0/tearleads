@@ -353,7 +353,8 @@ export async function reconcileSyncDirect(
 ): Promise<{ json: string }> {
   const claims = await requireVfsClaims(
     '/vfs/sync/reconcile',
-    context.requestHeader
+    context.requestHeader,
+    { requireDeclaredOrganization: true }
   );
 
   const parsedPayload = parseVfsSyncReconcilePayload(

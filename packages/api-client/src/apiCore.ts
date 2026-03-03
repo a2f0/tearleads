@@ -15,6 +15,42 @@ import { isJwtExpired } from './jwt';
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 const AUTH_CONNECT_REFRESH_PATH =
   '/connect/tearleads.v1.AuthService/RefreshToken';
+const ORGANIZATION_HEADER_NAME = 'X-Organization-Id';
+const REQUIRE_DECLARED_ORGANIZATION_BY_SERVICE = new Map<
+  string,
+  ReadonlySet<string>
+>([
+  [
+    'tearleads.v1.VfsService',
+    new Set([
+      'SetupKeys',
+      'Register',
+      'DeleteBlob',
+      'StageBlob',
+      'UploadBlobChunk',
+      'AttachBlob',
+      'AbandonBlob',
+      'CommitBlob',
+      'RekeyItem',
+      'PushCrdtOps',
+      'ReconcileCrdt',
+      'ReconcileSync',
+      'RunCrdtSession',
+      'DeleteEmail',
+      'SendEmail'
+    ])
+  ],
+  [
+    'tearleads.v1.VfsSharesService',
+    new Set([
+      'CreateShare',
+      'UpdateShare',
+      'DeleteShare',
+      'CreateOrgShare',
+      'DeleteOrgShare'
+    ])
+  ]
+]);
 
 type RefreshOutcome = 'success' | 'rejected' | 'transient';
 
@@ -266,6 +302,70 @@ function applyContextHeaders(headers: Headers): void {
   }
 }
 
+function toRequestPath(endpoint: string): string {
+  if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+    try {
+      return new URL(endpoint).pathname;
+    } catch {
+      return endpoint;
+    }
+  }
+
+  return endpoint;
+}
+
+function parseConnectRoute(
+  endpoint: string
+): { serviceName: string; methodName: string } | null {
+  const requestPath = toRequestPath(endpoint);
+  if (!requestPath.startsWith('/connect/')) {
+    return null;
+  }
+
+  const segments = requestPath.split('/').filter((segment) => segment.length);
+  if (segments.length !== 3 || segments[0] !== 'connect') {
+    return null;
+  }
+
+  const serviceName = segments[1];
+  const methodName = segments[2];
+  if (!serviceName || !methodName) {
+    return null;
+  }
+
+  return {
+    serviceName,
+    methodName
+  };
+}
+
+function requiresDeclaredOrganizationHeader(endpoint: string): boolean {
+  const connectRoute = parseConnectRoute(endpoint);
+  if (!connectRoute) {
+    return false;
+  }
+
+  return (
+    REQUIRE_DECLARED_ORGANIZATION_BY_SERVICE
+      .get(connectRoute.serviceName)
+      ?.has(connectRoute.methodName) === true
+  );
+}
+
+function assertDeclaredOrganizationHeader(
+  endpoint: string,
+  headers: Headers
+): void {
+  if (requiresDeclaredOrganizationHeader(endpoint)) {
+    const organizationId = headers.get(ORGANIZATION_HEADER_NAME);
+    if (organizationId === null || organizationId.trim().length === 0) {
+      throw new Error(
+        'X-Organization-Id header is required for VFS write requests'
+      );
+    }
+  }
+}
+
 async function requestResponse(
   endpoint: string,
   params: RequestParams
@@ -287,6 +387,7 @@ async function requestResponse(
       headers.set('Authorization', authHeaderValue);
     }
     applyContextHeaders(headers);
+    assertDeclaredOrganizationHeader(endpoint, headers);
 
     let response = await fetch(requestUrl, {
       ...fetchOptions,
@@ -309,6 +410,7 @@ async function requestResponse(
           retryHeaders.set('Authorization', retryAuthHeaderValue);
         }
         applyContextHeaders(retryHeaders);
+        assertDeclaredOrganizationHeader(endpoint, retryHeaders);
 
         response = await fetch(requestUrl, {
           ...fetchOptions,

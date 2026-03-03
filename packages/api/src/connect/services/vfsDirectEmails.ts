@@ -325,7 +325,8 @@ export async function deleteEmailDirect(
 
   const claims = await requireVfsClaims(
     `/vfs/emails/${encoded(emailId)}`,
-    context.requestHeader
+    context.requestHeader,
+    { requireDeclaredOrganization: true }
   );
 
   try {
@@ -425,7 +426,9 @@ export async function sendEmailDirect(
   request: JsonRequest,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
-  await requireVfsClaims('/vfs/emails/send', context.requestHeader);
+  await requireVfsClaims('/vfs/emails/send', context.requestHeader, {
+    requireDeclaredOrganization: true
+  });
 
   try {
     const payload = parseSendRequestPayload(parseJsonBody(request.json));

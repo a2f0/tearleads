@@ -8,10 +8,18 @@ import {
 
 async function resolveRequiredOrganizationId(
   userId: string,
-  resolvedOrganizationId: string | null
+  resolvedOrganizationId: string | null,
+  requireDeclaredOrganization: boolean
 ): Promise<string> {
   if (resolvedOrganizationId) {
     return resolvedOrganizationId;
+  }
+
+  if (requireDeclaredOrganization) {
+    throw new ConnectError(
+      'X-Organization-Id header is required for VFS write requests',
+      Code.InvalidArgument
+    );
   }
 
   const pool = await getPostgresPool();
@@ -38,7 +46,8 @@ async function resolveRequiredOrganizationId(
 
 export async function requireVfsClaims(
   path: string,
-  requestHeaders: Headers
+  requestHeaders: Headers,
+  options?: { requireDeclaredOrganization?: boolean }
 ): Promise<{ sub: string; organizationId: string }> {
   const authResult = await authenticate(requestHeaders);
   if (!authResult.ok) {
@@ -59,7 +68,8 @@ export async function requireVfsClaims(
 
   const organizationId = await resolveRequiredOrganizationId(
     authResult.claims.sub,
-    membershipResult.organizationId
+    membershipResult.organizationId,
+    options?.requireDeclaredOrganization === true
   );
 
   return {

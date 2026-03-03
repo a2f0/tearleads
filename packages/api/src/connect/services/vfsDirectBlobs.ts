@@ -87,7 +87,8 @@ export async function deleteBlobDirect(
 
   const claims = await requireVfsClaims(
     `/vfs/blobs/${encoded(blobId)}`,
-    context.requestHeader
+    context.requestHeader,
+    { requireDeclaredOrganization: true }
   );
 
   const pool = await getPostgresPool();

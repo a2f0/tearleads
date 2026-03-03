@@ -74,7 +74,8 @@ export async function attachBlobDirect(
   const stagingId = requireStagingId(request.stagingId);
   const claims = await requireVfsClaims(
     `/vfs/blobs/stage/${encoded(stagingId)}/attach`,
-    context.requestHeader
+    context.requestHeader,
+    { requireDeclaredOrganization: true }
   );
 
   const parsedJsonBody = parseJsonBody(request.json);

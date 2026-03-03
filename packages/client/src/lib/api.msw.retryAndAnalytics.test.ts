@@ -52,10 +52,14 @@ describe('api with msw', () => {
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
     localStorage.setItem(AUTH_TOKEN_KEY, seededUser.accessToken);
+    const { setActiveOrganizationId } = await import('@/lib/orgStorage');
+    setActiveOrganizationId(seededUser.organizationId);
     mockLogApiEvent.mockResolvedValue(undefined);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    const { clearActiveOrganizationId } = await import('@/lib/orgStorage');
+    clearActiveOrganizationId();
     vi.unstubAllEnvs();
   });
 
@@ -243,8 +247,11 @@ describe('api with msw', () => {
       expect(API_BASE_URL).toBe('http://test-api.com');
     });
 
-    it('loads api module when analytics logger export is unavailable', async () => {
-      vi.doMock('@/db/analytics', () => ({}));
+    it('loads api module with analytics logger wiring', async () => {
+      const moduleLogApiEvent = vi.fn(async () => undefined);
+      vi.doMock('@/db/analytics', () => ({
+        logApiEvent: moduleLogApiEvent
+      }));
 
       try {
         const { API_BASE_URL } = await import('./api');

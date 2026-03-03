@@ -80,7 +80,8 @@ export async function stageBlobDirect(
 ): Promise<{ json: string }> {
   const claims = await requireVfsClaims(
     '/vfs/blobs/stage',
-    context.requestHeader
+    context.requestHeader,
+    { requireDeclaredOrganization: true }
   );
 
   const parsedBody = parseBlobStageBody(parseJsonBody(request.json));
@@ -280,7 +281,8 @@ export async function uploadBlobChunkDirect(
   const stagingId = requireStagingId(request.stagingId);
   const claims = await requireVfsClaims(
     `/vfs/blobs/stage/${encoded(stagingId)}/chunks`,
-    context.requestHeader
+    context.requestHeader,
+    { requireDeclaredOrganization: true }
   );
 
   const payload = parseBlobChunkBody(parseJsonBody(request.json));

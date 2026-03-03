@@ -30,11 +30,17 @@ describe('api with msw', () => {
     setApiEventLogger((...args: Parameters<typeof mockLogApiEvent>) =>
       mockLogApiEvent(...args)
     );
+    const { setApiRequestHeadersProvider } = await import('./apiCore');
+    setApiRequestHeadersProvider(() => ({
+      'X-Organization-Id': seededUser.organizationId
+    }));
   });
   afterEach(async () => {
     vi.unstubAllEnvs();
     const { resetApiEventLogger } = await import('./apiLogger');
+    const { resetApiRequestHeadersProvider } = await import('./apiCore');
     resetApiEventLogger();
+    resetApiRequestHeadersProvider();
   });
   it('routes vfs requests through msw', async () => {
     const ctx = getSharedTestContext();

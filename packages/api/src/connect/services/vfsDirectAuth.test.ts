@@ -78,6 +78,39 @@ describe('requireVfsClaims', () => {
     expect(queryMock).not.toHaveBeenCalled();
   });
 
+  it('requires explicitly declared organization for write requests', async () => {
+    const promise = requireVfsClaims('/vfs/register', new Headers(), {
+      requireDeclaredOrganization: true
+    });
+
+    await expect(promise).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+    await expect(promise).rejects.toThrow(
+      /X-Organization-Id header is required for VFS write requests/u
+    );
+
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it('accepts declared organization for write requests', async () => {
+    resolveOrganizationMembershipMock.mockResolvedValueOnce({
+      ok: true,
+      organizationId: 'org-header'
+    });
+
+    await expect(
+      requireVfsClaims('/vfs/register', new Headers(), {
+        requireDeclaredOrganization: true
+      })
+    ).resolves.toEqual({
+      sub: 'user-1',
+      organizationId: 'org-header'
+    });
+
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
   it('maps auth failures to connect errors', async () => {
     authenticateMock.mockResolvedValueOnce({
       ok: false,

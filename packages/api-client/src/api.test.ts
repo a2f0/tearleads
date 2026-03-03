@@ -448,5 +448,64 @@ describe('api edge cases requiring direct fetch mocking', () => {
         })
       ).resolves.toEqual({ ok: true });
     });
+
+    it('rejects VFS write requests without declared organization header', async () => {
+      const { request, resetApiRequestHeadersProvider } = await import(
+        './apiCore'
+      );
+      resetApiRequestHeadersProvider();
+
+      await expect(
+        request<{ ok: boolean }>(
+          '/connect/tearleads.v1.VfsService/PushCrdtOps',
+          {
+            fetchOptions: {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({})
+            },
+            eventName: 'api_get_ping'
+          }
+        )
+      ).rejects.toThrow(/X-Organization-Id header is required/u);
+
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+    it('allows VFS write requests when organization header is declared', async () => {
+      vi.mocked(global.fetch).mockImplementation(
+        async (_input: RequestInfo | URL, init?: RequestInit) => {
+          const headers = new Headers(init?.headers);
+          expect(headers.get('X-Organization-Id')).toBe('org-explicit');
+          return new Response(JSON.stringify({ ok: true }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      );
+
+      const { request, resetApiRequestHeadersProvider } = await import(
+        './apiCore'
+      );
+      resetApiRequestHeadersProvider();
+
+      await expect(
+        request<{ ok: boolean }>(
+          '/connect/tearleads.v1.VfsService/PushCrdtOps',
+          {
+            fetchOptions: {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Organization-Id': 'org-explicit'
+              },
+              body: JSON.stringify({})
+            },
+            eventName: 'api_get_ping'
+          }
+        )
+      ).resolves.toEqual({ ok: true });
+    });
   });
 });

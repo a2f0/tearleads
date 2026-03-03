@@ -27,7 +27,8 @@ export async function pushCrdtOpsDirect(
 ): Promise<{ json: string }> {
   const claims = await requireVfsClaims(
     '/vfs/crdt/push',
-    context.requestHeader
+    context.requestHeader,
+    { requireDeclaredOrganization: true }
   );
 
   const parsedPayload = parsePushPayload(parseJsonBody(request.json));

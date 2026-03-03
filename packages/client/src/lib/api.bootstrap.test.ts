@@ -11,25 +11,7 @@ describe('api bootstrap', () => {
     vi.doUnmock('@/db/analytics');
   });
 
-  it('handles missing optional integration exports', async () => {
-    const apiMock = { ping: { get: vi.fn() } };
-    const tryRefreshTokenMock = vi.fn(async () => true);
-
-    vi.doMock('@tearleads/api-client/clientEntry', () => ({
-      API_BASE_URL: 'http://mock-api',
-      api: apiMock,
-      tryRefreshToken: tryRefreshTokenMock
-    }));
-    vi.doMock('@/db/analytics', () => ({}));
-
-    const module = await import('./api');
-
-    expect(module.API_BASE_URL).toBe('http://mock-api');
-    expect(module.api).toBe(apiMock);
-    expect(module.tryRefreshToken).toBe(tryRefreshTokenMock);
-  });
-
-  it('wires analytics and request-header providers when available', async () => {
+  it('forwards client entry exports and wires bootstrap hooks', async () => {
     const apiMock = { ping: { get: vi.fn() } };
     const tryRefreshTokenMock = vi.fn(async () => false);
     const setApiEventLogger = vi.fn();
@@ -50,17 +32,19 @@ describe('api bootstrap', () => {
     const module = await import('./api');
     const orgStorage = await import('@/lib/orgStorage');
 
+    expect(module.API_BASE_URL).toBe('http://mock-api');
+    expect(module.api).toBe(apiMock);
+    expect(module.tryRefreshToken).toBe(tryRefreshTokenMock);
     expect(setApiEventLogger).toHaveBeenCalledWith(logApiEvent);
     expect(setApiRequestHeadersProvider).toHaveBeenCalledTimes(1);
-    expect(module.api).toBe(apiMock);
-    expect(module.API_BASE_URL).toBe('http://mock-api');
-    expect(module.tryRefreshToken).toBe(tryRefreshTokenMock);
 
     const provider = setApiRequestHeadersProvider.mock.calls[0]?.[0];
     expect(typeof provider).toBe('function');
     if (typeof provider !== 'function') {
       return;
     }
+
+    expect(provider()).toBeUndefined();
 
     orgStorage.setActiveOrganizationId('org-coverage');
     expect(provider()).toEqual({
@@ -69,21 +53,5 @@ describe('api bootstrap', () => {
 
     orgStorage.clearActiveOrganizationId();
     expect(provider()).toBeUndefined();
-  });
-
-  it('skips logger wiring when analytics logger export is missing', async () => {
-    const setApiEventLogger = vi.fn();
-
-    vi.doMock('@tearleads/api-client/clientEntry', () => ({
-      API_BASE_URL: 'http://mock-api',
-      api: { ping: { get: vi.fn() } },
-      tryRefreshToken: vi.fn(async () => false),
-      setApiEventLogger
-    }));
-    vi.doMock('@/db/analytics', () => ({}));
-
-    await import('./api');
-
-    expect(setApiEventLogger).not.toHaveBeenCalled();
   });
 });

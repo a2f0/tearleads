@@ -65,7 +65,8 @@ vi.mock('@/db', () => ({
 }));
 
 vi.mock('@/db/analytics', () => ({
-  logEvent: (...args: unknown[]) => mockLogEvent(...args)
+  logEvent: (...args: unknown[]) => mockLogEvent(...args),
+  logApiEvent: vi.fn().mockResolvedValue(undefined)
 }));
 
 vi.mock('@/db/vfsOrchestratorState', () => ({
