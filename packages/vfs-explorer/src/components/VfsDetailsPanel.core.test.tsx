@@ -10,6 +10,7 @@ const mockDatabaseState: DatabaseState = {
 };
 
 let mockLoginFallback: ReactNode | undefined;
+const mockGetItemSyncCursor = vi.fn();
 
 vi.mock('../context', () => ({
   useDatabaseState: () => mockDatabaseState,
@@ -32,7 +33,8 @@ vi.mock('../context', () => ({
     },
     get loginFallback() {
       return mockLoginFallback;
-    }
+    },
+    getItemSyncCursor: (itemId: string) => mockGetItemSyncCursor(itemId)
   }),
   useVfsClipboard: () => ({
     clipboard: { items: [], operation: null },
@@ -134,6 +136,7 @@ describe('VfsDetailsPanel core behavior', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockLoginFallback = undefined;
+    mockGetItemSyncCursor.mockReturnValue(null);
     mockDatabaseState.isUnlocked = true;
     mockDatabaseState.isLoading = false;
     mockDatabaseState.currentInstanceId = 'test-instance';
@@ -218,6 +221,28 @@ describe('VfsDetailsPanel core behavior', () => {
     expect(
       screen.getByRole('columnheader', { name: 'Created' })
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: 'Sync Cursor' })
+    ).toBeInTheDocument();
+  });
+
+  it('renders sync cursor values when available', () => {
+    mockGetItemSyncCursor.mockImplementation((itemId: string) => {
+      if (itemId !== '1') {
+        return null;
+      }
+      return {
+        changedAt: '2026-03-03T12:00:00.000Z',
+        changeId: 'cursor-folder-1'
+      };
+    });
+
+    render(<VfsDetailsPanel folderId="1" viewMode="table" />);
+
+    expect(
+      screen.getByText('2026-03-03T12:00:00.000Z | cursor-folder-1')
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
   });
 
   it('shows folder items with correct types', () => {

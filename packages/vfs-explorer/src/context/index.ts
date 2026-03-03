@@ -17,6 +17,7 @@ export type {
   VfsExplorerContextValue,
   VfsExplorerProviderProps,
   VfsExplorerUIComponents,
+  VfsItemSyncCursor,
   VfsKeyFunctions,
   VfsShareApiFunctions,
   WindowDimensions,
@@ -25,6 +26,7 @@ export type {
 export {
   useDatabaseState,
   useVfsExplorerContext,
+  useVfsSyncCursor,
   useVfsExplorerUI,
   VfsExplorerProvider
 } from './VfsExplorerContext';

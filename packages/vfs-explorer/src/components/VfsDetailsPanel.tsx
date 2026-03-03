@@ -43,6 +43,20 @@ export type { VfsItem, VfsObjectType };
 
 const DEFAULT_SORT: VfsSortState = { column: null, direction: null };
 
+function formatSyncCursor(
+  cursor:
+    | {
+        changedAt: string;
+        changeId: string;
+      }
+    | null
+): string {
+  if (!cursor) {
+    return '—';
+  }
+  return `${cursor.changedAt} | ${cursor.changeId}`;
+}
+
 export function VfsDetailsPanel({
   folderId,
   viewMode = 'list',
@@ -60,7 +74,7 @@ export function VfsDetailsPanel({
   onUpload
 }: VfsDetailsPanelProps) {
   const { hasItems } = useVfsClipboard();
-  const { loginFallback } = useVfsExplorerContext();
+  const { loginFallback, getItemSyncCursor } = useVfsExplorerContext();
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [emptySpaceContextMenu, setEmptySpaceContextMenu] =
     useState<EmptySpaceContextMenuState | null>(null);
@@ -373,6 +387,9 @@ export function VfsDetailsPanel({
                     {renderSortIcon('createdAt')}
                   </button>
                 </th>
+                <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                  Sync Cursor
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -380,6 +397,9 @@ export function VfsDetailsPanel({
                 const Icon = OBJECT_TYPE_ICONS[item.objectType];
                 const colorClass = OBJECT_TYPE_COLORS[item.objectType];
                 const isSelected = selectedItemIds.includes(item.id);
+                const syncCursor = getItemSyncCursor
+                  ? getItemSyncCursor(item.id)
+                  : null;
                 return (
                   <VfsDraggableItem
                     key={item.id}
@@ -405,6 +425,11 @@ export function VfsDetailsPanel({
                     <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
                       <span className="text-muted-foreground text-xs">
                         {item.createdAt.toLocaleDateString()}
+                      </span>
+                    </td>
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
+                      <span className="font-mono text-muted-foreground text-xs">
+                        {formatSyncCursor(syncCursor)}
                       </span>
                     </td>
                   </VfsDraggableItem>

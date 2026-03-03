@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useVfsOrchestratorInstance } from '@/contexts/VfsOrchestratorContext';
+import { useVfsSyncState } from '@/contexts/VfsSyncStateContext';
 import { createRemoteReadOrchestrator } from '@/lib/remoteReadOrchestrator';
 import { useSSE } from '@/sse';
 import { logStore } from '@/stores/logStore';
@@ -69,6 +70,7 @@ function computeRetryDelayWithJitter(attempt: number): number {
 export function VfsRealtimeSyncBridge() {
   const { connect, lastMessage } = useSSE();
   const orchestrator = useVfsOrchestratorInstance();
+  const { refresh: refreshSyncState } = useVfsSyncState();
 
   const connectedChannelsRef = useRef<string[]>([]);
   const remoteReadOrchestratorRef = useRef(
@@ -86,6 +88,7 @@ export function VfsRealtimeSyncBridge() {
       .schedule(
         async () => {
           await orchestrator.syncCrdt();
+          refreshSyncState();
           retryAttemptRef.current = 0;
         },
         {
@@ -112,7 +115,7 @@ export function VfsRealtimeSyncBridge() {
           scheduleSync();
         }, retryDelayMs);
       });
-  }, [orchestrator]);
+  }, [orchestrator, refreshSyncState]);
 
   useEffect(() => {
     const refreshChannels = () => {
