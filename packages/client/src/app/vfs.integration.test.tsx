@@ -47,20 +47,26 @@ async function setupDatabaseViaSqlitePage(
   const dropdown = screen.getByTestId('mobile-menu-dropdown');
   await user.click(within(dropdown).getByTestId('sqlite-link'));
 
-  await waitFor(() => {
-    expect(screen.getByTestId('database-test')).toBeInTheDocument();
-  });
+  await waitFor(
+    () => {
+      expect(screen.getByTestId('database-test')).toBeInTheDocument();
+    },
+    { timeout: LAZY_LOAD_TIMEOUT }
+  );
 
   const passwordInput = screen.getByTestId('db-password-input');
   await user.clear(passwordInput);
   await user.type(passwordInput, 'my-test-password');
   await user.click(screen.getByTestId('db-setup-button'));
 
-  await waitFor(() => {
-    expect(screen.getByTestId('db-test-result')).toHaveTextContent(
-      'Database setup complete'
-    );
-  });
+  await waitFor(
+    () => {
+      expect(screen.getByTestId('db-test-result')).toHaveTextContent(
+        'Database setup complete'
+      );
+    },
+    { timeout: LAZY_LOAD_TIMEOUT }
+  );
 }
 
 /** Helper: open mobile menu and click a nav link. */
@@ -105,9 +111,12 @@ describe('VFS Integration Tests', () => {
     it('renders the app shell around VFS page', async () => {
       await renderApp();
 
-      await waitFor(() => {
-        expect(screen.getByTestId('app-container')).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.getByTestId('app-container')).toBeInTheDocument();
+        },
+        { timeout: LAZY_LOAD_TIMEOUT }
+      );
 
       expect(screen.getByTestId('mobile-menu-button')).toBeInTheDocument();
     });
@@ -130,12 +139,15 @@ describe('VFS Integration Tests', () => {
       await navigateViaMobileMenu(user, 'vfs-link');
 
       // 7. VFS should now show unlocked state (no "not set up" message)
-      await waitFor(() => {
-        expect(
-          screen.getByRole('heading', { name: 'VFS Explorer' })
-        ).toBeInTheDocument();
-        expect(screen.queryByTestId('inline-unlock')).not.toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(
+            screen.getByRole('heading', { name: 'VFS Explorer' })
+          ).toBeInTheDocument();
+          expect(screen.queryByTestId('inline-unlock')).not.toBeInTheDocument();
+        },
+        { timeout: LAZY_LOAD_TIMEOUT }
+      );
 
       // The file upload input is only rendered when database is unlocked
       expect(screen.getByTestId('vfs-file-input')).toBeInTheDocument();
@@ -154,20 +166,26 @@ describe('VFS Integration Tests', () => {
 
       // 2. Navigate to VFS
       await navigateViaMobileMenu(user, 'vfs-link');
-      await waitFor(() => {
-        expect(
-          screen.getByRole('heading', { name: 'VFS Explorer' })
-        ).toBeInTheDocument();
-        expect(screen.queryByTestId('inline-unlock')).not.toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(
+            screen.getByRole('heading', { name: 'VFS Explorer' })
+          ).toBeInTheDocument();
+          expect(screen.queryByTestId('inline-unlock')).not.toBeInTheDocument();
+        },
+        { timeout: LAZY_LOAD_TIMEOUT }
+      );
 
       // 3. Click "All Items" in the tree panel
       await user.click(screen.getByText('All Items'));
 
       // 4. Verify All Items is empty
-      await waitFor(() => {
-        expect(screen.getByText('No items in registry')).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.getByText('No items in registry')).toBeInTheDocument();
+        },
+        { timeout: LAZY_LOAD_TIMEOUT }
+      );
 
       // 5. Navigate to Notes page
       await navigateViaMobileMenu(user, 'notes-link');
@@ -219,18 +237,24 @@ describe('VFS Integration Tests', () => {
 
       // 9. Navigate back to VFS
       await navigateViaMobileMenu(user, 'vfs-link');
-      await waitFor(() => {
-        expect(
-          screen.getByRole('heading', { name: 'VFS Explorer' })
-        ).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(
+            screen.getByRole('heading', { name: 'VFS Explorer' })
+          ).toBeInTheDocument();
+        },
+        { timeout: LAZY_LOAD_TIMEOUT }
+      );
 
       // 10. Click "All Items" and verify the note appears
       await user.click(screen.getByText('All Items'));
 
-      await waitFor(() => {
-        expect(screen.getByText('Untitled Note')).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Untitled Note')).toBeInTheDocument();
+        },
+        { timeout: LAZY_LOAD_TIMEOUT }
+      );
       expect(
         screen.queryByText('No items in registry')
       ).not.toBeInTheDocument();

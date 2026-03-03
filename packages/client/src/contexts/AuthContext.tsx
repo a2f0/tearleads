@@ -36,6 +36,8 @@ import { notificationStore } from '@/stores/notificationStore';
 
 const REFRESH_THRESHOLD_MS = 60 * 1000; // Refresh if expiring within 60 seconds
 const REFRESH_POLL_INTERVAL_MS = 30 * 1000;
+const DEFERRED_PASSWORD_SETUP_ATTEMPTS = 3;
+const DEFERRED_PASSWORD_RETRY_DELAY_MS = 100;
 
 interface AuthContextValue {
   isAuthenticated: boolean;
@@ -80,19 +82,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
           return;
         }
 
-        const saved = await setDatabasePassword(password, instanceId);
-        if (!saved) {
-          notificationStore.warning(
-            'Database Password Not Set',
-            'Your account is signed in, but database password setup failed. Set it manually before locking while signed out.'
-          );
-          console.warn(
-            'Skipping deferred DB password setup because no active key was available'
-          );
-          return;
+        for (
+          let attempt = 0;
+          attempt < DEFERRED_PASSWORD_SETUP_ATTEMPTS;
+          attempt += 1
+        ) {
+          const saved = await setDatabasePassword(password, instanceId);
+          if (saved) {
+            await updateInstance(instanceId, { passwordDeferred: false });
+            return;
+          }
+
+          if (attempt < DEFERRED_PASSWORD_SETUP_ATTEMPTS - 1) {
+            await new Promise<void>((resolve) => {
+              setTimeout(
+                resolve,
+                DEFERRED_PASSWORD_RETRY_DELAY_MS * (attempt + 1)
+              );
+            });
+          }
         }
 
-        await updateInstance(instanceId, { passwordDeferred: false });
+        notificationStore.warning(
+          'Database Password Not Set',
+          'Your account is signed in, but database password setup failed. Set it manually before locking while signed out.'
+        );
+        console.warn(
+          'Skipping deferred DB password setup because no active key was available'
+        );
       } catch (error) {
         notificationStore.warning(
           'Database Password Setup Failed',
