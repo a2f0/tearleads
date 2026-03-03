@@ -26,7 +26,7 @@ export type {
 export {
   useDatabaseState,
   useVfsExplorerContext,
-  useVfsSyncCursor,
   useVfsExplorerUI,
+  useVfsSyncCursor,
   VfsExplorerProvider
 } from './VfsExplorerContext';

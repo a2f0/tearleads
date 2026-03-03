@@ -74,10 +74,7 @@ function encodeSnapshotSignature(input: {
     ? `${input.globalCursor.changedAt}|${input.globalCursor.changeId}`
     : 'null';
   const containerClockSignature = input.containerClocks
-    .map(
-      (entry) =>
-        `${entry.containerId}|${entry.changedAt}|${entry.changeId}`
-    )
+    .map((entry) => `${entry.containerId}|${entry.changedAt}|${entry.changeId}`)
     .join(';');
   return `${globalCursorSignature}::${containerClockSignature}`;
 }
@@ -105,7 +102,8 @@ function buildCursorMap(
 
 export function VfsSyncStateProvider({ children }: { children: ReactNode }) {
   const orchestrator = useVfsOrchestratorInstance();
-  const [snapshot, setSnapshot] = useState<VfsSyncStateSnapshot>(EMPTY_SNAPSHOT);
+  const [snapshot, setSnapshot] =
+    useState<VfsSyncStateSnapshot>(EMPTY_SNAPSHOT);
   const signatureRef = useRef<string>('null::');
 
   const refresh = useCallback(() => {
@@ -160,7 +158,9 @@ export function VfsSyncStateProvider({ children }: { children: ReactNode }) {
         return null;
       }
       const cursor = snapshot.cursorByItemId.get(normalizedItemId);
-      return cursor ? { changedAt: cursor.changedAt, changeId: cursor.changeId } : null;
+      return cursor
+        ? { changedAt: cursor.changedAt, changeId: cursor.changeId }
+        : null;
     },
     [snapshot.cursorByItemId]
   );

@@ -44,12 +44,10 @@ export type { VfsItem, VfsObjectType };
 const DEFAULT_SORT: VfsSortState = { column: null, direction: null };
 
 function formatSyncCursor(
-  cursor:
-    | {
-        changedAt: string;
-        changeId: string;
-      }
-    | null
+  cursor: {
+    changedAt: string;
+    changeId: string;
+  } | null
 ): string {
   if (!cursor) {
     return '—';
