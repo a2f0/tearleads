@@ -81,8 +81,8 @@ fi
 
 export DATABASE_URL="postgresql://$PG_USER:$PG_PASS@127.0.0.1:$LOCAL_PG_PORT/$PG_DB"
 
-echo "Running createBobNotesSharedWithAlice..."
-"$REPO_ROOT/scripts/users/scaffolding/createBobNotesSharedWithAlice.ts"
+echo "Running createBobAndAlice..."
+"$REPO_ROOT/scripts/users/scaffolding/createBobAndAlice.ts"
 echo "  Step 2/2 completed in $(format_duration $((SECONDS - STEP_START)))"
 
 echo ""

@@ -6,7 +6,7 @@ import { createPool } from '../../postgres/lib/pool.ts';
 import { runCreateTestUsers } from './createTestUsers.ts';
 import { alice, bob } from './testUsers.ts';
 
-export async function runCreateBobNotesSharedWithAlice(): Promise<void> {
+export async function runCreateBobAndAlice(): Promise<void> {
   console.log('Step 1/3: creating or verifying test users...');
   await runCreateTestUsers();
 
@@ -50,8 +50,8 @@ export async function runCreateBobNotesSharedWithAlice(): Promise<void> {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  runCreateBobNotesSharedWithAlice().catch((error) => {
-    console.error('Failed to scaffold Bob->Alice note sharing:', error);
+  runCreateBobAndAlice().catch((error) => {
+    console.error('Failed to scaffold Bob and Alice:', error);
     process.exitCode = 1;
   });
 }
