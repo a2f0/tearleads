@@ -251,6 +251,9 @@ jobs:
       - name: Check preen ecosystem parity
         run: npx -y tsx ./scripts/checks/preen/checkPreenEcosystem.ts --strict
 
+      - name: Check PDF dependency version parity
+        run: ./scripts/checks/checkPdfVersionParity.sh
+
       - name: Verify file guardrails
         run: ./scripts/verifyFileGuardrails.sh
 

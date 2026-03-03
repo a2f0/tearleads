@@ -44,6 +44,10 @@ updates:
           - 'vitest*'
           - '@vitest/*'
           - 'jsdom'
+      pdf:
+        patterns:
+          - 'react-pdf'
+          - 'pdfjs-dist'
       types:
         patterns:
           - '@types/*'
