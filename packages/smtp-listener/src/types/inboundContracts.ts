@@ -3,11 +3,13 @@ import type { EmailAddress, StoredEmail } from '../types/email.js';
 export interface ResolvedInboundRecipient {
   userId: string;
   address: string;
+  organizationId: string;
 }
 
 export interface RecipientKeyRecord {
   userId: string;
   publicEncryptionKey: string;
+  organizationId: string;
 }
 
 export interface InboundRecipientKeyLookup {

@@ -28,7 +28,8 @@ describe('DefaultInboundMessageIngestor', () => {
               '11111111-1111-4111-8111-111111111111',
               {
                 userId: '11111111-1111-4111-8111-111111111111',
-                publicEncryptionKey: buildPublicKeyString()
+                publicEncryptionKey: buildPublicKeyString(),
+                organizationId: 'personal-org-11111111'
               }
             ]
           ])
@@ -76,7 +77,8 @@ describe('DefaultInboundMessageIngestor', () => {
         recipients: [
           {
             userId: '11111111-1111-4111-8111-111111111111',
-            address: '11111111-1111-4111-8111-111111111111@test.com'
+            address: '11111111-1111-4111-8111-111111111111@test.com',
+            organizationId: 'personal-org-11111111'
           }
         ]
       })
@@ -173,7 +175,8 @@ describe('DefaultInboundMessageIngestor', () => {
               userId,
               {
                 userId,
-                publicEncryptionKey: buildPublicKeyString()
+                publicEncryptionKey: buildPublicKeyString(),
+                organizationId: 'personal-org-11111111'
               }
             ]
           ])
@@ -215,7 +218,13 @@ describe('DefaultInboundMessageIngestor', () => {
         envelope: expect.objectContaining({
           from: false
         }),
-        recipients: [{ userId, address: `${userId}@unknown` }]
+        recipients: [
+          {
+            userId,
+            address: `${userId}@unknown`,
+            organizationId: 'personal-org-11111111'
+          }
+        ]
       })
     );
   });

@@ -22,7 +22,8 @@ function findWrappedKey(
 
 async function ensureInboxFolder(
   client: PoolClient,
-  userId: string
+  userId: string,
+  organizationId: string
 ): Promise<string> {
   const folderId = `email-inbox:${userId}`;
   await client.query(
@@ -30,18 +31,21 @@ async function ensureInboxFolder(
        id,
        object_type,
        owner_id,
+       organization_id,
        encrypted_name,
        created_at
      ) VALUES (
        $1,
        'emailFolder',
        $2,
+       $3,
        'Inbox',
        NOW()
      )
      ON CONFLICT (id) DO UPDATE
-     SET encrypted_name = 'Inbox'`,
-    [folderId, userId]
+     SET encrypted_name = 'Inbox',
+         organization_id = EXCLUDED.organization_id`,
+    [folderId, userId, organizationId]
   );
   return folderId;
 }
@@ -59,6 +63,7 @@ async function insertEmailForRecipient(input: {
        id,
        object_type,
        owner_id,
+       organization_id,
        encrypted_session_key,
        created_at
      ) VALUES (
@@ -66,9 +71,15 @@ async function insertEmailForRecipient(input: {
        'email',
        $2,
        $3,
+       $4,
        NOW()
      )`,
-    [emailItemId, input.recipient.userId, input.wrappedKey.wrappedDek]
+    [
+      emailItemId,
+      input.recipient.userId,
+      input.recipient.organizationId,
+      input.wrappedKey.wrappedDek
+    ]
   );
 
   await input.client.query(
@@ -196,7 +207,11 @@ export class PostgresInboundVfsEmailRepository
           );
         }
 
-        const inboxFolderId = await ensureInboxFolder(client, recipient.userId);
+        const inboxFolderId = await ensureInboxFolder(
+          client,
+          recipient.userId,
+          recipient.organizationId
+        );
 
         await insertEmailForRecipient({
           client,

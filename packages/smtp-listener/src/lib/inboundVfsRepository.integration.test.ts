@@ -36,6 +36,7 @@ const SCHEMA_DDL = `
     "id" TEXT PRIMARY KEY,
     "object_type" TEXT NOT NULL,
     "owner_id" TEXT,
+    "organization_id" TEXT NOT NULL,
     "encrypted_session_key" TEXT,
     "public_hierarchical_key" TEXT,
     "encrypted_private_hierarchical_key" TEXT,
@@ -107,7 +108,13 @@ function buildEnvelope(): InboundMessageEnvelopeRecord {
 }
 
 function buildRecipients(): ResolvedInboundRecipient[] {
-  return [{ userId: 'user-1', address: 'user-1@test.com' }];
+  return [
+    {
+      userId: 'user-1',
+      address: 'user-1@test.com',
+      organizationId: 'personal-org-user-1'
+    }
+  ];
 }
 
 describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
@@ -146,7 +153,7 @@ describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
 
     // Verify inbox folder was created with encrypted_name
     const folderResult = await pool.query(
-      `SELECT id, object_type, owner_id, encrypted_name
+      `SELECT id, object_type, owner_id, organization_id, encrypted_name
        FROM vfs_registry WHERE object_type = 'emailFolder'`
     );
     expect(folderResult.rows).toHaveLength(1);
@@ -154,18 +161,20 @@ describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
       id: 'email-inbox:user-1',
       object_type: 'emailFolder',
       owner_id: 'user-1',
+      organization_id: 'personal-org-user-1',
       encrypted_name: 'Inbox'
     });
 
     // Verify email item was created in vfs_registry
     const emailResult = await pool.query(
-      `SELECT id, object_type, owner_id, encrypted_session_key
+      `SELECT id, object_type, owner_id, organization_id, encrypted_session_key
        FROM vfs_registry WHERE object_type = 'email'`
     );
     expect(emailResult.rows).toHaveLength(1);
     expect(emailResult.rows[0]).toMatchObject({
       object_type: 'email',
       owner_id: 'user-1',
+      organization_id: 'personal-org-user-1',
       encrypted_session_key: 'wrapped-dek'
     });
 
