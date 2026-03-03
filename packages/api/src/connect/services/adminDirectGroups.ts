@@ -7,15 +7,15 @@ import type {
 } from '@tearleads/shared';
 import { getPool } from '../../lib/postgres.js';
 import {
+  requireScopedAdminAccess,
+  type ScopedAdminAccess
+} from './adminDirectAuth.js';
+import {
   type GroupMemberRow,
   type GroupRow,
   mapGroupMemberRow,
   mapGroupRow
 } from './adminDirectGroupsShared.js';
-import {
-  requireScopedAdminAccess,
-  type ScopedAdminAccess
-} from './adminDirectAuth.js';
 
 type ListGroupsRequest = { organizationId: string };
 type IdRequest = { id: string };

@@ -7,16 +7,16 @@ import {
 } from '@tearleads/shared';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { buildSharePolicyPreviewTree } from '../../lib/vfsSharePolicyPreviewTree.js';
-import {
-  isValidShareType,
-  loadOrgShareAuthorizationContext,
-  loadShareAuthorizationContext
-} from './vfsSharesDirectShared.js';
 import { toConnectCode } from './httpStatusToConnectCode.js';
 import {
   authenticate,
   resolveOrganizationMembership
 } from './legacyRouteProxyAuth.js';
+import {
+  isValidShareType,
+  loadOrgShareAuthorizationContext,
+  loadShareAuthorizationContext
+} from './vfsSharesDirectShared.js';
 
 type PreviewPrincipalType = 'user' | 'group' | 'organization';
 

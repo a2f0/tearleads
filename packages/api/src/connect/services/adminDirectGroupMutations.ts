@@ -8,14 +8,14 @@ import type {
 import type { Pool } from 'pg';
 import { getPool } from '../../lib/postgres.js';
 import {
+  requireScopedAdminAccess,
+  type ScopedAdminAccess
+} from './adminDirectAuth.js';
+import {
   type GroupRow,
   getGroupOrganizationId,
   mapGroupRow
 } from './adminDirectGroupsShared.js';
-import {
-  requireScopedAdminAccess,
-  type ScopedAdminAccess
-} from './adminDirectAuth.js';
 
 type IdRequest = { id: string };
 type JsonRequest = { json: string };

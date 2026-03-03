@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
 import { isRecord, type VfsShare, type VfsShareType } from '@tearleads/shared';
 import { getPostgresPool } from '../../lib/postgres.js';
+import { requireVfsSharesClaims } from './vfsSharesDirectHandlers.js';
 import {
   buildShareAclId,
   extractShareIdFromAclId,
@@ -12,7 +13,6 @@ import {
   parseUpdateSharePayload,
   type VfsAclAccessLevel
 } from './vfsSharesDirectShared.js';
-import { requireVfsSharesClaims } from './vfsSharesDirectHandlers.js';
 
 function parseJsonBody(json: string): unknown {
   const normalized = json.trim().length > 0 ? json : '{}';

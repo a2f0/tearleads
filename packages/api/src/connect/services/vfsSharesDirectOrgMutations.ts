@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
 import { isRecord, type VfsOrgShare } from '@tearleads/shared';
 import { getPostgresPool } from '../../lib/postgres.js';
+import { requireVfsSharesClaims } from './vfsSharesDirectHandlers.js';
 import {
   buildOrgShareAclId,
   extractOrgShareIdFromAclId,
@@ -11,7 +12,6 @@ import {
   parseCreateOrgSharePayload,
   type VfsAclAccessLevel
 } from './vfsSharesDirectShared.js';
-import { requireVfsSharesClaims } from './vfsSharesDirectHandlers.js';
 
 function encoded(value: string): string {
   return encodeURIComponent(value);

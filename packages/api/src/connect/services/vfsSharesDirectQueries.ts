@@ -9,6 +9,7 @@ import type {
 } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
 import { getPool } from '../../lib/postgres.js';
+import { requireVfsSharesClaims } from './vfsSharesDirectHandlers.js';
 import {
   extractOrgShareIdFromAclId,
   extractShareIdFromAclId,
@@ -16,7 +17,6 @@ import {
   mapAclAccessLevelToSharePermissionLevel,
   type VfsAclAccessLevel
 } from './vfsSharesDirectShared.js';
-import { requireVfsSharesClaims } from './vfsSharesDirectHandlers.js';
 
 function encoded(value: string): string {
   return encodeURIComponent(value);
