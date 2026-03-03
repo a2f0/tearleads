@@ -41,6 +41,7 @@
     "build:all": "rm -rf dist && pnpm build:bundle && pnpm build:cli",
     "cli": "tsx src/apiCli.ts",
     "vfsCrdtCompaction": "tsx src/apiCli.ts vfs-crdt-compaction",
+    "vfsCrdtReplicaHeadsParity": "tsx src/apiCli.ts vfs-crdt-replica-heads-parity",
     "deleteAccount": "tsx scripts/deleteAccount.ts",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
