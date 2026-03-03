@@ -1,6 +1,6 @@
+import { OPENAPI_JSON_PATH } from '@tearleads/ui';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { OPENAPI_JSON_PATH } from '@tearleads/ui';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiDocsPage } from './ApiDocs.js';

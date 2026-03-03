@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
 import { OPENAPI_JSON_PATH } from '@tearleads/ui';
+import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiDocsLoader } from './ApiDocsLoader';
 
