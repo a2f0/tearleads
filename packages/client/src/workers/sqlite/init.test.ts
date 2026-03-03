@@ -58,8 +58,10 @@ function createMockSqlite3(
     hexkey?: string;
   }) => SQLiteDatabase
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function MockDB(this: any, opts: any) {
+  function MockDB(
+    this: unknown,
+    opts: { filename: string; flags: string; hexkey?: string }
+  ) {
     return dbFactory(opts);
   }
   return {
@@ -81,9 +83,7 @@ const TEST_KEY = new Uint8Array(32);
  * - VFS helpers report no OPFS (in-memory fallback — simplifies tests)
  * - keyToHex returns a deterministic hex string
  */
-function applyStandardMocks(
-  sqlite3Mock: ReturnType<typeof createMockSqlite3>
-) {
+function applyStandardMocks(sqlite3Mock: ReturnType<typeof createMockSqlite3>) {
   // Mock the WASM init module — returns our controllable sqlite3 instance.
   vi.doMock('@/workers/sqlite-wasm/sqlite3.js', () => ({
     default: () => Promise.resolve(sqlite3Mock)
