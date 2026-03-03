@@ -7,6 +7,7 @@ import packageJson from './package.json';
 import { pwaOptions } from './pwa.options';
 import { createViteAliases } from './vite.aliases';
 import { createAppConfigPlugin } from './vite-plugin-app-config';
+import { wasmGeneratedGuard } from './vite-plugin-wasm-generated';
 
 const analyzeBundle = process.env['ANALYZE_BUNDLE'] === 'true';
 
@@ -22,6 +23,7 @@ export default defineConfig(({ mode }) => ({
     })
   },
   plugins: [
+    wasmGeneratedGuard(),
     appConfigPlugin,
     react(),
     tailwindcss(),
