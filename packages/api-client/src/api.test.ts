@@ -34,8 +34,10 @@ describe('api edge cases requiring direct fetch mocking', () => {
     localStorage.removeItem('auth_refresh_lock');
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     global.fetch = originalFetch;
+    const { resetApiRequestHeadersProvider } = await import('./api');
+    resetApiRequestHeadersProvider();
   });
 
   describe('concurrent refresh deduplication', () => {
@@ -345,6 +347,104 @@ describe('api edge cases requiring direct fetch mocking', () => {
       // Auth should be preserved
       expect(localStorage.getItem('auth_token')).toBe('access-token');
       expect(localStorage.getItem('auth_refresh_token')).toBe(validToken);
+    });
+  });
+
+  describe('request context headers', () => {
+    beforeEach(() => {
+      vi.stubEnv('VITE_API_URL', 'http://localhost:3000');
+    });
+
+    it('applies provider headers to requests and retries', async () => {
+      localStorage.setItem('auth_token', 'stale-token');
+      localStorage.setItem('auth_refresh_token', 'refresh-token');
+
+      const seenOrgHeaders: Array<string | null> = [];
+
+      vi.mocked(global.fetch).mockImplementation(
+        async (input: RequestInfo | URL, init?: RequestInit) => {
+          const url = input.toString();
+          if (url.endsWith('/v2/ping')) {
+            const headers = new Headers(init?.headers);
+            seenOrgHeaders.push(headers.get('X-Organization-Id'));
+            if (headers.get('Authorization') === 'Bearer stale-token') {
+              return new Response(null, { status: 401 });
+            }
+            return new Response(
+              JSON.stringify({
+                status: 'ok',
+                service: 'api-v2',
+                version: '1.0.0'
+              }),
+              {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+              }
+            );
+          }
+
+          if (url.endsWith('/connect/tearleads.v1.AuthService/RefreshToken')) {
+            return new Response(
+              JSON.stringify({
+                accessToken: 'fresh-token',
+                refreshToken: 'fresh-refresh-token',
+                tokenType: 'Bearer',
+                expiresIn: 3600,
+                refreshExpiresIn: 604800,
+                user: { id: 'user-1', email: 'user@example.com' }
+              }),
+              {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+              }
+            );
+          }
+
+          throw new Error(`Unexpected request: ${url}`);
+        }
+      );
+
+      const { api, setApiRequestHeadersProvider } = await import('./api');
+      setApiRequestHeadersProvider(() => ({
+        'X-Organization-Id': 'org-123'
+      }));
+
+      await expect(api.ping.get()).resolves.toEqual({
+        status: 'ok',
+        service: 'api-v2',
+        version: '1.0.0'
+      });
+
+      expect(seenOrgHeaders).toEqual(['org-123', 'org-123']);
+    });
+
+    it('does not override an explicit header passed in fetch options', async () => {
+      vi.mocked(global.fetch).mockImplementation(
+        async (_input: RequestInfo | URL, init?: RequestInit) => {
+          const headers = new Headers(init?.headers);
+          expect(headers.get('X-Organization-Id')).toBe('org-explicit');
+          return new Response(JSON.stringify({ ok: true }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      );
+
+      const { request, setApiRequestHeadersProvider } = await import('./apiCore');
+      setApiRequestHeadersProvider(() => ({
+        'X-Organization-Id': 'org-provider'
+      }));
+
+      await expect(
+        request<{ ok: boolean }>('/v2/ping', {
+          fetchOptions: {
+            headers: {
+              'X-Organization-Id': 'org-explicit'
+            }
+          },
+          eventName: 'api_get_ping'
+        })
+      ).resolves.toEqual({ ok: true });
     });
   });
 });

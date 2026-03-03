@@ -84,7 +84,26 @@ export type AnalyticsEventSlug =
   | 'api_post_ai_message'
   | 'api_post_ai_usage'
   | 'api_get_ai_usage'
-  | 'api_get_ai_usage_summary';
+  | 'api_get_ai_usage_summary'
+  // MLS operations
+  | 'api_get_mls_groups'
+  | 'api_get_mls_group'
+  | 'api_post_mls_group'
+  | 'api_patch_mls_group'
+  | 'api_delete_mls_group'
+  | 'api_get_mls_group_members'
+  | 'api_post_mls_group_member'
+  | 'api_delete_mls_group_member'
+  | 'api_get_mls_group_messages'
+  | 'api_post_mls_group_message'
+  | 'api_get_mls_group_state'
+  | 'api_post_mls_group_state'
+  | 'api_get_mls_key_packages_me'
+  | 'api_get_mls_key_packages_user'
+  | 'api_post_mls_key_packages'
+  | 'api_delete_mls_key_package'
+  | 'api_get_mls_welcome_messages'
+  | 'api_post_mls_welcome_ack';
 
 // -----------------------------------------------------------------------------
 // Per-event detail types
@@ -301,6 +320,26 @@ export interface ApiGetAiUsageSummaryDetail {
   totalTokens?: number;
 }
 
+// MLS events
+export type ApiGetMlsGroupsDetail = Record<string, never>;
+export type ApiGetMlsGroupDetail = Record<string, never>;
+export type ApiPostMlsGroupDetail = Record<string, never>;
+export type ApiPatchMlsGroupDetail = Record<string, never>;
+export type ApiDeleteMlsGroupDetail = Record<string, never>;
+export type ApiGetMlsGroupMembersDetail = Record<string, never>;
+export type ApiPostMlsGroupMemberDetail = Record<string, never>;
+export type ApiDeleteMlsGroupMemberDetail = Record<string, never>;
+export type ApiGetMlsGroupMessagesDetail = Record<string, never>;
+export type ApiPostMlsGroupMessageDetail = Record<string, never>;
+export type ApiGetMlsGroupStateDetail = Record<string, never>;
+export type ApiPostMlsGroupStateDetail = Record<string, never>;
+export type ApiGetMlsKeyPackagesMeDetail = Record<string, never>;
+export type ApiGetMlsKeyPackagesUserDetail = Record<string, never>;
+export type ApiPostMlsKeyPackagesDetail = Record<string, never>;
+export type ApiDeleteMlsKeyPackageDetail = Record<string, never>;
+export type ApiGetMlsWelcomeMessagesDetail = Record<string, never>;
+export type ApiPostMlsWelcomeAckDetail = Record<string, never>;
+
 // Map event slugs to their detail types
 export interface EventDetailMap {
   db_setup: DbSetupDetail;
@@ -375,6 +414,24 @@ export interface EventDetailMap {
   api_post_ai_usage: ApiPostAiUsageDetail;
   api_get_ai_usage: ApiGetAiUsageDetail;
   api_get_ai_usage_summary: ApiGetAiUsageSummaryDetail;
+  api_get_mls_groups: ApiGetMlsGroupsDetail;
+  api_get_mls_group: ApiGetMlsGroupDetail;
+  api_post_mls_group: ApiPostMlsGroupDetail;
+  api_patch_mls_group: ApiPatchMlsGroupDetail;
+  api_delete_mls_group: ApiDeleteMlsGroupDetail;
+  api_get_mls_group_members: ApiGetMlsGroupMembersDetail;
+  api_post_mls_group_member: ApiPostMlsGroupMemberDetail;
+  api_delete_mls_group_member: ApiDeleteMlsGroupMemberDetail;
+  api_get_mls_group_messages: ApiGetMlsGroupMessagesDetail;
+  api_post_mls_group_message: ApiPostMlsGroupMessageDetail;
+  api_get_mls_group_state: ApiGetMlsGroupStateDetail;
+  api_post_mls_group_state: ApiPostMlsGroupStateDetail;
+  api_get_mls_key_packages_me: ApiGetMlsKeyPackagesMeDetail;
+  api_get_mls_key_packages_user: ApiGetMlsKeyPackagesUserDetail;
+  api_post_mls_key_packages: ApiPostMlsKeyPackagesDetail;
+  api_delete_mls_key_package: ApiDeleteMlsKeyPackageDetail;
+  api_get_mls_welcome_messages: ApiGetMlsWelcomeMessagesDetail;
+  api_post_mls_welcome_ack: ApiPostMlsWelcomeAckDetail;
 }
 
 // Union of all detail types

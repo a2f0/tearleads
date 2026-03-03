@@ -31,6 +31,7 @@ const API_EVENT_SLUGS = [
   'api_post_auth_logout',
   'api_post_auth_refresh',
   'api_get_auth_sessions',
+  'api_get_auth_organizations',
   'api_delete_auth_session',
   'api_get_vfs_keys',
   'api_get_vfs_sync',

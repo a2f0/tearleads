@@ -41,4 +41,12 @@ describe('authRoutes', () => {
       vfsKeySetup
     });
   });
+
+  it('routes getOrganizations through Connect', async () => {
+    await authRoutes.getOrganizations();
+
+    const [path, params] = requestMock.mock.calls[0] ?? [];
+    expect(path).toBe('/connect/tearleads.v1.AuthService/GetOrganizations');
+    expect(params?.eventName).toBe('api_get_auth_organizations');
+  });
 });

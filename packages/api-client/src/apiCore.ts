@@ -26,6 +26,20 @@ interface RefreshAttemptResult {
 
 let refreshPromise: Promise<RefreshAttemptResult> | null = null;
 
+type ApiRequestHeadersProvider = () => HeadersInit | undefined;
+
+let apiRequestHeadersProvider: ApiRequestHeadersProvider = () => undefined;
+
+export function setApiRequestHeadersProvider(
+  provider: ApiRequestHeadersProvider
+): void {
+  apiRequestHeadersProvider = provider;
+}
+
+export function resetApiRequestHeadersProvider(): void {
+  apiRequestHeadersProvider = () => undefined;
+}
+
 /**
  * Core token refresh logic. Makes a single refresh request to the server.
  * Returns 'success' if refresh succeeded, 'rejected' if the server permanently
@@ -239,6 +253,19 @@ function resolveRequestUrl(endpoint: string): string {
   return `${API_BASE_URL}${endpoint}`;
 }
 
+function applyContextHeaders(headers: Headers): void {
+  const providedHeaders = apiRequestHeadersProvider();
+  if (!providedHeaders) {
+    return;
+  }
+
+  for (const [name, value] of new Headers(providedHeaders).entries()) {
+    if (!headers.has(name)) {
+      headers.set(name, value);
+    }
+  }
+}
+
 async function requestResponse(
   endpoint: string,
   params: RequestParams
@@ -259,6 +286,7 @@ async function requestResponse(
     if (authHeaderValue !== null && !headers.has('Authorization')) {
       headers.set('Authorization', authHeaderValue);
     }
+    applyContextHeaders(headers);
 
     let response = await fetch(requestUrl, {
       ...fetchOptions,
@@ -280,6 +308,7 @@ async function requestResponse(
         if (!retryHeaders.has('Authorization')) {
           retryHeaders.set('Authorization', retryAuthHeaderValue);
         }
+        applyContextHeaders(retryHeaders);
 
         response = await fetch(requestUrl, {
           ...fetchOptions,

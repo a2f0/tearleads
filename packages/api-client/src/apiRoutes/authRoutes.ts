@@ -1,4 +1,9 @@
-import type { AuthResponse, SessionsResponse } from '@tearleads/shared';
+import type {
+  AuthResponse,
+  SessionsResponse,
+  UserOrganizationsResponse,
+  VfsKeySetupRequest
+} from '@tearleads/shared';
 import { createConnectJsonPostInit } from '@tearleads/shared';
 import { request } from '../apiCore';
 
@@ -11,9 +16,17 @@ export const authRoutes = {
       eventName: 'api_post_auth_login',
       skipTokenRefresh: true
     }),
-  register: (email: string, password: string) =>
+  register: (
+    email: string,
+    password: string,
+    vfsKeySetup?: VfsKeySetupRequest
+  ) =>
     request<AuthResponse>(`${AUTH_CONNECT_BASE_PATH}/Register`, {
-      fetchOptions: createConnectJsonPostInit({ email, password }),
+      fetchOptions: createConnectJsonPostInit({
+        email,
+        password,
+        ...(vfsKeySetup ? { vfsKeySetup } : {})
+      }),
       eventName: 'api_post_auth_register',
       skipTokenRefresh: true
     }),
@@ -31,5 +44,13 @@ export const authRoutes = {
     request<{ loggedOut: boolean }>(`${AUTH_CONNECT_BASE_PATH}/Logout`, {
       fetchOptions: createConnectJsonPostInit({}),
       eventName: 'api_post_auth_logout'
-    })
+    }),
+  getOrganizations: () =>
+    request<UserOrganizationsResponse>(
+      `${AUTH_CONNECT_BASE_PATH}/GetOrganizations`,
+      {
+        fetchOptions: createConnectJsonPostInit({}),
+        eventName: 'api_get_auth_organizations'
+      }
+    )
 };
