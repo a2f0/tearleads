@@ -3,7 +3,11 @@ import { hasVfsRegistryOrganizationId } from './vfsRegistrySchema.js';
 
 describe('hasVfsRegistryOrganizationId', () => {
   it('queries across current search path schemas', async () => {
-    const query = vi.fn(async () => ({ rows: [{ '?column?': 1 }] }));
+    const query = vi.fn(
+      async (_text: string, _params?: readonly unknown[]) => ({
+        rows: [{ '?column?': 1 }]
+      })
+    );
 
     const result = await hasVfsRegistryOrganizationId({
       query
@@ -16,7 +20,9 @@ describe('hasVfsRegistryOrganizationId', () => {
   });
 
   it('returns false when no organization_id column exists', async () => {
-    const query = vi.fn(async () => ({ rows: [] }));
+    const query = vi.fn(
+      async (_text: string, _params?: readonly unknown[]) => ({ rows: [] })
+    );
 
     const result = await hasVfsRegistryOrganizationId({
       query
