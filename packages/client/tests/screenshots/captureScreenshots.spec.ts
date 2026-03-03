@@ -69,8 +69,9 @@ for (const screen of SCREENS) {
     await page.waitForTimeout(500);
 
     const project = testInfo.project.name; // 'mobile' or 'browser'
+    const repoRoot = path.resolve(process.cwd(), '..', '..');
     const screenshotPath = path.join(
-      process.cwd(),
+      repoRoot,
       '.screenshots',
       project,
       `${screen.name}.png`,
