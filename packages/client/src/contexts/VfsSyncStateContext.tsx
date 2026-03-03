@@ -13,7 +13,7 @@ import { useVfsOrchestratorInstance } from './VfsOrchestratorContext';
 
 const SNAPSHOT_POLL_INTERVAL_MS = 5000;
 
-export interface VfsItemSyncCursor {
+interface VfsItemSyncCursor {
   changedAt: string;
   changeId: string;
 }
@@ -184,14 +184,4 @@ export function VfsSyncStateProvider({ children }: { children: ReactNode }) {
 
 export function useVfsSyncState(): VfsSyncStateContextValue {
   return useContext(VfsSyncStateContext) ?? EMPTY_CONTEXT_VALUE;
-}
-
-export function useVfsSyncCursor(
-  itemId: string | null | undefined
-): VfsItemSyncCursor | null {
-  const { getItemCursor } = useVfsSyncState();
-  if (typeof itemId !== 'string') {
-    return null;
-  }
-  return getItemCursor(itemId);
 }
