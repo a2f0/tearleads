@@ -8,10 +8,10 @@ This map ties payment infrastructure policy controls to concrete implementation 
 | --- | --- | --- | --- | --- |
 | `TL-PAY-001` | HMAC-SHA256 webhook signature verification | SC-8, SC-13, SI-10 | [`packages/api/src/lib/revenuecat.ts`](../../../packages/api/src/lib/revenuecat.ts) | [`packages/api/src/lib/revenuecat.test.ts`](../../../packages/api/src/lib/revenuecat.test.ts), [`packages/api/src/connect/services/revenuecatService.test.ts`](../../../packages/api/src/connect/services/revenuecatService.test.ts) |
 | `TL-PAY-002` | Replay attack prevention via event age validation | SC-23, SI-10 | [`packages/api/src/lib/revenuecat.ts`](../../../packages/api/src/lib/revenuecat.ts) | [`packages/api/src/lib/revenuecat.test.ts`](../../../packages/api/src/lib/revenuecat.test.ts), [`packages/api/src/connect/services/revenuecatService.test.ts`](../../../packages/api/src/connect/services/revenuecatService.test.ts) |
-| `TL-PAY-003` | Idempotent event processing via unique event_id | SI-7, SI-10 | [`packages/db/src/schema/definition.ts`](../../../packages/db/src/schema/definition.ts), [`packages/api/src/routes/revenuecat/postWebhooks.ts`](../../../packages/api/src/routes/revenuecat/postWebhooks.ts) | [`packages/api/src/connect/services/revenuecatService.test.ts`](../../../packages/api/src/connect/services/revenuecatService.test.ts) |
+| `TL-PAY-003` | Idempotent event processing via unique event_id | SI-7, SI-10 | [`packages/db/src/schema/definition.ts`](../../../packages/db/src/schema/definition.ts), [`packages/api/src/http/revenuecatWebhookRoute.ts`](../../../packages/api/src/http/revenuecatWebhookRoute.ts) | [`packages/api/src/connect/services/revenuecatService.test.ts`](../../../packages/api/src/connect/services/revenuecatService.test.ts) |
 | `TL-PAY-004` | Full webhook payload storage for audit trail | AU-2, AU-3, AU-11, AU-12 | [`packages/db/src/schema/definition.ts`](../../../packages/db/src/schema/definition.ts) | [`packages/api/src/connect/services/revenuecatService.test.ts`](../../../packages/api/src/connect/services/revenuecatService.test.ts) |
 | `TL-PAY-005` | Organization membership verification for billing access | AC-2, AC-3, AC-6 | [`packages/api/src/connect/services/billingService.ts`](../../../packages/api/src/connect/services/billingService.ts) | [`packages/api/src/connect/services/billingService.test.ts`](../../../packages/api/src/connect/services/billingService.test.ts) |
-| `TL-PAY-006` | Entitlement state tracking with event attribution | SI-7, AU-10 | [`packages/db/src/schema/definition.ts`](../../../packages/db/src/schema/definition.ts), [`packages/api/src/routes/revenuecat/postWebhooks.ts`](../../../packages/api/src/routes/revenuecat/postWebhooks.ts) | [`packages/api/src/connect/services/revenuecatService.test.ts`](../../../packages/api/src/connect/services/revenuecatService.test.ts) |
+| `TL-PAY-006` | Entitlement state tracking with event attribution | SI-7, AU-10 | [`packages/db/src/schema/definition.ts`](../../../packages/db/src/schema/definition.ts), [`packages/api/src/http/revenuecatWebhookRoute.ts`](../../../packages/api/src/http/revenuecatWebhookRoute.ts) | [`packages/api/src/connect/services/revenuecatService.test.ts`](../../../packages/api/src/connect/services/revenuecatService.test.ts) |
 
 ## NIST Control Family Coverage
 
@@ -61,7 +61,7 @@ This map ties payment infrastructure policy controls to concrete implementation 
 
 | File | Purpose | NIST Controls |
 | --- | --- | --- |
-| `packages/api/src/routes/revenuecat/postWebhooks.ts` | Webhook handler | SC-8, SI-7, SI-10, AU-12 |
+| `packages/api/src/http/revenuecatWebhookRoute.ts` | Webhook handler | SC-8, SI-7, SI-10, AU-12 |
 | `packages/api/src/connect/services/billingService.ts` | Billing status endpoint | AC-2, AC-3, AC-6 |
 
 ### Database Schema
