@@ -23,7 +23,7 @@ const ping = await api.ping.get();
 WASM bindings when available. Generate bindings with:
 
 ```bash
-pnpm codegenApiV2PingWasm
+pnpm codegenWasm
 ```
 
 ```ts

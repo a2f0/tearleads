@@ -52,6 +52,7 @@ packages/db-test-utils/sqlite-wasm/
 packages/client/public/assets/sqlite3-opfs-async-proxy.js
 packages/api-client/.generated/
 packages/client/.generated/
+packages/client/public/.generated/
 packages/client/generated/
 packages/shared/src/gen/
 

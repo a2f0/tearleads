@@ -5,6 +5,7 @@ const PING_WASM_MODULE_PATH =
   '../.generated/apiV2PingWasm/tearleads_api_v2_ping_wasm.js';
 
 interface PingWasmBindings {
+  default?: () => Promise<unknown>;
   parse_v2_ping_value: (payload: unknown) => unknown;
   v2_ping_path: () => string;
 }
@@ -28,7 +29,15 @@ async function loadPingWasmBindings(): Promise<PingWasmBindings | null> {
   }
 
   pingWasmBindingsPromise = import(/* @vite-ignore */ PING_WASM_MODULE_PATH)
-    .then((module: unknown) => (isPingWasmBindings(module) ? module : null))
+    .then(async (module: unknown) => {
+      if (!isPingWasmBindings(module)) {
+        return null;
+      }
+      if (module.default) {
+        await module.default();
+      }
+      return module;
+    })
     .catch(() => null);
 
   return pingWasmBindingsPromise;

@@ -38,7 +38,7 @@
     "test:coverage": "sh ./tuxedo/tests/coverage.sh",
     "clean": "pnpm -r clean",
     "lint": "biome check .",
-    "codegenApiV2PingWasm": "bash ./scripts/codegenApiV2PingWasm.sh",
+    "codegenWasm": "bash ./scripts/codegenWasm.sh",
     "rustFmtCheck": "cargo fmt --all --check",
     "rustLint": "cargo clippy --workspace --all-targets --all-features -- -D warnings",
     "rustTest": "cargo test --workspace --all-targets --all-features",
