@@ -1,7 +1,7 @@
 import { getHelpDocLabel, type HelpDocId } from '@help/constants/help';
 import { ApiDocs } from '@tearleads/ui';
 import { CircleHelp } from 'lucide-react';
-import { type ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
 import { HelpDocumentation } from '../help-links/HelpDocumentation';
 import { HelpLinksGrid } from '../help-links/HelpLinksGrid';
 

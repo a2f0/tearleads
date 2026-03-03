@@ -1,4 +1,4 @@
-import { type HelpDocId } from '@help/constants/help';
+import type { HelpDocId } from '@help/constants/help';
 import {
   DOCS_WINDOW_MAX_HEIGHT_PERCENT,
   DOCS_WINDOW_MAX_WIDTH_PERCENT,
@@ -17,10 +17,10 @@ import {
 import { ArrowLeft } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  HelpWindowContent,
-  getHelpWindowTitle,
   type ApiSpec,
-  type HelpView
+  type HelpView,
+  getHelpWindowTitle,
+  HelpWindowContent
 } from './HelpWindowContent';
 import { HelpWindowMenuBar } from './HelpWindowMenuBar';
 
