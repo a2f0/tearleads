@@ -8,8 +8,12 @@ import type {
   PgQueryable,
   ReplicaWriteIdRow
 } from './vfsCrdtSnapshotCommon.js';
+import {
+  VFS_CRDT_CLIENT_PUSH_SOURCE_TABLE,
+  VFS_CRDT_SOURCE_ID_REPLICA_ID_SQL,
+  VFS_CRDT_SOURCE_ID_SAFE_WRITE_ID_SQL
+} from './vfsCrdtSqlFragments.js';
 
-const CRDT_CLIENT_PUSH_SOURCE_TABLE = 'vfs_crdt_client_push';
 const REPLICA_HEADS_READ_FLAG = 'VFS_CRDT_REPLICA_HEADS_READS';
 
 function parseReplicaHeadsReadFlag(rawValue: string | undefined): boolean {
@@ -62,27 +66,16 @@ async function loadReplicaWriteIdsFromLegacyOps(
   const result = await client.query<ReplicaWriteIdRow>(
     `
     SELECT
-      split_part(source_id, ':', 2) AS replica_id,
+      ${VFS_CRDT_SOURCE_ID_REPLICA_ID_SQL} AS replica_id,
       MAX(
-        CASE
-          WHEN split_part(source_id, ':', 3) ~ '^[0-9]+$'
-            AND (
-              length(split_part(source_id, ':', 3)) < 19
-              OR (
-                length(split_part(source_id, ':', 3)) = 19
-                AND split_part(source_id, ':', 3) <= '9223372036854775807'
-              )
-            )
-            THEN split_part(source_id, ':', 3)::bigint
-          ELSE NULL
-        END
+        ${VFS_CRDT_SOURCE_ID_SAFE_WRITE_ID_SQL}
       ) AS max_write_id
     FROM vfs_crdt_ops
     WHERE source_table = $1::text
       AND actor_id = $2::text
-    GROUP BY split_part(source_id, ':', 2)
+    GROUP BY ${VFS_CRDT_SOURCE_ID_REPLICA_ID_SQL}
     `,
-    [CRDT_CLIENT_PUSH_SOURCE_TABLE, userId]
+    [VFS_CRDT_CLIENT_PUSH_SOURCE_TABLE, userId]
   );
   return result.rows;
 }

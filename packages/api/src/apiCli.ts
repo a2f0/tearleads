@@ -18,6 +18,7 @@
  *   setup-bob-notes-share  Create test users and Bob->Alice VFS note sharing
  *   sync-last-active  Sync lastActiveAt from Redis sessions to PostgreSQL
  *   vfs-crdt-compaction  Plan or execute VFS CRDT log compaction
+ *   vfs-crdt-replica-heads-parity  Audit replica-head parity with CRDT ops
  *   vfs-share-policy-repair  Repair policy-derived VFS ACL drift
  *
  * Environment variables:
@@ -38,6 +39,7 @@ import { migrateCommand } from './cli/migrate.js';
 import { setupBobNotesShareCommand } from './cli/setupBobNotesShare.js';
 import { syncLastActiveCommand } from './cli/syncLastActive.js';
 import { vfsCrdtCompactionCommand } from './cli/vfsCrdtCompaction.js';
+import { vfsCrdtReplicaHeadsParityCommand } from './cli/vfsCrdtReplicaHeadsParity.js';
 import { vfsSharePolicyRepairCommand } from './cli/vfsSharePolicyRepair.js';
 
 const version = '0.0.1';
@@ -58,6 +60,7 @@ listUsersCommand(program);
 setupBobNotesShareCommand(program);
 syncLastActiveCommand(program);
 vfsCrdtCompactionCommand(program);
+vfsCrdtReplicaHeadsParityCommand(program);
 vfsSharePolicyRepairCommand(program);
 
 program.parse();
