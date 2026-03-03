@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
+  abandonBlobDirectMock,
+  attachBlobDirectMock,
   callRouteJsonHandlerMock,
+  commitBlobDirectMock,
   deleteBlobDirectMock,
   deleteEmailDirectMock,
   getBlobDirectMock,
@@ -9,14 +12,22 @@ const {
   getEmailDirectMock,
   getEmailsDirectMock,
   getMyKeysDirectMock,
+  stageBlobDirectMock,
   getSyncDirectMock,
   rekeyItemDirectMock,
   reconcileSyncDirectMock,
   registerDirectMock,
   sendEmailDirectMock,
-  setupKeysDirectMock
+  setupKeysDirectMock,
+  uploadBlobChunkDirectMock
 } = vi.hoisted(() => ({
+  abandonBlobDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  attachBlobDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   callRouteJsonHandlerMock: vi.fn<(options: unknown) => Promise<string>>(),
+  commitBlobDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   deleteBlobDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   deleteEmailDirectMock:
@@ -36,6 +47,8 @@ const {
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   getMyKeysDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  stageBlobDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   getSyncDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   rekeyItemDirectMock:
@@ -47,6 +60,8 @@ const {
   sendEmailDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   setupKeysDirectMock:
+    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+  uploadBlobChunkDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>()
 }));
 
@@ -66,6 +81,25 @@ vi.mock('./vfsDirectBlobs.js', () => ({
     deleteBlobDirectMock(request, context),
   getBlobDirect: (request: unknown, context: unknown) =>
     getBlobDirectMock(request, context)
+}));
+
+vi.mock('./vfsDirectBlobAttach.js', () => ({
+  attachBlobDirect: (request: unknown, context: unknown) =>
+    attachBlobDirectMock(request, context)
+}));
+
+vi.mock('./vfsDirectBlobFinalize.js', () => ({
+  abandonBlobDirect: (request: unknown, context: unknown) =>
+    abandonBlobDirectMock(request, context),
+  commitBlobDirect: (request: unknown, context: unknown) =>
+    commitBlobDirectMock(request, context)
+}));
+
+vi.mock('./vfsDirectBlobStageUpload.js', () => ({
+  stageBlobDirect: (request: unknown, context: unknown) =>
+    stageBlobDirectMock(request, context),
+  uploadBlobChunkDirect: (request: unknown, context: unknown) =>
+    uploadBlobChunkDirectMock(request, context)
 }));
 
 vi.mock('./vfsDirectEmails.js', () => ({
@@ -175,18 +209,23 @@ function expectLastJsonCall(
 
 function resetDirectJsonMocks(): DirectJsonMock[] {
   return [
+    abandonBlobDirectMock,
+    attachBlobDirectMock,
+    commitBlobDirectMock,
     deleteBlobDirectMock,
     deleteEmailDirectMock,
     getCrdtSnapshotDirectMock,
     getEmailDirectMock,
     getEmailsDirectMock,
     getMyKeysDirectMock,
+    stageBlobDirectMock,
     getSyncDirectMock,
     rekeyItemDirectMock,
     reconcileSyncDirectMock,
     registerDirectMock,
     sendEmailDirectMock,
-    setupKeysDirectMock
+    setupKeysDirectMock,
+    uploadBlobChunkDirectMock
   ];
 }
 
@@ -220,6 +259,25 @@ describe('vfsConnectService', () => {
       json: '{"id":"item-1","objectType":"file","encryptedSessionKey":"enc"}'
     };
     const deleteBlobRequest = { blobId: 'blob-2' };
+    const stageBlobRequest = {
+      json: '{"blobId":"blob-3","expiresAt":"2099-01-01T00:00:00.000Z"}'
+    };
+    const uploadBlobChunkRequest = {
+      stagingId: 'stage-1',
+      json: '{"uploadId":"u1","chunkIndex":0,"isFinal":true,"nonce":"n","aadHash":"a","ciphertextBase64":"ZGF0YQ==","plaintextLength":4,"ciphertextLength":4}'
+    };
+    const attachBlobRequest = {
+      stagingId: 'stage-2',
+      json: '{"itemId":"item-attach"}'
+    };
+    const abandonBlobRequest = {
+      stagingId: 'stage-3',
+      json: '{}'
+    };
+    const commitBlobRequest = {
+      stagingId: 'stage-4',
+      json: '{"uploadId":"u1","keyEpoch":1,"manifestHash":"h","manifestSignature":"s","chunkCount":1,"totalPlaintextBytes":4,"totalCiphertextBytes":4}'
+    };
     const rekeyItemRequest = {
       itemId: 'item-1',
       json: '{"reason":"manual","newEpoch":2,"wrappedKeys":[]}'
@@ -260,6 +318,32 @@ describe('vfsConnectService', () => {
         call: () => vfsConnectService.deleteBlob(deleteBlobRequest, context),
         expectedRequest: deleteBlobRequest,
         mock: deleteBlobDirectMock
+      },
+      {
+        call: () => vfsConnectService.stageBlob(stageBlobRequest, context),
+        expectedRequest: stageBlobRequest,
+        mock: stageBlobDirectMock
+      },
+      {
+        call: () =>
+          vfsConnectService.uploadBlobChunk(uploadBlobChunkRequest, context),
+        expectedRequest: uploadBlobChunkRequest,
+        mock: uploadBlobChunkDirectMock
+      },
+      {
+        call: () => vfsConnectService.attachBlob(attachBlobRequest, context),
+        expectedRequest: attachBlobRequest,
+        mock: attachBlobDirectMock
+      },
+      {
+        call: () => vfsConnectService.abandonBlob(abandonBlobRequest, context),
+        expectedRequest: abandonBlobRequest,
+        mock: abandonBlobDirectMock
+      },
+      {
+        call: () => vfsConnectService.commitBlob(commitBlobRequest, context),
+        expectedRequest: commitBlobRequest,
+        mock: commitBlobDirectMock
       },
       {
         call: () => vfsConnectService.rekeyItem(rekeyItemRequest, context),
@@ -327,69 +411,10 @@ describe('vfsConnectService', () => {
     expect(callRouteJsonHandlerMock).not.toHaveBeenCalled();
   });
 
-  it('routes remaining vfs methods through legacy route handlers', async () => {
+  it('routes remaining CRDT methods through legacy route handlers', async () => {
     const context = createContext();
 
     const cases: JsonCallCase[] = [
-      {
-        call: () =>
-          vfsConnectService.stageBlob({ json: '{"blobId":"b1"}' }, context),
-        method: 'POST',
-        path: '/vfs/blobs/stage',
-        jsonBody: '{"blobId":"b1"}'
-      },
-      {
-        call: () =>
-          vfsConnectService.uploadBlobChunk(
-            {
-              stagingId: 'stage-1',
-              json: '{"chunk":1}'
-            },
-            context
-          ),
-        method: 'POST',
-        path: '/vfs/blobs/stage/stage-1/chunks',
-        jsonBody: '{"chunk":1}'
-      },
-      {
-        call: () =>
-          vfsConnectService.attachBlob(
-            {
-              stagingId: 'stage-2',
-              json: '{"name":"f"}'
-            },
-            context
-          ),
-        method: 'POST',
-        path: '/vfs/blobs/stage/stage-2/attach',
-        jsonBody: '{"name":"f"}'
-      },
-      {
-        call: () =>
-          vfsConnectService.abandonBlob(
-            {
-              stagingId: 'stage-3',
-              json: '{}'
-            },
-            context
-          ),
-        method: 'POST',
-        path: '/vfs/blobs/stage/stage-3/abandon',
-        jsonBody: '{}'
-      },
-      {
-        call: () =>
-          vfsConnectService.commitBlob(
-            {
-              stagingId: 'stage-4',
-              json: '{}'
-            },
-            context
-          ),
-        method: 'POST',
-        path: '/vfs/blobs/stage/stage-4/commit',
-        jsonBody: '{}'
-      },
       {
         call: () =>
           vfsConnectService.pushCrdtOps({ json: '{"ops":[]}' }, context),
