@@ -43,7 +43,8 @@ async function ensureInboxFolder(
        NOW()
      )
      ON CONFLICT (id) DO UPDATE
-     SET encrypted_name = 'Inbox'`,
+     SET encrypted_name = 'Inbox',
+         organization_id = EXCLUDED.organization_id`,
     [folderId, userId, organizationId]
   );
   return folderId;
