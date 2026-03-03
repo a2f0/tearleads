@@ -1,6 +1,6 @@
 # VFS Rematerialization Flow
 
-Status: implementation-aligned flow documentation (March 3, 2026).
+Status: implementation-aligned flow documentation.
 
 ## Why Rematerialization Exists
 

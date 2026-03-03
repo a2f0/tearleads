@@ -16,7 +16,7 @@ This document covers:
 - Schema source-of-truth alignment (`packages/db` generators + API migrations)
 - Constraint and boundary tests
 
-## Verified Current State (March 3, 2026)
+## Verified Current State
 
 ### Implemented
 
