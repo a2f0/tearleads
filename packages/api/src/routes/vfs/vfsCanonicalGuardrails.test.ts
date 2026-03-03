@@ -54,7 +54,9 @@ describe('API VFS canonical guardrails', () => {
   it('CRDT route runtime paths keep canonical table anchors', () => {
     const syncSource = loadSource('./get-crdt-sync.ts');
     const pushSource = loadSource('./post-crdt-push.ts');
-    const pushApplySource = loadSource('./crdtPushApply.ts');
+    const pushApplySource = loadSource(
+      '../../connect/services/vfsDirectCrdtPushApply.ts'
+    );
     const reconcileSource = loadSource('./post-crdt-reconcile.ts');
     const pushRuntimeSource = `${pushSource}\n${pushApplySource}`;
 

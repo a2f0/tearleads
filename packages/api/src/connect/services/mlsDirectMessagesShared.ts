@@ -1,5 +1,5 @@
 import type { QueryResultRow } from 'pg';
-import { serializeEnvelopeField } from '../../routes/vfs/crdtEnvelopeStorage.js';
+import { serializeEnvelopeField } from './vfsDirectCrdtEnvelopeStorage.js';
 
 export interface VfsMirrorInput {
   messageId: string;

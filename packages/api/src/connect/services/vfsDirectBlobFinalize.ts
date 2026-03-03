@@ -2,17 +2,17 @@ import { Code, ConnectError } from '@connectrpc/connect';
 import type { PoolClient } from 'pg';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { persistVfsBlobData } from '../../lib/vfsBlobStore.js';
+import { requireVfsClaims } from './vfsDirectAuth.js';
 import {
   normalizeRequiredString,
   parseBlobCommitBody
-} from '../../routes/vfs/blob-shared.js';
+} from './vfsDirectBlobShared.js';
+import type { StagingIdJsonRequest } from './vfsDirectBlobStageUpload.js';
 import {
   deleteBlobUploadSession,
   deleteBlobUploadSessionsForStaging,
   getBlobUploadChunks
-} from '../../routes/vfs/blobUploadSessions.js';
-import { requireVfsClaims } from './vfsDirectAuth.js';
-import type { StagingIdJsonRequest } from './vfsDirectBlobStageUpload.js';
+} from './vfsDirectBlobUploadSessions.js';
 import { encoded, parseJsonBody } from './vfsDirectJson.js';
 
 interface BlobStagingStateRow {

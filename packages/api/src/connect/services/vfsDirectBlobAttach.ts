@@ -7,11 +7,7 @@ import {
 } from '@tearleads/vfs-sync/vfs';
 import type { PoolClient } from 'pg';
 import { getPostgresPool } from '../../lib/postgres.js';
-import {
-  normalizeRequiredString,
-  parseBlobAttachBody,
-  toIsoFromDateOrString
-} from '../../routes/vfs/blob-shared.js';
+import { requireVfsClaims } from './vfsDirectAuth.js';
 import {
   dominatesLastWriteIds,
   parseBlobAttachConsistency,
@@ -19,8 +15,12 @@ import {
   parseBlobLinkRelationKindFromSessionKey,
   toBlobLinkSessionKey,
   toScopedCrdtClientId
-} from '../../routes/vfs/post-blobs-stage-stagingId-attach-helpers.js';
-import { requireVfsClaims } from './vfsDirectAuth.js';
+} from './vfsDirectBlobAttachHelpers.js';
+import {
+  normalizeRequiredString,
+  parseBlobAttachBody,
+  toIsoFromDateOrString
+} from './vfsDirectBlobShared.js';
 import type { StagingIdJsonRequest } from './vfsDirectBlobStageUpload.js';
 import { encoded, parseJsonBody } from './vfsDirectJson.js';
 

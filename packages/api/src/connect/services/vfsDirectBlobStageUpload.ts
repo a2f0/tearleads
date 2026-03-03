@@ -2,15 +2,15 @@ import { Code, ConnectError } from '@connectrpc/connect';
 import type { PoolClient } from 'pg';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { persistVfsBlobData } from '../../lib/vfsBlobStore.js';
+import { requireVfsClaims } from './vfsDirectAuth.js';
 import {
   isPostgresErrorWithCode,
   normalizeRequiredString,
   parseBlobChunkBody,
   parseBlobStageBody,
   toIsoFromDateOrString
-} from '../../routes/vfs/blob-shared.js';
-import { upsertBlobUploadChunk } from '../../routes/vfs/blobUploadSessions.js';
-import { requireVfsClaims } from './vfsDirectAuth.js';
+} from './vfsDirectBlobShared.js';
+import { upsertBlobUploadChunk } from './vfsDirectBlobUploadSessions.js';
 import { encoded, parseJsonBody } from './vfsDirectJson.js';
 
 type JsonRequest = { json: string };

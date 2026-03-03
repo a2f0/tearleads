@@ -31,7 +31,7 @@ vi.mock('../../lib/vfsBlobStore.js', () => ({
   persistVfsBlobData: (...args: unknown[]) => persistVfsBlobDataMock(...args)
 }));
 
-vi.mock('../../routes/vfs/blobUploadSessions.js', () => ({
+vi.mock('./vfsDirectBlobUploadSessions.js', () => ({
   deleteBlobUploadSession: (...args: unknown[]) =>
     deleteBlobUploadSessionMock(...args),
   deleteBlobUploadSessionsForStaging: (...args: unknown[]) =>

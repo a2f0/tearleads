@@ -42,7 +42,7 @@ vi.mock('../../lib/vfsCrdtReplicaWriteIds.js', () => ({
   loadReplicaWriteIdRows: (...args: unknown[]) =>
     loadReplicaWriteIdRowsMock(...args)
 }));
-vi.mock('../../routes/vfs/crdtEnvelopeReadOptions.js', () => ({
+vi.mock('./vfsDirectCrdtEnvelopeReadOptions.js', () => ({
   shouldReadEnvelopeBytea: (...args: unknown[]) =>
     shouldReadEnvelopeByteaMock(...args)
 }));

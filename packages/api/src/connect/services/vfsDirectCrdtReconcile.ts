@@ -6,8 +6,8 @@ import {
   parseVfsCrdtReconcilePayload
 } from '@tearleads/vfs-sync/vfs';
 import { getPostgresPool } from '../../lib/postgres.js';
-import { toIsoString } from '../../routes/vfs/crdtRouteHelpers.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
+import { toIsoString } from './vfsDirectCrdtRouteHelpers.js';
 import { parseJsonBody } from './vfsDirectJson.js';
 
 interface JsonRequest {
