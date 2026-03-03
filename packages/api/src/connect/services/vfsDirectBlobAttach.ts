@@ -27,6 +27,7 @@ import { encoded, parseJsonBody } from './vfsDirectJson.js';
 interface BlobStagingRow {
   blob_id: string;
   staged_by: string | null;
+  organization_id: string | null;
   status: string;
   expires_at: Date | string | null;
 }
@@ -39,6 +40,7 @@ interface CrdtReconcileStateRow {
 
 interface BlobRegistryRow {
   object_type: string;
+  organization_id: string | null;
 }
 
 interface BlobLinkRow {
@@ -99,6 +101,7 @@ export async function attachBlobDirect(
       SELECT
         stage_link.child_id AS blob_id,
         stage_registry.owner_id AS staged_by,
+        stage_registry.organization_id AS organization_id,
         CASE stage_link.wrapped_session_key
           WHEN 'blob-stage:staged' THEN 'staged'
           WHEN 'blob-stage:attached' THEN 'attached'
@@ -133,6 +136,12 @@ export async function attachBlobDirect(
     }
 
     if (stagedBy !== claims.sub) {
+      await client.query('ROLLBACK');
+      inTransaction = false;
+      throw new ConnectError('Forbidden', Code.PermissionDenied);
+    }
+
+    if (stagedRow.organization_id !== claims.organizationId) {
       await client.query('ROLLBACK');
       inTransaction = false;
       throw new ConnectError('Forbidden', Code.PermissionDenied);
@@ -290,21 +299,23 @@ export async function attachBlobDirect(
         id,
         object_type,
         owner_id,
+        organization_id,
         created_at
       ) VALUES (
         $1::text,
         'file',
         $2::text,
+        $3::text,
         NOW()
       )
       ON CONFLICT (id) DO NOTHING
       `,
-      [stagedBlobId, claims.sub]
+      [stagedBlobId, claims.sub, claims.organizationId]
     );
 
     const blobRegistryResult = await client.query<BlobRegistryRow>(
       `
-      SELECT object_type
+      SELECT object_type, organization_id
       FROM vfs_registry
       WHERE id = $1::text
       LIMIT 1
@@ -312,7 +323,11 @@ export async function attachBlobDirect(
       [stagedBlobId]
     );
     const blobRegistryRow = blobRegistryResult.rows[0];
-    if (!blobRegistryRow || blobRegistryRow.object_type !== 'file') {
+    if (
+      !blobRegistryRow ||
+      blobRegistryRow.object_type !== 'file' ||
+      blobRegistryRow.organization_id !== claims.organizationId
+    ) {
       await client.query('ROLLBACK');
       inTransaction = false;
       throw new ConnectError(

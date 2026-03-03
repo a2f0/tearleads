@@ -70,7 +70,8 @@ describe('vfsDirectBlobStageUpload', () => {
       query: poolQueryMock
     });
     requireVfsClaimsMock.mockResolvedValue({
-      sub: 'user-1'
+      sub: 'user-1',
+      organizationId: 'org-1'
     });
 
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -86,7 +87,7 @@ describe('vfsDirectBlobStageUpload', () => {
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
-        rows: [{ object_type: 'file' }]
+        rows: [{ object_type: 'file', organization_id: 'org-1' }]
       })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
@@ -170,7 +171,7 @@ describe('vfsDirectBlobStageUpload', () => {
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
-        rows: [{ object_type: 'file' }]
+        rows: [{ object_type: 'file', organization_id: 'org-1' }]
       })
       .mockRejectedValueOnce({ code: '23505' })
       .mockResolvedValueOnce({ rows: [] });
@@ -198,6 +199,7 @@ describe('vfsDirectBlobStageUpload', () => {
       rows: [
         {
           staged_by: 'user-1',
+          organization_id: 'org-1',
           status: 'staged',
           expires_at: '2099-01-01T00:00:00.000Z'
         }
@@ -294,6 +296,7 @@ describe('vfsDirectBlobStageUpload', () => {
       rows: [
         {
           staged_by: 'user-1',
+          organization_id: 'org-1',
           status: 'attached',
           expires_at: '2099-01-01T00:00:00.000Z'
         }

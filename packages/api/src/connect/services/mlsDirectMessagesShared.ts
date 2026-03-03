@@ -4,6 +4,7 @@ import { serializeEnvelopeField } from './vfsDirectCrdtEnvelopeStorage.js';
 export interface VfsMirrorInput {
   messageId: string;
   groupId: string;
+  organizationId: string;
   senderUserId: string;
   ciphertext: string;
   contentType: string;
@@ -133,16 +134,18 @@ export async function persistApplicationMessageToVfs(
       id,
       object_type,
       owner_id,
+      organization_id,
       created_at
     ) VALUES (
       $1::text,
       'mlsMessage',
       NULL,
-      $2::timestamptz
+      $2::text,
+      $3::timestamptz
     )
     ON CONFLICT (id) DO NOTHING
     `,
-    [input.messageId, input.occurredAtIso]
+    [input.messageId, input.organizationId, input.occurredAtIso]
   );
 
   await client.query(

@@ -18,6 +18,7 @@ export type StagingIdJsonRequest = { stagingId: string; json: string };
 
 interface BlobRegistryTypeRow {
   object_type: string;
+  organization_id: string | null;
 }
 
 interface BlobStageRow {
@@ -30,6 +31,7 @@ interface BlobStageRow {
 
 interface BlobStagingRow {
   staged_by: string | null;
+  organization_id: string | null;
   status: string;
   expires_at: string | null;
 }
@@ -136,21 +138,23 @@ export async function stageBlobDirect(
         id,
         object_type,
         owner_id,
+        organization_id,
         created_at
       ) VALUES (
         $1::text,
         'file',
         $2::text,
+        $3::text,
         NOW()
       )
       ON CONFLICT (id) DO NOTHING
       `,
-      [parsedBody.blobId, claims.sub]
+      [parsedBody.blobId, claims.sub, claims.organizationId]
     );
 
     const blobRegistryResult = await client.query<BlobRegistryTypeRow>(
       `
-      SELECT object_type
+      SELECT object_type, organization_id
       FROM vfs_registry
       WHERE id = $1::text
       LIMIT 1
@@ -165,7 +169,10 @@ export async function stageBlobDirect(
       throw new ConnectError('Blob object not found', Code.NotFound);
     }
 
-    if (blobRegistryRow.object_type !== 'file') {
+    if (
+      blobRegistryRow.object_type !== 'file' ||
+      blobRegistryRow.organization_id !== claims.organizationId
+    ) {
       await client.query('ROLLBACK');
       inTransaction = false;
       throw new ConnectError(
@@ -180,15 +187,17 @@ export async function stageBlobDirect(
         id,
         object_type,
         owner_id,
+        organization_id,
         created_at
       ) VALUES (
         $1::text,
         'blobStage',
         $2::text,
+        $3::text,
         NOW()
       )
       `,
-      [parsedBody.stagingId, claims.sub]
+      [parsedBody.stagingId, claims.sub, claims.organizationId]
     );
 
     const result = await client.query<BlobStageRow>(
@@ -285,6 +294,7 @@ export async function uploadBlobChunkDirect(
       `
       SELECT
         stage_registry.owner_id AS staged_by,
+        stage_registry.organization_id AS organization_id,
         stage_link.visible_children::jsonb->>'expiresAt' AS expires_at,
         CASE stage_link.wrapped_session_key
           WHEN 'blob-stage:staged' THEN 'staged'
@@ -309,6 +319,10 @@ export async function uploadBlobChunkDirect(
     }
 
     if (stagedRow.staged_by !== claims.sub) {
+      throw new ConnectError('Forbidden', Code.PermissionDenied);
+    }
+
+    if (stagedRow.organization_id !== claims.organizationId) {
       throw new ConnectError('Forbidden', Code.PermissionDenied);
     }
 

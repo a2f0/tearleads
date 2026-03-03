@@ -48,7 +48,8 @@ describe('vfsDirectRegistry', () => {
     });
 
     requireVfsClaimsMock.mockResolvedValue({
-      sub: 'user-1'
+      sub: 'user-1',
+      organizationId: 'org-1'
     });
 
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});

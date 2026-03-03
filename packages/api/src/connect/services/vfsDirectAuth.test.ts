@@ -7,11 +7,18 @@ const { authenticateMock, resolveOrganizationMembershipMock } = vi.hoisted(
     resolveOrganizationMembershipMock: vi.fn()
   })
 );
+const { getPostgresPoolMock, queryMock } = vi.hoisted(() => ({
+  getPostgresPoolMock: vi.fn(),
+  queryMock: vi.fn()
+}));
 
 vi.mock('./legacyRouteProxyAuth.js', () => ({
   authenticate: (...args: unknown[]) => authenticateMock(...args),
   resolveOrganizationMembership: (...args: unknown[]) =>
     resolveOrganizationMembershipMock(...args)
+}));
+vi.mock('../../lib/postgres.js', () => ({
+  getPostgresPool: (...args: unknown[]) => getPostgresPoolMock(...args)
 }));
 
 import { requireVfsClaims } from './vfsDirectAuth.js';
@@ -29,15 +36,22 @@ describe('requireVfsClaims', () => {
       ok: true,
       organizationId: null
     });
+    queryMock.mockResolvedValue({
+      rows: [{ personal_organization_id: 'org-personal' }]
+    });
+    getPostgresPoolMock.mockResolvedValue({
+      query: queryMock
+    });
   });
 
-  it('returns claims when auth and membership checks pass', async () => {
+  it('returns claims with personal organization fallback', async () => {
     const headers = new Headers({
       authorization: 'Bearer token'
     });
 
     await expect(requireVfsClaims('/vfs/keys/me', headers)).resolves.toEqual({
-      sub: 'user-1'
+      sub: 'user-1',
+      organizationId: 'org-personal'
     });
 
     expect(authenticateMock).toHaveBeenCalledWith(headers);
@@ -46,6 +60,22 @@ describe('requireVfsClaims', () => {
       headers,
       'user-1'
     );
+  });
+
+  it('prefers resolved organization header membership', async () => {
+    resolveOrganizationMembershipMock.mockResolvedValueOnce({
+      ok: true,
+      organizationId: 'org-header'
+    });
+
+    await expect(
+      requireVfsClaims('/vfs/keys/me', new Headers())
+    ).resolves.toEqual({
+      sub: 'user-1',
+      organizationId: 'org-header'
+    });
+
+    expect(queryMock).not.toHaveBeenCalled();
   });
 
   it('maps auth failures to connect errors', async () => {
@@ -77,6 +107,20 @@ describe('requireVfsClaims', () => {
     });
     await expect(promise).rejects.toThrow(
       /Not a member of the specified organization/u
+    );
+  });
+
+  it('rejects when no organization context can be resolved', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [{ personal_organization_id: null }]
+    });
+
+    const promise = requireVfsClaims('/vfs/keys/me', new Headers());
+    await expect(promise).rejects.toMatchObject({
+      code: Code.PermissionDenied
+    });
+    await expect(promise).rejects.toThrow(
+      /Organization context is required for VFS access/u
     );
   });
 });

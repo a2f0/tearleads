@@ -122,6 +122,7 @@ export async function sendGroupMessageDirect(
       await persistApplicationMessageToVfs(client, {
         messageId: id,
         groupId,
+        organizationId: membership.organizationId,
         senderUserId: claims.sub,
         ciphertext: payload.ciphertext,
         contentType,
