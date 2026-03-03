@@ -70,4 +70,20 @@ describe('api bootstrap', () => {
     orgStorage.clearActiveOrganizationId();
     expect(provider()).toBeUndefined();
   });
+
+  it('skips logger wiring when analytics logger export is missing', async () => {
+    const setApiEventLogger = vi.fn();
+
+    vi.doMock('@tearleads/api-client/clientEntry', () => ({
+      API_BASE_URL: 'http://mock-api',
+      api: { ping: { get: vi.fn() } },
+      tryRefreshToken: vi.fn(async () => false),
+      setApiEventLogger
+    }));
+    vi.doMock('@/db/analytics', () => ({}));
+
+    await import('./api');
+
+    expect(setApiEventLogger).not.toHaveBeenCalled();
+  });
 });
