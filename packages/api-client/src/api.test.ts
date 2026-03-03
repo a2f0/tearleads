@@ -430,7 +430,9 @@ describe('api edge cases requiring direct fetch mocking', () => {
         }
       );
 
-      const { request, setApiRequestHeadersProvider } = await import('./apiCore');
+      const { request, setApiRequestHeadersProvider } = await import(
+        './apiCore'
+      );
       setApiRequestHeadersProvider(() => ({
         'X-Organization-Id': 'org-provider'
       }));
