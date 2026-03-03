@@ -1,4 +1,4 @@
-import { parseOccurredAt, type PgQueryable } from './vfsCrdtSnapshotCommon.js';
+import { type PgQueryable, parseOccurredAt } from './vfsCrdtSnapshotCommon.js';
 
 const CRDT_CLIENT_PUSH_SOURCE_TABLE = 'vfs_crdt_client_push';
 export const DEFAULT_VFS_CRDT_REPLICA_HEADS_PARITY_SAMPLE_LIMIT = 100;
@@ -216,8 +216,9 @@ export async function checkVfsCrdtReplicaHeadsParity(
     options.sampleLimit ?? DEFAULT_VFS_CRDT_REPLICA_HEADS_PARITY_SAMPLE_LIMIT
   );
 
-  const countQueryResult = await client.query<VfsCrdtReplicaHeadsParityCountsRow>(
-    `
+  const countQueryResult =
+    await client.query<VfsCrdtReplicaHeadsParityCountsRow>(
+      `
     ${PARITY_COMPARISON_CTE}
     SELECT
       COUNT(*) AS checked_pair_count,
@@ -244,8 +245,8 @@ export async function checkVfsCrdtReplicaHeadsParity(
       ) AS occurred_at_mismatch_count
     FROM joined
     `,
-    [CRDT_CLIENT_PUSH_SOURCE_TABLE]
-  );
+      [CRDT_CLIENT_PUSH_SOURCE_TABLE]
+    );
 
   const countsRow = countQueryResult.rows[0];
   const checkedPairCount = toNonNegativeInteger(countsRow?.checked_pair_count);
