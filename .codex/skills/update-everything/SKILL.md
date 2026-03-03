@@ -177,14 +177,15 @@ Dependency updates can cause pre-push hook failures due to coverage threshold mi
 
 ## pdfjs-dist and react-pdf Version Coupling
 
-**CRITICAL**: `pdfjs-dist` must match the version expected by `react-pdf`. **Check this BEFORE pushing** - Web E2E tests will fail if versions mismatch.
+**CRITICAL**: `pdfjs-dist` must match the version expected by `react-pdf`. Web E2E tests will fail if versions mismatch.
+
+**Guardrails in place:**
+1. **Dependabot grouping** (`.github/dependabot.yml`): `react-pdf` and `pdfjs-dist` are grouped so Dependabot proposes them together.
+2. **CI parity check** (`scripts/checks/checkPdfVersionParity.sh`): Fails the guardrails job if the declared `pdfjs-dist` version doesn't match what `react-pdf` expects (parsed from the lockfile).
 
 ```bash
-# Check what version react-pdf expects
-cat packages/client/node_modules/react-pdf/package.json | grep '"pdfjs-dist"'
-
-# Check what version is installed
-cat packages/client/package.json | grep '"pdfjs-dist"'
+# Quick manual check
+./scripts/checks/checkPdfVersionParity.sh
 ```
 
 If versions differ, revert pdfjs-dist to match react-pdf's dependency:

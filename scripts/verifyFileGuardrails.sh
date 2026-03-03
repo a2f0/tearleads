@@ -41,6 +41,13 @@ elif [ ! -x "scripts/checks/checkApiBoundary.sh" ]; then
   errors+=("scripts/checks/checkApiBoundary.sh is not executable")
 fi
 
+# Check 5b: PDF version parity check script exists
+if [ ! -f "scripts/checks/checkPdfVersionParity.sh" ]; then
+  errors+=("Missing scripts/checks/checkPdfVersionParity.sh")
+elif [ ! -x "scripts/checks/checkPdfVersionParity.sh" ]; then
+  errors+=("scripts/checks/checkPdfVersionParity.sh is not executable")
+fi
+
 # Check 6: Pre-commit hook exists and calls binary check
 if [ ! -f ".husky/pre-commit" ]; then
   errors+=("Missing .husky/pre-commit hook")
@@ -88,9 +95,19 @@ else
   if ! grep -q "scripts/checks/checkApiBoundary.sh" ".github/workflows/build.yml"; then
     errors+=(".github/workflows/build.yml does not include API boundary check")
   fi
+  if ! grep -q "scripts/checks/checkPdfVersionParity.sh" ".github/workflows/build.yml"; then
+    errors+=(".github/workflows/build.yml does not include PDF version parity check")
+  fi
 fi
 
-# Check 9: Agent instructions include binary/JS policy
+# Check 9: Dependabot groups pdf deps together
+if [ -f ".github/dependabot.yml" ]; then
+  if ! grep -q "react-pdf" ".github/dependabot.yml" || ! grep -q "pdfjs-dist" ".github/dependabot.yml"; then
+    errors+=(".github/dependabot.yml must group react-pdf and pdfjs-dist together")
+  fi
+fi
+
+# Check 10: Agent instructions include binary/JS policy
 for file in CLAUDE.md AGENTS.md; do
   if [ -f "$file" ]; then
     if ! grep -q "Binary Files Policy" "$file"; then
