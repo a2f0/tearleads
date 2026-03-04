@@ -24,12 +24,16 @@ const CRDT_REMATERIALIZATION_REQUIRED_CODE = 'crdt_rematerialization_required';
 const CONNECT_ALREADY_EXISTS_CODE = 'already_exists';
 const JSON_CONTENT_TYPE = 'application/json';
 const VFS_CONNECT_BASE_PATH = '/connect/tearleads.v1.VfsService';
+const MAX_ORG_ID_LENGTH = 100;
+const ORG_ID_PATTERN = /^[a-zA-Z0-9-]+$/u;
 
 export interface VfsHttpCrdtSyncTransportOptions {
   baseUrl?: string;
   apiPrefix?: string;
   fetchImpl?: FetchImpl;
   getAuthToken?: (() => string | Promise<string | null> | null) | null;
+  getOrganizationId?: (() => string | null) | null;
+  organizationId?: string | null;
   headers?: Record<string, string>;
 }
 
@@ -40,6 +44,8 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
   private readonly getAuthToken:
     | (() => string | Promise<string | null> | null)
     | null;
+  private readonly getOrganizationId: (() => string | null) | null;
+  private readonly organizationId: string | null;
   private readonly headers: Record<string, string>;
 
   constructor(options: VfsHttpCrdtSyncTransportOptions = {}) {
@@ -47,7 +53,13 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     this.apiPrefix = normalizeApiPrefix(options.apiPrefix ?? '');
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.getAuthToken = options.getAuthToken ?? null;
+    this.getOrganizationId = options.getOrganizationId ?? null;
     this.headers = options.headers ?? {};
+    const explicitOrganizationId = normalizeOrganizationId(
+      options.organizationId ?? null
+    );
+    this.organizationId =
+      explicitOrganizationId ?? resolveOrganizationIdFromHeaders(this.headers);
   }
 
   async pushOperations(input: {
@@ -55,8 +67,10 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     clientId: string;
     operations: VfsCrdtOperation[];
   }): Promise<VfsCrdtSyncPushResponse> {
+    const organizationId = this.resolveOrganizationIdForWrite();
     const parsed = parseApiPushResponse(
       await this.requestConnectJson('PushCrdtOps', {
+        organizationId,
         json: JSON.stringify({
           clientId: input.clientId,
           operations: input.operations
@@ -146,7 +160,9 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     pull: VfsCrdtSyncPullResponse;
     reconcile: VfsCrdtSyncReconcileResponse;
   }> {
+    const organizationId = this.resolveOrganizationIdForWrite();
     const parsedSession = await this.requestConnectJson('RunCrdtSession', {
+      organizationId,
       json: JSON.stringify({
         clientId: input.clientId,
         cursor: encodeVfsSyncCursor(input.cursor),
@@ -239,6 +255,13 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     return parseConnectJsonEnvelopeBody(parsedBody);
   }
 
+  private resolveOrganizationIdForWrite(): string {
+    const dynamicOrganizationId = this.getOrganizationId
+      ? normalizeOrganizationId(this.getOrganizationId())
+      : null;
+    return dynamicOrganizationId ?? this.organizationId ?? '';
+  }
+
   private async parseJsonBody(response: Response): Promise<unknown> {
     const rawBody = await response.text();
     if (rawBody.trim().length === 0) {
@@ -296,4 +319,33 @@ function normalizeApiPrefix(apiPrefix: string): string {
   return withLeadingSlash.endsWith('/')
     ? withLeadingSlash.slice(0, -1)
     : withLeadingSlash;
+}
+
+function normalizeOrganizationId(value: string | null): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (
+    trimmed.length === 0 ||
+    trimmed.length > MAX_ORG_ID_LENGTH ||
+    !ORG_ID_PATTERN.test(trimmed)
+  ) {
+    return null;
+  }
+
+  return trimmed;
+}
+
+function resolveOrganizationIdFromHeaders(
+  headers: Record<string, string>
+): string | null {
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === 'x-organization-id') {
+      return normalizeOrganizationId(value);
+    }
+  }
+
+  return null;
 }

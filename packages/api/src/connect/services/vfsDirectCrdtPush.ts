@@ -10,6 +10,7 @@ import { parsePushPayload } from './vfsDirectCrdtPushParse.js';
 import { parseJsonBody } from './vfsDirectJson.js';
 
 interface JsonRequest {
+  organizationId: string;
   json: string;
 }
 
@@ -25,16 +26,19 @@ export async function pushCrdtOpsDirect(
   request: JsonRequest,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
-  const claims = await requireVfsClaims(
-    '/vfs/crdt/push',
-    context.requestHeader,
-    { requireDeclaredOrganization: true }
-  );
-
   const parsedPayload = parsePushPayload(parseJsonBody(request.json));
   if (!parsedPayload.ok) {
     throw new ConnectError(parsedPayload.error, Code.InvalidArgument);
   }
+
+  const claims = await requireVfsClaims(
+    '/vfs/crdt/push',
+    context.requestHeader,
+    {
+      requireDeclaredOrganization: true,
+      declaredOrganizationId: request.organizationId
+    }
+  );
 
   const pool = await getPostgresPool();
   const client = await pool.connect();
@@ -47,6 +51,7 @@ export async function pushCrdtOpsDirect(
     const pushResult = await applyCrdtPushOperations({
       client,
       userId: claims.sub,
+      organizationId: claims.organizationId,
       parsedOperations: parsedPayload.value.operations
     });
 

@@ -125,7 +125,8 @@ message VfsRekeyItemResponse {
 }
 
 message VfsPushCrdtOpsRequest {
-  string json = 1;
+  string organization_id = 1;
+  string json = 2;
 }
 
 message VfsPushCrdtOpsResponse {
@@ -149,7 +150,8 @@ message VfsReconcileSyncResponse {
 }
 
 message VfsRunCrdtSessionRequest {
-  string json = 1;
+  string organization_id = 1;
+  string json = 2;
 }
 
 message VfsRunCrdtSessionResponse {

@@ -28,6 +28,20 @@ function createParsedOperation(
   };
 }
 
+function createItemOwnershipRow(
+  overrides: { ownerId?: string; organizationId?: string } = {}
+): {
+  id: string;
+  owner_id: string;
+  organization_id: string;
+} {
+  return {
+    id: 'item-1',
+    owner_id: overrides.ownerId ?? 'user-1',
+    organization_id: overrides.organizationId ?? 'org-1'
+  };
+}
+
 function createQueryResult<T extends QueryResultRow>(
   rows: T[] = [],
   rowCount?: number
@@ -48,6 +62,7 @@ describe('vfsDirectCrdtPushApply', () => {
     const result = await applyCrdtPushOperations({
       client: { query: queryMock },
       userId: 'user-1',
+      organizationId: 'org-1',
       parsedOperations: [{ status: 'invalid', opId: 'bad-op' }]
     });
 
@@ -60,12 +75,13 @@ describe('vfsDirectCrdtPushApply', () => {
     const queryMock = vi
       .fn()
       .mockResolvedValueOnce(
-        createQueryResult([{ id: 'item-1', owner_id: 'user-2' }])
+        createQueryResult([createItemOwnershipRow({ ownerId: 'user-2' })])
       );
 
     const result = await applyCrdtPushOperations({
       client: { query: queryMock },
       userId: 'user-1',
+      organizationId: 'org-1',
       parsedOperations: [createParsedOperation(createOperation({}))]
     });
 
@@ -74,12 +90,28 @@ describe('vfsDirectCrdtPushApply', () => {
     expect(String(queryMock.mock.calls[0]?.[0])).toContain('FROM vfs_registry');
   });
 
-  it('returns staleWriteId when writeId does not advance replica head', async () => {
+  it('returns invalidOp when operation item is not owned by the declared org', async () => {
     const queryMock = vi
       .fn()
       .mockResolvedValueOnce(
-        createQueryResult([{ id: 'item-1', owner_id: 'user-1' }])
-      )
+        createQueryResult([createItemOwnershipRow({ organizationId: 'org-2' })])
+      );
+
+    const result = await applyCrdtPushOperations({
+      client: { query: queryMock },
+      userId: 'user-1',
+      organizationId: 'org-1',
+      parsedOperations: [createParsedOperation(createOperation({}))]
+    });
+
+    expect(result.results).toEqual([{ opId: 'op-1', status: 'invalidOp' }]);
+    expect(queryMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns staleWriteId when writeId does not advance replica head', async () => {
+    const queryMock = vi
+      .fn()
+      .mockResolvedValueOnce(createQueryResult([createItemOwnershipRow()]))
       .mockResolvedValueOnce(createQueryResult())
       .mockResolvedValueOnce(
         createQueryResult([
@@ -95,6 +127,7 @@ describe('vfsDirectCrdtPushApply', () => {
     const result = await applyCrdtPushOperations({
       client: { query: queryMock },
       userId: 'user-1',
+      organizationId: 'org-1',
       parsedOperations: [createParsedOperation(createOperation({ writeId: 5 }))]
     });
 
@@ -105,9 +138,7 @@ describe('vfsDirectCrdtPushApply', () => {
   it('returns alreadyApplied and advances replica head when needed', async () => {
     const queryMock = vi
       .fn()
-      .mockResolvedValueOnce(
-        createQueryResult([{ id: 'item-1', owner_id: 'user-1' }])
-      )
+      .mockResolvedValueOnce(createQueryResult([createItemOwnershipRow()]))
       .mockResolvedValueOnce(createQueryResult())
       .mockResolvedValueOnce(
         createQueryResult([
@@ -131,6 +162,7 @@ describe('vfsDirectCrdtPushApply', () => {
     const result = await applyCrdtPushOperations({
       client: { query: queryMock },
       userId: 'user-1',
+      organizationId: 'org-1',
       parsedOperations: [createParsedOperation(createOperation({ writeId: 3 }))]
     });
 
@@ -145,9 +177,7 @@ describe('vfsDirectCrdtPushApply', () => {
   it('keeps alreadyApplied without replica head upsert when writeId is not newer', async () => {
     const queryMock = vi
       .fn()
-      .mockResolvedValueOnce(
-        createQueryResult([{ id: 'item-1', owner_id: 'user-1' }])
-      )
+      .mockResolvedValueOnce(createQueryResult([createItemOwnershipRow()]))
       .mockResolvedValueOnce(createQueryResult())
       .mockResolvedValueOnce(
         createQueryResult([
@@ -170,6 +200,7 @@ describe('vfsDirectCrdtPushApply', () => {
     const result = await applyCrdtPushOperations({
       client: { query: queryMock },
       userId: 'user-1',
+      organizationId: 'org-1',
       parsedOperations: [createParsedOperation(createOperation({ writeId: 7 }))]
     });
 
@@ -182,9 +213,7 @@ describe('vfsDirectCrdtPushApply', () => {
   it('returns applied, records notifications, and writes canonical item state', async () => {
     const queryMock = vi
       .fn()
-      .mockResolvedValueOnce(
-        createQueryResult([{ id: 'item-1', owner_id: 'user-1' }])
-      )
+      .mockResolvedValueOnce(createQueryResult([createItemOwnershipRow()]))
       .mockResolvedValueOnce(createQueryResult())
       .mockResolvedValueOnce(createQueryResult([]))
       .mockResolvedValueOnce(createQueryResult([]))
@@ -206,6 +235,7 @@ describe('vfsDirectCrdtPushApply', () => {
     const result = await applyCrdtPushOperations({
       client: { query: queryMock },
       userId: 'user-1',
+      organizationId: 'org-1',
       parsedOperations: [
         createParsedOperation(
           createOperation({
@@ -247,9 +277,7 @@ describe('vfsDirectCrdtPushApply', () => {
   it('returns outdatedOp when insert does not affect any rows', async () => {
     const queryMock = vi
       .fn()
-      .mockResolvedValueOnce(
-        createQueryResult([{ id: 'item-1', owner_id: 'user-1' }])
-      )
+      .mockResolvedValueOnce(createQueryResult([createItemOwnershipRow()]))
       .mockResolvedValueOnce(createQueryResult())
       .mockResolvedValueOnce(createQueryResult([]))
       .mockResolvedValueOnce(createQueryResult([]))
@@ -258,6 +286,7 @@ describe('vfsDirectCrdtPushApply', () => {
     const result = await applyCrdtPushOperations({
       client: { query: queryMock },
       userId: 'user-1',
+      organizationId: 'org-1',
       parsedOperations: [createParsedOperation(createOperation({}))]
     });
 

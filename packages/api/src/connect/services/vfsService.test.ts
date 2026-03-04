@@ -263,12 +263,14 @@ describe('vfsConnectService', () => {
       json: '{"clientId":"client-1","cursor":"MjAyNi0wMy0wM1QwMDowMDowMC4wMDBafGNoYW5nZS0x"}'
     };
     const pushCrdtOpsRequest = {
+      organizationId: 'org-1',
       json: '{"clientId":"client-1","operations":[]}'
     };
     const reconcileCrdtRequest = {
       json: '{"clientId":"client-1","cursor":"MjAyNi0wMy0wM1QwMDowMDowMC4wMDBafGNoYW5nZS0x","lastReconciledWriteIds":{}}'
     };
     const runCrdtSessionRequest = {
+      organizationId: 'org-1',
       json: '{"clientId":"client-1","operations":[],"cursor":"MjAyNi0wMy0wM1QwMDowMDowMC4wMDBafGNoYW5nZS0x","limit":10}'
     };
 

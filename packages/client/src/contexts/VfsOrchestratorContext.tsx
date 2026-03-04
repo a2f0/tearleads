@@ -31,6 +31,7 @@ import {
 import { createRecipientPublicKeyResolver } from '@/db/vfsRecipientKeyResolver';
 import { createUserKeyProvider } from '@/db/vfsUserKeyProvider';
 import { ensureVfsKeys } from '@/hooks/vfs';
+import { getActiveOrganizationId } from '@/lib/orgStorage';
 import { setVfsItemSyncRuntime } from '@/lib/vfsItemSyncWriter';
 import { rematerializeRemoteVfsStateIfNeeded } from '@/lib/vfsRematerialization';
 import { useAuth } from './AuthContext';
@@ -152,7 +153,8 @@ export function VfsOrchestratorProvider({
         crdt: {
           transportOptions: {
             baseUrl: effectiveBaseUrl,
-            apiPrefix: effectiveApiPrefix
+            apiPrefix: effectiveApiPrefix,
+            getOrganizationId: getActiveOrganizationId
           },
           onRematerializationRequired: async () => {
             try {

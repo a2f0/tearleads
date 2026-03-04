@@ -30,6 +30,7 @@ import {
 import { isRecord, parseJsonBody } from './vfsDirectJson.js';
 
 interface JsonRequest {
+  organizationId: string;
   json: string;
 }
 
@@ -182,16 +183,19 @@ export async function runCrdtSessionDirect(
   request: JsonRequest,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
-  const claims = await requireVfsClaims(
-    '/vfs/crdt/session',
-    context.requestHeader,
-    { requireDeclaredOrganization: true }
-  );
-
   const parsedPayload = parseSessionPayload(parseJsonBody(request.json));
   if (!parsedPayload.ok) {
     throw new ConnectError(parsedPayload.error, Code.InvalidArgument);
   }
+
+  const claims = await requireVfsClaims(
+    '/vfs/crdt/session',
+    context.requestHeader,
+    {
+      requireDeclaredOrganization: true,
+      declaredOrganizationId: request.organizationId
+    }
+  );
 
   const pool = await getPostgresPool();
   const client = await pool.connect();
@@ -204,6 +208,7 @@ export async function runCrdtSessionDirect(
     const pushResult = await applyCrdtPushOperations({
       client,
       userId: claims.sub,
+      organizationId: claims.organizationId,
       parsedOperations: parsedPayload.value.parsedOperations
     });
 

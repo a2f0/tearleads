@@ -78,7 +78,7 @@ export const vfsConnectService = {
     context: { requestHeader: Headers }
   ) => rekeyItemDirect(request, context),
   pushCrdtOps: async (
-    request: { json: string },
+    request: { organizationId: string; json: string },
     context: { requestHeader: Headers }
   ) => pushCrdtOpsDirect(request, context),
   reconcileCrdt: async (
@@ -90,7 +90,7 @@ export const vfsConnectService = {
     context: { requestHeader: Headers }
   ) => reconcileSyncDirect(request, context),
   runCrdtSession: async (
-    request: { json: string },
+    request: { organizationId: string; json: string },
     context: { requestHeader: Headers }
   ) => runCrdtSessionDirect(request, context),
   getSync: async (

@@ -73,7 +73,8 @@ describe('vfsDirectCrdtPush', () => {
       connect: connectMock
     });
     requireVfsClaimsMock.mockResolvedValue({
-      sub: 'user-1'
+      sub: 'user-1',
+      organizationId: 'org-1'
     });
 
     clientQueryMock
@@ -105,6 +106,7 @@ describe('vfsDirectCrdtPush', () => {
     await expect(
       pushCrdtOpsDirect(
         {
+          organizationId: '',
           json: '{}'
         },
         {
@@ -142,6 +144,7 @@ describe('vfsDirectCrdtPush', () => {
 
     const response = await pushCrdtOpsDirect(
       {
+        organizationId: 'org-1',
         json: JSON.stringify({
           clientId: 'desktop-1',
           operations: []
@@ -154,6 +157,20 @@ describe('vfsDirectCrdtPush', () => {
 
     expect(clientQueryMock).toHaveBeenNthCalledWith(1, 'BEGIN');
     expect(clientQueryMock).toHaveBeenNthCalledWith(2, 'COMMIT');
+    expect(requireVfsClaimsMock).toHaveBeenCalledWith(
+      '/vfs/crdt/push',
+      expect.any(Headers),
+      {
+        requireDeclaredOrganization: true,
+        declaredOrganizationId: 'org-1'
+      }
+    );
+    expect(applyCrdtPushOperationsMock).toHaveBeenCalledWith({
+      client: { query: clientQueryMock, release: clientReleaseMock },
+      userId: 'user-1',
+      organizationId: 'org-1',
+      parsedOperations: []
+    });
     expect(invalidateReplicaWriteIdRowsForUserMock).toHaveBeenCalledWith(
       'user-1'
     );
@@ -182,6 +199,7 @@ describe('vfsDirectCrdtPush', () => {
     await expect(
       pushCrdtOpsDirect(
         {
+          organizationId: 'org-1',
           json: JSON.stringify({
             clientId: 'desktop-1',
             operations: []
@@ -223,6 +241,7 @@ describe('vfsDirectCrdtPush', () => {
     await expect(
       pushCrdtOpsDirect(
         {
+          organizationId: 'org-1',
           json: JSON.stringify({
             clientId: 'desktop-1',
             operations: []
@@ -245,6 +264,7 @@ describe('vfsDirectCrdtPush', () => {
     await expect(
       pushCrdtOpsDirect(
         {
+          organizationId: 'org-1',
           json: JSON.stringify({
             clientId: 'desktop-1',
             operations: []

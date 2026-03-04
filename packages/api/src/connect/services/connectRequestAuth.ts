@@ -100,9 +100,16 @@ export async function resolveOrganizationMembership(
     };
   }
 
+  return verifyOrganizationMembership(userId, organizationIdHeader);
+}
+
+export async function verifyOrganizationMembership(
+  userId: string,
+  organizationId: string
+): Promise<OrganizationMembershipResult> {
   if (
-    organizationIdHeader.length > MAX_ORG_ID_LENGTH ||
-    !ORG_ID_PATTERN.test(organizationIdHeader)
+    organizationId.length > MAX_ORG_ID_LENGTH ||
+    !ORG_ID_PATTERN.test(organizationId)
   ) {
     return {
       ok: false,
@@ -118,7 +125,7 @@ export async function resolveOrganizationMembership(
          FROM user_organizations
          WHERE user_id = $1
            AND organization_id = $2`,
-      [userId, organizationIdHeader]
+      [userId, organizationId]
     );
 
     if (result.rows.length === 0) {
@@ -131,7 +138,7 @@ export async function resolveOrganizationMembership(
 
     return {
       ok: true,
-      organizationId: organizationIdHeader
+      organizationId
     };
   } catch (error) {
     console.error('Failed to verify organization membership', error);

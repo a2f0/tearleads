@@ -32,6 +32,7 @@ import { toIsoString } from './vfsDirectCrdtRouteHelpers.js';
 interface ItemOwnerRow {
   id: string;
   owner_id: string | null;
+  organization_id: string | null;
 }
 interface ExistingSourceRow {
   id: string;
@@ -53,6 +54,7 @@ interface ApplyCrdtPushOperationsResult {
 export async function applyCrdtPushOperations(input: {
   client: Pick<PoolClient, 'query'>;
   userId: string;
+  organizationId: string;
   parsedOperations: ParsedPushOperation[];
 }): Promise<ApplyCrdtPushOperationsResult> {
   const queryMetrics = createVfsCrdtQueryMetrics();
@@ -77,7 +79,10 @@ export async function applyCrdtPushOperations(input: {
     }
   }
 
-  const ownerByItemId = new Map<string, string | null>();
+  const ownershipByItemId = new Map<
+    string,
+    { ownerId: string | null; organizationId: string | null }
+  >();
   if (validOperations.length > 0) {
     const uniqueItemIds = Array.from(
       new Set(validOperations.map((operation) => operation.itemId))
@@ -85,14 +90,17 @@ export async function applyCrdtPushOperations(input: {
     const itemRows = await runQuery<ItemOwnerRow>(
       'owner_lookup',
       `
-      SELECT id, owner_id
+      SELECT id, owner_id, organization_id
       FROM vfs_registry
       WHERE id = ANY($1::text[])
       `,
       [uniqueItemIds]
     );
     for (const row of itemRows.rows) {
-      ownerByItemId.set(row.id, row.owner_id);
+      ownershipByItemId.set(row.id, {
+        ownerId: row.owner_id,
+        organizationId: row.organization_id
+      });
     }
   }
 
@@ -100,7 +108,9 @@ export async function applyCrdtPushOperations(input: {
     (entry) =>
       entry.status === 'parsed' &&
       !!entry.operation &&
-      ownerByItemId.get(entry.operation.itemId) === input.userId
+      ownershipByItemId.get(entry.operation.itemId)?.ownerId === input.userId &&
+      ownershipByItemId.get(entry.operation.itemId)?.organizationId ===
+        input.organizationId
   );
 
   const replicaWriteHeads = new Map<string, number>();
@@ -150,7 +160,11 @@ export async function applyCrdtPushOperations(input: {
     }
 
     const operation = entry.operation;
-    if (ownerByItemId.get(operation.itemId) !== input.userId) {
+    const ownership = ownershipByItemId.get(operation.itemId);
+    if (
+      ownership?.ownerId !== input.userId ||
+      ownership.organizationId !== input.organizationId
+    ) {
       results.push({
         opId: operation.opId,
         status: 'invalidOp'

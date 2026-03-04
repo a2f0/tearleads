@@ -68,7 +68,8 @@ describe('VfsHttpCrdtSyncTransport', () => {
     const transport = new VfsHttpCrdtSyncTransport({
       baseUrl: 'https://sync.example.com',
       fetchImpl: fetchMock,
-      getAuthToken: () => 'token-1'
+      getAuthToken: () => 'token-1',
+      organizationId: 'org-1'
     });
 
     const result = await transport.pushOperations({
@@ -106,10 +107,12 @@ describe('VfsHttpCrdtSyncTransport', () => {
     );
 
     const requestInit = firstCall?.[1];
-    const decodedBody = parseConnectEnvelopeBody(
+    const requestBody = asRecord(
       await readRequestJson(requestUrl, requestInit),
       'push request'
     );
+    expect(requestBody['organizationId']).toBe('org-1');
+    const decodedBody = parseConnectEnvelopeBody(requestBody, 'push request');
     expect(decodedBody['clientId']).toBe('desktop');
     const operations = decodedBody['operations'];
     if (!Array.isArray(operations)) {
@@ -170,7 +173,8 @@ describe('VfsHttpCrdtSyncTransport', () => {
 
     const transport = new VfsHttpCrdtSyncTransport({
       baseUrl: 'https://sync.example.com',
-      fetchImpl: fetchMock
+      fetchImpl: fetchMock,
+      organizationId: 'org-1'
     });
 
     const result = await transport.pullOperations({
@@ -249,7 +253,8 @@ describe('VfsHttpCrdtSyncTransport', () => {
 
     const transport = new VfsHttpCrdtSyncTransport({
       baseUrl: 'https://sync.example.com',
-      fetchImpl: fetchMock
+      fetchImpl: fetchMock,
+      organizationId: 'org-1'
     });
 
     const result = await transport.reconcileState({
@@ -351,7 +356,8 @@ describe('VfsHttpCrdtSyncTransport', () => {
 
     const transport = new VfsHttpCrdtSyncTransport({
       baseUrl: 'https://sync.example.com',
-      fetchImpl: fetchMock
+      fetchImpl: fetchMock,
+      organizationId: 'org-1'
     });
 
     const result = await transport.syncSession({
@@ -414,11 +420,15 @@ describe('VfsHttpCrdtSyncTransport', () => {
     );
 
     const requestInit = firstCall?.[1];
-    const decodedBody = parseConnectEnvelopeBody(
+    const requestBody = asRecord(
       await readRequestJson(requestUrl, requestInit),
       'session request'
     );
-
+    expect(requestBody['organizationId']).toBe('org-1');
+    const decodedBody = parseConnectEnvelopeBody(
+      requestBody,
+      'session request'
+    );
     expect(decodedBody['clientId']).toBe('desktop');
     expect(decodedBody['operations']).toEqual(
       expect.arrayContaining([
