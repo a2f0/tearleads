@@ -57,7 +57,6 @@ function sanitizeHtml(html: string): string {
     ALLOWED_TAGS,
     ALLOWED_ATTR: ALLOWED_ATTRS,
     ALLOW_DATA_ATTR: false,
-    ADD_ATTR: ['target'],
     FORBID_TAGS: ['script', 'iframe', 'form', 'object', 'embed'],
     FORBID_ATTR: [
       'onerror',

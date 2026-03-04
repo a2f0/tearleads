@@ -32,9 +32,7 @@ function systemFolderName(type: EmailFolderType): string {
   return SYSTEM_FOLDER_NAMES[type as keyof typeof SYSTEM_FOLDER_NAMES] ?? type;
 }
 
-export function useClientEmailFolderOperations(): EmailFolderOperations & {
-  getFolderByType: (type: EmailFolderType) => Promise<EmailFolder | null>;
-} {
+export function useClientEmailFolderOperations(): EmailFolderOperations {
   const fetchFolders = useCallback(async (): Promise<EmailFolder[]> => {
     const db = getDatabase();
 
