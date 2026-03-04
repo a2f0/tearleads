@@ -38,10 +38,13 @@ mod tests {
     }
 
     #[test]
-    fn generated_service_clients_are_exposed() {
-        let _admin_client_ctor =
-            admin_service_client::AdminServiceClient::<tonic::transport::Channel>::new;
-        let _mls_client_ctor =
-            mls_service_client::MlsServiceClient::<tonic::transport::Channel>::new;
+    fn generated_service_client_modules_are_exposed() {
+        let admin_client_type_name =
+            std::any::type_name::<admin_service_client::AdminServiceClient<()>>();
+        let mls_client_type_name =
+            std::any::type_name::<mls_service_client::MlsServiceClient<()>>();
+
+        assert!(admin_client_type_name.contains("AdminServiceClient"));
+        assert!(mls_client_type_name.contains("MlsServiceClient"));
     }
 }

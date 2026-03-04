@@ -14,7 +14,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut prost_config = tonic_build::Config::new();
     prost_config.protoc_executable(protoc_path);
 
-    tonic_build::configure().compile_protos_with_config(prost_config, &protos, &[proto_root])?;
+    tonic_build::configure()
+        .build_transport(false)
+        .compile_protos_with_config(prost_config, &protos, &[proto_root])?;
 
     Ok(())
 }
