@@ -31,7 +31,7 @@ import {
 import { createRecipientPublicKeyResolver } from '@/db/vfsRecipientKeyResolver';
 import { createUserKeyProvider } from '@/db/vfsUserKeyProvider';
 import { ensureVfsKeys } from '@/hooks/vfs';
-import { getActiveOrganizationId } from '@/lib/orgStorage';
+import { getActiveOrganizationId, onOrgChange } from '@/lib/orgStorage';
 import { setVfsItemSyncRuntime } from '@/lib/vfsItemSyncWriter';
 import { rematerializeRemoteVfsStateIfNeeded } from '@/lib/vfsRematerialization';
 import { useAuth } from './AuthContext';
@@ -45,6 +45,32 @@ function normalizeApiPrefix(value: string): string {
   return withLeadingSlash.endsWith('/')
     ? withLeadingSlash.slice(0, -1)
     : withLeadingSlash;
+}
+
+function useFlushWhenOrganizationReady(input: {
+  orchestrator: VfsWriteOrchestrator | null;
+  isAuthenticated: boolean;
+}): void {
+  const { orchestrator, isAuthenticated } = input;
+
+  useEffect(() => {
+    if (!orchestrator || !isAuthenticated) {
+      return;
+    }
+
+    const flushWhenOrganizationReady = () => {
+      if (getActiveOrganizationId() === null) {
+        return;
+      }
+
+      void orchestrator.flushAll().catch((flushErr) => {
+        console.warn('Initial VFS orchestrator flush failed:', flushErr);
+      });
+    };
+
+    flushWhenOrganizationReady();
+    return onOrgChange(flushWhenOrganizationReady);
+  }, [orchestrator, isAuthenticated]);
 }
 
 interface VfsOrchestratorContextValue {
@@ -212,9 +238,6 @@ export function VfsOrchestratorProvider({
         orchestrator: newOrchestrator,
         secureFacade: facade
       });
-      void newOrchestrator.flushAll().catch((flushErr) => {
-        console.warn('Initial VFS orchestrator flush failed:', flushErr);
-      });
     } catch (err) {
       const initError =
         err instanceof Error ? err : new Error('Failed to initialize VFS');
@@ -235,6 +258,11 @@ export function VfsOrchestratorProvider({
   useEffect(() => {
     void initialize();
   }, [initialize]);
+
+  useFlushWhenOrganizationReady({
+    orchestrator,
+    isAuthenticated
+  });
 
   useEffect(() => {
     if (!orchestrator || !isAuthenticated) {

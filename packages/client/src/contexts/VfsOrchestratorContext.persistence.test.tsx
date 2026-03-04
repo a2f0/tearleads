@@ -1,5 +1,9 @@
 import { render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  clearActiveOrganizationId,
+  setActiveOrganizationId
+} from '@/lib/orgStorage';
 import { VfsOrchestratorProvider } from './VfsOrchestratorContext';
 
 const mockUser = {
@@ -19,6 +23,36 @@ const mockSaveVfsOrchestratorState = vi.fn();
 const mockRematerializeRemoteVfsStateIfNeeded = vi
   .fn()
   .mockResolvedValue(false);
+
+interface MockVfsWriteOrchestratorClass {
+  lastOptions?: {
+    loadState?: () => Promise<unknown>;
+    saveState?: (state: { crdt: null; blob: null }) => Promise<void>;
+    crdt?: {
+      onRematerializationRequired?: (input: {
+        userId: string;
+        clientId: string;
+        attempt: number;
+        error: {
+          name: string;
+          message: string;
+          code: string;
+          requestedCursor: string;
+          oldestAvailableCursor: string;
+        };
+      }) => Promise<null>;
+    };
+  };
+  lastInstance: {
+    hydrateFromPersistence: ReturnType<typeof vi.fn>;
+    flushAll: ReturnType<typeof vi.fn>;
+  } | null;
+}
+
+async function getMockVfsWriteOrchestratorClass(): Promise<MockVfsWriteOrchestratorClass> {
+  const apiClientModule = await import('@tearleads/api-client/clientEntry');
+  return apiClientModule.VfsWriteOrchestrator as MockVfsWriteOrchestratorClass;
+}
 
 vi.mock('@tearleads/api-client/clientEntry', async () => {
   const actual = await vi.importActual<
@@ -103,6 +137,7 @@ vi.mock('./AuthContext', () => ({
 describe('VfsOrchestratorContext persistence', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearActiveOrganizationId();
     mockUseAuth.mockReturnValue({
       user: mockUser,
       isAuthenticated: true
@@ -123,24 +158,16 @@ describe('VfsOrchestratorContext persistence', () => {
       expect(mockCreateFacade).toHaveBeenCalled();
     });
 
-    const apiClientModule = await import('@tearleads/api-client/clientEntry');
-    const MockVfsWriteOrchestrator = apiClientModule.VfsWriteOrchestrator as {
-      lastOptions?: {
-        loadState?: () => Promise<unknown>;
-      };
-      lastInstance: {
-        hydrateFromPersistence: ReturnType<typeof vi.fn>;
-      } | null;
-    };
+    const mockVfsWriteOrchestrator = await getMockVfsWriteOrchestratorClass();
 
     const hydrateFromPersistence =
-      MockVfsWriteOrchestrator.lastInstance?.hydrateFromPersistence;
+      mockVfsWriteOrchestrator.lastInstance?.hydrateFromPersistence;
     if (!hydrateFromPersistence) {
       throw new Error('Expected hydrateFromPersistence on orchestrator');
     }
     expect(hydrateFromPersistence).toHaveBeenCalledTimes(1);
 
-    const loadState = MockVfsWriteOrchestrator.lastOptions?.loadState;
+    const loadState = mockVfsWriteOrchestrator.lastOptions?.loadState;
     if (!loadState) {
       throw new Error('Expected loadState callback on orchestrator options');
     }
@@ -162,14 +189,9 @@ describe('VfsOrchestratorContext persistence', () => {
       expect(mockCreateFacade).toHaveBeenCalled();
     });
 
-    const apiClientModule = await import('@tearleads/api-client/clientEntry');
-    const MockVfsWriteOrchestrator = apiClientModule.VfsWriteOrchestrator as {
-      lastOptions?: {
-        saveState?: (state: { crdt: null; blob: null }) => Promise<void>;
-      };
-    };
+    const mockVfsWriteOrchestrator = await getMockVfsWriteOrchestratorClass();
 
-    const saveState = MockVfsWriteOrchestrator.lastOptions?.saveState;
+    const saveState = mockVfsWriteOrchestrator.lastOptions?.saveState;
     if (!saveState) {
       throw new Error('Expected saveState callback on orchestrator options');
     }
@@ -183,6 +205,7 @@ describe('VfsOrchestratorContext persistence', () => {
   });
 
   it('flushes orchestrator when browser returns online', async () => {
+    setActiveOrganizationId('org-1');
     render(
       <VfsOrchestratorProvider>
         <div>Test</div>
@@ -193,20 +216,43 @@ describe('VfsOrchestratorContext persistence', () => {
       expect(mockCreateFacade).toHaveBeenCalled();
     });
 
-    const apiClientModule = await import('@tearleads/api-client/clientEntry');
-    const MockVfsWriteOrchestrator = apiClientModule.VfsWriteOrchestrator as {
-      lastInstance: {
-        flushAll: ReturnType<typeof vi.fn>;
-      } | null;
-    };
-
-    const flushAll = MockVfsWriteOrchestrator.lastInstance?.flushAll;
+    const mockVfsWriteOrchestrator = await getMockVfsWriteOrchestratorClass();
+    const flushAll = mockVfsWriteOrchestrator.lastInstance?.flushAll;
     if (!flushAll) {
       throw new Error('Expected orchestrator instance flushAll');
     }
     flushAll.mockClear();
 
     window.dispatchEvent(new Event('online'));
+    await waitFor(() => {
+      expect(flushAll).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('waits for active organization before initial flush', async () => {
+    render(
+      <VfsOrchestratorProvider>
+        <div>Test</div>
+      </VfsOrchestratorProvider>
+    );
+
+    await waitFor(() => {
+      expect(mockCreateFacade).toHaveBeenCalled();
+    });
+
+    const mockVfsWriteOrchestrator = await getMockVfsWriteOrchestratorClass();
+    const flushAll = mockVfsWriteOrchestrator.lastInstance?.flushAll;
+    if (!flushAll) {
+      throw new Error('Expected orchestrator instance flushAll');
+    }
+    flushAll.mockClear();
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    expect(flushAll).not.toHaveBeenCalled();
+
+    setActiveOrganizationId('org-1');
     await waitFor(() => {
       expect(flushAll).toHaveBeenCalledTimes(1);
     });
@@ -223,11 +269,8 @@ describe('VfsOrchestratorContext persistence', () => {
       expect(mockCreateFacade).toHaveBeenCalled();
     });
 
-    const apiClientModule = await import('@tearleads/api-client/clientEntry');
-    const lastOptions = Reflect.get(
-      apiClientModule.VfsWriteOrchestrator,
-      'lastOptions'
-    );
+    const mockVfsWriteOrchestrator = await getMockVfsWriteOrchestratorClass();
+    const lastOptions = mockVfsWriteOrchestrator.lastOptions;
     const onRematerializationRequired =
       typeof lastOptions === 'object' &&
       lastOptions !== null &&

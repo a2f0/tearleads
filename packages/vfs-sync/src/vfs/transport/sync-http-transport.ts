@@ -23,6 +23,7 @@ type FetchImpl = typeof fetch;
 const CRDT_REMATERIALIZATION_REQUIRED_CODE = 'crdt_rematerialization_required';
 const CONNECT_ALREADY_EXISTS_CODE = 'already_exists';
 const JSON_CONTENT_TYPE = 'application/json';
+const ORGANIZATION_HEADER_NAME = 'X-Organization-Id';
 const VFS_CONNECT_BASE_PATH = '/connect/tearleads.v1.VfsService';
 const MAX_ORG_ID_LENGTH = 100;
 const ORG_ID_PATTERN = /^[a-zA-Z0-9-]+$/u;
@@ -67,15 +68,21 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     clientId: string;
     operations: VfsCrdtOperation[];
   }): Promise<VfsCrdtSyncPushResponse> {
-    const organizationId = this.resolveOrganizationIdForWrite();
+    const organizationId = this.resolveOrganizationId();
     const parsed = parseApiPushResponse(
-      await this.requestConnectJson('PushCrdtOps', {
-        organizationId,
-        json: JSON.stringify({
-          clientId: input.clientId,
-          operations: input.operations
-        })
-      })
+      await this.requestConnectJson(
+        'PushCrdtOps',
+        {
+          organizationId: organizationId ?? '',
+          json: JSON.stringify({
+            clientId: input.clientId,
+            operations: input.operations
+          })
+        },
+        {
+          organizationId
+        }
+      )
     );
     return {
       results: parsed.results
@@ -120,14 +127,21 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     cursor: VfsSyncCursor;
     lastReconciledWriteIds: VfsCrdtSyncReconcileResponse['lastReconciledWriteIds'];
   }): Promise<VfsCrdtSyncReconcileResponse> {
+    const organizationId = this.resolveOrganizationId();
     const parsed = parseApiReconcileResponse(
-      await this.requestConnectJson('ReconcileCrdt', {
-        json: JSON.stringify({
-          clientId: input.clientId,
-          cursor: encodeVfsSyncCursor(input.cursor),
-          lastReconciledWriteIds: input.lastReconciledWriteIds
-        })
-      })
+      await this.requestConnectJson(
+        'ReconcileCrdt',
+        {
+          json: JSON.stringify({
+            clientId: input.clientId,
+            cursor: encodeVfsSyncCursor(input.cursor),
+            lastReconciledWriteIds: input.lastReconciledWriteIds
+          })
+        },
+        {
+          organizationId
+        }
+      )
     );
 
     if (parsed.clientId !== input.clientId) {
@@ -160,18 +174,24 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     pull: VfsCrdtSyncPullResponse;
     reconcile: VfsCrdtSyncReconcileResponse;
   }> {
-    const organizationId = this.resolveOrganizationIdForWrite();
-    const parsedSession = await this.requestConnectJson('RunCrdtSession', {
-      organizationId,
-      json: JSON.stringify({
-        clientId: input.clientId,
-        cursor: encodeVfsSyncCursor(input.cursor),
-        limit: input.limit,
-        operations: input.operations,
-        lastReconciledWriteIds: input.lastReconciledWriteIds,
-        rootId: input.rootId ?? null
-      })
-    });
+    const organizationId = this.resolveOrganizationId();
+    const parsedSession = await this.requestConnectJson(
+      'RunCrdtSession',
+      {
+        organizationId: organizationId ?? '',
+        json: JSON.stringify({
+          clientId: input.clientId,
+          cursor: encodeVfsSyncCursor(input.cursor),
+          limit: input.limit,
+          operations: input.operations,
+          lastReconciledWriteIds: input.lastReconciledWriteIds,
+          rootId: input.rootId ?? null
+        })
+      },
+      {
+        organizationId
+      }
+    );
 
     if (
       !isPlainRecord(parsedSession) ||
@@ -219,10 +239,13 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
 
   private async requestConnectJson(
     methodName: string,
-    body: Record<string, unknown>
+    body: Record<string, unknown>,
+    options?: {
+      organizationId?: string | null;
+    }
   ): Promise<unknown> {
     const requestUrl = this.buildUrl(methodName);
-    const headers = await this.buildHeaders();
+    const headers = await this.buildHeaders(options?.organizationId);
 
     const response = await this.fetchImpl(requestUrl, {
       method: 'POST',
@@ -255,11 +278,11 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     return parseConnectJsonEnvelopeBody(parsedBody);
   }
 
-  private resolveOrganizationIdForWrite(): string {
+  private resolveOrganizationId(): string | null {
     const dynamicOrganizationId = this.getOrganizationId
       ? normalizeOrganizationId(this.getOrganizationId())
       : null;
-    return dynamicOrganizationId ?? this.organizationId ?? '';
+    return dynamicOrganizationId ?? this.organizationId;
   }
 
   private async parseJsonBody(response: Response): Promise<unknown> {
@@ -280,7 +303,9 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     return this.baseUrl.length > 0 ? `${this.baseUrl}${pathname}` : pathname;
   }
 
-  private async buildHeaders(): Promise<Headers> {
+  private async buildHeaders(
+    organizationIdOverride?: string | null
+  ): Promise<Headers> {
     const headers = new Headers();
     headers.set('Accept', JSON_CONTENT_TYPE);
     headers.set('Content-Type', JSON_CONTENT_TYPE);
@@ -293,6 +318,15 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
       const token = await this.getAuthToken();
       if (typeof token === 'string' && token.trim().length > 0) {
         headers.set('Authorization', `Bearer ${token}`);
+      }
+    }
+
+    if (organizationIdOverride !== undefined) {
+      const resolvedOrganizationId = normalizeOrganizationId(
+        organizationIdOverride
+      );
+      if (resolvedOrganizationId && !headers.has(ORGANIZATION_HEADER_NAME)) {
+        headers.set(ORGANIZATION_HEADER_NAME, resolvedOrganizationId);
       }
     }
 
