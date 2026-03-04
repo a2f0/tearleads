@@ -1,11 +1,13 @@
 //! API v2 router and handlers.
 
+mod admin_service;
 mod ping;
 
 use axum::{Router, routing::get};
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 
+pub use admin_service::AdminServiceHandler;
 pub use ping::PingResponse;
 use ping::ping;
 
