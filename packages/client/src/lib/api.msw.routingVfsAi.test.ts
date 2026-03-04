@@ -8,6 +8,10 @@ import {
 } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_TOKEN_KEY } from '@/lib/authStorage';
+import {
+  installApiV2WasmBindingsTestOverride,
+  removeApiV2WasmBindingsTestOverride
+} from '@/test/apiV2WasmBindingsTestOverride';
 import { getSharedTestContext } from '@/test/testContext';
 
 // Mock analytics to capture logged event names
@@ -54,25 +58,7 @@ let seededUser: SeededUser;
 describe('api with msw', () => {
   beforeEach(async () => {
     vi.resetModules();
-    const mockedApiV2ClientWasmModule = {
-      normalizeConnectBaseUrl: (apiBaseUrl: string) => `${apiBaseUrl}/connect`,
-      adminGetPostgresInfoPath: () =>
-        '/tearleads.v1.AdminService/GetPostgresInfo',
-      adminGetTablesPath: () => '/tearleads.v1.AdminService/GetTables',
-      adminGetColumnsPath: () => '/tearleads.v1.AdminService/GetColumns',
-      adminGetRedisKeysPath: () => '/tearleads.v1.AdminService/GetRedisKeys',
-      adminGetRedisValuePath: () => '/tearleads.v1.AdminService/GetRedisValue',
-      buildRequestHeaders: (bearerToken?: string | null) => {
-        const headers: Record<string, string> = {};
-        if (typeof bearerToken === 'string' && bearerToken.length > 0) {
-          headers.authorization = bearerToken;
-        }
-        return { headers };
-      }
-    };
-    Reflect.set(globalThis, '__tearleadsImportApiV2ClientWasmModule', () =>
-      Promise.resolve(mockedApiV2ClientWasmModule)
-    );
+    installApiV2WasmBindingsTestOverride();
     vi.clearAllMocks();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
@@ -85,10 +71,7 @@ describe('api with msw', () => {
   });
 
   afterEach(async () => {
-    Reflect.deleteProperty(
-      globalThis,
-      '__tearleadsImportApiV2ClientWasmModule'
-    );
+    removeApiV2WasmBindingsTestOverride();
     const { clearActiveOrganizationId } = await import('@/lib/orgStorage');
     clearActiveOrganizationId();
     vi.unstubAllEnvs();
