@@ -321,12 +321,13 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
       }
     }
 
-    const resolvedOrganizationId =
-      organizationIdOverride === undefined
-        ? this.resolveOrganizationId()
-        : normalizeOrganizationId(organizationIdOverride);
-    if (resolvedOrganizationId && !headers.has(ORGANIZATION_HEADER_NAME)) {
-      headers.set(ORGANIZATION_HEADER_NAME, resolvedOrganizationId);
+    if (organizationIdOverride !== undefined) {
+      const resolvedOrganizationId = normalizeOrganizationId(
+        organizationIdOverride
+      );
+      if (resolvedOrganizationId && !headers.has(ORGANIZATION_HEADER_NAME)) {
+        headers.set(ORGANIZATION_HEADER_NAME, resolvedOrganizationId);
+      }
     }
 
     return headers;

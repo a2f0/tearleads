@@ -229,6 +229,8 @@ describe('VfsHttpCrdtSyncTransport', () => {
     );
     expect(requestBody['limit']).toBe(25);
     expect(requestBody['cursor']).toBe(encodeVfsSyncCursor(cursor));
+    const requestHeaders = new Headers(requestInit?.headers);
+    expect(requestHeaders.get('X-Organization-Id')).toBeNull();
   });
 
   it('reconciles cursor/write ids through Connect CRDT endpoint', async () => {
