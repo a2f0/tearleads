@@ -3,6 +3,7 @@ export {
   AttachmentInput,
   AttachmentList,
   ComposeDialog,
+  EmailBodyView,
   EmailWindow,
   EmailWindowMenuBar,
   type ViewMode
@@ -15,6 +16,7 @@ export {
   type DropdownMenuItemProps,
   type DropdownMenuProps,
   type DropdownMenuSeparatorProps,
+  type EmailBodyOperations,
   type EmailContactEmail,
   type EmailContactOperations,
   type EmailContextValue,
@@ -26,20 +28,33 @@ export {
   type RefreshButtonProps,
   type SaveDraftInput,
   useEmailApi,
+  useEmailBodyOperations,
   useEmailContactOperations,
   useEmailContext,
   useEmailFolderOperations,
   useEmailUI,
+  useHasEmailBodyOperations,
   useHasEmailContactOperations,
   useHasEmailFolderOperations,
   type WindowOptionsMenuItemProps
 } from './context';
 
 // Hooks
-export { useCompose, useDrafts, useEmailFolders, useEmails } from './hooks';
+export {
+  useCompose,
+  useDrafts,
+  useEmailBody,
+  useEmailFolders,
+  useEmails
+} from './hooks';
 
 // Lib
-export { type EmailItem, formatEmailDate, formatEmailSize } from './lib';
+export {
+  type EmailItem,
+  formatEmailDate,
+  formatEmailSize,
+  parseMimeMessage
+} from './lib';
 
 // Pages
 export { Email } from './pages';
@@ -62,6 +77,8 @@ export {
   canRenameFolder,
   type DraftEmail,
   type DraftListItem,
+  type EmailAttachmentPart,
+  type EmailBodyViewMode,
   type EmailFolder,
   type EmailFolderType,
   type EmailFolderWithChildren,
@@ -70,6 +87,7 @@ export {
   initialComposeState,
   isSystemFolder,
   isValidEmail,
+  type ParsedEmailBody,
   parseEmailAddresses,
   SYSTEM_FOLDER_NAMES,
   SYSTEM_FOLDER_TYPES,

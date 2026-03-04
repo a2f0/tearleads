@@ -4,10 +4,12 @@ import {
 } from '@tearleads/window-manager';
 import { Loader2, Mail } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useEmailBody } from '../hooks/useEmailBody.js';
 import { formatEmailDate, formatEmailSize } from '../lib';
 import type { EmailItem } from '../lib/email.js';
 import { ComposeDialog } from './compose/ComposeDialog.js';
 import type { ViewMode } from './EmailWindowMenuBar';
+import { EmailBodyView } from './emailBody/EmailBodyView.js';
 
 export interface ComposeOpenRequest {
   to?: string[];
@@ -55,6 +57,14 @@ export function EmailWindowContent({
   onSelectEmail,
   viewMode
 }: EmailWindowContentProps) {
+  const {
+    body: emailBody,
+    loading: bodyLoading,
+    error: bodyError,
+    viewMode: bodyViewMode,
+    setViewMode: setBodyViewMode
+  } = useEmailBody(selectedEmailId);
+
   if (isDatabaseLoading) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -112,10 +122,14 @@ export function EmailWindowContent({
             {formatEmailSize(selectedEmail.size)}
           </p>
         </div>
-        <div className="flex-1 overflow-auto p-3">
-          <p className="text-muted-foreground text-sm italic">
-            Email body parsing coming soon...
-          </p>
+        <div className="flex-1 overflow-auto">
+          <EmailBodyView
+            body={emailBody}
+            loading={bodyLoading}
+            error={bodyError}
+            viewMode={bodyViewMode}
+            onViewModeChange={setBodyViewMode}
+          />
         </div>
       </div>
     );
