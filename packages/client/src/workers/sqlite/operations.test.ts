@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { SQLiteDatabase } from './types';
 import { executeMany } from './operations';
+import type { SQLiteDatabase } from './types';
 
 interface MockDatabaseOptions {
   throwOnSql?: string;
@@ -36,7 +36,7 @@ class MockDatabase implements SQLiteDatabase {
           callback?: (row: Record<string, unknown>) => boolean | undefined;
           returnValue?: 'resultRows';
         }
-  ): unknown[][] | void {
+  ): unknown[][] | undefined {
     const sql = typeof input === 'string' ? input : input.sql;
     this.calls.push(sql);
     if (this.throwOnSql && sql === this.throwOnSql) {
