@@ -7,7 +7,6 @@ mod ping;
 
 use axum::{Router, routing::get};
 use tearleads_api_v2_contracts::tearleads::v2::admin_service_server::AdminServiceServer;
-use tonic::body::boxed;
 use tower::ServiceExt;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
@@ -38,8 +37,12 @@ fn app_with_harness_flag(origins: &str, enable_admin_harness: bool) -> Router {
 
     if enable_admin_harness {
         let admin_handler = admin_harness::create_admin_harness_handler();
-        let admin_service = tonic_web::enable(AdminServiceServer::new(admin_handler))
-            .map_request(|request: axum::http::Request<axum::body::Body>| request.map(boxed));
+        let admin_service = tower::ServiceBuilder::new()
+            .layer(tonic_web::GrpcWebLayer::new())
+            .service(AdminServiceServer::new(admin_handler))
+            .map_request(|request: axum::http::Request<axum::body::Body>| {
+                request.map(tonic::body::Body::new)
+            });
         return router.nest_service("/connect", admin_service);
     }
 
