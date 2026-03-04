@@ -30,7 +30,7 @@ describe('api adminV2 with msw runtime harness', () => {
     vi.stubEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
     installApiV2WasmBindingsOverride();
-    localStorage.setItem(AUTH_TOKEN_KEY, 'Bearer test-admin-token');
+    localStorage.setItem(AUTH_TOKEN_KEY, 'Bearer header.payload.signature');
   });
 
   it('routes wave 1A admin reads through v2 service paths', async () => {

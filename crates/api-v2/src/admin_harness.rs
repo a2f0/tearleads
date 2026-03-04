@@ -15,6 +15,41 @@ pub(crate) struct AuthorizationHeaderAdminAuthorizer;
 
 impl AuthorizationHeaderAdminAuthorizer {
     const AUTHORIZATION_HEADER: &'static str = "authorization";
+
+    fn unauthenticated_error(operation: AdminOperation, message: &str) -> AdminAuthError {
+        AdminAuthError::new(AdminAuthErrorKind::Unauthenticated, {
+            format!("{message} for {:?}", operation)
+        })
+    }
+
+    fn validate_bearer_token(
+        operation: AdminOperation,
+        authorization: &str,
+    ) -> Result<(), AdminAuthError> {
+        let bearer_token = authorization
+            .trim()
+            .strip_prefix("Bearer ")
+            .ok_or_else(|| {
+                Self::unauthenticated_error(operation, "authorization must use Bearer token")
+            })?;
+
+        if bearer_token.is_empty() {
+            return Err(Self::unauthenticated_error(
+                operation,
+                "bearer token must not be blank",
+            ));
+        }
+
+        let segments: Vec<&str> = bearer_token.split('.').collect();
+        if segments.len() != 3 || segments.iter().any(|segment| segment.is_empty()) {
+            return Err(Self::unauthenticated_error(
+                operation,
+                "bearer token must be jwt-like",
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 impl AdminRequestAuthorizer for AuthorizationHeaderAdminAuthorizer {
@@ -39,18 +74,7 @@ impl AdminRequestAuthorizer for AuthorizationHeaderAdminAuthorizer {
                 )
             })?;
 
-        if authorization.trim().is_empty() {
-            return Err(AdminAuthError::new(
-                AdminAuthErrorKind::Unauthenticated,
-                format!(
-                    "{} must not be blank for {:?}",
-                    Self::AUTHORIZATION_HEADER,
-                    operation
-                ),
-            ));
-        }
-
-        Ok(())
+        Self::validate_bearer_token(operation, authorization)
     }
 }
 
@@ -201,7 +225,7 @@ mod tests {
     };
 
     #[test]
-    fn authorizer_rejects_missing_blank_and_non_utf8_authorization() {
+    fn authorizer_rejects_missing_blank_non_utf8_and_non_jwt_authorization() {
         let authorizer = AuthorizationHeaderAdminAuthorizer;
 
         let missing = authorizer.authorize_admin_operation(
@@ -213,17 +237,30 @@ mod tests {
         assert_eq!(missing_status.code(), Code::Unauthenticated);
         assert!(missing_status.message().contains("missing authorization"));
 
-        let mut blank_metadata = tonic::metadata::MetadataMap::new();
-        blank_metadata.insert(
-            "authorization",
-            tonic::metadata::MetadataValue::from_static("   "),
-        );
-        let blank = authorizer
-            .authorize_admin_operation(crate::AdminOperation::GetTables, &blank_metadata)
-            .expect_err("blank auth header should fail");
+        let blank = AuthorizationHeaderAdminAuthorizer::validate_bearer_token(
+            crate::AdminOperation::GetTables,
+            "Bearer ",
+        )
+        .expect_err("blank auth header should fail");
         let blank_status = map_admin_auth_error(blank);
         assert_eq!(blank_status.code(), Code::Unauthenticated);
-        assert!(blank_status.message().contains("must not be blank"));
+        assert!(
+            blank_status
+                .message()
+                .contains("authorization must use Bearer token")
+        );
+
+        let mut malformed_metadata = tonic::metadata::MetadataMap::new();
+        malformed_metadata.insert(
+            "authorization",
+            tonic::metadata::MetadataValue::from_static("Bearer token"),
+        );
+        let malformed = authorizer
+            .authorize_admin_operation(crate::AdminOperation::GetTables, &malformed_metadata)
+            .expect_err("non-jwt bearer token should fail");
+        let malformed_status = map_admin_auth_error(malformed);
+        assert_eq!(malformed_status.code(), Code::Unauthenticated);
+        assert!(malformed_status.message().contains("jwt-like"));
 
         let mut invalid_metadata = tonic::metadata::MetadataMap::new();
         invalid_metadata.insert("authorization", parse_opaque_ascii_value(b"token\xfa"));
@@ -236,12 +273,12 @@ mod tests {
     }
 
     #[test]
-    fn authorizer_accepts_non_empty_authorization() {
+    fn authorizer_accepts_jwt_like_authorization() {
         let authorizer = AuthorizationHeaderAdminAuthorizer;
         let mut metadata = tonic::metadata::MetadataMap::new();
         metadata.insert(
             "authorization",
-            tonic::metadata::MetadataValue::from_static("Bearer token"),
+            tonic::metadata::MetadataValue::from_static("Bearer header.payload.signature"),
         );
 
         let result =
@@ -312,7 +349,7 @@ mod tests {
         let mut tables_request = Request::new(AdminGetTablesRequest {});
         tables_request.metadata_mut().insert(
             "authorization",
-            tonic::metadata::MetadataValue::from_static("Bearer token"),
+            tonic::metadata::MetadataValue::from_static("Bearer header.payload.signature"),
         );
         let tables_response = handler
             .get_tables(tables_request)
@@ -327,7 +364,7 @@ mod tests {
         });
         keys_request.metadata_mut().insert(
             "authorization",
-            tonic::metadata::MetadataValue::from_static("Bearer token"),
+            tonic::metadata::MetadataValue::from_static("Bearer header.payload.signature"),
         );
         let keys_response = handler
             .get_redis_keys(keys_request)
@@ -342,7 +379,7 @@ mod tests {
         });
         value_request.metadata_mut().insert(
             "authorization",
-            tonic::metadata::MetadataValue::from_static("Bearer token"),
+            tonic::metadata::MetadataValue::from_static("Bearer header.payload.signature"),
         );
         let value_response = handler
             .get_redis_value(value_request)

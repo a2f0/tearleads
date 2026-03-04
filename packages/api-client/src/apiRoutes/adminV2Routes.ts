@@ -19,8 +19,6 @@ import { getAuthHeaderValue } from '../authStorage';
 
 const MIN_SAFE_BIGINT = BigInt(Number.MIN_SAFE_INTEGER);
 const MAX_SAFE_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
-const ADMIN_ROLE_HEADER = 'x-tearleads-role';
-const ADMIN_ROLE_VALUE = 'admin';
 
 type AdminV2CallOptions = Pick<CallOptions, 'headers'>;
 
@@ -308,10 +306,7 @@ async function buildCallContext(
   });
   return {
     client,
-    callOptions: toCallOptions({
-      ...headers,
-      [ADMIN_ROLE_HEADER]: ADMIN_ROLE_VALUE
-    })
+    callOptions: toCallOptions(headers)
   };
 }
 

@@ -43,10 +43,10 @@ fn app_with_harness_flag(origins: &str, enable_admin_harness: bool) -> Router {
             .map_request(|request: axum::http::Request<axum::body::Body>| {
                 request.map(tonic::body::Body::new)
             });
-        return router.nest_service("/connect", admin_service);
+        router.nest_service("/connect", admin_service)
+    } else {
+        router
     }
-
-    router
 }
 
 fn cors_layer(origins: &str) -> CorsLayer {
@@ -106,7 +106,7 @@ mod tests {
             .uri("/connect/tearleads.v2.AdminService/GetTables")
             .header("content-type", "application/grpc-web+proto")
             .header("x-grpc-web", "1")
-            .header("authorization", "Bearer test-token")
+            .header("authorization", "Bearer header.payload.signature")
             .body(Body::empty())
             .expect("request should build");
 
@@ -121,7 +121,7 @@ mod tests {
             .uri("/connect/tearleads.v2.AdminService/GetTables")
             .header("content-type", "application/grpc-web+proto")
             .header("x-grpc-web", "1")
-            .header("authorization", "Bearer test-token")
+            .header("authorization", "Bearer header.payload.signature")
             .body(Body::empty())
             .expect("request should build");
         let with_harness_result = app_with_harness_flag("", true)

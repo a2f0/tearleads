@@ -129,8 +129,7 @@ describe('adminV2Routes', () => {
     expect(getPostgresInfo).toHaveBeenCalledTimes(1);
     expect(getPostgresInfo.mock.calls[0]?.[1]).toEqual({
       headers: {
-        authorization: 'Bearer token-123',
-        'x-tearleads-role': 'admin'
+        authorization: 'Bearer token-123'
       }
     });
     expect(logEvent).toHaveBeenCalledWith(
@@ -240,8 +239,7 @@ describe('adminV2Routes', () => {
       { schema: 'public', table: 'users' },
       {
         headers: {
-          authorization: 'Bearer token-123',
-          'x-tearleads-role': 'admin'
+          authorization: 'Bearer token-123'
         }
       }
     );
