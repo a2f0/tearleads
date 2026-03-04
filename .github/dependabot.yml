@@ -95,6 +95,14 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - dependencies
+    groups:
+      grpc-ecosystem:
+        patterns:
+          - 'tonic'
+          - 'tonic-build'
+          - 'prost'
+          - 'prost-build'
+          - 'prost-types'
 
   - package-ecosystem: docker
     directory: /packages/api
