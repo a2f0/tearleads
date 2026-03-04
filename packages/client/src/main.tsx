@@ -37,7 +37,7 @@ import { SSEProvider } from './sse';
 import { VideoProvider } from './video';
 import './index.css';
 
-const isElectronRuntime = Boolean(window.electron);
+const isElectronRuntime = typeof window.electron?.sqlite === 'object';
 
 // Check for service worker updates when tab gains focus
 if (!isElectronRuntime && 'serviceWorker' in navigator) {
