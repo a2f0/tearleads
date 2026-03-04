@@ -16,10 +16,16 @@ function resolveGlobalApiV2ClientWasmImporter(): ApiV2ClientWasmImporter | null 
   return candidate;
 }
 
+function canUseGlobalApiV2ClientWasmImporter(): boolean {
+  return !import.meta.env.PROD;
+}
+
 export async function importApiV2ClientWasmModule(): Promise<unknown> {
-  const globalImporter = resolveGlobalApiV2ClientWasmImporter();
-  if (globalImporter) {
-    return globalImporter();
+  if (canUseGlobalApiV2ClientWasmImporter()) {
+    const globalImporter = resolveGlobalApiV2ClientWasmImporter();
+    if (globalImporter) {
+      return globalImporter();
+    }
   }
   return import(/* @vite-ignore */ API_V2_CLIENT_WASM_MODULE_PATH);
 }
