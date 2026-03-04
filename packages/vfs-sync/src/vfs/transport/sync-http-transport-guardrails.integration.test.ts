@@ -11,6 +11,8 @@ import {
 import { encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
 import { createServerBackedFetch } from './sync-http-transport.integration-harness.js';
 
+const TEST_ORGANIZATION_ID = 'org-1';
+
 describe('VfsHttpCrdtSyncTransport integration guardrails', () => {
   it('fails closed when reconcile acknowledgement regresses cursor frontier', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
@@ -38,7 +40,8 @@ describe('VfsHttpCrdtSyncTransport integration guardrails', () => {
       'mobile',
       new VfsHttpCrdtSyncTransport({
         baseUrl: 'http://api.local',
-        fetchImpl: healthyFetch
+        fetchImpl: healthyFetch,
+        organizationId: TEST_ORGANIZATION_ID
       })
     );
     await seedClient.sync();
@@ -59,7 +62,8 @@ describe('VfsHttpCrdtSyncTransport integration guardrails', () => {
 
     const transport = new VfsHttpCrdtSyncTransport({
       baseUrl: 'http://api.local',
-      fetchImpl
+      fetchImpl,
+      organizationId: TEST_ORGANIZATION_ID
     });
 
     const client = new VfsBackgroundSyncClient('user-1', 'mobile', transport);
@@ -101,7 +105,8 @@ describe('VfsHttpCrdtSyncTransport integration guardrails', () => {
       'mobile',
       new VfsHttpCrdtSyncTransport({
         baseUrl: 'http://api.local',
-        fetchImpl
+        fetchImpl,
+        organizationId: TEST_ORGANIZATION_ID
       })
     );
     await seedClient.sync();
@@ -121,7 +126,8 @@ describe('VfsHttpCrdtSyncTransport integration guardrails', () => {
 
     const transport = new VfsHttpCrdtSyncTransport({
       baseUrl: 'http://api.local',
-      fetchImpl: regressedFetch
+      fetchImpl: regressedFetch,
+      organizationId: TEST_ORGANIZATION_ID
     });
 
     const client = new VfsBackgroundSyncClient('user-1', 'mobile', transport);
@@ -168,7 +174,8 @@ describe('VfsHttpCrdtSyncTransport integration guardrails', () => {
 
     const transport = new VfsHttpCrdtSyncTransport({
       baseUrl: 'http://api.local',
-      fetchImpl
+      fetchImpl,
+      organizationId: TEST_ORGANIZATION_ID
     });
 
     const client = new VfsBackgroundSyncClient('user-1', 'mobile', transport);

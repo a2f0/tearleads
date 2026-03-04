@@ -11,6 +11,8 @@ import {
 import { encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
 import { createServerBackedFetch } from './sync-http-transport.integration-harness.js';
 
+const TEST_ORGANIZATION_ID = 'org-1';
+
 describe('VfsHttpCrdtSyncTransport rematerialization integration', () => {
   it('recovers from compaction-window stale cursor via rematerialization callback', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
@@ -53,7 +55,8 @@ describe('VfsHttpCrdtSyncTransport rematerialization integration', () => {
 
     const transport = new VfsHttpCrdtSyncTransport({
       baseUrl: 'http://api.local',
-      fetchImpl
+      fetchImpl,
+      organizationId: TEST_ORGANIZATION_ID
     });
 
     const client = new VfsBackgroundSyncClient('user-1', 'mobile', transport, {
@@ -91,7 +94,8 @@ describe('VfsHttpCrdtSyncTransport rematerialization integration', () => {
 
     const transport = new VfsHttpCrdtSyncTransport({
       baseUrl: 'http://api.local',
-      fetchImpl
+      fetchImpl,
+      organizationId: TEST_ORGANIZATION_ID
     });
 
     const client = new VfsBackgroundSyncClient('user-1', 'mobile', transport, {

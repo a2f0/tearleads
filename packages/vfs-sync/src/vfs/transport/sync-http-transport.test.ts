@@ -10,14 +10,12 @@ async function readRequestJson(
   if (typeof init?.body === 'string') {
     return JSON.parse(init.body);
   }
-
   if (input instanceof Request) {
     const text = await input.clone().text();
     if (text.trim().length > 0) {
       return JSON.parse(text);
     }
   }
-
   throw new Error('expected request body to be JSON');
 }
 
@@ -41,7 +39,6 @@ function parseConnectEnvelopeBody(
   if (typeof encodedPayload !== 'string') {
     throw new Error(`expected ${fieldName}.json to be a string`);
   }
-
   return asRecord(JSON.parse(encodedPayload), `${fieldName}.json`);
 }
 
@@ -293,8 +290,13 @@ describe('VfsHttpCrdtSyncTransport', () => {
     );
 
     const requestInit = firstCall?.[1];
-    const decodedBody = parseConnectEnvelopeBody(
+    const requestBody = asRecord(
       await readRequestJson(requestUrl, requestInit),
+      'reconcile request'
+    );
+    expect(requestBody['organizationId']).toBe('org-1');
+    const decodedBody = parseConnectEnvelopeBody(
+      requestBody,
       'reconcile request'
     );
     const requestHeaders = new Headers(requestInit?.headers);

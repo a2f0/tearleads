@@ -92,6 +92,45 @@ describe('vfsDirectCrdtReconcile', () => {
     expect(queryMock).not.toHaveBeenCalled();
   });
 
+  it('forwards declared organization id to VFS auth claims', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          last_reconciled_at: new Date('2026-03-03T00:00:00.000Z'),
+          last_reconciled_change_id: 'change-2',
+          last_reconciled_write_ids: { replicaA: 7 }
+        }
+      ]
+    });
+    const inputCursor = encodeVfsSyncCursor({
+      changedAt: '2026-03-03T00:00:00.000Z',
+      changeId: 'change-1'
+    });
+
+    await reconcileCrdtDirect(
+      {
+        organizationId: 'org-1',
+        json: JSON.stringify({
+          clientId: 'desktop-1',
+          cursor: inputCursor,
+          lastReconciledWriteIds: { replicaA: 5 }
+        })
+      },
+      {
+        requestHeader: new Headers()
+      }
+    );
+
+    expect(requireVfsClaimsMock).toHaveBeenCalledWith(
+      '/vfs/crdt/reconcile',
+      expect.any(Headers),
+      {
+        requireDeclaredOrganization: true,
+        declaredOrganizationId: 'org-1'
+      }
+    );
+  });
+
   it('stores reconcile cursor state and returns encoded response', async () => {
     queryMock.mockResolvedValueOnce({
       rows: [

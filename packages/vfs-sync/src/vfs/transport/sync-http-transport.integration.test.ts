@@ -10,6 +10,8 @@ import {
 import { createServerBackedFetch } from './sync-http-transport.integration-harness.js';
 import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
 
+const TEST_ORGANIZATION_ID = 'org-1';
+
 describe('VfsHttpCrdtSyncTransport integration', () => {
   it('converges concurrent clients through HTTP transport', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
@@ -26,7 +28,8 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       'desktop',
       new VfsHttpCrdtSyncTransport({
         baseUrl: 'https://sync.local',
-        fetchImpl
+        fetchImpl,
+        organizationId: TEST_ORGANIZATION_ID
       }),
       { pullLimit: 2 }
     );
@@ -36,7 +39,8 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       'mobile',
       new VfsHttpCrdtSyncTransport({
         baseUrl: 'https://sync.local',
-        fetchImpl
+        fetchImpl,
+        organizationId: TEST_ORGANIZATION_ID
       }),
       { pullLimit: 1 }
     );
@@ -116,7 +120,8 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       'desktop',
       new VfsHttpCrdtSyncTransport({
         baseUrl: 'https://sync.local',
-        fetchImpl
+        fetchImpl,
+        organizationId: TEST_ORGANIZATION_ID
       }),
       { pullLimit: 2 }
     );
@@ -126,7 +131,8 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       'mobile',
       new VfsHttpCrdtSyncTransport({
         baseUrl: 'https://sync.local',
-        fetchImpl
+        fetchImpl,
+        organizationId: TEST_ORGANIZATION_ID
       }),
       { pullLimit: 1 }
     );
@@ -136,7 +142,8 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       'tablet',
       new VfsHttpCrdtSyncTransport({
         baseUrl: 'https://sync.local',
-        fetchImpl
+        fetchImpl,
+        organizationId: TEST_ORGANIZATION_ID
       }),
       { pullLimit: 3 }
     );
@@ -194,7 +201,8 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       'observer',
       new VfsHttpCrdtSyncTransport({
         baseUrl: 'https://sync.local',
-        fetchImpl
+        fetchImpl,
+        organizationId: TEST_ORGANIZATION_ID
       }),
       { pullLimit: 1 }
     );
@@ -268,7 +276,8 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       'desktop',
       new VfsHttpCrdtSyncTransport({
         baseUrl: 'https://sync.local',
-        fetchImpl: healthyFetch
+        fetchImpl: healthyFetch,
+        organizationId: TEST_ORGANIZATION_ID
       }),
       { pullLimit: 1 }
     );
@@ -306,7 +315,8 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       'desktop',
       new VfsHttpCrdtSyncTransport({
         baseUrl: 'https://sync.local',
-        fetchImpl: malformedPullFetch
+        fetchImpl: malformedPullFetch,
+        organizationId: TEST_ORGANIZATION_ID
       }),
       { pullLimit: 1 }
     );
@@ -327,7 +337,8 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       'desktop',
       new VfsHttpCrdtSyncTransport({
         baseUrl: 'https://sync.local',
-        fetchImpl: healthyFetch
+        fetchImpl: healthyFetch,
+        organizationId: TEST_ORGANIZATION_ID
       }),
       { pullLimit: 1 }
     );
@@ -387,7 +398,8 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       'desktop',
       new VfsHttpCrdtSyncTransport({
         baseUrl: 'https://sync.local',
-        fetchImpl: healthyFetch
+        fetchImpl: healthyFetch,
+        organizationId: TEST_ORGANIZATION_ID
       }),
       { pullLimit: 1 }
     );
@@ -417,7 +429,8 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       'desktop',
       new VfsHttpCrdtSyncTransport({
         baseUrl: 'https://sync.local',
-        fetchImpl: malformedPullFetch
+        fetchImpl: malformedPullFetch,
+        organizationId: TEST_ORGANIZATION_ID
       }),
       { pullLimit: 1 }
     );
@@ -438,7 +451,8 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       'desktop',
       new VfsHttpCrdtSyncTransport({
         baseUrl: 'https://sync.local',
-        fetchImpl: healthyFetch
+        fetchImpl: healthyFetch,
+        organizationId: TEST_ORGANIZATION_ID
       }),
       { pullLimit: 1 }
     );

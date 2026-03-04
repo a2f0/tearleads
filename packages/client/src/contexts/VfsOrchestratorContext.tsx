@@ -47,6 +47,11 @@ function normalizeApiPrefix(value: string): string {
     : withLeadingSlash;
 }
 
+function hasActiveOrganizationId(): boolean {
+  const organizationId = getActiveOrganizationId();
+  return typeof organizationId === 'string' && organizationId.trim().length > 0;
+}
+
 function useFlushWhenOrganizationReady(input: {
   orchestrator: VfsWriteOrchestrator | null;
   isAuthenticated: boolean;
@@ -59,7 +64,7 @@ function useFlushWhenOrganizationReady(input: {
     }
 
     const flushWhenOrganizationReady = () => {
-      if (getActiveOrganizationId() === null) {
+      if (!hasActiveOrganizationId()) {
         return;
       }
 

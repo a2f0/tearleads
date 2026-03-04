@@ -82,7 +82,7 @@ export const vfsConnectService = {
     context: { requestHeader: Headers }
   ) => pushCrdtOpsDirect(request, context),
   reconcileCrdt: async (
-    request: { json: string },
+    request: { organizationId?: string; json: string },
     context: { requestHeader: Headers }
   ) => reconcileCrdtDirect(request, context),
   reconcileSync: async (

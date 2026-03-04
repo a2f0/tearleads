@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
 import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
 
+const TEST_ORGANIZATION_ID = 'org-1';
+
 function connectJsonEnvelope(payload: unknown): string {
   return JSON.stringify({ json: JSON.stringify(payload) });
 }
@@ -18,7 +20,8 @@ describe('VfsHttpCrdtSyncTransport guardrails', () => {
 
     const transport = new VfsHttpCrdtSyncTransport({
       baseUrl: 'https://sync.example.com',
-      fetchImpl: fetchMock
+      fetchImpl: fetchMock,
+      organizationId: TEST_ORGANIZATION_ID
     });
 
     await expect(
@@ -51,7 +54,8 @@ describe('VfsHttpCrdtSyncTransport guardrails', () => {
 
     const transport = new VfsHttpCrdtSyncTransport({
       baseUrl: 'https://sync.example.com',
-      fetchImpl: fetchMock
+      fetchImpl: fetchMock,
+      organizationId: TEST_ORGANIZATION_ID
     });
 
     await expect(
@@ -86,7 +90,8 @@ describe('VfsHttpCrdtSyncTransport guardrails', () => {
 
     const transport = new VfsHttpCrdtSyncTransport({
       baseUrl: 'https://sync.example.com',
-      fetchImpl: fetchMock
+      fetchImpl: fetchMock,
+      organizationId: TEST_ORGANIZATION_ID
     });
 
     await expect(
@@ -121,7 +126,8 @@ describe('VfsHttpCrdtSyncTransport guardrails', () => {
 
     const transport = new VfsHttpCrdtSyncTransport({
       baseUrl: 'https://sync.example.com',
-      fetchImpl: fetchMock
+      fetchImpl: fetchMock,
+      organizationId: TEST_ORGANIZATION_ID
     });
 
     await expect(
