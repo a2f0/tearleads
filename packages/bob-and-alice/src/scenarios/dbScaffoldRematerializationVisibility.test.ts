@@ -94,7 +94,7 @@ function readUpsertName(
   const row = items.find(
     (item) => item.itemId === itemId && item.changeType === 'upsert'
   );
-  return row?.encryptedName;
+  return typeof row?.encryptedName === 'string' ? row.encryptedName : undefined;
 }
 
 describe('DB scaffolding rematerialization visibility', () => {
