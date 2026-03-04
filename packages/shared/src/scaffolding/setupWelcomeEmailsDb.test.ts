@@ -1,4 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
+import {
+  combinePublicKey,
+  generateKeyPair,
+  serializePublicKey
+} from '../crypto/asymmetric.js';
 import type { DbQueryClient } from './setupBobNotesShareForAliceDb.js';
 import { setupWelcomeEmailsDb } from './setupWelcomeEmailsDb.js';
 
@@ -186,5 +191,77 @@ describe('setupWelcomeEmailsDb', () => {
 
     expect(calls.some((call) => call.text === 'ROLLBACK')).toBe(true);
     expect(calls.some((call) => call.text === 'COMMIT')).toBe(false);
+  });
+
+  it('uses scaffold-unwrapped session keys by default even when owner key exists', async () => {
+    const ownerKeyPair = generateKeyPair();
+    const ownerPublicKey = combinePublicKey(
+      serializePublicKey({
+        x25519PublicKey: ownerKeyPair.x25519PublicKey,
+        mlKemPublicKey: ownerKeyPair.mlKemPublicKey
+      })
+    );
+    const calls: Call[] = [];
+    const client: DbQueryClient = {
+      query: vi.fn(async (text: string, params?: readonly unknown[]) => {
+        calls.push({ text, params });
+        if (text.includes('FROM users WHERE email = $1')) {
+          const email = params?.[0];
+          if (email === 'bob@tearleads.com') {
+            return {
+              rows: [
+                {
+                  id: 'bob-user-id',
+                  personal_organization_id: 'bob-org-id'
+                }
+              ]
+            };
+          }
+          if (email === 'alice@tearleads.com') {
+            return {
+              rows: [
+                {
+                  id: 'alice-user-id',
+                  personal_organization_id: 'alice-org-id'
+                }
+              ]
+            };
+          }
+        }
+        if (text.includes('FROM user_keys')) {
+          return {
+            rows: [{ public_encryption_key: ownerPublicKey }]
+          };
+        }
+        return { rows: [] };
+      })
+    };
+
+    await setupWelcomeEmailsDb({
+      client,
+      bobEmail: 'bob@tearleads.com',
+      aliceEmail: 'alice@tearleads.com',
+      hasOrganizationIdColumn: true,
+      idFactory: (() => {
+        const ids = ['id-1', 'id-2', 'id-3', 'id-4', 'id-5', 'id-6'];
+        let index = 0;
+        return () => ids[index++] ?? `id-${String(index)}`;
+      })(),
+      now: () => new Date('2026-03-01T00:00:00.000Z')
+    });
+
+    const inboxFolderInsert = calls.find(
+      (call) =>
+        call.text.includes('INSERT INTO vfs_registry') &&
+        call.params?.[1] === 'emailFolder'
+    );
+    const inboxSessionKey = inboxFolderInsert?.params?.[4];
+    expect(typeof inboxSessionKey).toBe('string');
+    expect(String(inboxSessionKey).startsWith('scaffold-unwrapped:')).toBe(
+      true
+    );
+    expect(calls.some((call) => call.text.includes('FROM user_keys'))).toBe(
+      false
+    );
   });
 });

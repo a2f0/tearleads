@@ -35,6 +35,17 @@ const WELCOME_SUBJECT = 'Welcome to Tearleads';
 const WELCOME_FROM = 'system@tearleads.com';
 const WELCOME_BODY_PATH = 'scaffolding://welcome-email-body';
 
+function defaultEncryptVfsName(input: {
+  client: DbQueryClient;
+  ownerUserId: string;
+  plaintextName: string;
+}): Promise<EncryptScaffoldVfsNameResult> {
+  return encryptScaffoldVfsName({
+    ...input,
+    allowOwnerWrappedSessionKey: false
+  });
+}
+
 function encodeBase64(value: string): string {
   return Buffer.from(value, 'utf8').toString('base64');
 }
@@ -225,7 +236,7 @@ export async function setupWelcomeEmailsDb(
 ): Promise<SetupWelcomeEmailsDbResult> {
   const idFactory = input.idFactory ?? randomUUID;
   const now = input.now ?? (() => new Date());
-  const encryptVfsName = input.encryptVfsName ?? encryptScaffoldVfsName;
+  const encryptVfsName = input.encryptVfsName ?? defaultEncryptVfsName;
   const nowIso = now().toISOString();
 
   await input.client.query('BEGIN');

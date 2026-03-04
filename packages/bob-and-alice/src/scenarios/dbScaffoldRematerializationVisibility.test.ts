@@ -4,6 +4,11 @@ import type {
   VfsSyncItem,
   VfsSyncResponse
 } from '@tearleads/shared';
+import {
+  combinePublicKey,
+  generateKeyPair,
+  serializePublicKey
+} from '@tearleads/shared';
 import { setupBobNotesShareForAliceDb } from '@tearleads/shared/scaffolding';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
@@ -72,6 +77,26 @@ async function fetchAllCrdtItems(
   return all;
 }
 
+function buildPublicEncryptionKey(): string {
+  const keyPair = generateKeyPair();
+  return combinePublicKey(
+    serializePublicKey({
+      x25519PublicKey: keyPair.x25519PublicKey,
+      mlKemPublicKey: keyPair.mlKemPublicKey
+    })
+  );
+}
+
+function readUpsertName(
+  items: VfsSyncItem[],
+  itemId: string
+): string | undefined {
+  const row = items.find(
+    (item) => item.itemId === itemId && item.changeType === 'upsert'
+  );
+  return row?.encryptedName;
+}
+
 describe('DB scaffolding rematerialization visibility', () => {
   let harness: ApiScenarioHarness | null = null;
 
@@ -90,14 +115,40 @@ describe('DB scaffolding rematerialization visibility', () => {
 
     const bob = harness.actor('bob');
     const alice = harness.actor('alice');
+    const folderName = 'Notes shared with Alice';
+    const noteName = 'Note for Alice - From Bob';
 
     const client = await harness.ctx.pool.connect();
     let seeded: Awaited<ReturnType<typeof setupBobNotesShareForAliceDb>>;
     try {
+      const bobPublicKey = buildPublicEncryptionKey();
+      await client.query(
+        `INSERT INTO user_keys (
+           user_id,
+           public_encryption_key,
+           public_signing_key,
+           encrypted_private_keys,
+           argon2_salt,
+           created_at
+         )
+         VALUES ($1, $2, $3, $4, $5, NOW())
+         ON CONFLICT (user_id) DO UPDATE SET
+           public_encryption_key = EXCLUDED.public_encryption_key`,
+        [
+          bob.user.userId,
+          bobPublicKey,
+          'seeded-signing-key',
+          'seeded-private-keys',
+          'seeded-argon2-salt'
+        ]
+      );
+
       seeded = await setupBobNotesShareForAliceDb({
         client,
         bobEmail: bob.user.email,
-        aliceEmail: alice.user.email
+        aliceEmail: alice.user.email,
+        folderName,
+        noteName
       });
     } finally {
       client.release();
@@ -127,6 +178,8 @@ describe('DB scaffolding rematerialization visibility', () => {
           item.objectType === 'note'
       )
     ).toBe(true);
+    expect(readUpsertName(bobSyncItems, seeded.folderId)).toBe(folderName);
+    expect(readUpsertName(bobSyncItems, seeded.noteId)).toBe(noteName);
     expect(
       bobCrdtItems.some(
         (item) => item.itemId === seeded.noteId && item.opType === 'item_upsert'
@@ -149,6 +202,8 @@ describe('DB scaffolding rematerialization visibility', () => {
           item.objectType === 'note'
       )
     ).toBe(true);
+    expect(readUpsertName(aliceSyncItems, seeded.folderId)).toBe(folderName);
+    expect(readUpsertName(aliceSyncItems, seeded.noteId)).toBe(noteName);
     expect(
       aliceCrdtItems.some(
         (item) =>
