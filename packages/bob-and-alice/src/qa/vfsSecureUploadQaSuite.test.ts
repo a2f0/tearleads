@@ -57,7 +57,7 @@ describe('vfsSecureUploadQaSuite', () => {
     );
 
     expect(checkCalls).toHaveLength(0);
-    expect(report.command).toBe('pnpm qaVfsSecureUploadTestEvidence');
+    expect(report.command).toBe('pnpm testVfsSecureUploadQaSuite');
     expect(report.candidateSha).toBe('sha-123');
     expect(report.checksRun).toBe(CHECKS.length);
     expect(report.skipped).toBe(CHECKS.length);
@@ -105,7 +105,7 @@ describe('vfsSecureUploadQaSuite', () => {
 
   it('renders markdown report with sign-off section', () => {
     const markdown = formatMarkdownReport({
-      command: 'pnpm qaVfsSecureUploadTestEvidence',
+      command: 'pnpm testVfsSecureUploadQaSuite',
       candidateSha: 'sha-md',
       startedAt: '2026-02-24T00:00:00.000Z',
       completedAt: '2026-02-24T00:00:01.000Z',

@@ -31,8 +31,6 @@
     "enforceTypeScriptIncrementalBuilds": "./scripts/checks/enforceTypeScriptIncrementalBuilds.ts",
     "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run && pnpm test:tuxedo",
     "test:sequential": "pnpm -r test && pnpm test:tuxedo",
-    "qaVfsSecureUploadTestSuite": "tsx packages/bob-and-alice/src/qa/runVfsSecureUploadQaSuite.ts",
-    "qaVfsSecureUploadTestEvidence": "tsx packages/bob-and-alice/src/qa/runVfsSecureUploadQaSuite.ts --continue-on-failure --report-json coverage/qa/vfsSecureUploadQaSuite.json --report-markdown coverage/qa/vfsSecureUploadQaSuite.md",
     "testVfsSecureUploadQaSuite": "pnpm --filter @tearleads/bob-and-alice test -- src/qa/vfsSecureUploadQaSuite.test.ts",
     "test:tuxedo": "sh ./tuxedo/tests/run.sh",
     "test:coverage": "sh ./tuxedo/tests/coverage.sh",
@@ -69,8 +67,6 @@
     "format": "biome format --write .",
     "generatePreenDocs": "./scripts/preen/generatePreenDocs.sh",
     "prepare": "husky",
-    "qaVfsCrdtRolloutTestSuite": "tsx packages/bob-and-alice/src/qa/runVfsCrdtRolloutQaSuite.ts",
-    "qaVfsCrdtRolloutTestEvidence": "tsx packages/bob-and-alice/src/qa/runVfsCrdtRolloutQaSuite.ts --continue-on-failure --report-json coverage/qa/vfsCrdtRolloutQaSuite.json --report-markdown coverage/qa/vfsCrdtRolloutQaSuite.md",
     "testVfsCrdtRolloutQaSuite": "pnpm --filter @tearleads/bob-and-alice test -- src/qa/vfsCrdtRolloutQaSuite.test.ts"
   },
   "repository": {

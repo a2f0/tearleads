@@ -1,6 +1,4 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
 
 export type Check = {
   id: string;
@@ -196,10 +194,7 @@ function buildReport(
   ).length;
 
   return {
-    command:
-      options.reportJsonPath || options.reportMarkdownPath
-        ? 'pnpm qaVfsSecureUploadTestEvidence'
-        : 'pnpm qaVfsSecureUploadTestSuite',
+    command: 'pnpm testVfsSecureUploadQaSuite',
     candidateSha,
     startedAt: startedAt.toISOString(),
     completedAt: completedAt.toISOString(),
@@ -259,12 +254,6 @@ export function formatMarkdownReport(report: QaSuiteReport): string {
   lines.push('');
 
   return lines.join('\n');
-}
-
-export function writeReportFile(pathValue: string, content: string): void {
-  const absolute = resolve(pathValue);
-  mkdirSync(dirname(absolute), { recursive: true });
-  writeFileSync(absolute, content, 'utf8');
 }
 
 type CheckExecutor = (check: Check) => Promise<CheckResult>;
