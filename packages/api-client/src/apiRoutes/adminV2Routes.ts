@@ -304,7 +304,10 @@ async function buildCallContext(
   const headers = await dependencies.buildHeaders({
     bearerToken: dependencies.getAuthHeaderValue()
   });
-  return { client, callOptions: toCallOptions(headers) };
+  return {
+    client,
+    callOptions: toCallOptions(headers)
+  };
 }
 
 async function runWithEvent<T>(

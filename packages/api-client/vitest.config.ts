@@ -8,7 +8,8 @@ export default mergeConfig(
     test: {
       environment: 'jsdom',
       globals: true,
-      hookTimeout: 30000,
+      // Rust harness bootstrap can exceed default hook timing in CI.
+      hookTimeout: 180000,
       setupFiles: ['./src/test/setup.ts'],
       include: ['src/**/*.test.{ts,tsx}'],
       exclude: ['node_modules', 'dist'],

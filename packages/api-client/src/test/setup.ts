@@ -1,4 +1,9 @@
-import { createTestContext, type TestContext } from '@tearleads/api-test-utils';
+import {
+  type ApiV2ServiceHarness,
+  createTestContext,
+  startApiV2ServiceHarness,
+  type TestContext
+} from '@tearleads/api-test-utils';
 import {
   configureForExpressPassthrough,
   resetMockApiServerState,
@@ -8,21 +13,51 @@ import { afterAll, afterEach, beforeAll } from 'vitest';
 import { setSharedTestContext } from './testContext';
 
 let testContext: TestContext | null = null;
+let apiV2Harness: ApiV2ServiceHarness | null = null;
+
+const API_V2_ADMIN_ROUTE_PATTERN = /^\/connect\/tearleads\.v2\.AdminService\//;
+
+function configurePassthroughRoutes(): void {
+  if (!testContext) {
+    return;
+  }
+
+  const routeOverrides =
+    apiV2Harness === null
+      ? []
+      : [
+          {
+            pathnamePattern: API_V2_ADMIN_ROUTE_PATTERN,
+            targetPort: apiV2Harness.port,
+            pathPrefix: ''
+          }
+        ];
+
+  configureForExpressPassthrough(
+    'http://localhost',
+    testContext.port,
+    '/v1',
+    routeOverrides
+  );
+}
 
 beforeAll(async () => {
-  testContext = await createTestContext(async () => {
-    const api = await import('@tearleads/api');
-    return { app: api.app, migrations: api.migrations };
-  });
+  [testContext, apiV2Harness] = await Promise.all([
+    createTestContext(async () => {
+      const api = await import('@tearleads/api');
+      return { app: api.app, migrations: api.migrations };
+    }),
+    startApiV2ServiceHarness()
+  ]);
   setSharedTestContext(testContext);
-  configureForExpressPassthrough('http://localhost', testContext.port);
+  configurePassthroughRoutes();
   server.listen({ onUnhandledRequest: 'warn' });
 });
 
 afterEach(async () => {
   server.resetHandlers();
   if (testContext) {
-    configureForExpressPassthrough('http://localhost', testContext.port);
+    configurePassthroughRoutes();
     await testContext.resetState();
   }
   resetMockApiServerState();
@@ -30,6 +65,8 @@ afterEach(async () => {
 
 afterAll(async () => {
   server.close();
+  await apiV2Harness?.stop();
+  apiV2Harness = null;
   await testContext?.teardown();
   testContext = null;
 });
