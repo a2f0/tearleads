@@ -1,8 +1,3 @@
-interface AdminGetColumnsRequest {
-  schema: string;
-  table: string;
-}
-
 export interface AdminGetRowsOptions {
   limit?: number;
   offset?: number;
