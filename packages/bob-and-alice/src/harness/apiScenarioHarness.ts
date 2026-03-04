@@ -60,7 +60,8 @@ export class ApiScenarioHarness {
           const connectInit = createConnectJsonPostInit(connectMapping.body);
           const connectHeaders = mergeHeaders(
             user.accessToken,
-            connectInit.headers
+            connectInit.headers,
+            user.organizationId
           );
           return fetch(`${baseUrl}${connectMapping.path}`, {
             ...connectInit,
@@ -70,7 +71,11 @@ export class ApiScenarioHarness {
 
         return fetch(`${baseUrl}${resolveDirectApiPath(path)}`, {
           ...init,
-          headers: mergeHeaders(user.accessToken, init?.headers)
+          headers: mergeHeaders(
+            user.accessToken,
+            init?.headers,
+            user.organizationId
+          )
         });
       };
 

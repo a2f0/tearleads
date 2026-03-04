@@ -82,12 +82,14 @@ describe('folder share descendant visibility', () => {
          id,
          object_type,
          owner_id,
+         organization_id,
          encrypted_session_key,
          encrypted_name,
          created_at
        )
-       VALUES ('__vfs_root__', 'folder', NULL, NULL, 'VFS Root', NOW())
-       ON CONFLICT (id) DO NOTHING`
+       VALUES ('__vfs_root__', 'folder', NULL, $1, NULL, 'VFS Root', NOW())
+       ON CONFLICT (id) DO NOTHING`,
+      [sharedOrgId]
     );
     await harness.ctx.pool.query(
       `INSERT INTO vfs_links (id, parent_id, child_id, wrapped_session_key, created_at)
