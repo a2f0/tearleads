@@ -5,10 +5,18 @@ const mocks = vi.hoisted(() => ({
   spawn: vi.fn(),
   createServer: vi.fn(),
   connect: vi.fn(),
-  delay: vi.fn()
+  delay: vi.fn(),
+  open: vi.fn(),
+  stat: vi.fn(),
+  unlink: vi.fn()
 }));
 
 vi.mock('node:child_process', () => ({ spawn: mocks.spawn }));
+vi.mock('node:fs/promises', () => ({
+  open: mocks.open,
+  stat: mocks.stat,
+  unlink: mocks.unlink
+}));
 vi.mock('node:http', () => ({ createServer: mocks.createServer }));
 vi.mock('node:net', () => ({ connect: mocks.connect }));
 vi.mock('node:timers/promises', () => ({ setTimeout: mocks.delay }));
@@ -76,6 +84,13 @@ async function loadModule() {
   return import('./apiV2ServiceHarness.js');
 }
 
+function createFileHandle() {
+  return {
+    writeFile: vi.fn(async () => undefined),
+    close: vi.fn(async () => undefined)
+  };
+}
+
 describe('startApiV2ServiceHarness', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -83,7 +98,13 @@ describe('startApiV2ServiceHarness', () => {
     mocks.createServer.mockReset();
     mocks.connect.mockReset();
     mocks.delay.mockReset();
+    mocks.open.mockReset();
+    mocks.stat.mockReset();
+    mocks.unlink.mockReset();
     mocks.delay.mockResolvedValue(undefined);
+    mocks.open.mockResolvedValue(createFileHandle());
+    mocks.stat.mockResolvedValue({ mtimeMs: Date.now() });
+    mocks.unlink.mockResolvedValue(undefined);
   });
 
   it('starts, retries readiness, and stops on SIGTERM', async () => {
@@ -199,5 +220,37 @@ describe('startApiV2ServiceHarness', () => {
     );
     expect(thrownError.message).toContain('tail-marker');
     expect(thrownError.message).not.toContain('start-marker');
+  });
+
+  it('removes stale startup lock and continues', async () => {
+    const process = new FakeProcess((signal, currentProcess) => {
+      if (signal === 'SIGTERM') {
+        queueMicrotask(() => {
+          currentProcess.exitCode = 0;
+          currentProcess.emit('exit', 0);
+        });
+      }
+    });
+    const lockExistsError = new Error('already exists');
+    Object.defineProperty(lockExistsError, 'code', { value: 'EEXIST' });
+    const staleMtimeMs = Date.now() - 400_000;
+
+    mocks.open
+      .mockRejectedValueOnce(lockExistsError)
+      .mockResolvedValueOnce(createFileHandle());
+    mocks.stat.mockResolvedValueOnce({ mtimeMs: staleMtimeMs });
+    mocks.createServer.mockReturnValue(new FakeServer(32004));
+    mocks.spawn.mockReturnValue(process);
+    mocks.connect.mockImplementation(() => {
+      const socket = new FakeSocket();
+      queueMicrotask(() => {
+        socket.emit('connect');
+      });
+      return socket;
+    });
+
+    const { startApiV2ServiceHarness } = await loadModule();
+    await startApiV2ServiceHarness();
+    expect(mocks.unlink).toHaveBeenCalled();
   });
 });
