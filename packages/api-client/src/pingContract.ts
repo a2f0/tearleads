@@ -7,7 +7,7 @@ interface PingWasmBindings {
   v2_ping_path: () => string;
 }
 
-let pingWasmBindingsPromise: Promise<PingWasmBindings | null> | null = null;
+let pingWasmBindingsPromise: Promise<PingWasmBindings> | null = null;
 
 function assertPingWasmBindings(
   module: unknown
