@@ -126,7 +126,7 @@ describe('api with msw', () => {
     expect(
       wasApiRequestMade(
         'POST',
-        '/v1/connect/tearleads.v1.AdminService/GetRedisDbSize'
+        '/v1/connect/tearleads.v2.AdminService/GetRedisDbSize'
       )
     ).toBe(true);
     expect(

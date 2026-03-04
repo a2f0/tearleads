@@ -310,7 +310,7 @@ describe('api with msw', () => {
       expect(
         wasApiRequestMade(
           'POST',
-          '/connect/tearleads.v1.AdminService/GetRedisKeys'
+          '/connect/tearleads.v2.AdminService/GetRedisKeys'
         )
       ).toBe(true);
     });
@@ -330,7 +330,7 @@ describe('api with msw', () => {
       expect(
         wasApiRequestMade(
           'POST',
-          '/connect/tearleads.v1.AdminService/GetRedisValue'
+          '/connect/tearleads.v2.AdminService/GetRedisValue'
         )
       ).toBe(true);
     });
@@ -364,7 +364,7 @@ describe('api with msw', () => {
       expect(
         wasApiRequestMade(
           'POST',
-          '/connect/tearleads.v1.AdminService/GetRedisDbSize'
+          '/connect/tearleads.v2.AdminService/GetRedisDbSize'
         )
       ).toBe(true);
     });
@@ -381,7 +381,7 @@ describe('api with msw', () => {
       expect(
         wasApiRequestMade(
           'POST',
-          '/connect/tearleads.v1.AdminService/GetPostgresInfo'
+          '/connect/tearleads.v2.AdminService/GetPostgresInfo'
         )
       ).toBe(true);
     });
@@ -398,7 +398,7 @@ describe('api with msw', () => {
       expect(
         wasApiRequestMade(
           'POST',
-          '/connect/tearleads.v1.AdminService/GetTables'
+          '/connect/tearleads.v2.AdminService/GetTables'
         )
       ).toBe(true);
     });

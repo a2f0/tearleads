@@ -388,9 +388,9 @@ describe('api with msw', () => {
 
     const postgresRowsRequests = getRequestsFor(
       'POST',
-      '/connect/tearleads.v1.AdminService/GetRows'
+      '/connect/tearleads.v2.AdminService/GetRows'
     );
-    expect(postgresRowsRequests).toHaveLength(2);
+    expect(postgresRowsRequests).toHaveLength(4);
 
     const aiUsageRequests = getRequestsFor('POST', AI_CONNECT_USAGE_PATH);
     expect(aiUsageRequests).toHaveLength(2);
@@ -419,8 +419,8 @@ describe('api with msw', () => {
 
     const redisKeysRequests = getRequestsFor(
       'POST',
-      '/connect/tearleads.v1.AdminService/GetRedisKeys'
+      '/connect/tearleads.v2.AdminService/GetRedisKeys'
     );
-    expect(redisKeysRequests).toHaveLength(2);
+    expect(redisKeysRequests).toHaveLength(4);
   });
 });
