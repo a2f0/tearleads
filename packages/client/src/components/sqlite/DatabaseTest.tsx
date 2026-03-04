@@ -54,7 +54,8 @@ export function DatabaseTest() {
   const [biometryType, setBiometryType] = useState<string | null>(null);
 
   const passwordDeferred =
-    instances.find((i) => i.id === currentInstanceId)?.passwordDeferred === true;
+    instances.find((i) => i.id === currentInstanceId)?.passwordDeferred ===
+    true;
 
   const platform = detectPlatform();
   const isMobile = platform === 'ios' || platform === 'android';
