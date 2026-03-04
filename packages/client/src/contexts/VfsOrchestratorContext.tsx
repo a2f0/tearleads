@@ -47,6 +47,32 @@ function normalizeApiPrefix(value: string): string {
     : withLeadingSlash;
 }
 
+function useFlushWhenOrganizationReady(input: {
+  orchestrator: VfsWriteOrchestrator | null;
+  isAuthenticated: boolean;
+}): void {
+  const { orchestrator, isAuthenticated } = input;
+
+  useEffect(() => {
+    if (!orchestrator || !isAuthenticated) {
+      return;
+    }
+
+    const flushWhenOrganizationReady = () => {
+      if (getActiveOrganizationId() === null) {
+        return;
+      }
+
+      void orchestrator.flushAll().catch((flushErr) => {
+        console.warn('Initial VFS orchestrator flush failed:', flushErr);
+      });
+    };
+
+    flushWhenOrganizationReady();
+    return onOrgChange(flushWhenOrganizationReady);
+  }, [orchestrator, isAuthenticated]);
+}
+
 interface VfsOrchestratorContextValue {
   /** The underlying orchestrator for queue/flush operations */
   orchestrator: VfsWriteOrchestrator | null;
@@ -233,24 +259,10 @@ export function VfsOrchestratorProvider({
     void initialize();
   }, [initialize]);
 
-  useEffect(() => {
-    if (!orchestrator || !isAuthenticated) {
-      return;
-    }
-
-    const flushWhenOrganizationReady = () => {
-      if (getActiveOrganizationId() === null) {
-        return;
-      }
-
-      void orchestrator.flushAll().catch((flushErr) => {
-        console.warn('Initial VFS orchestrator flush failed:', flushErr);
-      });
-    };
-
-    flushWhenOrganizationReady();
-    return onOrgChange(flushWhenOrganizationReady);
-  }, [orchestrator, isAuthenticated]);
+  useFlushWhenOrganizationReady({
+    orchestrator,
+    isAuthenticated
+  });
 
   useEffect(() => {
     if (!orchestrator || !isAuthenticated) {
