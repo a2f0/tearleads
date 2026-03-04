@@ -71,7 +71,11 @@ export class ApiScenarioHarness {
 
         return fetch(`${baseUrl}${resolveDirectApiPath(path)}`, {
           ...init,
-          headers: mergeHeaders(user.accessToken, init?.headers, user.organizationId)
+          headers: mergeHeaders(
+            user.accessToken,
+            init?.headers,
+            user.organizationId
+          )
         });
       };
 
