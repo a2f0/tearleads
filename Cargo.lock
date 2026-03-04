@@ -801,6 +801,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0bf256ce5efdfa370213c1dabab5935a12e49f2c58d15e9eac2870d3b4f27263"
 
 [[package]]
+name = "tearleads-api-domain-core"
+version = "0.1.0"
+
+[[package]]
 name = "tearleads-api-v2"
 version = "0.1.0"
 dependencies = [
@@ -824,6 +828,10 @@ dependencies = [
  "serde_json",
  "wasm-bindgen",
 ]
+
+[[package]]
+name = "tearleads-data-access-traits"
+version = "0.1.0"
 
 [[package]]
 name = "tearleads-mls-core-wasm"

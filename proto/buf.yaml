@@ -13,6 +13,7 @@ lint:
       - tearleads/v1/mls.proto
       - tearleads/v1/vfs.proto
       - tearleads/v1/vfs_shares.proto
+      - tearleads/v2/admin.proto
       - tearleads/v2/mls.proto
     RPC_RESPONSE_STANDARD_NAME:
       - tearleads/v1/admin.proto
@@ -20,6 +21,7 @@ lint:
       - tearleads/v1/mls.proto
       - tearleads/v1/vfs.proto
       - tearleads/v1/vfs_shares.proto
+      - tearleads/v2/admin.proto
       - tearleads/v2/mls.proto
 breaking:
   use:

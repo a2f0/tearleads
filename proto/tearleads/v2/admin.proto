@@ -1,0 +1,104 @@
+syntax = "proto3";
+
+package tearleads.v2;
+
+// Wave 1A admin read contracts used by the DAL-first migration track.
+service AdminService {
+  rpc GetPostgresInfo(AdminGetPostgresInfoRequest)
+      returns (AdminGetPostgresInfoResponse);
+  rpc GetTables(AdminGetTablesRequest) returns (AdminGetTablesResponse);
+  rpc GetColumns(AdminGetColumnsRequest) returns (AdminGetColumnsResponse);
+  rpc GetRedisKeys(AdminGetRedisKeysRequest) returns (AdminGetRedisKeysResponse);
+  rpc GetRedisValue(AdminGetRedisValueRequest)
+      returns (AdminGetRedisValueResponse);
+}
+
+message AdminGetPostgresInfoRequest {}
+
+message AdminGetPostgresInfoResponse {
+  AdminPostgresConnectionInfo info = 1;
+  optional string server_version = 2;
+}
+
+message AdminPostgresConnectionInfo {
+  optional string host = 1;
+  optional uint32 port = 2;
+  optional string database = 3;
+  optional string user = 4;
+}
+
+message AdminGetTablesRequest {}
+
+message AdminGetTablesResponse {
+  repeated AdminPostgresTableInfo tables = 1;
+}
+
+message AdminPostgresTableInfo {
+  string schema = 1;
+  string name = 2;
+  int64 row_count = 3;
+  int64 total_bytes = 4;
+  int64 table_bytes = 5;
+  int64 index_bytes = 6;
+}
+
+message AdminGetColumnsRequest {
+  string schema = 1;
+  string table = 2;
+}
+
+message AdminGetColumnsResponse {
+  repeated AdminPostgresColumnInfo columns = 1;
+}
+
+message AdminPostgresColumnInfo {
+  string name = 1;
+  string type = 2;
+  bool nullable = 3;
+  optional string default_value = 4;
+  uint32 ordinal_position = 5;
+}
+
+message AdminGetRedisKeysRequest {
+  string cursor = 1;
+  int32 limit = 2;
+}
+
+message AdminGetRedisKeysResponse {
+  repeated AdminRedisKeyInfo keys = 1;
+  string cursor = 2;
+  bool has_more = 3;
+}
+
+message AdminRedisKeyInfo {
+  string key = 1;
+  string type = 2;
+  int64 ttl = 3;
+}
+
+message AdminGetRedisValueRequest {
+  string key = 1;
+}
+
+message AdminGetRedisValueResponse {
+  string key = 1;
+  string type = 2;
+  int64 ttl = 3;
+  AdminRedisValue value = 4;
+}
+
+message AdminRedisValue {
+  oneof value {
+    string string_value = 1;
+    AdminRedisStringList list_value = 2;
+    AdminRedisStringMap map_value = 3;
+  }
+}
+
+message AdminRedisStringList {
+  repeated string values = 1;
+}
+
+message AdminRedisStringMap {
+  map<string, string> entries = 1;
+}
