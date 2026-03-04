@@ -6,6 +6,7 @@ import {
   AI_CONNECT_USAGE_SUMMARY_PATH,
   installAiUsageConnectSeriesCapture
 } from './test/aiConnectTestUtils';
+import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOverride';
 import { getSharedTestContext } from './test/testContext';
 
 const mockLogApiEvent = vi.fn();
@@ -36,7 +37,9 @@ const getRequestsFor = (
 ): RecordedApiRequest[] =>
   getRecordedApiRequests().filter(
     (request) =>
-      request.method === method.toUpperCase() && request.pathname === pathname
+      request.method === method.toUpperCase() &&
+      request.pathname === pathname &&
+      new URL(request.url).port.length === 0
   );
 
 describe('api with msw vfs/ai query metadata', () => {
@@ -45,6 +48,7 @@ describe('api with msw vfs/ai query metadata', () => {
     vi.clearAllMocks();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
+    installApiV2WasmBindingsOverride();
 
     const ctx = getSharedTestContext();
     const seededUser = await seedTestUser(ctx, { admin: true });
@@ -126,7 +130,7 @@ describe('api with msw vfs/ai query metadata', () => {
 
     const redisKeysRequests = getRequestsFor(
       'POST',
-      '/connect/tearleads.v1.AdminService/GetRedisKeys'
+      '/connect/tearleads.v2.AdminService/GetRedisKeys'
     );
     expect(redisKeysRequests).toHaveLength(2);
   });
