@@ -8,6 +8,7 @@ import {
 } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_REFRESH_TOKEN_KEY, AUTH_TOKEN_KEY } from './authStorage';
+import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOverride';
 import { getSharedTestContext } from './test/testContext';
 
 const mockLogApiEvent = vi.fn();
@@ -22,6 +23,7 @@ describe('api with msw', () => {
     vi.clearAllMocks();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
+    installApiV2WasmBindingsOverride();
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
     localStorage.setItem(AUTH_TOKEN_KEY, seededUser.accessToken);
@@ -89,6 +91,7 @@ describe('api with msw', () => {
   });
   it('supports /v1-prefixed API base URLs', async () => {
     vi.resetModules();
+    installApiV2WasmBindingsOverride();
     vi.stubEnv('VITE_API_URL', 'http://localhost/v1');
     // Login and VFS keys need server.use() overrides
     server.use(
@@ -128,7 +131,7 @@ describe('api with msw', () => {
     expect(
       wasApiRequestMade(
         'POST',
-        '/v1/connect/tearleads.v1.AdminService/GetRedisDbSize'
+        '/v1/connect/tearleads.v2.AdminService/GetRedisDbSize'
       )
     ).toBe(true);
     expect(

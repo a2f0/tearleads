@@ -11,10 +11,14 @@ pub enum AdminOperation {
     GetTables,
     /// `AdminService.GetColumns`
     GetColumns,
+    /// `AdminService.GetRows`
+    GetRows,
     /// `AdminService.GetRedisKeys`
     GetRedisKeys,
     /// `AdminService.GetRedisValue`
     GetRedisValue,
+    /// `AdminService.GetRedisDbSize`
+    GetRedisDbSize,
 }
 
 impl AdminOperation {
@@ -23,8 +27,10 @@ impl AdminOperation {
             Self::GetPostgresInfo => "get_postgres_info",
             Self::GetTables => "get_tables",
             Self::GetColumns => "get_columns",
+            Self::GetRows => "get_rows",
             Self::GetRedisKeys => "get_redis_keys",
             Self::GetRedisValue => "get_redis_value",
+            Self::GetRedisDbSize => "get_redis_db_size",
         }
     }
 }
@@ -250,8 +256,10 @@ mod tests {
             (AdminOperation::GetPostgresInfo, "get_postgres_info"),
             (AdminOperation::GetTables, "get_tables"),
             (AdminOperation::GetColumns, "get_columns"),
+            (AdminOperation::GetRows, "get_rows"),
             (AdminOperation::GetRedisKeys, "get_redis_keys"),
             (AdminOperation::GetRedisValue, "get_redis_value"),
+            (AdminOperation::GetRedisDbSize, "get_redis_db_size"),
         ];
 
         for (operation, expected_name) in operations {

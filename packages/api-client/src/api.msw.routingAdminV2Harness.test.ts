@@ -21,17 +21,31 @@ describe('api adminV2 with msw runtime harness', () => {
     const api = await loadApi();
 
     const tables = await api.adminV2.postgres.getTables();
+    const rows = await api.adminV2.postgres.getRows('public', 'users');
     const redisValue = await api.adminV2.redis.getValue('session:test');
+    const redisDbSize = await api.adminV2.redis.getDbSize();
 
     expect(tables.tables).toHaveLength(1);
+    expect(rows.rows).toHaveLength(1);
+    expect(rows.totalCount).toBe(1);
     expect(redisValue.key).toBe('session:test');
+    expect(redisDbSize.count).toBe(1);
     expect(
       wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetTables')
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetRows')
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
         '/connect/tearleads.v2.AdminService/GetRedisValue'
+      )
+    ).toBe(true);
+    expect(
+      wasApiRequestMade(
+        'POST',
+        '/connect/tearleads.v2.AdminService/GetRedisDbSize'
       )
     ).toBe(true);
   });

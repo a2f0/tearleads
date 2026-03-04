@@ -8,9 +8,12 @@ service AdminService {
       returns (AdminGetPostgresInfoResponse);
   rpc GetTables(AdminGetTablesRequest) returns (AdminGetTablesResponse);
   rpc GetColumns(AdminGetColumnsRequest) returns (AdminGetColumnsResponse);
+  rpc GetRows(AdminGetRowsRequest) returns (AdminGetRowsResponse);
   rpc GetRedisKeys(AdminGetRedisKeysRequest) returns (AdminGetRedisKeysResponse);
   rpc GetRedisValue(AdminGetRedisValueRequest)
       returns (AdminGetRedisValueResponse);
+  rpc GetRedisDbSize(AdminGetRedisDbSizeRequest)
+      returns (AdminGetRedisDbSizeResponse);
 }
 
 message AdminGetPostgresInfoRequest {}
@@ -59,6 +62,22 @@ message AdminPostgresColumnInfo {
   uint32 ordinal_position = 5;
 }
 
+message AdminGetRowsRequest {
+  string schema = 1;
+  string table = 2;
+  uint32 limit = 3;
+  uint32 offset = 4;
+  optional string sort_column = 5;
+  optional string sort_direction = 6;
+}
+
+message AdminGetRowsResponse {
+  repeated string rows_json = 1;
+  uint64 total_count = 2;
+  uint32 limit = 3;
+  uint32 offset = 4;
+}
+
 message AdminGetRedisKeysRequest {
   string cursor = 1;
   int32 limit = 2;
@@ -101,4 +120,10 @@ message AdminRedisStringList {
 
 message AdminRedisStringMap {
   map<string, string> entries = 1;
+}
+
+message AdminGetRedisDbSizeRequest {}
+
+message AdminGetRedisDbSizeResponse {
+  uint64 count = 1;
 }

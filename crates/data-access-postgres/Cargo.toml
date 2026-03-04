@@ -5,7 +5,6 @@ edition = "2024"
 publish = false
 
 [dependencies]
-tearleads-api-domain-core = { version = "0.1.0", path = "../api-domain-core" }
 tearleads-data-access-traits = { version = "0.1.0", path = "../data-access-traits" }
 
 [dev-dependencies]

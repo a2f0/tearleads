@@ -15,7 +15,8 @@ import { setSharedTestContext } from './testContext';
 let testContext: TestContext | null = null;
 let apiV2Harness: ApiV2ServiceHarness | null = null;
 
-const API_V2_ADMIN_ROUTE_PATTERN = /^\/connect\/tearleads\.v2\.AdminService\//;
+const API_V2_ADMIN_ROUTE_PATTERN =
+  /^\/(?:v1\/)?connect\/tearleads\.v2\.AdminService\//;
 
 function configurePassthroughRoutes(): void {
   if (!testContext) {

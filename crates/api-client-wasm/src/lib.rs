@@ -7,8 +7,9 @@ use std::collections::BTreeMap;
 #[cfg(any(test, target_arch = "wasm32"))]
 use tearleads_api_client_rs::ApiClientRequestContext;
 use tearleads_api_client_rs::{
-    admin_get_columns_path, admin_get_postgres_info_path, admin_get_redis_keys_path,
-    admin_get_redis_value_path, admin_get_tables_path, normalize_connect_base_url,
+    admin_get_columns_path, admin_get_postgres_info_path, admin_get_redis_db_size_path,
+    admin_get_redis_keys_path, admin_get_redis_value_path, admin_get_rows_path,
+    admin_get_tables_path, normalize_connect_base_url,
 };
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
@@ -58,6 +59,12 @@ pub fn admin_get_columns_path_binding() -> String {
     admin_get_columns_path()
 }
 
+/// Returns canonical v2 admin `GetRows` path.
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = adminGetRowsPath))]
+pub fn admin_get_rows_path_binding() -> String {
+    admin_get_rows_path()
+}
+
 /// Returns canonical v2 admin `GetRedisKeys` path.
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = adminGetRedisKeysPath))]
 pub fn admin_get_redis_keys_path_binding() -> String {
@@ -68,6 +75,12 @@ pub fn admin_get_redis_keys_path_binding() -> String {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = adminGetRedisValuePath))]
 pub fn admin_get_redis_value_path_binding() -> String {
     admin_get_redis_value_path()
+}
+
+/// Returns canonical v2 admin `GetRedisDbSize` path.
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = adminGetRedisDbSizePath))]
+pub fn admin_get_redis_db_size_path_binding() -> String {
+    admin_get_redis_db_size_path()
 }
 
 /// Builds request headers from optional auth and organization context.
@@ -86,7 +99,8 @@ pub fn build_request_headers_binding(
 mod tests {
     use super::{
         admin_get_columns_path_binding, admin_get_postgres_info_path_binding,
-        admin_get_redis_keys_path_binding, admin_get_redis_value_path_binding,
+        admin_get_redis_db_size_path_binding, admin_get_redis_keys_path_binding,
+        admin_get_redis_value_path_binding, admin_get_rows_path_binding,
         admin_get_tables_path_binding, build_request_headers_inner,
         normalize_connect_base_url_binding,
     };
@@ -119,12 +133,20 @@ mod tests {
             "/tearleads.v2.AdminService/GetColumns"
         );
         assert_eq!(
+            admin_get_rows_path_binding(),
+            "/tearleads.v2.AdminService/GetRows"
+        );
+        assert_eq!(
             admin_get_redis_keys_path_binding(),
             "/tearleads.v2.AdminService/GetRedisKeys"
         );
         assert_eq!(
             admin_get_redis_value_path_binding(),
             "/tearleads.v2.AdminService/GetRedisValue"
+        );
+        assert_eq!(
+            admin_get_redis_db_size_path_binding(),
+            "/tearleads.v2.AdminService/GetRedisDbSize"
         );
     }
 

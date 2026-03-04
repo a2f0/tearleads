@@ -35,4 +35,7 @@ pub trait RedisAdminGateway: Send + Sync {
 
     /// Reads one key value payload.
     fn read_key(&self, key: &str) -> BoxFuture<'_, Result<RedisKeyRecord, DataAccessError>>;
+
+    /// Reads the total key count for the selected database.
+    fn read_db_size(&self) -> BoxFuture<'_, Result<u64, DataAccessError>>;
 }

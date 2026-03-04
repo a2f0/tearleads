@@ -1,6 +1,8 @@
 //! Driver-facing gateway abstraction for Postgres admin reads.
 
-use tearleads_data_access_traits::{BoxFuture, DataAccessError, PostgresConnectionInfo};
+use tearleads_data_access_traits::{
+    BoxFuture, DataAccessError, PostgresConnectionInfo, PostgresRowsQuery,
+};
 
 /// Raw table metadata returned by the backing Postgres driver.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,6 +36,19 @@ pub struct PostgresColumnRecord {
     pub ordinal_position: u32,
 }
 
+/// Raw row page payload returned by the backing Postgres driver.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PostgresRowsPageRecord {
+    /// JSON-encoded row objects.
+    pub rows_json: Vec<String>,
+    /// Total table row count.
+    pub total_count: u64,
+    /// Effective page size.
+    pub limit: u32,
+    /// Effective row offset.
+    pub offset: u32,
+}
+
 /// Driver gateway used by [`crate::PostgresAdminReadAdapter`].
 pub trait PostgresAdminGateway: Send + Sync {
     /// Returns connection metadata from runtime configuration.
@@ -58,4 +73,10 @@ pub trait PostgresAdminGateway: Send + Sync {
         schema: &str,
         table: &str,
     ) -> BoxFuture<'_, Result<Vec<PostgresColumnRecord>, DataAccessError>>;
+
+    /// Returns one page of table rows for the given query.
+    fn list_rows(
+        &self,
+        query: &PostgresRowsQuery,
+    ) -> BoxFuture<'_, Result<PostgresRowsPageRecord, DataAccessError>>;
 }

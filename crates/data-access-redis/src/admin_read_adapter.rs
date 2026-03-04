@@ -71,6 +71,10 @@ where
             })
         })
     }
+
+    fn get_db_size(&self) -> BoxFuture<'_, Result<u64, DataAccessError>> {
+        Box::pin(async move { self.gateway.read_db_size().await })
+    }
 }
 
 fn normalize_scan_limit(limit: u32) -> u32 {
@@ -105,8 +109,10 @@ mod tests {
     struct FakeGateway {
         scan_result: Result<RedisScanResult, DataAccessError>,
         read_result: Result<RedisKeyRecord, DataAccessError>,
+        db_size_result: Result<u64, DataAccessError>,
         scan_calls: Mutex<Vec<(String, u32)>>,
         read_calls: Mutex<Vec<String>>,
+        db_size_calls: Mutex<usize>,
     }
 
     impl Default for FakeGateway {
@@ -122,8 +128,10 @@ mod tests {
                     ttl_seconds: -1,
                     value: Some(RedisValue::String(String::from("value"))),
                 }),
+                db_size_result: Ok(0),
                 scan_calls: Mutex::new(Vec::new()),
                 read_calls: Mutex::new(Vec::new()),
+                db_size_calls: Mutex::new(0),
             }
         }
     }
@@ -135,6 +143,10 @@ mod tests {
 
         fn read_calls(&self) -> Vec<String> {
             lock_or_recover(&self.read_calls).clone()
+        }
+
+        fn db_size_calls(&self) -> usize {
+            *lock_or_recover(&self.db_size_calls)
         }
     }
 
@@ -152,6 +164,12 @@ mod tests {
         fn read_key(&self, key: &str) -> BoxFuture<'_, Result<RedisKeyRecord, DataAccessError>> {
             lock_or_recover(&self.read_calls).push(key.to_string());
             let result = self.read_result.clone();
+            Box::pin(async move { result })
+        }
+
+        fn read_db_size(&self) -> BoxFuture<'_, Result<u64, DataAccessError>> {
+            *lock_or_recover(&self.db_size_calls) += 1;
+            let result = self.db_size_result.clone();
             Box::pin(async move { result })
         }
     }
@@ -267,6 +285,24 @@ mod tests {
         };
 
         assert_eq!(error, unavailable);
+    }
+
+    #[test]
+    fn get_db_size_reads_count_via_gateway() {
+        let gateway = FakeGateway {
+            db_size_result: Ok(42),
+            ..Default::default()
+        };
+        let adapter = RedisAdminReadAdapter::new(gateway);
+
+        let result = block_on(adapter.get_db_size());
+        let count = match result {
+            Ok(value) => value,
+            Err(error) => panic!("db size lookup should succeed, got: {error}"),
+        };
+
+        assert_eq!(count, 42);
+        assert_eq!(adapter.gateway.db_size_calls(), 1);
     }
 
     fn lock_or_recover<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {

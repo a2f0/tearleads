@@ -5,8 +5,8 @@ use tearleads_api_v2::{
 };
 use tearleads_data_access_traits::{
     BoxFuture, DataAccessError, PostgresAdminReadRepository, PostgresColumnInfo,
-    PostgresInfoSnapshot, PostgresTableInfo, RedisAdminReadRepository, RedisKeyScanPage,
-    RedisKeyValueRecord,
+    PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo,
+    RedisAdminReadRepository, RedisKeyScanPage, RedisKeyValueRecord,
 };
 use tonic::{Response, Status};
 
@@ -24,6 +24,7 @@ impl FakeAuthorizer {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn deny(kind: AdminAuthErrorKind, message: &str) -> Self {
         Self {
             outcome: Err(AdminAuthError::new(kind, message)),
@@ -49,6 +50,8 @@ pub(crate) struct FakePostgresRepository {
     pub(crate) tables_result: Result<Vec<PostgresTableInfo>, DataAccessError>,
     pub(crate) columns_result: Result<Vec<PostgresColumnInfo>, DataAccessError>,
     pub(crate) columns_calls: Arc<Mutex<Vec<(String, String)>>>,
+    pub(crate) rows_result: Result<PostgresRowsPage, DataAccessError>,
+    pub(crate) rows_calls: Arc<Mutex<Vec<PostgresRowsQuery>>>,
 }
 
 impl Default for FakePostgresRepository {
@@ -58,6 +61,13 @@ impl Default for FakePostgresRepository {
             tables_result: Ok(Vec::new()),
             columns_result: Ok(Vec::new()),
             columns_calls: Arc::new(Mutex::new(Vec::new())),
+            rows_result: Ok(PostgresRowsPage {
+                rows_json: Vec::new(),
+                total_count: 0,
+                limit: 0,
+                offset: 0,
+            }),
+            rows_calls: Arc::new(Mutex::new(Vec::new())),
         }
     }
 }
@@ -82,6 +92,15 @@ impl PostgresAdminReadRepository for FakePostgresRepository {
         let result = self.columns_result.clone();
         Box::pin(async move { result })
     }
+
+    fn list_rows(
+        &self,
+        query: PostgresRowsQuery,
+    ) -> BoxFuture<'_, Result<PostgresRowsPage, DataAccessError>> {
+        lock_or_recover(&self.rows_calls).push(query);
+        let result = self.rows_result.clone();
+        Box::pin(async move { result })
+    }
 }
 
 #[derive(Debug)]
@@ -90,6 +109,8 @@ pub(crate) struct FakeRedisRepository {
     pub(crate) get_value_result: Result<RedisKeyValueRecord, DataAccessError>,
     pub(crate) list_keys_calls: Arc<Mutex<Vec<(String, u32)>>>,
     pub(crate) get_value_calls: Arc<Mutex<Vec<String>>>,
+    pub(crate) db_size_result: Result<u64, DataAccessError>,
+    pub(crate) db_size_calls: Arc<Mutex<usize>>,
 }
 
 impl Default for FakeRedisRepository {
@@ -108,6 +129,8 @@ impl Default for FakeRedisRepository {
             }),
             list_keys_calls: Arc::new(Mutex::new(Vec::new())),
             get_value_calls: Arc::new(Mutex::new(Vec::new())),
+            db_size_result: Ok(0),
+            db_size_calls: Arc::new(Mutex::new(0)),
         }
     }
 }
@@ -126,6 +149,12 @@ impl RedisAdminReadRepository for FakeRedisRepository {
     fn get_value(&self, key: &str) -> BoxFuture<'_, Result<RedisKeyValueRecord, DataAccessError>> {
         lock_or_recover(&self.get_value_calls).push(key.to_string());
         let result = self.get_value_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn get_db_size(&self) -> BoxFuture<'_, Result<u64, DataAccessError>> {
+        *lock_or_recover(&self.db_size_calls) += 1;
+        let result = self.db_size_result.clone();
         Box::pin(async move { result })
     }
 }

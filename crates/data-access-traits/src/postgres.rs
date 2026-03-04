@@ -56,7 +56,37 @@ pub struct PostgresColumnInfo {
     pub ordinal_position: u32,
 }
 
-/// Repository boundary for Wave 1A Postgres admin reads.
+/// Query options for admin table row browsing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PostgresRowsQuery {
+    /// SQL schema name.
+    pub schema: String,
+    /// SQL table name.
+    pub table: String,
+    /// Page size cap.
+    pub limit: u32,
+    /// Row offset.
+    pub offset: u32,
+    /// Optional sort column.
+    pub sort_column: Option<String>,
+    /// Optional sort direction (`asc` or `desc`).
+    pub sort_direction: Option<String>,
+}
+
+/// Page payload for admin table row browsing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PostgresRowsPage {
+    /// JSON-encoded row objects.
+    pub rows_json: Vec<String>,
+    /// Total table row count.
+    pub total_count: u64,
+    /// Effective page size.
+    pub limit: u32,
+    /// Effective row offset.
+    pub offset: u32,
+}
+
+/// Repository boundary for admin Postgres reads.
 pub trait PostgresAdminReadRepository: Send + Sync {
     /// Returns environment + server-version metadata.
     fn get_postgres_info(&self) -> BoxFuture<'_, Result<PostgresInfoSnapshot, DataAccessError>>;
@@ -70,4 +100,10 @@ pub trait PostgresAdminReadRepository: Send + Sync {
         schema: &str,
         table: &str,
     ) -> BoxFuture<'_, Result<Vec<PostgresColumnInfo>, DataAccessError>>;
+
+    /// Returns table rows for one target table.
+    fn list_rows(
+        &self,
+        query: PostgresRowsQuery,
+    ) -> BoxFuture<'_, Result<PostgresRowsPage, DataAccessError>>;
 }

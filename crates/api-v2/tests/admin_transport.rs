@@ -4,14 +4,16 @@ use std::net::SocketAddr;
 
 use tearleads_api_v2::AdminServiceHandler;
 use tearleads_api_v2_contracts::tearleads::v2::{
-    AdminGetColumnsRequest, AdminGetPostgresInfoRequest, AdminGetRedisKeysRequest,
-    AdminGetRedisValueRequest, AdminGetTablesRequest, admin_redis_value,
-    admin_service_client::AdminServiceClient, admin_service_server::AdminServiceServer,
+    AdminGetColumnsRequest, AdminGetPostgresInfoRequest, AdminGetRedisDbSizeRequest,
+    AdminGetRedisKeysRequest, AdminGetRedisValueRequest, AdminGetRowsRequest,
+    AdminGetTablesRequest, admin_redis_value, admin_service_client::AdminServiceClient,
+    admin_service_server::AdminServiceServer,
 };
 use tearleads_data_access_traits::{
     BoxFuture, DataAccessError, PostgresAdminReadRepository, PostgresColumnInfo,
-    PostgresConnectionInfo, PostgresInfoSnapshot, PostgresTableInfo, RedisAdminReadRepository,
-    RedisKeyInfo, RedisKeyScanPage, RedisKeyValueRecord, RedisValue,
+    PostgresConnectionInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
+    PostgresTableInfo, RedisAdminReadRepository, RedisKeyInfo, RedisKeyScanPage,
+    RedisKeyValueRecord, RedisValue,
 };
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tokio_stream::wrappers::TcpListenerStream;
@@ -25,6 +27,7 @@ struct FakePostgresRepository {
     info_result: Result<PostgresInfoSnapshot, DataAccessError>,
     tables_result: Result<Vec<PostgresTableInfo>, DataAccessError>,
     columns_result: Result<Vec<PostgresColumnInfo>, DataAccessError>,
+    rows_result: Result<PostgresRowsPage, DataAccessError>,
 }
 
 impl Default for FakePostgresRepository {
@@ -33,6 +36,12 @@ impl Default for FakePostgresRepository {
             info_result: Ok(PostgresInfoSnapshot::default()),
             tables_result: Ok(Vec::new()),
             columns_result: Ok(Vec::new()),
+            rows_result: Ok(PostgresRowsPage {
+                rows_json: Vec::new(),
+                total_count: 0,
+                limit: 0,
+                offset: 0,
+            }),
         }
     }
 }
@@ -56,12 +65,21 @@ impl PostgresAdminReadRepository for FakePostgresRepository {
         let result = self.columns_result.clone();
         Box::pin(async move { result })
     }
+
+    fn list_rows(
+        &self,
+        _query: PostgresRowsQuery,
+    ) -> BoxFuture<'_, Result<PostgresRowsPage, DataAccessError>> {
+        let result = self.rows_result.clone();
+        Box::pin(async move { result })
+    }
 }
 
 #[derive(Debug)]
 struct FakeRedisRepository {
     list_keys_result: Result<RedisKeyScanPage, DataAccessError>,
     get_value_result: Result<RedisKeyValueRecord, DataAccessError>,
+    db_size_result: Result<u64, DataAccessError>,
 }
 
 impl Default for FakeRedisRepository {
@@ -78,6 +96,7 @@ impl Default for FakeRedisRepository {
                 ttl_seconds: -1,
                 value: None,
             }),
+            db_size_result: Ok(0),
         }
     }
 }
@@ -94,6 +113,11 @@ impl RedisAdminReadRepository for FakeRedisRepository {
 
     fn get_value(&self, _key: &str) -> BoxFuture<'_, Result<RedisKeyValueRecord, DataAccessError>> {
         let result = self.get_value_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn get_db_size(&self) -> BoxFuture<'_, Result<u64, DataAccessError>> {
+        let result = self.db_size_result.clone();
         Box::pin(async move { result })
     }
 }
@@ -221,6 +245,12 @@ async fn transport_round_trip_for_wave1a_admin_endpoints() {
             default_value: None,
             ordinal_position: 1,
         }]),
+        rows_result: Ok(PostgresRowsPage {
+            rows_json: vec![String::from("{\"id\":\"user-1\"}")],
+            total_count: 1,
+            limit: 10,
+            offset: 20,
+        }),
     };
     let redis_repo = FakeRedisRepository {
         list_keys_result: Ok(RedisKeyScanPage {
@@ -238,6 +268,7 @@ async fn transport_round_trip_for_wave1a_admin_endpoints() {
             ttl_seconds: 180,
             value: Some(RedisValue::String(String::from("hello"))),
         }),
+        db_size_result: Ok(7),
     };
     let mut harness = spawn_admin_transport(postgres_repo, redis_repo).await;
 
@@ -288,6 +319,29 @@ async fn transport_round_trip_for_wave1a_admin_endpoints() {
     assert_eq!(columns_response.columns[0].name, "id");
     assert_eq!(columns_response.columns[0].r#type, "uuid");
 
+    let rows_response = match harness
+        .client
+        .get_rows(admin_request(AdminGetRowsRequest {
+            schema: String::from("public"),
+            table: String::from("users"),
+            limit: 10,
+            offset: 20,
+            sort_column: Some(String::from("id")),
+            sort_direction: Some(String::from("desc")),
+        }))
+        .await
+    {
+        Ok(value) => value.into_inner(),
+        Err(error) => panic!("get_rows should succeed over transport: {error}"),
+    };
+    assert_eq!(
+        rows_response.rows_json,
+        vec![String::from("{\"id\":\"user-1\"}")]
+    );
+    assert_eq!(rows_response.total_count, 1);
+    assert_eq!(rows_response.limit, 10);
+    assert_eq!(rows_response.offset, 20);
+
     let keys_response = match harness
         .client
         .get_redis_keys(admin_request(AdminGetRedisKeysRequest {
@@ -319,6 +373,16 @@ async fn transport_round_trip_for_wave1a_admin_endpoints() {
         value_response.value.and_then(|value| value.value),
         Some(admin_redis_value::Value::StringValue(String::from("hello")))
     );
+
+    let db_size_response = match harness
+        .client
+        .get_redis_db_size(admin_request(AdminGetRedisDbSizeRequest {}))
+        .await
+    {
+        Ok(value) => value.into_inner(),
+        Err(error) => panic!("get_redis_db_size should succeed over transport: {error}"),
+    };
+    assert_eq!(db_size_response.count, 7);
 
     shutdown_admin_transport(harness).await;
 }

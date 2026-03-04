@@ -4,18 +4,19 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use tearleads_api_v2::AdminServiceHandler;
 use tearleads_api_v2_contracts::tearleads::v2::{
-    AdminGetColumnsRequest, AdminGetPostgresInfoRequest, AdminGetRedisKeysRequest,
-    AdminGetRedisValueRequest, AdminGetTablesRequest, admin_redis_value,
-    admin_service_server::AdminService,
+    AdminGetColumnsRequest, AdminGetPostgresInfoRequest, AdminGetRedisDbSizeRequest,
+    AdminGetRedisKeysRequest, AdminGetRedisValueRequest, AdminGetRowsRequest,
+    AdminGetTablesRequest, admin_redis_value, admin_service_server::AdminService,
 };
 use tearleads_data_access_postgres::{
-    PostgresAdminGateway, PostgresAdminReadAdapter, PostgresColumnRecord, PostgresTableRecord,
+    PostgresAdminGateway, PostgresAdminReadAdapter, PostgresColumnRecord, PostgresRowsPageRecord,
+    PostgresTableRecord,
 };
 use tearleads_data_access_redis::{
     RedisAdminGateway, RedisAdminReadAdapter, RedisKeyRecord, RedisScanResult,
 };
 use tearleads_data_access_traits::{
-    BoxFuture, DataAccessError, PostgresConnectionInfo, RedisValue,
+    BoxFuture, DataAccessError, PostgresConnectionInfo, PostgresRowsQuery, RedisValue,
 };
 use tonic::{Code, Request, metadata::MetadataValue};
 
@@ -24,6 +25,7 @@ struct PostgresGatewayCalls {
     list_tables_calls: usize,
     table_exists_calls: Vec<(String, String)>,
     list_columns_calls: Vec<(String, String)>,
+    list_rows_calls: Vec<PostgresRowsQuery>,
 }
 
 #[derive(Debug)]
@@ -33,6 +35,7 @@ struct FakePostgresGateway {
     tables: Vec<PostgresTableRecord>,
     table_exists: bool,
     columns: Vec<PostgresColumnRecord>,
+    rows_page: PostgresRowsPageRecord,
     calls: Arc<Mutex<PostgresGatewayCalls>>,
 }
 
@@ -44,6 +47,12 @@ impl Default for FakePostgresGateway {
             tables: Vec::new(),
             table_exists: true,
             columns: Vec::new(),
+            rows_page: PostgresRowsPageRecord {
+                rows_json: Vec::new(),
+                total_count: 0,
+                limit: 0,
+                offset: 0,
+            },
             calls: Arc::new(Mutex::new(PostgresGatewayCalls::default())),
         }
     }
@@ -88,18 +97,31 @@ impl PostgresAdminGateway for FakePostgresGateway {
         let result = self.columns.clone();
         Box::pin(async move { Ok(result) })
     }
+
+    fn list_rows(
+        &self,
+        query: &PostgresRowsQuery,
+    ) -> BoxFuture<'_, Result<PostgresRowsPageRecord, DataAccessError>> {
+        lock_or_recover(&self.calls)
+            .list_rows_calls
+            .push(query.clone());
+        let result = self.rows_page.clone();
+        Box::pin(async move { Ok(result) })
+    }
 }
 
 #[derive(Debug, Default)]
 struct RedisGatewayCalls {
     scan_calls: Vec<(String, u32)>,
     read_key_calls: Vec<String>,
+    db_size_calls: usize,
 }
 
 #[derive(Debug)]
 struct FakeRedisGateway {
     scan_result: RedisScanResult,
     read_result: RedisKeyRecord,
+    db_size: u64,
     calls: Arc<Mutex<RedisGatewayCalls>>,
 }
 
@@ -116,6 +138,7 @@ impl Default for FakeRedisGateway {
                 ttl_seconds: -1,
                 value: None,
             },
+            db_size: 0,
             calls: Arc::new(Mutex::new(RedisGatewayCalls::default())),
         }
     }
@@ -139,6 +162,12 @@ impl RedisAdminGateway for FakeRedisGateway {
             .read_key_calls
             .push(key.to_string());
         let result = self.read_result.clone();
+        Box::pin(async move { Ok(result) })
+    }
+
+    fn read_db_size(&self) -> BoxFuture<'_, Result<u64, DataAccessError>> {
+        lock_or_recover(&self.calls).db_size_calls += 1;
+        let result = self.db_size;
         Box::pin(async move { Ok(result) })
     }
 }
@@ -169,6 +198,12 @@ async fn postgres_info_and_tables_flow_through_adapter_and_gateway() {
             table_bytes: 600,
             index_bytes: 400,
         }],
+        rows_page: PostgresRowsPageRecord {
+            rows_json: vec![String::from("{\"id\":\"user-1\"}")],
+            total_count: 1,
+            limit: 10,
+            offset: 20,
+        },
         ..Default::default()
     };
     let postgres_calls = Arc::clone(&postgres_gateway.calls);
@@ -207,6 +242,36 @@ async fn postgres_info_and_tables_flow_through_adapter_and_gateway() {
     assert_eq!(tables_response.tables[0].name, "users");
     assert_eq!(tables_response.tables[0].row_count, 9);
     assert_eq!(lock_or_recover(&postgres_calls).list_tables_calls, 1);
+
+    let rows_response = match handler
+        .get_rows(admin_request(AdminGetRowsRequest {
+            schema: String::from("public"),
+            table: String::from("users"),
+            limit: 10,
+            offset: 20,
+            sort_column: Some(String::from("id")),
+            sort_direction: Some(String::from("desc")),
+        }))
+        .await
+    {
+        Ok(value) => value.into_inner(),
+        Err(error) => panic!("get_rows should succeed: {error}"),
+    };
+    assert_eq!(
+        rows_response.rows_json,
+        vec![String::from("{\"id\":\"user-1\"}")]
+    );
+    assert_eq!(
+        lock_or_recover(&postgres_calls).list_rows_calls,
+        vec![PostgresRowsQuery {
+            schema: String::from("public"),
+            table: String::from("users"),
+            limit: 10,
+            offset: 20,
+            sort_column: Some(String::from("id")),
+            sort_direction: Some(String::from("desc")),
+        }]
+    );
 }
 
 #[tokio::test]
@@ -268,6 +333,7 @@ async fn redis_keys_and_value_flow_through_adapter_with_normalization() {
             ttl_seconds: 120,
             value: Some(RedisValue::String(String::from("payload"))),
         },
+        db_size: 12,
         ..Default::default()
     };
     let redis_calls = Arc::clone(&redis_gateway.calls);
@@ -313,6 +379,16 @@ async fn redis_keys_and_value_flow_through_adapter_with_normalization() {
             "payload"
         )))
     );
+
+    let db_size_response = match handler
+        .get_redis_db_size(admin_request(AdminGetRedisDbSizeRequest {}))
+        .await
+    {
+        Ok(value) => value.into_inner(),
+        Err(error) => panic!("get_redis_db_size should succeed: {error}"),
+    };
+    assert_eq!(db_size_response.count, 12);
+    assert_eq!(lock_or_recover(&redis_calls).db_size_calls, 1);
 }
 
 #[tokio::test]
