@@ -26,6 +26,10 @@
       "types": "./src/chatCompletionsEntry.ts",
       "import": "./src/chatCompletionsEntry.ts"
     },
+    "./pingWasmImport": {
+      "types": "./src/pingWasmImport.ts",
+      "import": "./src/pingWasmImport.ts"
+    },
     "./package.json": "./package.json"
   },
   "files": [
