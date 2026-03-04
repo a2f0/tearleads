@@ -19,13 +19,13 @@ collect_files() {
       ;;
     --from-upstream)
       local base_ref
-      if upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null); then
-        base_ref="$upstream"
-      elif git rev-parse --verify origin/main >/dev/null 2>&1; then
-        base_ref="origin/main"
-      elif git rev-parse --verify main >/dev/null 2>&1; then
-        base_ref="main"
-      else
+      base_ref=$(
+        git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null ||
+          git rev-parse --verify origin/main 2>/dev/null ||
+          git rev-parse --verify main 2>/dev/null
+      )
+
+      if [ -z "$base_ref" ]; then
         echo "checkProto: cannot determine base branch for comparison" >&2
         exit 1
       fi
