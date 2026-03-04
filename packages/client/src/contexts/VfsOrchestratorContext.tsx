@@ -277,9 +277,6 @@ export function VfsOrchestratorProvider({
     }
 
     const flushOnOnline = () => {
-      if (!hasActiveOrganizationId()) {
-        return;
-      }
       void orchestrator.flushAll().catch((err) => {
         console.warn('VFS flush on reconnect failed:', err);
       });
