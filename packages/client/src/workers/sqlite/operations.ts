@@ -87,8 +87,15 @@ export function executeMany(
     throw new Error('Database not initialized');
   }
 
-  for (const sql of statements) {
-    db.exec(sql);
+  db.exec('BEGIN TRANSACTION');
+  try {
+    for (const sql of statements) {
+      db.exec(sql);
+    }
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
   }
 }
 
