@@ -1,4 +1,5 @@
-import * as path from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
 
 const baseURL = process.env.BASE_URL || 'http://localhost:3000';
@@ -14,9 +15,9 @@ export default defineConfig({
   retries: 0,
   maxFailures: 1,
   reporter: [['list']],
-  timeout: 30000,
+  timeout: 60000,
   metadata: {
-    repoRoot: path.resolve(__dirname, '..', '..'),
+    repoRoot: resolve(dirname(fileURLToPath(import.meta.url)), '..', '..'),
   },
   use: {
     baseURL,

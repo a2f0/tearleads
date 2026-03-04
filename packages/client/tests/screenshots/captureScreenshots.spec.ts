@@ -61,11 +61,12 @@ for (const screen of SCREENS) {
       return;
     }
 
-    await page.addStyleTag({ content: DISABLE_ANIMATIONS_CSS });
     await page.goto(screen.route);
-    await page.waitForSelector('[data-testid="app-container"]', {
-      timeout: 10000,
+    await page.waitForSelector('[data-testid="database-setup-overlay"]', {
+      state: 'detached',
+      timeout: 30000,
     });
+    await page.addStyleTag({ content: DISABLE_ANIMATIONS_CSS });
     await page.waitForLoadState('networkidle');
 
     const project = testInfo.project.name; // 'mobile' or 'browser'
