@@ -20,4 +20,5 @@ This matrix tracks the first DAL-proving admin read endpoints selected for v2 mi
 - Internal/unavailable repository failures now return sanitized transport errors.
 - Shared pure normalization logic lives in `crates/api-domain-core` and is WASM-compatible.
 - Rust-generated v2 contract crate lives in `crates/api-v2-contracts`.
-- Next slice: add explicit auth enforcement for admin RPC handlers and transport-level integration tests.
+- Transport-level gRPC integration tests now cover Wave 1A admin RPC round-trips and auth metadata enforcement.
+- Next slice: wire browser-facing gRPC-web binary client calls for Wave 1A admin RPC paths.
