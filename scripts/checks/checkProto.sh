@@ -46,7 +46,7 @@ collect_files() {
 has_proto_related_changes() {
   local path
   for path in "$@"; do
-    if [[ "$path" == proto/* || "$path" == packages/shared/src/gen/* || "$path" == scripts/lib/verifyProtoCodegenPlugins.ts || "$path" == package.json || "$path" == pnpm-lock.yaml ]]; then
+    if [[ "$path" == proto/* || "$path" == packages/shared/src/gen/* || "$path" == scripts/lib/verifyProtoCodegenPlugins.ts || "$path" == scripts/checks/checkProto.sh || "$path" == package.json || "$path" == pnpm-lock.yaml ]]; then
       return 0
     fi
   done
