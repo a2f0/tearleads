@@ -213,6 +213,23 @@ describe('useFileUpload file type and environment', () => {
     expect(mockDb.insert).toHaveBeenCalled();
   });
 
+  it('successfully uploads SVG files using browser-provided MIME type', async () => {
+    vi.mocked(fileTypeFromBuffer).mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useFileUpload());
+    const file = new File(
+      ['<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>'],
+      'icon.svg',
+      { type: 'image/svg+xml' }
+    );
+
+    const uploadResult = await result.current.uploadFile(file);
+
+    expect(uploadResult.id).toBe('test-uuid-1234');
+    expect(uploadResult.isDuplicate).toBe(false);
+    expect(mockDb.insert).toHaveBeenCalled();
+  });
+
   it('uses detected MIME type instead of browser-provided type', async () => {
     vi.mocked(fileTypeFromBuffer).mockResolvedValue({
       ext: 'png',
