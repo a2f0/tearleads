@@ -23,4 +23,6 @@ This matrix tracks the first DAL-proving admin read endpoints selected for v2 mi
 - Transport-level gRPC integration tests now cover Wave 1A admin RPC round-trips and auth metadata enforcement.
 - Handler -> adapter -> gateway integration tests now cover Wave 1A admin read flows and auth short-circuit behavior.
 - Browser-facing Wave 1A admin RPC routes now use gRPC-web binary transport in `@tearleads/api-client` via `api.adminV2`.
-- Next slice: cut over Wave 1A admin consumers from v1 connect JSON routes to `api.adminV2` calls.
+- Added test-harness override support for api-v2 client WASM importer via `__tearleadsImportApiV2ClientWasmModule`.
+- Blocker: direct `api.admin` Wave 1A cutover to v2 currently returns `HTTP 404 unimplemented` in existing MSW/express passthrough runtime.
+- Next slice: expose v2 Wave 1A admin RPC paths in the runtime harness, then switch `api.admin` Wave 1A methods to `api.adminV2`.
