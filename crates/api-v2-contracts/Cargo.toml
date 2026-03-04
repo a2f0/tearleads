@@ -5,8 +5,8 @@ edition = "2024"
 publish = false
 
 [dependencies]
-prost = "0.14.3"
-tonic = { version = "0.12.3", default-features = false, features = ["codegen", "prost"] }
+prost = "0.13.5"
+tonic = { version = "0.13.1", default-features = false, features = ["codegen", "prost"] }
 
 [build-dependencies]
 prost-build = "0.14.3"
