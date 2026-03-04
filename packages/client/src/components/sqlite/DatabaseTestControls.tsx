@@ -1,3 +1,4 @@
+// component-complexity: allow -- debug harness renders all DB control states in one flat component.
 import { Check, Copy, Eye, EyeOff, Fingerprint } from 'lucide-react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
