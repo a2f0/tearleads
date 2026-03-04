@@ -130,4 +130,35 @@ describe('apiV2ClientWasm', () => {
       'api-v2 wasm header "authorization" must be a string'
     );
   });
+
+  it('retries wasm import after an initialization failure', async () => {
+    const importMock = vi
+      .fn<() => Promise<unknown>>()
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({
+        normalizeConnectBaseUrl: (value: string) => `${value}/connect`,
+        adminGetPostgresInfoPath: () =>
+          '/tearleads.v2.AdminService/GetPostgresInfo',
+        adminGetTablesPath: () => '/tearleads.v2.AdminService/GetTables',
+        adminGetColumnsPath: () => '/tearleads.v2.AdminService/GetColumns',
+        adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
+        adminGetRedisValuePath: () =>
+          '/tearleads.v2.AdminService/GetRedisValue',
+        buildRequestHeaders: () => ({ headers: {} })
+      });
+
+    vi.doMock('./apiV2ClientWasmImport', () => ({
+      importApiV2ClientWasmModule: importMock
+    }));
+
+    const { normalizeApiV2ConnectBaseUrl } = await loadApiV2ClientWasm();
+
+    await expect(
+      normalizeApiV2ConnectBaseUrl('https://api.example.test')
+    ).rejects.toThrow('pnpm codegenWasm');
+    await expect(
+      normalizeApiV2ConnectBaseUrl('https://api.example.test')
+    ).resolves.toBe('https://api.example.test/connect');
+    expect(importMock).toHaveBeenCalledTimes(2);
+  });
 });

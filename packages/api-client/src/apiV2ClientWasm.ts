@@ -2,7 +2,7 @@ import { isRecord } from '@tearleads/shared';
 import { importApiV2ClientWasmModule } from './apiV2ClientWasmImport';
 
 interface ApiV2ClientWasmBindings {
-  default?: () => Promise<unknown>;
+  default?: () => Promise<void>;
   normalizeConnectBaseUrl: (baseUrl: string) => string;
   adminGetPostgresInfoPath: () => string;
   adminGetTablesPath: () => string;
@@ -76,7 +76,7 @@ async function loadApiV2ClientWasmBindings(): Promise<ApiV2ClientWasmBindings> {
     return apiV2ClientWasmBindingsPromise;
   }
 
-  apiV2ClientWasmBindingsPromise = (async () => {
+  const pendingBindings = (async () => {
     const module = await importApiV2ClientWasmModule();
     assertApiV2ClientWasmBindings(module);
 
@@ -86,6 +86,11 @@ async function loadApiV2ClientWasmBindings(): Promise<ApiV2ClientWasmBindings> {
 
     return module;
   })();
+
+  apiV2ClientWasmBindingsPromise = pendingBindings.catch((error: unknown) => {
+    apiV2ClientWasmBindingsPromise = null;
+    throw error;
+  });
 
   return apiV2ClientWasmBindingsPromise;
 }
