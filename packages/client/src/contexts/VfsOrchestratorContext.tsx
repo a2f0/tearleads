@@ -49,9 +49,7 @@ function normalizeApiPrefix(value: string): string {
 
 function hasActiveOrganizationId(): boolean {
   const organizationId = getActiveOrganizationId();
-  return (
-    typeof organizationId === 'string' && organizationId.trim().length > 0
-  );
+  return typeof organizationId === 'string' && organizationId.trim().length > 0;
 }
 
 function useFlushWhenOrganizationReady(input: {
