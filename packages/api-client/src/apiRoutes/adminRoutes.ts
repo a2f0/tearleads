@@ -15,12 +15,7 @@ import type {
   OrganizationResponse,
   OrganizationsListResponse,
   OrganizationUsersResponse,
-  PostgresAdminInfoResponse,
-  PostgresColumnsResponse,
   PostgresRowsResponse,
-  PostgresTablesResponse,
-  RedisKeysResponse,
-  RedisKeyValueResponse,
   UpdateGroupRequest,
   UpdateOrganizationRequest
 } from '@tearleads/shared';
@@ -29,6 +24,7 @@ import {
   parseConnectJsonString
 } from '@tearleads/shared';
 import { request } from '../apiCore';
+import { adminV2Routes } from './adminV2Routes';
 
 const ADMIN_CONNECT_BASE_PATH = '/connect/tearleads.v1.AdminService';
 
@@ -60,24 +56,10 @@ export const adminRoutes = {
       'api_get_admin_organizations'
     ),
   postgres: {
-    getInfo: () =>
-      requestAdminJson<PostgresAdminInfoResponse>(
-        'GetPostgresInfo',
-        {},
-        'api_get_admin_postgres_info'
-      ),
-    getTables: () =>
-      requestAdminJson<PostgresTablesResponse>(
-        'GetTables',
-        {},
-        'api_get_admin_postgres_tables'
-      ),
+    getInfo: () => adminV2Routes.postgres.getInfo(),
+    getTables: () => adminV2Routes.postgres.getTables(),
     getColumns: (schema: string, table: string) =>
-      requestAdminJson<PostgresColumnsResponse>(
-        'GetColumns',
-        { schema, table },
-        'api_get_admin_postgres_columns'
-      ),
+      adminV2Routes.postgres.getColumns(schema, table),
     getRows: (
       schema: string,
       table: string,
@@ -103,22 +85,9 @@ export const adminRoutes = {
     }
   },
   redis: {
-    getKeys: (cursor?: string, limit?: number) => {
-      const requestBody: Record<string, unknown> = {};
-      if (cursor) requestBody['cursor'] = cursor;
-      if (limit) requestBody['limit'] = limit;
-      return requestAdminJson<RedisKeysResponse>(
-        'GetRedisKeys',
-        requestBody,
-        'api_get_admin_redis_keys'
-      );
-    },
-    getValue: (key: string) =>
-      requestAdminJson<RedisKeyValueResponse>(
-        'GetRedisValue',
-        { key },
-        'api_get_admin_redis_key'
-      ),
+    getKeys: (cursor?: string, limit?: number) =>
+      adminV2Routes.redis.getKeys(cursor, limit),
+    getValue: (key: string) => adminV2Routes.redis.getValue(key),
     deleteKey: (key: string) =>
       requestAdminJson<{ deleted: boolean }>(
         'DeleteRedisKey',

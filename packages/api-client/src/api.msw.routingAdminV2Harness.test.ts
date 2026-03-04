@@ -1,28 +1,12 @@
 import { wasApiRequestMade } from '@tearleads/msw/node';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_TOKEN_KEY } from './authStorage';
+import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOverride';
 
 const loadApi = async () => {
   const module = await import('./api');
   return module.api;
 };
-
-function installApiV2WasmBindingsOverride(): void {
-  Reflect.set(globalThis, '__tearleadsImportApiV2ClientWasmModule', () =>
-    Promise.resolve({
-      normalizeConnectBaseUrl: (apiBaseUrl: string) => `${apiBaseUrl}/connect`,
-      adminGetPostgresInfoPath: () =>
-        '/tearleads.v2.AdminService/GetPostgresInfo',
-      adminGetTablesPath: () => '/tearleads.v2.AdminService/GetTables',
-      adminGetColumnsPath: () => '/tearleads.v2.AdminService/GetColumns',
-      adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
-      adminGetRedisValuePath: () => '/tearleads.v2.AdminService/GetRedisValue',
-      buildRequestHeaders: (bearerToken?: string | null) => ({
-        headers: bearerToken ? { authorization: bearerToken } : {}
-      })
-    })
-  );
-}
 
 describe('api adminV2 with msw runtime harness', () => {
   beforeEach(async () => {
