@@ -126,6 +126,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
     expect(requestHeaders.get('Accept')).toBe('application/json');
     expect(requestHeaders.get('Content-Type')).toBe('application/json');
     expect(requestHeaders.get('Authorization')).toBe('Bearer token-1');
+    expect(requestHeaders.get('X-Organization-Id')).toBe('org-1');
   });
 
   it('pulls operations, decodes cursor, and includes replica write ids', async () => {
@@ -294,6 +295,8 @@ describe('VfsHttpCrdtSyncTransport', () => {
       await readRequestJson(requestUrl, requestInit),
       'reconcile request'
     );
+    const requestHeaders = new Headers(requestInit?.headers);
+    expect(requestHeaders.get('X-Organization-Id')).toBe('org-1');
 
     expect(decodedBody['clientId']).toBe('desktop');
     expect(decodedBody['cursor']).toBe(
@@ -424,6 +427,8 @@ describe('VfsHttpCrdtSyncTransport', () => {
       await readRequestJson(requestUrl, requestInit),
       'session request'
     );
+    const requestHeaders = new Headers(requestInit?.headers);
+    expect(requestHeaders.get('X-Organization-Id')).toBe('org-1');
     expect(requestBody['organizationId']).toBe('org-1');
     const decodedBody = parseConnectEnvelopeBody(
       requestBody,

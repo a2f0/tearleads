@@ -1,5 +1,9 @@
 import { render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  clearActiveOrganizationId,
+  setActiveOrganizationId
+} from '@/lib/orgStorage';
 import { VfsOrchestratorProvider } from './VfsOrchestratorContext';
 
 const mockUser = {
@@ -103,6 +107,7 @@ vi.mock('./AuthContext', () => ({
 describe('VfsOrchestratorContext persistence', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearActiveOrganizationId();
     mockUseAuth.mockReturnValue({
       user: mockUser,
       isAuthenticated: true
@@ -183,6 +188,7 @@ describe('VfsOrchestratorContext persistence', () => {
   });
 
   it('flushes orchestrator when browser returns online', async () => {
+    setActiveOrganizationId('org-1');
     render(
       <VfsOrchestratorProvider>
         <div>Test</div>
@@ -207,6 +213,40 @@ describe('VfsOrchestratorContext persistence', () => {
     flushAll.mockClear();
 
     window.dispatchEvent(new Event('online'));
+    await waitFor(() => {
+      expect(flushAll).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('waits for active organization before initial flush', async () => {
+    render(
+      <VfsOrchestratorProvider>
+        <div>Test</div>
+      </VfsOrchestratorProvider>
+    );
+
+    await waitFor(() => {
+      expect(mockCreateFacade).toHaveBeenCalled();
+    });
+
+    const apiClientModule = await import('@tearleads/api-client/clientEntry');
+    const MockVfsWriteOrchestrator = apiClientModule.VfsWriteOrchestrator as {
+      lastInstance: {
+        flushAll: ReturnType<typeof vi.fn>;
+      } | null;
+    };
+    const flushAll = MockVfsWriteOrchestrator.lastInstance?.flushAll;
+    if (!flushAll) {
+      throw new Error('Expected orchestrator instance flushAll');
+    }
+    flushAll.mockClear();
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    expect(flushAll).not.toHaveBeenCalled();
+
+    setActiveOrganizationId('org-1');
     await waitFor(() => {
       expect(flushAll).toHaveBeenCalledTimes(1);
     });

@@ -31,7 +31,7 @@ import {
 import { createRecipientPublicKeyResolver } from '@/db/vfsRecipientKeyResolver';
 import { createUserKeyProvider } from '@/db/vfsUserKeyProvider';
 import { ensureVfsKeys } from '@/hooks/vfs';
-import { getActiveOrganizationId } from '@/lib/orgStorage';
+import { getActiveOrganizationId, onOrgChange } from '@/lib/orgStorage';
 import { setVfsItemSyncRuntime } from '@/lib/vfsItemSyncWriter';
 import { rematerializeRemoteVfsStateIfNeeded } from '@/lib/vfsRematerialization';
 import { useAuth } from './AuthContext';
@@ -212,9 +212,6 @@ export function VfsOrchestratorProvider({
         orchestrator: newOrchestrator,
         secureFacade: facade
       });
-      void newOrchestrator.flushAll().catch((flushErr) => {
-        console.warn('Initial VFS orchestrator flush failed:', flushErr);
-      });
     } catch (err) {
       const initError =
         err instanceof Error ? err : new Error('Failed to initialize VFS');
@@ -235,6 +232,25 @@ export function VfsOrchestratorProvider({
   useEffect(() => {
     void initialize();
   }, [initialize]);
+
+  useEffect(() => {
+    if (!orchestrator || !isAuthenticated) {
+      return;
+    }
+
+    const flushWhenOrganizationReady = () => {
+      if (getActiveOrganizationId() === null) {
+        return;
+      }
+
+      void orchestrator.flushAll().catch((flushErr) => {
+        console.warn('Initial VFS orchestrator flush failed:', flushErr);
+      });
+    };
+
+    flushWhenOrganizationReady();
+    return onOrgChange(flushWhenOrganizationReady);
+  }, [orchestrator, isAuthenticated]);
 
   useEffect(() => {
     if (!orchestrator || !isAuthenticated) {
