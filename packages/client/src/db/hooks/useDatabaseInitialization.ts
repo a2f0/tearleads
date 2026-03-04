@@ -141,7 +141,9 @@ export async function initializeAndRestoreDatabaseState({
     } else {
       databaseSetupProgressStore.update('Loading database engine...', 55);
       const database = await autoInitializeDatabase(activeInstance.id);
-      const persistedAfterAutoInit = await hasPersistedSession(activeInstance.id);
+      const persistedAfterAutoInit = await hasPersistedSession(
+        activeInstance.id
+      );
       databaseSetupProgressStore.update('Ready', 100);
       setDb(database);
       setIsSetUp(true);

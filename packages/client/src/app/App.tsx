@@ -62,7 +62,8 @@ function App() {
   const sidebarRef = useRef<HTMLElement | null>(null);
   const startButtonRef = useRef<HTMLButtonElement | null>(null);
   const keyboardHeight = useKeyboardHeight();
-  const { isUnlocked, lock, currentInstanceId, instances } = useDatabaseContext();
+  const { isUnlocked, lock, currentInstanceId, instances } =
+    useDatabaseContext();
   const auth = useOptionalAuth();
   const isAuthenticated = auth?.isAuthenticated ?? false;
   const [isDeferredLockDialogOpen, setIsDeferredLockDialogOpen] =
@@ -175,7 +176,8 @@ function App() {
           ? instances.find((instance) => instance.id === currentInstanceId)
           : null;
         if (!isAuthenticated && currentInstanceId) {
-          requiresPasswordBeforeLock = cachedInstance?.passwordDeferred === true;
+          requiresPasswordBeforeLock =
+            cachedInstance?.passwordDeferred === true;
           try {
             const instance = await getInstance(currentInstanceId);
             if (instance) {

@@ -49,7 +49,9 @@ async function navigateViaMobileMenu(
 async function waitForVfsUnlocked(): Promise<void> {
   await waitFor(
     () => {
-      expect(screen.getByRole('heading', { name: 'VFS Explorer' })).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: 'VFS Explorer' })
+      ).toBeInTheDocument();
       expect(screen.queryByTestId('inline-unlock')).not.toBeInTheDocument();
       expect(screen.getByTestId('vfs-file-input')).toBeInTheDocument();
     },
@@ -68,7 +70,9 @@ describe('VFS Integration Tests', () => {
 
       await waitForVfsUnlocked();
 
-      expect(screen.queryByText(/Database is not set up/)).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/Database is not set up/)
+      ).not.toBeInTheDocument();
     });
 
     it('renders the app shell around VFS page', async () => {
