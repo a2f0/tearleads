@@ -1,20 +1,15 @@
 //! WASM bindings for `tearleads-api-domain-core`.
 
 #[cfg(any(test, target_arch = "wasm32"))]
-use tearleads_api_domain_core::normalize_sql_identifier;
+use tearleads_api_domain_core::{canonical_sql_identifier_field, normalize_sql_identifier};
 use tearleads_api_domain_core::{normalize_redis_scan_cursor, normalize_redis_scan_limit};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
 #[cfg(any(test, target_arch = "wasm32"))]
 fn normalize_sql_identifier_inner(field: &str, value: &str) -> Result<String, String> {
-    let canonical_field = match field {
-        "schema" => "schema",
-        "table" => "table",
-        "key" => "key",
-        "cursor" => "cursor",
-        _ => return Err(String::from("field: unsupported identifier field")),
-    };
+    let canonical_field = canonical_sql_identifier_field(field)
+        .ok_or_else(|| String::from("field: unsupported identifier field"))?;
 
     normalize_sql_identifier(canonical_field, value).map_err(|error| error.to_string())
 }
