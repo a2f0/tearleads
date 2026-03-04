@@ -1,6 +1,8 @@
 appId: com.tearleads.app
+env:
+  PASSWORD: "autoInitPassword123"
 ---
-# Database Test - Tests SQLite database operations on native platforms
+# Database Test - Tests SQLite operations using deferred-password auto-init flow
 # Uses evalScript for DOM interaction as Maestro's extendedWaitUntil doesn't work reliably with Capacitor WebViews
 
 - launchApp:
@@ -17,17 +19,23 @@ appId: com.tearleads.app
 # Wait for SQLite page to load
 - evalScript: window.waitForElement('[data-testid="database-test"]')
 
-# Reset database to ensure clean state
-- evalScript: document.querySelector('[data-testid="db-reset-button"]').click()
+# Fresh installs should auto-initialize and unlock with deferred password
+- evalScript: window.waitForStatus('Unlocked')
 
-# Wait for reset to complete
-- evalScript: window.waitForResult('success')
+# Verify deferred-password indicator and CTA are shown
+- evalScript: |
+    const status = document.querySelector('[data-testid="db-password-status"]');
+    if (!status || status.textContent !== 'Not Set') {
+      throw new Error('Expected deferred password status "Not Set"');
+    }
+    const setButton = document.querySelector('[data-testid="db-set-password-button"]');
+    if (!setButton) {
+      throw new Error('Expected Set Password button for deferred instance');
+    }
+    return 'ok';
 
-# Verify database is in "Not Set Up" state
-- evalScript: window.waitForStatus('Not Set Up')
-
-# Enter password
-- evalScript: window.setPassword('testpassword123')
+# Enter password for deferred instance
+- evalScript: window.setPassword('${PASSWORD}')
 
 # Test password visibility toggle
 - evalScript: |
@@ -65,13 +73,13 @@ appId: com.tearleads.app
     }
     return 'ok';
 
-# Click setup button
-- evalScript: document.querySelector('[data-testid="db-setup-button"]').click()
+# Set password protector for the deferred instance
+- evalScript: document.querySelector('[data-testid="db-set-password-button"]').click()
 
-# Wait for setup to complete
-- evalScript: window.waitForResult('success')
+# Wait for set-password to complete
+- evalScript: window.waitForResult('success', 'Password set successfully')
 
-# Verify database is unlocked
+# Verify database remains unlocked
 - evalScript: window.waitForStatus('Unlocked')
 
 # Write test data
@@ -114,6 +122,8 @@ appId: com.tearleads.app
 - evalScript: window.waitForStatus('Locked')
 
 # Unlock with password
+- evalScript: window.setPassword('${PASSWORD}')
+
 - evalScript: document.querySelector('[data-testid="db-unlock-button"]').click()
 
 # Wait for unlock to complete
