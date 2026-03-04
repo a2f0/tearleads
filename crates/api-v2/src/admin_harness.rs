@@ -2,8 +2,8 @@
 
 use tearleads_data_access_traits::{
     BoxFuture, PostgresAdminReadRepository, PostgresConnectionInfo, PostgresInfoSnapshot,
-    PostgresTableInfo, RedisAdminReadRepository, RedisKeyInfo, RedisKeyScanPage,
-    RedisKeyValueRecord, RedisValue,
+    PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo, RedisAdminReadRepository, RedisKeyInfo,
+    RedisKeyScanPage, RedisKeyValueRecord, RedisValue,
 };
 
 use crate::{
@@ -138,6 +138,23 @@ impl PostgresAdminReadRepository for StaticPostgresRepository {
             ])
         })
     }
+
+    fn list_rows(
+        &self,
+        _query: PostgresRowsQuery,
+    ) -> BoxFuture<'_, Result<PostgresRowsPage, tearleads_data_access_traits::DataAccessError>>
+    {
+        Box::pin(async move {
+            Ok(PostgresRowsPage {
+                rows_json: vec![String::from(
+                    "{\"id\":\"user-1\",\"email\":\"user@example.com\"}",
+                )],
+                total_count: 1,
+                limit: 50,
+                offset: 0,
+            })
+        })
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -185,6 +202,12 @@ impl RedisAdminReadRepository for StaticRedisRepository {
             })
         })
     }
+
+    fn get_db_size(
+        &self,
+    ) -> BoxFuture<'_, Result<u64, tearleads_data_access_traits::DataAccessError>> {
+        Box::pin(async move { Ok(1) })
+    }
 }
 
 pub(crate) fn create_admin_harness_handler() -> AdminServiceHandler<
@@ -204,11 +227,11 @@ pub(crate) fn create_admin_harness_handler() -> AdminServiceHandler<
 mod tests {
     use crate::{AdminRequestAuthorizer, admin_auth::map_admin_auth_error};
     use tearleads_api_v2_contracts::tearleads::v2::{
-        AdminGetRedisKeysRequest, AdminGetRedisValueRequest, AdminGetTablesRequest,
-        admin_service_server::AdminService,
+        AdminGetRedisDbSizeRequest, AdminGetRedisKeysRequest, AdminGetRedisValueRequest,
+        AdminGetRowsRequest, AdminGetTablesRequest, admin_service_server::AdminService,
     };
     use tearleads_data_access_traits::{
-        PostgresAdminReadRepository, RedisAdminReadRepository, RedisValue,
+        PostgresAdminReadRepository, PostgresRowsQuery, RedisAdminReadRepository, RedisValue,
     };
     use tonic::{Code, Request};
 
@@ -302,6 +325,18 @@ mod tests {
             .expect("column listing should succeed");
         assert_eq!(columns.len(), 2);
         assert_eq!(columns[0].name, "id");
+        let rows = postgres
+            .list_rows(PostgresRowsQuery {
+                schema: String::from("public"),
+                table: String::from("users"),
+                limit: 50,
+                offset: 0,
+                sort_column: Some(String::from("id")),
+                sort_direction: Some(String::from("asc")),
+            })
+            .await
+            .expect("rows listing should succeed");
+        assert_eq!(rows.rows_json.len(), 1);
 
         let redis = StaticRedisRepository;
         let first_page = redis
@@ -327,6 +362,8 @@ mod tests {
             value.value,
             Some(RedisValue::String(String::from("test-value")))
         );
+        let db_size = redis.get_db_size().await.expect("db size should succeed");
+        assert_eq!(db_size, 1);
     }
 
     #[tokio::test]
@@ -380,6 +417,37 @@ mod tests {
             .expect("authorized value request should succeed")
             .into_inner();
         assert_eq!(value_response.key, "session:test");
+
+        let mut rows_request = Request::new(AdminGetRowsRequest {
+            schema: String::from("public"),
+            table: String::from("users"),
+            limit: 50,
+            offset: 0,
+            sort_column: Some(String::from("id")),
+            sort_direction: Some(String::from("asc")),
+        });
+        rows_request.metadata_mut().insert(
+            "authorization",
+            tonic::metadata::MetadataValue::from_static("Bearer header.payload.signature"),
+        );
+        let rows_response = handler
+            .get_rows(rows_request)
+            .await
+            .expect("authorized rows request should succeed")
+            .into_inner();
+        assert_eq!(rows_response.rows_json.len(), 1);
+
+        let mut db_size_request = Request::new(AdminGetRedisDbSizeRequest {});
+        db_size_request.metadata_mut().insert(
+            "authorization",
+            tonic::metadata::MetadataValue::from_static("Bearer header.payload.signature"),
+        );
+        let db_size_response = handler
+            .get_redis_db_size(db_size_request)
+            .await
+            .expect("authorized db size request should succeed")
+            .into_inner();
+        assert_eq!(db_size_response.count, 1);
     }
 
     fn parse_opaque_ascii_value(bytes: &[u8]) -> tonic::metadata::AsciiMetadataValue {

@@ -98,7 +98,7 @@ describe('api with msw vfs/ai query metadata', () => {
 
     const postgresRowsRequests = getRequestsFor(
       'POST',
-      '/connect/tearleads.v1.AdminService/GetRows'
+      '/connect/tearleads.v2.AdminService/GetRows'
     );
     expect(postgresRowsRequests).toHaveLength(2);
 

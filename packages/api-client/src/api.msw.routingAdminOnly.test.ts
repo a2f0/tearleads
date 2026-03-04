@@ -148,7 +148,7 @@ describe('api with msw admin routing', () => {
       wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetColumns')
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.AdminService/GetRows')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetRows')
     ).toBe(true);
     expect(
       wasApiRequestMade(
@@ -171,7 +171,7 @@ describe('api with msw admin routing', () => {
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.AdminService/GetRedisDbSize'
+        '/connect/tearleads.v2.AdminService/GetRedisDbSize'
       )
     ).toBe(true);
     expect(

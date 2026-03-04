@@ -50,7 +50,7 @@ pub struct RedisKeyValueRecord {
     pub value: Option<RedisValue>,
 }
 
-/// Repository boundary for Wave 1A Redis admin reads.
+/// Repository boundary for Redis admin reads.
 pub trait RedisAdminReadRepository: Send + Sync {
     /// Lists keys using cursor pagination.
     fn list_keys(
@@ -61,4 +61,7 @@ pub trait RedisAdminReadRepository: Send + Sync {
 
     /// Returns one key payload by key name.
     fn get_value(&self, key: &str) -> BoxFuture<'_, Result<RedisKeyValueRecord, DataAccessError>>;
+
+    /// Returns the key count for the selected database.
+    fn get_db_size(&self) -> BoxFuture<'_, Result<u64, DataAccessError>>;
 }

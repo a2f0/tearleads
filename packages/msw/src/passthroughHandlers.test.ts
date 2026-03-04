@@ -119,4 +119,30 @@ describe('createExpressPassthroughHandlers', () => {
       '/connect/tearleads.v2.AdminService/GetTables'
     ]);
   });
+
+  it('strips /v1 for override routes that skip prefixing', async () => {
+    mswServer.resetHandlers(
+      ...createExpressPassthroughHandlers(
+        'http://example.test',
+        v1Target.port,
+        '/v1',
+        [
+          {
+            pathnamePattern: /^\/(?:v1\/)?connect\/tearleads\.v2\.AdminService\//,
+            targetPort: v2Target.port,
+            pathPrefix: ''
+          }
+        ]
+      )
+    );
+
+    const response = await fetch(
+      'http://example.test/v1/connect/tearleads.v2.AdminService/GetRedisDbSize'
+    );
+
+    expect(response.ok).toBe(true);
+    expect(v2Target.hits).toEqual([
+      '/connect/tearleads.v2.AdminService/GetRedisDbSize'
+    ]);
+  });
 });

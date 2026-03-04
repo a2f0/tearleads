@@ -3,6 +3,7 @@ import { createGrpcWebTransport } from '@connectrpc/connect-web';
 import type {
   PostgresAdminInfoResponse,
   PostgresColumnsResponse,
+  PostgresRowsResponse,
   PostgresTablesResponse,
   RedisKeysResponse,
   RedisKeyValueResponse
@@ -16,6 +17,16 @@ import {
   normalizeApiV2ConnectBaseUrl
 } from '../apiV2ClientWasm';
 import { getAuthHeaderValue } from '../authStorage';
+import {
+  type AdminGetRowsOptions,
+  createAdminGetColumnsRequest,
+  createAdminGetPostgresInfoRequest,
+  createAdminGetRedisDbSizeRequest,
+  createAdminGetRedisKeysRequest,
+  createAdminGetRedisValueRequest,
+  createAdminGetRowsRequest,
+  createAdminGetTablesRequest
+} from './adminV2RouteRequests';
 
 const MIN_SAFE_BIGINT = BigInt(Number.MIN_SAFE_INTEGER);
 const MAX_SAFE_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
@@ -55,6 +66,13 @@ interface AdminV2ColumnLike {
 
 interface AdminV2ColumnsResponseLike {
   columns: AdminV2ColumnLike[];
+}
+
+interface AdminV2RowsResponseLike {
+  rowsJson: string[];
+  totalCount: bigint;
+  limit: number;
+  offset: number;
 }
 
 interface AdminV2RedisKeyLike {
@@ -108,6 +126,10 @@ interface AdminV2RedisValueResponseLike {
   };
 }
 
+interface AdminV2RedisDbSizeResponseLike {
+  count: bigint;
+}
+
 export interface AdminV2Client {
   getPostgresInfo(
     request: Record<string, never>,
@@ -121,6 +143,10 @@ export interface AdminV2Client {
     request: { schema: string; table: string },
     options?: AdminV2CallOptions
   ): Promise<AdminV2ColumnsResponseLike>;
+  getRows(
+    request: ReturnType<typeof createAdminGetRowsRequest>,
+    options?: AdminV2CallOptions
+  ): Promise<AdminV2RowsResponseLike>;
   getRedisKeys(
     request: { cursor: string; limit: number },
     options?: AdminV2CallOptions
@@ -129,6 +155,10 @@ export interface AdminV2Client {
     request: { key: string },
     options?: AdminV2CallOptions
   ): Promise<AdminV2RedisValueResponseLike>;
+  getRedisDbSize(
+    request: Record<string, never>,
+    options?: AdminV2CallOptions
+  ): Promise<AdminV2RedisDbSizeResponseLike>;
 }
 
 interface AdminV2RoutesDependencies {
@@ -144,29 +174,6 @@ interface AdminV2RoutesDependencies {
     durationMs: number,
     success: boolean
   ) => Promise<void>;
-}
-
-function createAdminGetPostgresInfoRequest(): Record<string, never> {
-  return {};
-}
-
-function createAdminGetTablesRequest(): Record<string, never> {
-  return {};
-}
-
-function createAdminGetColumnsRequest(schema: string, table: string) {
-  return { schema, table };
-}
-
-function createAdminGetRedisKeysRequest(cursor?: string, limit?: number) {
-  return {
-    cursor: cursor ?? '',
-    limit: limit ?? 0
-  };
-}
-
-function createAdminGetRedisValueRequest(key: string) {
-  return { key };
 }
 
 function createDefaultDependencies(): AdminV2RoutesDependencies {
@@ -243,6 +250,35 @@ function mapPostgresColumnsResponse(
   };
 }
 
+function mapPostgresRowsResponse(
+  response: AdminV2RowsResponseLike
+): PostgresRowsResponse {
+  const rows = response.rowsJson.map((rowJson, index) => {
+    try {
+      const parsedRow: unknown = JSON.parse(rowJson);
+      if (
+        typeof parsedRow !== 'object' ||
+        parsedRow === null ||
+        Array.isArray(parsedRow)
+      ) {
+        throw new Error('row payload must decode to an object');
+      }
+      return Object.fromEntries(Object.entries(parsedRow));
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'unknown parse error';
+      throw new Error(`failed to parse row ${String(index)}: ${message}`);
+    }
+  });
+
+  return {
+    rows,
+    totalCount: toSafeNumber(response.totalCount, 'totalCount'),
+    limit: response.limit,
+    offset: response.offset
+  };
+}
+
 function mapRedisKeysResponse(
   response: AdminV2RedisKeysResponseLike
 ): RedisKeysResponse {
@@ -291,6 +327,14 @@ function mapRedisValueResponse(
     type: response.type,
     ttl: toSafeNumber(response.ttl, 'ttl'),
     value: mapRedisValue(response)
+  };
+}
+
+function mapRedisDbSizeResponse(response: AdminV2RedisDbSizeResponseLike): {
+  count: number;
+} {
+  return {
+    count: toSafeNumber(response.count, 'count')
   };
 }
 
@@ -383,7 +427,16 @@ export function createAdminV2Routes(
             );
             return mapPostgresColumnsResponse(response);
           }
-        )
+        ),
+      getRows: (schema: string, table: string, options?: AdminGetRowsOptions) =>
+        runWithEvent(dependencies, 'api_get_admin_postgres_rows', async () => {
+          const { client, callOptions } = await buildCallContext(dependencies);
+          const response = await client.getRows(
+            createAdminGetRowsRequest(schema, table, options),
+            callOptions
+          );
+          return mapPostgresRowsResponse(response);
+        })
     },
     redis: {
       getKeys: (cursor?: string, limit?: number) =>
@@ -403,6 +456,15 @@ export function createAdminV2Routes(
             callOptions
           );
           return mapRedisValueResponse(response);
+        }),
+      getDbSize: () =>
+        runWithEvent(dependencies, 'api_get_admin_redis_dbsize', async () => {
+          const { client, callOptions } = await buildCallContext(dependencies);
+          const response = await client.getRedisDbSize(
+            createAdminGetRedisDbSizeRequest(),
+            callOptions
+          );
+          return mapRedisDbSizeResponse(response);
         })
     }
   };

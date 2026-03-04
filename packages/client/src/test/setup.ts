@@ -28,7 +28,8 @@ const REAL_API_TEST_PATH_PATTERNS = [
   /\/src\/lib\/api\.msw(?:\..+)?\.test\.tsx?$/,
   /\/src\/test\/msw\/.*\.test\.tsx?$/
 ];
-const API_V2_ADMIN_ROUTE_PATTERN = /^\/connect\/tearleads\.v2\.AdminService\//;
+const API_V2_ADMIN_ROUTE_PATTERN =
+  /^\/(?:v1\/)?connect\/tearleads\.v2\.AdminService\//;
 
 function shouldUseRealApiForCurrentTest(): boolean {
   const testPath = expect.getState().testPath;

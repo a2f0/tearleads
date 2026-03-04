@@ -7,8 +7,10 @@ interface ApiV2ClientWasmBindings {
   adminGetPostgresInfoPath: () => string;
   adminGetTablesPath: () => string;
   adminGetColumnsPath: () => string;
+  adminGetRowsPath: () => string;
   adminGetRedisKeysPath: () => string;
   adminGetRedisValuePath: () => string;
+  adminGetRedisDbSizePath: () => string;
   buildRequestHeaders: (
     bearerToken?: string | null,
     organizationId?: string | null
@@ -19,8 +21,10 @@ export interface ApiV2AdminRpcPaths {
   getPostgresInfo: string;
   getTables: string;
   getColumns: string;
+  getRows: string;
   getRedisKeys: string;
   getRedisValue: string;
+  getRedisDbSize: string;
 }
 
 export interface ApiV2RequestHeaderOptions {
@@ -40,8 +44,10 @@ function assertApiV2ClientWasmBindings(
     typeof module['adminGetPostgresInfoPath'] !== 'function' ||
     typeof module['adminGetTablesPath'] !== 'function' ||
     typeof module['adminGetColumnsPath'] !== 'function' ||
+    typeof module['adminGetRowsPath'] !== 'function' ||
     typeof module['adminGetRedisKeysPath'] !== 'function' ||
     typeof module['adminGetRedisValuePath'] !== 'function' ||
+    typeof module['adminGetRedisDbSizePath'] !== 'function' ||
     typeof module['buildRequestHeaders'] !== 'function'
   ) {
     throw new Error(
@@ -108,8 +114,10 @@ export async function getApiV2AdminRpcPaths(): Promise<ApiV2AdminRpcPaths> {
     getPostgresInfo: bindings.adminGetPostgresInfoPath(),
     getTables: bindings.adminGetTablesPath(),
     getColumns: bindings.adminGetColumnsPath(),
+    getRows: bindings.adminGetRowsPath(),
     getRedisKeys: bindings.adminGetRedisKeysPath(),
-    getRedisValue: bindings.adminGetRedisValuePath()
+    getRedisValue: bindings.adminGetRedisValuePath(),
+    getRedisDbSize: bindings.adminGetRedisDbSizePath()
   };
 }
 

@@ -38,8 +38,11 @@ describe('apiV2ClientWasm', () => {
         '/tearleads.v2.AdminService/GetPostgresInfo',
       adminGetTablesPath: () => '/tearleads.v2.AdminService/GetTables',
       adminGetColumnsPath: () => '/tearleads.v2.AdminService/GetColumns',
+      adminGetRowsPath: () => '/tearleads.v2.AdminService/GetRows',
       adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
       adminGetRedisValuePath: () => '/tearleads.v2.AdminService/GetRedisValue',
+      adminGetRedisDbSizePath: () =>
+        '/tearleads.v2.AdminService/GetRedisDbSize',
       buildRequestHeaders: () => ({ headers: {} })
     });
 
@@ -66,9 +69,12 @@ describe('apiV2ClientWasm', () => {
           '/tearleads.v2.AdminService/GetPostgresInfo',
         adminGetTablesPath: () => '/tearleads.v2.AdminService/GetTables',
         adminGetColumnsPath: () => '/tearleads.v2.AdminService/GetColumns',
+        adminGetRowsPath: () => '/tearleads.v2.AdminService/GetRows',
         adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
         adminGetRedisValuePath: () =>
           '/tearleads.v2.AdminService/GetRedisValue',
+        adminGetRedisDbSizePath: () =>
+          '/tearleads.v2.AdminService/GetRedisDbSize',
         buildRequestHeaders: () => ({ headers: {} })
       })
     );
@@ -92,8 +98,11 @@ describe('apiV2ClientWasm', () => {
         '/tearleads.v2.AdminService/GetPostgresInfo',
       adminGetTablesPath: () => '/tearleads.v2.AdminService/GetTables',
       adminGetColumnsPath: () => '/tearleads.v2.AdminService/GetColumns',
+      adminGetRowsPath: () => '/tearleads.v2.AdminService/GetRows',
       adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
       adminGetRedisValuePath: () => '/tearleads.v2.AdminService/GetRedisValue',
+      adminGetRedisDbSizePath: () =>
+        '/tearleads.v2.AdminService/GetRedisDbSize',
       buildRequestHeaders: () => ({ headers: {} })
     });
 
@@ -102,8 +111,10 @@ describe('apiV2ClientWasm', () => {
       getPostgresInfo: '/tearleads.v2.AdminService/GetPostgresInfo',
       getTables: '/tearleads.v2.AdminService/GetTables',
       getColumns: '/tearleads.v2.AdminService/GetColumns',
+      getRows: '/tearleads.v2.AdminService/GetRows',
       getRedisKeys: '/tearleads.v2.AdminService/GetRedisKeys',
-      getRedisValue: '/tearleads.v2.AdminService/GetRedisValue'
+      getRedisValue: '/tearleads.v2.AdminService/GetRedisValue',
+      getRedisDbSize: '/tearleads.v2.AdminService/GetRedisDbSize'
     });
   });
 
@@ -121,8 +132,11 @@ describe('apiV2ClientWasm', () => {
         '/tearleads.v2.AdminService/GetPostgresInfo',
       adminGetTablesPath: () => '/tearleads.v2.AdminService/GetTables',
       adminGetColumnsPath: () => '/tearleads.v2.AdminService/GetColumns',
+      adminGetRowsPath: () => '/tearleads.v2.AdminService/GetRows',
       adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
       adminGetRedisValuePath: () => '/tearleads.v2.AdminService/GetRedisValue',
+      adminGetRedisDbSizePath: () =>
+        '/tearleads.v2.AdminService/GetRedisDbSize',
       buildRequestHeaders
     });
 
@@ -155,8 +169,11 @@ describe('apiV2ClientWasm', () => {
         '/tearleads.v2.AdminService/GetPostgresInfo',
       adminGetTablesPath: () => '/tearleads.v2.AdminService/GetTables',
       adminGetColumnsPath: () => '/tearleads.v2.AdminService/GetColumns',
+      adminGetRowsPath: () => '/tearleads.v2.AdminService/GetRows',
       adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
       adminGetRedisValuePath: () => '/tearleads.v2.AdminService/GetRedisValue',
+      adminGetRedisDbSizePath: () =>
+        '/tearleads.v2.AdminService/GetRedisDbSize',
       buildRequestHeaders: () => ({ headers: { authorization: 123 } })
     });
 
@@ -176,9 +193,12 @@ describe('apiV2ClientWasm', () => {
           '/tearleads.v2.AdminService/GetPostgresInfo',
         adminGetTablesPath: () => '/tearleads.v2.AdminService/GetTables',
         adminGetColumnsPath: () => '/tearleads.v2.AdminService/GetColumns',
+        adminGetRowsPath: () => '/tearleads.v2.AdminService/GetRows',
         adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
         adminGetRedisValuePath: () =>
           '/tearleads.v2.AdminService/GetRedisValue',
+        adminGetRedisDbSizePath: () =>
+          '/tearleads.v2.AdminService/GetRedisDbSize',
         buildRequestHeaders: () => ({ headers: {} })
       });
 

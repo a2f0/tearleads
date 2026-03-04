@@ -15,7 +15,6 @@ import type {
   OrganizationResponse,
   OrganizationsListResponse,
   OrganizationUsersResponse,
-  PostgresRowsResponse,
   UpdateGroupRequest,
   UpdateOrganizationRequest
 } from '@tearleads/shared';
@@ -69,20 +68,7 @@ export const adminRoutes = {
         sortColumn?: string;
         sortDirection?: 'asc' | 'desc';
       }
-    ) => {
-      const requestBody: Record<string, unknown> = { schema, table };
-      if (options?.limit) requestBody['limit'] = options.limit;
-      if (options?.offset) requestBody['offset'] = options.offset;
-      if (options?.sortColumn) requestBody['sortColumn'] = options.sortColumn;
-      if (options?.sortDirection) {
-        requestBody['sortDirection'] = options.sortDirection;
-      }
-      return requestAdminJson<PostgresRowsResponse>(
-        'GetRows',
-        requestBody,
-        'api_get_admin_postgres_rows'
-      );
-    }
+    ) => adminV2Routes.postgres.getRows(schema, table, options)
   },
   redis: {
     getKeys: (cursor?: string, limit?: number) =>
@@ -94,12 +80,7 @@ export const adminRoutes = {
         { key },
         'api_delete_admin_redis_key'
       ),
-    getDbSize: () =>
-      requestAdminJson<{ count: number }>(
-        'GetRedisDbSize',
-        {},
-        'api_get_admin_redis_dbsize'
-      )
+    getDbSize: () => adminV2Routes.redis.getDbSize()
   },
   groups: {
     list: (options?: { organizationId?: string }) => {

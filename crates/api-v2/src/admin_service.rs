@@ -5,15 +5,16 @@ use std::collections::HashMap;
 use tearleads_api_domain_core::normalize_sql_identifier;
 use tearleads_api_v2_contracts::tearleads::v2::{
     AdminGetColumnsRequest, AdminGetColumnsResponse, AdminGetPostgresInfoRequest,
-    AdminGetPostgresInfoResponse, AdminGetRedisKeysRequest, AdminGetRedisKeysResponse,
-    AdminGetRedisValueRequest, AdminGetRedisValueResponse, AdminGetTablesRequest,
+    AdminGetPostgresInfoResponse, AdminGetRedisDbSizeRequest, AdminGetRedisDbSizeResponse,
+    AdminGetRedisKeysRequest, AdminGetRedisKeysResponse, AdminGetRedisValueRequest,
+    AdminGetRedisValueResponse, AdminGetRowsRequest, AdminGetRowsResponse, AdminGetTablesRequest,
     AdminGetTablesResponse, AdminPostgresColumnInfo, AdminPostgresConnectionInfo,
     AdminPostgresTableInfo, AdminRedisKeyInfo, AdminRedisStringList, AdminRedisStringMap,
     AdminRedisValue, admin_redis_value, admin_service_server::AdminService,
 };
 use tearleads_data_access_traits::{
-    DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository, RedisAdminReadRepository,
-    RedisValue,
+    DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository, PostgresRowsQuery,
+    RedisAdminReadRepository, RedisValue,
 };
 use tonic::{Request, Response, Status};
 
@@ -131,6 +132,48 @@ where
         Ok(Response::new(AdminGetColumnsResponse { columns }))
     }
 
+    async fn get_rows(
+        &self,
+        request: Request<AdminGetRowsRequest>,
+    ) -> Result<Response<AdminGetRowsResponse>, Status> {
+        self.authorizer
+            .authorize_admin_operation(AdminOperation::GetRows, request.metadata())
+            .map_err(map_admin_auth_error)?;
+        let payload = request.into_inner();
+        let schema = normalize_schema_or_table("schema", &payload.schema)
+            .map_err(Status::invalid_argument)?;
+        let table =
+            normalize_schema_or_table("table", &payload.table).map_err(Status::invalid_argument)?;
+        let sort_column = payload
+            .sort_column
+            .map(|value| normalize_schema_or_table("sortColumn", &value))
+            .transpose()
+            .map_err(Status::invalid_argument)?;
+        let sort_direction =
+            normalize_sort_direction(payload.sort_direction).map_err(Status::invalid_argument)?;
+        let limit = normalize_rows_limit(payload.limit);
+
+        let rows_page = self
+            .postgres_repo
+            .list_rows(PostgresRowsQuery {
+                schema,
+                table,
+                limit,
+                offset: payload.offset,
+                sort_column,
+                sort_direction,
+            })
+            .await
+            .map_err(map_data_access_error)?;
+
+        Ok(Response::new(AdminGetRowsResponse {
+            rows_json: rows_page.rows_json,
+            total_count: rows_page.total_count,
+            limit: rows_page.limit,
+            offset: rows_page.offset,
+        }))
+    }
+
     async fn get_redis_keys(
         &self,
         request: Request<AdminGetRedisKeysRequest>,
@@ -186,6 +229,23 @@ where
         };
         Ok(Response::new(response))
     }
+
+    async fn get_redis_db_size(
+        &self,
+        request: Request<AdminGetRedisDbSizeRequest>,
+    ) -> Result<Response<AdminGetRedisDbSizeResponse>, Status> {
+        self.authorizer
+            .authorize_admin_operation(AdminOperation::GetRedisDbSize, request.metadata())
+            .map_err(map_admin_auth_error)?;
+        let _ = request.into_inner();
+        let count = self
+            .redis_repo
+            .get_db_size()
+            .await
+            .map_err(map_data_access_error)?;
+
+        Ok(Response::new(AdminGetRedisDbSizeResponse { count }))
+    }
 }
 
 fn map_redis_value(value: Option<RedisValue>) -> Option<AdminRedisValue> {
@@ -228,4 +288,30 @@ fn normalize_redis_key(key: &str) -> Result<String, &'static str> {
         return Err("key must not be empty");
     }
     Ok(trimmed.to_string())
+}
+
+fn normalize_sort_direction(value: Option<String>) -> Result<Option<String>, &'static str> {
+    let Some(raw) = value else {
+        return Ok(None);
+    };
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+
+    if trimmed.eq_ignore_ascii_case("asc") {
+        return Ok(Some(String::from("asc")));
+    }
+    if trimmed.eq_ignore_ascii_case("desc") {
+        return Ok(Some(String::from("desc")));
+    }
+
+    Err("sort_direction must be \"asc\" or \"desc\"")
+}
+
+fn normalize_rows_limit(limit: u32) -> u32 {
+    if limit == 0 {
+        return 50;
+    }
+    limit.min(1000)
 }

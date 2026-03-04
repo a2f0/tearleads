@@ -9,7 +9,7 @@ use std::{future::Future, pin::Pin};
 pub use error::{DataAccessError, DataAccessErrorKind};
 pub use postgres::{
     PostgresAdminReadRepository, PostgresColumnInfo, PostgresConnectionInfo, PostgresInfoSnapshot,
-    PostgresTableInfo,
+    PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo,
 };
 pub use redis::{
     RedisAdminReadRepository, RedisKeyInfo, RedisKeyScanPage, RedisKeyValueRecord, RedisValue,

@@ -34,8 +34,10 @@ interface AdminV2ClientOverrides {
   getPostgresInfo?: AdminV2Client['getPostgresInfo'];
   getTables?: AdminV2Client['getTables'];
   getColumns?: AdminV2Client['getColumns'];
+  getRows?: AdminV2Client['getRows'];
   getRedisKeys?: AdminV2Client['getRedisKeys'];
   getRedisValue?: AdminV2Client['getRedisValue'];
+  getRedisDbSize?: AdminV2Client['getRedisDbSize'];
 }
 
 function createAdminV2ClientStub(
@@ -47,12 +49,22 @@ function createAdminV2ClientStub(
       vi.fn(async () => ({ info: undefined, serverVersion: undefined })),
     getTables: overrides.getTables ?? vi.fn(async () => ({ tables: [] })),
     getColumns: overrides.getColumns ?? vi.fn(async () => ({ columns: [] })),
+    getRows:
+      overrides.getRows ??
+      vi.fn(async () => ({
+        rowsJson: [],
+        totalCount: 0n,
+        limit: 0,
+        offset: 0
+      })),
     getRedisKeys:
       overrides.getRedisKeys ??
       vi.fn(async () => ({ keys: [], cursor: '0', hasMore: false })),
     getRedisValue:
       overrides.getRedisValue ??
-      vi.fn(async () => ({ key: '', type: '', ttl: 0n, value: undefined }))
+      vi.fn(async () => ({ key: '', type: '', ttl: 0n, value: undefined })),
+    getRedisDbSize:
+      overrides.getRedisDbSize ?? vi.fn(async () => ({ count: 0n }))
   };
 }
 
@@ -250,7 +262,52 @@ describe('adminV2Routes', () => {
     );
   });
 
-  it('maps redis key and value responses and forwards request args', async () => {
+  it('maps postgres rows response and forwards pagination/sort args', async () => {
+    const getRows = vi.fn(async () => ({
+      rowsJson: ['{"id":"user-1","email":"user@example.com"}'],
+      totalCount: 1n,
+      limit: 10,
+      offset: 20
+    }));
+    const client = createAdminV2ClientStub({ getRows });
+    const { routes, logEvent } = createRoutesForTest(client);
+
+    const response = await routes.postgres.getRows('public', 'users', {
+      limit: 10,
+      offset: 20,
+      sortColumn: 'id',
+      sortDirection: 'desc'
+    });
+
+    expect(response).toEqual({
+      rows: [{ id: 'user-1', email: 'user@example.com' }],
+      totalCount: 1,
+      limit: 10,
+      offset: 20
+    });
+    expect(getRows).toHaveBeenCalledWith(
+      {
+        schema: 'public',
+        table: 'users',
+        limit: 10,
+        offset: 20,
+        sortColumn: 'id',
+        sortDirection: 'desc'
+      },
+      {
+        headers: {
+          authorization: 'Bearer token-123'
+        }
+      }
+    );
+    expect(logEvent).toHaveBeenCalledWith(
+      'api_get_admin_postgres_rows',
+      expect.any(Number),
+      true
+    );
+  });
+
+  it('maps redis key/value/dbsize responses and forwards request args', async () => {
     const getRedisKeys = vi.fn(async () => ({
       keys: [{ key: 'session:1', type: 'string', ttl: 120n }],
       cursor: '8',
@@ -269,14 +326,17 @@ describe('adminV2Routes', () => {
         }
       }
     }));
+    const getRedisDbSize = vi.fn(async () => ({ count: 12n }));
     const client = createAdminV2ClientStub({
       getRedisKeys,
-      getRedisValue
+      getRedisValue,
+      getRedisDbSize
     });
     const { routes, logEvent, buildHeaders } = createRoutesForTest(client);
 
     const keysResponse = await routes.redis.getKeys('5', 10);
     const valueResponse = await routes.redis.getValue('config');
+    const dbSizeResponse = await routes.redis.getDbSize();
 
     expect(keysResponse).toEqual({
       keys: [{ key: 'session:1', type: 'string', ttl: 120 }],
@@ -289,10 +349,11 @@ describe('adminV2Routes', () => {
       ttl: 10,
       value: { mode: 'strict' }
     });
+    expect(dbSizeResponse).toEqual({ count: 12 });
     expect(getRedisKeys.mock.calls[0]?.[0].cursor).toBe('5');
     expect(getRedisKeys.mock.calls[0]?.[0].limit).toBe(10);
     expect(getRedisValue.mock.calls[0]?.[0].key).toBe('config');
-    expect(buildHeaders).toHaveBeenCalledTimes(2);
+    expect(buildHeaders).toHaveBeenCalledTimes(3);
     expect(logEvent).toHaveBeenCalledWith(
       'api_get_admin_redis_keys',
       expect.any(Number),
@@ -300,6 +361,11 @@ describe('adminV2Routes', () => {
     );
     expect(logEvent).toHaveBeenCalledWith(
       'api_get_admin_redis_key',
+      expect.any(Number),
+      true
+    );
+    expect(logEvent).toHaveBeenCalledWith(
+      'api_get_admin_redis_dbsize',
       expect.any(Number),
       true
     );
