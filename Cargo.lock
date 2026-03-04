@@ -1357,6 +1357,8 @@ dependencies = [
  "serde_json",
  "tearleads-api-domain-core",
  "tearleads-api-v2-contracts",
+ "tearleads-data-access-postgres",
+ "tearleads-data-access-redis",
  "tearleads-data-access-traits",
  "tokio",
  "tokio-stream",
