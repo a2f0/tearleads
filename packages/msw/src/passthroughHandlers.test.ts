@@ -128,7 +128,8 @@ describe('createExpressPassthroughHandlers', () => {
         '/v1',
         [
           {
-            pathnamePattern: /^\/(?:v1\/)?connect\/tearleads\.v2\.AdminService\//,
+            pathnamePattern:
+              /^\/(?:v1\/)?connect\/tearleads\.v2\.AdminService\//,
             targetPort: v2Target.port,
             pathPrefix: ''
           }
