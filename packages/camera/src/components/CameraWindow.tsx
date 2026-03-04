@@ -4,6 +4,7 @@ import {
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { CameraCapture, type CameraPhotoRollItem } from './CameraCapture';
+import { CameraWindowMenuBar } from './CameraWindowMenuBar';
 
 const DEFAULT_WIDTH = 840;
 const DEFAULT_HEIGHT = 620;
@@ -52,6 +53,7 @@ export function CameraWindow({
       minHeight={MIN_HEIGHT}
     >
       <div className="flex h-full min-h-0 flex-col">
+        <CameraWindowMenuBar onClose={onClose} />
         <WindowControlBar>{null}</WindowControlBar>
         <div className="flex min-h-0 flex-1 flex-col p-3">
           <CameraCapture
