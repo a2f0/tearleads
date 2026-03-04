@@ -28,7 +28,8 @@ const PHOTO_TYPE_MAP: Record<string, string> = {
   'image/gif': 'GIF',
   'image/webp': 'WebP',
   'image/heic': 'HEIC',
-  'image/heif': 'HEIF'
+  'image/heif': 'HEIF',
+  'image/svg+xml': 'SVG'
 };
 
 export function getPhotoTypeDisplay(mimeType: string): string {
