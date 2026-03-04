@@ -11,7 +11,7 @@ tearleads-api-domain-core = { version = "0.1.0", path = "../api-domain-core" }
 tearleads-api-v2-contracts = { version = "0.1.0", path = "../api-v2-contracts" }
 tearleads-data-access-traits = { version = "0.1.0", path = "../data-access-traits" }
 tokio = { version = "1.48.0", features = ["macros", "rt-multi-thread", "net"] }
-tonic = { version = "0.12.3", default-features = false, features = ["codegen", "prost", "transport"] }
+tonic = { version = "0.12.3", default-features = false, features = ["codegen", "prost"] }
 tower-http = { version = "0.6.6", features = ["cors", "trace"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["fmt", "env-filter"] }
@@ -19,6 +19,7 @@ tracing-subscriber = { version = "0.3.20", features = ["fmt", "env-filter"] }
 [dev-dependencies]
 http-body-util = "0.1.3"
 serde_json = "1.0.145"
+tonic = { version = "0.12.3", default-features = false, features = ["transport"] }
 tokio-stream = { version = "0.1.17", features = ["net"] }
 tower = { version = "0.5.2", features = ["util"] }
 

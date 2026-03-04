@@ -2,27 +2,101 @@
 
 use std::net::SocketAddr;
 
-mod support;
-
-use support::admin_service::{
-    FakeAuthorizer, FakePostgresRepository, FakeRedisRepository, into_inner_or_panic,
-};
-use tearleads_api_v2::{AdminAuthErrorKind, AdminServiceHandler};
+use tearleads_api_v2::AdminServiceHandler;
 use tearleads_api_v2_contracts::tearleads::v2::{
     AdminGetColumnsRequest, AdminGetPostgresInfoRequest, AdminGetRedisKeysRequest,
     AdminGetRedisValueRequest, AdminGetTablesRequest, admin_redis_value,
     admin_service_client::AdminServiceClient, admin_service_server::AdminServiceServer,
 };
 use tearleads_data_access_traits::{
-    PostgresColumnInfo, PostgresConnectionInfo, PostgresInfoSnapshot, PostgresTableInfo,
+    BoxFuture, DataAccessError, PostgresAdminReadRepository, PostgresColumnInfo,
+    PostgresConnectionInfo, PostgresInfoSnapshot, PostgresTableInfo, RedisAdminReadRepository,
     RedisKeyInfo, RedisKeyScanPage, RedisKeyValueRecord, RedisValue,
 };
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::{
-    Code, Request, Response,
+    Code, Request,
     transport::{Channel, Endpoint, Server},
 };
+
+#[derive(Debug)]
+struct FakePostgresRepository {
+    info_result: Result<PostgresInfoSnapshot, DataAccessError>,
+    tables_result: Result<Vec<PostgresTableInfo>, DataAccessError>,
+    columns_result: Result<Vec<PostgresColumnInfo>, DataAccessError>,
+}
+
+impl Default for FakePostgresRepository {
+    fn default() -> Self {
+        Self {
+            info_result: Ok(PostgresInfoSnapshot::default()),
+            tables_result: Ok(Vec::new()),
+            columns_result: Ok(Vec::new()),
+        }
+    }
+}
+
+impl PostgresAdminReadRepository for FakePostgresRepository {
+    fn get_postgres_info(&self) -> BoxFuture<'_, Result<PostgresInfoSnapshot, DataAccessError>> {
+        let result = self.info_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn list_tables(&self) -> BoxFuture<'_, Result<Vec<PostgresTableInfo>, DataAccessError>> {
+        let result = self.tables_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn list_columns(
+        &self,
+        _schema: &str,
+        _table: &str,
+    ) -> BoxFuture<'_, Result<Vec<PostgresColumnInfo>, DataAccessError>> {
+        let result = self.columns_result.clone();
+        Box::pin(async move { result })
+    }
+}
+
+#[derive(Debug)]
+struct FakeRedisRepository {
+    list_keys_result: Result<RedisKeyScanPage, DataAccessError>,
+    get_value_result: Result<RedisKeyValueRecord, DataAccessError>,
+}
+
+impl Default for FakeRedisRepository {
+    fn default() -> Self {
+        Self {
+            list_keys_result: Ok(RedisKeyScanPage {
+                keys: Vec::new(),
+                cursor: String::from("0"),
+                has_more: false,
+            }),
+            get_value_result: Ok(RedisKeyValueRecord {
+                key: String::from("sample"),
+                key_type: String::from("string"),
+                ttl_seconds: -1,
+                value: None,
+            }),
+        }
+    }
+}
+
+impl RedisAdminReadRepository for FakeRedisRepository {
+    fn list_keys(
+        &self,
+        _cursor: &str,
+        _limit: u32,
+    ) -> BoxFuture<'_, Result<RedisKeyScanPage, DataAccessError>> {
+        let result = self.list_keys_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn get_value(&self, _key: &str) -> BoxFuture<'_, Result<RedisKeyValueRecord, DataAccessError>> {
+        let result = self.get_value_result.clone();
+        Box::pin(async move { result })
+    }
+}
 
 struct AdminTransportHarness {
     client: AdminServiceClient<Channel>,
@@ -120,13 +194,6 @@ async fn shutdown_admin_transport(harness: AdminTransportHarness) {
     }
 }
 
-#[test]
-fn support_helpers_are_reachable_from_transport_suite() {
-    let _allow = FakeAuthorizer::allow_all();
-    let _deny = FakeAuthorizer::deny(AdminAuthErrorKind::PermissionDenied, "deny");
-    let _: () = into_inner_or_panic::<()>(Ok(Response::new(())));
-}
-
 #[tokio::test]
 async fn transport_round_trip_for_wave1a_admin_endpoints() {
     let postgres_repo = FakePostgresRepository {
@@ -154,7 +221,6 @@ async fn transport_round_trip_for_wave1a_admin_endpoints() {
             default_value: None,
             ordinal_position: 1,
         }]),
-        ..Default::default()
     };
     let redis_repo = FakeRedisRepository {
         list_keys_result: Ok(RedisKeyScanPage {
@@ -172,7 +238,6 @@ async fn transport_round_trip_for_wave1a_admin_endpoints() {
             ttl_seconds: 180,
             value: Some(RedisValue::String(String::from("hello"))),
         }),
-        ..Default::default()
     };
     let mut harness = spawn_admin_transport(postgres_repo, redis_repo).await;
 
