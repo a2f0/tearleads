@@ -60,7 +60,9 @@ class FakeProcess extends EventEmitter {
   public readonly stderr = new FakeStderr();
   public readonly killedSignals: string[] = [];
 
-  constructor(private readonly onKill: (signal: string, process: FakeProcess) => void) {
+  constructor(
+    private readonly onKill: (signal: string, process: FakeProcess) => void
+  ) {
     super();
   }
 
