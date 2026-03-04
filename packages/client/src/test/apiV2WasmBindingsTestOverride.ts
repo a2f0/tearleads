@@ -9,8 +9,7 @@ const mockedApiV2ClientWasmModule = {
   adminGetRowsPath: () => '/tearleads.v2.AdminService/GetRows',
   adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
   adminGetRedisValuePath: () => '/tearleads.v2.AdminService/GetRedisValue',
-  adminDeleteRedisKeyPath: () =>
-    '/tearleads.v2.AdminService/DeleteRedisKey',
+  adminDeleteRedisKeyPath: () => '/tearleads.v2.AdminService/DeleteRedisKey',
   adminGetRedisDbSizePath: () => '/tearleads.v2.AdminService/GetRedisDbSize',
   buildRequestHeaders: (
     bearerToken?: string | null,
