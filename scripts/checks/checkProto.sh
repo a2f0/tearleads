@@ -13,42 +13,46 @@ fi
 mode="$1"
 
 collect_files() {
-  if [ "$mode" = "--staged" ]; then
-    git diff --name-only --diff-filter=AM --cached
-    return
-  fi
+  case "$mode" in
+    --staged)
+      git diff --name-only --diff-filter=AM --cached
+      ;;
+    --from-upstream)
+      local base_ref
+      if upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null); then
+        base_ref="$upstream"
+      elif git rev-parse --verify origin/main >/dev/null 2>&1; then
+        base_ref="origin/main"
+      elif git rev-parse --verify main >/dev/null 2>&1; then
+        base_ref="main"
+      else
+        echo "checkProto: cannot determine base branch for comparison" >&2
+        exit 1
+      fi
 
-  if [ "$mode" = "--from-upstream" ]; then
-    local base_ref
-
-    if upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null); then
-      base_ref="$upstream"
-    elif git rev-parse --verify origin/main >/dev/null 2>&1; then
-      base_ref="origin/main"
-    elif git rev-parse --verify main >/dev/null 2>&1; then
-      base_ref="main"
-    else
-      echo "checkProto: cannot determine base branch for comparison" >&2
-      exit 1
-    fi
-
-    git diff --name-only --diff-filter=AM "$base_ref..HEAD"
-    return
-  fi
-
-  if [ "$mode" = "--all" ]; then
-    return
-  fi
-
-  usage
+      git diff --name-only --diff-filter=AM "$base_ref..HEAD"
+      ;;
+    --all)
+      ;;
+    *)
+      usage
+      ;;
+  esac
 }
 
 has_proto_related_changes() {
   local path
   for path in "$@"; do
-    if [[ "$path" == proto/* || "$path" == packages/shared/src/gen/* || "$path" == scripts/lib/verifyProtoCodegenPlugins.ts || "$path" == scripts/checks/checkProto.sh || "$path" == package.json || "$path" == pnpm-lock.yaml ]]; then
-      return 0
-    fi
+    case "$path" in
+      proto/* | \
+        packages/shared/src/gen/* | \
+        scripts/lib/verifyProtoCodegenPlugins.ts | \
+        scripts/checks/checkProto.sh | \
+        package.json | \
+        pnpm-lock.yaml)
+        return 0
+        ;;
+    esac
   done
   return 1
 }
