@@ -191,6 +191,59 @@ describe('adminV2Routes', () => {
     );
   });
 
+  it('maps postgres columns response and forwards schema/table args', async () => {
+    const getColumns = vi.fn(async () => ({
+      columns: [
+        {
+          name: 'id',
+          type: 'uuid',
+          nullable: false,
+          defaultValue: undefined,
+          ordinalPosition: 1
+        },
+        {
+          name: 'display_name',
+          type: 'text',
+          nullable: true,
+          defaultValue: 'guest',
+          ordinalPosition: 2
+        }
+      ]
+    }));
+    const client = createAdminV2ClientStub({ getColumns });
+    const { routes, logEvent } = createRoutesForTest(client);
+
+    const response = await routes.postgres.getColumns('public', 'users');
+
+    expect(response).toEqual({
+      columns: [
+        {
+          name: 'id',
+          type: 'uuid',
+          nullable: false,
+          defaultValue: null,
+          ordinalPosition: 1
+        },
+        {
+          name: 'display_name',
+          type: 'text',
+          nullable: true,
+          defaultValue: 'guest',
+          ordinalPosition: 2
+        }
+      ]
+    });
+    expect(getColumns).toHaveBeenCalledWith(
+      { schema: 'public', table: 'users' },
+      { headers: { authorization: 'Bearer token-123' } }
+    );
+    expect(logEvent).toHaveBeenCalledWith(
+      'api_get_admin_postgres_columns',
+      expect.any(Number),
+      true
+    );
+  });
+
   it('maps redis key and value responses and forwards request args', async () => {
     const getRedisKeys = vi.fn(async () => ({
       keys: [{ key: 'session:1', type: 'string', ttl: 120n }],
@@ -239,6 +292,58 @@ describe('adminV2Routes', () => {
       expect.any(Number),
       true
     );
+    expect(logEvent).toHaveBeenCalledWith(
+      'api_get_admin_redis_key',
+      expect.any(Number),
+      true
+    );
+  });
+
+  it('maps redis string and list value variants', async () => {
+    const getRedisValue = vi
+      .fn()
+      .mockResolvedValueOnce({
+        key: 'feature:flag',
+        type: 'string',
+        ttl: 60n,
+        value: {
+          value: {
+            case: 'stringValue',
+            value: 'enabled'
+          }
+        }
+      })
+      .mockResolvedValueOnce({
+        key: 'jobs:queue',
+        type: 'list',
+        ttl: 30n,
+        value: {
+          value: {
+            case: 'listValue',
+            value: {
+              values: ['job-1', 'job-2']
+            }
+          }
+        }
+      });
+    const client = createAdminV2ClientStub({ getRedisValue });
+    const { routes, logEvent } = createRoutesForTest(client);
+
+    const stringResponse = await routes.redis.getValue('feature:flag');
+    const listResponse = await routes.redis.getValue('jobs:queue');
+
+    expect(stringResponse).toEqual({
+      key: 'feature:flag',
+      type: 'string',
+      ttl: 60,
+      value: 'enabled'
+    });
+    expect(listResponse).toEqual({
+      key: 'jobs:queue',
+      type: 'list',
+      ttl: 30,
+      value: ['job-1', 'job-2']
+    });
     expect(logEvent).toHaveBeenCalledWith(
       'api_get_admin_redis_key',
       expect.any(Number),

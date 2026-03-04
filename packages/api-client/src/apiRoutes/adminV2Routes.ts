@@ -274,6 +274,12 @@ function mapRedisValue(
       return redisValue.value.entries;
     case undefined:
       return null;
+    default: {
+      const unexpectedRedisValueCase: never = redisValue;
+      throw new Error(
+        `Unhandled redis value variant: ${unexpectedRedisValueCase}`
+      );
+    }
   }
 }
 
