@@ -3,9 +3,9 @@ import { ThemeProvider } from '@tearleads/ui';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
-import { EmailAboutMenuItem } from './ClientEmailProvider';
 import { NotesAboutMenuItem } from './ClientNotesProvider';
 import { VfsExplorerAboutMenuItem } from './ClientVfsExplorerProvider';
+import { EmailAboutMenuItem } from './EmailAboutMenuItem';
 
 vi.mock('@/hooks/app', () => ({
   useAppVersion: vi.fn(() => undefined)

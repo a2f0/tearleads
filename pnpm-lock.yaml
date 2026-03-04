@@ -1554,12 +1554,18 @@ importers:
       clsx:
         specifier: 2.1.1
         version: 2.1.1
+      dompurify:
+        specifier: 3.3.1
+        version: 3.3.1
       drizzle-orm:
         specifier: 0.45.1
         version: 0.45.1(@electric-sql/pglite@0.3.15)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(pg@8.18.0)(sql.js@1.14.0)
       lucide-react:
         specifier: 0.576.0
         version: 0.576.0(react@19.2.4)
+      postal-mime:
+        specifier: 2.7.3
+        version: 2.7.3
     devDependencies:
       '@tearleads/db':
         specifier: workspace:*
@@ -9947,6 +9953,9 @@ packages:
   possible-typed-array-names@1.1.0:
     resolution: {integrity: sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg==}
     engines: {node: '>= 0.4'}
+
+  postal-mime@2.7.3:
+    resolution: {integrity: sha512-MjhXadAJaWgYzevi46+3kLak8y6gbg0ku14O1gO/LNOuay8dO+1PtcSGvAdgDR0DoIsSaiIA8y/Ddw6MnrO0Tw==}
 
   postcss-load-config@6.0.1:
     resolution: {integrity: sha512-oPtTM4oerL+UXmx+93ytZVN82RrlY/wPUV8IeDxFrzIjXOLF1pN+EmKPLbubvKHT2HC20xXsCAH2Z+CKV6Oz/g==}
@@ -20169,6 +20178,8 @@ snapshots:
       points-on-curve: 0.2.0
 
   possible-typed-array-names@1.1.0: {}
+
+  postal-mime@2.7.3: {}
 
   postcss-load-config@6.0.1(jiti@2.6.1)(postcss@8.5.6)(tsx@4.21.0)(yaml@2.8.1):
     dependencies:

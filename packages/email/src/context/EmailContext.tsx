@@ -88,6 +88,11 @@ export interface EmailContactOperations {
   fetchContactEmails: () => Promise<EmailContactEmail[]>;
 }
 
+export interface EmailBodyOperations {
+  /** Fetch and decrypt the raw MIME body for a given email ID */
+  fetchDecryptedBody: (emailId: string) => Promise<string>;
+}
+
 export interface SaveDraftInput {
   id?: string | null;
   to: string[];
@@ -130,6 +135,8 @@ export interface EmailContextValue {
   contactOperations?: EmailContactOperations;
   /** Draft operations (optional - provided by client with database access) */
   draftOperations?: EmailDraftOperations;
+  /** Body operations (optional - provided by client with blob/decrypt access) */
+  bodyOperations?: EmailBodyOperations;
 }
 
 export const EmailContext = createContext<EmailContextValue | null>(null);
@@ -142,6 +149,7 @@ export interface EmailProviderProps {
   folderOperations?: EmailFolderOperations;
   contactOperations?: EmailContactOperations;
   draftOperations?: EmailDraftOperations;
+  bodyOperations?: EmailBodyOperations;
 }
 
 /**
@@ -154,7 +162,8 @@ export function EmailProvider({
   ui,
   folderOperations,
   contactOperations,
-  draftOperations
+  draftOperations,
+  bodyOperations
 }: EmailProviderProps) {
   const contextValue = useMemo<EmailContextValue>(
     () => ({
@@ -163,7 +172,8 @@ export function EmailProvider({
       ...(getAuthHeader !== undefined && { getAuthHeader }),
       ...(folderOperations !== undefined && { folderOperations }),
       ...(contactOperations !== undefined && { contactOperations }),
-      ...(draftOperations !== undefined && { draftOperations })
+      ...(draftOperations !== undefined && { draftOperations }),
+      ...(bodyOperations !== undefined && { bodyOperations })
     }),
     [
       apiBaseUrl,
@@ -171,7 +181,8 @@ export function EmailProvider({
       ui,
       folderOperations,
       contactOperations,
-      draftOperations
+      draftOperations,
+      bodyOperations
     ]
   );
 
@@ -260,4 +271,26 @@ export function useEmailContactOperations(): EmailContactOperations {
 export function useHasEmailContactOperations(): boolean {
   const { contactOperations } = useEmailContext();
   return contactOperations !== undefined;
+}
+
+/**
+ * Hook to access body operations
+ * @throws Error if body operations are not provided
+ */
+export function useEmailBodyOperations(): EmailBodyOperations {
+  const { bodyOperations } = useEmailContext();
+  if (!bodyOperations) {
+    throw new Error(
+      'Email body operations are not available. Ensure EmailProvider is configured with bodyOperations.'
+    );
+  }
+  return bodyOperations;
+}
+
+/**
+ * Hook to check if body operations are available
+ */
+export function useHasEmailBodyOperations(): boolean {
+  const { bodyOperations } = useEmailContext();
+  return bodyOperations !== undefined;
 }
