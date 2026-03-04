@@ -83,7 +83,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lint-type: [biome, scripts, markdown, rubocop, ansible, terraform, knip, audit, rust]
+        lint-type: [biome, scripts, markdown, rubocop, ansible, terraform, proto, knip, audit, rust]
     steps:
       - name: Report no impact detected
         if: ${{ github.event_name != 'workflow_dispatch' && needs.detect-impact.outputs.should-run != 'true' }}
@@ -204,6 +204,10 @@ jobs:
       - name: Lint Terraform
         if: matrix.lint-type == 'terraform'
         run: ./scripts/checks/checkTerraform.sh
+
+      - name: Lint proto contracts
+        if: matrix.lint-type == 'proto'
+        run: ./scripts/checks/checkProto.sh --all
 
       - name: Lint knip
         if: matrix.lint-type == 'knip'
