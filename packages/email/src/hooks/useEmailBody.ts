@@ -33,11 +33,13 @@ export function useEmailBody(emailId: string | null): UseEmailBodyResult {
         return;
       }
 
+      if (!bodyOperations) return;
+
       setLoading(true);
       setError(null);
 
       try {
-        const rawMime = await bodyOperations!.fetchDecryptedBody(id);
+        const rawMime = await bodyOperations.fetchDecryptedBody(id);
         const parsed = await parseMimeMessage(rawMime);
         cacheRef.current.set(id, parsed);
         setBody(parsed);
