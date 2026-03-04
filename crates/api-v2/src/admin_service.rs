@@ -116,10 +116,7 @@ where
         if payload.limit < 0 {
             return Err(Status::invalid_argument("limit must be non-negative"));
         }
-        let limit = match u32::try_from(payload.limit) {
-            Ok(value) => value,
-            Err(_) => return Err(Status::internal("limit conversion failed")),
-        };
+        let limit = payload.limit as u32;
         let page = self
             .redis_repo
             .list_keys(&payload.cursor, limit)
