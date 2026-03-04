@@ -329,7 +329,9 @@ describe('DatabaseTest', () => {
 
       render(<DatabaseTest />);
 
-      expect(screen.queryByTestId('db-password-status')).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId('db-password-status')
+      ).not.toBeInTheDocument();
     });
 
     it('shows "Set Password" button when unlocked and deferred', () => {
@@ -342,9 +344,7 @@ describe('DatabaseTest', () => {
 
       render(<DatabaseTest />);
 
-      expect(
-        screen.getByTestId('db-set-password-button')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('db-set-password-button')).toBeInTheDocument();
     });
 
     it('hides "Set Password" button when not deferred', () => {
