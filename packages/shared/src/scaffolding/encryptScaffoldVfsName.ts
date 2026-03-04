@@ -17,6 +17,7 @@ interface EncryptScaffoldVfsNameInput {
   client: DbQueryClient;
   ownerUserId: string;
   plaintextName: string;
+  allowOwnerWrappedSessionKey?: boolean;
 }
 
 export interface EncryptScaffoldVfsNameResult {
@@ -41,14 +42,17 @@ function readOptionalPublicEncryptionKey(
 export async function encryptScaffoldVfsName(
   input: EncryptScaffoldVfsNameInput
 ): Promise<EncryptScaffoldVfsNameResult> {
-  const keyRows = await input.client.query(
-    `SELECT public_encryption_key
-       FROM user_keys
-      WHERE user_id = $1
-      LIMIT 1`,
-    [input.ownerUserId]
-  );
-  const publicEncryptionKey = readOptionalPublicEncryptionKey(keyRows.rows);
+  let publicEncryptionKey: string | null = null;
+  if (input.allowOwnerWrappedSessionKey === true) {
+    const keyRows = await input.client.query(
+      `SELECT public_encryption_key
+         FROM user_keys
+        WHERE user_id = $1
+        LIMIT 1`,
+      [input.ownerUserId]
+    );
+    publicEncryptionKey = readOptionalPublicEncryptionKey(keyRows.rows);
+  }
 
   const sessionKey = crypto.getRandomValues(new Uint8Array(32));
   try {

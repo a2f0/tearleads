@@ -3,6 +3,11 @@ import '../test/setupIntegration';
 import { seedTestUser } from '@tearleads/api-test-utils';
 import { emails, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
 import type { VfsCrdtSyncResponse, VfsSyncResponse } from '@tearleads/shared';
+import {
+  combinePublicKey,
+  generateKeyPair,
+  serializePublicKey
+} from '@tearleads/shared';
 import { screen, waitFor } from '@testing-library/react';
 import { eq } from 'drizzle-orm';
 import { createElement } from 'react';
@@ -24,11 +29,64 @@ function expectCiphertext(value: string | null | undefined): void {
   expect(value).toMatch(/^[A-Za-z0-9+/=]+$/);
 }
 
+function buildPublicEncryptionKey(): string {
+  const keyPair = generateKeyPair();
+  return combinePublicKey(
+    serializePublicKey({
+      x25519PublicKey: keyPair.x25519PublicKey,
+      mlKemPublicKey: keyPair.mlKemPublicKey
+    })
+  );
+}
+
 describe('DB scaffolding plaintext render integration', () => {
   it('keeps ciphertext in Postgres and renders plaintext in VFS + Email UIs after sync', async () => {
     const ctx = getSharedTestContext();
     const bob = await seedTestUser(ctx, { email: 'bob@test.local' });
     const alice = await seedTestUser(ctx, { email: 'alice@test.local' });
+    const bobPublicKey = buildPublicEncryptionKey();
+    const alicePublicKey = buildPublicEncryptionKey();
+
+    await ctx.pool.query(
+      `INSERT INTO user_keys (
+         user_id,
+         public_encryption_key,
+         public_signing_key,
+         encrypted_private_keys,
+         argon2_salt,
+         created_at
+       )
+       VALUES ($1, $2, $3, $4, $5, NOW())
+       ON CONFLICT (user_id) DO UPDATE SET
+         public_encryption_key = EXCLUDED.public_encryption_key`,
+      [
+        bob.userId,
+        bobPublicKey,
+        'seeded-signing-key-bob',
+        'seeded-private-keys-bob',
+        'seeded-argon2-salt-bob'
+      ]
+    );
+    await ctx.pool.query(
+      `INSERT INTO user_keys (
+         user_id,
+         public_encryption_key,
+         public_signing_key,
+         encrypted_private_keys,
+         argon2_salt,
+         created_at
+       )
+       VALUES ($1, $2, $3, $4, $5, NOW())
+       ON CONFLICT (user_id) DO UPDATE SET
+         public_encryption_key = EXCLUDED.public_encryption_key`,
+      [
+        alice.userId,
+        alicePublicKey,
+        'seeded-signing-key-alice',
+        'seeded-private-keys-alice',
+        'seeded-argon2-salt-alice'
+      ]
+    );
 
     const client = await ctx.pool.connect();
 
@@ -53,14 +111,18 @@ describe('DB scaffolding plaintext render integration', () => {
 
     const postgresFolder = await ctx.pool.query<{
       encrypted_name: string | null;
-    }>(`SELECT encrypted_name FROM vfs_registry WHERE id = $1`, [
-      seededShare.folderId
-    ]);
+      encrypted_session_key: string | null;
+    }>(
+      `SELECT encrypted_name, encrypted_session_key FROM vfs_registry WHERE id = $1`,
+      [seededShare.folderId]
+    );
     const postgresInboxFolder = await ctx.pool.query<{
       encrypted_name: string | null;
-    }>(`SELECT encrypted_name FROM vfs_registry WHERE id = $1`, [
-      seededEmails.bob.inboxFolderId
-    ]);
+      encrypted_session_key: string | null;
+    }>(
+      `SELECT encrypted_name, encrypted_session_key FROM vfs_registry WHERE id = $1`,
+      [seededEmails.bob.inboxFolderId]
+    );
     const postgresEmail = await ctx.pool.query<{
       encrypted_subject: string | null;
       encrypted_from: string | null;
@@ -70,6 +132,8 @@ describe('DB scaffolding plaintext render integration', () => {
 
     const folderCiphertext = postgresFolder.rows[0]?.encrypted_name;
     const inboxCiphertext = postgresInboxFolder.rows[0]?.encrypted_name;
+    const folderSessionKey = postgresFolder.rows[0]?.encrypted_session_key;
+    const inboxSessionKey = postgresInboxFolder.rows[0]?.encrypted_session_key;
     const subjectCiphertext = postgresEmail.rows[0]?.encrypted_subject;
     const fromCiphertext = postgresEmail.rows[0]?.encrypted_from;
 
@@ -81,6 +145,8 @@ describe('DB scaffolding plaintext render integration', () => {
     expectCiphertext(subjectCiphertext);
     expect(fromCiphertext).not.toBe('system@tearleads.com');
     expectCiphertext(fromCiphertext);
+    expect(folderSessionKey?.startsWith('scaffold-unwrapped:')).toBe(true);
+    expect(inboxSessionKey?.startsWith('scaffold-unwrapped:')).toBe(true);
 
     const bobAuthUser = {
       id: bob.userId,

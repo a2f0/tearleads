@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   combinePublicKey,
   generateKeyPair,
@@ -28,7 +28,8 @@ describe('encryptScaffoldVfsName', () => {
     const result = await encryptScaffoldVfsName({
       client,
       ownerUserId: 'owner-1',
-      plaintextName: 'Notes shared with Alice'
+      plaintextName: 'Notes shared with Alice',
+      allowOwnerWrappedSessionKey: true
     });
 
     expect(result.encryptedName).not.toBe('Notes shared with Alice');
@@ -57,7 +58,8 @@ describe('encryptScaffoldVfsName', () => {
     const result = await encryptScaffoldVfsName({
       client,
       ownerUserId: 'owner-missing-key',
-      plaintextName: 'Inbox'
+      plaintextName: 'Inbox',
+      allowOwnerWrappedSessionKey: true
     });
 
     expect(result.encryptedSessionKey.startsWith('scaffold-unwrapped:')).toBe(
@@ -77,5 +79,32 @@ describe('encryptScaffoldVfsName', () => {
     );
 
     expect(new TextDecoder().decode(decryptedNameBytes)).toBe('Inbox');
+  });
+
+  it('defaults to scaffold-unwrapped session keys even when owner key exists', async () => {
+    const ownerKeyPair = generateKeyPair();
+    const ownerPublicKey = combinePublicKey(
+      serializePublicKey({
+        x25519PublicKey: ownerKeyPair.x25519PublicKey,
+        mlKemPublicKey: ownerKeyPair.mlKemPublicKey
+      })
+    );
+
+    const client = {
+      query: vi.fn(async () => ({
+        rows: [{ public_encryption_key: ownerPublicKey }]
+      }))
+    };
+
+    const result = await encryptScaffoldVfsName({
+      client,
+      ownerUserId: 'owner-1',
+      plaintextName: 'Notes shared with Alice'
+    });
+
+    expect(result.encryptedSessionKey.startsWith('scaffold-unwrapped:')).toBe(
+      true
+    );
+    expect(client.query).not.toHaveBeenCalled();
   });
 });

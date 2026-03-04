@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  combinePublicKey,
+  generateKeyPair,
+  serializePublicKey
+} from '../crypto/asymmetric.js';
+import {
   type DbQueryClient,
   setupBobNotesShareForAliceDb
 } from './setupBobNotesShareForAliceDb.js';
@@ -174,5 +179,91 @@ describe('setupBobNotesShareForAliceDb', () => {
 
     expect(calls.some((call) => call.text === 'ROLLBACK')).toBe(true);
     expect(calls.some((call) => call.text === 'COMMIT')).toBe(false);
+  });
+
+  it('uses scaffold-unwrapped session keys by default even when owner key exists', async () => {
+    const ownerKeyPair = generateKeyPair();
+    const ownerPublicKey = combinePublicKey(
+      serializePublicKey({
+        x25519PublicKey: ownerKeyPair.x25519PublicKey,
+        mlKemPublicKey: ownerKeyPair.mlKemPublicKey
+      })
+    );
+    const calls: Call[] = [];
+    const client: DbQueryClient = {
+      query: vi.fn(async (text: string, params?: readonly unknown[]) => {
+        calls.push({ text, params });
+        if (text.includes('FROM users WHERE email = $1')) {
+          const email = params?.[0];
+          if (email === 'bob@tearleads.com') {
+            return {
+              rows: [
+                {
+                  id: 'bob-user-id',
+                  personal_organization_id: 'bob-org-id'
+                }
+              ]
+            };
+          }
+          if (email === 'alice@tearleads.com') {
+            return {
+              rows: [
+                {
+                  id: 'alice-user-id',
+                  personal_organization_id: 'alice-org-id'
+                }
+              ]
+            };
+          }
+        }
+        if (text.includes('FROM user_keys')) {
+          return {
+            rows: [{ public_encryption_key: ownerPublicKey }]
+          };
+        }
+        if (text.includes('RETURNING id')) {
+          return { rows: [{ id: 'share:stored-share-id' }] };
+        }
+        return { rows: [] };
+      })
+    };
+
+    await setupBobNotesShareForAliceDb({
+      client,
+      bobEmail: 'bob@tearleads.com',
+      aliceEmail: 'alice@tearleads.com',
+      hasOrganizationIdColumn: true,
+      folderId: 'folder-fixed',
+      noteId: 'note-fixed',
+      idFactory: (() => {
+        const ids = ['id-1', 'id-2', 'id-3', 'share-id'];
+        let index = 0;
+        return () => ids[index++] ?? `id-${String(index)}`;
+      })(),
+      now: () => new Date('2026-03-01T00:00:00.000Z')
+    });
+
+    const folderInsertCall = calls.find(
+      (call) =>
+        call.text.includes('INSERT INTO vfs_registry') &&
+        call.params?.[0] === 'folder-fixed'
+    );
+    const noteInsertCall = calls.find(
+      (call) =>
+        call.text.includes('INSERT INTO vfs_registry') &&
+        call.params?.[0] === 'note-fixed'
+    );
+
+    const folderSessionKey = folderInsertCall?.params?.[4];
+    const noteSessionKey = noteInsertCall?.params?.[4];
+    expect(typeof folderSessionKey).toBe('string');
+    expect(typeof noteSessionKey).toBe('string');
+    expect(String(folderSessionKey).startsWith('scaffold-unwrapped:')).toBe(
+      true
+    );
+    expect(String(noteSessionKey).startsWith('scaffold-unwrapped:')).toBe(true);
+    expect(calls.some((call) => call.text.includes('FROM user_keys'))).toBe(
+      false
+    );
   });
 });

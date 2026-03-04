@@ -51,6 +51,17 @@ const DEFAULT_NOTE_NAME = 'Note for Alice - From Bob';
 const DEFAULT_NOTE_PLAINTEXT = 'Hello, Alice';
 const DEFAULT_SHARE_ACCESS_LEVEL: ShareAccessLevel = 'read';
 
+function defaultEncryptVfsName(input: {
+  client: DbQueryClient;
+  ownerUserId: string;
+  plaintextName: string;
+}): Promise<EncryptScaffoldVfsNameResult> {
+  return encryptScaffoldVfsName({
+    ...input,
+    allowOwnerWrappedSessionKey: false
+  });
+}
+
 function encodeBase64(value: string): string {
   return Buffer.from(value, 'utf8').toString('base64');
 }
@@ -173,7 +184,7 @@ export async function setupBobNotesShareForAliceDb(
   const noteName = input.noteName ?? DEFAULT_NOTE_NAME;
   const notePlaintext = input.notePlaintext ?? DEFAULT_NOTE_PLAINTEXT;
   const shareAccessLevel = input.shareAccessLevel ?? DEFAULT_SHARE_ACCESS_LEVEL;
-  const encryptVfsName = input.encryptVfsName ?? encryptScaffoldVfsName;
+  const encryptVfsName = input.encryptVfsName ?? defaultEncryptVfsName;
   const nowDate = now();
   const nowIso = nowDate.toISOString();
   // Guardrail: keep scaffolded item_upsert clearly ordered before trigger-emitted
