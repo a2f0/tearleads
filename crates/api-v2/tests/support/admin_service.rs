@@ -1,0 +1,145 @@
+use std::sync::{Arc, Mutex, MutexGuard};
+
+use tearleads_api_v2::{
+    AdminAuthError, AdminAuthErrorKind, AdminOperation, AdminRequestAuthorizer,
+};
+use tearleads_data_access_traits::{
+    BoxFuture, DataAccessError, PostgresAdminReadRepository, PostgresColumnInfo,
+    PostgresInfoSnapshot, PostgresTableInfo, RedisAdminReadRepository, RedisKeyScanPage,
+    RedisKeyValueRecord,
+};
+use tonic::{Response, Status};
+
+#[derive(Debug, Clone)]
+pub(crate) struct FakeAuthorizer {
+    outcome: Result<(), AdminAuthError>,
+    pub(crate) calls: Arc<Mutex<Vec<AdminOperation>>>,
+}
+
+impl FakeAuthorizer {
+    pub(crate) fn allow_all() -> Self {
+        Self {
+            outcome: Ok(()),
+            calls: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+
+    pub(crate) fn deny(kind: AdminAuthErrorKind, message: &str) -> Self {
+        Self {
+            outcome: Err(AdminAuthError::new(kind, message)),
+            calls: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+}
+
+impl AdminRequestAuthorizer for FakeAuthorizer {
+    fn authorize_admin_operation(
+        &self,
+        operation: AdminOperation,
+        _metadata: &tonic::metadata::MetadataMap,
+    ) -> Result<(), AdminAuthError> {
+        lock_or_recover(&self.calls).push(operation);
+        self.outcome.clone()
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct FakePostgresRepository {
+    pub(crate) info_result: Result<PostgresInfoSnapshot, DataAccessError>,
+    pub(crate) tables_result: Result<Vec<PostgresTableInfo>, DataAccessError>,
+    pub(crate) columns_result: Result<Vec<PostgresColumnInfo>, DataAccessError>,
+    pub(crate) columns_calls: Arc<Mutex<Vec<(String, String)>>>,
+}
+
+impl Default for FakePostgresRepository {
+    fn default() -> Self {
+        Self {
+            info_result: Ok(PostgresInfoSnapshot::default()),
+            tables_result: Ok(Vec::new()),
+            columns_result: Ok(Vec::new()),
+            columns_calls: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+}
+
+impl PostgresAdminReadRepository for FakePostgresRepository {
+    fn get_postgres_info(&self) -> BoxFuture<'_, Result<PostgresInfoSnapshot, DataAccessError>> {
+        let result = self.info_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn list_tables(&self) -> BoxFuture<'_, Result<Vec<PostgresTableInfo>, DataAccessError>> {
+        let result = self.tables_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn list_columns(
+        &self,
+        schema: &str,
+        table: &str,
+    ) -> BoxFuture<'_, Result<Vec<PostgresColumnInfo>, DataAccessError>> {
+        lock_or_recover(&self.columns_calls).push((schema.to_string(), table.to_string()));
+        let result = self.columns_result.clone();
+        Box::pin(async move { result })
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct FakeRedisRepository {
+    pub(crate) list_keys_result: Result<RedisKeyScanPage, DataAccessError>,
+    pub(crate) get_value_result: Result<RedisKeyValueRecord, DataAccessError>,
+    pub(crate) list_keys_calls: Arc<Mutex<Vec<(String, u32)>>>,
+    pub(crate) get_value_calls: Arc<Mutex<Vec<String>>>,
+}
+
+impl Default for FakeRedisRepository {
+    fn default() -> Self {
+        Self {
+            list_keys_result: Ok(RedisKeyScanPage {
+                keys: Vec::new(),
+                cursor: String::from("0"),
+                has_more: false,
+            }),
+            get_value_result: Ok(RedisKeyValueRecord {
+                key: String::from("sample"),
+                key_type: String::from("string"),
+                ttl_seconds: -1,
+                value: None,
+            }),
+            list_keys_calls: Arc::new(Mutex::new(Vec::new())),
+            get_value_calls: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+}
+
+impl RedisAdminReadRepository for FakeRedisRepository {
+    fn list_keys(
+        &self,
+        cursor: &str,
+        limit: u32,
+    ) -> BoxFuture<'_, Result<RedisKeyScanPage, DataAccessError>> {
+        lock_or_recover(&self.list_keys_calls).push((cursor.to_string(), limit));
+        let result = self.list_keys_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn get_value(&self, key: &str) -> BoxFuture<'_, Result<RedisKeyValueRecord, DataAccessError>> {
+        lock_or_recover(&self.get_value_calls).push(key.to_string());
+        let result = self.get_value_result.clone();
+        Box::pin(async move { result })
+    }
+}
+
+pub(crate) fn into_inner_or_panic<T>(result: Result<Response<T>, Status>) -> T {
+    match result {
+        Ok(value) => value.into_inner(),
+        Err(error) => panic!("unexpected status: {error}"),
+    }
+}
+
+pub(crate) fn lock_or_recover<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    match mutex.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    }
+}
