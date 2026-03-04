@@ -17,32 +17,49 @@ use tearleads_data_access_traits::{
 };
 use tonic::{Request, Response, Status};
 
+use crate::admin_auth::{
+    AdminOperation, AdminRequestAuthorizer, HeaderRoleAdminAuthorizer, map_admin_auth_error,
+};
+
 /// Trait-backed implementation of `tearleads.v2.AdminService`.
-pub struct AdminServiceHandler<P, R> {
+pub struct AdminServiceHandler<P, R, A = HeaderRoleAdminAuthorizer> {
     postgres_repo: P,
     redis_repo: R,
+    authorizer: A,
 }
 
-impl<P, R> AdminServiceHandler<P, R> {
-    /// Creates a new admin handler from repository implementations.
-    pub fn new(postgres_repo: P, redis_repo: R) -> Self {
+impl<P, R, A> AdminServiceHandler<P, R, A> {
+    /// Creates a new admin handler from repository and auth policy implementations.
+    pub fn with_authorizer(postgres_repo: P, redis_repo: R, authorizer: A) -> Self {
         Self {
             postgres_repo,
             redis_repo,
+            authorizer,
         }
     }
 }
 
+impl<P, R> AdminServiceHandler<P, R, HeaderRoleAdminAuthorizer> {
+    /// Creates a new admin handler from repository implementations.
+    pub fn new(postgres_repo: P, redis_repo: R) -> Self {
+        Self::with_authorizer(postgres_repo, redis_repo, HeaderRoleAdminAuthorizer)
+    }
+}
+
 #[tonic::async_trait]
-impl<P, R> AdminService for AdminServiceHandler<P, R>
+impl<P, R, A> AdminService for AdminServiceHandler<P, R, A>
 where
     P: PostgresAdminReadRepository + Send + Sync + 'static,
     R: RedisAdminReadRepository + Send + Sync + 'static,
+    A: AdminRequestAuthorizer + Send + Sync + 'static,
 {
     async fn get_postgres_info(
         &self,
-        _request: Request<AdminGetPostgresInfoRequest>,
+        request: Request<AdminGetPostgresInfoRequest>,
     ) -> Result<Response<AdminGetPostgresInfoResponse>, Status> {
+        self.authorizer
+            .authorize_admin_operation(AdminOperation::GetPostgresInfo, request.metadata())
+            .map_err(map_admin_auth_error)?;
         let snapshot = self
             .postgres_repo
             .get_postgres_info()
@@ -62,8 +79,11 @@ where
 
     async fn get_tables(
         &self,
-        _request: Request<AdminGetTablesRequest>,
+        request: Request<AdminGetTablesRequest>,
     ) -> Result<Response<AdminGetTablesResponse>, Status> {
+        self.authorizer
+            .authorize_admin_operation(AdminOperation::GetTables, request.metadata())
+            .map_err(map_admin_auth_error)?;
         let tables = self
             .postgres_repo
             .list_tables()
@@ -86,6 +106,9 @@ where
         &self,
         request: Request<AdminGetColumnsRequest>,
     ) -> Result<Response<AdminGetColumnsResponse>, Status> {
+        self.authorizer
+            .authorize_admin_operation(AdminOperation::GetColumns, request.metadata())
+            .map_err(map_admin_auth_error)?;
         let payload = request.into_inner();
         let schema = normalize_schema_or_table("schema", &payload.schema)
             .map_err(Status::invalid_argument)?;
@@ -112,6 +135,9 @@ where
         &self,
         request: Request<AdminGetRedisKeysRequest>,
     ) -> Result<Response<AdminGetRedisKeysResponse>, Status> {
+        self.authorizer
+            .authorize_admin_operation(AdminOperation::GetRedisKeys, request.metadata())
+            .map_err(map_admin_auth_error)?;
         let payload = request.into_inner();
         if payload.limit < 0 {
             return Err(Status::invalid_argument("limit must be non-negative"));
@@ -142,6 +168,9 @@ where
         &self,
         request: Request<AdminGetRedisValueRequest>,
     ) -> Result<Response<AdminGetRedisValueResponse>, Status> {
+        self.authorizer
+            .authorize_admin_operation(AdminOperation::GetRedisValue, request.metadata())
+            .map_err(map_admin_auth_error)?;
         let payload = request.into_inner();
         let key = normalize_redis_key(&payload.key).map_err(Status::invalid_argument)?;
         let value_record = self

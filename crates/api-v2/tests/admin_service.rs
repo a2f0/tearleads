@@ -2,112 +2,31 @@
 
 use std::{
     collections::{BTreeMap, HashMap},
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex},
 };
 
-use tearleads_api_v2::AdminServiceHandler;
+mod support;
+
+use support::admin_service::{
+    FakeAuthorizer, FakePostgresRepository, FakeRedisRepository, into_inner_or_panic,
+    lock_or_recover,
+};
+use tearleads_api_v2::{AdminAuthErrorKind, AdminOperation, AdminServiceHandler};
 use tearleads_api_v2_contracts::tearleads::v2::{
     AdminGetColumnsRequest, AdminGetPostgresInfoRequest, AdminGetRedisKeysRequest,
     AdminGetRedisValueRequest, AdminGetTablesRequest, AdminRedisStringList, AdminRedisStringMap,
     admin_redis_value, admin_service_server::AdminService,
 };
 use tearleads_data_access_traits::{
-    BoxFuture, DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository,
-    PostgresColumnInfo, PostgresConnectionInfo, PostgresInfoSnapshot, PostgresTableInfo,
-    RedisAdminReadRepository, RedisKeyInfo, RedisKeyScanPage, RedisKeyValueRecord, RedisValue,
+    DataAccessError, DataAccessErrorKind, PostgresColumnInfo, PostgresConnectionInfo,
+    PostgresInfoSnapshot, PostgresTableInfo, RedisKeyInfo, RedisKeyScanPage, RedisKeyValueRecord,
+    RedisValue,
 };
-use tonic::{Code, Request, Response, Status};
-
-#[derive(Debug)]
-struct FakePostgresRepository {
-    info_result: Result<PostgresInfoSnapshot, DataAccessError>,
-    tables_result: Result<Vec<PostgresTableInfo>, DataAccessError>,
-    columns_result: Result<Vec<PostgresColumnInfo>, DataAccessError>,
-    columns_calls: Arc<Mutex<Vec<(String, String)>>>,
-}
-
-impl Default for FakePostgresRepository {
-    fn default() -> Self {
-        Self {
-            info_result: Ok(PostgresInfoSnapshot::default()),
-            tables_result: Ok(Vec::new()),
-            columns_result: Ok(Vec::new()),
-            columns_calls: Arc::new(Mutex::new(Vec::new())),
-        }
-    }
-}
-
-impl PostgresAdminReadRepository for FakePostgresRepository {
-    fn get_postgres_info(&self) -> BoxFuture<'_, Result<PostgresInfoSnapshot, DataAccessError>> {
-        let result = self.info_result.clone();
-        Box::pin(async move { result })
-    }
-
-    fn list_tables(&self) -> BoxFuture<'_, Result<Vec<PostgresTableInfo>, DataAccessError>> {
-        let result = self.tables_result.clone();
-        Box::pin(async move { result })
-    }
-
-    fn list_columns(
-        &self,
-        schema: &str,
-        table: &str,
-    ) -> BoxFuture<'_, Result<Vec<PostgresColumnInfo>, DataAccessError>> {
-        lock_or_recover(&self.columns_calls).push((schema.to_string(), table.to_string()));
-        let result = self.columns_result.clone();
-        Box::pin(async move { result })
-    }
-}
-
-#[derive(Debug)]
-struct FakeRedisRepository {
-    list_keys_result: Result<RedisKeyScanPage, DataAccessError>,
-    get_value_result: Result<RedisKeyValueRecord, DataAccessError>,
-    list_keys_calls: Arc<Mutex<Vec<(String, u32)>>>,
-    get_value_calls: Arc<Mutex<Vec<String>>>,
-}
-
-impl Default for FakeRedisRepository {
-    fn default() -> Self {
-        Self {
-            list_keys_result: Ok(RedisKeyScanPage {
-                keys: Vec::new(),
-                cursor: String::from("0"),
-                has_more: false,
-            }),
-            get_value_result: Ok(RedisKeyValueRecord {
-                key: String::from("sample"),
-                key_type: String::from("string"),
-                ttl_seconds: -1,
-                value: None,
-            }),
-            list_keys_calls: Arc::new(Mutex::new(Vec::new())),
-            get_value_calls: Arc::new(Mutex::new(Vec::new())),
-        }
-    }
-}
-
-impl RedisAdminReadRepository for FakeRedisRepository {
-    fn list_keys(
-        &self,
-        cursor: &str,
-        limit: u32,
-    ) -> BoxFuture<'_, Result<RedisKeyScanPage, DataAccessError>> {
-        lock_or_recover(&self.list_keys_calls).push((cursor.to_string(), limit));
-        let result = self.list_keys_result.clone();
-        Box::pin(async move { result })
-    }
-
-    fn get_value(&self, key: &str) -> BoxFuture<'_, Result<RedisKeyValueRecord, DataAccessError>> {
-        lock_or_recover(&self.get_value_calls).push(key.to_string());
-        let result = self.get_value_result.clone();
-        Box::pin(async move { result })
-    }
-}
+use tonic::{Code, Request, Status};
 
 #[tokio::test]
 async fn postgres_info_maps_snapshot_to_contract_response() {
-    let handler = AdminServiceHandler::new(
+    let handler = AdminServiceHandler::with_authorizer(
         FakePostgresRepository {
             info_result: Ok(PostgresInfoSnapshot {
                 connection: PostgresConnectionInfo {
@@ -121,6 +40,7 @@ async fn postgres_info_maps_snapshot_to_contract_response() {
             ..Default::default()
         },
         FakeRedisRepository::default(),
+        FakeAuthorizer::allow_all(),
     );
 
     let payload = into_inner_or_panic(
@@ -140,7 +60,7 @@ async fn postgres_info_maps_snapshot_to_contract_response() {
 
 #[tokio::test]
 async fn get_tables_maps_rows_to_contract_shape() {
-    let handler = AdminServiceHandler::new(
+    let handler = AdminServiceHandler::with_authorizer(
         FakePostgresRepository {
             tables_result: Ok(vec![PostgresTableInfo {
                 schema: String::from("public"),
@@ -153,6 +73,7 @@ async fn get_tables_maps_rows_to_contract_shape() {
             ..Default::default()
         },
         FakeRedisRepository::default(),
+        FakeAuthorizer::allow_all(),
     );
 
     let payload = into_inner_or_panic(
@@ -171,6 +92,52 @@ async fn get_tables_maps_rows_to_contract_shape() {
 }
 
 #[tokio::test]
+async fn default_constructor_applies_header_role_authorizer() {
+    let handler = AdminServiceHandler::new(
+        FakePostgresRepository {
+            tables_result: Ok(vec![PostgresTableInfo {
+                schema: String::from("public"),
+                name: String::from("users"),
+                row_count: 7,
+                total_bytes: 70,
+                table_bytes: 60,
+                index_bytes: 10,
+            }]),
+            ..Default::default()
+        },
+        FakeRedisRepository::default(),
+    );
+    let mut request = Request::new(AdminGetTablesRequest {});
+    request.metadata_mut().insert(
+        "x-tearleads-role",
+        tonic::metadata::MetadataValue::from_static("admin"),
+    );
+
+    let payload = into_inner_or_panic(handler.get_tables(request).await);
+    assert_eq!(payload.tables.len(), 1);
+    assert_eq!(payload.tables[0].name, "users");
+}
+
+#[tokio::test]
+async fn default_constructor_rejects_missing_role_header() {
+    let handler = AdminServiceHandler::new(
+        FakePostgresRepository::default(),
+        FakeRedisRepository::default(),
+    );
+
+    let result = handler
+        .get_tables(Request::new(AdminGetTablesRequest {}))
+        .await;
+    let status = match result {
+        Ok(_) => panic!("missing role header must fail"),
+        Err(error) => error,
+    };
+
+    assert_eq!(status.code(), Code::Unauthenticated);
+    assert!(status.message().contains("missing x-tearleads-role"));
+}
+
+#[tokio::test]
 async fn get_columns_forwards_request_schema_table_and_maps_response() {
     let postgres_repo = FakePostgresRepository {
         columns_result: Ok(vec![PostgresColumnInfo {
@@ -183,7 +150,11 @@ async fn get_columns_forwards_request_schema_table_and_maps_response() {
         ..Default::default()
     };
     let columns_calls = Arc::clone(&postgres_repo.columns_calls);
-    let handler = AdminServiceHandler::new(postgres_repo, FakeRedisRepository::default());
+    let handler = AdminServiceHandler::with_authorizer(
+        postgres_repo,
+        FakeRedisRepository::default(),
+        FakeAuthorizer::allow_all(),
+    );
 
     let payload = into_inner_or_panic(
         handler
@@ -221,7 +192,11 @@ async fn get_redis_keys_passes_non_negative_limit_to_repository() {
         ..Default::default()
     };
     let list_keys_calls = Arc::clone(&redis_repo.list_keys_calls);
-    let handler = AdminServiceHandler::new(FakePostgresRepository::default(), redis_repo);
+    let handler = AdminServiceHandler::with_authorizer(
+        FakePostgresRepository::default(),
+        redis_repo,
+        FakeAuthorizer::allow_all(),
+    );
 
     let payload = into_inner_or_panic(
         handler
@@ -248,7 +223,11 @@ async fn get_redis_keys_passes_non_negative_limit_to_repository() {
 async fn get_redis_keys_rejects_negative_limits() {
     let redis_repo = FakeRedisRepository::default();
     let list_keys_calls = Arc::clone(&redis_repo.list_keys_calls);
-    let handler = AdminServiceHandler::new(FakePostgresRepository::default(), redis_repo);
+    let handler = AdminServiceHandler::with_authorizer(
+        FakePostgresRepository::default(),
+        redis_repo,
+        FakeAuthorizer::allow_all(),
+    );
 
     let result = handler
         .get_redis_keys(Request::new(AdminGetRedisKeysRequest {
@@ -305,7 +284,11 @@ async fn get_redis_value_maps_string_list_map_and_none_variants() {
             ..Default::default()
         };
         let get_value_calls = Arc::clone(&redis_repo.get_value_calls);
-        let handler = AdminServiceHandler::new(FakePostgresRepository::default(), redis_repo);
+        let handler = AdminServiceHandler::with_authorizer(
+            FakePostgresRepository::default(),
+            redis_repo,
+            FakeAuthorizer::allow_all(),
+        );
 
         let payload = into_inner_or_panic(
             handler
@@ -331,7 +314,11 @@ async fn get_redis_value_maps_string_list_map_and_none_variants() {
 async fn get_columns_rejects_invalid_identifiers_before_repository_calls() {
     let postgres_repo = FakePostgresRepository::default();
     let columns_calls = Arc::clone(&postgres_repo.columns_calls);
-    let handler = AdminServiceHandler::new(postgres_repo, FakeRedisRepository::default());
+    let handler = AdminServiceHandler::with_authorizer(
+        postgres_repo,
+        FakeRedisRepository::default(),
+        FakeAuthorizer::allow_all(),
+    );
 
     let result = handler
         .get_columns(Request::new(AdminGetColumnsRequest {
@@ -358,7 +345,11 @@ async fn get_columns_rejects_invalid_identifiers_before_repository_calls() {
 async fn get_redis_value_rejects_empty_keys_before_repository_calls() {
     let redis_repo = FakeRedisRepository::default();
     let get_value_calls = Arc::clone(&redis_repo.get_value_calls);
-    let handler = AdminServiceHandler::new(FakePostgresRepository::default(), redis_repo);
+    let handler = AdminServiceHandler::with_authorizer(
+        FakePostgresRepository::default(),
+        redis_repo,
+        FakeAuthorizer::allow_all(),
+    );
 
     let result = handler
         .get_redis_value(Request::new(AdminGetRedisValueRequest {
@@ -389,12 +380,13 @@ async fn repository_errors_map_to_expected_grpc_status_codes() {
     ];
 
     for (kind, expected_code) in cases {
-        let handler = AdminServiceHandler::new(
+        let handler = AdminServiceHandler::with_authorizer(
             FakePostgresRepository {
                 tables_result: Err(DataAccessError::new(kind, "boom")),
                 ..Default::default()
             },
             FakeRedisRepository::default(),
+            FakeAuthorizer::allow_all(),
         );
 
         let result = handler
@@ -412,6 +404,43 @@ async fn repository_errors_map_to_expected_grpc_status_codes() {
         };
         assert_eq!(status.message(), expected_message);
     }
+}
+
+#[tokio::test]
+async fn authorizer_denial_short_circuits_repository_calls() {
+    let postgres_repo = FakePostgresRepository {
+        tables_result: Ok(vec![PostgresTableInfo {
+            schema: String::from("public"),
+            name: String::from("users"),
+            row_count: 1,
+            total_bytes: 1,
+            table_bytes: 1,
+            index_bytes: 0,
+        }]),
+        ..Default::default()
+    };
+    let authorizer = FakeAuthorizer::deny(AdminAuthErrorKind::PermissionDenied, "not admin");
+    let calls = Arc::clone(&authorizer.calls);
+    let handler = AdminServiceHandler::with_authorizer(
+        postgres_repo,
+        FakeRedisRepository::default(),
+        authorizer,
+    );
+
+    let result = handler
+        .get_tables(Request::new(AdminGetTablesRequest {}))
+        .await;
+    let status = match result {
+        Ok(_) => panic!("denied requests must fail"),
+        Err(error) => error,
+    };
+
+    assert_eq!(status.code(), Code::PermissionDenied);
+    assert_eq!(status.message(), "not admin");
+    assert_eq!(
+        lock_or_recover(&calls).clone(),
+        vec![AdminOperation::GetTables]
+    );
 }
 
 #[test]
@@ -434,18 +463,4 @@ fn lock_or_recover_handles_poisoned_mutex() {
     assert_eq!(guard.len(), 2);
     assert_eq!(guard[0], "seed");
     assert_eq!(guard[1], "poison");
-}
-
-fn into_inner_or_panic<T>(result: Result<Response<T>, Status>) -> T {
-    match result {
-        Ok(value) => value.into_inner(),
-        Err(error) => panic!("unexpected status: {error}"),
-    }
-}
-
-fn lock_or_recover<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    match mutex.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    }
 }
