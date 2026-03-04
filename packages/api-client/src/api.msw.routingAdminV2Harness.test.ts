@@ -1,8 +1,6 @@
-import { seedTestUser } from '@tearleads/api-test-utils';
 import { wasApiRequestMade } from '@tearleads/msw/node';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_TOKEN_KEY } from './authStorage';
-import { getSharedTestContext } from './test/testContext';
 
 const loadApi = async () => {
   const module = await import('./api');
@@ -32,10 +30,7 @@ describe('api adminV2 with msw runtime harness', () => {
     vi.stubEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
     installApiV2WasmBindingsOverride();
-
-    const ctx = getSharedTestContext();
-    const seededUser = await seedTestUser(ctx, { admin: true });
-    localStorage.setItem(AUTH_TOKEN_KEY, seededUser.accessToken);
+    localStorage.setItem(AUTH_TOKEN_KEY, 'Bearer test-admin-token');
   });
 
   it('routes wave 1A admin reads through v2 service paths', async () => {
