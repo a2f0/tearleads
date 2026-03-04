@@ -22,4 +22,5 @@ This matrix tracks the first DAL-proving admin read endpoints selected for v2 mi
 - Rust-generated v2 contract crate lives in `crates/api-v2-contracts`.
 - Transport-level gRPC integration tests now cover Wave 1A admin RPC round-trips and auth metadata enforcement.
 - Handler -> adapter -> gateway integration tests now cover Wave 1A admin read flows and auth short-circuit behavior.
-- Next slice: wire browser-facing gRPC-web binary client calls for Wave 1A admin RPC paths.
+- Browser-facing Wave 1A admin RPC routes now use gRPC-web binary transport in `@tearleads/api-client` via `api.adminV2`.
+- Next slice: cut over Wave 1A admin consumers from v1 connect JSON routes to `api.adminV2` calls.
