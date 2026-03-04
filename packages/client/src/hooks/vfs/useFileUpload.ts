@@ -76,9 +76,7 @@ export function useFileUpload() {
       let mimeType: string;
       if (detectedType) {
         mimeType = detectedType.mime;
-      } else if (file.type.startsWith('text/')) {
-        mimeType = file.type;
-      } else if (file.type === 'image/svg+xml') {
+      } else if (file.type.startsWith('text/') || file.type === 'image/svg+xml') {
         mimeType = file.type;
       } else {
         throw new UnsupportedFileTypeError(file.name);
