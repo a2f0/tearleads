@@ -1,4 +1,5 @@
 export * from './api';
+export * from './apiV2ClientWasm';
 export * from './vfsBlobNetworkFlusher';
 export * from './vfsCrypto';
 export * from './vfsNetworkFlusher';
