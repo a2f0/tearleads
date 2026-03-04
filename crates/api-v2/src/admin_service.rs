@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use tearleads_api_domain_core::normalize_sql_identifier;
 use tearleads_api_v2_contracts::tearleads::v2::{
     AdminGetColumnsRequest, AdminGetColumnsResponse, AdminGetPostgresInfoRequest,
     AdminGetPostgresInfoResponse, AdminGetRedisKeysRequest, AdminGetRedisKeysResponse,
@@ -86,9 +87,13 @@ where
         request: Request<AdminGetColumnsRequest>,
     ) -> Result<Response<AdminGetColumnsResponse>, Status> {
         let payload = request.into_inner();
+        let schema = normalize_schema_or_table("schema", &payload.schema)
+            .map_err(Status::invalid_argument)?;
+        let table =
+            normalize_schema_or_table("table", &payload.table).map_err(Status::invalid_argument)?;
         let columns = self
             .postgres_repo
-            .list_columns(&payload.schema, &payload.table)
+            .list_columns(&schema, &table)
             .await
             .map_err(map_data_access_error)?
             .into_iter()
@@ -108,7 +113,10 @@ where
         request: Request<AdminGetRedisKeysRequest>,
     ) -> Result<Response<AdminGetRedisKeysResponse>, Status> {
         let payload = request.into_inner();
-        let limit: u32 = u32::try_from(payload.limit).unwrap_or_default();
+        if payload.limit < 0 {
+            return Err(Status::invalid_argument("limit must be non-negative"));
+        }
+        let limit = payload.limit as u32;
         let page = self
             .redis_repo
             .list_keys(&payload.cursor, limit)
@@ -135,9 +143,10 @@ where
         request: Request<AdminGetRedisValueRequest>,
     ) -> Result<Response<AdminGetRedisValueResponse>, Status> {
         let payload = request.into_inner();
+        let key = normalize_redis_key(&payload.key).map_err(Status::invalid_argument)?;
         let value_record = self
             .redis_repo
-            .get_value(&payload.key)
+            .get_value(&key)
             .await
             .map_err(map_data_access_error)?;
         let response = AdminGetRedisValueResponse {
@@ -175,7 +184,19 @@ fn map_data_access_error(error: DataAccessError) -> Status {
             Status::permission_denied(error.message().to_string())
         }
         DataAccessErrorKind::InvalidInput => Status::invalid_argument(error.message().to_string()),
-        DataAccessErrorKind::Unavailable => Status::unavailable(error.message().to_string()),
-        DataAccessErrorKind::Internal => Status::internal(error.message().to_string()),
+        DataAccessErrorKind::Unavailable => Status::unavailable("upstream store unavailable"),
+        DataAccessErrorKind::Internal => Status::internal("internal data access error"),
     }
+}
+
+fn normalize_schema_or_table(field: &'static str, value: &str) -> Result<String, String> {
+    normalize_sql_identifier(field, value).map_err(|error| error.message().to_string())
+}
+
+fn normalize_redis_key(key: &str) -> Result<String, &'static str> {
+    let trimmed = key.trim();
+    if trimmed.is_empty() {
+        return Err("key must not be empty");
+    }
+    Ok(trimmed.to_string())
 }
