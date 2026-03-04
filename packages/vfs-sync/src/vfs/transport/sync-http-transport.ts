@@ -70,15 +70,19 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
   }): Promise<VfsCrdtSyncPushResponse> {
     const organizationId = this.resolveOrganizationId();
     const parsed = parseApiPushResponse(
-      await this.requestConnectJson('PushCrdtOps', {
-        organizationId: organizationId ?? '',
-        json: JSON.stringify({
-          clientId: input.clientId,
-          operations: input.operations
-        })
-      }, {
-        organizationId
-      })
+      await this.requestConnectJson(
+        'PushCrdtOps',
+        {
+          organizationId: organizationId ?? '',
+          json: JSON.stringify({
+            clientId: input.clientId,
+            operations: input.operations
+          })
+        },
+        {
+          organizationId
+        }
+      )
     );
     return {
       results: parsed.results
@@ -125,15 +129,19 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
   }): Promise<VfsCrdtSyncReconcileResponse> {
     const organizationId = this.resolveOrganizationId();
     const parsed = parseApiReconcileResponse(
-      await this.requestConnectJson('ReconcileCrdt', {
-        json: JSON.stringify({
-          clientId: input.clientId,
-          cursor: encodeVfsSyncCursor(input.cursor),
-          lastReconciledWriteIds: input.lastReconciledWriteIds
-        })
-      }, {
-        organizationId
-      })
+      await this.requestConnectJson(
+        'ReconcileCrdt',
+        {
+          json: JSON.stringify({
+            clientId: input.clientId,
+            cursor: encodeVfsSyncCursor(input.cursor),
+            lastReconciledWriteIds: input.lastReconciledWriteIds
+          })
+        },
+        {
+          organizationId
+        }
+      )
     );
 
     if (parsed.clientId !== input.clientId) {
@@ -167,19 +175,23 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     reconcile: VfsCrdtSyncReconcileResponse;
   }> {
     const organizationId = this.resolveOrganizationId();
-    const parsedSession = await this.requestConnectJson('RunCrdtSession', {
-      organizationId: organizationId ?? '',
-      json: JSON.stringify({
-        clientId: input.clientId,
-        cursor: encodeVfsSyncCursor(input.cursor),
-        limit: input.limit,
-        operations: input.operations,
-        lastReconciledWriteIds: input.lastReconciledWriteIds,
-        rootId: input.rootId ?? null
-      })
-    }, {
-      organizationId
-    });
+    const parsedSession = await this.requestConnectJson(
+      'RunCrdtSession',
+      {
+        organizationId: organizationId ?? '',
+        json: JSON.stringify({
+          clientId: input.clientId,
+          cursor: encodeVfsSyncCursor(input.cursor),
+          limit: input.limit,
+          operations: input.operations,
+          lastReconciledWriteIds: input.lastReconciledWriteIds,
+          rootId: input.rootId ?? null
+        })
+      },
+      {
+        organizationId
+      }
+    );
 
     if (
       !isPlainRecord(parsedSession) ||
@@ -313,10 +325,7 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
       organizationIdOverride === undefined
         ? this.resolveOrganizationId()
         : normalizeOrganizationId(organizationIdOverride);
-    if (
-      resolvedOrganizationId &&
-      !headers.has(ORGANIZATION_HEADER_NAME)
-    ) {
+    if (resolvedOrganizationId && !headers.has(ORGANIZATION_HEADER_NAME)) {
       headers.set(ORGANIZATION_HEADER_NAME, resolvedOrganizationId);
     }
 
