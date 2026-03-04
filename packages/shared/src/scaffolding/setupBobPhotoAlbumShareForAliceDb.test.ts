@@ -189,7 +189,7 @@ describe('setupBobPhotoAlbumShareForAliceDb', () => {
     expect(calls.some((call) => call.text === 'COMMIT')).toBe(false);
   });
 
-  it('uses scaffold-unwrapped session keys by default when owner key exists', async () => {
+  it('uses scaffold-unwrapped session keys by default without user_keys lookups', async () => {
     const ownerKeyPair = generateKeyPair();
     const ownerPublicKey = combinePublicKey(
       serializePublicKey({

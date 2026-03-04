@@ -8,6 +8,11 @@ import {
   generateKeyPair,
   serializePublicKey
 } from '@tearleads/shared';
+import {
+  setupBobNotesShareForAliceDb,
+  setupBobPhotoAlbumShareForAliceDb,
+  setupWelcomeEmailsDb
+} from '@tearleads/shared/scaffolding';
 import { screen, waitFor } from '@testing-library/react';
 import { eq } from 'drizzle-orm';
 import { createElement } from 'react';
@@ -16,9 +21,6 @@ import { getDatabase } from '@/db';
 import { clearStoredAuth, storeAuth } from '@/lib/authStorage';
 import { renderWithDatabase } from '@/test/renderWithDatabase';
 import { getSharedTestContext } from '@/test/testContext';
-import { setupBobNotesShareForAliceDb } from '../../../shared/src/scaffolding/setupBobNotesShareForAliceDb.js';
-import { setupBobPhotoAlbumShareForAliceDb } from '../../../shared/src/scaffolding/setupBobPhotoAlbumShareForAliceDb.js';
-import { setupWelcomeEmailsDb } from '../../../shared/src/scaffolding/setupWelcomeEmailsDb.js';
 
 afterEach(() => {
   clearStoredAuth();

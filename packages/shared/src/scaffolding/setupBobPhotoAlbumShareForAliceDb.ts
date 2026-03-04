@@ -355,7 +355,7 @@ export async function setupBobPhotoAlbumShareForAliceDb(
        )
        VALUES ($1, $2, $3, $4, $5::timestamptz)
        ON CONFLICT (parent_id, child_id) DO NOTHING`,
-      [randomUUID(), rootItemId, albumId, 'scaffolding-link-wrap', nowIso]
+      [idFactory(), rootItemId, albumId, 'scaffolding-link-wrap', nowIso]
     );
 
     await input.client.query(
@@ -368,7 +368,7 @@ export async function setupBobPhotoAlbumShareForAliceDb(
        )
        VALUES ($1, $2, $3, $4, $5::timestamptz)
        ON CONFLICT (parent_id, child_id) DO NOTHING`,
-      [randomUUID(), albumId, photoId, 'scaffolding-link-wrap', nowIso]
+      [idFactory(), albumId, photoId, 'scaffolding-link-wrap', nowIso]
     );
 
     const albumShareId = `share:${idFactory()}`;
