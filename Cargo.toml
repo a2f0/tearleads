@@ -4,6 +4,8 @@ members = [
   "crates/api-v2",
   "crates/api-v2-ping-wasm",
   "crates/api-domain-core",
+  "crates/data-access-postgres",
+  "crates/data-access-redis",
   "crates/data-access-traits",
   "crates/mls-core-wasm"
 ]
