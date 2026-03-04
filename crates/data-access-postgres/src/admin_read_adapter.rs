@@ -1,6 +1,5 @@
 //! Adapter that maps gateway records to shared Postgres admin read models.
 
-use tearleads_api_domain_core::normalize_sql_identifier;
 use tearleads_data_access_traits::{
     BoxFuture, DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository,
     PostgresColumnInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
@@ -58,31 +57,19 @@ where
         schema: &str,
         table: &str,
     ) -> BoxFuture<'_, Result<Vec<PostgresColumnInfo>, DataAccessError>> {
-        let normalized_schema = match normalize_identifier("schema", schema) {
-            Ok(value) => value,
-            Err(error) => return Box::pin(async move { Err(error) }),
-        };
-        let normalized_table = match normalize_identifier("table", table) {
-            Ok(value) => value,
-            Err(error) => return Box::pin(async move { Err(error) }),
-        };
+        let schema = schema.to_string();
+        let table = table.to_string();
 
         Box::pin(async move {
-            let exists = self
-                .gateway
-                .table_exists(&normalized_schema, &normalized_table)
-                .await?;
+            let exists = self.gateway.table_exists(&schema, &table).await?;
             if !exists {
                 return Err(DataAccessError::new(
                     DataAccessErrorKind::NotFound,
-                    format!("table not found: {normalized_schema}.{normalized_table}"),
+                    format!("table not found: {schema}.{table}"),
                 ));
             }
 
-            let records = self
-                .gateway
-                .list_columns(&normalized_schema, &normalized_table)
-                .await?;
+            let records = self.gateway.list_columns(&schema, &table).await?;
             let columns = records
                 .into_iter()
                 .map(|record| PostgresColumnInfo {
@@ -101,77 +88,10 @@ where
         &self,
         query: PostgresRowsQuery,
     ) -> BoxFuture<'_, Result<PostgresRowsPage, DataAccessError>> {
-        let PostgresRowsQuery {
-            schema,
-            table,
-            limit,
-            offset,
-            sort_column,
-            sort_direction,
-        } = query;
-
-        let normalized_schema = match normalize_identifier("schema", &schema) {
-            Ok(value) => value,
-            Err(error) => return Box::pin(async move { Err(error) }),
-        };
-        let normalized_table = match normalize_identifier("table", &table) {
-            Ok(value) => value,
-            Err(error) => return Box::pin(async move { Err(error) }),
-        };
-        let normalized_sort_column = match sort_column {
-            Some(sort_column) => match normalize_identifier("sortColumn", &sort_column) {
-                Ok(value) => Some(value),
-                Err(error) => return Box::pin(async move { Err(error) }),
-            },
-            None => None,
-        };
-        let normalized_sort_direction = match normalize_sort_direction(sort_direction) {
-            Ok(value) => value,
-            Err(error) => return Box::pin(async move { Err(error) }),
-        };
-
-        let normalized_query = PostgresRowsQuery {
-            schema: normalized_schema,
-            table: normalized_table,
-            limit,
-            offset,
-            sort_column: normalized_sort_column,
-            sort_direction: normalized_sort_direction,
-        };
-
         Box::pin(async move {
-            let page = self.gateway.list_rows(&normalized_query).await?;
+            let page = self.gateway.list_rows(&query).await?;
             Ok(map_rows_page(page))
         })
-    }
-}
-
-fn normalize_identifier(field: &'static str, value: &str) -> Result<String, DataAccessError> {
-    match normalize_sql_identifier(field, value) {
-        Ok(identifier) => Ok(identifier),
-        Err(error) => Err(DataAccessError::new(
-            DataAccessErrorKind::InvalidInput,
-            error.to_string(),
-        )),
-    }
-}
-
-fn normalize_sort_direction(value: Option<String>) -> Result<Option<String>, DataAccessError> {
-    let Some(raw) = value else {
-        return Ok(None);
-    };
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        return Ok(None);
-    }
-
-    match trimmed {
-        "asc" | "ASC" => Ok(Some(String::from("asc"))),
-        "desc" | "DESC" => Ok(Some(String::from("desc"))),
-        _ => Err(DataAccessError::new(
-            DataAccessErrorKind::InvalidInput,
-            "sortDirection must be \"asc\" or \"desc\"",
-        )),
     }
 }
 

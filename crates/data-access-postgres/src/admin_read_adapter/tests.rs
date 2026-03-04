@@ -166,7 +166,7 @@ fn list_tables_maps_gateway_rows() {
 }
 
 #[test]
-fn list_columns_normalizes_identifiers_for_gateway_calls() {
+fn list_columns_forwards_identifiers_to_gateway_calls() {
     let gateway = FakeGateway::default();
     let adapter = PostgresAdminReadAdapter::new(gateway);
 
@@ -177,11 +177,11 @@ fn list_columns_normalizes_identifiers_for_gateway_calls() {
 
     assert_eq!(
         adapter.gateway.table_exists_calls(),
-        vec![(String::from("public"), String::from("users"))]
+        vec![(String::from(" public "), String::from(" users "))]
     );
     assert_eq!(
         adapter.gateway.list_columns_calls(),
-        vec![(String::from("public"), String::from("users"))]
+        vec![(String::from(" public "), String::from(" users "))]
     );
 }
 
@@ -204,28 +204,6 @@ fn list_columns_returns_not_found_when_table_is_absent() {
 }
 
 #[test]
-fn list_columns_rejects_unsafe_identifier_before_gateway_io() {
-    let gateway = FakeGateway::default();
-    let adapter = PostgresAdminReadAdapter::new(gateway);
-
-    let result = block_on(adapter.list_columns("public;drop", "users"));
-    let error = match result {
-        Ok(_) => panic!("unsafe identifiers must fail validation"),
-        Err(error) => error,
-    };
-
-    assert_eq!(error.kind(), DataAccessErrorKind::InvalidInput);
-    assert!(
-        error
-            .message()
-            .contains("identifier must contain only ASCII letters"),
-        "validation message should explain allowed characters"
-    );
-    assert!(adapter.gateway.table_exists_calls().is_empty());
-    assert!(adapter.gateway.list_columns_calls().is_empty());
-}
-
-#[test]
 fn list_columns_propagates_gateway_errors() {
     let unavailable = DataAccessError::new(DataAccessErrorKind::Unavailable, "postgres down");
     let gateway = FakeGateway {
@@ -244,7 +222,7 @@ fn list_columns_propagates_gateway_errors() {
 }
 
 #[test]
-fn list_rows_normalizes_query_before_gateway_calls() {
+fn list_rows_forwards_query_before_gateway_calls() {
     let gateway = FakeGateway {
         rows_result: Ok(PostgresRowsPageRecord {
             rows_json: vec![String::from("{\"id\":\"user-1\"}")],
@@ -277,18 +255,18 @@ fn list_rows_normalizes_query_before_gateway_calls() {
     assert_eq!(
         adapter.gateway.list_rows_calls(),
         vec![PostgresRowsQuery {
-            schema: String::from("public"),
-            table: String::from("users"),
+            schema: String::from(" public "),
+            table: String::from(" users "),
             limit: 10,
             offset: 20,
-            sort_column: Some(String::from("id")),
-            sort_direction: Some(String::from("desc")),
+            sort_column: Some(String::from(" id ")),
+            sort_direction: Some(String::from("DESC")),
         }]
     );
 }
 
 #[test]
-fn list_rows_rejects_invalid_sort_direction() {
+fn list_rows_forwards_invalid_sort_direction() {
     let gateway = FakeGateway::default();
     let adapter = PostgresAdminReadAdapter::new(gateway);
 
@@ -300,14 +278,21 @@ fn list_rows_rejects_invalid_sort_direction() {
         sort_column: Some(String::from("id")),
         sort_direction: Some(String::from("sideways")),
     }));
-    let error = match result {
-        Ok(_) => panic!("invalid sort direction must fail validation"),
-        Err(error) => error,
-    };
+    if let Err(error) = result {
+        panic!("adapter should forward sort direction without revalidating: {error}");
+    }
 
-    assert_eq!(error.kind(), DataAccessErrorKind::InvalidInput);
-    assert_eq!(error.message(), "sortDirection must be \"asc\" or \"desc\"");
-    assert!(adapter.gateway.list_rows_calls().is_empty());
+    assert_eq!(
+        adapter.gateway.list_rows_calls(),
+        vec![PostgresRowsQuery {
+            schema: String::from("public"),
+            table: String::from("users"),
+            limit: 10,
+            offset: 0,
+            sort_column: Some(String::from("id")),
+            sort_direction: Some(String::from("sideways")),
+        }]
+    );
 }
 
 fn lock_or_recover<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
