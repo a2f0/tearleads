@@ -470,7 +470,6 @@ describe('App deferred lock flow', () => {
   });
 
   it('blocks lock when deferred state cannot be verified', async () => {
-    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const user = userEvent.setup();
     mockIsUnlocked = true;
     mockIsAuthenticated = false;
@@ -489,10 +488,5 @@ describe('App deferred lock flow', () => {
       'Unable to Lock Instance',
       'Could not verify database password state. Try again.'
     );
-    expect(consoleWarn).toHaveBeenCalledWith(
-      'Failed to resolve deferred-password lock state before locking:',
-      expect.any(Error)
-    );
-    consoleWarn.mockRestore();
   });
 });

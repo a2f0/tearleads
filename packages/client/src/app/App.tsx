@@ -191,11 +191,7 @@ function App() {
               );
               return;
             }
-          } catch (error) {
-            console.warn(
-              'Failed to resolve deferred-password lock state before locking:',
-              error
-            );
+          } catch {
             if (!cachedInstance) {
               notificationStore.warning(
                 'Unable to Lock Instance',
