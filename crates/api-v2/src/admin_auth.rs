@@ -97,7 +97,12 @@ impl AdminRequestAuthorizer for HeaderRoleAdminAuthorizer {
             )
         })?;
 
-        let role = role_value.to_str().unwrap_or_default();
+        let role = role_value.to_str().map_err(|_| {
+            AdminAuthError::new(
+                AdminAuthErrorKind::Unauthenticated,
+                format!("invalid {} for {}", Self::ROLE_HEADER, operation.as_str()),
+            )
+        })?;
 
         if role != Self::REQUIRED_ROLE {
             return Err(AdminAuthError::new(
@@ -188,6 +193,34 @@ mod tests {
     }
 
     #[test]
+    fn header_role_authorizer_rejects_non_utf8_role_header() {
+        let authorizer = HeaderRoleAdminAuthorizer;
+        let mut metadata = tonic::metadata::MetadataMap::new();
+        let invalid_role = parse_opaque_ascii_value(b"admin\xfa");
+        metadata.insert("x-tearleads-role", invalid_role);
+
+        let result = authorizer.authorize_admin_operation(AdminOperation::GetTables, &metadata);
+        assert!(result.is_err());
+        assert_eq!(
+            result.as_ref().err().map(|error| error.kind()),
+            Some(AdminAuthErrorKind::Unauthenticated)
+        );
+        assert!(
+            result
+                .as_ref()
+                .err()
+                .map(|error| error.message().contains("invalid x-tearleads-role"))
+                .unwrap_or(false)
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "opaque ascii metadata value should parse")]
+    fn parse_opaque_ascii_value_panics_for_invalid_ascii() {
+        let _ = parse_opaque_ascii_value(b"\n");
+    }
+
+    #[test]
     fn map_admin_auth_error_translates_kinds_to_status_codes() {
         let unauthenticated = map_admin_auth_error(AdminAuthError::new(
             AdminAuthErrorKind::Unauthenticated,
@@ -227,6 +260,13 @@ mod tests {
                 format!("missing x-tearleads-role for {}", operation.as_str()),
             );
             assert!(error.message().contains(expected_name));
+        }
+    }
+
+    fn parse_opaque_ascii_value(bytes: &[u8]) -> tonic::metadata::AsciiMetadataValue {
+        match tonic::metadata::AsciiMetadataValue::try_from(bytes) {
+            Ok(value) => value,
+            Err(error) => panic!("opaque ascii metadata value should parse: {error}"),
         }
     }
 }
