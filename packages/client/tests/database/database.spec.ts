@@ -1,5 +1,9 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '../fixtures';
+import {
+  expectAutoInitializedDeferredState,
+  setPasswordOnDeferredInstance
+} from './dbTestUtils';
 import { clearOriginStorage } from '../testUtils';
 
 const INITIAL_PASSWORD = 'autoInitPassword123';
@@ -83,24 +87,14 @@ async function readTestDataOrNull(page: Page): Promise<string | null> {
   return readMatch?.[1] ?? null;
 }
 
-async function expectAutoInitializedDeferredState(page: Page): Promise<void> {
-  await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
-    timeout: DB_OPERATION_TIMEOUT
-  });
-  await expect(page.getByTestId('db-password-status')).toHaveText('Not Set');
-  await expect(page.getByTestId('db-set-password-button')).toBeVisible();
-}
-
-async function setPasswordOnDeferredInstance(
+async function setInitialPasswordOnDeferredInstance(
   page: Page,
   password: string = INITIAL_PASSWORD
 ): Promise<void> {
-  await page.getByTestId('db-password-input').fill(password);
-  await page.getByTestId('db-set-password-button').click();
-  await waitForSuccess(page);
-  await expect(page.getByTestId('db-test-result')).toContainText(
-    'Password set successfully'
-  );
+  await setPasswordOnDeferredInstance(page, {
+    password,
+    timeout: DB_OPERATION_TIMEOUT
+  });
 }
 
 // Requirements for web database tests:
@@ -118,20 +112,20 @@ test.describe('Database (Web)', () => {
     await expect(page.getByTestId('database-test')).toBeVisible();
 
     // Fresh instances auto-initialize unlocked with deferred password.
-    await expectAutoInitializedDeferredState(page);
+    await expectAutoInitializedDeferredState(page, DB_OPERATION_TIMEOUT);
   });
 
   test('should set password on auto-initialized deferred instance', async ({
     page
   }) => {
-    await setPasswordOnDeferredInstance(page);
+    await setInitialPasswordOnDeferredInstance(page);
 
     await expect(page.getByTestId('db-status')).toHaveText('Unlocked');
     await expect(page.getByTestId('db-set-password-button')).not.toBeVisible();
   });
 
   test('should write and read data from database', async ({ page }) => {
-    await setPasswordOnDeferredInstance(page);
+    await setInitialPasswordOnDeferredInstance(page);
 
     // Write data.
     const writeButton = page.getByTestId('db-write-button');
@@ -160,7 +154,7 @@ test.describe('Database (Web)', () => {
   });
 
   test('should lock and unlock database', async ({ page }) => {
-    await setPasswordOnDeferredInstance(page);
+    await setInitialPasswordOnDeferredInstance(page);
 
     // Lock the database.
     const lockButton = page.getByTestId('db-lock-button');
@@ -186,7 +180,7 @@ test.describe('Database (Web)', () => {
   });
 
   test('should fail to unlock with wrong password', async ({ page }) => {
-    await setPasswordOnDeferredInstance(page);
+    await setInitialPasswordOnDeferredInstance(page);
 
     // Lock the database.
     await page.getByTestId('db-lock-button').click();
@@ -211,7 +205,7 @@ test.describe('Database (Web)', () => {
   });
 
   test('should persist data across lock/unlock cycles', async ({ page }) => {
-    await setPasswordOnDeferredInstance(page);
+    await setInitialPasswordOnDeferredInstance(page);
 
     // Write data.
     await page.getByTestId('db-write-button').click();
@@ -243,7 +237,7 @@ test.describe('Database (Web)', () => {
   });
 
   test('should reset database and clear all data', async ({ page }) => {
-    await setPasswordOnDeferredInstance(page);
+    await setInitialPasswordOnDeferredInstance(page);
 
     await page.getByTestId('db-write-button').click();
     await expect(page.getByTestId('db-test-data')).toBeVisible();
@@ -261,7 +255,7 @@ test.describe('Database (Web)', () => {
   test('should auto-initialize again after reset and allow setting a new password', async ({
     page
   }) => {
-    await setPasswordOnDeferredInstance(page);
+    await setInitialPasswordOnDeferredInstance(page);
 
     await page.getByTestId('db-write-button').click();
     await waitForSuccess(page);
@@ -276,10 +270,10 @@ test.describe('Database (Web)', () => {
     await expect(page.getByTestId('database-test')).toBeVisible({
       timeout: DB_OPERATION_TIMEOUT
     });
-    await expectAutoInitializedDeferredState(page);
+    await expectAutoInitializedDeferredState(page, DB_OPERATION_TIMEOUT);
 
     // Set a new password protector.
-    await setPasswordOnDeferredInstance(page, NEW_PASSWORD);
+    await setInitialPasswordOnDeferredInstance(page, NEW_PASSWORD);
 
     // Lock and unlock to verify the new password is usable.
     await page.getByTestId('db-lock-button').click();
@@ -292,7 +286,7 @@ test.describe('Database (Web)', () => {
   });
 
   test('should change password successfully', async ({ page }) => {
-    await setPasswordOnDeferredInstance(page);
+    await setInitialPasswordOnDeferredInstance(page);
 
     // Write some data to verify it persists after password change.
     await page.getByTestId('db-write-button').click();
@@ -352,7 +346,7 @@ test.describe('Database (Web)', () => {
   test('should fail to change password with wrong current password', async ({
     page
   }) => {
-    await setPasswordOnDeferredInstance(page);
+    await setInitialPasswordOnDeferredInstance(page);
 
     // Open change password UI.
     await page.getByTestId('db-change-password-toggle').click();

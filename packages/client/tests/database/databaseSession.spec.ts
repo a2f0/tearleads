@@ -1,5 +1,9 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '../fixtures';
+import {
+  expectAutoInitializedDeferredState,
+  setPasswordOnDeferredInstance
+} from './dbTestUtils';
 import { clearOriginStorage } from '../testUtils';
 
 const SESSION_PASSWORD = 'autoInitSessionPassword123';
@@ -74,21 +78,11 @@ async function readTestDataOrNull(page: Page): Promise<string | null> {
   return readMatch?.[1] ?? null;
 }
 
-async function expectAutoInitializedDeferredState(page: Page): Promise<void> {
-  await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
+async function setSessionPasswordOnDeferredInstance(page: Page): Promise<void> {
+  await setPasswordOnDeferredInstance(page, {
+    password: SESSION_PASSWORD,
     timeout: DB_OPERATION_TIMEOUT
   });
-  await expect(page.getByTestId('db-password-status')).toHaveText('Not Set');
-  await expect(page.getByTestId('db-set-password-button')).toBeVisible();
-}
-
-async function setPasswordOnDeferredInstance(page: Page): Promise<void> {
-  await page.getByTestId('db-password-input').fill(SESSION_PASSWORD);
-  await page.getByTestId('db-set-password-button').click();
-  await waitForSuccess(page);
-  await expect(page.getByTestId('db-test-result')).toContainText(
-    'Password set successfully'
-  );
 }
 
 test.describe('Session Persistence (Web)', () => {
@@ -101,13 +95,13 @@ test.describe('Session Persistence (Web)', () => {
     await expect(page.getByTestId('database-test')).toBeVisible();
 
     // Fresh instances auto-initialize unlocked with deferred password.
-    await expectAutoInitializedDeferredState(page);
+    await expectAutoInitializedDeferredState(page, DB_OPERATION_TIMEOUT);
   });
 
   test('should show persist checkbox and session status on web', async ({
     page
   }) => {
-    await setPasswordOnDeferredInstance(page);
+    await setSessionPasswordOnDeferredInstance(page);
 
     // Lock the database.
     await page.getByTestId('db-lock-button').click();
@@ -125,7 +119,7 @@ test.describe('Session Persistence (Web)', () => {
   });
 
   test('should persist session when checkbox is checked', async ({ page }) => {
-    await setPasswordOnDeferredInstance(page);
+    await setSessionPasswordOnDeferredInstance(page);
 
     // Write some data.
     await page.getByTestId('db-write-button').click();
@@ -165,7 +159,7 @@ test.describe('Session Persistence (Web)', () => {
   });
 
   test('should auto-restore session on page reload', async ({ page }) => {
-    await setPasswordOnDeferredInstance(page);
+    await setSessionPasswordOnDeferredInstance(page);
 
     // Lock the database.
     await page.getByTestId('db-lock-button').click();
@@ -206,7 +200,7 @@ test.describe('Session Persistence (Web)', () => {
   });
 
   test('should persist data across page reloads with OPFS', async ({ page }) => {
-    await setPasswordOnDeferredInstance(page);
+    await setSessionPasswordOnDeferredInstance(page);
 
     // Write data BEFORE enabling session persistence.
     await page.getByTestId('db-write-button').click();
@@ -252,7 +246,7 @@ test.describe('Session Persistence (Web)', () => {
   test('should clear session when locking with clear option', async ({
     page
   }) => {
-    await setPasswordOnDeferredInstance(page);
+    await setSessionPasswordOnDeferredInstance(page);
 
     // Lock the database.
     await page.getByTestId('db-lock-button').click();
@@ -287,7 +281,7 @@ test.describe('Session Persistence (Web)', () => {
   });
 
   test('should clear session on database reset', async ({ page }) => {
-    await setPasswordOnDeferredInstance(page);
+    await setSessionPasswordOnDeferredInstance(page);
 
     // Lock the database.
     await page.getByTestId('db-lock-button').click();
@@ -315,7 +309,7 @@ test.describe('Session Persistence (Web)', () => {
   test('should not show restore button when no persisted session', async ({
     page
   }) => {
-    await setPasswordOnDeferredInstance(page);
+    await setSessionPasswordOnDeferredInstance(page);
 
     // Clear the persisted session while locking.
     await page.getByTestId('db-lock-clear-session-button').click();
