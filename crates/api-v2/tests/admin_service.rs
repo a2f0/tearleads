@@ -207,7 +207,7 @@ async fn get_columns_forwards_request_schema_table_and_maps_response() {
 }
 
 #[tokio::test]
-async fn get_redis_keys_converts_negative_limits_to_zero_for_repo_normalization() {
+async fn get_redis_keys_passes_non_negative_limit_to_repository() {
     let redis_repo = FakeRedisRepository {
         list_keys_result: Ok(RedisKeyScanPage {
             keys: vec![RedisKeyInfo {
@@ -227,14 +227,14 @@ async fn get_redis_keys_converts_negative_limits_to_zero_for_repo_normalization(
         handler
             .get_redis_keys(Request::new(AdminGetRedisKeysRequest {
                 cursor: String::from("4"),
-                limit: -7,
+                limit: 7,
             }))
             .await,
     );
 
     assert_eq!(
         lock_or_recover(&list_keys_calls).clone(),
-        vec![(String::from("4"), 0)]
+        vec![(String::from("4"), 7)]
     );
     assert_eq!(payload.cursor, "8");
     assert!(payload.has_more);
@@ -242,6 +242,28 @@ async fn get_redis_keys_converts_negative_limits_to_zero_for_repo_normalization(
     assert_eq!(payload.keys[0].key, "session:123");
     assert_eq!(payload.keys[0].r#type, "string");
     assert_eq!(payload.keys[0].ttl, 120);
+}
+
+#[tokio::test]
+async fn get_redis_keys_rejects_negative_limits() {
+    let redis_repo = FakeRedisRepository::default();
+    let list_keys_calls = Arc::clone(&redis_repo.list_keys_calls);
+    let handler = AdminServiceHandler::new(FakePostgresRepository::default(), redis_repo);
+
+    let result = handler
+        .get_redis_keys(Request::new(AdminGetRedisKeysRequest {
+            cursor: String::from("4"),
+            limit: -1,
+        }))
+        .await;
+    let status = match result {
+        Ok(_) => panic!("negative limits must fail validation"),
+        Err(error) => error,
+    };
+
+    assert_eq!(status.code(), Code::InvalidArgument);
+    assert_eq!(status.message(), "limit must be non-negative");
+    assert!(lock_or_recover(&list_keys_calls).is_empty());
 }
 
 #[tokio::test]
@@ -288,7 +310,7 @@ async fn get_redis_value_maps_string_list_map_and_none_variants() {
         let payload = into_inner_or_panic(
             handler
                 .get_redis_value(Request::new(AdminGetRedisValueRequest {
-                    key: String::from("session:42"),
+                    key: String::from("  session:42  "),
                 }))
                 .await,
         );
@@ -303,6 +325,54 @@ async fn get_redis_value_maps_string_list_map_and_none_variants() {
             vec![String::from("session:42")]
         );
     }
+}
+
+#[tokio::test]
+async fn get_columns_rejects_invalid_identifiers_before_repository_calls() {
+    let postgres_repo = FakePostgresRepository::default();
+    let columns_calls = Arc::clone(&postgres_repo.columns_calls);
+    let handler = AdminServiceHandler::new(postgres_repo, FakeRedisRepository::default());
+
+    let result = handler
+        .get_columns(Request::new(AdminGetColumnsRequest {
+            schema: String::from("public;drop"),
+            table: String::from("users"),
+        }))
+        .await;
+    let status = match result {
+        Ok(_) => panic!("unsafe identifiers must fail validation"),
+        Err(error) => error,
+    };
+
+    assert_eq!(status.code(), Code::InvalidArgument);
+    assert!(
+        status
+            .message()
+            .contains("identifier must contain only ASCII letters"),
+        "validation message should explain allowed characters"
+    );
+    assert!(lock_or_recover(&columns_calls).is_empty());
+}
+
+#[tokio::test]
+async fn get_redis_value_rejects_empty_keys_before_repository_calls() {
+    let redis_repo = FakeRedisRepository::default();
+    let get_value_calls = Arc::clone(&redis_repo.get_value_calls);
+    let handler = AdminServiceHandler::new(FakePostgresRepository::default(), redis_repo);
+
+    let result = handler
+        .get_redis_value(Request::new(AdminGetRedisValueRequest {
+            key: String::from("   "),
+        }))
+        .await;
+    let status = match result {
+        Ok(_) => panic!("blank redis keys must fail validation"),
+        Err(error) => error,
+    };
+
+    assert_eq!(status.code(), Code::InvalidArgument);
+    assert_eq!(status.message(), "key must not be empty");
+    assert!(lock_or_recover(&get_value_calls).is_empty());
 }
 
 #[tokio::test]
@@ -335,7 +405,12 @@ async fn repository_errors_map_to_expected_grpc_status_codes() {
             Err(error) => error,
         };
         assert_eq!(status.code(), expected_code);
-        assert_eq!(status.message(), "boom");
+        let expected_message = match kind {
+            DataAccessErrorKind::Unavailable => "upstream store unavailable",
+            DataAccessErrorKind::Internal => "internal data access error",
+            _ => "boom",
+        };
+        assert_eq!(status.message(), expected_message);
     }
 }
 

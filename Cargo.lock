@@ -1148,6 +1148,7 @@ dependencies = [
  "http-body-util",
  "serde",
  "serde_json",
+ "tearleads-api-domain-core",
  "tearleads-api-v2-contracts",
  "tearleads-data-access-traits",
  "tokio",
