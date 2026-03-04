@@ -81,7 +81,10 @@ describe('api with msw', () => {
 
   afterEach(async () => {
     Reflect.deleteProperty(globalThis, '__tearleadsImportPingWasmModule');
-    Reflect.deleteProperty(globalThis, '__tearleadsImportApiV2ClientWasmModule');
+    Reflect.deleteProperty(
+      globalThis,
+      '__tearleadsImportApiV2ClientWasmModule'
+    );
     const { clearActiveOrganizationId } = await import('@/lib/orgStorage');
     clearActiveOrganizationId();
     vi.unstubAllEnvs();

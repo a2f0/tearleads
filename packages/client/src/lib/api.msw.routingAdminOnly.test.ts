@@ -67,7 +67,10 @@ describe('api with msw admin routing', () => {
 
   afterEach(() => {
     Reflect.deleteProperty(globalThis, '__tearleadsImportPingWasmModule');
-    Reflect.deleteProperty(globalThis, '__tearleadsImportApiV2ClientWasmModule');
+    Reflect.deleteProperty(
+      globalThis,
+      '__tearleadsImportApiV2ClientWasmModule'
+    );
     vi.unstubAllEnvs();
   });
 
@@ -153,10 +156,7 @@ describe('api with msw admin routing', () => {
       wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetTables')
     ).toBe(true);
     expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.AdminService/GetColumns'
-      )
+      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetColumns')
     ).toBe(true);
     expect(
       wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetRows')
