@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 type ApiV2ClientWasmModule = typeof import('./apiV2ClientWasm');
 
@@ -20,6 +20,13 @@ describe('apiV2ClientWasm', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    Reflect.deleteProperty(
+      globalThis,
+      '__tearleadsImportApiV2ClientWasmModule'
+    );
   });
 
   it('initializes wasm once and normalizes connect base URLs', async () => {
@@ -48,6 +55,34 @@ describe('apiV2ClientWasm', () => {
     expect(second).toBe('https://api.example.test/v2/connect');
     expect(defaultInit).toHaveBeenCalledTimes(1);
     expect(importMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the global wasm importer hook when configured', async () => {
+    vi.doUnmock('./apiV2ClientWasmImport');
+    const globalImportMock = vi.fn(() =>
+      Promise.resolve({
+        normalizeConnectBaseUrl: (value: string) => `${value}/connect`,
+        adminGetPostgresInfoPath: () =>
+          '/tearleads.v2.AdminService/GetPostgresInfo',
+        adminGetTablesPath: () => '/tearleads.v2.AdminService/GetTables',
+        adminGetColumnsPath: () => '/tearleads.v2.AdminService/GetColumns',
+        adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
+        adminGetRedisValuePath: () =>
+          '/tearleads.v2.AdminService/GetRedisValue',
+        buildRequestHeaders: () => ({ headers: {} })
+      })
+    );
+    Reflect.set(
+      globalThis,
+      '__tearleadsImportApiV2ClientWasmModule',
+      globalImportMock
+    );
+
+    const { normalizeApiV2ConnectBaseUrl } = await loadApiV2ClientWasm();
+    await expect(
+      normalizeApiV2ConnectBaseUrl('https://api.example.test')
+    ).resolves.toBe('https://api.example.test/connect');
+    expect(globalImportMock).toHaveBeenCalledTimes(1);
   });
 
   it('returns canonical admin RPC paths from wasm', async () => {
