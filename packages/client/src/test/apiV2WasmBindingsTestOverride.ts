@@ -6,12 +6,20 @@ const mockedApiV2ClientWasmModule = {
   adminGetPostgresInfoPath: () => '/tearleads.v2.AdminService/GetPostgresInfo',
   adminGetTablesPath: () => '/tearleads.v2.AdminService/GetTables',
   adminGetColumnsPath: () => '/tearleads.v2.AdminService/GetColumns',
+  adminGetRowsPath: () => '/tearleads.v2.AdminService/GetRows',
   adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
   adminGetRedisValuePath: () => '/tearleads.v2.AdminService/GetRedisValue',
-  buildRequestHeaders: (bearerToken?: string | null) => {
+  adminGetRedisDbSizePath: () => '/tearleads.v2.AdminService/GetRedisDbSize',
+  buildRequestHeaders: (
+    bearerToken?: string | null,
+    organizationId?: string | null
+  ) => {
     const headers: Record<string, string> = {};
     if (typeof bearerToken === 'string' && bearerToken.length > 0) {
       headers['authorization'] = bearerToken;
+    }
+    if (typeof organizationId === 'string' && organizationId.length > 0) {
+      headers['x-organization-id'] = organizationId;
     }
     return { headers };
   }
