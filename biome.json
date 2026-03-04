@@ -47,6 +47,7 @@
       "packages/**/src/**/*.{ts,tsx}",
       "scripts/**/*.{ts,tsx}",
       "!packages/shared/src/gen",
+      "!packages/client/android/app/src/main/assets/public/.generated",
       "!**/dist-tests"
     ],
     "ignoreUnknown": true
