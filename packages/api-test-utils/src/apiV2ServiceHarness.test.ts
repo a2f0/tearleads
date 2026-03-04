@@ -222,6 +222,53 @@ describe('startApiV2ServiceHarness', () => {
     expect(thrownError.message).not.toContain('start-marker');
   });
 
+  it('retries transient rust bootstrap failures before succeeding', async () => {
+    const failingProcess = new FakeProcess(() => {});
+    const passingProcess = new FakeProcess((signal, currentProcess) => {
+      if (signal === 'SIGTERM') {
+        queueMicrotask(() => {
+          currentProcess.exitCode = 0;
+          currentProcess.emit('exit', 0);
+        });
+      }
+    });
+
+    mocks.createServer
+      .mockReturnValueOnce(new FakeServer(32005))
+      .mockReturnValueOnce(new FakeServer(32006));
+    mocks.spawn
+      .mockReturnValueOnce(failingProcess)
+      .mockReturnValueOnce(passingProcess);
+    mocks.connect.mockImplementation(() => {
+      const socket = new FakeSocket();
+      queueMicrotask(() => {
+        if (failingProcess.exitCode === null) {
+          failingProcess.stderr.emit(
+            'data',
+            "error: the 'cargo' binary, normally provided by the 'cargo' component, is not applicable to the toolchain"
+          );
+          socket.emit('error', new Error('connection refused'));
+          return;
+        }
+        socket.emit('connect');
+      });
+      return socket;
+    });
+    mocks.delay.mockImplementation(async (timeoutMs: number) => {
+      if (timeoutMs === 250 && failingProcess.exitCode === null) {
+        failingProcess.exitCode = 1;
+      }
+      return undefined;
+    });
+
+    const { startApiV2ServiceHarness } = await loadModule();
+    const harness = await startApiV2ServiceHarness();
+
+    expect(harness.port).toBe(32006);
+    expect(mocks.spawn).toHaveBeenCalledTimes(2);
+    expect(mocks.delay).toHaveBeenCalledWith(1_000);
+  });
+
   it('removes stale startup lock and continues', async () => {
     const process = new FakeProcess((signal, currentProcess) => {
       if (signal === 'SIGTERM') {

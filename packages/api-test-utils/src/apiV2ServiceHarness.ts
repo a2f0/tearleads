@@ -13,11 +13,21 @@ const POLL_INTERVAL_MS = 250;
 const MAX_STDERR_BYTES = 4_096;
 const STARTUP_LOCK_TIMEOUT_MS = 180_000;
 const STARTUP_LOCK_STALE_MS = 300_000;
+const STARTUP_RETRY_DELAY_MS = 1_000;
+const MAX_STARTUP_ATTEMPTS = 5;
 const API_V2_HARNESS_ENV_KEY = 'API_V2_ENABLE_ADMIN_HARNESS';
 const STARTUP_LOCK_PATH = resolve(
   tmpdir(),
   'tearleads-api-v2-harness-start.lock'
 );
+const RETRYABLE_BOOTSTRAP_PATTERNS = [
+  /syncing channel updates/i,
+  /component download failed/i,
+  /could not read downloaded file/i,
+  /cargo binary.*not applicable/i,
+  /not applicable to .*toolchain/i,
+  /could not rename component file/i
+];
 
 const SOURCE_DIR = dirname(fileURLToPath(new URL(import.meta.url)));
 const WORKSPACE_ROOT = resolve(SOURCE_DIR, '..', '..', '..');
@@ -45,6 +55,15 @@ function truncateForErrorLog(value: string): string {
     return value;
   }
   return value.slice(value.length - MAX_STDERR_BYTES);
+}
+
+function shouldRetryBootstrap(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  return RETRYABLE_BOOTSTRAP_PATTERNS.some((pattern) =>
+    pattern.test(error.message)
+  );
 }
 
 async function acquireStartupLock(): Promise<() => Promise<void>> {
@@ -196,21 +215,40 @@ export async function startApiV2ServiceHarness(): Promise<ApiV2ServiceHarness> {
   const releaseStartupLock = await acquireStartupLock();
 
   try {
-    const port = await allocatePort();
-    const process = startHarnessProcess(port);
-    const stderrBuffer = { value: '' };
+    for (let attempt = 1; attempt <= MAX_STARTUP_ATTEMPTS; attempt += 1) {
+      const port = await allocatePort();
+      const process = startHarnessProcess(port);
+      const stderrBuffer = { value: '' };
 
-    process.stderr?.setEncoding('utf8');
-    process.stderr?.on('data', (chunk: string) => {
-      stderrBuffer.value = truncateForErrorLog(`${stderrBuffer.value}${chunk}`);
-    });
+      process.stderr?.setEncoding('utf8');
+      process.stderr?.on('data', (chunk: string) => {
+        stderrBuffer.value = truncateForErrorLog(
+          `${stderrBuffer.value}${chunk}`
+        );
+      });
 
-    await waitForReadiness(process, port, stderrBuffer);
+      try {
+        await waitForReadiness(process, port, stderrBuffer);
+      } catch (error) {
+        await stopProcess(process);
 
-    return {
-      port,
-      stop: async () => stopProcess(process)
-    };
+        const canRetry =
+          attempt < MAX_STARTUP_ATTEMPTS && shouldRetryBootstrap(error);
+        if (!canRetry) {
+          throw error;
+        }
+
+        await delay(STARTUP_RETRY_DELAY_MS * attempt);
+        continue;
+      }
+
+      return {
+        port,
+        stop: async () => stopProcess(process)
+      };
+    }
+
+    throw new Error('failed to start api-v2 harness after retry budget');
   } finally {
     await releaseStartupLock();
   }
