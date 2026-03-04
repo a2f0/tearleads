@@ -425,7 +425,10 @@ describe('VfsHttpCrdtSyncTransport', () => {
       'session request'
     );
     expect(requestBody['organizationId']).toBe('org-1');
-    const decodedBody = parseConnectEnvelopeBody(requestBody, 'session request');
+    const decodedBody = parseConnectEnvelopeBody(
+      requestBody,
+      'session request'
+    );
     expect(decodedBody['clientId']).toBe('desktop');
     expect(decodedBody['operations']).toEqual(
       expect.arrayContaining([
@@ -484,5 +487,4 @@ describe('VfsHttpCrdtSyncTransport', () => {
       })
     );
   });
-
 });

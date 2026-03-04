@@ -28,10 +28,9 @@ function createParsedOperation(
   };
 }
 
-function createItemOwnershipRow(overrides: {
-  ownerId?: string;
-  organizationId?: string;
-} = {}): {
+function createItemOwnershipRow(
+  overrides: { ownerId?: string; organizationId?: string } = {}
+): {
   id: string;
   owner_id: string;
   organization_id: string;
