@@ -128,11 +128,16 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     lastReconciledWriteIds: VfsCrdtSyncReconcileResponse['lastReconciledWriteIds'];
   }): Promise<VfsCrdtSyncReconcileResponse> {
     const organizationId = this.resolveOrganizationId();
+    if (!organizationId) {
+      throw new Error(
+        'VfsHttpCrdtSyncTransport: organizationId is required for reconcileState.'
+      );
+    }
     const parsed = parseApiReconcileResponse(
       await this.requestConnectJson(
         'ReconcileCrdt',
         {
-          organizationId: organizationId ?? '',
+          organizationId,
           json: JSON.stringify({
             clientId: input.clientId,
             cursor: encodeVfsSyncCursor(input.cursor),
