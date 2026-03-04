@@ -4,9 +4,10 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use tearleads_api_v2::AdminServiceHandler;
 use tearleads_api_v2_contracts::tearleads::v2::{
-    AdminGetColumnsRequest, AdminGetPostgresInfoRequest, AdminGetRedisDbSizeRequest,
-    AdminGetRedisKeysRequest, AdminGetRedisValueRequest, AdminGetRowsRequest,
-    AdminGetTablesRequest, admin_redis_value, admin_service_server::AdminService,
+    AdminDeleteRedisKeyRequest, AdminGetColumnsRequest, AdminGetPostgresInfoRequest,
+    AdminGetRedisDbSizeRequest, AdminGetRedisKeysRequest, AdminGetRedisValueRequest,
+    AdminGetRowsRequest, AdminGetTablesRequest, admin_redis_value,
+    admin_service_server::AdminService,
 };
 use tearleads_data_access_postgres::{
     PostgresAdminGateway, PostgresAdminReadAdapter, PostgresColumnRecord, PostgresRowsPageRecord,
@@ -114,6 +115,7 @@ impl PostgresAdminGateway for FakePostgresGateway {
 struct RedisGatewayCalls {
     scan_calls: Vec<(String, u32)>,
     read_key_calls: Vec<String>,
+    delete_key_calls: Vec<String>,
     db_size_calls: usize,
 }
 
@@ -121,6 +123,7 @@ struct RedisGatewayCalls {
 struct FakeRedisGateway {
     scan_result: RedisScanResult,
     read_result: RedisKeyRecord,
+    delete_key_result: bool,
     db_size: u64,
     calls: Arc<Mutex<RedisGatewayCalls>>,
 }
@@ -138,6 +141,7 @@ impl Default for FakeRedisGateway {
                 ttl_seconds: -1,
                 value: None,
             },
+            delete_key_result: false,
             db_size: 0,
             calls: Arc::new(Mutex::new(RedisGatewayCalls::default())),
         }
@@ -162,6 +166,14 @@ impl RedisAdminGateway for FakeRedisGateway {
             .read_key_calls
             .push(key.to_string());
         let result = self.read_result.clone();
+        Box::pin(async move { Ok(result) })
+    }
+
+    fn delete_key(&self, key: &str) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        lock_or_recover(&self.calls)
+            .delete_key_calls
+            .push(key.to_string());
+        let result = self.delete_key_result;
         Box::pin(async move { Ok(result) })
     }
 
@@ -333,6 +345,7 @@ async fn redis_keys_and_value_flow_through_adapter_with_normalization() {
             ttl_seconds: 120,
             value: Some(RedisValue::String(String::from("payload"))),
         },
+        delete_key_result: true,
         db_size: 12,
         ..Default::default()
     };
@@ -378,6 +391,21 @@ async fn redis_keys_and_value_flow_through_adapter_with_normalization() {
         Some(admin_redis_value::Value::StringValue(String::from(
             "payload"
         )))
+    );
+
+    let delete_response = match handler
+        .delete_redis_key(admin_request(AdminDeleteRedisKeyRequest {
+            key: String::from(" session:1 "),
+        }))
+        .await
+    {
+        Ok(value) => value.into_inner(),
+        Err(error) => panic!("delete_redis_key should succeed: {error}"),
+    };
+    assert!(delete_response.deleted);
+    assert_eq!(
+        lock_or_recover(&redis_calls).delete_key_calls,
+        vec![String::from("session:1")]
     );
 
     let db_size_response = match handler

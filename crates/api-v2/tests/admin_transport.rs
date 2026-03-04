@@ -4,10 +4,10 @@ use std::net::SocketAddr;
 
 use tearleads_api_v2::AdminServiceHandler;
 use tearleads_api_v2_contracts::tearleads::v2::{
-    AdminGetColumnsRequest, AdminGetPostgresInfoRequest, AdminGetRedisDbSizeRequest,
-    AdminGetRedisKeysRequest, AdminGetRedisValueRequest, AdminGetRowsRequest,
-    AdminGetTablesRequest, admin_redis_value, admin_service_client::AdminServiceClient,
-    admin_service_server::AdminServiceServer,
+    AdminDeleteRedisKeyRequest, AdminGetColumnsRequest, AdminGetPostgresInfoRequest,
+    AdminGetRedisDbSizeRequest, AdminGetRedisKeysRequest, AdminGetRedisValueRequest,
+    AdminGetRowsRequest, AdminGetTablesRequest, admin_redis_value,
+    admin_service_client::AdminServiceClient, admin_service_server::AdminServiceServer,
 };
 use tearleads_data_access_traits::{
     BoxFuture, DataAccessError, PostgresAdminReadRepository, PostgresColumnInfo,
@@ -79,6 +79,7 @@ impl PostgresAdminReadRepository for FakePostgresRepository {
 struct FakeRedisRepository {
     list_keys_result: Result<RedisKeyScanPage, DataAccessError>,
     get_value_result: Result<RedisKeyValueRecord, DataAccessError>,
+    delete_key_result: Result<bool, DataAccessError>,
     db_size_result: Result<u64, DataAccessError>,
 }
 
@@ -96,6 +97,7 @@ impl Default for FakeRedisRepository {
                 ttl_seconds: -1,
                 value: None,
             }),
+            delete_key_result: Ok(false),
             db_size_result: Ok(0),
         }
     }
@@ -113,6 +115,11 @@ impl RedisAdminReadRepository for FakeRedisRepository {
 
     fn get_value(&self, _key: &str) -> BoxFuture<'_, Result<RedisKeyValueRecord, DataAccessError>> {
         let result = self.get_value_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn delete_key(&self, _key: &str) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        let result = self.delete_key_result.clone();
         Box::pin(async move { result })
     }
 
@@ -268,6 +275,7 @@ async fn transport_round_trip_for_wave1a_admin_endpoints() {
             ttl_seconds: 180,
             value: Some(RedisValue::String(String::from("hello"))),
         }),
+        delete_key_result: Ok(true),
         db_size_result: Ok(7),
     };
     let mut harness = spawn_admin_transport(postgres_repo, redis_repo).await;
@@ -373,6 +381,18 @@ async fn transport_round_trip_for_wave1a_admin_endpoints() {
         value_response.value.and_then(|value| value.value),
         Some(admin_redis_value::Value::StringValue(String::from("hello")))
     );
+
+    let delete_response = match harness
+        .client
+        .delete_redis_key(admin_request(AdminDeleteRedisKeyRequest {
+            key: String::from("session:1"),
+        }))
+        .await
+    {
+        Ok(value) => value.into_inner(),
+        Err(error) => panic!("delete_redis_key should succeed over transport: {error}"),
+    };
+    assert!(delete_response.deleted);
 
     let db_size_response = match harness
         .client

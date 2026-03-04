@@ -74,12 +74,7 @@ export const adminRoutes = {
     getKeys: (cursor?: string, limit?: number) =>
       adminV2Routes.redis.getKeys(cursor, limit),
     getValue: (key: string) => adminV2Routes.redis.getValue(key),
-    deleteKey: (key: string) =>
-      requestAdminJson<{ deleted: boolean }>(
-        'DeleteRedisKey',
-        { key },
-        'api_delete_admin_redis_key'
-      ),
+    deleteKey: (key: string) => adminV2Routes.redis.deleteKey(key),
     getDbSize: () => adminV2Routes.redis.getDbSize()
   },
   groups: {

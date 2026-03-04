@@ -23,6 +23,10 @@ interface AdminGetRedisValueRequest {
   key: string;
 }
 
+interface AdminDeleteRedisKeyRequest {
+  key: string;
+}
+
 export function createAdminGetPostgresInfoRequest(): Record<string, never> {
   return {};
 }
@@ -63,6 +67,12 @@ export function createAdminGetRedisKeysRequest(
 export function createAdminGetRedisValueRequest(
   key: string
 ): AdminGetRedisValueRequest {
+  return { key };
+}
+
+export function createAdminDeleteRedisKeyRequest(
+  key: string
+): AdminDeleteRedisKeyRequest {
   return { key };
 }
 

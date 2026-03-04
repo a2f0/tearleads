@@ -1,4 +1,4 @@
-//! Adapter that maps Redis gateway records to shared admin read models.
+//! Adapter that maps Redis gateway records to shared admin read/write models.
 
 use tearleads_api_domain_core::{normalize_redis_scan_cursor, normalize_redis_scan_limit};
 use tearleads_data_access_traits::{
@@ -72,6 +72,15 @@ where
         })
     }
 
+    fn delete_key(&self, key: &str) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        let normalized_key = match normalize_key(key) {
+            Ok(value) => value,
+            Err(error) => return Box::pin(async move { Err(error) }),
+        };
+
+        Box::pin(async move { self.gateway.delete_key(&normalized_key).await })
+    }
+
     fn get_db_size(&self) -> BoxFuture<'_, Result<u64, DataAccessError>> {
         Box::pin(async move { self.gateway.read_db_size().await })
     }
@@ -109,9 +118,11 @@ mod tests {
     struct FakeGateway {
         scan_result: Result<RedisScanResult, DataAccessError>,
         read_result: Result<RedisKeyRecord, DataAccessError>,
+        delete_result: Result<bool, DataAccessError>,
         db_size_result: Result<u64, DataAccessError>,
         scan_calls: Mutex<Vec<(String, u32)>>,
         read_calls: Mutex<Vec<String>>,
+        delete_calls: Mutex<Vec<String>>,
         db_size_calls: Mutex<usize>,
     }
 
@@ -128,9 +139,11 @@ mod tests {
                     ttl_seconds: -1,
                     value: Some(RedisValue::String(String::from("value"))),
                 }),
+                delete_result: Ok(false),
                 db_size_result: Ok(0),
                 scan_calls: Mutex::new(Vec::new()),
                 read_calls: Mutex::new(Vec::new()),
+                delete_calls: Mutex::new(Vec::new()),
                 db_size_calls: Mutex::new(0),
             }
         }
@@ -143,6 +156,10 @@ mod tests {
 
         fn read_calls(&self) -> Vec<String> {
             lock_or_recover(&self.read_calls).clone()
+        }
+
+        fn delete_calls(&self) -> Vec<String> {
+            lock_or_recover(&self.delete_calls).clone()
         }
 
         fn db_size_calls(&self) -> usize {
@@ -164,6 +181,12 @@ mod tests {
         fn read_key(&self, key: &str) -> BoxFuture<'_, Result<RedisKeyRecord, DataAccessError>> {
             lock_or_recover(&self.read_calls).push(key.to_string());
             let result = self.read_result.clone();
+            Box::pin(async move { result })
+        }
+
+        fn delete_key(&self, key: &str) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+            lock_or_recover(&self.delete_calls).push(key.to_string());
+            let result = self.delete_result.clone();
             Box::pin(async move { result })
         }
 
@@ -267,6 +290,43 @@ mod tests {
         assert_eq!(error.kind(), DataAccessErrorKind::InvalidInput);
         assert_eq!(error.message(), "key must not be empty");
         assert!(adapter.gateway.read_calls().is_empty());
+    }
+
+    #[test]
+    fn delete_key_trims_keys_before_gateway_delete() {
+        let gateway = FakeGateway {
+            delete_result: Ok(true),
+            ..Default::default()
+        };
+        let adapter = RedisAdminReadAdapter::new(gateway);
+
+        let result = block_on(adapter.delete_key("  session:abc  "));
+        let deleted = match result {
+            Ok(value) => value,
+            Err(error) => panic!("delete should succeed, got: {error}"),
+        };
+
+        assert!(deleted);
+        assert_eq!(
+            adapter.gateway.delete_calls(),
+            vec![String::from("session:abc")]
+        );
+    }
+
+    #[test]
+    fn delete_key_rejects_blank_keys_before_gateway_io() {
+        let gateway = FakeGateway::default();
+        let adapter = RedisAdminReadAdapter::new(gateway);
+
+        let result = block_on(adapter.delete_key("  "));
+        let error = match result {
+            Ok(_) => panic!("blank keys must fail validation"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error.kind(), DataAccessErrorKind::InvalidInput);
+        assert_eq!(error.message(), "key must not be empty");
+        assert!(adapter.gateway.delete_calls().is_empty());
     }
 
     #[test]

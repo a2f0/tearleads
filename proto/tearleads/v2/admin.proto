@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package tearleads.v2;
 
-// Wave 1A admin read contracts used by the DAL-first migration track.
+// Wave 1 admin contracts used by the DAL-first migration track.
 service AdminService {
   rpc GetPostgresInfo(AdminGetPostgresInfoRequest)
       returns (AdminGetPostgresInfoResponse);
@@ -12,6 +12,8 @@ service AdminService {
   rpc GetRedisKeys(AdminGetRedisKeysRequest) returns (AdminGetRedisKeysResponse);
   rpc GetRedisValue(AdminGetRedisValueRequest)
       returns (AdminGetRedisValueResponse);
+  rpc DeleteRedisKey(AdminDeleteRedisKeyRequest)
+      returns (AdminDeleteRedisKeyResponse);
   rpc GetRedisDbSize(AdminGetRedisDbSizeRequest)
       returns (AdminGetRedisDbSizeResponse);
 }
@@ -104,6 +106,14 @@ message AdminGetRedisValueResponse {
   string type = 2;
   int64 ttl = 3;
   AdminRedisValue value = 4;
+}
+
+message AdminDeleteRedisKeyRequest {
+  string key = 1;
+}
+
+message AdminDeleteRedisKeyResponse {
+  bool deleted = 1;
 }
 
 message AdminRedisValue {

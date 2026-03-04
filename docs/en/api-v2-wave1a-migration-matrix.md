@@ -26,4 +26,5 @@ This matrix tracks the first DAL-proving admin read endpoints selected for v2 mi
 - Added test-harness override support for api-v2 client WASM importer via `__tearleadsImportApiV2ClientWasmModule`.
 - Runtime harness now routes `/connect/tearleads.v2.AdminService/*` to a Rust `api-v2` Wave 1A harness service for frontend/runtime integration tests.
 - `api.admin` Wave 1A read methods now route through `api.adminV2` (`GetPostgresInfo`, `GetTables`, `GetColumns`, `GetRedisKeys`, `GetRedisValue`).
+- Wave 1C adds the first v2 admin write cutover: `DeleteRedisKey` now routes through `api.adminV2` over `/connect/tearleads.v2.AdminService/DeleteRedisKey`.
 - Next slice: migrate additional admin read/write operations off `tearleads.v1.AdminService` after v2 contracts/handlers are implemented.

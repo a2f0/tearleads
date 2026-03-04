@@ -91,6 +91,11 @@ pub fn admin_get_redis_value_path() -> String {
     rpc_path(ADMIN_SERVICE_NAME, "GetRedisValue")
 }
 
+/// Returns the canonical v2 admin RPC path for `DeleteRedisKey`.
+pub fn admin_delete_redis_key_path() -> String {
+    rpc_path(ADMIN_SERVICE_NAME, "DeleteRedisKey")
+}
+
 /// Returns the canonical v2 admin RPC path for `GetRedisDbSize`.
 pub fn admin_get_redis_db_size_path() -> String {
     rpc_path(ADMIN_SERVICE_NAME, "GetRedisDbSize")
@@ -127,10 +132,10 @@ fn normalize_bearer_token(value: Option<&str>) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        ApiClientRequestContext, admin_get_columns_path, admin_get_postgres_info_path,
-        admin_get_redis_db_size_path, admin_get_redis_keys_path, admin_get_redis_value_path,
-        admin_get_rows_path, admin_get_tables_path, generated_client_compile_proof,
-        normalize_connect_base_url, rpc_path,
+        ApiClientRequestContext, admin_delete_redis_key_path, admin_get_columns_path,
+        admin_get_postgres_info_path, admin_get_redis_db_size_path, admin_get_redis_keys_path,
+        admin_get_redis_value_path, admin_get_rows_path, admin_get_tables_path,
+        generated_client_compile_proof, normalize_connect_base_url, rpc_path,
     };
 
     #[test]
@@ -220,6 +225,10 @@ mod tests {
         assert_eq!(
             admin_get_redis_value_path(),
             "/tearleads.v2.AdminService/GetRedisValue"
+        );
+        assert_eq!(
+            admin_delete_redis_key_path(),
+            "/tearleads.v2.AdminService/DeleteRedisKey"
         );
         assert_eq!(
             admin_get_redis_db_size_path(),

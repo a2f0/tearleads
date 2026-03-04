@@ -17,6 +17,8 @@ pub enum AdminOperation {
     GetRedisKeys,
     /// `AdminService.GetRedisValue`
     GetRedisValue,
+    /// `AdminService.DeleteRedisKey`
+    DeleteRedisKey,
     /// `AdminService.GetRedisDbSize`
     GetRedisDbSize,
 }
@@ -30,6 +32,7 @@ impl AdminOperation {
             Self::GetRows => "get_rows",
             Self::GetRedisKeys => "get_redis_keys",
             Self::GetRedisValue => "get_redis_value",
+            Self::DeleteRedisKey => "delete_redis_key",
             Self::GetRedisDbSize => "get_redis_db_size",
         }
     }
@@ -259,6 +262,7 @@ mod tests {
             (AdminOperation::GetRows, "get_rows"),
             (AdminOperation::GetRedisKeys, "get_redis_keys"),
             (AdminOperation::GetRedisValue, "get_redis_value"),
+            (AdminOperation::DeleteRedisKey, "delete_redis_key"),
             (AdminOperation::GetRedisDbSize, "get_redis_db_size"),
         ];
 

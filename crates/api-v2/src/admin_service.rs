@@ -4,13 +4,14 @@ use std::collections::HashMap;
 
 use tearleads_api_domain_core::normalize_sql_identifier;
 use tearleads_api_v2_contracts::tearleads::v2::{
-    AdminGetColumnsRequest, AdminGetColumnsResponse, AdminGetPostgresInfoRequest,
-    AdminGetPostgresInfoResponse, AdminGetRedisDbSizeRequest, AdminGetRedisDbSizeResponse,
-    AdminGetRedisKeysRequest, AdminGetRedisKeysResponse, AdminGetRedisValueRequest,
-    AdminGetRedisValueResponse, AdminGetRowsRequest, AdminGetRowsResponse, AdminGetTablesRequest,
-    AdminGetTablesResponse, AdminPostgresColumnInfo, AdminPostgresConnectionInfo,
-    AdminPostgresTableInfo, AdminRedisKeyInfo, AdminRedisStringList, AdminRedisStringMap,
-    AdminRedisValue, admin_redis_value, admin_service_server::AdminService,
+    AdminDeleteRedisKeyRequest, AdminDeleteRedisKeyResponse, AdminGetColumnsRequest,
+    AdminGetColumnsResponse, AdminGetPostgresInfoRequest, AdminGetPostgresInfoResponse,
+    AdminGetRedisDbSizeRequest, AdminGetRedisDbSizeResponse, AdminGetRedisKeysRequest,
+    AdminGetRedisKeysResponse, AdminGetRedisValueRequest, AdminGetRedisValueResponse,
+    AdminGetRowsRequest, AdminGetRowsResponse, AdminGetTablesRequest, AdminGetTablesResponse,
+    AdminPostgresColumnInfo, AdminPostgresConnectionInfo, AdminPostgresTableInfo,
+    AdminRedisKeyInfo, AdminRedisStringList, AdminRedisStringMap, AdminRedisValue,
+    admin_redis_value, admin_service_server::AdminService,
 };
 use tearleads_data_access_traits::{
     DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository, PostgresRowsQuery,
@@ -228,6 +229,24 @@ where
             value: map_redis_value(value_record.value),
         };
         Ok(Response::new(response))
+    }
+
+    async fn delete_redis_key(
+        &self,
+        request: Request<AdminDeleteRedisKeyRequest>,
+    ) -> Result<Response<AdminDeleteRedisKeyResponse>, Status> {
+        self.authorizer
+            .authorize_admin_operation(AdminOperation::DeleteRedisKey, request.metadata())
+            .map_err(map_admin_auth_error)?;
+        let payload = request.into_inner();
+        let key = normalize_redis_key(&payload.key).map_err(Status::invalid_argument)?;
+        let deleted = self
+            .redis_repo
+            .delete_key(&key)
+            .await
+            .map_err(map_data_access_error)?;
+
+        Ok(Response::new(AdminDeleteRedisKeyResponse { deleted }))
     }
 
     async fn get_redis_db_size(

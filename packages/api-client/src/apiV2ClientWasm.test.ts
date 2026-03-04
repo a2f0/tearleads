@@ -41,6 +41,8 @@ describe('apiV2ClientWasm', () => {
       adminGetRowsPath: () => '/tearleads.v2.AdminService/GetRows',
       adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
       adminGetRedisValuePath: () => '/tearleads.v2.AdminService/GetRedisValue',
+      adminDeleteRedisKeyPath: () =>
+        '/tearleads.v2.AdminService/DeleteRedisKey',
       adminGetRedisDbSizePath: () =>
         '/tearleads.v2.AdminService/GetRedisDbSize',
       buildRequestHeaders: () => ({ headers: {} })
@@ -73,6 +75,8 @@ describe('apiV2ClientWasm', () => {
         adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
         adminGetRedisValuePath: () =>
           '/tearleads.v2.AdminService/GetRedisValue',
+        adminDeleteRedisKeyPath: () =>
+          '/tearleads.v2.AdminService/DeleteRedisKey',
         adminGetRedisDbSizePath: () =>
           '/tearleads.v2.AdminService/GetRedisDbSize',
         buildRequestHeaders: () => ({ headers: {} })
@@ -101,6 +105,8 @@ describe('apiV2ClientWasm', () => {
       adminGetRowsPath: () => '/tearleads.v2.AdminService/GetRows',
       adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
       adminGetRedisValuePath: () => '/tearleads.v2.AdminService/GetRedisValue',
+      adminDeleteRedisKeyPath: () =>
+        '/tearleads.v2.AdminService/DeleteRedisKey',
       adminGetRedisDbSizePath: () =>
         '/tearleads.v2.AdminService/GetRedisDbSize',
       buildRequestHeaders: () => ({ headers: {} })
@@ -114,6 +120,7 @@ describe('apiV2ClientWasm', () => {
       getRows: '/tearleads.v2.AdminService/GetRows',
       getRedisKeys: '/tearleads.v2.AdminService/GetRedisKeys',
       getRedisValue: '/tearleads.v2.AdminService/GetRedisValue',
+      deleteRedisKey: '/tearleads.v2.AdminService/DeleteRedisKey',
       getRedisDbSize: '/tearleads.v2.AdminService/GetRedisDbSize'
     });
   });
@@ -135,6 +142,8 @@ describe('apiV2ClientWasm', () => {
       adminGetRowsPath: () => '/tearleads.v2.AdminService/GetRows',
       adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
       adminGetRedisValuePath: () => '/tearleads.v2.AdminService/GetRedisValue',
+      adminDeleteRedisKeyPath: () =>
+        '/tearleads.v2.AdminService/DeleteRedisKey',
       adminGetRedisDbSizePath: () =>
         '/tearleads.v2.AdminService/GetRedisDbSize',
       buildRequestHeaders
@@ -172,6 +181,8 @@ describe('apiV2ClientWasm', () => {
       adminGetRowsPath: () => '/tearleads.v2.AdminService/GetRows',
       adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
       adminGetRedisValuePath: () => '/tearleads.v2.AdminService/GetRedisValue',
+      adminDeleteRedisKeyPath: () =>
+        '/tearleads.v2.AdminService/DeleteRedisKey',
       adminGetRedisDbSizePath: () =>
         '/tearleads.v2.AdminService/GetRedisDbSize',
       buildRequestHeaders: () => ({ headers: { authorization: 123 } })
@@ -197,6 +208,8 @@ describe('apiV2ClientWasm', () => {
         adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
         adminGetRedisValuePath: () =>
           '/tearleads.v2.AdminService/GetRedisValue',
+        adminDeleteRedisKeyPath: () =>
+          '/tearleads.v2.AdminService/DeleteRedisKey',
         adminGetRedisDbSizePath: () =>
           '/tearleads.v2.AdminService/GetRedisDbSize',
         buildRequestHeaders: () => ({ headers: {} })
