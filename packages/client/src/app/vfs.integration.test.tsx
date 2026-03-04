@@ -36,39 +36,6 @@ function renderApp(initialRoute = '/vfs') {
   );
 }
 
-/**
- * Helper: navigate to SQLite page and set up the database.
- * Returns after the database is unlocked.
- */
-async function setupDatabaseViaSqlitePage(
-  user: ReturnType<typeof userEvent.setup>
-) {
-  await user.click(screen.getByTestId('mobile-menu-button'));
-  const dropdown = screen.getByTestId('mobile-menu-dropdown');
-  await user.click(within(dropdown).getByTestId('sqlite-link'));
-
-  await waitFor(
-    () => {
-      expect(screen.getByTestId('database-test')).toBeInTheDocument();
-    },
-    { timeout: LAZY_LOAD_TIMEOUT }
-  );
-
-  const passwordInput = screen.getByTestId('db-password-input');
-  await user.clear(passwordInput);
-  await user.type(passwordInput, 'my-test-password');
-  await user.click(screen.getByTestId('db-setup-button'));
-
-  await waitFor(
-    () => {
-      expect(screen.getByTestId('db-test-result')).toHaveTextContent(
-        'Database setup complete'
-      );
-    },
-    { timeout: LAZY_LOAD_TIMEOUT }
-  );
-}
-
 /** Helper: open mobile menu and click a nav link. */
 async function navigateViaMobileMenu(
   user: ReturnType<typeof userEvent.setup>,
@@ -79,10 +46,14 @@ async function navigateViaMobileMenu(
   await user.click(within(dropdown).getByTestId(testId));
 }
 
-async function waitForInlineUnlock(): Promise<void> {
+async function waitForVfsUnlocked(): Promise<void> {
   await waitFor(
     () => {
-      expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: 'VFS Explorer' })
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId('inline-unlock')).not.toBeInTheDocument();
+      expect(screen.getByTestId('vfs-file-input')).toBeInTheDocument();
     },
     { timeout: LAZY_LOAD_TIMEOUT }
   );
@@ -93,19 +64,15 @@ describe('VFS Integration Tests', () => {
     resetTestKeyManager();
   });
 
-  describe('new user (database not set up)', () => {
-    it('shows database not set up state with link to SQLite page', async () => {
+  describe('new user (auto-initialized database)', () => {
+    it('opens VFS without showing a setup prompt', async () => {
       await renderApp();
 
-      await waitForInlineUnlock();
+      await waitForVfsUnlocked();
 
       expect(
-        screen.getByRole('heading', { name: 'VFS Explorer' })
-      ).toBeInTheDocument();
-      expect(screen.getByText(/Database is not set up/)).toBeInTheDocument();
-
-      const sqliteLink = screen.getByText('SQLite page');
-      expect(sqliteLink.closest('a')).toHaveAttribute('href', '/sqlite');
+        screen.queryByText(/Database is not set up/)
+      ).not.toBeInTheDocument();
     });
 
     it('renders the app shell around VFS page', async () => {
@@ -123,34 +90,26 @@ describe('VFS Integration Tests', () => {
   });
 
   describe('database setup flow', () => {
-    it('can navigate to SQLite, setup database, and return to VFS unlocked', async () => {
+    it('stays unlocked when navigating between VFS and SQLite', async () => {
       const user = userEvent.setup();
 
       await renderApp();
 
-      // 1. VFS shows "not set up" message
-      await waitForInlineUnlock();
-      expect(screen.getByText(/Database is not set up/)).toBeInTheDocument();
+      await waitForVfsUnlocked();
 
-      // 2-5. Navigate to SQLite and set up the database
-      await setupDatabaseViaSqlitePage(user);
-
-      // 6. Navigate back to VFS via mobile menu
-      await navigateViaMobileMenu(user, 'vfs-link');
-
-      // 7. VFS should now show unlocked state (no "not set up" message)
+      await navigateViaMobileMenu(user, 'sqlite-link');
       await waitFor(
         () => {
-          expect(
-            screen.getByRole('heading', { name: 'VFS Explorer' })
-          ).toBeInTheDocument();
-          expect(screen.queryByTestId('inline-unlock')).not.toBeInTheDocument();
+          expect(screen.getByTestId('database-test')).toBeInTheDocument();
+          expect(screen.getByTestId('db-status')).toHaveTextContent('Unlocked');
         },
         { timeout: LAZY_LOAD_TIMEOUT }
       );
 
-      // The file upload input is only rendered when database is unlocked
-      expect(screen.getByTestId('vfs-file-input')).toBeInTheDocument();
+      // Navigate back to VFS via mobile menu
+      await navigateViaMobileMenu(user, 'vfs-link');
+
+      await waitForVfsUnlocked();
     });
   });
 
@@ -162,23 +121,12 @@ describe('VFS Integration Tests', () => {
 
         await renderApp();
 
-        // 1. Set up the database
-        await waitForInlineUnlock();
-        await setupDatabaseViaSqlitePage(user);
+        // 1. Database is auto-initialized and unlocked
+        await waitForVfsUnlocked();
 
         // 2. Navigate to VFS
         await navigateViaMobileMenu(user, 'vfs-link');
-        await waitFor(
-          () => {
-            expect(
-              screen.getByRole('heading', { name: 'VFS Explorer' })
-            ).toBeInTheDocument();
-            expect(
-              screen.queryByTestId('inline-unlock')
-            ).not.toBeInTheDocument();
-          },
-          { timeout: LAZY_LOAD_TIMEOUT }
-        );
+        await waitForVfsUnlocked();
 
         // 3. Click "All Items" in the tree panel
         await user.click(screen.getByText('All Items'));

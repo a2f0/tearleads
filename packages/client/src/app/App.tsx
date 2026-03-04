@@ -41,6 +41,7 @@ import { useWindowManagerActions } from '../contexts/WindowManagerContext';
 import { setDatabasePassword } from '../db';
 import { useDatabaseContext } from '../db/hooks';
 import { getInstance, updateInstance } from '../db/instanceRegistry';
+import { notificationStore } from '../stores/notificationStore';
 import { DeferredLockPasswordDialog } from './DeferredLockPasswordDialog';
 import { SSESystemTrayItems } from './SSESystemTrayItems';
 import { useStartMenuContextMenu } from './useStartMenuContextMenu';
@@ -61,7 +62,8 @@ function App() {
   const sidebarRef = useRef<HTMLElement | null>(null);
   const startButtonRef = useRef<HTMLButtonElement | null>(null);
   const keyboardHeight = useKeyboardHeight();
-  const { isUnlocked, lock, currentInstanceId } = useDatabaseContext();
+  const { isUnlocked, lock, currentInstanceId, instances } =
+    useDatabaseContext();
   const auth = useOptionalAuth();
   const isAuthenticated = auth?.isAuthenticated ?? false;
   const [isDeferredLockDialogOpen, setIsDeferredLockDialogOpen] =
@@ -170,12 +172,33 @@ function App() {
     try {
       if (isUnlocked) {
         let requiresPasswordBeforeLock = false;
+        const lockStateVerificationWarningMessage =
+          'Could not verify database password state. Try again.';
+        const cachedInstance = currentInstanceId
+          ? instances.find((instance) => instance.id === currentInstanceId)
+          : null;
         if (!isAuthenticated && currentInstanceId) {
+          requiresPasswordBeforeLock =
+            cachedInstance?.passwordDeferred === true;
           try {
             const instance = await getInstance(currentInstanceId);
-            requiresPasswordBeforeLock = instance?.passwordDeferred === true;
+            if (instance) {
+              requiresPasswordBeforeLock = instance.passwordDeferred === true;
+            } else if (!cachedInstance) {
+              notificationStore.warning(
+                'Unable to Lock Instance',
+                lockStateVerificationWarningMessage
+              );
+              return;
+            }
           } catch {
-            requiresPasswordBeforeLock = false;
+            if (!cachedInstance) {
+              notificationStore.warning(
+                'Unable to Lock Instance',
+                lockStateVerificationWarningMessage
+              );
+              return;
+            }
           }
         }
 
@@ -194,6 +217,7 @@ function App() {
   }, [
     activateScreensaver,
     currentInstanceId,
+    instances,
     isAuthenticated,
     isUnlocked,
     lock,

@@ -94,7 +94,12 @@ export async function autoInitializeDatabase(
   const keyManager = getKeyManagerForInstance(instanceId);
   const encryptionKey = await keyManager.setupAutoKey();
   const db = await initializeDatabaseWithKey(encryptionKey, instanceId);
-  await keyManager.persistSession();
+  const persisted = await keyManager.persistSession();
+  if (!persisted) {
+    console.warn(
+      `Failed to persist auto-initialized session for instance ${instanceId}`
+    );
+  }
 
   return db;
 }

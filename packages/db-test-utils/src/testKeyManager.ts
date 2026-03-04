@@ -19,7 +19,7 @@ const TEST_KEY = new Uint8Array([
  * and deterministic keys.
  */
 export class TestKeyManager {
-  private isSetUp = false;
+  private hasPasswordProtector = false;
   private currentKey: Uint8Array | null = null;
   private sessionPersisted = false;
 
@@ -31,17 +31,39 @@ export class TestKeyManager {
    * Check if a database key has been set up.
    */
   async hasExistingKey(): Promise<boolean> {
-    return this.isSetUp;
+    return this.hasPasswordProtector || this.sessionPersisted;
   }
 
   /**
    * Set up a new encryption key from a password.
    * In tests, we ignore the password and use the deterministic test key.
    */
-  async setupNewKey(_password: string): Promise<Uint8Array> {
-    this.isSetUp = true;
+  async setupNewKey(password: string): Promise<Uint8Array> {
+    const key = await this.setupAutoKey();
+    await this.setPasswordForCurrentKey(password);
+    return key;
+  }
+
+  /**
+   * Set up a new encryption key without a password.
+   * Used to model deferred-password auto-init flows.
+   */
+  async setupAutoKey(): Promise<Uint8Array> {
     this.currentKey = new Uint8Array(TEST_KEY);
     return this.currentKey;
+  }
+
+  /**
+   * Add a password protector for the current key.
+   */
+  async setPasswordForCurrentKey(password: string): Promise<void> {
+    if (!this.currentKey) {
+      throw new Error('No current key available. Unlock database first.');
+    }
+    if (!password.trim()) {
+      throw new Error('Password is required');
+    }
+    this.hasPasswordProtector = true;
   }
 
   /**
@@ -49,7 +71,7 @@ export class TestKeyManager {
    * In tests, any password works as long as the database is set up.
    */
   async unlockWithPassword(_password: string): Promise<Uint8Array | null> {
-    if (!this.isSetUp) {
+    if (!this.hasPasswordProtector) {
       throw new Error('No existing key found. Use setupNewKey instead.');
     }
 
@@ -65,7 +87,7 @@ export class TestKeyManager {
     _oldPassword: string,
     _newPassword: string
   ): Promise<{ oldKey: Uint8Array; newKey: Uint8Array } | null> {
-    if (!this.isSetUp) {
+    if (!this.hasPasswordProtector) {
       return null;
     }
 
@@ -93,7 +115,7 @@ export class TestKeyManager {
    */
   async reset(): Promise<void> {
     this.clearKey();
-    this.isSetUp = false;
+    this.hasPasswordProtector = false;
     this.sessionPersisted = false;
   }
 
@@ -111,14 +133,14 @@ export class TestKeyManager {
    * Check if a persisted session exists.
    */
   async hasPersistedSession(): Promise<boolean> {
-    return this.sessionPersisted && this.isSetUp;
+    return this.sessionPersisted;
   }
 
   /**
    * Restore a persisted session.
    */
   async restoreSession(): Promise<Uint8Array | null> {
-    if (!this.sessionPersisted || !this.isSetUp) {
+    if (!this.sessionPersisted) {
       return null;
     }
 
@@ -140,7 +162,10 @@ export class TestKeyManager {
    * Useful for tests that want to start with an "existing" database.
    */
   setIsSetUp(value: boolean): void {
-    this.isSetUp = value;
+    this.hasPasswordProtector = value;
+    if (!value) {
+      this.sessionPersisted = false;
+    }
   }
 
   /**

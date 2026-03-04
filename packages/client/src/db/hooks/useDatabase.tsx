@@ -295,9 +295,10 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       setCurrentInstanceName(newInstance.name);
       emitInstanceChange(newInstance.id);
       const database = await autoInitializeDatabase(newInstance.id);
+      const persistedAfterAutoInit = await hasPersistedSession(newInstance.id);
       setDb(database);
       setIsSetUp(true);
-      setHasPersisted(true);
+      setHasPersisted(persistedAfterAutoInit);
       await updateInstance(newInstance.id, { passwordDeferred: true });
       await refreshInstances();
       markSessionActive();
@@ -364,9 +365,11 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
 
         if (!setup) {
           const database = await autoInitializeDatabase(targetInstanceId);
+          const persistedAfterAutoInit =
+            await hasPersistedSession(targetInstanceId);
           setDb(database);
           setIsSetUp(true);
-          setHasPersisted(true);
+          setHasPersisted(persistedAfterAutoInit);
           await updateInstance(targetInstanceId, { passwordDeferred: true });
           setInstances(await getInstances());
           markSessionActive();
