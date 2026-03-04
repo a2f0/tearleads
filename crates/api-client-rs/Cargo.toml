@@ -1,0 +1,11 @@
+[package]
+name = "tearleads-api-client-rs"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+tearleads-api-v2-contracts = { version = "0.1.0", path = "../api-v2-contracts" }
+
+[lints]
+workspace = true

@@ -1,5 +1,7 @@
 [workspace]
 members = [
+  "crates/api-client-rs",
+  "crates/api-client-wasm",
   "crates/api-v2-contracts",
   "crates/api-v2",
   "crates/api-v2-ping-wasm",
