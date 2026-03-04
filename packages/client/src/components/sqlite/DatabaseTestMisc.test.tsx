@@ -5,6 +5,8 @@ import { DatabaseTest } from './DatabaseTest';
 
 const mockUseDatabaseContext = vi.fn();
 const mockGetDatabaseAdapter = vi.fn();
+const mockSetDatabasePassword = vi.fn();
+const mockUpdateInstance = vi.fn();
 let capturedInstanceChangeCallback: (() => void) | null = null;
 
 vi.mock('@/db/hooks', () => ({
@@ -12,7 +14,12 @@ vi.mock('@/db/hooks', () => ({
 }));
 
 vi.mock('@/db', () => ({
-  getDatabaseAdapter: () => mockGetDatabaseAdapter()
+  getDatabaseAdapter: () => mockGetDatabaseAdapter(),
+  setDatabasePassword: (...args: unknown[]) => mockSetDatabasePassword(...args)
+}));
+
+vi.mock('@/db/instanceRegistry', () => ({
+  updateInstance: (...args: unknown[]) => mockUpdateInstance(...args)
 }));
 
 vi.mock('@/hooks/app', () => ({
@@ -24,6 +31,10 @@ vi.mock('@/hooks/app', () => ({
 vi.mock('@/lib/utils', () => ({
   cn: (...args: string[]) => args.filter(Boolean).join(' '),
   detectPlatform: () => 'web'
+}));
+
+vi.mock('@/contexts/AuthContext', () => ({
+  useOptionalAuth: () => null
 }));
 
 describe('DatabaseTest', () => {
@@ -38,6 +49,8 @@ describe('DatabaseTest', () => {
       isSetUp: true,
       isUnlocked: false,
       hasPersistedSession: false,
+      currentInstanceId: null,
+      instances: [],
       setup: vi.fn(),
       unlock: vi.fn(),
       persistSession: vi.fn(),
@@ -45,7 +58,8 @@ describe('DatabaseTest', () => {
       lock: vi.fn(),
       reset: vi.fn(),
       changePassword: vi.fn(),
-      restoreSession: vi.fn()
+      restoreSession: vi.fn(),
+      refreshInstances: vi.fn()
     };
     mockUseDatabaseContext.mockReturnValue({ ...defaults, ...overrides });
     return { ...defaults, ...overrides };
@@ -102,6 +116,9 @@ describe('DatabaseTest', () => {
 
       render(<DatabaseTest />);
 
+      const passwordInput = screen.getByTestId('db-password-input');
+      await user.type(passwordInput, 'testpassword');
+
       const setupButton = screen.getByTestId('db-setup-button');
       await user.click(setupButton);
 
@@ -130,6 +147,9 @@ describe('DatabaseTest', () => {
       setupMockContext({ setup, isSetUp: false, isUnlocked: false });
 
       render(<DatabaseTest />);
+
+      const passwordInput = screen.getByTestId('db-password-input');
+      await user.type(passwordInput, 'testpassword');
 
       const setupButton = screen.getByTestId('db-setup-button');
       await user.click(setupButton);
@@ -160,7 +180,7 @@ describe('DatabaseTest', () => {
       render(<DatabaseTest />);
 
       const passwordInput = screen.getByTestId('db-password-input');
-      await user.type(passwordInput, '{enter}');
+      await user.type(passwordInput, 'testpassword{enter}');
 
       await waitFor(() => {
         expect(setup).toHaveBeenCalled();
@@ -175,7 +195,7 @@ describe('DatabaseTest', () => {
       render(<DatabaseTest />);
 
       const passwordInput = screen.getByTestId('db-password-input');
-      await user.type(passwordInput, '{enter}');
+      await user.type(passwordInput, 'testpassword{enter}');
 
       await waitFor(() => {
         expect(unlock).toHaveBeenCalled();
@@ -226,6 +246,9 @@ describe('DatabaseTest', () => {
       expect(capturedInstanceChangeCallback).not.toBeNull();
 
       // Perform setup to set testResult
+      const passwordInput = screen.getByTestId('db-password-input');
+      await user.type(passwordInput, 'testpassword');
+
       const setupButton = screen.getByTestId('db-setup-button');
       await user.click(setupButton);
 
@@ -277,6 +300,142 @@ describe('DatabaseTest', () => {
       // testData should be cleared
       await waitFor(() => {
         expect(screen.queryByTestId('db-test-data')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('deferred password', () => {
+    it('shows "Password: Not Set" indicator when deferred', () => {
+      setupMockContext({
+        isSetUp: true,
+        isUnlocked: true,
+        currentInstanceId: 'inst-1',
+        instances: [{ id: 'inst-1', passwordDeferred: true }]
+      });
+
+      render(<DatabaseTest />);
+
+      const status = screen.getByTestId('db-password-status');
+      expect(status).toHaveTextContent('Not Set');
+    });
+
+    it('hides indicator when not deferred', () => {
+      setupMockContext({
+        isSetUp: true,
+        isUnlocked: true,
+        currentInstanceId: 'inst-1',
+        instances: [{ id: 'inst-1', passwordDeferred: false }]
+      });
+
+      render(<DatabaseTest />);
+
+      expect(screen.queryByTestId('db-password-status')).not.toBeInTheDocument();
+    });
+
+    it('shows "Set Password" button when unlocked and deferred', () => {
+      setupMockContext({
+        isSetUp: true,
+        isUnlocked: true,
+        currentInstanceId: 'inst-1',
+        instances: [{ id: 'inst-1', passwordDeferred: true }]
+      });
+
+      render(<DatabaseTest />);
+
+      expect(
+        screen.getByTestId('db-set-password-button')
+      ).toBeInTheDocument();
+    });
+
+    it('hides "Set Password" button when not deferred', () => {
+      setupMockContext({
+        isSetUp: true,
+        isUnlocked: true,
+        currentInstanceId: 'inst-1',
+        instances: [{ id: 'inst-1', passwordDeferred: false }]
+      });
+
+      render(<DatabaseTest />);
+
+      expect(
+        screen.queryByTestId('db-set-password-button')
+      ).not.toBeInTheDocument();
+    });
+
+    it('sets password successfully', async () => {
+      const user = userEvent.setup();
+      const refreshInstances = vi.fn().mockResolvedValue(undefined);
+      mockSetDatabasePassword.mockResolvedValue(true);
+      mockUpdateInstance.mockResolvedValue(undefined);
+
+      setupMockContext({
+        isSetUp: true,
+        isUnlocked: true,
+        currentInstanceId: 'inst-1',
+        instances: [{ id: 'inst-1', passwordDeferred: true }],
+        refreshInstances
+      });
+
+      render(<DatabaseTest />);
+
+      const passwordInput = screen.getByTestId('db-password-input');
+      await user.type(passwordInput, 'my-new-pass');
+
+      const setPasswordButton = screen.getByTestId('db-set-password-button');
+      await user.click(setPasswordButton);
+
+      await waitFor(() => {
+        expect(mockSetDatabasePassword).toHaveBeenCalledWith(
+          'my-new-pass',
+          'inst-1'
+        );
+        expect(mockUpdateInstance).toHaveBeenCalledWith('inst-1', {
+          passwordDeferred: false
+        });
+        expect(refreshInstances).toHaveBeenCalled();
+        const result = screen.getByTestId('db-test-result');
+        expect(result).toHaveTextContent('Password set successfully');
+        expect(result).toHaveAttribute('data-status', 'success');
+      });
+    });
+
+    it('disables Set Password button when password is empty', () => {
+      setupMockContext({
+        isSetUp: true,
+        isUnlocked: true,
+        currentInstanceId: 'inst-1',
+        instances: [{ id: 'inst-1', passwordDeferred: true }]
+      });
+
+      render(<DatabaseTest />);
+
+      const setPasswordButton = screen.getByTestId('db-set-password-button');
+      expect(setPasswordButton).toBeDisabled();
+    });
+
+    it('shows error when setDatabasePassword fails', async () => {
+      const user = userEvent.setup();
+      mockSetDatabasePassword.mockRejectedValue(new Error('Save failed'));
+
+      setupMockContext({
+        isSetUp: true,
+        isUnlocked: true,
+        currentInstanceId: 'inst-1',
+        instances: [{ id: 'inst-1', passwordDeferred: true }]
+      });
+
+      render(<DatabaseTest />);
+
+      const passwordInput = screen.getByTestId('db-password-input');
+      await user.type(passwordInput, 'my-new-pass');
+
+      const setPasswordButton = screen.getByTestId('db-set-password-button');
+      await user.click(setPasswordButton);
+
+      await waitFor(() => {
+        const result = screen.getByTestId('db-test-result');
+        expect(result).toHaveTextContent('Set password error: Save failed');
+        expect(result).toHaveAttribute('data-status', 'error');
       });
     });
   });

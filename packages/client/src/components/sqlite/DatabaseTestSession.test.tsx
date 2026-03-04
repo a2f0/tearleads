@@ -99,6 +99,9 @@ describe('DatabaseTest', () => {
 
       render(<DatabaseTest />);
 
+      const passwordInput = screen.getByTestId('db-password-input');
+      await user.type(passwordInput, 'currentpass');
+
       const toggleButton = screen.getByTestId('db-change-password-toggle');
       await user.click(toggleButton);
 
@@ -110,7 +113,7 @@ describe('DatabaseTest', () => {
 
       await waitFor(() => {
         expect(changePassword).toHaveBeenCalledWith(
-          'testpassword123',
+          'currentpass',
           'newpassword123'
         );
         const result = screen.getByTestId('db-test-result');
@@ -344,6 +347,9 @@ describe('DatabaseTest', () => {
 
       render(<DatabaseTest />);
 
+      const passwordInput = screen.getByTestId('db-password-input');
+      await user.type(passwordInput, 'mypassword');
+
       const persistCheckbox = screen.getByTestId('db-persist-checkbox');
       await user.click(persistCheckbox);
 
@@ -351,7 +357,7 @@ describe('DatabaseTest', () => {
       await user.click(unlockButton);
 
       await waitFor(() => {
-        expect(unlock).toHaveBeenCalledWith('testpassword123', true);
+        expect(unlock).toHaveBeenCalledWith('mypassword', true);
         const result = screen.getByTestId('db-test-result');
         expect(result).toHaveTextContent(
           'Database unlocked (session persisted)'

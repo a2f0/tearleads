@@ -5,7 +5,7 @@ import { DatabaseTest } from './DatabaseTest';
 
 const mockUseDatabaseContext = vi.fn();
 const mockGetDatabaseAdapter = vi.fn();
-const mockGetInstance = vi.fn();
+const mockSetDatabasePassword = vi.fn();
 const mockUpdateInstance = vi.fn();
 let _capturedInstanceChangeCallback: (() => void) | null = null;
 
@@ -14,11 +14,11 @@ vi.mock('@/db/hooks', () => ({
 }));
 
 vi.mock('@/db', () => ({
-  getDatabaseAdapter: () => mockGetDatabaseAdapter()
+  getDatabaseAdapter: () => mockGetDatabaseAdapter(),
+  setDatabasePassword: (...args: unknown[]) => mockSetDatabasePassword(...args)
 }));
 
 vi.mock('@/db/instanceRegistry', () => ({
-  getInstance: (...args: unknown[]) => mockGetInstance(...args),
   updateInstance: (...args: unknown[]) => mockUpdateInstance(...args)
 }));
 
@@ -32,12 +32,14 @@ vi.mock('@/lib/utils', () => ({
   cn: (...args: string[]) => args.filter(Boolean).join(' '),
   detectPlatform: () => 'web'
 }));
+
+vi.mock('@/contexts/AuthContext', () => ({
+  useOptionalAuth: () => null
+}));
 describe('DatabaseTest', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.restoreAllMocks();
-    mockGetInstance.mockResolvedValue(null);
-    mockUpdateInstance.mockResolvedValue(undefined);
   });
 
   function setupMockContext(overrides = {}) {
@@ -46,6 +48,8 @@ describe('DatabaseTest', () => {
       isSetUp: true,
       isUnlocked: false,
       hasPersistedSession: false,
+      currentInstanceId: null,
+      instances: [],
       setup: vi.fn(),
       unlock: vi.fn(),
       persistSession: vi.fn(),
@@ -53,7 +57,8 @@ describe('DatabaseTest', () => {
       lock: vi.fn(),
       reset: vi.fn(),
       changePassword: vi.fn(),
-      restoreSession: vi.fn()
+      restoreSession: vi.fn(),
+      refreshInstances: vi.fn()
     };
     mockUseDatabaseContext.mockReturnValue({ ...defaults, ...overrides });
     return { ...defaults, ...overrides };
@@ -77,6 +82,9 @@ describe('DatabaseTest', () => {
       setupMockContext({ unlock, isSetUp: true, isUnlocked: false });
 
       render(<DatabaseTest />);
+
+      const passwordInput = screen.getByTestId('db-password-input');
+      await user.type(passwordInput, 'testpassword');
 
       const unlockButton = screen.getByTestId('db-unlock-button');
       await user.click(unlockButton);
@@ -108,6 +116,9 @@ describe('DatabaseTest', () => {
 
       render(<DatabaseTest />);
 
+      const passwordInput = screen.getByTestId('db-password-input');
+      await user.type(passwordInput, 'testpassword');
+
       const unlockButton = screen.getByTestId('db-unlock-button');
       await user.click(unlockButton);
 
@@ -126,6 +137,9 @@ describe('DatabaseTest', () => {
 
       render(<DatabaseTest />);
 
+      const passwordInput = screen.getByTestId('db-password-input');
+      await user.type(passwordInput, 'wrongpassword');
+
       const unlockButton = screen.getByTestId('db-unlock-button');
       await user.click(unlockButton);
 
@@ -143,6 +157,9 @@ describe('DatabaseTest', () => {
       setupMockContext({ unlock, isSetUp: true, isUnlocked: false });
 
       render(<DatabaseTest />);
+
+      const passwordInput = screen.getByTestId('db-password-input');
+      await user.type(passwordInput, 'testpassword');
 
       const unlockButton = screen.getByTestId('db-unlock-button');
       await user.click(unlockButton);
@@ -230,6 +247,9 @@ describe('DatabaseTest', () => {
       setupMockContext({ setup, isSetUp: false, isUnlocked: false });
 
       render(<DatabaseTest />);
+
+      const passwordInput = screen.getByTestId('db-password-input');
+      await user.type(passwordInput, 'testpassword');
 
       const setupButton = screen.getByTestId('db-setup-button');
       await user.click(setupButton);
@@ -341,6 +361,9 @@ describe('DatabaseTest', () => {
 
       render(<DatabaseTest />);
 
+      const passwordInput = screen.getByTestId('db-password-input');
+      await user.type(passwordInput, 'testpassword');
+
       const setupButton = screen.getByTestId('db-setup-button');
       await user.click(setupButton);
 
@@ -361,6 +384,9 @@ describe('DatabaseTest', () => {
       setupMockContext({ setup, isSetUp: false, isUnlocked: false });
 
       render(<DatabaseTest />);
+
+      const passwordInput = screen.getByTestId('db-password-input');
+      await user.type(passwordInput, 'testpassword');
 
       const setupButton = screen.getByTestId('db-setup-button');
       await user.click(setupButton);

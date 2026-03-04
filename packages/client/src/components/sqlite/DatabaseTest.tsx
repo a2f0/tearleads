@@ -10,27 +10,13 @@ import { useOptionalAuth } from '@/contexts/AuthContext';
 import { getDatabaseAdapter, setDatabasePassword } from '@/db';
 import { isBiometricAvailable } from '@/db/crypto/keyManager';
 import { useDatabaseContext } from '@/db/hooks';
-import { getInstance, updateInstance } from '@/db/instanceRegistry';
+import { updateInstance } from '@/db/instanceRegistry';
 import { useOnInstanceChange } from '@/hooks/app';
 import { getErrorMessage } from '@/lib/errors';
 import { detectPlatform } from '@/lib/utils';
 import { DatabaseTestControls } from './DatabaseTestControls';
-
-async function copyToClipboard(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-type TestStatus = 'idle' | 'running' | 'success' | 'error';
-
-interface TestResult {
-  status: TestStatus;
-  message: string;
-}
+import type { TestResult } from './databaseTestUtils';
+import { copyToClipboard } from './databaseTestUtils';
 
 export function DatabaseTest() {
   const {
@@ -39,6 +25,7 @@ export function DatabaseTest() {
     isUnlocked,
     hasPersistedSession,
     currentInstanceId,
+    instances,
     setup,
     unlock,
     restoreSession,
@@ -52,7 +39,7 @@ export function DatabaseTest() {
   const auth = useOptionalAuth();
   const isAuthenticated = auth?.isAuthenticated ?? false;
 
-  const [password, setPassword] = useState('testpassword123');
+  const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -65,6 +52,9 @@ export function DatabaseTest() {
   const [copied, setCopied] = useState(false);
   const [isPersistingSession, setIsPersistingSession] = useState(false);
   const [biometryType, setBiometryType] = useState<string | null>(null);
+
+  const passwordDeferred =
+    instances.find((i) => i.id === currentInstanceId)?.passwordDeferred === true;
 
   const platform = detectPlatform();
   const isMobile = platform === 'ios' || platform === 'android';
@@ -233,16 +223,11 @@ export function DatabaseTest() {
     async (clearSession = false) => {
       setTestResult({ status: 'running', message: 'Locking database...' });
       try {
-        const instance = currentInstanceId
-          ? await getInstance(currentInstanceId)
-          : null;
-        const isDeferredPasswordInstance = instance?.passwordDeferred === true;
-
         if (
           isUnlocked &&
           !isAuthenticated &&
           currentInstanceId &&
-          isDeferredPasswordInstance
+          passwordDeferred
         ) {
           if (!password.trim()) {
             setTestResult({
@@ -285,6 +270,7 @@ export function DatabaseTest() {
       isUnlocked,
       lock,
       password,
+      passwordDeferred,
       refreshInstances
     ]
   );
@@ -407,6 +393,34 @@ export function DatabaseTest() {
     }
   }, [changePassword, isUnlocked, newPassword, password]);
 
+  const handleSetPassword = useCallback(async () => {
+    if (!password.trim() || !currentInstanceId) return;
+
+    setTestResult({ status: 'running', message: 'Setting password...' });
+    try {
+      const saved = await setDatabasePassword(password, currentInstanceId);
+      if (!saved) {
+        setTestResult({
+          status: 'error',
+          message: 'Could not save password'
+        });
+        return;
+      }
+
+      await updateInstance(currentInstanceId, { passwordDeferred: false });
+      await refreshInstances();
+      setTestResult({
+        status: 'success',
+        message: 'Password set successfully'
+      });
+    } catch (err) {
+      setTestResult({
+        status: 'error',
+        message: `Set password error: ${getErrorMessage(err)}`
+      });
+    }
+  }, [currentInstanceId, password, refreshInstances]);
+
   const getStatusColor = (status: TestStatus) => {
     switch (status) {
       case 'success':
@@ -462,6 +476,7 @@ export function DatabaseTest() {
         onPersistUnlockChange={(event) =>
           setPersistUnlock(event.target.checked)
         }
+        passwordDeferred={passwordDeferred}
         onPersistSessionChange={handlePersistSessionChange}
         onSubmit={handleSubmit}
         onSetup={handleSetup}
@@ -471,6 +486,7 @@ export function DatabaseTest() {
         onWriteData={handleWriteData}
         onReadData={handleReadData}
         onChangePassword={handleChangePassword}
+        onSetPassword={handleSetPassword}
         onReset={handleReset}
         onCopyError={async () => {
           if (await copyToClipboard(testResult.message)) {

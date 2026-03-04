@@ -1,13 +1,7 @@
 import { Check, Copy, Eye, EyeOff, Fingerprint } from 'lucide-react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
-
-type TestStatus = 'idle' | 'running' | 'success' | 'error';
-
-interface TestResult {
-  status: TestStatus;
-  message: string;
-}
+import type { TestResult, TestStatus } from './databaseTestUtils';
 
 interface DatabaseTestControlsProps {
   isLoading: boolean;
@@ -40,7 +34,9 @@ interface DatabaseTestControlsProps {
   onLock: (clearSession?: boolean) => void;
   onWriteData: () => void;
   onReadData: () => void;
+  passwordDeferred: boolean;
   onChangePassword: () => void;
+  onSetPassword: () => void;
   onReset: () => void;
   onCopyError: () => void;
 }
@@ -69,12 +65,14 @@ export function DatabaseTestControls({
   onToggleShowChangePassword,
   onPersistUnlockChange,
   onPersistSessionChange,
+  passwordDeferred,
   onSubmit,
   onRestoreSession,
   onLock,
   onWriteData,
   onReadData,
   onChangePassword,
+  onSetPassword,
   onReset,
   onCopyError
 }: DatabaseTestControlsProps) {
@@ -99,6 +97,12 @@ export function DatabaseTestControls({
             {hasPersistedSession ? 'Yes' : 'No'}
           </span>
         </div>
+        {passwordDeferred && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Password</span>
+            <span data-testid="db-password-status">Not Set</span>
+          </div>
+        )}
         {testData && (
           <div className="flex justify-between gap-2">
             <span className="shrink-0 text-muted-foreground">Test Data</span>
@@ -282,6 +286,18 @@ export function DatabaseTestControls({
               >
                 {showChangePassword ? 'Cancel' : 'Change Password'}
               </Button>
+              {passwordDeferred && (
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  onClick={onSetPassword}
+                  disabled={isLoading || !password}
+                  data-testid="db-set-password-button"
+                >
+                  Set Password
+                </Button>
+              )}
             </>
           )}
 
