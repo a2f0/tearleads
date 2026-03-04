@@ -24,6 +24,7 @@ impl FakeAuthorizer {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn deny(kind: AdminAuthErrorKind, message: &str) -> Self {
         Self {
             outcome: Err(AdminAuthError::new(kind, message)),

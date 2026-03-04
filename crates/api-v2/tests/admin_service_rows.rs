@@ -114,7 +114,7 @@ async fn get_rows_normalizes_zero_limit_to_default() {
         FakeAuthorizer::allow_all(),
     );
 
-    let _ = handler
+    let response = handler
         .get_rows(Request::new(AdminGetRowsRequest {
             schema: String::from("public"),
             table: String::from("users"),
@@ -123,9 +123,11 @@ async fn get_rows_normalizes_zero_limit_to_default() {
             sort_column: None,
             sort_direction: None,
         }))
-        .await
-        .expect("row listing should succeed")
-        .into_inner();
+        .await;
+    let _ = match response {
+        Ok(payload) => payload.into_inner(),
+        Err(error) => panic!("row listing should succeed, got: {error}"),
+    };
 
     assert_eq!(
         lock_or_recover(&rows_calls).clone(),
