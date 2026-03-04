@@ -11,6 +11,7 @@ import { toIsoString } from './vfsDirectCrdtRouteHelpers.js';
 import { parseJsonBody } from './vfsDirectJson.js';
 
 interface JsonRequest {
+  organizationId?: string | null;
   json: string;
 }
 
@@ -31,7 +32,10 @@ export async function reconcileCrdtDirect(
   const claims = await requireVfsClaims(
     '/vfs/crdt/reconcile',
     context.requestHeader,
-    { requireDeclaredOrganization: true }
+    {
+      requireDeclaredOrganization: true,
+      declaredOrganizationId: request.organizationId ?? null
+    }
   );
 
   const parsedPayload = parseVfsCrdtReconcilePayload(

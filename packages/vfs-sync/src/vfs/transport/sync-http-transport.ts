@@ -132,6 +132,7 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
       await this.requestConnectJson(
         'ReconcileCrdt',
         {
+          organizationId: organizationId ?? '',
           json: JSON.stringify({
             clientId: input.clientId,
             cursor: encodeVfsSyncCursor(input.cursor),

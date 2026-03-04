@@ -47,6 +47,13 @@ function normalizeApiPrefix(value: string): string {
     : withLeadingSlash;
 }
 
+function hasActiveOrganizationId(): boolean {
+  const organizationId = getActiveOrganizationId();
+  return (
+    typeof organizationId === 'string' && organizationId.trim().length > 0
+  );
+}
+
 function useFlushWhenOrganizationReady(input: {
   orchestrator: VfsWriteOrchestrator | null;
   isAuthenticated: boolean;
@@ -59,7 +66,7 @@ function useFlushWhenOrganizationReady(input: {
     }
 
     const flushWhenOrganizationReady = () => {
-      if (getActiveOrganizationId() === null) {
+      if (!hasActiveOrganizationId()) {
         return;
       }
 
@@ -270,6 +277,9 @@ export function VfsOrchestratorProvider({
     }
 
     const flushOnOnline = () => {
+      if (!hasActiveOrganizationId()) {
+        return;
+      }
       void orchestrator.flushAll().catch((err) => {
         console.warn('VFS flush on reconnect failed:', err);
       });

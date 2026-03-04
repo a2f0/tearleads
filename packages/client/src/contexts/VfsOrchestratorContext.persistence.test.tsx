@@ -258,6 +258,37 @@ describe('VfsOrchestratorContext persistence', () => {
     });
   });
 
+  it('skips initial flush when active organization id is empty', async () => {
+    setActiveOrganizationId('');
+
+    render(
+      <VfsOrchestratorProvider>
+        <div>Test</div>
+      </VfsOrchestratorProvider>
+    );
+
+    await waitFor(() => {
+      expect(mockCreateFacade).toHaveBeenCalled();
+    });
+
+    const mockVfsWriteOrchestrator = await getMockVfsWriteOrchestratorClass();
+    const flushAll = mockVfsWriteOrchestrator.lastInstance?.flushAll;
+    if (!flushAll) {
+      throw new Error('Expected orchestrator instance flushAll');
+    }
+    flushAll.mockClear();
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    expect(flushAll).not.toHaveBeenCalled();
+
+    setActiveOrganizationId('org-1');
+    await waitFor(() => {
+      expect(flushAll).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('wires CRDT rematerialization callback to bootstrap helper', async () => {
     render(
       <VfsOrchestratorProvider>
