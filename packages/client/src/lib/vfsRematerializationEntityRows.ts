@@ -19,6 +19,20 @@ const MATERIALIZED_FILE_OBJECT_TYPES = new Set<VfsObjectType>([
   'video'
 ]);
 
+const EXTENSION_TO_MIME_TYPE: Readonly<Record<string, string>> = {
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.m4a': 'audio/mp4',
+  '.mp4': 'video/mp4',
+  '.mov': 'video/quicktime'
+};
+
 function resolveMaterializedFileName(
   encryptedName: string | null,
   objectType: VfsObjectType
@@ -44,35 +58,11 @@ function inferMimeTypeFromFileName(
   objectType: VfsObjectType
 ): string {
   const lowerName = fileName.toLowerCase();
-  if (lowerName.endsWith('.svg')) {
-    return 'image/svg+xml';
-  }
-  if (lowerName.endsWith('.png')) {
-    return 'image/png';
-  }
-  if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) {
-    return 'image/jpeg';
-  }
-  if (lowerName.endsWith('.gif')) {
-    return 'image/gif';
-  }
-  if (lowerName.endsWith('.webp')) {
-    return 'image/webp';
-  }
-  if (lowerName.endsWith('.mp3')) {
-    return 'audio/mpeg';
-  }
-  if (lowerName.endsWith('.wav')) {
-    return 'audio/wav';
-  }
-  if (lowerName.endsWith('.m4a')) {
-    return 'audio/mp4';
-  }
-  if (lowerName.endsWith('.mp4')) {
-    return 'video/mp4';
-  }
-  if (lowerName.endsWith('.mov')) {
-    return 'video/quicktime';
+
+  for (const [extension, mimeType] of Object.entries(EXTENSION_TO_MIME_TYPE)) {
+    if (lowerName.endsWith(extension)) {
+      return mimeType;
+    }
   }
   if (objectType === 'photo') {
     return 'image/jpeg';
@@ -91,7 +81,7 @@ function decodeBase64Size(base64Value: string | null | undefined): number {
     return 0;
   }
   try {
-    return Buffer.from(base64Value, 'base64').byteLength;
+    return atob(base64Value).length;
   } catch {
     return 0;
   }
