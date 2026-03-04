@@ -33,13 +33,6 @@ impl AuthorizationHeaderAdminAuthorizer {
                 Self::unauthenticated_error(operation, "authorization must use Bearer token")
             })?;
 
-        if bearer_token.is_empty() {
-            return Err(Self::unauthenticated_error(
-                operation,
-                "bearer token must not be blank",
-            ));
-        }
-
         let segments: Vec<&str> = bearer_token.split('.').collect();
         if segments.len() != 3 || segments.iter().any(|segment| segment.is_empty()) {
             return Err(Self::unauthenticated_error(
