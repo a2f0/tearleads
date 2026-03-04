@@ -86,12 +86,10 @@ pub fn admin_get_redis_value_path() -> String {
     rpc_path(ADMIN_SERVICE_NAME, "GetRedisValue")
 }
 
-/// Returns generated client type names to enforce compile-time linkage.
-pub fn generated_client_type_names() -> (&'static str, &'static str) {
-    (
-        std::any::type_name::<v2::admin_service_client::AdminServiceClient<()>>(),
-        std::any::type_name::<v2::mls_service_client::MlsServiceClient<()>>(),
-    )
+/// Enforces compile-time linkage to generated service clients.
+pub fn generated_client_compile_proof() {
+    let _ = std::marker::PhantomData::<v2::admin_service_client::AdminServiceClient<()>>;
+    let _ = std::marker::PhantomData::<v2::mls_service_client::MlsServiceClient<()>>;
 }
 
 fn normalize_non_empty(value: Option<&str>) -> Option<String> {
@@ -107,7 +105,9 @@ fn normalize_non_empty(value: Option<&str>) -> Option<String> {
 
 fn normalize_bearer_token(value: Option<&str>) -> Option<String> {
     let normalized = normalize_non_empty(value)?;
-    if normalized.starts_with("Bearer ") {
+    let has_bearer_prefix =
+        normalized.len() >= 7 && normalized[..7].eq_ignore_ascii_case("bearer ");
+    if has_bearer_prefix {
         Some(normalized)
     } else {
         Some(format!("Bearer {normalized}"))
@@ -119,7 +119,7 @@ mod tests {
     use super::{
         ApiClientRequestContext, admin_get_columns_path, admin_get_postgres_info_path,
         admin_get_redis_keys_path, admin_get_redis_value_path, admin_get_tables_path,
-        generated_client_type_names, normalize_connect_base_url, rpc_path,
+        generated_client_compile_proof, normalize_connect_base_url, rpc_path,
     };
 
     #[test]
@@ -216,9 +216,23 @@ mod tests {
     }
 
     #[test]
+    fn request_context_preserves_case_insensitive_bearer_prefix() {
+        let context = ApiClientRequestContext {
+            bearer_token: Some(String::from("bearer keep-me")),
+            organization_id: None,
+        };
+
+        assert_eq!(
+            context.header_pairs(),
+            vec![(
+                String::from("authorization"),
+                String::from("bearer keep-me")
+            )]
+        );
+    }
+
+    #[test]
     fn generated_client_types_are_linked() {
-        let (admin_client_type_name, mls_client_type_name) = generated_client_type_names();
-        assert!(admin_client_type_name.contains("AdminServiceClient"));
-        assert!(mls_client_type_name.contains("MlsServiceClient"));
+        generated_client_compile_proof();
     }
 }
