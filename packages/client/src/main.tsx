@@ -37,8 +37,10 @@ import { SSEProvider } from './sse';
 import { VideoProvider } from './video';
 import './index.css';
 
+const isElectronRuntime = Boolean(window.electron);
+
 // Check for service worker updates when tab gains focus
-if ('serviceWorker' in navigator) {
+if (!isElectronRuntime && 'serviceWorker' in navigator) {
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible') {
       try {

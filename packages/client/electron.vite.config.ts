@@ -1,9 +1,7 @@
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import {defineConfig} from 'electron-vite';
-import {VitePWA} from 'vite-plugin-pwa';
 import packageJson from './package.json';
-import {pwaOptions} from './pwa.options';
 import {createViteAliases} from './vite.aliases';
 import {createAppConfigPlugin} from './vite-plugin-app-config';
 
@@ -54,6 +52,6 @@ export default defineConfig({
     resolve: {
       alias: createViteAliases(__dirname, {disabledPackages}),
     },
-    plugins: [appConfigPlugin, react(), tailwindcss(), VitePWA(pwaOptions)],
+    plugins: [appConfigPlugin, react(), tailwindcss()],
   },
 });

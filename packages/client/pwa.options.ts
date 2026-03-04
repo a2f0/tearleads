@@ -20,8 +20,17 @@ export const pwaOptions: Partial<VitePWAOptions> = {
     ],
   },
   workbox: {
-    // Don't include html - navigation is handled by runtimeCaching with NetworkFirst
-    globPatterns: ['**/*.{js,mjs,css,ico,png,svg,webmanifest}'],
+    // Precache only the critical app shell; route chunks are cached on-demand.
+    globPatterns: [
+      'assets/index-*.{js,css}',
+      'assets/vendor-react-*.js',
+      'assets/vendor-ui-*.js',
+      '*.webmanifest',
+      'favicon.svg',
+    ],
+    globIgnores: ['**/sw.js', '**/workbox-*.js'],
+    // Vite output filenames are content-hashed, so cache busting is unnecessary.
+    dontCacheBustURLsMatching: /\.[a-f0-9]{8}\./,
     // Increase max file size for large JS bundles (e.g., web-llm library ~6MB)
     // and renderer entry chunks that can exceed 10MB in release builds.
     // Note: LLM models themselves are cached by web-llm at runtime, not by Workbox
@@ -32,6 +41,8 @@ export const pwaOptions: Partial<VitePWAOptions> = {
     skipWaiting: true,
     // Take control of all clients immediately
     clientsClaim: true,
+    // Speed up navigation by racing SW startup with network requests.
+    navigationPreload: true,
     // Don't use default navigateFallback - we handle it with runtimeCaching
     navigateFallback: null,
     runtimeCaching: [
@@ -44,8 +55,8 @@ export const pwaOptions: Partial<VitePWAOptions> = {
         options: {
           cacheName: 'tearleads8-static-cache',
           expiration: {
-            maxEntries: 100,
-            maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+            maxEntries: 500,
+            maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
           },
         },
       },
