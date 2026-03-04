@@ -9,6 +9,8 @@ import { ne, sql } from 'drizzle-orm';
 import { getDatabase, getDatabaseAdapter, isDatabaseInitialized } from '@/db';
 import { runLocalWrite } from '@/db/localWrite';
 import {
+  albums,
+  files,
   notes,
   vfsAclEntries,
   vfsItemState,
@@ -16,6 +18,10 @@ import {
   vfsRegistry
 } from '@/db/schema';
 import { api } from './api';
+import {
+  buildMaterializedAlbumRows,
+  buildMaterializedFileRows
+} from './vfsRematerializationEntityRows';
 import {
   resolveMaterializedNoteContent,
   resolveMaterializedNoteTitle
@@ -365,12 +371,16 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
         deleted: itemState?.deleted ?? false
       };
     });
+  const albumRows = buildMaterializedAlbumRows(registryRows);
+  const fileRows = buildMaterializedFileRows(registryRows, itemStateByItemId);
 
   const db = getDatabase();
   const adapter = getDatabaseAdapter();
   const hasItemStateTable = await tableExists('vfs_item_state');
   const hasAclEntriesTable = await tableExists('vfs_acl_entries');
   const hasNotesTable = await tableExists('notes');
+  const hasAlbumsTable = await tableExists('albums');
+  const hasFilesTable = await tableExists('files');
   // Disable FK checks during bulk rebuild — grantedBy may reference users not
   // yet present locally. The server guarantees referential integrity.
   await adapter.execute('PRAGMA foreign_keys = OFF', []);
@@ -378,6 +388,12 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
     await runLocalWrite(async () => {
       await db.transaction(async (tx) => {
         await tx.delete(vfsLinks);
+        if (hasAlbumsTable) {
+          await tx.delete(albums);
+        }
+        if (hasFilesTable) {
+          await tx.delete(files);
+        }
         if (hasAclEntriesTable) {
           await tx.delete(vfsAclEntries);
         }
@@ -392,6 +408,20 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
         for (const chunk of chunkArray(registryRows, INSERT_BATCH_SIZE)) {
           if (chunk.length > 0) {
             await tx.insert(vfsRegistry).values(chunk);
+          }
+        }
+        if (hasAlbumsTable) {
+          for (const chunk of chunkArray(albumRows, INSERT_BATCH_SIZE)) {
+            if (chunk.length > 0) {
+              await tx.insert(albums).values(chunk);
+            }
+          }
+        }
+        if (hasFilesTable) {
+          for (const chunk of chunkArray(fileRows, INSERT_BATCH_SIZE)) {
+            if (chunk.length > 0) {
+              await tx.insert(files).values(chunk);
+            }
           }
         }
         if (hasItemStateTable) {
