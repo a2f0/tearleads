@@ -15,7 +15,7 @@ import { useOnInstanceChange } from '@/hooks/app';
 import { getErrorMessage } from '@/lib/errors';
 import { detectPlatform } from '@/lib/utils';
 import { DatabaseTestControls } from './DatabaseTestControls';
-import type { TestResult } from './databaseTestUtils';
+import type { TestResult, TestStatus } from './databaseTestUtils';
 import { copyToClipboard } from './databaseTestUtils';
 
 export function DatabaseTest() {
