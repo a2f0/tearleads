@@ -1,0 +1,248 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  type AdminV2Client,
+  createAdminV2Routes,
+  createDefaultAdminV2Client
+} from './adminV2Routes';
+
+const connectMocks = vi.hoisted(() => ({
+  createClientMock: vi.fn(),
+  createGrpcWebTransportMock: vi.fn()
+}));
+
+vi.mock('@connectrpc/connect', async () => {
+  const actual = await vi.importActual<typeof import('@connectrpc/connect')>(
+    '@connectrpc/connect'
+  );
+  return {
+    ...actual,
+    createClient: connectMocks.createClientMock
+  };
+});
+
+vi.mock('@connectrpc/connect-web', async () => {
+  const actual = await vi.importActual<
+    typeof import('@connectrpc/connect-web')
+  >('@connectrpc/connect-web');
+  return {
+    ...actual,
+    createGrpcWebTransport: connectMocks.createGrpcWebTransportMock
+  };
+});
+
+interface AdminV2ClientOverrides {
+  getPostgresInfo?: AdminV2Client['getPostgresInfo'];
+  getTables?: AdminV2Client['getTables'];
+  getColumns?: AdminV2Client['getColumns'];
+  getRedisKeys?: AdminV2Client['getRedisKeys'];
+  getRedisValue?: AdminV2Client['getRedisValue'];
+}
+
+function createAdminV2ClientStub(
+  overrides: AdminV2ClientOverrides = {}
+): AdminV2Client {
+  return {
+    getPostgresInfo:
+      overrides.getPostgresInfo ??
+      vi.fn(async () => ({ info: undefined, serverVersion: undefined })),
+    getTables: overrides.getTables ?? vi.fn(async () => ({ tables: [] })),
+    getColumns: overrides.getColumns ?? vi.fn(async () => ({ columns: [] })),
+    getRedisKeys:
+      overrides.getRedisKeys ??
+      vi.fn(async () => ({ keys: [], cursor: '0', hasMore: false })),
+    getRedisValue:
+      overrides.getRedisValue ??
+      vi.fn(async () => ({ key: '', type: '', ttl: 0n, value: undefined }))
+  };
+}
+
+function createRoutesForTest(
+  client: AdminV2Client,
+  logEvent = vi.fn(async () => undefined),
+  buildHeaders = vi.fn(async () => ({ authorization: 'Bearer token-123' }))
+) {
+  const routes = createAdminV2Routes({
+    resolveApiBaseUrl: () => 'https://api.example.test',
+    normalizeConnectBaseUrl: async (apiBaseUrl) => `${apiBaseUrl}/connect`,
+    buildHeaders,
+    getAuthHeaderValue: () => 'Bearer token-123',
+    createClient: () => client,
+    logEvent
+  });
+
+  return {
+    routes,
+    logEvent,
+    buildHeaders
+  };
+}
+
+describe('adminV2Routes', () => {
+  beforeEach(() => {
+    connectMocks.createClientMock.mockReset();
+    connectMocks.createGrpcWebTransportMock.mockReset();
+  });
+
+  it('creates default gRPC-web binary transport client', () => {
+    const transport = { kind: 'transport' };
+    const client = createAdminV2ClientStub();
+    connectMocks.createGrpcWebTransportMock.mockReturnValue(transport);
+    connectMocks.createClientMock.mockReturnValue(client);
+
+    const createdClient = createDefaultAdminV2Client(
+      'https://api.example.test/connect'
+    );
+
+    expect(createdClient).toBe(client);
+    expect(connectMocks.createGrpcWebTransportMock).toHaveBeenCalledWith({
+      baseUrl: 'https://api.example.test/connect',
+      useBinaryFormat: true
+    });
+    expect(connectMocks.createClientMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('maps postgres info response and logs success', async () => {
+    const getPostgresInfo = vi.fn(async () => ({
+      info: {
+        host: 'localhost',
+        port: 5432,
+        database: 'tearleads',
+        user: 'admin'
+      },
+      serverVersion: 'PostgreSQL 16.7'
+    }));
+    const client = createAdminV2ClientStub({ getPostgresInfo });
+    const { routes, logEvent } = createRoutesForTest(client);
+
+    const response = await routes.postgres.getInfo();
+
+    expect(response).toEqual({
+      status: 'ok',
+      info: {
+        host: 'localhost',
+        port: 5432,
+        database: 'tearleads',
+        user: 'admin'
+      },
+      serverVersion: 'PostgreSQL 16.7'
+    });
+    expect(getPostgresInfo).toHaveBeenCalledTimes(1);
+    expect(getPostgresInfo.mock.calls[0]?.[1]).toEqual({
+      headers: { authorization: 'Bearer token-123' }
+    });
+    expect(logEvent).toHaveBeenCalledWith(
+      'api_get_admin_postgres_info',
+      expect.any(Number),
+      true
+    );
+  });
+
+  it('maps postgres table bigints and rejects unsafe integer values', async () => {
+    const getTables = vi
+      .fn()
+      .mockResolvedValueOnce({
+        tables: [
+          {
+            schema: 'public',
+            name: 'users',
+            rowCount: 42n,
+            totalBytes: 2048n,
+            tableBytes: 1024n,
+            indexBytes: 1024n
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        tables: [
+          {
+            schema: 'public',
+            name: 'oversized',
+            rowCount: BigInt(Number.MAX_SAFE_INTEGER) + 1n,
+            totalBytes: 1n,
+            tableBytes: 1n,
+            indexBytes: 0n
+          }
+        ]
+      });
+    const client = createAdminV2ClientStub({ getTables });
+    const { routes, logEvent } = createRoutesForTest(client);
+
+    const safeResponse = await routes.postgres.getTables();
+    expect(safeResponse).toEqual({
+      tables: [
+        {
+          schema: 'public',
+          name: 'users',
+          rowCount: 42,
+          totalBytes: 2048,
+          tableBytes: 1024,
+          indexBytes: 1024
+        }
+      ]
+    });
+
+    await expect(routes.postgres.getTables()).rejects.toThrow(
+      'rowCount exceeded Number safe integer range'
+    );
+    expect(logEvent).toHaveBeenCalledWith(
+      'api_get_admin_postgres_tables',
+      expect.any(Number),
+      false
+    );
+  });
+
+  it('maps redis key and value responses and forwards request args', async () => {
+    const getRedisKeys = vi.fn(async () => ({
+      keys: [{ key: 'session:1', type: 'string', ttl: 120n }],
+      cursor: '8',
+      hasMore: true
+    }));
+    const getRedisValue = vi.fn(async () => ({
+      key: 'config',
+      type: 'hash',
+      ttl: 10n,
+      value: {
+        value: {
+          case: 'mapValue',
+          value: {
+            entries: { mode: 'strict' }
+          }
+        }
+      }
+    }));
+    const client = createAdminV2ClientStub({
+      getRedisKeys,
+      getRedisValue
+    });
+    const { routes, logEvent, buildHeaders } = createRoutesForTest(client);
+
+    const keysResponse = await routes.redis.getKeys('5', 10);
+    const valueResponse = await routes.redis.getValue('config');
+
+    expect(keysResponse).toEqual({
+      keys: [{ key: 'session:1', type: 'string', ttl: 120 }],
+      cursor: '8',
+      hasMore: true
+    });
+    expect(valueResponse).toEqual({
+      key: 'config',
+      type: 'hash',
+      ttl: 10,
+      value: { mode: 'strict' }
+    });
+    expect(getRedisKeys.mock.calls[0]?.[0].cursor).toBe('5');
+    expect(getRedisKeys.mock.calls[0]?.[0].limit).toBe(10);
+    expect(getRedisValue.mock.calls[0]?.[0].key).toBe('config');
+    expect(buildHeaders).toHaveBeenCalledTimes(2);
+    expect(logEvent).toHaveBeenCalledWith(
+      'api_get_admin_redis_keys',
+      expect.any(Number),
+      true
+    );
+    expect(logEvent).toHaveBeenCalledWith(
+      'api_get_admin_redis_key',
+      expect.any(Number),
+      true
+    );
+  });
+});
