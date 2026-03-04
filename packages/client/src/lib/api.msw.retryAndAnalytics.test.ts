@@ -46,9 +46,9 @@ describe('api with msw', () => {
     vi.doMock('./pingWasmImport', () => ({
       importPingWasmModule: () => Promise.resolve(mockedPingWasmModule)
     }));
-    vi.doMock('@tearleads/api-client/pingWasmImport', () => ({
-      importPingWasmModule: () => Promise.resolve(mockedPingWasmModule)
-    }));
+    Reflect.set(globalThis, '__tearleadsImportPingWasmModule', () =>
+      Promise.resolve(mockedPingWasmModule)
+    );
     vi.clearAllMocks();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
@@ -61,6 +61,7 @@ describe('api with msw', () => {
   });
 
   afterEach(async () => {
+    Reflect.deleteProperty(globalThis, '__tearleadsImportPingWasmModule');
     const { clearActiveOrganizationId } = await import('@/lib/orgStorage');
     clearActiveOrganizationId();
     vi.unstubAllEnvs();

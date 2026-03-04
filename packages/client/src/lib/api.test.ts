@@ -27,9 +27,9 @@ describe('api edge cases requiring direct fetch mocking', () => {
     vi.doMock('./pingWasmImport', () => ({
       importPingWasmModule: () => Promise.resolve(mockedPingWasmModule)
     }));
-    vi.doMock('@tearleads/api-client/pingWasmImport', () => ({
-      importPingWasmModule: () => Promise.resolve(mockedPingWasmModule)
-    }));
+    Reflect.set(globalThis, '__tearleadsImportPingWasmModule', () =>
+      Promise.resolve(mockedPingWasmModule)
+    );
     global.fetch = vi.fn();
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_refresh_token');
@@ -38,6 +38,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
   });
 
   afterEach(() => {
+    Reflect.deleteProperty(globalThis, '__tearleadsImportPingWasmModule');
     global.fetch = originalFetch;
   });
 
