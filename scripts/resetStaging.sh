@@ -30,7 +30,7 @@ if [[ "${1:-}" != "--yes" ]]; then
   echo "Steps:"
   echo "  1. Run staging K8s reset (Postgres, S3, Redis, migrations)"
   echo "  2. Port-forward to staging Postgres"
-  echo "  3. Scaffold Bob notes shared with Alice"
+  echo "  3. Scaffold Bob/Alice notes, welcome emails, and shared photos"
   echo ""
   echo "Pass --yes to confirm."
   exit 1
@@ -81,8 +81,9 @@ fi
 
 export DATABASE_URL="postgresql://$PG_USER:$PG_PASS@127.0.0.1:$LOCAL_PG_PORT/$PG_DB"
 
-echo "Running createBobAndAlice..."
+echo "Running createBobAndAlice (notes, emails, shared photo album)..."
 "$REPO_ROOT/scripts/users/scaffolding/createBobAndAlice.ts"
+echo "  createBobAndAlice completed (all scaffold steps ran)."
 echo "  Step 2/2 completed in $(format_duration $((SECONDS - STEP_START)))"
 
 echo ""
