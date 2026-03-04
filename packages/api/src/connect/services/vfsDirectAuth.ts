@@ -2,22 +2,50 @@ import { Code, ConnectError } from '@connectrpc/connect';
 import { getPostgresPool } from '../../lib/postgres.js';
 import {
   authenticate,
-  resolveOrganizationMembership
+  resolveOrganizationMembership,
+  verifyOrganizationMembership
 } from './connectRequestAuth.js';
 import { toConnectCode } from './httpStatusToConnectCode.js';
 
 async function resolveRequiredOrganizationId(
   userId: string,
   resolvedOrganizationId: string | null,
-  requireDeclaredOrganization: boolean
+  requireDeclaredOrganization: boolean,
+  declaredOrganizationId?: string | null
 ): Promise<string> {
+  if (
+    declaredOrganizationId &&
+    resolvedOrganizationId &&
+    declaredOrganizationId !== resolvedOrganizationId
+  ) {
+    throw new ConnectError(
+      'organizationId in request must match X-Organization-Id header',
+      Code.InvalidArgument
+    );
+  }
+
+  if (declaredOrganizationId) {
+    const membershipResult = await verifyOrganizationMembership(
+      userId,
+      declaredOrganizationId
+    );
+    if (!membershipResult.ok) {
+      throw new ConnectError(
+        membershipResult.error,
+        toConnectCode(membershipResult.status)
+      );
+    }
+
+    return membershipResult.organizationId ?? declaredOrganizationId;
+  }
+
   if (resolvedOrganizationId) {
     return resolvedOrganizationId;
   }
 
   if (requireDeclaredOrganization) {
     throw new ConnectError(
-      'X-Organization-Id header is required for VFS write requests',
+      'organizationId is required in request body for VFS write requests',
       Code.InvalidArgument
     );
   }
@@ -47,7 +75,10 @@ async function resolveRequiredOrganizationId(
 export async function requireVfsClaims(
   path: string,
   requestHeaders: Headers,
-  options?: { requireDeclaredOrganization?: boolean }
+  options?: {
+    requireDeclaredOrganization?: boolean;
+    declaredOrganizationId?: string | null;
+  }
 ): Promise<{ sub: string; organizationId: string }> {
   const authResult = await authenticate(requestHeaders);
   if (!authResult.ok) {
@@ -69,7 +100,8 @@ export async function requireVfsClaims(
   const organizationId = await resolveRequiredOrganizationId(
     authResult.claims.sub,
     membershipResult.organizationId,
-    options?.requireDeclaredOrganization === true
+    options?.requireDeclaredOrganization === true,
+    options?.declaredOrganizationId
   );
 
   return {

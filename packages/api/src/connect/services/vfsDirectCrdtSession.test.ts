@@ -64,6 +64,24 @@ function parseJson(json: string): unknown {
   return JSON.parse(json);
 }
 
+const REQUEST_CONTEXT = {
+  requestHeader: new Headers()
+};
+
+function createSessionRequest(payload: Record<string, unknown>): {
+  organizationId: string;
+  json: string;
+} {
+  return {
+    organizationId: 'org-1',
+    json: JSON.stringify(payload)
+  };
+}
+
+function runSession(payload: Record<string, unknown>) {
+  return runCrdtSessionDirect(createSessionRequest(payload), REQUEST_CONTEXT);
+}
+
 describe('vfsDirectCrdtSession', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -88,7 +106,8 @@ describe('vfsDirectCrdtSession', () => {
     });
 
     requireVfsClaimsMock.mockResolvedValue({
-      sub: 'user-1'
+      sub: 'user-1',
+      organizationId: 'org-1'
     });
 
     shouldReadEnvelopeByteaMock.mockReturnValue(false);
@@ -133,11 +152,10 @@ describe('vfsDirectCrdtSession', () => {
     await expect(
       runCrdtSessionDirect(
         {
+          organizationId: '',
           json: '{}'
         },
-        {
-          requestHeader: new Headers()
-        }
+        REQUEST_CONTEXT
       )
     ).rejects.toMatchObject({
       code: Code.InvalidArgument
@@ -148,19 +166,12 @@ describe('vfsDirectCrdtSession', () => {
 
   it('rejects session payloads missing cursor', async () => {
     await expect(
-      runCrdtSessionDirect(
-        {
-          json: JSON.stringify({
-            clientId: 'desktop-1',
-            operations: [],
-            limit: 10,
-            lastReconciledWriteIds: {}
-          })
-        },
-        {
-          requestHeader: new Headers()
-        }
-      )
+      runSession({
+        clientId: 'desktop-1',
+        operations: [],
+        limit: 10,
+        lastReconciledWriteIds: {}
+      })
     ).rejects.toMatchObject({
       code: Code.InvalidArgument
     });
@@ -168,20 +179,13 @@ describe('vfsDirectCrdtSession', () => {
 
   it('rejects session payloads with invalid cursor', async () => {
     await expect(
-      runCrdtSessionDirect(
-        {
-          json: JSON.stringify({
-            clientId: 'desktop-1',
-            operations: [],
-            cursor: 'not-a-cursor',
-            limit: 10,
-            lastReconciledWriteIds: {}
-          })
-        },
-        {
-          requestHeader: new Headers()
-        }
-      )
+      runSession({
+        clientId: 'desktop-1',
+        operations: [],
+        cursor: 'not-a-cursor',
+        limit: 10,
+        lastReconciledWriteIds: {}
+      })
     ).rejects.toMatchObject({
       code: Code.InvalidArgument
     });
@@ -194,20 +198,13 @@ describe('vfsDirectCrdtSession', () => {
     });
 
     await expect(
-      runCrdtSessionDirect(
-        {
-          json: JSON.stringify({
-            clientId: 'desktop-1',
-            operations: [],
-            cursor: inputCursor,
-            limit: 1000,
-            lastReconciledWriteIds: {}
-          })
-        },
-        {
-          requestHeader: new Headers()
-        }
-      )
+      runSession({
+        clientId: 'desktop-1',
+        operations: [],
+        cursor: inputCursor,
+        limit: 1000,
+        lastReconciledWriteIds: {}
+      })
     ).rejects.toMatchObject({
       code: Code.InvalidArgument
     });
@@ -220,22 +217,15 @@ describe('vfsDirectCrdtSession', () => {
     });
 
     await expect(
-      runCrdtSessionDirect(
-        {
-          json: JSON.stringify({
-            clientId: 'desktop-1',
-            operations: [],
-            cursor: inputCursor,
-            limit: 10,
-            lastReconciledWriteIds: {
-              replicaA: -1
-            }
-          })
-        },
-        {
-          requestHeader: new Headers()
+      runSession({
+        clientId: 'desktop-1',
+        operations: [],
+        cursor: inputCursor,
+        limit: 10,
+        lastReconciledWriteIds: {
+          replicaA: -1
         }
-      )
+      })
     ).rejects.toMatchObject({
       code: Code.InvalidArgument
     });
@@ -268,24 +258,31 @@ describe('vfsDirectCrdtSession', () => {
       changeId: 'change-1'
     });
 
-    const response = await runCrdtSessionDirect(
-      {
-        json: JSON.stringify({
-          clientId: 'desktop-1',
-          operations: [],
-          cursor: inputCursor,
-          limit: 10,
-          rootId: 'root-1',
-          lastReconciledWriteIds: {}
-        })
-      },
-      {
-        requestHeader: new Headers()
-      }
-    );
+    const response = await runSession({
+      clientId: 'desktop-1',
+      operations: [],
+      cursor: inputCursor,
+      limit: 10,
+      rootId: 'root-1',
+      lastReconciledWriteIds: {}
+    });
 
     expect(clientQueryMock).toHaveBeenNthCalledWith(1, 'BEGIN');
     expect(clientQueryMock).toHaveBeenNthCalledWith(4, 'COMMIT');
+    expect(requireVfsClaimsMock).toHaveBeenCalledWith(
+      '/vfs/crdt/session',
+      expect.any(Headers),
+      {
+        requireDeclaredOrganization: true,
+        declaredOrganizationId: 'org-1'
+      }
+    );
+    expect(applyCrdtPushOperationsMock).toHaveBeenCalledWith({
+      client: { query: clientQueryMock, release: clientReleaseMock },
+      userId: 'user-1',
+      organizationId: 'org-1',
+      parsedOperations: []
+    });
     expect(invalidateReplicaWriteIdRowsForUserMock).toHaveBeenCalledWith(
       'user-1'
     );
@@ -337,20 +334,13 @@ describe('vfsDirectCrdtSession', () => {
     });
 
     await expect(
-      runCrdtSessionDirect(
-        {
-          json: JSON.stringify({
-            clientId: 'desktop-1',
-            operations: [],
-            cursor: inputCursor,
-            limit: 10,
-            lastReconciledWriteIds: {}
-          })
-        },
-        {
-          requestHeader: new Headers()
-        }
-      )
+      runSession({
+        clientId: 'desktop-1',
+        operations: [],
+        cursor: inputCursor,
+        limit: 10,
+        lastReconciledWriteIds: {}
+      })
     ).rejects.toMatchObject({
       code: Code.Internal
     });
@@ -367,21 +357,14 @@ describe('vfsDirectCrdtSession', () => {
     });
 
     await expect(
-      runCrdtSessionDirect(
-        {
-          json: JSON.stringify({
-            clientId: 'desktop-1',
-            operations: [],
-            cursor: inputCursor,
-            limit: '10',
-            rootId: 123,
-            lastReconciledWriteIds: {}
-          })
-        },
-        {
-          requestHeader: new Headers()
-        }
-      )
+      runSession({
+        clientId: 'desktop-1',
+        operations: [],
+        cursor: inputCursor,
+        limit: '10',
+        rootId: 123,
+        lastReconciledWriteIds: {}
+      })
     ).resolves.toMatchObject({
       json: expect.any(String)
     });
@@ -401,20 +384,13 @@ describe('vfsDirectCrdtSession', () => {
     });
 
     await expect(
-      runCrdtSessionDirect(
-        {
-          json: JSON.stringify({
-            clientId: 'desktop-1',
-            operations: [],
-            cursor: inputCursor,
-            limit: 10,
-            lastReconciledWriteIds: {}
-          })
-        },
-        {
-          requestHeader: new Headers()
-        }
-      )
+      runSession({
+        clientId: 'desktop-1',
+        operations: [],
+        cursor: inputCursor,
+        limit: 10,
+        lastReconciledWriteIds: {}
+      })
     ).rejects.toMatchObject({
       code: Code.Internal
     });
@@ -446,20 +422,13 @@ describe('vfsDirectCrdtSession', () => {
     });
 
     await expect(
-      runCrdtSessionDirect(
-        {
-          json: JSON.stringify({
-            clientId: 'desktop-1',
-            operations: [],
-            cursor: inputCursor,
-            limit: 10,
-            lastReconciledWriteIds: {}
-          })
-        },
-        {
-          requestHeader: new Headers()
-        }
-      )
+      runSession({
+        clientId: 'desktop-1',
+        operations: [],
+        cursor: inputCursor,
+        limit: 10,
+        lastReconciledWriteIds: {}
+      })
     ).resolves.toMatchObject({
       json: expect.any(String)
     });
@@ -476,20 +445,13 @@ describe('vfsDirectCrdtSession', () => {
     });
 
     await expect(
-      runCrdtSessionDirect(
-        {
-          json: JSON.stringify({
-            clientId: 'desktop-1',
-            operations: [],
-            cursor: inputCursor,
-            limit: 10,
-            lastReconciledWriteIds: {}
-          })
-        },
-        {
-          requestHeader: new Headers()
-        }
-      )
+      runSession({
+        clientId: 'desktop-1',
+        operations: [],
+        cursor: inputCursor,
+        limit: 10,
+        lastReconciledWriteIds: {}
+      })
     ).rejects.toMatchObject({
       code: Code.PermissionDenied
     });

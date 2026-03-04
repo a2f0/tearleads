@@ -1,12 +1,15 @@
 import { Code } from '@connectrpc/connect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { authenticateMock, resolveOrganizationMembershipMock } = vi.hoisted(
-  () => ({
-    authenticateMock: vi.fn(),
-    resolveOrganizationMembershipMock: vi.fn()
-  })
-);
+const {
+  authenticateMock,
+  resolveOrganizationMembershipMock,
+  verifyOrganizationMembershipMock
+} = vi.hoisted(() => ({
+  authenticateMock: vi.fn(),
+  resolveOrganizationMembershipMock: vi.fn(),
+  verifyOrganizationMembershipMock: vi.fn()
+}));
 const { getPostgresPoolMock, queryMock } = vi.hoisted(() => ({
   getPostgresPoolMock: vi.fn(),
   queryMock: vi.fn()
@@ -15,7 +18,9 @@ const { getPostgresPoolMock, queryMock } = vi.hoisted(() => ({
 vi.mock('./connectRequestAuth.js', () => ({
   authenticate: (...args: unknown[]) => authenticateMock(...args),
   resolveOrganizationMembership: (...args: unknown[]) =>
-    resolveOrganizationMembershipMock(...args)
+    resolveOrganizationMembershipMock(...args),
+  verifyOrganizationMembership: (...args: unknown[]) =>
+    verifyOrganizationMembershipMock(...args)
 }));
 vi.mock('../../lib/postgres.js', () => ({
   getPostgresPool: (...args: unknown[]) => getPostgresPoolMock(...args)
@@ -35,6 +40,10 @@ describe('requireVfsClaims', () => {
     resolveOrganizationMembershipMock.mockResolvedValue({
       ok: true,
       organizationId: null
+    });
+    verifyOrganizationMembershipMock.mockResolvedValue({
+      ok: true,
+      organizationId: 'org-declared'
     });
     queryMock.mockResolvedValue({
       rows: [{ personal_organization_id: 'org-personal' }]
@@ -87,28 +96,54 @@ describe('requireVfsClaims', () => {
       code: Code.InvalidArgument
     });
     await expect(promise).rejects.toThrow(
-      /X-Organization-Id header is required for VFS write requests/u
+      /organizationId is required in request body for VFS write requests/u
     );
 
     expect(queryMock).not.toHaveBeenCalled();
+    expect(verifyOrganizationMembershipMock).not.toHaveBeenCalled();
   });
 
   it('accepts declared organization for write requests', async () => {
+    verifyOrganizationMembershipMock.mockResolvedValueOnce({
+      ok: true,
+      organizationId: 'org-declared'
+    });
+
+    await expect(
+      requireVfsClaims('/vfs/register', new Headers(), {
+        requireDeclaredOrganization: true,
+        declaredOrganizationId: 'org-declared'
+      })
+    ).resolves.toEqual({
+      sub: 'user-1',
+      organizationId: 'org-declared'
+    });
+
+    expect(queryMock).not.toHaveBeenCalled();
+    expect(verifyOrganizationMembershipMock).toHaveBeenCalledWith(
+      'user-1',
+      'org-declared'
+    );
+  });
+
+  it('rejects mismatched request/header organization declarations', async () => {
     resolveOrganizationMembershipMock.mockResolvedValueOnce({
       ok: true,
       organizationId: 'org-header'
     });
 
-    await expect(
-      requireVfsClaims('/vfs/register', new Headers(), {
-        requireDeclaredOrganization: true
-      })
-    ).resolves.toEqual({
-      sub: 'user-1',
-      organizationId: 'org-header'
+    const promise = requireVfsClaims('/vfs/register', new Headers(), {
+      requireDeclaredOrganization: true,
+      declaredOrganizationId: 'org-declared'
     });
 
-    expect(queryMock).not.toHaveBeenCalled();
+    await expect(promise).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+    await expect(promise).rejects.toThrow(
+      /organizationId in request must match X-Organization-Id header/u
+    );
+    expect(verifyOrganizationMembershipMock).not.toHaveBeenCalled();
   });
 
   it('maps auth failures to connect errors', async () => {
