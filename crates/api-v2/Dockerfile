@@ -3,16 +3,8 @@ FROM rust:1.93.1-slim AS builder
 WORKDIR /app
 
 COPY Cargo.toml Cargo.lock ./
-COPY crates/api-v2/Cargo.toml crates/api-v2/Cargo.toml
-COPY crates/api-v2/src crates/api-v2/src
-COPY crates/api-v2-ping-wasm/Cargo.toml crates/api-v2-ping-wasm/Cargo.toml
-COPY crates/api-v2-ping-wasm/src crates/api-v2-ping-wasm/src
-COPY crates/api-domain-core/Cargo.toml crates/api-domain-core/Cargo.toml
-COPY crates/api-domain-core/src crates/api-domain-core/src
-COPY crates/data-access-traits/Cargo.toml crates/data-access-traits/Cargo.toml
-COPY crates/data-access-traits/src crates/data-access-traits/src
-COPY crates/mls-core-wasm/Cargo.toml crates/mls-core-wasm/Cargo.toml
-COPY crates/mls-core-wasm/src crates/mls-core-wasm/src
+COPY crates crates
+COPY proto proto
 
 RUN cargo build --release --package tearleads-api-v2
 
