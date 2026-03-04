@@ -107,8 +107,12 @@ describe('setupBobPhotoAlbumShareForAliceDb', () => {
         call.params?.[0] === 'album-fixed'
     );
     expect(albumInsertCall?.params?.[1]).toBe('album');
-    expect(albumInsertCall?.params?.[4]).toBe('wrapped:Photos shared with Alice');
-    expect(albumInsertCall?.params?.[5]).toBe('cipher:Photos shared with Alice');
+    expect(albumInsertCall?.params?.[4]).toBe(
+      'wrapped:Photos shared with Alice'
+    );
+    expect(albumInsertCall?.params?.[5]).toBe(
+      'cipher:Photos shared with Alice'
+    );
 
     const photoInsertCall = calls.find(
       (call) =>

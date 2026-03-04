@@ -1,5 +1,5 @@
-import type { AddressInfo } from 'node:net';
 import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import type {
   VfsCrdtSyncItem,
   VfsCrdtSyncResponse,
@@ -58,7 +58,7 @@ async function startS3MockServer(): Promise<string> {
         const contentType =
           typeof contentTypeHeader === 'string' ? contentTypeHeader : null;
         s3Objects.set(storageKey, { data, contentType });
-        response.writeHead(200, { ETag: '\"mock-etag\"' });
+        response.writeHead(200, { ETag: '"mock-etag"' });
         response.end();
       });
       return;
