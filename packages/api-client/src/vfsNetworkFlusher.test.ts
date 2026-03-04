@@ -415,7 +415,8 @@ describe('vfsNetworkFlusher', () => {
     const flusher = new VfsApiNetworkFlusher('user-1', 'desktop', {
       transportOptions: {
         baseUrl: 'http://localhost',
-        apiPrefix: ''
+        apiPrefix: '',
+        organizationId: 'org-1'
       },
       maxRematerializationAttempts: 1,
       onRematerializationRequired
