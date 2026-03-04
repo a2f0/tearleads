@@ -364,9 +364,13 @@ export function mapLegacyPathToConnect(
 
 export function mergeHeaders(
   authToken: string,
-  extraHeaders?: RequestInit['headers']
+  extraHeaders?: RequestInit['headers'],
+  organizationId?: string
 ): Headers {
   const merged = new Headers({ Authorization: `Bearer ${authToken}` });
+  if (organizationId) {
+    merged.set('X-Organization-Id', organizationId);
+  }
   if (extraHeaders) {
     const provided = new Headers(extraHeaders);
     for (const [key, value] of provided.entries()) {
