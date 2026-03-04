@@ -196,10 +196,7 @@ function buildReport(
   ).length;
 
   return {
-    command:
-      options.reportJsonPath || options.reportMarkdownPath
-        ? 'pnpm qaVfsSecureUploadTestEvidence'
-        : 'pnpm qaVfsSecureUploadTestSuite',
+    command: 'pnpm testVfsSecureUploadQaSuite',
     candidateSha,
     startedAt: startedAt.toISOString(),
     completedAt: completedAt.toISOString(),

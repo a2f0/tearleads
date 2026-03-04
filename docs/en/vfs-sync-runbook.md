@@ -160,5 +160,5 @@ checklist, see `docs/en/vfs-secure-upload-rollout.md`.
 Promotion QA should include a passing automated test suite matrix run:
 
 ```bash
-pnpm qaVfsSecureUploadTestSuite
+pnpm testVfsSecureUploadQaSuite
 ```

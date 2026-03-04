@@ -183,10 +183,7 @@ function buildReport(
   ).length;
 
   return {
-    command:
-      options.reportJsonPath || options.reportMarkdownPath
-        ? 'pnpm qaVfsCrdtRolloutTestEvidence'
-        : 'pnpm qaVfsCrdtRolloutTestSuite',
+    command: 'pnpm testVfsCrdtRolloutQaSuite',
     candidateSha,
     startedAt: startedAt.toISOString(),
     completedAt: completedAt.toISOString(),

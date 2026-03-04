@@ -122,19 +122,19 @@ Run these checks in staging and again before production promotion:
 Run the secure-upload test suite matrix from repo root:
 
 ```bash
-pnpm qaVfsSecureUploadTestSuite
+pnpm testVfsSecureUploadQaSuite
 ```
 
-For promotion evidence artifacts (JSON + Markdown), run:
+For promotion evidence artifacts, capture the test output to a log file:
 
 ```bash
-pnpm qaVfsSecureUploadTestEvidence
+mkdir -p coverage/qa
+pnpm testVfsSecureUploadQaSuite | tee coverage/qa/vfsSecureUploadQaSuite.log
 ```
 
 This writes:
 
-- `coverage/qa/vfsSecureUploadQaSuite.json`
-- `coverage/qa/vfsSecureUploadQaSuite.md`
+- `coverage/qa/vfsSecureUploadQaSuite.log`
 
 This command runs a focused cross-package matrix covering:
 
@@ -151,16 +151,16 @@ Evidence to capture:
 - test run references (suite names and commit SHA)
 - staging API logs for one successful and one forced-failure secure upload
 - final promotion decision and owner sign-off
-- output of `pnpm qaVfsSecureUploadTestSuite` from staging candidate SHA
-- QA suite report artifact from `pnpm qaVfsSecureUploadTestEvidence`
+- output of `pnpm testVfsSecureUploadQaSuite` from staging candidate SHA
+- QA suite log artifact from `coverage/qa/vfsSecureUploadQaSuite.log`
 
 ## Sign-off Template
 
 Record this block in the release tracking artifact before promotion:
 
 - Candidate commit SHA:
-- QA suite command: `pnpm qaVfsSecureUploadTestSuite`
-- QA suite evidence command: `pnpm qaVfsSecureUploadTestEvidence`
+- QA suite command: `pnpm testVfsSecureUploadQaSuite`
+- QA suite evidence command: `pnpm testVfsSecureUploadQaSuite | tee coverage/qa/vfsSecureUploadQaSuite.log`
 - QA suite result: PASS/FAIL
 - Staging successful secure upload evidence link:
 - Staging forced-failure secure upload evidence link:

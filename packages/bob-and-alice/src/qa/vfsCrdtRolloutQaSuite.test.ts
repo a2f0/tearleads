@@ -57,7 +57,7 @@ describe('vfsCrdtRolloutQaSuite', () => {
     );
 
     expect(checkCalls).toHaveLength(0);
-    expect(report.command).toBe('pnpm qaVfsCrdtRolloutTestEvidence');
+    expect(report.command).toBe('pnpm testVfsCrdtRolloutQaSuite');
     expect(report.candidateSha).toBe('sha-123');
     expect(report.checksRun).toBe(CHECKS.length);
     expect(report.skipped).toBe(CHECKS.length);
@@ -105,7 +105,7 @@ describe('vfsCrdtRolloutQaSuite', () => {
 
   it('renders markdown report with sign-off section', () => {
     const markdown = formatMarkdownReport({
-      command: 'pnpm qaVfsCrdtRolloutTestEvidence',
+      command: 'pnpm testVfsCrdtRolloutQaSuite',
       candidateSha: 'sha-md',
       startedAt: '2026-03-03T00:00:00.000Z',
       completedAt: '2026-03-03T00:00:01.000Z',
