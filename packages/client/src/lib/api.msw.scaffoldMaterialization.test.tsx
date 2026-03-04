@@ -8,6 +8,11 @@ import {
   generateKeyPair,
   serializePublicKey
 } from '@tearleads/shared';
+import {
+  setupBobNotesShareForAliceDb,
+  setupBobPhotoAlbumShareForAliceDb,
+  setupWelcomeEmailsDb
+} from '@tearleads/shared/scaffolding';
 import { screen, waitFor } from '@testing-library/react';
 import { eq } from 'drizzle-orm';
 import { createElement } from 'react';
@@ -16,8 +21,6 @@ import { getDatabase } from '@/db';
 import { clearStoredAuth, storeAuth } from '@/lib/authStorage';
 import { renderWithDatabase } from '@/test/renderWithDatabase';
 import { getSharedTestContext } from '@/test/testContext';
-import { setupBobNotesShareForAliceDb } from '../../../shared/src/scaffolding/setupBobNotesShareForAliceDb.js';
-import { setupWelcomeEmailsDb } from '../../../shared/src/scaffolding/setupWelcomeEmailsDb.js';
 
 afterEach(() => {
   clearStoredAuth();
@@ -91,9 +94,18 @@ describe('DB scaffolding plaintext render integration', () => {
     const client = await ctx.pool.connect();
 
     let seededShare: Awaited<ReturnType<typeof setupBobNotesShareForAliceDb>>;
+    let seededPhotos: Awaited<
+      ReturnType<typeof setupBobPhotoAlbumShareForAliceDb>
+    >;
     let seededEmails: Awaited<ReturnType<typeof setupWelcomeEmailsDb>>;
     try {
       seededShare = await setupBobNotesShareForAliceDb({
+        client,
+        bobEmail: bob.email,
+        aliceEmail: alice.email,
+        hasOrganizationIdColumn: true
+      });
+      seededPhotos = await setupBobPhotoAlbumShareForAliceDb({
         client,
         bobEmail: bob.email,
         aliceEmail: alice.email,
@@ -116,6 +128,20 @@ describe('DB scaffolding plaintext render integration', () => {
       `SELECT encrypted_name, encrypted_session_key FROM vfs_registry WHERE id = $1`,
       [seededShare.folderId]
     );
+    const postgresAlbum = await ctx.pool.query<{
+      encrypted_name: string | null;
+      encrypted_session_key: string | null;
+    }>(
+      `SELECT encrypted_name, encrypted_session_key FROM vfs_registry WHERE id = $1`,
+      [seededPhotos.albumId]
+    );
+    const postgresPhoto = await ctx.pool.query<{
+      encrypted_name: string | null;
+      encrypted_session_key: string | null;
+    }>(
+      `SELECT encrypted_name, encrypted_session_key FROM vfs_registry WHERE id = $1`,
+      [seededPhotos.photoId]
+    );
     const postgresInboxFolder = await ctx.pool.query<{
       encrypted_name: string | null;
       encrypted_session_key: string | null;
@@ -131,14 +157,22 @@ describe('DB scaffolding plaintext render integration', () => {
     ]);
 
     const folderCiphertext = postgresFolder.rows[0]?.encrypted_name;
+    const albumCiphertext = postgresAlbum.rows[0]?.encrypted_name;
+    const photoCiphertext = postgresPhoto.rows[0]?.encrypted_name;
     const inboxCiphertext = postgresInboxFolder.rows[0]?.encrypted_name;
     const folderSessionKey = postgresFolder.rows[0]?.encrypted_session_key;
+    const albumSessionKey = postgresAlbum.rows[0]?.encrypted_session_key;
+    const photoSessionKey = postgresPhoto.rows[0]?.encrypted_session_key;
     const inboxSessionKey = postgresInboxFolder.rows[0]?.encrypted_session_key;
     const subjectCiphertext = postgresEmail.rows[0]?.encrypted_subject;
     const fromCiphertext = postgresEmail.rows[0]?.encrypted_from;
 
     expect(folderCiphertext).not.toBe('Notes shared with Alice');
     expectCiphertext(folderCiphertext);
+    expect(albumCiphertext).not.toBe('Photos shared with Alice');
+    expectCiphertext(albumCiphertext);
+    expect(photoCiphertext).not.toBe('Tearleads logo.svg');
+    expectCiphertext(photoCiphertext);
     expect(inboxCiphertext).not.toBe('Inbox');
     expectCiphertext(inboxCiphertext);
     expect(subjectCiphertext).not.toBe('Welcome to Tearleads');
@@ -146,6 +180,8 @@ describe('DB scaffolding plaintext render integration', () => {
     expect(fromCiphertext).not.toBe('system@tearleads.com');
     expectCiphertext(fromCiphertext);
     expect(folderSessionKey?.startsWith('scaffold-unwrapped:')).toBe(true);
+    expect(albumSessionKey?.startsWith('scaffold-unwrapped:')).toBe(true);
+    expect(photoSessionKey?.startsWith('scaffold-unwrapped:')).toBe(true);
     expect(inboxSessionKey?.startsWith('scaffold-unwrapped:')).toBe(true);
 
     const bobAuthUser = {
@@ -243,6 +279,32 @@ describe('DB scaffolding plaintext render integration', () => {
       expect.objectContaining({
         objectType: 'folder',
         encryptedName: 'Notes shared with Alice'
+      })
+    );
+    const localAlbum = await db
+      .select({
+        encryptedName: vfsRegistry.encryptedName,
+        objectType: vfsRegistry.objectType
+      })
+      .from(vfsRegistry)
+      .where(eq(vfsRegistry.id, seededPhotos.albumId));
+    expect(localAlbum[0]).toEqual(
+      expect.objectContaining({
+        objectType: 'album',
+        encryptedName: 'Photos shared with Alice'
+      })
+    );
+    const localPhoto = await db
+      .select({
+        encryptedName: vfsRegistry.encryptedName,
+        objectType: vfsRegistry.objectType
+      })
+      .from(vfsRegistry)
+      .where(eq(vfsRegistry.id, seededPhotos.photoId));
+    expect(localPhoto[0]).toEqual(
+      expect.objectContaining({
+        objectType: 'photo',
+        encryptedName: 'Tearleads logo.svg'
       })
     );
 

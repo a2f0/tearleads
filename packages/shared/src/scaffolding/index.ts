@@ -6,6 +6,14 @@ export type {
 } from './setupBobNotesShareForAliceDb.js';
 export { setupBobNotesShareForAliceDb } from './setupBobNotesShareForAliceDb.js';
 export type {
+  SetupBobPhotoAlbumShareForAliceDbInput,
+  SetupBobPhotoAlbumShareForAliceDbResult
+} from './setupBobPhotoAlbumShareForAliceDb.js';
+export {
+  SCAFFOLD_SHARED_LOGO_SVG,
+  setupBobPhotoAlbumShareForAliceDb
+} from './setupBobPhotoAlbumShareForAliceDb.js';
+export type {
   SetupWelcomeEmailsDbInput,
   SetupWelcomeEmailsDbResult,
   UserEmailResult
