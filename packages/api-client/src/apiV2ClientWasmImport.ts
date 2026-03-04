@@ -17,7 +17,7 @@ function resolveGlobalApiV2ClientWasmImporter(): ApiV2ClientWasmImporter | null 
 }
 
 function canUseGlobalApiV2ClientWasmImporter(): boolean {
-  return !import.meta.env.PROD;
+  return import.meta.env.MODE === 'test' || !import.meta.env.PROD;
 }
 
 export async function importApiV2ClientWasmModule(): Promise<unknown> {

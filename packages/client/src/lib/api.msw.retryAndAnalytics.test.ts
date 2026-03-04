@@ -11,6 +11,10 @@ import {
   AUTH_TOKEN_KEY,
   AUTH_USER_KEY
 } from '@/lib/authStorage';
+import {
+  installApiV2WasmBindingsTestOverride,
+  removeApiV2WasmBindingsTestOverride
+} from '@/test/apiV2WasmBindingsTestOverride';
 import { getSharedTestContext } from '@/test/testContext';
 
 const loadAuthStorage = async () => {
@@ -49,6 +53,7 @@ describe('api with msw', () => {
     Reflect.set(globalThis, '__tearleadsImportPingWasmModule', () =>
       Promise.resolve(mockedPingWasmModule)
     );
+    installApiV2WasmBindingsTestOverride();
     vi.clearAllMocks();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
@@ -62,6 +67,7 @@ describe('api with msw', () => {
 
   afterEach(async () => {
     Reflect.deleteProperty(globalThis, '__tearleadsImportPingWasmModule');
+    removeApiV2WasmBindingsTestOverride();
     const { clearActiveOrganizationId } = await import('@/lib/orgStorage');
     clearActiveOrganizationId();
     vi.unstubAllEnvs();

@@ -2,6 +2,10 @@ import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_TOKEN_KEY } from '@/lib/authStorage';
+import {
+  installApiV2WasmBindingsTestOverride,
+  removeApiV2WasmBindingsTestOverride
+} from '@/test/apiV2WasmBindingsTestOverride';
 import { getSharedTestContext } from '@/test/testContext';
 
 const mockLogApiEvent = vi.fn();
@@ -35,6 +39,7 @@ describe('api with msw admin routing', () => {
     Reflect.set(globalThis, '__tearleadsImportPingWasmModule', () =>
       Promise.resolve(mockedPingWasmModule)
     );
+    installApiV2WasmBindingsTestOverride();
     vi.clearAllMocks();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
@@ -48,6 +53,7 @@ describe('api with msw admin routing', () => {
 
   afterEach(() => {
     Reflect.deleteProperty(globalThis, '__tearleadsImportPingWasmModule');
+    removeApiV2WasmBindingsTestOverride();
     vi.unstubAllEnvs();
   });
 
