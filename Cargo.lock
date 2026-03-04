@@ -1450,7 +1450,7 @@ dependencies = [
 name = "tearleads-api-v2-contracts"
 version = "0.1.0"
 dependencies = [
- "prost 0.13.5",
+ "prost 0.14.3",
  "prost-build 0.14.3",
  "protoc-bin-vendored",
  "tonic",
