@@ -29,11 +29,30 @@ describe('api with msw admin routing', () => {
         return payload;
       }
     };
+    const mockedApiV2ClientWasmModule = {
+      normalizeConnectBaseUrl: (apiBaseUrl: string) => `${apiBaseUrl}/connect`,
+      adminGetPostgresInfoPath: () =>
+        '/tearleads.v1.AdminService/GetPostgresInfo',
+      adminGetTablesPath: () => '/tearleads.v1.AdminService/GetTables',
+      adminGetColumnsPath: () => '/tearleads.v1.AdminService/GetColumns',
+      adminGetRedisKeysPath: () => '/tearleads.v1.AdminService/GetRedisKeys',
+      adminGetRedisValuePath: () => '/tearleads.v1.AdminService/GetRedisValue',
+      buildRequestHeaders: (bearerToken?: string | null) => {
+        const headers: Record<string, string> = {};
+        if (typeof bearerToken === 'string' && bearerToken.length > 0) {
+          headers.authorization = bearerToken;
+        }
+        return { headers };
+      }
+    };
     vi.doMock('./pingWasmImport', () => ({
       importPingWasmModule: () => Promise.resolve(mockedPingWasmModule)
     }));
     Reflect.set(globalThis, '__tearleadsImportPingWasmModule', () =>
       Promise.resolve(mockedPingWasmModule)
+    );
+    Reflect.set(globalThis, '__tearleadsImportApiV2ClientWasmModule', () =>
+      Promise.resolve(mockedApiV2ClientWasmModule)
     );
     vi.clearAllMocks();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
@@ -48,6 +67,7 @@ describe('api with msw admin routing', () => {
 
   afterEach(() => {
     Reflect.deleteProperty(globalThis, '__tearleadsImportPingWasmModule');
+    Reflect.deleteProperty(globalThis, '__tearleadsImportApiV2ClientWasmModule');
     vi.unstubAllEnvs();
   });
 
@@ -133,7 +153,10 @@ describe('api with msw admin routing', () => {
       wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetTables')
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetColumns')
+      wasApiRequestMade(
+        'POST',
+        '/connect/tearleads.v2.AdminService/GetColumns'
+      )
     ).toBe(true);
     expect(
       wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetRows')

@@ -43,11 +43,30 @@ describe('api with msw', () => {
         return payload;
       }
     };
+    const mockedApiV2ClientWasmModule = {
+      normalizeConnectBaseUrl: (apiBaseUrl: string) => `${apiBaseUrl}/connect`,
+      adminGetPostgresInfoPath: () =>
+        '/tearleads.v1.AdminService/GetPostgresInfo',
+      adminGetTablesPath: () => '/tearleads.v1.AdminService/GetTables',
+      adminGetColumnsPath: () => '/tearleads.v1.AdminService/GetColumns',
+      adminGetRedisKeysPath: () => '/tearleads.v1.AdminService/GetRedisKeys',
+      adminGetRedisValuePath: () => '/tearleads.v1.AdminService/GetRedisValue',
+      buildRequestHeaders: (bearerToken?: string | null) => {
+        const headers: Record<string, string> = {};
+        if (typeof bearerToken === 'string' && bearerToken.length > 0) {
+          headers.authorization = bearerToken;
+        }
+        return { headers };
+      }
+    };
     vi.doMock('./pingWasmImport', () => ({
       importPingWasmModule: () => Promise.resolve(mockedPingWasmModule)
     }));
     Reflect.set(globalThis, '__tearleadsImportPingWasmModule', () =>
       Promise.resolve(mockedPingWasmModule)
+    );
+    Reflect.set(globalThis, '__tearleadsImportApiV2ClientWasmModule', () =>
+      Promise.resolve(mockedApiV2ClientWasmModule)
     );
     vi.clearAllMocks();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
@@ -62,6 +81,7 @@ describe('api with msw', () => {
 
   afterEach(async () => {
     Reflect.deleteProperty(globalThis, '__tearleadsImportPingWasmModule');
+    Reflect.deleteProperty(globalThis, '__tearleadsImportApiV2ClientWasmModule');
     const { clearActiveOrganizationId } = await import('@/lib/orgStorage');
     clearActiveOrganizationId();
     vi.unstubAllEnvs();
