@@ -6,6 +6,7 @@ const mockToError = vi.fn();
 const mockLogWarn = vi.fn();
 const mockNotificationWarning = vi.fn();
 const mockValidateAndPruneOrphanedInstances = vi.fn();
+const mockAutoInitializeDatabase = vi.fn();
 const mockHasPersistedSession = vi.fn();
 const mockIsDatabaseSetUp = vi.fn();
 const mockRestoreDatabaseSession = vi.fn();
@@ -14,6 +15,7 @@ const mockGetInstances = vi.fn();
 const mockInitializeRegistry = vi.fn();
 const mockSetActiveInstanceId = vi.fn();
 const mockTouchInstance = vi.fn();
+const mockUpdateInstance = vi.fn();
 
 vi.mock('@/hooks/app', () => ({
   emitInstanceChange: (...args: unknown[]) => mockEmitInstanceChange(...args)
@@ -41,6 +43,8 @@ vi.mock('../crypto/keyManager', () => ({
 }));
 
 vi.mock('../index', () => ({
+  autoInitializeDatabase: (...args: unknown[]) =>
+    mockAutoInitializeDatabase(...args),
   hasPersistedSession: (...args: unknown[]) => mockHasPersistedSession(...args),
   isDatabaseSetUp: (...args: unknown[]) => mockIsDatabaseSetUp(...args),
   restoreDatabaseSession: (...args: unknown[]) =>
@@ -53,7 +57,8 @@ vi.mock('../instanceRegistry', () => ({
   getInstances: (...args: unknown[]) => mockGetInstances(...args),
   initializeRegistry: (...args: unknown[]) => mockInitializeRegistry(...args),
   setActiveInstanceId: (...args: unknown[]) => mockSetActiveInstanceId(...args),
-  touchInstance: (...args: unknown[]) => mockTouchInstance(...args)
+  touchInstance: (...args: unknown[]) => mockTouchInstance(...args),
+  updateInstance: (...args: unknown[]) => mockUpdateInstance(...args)
 }));
 
 function createOptions(hadActiveSession = false) {
@@ -75,6 +80,11 @@ function createOptions(hadActiveSession = false) {
 describe('initializeAndRestoreDatabaseState', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAutoInitializeDatabase.mockResolvedValue({ id: 'db' });
+    mockHasPersistedSession.mockResolvedValue(false);
+    mockIsDatabaseSetUp.mockResolvedValue(true);
+    mockRestoreDatabaseSession.mockResolvedValue(null);
+    mockUpdateInstance.mockResolvedValue(undefined);
     mockToError.mockImplementation((error: unknown) => {
       if (error instanceof Error) {
         return error;
@@ -83,7 +93,45 @@ describe('initializeAndRestoreDatabaseState', () => {
     });
   });
 
-  it('initializes and updates instance state without recovery warning', async () => {
+  it('auto-initializes unset databases and applies deferred metadata', async () => {
+    const active = { id: 'active-1', name: 'Primary' };
+    const database = { id: 'auto-db' };
+    mockInitializeRegistry.mockResolvedValue(active);
+    mockGetInstances.mockResolvedValue([active]);
+    mockValidateAndPruneOrphanedInstances.mockResolvedValue({
+      cleaned: false,
+      orphanedKeystoreEntries: [],
+      orphanedRegistryEntries: []
+    });
+    mockIsDatabaseSetUp.mockResolvedValue(false);
+    mockHasPersistedSession
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    mockAutoInitializeDatabase.mockResolvedValue(database);
+
+    const options = createOptions();
+    await initializeAndRestoreDatabaseState(options);
+
+    expect(mockAutoInitializeDatabase).toHaveBeenCalledWith('active-1');
+    expect(options.setDb).toHaveBeenCalledWith(database);
+    expect(options.setInstances).toHaveBeenCalledWith([active]);
+    expect(options.setCurrentInstanceId).toHaveBeenCalledWith('active-1');
+    expect(options.setCurrentInstanceName).toHaveBeenCalledWith('Primary');
+    expect(mockEmitInstanceChange).toHaveBeenCalledWith('active-1');
+    expect(options.setIsSetUp).toHaveBeenNthCalledWith(1, false);
+    expect(options.setIsSetUp).toHaveBeenNthCalledWith(2, true);
+    expect(options.setHasPersisted).toHaveBeenNthCalledWith(1, false);
+    expect(options.setHasPersisted).toHaveBeenNthCalledWith(2, true);
+    expect(mockUpdateInstance).toHaveBeenCalledWith('active-1', {
+      passwordDeferred: true
+    });
+    expect(options.markSessionActive).toHaveBeenCalledTimes(1);
+    expect(mockTouchInstance).toHaveBeenCalledWith('active-1');
+    expect(mockNotificationWarning).not.toHaveBeenCalled();
+    expect(options.setIsLoading).toHaveBeenCalledWith(false);
+  });
+
+  it('keeps hasPersisted false when auto-init session persistence is unavailable', async () => {
     const active = { id: 'active-1', name: 'Primary' };
     mockInitializeRegistry.mockResolvedValue(active);
     mockGetInstances.mockResolvedValue([active]);
@@ -93,19 +141,18 @@ describe('initializeAndRestoreDatabaseState', () => {
       orphanedRegistryEntries: []
     });
     mockIsDatabaseSetUp.mockResolvedValue(false);
-    mockHasPersistedSession.mockResolvedValue(false);
+    mockHasPersistedSession
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(false);
 
     const options = createOptions();
     await initializeAndRestoreDatabaseState(options);
 
-    expect(options.setInstances).toHaveBeenCalledWith([active]);
-    expect(options.setCurrentInstanceId).toHaveBeenCalledWith('active-1');
-    expect(options.setCurrentInstanceName).toHaveBeenCalledWith('Primary');
-    expect(mockEmitInstanceChange).toHaveBeenCalledWith('active-1');
-    expect(options.setIsSetUp).toHaveBeenCalledWith(false);
-    expect(options.setHasPersisted).toHaveBeenCalledWith(false);
-    expect(mockNotificationWarning).not.toHaveBeenCalled();
-    expect(options.setIsLoading).toHaveBeenCalledWith(false);
+    expect(mockAutoInitializeDatabase).toHaveBeenCalledWith('active-1');
+    expect(options.setHasPersisted).toHaveBeenLastCalledWith(false);
+    expect(mockUpdateInstance).toHaveBeenCalledWith('active-1', {
+      passwordDeferred: true
+    });
   });
 
   it('warns and clears persisted flag when session restore fails', async () => {

@@ -469,11 +469,12 @@ describe('App deferred lock flow', () => {
     expect(mockLock).not.toHaveBeenCalled();
   });
 
-  it('locks even when deferred lookup fails', async () => {
+  it('blocks lock when deferred state cannot be verified', async () => {
     const user = userEvent.setup();
     mockIsUnlocked = true;
     mockIsAuthenticated = false;
     mockCurrentInstanceId = 'instance-1';
+    mockInstances = [];
     mockGetInstance.mockRejectedValue(new Error('lookup failed'));
 
     renderApp();
@@ -482,6 +483,10 @@ describe('App deferred lock flow', () => {
 
     expect(mockGetInstance).toHaveBeenCalledWith('instance-1');
     expect(mockSetDatabasePassword).not.toHaveBeenCalled();
-    await waitFor(() => expect(mockLock).toHaveBeenCalledWith(true));
+    expect(mockLock).not.toHaveBeenCalled();
+    expect(mockNotificationWarning).toHaveBeenCalledWith(
+      'Unable to Lock Instance',
+      'Could not verify database password state. Try again.'
+    );
   });
 });

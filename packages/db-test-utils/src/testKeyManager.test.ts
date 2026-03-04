@@ -49,6 +49,21 @@ describe('TestKeyManager', () => {
     });
   });
 
+  describe('deferred auto-init helpers', () => {
+    it('setupAutoKey does not mark key as existing until persisted or password-protected', async () => {
+      const km = new TestKeyManager();
+      await km.setupAutoKey();
+      expect(await km.hasExistingKey()).toBe(false);
+    });
+
+    it('setPasswordForCurrentKey marks an auto key as existing', async () => {
+      const km = new TestKeyManager();
+      await km.setupAutoKey();
+      await km.setPasswordForCurrentKey('password');
+      expect(await km.hasExistingKey()).toBe(true);
+    });
+  });
+
   describe('unlockWithPassword', () => {
     it('throws if not set up', async () => {
       const km = new TestKeyManager();
