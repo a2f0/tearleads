@@ -11,7 +11,7 @@ const mockedApiV2ClientWasmModule = {
   buildRequestHeaders: (bearerToken?: string | null) => {
     const headers: Record<string, string> = {};
     if (typeof bearerToken === 'string' && bearerToken.length > 0) {
-      headers.authorization = bearerToken;
+      headers['authorization'] = bearerToken;
     }
     return { headers };
   }
