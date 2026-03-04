@@ -12,6 +12,8 @@ use tower::ServiceExt;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 
+const ADMIN_HARNESS_ENV_KEY: &str = "API_V2_ENABLE_ADMIN_HARNESS";
+
 pub use admin_auth::{
     AdminAuthError, AdminAuthErrorKind, AdminOperation, AdminRequestAuthorizer,
     HeaderRoleAdminAuthorizer,
@@ -25,12 +27,16 @@ use ping::ping;
 /// When `origins` is empty, all origins are allowed (local development).
 /// Otherwise only the listed origins are accepted.
 pub fn app_with_origins(origins: &str) -> Router {
+    app_with_harness_flag(origins, should_enable_admin_harness())
+}
+
+fn app_with_harness_flag(origins: &str, enable_admin_harness: bool) -> Router {
     let router = Router::new()
         .route("/v2/ping", get(ping))
         .layer(cors_layer(origins))
         .layer(TraceLayer::new_for_http());
 
-    if should_enable_admin_harness() {
+    if enable_admin_harness {
         let admin_handler = admin_harness::create_admin_harness_handler();
         let admin_service = tonic_web::enable(AdminServiceServer::new(admin_handler))
             .map_request(|request: axum::http::Request<axum::body::Body>| request.map(boxed));
@@ -59,13 +65,65 @@ fn cors_layer(origins: &str) -> CorsLayer {
 }
 
 fn should_enable_admin_harness() -> bool {
-    let value = match std::env::var("API_V2_ENABLE_ADMIN_HARNESS") {
-        Ok(value) => value,
-        Err(_) => return false,
-    };
+    let value = std::env::var(ADMIN_HARNESS_ENV_KEY).unwrap_or_default();
+    is_truthy_env_flag(&value)
+}
 
+fn is_truthy_env_flag(value: &str) -> bool {
     matches!(
         value.trim().to_ascii_lowercase().as_str(),
         "1" | "true" | "yes" | "on"
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::body::Body;
+    use axum::http::{Request, StatusCode};
+    use tower::ServiceExt;
+
+    use super::{app_with_harness_flag, is_truthy_env_flag};
+
+    #[test]
+    fn truthy_flag_parsing_is_stable() {
+        assert!(is_truthy_env_flag("1"));
+        assert!(is_truthy_env_flag("TRUE"));
+        assert!(is_truthy_env_flag(" yes "));
+        assert!(is_truthy_env_flag("On"));
+        assert!(!is_truthy_env_flag("0"));
+        assert!(!is_truthy_env_flag("false"));
+        assert!(!is_truthy_env_flag(""));
+    }
+
+    #[tokio::test]
+    async fn harness_flag_controls_connect_route_mounting() {
+        let request = Request::builder()
+            .method("POST")
+            .uri("/connect/tearleads.v2.AdminService/GetTables")
+            .header("content-type", "application/grpc-web+proto")
+            .header("x-grpc-web", "1")
+            .header("authorization", "Bearer test-token")
+            .body(Body::empty())
+            .expect("request should build");
+
+        let without_harness = app_with_harness_flag("", false)
+            .oneshot(request)
+            .await
+            .expect("router should return a response");
+        assert_eq!(without_harness.status(), StatusCode::NOT_FOUND);
+
+        let with_harness_request = Request::builder()
+            .method("POST")
+            .uri("/connect/tearleads.v2.AdminService/GetTables")
+            .header("content-type", "application/grpc-web+proto")
+            .header("x-grpc-web", "1")
+            .header("authorization", "Bearer test-token")
+            .body(Body::empty())
+            .expect("request should build");
+        let with_harness = app_with_harness_flag("", true)
+            .oneshot(with_harness_request)
+            .await
+            .expect("router should return a response");
+        assert_ne!(with_harness.status(), StatusCode::NOT_FOUND);
+    }
 }
