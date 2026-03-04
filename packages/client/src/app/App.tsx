@@ -172,6 +172,8 @@ function App() {
     try {
       if (isUnlocked) {
         let requiresPasswordBeforeLock = false;
+        const lockStateVerificationWarningMessage =
+          'Could not verify database password state. Try again.';
         const cachedInstance = currentInstanceId
           ? instances.find((instance) => instance.id === currentInstanceId)
           : null;
@@ -185,15 +187,19 @@ function App() {
             } else if (!cachedInstance) {
               notificationStore.warning(
                 'Unable to Lock Instance',
-                'Could not verify database password state. Try again.'
+                lockStateVerificationWarningMessage
               );
               return;
             }
-          } catch {
+          } catch (error) {
+            console.warn(
+              'Failed to resolve deferred-password lock state before locking:',
+              error
+            );
             if (!cachedInstance) {
               notificationStore.warning(
                 'Unable to Lock Instance',
-                'Could not verify database password state. Try again.'
+                lockStateVerificationWarningMessage
               );
               return;
             }
