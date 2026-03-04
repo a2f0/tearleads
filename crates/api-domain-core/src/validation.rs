@@ -2,6 +2,8 @@
 
 use std::{error::Error, fmt};
 
+const SUPPORTED_SQL_IDENTIFIER_FIELDS: [&str; 4] = ["schema", "table", "key", "cursor"];
+
 /// Validation error for user-controlled domain inputs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DomainValidationError {
@@ -82,11 +84,19 @@ pub fn normalize_sql_identifier(
     Ok(trimmed.to_string())
 }
 
+/// Resolves dynamic field names to canonical SQL identifier fields.
+pub fn canonical_sql_identifier_field(field: &str) -> Option<&'static str> {
+    SUPPORTED_SQL_IDENTIFIER_FIELDS
+        .iter()
+        .copied()
+        .find(|candidate| *candidate == field)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        DomainValidationError, normalize_redis_scan_cursor, normalize_redis_scan_limit,
-        normalize_sql_identifier,
+        DomainValidationError, canonical_sql_identifier_field, normalize_redis_scan_cursor,
+        normalize_redis_scan_limit, normalize_sql_identifier,
     };
 
     #[test]
@@ -143,5 +153,14 @@ mod tests {
                 "identifier must contain only ASCII letters, digits, or underscores",
             )
         );
+    }
+
+    #[test]
+    fn canonical_sql_identifier_field_resolves_known_fields() {
+        assert_eq!(canonical_sql_identifier_field("schema"), Some("schema"));
+        assert_eq!(canonical_sql_identifier_field("table"), Some("table"));
+        assert_eq!(canonical_sql_identifier_field("key"), Some("key"));
+        assert_eq!(canonical_sql_identifier_field("cursor"), Some("cursor"));
+        assert_eq!(canonical_sql_identifier_field("organization"), None);
     }
 }

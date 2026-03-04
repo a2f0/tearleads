@@ -96,5 +96,6 @@ if ! rustup target list --installed | grep -qx 'wasm32-unknown-unknown'; then
   rustup target add wasm32-unknown-unknown
 fi
 cargo check -p tearleads-api-client-wasm --target wasm32-unknown-unknown
+cargo check -p tearleads-api-domain-wasm --target wasm32-unknown-unknown
 cargo llvm-cov --package tearleads-api-v2 --lib --tests --ignore-filename-regex 'main\.rs$' --fail-under-lines 100 --summary-only
 cargo llvm-cov --package tearleads-api-v2-ping-wasm --lib --tests --fail-under-lines 100 --summary-only

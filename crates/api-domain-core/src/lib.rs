@@ -3,6 +3,6 @@
 mod validation;
 
 pub use validation::{
-    DomainValidationError, normalize_redis_scan_cursor, normalize_redis_scan_limit,
-    normalize_sql_identifier,
+    DomainValidationError, canonical_sql_identifier_field, normalize_redis_scan_cursor,
+    normalize_redis_scan_limit, normalize_sql_identifier,
 };

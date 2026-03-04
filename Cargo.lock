@@ -1158,6 +1158,14 @@ name = "tearleads-api-domain-core"
 version = "0.1.0"
 
 [[package]]
+name = "tearleads-api-domain-wasm"
+version = "0.1.0"
+dependencies = [
+ "tearleads-api-domain-core",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "tearleads-api-v2"
 version = "0.1.0"
 dependencies = [
