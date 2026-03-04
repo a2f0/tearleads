@@ -4,6 +4,12 @@ type RequestInitWithDuplex = RequestInit & {
   duplex?: 'half';
 };
 
+export interface ExpressPassthroughRouteOverride {
+  pathnamePattern: RegExp;
+  targetPort: number;
+  pathPrefix?: string;
+}
+
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -11,18 +17,25 @@ function escapeRegex(str: string): string {
 export function createExpressPassthroughHandlers(
   baseUrl: string,
   targetPort: number,
-  pathPrefix = ''
+  pathPrefix = '',
+  routeOverrides: ExpressPassthroughRouteOverride[] = []
 ) {
   return [
     http.all(new RegExp(`^${escapeRegex(baseUrl)}`), async ({ request }) => {
       const original = new URL(request.url);
+      const routeOverride = routeOverrides.find((override) =>
+        override.pathnamePattern.test(original.pathname)
+      );
+      const resolvedTargetPort = routeOverride?.targetPort ?? targetPort;
+      const resolvedPathPrefix = routeOverride?.pathPrefix ?? pathPrefix;
+
       // Prepend pathPrefix (e.g. '/v1') unless the path already starts with it
       let pathname = original.pathname;
-      if (pathPrefix && !pathname.startsWith(pathPrefix)) {
-        pathname = pathPrefix + pathname;
+      if (resolvedPathPrefix && !pathname.startsWith(resolvedPathPrefix)) {
+        pathname = resolvedPathPrefix + pathname;
       }
       const normalizedPathname = `/${pathname.replace(/^\/+/, '')}`;
-      const target = new URL(`http://localhost:${String(targetPort)}`);
+      const target = new URL(`http://localhost:${String(resolvedTargetPort)}`);
       target.pathname = normalizedPathname;
       target.search = original.search;
 

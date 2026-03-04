@@ -1,6 +1,9 @@
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
-import { createExpressPassthroughHandlers } from './passthroughHandlers.js';
+import {
+  createExpressPassthroughHandlers,
+  type ExpressPassthroughRouteOverride
+} from './passthroughHandlers.js';
 
 export interface RecordedApiRequest {
   method: string;
@@ -58,7 +61,8 @@ export const wasApiRequestMade = (
 export function configureForExpressPassthrough(
   baseUrl: string,
   port: number,
-  pathPrefix = '/v1'
+  pathPrefix = '/v1',
+  routeOverrides: ExpressPassthroughRouteOverride[] = []
 ): void {
   const base = baseUrl.replace(/\/$/, '');
   server.resetHandlers(
@@ -69,7 +73,12 @@ export function configureForExpressPassthrough(
         version: '0.1.0-test'
       })
     ),
-    ...createExpressPassthroughHandlers(baseUrl, port, pathPrefix)
+    ...createExpressPassthroughHandlers(
+      baseUrl,
+      port,
+      pathPrefix,
+      routeOverrides
+    )
   );
 }
 

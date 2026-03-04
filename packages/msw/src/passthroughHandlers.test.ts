@@ -49,26 +49,30 @@ async function stopServer(server: Server): Promise<void> {
 describe('createExpressPassthroughHandlers', () => {
   const mswServer = setupServer();
   let attacker: RecordingServer;
-  let target: RecordingServer;
+  let v1Target: RecordingServer;
+  let v2Target: RecordingServer;
 
   beforeAll(async () => {
     attacker = await startRecordingServer();
-    target = await startRecordingServer();
+    v1Target = await startRecordingServer();
+    v2Target = await startRecordingServer();
     mswServer.listen({ onUnhandledRequest: 'error' });
   });
 
   beforeEach(() => {
     attacker.hits.length = 0;
-    target.hits.length = 0;
+    v1Target.hits.length = 0;
+    v2Target.hits.length = 0;
     mswServer.resetHandlers(
-      ...createExpressPassthroughHandlers('http://example.test', target.port)
+      ...createExpressPassthroughHandlers('http://example.test', v1Target.port)
     );
   });
 
   afterAll(async () => {
     mswServer.close();
     await stopServer(attacker.server);
-    await stopServer(target.server);
+    await stopServer(v1Target.server);
+    await stopServer(v2Target.server);
   });
 
   it('pins passthrough requests to the target localhost host', async () => {
@@ -78,8 +82,41 @@ describe('createExpressPassthroughHandlers', () => {
 
     expect(response.ok).toBe(true);
     expect(attacker.hits).toHaveLength(0);
-    expect(target.hits).toEqual([
+    expect(v1Target.hits).toEqual([
       `/127.0.0.1:${String(attacker.port)}/probe?x=1`
+    ]);
+  });
+
+  it('routes matched paths to override target and skips default prefix', async () => {
+    mswServer.resetHandlers(
+      ...createExpressPassthroughHandlers(
+        'http://example.test',
+        v1Target.port,
+        '/v1',
+        [
+          {
+            pathnamePattern: /^\/connect\/tearleads\.v2\.AdminService\//,
+            targetPort: v2Target.port,
+            pathPrefix: ''
+          }
+        ]
+      )
+    );
+
+    const v1Response = await fetch(
+      'http://example.test/connect/tearleads.v1.AuthService/Login'
+    );
+    const v2Response = await fetch(
+      'http://example.test/connect/tearleads.v2.AdminService/GetTables'
+    );
+
+    expect(v1Response.ok).toBe(true);
+    expect(v2Response.ok).toBe(true);
+    expect(v1Target.hits).toEqual([
+      '/v1/connect/tearleads.v1.AuthService/Login'
+    ]);
+    expect(v2Target.hits).toEqual([
+      '/connect/tearleads.v2.AdminService/GetTables'
     ]);
   });
 });

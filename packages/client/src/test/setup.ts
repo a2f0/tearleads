@@ -1,5 +1,9 @@
 import '@testing-library/jest-dom/vitest';
-import type { TestContext } from '@tearleads/api-test-utils';
+import {
+  type ApiV2ServiceHarness,
+  startApiV2ServiceHarness,
+  type TestContext
+} from '@tearleads/api-test-utils';
 import {
   configureForExpressPassthrough,
   getRecordedApiRequests,
@@ -18,11 +22,13 @@ import {
 } from './testContext';
 
 let testContext: TestContext | null = null;
+let apiV2Harness: ApiV2ServiceHarness | null = null;
 
 const REAL_API_TEST_PATH_PATTERNS = [
   /\/src\/lib\/api\.msw(?:\..+)?\.test\.tsx?$/,
   /\/src\/test\/msw\/.*\.test\.tsx?$/
 ];
+const API_V2_ADMIN_ROUTE_PATTERN = /^\/connect\/tearleads\.v2\.AdminService\//;
 
 function shouldUseRealApiForCurrentTest(): boolean {
   const testPath = expect.getState().testPath;
@@ -37,12 +43,37 @@ async function ensureRealApiTestContext(): Promise<TestContext> {
     return testContext;
   }
   const { createTestContext } = await import('@tearleads/api-test-utils');
-  testContext = await createTestContext(async () => {
-    const api = await import('@tearleads/api');
-    return { app: api.app, migrations: api.migrations };
-  });
+  const [createdTestContext, harness] = await Promise.all([
+    createTestContext(async () => {
+      const api = await import('@tearleads/api');
+      return { app: api.app, migrations: api.migrations };
+    }),
+    startApiV2ServiceHarness()
+  ]);
+  testContext = createdTestContext;
+  apiV2Harness = harness;
   setSharedTestContext(testContext);
   return testContext;
+}
+
+function configurePassthroughRoutes(ctx: TestContext): void {
+  const routeOverrides =
+    apiV2Harness === null
+      ? []
+      : [
+          {
+            pathnamePattern: API_V2_ADMIN_ROUTE_PATTERN,
+            targetPort: apiV2Harness.port,
+            pathPrefix: ''
+          }
+        ];
+
+  configureForExpressPassthrough(
+    'http://localhost',
+    ctx.port,
+    '/v1',
+    routeOverrides
+  );
 }
 
 // Enable React act() environment checks before tests run.
@@ -245,14 +276,14 @@ beforeEach(async () => {
     return;
   }
   const ctx = await ensureRealApiTestContext();
-  configureForExpressPassthrough('http://localhost', ctx.port);
+  configurePassthroughRoutes(ctx);
 });
 
 afterEach(async () => {
   cleanup();
   server.resetHandlers();
   if (testContext) {
-    configureForExpressPassthrough('http://localhost', testContext.port);
+    configurePassthroughRoutes(testContext);
     const usedApi = getRecordedApiRequests().length > 0;
     const usedSharedContext = wasSharedTestContextAccessed();
     if (usedApi || usedSharedContext) {
@@ -265,6 +296,8 @@ afterEach(async () => {
 
 afterAll(async () => {
   server.close();
+  await apiV2Harness?.stop();
+  apiV2Harness = null;
   await testContext?.teardown();
   testContext = null;
 });

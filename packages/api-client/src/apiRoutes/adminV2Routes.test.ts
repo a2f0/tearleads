@@ -128,7 +128,10 @@ describe('adminV2Routes', () => {
     });
     expect(getPostgresInfo).toHaveBeenCalledTimes(1);
     expect(getPostgresInfo.mock.calls[0]?.[1]).toEqual({
-      headers: { authorization: 'Bearer token-123' }
+      headers: {
+        authorization: 'Bearer token-123',
+        'x-tearleads-role': 'admin'
+      }
     });
     expect(logEvent).toHaveBeenCalledWith(
       'api_get_admin_postgres_info',
@@ -235,7 +238,12 @@ describe('adminV2Routes', () => {
     });
     expect(getColumns).toHaveBeenCalledWith(
       { schema: 'public', table: 'users' },
-      { headers: { authorization: 'Bearer token-123' } }
+      {
+        headers: {
+          authorization: 'Bearer token-123',
+          'x-tearleads-role': 'admin'
+        }
+      }
     );
     expect(logEvent).toHaveBeenCalledWith(
       'api_get_admin_postgres_columns',
