@@ -6,7 +6,6 @@ import { DatabaseTest } from './DatabaseTest';
 const mockUseDatabaseContext = vi.fn();
 const mockGetDatabaseAdapter = vi.fn();
 const mockSetDatabasePassword = vi.fn();
-const mockGetInstance = vi.fn();
 const mockUpdateInstance = vi.fn();
 let capturedInstanceChangeCallback: (() => void) | null = null;
 
@@ -20,7 +19,6 @@ vi.mock('@/db', () => ({
 }));
 
 vi.mock('@/db/instanceRegistry', () => ({
-  getInstance: (...args: unknown[]) => mockGetInstance(...args),
   updateInstance: (...args: unknown[]) => mockUpdateInstance(...args)
 }));
 
@@ -42,7 +40,6 @@ describe('DatabaseTest', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.restoreAllMocks();
-    mockGetInstance.mockResolvedValue(null);
   });
 
   function setupMockContext(overrides = {}) {
@@ -236,6 +233,9 @@ describe('DatabaseTest', () => {
 
       render(<DatabaseTest />);
 
+      const passwordInput = screen.getByTestId('db-password-input');
+      await user.type(passwordInput, 'testpassword');
+
       const setupButton = screen.getByTestId('db-setup-button');
       await user.click(setupButton);
 
@@ -264,6 +264,9 @@ describe('DatabaseTest', () => {
       setupMockContext({ setup, isSetUp: false, isUnlocked: false });
 
       render(<DatabaseTest />);
+
+      const passwordInput = screen.getByTestId('db-password-input');
+      await user.type(passwordInput, 'testpassword');
 
       const setupButton = screen.getByTestId('db-setup-button');
       await user.click(setupButton);
@@ -294,7 +297,7 @@ describe('DatabaseTest', () => {
       render(<DatabaseTest />);
 
       const passwordInput = screen.getByTestId('db-password-input');
-      await user.type(passwordInput, '{enter}');
+      await user.type(passwordInput, 'testpassword{enter}');
 
       await waitFor(() => {
         expect(setup).toHaveBeenCalled();
@@ -309,7 +312,7 @@ describe('DatabaseTest', () => {
       render(<DatabaseTest />);
 
       const passwordInput = screen.getByTestId('db-password-input');
-      await user.type(passwordInput, '{enter}');
+      await user.type(passwordInput, 'testpassword{enter}');
 
       await waitFor(() => {
         expect(unlock).toHaveBeenCalled();
@@ -360,6 +363,9 @@ describe('DatabaseTest', () => {
       expect(capturedInstanceChangeCallback).not.toBeNull();
 
       // Perform setup to set testResult
+      const passwordInput = screen.getByTestId('db-password-input');
+      await user.type(passwordInput, 'testpassword');
+
       const setupButton = screen.getByTestId('db-setup-button');
       await user.click(setupButton);
 
