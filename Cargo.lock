@@ -1346,7 +1346,6 @@ name = "tearleads-data-access-postgres"
 version = "0.1.0"
 dependencies = [
  "futures",
- "tearleads-api-domain-core",
  "tearleads-data-access-traits",
 ]
 
