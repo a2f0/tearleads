@@ -1,4 +1,4 @@
-export interface AdminGetColumnsRequest {
+interface AdminGetColumnsRequest {
   schema: string;
   table: string;
 }
@@ -10,7 +10,7 @@ export interface AdminGetRowsOptions {
   sortDirection?: 'asc' | 'desc';
 }
 
-export interface AdminGetRowsRequest {
+interface AdminGetRowsRequest {
   schema: string;
   table: string;
   limit: number;
@@ -19,12 +19,12 @@ export interface AdminGetRowsRequest {
   sortDirection?: string;
 }
 
-export interface AdminGetRedisKeysRequest {
+interface AdminGetRedisKeysRequest {
   cursor: string;
   limit: number;
 }
 
-export interface AdminGetRedisValueRequest {
+interface AdminGetRedisValueRequest {
   key: string;
 }
 
