@@ -77,6 +77,7 @@ fn is_truthy_env_flag(value: &str) -> bool {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
@@ -120,10 +121,10 @@ mod tests {
             .header("authorization", "Bearer test-token")
             .body(Body::empty())
             .expect("request should build");
-        let with_harness = app_with_harness_flag("", true)
+        let with_harness_result = app_with_harness_flag("", true)
             .oneshot(with_harness_request)
-            .await
-            .expect("router should return a response");
+            .await;
+        let with_harness = with_harness_result.expect("router should return a response");
         assert_ne!(with_harness.status(), StatusCode::NOT_FOUND);
     }
 }

@@ -183,6 +183,7 @@ pub(crate) fn create_admin_harness_handler() -> AdminServiceHandler<
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use crate::{AdminRequestAuthorizer, admin_auth::map_admin_auth_error};
     use tearleads_api_v2_contracts::tearleads::v2::{
