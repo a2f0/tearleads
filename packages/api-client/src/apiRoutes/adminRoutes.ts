@@ -1,5 +1,4 @@
 import type {
-  AdminAccessContextResponse,
   AdminUserResponse,
   AdminUsersResponse,
   AdminUserUpdatePayload,
@@ -48,12 +47,7 @@ function requestAdminJson<TResponse>(
 }
 
 export const adminRoutes = {
-  getContext: () =>
-    requestAdminJson<AdminAccessContextResponse>(
-      'GetContext',
-      {},
-      'api_get_admin_organizations'
-    ),
+  getContext: () => adminV2Routes.getContext(),
   postgres: {
     getInfo: () => adminV2Routes.postgres.getInfo(),
     getTables: () => adminV2Routes.postgres.getTables(),
