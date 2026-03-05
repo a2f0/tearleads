@@ -1,9 +1,10 @@
 //! Test harness admin repositories and auth policy for browser-facing v2 routes.
 
 use tearleads_data_access_traits::{
-    AdminScopeOrganization, BoxFuture, PostgresAdminReadRepository, PostgresConnectionInfo,
-    PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo,
-    RedisAdminRepository, RedisKeyInfo, RedisKeyScanPage, RedisKeyValueRecord, RedisValue,
+    AdminGroupSummary, AdminScopeOrganization, BoxFuture, PostgresAdminReadRepository,
+    PostgresConnectionInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
+    PostgresTableInfo, RedisAdminRepository, RedisKeyInfo, RedisKeyScanPage, RedisKeyValueRecord,
+    RedisValue,
 };
 
 use crate::{
@@ -129,6 +130,48 @@ impl PostgresAdminReadRepository for StaticPostgresRepository {
                     id,
                 })
                 .collect())
+        })
+    }
+
+    fn list_groups(
+        &self,
+        organization_ids: Option<Vec<String>>,
+    ) -> BoxFuture<'_, Result<Vec<AdminGroupSummary>, tearleads_data_access_traits::DataAccessError>>
+    {
+        Box::pin(async move {
+            let groups = vec![
+                AdminGroupSummary {
+                    id: String::from("group-1"),
+                    organization_id: String::from("org-1"),
+                    name: String::from("Core Admin"),
+                    description: Some(String::from("Admin operators")),
+                    created_at: String::from("2026-01-01T00:00:00Z"),
+                    updated_at: String::from("2026-01-01T00:00:00Z"),
+                    member_count: 2,
+                },
+                AdminGroupSummary {
+                    id: String::from("group-2"),
+                    organization_id: String::from("org-2"),
+                    name: String::from("Support"),
+                    description: None,
+                    created_at: String::from("2026-01-02T00:00:00Z"),
+                    updated_at: String::from("2026-01-02T00:00:00Z"),
+                    member_count: 1,
+                },
+            ];
+
+            let filtered = if let Some(organization_ids) = organization_ids {
+                use std::collections::HashSet;
+                let organization_id_set: HashSet<_> = organization_ids.into_iter().collect();
+                groups
+                    .into_iter()
+                    .filter(|group| organization_id_set.contains(&group.organization_id))
+                    .collect()
+            } else {
+                groups
+            };
+
+            Ok(filtered)
         })
     }
 

@@ -33,6 +33,25 @@ pub struct AdminScopeOrganization {
     pub name: String,
 }
 
+/// Group metadata exposed by admin group listing endpoints.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdminGroupSummary {
+    /// Group identifier.
+    pub id: String,
+    /// Owning organization identifier.
+    pub organization_id: String,
+    /// Display name.
+    pub name: String,
+    /// Optional group description.
+    pub description: Option<String>,
+    /// RFC3339 creation timestamp.
+    pub created_at: String,
+    /// RFC3339 update timestamp.
+    pub updated_at: String,
+    /// Number of members assigned to the group.
+    pub member_count: u32,
+}
+
 /// Table metadata exposed by admin inspection endpoints.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PostgresTableInfo {
@@ -110,6 +129,12 @@ pub trait PostgresAdminReadRepository: Send + Sync {
         &self,
         organization_ids: Vec<String>,
     ) -> BoxFuture<'_, Result<Vec<AdminScopeOrganization>, DataAccessError>>;
+
+    /// Lists groups, optionally constrained to organization IDs.
+    fn list_groups(
+        &self,
+        organization_ids: Option<Vec<String>>,
+    ) -> BoxFuture<'_, Result<Vec<AdminGroupSummary>, DataAccessError>>;
 
     /// Returns table metadata for the admin browsing surface.
     fn list_tables(&self) -> BoxFuture<'_, Result<Vec<PostgresTableInfo>, DataAccessError>>;

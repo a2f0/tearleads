@@ -12,6 +12,7 @@ This matrix tracks the first DAL-proving admin read endpoints selected for v2 mi
 | `AdminService.GetRedisValue` | 3 | 2 | 2 | 4 | 1 | @a2f0 | Contracts + traits + adapters + hardened handler wiring landed |
 | `AdminService.DeleteRedisKey` | 3 | 3 | 2 | 4 | 1 | @a2f0 | Wave 1C write cutover landed on v2 transport + handler path |
 | `AdminService.GetRedisDbSize` | 2 | 2 | 1 | 4 | 1 | @a2f0 | v2 contract/handler route landed; browser/admin consumers now on v2 |
+| `AdminService.ListGroups` | 3 | 3 | 2 | 4 | 1 | @a2f0 | v2 contract + handler + harness landed; `@tearleads/admin` groups list now routes to v2 |
 
 ## Notes
 
@@ -31,6 +32,7 @@ This matrix tracks the first DAL-proving admin read endpoints selected for v2 mi
 - `api.admin` Wave 1A read methods now route through `api.adminV2` (`GetPostgresInfo`, `GetTables`, `GetColumns`, `GetRedisKeys`, `GetRedisValue`).
 - Wave 1C adds the first v2 admin write cutover: `DeleteRedisKey` now routes through `api.adminV2` over `/connect/tearleads.v2.AdminService/DeleteRedisKey`.
 - `api.admin.getContext` now routes through `tearleads.v2.AdminService/GetContext` in both `@tearleads/api-client` and `@tearleads/admin`.
+- `@tearleads/admin` `api.admin.groups.list` now routes through `tearleads.v2.AdminService/ListGroups`.
 - `@tearleads/admin` now routes Postgres/Redis admin helpers through `tearleads.v2.AdminService` while preserving the existing DTO surface.
 - MLS browser/runtime traffic is now v2-only (`tearleads.v2.MlsService`), and the Node v1 MLS service registration has been removed.
-- Next slice: migrate additional admin read/write operations (groups/org/users) off `tearleads.v1.AdminService` after v2 contracts/handlers are implemented.
+- Next slice: migrate additional admin operations (`GetGroup`, `ListOrganizations`, `ListUsers`) off `tearleads.v1.AdminService`.

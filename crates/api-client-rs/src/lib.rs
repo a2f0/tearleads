@@ -190,6 +190,14 @@ mod tests {
     #[test]
     fn rpc_paths_match_v2_admin_methods() {
         assert_eq!(
+            resolve_rpc_path(ADMIN_SERVICE_NAME, "GetContext"),
+            "/tearleads.v2.AdminService/GetContext"
+        );
+        assert_eq!(
+            resolve_rpc_path(ADMIN_SERVICE_NAME, "ListGroups"),
+            "/tearleads.v2.AdminService/ListGroups"
+        );
+        assert_eq!(
             resolve_rpc_path(ADMIN_SERVICE_NAME, "GetPostgresInfo"),
             "/tearleads.v2.AdminService/GetPostgresInfo"
         );

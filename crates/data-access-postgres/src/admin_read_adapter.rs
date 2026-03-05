@@ -1,12 +1,15 @@
 //! Adapter that maps gateway records to shared Postgres admin read models.
 
 use tearleads_data_access_traits::{
-    AdminScopeOrganization, BoxFuture, DataAccessError, DataAccessErrorKind,
+    AdminGroupSummary, AdminScopeOrganization, BoxFuture, DataAccessError, DataAccessErrorKind,
     PostgresAdminReadRepository, PostgresColumnInfo, PostgresInfoSnapshot, PostgresRowsPage,
     PostgresRowsQuery, PostgresTableInfo,
 };
 
-use crate::{AdminScopeOrganizationRecord, PostgresAdminGateway, PostgresRowsPageRecord};
+use crate::{
+    AdminGroupSummaryRecord, AdminScopeOrganizationRecord, PostgresAdminGateway,
+    PostgresRowsPageRecord,
+};
 
 /// Postgres repository implementation over a driver-specific gateway.
 pub struct PostgresAdminReadAdapter<G> {
@@ -53,6 +56,19 @@ where
                 .list_scope_organizations_by_ids(&organization_ids)
                 .await?;
             Ok(map_scope_organizations(organizations))
+        })
+    }
+
+    fn list_groups(
+        &self,
+        organization_ids: Option<Vec<String>>,
+    ) -> BoxFuture<'_, Result<Vec<AdminGroupSummary>, DataAccessError>> {
+        Box::pin(async move {
+            let groups = self
+                .gateway
+                .list_groups(organization_ids.as_deref())
+                .await?;
+            Ok(map_groups(groups))
         })
     }
 
@@ -125,6 +141,21 @@ fn map_scope_organizations(
         .map(|record| AdminScopeOrganization {
             id: record.id,
             name: record.name,
+        })
+        .collect()
+}
+
+fn map_groups(records: Vec<AdminGroupSummaryRecord>) -> Vec<AdminGroupSummary> {
+    records
+        .into_iter()
+        .map(|record| AdminGroupSummary {
+            id: record.id,
+            organization_id: record.organization_id,
+            name: record.name,
+            description: record.description,
+            created_at: record.created_at,
+            updated_at: record.updated_at,
+            member_count: record.member_count,
         })
         .collect()
 }

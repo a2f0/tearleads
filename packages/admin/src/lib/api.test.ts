@@ -412,7 +412,7 @@ describe('admin api client', () => {
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v1.AdminService/ListGroups')
+        url.includes('/connect/tearleads.v2.AdminService/ListGroups')
       )
     ).toBe(true);
     expect(

@@ -13,6 +13,25 @@ pub struct AdminScopeOrganizationRecord {
     pub name: String,
 }
 
+/// Raw group metadata returned by the backing Postgres driver.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdminGroupSummaryRecord {
+    /// Group identifier.
+    pub id: String,
+    /// Owning organization identifier.
+    pub organization_id: String,
+    /// Display name.
+    pub name: String,
+    /// Optional group description.
+    pub description: Option<String>,
+    /// RFC3339 creation timestamp.
+    pub created_at: String,
+    /// RFC3339 update timestamp.
+    pub updated_at: String,
+    /// Number of members assigned to the group.
+    pub member_count: u32,
+}
+
 /// Raw table metadata returned by the backing Postgres driver.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PostgresTableRecord {
@@ -76,6 +95,12 @@ pub trait PostgresAdminGateway: Send + Sync {
         &self,
         organization_ids: &[String],
     ) -> BoxFuture<'_, Result<Vec<AdminScopeOrganizationRecord>, DataAccessError>>;
+
+    /// Lists groups optionally constrained to organization IDs.
+    fn list_groups(
+        &self,
+        organization_ids: Option<&[String]>,
+    ) -> BoxFuture<'_, Result<Vec<AdminGroupSummaryRecord>, DataAccessError>>;
 
     /// Lists all tables visible to the admin reader.
     fn list_tables(&self) -> BoxFuture<'_, Result<Vec<PostgresTableRecord>, DataAccessError>>;
