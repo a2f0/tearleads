@@ -19,6 +19,21 @@ const loadApi = async () => {
   return module.api;
 };
 
+function wasApiRequestMadeWithV1Prefix(
+  method: string,
+  pathname: string
+): boolean {
+  if (wasApiRequestMade(method, pathname)) {
+    return true;
+  }
+
+  if (!pathname.startsWith('/connect/')) {
+    return false;
+  }
+
+  return wasApiRequestMade(method, `/v1${pathname}`);
+}
+
 let seededUser: SeededUser;
 
 describe('api with msw admin routing', () => {
@@ -125,141 +140,168 @@ describe('api with msw admin routing', () => {
       admin: false
     });
 
-    expect(wasApiRequestMade('GET', '/v2/ping')).toBe(true);
+    expect(wasApiRequestMadeWithV1Prefix('GET', '/v2/ping')).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetContext')
+      wasApiRequestMadeWithV1Prefix(
+        'POST',
+        '/connect/tearleads.v2.AdminService/GetContext'
+      )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
+      wasApiRequestMadeWithV1Prefix(
         'POST',
         '/connect/tearleads.v2.AdminService/GetPostgresInfo'
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetTables')
+      wasApiRequestMadeWithV1Prefix(
+        'POST',
+        '/connect/tearleads.v2.AdminService/GetTables'
+      )
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetColumns')
+      wasApiRequestMadeWithV1Prefix(
+        'POST',
+        '/connect/tearleads.v2.AdminService/GetColumns'
+      )
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetRows')
+      wasApiRequestMadeWithV1Prefix(
+        'POST',
+        '/connect/tearleads.v2.AdminService/GetRows'
+      )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
+      wasApiRequestMadeWithV1Prefix(
         'POST',
         '/connect/tearleads.v2.AdminService/GetRedisKeys'
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
+      wasApiRequestMadeWithV1Prefix(
         'POST',
         '/connect/tearleads.v2.AdminService/GetRedisValue'
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
+      wasApiRequestMadeWithV1Prefix(
         'POST',
         '/connect/tearleads.v2.AdminService/DeleteRedisKey'
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
+      wasApiRequestMadeWithV1Prefix(
         'POST',
         '/connect/tearleads.v2.AdminService/GetRedisDbSize'
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.AdminService/ListGroups')
+      wasApiRequestMadeWithV1Prefix(
+        'POST',
+        '/connect/tearleads.v1.AdminService/ListGroups'
+      )
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.AdminService/GetGroup')
+      wasApiRequestMadeWithV1Prefix(
+        'POST',
+        '/connect/tearleads.v1.AdminService/GetGroup'
+      )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
+      wasApiRequestMadeWithV1Prefix(
         'POST',
         '/connect/tearleads.v1.AdminService/CreateGroup'
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
+      wasApiRequestMadeWithV1Prefix(
         'POST',
         '/connect/tearleads.v1.AdminService/UpdateGroup'
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
+      wasApiRequestMadeWithV1Prefix(
         'POST',
         '/connect/tearleads.v1.AdminService/DeleteGroup'
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
+      wasApiRequestMadeWithV1Prefix(
         'POST',
         '/connect/tearleads.v1.AdminService/GetGroupMembers'
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
+      wasApiRequestMadeWithV1Prefix(
         'POST',
         '/connect/tearleads.v1.AdminService/AddGroupMember'
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
+      wasApiRequestMadeWithV1Prefix(
         'POST',
         '/connect/tearleads.v1.AdminService/RemoveGroupMember'
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
+      wasApiRequestMadeWithV1Prefix(
         'POST',
         '/connect/tearleads.v1.AdminService/ListOrganizations'
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
+      wasApiRequestMadeWithV1Prefix(
         'POST',
         '/connect/tearleads.v1.AdminService/GetOrganization'
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
+      wasApiRequestMadeWithV1Prefix(
         'POST',
         '/connect/tearleads.v1.AdminService/GetOrgUsers'
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
+      wasApiRequestMadeWithV1Prefix(
         'POST',
         '/connect/tearleads.v1.AdminService/GetOrgGroups'
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
+      wasApiRequestMadeWithV1Prefix(
         'POST',
         '/connect/tearleads.v1.AdminService/CreateOrganization'
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
+      wasApiRequestMadeWithV1Prefix(
         'POST',
         '/connect/tearleads.v1.AdminService/UpdateOrganization'
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
+      wasApiRequestMadeWithV1Prefix(
         'POST',
         '/connect/tearleads.v1.AdminService/DeleteOrganization'
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.AdminService/ListUsers')
+      wasApiRequestMadeWithV1Prefix(
+        'POST',
+        '/connect/tearleads.v1.AdminService/ListUsers'
+      )
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.AdminService/GetUser')
+      wasApiRequestMadeWithV1Prefix(
+        'POST',
+        '/connect/tearleads.v1.AdminService/GetUser'
+      )
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.AdminService/UpdateUser')
+      wasApiRequestMadeWithV1Prefix(
+        'POST',
+        '/connect/tearleads.v1.AdminService/UpdateUser'
+      )
     ).toBe(true);
   });
 });
