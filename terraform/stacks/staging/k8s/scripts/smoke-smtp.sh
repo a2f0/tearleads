@@ -95,7 +95,10 @@ phase_api_to_smtp_tcp() {
   api_pod="$(get_running_pod_or_fail "app=api")"
 
   local node_output
-  if node_output="$(kubectl -n "$NAMESPACE" exec "$api_pod" -c api -- node -e "
+  if node_output="$(kubectl -n "$NAMESPACE" exec "$api_pod" -c api -- env \
+    SMTP_HOST="$SMTP_HOST" \
+    SMTP_PORT="$SMTP_PORT" \
+    node -e "
     const net = require('net');
     const host = process.env.SMTP_HOST || 'smtp-listener';
     const port = Number(process.env.SMTP_PORT || '25');
