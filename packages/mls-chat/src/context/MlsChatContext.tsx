@@ -1,7 +1,7 @@
 import type { ComponentType, ReactNode } from 'react';
 import { createContext, useContext } from 'react';
 
-import type { MlsV2Routes } from '@tearleads/api-client';
+import type { MlsV2Routes } from '@tearleads/api-client/mlsRoutes';
 
 /**
  * UI component props interfaces

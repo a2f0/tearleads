@@ -4,7 +4,7 @@
  * Provides mock providers and helper functions.
  */
 
-import type { MlsV2Routes } from '@tearleads/api-client';
+import type { MlsV2Routes } from '@tearleads/api-client/mlsRoutes';
 import { type RenderOptions, render } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
 

@@ -1,5 +1,5 @@
 // one-component-per-file: allow
-import { createMlsV2Routes } from '@tearleads/api-client';
+import { createMlsV2Routes } from '@tearleads/api-client/mlsRoutes';
 import {
   AddMemberDialog,
   MlsChatProvider,

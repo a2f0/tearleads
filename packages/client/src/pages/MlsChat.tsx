@@ -4,7 +4,7 @@
  * Provides the MlsChatProvider with app-specific dependencies and UI components.
  */
 
-import { createMlsV2Routes } from '@tearleads/api-client';
+import { createMlsV2Routes } from '@tearleads/api-client/mlsRoutes';
 import {
   MlsChat as MlsChatComponent,
   MlsChatProvider,

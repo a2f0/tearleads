@@ -1,4 +1,4 @@
-import type { MlsV2Routes } from '@tearleads/api-client';
+import type { MlsV2Routes } from '@tearleads/api-client/mlsRoutes';
 import { Code, ConnectError } from '@connectrpc/connect';
 
 interface GroupStateClient {

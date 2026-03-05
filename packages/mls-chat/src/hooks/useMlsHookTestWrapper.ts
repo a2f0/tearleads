@@ -1,4 +1,4 @@
-import type { MlsV2Routes } from '@tearleads/api-client';
+import type { MlsV2Routes } from '@tearleads/api-client/mlsRoutes';
 import { createElement, type ReactNode } from 'react';
 
 import { MlsChatProvider, type MlsChatUIComponents } from '../context/index.js';

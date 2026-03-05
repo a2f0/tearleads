@@ -1,6 +1,5 @@
 export * from './api';
 export * from './apiV2ClientWasm';
-export { createMlsV2Routes, type MlsV2Routes } from './apiRoutes/mlsV2Routes';
 export * from './vfsBlobNetworkFlusher';
 export * from './vfsCrypto';
 export * from './vfsNetworkFlusher';
