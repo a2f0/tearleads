@@ -1,3 +1,4 @@
+/// <reference path="./vite-env.d.ts" />
 import type { AuthResponse } from '@tearleads/shared';
 import { type ApiEventSlug, logApiEvent } from './apiLogger';
 import {
