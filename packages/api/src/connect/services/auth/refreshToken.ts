@@ -12,8 +12,10 @@ import {
   ACCESS_TOKEN_TTL_SECONDS,
   getClientIpFromHeaders,
   getJwtSecretOrThrow,
+  getRefreshTokenFromCookie,
   parseRefreshPayload,
-  REFRESH_TOKEN_TTL_SECONDS
+  REFRESH_TOKEN_TTL_SECONDS,
+  setRefreshTokenCookie
 } from './shared.js';
 
 export async function refreshToken(
@@ -23,14 +25,16 @@ export async function refreshToken(
   const payload = parseRefreshPayload({
     refreshToken: request.refreshToken
   });
-  if (!payload) {
-    throw new ConnectError('refreshToken is required', Code.InvalidArgument);
+  const refreshTokenValue =
+    payload?.refreshToken ?? getRefreshTokenFromCookie(context.requestHeader);
+  if (!refreshTokenValue) {
+    throw new ConnectError('Invalid refresh token', Code.Unauthenticated);
   }
 
   const jwtSecret = getJwtSecretOrThrow('Failed to refresh token');
 
   try {
-    const claims = verifyRefreshJwt(payload.refreshToken, jwtSecret);
+    const claims = verifyRefreshJwt(refreshTokenValue, jwtSecret);
     if (!claims) {
       throw new ConnectError('Invalid refresh token', Code.Unauthenticated);
     }
@@ -85,6 +89,7 @@ export async function refreshToken(
       jwtSecret,
       REFRESH_TOKEN_TTL_SECONDS
     );
+    setRefreshTokenCookie(context, refreshTokenJwt);
 
     return {
       accessToken,

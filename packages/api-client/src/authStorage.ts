@@ -9,6 +9,7 @@ const REFRESH_LOCK_KEY = 'auth_refresh_lock';
 const REFRESH_LOCK_TIMEOUT_MS = 10000; // 10 seconds max lock duration
 
 let authError: string | null = null;
+let inMemoryRefreshToken: string | null = null;
 
 interface StoredAuth {
   token: string | null;
@@ -56,7 +57,7 @@ export function setSessionExpiredError(): void {
 export function readStoredAuth(): StoredAuth {
   try {
     const token = localStorage.getItem(AUTH_TOKEN_KEY);
-    const refreshToken = localStorage.getItem(AUTH_REFRESH_TOKEN_KEY);
+    const refreshToken = getStoredRefreshToken();
     const user = localStorage.getItem(AUTH_USER_KEY);
 
     if (!token || !user) {
@@ -77,8 +78,9 @@ export function storeAuth(
 ): void {
   try {
     localStorage.setItem(AUTH_TOKEN_KEY, token);
-    localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, refreshToken);
     localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+    localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
+    inMemoryRefreshToken = refreshToken;
     notifyAuthChange();
   } catch {
     // Ignore storage errors (e.g. private mode, quota exceeded).
@@ -87,9 +89,11 @@ export function storeAuth(
 
 export function clearStoredAuth(): void {
   try {
+    inMemoryRefreshToken = null;
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
+    localStorage.removeItem(REFRESH_LOCK_KEY);
     notifyAuthChange();
   } catch {
     // Ignore storage errors.
@@ -117,10 +121,21 @@ export function getAuthHeaderValue(): string | null {
 }
 
 export function getStoredRefreshToken(): string | null {
+  if (inMemoryRefreshToken) {
+    return inMemoryRefreshToken;
+  }
+
   try {
-    return localStorage.getItem(AUTH_REFRESH_TOKEN_KEY);
+    const legacyRefreshToken = localStorage.getItem(AUTH_REFRESH_TOKEN_KEY);
+    if (!legacyRefreshToken) {
+      return null;
+    }
+    // Migrate legacy refresh token storage to in-memory only.
+    inMemoryRefreshToken = legacyRefreshToken;
+    localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
+    return inMemoryRefreshToken;
   } catch {
-    return null;
+    return inMemoryRefreshToken;
   }
 }
 
@@ -130,10 +145,22 @@ export function updateStoredTokens(
 ): void {
   try {
     localStorage.setItem(AUTH_TOKEN_KEY, accessToken);
-    localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, refreshToken);
+    localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
+    inMemoryRefreshToken = refreshToken;
     notifyAuthChange();
   } catch {
     // Ignore storage errors.
+  }
+}
+
+export function setStoredRefreshToken(refreshToken: string | null): void {
+  inMemoryRefreshToken = refreshToken;
+  if (refreshToken === null) {
+    try {
+      localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
+    } catch {
+      // Ignore storage errors.
+    }
   }
 }
 
@@ -145,7 +172,6 @@ export function updateStoredTokens(
 interface RefreshLock {
   tabId: string;
   timestamp: number;
-  refreshToken: string;
 }
 
 // Generate a unique ID for this tab
@@ -164,10 +190,8 @@ function parseRefreshLock(): RefreshLock | null {
       parsed !== null &&
       'tabId' in parsed &&
       'timestamp' in parsed &&
-      'refreshToken' in parsed &&
       typeof (parsed as RefreshLock).tabId === 'string' &&
-      typeof (parsed as RefreshLock).timestamp === 'number' &&
-      typeof (parsed as RefreshLock).refreshToken === 'string'
+      typeof (parsed as RefreshLock).timestamp === 'number'
     ) {
       return parsed as RefreshLock;
     }
@@ -181,7 +205,7 @@ function parseRefreshLock(): RefreshLock | null {
  * Attempts to acquire a lock for token refresh.
  * Returns true if this tab acquired the lock, false if another tab holds it.
  */
-export function tryAcquireRefreshLock(refreshToken: string): boolean {
+export function tryAcquireRefreshLock(): boolean {
   const now = Date.now();
   const existingLock = parseRefreshLock();
 
@@ -189,13 +213,7 @@ export function tryAcquireRefreshLock(refreshToken: string): boolean {
   if (existingLock) {
     const lockAge = now - existingLock.timestamp;
     if (lockAge < REFRESH_LOCK_TIMEOUT_MS && existingLock.tabId !== TAB_ID) {
-      // Another tab is refreshing - check if it's using the same token
-      if (existingLock.refreshToken === refreshToken) {
-        // Same token being refreshed by another tab - wait for it
-        return false;
-      }
-      // Different token - the other tab may have already refreshed
-      // Let this tab proceed to re-read from storage
+      // Another tab is refreshing.
       return false;
     }
     // Lock is expired or belongs to this tab - safe to take over
@@ -204,8 +222,7 @@ export function tryAcquireRefreshLock(refreshToken: string): boolean {
   // Acquire the lock
   const lock: RefreshLock = {
     tabId: TAB_ID,
-    timestamp: now,
-    refreshToken
+    timestamp: now
   };
   try {
     localStorage.setItem(REFRESH_LOCK_KEY, JSON.stringify(lock));
@@ -245,25 +262,26 @@ export function isRefreshInProgress(): boolean {
  * Returns true if refresh completed (tokens updated), false if timed out.
  */
 export async function waitForRefreshCompletion(
-  originalRefreshToken: string,
+  originalAccessToken: string | null,
   timeoutMs: number = 5000
 ): Promise<boolean> {
   const startTime = Date.now();
 
   while (Date.now() - startTime < timeoutMs) {
-    // Check if the refresh token has changed (another tab succeeded)
-    const currentRefreshToken = getStoredRefreshToken();
-    if (currentRefreshToken && currentRefreshToken !== originalRefreshToken) {
+    // Check if the access token has changed (another tab succeeded).
+    const currentAccessToken = getStoredAuthToken();
+    if (
+      currentAccessToken !== null &&
+      currentAccessToken !== originalAccessToken
+    ) {
       return true;
     }
 
     // Check if the lock was released
     if (!isRefreshInProgress()) {
-      // Lock released - check if tokens were updated
-      const newRefreshToken = getStoredRefreshToken();
-      return (
-        newRefreshToken !== null && newRefreshToken !== originalRefreshToken
-      );
+      // Lock released - check if tokens were updated.
+      const newAccessToken = getStoredAuthToken();
+      return newAccessToken !== null && newAccessToken !== originalAccessToken;
     }
 
     // Wait a bit before checking again

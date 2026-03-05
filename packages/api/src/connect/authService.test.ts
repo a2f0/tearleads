@@ -2,6 +2,7 @@ import type { Server } from 'node:http';
 import { Code, ConnectError, createClient } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-node';
 import { AuthService } from '@tearleads/shared/gen/tearleads/v1/auth_pb';
+import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
 import { createJwt, verifyJwt, verifyRefreshJwt } from '../lib/jwt.js';
@@ -198,6 +199,57 @@ describe('Connect AuthService', () => {
     expect(refreshClaims).not.toBeNull();
 
     await deleteSession(accessClaims.jti, 'connect-login-user-1');
+    if (refreshClaims) {
+      await deleteRefreshToken(refreshClaims.jti);
+    }
+  });
+
+  it('sets an HttpOnly refresh cookie for successful Login', async () => {
+    const password = 'SecurePassword123!';
+    const credentials = await hashPassword(password);
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'connect-login-user-cookie',
+          email: 'cookie-login@example.com',
+          password_hash: credentials.hash,
+          password_salt: credentials.salt,
+          admin: false
+        }
+      ]
+    });
+
+    const response = await request(app)
+      .post('/v1/connect/tearleads.v1.AuthService/Login')
+      .set('Content-Type', 'application/json')
+      .send({
+        email: 'cookie-login@example.com',
+        password
+      });
+
+    expect(response.status).toBe(200);
+    const setCookie = response.get('set-cookie');
+    expect(setCookie).toBeTruthy();
+    expect(setCookie).toContainEqual(
+      expect.stringContaining('tearleads_refresh_token=')
+    );
+    expect(setCookie).toContainEqual(expect.stringContaining('HttpOnly'));
+    expect(setCookie).toContainEqual(
+      expect.stringContaining('SameSite=Strict')
+    );
+
+    const loginBody = response.body;
+    const accessClaims = verifyJwt(loginBody.accessToken, 'test-secret');
+    expect(accessClaims).not.toBeNull();
+    const refreshClaims = verifyRefreshJwt(
+      loginBody.refreshToken,
+      'test-secret'
+    );
+    expect(refreshClaims).not.toBeNull();
+
+    if (accessClaims && loginBody.user?.id) {
+      await deleteSession(accessClaims.jti, loginBody.user.id);
+    }
     if (refreshClaims) {
       await deleteRefreshToken(refreshClaims.jti);
     }

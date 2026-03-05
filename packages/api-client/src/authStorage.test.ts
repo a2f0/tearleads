@@ -22,6 +22,50 @@ describe('auth-storage without window', () => {
   });
 });
 
+describe('refresh token migration', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it('migrates legacy localStorage refresh token into memory', async () => {
+    const originalGetItem = Storage.prototype.getItem;
+    const getItemSpy = vi
+      .spyOn(Storage.prototype, 'getItem')
+      .mockImplementation((key: string) => {
+        if (key === 'auth_refresh_token') {
+          return 'legacy-refresh-token';
+        }
+        return originalGetItem.call(localStorage, key);
+      });
+    const removeItemSpy = vi.spyOn(Storage.prototype, 'removeItem');
+
+    const { getStoredRefreshToken } = await import('./authStorage');
+
+    expect(getStoredRefreshToken()).toBe('legacy-refresh-token');
+    expect(removeItemSpy).toHaveBeenCalledWith('auth_refresh_token');
+    getItemSpy.mockRestore();
+    removeItemSpy.mockRestore();
+  });
+
+  it('stores refresh token only in memory when auth is saved', async () => {
+    const { storeAuth, getStoredRefreshToken, AUTH_REFRESH_TOKEN_KEY } =
+      await import('./authStorage');
+
+    storeAuth('access-token', 'refresh-token', {
+      id: 'user-1',
+      email: 'user@example.com'
+    });
+
+    expect(getStoredRefreshToken()).toBe('refresh-token');
+    expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBeNull();
+  });
+});
+
 describe('cross-tab refresh coordination', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -36,7 +80,7 @@ describe('cross-tab refresh coordination', () => {
     it('acquires lock when no lock exists', async () => {
       const { tryAcquireRefreshLock } = await import('./authStorage');
 
-      const acquired = tryAcquireRefreshLock('refresh-token-1');
+      const acquired = tryAcquireRefreshLock();
 
       expect(acquired).toBe(true);
       expect(localStorage.getItem('auth_refresh_lock')).not.toBeNull();
@@ -45,31 +89,27 @@ describe('cross-tab refresh coordination', () => {
     it('acquires lock when existing lock is expired', async () => {
       const { tryAcquireRefreshLock } = await import('./authStorage');
 
-      // Set an expired lock (older than 10 seconds)
       const expiredLock = {
         tabId: 'other-tab',
-        timestamp: Date.now() - 15000, // 15 seconds ago
-        refreshToken: 'old-token'
+        timestamp: Date.now() - 15000
       };
       localStorage.setItem('auth_refresh_lock', JSON.stringify(expiredLock));
 
-      const acquired = tryAcquireRefreshLock('refresh-token-1');
+      const acquired = tryAcquireRefreshLock();
 
       expect(acquired).toBe(true);
     });
 
-    it('does not acquire lock when another tab holds a valid lock for same token', async () => {
+    it('does not acquire lock when another tab holds a valid lock', async () => {
       const { tryAcquireRefreshLock } = await import('./authStorage');
 
-      // Set a valid lock from another tab
       const validLock = {
         tabId: 'other-tab-id',
-        timestamp: Date.now(),
-        refreshToken: 'refresh-token-1'
+        timestamp: Date.now()
       };
       localStorage.setItem('auth_refresh_lock', JSON.stringify(validLock));
 
-      const acquired = tryAcquireRefreshLock('refresh-token-1');
+      const acquired = tryAcquireRefreshLock();
 
       expect(acquired).toBe(false);
     });
@@ -81,7 +121,7 @@ describe('cross-tab refresh coordination', () => {
         './authStorage'
       );
 
-      tryAcquireRefreshLock('refresh-token-1');
+      tryAcquireRefreshLock();
       expect(localStorage.getItem('auth_refresh_lock')).not.toBeNull();
 
       releaseRefreshLock();
@@ -94,14 +134,12 @@ describe('cross-tab refresh coordination', () => {
 
       const otherTabLock = {
         tabId: 'other-tab-id',
-        timestamp: Date.now(),
-        refreshToken: 'refresh-token-1'
+        timestamp: Date.now()
       };
       localStorage.setItem('auth_refresh_lock', JSON.stringify(otherTabLock));
 
       releaseRefreshLock();
 
-      // Lock should still exist since it belongs to another tab
       expect(localStorage.getItem('auth_refresh_lock')).not.toBeNull();
     });
   });
@@ -118,8 +156,7 @@ describe('cross-tab refresh coordination', () => {
 
       const validLock = {
         tabId: 'other-tab-id',
-        timestamp: Date.now(),
-        refreshToken: 'refresh-token-1'
+        timestamp: Date.now()
       };
       localStorage.setItem('auth_refresh_lock', JSON.stringify(validLock));
 
@@ -131,8 +168,7 @@ describe('cross-tab refresh coordination', () => {
 
       const expiredLock = {
         tabId: 'other-tab-id',
-        timestamp: Date.now() - 15000, // 15 seconds ago
-        refreshToken: 'refresh-token-1'
+        timestamp: Date.now() - 15000
       };
       localStorage.setItem('auth_refresh_lock', JSON.stringify(expiredLock));
 
@@ -141,45 +177,41 @@ describe('cross-tab refresh coordination', () => {
   });
 
   describe('waitForRefreshCompletion', () => {
-    it('returns true immediately when token has changed', async () => {
+    it('returns true immediately when access token has changed', async () => {
       const { waitForRefreshCompletion } = await import('./authStorage');
 
-      localStorage.setItem('auth_refresh_token', 'new-token');
+      localStorage.setItem('auth_token', 'new-token');
 
       const result = await waitForRefreshCompletion('old-token', 1000);
 
       expect(result).toBe(true);
     });
 
-    it('returns false when timeout expires without token change', async () => {
+    it('returns false when timeout expires without access token change', async () => {
       const { waitForRefreshCompletion } = await import('./authStorage');
 
-      localStorage.setItem('auth_refresh_token', 'same-token');
+      localStorage.setItem('auth_token', 'same-token');
 
       const result = await waitForRefreshCompletion('same-token', 200);
 
       expect(result).toBe(false);
     });
 
-    it('returns true when lock is released and token changed', async () => {
+    it('returns true when lock is released and access token changed', async () => {
       const { waitForRefreshCompletion } = await import('./authStorage');
 
-      localStorage.setItem('auth_refresh_token', 'old-token');
+      localStorage.setItem('auth_token', 'old-token');
 
-      // Simulate another tab refreshing
       const otherTabLock = {
         tabId: 'other-tab-id',
-        timestamp: Date.now(),
-        refreshToken: 'old-token'
+        timestamp: Date.now()
       };
       localStorage.setItem('auth_refresh_lock', JSON.stringify(otherTabLock));
 
-      // Start waiting, then simulate the other tab completing
       const waitPromise = waitForRefreshCompletion('old-token', 2000);
 
-      // Simulate other tab finishing after 100ms
       setTimeout(() => {
-        localStorage.setItem('auth_refresh_token', 'new-token');
+        localStorage.setItem('auth_token', 'new-token');
         localStorage.removeItem('auth_refresh_lock');
       }, 100);
 

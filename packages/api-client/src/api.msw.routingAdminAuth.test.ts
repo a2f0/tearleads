@@ -7,7 +7,7 @@ import {
   wasApiRequestMade
 } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUTH_REFRESH_TOKEN_KEY, AUTH_TOKEN_KEY } from './authStorage';
+import { AUTH_TOKEN_KEY } from './authStorage';
 import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOverride';
 import { getSharedTestContext } from './test/testContext';
 
@@ -177,15 +177,16 @@ describe('api with msw', () => {
       )
     );
     localStorage.setItem(AUTH_TOKEN_KEY, 'stale-access-token');
-    localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'stale-refresh-token');
+    (await import('./authStorage')).setStoredRefreshToken(
+      'stale-refresh-token'
+    );
     const sessionsResponse = await api.auth.getSessions();
     expect(sessionsResponse.sessions).toEqual([]);
     expect(sessionsAttemptCount).toBe(2);
     expect(refreshPayload).toEqual({ refreshToken: 'stale-refresh-token' });
     expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBe('fresh-access-token');
-    expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBe(
-      'fresh-refresh-token'
-    );
+    const { getStoredRefreshToken } = await import('./authStorage');
+    expect(getStoredRefreshToken()).toBe('fresh-refresh-token');
     expect(
       getRecordedApiRequests().map(
         (request) => `${request.method} ${request.pathname}`
@@ -222,7 +223,9 @@ describe('api with msw', () => {
   it('clears auth when refresh fails and refresh token is removed', async () => {
     const api = await loadApi();
     localStorage.setItem(AUTH_TOKEN_KEY, 'stale-access-token');
-    localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'stale-refresh-token');
+    (await import('./authStorage')).setStoredRefreshToken(
+      'stale-refresh-token'
+    );
     server.use(
       http.post(
         'http://localhost/connect/tearleads.v1.AuthService/GetSessions',
@@ -231,14 +234,14 @@ describe('api with msw', () => {
       http.post(
         'http://localhost/connect/tearleads.v1.AuthService/RefreshToken',
         () => {
-          localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
           return HttpResponse.json({ error: 'unauthorized' }, { status: 401 });
         }
       )
     );
     await expect(api.auth.getSessions()).rejects.toThrow('unauthorized');
     expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBeNull();
-    expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBeNull();
+    const { getStoredRefreshToken } = await import('./authStorage');
+    expect(getStoredRefreshToken()).toBeNull();
     expect(
       getRecordedApiRequests().map(
         (request) => `${request.method} ${request.pathname}`
@@ -251,7 +254,9 @@ describe('api with msw', () => {
   it('deduplicates concurrent refresh attempts for parallel 401 responses', async () => {
     const api = await loadApi();
     localStorage.setItem(AUTH_TOKEN_KEY, 'stale-access-token');
-    localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'stale-refresh-token');
+    (await import('./authStorage')).setStoredRefreshToken(
+      'stale-refresh-token'
+    );
     let sessionsRequestCount = 0;
     let refreshRequestCount = 0;
     let releaseRefreshGate: () => void = () => undefined;
@@ -296,9 +301,8 @@ describe('api with msw', () => {
     expect(refreshRequestCount).toBe(1);
     expect(sessionsRequestCount).toBe(4);
     expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBe('fresh-access-token');
-    expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBe(
-      'fresh-refresh-token'
-    );
+    const { getStoredRefreshToken } = await import('./authStorage');
+    expect(getStoredRefreshToken()).toBe('fresh-refresh-token');
     const requestSequence = getRecordedApiRequests().map(
       (request) => `${request.method} ${request.pathname}`
     );

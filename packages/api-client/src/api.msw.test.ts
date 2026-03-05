@@ -7,11 +7,7 @@ import {
   wasApiRequestMade
 } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  AUTH_REFRESH_TOKEN_KEY,
-  AUTH_TOKEN_KEY,
-  AUTH_USER_KEY
-} from './authStorage';
+import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from './authStorage';
 import { getSharedTestContext } from './test/testContext';
 
 const loadAuthStorage = async () => {
@@ -176,7 +172,7 @@ describe('api with msw', () => {
       const futureExp = Math.floor(Date.now() / 1000) + 3600;
       const validRefreshToken = createJwt(futureExp);
       localStorage.setItem(AUTH_TOKEN_KEY, 'stale-token');
-      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, validRefreshToken);
+      (await import('./authStorage')).setStoredRefreshToken(validRefreshToken);
       localStorage.setItem(
         AUTH_USER_KEY,
         JSON.stringify({ id: 'user-1', email: 'user@example.com' })
@@ -195,9 +191,8 @@ describe('api with msw', () => {
       const api = await loadApi();
 
       await expect(api.ping.get()).rejects.toThrow('API error: 401');
-      expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBe(
-        validRefreshToken
-      );
+      const { getStoredRefreshToken } = await loadAuthStorage();
+      expect(getStoredRefreshToken()).toBe(validRefreshToken);
 
       const { getAuthError } = await loadAuthStorage();
       expect(getAuthError()).toBeNull();
@@ -241,6 +236,12 @@ describe('api with msw', () => {
         AUTH_USER_KEY,
         JSON.stringify({ id: 'user-1', email: 'user@example.com' })
       );
+      server.use(
+        http.post(
+          'http://localhost/connect/tearleads.v1.AuthService/RefreshToken',
+          () => HttpResponse.json(null, { status: 401 })
+        )
+      );
 
       const { tryRefreshToken } = await import('./api');
 
@@ -250,16 +251,25 @@ describe('api with msw', () => {
 
       const { getAuthError } = await loadAuthStorage();
       expect(getAuthError()).toBe('Session expired. Please sign in again.');
+      expect(
+        wasApiRequestMade(
+          'POST',
+          '/connect/tearleads.v1.AuthService/RefreshToken'
+        )
+      ).toBe(true);
     });
 
     it('returns true when refresh succeeds', async () => {
-      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, seededUser.refreshToken);
+      (await import('./authStorage')).setStoredRefreshToken(
+        seededUser.refreshToken
+      );
 
       const { tryRefreshToken } = await import('./api');
 
       await expect(tryRefreshToken()).resolves.toBe(true);
       expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBeTruthy();
-      expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBeTruthy();
+      const { getStoredRefreshToken } = await loadAuthStorage();
+      expect(getStoredRefreshToken()).toBeTruthy();
       expect(
         wasApiRequestMade(
           'POST',
@@ -269,7 +279,7 @@ describe('api with msw', () => {
     });
 
     it('returns false when refresh throws network error', async () => {
-      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'refresh-token');
+      (await import('./authStorage')).setStoredRefreshToken('refresh-token');
 
       server.use(
         http.post(
@@ -299,7 +309,7 @@ describe('api with msw', () => {
     it('does not clear auth when refresh fails but token still exists', async () => {
       const futureExp = Math.floor(Date.now() / 1000) + 3600;
       const validRefreshToken = createJwt(futureExp);
-      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, validRefreshToken);
+      (await import('./authStorage')).setStoredRefreshToken(validRefreshToken);
       localStorage.setItem(AUTH_TOKEN_KEY, 'access-token');
 
       server.use(
@@ -312,9 +322,8 @@ describe('api with msw', () => {
       const { tryRefreshToken } = await import('./api');
 
       await expect(tryRefreshToken()).resolves.toBe(false);
-      expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBe(
-        validRefreshToken
-      );
+      const { getStoredRefreshToken } = await loadAuthStorage();
+      expect(getStoredRefreshToken()).toBe(validRefreshToken);
       expect(
         wasApiRequestMade(
           'POST',
@@ -325,7 +334,7 @@ describe('api with msw', () => {
 
     it('returns false when API_BASE_URL is not set during refresh', async () => {
       vi.stubEnv('VITE_API_URL', '');
-      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'refresh-token');
+      (await import('./authStorage')).setStoredRefreshToken('refresh-token');
 
       const { tryRefreshToken } = await import('./api');
 

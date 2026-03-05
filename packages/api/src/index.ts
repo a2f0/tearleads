@@ -17,9 +17,90 @@ dotenv.config({ quiet: true });
 const app: Express = express();
 
 const PORT = Number(process.env['PORT']) || 5001;
+const CORS_ALLOWED_ORIGINS_ENV = 'API_CORS_ALLOWED_ORIGINS';
+type CorsOriginPolicy = (
+  requestOrigin: string | undefined,
+  callback: (err: Error | null, origin?: boolean) => void
+) => void;
+
+export function parseCorsAllowedOrigins(
+  value: string | undefined
+): ReadonlySet<string> {
+  if (!value) {
+    return new Set();
+  }
+
+  return new Set(
+    value
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter((origin) => origin.length > 0)
+  );
+}
+
+function isLoopbackOrigin(origin: string): boolean {
+  try {
+    const parsedOrigin = new URL(origin);
+    const isHttpProtocol =
+      parsedOrigin.protocol === 'http:' || parsedOrigin.protocol === 'https:';
+
+    return (
+      isHttpProtocol &&
+      (parsedOrigin.hostname === 'localhost' ||
+        parsedOrigin.hostname === '127.0.0.1')
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function isCorsOriginAllowed(
+  origin: string,
+  allowedOrigins: ReadonlySet<string>,
+  allowLoopbackOrigins: boolean
+): boolean {
+  if (allowedOrigins.has(origin)) {
+    return true;
+  }
+
+  return allowLoopbackOrigins && isLoopbackOrigin(origin);
+}
+
+export function createCorsOriginPolicy({
+  allowedOrigins,
+  allowLoopbackOrigins
+}: {
+  allowedOrigins: ReadonlySet<string>;
+  allowLoopbackOrigins: boolean;
+}): CorsOriginPolicy {
+  return (origin, callback) => {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    callback(
+      null,
+      isCorsOriginAllowed(origin, allowedOrigins, allowLoopbackOrigins)
+    );
+  };
+}
+
+const allowedCorsOrigins = parseCorsAllowedOrigins(
+  process.env[CORS_ALLOWED_ORIGINS_ENV]
+);
+const allowLoopbackCorsOrigins = process.env['NODE_ENV'] !== 'production';
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: createCorsOriginPolicy({
+      allowedOrigins: allowedCorsOrigins,
+      allowLoopbackOrigins: allowLoopbackCorsOrigins
+    }),
+    credentials: true
+  })
+);
 app.use(
   morgan(process.env['NODE_ENV'] === 'production' ? 'short' : 'dev', {
     skip: () => process.env['NODE_ENV'] === 'test'

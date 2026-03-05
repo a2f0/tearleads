@@ -10,9 +10,77 @@ vi.mock('./lib/revenuecatWebhook.js', () => ({
   handleRevenueCatWebhook: handleRevenueCatWebhookMock
 }));
 
-import { app } from './index.js';
+import {
+  app,
+  createCorsOriginPolicy,
+  isCorsOriginAllowed,
+  parseCorsAllowedOrigins
+} from './index.js';
 
 describe('API', () => {
+  describe('CORS policy', () => {
+    it('allows localhost origins in non-production mode', async () => {
+      const response = await request(app)
+        .get('/healthz')
+        .set('Origin', 'http://localhost:5173');
+
+      expect(response.headers['access-control-allow-origin']).toBe(
+        'http://localhost:5173'
+      );
+    });
+
+    it('blocks non-allowlisted origins by default', async () => {
+      const response = await request(app)
+        .get('/healthz')
+        .set('Origin', 'https://evil.example');
+
+      expect(response.headers['access-control-allow-origin']).toBeUndefined();
+    });
+
+    it('parses allowlist origins with trimming and empty-value filtering', () => {
+      const allowlist = parseCorsAllowedOrigins(
+        ' https://app.example.com , , https://admin.example.com '
+      );
+
+      expect(allowlist).toEqual(
+        new Set(['https://app.example.com', 'https://admin.example.com'])
+      );
+    });
+
+    it('applies explicit origin allowlist when loopback is disabled', () => {
+      const allowlist = new Set(['https://app.example.com']);
+      const corsPolicy = createCorsOriginPolicy({
+        allowedOrigins: allowlist,
+        allowLoopbackOrigins: false
+      });
+      const allowedCallback = vi.fn();
+      const blockedCallback = vi.fn();
+      const noOriginCallback = vi.fn();
+
+      corsPolicy('https://app.example.com', allowedCallback);
+      corsPolicy('http://localhost:3000', blockedCallback);
+      corsPolicy(undefined, noOriginCallback);
+
+      expect(allowedCallback).toHaveBeenCalledWith(null, true);
+      expect(blockedCallback).toHaveBeenCalledWith(null, false);
+      expect(noOriginCallback).toHaveBeenCalledWith(null, true);
+    });
+
+    it('checks loopback and allowlist origin decisions', () => {
+      const allowlist = new Set(['https://app.example.com']);
+
+      expect(
+        isCorsOriginAllowed('https://app.example.com', allowlist, false)
+      ).toBe(true);
+      expect(
+        isCorsOriginAllowed('http://localhost:3000', allowlist, true)
+      ).toBe(true);
+      expect(isCorsOriginAllowed('https://evil.example', allowlist, true)).toBe(
+        false
+      );
+    });
+  });
+
   describe('GET /healthz', () => {
     it('returns ok status', async () => {
       const response = await request(app).get('/healthz');

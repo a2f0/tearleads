@@ -12,6 +12,7 @@ import {
 } from '../../../lib/sessions.js';
 import { getRequiredConnectAuthContext } from '../../context.js';
 import {
+  clearRefreshTokenCookie,
   getAuthContextOrThrow,
   parseRequiredSessionId,
   toOptionalTimestamp,
@@ -90,6 +91,7 @@ export async function logout(_request: LogoutRequest, context: HandlerContext) {
 
   try {
     await deleteStoredSession(authContext.claims.jti, authContext.claims.sub);
+    clearRefreshTokenCookie(context);
     return {
       loggedOut: true
     };

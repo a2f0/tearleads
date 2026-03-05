@@ -1,5 +1,5 @@
 import { type Timestamp, timestampFromDate } from '@bufbuild/protobuf/wkt';
-import { Code, ConnectError } from '@connectrpc/connect';
+import { Code, ConnectError, type HandlerContext } from '@connectrpc/connect';
 import {
   isRecord,
   PASSWORD_COMPLEXITY_ERROR,
@@ -16,6 +16,8 @@ import type { ConnectAuthContext } from '../../context.js';
 
 export const ACCESS_TOKEN_TTL_SECONDS = getAccessTokenTtlSeconds();
 export const REFRESH_TOKEN_TTL_SECONDS = getRefreshTokenTtlSeconds();
+const REFRESH_COOKIE_NAME = 'tearleads_refresh_token';
+const REFRESH_COOKIE_PATH = '/v1/connect/tearleads.v1.AuthService';
 // COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/01-account-management-policy.md | procedure=compliance/SOC2/procedures/01-account-management-procedure.md | control=password-complexity
 export const MIN_PASSWORD_LENGTH = PASSWORD_MIN_LENGTH;
 export { PASSWORD_COMPLEXITY_ERROR, passwordMeetsComplexity };
@@ -151,6 +153,91 @@ export function parseRefreshPayload(body: unknown): RefreshPayload | null {
     return null;
   }
   return { refreshToken: refreshToken.trim() };
+}
+
+function isRefreshCookieSecure(): boolean {
+  const explicitSecure = process.env['AUTH_REFRESH_COOKIE_SECURE'];
+  if (explicitSecure === 'true') {
+    return true;
+  }
+  if (explicitSecure === 'false') {
+    return false;
+  }
+  return process.env['NODE_ENV'] === 'production';
+}
+
+function buildRefreshCookie(
+  refreshToken: string,
+  maxAgeSeconds: number
+): string {
+  const parts = [
+    `${REFRESH_COOKIE_NAME}=${encodeURIComponent(refreshToken)}`,
+    `Max-Age=${String(Math.max(0, Math.floor(maxAgeSeconds)))}`,
+    `Path=${REFRESH_COOKIE_PATH}`,
+    'HttpOnly',
+    'SameSite=Strict'
+  ];
+  if (isRefreshCookieSecure()) {
+    parts.push('Secure');
+  }
+  return parts.join('; ');
+}
+
+function buildClearRefreshCookie(): string {
+  const parts = [
+    `${REFRESH_COOKIE_NAME}=`,
+    'Max-Age=0',
+    'Expires=Thu, 01 Jan 1970 00:00:00 GMT',
+    `Path=${REFRESH_COOKIE_PATH}`,
+    'HttpOnly',
+    'SameSite=Strict'
+  ];
+  if (isRefreshCookieSecure()) {
+    parts.push('Secure');
+  }
+  return parts.join('; ');
+}
+
+export function setRefreshTokenCookie(
+  context: HandlerContext,
+  refreshToken: string
+): void {
+  context.responseHeader.append(
+    'Set-Cookie',
+    buildRefreshCookie(refreshToken, REFRESH_TOKEN_TTL_SECONDS)
+  );
+}
+
+export function clearRefreshTokenCookie(context: HandlerContext): void {
+  context.responseHeader.append('Set-Cookie', buildClearRefreshCookie());
+}
+
+export function getRefreshTokenFromCookie(
+  requestHeader: Headers
+): string | null {
+  const cookieHeader = requestHeader.get('cookie');
+  if (!cookieHeader) {
+    return null;
+  }
+
+  for (const part of cookieHeader.split(';')) {
+    const [rawName, ...rawValueParts] = part.trim().split('=');
+    const cookieName = rawName?.trim();
+    if (cookieName !== REFRESH_COOKIE_NAME) {
+      continue;
+    }
+    const rawValue = rawValueParts.join('=').trim();
+    if (!rawValue) {
+      return null;
+    }
+    try {
+      return decodeURIComponent(rawValue);
+    } catch {
+      return rawValue;
+    }
+  }
+
+  return null;
 }
 
 export function getAllowedEmailDomains(): string[] {

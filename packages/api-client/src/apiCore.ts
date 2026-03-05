@@ -4,6 +4,7 @@ import { type ApiEventSlug, logApiEvent } from './apiLogger';
 import {
   clearStoredAuth,
   getAuthHeaderValue,
+  getStoredAuthToken,
   getStoredRefreshToken,
   releaseRefreshLock,
   setSessionExpiredError,
@@ -11,7 +12,6 @@ import {
   updateStoredTokens,
   waitForRefreshCompletion
 } from './authStorage';
-import { isJwtExpired } from './jwt';
 
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 const AUTH_CONNECT_REFRESH_PATH =
@@ -83,7 +83,7 @@ export function resetApiRequestHeadersProvider(): void {
  * rejected the token (401/403), or 'transient' for temporary failures.
  */
 async function executeTokenRefresh(
-  refreshToken: string
+  refreshToken: string | null
 ): Promise<RefreshOutcome> {
   if (!API_BASE_URL) {
     return 'transient';
@@ -98,8 +98,9 @@ async function executeTokenRefresh(
       `${API_BASE_URL}${AUTH_CONNECT_REFRESH_PATH}`,
       {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken })
+        body: JSON.stringify(refreshToken ? { refreshToken } : {})
       }
     );
 
@@ -138,17 +139,15 @@ async function executeTokenRefresh(
  * Handles the case where another tab may have already refreshed the token.
  */
 async function attemptTokenRefresh(): Promise<RefreshAttemptResult> {
+  const originalAccessToken = getStoredAuthToken();
   const originalRefreshToken = getStoredRefreshToken();
-  if (!originalRefreshToken) {
-    return { refreshed: false, attemptedByThisTab: false, rejected: false };
-  }
 
   // Try to acquire the refresh lock. If we fail, it means another tab is
   // already refreshing, so we should wait for it to complete.
-  if (!tryAcquireRefreshLock(originalRefreshToken)) {
+  if (!tryAcquireRefreshLock()) {
     // Wait for the other tab to finish.
     const otherTabSucceeded = await waitForRefreshCompletion(
-      originalRefreshToken,
+      originalAccessToken,
       5000
     );
     // If the other tab succeeded, we now have new tokens.
@@ -173,9 +172,12 @@ async function attemptTokenRefresh(): Promise<RefreshAttemptResult> {
     // 2. Tab B reads refresh token X
     // 3. Tab A refreshes successfully, gets token Y
     // 4. Tab B's refresh fails (token X was invalidated)
-    // 5. Tab B should re-read localStorage and find token Y
-    const currentRefreshToken = getStoredRefreshToken();
-    if (currentRefreshToken && currentRefreshToken !== originalRefreshToken) {
+    // 5. Tab B should re-read localStorage and find token Y.
+    const currentAccessToken = getStoredAuthToken();
+    if (
+      currentAccessToken !== null &&
+      currentAccessToken !== originalAccessToken
+    ) {
       // Token was updated by another tab - our refresh "succeeded" via the other tab
       return { refreshed: true, attemptedByThisTab: true, rejected: false };
     }
@@ -207,22 +209,10 @@ export async function tryRefreshToken(): Promise<boolean> {
     });
   }
   const result = await refreshPromise;
-  if (!result.refreshed) {
-    // Final check: ensure we didn't miss an update from another tab
-    // that happened while we were processing
-    const finalToken = getStoredRefreshToken();
-    if (!finalToken) {
-      // No token at all - session is truly expired
-      setSessionExpiredError();
-      clearStoredAuth();
-    } else if (result.attemptedByThisTab) {
-      if (result.rejected || isJwtExpired(finalToken)) {
-        // Server permanently rejected the token (401/403), or the JWT itself
-        // has expired. Clear auth so the user sees the login form.
-        setSessionExpiredError();
-        clearStoredAuth();
-      }
-    }
+  if (result.attemptedByThisTab && result.rejected) {
+    // Server permanently rejected the refresh credential.
+    setSessionExpiredError();
+    clearStoredAuth();
   }
   return result.refreshed;
 }
@@ -383,6 +373,7 @@ async function requestResponse(
 
     let response = await fetch(requestUrl, {
       ...fetchOptions,
+      credentials: fetchOptions?.credentials ?? 'include',
       headers
     });
 
@@ -406,6 +397,7 @@ async function requestResponse(
 
         response = await fetch(requestUrl, {
           ...fetchOptions,
+          credentials: fetchOptions?.credentials ?? 'include',
           headers: retryHeaders
         });
       }

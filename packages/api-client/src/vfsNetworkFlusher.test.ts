@@ -36,7 +36,7 @@ describe('vfsNetworkFlusher', () => {
 
   it('retries CRDT push with refreshed auth token on 401', async () => {
     localStorage.setItem('auth_token', 'stale-access-token');
-    localStorage.setItem('auth_refresh_token', 'refresh-token');
+    (await import('./authStorage')).setStoredRefreshToken('refresh-token');
 
     let pushAttempt = 0;
     vi.mocked(global.fetch).mockImplementation(

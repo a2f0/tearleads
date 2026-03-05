@@ -2,6 +2,7 @@ import type { Server } from 'node:http';
 import { Code, createClient } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-node';
 import { AuthService } from '@tearleads/shared/gen/tearleads/v1/auth_pb';
+import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
 import { createJwt, verifyJwt, verifyRefreshJwt } from '../lib/jwt.js';
@@ -75,7 +76,7 @@ describe('Connect AuthService session operations', () => {
     await closeServer(server);
   });
 
-  it('returns invalid argument for RefreshToken when refreshToken is missing', async () => {
+  it('returns unauthenticated for RefreshToken when refresh credential is missing', async () => {
     const client = createAuthClient(server);
 
     await expect(
@@ -83,7 +84,7 @@ describe('Connect AuthService session operations', () => {
         refreshToken: ''
       })
     ).rejects.toMatchObject({
-      code: Code.InvalidArgument
+      code: Code.Unauthenticated
     });
   });
 
@@ -269,6 +270,81 @@ describe('Connect AuthService session operations', () => {
     ).rejects.toMatchObject({
       code: Code.Unauthenticated
     });
+  });
+
+  it('accepts refresh token from HttpOnly cookie when request payload is empty', async () => {
+    const userId = 'connect-refresh-user-cookie';
+    const oldSessionId = 'connect-refresh-session-cookie';
+    const oldRefreshTokenId = 'connect-refresh-token-cookie';
+    let newSessionId: string | null = null;
+    let newRefreshTokenId: string | null = null;
+
+    await createSession(
+      oldSessionId,
+      {
+        userId,
+        email: 'connect-refresh-cookie@example.com',
+        admin: false,
+        ipAddress: '127.0.0.1'
+      },
+      604800
+    );
+    await storeRefreshToken(
+      oldRefreshTokenId,
+      { sessionId: oldSessionId, userId },
+      604800
+    );
+
+    const oldRefreshToken = createJwt(
+      {
+        sub: userId,
+        jti: oldRefreshTokenId,
+        sid: oldSessionId,
+        type: 'refresh'
+      },
+      'test-secret',
+      604800
+    );
+
+    try {
+      const response = await request(app)
+        .post('/v1/connect/tearleads.v1.AuthService/RefreshToken')
+        .set('Content-Type', 'application/json')
+        .set(
+          'Cookie',
+          `tearleads_refresh_token=${encodeURIComponent(oldRefreshToken)}`
+        )
+        .send({});
+
+      expect(response.status).toBe(200);
+      const body = response.body;
+      expect(body.accessToken).toEqual(expect.any(String));
+      expect(body.refreshToken).toEqual(expect.any(String));
+
+      const accessClaims = verifyJwt(body.accessToken, 'test-secret');
+      expect(accessClaims).not.toBeNull();
+      newSessionId = accessClaims?.jti ?? null;
+
+      const refreshClaims = verifyRefreshJwt(body.refreshToken, 'test-secret');
+      expect(refreshClaims).not.toBeNull();
+      newRefreshTokenId = refreshClaims?.jti ?? null;
+
+      const setCookie = response.get('set-cookie');
+      expect(setCookie).toBeTruthy();
+      expect(setCookie).toContainEqual(
+        expect.stringContaining('tearleads_refresh_token=')
+      );
+      expect(setCookie).toContainEqual(expect.stringContaining('HttpOnly'));
+    } finally {
+      await deleteSession(oldSessionId, userId);
+      await deleteRefreshToken(oldRefreshTokenId);
+      if (newSessionId) {
+        await deleteSession(newSessionId, userId);
+      }
+      if (newRefreshTokenId) {
+        await deleteRefreshToken(newRefreshTokenId);
+      }
+    }
   });
 
   it('rotates tokens on successful RefreshToken call', async () => {
