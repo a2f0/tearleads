@@ -142,36 +142,40 @@ pub(crate) fn parse_row_struct(row_json: &str) -> Result<Struct, String> {
 
     let mut fields = BTreeMap::new();
     for (key, value) in object {
-        fields.insert(key, json_value_to_protobuf_value(value));
+        fields.insert(key, json_value_to_protobuf_value(value)?);
     }
 
     Ok(Struct { fields })
 }
 
-fn json_value_to_protobuf_value(value: JsonValue) -> Value {
+fn json_value_to_protobuf_value(value: JsonValue) -> Result<Value, String> {
     let kind = match value {
         JsonValue::Null => ProtobufValueKind::NullValue(0),
         JsonValue::Bool(boolean) => ProtobufValueKind::BoolValue(boolean),
         JsonValue::Number(number) => {
-            let as_f64 = number.as_f64().unwrap_or(0.0);
+            let as_f64 = number.as_f64().ok_or_else(|| {
+                let mut message = String::from("number value cannot be represented as f64: ");
+                message.push_str(&number.to_string());
+                message
+            })?;
             ProtobufValueKind::NumberValue(as_f64)
         }
         JsonValue::String(string_value) => ProtobufValueKind::StringValue(string_value),
         JsonValue::Array(list_values) => {
             let mut values = Vec::with_capacity(list_values.len());
             for list_value in list_values {
-                values.push(json_value_to_protobuf_value(list_value));
+                values.push(json_value_to_protobuf_value(list_value)?);
             }
             ProtobufValueKind::ListValue(ListValue { values })
         }
         JsonValue::Object(map_values) => {
             let mut fields = BTreeMap::new();
             for (key, map_value) in map_values {
-                fields.insert(key, json_value_to_protobuf_value(map_value));
+                fields.insert(key, json_value_to_protobuf_value(map_value)?);
             }
             ProtobufValueKind::StructValue(Struct { fields })
         }
     };
 
-    Value { kind: Some(kind) }
+    Ok(Value { kind: Some(kind) })
 }
