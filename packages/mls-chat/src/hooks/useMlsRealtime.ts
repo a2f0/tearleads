@@ -3,7 +3,10 @@
  * Subscribes to group channels and handles incoming messages.
  */
 
-import type { MlsV2Routes } from '@tearleads/api-client/mlsRoutes';
+import {
+  decodeTransportBytes,
+  type MlsV2Routes
+} from '@tearleads/api-client/mlsRoutes';
 import { openNotificationEventStream } from '@tearleads/api-client/notificationStream';
 import type { MlsMessage, MlsMessageType } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
@@ -145,14 +148,6 @@ function decodeBase64Bytes(value: string): Uint8Array | null {
   } catch {
     return null;
   }
-}
-
-function decodeTransportBytes(value: string): Uint8Array {
-  const decoded = decodeBase64Bytes(value);
-  if (decoded) {
-    return decoded;
-  }
-  return new TextEncoder().encode(value);
 }
 
 function dispatchRealtimeMessage(
