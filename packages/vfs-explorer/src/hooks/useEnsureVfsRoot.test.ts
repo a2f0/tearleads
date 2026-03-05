@@ -45,6 +45,7 @@ describe('useEnsureVfsRoot', () => {
 
     expect(result.current.error).toBeNull();
     // Should have only checked for existence, not created
+    expect(mockDb.insert).not.toHaveBeenCalled();
     expect(mockDb.transaction).not.toHaveBeenCalled();
   });
 
@@ -52,17 +53,17 @@ describe('useEnsureVfsRoot', () => {
     // Root does not exist
     mockDb.limit.mockResolvedValueOnce([]);
     const insertedValues: Array<Record<string, unknown>> = [];
-    mockDb.transaction.mockImplementationOnce(async (callback) => {
-      await callback({
-        insert: vi.fn(() => ({
-          values: vi.fn(async (value) => {
-            if (typeof value === 'object' && value !== null) {
-              insertedValues.push(value as Record<string, unknown>);
-            }
-          })
-        }))
-      });
-    });
+    const mockOnConflictDoNothing = vi.fn().mockResolvedValue(undefined);
+    mockDb.insert.mockImplementationOnce(() => ({
+      values: vi.fn((value) => {
+        if (typeof value === 'object' && value !== null) {
+          insertedValues.push(value as Record<string, unknown>);
+        }
+        return {
+          onConflictDoNothing: mockOnConflictDoNothing
+        };
+      })
+    }));
 
     const wrapper = createWrapper({
       databaseState: createMockDatabaseState(),
@@ -77,14 +78,21 @@ describe('useEnsureVfsRoot', () => {
 
     expect(result.current.error).toBeNull();
     // Should have created the root
-    expect(mockDb.transaction).toHaveBeenCalled();
+    expect(mockDb.insert).toHaveBeenCalledTimes(1);
+    expect(mockOnConflictDoNothing).toHaveBeenCalledTimes(1);
     expect(insertedValues[0]?.['encryptedName']).toBe('VFS Root');
     expect(insertedValues).toHaveLength(1);
   });
 
   it('handles errors during root creation', async () => {
     mockDb.limit.mockResolvedValueOnce([]);
-    mockDb.transaction.mockRejectedValueOnce(new Error('Database error'));
+    mockDb.insert.mockImplementationOnce(() => ({
+      values: vi.fn(() => ({
+        onConflictDoNothing: vi
+          .fn()
+          .mockRejectedValueOnce(new Error('Database error'))
+      }))
+    }));
 
     const consoleErrorSpy = vi
       .spyOn(console, 'error')

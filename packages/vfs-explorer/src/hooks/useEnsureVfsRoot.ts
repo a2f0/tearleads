@@ -45,21 +45,21 @@ export function useEnsureVfsRoot(): UseEnsureVfsRootResult {
         return;
       }
 
-      // Create the root folder
-      const now = new Date();
-
-      await db.transaction(async (tx) => {
-        // Insert into vfs_registry
-        await tx.insert(vfsRegistry).values({
+      // Create the root folder if it's missing.
+      // Avoid wrapping this in db.transaction(): this hook can run while another
+      // transaction is active, and nested BEGIN statements fail in SQLite.
+      await db
+        .insert(vfsRegistry)
+        .values({
           id: VFS_ROOT_ID,
           objectType: 'folder',
           ownerId: null,
           encryptedSessionKey: null,
           // Guardrail: canonical folder metadata is on vfs_registry.
           encryptedName: 'VFS Root',
-          createdAt: now
-        });
-      });
+          createdAt: new Date()
+        })
+        .onConflictDoNothing();
 
       setIsReady(true);
     } catch (err) {
