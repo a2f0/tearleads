@@ -7,26 +7,26 @@ import {
   removeGroupMemberDirectTyped
 } from './mlsDirectGroupMembers.js';
 import {
-  createGroupDirectTyped,
   createGroupDirect,
-  deleteGroupDirectTyped,
+  createGroupDirectTyped,
   deleteGroupDirect,
-  getGroupDirectTyped,
+  deleteGroupDirectTyped,
   getGroupDirect,
-  listGroupsDirectTyped,
+  getGroupDirectTyped,
   listGroupsDirect,
-  updateGroupDirectTyped,
-  updateGroupDirect
+  listGroupsDirectTyped,
+  updateGroupDirect,
+  updateGroupDirectTyped
 } from './mlsDirectGroups.js';
 import {
-  deleteKeyPackageDirectTyped,
   deleteKeyPackageDirect,
-  getMyKeyPackagesDirectTyped,
+  deleteKeyPackageDirectTyped,
   getMyKeyPackagesDirect,
-  getUserKeyPackagesDirectTyped,
+  getMyKeyPackagesDirectTyped,
   getUserKeyPackagesDirect,
-  uploadKeyPackagesDirectTyped,
-  uploadKeyPackagesDirect
+  getUserKeyPackagesDirectTyped,
+  uploadKeyPackagesDirect,
+  uploadKeyPackagesDirectTyped
 } from './mlsDirectKeyPackages.js';
 import {
   getGroupMessagesDirect,
@@ -215,10 +215,7 @@ export const mlsConnectServiceV2 = {
       groupIdMls: request.groupIdMls,
       cipherSuite: fromProtoCipherSuite(request.cipherSuite)
     };
-    const data = await createGroupDirectTyped(
-      directRequest,
-      context
-    );
+    const data = await createGroupDirectTyped(directRequest, context);
     return { group: toProtoGroup(data.group) };
   },
 
@@ -244,10 +241,7 @@ export const mlsConnectServiceV2 = {
       ...(request.name ? { name: request.name } : {}),
       ...(request.description ? { description: request.description } : {})
     };
-    const data = await updateGroupDirectTyped(
-      directRequest,
-      context
-    );
+    const data = await updateGroupDirectTyped(directRequest, context);
     return { group: toProtoGroup(data.group) };
   },
 

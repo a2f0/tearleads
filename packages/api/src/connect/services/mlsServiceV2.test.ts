@@ -60,11 +60,14 @@ vi.mock('./mlsDirectKeyPackages.js', () => ({
 }));
 
 vi.mock('./mlsDirectGroups.js', () => ({
-  createGroupDirectTyped: (...args: unknown[]) => createGroupDirectMock(...args),
+  createGroupDirectTyped: (...args: unknown[]) =>
+    createGroupDirectMock(...args),
   listGroupsDirectTyped: (...args: unknown[]) => listGroupsDirectMock(...args),
   getGroupDirectTyped: (...args: unknown[]) => getGroupDirectMock(...args),
-  updateGroupDirectTyped: (...args: unknown[]) => updateGroupDirectMock(...args),
-  deleteGroupDirectTyped: (...args: unknown[]) => deleteGroupDirectMock(...args),
+  updateGroupDirectTyped: (...args: unknown[]) =>
+    updateGroupDirectMock(...args),
+  deleteGroupDirectTyped: (...args: unknown[]) =>
+    deleteGroupDirectMock(...args),
   createGroupDirect: (...args: unknown[]) => createGroupDirectMock(...args),
   listGroupsDirect: (...args: unknown[]) => listGroupsDirectMock(...args),
   getGroupDirect: (...args: unknown[]) => getGroupDirectMock(...args),
