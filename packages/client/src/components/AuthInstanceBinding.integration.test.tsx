@@ -7,6 +7,7 @@ import { DatabaseProvider, useDatabaseContext } from '@/db/hooks';
 import { AuthInstanceBinding } from './AuthInstanceBinding';
 
 const mockUseAuth = vi.fn();
+const mockLogout = vi.fn(async () => undefined);
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => mockUseAuth()
@@ -45,14 +46,16 @@ function requireDatabaseContext(): ReturnType<typeof useDatabaseContext> {
 describe('AuthInstanceBinding integration', () => {
   beforeEach(() => {
     latestDatabaseContext = null;
+    mockLogout.mockClear();
     mockUseAuth.mockReturnValue({
       user: { id: 'user-1', email: 'user-1@example.com' },
       isAuthenticated: true,
-      isLoading: false
+      isLoading: false,
+      logout: mockLogout
     });
   });
 
-  it('keeps created/switched instances active while authenticated', async () => {
+  it('keeps created and switched instances active while binding reacts', async () => {
     render(
       <DatabaseProvider>
         <AuthInstanceBinding />
