@@ -153,11 +153,9 @@ fn json_value_to_protobuf_value(value: JsonValue) -> Result<Value, String> {
         JsonValue::Null => ProtobufValueKind::NullValue(0),
         JsonValue::Bool(boolean) => ProtobufValueKind::BoolValue(boolean),
         JsonValue::Number(number) => {
-            let as_f64 = number.as_f64().ok_or_else(|| {
-                let mut message = String::from("number value cannot be represented as f64: ");
-                message.push_str(&number.to_string());
-                message
-            })?;
+            let mut conversion_error = String::from("number value cannot be represented as f64: ");
+            conversion_error.push_str(&number.to_string());
+            let as_f64 = number.as_f64().ok_or(conversion_error)?;
             ProtobufValueKind::NumberValue(as_f64)
         }
         JsonValue::String(string_value) => ProtobufValueKind::StringValue(string_value),
