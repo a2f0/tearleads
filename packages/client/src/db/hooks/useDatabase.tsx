@@ -9,6 +9,7 @@ import {
 } from '@/hooks/app';
 import { toError } from '@/lib/errors';
 import { deleteFileStorageForInstance } from '@/storage/opfs';
+import { databaseSetupProgressStore } from '@/stores/databaseSetupProgressStore';
 import type { Database } from '../index';
 import {
   autoInitializeDatabase,
@@ -283,17 +284,21 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
     setError(null);
 
     try {
+      databaseSetupProgressStore.start();
+
       if (db) {
         await closeDatabase();
         setDb(null);
       }
 
+      databaseSetupProgressStore.update('Creating new instance...', 20);
       const newInstance = await createRegistryInstance();
 
       await setActiveInstanceId(newInstance.id);
       setCurrentInstanceId(newInstance.id);
       setCurrentInstanceName(newInstance.name);
       emitInstanceChange(newInstance.id);
+      databaseSetupProgressStore.update('Loading database engine...', 55);
       const database = await autoInitializeDatabase(newInstance.id);
       const persistedAfterAutoInit = await hasPersistedSession(newInstance.id);
       setDb(database);
@@ -303,12 +308,14 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       await refreshInstances();
       markSessionActive();
       await touchInstance(newInstance.id);
+      databaseSetupProgressStore.update('Ready', 100);
 
       return newInstance.id;
     } catch (err) {
       setError(toError(err));
       throw err;
     } finally {
+      databaseSetupProgressStore.finish();
       setIsLoading(false);
     }
   }, [db, refreshInstances]);
