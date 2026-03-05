@@ -6,6 +6,7 @@ import {
 } from '@connectrpc/connect';
 import { createGrpcWebTransport } from '@connectrpc/connect-web';
 import type {
+  AdminAccessContextResponse,
   PostgresAdminInfoResponse,
   PostgresColumnsResponse,
   PostgresRowsResponse,
@@ -17,6 +18,8 @@ import {
   AdminDeleteRedisKeyRequestSchema,
   AdminGetColumnsRequestSchema,
   type AdminGetColumnsResponse,
+  AdminGetContextRequestSchema,
+  type AdminGetContextResponse,
   AdminGetPostgresInfoRequestSchema,
   type AdminGetPostgresInfoResponse,
   AdminGetRedisDbSizeRequestSchema,
@@ -111,6 +114,19 @@ function mapPostgresInfoResponse(
       user: response.info?.user ?? null
     },
     serverVersion: response.serverVersion ?? null
+  };
+}
+
+function mapContextResponse(
+  response: AdminGetContextResponse
+): AdminAccessContextResponse {
+  return {
+    isRootAdmin: response.isRootAdmin,
+    organizations: response.organizations.map((organization) => ({
+      id: organization.id,
+      name: organization.name
+    })),
+    defaultOrganizationId: response.defaultOrganizationId ?? null
   };
 }
 
@@ -265,6 +281,15 @@ export function createAdminV2Routes(
   };
 
   return {
+    getContext: () =>
+      runWithEvent(dependencies, 'api_get_admin_organizations', async () => {
+        const { client, callOptions } = await buildCallContext(dependencies);
+        const response = await client.getContext(
+          create(AdminGetContextRequestSchema),
+          callOptions
+        );
+        return mapContextResponse(response);
+      }),
     postgres: {
       getInfo: () =>
         runWithEvent(dependencies, 'api_get_admin_postgres_info', async () => {

@@ -31,6 +31,7 @@ vi.mock('@connectrpc/connect-web', async () => {
 });
 
 interface AdminV2ClientOverrides {
+  getContext?: AdminV2Client['getContext'];
   getPostgresInfo?: AdminV2Client['getPostgresInfo'];
   getTables?: AdminV2Client['getTables'];
   getColumns?: AdminV2Client['getColumns'];
@@ -45,6 +46,13 @@ function createAdminV2ClientStub(
   overrides: AdminV2ClientOverrides = {}
 ): AdminV2Client {
   return {
+    getContext:
+      overrides.getContext ??
+      vi.fn(async () => ({
+        isRootAdmin: false,
+        organizations: [],
+        defaultOrganizationId: undefined
+      })),
     getPostgresInfo:
       overrides.getPostgresInfo ??
       vi.fn(async () => ({ info: undefined, serverVersion: undefined })),
@@ -149,6 +157,35 @@ describe('adminV2Routes', () => {
     });
     expect(logEvent).toHaveBeenCalledWith(
       'api_get_admin_postgres_info',
+      expect.any(Number),
+      true
+    );
+  });
+
+  it('maps admin context response and logs success', async () => {
+    const getContext = vi.fn(async () => ({
+      isRootAdmin: false,
+      organizations: [{ id: 'org-1', name: 'Alpha' }],
+      defaultOrganizationId: 'org-1'
+    }));
+    const client = createAdminV2ClientStub({ getContext });
+    const { routes, logEvent } = createRoutesForTest(client);
+
+    const response = await routes.getContext();
+
+    expect(response).toEqual({
+      isRootAdmin: false,
+      organizations: [{ id: 'org-1', name: 'Alpha' }],
+      defaultOrganizationId: 'org-1'
+    });
+    expect(getContext).toHaveBeenCalledTimes(1);
+    expect(getContext.mock.calls[0]?.[1]).toEqual({
+      headers: {
+        authorization: 'Bearer token-123'
+      }
+    });
+    expect(logEvent).toHaveBeenCalledWith(
+      'api_get_admin_organizations',
       expect.any(Number),
       true
     );
