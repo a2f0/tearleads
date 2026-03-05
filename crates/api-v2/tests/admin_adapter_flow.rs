@@ -14,7 +14,7 @@ use tearleads_data_access_postgres::{
     PostgresTableRecord,
 };
 use tearleads_data_access_redis::{
-    RedisAdminGateway, RedisAdminAdapter, RedisKeyRecord, RedisScanResult,
+    RedisAdminAdapter, RedisAdminGateway, RedisKeyRecord, RedisScanResult,
 };
 use tearleads_data_access_traits::{
     BoxFuture, DataAccessError, PostgresConnectionInfo, PostgresRowsQuery, RedisValue,

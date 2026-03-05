@@ -12,8 +12,8 @@ use tearleads_api_v2_contracts::tearleads::v2::{
 use tearleads_data_access_traits::{
     BoxFuture, DataAccessError, PostgresAdminReadRepository, PostgresColumnInfo,
     PostgresConnectionInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
-    PostgresTableInfo, RedisAdminRepository, RedisKeyInfo, RedisKeyScanPage,
-    RedisKeyValueRecord, RedisValue,
+    PostgresTableInfo, RedisAdminRepository, RedisKeyInfo, RedisKeyScanPage, RedisKeyValueRecord,
+    RedisValue,
 };
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tokio_stream::wrappers::TcpListenerStream;
