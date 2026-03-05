@@ -30,6 +30,16 @@ export interface UseVfsFoldersResult {
 
 const TREE_CONTAINER_TYPES = VFS_CONTAINER_OBJECT_TYPES;
 
+function isDatabaseNotInitializedError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if (error.message.includes('Database not initialized')) return true;
+
+  const cause = 'cause' in error ? error.cause : undefined;
+  return (
+    cause instanceof Error && cause.message.includes('Database not initialized')
+  );
+}
+
 export function useVfsFolders(): UseVfsFoldersResult {
   const { databaseState, getDatabase } = useVfsExplorerContext();
   const { isUnlocked, currentInstanceId } = databaseState;
@@ -156,6 +166,11 @@ export function useVfsFolders(): UseVfsFoldersResult {
       setFolders(rootFolders);
       setHasFetched(true);
     } catch (err) {
+      if (isDatabaseNotInitializedError(err)) {
+        // Database setup/teardown can race briefly during app and test init.
+        // Treat this as transient and retry on next fetch cycle.
+        return;
+      }
       console.error('Failed to fetch VFS folders:', err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
