@@ -8,9 +8,10 @@ use std::{future::Future, pin::Pin};
 
 pub use error::{DataAccessError, DataAccessErrorKind};
 pub use postgres::{
-    AdminGroupSummary, AdminScopeOrganization, PostgresAdminReadRepository, PostgresColumnInfo,
-    PostgresConnectionInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
-    PostgresTableInfo,
+    AdminGroupDetail, AdminGroupMember, AdminGroupSummary, AdminOrganizationSummary,
+    AdminScopeOrganization, AdminUserAccountingSummary, AdminUserSummary,
+    PostgresAdminReadRepository, PostgresColumnInfo, PostgresConnectionInfo, PostgresInfoSnapshot,
+    PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo,
 };
 pub use redis::{
     RedisAdminRepository, RedisKeyInfo, RedisKeyScanPage, RedisKeyValueRecord, RedisValue,

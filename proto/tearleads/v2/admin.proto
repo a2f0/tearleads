@@ -8,6 +8,10 @@ import "google/protobuf/struct.proto";
 service AdminService {
   rpc GetContext(AdminGetContextRequest) returns (AdminGetContextResponse);
   rpc ListGroups(AdminListGroupsRequest) returns (AdminListGroupsResponse);
+  rpc GetGroup(AdminGetGroupRequest) returns (AdminGetGroupResponse);
+  rpc ListOrganizations(AdminListOrganizationsRequest)
+      returns (AdminListOrganizationsResponse);
+  rpc ListUsers(AdminListUsersRequest) returns (AdminListUsersResponse);
   rpc GetPostgresInfo(AdminGetPostgresInfoRequest)
       returns (AdminGetPostgresInfoResponse);
   rpc GetTables(AdminGetTablesRequest) returns (AdminGetTablesResponse);
@@ -51,6 +55,78 @@ message AdminGroupWithMemberCount {
   string created_at = 5;
   string updated_at = 6;
   uint32 member_count = 7;
+}
+
+message AdminGetGroupRequest {
+  string id = 1;
+}
+
+message AdminGetGroupResponse {
+  AdminGroup group = 1;
+  repeated AdminGroupMember members = 2;
+}
+
+message AdminGroup {
+  string id = 1;
+  string organization_id = 2;
+  string name = 3;
+  optional string description = 4;
+  string created_at = 5;
+  string updated_at = 6;
+}
+
+message AdminGroupMember {
+  string user_id = 1;
+  string email = 2;
+  string joined_at = 3;
+}
+
+message AdminListOrganizationsRequest {
+  optional string organization_id = 1;
+}
+
+message AdminListOrganizationsResponse {
+  repeated AdminOrganization organizations = 1;
+}
+
+message AdminOrganization {
+  string id = 1;
+  string name = 2;
+  optional string description = 3;
+  string created_at = 4;
+  string updated_at = 5;
+}
+
+message AdminListUsersRequest {
+  optional string organization_id = 1;
+}
+
+message AdminListUsersResponse {
+  repeated AdminUser users = 1;
+}
+
+message AdminUser {
+  string id = 1;
+  string email = 2;
+  bool email_confirmed = 3;
+  bool admin = 4;
+  repeated string organization_ids = 5;
+  optional string created_at = 6;
+  optional string last_active_at = 7;
+  AdminUserAccounting accounting = 8;
+  bool disabled = 9;
+  optional string disabled_at = 10;
+  optional string disabled_by = 11;
+  optional string marked_for_deletion_at = 12;
+  optional string marked_for_deletion_by = 13;
+}
+
+message AdminUserAccounting {
+  uint64 total_prompt_tokens = 1;
+  uint64 total_completion_tokens = 2;
+  uint64 total_tokens = 3;
+  uint64 request_count = 4;
+  optional string last_used_at = 5;
 }
 
 message AdminGetPostgresInfoRequest {}

@@ -31,6 +31,11 @@ import {
 } from '@tearleads/shared';
 import { mapContextResponse } from './adminV2ContextMapper';
 import { mapGroupsListResponse } from './adminV2GroupsMapper';
+import {
+  mapGroupDetailResponse,
+  mapOrganizationsListResponse,
+  mapUsersListResponse
+} from './adminV2ReadMappers';
 import { isRecord, toNullableNumber, toSafeNumber } from './adminV2ValueUtils';
 
 const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
@@ -379,7 +384,11 @@ export const api = {
         );
       },
       get: (id: string) =>
-        requestAdminJson<GroupDetailResponse>('GetGroup', { id }),
+        requestAdminV2<GroupDetailResponse>(
+          'GetGroup',
+          { id },
+          mapGroupDetailResponse
+        ),
       create: (data: CreateGroupRequest) =>
         requestAdminJson<{ group: Group }>('CreateGroup', {
           json: JSON.stringify(data)
@@ -410,9 +419,10 @@ export const api = {
         if (options?.organizationId) {
           requestBody['organizationId'] = options.organizationId;
         }
-        return requestAdminJson<OrganizationsListResponse>(
+        return requestAdminV2<OrganizationsListResponse>(
           'ListOrganizations',
-          requestBody
+          requestBody,
+          mapOrganizationsListResponse
         );
       },
       get: (id: string) =>
@@ -439,7 +449,11 @@ export const api = {
         if (options?.organizationId) {
           requestBody['organizationId'] = options.organizationId;
         }
-        return requestAdminJson<AdminUsersResponse>('ListUsers', requestBody);
+        return requestAdminV2<AdminUsersResponse>(
+          'ListUsers',
+          requestBody,
+          mapUsersListResponse
+        );
       },
       get: (id: string) =>
         requestAdminJson<AdminUserResponse>('GetUser', { id }),

@@ -21,6 +21,9 @@ export interface ApiV2ProtocolConfig {
 }
 
 export interface ApiV2AdminRpcPaths {
+  getGroup: string;
+  listOrganizations: string;
+  listUsers: string;
   getPostgresInfo: string;
   getTables: string;
   getColumns: string;
@@ -166,6 +169,12 @@ export async function getApiV2AdminRpcPaths(): Promise<ApiV2AdminRpcPaths> {
   const serviceName = config.adminServiceName;
 
   return {
+    getGroup: await resolveApiV2RpcPath(serviceName, 'GetGroup'),
+    listOrganizations: await resolveApiV2RpcPath(
+      serviceName,
+      'ListOrganizations'
+    ),
+    listUsers: await resolveApiV2RpcPath(serviceName, 'ListUsers'),
     getPostgresInfo: await resolveApiV2RpcPath(serviceName, 'GetPostgresInfo'),
     getTables: await resolveApiV2RpcPath(serviceName, 'GetTables'),
     getColumns: await resolveApiV2RpcPath(serviceName, 'GetColumns'),

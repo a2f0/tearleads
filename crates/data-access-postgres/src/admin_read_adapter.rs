@@ -1,14 +1,15 @@
 //! Adapter that maps gateway records to shared Postgres admin read models.
 
 use tearleads_data_access_traits::{
-    AdminGroupSummary, AdminScopeOrganization, BoxFuture, DataAccessError, DataAccessErrorKind,
-    PostgresAdminReadRepository, PostgresColumnInfo, PostgresInfoSnapshot, PostgresRowsPage,
-    PostgresRowsQuery, PostgresTableInfo,
+    AdminGroupDetail, AdminGroupMember, AdminGroupSummary, AdminOrganizationSummary,
+    AdminScopeOrganization, AdminUserAccountingSummary, AdminUserSummary, BoxFuture,
+    DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository, PostgresColumnInfo,
+    PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo,
 };
 
 use crate::{
-    AdminGroupSummaryRecord, AdminScopeOrganizationRecord, PostgresAdminGateway,
-    PostgresRowsPageRecord,
+    AdminGroupDetailRecord, AdminGroupSummaryRecord, AdminOrganizationRecord,
+    AdminScopeOrganizationRecord, AdminUserRecord, PostgresAdminGateway, PostgresRowsPageRecord,
 };
 
 /// Postgres repository implementation over a driver-specific gateway.
@@ -69,6 +70,41 @@ where
                 .list_groups(organization_ids.as_deref())
                 .await?;
             Ok(map_groups(groups))
+        })
+    }
+
+    fn get_group(
+        &self,
+        group_id: &str,
+    ) -> BoxFuture<'_, Result<AdminGroupDetail, DataAccessError>> {
+        let group_id = group_id.to_string();
+
+        Box::pin(async move {
+            let group = self.gateway.get_group(&group_id).await?;
+            Ok(map_group_detail(group))
+        })
+    }
+
+    fn list_organizations(
+        &self,
+        organization_ids: Option<Vec<String>>,
+    ) -> BoxFuture<'_, Result<Vec<AdminOrganizationSummary>, DataAccessError>> {
+        Box::pin(async move {
+            let organizations = self
+                .gateway
+                .list_organizations(organization_ids.as_deref())
+                .await?;
+            Ok(map_organizations(organizations))
+        })
+    }
+
+    fn list_users(
+        &self,
+        organization_ids: Option<Vec<String>>,
+    ) -> BoxFuture<'_, Result<Vec<AdminUserSummary>, DataAccessError>> {
+        Box::pin(async move {
+            let users = self.gateway.list_users(organization_ids.as_deref()).await?;
+            Ok(map_users(users))
         })
     }
 
@@ -156,6 +192,66 @@ fn map_groups(records: Vec<AdminGroupSummaryRecord>) -> Vec<AdminGroupSummary> {
             created_at: record.created_at,
             updated_at: record.updated_at,
             member_count: record.member_count,
+        })
+        .collect()
+}
+
+fn map_group_detail(record: AdminGroupDetailRecord) -> AdminGroupDetail {
+    AdminGroupDetail {
+        id: record.id,
+        organization_id: record.organization_id,
+        name: record.name,
+        description: record.description,
+        created_at: record.created_at,
+        updated_at: record.updated_at,
+        members: record
+            .members
+            .into_iter()
+            .map(|member| AdminGroupMember {
+                user_id: member.user_id,
+                email: member.email,
+                joined_at: member.joined_at,
+            })
+            .collect(),
+    }
+}
+
+fn map_organizations(records: Vec<AdminOrganizationRecord>) -> Vec<AdminOrganizationSummary> {
+    records
+        .into_iter()
+        .map(|record| AdminOrganizationSummary {
+            id: record.id,
+            name: record.name,
+            description: record.description,
+            created_at: record.created_at,
+            updated_at: record.updated_at,
+        })
+        .collect()
+}
+
+fn map_users(records: Vec<AdminUserRecord>) -> Vec<AdminUserSummary> {
+    records
+        .into_iter()
+        .map(|record| AdminUserSummary {
+            id: record.id,
+            email: record.email,
+            email_confirmed: record.email_confirmed,
+            admin: record.admin,
+            organization_ids: record.organization_ids,
+            created_at: record.created_at,
+            last_active_at: record.last_active_at,
+            accounting: AdminUserAccountingSummary {
+                total_prompt_tokens: record.accounting.total_prompt_tokens,
+                total_completion_tokens: record.accounting.total_completion_tokens,
+                total_tokens: record.accounting.total_tokens,
+                request_count: record.accounting.request_count,
+                last_used_at: record.accounting.last_used_at,
+            },
+            disabled: record.disabled,
+            disabled_at: record.disabled_at,
+            disabled_by: record.disabled_by,
+            marked_for_deletion_at: record.marked_for_deletion_at,
+            marked_for_deletion_by: record.marked_for_deletion_by,
         })
         .collect()
 }

@@ -387,6 +387,7 @@ fn operation_strings_are_stable_for_error_messages() {
         (AdminOperation::GetRedisDbSize, "get_redis_db_size"),
         (AdminOperation::GetContext, "get_context"),
         (AdminOperation::ListGroups, "list_groups"),
+        (AdminOperation::GetGroup, "get_group"),
         (AdminOperation::ListOrganizations, "list_organizations"),
         (AdminOperation::ListUsers, "list_users"),
     ];

@@ -1,30 +1,31 @@
 //! Contract-first admin RPC handlers backed by repository traits.
 
-use std::collections::HashMap;
-
-use prost_types::{ListValue, Struct, Value, value::Kind as ProtobufValueKind};
-use serde_json::Value as JsonValue;
-use tearleads_api_domain_core::normalize_sql_identifier;
 use tearleads_api_v2_contracts::tearleads::v2::{
     AdminDeleteRedisKeyRequest, AdminDeleteRedisKeyResponse, AdminGetColumnsRequest,
-    AdminGetColumnsResponse, AdminGetContextRequest, AdminGetContextResponse,
-    AdminGetPostgresInfoRequest, AdminGetPostgresInfoResponse, AdminGetRedisDbSizeRequest,
-    AdminGetRedisDbSizeResponse, AdminGetRedisKeysRequest, AdminGetRedisKeysResponse,
-    AdminGetRedisValueRequest, AdminGetRedisValueResponse, AdminGetRowsRequest,
-    AdminGetRowsResponse, AdminGetTablesRequest, AdminGetTablesResponse, AdminGroupWithMemberCount,
-    AdminListGroupsRequest, AdminListGroupsResponse, AdminPostgresColumnInfo,
-    AdminPostgresConnectionInfo, AdminPostgresTableInfo, AdminRedisKeyInfo, AdminRedisStringList,
-    AdminRedisStringMap, AdminRedisValue, AdminScopeOrganization, admin_redis_value,
-    admin_service_server::AdminService,
+    AdminGetColumnsResponse, AdminGetContextRequest, AdminGetContextResponse, AdminGetGroupRequest,
+    AdminGetGroupResponse, AdminGetPostgresInfoRequest, AdminGetPostgresInfoResponse,
+    AdminGetRedisDbSizeRequest, AdminGetRedisDbSizeResponse, AdminGetRedisKeysRequest,
+    AdminGetRedisKeysResponse, AdminGetRedisValueRequest, AdminGetRedisValueResponse,
+    AdminGetRowsRequest, AdminGetRowsResponse, AdminGetTablesRequest, AdminGetTablesResponse,
+    AdminGroup, AdminGroupMember, AdminGroupWithMemberCount, AdminListGroupsRequest,
+    AdminListGroupsResponse, AdminListOrganizationsRequest, AdminListOrganizationsResponse,
+    AdminListUsersRequest, AdminListUsersResponse, AdminOrganization, AdminPostgresColumnInfo,
+    AdminPostgresConnectionInfo, AdminPostgresTableInfo, AdminRedisKeyInfo, AdminScopeOrganization,
+    AdminUser, AdminUserAccounting, admin_service_server::AdminService,
 };
 use tearleads_data_access_traits::{
-    DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository, PostgresRowsQuery,
-    RedisAdminRepository, RedisValue,
+    PostgresAdminReadRepository, PostgresRowsQuery, RedisAdminRepository,
 };
 use tonic::{Request, Response, Status};
 
 use crate::admin_auth::{
     AdminOperation, AdminRequestAuthorizer, HeaderRoleAdminAuthorizer, map_admin_auth_error,
+};
+use crate::admin_service_common::{
+    map_data_access_error, map_redis_value, normalize_optional_organization_id,
+    normalize_redis_key, normalize_required_resource_id, normalize_rows_limit,
+    normalize_schema_or_table, normalize_sort_direction, parse_row_struct,
+    resolve_organization_scope_filter,
 };
 
 /// Trait-backed implementation of `tearleads.v2.AdminService`.
@@ -138,21 +139,8 @@ where
             .map_err(map_admin_auth_error)?;
         let payload = request.into_inner();
         let requested_organization_id = normalize_optional_organization_id(payload.organization_id);
-
-        let organization_ids = if admin_access.is_root_admin() {
-            requested_organization_id.map(|organization_id| vec![organization_id])
-        } else if let Some(organization_id) = requested_organization_id {
-            if !admin_access
-                .organization_ids()
-                .iter()
-                .any(|id| id == &organization_id)
-            {
-                return Err(Status::permission_denied("forbidden organization scope"));
-            }
-            Some(vec![organization_id])
-        } else {
-            Some(admin_access.organization_ids().to_vec())
-        };
+        let organization_ids =
+            resolve_organization_scope_filter(&admin_access, requested_organization_id)?;
 
         let groups = self
             .postgres_repo
@@ -172,6 +160,133 @@ where
             .collect();
 
         Ok(Response::new(AdminListGroupsResponse { groups }))
+    }
+
+    async fn get_group(
+        &self,
+        request: Request<AdminGetGroupRequest>,
+    ) -> Result<Response<AdminGetGroupResponse>, Status> {
+        let admin_access = self
+            .authorizer
+            .authorize_admin_operation(AdminOperation::GetGroup, request.metadata())
+            .map_err(map_admin_auth_error)?;
+        let payload = request.into_inner();
+        let group_id = normalize_required_resource_id("id", &payload.id)?;
+
+        let group = self
+            .postgres_repo
+            .get_group(&group_id)
+            .await
+            .map_err(map_data_access_error)?;
+
+        if !admin_access.is_root_admin()
+            && !admin_access
+                .organization_ids()
+                .iter()
+                .any(|id| id == &group.organization_id)
+        {
+            return Err(Status::permission_denied("forbidden organization scope"));
+        }
+
+        let members = group
+            .members
+            .into_iter()
+            .map(|member| AdminGroupMember {
+                user_id: member.user_id,
+                email: member.email,
+                joined_at: member.joined_at,
+            })
+            .collect();
+
+        Ok(Response::new(AdminGetGroupResponse {
+            group: Some(AdminGroup {
+                id: group.id,
+                organization_id: group.organization_id,
+                name: group.name,
+                description: group.description,
+                created_at: group.created_at,
+                updated_at: group.updated_at,
+            }),
+            members,
+        }))
+    }
+
+    async fn list_organizations(
+        &self,
+        request: Request<AdminListOrganizationsRequest>,
+    ) -> Result<Response<AdminListOrganizationsResponse>, Status> {
+        let admin_access = self
+            .authorizer
+            .authorize_admin_operation(AdminOperation::ListOrganizations, request.metadata())
+            .map_err(map_admin_auth_error)?;
+        let payload = request.into_inner();
+        let requested_organization_id = normalize_optional_organization_id(payload.organization_id);
+        let organization_ids =
+            resolve_organization_scope_filter(&admin_access, requested_organization_id)?;
+
+        let organizations = self
+            .postgres_repo
+            .list_organizations(organization_ids)
+            .await
+            .map_err(map_data_access_error)?
+            .into_iter()
+            .map(|organization| AdminOrganization {
+                id: organization.id,
+                name: organization.name,
+                description: organization.description,
+                created_at: organization.created_at,
+                updated_at: organization.updated_at,
+            })
+            .collect();
+
+        Ok(Response::new(AdminListOrganizationsResponse {
+            organizations,
+        }))
+    }
+
+    async fn list_users(
+        &self,
+        request: Request<AdminListUsersRequest>,
+    ) -> Result<Response<AdminListUsersResponse>, Status> {
+        let admin_access = self
+            .authorizer
+            .authorize_admin_operation(AdminOperation::ListUsers, request.metadata())
+            .map_err(map_admin_auth_error)?;
+        let payload = request.into_inner();
+        let requested_organization_id = normalize_optional_organization_id(payload.organization_id);
+        let organization_ids =
+            resolve_organization_scope_filter(&admin_access, requested_organization_id)?;
+
+        let users = self
+            .postgres_repo
+            .list_users(organization_ids)
+            .await
+            .map_err(map_data_access_error)?
+            .into_iter()
+            .map(|user| AdminUser {
+                id: user.id,
+                email: user.email,
+                email_confirmed: user.email_confirmed,
+                admin: user.admin,
+                organization_ids: user.organization_ids,
+                created_at: user.created_at,
+                last_active_at: user.last_active_at,
+                accounting: Some(AdminUserAccounting {
+                    total_prompt_tokens: user.accounting.total_prompt_tokens,
+                    total_completion_tokens: user.accounting.total_completion_tokens,
+                    total_tokens: user.accounting.total_tokens,
+                    request_count: user.accounting.request_count,
+                    last_used_at: user.accounting.last_used_at,
+                }),
+                disabled: user.disabled,
+                disabled_at: user.disabled_at,
+                disabled_by: user.disabled_by,
+                marked_for_deletion_at: user.marked_for_deletion_at,
+                marked_for_deletion_by: user.marked_for_deletion_by,
+            })
+            .collect();
+
+        Ok(Response::new(AdminListUsersResponse { users }))
     }
 
     async fn get_tables(
@@ -371,127 +486,4 @@ where
 
         Ok(Response::new(AdminGetRedisDbSizeResponse { count }))
     }
-}
-
-fn map_redis_value(value: Option<RedisValue>) -> Option<AdminRedisValue> {
-    value.map(|value_variant| match value_variant {
-        RedisValue::String(string_value) => AdminRedisValue {
-            value: Some(admin_redis_value::Value::StringValue(string_value)),
-        },
-        RedisValue::List(values) => AdminRedisValue {
-            value: Some(admin_redis_value::Value::ListValue(AdminRedisStringList {
-                values,
-            })),
-        },
-        RedisValue::Map(entries) => AdminRedisValue {
-            value: Some(admin_redis_value::Value::MapValue(AdminRedisStringMap {
-                entries: entries.into_iter().collect::<HashMap<_, _>>(),
-            })),
-        },
-    })
-}
-
-fn map_data_access_error(error: DataAccessError) -> Status {
-    match error.kind() {
-        DataAccessErrorKind::NotFound => Status::not_found(error.message().to_string()),
-        DataAccessErrorKind::PermissionDenied => {
-            Status::permission_denied(error.message().to_string())
-        }
-        DataAccessErrorKind::InvalidInput => Status::invalid_argument(error.message().to_string()),
-        DataAccessErrorKind::Unavailable => Status::unavailable("upstream store unavailable"),
-        DataAccessErrorKind::Internal => Status::internal("internal data access error"),
-    }
-}
-
-fn normalize_schema_or_table(field: &'static str, value: &str) -> Result<String, String> {
-    normalize_sql_identifier(field, value).map_err(|error| error.message().to_string())
-}
-
-fn normalize_redis_key(key: &str) -> Result<String, &'static str> {
-    let trimmed = key.trim();
-    if trimmed.is_empty() {
-        return Err("key must not be empty");
-    }
-    Ok(trimmed.to_string())
-}
-
-fn normalize_optional_organization_id(value: Option<String>) -> Option<String> {
-    value
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(str::to_string)
-}
-
-fn normalize_sort_direction(value: Option<String>) -> Result<Option<String>, &'static str> {
-    let Some(raw) = value else {
-        return Ok(None);
-    };
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        return Ok(None);
-    }
-
-    if trimmed.eq_ignore_ascii_case("asc") {
-        return Ok(Some(String::from("asc")));
-    }
-    if trimmed.eq_ignore_ascii_case("desc") {
-        return Ok(Some(String::from("desc")));
-    }
-
-    Err("sort_direction must be \"asc\" or \"desc\"")
-}
-
-fn normalize_rows_limit(limit: u32) -> u32 {
-    if limit == 0 {
-        return 50;
-    }
-    limit.min(1000)
-}
-
-fn parse_row_struct(row_json: &str) -> Result<Struct, String> {
-    let parsed_value: JsonValue =
-        serde_json::from_str(row_json).map_err(|error| format!("invalid JSON payload: {error}"))?;
-
-    let JsonValue::Object(object) = parsed_value else {
-        return Err(String::from("row payload must decode to an object"));
-    };
-
-    let fields = object
-        .into_iter()
-        .map(|(key, value)| json_value_to_protobuf_value(value).map(|mapped| (key, mapped)))
-        .collect::<Result<_, _>>()?;
-
-    Ok(Struct { fields })
-}
-
-fn json_value_to_protobuf_value(value: JsonValue) -> Result<Value, String> {
-    let kind = match value {
-        JsonValue::Null => ProtobufValueKind::NullValue(0),
-        JsonValue::Bool(boolean) => ProtobufValueKind::BoolValue(boolean),
-        JsonValue::Number(number) => {
-            let as_f64 = number.as_f64();
-            let as_f64 = as_f64.ok_or("number parse failed")?;
-            ProtobufValueKind::NumberValue(as_f64)
-        }
-        JsonValue::String(string_value) => ProtobufValueKind::StringValue(string_value),
-        JsonValue::Array(list_values) => {
-            let values = list_values
-                .into_iter()
-                .map(json_value_to_protobuf_value)
-                .collect::<Result<Vec<_>, _>>()?;
-            ProtobufValueKind::ListValue(ListValue { values })
-        }
-        JsonValue::Object(map_values) => {
-            let fields = map_values
-                .into_iter()
-                .map(|(key, map_value)| {
-                    json_value_to_protobuf_value(map_value).map(|mapped| (key, mapped))
-                })
-                .collect::<Result<_, _>>()?;
-            ProtobufValueKind::StructValue(Struct { fields })
-        }
-    };
-
-    Ok(Value { kind: Some(kind) })
 }

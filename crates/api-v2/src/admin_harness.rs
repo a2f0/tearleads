@@ -1,10 +1,11 @@
 //! Test harness admin repositories and auth policy for browser-facing v2 routes.
 
 use tearleads_data_access_traits::{
-    AdminGroupSummary, AdminScopeOrganization, BoxFuture, PostgresAdminReadRepository,
-    PostgresConnectionInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
-    PostgresTableInfo, RedisAdminRepository, RedisKeyInfo, RedisKeyScanPage, RedisKeyValueRecord,
-    RedisValue,
+    AdminGroupDetail, AdminGroupMember, AdminGroupSummary, AdminOrganizationSummary,
+    AdminScopeOrganization, AdminUserAccountingSummary, AdminUserSummary, BoxFuture,
+    DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository, PostgresConnectionInfo,
+    PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo,
+    RedisAdminRepository, RedisKeyInfo, RedisKeyScanPage, RedisKeyValueRecord, RedisValue,
 };
 
 use crate::{
@@ -169,6 +170,172 @@ impl PostgresAdminReadRepository for StaticPostgresRepository {
                     .collect()
             } else {
                 groups
+            };
+
+            Ok(filtered)
+        })
+    }
+
+    fn get_group(
+        &self,
+        group_id: &str,
+    ) -> BoxFuture<'_, Result<AdminGroupDetail, tearleads_data_access_traits::DataAccessError>>
+    {
+        let group_id = group_id.trim().to_string();
+
+        Box::pin(async move {
+            let groups = vec![
+                AdminGroupDetail {
+                    id: String::from("group-1"),
+                    organization_id: String::from("org-1"),
+                    name: String::from("Core Admin"),
+                    description: Some(String::from("Admin operators")),
+                    created_at: String::from("2026-01-01T00:00:00Z"),
+                    updated_at: String::from("2026-01-01T00:00:00Z"),
+                    members: vec![
+                        AdminGroupMember {
+                            user_id: String::from("user-1"),
+                            email: String::from("admin@example.com"),
+                            joined_at: String::from("2026-01-01T00:00:00Z"),
+                        },
+                        AdminGroupMember {
+                            user_id: String::from("user-2"),
+                            email: String::from("operator@example.com"),
+                            joined_at: String::from("2026-01-02T00:00:00Z"),
+                        },
+                    ],
+                },
+                AdminGroupDetail {
+                    id: String::from("group-2"),
+                    organization_id: String::from("org-2"),
+                    name: String::from("Support"),
+                    description: None,
+                    created_at: String::from("2026-01-02T00:00:00Z"),
+                    updated_at: String::from("2026-01-02T00:00:00Z"),
+                    members: vec![AdminGroupMember {
+                        user_id: String::from("user-3"),
+                        email: String::from("support@example.com"),
+                        joined_at: String::from("2026-01-03T00:00:00Z"),
+                    }],
+                },
+            ];
+
+            groups
+                .into_iter()
+                .find(|group| group.id == group_id)
+                .ok_or_else(|| {
+                    DataAccessError::new(
+                        DataAccessErrorKind::NotFound,
+                        format!("group not found: {group_id}"),
+                    )
+                })
+        })
+    }
+
+    fn list_organizations(
+        &self,
+        organization_ids: Option<Vec<String>>,
+    ) -> BoxFuture<
+        '_,
+        Result<Vec<AdminOrganizationSummary>, tearleads_data_access_traits::DataAccessError>,
+    > {
+        Box::pin(async move {
+            let organizations = vec![
+                AdminOrganizationSummary {
+                    id: String::from("org-1"),
+                    name: String::from("Organization 1"),
+                    description: Some(String::from("Primary organization")),
+                    created_at: String::from("2026-01-01T00:00:00Z"),
+                    updated_at: String::from("2026-01-01T00:00:00Z"),
+                },
+                AdminOrganizationSummary {
+                    id: String::from("org-2"),
+                    name: String::from("Organization 2"),
+                    description: None,
+                    created_at: String::from("2026-01-02T00:00:00Z"),
+                    updated_at: String::from("2026-01-02T00:00:00Z"),
+                },
+            ];
+
+            let filtered = if let Some(organization_ids) = organization_ids {
+                use std::collections::HashSet;
+                let organization_id_set: HashSet<_> = organization_ids.into_iter().collect();
+                organizations
+                    .into_iter()
+                    .filter(|organization| organization_id_set.contains(&organization.id))
+                    .collect()
+            } else {
+                organizations
+            };
+
+            Ok(filtered)
+        })
+    }
+
+    fn list_users(
+        &self,
+        organization_ids: Option<Vec<String>>,
+    ) -> BoxFuture<'_, Result<Vec<AdminUserSummary>, tearleads_data_access_traits::DataAccessError>>
+    {
+        Box::pin(async move {
+            let users = vec![
+                AdminUserSummary {
+                    id: String::from("user-1"),
+                    email: String::from("admin@example.com"),
+                    email_confirmed: true,
+                    admin: true,
+                    organization_ids: vec![String::from("org-1")],
+                    created_at: Some(String::from("2026-01-01T00:00:00Z")),
+                    last_active_at: Some(String::from("2026-01-04T00:00:00Z")),
+                    accounting: AdminUserAccountingSummary {
+                        total_prompt_tokens: 120,
+                        total_completion_tokens: 40,
+                        total_tokens: 160,
+                        request_count: 12,
+                        last_used_at: Some(String::from("2026-01-04T00:00:00Z")),
+                    },
+                    disabled: false,
+                    disabled_at: None,
+                    disabled_by: None,
+                    marked_for_deletion_at: None,
+                    marked_for_deletion_by: None,
+                },
+                AdminUserSummary {
+                    id: String::from("user-2"),
+                    email: String::from("operator@example.com"),
+                    email_confirmed: true,
+                    admin: false,
+                    organization_ids: vec![String::from("org-2")],
+                    created_at: Some(String::from("2026-01-02T00:00:00Z")),
+                    last_active_at: None,
+                    accounting: AdminUserAccountingSummary {
+                        total_prompt_tokens: 0,
+                        total_completion_tokens: 0,
+                        total_tokens: 0,
+                        request_count: 0,
+                        last_used_at: None,
+                    },
+                    disabled: false,
+                    disabled_at: None,
+                    disabled_by: None,
+                    marked_for_deletion_at: None,
+                    marked_for_deletion_by: None,
+                },
+            ];
+
+            let filtered = if let Some(organization_ids) = organization_ids {
+                use std::collections::HashSet;
+                let organization_id_set: HashSet<_> = organization_ids.into_iter().collect();
+                users
+                    .into_iter()
+                    .filter(|user| {
+                        user.organization_ids
+                            .iter()
+                            .any(|organization_id| organization_id_set.contains(organization_id))
+                    })
+                    .collect()
+            } else {
+                users
             };
 
             Ok(filtered)

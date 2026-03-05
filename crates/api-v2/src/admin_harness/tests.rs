@@ -1,8 +1,9 @@
 use crate::{AdminRequestAuthorizer, admin_auth::map_admin_auth_error};
 use tearleads_api_v2_contracts::tearleads::v2::{
-    AdminDeleteRedisKeyRequest, AdminGetRedisDbSizeRequest, AdminGetRedisKeysRequest,
-    AdminGetRedisValueRequest, AdminGetRowsRequest, AdminGetTablesRequest, AdminListGroupsRequest,
-    admin_service_server::AdminService,
+    AdminDeleteRedisKeyRequest, AdminGetGroupRequest, AdminGetRedisDbSizeRequest,
+    AdminGetRedisKeysRequest, AdminGetRedisValueRequest, AdminGetRowsRequest,
+    AdminGetTablesRequest, AdminListGroupsRequest, AdminListOrganizationsRequest,
+    AdminListUsersRequest, admin_service_server::AdminService,
 };
 use tearleads_data_access_traits::{
     PostgresAdminReadRepository, PostgresRowsQuery, RedisAdminRepository, RedisValue,
@@ -115,6 +116,34 @@ async fn static_repositories_return_expected_wave1a_shapes() {
         .expect("filtered group listing should succeed");
     assert_eq!(filtered_groups.len(), 1);
     assert_eq!(filtered_groups[0].organization_id, "org-2");
+    let group = postgres
+        .get_group("group-1")
+        .await
+        .expect("group lookup should succeed");
+    assert_eq!(group.id, "group-1");
+    assert_eq!(group.members.len(), 2);
+    let organizations = postgres
+        .list_organizations(None)
+        .await
+        .expect("organization listing should succeed");
+    assert_eq!(organizations.len(), 2);
+    let filtered_organizations = postgres
+        .list_organizations(Some(vec![String::from("org-2")]))
+        .await
+        .expect("filtered organization listing should succeed");
+    assert_eq!(filtered_organizations.len(), 1);
+    assert_eq!(filtered_organizations[0].id, "org-2");
+    let users = postgres
+        .list_users(None)
+        .await
+        .expect("user listing should succeed");
+    assert_eq!(users.len(), 2);
+    let filtered_users = postgres
+        .list_users(Some(vec![String::from("org-1")]))
+        .await
+        .expect("filtered user listing should succeed");
+    assert_eq!(filtered_users.len(), 1);
+    assert_eq!(filtered_users[0].id, "user-1");
 
     let tables = postgres
         .list_tables()
@@ -211,6 +240,57 @@ async fn harness_handler_enforces_authorization_and_serves_responses() {
         .into_inner();
     assert_eq!(list_groups_response.groups.len(), 1);
     assert_eq!(list_groups_response.groups[0].organization_id, "org-1");
+
+    let mut get_group_request = Request::new(AdminGetGroupRequest {
+        id: String::from("group-1"),
+    });
+    get_group_request.metadata_mut().insert(
+        "authorization",
+        tonic::metadata::MetadataValue::from_static("Bearer header.payload.signature"),
+    );
+    let get_group_response = handler
+        .get_group(get_group_request)
+        .await
+        .expect("authorized get group request should succeed")
+        .into_inner();
+    assert_eq!(
+        get_group_response
+            .group
+            .as_ref()
+            .map(|group| group.id.as_str()),
+        Some("group-1")
+    );
+    assert_eq!(get_group_response.members.len(), 2);
+
+    let mut list_organizations_request = Request::new(AdminListOrganizationsRequest {
+        organization_id: Some(String::from("org-1")),
+    });
+    list_organizations_request.metadata_mut().insert(
+        "authorization",
+        tonic::metadata::MetadataValue::from_static("Bearer header.payload.signature"),
+    );
+    let list_organizations_response = handler
+        .list_organizations(list_organizations_request)
+        .await
+        .expect("authorized list organizations request should succeed")
+        .into_inner();
+    assert_eq!(list_organizations_response.organizations.len(), 1);
+    assert_eq!(list_organizations_response.organizations[0].id, "org-1");
+
+    let mut list_users_request = Request::new(AdminListUsersRequest {
+        organization_id: Some(String::from("org-1")),
+    });
+    list_users_request.metadata_mut().insert(
+        "authorization",
+        tonic::metadata::MetadataValue::from_static("Bearer header.payload.signature"),
+    );
+    let list_users_response = handler
+        .list_users(list_users_request)
+        .await
+        .expect("authorized list users request should succeed")
+        .into_inner();
+    assert_eq!(list_users_response.users.len(), 1);
+    assert_eq!(list_users_response.users[0].id, "user-1");
 
     let mut keys_request = Request::new(AdminGetRedisKeysRequest {
         cursor: String::from("0"),

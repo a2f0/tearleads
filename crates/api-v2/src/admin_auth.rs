@@ -66,6 +66,8 @@ pub enum AdminOperation {
     GetContext,
     /// `AdminService.ListGroups`
     ListGroups,
+    /// `AdminService.GetGroup`
+    GetGroup,
     /// `AdminService.ListOrganizations`
     ListOrganizations,
     /// `AdminService.ListUsers`
@@ -85,6 +87,7 @@ impl AdminOperation {
             Self::GetRedisDbSize => "get_redis_db_size",
             Self::GetContext => "get_context",
             Self::ListGroups => "list_groups",
+            Self::GetGroup => "get_group",
             Self::ListOrganizations => "list_organizations",
             Self::ListUsers => "list_users",
         }
@@ -100,9 +103,11 @@ impl AdminOperation {
             | Self::GetRedisValue
             | Self::DeleteRedisKey
             | Self::GetRedisDbSize => AdminOperationScope::RootOnly,
-            Self::GetContext | Self::ListGroups | Self::ListOrganizations | Self::ListUsers => {
-                AdminOperationScope::ScopedOrRoot
-            }
+            Self::GetContext
+            | Self::ListGroups
+            | Self::GetGroup
+            | Self::ListOrganizations
+            | Self::ListUsers => AdminOperationScope::ScopedOrRoot,
         }
     }
 }

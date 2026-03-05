@@ -1,18 +1,15 @@
 import type {
   AdminUserResponse,
-  AdminUsersResponse,
   AdminUserUpdatePayload,
   AdminUserUpdateResponse,
   CreateGroupRequest,
   CreateOrganizationRequest,
   Group,
-  GroupDetailResponse,
   GroupMembersResponse,
   GroupsListResponse,
   Organization,
   OrganizationGroupsResponse,
   OrganizationResponse,
-  OrganizationsListResponse,
   OrganizationUsersResponse,
   UpdateGroupRequest,
   UpdateOrganizationRequest
@@ -84,11 +81,7 @@ export const adminRoutes = {
       );
     },
     get: (id: string) =>
-      requestAdminJson<GroupDetailResponse>(
-        'GetGroup',
-        { id },
-        'api_get_admin_group'
-      ),
+      adminV2Routes.groups.get(id),
     create: (data: CreateGroupRequest) =>
       requestAdminJson<{ group: Group }>(
         'CreateGroup',
@@ -128,15 +121,7 @@ export const adminRoutes = {
   },
   organizations: {
     list: (options?: { organizationId?: string }) => {
-      const requestBody: Record<string, unknown> = {};
-      if (options?.organizationId) {
-        requestBody['organizationId'] = options.organizationId;
-      }
-      return requestAdminJson<OrganizationsListResponse>(
-        'ListOrganizations',
-        requestBody,
-        'api_get_admin_organizations'
-      );
+      return adminV2Routes.organizations.list(options);
     },
     get: (id: string) =>
       requestAdminJson<OrganizationResponse>(
@@ -177,15 +162,7 @@ export const adminRoutes = {
   },
   users: {
     list: (options?: { organizationId?: string }) => {
-      const requestBody: Record<string, unknown> = {};
-      if (options?.organizationId) {
-        requestBody['organizationId'] = options.organizationId;
-      }
-      return requestAdminJson<AdminUsersResponse>(
-        'ListUsers',
-        requestBody,
-        'api_get_admin_users'
-      );
+      return adminV2Routes.users.list(options);
     },
     get: (id: string) =>
       requestAdminJson<AdminUserResponse>(
