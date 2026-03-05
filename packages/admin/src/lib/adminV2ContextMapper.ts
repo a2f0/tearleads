@@ -17,8 +17,7 @@ export function mapContextResponse(
     organizations: organizations
       .filter((organization) => isRecord(organization))
       .map((organization) => ({
-        id:
-          typeof organization['id'] === 'string' ? organization['id'] : '',
+        id: typeof organization['id'] === 'string' ? organization['id'] : '',
         name:
           typeof organization['name'] === 'string' ? organization['name'] : ''
       })),
