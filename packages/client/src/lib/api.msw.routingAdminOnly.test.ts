@@ -127,7 +127,7 @@ describe('api with msw admin routing', () => {
 
     expect(wasApiRequestMade('GET', '/v2/ping')).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.AdminService/GetContext')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetContext')
     ).toBe(true);
     expect(
       wasApiRequestMade(
