@@ -3,8 +3,8 @@
  * Subscribes to group channels and handles incoming messages.
  */
 
-import { openNotificationEventStream } from '@tearleads/api-client/notificationStream';
 import type { MlsV2Routes } from '@tearleads/api-client/mlsRoutes';
+import { openNotificationEventStream } from '@tearleads/api-client/notificationStream';
 import type { MlsMessage, MlsMessageType } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -27,8 +27,9 @@ interface UseMlsRealtimeResult {
   subscribedGroups: Set<string>;
 }
 
-type MlsBinaryMessage =
-  Awaited<ReturnType<MlsV2Routes['getGroupMessages']>>['messages'][number];
+type MlsBinaryMessage = Awaited<
+  ReturnType<MlsV2Routes['getGroupMessages']>
+>['messages'][number];
 
 /** Parsed SSE message envelope */
 interface SseMessageEnvelope {

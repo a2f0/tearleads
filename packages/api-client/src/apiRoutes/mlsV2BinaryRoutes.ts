@@ -44,7 +44,10 @@ type MlsBinaryGroupState = Omit<MlsGroupState, 'encryptedState'> & {
 
 export type UploadMlsKeyPackagesBinaryRequest = {
   keyPackages: Array<
-    Omit<UploadMlsKeyPackagesRequest['keyPackages'][number], 'keyPackageData'> & {
+    Omit<
+      UploadMlsKeyPackagesRequest['keyPackages'][number],
+      'keyPackageData'
+    > & {
       keyPackageData: Uint8Array;
     }
   >;
@@ -87,7 +90,10 @@ export type SendMlsMessageBinaryResponse = Omit<
   message: MlsBinaryMessage;
 };
 
-export type MlsBinaryMessagesResponse = Omit<MlsMessagesResponse, 'messages'> & {
+export type MlsBinaryMessagesResponse = Omit<
+  MlsMessagesResponse,
+  'messages'
+> & {
   messages: MlsBinaryMessage[];
 };
 
@@ -105,11 +111,17 @@ export type UploadMlsStateBinaryRequest = Omit<
   encryptedState: Uint8Array;
 };
 
-export type UploadMlsStateBinaryResponse = Omit<UploadMlsStateResponse, 'state'> & {
+export type UploadMlsStateBinaryResponse = Omit<
+  UploadMlsStateResponse,
+  'state'
+> & {
   state: MlsBinaryGroupState;
 };
 
-export type MlsBinaryGroupStateResponse = Omit<MlsGroupStateResponse, 'state'> & {
+export type MlsBinaryGroupStateResponse = Omit<
+  MlsGroupStateResponse,
+  'state'
+> & {
   state: MlsBinaryGroupState | null;
 };
 
@@ -252,7 +264,9 @@ export function createMlsV2Routes(overrides: RouteOverrides = {}): MlsV2Routes {
       };
     },
 
-    getGroupState: async (groupId: string): Promise<MlsBinaryGroupStateResponse> => {
+    getGroupState: async (
+      groupId: string
+    ): Promise<MlsBinaryGroupStateResponse> => {
       const response = await wireRoutes.getGroupState(groupId);
       return {
         ...response,

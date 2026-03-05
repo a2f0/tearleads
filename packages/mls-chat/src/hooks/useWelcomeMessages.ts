@@ -18,8 +18,9 @@ interface UseWelcomeMessagesResult {
   refresh: () => Promise<void>;
 }
 
-type MlsBinaryWelcomeMessage =
-  Awaited<ReturnType<MlsV2Routes['getWelcomeMessages']>>['welcomes'][number];
+type MlsBinaryWelcomeMessage = Awaited<
+  ReturnType<MlsV2Routes['getWelcomeMessages']>
+>['welcomes'][number];
 
 export function useWelcomeMessages(
   client: MlsClient | null
@@ -28,9 +29,7 @@ export function useWelcomeMessages(
 
   const [welcomeMessages, setWelcomeMessages] = useState<
     MlsBinaryWelcomeMessage[]
-  >(
-    []
-  );
+  >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 

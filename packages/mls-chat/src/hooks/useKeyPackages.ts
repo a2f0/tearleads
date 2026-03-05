@@ -22,8 +22,9 @@ interface UseKeyPackagesResult {
 
 const MIN_KEY_PACKAGES = 5;
 
-type MlsBinaryKeyPackage =
-  Awaited<ReturnType<MlsV2Routes['getMyKeyPackages']>>['keyPackages'][number];
+type MlsBinaryKeyPackage = Awaited<
+  ReturnType<MlsV2Routes['getMyKeyPackages']>
+>['keyPackages'][number];
 
 export function useKeyPackages(client: MlsClient | null): UseKeyPackagesResult {
   const mlsRoutes = useMlsRoutes();

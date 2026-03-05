@@ -22,8 +22,9 @@ interface UseGroupMessagesResult {
 
 const PAGE_SIZE = 50;
 
-type MlsBinaryMessage =
-  Awaited<ReturnType<MlsV2Routes['getGroupMessages']>>['messages'][number];
+type MlsBinaryMessage = Awaited<
+  ReturnType<MlsV2Routes['getGroupMessages']>
+>['messages'][number];
 
 export function useGroupMessages(
   groupId: string | null,

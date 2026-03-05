@@ -119,16 +119,18 @@ function createDefaultWireRoutes(
 
 describe('mlsV2BinaryRoutes', () => {
   it('encodes write payloads to base64 before delegating to wire routes', async () => {
-    const addGroupMember: WireMlsV2Routes['addGroupMember'] = vi.fn(async () => ({
-      member: {
-        userId: 'user-2',
-        email: 'user-2@example.com',
-        leafIndex: 0,
-        role: 'member',
-        joinedAt: '2026-03-05T00:00:00.000Z',
-        joinedAtEpoch: 2
-      }
-    }));
+    const addGroupMember: WireMlsV2Routes['addGroupMember'] = vi.fn(
+      async () => ({
+        member: {
+          userId: 'user-2',
+          email: 'user-2@example.com',
+          leafIndex: 0,
+          role: 'member',
+          joinedAt: '2026-03-05T00:00:00.000Z',
+          joinedAtEpoch: 2
+        }
+      })
+    );
     const sendGroupMessage: WireMlsV2Routes['sendGroupMessage'] = vi.fn(
       async () => ({
         message: {
@@ -327,8 +329,8 @@ describe('mlsV2BinaryRoutes', () => {
     expect(Array.from(welcomes.welcomes[0]?.welcome ?? [])).toEqual(
       Array.from(welcomeBytes)
     );
-    expect(Array.from(keyPackages.keyPackages[0]?.keyPackageData ?? [])).toEqual(
-      Array.from(keyPackageBytes)
-    );
+    expect(
+      Array.from(keyPackages.keyPackages[0]?.keyPackageData ?? [])
+    ).toEqual(Array.from(keyPackageBytes));
   });
 });
