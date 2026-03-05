@@ -27,13 +27,13 @@ resource "cloudflare_record" "ses_verification" {
   ttl     = 300
 }
 
-# DKIM CNAME records (3 tokens)
+# DKIM CNAME records (SES always generates exactly 3 tokens)
 resource "cloudflare_record" "ses_dkim" {
-  for_each = toset(module.ses.dkim_tokens)
+  count = 3
 
   zone_id = data.cloudflare_zone.this.id
-  name    = "${each.value}._domainkey.${var.domain}"
+  name    = "${module.ses.dkim_tokens[count.index]}._domainkey.${var.domain}"
   type    = "CNAME"
-  content = "${each.value}.dkim.amazonses.com"
+  content = "${module.ses.dkim_tokens[count.index]}.dkim.amazonses.com"
   ttl     = 300
 }
