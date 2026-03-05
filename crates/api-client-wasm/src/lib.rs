@@ -112,6 +112,14 @@ mod tests {
     #[test]
     fn resolve_rpc_path_binding_matches_expected_values() {
         assert_eq!(
+            resolve_rpc_path_binding("tearleads.v2.AdminService", "GetContext"),
+            "/tearleads.v2.AdminService/GetContext"
+        );
+        assert_eq!(
+            resolve_rpc_path_binding("tearleads.v2.AdminService", "ListGroups"),
+            "/tearleads.v2.AdminService/ListGroups"
+        );
+        assert_eq!(
             resolve_rpc_path_binding("tearleads.v2.AdminService", "GetPostgresInfo"),
             "/tearleads.v2.AdminService/GetPostgresInfo"
         );

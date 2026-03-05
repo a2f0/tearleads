@@ -1,7 +1,7 @@
 use crate::{AdminRequestAuthorizer, admin_auth::map_admin_auth_error};
 use tearleads_api_v2_contracts::tearleads::v2::{
     AdminDeleteRedisKeyRequest, AdminGetRedisDbSizeRequest, AdminGetRedisKeysRequest,
-    AdminGetRedisValueRequest, AdminGetRowsRequest, AdminGetTablesRequest,
+    AdminGetRedisValueRequest, AdminGetRowsRequest, AdminGetTablesRequest, AdminListGroupsRequest,
     admin_service_server::AdminService,
 };
 use tearleads_data_access_traits::{
@@ -102,6 +102,19 @@ async fn static_repositories_return_expected_wave1a_shapes() {
     assert_eq!(scoped_orgs[0].name, "Organization org-7");
     assert_eq!(scoped_orgs[1].id, "org-9");
     assert_eq!(scoped_orgs[1].name, "Organization org-9");
+    let groups = postgres
+        .list_groups(None)
+        .await
+        .expect("root group listing should succeed");
+    assert_eq!(groups.len(), 2);
+    assert_eq!(groups[0].id, "group-1");
+    assert_eq!(groups[1].id, "group-2");
+    let filtered_groups = postgres
+        .list_groups(Some(vec![String::from("org-2")]))
+        .await
+        .expect("filtered group listing should succeed");
+    assert_eq!(filtered_groups.len(), 1);
+    assert_eq!(filtered_groups[0].organization_id, "org-2");
 
     let tables = postgres
         .list_tables()
@@ -183,6 +196,21 @@ async fn harness_handler_enforces_authorization_and_serves_responses() {
         .expect("authorized request should succeed")
         .into_inner();
     assert_eq!(tables_response.tables.len(), 1);
+
+    let mut list_groups_request = Request::new(AdminListGroupsRequest {
+        organization_id: Some(String::from("org-1")),
+    });
+    list_groups_request.metadata_mut().insert(
+        "authorization",
+        tonic::metadata::MetadataValue::from_static("Bearer header.payload.signature"),
+    );
+    let list_groups_response = handler
+        .list_groups(list_groups_request)
+        .await
+        .expect("authorized list groups request should succeed")
+        .into_inner();
+    assert_eq!(list_groups_response.groups.len(), 1);
+    assert_eq!(list_groups_response.groups[0].organization_id, "org-1");
 
     let mut keys_request = Request::new(AdminGetRedisKeysRequest {
         cursor: String::from("0"),

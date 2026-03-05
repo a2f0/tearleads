@@ -8,7 +8,7 @@ use std::{future::Future, pin::Pin};
 
 pub use error::{DataAccessError, DataAccessErrorKind};
 pub use postgres::{
-    AdminScopeOrganization, PostgresAdminReadRepository, PostgresColumnInfo,
+    AdminGroupSummary, AdminScopeOrganization, PostgresAdminReadRepository, PostgresColumnInfo,
     PostgresConnectionInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
     PostgresTableInfo,
 };

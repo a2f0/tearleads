@@ -10,8 +10,8 @@ use tearleads_api_v2_contracts::tearleads::v2::{
     admin_service_server::AdminService,
 };
 use tearleads_data_access_postgres::{
-    AdminScopeOrganizationRecord, PostgresAdminGateway, PostgresAdminReadAdapter,
-    PostgresColumnRecord, PostgresRowsPageRecord, PostgresTableRecord,
+    AdminGroupSummaryRecord, AdminScopeOrganizationRecord, PostgresAdminGateway,
+    PostgresAdminReadAdapter, PostgresColumnRecord, PostgresRowsPageRecord, PostgresTableRecord,
 };
 use tearleads_data_access_redis::{
     RedisAdminAdapter, RedisAdminGateway, RedisKeyRecord, RedisScanResult,
@@ -37,6 +37,7 @@ struct FakePostgresGateway {
     server_version: Option<String>,
     scope_organizations: Vec<AdminScopeOrganizationRecord>,
     scope_organizations_by_ids: Vec<AdminScopeOrganizationRecord>,
+    groups: Vec<AdminGroupSummaryRecord>,
     tables: Vec<PostgresTableRecord>,
     table_exists: bool,
     columns: Vec<PostgresColumnRecord>,
@@ -51,6 +52,7 @@ impl Default for FakePostgresGateway {
             server_version: None,
             scope_organizations: Vec::new(),
             scope_organizations_by_ids: Vec::new(),
+            groups: Vec::new(),
             tables: Vec::new(),
             table_exists: true,
             columns: Vec::new(),
@@ -91,6 +93,14 @@ impl PostgresAdminGateway for FakePostgresGateway {
             .list_scope_organizations_by_ids_calls
             .push(organization_ids.to_vec());
         let result = self.scope_organizations_by_ids.clone();
+        Box::pin(async move { Ok(result) })
+    }
+
+    fn list_groups(
+        &self,
+        _organization_ids: Option<&[String]>,
+    ) -> BoxFuture<'_, Result<Vec<AdminGroupSummaryRecord>, DataAccessError>> {
+        let result = self.groups.clone();
         Box::pin(async move { Ok(result) })
     }
 

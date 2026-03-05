@@ -6,14 +6,14 @@ use tearleads_api_v2::AdminServiceHandler;
 use tearleads_api_v2_contracts::tearleads::v2::{
     AdminDeleteRedisKeyRequest, AdminGetColumnsRequest, AdminGetPostgresInfoRequest,
     AdminGetRedisDbSizeRequest, AdminGetRedisKeysRequest, AdminGetRedisValueRequest,
-    AdminGetRowsRequest, AdminGetTablesRequest, admin_redis_value,
+    AdminGetRowsRequest, AdminGetTablesRequest, AdminListGroupsRequest, admin_redis_value,
     admin_service_client::AdminServiceClient, admin_service_server::AdminServiceServer,
 };
 use tearleads_data_access_traits::{
-    AdminScopeOrganization, BoxFuture, DataAccessError, PostgresAdminReadRepository,
-    PostgresColumnInfo, PostgresConnectionInfo, PostgresInfoSnapshot, PostgresRowsPage,
-    PostgresRowsQuery, PostgresTableInfo, RedisAdminRepository, RedisKeyInfo, RedisKeyScanPage,
-    RedisKeyValueRecord, RedisValue,
+    AdminGroupSummary, AdminScopeOrganization, BoxFuture, DataAccessError,
+    PostgresAdminReadRepository, PostgresColumnInfo, PostgresConnectionInfo, PostgresInfoSnapshot,
+    PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo, RedisAdminRepository, RedisKeyInfo,
+    RedisKeyScanPage, RedisKeyValueRecord, RedisValue,
 };
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tokio_stream::wrappers::TcpListenerStream;
@@ -27,6 +27,7 @@ struct FakePostgresRepository {
     info_result: Result<PostgresInfoSnapshot, DataAccessError>,
     scope_organizations_result: Result<Vec<AdminScopeOrganization>, DataAccessError>,
     scope_organizations_by_ids_result: Result<Vec<AdminScopeOrganization>, DataAccessError>,
+    groups_result: Result<Vec<AdminGroupSummary>, DataAccessError>,
     tables_result: Result<Vec<PostgresTableInfo>, DataAccessError>,
     columns_result: Result<Vec<PostgresColumnInfo>, DataAccessError>,
     rows_result: Result<PostgresRowsPage, DataAccessError>,
@@ -38,6 +39,7 @@ impl Default for FakePostgresRepository {
             info_result: Ok(PostgresInfoSnapshot::default()),
             scope_organizations_result: Ok(Vec::new()),
             scope_organizations_by_ids_result: Ok(Vec::new()),
+            groups_result: Ok(Vec::new()),
             tables_result: Ok(Vec::new()),
             columns_result: Ok(Vec::new()),
             rows_result: Ok(PostgresRowsPage {
@@ -68,6 +70,14 @@ impl PostgresAdminReadRepository for FakePostgresRepository {
         _organization_ids: Vec<String>,
     ) -> BoxFuture<'_, Result<Vec<AdminScopeOrganization>, DataAccessError>> {
         let result = self.scope_organizations_by_ids_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn list_groups(
+        &self,
+        _organization_ids: Option<Vec<String>>,
+    ) -> BoxFuture<'_, Result<Vec<AdminGroupSummary>, DataAccessError>> {
+        let result = self.groups_result.clone();
         Box::pin(async move { result })
     }
 
@@ -256,6 +266,15 @@ async fn transport_round_trip_for_wave1a_admin_endpoints() {
             },
             server_version: Some(String::from("PostgreSQL 16.6")),
         }),
+        groups_result: Ok(vec![AdminGroupSummary {
+            id: String::from("group-1"),
+            organization_id: String::from("org-1"),
+            name: String::from("Core Admin"),
+            description: Some(String::from("Admin operators")),
+            created_at: String::from("2026-01-01T00:00:00Z"),
+            updated_at: String::from("2026-01-01T00:00:00Z"),
+            member_count: 2,
+        }]),
         tables_result: Ok(vec![PostgresTableInfo {
             schema: String::from("public"),
             name: String::from("users"),
@@ -319,6 +338,21 @@ async fn transport_round_trip_for_wave1a_admin_endpoints() {
         info_response.server_version.as_deref(),
         Some("PostgreSQL 16.6")
     );
+
+    let mut list_groups_request = admin_request(AdminListGroupsRequest {
+        organization_id: None,
+    });
+    list_groups_request.metadata_mut().insert(
+        "x-tearleads-admin-scope",
+        tonic::metadata::MetadataValue::from_static("root"),
+    );
+
+    let list_groups_response = match harness.client.list_groups(list_groups_request).await {
+        Ok(value) => value.into_inner(),
+        Err(error) => panic!("list_groups should succeed over transport: {error}"),
+    };
+    assert_eq!(list_groups_response.groups.len(), 1);
+    assert_eq!(list_groups_response.groups[0].name, "Core Admin");
 
     let tables_response = match harness
         .client

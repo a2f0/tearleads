@@ -11,7 +11,8 @@ use tearleads_api_v2_contracts::tearleads::v2::{
     AdminGetPostgresInfoRequest, AdminGetPostgresInfoResponse, AdminGetRedisDbSizeRequest,
     AdminGetRedisDbSizeResponse, AdminGetRedisKeysRequest, AdminGetRedisKeysResponse,
     AdminGetRedisValueRequest, AdminGetRedisValueResponse, AdminGetRowsRequest,
-    AdminGetRowsResponse, AdminGetTablesRequest, AdminGetTablesResponse, AdminPostgresColumnInfo,
+    AdminGetRowsResponse, AdminGetTablesRequest, AdminGetTablesResponse, AdminGroupWithMemberCount,
+    AdminListGroupsRequest, AdminListGroupsResponse, AdminPostgresColumnInfo,
     AdminPostgresConnectionInfo, AdminPostgresTableInfo, AdminRedisKeyInfo, AdminRedisStringList,
     AdminRedisStringMap, AdminRedisValue, AdminScopeOrganization, admin_redis_value,
     admin_service_server::AdminService,
@@ -125,6 +126,52 @@ where
             server_version: snapshot.server_version,
         };
         Ok(Response::new(response))
+    }
+
+    async fn list_groups(
+        &self,
+        request: Request<AdminListGroupsRequest>,
+    ) -> Result<Response<AdminListGroupsResponse>, Status> {
+        let admin_access = self
+            .authorizer
+            .authorize_admin_operation(AdminOperation::ListGroups, request.metadata())
+            .map_err(map_admin_auth_error)?;
+        let payload = request.into_inner();
+        let requested_organization_id = normalize_optional_organization_id(payload.organization_id);
+
+        let organization_ids = if admin_access.is_root_admin() {
+            requested_organization_id.map(|organization_id| vec![organization_id])
+        } else if let Some(organization_id) = requested_organization_id {
+            if !admin_access
+                .organization_ids()
+                .iter()
+                .any(|id| id == &organization_id)
+            {
+                return Err(Status::permission_denied("forbidden organization scope"));
+            }
+            Some(vec![organization_id])
+        } else {
+            Some(admin_access.organization_ids().to_vec())
+        };
+
+        let groups = self
+            .postgres_repo
+            .list_groups(organization_ids)
+            .await
+            .map_err(map_data_access_error)?
+            .into_iter()
+            .map(|group| AdminGroupWithMemberCount {
+                id: group.id,
+                organization_id: group.organization_id,
+                name: group.name,
+                description: group.description,
+                created_at: group.created_at,
+                updated_at: group.updated_at,
+                member_count: group.member_count,
+            })
+            .collect();
+
+        Ok(Response::new(AdminListGroupsResponse { groups }))
     }
 
     async fn get_tables(
@@ -366,6 +413,17 @@ fn normalize_redis_key(key: &str) -> Result<String, &'static str> {
         return Err("key must not be empty");
     }
     Ok(trimmed.to_string())
+}
+
+fn normalize_optional_organization_id(value: Option<String>) -> Option<String> {
+    value.and_then(|raw| {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    })
 }
 
 fn normalize_sort_direction(value: Option<String>) -> Result<Option<String>, &'static str> {

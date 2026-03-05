@@ -7,6 +7,7 @@ import "google/protobuf/struct.proto";
 // Wave 1 admin contracts used by the DAL-first migration track.
 service AdminService {
   rpc GetContext(AdminGetContextRequest) returns (AdminGetContextResponse);
+  rpc ListGroups(AdminListGroupsRequest) returns (AdminListGroupsResponse);
   rpc GetPostgresInfo(AdminGetPostgresInfoRequest)
       returns (AdminGetPostgresInfoResponse);
   rpc GetTables(AdminGetTablesRequest) returns (AdminGetTablesResponse);
@@ -32,6 +33,24 @@ message AdminGetContextResponse {
 message AdminScopeOrganization {
   string id = 1;
   string name = 2;
+}
+
+message AdminListGroupsRequest {
+  optional string organization_id = 1;
+}
+
+message AdminListGroupsResponse {
+  repeated AdminGroupWithMemberCount groups = 1;
+}
+
+message AdminGroupWithMemberCount {
+  string id = 1;
+  string organization_id = 2;
+  string name = 3;
+  optional string description = 4;
+  string created_at = 5;
+  string updated_at = 6;
+  uint32 member_count = 7;
 }
 
 message AdminGetPostgresInfoRequest {}
