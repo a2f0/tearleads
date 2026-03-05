@@ -239,4 +239,53 @@ describe('adminV2Routes detail reads', () => {
       true
     );
   });
+
+  it('maps detail-read defaults when payload values are missing', async () => {
+    const client = createAdminV2ClientStub({
+      getGroupMembers: vi.fn(async () => ({ members: [] })),
+      getOrganization: vi.fn(async () => ({ organization: undefined })),
+      getOrgGroups: vi.fn(async () => ({ groups: [] })),
+      getUser: vi.fn(async () => ({ user: undefined }))
+    });
+    const { routes } = createRoutesForTest(client);
+
+    await expect(routes.groups.getMembers('group-1')).resolves.toEqual({
+      members: []
+    });
+    await expect(routes.organizations.get('org-1')).resolves.toEqual({
+      organization: {
+        id: '',
+        name: '',
+        description: null,
+        createdAt: '',
+        updatedAt: ''
+      }
+    });
+    await expect(routes.organizations.getGroups('org-1')).resolves.toEqual({
+      groups: []
+    });
+    await expect(routes.users.get('user-1')).resolves.toEqual({
+      user: {
+        id: '',
+        email: '',
+        emailConfirmed: false,
+        admin: false,
+        organizationIds: [],
+        createdAt: null,
+        lastActiveAt: null,
+        accounting: {
+          totalPromptTokens: 0,
+          totalCompletionTokens: 0,
+          totalTokens: 0,
+          requestCount: 0,
+          lastUsedAt: null
+        },
+        disabled: false,
+        disabledAt: null,
+        disabledBy: null,
+        markedForDeletionAt: null,
+        markedForDeletionBy: null
+      }
+    });
+  });
 });
