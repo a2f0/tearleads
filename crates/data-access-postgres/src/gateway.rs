@@ -235,6 +235,24 @@ pub trait PostgresAdminGateway: Send + Sync {
         })
     }
 
+    /// Returns one user by identifier, optionally constrained to organization IDs.
+    fn get_user(
+        &self,
+        user_id: &str,
+        organization_ids: Option<&[String]>,
+    ) -> BoxFuture<'_, Result<Option<AdminUserRecord>, DataAccessError>> {
+        let user_id = user_id.to_string();
+        let filter = organization_ids.map(<[String]>::to_vec).unwrap_or_default();
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                format!(
+                    "get_user not implemented for user_id={user_id} organization_ids={filter:?}"
+                ),
+            ))
+        })
+    }
+
     /// Lists all tables visible to the admin reader.
     fn list_tables(&self) -> BoxFuture<'_, Result<Vec<PostgresTableRecord>, DataAccessError>>;
 

@@ -1,15 +1,11 @@
 import type {
-  AdminUserResponse,
   AdminUserUpdatePayload,
   AdminUserUpdateResponse,
   CreateGroupRequest,
   CreateOrganizationRequest,
   Group,
-  GroupMembersResponse,
   GroupsListResponse,
   Organization,
-  OrganizationGroupsResponse,
-  OrganizationResponse,
   OrganizationUsersResponse,
   UpdateGroupRequest,
   UpdateOrganizationRequest
@@ -99,12 +95,7 @@ export const adminRoutes = {
         { id },
         'api_delete_admin_group'
       ),
-    getMembers: (id: string) =>
-      requestAdminJson<GroupMembersResponse>(
-        'GetGroupMembers',
-        { id },
-        'api_get_admin_group_members'
-      ),
+    getMembers: (id: string) => adminV2Routes.groups.getMembers(id),
     addMember: (groupId: string, userId: string) =>
       requestAdminJson<{ added: boolean }>(
         'AddGroupMember',
@@ -122,24 +113,14 @@ export const adminRoutes = {
     list: (options?: { organizationId?: string }) => {
       return adminV2Routes.organizations.list(options);
     },
-    get: (id: string) =>
-      requestAdminJson<OrganizationResponse>(
-        'GetOrganization',
-        { id },
-        'api_get_admin_organization'
-      ),
+    get: (id: string) => adminV2Routes.organizations.get(id),
     getUsers: (id: string) =>
       requestAdminJson<OrganizationUsersResponse>(
         'GetOrgUsers',
         { id },
         'api_get_admin_organization_users'
       ),
-    getGroups: (id: string) =>
-      requestAdminJson<OrganizationGroupsResponse>(
-        'GetOrgGroups',
-        { id },
-        'api_get_admin_organization_groups'
-      ),
+    getGroups: (id: string) => adminV2Routes.organizations.getGroups(id),
     create: (data: CreateOrganizationRequest) =>
       requestAdminJson<{ organization: Organization }>(
         'CreateOrganization',
@@ -163,12 +144,7 @@ export const adminRoutes = {
     list: (options?: { organizationId?: string }) => {
       return adminV2Routes.users.list(options);
     },
-    get: (id: string) =>
-      requestAdminJson<AdminUserResponse>(
-        'GetUser',
-        { id },
-        'api_get_admin_user'
-      ),
+    get: (id: string) => adminV2Routes.users.get(id),
     update: (id: string, data: AdminUserUpdatePayload) =>
       requestAdminJson<AdminUserUpdateResponse>(
         'UpdateUser',

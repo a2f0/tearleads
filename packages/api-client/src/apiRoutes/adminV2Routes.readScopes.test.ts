@@ -16,9 +16,16 @@ function createClientStub(
     getGroup:
       overrides.getGroup ??
       vi.fn(async () => ({ group: undefined, members: [] })),
+    getGroupMembers:
+      overrides.getGroupMembers ?? vi.fn(async () => ({ members: [] })),
     listOrganizations:
       overrides.listOrganizations ?? vi.fn(async () => ({ organizations: [] })),
+    getOrganization:
+      overrides.getOrganization ??
+      vi.fn(async () => ({ organization: undefined })),
+    getOrgGroups: overrides.getOrgGroups ?? vi.fn(async () => ({ groups: [] })),
     listUsers: overrides.listUsers ?? vi.fn(async () => ({ users: [] })),
+    getUser: overrides.getUser ?? vi.fn(async () => ({ user: undefined })),
     getPostgresInfo:
       overrides.getPostgresInfo ??
       vi.fn(async () => ({ info: undefined, serverVersion: undefined })),

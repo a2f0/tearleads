@@ -342,6 +342,20 @@ impl PostgresAdminReadRepository for StaticPostgresRepository {
         })
     }
 
+    fn get_user(
+        &self,
+        user_id: &str,
+        organization_ids: Option<Vec<String>>,
+    ) -> BoxFuture<'_, Result<Option<AdminUserSummary>, DataAccessError>> {
+        let user_id = user_id.to_string();
+        Box::pin(async move {
+            let users = StaticPostgresRepository
+                .list_users(organization_ids)
+                .await?;
+            Ok(users.into_iter().find(|user| user.id == user_id))
+        })
+    }
+
     fn list_tables(
         &self,
     ) -> BoxFuture<'_, Result<Vec<PostgresTableInfo>, tearleads_data_access_traits::DataAccessError>>

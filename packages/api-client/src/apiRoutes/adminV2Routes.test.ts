@@ -33,8 +33,12 @@ vi.mock('@connectrpc/connect-web', async () => {
 interface AdminV2ClientOverrides {
   getContext?: AdminV2Client['getContext'];
   getGroup?: AdminV2Client['getGroup'];
+  getGroupMembers?: AdminV2Client['getGroupMembers'];
   listOrganizations?: AdminV2Client['listOrganizations'];
+  getOrganization?: AdminV2Client['getOrganization'];
+  getOrgGroups?: AdminV2Client['getOrgGroups'];
   listUsers?: AdminV2Client['listUsers'];
+  getUser?: AdminV2Client['getUser'];
   getPostgresInfo?: AdminV2Client['getPostgresInfo'];
   getTables?: AdminV2Client['getTables'];
   getColumns?: AdminV2Client['getColumns'];
@@ -59,9 +63,16 @@ function createAdminV2ClientStub(
     getGroup:
       overrides.getGroup ??
       vi.fn(async () => ({ group: undefined, members: [] })),
+    getGroupMembers:
+      overrides.getGroupMembers ?? vi.fn(async () => ({ members: [] })),
     listOrganizations:
       overrides.listOrganizations ?? vi.fn(async () => ({ organizations: [] })),
+    getOrganization:
+      overrides.getOrganization ??
+      vi.fn(async () => ({ organization: undefined })),
+    getOrgGroups: overrides.getOrgGroups ?? vi.fn(async () => ({ groups: [] })),
     listUsers: overrides.listUsers ?? vi.fn(async () => ({ users: [] })),
+    getUser: overrides.getUser ?? vi.fn(async () => ({ user: undefined })),
     getPostgresInfo:
       overrides.getPostgresInfo ??
       vi.fn(async () => ({ info: undefined, serverVersion: undefined })),

@@ -57,6 +57,8 @@ type ListGroupsCall = Option<Vec<String>>;
 type ListGroupsCalls = Arc<Mutex<Vec<ListGroupsCall>>>;
 type OrganizationFilter = Option<Vec<String>>;
 type OrganizationFilterCalls = Arc<Mutex<Vec<OrganizationFilter>>>;
+type GetUserCall = (String, Option<Vec<String>>);
+type GetUserCalls = Arc<Mutex<Vec<GetUserCall>>>;
 
 #[derive(Debug)]
 pub(crate) struct FakePostgresRepository {
@@ -73,6 +75,8 @@ pub(crate) struct FakePostgresRepository {
     pub(crate) list_organizations_calls: OrganizationFilterCalls,
     pub(crate) list_users_result: Result<Vec<AdminUserSummary>, DataAccessError>,
     pub(crate) list_users_calls: OrganizationFilterCalls,
+    pub(crate) get_user_result: Result<Option<AdminUserSummary>, DataAccessError>,
+    pub(crate) get_user_calls: GetUserCalls,
     pub(crate) tables_result: Result<Vec<PostgresTableInfo>, DataAccessError>,
     pub(crate) columns_result: Result<Vec<PostgresColumnInfo>, DataAccessError>,
     pub(crate) columns_calls: Arc<Mutex<Vec<(String, String)>>>,
@@ -98,6 +102,8 @@ impl Default for FakePostgresRepository {
             list_organizations_calls: Arc::new(Mutex::new(Vec::new())),
             list_users_result: Ok(Vec::new()),
             list_users_calls: Arc::new(Mutex::new(Vec::new())),
+            get_user_result: Ok(None),
+            get_user_calls: Arc::new(Mutex::new(Vec::new())),
             tables_result: Ok(Vec::new()),
             columns_result: Ok(Vec::new()),
             columns_calls: Arc::new(Mutex::new(Vec::new())),
@@ -167,6 +173,16 @@ impl PostgresAdminReadRepository for FakePostgresRepository {
     ) -> BoxFuture<'_, Result<Vec<AdminUserSummary>, DataAccessError>> {
         lock_or_recover(&self.list_users_calls).push(organization_ids);
         let result = self.list_users_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn get_user(
+        &self,
+        user_id: &str,
+        organization_ids: Option<Vec<String>>,
+    ) -> BoxFuture<'_, Result<Option<AdminUserSummary>, DataAccessError>> {
+        lock_or_recover(&self.get_user_calls).push((user_id.to_string(), organization_ids));
+        let result = self.get_user_result.clone();
         Box::pin(async move { result })
     }
 

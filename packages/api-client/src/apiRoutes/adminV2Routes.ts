@@ -9,13 +9,17 @@ import {
   AdminDeleteRedisKeyRequestSchema,
   AdminGetColumnsRequestSchema,
   AdminGetContextRequestSchema,
+  AdminGetGroupMembersRequestSchema,
   AdminGetGroupRequestSchema,
+  AdminGetOrganizationRequestSchema,
+  AdminGetOrgGroupsRequestSchema,
   AdminGetPostgresInfoRequestSchema,
   AdminGetRedisDbSizeRequestSchema,
   AdminGetRedisKeysRequestSchema,
   AdminGetRedisValueRequestSchema,
   AdminGetRowsRequestSchema,
   AdminGetTablesRequestSchema,
+  AdminGetUserRequestSchema,
   AdminListOrganizationsRequestSchema,
   AdminListUsersRequestSchema,
   AdminService
@@ -31,6 +35,9 @@ import { getAuthHeaderValue } from '../authStorage';
 import {
   mapContextResponse,
   mapGroupDetailResponse,
+  mapGroupMembersResponse,
+  mapOrganizationGroupsResponse,
+  mapOrganizationResponse,
   mapOrganizationsResponse,
   mapPostgresColumnsResponse,
   mapPostgresInfoResponse,
@@ -39,6 +46,7 @@ import {
   mapRedisDbSizeResponse,
   mapRedisKeysResponse,
   mapRedisValueResponse,
+  mapUserResponse,
   mapUsersResponse
 } from './adminV2Mappers';
 
@@ -161,6 +169,15 @@ export function createAdminV2Routes(
             callOptions
           );
           return mapGroupDetailResponse(response);
+        }),
+      getMembers: (id: string) =>
+        runWithEvent(dependencies, 'api_get_admin_group_members', async () => {
+          const { client, callOptions } = await buildCallContext(dependencies);
+          const response = await client.getGroupMembers(
+            create(AdminGetGroupMembersRequestSchema, { id }),
+            callOptions
+          );
+          return mapGroupMembersResponse(response);
         })
     },
     organizations: {
@@ -176,7 +193,30 @@ export function createAdminV2Routes(
             callOptions
           );
           return mapOrganizationsResponse(response);
-        })
+        }),
+      get: (id: string) =>
+        runWithEvent(dependencies, 'api_get_admin_organization', async () => {
+          const { client, callOptions } = await buildCallContext(dependencies);
+          const response = await client.getOrganization(
+            create(AdminGetOrganizationRequestSchema, { id }),
+            callOptions
+          );
+          return mapOrganizationResponse(response);
+        }),
+      getGroups: (id: string) =>
+        runWithEvent(
+          dependencies,
+          'api_get_admin_organization_groups',
+          async () => {
+            const { client, callOptions } =
+              await buildCallContext(dependencies);
+            const response = await client.getOrgGroups(
+              create(AdminGetOrgGroupsRequestSchema, { id }),
+              callOptions
+            );
+            return mapOrganizationGroupsResponse(response);
+          }
+        )
     },
     users: {
       list: (options?: { organizationId?: string }) =>
@@ -191,6 +231,15 @@ export function createAdminV2Routes(
             callOptions
           );
           return mapUsersResponse(response);
+        }),
+      get: (id: string) =>
+        runWithEvent(dependencies, 'api_get_admin_user', async () => {
+          const { client, callOptions } = await buildCallContext(dependencies);
+          const response = await client.getUser(
+            create(AdminGetUserRequestSchema, { id }),
+            callOptions
+          );
+          return mapUserResponse(response);
         })
     },
     postgres: {

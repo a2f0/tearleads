@@ -239,6 +239,10 @@ fn admin_request<T>(payload: T) -> Request<T> {
         "x-tearleads-role",
         tonic::metadata::MetadataValue::from_static("admin"),
     );
+    request.metadata_mut().insert(
+        "x-tearleads-admin-scope",
+        tonic::metadata::MetadataValue::from_static("root"),
+    );
     request
 }
 

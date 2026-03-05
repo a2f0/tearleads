@@ -1,7 +1,11 @@
 import type {
   AdminAccessContextResponse,
+  AdminUserResponse,
   AdminUsersResponse,
   GroupDetailResponse,
+  GroupMembersResponse,
+  OrganizationGroupsResponse,
+  OrganizationResponse,
   OrganizationsListResponse,
   PostgresAdminInfoResponse,
   PostgresColumnsResponse,
@@ -13,13 +17,17 @@ import type {
 import type {
   AdminGetColumnsResponse,
   AdminGetContextResponse,
+  AdminGetGroupMembersResponse,
   AdminGetGroupResponse,
+  AdminGetOrganizationResponse,
+  AdminGetOrgGroupsResponse,
   AdminGetPostgresInfoResponse,
   AdminGetRedisDbSizeResponse,
   AdminGetRedisKeysResponse,
   AdminGetRedisValueResponse,
   AdminGetRowsResponse,
   AdminGetTablesResponse,
+  AdminGetUserResponse,
   AdminListOrganizationsResponse,
   AdminListUsersResponse
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
@@ -70,6 +78,18 @@ export function mapGroupDetailResponse(
   };
 }
 
+export function mapGroupMembersResponse(
+  response: AdminGetGroupMembersResponse
+): GroupMembersResponse {
+  return {
+    members: response.members.map((member) => ({
+      userId: member.userId,
+      email: member.email,
+      joinedAt: member.joinedAt
+    }))
+  };
+}
+
 export function mapOrganizationsResponse(
   response: AdminListOrganizationsResponse
 ): OrganizationsListResponse {
@@ -84,46 +104,82 @@ export function mapOrganizationsResponse(
   };
 }
 
+export function mapOrganizationResponse(
+  response: AdminGetOrganizationResponse
+): OrganizationResponse {
+  return {
+    organization: {
+      id: response.organization?.id ?? '',
+      name: response.organization?.name ?? '',
+      description: response.organization?.description ?? null,
+      createdAt: response.organization?.createdAt ?? '',
+      updatedAt: response.organization?.updatedAt ?? ''
+    }
+  };
+}
+
+export function mapOrganizationGroupsResponse(
+  response: AdminGetOrgGroupsResponse
+): OrganizationGroupsResponse {
+  return {
+    groups: response.groups.map((group) => ({
+      id: group.id,
+      name: group.name,
+      description: group.description ?? null,
+      memberCount: group.memberCount
+    }))
+  };
+}
+
+function mapAdminUser(
+  user: AdminListUsersResponse['users'][number] | undefined
+) {
+  const accounting = user?.accounting;
+  return {
+    id: user?.id ?? '',
+    email: user?.email ?? '',
+    emailConfirmed: user?.emailConfirmed ?? false,
+    admin: user?.admin ?? false,
+    organizationIds: user?.organizationIds ?? [],
+    createdAt: user?.createdAt ?? null,
+    lastActiveAt: user?.lastActiveAt ?? null,
+    accounting: {
+      totalPromptTokens: toSafeNumber(
+        accounting?.totalPromptTokens ?? 0n,
+        'totalPromptTokens'
+      ),
+      totalCompletionTokens: toSafeNumber(
+        accounting?.totalCompletionTokens ?? 0n,
+        'totalCompletionTokens'
+      ),
+      totalTokens: toSafeNumber(accounting?.totalTokens ?? 0n, 'totalTokens'),
+      requestCount: toSafeNumber(
+        accounting?.requestCount ?? 0n,
+        'requestCount'
+      ),
+      lastUsedAt: accounting?.lastUsedAt ?? null
+    },
+    disabled: user?.disabled ?? false,
+    disabledAt: user?.disabledAt ?? null,
+    disabledBy: user?.disabledBy ?? null,
+    markedForDeletionAt: user?.markedForDeletionAt ?? null,
+    markedForDeletionBy: user?.markedForDeletionBy ?? null
+  };
+}
+
 export function mapUsersResponse(
   response: AdminListUsersResponse
 ): AdminUsersResponse {
   return {
-    users: response.users.map((user) => {
-      const accounting = user.accounting;
-      return {
-        id: user.id,
-        email: user.email,
-        emailConfirmed: user.emailConfirmed,
-        admin: user.admin,
-        organizationIds: user.organizationIds,
-        createdAt: user.createdAt ?? null,
-        lastActiveAt: user.lastActiveAt ?? null,
-        accounting: {
-          totalPromptTokens: toSafeNumber(
-            accounting?.totalPromptTokens ?? 0n,
-            'totalPromptTokens'
-          ),
-          totalCompletionTokens: toSafeNumber(
-            accounting?.totalCompletionTokens ?? 0n,
-            'totalCompletionTokens'
-          ),
-          totalTokens: toSafeNumber(
-            accounting?.totalTokens ?? 0n,
-            'totalTokens'
-          ),
-          requestCount: toSafeNumber(
-            accounting?.requestCount ?? 0n,
-            'requestCount'
-          ),
-          lastUsedAt: accounting?.lastUsedAt ?? null
-        },
-        disabled: user.disabled,
-        disabledAt: user.disabledAt ?? null,
-        disabledBy: user.disabledBy ?? null,
-        markedForDeletionAt: user.markedForDeletionAt ?? null,
-        markedForDeletionBy: user.markedForDeletionBy ?? null
-      };
-    })
+    users: response.users.map((user) => mapAdminUser(user))
+  };
+}
+
+export function mapUserResponse(
+  response: AdminGetUserResponse
+): AdminUserResponse {
+  return {
+    user: mapAdminUser(response.user)
   };
 }
 

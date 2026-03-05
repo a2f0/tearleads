@@ -68,10 +68,18 @@ pub enum AdminOperation {
     ListGroups,
     /// `AdminService.GetGroup`
     GetGroup,
+    /// `AdminService.GetGroupMembers`
+    GetGroupMembers,
     /// `AdminService.ListOrganizations`
     ListOrganizations,
+    /// `AdminService.GetOrganization`
+    GetOrganization,
+    /// `AdminService.GetOrgGroups`
+    GetOrgGroups,
     /// `AdminService.ListUsers`
     ListUsers,
+    /// `AdminService.GetUser`
+    GetUser,
 }
 
 impl AdminOperation {
@@ -88,8 +96,12 @@ impl AdminOperation {
             Self::GetContext => "get_context",
             Self::ListGroups => "list_groups",
             Self::GetGroup => "get_group",
+            Self::GetGroupMembers => "get_group_members",
             Self::ListOrganizations => "list_organizations",
+            Self::GetOrganization => "get_organization",
+            Self::GetOrgGroups => "get_org_groups",
             Self::ListUsers => "list_users",
+            Self::GetUser => "get_user",
         }
     }
 
@@ -106,8 +118,12 @@ impl AdminOperation {
             Self::GetContext
             | Self::ListGroups
             | Self::GetGroup
+            | Self::GetGroupMembers
             | Self::ListOrganizations
-            | Self::ListUsers => AdminOperationScope::ScopedOrRoot,
+            | Self::GetOrganization
+            | Self::GetOrgGroups
+            | Self::ListUsers
+            | Self::GetUser => AdminOperationScope::ScopedOrRoot,
         }
     }
 }
@@ -276,9 +292,13 @@ impl AdminRequestAuthorizer for HeaderRoleAdminAuthorizer {
         let scope_from_headers = Self::parse_scope_metadata(operation, metadata)?;
         match operation.required_scope() {
             AdminOperationScope::RootOnly => {
-                if let Some(scope) = scope_from_headers
-                    && !scope.is_root_admin()
-                {
+                let scope = scope_from_headers.ok_or_else(|| {
+                    AdminAuthError::new(
+                        AdminAuthErrorKind::PermissionDenied,
+                        format!("missing {} for {}", Self::SCOPE_HEADER, operation.as_str()),
+                    )
+                })?;
+                if !scope.is_root_admin() {
                     return Err(AdminAuthError::new(
                         AdminAuthErrorKind::PermissionDenied,
                         format!("root admin scope required for {}", operation.as_str()),

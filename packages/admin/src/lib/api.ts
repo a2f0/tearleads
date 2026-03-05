@@ -33,7 +33,11 @@ import { mapContextResponse } from './adminV2ContextMapper';
 import { mapGroupsListResponse } from './adminV2GroupsMapper';
 import {
   mapGroupDetailResponse,
+  mapGroupMembersResponse,
+  mapOrganizationGroupsResponse,
+  mapOrganizationResponse,
   mapOrganizationsListResponse,
+  mapUserResponse,
   mapUsersListResponse
 } from './adminV2ReadMappers';
 import { isRecord, toNullableNumber, toSafeNumber } from './adminV2ValueUtils';
@@ -401,7 +405,11 @@ export const api = {
       delete: (id: string) =>
         requestAdminJson<{ deleted: boolean }>('DeleteGroup', { id }),
       getMembers: (id: string) =>
-        requestAdminJson<GroupMembersResponse>('GetGroupMembers', { id }),
+        requestAdminV2<GroupMembersResponse>(
+          'GetGroupMembers',
+          { id },
+          mapGroupMembersResponse
+        ),
       addMember: (groupId: string, userId: string) =>
         requestAdminJson<{ added: boolean }>('AddGroupMember', {
           id: groupId,
@@ -426,11 +434,19 @@ export const api = {
         );
       },
       get: (id: string) =>
-        requestAdminJson<OrganizationResponse>('GetOrganization', { id }),
+        requestAdminV2<OrganizationResponse>(
+          'GetOrganization',
+          { id },
+          mapOrganizationResponse
+        ),
       getUsers: (id: string) =>
         requestAdminJson<OrganizationUsersResponse>('GetOrgUsers', { id }),
       getGroups: (id: string) =>
-        requestAdminJson<OrganizationGroupsResponse>('GetOrgGroups', { id }),
+        requestAdminV2<OrganizationGroupsResponse>(
+          'GetOrgGroups',
+          { id },
+          mapOrganizationGroupsResponse
+        ),
       create: (data: CreateOrganizationRequest) =>
         requestAdminJson<{ organization: Organization }>('CreateOrganization', {
           json: JSON.stringify(data)
@@ -456,7 +472,7 @@ export const api = {
         );
       },
       get: (id: string) =>
-        requestAdminJson<AdminUserResponse>('GetUser', { id }),
+        requestAdminV2<AdminUserResponse>('GetUser', { id }, mapUserResponse),
       update: (id: string, data: AdminUserUpdatePayload) =>
         requestAdminJson<AdminUserUpdateResponse>('UpdateUser', {
           id,

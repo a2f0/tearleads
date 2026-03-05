@@ -6,7 +6,7 @@ use super::{
 };
 
 #[test]
-fn header_role_authorizer_accepts_admin_role() {
+fn header_role_authorizer_rejects_root_only_operation_without_scope_header() {
     let authorizer = HeaderRoleAdminAuthorizer;
     let mut metadata = tonic::metadata::MetadataMap::new();
     metadata.insert(
@@ -15,7 +15,18 @@ fn header_role_authorizer_accepts_admin_role() {
     );
 
     let result = authorizer.authorize_admin_operation(AdminOperation::GetTables, &metadata);
-    assert_eq!(result, Ok(AdminAccessContext::root()));
+    assert!(result.is_err());
+    assert_eq!(
+        result.as_ref().err().map(|error| error.kind()),
+        Some(AdminAuthErrorKind::PermissionDenied)
+    );
+    assert!(
+        result
+            .as_ref()
+            .err()
+            .map(|error| error.message().contains("missing x-tearleads-admin-scope"))
+            .unwrap_or(false)
+    );
 }
 
 #[test]
@@ -388,8 +399,12 @@ fn operation_strings_are_stable_for_error_messages() {
         (AdminOperation::GetContext, "get_context"),
         (AdminOperation::ListGroups, "list_groups"),
         (AdminOperation::GetGroup, "get_group"),
+        (AdminOperation::GetGroupMembers, "get_group_members"),
         (AdminOperation::ListOrganizations, "list_organizations"),
+        (AdminOperation::GetOrganization, "get_organization"),
+        (AdminOperation::GetOrgGroups, "get_org_groups"),
         (AdminOperation::ListUsers, "list_users"),
+        (AdminOperation::GetUser, "get_user"),
     ];
 
     for (operation, expected_name) in operations {

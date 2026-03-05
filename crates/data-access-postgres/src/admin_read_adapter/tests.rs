@@ -8,9 +8,13 @@ use tearleads_data_access_traits::{
 
 use super::PostgresAdminReadAdapter;
 use crate::{
-    AdminGroupSummaryRecord, AdminScopeOrganizationRecord, PostgresAdminGateway,
-    PostgresColumnRecord, PostgresRowsPageRecord, PostgresTableRecord,
+    AdminGroupSummaryRecord, AdminScopeOrganizationRecord, AdminUserAccountingRecord,
+    AdminUserRecord, PostgresAdminGateway, PostgresColumnRecord, PostgresRowsPageRecord,
+    PostgresTableRecord,
 };
+
+type GetUserCall = (String, Option<Vec<String>>);
+type GetUserCalls = Mutex<Vec<GetUserCall>>;
 
 #[derive(Debug)]
 struct FakeGateway {
@@ -19,6 +23,7 @@ struct FakeGateway {
     scope_organizations_result: Result<Vec<AdminScopeOrganizationRecord>, DataAccessError>,
     scoped_organizations_by_ids_result: Result<Vec<AdminScopeOrganizationRecord>, DataAccessError>,
     groups_result: Result<Vec<AdminGroupSummaryRecord>, DataAccessError>,
+    get_user_result: Result<Option<AdminUserRecord>, DataAccessError>,
     tables_result: Result<Vec<PostgresTableRecord>, DataAccessError>,
     table_exists_result: Result<bool, DataAccessError>,
     columns_result: Result<Vec<PostgresColumnRecord>, DataAccessError>,
@@ -27,6 +32,7 @@ struct FakeGateway {
     list_scope_organizations_calls: Mutex<usize>,
     list_scope_organizations_by_ids_calls: Mutex<Vec<Vec<String>>>,
     list_groups_calls: Mutex<Vec<Option<Vec<String>>>>,
+    get_user_calls: GetUserCalls,
     list_columns_calls: Mutex<Vec<(String, String)>>,
     list_rows_calls: Mutex<Vec<PostgresRowsQuery>>,
 }
@@ -39,6 +45,7 @@ impl Default for FakeGateway {
             scope_organizations_result: Ok(Vec::new()),
             scoped_organizations_by_ids_result: Ok(Vec::new()),
             groups_result: Ok(Vec::new()),
+            get_user_result: Ok(None),
             tables_result: Ok(Vec::new()),
             table_exists_result: Ok(true),
             columns_result: Ok(Vec::new()),
@@ -52,6 +59,7 @@ impl Default for FakeGateway {
             list_scope_organizations_calls: Mutex::new(0),
             list_scope_organizations_by_ids_calls: Mutex::new(Vec::new()),
             list_groups_calls: Mutex::new(Vec::new()),
+            get_user_calls: Mutex::new(Vec::new()),
             list_columns_calls: Mutex::new(Vec::new()),
             list_rows_calls: Mutex::new(Vec::new()),
         }
@@ -81,6 +89,10 @@ impl FakeGateway {
 
     fn list_groups_calls(&self) -> Vec<Option<Vec<String>>> {
         lock_or_recover(&self.list_groups_calls).clone()
+    }
+
+    fn get_user_calls(&self) -> Vec<GetUserCall> {
+        lock_or_recover(&self.get_user_calls).clone()
     }
 }
 
@@ -123,6 +135,19 @@ impl PostgresAdminGateway for FakeGateway {
     ) -> BoxFuture<'_, Result<Vec<AdminGroupSummaryRecord>, DataAccessError>> {
         lock_or_recover(&self.list_groups_calls).push(organization_ids.map(<[String]>::to_vec));
         let result = self.groups_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn get_user(
+        &self,
+        user_id: &str,
+        organization_ids: Option<&[String]>,
+    ) -> BoxFuture<'_, Result<Option<AdminUserRecord>, DataAccessError>> {
+        lock_or_recover(&self.get_user_calls).push((
+            user_id.to_string(),
+            organization_ids.map(<[String]>::to_vec),
+        ));
+        let result = self.get_user_result.clone();
         Box::pin(async move { result })
     }
 
@@ -450,6 +475,8 @@ fn list_rows_forwards_invalid_sort_direction() {
         }]
     );
 }
+
+mod get_user_tests;
 
 fn lock_or_recover<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     match mutex.lock() {
