@@ -85,24 +85,48 @@ function collapseMarkdownLinks(text: string): string {
   return collapsed;
 }
 
+function isLikelyTagStart(char: string | undefined): boolean {
+  if (char === undefined) {
+    return false;
+  }
+
+  return (
+    (char >= 'a' && char <= 'z') ||
+    (char >= 'A' && char <= 'Z') ||
+    char === '!' ||
+    char === '/' ||
+    char === '?'
+  );
+}
+
 function removeHtmlTags(value: string): string {
   let result = '';
-  let insideTag = false;
+  let tagStartIndex = -1;
 
-  for (const char of value) {
-    if (char === '<') {
-      insideTag = true;
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index] ?? '';
+
+    if (char === '<' && tagStartIndex === -1) {
+      if (isLikelyTagStart(value[index + 1])) {
+        tagStartIndex = index;
+      } else {
+        result += char;
+      }
       continue;
     }
 
-    if (char === '>') {
-      insideTag = false;
+    if (char === '>' && tagStartIndex !== -1) {
+      tagStartIndex = -1;
       continue;
     }
 
-    if (!insideTag) {
+    if (tagStartIndex === -1) {
       result += char;
     }
+  }
+
+  if (tagStartIndex !== -1) {
+    result += value.slice(tagStartIndex);
   }
 
   return result;

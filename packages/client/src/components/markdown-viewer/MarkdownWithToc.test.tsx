@@ -57,6 +57,17 @@ describe('MarkdownWithToc', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('preserves non-tag less-than characters in headings', () => {
+    render(
+      <MarkdownWithToc markdownColorMode="light" source={'## Value is < 5'} />
+    );
+
+    expect(screen.getByRole('link', { name: 'Value is < 5' })).toHaveAttribute(
+      'href',
+      '#value-is-5'
+    );
+  });
+
   it('hides toc sidebar when markdown has no headings', () => {
     render(
       <MarkdownWithToc markdownColorMode="light" source={'plain text only'} />
