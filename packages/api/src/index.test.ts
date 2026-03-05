@@ -75,9 +75,9 @@ describe('API', () => {
       expect(
         isCorsOriginAllowed('http://localhost:3000', allowlist, true)
       ).toBe(true);
-      expect(
-        isCorsOriginAllowed('https://evil.example', allowlist, true)
-      ).toBe(false);
+      expect(isCorsOriginAllowed('https://evil.example', allowlist, true)).toBe(
+        false
+      );
     });
   });
 

@@ -23,7 +23,9 @@ type CorsOriginPolicy = (
   callback: (err: Error | null, origin?: boolean) => void
 ) => void;
 
-export function parseCorsAllowedOrigins(value: string | undefined): ReadonlySet<string> {
+export function parseCorsAllowedOrigins(
+  value: string | undefined
+): ReadonlySet<string> {
   if (!value) {
     return new Set();
   }
