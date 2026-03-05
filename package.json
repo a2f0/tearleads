@@ -112,8 +112,13 @@
       "svgo": "4.0.1",
       "tar": "7.5.10",
       "pg": "8.18.0",
-      "sql.js": "1.14.0",
-      "tar": ">=7.5.10"
+      "sql.js": "1.14.0"
+    },
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "@connectrpc/connect>@bufbuild/protobuf": "^2.11.0",
+        "@connectrpc/protoc-gen-connect-es>@bufbuild/protoc-gen-es": "^2.11.0"
+      }
     }
   }
 }
