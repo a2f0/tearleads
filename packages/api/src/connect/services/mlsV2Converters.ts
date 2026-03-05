@@ -89,6 +89,29 @@ export function toProtoMessageType(value: string): ProtoMessageType {
   }
 }
 
+function decodeBase64ToBytes(value: string, field: string): Uint8Array {
+  const normalized = value.trim().replace(/\s+/gu, '');
+  if (normalized.length === 0) {
+    return new Uint8Array();
+  }
+
+  const decoded = Buffer.from(normalized, 'base64');
+  const withoutPadding = normalized.replace(/=+$/u, '');
+  const roundTrip = decoded.toString('base64').replace(/=+$/u, '');
+  if (roundTrip !== withoutPadding) {
+    throw new ConnectError(
+      `Invalid base64 ${field} payload from direct service`,
+      Code.Internal
+    );
+  }
+
+  return Uint8Array.from(decoded);
+}
+
+export function encodeProtoBytes(value: Uint8Array): string {
+  return Buffer.from(value).toString('base64');
+}
+
 // ---------------------------------------------------------------------------
 // JSON parser
 // ---------------------------------------------------------------------------
@@ -158,7 +181,7 @@ export function toProtoMessage(msg: MlsMessage) {
     senderUserId: msg.senderUserId ?? '',
     senderEmail: msg.senderEmail ?? '',
     epoch: BigInt(msg.epoch),
-    ciphertext: msg.ciphertext,
+    ciphertext: decodeBase64ToBytes(msg.ciphertext, 'ciphertext'),
     messageType: toProtoMessageType(msg.messageType),
     contentType: msg.contentType,
     sequenceNumber: BigInt(msg.sequenceNumber),
@@ -172,7 +195,7 @@ export function toProtoGroupState(s: MlsGroupState) {
     id: s.id,
     groupId: s.groupId,
     epoch: BigInt(s.epoch),
-    encryptedState: s.encryptedState,
+    encryptedState: decodeBase64ToBytes(s.encryptedState, 'encryptedState'),
     stateHash: s.stateHash,
     createdAt: s.createdAt
   };
@@ -183,7 +206,7 @@ export function toProtoWelcome(w: MlsWelcomeMessage) {
     id: w.id,
     groupId: w.groupId,
     groupName: w.groupName,
-    welcome: w.welcome,
+    welcome: decodeBase64ToBytes(w.welcome, 'welcome'),
     keyPackageRef: w.keyPackageRef,
     epoch: BigInt(w.epoch),
     createdAt: w.createdAt
@@ -218,8 +241,8 @@ export interface V2UpdateGroupRequest {
 export interface V2AddGroupMemberRequest {
   groupId: string;
   userId: string;
-  commit: string;
-  welcome: string;
+  commit: Uint8Array;
+  welcome: Uint8Array;
   keyPackageRef: string;
   newEpoch: bigint;
 }
@@ -227,13 +250,13 @@ export interface V2AddGroupMemberRequest {
 export interface V2RemoveGroupMemberRequest {
   groupId: string;
   userId: string;
-  commit: string;
+  commit: Uint8Array;
   newEpoch: bigint;
 }
 
 export interface V2SendGroupMessageRequest {
   groupId: string;
-  ciphertext: string;
+  ciphertext: Uint8Array;
   epoch: bigint;
   messageType: ProtoMessageType;
   contentType: string;
@@ -242,7 +265,7 @@ export interface V2SendGroupMessageRequest {
 export interface V2UploadGroupStateRequest {
   groupId: string;
   epoch: bigint;
-  encryptedState: string;
+  encryptedState: Uint8Array;
   stateHash: string;
 }
 
