@@ -271,13 +271,13 @@ impl AdminRequestAuthorizer for HeaderRoleAdminAuthorizer {
         let scope_from_headers = Self::parse_scope_metadata(operation, metadata)?;
         match operation.required_scope() {
             AdminOperationScope::RootOnly => {
-                if let Some(scope) = scope_from_headers {
-                    if !scope.is_root_admin() {
-                        return Err(AdminAuthError::new(
-                            AdminAuthErrorKind::PermissionDenied,
-                            format!("root admin scope required for {}", operation.as_str()),
-                        ));
-                    }
+                if let Some(scope) = scope_from_headers
+                    && !scope.is_root_admin()
+                {
+                    return Err(AdminAuthError::new(
+                        AdminAuthErrorKind::PermissionDenied,
+                        format!("root admin scope required for {}", operation.as_str()),
+                    ));
                 }
                 Ok(AdminAccessContext::root())
             }
