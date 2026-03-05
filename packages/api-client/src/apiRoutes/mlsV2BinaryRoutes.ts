@@ -26,19 +26,19 @@ import type {
 import { bytesToBase64, decodeTransportBytes } from './mlsV2Binary';
 import { createMlsV2Routes as createWireMlsV2Routes } from './mlsV2Routes';
 
-export type MlsBinaryKeyPackage = Omit<MlsKeyPackage, 'keyPackageData'> & {
+type MlsBinaryKeyPackage = Omit<MlsKeyPackage, 'keyPackageData'> & {
   keyPackageData: Uint8Array;
 };
 
-export type MlsBinaryMessage = Omit<MlsMessage, 'ciphertext'> & {
+type MlsBinaryMessage = Omit<MlsMessage, 'ciphertext'> & {
   ciphertext: Uint8Array;
 };
 
-export type MlsBinaryWelcomeMessage = Omit<MlsWelcomeMessage, 'welcome'> & {
+type MlsBinaryWelcomeMessage = Omit<MlsWelcomeMessage, 'welcome'> & {
   welcome: Uint8Array;
 };
 
-export type MlsBinaryGroupState = Omit<MlsGroupState, 'encryptedState'> & {
+type MlsBinaryGroupState = Omit<MlsGroupState, 'encryptedState'> & {
   encryptedState: Uint8Array;
 };
 
@@ -323,5 +323,3 @@ export function createMlsV2Routes(overrides: RouteOverrides = {}): MlsV2Routes {
       wireRoutes.acknowledgeWelcome(id, data)
   };
 }
-
-export const mlsV2Routes = createMlsV2Routes();

@@ -19,7 +19,7 @@ export function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-export function base64ToBytes(value: string): Uint8Array | null {
+function base64ToBytes(value: string): Uint8Array | null {
   const normalized = normalizeBase64(value);
   if (normalized.length === 0) {
     return null;
