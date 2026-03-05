@@ -1,4 +1,5 @@
 import { isRecord } from '@tearleads/shared';
+import { logStore } from '@/stores/logStore';
 import type { DatabaseAdapter } from '../adapters';
 import type { Migration } from './types';
 import { v001 } from './v001';
@@ -145,7 +146,7 @@ export async function runMigrations(
 
   const v001Start = performance.now();
   await v001Migration.up(adapter);
-  console.debug(
+  logStore.debug(
     `[migrations] v001 (schema bootstrap): ${(performance.now() - v001Start).toFixed(1)}ms`
   );
 
@@ -170,14 +171,14 @@ export async function runMigrations(
     await migration.up(adapter);
     await recordMigration(adapter, migration.version);
     applied.push(migration.version);
-    console.debug(
+    logStore.debug(
       `[migrations] v${String(migration.version).padStart(3, '0')} (${migration.description}): ${(performance.now() - migStart).toFixed(1)}ms`
     );
   }
 
   const finalVersion = await getCurrentVersion(adapter);
 
-  console.debug(
+  logStore.debug(
     `[migrations] total: ${(performance.now() - runStart).toFixed(1)}ms, applied ${applied.length}/${sortedMigrations.length}`
   );
 

@@ -2,6 +2,7 @@ import type { Database } from '@tearleads/db/sqlite';
 import { schema } from '@tearleads/db/sqlite';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import { databaseSetupProgressStore } from '@/stores/databaseSetupProgressStore';
+import { logStore } from '@/stores/logStore';
 import type { PlatformInfo } from './adapters';
 import { createAdapter, getPlatformInfo } from './adapters';
 import { logEvent } from './analytics';
@@ -295,7 +296,7 @@ async function initializeDatabaseWithKey(
     encryptionKey,
     location: platformInfo.platform === 'ios' ? 'library' : 'default'
   });
-  console.debug(
+  logStore.debug(
     `[db] adapter.initialize: ${(performance.now() - adapterStart).toFixed(1)}ms`
   );
 
