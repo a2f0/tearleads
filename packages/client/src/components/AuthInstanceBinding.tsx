@@ -15,7 +15,7 @@ import {
  * - If current instance belongs to a different user, create and bind a new one
  */
 export function AuthInstanceBinding() {
-  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: isAuthLoading, logout } = useAuth();
   const {
     isLoading: isDatabaseLoading,
     currentInstanceId,
@@ -29,10 +29,6 @@ export function AuthInstanceBinding() {
   useEffect(() => {
     if (!isAuthenticated || !user) {
       alignedUserIdRef.current = null;
-      return;
-    }
-
-    if (alignedUserIdRef.current === user.id) {
       return;
     }
 
@@ -61,6 +57,27 @@ export function AuthInstanceBinding() {
           return;
         }
 
+        const currentBoundUserId = currentInstance.boundUserId ?? null;
+        const isCurrentInstanceBoundToAuthenticatedUser =
+          currentBoundUserId === userId;
+
+        // If we already aligned this user and they move to a different/unbound
+        // instance, clear auth so each instance has its own sync session.
+        if (
+          alignedUserIdRef.current === userId &&
+          !isCurrentInstanceBoundToAuthenticatedUser
+        ) {
+          await logout();
+          return;
+        }
+
+        if (
+          alignedUserIdRef.current === userId &&
+          isCurrentInstanceBoundToAuthenticatedUser
+        ) {
+          return;
+        }
+
         if (boundInstance) {
           if (boundInstance.id !== currentInstanceId) {
             await switchInstance(boundInstance.id);
@@ -70,7 +87,6 @@ export function AuthInstanceBinding() {
           return;
         }
 
-        const currentBoundUserId = currentInstance?.boundUserId ?? null;
         if (!currentBoundUserId) {
           await bindInstanceToUser(currentInstanceId, userId);
           await updateInstance(currentInstanceId, { name: user.email });
@@ -115,6 +131,7 @@ export function AuthInstanceBinding() {
     isDatabaseLoading,
     refreshInstances,
     switchInstance,
+    logout,
     isAuthenticated,
     user
   ]);

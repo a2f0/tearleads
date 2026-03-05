@@ -8,6 +8,7 @@ const mockGetInstanceForUser = vi.fn();
 const mockGetInstance = vi.fn();
 const mockBindInstanceToUser = vi.fn();
 const mockUpdateInstance = vi.fn();
+const mockLogout = vi.fn(async () => undefined);
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => mockUseAuth()
@@ -34,7 +35,8 @@ describe('AuthInstanceBinding', () => {
     mockUseAuth.mockReturnValue({
       user: { id: 'user-1', email: 'user-1@example.com' },
       isAuthenticated: true,
-      isLoading: false
+      isLoading: false,
+      logout: mockLogout
     });
     mockUseDatabaseContext.mockReturnValue({
       isLoading: false,
@@ -124,7 +126,8 @@ describe('AuthInstanceBinding', () => {
     mockUseAuth.mockReturnValue({
       user: { id: 'user-2', email: 'user-2@example.com' },
       isAuthenticated: true,
-      isLoading: false
+      isLoading: false,
+      logout: mockLogout
     });
     mockUseDatabaseContext.mockReturnValue({
       isLoading: false,
@@ -187,5 +190,60 @@ describe('AuthInstanceBinding', () => {
     expect(createInstance).not.toHaveBeenCalled();
     expect(mockBindInstanceToUser).not.toHaveBeenCalled();
     expect(mockUpdateInstance).not.toHaveBeenCalled();
+  });
+
+  it('logs out when switching away from an already aligned user instance', async () => {
+    mockGetInstanceForUser.mockResolvedValue({
+      id: 'instance-current',
+      name: 'user-1@example.com',
+      boundUserId: 'user-1'
+    });
+    mockGetInstance.mockResolvedValue({
+      id: 'instance-current',
+      name: 'user-1@example.com',
+      boundUserId: 'user-1'
+    });
+
+    const { rerender } = render(<AuthInstanceBinding />);
+
+    await waitFor(() => {
+      expect(mockUpdateInstance).toHaveBeenCalledWith('instance-current', {
+        name: 'user-1@example.com'
+      });
+    });
+
+    vi.clearAllMocks();
+    mockUseAuth.mockReturnValue({
+      user: { id: 'user-1', email: 'user-1@example.com' },
+      isAuthenticated: true,
+      isLoading: false,
+      logout: mockLogout
+    });
+    mockUseDatabaseContext.mockReturnValue({
+      isLoading: false,
+      currentInstanceId: 'instance-new',
+      switchInstance,
+      createInstance,
+      refreshInstances
+    });
+    mockGetInstanceForUser.mockResolvedValue({
+      id: 'instance-current',
+      name: 'user-1@example.com',
+      boundUserId: 'user-1'
+    });
+    mockGetInstance.mockResolvedValue({
+      id: 'instance-new',
+      name: 'Instance 2',
+      boundUserId: null
+    });
+
+    rerender(<AuthInstanceBinding />);
+
+    await waitFor(() => {
+      expect(mockLogout).toHaveBeenCalledTimes(1);
+    });
+    expect(switchInstance).not.toHaveBeenCalled();
+    expect(mockBindInstanceToUser).not.toHaveBeenCalled();
+    expect(createInstance).not.toHaveBeenCalled();
   });
 });
