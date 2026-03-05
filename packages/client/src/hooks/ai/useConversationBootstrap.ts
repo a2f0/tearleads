@@ -72,8 +72,9 @@ export function useConversationBootstrap(
           }
         }
 
-        if (conversations.length > 0) {
-          await selectConversation(conversations[0].id);
+        const mostRecentConversation = conversations[0];
+        if (mostRecentConversation) {
+          await selectConversation(mostRecentConversation.id);
           return;
         }
 

@@ -51,7 +51,7 @@ export function useConversations(
   const {
     autoStart = false,
     resumeLastConversation = false,
-    instanceId
+    instanceId = null
   } = options;
   const [conversations, setConversations] = useState<DecryptedAiConversation[]>(
     []
