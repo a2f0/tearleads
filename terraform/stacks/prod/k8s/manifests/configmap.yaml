@@ -24,3 +24,8 @@ data:
   VFS_CRDT_COMPACTION_SAFETY_BUFFER_HOURS: "6"
   VFS_CRDT_COMPACTION_MAX_DELETE_ROWS: "1000"
   VFS_CRDT_COMPACTION_SKIP_SNAPSHOT_REFRESH: "0"
+  # Outbound email (AWS SES)
+  SMTP_OUTBOUND_HOST: "email-smtp.us-east-1.amazonaws.com"
+  SMTP_OUTBOUND_PORT: "587"
+  SMTP_SECURE: "true"
+  SMTP_FROM_ADDRESS: "noreply@mail.tearleads.com"
