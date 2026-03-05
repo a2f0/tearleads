@@ -98,9 +98,7 @@ export async function requestMlsRpc<T>(input: {
   );
 
   if (!response.ok) {
-    throw new Error(
-      await toResponseErrorMessage(response, input.errorMessage)
-    );
+    throw new Error(await toResponseErrorMessage(response, input.errorMessage));
   }
 
   return parseEnvelope<T>(await response.json());

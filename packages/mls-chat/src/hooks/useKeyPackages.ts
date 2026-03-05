@@ -84,7 +84,9 @@ export function useKeyPackages(client: MlsClient | null): UseKeyPackagesResult {
         await requestMlsRpc<UploadMlsKeyPackagesResponse>({
           context: { apiBaseUrl, getAuthHeader },
           method: 'UploadKeyPackages',
-          requestBody: { json: JSON.stringify({ keyPackages: newKeyPackages }) },
+          requestBody: {
+            json: JSON.stringify({ keyPackages: newKeyPackages })
+          },
           errorMessage: 'Failed to upload key packages'
         });
 

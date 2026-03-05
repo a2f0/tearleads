@@ -100,9 +100,7 @@ export function useGroupMembers(
             userId,
             keyPackageRef: keyPackage.keyPackageRef,
             commit: btoa(String.fromCharCode.apply(null, Array.from(commit))),
-            welcome: btoa(
-              String.fromCharCode.apply(null, Array.from(welcome))
-            ),
+            welcome: btoa(String.fromCharCode.apply(null, Array.from(welcome))),
             newEpoch
           })
         },
