@@ -29,14 +29,18 @@ export interface UseVfsFoldersResult {
 }
 
 const TREE_CONTAINER_TYPES = VFS_CONTAINER_OBJECT_TYPES;
+const DATABASE_NOT_INITIALIZED_ERROR_MESSAGE = 'Database not initialized';
 
 function isDatabaseNotInitializedError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
-  if (error.message.includes('Database not initialized')) return true;
+  if (error.message.includes(DATABASE_NOT_INITIALIZED_ERROR_MESSAGE)) {
+    return true;
+  }
 
   const cause = 'cause' in error ? error.cause : undefined;
   return (
-    cause instanceof Error && cause.message.includes('Database not initialized')
+    cause instanceof Error &&
+    cause.message.includes(DATABASE_NOT_INITIALIZED_ERROR_MESSAGE)
   );
 }
 
