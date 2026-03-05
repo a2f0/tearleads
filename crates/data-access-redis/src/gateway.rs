@@ -1,4 +1,4 @@
-//! Driver-facing gateway abstraction for Redis admin reads.
+//! Driver-facing gateway abstraction for Redis admin read/write operations.
 
 use tearleads_data_access_traits::{BoxFuture, DataAccessError, RedisValue};
 
@@ -24,7 +24,7 @@ pub struct RedisScanResult {
     pub next_cursor: String,
 }
 
-/// Driver gateway used by [`crate::RedisAdminReadAdapter`].
+/// Driver gateway used by [`crate::RedisAdminAdapter`].
 pub trait RedisAdminGateway: Send + Sync {
     /// Performs one cursor-based key scan.
     fn scan_keys(
@@ -35,6 +35,9 @@ pub trait RedisAdminGateway: Send + Sync {
 
     /// Reads one key value payload.
     fn read_key(&self, key: &str) -> BoxFuture<'_, Result<RedisKeyRecord, DataAccessError>>;
+
+    /// Deletes one key by name and returns whether it existed.
+    fn delete_key(&self, key: &str) -> BoxFuture<'_, Result<bool, DataAccessError>>;
 
     /// Reads the total key count for the selected database.
     fn read_db_size(&self) -> BoxFuture<'_, Result<u64, DataAccessError>>;

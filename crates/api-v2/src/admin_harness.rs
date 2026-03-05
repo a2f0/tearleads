@@ -2,7 +2,7 @@
 
 use tearleads_data_access_traits::{
     BoxFuture, PostgresAdminReadRepository, PostgresConnectionInfo, PostgresInfoSnapshot,
-    PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo, RedisAdminReadRepository, RedisKeyInfo,
+    PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo, RedisAdminRepository, RedisKeyInfo,
     RedisKeyScanPage, RedisKeyValueRecord, RedisValue,
 };
 
@@ -160,7 +160,7 @@ impl PostgresAdminReadRepository for StaticPostgresRepository {
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct StaticRedisRepository;
 
-impl RedisAdminReadRepository for StaticRedisRepository {
+impl RedisAdminRepository for StaticRedisRepository {
     fn list_keys(
         &self,
         cursor: &str,
@@ -203,6 +203,13 @@ impl RedisAdminReadRepository for StaticRedisRepository {
         })
     }
 
+    fn delete_key(
+        &self,
+        _key: &str,
+    ) -> BoxFuture<'_, Result<bool, tearleads_data_access_traits::DataAccessError>> {
+        Box::pin(async move { Ok(true) })
+    }
+
     fn get_db_size(
         &self,
     ) -> BoxFuture<'_, Result<u64, tearleads_data_access_traits::DataAccessError>> {
@@ -227,11 +234,12 @@ pub(crate) fn create_admin_harness_handler() -> AdminServiceHandler<
 mod tests {
     use crate::{AdminRequestAuthorizer, admin_auth::map_admin_auth_error};
     use tearleads_api_v2_contracts::tearleads::v2::{
-        AdminGetRedisDbSizeRequest, AdminGetRedisKeysRequest, AdminGetRedisValueRequest,
-        AdminGetRowsRequest, AdminGetTablesRequest, admin_service_server::AdminService,
+        AdminDeleteRedisKeyRequest, AdminGetRedisDbSizeRequest, AdminGetRedisKeysRequest,
+        AdminGetRedisValueRequest, AdminGetRowsRequest, AdminGetTablesRequest,
+        admin_service_server::AdminService,
     };
     use tearleads_data_access_traits::{
-        PostgresAdminReadRepository, PostgresRowsQuery, RedisAdminReadRepository, RedisValue,
+        PostgresAdminReadRepository, PostgresRowsQuery, RedisAdminRepository, RedisValue,
     };
     use tonic::{Code, Request};
 
@@ -362,6 +370,11 @@ mod tests {
             value.value,
             Some(RedisValue::String(String::from("test-value")))
         );
+        let deleted = redis
+            .delete_key("session:test")
+            .await
+            .expect("redis delete should succeed");
+        assert!(deleted);
         let db_size = redis.get_db_size().await.expect("db size should succeed");
         assert_eq!(db_size, 1);
     }
@@ -417,6 +430,20 @@ mod tests {
             .expect("authorized value request should succeed")
             .into_inner();
         assert_eq!(value_response.key, "session:test");
+
+        let mut delete_request = Request::new(AdminDeleteRedisKeyRequest {
+            key: String::from("session:test"),
+        });
+        delete_request.metadata_mut().insert(
+            "authorization",
+            tonic::metadata::MetadataValue::from_static("Bearer header.payload.signature"),
+        );
+        let delete_response = handler
+            .delete_redis_key(delete_request)
+            .await
+            .expect("authorized delete request should succeed")
+            .into_inner();
+        assert!(delete_response.deleted);
 
         let mut rows_request = Request::new(AdminGetRowsRequest {
             schema: String::from("public"),

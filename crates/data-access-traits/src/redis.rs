@@ -51,7 +51,7 @@ pub struct RedisKeyValueRecord {
 }
 
 /// Repository boundary for Redis admin reads.
-pub trait RedisAdminReadRepository: Send + Sync {
+pub trait RedisAdminRepository: Send + Sync {
     /// Lists keys using cursor pagination.
     fn list_keys(
         &self,
@@ -61,6 +61,9 @@ pub trait RedisAdminReadRepository: Send + Sync {
 
     /// Returns one key payload by key name.
     fn get_value(&self, key: &str) -> BoxFuture<'_, Result<RedisKeyValueRecord, DataAccessError>>;
+
+    /// Deletes one key by name and returns whether it existed.
+    fn delete_key(&self, key: &str) -> BoxFuture<'_, Result<bool, DataAccessError>>;
 
     /// Returns the key count for the selected database.
     fn get_db_size(&self) -> BoxFuture<'_, Result<u64, DataAccessError>>;

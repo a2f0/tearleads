@@ -19,6 +19,7 @@ import {
 import { getAuthHeaderValue } from '../authStorage';
 import {
   type AdminGetRowsOptions,
+  createAdminDeleteRedisKeyRequest,
   createAdminGetColumnsRequest,
   createAdminGetPostgresInfoRequest,
   createAdminGetRedisDbSizeRequest,
@@ -155,6 +156,10 @@ export interface AdminV2Client {
     request: { key: string },
     options?: AdminV2CallOptions
   ): Promise<AdminV2RedisValueResponseLike>;
+  deleteRedisKey(
+    request: { key: string },
+    options?: AdminV2CallOptions
+  ): Promise<{ deleted: boolean }>;
   getRedisDbSize(
     request: Record<string, never>,
     options?: AdminV2CallOptions
@@ -456,6 +461,14 @@ export function createAdminV2Routes(
             callOptions
           );
           return mapRedisValueResponse(response);
+        }),
+      deleteKey: (key: string) =>
+        runWithEvent(dependencies, 'api_delete_admin_redis_key', async () => {
+          const { client, callOptions } = await buildCallContext(dependencies);
+          return client.deleteRedisKey(
+            createAdminDeleteRedisKeyRequest(key),
+            callOptions
+          );
         }),
       getDbSize: () =>
         runWithEvent(dependencies, 'api_get_admin_redis_dbsize', async () => {

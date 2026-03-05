@@ -165,7 +165,7 @@ describe('api with msw admin routing', () => {
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.AdminService/DeleteRedisKey'
+        '/connect/tearleads.v2.AdminService/DeleteRedisKey'
       )
     ).toBe(true);
     expect(

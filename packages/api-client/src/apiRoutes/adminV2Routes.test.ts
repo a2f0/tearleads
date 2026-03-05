@@ -37,6 +37,7 @@ interface AdminV2ClientOverrides {
   getRows?: AdminV2Client['getRows'];
   getRedisKeys?: AdminV2Client['getRedisKeys'];
   getRedisValue?: AdminV2Client['getRedisValue'];
+  deleteRedisKey?: AdminV2Client['deleteRedisKey'];
   getRedisDbSize?: AdminV2Client['getRedisDbSize'];
 }
 
@@ -63,6 +64,8 @@ function createAdminV2ClientStub(
     getRedisValue:
       overrides.getRedisValue ??
       vi.fn(async () => ({ key: '', type: '', ttl: 0n, value: undefined })),
+    deleteRedisKey:
+      overrides.deleteRedisKey ?? vi.fn(async () => ({ deleted: false })),
     getRedisDbSize:
       overrides.getRedisDbSize ?? vi.fn(async () => ({ count: 0n }))
   };
@@ -307,7 +310,7 @@ describe('adminV2Routes', () => {
     );
   });
 
-  it('maps redis key/value/dbsize responses and forwards request args', async () => {
+  it('maps redis key/value/delete/dbsize responses and forwards request args', async () => {
     const getRedisKeys = vi.fn(async () => ({
       keys: [{ key: 'session:1', type: 'string', ttl: 120n }],
       cursor: '8',
@@ -326,16 +329,19 @@ describe('adminV2Routes', () => {
         }
       }
     }));
+    const deleteRedisKey = vi.fn(async () => ({ deleted: true }));
     const getRedisDbSize = vi.fn(async () => ({ count: 12n }));
     const client = createAdminV2ClientStub({
       getRedisKeys,
       getRedisValue,
+      deleteRedisKey,
       getRedisDbSize
     });
     const { routes, logEvent, buildHeaders } = createRoutesForTest(client);
 
     const keysResponse = await routes.redis.getKeys('5', 10);
     const valueResponse = await routes.redis.getValue('config');
+    const deleteResponse = await routes.redis.deleteKey('config');
     const dbSizeResponse = await routes.redis.getDbSize();
 
     expect(keysResponse).toEqual({
@@ -349,11 +355,13 @@ describe('adminV2Routes', () => {
       ttl: 10,
       value: { mode: 'strict' }
     });
+    expect(deleteResponse).toEqual({ deleted: true });
     expect(dbSizeResponse).toEqual({ count: 12 });
     expect(getRedisKeys.mock.calls[0]?.[0].cursor).toBe('5');
     expect(getRedisKeys.mock.calls[0]?.[0].limit).toBe(10);
     expect(getRedisValue.mock.calls[0]?.[0].key).toBe('config');
-    expect(buildHeaders).toHaveBeenCalledTimes(3);
+    expect(deleteRedisKey.mock.calls[0]?.[0].key).toBe('config');
+    expect(buildHeaders).toHaveBeenCalledTimes(4);
     expect(logEvent).toHaveBeenCalledWith(
       'api_get_admin_redis_keys',
       expect.any(Number),
@@ -361,6 +369,11 @@ describe('adminV2Routes', () => {
     );
     expect(logEvent).toHaveBeenCalledWith(
       'api_get_admin_redis_key',
+      expect.any(Number),
+      true
+    );
+    expect(logEvent).toHaveBeenCalledWith(
+      'api_delete_admin_redis_key',
       expect.any(Number),
       true
     );

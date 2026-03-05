@@ -1,26 +1,26 @@
-//! Adapter that maps Redis gateway records to shared admin read models.
+//! Adapter that maps Redis gateway records to shared admin read/write models.
 
 use tearleads_api_domain_core::{normalize_redis_scan_cursor, normalize_redis_scan_limit};
 use tearleads_data_access_traits::{
-    BoxFuture, DataAccessError, DataAccessErrorKind, RedisAdminReadRepository, RedisKeyInfo,
+    BoxFuture, DataAccessError, DataAccessErrorKind, RedisAdminRepository, RedisKeyInfo,
     RedisKeyScanPage, RedisKeyValueRecord,
 };
 
 use crate::RedisAdminGateway;
 
 /// Redis repository implementation over a driver-specific gateway.
-pub struct RedisAdminReadAdapter<G> {
+pub struct RedisAdminAdapter<G> {
     gateway: G,
 }
 
-impl<G> RedisAdminReadAdapter<G> {
+impl<G> RedisAdminAdapter<G> {
     /// Builds an adapter around a gateway implementation.
     pub fn new(gateway: G) -> Self {
         Self { gateway }
     }
 }
 
-impl<G> RedisAdminReadRepository for RedisAdminReadAdapter<G>
+impl<G> RedisAdminRepository for RedisAdminAdapter<G>
 where
     G: RedisAdminGateway + Send + Sync,
 {
@@ -72,6 +72,15 @@ where
         })
     }
 
+    fn delete_key(&self, key: &str) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        let normalized_key = match normalize_key(key) {
+            Ok(value) => value,
+            Err(error) => return Box::pin(async move { Err(error) }),
+        };
+
+        Box::pin(async move { self.gateway.delete_key(&normalized_key).await })
+    }
+
     fn get_db_size(&self) -> BoxFuture<'_, Result<u64, DataAccessError>> {
         Box::pin(async move { self.gateway.read_db_size().await })
     }
@@ -99,19 +108,21 @@ mod tests {
 
     use futures::executor::block_on;
     use tearleads_data_access_traits::{
-        BoxFuture, DataAccessError, DataAccessErrorKind, RedisAdminReadRepository, RedisValue,
+        BoxFuture, DataAccessError, DataAccessErrorKind, RedisAdminRepository, RedisValue,
     };
 
-    use super::RedisAdminReadAdapter;
+    use super::RedisAdminAdapter;
     use crate::{RedisAdminGateway, RedisKeyRecord, RedisScanResult};
 
     #[derive(Debug)]
     struct FakeGateway {
         scan_result: Result<RedisScanResult, DataAccessError>,
         read_result: Result<RedisKeyRecord, DataAccessError>,
+        delete_result: Result<bool, DataAccessError>,
         db_size_result: Result<u64, DataAccessError>,
         scan_calls: Mutex<Vec<(String, u32)>>,
         read_calls: Mutex<Vec<String>>,
+        delete_calls: Mutex<Vec<String>>,
         db_size_calls: Mutex<usize>,
     }
 
@@ -128,9 +139,11 @@ mod tests {
                     ttl_seconds: -1,
                     value: Some(RedisValue::String(String::from("value"))),
                 }),
+                delete_result: Ok(false),
                 db_size_result: Ok(0),
                 scan_calls: Mutex::new(Vec::new()),
                 read_calls: Mutex::new(Vec::new()),
+                delete_calls: Mutex::new(Vec::new()),
                 db_size_calls: Mutex::new(0),
             }
         }
@@ -143,6 +156,10 @@ mod tests {
 
         fn read_calls(&self) -> Vec<String> {
             lock_or_recover(&self.read_calls).clone()
+        }
+
+        fn delete_calls(&self) -> Vec<String> {
+            lock_or_recover(&self.delete_calls).clone()
         }
 
         fn db_size_calls(&self) -> usize {
@@ -167,6 +184,12 @@ mod tests {
             Box::pin(async move { result })
         }
 
+        fn delete_key(&self, key: &str) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+            lock_or_recover(&self.delete_calls).push(key.to_string());
+            let result = self.delete_result.clone();
+            Box::pin(async move { result })
+        }
+
         fn read_db_size(&self) -> BoxFuture<'_, Result<u64, DataAccessError>> {
             *lock_or_recover(&self.db_size_calls) += 1;
             let result = self.db_size_result.clone();
@@ -188,7 +211,7 @@ mod tests {
             }),
             ..Default::default()
         };
-        let adapter = RedisAdminReadAdapter::new(gateway);
+        let adapter = RedisAdminAdapter::new(gateway);
 
         let result = block_on(adapter.list_keys("  ", 0));
         let page = match result {
@@ -208,7 +231,7 @@ mod tests {
     #[test]
     fn list_keys_caps_limit_and_marks_terminal_cursor() {
         let gateway = FakeGateway::default();
-        let adapter = RedisAdminReadAdapter::new(gateway);
+        let adapter = RedisAdminAdapter::new(gateway);
 
         let result = block_on(adapter.list_keys("9", u32::MAX));
         let page = match result {
@@ -232,7 +255,7 @@ mod tests {
             }),
             ..Default::default()
         };
-        let adapter = RedisAdminReadAdapter::new(gateway);
+        let adapter = RedisAdminAdapter::new(gateway);
 
         let result = block_on(adapter.get_value("  session:abc  "));
         let record = match result {
@@ -256,7 +279,7 @@ mod tests {
     #[test]
     fn get_value_rejects_blank_keys_before_gateway_io() {
         let gateway = FakeGateway::default();
-        let adapter = RedisAdminReadAdapter::new(gateway);
+        let adapter = RedisAdminAdapter::new(gateway);
 
         let result = block_on(adapter.get_value("   "));
         let error = match result {
@@ -270,13 +293,50 @@ mod tests {
     }
 
     #[test]
+    fn delete_key_trims_keys_before_gateway_delete() {
+        let gateway = FakeGateway {
+            delete_result: Ok(true),
+            ..Default::default()
+        };
+        let adapter = RedisAdminAdapter::new(gateway);
+
+        let result = block_on(adapter.delete_key("  session:abc  "));
+        let deleted = match result {
+            Ok(value) => value,
+            Err(error) => panic!("delete should succeed, got: {error}"),
+        };
+
+        assert!(deleted);
+        assert_eq!(
+            adapter.gateway.delete_calls(),
+            vec![String::from("session:abc")]
+        );
+    }
+
+    #[test]
+    fn delete_key_rejects_blank_keys_before_gateway_io() {
+        let gateway = FakeGateway::default();
+        let adapter = RedisAdminAdapter::new(gateway);
+
+        let result = block_on(adapter.delete_key("  "));
+        let error = match result {
+            Ok(_) => panic!("blank keys must fail validation"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error.kind(), DataAccessErrorKind::InvalidInput);
+        assert_eq!(error.message(), "key must not be empty");
+        assert!(adapter.gateway.delete_calls().is_empty());
+    }
+
+    #[test]
     fn list_keys_propagates_gateway_error() {
         let unavailable = DataAccessError::new(DataAccessErrorKind::Unavailable, "redis timeout");
         let gateway = FakeGateway {
             scan_result: Err(unavailable.clone()),
             ..Default::default()
         };
-        let adapter = RedisAdminReadAdapter::new(gateway);
+        let adapter = RedisAdminAdapter::new(gateway);
 
         let result = block_on(adapter.list_keys("0", 10));
         let error = match result {
@@ -293,7 +353,7 @@ mod tests {
             db_size_result: Ok(42),
             ..Default::default()
         };
-        let adapter = RedisAdminReadAdapter::new(gateway);
+        let adapter = RedisAdminAdapter::new(gateway);
 
         let result = block_on(adapter.get_db_size());
         let count = match result {

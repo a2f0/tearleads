@@ -10,6 +10,7 @@ interface ApiV2ClientWasmBindings {
   adminGetRowsPath: () => string;
   adminGetRedisKeysPath: () => string;
   adminGetRedisValuePath: () => string;
+  adminDeleteRedisKeyPath: () => string;
   adminGetRedisDbSizePath: () => string;
   buildRequestHeaders: (
     bearerToken?: string | null,
@@ -24,6 +25,7 @@ export interface ApiV2AdminRpcPaths {
   getRows: string;
   getRedisKeys: string;
   getRedisValue: string;
+  deleteRedisKey: string;
   getRedisDbSize: string;
 }
 
@@ -47,6 +49,7 @@ function assertApiV2ClientWasmBindings(
     typeof module['adminGetRowsPath'] !== 'function' ||
     typeof module['adminGetRedisKeysPath'] !== 'function' ||
     typeof module['adminGetRedisValuePath'] !== 'function' ||
+    typeof module['adminDeleteRedisKeyPath'] !== 'function' ||
     typeof module['adminGetRedisDbSizePath'] !== 'function' ||
     typeof module['buildRequestHeaders'] !== 'function'
   ) {
@@ -117,6 +120,7 @@ export async function getApiV2AdminRpcPaths(): Promise<ApiV2AdminRpcPaths> {
     getRows: bindings.adminGetRowsPath(),
     getRedisKeys: bindings.adminGetRedisKeysPath(),
     getRedisValue: bindings.adminGetRedisValuePath(),
+    deleteRedisKey: bindings.adminDeleteRedisKeyPath(),
     getRedisDbSize: bindings.adminGetRedisDbSizePath()
   };
 }

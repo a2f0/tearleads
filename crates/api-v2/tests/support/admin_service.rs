@@ -6,7 +6,7 @@ use tearleads_api_v2::{
 use tearleads_data_access_traits::{
     BoxFuture, DataAccessError, PostgresAdminReadRepository, PostgresColumnInfo,
     PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo,
-    RedisAdminReadRepository, RedisKeyScanPage, RedisKeyValueRecord,
+    RedisAdminRepository, RedisKeyScanPage, RedisKeyValueRecord,
 };
 use tonic::{Response, Status};
 
@@ -107,8 +107,10 @@ impl PostgresAdminReadRepository for FakePostgresRepository {
 pub(crate) struct FakeRedisRepository {
     pub(crate) list_keys_result: Result<RedisKeyScanPage, DataAccessError>,
     pub(crate) get_value_result: Result<RedisKeyValueRecord, DataAccessError>,
+    pub(crate) delete_key_result: Result<bool, DataAccessError>,
     pub(crate) list_keys_calls: Arc<Mutex<Vec<(String, u32)>>>,
     pub(crate) get_value_calls: Arc<Mutex<Vec<String>>>,
+    pub(crate) delete_key_calls: Arc<Mutex<Vec<String>>>,
     pub(crate) db_size_result: Result<u64, DataAccessError>,
     pub(crate) db_size_calls: Arc<Mutex<usize>>,
 }
@@ -127,15 +129,17 @@ impl Default for FakeRedisRepository {
                 ttl_seconds: -1,
                 value: None,
             }),
+            delete_key_result: Ok(false),
             list_keys_calls: Arc::new(Mutex::new(Vec::new())),
             get_value_calls: Arc::new(Mutex::new(Vec::new())),
+            delete_key_calls: Arc::new(Mutex::new(Vec::new())),
             db_size_result: Ok(0),
             db_size_calls: Arc::new(Mutex::new(0)),
         }
     }
 }
 
-impl RedisAdminReadRepository for FakeRedisRepository {
+impl RedisAdminRepository for FakeRedisRepository {
     fn list_keys(
         &self,
         cursor: &str,
@@ -149,6 +153,12 @@ impl RedisAdminReadRepository for FakeRedisRepository {
     fn get_value(&self, key: &str) -> BoxFuture<'_, Result<RedisKeyValueRecord, DataAccessError>> {
         lock_or_recover(&self.get_value_calls).push(key.to_string());
         let result = self.get_value_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn delete_key(&self, key: &str) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        lock_or_recover(&self.delete_key_calls).push(key.to_string());
+        let result = self.delete_key_result.clone();
         Box::pin(async move { result })
     }
 
