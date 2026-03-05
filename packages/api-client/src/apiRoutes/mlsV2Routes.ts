@@ -109,13 +109,37 @@ function decodePayload<T>(payload: JsonObject | undefined): T {
   return parseConnectJsonString<T>(JSON.stringify(payload ?? {}));
 }
 
-async function buildCallContext(
+function createClientResolver(
   dependencies: MlsV2RoutesDependencies
+): () => Promise<MlsV2Client> {
+  let pendingClient: Promise<MlsV2Client> | null = null;
+
+  return async () => {
+    if (pendingClient) {
+      return pendingClient;
+    }
+
+    const unresolvedClient = (async () => {
+      const connectBaseUrl = await dependencies.normalizeConnectBaseUrl(
+        dependencies.resolveApiBaseUrl()
+      );
+      return dependencies.createClient(connectBaseUrl);
+    })();
+
+    pendingClient = unresolvedClient.catch((error: unknown) => {
+      pendingClient = null;
+      throw error;
+    });
+
+    return pendingClient;
+  };
+}
+
+async function buildCallContext(
+  dependencies: MlsV2RoutesDependencies,
+  getClient: () => Promise<MlsV2Client>
 ): Promise<{ client: MlsV2Client; callOptions: MlsV2CallOptions }> {
-  const connectBaseUrl = await dependencies.normalizeConnectBaseUrl(
-    dependencies.resolveApiBaseUrl()
-  );
-  const client = dependencies.createClient(connectBaseUrl);
+  const client = await getClient();
   const headers = await dependencies.buildHeaders({
     bearerToken: dependencies.getAuthHeaderValue()
   });
@@ -159,11 +183,15 @@ export function createMlsV2Routes(
     ...createDefaultDependencies(),
     ...overrides
   };
+  const getClient = createClientResolver(dependencies);
 
   return {
     listGroups: () =>
       runWithEvent(dependencies, 'api_get_mls_groups', async () => {
-        const { client, callOptions } = await buildCallContext(dependencies);
+        const { client, callOptions } = await buildCallContext(
+          dependencies,
+          getClient
+        );
         const response = await client.listGroups(
           create(MlsListGroupsRequestSchema),
           callOptions
@@ -172,7 +200,10 @@ export function createMlsV2Routes(
       }),
     getGroup: (groupId: string) =>
       runWithEvent(dependencies, 'api_get_mls_group', async () => {
-        const { client, callOptions } = await buildCallContext(dependencies);
+        const { client, callOptions } = await buildCallContext(
+          dependencies,
+          getClient
+        );
         const response = await client.getGroup(
           create(MlsGetGroupRequestSchema, { groupId }),
           callOptions
@@ -181,7 +212,10 @@ export function createMlsV2Routes(
       }),
     createGroup: (data: CreateMlsGroupRequest) =>
       runWithEvent(dependencies, 'api_post_mls_group', async () => {
-        const { client, callOptions } = await buildCallContext(dependencies);
+        const { client, callOptions } = await buildCallContext(
+          dependencies,
+          getClient
+        );
         const response = await client.createGroup(
           create(MlsCreateGroupRequestSchema, {
             payload: encodePayload(data)
@@ -192,7 +226,10 @@ export function createMlsV2Routes(
       }),
     updateGroup: (groupId: string, data: UpdateMlsGroupRequest) =>
       runWithEvent(dependencies, 'api_patch_mls_group', async () => {
-        const { client, callOptions } = await buildCallContext(dependencies);
+        const { client, callOptions } = await buildCallContext(
+          dependencies,
+          getClient
+        );
         const response = await client.updateGroup(
           create(MlsUpdateGroupRequestSchema, {
             groupId,
@@ -204,7 +241,10 @@ export function createMlsV2Routes(
       }),
     leaveGroup: (groupId: string) =>
       runWithEvent(dependencies, 'api_delete_mls_group', async () => {
-        const { client, callOptions } = await buildCallContext(dependencies);
+        const { client, callOptions } = await buildCallContext(
+          dependencies,
+          getClient
+        );
         await client.deleteGroup(
           create(MlsDeleteGroupRequestSchema, { groupId }),
           callOptions
@@ -212,7 +252,10 @@ export function createMlsV2Routes(
       }),
     getGroupMembers: (groupId: string) =>
       runWithEvent(dependencies, 'api_get_mls_group_members', async () => {
-        const { client, callOptions } = await buildCallContext(dependencies);
+        const { client, callOptions } = await buildCallContext(
+          dependencies,
+          getClient
+        );
         const response = await client.getGroupMembers(
           create(MlsGetGroupMembersRequestSchema, { groupId }),
           callOptions
@@ -221,7 +264,10 @@ export function createMlsV2Routes(
       }),
     addGroupMember: (groupId: string, data: AddMlsMemberRequest) =>
       runWithEvent(dependencies, 'api_post_mls_group_member', async () => {
-        const { client, callOptions } = await buildCallContext(dependencies);
+        const { client, callOptions } = await buildCallContext(
+          dependencies,
+          getClient
+        );
         const response = await client.addGroupMember(
           create(MlsAddGroupMemberRequestSchema, {
             groupId,
@@ -237,7 +283,10 @@ export function createMlsV2Routes(
       data: RemoveMlsMemberRequest
     ) =>
       runWithEvent(dependencies, 'api_delete_mls_group_member', async () => {
-        const { client, callOptions } = await buildCallContext(dependencies);
+        const { client, callOptions } = await buildCallContext(
+          dependencies,
+          getClient
+        );
         await client.removeGroupMember(
           create(MlsRemoveGroupMemberRequestSchema, {
             groupId,
@@ -252,7 +301,10 @@ export function createMlsV2Routes(
       options?: { cursor?: string; limit?: number }
     ) =>
       runWithEvent(dependencies, 'api_get_mls_group_messages', async () => {
-        const { client, callOptions } = await buildCallContext(dependencies);
+        const { client, callOptions } = await buildCallContext(
+          dependencies,
+          getClient
+        );
         const response = await client.getGroupMessages(
           create(MlsGetGroupMessagesRequestSchema, {
             groupId,
@@ -265,7 +317,10 @@ export function createMlsV2Routes(
       }),
     sendGroupMessage: (groupId: string, data: SendMlsMessageRequest) =>
       runWithEvent(dependencies, 'api_post_mls_group_message', async () => {
-        const { client, callOptions } = await buildCallContext(dependencies);
+        const { client, callOptions } = await buildCallContext(
+          dependencies,
+          getClient
+        );
         const response = await client.sendGroupMessage(
           create(MlsSendGroupMessageRequestSchema, {
             groupId,
@@ -277,7 +332,10 @@ export function createMlsV2Routes(
       }),
     getGroupState: (groupId: string) =>
       runWithEvent(dependencies, 'api_get_mls_group_state', async () => {
-        const { client, callOptions } = await buildCallContext(dependencies);
+        const { client, callOptions } = await buildCallContext(
+          dependencies,
+          getClient
+        );
         const response = await client.getGroupState(
           create(MlsGetGroupStateRequestSchema, { groupId }),
           callOptions
@@ -286,7 +344,10 @@ export function createMlsV2Routes(
       }),
     uploadGroupState: (groupId: string, data: UploadMlsStateRequest) =>
       runWithEvent(dependencies, 'api_post_mls_group_state', async () => {
-        const { client, callOptions } = await buildCallContext(dependencies);
+        const { client, callOptions } = await buildCallContext(
+          dependencies,
+          getClient
+        );
         const response = await client.uploadGroupState(
           create(MlsUploadGroupStateRequestSchema, {
             groupId,
@@ -298,7 +359,10 @@ export function createMlsV2Routes(
       }),
     getMyKeyPackages: () =>
       runWithEvent(dependencies, 'api_get_mls_key_packages_me', async () => {
-        const { client, callOptions } = await buildCallContext(dependencies);
+        const { client, callOptions } = await buildCallContext(
+          dependencies,
+          getClient
+        );
         const response = await client.getMyKeyPackages(
           create(MlsGetMyKeyPackagesRequestSchema),
           callOptions
@@ -307,7 +371,10 @@ export function createMlsV2Routes(
       }),
     getUserKeyPackages: (userId: string) =>
       runWithEvent(dependencies, 'api_get_mls_key_packages_user', async () => {
-        const { client, callOptions } = await buildCallContext(dependencies);
+        const { client, callOptions } = await buildCallContext(
+          dependencies,
+          getClient
+        );
         const response = await client.getUserKeyPackages(
           create(MlsGetUserKeyPackagesRequestSchema, { userId }),
           callOptions
@@ -316,7 +383,10 @@ export function createMlsV2Routes(
       }),
     uploadKeyPackages: (data: UploadMlsKeyPackagesRequest) =>
       runWithEvent(dependencies, 'api_post_mls_key_packages', async () => {
-        const { client, callOptions } = await buildCallContext(dependencies);
+        const { client, callOptions } = await buildCallContext(
+          dependencies,
+          getClient
+        );
         const response = await client.uploadKeyPackages(
           create(MlsUploadKeyPackagesRequestSchema, {
             payload: encodePayload(data)
@@ -327,7 +397,10 @@ export function createMlsV2Routes(
       }),
     deleteKeyPackage: (id: string) =>
       runWithEvent(dependencies, 'api_delete_mls_key_package', async () => {
-        const { client, callOptions } = await buildCallContext(dependencies);
+        const { client, callOptions } = await buildCallContext(
+          dependencies,
+          getClient
+        );
         await client.deleteKeyPackage(
           create(MlsDeleteKeyPackageRequestSchema, { id }),
           callOptions
@@ -335,7 +408,10 @@ export function createMlsV2Routes(
       }),
     getWelcomeMessages: () =>
       runWithEvent(dependencies, 'api_get_mls_welcome_messages', async () => {
-        const { client, callOptions } = await buildCallContext(dependencies);
+        const { client, callOptions } = await buildCallContext(
+          dependencies,
+          getClient
+        );
         const response = await client.getWelcomeMessages(
           create(MlsGetWelcomeMessagesRequestSchema),
           callOptions
@@ -344,7 +420,10 @@ export function createMlsV2Routes(
       }),
     acknowledgeWelcome: (id: string, data: AckMlsWelcomeRequest) =>
       runWithEvent(dependencies, 'api_post_mls_welcome_ack', async () => {
-        const { client, callOptions } = await buildCallContext(dependencies);
+        const { client, callOptions } = await buildCallContext(
+          dependencies,
+          getClient
+        );
         const response = await client.acknowledgeWelcome(
           create(MlsAcknowledgeWelcomeRequestSchema, {
             id,

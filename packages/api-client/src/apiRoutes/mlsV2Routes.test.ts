@@ -274,4 +274,27 @@ describe('mlsV2Routes', () => {
     expect(deleteKeyPackage).toHaveBeenCalledTimes(1);
     expect(removeGroupMember).toHaveBeenCalledTimes(1);
   });
+
+  it('reuses one memoized client across route calls', async () => {
+    const client = createMlsV2ClientStub();
+    const createClient = vi.fn(() => client);
+    const buildHeaders = vi.fn(async () => ({
+      authorization: 'Bearer token-123'
+    }));
+    const routes = createMlsV2Routes({
+      resolveApiBaseUrl: () => 'https://api.example.test',
+      normalizeConnectBaseUrl: async (apiBaseUrl) => `${apiBaseUrl}/connect`,
+      buildHeaders,
+      getAuthHeaderValue: () => 'Bearer token-123',
+      createClient,
+      logEvent: vi.fn(async () => undefined)
+    });
+
+    await routes.listGroups();
+    await routes.getMyKeyPackages();
+    await routes.getWelcomeMessages();
+
+    expect(createClient).toHaveBeenCalledTimes(1);
+    expect(buildHeaders).toHaveBeenCalledTimes(3);
+  });
 });
