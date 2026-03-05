@@ -342,10 +342,8 @@ async fn transport_round_trip_for_wave1a_admin_endpoints() {
         Ok(value) => value.into_inner(),
         Err(error) => panic!("get_rows should succeed over transport: {error}"),
     };
-    assert_eq!(
-        rows_response.rows_json,
-        vec![String::from("{\"id\":\"user-1\"}")]
-    );
+    assert_eq!(rows_response.rows.len(), 1);
+    assert!(rows_response.rows[0].fields.contains_key("id"));
     assert_eq!(rows_response.total_count, 1);
     assert_eq!(rows_response.limit, 10);
     assert_eq!(rows_response.offset, 20);

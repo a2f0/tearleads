@@ -15,7 +15,10 @@ import { aiConnectService } from './services/aiService.js';
 import { authConnectService } from './services/authService.js';
 import { billingConnectService } from './services/billingService.js';
 import { chatConnectService } from './services/chatService.js';
-import { mlsConnectService } from './services/mlsService.js';
+import {
+  mlsConnectServiceV1,
+  mlsConnectServiceV2
+} from './services/mlsService.js';
 import { notificationConnectService } from './services/notificationService.js';
 import { revenuecatConnectService } from './services/revenuecatService.js';
 import { vfsConnectService } from './services/vfsService.js';
@@ -27,8 +30,8 @@ export function registerConnectRoutes(router: ConnectRouter): void {
   router.service(AuthService, authConnectService);
   router.service(BillingService, billingConnectService);
   router.service(ChatService, chatConnectService);
-  router.service(MlsServiceV1, mlsConnectService);
-  router.service(MlsServiceV2, mlsConnectService);
+  router.service(MlsServiceV1, mlsConnectServiceV1);
+  router.service(MlsServiceV2, mlsConnectServiceV2);
   router.service(NotificationService, notificationConnectService);
   router.service(RevenuecatService, revenuecatConnectService);
   router.service(VfsService, vfsConnectService);

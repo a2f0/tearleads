@@ -14,6 +14,21 @@ pub const AUTHORIZATION_HEADER: &str = "authorization";
 /// Organization header key for request scoping.
 pub const ORGANIZATION_HEADER: &str = "x-tearleads-organization-id";
 
+/// Canonical protocol constants shared across API v2 client layers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ApiProtocolConfig {
+    /// Canonical Connect path prefix.
+    pub connect_prefix: &'static str,
+    /// Canonical admin service type name.
+    pub admin_service_name: &'static str,
+    /// Canonical MLS service type name.
+    pub mls_service_name: &'static str,
+    /// Authorization header key.
+    pub authorization_header: &'static str,
+    /// Organization header key for request scoping.
+    pub organization_header: &'static str,
+}
+
 /// Request-scoped metadata used by client transports.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ApiClientRequestContext {
@@ -40,6 +55,17 @@ impl ApiClientRequestContext {
     }
 }
 
+/// Returns canonical protocol constants for API v2 clients.
+pub fn protocol_config() -> ApiProtocolConfig {
+    ApiProtocolConfig {
+        connect_prefix: CONNECT_PREFIX,
+        admin_service_name: ADMIN_SERVICE_NAME,
+        mls_service_name: MLS_SERVICE_NAME,
+        authorization_header: AUTHORIZATION_HEADER,
+        organization_header: ORGANIZATION_HEADER,
+    }
+}
+
 /// Normalizes an API base URL into a Connect-prefixed base URL.
 pub fn normalize_connect_base_url(base_url: &str) -> String {
     let trimmed = base_url.trim();
@@ -57,48 +83,8 @@ pub fn normalize_connect_base_url(base_url: &str) -> String {
 }
 
 /// Builds a canonical RPC path for a service and method.
-pub fn rpc_path(service_name: &str, method_name: &str) -> String {
+pub fn resolve_rpc_path(service_name: &str, method_name: &str) -> String {
     format!("/{service_name}/{method_name}")
-}
-
-/// Returns the canonical v2 admin RPC path for `GetPostgresInfo`.
-pub fn admin_get_postgres_info_path() -> String {
-    rpc_path(ADMIN_SERVICE_NAME, "GetPostgresInfo")
-}
-
-/// Returns the canonical v2 admin RPC path for `GetTables`.
-pub fn admin_get_tables_path() -> String {
-    rpc_path(ADMIN_SERVICE_NAME, "GetTables")
-}
-
-/// Returns the canonical v2 admin RPC path for `GetColumns`.
-pub fn admin_get_columns_path() -> String {
-    rpc_path(ADMIN_SERVICE_NAME, "GetColumns")
-}
-
-/// Returns the canonical v2 admin RPC path for `GetRows`.
-pub fn admin_get_rows_path() -> String {
-    rpc_path(ADMIN_SERVICE_NAME, "GetRows")
-}
-
-/// Returns the canonical v2 admin RPC path for `GetRedisKeys`.
-pub fn admin_get_redis_keys_path() -> String {
-    rpc_path(ADMIN_SERVICE_NAME, "GetRedisKeys")
-}
-
-/// Returns the canonical v2 admin RPC path for `GetRedisValue`.
-pub fn admin_get_redis_value_path() -> String {
-    rpc_path(ADMIN_SERVICE_NAME, "GetRedisValue")
-}
-
-/// Returns the canonical v2 admin RPC path for `DeleteRedisKey`.
-pub fn admin_delete_redis_key_path() -> String {
-    rpc_path(ADMIN_SERVICE_NAME, "DeleteRedisKey")
-}
-
-/// Returns the canonical v2 admin RPC path for `GetRedisDbSize`.
-pub fn admin_get_redis_db_size_path() -> String {
-    rpc_path(ADMIN_SERVICE_NAME, "GetRedisDbSize")
 }
 
 /// Enforces compile-time linkage to generated service clients.
@@ -132,10 +118,8 @@ fn normalize_bearer_token(value: Option<&str>) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        ApiClientRequestContext, admin_delete_redis_key_path, admin_get_columns_path,
-        admin_get_postgres_info_path, admin_get_redis_db_size_path, admin_get_redis_keys_path,
-        admin_get_redis_value_path, admin_get_rows_path, admin_get_tables_path,
-        generated_client_compile_proof, normalize_connect_base_url, rpc_path,
+        ADMIN_SERVICE_NAME, ApiClientRequestContext, generated_client_compile_proof,
+        normalize_connect_base_url, protocol_config, resolve_rpc_path,
     };
 
     #[test]
@@ -206,38 +190,52 @@ mod tests {
     #[test]
     fn rpc_paths_match_v2_admin_methods() {
         assert_eq!(
-            admin_get_postgres_info_path(),
+            resolve_rpc_path(ADMIN_SERVICE_NAME, "GetPostgresInfo"),
             "/tearleads.v2.AdminService/GetPostgresInfo"
         );
         assert_eq!(
-            admin_get_tables_path(),
+            resolve_rpc_path(ADMIN_SERVICE_NAME, "GetTables"),
             "/tearleads.v2.AdminService/GetTables"
         );
         assert_eq!(
-            admin_get_columns_path(),
+            resolve_rpc_path(ADMIN_SERVICE_NAME, "GetColumns"),
             "/tearleads.v2.AdminService/GetColumns"
         );
-        assert_eq!(admin_get_rows_path(), "/tearleads.v2.AdminService/GetRows");
         assert_eq!(
-            admin_get_redis_keys_path(),
+            resolve_rpc_path(ADMIN_SERVICE_NAME, "GetRows"),
+            "/tearleads.v2.AdminService/GetRows"
+        );
+        assert_eq!(
+            resolve_rpc_path(ADMIN_SERVICE_NAME, "GetRedisKeys"),
             "/tearleads.v2.AdminService/GetRedisKeys"
         );
         assert_eq!(
-            admin_get_redis_value_path(),
+            resolve_rpc_path(ADMIN_SERVICE_NAME, "GetRedisValue"),
             "/tearleads.v2.AdminService/GetRedisValue"
         );
         assert_eq!(
-            admin_delete_redis_key_path(),
+            resolve_rpc_path(ADMIN_SERVICE_NAME, "DeleteRedisKey"),
             "/tearleads.v2.AdminService/DeleteRedisKey"
         );
         assert_eq!(
-            admin_get_redis_db_size_path(),
+            resolve_rpc_path(ADMIN_SERVICE_NAME, "GetRedisDbSize"),
             "/tearleads.v2.AdminService/GetRedisDbSize"
         );
         assert_eq!(
-            rpc_path("tearleads.v2.MlsService", "GetGroup"),
+            resolve_rpc_path("tearleads.v2.MlsService", "GetGroup"),
             "/tearleads.v2.MlsService/GetGroup"
         );
+    }
+
+    #[test]
+    fn protocol_config_is_stable() {
+        let config = protocol_config();
+
+        assert_eq!(config.connect_prefix, "/connect");
+        assert_eq!(config.admin_service_name, "tearleads.v2.AdminService");
+        assert_eq!(config.mls_service_name, "tearleads.v2.MlsService");
+        assert_eq!(config.authorization_header, "authorization");
+        assert_eq!(config.organization_header, "x-tearleads-organization-id");
     }
 
     #[test]

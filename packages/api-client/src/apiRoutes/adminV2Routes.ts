@@ -1,4 +1,9 @@
-import { type CallOptions, createClient } from '@connectrpc/connect';
+import { create } from '@bufbuild/protobuf';
+import {
+  type CallOptions,
+  type Client,
+  createClient
+} from '@connectrpc/connect';
 import { createGrpcWebTransport } from '@connectrpc/connect-web';
 import type {
   PostgresAdminInfoResponse,
@@ -8,7 +13,24 @@ import type {
   RedisKeysResponse,
   RedisKeyValueResponse
 } from '@tearleads/shared';
-import { AdminService } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
+import {
+  AdminDeleteRedisKeyRequestSchema,
+  AdminGetColumnsRequestSchema,
+  type AdminGetColumnsResponse,
+  AdminGetPostgresInfoRequestSchema,
+  type AdminGetPostgresInfoResponse,
+  AdminGetRedisDbSizeRequestSchema,
+  type AdminGetRedisDbSizeResponse,
+  AdminGetRedisKeysRequestSchema,
+  type AdminGetRedisKeysResponse,
+  AdminGetRedisValueRequestSchema,
+  type AdminGetRedisValueResponse,
+  AdminGetRowsRequestSchema,
+  type AdminGetRowsResponse,
+  AdminGetTablesRequestSchema,
+  type AdminGetTablesResponse,
+  AdminService
+} from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { API_BASE_URL } from '../apiCore';
 import { type ApiEventSlug, logApiEvent } from '../apiLogger';
 import {
@@ -17,154 +39,20 @@ import {
   normalizeApiV2ConnectBaseUrl
 } from '../apiV2ClientWasm';
 import { getAuthHeaderValue } from '../authStorage';
-import {
-  type AdminGetRowsOptions,
-  createAdminDeleteRedisKeyRequest,
-  createAdminGetColumnsRequest,
-  createAdminGetPostgresInfoRequest,
-  createAdminGetRedisDbSizeRequest,
-  createAdminGetRedisKeysRequest,
-  createAdminGetRedisValueRequest,
-  createAdminGetRowsRequest,
-  createAdminGetTablesRequest
-} from './adminV2RouteRequests';
 
 const MIN_SAFE_BIGINT = BigInt(Number.MIN_SAFE_INTEGER);
 const MAX_SAFE_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
 
 type AdminV2CallOptions = Pick<CallOptions, 'headers'>;
 
-interface AdminV2PostgresInfoResponseLike {
-  info?: {
-    host?: string;
-    port?: number;
-    database?: string;
-    user?: string;
-  };
-  serverVersion?: string;
+interface AdminGetRowsOptions {
+  limit?: number;
+  offset?: number;
+  sortColumn?: string;
+  sortDirection?: 'asc' | 'desc';
 }
 
-interface AdminV2TableLike {
-  schema: string;
-  name: string;
-  rowCount: bigint;
-  totalBytes: bigint;
-  tableBytes: bigint;
-  indexBytes: bigint;
-}
-
-interface AdminV2TablesResponseLike {
-  tables: AdminV2TableLike[];
-}
-
-interface AdminV2ColumnLike {
-  name: string;
-  type: string;
-  nullable: boolean;
-  defaultValue?: string;
-  ordinalPosition: number;
-}
-
-interface AdminV2ColumnsResponseLike {
-  columns: AdminV2ColumnLike[];
-}
-
-interface AdminV2RowsResponseLike {
-  rowsJson: string[];
-  totalCount: bigint;
-  limit: number;
-  offset: number;
-}
-
-interface AdminV2RedisKeyLike {
-  key: string;
-  type: string;
-  ttl: bigint;
-}
-
-interface AdminV2RedisKeysResponseLike {
-  keys: AdminV2RedisKeyLike[];
-  cursor: string;
-  hasMore: boolean;
-}
-
-interface AdminV2RedisStringValueLike {
-  case: 'stringValue';
-  value: string;
-}
-
-interface AdminV2RedisListValueLike {
-  case: 'listValue';
-  value: {
-    values: string[];
-  };
-}
-
-interface AdminV2RedisMapValueLike {
-  case: 'mapValue';
-  value: {
-    entries: Record<string, string>;
-  };
-}
-
-interface AdminV2RedisEmptyValueLike {
-  case: undefined;
-  value?: undefined;
-}
-
-type AdminV2RedisValueLike =
-  | AdminV2RedisStringValueLike
-  | AdminV2RedisListValueLike
-  | AdminV2RedisMapValueLike
-  | AdminV2RedisEmptyValueLike;
-
-interface AdminV2RedisValueResponseLike {
-  key: string;
-  type: string;
-  ttl: bigint;
-  value?: {
-    value: AdminV2RedisValueLike;
-  };
-}
-
-interface AdminV2RedisDbSizeResponseLike {
-  count: bigint;
-}
-
-export interface AdminV2Client {
-  getPostgresInfo(
-    request: Record<string, never>,
-    options?: AdminV2CallOptions
-  ): Promise<AdminV2PostgresInfoResponseLike>;
-  getTables(
-    request: Record<string, never>,
-    options?: AdminV2CallOptions
-  ): Promise<AdminV2TablesResponseLike>;
-  getColumns(
-    request: { schema: string; table: string },
-    options?: AdminV2CallOptions
-  ): Promise<AdminV2ColumnsResponseLike>;
-  getRows(
-    request: ReturnType<typeof createAdminGetRowsRequest>,
-    options?: AdminV2CallOptions
-  ): Promise<AdminV2RowsResponseLike>;
-  getRedisKeys(
-    request: { cursor: string; limit: number },
-    options?: AdminV2CallOptions
-  ): Promise<AdminV2RedisKeysResponseLike>;
-  getRedisValue(
-    request: { key: string },
-    options?: AdminV2CallOptions
-  ): Promise<AdminV2RedisValueResponseLike>;
-  deleteRedisKey(
-    request: { key: string },
-    options?: AdminV2CallOptions
-  ): Promise<{ deleted: boolean }>;
-  getRedisDbSize(
-    request: Record<string, never>,
-    options?: AdminV2CallOptions
-  ): Promise<AdminV2RedisDbSizeResponseLike>;
-}
+export type AdminV2Client = Client<typeof AdminService>;
 
 interface AdminV2RoutesDependencies {
   resolveApiBaseUrl: () => string;
@@ -212,7 +100,7 @@ function toSafeNumber(value: bigint, fieldName: string): number {
 }
 
 function mapPostgresInfoResponse(
-  response: AdminV2PostgresInfoResponseLike
+  response: AdminGetPostgresInfoResponse
 ): PostgresAdminInfoResponse {
   return {
     status: 'ok',
@@ -227,7 +115,7 @@ function mapPostgresInfoResponse(
 }
 
 function mapPostgresTablesResponse(
-  response: AdminV2TablesResponseLike
+  response: AdminGetTablesResponse
 ): PostgresTablesResponse {
   return {
     tables: response.tables.map((table) => ({
@@ -242,7 +130,7 @@ function mapPostgresTablesResponse(
 }
 
 function mapPostgresColumnsResponse(
-  response: AdminV2ColumnsResponseLike
+  response: AdminGetColumnsResponse
 ): PostgresColumnsResponse {
   return {
     columns: response.columns.map((column) => ({
@@ -256,28 +144,10 @@ function mapPostgresColumnsResponse(
 }
 
 function mapPostgresRowsResponse(
-  response: AdminV2RowsResponseLike
+  response: AdminGetRowsResponse
 ): PostgresRowsResponse {
-  const rows = response.rowsJson.map((rowJson, index) => {
-    try {
-      const parsedRow: unknown = JSON.parse(rowJson);
-      if (
-        typeof parsedRow !== 'object' ||
-        parsedRow === null ||
-        Array.isArray(parsedRow)
-      ) {
-        throw new Error('row payload must decode to an object');
-      }
-      return Object.fromEntries(Object.entries(parsedRow));
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'unknown parse error';
-      throw new Error(`failed to parse row ${String(index)}: ${message}`);
-    }
-  });
-
   return {
-    rows,
+    rows: response.rows.map((row) => ({ ...row })),
     totalCount: toSafeNumber(response.totalCount, 'totalCount'),
     limit: response.limit,
     offset: response.offset
@@ -285,7 +155,7 @@ function mapPostgresRowsResponse(
 }
 
 function mapRedisKeysResponse(
-  response: AdminV2RedisKeysResponseLike
+  response: AdminGetRedisKeysResponse
 ): RedisKeysResponse {
   return {
     keys: response.keys.map((keyRecord) => ({
@@ -299,7 +169,7 @@ function mapRedisKeysResponse(
 }
 
 function mapRedisValue(
-  response: AdminV2RedisValueResponseLike
+  response: AdminGetRedisValueResponse
 ): RedisKeyValueResponse['value'] {
   const redisValue = response.value?.value;
   if (!redisValue) {
@@ -325,7 +195,7 @@ function mapRedisValue(
 }
 
 function mapRedisValueResponse(
-  response: AdminV2RedisValueResponseLike
+  response: AdminGetRedisValueResponse
 ): RedisKeyValueResponse {
   return {
     key: response.key,
@@ -335,7 +205,7 @@ function mapRedisValueResponse(
   };
 }
 
-function mapRedisDbSizeResponse(response: AdminV2RedisDbSizeResponseLike): {
+function mapRedisDbSizeResponse(response: AdminGetRedisDbSizeResponse): {
   count: number;
 } {
   return {
@@ -400,7 +270,7 @@ export function createAdminV2Routes(
         runWithEvent(dependencies, 'api_get_admin_postgres_info', async () => {
           const { client, callOptions } = await buildCallContext(dependencies);
           const response = await client.getPostgresInfo(
-            createAdminGetPostgresInfoRequest(),
+            create(AdminGetPostgresInfoRequestSchema),
             callOptions
           );
           return mapPostgresInfoResponse(response);
@@ -413,7 +283,7 @@ export function createAdminV2Routes(
             const { client, callOptions } =
               await buildCallContext(dependencies);
             const response = await client.getTables(
-              createAdminGetTablesRequest(),
+              create(AdminGetTablesRequestSchema),
               callOptions
             );
             return mapPostgresTablesResponse(response);
@@ -427,7 +297,7 @@ export function createAdminV2Routes(
             const { client, callOptions } =
               await buildCallContext(dependencies);
             const response = await client.getColumns(
-              createAdminGetColumnsRequest(schema, table),
+              create(AdminGetColumnsRequestSchema, { schema, table }),
               callOptions
             );
             return mapPostgresColumnsResponse(response);
@@ -437,7 +307,18 @@ export function createAdminV2Routes(
         runWithEvent(dependencies, 'api_get_admin_postgres_rows', async () => {
           const { client, callOptions } = await buildCallContext(dependencies);
           const response = await client.getRows(
-            createAdminGetRowsRequest(schema, table, options),
+            create(AdminGetRowsRequestSchema, {
+              schema,
+              table,
+              limit: options?.limit ?? 50,
+              offset: options?.offset ?? 0,
+              ...(options?.sortColumn
+                ? { sortColumn: options.sortColumn }
+                : {}),
+              ...(options?.sortDirection
+                ? { sortDirection: options.sortDirection }
+                : {})
+            }),
             callOptions
           );
           return mapPostgresRowsResponse(response);
@@ -448,7 +329,10 @@ export function createAdminV2Routes(
         runWithEvent(dependencies, 'api_get_admin_redis_keys', async () => {
           const { client, callOptions } = await buildCallContext(dependencies);
           const response = await client.getRedisKeys(
-            createAdminGetRedisKeysRequest(cursor, limit),
+            create(AdminGetRedisKeysRequestSchema, {
+              cursor: cursor ?? '',
+              limit: limit ?? 0
+            }),
             callOptions
           );
           return mapRedisKeysResponse(response);
@@ -457,7 +341,7 @@ export function createAdminV2Routes(
         runWithEvent(dependencies, 'api_get_admin_redis_key', async () => {
           const { client, callOptions } = await buildCallContext(dependencies);
           const response = await client.getRedisValue(
-            createAdminGetRedisValueRequest(key),
+            create(AdminGetRedisValueRequestSchema, { key }),
             callOptions
           );
           return mapRedisValueResponse(response);
@@ -466,7 +350,7 @@ export function createAdminV2Routes(
         runWithEvent(dependencies, 'api_delete_admin_redis_key', async () => {
           const { client, callOptions } = await buildCallContext(dependencies);
           return client.deleteRedisKey(
-            createAdminDeleteRedisKeyRequest(key),
+            create(AdminDeleteRedisKeyRequestSchema, { key }),
             callOptions
           );
         }),
@@ -474,7 +358,7 @@ export function createAdminV2Routes(
         runWithEvent(dependencies, 'api_get_admin_redis_dbsize', async () => {
           const { client, callOptions } = await buildCallContext(dependencies);
           const response = await client.getRedisDbSize(
-            createAdminGetRedisDbSizeRequest(),
+            create(AdminGetRedisDbSizeRequestSchema),
             callOptions
           );
           return mapRedisDbSizeResponse(response);

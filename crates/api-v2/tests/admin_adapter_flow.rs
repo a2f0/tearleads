@@ -269,10 +269,8 @@ async fn postgres_info_and_tables_flow_through_adapter_and_gateway() {
         Ok(value) => value.into_inner(),
         Err(error) => panic!("get_rows should succeed: {error}"),
     };
-    assert_eq!(
-        rows_response.rows_json,
-        vec![String::from("{\"id\":\"user-1\"}")]
-    );
+    assert_eq!(rows_response.rows.len(), 1);
+    assert!(rows_response.rows[0].fields.contains_key("id"));
     assert_eq!(
         lock_or_recover(&postgres_calls).list_rows_calls,
         vec![PostgresRowsQuery {

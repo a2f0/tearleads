@@ -16,6 +16,34 @@ function mockApiV2WasmImport(module: unknown): {
   return { importMock };
 }
 
+function createValidWasmBindings(
+  overrides: Partial<{
+    default: () => Promise<void>;
+    normalizeConnectBaseUrl: (value: string) => string;
+    resolveRpcPath: (serviceName: string, methodName: string) => string;
+    getProtocolConfig: () => unknown;
+    buildRequestHeaders: (
+      bearerToken?: string | null,
+      organizationId?: string | null
+    ) => unknown;
+  }> = {}
+) {
+  return {
+    normalizeConnectBaseUrl: (value: string) => `${value}/connect`,
+    resolveRpcPath: (serviceName: string, methodName: string) =>
+      `/${serviceName}/${methodName}`,
+    getProtocolConfig: () => ({
+      connectPrefix: '/connect',
+      adminServiceName: 'tearleads.v2.AdminService',
+      mlsServiceName: 'tearleads.v2.MlsService',
+      authorizationHeader: 'authorization',
+      organizationHeader: 'x-tearleads-organization-id'
+    }),
+    buildRequestHeaders: () => ({ headers: {} }),
+    ...overrides
+  };
+}
+
 describe('apiV2ClientWasm', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -31,22 +59,9 @@ describe('apiV2ClientWasm', () => {
 
   it('initializes wasm once and normalizes connect base URLs', async () => {
     const defaultInit = vi.fn(() => Promise.resolve());
-    const { importMock } = mockApiV2WasmImport({
-      default: defaultInit,
-      normalizeConnectBaseUrl: (value: string) => `${value}/connect`,
-      adminGetPostgresInfoPath: () =>
-        '/tearleads.v2.AdminService/GetPostgresInfo',
-      adminGetTablesPath: () => '/tearleads.v2.AdminService/GetTables',
-      adminGetColumnsPath: () => '/tearleads.v2.AdminService/GetColumns',
-      adminGetRowsPath: () => '/tearleads.v2.AdminService/GetRows',
-      adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
-      adminGetRedisValuePath: () => '/tearleads.v2.AdminService/GetRedisValue',
-      adminDeleteRedisKeyPath: () =>
-        '/tearleads.v2.AdminService/DeleteRedisKey',
-      adminGetRedisDbSizePath: () =>
-        '/tearleads.v2.AdminService/GetRedisDbSize',
-      buildRequestHeaders: () => ({ headers: {} })
-    });
+    const { importMock } = mockApiV2WasmImport(
+      createValidWasmBindings({ default: defaultInit })
+    );
 
     const { normalizeApiV2ConnectBaseUrl } = await loadApiV2ClientWasm();
     const first = await normalizeApiV2ConnectBaseUrl(
@@ -65,22 +80,7 @@ describe('apiV2ClientWasm', () => {
   it('uses the global wasm importer hook when configured', async () => {
     vi.doUnmock('./apiV2ClientWasmImport');
     const globalImportMock = vi.fn(() =>
-      Promise.resolve({
-        normalizeConnectBaseUrl: (value: string) => `${value}/connect`,
-        adminGetPostgresInfoPath: () =>
-          '/tearleads.v2.AdminService/GetPostgresInfo',
-        adminGetTablesPath: () => '/tearleads.v2.AdminService/GetTables',
-        adminGetColumnsPath: () => '/tearleads.v2.AdminService/GetColumns',
-        adminGetRowsPath: () => '/tearleads.v2.AdminService/GetRows',
-        adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
-        adminGetRedisValuePath: () =>
-          '/tearleads.v2.AdminService/GetRedisValue',
-        adminDeleteRedisKeyPath: () =>
-          '/tearleads.v2.AdminService/DeleteRedisKey',
-        adminGetRedisDbSizePath: () =>
-          '/tearleads.v2.AdminService/GetRedisDbSize',
-        buildRequestHeaders: () => ({ headers: {} })
-      })
+      Promise.resolve(createValidWasmBindings())
     );
     Reflect.set(
       globalThis,
@@ -95,22 +95,8 @@ describe('apiV2ClientWasm', () => {
     expect(globalImportMock).toHaveBeenCalledTimes(1);
   });
 
-  it('returns canonical admin RPC paths from wasm', async () => {
-    mockApiV2WasmImport({
-      normalizeConnectBaseUrl: (value: string) => value,
-      adminGetPostgresInfoPath: () =>
-        '/tearleads.v2.AdminService/GetPostgresInfo',
-      adminGetTablesPath: () => '/tearleads.v2.AdminService/GetTables',
-      adminGetColumnsPath: () => '/tearleads.v2.AdminService/GetColumns',
-      adminGetRowsPath: () => '/tearleads.v2.AdminService/GetRows',
-      adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
-      adminGetRedisValuePath: () => '/tearleads.v2.AdminService/GetRedisValue',
-      adminDeleteRedisKeyPath: () =>
-        '/tearleads.v2.AdminService/DeleteRedisKey',
-      adminGetRedisDbSizePath: () =>
-        '/tearleads.v2.AdminService/GetRedisDbSize',
-      buildRequestHeaders: () => ({ headers: {} })
-    });
+  it('returns canonical admin RPC paths through generic resolver', async () => {
+    mockApiV2WasmImport(createValidWasmBindings());
 
     const { getApiV2AdminRpcPaths } = await loadApiV2ClientWasm();
     await expect(getApiV2AdminRpcPaths()).resolves.toEqual({
@@ -125,6 +111,34 @@ describe('apiV2ClientWasm', () => {
     });
   });
 
+  it('returns protocol config from wasm', async () => {
+    mockApiV2WasmImport(createValidWasmBindings());
+
+    const { getApiV2ProtocolConfig } = await loadApiV2ClientWasm();
+    await expect(getApiV2ProtocolConfig()).resolves.toEqual({
+      connectPrefix: '/connect',
+      adminServiceName: 'tearleads.v2.AdminService',
+      mlsServiceName: 'tearleads.v2.MlsService',
+      authorizationHeader: 'authorization',
+      organizationHeader: 'x-tearleads-organization-id'
+    });
+  });
+
+  it('resolves RPC paths and rejects empty service or method names', async () => {
+    mockApiV2WasmImport(createValidWasmBindings());
+
+    const { resolveApiV2RpcPath } = await loadApiV2ClientWasm();
+    await expect(
+      resolveApiV2RpcPath('tearleads.v2.AdminService', 'GetTables')
+    ).resolves.toBe('/tearleads.v2.AdminService/GetTables');
+    await expect(resolveApiV2RpcPath('   ', 'GetTables')).rejects.toThrow(
+      'service name must not be empty'
+    );
+    await expect(
+      resolveApiV2RpcPath('tearleads.v2.AdminService', '  ')
+    ).rejects.toThrow('method name must not be empty');
+  });
+
   it('builds auth and organization headers via wasm bindings', async () => {
     const buildRequestHeaders = vi.fn(() => ({
       headers: {
@@ -133,21 +147,7 @@ describe('apiV2ClientWasm', () => {
       }
     }));
 
-    mockApiV2WasmImport({
-      normalizeConnectBaseUrl: (value: string) => value,
-      adminGetPostgresInfoPath: () =>
-        '/tearleads.v2.AdminService/GetPostgresInfo',
-      adminGetTablesPath: () => '/tearleads.v2.AdminService/GetTables',
-      adminGetColumnsPath: () => '/tearleads.v2.AdminService/GetColumns',
-      adminGetRowsPath: () => '/tearleads.v2.AdminService/GetRows',
-      adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
-      adminGetRedisValuePath: () => '/tearleads.v2.AdminService/GetRedisValue',
-      adminDeleteRedisKeyPath: () =>
-        '/tearleads.v2.AdminService/DeleteRedisKey',
-      adminGetRedisDbSizePath: () =>
-        '/tearleads.v2.AdminService/GetRedisDbSize',
-      buildRequestHeaders
-    });
+    mockApiV2WasmImport(createValidWasmBindings({ buildRequestHeaders }));
 
     const { buildApiV2RequestHeaders } = await loadApiV2ClientWasm();
     const headers = await buildApiV2RequestHeaders({
@@ -172,21 +172,11 @@ describe('apiV2ClientWasm', () => {
   });
 
   it('throws when wasm header envelope is invalid', async () => {
-    mockApiV2WasmImport({
-      normalizeConnectBaseUrl: (value: string) => value,
-      adminGetPostgresInfoPath: () =>
-        '/tearleads.v2.AdminService/GetPostgresInfo',
-      adminGetTablesPath: () => '/tearleads.v2.AdminService/GetTables',
-      adminGetColumnsPath: () => '/tearleads.v2.AdminService/GetColumns',
-      adminGetRowsPath: () => '/tearleads.v2.AdminService/GetRows',
-      adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
-      adminGetRedisValuePath: () => '/tearleads.v2.AdminService/GetRedisValue',
-      adminDeleteRedisKeyPath: () =>
-        '/tearleads.v2.AdminService/DeleteRedisKey',
-      adminGetRedisDbSizePath: () =>
-        '/tearleads.v2.AdminService/GetRedisDbSize',
-      buildRequestHeaders: () => ({ headers: { authorization: 123 } })
-    });
+    mockApiV2WasmImport(
+      createValidWasmBindings({
+        buildRequestHeaders: () => ({ headers: { authorization: 123 } })
+      })
+    );
 
     const { buildApiV2RequestHeaders } = await loadApiV2ClientWasm();
     await expect(buildApiV2RequestHeaders()).rejects.toThrow(
@@ -194,26 +184,22 @@ describe('apiV2ClientWasm', () => {
     );
   });
 
+  it('throws when wasm protocol config envelope is invalid', async () => {
+    mockApiV2WasmImport(
+      createValidWasmBindings({ getProtocolConfig: () => ({}) })
+    );
+
+    const { getApiV2ProtocolConfig } = await loadApiV2ClientWasm();
+    await expect(getApiV2ProtocolConfig()).rejects.toThrow(
+      'api-v2 wasm protocol config must include string protocol constants'
+    );
+  });
+
   it('retries wasm import after an initialization failure', async () => {
     const importMock = vi
       .fn<() => Promise<unknown>>()
       .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({
-        normalizeConnectBaseUrl: (value: string) => `${value}/connect`,
-        adminGetPostgresInfoPath: () =>
-          '/tearleads.v2.AdminService/GetPostgresInfo',
-        adminGetTablesPath: () => '/tearleads.v2.AdminService/GetTables',
-        adminGetColumnsPath: () => '/tearleads.v2.AdminService/GetColumns',
-        adminGetRowsPath: () => '/tearleads.v2.AdminService/GetRows',
-        adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
-        adminGetRedisValuePath: () =>
-          '/tearleads.v2.AdminService/GetRedisValue',
-        adminDeleteRedisKeyPath: () =>
-          '/tearleads.v2.AdminService/DeleteRedisKey',
-        adminGetRedisDbSizePath: () =>
-          '/tearleads.v2.AdminService/GetRedisDbSize',
-        buildRequestHeaders: () => ({ headers: {} })
-      });
+      .mockResolvedValueOnce(createValidWasmBindings());
 
     vi.doMock('./apiV2ClientWasmImport', () => ({
       importApiV2ClientWasmModule: importMock

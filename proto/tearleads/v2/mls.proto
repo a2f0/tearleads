@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package tearleads.v2;
 
+import "google/protobuf/struct.proto";
+
 service MlsService {
   rpc UploadKeyPackages(MlsUploadKeyPackagesRequest)
       returns (MlsUploadKeyPackagesResponse);
@@ -36,17 +38,17 @@ service MlsService {
 }
 
 message MlsUploadKeyPackagesRequest {
-  string json = 1;
+  google.protobuf.Struct payload = 1;
 }
 
 message MlsUploadKeyPackagesResponse {
-  string json = 1;
+  google.protobuf.Struct payload = 1;
 }
 
 message MlsGetMyKeyPackagesRequest {}
 
 message MlsGetMyKeyPackagesResponse {
-  string json = 1;
+  google.protobuf.Struct payload = 1;
 }
 
 message MlsGetUserKeyPackagesRequest {
@@ -54,7 +56,7 @@ message MlsGetUserKeyPackagesRequest {
 }
 
 message MlsGetUserKeyPackagesResponse {
-  string json = 1;
+  google.protobuf.Struct payload = 1;
 }
 
 message MlsDeleteKeyPackageRequest {
@@ -62,21 +64,21 @@ message MlsDeleteKeyPackageRequest {
 }
 
 message MlsDeleteKeyPackageResponse {
-  string json = 1;
+  google.protobuf.Struct payload = 1;
 }
 
 message MlsCreateGroupRequest {
-  string json = 1;
+  google.protobuf.Struct payload = 1;
 }
 
 message MlsCreateGroupResponse {
-  string json = 1;
+  google.protobuf.Struct payload = 1;
 }
 
 message MlsListGroupsRequest {}
 
 message MlsListGroupsResponse {
-  string json = 1;
+  google.protobuf.Struct payload = 1;
 }
 
 message MlsGetGroupRequest {
@@ -84,16 +86,16 @@ message MlsGetGroupRequest {
 }
 
 message MlsGetGroupResponse {
-  string json = 1;
+  google.protobuf.Struct payload = 1;
 }
 
 message MlsUpdateGroupRequest {
   string group_id = 1;
-  string json = 2;
+  google.protobuf.Struct payload = 2;
 }
 
 message MlsUpdateGroupResponse {
-  string json = 1;
+  google.protobuf.Struct payload = 1;
 }
 
 message MlsDeleteGroupRequest {
@@ -101,16 +103,16 @@ message MlsDeleteGroupRequest {
 }
 
 message MlsDeleteGroupResponse {
-  string json = 1;
+  google.protobuf.Struct payload = 1;
 }
 
 message MlsAddGroupMemberRequest {
   string group_id = 1;
-  string json = 2;
+  google.protobuf.Struct payload = 2;
 }
 
 message MlsAddGroupMemberResponse {
-  string json = 1;
+  google.protobuf.Struct payload = 1;
 }
 
 message MlsGetGroupMembersRequest {
@@ -118,26 +120,26 @@ message MlsGetGroupMembersRequest {
 }
 
 message MlsGetGroupMembersResponse {
-  string json = 1;
+  google.protobuf.Struct payload = 1;
 }
 
 message MlsRemoveGroupMemberRequest {
   string group_id = 1;
   string user_id = 2;
-  string json = 3;
+  google.protobuf.Struct payload = 3;
 }
 
 message MlsRemoveGroupMemberResponse {
-  string json = 1;
+  google.protobuf.Struct payload = 1;
 }
 
 message MlsSendGroupMessageRequest {
   string group_id = 1;
-  string json = 2;
+  google.protobuf.Struct payload = 2;
 }
 
 message MlsSendGroupMessageResponse {
-  string json = 1;
+  google.protobuf.Struct payload = 1;
 }
 
 message MlsGetGroupMessagesRequest {
@@ -147,7 +149,7 @@ message MlsGetGroupMessagesRequest {
 }
 
 message MlsGetGroupMessagesResponse {
-  string json = 1;
+  google.protobuf.Struct payload = 1;
 }
 
 message MlsGetGroupStateRequest {
@@ -155,29 +157,29 @@ message MlsGetGroupStateRequest {
 }
 
 message MlsGetGroupStateResponse {
-  string json = 1;
+  google.protobuf.Struct payload = 1;
 }
 
 message MlsUploadGroupStateRequest {
   string group_id = 1;
-  string json = 2;
+  google.protobuf.Struct payload = 2;
 }
 
 message MlsUploadGroupStateResponse {
-  string json = 1;
+  google.protobuf.Struct payload = 1;
 }
 
 message MlsGetWelcomeMessagesRequest {}
 
 message MlsGetWelcomeMessagesResponse {
-  string json = 1;
+  google.protobuf.Struct payload = 1;
 }
 
 message MlsAcknowledgeWelcomeRequest {
   string id = 1;
-  string json = 2;
+  google.protobuf.Struct payload = 2;
 }
 
 message MlsAcknowledgeWelcomeResponse {
-  string json = 1;
+  google.protobuf.Struct payload = 1;
 }

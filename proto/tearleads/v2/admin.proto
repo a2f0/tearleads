@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package tearleads.v2;
 
+import "google/protobuf/struct.proto";
+
 // Wave 1 admin contracts used by the DAL-first migration track.
 service AdminService {
   rpc GetPostgresInfo(AdminGetPostgresInfoRequest)
@@ -74,7 +76,7 @@ message AdminGetRowsRequest {
 }
 
 message AdminGetRowsResponse {
-  repeated string rows_json = 1;
+  repeated google.protobuf.Struct rows = 1;
   uint64 total_count = 2;
   uint32 limit = 3;
   uint32 offset = 4;
