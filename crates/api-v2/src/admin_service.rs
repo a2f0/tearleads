@@ -358,34 +358,41 @@ fn parse_row_struct(row_json: &str) -> Result<Struct, String> {
 
     let fields = object
         .into_iter()
-        .map(|(key, value)| (key, json_value_to_protobuf_value(value)))
-        .collect();
+        .map(|(key, value)| json_value_to_protobuf_value(value).map(|mapped| (key, mapped)))
+        .collect::<Result<_, _>>()?;
 
     Ok(Struct { fields })
 }
 
-fn json_value_to_protobuf_value(value: JsonValue) -> Value {
+fn json_value_to_protobuf_value(value: JsonValue) -> Result<Value, String> {
     let kind = match value {
         JsonValue::Null => ProtobufValueKind::NullValue(0),
         JsonValue::Bool(boolean) => ProtobufValueKind::BoolValue(boolean),
         JsonValue::Number(number) => {
-            let as_f64 = number.to_string().parse::<f64>().unwrap_or(0.0);
+            let as_f64 = number
+                .to_string()
+                .parse::<f64>()
+                .map_err(|error| format!("failed to parse number `{number}` as f64: {error}"))?;
             ProtobufValueKind::NumberValue(as_f64)
         }
         JsonValue::String(string_value) => ProtobufValueKind::StringValue(string_value),
-        JsonValue::Array(list_values) => ProtobufValueKind::ListValue(ListValue {
-            values: list_values
+        JsonValue::Array(list_values) => {
+            let values = list_values
                 .into_iter()
                 .map(json_value_to_protobuf_value)
-                .collect(),
-        }),
-        JsonValue::Object(map_values) => ProtobufValueKind::StructValue(Struct {
-            fields: map_values
+                .collect::<Result<Vec<_>, _>>()?;
+            ProtobufValueKind::ListValue(ListValue { values })
+        }
+        JsonValue::Object(map_values) => {
+            let fields = map_values
                 .into_iter()
-                .map(|(key, map_value)| (key, json_value_to_protobuf_value(map_value)))
-                .collect(),
-        }),
+                .map(|(key, map_value)| {
+                    json_value_to_protobuf_value(map_value).map(|mapped| (key, mapped))
+                })
+                .collect::<Result<_, _>>()?;
+            ProtobufValueKind::StructValue(Struct { fields })
+        }
     };
 
-    Value { kind: Some(kind) }
+    Ok(Value { kind: Some(kind) })
 }

@@ -1,4 +1,5 @@
 import type { JsonObject, JsonValue } from '@bufbuild/protobuf';
+import { Code, ConnectError } from '@connectrpc/connect';
 import {
   addGroupMemberDirect,
   getGroupMembersDirect,
@@ -89,15 +90,24 @@ function isJsonObject(value: unknown): value is JsonObject {
 
 function parsePayload(json: string): JsonObject {
   const normalized = json.trim().length > 0 ? json : '{}';
+  let parsed: unknown;
   try {
-    const parsed: unknown = JSON.parse(normalized);
-    if (!isJsonObject(parsed)) {
-      return {};
-    }
-    return parsed;
+    parsed = JSON.parse(normalized);
   } catch {
-    return {};
+    throw new ConnectError(
+      'direct service returned invalid payload JSON',
+      Code.Internal
+    );
   }
+
+  if (!isJsonObject(parsed)) {
+    throw new ConnectError(
+      'direct service payload must decode to a JSON object',
+      Code.Internal
+    );
+  }
+
+  return parsed;
 }
 
 function payloadResponse(response: { json: string }): { payload?: JsonObject } {

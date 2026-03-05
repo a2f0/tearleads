@@ -369,7 +369,7 @@ describe('mlsConnectServiceV2', () => {
     );
   });
 
-  it('returns empty payload when direct response json is invalid', async () => {
+  it('throws internal error when direct response json is invalid', async () => {
     const context = createContext();
     uploadKeyPackagesDirectMock.mockResolvedValue({
       json: '{invalid-json'
@@ -380,12 +380,10 @@ describe('mlsConnectServiceV2', () => {
         { payload: { keyPackages: [] } },
         context
       )
-    ).resolves.toEqual({
-      payload: {}
-    });
+    ).rejects.toThrow('direct service returned invalid payload JSON');
   });
 
-  it('returns empty payload when direct response json is not an object', async () => {
+  it('throws internal error when direct response json is not an object', async () => {
     const context = createContext();
     uploadKeyPackagesDirectMock.mockResolvedValue({
       json: '[]'
@@ -396,8 +394,6 @@ describe('mlsConnectServiceV2', () => {
         { payload: { keyPackages: [] } },
         context
       )
-    ).resolves.toEqual({
-      payload: {}
-    });
+    ).rejects.toThrow('direct service payload must decode to a JSON object');
   });
 });
