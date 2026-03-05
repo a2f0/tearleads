@@ -235,10 +235,7 @@ mod tests {
         assert_eq!(config.admin_service_name, "tearleads.v2.AdminService");
         assert_eq!(config.mls_service_name, "tearleads.v2.MlsService");
         assert_eq!(config.authorization_header, "authorization");
-        assert_eq!(
-            config.organization_header,
-            "x-tearleads-organization-id"
-        );
+        assert_eq!(config.organization_header, "x-tearleads-organization-id");
     }
 
     #[test]

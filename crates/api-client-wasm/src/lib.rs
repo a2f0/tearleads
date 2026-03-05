@@ -92,8 +92,8 @@ pub fn get_protocol_config_binding() -> Result<JsValue, JsValue> {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_protocol_config_inner, build_request_headers_inner, normalize_connect_base_url_binding,
-        resolve_rpc_path_binding,
+        build_protocol_config_inner, build_request_headers_inner,
+        normalize_connect_base_url_binding, resolve_rpc_path_binding,
     };
 
     #[test]

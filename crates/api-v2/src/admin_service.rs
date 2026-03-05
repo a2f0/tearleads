@@ -174,8 +174,9 @@ where
             .iter()
             .enumerate()
             .map(|(index, row_json)| {
-                parse_row_struct(row_json)
-                    .map_err(|error| Status::internal(format!("failed to encode row {index}: {error}")))
+                parse_row_struct(row_json).map_err(|error| {
+                    Status::internal(format!("failed to encode row {index}: {error}"))
+                })
             })
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -348,8 +349,8 @@ fn normalize_rows_limit(limit: u32) -> u32 {
 }
 
 fn parse_row_struct(row_json: &str) -> Result<Struct, String> {
-    let parsed_value: JsonValue = serde_json::from_str(row_json)
-        .map_err(|error| format!("invalid JSON payload: {error}"))?;
+    let parsed_value: JsonValue =
+        serde_json::from_str(row_json).map_err(|error| format!("invalid JSON payload: {error}"))?;
 
     let JsonValue::Object(object) = parsed_value else {
         return Err(String::from("row payload must decode to an object"));
@@ -374,14 +375,12 @@ fn json_value_to_protobuf_value(value: JsonValue) -> Value {
             ProtobufValueKind::NumberValue(as_f64)
         }
         JsonValue::String(string_value) => ProtobufValueKind::StringValue(string_value),
-        JsonValue::Array(list_values) => {
-            ProtobufValueKind::ListValue(ListValue {
-                values: list_values
-                    .into_iter()
-                    .map(json_value_to_protobuf_value)
-                    .collect(),
-            })
-        }
+        JsonValue::Array(list_values) => ProtobufValueKind::ListValue(ListValue {
+            values: list_values
+                .into_iter()
+                .map(json_value_to_protobuf_value)
+                .collect(),
+        }),
         JsonValue::Object(map_values) => ProtobufValueKind::StructValue(Struct {
             fields: map_values
                 .into_iter()
