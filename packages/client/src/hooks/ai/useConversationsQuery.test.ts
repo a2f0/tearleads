@@ -64,6 +64,7 @@ describe('useConversations queries', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     mockDb = createChainableDb();
     vi.mocked(getDatabase).mockReturnValue(
       mockDb as unknown as ReturnType<typeof getDatabase>
@@ -308,6 +309,87 @@ describe('useConversations queries', () => {
       });
 
       expect(result.current.conversations).toHaveLength(1);
+    });
+  });
+
+  describe('bootstrap behavior', () => {
+    it('auto-starts a conversation when none exist', async () => {
+      const { result } = renderHook(() =>
+        useConversations({ autoStart: true })
+      );
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      await waitFor(() => {
+        expect(result.current.currentConversationId).toBe('test-uuid-1234');
+      });
+
+      expect(result.current.conversations[0]?.title).toBe('New Conversation');
+    });
+
+    it('resumes the last selected conversation when available', async () => {
+      const conversationRows = [
+        {
+          id: 'saved-conversation',
+          encryptedTitle: 'enc-title',
+          modelId: null,
+          messageCount: 0,
+          createdAt: '2024-01-01',
+          updatedAt: '2024-01-02',
+          encryptedSessionKey: 'esk-saved'
+        }
+      ];
+      const regRow = [{ encryptedSessionKey: 'esk-saved' }];
+      const messages = [
+        {
+          id: 'm1',
+          conversationId: 'saved-conversation',
+          role: 'user',
+          encryptedContent: 'enc-message',
+          modelId: null,
+          sequenceNumber: 1,
+          createdAt: '2024-01-03'
+        }
+      ];
+      const selectFromChain = {
+        from: vi.fn().mockImplementation(() => ({
+          innerJoin: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockResolvedValue(conversationRows)
+          }),
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue(regRow),
+            orderBy: vi.fn().mockResolvedValue(messages)
+          }),
+          orderBy: vi.fn().mockResolvedValue(conversationRows)
+        }))
+      };
+      mockDb.select.mockReturnValue(
+        selectFromChain as ReturnType<typeof mockDb.select>
+      );
+
+      localStorage.setItem(
+        'tearleads_last_ai_conversation_instance-1',
+        'saved-conversation'
+      );
+
+      const { result } = renderHook(() =>
+        useConversations({
+          resumeLastConversation: true,
+          instanceId: 'instance-1'
+        })
+      );
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      await waitFor(() => {
+        expect(result.current.currentConversationId).toBe('saved-conversation');
+      });
+
+      expect(result.current.currentMessages[0]?.id).toBe('m1');
     });
   });
 });

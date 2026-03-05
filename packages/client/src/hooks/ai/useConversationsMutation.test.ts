@@ -54,6 +54,7 @@ vi.stubGlobal('crypto', { randomUUID: () => 'test-uuid-1234' });
 
 import { getDatabase } from '@/db';
 import { decryptContent } from '@/lib/conversationCrypto';
+import { queueItemUpsertAndFlush } from '@/lib/vfsItemSyncWriter';
 import { getCachedSessionKey, getSessionKey } from './conversationDb';
 import { useConversations } from './useConversations';
 import { createChainableDb } from './useConversations.testUtils';
@@ -102,6 +103,34 @@ describe('useConversations mutations', () => {
       });
 
       expect(result.current.conversations[0]?.title).toBe('Hello world');
+    });
+
+    it('returns immediately even when background sync fails', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      vi.mocked(queueItemUpsertAndFlush).mockRejectedValueOnce(
+        new Error('sync failed')
+      );
+
+      const { result } = renderHook(() => useConversations());
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      let id: string | undefined;
+      await act(async () => {
+        id = await result.current.createConversation('Local first');
+      });
+
+      expect(id).toBe('test-uuid-1234');
+      expect(result.current.currentConversationId).toBe('test-uuid-1234');
+      await waitFor(() => {
+        expect(warnSpy).toHaveBeenCalledWith(
+          'Conversation created locally but background sync failed:',
+          expect.objectContaining({ message: 'sync failed' })
+        );
+      });
+      warnSpy.mockRestore();
     });
   });
 

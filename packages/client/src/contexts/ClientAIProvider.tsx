@@ -62,7 +62,11 @@ export function ClientAIProvider({
   const databaseContext = useDatabaseContext();
   const { t } = useTranslation();
   const llm = useLLM();
-  const conversations = useConversations();
+  const conversations = useConversations({
+    autoStart: true,
+    resumeLastConversation: true,
+    instanceId: databaseContext.currentInstanceId
+  });
 
   // Photo picker state
   const [showPhotoPicker, setShowPhotoPicker] = useState(false);
