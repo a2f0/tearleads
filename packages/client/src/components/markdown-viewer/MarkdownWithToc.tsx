@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { MermaidRenderer } from './MermaidRenderer';
 
+// one-component-per-file: allow - markdown heading renderers are intentionally inlined for MDEditor component overrides.
 interface TocHeading {
   id: string;
   level: number;
