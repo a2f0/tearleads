@@ -18,6 +18,8 @@ const MATERIALIZED_FILE_OBJECT_TYPES = new Set<VfsObjectType>([
   'audio',
   'video'
 ]);
+const REMATERIALIZED_STORAGE_PREFIX = 'rematerialized-';
+const REMATERIALIZED_STORAGE_SUFFIX = '.enc';
 
 const EXTENSION_TO_MIME_TYPE: Readonly<Record<string, string>> = {
   '.svg': 'image/svg+xml',
@@ -81,10 +83,31 @@ function decodeBase64Size(base64Value: string | null | undefined): number {
     return 0;
   }
   try {
-    return atob(base64Value).length;
+    const normalized = base64Value
+      .trim()
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+    if (normalized.length === 0) {
+      return 0;
+    }
+    const missingPadding = normalized.length % 4;
+    const padded =
+      missingPadding === 0
+        ? normalized
+        : `${normalized}${'='.repeat(4 - missingPadding)}`;
+    return atob(padded).length;
   } catch {
     return 0;
   }
+}
+
+function sanitizeStoragePathSegment(value: string): string {
+  const sanitized = value.replace(/[^A-Za-z0-9._-]/g, '-');
+  return sanitized.length > 0 ? sanitized : 'item';
+}
+
+function getMaterializedStoragePath(itemId: string): string {
+  return `${REMATERIALIZED_STORAGE_PREFIX}${sanitizeStoragePathSegment(itemId)}${REMATERIALIZED_STORAGE_SUFFIX}`;
 }
 
 export function buildMaterializedAlbumRows(
@@ -136,7 +159,7 @@ export function buildMaterializedFileRows(
         mimeType: inferMimeTypeFromFileName(fileName, entry.objectType),
         uploadDate: new Date(entry.createdAt.getTime()),
         contentHash: `rematerialized:${entry.id}`,
-        storagePath: `rematerialized/${entry.id}`,
+        storagePath: getMaterializedStoragePath(entry.id),
         thumbnailPath: null,
         deleted: itemState?.deleted ?? false
       };

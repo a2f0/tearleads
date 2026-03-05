@@ -26,6 +26,7 @@ import {
   resolveMaterializedNoteContent,
   resolveMaterializedNoteTitle
 } from './vfsRematerializationScrub';
+import { materializeFilePayloadsToStorage } from './vfsRematerializationFilePayloads';
 
 const SYNC_PAGE_LIMIT = 500;
 const INSERT_BATCH_SIZE = 200;
@@ -75,7 +76,6 @@ interface NoteRowState {
 }
 
 const VFS_ROOT_ID = '__vfs_root__';
-
 function chunkArray<T>(values: readonly T[], size: number): T[][] {
   const chunks: T[][] = [];
   for (let index = 0; index < values.length; index += size) {
@@ -373,6 +373,7 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
     });
   const albumRows = buildMaterializedAlbumRows(registryRows);
   const fileRows = buildMaterializedFileRows(registryRows, itemStateByItemId);
+  await materializeFilePayloadsToStorage(fileRows, itemStateByItemId);
 
   const db = getDatabase();
   const adapter = getDatabaseAdapter();

@@ -33,6 +33,102 @@ let testInstances: InstanceMetadata[] = [
   }
 ];
 let testActiveInstanceId: string | null = TEST_INSTANCE_ID;
+const mockFileStorageData = new Map<string, Map<string, Uint8Array>>();
+const mockFileStorageInstances = new Map<string, MockFileStorage>();
+let currentMockStorageInstanceId: string | null = null;
+
+interface MockFileStorage {
+  instanceId: string;
+  initialize(encryptionKey: Uint8Array): Promise<void>;
+  store(id: string, data: Uint8Array): Promise<string>;
+  storeBlob(id: string, blob: Blob): Promise<string>;
+  measureStore(id: string, data: Uint8Array): Promise<string>;
+  measureStoreBlob(id: string, blob: Blob): Promise<string>;
+  retrieve(storagePath: string): Promise<Uint8Array>;
+  measureRetrieve(storagePath: string): Promise<Uint8Array>;
+  delete(storagePath: string): Promise<void>;
+  exists(storagePath: string): Promise<boolean>;
+  getStorageUsed(): Promise<number>;
+  clearAll(): Promise<void>;
+}
+
+function assertValidFilename(path: string): void {
+  if (path.length === 0 || path.includes('/') || path.includes('\\')) {
+    throw new TypeError('Invalid filename');
+  }
+}
+
+function getStorageDataForInstance(instanceId: string): Map<string, Uint8Array> {
+  let storageData = mockFileStorageData.get(instanceId);
+  if (!storageData) {
+    storageData = new Map();
+    mockFileStorageData.set(instanceId, storageData);
+  }
+  return storageData;
+}
+
+function createMockFileStorage(instanceId: string): MockFileStorage {
+  const dataForInstance = getStorageDataForInstance(instanceId);
+  const storeData = async (id: string, data: Uint8Array): Promise<string> => {
+    const filename = `${id}.enc`;
+    assertValidFilename(filename);
+    dataForInstance.set(filename, new Uint8Array(data));
+    return filename;
+  };
+  const retrieveData = async (storagePath: string): Promise<Uint8Array> => {
+    assertValidFilename(storagePath);
+    const stored = dataForInstance.get(storagePath);
+    if (!stored) {
+      throw new Error(`File not found: ${storagePath}`);
+    }
+    return new Uint8Array(stored);
+  };
+
+  return {
+    instanceId,
+    async initialize(_encryptionKey: Uint8Array): Promise<void> {
+      return;
+    },
+    async store(id: string, data: Uint8Array): Promise<string> {
+      return storeData(id, data);
+    },
+    async storeBlob(id: string, blob: Blob): Promise<string> {
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      return storeData(id, bytes);
+    },
+    async measureStore(id: string, data: Uint8Array): Promise<string> {
+      return storeData(id, data);
+    },
+    async measureStoreBlob(id: string, blob: Blob): Promise<string> {
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      return storeData(id, bytes);
+    },
+    async retrieve(storagePath: string): Promise<Uint8Array> {
+      return retrieveData(storagePath);
+    },
+    async measureRetrieve(storagePath: string): Promise<Uint8Array> {
+      return retrieveData(storagePath);
+    },
+    async delete(storagePath: string): Promise<void> {
+      assertValidFilename(storagePath);
+      dataForInstance.delete(storagePath);
+    },
+    async exists(storagePath: string): Promise<boolean> {
+      assertValidFilename(storagePath);
+      return dataForInstance.has(storagePath);
+    },
+    async getStorageUsed(): Promise<number> {
+      let total = 0;
+      for (const value of dataForInstance.values()) {
+        total += value.byteLength;
+      }
+      return total;
+    },
+    async clearAll(): Promise<void> {
+      dataForInstance.clear();
+    }
+  };
+}
 
 // Mock the instance registry to avoid IndexedDB
 vi.mock('@/db/instanceRegistry', () => ({
@@ -111,7 +207,66 @@ vi.mock('@/db/instanceRegistry', () => ({
 
 // Mock file storage (OPFS) functions since they're not available in Node.js
 vi.mock('@/storage/opfs', () => ({
-  deleteFileStorageForInstance: vi.fn(async () => {}),
+  initializeFileStorage: vi.fn(
+    async (encryptionKey: Uint8Array, instanceId: string) => {
+      let storage = mockFileStorageInstances.get(instanceId);
+      if (!storage) {
+        storage = createMockFileStorage(instanceId);
+        mockFileStorageInstances.set(instanceId, storage);
+      }
+      await storage.initialize(encryptionKey);
+      currentMockStorageInstanceId = instanceId;
+      return storage;
+    }
+  ),
+  getFileStorageForInstance: vi.fn((instanceId: string) => {
+    const storage = mockFileStorageInstances.get(instanceId);
+    if (!storage) {
+      throw new Error(`File storage not initialized for instance ${instanceId}`);
+    }
+    return storage;
+  }),
+  getFileStorage: vi.fn(() => {
+    if (!currentMockStorageInstanceId) {
+      throw new Error('No current file storage instance');
+    }
+    const storage = mockFileStorageInstances.get(currentMockStorageInstanceId);
+    if (!storage) {
+      throw new Error(
+        `File storage not initialized for instance ${currentMockStorageInstanceId}`
+      );
+    }
+    return storage;
+  }),
+  isFileStorageInitialized: vi.fn((instanceId?: string) => {
+    if (instanceId) {
+      return mockFileStorageInstances.has(instanceId);
+    }
+    return currentMockStorageInstanceId !== null;
+  }),
+  clearFileStorageForInstance: vi.fn((instanceId: string) => {
+    mockFileStorageInstances.delete(instanceId);
+    mockFileStorageData.delete(instanceId);
+    if (currentMockStorageInstanceId === instanceId) {
+      currentMockStorageInstanceId = null;
+    }
+  }),
+  clearFileStorageInstance: vi.fn(() => {
+    mockFileStorageInstances.clear();
+    mockFileStorageData.clear();
+    currentMockStorageInstanceId = null;
+  }),
+  setCurrentStorageInstanceId: vi.fn((instanceId: string | null) => {
+    currentMockStorageInstanceId = instanceId;
+  }),
+  getCurrentStorageInstanceId: vi.fn(() => currentMockStorageInstanceId),
+  deleteFileStorageForInstance: vi.fn(async (instanceId: string) => {
+    mockFileStorageInstances.delete(instanceId);
+    mockFileStorageData.delete(instanceId);
+    if (currentMockStorageInstanceId === instanceId) {
+      currentMockStorageInstanceId = null;
+    }
+  }),
   getFileStorageRoot: vi.fn(async () => null),
   saveFileToStorage: vi.fn(async () => ''),
   loadFileFromStorage: vi.fn(async () => null),
@@ -165,6 +320,9 @@ function resetTestInstanceRegistry(): void {
 beforeEach(async () => {
   resetTestKeyManager();
   resetTestInstanceRegistry();
+  mockFileStorageInstances.clear();
+  mockFileStorageData.clear();
+  currentMockStorageInstanceId = null;
   warnSpy = mockConsoleWarn();
 
   // Reset the database module's internal state
