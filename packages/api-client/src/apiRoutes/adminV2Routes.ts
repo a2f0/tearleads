@@ -5,33 +5,19 @@ import {
   createClient
 } from '@connectrpc/connect';
 import { createGrpcWebTransport } from '@connectrpc/connect-web';
-import type {
-  AdminAccessContextResponse,
-  PostgresAdminInfoResponse,
-  PostgresColumnsResponse,
-  PostgresRowsResponse,
-  PostgresTablesResponse,
-  RedisKeysResponse,
-  RedisKeyValueResponse
-} from '@tearleads/shared';
 import {
   AdminDeleteRedisKeyRequestSchema,
   AdminGetColumnsRequestSchema,
-  type AdminGetColumnsResponse,
   AdminGetContextRequestSchema,
-  type AdminGetContextResponse,
+  AdminGetGroupRequestSchema,
   AdminGetPostgresInfoRequestSchema,
-  type AdminGetPostgresInfoResponse,
   AdminGetRedisDbSizeRequestSchema,
-  type AdminGetRedisDbSizeResponse,
   AdminGetRedisKeysRequestSchema,
-  type AdminGetRedisKeysResponse,
   AdminGetRedisValueRequestSchema,
-  type AdminGetRedisValueResponse,
   AdminGetRowsRequestSchema,
-  type AdminGetRowsResponse,
   AdminGetTablesRequestSchema,
-  type AdminGetTablesResponse,
+  AdminListOrganizationsRequestSchema,
+  AdminListUsersRequestSchema,
   AdminService
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { API_BASE_URL } from '../apiCore';
@@ -42,9 +28,19 @@ import {
   normalizeApiV2ConnectBaseUrl
 } from '../apiV2ClientWasm';
 import { getAuthHeaderValue } from '../authStorage';
-
-const MIN_SAFE_BIGINT = BigInt(Number.MIN_SAFE_INTEGER);
-const MAX_SAFE_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
+import {
+  mapContextResponse,
+  mapGroupDetailResponse,
+  mapOrganizationsResponse,
+  mapPostgresColumnsResponse,
+  mapPostgresInfoResponse,
+  mapPostgresRowsResponse,
+  mapPostgresTablesResponse,
+  mapRedisDbSizeResponse,
+  mapRedisKeysResponse,
+  mapRedisValueResponse,
+  mapUsersResponse
+} from './adminV2Mappers';
 
 type AdminV2CallOptions = Pick<CallOptions, 'headers'>;
 
@@ -93,140 +89,6 @@ function toCallOptions(headers: Record<string, string>): AdminV2CallOptions {
     return {};
   }
   return { headers };
-}
-
-function toSafeNumber(value: bigint, fieldName: string): number {
-  if (value > MAX_SAFE_BIGINT || value < MIN_SAFE_BIGINT) {
-    throw new Error(`${fieldName} exceeded Number safe integer range`);
-  }
-  return Number(value);
-}
-
-function mapPostgresInfoResponse(
-  response: AdminGetPostgresInfoResponse
-): PostgresAdminInfoResponse {
-  return {
-    status: 'ok',
-    info: {
-      host: response.info?.host ?? null,
-      port: response.info?.port ?? null,
-      database: response.info?.database ?? null,
-      user: response.info?.user ?? null
-    },
-    serverVersion: response.serverVersion ?? null
-  };
-}
-
-function mapContextResponse(
-  response: AdminGetContextResponse
-): AdminAccessContextResponse {
-  return {
-    isRootAdmin: response.isRootAdmin,
-    organizations: response.organizations.map((organization) => ({
-      id: organization.id,
-      name: organization.name
-    })),
-    defaultOrganizationId: response.defaultOrganizationId ?? null
-  };
-}
-
-function mapPostgresTablesResponse(
-  response: AdminGetTablesResponse
-): PostgresTablesResponse {
-  return {
-    tables: response.tables.map((table) => ({
-      schema: table.schema,
-      name: table.name,
-      rowCount: toSafeNumber(table.rowCount, 'rowCount'),
-      totalBytes: toSafeNumber(table.totalBytes, 'totalBytes'),
-      tableBytes: toSafeNumber(table.tableBytes, 'tableBytes'),
-      indexBytes: toSafeNumber(table.indexBytes, 'indexBytes')
-    }))
-  };
-}
-
-function mapPostgresColumnsResponse(
-  response: AdminGetColumnsResponse
-): PostgresColumnsResponse {
-  return {
-    columns: response.columns.map((column) => ({
-      name: column.name,
-      type: column.type,
-      nullable: column.nullable,
-      defaultValue: column.defaultValue ?? null,
-      ordinalPosition: column.ordinalPosition
-    }))
-  };
-}
-
-function mapPostgresRowsResponse(
-  response: AdminGetRowsResponse
-): PostgresRowsResponse {
-  return {
-    rows: response.rows.map((row) => ({ ...row })),
-    totalCount: toSafeNumber(response.totalCount, 'totalCount'),
-    limit: response.limit,
-    offset: response.offset
-  };
-}
-
-function mapRedisKeysResponse(
-  response: AdminGetRedisKeysResponse
-): RedisKeysResponse {
-  return {
-    keys: response.keys.map((keyRecord) => ({
-      key: keyRecord.key,
-      type: keyRecord.type,
-      ttl: toSafeNumber(keyRecord.ttl, 'ttl')
-    })),
-    cursor: response.cursor,
-    hasMore: response.hasMore
-  };
-}
-
-function mapRedisValue(
-  response: AdminGetRedisValueResponse
-): RedisKeyValueResponse['value'] {
-  const redisValue = response.value?.value;
-  if (!redisValue) {
-    return null;
-  }
-
-  switch (redisValue.case) {
-    case 'stringValue':
-      return redisValue.value;
-    case 'listValue':
-      return redisValue.value.values;
-    case 'mapValue':
-      return redisValue.value.entries;
-    case undefined:
-      return null;
-    default: {
-      const unexpectedRedisValueCase: never = redisValue;
-      throw new Error(
-        `Unhandled redis value variant: ${unexpectedRedisValueCase}`
-      );
-    }
-  }
-}
-
-function mapRedisValueResponse(
-  response: AdminGetRedisValueResponse
-): RedisKeyValueResponse {
-  return {
-    key: response.key,
-    type: response.type,
-    ttl: toSafeNumber(response.ttl, 'ttl'),
-    value: mapRedisValue(response)
-  };
-}
-
-function mapRedisDbSizeResponse(response: AdminGetRedisDbSizeResponse): {
-  count: number;
-} {
-  return {
-    count: toSafeNumber(response.count, 'count')
-  };
 }
 
 async function buildCallContext(
@@ -290,6 +152,47 @@ export function createAdminV2Routes(
         );
         return mapContextResponse(response);
       }),
+    groups: {
+      get: (id: string) =>
+        runWithEvent(dependencies, 'api_get_admin_group', async () => {
+          const { client, callOptions } = await buildCallContext(dependencies);
+          const response = await client.getGroup(
+            create(AdminGetGroupRequestSchema, { id }),
+            callOptions
+          );
+          return mapGroupDetailResponse(response);
+        })
+    },
+    organizations: {
+      list: (options?: { organizationId?: string }) =>
+        runWithEvent(dependencies, 'api_get_admin_organizations', async () => {
+          const { client, callOptions } = await buildCallContext(dependencies);
+          const response = await client.listOrganizations(
+            create(AdminListOrganizationsRequestSchema, {
+              ...(options?.organizationId
+                ? { organizationId: options.organizationId }
+                : {})
+            }),
+            callOptions
+          );
+          return mapOrganizationsResponse(response);
+        })
+    },
+    users: {
+      list: (options?: { organizationId?: string }) =>
+        runWithEvent(dependencies, 'api_get_admin_users', async () => {
+          const { client, callOptions } = await buildCallContext(dependencies);
+          const response = await client.listUsers(
+            create(AdminListUsersRequestSchema, {
+              ...(options?.organizationId
+                ? { organizationId: options.organizationId }
+                : {})
+            }),
+            callOptions
+          );
+          return mapUsersResponse(response);
+        })
+    },
     postgres: {
       getInfo: () =>
         runWithEvent(dependencies, 'api_get_admin_postgres_info', async () => {

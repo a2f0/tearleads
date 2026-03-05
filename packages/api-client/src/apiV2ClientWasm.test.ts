@@ -100,6 +100,9 @@ describe('apiV2ClientWasm', () => {
 
     const { getApiV2AdminRpcPaths } = await loadApiV2ClientWasm();
     await expect(getApiV2AdminRpcPaths()).resolves.toEqual({
+      getGroup: '/tearleads.v2.AdminService/GetGroup',
+      listOrganizations: '/tearleads.v2.AdminService/ListOrganizations',
+      listUsers: '/tearleads.v2.AdminService/ListUsers',
       getPostgresInfo: '/tearleads.v2.AdminService/GetPostgresInfo',
       getTables: '/tearleads.v2.AdminService/GetTables',
       getColumns: '/tearleads.v2.AdminService/GetColumns',

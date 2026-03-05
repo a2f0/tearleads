@@ -101,7 +101,7 @@ describe('api with msw admin routing', () => {
     await api.admin.redis.getDbSize();
 
     await api.admin.groups.list({ organizationId: seededUser.organizationId });
-    await api.admin.groups.get('group 1');
+    await api.admin.groups.get('group-1');
     await api.admin.groups.create({
       name: 'New Team',
       organizationId: 'org 1'
@@ -178,7 +178,7 @@ describe('api with msw admin routing', () => {
       wasApiRequestMade('POST', '/connect/tearleads.v1.AdminService/ListGroups')
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.AdminService/GetGroup')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetGroup')
     ).toBe(true);
     expect(
       wasApiRequestMade(
@@ -219,7 +219,7 @@ describe('api with msw admin routing', () => {
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.AdminService/ListOrganizations'
+        '/connect/tearleads.v2.AdminService/ListOrganizations'
       )
     ).toBe(true);
     expect(
@@ -259,7 +259,7 @@ describe('api with msw admin routing', () => {
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.AdminService/ListUsers')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/ListUsers')
     ).toBe(true);
     expect(
       wasApiRequestMade('POST', '/connect/tearleads.v1.AdminService/GetUser')

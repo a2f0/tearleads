@@ -1,6 +1,6 @@
 //! Postgres read models and repository boundary traits.
 
-use crate::{BoxFuture, DataAccessError};
+use crate::{BoxFuture, DataAccessError, DataAccessErrorKind};
 
 /// Connection details suitable for admin diagnostics.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -50,6 +50,97 @@ pub struct AdminGroupSummary {
     pub updated_at: String,
     /// Number of members assigned to the group.
     pub member_count: u32,
+}
+
+/// Group member metadata exposed by admin group detail responses.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdminGroupMember {
+    /// User identifier.
+    pub user_id: String,
+    /// User email.
+    pub email: String,
+    /// RFC3339 timestamp for when the member joined.
+    pub joined_at: String,
+}
+
+/// Group detail payload exposed by admin group detail endpoints.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdminGroupDetail {
+    /// Group identifier.
+    pub id: String,
+    /// Owning organization identifier.
+    pub organization_id: String,
+    /// Display name.
+    pub name: String,
+    /// Optional group description.
+    pub description: Option<String>,
+    /// RFC3339 creation timestamp.
+    pub created_at: String,
+    /// RFC3339 update timestamp.
+    pub updated_at: String,
+    /// Group members ordered by join time.
+    pub members: Vec<AdminGroupMember>,
+}
+
+/// Organization metadata exposed by admin organization list endpoints.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdminOrganizationSummary {
+    /// Organization identifier.
+    pub id: String,
+    /// Organization display name.
+    pub name: String,
+    /// Optional organization description.
+    pub description: Option<String>,
+    /// RFC3339 creation timestamp.
+    pub created_at: String,
+    /// RFC3339 update timestamp.
+    pub updated_at: String,
+}
+
+/// Accounting metadata exposed in admin user list responses.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct AdminUserAccountingSummary {
+    /// Total prompt tokens consumed.
+    pub total_prompt_tokens: u64,
+    /// Total completion tokens consumed.
+    pub total_completion_tokens: u64,
+    /// Total tokens consumed.
+    pub total_tokens: u64,
+    /// Number of requests recorded.
+    pub request_count: u64,
+    /// RFC3339 timestamp for latest usage when available.
+    pub last_used_at: Option<String>,
+}
+
+/// User metadata exposed by admin user list endpoints.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct AdminUserSummary {
+    /// User identifier.
+    pub id: String,
+    /// User email.
+    pub email: String,
+    /// Whether the email has been confirmed.
+    pub email_confirmed: bool,
+    /// Whether the user is a platform admin.
+    pub admin: bool,
+    /// Organization IDs assigned to the user.
+    pub organization_ids: Vec<String>,
+    /// RFC3339 creation timestamp when available.
+    pub created_at: Option<String>,
+    /// RFC3339 last-active timestamp when available.
+    pub last_active_at: Option<String>,
+    /// User accounting snapshot.
+    pub accounting: AdminUserAccountingSummary,
+    /// Whether the user is currently disabled.
+    pub disabled: bool,
+    /// RFC3339 disabled timestamp when available.
+    pub disabled_at: Option<String>,
+    /// User ID that disabled this account when available.
+    pub disabled_by: Option<String>,
+    /// RFC3339 deletion-mark timestamp when available.
+    pub marked_for_deletion_at: Option<String>,
+    /// User ID that marked this account for deletion when available.
+    pub marked_for_deletion_by: Option<String>,
 }
 
 /// Table metadata exposed by admin inspection endpoints.
@@ -135,6 +226,48 @@ pub trait PostgresAdminReadRepository: Send + Sync {
         &self,
         organization_ids: Option<Vec<String>>,
     ) -> BoxFuture<'_, Result<Vec<AdminGroupSummary>, DataAccessError>>;
+
+    /// Returns one group detail payload by identifier.
+    fn get_group(
+        &self,
+        group_id: &str,
+    ) -> BoxFuture<'_, Result<AdminGroupDetail, DataAccessError>> {
+        let group_id = group_id.to_string();
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                format!("get_group not implemented for group_id={group_id}"),
+            ))
+        })
+    }
+
+    /// Lists organizations, optionally constrained to organization IDs.
+    fn list_organizations(
+        &self,
+        organization_ids: Option<Vec<String>>,
+    ) -> BoxFuture<'_, Result<Vec<AdminOrganizationSummary>, DataAccessError>> {
+        let filter = organization_ids.unwrap_or_default();
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                format!("list_organizations not implemented for organization_ids={filter:?}"),
+            ))
+        })
+    }
+
+    /// Lists users, optionally constrained to organization IDs.
+    fn list_users(
+        &self,
+        organization_ids: Option<Vec<String>>,
+    ) -> BoxFuture<'_, Result<Vec<AdminUserSummary>, DataAccessError>> {
+        let filter = organization_ids.unwrap_or_default();
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                format!("list_users not implemented for organization_ids={filter:?}"),
+            ))
+        })
+    }
 
     /// Returns table metadata for the admin browsing surface.
     fn list_tables(&self) -> BoxFuture<'_, Result<Vec<PostgresTableInfo>, DataAccessError>>;

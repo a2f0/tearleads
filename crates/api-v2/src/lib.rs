@@ -3,6 +3,7 @@
 mod admin_auth;
 mod admin_harness;
 mod admin_service;
+mod admin_service_common;
 mod ping;
 
 use axum::{Router, routing::get};
