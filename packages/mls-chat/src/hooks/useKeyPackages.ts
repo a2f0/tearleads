@@ -3,7 +3,8 @@
  * Handles uploading key packages to the server and local key package generation.
  */
 
-import type { MlsCipherSuite, MlsKeyPackage } from '@tearleads/shared';
+import type { MlsV2Routes } from '@tearleads/api-client/mlsRoutes';
+import type { MlsCipherSuite } from '@tearleads/shared';
 import { MLS_CIPHERSUITES } from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -11,7 +12,7 @@ import { useMlsRoutes } from '../context/index.js';
 import type { MlsClient } from '../lib/index.js';
 
 interface UseKeyPackagesResult {
-  keyPackages: MlsKeyPackage[];
+  keyPackages: MlsBinaryKeyPackage[];
   isLoading: boolean;
   error: Error | null;
   generateAndUpload: (count?: number) => Promise<void>;
@@ -21,10 +22,13 @@ interface UseKeyPackagesResult {
 
 const MIN_KEY_PACKAGES = 5;
 
+type MlsBinaryKeyPackage =
+  Awaited<ReturnType<MlsV2Routes['getMyKeyPackages']>>['keyPackages'][number];
+
 export function useKeyPackages(client: MlsClient | null): UseKeyPackagesResult {
   const mlsRoutes = useMlsRoutes();
 
-  const [keyPackages, setKeyPackages] = useState<MlsKeyPackage[]>([]);
+  const [keyPackages, setKeyPackages] = useState<MlsBinaryKeyPackage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -55,7 +59,7 @@ export function useKeyPackages(client: MlsClient | null): UseKeyPackagesResult {
 
       try {
         const newKeyPackages: Array<{
-          keyPackageData: string;
+          keyPackageData: Uint8Array;
           keyPackageRef: string;
           cipherSuite: MlsCipherSuite;
         }> = [];
@@ -64,9 +68,7 @@ export function useKeyPackages(client: MlsClient | null): UseKeyPackagesResult {
           const kp = await client.generateKeyPackage();
           newKeyPackages.push({
             keyPackageRef: kp.ref,
-            keyPackageData: btoa(
-              String.fromCharCode.apply(null, Array.from(kp.keyPackageBytes))
-            ),
+            keyPackageData: kp.keyPackageBytes,
             cipherSuite: MLS_CIPHERSUITES.X25519_CHACHA20_SHA256_ED25519
           });
         }

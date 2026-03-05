@@ -3,7 +3,7 @@
  * Handles fetching, decrypting, and sending encrypted messages.
  */
 
-import type { MlsMessage } from '@tearleads/shared';
+import type { MlsV2Routes } from '@tearleads/api-client/mlsRoutes';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useMlsChatUser, useMlsRoutes } from '../context/index.js';
@@ -22,6 +22,9 @@ interface UseGroupMessagesResult {
 
 const PAGE_SIZE = 50;
 
+type MlsBinaryMessage =
+  Awaited<ReturnType<MlsV2Routes['getGroupMessages']>>['messages'][number];
+
 export function useGroupMessages(
   groupId: string | null,
   client: MlsClient | null
@@ -38,16 +41,13 @@ export function useGroupMessages(
   const cursorRef = useRef<string | null>(null);
 
   const decryptMessage = useCallback(
-    async (msg: MlsMessage): Promise<DecryptedMessage | null> => {
+    async (msg: MlsBinaryMessage): Promise<DecryptedMessage | null> => {
       if (!client || !groupId) return null;
 
       try {
-        const ciphertext = Uint8Array.from(atob(msg.ciphertext), (c) =>
-          c.charCodeAt(0)
-        );
         const { plaintext, senderId } = await client.decryptMessage(
           groupId,
-          ciphertext
+          msg.ciphertext
         );
 
         return {
@@ -136,9 +136,7 @@ export function useGroupMessages(
         }
 
         const data = await mlsRoutes.sendGroupMessage(groupId, {
-          ciphertext: btoa(
-            String.fromCharCode.apply(null, Array.from(ciphertext))
-          ),
+          ciphertext,
           contentType,
           epoch,
           messageType: 'application'
@@ -176,7 +174,7 @@ export function useGroupMessages(
 
   // Handle incoming messages from realtime hook
   const addIncomingMessage = useCallback(
-    async (encryptedMessage: MlsMessage) => {
+    async (encryptedMessage: MlsBinaryMessage) => {
       const decrypted = await decryptMessage(encryptedMessage);
       if (decrypted) {
         setMessages((prev) => {
@@ -204,7 +202,7 @@ export function useGroupMessages(
       return;
     }
 
-    type HandlerMap = Map<string, (msg: MlsMessage) => void>;
+    type HandlerMap = Map<string, (msg: MlsBinaryMessage) => void>;
     const windowWithHandler = window as unknown as {
       __mlsMessageHandler?: HandlerMap;
     };

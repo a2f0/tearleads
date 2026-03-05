@@ -8,29 +8,18 @@ interface GroupStateClient {
   getGroupEpoch(groupId: string): number | undefined;
 }
 
-function bytesToBase64(data: Uint8Array): string {
-  let binary = '';
-  const chunkSize = 0x8000;
-  for (let index = 0; index < data.length; index += chunkSize) {
-    binary += String.fromCharCode(...data.subarray(index, index + chunkSize));
-  }
-  return btoa(binary);
-}
-
-function base64ToBytes(base64: string): Uint8Array {
-  const normalized = base64.trim();
-  const binary = atob(normalized);
-  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-  if (bytesToBase64(bytes) !== normalized) {
-    throw new Error('Invalid base64-encoded MLS group state');
-  }
-  return bytes;
-}
-
 async function sha256Base64(data: Uint8Array): Promise<string> {
   const normalized = new Uint8Array(data);
   const digest = await crypto.subtle.digest('SHA-256', normalized.buffer);
-  return bytesToBase64(new Uint8Array(digest));
+  let binary = '';
+  const digestBytes = new Uint8Array(digest);
+  const chunkSize = 0x8000;
+  for (let index = 0; index < digestBytes.length; index += chunkSize) {
+    binary += String.fromCharCode(
+      ...digestBytes.subarray(index, index + chunkSize)
+    );
+  }
+  return btoa(binary);
 }
 
 function isNotFoundOrForbidden(error: unknown): boolean {
@@ -70,7 +59,7 @@ export async function recoverMissingGroupState(input: {
     return false;
   }
 
-  const serializedState = base64ToBytes(payload.state.encryptedState);
+  const serializedState = payload.state.encryptedState;
   const expectedStateHash = await sha256Base64(serializedState);
   if (expectedStateHash !== payload.state.stateHash) {
     throw new Error(
@@ -101,7 +90,7 @@ export async function uploadGroupStateSnapshot(input: {
   try {
     await input.mlsRoutes.uploadGroupState(input.groupId, {
       epoch,
-      encryptedState: bytesToBase64(serializedState),
+      encryptedState: serializedState,
       stateHash
     });
   } catch (error) {

@@ -4,6 +4,7 @@
  */
 
 import { openNotificationEventStream } from '@tearleads/api-client/notificationStream';
+import type { MlsV2Routes } from '@tearleads/api-client/mlsRoutes';
 import type { MlsMessage, MlsMessageType } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -25,6 +26,9 @@ interface UseMlsRealtimeResult {
   unsubscribe: (groupId: string) => void;
   subscribedGroups: Set<string>;
 }
+
+type MlsBinaryMessage =
+  Awaited<ReturnType<MlsV2Routes['getGroupMessages']>>['messages'][number];
 
 /** Parsed SSE message envelope */
 interface SseMessageEnvelope {
@@ -142,7 +146,18 @@ function decodeBase64Bytes(value: string): Uint8Array | null {
   }
 }
 
-function dispatchRealtimeMessage(groupId: string, message: MlsMessage): void {
+function decodeTransportBytes(value: string): Uint8Array {
+  const decoded = decodeBase64Bytes(value);
+  if (decoded) {
+    return decoded;
+  }
+  return new TextEncoder().encode(value);
+}
+
+function dispatchRealtimeMessage(
+  groupId: string,
+  message: MlsBinaryMessage
+): void {
   const handlers = Reflect.get(globalThis, '__mlsMessageHandler');
   if (!(handlers instanceof Map)) {
     return;
@@ -290,7 +305,10 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
 
             const message = messageEnvelope.payload;
             if (message.messageType === 'application') {
-              dispatchRealtimeMessage(message.groupId, message);
+              dispatchRealtimeMessage(message.groupId, {
+                ...message,
+                ciphertext: decodeTransportBytes(message.ciphertext)
+              });
               continue;
             }
 
