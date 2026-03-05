@@ -13,6 +13,9 @@ use crate::{
     PostgresTableRecord,
 };
 
+type GetUserCall = (String, Option<Vec<String>>);
+type GetUserCalls = Mutex<Vec<GetUserCall>>;
+
 #[derive(Debug)]
 struct FakeGateway {
     connection_info: PostgresConnectionInfo,
@@ -29,7 +32,7 @@ struct FakeGateway {
     list_scope_organizations_calls: Mutex<usize>,
     list_scope_organizations_by_ids_calls: Mutex<Vec<Vec<String>>>,
     list_groups_calls: Mutex<Vec<Option<Vec<String>>>>,
-    get_user_calls: Mutex<Vec<(String, Option<Vec<String>>)>>,
+    get_user_calls: GetUserCalls,
     list_columns_calls: Mutex<Vec<(String, String)>>,
     list_rows_calls: Mutex<Vec<PostgresRowsQuery>>,
 }
@@ -88,7 +91,7 @@ impl FakeGateway {
         lock_or_recover(&self.list_groups_calls).clone()
     }
 
-    fn get_user_calls(&self) -> Vec<(String, Option<Vec<String>>)> {
+    fn get_user_calls(&self) -> Vec<GetUserCall> {
         lock_or_recover(&self.get_user_calls).clone()
     }
 }
