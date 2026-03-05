@@ -153,6 +153,19 @@ async fn static_repositories_return_expected_wave1a_shapes() {
         .expect("filtered user listing should succeed");
     assert_eq!(filtered_users.len(), 1);
     assert_eq!(filtered_users[0].id, "user-1");
+    let found_user = postgres
+        .get_user("user-1", Some(vec![String::from("org-1")]))
+        .await
+        .expect("scoped user lookup should succeed");
+    assert_eq!(
+        found_user.as_ref().map(|user| user.id.as_str()),
+        Some("user-1")
+    );
+    let missing_user = postgres
+        .get_user("user-missing", Some(vec![String::from("org-1")]))
+        .await
+        .expect("missing user lookup should succeed");
+    assert!(missing_user.is_none());
 
     let tables = postgres
         .list_tables()
