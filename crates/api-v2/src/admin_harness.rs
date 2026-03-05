@@ -7,7 +7,8 @@ use tearleads_data_access_traits::{
 };
 
 use crate::{
-    AdminAuthError, AdminAuthErrorKind, AdminOperation, AdminRequestAuthorizer, AdminServiceHandler,
+    AdminAccessContext, AdminAuthError, AdminAuthErrorKind, AdminOperation, AdminRequestAuthorizer,
+    AdminServiceHandler,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -50,7 +51,7 @@ impl AdminRequestAuthorizer for AuthorizationHeaderAdminAuthorizer {
         &self,
         operation: AdminOperation,
         metadata: &tonic::metadata::MetadataMap,
-    ) -> Result<(), AdminAuthError> {
+    ) -> Result<AdminAccessContext, AdminAuthError> {
         let authorization = metadata
             .get(Self::AUTHORIZATION_HEADER)
             .ok_or_else(|| {
@@ -67,7 +68,8 @@ impl AdminRequestAuthorizer for AuthorizationHeaderAdminAuthorizer {
                 )
             })?;
 
-        Self::validate_bearer_token(operation, authorization)
+        Self::validate_bearer_token(operation, authorization)?;
+        Ok(AdminAccessContext::root())
     }
 }
 
@@ -307,7 +309,7 @@ mod tests {
 
         let result =
             authorizer.authorize_admin_operation(crate::AdminOperation::GetTables, &metadata);
-        assert_eq!(result, Ok(()));
+        assert_eq!(result, Ok(crate::AdminAccessContext::root()));
     }
 
     #[tokio::test]

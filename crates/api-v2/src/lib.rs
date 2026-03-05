@@ -14,7 +14,7 @@ use tower_http::trace::TraceLayer;
 const ADMIN_HARNESS_ENV_KEY: &str = "API_V2_ENABLE_ADMIN_HARNESS";
 
 pub use admin_auth::{
-    AdminAuthError, AdminAuthErrorKind, AdminOperation, AdminRequestAuthorizer,
+    AdminAccessContext, AdminAuthError, AdminAuthErrorKind, AdminOperation, AdminRequestAuthorizer,
     HeaderRoleAdminAuthorizer,
 };
 pub use admin_service::AdminServiceHandler;

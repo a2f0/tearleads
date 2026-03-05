@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use tearleads_api_v2::{
-    AdminAuthError, AdminAuthErrorKind, AdminOperation, AdminRequestAuthorizer,
+    AdminAccessContext, AdminAuthError, AdminAuthErrorKind, AdminOperation, AdminRequestAuthorizer,
 };
 use tearleads_data_access_traits::{
     BoxFuture, DataAccessError, PostgresAdminReadRepository, PostgresColumnInfo,
@@ -12,14 +12,14 @@ use tonic::{Response, Status};
 
 #[derive(Debug, Clone)]
 pub(crate) struct FakeAuthorizer {
-    outcome: Result<(), AdminAuthError>,
+    outcome: Result<AdminAccessContext, AdminAuthError>,
     pub(crate) calls: Arc<Mutex<Vec<AdminOperation>>>,
 }
 
 impl FakeAuthorizer {
     pub(crate) fn allow_all() -> Self {
         Self {
-            outcome: Ok(()),
+            outcome: Ok(AdminAccessContext::root()),
             calls: Arc::new(Mutex::new(Vec::new())),
         }
     }
@@ -38,7 +38,7 @@ impl AdminRequestAuthorizer for FakeAuthorizer {
         &self,
         operation: AdminOperation,
         _metadata: &tonic::metadata::MetadataMap,
-    ) -> Result<(), AdminAuthError> {
+    ) -> Result<AdminAccessContext, AdminAuthError> {
         lock_or_recover(&self.calls).push(operation);
         self.outcome.clone()
     }
