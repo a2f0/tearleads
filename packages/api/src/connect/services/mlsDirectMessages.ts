@@ -53,10 +53,7 @@ export async function sendGroupMessageDirectTyped(
   if (
     payload.ciphertext.length === 0 ||
     !Number.isInteger(payload.epoch) ||
-    payload.epoch < 0 ||
-    (payload.messageType !== 'application' &&
-      payload.messageType !== 'commit' &&
-      payload.messageType !== 'proposal')
+    payload.epoch < 0
   ) {
     throw new ConnectError('Invalid message payload', Code.InvalidArgument);
   }
