@@ -12,6 +12,7 @@ import {
   validateAndroidKeystore,
   validateAndroidKeystoreBase64
 } from '../../../../../scripts/lib/androidKeystore.ts';
+import { sortSecrets } from '../../../../../scripts/lib/sortSecrets.ts';
 import {
   ensureVaultAuth as ensureVaultAuthShared,
   resolveKeystoreCredentials,
@@ -191,9 +192,8 @@ function main(): void {
   }
   process.stdout.write('\n');
 
-  const sortScript = resolve(repoRoot, 'scripts/sortSecrets.sh');
   process.stdout.write('==> Sorting secret env files before migration\n');
-  execFileSync(sortScript, { cwd: repoRoot, stdio: 'inherit' });
+  sortSecrets(options.secretsDir);
 
   let newCount = 0;
   let updatedCount = 0;
