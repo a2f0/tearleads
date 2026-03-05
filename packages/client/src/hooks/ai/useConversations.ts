@@ -33,36 +33,30 @@ import {
   getSessionKey,
   toISOString
 } from './conversationDb';
+import { loadDecryptedConversations } from './conversationQuery';
+import {
+  clearLastConversationId,
+  readLastConversationId,
+  saveLastConversationId
+} from './conversationResumeStorage';
+import { useConversationBootstrap } from './useConversationBootstrap';
+import type {
+  UseConversationsOptions,
+  UseConversationsResult
+} from './useConversationsTypes';
 
-interface UseConversationsResult {
-  conversations: DecryptedAiConversation[];
-  loading: boolean;
-  error: string | null;
-
-  currentConversationId: string | null;
-  currentMessages: DecryptedAiMessage[];
-  currentSessionKey: Uint8Array | null;
-  messagesLoading: boolean;
-
-  createConversation: (firstMessage?: string) => Promise<string>;
-  selectConversation: (id: string | null) => Promise<void>;
-  renameConversation: (id: string, title: string) => Promise<void>;
-  deleteConversation: (id: string) => Promise<void>;
-  addMessage: (
-    role: 'user' | 'assistant',
-    content: string,
-    modelId?: string
-  ) => Promise<void>;
-
-  refetch: () => Promise<void>;
-  clearCurrentConversation: () => void;
-}
-
-export function useConversations(): UseConversationsResult {
+export function useConversations(
+  options: UseConversationsOptions = {}
+): UseConversationsResult {
+  const {
+    autoStart = false,
+    resumeLastConversation = false,
+    instanceId
+  } = options;
   const [conversations, setConversations] = useState<DecryptedAiConversation[]>(
     []
   );
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [currentConversationId, setCurrentConversationId] = useState<
@@ -90,59 +84,7 @@ export function useConversations(): UseConversationsResult {
     setError(null);
 
     try {
-      const db = getDatabase();
-      const rows = await db
-        .select({
-          id: aiConversations.id,
-          encryptedTitle: aiConversations.encryptedTitle,
-          modelId: aiConversations.modelId,
-          messageCount: aiConversations.messageCount,
-          createdAt: aiConversations.createdAt,
-          updatedAt: aiConversations.updatedAt,
-          encryptedSessionKey: vfsRegistry.encryptedSessionKey
-        })
-        .from(aiConversations)
-        .innerJoin(vfsRegistry, eq(aiConversations.id, vfsRegistry.id))
-        .orderBy(desc(aiConversations.updatedAt));
-
-      const decrypted: DecryptedAiConversation[] = [];
-
-      for (const row of rows) {
-        try {
-          if (row.encryptedSessionKey) {
-            const sk = await getSessionKey(row.id, row.encryptedSessionKey);
-            const title = await decryptContent(row.encryptedTitle, sk);
-            decrypted.push({
-              id: row.id,
-              title,
-              modelId: row.modelId,
-              messageCount: row.messageCount,
-              createdAt: toISOString(row.createdAt),
-              updatedAt: toISOString(row.updatedAt)
-            });
-          } else {
-            decrypted.push({
-              id: row.id,
-              title: '[Encrypted]',
-              modelId: row.modelId,
-              messageCount: row.messageCount,
-              createdAt: toISOString(row.createdAt),
-              updatedAt: toISOString(row.updatedAt)
-            });
-          }
-        } catch (e) {
-          console.error(`Failed to decrypt conversation ${row.id}:`, e);
-          decrypted.push({
-            id: row.id,
-            title: '[Encrypted]',
-            modelId: row.modelId,
-            messageCount: row.messageCount,
-            createdAt: toISOString(row.createdAt),
-            updatedAt: toISOString(row.updatedAt)
-          });
-        }
-      }
-
+      const decrypted = await loadDecryptedConversations();
       if (mountedRef.current) {
         setConversations(decrypted);
       }
@@ -162,6 +104,13 @@ export function useConversations(): UseConversationsResult {
   useEffect(() => {
     void fetchConversations();
   }, [fetchConversations]);
+
+  useEffect(() => {
+    if (!resumeLastConversation || !currentConversationId) {
+      return;
+    }
+    saveLastConversationId(currentConversationId, instanceId);
+  }, [currentConversationId, instanceId, resumeLastConversation]);
 
   const createConversation = useCallback(
     async (firstMessage?: string): Promise<string> => {
@@ -202,18 +151,6 @@ export function useConversations(): UseConversationsResult {
 
       cacheSessionKey(conversationId, sessionKey);
 
-      await queueItemUpsertAndFlush({
-        itemId: conversationId,
-        objectType: 'conversation',
-        payload: {
-          encryptedTitle,
-          modelId: null,
-          messages: [],
-          updatedAt: now.toISOString()
-        },
-        encryptedSessionKey
-      });
-
       const decrypted: DecryptedAiConversation = {
         id: conversationId,
         title,
@@ -228,9 +165,30 @@ export function useConversations(): UseConversationsResult {
       setCurrentMessages([]);
       setCurrentSessionKey(sessionKey);
 
+      if (resumeLastConversation) {
+        saveLastConversationId(conversationId, instanceId);
+      }
+
+      void queueItemUpsertAndFlush({
+        itemId: conversationId,
+        objectType: 'conversation',
+        payload: {
+          encryptedTitle,
+          modelId: null,
+          messages: [],
+          updatedAt: now.toISOString()
+        },
+        encryptedSessionKey
+      }).catch((syncError) => {
+        console.warn(
+          'Conversation created locally but background sync failed:',
+          syncError
+        );
+      });
+
       return conversationId;
     },
-    []
+    [instanceId, resumeLastConversation]
   );
 
   const selectConversation = useCallback(
@@ -239,6 +197,9 @@ export function useConversations(): UseConversationsResult {
         setCurrentConversationId(null);
         setCurrentMessages([]);
         setCurrentSessionKey(null);
+        if (resumeLastConversation) {
+          clearLastConversationId(instanceId);
+        }
         return;
       }
 
@@ -302,8 +263,25 @@ export function useConversations(): UseConversationsResult {
         }
       }
     },
-    []
+    [instanceId, resumeLastConversation]
   );
+
+  useConversationBootstrap({
+    autoStart,
+    resumeLastConversation,
+    instanceId,
+    loading,
+    messagesLoading,
+    currentConversationId,
+    conversations,
+    createConversation,
+    selectConversation,
+    setInitializationError: (message: string) => {
+      if (mountedRef.current) {
+        setError(message);
+      }
+    }
+  });
 
   const renameConversation = useCallback(
     async (id: string, title: string): Promise<void> => {
@@ -370,9 +348,31 @@ export function useConversations(): UseConversationsResult {
         setCurrentConversationId(null);
         setCurrentMessages([]);
         setCurrentSessionKey(null);
+        if (resumeLastConversation) {
+          const fallbackConversationId =
+            conversations.find((conversation) => conversation.id !== id)?.id ??
+            null;
+          if (fallbackConversationId) {
+            saveLastConversationId(fallbackConversationId, instanceId);
+          } else {
+            clearLastConversationId(instanceId);
+          }
+        }
+        return;
+      }
+
+      if (resumeLastConversation) {
+        const savedConversationId = readLastConversationId(instanceId);
+        if (savedConversationId === id) {
+          if (currentConversationId) {
+            saveLastConversationId(currentConversationId, instanceId);
+          } else {
+            clearLastConversationId(instanceId);
+          }
+        }
       }
     },
-    [currentConversationId]
+    [conversations, currentConversationId, instanceId, resumeLastConversation]
   );
 
   const addMessage = useCallback(
