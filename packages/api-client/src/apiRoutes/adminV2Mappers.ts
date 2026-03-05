@@ -17,8 +17,8 @@ import type {
 import type {
   AdminGetColumnsResponse,
   AdminGetContextResponse,
-  AdminGetGroupResponse,
   AdminGetGroupMembersResponse,
+  AdminGetGroupResponse,
   AdminGetOrganizationResponse,
   AdminGetOrgGroupsResponse,
   AdminGetPostgresInfoResponse,
