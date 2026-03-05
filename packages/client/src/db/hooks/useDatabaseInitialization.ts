@@ -70,7 +70,7 @@ export async function initializeAndRestoreDatabaseState({
     let stepStart = performance.now();
     let activeInstance = await initializeRegistry();
     let allInstances = await getInstances();
-    console.debug(
+    logStore.debug(
       `[db] registry init: ${(performance.now() - stepStart).toFixed(1)}ms`
     );
 
@@ -116,7 +116,7 @@ export async function initializeAndRestoreDatabaseState({
     setCurrentInstanceName(activeInstance.name);
     emitInstanceChange(activeInstance.id);
 
-    console.debug(
+    logStore.debug(
       `[db] validate & prune: ${(performance.now() - stepStart).toFixed(1)}ms`
     );
 
@@ -128,7 +128,7 @@ export async function initializeAndRestoreDatabaseState({
     ]);
     setIsSetUp(setup);
     setHasPersisted(persisted);
-    console.debug(
+    logStore.debug(
       `[db] check state: ${(performance.now() - stepStart).toFixed(1)}ms`
     );
 
@@ -170,7 +170,7 @@ export async function initializeAndRestoreDatabaseState({
   } catch (err) {
     setError(toError(err));
   } finally {
-    console.debug(
+    logStore.debug(
       `[db] initializeAndRestoreDatabaseState total: ${(performance.now() - initStart).toFixed(1)}ms`
     );
     databaseSetupProgressStore.finish();
