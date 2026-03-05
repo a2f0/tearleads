@@ -156,7 +156,7 @@ export interface AdminV2Client {
     request: { key: string },
     options?: AdminV2CallOptions
   ): Promise<AdminV2RedisValueResponseLike>;
-  deleteRedisKey?(
+  deleteRedisKey(
     request: { key: string },
     options?: AdminV2CallOptions
   ): Promise<{ deleted: boolean }>;
@@ -465,11 +465,6 @@ export function createAdminV2Routes(
       deleteKey: (key: string) =>
         runWithEvent(dependencies, 'api_delete_admin_redis_key', async () => {
           const { client, callOptions } = await buildCallContext(dependencies);
-          if (!client.deleteRedisKey) {
-            throw new Error(
-              'DeleteRedisKey is not supported by this AdminService client'
-            );
-          }
           return client.deleteRedisKey(
             createAdminDeleteRedisKeyRequest(key),
             callOptions
