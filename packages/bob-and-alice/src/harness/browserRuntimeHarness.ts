@@ -82,8 +82,16 @@ const vfsExplorerLocalMigrations: Migration[] = [
 interface LocalRegistryRow {
   id: string;
   objectType: string;
+  encryptedName: string | null;
   ownerId: string | null;
   createdAt: number;
+}
+
+interface LocalItemStateRow {
+  itemId: string;
+  encryptedPayload: string | null;
+  updatedAt: number;
+  deletedAt: number | null;
 }
 
 interface LocalAclRow {
@@ -191,9 +199,11 @@ export async function refreshLocalStateFromApi(input: {
   const crdtItems = await fetchAllCrdtItems(input.actor);
 
   const registryById = new Map<string, LocalRegistryRow>();
+  const itemStateById = new Map<string, LocalItemStateRow>();
   for (const item of syncItems) {
     if (item.changeType === 'delete') {
       registryById.delete(item.itemId);
+      itemStateById.delete(item.itemId);
       continue;
     }
     if (!item.objectType) {
@@ -202,6 +212,8 @@ export async function refreshLocalStateFromApi(input: {
     registryById.set(item.itemId, {
       id: item.itemId,
       objectType: item.objectType,
+      encryptedName:
+        typeof item.encryptedName === 'string' ? item.encryptedName : null,
       ownerId: item.ownerId,
       createdAt: parseMillis(item.createdAt)
     });
@@ -209,6 +221,31 @@ export async function refreshLocalStateFromApi(input: {
 
   const aclByPrincipal = new Map<string, LocalAclRow>();
   for (const item of crdtItems) {
+    const occurredAt = parseMillis(item.occurredAt);
+    if (item.opType === 'item_upsert') {
+      if (!registryById.has(item.itemId)) {
+        continue;
+      }
+      itemStateById.set(item.itemId, {
+        itemId: item.itemId,
+        encryptedPayload: item.encryptedPayload ?? null,
+        updatedAt: occurredAt,
+        deletedAt: null
+      });
+      continue;
+    }
+    if (item.opType === 'item_delete') {
+      if (!registryById.has(item.itemId)) {
+        continue;
+      }
+      itemStateById.set(item.itemId, {
+        itemId: item.itemId,
+        encryptedPayload: null,
+        updatedAt: occurredAt,
+        deletedAt: occurredAt
+      });
+      continue;
+    }
     if (item.opType !== 'acl_add' && item.opType !== 'acl_remove') {
       continue;
     }
@@ -230,15 +267,31 @@ export async function refreshLocalStateFromApi(input: {
       principalId: item.principalId,
       accessLevel: item.accessLevel,
       grantedBy: item.actorId,
-      occurredAt: parseMillis(item.occurredAt)
+      occurredAt
     });
   }
+
+  const noteRows = Array.from(registryById.values())
+    .filter((entry) => entry.objectType === 'note')
+    .map((entry) => {
+      const itemState = itemStateById.get(entry.id);
+      const title =
+        entry.encryptedName !== null && entry.encryptedName.trim().length > 0
+          ? entry.encryptedName
+          : 'Untitled Note';
+      return {
+        id: entry.id,
+        title,
+        deleted: itemState ? (itemState.deletedAt === null ? 0 : 1) : 0
+      };
+    });
 
   await input.localDb.adapter.execute('PRAGMA foreign_keys = OFF');
   await input.localDb.adapter.execute('BEGIN');
   try {
     await input.localDb.adapter.execute(`DELETE FROM vfs_acl_entries`);
     await input.localDb.adapter.execute(`DELETE FROM users`);
+    await input.localDb.adapter.execute(`DELETE FROM notes`);
     await input.localDb.adapter.execute(`DELETE FROM vfs_registry`);
 
     for (const user of input.knownUsers) {
@@ -252,7 +305,20 @@ export async function refreshLocalStateFromApi(input: {
       await input.localDb.adapter.execute(
         `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at)
          VALUES (?, ?, ?, ?, ?)`,
-        [item.id, item.objectType, item.ownerId, null, item.createdAt]
+        [
+          item.id,
+          item.objectType,
+          item.ownerId,
+          item.encryptedName,
+          item.createdAt
+        ]
+      );
+    }
+
+    for (const note of noteRows) {
+      await input.localDb.adapter.execute(
+        `INSERT INTO notes (id, title, deleted) VALUES (?, ?, ?)`,
+        [note.id, note.title, note.deleted]
       );
     }
 
