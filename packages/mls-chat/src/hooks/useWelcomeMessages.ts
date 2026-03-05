@@ -3,12 +3,16 @@
  * Handles pending group invitations.
  */
 
-import type { MlsWelcomeMessage } from '@tearleads/shared';
+import type {
+  MlsWelcomeMessage,
+  MlsWelcomeMessagesResponse
+} from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useMlsChatApi } from '../context/index.js';
 import type { MlsClient } from '../lib/index.js';
 import { uploadGroupStateSnapshot } from './groupStateSync.js';
+import { requestMlsRpc } from './mlsConnectRpc.js';
 
 interface UseWelcomeMessagesResult {
   welcomeMessages: MlsWelcomeMessage[];
@@ -34,23 +38,12 @@ export function useWelcomeMessages(
     setError(null);
 
     try {
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      const authValue = getAuthHeader?.();
-      if (authValue) {
-        headers['Authorization'] = authValue;
-      }
-
-      const response = await fetch(`${apiBaseUrl}/mls/welcome-messages`, {
-        headers
+      const data = await requestMlsRpc<MlsWelcomeMessagesResponse>({
+        context: { apiBaseUrl, getAuthHeader },
+        method: 'GetWelcomeMessages',
+        requestBody: {},
+        errorMessage: 'Failed to fetch welcome messages'
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch welcome messages');
-      }
-
-      const data = (await response.json()) as {
-        welcomes: MlsWelcomeMessage[];
-      };
       setWelcomeMessages(data.welcomes);
     } catch (err) {
       setError(
@@ -101,23 +94,15 @@ export function useWelcomeMessages(
         }
 
         // Acknowledge the welcome
-        const headers: HeadersInit = { 'Content-Type': 'application/json' };
-        const authValue = getAuthHeader?.();
-        if (authValue) {
-          headers['Authorization'] = authValue;
-        }
-
-        const response = await fetch(
-          `${apiBaseUrl}/mls/welcome-messages/${welcomeId}/ack`,
-          {
-            method: 'POST',
-            headers
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error('Failed to acknowledge welcome');
-        }
+        await requestMlsRpc<unknown>({
+          context: { apiBaseUrl, getAuthHeader },
+          method: 'AcknowledgeWelcome',
+          requestBody: {
+            id: welcomeId,
+            json: JSON.stringify({ groupId: welcome.groupId })
+          },
+          errorMessage: 'Failed to acknowledge welcome'
+        });
 
         // Remove from local state
         setWelcomeMessages((prev) => prev.filter((w) => w.id !== welcomeId));

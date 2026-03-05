@@ -3,7 +3,11 @@
  * Handles listing, creating, and managing group membership.
  */
 
-import type { MlsGroup } from '@tearleads/shared';
+import type {
+  CreateMlsGroupResponse,
+  MlsGroup,
+  MlsGroupsResponse
+} from '@tearleads/shared';
 import { MLS_CIPHERSUITES } from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -13,6 +17,7 @@ import {
   recoverMissingGroupState,
   uploadGroupStateSnapshot
 } from './groupStateSync.js';
+import { requestMlsRpc } from './mlsConnectRpc.js';
 
 interface UseGroupsResult {
   groups: ActiveGroup[];
@@ -35,21 +40,12 @@ export function useGroups(client: MlsClient | null): UseGroupsResult {
     setError(null);
 
     try {
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      const authValue = getAuthHeader?.();
-      if (authValue) {
-        headers['Authorization'] = authValue;
-      }
-
-      const response = await fetch(`${apiBaseUrl}/mls/groups`, {
-        headers
+      const data = await requestMlsRpc<MlsGroupsResponse>({
+        context: { apiBaseUrl, getAuthHeader },
+        method: 'ListGroups',
+        requestBody: {},
+        errorMessage: 'Failed to fetch groups'
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch groups');
-      }
-
-      const data = (await response.json()) as { groups: MlsGroup[] };
 
       if (client) {
         await Promise.all(
@@ -102,12 +98,6 @@ export function useGroups(client: MlsClient | null): UseGroupsResult {
         throw new Error('MLS client not initialized');
       }
 
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      const authValue = getAuthHeader?.();
-      if (authValue) {
-        headers['Authorization'] = authValue;
-      }
-
       // Create group on server first to get the group ID
       const groupIdMls = client.generateGroupIdMls();
       const body: {
@@ -124,17 +114,12 @@ export function useGroups(client: MlsClient | null): UseGroupsResult {
         body.description = description;
       }
 
-      const response = await fetch(`${apiBaseUrl}/mls/groups`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body)
+      const data = await requestMlsRpc<CreateMlsGroupResponse>({
+        context: { apiBaseUrl, getAuthHeader },
+        method: 'CreateGroup',
+        requestBody: { json: JSON.stringify(body) },
+        errorMessage: 'Failed to create group'
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to create group');
-      }
-
-      const data = (await response.json()) as { group: MlsGroup };
 
       // Initialize MLS group state locally
       await client.createGroup(data.group.id);
@@ -172,20 +157,12 @@ export function useGroups(client: MlsClient | null): UseGroupsResult {
 
   const leaveGroup = useCallback(
     async (groupId: string) => {
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      const authValue = getAuthHeader?.();
-      if (authValue) {
-        headers['Authorization'] = authValue;
-      }
-
-      const response = await fetch(`${apiBaseUrl}/mls/groups/${groupId}`, {
-        method: 'DELETE',
-        headers
+      await requestMlsRpc<unknown>({
+        context: { apiBaseUrl, getAuthHeader },
+        method: 'DeleteGroup',
+        requestBody: { groupId },
+        errorMessage: 'Failed to leave group'
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to leave group');
-      }
 
       // Clean up local state
       if (client) {

@@ -3,11 +3,12 @@
  * Handles fetching, decrypting, and sending encrypted messages.
  */
 
-import type { MlsMessage } from '@tearleads/shared';
+import type { MlsMessage, MlsMessagesResponse } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useMlsChatApi, useMlsChatUser } from '../context/index.js';
 import type { DecryptedMessage, MlsClient } from '../lib/index.js';
+import { requestMlsRpc } from './mlsConnectRpc.js';
 
 interface UseGroupMessagesResult {
   messages: DecryptedMessage[];
@@ -85,31 +86,20 @@ export function useGroupMessages(
       setError(null);
 
       try {
-        const headers: HeadersInit = { 'Content-Type': 'application/json' };
-        const authValue = getAuthHeader?.();
-        if (authValue) {
-          headers['Authorization'] = authValue;
-        }
-
-        const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
-        if (cursor) {
-          params.set('cursor', cursor);
-        }
-
-        const response = await fetch(
-          `${apiBaseUrl}/mls/groups/${groupId}/messages?${params}`,
-          { headers }
-        );
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch messages');
-        }
-
-        const data = (await response.json()) as {
-          messages: MlsMessage[];
-          hasMore: boolean;
-          cursor?: string;
+        const requestBody: Record<string, unknown> = {
+          groupId,
+          limit: PAGE_SIZE
         };
+        if (cursor) {
+          requestBody['cursor'] = cursor;
+        }
+
+        const data = await requestMlsRpc<MlsMessagesResponse>({
+          context: { apiBaseUrl, getAuthHeader },
+          method: 'GetGroupMessages',
+          requestBody,
+          errorMessage: 'Failed to fetch messages'
+        });
 
         // Decrypt all messages
         const decrypted = await Promise.all(data.messages.map(decryptMessage));
@@ -153,18 +143,12 @@ export function useGroupMessages(
           throw new Error('Group state not initialized');
         }
 
-        const headers: HeadersInit = { 'Content-Type': 'application/json' };
-        const authValue = getAuthHeader?.();
-        if (authValue) {
-          headers['Authorization'] = authValue;
-        }
-
-        const response = await fetch(
-          `${apiBaseUrl}/mls/groups/${groupId}/messages`,
-          {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
+        const data = await requestMlsRpc<{ message: MlsMessage }>({
+          context: { apiBaseUrl, getAuthHeader },
+          method: 'SendGroupMessage',
+          requestBody: {
+            groupId,
+            json: JSON.stringify({
               ciphertext: btoa(
                 String.fromCharCode.apply(null, Array.from(ciphertext))
               ),
@@ -172,14 +156,9 @@ export function useGroupMessages(
               epoch,
               messageType: 'application'
             })
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error('Failed to send message');
-        }
-
-        const data = (await response.json()) as { message: MlsMessage };
+          },
+          errorMessage: 'Failed to send message'
+        });
 
         // Add the sent message optimistically (we know the plaintext)
         const newMessage: DecryptedMessage = {

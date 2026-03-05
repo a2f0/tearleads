@@ -3,12 +3,18 @@
  * Handles adding and removing members from MLS groups.
  */
 
-import type { MlsGroupMember, MlsKeyPackage } from '@tearleads/shared';
+import type {
+  AddMlsMemberResponse,
+  MlsGroupMember,
+  MlsGroupMembersResponse,
+  MlsKeyPackagesResponse
+} from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useMlsChatApi } from '../context/index.js';
 import type { MlsClient } from '../lib/index.js';
 import { uploadGroupStateSnapshot } from './groupStateSync.js';
+import { requestMlsRpc } from './mlsConnectRpc.js';
 
 interface UseGroupMembersResult {
   members: MlsGroupMember[];
@@ -36,24 +42,12 @@ export function useGroupMembers(
     setError(null);
 
     try {
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      const authValue = getAuthHeader?.();
-      if (authValue) {
-        headers['Authorization'] = authValue;
-      }
-
-      const response = await fetch(
-        `${apiBaseUrl}/mls/groups/${groupId}/members`,
-        {
-          headers
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch members');
-      }
-
-      const data = (await response.json()) as { members: MlsGroupMember[] };
+      const data = await requestMlsRpc<MlsGroupMembersResponse>({
+        context: { apiBaseUrl, getAuthHeader },
+        method: 'GetGroupMembers',
+        requestBody: { groupId },
+        errorMessage: 'Failed to fetch members'
+      });
       setMembers(data.members);
     } catch (err) {
       setError(
@@ -70,27 +64,13 @@ export function useGroupMembers(
         throw new Error('Group or client not initialized');
       }
 
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      const authValue = getAuthHeader?.();
-      if (authValue) {
-        headers['Authorization'] = authValue;
-      }
-
       // Fetch a key package for the user to add
-      const kpResponse = await fetch(
-        `${apiBaseUrl}/mls/key-packages/${userId}`,
-        {
-          headers
-        }
-      );
-
-      if (!kpResponse.ok) {
-        throw new Error('User has no available key packages');
-      }
-
-      const kpData = (await kpResponse.json()) as {
-        keyPackages: MlsKeyPackage[];
-      };
+      const kpData = await requestMlsRpc<MlsKeyPackagesResponse>({
+        context: { apiBaseUrl, getAuthHeader },
+        method: 'GetUserKeyPackages',
+        requestBody: { userId },
+        errorMessage: 'User has no available key packages'
+      });
       const keyPackage = kpData.keyPackages[0];
       if (!keyPackage) {
         throw new Error('User has no available key packages');
@@ -111,24 +91,21 @@ export function useGroupMembers(
       }
 
       // Send to server
-      const response = await fetch(
-        `${apiBaseUrl}/mls/groups/${groupId}/members`,
-        {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
+      await requestMlsRpc<AddMlsMemberResponse>({
+        context: { apiBaseUrl, getAuthHeader },
+        method: 'AddGroupMember',
+        requestBody: {
+          groupId,
+          json: JSON.stringify({
             userId,
             keyPackageRef: keyPackage.keyPackageRef,
             commit: btoa(String.fromCharCode.apply(null, Array.from(commit))),
             welcome: btoa(String.fromCharCode.apply(null, Array.from(welcome))),
             newEpoch
           })
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to add member');
-      }
+        },
+        errorMessage: 'Failed to add member'
+      });
 
       try {
         await uploadGroupStateSnapshot({
@@ -161,12 +138,6 @@ export function useGroupMembers(
         throw new Error('Member not found or leaf index unknown');
       }
 
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      const authValue = getAuthHeader?.();
-      if (authValue) {
-        headers['Authorization'] = authValue;
-      }
-
       // Generate MLS remove commit
       const { commit, newEpoch } = await client.removeMember(
         groupId,
@@ -177,21 +148,19 @@ export function useGroupMembers(
       }
 
       // Send to server
-      const response = await fetch(
-        `${apiBaseUrl}/mls/groups/${groupId}/members/${userId}`,
-        {
-          method: 'DELETE',
-          headers,
-          body: JSON.stringify({
+      await requestMlsRpc<unknown>({
+        context: { apiBaseUrl, getAuthHeader },
+        method: 'RemoveGroupMember',
+        requestBody: {
+          groupId,
+          userId,
+          json: JSON.stringify({
             commit: btoa(String.fromCharCode.apply(null, Array.from(commit))),
             newEpoch
           })
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to remove member');
-      }
+        },
+        errorMessage: 'Failed to remove member'
+      });
 
       try {
         await uploadGroupStateSnapshot({
