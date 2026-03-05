@@ -1,8 +1,3 @@
-import type {
-  MlsGroup,
-  MlsGroupMember,
-  MlsKeyPackage
-} from '@tearleads/shared';
 import {
   addGroupMemberDirect,
   addGroupMemberDirectTyped,
@@ -13,16 +8,25 @@ import {
 } from './mlsDirectGroupMembers.js';
 import {
   createGroupDirect,
+  createGroupDirectTyped,
   deleteGroupDirect,
+  deleteGroupDirectTyped,
   getGroupDirect,
+  getGroupDirectTyped,
   listGroupsDirect,
-  updateGroupDirect
+  listGroupsDirectTyped,
+  updateGroupDirect,
+  updateGroupDirectTyped
 } from './mlsDirectGroups.js';
 import {
   deleteKeyPackageDirect,
+  deleteKeyPackageDirectTyped,
   getMyKeyPackagesDirect,
+  getMyKeyPackagesDirectTyped,
   getUserKeyPackagesDirect,
-  uploadKeyPackagesDirect
+  getUserKeyPackagesDirectTyped,
+  uploadKeyPackagesDirect,
+  uploadKeyPackagesDirectTyped
 } from './mlsDirectKeyPackages.js';
 import {
   getGroupMessagesDirect,
@@ -55,7 +59,6 @@ import type {
 import {
   fromProtoCipherSuite,
   fromProtoMessageType,
-  parseDirectJson,
   toProtoGroup,
   toProtoGroupState,
   toProtoKeyPackage,
@@ -171,29 +174,21 @@ export const mlsConnectServiceV2 = {
     request: V2UploadKeyPackagesRequest,
     context: HeaderContext
   ) => {
-    const directResult = await uploadKeyPackagesDirect(
+    const data = await uploadKeyPackagesDirectTyped(
       {
-        json: JSON.stringify({
-          keyPackages: request.keyPackages.map((kp) => ({
-            keyPackageData: kp.keyPackageData,
-            keyPackageRef: kp.keyPackageRef,
-            cipherSuite: fromProtoCipherSuite(kp.cipherSuite)
-          }))
-        })
+        keyPackages: request.keyPackages.map((kp) => ({
+          keyPackageData: kp.keyPackageData,
+          keyPackageRef: kp.keyPackageRef,
+          cipherSuite: fromProtoCipherSuite(kp.cipherSuite)
+        }))
       },
       context
-    );
-    const data = parseDirectJson<{ keyPackages: MlsKeyPackage[] }>(
-      directResult
     );
     return { keyPackages: data.keyPackages.map(toProtoKeyPackage) };
   },
 
   getMyKeyPackages: async (_request: object, context: HeaderContext) => {
-    const directResult = await getMyKeyPackagesDirect({}, context);
-    const data = parseDirectJson<{ keyPackages: MlsKeyPackage[] }>(
-      directResult
-    );
+    const data = await getMyKeyPackagesDirectTyped({}, context);
     return { keyPackages: data.keyPackages.map(toProtoKeyPackage) };
   },
 
@@ -201,15 +196,12 @@ export const mlsConnectServiceV2 = {
     request: UserIdRequest,
     context: HeaderContext
   ) => {
-    const directResult = await getUserKeyPackagesDirect(request, context);
-    const data = parseDirectJson<{ keyPackages: MlsKeyPackage[] }>(
-      directResult
-    );
+    const data = await getUserKeyPackagesDirectTyped(request, context);
     return { keyPackages: data.keyPackages.map(toProtoKeyPackage) };
   },
 
   deleteKeyPackage: async (request: MlsIdRequest, context: HeaderContext) => {
-    await deleteKeyPackageDirect(request, context);
+    await deleteKeyPackageDirectTyped(request, context);
     return {};
   },
 
@@ -217,33 +209,23 @@ export const mlsConnectServiceV2 = {
     request: V2CreateGroupRequest,
     context: HeaderContext
   ) => {
-    const directResult = await createGroupDirect(
-      {
-        json: JSON.stringify({
-          name: request.name,
-          description: request.description || undefined,
-          groupIdMls: request.groupIdMls,
-          cipherSuite: fromProtoCipherSuite(request.cipherSuite)
-        })
-      },
-      context
-    );
-    const data = parseDirectJson<{ group: MlsGroup }>(directResult);
+    const directRequest = {
+      name: request.name,
+      ...(request.description ? { description: request.description } : {}),
+      groupIdMls: request.groupIdMls,
+      cipherSuite: fromProtoCipherSuite(request.cipherSuite)
+    };
+    const data = await createGroupDirectTyped(directRequest, context);
     return { group: toProtoGroup(data.group) };
   },
 
   listGroups: async (_request: object, context: HeaderContext) => {
-    const directResult = await listGroupsDirect({}, context);
-    const data = parseDirectJson<{ groups: MlsGroup[] }>(directResult);
+    const data = await listGroupsDirectTyped({}, context);
     return { groups: data.groups.map(toProtoGroup) };
   },
 
   getGroup: async (request: GroupIdRequest, context: HeaderContext) => {
-    const directResult = await getGroupDirect(request, context);
-    const data = parseDirectJson<{
-      group: MlsGroup;
-      members: MlsGroupMember[];
-    }>(directResult);
+    const data = await getGroupDirectTyped(request, context);
     return {
       group: toProtoGroup(data.group),
       members: data.members.map(toProtoMember)
@@ -254,22 +236,17 @@ export const mlsConnectServiceV2 = {
     request: V2UpdateGroupRequest,
     context: HeaderContext
   ) => {
-    const directResult = await updateGroupDirect(
-      {
-        groupId: request.groupId,
-        json: JSON.stringify({
-          name: request.name || undefined,
-          description: request.description || undefined
-        })
-      },
-      context
-    );
-    const data = parseDirectJson<{ group: MlsGroup }>(directResult);
+    const directRequest = {
+      groupId: request.groupId,
+      ...(request.name ? { name: request.name } : {}),
+      ...(request.description ? { description: request.description } : {})
+    };
+    const data = await updateGroupDirectTyped(directRequest, context);
     return { group: toProtoGroup(data.group) };
   },
 
   deleteGroup: async (request: GroupIdRequest, context: HeaderContext) => {
-    await deleteGroupDirect(request, context);
+    await deleteGroupDirectTyped(request, context);
     return {};
   },
 

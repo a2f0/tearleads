@@ -3,6 +3,7 @@ import { Code, ConnectError } from '@connectrpc/connect';
 import type {
   MlsKeyPackage,
   MlsKeyPackagesResponse,
+  UploadMlsKeyPackagesRequest,
   UploadMlsKeyPackagesResponse
 } from '@tearleads/shared';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
@@ -14,6 +15,7 @@ import {
 
 type UserIdRequest = { userId: string };
 type MlsIdRequest = { id: string };
+type UploadKeyPackagesJsonRequest = { json: string };
 type UploadInsertRow = {
   id: string;
   key_package_data: string;
@@ -42,15 +44,15 @@ function toIsoString(value: Date | string): string {
   return value;
 }
 
-export async function uploadKeyPackagesDirect(
-  request: { json: string },
+export async function uploadKeyPackagesDirectTyped(
+  request: UploadMlsKeyPackagesRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<UploadMlsKeyPackagesResponse> {
   const claims = await requireMlsClaims(
     '/mls/key-packages',
     context.requestHeader
   );
-  const payload = parseUploadKeyPackagesPayload(parseJsonBody(request.json));
+  const payload = parseUploadKeyPackagesPayload(request);
   if (!payload) {
     throw new ConnectError(
       'Invalid key packages payload',
@@ -112,10 +114,7 @@ export async function uploadKeyPackagesDirect(
       consumed: false
     }));
 
-    const response: UploadMlsKeyPackagesResponse = {
-      keyPackages: uploadedPackages
-    };
-    return { json: JSON.stringify(response) };
+    return { keyPackages: uploadedPackages };
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -125,10 +124,25 @@ export async function uploadKeyPackagesDirect(
   }
 }
 
-export async function getMyKeyPackagesDirect(
-  _request: object,
+export async function uploadKeyPackagesDirect(
+  request: UploadKeyPackagesJsonRequest,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
+  const payload = parseUploadKeyPackagesPayload(parseJsonBody(request.json));
+  if (!payload) {
+    throw new ConnectError(
+      'Invalid key packages payload',
+      Code.InvalidArgument
+    );
+  }
+  const response = await uploadKeyPackagesDirectTyped(payload, context);
+  return { json: JSON.stringify(response) };
+}
+
+export async function getMyKeyPackagesDirectTyped(
+  _request: object,
+  context: { requestHeader: Headers }
+): Promise<MlsKeyPackagesResponse> {
   const claims = await requireMlsClaims(
     '/mls/key-packages/me',
     context.requestHeader
@@ -161,8 +175,7 @@ export async function getMyKeyPackagesDirect(
       consumed: row.consumed_at !== null
     }));
 
-    const response: MlsKeyPackagesResponse = { keyPackages };
-    return { json: JSON.stringify(response) };
+    return { keyPackages };
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -172,10 +185,18 @@ export async function getMyKeyPackagesDirect(
   }
 }
 
-export async function getUserKeyPackagesDirect(
-  request: UserIdRequest,
+export async function getMyKeyPackagesDirect(
+  request: object,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
+  const response = await getMyKeyPackagesDirectTyped(request, context);
+  return { json: JSON.stringify(response) };
+}
+
+export async function getUserKeyPackagesDirectTyped(
+  request: UserIdRequest,
+  context: { requestHeader: Headers }
+): Promise<MlsKeyPackagesResponse> {
   const claims = await requireMlsClaims(
     `/mls/key-packages/${encoded(request.userId)}`,
     context.requestHeader
@@ -223,8 +244,7 @@ export async function getUserKeyPackagesDirect(
       consumed: false
     }));
 
-    const response: MlsKeyPackagesResponse = { keyPackages };
-    return { json: JSON.stringify(response) };
+    return { keyPackages };
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -234,10 +254,18 @@ export async function getUserKeyPackagesDirect(
   }
 }
 
-export async function deleteKeyPackageDirect(
-  request: MlsIdRequest,
+export async function getUserKeyPackagesDirect(
+  request: UserIdRequest,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
+  const response = await getUserKeyPackagesDirectTyped(request, context);
+  return { json: JSON.stringify(response) };
+}
+
+export async function deleteKeyPackageDirectTyped(
+  request: MlsIdRequest,
+  context: { requestHeader: Headers }
+): Promise<Record<string, never>> {
   const claims = await requireMlsClaims(
     `/mls/key-packages/${encoded(request.id)}`,
     context.requestHeader
@@ -258,7 +286,7 @@ export async function deleteKeyPackageDirect(
       );
     }
 
-    return { json: '{}' };
+    return {};
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -266,4 +294,12 @@ export async function deleteKeyPackageDirect(
     console.error('Failed to delete key package:', error);
     throw new ConnectError('Failed to delete key package', Code.Internal);
   }
+}
+
+export async function deleteKeyPackageDirect(
+  request: MlsIdRequest,
+  context: { requestHeader: Headers }
+): Promise<{ json: string }> {
+  await deleteKeyPackageDirectTyped(request, context);
+  return { json: '{}' };
 }

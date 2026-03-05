@@ -41,6 +41,14 @@ const {
 }));
 
 vi.mock('./mlsDirectKeyPackages.js', () => ({
+  uploadKeyPackagesDirectTyped: (...args: unknown[]) =>
+    uploadKeyPackagesDirectMock(...args),
+  getMyKeyPackagesDirectTyped: (...args: unknown[]) =>
+    getMyKeyPackagesDirectMock(...args),
+  getUserKeyPackagesDirectTyped: (...args: unknown[]) =>
+    getUserKeyPackagesDirectMock(...args),
+  deleteKeyPackageDirectTyped: (...args: unknown[]) =>
+    deleteKeyPackageDirectMock(...args),
   uploadKeyPackagesDirect: (...args: unknown[]) =>
     uploadKeyPackagesDirectMock(...args),
   getMyKeyPackagesDirect: (...args: unknown[]) =>
@@ -52,6 +60,14 @@ vi.mock('./mlsDirectKeyPackages.js', () => ({
 }));
 
 vi.mock('./mlsDirectGroups.js', () => ({
+  createGroupDirectTyped: (...args: unknown[]) =>
+    createGroupDirectMock(...args),
+  listGroupsDirectTyped: (...args: unknown[]) => listGroupsDirectMock(...args),
+  getGroupDirectTyped: (...args: unknown[]) => getGroupDirectMock(...args),
+  updateGroupDirectTyped: (...args: unknown[]) =>
+    updateGroupDirectMock(...args),
+  deleteGroupDirectTyped: (...args: unknown[]) =>
+    deleteGroupDirectMock(...args),
   createGroupDirect: (...args: unknown[]) => createGroupDirectMock(...args),
   listGroupsDirect: (...args: unknown[]) => listGroupsDirectMock(...args),
   getGroupDirect: (...args: unknown[]) => getGroupDirectMock(...args),
@@ -145,22 +161,20 @@ describe('mlsConnectServiceV2', () => {
     }
   });
 
-  it('converts typed key package request to json and parses response', async () => {
+  it('converts typed key package request and maps typed response', async () => {
     const context = createContext();
     uploadKeyPackagesDirectMock.mockResolvedValue({
-      json: JSON.stringify({
-        keyPackages: [
-          {
-            id: 'kp-1',
-            userId: 'u-1',
-            keyPackageData: 'data',
-            keyPackageRef: 'ref',
-            cipherSuite: 3,
-            createdAt: '2024-01-01T00:00:00Z',
-            consumed: false
-          }
-        ]
-      })
+      keyPackages: [
+        {
+          id: 'kp-1',
+          userId: 'u-1',
+          keyPackageData: 'data',
+          keyPackageRef: 'ref',
+          cipherSuite: 3,
+          createdAt: '2024-01-01T00:00:00Z',
+          consumed: false
+        }
+      ]
     });
 
     const result = await mlsConnectServiceV2.uploadKeyPackages(
@@ -176,32 +190,28 @@ describe('mlsConnectServiceV2', () => {
     expect(result.keyPackages[0]?.id).toBe('kp-1');
     expect(uploadKeyPackagesDirectMock).toHaveBeenCalledWith(
       {
-        json: JSON.stringify({
-          keyPackages: [
-            { keyPackageData: 'data', keyPackageRef: 'ref', cipherSuite: 3 }
-          ]
-        })
+        keyPackages: [
+          { keyPackageData: 'data', keyPackageRef: 'ref', cipherSuite: 3 }
+        ]
       },
       context
     );
   });
 
-  it('converts typed create group request and parses response', async () => {
+  it('converts typed create group request and maps typed response', async () => {
     const context = createContext();
     createGroupDirectMock.mockResolvedValue({
-      json: JSON.stringify({
-        group: {
-          id: 'g-1',
-          groupIdMls: 'mls-1',
-          name: 'Test',
-          description: null,
-          creatorUserId: 'u-1',
-          currentEpoch: 0,
-          cipherSuite: 3,
-          createdAt: '2024-01-01T00:00:00Z',
-          updatedAt: '2024-01-01T00:00:00Z'
-        }
-      })
+      group: {
+        id: 'g-1',
+        groupIdMls: 'mls-1',
+        name: 'Test',
+        description: null,
+        creatorUserId: 'u-1',
+        currentEpoch: 0,
+        cipherSuite: 3,
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z'
+      }
     });
 
     const result = await mlsConnectServiceV2.createGroup(
@@ -211,28 +221,72 @@ describe('mlsConnectServiceV2', () => {
 
     expect(result.group?.name).toBe('Test');
     expect(result.group?.id).toBe('g-1');
+    expect(createGroupDirectMock).toHaveBeenCalledWith(
+      {
+        name: 'Test',
+        description: undefined,
+        groupIdMls: 'mls-1',
+        cipherSuite: 3
+      },
+      context
+    );
+  });
+
+  it('passes non-empty description to typed create group direct handler', async () => {
+    const context = createContext();
+    createGroupDirectMock.mockResolvedValue({
+      group: {
+        id: 'g-2',
+        groupIdMls: 'mls-2',
+        name: 'Named',
+        description: 'desc',
+        creatorUserId: 'u-1',
+        currentEpoch: 0,
+        cipherSuite: 3,
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z'
+      }
+    });
+
+    await mlsConnectServiceV2.createGroup(
+      {
+        name: 'Named',
+        description: 'desc',
+        groupIdMls: 'mls-2',
+        cipherSuite: 3
+      },
+      context
+    );
+
+    expect(createGroupDirectMock).toHaveBeenCalledWith(
+      {
+        name: 'Named',
+        description: 'desc',
+        groupIdMls: 'mls-2',
+        cipherSuite: 3
+      },
+      context
+    );
   });
 
   it('converts list groups response to typed proto fields', async () => {
     const context = createContext();
     listGroupsDirectMock.mockResolvedValue({
-      json: JSON.stringify({
-        groups: [
-          {
-            id: 'g-1',
-            groupIdMls: 'mls-1',
-            name: 'Group 1',
-            description: null,
-            creatorUserId: 'u-1',
-            currentEpoch: 5,
-            cipherSuite: 3,
-            createdAt: '2024-01-01T00:00:00Z',
-            updatedAt: '2024-01-01T00:00:00Z',
-            memberCount: 3,
-            role: 'admin'
-          }
-        ]
-      })
+      groups: [
+        {
+          id: 'g-1',
+          groupIdMls: 'mls-1',
+          name: 'Group 1',
+          description: null,
+          creatorUserId: 'u-1',
+          currentEpoch: 5,
+          cipherSuite: 3,
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z',
+          memberCount: 3,
+          role: 'admin'
+        }
+      ]
     });
 
     const result = await mlsConnectServiceV2.listGroups({}, context);
@@ -242,20 +296,18 @@ describe('mlsConnectServiceV2', () => {
     expect(result.groups[0]?.role).toBe(1); // ADMIN enum value
   });
 
-  it('throws internal error when direct response json is invalid', async () => {
+  it('propagates direct typed errors', async () => {
     const context = createContext();
-    uploadKeyPackagesDirectMock.mockResolvedValue({
-      json: '{invalid-json'
-    });
+    uploadKeyPackagesDirectMock.mockRejectedValue(new Error('typed failure'));
 
     await expect(
       mlsConnectServiceV2.uploadKeyPackages({ keyPackages: [] }, context)
-    ).rejects.toThrow('direct service returned invalid JSON');
+    ).rejects.toThrow('typed failure');
   });
 
   it('returns empty response for delete operations', async () => {
     const context = createContext();
-    deleteKeyPackageDirectMock.mockResolvedValue({ json: '{}' });
+    deleteKeyPackageDirectMock.mockResolvedValue({});
 
     const result = await mlsConnectServiceV2.deleteKeyPackage(
       { id: 'kp-1' },
@@ -263,5 +315,46 @@ describe('mlsConnectServiceV2', () => {
     );
 
     expect(result).toEqual({});
+    expect(deleteKeyPackageDirectMock).toHaveBeenCalledWith(
+      { id: 'kp-1' },
+      context
+    );
+  });
+
+  it('omits empty update fields and delegates deleteGroup', async () => {
+    const context = createContext();
+    updateGroupDirectMock.mockResolvedValue({
+      group: {
+        id: 'g-1',
+        groupIdMls: 'mls-1',
+        name: 'Same',
+        description: null,
+        creatorUserId: 'u-1',
+        currentEpoch: 2,
+        cipherSuite: 3,
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-02T00:00:00Z'
+      }
+    });
+    deleteGroupDirectMock.mockResolvedValue({});
+
+    await mlsConnectServiceV2.updateGroup(
+      { groupId: 'g-1', name: '', description: '' },
+      context
+    );
+    const deleteResult = await mlsConnectServiceV2.deleteGroup(
+      { groupId: 'g-1' },
+      context
+    );
+
+    expect(updateGroupDirectMock).toHaveBeenCalledWith(
+      { groupId: 'g-1' },
+      context
+    );
+    expect(deleteGroupDirectMock).toHaveBeenCalledWith(
+      { groupId: 'g-1' },
+      context
+    );
+    expect(deleteResult).toEqual({});
   });
 });
