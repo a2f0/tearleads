@@ -94,12 +94,13 @@ describe('InlineLogin', () => {
     expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument();
   });
 
-  it('passes custom description to login form', () => {
+  it('does not render redundant login form title or description', () => {
     renderWithRouter(<InlineLogin description="email" />);
 
     expect(
-      screen.getByText('Please sign in to continue to email')
-    ).toBeInTheDocument();
+      screen.queryByText('Please sign in to continue to email')
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Sign In', { selector: 'p' })).not.toBeInTheDocument();
   });
 
   it('renders user icon', () => {
