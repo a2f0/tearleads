@@ -66,6 +66,7 @@ pub(crate) fn normalize_optional_organization_id(value: Option<String>) -> Optio
         .map(str::to_string)
 }
 
+#[allow(clippy::result_large_err)]
 pub(crate) fn normalize_required_resource_id(
     field: &'static str,
     value: &str,
@@ -79,6 +80,7 @@ pub(crate) fn normalize_required_resource_id(
     Ok(trimmed.to_string())
 }
 
+#[allow(clippy::result_large_err)]
 pub(crate) fn resolve_organization_scope_filter(
     admin_access: &AdminAccessContext,
     requested_organization_id: Option<String>,
