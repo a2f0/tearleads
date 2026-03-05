@@ -90,9 +90,9 @@ export function LoginForm({
   return (
     <div className={borderless ? '' : 'rounded-lg border p-4'}>
       <form onSubmit={handleSubmit} className="space-y-4">
-        {title && (
+        {(title || description) && (
           <div>
-            <p className="font-medium">{title}</p>
+            {title && <p className="font-medium">{title}</p>}
             {description && (
               <p className="text-muted-foreground text-sm">{description}</p>
             )}
