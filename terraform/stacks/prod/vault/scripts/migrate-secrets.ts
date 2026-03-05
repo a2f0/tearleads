@@ -42,7 +42,6 @@ const excludedPatterns = new Set([
   'vault-keys.json',
   'vault-backups',
   '.DS_Store',
-  'dev.env'
 ]);
 
 function usage(): never {
