@@ -6,7 +6,7 @@ use tearleads_api_v2::{
 use tearleads_data_access_traits::{
     BoxFuture, DataAccessError, PostgresAdminReadRepository, PostgresColumnInfo,
     PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo,
-    RedisAdminReadRepository, RedisKeyScanPage, RedisKeyValueRecord,
+    RedisAdminRepository, RedisKeyScanPage, RedisKeyValueRecord,
 };
 use tonic::{Response, Status};
 
@@ -139,7 +139,7 @@ impl Default for FakeRedisRepository {
     }
 }
 
-impl RedisAdminReadRepository for FakeRedisRepository {
+impl RedisAdminRepository for FakeRedisRepository {
     fn list_keys(
         &self,
         cursor: &str,

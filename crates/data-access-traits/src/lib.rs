@@ -12,7 +12,7 @@ pub use postgres::{
     PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo,
 };
 pub use redis::{
-    RedisAdminReadRepository, RedisKeyInfo, RedisKeyScanPage, RedisKeyValueRecord, RedisValue,
+    RedisAdminRepository, RedisKeyInfo, RedisKeyScanPage, RedisKeyValueRecord, RedisValue,
 };
 
 /// Convenience alias for a boxed async return used by repository traits.

@@ -14,7 +14,7 @@ use tearleads_data_access_postgres::{
     PostgresTableRecord,
 };
 use tearleads_data_access_redis::{
-    RedisAdminGateway, RedisAdminReadAdapter, RedisKeyRecord, RedisScanResult,
+    RedisAdminGateway, RedisAdminAdapter, RedisKeyRecord, RedisScanResult,
 };
 use tearleads_data_access_traits::{
     BoxFuture, DataAccessError, PostgresConnectionInfo, PostgresRowsQuery, RedisValue,
@@ -221,7 +221,7 @@ async fn postgres_info_and_tables_flow_through_adapter_and_gateway() {
     let postgres_calls = Arc::clone(&postgres_gateway.calls);
     let handler = AdminServiceHandler::new(
         PostgresAdminReadAdapter::new(postgres_gateway),
-        RedisAdminReadAdapter::new(FakeRedisGateway::default()),
+        RedisAdminAdapter::new(FakeRedisGateway::default()),
     );
 
     let info_response = match handler
@@ -301,7 +301,7 @@ async fn columns_flow_normalizes_schema_and_table_before_gateway_calls() {
     let postgres_calls = Arc::clone(&postgres_gateway.calls);
     let handler = AdminServiceHandler::new(
         PostgresAdminReadAdapter::new(postgres_gateway),
-        RedisAdminReadAdapter::new(FakeRedisGateway::default()),
+        RedisAdminAdapter::new(FakeRedisGateway::default()),
     );
 
     let response = match handler
@@ -352,7 +352,7 @@ async fn redis_keys_and_value_flow_through_adapter_with_normalization() {
     let redis_calls = Arc::clone(&redis_gateway.calls);
     let handler = AdminServiceHandler::new(
         PostgresAdminReadAdapter::new(FakePostgresGateway::default()),
-        RedisAdminReadAdapter::new(redis_gateway),
+        RedisAdminAdapter::new(redis_gateway),
     );
 
     let keys_response = match handler
@@ -428,7 +428,7 @@ async fn missing_role_header_short_circuits_before_gateway_calls() {
 
     let handler = AdminServiceHandler::new(
         PostgresAdminReadAdapter::new(postgres_gateway),
-        RedisAdminReadAdapter::new(redis_gateway),
+        RedisAdminAdapter::new(redis_gateway),
     );
 
     let status = match handler

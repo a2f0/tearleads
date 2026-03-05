@@ -2,25 +2,25 @@
 
 use tearleads_api_domain_core::{normalize_redis_scan_cursor, normalize_redis_scan_limit};
 use tearleads_data_access_traits::{
-    BoxFuture, DataAccessError, DataAccessErrorKind, RedisAdminReadRepository, RedisKeyInfo,
+    BoxFuture, DataAccessError, DataAccessErrorKind, RedisAdminRepository, RedisKeyInfo,
     RedisKeyScanPage, RedisKeyValueRecord,
 };
 
 use crate::RedisAdminGateway;
 
 /// Redis repository implementation over a driver-specific gateway.
-pub struct RedisAdminReadAdapter<G> {
+pub struct RedisAdminAdapter<G> {
     gateway: G,
 }
 
-impl<G> RedisAdminReadAdapter<G> {
+impl<G> RedisAdminAdapter<G> {
     /// Builds an adapter around a gateway implementation.
     pub fn new(gateway: G) -> Self {
         Self { gateway }
     }
 }
 
-impl<G> RedisAdminReadRepository for RedisAdminReadAdapter<G>
+impl<G> RedisAdminRepository for RedisAdminAdapter<G>
 where
     G: RedisAdminGateway + Send + Sync,
 {
@@ -108,10 +108,10 @@ mod tests {
 
     use futures::executor::block_on;
     use tearleads_data_access_traits::{
-        BoxFuture, DataAccessError, DataAccessErrorKind, RedisAdminReadRepository, RedisValue,
+        BoxFuture, DataAccessError, DataAccessErrorKind, RedisAdminRepository, RedisValue,
     };
 
-    use super::RedisAdminReadAdapter;
+    use super::RedisAdminAdapter;
     use crate::{RedisAdminGateway, RedisKeyRecord, RedisScanResult};
 
     #[derive(Debug)]
@@ -211,7 +211,7 @@ mod tests {
             }),
             ..Default::default()
         };
-        let adapter = RedisAdminReadAdapter::new(gateway);
+        let adapter = RedisAdminAdapter::new(gateway);
 
         let result = block_on(adapter.list_keys("  ", 0));
         let page = match result {
@@ -231,7 +231,7 @@ mod tests {
     #[test]
     fn list_keys_caps_limit_and_marks_terminal_cursor() {
         let gateway = FakeGateway::default();
-        let adapter = RedisAdminReadAdapter::new(gateway);
+        let adapter = RedisAdminAdapter::new(gateway);
 
         let result = block_on(adapter.list_keys("9", u32::MAX));
         let page = match result {
@@ -255,7 +255,7 @@ mod tests {
             }),
             ..Default::default()
         };
-        let adapter = RedisAdminReadAdapter::new(gateway);
+        let adapter = RedisAdminAdapter::new(gateway);
 
         let result = block_on(adapter.get_value("  session:abc  "));
         let record = match result {
@@ -279,7 +279,7 @@ mod tests {
     #[test]
     fn get_value_rejects_blank_keys_before_gateway_io() {
         let gateway = FakeGateway::default();
-        let adapter = RedisAdminReadAdapter::new(gateway);
+        let adapter = RedisAdminAdapter::new(gateway);
 
         let result = block_on(adapter.get_value("   "));
         let error = match result {
@@ -298,7 +298,7 @@ mod tests {
             delete_result: Ok(true),
             ..Default::default()
         };
-        let adapter = RedisAdminReadAdapter::new(gateway);
+        let adapter = RedisAdminAdapter::new(gateway);
 
         let result = block_on(adapter.delete_key("  session:abc  "));
         let deleted = match result {
@@ -316,7 +316,7 @@ mod tests {
     #[test]
     fn delete_key_rejects_blank_keys_before_gateway_io() {
         let gateway = FakeGateway::default();
-        let adapter = RedisAdminReadAdapter::new(gateway);
+        let adapter = RedisAdminAdapter::new(gateway);
 
         let result = block_on(adapter.delete_key("  "));
         let error = match result {
@@ -336,7 +336,7 @@ mod tests {
             scan_result: Err(unavailable.clone()),
             ..Default::default()
         };
-        let adapter = RedisAdminReadAdapter::new(gateway);
+        let adapter = RedisAdminAdapter::new(gateway);
 
         let result = block_on(adapter.list_keys("0", 10));
         let error = match result {
@@ -353,7 +353,7 @@ mod tests {
             db_size_result: Ok(42),
             ..Default::default()
         };
-        let adapter = RedisAdminReadAdapter::new(gateway);
+        let adapter = RedisAdminAdapter::new(gateway);
 
         let result = block_on(adapter.get_db_size());
         let count = match result {

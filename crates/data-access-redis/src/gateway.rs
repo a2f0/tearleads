@@ -24,7 +24,7 @@ pub struct RedisScanResult {
     pub next_cursor: String,
 }
 
-/// Driver gateway used by [`crate::RedisAdminReadAdapter`].
+/// Driver gateway used by [`crate::RedisAdminAdapter`].
 pub trait RedisAdminGateway: Send + Sync {
     /// Performs one cursor-based key scan.
     fn scan_keys(

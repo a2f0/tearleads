@@ -12,7 +12,7 @@ use tearleads_api_v2_contracts::tearleads::v2::{
 use tearleads_data_access_traits::{
     BoxFuture, DataAccessError, PostgresAdminReadRepository, PostgresColumnInfo,
     PostgresConnectionInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
-    PostgresTableInfo, RedisAdminReadRepository, RedisKeyInfo, RedisKeyScanPage,
+    PostgresTableInfo, RedisAdminRepository, RedisKeyInfo, RedisKeyScanPage,
     RedisKeyValueRecord, RedisValue,
 };
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
@@ -103,7 +103,7 @@ impl Default for FakeRedisRepository {
     }
 }
 
-impl RedisAdminReadRepository for FakeRedisRepository {
+impl RedisAdminRepository for FakeRedisRepository {
     fn list_keys(
         &self,
         _cursor: &str,

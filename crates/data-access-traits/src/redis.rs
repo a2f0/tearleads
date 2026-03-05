@@ -51,7 +51,7 @@ pub struct RedisKeyValueRecord {
 }
 
 /// Repository boundary for Redis admin reads.
-pub trait RedisAdminReadRepository: Send + Sync {
+pub trait RedisAdminRepository: Send + Sync {
     /// Lists keys using cursor pagination.
     fn list_keys(
         &self,

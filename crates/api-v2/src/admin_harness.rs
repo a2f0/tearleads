@@ -2,7 +2,7 @@
 
 use tearleads_data_access_traits::{
     BoxFuture, PostgresAdminReadRepository, PostgresConnectionInfo, PostgresInfoSnapshot,
-    PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo, RedisAdminReadRepository, RedisKeyInfo,
+    PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo, RedisAdminRepository, RedisKeyInfo,
     RedisKeyScanPage, RedisKeyValueRecord, RedisValue,
 };
 
@@ -160,7 +160,7 @@ impl PostgresAdminReadRepository for StaticPostgresRepository {
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct StaticRedisRepository;
 
-impl RedisAdminReadRepository for StaticRedisRepository {
+impl RedisAdminRepository for StaticRedisRepository {
     fn list_keys(
         &self,
         cursor: &str,
@@ -239,7 +239,7 @@ mod tests {
         admin_service_server::AdminService,
     };
     use tearleads_data_access_traits::{
-        PostgresAdminReadRepository, PostgresRowsQuery, RedisAdminReadRepository, RedisValue,
+        PostgresAdminReadRepository, PostgresRowsQuery, RedisAdminRepository, RedisValue,
     };
     use tonic::{Code, Request};
 

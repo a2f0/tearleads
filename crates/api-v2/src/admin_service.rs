@@ -15,7 +15,7 @@ use tearleads_api_v2_contracts::tearleads::v2::{
 };
 use tearleads_data_access_traits::{
     DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository, PostgresRowsQuery,
-    RedisAdminReadRepository, RedisValue,
+    RedisAdminRepository, RedisValue,
 };
 use tonic::{Request, Response, Status};
 
@@ -52,7 +52,7 @@ impl<P, R> AdminServiceHandler<P, R, HeaderRoleAdminAuthorizer> {
 impl<P, R, A> AdminService for AdminServiceHandler<P, R, A>
 where
     P: PostgresAdminReadRepository + Send + Sync + 'static,
-    R: RedisAdminReadRepository + Send + Sync + 'static,
+    R: RedisAdminRepository + Send + Sync + 'static,
     A: AdminRequestAuthorizer + Send + Sync + 'static,
 {
     async fn get_postgres_info(
