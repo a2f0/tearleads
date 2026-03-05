@@ -3,6 +3,7 @@ import { Code, ConnectError } from '@connectrpc/connect';
 import type {
   MlsGroupState,
   MlsGroupStateResponse,
+  UploadMlsStateRequest,
   UploadMlsStateResponse
 } from '@tearleads/shared';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
@@ -16,6 +17,7 @@ import {
 
 type GroupIdRequest = { groupId: string };
 type GroupIdJsonRequest = { groupId: string; json: string };
+type GroupIdTypedStateRequest = { groupId: string } & UploadMlsStateRequest;
 
 function decodeBase64Strict(value: string): Uint8Array | null {
   const normalized = value.replace(/\s+/g, '');
@@ -42,10 +44,10 @@ function sha256Base64(data: Uint8Array): string {
   return createHash('sha256').update(data).digest('base64');
 }
 
-export async function uploadGroupStateDirect(
-  request: GroupIdJsonRequest,
+export async function uploadGroupStateDirectTyped(
+  request: GroupIdTypedStateRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<UploadMlsStateResponse> {
   const groupId = request.groupId.trim();
   if (groupId.length === 0) {
     throw new ConnectError('groupId is required', Code.InvalidArgument);
@@ -56,8 +58,17 @@ export async function uploadGroupStateDirect(
     context.requestHeader
   );
 
-  const payload = parseUploadStatePayload(parseJsonBody(request.json));
-  if (!payload) {
+  const payload: UploadMlsStateRequest = {
+    epoch: request.epoch,
+    encryptedState: request.encryptedState.trim(),
+    stateHash: request.stateHash.trim()
+  };
+  if (
+    !Number.isInteger(payload.epoch) ||
+    payload.epoch < 0 ||
+    payload.encryptedState.length === 0 ||
+    payload.stateHash.length === 0
+  ) {
     throw new ConnectError('Invalid state payload', Code.InvalidArgument);
   }
 
@@ -172,8 +183,7 @@ export async function uploadGroupStateDirect(
       throw new ConnectError('Failed to upload state', Code.Internal);
     }
 
-    const response: UploadMlsStateResponse = { state };
-    return { json: JSON.stringify(response) };
+    return { state };
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -184,10 +194,26 @@ export async function uploadGroupStateDirect(
   }
 }
 
-export async function getGroupStateDirect(
-  request: GroupIdRequest,
+export async function uploadGroupStateDirect(
+  request: GroupIdJsonRequest,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
+  const payload = parseUploadStatePayload(parseJsonBody(request.json));
+  if (!payload) {
+    throw new ConnectError('Invalid state payload', Code.InvalidArgument);
+  }
+
+  const response = await uploadGroupStateDirectTyped(
+    { groupId: request.groupId, ...payload },
+    context
+  );
+  return { json: JSON.stringify(response) };
+}
+
+export async function getGroupStateDirectTyped(
+  request: GroupIdRequest,
+  context: { requestHeader: Headers }
+): Promise<MlsGroupStateResponse> {
   const groupId = request.groupId.trim();
   if (groupId.length === 0) {
     throw new ConnectError('groupId is required', Code.InvalidArgument);
@@ -227,8 +253,7 @@ export async function getGroupStateDirect(
 
     const row = result.rows[0];
     if (!row) {
-      const response: MlsGroupStateResponse = { state: null };
-      return { json: JSON.stringify(response) };
+      return { state: null };
     }
 
     const decodedState = decodeBase64Strict(row.encrypted_state);
@@ -252,8 +277,7 @@ export async function getGroupStateDirect(
       createdAt: toIsoString(row.created_at)
     };
 
-    const response: MlsGroupStateResponse = { state };
-    return { json: JSON.stringify(response) };
+    return { state };
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -262,4 +286,12 @@ export async function getGroupStateDirect(
     console.error('Failed to get state:', error);
     throw new ConnectError('Failed to get state', Code.Internal);
   }
+}
+
+export async function getGroupStateDirect(
+  request: GroupIdRequest,
+  context: { requestHeader: Headers }
+): Promise<{ json: string }> {
+  const response = await getGroupStateDirectTyped(request, context);
+  return { json: JSON.stringify(response) };
 }

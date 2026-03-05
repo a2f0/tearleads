@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
 import type {
+  AddMlsMemberRequest,
   AddMlsMemberResponse,
   MlsGroupMember,
   MlsGroupMembersResponse,
-  MlsMessage
+  MlsMessage,
+  RemoveMlsMemberRequest
 } from '@tearleads/shared';
 import { broadcast } from '../../lib/broadcast.js';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
@@ -21,33 +23,45 @@ import {
   parseAddMemberPayload,
   parseRemoveMemberPayload
 } from './mlsDirectShared.js';
-
 type GroupIdRequest = { groupId: string };
-type AddMemberRequest = { groupId: string; json: string };
-type RemoveMemberRequest = { groupId: string; userId: string; json: string };
-
-export async function addGroupMemberDirect(
-  request: AddMemberRequest,
+type AddMemberJsonRequest = { groupId: string; json: string };
+type AddMemberTypedRequest = { groupId: string } & AddMlsMemberRequest;
+type RemoveMemberJsonRequest = { groupId: string; userId: string; json: string };
+type RemoveMemberTypedRequest = {
+  groupId: string;
+  userId: string;
+} & RemoveMlsMemberRequest;
+export async function addGroupMemberDirectTyped(
+  request: AddMemberTypedRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AddMlsMemberResponse> {
   const groupId = request.groupId.trim();
   if (groupId.length === 0) {
     throw new ConnectError('groupId is required', Code.InvalidArgument);
   }
-
   const claims = await requireMlsClaims(
     `/mls/groups/${encoded(groupId)}/members`,
     context.requestHeader
   );
-
-  const payload = parseAddMemberPayload(parseJsonBody(request.json));
-  if (!payload) {
+  const payload: AddMlsMemberRequest = {
+    userId: request.userId.trim(),
+    commit: request.commit.trim(),
+    welcome: request.welcome.trim(),
+    keyPackageRef: request.keyPackageRef.trim(),
+    newEpoch: request.newEpoch
+  };
+  if (
+    payload.userId.length === 0 ||
+    payload.commit.length === 0 ||
+    payload.welcome.length === 0 ||
+    payload.keyPackageRef.length === 0 ||
+    !Number.isInteger(payload.newEpoch) ||
+    payload.newEpoch < 0
+  ) {
     throw new ConnectError('Invalid add member payload', Code.InvalidArgument);
   }
-
   try {
     const pool = await getPostgresPool();
-
     const membership = await getActiveMlsGroupMembership(groupId, claims.sub);
     if (!membership) {
       throw new ConnectError(
@@ -55,14 +69,12 @@ export async function addGroupMemberDirect(
         Code.PermissionDenied
       );
     }
-
     if (membership.role !== 'admin') {
       throw new ConnectError(
         'Only admins can add members',
         Code.PermissionDenied
       );
     }
-
     const targetOrganizationMembership = await pool.query(
       `SELECT 1
          FROM user_organizations
@@ -71,22 +83,18 @@ export async function addGroupMemberDirect(
         LIMIT 1`,
       [payload.userId, membership.organizationId]
     );
-
     if (targetOrganizationMembership.rows.length === 0) {
       throw new ConnectError('User not found', Code.NotFound);
     }
-
     const client = await pool.connect();
     let inTransaction = false;
     let welcomeId = '';
     let leafIndex = 0;
     let commitMessage: MlsMessage | null = null;
     const now = new Date();
-
     try {
       await client.query('BEGIN');
       inTransaction = true;
-
       const epochResult = await client.query<{ current_epoch: number }>(
         `SELECT current_epoch
            FROM mls_groups
@@ -98,12 +106,10 @@ export async function addGroupMemberDirect(
       if (typeof currentEpoch !== 'number') {
         throw new ConnectError('Group not found', Code.NotFound);
       }
-
       const expectedEpoch = currentEpoch + 1;
       if (payload.newEpoch !== expectedEpoch) {
         throw new ConnectError('Epoch mismatch', Code.AlreadyExists);
       }
-
       const countResult = await client.query<{ count: string }>(
         `SELECT COUNT(*) as count
            FROM mls_group_members
@@ -111,7 +117,6 @@ export async function addGroupMemberDirect(
         [groupId]
       );
       leafIndex = parseInt(countResult.rows[0]?.count ?? '0', 10);
-
       const keyPackageResult = await client.query<{ id: string }>(
         `UPDATE mls_key_packages
             SET consumed_at = NOW(), consumed_by_group_id = $1
@@ -132,11 +137,9 @@ export async function addGroupMemberDirect(
           membership.organizationId
         ]
       );
-
       if (keyPackageResult.rowCount === 0) {
         throw new ConnectError('Key package not available', Code.AlreadyExists);
       }
-
       await client.query(
         `INSERT INTO mls_group_members (
            group_id,
@@ -148,7 +151,6 @@ export async function addGroupMemberDirect(
          ) VALUES ($1, $2, $3, 'member', $4, $5)`,
         [groupId, payload.userId, leafIndex, now, payload.newEpoch]
       );
-
       welcomeId = randomUUID();
       await client.query(
         `INSERT INTO mls_welcome_messages (
@@ -169,7 +171,6 @@ export async function addGroupMemberDirect(
           payload.newEpoch
         ]
       );
-
       const commitId = randomUUID();
       commitMessage = await insertCommitMessage({
         client,
@@ -179,7 +180,6 @@ export async function addGroupMemberDirect(
         epoch: payload.newEpoch,
         commitCiphertext: payload.commit
       });
-
       await client.query(
         `UPDATE mls_groups
             SET current_epoch = $1,
@@ -187,7 +187,6 @@ export async function addGroupMemberDirect(
           WHERE id = $2`,
         [payload.newEpoch, groupId]
       );
-
       await client.query('COMMIT');
       inTransaction = false;
     } catch (transactionError) {
@@ -201,18 +200,15 @@ export async function addGroupMemberDirect(
     if (!commitMessage) {
       throw new ConnectError('Failed to persist commit message', Code.Internal);
     }
-
     await broadcast(`mls:group:${groupId}`, {
       type: 'mls:message',
       payload: commitMessage,
       timestamp: commitMessage.createdAt
     });
-
     const userResult = await pool.query<{ email: string }>(
       `SELECT email FROM users WHERE id = $1`,
       [payload.userId]
     );
-
     const member: MlsGroupMember = {
       userId: payload.userId,
       email: userResult.rows[0]?.email ?? '',
@@ -221,48 +217,53 @@ export async function addGroupMemberDirect(
       joinedAt: now.toISOString(),
       joinedAtEpoch: payload.newEpoch
     };
-
     await broadcast(`mls:group:${groupId}`, {
       type: 'mls:member_added',
       payload: { groupId, member },
       timestamp: now.toISOString()
     });
-
     await broadcast(`mls:user:${payload.userId}`, {
       type: 'mls:welcome',
       payload: { groupId, welcomeId },
       timestamp: now.toISOString()
     });
-
-    const response: AddMlsMemberResponse = { member };
-    return { json: JSON.stringify(response) };
+    return { member };
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
     }
-
     console.error('Failed to add member:', error);
     throw new ConnectError('Failed to add member', Code.Internal);
   }
 }
-
-export async function getGroupMembersDirect(
-  request: GroupIdRequest,
+export async function addGroupMemberDirect(
+  request: AddMemberJsonRequest,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
+  const payload = parseAddMemberPayload(parseJsonBody(request.json));
+  if (!payload) {
+    throw new ConnectError('Invalid add member payload', Code.InvalidArgument);
+  }
+  const response = await addGroupMemberDirectTyped(
+    { groupId: request.groupId, ...payload },
+    context
+  );
+  return { json: JSON.stringify(response) };
+}
+export async function getGroupMembersDirectTyped(
+  request: GroupIdRequest,
+  context: { requestHeader: Headers }
+): Promise<MlsGroupMembersResponse> {
   const groupId = request.groupId.trim();
   if (groupId.length === 0) {
     throw new ConnectError('groupId is required', Code.InvalidArgument);
   }
-
   const claims = await requireMlsClaims(
     `/mls/groups/${encoded(groupId)}/members`,
     context.requestHeader
   );
-
   try {
     const pool = await getPool('read');
-
     const membership = await getActiveMlsGroupMembership(groupId, claims.sub);
     if (!membership) {
       throw new ConnectError(
@@ -270,7 +271,6 @@ export async function getGroupMembersDirect(
         Code.PermissionDenied
       );
     }
-
     const result = await pool.query<{
       user_id: string;
       email: string;
@@ -286,7 +286,6 @@ export async function getGroupMembersDirect(
        ORDER BY m.joined_at ASC`,
       [groupId]
     );
-
     const members: MlsGroupMember[] = result.rows.map((row) => ({
       userId: row.user_id,
       email: row.email,
@@ -295,49 +294,54 @@ export async function getGroupMembersDirect(
       joinedAt: toIsoString(row.joined_at),
       joinedAtEpoch: row.joined_at_epoch
     }));
-
-    const response: MlsGroupMembersResponse = { members };
-    return { json: JSON.stringify(response) };
+    return { members };
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
     }
-
     console.error('Failed to list members:', error);
     throw new ConnectError('Failed to list members', Code.Internal);
   }
 }
-
-export async function removeGroupMemberDirect(
-  request: RemoveMemberRequest,
+export async function getGroupMembersDirect(
+  request: GroupIdRequest,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
+  const response = await getGroupMembersDirectTyped(request, context);
+  return { json: JSON.stringify(response) };
+}
+export async function removeGroupMemberDirectTyped(
+  request: RemoveMemberTypedRequest,
+  context: { requestHeader: Headers }
+): Promise<Record<string, never>> {
   const groupId = request.groupId.trim();
   const userId = request.userId.trim();
-
   if (groupId.length === 0 || userId.length === 0) {
     throw new ConnectError(
       'groupId and userId are required',
       Code.InvalidArgument
     );
   }
-
   const claims = await requireMlsClaims(
     `/mls/groups/${encoded(groupId)}/members/${encoded(userId)}`,
     context.requestHeader
   );
-
-  const payload = parseRemoveMemberPayload(parseJsonBody(request.json));
-  if (!payload) {
+  const payload: RemoveMlsMemberRequest = {
+    commit: request.commit.trim(),
+    newEpoch: request.newEpoch
+  };
+  if (
+    payload.commit.length === 0 ||
+    !Number.isInteger(payload.newEpoch) ||
+    payload.newEpoch < 0
+  ) {
     throw new ConnectError(
       'Invalid remove member payload',
       Code.InvalidArgument
     );
   }
-
   try {
     const pool = await getPostgresPool();
-
     const membership = await getActiveMlsGroupMembership(groupId, claims.sub);
     if (!membership) {
       throw new ConnectError(
@@ -345,22 +349,18 @@ export async function removeGroupMemberDirect(
         Code.PermissionDenied
       );
     }
-
     if (membership.role !== 'admin') {
       throw new ConnectError(
         'Only admins can remove members',
         Code.PermissionDenied
       );
     }
-
     const client = await pool.connect();
     let inTransaction = false;
     let commitMessage: MlsMessage | null = null;
-
     try {
       await client.query('BEGIN');
       inTransaction = true;
-
       const epochResult = await client.query<{ current_epoch: number }>(
         `SELECT current_epoch
            FROM mls_groups
@@ -372,12 +372,10 @@ export async function removeGroupMemberDirect(
       if (typeof currentEpoch !== 'number') {
         throw new ConnectError('Group not found', Code.NotFound);
       }
-
       const expectedEpoch = currentEpoch + 1;
       if (payload.newEpoch !== expectedEpoch) {
         throw new ConnectError('Epoch mismatch', Code.AlreadyExists);
       }
-
       const result = await client.query(
         `UPDATE mls_group_members
             SET removed_at = NOW()
@@ -389,7 +387,6 @@ export async function removeGroupMemberDirect(
       if (result.rowCount === 0) {
         throw new ConnectError('Member not found', Code.NotFound);
       }
-
       const commitId = randomUUID();
       commitMessage = await insertCommitMessage({
         client,
@@ -399,7 +396,6 @@ export async function removeGroupMemberDirect(
         epoch: payload.newEpoch,
         commitCiphertext: payload.commit
       });
-
       await client.query(
         `UPDATE mls_groups
             SET current_epoch = $1,
@@ -407,7 +403,6 @@ export async function removeGroupMemberDirect(
           WHERE id = $2`,
         [payload.newEpoch, groupId]
       );
-
       await client.query('COMMIT');
       inTransaction = false;
     } catch (transactionError) {
@@ -421,26 +416,39 @@ export async function removeGroupMemberDirect(
     if (!commitMessage) {
       throw new ConnectError('Failed to persist commit message', Code.Internal);
     }
-
     await broadcast(`mls:group:${groupId}`, {
       type: 'mls:message',
       payload: commitMessage,
       timestamp: commitMessage.createdAt
     });
-
     await broadcast(`mls:group:${groupId}`, {
       type: 'mls:member_removed',
       payload: { groupId, userId },
       timestamp: commitMessage.createdAt
     });
-
-    return { json: '{}' };
+    return {};
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
     }
-
     console.error('Failed to remove member:', error);
     throw new ConnectError('Failed to remove member', Code.Internal);
   }
+}
+export async function removeGroupMemberDirect(
+  request: RemoveMemberJsonRequest,
+  context: { requestHeader: Headers }
+): Promise<{ json: string }> {
+  const payload = parseRemoveMemberPayload(parseJsonBody(request.json));
+  if (!payload) {
+    throw new ConnectError(
+      'Invalid remove member payload',
+      Code.InvalidArgument
+    );
+  }
+  await removeGroupMemberDirectTyped(
+    { groupId: request.groupId, userId: request.userId, ...payload },
+    context
+  );
+  return { json: '{}' };
 }

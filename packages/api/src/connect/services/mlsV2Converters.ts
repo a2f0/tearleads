@@ -50,7 +50,9 @@ export function toProtoRole(value: string): ProtoGroupRole {
   }
 }
 
-export function fromProtoMessageType(value: ProtoMessageType): string {
+export function fromProtoMessageType(
+  value: ProtoMessageType
+): MlsMessage['messageType'] {
   switch (value) {
     case MlsMessageType.APPLICATION:
       return 'application';

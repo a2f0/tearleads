@@ -1,16 +1,15 @@
 import type {
   MlsGroup,
   MlsGroupMember,
-  MlsGroupState,
-  MlsGroupStateResponse,
-  MlsKeyPackage,
-  MlsMessage,
-  MlsWelcomeMessage
+  MlsKeyPackage
 } from '@tearleads/shared';
 import {
   addGroupMemberDirect,
+  addGroupMemberDirectTyped,
   getGroupMembersDirect,
-  removeGroupMemberDirect
+  getGroupMembersDirectTyped,
+  removeGroupMemberDirect,
+  removeGroupMemberDirectTyped
 } from './mlsDirectGroupMembers.js';
 import {
   createGroupDirect,
@@ -27,15 +26,21 @@ import {
 } from './mlsDirectKeyPackages.js';
 import {
   getGroupMessagesDirect,
-  sendGroupMessageDirect
+  getGroupMessagesDirectTyped,
+  sendGroupMessageDirect,
+  sendGroupMessageDirectTyped
 } from './mlsDirectMessages.js';
 import {
   getGroupStateDirect,
-  uploadGroupStateDirect
+  getGroupStateDirectTyped,
+  uploadGroupStateDirect,
+  uploadGroupStateDirectTyped
 } from './mlsDirectState.js';
 import {
   acknowledgeWelcomeDirect,
-  getWelcomeMessagesDirect
+  acknowledgeWelcomeDirectTyped,
+  getWelcomeMessagesDirect,
+  getWelcomeMessagesDirectTyped
 } from './mlsDirectWelcomeMessages.js';
 import type {
   V2AcknowledgeWelcomeRequest,
@@ -272,26 +277,22 @@ export const mlsConnectServiceV2 = {
     request: V2AddGroupMemberRequest,
     context: HeaderContext
   ) => {
-    const directResult = await addGroupMemberDirect(
+    const data = await addGroupMemberDirectTyped(
       {
         groupId: request.groupId,
-        json: JSON.stringify({
-          userId: request.userId,
-          commit: request.commit,
-          welcome: request.welcome,
-          keyPackageRef: request.keyPackageRef,
-          newEpoch: Number(request.newEpoch)
-        })
+        userId: request.userId,
+        commit: request.commit,
+        welcome: request.welcome,
+        keyPackageRef: request.keyPackageRef,
+        newEpoch: Number(request.newEpoch)
       },
       context
     );
-    const data = parseDirectJson<{ member: MlsGroupMember }>(directResult);
     return { member: toProtoMember(data.member) };
   },
 
   getGroupMembers: async (request: GroupIdRequest, context: HeaderContext) => {
-    const directResult = await getGroupMembersDirect(request, context);
-    const data = parseDirectJson<{ members: MlsGroupMember[] }>(directResult);
+    const data = await getGroupMembersDirectTyped(request, context);
     return { members: data.members.map(toProtoMember) };
   },
 
@@ -299,14 +300,12 @@ export const mlsConnectServiceV2 = {
     request: V2RemoveGroupMemberRequest,
     context: HeaderContext
   ) => {
-    await removeGroupMemberDirect(
+    await removeGroupMemberDirectTyped(
       {
         groupId: request.groupId,
         userId: request.userId,
-        json: JSON.stringify({
-          commit: request.commit,
-          newEpoch: Number(request.newEpoch)
-        })
+        commit: request.commit,
+        newEpoch: Number(request.newEpoch)
       },
       context
     );
@@ -317,19 +316,19 @@ export const mlsConnectServiceV2 = {
     request: V2SendGroupMessageRequest,
     context: HeaderContext
   ) => {
-    const directResult = await sendGroupMessageDirect(
-      {
-        groupId: request.groupId,
-        json: JSON.stringify({
-          ciphertext: request.ciphertext,
-          epoch: Number(request.epoch),
-          messageType: fromProtoMessageType(request.messageType),
-          contentType: request.contentType || undefined
-        })
-      },
+    const directRequest = {
+      groupId: request.groupId,
+      ciphertext: request.ciphertext,
+      epoch: Number(request.epoch),
+      messageType: fromProtoMessageType(request.messageType),
+      ...(request.contentType
+        ? { contentType: request.contentType }
+        : {})
+    };
+    const data = await sendGroupMessageDirectTyped(
+      directRequest,
       context
     );
-    const data = parseDirectJson<{ message: MlsMessage }>(directResult);
     return { message: toProtoMessage(data.message) };
   },
 
@@ -337,12 +336,7 @@ export const mlsConnectServiceV2 = {
     request: GetGroupMessagesRequest,
     context: HeaderContext
   ) => {
-    const directResult = await getGroupMessagesDirect(request, context);
-    const data = parseDirectJson<{
-      messages: MlsMessage[];
-      hasMore: boolean;
-      cursor?: string;
-    }>(directResult);
+    const data = await getGroupMessagesDirectTyped(request, context);
     return {
       messages: data.messages.map(toProtoMessage),
       hasMore: data.hasMore,
@@ -351,8 +345,7 @@ export const mlsConnectServiceV2 = {
   },
 
   getGroupState: async (request: GroupIdRequest, context: HeaderContext) => {
-    const directResult = await getGroupStateDirect(request, context);
-    const data = parseDirectJson<MlsGroupStateResponse>(directResult);
+    const data = await getGroupStateDirectTyped(request, context);
     if (!data.state) {
       return {};
     }
@@ -363,26 +356,20 @@ export const mlsConnectServiceV2 = {
     request: V2UploadGroupStateRequest,
     context: HeaderContext
   ) => {
-    const directResult = await uploadGroupStateDirect(
+    const data = await uploadGroupStateDirectTyped(
       {
         groupId: request.groupId,
-        json: JSON.stringify({
-          epoch: Number(request.epoch),
-          encryptedState: request.encryptedState,
-          stateHash: request.stateHash
-        })
+        epoch: Number(request.epoch),
+        encryptedState: request.encryptedState,
+        stateHash: request.stateHash
       },
       context
     );
-    const data = parseDirectJson<{ state: MlsGroupState }>(directResult);
     return { state: toProtoGroupState(data.state) };
   },
 
   getWelcomeMessages: async (_request: object, context: HeaderContext) => {
-    const directResult = await getWelcomeMessagesDirect({}, context);
-    const data = parseDirectJson<{
-      welcomes: MlsWelcomeMessage[];
-    }>(directResult);
+    const data = await getWelcomeMessagesDirectTyped({}, context);
     return { welcomes: data.welcomes.map(toProtoWelcome) };
   },
 
@@ -390,10 +377,10 @@ export const mlsConnectServiceV2 = {
     request: V2AcknowledgeWelcomeRequest,
     context: HeaderContext
   ) => {
-    await acknowledgeWelcomeDirect(
+    await acknowledgeWelcomeDirectTyped(
       {
         id: request.id,
-        json: JSON.stringify({ groupId: request.groupId })
+        groupId: request.groupId
       },
       context
     );

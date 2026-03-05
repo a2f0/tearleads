@@ -1,5 +1,6 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import type {
+  AckMlsWelcomeRequest,
   MlsWelcomeMessage,
   MlsWelcomeMessagesResponse
 } from '@tearleads/shared';
@@ -7,7 +8,8 @@ import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
 import { parseAckWelcomePayload } from './mlsDirectShared.js';
 
-type AckWelcomeRequest = { id: string; json: string };
+type AckWelcomeJsonRequest = { id: string; json: string };
+type AckWelcomeTypedRequest = { id: string } & AckMlsWelcomeRequest;
 
 function encoded(value: string): string {
   return encodeURIComponent(value);
@@ -29,10 +31,10 @@ function toIsoString(value: Date | string): string {
   return value;
 }
 
-export async function getWelcomeMessagesDirect(
+export async function getWelcomeMessagesDirectTyped(
   _request: object,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<MlsWelcomeMessagesResponse> {
   const claims = await requireMlsClaims(
     '/mls/welcome-messages',
     context.requestHeader
@@ -71,8 +73,7 @@ export async function getWelcomeMessagesDirect(
       createdAt: toIsoString(row.created_at)
     }));
 
-    const response: MlsWelcomeMessagesResponse = { welcomes };
-    return { json: JSON.stringify(response) };
+    return { welcomes };
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -82,16 +83,24 @@ export async function getWelcomeMessagesDirect(
   }
 }
 
-export async function acknowledgeWelcomeDirect(
-  request: AckWelcomeRequest,
+export async function getWelcomeMessagesDirect(
+  request: object,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
+  const response = await getWelcomeMessagesDirectTyped(request, context);
+  return { json: JSON.stringify(response) };
+}
+
+export async function acknowledgeWelcomeDirectTyped(
+  request: AckWelcomeTypedRequest,
+  context: { requestHeader: Headers }
+): Promise<{ acknowledged: boolean }> {
   const claims = await requireMlsClaims(
     `/mls/welcome-messages/${encoded(request.id)}/ack`,
     context.requestHeader
   );
-  const payload = parseAckWelcomePayload(parseJsonBody(request.json));
-  if (!payload) {
+  const groupId = request.groupId.trim();
+  if (groupId.length === 0) {
     throw new ConnectError('groupId is required', Code.InvalidArgument);
   }
 
@@ -109,9 +118,9 @@ export async function acknowledgeWelcomeDirect(
                      ON uo.organization_id = g.organization_id
                     AND uo.user_id = $2
             WHERE g.id = $3
-         )
+        )
          AND consumed_at IS NULL`,
-      [request.id, claims.sub, payload.groupId]
+      [request.id, claims.sub, groupId]
     );
 
     if (result.rowCount === 0) {
@@ -121,7 +130,7 @@ export async function acknowledgeWelcomeDirect(
       );
     }
 
-    return { json: JSON.stringify({ acknowledged: true }) };
+    return { acknowledged: true };
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -129,4 +138,20 @@ export async function acknowledgeWelcomeDirect(
     console.error('Failed to acknowledge welcome:', error);
     throw new ConnectError('Failed to acknowledge welcome', Code.Internal);
   }
+}
+
+export async function acknowledgeWelcomeDirect(
+  request: AckWelcomeJsonRequest,
+  context: { requestHeader: Headers }
+): Promise<{ json: string }> {
+  const payload = parseAckWelcomePayload(parseJsonBody(request.json));
+  if (!payload) {
+    throw new ConnectError('groupId is required', Code.InvalidArgument);
+  }
+
+  const response = await acknowledgeWelcomeDirectTyped(
+    { id: request.id, ...payload },
+    context
+  );
+  return { json: JSON.stringify(response) };
 }
