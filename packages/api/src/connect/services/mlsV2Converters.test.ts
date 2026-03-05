@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest';
 import {
   MlsCipherSuite,
   MlsMessageType
 } from '@tearleads/shared/gen/tearleads/v2/mls_pb';
+import { describe, expect, it } from 'vitest';
 import {
   fromProtoMessageType,
   toProtoCipherSuite,
