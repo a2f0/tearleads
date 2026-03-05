@@ -4,8 +4,6 @@
 
 import type { WeightUnit } from './healthTrackerTypes.js';
 
-const NON_ALPHANUMERIC_REGEX = /[^a-z0-9]+/g;
-const EDGE_DASHES_REGEX = /^-+|-+$/g;
 const WEIGHT_SCALE = 100;
 
 export const normalizeRequiredText = (
@@ -102,11 +100,43 @@ export const normalizeWeightUnit = (
   return normalized;
 };
 
-export const createSlug = (value: string): string =>
-  value
-    .toLowerCase()
-    .replace(NON_ALPHANUMERIC_REGEX, '-')
-    .replace(EDGE_DASHES_REGEX, '');
+function isAsciiLowerAlphaNumeric(char: string): boolean {
+  const code = char.charCodeAt(0);
+  return (
+    (code >= 97 && code <= 122) || // a-z
+    (code >= 48 && code <= 57) // 0-9
+  );
+}
+
+export const createSlug = (value: string): string => {
+  const lower = value.toLowerCase();
+  let slug = '';
+  let lastWasDash = false;
+
+  for (const char of lower) {
+    if (isAsciiLowerAlphaNumeric(char)) {
+      slug += char;
+      lastWasDash = false;
+      continue;
+    }
+
+    if (!lastWasDash) {
+      slug += '-';
+      lastWasDash = true;
+    }
+  }
+
+  let start = 0;
+  let end = slug.length;
+  while (start < end && slug[start] === '-') {
+    start += 1;
+  }
+  while (end > start && slug[end - 1] === '-') {
+    end -= 1;
+  }
+
+  return slug.slice(start, end);
+};
 
 export const toIsoTimestamp = (value: Date): string => {
   const timestamp = value.getTime();

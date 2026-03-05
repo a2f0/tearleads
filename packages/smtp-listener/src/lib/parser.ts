@@ -11,15 +11,32 @@ export function generateEmailId(): string {
 }
 
 export function parseAddress(address: string): EmailAddress {
-  const match = address.match(/^(?:"?([^"]*)"?\s)?<?([^>]+)>?$/);
-  if (match) {
-    const name = match[1]?.trim();
-    const addr = match[2]?.trim();
-    if (addr) {
-      return name ? { address: addr, name } : { address: addr };
+  const trimmed = address.trim();
+  const leftBracket = trimmed.lastIndexOf('<');
+  const rightBracket = trimmed.endsWith('>')
+    ? trimmed.length - 1
+    : trimmed.lastIndexOf('>');
+
+  if (
+    leftBracket >= 0 &&
+    rightBracket > leftBracket &&
+    rightBracket === trimmed.length - 1
+  ) {
+    const parsedAddress = trimmed.slice(leftBracket + 1, rightBracket).trim();
+    if (parsedAddress.length > 0) {
+      const rawName = trimmed.slice(0, leftBracket).trim();
+      const maybeQuotedName =
+        rawName.startsWith('"') && rawName.endsWith('"')
+          ? rawName.slice(1, -1).trim()
+          : rawName;
+
+      return maybeQuotedName
+        ? { address: parsedAddress, name: maybeQuotedName }
+        : { address: parsedAddress };
     }
   }
-  return { address: address.trim() };
+
+  return { address: trimmed };
 }
 
 export function createStoredEmail(

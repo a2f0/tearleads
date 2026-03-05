@@ -48,40 +48,185 @@ function createSlugger() {
   };
 }
 
+function isMarkdownWhitespace(char: string | undefined): boolean {
+  return (
+    char === ' ' ||
+    char === '\t' ||
+    char === '\n' ||
+    char === '\r' ||
+    char === '\f'
+  );
+}
+
+function collapseMarkdownLinks(text: string): string {
+  let collapsed = '';
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index] ?? '';
+    const isImagePrefix = char === '!' && text[index + 1] === '[';
+    const labelStart = isImagePrefix ? index + 1 : index;
+
+    if (text[labelStart] === '[') {
+      const labelEnd = text.indexOf(']', labelStart + 1);
+      if (labelEnd > labelStart && text[labelEnd + 1] === '(') {
+        const linkEnd = text.indexOf(')', labelEnd + 2);
+        if (linkEnd > labelEnd) {
+          collapsed += text.slice(labelStart + 1, labelEnd);
+          index = linkEnd;
+          continue;
+        }
+      }
+    }
+
+    collapsed += char;
+  }
+
+  return collapsed;
+}
+
+function removeHtmlTags(value: string): string {
+  let result = '';
+  let insideTag = false;
+
+  for (const char of value) {
+    if (char === '<') {
+      insideTag = true;
+      continue;
+    }
+
+    if (char === '>') {
+      insideTag = false;
+      continue;
+    }
+
+    if (!insideTag) {
+      result += char;
+    }
+  }
+
+  return result;
+}
+
 function stripMarkdownInline(text: string): string {
-  return text
-    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/[*_~]/g, '')
-    .replace(/<\/?[^>]+>/g, '');
+  const withoutLinks = collapseMarkdownLinks(text);
+  let withoutFormatting = '';
+  let inInlineCode = false;
+
+  for (const char of withoutLinks) {
+    if (char === '`') {
+      inInlineCode = !inInlineCode;
+      continue;
+    }
+
+    if (!inInlineCode && (char === '*' || char === '_' || char === '~')) {
+      continue;
+    }
+
+    withoutFormatting += char;
+  }
+
+  return removeHtmlTags(withoutFormatting);
+}
+
+function getFenceMarker(line: string): string | null {
+  let index = 0;
+  while (index < line.length && isMarkdownWhitespace(line[index])) {
+    index += 1;
+  }
+
+  const markerChar = line[index];
+  if (markerChar !== '`' && markerChar !== '~') {
+    return null;
+  }
+
+  let markerEnd = index;
+  while (line[markerEnd] === markerChar) {
+    markerEnd += 1;
+  }
+
+  const markerLength = markerEnd - index;
+  if (markerLength < 3) {
+    return null;
+  }
+
+  return markerChar.repeat(markerLength);
+}
+
+function trimHeadingClosingHashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && isMarkdownWhitespace(value[end - 1])) {
+    end -= 1;
+  }
+
+  let hashStart = end;
+  while (hashStart > 0 && value[hashStart - 1] === '#') {
+    hashStart -= 1;
+  }
+
+  if (
+    hashStart < end &&
+    hashStart > 0 &&
+    isMarkdownWhitespace(value[hashStart - 1])
+  ) {
+    end = hashStart - 1;
+    while (end > 0 && isMarkdownWhitespace(value[end - 1])) {
+      end -= 1;
+    }
+  }
+
+  return value.slice(0, end);
+}
+
+function parseAtxHeading(line: string): { level: number; text: string } | null {
+  if (!line.startsWith('#')) {
+    return null;
+  }
+
+  let level = 0;
+  while (level < line.length && line[level] === '#') {
+    level += 1;
+  }
+
+  if (level < 1 || level > 6) {
+    return null;
+  }
+
+  if (line[level] === '#' || !isMarkdownWhitespace(line[level])) {
+    return null;
+  }
+
+  let textStart = level;
+  while (textStart < line.length && isMarkdownWhitespace(line[textStart])) {
+    textStart += 1;
+  }
+
+  const headingText = trimHeadingClosingHashes(line.slice(textStart).trim());
+  if (headingText.length === 0) {
+    return null;
+  }
+
+  return { level, text: headingText };
 }
 
 function extractHeadings(source: string): TocHeading[] {
   const getHeadingId = createSlugger();
   const headings: TocHeading[] = [];
-  const lines = source.split(/\r?\n/);
+  const lines = source.split('\n');
   let inFence = false;
   let fenceChar = '';
   let fenceLength = 0;
 
-  for (const line of lines) {
-    const fenceStartMatch = line.match(/^(\s*)(`{3,}|~{3,})/);
-    if (fenceStartMatch) {
-      const marker = fenceStartMatch[2];
-      if (!marker) {
-        continue;
-      }
+  for (const rawLine of lines) {
+    const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine;
+    const marker = getFenceMarker(line);
+    if (marker !== null) {
+      const markerChar = marker[0] ?? '';
 
       if (!inFence) {
         inFence = true;
-        fenceChar = marker[0] ?? '';
+        fenceChar = markerChar;
         fenceLength = marker.length;
-      } else if (
-        marker[0] === fenceChar &&
-        marker.length >= fenceLength &&
-        line.trimStart().startsWith(fenceChar.repeat(fenceLength))
-      ) {
+      } else if (markerChar === fenceChar && marker.length >= fenceLength) {
         inFence = false;
       }
 
@@ -92,26 +237,19 @@ function extractHeadings(source: string): TocHeading[] {
       continue;
     }
 
-    const headingMatch = line.match(/^(#{1,6})\s+(.+?)\s*$/);
-    if (!headingMatch) {
+    const heading = parseAtxHeading(line);
+    if (!heading) {
       continue;
     }
 
-    const headingToken = headingMatch[1];
-    const headingValue = headingMatch[2];
-    if (!headingToken || !headingValue) {
-      continue;
-    }
-
-    const rawText = headingValue.replace(/\s+#+\s*$/, '').trim();
-    const text = stripMarkdownInline(rawText).trim();
+    const text = stripMarkdownInline(heading.text).trim();
     if (!text) {
       continue;
     }
 
     headings.push({
       id: getHeadingId(text),
-      level: headingToken.length,
+      level: heading.level,
       text
     });
   }

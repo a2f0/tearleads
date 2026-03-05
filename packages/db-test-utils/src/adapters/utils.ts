@@ -12,6 +12,219 @@ function isRecordRow(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function isSqlWhitespace(char: string | undefined): boolean {
+  return (
+    char === undefined ||
+    char === ' ' ||
+    char === '\n' ||
+    char === '\r' ||
+    char === '\t' ||
+    char === '\f'
+  );
+}
+
+function stripDoubleQuotes(value: string): string {
+  let stripped = '';
+  for (const char of value) {
+    if (char !== '"') {
+      stripped += char;
+    }
+  }
+  return stripped;
+}
+
+function isFromKeywordAt(source: string, index: number): boolean {
+  if (source.slice(index, index + 4).toLowerCase() !== 'from') {
+    return false;
+  }
+
+  return (
+    isSqlWhitespace(source[index - 1]) && isSqlWhitespace(source[index + 4])
+  );
+}
+
+function findSelectClause(sql: string): string | null {
+  const trimmed = sql.trimStart();
+  if (!trimmed.toLowerCase().startsWith('select')) {
+    return null;
+  }
+
+  let clauseStart = 'select'.length;
+  while (
+    clauseStart < trimmed.length &&
+    isSqlWhitespace(trimmed[clauseStart])
+  ) {
+    clauseStart += 1;
+  }
+
+  let depth = 0;
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  for (let index = clauseStart; index < trimmed.length; index += 1) {
+    const char = trimmed[index] ?? '';
+
+    if (char === "'" && !inDoubleQuote) {
+      const next = trimmed[index + 1] ?? '';
+      if (inSingleQuote && next === "'") {
+        index += 1;
+        continue;
+      }
+      inSingleQuote = !inSingleQuote;
+      continue;
+    }
+
+    if (char === '"' && !inSingleQuote) {
+      inDoubleQuote = !inDoubleQuote;
+      continue;
+    }
+
+    if (inSingleQuote || inDoubleQuote) {
+      continue;
+    }
+
+    if (char === '(') {
+      depth += 1;
+      continue;
+    }
+
+    if (char === ')' && depth > 0) {
+      depth -= 1;
+      continue;
+    }
+
+    if (depth === 0 && (char === 'f' || char === 'F')) {
+      if (isFromKeywordAt(trimmed, index)) {
+        return trimmed.slice(clauseStart, index).trim();
+      }
+    }
+  }
+
+  return null;
+}
+
+function splitSelectColumns(selectClause: string): string[] {
+  const columns: string[] = [];
+  let depth = 0;
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let current = '';
+
+  for (let index = 0; index < selectClause.length; index += 1) {
+    const char = selectClause[index] ?? '';
+
+    if (char === "'" && !inDoubleQuote) {
+      const next = selectClause[index + 1] ?? '';
+      if (inSingleQuote && next === "'") {
+        current += "''";
+        index += 1;
+        continue;
+      }
+      inSingleQuote = !inSingleQuote;
+      current += char;
+      continue;
+    }
+
+    if (char === '"' && !inSingleQuote) {
+      inDoubleQuote = !inDoubleQuote;
+      current += char;
+      continue;
+    }
+
+    if (!inSingleQuote && !inDoubleQuote) {
+      if (char === '(') {
+        depth += 1;
+      } else if (char === ')' && depth > 0) {
+        depth -= 1;
+      } else if (char === ',' && depth === 0) {
+        const normalized = current.trim();
+        if (normalized.length > 0) {
+          columns.push(normalized);
+        }
+        current = '';
+        continue;
+      }
+    }
+
+    current += char;
+  }
+
+  const tail = current.trim();
+  if (tail.length > 0) {
+    columns.push(tail);
+  }
+
+  return columns;
+}
+
+function findAsKeywordIndex(column: string): number {
+  let depth = 0;
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let match = -1;
+
+  for (let index = 0; index < column.length - 1; index += 1) {
+    const char = column[index] ?? '';
+
+    if (char === "'" && !inDoubleQuote) {
+      const next = column[index + 1] ?? '';
+      if (inSingleQuote && next === "'") {
+        index += 1;
+        continue;
+      }
+      inSingleQuote = !inSingleQuote;
+      continue;
+    }
+
+    if (char === '"' && !inSingleQuote) {
+      inDoubleQuote = !inDoubleQuote;
+      continue;
+    }
+
+    if (inSingleQuote || inDoubleQuote) {
+      continue;
+    }
+
+    if (char === '(') {
+      depth += 1;
+      continue;
+    }
+
+    if (char === ')' && depth > 0) {
+      depth -= 1;
+      continue;
+    }
+
+    if (depth !== 0) {
+      continue;
+    }
+
+    if (
+      (char === 'a' || char === 'A') &&
+      (column[index + 1] === 's' || column[index + 1] === 'S') &&
+      isSqlWhitespace(column[index - 1]) &&
+      isSqlWhitespace(column[index + 2])
+    ) {
+      match = index;
+    }
+  }
+
+  return match;
+}
+
+function normalizeColumnName(column: string): string {
+  const asIndex = findAsKeywordIndex(column);
+  if (asIndex >= 0) {
+    const alias = column.slice(asIndex + 2).trim();
+    if (alias.length > 0) {
+      return stripDoubleQuotes(alias);
+    }
+  }
+
+  const lastDot = column.lastIndexOf('.');
+  const nameCandidate = lastDot >= 0 ? column.slice(lastDot + 1) : column;
+  return stripDoubleQuotes(nameCandidate.trim());
+}
+
 /**
  * Extract column names from a SELECT statement.
  * Returns column names in the order they appear in the SELECT clause.
@@ -23,47 +236,12 @@ function isRecordRow(value: unknown): value is Record<string, unknown> {
  * Returns null for SELECT * or non-SELECT statements.
  */
 export function extractSelectColumns(sql: string): string[] | null {
-  const selectMatch = sql.match(/select\s+(.+?)\s+from\s/is);
-  if (!selectMatch || !selectMatch[1]) return null;
-
-  const selectClause = selectMatch[1];
+  const selectClause = findSelectClause(sql);
+  if (!selectClause) return null;
 
   if (selectClause.trim() === '*') return null;
 
-  const columns: string[] = [];
-
-  let depth = 0;
-  let current = '';
-
-  for (const char of selectClause) {
-    if (char === '(') depth++;
-    else if (char === ')') depth--;
-    else if (char === ',' && depth === 0) {
-      columns.push(current.trim());
-      current = '';
-      continue;
-    }
-    current += char;
-  }
-  if (current.trim()) {
-    columns.push(current.trim());
-  }
-
-  return columns.map((col) => {
-    const aliasMatch = col.match(/\s+as\s+("?([\w$]+)"?)\s*$/i);
-    if (aliasMatch?.[1]) {
-      return aliasMatch[1].replace(/"/g, '');
-    }
-
-    const colParts = col.split('.').filter((part) => part.length > 0);
-    const lastPart = colParts[colParts.length - 1];
-    if (lastPart === undefined) {
-      return col.replace(/"/g, '');
-    }
-    const trimmed = lastPart.trim();
-
-    return trimmed.replace(/"/g, '');
-  });
+  return splitSelectColumns(selectClause).map(normalizeColumnName);
 }
 
 /**
