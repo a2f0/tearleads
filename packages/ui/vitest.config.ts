@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 const sharedTestConfig = {
   test: {
     pool: 'threads' as const,
+    maxWorkers: '25%',
     deps: { optimizer: { client: { enabled: true }, ssr: { enabled: true } } },
   },
 };
