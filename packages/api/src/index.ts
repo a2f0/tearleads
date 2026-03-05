@@ -1,7 +1,7 @@
 import type { Server } from 'node:http';
 import { expressConnectMiddleware } from '@connectrpc/connect-express';
 import { closeRedisClient } from '@tearleads/shared/redis';
-import cors, { type CorsOptions } from 'cors';
+import cors from 'cors';
 import dotenv from 'dotenv';
 import express, { type Express, type Request, type Response } from 'express';
 import morgan from 'morgan';
@@ -18,6 +18,10 @@ const app: Express = express();
 
 const PORT = Number(process.env['PORT']) || 5001;
 const CORS_ALLOWED_ORIGINS_ENV = 'API_CORS_ALLOWED_ORIGINS';
+type CorsOriginPolicy = (
+  requestOrigin: string | undefined,
+  callback: (err: Error | null, origin?: boolean) => void
+) => void;
 
 export function parseCorsAllowedOrigins(value: string | undefined): ReadonlySet<string> {
   if (!value) {
@@ -66,7 +70,7 @@ export function createCorsOriginPolicy({
 }: {
   allowedOrigins: ReadonlySet<string>;
   allowLoopbackOrigins: boolean;
-}): NonNullable<CorsOptions['origin']> {
+}): CorsOriginPolicy {
   return (origin, callback) => {
     if (!origin) {
       callback(null, true);
