@@ -33,13 +33,15 @@ export function useConversationBootstrap(
 
   const hasBootstrappedConversationRef = useRef(false);
   const isBootstrappingConversationRef = useRef(false);
+  const previousInstanceIdRef = useRef<string | null | undefined>(instanceId);
 
   useEffect(() => {
-    hasBootstrappedConversationRef.current = false;
-    isBootstrappingConversationRef.current = false;
-  }, [instanceId]);
+    if (previousInstanceIdRef.current !== instanceId) {
+      hasBootstrappedConversationRef.current = false;
+      isBootstrappingConversationRef.current = false;
+      previousInstanceIdRef.current = instanceId;
+    }
 
-  useEffect(() => {
     if (!autoStart && !resumeLastConversation) {
       return;
     }

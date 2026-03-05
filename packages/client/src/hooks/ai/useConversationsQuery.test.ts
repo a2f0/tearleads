@@ -314,7 +314,9 @@ describe('useConversations queries', () => {
 
   describe('bootstrap behavior', () => {
     it('auto-starts a conversation when none exist', async () => {
-      const { result } = renderHook(() => useConversations({ autoStart: true }));
+      const { result } = renderHook(() =>
+        useConversations({ autoStart: true })
+      );
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
