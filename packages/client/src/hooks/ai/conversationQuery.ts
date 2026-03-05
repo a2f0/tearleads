@@ -25,38 +25,34 @@ export async function loadDecryptedConversations(): Promise<
 
   const decrypted: DecryptedAiConversation[] = [];
   for (const row of rows) {
+    const encryptedFallback: DecryptedAiConversation = {
+      id: row.id,
+      title: '[Encrypted]',
+      modelId: row.modelId,
+      messageCount: row.messageCount,
+      createdAt: toISOString(row.createdAt),
+      updatedAt: toISOString(row.updatedAt)
+    };
+
     try {
-      if (row.encryptedSessionKey) {
-        const sessionKey = await getSessionKey(row.id, row.encryptedSessionKey);
-        const title = await decryptContent(row.encryptedTitle, sessionKey);
-        decrypted.push({
-          id: row.id,
-          title,
-          modelId: row.modelId,
-          messageCount: row.messageCount,
-          createdAt: toISOString(row.createdAt),
-          updatedAt: toISOString(row.updatedAt)
-        });
-      } else {
-        decrypted.push({
-          id: row.id,
-          title: '[Encrypted]',
-          modelId: row.modelId,
-          messageCount: row.messageCount,
-          createdAt: toISOString(row.createdAt),
-          updatedAt: toISOString(row.updatedAt)
-        });
+      if (!row.encryptedSessionKey) {
+        decrypted.push(encryptedFallback);
+        continue;
       }
-    } catch (error) {
-      console.error(`Failed to decrypt conversation ${row.id}:`, error);
+
+      const sessionKey = await getSessionKey(row.id, row.encryptedSessionKey);
+      const title = await decryptContent(row.encryptedTitle, sessionKey);
       decrypted.push({
         id: row.id,
-        title: '[Encrypted]',
+        title,
         modelId: row.modelId,
         messageCount: row.messageCount,
         createdAt: toISOString(row.createdAt),
         updatedAt: toISOString(row.updatedAt)
       });
+    } catch (error) {
+      console.error(`Failed to decrypt conversation ${row.id}:`, error);
+      decrypted.push(encryptedFallback);
     }
   }
 
