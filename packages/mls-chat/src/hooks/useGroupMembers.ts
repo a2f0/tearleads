@@ -59,10 +59,7 @@ export function useGroupMembers(
       if (!keyPackage) {
         throw new Error('User has no available key packages');
       }
-      const keyPackageBytes = Uint8Array.from(
-        atob(keyPackage.keyPackageData),
-        (c) => c.charCodeAt(0)
-      );
+      const keyPackageBytes = keyPackage.keyPackageData;
 
       // Generate MLS commit and welcome
       const { commit, welcome, newEpoch } = await client.addMember(
@@ -78,8 +75,8 @@ export function useGroupMembers(
       await mlsRoutes.addGroupMember(groupId, {
         userId,
         keyPackageRef: keyPackage.keyPackageRef,
-        commit: btoa(String.fromCharCode.apply(null, Array.from(commit))),
-        welcome: btoa(String.fromCharCode.apply(null, Array.from(welcome))),
+        commit,
+        welcome,
         newEpoch
       });
 
@@ -124,7 +121,7 @@ export function useGroupMembers(
 
       // Send to server
       await mlsRoutes.removeGroupMember(groupId, userId, {
-        commit: btoa(String.fromCharCode.apply(null, Array.from(commit))),
+        commit,
         newEpoch
       });
 

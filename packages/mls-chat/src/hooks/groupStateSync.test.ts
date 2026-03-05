@@ -63,7 +63,7 @@ describe('groupStateSync', () => {
           id: 'state-1',
           groupId: 'group-1',
           epoch: 4,
-          encryptedState: btoa(serializedState),
+          encryptedState: new TextEncoder().encode(serializedState),
           stateHash,
           createdAt: new Date().toISOString()
         }
@@ -98,7 +98,7 @@ describe('groupStateSync', () => {
           id: 'state-1',
           groupId: 'group-1',
           epoch: 4,
-          encryptedState: btoa('serialized-state'),
+          encryptedState: new TextEncoder().encode('serialized-state'),
           stateHash: 'invalid-state-hash',
           createdAt: new Date().toISOString()
         }
@@ -186,7 +186,7 @@ describe('groupStateSync', () => {
         id: 'state-1',
         groupId: 'group-1',
         epoch: 7,
-        encryptedState: btoa('state-bytes'),
+        encryptedState: new TextEncoder().encode('state-bytes'),
         stateHash: 'wAEDKaM8s6FdpeNW0sAr8nS7ZQCBwhZ0F3ClXnVBabQ=',
         createdAt: new Date().toISOString()
       }
@@ -205,7 +205,7 @@ describe('groupStateSync', () => {
     expect(uploadGroupStateSpy).toHaveBeenCalledTimes(1);
     expect(uploadGroupStateSpy).toHaveBeenCalledWith('group-1', {
       epoch: 7,
-      encryptedState: expect.any(String),
+      encryptedState: new TextEncoder().encode('state-bytes'),
       stateHash: 'wAEDKaM8s6FdpeNW0sAr8nS7ZQCBwhZ0F3ClXnVBabQ='
     });
   });

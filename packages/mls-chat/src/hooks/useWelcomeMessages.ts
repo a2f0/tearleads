@@ -3,7 +3,7 @@
  * Handles pending group invitations.
  */
 
-import type { MlsWelcomeMessage } from '@tearleads/shared';
+import type { MlsV2Routes } from '@tearleads/api-client/mlsRoutes';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useMlsRoutes } from '../context/index.js';
@@ -11,21 +11,25 @@ import type { MlsClient } from '../lib/index.js';
 import { uploadGroupStateSnapshot } from './groupStateSync.js';
 
 interface UseWelcomeMessagesResult {
-  welcomeMessages: MlsWelcomeMessage[];
+  welcomeMessages: MlsBinaryWelcomeMessage[];
   isLoading: boolean;
   error: Error | null;
   processWelcome: (welcomeId: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
+type MlsBinaryWelcomeMessage = Awaited<
+  ReturnType<MlsV2Routes['getWelcomeMessages']>
+>['welcomes'][number];
+
 export function useWelcomeMessages(
   client: MlsClient | null
 ): UseWelcomeMessagesResult {
   const mlsRoutes = useMlsRoutes();
 
-  const [welcomeMessages, setWelcomeMessages] = useState<MlsWelcomeMessage[]>(
-    []
-  );
+  const [welcomeMessages, setWelcomeMessages] = useState<
+    MlsBinaryWelcomeMessage[]
+  >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -59,15 +63,10 @@ export function useWelcomeMessages(
       }
 
       try {
-        // Decode and process the welcome
-        const welcomeBytes = Uint8Array.from(atob(welcome.welcome), (c) =>
-          c.charCodeAt(0)
-        );
-
         // Join the group
         await client.joinGroup(
           welcome.groupId,
-          welcomeBytes,
+          welcome.welcome,
           welcome.keyPackageRef
         );
         try {
