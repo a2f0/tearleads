@@ -110,6 +110,7 @@
       "@rollup/plugin-terser>serialize-javascript": "7.0.3",
       "electron-builder-squirrel-windows>app-builder-lib": "26.8.1",
       "svgo": "4.0.1",
+      "tar": "7.5.10",
       "pg": "8.18.0",
       "sql.js": "1.14.0"
     }

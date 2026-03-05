@@ -55,7 +55,7 @@ class MockDatabase implements SQLiteDatabase {
 }
 
 describe('executeMany', () => {
-  it('wraps statements in a transaction', () => {
+  it('wraps statements in a transaction and executes one SQL batch', () => {
     const db = new MockDatabase();
     executeMany(db, [
       'CREATE TABLE test_table (id INTEGER PRIMARY KEY)',
@@ -64,8 +64,7 @@ describe('executeMany', () => {
 
     expect(db.calls).toEqual([
       'BEGIN TRANSACTION',
-      'CREATE TABLE test_table (id INTEGER PRIMARY KEY)',
-      'CREATE INDEX test_idx ON test_table (id)',
+      'CREATE TABLE test_table (id INTEGER PRIMARY KEY);\nCREATE INDEX test_idx ON test_table (id)',
       'COMMIT'
     ]);
   });
@@ -73,7 +72,8 @@ describe('executeMany', () => {
   it('rolls back when a statement fails', () => {
     const expectedError = new Error('boom');
     const db = new MockDatabase({
-      throwOnSql: 'CREATE INDEX test_idx ON test_table (id)',
+      throwOnSql:
+        'CREATE TABLE test_table (id INTEGER PRIMARY KEY);\nCREATE INDEX test_idx ON test_table (id)',
       error: expectedError
     });
 
@@ -86,9 +86,14 @@ describe('executeMany', () => {
 
     expect(db.calls).toEqual([
       'BEGIN TRANSACTION',
-      'CREATE TABLE test_table (id INTEGER PRIMARY KEY)',
-      'CREATE INDEX test_idx ON test_table (id)',
+      'CREATE TABLE test_table (id INTEGER PRIMARY KEY);\nCREATE INDEX test_idx ON test_table (id)',
       'ROLLBACK'
     ]);
+  });
+
+  it('skips execution for an empty statement batch', () => {
+    const db = new MockDatabase();
+    executeMany(db, []);
+    expect(db.calls).toEqual([]);
   });
 });

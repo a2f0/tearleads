@@ -163,7 +163,7 @@ describe('vfsRematerializationEntityRows', () => {
       size: 5,
       deleted: true,
       contentHash: 'rematerialized:file-svg',
-      storagePath: 'rematerialized/file-svg',
+      storagePath: 'rematerialized-file-svg.enc',
       thumbnailPath: null
     });
 

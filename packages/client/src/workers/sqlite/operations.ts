@@ -87,11 +87,19 @@ export function executeMany(
     throw new Error('Database not initialized');
   }
 
+  const batchedSql = statements
+    .map((statement) => statement.trim())
+    .filter((statement) => statement.length > 0)
+    .map((statement) => statement.replace(/;+\s*$/u, ''))
+    .join(';\n');
+
+  if (batchedSql.length === 0) {
+    return;
+  }
+
   db.exec('BEGIN TRANSACTION');
   try {
-    for (const sql of statements) {
-      db.exec(sql);
-    }
+    db.exec(batchedSql);
     db.exec('COMMIT');
   } catch (error) {
     db.exec('ROLLBACK');

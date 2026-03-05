@@ -4,6 +4,10 @@ import { albums, files } from '@tearleads/db/sqlite';
 import { resetTestKeyManager } from '@tearleads/db-test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getDatabase, resetDatabase, setupDatabase } from '@/db';
+import {
+  getFileStorageForInstance,
+  isFileStorageInitialized
+} from '@/storage/opfs';
 import { rematerializeRemoteVfsStateIfNeeded } from './vfsRematerialization';
 
 type LocalWriteCallback = () => Promise<void>;
@@ -155,8 +159,22 @@ describe('vfsRematerialization photo entity rows', () => {
         id: 'photo-item',
         name: 'Tearleads logo.svg',
         mimeType: 'image/svg+xml',
-        deleted: false
+        deleted: false,
+        storagePath: 'rematerialized-photo-item.enc'
       })
     ]);
+
+    const rematerializedPhoto = fileRows[0];
+    if (!rematerializedPhoto) {
+      throw new Error('Expected rematerialized photo row');
+    }
+    expect(rematerializedPhoto.storagePath.includes('/')).toBe(false);
+    expect(isFileStorageInitialized(TEST_INSTANCE_ID)).toBe(true);
+
+    const storage = getFileStorageForInstance(TEST_INSTANCE_ID);
+    const payloadBytes = await storage.retrieve(
+      rematerializedPhoto.storagePath
+    );
+    expect(Buffer.from(payloadBytes).toString('utf8')).toBe('<svg>logo</svg>');
   });
 });
