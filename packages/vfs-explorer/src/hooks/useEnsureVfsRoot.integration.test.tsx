@@ -9,6 +9,8 @@ import type { VfsExplorerProviderProps } from '../context';
 import { VfsExplorerProvider } from '../context';
 import { useEnsureVfsRoot } from './useEnsureVfsRoot';
 
+// one-component-per-file: allow
+// Rationale: test-only provider and UI helpers are kept local for readability.
 const createMockUI = () => ({
   Button: ({ children }: { children: ReactNode }) => (
     <button type="button">{children}</button>
