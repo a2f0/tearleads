@@ -1,17 +1,22 @@
 //! Contract-first admin RPC handlers backed by repository traits.
 
+mod detail_reads;
+
 use tearleads_api_v2_contracts::tearleads::v2::{
     AdminDeleteRedisKeyRequest, AdminDeleteRedisKeyResponse, AdminGetColumnsRequest,
-    AdminGetColumnsResponse, AdminGetContextRequest, AdminGetContextResponse, AdminGetGroupRequest,
-    AdminGetGroupResponse, AdminGetPostgresInfoRequest, AdminGetPostgresInfoResponse,
-    AdminGetRedisDbSizeRequest, AdminGetRedisDbSizeResponse, AdminGetRedisKeysRequest,
-    AdminGetRedisKeysResponse, AdminGetRedisValueRequest, AdminGetRedisValueResponse,
-    AdminGetRowsRequest, AdminGetRowsResponse, AdminGetTablesRequest, AdminGetTablesResponse,
-    AdminGroup, AdminGroupMember, AdminGroupWithMemberCount, AdminListGroupsRequest,
-    AdminListGroupsResponse, AdminListOrganizationsRequest, AdminListOrganizationsResponse,
-    AdminListUsersRequest, AdminListUsersResponse, AdminOrganization, AdminPostgresColumnInfo,
-    AdminPostgresConnectionInfo, AdminPostgresTableInfo, AdminRedisKeyInfo, AdminScopeOrganization,
-    AdminUser, AdminUserAccounting, admin_service_server::AdminService,
+    AdminGetColumnsResponse, AdminGetContextRequest, AdminGetContextResponse,
+    AdminGetGroupMembersRequest, AdminGetGroupMembersResponse, AdminGetGroupRequest,
+    AdminGetGroupResponse, AdminGetOrgGroupsRequest, AdminGetOrgGroupsResponse,
+    AdminGetOrganizationRequest, AdminGetOrganizationResponse, AdminGetPostgresInfoRequest,
+    AdminGetPostgresInfoResponse, AdminGetRedisDbSizeRequest, AdminGetRedisDbSizeResponse,
+    AdminGetRedisKeysRequest, AdminGetRedisKeysResponse, AdminGetRedisValueRequest,
+    AdminGetRedisValueResponse, AdminGetRowsRequest, AdminGetRowsResponse, AdminGetTablesRequest,
+    AdminGetTablesResponse, AdminGetUserRequest, AdminGetUserResponse, AdminGroup,
+    AdminGroupMember, AdminGroupWithMemberCount, AdminListGroupsRequest, AdminListGroupsResponse,
+    AdminListOrganizationsRequest, AdminListOrganizationsResponse, AdminListUsersRequest,
+    AdminListUsersResponse, AdminOrganization, AdminPostgresColumnInfo,
+    AdminPostgresConnectionInfo, AdminPostgresTableInfo, AdminRedisKeyInfo,
+    admin_service_server::AdminService,
 };
 use tearleads_data_access_traits::{
     PostgresAdminReadRepository, PostgresRowsQuery, RedisAdminRepository,
@@ -64,45 +69,7 @@ where
         &self,
         request: Request<AdminGetContextRequest>,
     ) -> Result<Response<AdminGetContextResponse>, Status> {
-        let admin_access = self
-            .authorizer
-            .authorize_admin_operation(AdminOperation::GetContext, request.metadata())
-            .map_err(map_admin_auth_error)?;
-        let _ = request.into_inner();
-
-        let organizations = if admin_access.is_root_admin() {
-            self.postgres_repo
-                .list_scope_organizations()
-                .await
-                .map_err(map_data_access_error)?
-        } else {
-            self.postgres_repo
-                .list_scope_organizations_by_ids(admin_access.organization_ids().to_vec())
-                .await
-                .map_err(map_data_access_error)?
-        };
-
-        let default_organization_id = if admin_access.is_root_admin() {
-            None
-        } else {
-            organizations
-                .first()
-                .map(|organization| organization.id.clone())
-        };
-
-        let organizations = organizations
-            .into_iter()
-            .map(|organization| AdminScopeOrganization {
-                id: organization.id,
-                name: organization.name,
-            })
-            .collect();
-
-        Ok(Response::new(AdminGetContextResponse {
-            is_root_admin: admin_access.is_root_admin(),
-            organizations,
-            default_organization_id,
-        }))
+        self.get_context_impl(request).await
     }
 
     async fn get_postgres_info(
@@ -213,6 +180,13 @@ where
         }))
     }
 
+    async fn get_group_members(
+        &self,
+        request: Request<AdminGetGroupMembersRequest>,
+    ) -> Result<Response<AdminGetGroupMembersResponse>, Status> {
+        self.get_group_members_impl(request).await
+    }
+
     async fn list_organizations(
         &self,
         request: Request<AdminListOrganizationsRequest>,
@@ -247,6 +221,20 @@ where
         }))
     }
 
+    async fn get_organization(
+        &self,
+        request: Request<AdminGetOrganizationRequest>,
+    ) -> Result<Response<AdminGetOrganizationResponse>, Status> {
+        self.get_organization_impl(request).await
+    }
+
+    async fn get_org_groups(
+        &self,
+        request: Request<AdminGetOrgGroupsRequest>,
+    ) -> Result<Response<AdminGetOrgGroupsResponse>, Status> {
+        self.get_org_groups_impl(request).await
+    }
+
     async fn list_users(
         &self,
         request: Request<AdminListUsersRequest>,
@@ -267,30 +255,17 @@ where
             .await
             .map_err(map_data_access_error)?
             .into_iter()
-            .map(|user| AdminUser {
-                id: user.id,
-                email: user.email,
-                email_confirmed: user.email_confirmed,
-                admin: user.admin,
-                organization_ids: user.organization_ids,
-                created_at: user.created_at,
-                last_active_at: user.last_active_at,
-                accounting: Some(AdminUserAccounting {
-                    total_prompt_tokens: user.accounting.total_prompt_tokens,
-                    total_completion_tokens: user.accounting.total_completion_tokens,
-                    total_tokens: user.accounting.total_tokens,
-                    request_count: user.accounting.request_count,
-                    last_used_at: user.accounting.last_used_at,
-                }),
-                disabled: user.disabled,
-                disabled_at: user.disabled_at,
-                disabled_by: user.disabled_by,
-                marked_for_deletion_at: user.marked_for_deletion_at,
-                marked_for_deletion_by: user.marked_for_deletion_by,
-            })
+            .map(detail_reads::map_admin_user)
             .collect();
 
         Ok(Response::new(AdminListUsersResponse { users }))
+    }
+
+    async fn get_user(
+        &self,
+        request: Request<AdminGetUserRequest>,
+    ) -> Result<Response<AdminGetUserResponse>, Status> {
+        self.get_user_impl(request).await
     }
 
     async fn get_tables(

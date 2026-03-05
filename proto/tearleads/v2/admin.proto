@@ -9,9 +9,15 @@ service AdminService {
   rpc GetContext(AdminGetContextRequest) returns (AdminGetContextResponse);
   rpc ListGroups(AdminListGroupsRequest) returns (AdminListGroupsResponse);
   rpc GetGroup(AdminGetGroupRequest) returns (AdminGetGroupResponse);
+  rpc GetGroupMembers(AdminGetGroupMembersRequest)
+      returns (AdminGetGroupMembersResponse);
   rpc ListOrganizations(AdminListOrganizationsRequest)
       returns (AdminListOrganizationsResponse);
+  rpc GetOrganization(AdminGetOrganizationRequest)
+      returns (AdminGetOrganizationResponse);
+  rpc GetOrgGroups(AdminGetOrgGroupsRequest) returns (AdminGetOrgGroupsResponse);
   rpc ListUsers(AdminListUsersRequest) returns (AdminListUsersResponse);
+  rpc GetUser(AdminGetUserRequest) returns (AdminGetUserResponse);
   rpc GetPostgresInfo(AdminGetPostgresInfoRequest)
       returns (AdminGetPostgresInfoResponse);
   rpc GetTables(AdminGetTablesRequest) returns (AdminGetTablesResponse);
@@ -66,6 +72,14 @@ message AdminGetGroupResponse {
   repeated AdminGroupMember members = 2;
 }
 
+message AdminGetGroupMembersRequest {
+  string id = 1;
+}
+
+message AdminGetGroupMembersResponse {
+  repeated AdminGroupMember members = 1;
+}
+
 message AdminGroup {
   string id = 1;
   string organization_id = 2;
@@ -89,6 +103,14 @@ message AdminListOrganizationsResponse {
   repeated AdminOrganization organizations = 1;
 }
 
+message AdminGetOrganizationRequest {
+  string id = 1;
+}
+
+message AdminGetOrganizationResponse {
+  AdminOrganization organization = 1;
+}
+
 message AdminOrganization {
   string id = 1;
   string name = 2;
@@ -103,6 +125,29 @@ message AdminListUsersRequest {
 
 message AdminListUsersResponse {
   repeated AdminUser users = 1;
+}
+
+message AdminGetOrgGroupsRequest {
+  string id = 1;
+}
+
+message AdminGetOrgGroupsResponse {
+  repeated AdminOrganizationGroup groups = 1;
+}
+
+message AdminOrganizationGroup {
+  string id = 1;
+  string name = 2;
+  optional string description = 3;
+  uint32 member_count = 4;
+}
+
+message AdminGetUserRequest {
+  string id = 1;
+}
+
+message AdminGetUserResponse {
+  AdminUser user = 1;
 }
 
 message AdminUser {

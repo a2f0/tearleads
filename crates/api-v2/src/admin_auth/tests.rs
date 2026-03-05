@@ -388,8 +388,12 @@ fn operation_strings_are_stable_for_error_messages() {
         (AdminOperation::GetContext, "get_context"),
         (AdminOperation::ListGroups, "list_groups"),
         (AdminOperation::GetGroup, "get_group"),
+        (AdminOperation::GetGroupMembers, "get_group_members"),
         (AdminOperation::ListOrganizations, "list_organizations"),
+        (AdminOperation::GetOrganization, "get_organization"),
+        (AdminOperation::GetOrgGroups, "get_org_groups"),
         (AdminOperation::ListUsers, "list_users"),
+        (AdminOperation::GetUser, "get_user"),
     ];
 
     for (operation, expected_name) in operations {

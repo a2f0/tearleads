@@ -68,10 +68,18 @@ pub enum AdminOperation {
     ListGroups,
     /// `AdminService.GetGroup`
     GetGroup,
+    /// `AdminService.GetGroupMembers`
+    GetGroupMembers,
     /// `AdminService.ListOrganizations`
     ListOrganizations,
+    /// `AdminService.GetOrganization`
+    GetOrganization,
+    /// `AdminService.GetOrgGroups`
+    GetOrgGroups,
     /// `AdminService.ListUsers`
     ListUsers,
+    /// `AdminService.GetUser`
+    GetUser,
 }
 
 impl AdminOperation {
@@ -88,8 +96,12 @@ impl AdminOperation {
             Self::GetContext => "get_context",
             Self::ListGroups => "list_groups",
             Self::GetGroup => "get_group",
+            Self::GetGroupMembers => "get_group_members",
             Self::ListOrganizations => "list_organizations",
+            Self::GetOrganization => "get_organization",
+            Self::GetOrgGroups => "get_org_groups",
             Self::ListUsers => "list_users",
+            Self::GetUser => "get_user",
         }
     }
 
@@ -106,8 +118,12 @@ impl AdminOperation {
             Self::GetContext
             | Self::ListGroups
             | Self::GetGroup
+            | Self::GetGroupMembers
             | Self::ListOrganizations
-            | Self::ListUsers => AdminOperationScope::ScopedOrRoot,
+            | Self::GetOrganization
+            | Self::GetOrgGroups
+            | Self::ListUsers
+            | Self::GetUser => AdminOperationScope::ScopedOrRoot,
         }
     }
 }
