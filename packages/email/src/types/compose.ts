@@ -127,8 +127,41 @@ export function formatEmailAddresses(emails: string[]): string {
  * Basic email validation
  */
 export function isValidEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
+  const normalized = email.trim();
+  if (normalized.length === 0) {
+    return false;
+  }
+
+  if (
+    normalized.includes(' ') ||
+    normalized.includes('\n') ||
+    normalized.includes('\r') ||
+    normalized.includes('\t')
+  ) {
+    return false;
+  }
+
+  const atIndex = normalized.indexOf('@');
+  if (
+    atIndex <= 0 ||
+    atIndex === normalized.length - 1 ||
+    atIndex !== normalized.lastIndexOf('@')
+  ) {
+    return false;
+  }
+
+  const local = normalized.slice(0, atIndex);
+  const domain = normalized.slice(atIndex + 1);
+  if (local.length === 0 || domain.length < 3) {
+    return false;
+  }
+
+  if (domain.startsWith('.') || domain.endsWith('.') || domain.includes('..')) {
+    return false;
+  }
+
+  const dotIndex = domain.lastIndexOf('.');
+  return dotIndex > 0 && dotIndex < domain.length - 1;
 }
 
 /**

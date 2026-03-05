@@ -60,6 +60,14 @@ describe('extractSelectColumns', () => {
     const sql = 'SELECT coalesce(max(id), 0) as max_id, name FROM users';
     expect(extractSelectColumns(sql)).toEqual(['max_id', 'name']);
   });
+
+  it('handles multiline select clauses', () => {
+    const sql = `SELECT
+      id,
+      count(*) AS total
+    FROM users`;
+    expect(extractSelectColumns(sql)).toEqual(['id', 'total']);
+  });
 });
 
 describe('rowToArray', () => {

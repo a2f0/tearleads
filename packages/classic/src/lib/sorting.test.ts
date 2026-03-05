@@ -375,4 +375,38 @@ describe('sorting', () => {
       }
     });
   });
+
+  it('keeps metadata maps on null prototypes for dynamic ids', () => {
+    const metadata = buildClassicSortMetadata({
+      registryRows: [
+        {
+          id: '__proto__',
+          objectType: 'tag',
+          createdAt: null
+        }
+      ],
+      noteRows: [
+        {
+          id: 'constructor',
+          createdAt: null,
+          updatedAt: null
+        }
+      ],
+      linkRows: [
+        {
+          parentId: '__proto__',
+          childId: 'constructor',
+          createdAt: null
+        }
+      ]
+    });
+
+    expect(Object.getPrototypeOf(metadata.tagCreatedAtById)).toBeNull();
+    expect(Object.getPrototypeOf(metadata.noteTaggedAtByTagId)).toBeNull();
+
+    const taggedAtById = metadata.noteTaggedAtByTagId['__proto__'];
+    expect(taggedAtById).toEqual({ constructor: null });
+    expect(taggedAtById).toBeDefined();
+    expect(Object.getPrototypeOf(taggedAtById)).toBeNull();
+  });
 });

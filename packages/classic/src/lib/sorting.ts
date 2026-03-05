@@ -112,7 +112,7 @@ function toTimestamp(value: Date | null | undefined): number | null {
 }
 
 function buildTagCountById(state: ClassicState): Record<string, number> {
-  const counts: Record<string, number> = {};
+  const counts: Record<string, number> = Object.create(null);
   for (const tag of state.tags) {
     counts[tag.id] = state.noteOrderByTagId[tag.id]?.length ?? 0;
   }
@@ -120,7 +120,7 @@ function buildTagCountById(state: ClassicState): Record<string, number> {
 }
 
 function getNoteTagCountById(state: ClassicState): Record<string, number> {
-  const counts: Record<string, number> = {};
+  const counts: Record<string, number> = Object.create(null);
   for (const noteId of Object.keys(state.notesById)) {
     counts[noteId] = 0;
   }
@@ -357,10 +357,13 @@ export function buildClassicSortMetadata({
   noteRows,
   linkRows
 }: BuildClassicSortMetadataArgs): ClassicSortMetadata {
-  const tagCreatedAtById: Record<string, number | null> = {};
-  const noteCreatedAtById: Record<string, number | null> = {};
-  const noteUpdatedAtById: Record<string, number | null> = {};
-  const noteTaggedAtByTagId: Record<string, Record<string, number | null>> = {};
+  const tagCreatedAtById: Record<string, number | null> = Object.create(null);
+  const noteCreatedAtById: Record<string, number | null> = Object.create(null);
+  const noteUpdatedAtById: Record<string, number | null> = Object.create(null);
+  const noteTaggedAtByTagId: Record<
+    string,
+    Record<string, number | null>
+  > = Object.create(null);
 
   for (const row of registryRows) {
     if (row.objectType === 'tag') {
@@ -378,15 +381,15 @@ export function buildClassicSortMetadata({
   }
 
   for (const row of linkRows) {
-    let taggedAtById = noteTaggedAtByTagId[row.parentId];
-    if (taggedAtById === undefined) {
-      taggedAtById = {};
+    const taggedAtById =
+      noteTaggedAtByTagId[row.parentId] ?? Object.create(null);
+    if (noteTaggedAtByTagId[row.parentId] === undefined) {
       noteTaggedAtByTagId[row.parentId] = taggedAtById;
     }
     taggedAtById[row.childId] = toTimestamp(row.createdAt);
   }
 
-  const tagLastUsedAtById: Record<string, number | null> = {};
+  const tagLastUsedAtById: Record<string, number | null> = Object.create(null);
   for (const [tagId, createdAt] of Object.entries(tagCreatedAtById)) {
     let latest = createdAt;
     const taggedRows = noteTaggedAtByTagId[tagId];

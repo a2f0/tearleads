@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { generateSqliteSchema } from '../src/generators/sqlite.js';
@@ -224,9 +224,28 @@ fs.writeFileSync(contentOutputPath, splitSchema.content);
 fs.writeFileSync(policyOutputPath, splitSchema.policy);
 fs.writeFileSync(runtimeOutputPath, splitSchema.runtime);
 
-execSync(
-  `pnpm biome check --write --unsafe ${rootOutputPath} ${foundationOutputPath} ${contentOutputPath} ${policyOutputPath} ${runtimeOutputPath}`,
+const biomeResult = spawnSync(
+  'pnpm',
+  [
+    'biome',
+    'check',
+    '--write',
+    '--unsafe',
+    rootOutputPath,
+    foundationOutputPath,
+    contentOutputPath,
+    policyOutputPath,
+    runtimeOutputPath
+  ],
   { stdio: 'inherit' }
 );
+
+if (biomeResult.error) {
+  throw biomeResult.error;
+}
+
+if (biomeResult.status !== 0) {
+  throw new Error('Failed to run Biome on generated SQLite schema files');
+}
 
 console.log(`SQLite schema generated at ${outputDir}`);
