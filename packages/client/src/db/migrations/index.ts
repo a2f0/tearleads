@@ -107,7 +107,7 @@ async function recordMigration(
  * @param version - version number of the migration
  * @param description - human-readable description
  */
-export type MigrationProgressCallback = (
+type MigrationProgressCallback = (
   index: number,
   total: number,
   version: number,
