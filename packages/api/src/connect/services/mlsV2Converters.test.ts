@@ -1,0 +1,29 @@
+import {
+  MlsCipherSuite,
+  MlsMessageType
+} from '@tearleads/shared/gen/tearleads/v2/mls_pb';
+import { describe, expect, it } from 'vitest';
+import {
+  fromProtoMessageType,
+  toProtoCipherSuite,
+  toProtoMessageType
+} from './mlsV2Converters.js';
+
+describe('mlsV2Converters', () => {
+  it('maps unknown cipher suites to UNSPECIFIED', () => {
+    expect(toProtoCipherSuite(999)).toBe(MlsCipherSuite.UNSPECIFIED);
+  });
+
+  it('maps commit/proposal proto message types and fallback', () => {
+    expect(fromProtoMessageType(MlsMessageType.COMMIT)).toBe('commit');
+    expect(fromProtoMessageType(MlsMessageType.PROPOSAL)).toBe('proposal');
+    expect(fromProtoMessageType(MlsMessageType.UNSPECIFIED)).toBe(
+      'application'
+    );
+  });
+
+  it('maps proposal and unknown app message types', () => {
+    expect(toProtoMessageType('proposal')).toBe(MlsMessageType.PROPOSAL);
+    expect(toProtoMessageType('unknown')).toBe(MlsMessageType.UNSPECIFIED);
+  });
+});

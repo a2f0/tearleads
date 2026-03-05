@@ -3,6 +3,7 @@ import { Code, ConnectError } from '@connectrpc/connect';
 import type {
   MlsMessage,
   MlsMessagesResponse,
+  SendMlsMessageRequest,
   SendMlsMessageResponse
 } from '@tearleads/shared';
 import { broadcast } from '../../lib/broadcast.js';
@@ -25,12 +26,13 @@ import {
 import { shouldReadEnvelopeBytea } from './vfsDirectCrdtEnvelopeReadOptions.js';
 
 type GroupIdJsonRequest = { groupId: string; json: string };
+type GroupIdTypedRequest = { groupId: string } & SendMlsMessageRequest;
 type GroupMessagesRequest = { groupId: string; cursor: string; limit: number };
 
-export async function sendGroupMessageDirect(
-  request: GroupIdJsonRequest,
+export async function sendGroupMessageDirectTyped(
+  request: GroupIdTypedRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<SendMlsMessageResponse> {
   const groupId = request.groupId.trim();
   if (groupId.length === 0) {
     throw new ConnectError('groupId is required', Code.InvalidArgument);
@@ -41,8 +43,18 @@ export async function sendGroupMessageDirect(
     context.requestHeader
   );
 
-  const payload = parseSendMessagePayload(parseJsonBody(request.json));
-  if (!payload) {
+  const trimmedContentType = request.contentType?.trim();
+  const payload: SendMlsMessageRequest = {
+    ciphertext: request.ciphertext.trim(),
+    epoch: request.epoch,
+    messageType: request.messageType,
+    ...(trimmedContentType ? { contentType: trimmedContentType } : {})
+  };
+  if (
+    payload.ciphertext.length === 0 ||
+    !Number.isInteger(payload.epoch) ||
+    payload.epoch < 0
+  ) {
     throw new ConnectError('Invalid message payload', Code.InvalidArgument);
   }
 
@@ -162,8 +174,7 @@ export async function sendGroupMessageDirect(
       timestamp: message.createdAt
     });
 
-    const response: SendMlsMessageResponse = { message };
-    return { json: JSON.stringify(response) };
+    return { message };
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -174,10 +185,26 @@ export async function sendGroupMessageDirect(
   }
 }
 
-export async function getGroupMessagesDirect(
-  request: GroupMessagesRequest,
+export async function sendGroupMessageDirect(
+  request: GroupIdJsonRequest,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
+  const payload = parseSendMessagePayload(parseJsonBody(request.json));
+  if (!payload) {
+    throw new ConnectError('Invalid message payload', Code.InvalidArgument);
+  }
+
+  const response = await sendGroupMessageDirectTyped(
+    { groupId: request.groupId, ...payload },
+    context
+  );
+  return { json: JSON.stringify(response) };
+}
+
+export async function getGroupMessagesDirectTyped(
+  request: GroupMessagesRequest,
+  context: { requestHeader: Headers }
+): Promise<MlsMessagesResponse> {
   const groupId = request.groupId.trim();
   if (groupId.length === 0) {
     throw new ConnectError('groupId is required', Code.InvalidArgument);
@@ -317,7 +344,7 @@ export async function getGroupMessagesDirect(
       }
     }
 
-    return { json: JSON.stringify(response) };
+    return response;
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -326,4 +353,12 @@ export async function getGroupMessagesDirect(
     console.error('Failed to get VFS-backed MLS messages:', error);
     throw new ConnectError('Failed to get messages', Code.Internal);
   }
+}
+
+export async function getGroupMessagesDirect(
+  request: GroupMessagesRequest,
+  context: { requestHeader: Headers }
+): Promise<{ json: string }> {
+  const response = await getGroupMessagesDirectTyped(request, context);
+  return { json: JSON.stringify(response) };
 }
