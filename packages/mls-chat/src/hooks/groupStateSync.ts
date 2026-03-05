@@ -1,4 +1,9 @@
 import type { MlsGroupStateResponse } from '@tearleads/shared';
+import {
+  parseConnectJsonEnvelopeBody,
+  parseConnectJsonString
+} from '@tearleads/shared';
+import { postMlsRpc } from './mlsConnectRpc.js';
 
 interface GroupStateClient {
   hasGroup(groupId: string): boolean;
@@ -10,15 +15,6 @@ interface GroupStateClient {
 interface GroupStateRequestContext {
   apiBaseUrl: string;
   getAuthHeader: (() => string | null) | undefined;
-}
-
-function buildHeaders(context: GroupStateRequestContext): HeadersInit {
-  const headers: HeadersInit = { 'Content-Type': 'application/json' };
-  const authValue = context.getAuthHeader?.();
-  if (authValue) {
-    headers['Authorization'] = authValue;
-  }
-  return headers;
 }
 
 function bytesToBase64(data: Uint8Array): string {
@@ -56,15 +52,14 @@ export async function recoverMissingGroupState(input: {
     return true;
   }
 
-  const response = await fetch(
-    `${input.apiBaseUrl}/mls/groups/${input.groupId}/state`,
-    {
-      headers: buildHeaders({
-        apiBaseUrl: input.apiBaseUrl,
-        getAuthHeader: input.getAuthHeader
-      })
-    }
-  );
+  const context: GroupStateRequestContext = {
+    apiBaseUrl: input.apiBaseUrl,
+    getAuthHeader: input.getAuthHeader
+  };
+
+  const response = await postMlsRpc(context, 'GetGroupState', {
+    groupId: input.groupId
+  });
 
   if (response.status === 404 || response.status === 403) {
     return false;
@@ -74,7 +69,9 @@ export async function recoverMissingGroupState(input: {
     throw new Error(`Failed to recover MLS group state for ${input.groupId}`);
   }
 
-  const payload = (await response.json()) as MlsGroupStateResponse;
+  const payload = parseConnectJsonString<MlsGroupStateResponse>(
+    JSON.stringify(parseConnectJsonEnvelopeBody(await response.json()))
+  );
   if (!payload.state) {
     return false;
   }
@@ -107,21 +104,19 @@ export async function uploadGroupStateSnapshot(input: {
   }
 
   const stateHash = await sha256Base64(serializedState);
-  const response = await fetch(
-    `${input.apiBaseUrl}/mls/groups/${input.groupId}/state`,
-    {
-      method: 'POST',
-      headers: buildHeaders({
-        apiBaseUrl: input.apiBaseUrl,
-        getAuthHeader: input.getAuthHeader
-      }),
-      body: JSON.stringify({
-        epoch,
-        encryptedState: bytesToBase64(serializedState),
-        stateHash
-      })
-    }
-  );
+  const context: GroupStateRequestContext = {
+    apiBaseUrl: input.apiBaseUrl,
+    getAuthHeader: input.getAuthHeader
+  };
+
+  const response = await postMlsRpc(context, 'UploadGroupState', {
+    groupId: input.groupId,
+    json: JSON.stringify({
+      epoch,
+      encryptedState: bytesToBase64(serializedState),
+      stateHash
+    })
+  });
 
   if (response.status === 409) {
     return;

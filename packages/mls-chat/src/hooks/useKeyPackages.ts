@@ -3,12 +3,17 @@
  * Handles uploading key packages to the server and local key package generation.
  */
 
-import type { MlsKeyPackage } from '@tearleads/shared';
+import type {
+  MlsKeyPackage,
+  MlsKeyPackagesResponse,
+  UploadMlsKeyPackagesResponse
+} from '@tearleads/shared';
 import { MLS_CIPHERSUITES } from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useMlsChatApi } from '../context/index.js';
 import type { MlsClient } from '../lib/index.js';
+import { requestMlsRpc } from './mlsConnectRpc.js';
 
 interface UseKeyPackagesResult {
   keyPackages: MlsKeyPackage[];
@@ -33,21 +38,12 @@ export function useKeyPackages(client: MlsClient | null): UseKeyPackagesResult {
     setError(null);
 
     try {
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      const authValue = getAuthHeader?.();
-      if (authValue) {
-        headers['Authorization'] = authValue;
-      }
-
-      const response = await fetch(`${apiBaseUrl}/mls/key-packages/me`, {
-        headers
+      const data = await requestMlsRpc<MlsKeyPackagesResponse>({
+        context: { apiBaseUrl, getAuthHeader },
+        method: 'GetMyKeyPackages',
+        requestBody: {},
+        errorMessage: 'Failed to fetch key packages'
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch key packages');
-      }
-
-      const data = (await response.json()) as { keyPackages: MlsKeyPackage[] };
       setKeyPackages(data.keyPackages);
     } catch (err) {
       setError(
@@ -85,21 +81,12 @@ export function useKeyPackages(client: MlsClient | null): UseKeyPackagesResult {
           });
         }
 
-        const headers: HeadersInit = { 'Content-Type': 'application/json' };
-        const authValue = getAuthHeader?.();
-        if (authValue) {
-          headers['Authorization'] = authValue;
-        }
-
-        const response = await fetch(`${apiBaseUrl}/mls/key-packages`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ keyPackages: newKeyPackages })
+        await requestMlsRpc<UploadMlsKeyPackagesResponse>({
+          context: { apiBaseUrl, getAuthHeader },
+          method: 'UploadKeyPackages',
+          requestBody: { json: JSON.stringify({ keyPackages: newKeyPackages }) },
+          errorMessage: 'Failed to upload key packages'
         });
-
-        if (!response.ok) {
-          throw new Error('Failed to upload key packages');
-        }
 
         await fetchKeyPackages();
       } catch (err) {
@@ -118,20 +105,12 @@ export function useKeyPackages(client: MlsClient | null): UseKeyPackagesResult {
 
   const deleteKeyPackage = useCallback(
     async (id: string) => {
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      const authValue = getAuthHeader?.();
-      if (authValue) {
-        headers['Authorization'] = authValue;
-      }
-
-      const response = await fetch(`${apiBaseUrl}/mls/key-packages/${id}`, {
-        method: 'DELETE',
-        headers
+      await requestMlsRpc<unknown>({
+        context: { apiBaseUrl, getAuthHeader },
+        method: 'DeleteKeyPackage',
+        requestBody: { id },
+        errorMessage: 'Failed to delete key package'
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete key package');
-      }
 
       setKeyPackages((prev) => prev.filter((kp) => kp.id !== id));
     },

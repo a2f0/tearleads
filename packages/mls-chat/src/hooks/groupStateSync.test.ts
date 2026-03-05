@@ -148,13 +148,22 @@ describe('groupStateSync', () => {
     const init = fetchSpy.mock.calls[0]?.[1] as RequestInit;
     expect(init?.method).toBe('POST');
     expect(typeof init?.body).toBe('string');
-    const body = JSON.parse((init?.body as string) ?? '{}') as {
+    const requestBody = JSON.parse((init?.body as string) ?? '{}') as {
+      groupId?: string;
+      json?: string;
+    };
+    expect(requestBody.groupId).toBe('group-1');
+    expect(typeof requestBody.json).toBe('string');
+
+    const payload = JSON.parse(requestBody.json ?? '{}') as {
       epoch?: number;
       encryptedState?: string;
       stateHash?: string;
     };
-    expect(body.epoch).toBe(7);
-    expect(body.encryptedState).toBeDefined();
-    expect(body.stateHash).toBe('wAEDKaM8s6FdpeNW0sAr8nS7ZQCBwhZ0F3ClXnVBabQ=');
+    expect(payload.epoch).toBe(7);
+    expect(payload.encryptedState).toBeDefined();
+    expect(payload.stateHash).toBe(
+      'wAEDKaM8s6FdpeNW0sAr8nS7ZQCBwhZ0F3ClXnVBabQ='
+    );
   });
 });
