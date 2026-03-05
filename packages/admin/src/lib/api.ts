@@ -143,7 +143,9 @@ function toSafeNumber(value: unknown, fallback = 0): number {
   return fallback;
 }
 
-function mapPostgresInfoResponse(responseBody: unknown): PostgresAdminInfoResponse {
+function mapPostgresInfoResponse(
+  responseBody: unknown
+): PostgresAdminInfoResponse {
   const response = isRecord(responseBody) ? responseBody : {};
   const info = isRecord(response['info']) ? response['info'] : {};
 
@@ -167,7 +169,9 @@ function mapPostgresInfoResponse(responseBody: unknown): PostgresAdminInfoRespon
   };
 }
 
-function mapPostgresTablesResponse(responseBody: unknown): PostgresTablesResponse {
+function mapPostgresTablesResponse(
+  responseBody: unknown
+): PostgresTablesResponse {
   const response = isRecord(responseBody) ? responseBody : {};
   const tableRows = Array.isArray(response['tables']) ? response['tables'] : [];
 
@@ -175,7 +179,8 @@ function mapPostgresTablesResponse(responseBody: unknown): PostgresTablesRespons
     tables: tableRows
       .filter((tableRow) => isRecord(tableRow))
       .map((tableRow) => ({
-        schema: typeof tableRow['schema'] === 'string' ? tableRow['schema'] : '',
+        schema:
+          typeof tableRow['schema'] === 'string' ? tableRow['schema'] : '',
         name: typeof tableRow['name'] === 'string' ? tableRow['name'] : '',
         rowCount: toSafeNumber(tableRow['rowCount']),
         totalBytes: toSafeNumber(tableRow['totalBytes']),
@@ -185,7 +190,9 @@ function mapPostgresTablesResponse(responseBody: unknown): PostgresTablesRespons
   };
 }
 
-function mapPostgresColumnsResponse(responseBody: unknown): PostgresColumnsResponse {
+function mapPostgresColumnsResponse(
+  responseBody: unknown
+): PostgresColumnsResponse {
   const response = isRecord(responseBody) ? responseBody : {};
   const columns = Array.isArray(response['columns']) ? response['columns'] : [];
 
@@ -270,7 +277,9 @@ function mapRedisValueResponse(responseBody: unknown): RedisKeyValueResponse {
   };
 }
 
-function mapDeleteRedisKeyResponse(responseBody: unknown): { deleted: boolean } {
+function mapDeleteRedisKeyResponse(responseBody: unknown): {
+  deleted: boolean;
+} {
   const response = isRecord(responseBody) ? responseBody : {};
   if (typeof response['deleted'] === 'boolean') {
     return { deleted: response['deleted'] };
