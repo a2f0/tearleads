@@ -2,6 +2,47 @@
 
 use tonic::{Status, metadata::MetadataMap};
 
+/// Canonical admin access scope resolved for a request.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdminAccessContext {
+    is_root_admin: bool,
+    organization_ids: Vec<String>,
+}
+
+impl AdminAccessContext {
+    /// Constructs root-admin access context.
+    pub fn root() -> Self {
+        Self {
+            is_root_admin: true,
+            organization_ids: Vec::new(),
+        }
+    }
+
+    /// Constructs scoped-admin access context.
+    pub fn scoped(organization_ids: Vec<String>) -> Self {
+        Self {
+            is_root_admin: false,
+            organization_ids,
+        }
+    }
+
+    /// Returns whether this caller has root-admin permissions.
+    pub fn is_root_admin(&self) -> bool {
+        self.is_root_admin
+    }
+
+    /// Returns organization identifiers available to a scoped admin.
+    pub fn organization_ids(&self) -> &[String] {
+        &self.organization_ids
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AdminOperationScope {
+    RootOnly,
+    ScopedOrRoot,
+}
+
 /// Supported admin RPC operations requiring authorization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AdminOperation {
@@ -21,6 +62,14 @@ pub enum AdminOperation {
     DeleteRedisKey,
     /// `AdminService.GetRedisDbSize`
     GetRedisDbSize,
+    /// `AdminService.GetContext`
+    GetContext,
+    /// `AdminService.ListGroups`
+    ListGroups,
+    /// `AdminService.ListOrganizations`
+    ListOrganizations,
+    /// `AdminService.ListUsers`
+    ListUsers,
 }
 
 impl AdminOperation {
@@ -34,6 +83,26 @@ impl AdminOperation {
             Self::GetRedisValue => "get_redis_value",
             Self::DeleteRedisKey => "delete_redis_key",
             Self::GetRedisDbSize => "get_redis_db_size",
+            Self::GetContext => "get_context",
+            Self::ListGroups => "list_groups",
+            Self::ListOrganizations => "list_organizations",
+            Self::ListUsers => "list_users",
+        }
+    }
+
+    fn required_scope(self) -> AdminOperationScope {
+        match self {
+            Self::GetPostgresInfo
+            | Self::GetTables
+            | Self::GetColumns
+            | Self::GetRows
+            | Self::GetRedisKeys
+            | Self::GetRedisValue
+            | Self::DeleteRedisKey
+            | Self::GetRedisDbSize => AdminOperationScope::RootOnly,
+            Self::GetContext | Self::ListGroups | Self::ListOrganizations | Self::ListUsers => {
+                AdminOperationScope::ScopedOrRoot
+            }
         }
     }
 }
@@ -76,21 +145,100 @@ impl AdminAuthError {
 
 /// Authorization boundary for admin handler operations.
 pub trait AdminRequestAuthorizer: Send + Sync {
-    /// Verifies that the request metadata grants access to the given operation.
+    /// Verifies that request metadata grants access and resolves admin scope.
     fn authorize_admin_operation(
         &self,
         operation: AdminOperation,
         metadata: &MetadataMap,
-    ) -> Result<(), AdminAuthError>;
+    ) -> Result<AdminAccessContext, AdminAuthError>;
 }
 
 /// Header-based authorization policy requiring `x-tearleads-role: admin`.
+///
+/// Scope semantics:
+/// - Root-only operations require root access.
+/// - Scoped operations allow root or org-scoped admins.
 #[derive(Debug, Clone, Copy)]
 pub struct HeaderRoleAdminAuthorizer;
 
 impl HeaderRoleAdminAuthorizer {
     const ROLE_HEADER: &'static str = "x-tearleads-role";
+    const SCOPE_HEADER: &'static str = "x-tearleads-admin-scope";
+    const ORGANIZATION_IDS_HEADER: &'static str = "x-tearleads-admin-organization-ids";
     const REQUIRED_ROLE: &'static str = "admin";
+    const ROOT_SCOPE: &'static str = "root";
+    const ORG_SCOPE: &'static str = "org";
+
+    fn parse_scope_metadata(
+        operation: AdminOperation,
+        metadata: &MetadataMap,
+    ) -> Result<Option<AdminAccessContext>, AdminAuthError> {
+        let Some(scope_value) = metadata.get(Self::SCOPE_HEADER) else {
+            return Ok(None);
+        };
+
+        let scope = scope_value.to_str().map_err(|_| {
+            AdminAuthError::new(
+                AdminAuthErrorKind::Unauthenticated,
+                format!("invalid {} for {}", Self::SCOPE_HEADER, operation.as_str()),
+            )
+        })?;
+        let normalized_scope = scope.trim().to_ascii_lowercase();
+
+        match normalized_scope.as_str() {
+            Self::ROOT_SCOPE => Ok(Some(AdminAccessContext::root())),
+            Self::ORG_SCOPE => {
+                let organization_ids = metadata
+                    .get(Self::ORGANIZATION_IDS_HEADER)
+                    .ok_or_else(|| {
+                        AdminAuthError::new(
+                            AdminAuthErrorKind::PermissionDenied,
+                            format!(
+                                "missing {} for {}",
+                                Self::ORGANIZATION_IDS_HEADER,
+                                operation.as_str()
+                            ),
+                        )
+                    })?
+                    .to_str()
+                    .map_err(|_| {
+                        AdminAuthError::new(
+                            AdminAuthErrorKind::Unauthenticated,
+                            format!(
+                                "invalid {} for {}",
+                                Self::ORGANIZATION_IDS_HEADER,
+                                operation.as_str()
+                            ),
+                        )
+                    })?
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .map(ToOwned::to_owned)
+                    .collect::<Vec<_>>();
+
+                if organization_ids.is_empty() {
+                    return Err(AdminAuthError::new(
+                        AdminAuthErrorKind::PermissionDenied,
+                        format!(
+                            "scoped admin must include at least one organization id for {}",
+                            operation.as_str()
+                        ),
+                    ));
+                }
+
+                Ok(Some(AdminAccessContext::scoped(organization_ids)))
+            }
+            _ => Err(AdminAuthError::new(
+                AdminAuthErrorKind::PermissionDenied,
+                format!(
+                    "invalid {} value for {}",
+                    Self::SCOPE_HEADER,
+                    operation.as_str()
+                ),
+            )),
+        }
+    }
 }
 
 impl AdminRequestAuthorizer for HeaderRoleAdminAuthorizer {
@@ -98,7 +246,7 @@ impl AdminRequestAuthorizer for HeaderRoleAdminAuthorizer {
         &self,
         operation: AdminOperation,
         metadata: &MetadataMap,
-    ) -> Result<(), AdminAuthError> {
+    ) -> Result<AdminAccessContext, AdminAuthError> {
         let role_value = metadata.get(Self::ROLE_HEADER).ok_or_else(|| {
             AdminAuthError::new(
                 AdminAuthErrorKind::Unauthenticated,
@@ -120,7 +268,26 @@ impl AdminRequestAuthorizer for HeaderRoleAdminAuthorizer {
             ));
         }
 
-        Ok(())
+        let scope_from_headers = Self::parse_scope_metadata(operation, metadata)?;
+        match operation.required_scope() {
+            AdminOperationScope::RootOnly => {
+                if let Some(scope) = scope_from_headers {
+                    if !scope.is_root_admin() {
+                        return Err(AdminAuthError::new(
+                            AdminAuthErrorKind::PermissionDenied,
+                            format!("root admin scope required for {}", operation.as_str()),
+                        ));
+                    }
+                }
+                Ok(AdminAccessContext::root())
+            }
+            AdminOperationScope::ScopedOrRoot => scope_from_headers.ok_or_else(|| {
+                AdminAuthError::new(
+                    AdminAuthErrorKind::PermissionDenied,
+                    format!("missing {} for {}", Self::SCOPE_HEADER, operation.as_str()),
+                )
+            }),
+        }
     }
 }
 
@@ -136,149 +303,4 @@ pub fn map_admin_auth_error(error: AdminAuthError) -> Status {
 }
 
 #[cfg(test)]
-mod tests {
-    use tonic::Code;
-
-    use super::{
-        AdminAuthError, AdminAuthErrorKind, AdminOperation, AdminRequestAuthorizer,
-        HeaderRoleAdminAuthorizer, map_admin_auth_error,
-    };
-
-    #[test]
-    fn header_role_authorizer_accepts_admin_role() {
-        let authorizer = HeaderRoleAdminAuthorizer;
-        let mut metadata = tonic::metadata::MetadataMap::new();
-        metadata.insert(
-            "x-tearleads-role",
-            tonic::metadata::MetadataValue::from_static("admin"),
-        );
-
-        let result = authorizer.authorize_admin_operation(AdminOperation::GetTables, &metadata);
-        assert_eq!(result, Ok(()));
-    }
-
-    #[test]
-    fn header_role_authorizer_rejects_missing_role_header() {
-        let authorizer = HeaderRoleAdminAuthorizer;
-        let metadata = tonic::metadata::MetadataMap::new();
-
-        let result = authorizer.authorize_admin_operation(AdminOperation::GetTables, &metadata);
-        assert!(result.is_err());
-        assert_eq!(
-            result.as_ref().err().map(|error| error.kind()),
-            Some(AdminAuthErrorKind::Unauthenticated)
-        );
-        assert!(
-            result
-                .as_ref()
-                .err()
-                .map(|error| error.message().contains("missing x-tearleads-role"))
-                .unwrap_or(false)
-        );
-    }
-
-    #[test]
-    fn header_role_authorizer_rejects_non_admin_role() {
-        let authorizer = HeaderRoleAdminAuthorizer;
-        let mut metadata = tonic::metadata::MetadataMap::new();
-        metadata.insert(
-            "x-tearleads-role",
-            tonic::metadata::MetadataValue::from_static("member"),
-        );
-
-        let result = authorizer.authorize_admin_operation(AdminOperation::GetColumns, &metadata);
-        assert!(result.is_err());
-        assert_eq!(
-            result.as_ref().err().map(|error| error.kind()),
-            Some(AdminAuthErrorKind::PermissionDenied)
-        );
-        assert!(
-            result
-                .as_ref()
-                .err()
-                .map(|error| error.message().contains("admin role required"))
-                .unwrap_or(false)
-        );
-    }
-
-    #[test]
-    fn header_role_authorizer_rejects_non_utf8_role_header() {
-        let authorizer = HeaderRoleAdminAuthorizer;
-        let mut metadata = tonic::metadata::MetadataMap::new();
-        let invalid_role = parse_opaque_ascii_value(b"admin\xfa");
-        metadata.insert("x-tearleads-role", invalid_role);
-
-        let result = authorizer.authorize_admin_operation(AdminOperation::GetTables, &metadata);
-        assert!(result.is_err());
-        assert_eq!(
-            result.as_ref().err().map(|error| error.kind()),
-            Some(AdminAuthErrorKind::Unauthenticated)
-        );
-        assert!(
-            result
-                .as_ref()
-                .err()
-                .map(|error| error.message().contains("invalid x-tearleads-role"))
-                .unwrap_or(false)
-        );
-    }
-
-    #[test]
-    #[should_panic(expected = "opaque ascii metadata value should parse")]
-    fn parse_opaque_ascii_value_panics_for_invalid_ascii() {
-        let _ = parse_opaque_ascii_value(b"\n");
-    }
-
-    #[test]
-    fn map_admin_auth_error_translates_kinds_to_status_codes() {
-        let unauthenticated = map_admin_auth_error(AdminAuthError::new(
-            AdminAuthErrorKind::Unauthenticated,
-            "login required",
-        ));
-        assert_eq!(unauthenticated.code(), Code::Unauthenticated);
-        assert_eq!(unauthenticated.message(), "login required");
-
-        let denied = map_admin_auth_error(AdminAuthError::new(
-            AdminAuthErrorKind::PermissionDenied,
-            "role mismatch",
-        ));
-        assert_eq!(denied.code(), Code::PermissionDenied);
-        assert_eq!(denied.message(), "role mismatch");
-
-        let internal = map_admin_auth_error(AdminAuthError::new(
-            AdminAuthErrorKind::Internal,
-            "token decoder crashed",
-        ));
-        assert_eq!(internal.code(), Code::Internal);
-        assert_eq!(internal.message(), "admin authorization failed");
-    }
-
-    #[test]
-    fn operation_strings_are_stable_for_error_messages() {
-        let operations = [
-            (AdminOperation::GetPostgresInfo, "get_postgres_info"),
-            (AdminOperation::GetTables, "get_tables"),
-            (AdminOperation::GetColumns, "get_columns"),
-            (AdminOperation::GetRows, "get_rows"),
-            (AdminOperation::GetRedisKeys, "get_redis_keys"),
-            (AdminOperation::GetRedisValue, "get_redis_value"),
-            (AdminOperation::DeleteRedisKey, "delete_redis_key"),
-            (AdminOperation::GetRedisDbSize, "get_redis_db_size"),
-        ];
-
-        for (operation, expected_name) in operations {
-            let error = AdminAuthError::new(
-                AdminAuthErrorKind::Unauthenticated,
-                format!("missing x-tearleads-role for {}", operation.as_str()),
-            );
-            assert!(error.message().contains(expected_name));
-        }
-    }
-
-    fn parse_opaque_ascii_value(bytes: &[u8]) -> tonic::metadata::AsciiMetadataValue {
-        match tonic::metadata::AsciiMetadataValue::try_from(bytes) {
-            Ok(value) => value,
-            Err(error) => panic!("opaque ascii metadata value should parse: {error}"),
-        }
-    }
-}
+mod tests;
