@@ -71,9 +71,12 @@ function renderBootstrap(overrides: Partial<BootstrapTestInput> = {}) {
     ...overrides
   };
 
-  const renderResult = renderHook((props: BootstrapTestInput) => {
-    useConversationBootstrap(props);
-  }, { initialProps });
+  const renderResult = renderHook(
+    (props: BootstrapTestInput) => {
+      useConversationBootstrap(props);
+    },
+    { initialProps }
+  );
 
   return {
     ...renderResult,
@@ -140,7 +143,9 @@ describe('useConversationBootstrap', () => {
     });
 
     await waitFor(() => {
-      expect(selectConversationMock).toHaveBeenCalledWith('recent-conversation');
+      expect(selectConversationMock).toHaveBeenCalledWith(
+        'recent-conversation'
+      );
       expect(createConversationMock).not.toHaveBeenCalled();
     });
   });
@@ -238,22 +243,25 @@ describe('useConversationBootstrap', () => {
       .fn((_message: string) => {})
       .mockName('setInitializationError');
 
-    const { rerender } = renderHook((props: BootstrapTestInput) => {
-      useConversationBootstrap(props);
-    }, {
-      initialProps: {
-        autoStart: true,
-        resumeLastConversation: false,
-        instanceId: 'instance-1',
-        loading: false,
-        messagesLoading: false,
-        currentConversationId: 'existing-conversation',
-        conversations: [createConversation('existing-conversation')],
-        createConversation: createConversationMock,
-        selectConversation: selectConversationMock,
-        setInitializationError: setInitializationErrorMock
+    const { rerender } = renderHook(
+      (props: BootstrapTestInput) => {
+        useConversationBootstrap(props);
+      },
+      {
+        initialProps: {
+          autoStart: true,
+          resumeLastConversation: false,
+          instanceId: 'instance-1',
+          loading: false,
+          messagesLoading: false,
+          currentConversationId: 'existing-conversation',
+          conversations: [createConversation('existing-conversation')],
+          createConversation: createConversationMock,
+          selectConversation: selectConversationMock,
+          setInitializationError: setInitializationErrorMock
+        }
       }
-    });
+    );
 
     await waitFor(() => {
       expect(createConversationMock).not.toHaveBeenCalled();
@@ -304,9 +312,12 @@ describe('useConversationBootstrap', () => {
       setInitializationError: setInitializationErrorMock
     };
 
-    const { rerender } = renderHook((props: BootstrapTestInput) => {
-      useConversationBootstrap(props);
-    }, { initialProps });
+    const { rerender } = renderHook(
+      (props: BootstrapTestInput) => {
+        useConversationBootstrap(props);
+      },
+      { initialProps }
+    );
 
     rerender({
       ...initialProps,

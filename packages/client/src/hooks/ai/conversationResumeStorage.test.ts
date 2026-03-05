@@ -53,8 +53,9 @@ describe('conversationResumeStorage', () => {
       throw new Error('delete failed');
     });
 
-    expect(() => saveLastConversationId('conversation-3', 'instance-1')).not
-      .toThrow();
+    expect(() =>
+      saveLastConversationId('conversation-3', 'instance-1')
+    ).not.toThrow();
     expect(() => clearLastConversationId('instance-1')).not.toThrow();
   });
 });
