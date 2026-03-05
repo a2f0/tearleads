@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
 import type {
+  CreateMlsGroupRequest,
   CreateMlsGroupResponse,
   MlsGroup,
   MlsGroupMember,
   MlsGroupResponse,
-  MlsGroupsResponse
+  MlsGroupsResponse,
+  UpdateMlsGroupRequest
 } from '@tearleads/shared';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
@@ -23,23 +25,23 @@ import {
 } from './mlsDirectShared.js';
 
 type GroupIdRequest = { groupId: string };
+type CreateGroupJsonRequest = { json: string };
 type GroupIdJsonRequest = { groupId: string; json: string };
+type GroupIdTypedUpdateRequest = { groupId: string } & UpdateMlsGroupRequest;
 
-export async function createGroupDirect(
-  request: { json: string },
+export async function createGroupDirectTyped(
+  request: CreateMlsGroupRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<CreateMlsGroupResponse> {
   const claims = await requireMlsClaims('/mls/groups', context.requestHeader);
-  const payload = parseCreateGroupPayload(parseJsonBody(request.json));
+  const payload = parseCreateGroupPayload(request);
   if (!payload) {
     throw new ConnectError('Invalid group payload', Code.InvalidArgument);
   }
-
   try {
     const pool = await getPostgresPool();
     const id = randomUUID();
     const now = new Date();
-
     const organizationResult = await pool.query<{
       personal_organization_id: string;
     }>(
@@ -49,7 +51,6 @@ export async function createGroupDirect(
         LIMIT 1`,
       [claims.sub]
     );
-
     const organizationId = organizationResult.rows[0]?.personal_organization_id;
     if (!organizationId) {
       throw new ConnectError(
@@ -60,11 +61,9 @@ export async function createGroupDirect(
 
     const client = await pool.connect();
     let inTransaction = false;
-
     try {
       await client.query('BEGIN');
       inTransaction = true;
-
       await client.query(
         `INSERT INTO mls_groups (
            id,
@@ -101,7 +100,6 @@ export async function createGroupDirect(
          ) VALUES ($1, $2, 0, 'admin', $3, 0)`,
         [id, claims.sub, now]
       );
-
       await client.query('COMMIT');
       inTransaction = false;
     } catch (transactionError) {
@@ -112,7 +110,6 @@ export async function createGroupDirect(
     } finally {
       client.release();
     }
-
     const group: MlsGroup = {
       id,
       groupIdMls: payload.groupIdMls,
@@ -127,24 +124,33 @@ export async function createGroupDirect(
       role: 'admin'
     };
 
-    const response: CreateMlsGroupResponse = { group };
-    return { json: JSON.stringify(response) };
+    return { group };
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
     }
-
     console.error('Failed to create group:', error);
     throw new ConnectError('Failed to create group', Code.Internal);
   }
 }
 
-export async function listGroupsDirect(
-  _request: object,
+export async function createGroupDirect(
+  request: CreateGroupJsonRequest,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
-  const claims = await requireMlsClaims('/mls/groups', context.requestHeader);
+  const payload = parseCreateGroupPayload(parseJsonBody(request.json));
+  if (!payload) {
+    throw new ConnectError('Invalid group payload', Code.InvalidArgument);
+  }
+  const response = await createGroupDirectTyped(payload, context);
+  return { json: JSON.stringify(response) };
+}
 
+export async function listGroupsDirectTyped(
+  _request: object,
+  context: { requestHeader: Headers }
+): Promise<MlsGroupsResponse> {
+  const claims = await requireMlsClaims('/mls/groups', context.requestHeader);
   try {
     const pool = await getPool('read');
     const result = await pool.query<{
@@ -188,22 +194,28 @@ export async function listGroupsDirect(
       role: toMlsGroupRole(row.role)
     }));
 
-    const response: MlsGroupsResponse = { groups };
-    return { json: JSON.stringify(response) };
+    return { groups };
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
     }
-
     console.error('Failed to list groups:', error);
     throw new ConnectError('Failed to list groups', Code.Internal);
   }
 }
 
-export async function getGroupDirect(
-  request: GroupIdRequest,
+export async function listGroupsDirect(
+  request: object,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
+  const response = await listGroupsDirectTyped(request, context);
+  return { json: JSON.stringify(response) };
+}
+
+export async function getGroupDirectTyped(
+  request: GroupIdRequest,
+  context: { requestHeader: Headers }
+): Promise<MlsGroupResponse> {
   const groupId = request.groupId.trim();
   if (groupId.length === 0) {
     throw new ConnectError('groupId is required', Code.InvalidArgument);
@@ -285,8 +297,7 @@ export async function getGroupDirect(
       joinedAtEpoch: memberRow.joined_at_epoch
     }));
 
-    const response: MlsGroupResponse = { group, members };
-    return { json: JSON.stringify(response) };
+    return { group, members };
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -297,10 +308,18 @@ export async function getGroupDirect(
   }
 }
 
-export async function updateGroupDirect(
-  request: GroupIdJsonRequest,
+export async function getGroupDirect(
+  request: GroupIdRequest,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
+  const response = await getGroupDirectTyped(request, context);
+  return { json: JSON.stringify(response) };
+}
+
+export async function updateGroupDirectTyped(
+  request: GroupIdTypedUpdateRequest,
+  context: { requestHeader: Headers }
+): Promise<CreateMlsGroupResponse> {
   const groupId = request.groupId.trim();
   if (groupId.length === 0) {
     throw new ConnectError('groupId is required', Code.InvalidArgument);
@@ -311,7 +330,7 @@ export async function updateGroupDirect(
     context.requestHeader
   );
 
-  const payload = parseUpdateGroupPayload(parseJsonBody(request.json));
+  const payload = parseUpdateGroupPayload(request);
   if (!payload) {
     throw new ConnectError(
       'At least one field to update is required',
@@ -391,9 +410,7 @@ export async function updateGroupDirect(
       updatedAt: toIsoString(row.updated_at)
     };
 
-    return {
-      json: JSON.stringify({ group })
-    };
+    return { group };
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -404,10 +421,28 @@ export async function updateGroupDirect(
   }
 }
 
-export async function deleteGroupDirect(
-  request: GroupIdRequest,
+export async function updateGroupDirect(
+  request: GroupIdJsonRequest,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
+  const payload = parseUpdateGroupPayload(parseJsonBody(request.json));
+  if (!payload) {
+    throw new ConnectError(
+      'At least one field to update is required',
+      Code.InvalidArgument
+    );
+  }
+  const response = await updateGroupDirectTyped(
+    { groupId: request.groupId, ...payload },
+    context
+  );
+  return { json: JSON.stringify(response) };
+}
+
+export async function deleteGroupDirectTyped(
+  request: GroupIdRequest,
+  context: { requestHeader: Headers }
+): Promise<Record<string, never>> {
   const groupId = request.groupId.trim();
   if (groupId.length === 0) {
     throw new ConnectError('groupId is required', Code.InvalidArgument);
@@ -437,7 +472,7 @@ export async function deleteGroupDirect(
       [groupId, claims.sub]
     );
 
-    return { json: '{}' };
+    return {};
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -446,4 +481,12 @@ export async function deleteGroupDirect(
     console.error('Failed to leave group:', error);
     throw new ConnectError('Failed to leave group', Code.Internal);
   }
+}
+
+export async function deleteGroupDirect(
+  request: GroupIdRequest,
+  context: { requestHeader: Headers }
+): Promise<{ json: string }> {
+  await deleteGroupDirectTyped(request, context);
+  return { json: '{}' };
 }

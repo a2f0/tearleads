@@ -3,6 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   acknowledgeWelcomeDirectMock,
   addGroupMemberDirectMock,
+  createGroupDirectMock,
+  deleteGroupDirectMock,
+  deleteKeyPackageDirectMock,
   getGroupDirectMock,
   getGroupMembersDirectMock,
   getGroupMessagesDirectMock,
@@ -10,10 +13,12 @@ const {
   getMyKeyPackagesDirectMock,
   getUserKeyPackagesDirectMock,
   getWelcomeMessagesDirectMock,
+  listGroupsDirectMock,
   removeGroupMemberDirectMock,
   sendGroupMessageDirectMock,
   updateGroupDirectMock,
-  uploadGroupStateDirectMock
+  uploadGroupStateDirectMock,
+  uploadKeyPackagesDirectMock
 } = vi.hoisted(() => ({
   acknowledgeWelcomeDirectMock: vi.fn(),
   addGroupMemberDirectMock: vi.fn(),
@@ -36,21 +41,35 @@ const {
 }));
 
 vi.mock('./mlsDirectKeyPackages.js', () => ({
+  uploadKeyPackagesDirectTyped: (...args: unknown[]) =>
+    uploadKeyPackagesDirectMock(...args),
+  getMyKeyPackagesDirectTyped: (...args: unknown[]) =>
+    getMyKeyPackagesDirectMock(...args),
+  getUserKeyPackagesDirectTyped: (...args: unknown[]) =>
+    getUserKeyPackagesDirectMock(...args),
+  deleteKeyPackageDirectTyped: (...args: unknown[]) =>
+    deleteKeyPackageDirectMock(...args),
   uploadKeyPackagesDirect: (...args: unknown[]) =>
-    vi.mocked(uploadGroupStateDirectMock)(...args),
+    uploadKeyPackagesDirectMock(...args),
   getMyKeyPackagesDirect: (...args: unknown[]) =>
     getMyKeyPackagesDirectMock(...args),
   getUserKeyPackagesDirect: (...args: unknown[]) =>
     getUserKeyPackagesDirectMock(...args),
-  deleteKeyPackageDirect: vi.fn().mockResolvedValue({ json: '{}' })
+  deleteKeyPackageDirect: (...args: unknown[]) =>
+    deleteKeyPackageDirectMock(...args)
 }));
 
 vi.mock('./mlsDirectGroups.js', () => ({
-  createGroupDirect: vi.fn().mockResolvedValue({ json: '{}' }),
-  listGroupsDirect: vi.fn().mockResolvedValue({ json: '{"groups":[]}' }),
+  createGroupDirectTyped: (...args: unknown[]) => createGroupDirectMock(...args),
+  listGroupsDirectTyped: (...args: unknown[]) => listGroupsDirectMock(...args),
+  getGroupDirectTyped: (...args: unknown[]) => getGroupDirectMock(...args),
+  updateGroupDirectTyped: (...args: unknown[]) => updateGroupDirectMock(...args),
+  deleteGroupDirectTyped: (...args: unknown[]) => deleteGroupDirectMock(...args),
+  createGroupDirect: (...args: unknown[]) => createGroupDirectMock(...args),
+  listGroupsDirect: (...args: unknown[]) => listGroupsDirectMock(...args),
   getGroupDirect: (...args: unknown[]) => getGroupDirectMock(...args),
   updateGroupDirect: (...args: unknown[]) => updateGroupDirectMock(...args),
-  deleteGroupDirect: vi.fn().mockResolvedValue({ json: '{}' })
+  deleteGroupDirect: (...args: unknown[]) => deleteGroupDirectMock(...args)
 }));
 
 vi.mock('./mlsDirectGroupMembers.js', () => ({
@@ -116,6 +135,9 @@ describe('mlsConnectServiceV2 coverage', () => {
     for (const mock of [
       acknowledgeWelcomeDirectMock,
       addGroupMemberDirectMock,
+      createGroupDirectMock,
+      deleteGroupDirectMock,
+      deleteKeyPackageDirectMock,
       getGroupDirectMock,
       getGroupMembersDirectMock,
       getGroupMessagesDirectMock,
@@ -123,10 +145,12 @@ describe('mlsConnectServiceV2 coverage', () => {
       getMyKeyPackagesDirectMock,
       getUserKeyPackagesDirectMock,
       getWelcomeMessagesDirectMock,
+      listGroupsDirectMock,
       removeGroupMemberDirectMock,
       sendGroupMessageDirectMock,
       updateGroupDirectMock,
-      uploadGroupStateDirectMock
+      uploadGroupStateDirectMock,
+      uploadKeyPackagesDirectMock
     ]) {
       mock.mockReset();
     }
@@ -295,29 +319,27 @@ describe('mlsConnectServiceV2 coverage', () => {
   it('converts getGroup response with members', async () => {
     const context = createContext();
     getGroupDirectMock.mockResolvedValue({
-      json: JSON.stringify({
-        group: {
-          id: 'g-1',
-          groupIdMls: 'mls-1',
-          name: 'Test',
-          description: null,
-          creatorUserId: 'u-1',
-          currentEpoch: 2,
-          cipherSuite: 3,
-          createdAt: '2024-01-01T00:00:00Z',
-          updatedAt: '2024-01-01T00:00:00Z'
-        },
-        members: [
-          {
-            userId: 'u-1',
-            email: 'test@example.com',
-            leafIndex: null,
-            role: 'admin',
-            joinedAt: '2024-01-01T00:00:00Z',
-            joinedAtEpoch: 0
-          }
-        ]
-      })
+      group: {
+        id: 'g-1',
+        groupIdMls: 'mls-1',
+        name: 'Test',
+        description: null,
+        creatorUserId: 'u-1',
+        currentEpoch: 2,
+        cipherSuite: 3,
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z'
+      },
+      members: [
+        {
+          userId: 'u-1',
+          email: 'test@example.com',
+          leafIndex: null,
+          role: 'admin',
+          joinedAt: '2024-01-01T00:00:00Z',
+          joinedAtEpoch: 0
+        }
+      ]
     });
 
     const result = await mlsConnectServiceV2.getGroup(
@@ -404,19 +426,17 @@ describe('mlsConnectServiceV2 coverage', () => {
   it('converts updateGroup with typed fields', async () => {
     const context = createContext();
     updateGroupDirectMock.mockResolvedValue({
-      json: JSON.stringify({
-        group: {
-          id: 'g-1',
-          groupIdMls: 'mls-1',
-          name: 'Updated',
-          description: 'desc',
-          creatorUserId: 'u-1',
-          currentEpoch: 2,
-          cipherSuite: 3,
-          createdAt: '2024-01-01T00:00:00Z',
-          updatedAt: '2024-01-02T00:00:00Z'
-        }
-      })
+      group: {
+        id: 'g-1',
+        groupIdMls: 'mls-1',
+        name: 'Updated',
+        description: 'desc',
+        creatorUserId: 'u-1',
+        currentEpoch: 2,
+        cipherSuite: 3,
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-02T00:00:00Z'
+      }
     });
 
     const result = await mlsConnectServiceV2.updateGroup(
@@ -430,19 +450,17 @@ describe('mlsConnectServiceV2 coverage', () => {
   it('converts getMyKeyPackages response', async () => {
     const context = createContext();
     getMyKeyPackagesDirectMock.mockResolvedValue({
-      json: JSON.stringify({
-        keyPackages: [
-          {
-            id: 'kp-1',
-            userId: 'u-1',
-            keyPackageData: 'data',
-            keyPackageRef: 'ref',
-            cipherSuite: 1,
-            createdAt: '2024-01-01T00:00:00Z',
-            consumed: false
-          }
-        ]
-      })
+      keyPackages: [
+        {
+          id: 'kp-1',
+          userId: 'u-1',
+          keyPackageData: 'data',
+          keyPackageRef: 'ref',
+          cipherSuite: 1,
+          createdAt: '2024-01-01T00:00:00Z',
+          consumed: false
+        }
+      ]
     });
 
     const result = await mlsConnectServiceV2.getMyKeyPackages({}, context);
@@ -454,19 +472,17 @@ describe('mlsConnectServiceV2 coverage', () => {
   it('converts getUserKeyPackages response', async () => {
     const context = createContext();
     getUserKeyPackagesDirectMock.mockResolvedValue({
-      json: JSON.stringify({
-        keyPackages: [
-          {
-            id: 'kp-2',
-            userId: 'u-2',
-            keyPackageData: 'data2',
-            keyPackageRef: 'ref2',
-            cipherSuite: 65535,
-            createdAt: '2024-01-01T00:00:00Z',
-            consumed: true
-          }
-        ]
-      })
+      keyPackages: [
+        {
+          id: 'kp-2',
+          userId: 'u-2',
+          keyPackageData: 'data2',
+          keyPackageRef: 'ref2',
+          cipherSuite: 65535,
+          createdAt: '2024-01-01T00:00:00Z',
+          consumed: true
+        }
+      ]
     });
 
     const result = await mlsConnectServiceV2.getUserKeyPackages(

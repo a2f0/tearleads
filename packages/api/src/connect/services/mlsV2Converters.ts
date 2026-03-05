@@ -22,8 +22,19 @@ import {
 // Enum converters
 // ---------------------------------------------------------------------------
 
-export function fromProtoCipherSuite(value: ProtoCipherSuite): number {
-  return value as number;
+export function fromProtoCipherSuite(
+  value: ProtoCipherSuite
+): import('@tearleads/shared').MlsCipherSuite {
+  switch (value) {
+    case MlsCipherSuite.X25519_AES128GCM:
+      return 1;
+    case MlsCipherSuite.X25519_CHACHA20:
+      return 3;
+    case MlsCipherSuite.XWING_HYBRID:
+      return 65535;
+    default:
+      return 3;
+  }
 }
 
 export function toProtoCipherSuite(value: number): ProtoCipherSuite {
