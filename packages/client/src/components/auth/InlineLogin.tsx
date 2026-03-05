@@ -68,11 +68,7 @@ export function InlineLogin({
       </p>
 
       <div className="mx-auto mt-6 max-w-xs">
-        <LoginForm
-          title="Sign In"
-          description={`Please sign in to continue to ${description}`}
-          borderless
-        />
+        <LoginForm title="" description="" borderless />
       </div>
 
       <p className="mt-4 text-center text-muted-foreground text-sm">
