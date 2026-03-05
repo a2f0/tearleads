@@ -20,6 +20,13 @@ import {
   MlsMessageType
 } from '@tearleads/shared/gen/tearleads/v2/mls_pb';
 
+function decodeProtoBytes(value: Uint8Array | string): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  return new TextDecoder().decode(value);
+}
+
 // ---------------------------------------------------------------------------
 // Enum converters
 // ---------------------------------------------------------------------------
@@ -142,7 +149,7 @@ export function mapMessageInfoToMlsMessage(info: MlsMessageInfo): MlsMessage {
     groupId: info.groupId,
     senderUserId: info.senderUserId || null,
     epoch: Number(info.epoch),
-    ciphertext: info.ciphertext,
+    ciphertext: decodeProtoBytes(info.ciphertext),
     messageType: fromProtoMessageType(
       info.messageType
     ) as MlsMessage['messageType'],
@@ -164,7 +171,7 @@ export function mapGroupStateInfoToMlsGroupState(
     id: info.id,
     groupId: info.groupId,
     epoch: Number(info.epoch),
-    encryptedState: info.encryptedState,
+    encryptedState: decodeProtoBytes(info.encryptedState),
     stateHash: info.stateHash,
     createdAt: info.createdAt
   };
@@ -177,7 +184,7 @@ export function mapWelcomeInfoToMlsWelcomeMessage(
     id: info.id,
     groupId: info.groupId,
     groupName: info.groupName,
-    welcome: info.welcome,
+    welcome: decodeProtoBytes(info.welcome),
     keyPackageRef: info.keyPackageRef,
     epoch: Number(info.epoch),
     createdAt: info.createdAt

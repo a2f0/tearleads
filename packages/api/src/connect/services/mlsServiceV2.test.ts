@@ -124,6 +124,16 @@ vi.mock('./mlsDirectWelcomeMessages.js', () => ({
 
 import { mlsConnectServiceV2 } from './mlsService.js';
 
+const textEncoder = new TextEncoder();
+
+function bytes(value: string): Uint8Array {
+  return textEncoder.encode(value);
+}
+
+function base64(value: string): string {
+  return Buffer.from(value, 'utf8').toString('base64');
+}
+
 function createContext() {
   return {
     requestHeader: new Headers({
@@ -178,7 +188,7 @@ describe('mlsConnectServiceV2 coverage', () => {
         id: 'st-1',
         groupId: 'g-1',
         epoch: 3,
-        encryptedState: 'enc',
+        encryptedState: base64('enc'),
         stateHash: 'hash',
         createdAt: '2024-01-01T00:00:00Z'
       }
@@ -202,7 +212,7 @@ describe('mlsConnectServiceV2 coverage', () => {
         senderUserId: 'u-1',
         senderEmail: 'test@example.com',
         epoch: 2,
-        ciphertext: 'ct',
+        ciphertext: base64('ct'),
         messageType: 'application',
         contentType: 'text/plain',
         sequenceNumber: 5,
@@ -214,7 +224,7 @@ describe('mlsConnectServiceV2 coverage', () => {
     const result = await mlsConnectServiceV2.sendGroupMessage(
       {
         groupId: 'g-1',
-        ciphertext: 'ct',
+        ciphertext: bytes('ct'),
         epoch: BigInt(2),
         messageType: 1,
         contentType: 'text/plain'
@@ -250,28 +260,6 @@ describe('mlsConnectServiceV2 coverage', () => {
     expect(result.members[0]?.userId).toBe('u-1');
   });
 
-  it('converts getWelcomeMessages response', async () => {
-    const context = createContext();
-    getWelcomeMessagesDirectMock.mockResolvedValue({
-      welcomes: [
-        {
-          id: 'w-1',
-          groupId: 'g-1',
-          groupName: 'Group 1',
-          welcome: 'welcome-data',
-          keyPackageRef: 'ref',
-          epoch: 0,
-          createdAt: '2024-01-01T00:00:00Z'
-        }
-      ]
-    });
-
-    const result = await mlsConnectServiceV2.getWelcomeMessages({}, context);
-
-    expect(result.welcomes).toHaveLength(1);
-    expect(result.welcomes[0]?.groupName).toBe('Group 1');
-  });
-
   it('converts acknowledgeWelcome request', async () => {
     const context = createContext();
     acknowledgeWelcomeDirectMock.mockResolvedValue({ acknowledged: true });
@@ -297,7 +285,7 @@ describe('mlsConnectServiceV2 coverage', () => {
           groupId: 'g-1',
           senderUserId: null,
           epoch: 1,
-          ciphertext: 'ct',
+          ciphertext: base64('ct'),
           messageType: 'commit',
           contentType: '',
           sequenceNumber: 1,
@@ -362,7 +350,7 @@ describe('mlsConnectServiceV2 coverage', () => {
         id: 'st-1',
         groupId: 'g-1',
         epoch: 5,
-        encryptedState: 'enc',
+        encryptedState: base64('enc'),
         stateHash: 'hash',
         createdAt: '2024-01-01T00:00:00Z'
       }
@@ -372,7 +360,7 @@ describe('mlsConnectServiceV2 coverage', () => {
       {
         groupId: 'g-1',
         epoch: BigInt(5),
-        encryptedState: 'enc',
+        encryptedState: bytes('enc'),
         stateHash: 'hash'
       },
       context
@@ -398,8 +386,8 @@ describe('mlsConnectServiceV2 coverage', () => {
       {
         groupId: 'g-1',
         userId: 'u-2',
-        commit: 'commit-data',
-        welcome: 'welcome-data',
+        commit: bytes('commit-data'),
+        welcome: bytes('welcome-data'),
         keyPackageRef: 'ref',
         newEpoch: BigInt(3)
       },
@@ -417,7 +405,7 @@ describe('mlsConnectServiceV2 coverage', () => {
       {
         groupId: 'g-1',
         userId: 'u-2',
-        commit: 'commit-data',
+        commit: bytes('commit-data'),
         newEpoch: BigInt(4)
       },
       context

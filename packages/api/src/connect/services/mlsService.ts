@@ -57,6 +57,7 @@ import type {
   V2UploadKeyPackagesRequest
 } from './mlsV2Converters.js';
 import {
+  encodeProtoBytes,
   fromProtoCipherSuite,
   fromProtoMessageType,
   toProtoGroup,
@@ -258,8 +259,8 @@ export const mlsConnectServiceV2 = {
       {
         groupId: request.groupId,
         userId: request.userId,
-        commit: request.commit,
-        welcome: request.welcome,
+        commit: encodeProtoBytes(request.commit),
+        welcome: encodeProtoBytes(request.welcome),
         keyPackageRef: request.keyPackageRef,
         newEpoch: Number(request.newEpoch)
       },
@@ -281,7 +282,7 @@ export const mlsConnectServiceV2 = {
       {
         groupId: request.groupId,
         userId: request.userId,
-        commit: request.commit,
+        commit: encodeProtoBytes(request.commit),
         newEpoch: Number(request.newEpoch)
       },
       context
@@ -295,7 +296,7 @@ export const mlsConnectServiceV2 = {
   ) => {
     const directRequest = {
       groupId: request.groupId,
-      ciphertext: request.ciphertext,
+      ciphertext: encodeProtoBytes(request.ciphertext),
       epoch: Number(request.epoch),
       messageType: fromProtoMessageType(request.messageType),
       ...(request.contentType ? { contentType: request.contentType } : {})
@@ -332,7 +333,7 @@ export const mlsConnectServiceV2 = {
       {
         groupId: request.groupId,
         epoch: Number(request.epoch),
-        encryptedState: request.encryptedState,
+        encryptedState: encodeProtoBytes(request.encryptedState),
         stateHash: request.stateHash
       },
       context

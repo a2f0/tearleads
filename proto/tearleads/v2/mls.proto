@@ -104,7 +104,7 @@ message MlsMessageInfo {
   string sender_user_id = 3;
   string sender_email = 4;
   int64 epoch = 5;
-  string ciphertext = 6;
+  bytes ciphertext = 6;
   MlsMessageType message_type = 7;
   string content_type = 8;
   int64 sequence_number = 9;
@@ -116,7 +116,7 @@ message MlsGroupStateInfo {
   string id = 1;
   string group_id = 2;
   int64 epoch = 3;
-  string encrypted_state = 4;
+  bytes encrypted_state = 4;
   string state_hash = 5;
   string created_at = 6;
 }
@@ -125,7 +125,7 @@ message MlsWelcomeMessageInfo {
   string id = 1;
   string group_id = 2;
   string group_name = 3;
-  string welcome = 4;
+  bytes welcome = 4;
   string key_package_ref = 5;
   int64 epoch = 6;
   string created_at = 7;
@@ -222,8 +222,8 @@ message MlsDeleteGroupResponse {}
 message MlsAddGroupMemberRequest {
   string group_id = 1;
   string user_id = 2;
-  string commit = 3;
-  string welcome = 4;
+  bytes commit = 3;
+  bytes welcome = 4;
   string key_package_ref = 5;
   int64 new_epoch = 6;
 }
@@ -243,7 +243,7 @@ message MlsGetGroupMembersResponse {
 message MlsRemoveGroupMemberRequest {
   string group_id = 1;
   string user_id = 2;
-  string commit = 3;
+  bytes commit = 3;
   int64 new_epoch = 4;
 }
 
@@ -255,7 +255,7 @@ message MlsRemoveGroupMemberResponse {}
 
 message MlsSendGroupMessageRequest {
   string group_id = 1;
-  string ciphertext = 2;
+  bytes ciphertext = 2;
   int64 epoch = 3;
   MlsMessageType message_type = 4;
   string content_type = 5;
@@ -292,7 +292,7 @@ message MlsGetGroupStateResponse {
 message MlsUploadGroupStateRequest {
   string group_id = 1;
   int64 epoch = 2;
-  string encrypted_state = 3;
+  bytes encrypted_state = 3;
   string state_hash = 4;
 }
 
