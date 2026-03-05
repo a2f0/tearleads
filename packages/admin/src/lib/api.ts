@@ -33,6 +33,7 @@ import {
 const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 
 const ADMIN_CONNECT_BASE_PATH = '/connect/tearleads.v1.AdminService';
+const ADMIN_V2_CONNECT_BASE_PATH = '/connect/tearleads.v2.AdminService';
 const AI_CONNECT_BASE_PATH = '/connect/tearleads.v1.AiService';
 
 interface RequestParams {
@@ -109,6 +110,185 @@ function requestAdminJson<T>(
   ).then((response) => parseConnectJsonString<T>(response?.json));
 }
 
+function requestAdminV2<T>(
+  methodName: string,
+  requestBody: Record<string, unknown>,
+  mapResponse: (responseBody: unknown) => T
+): Promise<T> {
+  return request<unknown>(`${ADMIN_V2_CONNECT_BASE_PATH}/${methodName}`, {
+    fetchOptions: createConnectJsonPostInit(requestBody)
+  }).then((responseBody) => mapResponse(responseBody));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function toSafeNumber(value: unknown, fallback = 0): number {
+  const toNumber = (candidate: number) =>
+    Number.isFinite(candidate) ? candidate : fallback;
+
+  if (typeof value === 'number') {
+    return toNumber(value);
+  }
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return toNumber(Number(value));
+  }
+
+  if (typeof value === 'bigint') {
+    return toNumber(Number(value));
+  }
+
+  return fallback;
+}
+
+function mapPostgresInfoResponse(responseBody: unknown): PostgresAdminInfoResponse {
+  const response = isRecord(responseBody) ? responseBody : {};
+  const info = isRecord(response['info']) ? response['info'] : {};
+
+  return {
+    status: 'ok',
+    info: {
+      host: typeof info['host'] === 'string' ? info['host'] : null,
+      port:
+        typeof info['port'] === 'number'
+          ? info['port']
+          : typeof info['port'] === 'string'
+            ? toSafeNumber(info['port'])
+            : null,
+      database: typeof info['database'] === 'string' ? info['database'] : null,
+      user: typeof info['user'] === 'string' ? info['user'] : null
+    },
+    serverVersion:
+      typeof response['serverVersion'] === 'string'
+        ? response['serverVersion']
+        : null
+  };
+}
+
+function mapPostgresTablesResponse(responseBody: unknown): PostgresTablesResponse {
+  const response = isRecord(responseBody) ? responseBody : {};
+  const tableRows = Array.isArray(response['tables']) ? response['tables'] : [];
+
+  return {
+    tables: tableRows
+      .filter((tableRow) => isRecord(tableRow))
+      .map((tableRow) => ({
+        schema: typeof tableRow['schema'] === 'string' ? tableRow['schema'] : '',
+        name: typeof tableRow['name'] === 'string' ? tableRow['name'] : '',
+        rowCount: toSafeNumber(tableRow['rowCount']),
+        totalBytes: toSafeNumber(tableRow['totalBytes']),
+        tableBytes: toSafeNumber(tableRow['tableBytes']),
+        indexBytes: toSafeNumber(tableRow['indexBytes'])
+      }))
+  };
+}
+
+function mapPostgresColumnsResponse(responseBody: unknown): PostgresColumnsResponse {
+  const response = isRecord(responseBody) ? responseBody : {};
+  const columns = Array.isArray(response['columns']) ? response['columns'] : [];
+
+  return {
+    columns: columns
+      .filter((column) => isRecord(column))
+      .map((column) => ({
+        name: typeof column['name'] === 'string' ? column['name'] : '',
+        type: typeof column['type'] === 'string' ? column['type'] : '',
+        nullable: Boolean(column['nullable']),
+        defaultValue:
+          typeof column['defaultValue'] === 'string'
+            ? column['defaultValue']
+            : null,
+        ordinalPosition: toSafeNumber(column['ordinalPosition'])
+      }))
+  };
+}
+
+function mapPostgresRowsResponse(responseBody: unknown): PostgresRowsResponse {
+  const response = isRecord(responseBody) ? responseBody : {};
+  const rows = Array.isArray(response['rows']) ? response['rows'] : [];
+
+  return {
+    rows: rows.filter((row) => isRecord(row)),
+    totalCount: toSafeNumber(response['totalCount']),
+    limit: toSafeNumber(response['limit']),
+    offset: toSafeNumber(response['offset'])
+  };
+}
+
+function mapRedisKeysResponse(responseBody: unknown): RedisKeysResponse {
+  const response = isRecord(responseBody) ? responseBody : {};
+  const keys = Array.isArray(response['keys']) ? response['keys'] : [];
+
+  return {
+    keys: keys
+      .filter((entry) => isRecord(entry))
+      .map((entry) => ({
+        key: typeof entry['key'] === 'string' ? entry['key'] : '',
+        type: typeof entry['type'] === 'string' ? entry['type'] : '',
+        ttl: toSafeNumber(entry['ttl'])
+      })),
+    cursor: typeof response['cursor'] === 'string' ? response['cursor'] : '',
+    hasMore: Boolean(response['hasMore'])
+  };
+}
+
+function mapRedisValueResponse(responseBody: unknown): RedisKeyValueResponse {
+  const response = isRecord(responseBody) ? responseBody : {};
+  const valueField = isRecord(response['value']) ? response['value'] : {};
+
+  let value: RedisKeyValueResponse['value'] = null;
+  if (typeof valueField['stringValue'] === 'string') {
+    value = valueField['stringValue'];
+  } else if (
+    isRecord(valueField['listValue']) &&
+    Array.isArray(valueField['listValue']['values'])
+  ) {
+    value = valueField['listValue']['values'].filter(
+      (entry): entry is string => typeof entry === 'string'
+    );
+  } else if (
+    isRecord(valueField['mapValue']) &&
+    isRecord(valueField['mapValue']['entries'])
+  ) {
+    const entries = valueField['mapValue']['entries'];
+    const mappedEntries: Record<string, string> = {};
+    for (const [key, entryValue] of Object.entries(entries)) {
+      if (typeof entryValue === 'string') {
+        mappedEntries[key] = entryValue;
+      }
+    }
+    value = mappedEntries;
+  }
+
+  return {
+    key: typeof response['key'] === 'string' ? response['key'] : '',
+    type: typeof response['type'] === 'string' ? response['type'] : '',
+    ttl: toSafeNumber(response['ttl']),
+    value
+  };
+}
+
+function mapDeleteRedisKeyResponse(responseBody: unknown): { deleted: boolean } {
+  const response = isRecord(responseBody) ? responseBody : {};
+  if (typeof response['deleted'] === 'boolean') {
+    return { deleted: response['deleted'] };
+  }
+  return {} as { deleted: boolean };
+}
+
+function mapRedisDbSizeResponse(responseBody: unknown): { count: number } {
+  const response = isRecord(responseBody) ? responseBody : {};
+  if (
+    typeof response['count'] === 'number' ||
+    typeof response['count'] === 'string'
+  ) {
+    return { count: toSafeNumber(response['count']) };
+  }
+  return {} as { count: number };
+}
+
 function requestAi<T>(
   methodName: string,
   requestBody: Record<string, unknown>
@@ -124,14 +304,26 @@ export const api = {
       requestAdminJson<AdminAccessContextResponse>('GetContext', {}),
     postgres: {
       getInfo: () =>
-        requestAdminJson<PostgresAdminInfoResponse>('GetPostgresInfo', {}),
+        requestAdminV2<PostgresAdminInfoResponse>(
+          'GetPostgresInfo',
+          {},
+          mapPostgresInfoResponse
+        ),
       getTables: () =>
-        requestAdminJson<PostgresTablesResponse>('GetTables', {}),
+        requestAdminV2<PostgresTablesResponse>(
+          'GetTables',
+          {},
+          mapPostgresTablesResponse
+        ),
       getColumns: (schema: string, table: string) =>
-        requestAdminJson<PostgresColumnsResponse>('GetColumns', {
-          schema,
-          table
-        }),
+        requestAdminV2<PostgresColumnsResponse>(
+          'GetColumns',
+          {
+            schema,
+            table
+          },
+          mapPostgresColumnsResponse
+        ),
       getRows: (
         schema: string,
         table: string,
@@ -149,7 +341,11 @@ export const api = {
         if (options?.sortDirection) {
           requestBody['sortDirection'] = options.sortDirection;
         }
-        return requestAdminJson<PostgresRowsResponse>('GetRows', requestBody);
+        return requestAdminV2<PostgresRowsResponse>(
+          'GetRows',
+          requestBody,
+          mapPostgresRowsResponse
+        );
       }
     },
     redis: {
@@ -157,13 +353,30 @@ export const api = {
         const requestBody: Record<string, unknown> = {};
         if (cursor) requestBody['cursor'] = cursor;
         if (limit) requestBody['limit'] = limit;
-        return requestAdminJson<RedisKeysResponse>('GetRedisKeys', requestBody);
+        return requestAdminV2<RedisKeysResponse>(
+          'GetRedisKeys',
+          requestBody,
+          mapRedisKeysResponse
+        );
       },
       getValue: (key: string) =>
-        requestAdminJson<RedisKeyValueResponse>('GetRedisValue', { key }),
+        requestAdminV2<RedisKeyValueResponse>(
+          'GetRedisValue',
+          { key },
+          mapRedisValueResponse
+        ),
       deleteKey: (key: string) =>
-        requestAdminJson<{ deleted: boolean }>('DeleteRedisKey', { key }),
-      getDbSize: () => requestAdminJson<{ count: number }>('GetRedisDbSize', {})
+        requestAdminV2<{ deleted: boolean }>(
+          'DeleteRedisKey',
+          { key },
+          mapDeleteRedisKeyResponse
+        ),
+      getDbSize: () =>
+        requestAdminV2<{ count: number }>(
+          'GetRedisDbSize',
+          {},
+          mapRedisDbSizeResponse
+        )
     },
     groups: {
       list: (options?: { organizationId?: string }) => {

@@ -148,12 +148,12 @@ describe('admin api client', () => {
     const urls = fetchMock.mock.calls.map(([url]) => String(url));
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v1.AdminService/GetColumns')
+        url.includes('/connect/tearleads.v2.AdminService/GetColumns')
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v1.AdminService/GetRedisKeys')
+        url.includes('/connect/tearleads.v2.AdminService/GetRedisKeys')
       )
     ).toBe(true);
     expect(
