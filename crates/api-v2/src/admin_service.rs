@@ -140,7 +140,8 @@ where
         let payload = request.into_inner();
         let requested_organization_id = normalize_optional_organization_id(payload.organization_id);
         let organization_ids =
-            resolve_organization_scope_filter(&admin_access, requested_organization_id)?;
+            resolve_organization_scope_filter(&admin_access, requested_organization_id)
+                .map_err(Status::permission_denied)?;
 
         let groups = self
             .postgres_repo
@@ -171,7 +172,8 @@ where
             .authorize_admin_operation(AdminOperation::GetGroup, request.metadata())
             .map_err(map_admin_auth_error)?;
         let payload = request.into_inner();
-        let group_id = normalize_required_resource_id("id", &payload.id)?;
+        let group_id =
+            normalize_required_resource_id("id", &payload.id).map_err(Status::invalid_argument)?;
 
         let group = self
             .postgres_repo
@@ -222,7 +224,8 @@ where
         let payload = request.into_inner();
         let requested_organization_id = normalize_optional_organization_id(payload.organization_id);
         let organization_ids =
-            resolve_organization_scope_filter(&admin_access, requested_organization_id)?;
+            resolve_organization_scope_filter(&admin_access, requested_organization_id)
+                .map_err(Status::permission_denied)?;
 
         let organizations = self
             .postgres_repo
@@ -255,7 +258,8 @@ where
         let payload = request.into_inner();
         let requested_organization_id = normalize_optional_organization_id(payload.organization_id);
         let organization_ids =
-            resolve_organization_scope_filter(&admin_access, requested_organization_id)?;
+            resolve_organization_scope_filter(&admin_access, requested_organization_id)
+                .map_err(Status::permission_denied)?;
 
         let users = self
             .postgres_repo

@@ -1,6 +1,6 @@
 //! Shared helpers for v2 admin service handler methods.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use prost_types::{ListValue, Struct, Value, value::Kind as ProtobufValueKind};
 use serde_json::Value as JsonValue;
@@ -66,25 +66,23 @@ pub(crate) fn normalize_optional_organization_id(value: Option<String>) -> Optio
         .map(str::to_string)
 }
 
-#[allow(clippy::result_large_err)]
 pub(crate) fn normalize_required_resource_id(
     field: &'static str,
     value: &str,
-) -> Result<String, Status> {
+) -> Result<String, String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
-        return Err(Status::invalid_argument(format!(
-            "{field} must not be empty"
-        )));
+        let mut message = String::from(field);
+        message.push_str(" must not be empty");
+        return Err(message);
     }
     Ok(trimmed.to_string())
 }
 
-#[allow(clippy::result_large_err)]
 pub(crate) fn resolve_organization_scope_filter(
     admin_access: &AdminAccessContext,
     requested_organization_id: Option<String>,
-) -> Result<Option<Vec<String>>, Status> {
+) -> Result<Option<Vec<String>>, &'static str> {
     if admin_access.is_root_admin() {
         return Ok(requested_organization_id.map(|organization_id| vec![organization_id]));
     }
@@ -95,7 +93,7 @@ pub(crate) fn resolve_organization_scope_filter(
             .iter()
             .any(|id| id == &organization_id)
         {
-            return Err(Status::permission_denied("forbidden organization scope"));
+            return Err("forbidden organization scope");
         }
         return Ok(Some(vec![organization_id]));
     }
@@ -132,48 +130,48 @@ pub(crate) fn normalize_rows_limit(limit: u32) -> u32 {
 }
 
 pub(crate) fn parse_row_struct(row_json: &str) -> Result<Struct, String> {
-    let parsed_value: JsonValue =
-        serde_json::from_str(row_json).map_err(|error| format!("invalid JSON payload: {error}"))?;
+    let parsed_value: JsonValue = serde_json::from_str(row_json).map_err(|error| {
+        let mut message = String::from("invalid JSON payload: ");
+        message.push_str(&error.to_string());
+        message
+    })?;
 
     let JsonValue::Object(object) = parsed_value else {
         return Err(String::from("row payload must decode to an object"));
     };
 
-    let fields = object
-        .into_iter()
-        .map(|(key, value)| json_value_to_protobuf_value(value).map(|mapped| (key, mapped)))
-        .collect::<Result<_, _>>()?;
+    let mut fields = BTreeMap::new();
+    for (key, value) in object {
+        fields.insert(key, json_value_to_protobuf_value(value));
+    }
 
     Ok(Struct { fields })
 }
 
-fn json_value_to_protobuf_value(value: JsonValue) -> Result<Value, String> {
+fn json_value_to_protobuf_value(value: JsonValue) -> Value {
     let kind = match value {
         JsonValue::Null => ProtobufValueKind::NullValue(0),
         JsonValue::Bool(boolean) => ProtobufValueKind::BoolValue(boolean),
         JsonValue::Number(number) => {
-            let as_f64 = number.as_f64();
-            let as_f64 = as_f64.ok_or("number parse failed")?;
+            let as_f64 = number.as_f64().expect("json number should convert to f64");
             ProtobufValueKind::NumberValue(as_f64)
         }
         JsonValue::String(string_value) => ProtobufValueKind::StringValue(string_value),
         JsonValue::Array(list_values) => {
-            let values = list_values
-                .into_iter()
-                .map(json_value_to_protobuf_value)
-                .collect::<Result<Vec<_>, _>>()?;
+            let mut values = Vec::with_capacity(list_values.len());
+            for list_value in list_values {
+                values.push(json_value_to_protobuf_value(list_value));
+            }
             ProtobufValueKind::ListValue(ListValue { values })
         }
         JsonValue::Object(map_values) => {
-            let fields = map_values
-                .into_iter()
-                .map(|(key, map_value)| {
-                    json_value_to_protobuf_value(map_value).map(|mapped| (key, mapped))
-                })
-                .collect::<Result<_, _>>()?;
+            let mut fields = BTreeMap::new();
+            for (key, map_value) in map_values {
+                fields.insert(key, json_value_to_protobuf_value(map_value));
+            }
             ProtobufValueKind::StructValue(Struct { fields })
         }
     };
 
-    Ok(Value { kind: Some(kind) })
+    Value { kind: Some(kind) }
 }

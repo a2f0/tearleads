@@ -171,6 +171,31 @@ async fn get_group_rejects_scoped_access_forbidden_organization() {
 }
 
 #[tokio::test]
+async fn get_group_rejects_blank_id_before_repository_calls() {
+    let postgres_repo = FakePostgresRepository::default();
+    let get_group_calls = Arc::clone(&postgres_repo.get_group_calls);
+    let handler = AdminServiceHandler::with_authorizer(
+        postgres_repo,
+        FakeRedisRepository::default(),
+        FakeAuthorizer::allow_all(),
+    );
+
+    let result = handler
+        .get_group(Request::new(AdminGetGroupRequest {
+            id: String::from("   "),
+        }))
+        .await;
+    let status = match result {
+        Ok(_) => panic!("blank group id should fail"),
+        Err(error) => error,
+    };
+
+    assert_eq!(status.code(), Code::InvalidArgument);
+    assert_eq!(status.message(), "id must not be empty");
+    assert!(lock_or_recover(&get_group_calls).is_empty());
+}
+
+#[tokio::test]
 async fn list_organizations_for_scoped_admin_defaults_to_authorized_organizations() {
     let postgres_repo = FakePostgresRepository {
         list_organizations_result: Ok(vec![AdminOrganizationSummary {
@@ -202,6 +227,41 @@ async fn list_organizations_for_scoped_admin_defaults_to_authorized_organization
     assert_eq!(
         lock_or_recover(&list_organizations_calls).clone(),
         vec![Some(vec![String::from("org-7"), String::from("org-9")])]
+    );
+}
+
+#[tokio::test]
+async fn list_organizations_accepts_authorized_scoped_filter() {
+    let postgres_repo = FakePostgresRepository {
+        list_organizations_result: Ok(vec![AdminOrganizationSummary {
+            id: String::from("org-7"),
+            name: String::from("Scoped Org"),
+            description: None,
+            created_at: String::from("2026-01-01T00:00:00Z"),
+            updated_at: String::from("2026-01-01T00:00:00Z"),
+        }]),
+        ..Default::default()
+    };
+    let list_organizations_calls = Arc::clone(&postgres_repo.list_organizations_calls);
+    let handler = AdminServiceHandler::with_authorizer(
+        postgres_repo,
+        FakeRedisRepository::default(),
+        FakeAuthorizer::allow_scoped(vec![String::from("org-7"), String::from("org-9")]),
+    );
+
+    let payload = into_inner_or_panic(
+        handler
+            .list_organizations(Request::new(AdminListOrganizationsRequest {
+                organization_id: Some(String::from("org-7")),
+            }))
+            .await,
+    );
+
+    assert_eq!(payload.organizations.len(), 1);
+    assert_eq!(payload.organizations[0].id, "org-7");
+    assert_eq!(
+        lock_or_recover(&list_organizations_calls).clone(),
+        vec![Some(vec![String::from("org-7")])]
     );
 }
 

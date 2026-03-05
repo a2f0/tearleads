@@ -122,6 +122,15 @@ async fn static_repositories_return_expected_wave1a_shapes() {
         .expect("group lookup should succeed");
     assert_eq!(group.id, "group-1");
     assert_eq!(group.members.len(), 2);
+    let missing_group_error = postgres
+        .get_group("group-missing")
+        .await
+        .expect_err("missing group lookup should fail");
+    assert_eq!(
+        missing_group_error.kind(),
+        tearleads_data_access_traits::DataAccessErrorKind::NotFound
+    );
+    assert!(missing_group_error.message().contains("group-missing"));
     let organizations = postgres
         .list_organizations(None)
         .await
