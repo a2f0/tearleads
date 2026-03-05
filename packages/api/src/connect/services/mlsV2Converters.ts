@@ -1,4 +1,3 @@
-import { Code, ConnectError } from '@connectrpc/connect';
 import type {
   MlsGroup,
   MlsGroupMember,
@@ -98,24 +97,7 @@ function decodeDirectStringToProtoBytes(value: string): Uint8Array {
 }
 
 // ---------------------------------------------------------------------------
-// JSON parser
-// ---------------------------------------------------------------------------
-
-export function parseDirectJson<T>(response: { json: string }): T {
-  const trimmed = response.json.trim();
-  const normalized = trimmed.length > 0 ? trimmed : '{}';
-  try {
-    return JSON.parse(normalized) as T;
-  } catch {
-    throw new ConnectError(
-      'direct service returned invalid JSON',
-      Code.Internal
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Response mappers (Direct JSON → proto typed fields)
+// Response mappers (Direct typed models → proto typed fields)
 // ---------------------------------------------------------------------------
 
 export function toProtoKeyPackage(kp: MlsKeyPackage) {
