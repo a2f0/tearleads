@@ -4,7 +4,6 @@ import type {
   CreateGroupRequest,
   CreateOrganizationRequest,
   Group,
-  GroupsListResponse,
   Organization,
   OrganizationUsersResponse,
   UpdateGroupRequest,
@@ -65,17 +64,8 @@ export const adminRoutes = {
     getDbSize: () => adminV2Routes.redis.getDbSize()
   },
   groups: {
-    list: (options?: { organizationId?: string }) => {
-      const requestBody: Record<string, unknown> = {};
-      if (options?.organizationId) {
-        requestBody['organizationId'] = options.organizationId;
-      }
-      return requestAdminJson<GroupsListResponse>(
-        'ListGroups',
-        requestBody,
-        'api_get_admin_groups'
-      );
-    },
+    list: (options?: { organizationId?: string }) =>
+      adminV2Routes.groups.list(options),
     get: (id: string) => adminV2Routes.groups.get(id),
     create: (data: CreateGroupRequest) =>
       requestAdminJson<{ group: Group }>(

@@ -198,7 +198,7 @@ describe('api with msw admin routing', () => {
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v1.AdminService/ListGroups'
+        '/connect/tearleads.v2.AdminService/ListGroups'
       )
     ).toBe(true);
     expect(
