@@ -354,4 +354,50 @@ describe('mlsConnectServiceV2', () => {
       context
     );
   });
+
+  it('defaults empty request payloads to an empty object json body', async () => {
+    const context = createContext();
+
+    await expect(
+      mlsConnectServiceV2.uploadKeyPackages({}, context)
+    ).resolves.toEqual({
+      payload: { ok: true }
+    });
+    expect(uploadKeyPackagesDirectMock).toHaveBeenCalledWith(
+      { json: '{}' },
+      context
+    );
+  });
+
+  it('returns empty payload when direct response json is invalid', async () => {
+    const context = createContext();
+    uploadKeyPackagesDirectMock.mockResolvedValue({
+      json: '{invalid-json'
+    });
+
+    await expect(
+      mlsConnectServiceV2.uploadKeyPackages(
+        { payload: { keyPackages: [] } },
+        context
+      )
+    ).resolves.toEqual({
+      payload: {}
+    });
+  });
+
+  it('returns empty payload when direct response json is not an object', async () => {
+    const context = createContext();
+    uploadKeyPackagesDirectMock.mockResolvedValue({
+      json: '[]'
+    });
+
+    await expect(
+      mlsConnectServiceV2.uploadKeyPackages(
+        { payload: { keyPackages: [] } },
+        context
+      )
+    ).resolves.toEqual({
+      payload: {}
+    });
+  });
 });
