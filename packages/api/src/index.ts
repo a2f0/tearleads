@@ -19,7 +19,12 @@ const app: Express = express();
 const PORT = Number(process.env['PORT']) || 5001;
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: true,
+    credentials: true
+  })
+);
 app.use(
   morgan(process.env['NODE_ENV'] === 'production' ? 'short' : 'dev', {
     skip: () => process.env['NODE_ENV'] === 'test'

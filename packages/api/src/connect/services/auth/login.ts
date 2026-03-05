@@ -10,7 +10,8 @@ import {
   getClientIpFromHeaders,
   getJwtSecretOrThrow,
   parseAuthPayload,
-  REFRESH_TOKEN_TTL_SECONDS
+  REFRESH_TOKEN_TTL_SECONDS,
+  setRefreshTokenCookie
 } from './shared.js';
 
 export async function login(request: LoginRequest, context: HandlerContext) {
@@ -95,6 +96,7 @@ export async function login(request: LoginRequest, context: HandlerContext) {
       jwtSecret,
       REFRESH_TOKEN_TTL_SECONDS
     );
+    setRefreshTokenCookie(context, refreshToken);
 
     return {
       accessToken,

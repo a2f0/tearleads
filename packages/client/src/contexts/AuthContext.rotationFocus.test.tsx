@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AUTH_TOKEN_KEY,
   AUTH_USER_KEY,
-  clearStoredAuth
+  clearStoredAuth,
+  setStoredRefreshToken
 } from '@/lib/authStorage';
 import { AuthProvider, useAuth } from './AuthContext';
 
@@ -101,7 +102,7 @@ describe('AuthContext', () => {
       // Token expiring in 45 seconds (below 60s threshold)
       const expiringToken = createJwt(Math.floor(now.getTime() / 1000) + 45);
       localStorage.setItem(AUTH_TOKEN_KEY, expiringToken);
-      localStorage.setItem('auth_refresh_token', 'refresh-token');
+      setStoredRefreshToken('refresh-token');
       localStorage.setItem(
         AUTH_USER_KEY,
         JSON.stringify({ id: '1', email: 'test@example.com' })
@@ -174,7 +175,7 @@ describe('AuthContext', () => {
       // Token ALREADY expired
       const expiredToken = createJwt(Math.floor(now.getTime() / 1000) - 100);
       localStorage.setItem(AUTH_TOKEN_KEY, expiredToken);
-      localStorage.setItem('auth_refresh_token', 'refresh-token');
+      setStoredRefreshToken('refresh-token');
       localStorage.setItem(
         AUTH_USER_KEY,
         JSON.stringify({ id: '1', email: 'test@example.com' })
@@ -205,7 +206,7 @@ describe('AuthContext', () => {
       // Token expiring in 5 minutes
       const token = createJwt(Math.floor(now.getTime() / 1000) + 300);
       localStorage.setItem(AUTH_TOKEN_KEY, token);
-      localStorage.setItem('auth_refresh_token', 'refresh-token');
+      setStoredRefreshToken('refresh-token');
       localStorage.setItem(
         AUTH_USER_KEY,
         JSON.stringify({ id: '1', email: 'test@example.com' })

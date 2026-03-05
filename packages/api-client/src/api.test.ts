@@ -46,7 +46,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
     });
 
     it('deduplicates concurrent refresh attempts via tryRefreshToken', async () => {
-      localStorage.setItem('auth_refresh_token', 'refresh-token');
+      (await import('./authStorage')).setStoredRefreshToken('refresh-token');
 
       let resolveRefresh: ((response: Response) => void) | undefined;
       const refreshPromise = new Promise<Response>((resolve) => {
@@ -95,7 +95,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
 
     it('reuses refresh promise across concurrent requests hitting 401', async () => {
       localStorage.setItem('auth_token', 'stale-token');
-      localStorage.setItem('auth_refresh_token', 'refresh-token');
+      (await import('./authStorage')).setStoredRefreshToken('refresh-token');
 
       let resolveRefresh: ((response: Response) => void) | undefined;
       const refreshPromise = new Promise<Response>((resolve) => {
@@ -181,12 +181,13 @@ describe('api edge cases requiring direct fetch mocking', () => {
     });
 
     it('returns true when another tab refreshed token during our refresh attempt', async () => {
-      localStorage.setItem('auth_refresh_token', 'old-refresh-token');
+      (await import('./authStorage')).setStoredRefreshToken(
+        'old-refresh-token'
+      );
 
       vi.mocked(global.fetch).mockImplementationOnce(async () => {
         // Simulate another tab updating localStorage during our fetch
-        localStorage.setItem(
-          'auth_refresh_token',
+        (await import('./authStorage')).setStoredRefreshToken(
           'new-refresh-from-other-tab'
         );
         localStorage.setItem('auth_token', 'new-token-from-other-tab');
@@ -208,7 +209,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
     });
 
     it('throws 401 when refresh succeeds but token storage fails', async () => {
-      localStorage.setItem('auth_refresh_token', 'refresh-token');
+      (await import('./authStorage')).setStoredRefreshToken('refresh-token');
       localStorage.removeItem('auth_token');
 
       const originalSetItem = localStorage.setItem.bind(localStorage);
@@ -278,7 +279,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
       // Setup initial state with an expired token
       const expiredToken = 'expired-token';
       localStorage.setItem('auth_token', 'access-token');
-      localStorage.setItem('auth_refresh_token', expiredToken);
+      (await import('./authStorage')).setStoredRefreshToken(expiredToken);
       localStorage.setItem(
         'auth_user',
         JSON.stringify({ id: '1', email: 'test@example.com' })
@@ -297,14 +298,16 @@ describe('api edge cases requiring direct fetch mocking', () => {
 
       expect(result).toBe(false);
       expect(localStorage.getItem('auth_token')).toBeNull();
-      expect(localStorage.getItem('auth_refresh_token')).toBeNull();
+      expect(
+        (await import('./authStorage')).getStoredRefreshToken()
+      ).toBeNull();
     });
 
     it('clears auth when server rejects refresh token (401) even if JWT is not expired', async () => {
       const futureExp = Math.floor(Date.now() / 1000) + 3600;
       const validToken = createJwt(futureExp);
       localStorage.setItem('auth_token', 'access-token');
-      localStorage.setItem('auth_refresh_token', validToken);
+      (await import('./authStorage')).setStoredRefreshToken(validToken);
       localStorage.setItem(
         'auth_user',
         JSON.stringify({ id: '1', email: 'test@example.com' })
@@ -323,7 +326,9 @@ describe('api edge cases requiring direct fetch mocking', () => {
 
       expect(result).toBe(false);
       expect(localStorage.getItem('auth_token')).toBeNull();
-      expect(localStorage.getItem('auth_refresh_token')).toBeNull();
+      expect(
+        (await import('./authStorage')).getStoredRefreshToken()
+      ).toBeNull();
     });
 
     it('does NOT clear auth on transient network error if token is NOT expired', async () => {
@@ -331,7 +336,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
       const futureExp = Math.floor(Date.now() / 1000) + 3600;
       const validToken = createJwt(futureExp);
       localStorage.setItem('auth_token', 'access-token');
-      localStorage.setItem('auth_refresh_token', validToken);
+      (await import('./authStorage')).setStoredRefreshToken(validToken);
       localStorage.setItem(
         'auth_user',
         JSON.stringify({ id: '1', email: 'test@example.com' })
@@ -346,7 +351,9 @@ describe('api edge cases requiring direct fetch mocking', () => {
       expect(result).toBe(false);
       // Auth should be preserved
       expect(localStorage.getItem('auth_token')).toBe('access-token');
-      expect(localStorage.getItem('auth_refresh_token')).toBe(validToken);
+      expect((await import('./authStorage')).getStoredRefreshToken()).toBe(
+        validToken
+      );
     });
   });
 });

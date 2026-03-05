@@ -20,7 +20,8 @@ import {
   PASSWORD_COMPLEXITY_ERROR,
   parseRegisterPayload,
   passwordMeetsComplexity,
-  REFRESH_TOKEN_TTL_SECONDS
+  REFRESH_TOKEN_TTL_SECONDS,
+  setRefreshTokenCookie
 } from './shared.js';
 
 export async function register(
@@ -230,6 +231,7 @@ export async function register(
       jwtSecret,
       REFRESH_TOKEN_TTL_SECONDS
     );
+    setRefreshTokenCookie(context, refreshToken);
 
     return {
       accessToken,

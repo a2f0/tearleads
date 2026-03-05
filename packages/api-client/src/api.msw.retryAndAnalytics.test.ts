@@ -6,11 +6,7 @@ import {
   wasApiRequestMade
 } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  AUTH_REFRESH_TOKEN_KEY,
-  AUTH_TOKEN_KEY,
-  AUTH_USER_KEY
-} from './authStorage';
+import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from './authStorage';
 import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOverride';
 import { getSharedTestContext } from './test/testContext';
 
@@ -66,7 +62,7 @@ describe('api with msw', () => {
   describe('401 retry handling', () => {
     it('throws 401 when retry response is not ok after refresh', async () => {
       localStorage.setItem(AUTH_TOKEN_KEY, 'stale-token');
-      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'refresh-token');
+      (await import('./authStorage')).setStoredRefreshToken('refresh-token');
       localStorage.setItem(
         AUTH_USER_KEY,
         JSON.stringify({ id: 'user-1', email: 'user@example.com' })
@@ -102,7 +98,8 @@ describe('api with msw', () => {
       await expect(api.ping.get()).rejects.toThrow('API error: 500');
       expect(pingAttempt).toBe(2);
       // Auth should NOT be cleared since the refresh token still exists
-      expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBe('new-refresh');
+      const { getStoredRefreshToken } = await loadAuthStorage();
+      expect(getStoredRefreshToken()).toBe('new-refresh');
     });
 
     it('clears auth and sets error when 401 and no refresh token remains', async () => {
@@ -131,7 +128,7 @@ describe('api with msw', () => {
 
     it('handles case where auth header is gone after successful refresh', async () => {
       localStorage.setItem(AUTH_TOKEN_KEY, 'stale-token');
-      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'refresh-token');
+      (await import('./authStorage')).setStoredRefreshToken('refresh-token');
       localStorage.setItem(
         AUTH_USER_KEY,
         JSON.stringify({ id: 'user-1', email: 'user@example.com' })
@@ -149,7 +146,6 @@ describe('api with msw', () => {
             // Refresh succeeds but simulates another tab clearing auth
             // before the retry can use the new token
             localStorage.removeItem(AUTH_TOKEN_KEY);
-            localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
             return HttpResponse.json({
               accessToken: 'new-token',
               refreshToken: 'new-refresh',

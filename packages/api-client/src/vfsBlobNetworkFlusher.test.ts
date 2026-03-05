@@ -22,7 +22,7 @@ describe('vfsBlobNetworkFlusher', () => {
   });
   it('retries stage request after token refresh on 401', async () => {
     localStorage.setItem('auth_token', 'stale-access-token');
-    localStorage.setItem('auth_refresh_token', 'refresh-token');
+    (await import('./authStorage')).setStoredRefreshToken('refresh-token');
     let stageAttempts = 0;
     vi.mocked(global.fetch).mockImplementation(
       async (input: RequestInfo | URL): Promise<Response> => {

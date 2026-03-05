@@ -34,7 +34,7 @@ describe('api request context headers', () => {
 
   it('applies provider headers to requests and retries', async () => {
     localStorage.setItem('auth_token', 'stale-token');
-    localStorage.setItem('auth_refresh_token', 'refresh-token');
+    (await import('./authStorage')).setStoredRefreshToken('refresh-token');
 
     const seenOrgHeaders: Array<string | null> = [];
 
