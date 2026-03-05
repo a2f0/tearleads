@@ -24,6 +24,15 @@ pub struct PostgresInfoSnapshot {
     pub server_version: Option<String>,
 }
 
+/// Organization details exposed in admin access context responses.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdminScopeOrganization {
+    /// Organization identifier.
+    pub id: String,
+    /// Display name.
+    pub name: String,
+}
+
 /// Table metadata exposed by admin inspection endpoints.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PostgresTableInfo {
@@ -90,6 +99,17 @@ pub struct PostgresRowsPage {
 pub trait PostgresAdminReadRepository: Send + Sync {
     /// Returns environment + server-version metadata.
     fn get_postgres_info(&self) -> BoxFuture<'_, Result<PostgresInfoSnapshot, DataAccessError>>;
+
+    /// Returns all organizations for root-admin context.
+    fn list_scope_organizations(
+        &self,
+    ) -> BoxFuture<'_, Result<Vec<AdminScopeOrganization>, DataAccessError>>;
+
+    /// Returns organizations matching the provided scoped-admin organization IDs.
+    fn list_scope_organizations_by_ids(
+        &self,
+        organization_ids: Vec<String>,
+    ) -> BoxFuture<'_, Result<Vec<AdminScopeOrganization>, DataAccessError>>;
 
     /// Returns table metadata for the admin browsing surface.
     fn list_tables(&self) -> BoxFuture<'_, Result<Vec<PostgresTableInfo>, DataAccessError>>;

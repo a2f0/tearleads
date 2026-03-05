@@ -1,12 +1,12 @@
 //! Adapter that maps gateway records to shared Postgres admin read models.
 
 use tearleads_data_access_traits::{
-    BoxFuture, DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository,
-    PostgresColumnInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
-    PostgresTableInfo,
+    AdminScopeOrganization, BoxFuture, DataAccessError, DataAccessErrorKind,
+    PostgresAdminReadRepository, PostgresColumnInfo, PostgresInfoSnapshot, PostgresRowsPage,
+    PostgresRowsQuery, PostgresTableInfo,
 };
 
-use crate::{PostgresAdminGateway, PostgresRowsPageRecord};
+use crate::{AdminScopeOrganizationRecord, PostgresAdminGateway, PostgresRowsPageRecord};
 
 /// Postgres repository implementation over a driver-specific gateway.
 pub struct PostgresAdminReadAdapter<G> {
@@ -31,6 +31,28 @@ where
                 connection: self.gateway.connection_info(),
                 server_version,
             })
+        })
+    }
+
+    fn list_scope_organizations(
+        &self,
+    ) -> BoxFuture<'_, Result<Vec<AdminScopeOrganization>, DataAccessError>> {
+        Box::pin(async move {
+            let organizations = self.gateway.list_scope_organizations().await?;
+            Ok(map_scope_organizations(organizations))
+        })
+    }
+
+    fn list_scope_organizations_by_ids(
+        &self,
+        organization_ids: Vec<String>,
+    ) -> BoxFuture<'_, Result<Vec<AdminScopeOrganization>, DataAccessError>> {
+        Box::pin(async move {
+            let organizations = self
+                .gateway
+                .list_scope_organizations_by_ids(&organization_ids)
+                .await?;
+            Ok(map_scope_organizations(organizations))
         })
     }
 
@@ -93,6 +115,18 @@ where
             Ok(map_rows_page(page))
         })
     }
+}
+
+fn map_scope_organizations(
+    records: Vec<AdminScopeOrganizationRecord>,
+) -> Vec<AdminScopeOrganization> {
+    records
+        .into_iter()
+        .map(|record| AdminScopeOrganization {
+            id: record.id,
+            name: record.name,
+        })
+        .collect()
 }
 
 fn map_rows_page(record: PostgresRowsPageRecord) -> PostgresRowsPage {

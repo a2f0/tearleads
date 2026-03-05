@@ -4,6 +4,15 @@ use tearleads_data_access_traits::{
     BoxFuture, DataAccessError, PostgresConnectionInfo, PostgresRowsQuery,
 };
 
+/// Raw organization metadata returned by the backing Postgres driver.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdminScopeOrganizationRecord {
+    /// Organization identifier.
+    pub id: String,
+    /// Display name.
+    pub name: String,
+}
+
 /// Raw table metadata returned by the backing Postgres driver.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PostgresTableRecord {
@@ -56,6 +65,17 @@ pub trait PostgresAdminGateway: Send + Sync {
 
     /// Returns the server version string when available.
     fn fetch_server_version(&self) -> BoxFuture<'_, Result<Option<String>, DataAccessError>>;
+
+    /// Lists all organizations for root-admin context.
+    fn list_scope_organizations(
+        &self,
+    ) -> BoxFuture<'_, Result<Vec<AdminScopeOrganizationRecord>, DataAccessError>>;
+
+    /// Lists organizations matching the provided organization IDs.
+    fn list_scope_organizations_by_ids(
+        &self,
+        organization_ids: &[String],
+    ) -> BoxFuture<'_, Result<Vec<AdminScopeOrganizationRecord>, DataAccessError>>;
 
     /// Lists all tables visible to the admin reader.
     fn list_tables(&self) -> BoxFuture<'_, Result<Vec<PostgresTableRecord>, DataAccessError>>;

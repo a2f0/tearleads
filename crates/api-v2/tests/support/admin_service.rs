@@ -4,9 +4,9 @@ use tearleads_api_v2::{
     AdminAccessContext, AdminAuthError, AdminAuthErrorKind, AdminOperation, AdminRequestAuthorizer,
 };
 use tearleads_data_access_traits::{
-    BoxFuture, DataAccessError, PostgresAdminReadRepository, PostgresColumnInfo,
-    PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo,
-    RedisAdminRepository, RedisKeyScanPage, RedisKeyValueRecord,
+    AdminScopeOrganization, BoxFuture, DataAccessError, PostgresAdminReadRepository,
+    PostgresColumnInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
+    PostgresTableInfo, RedisAdminRepository, RedisKeyScanPage, RedisKeyValueRecord,
 };
 use tonic::{Response, Status};
 
@@ -20,6 +20,14 @@ impl FakeAuthorizer {
     pub(crate) fn allow_all() -> Self {
         Self {
             outcome: Ok(AdminAccessContext::root()),
+            calls: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn allow_scoped(organization_ids: Vec<String>) -> Self {
+        Self {
+            outcome: Ok(AdminAccessContext::scoped(organization_ids)),
             calls: Arc::new(Mutex::new(Vec::new())),
         }
     }
@@ -47,6 +55,10 @@ impl AdminRequestAuthorizer for FakeAuthorizer {
 #[derive(Debug)]
 pub(crate) struct FakePostgresRepository {
     pub(crate) info_result: Result<PostgresInfoSnapshot, DataAccessError>,
+    pub(crate) scope_organizations_result: Result<Vec<AdminScopeOrganization>, DataAccessError>,
+    pub(crate) scope_organizations_by_ids_result:
+        Result<Vec<AdminScopeOrganization>, DataAccessError>,
+    pub(crate) scope_organizations_by_ids_calls: Arc<Mutex<Vec<Vec<String>>>>,
     pub(crate) tables_result: Result<Vec<PostgresTableInfo>, DataAccessError>,
     pub(crate) columns_result: Result<Vec<PostgresColumnInfo>, DataAccessError>,
     pub(crate) columns_calls: Arc<Mutex<Vec<(String, String)>>>,
@@ -58,6 +70,9 @@ impl Default for FakePostgresRepository {
     fn default() -> Self {
         Self {
             info_result: Ok(PostgresInfoSnapshot::default()),
+            scope_organizations_result: Ok(Vec::new()),
+            scope_organizations_by_ids_result: Ok(Vec::new()),
+            scope_organizations_by_ids_calls: Arc::new(Mutex::new(Vec::new())),
             tables_result: Ok(Vec::new()),
             columns_result: Ok(Vec::new()),
             columns_calls: Arc::new(Mutex::new(Vec::new())),
@@ -75,6 +90,22 @@ impl Default for FakePostgresRepository {
 impl PostgresAdminReadRepository for FakePostgresRepository {
     fn get_postgres_info(&self) -> BoxFuture<'_, Result<PostgresInfoSnapshot, DataAccessError>> {
         let result = self.info_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn list_scope_organizations(
+        &self,
+    ) -> BoxFuture<'_, Result<Vec<AdminScopeOrganization>, DataAccessError>> {
+        let result = self.scope_organizations_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn list_scope_organizations_by_ids(
+        &self,
+        organization_ids: Vec<String>,
+    ) -> BoxFuture<'_, Result<Vec<AdminScopeOrganization>, DataAccessError>> {
+        lock_or_recover(&self.scope_organizations_by_ids_calls).push(organization_ids);
+        let result = self.scope_organizations_by_ids_result.clone();
         Box::pin(async move { result })
     }
 
