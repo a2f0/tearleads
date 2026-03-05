@@ -90,10 +90,14 @@ export function LoginForm({
   return (
     <div className={borderless ? '' : 'rounded-lg border p-4'}>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <p className="font-medium">{title}</p>
-          <p className="text-muted-foreground text-sm">{description}</p>
-        </div>
+        {title && (
+          <div>
+            <p className="font-medium">{title}</p>
+            {description && (
+              <p className="text-muted-foreground text-sm">{description}</p>
+            )}
+          </div>
+        )}
 
         {authError && (
           <div className="rounded-md bg-destructive/10 p-3 text-destructive text-sm">
