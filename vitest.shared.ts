@@ -2,7 +2,7 @@ import os from 'node:os';
 
 // Cap workers to avoid oversubscribing CPU on high-core machines while still
 // allowing useful parallelism.
-const availableCpus = (os.availableParallelism?.() ?? os.cpus().length) || 1;
+const availableCpus = os.availableParallelism();
 export const vitestMaxWorkers = Math.max(1, Math.floor(availableCpus / 4));
 
 export const sharedTestConfig = {
