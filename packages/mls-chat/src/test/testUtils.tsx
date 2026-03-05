@@ -1,3 +1,4 @@
+// one-component-per-file: allow
 /**
  * Test utilities for MLS chat components.
  * Provides mock providers and helper functions.

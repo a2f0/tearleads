@@ -1,3 +1,4 @@
+// one-component-per-file: allow
 import { createMlsV2Routes } from '@tearleads/api-client';
 import {
   AddMemberDialog,

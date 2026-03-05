@@ -1,3 +1,4 @@
+// one-component-per-file: allow
 /**
  * MLS Chat page wrapper.
  * Provides the MlsChatProvider with app-specific dependencies and UI components.
