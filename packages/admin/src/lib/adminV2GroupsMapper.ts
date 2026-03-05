@@ -1,21 +1,5 @@
 import type { GroupsListResponse } from '@tearleads/shared';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function toSafeNumber(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (typeof value === 'string' && value.trim().length > 0) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-
-  return 0;
-}
+import { isRecord, toSafeNumber } from './adminV2ValueUtils';
 
 export function mapGroupsListResponse(
   responseBody: unknown

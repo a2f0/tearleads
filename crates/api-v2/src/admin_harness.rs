@@ -161,13 +161,11 @@ impl PostgresAdminReadRepository for StaticPostgresRepository {
             ];
 
             let filtered = if let Some(organization_ids) = organization_ids {
+                use std::collections::HashSet;
+                let organization_id_set: HashSet<_> = organization_ids.into_iter().collect();
                 groups
                     .into_iter()
-                    .filter(|group| {
-                        organization_ids
-                            .iter()
-                            .any(|id| id == &group.organization_id)
-                    })
+                    .filter(|group| organization_id_set.contains(&group.organization_id))
                     .collect()
             } else {
                 groups

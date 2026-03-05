@@ -416,14 +416,11 @@ fn normalize_redis_key(key: &str) -> Result<String, &'static str> {
 }
 
 fn normalize_optional_organization_id(value: Option<String>) -> Option<String> {
-    value.and_then(|raw| {
-        let trimmed = raw.trim();
-        if trimmed.is_empty() {
-            None
-        } else {
-            Some(trimmed.to_string())
-        }
-    })
+    value
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
 }
 
 fn normalize_sort_direction(value: Option<String>) -> Result<Option<String>, &'static str> {
