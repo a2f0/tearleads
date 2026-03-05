@@ -381,9 +381,9 @@ export function buildClassicSortMetadata({
   }
 
   for (const row of linkRows) {
-    let taggedAtById = noteTaggedAtByTagId[row.parentId];
-    if (taggedAtById === undefined) {
-      taggedAtById = Object.create(null);
+    const taggedAtById =
+      noteTaggedAtByTagId[row.parentId] ?? Object.create(null);
+    if (noteTaggedAtByTagId[row.parentId] === undefined) {
       noteTaggedAtByTagId[row.parentId] = taggedAtById;
     }
     taggedAtById[row.childId] = toTimestamp(row.createdAt);
