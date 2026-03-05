@@ -62,14 +62,20 @@ export async function initializeAndRestoreDatabaseState({
   setIsSetUp,
   markSessionActive
 }: InitializeDatabaseStateOptions): Promise<void> {
+  const initStart = performance.now();
   databaseSetupProgressStore.start();
 
   try {
     databaseSetupProgressStore.update('Preparing instance registry...', 10);
+    let stepStart = performance.now();
     let activeInstance = await initializeRegistry();
     let allInstances = await getInstances();
+    console.debug(
+      `[db] registry init: ${(performance.now() - stepStart).toFixed(1)}ms`
+    );
 
     databaseSetupProgressStore.update('Validating database instances...', 25);
+    stepStart = performance.now();
     const cleanupResult = await validateAndPruneOrphanedInstances(
       allInstances.map((i) => i.id),
       deleteInstanceFromRegistry
@@ -110,13 +116,21 @@ export async function initializeAndRestoreDatabaseState({
     setCurrentInstanceName(activeInstance.name);
     emitInstanceChange(activeInstance.id);
 
+    console.debug(
+      `[db] validate & prune: ${(performance.now() - stepStart).toFixed(1)}ms`
+    );
+
     databaseSetupProgressStore.update('Checking database state...', 40);
+    stepStart = performance.now();
     const [setup, persisted] = await Promise.all([
       isDatabaseSetUp(activeInstance.id),
       hasPersistedSession(activeInstance.id)
     ]);
     setIsSetUp(setup);
     setHasPersisted(persisted);
+    console.debug(
+      `[db] check state: ${(performance.now() - stepStart).toFixed(1)}ms`
+    );
 
     if (persisted) {
       databaseSetupProgressStore.update('Restoring database session...', 55);
@@ -156,6 +170,9 @@ export async function initializeAndRestoreDatabaseState({
   } catch (err) {
     setError(toError(err));
   } finally {
+    console.debug(
+      `[db] initializeAndRestoreDatabaseState total: ${(performance.now() - initStart).toFixed(1)}ms`
+    );
     databaseSetupProgressStore.finish();
     setIsLoading(false);
   }
