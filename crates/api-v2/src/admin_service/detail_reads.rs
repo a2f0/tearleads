@@ -153,11 +153,8 @@ where
             .await
             .map_err(map_data_access_error)?
             .into_iter()
-            .find(|organization| organization.id == organization_id);
-        let organization = match organization {
-            Some(organization) => organization,
-            None => return Err(Status::not_found("organization not found")),
-        };
+            .next()
+            .ok_or_else(|| Status::not_found("organization not found"))?;
 
         Ok(Response::new(AdminGetOrganizationResponse {
             organization: Some(AdminOrganization {
@@ -221,15 +218,10 @@ where
 
         let user = self
             .postgres_repo
-            .list_users(organization_ids)
+            .get_user(&user_id, organization_ids)
             .await
             .map_err(map_data_access_error)?
-            .into_iter()
-            .find(|user| user.id == user_id);
-        let user = match user {
-            Some(user) => user,
-            None => return Err(Status::not_found("user not found")),
-        };
+            .ok_or_else(|| Status::not_found("user not found"))?;
 
         Ok(Response::new(AdminGetUserResponse {
             user: Some(map_admin_user(user)),

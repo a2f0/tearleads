@@ -108,6 +108,21 @@ where
         })
     }
 
+    fn get_user(
+        &self,
+        user_id: &str,
+        organization_ids: Option<Vec<String>>,
+    ) -> BoxFuture<'_, Result<Option<AdminUserSummary>, DataAccessError>> {
+        let user_id = user_id.to_string();
+        Box::pin(async move {
+            let user = self
+                .gateway
+                .get_user(&user_id, organization_ids.as_deref())
+                .await?;
+            Ok(user.map(map_user))
+        })
+    }
+
     fn list_tables(&self) -> BoxFuture<'_, Result<Vec<PostgresTableInfo>, DataAccessError>> {
         Box::pin(async move {
             let records = self.gateway.list_tables().await?;
@@ -230,30 +245,31 @@ fn map_organizations(records: Vec<AdminOrganizationRecord>) -> Vec<AdminOrganiza
 }
 
 fn map_users(records: Vec<AdminUserRecord>) -> Vec<AdminUserSummary> {
-    records
-        .into_iter()
-        .map(|record| AdminUserSummary {
-            id: record.id,
-            email: record.email,
-            email_confirmed: record.email_confirmed,
-            admin: record.admin,
-            organization_ids: record.organization_ids,
-            created_at: record.created_at,
-            last_active_at: record.last_active_at,
-            accounting: AdminUserAccountingSummary {
-                total_prompt_tokens: record.accounting.total_prompt_tokens,
-                total_completion_tokens: record.accounting.total_completion_tokens,
-                total_tokens: record.accounting.total_tokens,
-                request_count: record.accounting.request_count,
-                last_used_at: record.accounting.last_used_at,
-            },
-            disabled: record.disabled,
-            disabled_at: record.disabled_at,
-            disabled_by: record.disabled_by,
-            marked_for_deletion_at: record.marked_for_deletion_at,
-            marked_for_deletion_by: record.marked_for_deletion_by,
-        })
-        .collect()
+    records.into_iter().map(map_user).collect()
+}
+
+fn map_user(record: AdminUserRecord) -> AdminUserSummary {
+    AdminUserSummary {
+        id: record.id,
+        email: record.email,
+        email_confirmed: record.email_confirmed,
+        admin: record.admin,
+        organization_ids: record.organization_ids,
+        created_at: record.created_at,
+        last_active_at: record.last_active_at,
+        accounting: AdminUserAccountingSummary {
+            total_prompt_tokens: record.accounting.total_prompt_tokens,
+            total_completion_tokens: record.accounting.total_completion_tokens,
+            total_tokens: record.accounting.total_tokens,
+            request_count: record.accounting.request_count,
+            last_used_at: record.accounting.last_used_at,
+        },
+        disabled: record.disabled,
+        disabled_at: record.disabled_at,
+        disabled_by: record.disabled_by,
+        marked_for_deletion_at: record.marked_for_deletion_at,
+        marked_for_deletion_by: record.marked_for_deletion_by,
+    }
 }
 
 fn map_rows_page(record: PostgresRowsPageRecord) -> PostgresRowsPage {

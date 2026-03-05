@@ -242,30 +242,10 @@ async fn get_org_groups_uses_scoped_filter() {
 #[tokio::test]
 async fn get_user_returns_not_found_after_scope_filter() {
     let postgres_repo = FakePostgresRepository {
-        list_users_result: Ok(vec![AdminUserSummary {
-            id: String::from("user-1"),
-            email: String::from("admin@example.com"),
-            email_confirmed: true,
-            admin: false,
-            organization_ids: vec![String::from("org-7")],
-            created_at: Some(String::from("2026-01-01T00:00:00Z")),
-            last_active_at: None,
-            accounting: AdminUserAccountingSummary {
-                total_prompt_tokens: 0,
-                total_completion_tokens: 0,
-                total_tokens: 0,
-                request_count: 0,
-                last_used_at: None,
-            },
-            disabled: false,
-            disabled_at: None,
-            disabled_by: None,
-            marked_for_deletion_at: None,
-            marked_for_deletion_by: None,
-        }]),
+        get_user_result: Ok(None),
         ..Default::default()
     };
-    let list_users_calls = Arc::clone(&postgres_repo.list_users_calls);
+    let get_user_calls = Arc::clone(&postgres_repo.get_user_calls);
     let handler = AdminServiceHandler::with_authorizer(
         postgres_repo,
         FakeRedisRepository::default(),
@@ -285,15 +265,15 @@ async fn get_user_returns_not_found_after_scope_filter() {
     assert_eq!(status.code(), Code::NotFound);
     assert_eq!(status.message(), "user not found");
     assert_eq!(
-        lock_or_recover(&list_users_calls).clone(),
-        vec![Some(vec![String::from("org-7")])]
+        lock_or_recover(&get_user_calls).clone(),
+        vec![(String::from("user-404"), Some(vec![String::from("org-7")]),)]
     );
 }
 
 #[tokio::test]
 async fn get_user_returns_user_for_root_admin_without_scope_filter() {
     let postgres_repo = FakePostgresRepository {
-        list_users_result: Ok(vec![AdminUserSummary {
+        get_user_result: Ok(Some(AdminUserSummary {
             id: String::from("user-1"),
             email: String::from("admin@example.com"),
             email_confirmed: true,
@@ -313,10 +293,10 @@ async fn get_user_returns_user_for_root_admin_without_scope_filter() {
             disabled_by: None,
             marked_for_deletion_at: None,
             marked_for_deletion_by: None,
-        }]),
+        })),
         ..Default::default()
     };
-    let list_users_calls = Arc::clone(&postgres_repo.list_users_calls);
+    let get_user_calls = Arc::clone(&postgres_repo.get_user_calls);
     let handler = AdminServiceHandler::with_authorizer(
         postgres_repo,
         FakeRedisRepository::default(),
@@ -338,5 +318,8 @@ async fn get_user_returns_user_for_root_admin_without_scope_filter() {
     assert_eq!(user.id, "user-1");
     assert_eq!(user.email, "admin@example.com");
     assert_eq!(user.organization_ids, vec![String::from("org-7")]);
-    assert_eq!(lock_or_recover(&list_users_calls).clone(), vec![None]);
+    assert_eq!(
+        lock_or_recover(&get_user_calls).clone(),
+        vec![(String::from("user-1"), None)]
+    );
 }

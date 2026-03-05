@@ -269,6 +269,24 @@ pub trait PostgresAdminReadRepository: Send + Sync {
         })
     }
 
+    /// Returns one user by identifier, optionally constrained to organization IDs.
+    fn get_user(
+        &self,
+        user_id: &str,
+        organization_ids: Option<Vec<String>>,
+    ) -> BoxFuture<'_, Result<Option<AdminUserSummary>, DataAccessError>> {
+        let user_id = user_id.to_string();
+        let filter = organization_ids.unwrap_or_default();
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                format!(
+                    "get_user not implemented for user_id={user_id} organization_ids={filter:?}"
+                ),
+            ))
+        })
+    }
+
     /// Returns table metadata for the admin browsing surface.
     fn list_tables(&self) -> BoxFuture<'_, Result<Vec<PostgresTableInfo>, DataAccessError>>;
 

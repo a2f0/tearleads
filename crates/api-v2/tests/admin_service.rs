@@ -112,6 +112,10 @@ async fn default_constructor_applies_header_role_authorizer() {
         "x-tearleads-role",
         tonic::metadata::MetadataValue::from_static("admin"),
     );
+    request.metadata_mut().insert(
+        "x-tearleads-admin-scope",
+        tonic::metadata::MetadataValue::from_static("root"),
+    );
 
     let payload = into_inner_or_panic(handler.get_tables(request).await);
     assert_eq!(payload.tables.len(), 1);
