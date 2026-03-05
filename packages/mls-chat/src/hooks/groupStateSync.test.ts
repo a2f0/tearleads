@@ -150,16 +150,16 @@ describe('groupStateSync', () => {
     expect(typeof init?.body).toBe('string');
     const requestBody = JSON.parse((init?.body as string) ?? '{}') as {
       groupId?: string;
-      json?: string;
+      payload?: {
+        epoch?: number;
+        encryptedState?: string;
+        stateHash?: string;
+      };
     };
     expect(requestBody.groupId).toBe('group-1');
-    expect(typeof requestBody.json).toBe('string');
+    expect(typeof requestBody.payload).toBe('object');
 
-    const payload = JSON.parse(requestBody.json ?? '{}') as {
-      epoch?: number;
-      encryptedState?: string;
-      stateHash?: string;
-    };
+    const payload = requestBody.payload ?? {};
     expect(payload.epoch).toBe(7);
     expect(payload.encryptedState).toBeDefined();
     expect(payload.stateHash).toBe(

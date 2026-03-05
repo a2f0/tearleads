@@ -1,9 +1,11 @@
 import {
   createConnectJsonPostInit,
-  parseConnectJsonEnvelopeBody
+  isPlainRecord,
+  parseConnectJsonEnvelopeBody,
+  parseConnectJsonString
 } from '@tearleads/shared';
 
-const MLS_CONNECT_SERVICE_PATH = '/connect/tearleads.v1.MlsService';
+const MLS_CONNECT_SERVICE_PATH = '/connect/tearleads.v2.MlsService';
 
 type MlsRpcMethod =
   | 'UploadKeyPackages'
@@ -30,6 +32,17 @@ interface MlsRpcContext {
   getAuthHeader: (() => string | null) | undefined;
 }
 
+const MLS_PAYLOAD_METHODS = new Set<MlsRpcMethod>([
+  'UploadKeyPackages',
+  'CreateGroup',
+  'UpdateGroup',
+  'AddGroupMember',
+  'RemoveGroupMember',
+  'SendGroupMessage',
+  'UploadGroupState',
+  'AcknowledgeWelcome'
+]);
+
 function trimTrailingSlash(value: string): string {
   return value.endsWith('/') ? value.slice(0, -1) : value;
 }
@@ -47,8 +60,34 @@ function buildRpcUrl(context: MlsRpcContext, method: MlsRpcMethod): string {
   return `${trimTrailingSlash(context.apiBaseUrl)}${MLS_CONNECT_SERVICE_PATH}/${method}`;
 }
 
+function normalizePayloadRequestBody(
+  method: MlsRpcMethod,
+  requestBody: Record<string, unknown>
+): Record<string, unknown> {
+  if (!MLS_PAYLOAD_METHODS.has(method)) {
+    return requestBody;
+  }
+
+  const rawJson = requestBody['json'];
+  if (typeof rawJson !== 'string') {
+    return requestBody;
+  }
+
+  const { json: _ignored, ...rest } = requestBody;
+  return {
+    ...rest,
+    payload: parseConnectJsonString<Record<string, unknown>>(rawJson)
+  };
+}
+
 export function parseEnvelope<T>(body: unknown): T {
-  return parseConnectJsonEnvelopeBody(body) as T;
+  const envelopeOrBody = parseConnectJsonEnvelopeBody(body);
+  const payloadOrBody =
+    isPlainRecord(envelopeOrBody) && 'payload' in envelopeOrBody
+      ? envelopeOrBody['payload']
+      : envelopeOrBody;
+
+  return (payloadOrBody ?? {}) as T;
 }
 
 async function toResponseErrorMessage(
@@ -77,8 +116,10 @@ export async function postMlsRpc(
   method: MlsRpcMethod,
   requestBody: Record<string, unknown>
 ): Promise<Response> {
+  const normalizedBody = normalizePayloadRequestBody(method, requestBody);
+
   return fetch(buildRpcUrl(context, method), {
-    ...createConnectJsonPostInit(requestBody),
+    ...createConnectJsonPostInit(normalizedBody),
     headers: buildHeaders(context)
   });
 }
