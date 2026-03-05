@@ -369,10 +369,8 @@ fn json_value_to_protobuf_value(value: JsonValue) -> Result<Value, String> {
         JsonValue::Null => ProtobufValueKind::NullValue(0),
         JsonValue::Bool(boolean) => ProtobufValueKind::BoolValue(boolean),
         JsonValue::Number(number) => {
-            let as_f64 = number
-                .to_string()
-                .parse::<f64>()
-                .map_err(|error| format!("failed to parse number `{number}` as f64: {error}"))?;
+            let as_f64 = number.as_f64();
+            let as_f64 = as_f64.ok_or("number parse failed")?;
             ProtobufValueKind::NumberValue(as_f64)
         }
         JsonValue::String(string_value) => ProtobufValueKind::StringValue(string_value),
