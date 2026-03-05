@@ -160,13 +160,12 @@ export async function runMigrations(
   }
 
   // Determine pending migrations
-  const pending = sortedMigrations.filter(
-    (m) => m.version > currentVersion
-  );
+  const pending = sortedMigrations.filter((m) => m.version > currentVersion);
 
   // Run any migrations newer than current version
   for (let i = 0; i < pending.length; i++) {
-    const migration = pending[i]!;
+    const migration = pending[i];
+    if (!migration) continue;
     onProgress?.(i, pending.length, migration.version, migration.description);
 
     const migStart = performance.now();
