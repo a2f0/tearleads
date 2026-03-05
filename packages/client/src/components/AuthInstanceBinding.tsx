@@ -24,15 +24,25 @@ export function AuthInstanceBinding() {
     switchInstance
   } = useDatabaseContext();
   const isBindingRef = useRef(false);
+  const alignedUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!isAuthenticated || !user) {
+      alignedUserIdRef.current = null;
+      return;
+    }
+
+    if (alignedUserIdRef.current === user.id) {
+      return;
+    }
+
     if (isBindingRef.current) {
       return;
     }
     if (isAuthLoading || isDatabaseLoading) {
       return;
     }
-    if (!isAuthenticated || !user || !currentInstanceId) {
+    if (!currentInstanceId) {
       return;
     }
 
@@ -40,6 +50,7 @@ export function AuthInstanceBinding() {
     isBindingRef.current = true;
 
     void (async () => {
+      let alignedSuccessfully = false;
       try {
         const userId = user.id;
         const [boundInstance, currentInstance] = await Promise.all([
@@ -55,6 +66,7 @@ export function AuthInstanceBinding() {
             await switchInstance(boundInstance.id);
           }
           await updateInstance(boundInstance.id, { name: user.email });
+          alignedSuccessfully = true;
           return;
         }
 
@@ -63,11 +75,13 @@ export function AuthInstanceBinding() {
           await bindInstanceToUser(currentInstanceId, userId);
           await updateInstance(currentInstanceId, { name: user.email });
           await refreshInstances();
+          alignedSuccessfully = true;
           return;
         }
 
         if (currentBoundUserId === userId) {
           await updateInstance(currentInstanceId, { name: user.email });
+          alignedSuccessfully = true;
           return;
         }
 
@@ -75,12 +89,17 @@ export function AuthInstanceBinding() {
         await bindInstanceToUser(newInstanceId, userId);
         await updateInstance(newInstanceId, { name: user.email });
         await refreshInstances();
+        alignedSuccessfully = true;
+        return;
       } catch (error) {
         console.error(
           'Failed to align DB instance with authenticated user:',
           error
         );
       } finally {
+        if (!cancelled && alignedSuccessfully) {
+          alignedUserIdRef.current = user.id;
+        }
         isBindingRef.current = false;
       }
     })();
@@ -92,11 +111,11 @@ export function AuthInstanceBinding() {
   }, [
     createInstance,
     currentInstanceId,
-    isAuthenticated,
     isAuthLoading,
     isDatabaseLoading,
     refreshInstances,
     switchInstance,
+    isAuthenticated,
     user
   ]);
 

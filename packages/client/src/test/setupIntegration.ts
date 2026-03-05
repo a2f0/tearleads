@@ -139,6 +139,47 @@ vi.mock('@/db/instanceRegistry', () => ({
   getActiveInstance: vi.fn(
     async () => testInstances.find((i) => i.id === testActiveInstanceId) ?? null
   ),
+  getInstanceForUser: vi.fn(async (userId: string) => {
+    const normalizedUserId = userId.trim();
+    if (!normalizedUserId) {
+      return null;
+    }
+    return (
+      testInstances.find(
+        (instance) => instance.boundUserId === normalizedUserId
+      ) ?? null
+    );
+  }),
+  bindInstanceToUser: vi.fn(async (instanceId: string, userId: string) => {
+    const normalizedUserId = userId.trim();
+    if (!normalizedUserId) {
+      throw new Error('userId is required');
+    }
+
+    const target = testInstances.find((instance) => instance.id === instanceId);
+    if (!target) {
+      throw new Error(`Instance not found: ${instanceId}`);
+    }
+
+    for (let index = 0; index < testInstances.length; index += 1) {
+      const instance = testInstances[index];
+      if (!instance) {
+        continue;
+      }
+
+      if (instance.id === instanceId) {
+        testInstances[index] = {
+          ...instance,
+          boundUserId: normalizedUserId
+        };
+      } else if (instance.boundUserId === normalizedUserId) {
+        testInstances[index] = {
+          ...instance,
+          boundUserId: null
+        };
+      }
+    }
+  }),
   setActiveInstanceId: vi.fn(async (id: string | null) => {
     testActiveInstanceId = id;
   }),
