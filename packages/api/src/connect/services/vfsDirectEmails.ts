@@ -309,9 +309,7 @@ export async function getEmailDirect(
     if (!row) {
       throw new ConnectError('Email not found', Code.NotFound);
     }
-    const scaffoldInlineBody = parseScaffoldInlineBody(
-      row.encrypted_body_path
-    );
+    const scaffoldInlineBody = parseScaffoldInlineBody(row.encrypted_body_path);
 
     return {
       json: JSON.stringify({

@@ -166,9 +166,7 @@ describe('DB scaffolding plaintext render integration', () => {
       `SELECT encrypted_subject, encrypted_from, encrypted_body_path, ciphertext_size
        FROM emails
        WHERE id = $1`,
-      [
-      seededEmails.bob.emailItemId
-      ]
+      [seededEmails.bob.emailItemId]
     );
 
     const folderCiphertext = postgresFolder.rows[0]?.encrypted_name;

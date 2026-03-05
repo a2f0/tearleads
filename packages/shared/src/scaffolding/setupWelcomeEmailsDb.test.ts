@@ -162,9 +162,9 @@ describe('setupWelcomeEmailsDb', () => {
     if (typeof bobEncryptedBodyPath !== 'string') {
       throw new Error('Expected scaffolded encrypted body path for Bob');
     }
-    expect(bobEncryptedBodyPath.startsWith(SCAFFOLD_INLINE_EMAIL_BODY_PREFIX)).toBe(
-      true
-    );
+    expect(
+      bobEncryptedBodyPath.startsWith(SCAFFOLD_INLINE_EMAIL_BODY_PREFIX)
+    ).toBe(true);
     const bobCiphertext = bobEncryptedBodyPath.slice(
       SCAFFOLD_INLINE_EMAIL_BODY_PREFIX.length
     );

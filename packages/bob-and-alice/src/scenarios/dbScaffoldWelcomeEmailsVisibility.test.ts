@@ -7,9 +7,9 @@ import {
   type VfsSyncResponse
 } from '@tearleads/shared';
 import {
-  setupBobNotesShareForAliceDb,
   SCAFFOLD_INLINE_EMAIL_BODY_PREFIX,
   SCAFFOLD_WELCOME_EMAIL_BODY_TEXT,
+  setupBobNotesShareForAliceDb,
   setupWelcomeEmailsDb
 } from '@tearleads/shared/scaffolding';
 import { afterEach, describe, expect, it } from 'vitest';

@@ -42,18 +42,20 @@ describe('EmailWindow body rendering', () => {
         attachments: []
       });
     const mockBodyOperations: EmailBodyOperations = {
-      fetchDecryptedBody: vi.fn().mockResolvedValue(
-        [
-          'From: sender@example.com',
-          'To: recipient@example.com',
-          'Subject: Test Subject',
-          'MIME-Version: 1.0',
-          'Content-Type: text/plain; charset=UTF-8',
-          '',
-          "You're all set to start exploring Tearleads.",
-          ''
-        ].join('\r\n')
-      )
+      fetchDecryptedBody: vi
+        .fn()
+        .mockResolvedValue(
+          [
+            'From: sender@example.com',
+            'To: recipient@example.com',
+            'Subject: Test Subject',
+            'MIME-Version: 1.0',
+            'Content-Type: text/plain; charset=UTF-8',
+            '',
+            "You're all set to start exploring Tearleads.",
+            ''
+          ].join('\r\n')
+        )
     };
 
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
