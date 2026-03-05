@@ -462,7 +462,7 @@ mod tests {
             .await
             .expect("authorized rows request should succeed")
             .into_inner();
-        assert_eq!(rows_response.rows_json.len(), 1);
+        assert_eq!(rows_response.rows.len(), 1);
 
         let mut db_size_request = Request::new(AdminGetRedisDbSizeRequest {});
         db_size_request.metadata_mut().insert(

@@ -53,7 +53,7 @@ function createAdminV2ClientStub(
     getRows:
       overrides.getRows ??
       vi.fn(async () => ({
-        rowsJson: [],
+        rows: [],
         totalCount: 0n,
         limit: 0,
         offset: 0
@@ -251,7 +251,7 @@ describe('adminV2Routes', () => {
       ]
     });
     expect(getColumns).toHaveBeenCalledWith(
-      { schema: 'public', table: 'users' },
+      expect.objectContaining({ schema: 'public', table: 'users' }),
       {
         headers: {
           authorization: 'Bearer token-123'
@@ -267,7 +267,7 @@ describe('adminV2Routes', () => {
 
   it('maps postgres rows response and forwards pagination/sort args', async () => {
     const getRows = vi.fn(async () => ({
-      rowsJson: ['{"id":"user-1","email":"user@example.com"}'],
+      rows: [{ id: 'user-1', email: 'user@example.com' }],
       totalCount: 1n,
       limit: 10,
       offset: 20
@@ -289,14 +289,14 @@ describe('adminV2Routes', () => {
       offset: 20
     });
     expect(getRows).toHaveBeenCalledWith(
-      {
+      expect.objectContaining({
         schema: 'public',
         table: 'users',
         limit: 10,
         offset: 20,
         sortColumn: 'id',
         sortDirection: 'desc'
-      },
+      }),
       {
         headers: {
           authorization: 'Bearer token-123'

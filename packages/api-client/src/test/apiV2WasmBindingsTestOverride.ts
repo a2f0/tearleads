@@ -12,17 +12,15 @@ export function installApiV2WasmBindingsOverride(): void {
   Reflect.set(globalThis, '__tearleadsImportApiV2ClientWasmModule', () =>
     Promise.resolve({
       normalizeConnectBaseUrl: (apiBaseUrl: string) => `${apiBaseUrl}/connect`,
-      adminGetPostgresInfoPath: () =>
-        '/tearleads.v2.AdminService/GetPostgresInfo',
-      adminGetTablesPath: () => '/tearleads.v2.AdminService/GetTables',
-      adminGetColumnsPath: () => '/tearleads.v2.AdminService/GetColumns',
-      adminGetRowsPath: () => '/tearleads.v2.AdminService/GetRows',
-      adminGetRedisKeysPath: () => '/tearleads.v2.AdminService/GetRedisKeys',
-      adminGetRedisValuePath: () => '/tearleads.v2.AdminService/GetRedisValue',
-      adminDeleteRedisKeyPath: () =>
-        '/tearleads.v2.AdminService/DeleteRedisKey',
-      adminGetRedisDbSizePath: () =>
-        '/tearleads.v2.AdminService/GetRedisDbSize',
+      resolveRpcPath: (serviceName: string, methodName: string) =>
+        `/${serviceName}/${methodName}`,
+      getProtocolConfig: () => ({
+        connectPrefix: '/connect',
+        adminServiceName: 'tearleads.v2.AdminService',
+        mlsServiceName: 'tearleads.v2.MlsService',
+        authorizationHeader: 'authorization',
+        organizationHeader: 'x-tearleads-organization-id'
+      }),
       buildRequestHeaders: (bearerToken?: string | null) => {
         const normalizedBearerToken = normalizeBearerToken(bearerToken);
         return {

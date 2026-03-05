@@ -46,7 +46,8 @@ async fn get_rows_forwards_normalized_query_and_maps_response() {
             .await,
     );
 
-    assert_eq!(payload.rows_json, vec![String::from("{\"id\":\"user-1\"}")]);
+    assert_eq!(payload.rows.len(), 1);
+    assert!(payload.rows[0].fields.contains_key("id"));
     assert_eq!(payload.total_count, 1);
     assert_eq!(payload.limit, 10);
     assert_eq!(payload.offset, 20);

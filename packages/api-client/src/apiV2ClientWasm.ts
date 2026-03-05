@@ -4,18 +4,20 @@ import { importApiV2ClientWasmModule } from './apiV2ClientWasmImport';
 interface ApiV2ClientWasmBindings {
   default?: () => Promise<void>;
   normalizeConnectBaseUrl: (baseUrl: string) => string;
-  adminGetPostgresInfoPath: () => string;
-  adminGetTablesPath: () => string;
-  adminGetColumnsPath: () => string;
-  adminGetRowsPath: () => string;
-  adminGetRedisKeysPath: () => string;
-  adminGetRedisValuePath: () => string;
-  adminDeleteRedisKeyPath: () => string;
-  adminGetRedisDbSizePath: () => string;
+  resolveRpcPath: (serviceName: string, methodName: string) => string;
+  getProtocolConfig: () => unknown;
   buildRequestHeaders: (
     bearerToken?: string | null,
     organizationId?: string | null
   ) => unknown;
+}
+
+export interface ApiV2ProtocolConfig {
+  connectPrefix: string;
+  adminServiceName: string;
+  mlsServiceName: string;
+  authorizationHeader: string;
+  organizationHeader: string;
 }
 
 export interface ApiV2AdminRpcPaths {
@@ -43,14 +45,8 @@ function assertApiV2ClientWasmBindings(
   if (
     !isRecord(module) ||
     typeof module['normalizeConnectBaseUrl'] !== 'function' ||
-    typeof module['adminGetPostgresInfoPath'] !== 'function' ||
-    typeof module['adminGetTablesPath'] !== 'function' ||
-    typeof module['adminGetColumnsPath'] !== 'function' ||
-    typeof module['adminGetRowsPath'] !== 'function' ||
-    typeof module['adminGetRedisKeysPath'] !== 'function' ||
-    typeof module['adminGetRedisValuePath'] !== 'function' ||
-    typeof module['adminDeleteRedisKeyPath'] !== 'function' ||
-    typeof module['adminGetRedisDbSizePath'] !== 'function' ||
+    typeof module['resolveRpcPath'] !== 'function' ||
+    typeof module['getProtocolConfig'] !== 'function' ||
     typeof module['buildRequestHeaders'] !== 'function'
   ) {
     throw new Error(
@@ -78,6 +74,38 @@ function parseHeaderMap(envelope: unknown): Record<string, string> {
   }
 
   return parsedHeaders;
+}
+
+function parseProtocolConfig(envelope: unknown): ApiV2ProtocolConfig {
+  if (!isRecord(envelope)) {
+    throw new Error('api-v2 wasm protocol config must be an object');
+  }
+
+  const connectPrefix = envelope['connectPrefix'];
+  const adminServiceName = envelope['adminServiceName'];
+  const mlsServiceName = envelope['mlsServiceName'];
+  const authorizationHeader = envelope['authorizationHeader'];
+  const organizationHeader = envelope['organizationHeader'];
+
+  if (
+    typeof connectPrefix !== 'string' ||
+    typeof adminServiceName !== 'string' ||
+    typeof mlsServiceName !== 'string' ||
+    typeof authorizationHeader !== 'string' ||
+    typeof organizationHeader !== 'string'
+  ) {
+    throw new Error(
+      'api-v2 wasm protocol config must include string protocol constants'
+    );
+  }
+
+  return {
+    connectPrefix,
+    adminServiceName,
+    mlsServiceName,
+    authorizationHeader,
+    organizationHeader
+  };
 }
 
 async function loadApiV2ClientWasmBindings(): Promise<ApiV2ClientWasmBindings> {
@@ -111,17 +139,41 @@ export async function normalizeApiV2ConnectBaseUrl(
   return bindings.normalizeConnectBaseUrl(apiBaseUrl);
 }
 
-export async function getApiV2AdminRpcPaths(): Promise<ApiV2AdminRpcPaths> {
+export async function getApiV2ProtocolConfig(): Promise<ApiV2ProtocolConfig> {
   const bindings = await loadApiV2ClientWasmBindings();
+  return parseProtocolConfig(bindings.getProtocolConfig());
+}
+
+export async function resolveApiV2RpcPath(
+  serviceName: string,
+  methodName: string
+): Promise<string> {
+  const normalizedService = serviceName.trim();
+  const normalizedMethod = methodName.trim();
+  if (normalizedService.length === 0) {
+    throw new Error('service name must not be empty');
+  }
+  if (normalizedMethod.length === 0) {
+    throw new Error('method name must not be empty');
+  }
+
+  const bindings = await loadApiV2ClientWasmBindings();
+  return bindings.resolveRpcPath(normalizedService, normalizedMethod);
+}
+
+export async function getApiV2AdminRpcPaths(): Promise<ApiV2AdminRpcPaths> {
+  const config = await getApiV2ProtocolConfig();
+  const serviceName = config.adminServiceName;
+
   return {
-    getPostgresInfo: bindings.adminGetPostgresInfoPath(),
-    getTables: bindings.adminGetTablesPath(),
-    getColumns: bindings.adminGetColumnsPath(),
-    getRows: bindings.adminGetRowsPath(),
-    getRedisKeys: bindings.adminGetRedisKeysPath(),
-    getRedisValue: bindings.adminGetRedisValuePath(),
-    deleteRedisKey: bindings.adminDeleteRedisKeyPath(),
-    getRedisDbSize: bindings.adminGetRedisDbSizePath()
+    getPostgresInfo: await resolveApiV2RpcPath(serviceName, 'GetPostgresInfo'),
+    getTables: await resolveApiV2RpcPath(serviceName, 'GetTables'),
+    getColumns: await resolveApiV2RpcPath(serviceName, 'GetColumns'),
+    getRows: await resolveApiV2RpcPath(serviceName, 'GetRows'),
+    getRedisKeys: await resolveApiV2RpcPath(serviceName, 'GetRedisKeys'),
+    getRedisValue: await resolveApiV2RpcPath(serviceName, 'GetRedisValue'),
+    deleteRedisKey: await resolveApiV2RpcPath(serviceName, 'DeleteRedisKey'),
+    getRedisDbSize: await resolveApiV2RpcPath(serviceName, 'GetRedisDbSize')
   };
 }
 

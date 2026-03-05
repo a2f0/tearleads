@@ -2,6 +2,8 @@
 
 use std::collections::HashMap;
 
+use prost_types::{ListValue, Struct, Value, value::Kind as ProtobufValueKind};
+use serde_json::Value as JsonValue;
 use tearleads_api_domain_core::normalize_sql_identifier;
 use tearleads_api_v2_contracts::tearleads::v2::{
     AdminDeleteRedisKeyRequest, AdminDeleteRedisKeyResponse, AdminGetColumnsRequest,
@@ -167,8 +169,18 @@ where
             .await
             .map_err(map_data_access_error)?;
 
+        let rows = rows_page
+            .rows_json
+            .iter()
+            .enumerate()
+            .map(|(index, row_json)| {
+                parse_row_struct(row_json)
+                    .map_err(|error| Status::internal(format!("failed to encode row {index}: {error}")))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
         Ok(Response::new(AdminGetRowsResponse {
-            rows_json: rows_page.rows_json,
+            rows,
             total_count: rows_page.total_count,
             limit: rows_page.limit,
             offset: rows_page.offset,
@@ -333,4 +345,50 @@ fn normalize_rows_limit(limit: u32) -> u32 {
         return 50;
     }
     limit.min(1000)
+}
+
+fn parse_row_struct(row_json: &str) -> Result<Struct, String> {
+    let parsed_value: JsonValue = serde_json::from_str(row_json)
+        .map_err(|error| format!("invalid JSON payload: {error}"))?;
+
+    let JsonValue::Object(object) = parsed_value else {
+        return Err(String::from("row payload must decode to an object"));
+    };
+
+    let fields = object
+        .into_iter()
+        .map(|(key, value)| (key, json_value_to_protobuf_value(value)))
+        .collect();
+
+    Ok(Struct { fields })
+}
+
+fn json_value_to_protobuf_value(value: JsonValue) -> Value {
+    let kind = match value {
+        JsonValue::Null => ProtobufValueKind::NullValue(0),
+        JsonValue::Bool(boolean) => ProtobufValueKind::BoolValue(boolean),
+        JsonValue::Number(number) => {
+            let as_f64 = number
+                .as_f64()
+                .expect("serde_json::Number should always convert to f64");
+            ProtobufValueKind::NumberValue(as_f64)
+        }
+        JsonValue::String(string_value) => ProtobufValueKind::StringValue(string_value),
+        JsonValue::Array(list_values) => {
+            ProtobufValueKind::ListValue(ListValue {
+                values: list_values
+                    .into_iter()
+                    .map(json_value_to_protobuf_value)
+                    .collect(),
+            })
+        }
+        JsonValue::Object(map_values) => ProtobufValueKind::StructValue(Struct {
+            fields: map_values
+                .into_iter()
+                .map(|(key, map_value)| (key, json_value_to_protobuf_value(map_value)))
+                .collect(),
+        }),
+    };
+
+    Value { kind: Some(kind) }
 }
