@@ -83,10 +83,7 @@ function decodeBase64Size(base64Value: string | null | undefined): number {
     return 0;
   }
   try {
-    const normalized = base64Value
-      .trim()
-      .replace(/-/g, '+')
-      .replace(/_/g, '/');
+    const normalized = base64Value.trim().replace(/-/g, '+').replace(/_/g, '/');
     if (normalized.length === 0) {
       return 0;
     }

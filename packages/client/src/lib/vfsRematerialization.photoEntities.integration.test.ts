@@ -172,7 +172,9 @@ describe('vfsRematerialization photo entity rows', () => {
     expect(isFileStorageInitialized(TEST_INSTANCE_ID)).toBe(true);
 
     const storage = getFileStorageForInstance(TEST_INSTANCE_ID);
-    const payloadBytes = await storage.retrieve(rematerializedPhoto.storagePath);
+    const payloadBytes = await storage.retrieve(
+      rematerializedPhoto.storagePath
+    );
     expect(Buffer.from(payloadBytes).toString('utf8')).toBe('<svg>logo</svg>');
   });
 });

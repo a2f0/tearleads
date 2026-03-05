@@ -22,11 +22,11 @@ import {
   buildMaterializedAlbumRows,
   buildMaterializedFileRows
 } from './vfsRematerializationEntityRows';
+import { materializeFilePayloadsToStorage } from './vfsRematerializationFilePayloads';
 import {
   resolveMaterializedNoteContent,
   resolveMaterializedNoteTitle
 } from './vfsRematerializationScrub';
-import { materializeFilePayloadsToStorage } from './vfsRematerializationFilePayloads';
 
 const SYNC_PAGE_LIMIT = 500;
 const INSERT_BATCH_SIZE = 200;

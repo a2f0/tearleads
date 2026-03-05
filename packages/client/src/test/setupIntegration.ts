@@ -58,7 +58,9 @@ function assertValidFilename(path: string): void {
   }
 }
 
-function getStorageDataForInstance(instanceId: string): Map<string, Uint8Array> {
+function getStorageDataForInstance(
+  instanceId: string
+): Map<string, Uint8Array> {
   let storageData = mockFileStorageData.get(instanceId);
   if (!storageData) {
     storageData = new Map();
@@ -222,7 +224,9 @@ vi.mock('@/storage/opfs', () => ({
   getFileStorageForInstance: vi.fn((instanceId: string) => {
     const storage = mockFileStorageInstances.get(instanceId);
     if (!storage) {
-      throw new Error(`File storage not initialized for instance ${instanceId}`);
+      throw new Error(
+        `File storage not initialized for instance ${instanceId}`
+      );
     }
     return storage;
   }),
