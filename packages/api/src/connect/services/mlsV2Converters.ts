@@ -88,12 +88,11 @@ export function toProtoMessageType(value: string): ProtoMessageType {
   }
 }
 
-export function encodeProtoBytes(value: Uint8Array): string {
+export function encodeProtoBytes(value: Uint8Array | string): string {
+  if (typeof value === 'string') {
+    return value;
+  }
   return new TextDecoder().decode(value);
-}
-
-function decodeDirectStringToProtoBytes(value: string): Uint8Array {
-  return new TextEncoder().encode(value);
 }
 
 // ---------------------------------------------------------------------------
@@ -148,7 +147,7 @@ export function toProtoMessage(msg: MlsMessage) {
     senderUserId: msg.senderUserId ?? '',
     senderEmail: msg.senderEmail ?? '',
     epoch: BigInt(msg.epoch),
-    ciphertext: decodeDirectStringToProtoBytes(msg.ciphertext),
+    ciphertext: msg.ciphertext,
     messageType: toProtoMessageType(msg.messageType),
     contentType: msg.contentType,
     sequenceNumber: BigInt(msg.sequenceNumber),
@@ -162,7 +161,7 @@ export function toProtoGroupState(s: MlsGroupState) {
     id: s.id,
     groupId: s.groupId,
     epoch: BigInt(s.epoch),
-    encryptedState: decodeDirectStringToProtoBytes(s.encryptedState),
+    encryptedState: s.encryptedState,
     stateHash: s.stateHash,
     createdAt: s.createdAt
   };
@@ -173,7 +172,7 @@ export function toProtoWelcome(w: MlsWelcomeMessage) {
     id: w.id,
     groupId: w.groupId,
     groupName: w.groupName,
-    welcome: decodeDirectStringToProtoBytes(w.welcome),
+    welcome: w.welcome,
     keyPackageRef: w.keyPackageRef,
     epoch: BigInt(w.epoch),
     createdAt: w.createdAt
@@ -208,8 +207,8 @@ export interface V2UpdateGroupRequest {
 export interface V2AddGroupMemberRequest {
   groupId: string;
   userId: string;
-  commit: Uint8Array;
-  welcome: Uint8Array;
+  commit: Uint8Array | string;
+  welcome: Uint8Array | string;
   keyPackageRef: string;
   newEpoch: bigint;
 }
@@ -217,13 +216,13 @@ export interface V2AddGroupMemberRequest {
 export interface V2RemoveGroupMemberRequest {
   groupId: string;
   userId: string;
-  commit: Uint8Array;
+  commit: Uint8Array | string;
   newEpoch: bigint;
 }
 
 export interface V2SendGroupMessageRequest {
   groupId: string;
-  ciphertext: Uint8Array;
+  ciphertext: Uint8Array | string;
   epoch: bigint;
   messageType: ProtoMessageType;
   contentType: string;
@@ -232,7 +231,7 @@ export interface V2SendGroupMessageRequest {
 export interface V2UploadGroupStateRequest {
   groupId: string;
   epoch: bigint;
-  encryptedState: Uint8Array;
+  encryptedState: Uint8Array | string;
   stateHash: string;
 }
 
