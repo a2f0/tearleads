@@ -168,7 +168,9 @@ export function createAdminV2Routes(
           const { client, callOptions } = await buildCallContext(dependencies);
           const response = await client.listGroups(
             create(AdminListGroupsRequestSchema, {
-              organizationId: options?.organizationId || undefined
+              ...(options?.organizationId
+                ? { organizationId: options.organizationId }
+                : {})
             }),
             callOptions
           );
