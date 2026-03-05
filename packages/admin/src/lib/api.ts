@@ -143,6 +143,24 @@ function toSafeNumber(value: unknown, fallback = 0): number {
   return fallback;
 }
 
+function toNullableNumber(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  if (typeof value === 'bigint') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
 function mapPostgresInfoResponse(
   responseBody: unknown
 ): PostgresAdminInfoResponse {
@@ -153,12 +171,7 @@ function mapPostgresInfoResponse(
     status: 'ok',
     info: {
       host: typeof info['host'] === 'string' ? info['host'] : null,
-      port:
-        typeof info['port'] === 'number'
-          ? info['port']
-          : typeof info['port'] === 'string'
-            ? toSafeNumber(info['port'])
-            : null,
+      port: toNullableNumber(info['port']),
       database: typeof info['database'] === 'string' ? info['database'] : null,
       user: typeof info['user'] === 'string' ? info['user'] : null
     },
@@ -284,7 +297,7 @@ function mapDeleteRedisKeyResponse(responseBody: unknown): {
   if (typeof response['deleted'] === 'boolean') {
     return { deleted: response['deleted'] };
   }
-  return {} as { deleted: boolean };
+  return { deleted: false };
 }
 
 function mapRedisDbSizeResponse(responseBody: unknown): { count: number } {
@@ -295,7 +308,7 @@ function mapRedisDbSizeResponse(responseBody: unknown): { count: number } {
   ) {
     return { count: toSafeNumber(response['count']) };
   }
-  return {} as { count: number };
+  return { count: 0 };
 }
 
 function requestAi<T>(

@@ -65,10 +65,14 @@ describe('admin api client', () => {
 
   it('handles empty successful responses', async () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
-    await expect(apiClient.admin.redis.deleteKey('k')).resolves.toEqual({});
+    await expect(apiClient.admin.redis.deleteKey('k')).resolves.toEqual({
+      deleted: false
+    });
 
     fetchMock.mockResolvedValueOnce(new Response('', { status: 200 }));
-    await expect(apiClient.admin.redis.getDbSize()).resolves.toEqual({});
+    await expect(apiClient.admin.redis.getDbSize()).resolves.toEqual({
+      count: 0
+    });
   });
 
   it('maps v2 postgres and redis payloads to admin DTO shapes', async () => {
@@ -286,12 +290,14 @@ describe('admin api client', () => {
     });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.admin.redis.deleteKey('missing')).resolves.toEqual(
-      {}
-    );
+    await expect(apiClient.admin.redis.deleteKey('missing')).resolves.toEqual({
+      deleted: false
+    });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.admin.redis.getDbSize()).resolves.toEqual({});
+    await expect(apiClient.admin.redis.getDbSize()).resolves.toEqual({
+      count: 0
+    });
   });
 
   it('calls all admin endpoint helpers with expected URL shape and method', async () => {
