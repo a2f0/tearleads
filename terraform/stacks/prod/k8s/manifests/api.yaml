@@ -55,8 +55,6 @@ spec:
                 configMapKeyRef:
                   name: tearleads-config
                   key: SMTP_OUTBOUND_HOST
-            - name: SMTP_PORT
-              value: "25"
             - name: SMTP_USER
               valueFrom:
                 secretKeyRef:

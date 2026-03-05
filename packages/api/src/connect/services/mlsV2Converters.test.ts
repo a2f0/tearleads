@@ -32,6 +32,8 @@ describe('mlsV2Converters', () => {
   it('encodes and decodes MLS binary fields', () => {
     const bytes = new TextEncoder().encode('ciphertext');
     const encoded = encodeProtoBytes(bytes);
+    expect(encoded).toBe(Buffer.from(bytes).toString('base64'));
+
     const converted = toProtoGroupState({
       id: 'state-1',
       groupId: 'group-1',

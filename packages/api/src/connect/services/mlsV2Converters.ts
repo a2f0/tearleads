@@ -88,11 +88,28 @@ export function toProtoMessageType(value: string): ProtoMessageType {
   }
 }
 
-export function encodeProtoBytes(value: Uint8Array): string {
-  return new TextDecoder().decode(value);
+export function encodeProtoBytes(value: Uint8Array | string): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  return Buffer.from(value).toString('base64');
 }
 
 function decodeDirectStringToProtoBytes(value: string): Uint8Array {
+  const normalized = value.trim();
+  if (
+    normalized.length > 0 &&
+    normalized.length % 4 === 0 &&
+    /^[A-Za-z0-9+/]+={0,2}$/.test(normalized)
+  ) {
+    const decoded = Buffer.from(normalized, 'base64');
+    if (
+      decoded.toString('base64').replace(/=+$/u, '') ===
+      normalized.replace(/=+$/u, '')
+    ) {
+      return new Uint8Array(decoded);
+    }
+  }
   return new TextEncoder().encode(value);
 }
 
