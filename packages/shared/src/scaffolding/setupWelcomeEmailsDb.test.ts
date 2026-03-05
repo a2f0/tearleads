@@ -8,7 +8,9 @@ import type { DbQueryClient } from './setupBobNotesShareForAliceDb.js';
 import {
   SCAFFOLD_INLINE_EMAIL_BODY_PREFIX,
   SCAFFOLD_WELCOME_EMAIL_BODY_TEXT,
-  setupWelcomeEmailsDb
+  setupWelcomeEmailsDb,
+  WELCOME_FROM,
+  WELCOME_SUBJECT
 } from './setupWelcomeEmailsDb.js';
 
 interface Call {
@@ -56,9 +58,9 @@ function createMockClient(): {
 
 function buildExpectedRawMime(recipientEmail: string): string {
   return [
-    'From: system@tearleads.com',
+    `From: ${WELCOME_FROM}`,
     `To: ${recipientEmail}`,
-    'Subject: Welcome to Tearleads',
+    `Subject: ${WELCOME_SUBJECT}`,
     'MIME-Version: 1.0',
     'Content-Type: text/plain; charset=UTF-8',
     'Content-Transfer-Encoding: 8bit',
@@ -148,13 +150,10 @@ describe('setupWelcomeEmailsDb', () => {
       call.text.includes('INSERT INTO emails')
     );
     expect(emailInserts).toHaveLength(2);
-    const expectedSubject = Buffer.from(
-      'Welcome to Tearleads',
-      'utf8'
-    ).toString('base64');
-    const expectedFrom = Buffer.from('system@tearleads.com', 'utf8').toString(
+    const expectedSubject = Buffer.from(WELCOME_SUBJECT, 'utf8').toString(
       'base64'
     );
+    const expectedFrom = Buffer.from(WELCOME_FROM, 'utf8').toString('base64');
     expect(emailInserts[0]?.params?.[1]).toBe(expectedSubject);
     expect(emailInserts[0]?.params?.[2]).toBe(expectedFrom);
     const bobEncryptedBodyPath = emailInserts[0]?.params?.[5];
