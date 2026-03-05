@@ -32,6 +32,8 @@ require_secret_env_vars() {
     "DESKTOP_DOWNLOADS_S3_ACCESS_KEY_ID"
     "DESKTOP_DOWNLOADS_S3_SECRET_ACCESS_KEY"
     "POSTGRES_REPLICATION_PASSWORD"
+    "SES_SMTP_USER"
+    "SES_SMTP_PASS"
   )
 
   local var_name

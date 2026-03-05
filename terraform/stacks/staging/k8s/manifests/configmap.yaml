@@ -26,3 +26,8 @@ data:
   VFS_CRDT_COMPACTION_SKIP_SNAPSHOT_REFRESH: "0"
   # Postgres read replica (Phase 2: app-level read/write splitting)
   POSTGRES_REPLICA_HOST: "postgres-replica"
+  # Outbound email (AWS SES)
+  SMTP_OUTBOUND_HOST: "email-smtp.us-east-1.amazonaws.com"
+  SMTP_OUTBOUND_PORT: "587"
+  SMTP_SECURE: "true"
+  SMTP_FROM_ADDRESS: "noreply@mail.tearleads.com"
