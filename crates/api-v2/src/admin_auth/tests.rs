@@ -84,13 +84,14 @@ fn header_role_authorizer_accepts_scoped_org_access_for_scoped_operations() {
         tonic::metadata::MetadataValue::from_static(" org-1 , org-2 "),
     );
 
-    let result = authorizer.authorize_admin_operation(AdminOperation::GetContext, &metadata);
+    let result = authorizer
+        .authorize_admin_operation(AdminOperation::GetContext, &metadata)
+        .expect("scoped auth should be accepted");
+
+    assert!(!result.is_root_admin());
     assert_eq!(
-        result,
-        Ok(AdminAccessContext::scoped(vec![
-            String::from("org-1"),
-            String::from("org-2"),
-        ]))
+        result.organization_ids(),
+        &[String::from("org-1"), String::from("org-2")]
     );
 }
 
@@ -236,6 +237,42 @@ fn header_role_authorizer_rejects_non_utf8_scope_header() {
             .as_ref()
             .err()
             .map(|error| error.message().contains("invalid x-tearleads-admin-scope"))
+            .unwrap_or(false)
+    );
+}
+
+#[test]
+fn header_role_authorizer_rejects_non_utf8_org_ids_header() {
+    let authorizer = HeaderRoleAdminAuthorizer;
+    let mut metadata = tonic::metadata::MetadataMap::new();
+    metadata.insert(
+        "x-tearleads-role",
+        tonic::metadata::MetadataValue::from_static("admin"),
+    );
+    metadata.insert(
+        "x-tearleads-admin-scope",
+        tonic::metadata::MetadataValue::from_static("org"),
+    );
+    metadata.insert(
+        "x-tearleads-admin-organization-ids",
+        parse_opaque_ascii_value(b"org-1\xfa"),
+    );
+
+    let result = authorizer.authorize_admin_operation(AdminOperation::GetContext, &metadata);
+    assert!(result.is_err());
+    assert_eq!(
+        result.as_ref().err().map(|error| error.kind()),
+        Some(AdminAuthErrorKind::Unauthenticated)
+    );
+    assert!(
+        result
+            .as_ref()
+            .err()
+            .map(|error| {
+                error
+                    .message()
+                    .contains("invalid x-tearleads-admin-organization-ids")
+            })
             .unwrap_or(false)
     );
 }
