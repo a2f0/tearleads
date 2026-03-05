@@ -2,6 +2,7 @@ import type { Database } from '@tearleads/db/sqlite';
 import { schema } from '@tearleads/db/sqlite';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import { databaseSetupProgressStore } from '@/stores/databaseSetupProgressStore';
+import { logStore } from '@/stores/logStore';
 import type { PlatformInfo } from './adapters';
 import { createAdapter, getPlatformInfo } from './adapters';
 import { logEvent } from './analytics';
@@ -285,6 +286,7 @@ async function initializeDatabaseWithKey(
   databaseSetupProgressStore.update('Opening encrypted database...', 70);
 
   // Reuse existing adapter if available (keeps worker/WASM memory alive on web)
+  const adapterStart = performance.now();
   const adapter = _getAdapterInstance() ?? (await createAdapter(platformInfo));
 
   const dbName = getDatabaseName(instanceId);
@@ -294,6 +296,9 @@ async function initializeDatabaseWithKey(
     encryptionKey,
     location: platformInfo.platform === 'ios' ? 'library' : 'default'
   });
+  logStore.debug(
+    `[db] adapter.initialize: ${(performance.now() - adapterStart).toFixed(1)}ms`
+  );
 
   _setAdapterInstance(adapter);
 
@@ -305,8 +310,15 @@ async function initializeDatabaseWithKey(
 
   databaseSetupProgressStore.update('Running database migrations...', 85);
 
-  // Run migrations
-  await runMigrations(adapter);
+  // Run migrations with per-migration progress updates
+  await runMigrations(adapter, (index, total, version, description) => {
+    const pct = Math.round(85 + (index / total) * 10);
+    const vLabel = `v${String(version).padStart(3, '0')}`;
+    databaseSetupProgressStore.update(
+      `Running migration ${index + 1}/${total} (${vLabel}: ${description})...`,
+      pct
+    );
+  });
 
   return db;
 }

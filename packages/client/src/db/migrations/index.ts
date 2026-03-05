@@ -1,4 +1,5 @@
 import { isRecord } from '@tearleads/shared';
+import { logStore } from '@/stores/logStore';
 import type { DatabaseAdapter } from '../adapters';
 import type { Migration } from './types';
 import { v001 } from './v001';
@@ -101,15 +102,34 @@ async function recordMigration(
 }
 
 /**
+ * Callback invoked before each migration is applied.
+ * @param index - 0-based index of the migration being applied
+ * @param total - total number of pending migrations
+ * @param version - version number of the migration
+ * @param description - human-readable description
+ */
+type MigrationProgressCallback = (
+  index: number,
+  total: number,
+  version: number,
+  description: string
+) => void;
+
+/**
  * Run all pending migrations.
  * Checks which migrations have been applied and only runs those that haven't.
  *
+ * @param onProgress - optional callback invoked before each pending migration
  * @returns Object with applied migration versions and any errors
  */
-export async function runMigrations(adapter: DatabaseAdapter): Promise<{
+export async function runMigrations(
+  adapter: DatabaseAdapter,
+  onProgress?: MigrationProgressCallback
+): Promise<{
   applied: number[];
   currentVersion: number;
 }> {
+  const runStart = performance.now();
   const applied: number[] = [];
 
   // Ensure migrations are sorted by version
@@ -123,7 +143,12 @@ export async function runMigrations(adapter: DatabaseAdapter): Promise<{
   if (!v001Migration) {
     throw new Error('v001 migration is required');
   }
+
+  const v001Start = performance.now();
   await v001Migration.up(adapter);
+  logStore.debug(
+    `[migrations] v001 (schema bootstrap): ${(performance.now() - v001Start).toFixed(1)}ms`
+  );
 
   // Check current version
   let currentVersion = await getCurrentVersion(adapter);
@@ -135,16 +160,27 @@ export async function runMigrations(adapter: DatabaseAdapter): Promise<{
     currentVersion = 1;
   }
 
+  // Determine pending migrations
+  const pending = sortedMigrations.filter((m) => m.version > currentVersion);
+
   // Run any migrations newer than current version
-  for (const migration of sortedMigrations) {
-    if (migration.version > currentVersion) {
-      await migration.up(adapter);
-      await recordMigration(adapter, migration.version);
-      applied.push(migration.version);
-    }
+  for (const [i, migration] of pending.entries()) {
+    onProgress?.(i, pending.length, migration.version, migration.description);
+
+    const migStart = performance.now();
+    await migration.up(adapter);
+    await recordMigration(adapter, migration.version);
+    applied.push(migration.version);
+    logStore.debug(
+      `[migrations] v${String(migration.version).padStart(3, '0')} (${migration.description}): ${(performance.now() - migStart).toFixed(1)}ms`
+    );
   }
 
   const finalVersion = await getCurrentVersion(adapter);
+
+  logStore.debug(
+    `[migrations] total: ${(performance.now() - runStart).toFixed(1)}ms, applied ${applied.length}/${sortedMigrations.length}`
+  );
 
   return {
     applied,
