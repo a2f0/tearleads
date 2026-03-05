@@ -411,7 +411,7 @@ describe('api with msw', () => {
 
     it('logs the admin user get endpoint event', async () => {
       const api = await loadApi();
-      await api.admin.users.get(seededUser.userId);
+      await api.admin.users.get('user-1');
 
       expect(mockLogApiEvent).toHaveBeenCalledWith(
         'api_get_admin_user',
@@ -419,7 +419,7 @@ describe('api with msw', () => {
         true
       );
       expect(
-        wasApiRequestMade('POST', '/connect/tearleads.v1.AdminService/GetUser')
+        wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetUser')
       ).toBe(true);
     });
   });
