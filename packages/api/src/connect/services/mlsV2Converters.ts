@@ -1,5 +1,13 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import type {
+  MlsGroup,
+  MlsGroupMember,
+  MlsGroupState,
+  MlsKeyPackage,
+  MlsMessage,
+  MlsWelcomeMessage
+} from '@tearleads/shared';
+import type {
   MlsCipherSuite as ProtoCipherSuite,
   MlsGroupRole as ProtoGroupRole,
   MlsMessageType as ProtoMessageType
@@ -9,14 +17,6 @@ import {
   MlsGroupRole,
   MlsMessageType
 } from '@tearleads/shared/gen/tearleads/v2/mls_pb';
-import type {
-  MlsGroup,
-  MlsGroupMember,
-  MlsGroupState,
-  MlsKeyPackage,
-  MlsMessage,
-  MlsWelcomeMessage
-} from '@tearleads/shared';
 
 // ---------------------------------------------------------------------------
 // Enum converters
