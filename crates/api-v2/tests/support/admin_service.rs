@@ -53,6 +53,9 @@ impl AdminRequestAuthorizer for FakeAuthorizer {
     }
 }
 
+type ListGroupsCall = Option<Vec<String>>;
+type ListGroupsCalls = Arc<Mutex<Vec<ListGroupsCall>>>;
+
 #[derive(Debug)]
 pub(crate) struct FakePostgresRepository {
     pub(crate) info_result: Result<PostgresInfoSnapshot, DataAccessError>,
@@ -61,7 +64,7 @@ pub(crate) struct FakePostgresRepository {
         Result<Vec<AdminScopeOrganization>, DataAccessError>,
     pub(crate) scope_organizations_by_ids_calls: Arc<Mutex<Vec<Vec<String>>>>,
     pub(crate) list_groups_result: Result<Vec<AdminGroupSummary>, DataAccessError>,
-    pub(crate) list_groups_calls: Arc<Mutex<Vec<Option<Vec<String>>>>>,
+    pub(crate) list_groups_calls: ListGroupsCalls,
     pub(crate) tables_result: Result<Vec<PostgresTableInfo>, DataAccessError>,
     pub(crate) columns_result: Result<Vec<PostgresColumnInfo>, DataAccessError>,
     pub(crate) columns_calls: Arc<Mutex<Vec<(String, String)>>>,
