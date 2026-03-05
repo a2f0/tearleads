@@ -78,6 +78,19 @@ describe('admin api client', () => {
   it('maps v2 postgres and redis payloads to admin DTO shapes', async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
+        isRootAdmin: true,
+        organizations: [{ id: 'org-1', name: 'Primary Org' }],
+        defaultOrganizationId: 'org-1'
+      })
+    );
+    await expect(apiClient.admin.getContext()).resolves.toEqual({
+      isRootAdmin: true,
+      organizations: [{ id: 'org-1', name: 'Primary Org' }],
+      defaultOrganizationId: 'org-1'
+    });
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
         info: {
           host: 'localhost',
           port: 5432,
@@ -243,6 +256,13 @@ describe('admin api client', () => {
 
   it('falls back to safe defaults for incomplete v2 payloads', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
+    await expect(apiClient.admin.getContext()).resolves.toEqual({
+      isRootAdmin: false,
+      organizations: [],
+      defaultOrganizationId: null
+    });
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({}));
     await expect(apiClient.admin.postgres.getInfo()).resolves.toEqual({
       status: 'ok',
       info: {
@@ -375,6 +395,11 @@ describe('admin api client', () => {
     }
 
     const urls = fetchMock.mock.calls.map(([url]) => String(url));
+    expect(
+      urls.some((url) =>
+        url.includes('/connect/tearleads.v2.AdminService/GetContext')
+      )
+    ).toBe(true);
     expect(
       urls.some((url) =>
         url.includes('/connect/tearleads.v2.AdminService/GetColumns')

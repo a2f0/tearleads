@@ -29,6 +29,7 @@ import {
   createConnectJsonPostInit,
   parseConnectJsonString
 } from '@tearleads/shared';
+import { mapContextResponse } from './adminV2ContextMapper';
 
 const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 
@@ -323,7 +324,11 @@ function requestAi<T>(
 export const api = {
   admin: {
     getContext: () =>
-      requestAdminJson<AdminAccessContextResponse>('GetContext', {}),
+      requestAdminV2<AdminAccessContextResponse>(
+        'GetContext',
+        {},
+        mapContextResponse
+      ),
     postgres: {
       getInfo: () =>
         requestAdminV2<PostgresAdminInfoResponse>(
