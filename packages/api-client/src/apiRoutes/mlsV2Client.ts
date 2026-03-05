@@ -14,7 +14,7 @@ import {
 } from '../apiV2ClientWasm';
 import { getAuthHeaderValue } from '../authStorage';
 
-export type MlsV2CallOptions = Pick<CallOptions, 'headers'>;
+type MlsV2CallOptions = Pick<CallOptions, 'headers'>;
 
 export type MlsV2Client = Client<typeof MlsService>;
 

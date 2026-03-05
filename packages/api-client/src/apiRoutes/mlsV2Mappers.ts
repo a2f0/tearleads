@@ -37,13 +37,13 @@ export function toProtoCipherSuite(value: number): MlsCipherSuite {
   }
 }
 
-export function fromProtoCipherSuite(
+function fromProtoCipherSuite(
   value: MlsCipherSuite
 ): import('@tearleads/shared').MlsCipherSuite {
   return value as number as import('@tearleads/shared').MlsCipherSuite;
 }
 
-export function fromProtoRole(value: MlsGroupRole): string {
+function fromProtoRole(value: MlsGroupRole): string {
   switch (value) {
     case MlsGroupRole.ADMIN:
       return 'admin';
@@ -54,7 +54,7 @@ export function fromProtoRole(value: MlsGroupRole): string {
   }
 }
 
-export function fromProtoMessageType(value: MlsMessageType): string {
+function fromProtoMessageType(value: MlsMessageType): string {
   switch (value) {
     case MlsMessageType.APPLICATION:
       return 'application';
