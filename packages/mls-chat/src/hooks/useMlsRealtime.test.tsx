@@ -177,8 +177,7 @@ describe('useMlsRealtime', () => {
       expect(uploadGroupStateSnapshotMock).toHaveBeenCalledWith(
         expect.objectContaining({
           groupId: 'group-1',
-          client,
-          apiBaseUrl: 'http://localhost:3000'
+          client
         })
       );
     });
@@ -353,20 +352,15 @@ describe('useMlsRealtime', () => {
 
 describe('MLS hook refresh registration', () => {
   it('refreshes group members when membership realtime handler runs', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(JSON.stringify({ members: [] }), { status: 200 })
-      );
-    vi.stubGlobal('fetch', fetchMock);
+    const getGroupMembersMock = vi.fn().mockResolvedValue({ members: [] });
 
     const client = new MlsClient('test-user-id');
     renderHook(() => useGroupMembers('group-1', client), {
-      wrapper: createMlsHookWrapper()
+      wrapper: createMlsHookWrapper({ getGroupMembers: getGroupMembersMock })
     });
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(getGroupMembersMock).toHaveBeenCalledTimes(1);
     });
 
     const handlerRegistry = Reflect.get(globalThis, '__mlsMembershipHandler');
@@ -392,27 +386,24 @@ describe('MLS hook refresh registration', () => {
     });
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(getGroupMembersMock).toHaveBeenCalledTimes(2);
     });
 
     client.close();
   });
 
   it('refreshes welcome messages when welcome realtime handler runs', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(JSON.stringify({ welcomes: [] }), { status: 200 })
-      );
-    vi.stubGlobal('fetch', fetchMock);
+    const getWelcomeMessagesMock = vi.fn().mockResolvedValue({ welcomes: [] });
 
     const client = new MlsClient('test-user-id');
     renderHook(() => useWelcomeMessages(client), {
-      wrapper: createMlsHookWrapper()
+      wrapper: createMlsHookWrapper({
+        getWelcomeMessages: getWelcomeMessagesMock
+      })
     });
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(getWelcomeMessagesMock).toHaveBeenCalledTimes(1);
     });
 
     const refreshHandlers = Reflect.get(
@@ -435,7 +426,7 @@ describe('MLS hook refresh registration', () => {
     });
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(getWelcomeMessagesMock).toHaveBeenCalledTimes(2);
     });
 
     client.close();

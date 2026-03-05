@@ -2,8 +2,6 @@ syntax = "proto3";
 
 package tearleads.v2;
 
-import "google/protobuf/struct.proto";
-
 service MlsService {
   rpc UploadKeyPackages(MlsUploadKeyPackagesRequest)
       returns (MlsUploadKeyPackagesResponse);
@@ -37,18 +35,124 @@ service MlsService {
       returns (MlsAcknowledgeWelcomeResponse);
 }
 
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum MlsCipherSuite {
+  MLS_CIPHER_SUITE_UNSPECIFIED = 0;
+  MLS_CIPHER_SUITE_X25519_AES128GCM = 1;
+  MLS_CIPHER_SUITE_X25519_CHACHA20 = 3;
+  MLS_CIPHER_SUITE_XWING_HYBRID = 65535;
+}
+
+enum MlsGroupRole {
+  MLS_GROUP_ROLE_UNSPECIFIED = 0;
+  MLS_GROUP_ROLE_ADMIN = 1;
+  MLS_GROUP_ROLE_MEMBER = 2;
+}
+
+enum MlsMessageType {
+  MLS_MESSAGE_TYPE_UNSPECIFIED = 0;
+  MLS_MESSAGE_TYPE_APPLICATION = 1;
+  MLS_MESSAGE_TYPE_COMMIT = 2;
+  MLS_MESSAGE_TYPE_PROPOSAL = 3;
+}
+
+// ---------------------------------------------------------------------------
+// Shared message types
+// ---------------------------------------------------------------------------
+
+message MlsKeyPackageEntry {
+  string id = 1;
+  string user_id = 2;
+  string key_package_data = 3;
+  string key_package_ref = 4;
+  MlsCipherSuite cipher_suite = 5;
+  string created_at = 6;
+  bool consumed = 7;
+}
+
+message MlsGroupInfo {
+  string id = 1;
+  string group_id_mls = 2;
+  string name = 3;
+  string description = 4;
+  string creator_user_id = 5;
+  int64 current_epoch = 6;
+  MlsCipherSuite cipher_suite = 7;
+  string created_at = 8;
+  string updated_at = 9;
+  string last_message_at = 10;
+  int32 member_count = 11;
+  MlsGroupRole role = 12;
+}
+
+message MlsGroupMemberInfo {
+  string user_id = 1;
+  string email = 2;
+  int32 leaf_index = 3;
+  MlsGroupRole role = 4;
+  string joined_at = 5;
+  int64 joined_at_epoch = 6;
+  bool leaf_index_present = 7;
+}
+
+message MlsMessageInfo {
+  string id = 1;
+  string group_id = 2;
+  string sender_user_id = 3;
+  string sender_email = 4;
+  int64 epoch = 5;
+  string ciphertext = 6;
+  MlsMessageType message_type = 7;
+  string content_type = 8;
+  int64 sequence_number = 9;
+  string sent_at = 10;
+  string created_at = 11;
+}
+
+message MlsGroupStateInfo {
+  string id = 1;
+  string group_id = 2;
+  int64 epoch = 3;
+  string encrypted_state = 4;
+  string state_hash = 5;
+  string created_at = 6;
+}
+
+message MlsWelcomeMessageInfo {
+  string id = 1;
+  string group_id = 2;
+  string group_name = 3;
+  string welcome = 4;
+  string key_package_ref = 5;
+  int64 epoch = 6;
+  string created_at = 7;
+}
+
+// ---------------------------------------------------------------------------
+// Key Packages
+// ---------------------------------------------------------------------------
+
+message MlsUploadKeyPackageInput {
+  string key_package_data = 1;
+  string key_package_ref = 2;
+  MlsCipherSuite cipher_suite = 3;
+}
+
 message MlsUploadKeyPackagesRequest {
-  google.protobuf.Struct payload = 1;
+  repeated MlsUploadKeyPackageInput key_packages = 1;
 }
 
 message MlsUploadKeyPackagesResponse {
-  google.protobuf.Struct payload = 1;
+  repeated MlsKeyPackageEntry key_packages = 1;
 }
 
 message MlsGetMyKeyPackagesRequest {}
 
 message MlsGetMyKeyPackagesResponse {
-  google.protobuf.Struct payload = 1;
+  repeated MlsKeyPackageEntry key_packages = 1;
 }
 
 message MlsGetUserKeyPackagesRequest {
@@ -56,29 +160,34 @@ message MlsGetUserKeyPackagesRequest {
 }
 
 message MlsGetUserKeyPackagesResponse {
-  google.protobuf.Struct payload = 1;
+  repeated MlsKeyPackageEntry key_packages = 1;
 }
 
 message MlsDeleteKeyPackageRequest {
   string id = 1;
 }
 
-message MlsDeleteKeyPackageResponse {
-  google.protobuf.Struct payload = 1;
-}
+message MlsDeleteKeyPackageResponse {}
+
+// ---------------------------------------------------------------------------
+// Groups
+// ---------------------------------------------------------------------------
 
 message MlsCreateGroupRequest {
-  google.protobuf.Struct payload = 1;
+  string name = 1;
+  string description = 2;
+  string group_id_mls = 3;
+  MlsCipherSuite cipher_suite = 4;
 }
 
 message MlsCreateGroupResponse {
-  google.protobuf.Struct payload = 1;
+  MlsGroupInfo group = 1;
 }
 
 message MlsListGroupsRequest {}
 
 message MlsListGroupsResponse {
-  google.protobuf.Struct payload = 1;
+  repeated MlsGroupInfo groups = 1;
 }
 
 message MlsGetGroupRequest {
@@ -86,33 +195,41 @@ message MlsGetGroupRequest {
 }
 
 message MlsGetGroupResponse {
-  google.protobuf.Struct payload = 1;
+  MlsGroupInfo group = 1;
+  repeated MlsGroupMemberInfo members = 2;
 }
 
 message MlsUpdateGroupRequest {
   string group_id = 1;
-  google.protobuf.Struct payload = 2;
+  string name = 2;
+  string description = 3;
 }
 
 message MlsUpdateGroupResponse {
-  google.protobuf.Struct payload = 1;
+  MlsGroupInfo group = 1;
 }
 
 message MlsDeleteGroupRequest {
   string group_id = 1;
 }
 
-message MlsDeleteGroupResponse {
-  google.protobuf.Struct payload = 1;
-}
+message MlsDeleteGroupResponse {}
+
+// ---------------------------------------------------------------------------
+// Group Members
+// ---------------------------------------------------------------------------
 
 message MlsAddGroupMemberRequest {
   string group_id = 1;
-  google.protobuf.Struct payload = 2;
+  string user_id = 2;
+  string commit = 3;
+  string welcome = 4;
+  string key_package_ref = 5;
+  int64 new_epoch = 6;
 }
 
 message MlsAddGroupMemberResponse {
-  google.protobuf.Struct payload = 1;
+  MlsGroupMemberInfo member = 1;
 }
 
 message MlsGetGroupMembersRequest {
@@ -120,26 +237,32 @@ message MlsGetGroupMembersRequest {
 }
 
 message MlsGetGroupMembersResponse {
-  google.protobuf.Struct payload = 1;
+  repeated MlsGroupMemberInfo members = 1;
 }
 
 message MlsRemoveGroupMemberRequest {
   string group_id = 1;
   string user_id = 2;
-  google.protobuf.Struct payload = 3;
+  string commit = 3;
+  int64 new_epoch = 4;
 }
 
-message MlsRemoveGroupMemberResponse {
-  google.protobuf.Struct payload = 1;
-}
+message MlsRemoveGroupMemberResponse {}
+
+// ---------------------------------------------------------------------------
+// Messages
+// ---------------------------------------------------------------------------
 
 message MlsSendGroupMessageRequest {
   string group_id = 1;
-  google.protobuf.Struct payload = 2;
+  string ciphertext = 2;
+  int64 epoch = 3;
+  MlsMessageType message_type = 4;
+  string content_type = 5;
 }
 
 message MlsSendGroupMessageResponse {
-  google.protobuf.Struct payload = 1;
+  MlsMessageInfo message = 1;
 }
 
 message MlsGetGroupMessagesRequest {
@@ -149,37 +272,47 @@ message MlsGetGroupMessagesRequest {
 }
 
 message MlsGetGroupMessagesResponse {
-  google.protobuf.Struct payload = 1;
+  repeated MlsMessageInfo messages = 1;
+  bool has_more = 2;
+  string cursor = 3;
 }
+
+// ---------------------------------------------------------------------------
+// Group State
+// ---------------------------------------------------------------------------
 
 message MlsGetGroupStateRequest {
   string group_id = 1;
 }
 
 message MlsGetGroupStateResponse {
-  google.protobuf.Struct payload = 1;
+  MlsGroupStateInfo state = 1;
 }
 
 message MlsUploadGroupStateRequest {
   string group_id = 1;
-  google.protobuf.Struct payload = 2;
+  int64 epoch = 2;
+  string encrypted_state = 3;
+  string state_hash = 4;
 }
 
 message MlsUploadGroupStateResponse {
-  google.protobuf.Struct payload = 1;
+  MlsGroupStateInfo state = 1;
 }
+
+// ---------------------------------------------------------------------------
+// Welcome Messages
+// ---------------------------------------------------------------------------
 
 message MlsGetWelcomeMessagesRequest {}
 
 message MlsGetWelcomeMessagesResponse {
-  google.protobuf.Struct payload = 1;
+  repeated MlsWelcomeMessageInfo welcomes = 1;
 }
 
 message MlsAcknowledgeWelcomeRequest {
   string id = 1;
-  google.protobuf.Struct payload = 2;
+  string group_id = 2;
 }
 
-message MlsAcknowledgeWelcomeResponse {
-  google.protobuf.Struct payload = 1;
-}
+message MlsAcknowledgeWelcomeResponse {}

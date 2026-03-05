@@ -26,6 +26,10 @@
       "types": "./src/chatCompletionsEntry.ts",
       "import": "./src/chatCompletionsEntry.ts"
     },
+    "./mlsRoutes": {
+      "types": "./src/mlsRoutesEntry.ts",
+      "import": "./src/mlsRoutesEntry.ts"
+    },
     "./package.json": "./package.json"
   },
   "files": [

@@ -1,14 +1,16 @@
+// one-component-per-file: allow
 /**
  * MLS Chat page wrapper.
  * Provides the MlsChatProvider with app-specific dependencies and UI components.
  */
 
+import { createMlsV2Routes } from '@tearleads/api-client/mlsRoutes';
 import {
   MlsChat as MlsChatComponent,
   MlsChatProvider,
   type MlsChatUIComponents
 } from '@tearleads/mls-chat';
-import { type FC, useCallback } from 'react';
+import { type FC, useCallback, useMemo } from 'react';
 
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
@@ -130,6 +132,15 @@ const MlsChatPage: FC<MlsChatPageProps> = ({ className }) => {
     [token]
   );
 
+  const mlsRoutes = useMemo(
+    () =>
+      createMlsV2Routes({
+        resolveApiBaseUrl: () => apiBaseUrl,
+        getAuthHeaderValue: () => getAuthHeader()
+      }),
+    [apiBaseUrl, getAuthHeader]
+  );
+
   // User info
   const userId = user?.id ?? '';
   const userEmail = user?.email ?? '';
@@ -165,6 +176,7 @@ const MlsChatPage: FC<MlsChatPageProps> = ({ className }) => {
       userId={userId}
       userEmail={userEmail}
       ui={uiComponents}
+      mlsRoutes={mlsRoutes}
     >
       <MlsChatComponent className={className ?? ''} />
     </MlsChatProvider>

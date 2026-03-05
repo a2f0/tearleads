@@ -1,3 +1,4 @@
+import type { MlsV2Routes } from '@tearleads/api-client/mlsRoutes';
 import type { ComponentType, ReactNode } from 'react';
 import { createContext, useContext } from 'react';
 
@@ -71,6 +72,8 @@ export interface MlsChatContextValue {
   userEmail: string;
   /** UI components */
   ui: MlsChatUIComponents;
+  /** MLS V2 API routes (generated Connect-ES client) */
+  mlsRoutes: MlsV2Routes;
 }
 
 const MlsChatContext = createContext<MlsChatContextValue | null>(null);
@@ -82,6 +85,7 @@ export interface MlsChatProviderProps {
   userId: string;
   userEmail: string;
   ui: MlsChatUIComponents;
+  mlsRoutes: MlsV2Routes;
 }
 
 /**
@@ -93,13 +97,15 @@ export function MlsChatProvider({
   getAuthHeader,
   userId,
   userEmail,
-  ui
+  ui,
+  mlsRoutes
 }: MlsChatProviderProps) {
   const contextValue: MlsChatContextValue = {
     apiBaseUrl,
     userId,
     userEmail,
     ui,
+    mlsRoutes,
     ...(getAuthHeader !== undefined && { getAuthHeader })
   };
 
@@ -150,4 +156,12 @@ export function useMlsChatApi(): {
 export function useMlsChatUser(): { userId: string; userEmail: string } {
   const { userId, userEmail } = useMlsChatContext();
   return { userId, userEmail };
+}
+
+/**
+ * Hook to access MLS V2 routes
+ */
+export function useMlsRoutes(): MlsV2Routes {
+  const { mlsRoutes } = useMlsChatContext();
+  return mlsRoutes;
 }

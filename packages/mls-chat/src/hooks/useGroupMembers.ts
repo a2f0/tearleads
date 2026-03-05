@@ -3,18 +3,12 @@
  * Handles adding and removing members from MLS groups.
  */
 
-import type {
-  AddMlsMemberResponse,
-  MlsGroupMember,
-  MlsGroupMembersResponse,
-  MlsKeyPackagesResponse
-} from '@tearleads/shared';
+import type { MlsGroupMember } from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
 
-import { useMlsChatApi } from '../context/index.js';
+import { useMlsRoutes } from '../context/index.js';
 import type { MlsClient } from '../lib/index.js';
 import { uploadGroupStateSnapshot } from './groupStateSync.js';
-import { requestMlsRpc } from './mlsConnectRpc.js';
 
 interface UseGroupMembersResult {
   members: MlsGroupMember[];
@@ -29,7 +23,7 @@ export function useGroupMembers(
   groupId: string | null,
   client: MlsClient | null
 ): UseGroupMembersResult {
-  const { apiBaseUrl, getAuthHeader } = useMlsChatApi();
+  const mlsRoutes = useMlsRoutes();
 
   const [members, setMembers] = useState<MlsGroupMember[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,12 +36,7 @@ export function useGroupMembers(
     setError(null);
 
     try {
-      const data = await requestMlsRpc<MlsGroupMembersResponse>({
-        context: { apiBaseUrl, getAuthHeader },
-        method: 'GetGroupMembers',
-        requestBody: { groupId },
-        errorMessage: 'Failed to fetch members'
-      });
+      const data = await mlsRoutes.getGroupMembers(groupId);
       setMembers(data.members);
     } catch (err) {
       setError(
@@ -56,7 +45,7 @@ export function useGroupMembers(
     } finally {
       setIsLoading(false);
     }
-  }, [groupId, apiBaseUrl, getAuthHeader]);
+  }, [groupId, mlsRoutes]);
 
   const addMember = useCallback(
     async (userId: string) => {
@@ -65,12 +54,7 @@ export function useGroupMembers(
       }
 
       // Fetch a key package for the user to add
-      const kpData = await requestMlsRpc<MlsKeyPackagesResponse>({
-        context: { apiBaseUrl, getAuthHeader },
-        method: 'GetUserKeyPackages',
-        requestBody: { userId },
-        errorMessage: 'User has no available key packages'
-      });
+      const kpData = await mlsRoutes.getUserKeyPackages(userId);
       const keyPackage = kpData.keyPackages[0];
       if (!keyPackage) {
         throw new Error('User has no available key packages');
@@ -91,28 +75,19 @@ export function useGroupMembers(
       }
 
       // Send to server
-      await requestMlsRpc<AddMlsMemberResponse>({
-        context: { apiBaseUrl, getAuthHeader },
-        method: 'AddGroupMember',
-        requestBody: {
-          groupId,
-          json: JSON.stringify({
-            userId,
-            keyPackageRef: keyPackage.keyPackageRef,
-            commit: btoa(String.fromCharCode.apply(null, Array.from(commit))),
-            welcome: btoa(String.fromCharCode.apply(null, Array.from(welcome))),
-            newEpoch
-          })
-        },
-        errorMessage: 'Failed to add member'
+      await mlsRoutes.addGroupMember(groupId, {
+        userId,
+        keyPackageRef: keyPackage.keyPackageRef,
+        commit: btoa(String.fromCharCode.apply(null, Array.from(commit))),
+        welcome: btoa(String.fromCharCode.apply(null, Array.from(welcome))),
+        newEpoch
       });
 
       try {
         await uploadGroupStateSnapshot({
           groupId,
           client,
-          apiBaseUrl,
-          getAuthHeader
+          mlsRoutes
         });
       } catch (uploadError) {
         console.warn(
@@ -123,7 +98,7 @@ export function useGroupMembers(
 
       await fetchMembers();
     },
-    [groupId, client, apiBaseUrl, getAuthHeader, fetchMembers]
+    [groupId, client, mlsRoutes, fetchMembers]
   );
 
   const removeMember = useCallback(
@@ -148,26 +123,16 @@ export function useGroupMembers(
       }
 
       // Send to server
-      await requestMlsRpc<unknown>({
-        context: { apiBaseUrl, getAuthHeader },
-        method: 'RemoveGroupMember',
-        requestBody: {
-          groupId,
-          userId,
-          json: JSON.stringify({
-            commit: btoa(String.fromCharCode.apply(null, Array.from(commit))),
-            newEpoch
-          })
-        },
-        errorMessage: 'Failed to remove member'
+      await mlsRoutes.removeGroupMember(groupId, userId, {
+        commit: btoa(String.fromCharCode.apply(null, Array.from(commit))),
+        newEpoch
       });
 
       try {
         await uploadGroupStateSnapshot({
           groupId,
           client,
-          apiBaseUrl,
-          getAuthHeader
+          mlsRoutes
         });
       } catch (uploadError) {
         console.warn(
@@ -178,7 +143,7 @@ export function useGroupMembers(
 
       await fetchMembers();
     },
-    [groupId, client, members, apiBaseUrl, getAuthHeader, fetchMembers]
+    [groupId, client, members, mlsRoutes, fetchMembers]
   );
 
   useEffect(() => {

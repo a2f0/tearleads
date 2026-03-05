@@ -1,3 +1,5 @@
+// one-component-per-file: allow
+import { createMlsV2Routes } from '@tearleads/api-client/mlsRoutes';
 import {
   AddMemberDialog,
   MlsChatProvider,
@@ -16,7 +18,7 @@ import {
   WindowControlBar,
   type WindowDimensions
 } from '@tearleads/window-manager';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { InlineRequiresLoginAndUnlock } from '@/components/auth';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
@@ -154,6 +156,14 @@ export function MlsChatWindow({
     () => (token ? `Bearer ${token}` : null),
     [token]
   );
+  const mlsRoutes = useMemo(
+    () =>
+      createMlsV2Routes({
+        resolveApiBaseUrl: () => apiBaseUrl,
+        getAuthHeaderValue: () => getAuthHeader()
+      }),
+    [apiBaseUrl, getAuthHeader]
+  );
   const userId = user?.id ?? '';
   const userEmail = user?.email ?? '';
 
@@ -184,6 +194,7 @@ export function MlsChatWindow({
             userId={userId}
             userEmail={userEmail}
             ui={uiComponents}
+            mlsRoutes={mlsRoutes}
           >
             <MlsChatWindowInner onClose={onClose} />
           </MlsChatProvider>

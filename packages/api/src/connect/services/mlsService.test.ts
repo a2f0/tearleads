@@ -101,41 +101,127 @@ function createContext() {
 
 describe('mlsConnectServiceV2', () => {
   beforeEach(() => {
-    uploadKeyPackagesDirectMock.mockReset();
+    const allMocks = [
+      acknowledgeWelcomeDirectMock,
+      addGroupMemberDirectMock,
+      createGroupDirectMock,
+      deleteGroupDirectMock,
+      deleteKeyPackageDirectMock,
+      getGroupDirectMock,
+      getGroupMembersDirectMock,
+      getGroupMessagesDirectMock,
+      getGroupStateDirectMock,
+      getMyKeyPackagesDirectMock,
+      getUserKeyPackagesDirectMock,
+      getWelcomeMessagesDirectMock,
+      listGroupsDirectMock,
+      removeGroupMemberDirectMock,
+      sendGroupMessageDirectMock,
+      updateGroupDirectMock,
+      uploadGroupStateDirectMock,
+      uploadKeyPackagesDirectMock
+    ];
+
+    for (const mockFn of allMocks) {
+      mockFn.mockReset();
+    }
+  });
+
+  it('converts typed key package request to json and parses response', async () => {
+    const context = createContext();
     uploadKeyPackagesDirectMock.mockResolvedValue({
-      json: '{"ok":true}'
+      json: JSON.stringify({
+        keyPackages: [
+          {
+            id: 'kp-1',
+            userId: 'u-1',
+            keyPackageData: 'data',
+            keyPackageRef: 'ref',
+            cipherSuite: 3,
+            createdAt: '2024-01-01T00:00:00Z',
+            consumed: false
+          }
+        ]
+      })
     });
-  });
 
-  it('adapts payload/json shapes for v2 handlers', async () => {
-    const context = createContext();
+    const result = await mlsConnectServiceV2.uploadKeyPackages(
+      {
+        keyPackages: [
+          { keyPackageData: 'data', keyPackageRef: 'ref', cipherSuite: 3 }
+        ]
+      },
+      context
+    );
 
-    await expect(
-      mlsConnectServiceV2.uploadKeyPackages(
-        { payload: { keyPackages: [] } },
-        context
-      )
-    ).resolves.toEqual({
-      payload: { ok: true }
-    });
+    expect(result.keyPackages).toHaveLength(1);
+    expect(result.keyPackages[0]?.id).toBe('kp-1');
     expect(uploadKeyPackagesDirectMock).toHaveBeenCalledWith(
-      { json: '{"keyPackages":[]}' },
+      {
+        json: JSON.stringify({
+          keyPackages: [
+            { keyPackageData: 'data', keyPackageRef: 'ref', cipherSuite: 3 }
+          ]
+        })
+      },
       context
     );
   });
 
-  it('defaults empty request payloads to an empty object json body', async () => {
+  it('converts typed create group request and parses response', async () => {
     const context = createContext();
-
-    await expect(
-      mlsConnectServiceV2.uploadKeyPackages({}, context)
-    ).resolves.toEqual({
-      payload: { ok: true }
+    createGroupDirectMock.mockResolvedValue({
+      json: JSON.stringify({
+        group: {
+          id: 'g-1',
+          groupIdMls: 'mls-1',
+          name: 'Test',
+          description: null,
+          creatorUserId: 'u-1',
+          currentEpoch: 0,
+          cipherSuite: 3,
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z'
+        }
+      })
     });
-    expect(uploadKeyPackagesDirectMock).toHaveBeenCalledWith(
-      { json: '{}' },
+
+    const result = await mlsConnectServiceV2.createGroup(
+      { name: 'Test', description: '', groupIdMls: 'mls-1', cipherSuite: 3 },
       context
     );
+
+    expect(result.group?.name).toBe('Test');
+    expect(result.group?.id).toBe('g-1');
+  });
+
+  it('converts list groups response to typed proto fields', async () => {
+    const context = createContext();
+    listGroupsDirectMock.mockResolvedValue({
+      json: JSON.stringify({
+        groups: [
+          {
+            id: 'g-1',
+            groupIdMls: 'mls-1',
+            name: 'Group 1',
+            description: null,
+            creatorUserId: 'u-1',
+            currentEpoch: 5,
+            cipherSuite: 3,
+            createdAt: '2024-01-01T00:00:00Z',
+            updatedAt: '2024-01-01T00:00:00Z',
+            memberCount: 3,
+            role: 'admin'
+          }
+        ]
+      })
+    });
+
+    const result = await mlsConnectServiceV2.listGroups({}, context);
+
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0]?.currentEpoch).toBe(BigInt(5));
+    expect(result.groups[0]?.role).toBe(1); // ADMIN enum value
   });
 
   it('throws internal error when direct response json is invalid', async () => {
@@ -145,24 +231,19 @@ describe('mlsConnectServiceV2', () => {
     });
 
     await expect(
-      mlsConnectServiceV2.uploadKeyPackages(
-        { payload: { keyPackages: [] } },
-        context
-      )
-    ).rejects.toThrow('direct service returned invalid payload JSON');
+      mlsConnectServiceV2.uploadKeyPackages({ keyPackages: [] }, context)
+    ).rejects.toThrow('direct service returned invalid JSON');
   });
 
-  it('throws internal error when direct response json is not an object', async () => {
+  it('returns empty response for delete operations', async () => {
     const context = createContext();
-    uploadKeyPackagesDirectMock.mockResolvedValue({
-      json: '[]'
-    });
+    deleteKeyPackageDirectMock.mockResolvedValue({ json: '{}' });
 
-    await expect(
-      mlsConnectServiceV2.uploadKeyPackages(
-        { payload: { keyPackages: [] } },
-        context
-      )
-    ).rejects.toThrow('direct service payload must decode to a JSON object');
+    const result = await mlsConnectServiceV2.deleteKeyPackage(
+      { id: 'kp-1' },
+      context
+    );
+
+    expect(result).toEqual({});
   });
 });

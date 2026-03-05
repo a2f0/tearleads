@@ -1,3 +1,4 @@
+import type { MlsV2Routes } from '@tearleads/api-client/mlsRoutes';
 import { createElement, type ReactNode } from 'react';
 
 import { MlsChatProvider, type MlsChatUIComponents } from '../context/index.js';
@@ -24,7 +25,34 @@ const uiComponents: MlsChatUIComponents = {
     createElement('button', { type: 'button', onClick }, children)
 };
 
-export function createMlsHookWrapper() {
+function createMockMlsRoutes(): MlsV2Routes {
+  const notImplemented = () => {
+    throw new Error('Not implemented in test');
+  };
+  return {
+    listGroups: notImplemented,
+    getGroup: notImplemented,
+    createGroup: notImplemented,
+    updateGroup: notImplemented,
+    leaveGroup: notImplemented,
+    getGroupMembers: notImplemented,
+    addGroupMember: notImplemented,
+    removeGroupMember: notImplemented,
+    getGroupMessages: notImplemented,
+    sendGroupMessage: notImplemented,
+    getGroupState: notImplemented,
+    uploadGroupState: notImplemented,
+    getMyKeyPackages: notImplemented,
+    getUserKeyPackages: notImplemented,
+    uploadKeyPackages: notImplemented,
+    deleteKeyPackage: notImplemented,
+    getWelcomeMessages: notImplemented,
+    acknowledgeWelcome: notImplemented
+  };
+}
+
+export function createMlsHookWrapper(mlsRoutesOverride?: Partial<MlsV2Routes>) {
+  const mlsRoutes = { ...createMockMlsRoutes(), ...mlsRoutesOverride };
   return function MlsHookWrapper({ children }: { children: ReactNode }) {
     return createElement(MlsChatProvider, {
       apiBaseUrl: 'http://localhost:3000',
@@ -32,6 +60,7 @@ export function createMlsHookWrapper() {
       userId: 'test-user-id',
       userEmail: 'test@example.com',
       ui: uiComponents,
+      mlsRoutes,
       children
     });
   };

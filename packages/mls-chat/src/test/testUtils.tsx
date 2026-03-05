@@ -1,8 +1,10 @@
+// one-component-per-file: allow
 /**
  * Test utilities for MLS chat components.
  * Provides mock providers and helper functions.
  */
 
+import type { MlsV2Routes } from '@tearleads/api-client/mlsRoutes';
 import { type RenderOptions, render } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
 
@@ -90,6 +92,32 @@ const mockUiComponents: MlsChatUIComponents = {
   DropdownMenuItem: MockDropdownMenuItem
 };
 
+function createMockMlsRoutes(): MlsV2Routes {
+  const notImplemented = () => {
+    throw new Error('Not implemented in test');
+  };
+  return {
+    listGroups: notImplemented,
+    getGroup: notImplemented,
+    createGroup: notImplemented,
+    updateGroup: notImplemented,
+    leaveGroup: notImplemented,
+    getGroupMembers: notImplemented,
+    addGroupMember: notImplemented,
+    removeGroupMember: notImplemented,
+    getGroupMessages: notImplemented,
+    sendGroupMessage: notImplemented,
+    getGroupState: notImplemented,
+    uploadGroupState: notImplemented,
+    getMyKeyPackages: notImplemented,
+    getUserKeyPackages: notImplemented,
+    uploadKeyPackages: notImplemented,
+    deleteKeyPackage: notImplemented,
+    getWelcomeMessages: notImplemented,
+    acknowledgeWelcome: notImplemented
+  };
+}
+
 interface TestProviderProps {
   children: ReactNode;
   apiBaseUrl?: string;
@@ -97,6 +125,7 @@ interface TestProviderProps {
   userId?: string;
   userEmail?: string;
   ui?: Partial<MlsChatUIComponents>;
+  mlsRoutes?: MlsV2Routes;
 }
 
 function TestMlsChatProvider({
@@ -105,7 +134,8 @@ function TestMlsChatProvider({
   getAuthHeader = () => 'Bearer test-token',
   userId = 'test-user-id',
   userEmail = 'test@example.com',
-  ui = {}
+  ui = {},
+  mlsRoutes = createMockMlsRoutes()
 }: TestProviderProps): ReactElement {
   return (
     <MlsChatProvider
@@ -114,6 +144,7 @@ function TestMlsChatProvider({
       userId={userId}
       userEmail={userEmail}
       ui={{ ...mockUiComponents, ...ui }}
+      mlsRoutes={mlsRoutes}
     >
       {children}
     </MlsChatProvider>

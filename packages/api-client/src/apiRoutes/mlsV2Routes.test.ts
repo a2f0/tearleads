@@ -51,58 +51,96 @@ interface MlsV2ClientOverrides {
   acknowledgeWelcome?: MlsV2Client['acknowledgeWelcome'];
 }
 
+function makeProtoGroup(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'group-1',
+    groupIdMls: 'mls-id',
+    name: 'MLS Group',
+    description: '',
+    creatorUserId: 'user-1',
+    currentEpoch: BigInt(0),
+    cipherSuite: 3,
+    createdAt: '2024-01-01T00:00:00Z',
+    updatedAt: '2024-01-01T00:00:00Z',
+    lastMessageAt: '',
+    memberCount: 0,
+    role: 0,
+    ...overrides
+  };
+}
+
 function createMlsV2ClientStub(
   overrides: MlsV2ClientOverrides = {}
 ): MlsV2Client {
   return {
-    listGroups:
-      overrides.listGroups ?? vi.fn(async () => ({ payload: { groups: [] } })),
+    listGroups: overrides.listGroups ?? vi.fn(async () => ({ groups: [] })),
     getGroup:
-      overrides.getGroup ?? vi.fn(async () => ({ payload: { group: null } })),
+      overrides.getGroup ??
+      vi.fn(async () => ({ group: makeProtoGroup(), members: [] })),
     createGroup:
-      overrides.createGroup ??
-      vi.fn(async () => ({ payload: { group: { id: 'group-1' } } })),
+      overrides.createGroup ?? vi.fn(async () => ({ group: makeProtoGroup() })),
     updateGroup:
-      overrides.updateGroup ??
-      vi.fn(async () => ({ payload: { group: { id: 'group-1' } } })),
-    deleteGroup: overrides.deleteGroup ?? vi.fn(async () => ({ payload: {} })),
+      overrides.updateGroup ?? vi.fn(async () => ({ group: makeProtoGroup() })),
+    deleteGroup: overrides.deleteGroup ?? vi.fn(async () => ({})),
     getGroupMembers:
-      overrides.getGroupMembers ??
-      vi.fn(async () => ({ payload: { members: [] } })),
+      overrides.getGroupMembers ?? vi.fn(async () => ({ members: [] })),
     addGroupMember:
       overrides.addGroupMember ??
-      vi.fn(async () => ({ payload: { member: { userId: 'user-1' } } })),
-    removeGroupMember:
-      overrides.removeGroupMember ?? vi.fn(async () => ({ payload: {} })),
+      vi.fn(async () => ({
+        member: {
+          userId: 'user-1',
+          email: '',
+          leafIndex: 0,
+          role: 2,
+          joinedAt: '',
+          joinedAtEpoch: BigInt(0),
+          leafIndexPresent: false
+        }
+      })),
+    removeGroupMember: overrides.removeGroupMember ?? vi.fn(async () => ({})),
     getGroupMessages:
       overrides.getGroupMessages ??
-      vi.fn(async () => ({ payload: { messages: [], hasMore: false } })),
+      vi.fn(async () => ({ messages: [], hasMore: false, cursor: '' })),
     sendGroupMessage:
       overrides.sendGroupMessage ??
-      vi.fn(async () => ({ payload: { message: { id: 'message-1' } } })),
-    getGroupState:
-      overrides.getGroupState ??
-      vi.fn(async () => ({ payload: { state: null } })),
+      vi.fn(async () => ({
+        message: {
+          id: 'message-1',
+          groupId: 'group-1',
+          senderUserId: '',
+          senderEmail: '',
+          epoch: BigInt(0),
+          ciphertext: '',
+          messageType: 1,
+          contentType: '',
+          sequenceNumber: BigInt(0),
+          sentAt: '',
+          createdAt: ''
+        }
+      })),
+    getGroupState: overrides.getGroupState ?? vi.fn(async () => ({})),
     uploadGroupState:
       overrides.uploadGroupState ??
-      vi.fn(async () => ({ payload: { state: { id: 'state-1' } } })),
+      vi.fn(async () => ({
+        state: {
+          id: 'state-1',
+          groupId: 'group-1',
+          epoch: BigInt(0),
+          encryptedState: '',
+          stateHash: '',
+          createdAt: ''
+        }
+      })),
     getMyKeyPackages:
-      overrides.getMyKeyPackages ??
-      vi.fn(async () => ({ payload: { keyPackages: [] } })),
+      overrides.getMyKeyPackages ?? vi.fn(async () => ({ keyPackages: [] })),
     getUserKeyPackages:
-      overrides.getUserKeyPackages ??
-      vi.fn(async () => ({ payload: { keyPackages: [] } })),
+      overrides.getUserKeyPackages ?? vi.fn(async () => ({ keyPackages: [] })),
     uploadKeyPackages:
-      overrides.uploadKeyPackages ??
-      vi.fn(async () => ({ payload: { keyPackages: [] } })),
-    deleteKeyPackage:
-      overrides.deleteKeyPackage ?? vi.fn(async () => ({ payload: {} })),
+      overrides.uploadKeyPackages ?? vi.fn(async () => ({ keyPackages: [] })),
+    deleteKeyPackage: overrides.deleteKeyPackage ?? vi.fn(async () => ({})),
     getWelcomeMessages:
-      overrides.getWelcomeMessages ??
-      vi.fn(async () => ({ payload: { welcomes: [] } })),
-    acknowledgeWelcome:
-      overrides.acknowledgeWelcome ??
-      vi.fn(async () => ({ payload: { acknowledged: true } }))
+      overrides.getWelcomeMessages ?? vi.fn(async () => ({ welcomes: [] })),
+    acknowledgeWelcome: overrides.acknowledgeWelcome ?? vi.fn(async () => ({}))
   };
 }
 
@@ -151,30 +189,17 @@ describe('mlsV2Routes', () => {
     expect(connectMocks.createClientMock).toHaveBeenCalledTimes(1);
   });
 
-  it('maps listGroups payload and logs success', async () => {
+  it('maps listGroups response and logs success', async () => {
     const listGroups = vi.fn(async () => ({
-      payload: {
-        groups: [
-          {
-            id: 'group-1',
-            name: 'MLS Group'
-          }
-        ]
-      }
+      groups: [makeProtoGroup()]
     }));
     const client = createMlsV2ClientStub({ listGroups });
     const { routes, logEvent } = createRoutesForTest(client);
 
     const response = await routes.listGroups();
 
-    expect(response).toEqual({
-      groups: [
-        {
-          id: 'group-1',
-          name: 'MLS Group'
-        }
-      ]
-    });
+    expect(response.groups).toHaveLength(1);
+    expect(response.groups[0]?.name).toBe('MLS Group');
     expect(logEvent).toHaveBeenCalledWith(
       'api_get_mls_groups',
       expect.any(Number),
@@ -182,13 +207,9 @@ describe('mlsV2Routes', () => {
     );
   });
 
-  it('encodes payload requests and forwards auth headers', async () => {
+  it('encodes createGroup request and maps response', async () => {
     const createGroup = vi.fn(async () => ({
-      payload: {
-        group: {
-          id: 'group-1'
-        }
-      }
+      group: makeProtoGroup({ id: 'group-1', name: 'MLS Group' })
     }));
     const client = createMlsV2ClientStub({ createGroup });
     const { routes, buildHeaders } = createRoutesForTest(client);
@@ -199,18 +220,13 @@ describe('mlsV2Routes', () => {
       cipherSuite: 3
     });
 
-    expect(response).toEqual({
-      group: {
-        id: 'group-1'
-      }
-    });
+    expect(response.group?.id).toBe('group-1');
+    expect(response.group?.name).toBe('MLS Group');
     expect(createGroup).toHaveBeenCalledWith(
       expect.objectContaining({
-        payload: {
-          name: 'MLS Group',
-          groupIdMls: 'group-id-mls',
-          cipherSuite: 3
-        }
+        name: 'MLS Group',
+        groupIdMls: 'group-id-mls',
+        cipherSuite: 3
       }),
       {
         headers: {
@@ -223,10 +239,9 @@ describe('mlsV2Routes', () => {
 
   it('forwards getGroupMessages cursor and limit defaults', async () => {
     const getGroupMessages = vi.fn(async () => ({
-      payload: {
-        messages: [],
-        hasMore: false
-      }
+      messages: [],
+      hasMore: false,
+      cursor: ''
     }));
     const client = createMlsV2ClientStub({ getGroupMessages });
     const { routes } = createRoutesForTest(client);
@@ -252,9 +267,9 @@ describe('mlsV2Routes', () => {
   });
 
   it('maps delete RPCs to undefined responses', async () => {
-    const deleteGroup = vi.fn(async () => ({ payload: {} }));
-    const deleteKeyPackage = vi.fn(async () => ({ payload: {} }));
-    const removeGroupMember = vi.fn(async () => ({ payload: {} }));
+    const deleteGroup = vi.fn(async () => ({}));
+    const deleteKeyPackage = vi.fn(async () => ({}));
+    const removeGroupMember = vi.fn(async () => ({}));
     const client = createMlsV2ClientStub({
       deleteGroup,
       deleteKeyPackage,

@@ -8,7 +8,11 @@ import type { MlsMessage, MlsMessageType } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useMlsChatApi, useMlsChatUser } from '../context/index.js';
+import {
+  useMlsChatApi,
+  useMlsChatUser,
+  useMlsRoutes
+} from '../context/index.js';
 import type { MlsClient, SseConnectionState } from '../lib/index.js';
 import {
   recoverMissingGroupState,
@@ -194,6 +198,7 @@ function triggerWelcomeRefresh(): void {
 
 export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
   const { apiBaseUrl, getAuthHeader } = useMlsChatApi();
+  const mlsRoutes = useMlsRoutes();
   const { userId } = useMlsChatUser();
 
   const [connectionState, setConnectionState] =
@@ -309,8 +314,7 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
                   await uploadGroupStateSnapshot({
                     groupId: message.groupId,
                     client,
-                    apiBaseUrl,
-                    getAuthHeader
+                    mlsRoutes
                   });
                 } catch (uploadError) {
                   console.warn(
@@ -330,8 +334,7 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
                     await recoverMissingGroupState({
                       groupId: message.groupId,
                       client,
-                      apiBaseUrl,
-                      getAuthHeader
+                      mlsRoutes
                     });
                   } catch (recoveryError) {
                     console.warn(
@@ -373,7 +376,7 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
     };
 
     void startStream();
-  }, [apiBaseUrl, getAuthHeader, subscribedGroups, client, userId]);
+  }, [apiBaseUrl, getAuthHeader, mlsRoutes, subscribedGroups, client, userId]);
 
   const subscribe = useCallback((groupId: string) => {
     setSubscribedGroups((prev) => {

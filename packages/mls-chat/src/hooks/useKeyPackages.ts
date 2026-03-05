@@ -3,17 +3,12 @@
  * Handles uploading key packages to the server and local key package generation.
  */
 
-import type {
-  MlsKeyPackage,
-  MlsKeyPackagesResponse,
-  UploadMlsKeyPackagesResponse
-} from '@tearleads/shared';
+import type { MlsCipherSuite, MlsKeyPackage } from '@tearleads/shared';
 import { MLS_CIPHERSUITES } from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
 
-import { useMlsChatApi } from '../context/index.js';
+import { useMlsRoutes } from '../context/index.js';
 import type { MlsClient } from '../lib/index.js';
-import { requestMlsRpc } from './mlsConnectRpc.js';
 
 interface UseKeyPackagesResult {
   keyPackages: MlsKeyPackage[];
@@ -27,7 +22,7 @@ interface UseKeyPackagesResult {
 const MIN_KEY_PACKAGES = 5;
 
 export function useKeyPackages(client: MlsClient | null): UseKeyPackagesResult {
-  const { apiBaseUrl, getAuthHeader } = useMlsChatApi();
+  const mlsRoutes = useMlsRoutes();
 
   const [keyPackages, setKeyPackages] = useState<MlsKeyPackage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,12 +33,7 @@ export function useKeyPackages(client: MlsClient | null): UseKeyPackagesResult {
     setError(null);
 
     try {
-      const data = await requestMlsRpc<MlsKeyPackagesResponse>({
-        context: { apiBaseUrl, getAuthHeader },
-        method: 'GetMyKeyPackages',
-        requestBody: {},
-        errorMessage: 'Failed to fetch key packages'
-      });
+      const data = await mlsRoutes.getMyKeyPackages();
       setKeyPackages(data.keyPackages);
     } catch (err) {
       setError(
@@ -52,7 +42,7 @@ export function useKeyPackages(client: MlsClient | null): UseKeyPackagesResult {
     } finally {
       setIsLoading(false);
     }
-  }, [apiBaseUrl, getAuthHeader]);
+  }, [mlsRoutes]);
 
   const generateAndUpload = useCallback(
     async (count = MIN_KEY_PACKAGES) => {
@@ -67,7 +57,7 @@ export function useKeyPackages(client: MlsClient | null): UseKeyPackagesResult {
         const newKeyPackages: Array<{
           keyPackageData: string;
           keyPackageRef: string;
-          cipherSuite: number;
+          cipherSuite: MlsCipherSuite;
         }> = [];
 
         for (let i = 0; i < count; i++) {
@@ -81,14 +71,7 @@ export function useKeyPackages(client: MlsClient | null): UseKeyPackagesResult {
           });
         }
 
-        await requestMlsRpc<UploadMlsKeyPackagesResponse>({
-          context: { apiBaseUrl, getAuthHeader },
-          method: 'UploadKeyPackages',
-          requestBody: {
-            json: JSON.stringify({ keyPackages: newKeyPackages })
-          },
-          errorMessage: 'Failed to upload key packages'
-        });
+        await mlsRoutes.uploadKeyPackages({ keyPackages: newKeyPackages });
 
         await fetchKeyPackages();
       } catch (err) {
@@ -102,21 +85,15 @@ export function useKeyPackages(client: MlsClient | null): UseKeyPackagesResult {
         setIsLoading(false);
       }
     },
-    [client, apiBaseUrl, getAuthHeader, fetchKeyPackages]
+    [client, mlsRoutes, fetchKeyPackages]
   );
 
   const deleteKeyPackage = useCallback(
     async (id: string) => {
-      await requestMlsRpc<unknown>({
-        context: { apiBaseUrl, getAuthHeader },
-        method: 'DeleteKeyPackage',
-        requestBody: { id },
-        errorMessage: 'Failed to delete key package'
-      });
-
+      await mlsRoutes.deleteKeyPackage(id);
       setKeyPackages((prev) => prev.filter((kp) => kp.id !== id));
     },
-    [apiBaseUrl, getAuthHeader]
+    [mlsRoutes]
   );
 
   useEffect(() => {
