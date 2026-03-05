@@ -5,7 +5,9 @@ import type {
 } from '@tearleads/shared';
 import { isRecord, toSafeNumber } from './adminV2ValueUtils';
 
-export function mapGroupDetailResponse(responseBody: unknown): GroupDetailResponse {
+export function mapGroupDetailResponse(
+  responseBody: unknown
+): GroupDetailResponse {
   const response = isRecord(responseBody) ? responseBody : {};
   const group = isRecord(response['group']) ? response['group'] : {};
   const members = Array.isArray(response['members']) ? response['members'] : [];
@@ -20,8 +22,10 @@ export function mapGroupDetailResponse(responseBody: unknown): GroupDetailRespon
       name: typeof group['name'] === 'string' ? group['name'] : '',
       description:
         typeof group['description'] === 'string' ? group['description'] : null,
-      createdAt: typeof group['createdAt'] === 'string' ? group['createdAt'] : '',
-      updatedAt: typeof group['updatedAt'] === 'string' ? group['updatedAt'] : ''
+      createdAt:
+        typeof group['createdAt'] === 'string' ? group['createdAt'] : '',
+      updatedAt:
+        typeof group['updatedAt'] === 'string' ? group['updatedAt'] : ''
     },
     members: members
       .filter((member) => isRecord(member))
@@ -65,7 +69,9 @@ export function mapOrganizationsListResponse(
   };
 }
 
-export function mapUsersListResponse(responseBody: unknown): AdminUsersResponse {
+export function mapUsersListResponse(
+  responseBody: unknown
+): AdminUsersResponse {
   const response = isRecord(responseBody) ? responseBody : {};
   const users = Array.isArray(response['users']) ? response['users'] : [];
 
@@ -73,7 +79,9 @@ export function mapUsersListResponse(responseBody: unknown): AdminUsersResponse 
     users: users
       .filter((user) => isRecord(user))
       .map((user) => {
-        const accounting = isRecord(user['accounting']) ? user['accounting'] : {};
+        const accounting = isRecord(user['accounting'])
+          ? user['accounting']
+          : {};
         const organizationIds = Array.isArray(user['organizationIds'])
           ? user['organizationIds'].filter(
               (organizationId): organizationId is string =>
@@ -90,7 +98,9 @@ export function mapUsersListResponse(responseBody: unknown): AdminUsersResponse 
           createdAt:
             typeof user['createdAt'] === 'string' ? user['createdAt'] : null,
           lastActiveAt:
-            typeof user['lastActiveAt'] === 'string' ? user['lastActiveAt'] : null,
+            typeof user['lastActiveAt'] === 'string'
+              ? user['lastActiveAt']
+              : null,
           accounting: {
             totalPromptTokens: toSafeNumber(accounting['totalPromptTokens']),
             totalCompletionTokens: toSafeNumber(

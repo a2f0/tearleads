@@ -80,8 +80,7 @@ export const adminRoutes = {
         'api_get_admin_groups'
       );
     },
-    get: (id: string) =>
-      adminV2Routes.groups.get(id),
+    get: (id: string) => adminV2Routes.groups.get(id),
     create: (data: CreateGroupRequest) =>
       requestAdminJson<{ group: Group }>(
         'CreateGroup',

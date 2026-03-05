@@ -60,11 +60,8 @@ function createAdminV2ClientStub(
       overrides.getGroup ??
       vi.fn(async () => ({ group: undefined, members: [] })),
     listOrganizations:
-      overrides.listOrganizations ??
-      vi.fn(async () => ({ organizations: [] })),
-    listUsers:
-      overrides.listUsers ??
-      vi.fn(async () => ({ users: [] })),
+      overrides.listOrganizations ?? vi.fn(async () => ({ organizations: [] })),
+    listUsers: overrides.listUsers ?? vi.fn(async () => ({ users: [] })),
     getPostgresInfo:
       overrides.getPostgresInfo ??
       vi.fn(async () => ({ info: undefined, serverVersion: undefined })),

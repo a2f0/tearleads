@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AdminV2Client } from './adminV2Routes';
 import { createAdminV2Routes } from './adminV2Routes';
 
-function createClientStub(overrides: Partial<AdminV2Client> = {}): AdminV2Client {
+function createClientStub(
+  overrides: Partial<AdminV2Client> = {}
+): AdminV2Client {
   return {
     getContext:
       overrides.getContext ??
@@ -15,8 +17,7 @@ function createClientStub(overrides: Partial<AdminV2Client> = {}): AdminV2Client
       overrides.getGroup ??
       vi.fn(async () => ({ group: undefined, members: [] })),
     listOrganizations:
-      overrides.listOrganizations ??
-      vi.fn(async () => ({ organizations: [] })),
+      overrides.listOrganizations ?? vi.fn(async () => ({ organizations: [] })),
     listUsers: overrides.listUsers ?? vi.fn(async () => ({ users: [] })),
     getPostgresInfo:
       overrides.getPostgresInfo ??
