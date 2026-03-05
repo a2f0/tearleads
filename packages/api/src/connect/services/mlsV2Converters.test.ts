@@ -29,7 +29,7 @@ describe('mlsV2Converters', () => {
     expect(toProtoMessageType('unknown')).toBe(MlsMessageType.UNSPECIFIED);
   });
 
-  it('encodes MLS binary fields as strings', () => {
+  it('encodes and decodes MLS binary fields', () => {
     const bytes = new TextEncoder().encode('ciphertext');
     const encoded = encodeProtoBytes(bytes);
     const converted = toProtoGroupState({
@@ -41,10 +41,10 @@ describe('mlsV2Converters', () => {
       createdAt: '2024-01-01T00:00:00.000Z'
     });
 
-    expect(converted.encryptedState).toBe('ciphertext');
+    expect(converted.encryptedState).toEqual(bytes);
   });
 
-  it('passes through direct string payloads', () => {
+  it('converts direct string payloads to UTF-8 bytes', () => {
     const converted = toProtoGroupState({
       id: 'state-1',
       groupId: 'group-1',
@@ -54,6 +54,8 @@ describe('mlsV2Converters', () => {
       createdAt: '2024-01-01T00:00:00.000Z'
     });
 
-    expect(converted.encryptedState).toBe('not-base64***');
+    expect(converted.encryptedState).toEqual(
+      new TextEncoder().encode('not-base64***')
+    );
   });
 });
