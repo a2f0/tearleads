@@ -1,8 +1,5 @@
-import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUTH_TOKEN_KEY } from '@/lib/authStorage';
-import { getSharedTestContext } from '@/test/testContext';
 
 // Mock analytics to capture logged event names
 const mockLogApiEvent = vi.fn();
@@ -10,7 +7,7 @@ vi.mock('@/db/analytics', () => ({
   logApiEvent: (...args: unknown[]) => mockLogApiEvent(...args)
 }));
 
-let seededUser: SeededUser;
+const NON_SENSITIVE_ACCESS_TOKEN = 'msw-parity-non-sensitive-token';
 
 describe('api with msw', () => {
   beforeEach(async () => {
@@ -18,9 +15,6 @@ describe('api with msw', () => {
     vi.clearAllMocks();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
-    const ctx = getSharedTestContext();
-    seededUser = await seedTestUser(ctx, { admin: true });
-    localStorage.setItem(AUTH_TOKEN_KEY, seededUser.accessToken);
     mockLogApiEvent.mockResolvedValue(undefined);
   });
 
@@ -35,7 +29,7 @@ describe('api with msw', () => {
       .mockImplementation(() => undefined);
 
     const authHeaders: Record<string, string> = {
-      Authorization: `Bearer ${seededUser.accessToken}`
+      Authorization: `Bearer ${NON_SENSITIVE_ACCESS_TOKEN}`
     };
 
     const requests: Array<{

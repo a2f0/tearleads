@@ -7,7 +7,6 @@ import {
   wasApiRequestMade
 } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUTH_TOKEN_KEY } from '@/lib/authStorage';
 import {
   installApiV2WasmBindingsTestOverride,
   removeApiV2WasmBindingsTestOverride
@@ -19,6 +18,21 @@ const mockLogApiEvent = vi.fn();
 vi.mock('@/db/analytics', () => ({
   logApiEvent: (...args: unknown[]) => mockLogApiEvent(...args)
 }));
+
+const { authState } = vi.hoisted(() => ({
+  authState: { token: '' }
+}));
+
+vi.mock('@tearleads/api-client/authStorage', async () => {
+  const actual = await vi.importActual<
+    typeof import('@tearleads/api-client/authStorage')
+  >('@tearleads/api-client/authStorage');
+  return {
+    ...actual,
+    getAuthHeaderValue: () =>
+      authState.token.length > 0 ? `Bearer ${authState.token}` : null
+  };
+});
 
 const loadApi = async () => {
   const module = await import('./api');
@@ -64,7 +78,7 @@ describe('api with msw', () => {
     localStorage.clear();
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
-    localStorage.setItem(AUTH_TOKEN_KEY, seededUser.accessToken);
+    authState.token = seededUser.accessToken;
     const { setActiveOrganizationId } = await import('@/lib/orgStorage');
     setActiveOrganizationId(seededUser.organizationId);
     mockLogApiEvent.mockResolvedValue(undefined);
@@ -74,6 +88,7 @@ describe('api with msw', () => {
     removeApiV2WasmBindingsTestOverride();
     const { clearActiveOrganizationId } = await import('@/lib/orgStorage');
     clearActiveOrganizationId();
+    authState.token = '';
     vi.unstubAllEnvs();
   });
 

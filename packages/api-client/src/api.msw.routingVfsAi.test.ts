@@ -1,7 +1,6 @@
 import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUTH_TOKEN_KEY } from './authStorage';
 import {
   AI_CONNECT_RECORD_USAGE_PATH,
   AI_CONNECT_USAGE_PATH,
@@ -12,6 +11,20 @@ import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOv
 import { getSharedTestContext } from './test/testContext';
 
 const mockLogApiEvent = vi.fn();
+const { authState } = vi.hoisted(() => ({
+  authState: { token: '' }
+}));
+
+vi.mock('./authStorage', async () => {
+  const actual =
+    await vi.importActual<typeof import('./authStorage')>('./authStorage');
+  return {
+    ...actual,
+    getAuthHeaderValue: () =>
+      authState.token.length > 0 ? `Bearer ${authState.token}` : null
+  };
+});
+
 const loadApi = async () => {
   const module = await import('./api');
   return module.api;
@@ -29,7 +42,7 @@ describe('api with msw', () => {
     localStorage.clear();
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
-    localStorage.setItem(AUTH_TOKEN_KEY, seededUser.accessToken);
+    authState.token = seededUser.accessToken;
     mockLogApiEvent.mockResolvedValue(undefined);
     const { setApiEventLogger } = await import('./apiLogger');
     setApiEventLogger((...args: Parameters<typeof mockLogApiEvent>) =>
@@ -42,6 +55,7 @@ describe('api with msw', () => {
   });
   afterEach(async () => {
     vi.unstubAllEnvs();
+    authState.token = '';
     const { resetApiEventLogger } = await import('./apiLogger');
     const { resetApiRequestHeadersProvider } = await import('./apiCore');
     resetApiEventLogger();
