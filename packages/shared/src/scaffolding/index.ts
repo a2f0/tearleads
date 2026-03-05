@@ -18,6 +18,10 @@ export type {
   SetupWelcomeEmailsDbResult,
   UserEmailResult
 } from './setupWelcomeEmailsDb.js';
-export { setupWelcomeEmailsDb } from './setupWelcomeEmailsDb.js';
+export {
+  SCAFFOLD_INLINE_EMAIL_BODY_PREFIX,
+  SCAFFOLD_WELCOME_EMAIL_BODY_TEXT,
+  setupWelcomeEmailsDb
+} from './setupWelcomeEmailsDb.js';
 export type { TestUser } from './testUsers.js';
 export { alice, allTestUsers, bob } from './testUsers.js';

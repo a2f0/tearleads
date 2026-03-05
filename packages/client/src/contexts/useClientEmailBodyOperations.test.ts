@@ -72,6 +72,26 @@ describe('useClientEmailBodyOperations', () => {
     expect(mockGetBlob).toHaveBeenCalledWith('blobs/email-body-123');
   });
 
+  it('returns inline rawData without fetching blob ciphertext', async () => {
+    mockGetAuthHeaderValue.mockReturnValue('Bearer token');
+    vi.mocked(globalThis.fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        json: JSON.stringify({
+          rawData: 'From: system@tearleads.com\r\n\r\nHello from scaffold'
+        })
+      })
+    } as Response);
+
+    const { result } = renderHook(() => useClientEmailBodyOperations());
+    const body = await result.current.fetchDecryptedBody('email-inline');
+
+    expect(body).toContain('Hello from scaffold');
+    expect(mockGetBlob).not.toHaveBeenCalled();
+    expect(mockImportKey).not.toHaveBeenCalled();
+    expect(mockDecrypt).not.toHaveBeenCalled();
+  });
+
   it('omits Authorization header when auth is null', async () => {
     mockGetAuthHeaderValue.mockReturnValue(null);
     const envelope = {

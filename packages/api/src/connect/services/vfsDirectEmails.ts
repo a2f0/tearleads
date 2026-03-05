@@ -34,6 +34,8 @@ interface SendRequestPayload {
   attachments?: SendAttachmentRequest[];
 }
 
+const SCAFFOLD_INLINE_EMAIL_BODY_PREFIX = 'scaffolding:inline-body:';
+
 function decodeBase64Utf8(value: string): string | null {
   const trimmed = value.trim();
   if (trimmed.length === 0) {
@@ -75,6 +77,22 @@ function decodeMaybeBase64Utf8(value: string | null | undefined): string {
     return '';
   }
   return decodeBase64Utf8(value) ?? value;
+}
+
+function parseScaffoldInlineBody(
+  encryptedBodyPath: string | null | undefined
+): string | null {
+  if (
+    typeof encryptedBodyPath !== 'string' ||
+    !encryptedBodyPath.startsWith(SCAFFOLD_INLINE_EMAIL_BODY_PREFIX)
+  ) {
+    return null;
+  }
+
+  const encodedBody = encryptedBodyPath.slice(
+    SCAFFOLD_INLINE_EMAIL_BODY_PREFIX.length
+  );
+  return decodeBase64Utf8(encodedBody);
 }
 
 function decodeRecipientList(value: unknown): string[] {
@@ -291,6 +309,7 @@ export async function getEmailDirect(
     if (!row) {
       throw new ConnectError('Email not found', Code.NotFound);
     }
+    const scaffoldInlineBody = parseScaffoldInlineBody(row.encrypted_body_path);
 
     return {
       json: JSON.stringify({
@@ -300,8 +319,9 @@ export async function getEmailDirect(
         subject: decodeMaybeBase64Utf8(row.encrypted_subject),
         receivedAt: row.received_at,
         size: row.ciphertext_size ?? 0,
-        rawData: '',
-        encryptedBodyPath: row.encrypted_body_path ?? null
+        rawData: scaffoldInlineBody ?? '',
+        encryptedBodyPath:
+          scaffoldInlineBody === null ? (row.encrypted_body_path ?? null) : null
       })
     };
   } catch (error) {

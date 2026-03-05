@@ -45,6 +45,11 @@ export function useClientEmailBodyOperations(): EmailBodyOperations {
         throw new Error('Invalid email data');
       }
 
+      const rawData = emailData['rawData'];
+      if (typeof rawData === 'string' && rawData.length > 0) {
+        return rawData;
+      }
+
       const encryptedBodyPath = emailData['encryptedBodyPath'];
       if (
         typeof encryptedBodyPath !== 'string' ||

@@ -7,6 +7,8 @@ import {
   type VfsSyncResponse
 } from '@tearleads/shared';
 import {
+  SCAFFOLD_INLINE_EMAIL_BODY_PREFIX,
+  SCAFFOLD_WELCOME_EMAIL_BODY_TEXT,
   setupBobNotesShareForAliceDb,
   setupWelcomeEmailsDb
 } from '@tearleads/shared/scaffolding';
@@ -34,6 +36,34 @@ function readEmailIds(payload: unknown): string[] {
     .filter((id): id is string => typeof id === 'string' && id.length > 0);
 }
 
+interface EmailDetailPayload {
+  id: string;
+  rawData: string;
+  encryptedBodyPath: string | null;
+}
+
+function readEmailDetail(payload: unknown): EmailDetailPayload | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  const id = payload['id'];
+  const rawData = payload['rawData'];
+  const encryptedBodyPath = payload['encryptedBodyPath'];
+  if (typeof id !== 'string' || typeof rawData !== 'string') {
+    return null;
+  }
+  if (encryptedBodyPath !== null && typeof encryptedBodyPath !== 'string') {
+    return null;
+  }
+
+  return {
+    id,
+    rawData,
+    encryptedBodyPath
+  };
+}
+
 async function fetchEmailIdsFromConnect(
   actor: ReturnType<ApiScenarioHarness['actor']>
 ): Promise<string[]> {
@@ -54,6 +84,33 @@ async function fetchEmailIdsFromConnect(
   const connectEnvelope: unknown = await response.json();
   const payload = parseConnectJsonEnvelopeBody(connectEnvelope);
   return readEmailIds(payload);
+}
+
+async function fetchEmailFromConnect(
+  actor: ReturnType<ApiScenarioHarness['actor']>,
+  id: string
+): Promise<EmailDetailPayload> {
+  const response = await actor.fetch(
+    '/connect/tearleads.v1.VfsService/GetEmail',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Email detail fetch failed: ${errorText}`);
+  }
+
+  const connectEnvelope: unknown = await response.json();
+  const payload = parseConnectJsonEnvelopeBody(connectEnvelope);
+  const emailDetail = readEmailDetail(payload);
+  if (!emailDetail) {
+    throw new Error('Email detail response payload was invalid');
+  }
+  return emailDetail;
 }
 
 async function fetchAllSyncItems(
@@ -208,5 +265,39 @@ describe('DB scaffolding welcome email visibility', () => {
     expect(
       readUpsertName(aliceSyncItems, seededEmails.alice.inboxFolderId)
     ).toBe('Inbox');
+
+    const bobEmailDetail = await fetchEmailFromConnect(
+      bob,
+      seededEmails.bob.emailItemId
+    );
+    expect(bobEmailDetail.encryptedBodyPath).toBeNull();
+    expect(bobEmailDetail.rawData).toContain(SCAFFOLD_WELCOME_EMAIL_BODY_TEXT);
+
+    const postgresEmail = await harness.ctx.pool.query<{
+      encrypted_body_path: string | null;
+      ciphertext_size: number | null;
+    }>(
+      `SELECT encrypted_body_path, ciphertext_size FROM emails WHERE id = $1`,
+      [seededEmails.bob.emailItemId]
+    );
+    const encryptedBodyPath = postgresEmail.rows[0]?.encrypted_body_path;
+    expect(typeof encryptedBodyPath).toBe('string');
+    if (typeof encryptedBodyPath !== 'string') {
+      throw new Error('Expected seeded encrypted email body path in Postgres');
+    }
+    expect(encryptedBodyPath.includes(SCAFFOLD_WELCOME_EMAIL_BODY_TEXT)).toBe(
+      false
+    );
+    expect(
+      encryptedBodyPath.startsWith(SCAFFOLD_INLINE_EMAIL_BODY_PREFIX)
+    ).toBe(true);
+
+    const inlineCiphertext = encryptedBodyPath.slice(
+      SCAFFOLD_INLINE_EMAIL_BODY_PREFIX.length
+    );
+    expect(Buffer.from(inlineCiphertext, 'base64').toString('utf8')).toContain(
+      SCAFFOLD_WELCOME_EMAIL_BODY_TEXT
+    );
+    expect((postgresEmail.rows[0]?.ciphertext_size ?? 0) > 0).toBe(true);
   });
 });
