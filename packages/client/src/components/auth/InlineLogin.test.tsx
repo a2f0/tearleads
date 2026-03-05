@@ -100,7 +100,9 @@ describe('InlineLogin', () => {
     expect(
       screen.queryByText('Please sign in to continue to email')
     ).not.toBeInTheDocument();
-    expect(screen.queryByText('Sign In', { selector: 'p' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Sign In', { selector: 'p' })
+    ).not.toBeInTheDocument();
   });
 
   it('renders user icon', () => {
