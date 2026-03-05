@@ -84,9 +84,10 @@ fn header_role_authorizer_accepts_scoped_org_access_for_scoped_operations() {
         tonic::metadata::MetadataValue::from_static(" org-1 , org-2 "),
     );
 
-    let result = authorizer
-        .authorize_admin_operation(AdminOperation::GetContext, &metadata)
-        .expect("scoped auth should be accepted");
+    let result = match authorizer.authorize_admin_operation(AdminOperation::GetContext, &metadata) {
+        Ok(value) => value,
+        Err(error) => panic!("scoped auth should be accepted: {error:?}"),
+    };
 
     assert!(!result.is_root_admin());
     assert_eq!(
