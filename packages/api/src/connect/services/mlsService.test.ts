@@ -88,7 +88,7 @@ vi.mock('./mlsDirectWelcomeMessages.js', () => ({
     acknowledgeWelcomeDirectMock(...args)
 }));
 
-import { mlsConnectService } from './mlsService.js';
+import { mlsConnectServiceV1, mlsConnectServiceV2 } from './mlsService.js';
 
 function createContext() {
   return {
@@ -99,7 +99,7 @@ function createContext() {
   };
 }
 
-describe('mlsConnectService', () => {
+describe('mlsConnectServiceV1', () => {
   beforeEach(() => {
     const allMocks = [
       acknowledgeWelcomeDirectMock,
@@ -132,7 +132,7 @@ describe('mlsConnectService', () => {
     const context = createContext();
 
     await expect(
-      mlsConnectService.uploadKeyPackages(
+      mlsConnectServiceV1.uploadKeyPackages(
         {
           json: '{"keyPackages":[]}'
         },
@@ -145,12 +145,12 @@ describe('mlsConnectService', () => {
     );
 
     await expect(
-      mlsConnectService.getMyKeyPackages({}, context)
+      mlsConnectServiceV1.getMyKeyPackages({}, context)
     ).resolves.toEqual({ json: '{"direct":true}' });
     expect(getMyKeyPackagesDirectMock).toHaveBeenCalledWith({}, context);
 
     await expect(
-      mlsConnectService.getUserKeyPackages({ userId: 'user-1' }, context)
+      mlsConnectServiceV1.getUserKeyPackages({ userId: 'user-1' }, context)
     ).resolves.toEqual({ json: '{"direct":true}' });
     expect(getUserKeyPackagesDirectMock).toHaveBeenCalledWith(
       { userId: 'user-1' },
@@ -158,7 +158,7 @@ describe('mlsConnectService', () => {
     );
 
     await expect(
-      mlsConnectService.deleteKeyPackage({ id: 'pkg-1' }, context)
+      mlsConnectServiceV1.deleteKeyPackage({ id: 'pkg-1' }, context)
     ).resolves.toEqual({ json: '{"direct":true}' });
     expect(deleteKeyPackageDirectMock).toHaveBeenCalledWith(
       { id: 'pkg-1' },
@@ -166,7 +166,7 @@ describe('mlsConnectService', () => {
     );
 
     await expect(
-      mlsConnectService.createGroup(
+      mlsConnectServiceV1.createGroup(
         {
           json: '{"name":"group"}'
         },
@@ -178,13 +178,13 @@ describe('mlsConnectService', () => {
       context
     );
 
-    await expect(mlsConnectService.listGroups({}, context)).resolves.toEqual({
+    await expect(mlsConnectServiceV1.listGroups({}, context)).resolves.toEqual({
       json: '{"direct":true}'
     });
     expect(listGroupsDirectMock).toHaveBeenCalledWith({}, context);
 
     await expect(
-      mlsConnectService.getGroup({ groupId: 'group-1' }, context)
+      mlsConnectServiceV1.getGroup({ groupId: 'group-1' }, context)
     ).resolves.toEqual({ json: '{"direct":true}' });
     expect(getGroupDirectMock).toHaveBeenCalledWith(
       { groupId: 'group-1' },
@@ -192,7 +192,7 @@ describe('mlsConnectService', () => {
     );
 
     await expect(
-      mlsConnectService.updateGroup(
+      mlsConnectServiceV1.updateGroup(
         {
           groupId: 'group-2',
           json: '{"name":"next"}'
@@ -206,7 +206,7 @@ describe('mlsConnectService', () => {
     );
 
     await expect(
-      mlsConnectService.deleteGroup({ groupId: 'group-3' }, context)
+      mlsConnectServiceV1.deleteGroup({ groupId: 'group-3' }, context)
     ).resolves.toEqual({ json: '{"direct":true}' });
     expect(deleteGroupDirectMock).toHaveBeenCalledWith(
       { groupId: 'group-3' },
@@ -214,7 +214,7 @@ describe('mlsConnectService', () => {
     );
 
     await expect(
-      mlsConnectService.addGroupMember(
+      mlsConnectServiceV1.addGroupMember(
         {
           groupId: 'group-4',
           json: '{"userId":"u1"}'
@@ -228,7 +228,7 @@ describe('mlsConnectService', () => {
     );
 
     await expect(
-      mlsConnectService.getGroupMembers({ groupId: 'group-5' }, context)
+      mlsConnectServiceV1.getGroupMembers({ groupId: 'group-5' }, context)
     ).resolves.toEqual({ json: '{"direct":true}' });
     expect(getGroupMembersDirectMock).toHaveBeenCalledWith(
       { groupId: 'group-5' },
@@ -236,7 +236,7 @@ describe('mlsConnectService', () => {
     );
 
     await expect(
-      mlsConnectService.removeGroupMember(
+      mlsConnectServiceV1.removeGroupMember(
         {
           groupId: 'group-6',
           userId: 'user-2',
@@ -255,7 +255,7 @@ describe('mlsConnectService', () => {
     );
 
     await expect(
-      mlsConnectService.sendGroupMessage(
+      mlsConnectServiceV1.sendGroupMessage(
         {
           groupId: 'group-7',
           json: '{"ciphertext":"x"}'
@@ -269,7 +269,7 @@ describe('mlsConnectService', () => {
     );
 
     await expect(
-      mlsConnectService.getGroupMessages(
+      mlsConnectServiceV1.getGroupMessages(
         {
           groupId: 'group-8',
           cursor: 'c-1',
@@ -288,7 +288,7 @@ describe('mlsConnectService', () => {
     );
 
     await expect(
-      mlsConnectService.getGroupState({ groupId: 'group-9' }, context)
+      mlsConnectServiceV1.getGroupState({ groupId: 'group-9' }, context)
     ).resolves.toEqual({ json: '{"direct":true}' });
     expect(getGroupStateDirectMock).toHaveBeenCalledWith(
       { groupId: 'group-9' },
@@ -296,7 +296,7 @@ describe('mlsConnectService', () => {
     );
 
     await expect(
-      mlsConnectService.uploadGroupState(
+      mlsConnectServiceV1.uploadGroupState(
         {
           groupId: 'group-10',
           json: '{"epoch":3}'
@@ -310,12 +310,12 @@ describe('mlsConnectService', () => {
     );
 
     await expect(
-      mlsConnectService.getWelcomeMessages({}, context)
+      mlsConnectServiceV1.getWelcomeMessages({}, context)
     ).resolves.toEqual({ json: '{"direct":true}' });
     expect(getWelcomeMessagesDirectMock).toHaveBeenCalledWith({}, context);
 
     await expect(
-      mlsConnectService.acknowledgeWelcome(
+      mlsConnectServiceV1.acknowledgeWelcome(
         {
           id: 'welcome-1',
           json: '{"groupId":"group-1"}'
@@ -325,6 +325,32 @@ describe('mlsConnectService', () => {
     ).resolves.toEqual({ json: '{"direct":true}' });
     expect(acknowledgeWelcomeDirectMock).toHaveBeenCalledWith(
       { id: 'welcome-1', json: '{"groupId":"group-1"}' },
+      context
+    );
+  });
+});
+
+describe('mlsConnectServiceV2', () => {
+  beforeEach(() => {
+    uploadKeyPackagesDirectMock.mockReset();
+    uploadKeyPackagesDirectMock.mockResolvedValue({
+      json: '{"ok":true}'
+    });
+  });
+
+  it('adapts payload/json shapes for v2 handlers', async () => {
+    const context = createContext();
+
+    await expect(
+      mlsConnectServiceV2.uploadKeyPackages(
+        { payload: { keyPackages: [] } },
+        context
+      )
+    ).resolves.toEqual({
+      payload: { ok: true }
+    });
+    expect(uploadKeyPackagesDirectMock).toHaveBeenCalledWith(
+      { json: '{"keyPackages":[]}' },
       context
     );
   });
