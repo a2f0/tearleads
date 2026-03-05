@@ -23,10 +23,15 @@ import {
   parseAddMemberPayload,
   parseRemoveMemberPayload
 } from './mlsDirectShared.js';
+
 type GroupIdRequest = { groupId: string };
 type AddMemberJsonRequest = { groupId: string; json: string };
 type AddMemberTypedRequest = { groupId: string } & AddMlsMemberRequest;
-type RemoveMemberJsonRequest = { groupId: string; userId: string; json: string };
+type RemoveMemberJsonRequest = {
+  groupId: string;
+  userId: string;
+  json: string;
+};
 type RemoveMemberTypedRequest = {
   groupId: string;
   userId: string;

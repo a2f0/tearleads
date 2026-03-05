@@ -321,14 +321,9 @@ export const mlsConnectServiceV2 = {
       ciphertext: request.ciphertext,
       epoch: Number(request.epoch),
       messageType: fromProtoMessageType(request.messageType),
-      ...(request.contentType
-        ? { contentType: request.contentType }
-        : {})
+      ...(request.contentType ? { contentType: request.contentType } : {})
     };
-    const data = await sendGroupMessageDirectTyped(
-      directRequest,
-      context
-    );
+    const data = await sendGroupMessageDirectTyped(directRequest, context);
     return { message: toProtoMessage(data.message) };
   },
 
