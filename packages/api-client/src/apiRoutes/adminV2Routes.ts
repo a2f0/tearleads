@@ -1,5 +1,9 @@
 import { create } from '@bufbuild/protobuf';
-import { type CallOptions, type Client, createClient } from '@connectrpc/connect';
+import {
+  type CallOptions,
+  type Client,
+  createClient
+} from '@connectrpc/connect';
 import { createGrpcWebTransport } from '@connectrpc/connect-web';
 import type {
   PostgresAdminInfoResponse,
@@ -12,19 +16,19 @@ import type {
 import {
   AdminDeleteRedisKeyRequestSchema,
   AdminGetColumnsRequestSchema,
-  AdminGetColumnsResponse,
+  type AdminGetColumnsResponse,
   AdminGetPostgresInfoRequestSchema,
-  AdminGetPostgresInfoResponse,
+  type AdminGetPostgresInfoResponse,
   AdminGetRedisDbSizeRequestSchema,
-  AdminGetRedisDbSizeResponse,
+  type AdminGetRedisDbSizeResponse,
   AdminGetRedisKeysRequestSchema,
-  AdminGetRedisKeysResponse,
+  type AdminGetRedisKeysResponse,
   AdminGetRedisValueRequestSchema,
-  AdminGetRedisValueResponse,
+  type AdminGetRedisValueResponse,
   AdminGetRowsRequestSchema,
-  AdminGetRowsResponse,
+  type AdminGetRowsResponse,
   AdminGetTablesRequestSchema,
-  AdminGetTablesResponse,
+  type AdminGetTablesResponse,
   AdminService
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { API_BASE_URL } from '../apiCore';
@@ -308,7 +312,9 @@ export function createAdminV2Routes(
               table,
               limit: options?.limit ?? 50,
               offset: options?.offset ?? 0,
-              ...(options?.sortColumn ? { sortColumn: options.sortColumn } : {}),
+              ...(options?.sortColumn
+                ? { sortColumn: options.sortColumn }
+                : {}),
               ...(options?.sortDirection
                 ? { sortDirection: options.sortDirection }
                 : {})
@@ -343,7 +349,10 @@ export function createAdminV2Routes(
       deleteKey: (key: string) =>
         runWithEvent(dependencies, 'api_delete_admin_redis_key', async () => {
           const { client, callOptions } = await buildCallContext(dependencies);
-          return client.deleteRedisKey(create(AdminDeleteRedisKeyRequestSchema, { key }), callOptions);
+          return client.deleteRedisKey(
+            create(AdminDeleteRedisKeyRequestSchema, { key }),
+            callOptions
+          );
         }),
       getDbSize: () =>
         runWithEvent(dependencies, 'api_get_admin_redis_dbsize', async () => {
