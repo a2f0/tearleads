@@ -89,27 +89,12 @@ export function toProtoMessageType(value: string): ProtoMessageType {
   }
 }
 
-function decodeBase64ToBytes(value: string, field: string): Uint8Array {
-  const normalized = value.trim().replace(/\s+/gu, '');
-  if (normalized.length === 0) {
-    return new Uint8Array();
-  }
-
-  const decoded = Buffer.from(normalized, 'base64');
-  const withoutPadding = normalized.replace(/=+$/u, '');
-  const roundTrip = decoded.toString('base64').replace(/=+$/u, '');
-  if (roundTrip !== withoutPadding) {
-    throw new ConnectError(
-      `Invalid base64 ${field} payload from direct service`,
-      Code.Internal
-    );
-  }
-
-  return Uint8Array.from(decoded);
+export function encodeProtoBytes(value: Uint8Array): string {
+  return new TextDecoder().decode(value);
 }
 
-export function encodeProtoBytes(value: Uint8Array): string {
-  return Buffer.from(value).toString('base64');
+function decodeDirectStringToProtoBytes(value: string): Uint8Array {
+  return new TextEncoder().encode(value);
 }
 
 // ---------------------------------------------------------------------------
@@ -181,7 +166,7 @@ export function toProtoMessage(msg: MlsMessage) {
     senderUserId: msg.senderUserId ?? '',
     senderEmail: msg.senderEmail ?? '',
     epoch: BigInt(msg.epoch),
-    ciphertext: decodeBase64ToBytes(msg.ciphertext, 'ciphertext'),
+    ciphertext: decodeDirectStringToProtoBytes(msg.ciphertext),
     messageType: toProtoMessageType(msg.messageType),
     contentType: msg.contentType,
     sequenceNumber: BigInt(msg.sequenceNumber),
@@ -195,7 +180,7 @@ export function toProtoGroupState(s: MlsGroupState) {
     id: s.id,
     groupId: s.groupId,
     epoch: BigInt(s.epoch),
-    encryptedState: decodeBase64ToBytes(s.encryptedState, 'encryptedState'),
+    encryptedState: decodeDirectStringToProtoBytes(s.encryptedState),
     stateHash: s.stateHash,
     createdAt: s.createdAt
   };
@@ -206,7 +191,7 @@ export function toProtoWelcome(w: MlsWelcomeMessage) {
     id: w.id,
     groupId: w.groupId,
     groupName: w.groupName,
-    welcome: decodeBase64ToBytes(w.welcome, 'welcome'),
+    welcome: decodeDirectStringToProtoBytes(w.welcome),
     keyPackageRef: w.keyPackageRef,
     epoch: BigInt(w.epoch),
     createdAt: w.createdAt

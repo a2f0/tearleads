@@ -42,7 +42,7 @@ import {
   MlsUploadKeyPackageInputSchema,
   MlsUploadKeyPackagesRequestSchema
 } from '@tearleads/shared/gen/tearleads/v2/mls_pb';
-import { base64ToBytes } from './mlsV2Binary';
+import { stringToProtoBytes } from './mlsV2Binary';
 import {
   buildCallContext,
   createClientResolver,
@@ -228,8 +228,8 @@ export function createMlsV2Routes(
           create(MlsAddGroupMemberRequestSchema, {
             groupId,
             userId: data.userId,
-            commit: base64ToBytes(data.commit),
-            welcome: base64ToBytes(data.welcome),
+            commit: stringToProtoBytes(data.commit),
+            welcome: stringToProtoBytes(data.welcome),
             keyPackageRef: data.keyPackageRef,
             newEpoch: BigInt(data.newEpoch)
           }),
@@ -263,7 +263,7 @@ export function createMlsV2Routes(
           create(MlsRemoveGroupMemberRequestSchema, {
             groupId,
             userId,
-            commit: base64ToBytes(data.commit),
+            commit: stringToProtoBytes(data.commit),
             newEpoch: BigInt(data.newEpoch)
           }),
           callOptions
@@ -309,7 +309,7 @@ export function createMlsV2Routes(
         const response = await client.sendGroupMessage(
           create(MlsSendGroupMessageRequestSchema, {
             groupId,
-            ciphertext: base64ToBytes(data.ciphertext),
+            ciphertext: stringToProtoBytes(data.ciphertext),
             epoch: BigInt(data.epoch),
             messageType: toProtoMessageType(data.messageType),
             contentType: data.contentType ?? ''
@@ -364,7 +364,7 @@ export function createMlsV2Routes(
           create(MlsUploadGroupStateRequestSchema, {
             groupId,
             epoch: BigInt(data.epoch),
-            encryptedState: base64ToBytes(data.encryptedState),
+            encryptedState: stringToProtoBytes(data.encryptedState),
             stateHash: data.stateHash
           }),
           callOptions

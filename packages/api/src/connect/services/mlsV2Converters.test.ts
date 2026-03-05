@@ -1,4 +1,3 @@
-import { Code, ConnectError } from '@connectrpc/connect';
 import {
   MlsCipherSuite,
   MlsMessageType
@@ -45,26 +44,18 @@ describe('mlsV2Converters', () => {
     expect(converted.encryptedState).toEqual(bytes);
   });
 
-  it('throws on invalid base64 payloads from direct handlers', () => {
-    try {
-      toProtoGroupState({
-        id: 'state-1',
-        groupId: 'group-1',
-        epoch: 2,
-        encryptedState: 'not-base64***',
-        stateHash: 'hash',
-        createdAt: '2024-01-01T00:00:00.000Z'
-      });
-      throw new Error('expected conversion to fail');
-    } catch (error) {
-      expect(error).toBeInstanceOf(ConnectError);
-      if (!(error instanceof ConnectError)) {
-        throw error;
-      }
-      expect(error.message).toContain(
-        'Invalid base64 encryptedState payload from direct service'
-      );
-      expect(error.code).toBe(Code.Internal);
-    }
+  it('converts direct string payloads to UTF-8 bytes', () => {
+    const converted = toProtoGroupState({
+      id: 'state-1',
+      groupId: 'group-1',
+      epoch: 2,
+      encryptedState: 'not-base64***',
+      stateHash: 'hash',
+      createdAt: '2024-01-01T00:00:00.000Z'
+    });
+
+    expect(converted.encryptedState).toEqual(
+      new TextEncoder().encode('not-base64***')
+    );
   });
 });
