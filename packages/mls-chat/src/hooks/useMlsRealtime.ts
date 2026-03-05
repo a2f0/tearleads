@@ -8,7 +8,11 @@ import type { MlsMessage, MlsMessageType } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useMlsChatApi, useMlsChatUser, useMlsRoutes } from '../context/index.js';
+import {
+  useMlsChatApi,
+  useMlsChatUser,
+  useMlsRoutes
+} from '../context/index.js';
 import type { MlsClient, SseConnectionState } from '../lib/index.js';
 import {
   recoverMissingGroupState,

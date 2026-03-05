@@ -1,5 +1,5 @@
-import type { MlsV2Routes } from '@tearleads/api-client/mlsRoutes';
 import { Code, ConnectError } from '@connectrpc/connect';
+import type { MlsV2Routes } from '@tearleads/api-client/mlsRoutes';
 import { describe, expect, it, vi } from 'vitest';
 import {
   recoverMissingGroupState,
@@ -22,9 +22,7 @@ function createClient(): TestClient {
   };
 }
 
-function createMockRoutes(
-  overrides: Partial<MlsV2Routes> = {}
-): MlsV2Routes {
+function createMockRoutes(overrides: Partial<MlsV2Routes> = {}): MlsV2Routes {
   const notImplemented = () => {
     throw new Error('Not mocked');
   };
@@ -141,9 +139,9 @@ describe('groupStateSync', () => {
     client.hasGroup.mockReturnValue(false);
 
     const mlsRoutes = createMockRoutes({
-      getGroupState: vi.fn().mockRejectedValue(
-        new ConnectError('not found', Code.NotFound)
-      )
+      getGroupState: vi
+        .fn()
+        .mockRejectedValue(new ConnectError('not found', Code.NotFound))
     });
 
     const recovered = await recoverMissingGroupState({
@@ -161,9 +159,9 @@ describe('groupStateSync', () => {
     client.hasGroup.mockReturnValue(false);
 
     const mlsRoutes = createMockRoutes({
-      getGroupState: vi.fn().mockRejectedValue(
-        new ConnectError('forbidden', Code.PermissionDenied)
-      )
+      getGroupState: vi
+        .fn()
+        .mockRejectedValue(new ConnectError('forbidden', Code.PermissionDenied))
     });
 
     const recovered = await recoverMissingGroupState({
@@ -221,9 +219,9 @@ describe('groupStateSync', () => {
     );
 
     const mlsRoutes = createMockRoutes({
-      uploadGroupState: vi.fn().mockRejectedValue(
-        new ConnectError('conflict', Code.AlreadyExists)
-      )
+      uploadGroupState: vi
+        .fn()
+        .mockRejectedValue(new ConnectError('conflict', Code.AlreadyExists))
     });
 
     await expect(

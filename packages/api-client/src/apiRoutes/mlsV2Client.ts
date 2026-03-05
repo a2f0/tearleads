@@ -115,9 +115,7 @@ export async function runWithEvent<T>(
   }
 }
 
-export function createDefaultMlsV2Client(
-  connectBaseUrl: string
-): MlsV2Client {
+export function createDefaultMlsV2Client(connectBaseUrl: string): MlsV2Client {
   const transport = createGrpcWebTransport({
     baseUrl: connectBaseUrl,
     useBinaryFormat: true

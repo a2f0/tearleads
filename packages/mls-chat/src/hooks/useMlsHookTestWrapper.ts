@@ -51,9 +51,7 @@ function createMockMlsRoutes(): MlsV2Routes {
   };
 }
 
-export function createMlsHookWrapper(
-  mlsRoutesOverride?: Partial<MlsV2Routes>
-) {
+export function createMlsHookWrapper(mlsRoutesOverride?: Partial<MlsV2Routes>) {
   const mlsRoutes = { ...createMockMlsRoutes(), ...mlsRoutesOverride };
   return function MlsHookWrapper({ children }: { children: ReactNode }) {
     return createElement(MlsChatProvider, {

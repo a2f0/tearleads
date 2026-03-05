@@ -136,9 +136,7 @@ export function mapMemberInfoToGroupMember(
   };
 }
 
-export function mapMessageInfoToMlsMessage(
-  info: MlsMessageInfo
-): MlsMessage {
+export function mapMessageInfoToMlsMessage(info: MlsMessageInfo): MlsMessage {
   const base = {
     id: info.id,
     groupId: info.groupId,

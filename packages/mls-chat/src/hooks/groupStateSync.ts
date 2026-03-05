@@ -1,5 +1,5 @@
-import type { MlsV2Routes } from '@tearleads/api-client/mlsRoutes';
 import { Code, ConnectError } from '@connectrpc/connect';
+import type { MlsV2Routes } from '@tearleads/api-client/mlsRoutes';
 
 interface GroupStateClient {
   hasGroup(groupId: string): boolean;
@@ -35,18 +35,14 @@ async function sha256Base64(data: Uint8Array): Promise<string> {
 
 function isNotFoundOrForbidden(error: unknown): boolean {
   if (error instanceof ConnectError) {
-    return (
-      error.code === Code.NotFound || error.code === Code.PermissionDenied
-    );
+    return error.code === Code.NotFound || error.code === Code.PermissionDenied;
   }
   return false;
 }
 
 function isConflict(error: unknown): boolean {
   if (error instanceof ConnectError) {
-    return (
-      error.code === Code.AlreadyExists || error.code === Code.Aborted
-    );
+    return error.code === Code.AlreadyExists || error.code === Code.Aborted;
   }
   return false;
 }
@@ -60,7 +56,7 @@ export async function recoverMissingGroupState(input: {
     return true;
   }
 
-  let payload;
+  let payload: Awaited<ReturnType<MlsV2Routes['getGroupState']>>;
   try {
     payload = await input.mlsRoutes.getGroupState(input.groupId);
   } catch (error) {

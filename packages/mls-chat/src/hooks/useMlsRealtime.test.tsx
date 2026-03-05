@@ -393,9 +393,7 @@ describe('MLS hook refresh registration', () => {
   });
 
   it('refreshes welcome messages when welcome realtime handler runs', async () => {
-    const getWelcomeMessagesMock = vi
-      .fn()
-      .mockResolvedValue({ welcomes: [] });
+    const getWelcomeMessagesMock = vi.fn().mockResolvedValue({ welcomes: [] });
 
     const client = new MlsClient('test-user-id');
     renderHook(() => useWelcomeMessages(client), {

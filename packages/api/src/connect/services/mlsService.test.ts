@@ -146,7 +146,11 @@ describe('mlsConnectServiceV2', () => {
     });
 
     const result = await mlsConnectServiceV2.uploadKeyPackages(
-      { keyPackages: [{ keyPackageData: 'data', keyPackageRef: 'ref', cipherSuite: 3 }] },
+      {
+        keyPackages: [
+          { keyPackageData: 'data', keyPackageRef: 'ref', cipherSuite: 3 }
+        ]
+      },
       context
     );
 
@@ -227,10 +231,7 @@ describe('mlsConnectServiceV2', () => {
     });
 
     await expect(
-      mlsConnectServiceV2.uploadKeyPackages(
-        { keyPackages: [] },
-        context
-      )
+      mlsConnectServiceV2.uploadKeyPackages({ keyPackages: [] }, context)
     ).rejects.toThrow('direct service returned invalid JSON');
   });
 

@@ -37,6 +37,16 @@ import {
   acknowledgeWelcomeDirect,
   getWelcomeMessagesDirect
 } from './mlsDirectWelcomeMessages.js';
+import type {
+  V2AcknowledgeWelcomeRequest,
+  V2AddGroupMemberRequest,
+  V2CreateGroupRequest,
+  V2RemoveGroupMemberRequest,
+  V2SendGroupMessageRequest,
+  V2UpdateGroupRequest,
+  V2UploadGroupStateRequest,
+  V2UploadKeyPackagesRequest
+} from './mlsV2Converters.js';
 import {
   fromProtoCipherSuite,
   fromProtoMessageType,
@@ -47,16 +57,6 @@ import {
   toProtoMember,
   toProtoMessage,
   toProtoWelcome
-} from './mlsV2Converters.js';
-import type {
-  V2AcknowledgeWelcomeRequest,
-  V2AddGroupMemberRequest,
-  V2CreateGroupRequest,
-  V2RemoveGroupMemberRequest,
-  V2SendGroupMessageRequest,
-  V2UpdateGroupRequest,
-  V2UploadGroupStateRequest,
-  V2UploadKeyPackagesRequest
 } from './mlsV2Converters.js';
 
 // ---------------------------------------------------------------------------
@@ -178,13 +178,17 @@ export const mlsConnectServiceV2 = {
       },
       context
     );
-    const data = parseDirectJson<{ keyPackages: MlsKeyPackage[] }>(directResult);
+    const data = parseDirectJson<{ keyPackages: MlsKeyPackage[] }>(
+      directResult
+    );
     return { keyPackages: data.keyPackages.map(toProtoKeyPackage) };
   },
 
   getMyKeyPackages: async (_request: object, context: HeaderContext) => {
     const directResult = await getMyKeyPackagesDirect({}, context);
-    const data = parseDirectJson<{ keyPackages: MlsKeyPackage[] }>(directResult);
+    const data = parseDirectJson<{ keyPackages: MlsKeyPackage[] }>(
+      directResult
+    );
     return { keyPackages: data.keyPackages.map(toProtoKeyPackage) };
   },
 
@@ -193,7 +197,9 @@ export const mlsConnectServiceV2 = {
     context: HeaderContext
   ) => {
     const directResult = await getUserKeyPackagesDirect(request, context);
-    const data = parseDirectJson<{ keyPackages: MlsKeyPackage[] }>(directResult);
+    const data = parseDirectJson<{ keyPackages: MlsKeyPackage[] }>(
+      directResult
+    );
     return { keyPackages: data.keyPackages.map(toProtoKeyPackage) };
   },
 
@@ -283,10 +289,7 @@ export const mlsConnectServiceV2 = {
     return { member: toProtoMember(data.member) };
   },
 
-  getGroupMembers: async (
-    request: GroupIdRequest,
-    context: HeaderContext
-  ) => {
+  getGroupMembers: async (request: GroupIdRequest, context: HeaderContext) => {
     const directResult = await getGroupMembersDirect(request, context);
     const data = parseDirectJson<{ members: MlsGroupMember[] }>(directResult);
     return { members: data.members.map(toProtoMember) };
