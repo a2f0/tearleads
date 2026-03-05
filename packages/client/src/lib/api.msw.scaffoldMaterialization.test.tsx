@@ -1,7 +1,13 @@
 import '../test/setupIntegration';
 
 import { seedTestUser } from '@tearleads/api-test-utils';
-import { emails, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
+import {
+  albums,
+  emails,
+  files,
+  vfsLinks,
+  vfsRegistry
+} from '@tearleads/db/sqlite';
 import type { VfsCrdtSyncResponse, VfsSyncResponse } from '@tearleads/shared';
 import {
   combinePublicKey,
@@ -305,6 +311,38 @@ describe('DB scaffolding plaintext render integration', () => {
       expect.objectContaining({
         objectType: 'photo',
         encryptedName: 'Tearleads logo.svg'
+      })
+    );
+    const localAlbumEntity = await db
+      .select({
+        id: albums.id,
+        encryptedName: albums.encryptedName,
+        albumType: albums.albumType
+      })
+      .from(albums)
+      .where(eq(albums.id, seededPhotos.albumId));
+    expect(localAlbumEntity[0]).toEqual(
+      expect.objectContaining({
+        id: seededPhotos.albumId,
+        encryptedName: 'Photos shared with Alice',
+        albumType: 'custom'
+      })
+    );
+    const localPhotoEntity = await db
+      .select({
+        id: files.id,
+        name: files.name,
+        mimeType: files.mimeType,
+        deleted: files.deleted
+      })
+      .from(files)
+      .where(eq(files.id, seededPhotos.photoId));
+    expect(localPhotoEntity[0]).toEqual(
+      expect.objectContaining({
+        id: seededPhotos.photoId,
+        name: 'Tearleads logo.svg',
+        mimeType: 'image/svg+xml',
+        deleted: false
       })
     );
 
