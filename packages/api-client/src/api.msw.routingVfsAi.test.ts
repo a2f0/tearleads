@@ -8,6 +8,7 @@ import {
   AI_CONNECT_USAGE_SUMMARY_PATH,
   installAiUsageConnectSingleCapture
 } from './test/aiConnectTestUtils';
+import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOverride';
 import { getSharedTestContext } from './test/testContext';
 
 const mockLogApiEvent = vi.fn();
@@ -23,6 +24,7 @@ describe('api with msw', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    installApiV2WasmBindingsOverride();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
     const ctx = getSharedTestContext();
@@ -344,96 +346,96 @@ describe('api with msw', () => {
     await api.mls.leaveGroup(groupId);
     await api.mls.deleteKeyPackage(uploadedKeyPackageId ?? '');
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.MlsService/ListGroups')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.MlsService/ListGroups')
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.MlsService/GetGroup')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.MlsService/GetGroup')
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.MlsService/CreateGroup')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.MlsService/CreateGroup')
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.MlsService/UpdateGroup')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.MlsService/UpdateGroup')
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.MlsService/GetGroupMembers'
+        '/connect/tearleads.v2.MlsService/GetGroupMembers'
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.MlsService/AddGroupMember'
+        '/connect/tearleads.v2.MlsService/AddGroupMember'
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.MlsService/GetGroupMessages'
+        '/connect/tearleads.v2.MlsService/GetGroupMessages'
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.MlsService/SendGroupMessage'
+        '/connect/tearleads.v2.MlsService/SendGroupMessage'
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.MlsService/GetGroupState'
+        '/connect/tearleads.v2.MlsService/GetGroupState'
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.MlsService/UploadGroupState'
+        '/connect/tearleads.v2.MlsService/UploadGroupState'
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.MlsService/GetMyKeyPackages'
+        '/connect/tearleads.v2.MlsService/GetMyKeyPackages'
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.MlsService/GetUserKeyPackages'
+        '/connect/tearleads.v2.MlsService/GetUserKeyPackages'
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.MlsService/UploadKeyPackages'
+        '/connect/tearleads.v2.MlsService/UploadKeyPackages'
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.MlsService/GetWelcomeMessages'
+        '/connect/tearleads.v2.MlsService/GetWelcomeMessages'
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.MlsService/AcknowledgeWelcome'
+        '/connect/tearleads.v2.MlsService/AcknowledgeWelcome'
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.MlsService/RemoveGroupMember'
+        '/connect/tearleads.v2.MlsService/RemoveGroupMember'
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.MlsService/DeleteGroup')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.MlsService/DeleteGroup')
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.MlsService/DeleteKeyPackage'
+        '/connect/tearleads.v2.MlsService/DeleteKeyPackage'
       )
     ).toBe(true);
   });

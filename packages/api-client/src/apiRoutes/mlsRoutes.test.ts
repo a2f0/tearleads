@@ -1,47 +1,53 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-const { requestMock } = vi.hoisted(() => ({
-  requestMock: vi.fn()
+const routeMocks = vi.hoisted(() => ({
+  getGroupMessages: vi.fn(async () => ({ messages: [], hasMore: false })),
+  createGroup: vi.fn(async () => ({ group: { id: 'group-1' } }))
 }));
 
-vi.mock('../apiCore', () => ({
-  request: requestMock
+vi.mock('./mlsV2Routes', () => ({
+  mlsV2Routes: {
+    listGroups: vi.fn(),
+    getGroup: vi.fn(),
+    createGroup: routeMocks.createGroup,
+    updateGroup: vi.fn(),
+    leaveGroup: vi.fn(),
+    getGroupMembers: vi.fn(),
+    addGroupMember: vi.fn(),
+    removeGroupMember: vi.fn(),
+    getGroupMessages: routeMocks.getGroupMessages,
+    sendGroupMessage: vi.fn(),
+    getGroupState: vi.fn(),
+    uploadGroupState: vi.fn(),
+    getMyKeyPackages: vi.fn(),
+    getUserKeyPackages: vi.fn(),
+    uploadKeyPackages: vi.fn(),
+    deleteKeyPackage: vi.fn(),
+    getWelcomeMessages: vi.fn(),
+    acknowledgeWelcome: vi.fn()
+  }
 }));
 
 import { mlsRoutes } from './mlsRoutes';
 
 describe('mlsRoutes', () => {
-  beforeEach(() => {
-    requestMock.mockReset();
-    requestMock.mockResolvedValue({});
-  });
-
-  it('routes group messages through Connect without optional fields', async () => {
+  it('delegates getGroupMessages without optional fields', async () => {
     await mlsRoutes.getGroupMessages('group-1');
 
-    const [routePath, params] = requestMock.mock.calls[0] ?? [];
-    expect(routePath).toBe('/connect/tearleads.v1.MlsService/GetGroupMessages');
-    expect(params?.fetchOptions?.method).toBe('POST');
-    expect(params?.fetchOptions?.body).toBe(
-      JSON.stringify({ groupId: 'group-1' })
-    );
+    expect(routeMocks.getGroupMessages).toHaveBeenCalledWith('group-1');
   });
 
-  it('routes group messages through Connect with cursor and limit', async () => {
-    await mlsRoutes.getGroupMessages('group 2', {
-      cursor: 'cursor-5',
-      limit: 50
+  it('delegates createGroup payload without modification', async () => {
+    await mlsRoutes.createGroup({
+      name: 'MLS Group',
+      groupIdMls: 'group-id-mls',
+      cipherSuite: 3
     });
 
-    const [routePath, params] = requestMock.mock.calls[0] ?? [];
-    expect(routePath).toBe('/connect/tearleads.v1.MlsService/GetGroupMessages');
-    expect(params?.fetchOptions?.method).toBe('POST');
-    expect(params?.fetchOptions?.body).toBe(
-      JSON.stringify({
-        groupId: 'group 2',
-        cursor: 'cursor-5',
-        limit: 50
-      })
-    );
+    expect(routeMocks.createGroup).toHaveBeenCalledWith({
+      name: 'MLS Group',
+      groupIdMls: 'group-id-mls',
+      cipherSuite: 3
+    });
   });
 });
