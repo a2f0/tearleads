@@ -87,7 +87,7 @@ export function parseEnvelope<T>(body: unknown): T {
       ? envelopeOrBody['payload']
       : envelopeOrBody;
 
-  return parseConnectJsonString<T>(JSON.stringify(payloadOrBody ?? {}));
+  return (payloadOrBody ?? {}) as T;
 }
 
 async function toResponseErrorMessage(
