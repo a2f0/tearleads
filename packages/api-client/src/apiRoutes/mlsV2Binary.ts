@@ -7,7 +7,11 @@ function normalizeBase64(value: string): string {
 }
 
 function trimBase64Padding(value: string): string {
-  return value.replace(/=+$/u, '');
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 61) {
+    end -= 1;
+  }
+  return value.slice(0, end);
 }
 
 export function bytesToBase64(bytes: Uint8Array): string {
