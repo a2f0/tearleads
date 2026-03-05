@@ -13,8 +13,6 @@ overrides:
   pg: 8.18.0
   sql.js: 1.14.0
 
-packageExtensionsChecksum: 5109c12269a2602f867fc8cd8c066cf2
-
 importers:
 
   .:

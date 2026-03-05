@@ -114,18 +114,6 @@
       "pg": "8.18.0",
       "sql.js": "1.14.0"
     },
-    "packageExtensions": {
-      "@connectrpc/connect@1.7.0": {
-        "peerDependencies": {
-          "@bufbuild/protobuf": "^1.10.0 || ^2.0.0"
-        }
-      },
-      "@connectrpc/protoc-gen-connect-es@1.7.0": {
-        "peerDependencies": {
-          "@bufbuild/protoc-gen-es": "^1.10.0 || ^2.0.0"
-        }
-      }
-    },
     "peerDependencyRules": {
       "allowedVersions": {
         "@connectrpc/connect>@bufbuild/protobuf": "^2.11.0",
