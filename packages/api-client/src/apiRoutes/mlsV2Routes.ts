@@ -334,18 +334,14 @@ export function createMlsV2Routes(
         );
       }),
     getWelcomeMessages: () =>
-      runWithEvent(
-        dependencies,
-        'api_get_mls_welcome_messages',
-        async () => {
-          const { client, callOptions } = await buildCallContext(dependencies);
-          const response = await client.getWelcomeMessages(
-            create(MlsGetWelcomeMessagesRequestSchema),
-            callOptions
-          );
-          return decodePayload<MlsWelcomeMessagesResponse>(response.payload);
-        }
-      ),
+      runWithEvent(dependencies, 'api_get_mls_welcome_messages', async () => {
+        const { client, callOptions } = await buildCallContext(dependencies);
+        const response = await client.getWelcomeMessages(
+          create(MlsGetWelcomeMessagesRequestSchema),
+          callOptions
+        );
+        return decodePayload<MlsWelcomeMessagesResponse>(response.payload);
+      }),
     acknowledgeWelcome: (id: string, data: AckMlsWelcomeRequest) =>
       runWithEvent(dependencies, 'api_post_mls_welcome_ack', async () => {
         const { client, callOptions } = await buildCallContext(dependencies);

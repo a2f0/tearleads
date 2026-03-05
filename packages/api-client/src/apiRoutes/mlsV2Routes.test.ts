@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  type MlsV2Client,
   createDefaultMlsV2Client,
-  createMlsV2Routes
+  createMlsV2Routes,
+  type MlsV2Client
 } from './mlsV2Routes';
 
 const connectMocks = vi.hoisted(() => ({
