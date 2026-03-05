@@ -11,6 +11,10 @@ export function mapContextResponse(
   const organizations = Array.isArray(response['organizations'])
     ? response['organizations']
     : [];
+  const defaultOrganizationId =
+    typeof response['defaultOrganizationId'] === 'string'
+      ? response['defaultOrganizationId'].trim()
+      : '';
 
   return {
     isRootAdmin: Boolean(response['isRootAdmin']),
@@ -22,9 +26,6 @@ export function mapContextResponse(
           typeof organization['name'] === 'string' ? organization['name'] : ''
       })),
     defaultOrganizationId:
-      typeof response['defaultOrganizationId'] === 'string' &&
-      response['defaultOrganizationId'].trim().length > 0
-        ? response['defaultOrganizationId']
-        : null
+      defaultOrganizationId.length > 0 ? defaultOrganizationId : null
   };
 }
