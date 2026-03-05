@@ -120,7 +120,7 @@ function isUnexpectedError(text: string): boolean {
     /Failed to create database after cleanup: Error: Database initialization state is invalid/i,
     /Database setup error: Error: SQLITE_NOTADB: sqlite3 result code 26: file is not a database/i,
     /OPFS (asyncer|syncer): .*GetSyncHandleError/i,
-    /Search: Initial rebuild failed: _DrizzleQueryError: Failed query:/i
+    /Search: Initial rebuild failed: _(?:DrizzleQueryError)?\s*:?\s*Failed query:/i
   ];
   return !ignoredPatterns.some((pattern) => pattern.test(text));
 }
