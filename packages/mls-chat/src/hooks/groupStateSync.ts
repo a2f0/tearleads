@@ -1,9 +1,5 @@
 import type { MlsGroupStateResponse } from '@tearleads/shared';
-import {
-  parseConnectJsonEnvelopeBody,
-  parseConnectJsonString
-} from '@tearleads/shared';
-import { postMlsRpc } from './mlsConnectRpc.js';
+import { parseEnvelope, postMlsRpc } from './mlsConnectRpc.js';
 
 interface GroupStateClient {
   hasGroup(groupId: string): boolean;
@@ -69,9 +65,7 @@ export async function recoverMissingGroupState(input: {
     throw new Error(`Failed to recover MLS group state for ${input.groupId}`);
   }
 
-  const payload = parseConnectJsonString<MlsGroupStateResponse>(
-    JSON.stringify(parseConnectJsonEnvelopeBody(await response.json()))
-  );
+  const payload = parseEnvelope<MlsGroupStateResponse>(await response.json());
   if (!payload.state) {
     return false;
   }

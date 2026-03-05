@@ -1,7 +1,6 @@
 import {
   createConnectJsonPostInit,
-  parseConnectJsonEnvelopeBody,
-  parseConnectJsonString
+  parseConnectJsonEnvelopeBody
 } from '@tearleads/shared';
 
 const MLS_CONNECT_SERVICE_PATH = '/connect/tearleads.v1.MlsService';
@@ -48,9 +47,8 @@ function buildRpcUrl(context: MlsRpcContext, method: MlsRpcMethod): string {
   return `${trimTrailingSlash(context.apiBaseUrl)}${MLS_CONNECT_SERVICE_PATH}/${method}`;
 }
 
-function parseEnvelope<T>(body: unknown): T {
-  const payload = parseConnectJsonEnvelopeBody(body);
-  return parseConnectJsonString<T>(JSON.stringify(payload));
+export function parseEnvelope<T>(body: unknown): T {
+  return parseConnectJsonEnvelopeBody(body) as T;
 }
 
 async function toResponseErrorMessage(
