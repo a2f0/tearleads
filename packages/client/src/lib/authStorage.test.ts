@@ -33,15 +33,14 @@ describe('refresh token migration', () => {
   });
 
   it('migrates legacy localStorage refresh token into memory', async () => {
-    const { getStoredRefreshToken, setStoredRefreshToken } = await import(
+    const { getStoredRefreshToken, AUTH_REFRESH_TOKEN_KEY } = await import(
       './authStorage'
     );
 
-    setStoredRefreshToken('legacy-refresh-token');
-    expect(getStoredRefreshToken()).toBe('legacy-refresh-token');
-    expect(localStorage.getItem('auth_refresh_token')).toBeNull();
+    localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'legacy-refresh-token');
 
-    setStoredRefreshToken(null);
+    expect(getStoredRefreshToken()).toBe('legacy-refresh-token');
+    expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBeNull();
   });
 
   it('stores refresh token only in memory when auth is saved', async () => {
