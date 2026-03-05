@@ -3,6 +3,7 @@ import { initializeAndRestoreDatabaseState } from './useDatabaseInitialization';
 
 const mockEmitInstanceChange = vi.fn();
 const mockToError = vi.fn();
+const mockLogDebug = vi.fn();
 const mockLogWarn = vi.fn();
 const mockNotificationWarning = vi.fn();
 const mockValidateAndPruneOrphanedInstances = vi.fn();
@@ -27,6 +28,7 @@ vi.mock('@/lib/errors', () => ({
 
 vi.mock('@/stores/logStore', () => ({
   logStore: {
+    debug: (...args: unknown[]) => mockLogDebug(...args),
     warn: (...args: unknown[]) => mockLogWarn(...args)
   }
 }));
