@@ -10,6 +10,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 K8S_SCRIPTS_DIR="$REPO_ROOT/terraform/stacks/prod/k8s/scripts"
 RDS_SCRIPTS_DIR="$REPO_ROOT/terraform/stacks/prod/rds/scripts"
 S3_SCRIPTS_DIR="$REPO_ROOT/terraform/stacks/prod/s3/scripts"
+SES_SCRIPTS_DIR="$REPO_ROOT/terraform/stacks/prod/ses/scripts"
 CI_SCRIPTS_DIR="$REPO_ROOT/terraform/stacks/prod/ci-artifacts/scripts"
 
 # shellcheck disable=SC1091
@@ -34,8 +35,8 @@ usage() {
 Usage: $0 [options]
 
 One-shot production cluster bring-up with dependency ordering:
-1) ci-artifacts  2) s3  3) k8s infra  4) rds
-5) k8s bootstrap 6) buildContainers 7) rollout 8) migrate 9) smoke tests
+1) ci-artifacts  2) s3  3) ses  4) k8s infra  5) rds
+6) k8s bootstrap 7) buildContainers 8) rollout 9) migrate 10) smoke tests
 
 Options:
   --skip-build      Skip container build/push
@@ -194,6 +195,7 @@ fi
 
 run_step "Apply prod ci-artifacts (ECR + CI bucket)" "$CI_SCRIPTS_DIR/apply.sh" "${apply_args[@]}"
 run_step "Apply prod S3 (bucket + IAM credentials)" "$S3_SCRIPTS_DIR/apply.sh" "${apply_args[@]}"
+run_step "Apply prod SES (outbound email infra + DNS)" "$SES_SCRIPTS_DIR/apply.sh" "${apply_args[@]}"
 run_step "Apply prod k8s infrastructure" "$K8S_SCRIPTS_DIR/apply01.sh" "${apply_args[@]}"
 run_step "Apply prod RDS (private in k8s VPC)" "$RDS_SCRIPTS_DIR/apply.sh" "${apply_args[@]}"
 run_step "Bootstrap prod k8s and deploy manifests" "$K8S_SCRIPTS_DIR/apply02.sh"

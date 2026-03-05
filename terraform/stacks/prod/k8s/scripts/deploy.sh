@@ -62,6 +62,8 @@ require_secret_env_vars() {
     "POSTGRES_PASSWORD"
     "VFS_BLOB_S3_ACCESS_KEY_ID"
     "VFS_BLOB_S3_SECRET_ACCESS_KEY"
+    "SES_SMTP_USER"
+    "SES_SMTP_PASS"
   )
 
   local var_name
