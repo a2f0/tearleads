@@ -41,7 +41,7 @@ const MAX_SAFE_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
 
 type AdminV2CallOptions = Pick<CallOptions, 'headers'>;
 
-export interface AdminGetRowsOptions {
+interface AdminGetRowsOptions {
   limit?: number;
   offset?: number;
   sortColumn?: string;
