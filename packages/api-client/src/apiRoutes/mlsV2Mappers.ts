@@ -20,6 +20,19 @@ import {
   MlsMessageType
 } from '@tearleads/shared/gen/tearleads/v2/mls_pb';
 
+function bytesToBase64(value: Uint8Array | string): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let index = 0; index < value.length; index += chunkSize) {
+    binary += String.fromCharCode(...value.subarray(index, index + chunkSize));
+  }
+  return btoa(binary);
+}
+
 // ---------------------------------------------------------------------------
 // Enum converters
 // ---------------------------------------------------------------------------
@@ -142,7 +155,7 @@ export function mapMessageInfoToMlsMessage(info: MlsMessageInfo): MlsMessage {
     groupId: info.groupId,
     senderUserId: info.senderUserId || null,
     epoch: Number(info.epoch),
-    ciphertext: info.ciphertext,
+    ciphertext: bytesToBase64(info.ciphertext),
     messageType: fromProtoMessageType(
       info.messageType
     ) as MlsMessage['messageType'],
@@ -164,7 +177,7 @@ export function mapGroupStateInfoToMlsGroupState(
     id: info.id,
     groupId: info.groupId,
     epoch: Number(info.epoch),
-    encryptedState: info.encryptedState,
+    encryptedState: bytesToBase64(info.encryptedState),
     stateHash: info.stateHash,
     createdAt: info.createdAt
   };
@@ -177,7 +190,7 @@ export function mapWelcomeInfoToMlsWelcomeMessage(
     id: info.id,
     groupId: info.groupId,
     groupName: info.groupName,
-    welcome: info.welcome,
+    welcome: bytesToBase64(info.welcome),
     keyPackageRef: info.keyPackageRef,
     epoch: Number(info.epoch),
     createdAt: info.createdAt
