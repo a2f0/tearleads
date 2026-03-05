@@ -7,13 +7,14 @@ use serde_json::Value as JsonValue;
 use tearleads_api_domain_core::normalize_sql_identifier;
 use tearleads_api_v2_contracts::tearleads::v2::{
     AdminDeleteRedisKeyRequest, AdminDeleteRedisKeyResponse, AdminGetColumnsRequest,
-    AdminGetColumnsResponse, AdminGetPostgresInfoRequest, AdminGetPostgresInfoResponse,
-    AdminGetRedisDbSizeRequest, AdminGetRedisDbSizeResponse, AdminGetRedisKeysRequest,
-    AdminGetRedisKeysResponse, AdminGetRedisValueRequest, AdminGetRedisValueResponse,
-    AdminGetRowsRequest, AdminGetRowsResponse, AdminGetTablesRequest, AdminGetTablesResponse,
-    AdminPostgresColumnInfo, AdminPostgresConnectionInfo, AdminPostgresTableInfo,
-    AdminRedisKeyInfo, AdminRedisStringList, AdminRedisStringMap, AdminRedisValue,
-    admin_redis_value, admin_service_server::AdminService,
+    AdminGetColumnsResponse, AdminGetContextRequest, AdminGetContextResponse,
+    AdminGetPostgresInfoRequest, AdminGetPostgresInfoResponse, AdminGetRedisDbSizeRequest,
+    AdminGetRedisDbSizeResponse, AdminGetRedisKeysRequest, AdminGetRedisKeysResponse,
+    AdminGetRedisValueRequest, AdminGetRedisValueResponse, AdminGetRowsRequest,
+    AdminGetRowsResponse, AdminGetTablesRequest, AdminGetTablesResponse, AdminPostgresColumnInfo,
+    AdminPostgresConnectionInfo, AdminPostgresTableInfo, AdminRedisKeyInfo, AdminRedisStringList,
+    AdminRedisStringMap, AdminRedisValue, AdminScopeOrganization, admin_redis_value,
+    admin_service_server::AdminService,
 };
 use tearleads_data_access_traits::{
     DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository, PostgresRowsQuery,
@@ -57,6 +58,51 @@ where
     R: RedisAdminRepository + Send + Sync + 'static,
     A: AdminRequestAuthorizer + Send + Sync + 'static,
 {
+    async fn get_context(
+        &self,
+        request: Request<AdminGetContextRequest>,
+    ) -> Result<Response<AdminGetContextResponse>, Status> {
+        let admin_access = self
+            .authorizer
+            .authorize_admin_operation(AdminOperation::GetContext, request.metadata())
+            .map_err(map_admin_auth_error)?;
+        let _ = request.into_inner();
+
+        let organizations = if admin_access.is_root_admin() {
+            self.postgres_repo
+                .list_scope_organizations()
+                .await
+                .map_err(map_data_access_error)?
+        } else {
+            self.postgres_repo
+                .list_scope_organizations_by_ids(admin_access.organization_ids().to_vec())
+                .await
+                .map_err(map_data_access_error)?
+        };
+
+        let default_organization_id = if admin_access.is_root_admin() {
+            None
+        } else {
+            organizations
+                .first()
+                .map(|organization| organization.id.clone())
+        };
+
+        let organizations = organizations
+            .into_iter()
+            .map(|organization| AdminScopeOrganization {
+                id: organization.id,
+                name: organization.name,
+            })
+            .collect();
+
+        Ok(Response::new(AdminGetContextResponse {
+            is_root_admin: admin_access.is_root_admin(),
+            organizations,
+            default_organization_id,
+        }))
+    }
+
     async fn get_postgres_info(
         &self,
         request: Request<AdminGetPostgresInfoRequest>,

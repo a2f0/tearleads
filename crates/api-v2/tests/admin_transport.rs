@@ -10,10 +10,10 @@ use tearleads_api_v2_contracts::tearleads::v2::{
     admin_service_client::AdminServiceClient, admin_service_server::AdminServiceServer,
 };
 use tearleads_data_access_traits::{
-    BoxFuture, DataAccessError, PostgresAdminReadRepository, PostgresColumnInfo,
-    PostgresConnectionInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
-    PostgresTableInfo, RedisAdminRepository, RedisKeyInfo, RedisKeyScanPage, RedisKeyValueRecord,
-    RedisValue,
+    AdminScopeOrganization, BoxFuture, DataAccessError, PostgresAdminReadRepository,
+    PostgresColumnInfo, PostgresConnectionInfo, PostgresInfoSnapshot, PostgresRowsPage,
+    PostgresRowsQuery, PostgresTableInfo, RedisAdminRepository, RedisKeyInfo, RedisKeyScanPage,
+    RedisKeyValueRecord, RedisValue,
 };
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tokio_stream::wrappers::TcpListenerStream;
@@ -25,6 +25,8 @@ use tonic::{
 #[derive(Debug)]
 struct FakePostgresRepository {
     info_result: Result<PostgresInfoSnapshot, DataAccessError>,
+    scope_organizations_result: Result<Vec<AdminScopeOrganization>, DataAccessError>,
+    scope_organizations_by_ids_result: Result<Vec<AdminScopeOrganization>, DataAccessError>,
     tables_result: Result<Vec<PostgresTableInfo>, DataAccessError>,
     columns_result: Result<Vec<PostgresColumnInfo>, DataAccessError>,
     rows_result: Result<PostgresRowsPage, DataAccessError>,
@@ -34,6 +36,8 @@ impl Default for FakePostgresRepository {
     fn default() -> Self {
         Self {
             info_result: Ok(PostgresInfoSnapshot::default()),
+            scope_organizations_result: Ok(Vec::new()),
+            scope_organizations_by_ids_result: Ok(Vec::new()),
             tables_result: Ok(Vec::new()),
             columns_result: Ok(Vec::new()),
             rows_result: Ok(PostgresRowsPage {
@@ -49,6 +53,21 @@ impl Default for FakePostgresRepository {
 impl PostgresAdminReadRepository for FakePostgresRepository {
     fn get_postgres_info(&self) -> BoxFuture<'_, Result<PostgresInfoSnapshot, DataAccessError>> {
         let result = self.info_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn list_scope_organizations(
+        &self,
+    ) -> BoxFuture<'_, Result<Vec<AdminScopeOrganization>, DataAccessError>> {
+        let result = self.scope_organizations_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn list_scope_organizations_by_ids(
+        &self,
+        _organization_ids: Vec<String>,
+    ) -> BoxFuture<'_, Result<Vec<AdminScopeOrganization>, DataAccessError>> {
+        let result = self.scope_organizations_by_ids_result.clone();
         Box::pin(async move { result })
     }
 
@@ -258,6 +277,7 @@ async fn transport_round_trip_for_wave1a_admin_endpoints() {
             limit: 10,
             offset: 20,
         }),
+        ..Default::default()
     };
     let redis_repo = FakeRedisRepository {
         list_keys_result: Ok(RedisKeyScanPage {

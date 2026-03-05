@@ -10,8 +10,8 @@ use tearleads_api_v2_contracts::tearleads::v2::{
     admin_service_server::AdminService,
 };
 use tearleads_data_access_postgres::{
-    PostgresAdminGateway, PostgresAdminReadAdapter, PostgresColumnRecord, PostgresRowsPageRecord,
-    PostgresTableRecord,
+    AdminScopeOrganizationRecord, PostgresAdminGateway, PostgresAdminReadAdapter,
+    PostgresColumnRecord, PostgresRowsPageRecord, PostgresTableRecord,
 };
 use tearleads_data_access_redis::{
     RedisAdminAdapter, RedisAdminGateway, RedisKeyRecord, RedisScanResult,
@@ -23,6 +23,8 @@ use tonic::{Code, Request, metadata::MetadataValue};
 
 #[derive(Debug, Default)]
 struct PostgresGatewayCalls {
+    list_scope_organizations_calls: usize,
+    list_scope_organizations_by_ids_calls: Vec<Vec<String>>,
     list_tables_calls: usize,
     table_exists_calls: Vec<(String, String)>,
     list_columns_calls: Vec<(String, String)>,
@@ -33,6 +35,8 @@ struct PostgresGatewayCalls {
 struct FakePostgresGateway {
     connection_info: PostgresConnectionInfo,
     server_version: Option<String>,
+    scope_organizations: Vec<AdminScopeOrganizationRecord>,
+    scope_organizations_by_ids: Vec<AdminScopeOrganizationRecord>,
     tables: Vec<PostgresTableRecord>,
     table_exists: bool,
     columns: Vec<PostgresColumnRecord>,
@@ -45,6 +49,8 @@ impl Default for FakePostgresGateway {
         Self {
             connection_info: PostgresConnectionInfo::default(),
             server_version: None,
+            scope_organizations: Vec::new(),
+            scope_organizations_by_ids: Vec::new(),
             tables: Vec::new(),
             table_exists: true,
             columns: Vec::new(),
@@ -66,6 +72,25 @@ impl PostgresAdminGateway for FakePostgresGateway {
 
     fn fetch_server_version(&self) -> BoxFuture<'_, Result<Option<String>, DataAccessError>> {
         let result = self.server_version.clone();
+        Box::pin(async move { Ok(result) })
+    }
+
+    fn list_scope_organizations(
+        &self,
+    ) -> BoxFuture<'_, Result<Vec<AdminScopeOrganizationRecord>, DataAccessError>> {
+        lock_or_recover(&self.calls).list_scope_organizations_calls += 1;
+        let result = self.scope_organizations.clone();
+        Box::pin(async move { Ok(result) })
+    }
+
+    fn list_scope_organizations_by_ids(
+        &self,
+        organization_ids: &[String],
+    ) -> BoxFuture<'_, Result<Vec<AdminScopeOrganizationRecord>, DataAccessError>> {
+        lock_or_recover(&self.calls)
+            .list_scope_organizations_by_ids_calls
+            .push(organization_ids.to_vec());
+        let result = self.scope_organizations_by_ids.clone();
         Box::pin(async move { Ok(result) })
     }
 

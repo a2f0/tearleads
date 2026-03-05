@@ -5,5 +5,6 @@ mod gateway;
 
 pub use admin_read_adapter::PostgresAdminReadAdapter;
 pub use gateway::{
-    PostgresAdminGateway, PostgresColumnRecord, PostgresRowsPageRecord, PostgresTableRecord,
+    AdminScopeOrganizationRecord, PostgresAdminGateway, PostgresColumnRecord,
+    PostgresRowsPageRecord, PostgresTableRecord,
 };

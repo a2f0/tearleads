@@ -2,24 +2,29 @@ use std::sync::{Mutex, MutexGuard};
 
 use futures::executor::block_on;
 use tearleads_data_access_traits::{
-    BoxFuture, DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository,
-    PostgresConnectionInfo, PostgresRowsQuery, PostgresTableInfo,
+    AdminScopeOrganization, BoxFuture, DataAccessError, DataAccessErrorKind,
+    PostgresAdminReadRepository, PostgresConnectionInfo, PostgresRowsQuery, PostgresTableInfo,
 };
 
 use super::PostgresAdminReadAdapter;
 use crate::{
-    PostgresAdminGateway, PostgresColumnRecord, PostgresRowsPageRecord, PostgresTableRecord,
+    AdminScopeOrganizationRecord, PostgresAdminGateway, PostgresColumnRecord,
+    PostgresRowsPageRecord, PostgresTableRecord,
 };
 
 #[derive(Debug)]
 struct FakeGateway {
     connection_info: PostgresConnectionInfo,
     server_version_result: Result<Option<String>, DataAccessError>,
+    scope_organizations_result: Result<Vec<AdminScopeOrganizationRecord>, DataAccessError>,
+    scoped_organizations_by_ids_result: Result<Vec<AdminScopeOrganizationRecord>, DataAccessError>,
     tables_result: Result<Vec<PostgresTableRecord>, DataAccessError>,
     table_exists_result: Result<bool, DataAccessError>,
     columns_result: Result<Vec<PostgresColumnRecord>, DataAccessError>,
     rows_result: Result<PostgresRowsPageRecord, DataAccessError>,
     table_exists_calls: Mutex<Vec<(String, String)>>,
+    list_scope_organizations_calls: Mutex<usize>,
+    list_scope_organizations_by_ids_calls: Mutex<Vec<Vec<String>>>,
     list_columns_calls: Mutex<Vec<(String, String)>>,
     list_rows_calls: Mutex<Vec<PostgresRowsQuery>>,
 }
@@ -29,6 +34,8 @@ impl Default for FakeGateway {
         Self {
             connection_info: PostgresConnectionInfo::default(),
             server_version_result: Ok(None),
+            scope_organizations_result: Ok(Vec::new()),
+            scoped_organizations_by_ids_result: Ok(Vec::new()),
             tables_result: Ok(Vec::new()),
             table_exists_result: Ok(true),
             columns_result: Ok(Vec::new()),
@@ -39,6 +46,8 @@ impl Default for FakeGateway {
                 offset: 0,
             }),
             table_exists_calls: Mutex::new(Vec::new()),
+            list_scope_organizations_calls: Mutex::new(0),
+            list_scope_organizations_by_ids_calls: Mutex::new(Vec::new()),
             list_columns_calls: Mutex::new(Vec::new()),
             list_rows_calls: Mutex::new(Vec::new()),
         }
@@ -57,6 +66,14 @@ impl FakeGateway {
     fn list_rows_calls(&self) -> Vec<PostgresRowsQuery> {
         lock_or_recover(&self.list_rows_calls).clone()
     }
+
+    fn list_scope_organizations_calls(&self) -> usize {
+        *lock_or_recover(&self.list_scope_organizations_calls)
+    }
+
+    fn list_scope_organizations_by_ids_calls(&self) -> Vec<Vec<String>> {
+        lock_or_recover(&self.list_scope_organizations_by_ids_calls).clone()
+    }
 }
 
 impl PostgresAdminGateway for FakeGateway {
@@ -71,6 +88,24 @@ impl PostgresAdminGateway for FakeGateway {
 
     fn list_tables(&self) -> BoxFuture<'_, Result<Vec<PostgresTableRecord>, DataAccessError>> {
         let result = self.tables_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn list_scope_organizations(
+        &self,
+    ) -> BoxFuture<'_, Result<Vec<AdminScopeOrganizationRecord>, DataAccessError>> {
+        *lock_or_recover(&self.list_scope_organizations_calls) += 1;
+        let result = self.scope_organizations_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn list_scope_organizations_by_ids(
+        &self,
+        organization_ids: &[String],
+    ) -> BoxFuture<'_, Result<Vec<AdminScopeOrganizationRecord>, DataAccessError>> {
+        lock_or_recover(&self.list_scope_organizations_by_ids_calls)
+            .push(organization_ids.to_vec());
+        let result = self.scoped_organizations_by_ids_result.clone();
         Box::pin(async move { result })
     }
 
@@ -162,6 +197,65 @@ fn list_tables_maps_gateway_rows() {
             table_bytes: 1024,
             index_bytes: 1024,
         }]
+    );
+}
+
+#[test]
+fn list_scope_organizations_maps_gateway_rows() {
+    let gateway = FakeGateway {
+        scope_organizations_result: Ok(vec![AdminScopeOrganizationRecord {
+            id: String::from("org-1"),
+            name: String::from("Alpha"),
+        }]),
+        ..Default::default()
+    };
+
+    let adapter = PostgresAdminReadAdapter::new(gateway);
+    let result = block_on(adapter.list_scope_organizations());
+    let organizations = match result {
+        Ok(value) => value,
+        Err(error) => panic!("scope organization listing should succeed, got: {error}"),
+    };
+
+    assert_eq!(
+        organizations,
+        vec![AdminScopeOrganization {
+            id: String::from("org-1"),
+            name: String::from("Alpha"),
+        }]
+    );
+    assert_eq!(adapter.gateway.list_scope_organizations_calls(), 1);
+}
+
+#[test]
+fn list_scope_organizations_by_ids_forwards_ids_and_maps_gateway_rows() {
+    let gateway = FakeGateway {
+        scoped_organizations_by_ids_result: Ok(vec![AdminScopeOrganizationRecord {
+            id: String::from("org-2"),
+            name: String::from("Beta"),
+        }]),
+        ..Default::default()
+    };
+    let adapter = PostgresAdminReadAdapter::new(gateway);
+
+    let result = block_on(
+        adapter.list_scope_organizations_by_ids(vec![String::from("org-2"), String::from("org-1")]),
+    );
+    let organizations = match result {
+        Ok(value) => value,
+        Err(error) => panic!("scoped organization listing should succeed, got: {error}"),
+    };
+
+    assert_eq!(
+        organizations,
+        vec![AdminScopeOrganization {
+            id: String::from("org-2"),
+            name: String::from("Beta"),
+        }]
+    );
+    assert_eq!(
+        adapter.gateway.list_scope_organizations_by_ids_calls(),
+        vec![vec![String::from("org-2"), String::from("org-1")]]
     );
 }
 
