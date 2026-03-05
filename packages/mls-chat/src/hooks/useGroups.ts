@@ -3,21 +3,16 @@
  * Handles listing, creating, and managing group membership.
  */
 
-import type {
-  CreateMlsGroupResponse,
-  MlsGroup,
-  MlsGroupsResponse
-} from '@tearleads/shared';
+import type { CreateMlsGroupRequest, MlsGroup } from '@tearleads/shared';
 import { MLS_CIPHERSUITES } from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
 
-import { useMlsChatApi } from '../context/index.js';
+import { useMlsRoutes } from '../context/index.js';
 import type { ActiveGroup, MlsClient } from '../lib/index.js';
 import {
   recoverMissingGroupState,
   uploadGroupStateSnapshot
 } from './groupStateSync.js';
-import { requestMlsRpc } from './mlsConnectRpc.js';
 
 interface UseGroupsResult {
   groups: ActiveGroup[];
@@ -29,7 +24,7 @@ interface UseGroupsResult {
 }
 
 export function useGroups(client: MlsClient | null): UseGroupsResult {
-  const { apiBaseUrl, getAuthHeader } = useMlsChatApi();
+  const mlsRoutes = useMlsRoutes();
 
   const [groups, setGroups] = useState<ActiveGroup[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -40,12 +35,7 @@ export function useGroups(client: MlsClient | null): UseGroupsResult {
     setError(null);
 
     try {
-      const data = await requestMlsRpc<MlsGroupsResponse>({
-        context: { apiBaseUrl, getAuthHeader },
-        method: 'ListGroups',
-        requestBody: {},
-        errorMessage: 'Failed to fetch groups'
-      });
+      const data = await mlsRoutes.listGroups();
 
       if (client) {
         await Promise.all(
@@ -57,8 +47,7 @@ export function useGroups(client: MlsClient | null): UseGroupsResult {
               await recoverMissingGroupState({
                 groupId: group.id,
                 client,
-                apiBaseUrl,
-                getAuthHeader
+                mlsRoutes
               });
             } catch (recoverError) {
               console.warn(
@@ -90,7 +79,7 @@ export function useGroups(client: MlsClient | null): UseGroupsResult {
     } finally {
       setIsLoading(false);
     }
-  }, [apiBaseUrl, getAuthHeader, client]);
+  }, [mlsRoutes, client]);
 
   const createGroup = useCallback(
     async (name: string, description?: string): Promise<MlsGroup> => {
@@ -100,26 +89,16 @@ export function useGroups(client: MlsClient | null): UseGroupsResult {
 
       // Create group on server first to get the group ID
       const groupIdMls = client.generateGroupIdMls();
-      const body: {
-        name: string;
-        description?: string;
-        groupIdMls: string;
-        cipherSuite: number;
-      } = {
+
+      const createRequest: CreateMlsGroupRequest = {
         name,
         groupIdMls,
         cipherSuite: MLS_CIPHERSUITES.X25519_CHACHA20_SHA256_ED25519
       };
-      if (description) {
-        body.description = description;
+      if (description !== undefined) {
+        createRequest.description = description;
       }
-
-      const data = await requestMlsRpc<CreateMlsGroupResponse>({
-        context: { apiBaseUrl, getAuthHeader },
-        method: 'CreateGroup',
-        requestBody: { json: JSON.stringify(body) },
-        errorMessage: 'Failed to create group'
-      });
+      const data = await mlsRoutes.createGroup(createRequest);
 
       // Initialize MLS group state locally
       await client.createGroup(data.group.id);
@@ -127,8 +106,7 @@ export function useGroups(client: MlsClient | null): UseGroupsResult {
         await uploadGroupStateSnapshot({
           groupId: data.group.id,
           client,
-          apiBaseUrl,
-          getAuthHeader
+          mlsRoutes
         });
       } catch (uploadError) {
         console.warn(
@@ -152,17 +130,12 @@ export function useGroups(client: MlsClient | null): UseGroupsResult {
 
       return data.group;
     },
-    [client, apiBaseUrl, getAuthHeader]
+    [client, mlsRoutes]
   );
 
   const leaveGroup = useCallback(
     async (groupId: string) => {
-      await requestMlsRpc<unknown>({
-        context: { apiBaseUrl, getAuthHeader },
-        method: 'DeleteGroup',
-        requestBody: { groupId },
-        errorMessage: 'Failed to leave group'
-      });
+      await mlsRoutes.leaveGroup(groupId);
 
       // Clean up local state
       if (client) {
@@ -171,7 +144,7 @@ export function useGroups(client: MlsClient | null): UseGroupsResult {
 
       setGroups((prev) => prev.filter((g) => g.id !== groupId));
     },
-    [apiBaseUrl, getAuthHeader, client]
+    [mlsRoutes, client]
   );
 
   useEffect(() => {

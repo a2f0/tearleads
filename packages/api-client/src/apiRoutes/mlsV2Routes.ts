@@ -1,10 +1,4 @@
-import { create, type JsonObject } from '@bufbuild/protobuf';
-import {
-  type CallOptions,
-  type Client,
-  createClient
-} from '@connectrpc/connect';
-import { createGrpcWebTransport } from '@connectrpc/connect-web';
+import { create } from '@bufbuild/protobuf';
 import type {
   AckMlsWelcomeRequest,
   AddMlsMemberRequest,
@@ -27,7 +21,6 @@ import type {
   UploadMlsStateRequest,
   UploadMlsStateResponse
 } from '@tearleads/shared';
-import { parseConnectJsonString } from '@tearleads/shared';
 import {
   MlsAcknowledgeWelcomeRequestSchema,
   MlsAddGroupMemberRequestSchema,
@@ -44,137 +37,34 @@ import {
   MlsListGroupsRequestSchema,
   MlsRemoveGroupMemberRequestSchema,
   MlsSendGroupMessageRequestSchema,
-  MlsService,
   MlsUpdateGroupRequestSchema,
   MlsUploadGroupStateRequestSchema,
+  MlsUploadKeyPackageInputSchema,
   MlsUploadKeyPackagesRequestSchema
 } from '@tearleads/shared/gen/tearleads/v2/mls_pb';
-import { API_BASE_URL } from '../apiCore';
-import { type ApiEventSlug, logApiEvent } from '../apiLogger';
 import {
-  type ApiV2RequestHeaderOptions,
-  buildApiV2RequestHeaders,
-  normalizeApiV2ConnectBaseUrl
-} from '../apiV2ClientWasm';
-import { getAuthHeaderValue } from '../authStorage';
+  buildCallContext,
+  createClientResolver,
+  createDefaultDependencies,
+  type MlsV2RoutesDependencies,
+  runWithEvent
+} from './mlsV2Client';
+export type { MlsV2Client } from './mlsV2Client';
+export { createDefaultMlsV2Client } from './mlsV2Client';
+import {
+  mapGroupInfoToMlsGroup,
+  mapGroupStateInfoToMlsGroupState,
+  mapKeyPackageEntryToMlsKeyPackage,
+  mapMemberInfoToGroupMember,
+  mapMessageInfoToMlsMessage,
+  mapWelcomeInfoToMlsWelcomeMessage,
+  toProtoCipherSuite,
+  toProtoMessageType
+} from './mlsV2Mappers';
 
-type MlsV2CallOptions = Pick<CallOptions, 'headers'>;
-
-export type MlsV2Client = Client<typeof MlsService>;
-
-interface MlsV2RoutesDependencies {
-  resolveApiBaseUrl: () => string;
-  normalizeConnectBaseUrl: (apiBaseUrl: string) => Promise<string>;
-  buildHeaders: (
-    options: ApiV2RequestHeaderOptions
-  ) => Promise<Record<string, string>>;
-  getAuthHeaderValue: () => string | null;
-  createClient: (connectBaseUrl: string) => MlsV2Client;
-  logEvent: (
-    eventName: ApiEventSlug,
-    durationMs: number,
-    success: boolean
-  ) => Promise<void>;
-}
-
-function createDefaultDependencies(): MlsV2RoutesDependencies {
-  return {
-    resolveApiBaseUrl: () => {
-      if (!API_BASE_URL) {
-        throw new Error('VITE_API_URL environment variable is not set');
-      }
-      return API_BASE_URL;
-    },
-    normalizeConnectBaseUrl: normalizeApiV2ConnectBaseUrl,
-    buildHeaders: buildApiV2RequestHeaders,
-    getAuthHeaderValue,
-    createClient: createDefaultMlsV2Client,
-    logEvent: logApiEvent
-  };
-}
-
-function toCallOptions(headers: Record<string, string>): MlsV2CallOptions {
-  if (Object.keys(headers).length === 0) {
-    return {};
-  }
-
-  return { headers };
-}
-
-function encodePayload(payload: object): JsonObject {
-  return parseConnectJsonString<JsonObject>(JSON.stringify(payload));
-}
-
-function decodePayload<T>(payload: JsonObject | undefined): T {
-  return parseConnectJsonString<T>(JSON.stringify(payload ?? {}));
-}
-
-function createClientResolver(
-  dependencies: MlsV2RoutesDependencies
-): () => Promise<MlsV2Client> {
-  let pendingClient: Promise<MlsV2Client> | null = null;
-
-  return async () => {
-    if (pendingClient) {
-      return pendingClient;
-    }
-
-    const unresolvedClient = (async () => {
-      const connectBaseUrl = await dependencies.normalizeConnectBaseUrl(
-        dependencies.resolveApiBaseUrl()
-      );
-      return dependencies.createClient(connectBaseUrl);
-    })();
-
-    pendingClient = unresolvedClient.catch((error: unknown) => {
-      pendingClient = null;
-      throw error;
-    });
-
-    return pendingClient;
-  };
-}
-
-async function buildCallContext(
-  dependencies: MlsV2RoutesDependencies,
-  getClient: () => Promise<MlsV2Client>
-): Promise<{ client: MlsV2Client; callOptions: MlsV2CallOptions }> {
-  const client = await getClient();
-  const headers = await dependencies.buildHeaders({
-    bearerToken: dependencies.getAuthHeaderValue()
-  });
-
-  return {
-    client,
-    callOptions: toCallOptions(headers)
-  };
-}
-
-async function runWithEvent<T>(
-  dependencies: MlsV2RoutesDependencies,
-  eventName: ApiEventSlug,
-  operation: () => Promise<T>
-): Promise<T> {
-  const start = performance.now();
-  let success = false;
-
-  try {
-    const response = await operation();
-    success = true;
-    return response;
-  } finally {
-    await dependencies.logEvent(eventName, performance.now() - start, success);
-  }
-}
-
-export function createDefaultMlsV2Client(connectBaseUrl: string): MlsV2Client {
-  const transport = createGrpcWebTransport({
-    baseUrl: connectBaseUrl,
-    useBinaryFormat: true
-  });
-
-  return createClient(MlsService, transport);
-}
+// ---------------------------------------------------------------------------
+// Routes
+// ---------------------------------------------------------------------------
 
 export function createMlsV2Routes(
   overrides: Partial<MlsV2RoutesDependencies> = {}
@@ -186,7 +76,7 @@ export function createMlsV2Routes(
   const getClient = createClientResolver(dependencies);
 
   return {
-    listGroups: () =>
+    listGroups: (): Promise<MlsGroupsResponse> =>
       runWithEvent(dependencies, 'api_get_mls_groups', async () => {
         const { client, callOptions } = await buildCallContext(
           dependencies,
@@ -196,9 +86,10 @@ export function createMlsV2Routes(
           create(MlsListGroupsRequestSchema),
           callOptions
         );
-        return decodePayload<MlsGroupsResponse>(response.payload);
+        return { groups: response.groups.map(mapGroupInfoToMlsGroup) };
       }),
-    getGroup: (groupId: string) =>
+
+    getGroup: (groupId: string): Promise<MlsGroupResponse> =>
       runWithEvent(dependencies, 'api_get_mls_group', async () => {
         const { client, callOptions } = await buildCallContext(
           dependencies,
@@ -208,9 +99,27 @@ export function createMlsV2Routes(
           create(MlsGetGroupRequestSchema, { groupId }),
           callOptions
         );
-        return decodePayload<MlsGroupResponse>(response.payload);
+        return {
+          group: response.group
+            ? mapGroupInfoToMlsGroup(response.group)
+            : {
+                id: '',
+                groupIdMls: '',
+                name: '',
+                description: null,
+                creatorUserId: '',
+                currentEpoch: 0,
+                cipherSuite: 1,
+                createdAt: '',
+                updatedAt: ''
+              },
+          members: response.members.map(mapMemberInfoToGroupMember)
+        };
       }),
-    createGroup: (data: CreateMlsGroupRequest) =>
+
+    createGroup: (
+      data: CreateMlsGroupRequest
+    ): Promise<CreateMlsGroupResponse> =>
       runWithEvent(dependencies, 'api_post_mls_group', async () => {
         const { client, callOptions } = await buildCallContext(
           dependencies,
@@ -218,13 +127,34 @@ export function createMlsV2Routes(
         );
         const response = await client.createGroup(
           create(MlsCreateGroupRequestSchema, {
-            payload: encodePayload(data)
+            name: data.name,
+            description: data.description ?? '',
+            groupIdMls: data.groupIdMls,
+            cipherSuite: toProtoCipherSuite(data.cipherSuite)
           }),
           callOptions
         );
-        return decodePayload<CreateMlsGroupResponse>(response.payload);
+        return {
+          group: response.group
+            ? mapGroupInfoToMlsGroup(response.group)
+            : {
+                id: '',
+                groupIdMls: '',
+                name: data.name,
+                description: null,
+                creatorUserId: '',
+                currentEpoch: 0,
+                cipherSuite: data.cipherSuite,
+                createdAt: '',
+                updatedAt: ''
+              }
+        };
       }),
-    updateGroup: (groupId: string, data: UpdateMlsGroupRequest) =>
+
+    updateGroup: (
+      groupId: string,
+      data: UpdateMlsGroupRequest
+    ): Promise<CreateMlsGroupResponse> =>
       runWithEvent(dependencies, 'api_patch_mls_group', async () => {
         const { client, callOptions } = await buildCallContext(
           dependencies,
@@ -233,13 +163,29 @@ export function createMlsV2Routes(
         const response = await client.updateGroup(
           create(MlsUpdateGroupRequestSchema, {
             groupId,
-            payload: encodePayload(data)
+            name: data.name ?? '',
+            description: data.description ?? ''
           }),
           callOptions
         );
-        return decodePayload<CreateMlsGroupResponse>(response.payload);
+        return {
+          group: response.group
+            ? mapGroupInfoToMlsGroup(response.group)
+            : {
+                id: groupId,
+                groupIdMls: '',
+                name: '',
+                description: null,
+                creatorUserId: '',
+                currentEpoch: 0,
+                cipherSuite: 1,
+                createdAt: '',
+                updatedAt: ''
+              }
+        };
       }),
-    leaveGroup: (groupId: string) =>
+
+    leaveGroup: (groupId: string): Promise<void> =>
       runWithEvent(dependencies, 'api_delete_mls_group', async () => {
         const { client, callOptions } = await buildCallContext(
           dependencies,
@@ -250,7 +196,8 @@ export function createMlsV2Routes(
           callOptions
         );
       }),
-    getGroupMembers: (groupId: string) =>
+
+    getGroupMembers: (groupId: string): Promise<MlsGroupMembersResponse> =>
       runWithEvent(dependencies, 'api_get_mls_group_members', async () => {
         const { client, callOptions } = await buildCallContext(
           dependencies,
@@ -260,9 +207,15 @@ export function createMlsV2Routes(
           create(MlsGetGroupMembersRequestSchema, { groupId }),
           callOptions
         );
-        return decodePayload<MlsGroupMembersResponse>(response.payload);
+        return {
+          members: response.members.map(mapMemberInfoToGroupMember)
+        };
       }),
-    addGroupMember: (groupId: string, data: AddMlsMemberRequest) =>
+
+    addGroupMember: (
+      groupId: string,
+      data: AddMlsMemberRequest
+    ): Promise<AddMlsMemberResponse> =>
       runWithEvent(dependencies, 'api_post_mls_group_member', async () => {
         const { client, callOptions } = await buildCallContext(
           dependencies,
@@ -271,17 +224,33 @@ export function createMlsV2Routes(
         const response = await client.addGroupMember(
           create(MlsAddGroupMemberRequestSchema, {
             groupId,
-            payload: encodePayload(data)
+            userId: data.userId,
+            commit: data.commit,
+            welcome: data.welcome,
+            keyPackageRef: data.keyPackageRef,
+            newEpoch: BigInt(data.newEpoch)
           }),
           callOptions
         );
-        return decodePayload<AddMlsMemberResponse>(response.payload);
+        return {
+          member: response.member
+            ? mapMemberInfoToGroupMember(response.member)
+            : {
+                userId: data.userId,
+                email: '',
+                leafIndex: null,
+                role: 'member',
+                joinedAt: '',
+                joinedAtEpoch: 0
+              }
+        };
       }),
+
     removeGroupMember: (
       groupId: string,
       userId: string,
       data: RemoveMlsMemberRequest
-    ) =>
+    ): Promise<void> =>
       runWithEvent(dependencies, 'api_delete_mls_group_member', async () => {
         const { client, callOptions } = await buildCallContext(
           dependencies,
@@ -291,15 +260,17 @@ export function createMlsV2Routes(
           create(MlsRemoveGroupMemberRequestSchema, {
             groupId,
             userId,
-            payload: encodePayload(data)
+            commit: data.commit,
+            newEpoch: BigInt(data.newEpoch)
           }),
           callOptions
         );
       }),
+
     getGroupMessages: (
       groupId: string,
       options?: { cursor?: string; limit?: number }
-    ) =>
+    ): Promise<MlsMessagesResponse> =>
       runWithEvent(dependencies, 'api_get_mls_group_messages', async () => {
         const { client, callOptions } = await buildCallContext(
           dependencies,
@@ -313,9 +284,20 @@ export function createMlsV2Routes(
           }),
           callOptions
         );
-        return decodePayload<MlsMessagesResponse>(response.payload);
+        const messagesResult: MlsMessagesResponse = {
+          messages: response.messages.map(mapMessageInfoToMlsMessage),
+          hasMore: response.hasMore
+        };
+        if (response.cursor) {
+          messagesResult.cursor = response.cursor;
+        }
+        return messagesResult;
       }),
-    sendGroupMessage: (groupId: string, data: SendMlsMessageRequest) =>
+
+    sendGroupMessage: (
+      groupId: string,
+      data: SendMlsMessageRequest
+    ): Promise<SendMlsMessageResponse> =>
       runWithEvent(dependencies, 'api_post_mls_group_message', async () => {
         const { client, callOptions } = await buildCallContext(
           dependencies,
@@ -324,13 +306,32 @@ export function createMlsV2Routes(
         const response = await client.sendGroupMessage(
           create(MlsSendGroupMessageRequestSchema, {
             groupId,
-            payload: encodePayload(data)
+            ciphertext: data.ciphertext,
+            epoch: BigInt(data.epoch),
+            messageType: toProtoMessageType(data.messageType),
+            contentType: data.contentType ?? ''
           }),
           callOptions
         );
-        return decodePayload<SendMlsMessageResponse>(response.payload);
+        return {
+          message: response.message
+            ? mapMessageInfoToMlsMessage(response.message)
+            : {
+                id: '',
+                groupId,
+                senderUserId: null,
+                epoch: data.epoch,
+                ciphertext: data.ciphertext,
+                messageType: data.messageType,
+                contentType: data.contentType ?? 'text/plain',
+                sequenceNumber: 0,
+                sentAt: '',
+                createdAt: ''
+              }
+        };
       }),
-    getGroupState: (groupId: string) =>
+
+    getGroupState: (groupId: string): Promise<MlsGroupStateResponse> =>
       runWithEvent(dependencies, 'api_get_mls_group_state', async () => {
         const { client, callOptions } = await buildCallContext(
           dependencies,
@@ -340,9 +341,17 @@ export function createMlsV2Routes(
           create(MlsGetGroupStateRequestSchema, { groupId }),
           callOptions
         );
-        return decodePayload<MlsGroupStateResponse>(response.payload);
+        return {
+          state: response.state
+            ? mapGroupStateInfoToMlsGroupState(response.state)
+            : null
+        };
       }),
-    uploadGroupState: (groupId: string, data: UploadMlsStateRequest) =>
+
+    uploadGroupState: (
+      groupId: string,
+      data: UploadMlsStateRequest
+    ): Promise<UploadMlsStateResponse> =>
       runWithEvent(dependencies, 'api_post_mls_group_state', async () => {
         const { client, callOptions } = await buildCallContext(
           dependencies,
@@ -351,13 +360,27 @@ export function createMlsV2Routes(
         const response = await client.uploadGroupState(
           create(MlsUploadGroupStateRequestSchema, {
             groupId,
-            payload: encodePayload(data)
+            epoch: BigInt(data.epoch),
+            encryptedState: data.encryptedState,
+            stateHash: data.stateHash
           }),
           callOptions
         );
-        return decodePayload<UploadMlsStateResponse>(response.payload);
+        return {
+          state: response.state
+            ? mapGroupStateInfoToMlsGroupState(response.state)
+            : {
+                id: '',
+                groupId,
+                epoch: data.epoch,
+                encryptedState: data.encryptedState,
+                stateHash: data.stateHash,
+                createdAt: ''
+              }
+        };
       }),
-    getMyKeyPackages: () =>
+
+    getMyKeyPackages: (): Promise<MlsKeyPackagesResponse> =>
       runWithEvent(dependencies, 'api_get_mls_key_packages_me', async () => {
         const { client, callOptions } = await buildCallContext(
           dependencies,
@@ -367,9 +390,14 @@ export function createMlsV2Routes(
           create(MlsGetMyKeyPackagesRequestSchema),
           callOptions
         );
-        return decodePayload<MlsKeyPackagesResponse>(response.payload);
+        return {
+          keyPackages: response.keyPackages.map(
+            mapKeyPackageEntryToMlsKeyPackage
+          )
+        };
       }),
-    getUserKeyPackages: (userId: string) =>
+
+    getUserKeyPackages: (userId: string): Promise<MlsKeyPackagesResponse> =>
       runWithEvent(dependencies, 'api_get_mls_key_packages_user', async () => {
         const { client, callOptions } = await buildCallContext(
           dependencies,
@@ -379,9 +407,16 @@ export function createMlsV2Routes(
           create(MlsGetUserKeyPackagesRequestSchema, { userId }),
           callOptions
         );
-        return decodePayload<MlsKeyPackagesResponse>(response.payload);
+        return {
+          keyPackages: response.keyPackages.map(
+            mapKeyPackageEntryToMlsKeyPackage
+          )
+        };
       }),
-    uploadKeyPackages: (data: UploadMlsKeyPackagesRequest) =>
+
+    uploadKeyPackages: (
+      data: UploadMlsKeyPackagesRequest
+    ): Promise<UploadMlsKeyPackagesResponse> =>
       runWithEvent(dependencies, 'api_post_mls_key_packages', async () => {
         const { client, callOptions } = await buildCallContext(
           dependencies,
@@ -389,13 +424,24 @@ export function createMlsV2Routes(
         );
         const response = await client.uploadKeyPackages(
           create(MlsUploadKeyPackagesRequestSchema, {
-            payload: encodePayload(data)
+            keyPackages: data.keyPackages.map((kp) =>
+              create(MlsUploadKeyPackageInputSchema, {
+                keyPackageData: kp.keyPackageData,
+                keyPackageRef: kp.keyPackageRef,
+                cipherSuite: toProtoCipherSuite(kp.cipherSuite)
+              })
+            )
           }),
           callOptions
         );
-        return decodePayload<UploadMlsKeyPackagesResponse>(response.payload);
+        return {
+          keyPackages: response.keyPackages.map(
+            mapKeyPackageEntryToMlsKeyPackage
+          )
+        };
       }),
-    deleteKeyPackage: (id: string) =>
+
+    deleteKeyPackage: (id: string): Promise<void> =>
       runWithEvent(dependencies, 'api_delete_mls_key_package', async () => {
         const { client, callOptions } = await buildCallContext(
           dependencies,
@@ -406,7 +452,8 @@ export function createMlsV2Routes(
           callOptions
         );
       }),
-    getWelcomeMessages: () =>
+
+    getWelcomeMessages: (): Promise<MlsWelcomeMessagesResponse> =>
       runWithEvent(dependencies, 'api_get_mls_welcome_messages', async () => {
         const { client, callOptions } = await buildCallContext(
           dependencies,
@@ -416,24 +463,32 @@ export function createMlsV2Routes(
           create(MlsGetWelcomeMessagesRequestSchema),
           callOptions
         );
-        return decodePayload<MlsWelcomeMessagesResponse>(response.payload);
+        return {
+          welcomes: response.welcomes.map(mapWelcomeInfoToMlsWelcomeMessage)
+        };
       }),
-    acknowledgeWelcome: (id: string, data: AckMlsWelcomeRequest) =>
+
+    acknowledgeWelcome: (
+      id: string,
+      data: AckMlsWelcomeRequest
+    ): Promise<{ acknowledged: boolean }> =>
       runWithEvent(dependencies, 'api_post_mls_welcome_ack', async () => {
         const { client, callOptions } = await buildCallContext(
           dependencies,
           getClient
         );
-        const response = await client.acknowledgeWelcome(
+        await client.acknowledgeWelcome(
           create(MlsAcknowledgeWelcomeRequestSchema, {
             id,
-            payload: encodePayload(data)
+            groupId: data.groupId
           }),
           callOptions
         );
-        return decodePayload<{ acknowledged: boolean }>(response.payload);
+        return { acknowledged: true };
       })
   };
 }
+
+export type MlsV2Routes = ReturnType<typeof createMlsV2Routes>;
 
 export const mlsV2Routes = createMlsV2Routes();

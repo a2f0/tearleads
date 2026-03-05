@@ -1,16 +1,11 @@
-import type { MlsGroupStateResponse } from '@tearleads/shared';
-import { parseEnvelope, postMlsRpc } from './mlsConnectRpc.js';
+import type { MlsV2Routes } from '@tearleads/api-client';
+import { Code, ConnectError } from '@connectrpc/connect';
 
 interface GroupStateClient {
   hasGroup(groupId: string): boolean;
   importGroupState(groupId: string, serializedState: Uint8Array): Promise<void>;
   exportGroupState(groupId: string): Promise<Uint8Array>;
   getGroupEpoch(groupId: string): number | undefined;
-}
-
-interface GroupStateRequestContext {
-  apiBaseUrl: string;
-  getAuthHeader: (() => string | null) | undefined;
 }
 
 function bytesToBase64(data: Uint8Array): string {
@@ -38,34 +33,43 @@ async function sha256Base64(data: Uint8Array): Promise<string> {
   return bytesToBase64(new Uint8Array(digest));
 }
 
+function isNotFoundOrForbidden(error: unknown): boolean {
+  if (error instanceof ConnectError) {
+    return (
+      error.code === Code.NotFound || error.code === Code.PermissionDenied
+    );
+  }
+  return false;
+}
+
+function isConflict(error: unknown): boolean {
+  if (error instanceof ConnectError) {
+    return (
+      error.code === Code.AlreadyExists || error.code === Code.Aborted
+    );
+  }
+  return false;
+}
+
 export async function recoverMissingGroupState(input: {
   groupId: string;
   client: GroupStateClient;
-  apiBaseUrl: string;
-  getAuthHeader: (() => string | null) | undefined;
+  mlsRoutes: MlsV2Routes;
 }): Promise<boolean> {
   if (input.client.hasGroup(input.groupId)) {
     return true;
   }
 
-  const context: GroupStateRequestContext = {
-    apiBaseUrl: input.apiBaseUrl,
-    getAuthHeader: input.getAuthHeader
-  };
-
-  const response = await postMlsRpc(context, 'GetGroupState', {
-    groupId: input.groupId
-  });
-
-  if (response.status === 404 || response.status === 403) {
-    return false;
+  let payload;
+  try {
+    payload = await input.mlsRoutes.getGroupState(input.groupId);
+  } catch (error) {
+    if (isNotFoundOrForbidden(error)) {
+      return false;
+    }
+    throw error;
   }
 
-  if (!response.ok) {
-    throw new Error(`Failed to recover MLS group state for ${input.groupId}`);
-  }
-
-  const payload = parseEnvelope<MlsGroupStateResponse>(await response.json());
   if (!payload.state) {
     return false;
   }
@@ -84,8 +88,7 @@ export async function recoverMissingGroupState(input: {
 export async function uploadGroupStateSnapshot(input: {
   groupId: string;
   client: GroupStateClient;
-  apiBaseUrl: string;
-  getAuthHeader: (() => string | null) | undefined;
+  mlsRoutes: MlsV2Routes;
 }): Promise<void> {
   if (!input.client.hasGroup(input.groupId)) {
     return;
@@ -98,25 +101,17 @@ export async function uploadGroupStateSnapshot(input: {
   }
 
   const stateHash = await sha256Base64(serializedState);
-  const context: GroupStateRequestContext = {
-    apiBaseUrl: input.apiBaseUrl,
-    getAuthHeader: input.getAuthHeader
-  };
 
-  const response = await postMlsRpc(context, 'UploadGroupState', {
-    groupId: input.groupId,
-    json: JSON.stringify({
+  try {
+    await input.mlsRoutes.uploadGroupState(input.groupId, {
       epoch,
       encryptedState: bytesToBase64(serializedState),
       stateHash
-    })
-  });
-
-  if (response.status === 409) {
-    return;
-  }
-
-  if (!response.ok) {
-    throw new Error(`Failed to upload MLS group state for ${input.groupId}`);
+    });
+  } catch (error) {
+    if (isConflict(error)) {
+      return;
+    }
+    throw error;
   }
 }

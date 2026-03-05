@@ -12,5 +12,6 @@ export {
   useMlsChatApi,
   useMlsChatContext,
   useMlsChatUI,
-  useMlsChatUser
+  useMlsChatUser,
+  useMlsRoutes
 } from './MlsChatContext.js';

@@ -1,4 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { MlsV2Routes } from '@tearleads/api-client';
+import { Code, ConnectError } from '@connectrpc/connect';
+import { describe, expect, it, vi } from 'vitest';
 import {
   recoverMissingGroupState,
   uploadGroupStateSnapshot
@@ -20,45 +22,60 @@ function createClient(): TestClient {
   };
 }
 
+function createMockRoutes(
+  overrides: Partial<MlsV2Routes> = {}
+): MlsV2Routes {
+  const notImplemented = () => {
+    throw new Error('Not mocked');
+  };
+  return {
+    listGroups: notImplemented,
+    getGroup: notImplemented,
+    createGroup: notImplemented,
+    updateGroup: notImplemented,
+    leaveGroup: notImplemented,
+    getGroupMembers: notImplemented,
+    addGroupMember: notImplemented,
+    removeGroupMember: notImplemented,
+    getGroupMessages: notImplemented,
+    sendGroupMessage: notImplemented,
+    getGroupState: notImplemented,
+    uploadGroupState: notImplemented,
+    getMyKeyPackages: notImplemented,
+    getUserKeyPackages: notImplemented,
+    uploadKeyPackages: notImplemented,
+    deleteKeyPackage: notImplemented,
+    getWelcomeMessages: notImplemented,
+    acknowledgeWelcome: notImplemented,
+    ...overrides
+  };
+}
+
 describe('groupStateSync', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   it('recovers missing group state and imports it locally', async () => {
     const client = createClient();
     client.hasGroup.mockReturnValue(false);
     client.importGroupState.mockResolvedValue(undefined);
     const serializedState = 'serialized-state';
     const stateHash = 'X/wnNsA+qEvj1bbVUIls8zjTa/wKOz17TEK532YZY1U=';
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(
-        async () =>
-          new Response(
-            JSON.stringify({
-              state: {
-                id: 'state-1',
-                groupId: 'group-1',
-                epoch: 4,
-                encryptedState: btoa(serializedState),
-                stateHash,
-                createdAt: new Date().toISOString()
-              }
-            })
-          )
-      )
-    );
+
+    const mlsRoutes = createMockRoutes({
+      getGroupState: vi.fn().mockResolvedValue({
+        state: {
+          id: 'state-1',
+          groupId: 'group-1',
+          epoch: 4,
+          encryptedState: btoa(serializedState),
+          stateHash,
+          createdAt: new Date().toISOString()
+        }
+      })
+    });
 
     const recovered = await recoverMissingGroupState({
       groupId: 'group-1',
       client,
-      apiBaseUrl: 'http://localhost/v1',
-      getAuthHeader: undefined
+      mlsRoutes
     });
 
     expect(recovered).toBe(true);
@@ -76,31 +93,25 @@ describe('groupStateSync', () => {
   it('rejects recovered state when the state hash does not match', async () => {
     const client = createClient();
     client.hasGroup.mockReturnValue(false);
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(
-        async () =>
-          new Response(
-            JSON.stringify({
-              state: {
-                id: 'state-1',
-                groupId: 'group-1',
-                epoch: 4,
-                encryptedState: btoa('serialized-state'),
-                stateHash: 'invalid-state-hash',
-                createdAt: new Date().toISOString()
-              }
-            })
-          )
-      )
-    );
+
+    const mlsRoutes = createMockRoutes({
+      getGroupState: vi.fn().mockResolvedValue({
+        state: {
+          id: 'state-1',
+          groupId: 'group-1',
+          epoch: 4,
+          encryptedState: btoa('serialized-state'),
+          stateHash: 'invalid-state-hash',
+          createdAt: new Date().toISOString()
+        }
+      })
+    });
 
     await expect(
       recoverMissingGroupState({
         groupId: 'group-1',
         client,
-        apiBaseUrl: 'http://localhost/v1',
-        getAuthHeader: undefined
+        mlsRoutes
       })
     ).rejects.toThrow('MLS group state hash mismatch');
 
@@ -110,20 +121,58 @@ describe('groupStateSync', () => {
   it('returns false when server has no snapshot', async () => {
     const client = createClient();
     client.hasGroup.mockReturnValue(false);
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response(JSON.stringify({ state: null })))
-    );
+
+    const mlsRoutes = createMockRoutes({
+      getGroupState: vi.fn().mockResolvedValue({ state: null })
+    });
 
     const recovered = await recoverMissingGroupState({
       groupId: 'group-1',
       client,
-      apiBaseUrl: 'http://localhost/v1',
-      getAuthHeader: undefined
+      mlsRoutes
     });
 
     expect(recovered).toBe(false);
     expect(client.importGroupState).not.toHaveBeenCalled();
+  });
+
+  it('returns false when server returns NotFound', async () => {
+    const client = createClient();
+    client.hasGroup.mockReturnValue(false);
+
+    const mlsRoutes = createMockRoutes({
+      getGroupState: vi.fn().mockRejectedValue(
+        new ConnectError('not found', Code.NotFound)
+      )
+    });
+
+    const recovered = await recoverMissingGroupState({
+      groupId: 'group-1',
+      client,
+      mlsRoutes
+    });
+
+    expect(recovered).toBe(false);
+    expect(client.importGroupState).not.toHaveBeenCalled();
+  });
+
+  it('returns false when server returns PermissionDenied', async () => {
+    const client = createClient();
+    client.hasGroup.mockReturnValue(false);
+
+    const mlsRoutes = createMockRoutes({
+      getGroupState: vi.fn().mockRejectedValue(
+        new ConnectError('forbidden', Code.PermissionDenied)
+      )
+    });
+
+    const recovered = await recoverMissingGroupState({
+      groupId: 'group-1',
+      client,
+      mlsRoutes
+    });
+
+    expect(recovered).toBe(false);
   });
 
   it('uploads current group snapshot when group is available', async () => {
@@ -134,36 +183,55 @@ describe('groupStateSync', () => {
       new TextEncoder().encode('state-bytes')
     );
 
-    const fetchSpy = vi.fn(async () => new Response('{}', { status: 201 }));
-    vi.stubGlobal('fetch', fetchSpy);
+    const uploadGroupStateSpy = vi.fn().mockResolvedValue({
+      state: {
+        id: 'state-1',
+        groupId: 'group-1',
+        epoch: 7,
+        encryptedState: btoa('state-bytes'),
+        stateHash: 'wAEDKaM8s6FdpeNW0sAr8nS7ZQCBwhZ0F3ClXnVBabQ=',
+        createdAt: new Date().toISOString()
+      }
+    });
+
+    const mlsRoutes = createMockRoutes({
+      uploadGroupState: uploadGroupStateSpy
+    });
 
     await uploadGroupStateSnapshot({
       groupId: 'group-1',
       client,
-      apiBaseUrl: 'http://localhost/v1',
-      getAuthHeader: undefined
+      mlsRoutes
     });
 
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const init = fetchSpy.mock.calls[0]?.[1] as RequestInit;
-    expect(init?.method).toBe('POST');
-    expect(typeof init?.body).toBe('string');
-    const requestBody = JSON.parse((init?.body as string) ?? '{}') as {
-      groupId?: string;
-      payload?: {
-        epoch?: number;
-        encryptedState?: string;
-        stateHash?: string;
-      };
-    };
-    expect(requestBody.groupId).toBe('group-1');
-    expect(typeof requestBody.payload).toBe('object');
+    expect(uploadGroupStateSpy).toHaveBeenCalledTimes(1);
+    expect(uploadGroupStateSpy).toHaveBeenCalledWith('group-1', {
+      epoch: 7,
+      encryptedState: expect.any(String),
+      stateHash: 'wAEDKaM8s6FdpeNW0sAr8nS7ZQCBwhZ0F3ClXnVBabQ='
+    });
+  });
 
-    const payload = requestBody.payload ?? {};
-    expect(payload.epoch).toBe(7);
-    expect(payload.encryptedState).toBeDefined();
-    expect(payload.stateHash).toBe(
-      'wAEDKaM8s6FdpeNW0sAr8nS7ZQCBwhZ0F3ClXnVBabQ='
+  it('ignores conflict on upload (AlreadyExists)', async () => {
+    const client = createClient();
+    client.hasGroup.mockReturnValue(true);
+    client.getGroupEpoch.mockReturnValue(7);
+    client.exportGroupState.mockResolvedValue(
+      new TextEncoder().encode('state-bytes')
     );
+
+    const mlsRoutes = createMockRoutes({
+      uploadGroupState: vi.fn().mockRejectedValue(
+        new ConnectError('conflict', Code.AlreadyExists)
+      )
+    });
+
+    await expect(
+      uploadGroupStateSnapshot({
+        groupId: 'group-1',
+        client,
+        mlsRoutes
+      })
+    ).resolves.toBeUndefined();
   });
 });

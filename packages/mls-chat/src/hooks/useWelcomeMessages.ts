@@ -3,16 +3,12 @@
  * Handles pending group invitations.
  */
 
-import type {
-  MlsWelcomeMessage,
-  MlsWelcomeMessagesResponse
-} from '@tearleads/shared';
+import type { MlsWelcomeMessage } from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
 
-import { useMlsChatApi } from '../context/index.js';
+import { useMlsRoutes } from '../context/index.js';
 import type { MlsClient } from '../lib/index.js';
 import { uploadGroupStateSnapshot } from './groupStateSync.js';
-import { requestMlsRpc } from './mlsConnectRpc.js';
 
 interface UseWelcomeMessagesResult {
   welcomeMessages: MlsWelcomeMessage[];
@@ -25,7 +21,7 @@ interface UseWelcomeMessagesResult {
 export function useWelcomeMessages(
   client: MlsClient | null
 ): UseWelcomeMessagesResult {
-  const { apiBaseUrl, getAuthHeader } = useMlsChatApi();
+  const mlsRoutes = useMlsRoutes();
 
   const [welcomeMessages, setWelcomeMessages] = useState<MlsWelcomeMessage[]>(
     []
@@ -38,12 +34,7 @@ export function useWelcomeMessages(
     setError(null);
 
     try {
-      const data = await requestMlsRpc<MlsWelcomeMessagesResponse>({
-        context: { apiBaseUrl, getAuthHeader },
-        method: 'GetWelcomeMessages',
-        requestBody: {},
-        errorMessage: 'Failed to fetch welcome messages'
-      });
+      const data = await mlsRoutes.getWelcomeMessages();
       setWelcomeMessages(data.welcomes);
     } catch (err) {
       setError(
@@ -54,7 +45,7 @@ export function useWelcomeMessages(
     } finally {
       setIsLoading(false);
     }
-  }, [apiBaseUrl, getAuthHeader]);
+  }, [mlsRoutes]);
 
   const processWelcome = useCallback(
     async (welcomeId: string) => {
@@ -83,8 +74,7 @@ export function useWelcomeMessages(
           await uploadGroupStateSnapshot({
             groupId: welcome.groupId,
             client,
-            apiBaseUrl,
-            getAuthHeader
+            mlsRoutes
           });
         } catch (uploadError) {
           console.warn(
@@ -94,14 +84,8 @@ export function useWelcomeMessages(
         }
 
         // Acknowledge the welcome
-        await requestMlsRpc<unknown>({
-          context: { apiBaseUrl, getAuthHeader },
-          method: 'AcknowledgeWelcome',
-          requestBody: {
-            id: welcomeId,
-            json: JSON.stringify({ groupId: welcome.groupId })
-          },
-          errorMessage: 'Failed to acknowledge welcome'
+        await mlsRoutes.acknowledgeWelcome(welcomeId, {
+          groupId: welcome.groupId
         });
 
         // Remove from local state
@@ -113,7 +97,7 @@ export function useWelcomeMessages(
         throw err;
       }
     },
-    [client, welcomeMessages, apiBaseUrl, getAuthHeader]
+    [client, welcomeMessages, mlsRoutes]
   );
 
   useEffect(() => {

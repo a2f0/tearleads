@@ -3,12 +3,11 @@
  * Handles fetching, decrypting, and sending encrypted messages.
  */
 
-import type { MlsMessage, MlsMessagesResponse } from '@tearleads/shared';
+import type { MlsMessage } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useMlsChatApi, useMlsChatUser } from '../context/index.js';
+import { useMlsChatUser, useMlsRoutes } from '../context/index.js';
 import type { DecryptedMessage, MlsClient } from '../lib/index.js';
-import { requestMlsRpc } from './mlsConnectRpc.js';
 
 interface UseGroupMessagesResult {
   messages: DecryptedMessage[];
@@ -27,7 +26,7 @@ export function useGroupMessages(
   groupId: string | null,
   client: MlsClient | null
 ): UseGroupMessagesResult {
-  const { apiBaseUrl, getAuthHeader } = useMlsChatApi();
+  const mlsRoutes = useMlsRoutes();
   const { userId } = useMlsChatUser();
 
   const [messages, setMessages] = useState<DecryptedMessage[]>([]);
@@ -86,20 +85,13 @@ export function useGroupMessages(
       setError(null);
 
       try {
-        const requestBody: Record<string, unknown> = {
-          groupId,
+        const options: { cursor?: string; limit?: number } = {
           limit: PAGE_SIZE
         };
         if (cursor) {
-          requestBody['cursor'] = cursor;
+          options.cursor = cursor;
         }
-
-        const data = await requestMlsRpc<MlsMessagesResponse>({
-          context: { apiBaseUrl, getAuthHeader },
-          method: 'GetGroupMessages',
-          requestBody,
-          errorMessage: 'Failed to fetch messages'
-        });
+        const data = await mlsRoutes.getGroupMessages(groupId, options);
 
         // Decrypt all messages
         const decrypted = await Promise.all(data.messages.map(decryptMessage));
@@ -123,7 +115,7 @@ export function useGroupMessages(
         setIsLoading(false);
       }
     },
-    [groupId, apiBaseUrl, getAuthHeader, decryptMessage]
+    [groupId, mlsRoutes, decryptMessage]
   );
 
   const sendMessage = useCallback(
@@ -143,21 +135,13 @@ export function useGroupMessages(
           throw new Error('Group state not initialized');
         }
 
-        const data = await requestMlsRpc<{ message: MlsMessage }>({
-          context: { apiBaseUrl, getAuthHeader },
-          method: 'SendGroupMessage',
-          requestBody: {
-            groupId,
-            json: JSON.stringify({
-              ciphertext: btoa(
-                String.fromCharCode.apply(null, Array.from(ciphertext))
-              ),
-              contentType,
-              epoch,
-              messageType: 'application'
-            })
-          },
-          errorMessage: 'Failed to send message'
+        const data = await mlsRoutes.sendGroupMessage(groupId, {
+          ciphertext: btoa(
+            String.fromCharCode.apply(null, Array.from(ciphertext))
+          ),
+          contentType,
+          epoch,
+          messageType: 'application'
         });
 
         // Add the sent message optimistically (we know the plaintext)
@@ -181,7 +165,7 @@ export function useGroupMessages(
         setIsSending(false);
       }
     },
-    [groupId, client, userId, apiBaseUrl, getAuthHeader]
+    [groupId, client, userId, mlsRoutes]
   );
 
   const loadMore = useCallback(async () => {
