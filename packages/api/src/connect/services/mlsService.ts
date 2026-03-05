@@ -1,49 +1,31 @@
 import {
-  addGroupMemberDirect,
   addGroupMemberDirectTyped,
-  getGroupMembersDirect,
   getGroupMembersDirectTyped,
-  removeGroupMemberDirect,
   removeGroupMemberDirectTyped
 } from './mlsDirectGroupMembers.js';
 import {
-  createGroupDirect,
   createGroupDirectTyped,
-  deleteGroupDirect,
   deleteGroupDirectTyped,
-  getGroupDirect,
   getGroupDirectTyped,
-  listGroupsDirect,
   listGroupsDirectTyped,
-  updateGroupDirect,
   updateGroupDirectTyped
 } from './mlsDirectGroups.js';
 import {
-  deleteKeyPackageDirect,
   deleteKeyPackageDirectTyped,
-  getMyKeyPackagesDirect,
   getMyKeyPackagesDirectTyped,
-  getUserKeyPackagesDirect,
   getUserKeyPackagesDirectTyped,
-  uploadKeyPackagesDirect,
   uploadKeyPackagesDirectTyped
 } from './mlsDirectKeyPackages.js';
 import {
-  getGroupMessagesDirect,
   getGroupMessagesDirectTyped,
-  sendGroupMessageDirect,
   sendGroupMessageDirectTyped
 } from './mlsDirectMessages.js';
 import {
-  getGroupStateDirect,
   getGroupStateDirectTyped,
-  uploadGroupStateDirect,
   uploadGroupStateDirectTyped
 } from './mlsDirectState.js';
 import {
-  acknowledgeWelcomeDirect,
   acknowledgeWelcomeDirectTyped,
-  getWelcomeMessagesDirect,
   getWelcomeMessagesDirectTyped
 } from './mlsDirectWelcomeMessages.js';
 import type {
@@ -68,103 +50,15 @@ import {
   toProtoWelcome
 } from './mlsV2Converters.js';
 
-// ---------------------------------------------------------------------------
-// V1 handler types (unchanged)
-// ---------------------------------------------------------------------------
-
 type UserIdRequest = { userId: string };
 type MlsIdRequest = { id: string };
 type GroupIdRequest = { groupId: string };
-type GroupIdJsonRequest = { groupId: string; json: string };
-type V1RemoveGroupMemberRequest = {
-  groupId: string;
-  userId: string;
-  json: string;
-};
 type GetGroupMessagesRequest = {
   groupId: string;
   cursor: string;
   limit: number;
 };
-type AcknowledgeWelcomeRequest = { id: string; json: string };
 type HeaderContext = { requestHeader: Headers };
-
-// ---------------------------------------------------------------------------
-// V1 service (unchanged — talks to Direct handlers with { json: string })
-// ---------------------------------------------------------------------------
-
-export const mlsConnectServiceV1 = {
-  uploadKeyPackages: async (
-    request: { json: string },
-    context: { requestHeader: Headers }
-  ) => uploadKeyPackagesDirect(request, context),
-  getMyKeyPackages: async (
-    _request: object,
-    context: { requestHeader: Headers }
-  ) => getMyKeyPackagesDirect({}, context),
-  getUserKeyPackages: async (
-    request: UserIdRequest,
-    context: { requestHeader: Headers }
-  ) => getUserKeyPackagesDirect(request, context),
-  deleteKeyPackage: async (
-    request: MlsIdRequest,
-    context: { requestHeader: Headers }
-  ) => deleteKeyPackageDirect(request, context),
-  createGroup: async (
-    request: { json: string },
-    context: { requestHeader: Headers }
-  ) => createGroupDirect(request, context),
-  listGroups: async (_request: object, context: { requestHeader: Headers }) =>
-    listGroupsDirect({}, context),
-  getGroup: async (
-    request: GroupIdRequest,
-    context: { requestHeader: Headers }
-  ) => getGroupDirect(request, context),
-  updateGroup: async (
-    request: GroupIdJsonRequest,
-    context: { requestHeader: Headers }
-  ) => updateGroupDirect(request, context),
-  deleteGroup: async (
-    request: GroupIdRequest,
-    context: { requestHeader: Headers }
-  ) => deleteGroupDirect(request, context),
-  addGroupMember: async (
-    request: GroupIdJsonRequest,
-    context: { requestHeader: Headers }
-  ) => addGroupMemberDirect(request, context),
-  getGroupMembers: async (
-    request: GroupIdRequest,
-    context: { requestHeader: Headers }
-  ) => getGroupMembersDirect(request, context),
-  removeGroupMember: async (
-    request: V1RemoveGroupMemberRequest,
-    context: { requestHeader: Headers }
-  ) => removeGroupMemberDirect(request, context),
-  sendGroupMessage: async (
-    request: GroupIdJsonRequest,
-    context: { requestHeader: Headers }
-  ) => sendGroupMessageDirect(request, context),
-  getGroupMessages: async (
-    request: GetGroupMessagesRequest,
-    context: { requestHeader: Headers }
-  ) => getGroupMessagesDirect(request, context),
-  getGroupState: async (
-    request: GroupIdRequest,
-    context: { requestHeader: Headers }
-  ) => getGroupStateDirect(request, context),
-  uploadGroupState: async (
-    request: GroupIdJsonRequest,
-    context: { requestHeader: Headers }
-  ) => uploadGroupStateDirect(request, context),
-  getWelcomeMessages: async (
-    _request: object,
-    context: { requestHeader: Headers }
-  ) => getWelcomeMessagesDirect({}, context),
-  acknowledgeWelcome: async (
-    request: AcknowledgeWelcomeRequest,
-    context: { requestHeader: Headers }
-  ) => acknowledgeWelcomeDirect(request, context)
-};
 
 // ---------------------------------------------------------------------------
 // V2 service (typed proto fields — bridges to Direct handlers)
