@@ -23,10 +23,10 @@ const { authState } = vi.hoisted(() => ({
   authState: { token: '' }
 }));
 
-vi.mock('../../../api-client/src/authStorage.ts', async () => {
+vi.mock('@tearleads/api-client/authStorage', async () => {
   const actual = await vi.importActual<
-    typeof import('../../../api-client/src/authStorage.ts')
-  >('../../../api-client/src/authStorage.ts');
+    typeof import('@tearleads/api-client/authStorage')
+  >('@tearleads/api-client/authStorage');
   return {
     ...actual,
     getAuthHeaderValue: () =>
