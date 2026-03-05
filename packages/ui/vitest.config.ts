@@ -1,12 +1,6 @@
 import { defineConfig, mergeConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
-
-const sharedTestConfig = {
-  test: {
-    pool: 'threads' as const,
-    deps: { optimizer: { client: { enabled: true }, ssr: { enabled: true } } },
-  },
-};
+import { sharedTestConfig } from '../../vitest.shared';
 
 export default mergeConfig(
   sharedTestConfig,

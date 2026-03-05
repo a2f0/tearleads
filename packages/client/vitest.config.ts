@@ -1,15 +1,9 @@
 import path from 'node:path';
 import { defineConfig, mergeConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { sharedTestConfig } from '../../vitest.shared';
 import { createViteAliases } from './vite.aliases';
 import { createAppConfigPlugin } from './vite-plugin-app-config';
-
-const sharedTestConfig = {
-  test: {
-    pool: 'threads' as const,
-    deps: { optimizer: { client: { enabled: true }, ssr: { enabled: true } } },
-  },
-};
 
 // Initialize app config plugin for virtual module support in tests
 const { plugin: appConfigPlugin } = createAppConfigPlugin(__dirname);
