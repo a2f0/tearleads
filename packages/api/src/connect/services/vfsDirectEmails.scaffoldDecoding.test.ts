@@ -34,6 +34,8 @@ describe('vfsDirectEmails scaffold decoding', () => {
   });
 
   it('decodes base64-encoded email payload fields', async () => {
+    const scaffoldRawMime =
+      'From: system@tearleads.com\r\n\r\nYou are all set to start exploring.';
     readQueryMock.mockResolvedValueOnce({
       rows: [
         {
@@ -43,7 +45,10 @@ describe('vfsDirectEmails scaffold decoding', () => {
           encrypted_subject: 'V2VsY29tZSB0byBUZWFybGVhZHM=',
           received_at: '2026-03-03T00:00:00.000Z',
           ciphertext_size: 12,
-          encrypted_body_path: 'scaffolding://welcome-email-body'
+          encrypted_body_path: `scaffolding:inline-body:${Buffer.from(
+            scaffoldRawMime,
+            'utf8'
+          ).toString('base64')}`
         }
       ]
     });
@@ -64,8 +69,8 @@ describe('vfsDirectEmails scaffold decoding', () => {
       subject: 'Welcome to Tearleads',
       receivedAt: '2026-03-03T00:00:00.000Z',
       size: 12,
-      rawData: '',
-      encryptedBodyPath: 'scaffolding://welcome-email-body'
+      rawData: scaffoldRawMime,
+      encryptedBodyPath: null
     });
   });
 });

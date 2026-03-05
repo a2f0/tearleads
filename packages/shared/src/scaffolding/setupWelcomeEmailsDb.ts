@@ -33,7 +33,9 @@ export interface SetupWelcomeEmailsDbResult {
 
 const WELCOME_SUBJECT = 'Welcome to Tearleads';
 const WELCOME_FROM = 'system@tearleads.com';
-const WELCOME_BODY_PATH = 'scaffolding://welcome-email-body';
+export const SCAFFOLD_INLINE_EMAIL_BODY_PREFIX = 'scaffolding:inline-body:';
+export const SCAFFOLD_WELCOME_EMAIL_BODY_TEXT =
+  "You're all set to start exploring Tearleads.";
 
 function defaultEncryptVfsName(input: {
   client: DbQueryClient;
@@ -48,6 +50,24 @@ function defaultEncryptVfsName(input: {
 
 function encodeBase64(value: string): string {
   return Buffer.from(value, 'utf8').toString('base64');
+}
+
+function buildWelcomeEmailRawMime(recipientEmail: string): string {
+  return [
+    `From: ${WELCOME_FROM}`,
+    `To: ${recipientEmail}`,
+    `Subject: ${WELCOME_SUBJECT}`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/plain; charset=UTF-8',
+    'Content-Transfer-Encoding: 8bit',
+    '',
+    SCAFFOLD_WELCOME_EMAIL_BODY_TEXT,
+    ''
+  ].join('\r\n');
+}
+
+function encodeScaffoldInlineBodyCiphertext(rawMime: string): string {
+  return `${SCAFFOLD_INLINE_EMAIL_BODY_PREFIX}${encodeBase64(rawMime)}`;
 }
 
 function readRequiredUserId(
@@ -86,6 +106,10 @@ async function insertEmailForUser(
     plaintextName: string;
   }) => Promise<EncryptScaffoldVfsNameResult>
 ): Promise<void> {
+  const rawWelcomeBody = buildWelcomeEmailRawMime(userEmail);
+  const encryptedBodyPath = encodeScaffoldInlineBodyCiphertext(rawWelcomeBody);
+  const ciphertextSize = Buffer.byteLength(rawWelcomeBody, 'utf8');
+
   const encryptedInboxName = await encryptVfsName({
     client,
     ownerUserId: userId,
@@ -177,8 +201,8 @@ async function insertEmailForUser(
       encodeBase64(WELCOME_FROM),
       JSON.stringify([encodeBase64(userEmail)]),
       JSON.stringify([]),
-      WELCOME_BODY_PATH,
-      0,
+      encryptedBodyPath,
+      ciphertextSize,
       nowIso
     ]
   );

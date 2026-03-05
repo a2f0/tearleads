@@ -15,6 +15,8 @@ import {
   serializePublicKey
 } from '@tearleads/shared';
 import {
+  SCAFFOLD_INLINE_EMAIL_BODY_PREFIX,
+  SCAFFOLD_WELCOME_EMAIL_BODY_TEXT,
   setupBobNotesShareForAliceDb,
   setupBobPhotoAlbumShareForAliceDb,
   setupWelcomeEmailsDb
@@ -158,9 +160,16 @@ describe('DB scaffolding plaintext render integration', () => {
     const postgresEmail = await ctx.pool.query<{
       encrypted_subject: string | null;
       encrypted_from: string | null;
-    }>(`SELECT encrypted_subject, encrypted_from FROM emails WHERE id = $1`, [
+      encrypted_body_path: string | null;
+      ciphertext_size: number | null;
+    }>(
+      `SELECT encrypted_subject, encrypted_from, encrypted_body_path, ciphertext_size
+       FROM emails
+       WHERE id = $1`,
+      [
       seededEmails.bob.emailItemId
-    ]);
+      ]
+    );
 
     const folderCiphertext = postgresFolder.rows[0]?.encrypted_name;
     const albumCiphertext = postgresAlbum.rows[0]?.encrypted_name;
@@ -172,6 +181,8 @@ describe('DB scaffolding plaintext render integration', () => {
     const inboxSessionKey = postgresInboxFolder.rows[0]?.encrypted_session_key;
     const subjectCiphertext = postgresEmail.rows[0]?.encrypted_subject;
     const fromCiphertext = postgresEmail.rows[0]?.encrypted_from;
+    const bodyPathCiphertext = postgresEmail.rows[0]?.encrypted_body_path;
+    const bodyCiphertextSize = postgresEmail.rows[0]?.ciphertext_size;
 
     expect(folderCiphertext).not.toBe('Notes shared with Alice');
     expectCiphertext(folderCiphertext);
@@ -185,6 +196,21 @@ describe('DB scaffolding plaintext render integration', () => {
     expectCiphertext(subjectCiphertext);
     expect(fromCiphertext).not.toBe('system@tearleads.com');
     expectCiphertext(fromCiphertext);
+    expect(typeof bodyPathCiphertext).toBe('string');
+    if (typeof bodyPathCiphertext !== 'string') {
+      throw new Error('Expected scaffolded encrypted email body payload');
+    }
+    expect(
+      bodyPathCiphertext.startsWith(SCAFFOLD_INLINE_EMAIL_BODY_PREFIX)
+    ).toBe(true);
+    expect(bodyPathCiphertext.includes(SCAFFOLD_WELCOME_EMAIL_BODY_TEXT)).toBe(
+      false
+    );
+    const inlineBodyCiphertext = bodyPathCiphertext.slice(
+      SCAFFOLD_INLINE_EMAIL_BODY_PREFIX.length
+    );
+    expectCiphertext(inlineBodyCiphertext);
+    expect((bodyCiphertextSize ?? 0) > 0).toBe(true);
     expect(folderSessionKey?.startsWith('scaffold-unwrapped:')).toBe(true);
     expect(albumSessionKey?.startsWith('scaffold-unwrapped:')).toBe(true);
     expect(photoSessionKey?.startsWith('scaffold-unwrapped:')).toBe(true);
