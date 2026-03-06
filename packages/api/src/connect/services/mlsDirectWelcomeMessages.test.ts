@@ -19,23 +19,11 @@ vi.mock('./mlsDirectAuth.js', () => ({
 }));
 
 import {
-  acknowledgeWelcomeDirect,
-  getWelcomeMessagesDirect
+  acknowledgeWelcomeDirectTyped,
+  getWelcomeMessagesDirectTyped
 } from './mlsDirectWelcomeMessages.js';
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function parseJson(json: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(json);
-  if (!isRecord(parsed)) {
-    throw new Error('Expected object JSON response');
-  }
-  return parsed;
-}
 
 describe('mlsDirectWelcomeMessages', () => {
   beforeEach(() => {
@@ -71,12 +59,12 @@ describe('mlsDirectWelcomeMessages', () => {
       ]
     });
 
-    const response = await getWelcomeMessagesDirect(
+    const response = await getWelcomeMessagesDirectTyped(
       {},
       { requestHeader: new Headers() }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       welcomes: [
         {
           id: 'welcome-1',
@@ -95,7 +83,7 @@ describe('mlsDirectWelcomeMessages', () => {
     queryMock.mockRejectedValueOnce(new Error('list failed'));
 
     await expect(
-      getWelcomeMessagesDirect({}, { requestHeader: new Headers() })
+      getWelcomeMessagesDirectTyped({}, { requestHeader: new Headers() })
     ).rejects.toMatchObject({
       code: Code.Internal
     });
@@ -104,23 +92,23 @@ describe('mlsDirectWelcomeMessages', () => {
   it('acknowledges welcome messages for the current user', async () => {
     queryMock.mockResolvedValueOnce({ rowCount: 1 });
 
-    const response = await acknowledgeWelcomeDirect(
+    const response = await acknowledgeWelcomeDirectTyped(
       {
         id: 'welcome-1',
-        json: '{"groupId":"group-1"}'
+        groupId: 'group-1'
       },
       { requestHeader: new Headers() }
     );
 
-    expect(parseJson(response.json)).toEqual({ acknowledged: true });
+    expect(response).toEqual({ acknowledged: true });
   });
 
   it('rejects invalid acknowledge payloads', async () => {
     await expect(
-      acknowledgeWelcomeDirect(
+      acknowledgeWelcomeDirectTyped(
         {
           id: 'welcome-1',
-          json: '{}'
+          groupId: ''
         },
         { requestHeader: new Headers() }
       )
@@ -131,10 +119,10 @@ describe('mlsDirectWelcomeMessages', () => {
     queryMock.mockResolvedValueOnce({ rowCount: 0 });
 
     await expect(
-      acknowledgeWelcomeDirect(
+      acknowledgeWelcomeDirectTyped(
         {
           id: 'welcome-1',
-          json: '{"groupId":"group-1"}'
+          groupId: 'group-1'
         },
         { requestHeader: new Headers() }
       )
@@ -147,10 +135,10 @@ describe('mlsDirectWelcomeMessages', () => {
     queryMock.mockRejectedValueOnce(new Error('ack failed'));
 
     await expect(
-      acknowledgeWelcomeDirect(
+      acknowledgeWelcomeDirectTyped(
         {
           id: 'welcome-1',
-          json: '{"groupId":"group-1"}'
+          groupId: 'group-1'
         },
         { requestHeader: new Headers() }
       )

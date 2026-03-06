@@ -15,7 +15,6 @@ import {
 
 type UserIdRequest = { userId: string };
 type MlsIdRequest = { id: string };
-type UploadKeyPackagesJsonRequest = { json: string };
 type UploadInsertRow = {
   id: string;
   key_package_data: string;
@@ -26,15 +25,6 @@ type UploadInsertRow = {
 
 function encoded(value: string): string {
   return encodeURIComponent(value);
-}
-
-function parseJsonBody(json: string): unknown {
-  const normalized = json.trim().length > 0 ? json : '{}';
-  try {
-    return JSON.parse(normalized);
-  } catch {
-    throw new ConnectError('Invalid JSON body', Code.InvalidArgument);
-  }
 }
 
 function toIsoString(value: Date | string): string {
@@ -124,21 +114,6 @@ export async function uploadKeyPackagesDirectTyped(
   }
 }
 
-export async function uploadKeyPackagesDirect(
-  request: UploadKeyPackagesJsonRequest,
-  context: { requestHeader: Headers }
-): Promise<{ json: string }> {
-  const payload = parseUploadKeyPackagesPayload(parseJsonBody(request.json));
-  if (!payload) {
-    throw new ConnectError(
-      'Invalid key packages payload',
-      Code.InvalidArgument
-    );
-  }
-  const response = await uploadKeyPackagesDirectTyped(payload, context);
-  return { json: JSON.stringify(response) };
-}
-
 export async function getMyKeyPackagesDirectTyped(
   _request: object,
   context: { requestHeader: Headers }
@@ -183,14 +158,6 @@ export async function getMyKeyPackagesDirectTyped(
     console.error('Failed to get key packages:', error);
     throw new ConnectError('Failed to get key packages', Code.Internal);
   }
-}
-
-export async function getMyKeyPackagesDirect(
-  request: object,
-  context: { requestHeader: Headers }
-): Promise<{ json: string }> {
-  const response = await getMyKeyPackagesDirectTyped(request, context);
-  return { json: JSON.stringify(response) };
 }
 
 export async function getUserKeyPackagesDirectTyped(
@@ -254,14 +221,6 @@ export async function getUserKeyPackagesDirectTyped(
   }
 }
 
-export async function getUserKeyPackagesDirect(
-  request: UserIdRequest,
-  context: { requestHeader: Headers }
-): Promise<{ json: string }> {
-  const response = await getUserKeyPackagesDirectTyped(request, context);
-  return { json: JSON.stringify(response) };
-}
-
 export async function deleteKeyPackageDirectTyped(
   request: MlsIdRequest,
   context: { requestHeader: Headers }
@@ -294,12 +253,4 @@ export async function deleteKeyPackageDirectTyped(
     console.error('Failed to delete key package:', error);
     throw new ConnectError('Failed to delete key package', Code.Internal);
   }
-}
-
-export async function deleteKeyPackageDirect(
-  request: MlsIdRequest,
-  context: { requestHeader: Headers }
-): Promise<{ json: string }> {
-  await deleteKeyPackageDirectTyped(request, context);
-  return { json: '{}' };
 }

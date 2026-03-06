@@ -8,15 +8,11 @@ import type {
 } from '@tearleads/shared';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
-import { encoded, parseJsonBody, toIsoString } from './mlsDirectCommon.js';
+import { encoded, toIsoString } from './mlsDirectCommon.js';
 import { acquireTransactionClient } from './mlsDirectMessagesShared.js';
-import {
-  getActiveMlsGroupMembership,
-  parseUploadStatePayload
-} from './mlsDirectShared.js';
+import { getActiveMlsGroupMembership } from './mlsDirectShared.js';
 
 type GroupIdRequest = { groupId: string };
-type GroupIdJsonRequest = { groupId: string; json: string };
 type GroupIdTypedStateRequest = { groupId: string } & UploadMlsStateRequest;
 
 function decodeBase64Strict(value: string): Uint8Array | null {
@@ -194,22 +190,6 @@ export async function uploadGroupStateDirectTyped(
   }
 }
 
-export async function uploadGroupStateDirect(
-  request: GroupIdJsonRequest,
-  context: { requestHeader: Headers }
-): Promise<{ json: string }> {
-  const payload = parseUploadStatePayload(parseJsonBody(request.json));
-  if (!payload) {
-    throw new ConnectError('Invalid state payload', Code.InvalidArgument);
-  }
-
-  const response = await uploadGroupStateDirectTyped(
-    { groupId: request.groupId, ...payload },
-    context
-  );
-  return { json: JSON.stringify(response) };
-}
-
 export async function getGroupStateDirectTyped(
   request: GroupIdRequest,
   context: { requestHeader: Headers }
@@ -286,12 +266,4 @@ export async function getGroupStateDirectTyped(
     console.error('Failed to get state:', error);
     throw new ConnectError('Failed to get state', Code.Internal);
   }
-}
-
-export async function getGroupStateDirect(
-  request: GroupIdRequest,
-  context: { requestHeader: Headers }
-): Promise<{ json: string }> {
-  const response = await getGroupStateDirectTyped(request, context);
-  return { json: JSON.stringify(response) };
 }

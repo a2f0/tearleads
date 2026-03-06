@@ -12,26 +12,11 @@ import { broadcast } from '../../lib/broadcast.js';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
 import { insertCommitMessage } from './mlsDirectCommitMessages.js';
-import {
-  encoded,
-  parseJsonBody,
-  toIsoString,
-  toMlsGroupRole
-} from './mlsDirectCommon.js';
-import {
-  getActiveMlsGroupMembership,
-  parseAddMemberPayload,
-  parseRemoveMemberPayload
-} from './mlsDirectShared.js';
+import { encoded, toIsoString, toMlsGroupRole } from './mlsDirectCommon.js';
+import { getActiveMlsGroupMembership } from './mlsDirectShared.js';
 
 type GroupIdRequest = { groupId: string };
-type AddMemberJsonRequest = { groupId: string; json: string };
 type AddMemberTypedRequest = { groupId: string } & AddMlsMemberRequest;
-type RemoveMemberJsonRequest = {
-  groupId: string;
-  userId: string;
-  json: string;
-};
 type RemoveMemberTypedRequest = {
   groupId: string;
   userId: string;
@@ -241,20 +226,6 @@ export async function addGroupMemberDirectTyped(
     throw new ConnectError('Failed to add member', Code.Internal);
   }
 }
-export async function addGroupMemberDirect(
-  request: AddMemberJsonRequest,
-  context: { requestHeader: Headers }
-): Promise<{ json: string }> {
-  const payload = parseAddMemberPayload(parseJsonBody(request.json));
-  if (!payload) {
-    throw new ConnectError('Invalid add member payload', Code.InvalidArgument);
-  }
-  const response = await addGroupMemberDirectTyped(
-    { groupId: request.groupId, ...payload },
-    context
-  );
-  return { json: JSON.stringify(response) };
-}
 export async function getGroupMembersDirectTyped(
   request: GroupIdRequest,
   context: { requestHeader: Headers }
@@ -307,13 +278,6 @@ export async function getGroupMembersDirectTyped(
     console.error('Failed to list members:', error);
     throw new ConnectError('Failed to list members', Code.Internal);
   }
-}
-export async function getGroupMembersDirect(
-  request: GroupIdRequest,
-  context: { requestHeader: Headers }
-): Promise<{ json: string }> {
-  const response = await getGroupMembersDirectTyped(request, context);
-  return { json: JSON.stringify(response) };
 }
 export async function removeGroupMemberDirectTyped(
   request: RemoveMemberTypedRequest,
@@ -439,21 +403,4 @@ export async function removeGroupMemberDirectTyped(
     console.error('Failed to remove member:', error);
     throw new ConnectError('Failed to remove member', Code.Internal);
   }
-}
-export async function removeGroupMemberDirect(
-  request: RemoveMemberJsonRequest,
-  context: { requestHeader: Headers }
-): Promise<{ json: string }> {
-  const payload = parseRemoveMemberPayload(parseJsonBody(request.json));
-  if (!payload) {
-    throw new ConnectError(
-      'Invalid remove member payload',
-      Code.InvalidArgument
-    );
-  }
-  await removeGroupMemberDirectTyped(
-    { groupId: request.groupId, userId: request.userId, ...payload },
-    context
-  );
-  return { json: '{}' };
 }
