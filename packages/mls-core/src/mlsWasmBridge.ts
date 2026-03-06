@@ -194,14 +194,11 @@ function parseImportStateResult(value: unknown): ImportStateResult {
   };
 }
 
-async function loadBindings(): Promise<MlsWasmPrimitiveBindings> {
-  return loadMlsWasmPrimitiveBindings();
-}
-
 export async function wasmGenerateCredential(
   userId: string
 ): Promise<GeneratedCredential> {
-  const bindings = await loadBindings();
+  const bindings: MlsWasmPrimitiveBindings =
+    await loadMlsWasmPrimitiveBindings();
   return parseGeneratedCredential(bindings.mls_generate_credential(userId));
 }
 
@@ -209,7 +206,7 @@ export async function wasmGenerateKeyPackage(
   credentialBundle: Uint8Array,
   credentialPrivateKey: Uint8Array
 ): Promise<GeneratedKeyPackage> {
-  const bindings = await loadBindings();
+  const bindings = await loadMlsWasmPrimitiveBindings();
   return parseGeneratedKeyPackage(
     bindings.mls_generate_key_package(credentialBundle, credentialPrivateKey)
   );
@@ -220,7 +217,7 @@ export async function wasmCreateGroup(
   credentialBundle: Uint8Array,
   credentialPrivateKey: Uint8Array
 ): Promise<Uint8Array> {
-  const bindings = await loadBindings();
+  const bindings = await loadMlsWasmPrimitiveBindings();
   return bindings.mls_create_group(
     groupId,
     credentialBundle,
@@ -236,7 +233,7 @@ export async function wasmJoinGroup(
   credentialBundle: Uint8Array,
   credentialPrivateKey: Uint8Array
 ): Promise<Uint8Array> {
-  const bindings = await loadBindings();
+  const bindings = await loadMlsWasmPrimitiveBindings();
   return bindings.mls_join_group(
     groupId,
     welcomeBytes,
@@ -250,7 +247,7 @@ export async function wasmJoinGroup(
 export async function wasmGroupStateMetadata(
   stateBytes: Uint8Array
 ): Promise<GroupStateMetadata> {
-  const bindings = await loadBindings();
+  const bindings = await loadMlsWasmPrimitiveBindings();
   return parseGroupStateMetadata(bindings.mls_group_state_metadata(stateBytes));
 }
 
@@ -258,7 +255,7 @@ export async function wasmAddMember(
   stateBytes: Uint8Array,
   memberKeyPackageBytes: Uint8Array
 ): Promise<AddMemberResult> {
-  const bindings = await loadBindings();
+  const bindings = await loadMlsWasmPrimitiveBindings();
   return parseAddMemberResult(
     bindings.mls_add_member(stateBytes, memberKeyPackageBytes)
   );
@@ -268,7 +265,7 @@ export async function wasmRemoveMember(
   stateBytes: Uint8Array,
   leafIndex: number
 ): Promise<RemoveMemberResult> {
-  const bindings = await loadBindings();
+  const bindings = await loadMlsWasmPrimitiveBindings();
   return parseRemoveMemberResult(
     bindings.mls_remove_member(stateBytes, leafIndex)
   );
@@ -278,7 +275,7 @@ export async function wasmProcessCommit(
   stateBytes: Uint8Array,
   commitBytes: Uint8Array
 ): Promise<Uint8Array> {
-  const bindings = await loadBindings();
+  const bindings = await loadMlsWasmPrimitiveBindings();
   return bindings.mls_process_commit(stateBytes, commitBytes);
 }
 
@@ -286,7 +283,7 @@ export async function wasmEncryptMessage(
   stateBytes: Uint8Array,
   plaintext: Uint8Array
 ): Promise<Uint8Array> {
-  const bindings = await loadBindings();
+  const bindings = await loadMlsWasmPrimitiveBindings();
   return bindings.mls_encrypt_message(stateBytes, plaintext);
 }
 
@@ -294,7 +291,7 @@ export async function wasmDecryptMessage(
   stateBytes: Uint8Array,
   ciphertext: Uint8Array
 ): Promise<DecryptResult> {
-  const bindings = await loadBindings();
+  const bindings = await loadMlsWasmPrimitiveBindings();
   return parseDecryptResult(
     bindings.mls_decrypt_message(stateBytes, ciphertext)
   );
@@ -303,7 +300,7 @@ export async function wasmDecryptMessage(
 export async function wasmExportGroupState(
   stateBytes: Uint8Array
 ): Promise<Uint8Array> {
-  const bindings = await loadBindings();
+  const bindings = await loadMlsWasmPrimitiveBindings();
   return bindings.mls_export_group_state(stateBytes);
 }
 
@@ -311,7 +308,7 @@ export async function wasmImportGroupState(
   groupId: string,
   stateBytes: Uint8Array
 ): Promise<ImportStateResult> {
-  const bindings = await loadBindings();
+  const bindings = await loadMlsWasmPrimitiveBindings();
   return parseImportStateResult(
     bindings.mls_import_group_state(groupId, stateBytes)
   );

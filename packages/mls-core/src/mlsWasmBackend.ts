@@ -71,6 +71,7 @@ const PLACEHOLDER_STATUS: MlsBackendStatus = {
 
 let wasmModulePromise: Promise<unknown> | null = null;
 
+/** @internal Test-only hook for deterministic module-cache resets. */
 export function resetWasmModulePromiseForTesting(): void {
   wasmModulePromise = null;
 }
