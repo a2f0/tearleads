@@ -170,6 +170,7 @@ describe('mlsConnectServiceV2 coverage', () => {
 
     expect(result.state?.id).toBe('st-1');
     expect(result.state?.epoch).toBe(BigInt(3));
+    expect(result.state?.encryptedState).toEqual(bytes('enc'));
   });
 
   it('converts sendGroupMessage with typed fields', async () => {
@@ -203,6 +204,17 @@ describe('mlsConnectServiceV2 coverage', () => {
 
     expect(result.message?.id).toBe('msg-1');
     expect(result.message?.epoch).toBe(BigInt(2));
+    expect(result.message?.ciphertext).toEqual(bytes('ct'));
+    expect(sendGroupMessageDirectMock).toHaveBeenCalledWith(
+      {
+        groupId: 'g-1',
+        ciphertext: base64('ct'),
+        epoch: 2,
+        messageType: 'application',
+        contentType: 'text/plain'
+      },
+      context
+    );
   });
 
   it('converts getGroupMembers response', async () => {
@@ -274,6 +286,7 @@ describe('mlsConnectServiceV2 coverage', () => {
     expect(result.messages).toHaveLength(1);
     expect(result.hasMore).toBe(true);
     expect(result.cursor).toBe('next-cursor');
+    expect(result.messages[0]?.ciphertext).toEqual(bytes('ct'));
   });
 
   it('converts getGroup response with members', async () => {
@@ -336,6 +349,16 @@ describe('mlsConnectServiceV2 coverage', () => {
     );
 
     expect(result.state?.epoch).toBe(BigInt(5));
+    expect(result.state?.encryptedState).toEqual(bytes('enc'));
+    expect(uploadGroupStateDirectMock).toHaveBeenCalledWith(
+      {
+        groupId: 'g-1',
+        epoch: 5,
+        encryptedState: base64('enc'),
+        stateHash: 'hash'
+      },
+      context
+    );
   });
 
   it('converts addGroupMember with typed fields', async () => {
@@ -364,6 +387,17 @@ describe('mlsConnectServiceV2 coverage', () => {
     );
 
     expect(result.member?.userId).toBe('u-2');
+    expect(addGroupMemberDirectMock).toHaveBeenCalledWith(
+      {
+        groupId: 'g-1',
+        userId: 'u-2',
+        commit: base64('commit-data'),
+        welcome: base64('welcome-data'),
+        keyPackageRef: 'ref',
+        newEpoch: 3
+      },
+      context
+    );
   });
 
   it('converts removeGroupMember request', async () => {
@@ -381,6 +415,15 @@ describe('mlsConnectServiceV2 coverage', () => {
     );
 
     expect(result).toEqual({});
+    expect(removeGroupMemberDirectMock).toHaveBeenCalledWith(
+      {
+        groupId: 'g-1',
+        userId: 'u-2',
+        commit: base64('commit-data'),
+        newEpoch: 4
+      },
+      context
+    );
   });
 
   it('converts updateGroup with typed fields', async () => {
