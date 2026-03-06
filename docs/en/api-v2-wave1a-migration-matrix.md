@@ -37,6 +37,7 @@ This matrix tracks the first DAL-proving admin read endpoints selected for v2 mi
 - Removed the `adminRoutes` compatibility module and retired `api.admin` from `@tearleads/api-client`; `api.adminV2` is now the only admin route surface there.
 - MLS browser/runtime traffic is now v2-only (`tearleads.v2.MlsService`), and the Node v1 MLS service registration has been removed.
 - Removed stale `tearleads/v1/mls.proto` contract artifacts and dropped its `proto/buf.yaml` lint-ignore entries after MLS transport cleanup landed via #2717.
+- Removed the stale `tearleads/v1/mls.proto` breaking-ignore entry from `proto/buf.yaml` after retirement landed on `main`.
 - Removed stale `tearleads/v1/admin.proto` contract artifacts from the active proto migration surface.
 - Removed the stale `tearleads/v1/admin.proto` breaking-ignore entry from `proto/buf.yaml` after retirement landed on `main`.
 - `@tearleads/admin` now exposes the canonical `api.adminV2` surface only; local `api.admin` alias usage and export were removed.
