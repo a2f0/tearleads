@@ -58,7 +58,7 @@ describe('admin api client v2 mutation routes', () => {
       })
     );
     await expect(
-      apiClient.adminV2.groups.create({
+      apiClient.admin.groups.create({
         organizationId: 'org-1',
         name: 'Core Team',
         description: 'Primary group'
@@ -87,7 +87,7 @@ describe('admin api client v2 mutation routes', () => {
       })
     );
     await expect(
-      apiClient.adminV2.groups.update('group-1', {
+      apiClient.admin.groups.update('group-1', {
         name: 'Core Team Updated',
         description: 'Updated'
       })
@@ -103,20 +103,20 @@ describe('admin api client v2 mutation routes', () => {
     });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ deleted: true }));
-    await expect(apiClient.adminV2.groups.delete('group-1')).resolves.toEqual({
+    await expect(apiClient.admin.groups.delete('group-1')).resolves.toEqual({
       deleted: true
     });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ added: true }));
     await expect(
-      apiClient.adminV2.groups.addMember('group-1', 'user-1')
+      apiClient.admin.groups.addMember('group-1', 'user-1')
     ).resolves.toEqual({
       added: true
     });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ removed: true }));
     await expect(
-      apiClient.adminV2.groups.removeMember('group-1', 'user-1')
+      apiClient.admin.groups.removeMember('group-1', 'user-1')
     ).resolves.toEqual({
       removed: true
     });
@@ -133,7 +133,7 @@ describe('admin api client v2 mutation routes', () => {
       })
     );
     await expect(
-      apiClient.adminV2.organizations.create({
+      apiClient.admin.organizations.create({
         name: 'Platform',
         description: 'Platform org'
       })
@@ -159,7 +159,7 @@ describe('admin api client v2 mutation routes', () => {
       })
     );
     await expect(
-      apiClient.adminV2.organizations.update('org-2', {
+      apiClient.admin.organizations.update('org-2', {
         name: 'Platform Updated',
         description: 'Updated org'
       })
@@ -175,7 +175,7 @@ describe('admin api client v2 mutation routes', () => {
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ deleted: true }));
     await expect(
-      apiClient.adminV2.organizations.delete('org-2')
+      apiClient.admin.organizations.delete('org-2')
     ).resolves.toEqual({
       deleted: true
     });
@@ -202,7 +202,7 @@ describe('admin api client v2 mutation routes', () => {
       })
     );
     await expect(
-      apiClient.adminV2.users.update('user-1', {
+      apiClient.admin.users.update('user-1', {
         email: 'admin@example.com',
         emailConfirmed: true,
         admin: true,
@@ -238,29 +238,29 @@ describe('admin api client v2 mutation routes', () => {
   it('routes admin mutations through v2 service paths and typed payloads', async () => {
     fetchMock.mockImplementation(async () => jsonResponse({}));
 
-    await apiClient.adminV2.groups.create({
+    await apiClient.admin.groups.create({
       organizationId: 'org-1',
       name: 'Core Team',
       description: 'Primary group'
     });
-    await apiClient.adminV2.groups.update('group-1', {
+    await apiClient.admin.groups.update('group-1', {
       organizationId: 'org-1',
       name: 'Core Team Updated',
       description: 'Updated'
     });
-    await apiClient.adminV2.groups.delete('group-1');
-    await apiClient.adminV2.groups.addMember('group-1', 'user-1');
-    await apiClient.adminV2.groups.removeMember('group-1', 'user-1');
-    await apiClient.adminV2.organizations.create({
+    await apiClient.admin.groups.delete('group-1');
+    await apiClient.admin.groups.addMember('group-1', 'user-1');
+    await apiClient.admin.groups.removeMember('group-1', 'user-1');
+    await apiClient.admin.organizations.create({
       name: 'Platform',
       description: 'Platform org'
     });
-    await apiClient.adminV2.organizations.update('org-1', {
+    await apiClient.admin.organizations.update('org-1', {
       name: 'Platform Updated',
       description: 'Updated org'
     });
-    await apiClient.adminV2.organizations.delete('org-1');
-    await apiClient.adminV2.users.update('user-1', {
+    await apiClient.admin.organizations.delete('org-1');
+    await apiClient.admin.users.update('user-1', {
       email: 'admin@example.com',
       emailConfirmed: true,
       admin: true,

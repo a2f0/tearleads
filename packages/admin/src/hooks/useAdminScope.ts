@@ -36,7 +36,7 @@ export function useAdminScope(): UseAdminScopeResult {
       try {
         setLoading(true);
         setError(null);
-        const response = await api.adminV2.getContext();
+        const response = await api.admin.getContext();
         if (cancelled) return;
         setContext(response);
         setSelectedOrganizationIdState(getDefaultOrganizationId(response));

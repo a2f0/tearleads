@@ -50,7 +50,7 @@ export function usePostgresTableData(
 
       try {
         if (reset) {
-          const columnsResponse = await api.adminV2.postgres.getColumns(
+          const columnsResponse = await api.admin.postgres.getColumns(
             schema,
             tableName
           );
@@ -69,7 +69,7 @@ export function usePostgresTableData(
         if (sort.column) rowsOptions.sortColumn = sort.column;
         if (sort.direction) rowsOptions.sortDirection = sort.direction;
 
-        const rowsResponse = await api.adminV2.postgres.getRows(
+        const rowsResponse = await api.admin.postgres.getRows(
           schema,
           tableName,
           rowsOptions

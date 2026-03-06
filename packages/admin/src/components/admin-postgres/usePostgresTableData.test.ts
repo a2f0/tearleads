@@ -5,7 +5,7 @@ import { usePostgresTableData } from './usePostgresTableData';
 
 vi.mock('@/lib/api', () => ({
   api: {
-    adminV2: {
+    admin: {
       postgres: {
         getColumns: vi.fn(),
         getRows: vi.fn()
@@ -22,8 +22,8 @@ describe('usePostgresTableData', () => {
     { name: 'email', type: 'text' }
   ];
   const mockRows = [{ id: 1, email: 'test@example.com' }];
-  const mockedGetColumns = vi.mocked(api.adminV2.postgres.getColumns);
-  const mockedGetRows = vi.mocked(api.adminV2.postgres.getRows);
+  const mockedGetColumns = vi.mocked(api.admin.postgres.getColumns);
+  const mockedGetRows = vi.mocked(api.admin.postgres.getRows);
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -43,11 +43,11 @@ describe('usePostgresTableData', () => {
 
     expect(result.current.columns).toEqual(mockColumns);
     expect(result.current.rows).toEqual(mockRows);
-    expect(api.adminV2.postgres.getColumns).toHaveBeenCalledWith(
+    expect(api.admin.postgres.getColumns).toHaveBeenCalledWith(
       mockSchema,
       mockTable
     );
-    expect(api.adminV2.postgres.getRows).toHaveBeenCalled();
+    expect(api.admin.postgres.getRows).toHaveBeenCalled();
   });
 
   it('handles sorting', async () => {
@@ -68,7 +68,7 @@ describe('usePostgresTableData', () => {
     });
 
     await waitFor(() => {
-      expect(api.adminV2.postgres.getRows).toHaveBeenCalledWith(
+      expect(api.admin.postgres.getRows).toHaveBeenCalledWith(
         mockSchema,
         mockTable,
         expect.objectContaining({ sortColumn: 'email', sortDirection: 'asc' })

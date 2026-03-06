@@ -134,265 +134,262 @@ function requestAi<T>(
   });
 }
 
-const adminV2Api = {
-  getContext: () =>
-    requestAdminV2<AdminAccessContextResponse>(
-      'GetContext',
-      {},
-      mapContextResponse
-    ),
-  postgres: {
-    getInfo: () =>
-      requestAdminV2<PostgresAdminInfoResponse>(
-        'GetPostgresInfo',
+export const api = {
+  admin: {
+    getContext: () =>
+      requestAdminV2<AdminAccessContextResponse>(
+        'GetContext',
         {},
-        mapPostgresInfoResponse
+        mapContextResponse
       ),
-    getTables: () =>
-      requestAdminV2<PostgresTablesResponse>(
-        'GetTables',
-        {},
-        mapPostgresTablesResponse
-      ),
-    getColumns: (schema: string, table: string) =>
-      requestAdminV2<PostgresColumnsResponse>(
-        'GetColumns',
-        {
-          schema,
-          table
-        },
-        mapPostgresColumnsResponse
-      ),
-    getRows: (
-      schema: string,
-      table: string,
-      options?: {
-        limit?: number;
-        offset?: number;
-        sortColumn?: string;
-        sortDirection?: 'asc' | 'desc';
+    postgres: {
+      getInfo: () =>
+        requestAdminV2<PostgresAdminInfoResponse>(
+          'GetPostgresInfo',
+          {},
+          mapPostgresInfoResponse
+        ),
+      getTables: () =>
+        requestAdminV2<PostgresTablesResponse>(
+          'GetTables',
+          {},
+          mapPostgresTablesResponse
+        ),
+      getColumns: (schema: string, table: string) =>
+        requestAdminV2<PostgresColumnsResponse>(
+          'GetColumns',
+          {
+            schema,
+            table
+          },
+          mapPostgresColumnsResponse
+        ),
+      getRows: (
+        schema: string,
+        table: string,
+        options?: {
+          limit?: number;
+          offset?: number;
+          sortColumn?: string;
+          sortDirection?: 'asc' | 'desc';
+        }
+      ) => {
+        const requestBody: Record<string, unknown> = { schema, table };
+        if (options?.limit) requestBody['limit'] = options.limit;
+        if (options?.offset) requestBody['offset'] = options.offset;
+        if (options?.sortColumn) requestBody['sortColumn'] = options.sortColumn;
+        if (options?.sortDirection) {
+          requestBody['sortDirection'] = options.sortDirection;
+        }
+        return requestAdminV2<PostgresRowsResponse>(
+          'GetRows',
+          requestBody,
+          mapPostgresRowsResponse
+        );
       }
-    ) => {
-      const requestBody: Record<string, unknown> = { schema, table };
-      if (options?.limit) requestBody['limit'] = options.limit;
-      if (options?.offset) requestBody['offset'] = options.offset;
-      if (options?.sortColumn) requestBody['sortColumn'] = options.sortColumn;
-      if (options?.sortDirection) {
-        requestBody['sortDirection'] = options.sortDirection;
-      }
-      return requestAdminV2<PostgresRowsResponse>(
-        'GetRows',
-        requestBody,
-        mapPostgresRowsResponse
-      );
+    },
+    redis: {
+      getKeys: (cursor?: string, limit?: number) => {
+        const requestBody: Record<string, unknown> = {};
+        if (cursor) requestBody['cursor'] = cursor;
+        if (limit) requestBody['limit'] = limit;
+        return requestAdminV2<RedisKeysResponse>(
+          'GetRedisKeys',
+          requestBody,
+          mapRedisKeysResponse
+        );
+      },
+      getValue: (key: string) =>
+        requestAdminV2<RedisKeyValueResponse>(
+          'GetRedisValue',
+          { key },
+          mapRedisValueResponse
+        ),
+      deleteKey: (key: string) =>
+        requestAdminV2<{ deleted: boolean }>(
+          'DeleteRedisKey',
+          { key },
+          mapDeleteRedisKeyResponse
+        ),
+      getDbSize: () =>
+        requestAdminV2<{ count: number }>(
+          'GetRedisDbSize',
+          {},
+          mapRedisDbSizeResponse
+        )
+    },
+    groups: {
+      list: (options?: { organizationId?: string }) => {
+        const requestBody: Record<string, unknown> = {};
+        if (options?.organizationId) {
+          requestBody['organizationId'] = options.organizationId;
+        }
+        return requestAdminV2<GroupsListResponse>(
+          'ListGroups',
+          requestBody,
+          mapGroupsListResponse
+        );
+      },
+      get: (id: string) =>
+        requestAdminV2<GroupDetailResponse>(
+          'GetGroup',
+          { id },
+          mapGroupDetailResponse
+        ),
+      create: (data: CreateGroupRequest) =>
+        requestAdminV2(
+          'CreateGroup',
+          {
+            organizationId: data.organizationId,
+            name: data.name,
+            ...(data.description !== undefined
+              ? { description: data.description }
+              : {})
+          },
+          mapGroupResponse
+        ),
+      update: (id: string, data: UpdateGroupRequest) =>
+        requestAdminV2(
+          'UpdateGroup',
+          {
+            id,
+            ...(data.organizationId !== undefined
+              ? { organizationId: data.organizationId }
+              : {}),
+            ...(data.name !== undefined ? { name: data.name } : {}),
+            ...(data.description !== undefined
+              ? { description: data.description }
+              : {})
+          },
+          mapGroupResponse
+        ),
+      delete: (id: string) =>
+        requestAdminV2('DeleteGroup', { id }, mapDeleteGroupResponse),
+      getMembers: (id: string) =>
+        requestAdminV2<GroupMembersResponse>(
+          'GetGroupMembers',
+          { id },
+          mapGroupMembersResponse
+        ),
+      addMember: (groupId: string, userId: string) =>
+        requestAdminV2(
+          'AddGroupMember',
+          {
+            id: groupId,
+            userId
+          },
+          mapAddGroupMemberResponse
+        ),
+      removeMember: (groupId: string, userId: string) =>
+        requestAdminV2(
+          'RemoveGroupMember',
+          {
+            groupId,
+            userId
+          },
+          mapRemoveGroupMemberResponse
+        )
+    },
+    organizations: {
+      list: (options?: { organizationId?: string }) => {
+        const requestBody: Record<string, unknown> = {};
+        if (options?.organizationId) {
+          requestBody['organizationId'] = options.organizationId;
+        }
+        return requestAdminV2<OrganizationsListResponse>(
+          'ListOrganizations',
+          requestBody,
+          mapOrganizationsListResponse
+        );
+      },
+      get: (id: string) =>
+        requestAdminV2<OrganizationResponse>(
+          'GetOrganization',
+          { id },
+          mapOrganizationResponse
+        ),
+      getUsers: (id: string) =>
+        requestAdminV2<OrganizationUsersResponse>(
+          'GetOrgUsers',
+          { id },
+          mapOrganizationUsersResponse
+        ),
+      getGroups: (id: string) =>
+        requestAdminV2<OrganizationGroupsResponse>(
+          'GetOrgGroups',
+          { id },
+          mapOrganizationGroupsResponse
+        ),
+      create: (data: CreateOrganizationRequest) =>
+        requestAdminV2(
+          'CreateOrganization',
+          {
+            name: data.name,
+            ...(data.description !== undefined
+              ? { description: data.description }
+              : {})
+          },
+          mapOrganizationResponse
+        ),
+      update: (id: string, data: UpdateOrganizationRequest) =>
+        requestAdminV2(
+          'UpdateOrganization',
+          {
+            id,
+            ...(data.name !== undefined ? { name: data.name } : {}),
+            ...(data.description !== undefined
+              ? { description: data.description }
+              : {})
+          },
+          mapOrganizationResponse
+        ),
+      delete: (id: string) =>
+        requestAdminV2(
+          'DeleteOrganization',
+          { id },
+          mapDeleteOrganizationResponse
+        )
+    },
+    users: {
+      list: (options?: { organizationId?: string }) => {
+        const requestBody: Record<string, unknown> = {};
+        if (options?.organizationId) {
+          requestBody['organizationId'] = options.organizationId;
+        }
+        return requestAdminV2<AdminUsersResponse>(
+          'ListUsers',
+          requestBody,
+          mapUsersListResponse
+        );
+      },
+      get: (id: string) =>
+        requestAdminV2<AdminUserResponse>('GetUser', { id }, mapUserResponse),
+      update: (id: string, data: AdminUserUpdatePayload) =>
+        requestAdminV2<AdminUserUpdateResponse>(
+          'UpdateUser',
+          {
+            id,
+            ...(data.email !== undefined ? { email: data.email } : {}),
+            ...(data.emailConfirmed !== undefined
+              ? { emailConfirmed: data.emailConfirmed }
+              : {}),
+            ...(data.admin !== undefined ? { admin: data.admin } : {}),
+            ...(data.organizationIds !== undefined
+              ? {
+                  organizationIds: {
+                    organizationIds: data.organizationIds
+                  }
+                }
+              : {}),
+            ...(data.disabled !== undefined ? { disabled: data.disabled } : {}),
+            ...(data.markedForDeletion !== undefined
+              ? { markedForDeletion: data.markedForDeletion }
+              : {})
+          },
+          mapUserResponse
+        )
     }
   },
-  redis: {
-    getKeys: (cursor?: string, limit?: number) => {
-      const requestBody: Record<string, unknown> = {};
-      if (cursor) requestBody['cursor'] = cursor;
-      if (limit) requestBody['limit'] = limit;
-      return requestAdminV2<RedisKeysResponse>(
-        'GetRedisKeys',
-        requestBody,
-        mapRedisKeysResponse
-      );
-    },
-    getValue: (key: string) =>
-      requestAdminV2<RedisKeyValueResponse>(
-        'GetRedisValue',
-        { key },
-        mapRedisValueResponse
-      ),
-    deleteKey: (key: string) =>
-      requestAdminV2<{ deleted: boolean }>(
-        'DeleteRedisKey',
-        { key },
-        mapDeleteRedisKeyResponse
-      ),
-    getDbSize: () =>
-      requestAdminV2<{ count: number }>(
-        'GetRedisDbSize',
-        {},
-        mapRedisDbSizeResponse
-      )
-  },
-  groups: {
-    list: (options?: { organizationId?: string }) => {
-      const requestBody: Record<string, unknown> = {};
-      if (options?.organizationId) {
-        requestBody['organizationId'] = options.organizationId;
-      }
-      return requestAdminV2<GroupsListResponse>(
-        'ListGroups',
-        requestBody,
-        mapGroupsListResponse
-      );
-    },
-    get: (id: string) =>
-      requestAdminV2<GroupDetailResponse>(
-        'GetGroup',
-        { id },
-        mapGroupDetailResponse
-      ),
-    create: (data: CreateGroupRequest) =>
-      requestAdminV2(
-        'CreateGroup',
-        {
-          organizationId: data.organizationId,
-          name: data.name,
-          ...(data.description !== undefined
-            ? { description: data.description }
-            : {})
-        },
-        mapGroupResponse
-      ),
-    update: (id: string, data: UpdateGroupRequest) =>
-      requestAdminV2(
-        'UpdateGroup',
-        {
-          id,
-          ...(data.organizationId !== undefined
-            ? { organizationId: data.organizationId }
-            : {}),
-          ...(data.name !== undefined ? { name: data.name } : {}),
-          ...(data.description !== undefined
-            ? { description: data.description }
-            : {})
-        },
-        mapGroupResponse
-      ),
-    delete: (id: string) =>
-      requestAdminV2('DeleteGroup', { id }, mapDeleteGroupResponse),
-    getMembers: (id: string) =>
-      requestAdminV2<GroupMembersResponse>(
-        'GetGroupMembers',
-        { id },
-        mapGroupMembersResponse
-      ),
-    addMember: (groupId: string, userId: string) =>
-      requestAdminV2(
-        'AddGroupMember',
-        {
-          id: groupId,
-          userId
-        },
-        mapAddGroupMemberResponse
-      ),
-    removeMember: (groupId: string, userId: string) =>
-      requestAdminV2(
-        'RemoveGroupMember',
-        {
-          groupId,
-          userId
-        },
-        mapRemoveGroupMemberResponse
-      )
-  },
-  organizations: {
-    list: (options?: { organizationId?: string }) => {
-      const requestBody: Record<string, unknown> = {};
-      if (options?.organizationId) {
-        requestBody['organizationId'] = options.organizationId;
-      }
-      return requestAdminV2<OrganizationsListResponse>(
-        'ListOrganizations',
-        requestBody,
-        mapOrganizationsListResponse
-      );
-    },
-    get: (id: string) =>
-      requestAdminV2<OrganizationResponse>(
-        'GetOrganization',
-        { id },
-        mapOrganizationResponse
-      ),
-    getUsers: (id: string) =>
-      requestAdminV2<OrganizationUsersResponse>(
-        'GetOrgUsers',
-        { id },
-        mapOrganizationUsersResponse
-      ),
-    getGroups: (id: string) =>
-      requestAdminV2<OrganizationGroupsResponse>(
-        'GetOrgGroups',
-        { id },
-        mapOrganizationGroupsResponse
-      ),
-    create: (data: CreateOrganizationRequest) =>
-      requestAdminV2(
-        'CreateOrganization',
-        {
-          name: data.name,
-          ...(data.description !== undefined
-            ? { description: data.description }
-            : {})
-        },
-        mapOrganizationResponse
-      ),
-    update: (id: string, data: UpdateOrganizationRequest) =>
-      requestAdminV2(
-        'UpdateOrganization',
-        {
-          id,
-          ...(data.name !== undefined ? { name: data.name } : {}),
-          ...(data.description !== undefined
-            ? { description: data.description }
-            : {})
-        },
-        mapOrganizationResponse
-      ),
-    delete: (id: string) =>
-      requestAdminV2(
-        'DeleteOrganization',
-        { id },
-        mapDeleteOrganizationResponse
-      )
-  },
-  users: {
-    list: (options?: { organizationId?: string }) => {
-      const requestBody: Record<string, unknown> = {};
-      if (options?.organizationId) {
-        requestBody['organizationId'] = options.organizationId;
-      }
-      return requestAdminV2<AdminUsersResponse>(
-        'ListUsers',
-        requestBody,
-        mapUsersListResponse
-      );
-    },
-    get: (id: string) =>
-      requestAdminV2<AdminUserResponse>('GetUser', { id }, mapUserResponse),
-    update: (id: string, data: AdminUserUpdatePayload) =>
-      requestAdminV2<AdminUserUpdateResponse>(
-        'UpdateUser',
-        {
-          id,
-          ...(data.email !== undefined ? { email: data.email } : {}),
-          ...(data.emailConfirmed !== undefined
-            ? { emailConfirmed: data.emailConfirmed }
-            : {}),
-          ...(data.admin !== undefined ? { admin: data.admin } : {}),
-          ...(data.organizationIds !== undefined
-            ? {
-                organizationIds: {
-                  organizationIds: data.organizationIds
-                }
-              }
-            : {}),
-          ...(data.disabled !== undefined ? { disabled: data.disabled } : {}),
-          ...(data.markedForDeletion !== undefined
-            ? { markedForDeletion: data.markedForDeletion }
-            : {})
-        },
-        mapUserResponse
-      )
-  }
-};
-
-export const api = {
-  admin: adminV2Api,
-  adminV2: adminV2Api,
   ai: {
     getUsage: (options?: {
       startDate?: string;

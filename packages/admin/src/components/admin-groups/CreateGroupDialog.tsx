@@ -71,7 +71,7 @@ export function CreateGroupDialog({
       setError(null);
       const trimmedDescription = description.trim();
       const trimmedOrganizationId = organizationId.trim();
-      await api.adminV2.groups.create(
+      await api.admin.groups.create(
         trimmedDescription
           ? {
               name: name.trim(),

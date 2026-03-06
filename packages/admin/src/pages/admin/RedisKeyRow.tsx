@@ -9,7 +9,6 @@ import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
-// one-component-per-file: allow - this legacy row keeps local JSX helpers pending a dedicated split refactor.
 interface RedisKeyRowProps {
   keyInfo: RedisKeyInfo;
   isExpanded: boolean;
@@ -171,7 +170,7 @@ export function RedisKeyRow({
       setLoading(true);
       setError(null);
       try {
-        const data = await api.adminV2.redis.getValue(keyInfo.key);
+        const data = await api.admin.redis.getValue(keyInfo.key);
         if (!isCancelled) {
           setValueData(data);
         }

@@ -37,7 +37,7 @@ describe('admin api client v2 read routes', () => {
         defaultOrganizationId: 'org-1'
       })
     );
-    await expect(apiClient.adminV2.getContext()).resolves.toEqual({
+    await expect(apiClient.admin.getContext()).resolves.toEqual({
       isRootAdmin: true,
       organizations: [{ id: 'org-1', name: 'Primary Org' }],
       defaultOrganizationId: 'org-1'
@@ -62,7 +62,7 @@ describe('admin api client v2 read routes', () => {
         ]
       })
     );
-    await expect(apiClient.adminV2.groups.get('group-1')).resolves.toEqual({
+    await expect(apiClient.admin.groups.get('group-1')).resolves.toEqual({
       group: {
         id: 'group-1',
         organizationId: 'org-1',
@@ -94,7 +94,7 @@ describe('admin api client v2 read routes', () => {
       })
     );
     await expect(
-      apiClient.adminV2.organizations.list({ organizationId: 'org-1' })
+      apiClient.admin.organizations.list({ organizationId: 'org-1' })
     ).resolves.toEqual({
       organizations: [
         {
@@ -131,7 +131,7 @@ describe('admin api client v2 read routes', () => {
       })
     );
     await expect(
-      apiClient.adminV2.users.list({ organizationId: 'org-1' })
+      apiClient.admin.users.list({ organizationId: 'org-1' })
     ).resolves.toEqual({
       users: [
         {
@@ -169,7 +169,7 @@ describe('admin api client v2 read routes', () => {
         serverVersion: '16.2'
       })
     );
-    await expect(apiClient.adminV2.postgres.getInfo()).resolves.toEqual({
+    await expect(apiClient.admin.postgres.getInfo()).resolves.toEqual({
       status: 'ok',
       info: {
         host: 'localhost',
@@ -194,7 +194,7 @@ describe('admin api client v2 read routes', () => {
         ]
       })
     );
-    await expect(apiClient.adminV2.postgres.getTables()).resolves.toEqual({
+    await expect(apiClient.admin.postgres.getTables()).resolves.toEqual({
       tables: [
         {
           schema: 'public',
@@ -221,7 +221,7 @@ describe('admin api client v2 read routes', () => {
       })
     );
     await expect(
-      apiClient.adminV2.postgres.getColumns('public', 'users')
+      apiClient.admin.postgres.getColumns('public', 'users')
     ).resolves.toEqual({
       columns: [
         {
@@ -243,7 +243,7 @@ describe('admin api client v2 read routes', () => {
       })
     );
     await expect(
-      apiClient.adminV2.postgres.getRows('public', 'users', {
+      apiClient.admin.postgres.getRows('public', 'users', {
         limit: 10,
         offset: 20
       })
@@ -261,7 +261,7 @@ describe('admin api client v2 read routes', () => {
         hasMore: true
       })
     );
-    await expect(apiClient.adminV2.redis.getKeys('1', 10)).resolves.toEqual({
+    await expect(apiClient.admin.redis.getKeys('1', 10)).resolves.toEqual({
       keys: [{ key: 'session:1', type: 'string', ttl: 60 }],
       cursor: '1',
       hasMore: true
@@ -275,7 +275,7 @@ describe('admin api client v2 read routes', () => {
         value: { stringValue: 'enabled' }
       })
     );
-    await expect(apiClient.adminV2.redis.getValue('profile')).resolves.toEqual({
+    await expect(apiClient.admin.redis.getValue('profile')).resolves.toEqual({
       key: 'profile',
       type: 'string',
       ttl: 120,
@@ -290,14 +290,12 @@ describe('admin api client v2 read routes', () => {
         value: { listValue: { values: ['a', 'b'] } }
       })
     );
-    await expect(apiClient.adminV2.redis.getValue('features')).resolves.toEqual(
-      {
-        key: 'features',
-        type: 'list',
-        ttl: 30,
-        value: ['a', 'b']
-      }
-    );
+    await expect(apiClient.admin.redis.getValue('features')).resolves.toEqual({
+      key: 'features',
+      type: 'list',
+      ttl: 30,
+      value: ['a', 'b']
+    });
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -307,36 +305,34 @@ describe('admin api client v2 read routes', () => {
         value: { mapValue: { entries: { mode: 'strict' } } }
       })
     );
-    await expect(apiClient.adminV2.redis.getValue('settings')).resolves.toEqual(
-      {
-        key: 'settings',
-        type: 'hash',
-        ttl: 5,
-        value: { mode: 'strict' }
-      }
-    );
+    await expect(apiClient.admin.redis.getValue('settings')).resolves.toEqual({
+      key: 'settings',
+      type: 'hash',
+      ttl: 5,
+      value: { mode: 'strict' }
+    });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ deleted: true }));
-    await expect(apiClient.adminV2.redis.deleteKey('k')).resolves.toEqual({
+    await expect(apiClient.admin.redis.deleteKey('k')).resolves.toEqual({
       deleted: true
     });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ count: '12' }));
-    await expect(apiClient.adminV2.redis.getDbSize()).resolves.toEqual({
+    await expect(apiClient.admin.redis.getDbSize()).resolves.toEqual({
       count: 12
     });
   });
 
   it('falls back to safe defaults for incomplete v2 payloads', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.getContext()).resolves.toEqual({
+    await expect(apiClient.admin.getContext()).resolves.toEqual({
       isRootAdmin: false,
       organizations: [],
       defaultOrganizationId: null
     });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.groups.get('')).resolves.toEqual({
+    await expect(apiClient.admin.groups.get('')).resolves.toEqual({
       group: {
         id: '',
         organizationId: '',
@@ -349,17 +345,17 @@ describe('admin api client v2 read routes', () => {
     });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.organizations.list()).resolves.toEqual({
+    await expect(apiClient.admin.organizations.list()).resolves.toEqual({
       organizations: []
     });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.users.list()).resolves.toEqual({
+    await expect(apiClient.admin.users.list()).resolves.toEqual({
       users: []
     });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.postgres.getInfo()).resolves.toEqual({
+    await expect(apiClient.admin.postgres.getInfo()).resolves.toEqual({
       status: 'ok',
       info: {
         host: null,
@@ -371,20 +367,18 @@ describe('admin api client v2 read routes', () => {
     });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.postgres.getTables()).resolves.toEqual({
+    await expect(apiClient.admin.postgres.getTables()).resolves.toEqual({
       tables: []
     });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(
-      apiClient.adminV2.postgres.getColumns('', '')
-    ).resolves.toEqual({
+    await expect(apiClient.admin.postgres.getColumns('', '')).resolves.toEqual({
       columns: []
     });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
     await expect(
-      apiClient.adminV2.postgres.getRows('public', 'users')
+      apiClient.admin.postgres.getRows('public', 'users')
     ).resolves.toEqual({
       rows: [],
       totalCount: 0,
@@ -393,14 +387,14 @@ describe('admin api client v2 read routes', () => {
     });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.redis.getKeys()).resolves.toEqual({
+    await expect(apiClient.admin.redis.getKeys()).resolves.toEqual({
       keys: [],
       cursor: '',
       hasMore: false
     });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.redis.getValue('missing')).resolves.toEqual({
+    await expect(apiClient.admin.redis.getValue('missing')).resolves.toEqual({
       key: '',
       type: '',
       ttl: 0,
@@ -408,14 +402,12 @@ describe('admin api client v2 read routes', () => {
     });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.redis.deleteKey('missing')).resolves.toEqual(
-      {
-        deleted: false
-      }
-    );
+    await expect(apiClient.admin.redis.deleteKey('missing')).resolves.toEqual({
+      deleted: false
+    });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.redis.getDbSize()).resolves.toEqual({
+    await expect(apiClient.admin.redis.getDbSize()).resolves.toEqual({
       count: 0
     });
   });
