@@ -135,7 +135,7 @@ function requestAi<T>(
 }
 
 export const api = {
-  admin: {
+  adminV2: {
     getContext: () =>
       requestAdminV2<AdminAccessContextResponse>(
         'GetContext',
@@ -390,8 +390,8 @@ export const api = {
         )
     }
   },
-  get adminV2() {
-    return this.admin;
+  get admin() {
+    return this.adminV2;
   },
   ai: {
     getUsage: (options?: {
