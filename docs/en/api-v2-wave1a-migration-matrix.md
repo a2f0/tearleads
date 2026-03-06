@@ -39,4 +39,4 @@ This matrix tracks the first DAL-proving admin read endpoints selected for v2 mi
 - `@tearleads/admin` now routes Postgres/Redis admin helpers through `tearleads.v2.AdminService` while preserving the existing DTO surface.
 - `api.admin.groups.get`, `api.admin.organizations.list`, and `api.admin.users.list` now route through `tearleads.v2.AdminService` in both `@tearleads/api-client` and `@tearleads/admin` while preserving DTO compatibility.
 - MLS browser/runtime traffic is now v2-only (`tearleads.v2.MlsService`), and the Node v1 MLS service registration has been removed.
-- Next slice: migrate remaining group/org/user admin mutations and detail reads (`GetGroupMembers`, `CreateGroup`, `UpdateGroup`, `DeleteGroup`, `CreateOrganization`, `UpdateOrganization`, `DeleteOrganization`, `GetOrganization`, `GetOrgUsers`, `GetOrgGroups`, `GetUser`, `UpdateUser`) off `tearleads.v1.AdminService`.
+- Next slice: unmount legacy `tearleads.v1.AdminService` runtime registration and update lingering v1 admin-connect MSW coverage to assert v2-only admin transport paths.

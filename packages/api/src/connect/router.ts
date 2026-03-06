@@ -1,5 +1,4 @@
 import type { ConnectRouter } from '@connectrpc/connect';
-import { AdminService } from '@tearleads/shared/gen/tearleads/v1/admin_pb';
 import { AiService } from '@tearleads/shared/gen/tearleads/v1/ai_pb';
 import { AuthService } from '@tearleads/shared/gen/tearleads/v1/auth_pb';
 import { BillingService } from '@tearleads/shared/gen/tearleads/v1/billing_pb';
@@ -9,7 +8,6 @@ import { RevenuecatService } from '@tearleads/shared/gen/tearleads/v1/revenuecat
 import { VfsService } from '@tearleads/shared/gen/tearleads/v1/vfs_pb';
 import { VfsSharesService } from '@tearleads/shared/gen/tearleads/v1/vfs_shares_pb';
 import { MlsService as MlsServiceV2 } from '@tearleads/shared/gen/tearleads/v2/mls_pb';
-import { adminConnectService } from './services/adminService.js';
 import { aiConnectService } from './services/aiService.js';
 import { authConnectService } from './services/authService.js';
 import { billingConnectService } from './services/billingService.js';
@@ -21,7 +19,6 @@ import { vfsConnectService } from './services/vfsService.js';
 import { vfsSharesConnectService } from './services/vfsSharesService.js';
 
 export function registerConnectRoutes(router: ConnectRouter): void {
-  router.service(AdminService, adminConnectService);
   router.service(AiService, aiConnectService);
   router.service(AuthService, authConnectService);
   router.service(BillingService, billingConnectService);
