@@ -35,6 +35,20 @@ function generateId(): string {
   return crypto.randomUUID();
 }
 
+function fireAndForget(
+  callback: ((...args: never[]) => void | Promise<void>) | undefined,
+  errorMessage: string,
+  ...args: unknown[]
+): void {
+  if (callback) {
+    void Promise.resolve(
+      (callback as (...a: unknown[]) => void | Promise<void>)(...args)
+    ).catch((err) => {
+      console.error(errorMessage, err);
+    });
+  }
+}
+
 interface UseClassicAppStateOptions {
   initialState: ClassicState;
   tagSortOrder?: TagSortOrder | undefined;
@@ -216,11 +230,7 @@ export function useClassicAppState({
   const handleDeleteTag = useCallback(
     (tagId: string) => {
       updateState(softDeleteTag(state, tagId));
-      if (onDeleteTag) {
-        void Promise.resolve(onDeleteTag(tagId)).catch((err) => {
-          console.error('Failed to delete tag:', err);
-        });
-      }
+      fireAndForget(onDeleteTag, 'Failed to delete tag:', tagId);
     },
     [state, updateState, onDeleteTag]
   );
@@ -228,11 +238,7 @@ export function useClassicAppState({
   const handleRestoreTag = useCallback(
     (tagId: string) => {
       updateState(restoreTag(state, tagId));
-      if (onRestoreTag) {
-        void Promise.resolve(onRestoreTag(tagId)).catch((err) => {
-          console.error('Failed to restore tag:', err);
-        });
-      }
+      fireAndForget(onRestoreTag, 'Failed to restore tag:', tagId);
     },
     [state, updateState, onRestoreTag]
   );
@@ -298,9 +304,9 @@ export function useClassicAppState({
       updateState(nextState);
 
       if (isNewTag) {
-        void onCreateTag?.(tagId, newName);
+        fireAndForget(onCreateTag, 'Failed to create tag:', tagId, newName);
       } else {
-        void onRenameTag?.(tagId, newName);
+        fireAndForget(onRenameTag, 'Failed to rename tag:', tagId, newName);
       }
 
       setEditingTagId(null);
@@ -390,9 +396,22 @@ export function useClassicAppState({
             break;
           }
         }
-        void onCreateNote?.(noteId, tagId, title, body);
+        fireAndForget(
+          onCreateNote,
+          'Failed to create note:',
+          noteId,
+          tagId,
+          title,
+          body
+        );
       } else {
-        void onUpdateNote?.(noteId, title, body);
+        fireAndForget(
+          onUpdateNote,
+          'Failed to update note:',
+          noteId,
+          title,
+          body
+        );
       }
 
       setEditingNoteId(null);

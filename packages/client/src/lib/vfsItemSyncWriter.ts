@@ -38,6 +38,30 @@ interface QueueItemDeleteAndFlushInput {
 let syncRuntime: VfsSyncRuntime | null = null;
 const serverRegisteredItemIds = new Set<string>();
 
+let inflightCount = 0;
+let lastSyncError: Error | null = null;
+const syncActivityListeners = new Set<() => void>();
+
+function notifySyncActivityListeners(): void {
+  for (const listener of syncActivityListeners) {
+    listener();
+  }
+}
+
+export function getSyncActivity(): {
+  inflightCount: number;
+  lastSyncError: Error | null;
+} {
+  return { inflightCount, lastSyncError };
+}
+
+export function subscribeSyncActivity(cb: () => void): () => void {
+  syncActivityListeners.add(cb);
+  return () => {
+    syncActivityListeners.delete(cb);
+  };
+}
+
 function shouldSyncToServer(): boolean {
   return isLoggedIn() && getFeatureFlagValue('vfsServerRegistration');
 }
@@ -55,6 +79,9 @@ export function setVfsItemSyncRuntime(runtime: VfsSyncRuntime | null): void {
   syncRuntime = runtime;
   if (runtime === null) {
     serverRegisteredItemIds.clear();
+    inflightCount = 0;
+    lastSyncError = null;
+    notifySyncActivityListeners();
   }
 }
 
@@ -147,6 +174,21 @@ async function ensureServerRegistration(
   serverRegisteredItemIds.add(itemId);
 }
 
+async function withSyncTracking(operation: () => Promise<void>): Promise<void> {
+  inflightCount++;
+  notifySyncActivityListeners();
+  try {
+    await operation();
+    lastSyncError = null;
+  } catch (error) {
+    lastSyncError = error instanceof Error ? error : new Error(String(error));
+    throw error;
+  } finally {
+    inflightCount--;
+    notifySyncActivityListeners();
+  }
+}
+
 export async function queueItemUpsertAndFlush(
   input: QueueItemUpsertAndFlushInput
 ): Promise<void> {
@@ -154,19 +196,21 @@ export async function queueItemUpsertAndFlush(
     return;
   }
 
-  const runtime = getSyncRuntimeOrThrow();
-  const sessionKey = await ensureLocalEncryptedSessionKey(
-    input.itemId,
-    input.objectType,
-    input.encryptedSessionKey
-  );
-  await ensureServerRegistration(input.itemId, input.objectType, sessionKey);
-  await runtime.secureFacade.queueEncryptedCrdtOpAndPersist({
-    itemId: input.itemId,
-    opType: 'item_upsert',
-    opPayload: input.payload
+  await withSyncTracking(async () => {
+    const runtime = getSyncRuntimeOrThrow();
+    const sessionKey = await ensureLocalEncryptedSessionKey(
+      input.itemId,
+      input.objectType,
+      input.encryptedSessionKey
+    );
+    await ensureServerRegistration(input.itemId, input.objectType, sessionKey);
+    await runtime.secureFacade.queueEncryptedCrdtOpAndPersist({
+      itemId: input.itemId,
+      opType: 'item_upsert',
+      opPayload: input.payload
+    });
+    await runtime.orchestrator.flushAll();
   });
-  await runtime.orchestrator.flushAll();
 }
 
 export async function queueItemDeleteAndFlush(
@@ -176,16 +220,18 @@ export async function queueItemDeleteAndFlush(
     return;
   }
 
-  const runtime = getSyncRuntimeOrThrow();
-  const sessionKey = await ensureLocalEncryptedSessionKey(
-    input.itemId,
-    input.objectType,
-    input.encryptedSessionKey
-  );
-  await ensureServerRegistration(input.itemId, input.objectType, sessionKey);
-  await runtime.orchestrator.queueCrdtLocalOperationAndPersist({
-    itemId: input.itemId,
-    opType: 'item_delete'
+  await withSyncTracking(async () => {
+    const runtime = getSyncRuntimeOrThrow();
+    const sessionKey = await ensureLocalEncryptedSessionKey(
+      input.itemId,
+      input.objectType,
+      input.encryptedSessionKey
+    );
+    await ensureServerRegistration(input.itemId, input.objectType, sessionKey);
+    await runtime.orchestrator.queueCrdtLocalOperationAndPersist({
+      itemId: input.itemId,
+      opType: 'item_delete'
+    });
+    await runtime.orchestrator.flushAll();
   });
-  await runtime.orchestrator.flushAll();
 }
