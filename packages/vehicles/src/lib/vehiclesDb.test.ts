@@ -106,21 +106,19 @@ describe('vehicles db helpers', () => {
 
   it('updates and returns vehicle by id', async () => {
     const now = Date.now();
-    mockExecute
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            id: 'vehicle-1',
-            make: 'Honda',
-            model: 'Civic',
-            year: 2021,
-            color: 'Gray',
-            createdAt: now - 500,
-            updatedAt: now
-          }
-        ]
-      });
+    mockExecute.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'vehicle-1',
+          make: 'Honda',
+          model: 'Civic',
+          year: 2021,
+          color: 'Gray',
+          createdAt: now - 500,
+          updatedAt: now
+        }
+      ]
+    });
 
     const updated = await updateVehicle('vehicle-1', {
       make: 'Honda',
