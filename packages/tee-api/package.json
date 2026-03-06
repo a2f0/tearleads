@@ -21,8 +21,8 @@
     "buildBundle": "esbuild src/server.ts --bundle --platform=node --target=node24 --format=cjs --outfile=dist/server.cjs --sourcemap",
     "clean": "rm -rf dist",
     "dev": "tsx watch --clear-screen=false src/server.ts",
-    "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
-    "testBun": "bun test",
+    "test": "bun test",
+    "test:vitest": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "keywords": [
