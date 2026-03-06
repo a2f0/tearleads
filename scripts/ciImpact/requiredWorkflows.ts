@@ -1,5 +1,5 @@
 #!/usr/bin/env -S node --import tsx
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import {
   ALL_JOB_NAMES,
   type JobName,
@@ -133,16 +133,19 @@ function runCiImpact(args: CliArgs): CiImpactOutput {
   const base = args.base || DEFAULT_BASE;
   const head = args.head || DEFAULT_HEAD;
 
-  const cmdParts = [
-    'pnpm exec tsx scripts/ciImpact/ciImpact.ts',
-    `--base ${base}`,
-    `--head ${head}`
+  const commandArgs = [
+    '--experimental-strip-types',
+    'scripts/ciImpact/ciImpact.ts',
+    '--base',
+    base,
+    '--head',
+    head
   ];
   if (args.files !== undefined) {
-    cmdParts.push(`--files "${args.files}"`);
+    commandArgs.push('--files', args.files);
   }
 
-  const output = execSync(cmdParts.join(' '), {
+  const output = execFileSync('node', commandArgs, {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe']
   });

@@ -22,23 +22,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
-
-      - name: Install tsx
-        run: pnpm add -g tsx
 
       - name: Refresh main refs
         run: git fetch --no-tags --prune origin main
 
       - name: Validate recent ciImpact decisions
         run: |
-          tsx scripts/ciImpact/validateRecentDecisions.ts \
+          node --experimental-strip-types scripts/ciImpact/validateRecentDecisions.ts \
             --repo "${{ github.repository }}" \
             --sample-size 30 \
             --lookback-hours 24 \

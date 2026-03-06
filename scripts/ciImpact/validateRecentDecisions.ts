@@ -245,9 +245,8 @@ function parseRequiredWorkflows(rawJson: string): RequiredWorkflowsOutput {
 
 function getRequiredWorkflows(files: string[]): string[] {
   const fileArg = files.join(',');
-  const out = runCommand('pnpm', [
-    'exec',
-    'tsx',
+  const out = runCommand('node', [
+    '--experimental-strip-types',
     'scripts/ciImpact/requiredWorkflows.ts',
     '--files',
     fileArg
