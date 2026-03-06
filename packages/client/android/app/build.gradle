@@ -1,14 +1,27 @@
 apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.android'
 
+// Apply generated app config (sets appBundleId, appKeyAlias, etc.)
+def appConfigFile = file('../app-config.gradle')
+if (appConfigFile.exists()) {
+    apply from: appConfigFile
+}
+// Fallback defaults when app-config.gradle is not yet generated
+if (!ext.has('appBundleId')) {
+    ext.appBundleId = "com.tearleads.app"
+}
+if (!ext.has('appKeyAlias')) {
+    ext.appKeyAlias = "tearleads"
+}
+
 android {
-    namespace "com.tearleads.app"
+    namespace appBundleId
     compileSdk rootProject.ext.compileSdkVersion
     buildFeatures {
         buildConfig true
     }
     defaultConfig {
-        applicationId "com.tearleads.app"
+        applicationId appBundleId
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1658
@@ -27,7 +40,7 @@ android {
             if (hasReleaseKeystore) {
                 storeFile keystoreFile
                 storePassword System.getenv("ANDROID_KEYSTORE_STORE_PASS")
-                keyAlias "tearleads"
+                keyAlias appKeyAlias
                 keyPassword System.getenv("ANDROID_KEYSTORE_KEY_PASS")
             }
         }
