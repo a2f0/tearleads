@@ -6,7 +6,7 @@ import { useAdminUserGroups } from './useAdminUserGroups';
 
 vi.mock('@/lib/api', () => ({
   api: {
-    admin: {
+    adminV2: {
       groups: {
         list: vi.fn(),
         getMembers: vi.fn(),
@@ -39,7 +39,7 @@ describe('useAdminUserGroups', () => {
       updatedAt: '2024-01-04T00:00:00Z'
     }
   ];
-  const mockedGroupsApi = vi.mocked(api.admin.groups);
+  const mockedGroupsApi = vi.mocked(api.adminV2.groups);
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -66,7 +66,7 @@ describe('useAdminUserGroups', () => {
       'group-1': { isMember: true, joinedAt: '2024-01-01T00:00:00Z' },
       'group-2': { isMember: false, joinedAt: undefined }
     });
-    expect(api.admin.groups.list).toHaveBeenCalled();
+    expect(api.adminV2.groups.list).toHaveBeenCalled();
   });
 
   it('handles adding a user to a group', async () => {
@@ -79,7 +79,7 @@ describe('useAdminUserGroups', () => {
       await result.current.addToGroup('group-2');
     });
 
-    expect(api.admin.groups.addMember).toHaveBeenCalledWith(
+    expect(api.adminV2.groups.addMember).toHaveBeenCalledWith(
       'group-2',
       mockUserId
     );
@@ -102,7 +102,7 @@ describe('useAdminUserGroups', () => {
       await result.current.removeFromGroup('group-1');
     });
 
-    expect(api.admin.groups.removeMember).toHaveBeenCalledWith(
+    expect(api.adminV2.groups.removeMember).toHaveBeenCalledWith(
       'group-1',
       mockUserId
     );

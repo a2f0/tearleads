@@ -85,48 +85,50 @@ describe('api with msw admin routing', () => {
     const api = await loadApi();
 
     await api.ping.get();
-    await api.admin.getContext();
-    await api.admin.postgres.getInfo();
-    await api.admin.postgres.getTables();
-    await api.admin.postgres.getColumns('public', 'users');
-    await api.admin.postgres.getRows('public', 'users', {
+    await api.adminV2.getContext();
+    await api.adminV2.postgres.getInfo();
+    await api.adminV2.postgres.getTables();
+    await api.adminV2.postgres.getColumns('public', 'users');
+    await api.adminV2.postgres.getRows('public', 'users', {
       limit: 10,
       offset: 20,
       sortColumn: 'id',
       sortDirection: 'desc'
     });
-    await api.admin.redis.getKeys('5', 2);
-    await api.admin.redis.getValue('user:1');
-    await api.admin.redis.deleteKey('user:1');
-    await api.admin.redis.getDbSize();
+    await api.adminV2.redis.getKeys('5', 2);
+    await api.adminV2.redis.getValue('user:1');
+    await api.adminV2.redis.deleteKey('user:1');
+    await api.adminV2.redis.getDbSize();
 
-    await api.admin.groups.list({ organizationId: seededUser.organizationId });
-    await api.admin.groups.get('group-1');
-    await api.admin.groups.create({
+    await api.adminV2.groups.list({
+      organizationId: seededUser.organizationId
+    });
+    await api.adminV2.groups.get('group-1');
+    await api.adminV2.groups.create({
       name: 'New Team',
       organizationId: 'org-1'
     });
-    await api.admin.groups.update('group-1', { name: 'Team Updated' });
-    await api.admin.groups.getMembers('group-1');
-    await api.admin.groups.addMember('group-1', seededUser.userId);
-    await api.admin.groups.removeMember('group-1', seededUser.userId);
-    await api.admin.groups.delete('group-1');
+    await api.adminV2.groups.update('group-1', { name: 'Team Updated' });
+    await api.adminV2.groups.getMembers('group-1');
+    await api.adminV2.groups.addMember('group-1', seededUser.userId);
+    await api.adminV2.groups.removeMember('group-1', seededUser.userId);
+    await api.adminV2.groups.delete('group-1');
 
-    await api.admin.organizations.list({
+    await api.adminV2.organizations.list({
       organizationId: seededUser.organizationId
     });
-    await api.admin.organizations.get('org-1');
-    await api.admin.organizations.getUsers('org-1');
-    await api.admin.organizations.getGroups('org-1');
-    await api.admin.organizations.create({ name: 'Org Created' });
-    await api.admin.organizations.update('org-1', {
+    await api.adminV2.organizations.get('org-1');
+    await api.adminV2.organizations.getUsers('org-1');
+    await api.adminV2.organizations.getGroups('org-1');
+    await api.adminV2.organizations.create({ name: 'Org Created' });
+    await api.adminV2.organizations.update('org-1', {
       description: 'Updated Description'
     });
-    await api.admin.organizations.delete('org-1');
+    await api.adminV2.organizations.delete('org-1');
 
-    await api.admin.users.list({ organizationId: seededUser.organizationId });
-    await api.admin.users.get('user-1');
-    await api.admin.users.update('user-2', {
+    await api.adminV2.users.list({ organizationId: seededUser.organizationId });
+    await api.adminV2.users.get('user-1');
+    await api.adminV2.users.update('user-2', {
       emailConfirmed: true,
       admin: false
     });

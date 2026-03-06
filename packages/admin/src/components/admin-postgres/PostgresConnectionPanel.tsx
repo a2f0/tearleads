@@ -17,7 +17,7 @@ export function PostgresConnectionPanel() {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.admin.postgres.getInfo();
+      const response = await api.adminV2.postgres.getInfo();
       setInfo(response);
     } catch (err) {
       console.error('Failed to fetch Postgres connection info:', err);

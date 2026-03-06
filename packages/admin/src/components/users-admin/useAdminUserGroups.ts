@@ -18,13 +18,15 @@ export function useAdminUserGroups(userId: string | null) {
     try {
       setLoading(true);
       setError(null);
-      const response = await api.admin.groups.list();
+      const response = await api.adminV2.groups.list();
       setGroups(response.groups);
 
       const membershipEntries = await Promise.all(
         response.groups.map(async (group) => {
           try {
-            const membersResponse = await api.admin.groups.getMembers(group.id);
+            const membersResponse = await api.adminV2.groups.getMembers(
+              group.id
+            );
             const member = membersResponse.members.find(
               (entry) => entry.userId === userId
             );
@@ -76,7 +78,7 @@ export function useAdminUserGroups(userId: string | null) {
       try {
         setActionId(groupId);
         setActionError(null);
-        await api.admin.groups.addMember(groupId, userId);
+        await api.adminV2.groups.addMember(groupId, userId);
         setGroupMemberships((prev) => ({
           ...prev,
           [groupId]: { isMember: true, joinedAt: new Date().toISOString() }
@@ -112,7 +114,7 @@ export function useAdminUserGroups(userId: string | null) {
       try {
         setActionId(groupId);
         setActionError(null);
-        await api.admin.groups.removeMember(groupId, userId);
+        await api.adminV2.groups.removeMember(groupId, userId);
         setGroupMemberships((prev) => ({
           ...prev,
           [groupId]: { isMember: false, joinedAt: undefined }

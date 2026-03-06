@@ -286,7 +286,7 @@ describe('api with msw', () => {
 
     it('strips query parameters from event name for paginated requests', async () => {
       const api = await loadApi();
-      await api.admin.redis.getKeys('someCursor123', 50);
+      await api.adminV2.redis.getKeys('someCursor123', 50);
 
       expect(mockLogApiEvent).toHaveBeenCalledWith(
         'api_get_admin_redis_keys',
@@ -306,7 +306,7 @@ describe('api with msw', () => {
       await ctx.redis.set('sessions:abc123', 'test-session-data');
 
       const api = await loadApi();
-      await api.admin.redis.getValue('sessions:abc123');
+      await api.adminV2.redis.getValue('sessions:abc123');
 
       expect(mockLogApiEvent).toHaveBeenCalledWith(
         'api_get_admin_redis_key',
@@ -323,7 +323,7 @@ describe('api with msw', () => {
 
     it('uses generic event name for deleteKey without leaking key values', async () => {
       const api = await loadApi();
-      await api.admin.redis.deleteKey('users:user-uuid:sessions');
+      await api.adminV2.redis.deleteKey('users:user-uuid:sessions');
 
       expect(mockLogApiEvent).toHaveBeenCalledWith(
         'api_delete_admin_redis_key',
@@ -340,7 +340,7 @@ describe('api with msw', () => {
 
     it('logs the dbsize endpoint event', async () => {
       const api = await loadApi();
-      await api.admin.redis.getDbSize();
+      await api.adminV2.redis.getDbSize();
 
       expect(mockLogApiEvent).toHaveBeenCalledWith(
         'api_get_admin_redis_dbsize',
@@ -357,7 +357,7 @@ describe('api with msw', () => {
 
     it('logs the postgres info endpoint event', async () => {
       const api = await loadApi();
-      await api.admin.postgres.getInfo();
+      await api.adminV2.postgres.getInfo();
 
       expect(mockLogApiEvent).toHaveBeenCalledWith(
         'api_get_admin_postgres_info',
@@ -374,7 +374,7 @@ describe('api with msw', () => {
 
     it('logs the postgres tables endpoint event', async () => {
       const api = await loadApi();
-      await api.admin.postgres.getTables();
+      await api.adminV2.postgres.getTables();
 
       expect(mockLogApiEvent).toHaveBeenCalledWith(
         'api_get_admin_postgres_tables',
@@ -391,7 +391,7 @@ describe('api with msw', () => {
 
     it('logs the admin user get endpoint event', async () => {
       const api = await loadApi();
-      await api.admin.users.get('user-1');
+      await api.adminV2.users.get('user-1');
 
       expect(mockLogApiEvent).toHaveBeenCalledWith(
         'api_get_admin_user',

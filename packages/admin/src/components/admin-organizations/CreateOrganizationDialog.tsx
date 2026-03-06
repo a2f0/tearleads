@@ -55,7 +55,7 @@ export function CreateOrganizationDialog({
       setLoading(true);
       setError(null);
       const trimmedDescription = description.trim();
-      await api.admin.organizations.create(
+      await api.adminV2.organizations.create(
         trimmedDescription
           ? { name: name.trim(), description: trimmedDescription }
           : { name: name.trim() }

@@ -117,7 +117,7 @@ describe('api with msw', () => {
     );
     const api = await loadApi();
     await api.auth.login('user@example.com', 'password');
-    await api.admin.redis.getDbSize();
+    await api.adminV2.redis.getDbSize();
     await api.vfs.getMyKeys();
     await api.ai.getUsageSummary();
     expect(

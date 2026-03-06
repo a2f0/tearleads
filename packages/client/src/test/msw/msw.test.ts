@@ -70,7 +70,7 @@ describe('msw handlers', () => {
     await ctx.redis.set('user:1', 'test-value');
     const api = await getApiClient();
 
-    const keysPayload = await api.admin.redis.getKeys('0', 50);
+    const keysPayload = await api.adminV2.redis.getKeys('0', 50);
 
     expect(
       wasApiRequestMade(
@@ -88,7 +88,7 @@ describe('msw handlers', () => {
       )
     ).toBe(true);
 
-    const keyPayload = await api.admin.redis.getValue('user:1');
+    const keyPayload = await api.adminV2.redis.getValue('user:1');
 
     expect(
       wasApiRequestMade(
@@ -128,7 +128,7 @@ describe('msw handlers', () => {
   it('mocks admin postgres connect endpoints', async () => {
     const api = await getApiClient();
 
-    const infoPayload = await api.admin.postgres.getInfo();
+    const infoPayload = await api.adminV2.postgres.getInfo();
     expect(
       wasApiRequestMade(
         'POST',
@@ -139,7 +139,7 @@ describe('msw handlers', () => {
     expect(infoPayload).toHaveProperty('info');
     expect(infoPayload).toHaveProperty('serverVersion');
 
-    const tablesPayload = await api.admin.postgres.getTables();
+    const tablesPayload = await api.adminV2.postgres.getTables();
 
     expect(
       wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetTables')
@@ -297,7 +297,7 @@ describe('msw handlers', () => {
     const api = await getApiClient();
 
     await fetch('http://localhost/v2/ping', { headers: authHeaders });
-    await api.admin.redis.getDbSize();
+    await api.adminV2.redis.getDbSize();
 
     // Filter out internal bypass requests (forwarded to Express on a random port)
     const recordedRequests = getRecordedApiRequests().filter((r) =>
