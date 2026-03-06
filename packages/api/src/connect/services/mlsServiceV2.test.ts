@@ -48,14 +48,6 @@ vi.mock('./mlsDirectKeyPackages.js', () => ({
   getUserKeyPackagesDirectTyped: (...args: unknown[]) =>
     getUserKeyPackagesDirectMock(...args),
   deleteKeyPackageDirectTyped: (...args: unknown[]) =>
-    deleteKeyPackageDirectMock(...args),
-  uploadKeyPackagesDirect: (...args: unknown[]) =>
-    uploadKeyPackagesDirectMock(...args),
-  getMyKeyPackagesDirect: (...args: unknown[]) =>
-    getMyKeyPackagesDirectMock(...args),
-  getUserKeyPackagesDirect: (...args: unknown[]) =>
-    getUserKeyPackagesDirectMock(...args),
-  deleteKeyPackageDirect: (...args: unknown[]) =>
     deleteKeyPackageDirectMock(...args)
 }));
 
@@ -66,58 +58,35 @@ vi.mock('./mlsDirectGroups.js', () => ({
   getGroupDirectTyped: (...args: unknown[]) => getGroupDirectMock(...args),
   updateGroupDirectTyped: (...args: unknown[]) =>
     updateGroupDirectMock(...args),
-  deleteGroupDirectTyped: (...args: unknown[]) =>
-    deleteGroupDirectMock(...args),
-  createGroupDirect: (...args: unknown[]) => createGroupDirectMock(...args),
-  listGroupsDirect: (...args: unknown[]) => listGroupsDirectMock(...args),
-  getGroupDirect: (...args: unknown[]) => getGroupDirectMock(...args),
-  updateGroupDirect: (...args: unknown[]) => updateGroupDirectMock(...args),
-  deleteGroupDirect: (...args: unknown[]) => deleteGroupDirectMock(...args)
+  deleteGroupDirectTyped: (...args: unknown[]) => deleteGroupDirectMock(...args)
 }));
 
 vi.mock('./mlsDirectGroupMembers.js', () => ({
-  addGroupMemberDirect: (...args: unknown[]) =>
-    addGroupMemberDirectMock(...args),
   addGroupMemberDirectTyped: (...args: unknown[]) =>
     addGroupMemberDirectMock(...args),
-  getGroupMembersDirect: (...args: unknown[]) =>
-    getGroupMembersDirectMock(...args),
   getGroupMembersDirectTyped: (...args: unknown[]) =>
     getGroupMembersDirectMock(...args),
-  removeGroupMemberDirect: (...args: unknown[]) =>
-    removeGroupMemberDirectMock(...args),
   removeGroupMemberDirectTyped: (...args: unknown[]) =>
     removeGroupMemberDirectMock(...args)
 }));
 
 vi.mock('./mlsDirectMessages.js', () => ({
-  sendGroupMessageDirect: (...args: unknown[]) =>
-    sendGroupMessageDirectMock(...args),
   sendGroupMessageDirectTyped: (...args: unknown[]) =>
     sendGroupMessageDirectMock(...args),
-  getGroupMessagesDirect: (...args: unknown[]) =>
-    getGroupMessagesDirectMock(...args),
   getGroupMessagesDirectTyped: (...args: unknown[]) =>
     getGroupMessagesDirectMock(...args)
 }));
 
 vi.mock('./mlsDirectState.js', () => ({
-  getGroupStateDirect: (...args: unknown[]) => getGroupStateDirectMock(...args),
   getGroupStateDirectTyped: (...args: unknown[]) =>
     getGroupStateDirectMock(...args),
-  uploadGroupStateDirect: (...args: unknown[]) =>
-    uploadGroupStateDirectMock(...args),
   uploadGroupStateDirectTyped: (...args: unknown[]) =>
     uploadGroupStateDirectMock(...args)
 }));
 
 vi.mock('./mlsDirectWelcomeMessages.js', () => ({
-  getWelcomeMessagesDirect: (...args: unknown[]) =>
-    getWelcomeMessagesDirectMock(...args),
   getWelcomeMessagesDirectTyped: (...args: unknown[]) =>
     getWelcomeMessagesDirectMock(...args),
-  acknowledgeWelcomeDirect: (...args: unknown[]) =>
-    acknowledgeWelcomeDirectMock(...args),
   acknowledgeWelcomeDirectTyped: (...args: unknown[]) =>
     acknowledgeWelcomeDirectMock(...args)
 }));

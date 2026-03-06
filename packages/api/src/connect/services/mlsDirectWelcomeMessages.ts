@@ -6,22 +6,11 @@ import type {
 } from '@tearleads/shared';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
-import { parseAckWelcomePayload } from './mlsDirectShared.js';
 
-type AckWelcomeJsonRequest = { id: string; json: string };
 type AckWelcomeTypedRequest = { id: string } & AckMlsWelcomeRequest;
 
 function encoded(value: string): string {
   return encodeURIComponent(value);
-}
-
-function parseJsonBody(json: string): unknown {
-  const normalized = json.trim().length > 0 ? json : '{}';
-  try {
-    return JSON.parse(normalized);
-  } catch {
-    throw new ConnectError('Invalid JSON body', Code.InvalidArgument);
-  }
 }
 
 function toIsoString(value: Date | string): string {
@@ -83,14 +72,6 @@ export async function getWelcomeMessagesDirectTyped(
   }
 }
 
-export async function getWelcomeMessagesDirect(
-  request: object,
-  context: { requestHeader: Headers }
-): Promise<{ json: string }> {
-  const response = await getWelcomeMessagesDirectTyped(request, context);
-  return { json: JSON.stringify(response) };
-}
-
 export async function acknowledgeWelcomeDirectTyped(
   request: AckWelcomeTypedRequest,
   context: { requestHeader: Headers }
@@ -138,20 +119,4 @@ export async function acknowledgeWelcomeDirectTyped(
     console.error('Failed to acknowledge welcome:', error);
     throw new ConnectError('Failed to acknowledge welcome', Code.Internal);
   }
-}
-
-export async function acknowledgeWelcomeDirect(
-  request: AckWelcomeJsonRequest,
-  context: { requestHeader: Headers }
-): Promise<{ json: string }> {
-  const payload = parseAckWelcomePayload(parseJsonBody(request.json));
-  if (!payload) {
-    throw new ConnectError('groupId is required', Code.InvalidArgument);
-  }
-
-  const response = await acknowledgeWelcomeDirectTyped(
-    { id: request.id, ...payload },
-    context
-  );
-  return { json: JSON.stringify(response) };
 }

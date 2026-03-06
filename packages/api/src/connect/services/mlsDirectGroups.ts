@@ -11,12 +11,7 @@ import type {
 } from '@tearleads/shared';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
-import {
-  encoded,
-  parseJsonBody,
-  toIsoString,
-  toMlsGroupRole
-} from './mlsDirectCommon.js';
+import { encoded, toIsoString, toMlsGroupRole } from './mlsDirectCommon.js';
 import {
   getActiveMlsGroupMembership,
   parseCreateGroupPayload,
@@ -25,8 +20,6 @@ import {
 } from './mlsDirectShared.js';
 
 type GroupIdRequest = { groupId: string };
-type CreateGroupJsonRequest = { json: string };
-type GroupIdJsonRequest = { groupId: string; json: string };
 type GroupIdTypedUpdateRequest = { groupId: string } & UpdateMlsGroupRequest;
 
 export async function createGroupDirectTyped(
@@ -134,18 +127,6 @@ export async function createGroupDirectTyped(
   }
 }
 
-export async function createGroupDirect(
-  request: CreateGroupJsonRequest,
-  context: { requestHeader: Headers }
-): Promise<{ json: string }> {
-  const payload = parseCreateGroupPayload(parseJsonBody(request.json));
-  if (!payload) {
-    throw new ConnectError('Invalid group payload', Code.InvalidArgument);
-  }
-  const response = await createGroupDirectTyped(payload, context);
-  return { json: JSON.stringify(response) };
-}
-
 export async function listGroupsDirectTyped(
   _request: object,
   context: { requestHeader: Headers }
@@ -202,14 +183,6 @@ export async function listGroupsDirectTyped(
     console.error('Failed to list groups:', error);
     throw new ConnectError('Failed to list groups', Code.Internal);
   }
-}
-
-export async function listGroupsDirect(
-  request: object,
-  context: { requestHeader: Headers }
-): Promise<{ json: string }> {
-  const response = await listGroupsDirectTyped(request, context);
-  return { json: JSON.stringify(response) };
 }
 
 export async function getGroupDirectTyped(
@@ -306,14 +279,6 @@ export async function getGroupDirectTyped(
     console.error('Failed to get group:', error);
     throw new ConnectError('Failed to get group', Code.Internal);
   }
-}
-
-export async function getGroupDirect(
-  request: GroupIdRequest,
-  context: { requestHeader: Headers }
-): Promise<{ json: string }> {
-  const response = await getGroupDirectTyped(request, context);
-  return { json: JSON.stringify(response) };
 }
 
 export async function updateGroupDirectTyped(
@@ -421,24 +386,6 @@ export async function updateGroupDirectTyped(
   }
 }
 
-export async function updateGroupDirect(
-  request: GroupIdJsonRequest,
-  context: { requestHeader: Headers }
-): Promise<{ json: string }> {
-  const payload = parseUpdateGroupPayload(parseJsonBody(request.json));
-  if (!payload) {
-    throw new ConnectError(
-      'At least one field to update is required',
-      Code.InvalidArgument
-    );
-  }
-  const response = await updateGroupDirectTyped(
-    { groupId: request.groupId, ...payload },
-    context
-  );
-  return { json: JSON.stringify(response) };
-}
-
 export async function deleteGroupDirectTyped(
   request: GroupIdRequest,
   context: { requestHeader: Headers }
@@ -481,12 +428,4 @@ export async function deleteGroupDirectTyped(
     console.error('Failed to leave group:', error);
     throw new ConnectError('Failed to leave group', Code.Internal);
   }
-}
-
-export async function deleteGroupDirect(
-  request: GroupIdRequest,
-  context: { requestHeader: Headers }
-): Promise<{ json: string }> {
-  await deleteGroupDirectTyped(request, context);
-  return { json: '{}' };
 }

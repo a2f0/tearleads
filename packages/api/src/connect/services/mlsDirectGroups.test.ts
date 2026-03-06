@@ -47,25 +47,12 @@ vi.mock('./mlsDirectAuth.js', () => ({
 }));
 
 import {
-  createGroupDirect,
-  deleteGroupDirect,
-  getGroupDirect,
-  listGroupsDirect,
-  updateGroupDirect
+  createGroupDirectTyped,
+  deleteGroupDirectTyped,
+  getGroupDirectTyped,
+  listGroupsDirectTyped,
+  updateGroupDirectTyped
 } from './mlsDirectGroups.js';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function parseJson(json: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(json);
-  if (!isRecord(parsed)) {
-    throw new Error('Expected object JSON');
-  }
-
-  return parsed;
-}
 
 describe('mlsDirectGroups', () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
@@ -118,12 +105,16 @@ describe('mlsDirectGroups', () => {
       rows: [{ personal_organization_id: 'org-1' }]
     });
 
-    const response = await createGroupDirect(
-      { json: '{"name":"group"}' },
+    const response = await createGroupDirectTyped(
+      {
+        name: 'group',
+        groupIdMls: 'group-mls-1',
+        cipherSuite: 1
+      },
       { requestHeader: new Headers() }
     );
 
-    expect(parseJson(response.json)).toMatchObject({
+    expect(response).toMatchObject({
       group: {
         id: 'group-1',
         groupIdMls: 'group-mls-1',
@@ -141,7 +132,14 @@ describe('mlsDirectGroups', () => {
     parseCreateGroupPayloadMock.mockReturnValueOnce(null);
 
     await expect(
-      createGroupDirect({ json: '{}' }, { requestHeader: new Headers() })
+      createGroupDirectTyped(
+        {
+          name: 'group',
+          groupIdMls: 'group-mls-1',
+          cipherSuite: 1
+        },
+        { requestHeader: new Headers() }
+      )
     ).rejects.toMatchObject({ code: Code.InvalidArgument });
   });
 
@@ -153,8 +151,12 @@ describe('mlsDirectGroups', () => {
     queryMock.mockResolvedValueOnce({ rows: [] });
 
     await expect(
-      createGroupDirect(
-        { json: '{"name":"group"}' },
+      createGroupDirectTyped(
+        {
+          name: 'group',
+          groupIdMls: 'group-mls-1',
+          cipherSuite: 1
+        },
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.PermissionDenied });
@@ -170,8 +172,12 @@ describe('mlsDirectGroups', () => {
     });
 
     await expect(
-      createGroupDirect(
-        { json: '{"name":"group"}' },
+      createGroupDirectTyped(
+        {
+          name: 'group',
+          groupIdMls: 'group-mls-1',
+          cipherSuite: 1
+        },
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.Internal });
@@ -196,12 +202,12 @@ describe('mlsDirectGroups', () => {
       ]
     });
 
-    const response = await listGroupsDirect(
+    const response = await listGroupsDirectTyped(
       {},
       { requestHeader: new Headers() }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       groups: [
         {
           id: 'group-1',
@@ -224,7 +230,7 @@ describe('mlsDirectGroups', () => {
     queryMock.mockRejectedValueOnce(new Error('read failed'));
 
     await expect(
-      listGroupsDirect({}, { requestHeader: new Headers() })
+      listGroupsDirectTyped({}, { requestHeader: new Headers() })
     ).rejects.toMatchObject({ code: Code.Internal });
   });
 
@@ -258,12 +264,12 @@ describe('mlsDirectGroups', () => {
         ]
       });
 
-    const response = await getGroupDirect(
+    const response = await getGroupDirectTyped(
       { groupId: 'group-1' },
       { requestHeader: new Headers() }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       group: {
         id: 'group-1',
         groupIdMls: 'group-mls-1',
@@ -292,7 +298,10 @@ describe('mlsDirectGroups', () => {
     getActiveMlsGroupMembershipMock.mockResolvedValueOnce(null);
 
     await expect(
-      getGroupDirect({ groupId: 'group-1' }, { requestHeader: new Headers() })
+      getGroupDirectTyped(
+        { groupId: 'group-1' },
+        { requestHeader: new Headers() }
+      )
     ).rejects.toMatchObject({ code: Code.PermissionDenied });
   });
 
@@ -300,13 +309,16 @@ describe('mlsDirectGroups', () => {
     queryMock.mockResolvedValueOnce({ rows: [] });
 
     await expect(
-      getGroupDirect({ groupId: 'group-1' }, { requestHeader: new Headers() })
+      getGroupDirectTyped(
+        { groupId: 'group-1' },
+        { requestHeader: new Headers() }
+      )
     ).rejects.toMatchObject({ code: Code.NotFound });
   });
 
   it('rejects getGroup when groupId is empty', async () => {
     await expect(
-      getGroupDirect({ groupId: '   ' }, { requestHeader: new Headers() })
+      getGroupDirectTyped({ groupId: '   ' }, { requestHeader: new Headers() })
     ).rejects.toMatchObject({ code: Code.InvalidArgument });
   });
 
@@ -318,8 +330,8 @@ describe('mlsDirectGroups', () => {
     getPostgresPoolMock.mockResolvedValue({ query: queryMock });
 
     await expect(
-      updateGroupDirect(
-        { groupId: 'group-1', json: '{"name":"next"}' },
+      updateGroupDirectTyped(
+        { groupId: 'group-1', name: 'next' },
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.PermissionDenied });
@@ -329,8 +341,8 @@ describe('mlsDirectGroups', () => {
     parseUpdateGroupPayloadMock.mockReturnValueOnce(null);
 
     await expect(
-      updateGroupDirect(
-        { groupId: 'group-1', json: '{}' },
+      updateGroupDirectTyped(
+        { groupId: 'group-1', name: 'next' },
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.InvalidArgument });
@@ -341,8 +353,8 @@ describe('mlsDirectGroups', () => {
     queryMock.mockResolvedValueOnce({ rows: [] });
 
     await expect(
-      updateGroupDirect(
-        { groupId: 'group-1', json: '{"name":"next"}' },
+      updateGroupDirectTyped(
+        { groupId: 'group-1', name: 'next' },
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.NotFound });
@@ -366,12 +378,12 @@ describe('mlsDirectGroups', () => {
       ]
     });
 
-    const response = await updateGroupDirect(
-      { groupId: 'group-1', json: '{"name":"next"}' },
+    const response = await updateGroupDirectTyped(
+      { groupId: 'group-1', name: 'next' },
       { requestHeader: new Headers() }
     );
 
-    expect(parseJson(response.json)).toMatchObject({
+    expect(response).toMatchObject({
       group: {
         id: 'group-1',
         name: 'Next Name',
@@ -384,12 +396,12 @@ describe('mlsDirectGroups', () => {
     getPostgresPoolMock.mockResolvedValue({ query: queryMock });
     queryMock.mockResolvedValueOnce({ rowCount: 1 });
 
-    const response = await deleteGroupDirect(
+    const response = await deleteGroupDirectTyped(
       { groupId: 'group-1' },
       { requestHeader: new Headers() }
     );
 
-    expect(response).toEqual({ json: '{}' });
+    expect(response).toEqual({});
     expect(queryMock).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE mls_group_members'),
       ['group-1', 'user-1']
@@ -401,7 +413,7 @@ describe('mlsDirectGroups', () => {
     getPostgresPoolMock.mockResolvedValue({ query: queryMock });
 
     await expect(
-      deleteGroupDirect(
+      deleteGroupDirectTyped(
         { groupId: 'group-1' },
         { requestHeader: new Headers() }
       )
@@ -413,7 +425,7 @@ describe('mlsDirectGroups', () => {
     queryMock.mockRejectedValueOnce(new Error('write failed'));
 
     await expect(
-      deleteGroupDirect(
+      deleteGroupDirectTyped(
         { groupId: 'group-1' },
         { requestHeader: new Headers() }
       )

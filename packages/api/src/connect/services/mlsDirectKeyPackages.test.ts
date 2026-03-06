@@ -29,25 +29,13 @@ vi.mock('./mlsDirectAuth.js', () => ({
 }));
 
 import {
-  deleteKeyPackageDirect,
-  getMyKeyPackagesDirect,
-  getUserKeyPackagesDirect,
-  uploadKeyPackagesDirect
+  deleteKeyPackageDirectTyped,
+  getMyKeyPackagesDirectTyped,
+  getUserKeyPackagesDirectTyped,
+  uploadKeyPackagesDirectTyped
 } from './mlsDirectKeyPackages.js';
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function parseJson(json: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(json);
-  if (!isRecord(parsed)) {
-    throw new Error('Expected object JSON response');
-  }
-  return parsed;
-}
 
 describe('mlsDirectKeyPackages', () => {
   beforeEach(() => {
@@ -84,9 +72,20 @@ describe('mlsDirectKeyPackages', () => {
       ]
     });
 
-    const response = await uploadKeyPackagesDirect(
+    const response = await uploadKeyPackagesDirectTyped(
       {
-        json: '{"keyPackages":[{"keyPackageData":"data-1","keyPackageRef":"ref-1","cipherSuite":1},{"keyPackageData":"data-2","keyPackageRef":"ref-2","cipherSuite":1}]}'
+        keyPackages: [
+          {
+            keyPackageData: 'data-1',
+            keyPackageRef: 'ref-1',
+            cipherSuite: 1
+          },
+          {
+            keyPackageData: 'data-2',
+            keyPackageRef: 'ref-2',
+            cipherSuite: 1
+          }
+        ]
       },
       { requestHeader: new Headers() }
     );
@@ -102,7 +101,7 @@ describe('mlsDirectKeyPackages', () => {
       ]
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       keyPackages: [
         {
           id: 'kp-1',
@@ -119,9 +118,9 @@ describe('mlsDirectKeyPackages', () => {
 
   it('rejects upload with invalid payload', async () => {
     await expect(
-      uploadKeyPackagesDirect(
+      uploadKeyPackagesDirectTyped(
         {
-          json: '{}'
+          keyPackages: []
         },
         { requestHeader: new Headers() }
       )
@@ -133,9 +132,15 @@ describe('mlsDirectKeyPackages', () => {
     queryMock.mockRejectedValueOnce(new Error('write failed'));
 
     await expect(
-      uploadKeyPackagesDirect(
+      uploadKeyPackagesDirectTyped(
         {
-          json: '{"keyPackages":[{"keyPackageData":"data-1","keyPackageRef":"ref-1","cipherSuite":1}]}'
+          keyPackages: [
+            {
+              keyPackageData: 'data-1',
+              keyPackageRef: 'ref-1',
+              cipherSuite: 1
+            }
+          ]
         },
         { requestHeader: new Headers() }
       )
@@ -164,12 +169,12 @@ describe('mlsDirectKeyPackages', () => {
       ]
     });
 
-    const response = await getMyKeyPackagesDirect(
+    const response = await getMyKeyPackagesDirectTyped(
       {},
       { requestHeader: new Headers() }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       keyPackages: [
         {
           id: 'kp-1',
@@ -197,7 +202,7 @@ describe('mlsDirectKeyPackages', () => {
     queryMock.mockResolvedValueOnce({ rows: [] });
 
     await expect(
-      getUserKeyPackagesDirect(
+      getUserKeyPackagesDirectTyped(
         {
           userId: 'user-2'
         },
@@ -219,14 +224,14 @@ describe('mlsDirectKeyPackages', () => {
       ]
     });
 
-    const response = await getUserKeyPackagesDirect(
+    const response = await getUserKeyPackagesDirectTyped(
       {
         userId: 'user-2'
       },
       { requestHeader: new Headers() }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       keyPackages: [
         {
           id: 'kp-3',
@@ -245,7 +250,7 @@ describe('mlsDirectKeyPackages', () => {
     queryMock.mockRejectedValueOnce(new Error('query failed'));
 
     await expect(
-      getUserKeyPackagesDirect(
+      getUserKeyPackagesDirectTyped(
         {
           userId: 'user-2'
         },
@@ -257,21 +262,21 @@ describe('mlsDirectKeyPackages', () => {
   it('deletes key packages owned by the caller', async () => {
     queryMock.mockResolvedValueOnce({ rowCount: 1 });
 
-    const response = await deleteKeyPackageDirect(
+    const response = await deleteKeyPackageDirectTyped(
       {
         id: 'kp-1'
       },
       { requestHeader: new Headers() }
     );
 
-    expect(response).toEqual({ json: '{}' });
+    expect(response).toEqual({});
   });
 
   it('returns not found when key package delete affects no rows', async () => {
     queryMock.mockResolvedValueOnce({ rowCount: 0 });
 
     await expect(
-      deleteKeyPackageDirect(
+      deleteKeyPackageDirectTyped(
         {
           id: 'missing'
         },
@@ -284,7 +289,7 @@ describe('mlsDirectKeyPackages', () => {
     queryMock.mockRejectedValueOnce(new Error('delete failed'));
 
     await expect(
-      deleteKeyPackageDirect(
+      deleteKeyPackageDirectTyped(
         {
           id: 'kp-1'
         },
