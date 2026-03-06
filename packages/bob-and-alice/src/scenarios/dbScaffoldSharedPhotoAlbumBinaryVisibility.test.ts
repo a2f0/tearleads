@@ -9,7 +9,8 @@ import type {
 import {
   combinePublicKey,
   generateKeyPair,
-  serializePublicKey
+  serializePublicKey,
+  VFS_V2_CONNECT_BASE_PATH
 } from '@tearleads/shared';
 import {
   SCAFFOLD_SHARED_LOGO_SVG,
@@ -163,7 +164,7 @@ async function postVfsConnectJson(
   body: Record<string, unknown>
 ): Promise<void> {
   const response = await fetch(
-    `${harnessInstance.ctx.baseUrl}/v1/connect/tearleads.v1.VfsService/${methodName}`,
+    `${harnessInstance.ctx.baseUrl}/v1${VFS_V2_CONNECT_BASE_PATH}/${methodName}`,
     {
       method: 'POST',
       headers: {

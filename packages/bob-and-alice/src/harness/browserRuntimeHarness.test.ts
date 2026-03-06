@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { VFS_V2_CONNECT_BASE_PATH } from '@tearleads/shared';
 import {
   type BrowserRuntimeActor,
   createBrowserRuntimeActor,
@@ -15,6 +16,8 @@ function toGenericValue<T>(value: unknown): T {
 
 describe('browserRuntimeHarness', () => {
   const actors: BrowserRuntimeActor[] = [];
+  const getSyncPath = `${VFS_V2_CONNECT_BASE_PATH}/GetSync`;
+  const getCrdtSyncPath = `${VFS_V2_CONNECT_BASE_PATH}/GetCrdtSync`;
 
   afterEach(async () => {
     if (actors.length > 0) {
@@ -25,7 +28,7 @@ describe('browserRuntimeHarness', () => {
   it('throws when sync feed reports hasMore without nextCursor', async () => {
     const actor: RuntimeApiActor = {
       fetchJson: async <T>(path: string) => {
-        if (path.endsWith('/connect/tearleads.v1.VfsService/GetSync')) {
+        if (path.endsWith(getSyncPath)) {
           return toGenericValue<T>({
             json: JSON.stringify({
               items: [],
@@ -54,7 +57,7 @@ describe('browserRuntimeHarness', () => {
   it('throws when crdt feed reports hasMore without nextCursor', async () => {
     const actor: RuntimeApiActor = {
       fetchJson: async <T>(path: string) => {
-        if (path.endsWith('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
+        if (path.endsWith(getCrdtSyncPath)) {
           return toGenericValue<T>({
             json: JSON.stringify({
               items: [],

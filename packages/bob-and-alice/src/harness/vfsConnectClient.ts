@@ -1,9 +1,8 @@
 import {
   createConnectJsonPostInit,
-  parseConnectJsonString
+  parseConnectJsonString,
+  VFS_V2_CONNECT_BASE_PATH
 } from '@tearleads/shared';
-
-const VFS_CONNECT_BASE_PATH = '/connect/tearleads.v1.VfsService';
 
 interface ConnectJsonEnvelopeResponse {
   json?: unknown;
@@ -19,7 +18,7 @@ export async function fetchVfsConnectJson<T>(input: {
   requestBody?: Record<string, unknown>;
 }): Promise<T> {
   const envelope = await input.actor.fetchJson<ConnectJsonEnvelopeResponse>(
-    `${VFS_CONNECT_BASE_PATH}/${input.methodName}`,
+    `${VFS_V2_CONNECT_BASE_PATH}/${input.methodName}`,
     createConnectJsonPostInit(input.requestBody ?? {})
   );
   return parseConnectJsonString<T>(envelope.json);
