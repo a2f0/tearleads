@@ -1,36 +1,38 @@
 import { isRecord } from '@tearleads/shared';
 import { logStore } from '@/stores/logStore';
 import type { DatabaseAdapter } from '../adapters';
-import type { Migration } from './types';
-import { v001 } from './v001';
-import { v002 } from './v002';
-import { v003 } from './v003';
-import { v004 } from './v004';
-import { v005 } from './v005';
-import { v006 } from './v006';
-import { v007 } from './v007';
-import { v008 } from './v008';
-import { v009 } from './v009';
-import { v010 } from './v010';
-import { v011 } from './v011';
-import { v012 } from './v012';
-import { v013 } from './v013';
-import { v014 } from './v014';
-import { v015 } from './v015';
-import { v016 } from './v016';
-import { v017 } from './v017';
-import { v018 } from './v018';
-import { v019 } from './v019';
-import { v020 } from './v020';
-import { v021 } from './v021';
-import { v022 } from './v022';
-import { v023 } from './v023';
-import { v024 } from './v024';
-import { v025 } from './v025';
-import { v026 } from './v026';
-import { v027 } from './v027';
-import { v028 } from './v028';
-import { v029 } from './v029';
+import type { Migration } from '@tearleads/db/sqlite-migrations';
+import {
+  v001,
+  v002,
+  v003,
+  v004,
+  v005,
+  v006,
+  v007,
+  v008,
+  v009,
+  v010,
+  v011,
+  v012,
+  v013,
+  v014,
+  v015,
+  v016,
+  v017,
+  v018,
+  v019,
+  v020,
+  v021,
+  v022,
+  v023,
+  v024,
+  v025,
+  v026,
+  v027,
+  v028,
+  v029
+} from '@tearleads/db/sqlite-migrations';
 
 /**
  * All migrations in order. Add new migrations to this array.

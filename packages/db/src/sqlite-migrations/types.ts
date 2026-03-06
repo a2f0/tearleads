@@ -1,4 +1,4 @@
-import type { DatabaseAdapter } from '../adapters';
+import type { DatabaseAdapter } from '../adapter';
 
 /**
  * A database migration function.

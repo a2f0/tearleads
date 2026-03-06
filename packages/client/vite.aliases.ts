@@ -160,6 +160,11 @@ export const createViteAliases = (
     ),
     '@tearleads/api': path.resolve(dirname, '../api/src/index.ts'),
     '@tearleads/db/package.json': path.resolve(dirname, '../db/package.json'),
+    '@tearleads/db/adapter': path.resolve(dirname, '../db/src/adapter.ts'),
+    '@tearleads/db/sqlite-migrations': path.resolve(
+      dirname,
+      '../db/src/sqlite-migrations/index.ts'
+    ),
     '@tearleads/db': path.resolve(dirname, '../db/src'),
     '@tearleads/db/sqlite': path.resolve(
       dirname,

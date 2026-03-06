@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { DatabaseAdapter } from '@/db/adapters/types';
+import type { DatabaseAdapter } from '../adapter';
 import { v022 } from './v022';
 
 const createAdapter = (): DatabaseAdapter => ({

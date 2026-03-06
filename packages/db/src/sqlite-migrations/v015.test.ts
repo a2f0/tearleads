@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { DatabaseAdapter } from '@/db/adapters/types';
-import { v020 } from './v020';
+import type { DatabaseAdapter } from '../adapter';
+import { v015 } from './v015';
 
 const createAdapter = (): DatabaseAdapter => ({
   initialize: vi.fn(async () => {}),
@@ -17,25 +17,14 @@ const createAdapter = (): DatabaseAdapter => ({
   importDatabase: vi.fn(async () => {})
 });
 
-describe('v020 migration', () => {
-  it('adds parent_id column and index to health_exercises', async () => {
+describe('v015 migration', () => {
+  it('adds deleted column and index for tags', async () => {
     const adapter = createAdapter();
 
-    await v020.up(adapter);
+    await v015.up(adapter);
 
-    // Verify PRAGMA check for existing column
     expect(adapter.execute).toHaveBeenCalledWith(
-      'PRAGMA table_info("health_exercises")'
-    );
-
-    // Verify ALTER TABLE to add column (when column doesn't exist)
-    expect(adapter.execute).toHaveBeenCalledWith(
-      'ALTER TABLE "health_exercises" ADD COLUMN "parent_id" TEXT'
-    );
-
-    // Verify index creation
-    expect(adapter.execute).toHaveBeenCalledWith(
-      'CREATE INDEX IF NOT EXISTS "health_exercises_parent_idx" ON "health_exercises" ("parent_id")'
+      'CREATE INDEX IF NOT EXISTS "tags_deleted_idx" ON "tags" ("deleted")'
     );
   });
 });

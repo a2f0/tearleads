@@ -22,6 +22,14 @@
       "types": "./dist/migrations/index.d.ts",
       "import": "./dist/migrations/index.js"
     },
+    "./adapter": {
+      "types": "./dist/adapter.d.ts",
+      "import": "./dist/adapter.js"
+    },
+    "./sqlite-migrations": {
+      "types": "./dist/sqlite-migrations/index.d.ts",
+      "import": "./dist/sqlite-migrations/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [

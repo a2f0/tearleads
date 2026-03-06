@@ -1,5 +1,5 @@
 import { isRecord } from '@tearleads/shared';
-import type { DatabaseAdapter } from '../adapters';
+import type { DatabaseAdapter } from '../adapter';
 
 /**
  * Check if a table exists in the database.
