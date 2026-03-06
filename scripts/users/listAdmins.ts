@@ -1,14 +1,25 @@
 #!/usr/bin/env -S node --import tsx
-import { pathToFileURL } from 'node:url';
-import { runListAdminsFromArgv } from '../../packages/api/src/cli/listAdmins.ts';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-async function main(): Promise<void> {
-  await runListAdminsFromArgv(process.argv.slice(2));
+const PM_SCRIPT_PATH = fileURLToPath(new URL('../tooling/pm.sh', import.meta.url));
+const API_CLI_PATH = fileURLToPath(
+  new URL('../../packages/api/src/apiCli.ts', import.meta.url)
+);
+
+function main(): void {
+  execFileSync(
+    'sh',
+    [PM_SCRIPT_PATH, 'exec', 'tsx', API_CLI_PATH, 'list-admins', ...process.argv.slice(2)],
+    { stdio: 'inherit' }
+  );
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  main().catch((error) => {
+  try {
+    main();
+  } catch (error) {
     console.error('Failed to list admins:', error);
     process.exitCode = 1;
-  });
+  }
 }
