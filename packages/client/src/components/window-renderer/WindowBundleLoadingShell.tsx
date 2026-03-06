@@ -25,7 +25,9 @@ function formatWindowTypeLabel(type: WindowType): string {
   return type
     .split('-')
     .map((segment) =>
-      segment.length > 0 ? segment[0].toUpperCase() + segment.slice(1) : ''
+      segment.length > 0
+        ? segment.slice(0, 1).toUpperCase() + segment.slice(1)
+        : ''
     )
     .join(' ');
 }
