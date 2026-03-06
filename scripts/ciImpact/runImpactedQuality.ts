@@ -125,19 +125,12 @@ function parseImpact(rawJson: string): CiImpactOutput {
 function runCiImpact(args: CliArgs): CiImpactOutput {
   const base = args.base || DEFAULT_BASE;
   const head = args.head || DEFAULT_HEAD;
-  const output =
-    args.files === undefined
-      ? runCiImpactScript({
-          base,
-          head,
-          callerName: 'runImpactedQuality'
-        })
-      : runCiImpactScript({
-          base,
-          head,
-          files: args.files,
-          callerName: 'runImpactedQuality'
-        });
+  const output = runCiImpactScript({
+    base,
+    head,
+    files: args.files,
+    callerName: 'runImpactedQuality'
+  });
   return parseImpact(output);
 }
 

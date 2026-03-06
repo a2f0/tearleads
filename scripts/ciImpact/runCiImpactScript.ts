@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 interface RunCiImpactScriptArgs {
   base: string;
   head: string;
-  files?: string;
+  files?: string | undefined;
   callerName: string;
 }
 
