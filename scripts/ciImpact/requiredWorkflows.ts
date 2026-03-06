@@ -32,6 +32,8 @@ interface RequiredWorkflowsOutput {
 
 const DEFAULT_BASE = 'origin/main';
 const DEFAULT_HEAD = 'HEAD';
+const DEFAULT_CI_IMPACT_NODE_BIN = 'node';
+const DEFAULT_CI_IMPACT_SCRIPT_PATH = 'scripts/ciImpact/ciImpact.ts';
 
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {};
@@ -132,10 +134,14 @@ function parseCiImpact(raw: string): CiImpactOutput {
 function runCiImpact(args: CliArgs): CiImpactOutput {
   const base = args.base || DEFAULT_BASE;
   const head = args.head || DEFAULT_HEAD;
+  const nodeBinary =
+    process.env['CI_IMPACT_NODE_BIN'] ?? DEFAULT_CI_IMPACT_NODE_BIN;
+  const ciImpactScript =
+    process.env['CI_IMPACT_SCRIPT_PATH'] ?? DEFAULT_CI_IMPACT_SCRIPT_PATH;
 
   const commandArgs = [
     '--experimental-strip-types',
-    'scripts/ciImpact/ciImpact.ts',
+    ciImpactScript,
     '--base',
     base,
     '--head',
@@ -145,7 +151,7 @@ function runCiImpact(args: CliArgs): CiImpactOutput {
     commandArgs.push('--files', args.files);
   }
 
-  const output = execFileSync('node', commandArgs, {
+  const output = execFileSync(nodeBinary, commandArgs, {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe']
   });

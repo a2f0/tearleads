@@ -32,16 +32,16 @@ function baseImpactOutput(): string {
   });
 }
 
-function withStubPnpm(stubOutput: string): {
+function withStubCiImpactNode(stubOutput: string): {
   tempDir: string;
   argsFile: string;
-  pathValue: string;
+  stubPath: string;
 } {
   const tempDir = fs.mkdtempSync(
     path.join(os.tmpdir(), 'required-workflows-stub-')
   );
-  const argsFile = path.join(tempDir, 'pnpm-args.txt');
-  const stubPath = path.join(tempDir, 'pnpm');
+  const argsFile = path.join(tempDir, 'node-args.txt');
+  const stubPath = path.join(tempDir, 'node');
   const script = `#!/bin/sh
 if [ -n "$STUB_ARGS_FILE" ]; then
   printf '%s\\n' "$@" > "$STUB_ARGS_FILE"
@@ -52,8 +52,7 @@ JSON
 `;
 
   fs.writeFileSync(stubPath, script, { encoding: 'utf8', mode: 0o755 });
-  const pathValue = `${tempDir}:${process.env['PATH'] ?? ''}`;
-  return { tempDir, argsFile, pathValue };
+  return { tempDir, argsFile, stubPath };
 }
 
 function runRequiredWorkflowsViaNode(
@@ -61,7 +60,7 @@ function runRequiredWorkflowsViaNode(
   env: NodeJS.ProcessEnv
 ): ReturnType<typeof spawnSync> {
   return spawnSync(
-    'node',
+    process.execPath,
     ['--import', 'tsx', 'scripts/ciImpact/requiredWorkflows.ts', ...args],
     {
       encoding: 'utf8',
@@ -214,15 +213,16 @@ test('required workflows: docs-only change has empty reasons', () => {
 });
 
 test('required workflows uses default base/head when args are omitted', () => {
-  const stub = withStubPnpm(baseImpactOutput());
+  const stub = withStubCiImpactNode(baseImpactOutput());
   try {
     const result = runRequiredWorkflowsViaNode([], {
       ...process.env,
-      PATH: stub.pathValue,
-      STUB_ARGS_FILE: stub.argsFile
+      STUB_ARGS_FILE: stub.argsFile,
+      CI_IMPACT_NODE_BIN: stub.stubPath
     });
     assert.equal(result.status, 0, stderrText(result));
     const argsLogged = fs.readFileSync(stub.argsFile, 'utf8');
+    assert.ok(argsLogged.includes('--experimental-strip-types'));
     assert.ok(argsLogged.includes('--base\norigin/main'));
     assert.ok(argsLogged.includes('--head\nHEAD'));
   } finally {
@@ -231,15 +231,16 @@ test('required workflows uses default base/head when args are omitted', () => {
 });
 
 test('required workflows ignores incomplete --base flag and keeps defaults', () => {
-  const stub = withStubPnpm(baseImpactOutput());
+  const stub = withStubCiImpactNode(baseImpactOutput());
   try {
     const result = runRequiredWorkflowsViaNode(['--base'], {
       ...process.env,
-      PATH: stub.pathValue,
-      STUB_ARGS_FILE: stub.argsFile
+      STUB_ARGS_FILE: stub.argsFile,
+      CI_IMPACT_NODE_BIN: stub.stubPath
     });
     assert.equal(result.status, 0, stderrText(result));
     const argsLogged = fs.readFileSync(stub.argsFile, 'utf8');
+    assert.ok(argsLogged.includes('--experimental-strip-types'));
     assert.ok(argsLogged.includes('--base\norigin/main'));
     assert.ok(argsLogged.includes('--head\nHEAD'));
   } finally {
@@ -261,12 +262,12 @@ test('required workflows fails when ciImpact output has non-boolean run value', 
       'ios-maestro-release': { run: false, reasons: [] }
     }
   });
-  const stub = withStubPnpm(invalidRunType);
+  const stub = withStubCiImpactNode(invalidRunType);
   try {
     const result = runRequiredWorkflowsViaNode([], {
       ...process.env,
-      PATH: stub.pathValue,
-      STUB_ARGS_FILE: stub.argsFile
+      STUB_ARGS_FILE: stub.argsFile,
+      CI_IMPACT_NODE_BIN: stub.stubPath
     });
     assert.notEqual(result.status, 0);
     assert.ok(
@@ -291,12 +292,12 @@ test('required workflows fails when ciImpact output has invalid job object', () 
       'ios-maestro-release': { run: false, reasons: [] }
     }
   });
-  const stub = withStubPnpm(invalidJobShape);
+  const stub = withStubCiImpactNode(invalidJobShape);
   try {
     const result = runRequiredWorkflowsViaNode([], {
       ...process.env,
-      PATH: stub.pathValue,
-      STUB_ARGS_FILE: stub.argsFile
+      STUB_ARGS_FILE: stub.argsFile,
+      CI_IMPACT_NODE_BIN: stub.stubPath
     });
     assert.notEqual(result.status, 0);
     assert.ok(
