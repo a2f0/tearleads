@@ -49,6 +49,20 @@ Failure rate excludes `cancelled` and `skipped` runs.
 | `android-maestro-release.yml` | 28 | 2 | 0 | 6.7% |
 | `ios-maestro-release.yml` | 29 | 1 | 0 | 3.3% |
 
+## Bun Test Compatibility Snapshot (2026-03-06 UTC)
+
+Passes under `bun test` today:
+
+- Full-package passes: `@tearleads/local-write-orchestrator`, `@tearleads/remote-read-orchestrator`, `@tearleads/msw`, `@tearleads/tee-api`, `@tearleads/vehicles`, `@tearleads/photos`
+- Targeted-file pass: `@tearleads/app-builder` (`src/generators/theme.test.ts`, `src/generators/utils.test.ts`)
+
+Common blockers from sampled failing packages:
+
+- Vitest-only mocks/APIs (`vi.hoisted`, `vi.importActual`, `vi.resetModules`) in packages like `search`, `compliance`, and `mls-core`
+- DOM runtime assumptions without jsdom setup (`document` / `HTMLMediaElement` undefined) in packages like `ai` and `camera`
+- Fetch/network behavior differences causing live network attempts in `tee-client`
+- Vite-specific runtime features (`import.meta.glob`) used directly in tests/modules
+
 ## Migration SLOs / Go-No-Go Gates
 
 1. Runtime pilot: Bun runtime (`bunx vitest`) must sustain at least `1.25x` median speedup across node/ui/api pilot suites.
