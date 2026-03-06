@@ -27,6 +27,9 @@ interface WorkspacePackage {
 
 const DEFAULT_BASE = 'origin/main';
 const DEFAULT_HEAD = 'HEAD';
+const DEFAULT_PM_WRAPPER_PATH = 'scripts/tooling/pm.sh';
+const PM_WRAPPER_PATH =
+  process.env['CI_IMPACT_PM_WRAPPER'] ?? DEFAULT_PM_WRAPPER_PATH;
 
 const FULL_RUN_FILE_NAMES: ReadonlyArray<string> = [
   'bun.lock',
@@ -145,6 +148,10 @@ function runCommand(command: string, args: string[]): void {
   if (result.status !== 0) {
     process.exit(result.status);
   }
+}
+
+function runPm(args: string[]): void {
+  runCommand('sh', [PM_WRAPPER_PATH, ...args]);
 }
 
 function fileExists(filePath: string): boolean {
@@ -333,23 +340,23 @@ function main(): void {
       'ci-impact: high-risk changes detected, running full quality pipeline.'
     );
     if (!args.dryRun) {
-      runCommand('pnpm', ['lint']);
-      runCommand('pnpm', ['lint:scripts']);
-      runCommand('pnpm', ['lint:md']);
-      runCommand('pnpm', ['exec', 'tsc', '-b']);
-      runCommand('pnpm', ['build']);
+      runPm(['lint']);
+      runPm(['lint:scripts']);
+      runPm(['lint:md']);
+      runPm(['exec', 'tsc', '-b']);
+      runPm(['build']);
 
       ensureCommandAvailable(
         'bundle',
         'Error: bundle is not installed. Please install Ruby and Bundler.'
       );
-      runCommand('pnpm', ['lint:rubocop']);
+      runPm(['lint:rubocop']);
 
       ensureCommandAvailable(
         'ansible-lint',
         'Error: ansible-lint is not installed. Run: pipx install ansible-lint && pipx inject ansible-lint ansible'
       );
-      runCommand('pnpm', ['lint:ansible']);
+      runPm(['lint:ansible']);
     }
     return;
   }
@@ -405,15 +412,15 @@ function main(): void {
   }
 
   if (biomeTargets.length > 0) {
-    runCommand('pnpm', ['exec', 'biome', 'check', ...biomeTargets]);
+    runPm(['exec', 'biome', 'check', ...biomeTargets]);
   }
 
   if (runShellLint) {
-    runCommand('pnpm', ['lint:scripts']);
+    runPm(['lint:scripts']);
   }
 
   if (runMdLint) {
-    runCommand('pnpm', ['lint:md']);
+    runPm(['lint:md']);
   }
 
   if (runRubo) {
@@ -421,7 +428,7 @@ function main(): void {
       'bundle',
       'Error: bundle is not installed. Please install Ruby and Bundler.'
     );
-    runCommand('pnpm', ['lint:rubocop']);
+    runPm(['lint:rubocop']);
   }
 
   if (runAnsLint) {
@@ -433,7 +440,7 @@ function main(): void {
       runCommand('ansible-lint', ansibleLintTargets);
     } else {
       // Fail closed for non-file changes (e.g. deletions) by keeping full lint.
-      runCommand('pnpm', ['lint:ansible']);
+      runPm(['lint:ansible']);
     }
   }
 
@@ -442,8 +449,8 @@ function main(): void {
     if (pkg === undefined) {
       continue;
     }
-    // pnpm --filter runs from within the package directory, so use relative path
-    runCommand('pnpm', [
+    // --filter runs from within the package directory, so use relative path
+    runPm([
       '--filter',
       pkgName,
       'exec',
@@ -455,14 +462,14 @@ function main(): void {
   }
 
   if (runScriptsTypecheck) {
-    runCommand('pnpm', [
+    runPm([
       'exec',
       'tsc',
       '--noEmit',
       '-p',
       'scripts/tsconfig.json'
     ]);
-    runCommand('pnpm', [
+    runPm([
       'exec',
       'tsc',
       '--noEmit',
@@ -472,7 +479,7 @@ function main(): void {
   }
 
   for (const pkgName of buildTargets) {
-    runCommand('pnpm', ['--filter', pkgName, 'build']);
+    runPm(['--filter', pkgName, 'build']);
   }
 }
 
