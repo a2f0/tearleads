@@ -47,9 +47,12 @@ export const pwaOptions: Partial<VitePWAOptions> = {
     navigateFallback: null,
     runtimeCaching: [
       {
-        // Static assets use CacheFirst - they're fingerprinted so safe to cache
+        // Static assets use CacheFirst - they're fingerprinted so safe to cache.
+        // Exclude .generated/ paths: WASM glue JS files are not content-hashed
+        // and must not be intercepted by CacheFirst (causes module load failures).
         urlPattern: ({url}) =>
           url.origin === self.location.origin &&
+          !url.pathname.startsWith('/.generated/') &&
           /\.(js|mjs|css|ico|png|svg|woff2?)$/.test(url.pathname),
         handler: 'CacheFirst',
         options: {
