@@ -114,12 +114,12 @@ jobs:
 
       - name: Install dependencies
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm install
+        run: sh ./scripts/tooling/pm.sh install
 
       - name: Get Playwright version
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         id: playwright-version
-        run: echo "version=$(pnpm --filter @tearleads/website exec playwright --version)" >> $GITHUB_OUTPUT
+        run: echo "version=$(cd packages/website && sh ../../scripts/tooling/pm.sh exec playwright --version)" >> $GITHUB_OUTPUT
 
       - name: Cache Playwright browsers
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
@@ -131,11 +131,13 @@ jobs:
 
       - name: Install Playwright browsers
         if: ${{ (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') && steps.playwright-cache.outputs.cache-hit != 'true' }}
-        run: pnpm --filter @tearleads/website exec playwright install --with-deps chromium firefox webkit
+        run: sh ../../scripts/tooling/pm.sh exec playwright install --with-deps chromium firefox webkit
+        working-directory: packages/website
 
       - name: Install Playwright dependencies
         if: ${{ (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') && steps.playwright-cache.outputs.cache-hit == 'true' }}
-        run: pnpm --filter @tearleads/website exec playwright install-deps
+        run: sh ../../scripts/tooling/pm.sh exec playwright install-deps
+        working-directory: packages/website
 
       - name: Build website image (k8s Dockerfile)
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
@@ -153,7 +155,8 @@ jobs:
 
       - name: Run Playwright tests
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm --filter @tearleads/website test:e2e
+        run: sh ../../scripts/tooling/pm.sh run test:e2e
+        working-directory: packages/website
         env:
           BASE_URL: http://localhost:8082
           PW_EXTERNAL_SERVER: 'true'
