@@ -1,6 +1,7 @@
 import { setAnalyticsAdapter } from '@tearleads/analytics/analyticsState';
 import type { Database } from '@tearleads/db/sqlite';
 import { schema } from '@tearleads/db/sqlite';
+import { setVehiclesAdapter } from '@tearleads/vehicles/vehiclesState';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import { databaseSetupProgressStore } from '@/stores/databaseSetupProgressStore';
 import { logStore } from '@/stores/logStore';
@@ -303,6 +304,7 @@ async function initializeDatabaseWithKey(
 
   _setAdapterInstance(adapter);
   setAnalyticsAdapter(adapter);
+  setVehiclesAdapter(adapter);
 
   // Create Drizzle instance with the sqlite-proxy driver
   // The adapters return { rows: unknown[] } for all methods as expected by Drizzle
@@ -436,6 +438,7 @@ export async function resetDatabase(instanceId: string): Promise<void> {
   // Always clear the adapter instance on reset
   _setAdapterInstance(null);
   setAnalyticsAdapter(null);
+  setVehiclesAdapter(null);
 
   const keyManager = getKeyManagerForInstance(instanceId);
   // Clear any persisted session before full reset

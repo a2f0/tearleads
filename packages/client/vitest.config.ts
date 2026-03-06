@@ -210,8 +210,9 @@ export default mergeConfig(
           'src/pages/help/Help.tsx',
           // App config runtime module - thin wrapper over virtual module
           'src/lib/appConfig.ts',
-          // Re-export stub after analytics source moved to packages/analytics
-          'src/db/analytics.ts'
+          // Re-export stubs after source moved to packages
+          'src/db/analytics.ts',
+          'src/db/vehicles.ts'
         ],
         thresholds: {
           // Thresholds adjusted after moving analytics tests to packages/analytics
