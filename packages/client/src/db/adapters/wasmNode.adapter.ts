@@ -137,15 +137,17 @@ export class WasmNodeAdapter implements DatabaseAdapter {
       throw new Error('Database not initialized');
     }
 
-    // Execute statements in a transaction for atomicity
-    this.db.exec('BEGIN TRANSACTION;');
+    // Use SAVEPOINT instead of BEGIN/COMMIT so executeMany() is nestable
+    // inside an outer transaction (e.g. the migration runner's transaction).
+    this.db.exec('SAVEPOINT sp_execute_many;');
     try {
       for (const sql of statements) {
         this.db.exec(sql);
       }
-      this.db.exec('COMMIT;');
+      this.db.exec('RELEASE sp_execute_many;');
     } catch (error) {
-      this.db.exec('ROLLBACK;');
+      this.db.exec('ROLLBACK TO sp_execute_many;');
+      this.db.exec('RELEASE sp_execute_many;');
       throw error;
     }
   }

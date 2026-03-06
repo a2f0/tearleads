@@ -146,36 +146,50 @@ export async function runMigrations(
     throw new Error('v001 migration is required');
   }
 
-  const v001Start = performance.now();
-  await v001Migration.up(adapter);
-  logStore.debug(
-    `[migrations] v001 (schema bootstrap): ${(performance.now() - v001Start).toFixed(1)}ms`
-  );
-
-  // Check current version
-  let currentVersion = await getCurrentVersion(adapter);
-
-  // If this is a fresh database, record v001 and update our local version
-  if (currentVersion === 0) {
-    await recordMigration(adapter, 1);
-    applied.push(1);
-    currentVersion = 1;
-  }
-
-  // Determine pending migrations
-  const pending = sortedMigrations.filter((m) => m.version > currentVersion);
-
-  // Run any migrations newer than current version
-  for (const [i, migration] of pending.entries()) {
-    onProgress?.(i, pending.length, migration.version, migration.description);
-
-    const migStart = performance.now();
-    await migration.up(adapter);
-    await recordMigration(adapter, migration.version);
-    applied.push(migration.version);
+  // Wrap all migrations in a single transaction to avoid per-statement
+  // OPFS fsync. Without this, each execute() runs in autocommit mode,
+  // triggering an fsync to the Origin Private File System on every call.
+  // With ~87 execute() calls across 29 migrations, this caused 30-60s
+  // of blocking on a fresh database. A single transaction reduces fsyncs
+  // from ~87 to 1.
+  await adapter.beginTransaction();
+  try {
+    const v001Start = performance.now();
+    await v001Migration.up(adapter);
     logStore.debug(
-      `[migrations] v${String(migration.version).padStart(3, '0')} (${migration.description}): ${(performance.now() - migStart).toFixed(1)}ms`
+      `[migrations] v001 (schema bootstrap): ${(performance.now() - v001Start).toFixed(1)}ms`
     );
+
+    // Check current version
+    let currentVersion = await getCurrentVersion(adapter);
+
+    // If this is a fresh database, record v001 and update our local version
+    if (currentVersion === 0) {
+      await recordMigration(adapter, 1);
+      applied.push(1);
+      currentVersion = 1;
+    }
+
+    // Determine pending migrations
+    const pending = sortedMigrations.filter((m) => m.version > currentVersion);
+
+    // Run any migrations newer than current version
+    for (const [i, migration] of pending.entries()) {
+      onProgress?.(i, pending.length, migration.version, migration.description);
+
+      const migStart = performance.now();
+      await migration.up(adapter);
+      await recordMigration(adapter, migration.version);
+      applied.push(migration.version);
+      logStore.debug(
+        `[migrations] v${String(migration.version).padStart(3, '0')} (${migration.description}): ${(performance.now() - migStart).toFixed(1)}ms`
+      );
+    }
+
+    await adapter.commitTransaction();
+  } catch (error) {
+    await adapter.rollbackTransaction();
+    throw error;
   }
 
   const finalVersion = await getCurrentVersion(adapter);
