@@ -16,7 +16,7 @@ vi.mock('./nativeSecureStorage', async () => {
   return createNativeStorageMock();
 });
 
-vi.mock('@/lib/utils', async () => {
+vi.mock('./detectPlatform', async () => {
   const { createUtilsMock } = await import('./keyManager.testUtils');
   return createUtilsMock();
 });
@@ -39,12 +39,12 @@ describe('CapacitorKeyStorage session persistence', () => {
     mockDB.objectStoreNames.contains.mockReturnValue(true);
     clearAllKeyManagers();
 
-    const utils = await import('@/lib/utils');
+    const utils = await import('./detectPlatform');
     vi.mocked(utils.detectPlatform).mockReturnValue('ios');
   });
 
   afterEach(async () => {
-    const utils = await import('@/lib/utils');
+    const utils = await import('./detectPlatform');
     vi.mocked(utils.detectPlatform).mockReturnValue('web');
   });
 
@@ -234,7 +234,7 @@ describe('platform session checks', () => {
   });
 
   it('delegates hasPersistedSession to native storage on iOS', async () => {
-    const utils = await import('@/lib/utils');
+    const utils = await import('./detectPlatform');
     const nativeStorage = await import('./nativeSecureStorage');
 
     vi.mocked(utils.detectPlatform).mockReturnValue('ios');
@@ -250,7 +250,7 @@ describe('platform session checks', () => {
   });
 
   it('returns false on Electron when IPC is unavailable', async () => {
-    const utils = await import('@/lib/utils');
+    const utils = await import('./detectPlatform');
     vi.mocked(utils.detectPlatform).mockReturnValue('electron');
 
     Object.defineProperty(window, 'electron', {
@@ -267,7 +267,7 @@ describe('platform session checks', () => {
   });
 
   it('uses native session check for key status on iOS', async () => {
-    const utils = await import('@/lib/utils');
+    const utils = await import('./detectPlatform');
     const nativeStorage = await import('./nativeSecureStorage');
 
     vi.mocked(utils.detectPlatform).mockReturnValue('ios');
@@ -292,7 +292,7 @@ describe('isBiometricAvailable', () => {
   });
 
   it('returns false on non-mobile platforms', async () => {
-    const utils = await import('@/lib/utils');
+    const utils = await import('./detectPlatform');
     const nativeStorage = await import('./nativeSecureStorage');
 
     vi.mocked(utils.detectPlatform).mockReturnValue('web');
@@ -304,7 +304,7 @@ describe('isBiometricAvailable', () => {
   });
 
   it('returns native biometric availability on iOS', async () => {
-    const utils = await import('@/lib/utils');
+    const utils = await import('./detectPlatform');
     const nativeStorage = await import('./nativeSecureStorage');
 
     vi.mocked(utils.detectPlatform).mockReturnValue('ios');

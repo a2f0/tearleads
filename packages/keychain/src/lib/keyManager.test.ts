@@ -17,7 +17,7 @@ vi.mock('./nativeSecureStorage', async () => {
   return createNativeStorageMock();
 });
 
-vi.mock('@/lib/utils', async () => {
+vi.mock('./detectPlatform', async () => {
   const { createUtilsMock } = await import('./keyManager.testUtils');
   return createUtilsMock();
 });
@@ -43,7 +43,7 @@ describe('getKeyStatusForInstance', () => {
     mockDB.objectStoreNames.contains.mockReturnValue(true);
     clearAllKeyManagers();
 
-    const utils = await import('@/lib/utils');
+    const utils = await import('./detectPlatform');
     vi.mocked(utils.detectPlatform).mockReturnValue('web');
   });
 
@@ -103,7 +103,7 @@ describe('deleteSessionKeysForInstance', () => {
     mockDB.objectStoreNames.contains.mockReturnValue(true);
     clearAllKeyManagers();
 
-    const utils = await import('@/lib/utils');
+    const utils = await import('./detectPlatform');
     vi.mocked(utils.detectPlatform).mockReturnValue('web');
   });
 
@@ -145,7 +145,7 @@ describe('validateAndPruneOrphanedInstances', () => {
     mockDB.objectStoreNames.contains.mockReturnValue(true);
     clearAllKeyManagers();
 
-    const utils = await import('@/lib/utils');
+    const utils = await import('./detectPlatform');
     vi.mocked(utils.detectPlatform).mockReturnValue('web');
   });
 
@@ -228,7 +228,7 @@ describe('validateAndPruneOrphanedInstances', () => {
   });
 
   it('detects and cleans orphaned Keystore entries on mobile', async () => {
-    const utils = await import('@/lib/utils');
+    const utils = await import('./detectPlatform');
     const nativeStorage = await import('./nativeSecureStorage');
     vi.mocked(utils.detectPlatform).mockReturnValue('ios');
 
@@ -253,7 +253,7 @@ describe('validateAndPruneOrphanedInstances', () => {
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
 
-    const utils = await import('@/lib/utils');
+    const utils = await import('./detectPlatform');
     const nativeStorage = await import('./nativeSecureStorage');
 
     vi.mocked(utils.detectPlatform).mockReturnValue('ios');
@@ -275,7 +275,7 @@ describe('validateAndPruneOrphanedInstances', () => {
   });
 
   it('skips clearing keystore entries when none are orphaned', async () => {
-    const utils = await import('@/lib/utils');
+    const utils = await import('./detectPlatform');
     const nativeStorage = await import('./nativeSecureStorage');
     vi.mocked(utils.detectPlatform).mockReturnValue('ios');
 

@@ -14,6 +14,14 @@
       "types": "./src/clientEntry.ts",
       "import": "./src/clientEntry.ts"
     },
+    "./keyManager": {
+      "types": "./src/lib/keyManager.ts",
+      "import": "./src/lib/keyManager.ts"
+    },
+    "./nativeSecureStorage": {
+      "types": "./src/lib/nativeSecureStorage.ts",
+      "import": "./src/lib/nativeSecureStorage.ts"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -26,6 +34,9 @@
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "peerDependencies": {
+    "@capacitor/core": "8.1.0",
+    "@capgo/capacitor-native-biometric": "8.4.2",
+    "@tearleads/shared": "workspace:*",
     "@tearleads/window-manager": "workspace:*",
     "react": "19.2.4",
     "react-dom": "19.2.4",

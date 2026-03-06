@@ -123,6 +123,14 @@ export const createViteAliases = (
       dirname,
       '../keychain/src/clientEntry.ts'
     ),
+    '@tearleads/keychain/keyManager': path.resolve(
+      dirname,
+      '../keychain/src/lib/keyManager.ts'
+    ),
+    '@tearleads/keychain/nativeSecureStorage': path.resolve(
+      dirname,
+      '../keychain/src/lib/nativeSecureStorage.ts'
+    ),
     '@tearleads/keychain': path.resolve(dirname, '../keychain/src/index.ts'),
     '@tearleads/wallet/package.json': path.resolve(dirname, '../wallet/package.json'),
     '@tearleads/wallet/clientEntry': path.resolve(

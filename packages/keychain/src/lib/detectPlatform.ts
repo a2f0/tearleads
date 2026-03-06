@@ -1,0 +1,58 @@
+import { Capacitor } from '@capacitor/core';
+
+export type Platform = 'web' | 'ios' | 'android' | 'electron';
+
+export function detectPlatform(): Platform {
+  // Check for Electron first (before Capacitor which returns 'web' for Electron)
+  if (typeof window !== 'undefined' && window.electron) {
+    return 'electron';
+  }
+
+  // Try Capacitor's platform detection first
+  const capacitorPlatform = Capacitor.getPlatform();
+  if (capacitorPlatform === 'ios' || capacitorPlatform === 'android') {
+    return capacitorPlatform;
+  }
+
+  // If Capacitor returns 'web', double-check with isNativePlatform()
+  // This handles cases where getPlatform() might return 'web' during initialization
+  if (Capacitor.isNativePlatform()) {
+    // We're on a native platform but getPlatform() returned something unexpected
+    // Use user agent to distinguish iOS vs Android
+    if (typeof navigator !== 'undefined') {
+      const ua = navigator.userAgent.toLowerCase();
+      if (ua.includes('iphone') || ua.includes('ipad')) {
+        return 'ios';
+      }
+      if (ua.includes('android')) {
+        return 'android';
+      }
+    }
+    // Default to android if we can't distinguish
+    return 'android';
+  }
+
+  // Final fallback: check user agent for mobile platforms even if Capacitor says 'web'
+  // This handles edge cases where Capacitor bridge hasn't fully initialized
+  if (typeof navigator !== 'undefined') {
+    const ua = navigator.userAgent.toLowerCase();
+    // Check for Android WebView specifically (Capacitor apps run in WebView)
+    // Android WebView UA contains both 'android' and 'wv' (WebView indicator)
+    if (
+      ua.includes('android') &&
+      (ua.includes('wv') || ua.includes('version/'))
+    ) {
+      return 'android';
+    }
+    // Check for iOS WebView (Safari in-app)
+    if (
+      (ua.includes('iphone') || ua.includes('ipad')) &&
+      !ua.includes('safari')
+    ) {
+      return 'ios';
+    }
+  }
+
+  // Fall back to web
+  return 'web';
+}

@@ -16,7 +16,7 @@ vi.mock('./nativeSecureStorage', async () => {
   return createNativeStorageMock();
 });
 
-vi.mock('@/lib/utils', async () => {
+vi.mock('./detectPlatform', async () => {
   const { createUtilsMock } = await import('./keyManager.testUtils');
   return createUtilsMock();
 });
@@ -68,7 +68,7 @@ describe('ElectronKeyStorage session persistence', () => {
     };
 
     // Mock detectPlatform to return 'electron'
-    const utils = await import('@/lib/utils');
+    const utils = await import('./detectPlatform');
     vi.mocked(utils.detectPlatform).mockReturnValue('electron');
   });
 
@@ -238,12 +238,12 @@ describe('ElectronKeyStorage adapter behavior', () => {
     mockDB.objectStoreNames.contains.mockReturnValue(true);
     clearAllKeyManagers();
 
-    const utils = await import('@/lib/utils');
+    const utils = await import('./detectPlatform');
     vi.mocked(utils.detectPlatform).mockReturnValue('electron');
   });
 
   afterEach(async () => {
-    const utils = await import('@/lib/utils');
+    const utils = await import('./detectPlatform');
     vi.mocked(utils.detectPlatform).mockReturnValue('web');
   });
 

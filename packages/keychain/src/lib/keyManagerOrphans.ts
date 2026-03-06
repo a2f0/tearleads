@@ -1,4 +1,4 @@
-import { detectPlatform } from '@/lib/utils';
+import { detectPlatform } from './detectPlatform.js';
 import { getStorageAdapter } from './keyManagerStorageAdapters';
 import * as nativeSecureStorage from './nativeSecureStorage';
 

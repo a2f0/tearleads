@@ -22,7 +22,9 @@ export default mergeConfig(
           'src/**/*.test.{ts,tsx}',
           'src/test/**/*',
           'src/index.ts',
-          'src/**/index.ts'
+          'src/**/index.ts',
+          'src/lib/keyManager.testUtils.ts',
+          'src/lib/detectPlatform.ts'
         ],
         thresholds: {
           // Thresholds will be baselined after migration

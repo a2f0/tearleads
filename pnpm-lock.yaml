@@ -1758,6 +1758,15 @@ importers:
 
   packages/keychain:
     dependencies:
+      '@capacitor/core':
+        specifier: 8.1.0
+        version: 8.1.0
+      '@capgo/capacitor-native-biometric':
+        specifier: 8.4.2
+        version: 8.4.2(@capacitor/core@8.1.0)
+      '@tearleads/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@tearleads/ui':
         specifier: workspace:*
         version: link:../ui
