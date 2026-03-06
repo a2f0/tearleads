@@ -108,7 +108,7 @@ describe('secureWritePipelineFactory flush integration', () => {
           requests.push({ url, body: JSON.parse(init.body) });
         }
 
-        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
+        if (url.endsWith('/connect/tearleads.v2.VfsService/PushCrdtOps')) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -121,7 +121,7 @@ describe('secureWritePipelineFactory flush integration', () => {
           );
         }
 
-        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
+        if (url.includes('/connect/tearleads.v2.VfsService/GetCrdtSync')) {
           return new Response(
             connectJsonEnvelope({
               items: [],
@@ -136,7 +136,7 @@ describe('secureWritePipelineFactory flush integration', () => {
           );
         }
 
-        if (url.endsWith('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
+        if (url.endsWith('/connect/tearleads.v2.VfsService/ReconcileCrdt')) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -214,7 +214,7 @@ describe('secureWritePipelineFactory flush integration', () => {
     });
 
     const chunkRequests = requests.filter((request) =>
-      request.url.endsWith('/connect/tearleads.v1.VfsService/UploadBlobChunk')
+      request.url.endsWith('/connect/tearleads.v2.VfsService/UploadBlobChunk')
     );
     expect(chunkRequests.length).toBeGreaterThan(0);
 
@@ -231,17 +231,17 @@ describe('secureWritePipelineFactory flush integration', () => {
 
     expect(
       requests.some((request) =>
-        request.url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')
+        request.url.endsWith('/connect/tearleads.v2.VfsService/StageBlob')
       )
     ).toBe(true);
     expect(
       requests.some((request) =>
-        request.url.endsWith('/connect/tearleads.v1.VfsService/CommitBlob')
+        request.url.endsWith('/connect/tearleads.v2.VfsService/CommitBlob')
       )
     ).toBe(true);
     expect(
       requests.some((request) =>
-        request.url.endsWith('/connect/tearleads.v1.VfsService/AttachBlob')
+        request.url.endsWith('/connect/tearleads.v2.VfsService/AttachBlob')
       )
     ).toBe(true);
   });
@@ -256,7 +256,7 @@ describe('secureWritePipelineFactory flush integration', () => {
           requests.push({ url, body: JSON.parse(init.body) });
         }
 
-        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
+        if (url.endsWith('/connect/tearleads.v2.VfsService/PushCrdtOps')) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -269,7 +269,7 @@ describe('secureWritePipelineFactory flush integration', () => {
           );
         }
 
-        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
+        if (url.includes('/connect/tearleads.v2.VfsService/GetCrdtSync')) {
           return new Response(
             connectJsonEnvelope({
               items: [],
@@ -284,7 +284,7 @@ describe('secureWritePipelineFactory flush integration', () => {
           );
         }
 
-        if (url.endsWith('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
+        if (url.endsWith('/connect/tearleads.v2.VfsService/ReconcileCrdt')) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -350,7 +350,7 @@ describe('secureWritePipelineFactory flush integration', () => {
     await orchestrator.flushAll();
 
     const chunkRequests = requests.filter((request) =>
-      request.url.endsWith('/connect/tearleads.v1.VfsService/UploadBlobChunk')
+      request.url.endsWith('/connect/tearleads.v2.VfsService/UploadBlobChunk')
     );
     expect(chunkRequests).toHaveLength(stageResult.manifest.chunkCount);
 

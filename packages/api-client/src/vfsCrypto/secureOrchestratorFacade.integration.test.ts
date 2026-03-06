@@ -33,7 +33,7 @@ describe('secureOrchestratorFacade integration', () => {
         const url = input.toString();
         await recordSecureFacadeRequestBody(requests, url, input, init);
 
-        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
+        if (url.endsWith('/connect/tearleads.v2.VfsService/PushCrdtOps')) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -45,7 +45,7 @@ describe('secureOrchestratorFacade integration', () => {
             }
           );
         }
-        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
+        if (url.includes('/connect/tearleads.v2.VfsService/GetCrdtSync')) {
           return new Response(
             connectJsonEnvelope({
               items: [],
@@ -59,7 +59,7 @@ describe('secureOrchestratorFacade integration', () => {
             }
           );
         }
-        if (url.endsWith('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
+        if (url.endsWith('/connect/tearleads.v2.VfsService/ReconcileCrdt')) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -172,22 +172,22 @@ describe('secureOrchestratorFacade integration', () => {
 
     expect(
       requests.some((request) =>
-        request.url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')
+        request.url.endsWith('/connect/tearleads.v2.VfsService/StageBlob')
       )
     ).toBe(true);
     expect(
       requests.some((request) =>
-        request.url.endsWith('/connect/tearleads.v1.VfsService/UploadBlobChunk')
+        request.url.endsWith('/connect/tearleads.v2.VfsService/UploadBlobChunk')
       )
     ).toBe(true);
     expect(
       requests.some((request) =>
-        request.url.endsWith('/connect/tearleads.v1.VfsService/CommitBlob')
+        request.url.endsWith('/connect/tearleads.v2.VfsService/CommitBlob')
       )
     ).toBe(true);
     expect(
       requests.some((request) =>
-        request.url.endsWith('/connect/tearleads.v1.VfsService/AttachBlob')
+        request.url.endsWith('/connect/tearleads.v2.VfsService/AttachBlob')
       )
     ).toBe(true);
   });
@@ -202,7 +202,7 @@ describe('secureOrchestratorFacade integration', () => {
         const url = input.toString();
         await recordSecureFacadeRequestBody(requests, url, input, init);
 
-        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
+        if (url.endsWith('/connect/tearleads.v2.VfsService/PushCrdtOps')) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -214,7 +214,7 @@ describe('secureOrchestratorFacade integration', () => {
             }
           );
         }
-        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
+        if (url.includes('/connect/tearleads.v2.VfsService/GetCrdtSync')) {
           return new Response(
             connectJsonEnvelope({
               items: [],
@@ -228,7 +228,7 @@ describe('secureOrchestratorFacade integration', () => {
             }
           );
         }
-        if (url.endsWith('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
+        if (url.endsWith('/connect/tearleads.v2.VfsService/ReconcileCrdt')) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -309,7 +309,7 @@ describe('secureOrchestratorFacade integration', () => {
 
     const pushRequest = requests.find((request) => {
       return request.url.endsWith(
-        '/connect/tearleads.v1.VfsService/PushCrdtOps'
+        '/connect/tearleads.v2.VfsService/PushCrdtOps'
       );
     });
     expect(pushRequest).toBeDefined();
@@ -339,7 +339,7 @@ describe('secureOrchestratorFacade integration', () => {
         const url = input.toString();
         await recordSecureFacadeRequestBody(requests, url, input, init);
 
-        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
+        if (url.endsWith('/connect/tearleads.v2.VfsService/PushCrdtOps')) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -351,7 +351,7 @@ describe('secureOrchestratorFacade integration', () => {
             }
           );
         }
-        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
+        if (url.includes('/connect/tearleads.v2.VfsService/GetCrdtSync')) {
           return new Response(
             connectJsonEnvelope({
               items: [],
@@ -365,7 +365,7 @@ describe('secureOrchestratorFacade integration', () => {
             }
           );
         }
-        if (url.endsWith('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
+        if (url.endsWith('/connect/tearleads.v2.VfsService/ReconcileCrdt')) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -438,7 +438,7 @@ describe('secureOrchestratorFacade integration', () => {
     });
 
     const pushRequest = requests.find((request) =>
-      request.url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')
+      request.url.endsWith('/connect/tearleads.v2.VfsService/PushCrdtOps')
     );
     expect(pushRequest).toBeDefined();
 

@@ -147,7 +147,7 @@ describe('vfsWriteOrchestrator', () => {
     vi.mocked(global.fetch).mockImplementation(
       async (input: RequestInfo | URL): Promise<Response> => {
         const url = input.toString();
-        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
+        if (url.endsWith('/connect/tearleads.v2.VfsService/PushCrdtOps')) {
           return new Response(
             JSON.stringify({
               json: JSON.stringify({
@@ -161,7 +161,7 @@ describe('vfsWriteOrchestrator', () => {
             }
           );
         }
-        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
+        if (url.includes('/connect/tearleads.v2.VfsService/GetCrdtSync')) {
           return new Response(
             JSON.stringify({
               json: JSON.stringify({
@@ -177,7 +177,7 @@ describe('vfsWriteOrchestrator', () => {
             }
           );
         }
-        if (url.endsWith('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
+        if (url.endsWith('/connect/tearleads.v2.VfsService/ReconcileCrdt')) {
           return new Response(
             JSON.stringify({
               json: JSON.stringify({
@@ -195,7 +195,7 @@ describe('vfsWriteOrchestrator', () => {
             }
           );
         }
-        if (url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')) {
+        if (url.endsWith('/connect/tearleads.v2.VfsService/StageBlob')) {
           return new Response(
             JSON.stringify({
               json: JSON.stringify({

@@ -142,7 +142,7 @@ describe('secureOrchestratorFacade with real crypto', () => {
         _init?: RequestInit
       ): Promise<Response> => {
         const url = input.toString();
-        if (url.includes('/connect/tearleads.v1.VfsService/')) {
+        if (url.includes('/connect/tearleads.v2.VfsService/')) {
           return new Response(
             JSON.stringify({
               clientId: 'desktop',

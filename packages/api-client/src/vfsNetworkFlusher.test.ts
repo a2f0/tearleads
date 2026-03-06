@@ -59,7 +59,7 @@ describe('vfsNetworkFlusher', () => {
           );
         }
 
-        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
+        if (url.endsWith('/connect/tearleads.v2.VfsService/PushCrdtOps')) {
           pushAttempt += 1;
           if (pushAttempt === 1) {
             return new Response(null, { status: 401 });
@@ -113,7 +113,7 @@ describe('vfsNetworkFlusher', () => {
       .mock.calls.filter(([input]) =>
         input
           .toString()
-          .endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')
+          .endsWith('/connect/tearleads.v2.VfsService/PushCrdtOps')
       );
     expect(pushCalls).toHaveLength(2);
 
@@ -316,7 +316,7 @@ describe('vfsNetworkFlusher', () => {
       ): Promise<Response> => {
         const url = input.toString();
 
-        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
+        if (url.includes('/connect/tearleads.v2.VfsService/GetCrdtSync')) {
           pullCalls += 1;
           if (pullCalls === 1) {
             return new Response(
@@ -348,7 +348,7 @@ describe('vfsNetworkFlusher', () => {
           );
         }
 
-        if (url.includes('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
+        if (url.includes('/connect/tearleads.v2.VfsService/ReconcileCrdt')) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -365,7 +365,7 @@ describe('vfsNetworkFlusher', () => {
           );
         }
 
-        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSnapshot')) {
+        if (url.includes('/connect/tearleads.v2.VfsService/GetCrdtSnapshot')) {
           let clientId: unknown;
           if (typeof init?.body === 'string') {
             const parsedBody = JSON.parse(init.body);
@@ -434,7 +434,7 @@ describe('vfsNetworkFlusher', () => {
       .mock.calls.filter(([input]) =>
         input
           .toString()
-          .includes('/connect/tearleads.v1.VfsService/GetCrdtSnapshot')
+          .includes('/connect/tearleads.v2.VfsService/GetCrdtSnapshot')
       );
     expect(snapshotCalls).toHaveLength(1);
   });

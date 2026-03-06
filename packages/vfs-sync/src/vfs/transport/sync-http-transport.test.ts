@@ -100,7 +100,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
     const firstCall = fetchMock.mock.calls[0];
     const requestUrl = firstCall?.[0];
     expect(requestUrl).toBe(
-      'https://sync.example.com/connect/tearleads.v1.VfsService/PushCrdtOps'
+      'https://sync.example.com/connect/tearleads.v2.VfsService/PushCrdtOps'
     );
 
     const requestInit = firstCall?.[1];
@@ -216,7 +216,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
     expect(requestUrl).toBeTypeOf('string');
     const parsedRequestUrl = new URL(String(requestUrl));
     expect(parsedRequestUrl.pathname).toBe(
-      '/connect/tearleads.v1.VfsService/GetCrdtSync'
+      '/connect/tearleads.v2.VfsService/GetCrdtSync'
     );
 
     const requestInit = firstCall?.[1];
@@ -286,7 +286,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
     expect(requestUrl).toBeTypeOf('string');
     const parsedRequestUrl = new URL(String(requestUrl));
     expect(parsedRequestUrl.pathname).toBe(
-      '/connect/tearleads.v1.VfsService/ReconcileCrdt'
+      '/connect/tearleads.v2.VfsService/ReconcileCrdt'
     );
 
     const requestInit = firstCall?.[1];
@@ -423,7 +423,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
     const firstCall = fetchMock.mock.calls[0];
     const requestUrl = firstCall?.[0];
     expect(requestUrl).toBe(
-      'https://sync.example.com/connect/tearleads.v1.VfsService/RunCrdtSession'
+      'https://sync.example.com/connect/tearleads.v2.VfsService/RunCrdtSession'
     );
 
     const requestInit = firstCall?.[1];

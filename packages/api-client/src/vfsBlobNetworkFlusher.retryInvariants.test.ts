@@ -86,7 +86,7 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
             : {};
         observedRequests.push({ url, body });
 
-        if (url.endsWith('/connect/tearleads.v1.VfsService/UploadBlobChunk')) {
+        if (url.endsWith('/connect/tearleads.v2.VfsService/UploadBlobChunk')) {
           const parsedBody = parseNestedJsonBody(body);
           const chunkIndex = parsedBody['chunkIndex'];
           if (chunkIndex === 2 && !failedChunk2) {
@@ -164,7 +164,7 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     });
 
     const chunkCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/connect/tearleads.v1.VfsService/UploadBlobChunk')
+      request.url.endsWith('/connect/tearleads.v2.VfsService/UploadBlobChunk')
     );
     const chunkIndices = chunkCalls
       .map((request) => parseNestedJsonBody(request.body)['chunkIndex'])
@@ -172,12 +172,12 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     expect(chunkIndices).toEqual([0, 1, 2, 2, 3]);
 
     const commitCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/connect/tearleads.v1.VfsService/CommitBlob')
+      request.url.endsWith('/connect/tearleads.v2.VfsService/CommitBlob')
     );
     expect(commitCalls).toHaveLength(1);
 
     const attachCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/connect/tearleads.v1.VfsService/AttachBlob')
+      request.url.endsWith('/connect/tearleads.v2.VfsService/AttachBlob')
     );
     expect(attachCalls).toHaveLength(1);
   });
@@ -197,7 +197,7 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
         observedRequests.push({ url, body });
 
         if (
-          url.endsWith('/connect/tearleads.v1.VfsService/CommitBlob') &&
+          url.endsWith('/connect/tearleads.v2.VfsService/CommitBlob') &&
           body !== null &&
           typeof body === 'object' &&
           (body as { stagingId?: unknown }).stagingId === 'stage-2' &&
@@ -261,16 +261,16 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     });
 
     const stageCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')
+      request.url.endsWith('/connect/tearleads.v2.VfsService/StageBlob')
     );
     const chunkCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/connect/tearleads.v1.VfsService/UploadBlobChunk')
+      request.url.endsWith('/connect/tearleads.v2.VfsService/UploadBlobChunk')
     );
     const commitCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/connect/tearleads.v1.VfsService/CommitBlob')
+      request.url.endsWith('/connect/tearleads.v2.VfsService/CommitBlob')
     );
     const attachCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/connect/tearleads.v1.VfsService/AttachBlob')
+      request.url.endsWith('/connect/tearleads.v2.VfsService/AttachBlob')
     );
 
     expect(stageCalls).toHaveLength(1);
@@ -287,7 +287,7 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     vi.mocked(global.fetch).mockImplementation(
       async (input: RequestInfo | URL): Promise<Response> => {
         const url = input.toString();
-        if (url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')) {
+        if (url.endsWith('/connect/tearleads.v2.VfsService/StageBlob')) {
           stageAttempts += 1;
           if (stageAttempts < 3) {
             return jsonResponse({ error: 'Service unavailable' }, 503);
@@ -355,14 +355,14 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
         init?: RequestInit
       ): Promise<Response> => {
         const url = input.toString();
-        if (url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')) {
+        if (url.endsWith('/connect/tearleads.v2.VfsService/StageBlob')) {
           networkAttempts += 1;
           if (networkAttempts === 1) {
             throw new TypeError('network down');
           }
         }
 
-        if (url.endsWith('/connect/tearleads.v1.VfsService/AttachBlob')) {
+        if (url.endsWith('/connect/tearleads.v2.VfsService/AttachBlob')) {
           const body =
             typeof init?.body === 'string'
               ? (JSON.parse(init.body) as { stagingId?: unknown })

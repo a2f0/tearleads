@@ -46,7 +46,7 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
           observedRequests.push({ url, body: JSON.parse(init.body) });
         }
 
-        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
+        if (url.endsWith('/connect/tearleads.v2.VfsService/PushCrdtOps')) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -58,7 +58,7 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
             }
           );
         }
-        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
+        if (url.includes('/connect/tearleads.v2.VfsService/GetCrdtSync')) {
           return new Response(
             connectJsonEnvelope({
               items: [],
@@ -72,7 +72,7 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
             }
           );
         }
-        if (url.endsWith('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
+        if (url.endsWith('/connect/tearleads.v2.VfsService/ReconcileCrdt')) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -180,7 +180,7 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
     expect(
       parseJsonEnvelope(
         observedRequests.find((request) =>
-          request.url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')
+          request.url.endsWith('/connect/tearleads.v2.VfsService/StageBlob')
         )?.body
       )
     ).toEqual(
@@ -198,7 +198,7 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
         observedRequests.find((request) => {
           if (
             !request.url.endsWith(
-              '/connect/tearleads.v1.VfsService/UploadBlobChunk'
+              '/connect/tearleads.v2.VfsService/UploadBlobChunk'
             )
           ) {
             return false;
@@ -215,7 +215,7 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
     expect(
       parseJsonEnvelope(
         observedRequests.find((request) =>
-          request.url.endsWith('/connect/tearleads.v1.VfsService/CommitBlob')
+          request.url.endsWith('/connect/tearleads.v2.VfsService/CommitBlob')
         )?.body
       )
     ).toEqual(
@@ -228,7 +228,7 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
     expect(
       parseJsonEnvelope(
         observedRequests.find((request) =>
-          request.url.endsWith('/connect/tearleads.v1.VfsService/AttachBlob')
+          request.url.endsWith('/connect/tearleads.v2.VfsService/AttachBlob')
         )?.body
       )
     ).toEqual(

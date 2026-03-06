@@ -47,7 +47,7 @@ export async function recordSecureFacadeRequestBody(
   input: RequestInfo | URL,
   init: RequestInit | undefined
 ): Promise<void> {
-  if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
+  if (url.endsWith('/connect/tearleads.v2.VfsService/PushCrdtOps')) {
     const pushBody = await readPushBody(input, init);
     if (pushBody) {
       requests.push({
