@@ -14,6 +14,8 @@ export function runCiImpactScript({
   callerName
 }: RunCiImpactScriptArgs): string {
   const ciImpactScript = 'scripts/ciImpact/ciImpact.ts';
+  const pmWrapperPath =
+    process.env['CI_IMPACT_PM_WRAPPER'] ?? 'scripts/tooling/pm.sh';
   const ciImpactArgs = [ciImpactScript, '--base', base, '--head', head];
   if (files !== undefined) {
     ciImpactArgs.push('--files', files);
@@ -31,9 +33,9 @@ export function runCiImpactScript({
     },
     { cmd: 'tsx', args: ciImpactArgs, display: 'tsx' },
     {
-      cmd: 'pnpm',
-      args: ['exec', 'tsx', ...ciImpactArgs],
-      display: 'pnpm exec tsx'
+      cmd: 'sh',
+      args: [pmWrapperPath, 'exec', 'tsx', ...ciImpactArgs],
+      display: 'pm.sh exec tsx'
     },
     {
       cmd: process.execPath,
