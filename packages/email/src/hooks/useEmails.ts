@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
 import { VFS_V2_GET_EMAILS_CONNECT_PATH } from '@tearleads/shared';
+import { useCallback, useState } from 'react';
 import { useEmailApi } from '../context';
 import type { EmailItem } from '../lib';
 
@@ -127,12 +127,12 @@ export function useEmails() {
       const response = await fetch(
         `${apiBaseUrl}${VFS_V2_GET_EMAILS_CONNECT_PATH}`,
         {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          offset: 0,
-          limit: DEFAULT_GET_EMAILS_LIMIT
-        })
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            offset: 0,
+            limit: DEFAULT_GET_EMAILS_LIMIT
+          })
         }
       );
       if (!response.ok) {
