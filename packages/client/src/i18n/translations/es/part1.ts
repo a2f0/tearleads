@@ -144,6 +144,8 @@ export const esPart1 = {
     sseConnected: 'SSE: Conectado',
     sseConnecting: 'SSE: Conectando',
     sseDisconnected: 'SSE: Desconectado',
+    vfsSynced: 'Todos los datos sincronizados',
+    vfsPendingSync: '{{count}} operaciones pendientes de sincronización',
     keychainSalt:
       'Valor aleatorio usado con tu contraseña para derivar la clave de cifrado',
     keychainKeyCheckValue:

@@ -147,6 +147,8 @@ export interface TooltipsTranslations {
   sseConnected: string;
   sseConnecting: string;
   sseDisconnected: string;
+  vfsSynced: string;
+  vfsPendingSync: string;
   keychainSalt: string;
   keychainKeyCheckValue: string;
   keychainSessionWrappingKey: string;
