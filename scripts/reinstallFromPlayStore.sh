@@ -35,15 +35,9 @@ else
     echo "App was not installed or uninstall failed. Continuing..."
 fi
 
-URL="market://details?id=$PACKAGE_ID"
-OPENING_MESSAGE="Opening Play Store..."
-FINAL_MESSAGE="Done. Please tap 'Install' in the Play Store to reinstall the app."
-
-if [ -n "${ANDROID_INTERNAL_TESTING_URL:-}" ]; then
-    URL="$ANDROID_INTERNAL_TESTING_URL"
-    OPENING_MESSAGE="Opening internal testing URL..."
-    FINAL_MESSAGE="Done. Please tap 'Install' on the internal testing page to reinstall the app."
-fi
+URL="${ANDROID_INTERNAL_TESTING_URL:-https://play.google.com/console/u/0/developers/6730555694724333630/app/4972033296946871834/tracks/internal-testing}"
+OPENING_MESSAGE="Opening internal testing URL..."
+FINAL_MESSAGE="Done. Please tap 'Install' on the internal testing page to reinstall the app."
 
 echo "$OPENING_MESSAGE"
 adb -s "$DEVICE_SERIAL" shell am start -a android.intent.action.VIEW -d "$URL"
