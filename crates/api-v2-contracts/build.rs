@@ -8,6 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let protos = [
         proto_root.join("tearleads/v2/admin.proto"),
         proto_root.join("tearleads/v2/mls.proto"),
+        proto_root.join("tearleads/v2/vfs.proto"),
     ];
 
     let protoc_path = protoc_bin_vendored::protoc_bin_path()?;
