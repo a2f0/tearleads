@@ -62,6 +62,14 @@ export const createViteAliases = (
       dirname,
       '../analytics/src/clientEntry.ts'
     ),
+    '@tearleads/analytics/analytics': path.resolve(
+      dirname,
+      '../analytics/src/lib/analytics.ts'
+    ),
+    '@tearleads/analytics/analyticsState': path.resolve(
+      dirname,
+      '../analytics/src/lib/analyticsState.ts'
+    ),
     '@tearleads/audio/package.json': path.resolve(dirname, '../audio/package.json'),
     '@tearleads/audio': path.resolve(dirname, '../audio/src/index.ts'),
     '@tearleads/backups/package.json': path.resolve(

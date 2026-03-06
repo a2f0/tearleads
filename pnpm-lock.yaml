@@ -231,6 +231,12 @@ importers:
       '@tanstack/react-virtual':
         specifier: 3.13.19
         version: 3.13.19(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tearleads/db':
+        specifier: workspace:*
+        version: link:../db
+      '@tearleads/shared':
+        specifier: workspace:*
+        version: link:../shared
       lucide-react:
         specifier: 0.576.0
         version: 0.576.0(react@19.2.4)

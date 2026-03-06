@@ -10,15 +10,15 @@ const mockAdapter = {
 };
 
 // Mock dependencies - state.ts provides getDatabaseAdapter and isDatabaseInitialized
-vi.mock('./state', () => ({
+vi.mock('./analyticsState', () => ({
   getDatabaseAdapter: vi.fn(() => mockAdapter),
   isDatabaseInitialized: vi.fn(() => true)
 }));
 
 // Import after mocks
 import { logApiEvent, logEvent, measureOperation } from './analytics';
-import type { Database } from './index';
-import { isDatabaseInitialized } from './state';
+import type { Database } from '@tearleads/db/sqlite';
+import { isDatabaseInitialized } from './analyticsState';
 
 // Create mock database
 const mockDb = {

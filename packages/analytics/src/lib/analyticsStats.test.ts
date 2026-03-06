@@ -1,5 +1,5 @@
 /**
- * Unit tests for analytics module.
+ * Unit tests for analytics module: getEventStats, clearEvents, getEventCount, getDistinctEventTypes.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,7 +10,7 @@ const mockAdapter = {
 };
 
 // Mock dependencies - state.ts provides getDatabaseAdapter and isDatabaseInitialized
-vi.mock('./state', () => ({
+vi.mock('./analyticsState', () => ({
   getDatabaseAdapter: vi.fn(() => mockAdapter),
   isDatabaseInitialized: vi.fn(() => true)
 }));
@@ -22,7 +22,7 @@ import {
   getEventCount,
   getEventStats
 } from './analytics';
-import type { Database } from './index';
+import type { Database } from '@tearleads/db/sqlite';
 
 // Create mock database
 const mockDb = {
@@ -30,7 +30,8 @@ const mockDb = {
     values: vi.fn()
   }))
 } as unknown as Database;
-describe('analytics', () => {
+
+describe('analytics - stats and utilities', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
