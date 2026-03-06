@@ -33,6 +33,12 @@ if ! command -v bun >/dev/null 2>&1 && ! command -v mise >/dev/null 2>&1; then
   exit 1
 fi
 
+if command -v bun >/dev/null 2>&1; then
+  BUN_VERSION=$(bun --version 2>/dev/null || echo "unknown")
+else
+  BUN_VERSION=$(mise x bun -- bun --version 2>/dev/null || echo "unknown")
+fi
+
 get_suite_path() {
   case "$1" in
     node) printf '%s\n' "packages/app-builder/src/generators/theme.test.ts" ;;
@@ -47,6 +53,7 @@ get_suite_path() {
 
 run_bunx_vitest() {
   test_path="$1"
+  # Prefer native bunx when available; fall back to mise-managed Bun for local setups.
   if command -v bunx >/dev/null 2>&1; then
     bunx vitest run "$test_path"
     return
@@ -60,34 +67,36 @@ run_bunx_vitest() {
   mise x bun -- bunx vitest run "$test_path"
 }
 
-LAST_AVG_SECONDS=0
+LAST_AVG_MILLISECONDS=0
 
-run_with_average_seconds() {
+run_with_average_milliseconds() {
   label="$1"
   shift
 
   run_index=1
-  total_seconds=0
+  total_milliseconds=0
   while [ "$run_index" -le "$REPEATS" ]; do
     echo "==> $label (run $run_index/$REPEATS)"
     echo "    command: $*"
-    start_seconds=$(date +%s)
+    start_milliseconds=$(node -e 'process.stdout.write(String(Date.now()))')
     "$@"
-    end_seconds=$(date +%s)
-    elapsed_seconds=$((end_seconds - start_seconds))
-    total_seconds=$((total_seconds + elapsed_seconds))
-    echo "    elapsed_seconds=$elapsed_seconds"
+    end_milliseconds=$(node -e 'process.stdout.write(String(Date.now()))')
+    elapsed_milliseconds=$((end_milliseconds - start_milliseconds))
+    total_milliseconds=$((total_milliseconds + elapsed_milliseconds))
+    echo "    elapsed_ms=$elapsed_milliseconds"
     run_index=$((run_index + 1))
   done
 
-  LAST_AVG_SECONDS=$((total_seconds / REPEATS))
+  LAST_AVG_MILLISECONDS=$((total_milliseconds / REPEATS))
 }
 
 print_row() {
   suite_name="$1"
-  pnpm_seconds="$2"
-  bun_seconds="$3"
-  speedup=$(awk -v p="$pnpm_seconds" -v b="$bun_seconds" 'BEGIN {
+  pnpm_milliseconds="$2"
+  bun_milliseconds="$3"
+  pnpm_seconds=$(awk -v ms="$pnpm_milliseconds" 'BEGIN { printf "%.3f", ms / 1000 }')
+  bun_seconds=$(awk -v ms="$bun_milliseconds" 'BEGIN { printf "%.3f", ms / 1000 }')
+  speedup=$(awk -v p="$pnpm_milliseconds" -v b="$bun_milliseconds" 'BEGIN {
     if (b == 0) { print "n/a"; exit }
     printf "%.2fx", p / b
   }')
@@ -120,6 +129,7 @@ echo "Bun runtime pilot (Vitest)"
 echo "repo: $REPO_ROOT"
 echo "suite: $SUITE"
 echo "repeats: $REPEATS"
+echo "bun_version: $BUN_VERSION"
 echo
 
 TABLE='| Suite | pnpm + vitest (s) | bunx + vitest (s) | Speedup |\n| --- | ---: | ---: | ---: |\n'
@@ -130,11 +140,11 @@ for suite_name in $SUITES; do
   echo "Suite: $suite_name"
   echo "Test:  $test_path"
 
-  run_with_average_seconds "pnpm + vitest [$suite_name]" pnpm exec vitest run "$test_path"
-  pnpm_avg="$LAST_AVG_SECONDS"
+  run_with_average_milliseconds "pnpm + vitest [$suite_name]" pnpm exec vitest run "$test_path"
+  pnpm_avg="$LAST_AVG_MILLISECONDS"
 
-  run_with_average_seconds "bunx + vitest [$suite_name]" run_bunx_vitest "$test_path"
-  bun_avg="$LAST_AVG_SECONDS"
+  run_with_average_milliseconds "bunx + vitest [$suite_name]" run_bunx_vitest "$test_path"
+  bun_avg="$LAST_AVG_MILLISECONDS"
 
   row=$(print_row "$suite_name" "$pnpm_avg" "$bun_avg")
   TABLE="${TABLE}${row}\n"

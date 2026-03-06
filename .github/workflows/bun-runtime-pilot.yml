@@ -2,6 +2,13 @@ name: Bun Runtime Pilot (Vitest)
 
 on:
   pull_request:
+    paths:
+      - '.github/workflows/bun-runtime-pilot.yml'
+      - 'scripts/runBunRuntimePilot.sh'
+      - 'scripts/benchmarkBunMigration.sh'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'mise.toml'
   workflow_dispatch:
 
 permissions:
