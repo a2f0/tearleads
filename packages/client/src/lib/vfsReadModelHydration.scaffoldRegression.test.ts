@@ -118,4 +118,109 @@ describe('vfsReadModelHydration scaffold regression', () => {
       })
     ]);
   });
+
+  it('hydrates scaffold link_add operations into vfs_links for root folder contents', async () => {
+    mockGetSync.mockResolvedValueOnce({
+      items: [
+        {
+          changeId: 'sync-root-1',
+          itemId: '__vfs_root__',
+          changeType: 'upsert',
+          changedAt: '2026-03-01T00:00:00.000Z',
+          objectType: 'folder',
+          ownerId: null,
+          createdAt: '2026-03-01T00:00:00.000Z',
+          accessLevel: 'admin',
+          encryptedName: 'VFS Root'
+        },
+        {
+          changeId: 'sync-folder-1',
+          itemId: 'folder-1',
+          changeType: 'upsert',
+          changedAt: '2026-03-01T00:00:01.000Z',
+          objectType: 'folder',
+          ownerId: 'bob-id',
+          createdAt: '2026-03-01T00:00:01.000Z',
+          accessLevel: 'admin',
+          encryptedName: 'Notes shared with Alice'
+        },
+        {
+          changeId: 'sync-note-1',
+          itemId: 'note-1',
+          changeType: 'upsert',
+          changedAt: '2026-03-01T00:00:02.000Z',
+          objectType: 'note',
+          ownerId: 'bob-id',
+          createdAt: '2026-03-01T00:00:02.000Z',
+          accessLevel: 'admin',
+          encryptedName: 'Note for Alice - From Bob'
+        }
+      ],
+      nextCursor: null,
+      hasMore: false
+    });
+
+    mockGetCrdtSync.mockResolvedValueOnce({
+      items: [
+        {
+          opId: 'crdt-link-root-folder',
+          itemId: 'folder-1',
+          opType: 'link_add',
+          principalType: null,
+          principalId: null,
+          accessLevel: null,
+          parentId: '__vfs_root__',
+          childId: 'folder-1',
+          actorId: 'bob-id',
+          sourceTable: 'vfs_links',
+          sourceId: 'link-root-folder',
+          occurredAt: '2026-03-01T00:00:03.000Z',
+          encryptedPayload: null,
+          keyEpoch: null,
+          encryptionNonce: null,
+          encryptionAad: null,
+          encryptionSignature: null
+        },
+        {
+          opId: 'crdt-link-folder-note',
+          itemId: 'note-1',
+          opType: 'link_add',
+          principalType: null,
+          principalId: null,
+          accessLevel: null,
+          parentId: 'folder-1',
+          childId: 'note-1',
+          actorId: 'bob-id',
+          sourceTable: 'vfs_links',
+          sourceId: 'link-folder-note',
+          occurredAt: '2026-03-01T00:00:04.000Z',
+          encryptedPayload: null,
+          keyEpoch: null,
+          encryptionNonce: null,
+          encryptionAad: null,
+          encryptionSignature: null
+        }
+      ],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {}
+    });
+
+    await hydrateLocalReadModelFromRemoteFeeds();
+
+    const adapter = getDatabaseAdapter();
+    const rootChildrenRows = await adapter.execute(
+      `SELECT parent_id, child_id
+       FROM vfs_links
+       WHERE parent_id = ?
+       ORDER BY child_id`,
+      ['__vfs_root__']
+    );
+    expect(rootChildrenRows.rows).toEqual([
+      expect.objectContaining({
+        parent_id: '__vfs_root__',
+        child_id: 'folder-1'
+      })
+    ]);
+  });
 });
