@@ -290,12 +290,14 @@ describe('admin api client v2 read routes', () => {
         value: { listValue: { values: ['a', 'b'] } }
       })
     );
-    await expect(apiClient.adminV2.redis.getValue('features')).resolves.toEqual({
-      key: 'features',
-      type: 'list',
-      ttl: 30,
-      value: ['a', 'b']
-    });
+    await expect(apiClient.adminV2.redis.getValue('features')).resolves.toEqual(
+      {
+        key: 'features',
+        type: 'list',
+        ttl: 30,
+        value: ['a', 'b']
+      }
+    );
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -305,12 +307,14 @@ describe('admin api client v2 read routes', () => {
         value: { mapValue: { entries: { mode: 'strict' } } }
       })
     );
-    await expect(apiClient.adminV2.redis.getValue('settings')).resolves.toEqual({
-      key: 'settings',
-      type: 'hash',
-      ttl: 5,
-      value: { mode: 'strict' }
-    });
+    await expect(apiClient.adminV2.redis.getValue('settings')).resolves.toEqual(
+      {
+        key: 'settings',
+        type: 'hash',
+        ttl: 5,
+        value: { mode: 'strict' }
+      }
+    );
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ deleted: true }));
     await expect(apiClient.adminV2.redis.deleteKey('k')).resolves.toEqual({
@@ -372,7 +376,9 @@ describe('admin api client v2 read routes', () => {
     });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.postgres.getColumns('', '')).resolves.toEqual({
+    await expect(
+      apiClient.adminV2.postgres.getColumns('', '')
+    ).resolves.toEqual({
       columns: []
     });
 
@@ -402,9 +408,11 @@ describe('admin api client v2 read routes', () => {
     });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.redis.deleteKey('missing')).resolves.toEqual({
-      deleted: false
-    });
+    await expect(apiClient.adminV2.redis.deleteKey('missing')).resolves.toEqual(
+      {
+        deleted: false
+      }
+    );
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
     await expect(apiClient.adminV2.redis.getDbSize()).resolves.toEqual({
