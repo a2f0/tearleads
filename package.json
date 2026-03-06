@@ -33,6 +33,7 @@
     "test:sequential": "pnpm -r test && pnpm test:tuxedo",
     "testVfsSecureUploadQaSuite": "pnpm --filter @tearleads/bob-and-alice test -- src/qa/vfsSecureUploadQaSuite.test.ts",
     "benchmarkBunMigration": "sh ./scripts/benchmarkBunMigration.sh",
+    "pilotBunRuntime": "sh ./scripts/runBunRuntimePilot.sh all",
     "test:tuxedo": "sh ./tuxedo/tests/run.sh",
     "test:coverage": "sh ./tuxedo/tests/coverage.sh",
     "clean": "pnpm -r clean",
