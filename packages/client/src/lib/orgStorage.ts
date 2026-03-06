@@ -21,6 +21,10 @@ export function getActiveOrganizationId(): string | null {
   return activeOrgId;
 }
 
+export function hasActiveOrganizationId(): boolean {
+  return typeof activeOrgId === 'string' && activeOrgId.trim().length > 0;
+}
+
 export function setActiveOrganizationId(id: string | null): void {
   activeOrgId = id;
   try {

@@ -31,7 +31,11 @@ import {
 import { createRecipientPublicKeyResolver } from '@/db/vfsRecipientKeyResolver';
 import { createUserKeyProvider } from '@/db/vfsUserKeyProvider';
 import { ensureVfsKeys } from '@/hooks/vfs';
-import { getActiveOrganizationId, onOrgChange } from '@/lib/orgStorage';
+import {
+  getActiveOrganizationId,
+  hasActiveOrganizationId,
+  onOrgChange
+} from '@/lib/orgStorage';
 import { setVfsItemSyncRuntime } from '@/lib/vfsItemSyncWriter';
 import { rematerializeRemoteVfsStateIfNeeded } from '@/lib/vfsRematerialization';
 import { useAuth } from './AuthContext';
@@ -45,11 +49,6 @@ function normalizeApiPrefix(value: string): string {
   return withLeadingSlash.endsWith('/')
     ? withLeadingSlash.slice(0, -1)
     : withLeadingSlash;
-}
-
-function hasActiveOrganizationId(): boolean {
-  const organizationId = getActiveOrganizationId();
-  return typeof organizationId === 'string' && organizationId.trim().length > 0;
 }
 
 function useFlushWhenOrganizationReady(input: {

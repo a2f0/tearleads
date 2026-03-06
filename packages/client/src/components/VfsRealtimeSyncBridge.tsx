@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useVfsOrchestratorInstance } from '@/contexts/VfsOrchestratorContext';
 import { useVfsSyncState } from '@/contexts/VfsSyncStateContext';
-import { getActiveOrganizationId, onOrgChange } from '@/lib/orgStorage';
+import { hasActiveOrganizationId, onOrgChange } from '@/lib/orgStorage';
 import { createRemoteReadOrchestrator } from '@/lib/remoteReadOrchestrator';
 import { hydrateLocalReadModelFromRemoteFeeds } from '@/lib/vfsReadModelHydration';
 import { useSSE } from '@/sse';
@@ -35,11 +35,6 @@ function isVfsContainerSyncChannel(channel: string): boolean {
 function parseContainerIdFromChannel(channel: string): string | null {
   const matches = /^vfs:container:(.+):sync$/.exec(channel);
   return matches?.[1] ?? null;
-}
-
-function hasActiveOrganizationId(): boolean {
-  const organizationId = getActiveOrganizationId();
-  return typeof organizationId === 'string' && organizationId.trim().length > 0;
 }
 
 function buildChannelList(

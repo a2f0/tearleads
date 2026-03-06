@@ -1,50 +1,19 @@
 import { render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  mockGetActiveOrganizationId,
+  mockHydrateLocalReadModelFromRemoteFeeds,
+  mockUseSSE,
+  mockUseVfsOrchestratorInstance,
+  orgChangeListeners,
+  resetVfsRealtimeSyncBridgeTestMocks
+} from './VfsRealtimeSyncBridge.testSetup';
 import { VfsRealtimeSyncBridge } from './VfsRealtimeSyncBridge';
-
-const mockUseSSE = vi.fn();
-const mockUseVfsOrchestratorInstance = vi.fn();
-const mockHydrateLocalReadModelFromRemoteFeeds = vi.fn();
-const mockGetActiveOrganizationId = vi.fn();
-const orgChangeListeners = new Set<() => void>();
-
-vi.mock('@/sse', () => ({
-  useSSE: () => mockUseSSE()
-}));
-
-vi.mock('@/contexts/VfsOrchestratorContext', () => ({
-  useVfsOrchestratorInstance: () => mockUseVfsOrchestratorInstance()
-}));
-
-vi.mock('@/lib/vfsReadModelHydration', () => ({
-  hydrateLocalReadModelFromRemoteFeeds: (...args: unknown[]) =>
-    mockHydrateLocalReadModelFromRemoteFeeds(...args)
-}));
-
-vi.mock('@/stores/logStore', () => ({
-  logStore: {
-    info: vi.fn(),
-    warn: vi.fn()
-  }
-}));
-
-vi.mock('@/lib/orgStorage', () => ({
-  getActiveOrganizationId: () => mockGetActiveOrganizationId(),
-  onOrgChange: (listener: () => void) => {
-    orgChangeListeners.add(listener);
-    return () => {
-      orgChangeListeners.delete(listener);
-    };
-  }
-}));
 
 describe('VfsRealtimeSyncBridge startup kickoff', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.clearAllMocks();
-    orgChangeListeners.clear();
-    mockGetActiveOrganizationId.mockReturnValue(null);
-    mockHydrateLocalReadModelFromRemoteFeeds.mockResolvedValue(undefined);
+    resetVfsRealtimeSyncBridgeTestMocks();
   });
 
   afterEach(() => {
