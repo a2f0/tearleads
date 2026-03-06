@@ -193,11 +193,11 @@ if [[ -n "$TF_APPLY_AUTO_APPROVE" ]]; then
   apply_args+=("$TF_APPLY_AUTO_APPROVE")
 fi
 
-run_step "Apply prod ci-artifacts (ECR + CI bucket)" "$CI_SCRIPTS_DIR/apply.sh" "${apply_args[@]}"
-run_step "Apply prod S3 (bucket + IAM credentials)" "$S3_SCRIPTS_DIR/apply.sh" "${apply_args[@]}"
-run_step "Apply prod SES (outbound email infra + DNS)" "$SES_SCRIPTS_DIR/apply.sh" "${apply_args[@]}"
-run_step "Apply prod k8s infrastructure" "$K8S_SCRIPTS_DIR/apply01.sh" "${apply_args[@]}"
-run_step "Apply prod RDS (private in k8s VPC)" "$RDS_SCRIPTS_DIR/apply.sh" "${apply_args[@]}"
+run_step "Apply prod ci-artifacts (ECR + CI bucket)" "$CI_SCRIPTS_DIR/apply.sh" ${apply_args[@]+"${apply_args[@]}"}
+run_step "Apply prod S3 (bucket + IAM credentials)" "$S3_SCRIPTS_DIR/apply.sh" ${apply_args[@]+"${apply_args[@]}"}
+run_step "Apply prod SES (outbound email infra + DNS)" "$SES_SCRIPTS_DIR/apply.sh" ${apply_args[@]+"${apply_args[@]}"}
+run_step "Apply prod k8s infrastructure" "$K8S_SCRIPTS_DIR/apply01.sh" ${apply_args[@]+"${apply_args[@]}"}
+run_step "Apply prod RDS (private in k8s VPC)" "$RDS_SCRIPTS_DIR/apply.sh" ${apply_args[@]+"${apply_args[@]}"}
 run_step "Bootstrap prod k8s and deploy manifests" "$K8S_SCRIPTS_DIR/apply02.sh"
 
 if [[ "$SKIP_BUILD" != "true" ]]; then
