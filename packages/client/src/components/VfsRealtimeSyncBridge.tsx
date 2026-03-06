@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useVfsOrchestratorInstance } from '@/contexts/VfsOrchestratorContext';
 import { useVfsSyncState } from '@/contexts/VfsSyncStateContext';
 import { createRemoteReadOrchestrator } from '@/lib/remoteReadOrchestrator';
+import { hydrateLocalReadModelFromRemoteFeeds } from '@/lib/vfsReadModelHydration';
 import { useSSE } from '@/sse';
 import { logStore } from '@/stores/logStore';
 
@@ -71,6 +72,8 @@ export function VfsRealtimeSyncBridge() {
   const { connect, lastMessage } = useSSE();
   const orchestrator = useVfsOrchestratorInstance();
   const { refresh: refreshSyncState } = useVfsSyncState();
+  const hasObservedOrchestratorRef = useRef(false);
+  const previousNonNullOrchestratorRef = useRef(orchestrator);
 
   const connectedChannelsRef = useRef<string[]>([]);
   const remoteReadOrchestratorRef = useRef(
@@ -88,6 +91,7 @@ export function VfsRealtimeSyncBridge() {
       .schedule(
         async () => {
           await orchestrator.syncCrdt();
+          await hydrateLocalReadModelFromRemoteFeeds();
           refreshSyncState();
           retryAttemptRef.current = 0;
         },
@@ -116,6 +120,22 @@ export function VfsRealtimeSyncBridge() {
         }, retryDelayMs);
       });
   }, [orchestrator, refreshSyncState]);
+
+  useEffect(() => {
+    if (!orchestrator) {
+      return;
+    }
+
+    if (
+      hasObservedOrchestratorRef.current &&
+      previousNonNullOrchestratorRef.current !== orchestrator
+    ) {
+      scheduleSync();
+    }
+
+    hasObservedOrchestratorRef.current = true;
+    previousNonNullOrchestratorRef.current = orchestrator;
+  }, [orchestrator, scheduleSync]);
 
   useEffect(() => {
     const refreshChannels = () => {

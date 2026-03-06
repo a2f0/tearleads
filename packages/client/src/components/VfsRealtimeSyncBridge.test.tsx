@@ -4,6 +4,7 @@ import { VfsRealtimeSyncBridge } from './VfsRealtimeSyncBridge';
 
 const mockUseSSE = vi.fn();
 const mockUseVfsOrchestratorInstance = vi.fn();
+const mockHydrateLocalReadModelFromRemoteFeeds = vi.fn();
 const mockLogInfo = vi.fn();
 const mockLogWarn = vi.fn();
 
@@ -13,6 +14,11 @@ vi.mock('@/sse', () => ({
 
 vi.mock('@/contexts/VfsOrchestratorContext', () => ({
   useVfsOrchestratorInstance: () => mockUseVfsOrchestratorInstance()
+}));
+
+vi.mock('@/lib/vfsReadModelHydration', () => ({
+  hydrateLocalReadModelFromRemoteFeeds: (...args: unknown[]) =>
+    mockHydrateLocalReadModelFromRemoteFeeds(...args)
 }));
 
 vi.mock('@/stores/logStore', () => ({
@@ -49,6 +55,7 @@ describe('VfsRealtimeSyncBridge', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    mockHydrateLocalReadModelFromRemoteFeeds.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -118,6 +125,70 @@ describe('VfsRealtimeSyncBridge', () => {
     expect(connect).toHaveBeenCalledTimes(1);
   });
 
+  it('triggers a sync when the orchestrator swaps through a null transition', async () => {
+    const connect = vi.fn();
+    const syncCrdtAlice = vi.fn().mockResolvedValue(undefined);
+    const syncCrdtBob = vi.fn().mockResolvedValue(undefined);
+    const sseState = {
+      connect,
+      lastMessage: null as {
+        channel: string;
+        message: { type: string; payload: unknown; timestamp: string };
+      } | null
+    };
+    const orchestratorState: {
+      current: {
+        crdt: {
+          listChangedContainers: ReturnType<typeof vi.fn>;
+        };
+        syncCrdt: ReturnType<typeof vi.fn>;
+      } | null;
+    } = {
+      current: {
+        crdt: {
+          listChangedContainers: vi.fn(() => ({
+            items: [{ containerId: 'item-1' }],
+            hasMore: false,
+            nextCursor: null
+          }))
+        },
+        syncCrdt: syncCrdtAlice
+      }
+    };
+
+    mockUseSSE.mockImplementation(() => sseState);
+    mockUseVfsOrchestratorInstance.mockImplementation(
+      () => orchestratorState.current
+    );
+
+    const { rerender } = render(<VfsRealtimeSyncBridge />);
+    await vi.advanceTimersByTimeAsync(200);
+
+    // Initial mount does not force an unconditional sync.
+    expect(syncCrdtAlice).not.toHaveBeenCalled();
+
+    orchestratorState.current = null;
+    rerender(<VfsRealtimeSyncBridge />);
+    await vi.advanceTimersByTimeAsync(50);
+
+    orchestratorState.current = {
+      crdt: {
+        listChangedContainers: vi.fn(() => ({
+          items: [{ containerId: 'item-1' }],
+          hasMore: false,
+          nextCursor: null
+        }))
+      },
+      syncCrdt: syncCrdtBob
+    };
+    rerender(<VfsRealtimeSyncBridge />);
+
+    await vi.advanceTimersByTimeAsync(200);
+
+    expect(syncCrdtBob).toHaveBeenCalledTimes(1);
+    expect(mockHydrateLocalReadModelFromRemoteFeeds).toHaveBeenCalledTimes(1);
+  });
+
   it('triggers debounced sync on VFS cursor-bump messages', async () => {
     const connect = vi.fn();
     const syncCrdt = vi.fn().mockResolvedValue(undefined);
@@ -162,6 +233,7 @@ describe('VfsRealtimeSyncBridge', () => {
 
     await vi.advanceTimersByTimeAsync(200);
     expect(syncCrdt).toHaveBeenCalledTimes(1);
+    expect(mockHydrateLocalReadModelFromRemoteFeeds).toHaveBeenCalledTimes(1);
     expect(mockLogInfo).toHaveBeenCalledWith(
       'VFS SSE cursor bump received; triggering CRDT sync',
       expect.stringContaining('channel=vfs:container:item-1:sync')
