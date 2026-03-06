@@ -1,7 +1,8 @@
-#!/usr/bin/env -S pnpm exec tsx
-import { execSync, spawnSync } from 'node:child_process';
+#!/usr/bin/env -S node --import tsx
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { runCiImpactScript } from './runCiImpactScript.ts';
 
 interface CliArgs {
   base?: string;
@@ -28,6 +29,8 @@ const DEFAULT_BASE = 'origin/main';
 const DEFAULT_HEAD = 'HEAD';
 
 const FULL_RUN_FILE_NAMES: ReadonlyArray<string> = [
+  'bun.lock',
+  'bun.lockb',
   'package.json',
   'pnpm-lock.yaml',
   'pnpm-workspace.yaml',
@@ -122,18 +125,19 @@ function parseImpact(rawJson: string): CiImpactOutput {
 function runCiImpact(args: CliArgs): CiImpactOutput {
   const base = args.base || DEFAULT_BASE;
   const head = args.head || DEFAULT_HEAD;
-  const cmdParts = [
-    'pnpm exec tsx scripts/ciImpact/ciImpact.ts',
-    `--base ${base}`,
-    `--head ${head}`
-  ];
-  if (args.files !== undefined) {
-    cmdParts.push(`--files "${args.files}"`);
-  }
-  const output = execSync(cmdParts.join(' '), {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe']
-  });
+  const output =
+    args.files === undefined
+      ? runCiImpactScript({
+          base,
+          head,
+          callerName: 'runImpactedQuality'
+        })
+      : runCiImpactScript({
+          base,
+          head,
+          files: args.files,
+          callerName: 'runImpactedQuality'
+        });
   return parseImpact(output);
 }
 

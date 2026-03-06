@@ -1,4 +1,4 @@
-#!/usr/bin/env -S pnpm exec tsx
+#!/usr/bin/env -S node --import tsx
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -40,6 +40,8 @@ interface WorkspacePackage {
 }
 
 const FULL_RUN_FILE_NAMES: ReadonlyArray<string> = [
+  'bun.lock',
+  'bun.lockb',
   'pnpm-lock.yaml',
   'pnpm-workspace.yaml',
   'package.json',

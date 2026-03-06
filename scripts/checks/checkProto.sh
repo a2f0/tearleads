@@ -49,6 +49,8 @@ has_proto_related_changes() {
         scripts/lib/verifyProtoCodegenPlugins.ts | \
         scripts/checks/checkProto.sh | \
         package.json | \
+        bun.lock | \
+        bun.lockb | \
         pnpm-lock.yaml)
         return 0
         ;;

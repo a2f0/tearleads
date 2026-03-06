@@ -235,6 +235,21 @@ test('runImpactedTests dry-run avoids global fanout for high-risk script config 
   assert.deepEqual(Reflect.get(parsed, 'targets'), []);
 });
 
+test('runImpactedTests dry-run treats Bun lock changes as full-run triggers', () => {
+  const result = runImpactedTests([
+    '--files',
+    'bun.lock',
+    '--dry-run',
+    '--print-targets-json'
+  ]);
+  assert.equal(result.status, 0, stderrText(result));
+
+  const stdout = stdoutText(result);
+  const parsed = JSON.parse(stdout);
+  assert.equal(Reflect.get(parsed, 'fullRun'), true);
+  assert.deepEqual(Reflect.get(parsed, 'targets'), []);
+});
+
 test('runImpactedTests fails closed when ciImpact cannot diff base/head', () => {
   const result = runImpactedTests([
     '--base',
