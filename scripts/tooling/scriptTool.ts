@@ -1,4 +1,4 @@
-#!/usr/bin/env -S pnpm exec tsx
+#!/usr/bin/env -S node --import tsx
 /**
  * Script Tool CLI - TypeScript wrapper for utility scripts in scripts/
  */
