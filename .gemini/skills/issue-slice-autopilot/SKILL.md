@@ -62,6 +62,56 @@ REPO=$(./scripts/agents/tooling/agentTool.ts getRepo)
 gh issue view "$ISSUE_NUMBER" -R "$REPO" --json number,title,body,state,url
 ```
 
+### Issue Format Normalization
+
+After loading the issue, check whether its body is already in autopilot-friendly format. An autopilot-friendly issue has:
+
+- A `## Requirements` section (or equivalent heading like `## Tasks`, `## Checklist`) with `- [ ]` checkbox items
+- Each requirement is clear, testable, and independently implementable
+- Enough granularity to decompose into slices
+
+**Skip normalization** if the issue already has a requirements-style section with at least two `- [ ]` items.
+
+If the issue body lacks structured requirements (e.g., plain prose, a single paragraph, or non-checkbox bullets), rewrite the body into autopilot-friendly format before proceeding:
+
+1. Parse the existing body to extract intent, scope, and individual work items.
+2. Rewrite into this structure:
+
+   ```markdown
+   ## Summary
+   <one paragraph describing the goal and outcome>
+
+   ## Context
+   <why this matters, impacted area, constraints>
+
+   ## Requirements
+   - [ ] <clear, testable requirement 1>
+   - [ ] <clear, testable requirement 2>
+   - [ ] ...
+
+   ## Implementation Notes
+   <initial approach, dependencies, or open questions>
+   ```
+
+3. Preserve the original issue body at the bottom under a collapsed details block:
+
+   ```markdown
+   <details>
+   <summary>Original issue body</summary>
+
+   <original body here>
+
+   </details>
+   ```
+
+4. Update the issue on GitHub:
+
+   ```bash
+   gh issue edit "$ISSUE_NUMBER" -R "$REPO" --body "$NEW_BODY"
+   ```
+
+### Overlap Context
+
 1. Build non-overlap context from open PRs:
 
 ```bash
