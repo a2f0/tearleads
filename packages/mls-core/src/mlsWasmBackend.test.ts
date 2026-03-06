@@ -1,8 +1,10 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 type MlsWasmModule = Record<string, unknown>;
-type ResolveMlsBackendStatus = typeof import('./mlsWasmBackend').resolveMlsBackendStatus;
-type ResetWasmModulePromiseForTesting = typeof import('./mlsWasmBackend').resetWasmModulePromiseForTesting;
+type ResolveMlsBackendStatus =
+  typeof import('./mlsWasmBackend').resolveMlsBackendStatus;
+type ResetWasmModulePromiseForTesting =
+  typeof import('./mlsWasmBackend').resetWasmModulePromiseForTesting;
 
 const importMlsWasmModuleMock = vi.fn<() => Promise<MlsWasmModule>>();
 vi.mock('./mlsWasmImport.js', () => ({
