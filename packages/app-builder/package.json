@@ -25,8 +25,8 @@
     "generate": "tsx src/cli.ts generate",
     "validate": "tsx src/cli.ts validate",
     "list": "tsx src/cli.ts list",
-    "test": "vitest run",
-    "testBun": "bun test src/generators/theme.test.ts src/generators/utils.test.ts",
+    "test": "bun test src/generators/theme.test.ts src/generators/utils.test.ts",
+    "test:vitest": "sh ../../scripts/tooling/pm.sh -w exec vitest run packages/app-builder/src/generators/theme.test.ts packages/app-builder/src/generators/utils.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
