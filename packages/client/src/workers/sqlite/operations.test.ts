@@ -55,7 +55,7 @@ class MockDatabase implements SQLiteDatabase {
 }
 
 describe('executeMany', () => {
-  it('wraps statements in a transaction and executes one SQL batch', () => {
+  it('wraps statements in a savepoint and executes one SQL batch', () => {
     const db = new MockDatabase();
     executeMany(db, [
       'CREATE TABLE test_table (id INTEGER PRIMARY KEY)',
@@ -63,9 +63,9 @@ describe('executeMany', () => {
     ]);
 
     expect(db.calls).toEqual([
-      'BEGIN TRANSACTION',
+      'SAVEPOINT sp_execute_many',
       'CREATE TABLE test_table (id INTEGER PRIMARY KEY);\nCREATE INDEX test_idx ON test_table (id)',
-      'COMMIT'
+      'RELEASE sp_execute_many'
     ]);
   });
 
@@ -85,9 +85,10 @@ describe('executeMany', () => {
     ).toThrow(expectedError);
 
     expect(db.calls).toEqual([
-      'BEGIN TRANSACTION',
+      'SAVEPOINT sp_execute_many',
       'CREATE TABLE test_table (id INTEGER PRIMARY KEY);\nCREATE INDEX test_idx ON test_table (id)',
-      'ROLLBACK'
+      'ROLLBACK TO sp_execute_many',
+      'RELEASE sp_execute_many'
     ]);
   });
 

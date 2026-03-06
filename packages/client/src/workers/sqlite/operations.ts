@@ -97,12 +97,15 @@ export function executeMany(
     return;
   }
 
-  db.exec('BEGIN TRANSACTION');
+  // Use SAVEPOINT instead of BEGIN/COMMIT so executeMany() is nestable
+  // inside an outer transaction (e.g. the migration runner's transaction).
+  db.exec('SAVEPOINT sp_execute_many');
   try {
     db.exec(batchedSql);
-    db.exec('COMMIT');
+    db.exec('RELEASE sp_execute_many');
   } catch (error) {
-    db.exec('ROLLBACK');
+    db.exec('ROLLBACK TO sp_execute_many');
+    db.exec('RELEASE sp_execute_many');
     throw error;
   }
 }
