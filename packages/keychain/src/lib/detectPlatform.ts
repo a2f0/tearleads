@@ -1,6 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 
-export type Platform = 'web' | 'ios' | 'android' | 'electron';
+type Platform = 'web' | 'ios' | 'android' | 'electron';
 
 export function detectPlatform(): Platform {
   // Check for Electron first (before Capacitor which returns 'web' for Electron)
