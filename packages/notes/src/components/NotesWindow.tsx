@@ -1,4 +1,4 @@
-import { notes, vfsRegistry } from '@tearleads/db/sqlite';
+import { notes } from '@tearleads/db/sqlite';
 import {
   FloatingWindow,
   WindowControlBar,
@@ -16,6 +16,7 @@ import { NotesWindowList } from './NotesWindowList';
 import type { ViewMode } from './NotesWindowMenuBar';
 import { NotesWindowMenuBar } from './NotesWindowMenuBar';
 import { NotesWindowTableView } from './NotesWindowTableView';
+import { useCreateNote } from './shared/useCreateNote';
 
 interface NotesWindowProps {
   id: string;
@@ -52,6 +53,7 @@ export function NotesWindow({
   const [refreshToken, setRefreshToken] = useState(0);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const handleSelectNote = useCallback((noteId: string) => {
     setSelectedNoteId(noteId);
@@ -92,69 +94,15 @@ export function NotesWindow({
     }
   }, [selectedNoteId, isUnlocked, getDatabase]);
 
-  const handleNewNote = useCallback(async () => {
-    if (!isUnlocked) return;
-
-    try {
-      const db = getDatabase();
-      const noteId = crypto.randomUUID();
-      const now = new Date();
-
-      await db.insert(notes).values({
-        id: noteId,
-        title: 'Untitled Note',
-        content: '',
-        createdAt: now,
-        updatedAt: now,
-        deleted: false
-      });
-
-      // Register in VFS if dependencies are available
-      if (vfsKeys && auth) {
-        const authData = auth.readStoredAuth();
-        let encryptedSessionKey: string | null = null;
-
-        if (auth.isLoggedIn()) {
-          try {
-            const sessionKey = vfsKeys.generateSessionKey();
-            encryptedSessionKey = await vfsKeys.wrapSessionKey(sessionKey);
-          } catch (err) {
-            console.warn('Failed to wrap note session key:', err);
-          }
-        }
-
-        await db.insert(vfsRegistry).values({
-          id: noteId,
-          objectType: 'note',
-          ownerId: authData.user?.id ?? null,
-          encryptedSessionKey,
-          createdAt: now
-        });
-
-        // Fire-and-forget: server registration is non-blocking
-        if (
-          auth.isLoggedIn() &&
-          featureFlags?.getFeatureFlagValue('vfsServerRegistration') &&
-          encryptedSessionKey &&
-          vfsApi
-        ) {
-          vfsApi
-            .register({
-              id: noteId,
-              objectType: 'note',
-              encryptedSessionKey
-            })
-            .catch((err: unknown) => {
-              console.warn('Failed to register note on server:', err);
-            });
-        }
-      }
-
-      setSelectedNoteId(noteId);
-    } catch (err) {
-      console.error('Failed to create note:', err);
-    }
-  }, [isUnlocked, getDatabase, vfsKeys, auth, featureFlags, vfsApi]);
+  const handleNewNote = useCreateNote({
+    getDatabase,
+    onSelectNote: handleSelectNote,
+    onError: setCreateError,
+    vfsKeys,
+    auth,
+    featureFlags,
+    vfsApi
+  });
 
   useEffect(() => {
     if (!openRequestId || !openNoteId) return;
@@ -238,11 +186,11 @@ export function NotesWindow({
             )}
           </WindowControlGroup>
         </WindowControlBar>
-        {deleteError && (
+        {(deleteError ?? createError) && (
           <WindowPaneState
             layout="inline"
             tone="error"
-            title={deleteError}
+            title={(deleteError ?? createError)!}
             className="m-3"
           />
         )}
