@@ -1,4 +1,4 @@
-#!/usr/bin/env -S pnpm exec tsx
+#!/usr/bin/env -S node --import tsx
 /**
  * i18n Coverage and Hardcoded String Detection Tool
  *
