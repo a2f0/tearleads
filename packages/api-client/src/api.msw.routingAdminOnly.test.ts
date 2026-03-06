@@ -83,7 +83,7 @@ describe('api with msw admin routing', () => {
     await ctx.redis.set('user:1', 'test-value');
 
     const api = await loadApi();
-    expect(api.admin).toBe(api.adminV2);
+    expect('admin' in api).toBe(false);
 
     await api.ping.get();
     await api.adminV2.getContext();
