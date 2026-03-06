@@ -3,12 +3,6 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  indexDocument,
-  indexDocuments,
-  indexEntity,
-  removeFromIndex
-} from './integration';
 import type { SearchableDocument } from './types';
 
 const getSearchStoreForInstanceMock = vi.hoisted(() => vi.fn());
@@ -25,11 +19,14 @@ describe('indexDocument', () => {
   };
 
   beforeEach(() => {
+    vi.resetModules();
     vi.clearAllMocks();
     getSearchStoreForInstanceMock.mockReturnValue(mockStore);
   });
 
   it('should no-op when instanceId is null', async () => {
+    const { indexDocument } = await import('./integration');
+
     await indexDocument(null, {
       id: 'doc-1',
       entityType: 'contact',
@@ -42,6 +39,8 @@ describe('indexDocument', () => {
   });
 
   it('should no-op when store is not initialized', async () => {
+    const { indexDocument } = await import('./integration');
+
     mockGetState.mockReturnValue({ isInitialized: false });
 
     await indexDocument('instance-1', {
@@ -56,6 +55,8 @@ describe('indexDocument', () => {
   });
 
   it('should upsert document when store is initialized', async () => {
+    const { indexDocument } = await import('./integration');
+
     mockGetState.mockReturnValue({ isInitialized: true });
     const doc: SearchableDocument = {
       id: 'doc-1',
@@ -80,23 +81,30 @@ describe('indexDocuments', () => {
   };
 
   beforeEach(() => {
+    vi.resetModules();
     vi.clearAllMocks();
     getSearchStoreForInstanceMock.mockReturnValue(mockStore);
   });
 
   it('should no-op when instanceId is null', async () => {
+    const { indexDocuments } = await import('./integration');
+
     await indexDocuments(null, []);
 
     expect(getSearchStoreForInstanceMock).not.toHaveBeenCalled();
   });
 
   it('should no-op when docs array is empty', async () => {
+    const { indexDocuments } = await import('./integration');
+
     await indexDocuments('instance-1', []);
 
     expect(getSearchStoreForInstanceMock).not.toHaveBeenCalled();
   });
 
   it('should no-op when store is not initialized', async () => {
+    const { indexDocuments } = await import('./integration');
+
     mockGetState.mockReturnValue({ isInitialized: false });
 
     await indexDocuments('instance-1', [
@@ -113,6 +121,8 @@ describe('indexDocuments', () => {
   });
 
   it('should upsert batch when store is initialized', async () => {
+    const { indexDocuments } = await import('./integration');
+
     mockGetState.mockReturnValue({ isInitialized: true });
     const docs: SearchableDocument[] = [
       {
@@ -146,17 +156,22 @@ describe('removeFromIndex', () => {
   };
 
   beforeEach(() => {
+    vi.resetModules();
     vi.clearAllMocks();
     getSearchStoreForInstanceMock.mockReturnValue(mockStore);
   });
 
   it('should no-op when instanceId is null', async () => {
+    const { removeFromIndex } = await import('./integration');
+
     await removeFromIndex(null, 'doc-1');
 
     expect(getSearchStoreForInstanceMock).not.toHaveBeenCalled();
   });
 
   it('should no-op when store is not initialized', async () => {
+    const { removeFromIndex } = await import('./integration');
+
     mockGetState.mockReturnValue({ isInitialized: false });
 
     await removeFromIndex('instance-1', 'doc-1');
@@ -165,6 +180,8 @@ describe('removeFromIndex', () => {
   });
 
   it('should remove document when store is initialized', async () => {
+    const { removeFromIndex } = await import('./integration');
+
     mockGetState.mockReturnValue({ isInitialized: true });
 
     await removeFromIndex('instance-1', 'doc-1');
@@ -182,11 +199,14 @@ describe('indexEntity', () => {
   };
 
   beforeEach(() => {
+    vi.resetModules();
     vi.clearAllMocks();
     getSearchStoreForInstanceMock.mockReturnValue(mockStore);
   });
 
   it('should index a contact entity', async () => {
+    const { indexEntity } = await import('./integration');
+
     mockGetState.mockReturnValue({ isInitialized: true });
 
     await indexEntity('instance-1', {
