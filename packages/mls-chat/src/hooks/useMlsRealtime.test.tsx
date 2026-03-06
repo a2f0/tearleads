@@ -186,6 +186,63 @@ describe('useMlsRealtime', () => {
     client.close();
   });
 
+  it('skips invalid commit ciphertext payloads', async () => {
+    let callCount = 0;
+    openNotificationEventStreamMock.mockImplementation(() => {
+      callCount += 1;
+      if (callCount === 1) {
+        return streamFromEnvelopes([{ event: 'connected' }]);
+      }
+
+      return streamFromEnvelopes([
+        { event: 'connected' },
+        {
+          event: 'message',
+          channel: 'mls:group:group-1',
+          message: {
+            type: 'mls:message',
+            payload: {
+              id: 'commit-invalid',
+              groupId: 'group-1',
+              senderUserId: 'other-user',
+              epoch: 5,
+              ciphertext: 'not-base64***',
+              messageType: 'commit',
+              contentType: 'application/mls-commit',
+              sequenceNumber: 9,
+              sentAt: '2026-03-03T06:18:00.000Z',
+              createdAt: '2026-03-03T06:18:00.000Z'
+            }
+          }
+        }
+      ]);
+    });
+
+    const client = new MlsClient('test-user-id');
+    vi.spyOn(client, 'hasGroup').mockReturnValue(true);
+    const processCommitSpy = vi
+      .spyOn(client, 'processCommit')
+      .mockResolvedValue(undefined);
+
+    const { result, unmount } = renderHook(() => useMlsRealtime(client), {
+      wrapper: createMlsHookWrapper()
+    });
+
+    act(() => {
+      result.current.subscribe('group-1');
+    });
+
+    await waitFor(() => {
+      expect(openNotificationEventStreamMock).toHaveBeenCalledTimes(2);
+    });
+
+    expect(processCommitSpy).not.toHaveBeenCalled();
+    expect(uploadGroupStateSnapshotMock).not.toHaveBeenCalled();
+
+    unmount();
+    client.close();
+  });
+
   it('ignores commit messages emitted by the current user', async () => {
     let callCount = 0;
     openNotificationEventStreamMock.mockImplementation(() => {

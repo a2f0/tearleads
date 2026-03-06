@@ -1,4 +1,7 @@
-export { decodeTransportBytes } from './apiRoutes/mlsV2Binary';
+export {
+  decodeRequiredTransportBytes,
+  decodeTransportBytes
+} from './apiRoutes/mlsV2Binary';
 export {
   createMlsV2Routes,
   type MlsV2Routes

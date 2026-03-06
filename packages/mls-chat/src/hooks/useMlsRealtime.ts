@@ -4,6 +4,7 @@
  */
 
 import {
+  decodeRequiredTransportBytes,
   decodeTransportBytes,
   type MlsV2Routes
 } from '@tearleads/api-client/mlsRoutes';
@@ -140,14 +141,6 @@ function isWelcomePayload(value: unknown): value is WelcomePayload {
     typeof value['groupId'] === 'string' &&
     typeof value['welcomeId'] === 'string'
   );
-}
-
-function decodeBase64Bytes(value: string): Uint8Array | null {
-  try {
-    return Uint8Array.from(atob(value), (character) => character.charCodeAt(0));
-  } catch {
-    return null;
-  }
 }
 
 function dispatchRealtimeMessage(
@@ -316,8 +309,13 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
               continue;
             }
 
-            const commitBytes = decodeBase64Bytes(message.ciphertext);
-            if (!commitBytes) {
+            let commitBytes: Uint8Array;
+            try {
+              commitBytes = decodeRequiredTransportBytes(
+                message.ciphertext,
+                'ciphertext'
+              );
+            } catch {
               continue;
             }
 
