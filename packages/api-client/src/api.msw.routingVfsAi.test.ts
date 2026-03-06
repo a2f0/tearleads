@@ -157,13 +157,13 @@ describe('api with msw', () => {
       objectType: ['contact', 'walletItem']
     });
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.VfsService/SetupKeys')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.VfsService/SetupKeys')
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.VfsService/GetMyKeys')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.VfsService/GetMyKeys')
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.VfsService/Register')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.VfsService/Register')
     ).toBe(true);
     expect(
       wasApiRequestMade(
@@ -202,7 +202,7 @@ describe('api with msw', () => {
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.VfsService/RekeyItem')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.VfsService/RekeyItem')
     ).toBe(true);
     expect(
       wasApiRequestMade(
@@ -232,10 +232,10 @@ describe('api with msw', () => {
     expect(result.sessionKey).toEqual(sessionKey);
     expect(result.registerResponse.id).toBe('item-onboard-1');
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.VfsService/GetMyKeys')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.VfsService/GetMyKeys')
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.VfsService/Register')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.VfsService/Register')
     ).toBe(true);
   });
   it('routes ai usage requests through msw', async () => {
