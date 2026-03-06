@@ -5,6 +5,11 @@ on:
     paths:
       - '.github/workflows/bun-test-node-pilot.yml'
       - 'packages/app-builder/**'
+      - 'packages/local-write-orchestrator/**'
+      - 'packages/msw/**'
+      - 'packages/remote-read-orchestrator/**'
+      - 'packages/tee-api/**'
+      - 'packages/vehicles/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'mise.toml'
@@ -21,7 +26,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: ['@tearleads/app-builder']
+        package:
+          - '@tearleads/app-builder'
+          - '@tearleads/local-write-orchestrator'
+          - '@tearleads/msw'
+          - '@tearleads/remote-read-orchestrator'
+          - '@tearleads/tee-api'
+          - '@tearleads/vehicles'
     steps:
       - uses: actions/checkout@v6
 
