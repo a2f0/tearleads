@@ -1,4 +1,4 @@
-#!/usr/bin/env -S pnpm exec tsx
+#!/usr/bin/env -S node --import tsx
 /**
  * Kill existing pnpm dev processes running from this repo.
  * Usage: tsx scripts/lib/killPnpmDev.ts

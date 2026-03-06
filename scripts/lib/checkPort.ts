@@ -1,4 +1,4 @@
-#!/usr/bin/env -S pnpm exec tsx
+#!/usr/bin/env -S node --import tsx
 /**
  * Check if a port is already in use. Exits with code 1 if the port is occupied.
  * Usage: tsx scripts/lib/checkPort.ts <port> [host]
