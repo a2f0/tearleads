@@ -134,7 +134,7 @@ async function stopS3MockServer(): Promise<void> {
 }
 
 function resetBlobEnv(): void {
-  if (typeof vi.unstubAllEnvs === 'function') {
+  if (typeof vi !== 'undefined' && typeof vi.unstubAllEnvs === 'function') {
     vi.unstubAllEnvs();
     return;
   }
@@ -144,7 +144,7 @@ function resetBlobEnv(): void {
 }
 
 function setBlobEnv(key: (typeof blobEnvKeys)[number], value: string): void {
-  if (typeof vi.stubEnv === 'function') {
+  if (typeof vi !== 'undefined' && typeof vi.stubEnv === 'function') {
     vi.stubEnv(key, value);
     return;
   }
