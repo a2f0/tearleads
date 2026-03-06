@@ -45,6 +45,7 @@ import { notificationStore } from '../stores/notificationStore';
 import { DeferredLockPasswordDialog } from './DeferredLockPasswordDialog';
 import { SSESystemTrayItems } from './SSESystemTrayItems';
 import { useStartMenuContextMenu } from './useStartMenuContextMenu';
+import { VfsSyncStatusIndicator } from './VfsSyncStatusIndicator';
 
 /** Extra padding to add when keyboard is open (matches pb-16 = 4rem = 64px) */
 const KEYBOARD_EXTRA_PADDING = 64;
@@ -312,6 +313,7 @@ function App() {
       <DesktopSystemTray footerHeight={FOOTER_HEIGHT}>
         <RuntimeLanguagePicker />
         <SSESystemTrayItems />
+        <VfsSyncStatusIndicator />
         <Suspense fallback={null}>
           <NotificationCenterTrigger />
         </Suspense>
