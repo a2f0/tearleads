@@ -36,7 +36,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install
+        run: sh ./scripts/tooling/pm.sh install
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
