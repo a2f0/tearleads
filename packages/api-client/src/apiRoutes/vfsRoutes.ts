@@ -25,7 +25,7 @@ import {
 import { request } from '../apiCore';
 
 const VFS_CONNECT_BASE_PATH = '/connect/tearleads.v2.VfsService';
-const VFS_SHARES_CONNECT_BASE_PATH = '/connect/tearleads.v1.VfsSharesService';
+const VFS_SHARES_CONNECT_BASE_PATH = '/connect/tearleads.v2.VfsSharesService';
 
 interface ConnectJsonEnvelopeResponse {
   json: string;

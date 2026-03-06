@@ -280,37 +280,37 @@ describe('api with msw', () => {
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.VfsSharesService/GetItemShares'
+        '/connect/tearleads.v2.VfsSharesService/GetItemShares'
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.VfsSharesService/CreateShare'
+        '/connect/tearleads.v2.VfsSharesService/CreateShare'
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.VfsSharesService/UpdateShare'
+        '/connect/tearleads.v2.VfsSharesService/UpdateShare'
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.VfsSharesService/DeleteShare'
+        '/connect/tearleads.v2.VfsSharesService/DeleteShare'
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.VfsSharesService/CreateOrgShare'
+        '/connect/tearleads.v2.VfsSharesService/CreateOrgShare'
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.VfsSharesService/DeleteOrgShare'
+        '/connect/tearleads.v2.VfsSharesService/DeleteOrgShare'
       )
     ).toBe(true);
     expect(
@@ -319,13 +319,13 @@ describe('api with msw', () => {
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.VfsSharesService/SearchShareTargets'
+        '/connect/tearleads.v2.VfsSharesService/SearchShareTargets'
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.VfsSharesService/GetSharePolicyPreview'
+        '/connect/tearleads.v2.VfsSharesService/GetSharePolicyPreview'
       )
     ).toBe(true);
 
@@ -351,7 +351,7 @@ describe('api with msw', () => {
 
     const previewRequests = getRequestsFor(
       'POST',
-      '/connect/tearleads.v1.VfsSharesService/GetSharePolicyPreview'
+      '/connect/tearleads.v2.VfsSharesService/GetSharePolicyPreview'
     );
     expect(previewRequests).toHaveLength(2);
   });
