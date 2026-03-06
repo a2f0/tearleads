@@ -127,9 +127,7 @@ export function runPreflight(
         ensureCommand(action, 'adb', repoRoot);
         ensureCommand(action, 'emulator', repoRoot);
         ensureCommand(action, 'bundle', repoRoot);
-        addCheck(
-          `adb, emulator, ${packageManager}, and bundle are available`
-        );
+        addCheck(`adb, emulator, ${packageManager}, and bundle are available`);
       }
       break;
 

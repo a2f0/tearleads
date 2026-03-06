@@ -25,6 +25,6 @@ export function sortSecrets(secretsDir: string): void {
       return 0;
     });
 
-    writeFileSync(target, lines.join('\n') + '\n');
+    writeFileSync(target, `${lines.join('\n')}\n`);
   }
 }
