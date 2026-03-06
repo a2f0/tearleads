@@ -2,10 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('api request context headers', () => {
   const originalFetch = global.fetch;
-  const vfsWritePaths = [
-    '/connect/tearleads.v1.VfsService/PushCrdtOps',
-    '/connect/tearleads.v2.VfsService/PushCrdtOps'
-  ];
+  const vfsWritePaths = ['/connect/tearleads.v2.VfsService/PushCrdtOps'];
 
   beforeEach(() => {
     vi.clearAllMocks();
