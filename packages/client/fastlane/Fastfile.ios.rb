@@ -225,7 +225,7 @@ platform :ios do
       metadata_path: IOS_METADATA_DIR,
       skip_binary_upload: true,
       skip_screenshots: true,
-      force: true,
+      force: is_ci,
       precheck_include_in_app_purchases: false
     )
   end

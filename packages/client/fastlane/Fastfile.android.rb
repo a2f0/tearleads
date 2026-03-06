@@ -264,40 +264,37 @@ platform :android do
 
   desc 'Download store listing metadata from Google Play'
   lane :metadata_pull do
-    download_from_play_store(
-      json_key: ENV['GOOGLE_PLAY_JSON_KEY_FILE'],
-      metadata_path: METADATA_DIR
-    )
+    pull_metadata(metadata_path: METADATA_DIR)
   end
 
   desc 'Upload store listing metadata to Google Play'
   lane :metadata_push do
-    upload_to_play_store(
-      json_key: ENV['GOOGLE_PLAY_JSON_KEY_FILE'],
-      metadata_path: METADATA_DIR,
-      skip_upload_aab: true,
-      skip_upload_apk: true,
-      skip_upload_changelogs: true,
-      skip_upload_images: true,
-      skip_upload_screenshots: true
-    )
+    push_metadata(metadata_path: METADATA_DIR)
   end
 
   desc 'Download staging store listing metadata from Google Play'
   lane :metadata_pull_staging do
-    download_from_play_store(
-      json_key: ENV['GOOGLE_PLAY_JSON_KEY_FILE'],
-      package_name: STAGING_PACKAGE_NAME,
-      metadata_path: METADATA_STAGING_DIR
-    )
+    pull_metadata(package_name: STAGING_PACKAGE_NAME, metadata_path: METADATA_STAGING_DIR)
   end
 
   desc 'Upload staging store listing metadata to Google Play'
   lane :metadata_push_staging do
+    push_metadata(package_name: STAGING_PACKAGE_NAME, metadata_path: METADATA_STAGING_DIR)
+  end
+
+  private_lane :pull_metadata do |options|
+    download_from_play_store(
+      json_key: ENV['GOOGLE_PLAY_JSON_KEY_FILE'],
+      package_name: options[:package_name],
+      metadata_path: options.fetch(:metadata_path)
+    )
+  end
+
+  private_lane :push_metadata do |options|
     upload_to_play_store(
       json_key: ENV['GOOGLE_PLAY_JSON_KEY_FILE'],
-      package_name: STAGING_PACKAGE_NAME,
-      metadata_path: METADATA_STAGING_DIR,
+      package_name: options[:package_name],
+      metadata_path: options.fetch(:metadata_path),
       skip_upload_aab: true,
       skip_upload_apk: true,
       skip_upload_changelogs: true,
