@@ -9,7 +9,7 @@
 import { desc, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import { describe, expect, it, vi } from 'vitest';
-import * as schema from '../schema';
+import * as schema from '../generated/sqlite/schema.js';
 
 // Sample row data as ARRAYS in SELECT column order (what the fixed adapter returns)
 // For file queries: id, name, size, mime_type, upload_date, storage_path, deleted (7 columns)

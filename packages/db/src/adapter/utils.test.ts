@@ -3,7 +3,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { convertRowsToArrays, extractSelectColumns, rowToArray } from './utils';
+import {
+  convertRowsToArrays,
+  extractSelectColumns,
+  rowToArray
+} from './utils.js';
 
 describe('extractSelectColumns', () => {
   describe('basic column extraction', () => {
@@ -185,6 +189,16 @@ describe('extractSelectColumns', () => {
     it('falls back when column parts are empty', () => {
       const sql = 'SELECT . FROM users';
       expect(extractSelectColumns(sql)).toEqual(['.']);
+    });
+
+    it('returns null for SELECT without FROM', () => {
+      const sql = 'SELECT id, name';
+      expect(extractSelectColumns(sql)).toBeNull();
+    });
+
+    it('falls back to full expression when AS alias is not a valid identifier', () => {
+      const sql = 'SELECT col as * FROM users';
+      expect(extractSelectColumns(sql)).toEqual(['col as *']);
     });
   });
 });

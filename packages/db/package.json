@@ -23,8 +23,8 @@
       "import": "./dist/migrations/index.js"
     },
     "./adapter": {
-      "types": "./dist/adapter.d.ts",
-      "import": "./dist/adapter.js"
+      "types": "./dist/adapter/index.d.ts",
+      "import": "./dist/adapter/index.js"
     },
     "./sqlite-migrations": {
       "types": "./dist/sqlite-migrations/index.d.ts",

@@ -3,28 +3,36 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getPlatformInfo } from './types';
+import { getPlatformInfo } from './index.js';
+
+/**
+ * Set global.window to a plain object for platform detection tests.
+ * getPlatformInfo accesses window via Record<string, unknown>, so we
+ * only need the properties under test — no full Window interface required.
+ */
+function setWindow(value: Record<string, unknown>): void {
+  (globalThis as Record<string, unknown>)['window'] = value;
+}
+
+function restoreWindow(original: typeof globalThis.window): void {
+  (globalThis as Record<string, unknown>)['window'] = original;
+}
 
 describe('getPlatformInfo', () => {
-  const originalWindow = global.window;
+  const originalWindow = globalThis.window;
 
   beforeEach(() => {
-    // Reset window to a clean state
-    global.window = {} as typeof window;
+    setWindow({});
   });
 
   afterEach(() => {
-    global.window = originalWindow;
+    restoreWindow(originalWindow);
     vi.restoreAllMocks();
   });
 
   describe('electron detection', () => {
     it('detects electron platform when window.electron is defined', () => {
-      global.window = {
-        electron: {
-          sqlite: {}
-        }
-      } as typeof window;
+      setWindow({ electron: { sqlite: {} } });
 
       const info = getPlatformInfo();
 
@@ -36,12 +44,12 @@ describe('getPlatformInfo', () => {
 
   describe('capacitor iOS detection', () => {
     it('detects iOS platform when Capacitor reports ios', () => {
-      global.window = {
+      setWindow({
         Capacitor: {
           isNativePlatform: () => true,
           getPlatform: () => 'ios'
         }
-      } as typeof window;
+      });
 
       const info = getPlatformInfo();
 
@@ -53,12 +61,12 @@ describe('getPlatformInfo', () => {
 
   describe('capacitor android detection', () => {
     it('detects Android platform when Capacitor reports android', () => {
-      global.window = {
+      setWindow({
         Capacitor: {
           isNativePlatform: () => true,
           getPlatform: () => 'android'
         }
-      } as typeof window;
+      });
 
       const info = getPlatformInfo();
 
@@ -70,12 +78,12 @@ describe('getPlatformInfo', () => {
 
   describe('capacitor non-native', () => {
     it('falls back to web when Capacitor is not native', () => {
-      global.window = {
+      setWindow({
         Capacitor: {
           isNativePlatform: () => false,
           getPlatform: () => 'web'
         }
-      } as typeof window;
+      });
 
       const info = getPlatformInfo();
 
@@ -87,12 +95,12 @@ describe('getPlatformInfo', () => {
 
   describe('capacitor unknown platform', () => {
     it('falls back to web for unknown Capacitor platforms', () => {
-      global.window = {
+      setWindow({
         Capacitor: {
           isNativePlatform: () => true,
           getPlatform: () => 'unknown'
         }
-      } as typeof window;
+      });
 
       const info = getPlatformInfo();
 
@@ -104,14 +112,14 @@ describe('getPlatformInfo', () => {
 
   describe('capacitor throws error', () => {
     it('falls back to web when Capacitor throws', () => {
-      global.window = {
+      setWindow({
         Capacitor: {
           isNativePlatform: () => {
             throw new Error('Capacitor not available');
           },
           getPlatform: () => 'web'
         }
-      } as unknown as typeof window;
+      });
 
       const info = getPlatformInfo();
 
@@ -123,7 +131,7 @@ describe('getPlatformInfo', () => {
 
   describe('web fallback', () => {
     it('defaults to web platform when no native environment is detected', () => {
-      global.window = {} as typeof window;
+      setWindow({});
 
       const info = getPlatformInfo();
 
@@ -135,13 +143,13 @@ describe('getPlatformInfo', () => {
 
   describe('priority order', () => {
     it('prioritizes electron over capacitor', () => {
-      global.window = {
+      setWindow({
         electron: { sqlite: {} },
         Capacitor: {
           isNativePlatform: () => true,
           getPlatform: () => 'ios'
         }
-      } as typeof window;
+      });
 
       const info = getPlatformInfo();
 

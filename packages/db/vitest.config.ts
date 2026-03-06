@@ -25,7 +25,9 @@ export default mergeConfig(
           'src/sqlite-migrations/v0[0-1][0-9].ts',
           'src/sqlite-migrations/v019.ts',
           'src/sqlite-migrations/v021.ts',
-          'src/sqlite-migrations/types.ts'
+          'src/sqlite-migrations/types.ts',
+          // Column mapping test fixtures are test data, not production code
+          'src/adapter/columnMappingTestFixtures.ts'
         ],
         thresholds: {
           statements: 100,

@@ -9,7 +9,11 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { convertRowsToArrays, extractSelectColumns, rowToArray } from './utils';
+import {
+  convertRowsToArrays,
+  extractSelectColumns,
+  rowToArray
+} from './utils.js';
 
 describe('SQL Column Extraction', () => {
   describe('extractSelectColumns', () => {
