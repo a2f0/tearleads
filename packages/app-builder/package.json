@@ -26,6 +26,7 @@
     "validate": "tsx src/cli.ts validate",
     "list": "tsx src/cli.ts list",
     "test": "vitest run",
+    "testBun": "bun test src/generators/theme.test.ts src/generators/utils.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
