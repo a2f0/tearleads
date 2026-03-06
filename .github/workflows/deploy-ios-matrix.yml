@@ -36,7 +36,7 @@ jobs:
         uses: pnpm/action-setup@v4
 
       - name: Install dependencies
-        run: pnpm install --filter @tearleads/app-builder
+        run: sh ./scripts/tooling/pm.sh install --filter @tearleads/app-builder
 
       - name: Determine apps to build
         id: set-matrix
@@ -52,7 +52,7 @@ jobs:
           else
             # Auto-discover all apps from app-builder
             cd packages/app-builder
-            APPS=$(pnpm tsx src/cli.ts list --json)
+            APPS=$(sh ./scripts/tooling/pm.sh exec tsx src/cli.ts list --json)
           fi
           echo "Building apps: $APPS"
           echo "matrix={\"app\":$APPS}" >> $GITHUB_OUTPUT
@@ -110,7 +110,7 @@ jobs:
           working-directory: packages/client
 
       - name: Install dependencies
-        run: pnpm install
+        run: sh ./scripts/tooling/pm.sh install
 
       - name: Generate app configs
         run: |
@@ -131,7 +131,7 @@ jobs:
           done
 
       - name: Build web assets
-        run: pnpm --filter @tearleads/client build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/client run build
         env:
           VITE_API_URL: https://api.${{ secrets.DEPLOY_DOMAIN_PROD }}/v1
 
@@ -142,7 +142,7 @@ jobs:
         run: ./packages/client/scripts/buildIosImageAssets.sh
 
       - name: Sync Capacitor
-        run: pnpm --filter @tearleads/client run cap:sync
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/client run cap:sync
 
       - name: Apply CI version from source commit
         id: ci_version
