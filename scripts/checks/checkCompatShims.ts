@@ -1,4 +1,4 @@
-#!/usr/bin/env -S pnpm exec tsx
+#!/usr/bin/env -S node --import tsx
 
 /**
  * Detects backward compatibility re-export patterns that violate greenfield policy.
@@ -9,7 +9,7 @@
  * 3. Re-export statements with compatibility comments
  *
  * Usage:
- *   pnpm exec tsx scripts/checks/checkCompatShims.ts [--staged | --from-upstream]
+ *   node --import tsx scripts/checks/checkCompatShims.ts [--staged | --from-upstream]
  */
 
 import { execSync } from 'node:child_process';
@@ -40,6 +40,10 @@ function getRepoRoot(): string {
   const currentFilePath = fileURLToPath(import.meta.url);
   const scriptDir = path.dirname(currentFilePath);
   return path.resolve(scriptDir, '../..');
+}
+
+function getSelfScriptPath(): string {
+  return path.join(getRepoRoot(), 'scripts', 'checks', 'checkCompatShims.ts');
 }
 
 function collectFiles(mode: string): string[] {
@@ -146,6 +150,10 @@ function findCompatComments(content: string, filePath: string): Violation[] {
 
 function checkFile(filePath: string): Violation[] {
   if (!fs.existsSync(filePath) || !isTypeScriptFile(filePath)) {
+    return [];
+  }
+
+  if (path.resolve(filePath) === path.resolve(getSelfScriptPath())) {
     return [];
   }
 
