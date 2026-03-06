@@ -1,7 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { VfsCrdtRematerializationRequiredError } from '../client/sync-client-utils.js';
 import { encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
-import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
+import {
+  VFS_CONNECT_BASE_PATH,
+  VfsHttpCrdtSyncTransport
+} from './sync-http-transport.js';
+
+const PUSH_CRDT_OPS_PATH = `${VFS_CONNECT_BASE_PATH}/PushCrdtOps`;
+const GET_CRDT_SYNC_PATH = `${VFS_CONNECT_BASE_PATH}/GetCrdtSync`;
+const RECONCILE_CRDT_PATH = `${VFS_CONNECT_BASE_PATH}/ReconcileCrdt`;
+const RUN_CRDT_SESSION_PATH = `${VFS_CONNECT_BASE_PATH}/RunCrdtSession`;
 
 async function readRequestJson(
   input: unknown,
@@ -99,9 +107,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const firstCall = fetchMock.mock.calls[0];
     const requestUrl = firstCall?.[0];
-    expect(requestUrl).toBe(
-      'https://sync.example.com/connect/tearleads.v1.VfsService/PushCrdtOps'
-    );
+    expect(requestUrl).toBe(`https://sync.example.com${PUSH_CRDT_OPS_PATH}`);
 
     const requestInit = firstCall?.[1];
     const requestBody = asRecord(
@@ -215,9 +221,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
     const requestUrl = firstCall?.[0];
     expect(requestUrl).toBeTypeOf('string');
     const parsedRequestUrl = new URL(String(requestUrl));
-    expect(parsedRequestUrl.pathname).toBe(
-      '/connect/tearleads.v1.VfsService/GetCrdtSync'
-    );
+    expect(parsedRequestUrl.pathname).toBe(GET_CRDT_SYNC_PATH);
 
     const requestInit = firstCall?.[1];
     const requestBody = asRecord(
@@ -285,9 +289,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
     const requestUrl = firstCall?.[0];
     expect(requestUrl).toBeTypeOf('string');
     const parsedRequestUrl = new URL(String(requestUrl));
-    expect(parsedRequestUrl.pathname).toBe(
-      '/connect/tearleads.v1.VfsService/ReconcileCrdt'
-    );
+    expect(parsedRequestUrl.pathname).toBe(RECONCILE_CRDT_PATH);
 
     const requestInit = firstCall?.[1];
     const requestBody = asRecord(
@@ -422,9 +424,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
 
     const firstCall = fetchMock.mock.calls[0];
     const requestUrl = firstCall?.[0];
-    expect(requestUrl).toBe(
-      'https://sync.example.com/connect/tearleads.v1.VfsService/RunCrdtSession'
-    );
+    expect(requestUrl).toBe(`https://sync.example.com${RUN_CRDT_SESSION_PATH}`);
 
     const requestInit = firstCall?.[1];
     const requestBody = asRecord(

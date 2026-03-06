@@ -1,5 +1,6 @@
 import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { VFS_CONNECT_BASE_PATH } from '../vfsConnectBasePath';
 import { createVfsSecureOrchestratorFacade } from './secureOrchestratorFacade';
 import { recordSecureFacadeRequestBody } from './secureOrchestratorFacade.testSupport';
 
@@ -33,7 +34,7 @@ describe('secureOrchestratorFacade integration', () => {
         const url = input.toString();
         await recordSecureFacadeRequestBody(requests, url, input, init);
 
-        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/PushCrdtOps`)) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -45,7 +46,7 @@ describe('secureOrchestratorFacade integration', () => {
             }
           );
         }
-        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
+        if (url.includes(`${VFS_CONNECT_BASE_PATH}/GetCrdtSync`)) {
           return new Response(
             connectJsonEnvelope({
               items: [],
@@ -59,7 +60,7 @@ describe('secureOrchestratorFacade integration', () => {
             }
           );
         }
-        if (url.endsWith('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/ReconcileCrdt`)) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -172,22 +173,22 @@ describe('secureOrchestratorFacade integration', () => {
 
     expect(
       requests.some((request) =>
-        request.url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')
+        request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/StageBlob`)
       )
     ).toBe(true);
     expect(
       requests.some((request) =>
-        request.url.endsWith('/connect/tearleads.v1.VfsService/UploadBlobChunk')
+        request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/UploadBlobChunk`)
       )
     ).toBe(true);
     expect(
       requests.some((request) =>
-        request.url.endsWith('/connect/tearleads.v1.VfsService/CommitBlob')
+        request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/CommitBlob`)
       )
     ).toBe(true);
     expect(
       requests.some((request) =>
-        request.url.endsWith('/connect/tearleads.v1.VfsService/AttachBlob')
+        request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/AttachBlob`)
       )
     ).toBe(true);
   });
@@ -202,7 +203,7 @@ describe('secureOrchestratorFacade integration', () => {
         const url = input.toString();
         await recordSecureFacadeRequestBody(requests, url, input, init);
 
-        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/PushCrdtOps`)) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -214,7 +215,7 @@ describe('secureOrchestratorFacade integration', () => {
             }
           );
         }
-        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
+        if (url.includes(`${VFS_CONNECT_BASE_PATH}/GetCrdtSync`)) {
           return new Response(
             connectJsonEnvelope({
               items: [],
@@ -228,7 +229,7 @@ describe('secureOrchestratorFacade integration', () => {
             }
           );
         }
-        if (url.endsWith('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/ReconcileCrdt`)) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -308,9 +309,7 @@ describe('secureOrchestratorFacade integration', () => {
     });
 
     const pushRequest = requests.find((request) => {
-      return request.url.endsWith(
-        '/connect/tearleads.v1.VfsService/PushCrdtOps'
-      );
+      return request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/PushCrdtOps`);
     });
     expect(pushRequest).toBeDefined();
 
@@ -339,7 +338,7 @@ describe('secureOrchestratorFacade integration', () => {
         const url = input.toString();
         await recordSecureFacadeRequestBody(requests, url, input, init);
 
-        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/PushCrdtOps`)) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -351,7 +350,7 @@ describe('secureOrchestratorFacade integration', () => {
             }
           );
         }
-        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
+        if (url.includes(`${VFS_CONNECT_BASE_PATH}/GetCrdtSync`)) {
           return new Response(
             connectJsonEnvelope({
               items: [],
@@ -365,7 +364,7 @@ describe('secureOrchestratorFacade integration', () => {
             }
           );
         }
-        if (url.endsWith('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/ReconcileCrdt`)) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -438,7 +437,7 @@ describe('secureOrchestratorFacade integration', () => {
     });
 
     const pushRequest = requests.find((request) =>
-      request.url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')
+      request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/PushCrdtOps`)
     );
     expect(pushRequest).toBeDefined();
 

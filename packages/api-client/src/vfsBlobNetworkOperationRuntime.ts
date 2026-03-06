@@ -19,6 +19,7 @@ import type {
   VfsBlobNetworkOperation,
   VfsBlobStageQueueOperation
 } from './vfsBlobNetworkFlusherTypes';
+import { VFS_CONNECT_BASE_PATH } from './vfsConnectBasePath';
 
 interface ExecuteBlobOperationContext {
   apiPrefix: string;
@@ -26,8 +27,6 @@ interface ExecuteBlobOperationContext {
   fetchImpl: typeof fetch;
   headers: Record<string, string>;
 }
-
-const VFS_CONNECT_BASE_PATH = '/connect/tearleads.v1.VfsService';
 
 export async function executeBlobNetworkOperation(
   context: ExecuteBlobOperationContext,

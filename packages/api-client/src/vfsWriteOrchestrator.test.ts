@@ -1,5 +1,6 @@
 import type { LocalWriteOptions } from '@tearleads/local-write-orchestrator';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { VFS_CONNECT_BASE_PATH } from './vfsConnectBasePath';
 import type { VfsWriteOrchestratorPersistedState } from './vfsWriteOrchestrator';
 
 describe('vfsWriteOrchestrator', () => {
@@ -147,7 +148,7 @@ describe('vfsWriteOrchestrator', () => {
     vi.mocked(global.fetch).mockImplementation(
       async (input: RequestInfo | URL): Promise<Response> => {
         const url = input.toString();
-        if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/PushCrdtOps`)) {
           return new Response(
             JSON.stringify({
               json: JSON.stringify({
@@ -161,7 +162,7 @@ describe('vfsWriteOrchestrator', () => {
             }
           );
         }
-        if (url.includes('/connect/tearleads.v1.VfsService/GetCrdtSync')) {
+        if (url.includes(`${VFS_CONNECT_BASE_PATH}/GetCrdtSync`)) {
           return new Response(
             JSON.stringify({
               json: JSON.stringify({
@@ -177,7 +178,7 @@ describe('vfsWriteOrchestrator', () => {
             }
           );
         }
-        if (url.endsWith('/connect/tearleads.v1.VfsService/ReconcileCrdt')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/ReconcileCrdt`)) {
           return new Response(
             JSON.stringify({
               json: JSON.stringify({
@@ -195,7 +196,7 @@ describe('vfsWriteOrchestrator', () => {
             }
           );
         }
-        if (url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/StageBlob`)) {
           return new Response(
             JSON.stringify({
               json: JSON.stringify({

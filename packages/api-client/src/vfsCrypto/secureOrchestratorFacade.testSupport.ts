@@ -1,3 +1,5 @@
+import { VFS_CONNECT_BASE_PATH } from '../vfsConnectBasePath';
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -47,7 +49,7 @@ export async function recordSecureFacadeRequestBody(
   input: RequestInfo | URL,
   init: RequestInit | undefined
 ): Promise<void> {
-  if (url.endsWith('/connect/tearleads.v1.VfsService/PushCrdtOps')) {
+  if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/PushCrdtOps`)) {
     const pushBody = await readPushBody(input, init);
     if (pushBody) {
       requests.push({

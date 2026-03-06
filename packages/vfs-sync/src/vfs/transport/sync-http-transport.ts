@@ -24,7 +24,7 @@ const CRDT_REMATERIALIZATION_REQUIRED_CODE = 'crdt_rematerialization_required';
 const CONNECT_ALREADY_EXISTS_CODE = 'already_exists';
 const JSON_CONTENT_TYPE = 'application/json';
 const ORGANIZATION_HEADER_NAME = 'X-Organization-Id';
-const VFS_CONNECT_BASE_PATH = '/connect/tearleads.v1.VfsService';
+export const VFS_CONNECT_BASE_PATH = '/connect/tearleads.v2.VfsService';
 const MAX_ORG_ID_LENGTH = 100;
 const ORG_ID_PATTERN = /^[a-zA-Z0-9-]+$/u;
 

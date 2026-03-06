@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { VfsBlobNetworkFlusherPersistedState } from './vfsBlobNetworkFlusher';
+import { VFS_CONNECT_BASE_PATH } from './vfsConnectBasePath';
 
 function getAuthorizationHeader(init: RequestInit | undefined): string | null {
   if (!init || !init.headers) {
@@ -43,7 +44,7 @@ describe('vfsBlobNetworkFlusher', () => {
             }
           );
         }
-        if (url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/StageBlob`)) {
           stageAttempts += 1;
           if (stageAttempts === 1) {
             return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -84,7 +85,7 @@ describe('vfsBlobNetworkFlusher', () => {
     const stageCalls = vi
       .mocked(global.fetch)
       .mock.calls.filter(([input]) =>
-        input.toString().endsWith('/connect/tearleads.v1.VfsService/StageBlob')
+        input.toString().endsWith(`${VFS_CONNECT_BASE_PATH}/StageBlob`)
       );
     expect(stageCalls).toHaveLength(2);
     const firstStageCall = stageCalls[0];
@@ -109,7 +110,7 @@ describe('vfsBlobNetworkFlusher', () => {
     vi.mocked(global.fetch).mockImplementation(
       async (input: RequestInfo | URL): Promise<Response> => {
         const url = input.toString();
-        if (url.endsWith('/connect/tearleads.v1.VfsService/StageBlob')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/StageBlob`)) {
           return new Response(
             JSON.stringify({
               stagingId: 'stage-1',
@@ -124,7 +125,7 @@ describe('vfsBlobNetworkFlusher', () => {
             }
           );
         }
-        if (url.endsWith('/connect/tearleads.v1.VfsService/AttachBlob')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/AttachBlob`)) {
           return new Response(
             JSON.stringify({
               attached: true,
@@ -141,7 +142,7 @@ describe('vfsBlobNetworkFlusher', () => {
             }
           );
         }
-        if (url.endsWith('/connect/tearleads.v1.VfsService/AbandonBlob')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/AbandonBlob`)) {
           return new Response(
             JSON.stringify({
               abandoned: true,
@@ -230,10 +231,10 @@ describe('vfsBlobNetworkFlusher', () => {
       pendingOperations: 0
     });
     const chunkCall = requestBodies.find((entry) =>
-      entry.url.endsWith('/connect/tearleads.v1.VfsService/UploadBlobChunk')
+      entry.url.endsWith(`${VFS_CONNECT_BASE_PATH}/UploadBlobChunk`)
     );
     const commitCall = requestBodies.find((entry) =>
-      entry.url.endsWith('/connect/tearleads.v1.VfsService/CommitBlob')
+      entry.url.endsWith(`${VFS_CONNECT_BASE_PATH}/CommitBlob`)
     );
     expect(chunkCall?.body).toEqual(
       expect.objectContaining({
