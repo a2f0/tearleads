@@ -190,6 +190,16 @@ describe('extractSelectColumns', () => {
       const sql = 'SELECT . FROM users';
       expect(extractSelectColumns(sql)).toEqual(['.']);
     });
+
+    it('returns null for SELECT without FROM', () => {
+      const sql = 'SELECT id, name';
+      expect(extractSelectColumns(sql)).toBeNull();
+    });
+
+    it('falls back to full expression when AS alias is not a valid identifier', () => {
+      const sql = 'SELECT col as * FROM users';
+      expect(extractSelectColumns(sql)).toEqual(['col as *']);
+    });
   });
 });
 

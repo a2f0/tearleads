@@ -21,19 +21,42 @@ function isRecordRow(value: unknown): value is Record<string, unknown> {
  * Returns null for SELECT * or non-SELECT statements.
  */
 export function extractSelectColumns(sql: string): string[] | null {
-  // Match SELECT ... FROM (case insensitive, handles newlines)
-  const selectMatch = sql.match(/select\s+(.+?)\s+from\s/is);
-  if (!selectMatch || !selectMatch[1]) return null;
+  // Normalize whitespace to single spaces (avoids polynomial regex on variable whitespace)
+  const normalized = sql.replace(/\s+/g, ' ').trim();
+  const lower = normalized.toLowerCase();
 
-  const selectClause = selectMatch[1];
+  // Must start with "select "
+  if (!lower.startsWith('select ')) return null;
+
+  // Find the top-level " from " boundary (not inside parentheses)
+  const afterSelect = 7; // "select ".length
+  let depth = 0;
+  let fromIndex = -1;
+
+  for (let i = afterSelect; i <= normalized.length - 5; i++) {
+    if (normalized[i] === '(') depth++;
+    else if (normalized[i] === ')') depth--;
+    else if (
+      depth === 0 &&
+      normalized[i - 1] === ' ' &&
+      lower.substring(i, i + 5) === 'from '
+    ) {
+      fromIndex = i;
+      break;
+    }
+  }
+
+  if (fromIndex === -1) return null;
+
+  const selectClause = normalized.substring(afterSelect, fromIndex).trim();
 
   // Handle SELECT * case
-  if (selectClause.trim() === '*') return null;
+  if (selectClause === '*') return null;
 
   const columns: string[] = [];
 
-  // Split by comma, handling potential nested parentheses (for functions)
-  let depth = 0;
+  // Split by comma, handling nested parentheses (for functions)
+  depth = 0;
   let current = '';
 
   for (const char of selectClause) {
@@ -52,10 +75,17 @@ export function extractSelectColumns(sql: string): string[] | null {
 
   // Extract the actual column name from each expression
   return columns.map((col) => {
-    // Match "alias" or alias in `... as alias`
-    const aliasMatch = col.match(/\s+as\s+("?([\w$]+)"?)\s*$/i);
-    if (aliasMatch?.[1]) {
-      return aliasMatch[1].replace(/"/g, '');
+    // Find alias: look for last " as " (case insensitive) to avoid polynomial regex
+    const lowerCol = col.toLowerCase();
+    const asPos = lowerCol.lastIndexOf(' as ');
+    if (asPos !== -1) {
+      const alias = col
+        .substring(asPos + 4)
+        .trim()
+        .replace(/"/g, '');
+      if (alias && /^[\w$]+$/.test(alias)) {
+        return alias;
+      }
     }
 
     // Handle table.column or "table"."column"
