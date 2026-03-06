@@ -390,9 +390,6 @@ export const api = {
         )
     }
   },
-  get admin() {
-    return this.adminV2;
-  },
   ai: {
     getUsage: (options?: {
       startDate?: string;

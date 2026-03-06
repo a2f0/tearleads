@@ -41,17 +41,17 @@ describe('admin api client v2 detail read routes', () => {
         ]
       })
     );
-    await expect(apiClient.admin.groups.getMembers('group-1')).resolves.toEqual(
-      {
-        members: [
-          {
-            userId: 'user-1',
-            email: 'admin@example.com',
-            joinedAt: '2026-01-01T00:00:00Z'
-          }
-        ]
-      }
-    );
+    await expect(
+      apiClient.adminV2.groups.getMembers('group-1')
+    ).resolves.toEqual({
+      members: [
+        {
+          userId: 'user-1',
+          email: 'admin@example.com',
+          joinedAt: '2026-01-01T00:00:00Z'
+        }
+      ]
+    });
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -64,15 +64,17 @@ describe('admin api client v2 detail read routes', () => {
         }
       })
     );
-    await expect(apiClient.admin.organizations.get('org-1')).resolves.toEqual({
-      organization: {
-        id: 'org-1',
-        name: 'Primary Org',
-        description: 'Main org',
-        createdAt: '2026-01-01T00:00:00Z',
-        updatedAt: '2026-01-02T00:00:00Z'
+    await expect(apiClient.adminV2.organizations.get('org-1')).resolves.toEqual(
+      {
+        organization: {
+          id: 'org-1',
+          name: 'Primary Org',
+          description: 'Main org',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-02T00:00:00Z'
+        }
       }
-    });
+    );
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -86,7 +88,7 @@ describe('admin api client v2 detail read routes', () => {
       })
     );
     await expect(
-      apiClient.admin.organizations.getUsers('org-1')
+      apiClient.adminV2.organizations.getUsers('org-1')
     ).resolves.toEqual({
       users: [
         {
@@ -110,7 +112,7 @@ describe('admin api client v2 detail read routes', () => {
       })
     );
     await expect(
-      apiClient.admin.organizations.getGroups('org-1')
+      apiClient.adminV2.organizations.getGroups('org-1')
     ).resolves.toEqual({
       groups: [
         {
@@ -143,7 +145,7 @@ describe('admin api client v2 detail read routes', () => {
         }
       })
     );
-    await expect(apiClient.admin.users.get('user-1')).resolves.toEqual({
+    await expect(apiClient.adminV2.users.get('user-1')).resolves.toEqual({
       user: {
         id: 'user-1',
         email: 'admin@example.com',
@@ -171,11 +173,11 @@ describe('admin api client v2 detail read routes', () => {
   it('routes detail reads through v2 admin service paths', async () => {
     fetchMock.mockImplementation(async () => jsonResponse({}));
 
-    await apiClient.admin.groups.getMembers('group-1');
-    await apiClient.admin.organizations.get('org-1');
-    await apiClient.admin.organizations.getUsers('org-1');
-    await apiClient.admin.organizations.getGroups('org-1');
-    await apiClient.admin.users.get('user-1');
+    await apiClient.adminV2.groups.getMembers('group-1');
+    await apiClient.adminV2.organizations.get('org-1');
+    await apiClient.adminV2.organizations.getUsers('org-1');
+    await apiClient.adminV2.organizations.getGroups('org-1');
+    await apiClient.adminV2.users.get('user-1');
 
     const urls = fetchMock.mock.calls.map(([url]) => String(url));
     expect(
