@@ -85,6 +85,17 @@ If callback returns `null`, the client applies an empty replay/reconcile/contain
 - If stale-cursor errors continue beyond `maxRematerializationAttempts`, the typed error is rethrown.
 - No silent bypass: failures remain hard-stop protocol signals.
 
+### Long-offline + unflushed local-write behavior
+
+When a client has queued local CRDT writes and returns after compaction made its cursor stale:
+
+1. Flush loop still pushes pending local ops first.
+2. Successful push statuses (`applied`, `alreadyApplied`, `outdatedOp`) are removed from pending queue.
+3. `staleWriteId` statuses trigger stale-write recovery: pull current server state, then rebase pending write IDs/timestamps and retry.
+4. If pull hits stale-cursor rematerialization (`409`), recovery wrapper calls rematerialization handler, applies rematerialized state, and retries flush/sync.
+5. Applying rematerialized state replaces replay/reconcile/container snapshots but keeps pending local ops; `nextLocalWriteId` is recomputed to stay ahead of reconcile + pending state.
+6. If rematerialization remains unresolved beyond retry budget, operation fails closed and any not-yet-acknowledged pending ops stay queued.
+
 ### 8) App-Level Bootstrap Hook (Current Client)
 
 In `VfsOrchestratorContext`, rematerialization callback also calls
