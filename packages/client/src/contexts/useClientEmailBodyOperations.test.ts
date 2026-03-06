@@ -29,7 +29,8 @@ vi.mock('@/db/crypto', () => ({
 
 vi.mock('@tearleads/shared', () => ({
   importKey: (...args: unknown[]) => mockImportKey(...args),
-  decrypt: (...args: unknown[]) => mockDecrypt(...args)
+  decrypt: (...args: unknown[]) => mockDecrypt(...args),
+  VFS_V2_GET_EMAIL_CONNECT_PATH: '/connect/tearleads.v2.VfsService/GetEmail'
 }));
 
 describe('useClientEmailBodyOperations', () => {

@@ -1,11 +1,13 @@
 import type { EmailBodyOperations } from '@tearleads/email';
-import { decrypt, importKey } from '@tearleads/shared';
+import {
+  decrypt,
+  importKey,
+  VFS_V2_GET_EMAIL_CONNECT_PATH
+} from '@tearleads/shared';
 import { useCallback, useMemo } from 'react';
 import { getKeyManager } from '@/db/crypto';
 import { API_BASE_URL, api } from '@/lib/api';
 import { getAuthHeaderValue } from '@/lib/authStorage';
-
-const GET_EMAIL_CONNECT_PATH = '/connect/tearleads.v2.VfsService/GetEmail';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -20,11 +22,14 @@ export function useClientEmailBodyOperations(): EmailBodyOperations {
         ...(authHeader ? { Authorization: authHeader } : {})
       };
 
-      const response = await fetch(`${API_BASE_URL}${GET_EMAIL_CONNECT_PATH}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ id: emailId })
-      });
+      const response = await fetch(
+        `${API_BASE_URL}${VFS_V2_GET_EMAIL_CONNECT_PATH}`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ id: emailId })
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`Failed to fetch email: ${response.statusText}`);

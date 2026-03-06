@@ -48,6 +48,7 @@ export * from './tree/index.js';
 export * from './typeGuards/vfs.js';
 // Domain type bundles
 export * from './vfsTypes.js';
+export * from './vfsConnectPaths.js';
 
 // Types
 export interface PingData {
