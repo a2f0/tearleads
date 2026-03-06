@@ -6,9 +6,11 @@ on:
       - '.github/workflows/bun-test-node-pilot.yml'
       - 'packages/app-builder/**'
       - 'packages/local-write-orchestrator/**'
+      - 'packages/mls-core/**'
       - 'packages/msw/**'
       - 'packages/photos/**'
       - 'packages/remote-read-orchestrator/**'
+      - 'packages/search/**'
       - 'packages/tee-api/**'
       - 'packages/vehicles/**'
       - 'package.json'
@@ -30,9 +32,11 @@ jobs:
         package:
           - '@tearleads/app-builder'
           - '@tearleads/local-write-orchestrator'
+          - '@tearleads/mls-core'
           - '@tearleads/msw'
           - '@tearleads/photos'
           - '@tearleads/remote-read-orchestrator'
+          - '@tearleads/search'
           - '@tearleads/tee-api'
           - '@tearleads/vehicles'
     steps:
