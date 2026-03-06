@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/app-builder",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "private": true,
   "description": "White-label app builder for multi-app builds",
   "type": "module",
