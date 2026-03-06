@@ -1,6 +1,7 @@
+import type { DatabaseAdapter } from '@tearleads/db/adapter';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockAdapter = {
+const mockAdapter: Pick<DatabaseAdapter, 'execute'> = {
   execute: vi.fn()
 };
 
@@ -34,7 +35,7 @@ describe('vehicles db helpers', () => {
 
   it('maps rows from listVehicles query', async () => {
     const now = Date.now();
-    mockAdapter.execute.mockResolvedValueOnce({
+    vi.mocked(mockAdapter.execute).mockResolvedValueOnce({
       rows: [
         {
           id: 'vehicle-1',
@@ -70,7 +71,7 @@ describe('vehicles db helpers', () => {
   });
 
   it('inserts and returns a created vehicle', async () => {
-    mockAdapter.execute.mockResolvedValueOnce({ rows: [] });
+    vi.mocked(mockAdapter.execute).mockResolvedValueOnce({ rows: [] });
 
     const created = await createVehicle({
       make: 'Toyota',
@@ -100,7 +101,7 @@ describe('vehicles db helpers', () => {
 
   it('updates and returns vehicle by id', async () => {
     const now = Date.now();
-    mockAdapter.execute
+    vi.mocked(mockAdapter.execute)
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: [
@@ -143,7 +144,7 @@ describe('vehicles db helpers', () => {
   });
 
   it('soft deletes a vehicle', async () => {
-    mockAdapter.execute.mockResolvedValueOnce({ rows: [] });
+    vi.mocked(mockAdapter.execute).mockResolvedValueOnce({ rows: [] });
 
     const deleted = await deleteVehicle('vehicle-1');
 
