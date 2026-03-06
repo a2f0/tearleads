@@ -1,4 +1,4 @@
-#!/usr/bin/env -S pnpm exec tsx
+#!/usr/bin/env -S node --import tsx
 /**
  * Agent tooling CLI - TypeScript wrapper for agent scripts and GitHub API actions.
  *
