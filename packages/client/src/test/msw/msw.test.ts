@@ -45,8 +45,10 @@ async function getApiClient() {
 beforeEach(async () => {
   vi.resetModules();
   vi.stubEnv('VITE_API_URL', 'http://localhost');
+  localStorage.clear();
   const ctx = getSharedTestContext();
   seededUser = await seedTestUser(ctx, { admin: true });
+  localStorage.setItem('auth_token', seededUser.accessToken);
 });
 
 describe('msw handlers', () => {
@@ -66,7 +68,6 @@ describe('msw handlers', () => {
   it('mocks admin redis connect endpoints', async () => {
     const ctx = getSharedTestContext();
     await ctx.redis.set('user:1', 'test-value');
-    localStorage.setItem('auth_token', seededUser.accessToken);
     const api = await getApiClient();
 
     const keysPayload = await api.admin.redis.getKeys('0', 50);
@@ -125,7 +126,6 @@ describe('msw handlers', () => {
   });
 
   it('mocks admin postgres connect endpoints', async () => {
-    localStorage.setItem('auth_token', seededUser.accessToken);
     const api = await getApiClient();
 
     const infoPayload = await api.admin.postgres.getInfo();
@@ -294,7 +294,6 @@ describe('msw handlers', () => {
 
   it('records request metadata for debugging parity', async () => {
     const authHeaders = { Authorization: `Bearer ${seededUser.accessToken}` };
-    localStorage.setItem('auth_token', seededUser.accessToken);
     const api = await getApiClient();
 
     await fetch('http://localhost/v2/ping', { headers: authHeaders });
