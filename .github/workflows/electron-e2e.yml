@@ -114,7 +114,7 @@ jobs:
 
       - name: Install dependencies
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm install
+        run: sh ./scripts/tooling/pm.sh install
 
       - name: Install system dependencies for Electron
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
@@ -173,55 +173,55 @@ jobs:
 
       - name: Build API (for OpenAPI spec)
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm --filter @tearleads/api build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/api run build
 
       - name: Build UI
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm --filter @tearleads/ui build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/ui run build
 
       - name: Build window-manager
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm --filter @tearleads/window-manager build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/window-manager run build
 
       - name: Build notes
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm --filter @tearleads/notes build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/notes run build
 
       - name: Build email
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm --filter @tearleads/email build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/email run build
 
       - name: Build vfs-explorer
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm --filter @tearleads/vfs-explorer build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/vfs-explorer run build
 
       - name: Build ai
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm --filter @tearleads/ai build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/ai run build
 
       - name: Build audio
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm --filter @tearleads/audio build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/audio run build
 
       - name: Build contacts
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm --filter @tearleads/contacts build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/contacts run build
 
       - name: Build db-test-utils
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm --filter @tearleads/db-test-utils build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/db-test-utils run build
 
       - name: Build health
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm --filter @tearleads/health build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/health run build
 
       - name: Build calendar
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm --filter @tearleads/calendar build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/calendar run build
 
       - name: Build photos
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm --filter @tearleads/photos build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/photos run build
 
       - name: Generate app configs
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
@@ -232,17 +232,17 @@ jobs:
 
       - name: Build Electron app
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm --filter @tearleads/client electron:build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/client run electron:build
         env:
           VITE_API_URL: http://localhost:5001/v1
 
       - name: Run Electron tests
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: xvfb-run --auto-servernum -- pnpm --filter @tearleads/client electron:test
+        run: xvfb-run --auto-servernum -- sh ./scripts/tooling/pm.sh --filter @tearleads/client run electron:test
 
       - name: Build CLI for backup validation
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm --filter @tearleads/cli build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/cli run build
 
       - name: Validate backup file
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
