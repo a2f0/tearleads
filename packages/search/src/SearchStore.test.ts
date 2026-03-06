@@ -152,7 +152,9 @@ describe('SearchStore', () => {
     });
 
     it('should handle removing non-existent document gracefully', async () => {
-      await expect(store.removeDocument('non-existent')).resolves.toBeUndefined();
+      await expect(
+        store.removeDocument('non-existent')
+      ).resolves.toBeUndefined();
     });
   });
 
