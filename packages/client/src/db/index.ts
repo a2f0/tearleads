@@ -1,7 +1,7 @@
 import { setAnalyticsAdapter } from '@tearleads/analytics/analyticsState';
 import type { Database } from '@tearleads/db/sqlite';
-import { setVehiclesAdapter } from '@tearleads/vehicles/vehiclesState';
 import { schema } from '@tearleads/db/sqlite';
+import { setVehiclesAdapter } from '@tearleads/vehicles/vehiclesState';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import { databaseSetupProgressStore } from '@/stores/databaseSetupProgressStore';
 import { logStore } from '@/stores/logStore';

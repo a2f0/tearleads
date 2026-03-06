@@ -9,13 +9,13 @@ vi.mock('./vehiclesState', () => ({
   isDatabaseInitialized: vi.fn(() => true)
 }));
 
-import { isDatabaseInitialized } from './vehiclesState';
 import {
   createVehicle,
   deleteVehicle,
   listVehicles,
   updateVehicle
 } from './vehiclesDb';
+import { isDatabaseInitialized } from './vehiclesState';
 
 describe('vehicles db helpers', () => {
   beforeEach(() => {
