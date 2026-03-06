@@ -80,6 +80,17 @@ This provides planning/execution plus in-cluster scheduling.
   - `oldestAvailableCursor`
 - Clients should re-materialize from canonical sync state and then resume CRDT tail sync from the latest canonical baseline.
 
+### Long-offline client with unflushed local writes
+
+If a device returns after falling behind retained CRDT history and still has queued local CRDT ops:
+
+- Stale-cursor detection is triggered by CRDT pull, but flush flow still attempts to push queued local ops first.
+- Push acknowledgements with status `applied`, `alreadyApplied`, or `outdatedOp` are removed from the pending queue.
+- Push status `staleWriteId` triggers pull + deterministic pending-op rebase (`writeId` and `occurredAt`) before retry.
+- If pull then returns stale-cursor rematerialization, client rematerializes replay/reconcile/container state and retries with bounded attempts.
+- Rematerialization does not clear pending local ops; `nextLocalWriteId` is recomputed so it stays ahead of reconcile and pending write IDs.
+- If rematerialization faults persist past retry budget, client fails closed (no silent bypass). Any not-yet-acknowledged local ops remain queued for later retry.
+
 ## Operational rollout
 
 1. Run planner in dry-run mode and log:
