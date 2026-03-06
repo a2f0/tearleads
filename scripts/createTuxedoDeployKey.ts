@@ -1,4 +1,4 @@
-#!/usr/bin/env -S pnpm exec tsx
+#!/usr/bin/env -S node --import tsx
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
@@ -9,6 +9,10 @@ interface DeployKey {
   title?: string;
   key?: string;
 }
+
+type CliOptions = {
+  help: boolean;
+};
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, '..');
@@ -83,7 +87,42 @@ function getRepoNameWithOwner(): string {
   return repo;
 }
 
+function printUsage(): void {
+  process.stdout.write(
+    [
+      'Usage:',
+      '  ./scripts/createTuxedoDeployKey.ts',
+      '  ./scripts/createTuxedoDeployKey.ts --help',
+      '',
+      'Options:',
+      '  --help, -h    Show this help message.'
+    ].join('\n') + '\n'
+  );
+}
+
+function parseArgs(argv: string[]): CliOptions {
+  let help = false;
+
+  for (let index = 2; index < argv.length; index += 1) {
+    const token = argv[index];
+    if (token === '--help' || token === '-h') {
+      help = true;
+      continue;
+    }
+
+    throw new Error(`Unknown option: ${token}`);
+  }
+
+  return { help };
+}
+
 function main(): void {
+  const options = parseArgs(process.argv);
+  if (options.help) {
+    printUsage();
+    return;
+  }
+
   ensureKeypair();
   const repo = getRepoNameWithOwner();
   const pubKey = parsePublicKey();
