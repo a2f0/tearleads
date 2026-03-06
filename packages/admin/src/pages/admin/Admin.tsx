@@ -17,6 +17,7 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { RedisKeyRow } from './RedisKeyRow';
 
+// component-complexity: allow -- redis list, context menu, and virtualization will be split in follow-up refactor.
 const PAGE_SIZE = 50;
 const ROW_HEIGHT_ESTIMATE = 48;
 

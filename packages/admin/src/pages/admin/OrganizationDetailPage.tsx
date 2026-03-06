@@ -29,6 +29,7 @@ import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 
 // one-component-per-file: allow -- keeps route-level JSX branches in one page module until page decomposition lands.
+// component-complexity: allow -- page decomposition into profile/users/groups panels is planned separately.
 interface OrganizationFormData {
   name: string;
   description: string;

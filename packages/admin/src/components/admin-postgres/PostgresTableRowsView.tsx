@@ -18,6 +18,7 @@ import { TableView } from './TableView';
 import { usePostgresTableData } from './usePostgresTableData';
 
 // one-component-per-file: allow -- local JSX status fragment keeps virtualization state colocated with row rendering.
+// component-complexity: allow -- pending split across table toolbar, settings, and row virtualization modules.
 const DEFAULT_CONTAINER_CLASSNAME =
   'flex flex-1 min-h-0 flex-col space-y-4 overflow-hidden';
 

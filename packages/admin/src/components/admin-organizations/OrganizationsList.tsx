@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 
+// component-complexity: allow -- scheduled split into list/table/context-menu subcomponents.
 interface OrganizationsListProps {
   onCreateClick?: (() => void) | undefined;
   onOrganizationSelect: (organizationId: string) => void;

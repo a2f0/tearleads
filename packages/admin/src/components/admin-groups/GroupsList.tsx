@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 
+// component-complexity: allow -- scheduled split into list/table/context-menu subcomponents.
 interface GroupsListProps {
   onCreateClick?: (() => void) | undefined;
   onGroupSelect: (groupId: string) => void;

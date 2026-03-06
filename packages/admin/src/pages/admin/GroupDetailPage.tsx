@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 
+// component-complexity: allow -- route page split into form/member panels is planned separately.
 interface GroupDetailPageProps {
   groupId?: string;
   backLink?: ReactNode;

@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { AdminUserAiUsage } from '../../components/users-admin/AdminUserAiUsage';
 import { AdminUserGroups } from '../../components/users-admin/AdminUserGroups';
 
+// component-complexity: allow -- detail page split into editable profile and memberships is planned separately.
 interface UsersAdminDetailProps {
   userId?: string | null;
   backLink?: ReactNode;
