@@ -18,7 +18,7 @@ function printUsage(): void {
       'Usage:',
       '  pnpm --filter @tearleads/api makeAdmin -- --email user@example.com',
       '  pnpm --filter @tearleads/api cli make-admin -- --email user@example.com',
-      '  pnpm exec tsx scripts/makeAdmin.ts -- --email user@example.com',
+      '  node --import tsx scripts/makeAdmin.ts -- --email user@example.com',
       '',
       'Options:',
       '  --email, -e           Account email address (required).',

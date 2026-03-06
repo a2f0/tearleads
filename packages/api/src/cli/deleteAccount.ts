@@ -18,7 +18,7 @@ function printUsage(): void {
       'Usage:',
       '  pnpm --filter @tearleads/api deleteAccount -- --email user@example.com',
       '  pnpm --filter @tearleads/api cli delete-account -- --email user@example.com',
-      '  pnpm exec tsx scripts/deleteAccount.ts -- --email user@example.com',
+      '  node --import tsx scripts/deleteAccount.ts -- --email user@example.com',
       '',
       'Options:',
       '  --email, -e           Account email address (required).',
