@@ -1,4 +1,4 @@
-#!/usr/bin/env -S pnpm exec tsx
+#!/usr/bin/env -S node --import tsx
 // Keep an explicit import so knip can detect real dependency-cruiser usage.
 import 'dependency-cruiser';
 import { spawnSync } from 'node:child_process';
