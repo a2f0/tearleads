@@ -20,12 +20,14 @@ import type {
 } from '@tearleads/shared';
 import {
   createConnectJsonPostInit,
-  parseConnectJsonString
+  parseConnectJsonString,
+  VFS_SHARES_V2_CONNECT_BASE_PATH,
+  VFS_V2_CONNECT_BASE_PATH
 } from '@tearleads/shared';
 import { request } from '../apiCore';
 
-const VFS_CONNECT_BASE_PATH = '/connect/tearleads.v2.VfsService';
-const VFS_SHARES_CONNECT_BASE_PATH = '/connect/tearleads.v2.VfsSharesService';
+const VFS_CONNECT_BASE_PATH = VFS_V2_CONNECT_BASE_PATH;
+const VFS_SHARES_CONNECT_BASE_PATH = VFS_SHARES_V2_CONNECT_BASE_PATH;
 
 interface ConnectJsonEnvelopeResponse {
   json: string;
