@@ -34,7 +34,9 @@ describe('WindowRenderer core behavior', () => {
       { id: 'notes-2', type: 'notes', zIndex: 101 }
     ]);
     renderWindowRenderer();
-    expect(await screen.findByTestId('notes-window-notes-2')).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('notes-window-notes-2')
+    ).toBeInTheDocument();
     expect(
       screen.queryByTestId('notes-window-notes-1')
     ).not.toBeInTheDocument();
@@ -46,8 +48,12 @@ describe('WindowRenderer core behavior', () => {
       { id: 'notes-2', type: 'notes', zIndex: 101 }
     ]);
     renderWindowRenderer();
-    expect(await screen.findByTestId('notes-window-notes-1')).toBeInTheDocument();
-    expect(await screen.findByTestId('notes-window-notes-2')).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('notes-window-notes-1')
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('notes-window-notes-2')
+    ).toBeInTheDocument();
   });
 
   it('calls saveWindowDimensionsForType when dimensions change', async () => {
@@ -134,10 +140,9 @@ describe('WindowRenderer core behavior', () => {
       }
     ]);
     renderWindowRenderer();
-    expect(await screen.findByTestId('console-window-console-1')).toHaveAttribute(
-      'data-initial-width',
-      '640'
-    );
+    expect(
+      await screen.findByTestId('console-window-console-1')
+    ).toHaveAttribute('data-initial-width', '640');
   });
 
   it('passes initial dimensions to email window', async () => {
@@ -168,8 +173,12 @@ describe('WindowRenderer core behavior', () => {
       { id: 'console-1', type: 'console', zIndex: 101 }
     ]);
     renderWindowRenderer();
-    expect(await screen.findByTestId('notes-window-notes-1')).toBeInTheDocument();
-    expect(await screen.findByTestId('console-window-console-1')).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('notes-window-notes-1')
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('console-window-console-1')
+    ).toBeInTheDocument();
   });
 
   it('renders all four window types together', async () => {
@@ -180,11 +189,17 @@ describe('WindowRenderer core behavior', () => {
       { id: 'email-1', type: 'email', zIndex: 103 }
     ]);
     renderWindowRenderer();
-    expect(await screen.findByTestId('notes-window-notes-1')).toBeInTheDocument();
-    expect(await screen.findByTestId('console-window-console-1')).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('notes-window-notes-1')
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('console-window-console-1')
+    ).toBeInTheDocument();
     expect(
       await screen.findByTestId('settings-window-settings-1')
     ).toBeInTheDocument();
-    expect(await screen.findByTestId('email-window-email-1')).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('email-window-email-1')
+    ).toBeInTheDocument();
   });
 });

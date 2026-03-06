@@ -136,7 +136,9 @@ describe('WindowRenderer interactions', () => {
     renderWindowRenderer();
 
     for (const windowCase of allWindowCases) {
-      expect(await screen.findByTestId(windowCase.windowTestId)).toBeInTheDocument();
+      expect(
+        await screen.findByTestId(windowCase.windowTestId)
+      ).toBeInTheDocument();
     }
   });
 });

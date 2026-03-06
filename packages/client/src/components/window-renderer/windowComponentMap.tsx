@@ -1,4 +1,4 @@
-import { lazy, type ComponentType } from 'react';
+import { type ComponentType, lazy } from 'react';
 import type { WindowType } from '@/contexts/WindowManagerContext';
 import type {
   WindowComponentConfig,
