@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/analytics",
-  "version": "0.0.25",
+  "version": "0.0.26",
   "description": "Analytics window for Tearleads",
   "type": "module",
   "main": "src/index.ts",
