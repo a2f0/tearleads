@@ -5,7 +5,7 @@ import { getKeyManager } from '@/db/crypto';
 import { API_BASE_URL, api } from '@/lib/api';
 import { getAuthHeaderValue } from '@/lib/authStorage';
 
-const GET_EMAIL_CONNECT_PATH = '/connect/tearleads.v1.VfsService/GetEmail';
+const GET_EMAIL_CONNECT_PATH = '/connect/tearleads.v2.VfsService/GetEmail';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

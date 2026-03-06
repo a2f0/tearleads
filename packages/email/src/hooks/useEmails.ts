@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { useEmailApi } from '../context';
 import type { EmailItem } from '../lib';
 
-const GET_EMAILS_CONNECT_PATH = '/connect/tearleads.v1.VfsService/GetEmails';
+const GET_EMAILS_CONNECT_PATH = '/connect/tearleads.v2.VfsService/GetEmails';
 const DEFAULT_GET_EMAILS_LIMIT = 50;
 
 function isRecord(value: unknown): value is Record<string, unknown> {

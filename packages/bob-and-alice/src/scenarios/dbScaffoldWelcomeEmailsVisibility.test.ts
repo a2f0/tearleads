@@ -68,7 +68,7 @@ async function fetchEmailIdsFromConnect(
   actor: ReturnType<ApiScenarioHarness['actor']>
 ): Promise<string[]> {
   const response = await actor.fetch(
-    '/connect/tearleads.v1.VfsService/GetEmails',
+    '/connect/tearleads.v2.VfsService/GetEmails',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -91,7 +91,7 @@ async function fetchEmailFromConnect(
   id: string
 ): Promise<EmailDetailPayload> {
   const response = await actor.fetch(
-    '/connect/tearleads.v1.VfsService/GetEmail',
+    '/connect/tearleads.v2.VfsService/GetEmail',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -246,7 +246,7 @@ describe('useEmails', () => {
     });
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://custom-api.com/v1/connect/tearleads.v1.VfsService/GetEmails',
+      'http://custom-api.com/v1/connect/tearleads.v2.VfsService/GetEmails',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -270,7 +270,7 @@ describe('useEmails', () => {
     });
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://localhost:5001/v1/connect/tearleads.v1.VfsService/GetEmails',
+      'http://localhost:5001/v1/connect/tearleads.v2.VfsService/GetEmails',
       {
         method: 'POST',
         headers: {
@@ -297,7 +297,7 @@ describe('useEmails', () => {
     });
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://localhost:5001/v1/connect/tearleads.v1.VfsService/GetEmails',
+      'http://localhost:5001/v1/connect/tearleads.v2.VfsService/GetEmails',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

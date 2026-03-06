@@ -62,7 +62,7 @@ describe('useClientEmailBodyOperations', () => {
 
     expect(body).toBe('Hello World');
     expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledWith(
-      'https://api.test/connect/tearleads.v1.VfsService/GetEmail',
+      'https://api.test/connect/tearleads.v2.VfsService/GetEmail',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({ Authorization: 'Bearer token' }),
