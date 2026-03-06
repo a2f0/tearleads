@@ -25,6 +25,6 @@ breaking:
   use:
     - FILE
   ignore:
-    - tearleads/v1/admin.proto
+    - tearleads/v1/admin.proto # retired in PR #2795
     - tearleads/v2/admin.proto
     - tearleads/v2/mls.proto
