@@ -20,7 +20,7 @@ describe('indexDocument', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     getSearchStoreForInstanceMock.mockReturnValue(mockStore);
   });
 
@@ -81,7 +81,7 @@ describe('indexDocuments', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     getSearchStoreForInstanceMock.mockReturnValue(mockStore);
   });
 
@@ -155,7 +155,7 @@ describe('removeFromIndex', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     getSearchStoreForInstanceMock.mockReturnValue(mockStore);
   });
 
@@ -197,7 +197,7 @@ describe('indexEntity', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     getSearchStoreForInstanceMock.mockReturnValue(mockStore);
   });
 
