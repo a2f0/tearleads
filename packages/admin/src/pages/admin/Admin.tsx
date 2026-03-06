@@ -48,7 +48,7 @@ export function Admin({ showBackLink = true }: AdminProps) {
 
   const fetchTotalCount = useCallback(async () => {
     try {
-      const response = await api.adminV2.redis.getDbSize();
+      const response = await api.admin.redis.getDbSize();
       setTotalCount(response.count);
     } catch (err) {
       console.error('Failed to fetch Redis db size:', err);
@@ -69,7 +69,7 @@ export function Admin({ showBackLink = true }: AdminProps) {
 
       try {
         const currentCursor = reset ? '0' : cursorRef.current;
-        const response = await api.adminV2.redis.getKeys(
+        const response = await api.admin.redis.getKeys(
           currentCursor,
           PAGE_SIZE
         );
@@ -156,7 +156,7 @@ export function Admin({ showBackLink = true }: AdminProps) {
     const keyToDelete = deleteDialog.key;
 
     try {
-      const result = await api.adminV2.redis.deleteKey(keyToDelete);
+      const result = await api.admin.redis.deleteKey(keyToDelete);
       if (result.deleted) {
         setKeys((prev) => prev.filter((k) => k.key !== keyToDelete));
         setExpandedKeys((prev) => {

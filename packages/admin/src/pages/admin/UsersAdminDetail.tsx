@@ -47,7 +47,7 @@ export function UsersAdminDetail({
     setLoading(true);
     setError(null);
     try {
-      const response = await api.adminV2.users.get(userId);
+      const response = await api.admin.users.get(userId);
       setUser(response.user);
       setDraft(response.user);
       setOrganizationIdsInput(response.user.organizationIds.join(', '));
@@ -116,7 +116,7 @@ export function UsersAdminDetail({
     setSaveError(null);
     setSaving(true);
     try {
-      const response = await api.adminV2.users.update(user.id, payload);
+      const response = await api.admin.users.update(user.id, payload);
       setUser(response.user);
       setDraft(response.user);
       setOrganizationIdsInput(response.user.organizationIds.join(', '));

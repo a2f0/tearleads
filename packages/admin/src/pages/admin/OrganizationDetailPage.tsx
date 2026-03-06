@@ -28,7 +28,6 @@ import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 
-// one-component-per-file: allow - this legacy page keeps local JSX helpers pending a dedicated split refactor.
 interface OrganizationFormData {
   name: string;
   description: string;
@@ -71,9 +70,9 @@ export function OrganizationDetailPage({
       setLoading(true);
       setError(null);
       const [orgResult, usersResult, groupsResult] = await Promise.allSettled([
-        api.adminV2.organizations.get(id),
-        api.adminV2.organizations.getUsers(id),
-        api.adminV2.organizations.getGroups(id)
+        api.admin.organizations.get(id),
+        api.admin.organizations.getUsers(id),
+        api.admin.organizations.getGroups(id)
       ]);
 
       if (orgResult.status === 'fulfilled') {
@@ -150,7 +149,7 @@ export function OrganizationDetailPage({
       if (trimmedDescription) {
         payload.description = trimmedDescription;
       }
-      const response = await api.adminV2.organizations.update(id, payload);
+      const response = await api.admin.organizations.update(id, payload);
       setOrganization(response.organization);
       setIsEditing(false);
       setFormData(null);
@@ -169,7 +168,7 @@ export function OrganizationDetailPage({
 
   const handleDelete = async () => {
     if (!id) return;
-    await api.adminV2.organizations.delete(id);
+    await api.admin.organizations.delete(id);
     onDelete?.();
   };
 
