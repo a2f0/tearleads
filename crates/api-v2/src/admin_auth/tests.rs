@@ -42,8 +42,18 @@ fn header_role_authorizer_accepts_root_scope_for_root_only_operation() {
         tonic::metadata::MetadataValue::from_static("root"),
     );
 
-    let result = authorizer.authorize_admin_operation(AdminOperation::GetRows, &metadata);
-    assert_eq!(result, Ok(AdminAccessContext::root()));
+    let root_only_operations = [
+        AdminOperation::GetRows,
+        AdminOperation::CreateOrganization,
+        AdminOperation::UpdateOrganization,
+        AdminOperation::DeleteOrganization,
+        AdminOperation::UpdateUser,
+    ];
+
+    for operation in root_only_operations {
+        let result = authorizer.authorize_admin_operation(operation, &metadata);
+        assert_eq!(result, Ok(AdminAccessContext::root()));
+    }
 }
 
 #[test]
@@ -409,8 +419,12 @@ fn operation_strings_are_stable_for_error_messages() {
         (AdminOperation::GetOrganization, "get_organization"),
         (AdminOperation::GetOrgUsers, "get_org_users"),
         (AdminOperation::GetOrgGroups, "get_org_groups"),
+        (AdminOperation::CreateOrganization, "create_organization"),
+        (AdminOperation::UpdateOrganization, "update_organization"),
+        (AdminOperation::DeleteOrganization, "delete_organization"),
         (AdminOperation::ListUsers, "list_users"),
         (AdminOperation::GetUser, "get_user"),
+        (AdminOperation::UpdateUser, "update_user"),
     ];
 
     for (operation, expected_name) in operations {
