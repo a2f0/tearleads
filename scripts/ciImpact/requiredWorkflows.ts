@@ -1,5 +1,5 @@
 #!/usr/bin/env -S node --import tsx
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import {
   ALL_JOB_NAMES,
   type JobName,
@@ -32,6 +32,8 @@ interface RequiredWorkflowsOutput {
 
 const DEFAULT_BASE = 'origin/main';
 const DEFAULT_HEAD = 'HEAD';
+const DEFAULT_CI_IMPACT_NODE_BIN = 'node';
+const DEFAULT_CI_IMPACT_SCRIPT_PATH = 'scripts/ciImpact/ciImpact.ts';
 
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {};
@@ -132,17 +134,24 @@ function parseCiImpact(raw: string): CiImpactOutput {
 function runCiImpact(args: CliArgs): CiImpactOutput {
   const base = args.base || DEFAULT_BASE;
   const head = args.head || DEFAULT_HEAD;
+  const nodeBinary =
+    process.env['CI_IMPACT_NODE_BIN'] ?? DEFAULT_CI_IMPACT_NODE_BIN;
+  const ciImpactScript =
+    process.env['CI_IMPACT_SCRIPT_PATH'] ?? DEFAULT_CI_IMPACT_SCRIPT_PATH;
 
-  const cmdParts = [
-    'pnpm exec tsx scripts/ciImpact/ciImpact.ts',
-    `--base ${base}`,
-    `--head ${head}`
+  const commandArgs = [
+    '--experimental-strip-types',
+    ciImpactScript,
+    '--base',
+    base,
+    '--head',
+    head
   ];
   if (args.files !== undefined) {
-    cmdParts.push(`--files "${args.files}"`);
+    commandArgs.push('--files', args.files);
   }
 
-  const output = execSync(cmdParts.join(' '), {
+  const output = execFileSync(nodeBinary, commandArgs, {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe']
   });

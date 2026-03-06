@@ -32,19 +32,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
 
-      - name: Install tsx
-        run: pnpm add -g tsx
-
       - name: Validate ciImpact workflow mapping
-        run: tsx scripts/ciImpact/checkWorkflowDrift.ts
+        run: node --experimental-strip-types scripts/ciImpact/checkWorkflowDrift.ts
 
       - name: Compute ciImpact required workflows
         id: compute
@@ -66,7 +60,7 @@ jobs:
             fi
           fi
 
-          tsx scripts/ciImpact/requiredWorkflows.ts --base "$BASE_SHA" --head "$HEAD_SHA" > required-workflows.json
+          node --experimental-strip-types scripts/ciImpact/requiredWorkflows.ts --base "$BASE_SHA" --head "$HEAD_SHA" > required-workflows.json
 
           REQUIRED=$(jq -rc '.requiredWorkflows' required-workflows.json)
 
