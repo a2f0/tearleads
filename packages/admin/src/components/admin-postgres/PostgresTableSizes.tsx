@@ -58,7 +58,7 @@ export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.admin.postgres.getTables();
+      const response = await api.adminV2.postgres.getTables();
       const sorted = [...response.tables].sort((a, b) => {
         const schemaCompare = a.schema.localeCompare(b.schema, undefined, {
           sensitivity: 'base'

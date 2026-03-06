@@ -45,7 +45,7 @@ export function UsersAdmin({
     setLoading(true);
     setError(null);
     try {
-      const response = await api.admin.users.list(
+      const response = await api.adminV2.users.list(
         selectedOrganizationId
           ? { organizationId: selectedOrganizationId }
           : undefined

@@ -198,7 +198,7 @@ export function PostgresTableRowsView({
         if (sort.column) exportOptions.sortColumn = sort.column;
         if (sort.direction) exportOptions.sortDirection = sort.direction;
 
-        const response = await api.admin.postgres.getRows(
+        const response = await api.adminV2.postgres.getRows(
           schema,
           tableName,
           exportOptions

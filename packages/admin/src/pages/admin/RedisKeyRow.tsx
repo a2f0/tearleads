@@ -170,7 +170,7 @@ export function RedisKeyRow({
       setLoading(true);
       setError(null);
       try {
-        const data = await api.admin.redis.getValue(keyInfo.key);
+        const data = await api.adminV2.redis.getValue(keyInfo.key);
         if (!isCancelled) {
           setValueData(data);
         }

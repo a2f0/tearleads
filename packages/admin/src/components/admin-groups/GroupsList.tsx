@@ -40,7 +40,7 @@ export function GroupsList({
     try {
       setLoading(true);
       setError(null);
-      const response = await api.admin.groups.list(
+      const response = await api.adminV2.groups.list(
         organizationId ? { organizationId } : undefined
       );
       setGroups(response.groups);
@@ -66,7 +66,7 @@ export function GroupsList({
   const handleDelete = async () => {
     if (!deleteDialog) return;
 
-    await api.admin.groups.delete(deleteDialog.id);
+    await api.adminV2.groups.delete(deleteDialog.id);
     setGroups((prev) => prev.filter((g) => g.id !== deleteDialog.id));
   };
 
