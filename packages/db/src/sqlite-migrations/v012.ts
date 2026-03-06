@@ -1,4 +1,4 @@
-import type { Migration } from './types';
+import type { Migration } from './types.js';
 
 /**
  * v012: Add local calendar events table

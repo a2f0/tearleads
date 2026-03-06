@@ -1,4 +1,4 @@
-import type { Migration } from './types';
+import type { Migration } from './types.js';
 
 /**
  * v021: Re-seed exercises with UUID-based IDs for i18n support

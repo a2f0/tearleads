@@ -1,5 +1,5 @@
-import type { Migration } from './types';
-import { addColumnIfNotExists } from './utils';
+import type { Migration } from './types.js';
+import { addColumnIfNotExists } from './utils.js';
 
 /**
  * v022: Add recurrence fields to calendar_events

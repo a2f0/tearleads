@@ -1,5 +1,5 @@
-import type { Migration } from './types';
-import { addColumnIfNotExists } from './utils';
+import type { Migration } from './types.js';
+import { addColumnIfNotExists } from './utils.js';
 
 /**
  * v009: Add metadata columns to vfs_folders and vfs_links

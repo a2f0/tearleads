@@ -1,5 +1,5 @@
-import type { Migration } from './types';
-import { addColumnIfNotExists } from './utils';
+import type { Migration } from './types.js';
+import { addColumnIfNotExists } from './utils.js';
 
 /**
  * v010: Add playlists table and media_type column

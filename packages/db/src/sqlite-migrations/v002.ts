@@ -1,5 +1,5 @@
-import type { Migration } from './types';
-import { addColumnIfNotExists } from './utils';
+import type { Migration } from './types.js';
+import { addColumnIfNotExists } from './utils.js';
 
 /**
  * v002: Add detail JSONB column to analytics_events

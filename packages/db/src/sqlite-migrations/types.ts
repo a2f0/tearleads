@@ -1,4 +1,4 @@
-import type { DatabaseAdapter } from '../adapter';
+import type { DatabaseAdapter } from '../adapter.js';
 
 /**
  * A database migration function.
