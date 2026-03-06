@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useVfsOrchestratorInstance } from '@/contexts/VfsOrchestratorContext';
 import { useVfsSyncState } from '@/contexts/VfsSyncStateContext';
+import { hasActiveOrganizationId, onOrgChange } from '@/lib/orgStorage';
 import { createRemoteReadOrchestrator } from '@/lib/remoteReadOrchestrator';
 import { hydrateLocalReadModelFromRemoteFeeds } from '@/lib/vfsReadModelHydration';
 import { useSSE } from '@/sse';
@@ -135,6 +136,22 @@ export function VfsRealtimeSyncBridge() {
 
     hasObservedOrchestratorRef.current = true;
     previousNonNullOrchestratorRef.current = orchestrator;
+  }, [orchestrator, scheduleSync]);
+
+  useEffect(() => {
+    if (!orchestrator) {
+      return;
+    }
+
+    const syncWhenOrganizationReady = () => {
+      if (!hasActiveOrganizationId()) {
+        return;
+      }
+      scheduleSync();
+    };
+
+    syncWhenOrganizationReady();
+    return onOrgChange(syncWhenOrganizationReady);
   }, [orchestrator, scheduleSync]);
 
   useEffect(() => {
