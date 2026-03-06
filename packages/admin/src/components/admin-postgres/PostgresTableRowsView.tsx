@@ -17,6 +17,7 @@ import { StickyVirtualListStatus } from './StickyVirtualListStatus';
 import { TableView } from './TableView';
 import { usePostgresTableData } from './usePostgresTableData';
 
+// one-component-per-file: allow - this legacy view keeps local JSX helpers pending a dedicated split refactor.
 const DEFAULT_CONTAINER_CLASSNAME =
   'flex flex-1 min-h-0 flex-col space-y-4 overflow-hidden';
 

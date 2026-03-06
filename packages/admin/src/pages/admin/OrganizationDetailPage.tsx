@@ -28,6 +28,7 @@ import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 
+// one-component-per-file: allow - this legacy page keeps local JSX helpers pending a dedicated split refactor.
 interface OrganizationFormData {
   name: string;
   description: string;
