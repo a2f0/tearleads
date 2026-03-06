@@ -14,9 +14,6 @@ let seededUser: SeededUser;
 const CHAT_COMPLETIONS_CONNECT_PATH =
   '/connect/tearleads.v1.ChatService/PostCompletions';
 const CHAT_COMPLETIONS_CONNECT_URL = `http://localhost${CHAT_COMPLETIONS_CONNECT_PATH}`;
-// Keep this test on Connect admin paths because API runtime now serves admin
-// functionality via /v1/connect and no longer mounts legacy /admin/* routes.
-const ADMIN_CONNECT_PATH_PREFIX = '/connect/tearleads.v1.AdminService';
 
 function connectChatPayload(payload: unknown): { json: string } {
   return {
@@ -40,44 +37,18 @@ function extractErrorMessage(payload: unknown): string | null {
   return null;
 }
 
-function parseConnectJsonPayload(payload: unknown): unknown {
-  if (!payload || typeof payload !== 'object' || !('json' in payload)) {
-    throw new Error('Expected connect response payload with json field');
-  }
-
-  const jsonPayload = payload.json;
-  if (typeof jsonPayload !== 'string') {
-    throw new Error('Expected connect json field to be a string');
-  }
-
-  return JSON.parse(jsonPayload);
-}
-
-async function postAdminConnectRequest(
-  method: string,
-  accessToken: string,
-  payload: unknown = {}
-): Promise<unknown> {
-  const response = await fetch(
-    `http://localhost${ADMIN_CONNECT_PATH_PREFIX}/${method}`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`
-      },
-      body: JSON.stringify(payload)
-    }
-  );
-
-  expect(response.ok).toBe(true);
-  return parseConnectJsonPayload(await response.json());
+async function getApiClient() {
+  const module = await import('../../lib/api');
+  return module.api;
 }
 
 beforeEach(async () => {
   vi.resetModules();
+  vi.stubEnv('VITE_API_URL', 'http://localhost');
+  localStorage.clear();
   const ctx = getSharedTestContext();
   seededUser = await seedTestUser(ctx, { admin: true });
+  localStorage.setItem('auth_token', 'header.payload.signature');
 });
 
 describe('msw handlers', () => {
@@ -97,20 +68,14 @@ describe('msw handlers', () => {
   it('mocks admin redis connect endpoints', async () => {
     const ctx = getSharedTestContext();
     await ctx.redis.set('user:1', 'test-value');
+    const api = await getApiClient();
 
-    const keysPayload = await postAdminConnectRequest(
-      'GetRedisKeys',
-      seededUser.accessToken,
-      {
-        cursor: '0',
-        limit: 50
-      }
-    );
+    const keysPayload = await api.admin.redis.getKeys('0', 50);
 
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.AdminService/GetRedisKeys'
+        '/connect/tearleads.v2.AdminService/GetRedisKeys'
       )
     ).toBe(true);
     expect(keysPayload).toHaveProperty('keys');
@@ -123,18 +88,12 @@ describe('msw handlers', () => {
       )
     ).toBe(true);
 
-    const keyPayload = await postAdminConnectRequest(
-      'GetRedisValue',
-      seededUser.accessToken,
-      {
-        key: 'user:1'
-      }
-    );
+    const keyPayload = await api.admin.redis.getValue('user:1');
 
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.AdminService/GetRedisValue'
+        '/connect/tearleads.v2.AdminService/GetRedisValue'
       )
     ).toBe(true);
     expect(keyPayload).toHaveProperty('key', 'user:1');
@@ -167,27 +126,23 @@ describe('msw handlers', () => {
   });
 
   it('mocks admin postgres connect endpoints', async () => {
-    const infoPayload = await postAdminConnectRequest(
-      'GetPostgresInfo',
-      seededUser.accessToken
-    );
+    const api = await getApiClient();
+
+    const infoPayload = await api.admin.postgres.getInfo();
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.AdminService/GetPostgresInfo'
+        '/connect/tearleads.v2.AdminService/GetPostgresInfo'
       )
     ).toBe(true);
     expect(infoPayload).toHaveProperty('status', 'ok');
     expect(infoPayload).toHaveProperty('info');
     expect(infoPayload).toHaveProperty('serverVersion');
 
-    const tablesPayload = await postAdminConnectRequest(
-      'GetTables',
-      seededUser.accessToken
-    );
+    const tablesPayload = await api.admin.postgres.getTables();
 
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.AdminService/GetTables')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetTables')
     ).toBe(true);
     expect(tablesPayload).toHaveProperty('tables');
     expect(
@@ -339,9 +294,10 @@ describe('msw handlers', () => {
 
   it('records request metadata for debugging parity', async () => {
     const authHeaders = { Authorization: `Bearer ${seededUser.accessToken}` };
+    const api = await getApiClient();
 
     await fetch('http://localhost/v2/ping', { headers: authHeaders });
-    await postAdminConnectRequest('GetRedisDbSize', seededUser.accessToken);
+    await api.admin.redis.getDbSize();
 
     // Filter out internal bypass requests (forwarded to Express on a random port)
     const recordedRequests = getRecordedApiRequests().filter((r) =>
@@ -355,8 +311,8 @@ describe('msw handlers', () => {
       },
       {
         method: 'POST',
-        pathname: '/connect/tearleads.v1.AdminService/GetRedisDbSize',
-        url: 'http://localhost/connect/tearleads.v1.AdminService/GetRedisDbSize'
+        pathname: '/connect/tearleads.v2.AdminService/GetRedisDbSize',
+        url: 'http://localhost/connect/tearleads.v2.AdminService/GetRedisDbSize'
       }
     ]);
   });
