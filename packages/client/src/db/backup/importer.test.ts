@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { FORMAT_VERSION } from './constants';
-import { encode } from './encoder';
+import {
+  FORMAT_VERSION,
+  encode,
+  type BackupDatabase,
+  type BackupManifest
+} from '@tearleads/backups/format';
 import { getBackupInfo, validateBackupFile } from './importer';
-import type { BackupDatabase, BackupManifest } from './types';
 
 describe('importer', () => {
   const createTestManifest = (): BackupManifest => ({

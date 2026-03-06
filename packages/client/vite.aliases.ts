@@ -68,6 +68,10 @@ export const createViteAliases = (
       dirname,
       '../backups/package.json'
     ),
+    '@tearleads/backups/format': path.resolve(
+      dirname,
+      '../backups/src/format/index.ts'
+    ),
     '@tearleads/backups': path.resolve(dirname, '../backups/src/index.ts'),
     '@tearleads/businesses/package.json': path.resolve(
       dirname,

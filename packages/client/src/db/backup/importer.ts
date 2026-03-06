@@ -16,12 +16,14 @@ import {
   type InstanceMetadata,
   updateInstance
 } from '../instanceRegistry';
-import { type DecodeResult, decode, validateBackup } from './decoder';
-import type {
-  BackupManifest,
-  BackupProgressEvent,
-  ImportResult
-} from './types';
+import {
+  type DecodeResult,
+  decode,
+  validateBackup,
+  type BackupManifest,
+  type BackupProgressEvent,
+  type ImportResult
+} from '@tearleads/backups/format';
 
 /**
  * Tables to skip during import.

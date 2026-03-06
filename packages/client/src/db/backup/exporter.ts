@@ -9,16 +9,17 @@
 
 import type { FileStorage } from '@/storage/opfs';
 import type { DatabaseAdapter } from '../adapters/types';
-import { FORMAT_VERSION } from './constants';
-import { type EncodeOptions, encode } from './encoder';
-import type {
-  BackupDatabase,
-  BackupManifest,
-  BackupProgressEvent,
-  BlobEntry,
-  IndexSchema,
-  TableSchema
-} from './types';
+import {
+  FORMAT_VERSION,
+  type EncodeOptions,
+  encode,
+  type BackupDatabase,
+  type BackupManifest,
+  type BackupProgressEvent,
+  type BlobEntry,
+  type IndexSchema,
+  type TableSchema
+} from '@tearleads/backups/format';
 
 /**
  * Options for creating a backup.
