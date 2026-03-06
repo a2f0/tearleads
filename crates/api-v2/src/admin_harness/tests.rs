@@ -153,6 +153,14 @@ async fn static_repositories_return_expected_wave1a_shapes() {
         .expect("filtered user listing should succeed");
     assert_eq!(filtered_users.len(), 1);
     assert_eq!(filtered_users[0].id, "user-1");
+    let organization_users = postgres
+        .get_organization_users("org-1")
+        .await
+        .expect("organization users lookup should succeed");
+    assert_eq!(organization_users.len(), 1);
+    assert_eq!(organization_users[0].id, "user-1");
+    assert_eq!(organization_users[0].email, "admin@example.com");
+    assert_eq!(organization_users[0].joined_at, "2026-01-01T00:00:00Z");
     let found_user = postgres
         .get_user("user-1", Some(vec![String::from("org-1")]))
         .await

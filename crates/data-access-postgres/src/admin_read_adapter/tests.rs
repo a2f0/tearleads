@@ -8,9 +8,9 @@ use tearleads_data_access_traits::{
 
 use super::PostgresAdminReadAdapter;
 use crate::{
-    AdminGroupSummaryRecord, AdminScopeOrganizationRecord, AdminUserAccountingRecord,
-    AdminUserRecord, PostgresAdminGateway, PostgresColumnRecord, PostgresRowsPageRecord,
-    PostgresTableRecord,
+    AdminGroupSummaryRecord, AdminOrganizationUserRecord, AdminScopeOrganizationRecord,
+    AdminUserAccountingRecord, AdminUserRecord, PostgresAdminGateway, PostgresColumnRecord,
+    PostgresRowsPageRecord, PostgresTableRecord,
 };
 
 type GetUserCall = (String, Option<Vec<String>>);
@@ -23,6 +23,7 @@ struct FakeGateway {
     scope_organizations_result: Result<Vec<AdminScopeOrganizationRecord>, DataAccessError>,
     scoped_organizations_by_ids_result: Result<Vec<AdminScopeOrganizationRecord>, DataAccessError>,
     groups_result: Result<Vec<AdminGroupSummaryRecord>, DataAccessError>,
+    organization_users_result: Result<Vec<AdminOrganizationUserRecord>, DataAccessError>,
     get_user_result: Result<Option<AdminUserRecord>, DataAccessError>,
     tables_result: Result<Vec<PostgresTableRecord>, DataAccessError>,
     table_exists_result: Result<bool, DataAccessError>,
@@ -45,6 +46,7 @@ impl Default for FakeGateway {
             scope_organizations_result: Ok(Vec::new()),
             scoped_organizations_by_ids_result: Ok(Vec::new()),
             groups_result: Ok(Vec::new()),
+            organization_users_result: Ok(Vec::new()),
             get_user_result: Ok(None),
             tables_result: Ok(Vec::new()),
             table_exists_result: Ok(true),
@@ -148,6 +150,14 @@ impl PostgresAdminGateway for FakeGateway {
             organization_ids.map(<[String]>::to_vec),
         ));
         let result = self.get_user_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn get_organization_users(
+        &self,
+        _organization_id: &str,
+    ) -> BoxFuture<'_, Result<Vec<AdminOrganizationUserRecord>, DataAccessError>> {
+        let result = self.organization_users_result.clone();
         Box::pin(async move { result })
     }
 
@@ -476,6 +486,7 @@ fn list_rows_forwards_invalid_sort_direction() {
     );
 }
 
+mod get_organization_users_tests;
 mod get_user_tests;
 
 fn lock_or_recover<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {

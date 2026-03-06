@@ -37,6 +37,7 @@ import {
   mapOrganizationGroupsResponse,
   mapOrganizationResponse,
   mapOrganizationsListResponse,
+  mapOrganizationUsersResponse,
   mapUserResponse,
   mapUsersListResponse
 } from './adminV2ReadMappers';
@@ -440,7 +441,11 @@ export const api = {
           mapOrganizationResponse
         ),
       getUsers: (id: string) =>
-        requestAdminJson<OrganizationUsersResponse>('GetOrgUsers', { id }),
+        requestAdminV2<OrganizationUsersResponse>(
+          'GetOrgUsers',
+          { id },
+          mapOrganizationUsersResponse
+        ),
       getGroups: (id: string) =>
         requestAdminV2<OrganizationGroupsResponse>(
           'GetOrgGroups',

@@ -97,6 +97,17 @@ pub struct AdminOrganizationSummary {
     pub updated_at: String,
 }
 
+/// Organization member metadata exposed by organization user detail endpoints.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdminOrganizationUserSummary {
+    /// User identifier.
+    pub id: String,
+    /// User email.
+    pub email: String,
+    /// RFC3339 timestamp for when the user joined the organization.
+    pub joined_at: String,
+}
+
 /// Accounting metadata exposed in admin user list responses.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct AdminUserAccountingSummary {
@@ -251,6 +262,22 @@ pub trait PostgresAdminReadRepository: Send + Sync {
             Err(DataAccessError::new(
                 DataAccessErrorKind::Internal,
                 format!("list_organizations not implemented for organization_ids={filter:?}"),
+            ))
+        })
+    }
+
+    /// Lists users for one organization identifier.
+    fn get_organization_users(
+        &self,
+        organization_id: &str,
+    ) -> BoxFuture<'_, Result<Vec<AdminOrganizationUserSummary>, DataAccessError>> {
+        let organization_id = organization_id.to_string();
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                format!(
+                    "get_organization_users not implemented for organization_id={organization_id}"
+                ),
             ))
         })
     }

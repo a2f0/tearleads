@@ -182,6 +182,11 @@ describe('admin api client', () => {
     ).toBe(true);
     expect(
       urls.some((url) =>
+        url.includes('/connect/tearleads.v2.AdminService/GetOrgUsers')
+      )
+    ).toBe(true);
+    expect(
+      urls.some((url) =>
         url.includes('/connect/tearleads.v2.AdminService/ListUsers')
       )
     ).toBe(true);

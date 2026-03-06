@@ -1,7 +1,3 @@
-export function stringToProtoBytes(value: string): Uint8Array {
-  return new TextEncoder().encode(value);
-}
-
 function normalizeBase64(value: string): string {
   return value.trim().replace(/\s+/gu, '');
 }

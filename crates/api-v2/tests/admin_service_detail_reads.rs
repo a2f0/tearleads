@@ -10,12 +10,12 @@ use support::admin_service::{
 };
 use tearleads_api_v2::AdminServiceHandler;
 use tearleads_api_v2_contracts::tearleads::v2::{
-    AdminGetGroupMembersRequest, AdminGetOrgGroupsRequest, AdminGetOrganizationRequest,
-    AdminGetUserRequest, admin_service_server::AdminService,
+    AdminGetGroupMembersRequest, AdminGetOrgGroupsRequest, AdminGetOrgUsersRequest,
+    AdminGetOrganizationRequest, AdminGetUserRequest, admin_service_server::AdminService,
 };
 use tearleads_data_access_traits::{
     AdminGroupDetail, AdminGroupMember, AdminGroupSummary, AdminOrganizationSummary,
-    AdminUserAccountingSummary, AdminUserSummary,
+    AdminOrganizationUserSummary, AdminUserAccountingSummary, AdminUserSummary,
 };
 use tonic::{Code, Request};
 
@@ -237,6 +237,84 @@ async fn get_org_groups_uses_scoped_filter() {
         lock_or_recover(&list_groups_calls).clone(),
         vec![Some(vec![String::from("org-7")])]
     );
+}
+
+#[tokio::test]
+async fn get_org_users_returns_users_for_scoped_organization() {
+    let postgres_repo = FakePostgresRepository {
+        list_organizations_result: Ok(vec![AdminOrganizationSummary {
+            id: String::from("org-7"),
+            name: String::from("Scoped Org"),
+            description: None,
+            created_at: String::from("2026-01-01T00:00:00Z"),
+            updated_at: String::from("2026-01-01T00:00:00Z"),
+        }]),
+        organization_users_result: Ok(vec![AdminOrganizationUserSummary {
+            id: String::from("user-1"),
+            email: String::from("admin@example.com"),
+            joined_at: String::from("2026-01-02T00:00:00Z"),
+        }]),
+        ..Default::default()
+    };
+    let list_organizations_calls = Arc::clone(&postgres_repo.list_organizations_calls);
+    let get_organization_users_calls = Arc::clone(&postgres_repo.get_organization_users_calls);
+    let handler = AdminServiceHandler::with_authorizer(
+        postgres_repo,
+        FakeRedisRepository::default(),
+        FakeAuthorizer::allow_scoped(vec![String::from("org-7"), String::from("org-9")]),
+    );
+
+    let payload = into_inner_or_panic(
+        handler
+            .get_org_users(Request::new(AdminGetOrgUsersRequest {
+                id: String::from("org-7"),
+            }))
+            .await,
+    );
+
+    assert_eq!(payload.users.len(), 1);
+    assert_eq!(payload.users[0].id, "user-1");
+    assert_eq!(payload.users[0].email, "admin@example.com");
+    assert_eq!(
+        payload.users[0].joined_at,
+        String::from("2026-01-02T00:00:00Z")
+    );
+    assert_eq!(
+        lock_or_recover(&list_organizations_calls).clone(),
+        vec![Some(vec![String::from("org-7")])]
+    );
+    assert_eq!(
+        lock_or_recover(&get_organization_users_calls).clone(),
+        vec![String::from("org-7")]
+    );
+}
+
+#[tokio::test]
+async fn get_org_users_returns_not_found_when_scope_filter_is_empty() {
+    let postgres_repo = FakePostgresRepository {
+        list_organizations_result: Ok(Vec::new()),
+        ..Default::default()
+    };
+    let get_organization_users_calls = Arc::clone(&postgres_repo.get_organization_users_calls);
+    let handler = AdminServiceHandler::with_authorizer(
+        postgres_repo,
+        FakeRedisRepository::default(),
+        FakeAuthorizer::allow_scoped(vec![String::from("org-7")]),
+    );
+
+    let result = handler
+        .get_org_users(Request::new(AdminGetOrgUsersRequest {
+            id: String::from("org-7"),
+        }))
+        .await;
+    let status = match result {
+        Ok(_) => panic!("organization should be missing"),
+        Err(error) => error,
+    };
+
+    assert_eq!(status.code(), Code::NotFound);
+    assert_eq!(status.message(), "organization not found");
+    assert!(lock_or_recover(&get_organization_users_calls).is_empty());
 }
 
 #[tokio::test]

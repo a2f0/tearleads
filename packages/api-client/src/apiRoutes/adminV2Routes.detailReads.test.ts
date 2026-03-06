@@ -7,6 +7,7 @@ interface AdminV2ClientOverrides {
   getGroupMembers?: AdminV2Client['getGroupMembers'];
   listOrganizations?: AdminV2Client['listOrganizations'];
   getOrganization?: AdminV2Client['getOrganization'];
+  getOrgUsers?: AdminV2Client['getOrgUsers'];
   getOrgGroups?: AdminV2Client['getOrgGroups'];
   listUsers?: AdminV2Client['listUsers'];
   getUser?: AdminV2Client['getUser'];
@@ -41,6 +42,7 @@ function createAdminV2ClientStub(
     getOrganization:
       overrides.getOrganization ??
       vi.fn(async () => ({ organization: undefined })),
+    getOrgUsers: overrides.getOrgUsers ?? vi.fn(async () => ({ users: [] })),
     getOrgGroups: overrides.getOrgGroups ?? vi.fn(async () => ({ groups: [] })),
     listUsers: overrides.listUsers ?? vi.fn(async () => ({ users: [] })),
     getUser: overrides.getUser ?? vi.fn(async () => ({ user: undefined })),
@@ -124,7 +126,7 @@ describe('adminV2Routes detail reads', () => {
     );
   });
 
-  it('maps organization detail and groups responses', async () => {
+  it('maps organization detail, users, and groups responses', async () => {
     const getOrganization = vi.fn(async () => ({
       organization: {
         id: 'org-1',
@@ -133,6 +135,15 @@ describe('adminV2Routes detail reads', () => {
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-02T00:00:00Z'
       }
+    }));
+    const getOrgUsers = vi.fn(async () => ({
+      users: [
+        {
+          id: 'user-1',
+          email: 'admin@example.com',
+          joinedAt: '2026-01-01T00:00:00Z'
+        }
+      ]
     }));
     const getOrgGroups = vi.fn(async () => ({
       groups: [
@@ -144,7 +155,11 @@ describe('adminV2Routes detail reads', () => {
         }
       ]
     }));
-    const client = createAdminV2ClientStub({ getOrganization, getOrgGroups });
+    const client = createAdminV2ClientStub({
+      getOrganization,
+      getOrgUsers,
+      getOrgGroups
+    });
     const { routes, logEvent } = createRoutesForTest(client);
 
     await expect(routes.organizations.get('org-1')).resolves.toEqual({
@@ -155,6 +170,15 @@ describe('adminV2Routes detail reads', () => {
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-02T00:00:00Z'
       }
+    });
+    await expect(routes.organizations.getUsers('org-1')).resolves.toEqual({
+      users: [
+        {
+          id: 'user-1',
+          email: 'admin@example.com',
+          joinedAt: '2026-01-01T00:00:00Z'
+        }
+      ]
     });
     await expect(routes.organizations.getGroups('org-1')).resolves.toEqual({
       groups: [
@@ -167,9 +191,15 @@ describe('adminV2Routes detail reads', () => {
       ]
     });
     expect(getOrganization).toHaveBeenCalledTimes(1);
+    expect(getOrgUsers).toHaveBeenCalledTimes(1);
     expect(getOrgGroups).toHaveBeenCalledTimes(1);
     expect(logEvent).toHaveBeenCalledWith(
       'api_get_admin_organization',
+      expect.any(Number),
+      true
+    );
+    expect(logEvent).toHaveBeenCalledWith(
+      'api_get_admin_organization_users',
       expect.any(Number),
       true
     );
@@ -244,6 +274,7 @@ describe('adminV2Routes detail reads', () => {
     const client = createAdminV2ClientStub({
       getGroupMembers: vi.fn(async () => ({ members: [] })),
       getOrganization: vi.fn(async () => ({ organization: undefined })),
+      getOrgUsers: vi.fn(async () => ({ users: [] })),
       getOrgGroups: vi.fn(async () => ({ groups: [] })),
       getUser: vi.fn(async () => ({ user: undefined }))
     });
@@ -260,6 +291,9 @@ describe('adminV2Routes detail reads', () => {
         createdAt: '',
         updatedAt: ''
       }
+    });
+    await expect(routes.organizations.getUsers('org-1')).resolves.toEqual({
+      users: []
     });
     await expect(routes.organizations.getGroups('org-1')).resolves.toEqual({
       groups: []

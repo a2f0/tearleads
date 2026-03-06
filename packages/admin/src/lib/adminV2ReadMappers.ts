@@ -5,7 +5,8 @@ import type {
   GroupMembersResponse,
   OrganizationGroupsResponse,
   OrganizationResponse,
-  OrganizationsListResponse
+  OrganizationsListResponse,
+  OrganizationUsersResponse
 } from '@tearleads/shared';
 import { isRecord, toSafeNumber } from './adminV2ValueUtils';
 
@@ -137,6 +138,23 @@ export function mapOrganizationGroupsResponse(
             ? group['description']
             : null,
         memberCount: toSafeNumber(group['memberCount'])
+      }))
+  };
+}
+
+export function mapOrganizationUsersResponse(
+  responseBody: unknown
+): OrganizationUsersResponse {
+  const response = isRecord(responseBody) ? responseBody : {};
+  const users = Array.isArray(response['users']) ? response['users'] : [];
+
+  return {
+    users: users
+      .filter((user) => isRecord(user))
+      .map((user) => ({
+        id: typeof user['id'] === 'string' ? user['id'] : '',
+        email: typeof user['email'] === 'string' ? user['email'] : '',
+        joinedAt: typeof user['joinedAt'] === 'string' ? user['joinedAt'] : ''
       }))
   };
 }

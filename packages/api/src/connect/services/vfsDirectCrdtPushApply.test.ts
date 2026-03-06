@@ -266,7 +266,7 @@ describe('vfsDirectCrdtPushApply', () => {
     }
 
     expect(insertValues[11]).toBeNull();
-    expect(insertValues[16]).toBeInstanceOf(Buffer);
+    expect(insertValues[16]).toBeInstanceOf(Uint8Array);
 
     expect(String(queryMock.mock.calls[6]?.[0])).toContain('vfs_item_state');
     expect(String(queryMock.mock.calls[7]?.[0])).toContain(

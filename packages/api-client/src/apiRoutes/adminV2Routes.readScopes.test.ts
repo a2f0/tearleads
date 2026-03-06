@@ -24,6 +24,7 @@ function createClientStub(
     getOrganization:
       overrides.getOrganization ??
       vi.fn(async () => ({ organization: undefined })),
+    getOrgUsers: overrides.getOrgUsers ?? vi.fn(async () => ({ users: [] })),
     getOrgGroups: overrides.getOrgGroups ?? vi.fn(async () => ({ groups: [] })),
     listUsers: overrides.listUsers ?? vi.fn(async () => ({ users: [] })),
     getUser: overrides.getUser ?? vi.fn(async () => ({ user: undefined })),
@@ -54,7 +55,7 @@ function createClientStub(
 }
 
 describe('adminV2Routes scoped reads', () => {
-  it('maps getGroup, listOrganizations, and listUsers responses', async () => {
+  it('maps getGroup, organization detail reads, and listUsers responses', async () => {
     const logEvent = vi.fn(async () => undefined);
     const listGroups = vi.fn(async () => ({
       groups: [
@@ -97,6 +98,15 @@ describe('adminV2Routes scoped reads', () => {
         }
       ]
     }));
+    const getOrgUsers = vi.fn(async () => ({
+      users: [
+        {
+          id: 'user-1',
+          email: 'admin@example.com',
+          joinedAt: '2026-01-01T00:00:00Z'
+        }
+      ]
+    }));
     const listUsers = vi.fn(async () => ({
       users: [
         {
@@ -126,6 +136,7 @@ describe('adminV2Routes scoped reads', () => {
       listGroups,
       getGroup,
       listOrganizations,
+      getOrgUsers,
       listUsers
     });
 
@@ -145,6 +156,8 @@ describe('adminV2Routes scoped reads', () => {
     const organizationsResponse = await routes.organizations.list({
       organizationId: 'org-1'
     });
+    const organizationUsersResponse =
+      await routes.organizations.getUsers('org-1');
     const usersResponse = await routes.users.list({ organizationId: 'org-1' });
 
     expect(groupsResponse.groups[0]?.id).toBe('group-1');
@@ -152,6 +165,10 @@ describe('adminV2Routes scoped reads', () => {
     expect(groupResponse.group.id).toBe('group-1');
     expect(groupResponse.members[0]?.userId).toBe('user-1');
     expect(organizationsResponse.organizations[0]?.id).toBe('org-1');
+    expect(organizationUsersResponse.users[0]?.id).toBe('user-1');
+    expect(organizationUsersResponse.users[0]?.joinedAt).toBe(
+      '2026-01-01T00:00:00Z'
+    );
     expect(usersResponse.users[0]?.accounting.totalTokens).toBe(30);
     expect(usersResponse.users[0]?.disabledAt).toBeNull();
     expect(logEvent).toHaveBeenCalledWith(

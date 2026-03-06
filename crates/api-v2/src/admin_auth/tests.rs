@@ -402,6 +402,7 @@ fn operation_strings_are_stable_for_error_messages() {
         (AdminOperation::GetGroupMembers, "get_group_members"),
         (AdminOperation::ListOrganizations, "list_organizations"),
         (AdminOperation::GetOrganization, "get_organization"),
+        (AdminOperation::GetOrgUsers, "get_org_users"),
         (AdminOperation::GetOrgGroups, "get_org_groups"),
         (AdminOperation::ListUsers, "list_users"),
         (AdminOperation::GetUser, "get_user"),
