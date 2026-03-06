@@ -35,6 +35,7 @@ ext {
     appId = "${config.id}"
     appDisplayName = "${config.displayName}"
     appBundleId = "${config.bundleIds.android}"
+    appNamespace = "com.tearleads.app"
     appUrlScheme = "${urlScheme}"
     appKeyAlias = "${config.store?.androidKeyAlias || config.id}"
 }
