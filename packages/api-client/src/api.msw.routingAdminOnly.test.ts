@@ -116,7 +116,7 @@ describe('api with msw admin routing', () => {
       organizationId: seededUser.organizationId
     });
     await api.admin.organizations.get('org-1');
-    await api.admin.organizations.getUsers('org 1');
+    await api.admin.organizations.getUsers('org-1');
     await api.admin.organizations.getGroups('org-1');
     await api.admin.organizations.create({ name: 'Org Created' });
     await api.admin.organizations.update('org 1', {
@@ -231,7 +231,7 @@ describe('api with msw admin routing', () => {
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.AdminService/GetOrgUsers'
+        '/connect/tearleads.v2.AdminService/GetOrgUsers'
       )
     ).toBe(true);
     expect(

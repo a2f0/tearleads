@@ -76,6 +76,29 @@ describe('admin api client v2 detail read routes', () => {
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
+        users: [
+          {
+            id: 'user-1',
+            email: 'admin@example.com',
+            joinedAt: '2026-01-01T00:00:00Z'
+          }
+        ]
+      })
+    );
+    await expect(
+      apiClient.admin.organizations.getUsers('org-1')
+    ).resolves.toEqual({
+      users: [
+        {
+          id: 'user-1',
+          email: 'admin@example.com',
+          joinedAt: '2026-01-01T00:00:00Z'
+        }
+      ]
+    });
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
         groups: [
           {
             id: 'group-1',
@@ -150,6 +173,7 @@ describe('admin api client v2 detail read routes', () => {
 
     await apiClient.admin.groups.getMembers('group-1');
     await apiClient.admin.organizations.get('org-1');
+    await apiClient.admin.organizations.getUsers('org-1');
     await apiClient.admin.organizations.getGroups('org-1');
     await apiClient.admin.users.get('user-1');
 
@@ -162,6 +186,11 @@ describe('admin api client v2 detail read routes', () => {
     expect(
       urls.some((url) =>
         url.includes('/connect/tearleads.v2.AdminService/GetOrganization')
+      )
+    ).toBe(true);
+    expect(
+      urls.some((url) =>
+        url.includes('/connect/tearleads.v2.AdminService/GetOrgUsers')
       )
     ).toBe(true);
     expect(

@@ -1,79 +1,19 @@
 //! Test harness admin repositories and auth policy for browser-facing v2 routes.
 
+mod authorizer;
+
 use tearleads_data_access_traits::{
     AdminGroupDetail, AdminGroupMember, AdminGroupSummary, AdminOrganizationSummary,
-    AdminScopeOrganization, AdminUserAccountingSummary, AdminUserSummary, BoxFuture,
-    DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository, PostgresConnectionInfo,
-    PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo,
-    RedisAdminRepository, RedisKeyInfo, RedisKeyScanPage, RedisKeyValueRecord, RedisValue,
+    AdminOrganizationUserSummary, AdminScopeOrganization, AdminUserAccountingSummary,
+    AdminUserSummary, BoxFuture, DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository,
+    PostgresConnectionInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
+    PostgresTableInfo, RedisAdminRepository, RedisKeyInfo, RedisKeyScanPage, RedisKeyValueRecord,
+    RedisValue,
 };
 
-use crate::{
-    AdminAccessContext, AdminAuthError, AdminAuthErrorKind, AdminOperation, AdminRequestAuthorizer,
-    AdminServiceHandler,
-};
+use authorizer::AuthorizationHeaderAdminAuthorizer;
 
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct AuthorizationHeaderAdminAuthorizer;
-
-impl AuthorizationHeaderAdminAuthorizer {
-    const AUTHORIZATION_HEADER: &'static str = "authorization";
-
-    fn unauthenticated_error(operation: AdminOperation, message: &str) -> AdminAuthError {
-        AdminAuthError::new(AdminAuthErrorKind::Unauthenticated, {
-            format!("{message} for {:?}", operation)
-        })
-    }
-
-    fn validate_bearer_token(
-        operation: AdminOperation,
-        authorization: &str,
-    ) -> Result<(), AdminAuthError> {
-        let bearer_token = authorization
-            .trim()
-            .strip_prefix("Bearer ")
-            .ok_or_else(|| {
-                Self::unauthenticated_error(operation, "authorization must use Bearer token")
-            })?;
-
-        let segments: Vec<&str> = bearer_token.split('.').collect();
-        if segments.len() != 3 || segments.iter().any(|segment| segment.is_empty()) {
-            return Err(Self::unauthenticated_error(
-                operation,
-                "bearer token must be jwt-like",
-            ));
-        }
-
-        Ok(())
-    }
-}
-
-impl AdminRequestAuthorizer for AuthorizationHeaderAdminAuthorizer {
-    fn authorize_admin_operation(
-        &self,
-        operation: AdminOperation,
-        metadata: &tonic::metadata::MetadataMap,
-    ) -> Result<AdminAccessContext, AdminAuthError> {
-        let authorization = metadata
-            .get(Self::AUTHORIZATION_HEADER)
-            .ok_or_else(|| {
-                AdminAuthError::new(
-                    AdminAuthErrorKind::Unauthenticated,
-                    format!("missing {} for {:?}", Self::AUTHORIZATION_HEADER, operation),
-                )
-            })?
-            .to_str()
-            .map_err(|_| {
-                AdminAuthError::new(
-                    AdminAuthErrorKind::Unauthenticated,
-                    format!("invalid {} for {:?}", Self::AUTHORIZATION_HEADER, operation),
-                )
-            })?;
-
-        Self::validate_bearer_token(operation, authorization)?;
-        Ok(AdminAccessContext::root())
-    }
-}
+use crate::AdminServiceHandler;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct StaticPostgresRepository;
@@ -269,6 +209,26 @@ impl PostgresAdminReadRepository for StaticPostgresRepository {
             };
 
             Ok(filtered)
+        })
+    }
+
+    fn get_organization_users(
+        &self,
+        organization_id: &str,
+    ) -> BoxFuture<'_, Result<Vec<AdminOrganizationUserSummary>, DataAccessError>> {
+        let organization_id = organization_id.to_string();
+        Box::pin(async move {
+            let users = StaticPostgresRepository
+                .list_users(Some(vec![organization_id]))
+                .await?;
+            Ok(users
+                .into_iter()
+                .map(|user| AdminOrganizationUserSummary {
+                    id: user.id,
+                    email: user.email,
+                    joined_at: user.created_at.unwrap_or_default(),
+                })
+                .collect())
         })
     }
 

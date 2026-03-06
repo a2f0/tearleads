@@ -5,7 +5,6 @@ import type {
   CreateOrganizationRequest,
   Group,
   Organization,
-  OrganizationUsersResponse,
   UpdateGroupRequest,
   UpdateOrganizationRequest
 } from '@tearleads/shared';
@@ -104,12 +103,7 @@ export const adminRoutes = {
       return adminV2Routes.organizations.list(options);
     },
     get: (id: string) => adminV2Routes.organizations.get(id),
-    getUsers: (id: string) =>
-      requestAdminJson<OrganizationUsersResponse>(
-        'GetOrgUsers',
-        { id },
-        'api_get_admin_organization_users'
-      ),
+    getUsers: (id: string) => adminV2Routes.organizations.getUsers(id),
     getGroups: (id: string) => adminV2Routes.organizations.getGroups(id),
     create: (data: CreateOrganizationRequest) =>
       requestAdminJson<{ organization: Organization }>(

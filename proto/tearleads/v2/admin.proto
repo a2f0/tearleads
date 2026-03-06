@@ -15,6 +15,7 @@ service AdminService {
       returns (AdminListOrganizationsResponse);
   rpc GetOrganization(AdminGetOrganizationRequest)
       returns (AdminGetOrganizationResponse);
+  rpc GetOrgUsers(AdminGetOrgUsersRequest) returns (AdminGetOrgUsersResponse);
   rpc GetOrgGroups(AdminGetOrgGroupsRequest) returns (AdminGetOrgGroupsResponse);
   rpc ListUsers(AdminListUsersRequest) returns (AdminListUsersResponse);
   rpc GetUser(AdminGetUserRequest) returns (AdminGetUserResponse);
@@ -117,6 +118,20 @@ message AdminOrganization {
   optional string description = 3;
   string created_at = 4;
   string updated_at = 5;
+}
+
+message AdminGetOrgUsersRequest {
+  string id = 1;
+}
+
+message AdminGetOrgUsersResponse {
+  repeated AdminOrganizationUser users = 1;
+}
+
+message AdminOrganizationUser {
+  string id = 1;
+  string email = 2;
+  string joined_at = 3;
 }
 
 message AdminListUsersRequest {

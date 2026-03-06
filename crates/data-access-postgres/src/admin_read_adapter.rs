@@ -2,14 +2,16 @@
 
 use tearleads_data_access_traits::{
     AdminGroupDetail, AdminGroupMember, AdminGroupSummary, AdminOrganizationSummary,
-    AdminScopeOrganization, AdminUserAccountingSummary, AdminUserSummary, BoxFuture,
-    DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository, PostgresColumnInfo,
-    PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo,
+    AdminOrganizationUserSummary, AdminScopeOrganization, AdminUserAccountingSummary,
+    AdminUserSummary, BoxFuture, DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository,
+    PostgresColumnInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
+    PostgresTableInfo,
 };
 
 use crate::{
     AdminGroupDetailRecord, AdminGroupSummaryRecord, AdminOrganizationRecord,
-    AdminScopeOrganizationRecord, AdminUserRecord, PostgresAdminGateway, PostgresRowsPageRecord,
+    AdminOrganizationUserRecord, AdminScopeOrganizationRecord, AdminUserRecord,
+    PostgresAdminGateway, PostgresRowsPageRecord,
 };
 
 /// Postgres repository implementation over a driver-specific gateway.
@@ -95,6 +97,20 @@ where
                 .list_organizations(organization_ids.as_deref())
                 .await?;
             Ok(map_organizations(organizations))
+        })
+    }
+
+    fn get_organization_users(
+        &self,
+        organization_id: &str,
+    ) -> BoxFuture<'_, Result<Vec<AdminOrganizationUserSummary>, DataAccessError>> {
+        let organization_id = organization_id.to_string();
+        Box::pin(async move {
+            let users = self
+                .gateway
+                .get_organization_users(&organization_id)
+                .await?;
+            Ok(map_organization_users(users))
         })
     }
 
@@ -240,6 +256,19 @@ fn map_organizations(records: Vec<AdminOrganizationRecord>) -> Vec<AdminOrganiza
             description: record.description,
             created_at: record.created_at,
             updated_at: record.updated_at,
+        })
+        .collect()
+}
+
+fn map_organization_users(
+    records: Vec<AdminOrganizationUserRecord>,
+) -> Vec<AdminOrganizationUserSummary> {
+    records
+        .into_iter()
+        .map(|record| AdminOrganizationUserSummary {
+            id: record.id,
+            email: record.email,
+            joined_at: record.joined_at,
         })
         .collect()
 }

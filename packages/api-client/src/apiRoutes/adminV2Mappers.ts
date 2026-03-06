@@ -8,6 +8,7 @@ import type {
   OrganizationGroupsResponse,
   OrganizationResponse,
   OrganizationsListResponse,
+  OrganizationUsersResponse,
   PostgresAdminInfoResponse,
   PostgresColumnsResponse,
   PostgresRowsResponse,
@@ -22,6 +23,7 @@ import type {
   AdminGetGroupResponse,
   AdminGetOrganizationResponse,
   AdminGetOrgGroupsResponse,
+  AdminGetOrgUsersResponse,
   AdminGetPostgresInfoResponse,
   AdminGetRedisDbSizeResponse,
   AdminGetRedisKeysResponse,
@@ -145,6 +147,18 @@ export function mapOrganizationGroupsResponse(
       name: group.name,
       description: group.description ?? null,
       memberCount: group.memberCount
+    }))
+  };
+}
+
+export function mapOrganizationUsersResponse(
+  response: AdminGetOrgUsersResponse
+): OrganizationUsersResponse {
+  return {
+    users: response.users.map((user) => ({
+      id: user.id,
+      email: user.email,
+      joinedAt: user.joinedAt
     }))
   };
 }

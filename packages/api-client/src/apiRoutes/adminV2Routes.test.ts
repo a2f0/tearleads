@@ -37,6 +37,7 @@ interface AdminV2ClientOverrides {
   getGroupMembers?: AdminV2Client['getGroupMembers'];
   listOrganizations?: AdminV2Client['listOrganizations'];
   getOrganization?: AdminV2Client['getOrganization'];
+  getOrgUsers?: AdminV2Client['getOrgUsers'];
   getOrgGroups?: AdminV2Client['getOrgGroups'];
   listUsers?: AdminV2Client['listUsers'];
   getUser?: AdminV2Client['getUser'];
@@ -72,6 +73,7 @@ function createAdminV2ClientStub(
     getOrganization:
       overrides.getOrganization ??
       vi.fn(async () => ({ organization: undefined })),
+    getOrgUsers: overrides.getOrgUsers ?? vi.fn(async () => ({ users: [] })),
     getOrgGroups: overrides.getOrgGroups ?? vi.fn(async () => ({ groups: [] })),
     listUsers: overrides.listUsers ?? vi.fn(async () => ({ users: [] })),
     getUser: overrides.getUser ?? vi.fn(async () => ({ user: undefined })),

@@ -7,12 +7,13 @@ use tearleads_api_v2_contracts::tearleads::v2::{
     AdminGetColumnsResponse, AdminGetContextRequest, AdminGetContextResponse,
     AdminGetGroupMembersRequest, AdminGetGroupMembersResponse, AdminGetGroupRequest,
     AdminGetGroupResponse, AdminGetOrgGroupsRequest, AdminGetOrgGroupsResponse,
-    AdminGetOrganizationRequest, AdminGetOrganizationResponse, AdminGetPostgresInfoRequest,
-    AdminGetPostgresInfoResponse, AdminGetRedisDbSizeRequest, AdminGetRedisDbSizeResponse,
-    AdminGetRedisKeysRequest, AdminGetRedisKeysResponse, AdminGetRedisValueRequest,
-    AdminGetRedisValueResponse, AdminGetRowsRequest, AdminGetRowsResponse, AdminGetTablesRequest,
-    AdminGetTablesResponse, AdminGetUserRequest, AdminGetUserResponse, AdminGroup,
-    AdminGroupMember, AdminGroupWithMemberCount, AdminListGroupsRequest, AdminListGroupsResponse,
+    AdminGetOrgUsersRequest, AdminGetOrgUsersResponse, AdminGetOrganizationRequest,
+    AdminGetOrganizationResponse, AdminGetPostgresInfoRequest, AdminGetPostgresInfoResponse,
+    AdminGetRedisDbSizeRequest, AdminGetRedisDbSizeResponse, AdminGetRedisKeysRequest,
+    AdminGetRedisKeysResponse, AdminGetRedisValueRequest, AdminGetRedisValueResponse,
+    AdminGetRowsRequest, AdminGetRowsResponse, AdminGetTablesRequest, AdminGetTablesResponse,
+    AdminGetUserRequest, AdminGetUserResponse, AdminGroup, AdminGroupMember,
+    AdminGroupWithMemberCount, AdminListGroupsRequest, AdminListGroupsResponse,
     AdminListOrganizationsRequest, AdminListOrganizationsResponse, AdminListUsersRequest,
     AdminListUsersResponse, AdminOrganization, AdminPostgresColumnInfo,
     AdminPostgresConnectionInfo, AdminPostgresTableInfo, AdminRedisKeyInfo,
@@ -226,6 +227,13 @@ where
         request: Request<AdminGetOrganizationRequest>,
     ) -> Result<Response<AdminGetOrganizationResponse>, Status> {
         self.get_organization_impl(request).await
+    }
+
+    async fn get_org_users(
+        &self,
+        request: Request<AdminGetOrgUsersRequest>,
+    ) -> Result<Response<AdminGetOrgUsersResponse>, Status> {
+        self.get_org_users_impl(request).await
     }
 
     async fn get_org_groups(

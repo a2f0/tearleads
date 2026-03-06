@@ -4,10 +4,11 @@ use tearleads_api_v2::{
     AdminAccessContext, AdminAuthError, AdminAuthErrorKind, AdminOperation, AdminRequestAuthorizer,
 };
 use tearleads_data_access_traits::{
-    AdminGroupDetail, AdminGroupSummary, AdminOrganizationSummary, AdminScopeOrganization,
-    AdminUserSummary, BoxFuture, DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository,
-    PostgresColumnInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
-    PostgresTableInfo, RedisAdminRepository, RedisKeyScanPage, RedisKeyValueRecord,
+    AdminGroupDetail, AdminGroupSummary, AdminOrganizationSummary, AdminOrganizationUserSummary,
+    AdminScopeOrganization, AdminUserSummary, BoxFuture, DataAccessError, DataAccessErrorKind,
+    PostgresAdminReadRepository, PostgresColumnInfo, PostgresInfoSnapshot, PostgresRowsPage,
+    PostgresRowsQuery, PostgresTableInfo, RedisAdminRepository, RedisKeyScanPage,
+    RedisKeyValueRecord,
 };
 use tonic::{Response, Status};
 
@@ -59,6 +60,7 @@ type OrganizationFilter = Option<Vec<String>>;
 type OrganizationFilterCalls = Arc<Mutex<Vec<OrganizationFilter>>>;
 type GetUserCall = (String, Option<Vec<String>>);
 type GetUserCalls = Arc<Mutex<Vec<GetUserCall>>>;
+type GetOrganizationUsersCalls = Arc<Mutex<Vec<String>>>;
 
 #[derive(Debug)]
 pub(crate) struct FakePostgresRepository {
@@ -73,6 +75,9 @@ pub(crate) struct FakePostgresRepository {
     pub(crate) get_group_calls: Arc<Mutex<Vec<String>>>,
     pub(crate) list_organizations_result: Result<Vec<AdminOrganizationSummary>, DataAccessError>,
     pub(crate) list_organizations_calls: OrganizationFilterCalls,
+    pub(crate) organization_users_result:
+        Result<Vec<AdminOrganizationUserSummary>, DataAccessError>,
+    pub(crate) get_organization_users_calls: GetOrganizationUsersCalls,
     pub(crate) list_users_result: Result<Vec<AdminUserSummary>, DataAccessError>,
     pub(crate) list_users_calls: OrganizationFilterCalls,
     pub(crate) get_user_result: Result<Option<AdminUserSummary>, DataAccessError>,
@@ -100,6 +105,8 @@ impl Default for FakePostgresRepository {
             get_group_calls: Arc::new(Mutex::new(Vec::new())),
             list_organizations_result: Ok(Vec::new()),
             list_organizations_calls: Arc::new(Mutex::new(Vec::new())),
+            organization_users_result: Ok(Vec::new()),
+            get_organization_users_calls: Arc::new(Mutex::new(Vec::new())),
             list_users_result: Ok(Vec::new()),
             list_users_calls: Arc::new(Mutex::new(Vec::new())),
             get_user_result: Ok(None),
@@ -164,6 +171,15 @@ impl PostgresAdminReadRepository for FakePostgresRepository {
     ) -> BoxFuture<'_, Result<Vec<AdminOrganizationSummary>, DataAccessError>> {
         lock_or_recover(&self.list_organizations_calls).push(organization_ids);
         let result = self.list_organizations_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn get_organization_users(
+        &self,
+        organization_id: &str,
+    ) -> BoxFuture<'_, Result<Vec<AdminOrganizationUserSummary>, DataAccessError>> {
+        lock_or_recover(&self.get_organization_users_calls).push(organization_id.to_string());
+        let result = self.organization_users_result.clone();
         Box::pin(async move { result })
     }
 

@@ -13,6 +13,7 @@ import {
   AdminGetGroupRequestSchema,
   AdminGetOrganizationRequestSchema,
   AdminGetOrgGroupsRequestSchema,
+  AdminGetOrgUsersRequestSchema,
   AdminGetPostgresInfoRequestSchema,
   AdminGetRedisDbSizeRequestSchema,
   AdminGetRedisKeysRequestSchema,
@@ -41,6 +42,7 @@ import {
   mapOrganizationGroupsResponse,
   mapOrganizationResponse,
   mapOrganizationsResponse,
+  mapOrganizationUsersResponse,
   mapPostgresColumnsResponse,
   mapPostgresInfoResponse,
   mapPostgresRowsResponse,
@@ -218,6 +220,20 @@ export function createAdminV2Routes(
           );
           return mapOrganizationResponse(response);
         }),
+      getUsers: (id: string) =>
+        runWithEvent(
+          dependencies,
+          'api_get_admin_organization_users',
+          async () => {
+            const { client, callOptions } =
+              await buildCallContext(dependencies);
+            const response = await client.getOrgUsers(
+              create(AdminGetOrgUsersRequestSchema, { id }),
+              callOptions
+            );
+            return mapOrganizationUsersResponse(response);
+          }
+        ),
       getGroups: (id: string) =>
         runWithEvent(
           dependencies,

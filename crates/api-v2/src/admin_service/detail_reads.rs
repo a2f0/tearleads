@@ -1,12 +1,14 @@
 use tearleads_api_v2_contracts::tearleads::v2::{
     AdminGetContextRequest, AdminGetContextResponse, AdminGetGroupMembersRequest,
     AdminGetGroupMembersResponse, AdminGetOrgGroupsRequest, AdminGetOrgGroupsResponse,
-    AdminGetOrganizationRequest, AdminGetOrganizationResponse, AdminGetUserRequest,
-    AdminGetUserResponse, AdminGroupMember, AdminOrganization, AdminOrganizationGroup,
-    AdminScopeOrganization, AdminUser, AdminUserAccounting,
+    AdminGetOrgUsersRequest, AdminGetOrgUsersResponse, AdminGetOrganizationRequest,
+    AdminGetOrganizationResponse, AdminGetUserRequest, AdminGetUserResponse, AdminGroupMember,
+    AdminOrganization, AdminOrganizationGroup, AdminOrganizationUser, AdminScopeOrganization,
+    AdminUser, AdminUserAccounting,
 };
 use tearleads_data_access_traits::{
-    AdminUserSummary, PostgresAdminReadRepository, RedisAdminRepository,
+    AdminOrganizationUserSummary, AdminUserSummary, PostgresAdminReadRepository,
+    RedisAdminRepository,
 };
 use tonic::{Request, Response, Status};
 
@@ -38,6 +40,14 @@ pub(super) fn map_admin_user(user: AdminUserSummary) -> AdminUser {
         disabled_by: user.disabled_by,
         marked_for_deletion_at: user.marked_for_deletion_at,
         marked_for_deletion_by: user.marked_for_deletion_by,
+    }
+}
+
+fn map_organization_user(user: AdminOrganizationUserSummary) -> AdminOrganizationUser {
+    AdminOrganizationUser {
+        id: user.id,
+        email: user.email,
+        joined_at: user.joined_at,
     }
 }
 
@@ -197,6 +207,42 @@ where
             .collect();
 
         Ok(Response::new(AdminGetOrgGroupsResponse { groups }))
+    }
+
+    pub(super) async fn get_org_users_impl(
+        &self,
+        request: Request<AdminGetOrgUsersRequest>,
+    ) -> Result<Response<AdminGetOrgUsersResponse>, Status> {
+        let admin_access = self
+            .authorizer
+            .authorize_admin_operation(AdminOperation::GetOrgUsers, request.metadata())
+            .map_err(map_admin_auth_error)?;
+        let payload = request.into_inner();
+        let organization_id =
+            normalize_required_resource_id("id", &payload.id).map_err(Status::invalid_argument)?;
+        let organization_ids =
+            resolve_organization_scope_filter(&admin_access, Some(organization_id.clone()))
+                .map_err(Status::permission_denied)?;
+
+        let scoped_organization = self
+            .postgres_repo
+            .list_organizations(organization_ids)
+            .await
+            .map_err(map_data_access_error)?
+            .into_iter()
+            .find(|organization| organization.id == organization_id)
+            .ok_or_else(|| Status::not_found("organization not found"))?;
+
+        let users = self
+            .postgres_repo
+            .get_organization_users(&scoped_organization.id)
+            .await
+            .map_err(map_data_access_error)?
+            .into_iter()
+            .map(map_organization_user)
+            .collect();
+
+        Ok(Response::new(AdminGetOrgUsersResponse { users }))
     }
 
     pub(super) async fn get_user_impl(
