@@ -54,6 +54,7 @@ export function NotesWindow({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
+  const errorMessage = deleteError ?? createError;
 
   const handleSelectNote = useCallback((noteId: string) => {
     setSelectedNoteId(noteId);
@@ -186,11 +187,11 @@ export function NotesWindow({
             )}
           </WindowControlGroup>
         </WindowControlBar>
-        {(deleteError ?? createError) && (
+        {errorMessage && (
           <WindowPaneState
             layout="inline"
             tone="error"
-            title={(deleteError ?? createError)!}
+            title={errorMessage}
             className="m-3"
           />
         )}
