@@ -149,6 +149,8 @@ export const enPart1 = {
     sseConnecting: 'SSE: Connecting',
     sseDisconnected: 'SSE: Disconnected',
     vfsSynced: 'All data synced',
+    vfsSyncing: 'Syncing data...',
+    vfsSyncError: 'Sync failed',
     vfsPendingSync: '{{count}} operations pending sync',
     keychainSalt:
       'Random value used with your password to derive the encryption key',

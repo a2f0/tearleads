@@ -9,6 +9,9 @@ let mockOrchestrator: {
   blob: { queuedOperations: () => unknown[] };
 } | null = null;
 
+let mockSyncActivity = { inflightCount: 0, lastSyncError: null as Error | null };
+let syncActivityCallback: (() => void) | null = null;
+
 vi.mock('@tearleads/ui', () => ({
   cn: (...classes: Array<string | undefined>) =>
     classes.filter((value): value is string => Boolean(value)).join(' ')
@@ -43,6 +46,16 @@ vi.mock('../contexts/VfsOrchestratorContext', () => ({
   useVfsOrchestratorInstance: () => mockOrchestrator
 }));
 
+vi.mock('../lib/vfsItemSyncWriter', () => ({
+  getSyncActivity: () => mockSyncActivity,
+  subscribeSyncActivity: (cb: () => void) => {
+    syncActivityCallback = cb;
+    return () => {
+      syncActivityCallback = null;
+    };
+  }
+}));
+
 function createMockOrchestrator(crdtPending: number, blobPending: number) {
   return {
     crdt: { snapshot: () => ({ pendingOperations: crdtPending }) },
@@ -55,6 +68,8 @@ describe('VfsSyncStatusIndicator', () => {
     vi.useFakeTimers();
     mockIsAuthenticated = true;
     mockOrchestrator = createMockOrchestrator(0, 0);
+    mockSyncActivity = { inflightCount: 0, lastSyncError: null };
+    syncActivityCallback = null;
   });
 
   it('returns null when not authenticated', () => {
@@ -122,6 +137,48 @@ describe('VfsSyncStatusIndicator', () => {
     expect(screen.getByTestId('sync-indicator')).toHaveAttribute(
       'data-state',
       'disconnected'
+    );
+  });
+
+  it('shows connecting state when inflight > 0', () => {
+    mockSyncActivity = { inflightCount: 1, lastSyncError: null };
+
+    render(<VfsSyncStatusIndicator />);
+
+    const indicator = screen.getByTestId('sync-indicator');
+    expect(indicator).toHaveAttribute('data-state', 'connecting');
+    expect(indicator).toHaveTextContent('Syncing data...');
+  });
+
+  it('shows disconnected state on sync error', () => {
+    mockSyncActivity = {
+      inflightCount: 0,
+      lastSyncError: new Error('Network failure')
+    };
+
+    render(<VfsSyncStatusIndicator />);
+
+    const indicator = screen.getByTestId('sync-indicator');
+    expect(indicator).toHaveAttribute('data-state', 'disconnected');
+    expect(indicator).toHaveTextContent('Sync failed');
+  });
+
+  it('reacts to sync activity changes via subscriber', () => {
+    render(<VfsSyncStatusIndicator />);
+
+    expect(screen.getByTestId('sync-indicator')).toHaveAttribute(
+      'data-state',
+      'connected'
+    );
+
+    mockSyncActivity = { inflightCount: 1, lastSyncError: null };
+    act(() => {
+      syncActivityCallback?.();
+    });
+
+    expect(screen.getByTestId('sync-indicator')).toHaveAttribute(
+      'data-state',
+      'connecting'
     );
   });
 });

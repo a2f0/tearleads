@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  getSyncActivity,
   queueItemDeleteAndFlush,
   queueItemUpsertAndFlush,
-  setVfsItemSyncRuntime
+  setVfsItemSyncRuntime,
+  subscribeSyncActivity
 } from './vfsItemSyncWriter';
 
 const isLoggedInMock = vi.fn(() => false);
@@ -134,6 +136,160 @@ describe('vfsItemSyncWriter', () => {
 
     expect(queueEncryptedCrdtOpAndPersist).toHaveBeenCalledTimes(1);
     expect(flushAll).toHaveBeenCalledTimes(1);
+  });
+
+  it('notifies subscribers during inflight transitions on upsert', async () => {
+    isLoggedInMock.mockReturnValue(true);
+    getFeatureFlagValueMock.mockReturnValue(true);
+    registerMock.mockResolvedValue(undefined);
+
+    const queueEncryptedCrdtOpAndPersist = vi.fn().mockResolvedValue(undefined);
+    const queueCrdtLocalOperationAndPersist = vi
+      .fn()
+      .mockResolvedValue(undefined);
+    const flushAll = vi.fn().mockResolvedValue({
+      crdt: { pushed: 1, pulled: 0, remainingQueued: 0 },
+      blob: { processed: 0, remainingQueued: 0 }
+    });
+
+    setVfsItemSyncRuntime({
+      orchestrator: { flushAll, queueCrdtLocalOperationAndPersist },
+      secureFacade: { queueEncryptedCrdtOpAndPersist }
+    });
+
+    const snapshots: Array<{ inflightCount: number; lastSyncError: Error | null }> = [];
+    const unsubscribe = subscribeSyncActivity(() => {
+      snapshots.push(getSyncActivity());
+    });
+
+    await queueItemUpsertAndFlush({
+      itemId: 'item-1',
+      objectType: 'contact',
+      encryptedSessionKey: 'wrapped',
+      payload: { id: 'item-1' }
+    });
+
+    unsubscribe();
+
+    expect(snapshots.length).toBeGreaterThanOrEqual(2);
+    expect(snapshots[0]!.inflightCount).toBe(1);
+    expect(snapshots[snapshots.length - 1]!.inflightCount).toBe(0);
+    expect(snapshots[snapshots.length - 1]!.lastSyncError).toBeNull();
+  });
+
+  it('tracks error state on sync failure', async () => {
+    isLoggedInMock.mockReturnValue(true);
+    getFeatureFlagValueMock.mockReturnValue(true);
+    registerMock.mockRejectedValue(new Error('Network failure'));
+
+    const queueEncryptedCrdtOpAndPersist = vi.fn().mockResolvedValue(undefined);
+    const queueCrdtLocalOperationAndPersist = vi
+      .fn()
+      .mockResolvedValue(undefined);
+    const flushAll = vi.fn().mockResolvedValue({
+      crdt: { pushed: 0, pulled: 0, remainingQueued: 0 },
+      blob: { processed: 0, remainingQueued: 0 }
+    });
+
+    setVfsItemSyncRuntime({
+      orchestrator: { flushAll, queueCrdtLocalOperationAndPersist },
+      secureFacade: { queueEncryptedCrdtOpAndPersist }
+    });
+
+    await expect(
+      queueItemUpsertAndFlush({
+        itemId: 'new-item',
+        objectType: 'contact',
+        encryptedSessionKey: 'wrapped',
+        payload: { id: 'new-item' }
+      })
+    ).rejects.toThrow('Network failure');
+
+    const activity = getSyncActivity();
+    expect(activity.inflightCount).toBe(0);
+    expect(activity.lastSyncError).toBeInstanceOf(Error);
+    expect(activity.lastSyncError!.message).toBe('Network failure');
+  });
+
+  it('clears error on subsequent success', async () => {
+    isLoggedInMock.mockReturnValue(true);
+    getFeatureFlagValueMock.mockReturnValue(true);
+
+    const queueEncryptedCrdtOpAndPersist = vi.fn().mockResolvedValue(undefined);
+    const queueCrdtLocalOperationAndPersist = vi
+      .fn()
+      .mockResolvedValue(undefined);
+    const flushAll = vi.fn().mockResolvedValue({
+      crdt: { pushed: 1, pulled: 0, remainingQueued: 0 },
+      blob: { processed: 0, remainingQueued: 0 }
+    });
+
+    setVfsItemSyncRuntime({
+      orchestrator: { flushAll, queueCrdtLocalOperationAndPersist },
+      secureFacade: { queueEncryptedCrdtOpAndPersist }
+    });
+
+    registerMock.mockRejectedValueOnce(new Error('Temporary failure'));
+    await expect(
+      queueItemUpsertAndFlush({
+        itemId: 'fail-item',
+        objectType: 'contact',
+        encryptedSessionKey: 'wrapped',
+        payload: { id: 'fail-item' }
+      })
+    ).rejects.toThrow('Temporary failure');
+
+    expect(getSyncActivity().lastSyncError).not.toBeNull();
+
+    registerMock.mockResolvedValueOnce(undefined);
+    await queueItemUpsertAndFlush({
+      itemId: 'ok-item',
+      objectType: 'contact',
+      encryptedSessionKey: 'wrapped',
+      payload: { id: 'ok-item' }
+    });
+
+    expect(getSyncActivity().lastSyncError).toBeNull();
+  });
+
+  it('resets sync activity when runtime is set to null', async () => {
+    isLoggedInMock.mockReturnValue(true);
+    getFeatureFlagValueMock.mockReturnValue(true);
+    registerMock.mockRejectedValue(new Error('fail'));
+
+    const queueEncryptedCrdtOpAndPersist = vi.fn().mockResolvedValue(undefined);
+    const queueCrdtLocalOperationAndPersist = vi
+      .fn()
+      .mockResolvedValue(undefined);
+    const flushAll = vi.fn().mockResolvedValue({
+      crdt: { pushed: 0, pulled: 0, remainingQueued: 0 },
+      blob: { processed: 0, remainingQueued: 0 }
+    });
+
+    setVfsItemSyncRuntime({
+      orchestrator: { flushAll, queueCrdtLocalOperationAndPersist },
+      secureFacade: { queueEncryptedCrdtOpAndPersist }
+    });
+
+    await expect(
+      queueItemUpsertAndFlush({
+        itemId: 'x',
+        objectType: 'contact',
+        encryptedSessionKey: 'wrapped',
+        payload: { id: 'x' }
+      })
+    ).rejects.toThrow();
+
+    expect(getSyncActivity().lastSyncError).not.toBeNull();
+
+    const listener = vi.fn();
+    const unsub = subscribeSyncActivity(listener);
+    setVfsItemSyncRuntime(null);
+    unsub();
+
+    expect(listener).toHaveBeenCalled();
+    expect(getSyncActivity().inflightCount).toBe(0);
+    expect(getSyncActivity().lastSyncError).toBeNull();
   });
 
   it('queues item_delete and flushes', async () => {

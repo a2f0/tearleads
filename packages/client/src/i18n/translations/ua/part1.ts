@@ -145,6 +145,8 @@ export const uaPart1 = {
     sseConnecting: 'SSE: Підключення',
     sseDisconnected: "SSE: Від'єднано",
     vfsSynced: 'Усі дані синхронізовано',
+    vfsSyncing: 'Синхронізація даних...',
+    vfsSyncError: 'Помилка синхронізації',
     vfsPendingSync: '{{count}} операцій очікують синхронізації',
     keychainSalt:
       'Випадкове значення, що використовується з вашим паролем для створення ключа шифрування',

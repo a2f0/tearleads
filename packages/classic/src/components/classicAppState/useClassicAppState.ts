@@ -298,9 +298,17 @@ export function useClassicAppState({
       updateState(nextState);
 
       if (isNewTag) {
-        void onCreateTag?.(tagId, newName);
+        if (onCreateTag) {
+          void Promise.resolve(onCreateTag(tagId, newName)).catch((err) => {
+            console.error('Failed to create tag:', err);
+          });
+        }
       } else {
-        void onRenameTag?.(tagId, newName);
+        if (onRenameTag) {
+          void Promise.resolve(onRenameTag(tagId, newName)).catch((err) => {
+            console.error('Failed to rename tag:', err);
+          });
+        }
       }
 
       setEditingTagId(null);
@@ -390,9 +398,21 @@ export function useClassicAppState({
             break;
           }
         }
-        void onCreateNote?.(noteId, tagId, title, body);
+        if (onCreateNote) {
+          void Promise.resolve(onCreateNote(noteId, tagId, title, body)).catch(
+            (err) => {
+              console.error('Failed to create note:', err);
+            }
+          );
+        }
       } else {
-        void onUpdateNote?.(noteId, title, body);
+        if (onUpdateNote) {
+          void Promise.resolve(onUpdateNote(noteId, title, body)).catch(
+            (err) => {
+              console.error('Failed to update note:', err);
+            }
+          );
+        }
       }
 
       setEditingNoteId(null);
