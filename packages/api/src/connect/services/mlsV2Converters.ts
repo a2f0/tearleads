@@ -121,7 +121,7 @@ export function toProtoKeyPackage(kp: MlsKeyPackage) {
   return {
     id: kp.id,
     userId: kp.userId,
-    keyPackageData: kp.keyPackageData,
+    keyPackageData: decodeDirectStringToProtoBytes(kp.keyPackageData),
     keyPackageRef: kp.keyPackageRef,
     cipherSuite: toProtoCipherSuite(kp.cipherSuite),
     createdAt: kp.createdAt,
@@ -203,7 +203,7 @@ export function toProtoWelcome(w: MlsWelcomeMessage) {
 
 export interface V2UploadKeyPackagesRequest {
   keyPackages: Array<{
-    keyPackageData: string;
+    keyPackageData: Uint8Array;
     keyPackageRef: string;
     cipherSuite: ProtoCipherSuite;
   }>;

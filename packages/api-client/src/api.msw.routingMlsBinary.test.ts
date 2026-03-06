@@ -25,9 +25,6 @@ const toBase64 = (value: string): string =>
 const utf8Bytes = (value: string): Uint8Array =>
   new TextEncoder().encode(value);
 
-const bytesToBase64 = (value: Uint8Array): string =>
-  Buffer.from(value).toString('base64');
-
 async function sha256Base64(data: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', data);
   let binary = '';
@@ -37,13 +34,6 @@ async function sha256Base64(data: Uint8Array): Promise<string> {
     binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
   }
   return btoa(binary);
-}
-
-async function computeWireCompatibleStateHash(
-  encryptedState: Uint8Array
-): Promise<string> {
-  const wirePayload = utf8Bytes(bytesToBase64(encryptedState));
-  return sha256Base64(wirePayload);
 }
 
 describe('api with msw (MLS binary routes)', () => {
@@ -144,7 +134,7 @@ describe('api with msw (MLS binary routes)', () => {
     );
 
     const stateBytes = utf8Bytes('encrypted-state');
-    const stateHash = await computeWireCompatibleStateHash(stateBytes);
+    const stateHash = await sha256Base64(stateBytes);
     await routes.uploadGroupState(groupId, {
       epoch: addMemberEpoch,
       encryptedState: stateBytes,
@@ -180,7 +170,7 @@ describe('api with msw (MLS binary routes)', () => {
         welcomeId,
         groupId,
         seededUser.userId,
-        toBase64(toBase64('welcome-data')),
+        toBase64('welcome-data'),
         addMemberEpoch
       ]
     );

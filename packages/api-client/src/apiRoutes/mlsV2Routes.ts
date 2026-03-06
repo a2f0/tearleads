@@ -429,7 +429,7 @@ export function createMlsV2Routes(
           create(MlsUploadKeyPackagesRequestSchema, {
             keyPackages: data.keyPackages.map((kp) =>
               create(MlsUploadKeyPackageInputSchema, {
-                keyPackageData: kp.keyPackageData,
+                keyPackageData: decodeTransportBytes(kp.keyPackageData),
                 keyPackageRef: kp.keyPackageRef,
                 cipherSuite: toProtoCipherSuite(kp.cipherSuite)
               })
