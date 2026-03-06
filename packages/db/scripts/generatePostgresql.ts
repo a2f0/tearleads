@@ -78,6 +78,23 @@ const pgCoreSymbols = [
   'uniqueIndex'
 ] as const;
 
+function resolvePnpmRunner(): { command: string; args: string[] } {
+  const npmExecPath = process.env.npm_execpath;
+  if (
+    typeof npmExecPath === 'string' &&
+    /(?:^|[\\/])pnpm(?:\.[cm]?js)?$/iu.test(npmExecPath)
+  ) {
+    // Regression note: on Windows CI, lifecycle scripts can lose the pnpm shim from PATH.
+    // Running the active pnpm entrypoint avoids spawnSync('pnpm') ENOENT failures.
+    return { command: process.execPath, args: [npmExecPath] };
+  }
+
+  return {
+    command: process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
+    args: []
+  };
+}
+
 function findLineOrThrow(lines: string[], pattern: string): number {
   const index = lines.findIndex((line) => line.includes(pattern));
   if (index === -1) {
@@ -197,9 +214,11 @@ fs.writeFileSync(contentOutputPath, splitSchema.content);
 fs.writeFileSync(policyOutputPath, splitSchema.policy);
 fs.writeFileSync(runtimeOutputPath, splitSchema.runtime);
 
+const pnpmRunner = resolvePnpmRunner();
 const biomeResult = spawnSync(
-  'pnpm',
+  pnpmRunner.command,
   [
+    ...pnpmRunner.args,
     'biome',
     'check',
     '--write',
