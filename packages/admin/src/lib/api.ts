@@ -135,7 +135,7 @@ function requestAi<T>(
 }
 
 export const api = {
-  admin: {
+  adminV2: {
     getContext: () =>
       requestAdminV2<AdminAccessContextResponse>(
         'GetContext',
@@ -389,6 +389,9 @@ export const api = {
           mapUserResponse
         )
     }
+  },
+  get admin() {
+    return this.adminV2;
   },
   ai: {
     getUsage: (options?: {

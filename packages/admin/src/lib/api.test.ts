@@ -29,6 +29,10 @@ describe('admin api client', () => {
     vi.unstubAllGlobals();
   });
 
+  it('exposes admin alias parity for adminV2', () => {
+    expect(apiClient.admin).toBe(apiClient.adminV2);
+  });
+
   it('adds auth token when no Authorization header is provided', async () => {
     localStorage.setItem('auth_token', 'token-123');
     fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }));
