@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { DatabaseAdapter } from '../adapter';
-import { v013 } from './v013';
+import type { DatabaseAdapter } from '../adapter.js';
+import { v013 } from './v013.js';
 
 const createAdapter = (
   executeMany: DatabaseAdapter['executeMany']

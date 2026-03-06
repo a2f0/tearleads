@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { DatabaseAdapter } from '../adapter';
-import { addColumnIfNotExists, tableExists } from './utils';
+import type { DatabaseAdapter } from '../adapter.js';
+import { addColumnIfNotExists, tableExists } from './utils.js';
 
 const createAdapter = (
   execute: DatabaseAdapter['execute']

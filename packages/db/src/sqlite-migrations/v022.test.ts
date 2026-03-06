@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { DatabaseAdapter } from '../adapter';
-import { v022 } from './v022';
+import type { DatabaseAdapter } from '../adapter.js';
+import { v022 } from './v022.js';
 
 const createAdapter = (): DatabaseAdapter => ({
   initialize: vi.fn(async () => {}),
