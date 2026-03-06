@@ -26,6 +26,15 @@ interface StoredS3Object {
 
 const s3Objects = new Map<string, StoredS3Object>();
 let s3Server: Server | null = null;
+const blobEnvKeys = [
+  'VFS_BLOB_S3_BUCKET',
+  'VFS_BLOB_S3_KEY_PREFIX',
+  'VFS_BLOB_S3_ENDPOINT',
+  'VFS_BLOB_S3_REGION',
+  'VFS_BLOB_S3_ACCESS_KEY_ID',
+  'VFS_BLOB_S3_SECRET_ACCESS_KEY',
+  'VFS_BLOB_S3_FORCE_PATH_STYLE'
+] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -122,6 +131,24 @@ async function stopS3MockServer(): Promise<void> {
     });
   });
   s3Server = null;
+}
+
+function resetBlobEnv(): void {
+  if (typeof vi !== 'undefined' && typeof vi.unstubAllEnvs === 'function') {
+    vi.unstubAllEnvs();
+    return;
+  }
+  for (const key of blobEnvKeys) {
+    delete process.env[key];
+  }
+}
+
+function setBlobEnv(key: (typeof blobEnvKeys)[number], value: string): void {
+  if (typeof vi !== 'undefined' && typeof vi.stubEnv === 'function') {
+    vi.stubEnv(key, value);
+    return;
+  }
+  process.env[key] = value;
 }
 
 const getApiDeps = async () => {
@@ -247,16 +274,16 @@ describe('DB scaffolding shared photo album binary visibility', () => {
   let harness: ApiScenarioHarness | null = null;
 
   beforeEach(async () => {
-    vi.unstubAllEnvs();
+    resetBlobEnv();
     s3Objects.clear();
     const s3Endpoint = await startS3MockServer();
-    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
-    vi.stubEnv('VFS_BLOB_S3_KEY_PREFIX', 'scaffold');
-    vi.stubEnv('VFS_BLOB_S3_ENDPOINT', s3Endpoint);
-    vi.stubEnv('VFS_BLOB_S3_REGION', 'us-east-1');
-    vi.stubEnv('VFS_BLOB_S3_ACCESS_KEY_ID', 'test-access-key');
-    vi.stubEnv('VFS_BLOB_S3_SECRET_ACCESS_KEY', 'test-secret-key');
-    vi.stubEnv('VFS_BLOB_S3_FORCE_PATH_STYLE', 'true');
+    setBlobEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    setBlobEnv('VFS_BLOB_S3_KEY_PREFIX', 'scaffold');
+    setBlobEnv('VFS_BLOB_S3_ENDPOINT', s3Endpoint);
+    setBlobEnv('VFS_BLOB_S3_REGION', 'us-east-1');
+    setBlobEnv('VFS_BLOB_S3_ACCESS_KEY_ID', 'test-access-key');
+    setBlobEnv('VFS_BLOB_S3_SECRET_ACCESS_KEY', 'test-secret-key');
+    setBlobEnv('VFS_BLOB_S3_FORCE_PATH_STYLE', 'true');
   });
 
   afterEach(async () => {
@@ -265,7 +292,7 @@ describe('DB scaffolding shared photo album binary visibility', () => {
       harness = null;
     }
     await stopS3MockServer();
-    vi.unstubAllEnvs();
+    resetBlobEnv();
     s3Objects.clear();
   });
 

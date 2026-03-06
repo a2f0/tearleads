@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/bun-test-node-pilot.yml'
       - 'packages/app-builder/**'
+      - 'packages/bob-and-alice/**'
       - 'packages/local-write-orchestrator/**'
       - 'packages/mls-core/**'
       - 'packages/msw/**'
@@ -31,6 +32,7 @@ jobs:
       matrix:
         package:
           - '@tearleads/app-builder'
+          - '@tearleads/bob-and-alice'
           - '@tearleads/local-write-orchestrator'
           - '@tearleads/mls-core'
           - '@tearleads/msw'

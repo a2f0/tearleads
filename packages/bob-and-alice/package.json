@@ -20,6 +20,7 @@
     "build": "echo \"@tearleads/bob-and-alice is a test-only package\"",
     "clean": "rm -rf dist",
     "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
+    "testBun": "bun test src/scaffolding/apiActorAuth.test.ts src/scaffolding/setupBobNotesShareForAlice.test.ts src/qa/vfsCrdtRolloutQaSuite.test.ts src/qa/vfsSecureUploadQaSuite.test.ts",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "dependencies": {
