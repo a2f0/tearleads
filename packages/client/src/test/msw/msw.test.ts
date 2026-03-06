@@ -48,7 +48,7 @@ beforeEach(async () => {
   localStorage.clear();
   const ctx = getSharedTestContext();
   seededUser = await seedTestUser(ctx, { admin: true });
-  localStorage.setItem('auth_token', seededUser.accessToken);
+  localStorage.setItem('auth_token', 'header.payload.signature');
 });
 
 describe('msw handlers', () => {
