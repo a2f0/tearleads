@@ -17,6 +17,7 @@ export const api = {
       return parseV2PingData(response);
     }
   },
+  admin: adminV2Routes,
   adminV2: adminV2Routes,
   vfs: vfsRoutes,
   ai: aiRoutes,

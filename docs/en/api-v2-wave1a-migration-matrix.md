@@ -34,7 +34,7 @@ This matrix tracks the first DAL-proving admin read endpoints selected for v2 mi
 - Runtime harness now routes `/connect/tearleads.v2.AdminService/*` to a Rust `api-v2` Wave 1A harness service for frontend/runtime integration tests.
 - Wave 1A read methods now route through the canonical `api.adminV2` surface (`GetPostgresInfo`, `GetTables`, `GetColumns`, `GetRedisKeys`, `GetRedisValue`).
 - Wave 1C adds the first v2 admin write cutover: `DeleteRedisKey` now routes through `api.adminV2` over `/connect/tearleads.v2.AdminService/DeleteRedisKey`.
-- `@tearleads/api-client` and `@tearleads/admin` now use `api.adminV2` directly for admin context, Postgres/Redis helpers, group/organization/user reads, and admin mutations.
-- Removed the legacy `api.admin` compatibility wrapper from `@tearleads/api-client`.
+- `@tearleads/api-client` now routes both `api.adminV2` and `api.admin` (direct alias) through the same v2 admin route implementation.
+- Removed the `adminRoutes` compatibility module from `@tearleads/api-client`; `api.admin` remains as an alias while remaining consumers are migrated.
 - MLS browser/runtime traffic is now v2-only (`tearleads.v2.MlsService`), and the Node v1 MLS service registration has been removed.
 - Next slice: remove stale v1 admin proto/codegen artifacts once all remaining compile-time references are fully eliminated.
