@@ -1,7 +1,7 @@
+import { MAGIC_BYTES, MAGIC_SIZE } from '@tearleads/backups/format';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FileStorage } from '@/storage/opfs';
 import type { DatabaseAdapter } from '../adapters/types';
-import { MAGIC_BYTES, MAGIC_SIZE } from './constants';
 import { createBackup, estimateBackupSize } from './exporter';
 
 describe('exporter', () => {

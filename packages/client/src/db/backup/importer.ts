@@ -7,6 +7,14 @@
  * 3. Restoring file blobs
  */
 
+import {
+  type BackupManifest,
+  type BackupProgressEvent,
+  type DecodeResult,
+  decode,
+  type ImportResult,
+  validateBackup
+} from '@tearleads/backups/format';
 import { initializeFileStorage } from '@/storage/opfs';
 import type { DatabaseAdapter } from '../adapters/types';
 import { getKeyManagerForInstance } from '../crypto';
@@ -16,12 +24,6 @@ import {
   type InstanceMetadata,
   updateInstance
 } from '../instanceRegistry';
-import { type DecodeResult, decode, validateBackup } from './decoder';
-import type {
-  BackupManifest,
-  BackupProgressEvent,
-  ImportResult
-} from './types';
 
 /**
  * Tables to skip during import.

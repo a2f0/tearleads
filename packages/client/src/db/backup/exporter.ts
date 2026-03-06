@@ -7,18 +7,19 @@
  * 3. Encoding everything into the backup format
  */
 
+import {
+  type BackupDatabase,
+  type BackupManifest,
+  type BackupProgressEvent,
+  type BlobEntry,
+  type EncodeOptions,
+  encode,
+  FORMAT_VERSION,
+  type IndexSchema,
+  type TableSchema
+} from '@tearleads/backups/format';
 import type { FileStorage } from '@/storage/opfs';
 import type { DatabaseAdapter } from '../adapters/types';
-import { FORMAT_VERSION } from './constants';
-import { type EncodeOptions, encode } from './encoder';
-import type {
-  BackupDatabase,
-  BackupManifest,
-  BackupProgressEvent,
-  BlobEntry,
-  IndexSchema,
-  TableSchema
-} from './types';
 
 /**
  * Options for creating a backup.
