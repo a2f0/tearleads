@@ -76,11 +76,11 @@ jobs:
 
       - name: Install dependencies
         if: (steps.version-check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch') && steps.npm-check.outputs.exists != 'true'
-        run: pnpm install
+        run: sh ./scripts/tooling/pm.sh install
 
       - name: Build CLI
         if: (steps.version-check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch') && steps.npm-check.outputs.exists != 'true'
-        run: pnpm --filter @tearleads/cli build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/cli run build
 
       - name: Publish to npm with provenance
         if: (steps.version-check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch') && steps.npm-check.outputs.exists != 'true'
