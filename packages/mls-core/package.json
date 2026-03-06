@@ -18,8 +18,8 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
-    "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
-    "testBun": "bun test src/mls.test.ts",
+    "test": "bun test src/mls.test.ts src/mlsWasmBackend.test.ts",
+    "test:vitest": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "keywords": [

@@ -71,6 +71,10 @@ const PLACEHOLDER_STATUS: MlsBackendStatus = {
 
 let wasmModulePromise: Promise<unknown> | null = null;
 
+export function resetWasmModulePromiseForTesting(): void {
+  wasmModulePromise = null;
+}
+
 function assertFunctions(
   module: unknown,
   functionNames: readonly string[]
