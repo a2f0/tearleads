@@ -1,19 +1,12 @@
 #!/usr/bin/env -S node --import tsx
-import { execFileSync } from 'node:child_process';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import { deliverMail } from './deliverMail.ts';
+import { runApiCliForOutput } from './lib/runApiCli.ts';
 
 type AdminRow = {
   id: string;
   email: string;
 };
-
-const PM_SCRIPT_PATH = fileURLToPath(
-  new URL('../tooling/pm.sh', import.meta.url)
-);
-const API_CLI_PATH = fileURLToPath(
-  new URL('../../packages/api/src/apiCli.ts', import.meta.url)
-);
 
 function printUsage(): void {
   console.log(
@@ -44,11 +37,7 @@ function printUsage(): void {
 }
 
 function getAdminUsers(): AdminRow[] {
-  const raw = execFileSync(
-    'sh',
-    [PM_SCRIPT_PATH, 'exec', 'tsx', API_CLI_PATH, 'list-admins', '--json'],
-    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
-  );
+  const raw = runApiCliForOutput(['list-admins', '--json']);
   const lines = raw.trim().split('\n');
   const jsonLine = lines.at(-1) ?? '[]';
   return JSON.parse(jsonLine) as AdminRow[];
