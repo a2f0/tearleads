@@ -6,6 +6,7 @@ case $SCRIPT_PATH in
   *) SCRIPT_PATH=$(command -v -- "$SCRIPT_PATH" || true) ;;
 esac
 SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
+PM_SCRIPT="$SCRIPT_DIR/tooling/pm.sh"
 
 cd "$SCRIPT_DIR/../packages/client"
 
@@ -32,10 +33,10 @@ TARGET_ASSET="android/app/src/main/res/mipmap-mdpi/ic_launcher.png"
 if [ ! -f "$TARGET_ASSET" ] || [ -n "$(find "$SVG_SOURCE" -newer "$TARGET_ASSET" 2>/dev/null)" ]; then
   ./scripts/buildAndroidImageAssets.sh
 fi
-pnpm build && pnpm exec cap sync android
+sh "$PM_SCRIPT" run build && sh "$PM_SCRIPT" exec cap sync android
 adb shell am force-stop "$PACKAGE_ID" 2>/dev/null || true
 # Note: Don't uninstall - it wipes app data. Use resetAndroidEmulator.sh for clean slate.
-pnpm exec cap run android --target "$DEVICE"
+sh "$PM_SCRIPT" exec cap run android --target "$DEVICE"
 
 # Keep script running with emulator in foreground
 if [ -n "${EMULATOR_PID:-}" ]; then

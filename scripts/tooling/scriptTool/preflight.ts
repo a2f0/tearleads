@@ -1,6 +1,8 @@
 import { runWithTimeout } from '../lib/cliShared.ts';
 import type { ActionName, GlobalOptions } from './types.ts';
 
+type PackageManager = 'pnpm' | 'bun';
+
 function commandExists(command: string, cwd?: string): boolean {
   const check = runWithTimeout(
     'sh',
@@ -27,6 +29,38 @@ function ensureMacOs(action: ActionName): void {
   if (process.platform !== 'darwin') {
     throw new Error(`${action} preflight failed: macOS is required`);
   }
+}
+
+function resolvePackageManager(
+  action: ActionName,
+  cwd?: string
+): PackageManager {
+  const configuredPm = process.env.TEARLEADS_PM;
+
+  if (configuredPm === undefined || configuredPm.trim() === '') {
+    if (commandExists('pnpm', cwd)) return 'pnpm';
+    if (commandExists('bun', cwd)) return 'bun';
+    throw new Error(
+      `${action} preflight failed: neither pnpm nor bun is available`
+    );
+  }
+
+  if (configuredPm !== 'pnpm' && configuredPm !== 'bun') {
+    throw new Error(
+      `${action} preflight failed: TEARLEADS_PM must be "pnpm" or "bun"`
+    );
+  }
+
+  return configuredPm;
+}
+
+function ensurePackageManager(
+  action: ActionName,
+  cwd?: string
+): PackageManager {
+  const packageManager = resolvePackageManager(action, cwd);
+  ensureCommand(action, packageManager, cwd);
+  return packageManager;
 }
 
 function hasBootedAndroidEmulator(repoRoot: string): boolean {
@@ -62,39 +96,49 @@ export function runPreflight(
 
   switch (action) {
     case 'runAndroid':
-      ensureCommand(action, 'adb', repoRoot);
-      ensureCommand(action, 'emulator', repoRoot);
-      ensureCommand(action, 'pnpm', repoRoot);
-      addCheck('adb, emulator, and pnpm are available');
+      {
+        const packageManager = ensurePackageManager(action, repoRoot);
+        ensureCommand(action, 'adb', repoRoot);
+        ensureCommand(action, 'emulator', repoRoot);
+        addCheck(`adb, emulator, and ${packageManager} are available`);
+      }
       break;
 
     case 'runIos':
     case 'runIpad':
-      ensureMacOs(action);
-      ensureCommand(action, 'xcrun', repoRoot);
-      ensureCommand(action, 'pnpm', repoRoot);
-      addCheck('macOS, xcrun, and pnpm are available');
+      {
+        const packageManager = ensurePackageManager(action, repoRoot);
+        ensureMacOs(action);
+        ensureCommand(action, 'xcrun', repoRoot);
+        addCheck(`macOS, xcrun, and ${packageManager} are available`);
+      }
       break;
 
     case 'runElectron':
-      ensureCommand(action, 'pnpm', repoRoot);
-      addCheck('pnpm is available');
+      {
+        const packageManager = ensurePackageManager(action, repoRoot);
+        addCheck(`${packageManager} is available`);
+      }
       break;
 
     case 'runMaestroAndroidTests':
-      ensureCommand(action, 'adb', repoRoot);
-      ensureCommand(action, 'emulator', repoRoot);
-      ensureCommand(action, 'pnpm', repoRoot);
-      ensureCommand(action, 'bundle', repoRoot);
-      addCheck('adb, emulator, pnpm, and bundle are available');
+      {
+        const packageManager = ensurePackageManager(action, repoRoot);
+        ensureCommand(action, 'adb', repoRoot);
+        ensureCommand(action, 'emulator', repoRoot);
+        ensureCommand(action, 'bundle', repoRoot);
+        addCheck(`adb, emulator, ${packageManager}, and bundle are available`);
+      }
       break;
 
     case 'runMaestroIosTests':
-      ensureMacOs(action);
-      ensureCommand(action, 'xcrun', repoRoot);
-      ensureCommand(action, 'pnpm', repoRoot);
-      ensureCommand(action, 'bundle', repoRoot);
-      addCheck('macOS, xcrun, pnpm, and bundle are available');
+      {
+        const packageManager = ensurePackageManager(action, repoRoot);
+        ensureMacOs(action);
+        ensureCommand(action, 'xcrun', repoRoot);
+        ensureCommand(action, 'bundle', repoRoot);
+        addCheck(`macOS, xcrun, ${packageManager}, and bundle are available`);
+      }
       break;
 
     case 'verifyCleanIosBuild':

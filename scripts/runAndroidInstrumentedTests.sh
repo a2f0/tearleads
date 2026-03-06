@@ -30,6 +30,7 @@ case $SCRIPT_PATH in
   *) SCRIPT_PATH=$(command -v -- "$SCRIPT_PATH" || true) ;;
 esac
 SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
+PM_SCRIPT="$SCRIPT_DIR/tooling/pm.sh"
 
 # Defaults
 HEADLESS=0
@@ -135,12 +136,12 @@ fi
 # Build web assets if needed
 if [ ! -d "dist" ] || [ ! -f "dist/index.html" ]; then
   echo "==> Building web assets..."
-  pnpm build
+  sh "$PM_SCRIPT" run build
 fi
 
 # Sync Capacitor
 echo "==> Syncing Capacitor..."
-pnpm cap:sync
+sh "$PM_SCRIPT" run cap:sync
 
 # Run instrumented tests
 echo "==> Running instrumented tests..."
