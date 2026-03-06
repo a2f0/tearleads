@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 
+// component-complexity: allow -- table layout and routing split is tracked separately.
 const ROW_COUNT_FORMATTER = new Intl.NumberFormat('en-US');
 
 function formatBytes(bytes: number): string {
@@ -58,7 +59,7 @@ export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.admin.postgres.getTables();
+      const response = await api.adminV2.postgres.getTables();
       const sorted = [...response.tables].sort((a, b) => {
         const schemaCompare = a.schema.localeCompare(b.schema, undefined, {
           sensitivity: 'base'

@@ -13,7 +13,7 @@ const mockNavigate = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   api: {
-    admin: {
+    adminV2: {
       getContext: () => mockGetContext(),
       users: {
         list: () => mockList()

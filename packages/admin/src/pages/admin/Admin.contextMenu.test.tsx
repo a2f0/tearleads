@@ -12,7 +12,7 @@ const mockGetDbSize = vi.fn<() => Promise<{ count: number }>>();
 
 vi.mock('@/lib/api', () => ({
   api: {
-    admin: {
+    adminV2: {
       getContext: vi.fn().mockResolvedValue({
         isRootAdmin: true,
         organizations: [{ id: 'org-1', name: 'Org 1' }]

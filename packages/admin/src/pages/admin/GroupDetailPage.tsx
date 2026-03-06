@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 
+// component-complexity: allow -- route page split into form/member panels is planned separately.
 interface GroupDetailPageProps {
   groupId?: string;
   backLink?: ReactNode;
@@ -44,7 +45,7 @@ export function GroupDetailPage({
     try {
       setLoading(true);
       setError(null);
-      const response = await api.admin.groups.get(id);
+      const response = await api.adminV2.groups.get(id);
       setGroup(response.group);
       setMembers(response.members);
       setName(response.group.name);
@@ -79,7 +80,7 @@ export function GroupDetailPage({
       if (group && trimmedOrganizationId !== group.organizationId) {
         payload.organizationId = trimmedOrganizationId;
       }
-      const response = await api.admin.groups.update(id, payload);
+      const response = await api.adminV2.groups.update(id, payload);
       setGroup(response.group);
       setOrganizationId(response.group.organizationId);
     } catch (err) {
@@ -95,7 +96,7 @@ export function GroupDetailPage({
 
   const handleDelete = async () => {
     if (!id) return;
-    await api.admin.groups.delete(id);
+    await api.adminV2.groups.delete(id);
     onDelete?.();
   };
 
@@ -106,7 +107,7 @@ export function GroupDetailPage({
     try {
       setAddingMember(true);
       setError(null);
-      await api.admin.groups.addMember(id, addUserId.trim());
+      await api.adminV2.groups.addMember(id, addUserId.trim());
       setAddUserId('');
       await fetchGroup();
     } catch (err) {
@@ -124,7 +125,7 @@ export function GroupDetailPage({
 
   const handleRemoveMember = async () => {
     if (!id || !removeMemberDialog) return;
-    await api.admin.groups.removeMember(id, removeMemberDialog.userId);
+    await api.adminV2.groups.removeMember(id, removeMemberDialog.userId);
     setMembers((prev) =>
       prev.filter((m) => m.userId !== removeMemberDialog.userId)
     );

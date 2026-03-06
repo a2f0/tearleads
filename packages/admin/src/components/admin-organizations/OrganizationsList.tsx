@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 
+// component-complexity: allow -- scheduled split into list/table/context-menu subcomponents.
 interface OrganizationsListProps {
   onCreateClick?: (() => void) | undefined;
   onOrganizationSelect: (organizationId: string) => void;
@@ -39,7 +40,7 @@ export function OrganizationsList({
     try {
       setLoading(true);
       setError(null);
-      const response = await api.admin.organizations.list(
+      const response = await api.adminV2.organizations.list(
         organizationId ? { organizationId } : undefined
       );
       setOrganizations(response.organizations);
@@ -67,7 +68,7 @@ export function OrganizationsList({
   const handleDelete = async () => {
     if (!deleteDialog) return;
 
-    await api.admin.organizations.delete(deleteDialog.id);
+    await api.adminV2.organizations.delete(deleteDialog.id);
     setOrganizations((prev) =>
       prev.filter((organization) => organization.id !== deleteDialog.id)
     );

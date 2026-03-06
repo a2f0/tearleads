@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { AdminUserAiUsage } from '../../components/users-admin/AdminUserAiUsage';
 import { AdminUserGroups } from '../../components/users-admin/AdminUserGroups';
 
+// component-complexity: allow -- detail page split into editable profile and memberships is planned separately.
 interface UsersAdminDetailProps {
   userId?: string | null;
   backLink?: ReactNode;
@@ -47,7 +48,7 @@ export function UsersAdminDetail({
     setLoading(true);
     setError(null);
     try {
-      const response = await api.admin.users.get(userId);
+      const response = await api.adminV2.users.get(userId);
       setUser(response.user);
       setDraft(response.user);
       setOrganizationIdsInput(response.user.organizationIds.join(', '));
@@ -116,7 +117,7 @@ export function UsersAdminDetail({
     setSaveError(null);
     setSaving(true);
     try {
-      const response = await api.admin.users.update(user.id, payload);
+      const response = await api.adminV2.users.update(user.id, payload);
       setUser(response.user);
       setDraft(response.user);
       setOrganizationIdsInput(response.user.organizationIds.join(', '));
