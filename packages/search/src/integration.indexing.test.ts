@@ -5,9 +5,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SearchableDocument } from './types';
 
-const getSearchStoreForInstanceMock = vi.hoisted(() => vi.fn());
+const getSearchStoreForInstanceMock = vi.fn<(instanceId: string) => unknown>();
 vi.mock('./SearchStore', () => ({
-  getSearchStoreForInstance: getSearchStoreForInstanceMock
+  getSearchStoreForInstance: (instanceId: string) =>
+    getSearchStoreForInstanceMock(instanceId)
 }));
 
 describe('indexDocument', () => {
@@ -19,7 +20,6 @@ describe('indexDocument', () => {
   };
 
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
     getSearchStoreForInstanceMock.mockReturnValue(mockStore);
   });
@@ -81,7 +81,6 @@ describe('indexDocuments', () => {
   };
 
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
     getSearchStoreForInstanceMock.mockReturnValue(mockStore);
   });
@@ -156,7 +155,6 @@ describe('removeFromIndex', () => {
   };
 
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
     getSearchStoreForInstanceMock.mockReturnValue(mockStore);
   });
@@ -199,7 +197,6 @@ describe('indexEntity', () => {
   };
 
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
     getSearchStoreForInstanceMock.mockReturnValue(mockStore);
   });
