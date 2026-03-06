@@ -30,7 +30,9 @@ const loadApi = async () => {
   return module.api;
 };
 let seededUser: SeededUser;
-const MLS_ENCRYPTED_STATE_BASE64 = 'ZW5jcnlwdGVkLXN0YXRl';
+const toBase64 = (value: string): string =>
+  Buffer.from(value, 'utf8').toString('base64');
+const MLS_ENCRYPTED_STATE = 'encrypted-state';
 const MLS_ENCRYPTED_STATE_HASH = 'BYJJibhXa6PncspNXaXcAsA/+vjQTtFT2YV2g8l3a+0=';
 
 describe('api with msw', () => {
@@ -39,6 +41,7 @@ describe('api with msw', () => {
     vi.clearAllMocks();
     installApiV2WasmBindingsOverride();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
+    vi.stubEnv('VFS_CRDT_ENVELOPE_BYTEA_WRITES', 'false');
     localStorage.clear();
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
@@ -276,6 +279,13 @@ describe('api with msw', () => {
   });
   it('routes mls requests through msw', async () => {
     const ctx = getSharedTestContext();
+    const addCommit = toBase64('commit-bytes');
+    const addWelcome = toBase64('welcome-bytes');
+    const messageCiphertext = toBase64('ciphertext');
+    const removeCommit = toBase64('remove-commit');
+    const keyPackageDataSeed = toBase64('kp-data-seed');
+    const keyPackageDataAdd = toBase64('kp-data-add');
+    const keyPackageDataExtra = toBase64('kp-data-extra');
     // Create second user and add to seeded user's org for MLS membership
     const secondUser = await seedTestUser(ctx);
     await ctx.pool.query(
@@ -286,9 +296,9 @@ describe('api with msw', () => {
     // Insert key packages for secondUser (one for addMember, one for getUserKeyPackages)
     await ctx.pool.query(
       `INSERT INTO mls_key_packages (id, user_id, key_package_data, key_package_ref, cipher_suite, created_at)
-       VALUES ('kp-add', $1, 'kp-data-add', 'kp-ref-add', 3, NOW()),
-              ('kp-extra', $1, 'kp-data-extra', 'kp-ref-extra', 3, NOW())`,
-      [secondUser.userId]
+       VALUES ('kp-add', $1, $2, 'kp-ref-add', 3, NOW()),
+              ('kp-extra', $1, $3, 'kp-ref-extra', 3, NOW())`,
+      [secondUser.userId, keyPackageDataAdd, keyPackageDataExtra]
     );
     const api = await loadApi();
     // Group lifecycle
@@ -307,8 +317,8 @@ describe('api with msw', () => {
     // Member operations
     await api.mls.addGroupMember(groupId, {
       userId: secondUser.userId,
-      commit: 'commit-bytes',
-      welcome: 'welcome-bytes',
+      commit: addCommit,
+      welcome: addWelcome,
       keyPackageRef: 'kp-ref-add',
       newEpoch: addMemberEpoch
     });
@@ -317,7 +327,7 @@ describe('api with msw', () => {
     // Messages
     await api.mls.getGroupMessages(groupId, { cursor: '10', limit: 25 });
     await api.mls.sendGroupMessage(groupId, {
-      ciphertext: 'ciphertext',
+      ciphertext: messageCiphertext,
       epoch: addMemberEpoch,
       messageType: 'application'
     });
@@ -325,7 +335,7 @@ describe('api with msw', () => {
     await api.mls.getGroupState(groupId);
     await api.mls.uploadGroupState(groupId, {
       epoch: addMemberEpoch,
-      encryptedState: MLS_ENCRYPTED_STATE_BASE64,
+      encryptedState: MLS_ENCRYPTED_STATE,
       stateHash: MLS_ENCRYPTED_STATE_HASH
     });
     // Key packages
@@ -333,7 +343,7 @@ describe('api with msw', () => {
     const uploadResponse = await api.mls.uploadKeyPackages({
       keyPackages: [
         {
-          keyPackageData: 'kp-data-seed',
+          keyPackageData: keyPackageDataSeed,
           keyPackageRef: 'kp-ref-seed',
           cipherSuite: 3
         }
@@ -354,7 +364,7 @@ describe('api with msw', () => {
     await api.mls.acknowledgeWelcome(welcomeId, { groupId });
     // Remove member, leave group, delete key package
     await api.mls.removeGroupMember(groupId, secondUser.userId, {
-      commit: 'remove-commit',
+      commit: removeCommit,
       newEpoch: removeMemberEpoch
     });
     await api.mls.leaveGroup(groupId);
