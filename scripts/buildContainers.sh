@@ -9,8 +9,10 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-}"
 ECR_REGISTRY=""
-DOCKER_BUILD_PLATFORM="${DOCKER_BUILD_PLATFORM:-linux/amd64}"
+DOCKER_BUILD_PLATFORM="${DOCKER_BUILD_PLATFORM:-}"
+DOCKER_BUILD_PLATFORM_SOURCE=""
 PARALLEL="${PARALLEL:-false}"
+MAX_PARALLEL_JOBS=1
 
 usage() {
   echo "Usage: $0 <environment> [options]"
@@ -28,13 +30,14 @@ usage() {
   echo "  --no-api-v2     Skip building the API v2 container"
   echo "  --no-smtp       Skip building the SMTP listener container"
   echo "  --no-website    Skip building the website container"
-  echo "  --parallel      Build selected containers in parallel"
+  echo "  --parallel      Build selected containers in parallel (bounded by CPU cores)"
   echo "  --no-push       Build only, don't push to ECR"
   echo "  --tag TAG       Use specific tag (default: latest)"
   echo ""
   echo "Environment variables:"
   echo "  AWS_REGION      AWS region (default: us-east-1)"
   echo "  AWS_ACCOUNT_ID  AWS account ID (auto-detected when pushing)"
+  echo "  DOCKER_BUILD_PLATFORM  Docker platform (linux/amd64, linux/arm64, or auto)"
   echo "  VITE_API_URL    API URL for client build (required for client)"
   exit 1
 }
@@ -50,6 +53,65 @@ if [[ "$ENV" != "staging" && "$ENV" != "prod" ]]; then
   echo "Error: Environment must be 'staging' or 'prod'"
   exit 1
 fi
+
+count_selected_builds() {
+  local selected=0
+
+  if [[ "$BUILD_API" == "true" ]]; then
+    selected=$((selected + 1))
+  fi
+  if [[ "$BUILD_API_V2" == "true" ]]; then
+    selected=$((selected + 1))
+  fi
+  if [[ "$BUILD_CLIENT" == "true" ]]; then
+    selected=$((selected + 1))
+  fi
+  if [[ "$BUILD_SMTP" == "true" ]]; then
+    selected=$((selected + 1))
+  fi
+  if [[ "$BUILD_WEBSITE" == "true" ]]; then
+    selected=$((selected + 1))
+  fi
+
+  echo "$selected"
+}
+
+detect_cpu_cores() {
+  local cores=""
+
+  if command -v nproc >/dev/null 2>&1; then
+    cores="$(nproc)"
+  elif command -v sysctl >/dev/null 2>&1; then
+    cores="$(sysctl -n hw.ncpu 2>/dev/null || true)"
+  fi
+
+  if [[ -z "$cores" ]] && command -v getconf >/dev/null 2>&1; then
+    cores="$(getconf _NPROCESSORS_ONLN 2>/dev/null || true)"
+  fi
+
+  if [[ -z "$cores" || ! "$cores" =~ ^[0-9]+$ || "$cores" -lt 1 ]]; then
+    cores=1
+  fi
+
+  echo "$cores"
+}
+
+detect_host_docker_platform() {
+  local arch
+  arch="$(uname -m)"
+
+  case "$arch" in
+    arm64|aarch64)
+      echo "linux/arm64"
+      ;;
+    amd64|x86_64)
+      echo "linux/amd64"
+      ;;
+    *)
+      echo "linux/amd64"
+      ;;
+  esac
+}
 
 # Parse options
 BUILD_API=true
@@ -136,6 +198,38 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+SELECTED_BUILD_COUNT="$(count_selected_builds)"
+CPU_CORES="$(detect_cpu_cores)"
+
+if [[ "$SELECTED_BUILD_COUNT" -eq 0 ]]; then
+  echo "No containers selected for build."
+  exit 0
+fi
+
+if [[ "$PARALLEL" == "true" ]]; then
+  MAX_PARALLEL_JOBS="$CPU_CORES"
+  if [[ "$SELECTED_BUILD_COUNT" -lt "$MAX_PARALLEL_JOBS" ]]; then
+    MAX_PARALLEL_JOBS="$SELECTED_BUILD_COUNT"
+  fi
+fi
+
+if [[ "$DOCKER_BUILD_PLATFORM" == "auto" ]]; then
+  DOCKER_BUILD_PLATFORM="$(detect_host_docker_platform)"
+  DOCKER_BUILD_PLATFORM_SOURCE="auto"
+elif [[ -z "$DOCKER_BUILD_PLATFORM" ]]; then
+  if [[ "$PUSH" == "true" ]]; then
+    # Keep push-compatible default for current runtime architecture.
+    DOCKER_BUILD_PLATFORM="linux/amd64"
+    DOCKER_BUILD_PLATFORM_SOURCE="default (push mode)"
+  else
+    # Local --no-push builds default to host architecture for speed.
+    DOCKER_BUILD_PLATFORM="$(detect_host_docker_platform)"
+    DOCKER_BUILD_PLATFORM_SOURCE="auto (no-push mode)"
+  fi
+else
+  DOCKER_BUILD_PLATFORM_SOURCE="explicit"
+fi
+
 # Resolve AWS account ID after parsing options so usage/help paths do not require AWS calls.
 if [[ -z "$AWS_ACCOUNT_ID" ]]; then
   if [[ "$PUSH" == "true" ]]; then
@@ -166,7 +260,14 @@ echo "Build SMTP Listener: $BUILD_SMTP"
 echo "Build Website: $BUILD_WEBSITE"
 echo "Push to ECR: $PUSH"
 echo "Docker Platform: $DOCKER_BUILD_PLATFORM"
+echo "Docker Platform Source: $DOCKER_BUILD_PLATFORM_SOURCE"
 echo "Parallel Build: $PARALLEL"
+if [[ "$PARALLEL" == "true" ]]; then
+  echo "Parallel Jobs: $MAX_PARALLEL_JOBS (CPU cores: $CPU_CORES)"
+fi
+if [[ "$PUSH" == "true" && "$DOCKER_BUILD_PLATFORM" != "linux/amd64" ]]; then
+  echo "WARNING: Pushing non-amd64 images. Verify your runtime supports $DOCKER_BUILD_PLATFORM."
+fi
 echo ""
 
 # Login to ECR
@@ -203,11 +304,27 @@ build_and_push_image() {
 declare -a BUILD_PIDS=()
 declare -a BUILD_NAMES=()
 
+wait_for_available_build_slot() {
+  if [[ "$PARALLEL" != "true" ]]; then
+    return
+  fi
+
+  while true; do
+    local running_jobs
+    running_jobs="$(jobs -rp | wc -l | tr -d '[:space:]')"
+    if [[ "$running_jobs" -lt "$MAX_PARALLEL_JOBS" ]]; then
+      break
+    fi
+    sleep 0.2
+  done
+}
+
 run_or_queue_build() {
   local display_name="$1"
   shift
 
   if [[ "$PARALLEL" == "true" ]]; then
+    wait_for_available_build_slot
     build_and_push_image "$display_name" "$@" &
     BUILD_PIDS+=("$!")
     BUILD_NAMES+=("$display_name")

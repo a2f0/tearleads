@@ -40,6 +40,14 @@ if [[ ${#CRATE_DIRS[@]} -eq 0 ]]; then
   exit 1
 fi
 
+TEMP_DIRS=()
+cleanup_temp_dirs() {
+  for tmp_dir in "${TEMP_DIRS[@]}"; do
+    rm -rf "$tmp_dir"
+  done
+}
+trap cleanup_temp_dirs EXIT
+
 # Collect cargo package names for the build invocation
 PACKAGE_ARGS=()
 for dir in "${CRATE_DIRS[@]}"; do
@@ -81,15 +89,20 @@ for dir in "${CRATE_DIRS[@]}"; do
     "$REPO_ROOT/packages/mls-core/.generated/$camel_name"
   )
 
+  bindgen_output_dir="$(mktemp -d "${TMPDIR:-/tmp}/${crate_dir_name}-bindgen.XXXXXX")"
+  TEMP_DIRS+=("$bindgen_output_dir")
+  echo "Generating bindings for $crate_dir_name..."
+  wasm-bindgen \
+    "$wasm_input" \
+    --target web \
+    --out-dir "$bindgen_output_dir" \
+    --typescript
+
   for output_dir in "${OUTPUT_DIRS[@]}"; do
     rm -rf "$output_dir"
     mkdir -p "$output_dir"
-    echo "Generating bindings in ${output_dir#"$REPO_ROOT"/}..."
-    wasm-bindgen \
-      "$wasm_input" \
-      --target web \
-      --out-dir "$output_dir" \
-      --typescript
+    echo "Copying bindings to ${output_dir#"$REPO_ROOT"/}..."
+    cp -R "$bindgen_output_dir"/. "$output_dir"/
   done
 done
 
