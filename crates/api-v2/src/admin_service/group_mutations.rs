@@ -108,10 +108,10 @@ where
             .map(|value| normalize_required_resource_id("organization_id", &value))
             .transpose()
             .map_err(Status::invalid_argument)?;
-        if let Some(target_organization_id) = organization_id.as_deref() {
-            if !has_group_scope(&admin_access, target_organization_id) {
-                return Err(Status::permission_denied("forbidden organization scope"));
-            }
+        if let Some(target_organization_id) = organization_id.as_deref()
+            && !has_group_scope(&admin_access, target_organization_id)
+        {
+            return Err(Status::permission_denied("forbidden organization scope"));
         }
 
         let name = payload
