@@ -209,13 +209,14 @@ export default mergeConfig(
           // for the inactive view cannot be exercised in tests.
           'src/pages/help/Help.tsx',
           // App config runtime module - thin wrapper over virtual module
-          'src/lib/appConfig.ts'
+          'src/lib/appConfig.ts',
+          // Re-export stub after analytics source moved to packages/analytics
+          'src/db/analytics.ts'
         ],
         thresholds: {
-          // Threshold lowered after file-splitting refactor. Coverage fluctuates
-          // slightly depending on test execution order and module loading.
+          // Thresholds adjusted after moving analytics tests to packages/analytics
           statements: 90.2,
-          branches: 82.4,
+          branches: 82.2,
           functions: 91.4,
           lines: 91.7
         }
