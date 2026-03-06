@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/api-client",
-  "version": "0.0.83",
+  "version": "0.0.84",
   "description": "Shared API consumer client for Tearleads",
   "type": "module",
   "main": "src/index.ts",
