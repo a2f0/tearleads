@@ -62,7 +62,8 @@ export function runCiImpactScript({
     }
 
     if (result.status !== 0) {
-      const stderr = typeof result.stderr === 'string' ? result.stderr.trim() : '';
+      const stderr =
+        typeof result.stderr === 'string' ? result.stderr.trim() : '';
       lastError = `${runner.display} failed (exit ${result.status ?? 'null'})${stderr ? `: ${stderr}` : ''}`;
       continue;
     }
