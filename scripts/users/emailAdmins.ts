@@ -1,7 +1,7 @@
-#!/usr/bin/env -S pnpm exec tsx
-import { execFileSync } from 'node:child_process';
+#!/usr/bin/env -S node --import tsx
 import { pathToFileURL } from 'node:url';
 import { deliverMail } from './deliverMail.ts';
+import { runApiCliForOutput } from './lib/runApiCli.ts';
 
 type AdminRow = {
   id: string;
@@ -37,11 +37,7 @@ function printUsage(): void {
 }
 
 function getAdminUsers(): AdminRow[] {
-  const raw = execFileSync(
-    'pnpm',
-    ['--filter', '@tearleads/api', 'cli', 'list-admins', '--json'],
-    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
-  );
+  const raw = runApiCliForOutput(['list-admins', '--json']);
   const lines = raw.trim().split('\n');
   const jsonLine = lines.at(-1) ?? '[]';
   return JSON.parse(jsonLine) as AdminRow[];

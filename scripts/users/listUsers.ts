@@ -1,14 +1,9 @@
-#!/usr/bin/env -S pnpm exec tsx
-import { execFileSync } from 'node:child_process';
+#!/usr/bin/env -S node --import tsx
 import { pathToFileURL } from 'node:url';
+import { runApiCli } from './lib/runApiCli.ts';
 
 function main(): void {
-  const args = process.argv.slice(2);
-  execFileSync(
-    'pnpm',
-    ['--filter', '@tearleads/api', 'cli', 'list-users', ...args],
-    { stdio: 'inherit' }
-  );
+  runApiCli(['list-users', ...process.argv.slice(2)]);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {

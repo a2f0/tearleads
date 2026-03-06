@@ -1,4 +1,4 @@
-#!/usr/bin/env -S pnpm exec tsx
+#!/usr/bin/env -S node --import tsx
 import { pathToFileURL } from 'node:url';
 import { setupBobNotesShareForAliceDb } from '../../../packages/shared/src/scaffolding/setupBobNotesShareForAliceDb.ts';
 import { setupBobPhotoAlbumShareForAliceDb } from '../../../packages/shared/src/scaffolding/setupBobPhotoAlbumShareForAliceDb.ts';
