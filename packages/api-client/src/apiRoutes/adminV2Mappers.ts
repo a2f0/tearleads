@@ -4,6 +4,7 @@ import type {
   AdminUsersResponse,
   GroupDetailResponse,
   GroupMembersResponse,
+  GroupsListResponse,
   OrganizationGroupsResponse,
   OrganizationResponse,
   OrganizationsListResponse,
@@ -28,6 +29,7 @@ import type {
   AdminGetRowsResponse,
   AdminGetTablesResponse,
   AdminGetUserResponse,
+  AdminListGroupsResponse,
   AdminListOrganizationsResponse,
   AdminListUsersResponse
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
@@ -74,6 +76,22 @@ export function mapGroupDetailResponse(
       userId: member.userId,
       email: member.email,
       joinedAt: member.joinedAt
+    }))
+  };
+}
+
+export function mapGroupsListResponse(
+  response: AdminListGroupsResponse
+): GroupsListResponse {
+  return {
+    groups: response.groups.map((group) => ({
+      id: group.id,
+      organizationId: group.organizationId,
+      name: group.name,
+      description: group.description ?? null,
+      createdAt: group.createdAt,
+      updatedAt: group.updatedAt,
+      memberCount: group.memberCount
     }))
   };
 }

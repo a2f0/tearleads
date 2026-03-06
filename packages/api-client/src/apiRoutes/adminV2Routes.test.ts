@@ -32,6 +32,7 @@ vi.mock('@connectrpc/connect-web', async () => {
 
 interface AdminV2ClientOverrides {
   getContext?: AdminV2Client['getContext'];
+  listGroups?: AdminV2Client['listGroups'];
   getGroup?: AdminV2Client['getGroup'];
   getGroupMembers?: AdminV2Client['getGroupMembers'];
   listOrganizations?: AdminV2Client['listOrganizations'];
@@ -60,6 +61,7 @@ function createAdminV2ClientStub(
         organizations: [],
         defaultOrganizationId: undefined
       })),
+    listGroups: overrides.listGroups ?? vi.fn(async () => ({ groups: [] })),
     getGroup:
       overrides.getGroup ??
       vi.fn(async () => ({ group: undefined, members: [] })),

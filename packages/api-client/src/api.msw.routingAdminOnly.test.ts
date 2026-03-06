@@ -175,7 +175,7 @@ describe('api with msw admin routing', () => {
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.AdminService/ListGroups')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/ListGroups')
     ).toBe(true);
     expect(
       wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetGroup')

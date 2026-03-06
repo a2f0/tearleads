@@ -13,6 +13,7 @@ function createClientStub(
         organizations: [],
         defaultOrganizationId: undefined
       })),
+    listGroups: overrides.listGroups ?? vi.fn(async () => ({ groups: [] })),
     getGroup:
       overrides.getGroup ??
       vi.fn(async () => ({ group: undefined, members: [] })),
@@ -55,6 +56,19 @@ function createClientStub(
 describe('adminV2Routes scoped reads', () => {
   it('maps getGroup, listOrganizations, and listUsers responses', async () => {
     const logEvent = vi.fn(async () => undefined);
+    const listGroups = vi.fn(async () => ({
+      groups: [
+        {
+          id: 'group-1',
+          organizationId: 'org-1',
+          name: 'Core Admin',
+          description: 'Operators',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-02T00:00:00Z',
+          memberCount: 3
+        }
+      ]
+    }));
     const getGroup = vi.fn(async () => ({
       group: {
         id: 'group-1',
@@ -108,7 +122,12 @@ describe('adminV2Routes scoped reads', () => {
         }
       ]
     }));
-    const client = createClientStub({ getGroup, listOrganizations, listUsers });
+    const client = createClientStub({
+      listGroups,
+      getGroup,
+      listOrganizations,
+      listUsers
+    });
 
     const routes = createAdminV2Routes({
       resolveApiBaseUrl: () => 'https://api.example.test',
@@ -119,17 +138,27 @@ describe('adminV2Routes scoped reads', () => {
       logEvent
     });
 
+    const groupsResponse = await routes.groups.list({
+      organizationId: 'org-1'
+    });
     const groupResponse = await routes.groups.get('group-1');
     const organizationsResponse = await routes.organizations.list({
       organizationId: 'org-1'
     });
     const usersResponse = await routes.users.list({ organizationId: 'org-1' });
 
+    expect(groupsResponse.groups[0]?.id).toBe('group-1');
+    expect(groupsResponse.groups[0]?.memberCount).toBe(3);
     expect(groupResponse.group.id).toBe('group-1');
     expect(groupResponse.members[0]?.userId).toBe('user-1');
     expect(organizationsResponse.organizations[0]?.id).toBe('org-1');
     expect(usersResponse.users[0]?.accounting.totalTokens).toBe(30);
     expect(usersResponse.users[0]?.disabledAt).toBeNull();
+    expect(logEvent).toHaveBeenCalledWith(
+      'api_get_admin_groups',
+      expect.any(Number),
+      true
+    );
     expect(logEvent).toHaveBeenCalledWith(
       'api_get_admin_group',
       expect.any(Number),

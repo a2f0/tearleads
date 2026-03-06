@@ -20,6 +20,7 @@ import {
   AdminGetRowsRequestSchema,
   AdminGetTablesRequestSchema,
   AdminGetUserRequestSchema,
+  AdminListGroupsRequestSchema,
   AdminListOrganizationsRequestSchema,
   AdminListUsersRequestSchema,
   AdminService
@@ -36,6 +37,7 @@ import {
   mapContextResponse,
   mapGroupDetailResponse,
   mapGroupMembersResponse,
+  mapGroupsListResponse,
   mapOrganizationGroupsResponse,
   mapOrganizationResponse,
   mapOrganizationsResponse,
@@ -161,6 +163,19 @@ export function createAdminV2Routes(
         return mapContextResponse(response);
       }),
     groups: {
+      list: (options?: { organizationId?: string }) =>
+        runWithEvent(dependencies, 'api_get_admin_groups', async () => {
+          const { client, callOptions } = await buildCallContext(dependencies);
+          const response = await client.listGroups(
+            create(AdminListGroupsRequestSchema, {
+              ...(options?.organizationId
+                ? { organizationId: options.organizationId }
+                : {})
+            }),
+            callOptions
+          );
+          return mapGroupsListResponse(response);
+        }),
       get: (id: string) =>
         runWithEvent(dependencies, 'api_get_admin_group', async () => {
           const { client, callOptions } = await buildCallContext(dependencies);
