@@ -15,6 +15,7 @@ case $SCRIPT_PATH in
   *) SCRIPT_PATH=$(command -v -- "$SCRIPT_PATH" || true) ;;
 esac
 SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
+PM_SCRIPT="$SCRIPT_DIR/tooling/pm.sh"
 
 export MAESTRO_CLI_NO_ANALYTICS=1
 
@@ -88,10 +89,10 @@ else
 fi
 
 echo "==> Building the app..."
-pnpm build
+sh "$PM_SCRIPT" run build
 
 echo "==> Syncing with Capacitor..."
-pnpm cap:sync
+sh "$PM_SCRIPT" run cap:sync
 
 echo "==> Building, installing, and running Maestro tests via Fastlane..."
 if [ -n "$FLOW_PATH" ]; then

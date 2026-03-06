@@ -14,11 +14,12 @@ case $SCRIPT_PATH in
   *) SCRIPT_PATH=$(command -v -- "$SCRIPT_PATH" || true) ;;
 esac
 SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
+PM_SCRIPT="$SCRIPT_DIR/tooling/pm.sh"
 
 cd "$SCRIPT_DIR/../packages/client"
 
 echo "==> Building Electron app..."
-pnpm electron:build
+sh "$PM_SCRIPT" run electron:build
 
 echo "==> Running Electron tests..."
 npx playwright test --config=playwright.electron.config.ts "$@"
