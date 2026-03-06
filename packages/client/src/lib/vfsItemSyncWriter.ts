@@ -38,7 +38,8 @@ interface QueueItemDeleteAndFlushInput {
 let syncRuntime: VfsSyncRuntime | null = null;
 const serverRegisteredItemIds = new Set<string>();
 
-let inflightCount = 0;
+let uploadInflightCount = 0;
+let downloadInflightCount = 0;
 let lastSyncError: Error | null = null;
 const syncActivityListeners = new Set<() => void>();
 
@@ -49,10 +50,11 @@ function notifySyncActivityListeners(): void {
 }
 
 export function getSyncActivity(): {
-  inflightCount: number;
+  uploadInflightCount: number;
+  downloadInflightCount: number;
   lastSyncError: Error | null;
 } {
-  return { inflightCount, lastSyncError };
+  return { uploadInflightCount, downloadInflightCount, lastSyncError };
 }
 
 export function subscribeSyncActivity(cb: () => void): () => void {
@@ -79,7 +81,8 @@ export function setVfsItemSyncRuntime(runtime: VfsSyncRuntime | null): void {
   syncRuntime = runtime;
   if (runtime === null) {
     serverRegisteredItemIds.clear();
-    inflightCount = 0;
+    uploadInflightCount = 0;
+    downloadInflightCount = 0;
     lastSyncError = null;
     notifySyncActivityListeners();
   }
@@ -175,7 +178,7 @@ async function ensureServerRegistration(
 }
 
 async function withSyncTracking(operation: () => Promise<void>): Promise<void> {
-  inflightCount++;
+  uploadInflightCount++;
   notifySyncActivityListeners();
   try {
     await operation();
@@ -184,7 +187,24 @@ async function withSyncTracking(operation: () => Promise<void>): Promise<void> {
     lastSyncError = error instanceof Error ? error : new Error(String(error));
     throw error;
   } finally {
-    inflightCount--;
+    uploadInflightCount--;
+    notifySyncActivityListeners();
+  }
+}
+
+export async function withDownloadTracking(
+  operation: () => Promise<void>
+): Promise<void> {
+  downloadInflightCount++;
+  notifySyncActivityListeners();
+  try {
+    await operation();
+    lastSyncError = null;
+  } catch (error) {
+    lastSyncError = error instanceof Error ? error : new Error(String(error));
+    throw error;
+  } finally {
+    downloadInflightCount--;
     notifySyncActivityListeners();
   }
 }

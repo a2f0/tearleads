@@ -48,14 +48,21 @@ export function VfsSyncStatusIndicator() {
     return null;
   }
 
-  const { inflightCount, lastSyncError } = syncActivity;
+  const { uploadInflightCount, downloadInflightCount, lastSyncError } =
+    syncActivity;
 
   let state: 'connected' | 'connecting' | 'disconnected';
   let tooltip: string;
 
-  if (inflightCount > 0) {
+  if (uploadInflightCount > 0 && downloadInflightCount > 0) {
     state = 'connecting';
     tooltip = t('vfsSyncing');
+  } else if (uploadInflightCount > 0) {
+    state = 'connecting';
+    tooltip = t('vfsUploading');
+  } else if (downloadInflightCount > 0) {
+    state = 'connecting';
+    tooltip = t('vfsDownloading');
   } else if (lastSyncError) {
     state = 'disconnected';
     tooltip = t('vfsSyncError');

@@ -150,6 +150,8 @@ export const enPart1 = {
     sseDisconnected: 'SSE: Disconnected',
     vfsSynced: 'All data synced',
     vfsSyncing: 'Syncing data...',
+    vfsUploading: 'Uploading data...',
+    vfsDownloading: 'Downloading data...',
     vfsSyncError: 'Sync failed',
     vfsPendingSync: '{{count}} operations pending sync',
     keychainSalt:
