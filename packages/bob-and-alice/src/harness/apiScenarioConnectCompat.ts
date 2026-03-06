@@ -1,5 +1,6 @@
 import {
   parseConnectJsonEnvelopeBody,
+  VFS_SHARES_V2_CONNECT_BASE_PATH,
   VFS_V2_CONNECT_BASE_PATH
 } from '@tearleads/shared';
 
@@ -14,7 +15,7 @@ export interface ConnectRouteMapping {
 const AUTH_SERVICE_PATH = '/v1/connect/tearleads.v1.AuthService';
 const AI_SERVICE_PATH = '/v1/connect/tearleads.v1.AiService';
 const VFS_SERVICE_PATH = `/v1${VFS_V2_CONNECT_BASE_PATH}`;
-const VFS_SHARES_SERVICE_PATH = '/v1/connect/tearleads.v2.VfsSharesService';
+const VFS_SHARES_SERVICE_PATH = `/v1${VFS_SHARES_V2_CONNECT_BASE_PATH}`;
 
 function parseJson<T>(text: string): T {
   return JSON.parse(text);
