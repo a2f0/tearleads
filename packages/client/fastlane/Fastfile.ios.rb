@@ -5,6 +5,7 @@ import 'utils.rb'
 APP_ID = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
 APPSTORE_PROFILE_NAME = "match AppStore #{APP_ID}"
 MATCH_MISSING_PROFILE_ERROR_TEXT = 'No matching provisioning profiles found'.freeze
+IOS_METADATA_DIR = File.expand_path('../fastlane/metadata/ios', __dir__).freeze
 
 # App display name - derived from environment or defaults to bundle ID suffix
 APP_DISPLAY_NAME = ENV['APP_DISPLAY_NAME'] || APP_ID.split('.').last.capitalize
@@ -207,6 +208,26 @@ platform :ios do
   desc 'Run Maestro UI tests on iOS simulator with release build'
   lane :test_maestro_release do
     run_maestro_tests(build_type: 'release')
+  end
+
+  desc 'Download store listing metadata from App Store Connect'
+  lane :metadata_pull do
+    ensure_app_store_connect_api
+    download_metadata(
+      metadata_path: IOS_METADATA_DIR
+    )
+  end
+
+  desc 'Upload store listing metadata to App Store Connect'
+  lane :metadata_push do
+    ensure_app_store_connect_api
+    deliver(
+      metadata_path: IOS_METADATA_DIR,
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      force: true,
+      precheck_include_in_app_purchases: false
+    )
   end
 
   private_lane :run_maestro_tests do |options|

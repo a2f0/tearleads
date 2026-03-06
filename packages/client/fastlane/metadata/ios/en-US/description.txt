@@ -1,0 +1,9 @@
+Tearleads is a secure messaging and collaboration platform designed for teams and individuals who value privacy.
+
+Communicate with confidence using end-to-end encryption. Share files, coordinate projects, and stay connected — all within a single app built from the ground up with security in mind.
+
+Key features:
+- End-to-end encrypted messaging
+- Secure file sharing
+- Team collaboration tools
+- Cross-platform support
