@@ -1,6 +1,14 @@
 #!/bin/sh
 set -eu
 
+SCRIPT_PATH=$0
+case $SCRIPT_PATH in
+  */*) ;;
+  *) SCRIPT_PATH=$(command -v -- "$SCRIPT_PATH" || true) ;;
+esac
+SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
+PM_SCRIPT="$SCRIPT_DIR/tooling/pm.sh"
+
 HEADLESS=1
 
 while [ "$#" -gt 0 ]; do
@@ -24,19 +32,19 @@ TOTAL_START=$(date +%s)
 
 echo "==> Running lint..."
 LINT_START=$(date +%s)
-pnpm lint
+sh "$PM_SCRIPT" run lint
 LINT_END=$(date +%s)
 LINT_TIME=$((LINT_END - LINT_START))
 
 echo "==> Running build..."
 BUILD_START=$(date +%s)
-pnpm build
+sh "$PM_SCRIPT" run build
 BUILD_END=$(date +%s)
 BUILD_TIME=$((BUILD_END - BUILD_START))
 
 echo "==> Running unit tests..."
 UNIT_START=$(date +%s)
-pnpm test
+sh "$PM_SCRIPT" run test
 UNIT_END=$(date +%s)
 UNIT_TIME=$((UNIT_END - UNIT_START))
 
@@ -49,9 +57,9 @@ PLAYWRIGHT_TIME=$((PLAYWRIGHT_END - PLAYWRIGHT_START))
 echo "==> Running Android Maestro tests..."
 ANDROID_START=$(date +%s)
 if [ "$HEADLESS" -eq 1 ]; then
-  pnpm --filter @tearleads/client test:maestro:android -- --headless
+  sh "$PM_SCRIPT" --filter @tearleads/client run test:maestro:android -- --headless
 else
-  pnpm --filter @tearleads/client test:maestro:android
+  sh "$PM_SCRIPT" --filter @tearleads/client run test:maestro:android
 fi
 ANDROID_END=$(date +%s)
 ANDROID_TIME=$((ANDROID_END - ANDROID_START))
@@ -59,16 +67,16 @@ ANDROID_TIME=$((ANDROID_END - ANDROID_START))
 echo "==> Running iOS Maestro tests..."
 IOS_START=$(date +%s)
 if [ "$HEADLESS" -eq 1 ]; then
-  pnpm --filter @tearleads/client test:maestro:ios -- --headless
+  sh "$PM_SCRIPT" --filter @tearleads/client run test:maestro:ios -- --headless
 else
-  pnpm --filter @tearleads/client test:maestro:ios
+  sh "$PM_SCRIPT" --filter @tearleads/client run test:maestro:ios
 fi
 IOS_END=$(date +%s)
 IOS_TIME=$((IOS_END - IOS_START))
 
 echo "==> Running Electron tests..."
 ELECTRON_START=$(date +%s)
-pnpm --filter @tearleads/client electron:test
+sh "$PM_SCRIPT" --filter @tearleads/client run electron:test
 ELECTRON_END=$(date +%s)
 ELECTRON_TIME=$((ELECTRON_END - ELECTRON_START))
 

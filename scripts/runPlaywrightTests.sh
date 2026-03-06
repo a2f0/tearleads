@@ -13,6 +13,7 @@ case $SCRIPT_PATH in
   *) SCRIPT_PATH=$(command -v -- "$SCRIPT_PATH" || true) ;;
 esac
 SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
+PM_SCRIPT="$SCRIPT_DIR/tooling/pm.sh"
 
 # Port used for Playwright test server (different from dev server on 3000)
 PW_TEST_PORT=3002
@@ -21,7 +22,7 @@ PW_TEST_PORT=3002
 PW_DEBUG_HANDLES=true
 
 # Check if test port is already in use
-pnpm exec tsx "$SCRIPT_DIR/lib/checkPort.ts" "$PW_TEST_PORT"
+sh "$PM_SCRIPT" exec tsx "$SCRIPT_DIR/lib/checkPort.ts" "$PW_TEST_PORT"
 
 cd "$SCRIPT_DIR/../packages/client"
 
@@ -41,7 +42,7 @@ cleanup() {
     wait "$VITE_PID" 2>/dev/null || true
   fi
   # Find and kill any process listening on PW_TEST_PORT
-  # This handles orphaned vite processes that survive pnpm termination
+  # This handles orphaned vite processes that survive package-manager termination
   if command -v lsof >/dev/null 2>&1; then
     PIDS=$(lsof -ti:"$PW_TEST_PORT" 2>/dev/null || true)
     if [ -n "$PIDS" ]; then
@@ -90,7 +91,7 @@ done
 # PW_EXTERNAL_SERVER=true disables Playwright webServer so this script controls lifecycle.
 # BASE_URL uses port 3002 to avoid conflict with any running dev server on 3000.
 set +e
-BASE_URL="$BASE_URL" PW_EXTERNAL_SERVER=true PW_DEBUG_HANDLES="$PW_DEBUG_HANDLES" PLAYWRIGHT_JSON_OUTPUT_FILE="$PW_JSON_OUTPUT" pnpm exec playwright test --reporter=json "$@"
+BASE_URL="$BASE_URL" PW_EXTERNAL_SERVER=true PW_DEBUG_HANDLES="$PW_DEBUG_HANDLES" PLAYWRIGHT_JSON_OUTPUT_FILE="$PW_JSON_OUTPUT" sh "$PM_SCRIPT" exec playwright test --reporter=json "$@"
 CMD_EXIT_CODE=$?
 set -e
 

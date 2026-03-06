@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_PATH="${BASH_SOURCE[0]:-$0}"
+SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$SCRIPT_PATH")" && pwd)"
+REPO_ROOT="$(CDPATH='' cd -- "$SCRIPT_DIR/../.." && pwd)"
+PM_SCRIPT="$REPO_ROOT/scripts/tooling/pm.sh"
+cd "$REPO_ROOT"
+
 usage() {
   echo "Usage: $0 --staged | --from-upstream | --all" >&2
   exit 2
@@ -59,8 +65,8 @@ has_proto_related_changes() {
   return 1
 }
 
-if ! command -v pnpm >/dev/null 2>&1; then
-  echo "checkProto: pnpm is required." >&2
+if ! PACKAGE_MANAGER="$(sh "$PM_SCRIPT" which 2>/dev/null)"; then
+  echo "checkProto: unable to resolve package manager (pnpm or bun)." >&2
   exit 1
 fi
 
@@ -78,13 +84,13 @@ if ! git rev-parse --verify origin/main >/dev/null 2>&1; then
   git fetch --no-tags --depth=1 origin main:refs/remotes/origin/main
 fi
 
-pnpm protoLint
-pnpm exec buf breaking proto --against '.git#ref=origin/main,subdir=proto'
-pnpm protoGenerate
+sh "$PM_SCRIPT" run protoLint
+sh "$PM_SCRIPT" exec buf breaking proto --against '.git#ref=origin/main,subdir=proto'
+sh "$PM_SCRIPT" run protoGenerate
 
 if [ -n "$(git status --porcelain -- packages/shared/src/gen)" ]; then
   echo "checkProto: generated proto artifacts are out of date." >&2
-  echo "Run 'pnpm protoGenerate' and commit changes under packages/shared/src/gen." >&2
+  echo "Run '$PACKAGE_MANAGER protoGenerate' and commit changes under packages/shared/src/gen." >&2
   git status --short -- packages/shared/src/gen >&2
   exit 1
 fi
