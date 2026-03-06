@@ -1,9 +1,10 @@
 #!/usr/bin/env -S node --import tsx
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const PM_SCRIPT_PATH = fileURLToPath(new URL('../tooling/pm.sh', import.meta.url));
+const PM_SCRIPT_PATH = fileURLToPath(
+  new URL('../tooling/pm.sh', import.meta.url)
+);
 const API_CLI_PATH = fileURLToPath(
   new URL('../../packages/api/src/apiCli.ts', import.meta.url)
 );

@@ -8,7 +8,9 @@ type AdminRow = {
   email: string;
 };
 
-const PM_SCRIPT_PATH = fileURLToPath(new URL('../tooling/pm.sh', import.meta.url));
+const PM_SCRIPT_PATH = fileURLToPath(
+  new URL('../tooling/pm.sh', import.meta.url)
+);
 const API_CLI_PATH = fileURLToPath(
   new URL('../../packages/api/src/apiCli.ts', import.meta.url)
 );

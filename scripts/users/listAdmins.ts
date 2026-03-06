@@ -2,7 +2,9 @@
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const PM_SCRIPT_PATH = fileURLToPath(new URL('../tooling/pm.sh', import.meta.url));
+const PM_SCRIPT_PATH = fileURLToPath(
+  new URL('../tooling/pm.sh', import.meta.url)
+);
 const API_CLI_PATH = fileURLToPath(
   new URL('../../packages/api/src/apiCli.ts', import.meta.url)
 );
@@ -10,7 +12,14 @@ const API_CLI_PATH = fileURLToPath(
 function main(): void {
   execFileSync(
     'sh',
-    [PM_SCRIPT_PATH, 'exec', 'tsx', API_CLI_PATH, 'list-admins', ...process.argv.slice(2)],
+    [
+      PM_SCRIPT_PATH,
+      'exec',
+      'tsx',
+      API_CLI_PATH,
+      'list-admins',
+      ...process.argv.slice(2)
+    ],
     { stdio: 'inherit' }
   );
 }
