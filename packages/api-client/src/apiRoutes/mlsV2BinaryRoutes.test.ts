@@ -333,4 +333,117 @@ describe('mlsV2BinaryRoutes', () => {
       Array.from(keyPackages.keyPackages[0]?.keyPackageData ?? [])
     ).toEqual(Array.from(keyPackageBytes));
   });
+
+  it('throws on invalid wire payloads for required binary fields', async () => {
+    createWireRoutesMock.mockReturnValue(
+      createDefaultWireRoutes({
+        getGroupMessages: async () => ({
+          messages: [
+            {
+              id: 'msg-1',
+              groupId: 'group-1',
+              senderUserId: 'user-1',
+              epoch: 1,
+              ciphertext: 'not-base64***',
+              messageType: 'application',
+              contentType: 'text/plain',
+              sequenceNumber: 1,
+              sentAt: '2026-03-05T00:00:00.000Z',
+              createdAt: '2026-03-05T00:00:00.000Z'
+            }
+          ],
+          hasMore: false
+        }),
+        getGroupState: async () => ({
+          state: {
+            id: 'state-1',
+            groupId: 'group-1',
+            epoch: 1,
+            encryptedState: 'not-base64***',
+            stateHash: 'hash-1',
+            createdAt: '2026-03-05T00:00:00.000Z'
+          }
+        }),
+        getWelcomeMessages: async () => ({
+          welcomes: [
+            {
+              id: 'welcome-1',
+              groupId: 'group-1',
+              groupName: 'MLS Group',
+              welcome: 'not-base64***',
+              keyPackageRef: 'kp-ref',
+              epoch: 1,
+              createdAt: '2026-03-05T00:00:00.000Z'
+            }
+          ]
+        }),
+        getMyKeyPackages: async () => ({
+          keyPackages: [
+            {
+              id: 'kp-1',
+              userId: 'user-1',
+              keyPackageData: 'not-base64***',
+              keyPackageRef: 'kp-ref',
+              cipherSuite: 3,
+              createdAt: '2026-03-05T00:00:00.000Z',
+              consumed: false
+            }
+          ]
+        }),
+        sendGroupMessage: async () => ({
+          message: {
+            id: 'msg-2',
+            groupId: 'group-1',
+            senderUserId: 'user-1',
+            epoch: 1,
+            ciphertext: 'not-base64***',
+            messageType: 'application',
+            contentType: 'text/plain',
+            sequenceNumber: 2,
+            sentAt: '2026-03-05T00:00:00.000Z',
+            createdAt: '2026-03-05T00:00:00.000Z'
+          }
+        }),
+        uploadGroupState: async () => ({
+          state: {
+            id: 'state-2',
+            groupId: 'group-1',
+            epoch: 1,
+            encryptedState: 'not-base64***',
+            stateHash: 'hash-2',
+            createdAt: '2026-03-05T00:00:00.000Z'
+          }
+        })
+      })
+    );
+
+    const routes = createMlsV2Routes();
+
+    await expect(routes.getGroupMessages('group-1')).rejects.toThrow(
+      'Invalid base64 transport payload for ciphertext'
+    );
+    await expect(routes.getGroupState('group-1')).rejects.toThrow(
+      'Invalid base64 transport payload for encryptedState'
+    );
+    await expect(routes.getWelcomeMessages()).rejects.toThrow(
+      'Invalid base64 transport payload for welcome'
+    );
+    await expect(routes.getMyKeyPackages()).rejects.toThrow(
+      'Invalid base64 transport payload for keyPackageData'
+    );
+    await expect(
+      routes.sendGroupMessage('group-1', {
+        ciphertext: Uint8Array.from([1, 2, 3]),
+        epoch: 1,
+        messageType: 'application'
+      })
+    ).rejects.toThrow('Invalid base64 transport payload for ciphertext');
+    await expect(
+      routes.uploadGroupState('group-1', {
+        epoch: 1,
+        encryptedState: Uint8Array.from([1, 2, 3]),
+        stateHash: 'hash'
+      })
+    ).rejects.toThrow('Invalid base64 transport payload for encryptedState');
+  });
 });

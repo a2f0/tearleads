@@ -23,7 +23,7 @@ import type {
   UploadMlsStateRequest,
   UploadMlsStateResponse
 } from '@tearleads/shared';
-import { bytesToBase64, decodeTransportBytes } from './mlsV2Binary';
+import { bytesToBase64, decodeRequiredTransportBytes } from './mlsV2Binary';
 import { createMlsV2Routes as createWireMlsV2Routes } from './mlsV2Routes';
 
 type MlsBinaryKeyPackage = Omit<MlsKeyPackage, 'keyPackageData'> & {
@@ -128,28 +128,34 @@ export type MlsBinaryGroupStateResponse = Omit<
 function toBinaryKeyPackage(keyPackage: MlsKeyPackage): MlsBinaryKeyPackage {
   return {
     ...keyPackage,
-    keyPackageData: decodeTransportBytes(keyPackage.keyPackageData)
+    keyPackageData: decodeRequiredTransportBytes(
+      keyPackage.keyPackageData,
+      'keyPackageData'
+    )
   };
 }
 
 function toBinaryMessage(message: MlsMessage): MlsBinaryMessage {
   return {
     ...message,
-    ciphertext: decodeTransportBytes(message.ciphertext)
+    ciphertext: decodeRequiredTransportBytes(message.ciphertext, 'ciphertext')
   };
 }
 
 function toBinaryGroupState(state: MlsGroupState): MlsBinaryGroupState {
   return {
     ...state,
-    encryptedState: decodeTransportBytes(state.encryptedState)
+    encryptedState: decodeRequiredTransportBytes(
+      state.encryptedState,
+      'encryptedState'
+    )
   };
 }
 
 function toBinaryWelcome(welcome: MlsWelcomeMessage): MlsBinaryWelcomeMessage {
   return {
     ...welcome,
-    welcome: decodeTransportBytes(welcome.welcome)
+    welcome: decodeRequiredTransportBytes(welcome.welcome, 'welcome')
   };
 }
 

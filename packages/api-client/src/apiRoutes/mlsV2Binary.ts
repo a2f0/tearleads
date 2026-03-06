@@ -53,3 +53,14 @@ export function decodeTransportBytes(value: string): Uint8Array {
   }
   return new TextEncoder().encode(value);
 }
+
+export function decodeRequiredTransportBytes(
+  value: string,
+  fieldName: string
+): Uint8Array {
+  const decoded = base64ToBytes(value);
+  if (decoded) {
+    return decoded;
+  }
+  throw new Error(`Invalid base64 transport payload for ${fieldName}`);
+}
