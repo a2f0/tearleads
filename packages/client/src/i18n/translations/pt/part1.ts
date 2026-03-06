@@ -146,6 +146,8 @@ export const ptPart1 = {
     sseDisconnected: 'SSE: Desconectado',
     vfsSynced: 'Todos os dados sincronizados',
     vfsSyncing: 'Sincronizando dados...',
+    vfsUploading: 'Enviando dados...',
+    vfsDownloading: 'Baixando dados...',
     vfsSyncError: 'Falha na sincronização',
     vfsPendingSync: '{{count}} operações pendentes de sincronização',
     keychainSalt:

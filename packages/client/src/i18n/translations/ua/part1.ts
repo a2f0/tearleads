@@ -146,6 +146,8 @@ export const uaPart1 = {
     sseDisconnected: "SSE: Від'єднано",
     vfsSynced: 'Усі дані синхронізовано',
     vfsSyncing: 'Синхронізація даних...',
+    vfsUploading: 'Вивантаження даних...',
+    vfsDownloading: 'Завантаження даних...',
     vfsSyncError: 'Помилка синхронізації',
     vfsPendingSync: '{{count}} операцій очікують синхронізації',
     keychainSalt:

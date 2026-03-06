@@ -10,7 +10,8 @@ let mockOrchestrator: {
 } | null = null;
 
 let mockSyncActivity = {
-  inflightCount: 0,
+  uploadInflightCount: 0,
+  downloadInflightCount: 0,
   lastSyncError: null as Error | null
 };
 let syncActivityCallback: (() => void) | null = null;
@@ -71,7 +72,11 @@ describe('VfsSyncStatusIndicator', () => {
     vi.useFakeTimers();
     mockIsAuthenticated = true;
     mockOrchestrator = createMockOrchestrator(0, 0);
-    mockSyncActivity = { inflightCount: 0, lastSyncError: null };
+    mockSyncActivity = {
+      uploadInflightCount: 0,
+      downloadInflightCount: 0,
+      lastSyncError: null
+    };
     syncActivityCallback = null;
   });
 
@@ -143,8 +148,40 @@ describe('VfsSyncStatusIndicator', () => {
     );
   });
 
-  it('shows connecting state when inflight > 0', () => {
-    mockSyncActivity = { inflightCount: 1, lastSyncError: null };
+  it('shows uploading tooltip when only upload is active', () => {
+    mockSyncActivity = {
+      uploadInflightCount: 1,
+      downloadInflightCount: 0,
+      lastSyncError: null
+    };
+
+    render(<VfsSyncStatusIndicator />);
+
+    const indicator = screen.getByTestId('sync-indicator');
+    expect(indicator).toHaveAttribute('data-state', 'connecting');
+    expect(indicator).toHaveTextContent('Uploading data...');
+  });
+
+  it('shows downloading tooltip when only download is active', () => {
+    mockSyncActivity = {
+      uploadInflightCount: 0,
+      downloadInflightCount: 1,
+      lastSyncError: null
+    };
+
+    render(<VfsSyncStatusIndicator />);
+
+    const indicator = screen.getByTestId('sync-indicator');
+    expect(indicator).toHaveAttribute('data-state', 'connecting');
+    expect(indicator).toHaveTextContent('Downloading data...');
+  });
+
+  it('shows syncing tooltip when both upload and download are active', () => {
+    mockSyncActivity = {
+      uploadInflightCount: 1,
+      downloadInflightCount: 1,
+      lastSyncError: null
+    };
 
     render(<VfsSyncStatusIndicator />);
 
@@ -155,7 +192,8 @@ describe('VfsSyncStatusIndicator', () => {
 
   it('shows disconnected state on sync error', () => {
     mockSyncActivity = {
-      inflightCount: 0,
+      uploadInflightCount: 0,
+      downloadInflightCount: 0,
       lastSyncError: new Error('Network failure')
     };
 
@@ -174,7 +212,11 @@ describe('VfsSyncStatusIndicator', () => {
       'connected'
     );
 
-    mockSyncActivity = { inflightCount: 1, lastSyncError: null };
+    mockSyncActivity = {
+      uploadInflightCount: 1,
+      downloadInflightCount: 0,
+      lastSyncError: null
+    };
     act(() => {
       syncActivityCallback?.();
     });

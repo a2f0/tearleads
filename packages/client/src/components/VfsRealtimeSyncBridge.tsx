@@ -3,6 +3,7 @@ import { useVfsOrchestratorInstance } from '@/contexts/VfsOrchestratorContext';
 import { useVfsSyncState } from '@/contexts/VfsSyncStateContext';
 import { hasActiveOrganizationId, onOrgChange } from '@/lib/orgStorage';
 import { createRemoteReadOrchestrator } from '@/lib/remoteReadOrchestrator';
+import { withDownloadTracking } from '@/lib/vfsItemSyncWriter';
 import { hydrateLocalReadModelFromRemoteFeeds } from '@/lib/vfsReadModelHydration';
 import { useSSE } from '@/sse';
 import { logStore } from '@/stores/logStore';
@@ -91,9 +92,11 @@ export function VfsRealtimeSyncBridge() {
     void remoteReadOrchestratorRef.current
       .schedule(
         async () => {
-          await orchestrator.syncCrdt();
-          await hydrateLocalReadModelFromRemoteFeeds();
-          refreshSyncState();
+          await withDownloadTracking(async () => {
+            await orchestrator.syncCrdt();
+            await hydrateLocalReadModelFromRemoteFeeds();
+            refreshSyncState();
+          });
           retryAttemptRef.current = 0;
         },
         {

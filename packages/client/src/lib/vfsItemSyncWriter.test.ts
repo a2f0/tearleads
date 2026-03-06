@@ -4,7 +4,8 @@ import {
   queueItemDeleteAndFlush,
   queueItemUpsertAndFlush,
   setVfsItemSyncRuntime,
-  subscribeSyncActivity
+  subscribeSyncActivity,
+  withDownloadTracking
 } from './vfsItemSyncWriter';
 
 const isLoggedInMock = vi.fn(() => false);
@@ -158,7 +159,8 @@ describe('vfsItemSyncWriter', () => {
     });
 
     const snapshots: Array<{
-      inflightCount: number;
+      uploadInflightCount: number;
+      downloadInflightCount: number;
       lastSyncError: Error | null;
     }> = [];
     const unsubscribe = subscribeSyncActivity(() => {
@@ -175,8 +177,8 @@ describe('vfsItemSyncWriter', () => {
     unsubscribe();
 
     expect(snapshots.length).toBeGreaterThanOrEqual(2);
-    expect(snapshots[0]?.inflightCount).toBe(1);
-    expect(snapshots[snapshots.length - 1]?.inflightCount).toBe(0);
+    expect(snapshots[0]?.uploadInflightCount).toBe(1);
+    expect(snapshots[snapshots.length - 1]?.uploadInflightCount).toBe(0);
     expect(snapshots[snapshots.length - 1]?.lastSyncError).toBeNull();
   });
 
@@ -209,7 +211,7 @@ describe('vfsItemSyncWriter', () => {
     ).rejects.toThrow('Network failure');
 
     const activity = getSyncActivity();
-    expect(activity.inflightCount).toBe(0);
+    expect(activity.uploadInflightCount).toBe(0);
     expect(activity.lastSyncError).toBeInstanceOf(Error);
     expect(activity.lastSyncError?.message).toBe('Network failure');
   });
@@ -291,8 +293,46 @@ describe('vfsItemSyncWriter', () => {
     unsub();
 
     expect(listener).toHaveBeenCalled();
-    expect(getSyncActivity().inflightCount).toBe(0);
+    expect(getSyncActivity().uploadInflightCount).toBe(0);
+    expect(getSyncActivity().downloadInflightCount).toBe(0);
     expect(getSyncActivity().lastSyncError).toBeNull();
+  });
+
+  it('tracks downloadInflightCount via withDownloadTracking', async () => {
+    const snapshots: Array<{
+      uploadInflightCount: number;
+      downloadInflightCount: number;
+      lastSyncError: Error | null;
+    }> = [];
+    const unsubscribe = subscribeSyncActivity(() => {
+      snapshots.push(getSyncActivity());
+    });
+
+    await withDownloadTracking(async () => {
+      const mid = getSyncActivity();
+      expect(mid.downloadInflightCount).toBe(1);
+      expect(mid.uploadInflightCount).toBe(0);
+    });
+
+    unsubscribe();
+
+    expect(snapshots.length).toBeGreaterThanOrEqual(2);
+    expect(snapshots[0]?.downloadInflightCount).toBe(1);
+    expect(snapshots[snapshots.length - 1]?.downloadInflightCount).toBe(0);
+    expect(snapshots[snapshots.length - 1]?.lastSyncError).toBeNull();
+  });
+
+  it('tracks error state on download failure', async () => {
+    await expect(
+      withDownloadTracking(async () => {
+        throw new Error('Download failure');
+      })
+    ).rejects.toThrow('Download failure');
+
+    const activity = getSyncActivity();
+    expect(activity.downloadInflightCount).toBe(0);
+    expect(activity.lastSyncError).toBeInstanceOf(Error);
+    expect(activity.lastSyncError?.message).toBe('Download failure');
   });
 
   it('queues item_delete and flushes', async () => {
