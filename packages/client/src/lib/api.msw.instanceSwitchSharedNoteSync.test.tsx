@@ -1,5 +1,6 @@
 import '../test/setupIntegration';
 
+import { randomUUID } from 'node:crypto';
 import { seedTestUser } from '@tearleads/api-test-utils';
 import type { VfsCrdtSyncResponse } from '@tearleads/shared';
 import {
@@ -9,7 +10,6 @@ import {
 } from '@tearleads/shared';
 import { setupBobNotesShareForAliceDb } from '@tearleads/shared/scaffolding';
 import { render, waitFor } from '@testing-library/react';
-import { randomUUID } from 'node:crypto';
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthInstanceBinding } from '@/components/AuthInstanceBinding';
