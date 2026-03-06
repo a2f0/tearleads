@@ -93,6 +93,8 @@ run_step() (
   echo "[pre-push] OK    ${label} (${elapsed}s)" >&2
 )
 
+PM_SCRIPT="./scripts/tooling/pm.sh"
+
 run_step "checkNodeVersion" ./scripts/checks/checkNodeVersion.sh
 run_step "checkFileLimits" ./scripts/checks/checkFileLimits.sh --from-upstream
 run_step "checkSentinelMarkdownLinks" ./scripts/checks/checkSentinelMarkdownLinks.sh --all
@@ -110,12 +112,12 @@ run_step "checkDependencyCruiser" ./scripts/checks/checkDependencyCruiser.sh
 run_step "checkArchitectureGuardrailBudgets" ./scripts/checks/checkArchitectureGuardrailBudgets.ts
 run_step "checkCircularImports" ./scripts/checks/checkCircularImports.ts
 run_step "checkTailwindSources" ./scripts/checks/checkTailwindSources.ts
-run_step "lintKnip" pnpm lint:knip
-run_step "lintMarkdown" pnpm lint:md
+run_step "lintKnip" sh "$PM_SCRIPT" run lint:knip
+run_step "lintMarkdown" sh "$PM_SCRIPT" run lint:md
 run_step "checkGitHubActions" ./scripts/checks/checkGithubActions.sh --from-upstream
 run_step "checkTerraform" ./scripts/checks/checkTerraform.sh
-run_step "typecheckSolutionBuild" pnpm exec tsc -b
-run_step "enforceTypeScriptIncrementalBuilds" pnpm enforceTypeScriptIncrementalBuilds
-run_step "runImpactedQuality" pnpm exec tsx scripts/ciImpact/runImpactedQuality.ts --base origin/main --head HEAD
+run_step "typecheckSolutionBuild" sh "$PM_SCRIPT" exec tsc -b
+run_step "enforceTypeScriptIncrementalBuilds" sh "$PM_SCRIPT" run enforceTypeScriptIncrementalBuilds
+run_step "runImpactedQuality" node --experimental-strip-types scripts/ciImpact/runImpactedQuality.ts --base origin/main --head HEAD
 # Run impacted package coverage tests with conservative full-run fallback.
-run_step "runImpactedTests" pnpm exec tsx scripts/ciImpact/runImpactedTests.ts --base origin/main --head HEAD
+run_step "runImpactedTests" node --experimental-strip-types scripts/ciImpact/runImpactedTests.ts --base origin/main --head HEAD
