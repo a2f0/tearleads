@@ -119,14 +119,14 @@ describe('api with msw admin routing', () => {
     await api.admin.organizations.getUsers('org-1');
     await api.admin.organizations.getGroups('org-1');
     await api.admin.organizations.create({ name: 'Org Created' });
-    await api.admin.organizations.update('org 1', {
+    await api.admin.organizations.update('org-1', {
       description: 'Updated Description'
     });
-    await api.admin.organizations.delete('org 1');
+    await api.admin.organizations.delete('org-1');
 
     await api.admin.users.list({ organizationId: seededUser.organizationId });
     await api.admin.users.get('user-1');
-    await api.admin.users.update(secondUser.userId, {
+    await api.admin.users.update('user-2', {
       emailConfirmed: true,
       admin: false
     });
@@ -243,19 +243,19 @@ describe('api with msw admin routing', () => {
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.AdminService/CreateOrganization'
+        '/connect/tearleads.v2.AdminService/CreateOrganization'
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.AdminService/UpdateOrganization'
+        '/connect/tearleads.v2.AdminService/UpdateOrganization'
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.AdminService/DeleteOrganization'
+        '/connect/tearleads.v2.AdminService/DeleteOrganization'
       )
     ).toBe(true);
     expect(
@@ -265,7 +265,7 @@ describe('api with msw admin routing', () => {
       wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetUser')
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.AdminService/UpdateUser')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/UpdateUser')
     ).toBe(true);
   });
 });

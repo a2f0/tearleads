@@ -24,8 +24,15 @@ service AdminService {
       returns (AdminGetOrganizationResponse);
   rpc GetOrgUsers(AdminGetOrgUsersRequest) returns (AdminGetOrgUsersResponse);
   rpc GetOrgGroups(AdminGetOrgGroupsRequest) returns (AdminGetOrgGroupsResponse);
+  rpc CreateOrganization(AdminCreateOrganizationRequest)
+      returns (AdminCreateOrganizationResponse);
+  rpc UpdateOrganization(AdminUpdateOrganizationRequest)
+      returns (AdminUpdateOrganizationResponse);
+  rpc DeleteOrganization(AdminDeleteOrganizationRequest)
+      returns (AdminDeleteOrganizationResponse);
   rpc ListUsers(AdminListUsersRequest) returns (AdminListUsersResponse);
   rpc GetUser(AdminGetUserRequest) returns (AdminGetUserResponse);
+  rpc UpdateUser(AdminUpdateUserRequest) returns (AdminUpdateUserResponse);
   rpc GetPostgresInfo(AdminGetPostgresInfoRequest)
       returns (AdminGetPostgresInfoResponse);
   rpc GetTables(AdminGetTablesRequest) returns (AdminGetTablesResponse);
@@ -174,6 +181,33 @@ message AdminOrganization {
   string updated_at = 5;
 }
 
+message AdminCreateOrganizationRequest {
+  string name = 1;
+  optional string description = 2;
+}
+
+message AdminCreateOrganizationResponse {
+  AdminOrganization organization = 1;
+}
+
+message AdminUpdateOrganizationRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string description = 3;
+}
+
+message AdminUpdateOrganizationResponse {
+  AdminOrganization organization = 1;
+}
+
+message AdminDeleteOrganizationRequest {
+  string id = 1;
+}
+
+message AdminDeleteOrganizationResponse {
+  bool deleted = 1;
+}
+
 message AdminGetOrgUsersRequest {
   string id = 1;
 }
@@ -216,6 +250,24 @@ message AdminGetUserRequest {
 }
 
 message AdminGetUserResponse {
+  AdminUser user = 1;
+}
+
+message AdminUpdateUserOrganizationIds {
+  repeated string organization_ids = 1;
+}
+
+message AdminUpdateUserRequest {
+  string id = 1;
+  optional string email = 2;
+  optional bool email_confirmed = 3;
+  optional bool admin = 4;
+  optional AdminUpdateUserOrganizationIds organization_ids = 5;
+  optional bool disabled = 6;
+  optional bool marked_for_deletion = 7;
+}
+
+message AdminUpdateUserResponse {
   AdminUser user = 1;
 }
 

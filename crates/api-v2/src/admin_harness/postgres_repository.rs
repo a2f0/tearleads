@@ -1,10 +1,13 @@
 use tearleads_data_access_traits::{
-    AdminCreateGroupInput, AdminGroupDetail, AdminGroupMember, AdminGroupSummary,
+    AdminCreateGroupInput, AdminCreateOrganizationInput, AdminGroupDetail, AdminGroupSummary,
     AdminOrganizationSummary, AdminOrganizationUserSummary, AdminScopeOrganization,
-    AdminUpdateGroupInput, AdminUserAccountingSummary, AdminUserSummary, BoxFuture,
-    DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository, PostgresConnectionInfo,
-    PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo,
+    AdminUpdateGroupInput, AdminUpdateOrganizationInput, AdminUpdateUserInput, AdminUserSummary,
+    BoxFuture, DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository,
+    PostgresConnectionInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
+    PostgresTableInfo,
 };
+
+mod fixtures;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct StaticPostgresRepository;
@@ -33,18 +36,7 @@ impl PostgresAdminReadRepository for StaticPostgresRepository {
         '_,
         Result<Vec<AdminScopeOrganization>, tearleads_data_access_traits::DataAccessError>,
     > {
-        Box::pin(async move {
-            Ok(vec![
-                AdminScopeOrganization {
-                    id: String::from("org-1"),
-                    name: String::from("Organization 1"),
-                },
-                AdminScopeOrganization {
-                    id: String::from("org-2"),
-                    name: String::from("Organization 2"),
-                },
-            ])
-        })
+        Box::pin(async move { Ok(fixtures::scope_organizations()) })
     }
 
     fn list_scope_organizations_by_ids(
@@ -71,26 +63,7 @@ impl PostgresAdminReadRepository for StaticPostgresRepository {
     ) -> BoxFuture<'_, Result<Vec<AdminGroupSummary>, tearleads_data_access_traits::DataAccessError>>
     {
         Box::pin(async move {
-            let groups = vec![
-                AdminGroupSummary {
-                    id: String::from("group-1"),
-                    organization_id: String::from("org-1"),
-                    name: String::from("Core Admin"),
-                    description: Some(String::from("Admin operators")),
-                    created_at: String::from("2026-01-01T00:00:00Z"),
-                    updated_at: String::from("2026-01-01T00:00:00Z"),
-                    member_count: 2,
-                },
-                AdminGroupSummary {
-                    id: String::from("group-2"),
-                    organization_id: String::from("org-2"),
-                    name: String::from("Support"),
-                    description: None,
-                    created_at: String::from("2026-01-02T00:00:00Z"),
-                    updated_at: String::from("2026-01-02T00:00:00Z"),
-                    member_count: 1,
-                },
-            ];
+            let groups = fixtures::group_summaries();
 
             let filtered = if let Some(organization_ids) = organization_ids {
                 use std::collections::HashSet;
@@ -115,41 +88,7 @@ impl PostgresAdminReadRepository for StaticPostgresRepository {
         let group_id = group_id.trim().to_string();
 
         Box::pin(async move {
-            let groups = vec![
-                AdminGroupDetail {
-                    id: String::from("group-1"),
-                    organization_id: String::from("org-1"),
-                    name: String::from("Core Admin"),
-                    description: Some(String::from("Admin operators")),
-                    created_at: String::from("2026-01-01T00:00:00Z"),
-                    updated_at: String::from("2026-01-01T00:00:00Z"),
-                    members: vec![
-                        AdminGroupMember {
-                            user_id: String::from("user-1"),
-                            email: String::from("admin@example.com"),
-                            joined_at: String::from("2026-01-01T00:00:00Z"),
-                        },
-                        AdminGroupMember {
-                            user_id: String::from("user-2"),
-                            email: String::from("operator@example.com"),
-                            joined_at: String::from("2026-01-02T00:00:00Z"),
-                        },
-                    ],
-                },
-                AdminGroupDetail {
-                    id: String::from("group-2"),
-                    organization_id: String::from("org-2"),
-                    name: String::from("Support"),
-                    description: None,
-                    created_at: String::from("2026-01-02T00:00:00Z"),
-                    updated_at: String::from("2026-01-02T00:00:00Z"),
-                    members: vec![AdminGroupMember {
-                        user_id: String::from("user-3"),
-                        email: String::from("support@example.com"),
-                        joined_at: String::from("2026-01-03T00:00:00Z"),
-                    }],
-                },
-            ];
+            let groups = fixtures::group_details();
 
             groups
                 .into_iter()
@@ -267,22 +206,7 @@ impl PostgresAdminReadRepository for StaticPostgresRepository {
         Result<Vec<AdminOrganizationSummary>, tearleads_data_access_traits::DataAccessError>,
     > {
         Box::pin(async move {
-            let organizations = vec![
-                AdminOrganizationSummary {
-                    id: String::from("org-1"),
-                    name: String::from("Organization 1"),
-                    description: Some(String::from("Primary organization")),
-                    created_at: String::from("2026-01-01T00:00:00Z"),
-                    updated_at: String::from("2026-01-01T00:00:00Z"),
-                },
-                AdminOrganizationSummary {
-                    id: String::from("org-2"),
-                    name: String::from("Organization 2"),
-                    description: None,
-                    created_at: String::from("2026-01-02T00:00:00Z"),
-                    updated_at: String::from("2026-01-02T00:00:00Z"),
-                },
-            ];
+            let organizations = fixtures::organization_summaries();
 
             let filtered = if let Some(organization_ids) = organization_ids {
                 use std::collections::HashSet;
@@ -296,6 +220,71 @@ impl PostgresAdminReadRepository for StaticPostgresRepository {
             };
 
             Ok(filtered)
+        })
+    }
+
+    fn create_organization(
+        &self,
+        input: AdminCreateOrganizationInput,
+    ) -> BoxFuture<'_, Result<AdminOrganizationSummary, DataAccessError>> {
+        Box::pin(async move {
+            if input.name == "duplicate-organization-name" {
+                return Err(DataAccessError::new(
+                    DataAccessErrorKind::InvalidInput,
+                    "organization name already exists",
+                ));
+            }
+
+            Ok(AdminOrganizationSummary {
+                id: String::from("org-created"),
+                name: input.name,
+                description: input.description,
+                created_at: String::from("2026-01-05T00:00:00Z"),
+                updated_at: String::from("2026-01-05T00:00:00Z"),
+            })
+        })
+    }
+
+    fn update_organization(
+        &self,
+        organization_id: &str,
+        input: AdminUpdateOrganizationInput,
+    ) -> BoxFuture<'_, Result<AdminOrganizationSummary, DataAccessError>> {
+        let organization_id = organization_id.to_string();
+        Box::pin(async move {
+            let mut organization = StaticPostgresRepository
+                .list_organizations(None)
+                .await?
+                .into_iter()
+                .find(|candidate| candidate.id == organization_id)
+                .ok_or_else(|| {
+                    DataAccessError::new(
+                        DataAccessErrorKind::NotFound,
+                        format!("organization not found: {organization_id}"),
+                    )
+                })?;
+
+            organization.name = input.name.unwrap_or(organization.name);
+            if let Some(description) = input.description {
+                organization.description = description;
+            }
+            organization.updated_at = String::from("2026-01-05T00:00:00Z");
+            Ok(organization)
+        })
+    }
+
+    fn delete_organization(
+        &self,
+        organization_id: &str,
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        let organization_id = organization_id.to_string();
+        Box::pin(async move {
+            let exists = StaticPostgresRepository
+                .list_organizations(None)
+                .await?
+                .into_iter()
+                .any(|organization| organization.id == organization_id);
+            Ok(exists)
         })
     }
 
@@ -325,50 +314,7 @@ impl PostgresAdminReadRepository for StaticPostgresRepository {
     ) -> BoxFuture<'_, Result<Vec<AdminUserSummary>, tearleads_data_access_traits::DataAccessError>>
     {
         Box::pin(async move {
-            let users = vec![
-                AdminUserSummary {
-                    id: String::from("user-1"),
-                    email: String::from("admin@example.com"),
-                    email_confirmed: true,
-                    admin: true,
-                    organization_ids: vec![String::from("org-1")],
-                    created_at: Some(String::from("2026-01-01T00:00:00Z")),
-                    last_active_at: Some(String::from("2026-01-04T00:00:00Z")),
-                    accounting: AdminUserAccountingSummary {
-                        total_prompt_tokens: 120,
-                        total_completion_tokens: 40,
-                        total_tokens: 160,
-                        request_count: 12,
-                        last_used_at: Some(String::from("2026-01-04T00:00:00Z")),
-                    },
-                    disabled: false,
-                    disabled_at: None,
-                    disabled_by: None,
-                    marked_for_deletion_at: None,
-                    marked_for_deletion_by: None,
-                },
-                AdminUserSummary {
-                    id: String::from("user-2"),
-                    email: String::from("operator@example.com"),
-                    email_confirmed: true,
-                    admin: false,
-                    organization_ids: vec![String::from("org-2")],
-                    created_at: Some(String::from("2026-01-02T00:00:00Z")),
-                    last_active_at: None,
-                    accounting: AdminUserAccountingSummary {
-                        total_prompt_tokens: 0,
-                        total_completion_tokens: 0,
-                        total_tokens: 0,
-                        request_count: 0,
-                        last_used_at: None,
-                    },
-                    disabled: false,
-                    disabled_at: None,
-                    disabled_by: None,
-                    marked_for_deletion_at: None,
-                    marked_for_deletion_by: None,
-                },
-            ];
+            let users = fixtures::user_summaries();
 
             let filtered = if let Some(organization_ids) = organization_ids {
                 use std::collections::HashSet;
@@ -400,6 +346,66 @@ impl PostgresAdminReadRepository for StaticPostgresRepository {
                 .list_users(organization_ids)
                 .await?;
             Ok(users.into_iter().find(|user| user.id == user_id))
+        })
+    }
+
+    fn update_user(
+        &self,
+        user_id: &str,
+        input: AdminUpdateUserInput,
+    ) -> BoxFuture<'_, Result<AdminUserSummary, DataAccessError>> {
+        let user_id = user_id.to_string();
+        Box::pin(async move {
+            if matches!(input.email.as_deref(), Some("duplicate@example.com")) {
+                return Err(DataAccessError::new(
+                    DataAccessErrorKind::InvalidInput,
+                    "email already exists",
+                ));
+            }
+
+            let mut user = StaticPostgresRepository
+                .get_user(&user_id, None)
+                .await?
+                .ok_or_else(|| {
+                    DataAccessError::new(
+                        DataAccessErrorKind::NotFound,
+                        format!("user not found: {user_id}"),
+                    )
+                })?;
+
+            if let Some(email) = input.email {
+                user.email = email;
+            }
+            if let Some(email_confirmed) = input.email_confirmed {
+                user.email_confirmed = email_confirmed;
+            }
+            if let Some(admin) = input.admin {
+                user.admin = admin;
+            }
+            if let Some(organization_ids) = input.organization_ids {
+                user.organization_ids = organization_ids;
+            }
+            if let Some(disabled) = input.disabled {
+                user.disabled = disabled;
+                if disabled {
+                    user.disabled_at = Some(String::from("2026-01-05T00:00:00Z"));
+                    user.disabled_by = Some(String::from("admin-root"));
+                } else {
+                    user.disabled_at = None;
+                    user.disabled_by = None;
+                }
+            }
+            if let Some(marked_for_deletion) = input.marked_for_deletion {
+                if marked_for_deletion {
+                    user.marked_for_deletion_at = Some(String::from("2026-01-05T00:00:00Z"));
+                    user.marked_for_deletion_by = Some(String::from("admin-root"));
+                } else {
+                    user.marked_for_deletion_at = None;
+                    user.marked_for_deletion_by = None;
+                }
+            }
+
+            Ok(user)
         })
     }
 

@@ -1,15 +1,17 @@
 import { create } from '@bufbuild/protobuf';
-import {
-  type CallOptions,
-  type Client,
-  createClient
-} from '@connectrpc/connect';
-import { createGrpcWebTransport } from '@connectrpc/connect-web';
-import type { CreateGroupRequest, UpdateGroupRequest } from '@tearleads/shared';
+import type {
+  AdminUserUpdatePayload,
+  CreateGroupRequest,
+  CreateOrganizationRequest,
+  UpdateGroupRequest,
+  UpdateOrganizationRequest
+} from '@tearleads/shared';
 import {
   AdminAddGroupMemberRequestSchema,
   AdminCreateGroupRequestSchema,
+  AdminCreateOrganizationRequestSchema,
   AdminDeleteGroupRequestSchema,
+  AdminDeleteOrganizationRequestSchema,
   AdminDeleteRedisKeyRequestSchema,
   AdminGetColumnsRequestSchema,
   AdminGetContextRequestSchema,
@@ -29,17 +31,11 @@ import {
   AdminListOrganizationsRequestSchema,
   AdminListUsersRequestSchema,
   AdminRemoveGroupMemberRequestSchema,
-  AdminService,
-  AdminUpdateGroupRequestSchema
+  AdminUpdateGroupRequestSchema,
+  AdminUpdateOrganizationRequestSchema,
+  AdminUpdateUserOrganizationIdsSchema,
+  AdminUpdateUserRequestSchema
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
-import { API_BASE_URL } from '../apiCore';
-import { type ApiEventSlug, logApiEvent } from '../apiLogger';
-import {
-  type ApiV2RequestHeaderOptions,
-  buildApiV2RequestHeaders,
-  normalizeApiV2ConnectBaseUrl
-} from '../apiV2ClientWasm';
-import { getAuthHeaderValue } from '../authStorage';
 import {
   mapContextResponse,
   mapCreateGroupResponse,
@@ -61,8 +57,15 @@ import {
   mapUserResponse,
   mapUsersResponse
 } from './adminV2Mappers';
+import {
+  type AdminV2RoutesDependencies,
+  buildCallContext,
+  createAdminV2RoutesDependencies,
+  runWithEvent
+} from './adminV2RouteContext';
 
-type AdminV2CallOptions = Pick<CallOptions, 'headers'>;
+export type { AdminV2Client } from './adminV2RouteContext';
+export { createDefaultAdminV2Client } from './adminV2RouteContext';
 
 interface AdminGetRowsOptions {
   limit?: number;
@@ -71,96 +74,10 @@ interface AdminGetRowsOptions {
   sortDirection?: 'asc' | 'desc';
 }
 
-export type AdminV2Client = Client<typeof AdminService>;
-
-interface AdminV2RoutesDependencies {
-  resolveApiBaseUrl: () => string;
-  normalizeConnectBaseUrl: (apiBaseUrl: string) => Promise<string>;
-  buildHeaders: (
-    options: ApiV2RequestHeaderOptions
-  ) => Promise<Record<string, string>>;
-  getAuthHeaderValue: () => string | null;
-  createClient: (connectBaseUrl: string) => AdminV2Client;
-  logEvent: (
-    eventName: ApiEventSlug,
-    durationMs: number,
-    success: boolean
-  ) => Promise<void>;
-}
-
-function createDefaultDependencies(): AdminV2RoutesDependencies {
-  return {
-    resolveApiBaseUrl: () => {
-      if (!API_BASE_URL) {
-        throw new Error('VITE_API_URL environment variable is not set');
-      }
-      return API_BASE_URL;
-    },
-    normalizeConnectBaseUrl: normalizeApiV2ConnectBaseUrl,
-    buildHeaders: buildApiV2RequestHeaders,
-    getAuthHeaderValue,
-    createClient: createDefaultAdminV2Client,
-    logEvent: logApiEvent
-  };
-}
-
-function toCallOptions(headers: Record<string, string>): AdminV2CallOptions {
-  if (Object.keys(headers).length === 0) {
-    return {};
-  }
-  return { headers };
-}
-
-async function buildCallContext(
-  dependencies: AdminV2RoutesDependencies
-): Promise<{ client: AdminV2Client; callOptions: AdminV2CallOptions }> {
-  const connectBaseUrl = await dependencies.normalizeConnectBaseUrl(
-    dependencies.resolveApiBaseUrl()
-  );
-  const client = dependencies.createClient(connectBaseUrl);
-  const headers = await dependencies.buildHeaders({
-    bearerToken: dependencies.getAuthHeaderValue()
-  });
-  return {
-    client,
-    callOptions: toCallOptions(headers)
-  };
-}
-
-async function runWithEvent<T>(
-  dependencies: AdminV2RoutesDependencies,
-  eventName: ApiEventSlug,
-  operation: () => Promise<T>
-): Promise<T> {
-  const start = performance.now();
-  let success = false;
-
-  try {
-    const response = await operation();
-    success = true;
-    return response;
-  } finally {
-    await dependencies.logEvent(eventName, performance.now() - start, success);
-  }
-}
-
-export function createDefaultAdminV2Client(
-  connectBaseUrl: string
-): AdminV2Client {
-  const transport = createGrpcWebTransport({
-    baseUrl: connectBaseUrl,
-    useBinaryFormat: true
-  });
-  return createClient(AdminService, transport);
-}
-
 export function createAdminV2Routes(
   overrides: Partial<AdminV2RoutesDependencies> = {}
 ) {
-  const dependencies = {
-    ...createDefaultDependencies(),
-    ...overrides
-  };
+  const dependencies = createAdminV2RoutesDependencies(overrides);
 
   return {
     getContext: () =>
@@ -317,6 +234,48 @@ export function createAdminV2Routes(
             );
             return mapOrganizationGroupsResponse(response);
           }
+        ),
+      create: (data: CreateOrganizationRequest) =>
+        runWithEvent(dependencies, 'api_post_admin_organization', async () => {
+          const { client, callOptions } = await buildCallContext(dependencies);
+          const response = await client.createOrganization(
+            create(AdminCreateOrganizationRequestSchema, {
+              name: data.name,
+              ...(data.description !== undefined
+                ? { description: data.description }
+                : {})
+            }),
+            callOptions
+          );
+          return mapOrganizationResponse(response);
+        }),
+      update: (id: string, data: UpdateOrganizationRequest) =>
+        runWithEvent(dependencies, 'api_put_admin_organization', async () => {
+          const { client, callOptions } = await buildCallContext(dependencies);
+          const response = await client.updateOrganization(
+            create(AdminUpdateOrganizationRequestSchema, {
+              id,
+              ...(data.name !== undefined ? { name: data.name } : {}),
+              ...(data.description !== undefined
+                ? { description: data.description }
+                : {})
+            }),
+            callOptions
+          );
+          return mapOrganizationResponse(response);
+        }),
+      delete: (id: string) =>
+        runWithEvent(
+          dependencies,
+          'api_delete_admin_organization',
+          async () => {
+            const { client, callOptions } =
+              await buildCallContext(dependencies);
+            return client.deleteOrganization(
+              create(AdminDeleteOrganizationRequestSchema, { id }),
+              callOptions
+            );
+          }
         )
     },
     users: {
@@ -338,6 +297,36 @@ export function createAdminV2Routes(
           const { client, callOptions } = await buildCallContext(dependencies);
           const response = await client.getUser(
             create(AdminGetUserRequestSchema, { id }),
+            callOptions
+          );
+          return mapUserResponse(response);
+        }),
+      update: (id: string, data: AdminUserUpdatePayload) =>
+        runWithEvent(dependencies, 'api_patch_admin_user', async () => {
+          const { client, callOptions } = await buildCallContext(dependencies);
+          const response = await client.updateUser(
+            create(AdminUpdateUserRequestSchema, {
+              id,
+              ...(data.email !== undefined ? { email: data.email } : {}),
+              ...(data.emailConfirmed !== undefined
+                ? { emailConfirmed: data.emailConfirmed }
+                : {}),
+              ...(data.admin !== undefined ? { admin: data.admin } : {}),
+              ...(data.organizationIds !== undefined
+                ? {
+                    organizationIds: create(
+                      AdminUpdateUserOrganizationIdsSchema,
+                      { organizationIds: data.organizationIds }
+                    )
+                  }
+                : {}),
+              ...(data.disabled !== undefined
+                ? { disabled: data.disabled }
+                : {}),
+              ...(data.markedForDeletion !== undefined
+                ? { markedForDeletion: data.markedForDeletion }
+                : {})
+            }),
             callOptions
           );
           return mapUserResponse(response);

@@ -2,26 +2,30 @@
 
 mod detail_reads;
 mod group_mutations;
+mod list_reads;
+mod organization_user_mutations;
 mod storage_reads;
 
 use tearleads_api_v2_contracts::tearleads::v2::{
     AdminAddGroupMemberRequest, AdminAddGroupMemberResponse, AdminCreateGroupRequest,
-    AdminCreateGroupResponse, AdminDeleteGroupRequest, AdminDeleteGroupResponse,
-    AdminDeleteRedisKeyRequest, AdminDeleteRedisKeyResponse, AdminGetColumnsRequest,
-    AdminGetColumnsResponse, AdminGetContextRequest, AdminGetContextResponse,
-    AdminGetGroupMembersRequest, AdminGetGroupMembersResponse, AdminGetGroupRequest,
-    AdminGetGroupResponse, AdminGetOrgGroupsRequest, AdminGetOrgGroupsResponse,
-    AdminGetOrgUsersRequest, AdminGetOrgUsersResponse, AdminGetOrganizationRequest,
-    AdminGetOrganizationResponse, AdminGetPostgresInfoRequest, AdminGetPostgresInfoResponse,
-    AdminGetRedisDbSizeRequest, AdminGetRedisDbSizeResponse, AdminGetRedisKeysRequest,
-    AdminGetRedisKeysResponse, AdminGetRedisValueRequest, AdminGetRedisValueResponse,
-    AdminGetRowsRequest, AdminGetRowsResponse, AdminGetTablesRequest, AdminGetTablesResponse,
-    AdminGetUserRequest, AdminGetUserResponse, AdminGroup, AdminGroupMember,
-    AdminGroupWithMemberCount, AdminListGroupsRequest, AdminListGroupsResponse,
+    AdminCreateGroupResponse, AdminCreateOrganizationRequest, AdminCreateOrganizationResponse,
+    AdminDeleteGroupRequest, AdminDeleteGroupResponse, AdminDeleteOrganizationRequest,
+    AdminDeleteOrganizationResponse, AdminDeleteRedisKeyRequest, AdminDeleteRedisKeyResponse,
+    AdminGetColumnsRequest, AdminGetColumnsResponse, AdminGetContextRequest,
+    AdminGetContextResponse, AdminGetGroupMembersRequest, AdminGetGroupMembersResponse,
+    AdminGetGroupRequest, AdminGetGroupResponse, AdminGetOrgGroupsRequest,
+    AdminGetOrgGroupsResponse, AdminGetOrgUsersRequest, AdminGetOrgUsersResponse,
+    AdminGetOrganizationRequest, AdminGetOrganizationResponse, AdminGetPostgresInfoRequest,
+    AdminGetPostgresInfoResponse, AdminGetRedisDbSizeRequest, AdminGetRedisDbSizeResponse,
+    AdminGetRedisKeysRequest, AdminGetRedisKeysResponse, AdminGetRedisValueRequest,
+    AdminGetRedisValueResponse, AdminGetRowsRequest, AdminGetRowsResponse, AdminGetTablesRequest,
+    AdminGetTablesResponse, AdminGetUserRequest, AdminGetUserResponse, AdminGroup,
+    AdminGroupMember, AdminListGroupsRequest, AdminListGroupsResponse,
     AdminListOrganizationsRequest, AdminListOrganizationsResponse, AdminListUsersRequest,
-    AdminListUsersResponse, AdminOrganization, AdminPostgresColumnInfo, AdminPostgresTableInfo,
-    AdminRedisKeyInfo, AdminRemoveGroupMemberRequest, AdminRemoveGroupMemberResponse,
-    AdminUpdateGroupRequest, AdminUpdateGroupResponse, admin_service_server::AdminService,
+    AdminListUsersResponse, AdminPostgresColumnInfo, AdminPostgresTableInfo, AdminRedisKeyInfo,
+    AdminRemoveGroupMemberRequest, AdminRemoveGroupMemberResponse, AdminUpdateGroupRequest,
+    AdminUpdateGroupResponse, AdminUpdateOrganizationRequest, AdminUpdateOrganizationResponse,
+    AdminUpdateUserRequest, AdminUpdateUserResponse, admin_service_server::AdminService,
 };
 use tearleads_data_access_traits::{
     PostgresAdminReadRepository, PostgresRowsQuery, RedisAdminRepository,
@@ -32,10 +36,8 @@ use crate::admin_auth::{
     AdminOperation, AdminRequestAuthorizer, HeaderRoleAdminAuthorizer, map_admin_auth_error,
 };
 use crate::admin_service_common::{
-    map_data_access_error, map_redis_value, normalize_optional_organization_id,
-    normalize_redis_key, normalize_required_resource_id, normalize_rows_limit,
-    normalize_schema_or_table, normalize_sort_direction, parse_row_struct,
-    resolve_organization_scope_filter,
+    map_data_access_error, map_redis_value, normalize_redis_key, normalize_required_resource_id,
+    normalize_rows_limit, normalize_schema_or_table, normalize_sort_direction, parse_row_struct,
 };
 
 /// Trait-backed implementation of `tearleads.v2.AdminService`.
@@ -88,34 +90,7 @@ where
         &self,
         request: Request<AdminListGroupsRequest>,
     ) -> Result<Response<AdminListGroupsResponse>, Status> {
-        let admin_access = self
-            .authorizer
-            .authorize_admin_operation(AdminOperation::ListGroups, request.metadata())
-            .map_err(map_admin_auth_error)?;
-        let payload = request.into_inner();
-        let requested_organization_id = normalize_optional_organization_id(payload.organization_id);
-        let organization_ids =
-            resolve_organization_scope_filter(&admin_access, requested_organization_id)
-                .map_err(Status::permission_denied)?;
-
-        let groups = self
-            .postgres_repo
-            .list_groups(organization_ids)
-            .await
-            .map_err(map_data_access_error)?
-            .into_iter()
-            .map(|group| AdminGroupWithMemberCount {
-                id: group.id,
-                organization_id: group.organization_id,
-                name: group.name,
-                description: group.description,
-                created_at: group.created_at,
-                updated_at: group.updated_at,
-                member_count: group.member_count,
-            })
-            .collect();
-
-        Ok(Response::new(AdminListGroupsResponse { groups }))
+        self.list_groups_impl(request).await
     }
 
     async fn get_group(
@@ -214,34 +189,28 @@ where
         &self,
         request: Request<AdminListOrganizationsRequest>,
     ) -> Result<Response<AdminListOrganizationsResponse>, Status> {
-        let admin_access = self
-            .authorizer
-            .authorize_admin_operation(AdminOperation::ListOrganizations, request.metadata())
-            .map_err(map_admin_auth_error)?;
-        let payload = request.into_inner();
-        let requested_organization_id = normalize_optional_organization_id(payload.organization_id);
-        let organization_ids =
-            resolve_organization_scope_filter(&admin_access, requested_organization_id)
-                .map_err(Status::permission_denied)?;
+        self.list_organizations_impl(request).await
+    }
 
-        let organizations = self
-            .postgres_repo
-            .list_organizations(organization_ids)
-            .await
-            .map_err(map_data_access_error)?
-            .into_iter()
-            .map(|organization| AdminOrganization {
-                id: organization.id,
-                name: organization.name,
-                description: organization.description,
-                created_at: organization.created_at,
-                updated_at: organization.updated_at,
-            })
-            .collect();
+    async fn create_organization(
+        &self,
+        request: Request<AdminCreateOrganizationRequest>,
+    ) -> Result<Response<AdminCreateOrganizationResponse>, Status> {
+        self.create_organization_impl(request).await
+    }
 
-        Ok(Response::new(AdminListOrganizationsResponse {
-            organizations,
-        }))
+    async fn update_organization(
+        &self,
+        request: Request<AdminUpdateOrganizationRequest>,
+    ) -> Result<Response<AdminUpdateOrganizationResponse>, Status> {
+        self.update_organization_impl(request).await
+    }
+
+    async fn delete_organization(
+        &self,
+        request: Request<AdminDeleteOrganizationRequest>,
+    ) -> Result<Response<AdminDeleteOrganizationResponse>, Status> {
+        self.delete_organization_impl(request).await
     }
 
     async fn get_organization(
@@ -269,26 +238,7 @@ where
         &self,
         request: Request<AdminListUsersRequest>,
     ) -> Result<Response<AdminListUsersResponse>, Status> {
-        let admin_access = self
-            .authorizer
-            .authorize_admin_operation(AdminOperation::ListUsers, request.metadata())
-            .map_err(map_admin_auth_error)?;
-        let payload = request.into_inner();
-        let requested_organization_id = normalize_optional_organization_id(payload.organization_id);
-        let organization_ids =
-            resolve_organization_scope_filter(&admin_access, requested_organization_id)
-                .map_err(Status::permission_denied)?;
-
-        let users = self
-            .postgres_repo
-            .list_users(organization_ids)
-            .await
-            .map_err(map_data_access_error)?
-            .into_iter()
-            .map(detail_reads::map_admin_user)
-            .collect();
-
-        Ok(Response::new(AdminListUsersResponse { users }))
+        self.list_users_impl(request).await
     }
 
     async fn get_user(
@@ -296,6 +246,13 @@ where
         request: Request<AdminGetUserRequest>,
     ) -> Result<Response<AdminGetUserResponse>, Status> {
         self.get_user_impl(request).await
+    }
+
+    async fn update_user(
+        &self,
+        request: Request<AdminUpdateUserRequest>,
+    ) -> Result<Response<AdminUpdateUserResponse>, Status> {
+        self.update_user_impl(request).await
     }
 
     async fn get_tables(
