@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('api request context headers', () => {
   const originalFetch = global.fetch;
+  const vfsWritePaths = [
+    '/connect/tearleads.v1.VfsService/PushCrdtOps',
+    '/connect/tearleads.v2.VfsService/PushCrdtOps'
+  ];
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -130,11 +134,6 @@ describe('api request context headers', () => {
     );
     resetApiRequestHeadersProvider();
 
-    const vfsWritePaths = [
-      '/connect/tearleads.v1.VfsService/PushCrdtOps',
-      '/connect/tearleads.v2.VfsService/PushCrdtOps'
-    ];
-
     for (const path of vfsWritePaths) {
       await expect(
         request<{ ok: boolean }>(path, {
@@ -169,11 +168,6 @@ describe('api request context headers', () => {
       './apiCore'
     );
     resetApiRequestHeadersProvider();
-
-    const vfsWritePaths = [
-      '/connect/tearleads.v1.VfsService/PushCrdtOps',
-      '/connect/tearleads.v2.VfsService/PushCrdtOps'
-    ];
 
     for (const path of vfsWritePaths) {
       await expect(
