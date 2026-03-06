@@ -76,7 +76,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install
+        run: sh ./scripts/tooling/pm.sh install
 
       - name: Cache SQLite WASM
         uses: actions/cache@v5
@@ -91,15 +91,16 @@ jobs:
         run: ./scripts/downloadSqliteWasm.sh
 
       - name: Install Playwright for website build
-        run: pnpm --filter @tearleads/website exec playwright install chromium
+        run: sh ../../scripts/tooling/pm.sh exec playwright install chromium
+        working-directory: packages/website
 
       - name: Generate app configs
         run: |
           cd packages/app-builder
-          pnpm exec tsx src/cli.ts generate --app tearleads
+          sh ../../scripts/tooling/pm.sh exec tsx src/cli.ts generate --app tearleads
 
       - name: Build all packages
-        run: pnpm build
+        run: sh ./scripts/tooling/pm.sh run build
         env:
           VITE_API_URL: https://localhost:8443/v1
 
@@ -164,7 +165,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install
+        run: sh ./scripts/tooling/pm.sh install
 
       - name: Download build artifacts
         uses: actions/download-artifact@v8
@@ -204,7 +205,7 @@ jobs:
       - name: Generate app configs
         run: |
           cd packages/app-builder
-          pnpm exec tsx src/cli.ts generate --app tearleads
+          sh ../../scripts/tooling/pm.sh exec tsx src/cli.ts generate --app tearleads
 
       - name: Build API and client images (k8s Dockerfiles)
         run: |
@@ -248,7 +249,7 @@ jobs:
 
       - name: Get Playwright version
         id: playwright-version
-        run: echo "version=$(pnpm --filter @tearleads/client exec playwright --version)" >> $GITHUB_OUTPUT
+        run: echo "version=$(cd packages/client && sh ../../scripts/tooling/pm.sh exec playwright --version)" >> $GITHUB_OUTPUT
 
       - name: Cache Playwright browsers
         uses: actions/cache@v5
@@ -259,10 +260,12 @@ jobs:
 
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm --filter @tearleads/client exec playwright install chromium
+        run: sh ../../scripts/tooling/pm.sh exec playwright install chromium
+        working-directory: packages/client
 
       - name: Run Playwright tests (shard ${{ matrix.shard }}/2)
-        run: pnpm --filter @tearleads/client test:e2e --shard=${{ matrix.shard }}/2
+        run: sh ../../scripts/tooling/pm.sh run test:e2e --shard=${{ matrix.shard }}/2
+        working-directory: packages/client
         env:
           BASE_URL: http://localhost:8080
           PW_EXTERNAL_SERVER: 'true'
@@ -305,7 +308,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install
+        run: sh ./scripts/tooling/pm.sh install
 
       - name: Download all shard reports
         uses: actions/download-artifact@v8
@@ -324,10 +327,10 @@ jobs:
           done
           # Generate merged HTML report
           cd packages/client
-          pnpm exec playwright merge-reports --reporter=html ./playwright-report || true
+          sh ../../scripts/tooling/pm.sh exec playwright merge-reports --reporter=html ./playwright-report || true
 
       - name: Build CLI for backup validation
-        run: pnpm --filter @tearleads/cli build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/cli run build
 
       - name: Validate backup file
         run: |

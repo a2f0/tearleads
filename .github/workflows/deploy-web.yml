@@ -69,10 +69,11 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install
+        run: sh ./scripts/tooling/pm.sh install
 
       - name: Install Playwright browsers
-        run: pnpm --filter @tearleads/website exec playwright install chromium
+        run: sh ../../scripts/tooling/pm.sh exec playwright install chromium
+        working-directory: packages/website
 
       - name: Install ImageMagick (Linux)
         if: runner.os == 'Linux'
@@ -95,7 +96,7 @@ jobs:
           tsx src/cli.ts generate --app tearleads
 
       - name: Build packages
-        run: pnpm build
+        run: sh ./scripts/tooling/pm.sh run build
         env:
           VITE_API_URL: https://api.${{ secrets.DEPLOY_DOMAIN_PROD }}/v1
 
@@ -127,7 +128,7 @@ jobs:
             "chgrp -R www-data /var/www/app && chmod -R u=rwX,g=rX,o= /var/www/app"
 
       - name: Build API bundle and CLI
-        run: pnpm --filter @tearleads/api build:all
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/api run build:all
 
       - name: Deploy API
         run: |
@@ -150,7 +151,7 @@ jobs:
             "sudo systemctl restart tearleads-api && sudo systemctl --no-pager status tearleads-api"
 
       - name: Build SMTP Listener bundle
-        run: pnpm --filter @tearleads/smtp-listener build:bundle
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/smtp-listener run build:bundle
 
       - name: Deploy SMTP Listener
         run: |
