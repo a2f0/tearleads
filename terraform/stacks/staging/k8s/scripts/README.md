@@ -37,6 +37,8 @@ These scripts run the full cluster provisioning in four ordered steps. Run them 
 | `setup-ecr-secret.sh` | Create or refresh the ECR docker-registry pull secret (expires after 12h) |
 | `vfs-crdt-compaction.sh` | Manage VFS CRDT compaction CronJob (status, enable/disable, suspend/resume, run-once, logs) |
 
+`reset.sh` supports `S3_RESET_MODE=auto|local|in-cluster` (default `auto`, which prefers local AWS CLI when available and exits on failure without cross-mode fallback).
+
 ## Smoke Tests
 
 | Script | Description |
