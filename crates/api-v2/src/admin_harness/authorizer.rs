@@ -14,7 +14,7 @@ impl AuthorizationHeaderAdminAuthorizer {
         })
     }
 
-    fn validate_bearer_token(
+    pub(crate) fn validate_bearer_token(
         operation: AdminOperation,
         authorization: &str,
     ) -> Result<(), AdminAuthError> {
