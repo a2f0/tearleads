@@ -3,7 +3,6 @@ import '../test/setupIntegration';
 import { randomUUID } from 'node:crypto';
 import { seedTestUser } from '@tearleads/api-test-utils';
 import { notes, vfsRegistry } from '@tearleads/db/sqlite';
-import { eq } from 'drizzle-orm';
 import type { VfsCrdtSyncResponse } from '@tearleads/shared';
 import {
   combinePublicKey,
@@ -12,6 +11,7 @@ import {
 } from '@tearleads/shared';
 import { setupBobNotesShareForAliceDb } from '@tearleads/shared/scaffolding';
 import { render, waitFor } from '@testing-library/react';
+import { eq } from 'drizzle-orm';
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthInstanceBinding } from '@/components/AuthInstanceBinding';
@@ -22,8 +22,8 @@ import {
 } from '@/contexts/VfsOrchestratorContext';
 import { getDatabase } from '@/db';
 import { DatabaseProvider, useDatabaseContext } from '@/db/hooks';
-import { clearStoredAuth, readStoredAuth, storeAuth } from '@/lib/authStorage';
 import { api } from '@/lib/api';
+import { clearStoredAuth, readStoredAuth, storeAuth } from '@/lib/authStorage';
 import { setActiveOrganizationId } from '@/lib/orgStorage';
 import { getSharedTestContext } from '@/test/testContext';
 import { fetchVfsConnectJson } from '../../../bob-and-alice/src/harness/vfsConnectClient';
@@ -91,7 +91,9 @@ function requireDatabaseContext(): ReturnType<typeof useDatabaseContext> {
   return latestDatabaseContext;
 }
 
-function requireVfsOrchestratorContext(): ReturnType<typeof useVfsOrchestrator> {
+function requireVfsOrchestratorContext(): ReturnType<
+  typeof useVfsOrchestrator
+> {
   if (!latestVfsOrchestratorContext) {
     throw new Error('Expected VFS orchestrator context to be available');
   }
@@ -299,7 +301,8 @@ describe('instance switch shared-note sync regression', () => {
          LIMIT 1`,
         [seededShare.noteId]
       );
-      const encryptedSessionKey = noteKeyRows.rows[0]?.['encrypted_session_key'];
+      const encryptedSessionKey =
+        noteKeyRows.rows[0]?.['encrypted_session_key'];
       if (
         typeof encryptedSessionKey !== 'string' ||
         encryptedSessionKey.length === 0
@@ -311,7 +314,9 @@ describe('instance switch shared-note sync regression', () => {
         const db = getDatabase();
         const now = new Date();
 
-        await db.delete(vfsRegistry).where(eq(vfsRegistry.id, seededShare.noteId));
+        await db
+          .delete(vfsRegistry)
+          .where(eq(vfsRegistry.id, seededShare.noteId));
         await db.delete(notes).where(eq(notes.id, seededShare.noteId));
 
         await db.insert(notes).values({
