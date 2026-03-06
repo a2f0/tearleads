@@ -12,7 +12,8 @@ import type { VfsCrdtSyncResponse, VfsSyncResponse } from '@tearleads/shared';
 import {
   combinePublicKey,
   generateKeyPair,
-  serializePublicKey
+  serializePublicKey,
+  VFS_V2_CONNECT_BASE_PATH
 } from '@tearleads/shared';
 import {
   SCAFFOLD_INLINE_EMAIL_BODY_PREFIX,
@@ -226,7 +227,7 @@ describe('DB scaffolding plaintext render integration', () => {
       body: { limit: number; cursor?: string }
     ): Promise<TResponse> => {
       const response = await fetch(
-        `${ctx.baseUrl}/v1/connect/tearleads.v1.VfsService/${methodName}`,
+        `${ctx.baseUrl}/v1${VFS_V2_CONNECT_BASE_PATH}/${methodName}`,
         {
           method: 'POST',
           headers: {

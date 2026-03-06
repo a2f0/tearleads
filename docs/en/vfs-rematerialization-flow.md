@@ -65,7 +65,7 @@ In current API-client wiring (`VfsApiNetworkFlusher`):
 
 1. Call user-provided rematerialization handler first.
 2. If user handler returns null/void and default transport is used, fallback fetches server snapshot:
-   - `POST /connect/tearleads.v1.VfsService/GetCrdtSnapshot`
+   - `POST /connect/tearleads.v2.VfsService/GetCrdtSnapshot`
 3. `404` snapshot response is treated as no snapshot (`null`), which means fallback to state reset behavior.
 
 ### 6) Rematerialized State Is Applied
