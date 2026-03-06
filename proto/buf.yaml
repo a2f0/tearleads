@@ -23,5 +23,6 @@ breaking:
   use:
     - FILE
   ignore:
+    - tearleads/v1/mls.proto
     - tearleads/v2/admin.proto
     - tearleads/v2/mls.proto
