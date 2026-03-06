@@ -24,7 +24,9 @@ export function useAdminUserGroups(userId: string | null) {
       const membershipEntries = await Promise.all(
         response.groups.map(async (group) => {
           try {
-            const membersResponse = await api.adminV2.groups.getMembers(group.id);
+            const membersResponse = await api.adminV2.groups.getMembers(
+              group.id
+            );
             const member = membersResponse.members.find(
               (entry) => entry.userId === userId
             );
