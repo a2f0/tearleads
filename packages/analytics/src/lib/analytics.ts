@@ -417,14 +417,9 @@ export async function getDistinctEventTypes(_db: Database): Promise<string[]> {
     `SELECT DISTINCT event_name as eventName FROM analytics_events ORDER BY event_name`,
     []
   );
-  const rows = Array.isArray(result.rows) ? result.rows : [];
-  const eventTypes: string[] = [];
-  for (const row of rows) {
-    if (isEventNameRow(row)) {
-      eventTypes.push(row['eventName']);
-    }
-  }
-  return eventTypes;
+  const rows: unknown[] = Array.isArray(result.rows) ? result.rows : [];
+  const eventNameRows: EventNameRow[] = rows.filter(isEventNameRow);
+  return eventNameRows.map((row) => row['eventName']);
 }
 
 // Re-export types from analytics-events for convenience
