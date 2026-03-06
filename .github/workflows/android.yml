@@ -267,16 +267,6 @@ jobs:
           mkdir -p .secrets
           printf '%s' "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > .secrets/tearleads-release.keystore
 
-      - name: Create keystore.properties
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: |
-          cat > packages/client/android/keystore.properties << EOF
-          storeFile=${{ github.workspace }}/.secrets/tearleads-release.keystore
-          storePassword=${{ secrets.ANDROID_KEYSTORE_STORE_PASS }}
-          keyAlias=tearleads
-          keyPassword=${{ secrets.ANDROID_KEYSTORE_KEY_PASS }}
-          EOF
-
       - name: Run Android unit tests
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: bundle exec fastlane android test
@@ -290,6 +280,9 @@ jobs:
 
       - name: Run Android instrumented tests
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
+        env:
+          ANDROID_KEYSTORE_STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_STORE_PASS }}
+          ANDROID_KEYSTORE_KEY_PASS: ${{ secrets.ANDROID_KEYSTORE_KEY_PASS }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
