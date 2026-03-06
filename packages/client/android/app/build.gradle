@@ -21,7 +21,7 @@ android {
         }
     }
     def keystoreFile = rootProject.file("../../../.secrets/tearleads-release.keystore")
-    def hasReleaseKeystore = keystoreFile.exists() && System.getenv("ANDROID_KEYSTORE_STORE_PASS")
+    def hasReleaseKeystore = keystoreFile.exists() && System.getenv("ANDROID_KEYSTORE_STORE_PASS") && System.getenv("ANDROID_KEYSTORE_KEY_PASS")
     signingConfigs {
         release {
             if (hasReleaseKeystore) {
