@@ -42,9 +42,7 @@ export function VfsSyncStatusIndicator() {
     <WindowConnectionIndicator
       state={isSynced ? 'connected' : 'disconnected'}
       tooltip={
-        isSynced
-          ? t('vfsSynced')
-          : t('vfsPendingSync', { count: pendingCount })
+        isSynced ? t('vfsSynced') : t('vfsPendingSync', { count: pendingCount })
       }
     />
   );
