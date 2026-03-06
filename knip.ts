@@ -18,7 +18,7 @@ const config: KnipConfig = {
     'unlisted',
     'unresolved'
   ],
-  ignoreBinaries: ['ansible-lint', 'shellcheck', 'playwright'],
+  ignoreBinaries: ['ansible-lint', 'shellcheck'],
   ignoreIssues: {},
   workspaces: {
     '.': {
