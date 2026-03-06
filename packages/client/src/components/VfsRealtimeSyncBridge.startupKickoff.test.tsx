@@ -7,7 +7,7 @@ import {
   mockUseVfsOrchestratorInstance,
   orgChangeListeners,
   resetVfsRealtimeSyncBridgeTestMocks
-} from './VfsRealtimeSyncBridge.testSetup';
+} from '@/components/VfsRealtimeSyncBridge.testSetup';
 import { VfsRealtimeSyncBridge } from './VfsRealtimeSyncBridge';
 
 describe('VfsRealtimeSyncBridge startup kickoff', () => {

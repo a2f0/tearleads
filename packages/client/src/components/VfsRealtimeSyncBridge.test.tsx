@@ -7,7 +7,7 @@ import {
   mockUseSSE,
   mockUseVfsOrchestratorInstance,
   resetVfsRealtimeSyncBridgeTestMocks
-} from './VfsRealtimeSyncBridge.testSetup';
+} from '@/components/VfsRealtimeSyncBridge.testSetup';
 import { VfsRealtimeSyncBridge } from './VfsRealtimeSyncBridge';
 
 function deferred<T>() {
