@@ -7,11 +7,9 @@ import type {
   AiUsageListResponse,
   CreateGroupRequest,
   CreateOrganizationRequest,
-  Group,
   GroupDetailResponse,
   GroupMembersResponse,
   GroupsListResponse,
-  Organization,
   OrganizationGroupsResponse,
   OrganizationResponse,
   OrganizationsListResponse,
@@ -25,15 +23,27 @@ import type {
   UpdateGroupRequest,
   UpdateOrganizationRequest
 } from '@tearleads/shared';
+import { createConnectJsonPostInit } from '@tearleads/shared';
 import {
-  createConnectJsonPostInit,
-  parseConnectJsonString
-} from '@tearleads/shared';
+  mapAddGroupMemberResponse,
+  mapDeleteGroupResponse,
+  mapDeleteOrganizationResponse,
+  mapDeleteRedisKeyResponse,
+  mapPostgresColumnsResponse,
+  mapPostgresInfoResponse,
+  mapPostgresRowsResponse,
+  mapPostgresTablesResponse,
+  mapRedisDbSizeResponse,
+  mapRedisKeysResponse,
+  mapRedisValueResponse,
+  mapRemoveGroupMemberResponse
+} from './adminV2ApiMappers';
 import { mapContextResponse } from './adminV2ContextMapper';
 import { mapGroupsListResponse } from './adminV2GroupsMapper';
 import {
   mapGroupDetailResponse,
   mapGroupMembersResponse,
+  mapGroupResponse,
   mapOrganizationGroupsResponse,
   mapOrganizationResponse,
   mapOrganizationsListResponse,
@@ -41,20 +51,14 @@ import {
   mapUserResponse,
   mapUsersListResponse
 } from './adminV2ReadMappers';
-import { isRecord, toNullableNumber, toSafeNumber } from './adminV2ValueUtils';
 
 const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 
-const ADMIN_CONNECT_BASE_PATH = '/connect/tearleads.v1.AdminService';
 const ADMIN_V2_CONNECT_BASE_PATH = '/connect/tearleads.v2.AdminService';
 const AI_CONNECT_BASE_PATH = '/connect/tearleads.v1.AiService';
 
 interface RequestParams {
   fetchOptions?: RequestInit;
-}
-
-interface ConnectJsonEnvelopeResponse {
-  json: string;
 }
 
 async function request<T>(
@@ -111,18 +115,6 @@ async function request<T>(
   return JSON.parse(text) as T;
 }
 
-function requestAdminJson<T>(
-  methodName: string,
-  requestBody: Record<string, unknown>
-): Promise<T> {
-  return request<ConnectJsonEnvelopeResponse>(
-    `${ADMIN_CONNECT_BASE_PATH}/${methodName}`,
-    {
-      fetchOptions: createConnectJsonPostInit(requestBody)
-    }
-  ).then((response) => parseConnectJsonString<T>(response?.json));
-}
-
 function requestAdminV2<T>(
   methodName: string,
   requestBody: Record<string, unknown>,
@@ -131,156 +123,6 @@ function requestAdminV2<T>(
   return request<unknown>(`${ADMIN_V2_CONNECT_BASE_PATH}/${methodName}`, {
     fetchOptions: createConnectJsonPostInit(requestBody)
   }).then((responseBody) => mapResponse(responseBody));
-}
-
-function mapPostgresInfoResponse(
-  responseBody: unknown
-): PostgresAdminInfoResponse {
-  const response = isRecord(responseBody) ? responseBody : {};
-  const info = isRecord(response['info']) ? response['info'] : {};
-
-  return {
-    status: 'ok',
-    info: {
-      host: typeof info['host'] === 'string' ? info['host'] : null,
-      port: toNullableNumber(info['port']),
-      database: typeof info['database'] === 'string' ? info['database'] : null,
-      user: typeof info['user'] === 'string' ? info['user'] : null
-    },
-    serverVersion:
-      typeof response['serverVersion'] === 'string'
-        ? response['serverVersion']
-        : null
-  };
-}
-
-function mapPostgresTablesResponse(
-  responseBody: unknown
-): PostgresTablesResponse {
-  const response = isRecord(responseBody) ? responseBody : {};
-  const tableRows = Array.isArray(response['tables']) ? response['tables'] : [];
-
-  return {
-    tables: tableRows
-      .filter((tableRow) => isRecord(tableRow))
-      .map((tableRow) => ({
-        schema:
-          typeof tableRow['schema'] === 'string' ? tableRow['schema'] : '',
-        name: typeof tableRow['name'] === 'string' ? tableRow['name'] : '',
-        rowCount: toSafeNumber(tableRow['rowCount']),
-        totalBytes: toSafeNumber(tableRow['totalBytes']),
-        tableBytes: toSafeNumber(tableRow['tableBytes']),
-        indexBytes: toSafeNumber(tableRow['indexBytes'])
-      }))
-  };
-}
-
-function mapPostgresColumnsResponse(
-  responseBody: unknown
-): PostgresColumnsResponse {
-  const response = isRecord(responseBody) ? responseBody : {};
-  const columns = Array.isArray(response['columns']) ? response['columns'] : [];
-
-  return {
-    columns: columns
-      .filter((column) => isRecord(column))
-      .map((column) => ({
-        name: typeof column['name'] === 'string' ? column['name'] : '',
-        type: typeof column['type'] === 'string' ? column['type'] : '',
-        nullable: Boolean(column['nullable']),
-        defaultValue:
-          typeof column['defaultValue'] === 'string'
-            ? column['defaultValue']
-            : null,
-        ordinalPosition: toSafeNumber(column['ordinalPosition'])
-      }))
-  };
-}
-
-function mapPostgresRowsResponse(responseBody: unknown): PostgresRowsResponse {
-  const response = isRecord(responseBody) ? responseBody : {};
-  const rows = Array.isArray(response['rows']) ? response['rows'] : [];
-
-  return {
-    rows: rows.filter((row) => isRecord(row)),
-    totalCount: toSafeNumber(response['totalCount']),
-    limit: toSafeNumber(response['limit']),
-    offset: toSafeNumber(response['offset'])
-  };
-}
-
-function mapRedisKeysResponse(responseBody: unknown): RedisKeysResponse {
-  const response = isRecord(responseBody) ? responseBody : {};
-  const keys = Array.isArray(response['keys']) ? response['keys'] : [];
-
-  return {
-    keys: keys
-      .filter((entry) => isRecord(entry))
-      .map((entry) => ({
-        key: typeof entry['key'] === 'string' ? entry['key'] : '',
-        type: typeof entry['type'] === 'string' ? entry['type'] : '',
-        ttl: toSafeNumber(entry['ttl'])
-      })),
-    cursor: typeof response['cursor'] === 'string' ? response['cursor'] : '',
-    hasMore: Boolean(response['hasMore'])
-  };
-}
-
-function mapRedisValueResponse(responseBody: unknown): RedisKeyValueResponse {
-  const response = isRecord(responseBody) ? responseBody : {};
-  const valueField = isRecord(response['value']) ? response['value'] : {};
-
-  let value: RedisKeyValueResponse['value'] = null;
-  if (typeof valueField['stringValue'] === 'string') {
-    value = valueField['stringValue'];
-  } else if (
-    isRecord(valueField['listValue']) &&
-    Array.isArray(valueField['listValue']['values'])
-  ) {
-    value = valueField['listValue']['values'].filter(
-      (entry): entry is string => typeof entry === 'string'
-    );
-  } else if (
-    isRecord(valueField['mapValue']) &&
-    isRecord(valueField['mapValue']['entries'])
-  ) {
-    const entries = valueField['mapValue']['entries'];
-    const mappedEntries: Record<string, string> = {};
-    for (const [key, entryValue] of Object.entries(entries)) {
-      if (typeof entryValue === 'string') {
-        mappedEntries[key] = entryValue;
-      }
-    }
-    value = mappedEntries;
-  }
-
-  return {
-    key: typeof response['key'] === 'string' ? response['key'] : '',
-    type: typeof response['type'] === 'string' ? response['type'] : '',
-    ttl: toSafeNumber(response['ttl']),
-    value
-  };
-}
-
-function mapDeleteRedisKeyResponse(responseBody: unknown): {
-  deleted: boolean;
-} {
-  const response = isRecord(responseBody) ? responseBody : {};
-  if (typeof response['deleted'] === 'boolean') {
-    return { deleted: response['deleted'] };
-  }
-  return { deleted: false };
-}
-
-function mapRedisDbSizeResponse(responseBody: unknown): { count: number } {
-  const response = isRecord(responseBody) ? responseBody : {};
-  if (
-    typeof response['count'] === 'number' ||
-    typeof response['count'] === 'string'
-  ) {
-    return { count: toSafeNumber(response['count']) };
-  }
-  return { count: 0 };
 }
 
 function requestAi<T>(
@@ -395,16 +237,34 @@ export const api = {
           mapGroupDetailResponse
         ),
       create: (data: CreateGroupRequest) =>
-        requestAdminJson<{ group: Group }>('CreateGroup', {
-          json: JSON.stringify(data)
-        }),
+        requestAdminV2(
+          'CreateGroup',
+          {
+            organizationId: data.organizationId,
+            name: data.name,
+            ...(data.description !== undefined
+              ? { description: data.description }
+              : {})
+          },
+          mapGroupResponse
+        ),
       update: (id: string, data: UpdateGroupRequest) =>
-        requestAdminJson<{ group: Group }>('UpdateGroup', {
-          id,
-          json: JSON.stringify(data)
-        }),
+        requestAdminV2(
+          'UpdateGroup',
+          {
+            id,
+            ...(data.organizationId !== undefined
+              ? { organizationId: data.organizationId }
+              : {}),
+            ...(data.name !== undefined ? { name: data.name } : {}),
+            ...(data.description !== undefined
+              ? { description: data.description }
+              : {})
+          },
+          mapGroupResponse
+        ),
       delete: (id: string) =>
-        requestAdminJson<{ deleted: boolean }>('DeleteGroup', { id }),
+        requestAdminV2('DeleteGroup', { id }, mapDeleteGroupResponse),
       getMembers: (id: string) =>
         requestAdminV2<GroupMembersResponse>(
           'GetGroupMembers',
@@ -412,15 +272,23 @@ export const api = {
           mapGroupMembersResponse
         ),
       addMember: (groupId: string, userId: string) =>
-        requestAdminJson<{ added: boolean }>('AddGroupMember', {
-          id: groupId,
-          json: JSON.stringify({ userId })
-        }),
+        requestAdminV2(
+          'AddGroupMember',
+          {
+            id: groupId,
+            userId
+          },
+          mapAddGroupMemberResponse
+        ),
       removeMember: (groupId: string, userId: string) =>
-        requestAdminJson<{ removed: boolean }>('RemoveGroupMember', {
-          groupId,
-          userId
-        })
+        requestAdminV2(
+          'RemoveGroupMember',
+          {
+            groupId,
+            userId
+          },
+          mapRemoveGroupMemberResponse
+        )
     },
     organizations: {
       list: (options?: { organizationId?: string }) => {
@@ -453,16 +321,34 @@ export const api = {
           mapOrganizationGroupsResponse
         ),
       create: (data: CreateOrganizationRequest) =>
-        requestAdminJson<{ organization: Organization }>('CreateOrganization', {
-          json: JSON.stringify(data)
-        }),
+        requestAdminV2(
+          'CreateOrganization',
+          {
+            name: data.name,
+            ...(data.description !== undefined
+              ? { description: data.description }
+              : {})
+          },
+          mapOrganizationResponse
+        ),
       update: (id: string, data: UpdateOrganizationRequest) =>
-        requestAdminJson<{ organization: Organization }>('UpdateOrganization', {
-          id,
-          json: JSON.stringify(data)
-        }),
+        requestAdminV2(
+          'UpdateOrganization',
+          {
+            id,
+            ...(data.name !== undefined ? { name: data.name } : {}),
+            ...(data.description !== undefined
+              ? { description: data.description }
+              : {})
+          },
+          mapOrganizationResponse
+        ),
       delete: (id: string) =>
-        requestAdminJson<{ deleted: boolean }>('DeleteOrganization', { id })
+        requestAdminV2(
+          'DeleteOrganization',
+          { id },
+          mapDeleteOrganizationResponse
+        )
     },
     users: {
       list: (options?: { organizationId?: string }) => {
@@ -479,10 +365,29 @@ export const api = {
       get: (id: string) =>
         requestAdminV2<AdminUserResponse>('GetUser', { id }, mapUserResponse),
       update: (id: string, data: AdminUserUpdatePayload) =>
-        requestAdminJson<AdminUserUpdateResponse>('UpdateUser', {
-          id,
-          json: JSON.stringify(data)
-        })
+        requestAdminV2<AdminUserUpdateResponse>(
+          'UpdateUser',
+          {
+            id,
+            ...(data.email !== undefined ? { email: data.email } : {}),
+            ...(data.emailConfirmed !== undefined
+              ? { emailConfirmed: data.emailConfirmed }
+              : {}),
+            ...(data.admin !== undefined ? { admin: data.admin } : {}),
+            ...(data.organizationIds !== undefined
+              ? {
+                  organizationIds: {
+                    organizationIds: data.organizationIds
+                  }
+                }
+              : {}),
+            ...(data.disabled !== undefined ? { disabled: data.disabled } : {}),
+            ...(data.markedForDeletion !== undefined
+              ? { markedForDeletion: data.markedForDeletion }
+              : {})
+          },
+          mapUserResponse
+        )
     }
   },
   ai: {

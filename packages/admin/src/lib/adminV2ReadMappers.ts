@@ -1,6 +1,7 @@
 import type {
   AdminUserResponse,
   AdminUsersResponse,
+  Group,
   GroupDetailResponse,
   GroupMembersResponse,
   OrganizationGroupsResponse,
@@ -10,28 +11,45 @@ import type {
 } from '@tearleads/shared';
 import { isRecord, toSafeNumber } from './adminV2ValueUtils';
 
+function mapGroup(group: unknown): Group {
+  const groupRecord = isRecord(group) ? group : {};
+  return {
+    id: typeof groupRecord['id'] === 'string' ? groupRecord['id'] : '',
+    organizationId:
+      typeof groupRecord['organizationId'] === 'string'
+        ? groupRecord['organizationId']
+        : '',
+    name: typeof groupRecord['name'] === 'string' ? groupRecord['name'] : '',
+    description:
+      typeof groupRecord['description'] === 'string'
+        ? groupRecord['description']
+        : null,
+    createdAt:
+      typeof groupRecord['createdAt'] === 'string'
+        ? groupRecord['createdAt']
+        : '',
+    updatedAt:
+      typeof groupRecord['updatedAt'] === 'string'
+        ? groupRecord['updatedAt']
+        : ''
+  };
+}
+
+export function mapGroupResponse(responseBody: unknown): { group: Group } {
+  const response = isRecord(responseBody) ? responseBody : {};
+  return {
+    group: mapGroup(response['group'])
+  };
+}
+
 export function mapGroupDetailResponse(
   responseBody: unknown
 ): GroupDetailResponse {
   const response = isRecord(responseBody) ? responseBody : {};
-  const group = isRecord(response['group']) ? response['group'] : {};
   const members = Array.isArray(response['members']) ? response['members'] : [];
 
   return {
-    group: {
-      id: typeof group['id'] === 'string' ? group['id'] : '',
-      organizationId:
-        typeof group['organizationId'] === 'string'
-          ? group['organizationId']
-          : '',
-      name: typeof group['name'] === 'string' ? group['name'] : '',
-      description:
-        typeof group['description'] === 'string' ? group['description'] : null,
-      createdAt:
-        typeof group['createdAt'] === 'string' ? group['createdAt'] : '',
-      updatedAt:
-        typeof group['updatedAt'] === 'string' ? group['updatedAt'] : ''
-    },
+    group: mapGroup(response['group']),
     members: members
       .filter((member) => isRecord(member))
       .map((member) => ({

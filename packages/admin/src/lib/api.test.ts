@@ -177,6 +177,31 @@ describe('admin api client', () => {
     ).toBe(true);
     expect(
       urls.some((url) =>
+        url.includes('/connect/tearleads.v2.AdminService/CreateGroup')
+      )
+    ).toBe(true);
+    expect(
+      urls.some((url) =>
+        url.includes('/connect/tearleads.v2.AdminService/UpdateGroup')
+      )
+    ).toBe(true);
+    expect(
+      urls.some((url) =>
+        url.includes('/connect/tearleads.v2.AdminService/DeleteGroup')
+      )
+    ).toBe(true);
+    expect(
+      urls.some((url) =>
+        url.includes('/connect/tearleads.v2.AdminService/AddGroupMember')
+      )
+    ).toBe(true);
+    expect(
+      urls.some((url) =>
+        url.includes('/connect/tearleads.v2.AdminService/RemoveGroupMember')
+      )
+    ).toBe(true);
+    expect(
+      urls.some((url) =>
         url.includes('/connect/tearleads.v2.AdminService/ListOrganizations')
       )
     ).toBe(true);
@@ -187,7 +212,27 @@ describe('admin api client', () => {
     ).toBe(true);
     expect(
       urls.some((url) =>
+        url.includes('/connect/tearleads.v2.AdminService/CreateOrganization')
+      )
+    ).toBe(true);
+    expect(
+      urls.some((url) =>
+        url.includes('/connect/tearleads.v2.AdminService/UpdateOrganization')
+      )
+    ).toBe(true);
+    expect(
+      urls.some((url) =>
+        url.includes('/connect/tearleads.v2.AdminService/DeleteOrganization')
+      )
+    ).toBe(true);
+    expect(
+      urls.some((url) =>
         url.includes('/connect/tearleads.v2.AdminService/ListUsers')
+      )
+    ).toBe(true);
+    expect(
+      urls.some((url) =>
+        url.includes('/connect/tearleads.v2.AdminService/UpdateUser')
       )
     ).toBe(true);
     expect(
@@ -195,6 +240,9 @@ describe('admin api client', () => {
         url.includes('/connect/tearleads.v1.AiService/GetUsage')
       )
     ).toBe(true);
+    expect(
+      urls.some((url) => url.includes('/connect/tearleads.v1.AdminService/'))
+    ).toBe(false);
 
     const methods = fetchMock.mock.calls.map(
       ([, init]) => init?.method ?? 'GET'
