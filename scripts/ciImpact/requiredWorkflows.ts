@@ -1,4 +1,4 @@
-#!/usr/bin/env -S pnpm exec tsx
+#!/usr/bin/env -S node --import tsx
 import { execSync } from 'node:child_process';
 import {
   ALL_JOB_NAMES,

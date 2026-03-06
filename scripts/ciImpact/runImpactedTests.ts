@@ -1,8 +1,9 @@
-#!/usr/bin/env -S pnpm exec tsx
+#!/usr/bin/env -S node --import tsx
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { runCoverageForPackage } from './coverageRunner.ts';
+import { runCiImpactScript } from './runCiImpactScript.ts';
 
 interface CliArgs {
   base?: string;
@@ -40,6 +41,8 @@ interface WorkspacePackage {
 }
 
 const FULL_RUN_FILE_NAMES: ReadonlyArray<string> = [
+  'bun.lock',
+  'bun.lockb',
   'pnpm-lock.yaml',
   'pnpm-workspace.yaml',
   'package.json',
@@ -170,64 +173,13 @@ function parseImpact(rawJson: string): CiImpactOutput {
 function runCiImpact(args: CliArgs): CiImpactOutput {
   const base = args.base || DEFAULT_BASE;
   const head = args.head || DEFAULT_HEAD;
-  const ciImpactScript = 'scripts/ciImpact/ciImpact.ts';
-  const ciImpactArgs = [ciImpactScript, '--base', base, '--head', head];
-  if (args.files !== undefined) {
-    ciImpactArgs.push('--files', args.files);
-  }
-
-  const runners: ReadonlyArray<{
-    cmd: string;
-    args: string[];
-    display: string;
-  }> = [
-    {
-      cmd: process.execPath,
-      args: ['--experimental-strip-types', ...ciImpactArgs],
-      display: 'node --experimental-strip-types'
-    },
-    { cmd: 'tsx', args: ciImpactArgs, display: 'tsx' },
-    {
-      cmd: 'pnpm',
-      args: ['exec', 'tsx', ...ciImpactArgs],
-      display: 'pnpm exec tsx'
-    },
-    {
-      cmd: process.execPath,
-      args: ['--import', 'tsx', ...ciImpactArgs],
-      display: 'node --import tsx'
-    }
-  ];
-
-  let lastError = '';
-  for (const runner of runners) {
-    const result = spawnSync(runner.cmd, runner.args, {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: process.env
-    });
-
-    const spawnError = result.error;
-    if (
-      spawnError !== undefined &&
-      typeof spawnError === 'object' &&
-      'code' in spawnError &&
-      spawnError.code === 'ENOENT'
-    ) {
-      lastError = `${runner.display} not available`;
-      continue;
-    }
-
-    if (typeof result.status === 'number' && result.status === 0) {
-      return parseImpact(
-        typeof result.stdout === 'string' ? result.stdout : ''
-      );
-    }
-
-    const stderr = typeof result.stderr === 'string' ? result.stderr : '';
-    throw new Error(stderr || `Failed to run ciImpact via ${runner.display}`);
-  }
-  throw new Error(lastError || 'Failed to find a ciImpact runner');
+  const output = runCiImpactScript({
+    base,
+    head,
+    files: args.files,
+    callerName: 'runImpactedTests'
+  });
+  return parseImpact(output);
 }
 
 function requiresFullCoverageRun(changedFiles: string[]): boolean {
