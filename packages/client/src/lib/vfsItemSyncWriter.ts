@@ -174,6 +174,23 @@ async function ensureServerRegistration(
   serverRegisteredItemIds.add(itemId);
 }
 
+async function withSyncTracking(
+  operation: () => Promise<void>
+): Promise<void> {
+  inflightCount++;
+  notifySyncActivityListeners();
+  try {
+    await operation();
+    lastSyncError = null;
+  } catch (error) {
+    lastSyncError = error instanceof Error ? error : new Error(String(error));
+    throw error;
+  } finally {
+    inflightCount--;
+    notifySyncActivityListeners();
+  }
+}
+
 export async function queueItemUpsertAndFlush(
   input: QueueItemUpsertAndFlushInput
 ): Promise<void> {
@@ -181,9 +198,7 @@ export async function queueItemUpsertAndFlush(
     return;
   }
 
-  inflightCount++;
-  notifySyncActivityListeners();
-  try {
+  await withSyncTracking(async () => {
     const runtime = getSyncRuntimeOrThrow();
     const sessionKey = await ensureLocalEncryptedSessionKey(
       input.itemId,
@@ -197,14 +212,7 @@ export async function queueItemUpsertAndFlush(
       opPayload: input.payload
     });
     await runtime.orchestrator.flushAll();
-    lastSyncError = null;
-  } catch (error) {
-    lastSyncError = error instanceof Error ? error : new Error(String(error));
-    throw error;
-  } finally {
-    inflightCount--;
-    notifySyncActivityListeners();
-  }
+  });
 }
 
 export async function queueItemDeleteAndFlush(
@@ -214,9 +222,7 @@ export async function queueItemDeleteAndFlush(
     return;
   }
 
-  inflightCount++;
-  notifySyncActivityListeners();
-  try {
+  await withSyncTracking(async () => {
     const runtime = getSyncRuntimeOrThrow();
     const sessionKey = await ensureLocalEncryptedSessionKey(
       input.itemId,
@@ -229,12 +235,5 @@ export async function queueItemDeleteAndFlush(
       opType: 'item_delete'
     });
     await runtime.orchestrator.flushAll();
-    lastSyncError = null;
-  } catch (error) {
-    lastSyncError = error instanceof Error ? error : new Error(String(error));
-    throw error;
-  } finally {
-    inflightCount--;
-    notifySyncActivityListeners();
-  }
+  });
 }

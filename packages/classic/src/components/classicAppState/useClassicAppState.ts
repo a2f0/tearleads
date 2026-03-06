@@ -35,6 +35,20 @@ function generateId(): string {
   return crypto.randomUUID();
 }
 
+function fireAndForget(
+  callback: ((...args: never[]) => void | Promise<void>) | undefined,
+  errorMessage: string,
+  ...args: unknown[]
+): void {
+  if (callback) {
+    void Promise.resolve(
+      (callback as (...a: unknown[]) => void | Promise<void>)(...args)
+    ).catch((err) => {
+      console.error(errorMessage, err);
+    });
+  }
+}
+
 interface UseClassicAppStateOptions {
   initialState: ClassicState;
   tagSortOrder?: TagSortOrder | undefined;
@@ -216,11 +230,7 @@ export function useClassicAppState({
   const handleDeleteTag = useCallback(
     (tagId: string) => {
       updateState(softDeleteTag(state, tagId));
-      if (onDeleteTag) {
-        void Promise.resolve(onDeleteTag(tagId)).catch((err) => {
-          console.error('Failed to delete tag:', err);
-        });
-      }
+      fireAndForget(onDeleteTag, 'Failed to delete tag:', tagId);
     },
     [state, updateState, onDeleteTag]
   );
@@ -228,11 +238,7 @@ export function useClassicAppState({
   const handleRestoreTag = useCallback(
     (tagId: string) => {
       updateState(restoreTag(state, tagId));
-      if (onRestoreTag) {
-        void Promise.resolve(onRestoreTag(tagId)).catch((err) => {
-          console.error('Failed to restore tag:', err);
-        });
-      }
+      fireAndForget(onRestoreTag, 'Failed to restore tag:', tagId);
     },
     [state, updateState, onRestoreTag]
   );
@@ -298,17 +304,9 @@ export function useClassicAppState({
       updateState(nextState);
 
       if (isNewTag) {
-        if (onCreateTag) {
-          void Promise.resolve(onCreateTag(tagId, newName)).catch((err) => {
-            console.error('Failed to create tag:', err);
-          });
-        }
+        fireAndForget(onCreateTag, 'Failed to create tag:', tagId, newName);
       } else {
-        if (onRenameTag) {
-          void Promise.resolve(onRenameTag(tagId, newName)).catch((err) => {
-            console.error('Failed to rename tag:', err);
-          });
-        }
+        fireAndForget(onRenameTag, 'Failed to rename tag:', tagId, newName);
       }
 
       setEditingTagId(null);
@@ -398,21 +396,22 @@ export function useClassicAppState({
             break;
           }
         }
-        if (onCreateNote) {
-          void Promise.resolve(onCreateNote(noteId, tagId, title, body)).catch(
-            (err) => {
-              console.error('Failed to create note:', err);
-            }
-          );
-        }
+        fireAndForget(
+          onCreateNote,
+          'Failed to create note:',
+          noteId,
+          tagId,
+          title,
+          body
+        );
       } else {
-        if (onUpdateNote) {
-          void Promise.resolve(onUpdateNote(noteId, title, body)).catch(
-            (err) => {
-              console.error('Failed to update note:', err);
-            }
-          );
-        }
+        fireAndForget(
+          onUpdateNote,
+          'Failed to update note:',
+          noteId,
+          title,
+          body
+        );
       }
 
       setEditingNoteId(null);
