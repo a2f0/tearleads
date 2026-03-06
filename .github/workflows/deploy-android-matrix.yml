@@ -36,7 +36,7 @@ jobs:
         uses: pnpm/action-setup@v4
 
       - name: Install dependencies
-        run: pnpm install --filter @tearleads/app-builder
+        run: sh ./scripts/tooling/pm.sh install --filter @tearleads/app-builder
 
       - name: Determine apps to build
         id: set-matrix
@@ -52,7 +52,7 @@ jobs:
           else
             # Auto-discover all apps from app-builder
             cd packages/app-builder
-            APPS=$(pnpm tsx src/cli.ts list --json)
+            APPS=$(sh ./scripts/tooling/pm.sh exec tsx src/cli.ts list --json)
           fi
           echo "Building apps: $APPS"
           echo "matrix={\"app\":$APPS}" >> $GITHUB_OUTPUT
@@ -113,7 +113,7 @@ jobs:
           working-directory: packages/client
 
       - name: Install dependencies
-        run: pnpm install
+        run: sh ./scripts/tooling/pm.sh install
 
       - name: Validate Android keystore secrets (fail fast)
         env:
@@ -122,7 +122,7 @@ jobs:
           ANDROID_KEYSTORE_KEY_PASS: ${{ secrets[format('{0}_ANDROID_KEYSTORE_KEY_PASS', env.APP_ID)] || secrets.ANDROID_KEYSTORE_KEY_PASS }}
           ANDROID_KEY_ALIAS: ${{ secrets[format('{0}_ANDROID_KEY_ALIAS', env.APP_ID)] || env.APP_ID }}
         run: |
-          pnpm exec tsx scripts/checkAndroidKeystoreIntegrity.ts \
+          sh ./scripts/tooling/pm.sh exec tsx scripts/checkAndroidKeystoreIntegrity.ts \
             --source env \
             --base64-env ANDROID_KEYSTORE_BASE64 \
             --store-pass-env ANDROID_KEYSTORE_STORE_PASS \
@@ -154,7 +154,7 @@ jobs:
           done
 
       - name: Build web assets
-        run: pnpm --filter @tearleads/client build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/client run build
         env:
           VITE_API_URL: https://api.${{ secrets.DEPLOY_DOMAIN_PROD }}/v1
 
@@ -162,7 +162,7 @@ jobs:
         run: ./packages/client/scripts/buildAndroidImageAssets.sh
 
       - name: Sync Capacitor
-        run: pnpm --filter @tearleads/client run cap:sync
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/client run cap:sync
 
       - name: Download Gradle wrapper
         run: ./packages/client/scripts/downloadGradleWrapper.sh
