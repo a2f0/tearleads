@@ -16,20 +16,12 @@ use crate::admin_service_common::{map_data_access_error, normalize_required_reso
 
 use super::AdminServiceHandler;
 
-fn ensure_group_scope(
-    admin_access: &AdminAccessContext,
-    organization_id: &str,
-) -> Result<(), Status> {
-    if admin_access.is_root_admin()
+fn has_group_scope(admin_access: &AdminAccessContext, organization_id: &str) -> bool {
+    admin_access.is_root_admin()
         || admin_access
             .organization_ids()
             .iter()
             .any(|id| id == organization_id)
-    {
-        return Ok(());
-    }
-
-    Err(Status::permission_denied("forbidden organization scope"))
 }
 
 fn map_admin_group(group: AdminGroupDetail) -> AdminGroup {
@@ -63,7 +55,9 @@ where
                 .map_err(Status::invalid_argument)?;
         let name = normalize_required_resource_id("name", &payload.name)
             .map_err(Status::invalid_argument)?;
-        ensure_group_scope(&admin_access, &organization_id)?;
+        if !has_group_scope(&admin_access, &organization_id) {
+            return Err(Status::permission_denied("forbidden organization scope"));
+        }
 
         let description = payload.description.and_then(|description| {
             let trimmed = description.trim();
@@ -105,7 +99,9 @@ where
             .get_group(&group_id)
             .await
             .map_err(map_data_access_error)?;
-        ensure_group_scope(&admin_access, &current_group.organization_id)?;
+        if !has_group_scope(&admin_access, &current_group.organization_id) {
+            return Err(Status::permission_denied("forbidden organization scope"));
+        }
 
         let organization_id = payload
             .organization_id
@@ -113,7 +109,9 @@ where
             .transpose()
             .map_err(Status::invalid_argument)?;
         if let Some(target_organization_id) = organization_id.as_deref() {
-            ensure_group_scope(&admin_access, target_organization_id)?;
+            if !has_group_scope(&admin_access, target_organization_id) {
+                return Err(Status::permission_denied("forbidden organization scope"));
+            }
         }
 
         let name = payload
@@ -169,7 +167,9 @@ where
             .get_group(&group_id)
             .await
             .map_err(map_data_access_error)?;
-        ensure_group_scope(&admin_access, &group.organization_id)?;
+        if !has_group_scope(&admin_access, &group.organization_id) {
+            return Err(Status::permission_denied("forbidden organization scope"));
+        }
 
         let deleted = self
             .postgres_repo
@@ -197,7 +197,9 @@ where
             .get_group(&group_id)
             .await
             .map_err(map_data_access_error)?;
-        ensure_group_scope(&admin_access, &group.organization_id)?;
+        if !has_group_scope(&admin_access, &group.organization_id) {
+            return Err(Status::permission_denied("forbidden organization scope"));
+        }
 
         let added = self
             .postgres_repo
@@ -225,7 +227,9 @@ where
             .get_group(&group_id)
             .await
             .map_err(map_data_access_error)?;
-        ensure_group_scope(&admin_access, &group.organization_id)?;
+        if !has_group_scope(&admin_access, &group.organization_id) {
+            return Err(Status::permission_denied("forbidden organization scope"));
+        }
 
         let removed = self
             .postgres_repo
