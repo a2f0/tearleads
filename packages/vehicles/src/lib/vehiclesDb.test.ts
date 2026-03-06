@@ -1,33 +1,30 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DatabaseAdapter } from './adapters';
+
+const mockAdapter = {
+  execute: vi.fn()
+};
+
+vi.mock('./vehiclesState', () => ({
+  getDatabaseAdapter: vi.fn(() => mockAdapter),
+  isDatabaseInitialized: vi.fn(() => true)
+}));
+
+import { isDatabaseInitialized } from './vehiclesState';
 import {
   createVehicle,
   deleteVehicle,
   listVehicles,
   updateVehicle
-} from './vehicles';
-
-const mockAdapter: Pick<DatabaseAdapter, 'execute'> = {
-  execute: vi.fn()
-};
-
-const mockIsDatabaseInitialized = vi.fn();
-const mockGetDatabaseAdapter = vi.fn();
-
-vi.mock('./index', () => ({
-  isDatabaseInitialized: () => mockIsDatabaseInitialized(),
-  getDatabaseAdapter: () => mockGetDatabaseAdapter()
-}));
+} from './vehiclesDb';
 
 describe('vehicles db helpers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsDatabaseInitialized.mockReturnValue(true);
-    mockGetDatabaseAdapter.mockReturnValue(mockAdapter);
+    vi.mocked(isDatabaseInitialized).mockReturnValue(true);
   });
 
   it('returns empty list when database is not initialized', async () => {
-    mockIsDatabaseInitialized.mockReturnValue(false);
+    vi.mocked(isDatabaseInitialized).mockReturnValue(false);
 
     const vehicles = await listVehicles();
 
@@ -37,7 +34,7 @@ describe('vehicles db helpers', () => {
 
   it('maps rows from listVehicles query', async () => {
     const now = Date.now();
-    vi.mocked(mockAdapter.execute).mockResolvedValueOnce({
+    mockAdapter.execute.mockResolvedValueOnce({
       rows: [
         {
           id: 'vehicle-1',
@@ -73,7 +70,7 @@ describe('vehicles db helpers', () => {
   });
 
   it('inserts and returns a created vehicle', async () => {
-    vi.mocked(mockAdapter.execute).mockResolvedValueOnce({ rows: [] });
+    mockAdapter.execute.mockResolvedValueOnce({ rows: [] });
 
     const created = await createVehicle({
       make: 'Toyota',
@@ -103,7 +100,7 @@ describe('vehicles db helpers', () => {
 
   it('updates and returns vehicle by id', async () => {
     const now = Date.now();
-    vi.mocked(mockAdapter.execute)
+    mockAdapter.execute
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: [
@@ -146,7 +143,7 @@ describe('vehicles db helpers', () => {
   });
 
   it('soft deletes a vehicle', async () => {
-    vi.mocked(mockAdapter.execute).mockResolvedValueOnce({ rows: [] });
+    mockAdapter.execute.mockResolvedValueOnce({ rows: [] });
 
     const deleted = await deleteVehicle('vehicle-1');
 
