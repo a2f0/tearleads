@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { serializeEnvelopeField } from './vfsDirectCrdtEnvelopeStorage.js';
 
 describe('vfsDirectCrdtEnvelopeStorage', () => {
+  const bytes = Uint8Array.from(Buffer.from('abc'));
+
   afterEach(() => {
     vi.unstubAllEnvs();
   });
@@ -23,10 +25,10 @@ describe('vfsDirectCrdtEnvelopeStorage', () => {
 
   it('stores valid base64 as bytea by default', () => {
     const serialized = serializeEnvelopeField(
-      Buffer.from('abc').toString('base64')
+      Buffer.from(bytes).toString('base64')
     );
     expect(serialized.text).toBeNull();
-    expect(serialized.bytes).toEqual(Buffer.from('abc'));
+    expect(serialized.bytes).toEqual(bytes);
   });
 
   it('falls back to text for non-base64 values', () => {
@@ -41,10 +43,10 @@ describe('vfsDirectCrdtEnvelopeStorage', () => {
     vi.stubEnv('VFS_CRDT_ENVELOPE_BYTEA_WRITES', 'false');
 
     const serialized = serializeEnvelopeField(
-      Buffer.from('abc').toString('base64')
+      Buffer.from(bytes).toString('base64')
     );
     expect(serialized).toEqual({
-      text: Buffer.from('abc').toString('base64'),
+      text: Buffer.from(bytes).toString('base64'),
       bytes: null
     });
   });
@@ -53,9 +55,9 @@ describe('vfsDirectCrdtEnvelopeStorage', () => {
     vi.stubEnv('VFS_CRDT_ENVELOPE_DUAL_WRITE_TEXT', 'true');
 
     const serialized = serializeEnvelopeField(
-      Buffer.from('abc').toString('base64')
+      Buffer.from(bytes).toString('base64')
     );
-    expect(serialized.text).toBe(Buffer.from('abc').toString('base64'));
-    expect(serialized.bytes).toEqual(Buffer.from('abc'));
+    expect(serialized.text).toBe(Buffer.from(bytes).toString('base64'));
+    expect(serialized.bytes).toEqual(bytes);
   });
 });
