@@ -43,7 +43,7 @@ const REQUIRE_DECLARED_ORGANIZATION_BY_SERVICE = new Map<
     VFS_WRITE_METHODS_REQUIRING_DECLARED_ORGANIZATION
   ],
   [
-    'tearleads.v1.VfsSharesService',
+    'tearleads.v2.VfsSharesService',
     new Set([
       'CreateShare',
       'UpdateShare',

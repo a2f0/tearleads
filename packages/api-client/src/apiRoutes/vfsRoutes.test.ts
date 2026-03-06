@@ -68,14 +68,14 @@ describe('vfsRoutes', () => {
     const [typedPath, typedParams] = requestMock.mock.calls[1] ?? [];
 
     expect(defaultPath).toBe(
-      '/connect/tearleads.v1.VfsSharesService/SearchShareTargets'
+      '/connect/tearleads.v2.VfsSharesService/SearchShareTargets'
     );
     expect(defaultParams?.fetchOptions?.body).toBe(
       JSON.stringify({ q: 'alice' })
     );
 
     expect(typedPath).toBe(
-      '/connect/tearleads.v1.VfsSharesService/SearchShareTargets'
+      '/connect/tearleads.v2.VfsSharesService/SearchShareTargets'
     );
     expect(typedParams?.fetchOptions?.body).toBe(
       JSON.stringify({ q: 'bob', type: 'user' })
@@ -106,7 +106,7 @@ describe('vfsRoutes', () => {
     const [fullPath, fullParams] = requestMock.mock.calls[1] ?? [];
 
     expect(baselinePath).toBe(
-      '/connect/tearleads.v1.VfsSharesService/GetSharePolicyPreview'
+      '/connect/tearleads.v2.VfsSharesService/GetSharePolicyPreview'
     );
     expect(baselineParams?.fetchOptions?.body).toBe(
       JSON.stringify({
@@ -117,7 +117,7 @@ describe('vfsRoutes', () => {
     );
 
     expect(fullPath).toBe(
-      '/connect/tearleads.v1.VfsSharesService/GetSharePolicyPreview'
+      '/connect/tearleads.v2.VfsSharesService/GetSharePolicyPreview'
     );
     expect(fullParams?.fetchOptions?.body).toBe(
       JSON.stringify({

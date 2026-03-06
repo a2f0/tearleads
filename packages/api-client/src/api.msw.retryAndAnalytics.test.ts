@@ -178,7 +178,7 @@ describe('api with msw', () => {
       try {
         server.use(
           http.post(
-            'http://localhost/connect/tearleads.v1.VfsSharesService/DeleteShare',
+            'http://localhost/connect/tearleads.v2.VfsSharesService/DeleteShare',
             () => new HttpResponse(null, { status: 204 })
           )
         );
@@ -189,7 +189,7 @@ describe('api with msw', () => {
         expect(
           wasApiRequestMade(
             'POST',
-            '/connect/tearleads.v1.VfsSharesService/DeleteShare'
+            '/connect/tearleads.v2.VfsSharesService/DeleteShare'
           )
         ).toBe(true);
       } finally {
