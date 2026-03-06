@@ -17,8 +17,18 @@ function createClientStub(
     getGroup:
       overrides.getGroup ??
       vi.fn(async () => ({ group: undefined, members: [] })),
+    createGroup:
+      overrides.createGroup ?? vi.fn(async () => ({ group: undefined })),
+    updateGroup:
+      overrides.updateGroup ?? vi.fn(async () => ({ group: undefined })),
+    deleteGroup:
+      overrides.deleteGroup ?? vi.fn(async () => ({ deleted: false })),
     getGroupMembers:
       overrides.getGroupMembers ?? vi.fn(async () => ({ members: [] })),
+    addGroupMember:
+      overrides.addGroupMember ?? vi.fn(async () => ({ added: false })),
+    removeGroupMember:
+      overrides.removeGroupMember ?? vi.fn(async () => ({ removed: false })),
     listOrganizations:
       overrides.listOrganizations ?? vi.fn(async () => ({ organizations: [] })),
     getOrganization:

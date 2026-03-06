@@ -6,7 +6,8 @@ use tearleads_api_v2_contracts::tearleads::v2::{
     AdminListUsersRequest, admin_service_server::AdminService,
 };
 use tearleads_data_access_traits::{
-    PostgresAdminReadRepository, PostgresRowsQuery, RedisAdminRepository, RedisValue,
+    AdminCreateGroupInput, AdminUpdateGroupInput, PostgresAdminReadRepository, PostgresRowsQuery,
+    RedisAdminRepository, RedisValue,
 };
 use tonic::{Code, Request};
 
@@ -131,6 +132,76 @@ async fn static_repositories_return_expected_wave1a_shapes() {
         tearleads_data_access_traits::DataAccessErrorKind::NotFound
     );
     assert!(missing_group_error.message().contains("group-missing"));
+    let created_group = postgres
+        .create_group(AdminCreateGroupInput {
+            organization_id: String::from("org-1"),
+            name: String::from("Created Group"),
+            description: Some(String::from("created description")),
+        })
+        .await
+        .expect("group creation should succeed");
+    assert_eq!(created_group.id, "group-created");
+    assert_eq!(created_group.organization_id, "org-1");
+    assert_eq!(created_group.name, "Created Group");
+    assert_eq!(
+        created_group.description.as_deref(),
+        Some("created description")
+    );
+    let duplicate_group_error = postgres
+        .create_group(AdminCreateGroupInput {
+            organization_id: String::from("org-1"),
+            name: String::from("duplicate-group-name"),
+            description: None,
+        })
+        .await
+        .expect_err("duplicate group creation should fail");
+    assert_eq!(
+        duplicate_group_error.kind(),
+        tearleads_data_access_traits::DataAccessErrorKind::InvalidInput
+    );
+    let updated_group = postgres
+        .update_group(
+            "group-1",
+            AdminUpdateGroupInput {
+                name: Some(String::from("Renamed Group")),
+                organization_id: Some(String::from("org-2")),
+                description: Some(None),
+            },
+        )
+        .await
+        .expect("group update should succeed");
+    assert_eq!(updated_group.id, "group-1");
+    assert_eq!(updated_group.organization_id, "org-2");
+    assert_eq!(updated_group.name, "Renamed Group");
+    assert_eq!(updated_group.description, None);
+    let deleted_group = postgres
+        .delete_group("group-1")
+        .await
+        .expect("group delete should succeed");
+    assert!(deleted_group);
+    let add_member_result = postgres
+        .add_group_member("group-1", "user-5")
+        .await
+        .expect("adding group member should succeed");
+    assert!(add_member_result);
+    let duplicate_member_error = postgres
+        .add_group_member("group-1", "user-duplicate")
+        .await
+        .expect_err("duplicate group member add should fail");
+    assert_eq!(
+        duplicate_member_error.kind(),
+        tearleads_data_access_traits::DataAccessErrorKind::InvalidInput
+    );
+    let removed_member = postgres
+        .remove_group_member("group-1", "user-5")
+        .await
+        .expect("removing group member should succeed");
+    assert!(removed_member);
+    let not_member_removed = postgres
+        .remove_group_member("group-1", "user-not-member")
+        .await
+        .expect("non-member removal should not fail");
+    assert!(!not_member_removed);
     let organizations = postgres
         .list_organizations(None)
         .await

@@ -2,6 +2,7 @@ import type {
   AdminAccessContextResponse,
   AdminUserResponse,
   AdminUsersResponse,
+  Group,
   GroupDetailResponse,
   GroupMembersResponse,
   GroupsListResponse,
@@ -17,6 +18,7 @@ import type {
   RedisKeyValueResponse
 } from '@tearleads/shared';
 import type {
+  AdminCreateGroupResponse,
   AdminGetColumnsResponse,
   AdminGetContextResponse,
   AdminGetGroupMembersResponse,
@@ -33,7 +35,8 @@ import type {
   AdminGetUserResponse,
   AdminListGroupsResponse,
   AdminListOrganizationsResponse,
-  AdminListUsersResponse
+  AdminListUsersResponse,
+  AdminUpdateGroupResponse
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 
 const MIN_SAFE_BIGINT = BigInt(Number.MIN_SAFE_INTEGER);
@@ -79,6 +82,33 @@ export function mapGroupDetailResponse(
       email: member.email,
       joinedAt: member.joinedAt
     }))
+  };
+}
+
+function mapGroup(group: AdminGetGroupResponse['group']): Group {
+  return {
+    id: group?.id ?? '',
+    organizationId: group?.organizationId ?? '',
+    name: group?.name ?? '',
+    description: group?.description ?? null,
+    createdAt: group?.createdAt ?? '',
+    updatedAt: group?.updatedAt ?? ''
+  };
+}
+
+export function mapCreateGroupResponse(
+  response: AdminCreateGroupResponse
+): { group: Group } {
+  return {
+    group: mapGroup(response.group)
+  };
+}
+
+export function mapUpdateGroupResponse(
+  response: AdminUpdateGroupResponse
+): { group: Group } {
+  return {
+    group: mapGroup(response.group)
   };
 }
 

@@ -5,7 +5,11 @@ import {
   createClient
 } from '@connectrpc/connect';
 import { createGrpcWebTransport } from '@connectrpc/connect-web';
+import type { CreateGroupRequest, UpdateGroupRequest } from '@tearleads/shared';
 import {
+  AdminAddGroupMemberRequestSchema,
+  AdminCreateGroupRequestSchema,
+  AdminDeleteGroupRequestSchema,
   AdminDeleteRedisKeyRequestSchema,
   AdminGetColumnsRequestSchema,
   AdminGetContextRequestSchema,
@@ -24,7 +28,9 @@ import {
   AdminListGroupsRequestSchema,
   AdminListOrganizationsRequestSchema,
   AdminListUsersRequestSchema,
-  AdminService
+  AdminRemoveGroupMemberRequestSchema,
+  AdminService,
+  AdminUpdateGroupRequestSchema
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { API_BASE_URL } from '../apiCore';
 import { type ApiEventSlug, logApiEvent } from '../apiLogger';
@@ -35,6 +41,7 @@ import {
 } from '../apiV2ClientWasm';
 import { getAuthHeaderValue } from '../authStorage';
 import {
+  mapCreateGroupResponse,
   mapContextResponse,
   mapGroupDetailResponse,
   mapGroupMembersResponse,
@@ -50,6 +57,7 @@ import {
   mapRedisDbSizeResponse,
   mapRedisKeysResponse,
   mapRedisValueResponse,
+  mapUpdateGroupResponse,
   mapUserResponse,
   mapUsersResponse
 } from './adminV2Mappers';
@@ -195,7 +203,69 @@ export function createAdminV2Routes(
             callOptions
           );
           return mapGroupMembersResponse(response);
-        })
+        }),
+      create: (data: CreateGroupRequest) =>
+        runWithEvent(dependencies, 'api_post_admin_group', async () => {
+          const { client, callOptions } = await buildCallContext(dependencies);
+          const response = await client.createGroup(
+            create(AdminCreateGroupRequestSchema, {
+              organizationId: data.organizationId,
+              name: data.name,
+              ...(data.description !== undefined
+                ? { description: data.description }
+                : {})
+            }),
+            callOptions
+          );
+          return mapCreateGroupResponse(response);
+        }),
+      update: (id: string, data: UpdateGroupRequest) =>
+        runWithEvent(dependencies, 'api_put_admin_group', async () => {
+          const { client, callOptions } = await buildCallContext(dependencies);
+          const response = await client.updateGroup(
+            create(AdminUpdateGroupRequestSchema, {
+              id,
+              ...(data.organizationId !== undefined
+                ? { organizationId: data.organizationId }
+                : {}),
+              ...(data.name !== undefined ? { name: data.name } : {}),
+              ...(data.description !== undefined
+                ? { description: data.description }
+                : {})
+            }),
+            callOptions
+          );
+          return mapUpdateGroupResponse(response);
+        }),
+      delete: (id: string) =>
+        runWithEvent(dependencies, 'api_delete_admin_group', async () => {
+          const { client, callOptions } = await buildCallContext(dependencies);
+          return client.deleteGroup(
+            create(AdminDeleteGroupRequestSchema, { id }),
+            callOptions
+          );
+        }),
+      addMember: (groupId: string, userId: string) =>
+        runWithEvent(dependencies, 'api_post_admin_group_member', async () => {
+          const { client, callOptions } = await buildCallContext(dependencies);
+          return client.addGroupMember(
+            create(AdminAddGroupMemberRequestSchema, { id: groupId, userId }),
+            callOptions
+          );
+        }),
+      removeMember: (groupId: string, userId: string) =>
+        runWithEvent(
+          dependencies,
+          'api_delete_admin_group_member',
+          async () => {
+            const { client, callOptions } =
+              await buildCallContext(dependencies);
+            return client.removeGroupMember(
+              create(AdminRemoveGroupMemberRequestSchema, { groupId, userId }),
+              callOptions
+            );
+          }
+        )
     },
     organizations: {
       list: (options?: { organizationId?: string }) =>

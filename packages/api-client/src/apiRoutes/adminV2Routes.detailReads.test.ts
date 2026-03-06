@@ -4,7 +4,12 @@ import { type AdminV2Client, createAdminV2Routes } from './adminV2Routes';
 interface AdminV2ClientOverrides {
   getContext?: AdminV2Client['getContext'];
   getGroup?: AdminV2Client['getGroup'];
+  createGroup?: AdminV2Client['createGroup'];
+  updateGroup?: AdminV2Client['updateGroup'];
+  deleteGroup?: AdminV2Client['deleteGroup'];
   getGroupMembers?: AdminV2Client['getGroupMembers'];
+  addGroupMember?: AdminV2Client['addGroupMember'];
+  removeGroupMember?: AdminV2Client['removeGroupMember'];
   listOrganizations?: AdminV2Client['listOrganizations'];
   getOrganization?: AdminV2Client['getOrganization'];
   getOrgUsers?: AdminV2Client['getOrgUsers'];
@@ -35,8 +40,18 @@ function createAdminV2ClientStub(
     getGroup:
       overrides.getGroup ??
       vi.fn(async () => ({ group: undefined, members: [] })),
+    createGroup:
+      overrides.createGroup ?? vi.fn(async () => ({ group: undefined })),
+    updateGroup:
+      overrides.updateGroup ?? vi.fn(async () => ({ group: undefined })),
+    deleteGroup:
+      overrides.deleteGroup ?? vi.fn(async () => ({ deleted: false })),
     getGroupMembers:
       overrides.getGroupMembers ?? vi.fn(async () => ({ members: [] })),
+    addGroupMember:
+      overrides.addGroupMember ?? vi.fn(async () => ({ added: false })),
+    removeGroupMember:
+      overrides.removeGroupMember ?? vi.fn(async () => ({ removed: false })),
     listOrganizations:
       overrides.listOrganizations ?? vi.fn(async () => ({ organizations: [] })),
     getOrganization:
