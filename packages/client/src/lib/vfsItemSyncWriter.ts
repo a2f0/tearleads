@@ -174,9 +174,7 @@ async function ensureServerRegistration(
   serverRegisteredItemIds.add(itemId);
 }
 
-async function withSyncTracking(
-  operation: () => Promise<void>
-): Promise<void> {
+async function withSyncTracking(operation: () => Promise<void>): Promise<void> {
   inflightCount++;
   notifySyncActivityListeners();
   try {
