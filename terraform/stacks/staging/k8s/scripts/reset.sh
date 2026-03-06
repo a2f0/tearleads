@@ -14,7 +14,8 @@ KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config-staging-k8s}"
 S3_BUCKET="${S3_BUCKET:-vfs-blobs}"
 S3_ENDPOINT="${S3_ENDPOINT:-http://garage:3900}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
-AWS_CLI_IMAGE="${AWS_CLI_IMAGE:-amazon/aws-cli:2}"
+AWS_CLI_IMAGE="${AWS_CLI_IMAGE:-amazon/aws-cli:latest}"
+S3_RESET_MODE="${S3_RESET_MODE:-auto}"
 SECRET_NAME="${SECRET_NAME:-tearleads-secrets}"
 ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-300s}"
 POD_WAIT_TIMEOUT="${POD_WAIT_TIMEOUT:-180s}"
@@ -53,6 +54,25 @@ elapsed_since() {
   local start="$1"
   local secs=$(( $(date +%s) - start ))
   printf '%ds' "$secs"
+}
+
+resolve_s3_reset_mode() {
+  case "$S3_RESET_MODE" in
+    auto)
+      if command -v aws >/dev/null 2>&1; then
+        printf 'local'
+      else
+        printf 'in-cluster'
+      fi
+      ;;
+    local|in-cluster)
+      printf '%s' "$S3_RESET_MODE"
+      ;;
+    *)
+      echo "ERROR: S3_RESET_MODE must be one of: auto, local, in-cluster."
+      exit 1
+      ;;
+  esac
 }
 
 cleanup() {
@@ -147,17 +167,22 @@ echo "S3 bucket $S3_BUCKET emptied."
   return 1
 }
 
-run_s3_reset_local_fallback() {
+run_s3_reset_local() {
   if ! command -v aws >/dev/null 2>&1; then
-    echo "ERROR: local aws CLI not found; cannot run fallback S3 reset."
-    exit 1
+    echo "ERROR: local aws CLI not found; cannot run local S3 reset."
+    return 1
   fi
 
-  echo "Falling back to local aws CLI via kubectl port-forward..."
+  echo "Running local aws CLI S3 reset via kubectl port-forward..."
 
   kubectl -n "$NAMESPACE" port-forward "service/garage" "$LOCAL_PORT_FORWARD_PORT:3900" >/tmp/garage-port-forward-reset.log 2>&1 &
   port_forward_pid=$!
   sleep 2
+
+  if ! kill -0 "$port_forward_pid" 2>/dev/null; then
+    echo "ERROR: failed to start Garage port-forward for local S3 reset."
+    return 1
+  fi
 
   local local_endpoint="http://127.0.0.1:$LOCAL_PORT_FORWARD_PORT"
 
@@ -170,24 +195,38 @@ run_s3_reset_local_fallback() {
     if grep -qi "No such key" <<< "$rm_output"; then
       print_missing_garage_key_hint
     fi
-    exit 1
+    return 1
   fi
 
-  echo "S3 bucket $S3_BUCKET emptied via local fallback."
+  echo "S3 bucket $S3_BUCKET emptied via local aws CLI."
+
+  kill "$port_forward_pid" >/dev/null 2>&1 || true
+  wait "$port_forward_pid" >/dev/null 2>&1 || true
+  unset port_forward_pid
+  return 0
 }
 
-s3_rc=0
-run_s3_reset_in_cluster || s3_rc=$?
+effective_s3_reset_mode="$(resolve_s3_reset_mode)"
 
-if [[ "$s3_rc" -eq 0 ]]; then
-  echo "S3 reset complete. ($(elapsed_since "$step_start"))"
-elif [[ "$s3_rc" -eq 2 ]]; then
-  run_s3_reset_local_fallback
-  echo "S3 reset complete. ($(elapsed_since "$step_start"))"
+if [[ "$effective_s3_reset_mode" == "local" ]]; then
+  if [[ "$S3_RESET_MODE" == "auto" ]]; then
+    echo "Using local S3 reset mode (aws CLI detected)."
+  fi
+  run_s3_reset_local || {
+    echo "ERROR: S3 reset failed in local mode."
+    exit 1
+  }
 else
-  echo "ERROR: S3 reset failed."
-  exit 1
+  if [[ "$S3_RESET_MODE" == "auto" ]]; then
+    echo "Using in-cluster S3 reset mode (local aws CLI not detected)."
+  fi
+  run_s3_reset_in_cluster || {
+    echo "ERROR: S3 reset failed in in-cluster mode."
+    exit 1
+  }
 fi
+
+echo "S3 reset complete. ($(elapsed_since "$step_start"))"
 
 # ---------------------------------------------------------------------------
 # 4. Reset Postgres
