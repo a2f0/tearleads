@@ -1,17 +1,14 @@
 apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.android'
 
-// Apply generated app config (sets appBundleId, appKeyAlias, etc.)
+// Fallback defaults when app-config.gradle is not yet generated
+ext.appBundleId = "com.tearleads.app"
+ext.appKeyAlias = "tearleads"
+
+// Apply generated app config to override defaults
 def appConfigFile = file('../app-config.gradle')
 if (appConfigFile.exists()) {
     apply from: appConfigFile
-}
-// Fallback defaults when app-config.gradle is not yet generated
-if (!ext.has('appBundleId')) {
-    ext.appBundleId = "com.tearleads.app"
-}
-if (!ext.has('appKeyAlias')) {
-    ext.appKeyAlias = "tearleads"
 }
 
 android {
