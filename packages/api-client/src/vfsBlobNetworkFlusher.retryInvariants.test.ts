@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VFS_V2_CONNECT_BASE_PATH as VFS_CONNECT_BASE_PATH } from '@tearleads/shared';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { VfsBlobNetworkFlusherPersistedState } from './vfsBlobNetworkFlusher';
 
 interface ObservedRequest {

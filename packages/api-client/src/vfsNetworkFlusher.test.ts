@@ -1,9 +1,9 @@
+import { VFS_V2_CONNECT_BASE_PATH as VFS_CONNECT_BASE_PATH } from '@tearleads/shared';
 import type {
   VfsBackgroundSyncClientPersistedState,
   VfsCrdtOperation,
   VfsCrdtSyncTransport
 } from '@tearleads/vfs-sync/vfs';
-import { VFS_V2_CONNECT_BASE_PATH as VFS_CONNECT_BASE_PATH } from '@tearleads/shared';
 import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 

@@ -1,9 +1,9 @@
 import {
   isPlainRecord,
   parseConnectJsonEnvelopeBody,
+  VFS_V2_CONNECT_BASE_PATH as VFS_CONNECT_BASE_PATH,
   type VfsAclAccessLevel,
-  type VfsAclPrincipalType,
-  VFS_V2_CONNECT_BASE_PATH as VFS_CONNECT_BASE_PATH
+  type VfsAclPrincipalType
 } from '@tearleads/shared';
 import {
   type QueueVfsCrdtLocalOperationInput,

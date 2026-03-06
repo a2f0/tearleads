@@ -1,7 +1,7 @@
 import {
   generateKeyPair,
-  type VfsKeyPair,
-  VFS_V2_CONNECT_BASE_PATH as VFS_CONNECT_BASE_PATH
+  VFS_V2_CONNECT_BASE_PATH as VFS_CONNECT_BASE_PATH,
+  type VfsKeyPair
 } from '@tearleads/shared';
 import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
