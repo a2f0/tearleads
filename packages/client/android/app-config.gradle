@@ -7,4 +7,5 @@ ext {
     appDisplayName = "Tearleads"
     appBundleId = "com.tearleads.app"
     appUrlScheme = "tearleads"
+    appKeyAlias = "tearleads"
 }

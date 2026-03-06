@@ -36,6 +36,7 @@ ext {
     appDisplayName = "${config.displayName}"
     appBundleId = "${config.bundleIds.android}"
     appUrlScheme = "${urlScheme}"
+    appKeyAlias = "${config.store?.androidKeyAlias || config.id}"
 }
 `;
 }
