@@ -1,6 +1,6 @@
 import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { VFS_CONNECT_BASE_PATH } from './vfsConnectBasePath';
+import { VFS_V2_CONNECT_BASE_PATH as VFS_CONNECT_BASE_PATH } from '@tearleads/shared';
 
 describe('vfsWriteOrchestrator encrypted blob flush', () => {
   const originalFetch = global.fetch;

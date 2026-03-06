@@ -1,4 +1,7 @@
-import { parseConnectJsonEnvelopeBody } from '@tearleads/shared';
+import {
+  parseConnectJsonEnvelopeBody,
+  VFS_V2_CONNECT_BASE_PATH as VFS_CONNECT_BASE_PATH
+} from '@tearleads/shared';
 import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import {
   fetchWithAuthRefresh,
@@ -19,7 +22,6 @@ import type {
   VfsBlobNetworkOperation,
   VfsBlobStageQueueOperation
 } from './vfsBlobNetworkFlusherTypes';
-import { VFS_CONNECT_BASE_PATH } from './vfsConnectBasePath';
 
 interface ExecuteBlobOperationContext {
   apiPrefix: string;

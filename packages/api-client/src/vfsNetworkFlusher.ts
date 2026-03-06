@@ -2,7 +2,8 @@ import {
   isPlainRecord,
   parseConnectJsonEnvelopeBody,
   type VfsAclAccessLevel,
-  type VfsAclPrincipalType
+  type VfsAclPrincipalType,
+  VFS_V2_CONNECT_BASE_PATH as VFS_CONNECT_BASE_PATH
 } from '@tearleads/shared';
 import {
   type QueueVfsCrdtLocalOperationInput,
@@ -19,7 +20,6 @@ import {
   type VfsSyncCursor
 } from '@tearleads/vfs-sync/vfs';
 import { fetchWithAuthRefresh } from './vfsAuthFetch';
-import { VFS_CONNECT_BASE_PATH } from './vfsConnectBasePath';
 
 export interface VfsApiCrdtTransportOptions
   extends Omit<VfsHttpCrdtSyncTransportOptions, 'fetchImpl' | 'getAuthToken'> {}

@@ -1,4 +1,4 @@
-import { VFS_CONNECT_BASE_PATH } from '../vfsConnectBasePath';
+import { VFS_V2_CONNECT_BASE_PATH as VFS_CONNECT_BASE_PATH } from '@tearleads/shared';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
