@@ -49,7 +49,10 @@ async fn create_group_accepts_scoped_admin_for_authorized_organization() {
             .await,
     );
 
-    let group = payload.group.expect("group should be present");
+    let group = match payload.group {
+        Some(group) => group,
+        None => panic!("group should be present"),
+    };
     assert_eq!(group.id, "group-created");
     assert_eq!(group.organization_id, "org-7");
     assert_eq!(group.name, "Created Group");
@@ -132,7 +135,10 @@ async fn update_group_translates_optional_patch_fields() {
             .await,
     );
 
-    let group = payload.group.expect("group should be present");
+    let group = match payload.group {
+        Some(group) => group,
+        None => panic!("group should be present"),
+    };
     assert_eq!(group.id, "group-1");
     assert_eq!(group.name, "Renamed Group");
     assert_eq!(group.description, None);
