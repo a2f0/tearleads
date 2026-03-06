@@ -1,6 +1,7 @@
 import { generateKeyPair, type VfsKeyPair } from '@tearleads/shared';
 import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { VFS_CONNECT_BASE_PATH } from '../vfsConnectBasePath';
 import type {
   ItemKeyRecord,
   ItemKeyStore,
@@ -108,7 +109,7 @@ describe('secureWritePipelineFactory flush integration', () => {
           requests.push({ url, body: JSON.parse(init.body) });
         }
 
-        if (url.endsWith('/connect/tearleads.v2.VfsService/PushCrdtOps')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/PushCrdtOps`)) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -121,7 +122,7 @@ describe('secureWritePipelineFactory flush integration', () => {
           );
         }
 
-        if (url.includes('/connect/tearleads.v2.VfsService/GetCrdtSync')) {
+        if (url.includes(`${VFS_CONNECT_BASE_PATH}/GetCrdtSync`)) {
           return new Response(
             connectJsonEnvelope({
               items: [],
@@ -136,7 +137,7 @@ describe('secureWritePipelineFactory flush integration', () => {
           );
         }
 
-        if (url.endsWith('/connect/tearleads.v2.VfsService/ReconcileCrdt')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/ReconcileCrdt`)) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -214,7 +215,7 @@ describe('secureWritePipelineFactory flush integration', () => {
     });
 
     const chunkRequests = requests.filter((request) =>
-      request.url.endsWith('/connect/tearleads.v2.VfsService/UploadBlobChunk')
+      request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/UploadBlobChunk`)
     );
     expect(chunkRequests.length).toBeGreaterThan(0);
 
@@ -231,17 +232,17 @@ describe('secureWritePipelineFactory flush integration', () => {
 
     expect(
       requests.some((request) =>
-        request.url.endsWith('/connect/tearleads.v2.VfsService/StageBlob')
+        request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/StageBlob`)
       )
     ).toBe(true);
     expect(
       requests.some((request) =>
-        request.url.endsWith('/connect/tearleads.v2.VfsService/CommitBlob')
+        request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/CommitBlob`)
       )
     ).toBe(true);
     expect(
       requests.some((request) =>
-        request.url.endsWith('/connect/tearleads.v2.VfsService/AttachBlob')
+        request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/AttachBlob`)
       )
     ).toBe(true);
   });
@@ -256,7 +257,7 @@ describe('secureWritePipelineFactory flush integration', () => {
           requests.push({ url, body: JSON.parse(init.body) });
         }
 
-        if (url.endsWith('/connect/tearleads.v2.VfsService/PushCrdtOps')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/PushCrdtOps`)) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -269,7 +270,7 @@ describe('secureWritePipelineFactory flush integration', () => {
           );
         }
 
-        if (url.includes('/connect/tearleads.v2.VfsService/GetCrdtSync')) {
+        if (url.includes(`${VFS_CONNECT_BASE_PATH}/GetCrdtSync`)) {
           return new Response(
             connectJsonEnvelope({
               items: [],
@@ -284,7 +285,7 @@ describe('secureWritePipelineFactory flush integration', () => {
           );
         }
 
-        if (url.endsWith('/connect/tearleads.v2.VfsService/ReconcileCrdt')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/ReconcileCrdt`)) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -350,7 +351,7 @@ describe('secureWritePipelineFactory flush integration', () => {
     await orchestrator.flushAll();
 
     const chunkRequests = requests.filter((request) =>
-      request.url.endsWith('/connect/tearleads.v2.VfsService/UploadBlobChunk')
+      request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/UploadBlobChunk`)
     );
     expect(chunkRequests).toHaveLength(stageResult.manifest.chunkCount);
 

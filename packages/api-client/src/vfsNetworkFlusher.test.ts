@@ -5,6 +5,7 @@ import type {
 } from '@tearleads/vfs-sync/vfs';
 import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { VFS_CONNECT_BASE_PATH } from './vfsConnectBasePath';
 
 function getAuthorizationHeader(init: RequestInit | undefined): string | null {
   if (!init || !init.headers) {
@@ -59,7 +60,7 @@ describe('vfsNetworkFlusher', () => {
           );
         }
 
-        if (url.endsWith('/connect/tearleads.v2.VfsService/PushCrdtOps')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/PushCrdtOps`)) {
           pushAttempt += 1;
           if (pushAttempt === 1) {
             return new Response(null, { status: 401 });
@@ -113,7 +114,7 @@ describe('vfsNetworkFlusher', () => {
       .mock.calls.filter(([input]) =>
         input
           .toString()
-          .endsWith('/connect/tearleads.v2.VfsService/PushCrdtOps')
+          .endsWith(`${VFS_CONNECT_BASE_PATH}/PushCrdtOps`)
       );
     expect(pushCalls).toHaveLength(2);
 
@@ -316,7 +317,7 @@ describe('vfsNetworkFlusher', () => {
       ): Promise<Response> => {
         const url = input.toString();
 
-        if (url.includes('/connect/tearleads.v2.VfsService/GetCrdtSync')) {
+        if (url.includes(`${VFS_CONNECT_BASE_PATH}/GetCrdtSync`)) {
           pullCalls += 1;
           if (pullCalls === 1) {
             return new Response(
@@ -348,7 +349,7 @@ describe('vfsNetworkFlusher', () => {
           );
         }
 
-        if (url.includes('/connect/tearleads.v2.VfsService/ReconcileCrdt')) {
+        if (url.includes(`${VFS_CONNECT_BASE_PATH}/ReconcileCrdt`)) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -365,7 +366,7 @@ describe('vfsNetworkFlusher', () => {
           );
         }
 
-        if (url.includes('/connect/tearleads.v2.VfsService/GetCrdtSnapshot')) {
+        if (url.includes(`${VFS_CONNECT_BASE_PATH}/GetCrdtSnapshot`)) {
           let clientId: unknown;
           if (typeof init?.body === 'string') {
             const parsedBody = JSON.parse(init.body);
@@ -434,7 +435,7 @@ describe('vfsNetworkFlusher', () => {
       .mock.calls.filter(([input]) =>
         input
           .toString()
-          .includes('/connect/tearleads.v2.VfsService/GetCrdtSnapshot')
+          .includes(`${VFS_CONNECT_BASE_PATH}/GetCrdtSnapshot`)
       );
     expect(snapshotCalls).toHaveLength(1);
   });

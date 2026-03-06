@@ -11,6 +11,7 @@ import {
   normalizeStageEncryptionMetadata,
   parseErrorMessage
 } from './vfsBlobNetworkFlusherHelpers';
+import { VFS_CONNECT_BASE_PATH } from './vfsConnectBasePath';
 import type {
   VfsBlobAbandonQueueOperation,
   VfsBlobAttachQueueOperation,
@@ -26,8 +27,6 @@ interface ExecuteBlobOperationContext {
   fetchImpl: typeof fetch;
   headers: Record<string, string>;
 }
-
-const VFS_CONNECT_BASE_PATH = '/connect/tearleads.v2.VfsService';
 
 export async function executeBlobNetworkOperation(
   context: ExecuteBlobOperationContext,

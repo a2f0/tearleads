@@ -8,6 +8,7 @@ import {
   decodeVfsSyncCursor,
   encodeVfsSyncCursor
 } from '../protocol/sync-cursor.js';
+import { VFS_CONNECT_BASE_PATH } from './sync-http-transport.js';
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -105,7 +106,6 @@ const VALID_PRINCIPAL_TYPES: Array<
 > = ['user', 'group', 'organization'];
 const VALID_ACCESS_LEVELS: Array<NonNullable<VfsCrdtOperation['accessLevel']>> =
   ['read', 'write', 'admin'];
-const VFS_CONNECT_BASE_PATH = '/connect/tearleads.v2.VfsService';
 
 function asRecord(value: unknown, fieldName: string): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {

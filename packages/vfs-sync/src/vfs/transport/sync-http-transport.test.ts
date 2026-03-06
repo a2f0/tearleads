@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { VfsCrdtRematerializationRequiredError } from '../client/sync-client-utils.js';
 import { encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
-import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
+import {
+  VFS_CONNECT_BASE_PATH,
+  VfsHttpCrdtSyncTransport
+} from './sync-http-transport.js';
 
 async function readRequestJson(
   input: unknown,
@@ -100,7 +103,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
     const firstCall = fetchMock.mock.calls[0];
     const requestUrl = firstCall?.[0];
     expect(requestUrl).toBe(
-      'https://sync.example.com/connect/tearleads.v2.VfsService/PushCrdtOps'
+      `https://sync.example.com${VFS_CONNECT_BASE_PATH}/PushCrdtOps`
     );
 
     const requestInit = firstCall?.[1];
@@ -215,9 +218,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
     const requestUrl = firstCall?.[0];
     expect(requestUrl).toBeTypeOf('string');
     const parsedRequestUrl = new URL(String(requestUrl));
-    expect(parsedRequestUrl.pathname).toBe(
-      '/connect/tearleads.v2.VfsService/GetCrdtSync'
-    );
+    expect(parsedRequestUrl.pathname).toBe(`${VFS_CONNECT_BASE_PATH}/GetCrdtSync`);
 
     const requestInit = firstCall?.[1];
     const requestBody = asRecord(
@@ -286,7 +287,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
     expect(requestUrl).toBeTypeOf('string');
     const parsedRequestUrl = new URL(String(requestUrl));
     expect(parsedRequestUrl.pathname).toBe(
-      '/connect/tearleads.v2.VfsService/ReconcileCrdt'
+      `${VFS_CONNECT_BASE_PATH}/ReconcileCrdt`
     );
 
     const requestInit = firstCall?.[1];
@@ -423,7 +424,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
     const firstCall = fetchMock.mock.calls[0];
     const requestUrl = firstCall?.[0];
     expect(requestUrl).toBe(
-      'https://sync.example.com/connect/tearleads.v2.VfsService/RunCrdtSession'
+      `https://sync.example.com${VFS_CONNECT_BASE_PATH}/RunCrdtSession`
     );
 
     const requestInit = firstCall?.[1];

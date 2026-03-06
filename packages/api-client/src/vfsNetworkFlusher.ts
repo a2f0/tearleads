@@ -19,12 +19,12 @@ import {
   type VfsSyncCursor
 } from '@tearleads/vfs-sync/vfs';
 import { fetchWithAuthRefresh } from './vfsAuthFetch';
+import { VFS_CONNECT_BASE_PATH } from './vfsConnectBasePath';
 
 export interface VfsApiCrdtTransportOptions
   extends Omit<VfsHttpCrdtSyncTransportOptions, 'fetchImpl' | 'getAuthToken'> {}
 
 const DEFAULT_API_PREFIX = '';
-const VFS_CONNECT_BASE_PATH = '/connect/tearleads.v2.VfsService';
 
 interface VfsRematerializedState {
   replaySnapshot: {

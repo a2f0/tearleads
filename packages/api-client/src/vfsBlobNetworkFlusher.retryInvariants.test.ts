@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { VfsBlobNetworkFlusherPersistedState } from './vfsBlobNetworkFlusher';
+import { VFS_CONNECT_BASE_PATH } from './vfsConnectBasePath';
 
 interface ObservedRequest {
   url: string;
@@ -86,7 +87,7 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
             : {};
         observedRequests.push({ url, body });
 
-        if (url.endsWith('/connect/tearleads.v2.VfsService/UploadBlobChunk')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/UploadBlobChunk`)) {
           const parsedBody = parseNestedJsonBody(body);
           const chunkIndex = parsedBody['chunkIndex'];
           if (chunkIndex === 2 && !failedChunk2) {
@@ -164,7 +165,7 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     });
 
     const chunkCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/connect/tearleads.v2.VfsService/UploadBlobChunk')
+      request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/UploadBlobChunk`)
     );
     const chunkIndices = chunkCalls
       .map((request) => parseNestedJsonBody(request.body)['chunkIndex'])
@@ -172,12 +173,12 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     expect(chunkIndices).toEqual([0, 1, 2, 2, 3]);
 
     const commitCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/connect/tearleads.v2.VfsService/CommitBlob')
+      request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/CommitBlob`)
     );
     expect(commitCalls).toHaveLength(1);
 
     const attachCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/connect/tearleads.v2.VfsService/AttachBlob')
+      request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/AttachBlob`)
     );
     expect(attachCalls).toHaveLength(1);
   });
@@ -197,7 +198,7 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
         observedRequests.push({ url, body });
 
         if (
-          url.endsWith('/connect/tearleads.v2.VfsService/CommitBlob') &&
+          url.endsWith(`${VFS_CONNECT_BASE_PATH}/CommitBlob`) &&
           body !== null &&
           typeof body === 'object' &&
           (body as { stagingId?: unknown }).stagingId === 'stage-2' &&
@@ -261,16 +262,16 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     });
 
     const stageCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/connect/tearleads.v2.VfsService/StageBlob')
+      request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/StageBlob`)
     );
     const chunkCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/connect/tearleads.v2.VfsService/UploadBlobChunk')
+      request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/UploadBlobChunk`)
     );
     const commitCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/connect/tearleads.v2.VfsService/CommitBlob')
+      request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/CommitBlob`)
     );
     const attachCalls = observedRequests.filter((request) =>
-      request.url.endsWith('/connect/tearleads.v2.VfsService/AttachBlob')
+      request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/AttachBlob`)
     );
 
     expect(stageCalls).toHaveLength(1);
@@ -287,7 +288,7 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     vi.mocked(global.fetch).mockImplementation(
       async (input: RequestInfo | URL): Promise<Response> => {
         const url = input.toString();
-        if (url.endsWith('/connect/tearleads.v2.VfsService/StageBlob')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/StageBlob`)) {
           stageAttempts += 1;
           if (stageAttempts < 3) {
             return jsonResponse({ error: 'Service unavailable' }, 503);
@@ -355,14 +356,14 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
         init?: RequestInit
       ): Promise<Response> => {
         const url = input.toString();
-        if (url.endsWith('/connect/tearleads.v2.VfsService/StageBlob')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/StageBlob`)) {
           networkAttempts += 1;
           if (networkAttempts === 1) {
             throw new TypeError('network down');
           }
         }
 
-        if (url.endsWith('/connect/tearleads.v2.VfsService/AttachBlob')) {
+        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/AttachBlob`)) {
           const body =
             typeof init?.body === 'string'
               ? (JSON.parse(init.body) as { stagingId?: unknown })
