@@ -41,8 +41,8 @@ import {
 } from '../apiV2ClientWasm';
 import { getAuthHeaderValue } from '../authStorage';
 import {
-  mapCreateGroupResponse,
   mapContextResponse,
+  mapCreateGroupResponse,
   mapGroupDetailResponse,
   mapGroupMembersResponse,
   mapGroupsListResponse,

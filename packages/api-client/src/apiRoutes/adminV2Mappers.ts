@@ -96,17 +96,17 @@ function mapGroup(group: AdminGetGroupResponse['group']): Group {
   };
 }
 
-export function mapCreateGroupResponse(
-  response: AdminCreateGroupResponse
-): { group: Group } {
+export function mapCreateGroupResponse(response: AdminCreateGroupResponse): {
+  group: Group;
+} {
   return {
     group: mapGroup(response.group)
   };
 }
 
-export function mapUpdateGroupResponse(
-  response: AdminUpdateGroupResponse
-): { group: Group } {
+export function mapUpdateGroupResponse(response: AdminUpdateGroupResponse): {
+  group: Group;
+} {
   return {
     group: mapGroup(response.group)
   };

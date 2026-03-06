@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  type AdminV2Client,
-  createAdminV2Routes
-} from './adminV2Routes';
+import { type AdminV2Client, createAdminV2Routes } from './adminV2Routes';
 
 const connectMocks = vi.hoisted(() => ({
   createClientMock: vi.fn(),
