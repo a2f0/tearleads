@@ -32,7 +32,7 @@ jobs:
       matrix:
         include:
           - package: '@tearleads/app-builder'
-            script: testBun
+            script: test
           - package: '@tearleads/bob-and-alice'
             script: testBun
           - package: '@tearleads/local-write-orchestrator'
