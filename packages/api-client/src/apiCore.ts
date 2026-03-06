@@ -39,10 +39,6 @@ const REQUIRE_DECLARED_ORGANIZATION_BY_SERVICE = new Map<
   ReadonlySet<string>
 >([
   [
-    'tearleads.v1.VfsService',
-    VFS_WRITE_METHODS_REQUIRING_DECLARED_ORGANIZATION
-  ],
-  [
     'tearleads.v2.VfsService',
     VFS_WRITE_METHODS_REQUIRING_DECLARED_ORGANIZATION
   ],
