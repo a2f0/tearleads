@@ -6,7 +6,7 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 
 | Phase | Status | Notes |
 | --- | --- | --- |
-| Phase 0: Baseline and guardrails | Complete | Baseline and SLOs documented in `docs/en/bun-migration-baseline.md`. |
+| Phase 0: Baseline and guardrails | Complete | Baseline and SLOs documented in [bun-migration-baseline.md](./bun-migration-baseline.md). |
 | Phase 1: Bun runtime pilot (Vitest) | In progress | Pilot workflows are running; ongoing stability/perf tracking. |
 | Phase 2: PM abstraction and script decoupling | In progress | `pm.sh` adoption is broad; remaining pnpm-coupled entrypoints are being removed in slices. |
 | Phase 3: Node-only `bun test` migration | In progress | Node pilot packages now run Bun-first with Vitest fallback where needed. |
