@@ -1,8 +1,8 @@
+import { VFS_V2_GET_EMAILS_CONNECT_PATH } from '@tearleads/shared';
 import { useCallback, useState } from 'react';
 import { useEmailApi } from '../context';
 import type { EmailItem } from '../lib';
 
-const GET_EMAILS_CONNECT_PATH = '/connect/tearleads.v1.VfsService/GetEmails';
 const DEFAULT_GET_EMAILS_LIMIT = 50;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -124,14 +124,17 @@ export function useEmails() {
         ...(authHeader ? { Authorization: authHeader } : {})
       };
 
-      const response = await fetch(`${apiBaseUrl}${GET_EMAILS_CONNECT_PATH}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          offset: 0,
-          limit: DEFAULT_GET_EMAILS_LIMIT
-        })
-      });
+      const response = await fetch(
+        `${apiBaseUrl}${VFS_V2_GET_EMAILS_CONNECT_PATH}`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            offset: 0,
+            limit: DEFAULT_GET_EMAILS_LIMIT
+          })
+        }
+      );
       if (!response.ok) {
         const detail = await getFetchErrorDetail(response);
         throw new Error(`Failed to fetch emails: ${detail}`);

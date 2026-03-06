@@ -29,7 +29,8 @@ vi.mock('@/db/crypto', () => ({
 
 vi.mock('@tearleads/shared', () => ({
   importKey: (...args: unknown[]) => mockImportKey(...args),
-  decrypt: (...args: unknown[]) => mockDecrypt(...args)
+  decrypt: (...args: unknown[]) => mockDecrypt(...args),
+  VFS_V2_GET_EMAIL_CONNECT_PATH: '/connect/tearleads.v2.VfsService/GetEmail'
 }));
 
 describe('useClientEmailBodyOperations', () => {
@@ -62,7 +63,7 @@ describe('useClientEmailBodyOperations', () => {
 
     expect(body).toBe('Hello World');
     expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledWith(
-      'https://api.test/connect/tearleads.v1.VfsService/GetEmail',
+      'https://api.test/connect/tearleads.v2.VfsService/GetEmail',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({ Authorization: 'Bearer token' }),

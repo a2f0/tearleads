@@ -46,6 +46,7 @@ export * from './postgresDefaults.js';
 export * from './tree/index.js';
 // Type guards
 export * from './typeGuards/vfs.js';
+export * from './vfsConnectPaths.js';
 // Domain type bundles
 export * from './vfsTypes.js';
 
