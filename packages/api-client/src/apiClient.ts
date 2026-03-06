@@ -2,7 +2,7 @@ import { request } from './apiCore';
 import { adminV2Routes } from './apiRoutes/adminV2Routes';
 import { aiRoutes } from './apiRoutes/aiRoutes';
 import { authRoutes } from './apiRoutes/authRoutes';
-import { mlsRoutes } from './apiRoutes/mlsRoutes';
+import { mlsV2Routes } from './apiRoutes/mlsV2Routes';
 import { vfsRoutes } from './apiRoutes/vfsRoutes';
 import { getV2PingEndpoint, parseV2PingData } from './pingContract';
 
@@ -20,5 +20,5 @@ export const api = {
   adminV2: adminV2Routes,
   vfs: vfsRoutes,
   ai: aiRoutes,
-  mls: mlsRoutes
+  mls: mlsV2Routes
 };
