@@ -6,6 +6,7 @@ ext {
     appId = "tearleads"
     appDisplayName = "Tearleads"
     appBundleId = "com.tearleads.app"
+    appNamespace = "com.tearleads.app"
     appUrlScheme = "tearleads"
     appKeyAlias = "tearleads"
 }
