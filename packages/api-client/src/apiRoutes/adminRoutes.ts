@@ -1,8 +1,8 @@
 import type {
   AdminUserUpdatePayload,
   CreateGroupRequest,
-  UpdateGroupRequest,
   CreateOrganizationRequest,
+  UpdateGroupRequest,
   UpdateOrganizationRequest
 } from '@tearleads/shared';
 import { adminV2Routes } from './adminV2Routes';

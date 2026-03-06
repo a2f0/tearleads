@@ -18,8 +18,8 @@ import type {
   RedisKeyValueResponse
 } from '@tearleads/shared';
 import type {
-  AdminCreateOrganizationResponse,
   AdminCreateGroupResponse,
+  AdminCreateOrganizationResponse,
   AdminGetColumnsResponse,
   AdminGetContextResponse,
   AdminGetGroupMembersResponse,

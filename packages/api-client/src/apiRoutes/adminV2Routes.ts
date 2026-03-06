@@ -64,8 +64,8 @@ import {
   runWithEvent
 } from './adminV2RouteContext';
 
-export { createDefaultAdminV2Client } from './adminV2RouteContext';
 export type { AdminV2Client } from './adminV2RouteContext';
+export { createDefaultAdminV2Client } from './adminV2RouteContext';
 
 interface AdminGetRowsOptions {
   limit?: number;
