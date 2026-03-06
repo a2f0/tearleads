@@ -95,13 +95,9 @@ import { mlsConnectServiceV2 } from './mlsService.js';
 
 const textEncoder = new TextEncoder();
 
-function bytes(value: string): Uint8Array {
-  return textEncoder.encode(value);
-}
-
-function base64(value: string): string {
-  return Buffer.from(value, 'utf8').toString('base64');
-}
+const bytes = (value: string): Uint8Array => textEncoder.encode(value);
+const base64 = (value: string): string =>
+  Buffer.from(value, 'utf8').toString('base64');
 
 function createContext() {
   return {
@@ -457,7 +453,7 @@ describe('mlsConnectServiceV2 coverage', () => {
         {
           id: 'kp-1',
           userId: 'u-1',
-          keyPackageData: 'data',
+          keyPackageData: base64('data'),
           keyPackageRef: 'ref',
           cipherSuite: 1,
           createdAt: '2024-01-01T00:00:00Z',
@@ -470,6 +466,7 @@ describe('mlsConnectServiceV2 coverage', () => {
 
     expect(result.keyPackages).toHaveLength(1);
     expect(result.keyPackages[0]?.cipherSuite).toBe(1);
+    expect(result.keyPackages[0]?.keyPackageData).toEqual(bytes('data'));
   });
 
   it('converts getUserKeyPackages response', async () => {
@@ -479,7 +476,7 @@ describe('mlsConnectServiceV2 coverage', () => {
         {
           id: 'kp-2',
           userId: 'u-2',
-          keyPackageData: 'data2',
+          keyPackageData: base64('data2'),
           keyPackageRef: 'ref2',
           cipherSuite: 65535,
           createdAt: '2024-01-01T00:00:00Z',
@@ -495,5 +492,6 @@ describe('mlsConnectServiceV2 coverage', () => {
 
     expect(result.keyPackages).toHaveLength(1);
     expect(result.keyPackages[0]?.cipherSuite).toBe(65535);
+    expect(result.keyPackages[0]?.keyPackageData).toEqual(bytes('data2'));
   });
 });

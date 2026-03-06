@@ -124,6 +124,16 @@ vi.mock('./mlsDirectWelcomeMessages.js', () => ({
 
 import { mlsConnectServiceV2 } from './mlsService.js';
 
+const textEncoder = new TextEncoder();
+
+function bytes(value: string): Uint8Array {
+  return textEncoder.encode(value);
+}
+
+function base64(value: string): string {
+  return Buffer.from(value, 'utf8').toString('base64');
+}
+
 function createContext() {
   return {
     requestHeader: new Headers({
@@ -168,7 +178,7 @@ describe('mlsConnectServiceV2', () => {
         {
           id: 'kp-1',
           userId: 'u-1',
-          keyPackageData: 'data',
+          keyPackageData: base64('data'),
           keyPackageRef: 'ref',
           cipherSuite: 3,
           createdAt: '2024-01-01T00:00:00Z',
@@ -180,7 +190,11 @@ describe('mlsConnectServiceV2', () => {
     const result = await mlsConnectServiceV2.uploadKeyPackages(
       {
         keyPackages: [
-          { keyPackageData: 'data', keyPackageRef: 'ref', cipherSuite: 3 }
+          {
+            keyPackageData: bytes('data'),
+            keyPackageRef: 'ref',
+            cipherSuite: 3
+          }
         ]
       },
       context
@@ -191,11 +205,16 @@ describe('mlsConnectServiceV2', () => {
     expect(uploadKeyPackagesDirectMock).toHaveBeenCalledWith(
       {
         keyPackages: [
-          { keyPackageData: 'data', keyPackageRef: 'ref', cipherSuite: 3 }
+          {
+            keyPackageData: base64('data'),
+            keyPackageRef: 'ref',
+            cipherSuite: 3
+          }
         ]
       },
       context
     );
+    expect(result.keyPackages[0]?.keyPackageData).toEqual(bytes('data'));
   });
 
   it('converts typed create group request and maps typed response', async () => {

@@ -52,7 +52,7 @@ describe('mapKeyPackageEntryToMlsKeyPackage', () => {
     const entry = {
       id: 'kp-1',
       userId: 'u-1',
-      keyPackageData: 'data',
+      keyPackageData: Uint8Array.from([100, 97, 116, 97]),
       keyPackageRef: 'ref',
       cipherSuite: MlsCipherSuite.X25519_CHACHA20,
       createdAt: '2024-01-01T00:00:00Z',
@@ -63,6 +63,7 @@ describe('mapKeyPackageEntryToMlsKeyPackage', () => {
 
     expect(result.id).toBe('kp-1');
     expect(result.cipherSuite).toBe(3);
+    expect(result.keyPackageData).toBe('ZGF0YQ==');
   });
 });
 
