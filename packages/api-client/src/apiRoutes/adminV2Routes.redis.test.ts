@@ -40,8 +40,12 @@ interface AdminV2ClientOverrides {
   getOrganization?: AdminV2Client['getOrganization'];
   getOrgUsers?: AdminV2Client['getOrgUsers'];
   getOrgGroups?: AdminV2Client['getOrgGroups'];
+  createOrganization?: AdminV2Client['createOrganization'];
+  updateOrganization?: AdminV2Client['updateOrganization'];
+  deleteOrganization?: AdminV2Client['deleteOrganization'];
   listUsers?: AdminV2Client['listUsers'];
   getUser?: AdminV2Client['getUser'];
+  updateUser?: AdminV2Client['updateUser'];
   getPostgresInfo?: AdminV2Client['getPostgresInfo'];
   getTables?: AdminV2Client['getTables'];
   getColumns?: AdminV2Client['getColumns'];
@@ -86,8 +90,18 @@ function createAdminV2ClientStub(
       vi.fn(async () => ({ organization: undefined })),
     getOrgUsers: overrides.getOrgUsers ?? vi.fn(async () => ({ users: [] })),
     getOrgGroups: overrides.getOrgGroups ?? vi.fn(async () => ({ groups: [] })),
+    createOrganization:
+      overrides.createOrganization ??
+      vi.fn(async () => ({ organization: undefined })),
+    updateOrganization:
+      overrides.updateOrganization ??
+      vi.fn(async () => ({ organization: undefined })),
+    deleteOrganization:
+      overrides.deleteOrganization ?? vi.fn(async () => ({ deleted: false })),
     listUsers: overrides.listUsers ?? vi.fn(async () => ({ users: [] })),
     getUser: overrides.getUser ?? vi.fn(async () => ({ user: undefined })),
+    updateUser:
+      overrides.updateUser ?? vi.fn(async () => ({ user: undefined })),
     getPostgresInfo:
       overrides.getPostgresInfo ??
       vi.fn(async () => ({ info: undefined, serverVersion: undefined })),

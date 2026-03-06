@@ -4,8 +4,9 @@ use tearleads_api_v2::{
     AdminAccessContext, AdminAuthError, AdminAuthErrorKind, AdminOperation, AdminRequestAuthorizer,
 };
 use tearleads_data_access_traits::{
-    AdminCreateGroupInput, AdminGroupDetail, AdminGroupSummary, AdminOrganizationSummary,
-    AdminOrganizationUserSummary, AdminScopeOrganization, AdminUpdateGroupInput, AdminUserSummary,
+    AdminCreateGroupInput, AdminCreateOrganizationInput, AdminGroupDetail, AdminGroupSummary,
+    AdminOrganizationSummary, AdminOrganizationUserSummary, AdminScopeOrganization,
+    AdminUpdateGroupInput, AdminUpdateOrganizationInput, AdminUpdateUserInput, AdminUserSummary,
     BoxFuture, DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository,
     PostgresColumnInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
     PostgresTableInfo, RedisAdminRepository, RedisKeyScanPage, RedisKeyValueRecord,
@@ -63,6 +64,10 @@ type GetUserCalls = Arc<Mutex<Vec<GetUserCall>>>;
 type GetOrganizationUsersCalls = Arc<Mutex<Vec<String>>>;
 type GroupMemberMutationCalls = Arc<Mutex<Vec<(String, String)>>>;
 type GroupUpdateCalls = Arc<Mutex<Vec<(String, AdminUpdateGroupInput)>>>;
+type OrganizationCreateCalls = Arc<Mutex<Vec<AdminCreateOrganizationInput>>>;
+type OrganizationUpdateCalls = Arc<Mutex<Vec<(String, AdminUpdateOrganizationInput)>>>;
+type OrganizationDeleteCalls = Arc<Mutex<Vec<String>>>;
+type UserUpdateCalls = Arc<Mutex<Vec<(String, AdminUpdateUserInput)>>>;
 
 #[derive(Debug)]
 pub(crate) struct FakePostgresRepository {
@@ -87,6 +92,12 @@ pub(crate) struct FakePostgresRepository {
     pub(crate) remove_group_member_calls: GroupMemberMutationCalls,
     pub(crate) list_organizations_result: Result<Vec<AdminOrganizationSummary>, DataAccessError>,
     pub(crate) list_organizations_calls: OrganizationFilterCalls,
+    pub(crate) create_organization_result: Result<AdminOrganizationSummary, DataAccessError>,
+    pub(crate) create_organization_calls: OrganizationCreateCalls,
+    pub(crate) update_organization_result: Result<AdminOrganizationSummary, DataAccessError>,
+    pub(crate) update_organization_calls: OrganizationUpdateCalls,
+    pub(crate) delete_organization_result: Result<bool, DataAccessError>,
+    pub(crate) delete_organization_calls: OrganizationDeleteCalls,
     pub(crate) organization_users_result:
         Result<Vec<AdminOrganizationUserSummary>, DataAccessError>,
     pub(crate) get_organization_users_calls: GetOrganizationUsersCalls,
@@ -94,6 +105,8 @@ pub(crate) struct FakePostgresRepository {
     pub(crate) list_users_calls: OrganizationFilterCalls,
     pub(crate) get_user_result: Result<Option<AdminUserSummary>, DataAccessError>,
     pub(crate) get_user_calls: GetUserCalls,
+    pub(crate) update_user_result: Result<AdminUserSummary, DataAccessError>,
+    pub(crate) update_user_calls: UserUpdateCalls,
     pub(crate) tables_result: Result<Vec<PostgresTableInfo>, DataAccessError>,
     pub(crate) columns_result: Result<Vec<PostgresColumnInfo>, DataAccessError>,
     pub(crate) columns_calls: Arc<Mutex<Vec<(String, String)>>>,
@@ -142,12 +155,32 @@ impl Default for FakePostgresRepository {
             remove_group_member_calls: Arc::new(Mutex::new(Vec::new())),
             list_organizations_result: Ok(Vec::new()),
             list_organizations_calls: Arc::new(Mutex::new(Vec::new())),
+            create_organization_result: Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                "create_organization_result not configured",
+            )),
+            create_organization_calls: Arc::new(Mutex::new(Vec::new())),
+            update_organization_result: Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                "update_organization_result not configured",
+            )),
+            update_organization_calls: Arc::new(Mutex::new(Vec::new())),
+            delete_organization_result: Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                "delete_organization_result not configured",
+            )),
+            delete_organization_calls: Arc::new(Mutex::new(Vec::new())),
             organization_users_result: Ok(Vec::new()),
             get_organization_users_calls: Arc::new(Mutex::new(Vec::new())),
             list_users_result: Ok(Vec::new()),
             list_users_calls: Arc::new(Mutex::new(Vec::new())),
             get_user_result: Ok(None),
             get_user_calls: Arc::new(Mutex::new(Vec::new())),
+            update_user_result: Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                "update_user_result not configured",
+            )),
+            update_user_calls: Arc::new(Mutex::new(Vec::new())),
             tables_result: Ok(Vec::new()),
             columns_result: Ok(Vec::new()),
             columns_calls: Arc::new(Mutex::new(Vec::new())),
@@ -258,6 +291,34 @@ impl PostgresAdminReadRepository for FakePostgresRepository {
         Box::pin(async move { result })
     }
 
+    fn create_organization(
+        &self,
+        input: AdminCreateOrganizationInput,
+    ) -> BoxFuture<'_, Result<AdminOrganizationSummary, DataAccessError>> {
+        lock_or_recover(&self.create_organization_calls).push(input);
+        let result = self.create_organization_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn update_organization(
+        &self,
+        organization_id: &str,
+        input: AdminUpdateOrganizationInput,
+    ) -> BoxFuture<'_, Result<AdminOrganizationSummary, DataAccessError>> {
+        lock_or_recover(&self.update_organization_calls).push((organization_id.to_string(), input));
+        let result = self.update_organization_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn delete_organization(
+        &self,
+        organization_id: &str,
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        lock_or_recover(&self.delete_organization_calls).push(organization_id.to_string());
+        let result = self.delete_organization_result.clone();
+        Box::pin(async move { result })
+    }
+
     fn get_organization_users(
         &self,
         organization_id: &str,
@@ -283,6 +344,16 @@ impl PostgresAdminReadRepository for FakePostgresRepository {
     ) -> BoxFuture<'_, Result<Option<AdminUserSummary>, DataAccessError>> {
         lock_or_recover(&self.get_user_calls).push((user_id.to_string(), organization_ids));
         let result = self.get_user_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn update_user(
+        &self,
+        user_id: &str,
+        input: AdminUpdateUserInput,
+    ) -> BoxFuture<'_, Result<AdminUserSummary, DataAccessError>> {
+        lock_or_recover(&self.update_user_calls).push((user_id.to_string(), input));
+        let result = self.update_user_result.clone();
         Box::pin(async move { result })
     }
 

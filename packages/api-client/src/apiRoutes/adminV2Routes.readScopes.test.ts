@@ -36,8 +36,18 @@ function createClientStub(
       vi.fn(async () => ({ organization: undefined })),
     getOrgUsers: overrides.getOrgUsers ?? vi.fn(async () => ({ users: [] })),
     getOrgGroups: overrides.getOrgGroups ?? vi.fn(async () => ({ groups: [] })),
+    createOrganization:
+      overrides.createOrganization ??
+      vi.fn(async () => ({ organization: undefined })),
+    updateOrganization:
+      overrides.updateOrganization ??
+      vi.fn(async () => ({ organization: undefined })),
+    deleteOrganization:
+      overrides.deleteOrganization ?? vi.fn(async () => ({ deleted: false })),
     listUsers: overrides.listUsers ?? vi.fn(async () => ({ users: [] })),
     getUser: overrides.getUser ?? vi.fn(async () => ({ user: undefined })),
+    updateUser:
+      overrides.updateUser ?? vi.fn(async () => ({ user: undefined })),
     getPostgresInfo:
       overrides.getPostgresInfo ??
       vi.fn(async () => ({ info: undefined, serverVersion: undefined })),
@@ -198,6 +208,146 @@ describe('adminV2Routes scoped reads', () => {
     );
     expect(logEvent).toHaveBeenCalledWith(
       'api_get_admin_users',
+      expect.any(Number),
+      true
+    );
+  });
+
+  it('routes organization create/update/delete mutations through v2 methods', async () => {
+    const logEvent = vi.fn(async () => undefined);
+    const createOrganization = vi.fn(async () => ({
+      organization: {
+        id: 'org-3',
+        name: 'Org 3',
+        description: 'Created',
+        createdAt: '2026-01-03T00:00:00Z',
+        updatedAt: '2026-01-03T00:00:00Z'
+      }
+    }));
+    const updateOrganization = vi.fn(async () => ({
+      organization: {
+        id: 'org-3',
+        name: 'Org 3 Updated',
+        description: undefined,
+        createdAt: '2026-01-03T00:00:00Z',
+        updatedAt: '2026-01-04T00:00:00Z'
+      }
+    }));
+    const deleteOrganization = vi.fn(async () => ({ deleted: true }));
+    const client = createClientStub({
+      createOrganization,
+      updateOrganization,
+      deleteOrganization
+    });
+    const routes = createAdminV2Routes({
+      resolveApiBaseUrl: () => 'https://api.example.test',
+      normalizeConnectBaseUrl: async (apiBaseUrl) => `${apiBaseUrl}/connect`,
+      buildHeaders: async () => ({ authorization: 'Bearer token-123' }),
+      getAuthHeaderValue: () => 'Bearer token-123',
+      createClient: () => client,
+      logEvent
+    });
+
+    const created = await routes.organizations.create({
+      name: 'Org 3',
+      description: 'Created'
+    });
+    const updated = await routes.organizations.update('org-3', {
+      name: 'Org 3 Updated',
+      description: ''
+    });
+    const deleted = await routes.organizations.delete('org-3');
+
+    expect(created.organization.id).toBe('org-3');
+    expect(updated.organization.description).toBeNull();
+    expect(deleted.deleted).toBe(true);
+    expect(createOrganization.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        name: 'Org 3',
+        description: 'Created'
+      })
+    );
+    expect(updateOrganization.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        id: 'org-3',
+        name: 'Org 3 Updated',
+        description: ''
+      })
+    );
+    expect(deleteOrganization.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ id: 'org-3' })
+    );
+    expect(logEvent).toHaveBeenCalledWith(
+      'api_post_admin_organization',
+      expect.any(Number),
+      true
+    );
+    expect(logEvent).toHaveBeenCalledWith(
+      'api_put_admin_organization',
+      expect.any(Number),
+      true
+    );
+    expect(logEvent).toHaveBeenCalledWith(
+      'api_delete_admin_organization',
+      expect.any(Number),
+      true
+    );
+  });
+
+  it('routes user update mutations through v2 methods', async () => {
+    const logEvent = vi.fn(async () => undefined);
+    const updateUser = vi.fn(async () => ({
+      user: {
+        id: 'user-2',
+        email: 'operator@example.com',
+        emailConfirmed: true,
+        admin: false,
+        organizationIds: ['org-2'],
+        createdAt: '2026-01-02T00:00:00Z',
+        lastActiveAt: undefined,
+        accounting: {
+          totalPromptTokens: 0n,
+          totalCompletionTokens: 0n,
+          totalTokens: 0n,
+          requestCount: 0n,
+          lastUsedAt: undefined
+        },
+        disabled: false,
+        disabledAt: undefined,
+        disabledBy: undefined,
+        markedForDeletionAt: undefined,
+        markedForDeletionBy: undefined
+      }
+    }));
+    const client = createClientStub({ updateUser });
+    const routes = createAdminV2Routes({
+      resolveApiBaseUrl: () => 'https://api.example.test',
+      normalizeConnectBaseUrl: async (apiBaseUrl) => `${apiBaseUrl}/connect`,
+      buildHeaders: async () => ({ authorization: 'Bearer token-123' }),
+      getAuthHeaderValue: () => 'Bearer token-123',
+      createClient: () => client,
+      logEvent
+    });
+
+    const response = await routes.users.update('user-2', {
+      emailConfirmed: true,
+      organizationIds: ['org-2'],
+      markedForDeletion: false
+    });
+
+    expect(response.user.id).toBe('user-2');
+    expect(updateUser.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        id: 'user-2',
+        emailConfirmed: true,
+        markedForDeletion: false,
+        organizationIds: expect.objectContaining({
+          organizationIds: ['org-2']
+        })
+      })
+    );
+    expect(logEvent).toHaveBeenCalledWith(
+      'api_patch_admin_user',
       expect.any(Number),
       true
     );

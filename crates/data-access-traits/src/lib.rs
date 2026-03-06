@@ -8,9 +8,10 @@ use std::{future::Future, pin::Pin};
 
 pub use error::{DataAccessError, DataAccessErrorKind};
 pub use postgres::{
-    AdminCreateGroupInput, AdminGroupDetail, AdminGroupMember, AdminGroupSummary,
-    AdminOrganizationSummary, AdminOrganizationUserSummary, AdminScopeOrganization,
-    AdminUpdateGroupInput, AdminUserAccountingSummary, AdminUserSummary,
+    AdminCreateGroupInput, AdminCreateOrganizationInput, AdminGroupDetail, AdminGroupMember,
+    AdminGroupSummary, AdminOrganizationSummary, AdminOrganizationUserSummary,
+    AdminScopeOrganization, AdminUpdateGroupInput, AdminUpdateOrganizationInput,
+    AdminUpdateUserInput, AdminUserAccountingSummary, AdminUserSummary,
     PostgresAdminReadRepository, PostgresColumnInfo, PostgresConnectionInfo, PostgresInfoSnapshot,
     PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo,
 };
