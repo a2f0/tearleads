@@ -73,19 +73,19 @@ run_timed \
 
 run_timed \
   "bunx + vitest (node-only sample)" \
-  mise x bun@latest -- bunx vitest run packages/app-builder/src/generators/theme.test.ts
+  mise x bun -- bunx vitest run packages/app-builder/src/generators/theme.test.ts
 
 run_timed \
   "bunx + vitest (ui/jsdom sample)" \
-  mise x bun@latest -- bunx vitest run packages/ui/src/context/useTheme.test.tsx
+  mise x bun -- bunx vitest run packages/ui/src/context/useTheme.test.tsx
 
 run_timed \
   "bunx + vitest (api/mock-heavy sample)" \
-  mise x bun@latest -- bunx vitest run packages/mls-chat/src/hooks/useMlsRealtime.test.tsx
+  mise x bun -- bunx vitest run packages/mls-chat/src/hooks/useMlsRealtime.test.tsx
 
 run_timed \
   "bun test (node-only sample)" \
-  mise x bun@latest -- bun test packages/app-builder/src/generators/theme.test.ts
+  mise x bun -- bun test packages/app-builder/src/generators/theme.test.ts
 
 echo
 echo "Note:"

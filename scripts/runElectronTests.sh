@@ -22,4 +22,4 @@ echo "==> Building Electron app..."
 sh "$PM_SCRIPT" run electron:build
 
 echo "==> Running Electron tests..."
-npx playwright test --config=playwright.electron.config.ts "$@"
+sh "$PM_SCRIPT" exec playwright test --config=playwright.electron.config.ts "$@"
