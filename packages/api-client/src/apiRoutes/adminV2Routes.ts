@@ -58,7 +58,6 @@ import {
   mapUsersResponse
 } from './adminV2Mappers';
 import {
-  type AdminV2Client,
   type AdminV2RoutesDependencies,
   buildCallContext,
   createAdminV2RoutesDependencies,

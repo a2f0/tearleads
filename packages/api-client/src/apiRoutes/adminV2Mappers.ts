@@ -18,6 +18,7 @@ import type {
   RedisKeyValueResponse
 } from '@tearleads/shared';
 import type {
+  AdminCreateOrganizationResponse,
   AdminCreateGroupResponse,
   AdminGetColumnsResponse,
   AdminGetContextResponse,
@@ -36,7 +37,9 @@ import type {
   AdminListGroupsResponse,
   AdminListOrganizationsResponse,
   AdminListUsersResponse,
-  AdminUpdateGroupResponse
+  AdminUpdateGroupResponse,
+  AdminUpdateOrganizationResponse,
+  AdminUpdateUserResponse
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 
 const MIN_SAFE_BIGINT = BigInt(Number.MIN_SAFE_INTEGER);
@@ -155,7 +158,10 @@ export function mapOrganizationsResponse(
 }
 
 export function mapOrganizationResponse(
-  response: AdminGetOrganizationResponse
+  response:
+    | AdminCreateOrganizationResponse
+    | AdminGetOrganizationResponse
+    | AdminUpdateOrganizationResponse
 ): OrganizationResponse {
   return {
     organization: {
@@ -238,7 +244,7 @@ export function mapUsersResponse(
 }
 
 export function mapUserResponse(
-  response: AdminGetUserResponse
+  response: AdminGetUserResponse | AdminUpdateUserResponse
 ): AdminUserResponse {
   return {
     user: mapAdminUser(response.user)
