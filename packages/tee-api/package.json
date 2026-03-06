@@ -22,6 +22,7 @@
     "clean": "rm -rf dist",
     "dev": "tsx watch --clear-screen=false src/server.ts",
     "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
+    "testBun": "bun test",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "keywords": [
