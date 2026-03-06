@@ -36,6 +36,13 @@ interface ItemStateRow {
   deleted: boolean;
 }
 
+interface LinkRow {
+  id: string;
+  parentId: string;
+  childId: string;
+  createdAtMs: number;
+}
+
 interface PaginatedFeedPage<TItem> {
   items: TItem[];
   nextCursor: string | null;
@@ -44,6 +51,7 @@ interface PaginatedFeedPage<TItem> {
 
 const FEED_PAGE_SIZE = 500;
 const MAX_FEED_PAGES = 100;
+const VFS_ROOT_ID = '__vfs_root__';
 
 function parseTimestampMs(value: string | null | undefined): number {
   if (!value) {
@@ -198,6 +206,33 @@ function buildItemStateRows(crdtItems: VfsCrdtSyncItem[]): ItemStateRow[] {
   return Array.from(rowsById.values());
 }
 
+function buildLinkRows(crdtItems: VfsCrdtSyncItem[]): LinkRow[] {
+  const rowsByKey = new Map<string, LinkRow>();
+  for (const item of crdtItems) {
+    if (item.opType !== 'link_add' && item.opType !== 'link_remove') {
+      continue;
+    }
+    if (!item.parentId || !item.childId) {
+      continue;
+    }
+
+    const key = `${item.parentId}::${item.childId}`;
+    if (item.opType === 'link_remove') {
+      rowsByKey.delete(key);
+      continue;
+    }
+
+    rowsByKey.set(key, {
+      id: `link:${item.parentId}:${item.childId}`,
+      parentId: item.parentId,
+      childId: item.childId,
+      createdAtMs: parseTimestampMs(item.occurredAt)
+    });
+  }
+
+  return Array.from(rowsByKey.values());
+}
+
 async function tableExists(tableName: string): Promise<boolean> {
   const adapter = getDatabaseAdapter();
   const result = await adapter.execute(
@@ -220,6 +255,11 @@ export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
   const { upserts: registryUpserts, deletes: registryDeletes } =
     buildRegistryRows(syncItems);
   const registryIds = new Set(registryUpserts.map((row) => row.id));
+  const linkRows = buildLinkRows(crdtItems).filter(
+    (row) =>
+      registryIds.has(row.childId) &&
+      (row.parentId === VFS_ROOT_ID || registryIds.has(row.parentId))
+  );
   const itemStateRows = buildItemStateRows(crdtItems).filter((row) =>
     registryIds.has(row.itemId)
   );
@@ -241,6 +281,7 @@ export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
       };
     });
 
+  const hasLinksTable = await tableExists('vfs_links');
   const hasAclEntriesTable = await tableExists('vfs_acl_entries');
   const hasNotesTable = await tableExists('notes');
   const adapter = getDatabaseAdapter();
@@ -280,6 +321,26 @@ export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
 
     for (const id of registryDeletes) {
       await adapter.execute(`DELETE FROM vfs_registry WHERE id = ?`, [id]);
+    }
+
+    if (hasLinksTable) {
+      await adapter.execute(`DELETE FROM vfs_links`, []);
+      for (const row of linkRows) {
+        await adapter.execute(
+          `INSERT INTO vfs_links (
+             id,
+             parent_id,
+             child_id,
+             wrapped_session_key,
+             created_at
+           ) VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(parent_id, child_id) DO UPDATE SET
+             id = excluded.id,
+             wrapped_session_key = excluded.wrapped_session_key,
+             created_at = excluded.created_at`,
+          [row.id, row.parentId, row.childId, '', row.createdAtMs]
+        );
+      }
     }
 
     if (hasAclEntriesTable) {
