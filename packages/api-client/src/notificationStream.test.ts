@@ -1,3 +1,4 @@
+import { Code, ConnectError } from '@connectrpc/connect';
 import { describe, expect, it, vi } from 'vitest';
 import { openNotificationEventStream } from './notificationStream';
 
@@ -20,6 +21,20 @@ function createAsyncResponseStream(
       yield { json: payload };
     }
   })();
+}
+
+function createAsyncErrorStream(
+  error: unknown
+): AsyncIterable<MockStreamResponse> {
+  return {
+    [Symbol.asyncIterator](): AsyncIterator<MockStreamResponse> {
+      return {
+        next: async () => {
+          throw error;
+        }
+      };
+    }
+  };
 }
 
 describe('openNotificationEventStream', () => {
@@ -106,5 +121,45 @@ describe('openNotificationEventStream', () => {
       '{"event":"keepalive"}',
       '{"event":"message","channel":"broadcast"}'
     ]);
+  });
+
+  it('suppresses canceled stream errors after abort', async () => {
+    const subscribe = vi.fn(() =>
+      createAsyncErrorStream(new ConnectError('canceled', Code.Canceled))
+    );
+    const createClient = vi.fn<MockStreamClient>(() => ({ subscribe }));
+    const abortController = new AbortController();
+    abortController.abort();
+    const events: string[] = [];
+
+    for await (const payload of openNotificationEventStream({
+      apiBaseUrl: 'http://localhost:5001/v1',
+      channels: ['broadcast'],
+      signal: abortController.signal,
+      createClient
+    })) {
+      events.push(payload);
+    }
+
+    expect(events).toEqual([]);
+  });
+
+  it('rethrows canceled stream errors when not aborted', async () => {
+    const subscribe = vi.fn(() =>
+      createAsyncErrorStream(new ConnectError('canceled', Code.Canceled))
+    );
+    const createClient = vi.fn<MockStreamClient>(() => ({ subscribe }));
+
+    await expect(
+      (async () => {
+        for await (const _payload of openNotificationEventStream({
+          apiBaseUrl: 'http://localhost:5001/v1',
+          channels: ['broadcast'],
+          createClient
+        })) {
+          // no-op
+        }
+      })()
+    ).rejects.toThrow('canceled');
   });
 });
