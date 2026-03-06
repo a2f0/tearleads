@@ -131,22 +131,22 @@ export function NotesWindow({
           createdAt: now
         });
 
-        // Register on server if logged in and feature flag enabled
+        // Fire-and-forget: server registration is non-blocking
         if (
           auth.isLoggedIn() &&
           featureFlags?.getFeatureFlagValue('vfsServerRegistration') &&
           encryptedSessionKey &&
           vfsApi
         ) {
-          try {
-            await vfsApi.register({
+          vfsApi
+            .register({
               id: noteId,
               objectType: 'note',
               encryptedSessionKey
+            })
+            .catch((err: unknown) => {
+              console.warn('Failed to register note on server:', err);
             });
-          } catch (err) {
-            console.warn('Failed to register note on server:', err);
-          }
         }
       }
 
