@@ -309,9 +309,7 @@ describe('secureOrchestratorFacade integration', () => {
     });
 
     const pushRequest = requests.find((request) => {
-      return request.url.endsWith(
-        `${VFS_CONNECT_BASE_PATH}/PushCrdtOps`
-      );
+      return request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/PushCrdtOps`);
     });
     expect(pushRequest).toBeDefined();
 

@@ -24,8 +24,7 @@ function createConnectPushBody(): string {
 
 describe('recordSecureFacadeRequestBody', () => {
   it('records connect push payloads from JSON string bodies', async () => {
-    const url =
-      `https://example.test${VFS_CONNECT_BASE_PATH}/PushCrdtOps`;
+    const url = `https://example.test${VFS_CONNECT_BASE_PATH}/PushCrdtOps`;
     const requests: Array<{ url: string; body: unknown }> = [];
 
     await recordSecureFacadeRequestBody(requests, url, url, {
@@ -42,8 +41,7 @@ describe('recordSecureFacadeRequestBody', () => {
   });
 
   it('records connect push payloads from Request bodies', async () => {
-    const url =
-      `https://example.test${VFS_CONNECT_BASE_PATH}/PushCrdtOps`;
+    const url = `https://example.test${VFS_CONNECT_BASE_PATH}/PushCrdtOps`;
     const request = new Request(url, {
       method: 'POST',
       body: createConnectPushBody()
@@ -62,8 +60,7 @@ describe('recordSecureFacadeRequestBody', () => {
   });
 
   it('throws on malformed connect push JSON payloads and skips missing body', async () => {
-    const url =
-      `https://example.test${VFS_CONNECT_BASE_PATH}/PushCrdtOps`;
+    const url = `https://example.test${VFS_CONNECT_BASE_PATH}/PushCrdtOps`;
     const malformedRequest = new Request(url, {
       method: 'POST',
       body: '{'
@@ -79,8 +76,7 @@ describe('recordSecureFacadeRequestBody', () => {
   });
 
   it('records JSON string bodies for non-push routes and ignores non-string bodies', async () => {
-    const url =
-      `https://example.test${VFS_CONNECT_BASE_PATH}/StageBlob`;
+    const url = `https://example.test${VFS_CONNECT_BASE_PATH}/StageBlob`;
     const requests: Array<{ url: string; body: unknown }> = [];
 
     await recordSecureFacadeRequestBody(requests, url, url, {

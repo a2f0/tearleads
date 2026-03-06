@@ -198,9 +198,7 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
       parseJsonEnvelope(
         observedRequests.find((request) => {
           if (
-            !request.url.endsWith(
-              `${VFS_CONNECT_BASE_PATH}/UploadBlobChunk`
-            )
+            !request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/UploadBlobChunk`)
           ) {
             return false;
           }

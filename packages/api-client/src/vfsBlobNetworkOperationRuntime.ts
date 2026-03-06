@@ -11,7 +11,6 @@ import {
   normalizeStageEncryptionMetadata,
   parseErrorMessage
 } from './vfsBlobNetworkFlusherHelpers';
-import { VFS_CONNECT_BASE_PATH } from './vfsConnectBasePath';
 import type {
   VfsBlobAbandonQueueOperation,
   VfsBlobAttachQueueOperation,
@@ -20,6 +19,7 @@ import type {
   VfsBlobNetworkOperation,
   VfsBlobStageQueueOperation
 } from './vfsBlobNetworkFlusherTypes';
+import { VFS_CONNECT_BASE_PATH } from './vfsConnectBasePath';
 
 interface ExecuteBlobOperationContext {
   apiPrefix: string;

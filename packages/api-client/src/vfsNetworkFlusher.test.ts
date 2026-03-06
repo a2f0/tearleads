@@ -112,9 +112,7 @@ describe('vfsNetworkFlusher', () => {
     const pushCalls = vi
       .mocked(global.fetch)
       .mock.calls.filter(([input]) =>
-        input
-          .toString()
-          .endsWith(`${VFS_CONNECT_BASE_PATH}/PushCrdtOps`)
+        input.toString().endsWith(`${VFS_CONNECT_BASE_PATH}/PushCrdtOps`)
       );
     expect(pushCalls).toHaveLength(2);
 
@@ -433,9 +431,7 @@ describe('vfsNetworkFlusher', () => {
     const snapshotCalls = vi
       .mocked(global.fetch)
       .mock.calls.filter(([input]) =>
-        input
-          .toString()
-          .includes(`${VFS_CONNECT_BASE_PATH}/GetCrdtSnapshot`)
+        input.toString().includes(`${VFS_CONNECT_BASE_PATH}/GetCrdtSnapshot`)
       );
     expect(snapshotCalls).toHaveLength(1);
   });
