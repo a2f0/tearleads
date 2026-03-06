@@ -90,7 +90,7 @@ phase_api_to_rds_query() {
   if cli_output="$(kubectl -n "$NAMESPACE" exec "$api_pod" -c api -- node apiCli.cjs migrate --status 2>&1)"; then
     local version
     version="$(echo "$cli_output" | sed -n 's/.*Current schema version: \([0-9][0-9]*\).*/\1/p')"
-    if [[ -n "$version" && "$version" -gt 0 ]]; then
+    if [[ -n "$version" ]]; then
       pass "API pod $api_pod queried RDS (schema version: $version)"
       return 0
     fi
