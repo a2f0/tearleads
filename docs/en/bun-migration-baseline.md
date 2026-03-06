@@ -1,6 +1,7 @@
 # Bun Migration Baseline (Phase 0)
 
 Generated on 2026-03-06 (UTC) for issue [#2773](https://github.com/a2f0/tearleads/issues/2773).
+Current implementation tracker: [Bun Migration Tracker](./bun-migration-tracker.md).
 
 ## Reproducible Commands
 
