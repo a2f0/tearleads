@@ -7,6 +7,8 @@ const mockUseVfsOrchestratorInstance = vi.fn();
 const mockHydrateLocalReadModelFromRemoteFeeds = vi.fn();
 const mockLogInfo = vi.fn();
 const mockLogWarn = vi.fn();
+const mockGetActiveOrganizationId = vi.fn();
+const orgChangeListeners = new Set<() => void>();
 
 vi.mock('@/sse', () => ({
   useSSE: () => mockUseSSE()
@@ -25,6 +27,16 @@ vi.mock('@/stores/logStore', () => ({
   logStore: {
     info: (...args: unknown[]) => mockLogInfo(...args),
     warn: (...args: unknown[]) => mockLogWarn(...args)
+  }
+}));
+
+vi.mock('@/lib/orgStorage', () => ({
+  getActiveOrganizationId: () => mockGetActiveOrganizationId(),
+  onOrgChange: (listener: () => void) => {
+    orgChangeListeners.add(listener);
+    return () => {
+      orgChangeListeners.delete(listener);
+    };
   }
 }));
 
@@ -55,6 +67,8 @@ describe('VfsRealtimeSyncBridge', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    orgChangeListeners.clear();
+    mockGetActiveOrganizationId.mockReturnValue(null);
     mockHydrateLocalReadModelFromRemoteFeeds.mockResolvedValue(undefined);
   });
 
