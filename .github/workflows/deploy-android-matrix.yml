@@ -180,17 +180,7 @@ jobs:
       - name: Setup Android keystore
         run: |
           mkdir -p .secrets
-          printf '%s' "${{ secrets[format('{0}_ANDROID_KEYSTORE_BASE64', env.APP_ID)] || secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > .secrets/release.keystore
-
-      - name: Create keystore.properties
-        run: |
-          KEY_ALIAS="${{ secrets[format('{0}_ANDROID_KEY_ALIAS', env.APP_ID)] || env.APP_ID }}"
-          cat > packages/client/android/keystore.properties << EOF
-          storeFile=${{ github.workspace }}/.secrets/release.keystore
-          storePassword=${{ secrets[format('{0}_ANDROID_KEYSTORE_STORE_PASS', env.APP_ID)] || secrets.ANDROID_KEYSTORE_STORE_PASS }}
-          keyAlias=${KEY_ALIAS}
-          keyPassword=${{ secrets[format('{0}_ANDROID_KEYSTORE_KEY_PASS', env.APP_ID)] || secrets.ANDROID_KEYSTORE_KEY_PASS }}
-          EOF
+          printf '%s' "${{ secrets[format('{0}_ANDROID_KEYSTORE_BASE64', env.APP_ID)] || secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > .secrets/tearleads-release.keystore
 
       - name: Setup Google Play credentials
         run: |
@@ -238,6 +228,8 @@ jobs:
         working-directory: packages/client
         env:
           CI: true
+          ANDROID_KEYSTORE_STORE_PASS: ${{ secrets[format('{0}_ANDROID_KEYSTORE_STORE_PASS', env.APP_ID)] || secrets.ANDROID_KEYSTORE_STORE_PASS }}
+          ANDROID_KEYSTORE_KEY_PASS: ${{ secrets[format('{0}_ANDROID_KEYSTORE_KEY_PASS', env.APP_ID)] || secrets.ANDROID_KEYSTORE_KEY_PASS }}
 
       - name: Upload to Play Store (internal track)
         if: steps.check_build.outputs.skip != 'true'

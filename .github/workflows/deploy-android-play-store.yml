@@ -215,15 +215,6 @@ jobs:
           mkdir -p .secrets
           printf '%s' "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > .secrets/tearleads-release.keystore
 
-      - name: Create keystore.properties
-        run: |
-          cat > packages/client/android/keystore.properties << EOF
-          storeFile=${{ github.workspace }}/.secrets/tearleads-release.keystore
-          storePassword=${{ secrets.ANDROID_KEYSTORE_STORE_PASS }}
-          keyAlias=tearleads
-          keyPassword=${{ secrets.ANDROID_KEYSTORE_KEY_PASS }}
-          EOF
-
       - name: Setup Google Play credentials
         run: |
           echo "${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}" | base64 -d > .secrets/google-play-service-account.json
@@ -272,6 +263,8 @@ jobs:
         working-directory: packages/client
         env:
           CI: true
+          ANDROID_KEYSTORE_STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_STORE_PASS }}
+          ANDROID_KEYSTORE_KEY_PASS: ${{ secrets.ANDROID_KEYSTORE_KEY_PASS }}
 
       - name: Upload to Play Store (internal track)
         if: steps.check_build.outputs.skip != 'true'
@@ -290,6 +283,8 @@ jobs:
         working-directory: packages/client
         env:
           CI: true
+          ANDROID_KEYSTORE_STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_STORE_PASS }}
+          ANDROID_KEYSTORE_KEY_PASS: ${{ secrets.ANDROID_KEYSTORE_KEY_PASS }}
 
       - name: Upload APK artifact
         if: steps.check_build.outputs.skip != 'true'
